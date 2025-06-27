@@ -4,7 +4,6 @@ import { QuestionnaireItemAnswerOption, QuestionnaireResponse } from 'fhir/r4b';
 import {
   APIError,
   BookableItemListResponse,
-  CancelAppointmentRequestParams,
   CancelInviteParticipantRequestParameters,
   CancelInviteParticipantResponse,
   chooseJson,
@@ -51,7 +50,6 @@ import {
 import { GetZapEHRAPIParams } from '../main';
 
 enum ZambdaNames {
-  'cancel appointment' = 'cancel appointment',
   'check in' = 'check in',
   'create appointment' = 'create appointment',
   'create paperwork' = 'create paperwork',
@@ -81,7 +79,6 @@ enum ZambdaNames {
 }
 
 const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
-  'cancel appointment': false,
   'check in': true,
   'create appointment': false,
   'create paperwork': false,
@@ -116,7 +113,6 @@ export const getZapEHRAPI = (
   params: GetZapEHRAPIParams,
   oystehr: Oystehr
 ): {
-  cancelAppointment: typeof cancelAppointment;
   checkIn: typeof checkIn;
   createAppointment: typeof createAppointment;
   createPaperwork: typeof createPaperwork;
@@ -146,7 +142,6 @@ export const getZapEHRAPI = (
   listBookables: typeof listBookables;
 } => {
   const {
-    cancelAppointmentZambdaID,
     checkInZambdaID,
     createAppointmentZambdaID,
     createPaperworkZambdaID,
@@ -176,7 +171,6 @@ export const getZapEHRAPI = (
   } = params;
 
   const zambdasToIdsMap: Record<keyof typeof ZambdaNames, string | undefined> = {
-    'cancel appointment': cancelAppointmentZambdaID,
     'check in': checkInZambdaID,
     'create appointment': createAppointmentZambdaID,
     'create paperwork': createPaperworkZambdaID,
@@ -245,10 +239,6 @@ export const getZapEHRAPI = (
   };
 
   // Zambdas
-
-  const cancelAppointment = async (parameters: CancelAppointmentRequestParams): Promise<any> => {
-    return await makeZapRequest('cancel appointment', parameters, NotFoundAppointmentErrorHandler);
-  };
 
   const checkIn = async (appointmentId: string): Promise<any> => {
     return await makeZapRequest('check in', { appointment: appointmentId }, NotFoundAppointmentErrorHandler);
@@ -431,7 +421,6 @@ export const getZapEHRAPI = (
   };
 
   return {
-    cancelAppointment,
     checkIn,
     createAppointment,
     createPaperwork,
