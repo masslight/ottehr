@@ -32,10 +32,8 @@ import {
   getDurationOfStatus,
   getPatchBinary,
   getVisitTotalTime,
-  InHouseOrderListPageItemDTO,
   InPersonAppointmentInformation,
-  LabOrderListPageDTO,
-  NursingOrder,
+  OrdersForTrackingBoardRow,
   PRACTITIONER_CODINGS,
   PROJECT_NAME,
   ROOM_EXTENSION_URL,
@@ -46,7 +44,7 @@ import { dataTestIds } from '../constants/data-test-ids';
 import ChatModal from '../features/chat/ChatModal';
 import { usePractitionerActions } from '../features/css-module/hooks/usePractitioner';
 import { checkInPatient } from '../helpers';
-import { displayOrdersToolTip } from '../helpers';
+import { displayOrdersToolTip, hasAtLeastOneOrder } from '../helpers';
 import { getTimezone } from '../helpers/formatDateTime';
 import { formatPatientName } from '../helpers/formatPatientName';
 import { getOfficePhoneNumber } from '../helpers/getOfficePhoneNumber';
@@ -72,9 +70,7 @@ interface AppointmentTableProps {
   tab: ApptTab;
   updateAppointments: () => void;
   setEditingComment: (editingComment: boolean) => void;
-  inHouseLabOrders: InHouseOrderListPageItemDTO[] | undefined;
-  externalLabOrders: LabOrderListPageDTO[] | undefined;
-  nursingOrders: NursingOrder[] | undefined;
+  orders: OrdersForTrackingBoardRow;
 }
 
 const VITE_APP_QRS_URL = import.meta.env.VITE_APP_QRS_URL;
@@ -239,9 +235,7 @@ export default function AppointmentTableRow({
   tab,
   updateAppointments,
   setEditingComment,
-  inHouseLabOrders,
-  externalLabOrders,
-  nursingOrders,
+  orders,
 }: AppointmentTableProps): ReactElement {
   const { oystehr, oystehrZambda } = useApiClients();
   const theme = useTheme();
@@ -656,9 +650,7 @@ export default function AppointmentTableRow({
   // this bool determines what style mouse should show on hover for the cells that hold these tooltips
   // if orders tooltip is displayed, we check if there are any orders - if no orders the cell will be empty and it doesn't make sense to have the pointer hand
   // if visit components, there is always something in this cell, hence the default to true
-  const showPointerForInfoIcons = displayOrdersToolTip(appointment, tab)
-    ? inHouseLabOrders?.length || externalLabOrders?.length || nursingOrders?.length
-    : true;
+  const showPointerForInfoIcons = displayOrdersToolTip(appointment, tab) ? hasAtLeastOneOrder(orders) : true;
 
   return (
     <TableRow
@@ -830,13 +822,7 @@ export default function AppointmentTableRow({
           cursor: `${showPointerForInfoIcons ? 'pointer' : 'auto'}`,
         }}
       >
-        <InfoIconsToolTip
-          appointment={appointment}
-          tab={tab}
-          inHouseLabOrders={inHouseLabOrders}
-          externalLabOrders={externalLabOrders}
-          nursingOrders={nursingOrders}
-        />
+        <InfoIconsToolTip appointment={appointment} tab={tab} orders={orders} />
       </TableCell>
       <TableCell sx={{ verticalAlign: 'center' }}>
         <AppointmentNote

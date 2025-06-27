@@ -13,7 +13,17 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { usePatientLabOrders } from 'src/features/external-labs/components/labs-orders/usePatientLabOrders';
 import { useInHouseLabOrders } from 'src/features/in-house-labs/components/orders/useInHouseLabOrders';
 import { useGetNursingOrders } from 'src/features/nursing-orders/components/orders/useNursingOrders';
-import { InHouseOrderListPageItemDTO, InPersonAppointmentInformation, LabOrderListPageDTO, NursingOrder } from 'utils';
+import { usePatientRadiologyOrders } from 'src/features/radiology/components/usePatientRadiologyOrders';
+import { useGetMedicationOrders } from 'src/telemed';
+import {
+  ExtendedMedicationDataForResponse,
+  GetRadiologyOrderListZambdaOrder,
+  InHouseOrderListPageItemDTO,
+  InPersonAppointmentInformation,
+  LabOrderListPageDTO,
+  NursingOrder,
+  OrdersForTrackingBoardTable,
+} from 'utils';
 import { getAppointments } from '../api/api';
 import AppointmentTabs from '../components/AppointmentTabs';
 import CreateDemoVisits from '../components/CreateDemoVisits';
@@ -146,6 +156,41 @@ export default function Appointments(): ReactElement {
       {} as Record<string, NursingOrder[]>
     );
   }, [nursingOrders]);
+
+  const { data: inHouseMedications } = useGetMedicationOrders({
+    field: 'encounterIds',
+    value: encountersIdsEligibleForOrders,
+  });
+  const inHouseMedicationsByEncounterId = useMemo(() => {
+    if (!inHouseMedications?.orders) return {};
+
+    return inHouseMedications?.orders?.reduce(
+      (acc, med) => {
+        acc[med.encounterId] = [...(acc[med.encounterId] || []), med];
+        return acc;
+      },
+      {} as Record<string, ExtendedMedicationDataForResponse[]>
+    );
+  }, [inHouseMedications?.orders]);
+
+  const { orders: radiologyOrders } = usePatientRadiologyOrders({ encounterIds: encountersIdsEligibleForOrders });
+  const radiologyOrdersByAppointmentId: Record<string, GetRadiologyOrderListZambdaOrder[]> = useMemo(() => {
+    return radiologyOrders?.reduce(
+      (acc, order) => {
+        acc[order.appointmentId] = [...(acc[order.appointmentId] || []), order];
+        return acc;
+      },
+      {} as Record<string, GetRadiologyOrderListZambdaOrder[]>
+    );
+  }, [radiologyOrders]);
+
+  const orders: OrdersForTrackingBoardTable = {
+    externalLabOrdersByAppointmentId,
+    inHouseLabOrdersByAppointmentId,
+    nursingOrdersByAppointmentId,
+    inHouseMedicationsByEncounterId,
+    radiologyOrdersByAppointmentId,
+  };
 
   useEffect(() => {
     const selectedVisitTypes = localStorage.getItem('selectedVisitTypes');
@@ -304,9 +349,7 @@ export default function Appointments(): ReactElement {
       completedAppointments={completedAppointments}
       cancelledAppointments={cancelledAppointments}
       inOfficeAppointments={inOfficeAppointments}
-      inHouseLabOrdersByAppointmentId={inHouseLabOrdersByAppointmentId}
-      externalLabOrdersByAppointmentId={externalLabOrdersByAppointmentId}
-      nursingOrdersByAppointmentId={nursingOrdersByAppointmentId}
+      orders={orders}
       locationSelected={locationSelected}
       setLocationSelected={setLocationSelected}
       practitioners={practitioners}
@@ -339,9 +382,7 @@ interface AppointmentsBodyProps {
   setAppointmentDate: (date: DateTime | null) => void;
   updateAppointments: () => void;
   setEditingComment: (editingComment: boolean) => void;
-  inHouseLabOrdersByAppointmentId: Record<string, InHouseOrderListPageItemDTO[]>;
-  externalLabOrdersByAppointmentId: Record<string, LabOrderListPageDTO[]>;
-  nursingOrdersByAppointmentId: Record<string, NursingOrder[]>;
+  orders: OrdersForTrackingBoardTable;
 }
 function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
   const {
@@ -364,9 +405,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
     handleSubmit,
     updateAppointments,
     setEditingComment,
-    inHouseLabOrdersByAppointmentId,
-    externalLabOrdersByAppointmentId,
-    nursingOrdersByAppointmentId,
+    orders,
   } = props;
 
   const [displayFilters, setDisplayFilters] = useState<boolean>(true);
@@ -554,9 +593,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
               cancelledAppointments={cancelledAppointments}
               completedAppointments={completedAppointments}
               inOfficeAppointments={inOfficeAppointments}
-              inHouseLabOrdersByAppointmentId={inHouseLabOrdersByAppointmentId}
-              externalLabOrdersByAppointmentId={externalLabOrdersByAppointmentId}
-              nursingLabOrdersByAppointmentId={nursingOrdersByAppointmentId}
+              orders={orders}
               loading={loadingState.status === 'loading'}
               updateAppointments={updateAppointments}
               setEditingComment={setEditingComment}

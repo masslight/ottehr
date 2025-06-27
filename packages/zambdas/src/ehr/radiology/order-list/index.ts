@@ -81,6 +81,7 @@ const performEffect = async (
 ): Promise<GetRadiologyOrderListZambdaOutput> => {
   const {
     encounterId,
+    encounterIds,
     patientId,
     serviceRequestId,
     itemsPerPage = DEFAULT_RADIOLOGY_ITEMS_PER_PAGE,
@@ -148,6 +149,11 @@ const performEffect = async (
     searchParams.push({
       name: '_id',
       value: serviceRequestId,
+    });
+  } else if (encounterIds) {
+    searchParams.push({
+      name: 'encounter',
+      value: encounterIds.map((id) => `Encounter/${id}`).join(','),
     });
   } else {
     throw new Error('Either encounterId or patientId must be provided, should not happen if validation step worked');

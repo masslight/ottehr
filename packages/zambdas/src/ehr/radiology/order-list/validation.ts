@@ -17,22 +17,27 @@ export const validateInput = async (input: ZambdaInput): Promise<ValidatedInput>
 };
 
 const validateBody = async (input: ZambdaInput): Promise<GetRadiologyOrderListZambdaInput> => {
-  const { encounterId, patientId, serviceRequestId, itemsPerPage, pageIndex } = validateJsonBody(input);
+  const { encounterId, encounterIds, patientId, serviceRequestId, itemsPerPage, pageIndex } = validateJsonBody(input);
 
   if (
-    (patientId && (encounterId || serviceRequestId)) ||
-    (encounterId && (patientId || serviceRequestId)) ||
-    (serviceRequestId && (patientId || encounterId))
+    (patientId && (encounterId || serviceRequestId || encounterIds)) ||
+    (encounterId && (patientId || serviceRequestId || encounterIds)) ||
+    (encounterIds && (patientId || encounterId || serviceRequestId)) ||
+    (serviceRequestId && (patientId || encounterId || encounterIds))
   ) {
-    throw new Error('Only one of patientId, encounterId, serviceRequestId may be sent at a time');
+    throw new Error('Only one of patientId, encounterId, serviceRequestId, encounterIds may be sent at a time');
   }
 
-  if (!patientId && !encounterId && !serviceRequestId) {
-    throw new Error('One of patientId, encounterId, serviceRequestId is required');
+  if (!patientId && !encounterId && !serviceRequestId && !encounterIds) {
+    throw new Error('One of patientId, encounterId, serviceRequestId, encounterIds is required');
   }
 
   if (encounterId && !isValidUUID(encounterId)) {
     throw new Error('encounterId must be a uuid');
+  }
+
+  if (encounterIds && encounterIds.some((id: any) => !isValidUUID(id))) {
+    throw new Error('encounterIds must be valid uuids');
   }
 
   if (patientId && !isValidUUID(patientId)) {
@@ -53,6 +58,7 @@ const validateBody = async (input: ZambdaInput): Promise<GetRadiologyOrderListZa
 
   return {
     encounterId,
+    encounterIds,
     patientId,
     serviceRequestId,
     itemsPerPage,

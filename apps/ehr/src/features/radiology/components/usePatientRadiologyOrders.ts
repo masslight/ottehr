@@ -1,4 +1,4 @@
-import { ReactElement, useCallback, useEffect, useState } from 'react';
+import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   CancelRadiologyOrderZambdaInput,
   EMPTY_PAGINATION,
@@ -34,9 +34,14 @@ export const usePatientRadiologyOrders = (options: {
   patientId?: string;
   encounterId?: string;
   serviceRequestId?: string;
+  encounterIds?: string[];
 }): UsePatientRadiologyOrdersResult => {
   const { oystehrZambda } = useApiClients();
-  const { patientId, encounterId, serviceRequestId } = options;
+
+  // Memoize options to prevent unnecessary re-renders
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const memoizedOptions = useMemo(() => options, [JSON.stringify(options)]);
+
   const [orders, setOrders] = useState<GetRadiologyOrderListZambdaOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -46,6 +51,8 @@ export const usePatientRadiologyOrders = (options: {
 
   const getCurrentSearchParamsWithoutPageIndex = useCallback((): GetRadiologyOrderListZambdaInput => {
     const params: GetRadiologyOrderListZambdaInput = {} as GetRadiologyOrderListZambdaInput;
+
+    const { patientId, encounterId, serviceRequestId, encounterIds } = memoizedOptions;
 
     if (patientId) {
       params.patientId = patientId;
@@ -59,8 +66,12 @@ export const usePatientRadiologyOrders = (options: {
       params.serviceRequestId = serviceRequestId;
     }
 
+    if (encounterIds) {
+      params.encounterIds = encounterIds;
+    }
+
     return params;
-  }, [patientId, encounterId, serviceRequestId]);
+  }, [memoizedOptions]);
 
   const getCurrentSearchParamsForPage = useCallback(
     (pageNumber: number): GetRadiologyOrderListZambdaInput => {
@@ -126,7 +137,12 @@ export const usePatientRadiologyOrders = (options: {
   // initial fetch of lab orders
   useEffect(() => {
     const searchParams = getCurrentSearchParamsForPage(1);
-    if (searchParams.patientId || searchParams.encounterId || searchParams.serviceRequestId) {
+    if (
+      searchParams.patientId ||
+      searchParams.encounterId ||
+      searchParams.serviceRequestId ||
+      (searchParams.encounterIds && searchParams.encounterIds.length > 0)
+    ) {
       void fetchOrders(searchParams);
     }
   }, [fetchOrders, getCurrentSearchParamsForPage]);
