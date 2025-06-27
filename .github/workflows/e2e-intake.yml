@@ -28,7 +28,7 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [main, develop, 'release/**']
   schedule:
-    - cron: '0 0 * * 1-5'
+    - cron: '0 0 * * *'
 
 jobs:
   check-changes:
@@ -262,11 +262,11 @@ jobs:
     needs: [check-changes, check-token-validity, intake-login]
     if: |
       always() && !cancelled() && 
-      needs.check-changes.outputs.should-run == 'true' &&
-      github.event_name != 'schedule' &&
+      (needs.check-changes.outputs.should-run == 'true' || github.event_name == 'schedule') &&
       (
         needs.check-token-validity.outputs.needs-login == 'false' ||
-        needs.intake-login.result == 'success'
+        needs.intake-login.result == 'success' ||
+        (github.event_name == 'schedule' && github.event.inputs.environment != 'local')
       )
     runs-on: ubuntu-latest-8-cores
     timeout-minutes: 25
