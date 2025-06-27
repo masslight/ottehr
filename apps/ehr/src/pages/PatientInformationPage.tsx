@@ -76,6 +76,15 @@ const makeFormDefaults = (currentItemValues: QuestionnaireResponseItem[]): any =
   }, {});
 };
 
+const clearPCPFieldsIfInactive = (values: Record<string, any>): Record<string, any> => {
+  return Object.fromEntries(
+    Object.entries(values).map(([key, value]) => [
+      key,
+      !values['pcp-active'] && key.startsWith('pcp-') && key !== 'pcp-active' ? '' : value,
+    ])
+  );
+};
+
 const PatientInformationPage: FC = () => {
   const theme = useTheme();
   const { id } = useParams();
@@ -196,12 +205,15 @@ const PatientInformationPage: FC = () => {
     }
   };
 
-  const handleSaveForm = async (values: any): Promise<void> => {
-    if (!questionnaire) {
+  const handleSaveForm = async (values: Record<string, any>): Promise<void> => {
+    if (!questionnaire || !patient?.id) {
       enqueueSnackbar('Something went wrong. Please reload the page.', { variant: 'error' });
       return;
     }
-    const qr = pruneEmptySections(structureQuestionnaireResponse(questionnaire, values, patient?.id ?? ''));
+
+    const filteredValues = clearPCPFieldsIfInactive(values);
+
+    const qr = pruneEmptySections(structureQuestionnaireResponse(questionnaire, filteredValues, patient.id));
     submitQR.mutate(qr);
   };
 
