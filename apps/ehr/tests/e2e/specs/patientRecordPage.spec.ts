@@ -175,6 +175,21 @@ test.describe('Patient Record Page non-mutating tests', () => {
     await patientInformationPage.verifyMobileFromPcpIsNotVisible();
   });
 
+  test.skip('Check all fields from Primary Care Physician block after toggling the checkbox on and off', async ({
+    page,
+  }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+
+    await patientInformationPage.setCheckboxOn();
+    await patientInformationPage.setCheckboxOff();
+
+    await patientInformationPage.verifyFirstNameFromPcp(DEMO_VISIT_PROVIDER_FIRST_NAME);
+    await patientInformationPage.verifyLastNameFromPcp(DEMO_VISIT_PROVIDER_LAST_NAME);
+    await patientInformationPage.verifyPracticeNameFromPcp(DEMO_VISIT_PRACTICE_NAME);
+    await patientInformationPage.verifyAddressFromPcp(DEMO_VISIT_PHYSICIAN_ADDRESS);
+    await patientInformationPage.verifyMobileFromPcp(DEMO_VISIT_PHYSICIAN_MOBILE);
+  });
+
   test('Check validation error is displayed for invalid phone number from Primary Care Physician block', async ({
     page,
   }) => {
