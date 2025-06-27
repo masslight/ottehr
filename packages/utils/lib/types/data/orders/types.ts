@@ -1,3 +1,6 @@
+import { ExtendedMedicationDataForResponse } from '../../api';
+import { InHouseOrderListPageItemDTO } from '../in-house';
+import { LabOrderListPageDTO } from '../labs';
 import { NursingOrdersStatus } from './constants';
 
 export type CreateNursingOrderParameters = {
@@ -44,9 +47,25 @@ export interface OrderToolTipConfig {
   title: string;
   tableUrl: string;
   orders: {
-    serviceRequestId: string;
+    // lab orders & nursing orders use ServiceRequests
+    // inHouse Medications use MedicationAdministration
+    fhirResourceId: string;
     itemDescription: string;
     detailPageUrl: string;
     statusChip: JSX.Element;
   }[];
+}
+
+export interface OrdersForTrackingBoardTable {
+  inHouseLabOrdersByAppointmentId: Record<string, InHouseOrderListPageItemDTO[]>;
+  externalLabOrdersByAppointmentId: Record<string, LabOrderListPageDTO[]>;
+  nursingOrdersByAppointmentId: Record<string, NursingOrder[]>;
+  inHouseMedicationsByEncounterId: Record<string, ExtendedMedicationDataForResponse[]>;
+}
+
+export interface OrdersForTrackingBoardRow {
+  inHouseLabOrders: InHouseOrderListPageItemDTO[] | undefined;
+  externalLabOrders: LabOrderListPageDTO[] | undefined;
+  nursingOrders: NursingOrder[] | undefined;
+  inHouseMedications: ExtendedMedicationDataForResponse[] | undefined;
 }
