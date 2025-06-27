@@ -6,6 +6,7 @@ import {
   MedicationOrderStatusesType,
   UpdateMedicationOrderInput,
 } from 'utils';
+import { MedicationOrderType } from '../components/medication-administration/medication-editable-card/fieldsConfig';
 import { statusTransitions } from '../components/medication-administration/medicationTypes';
 import { useMedicationAPI } from './useMedicationOperations';
 
@@ -32,22 +33,20 @@ export const useMedicationManagement = (): {
     message: string;
   }>;
   deleteMedication: (idToDelete: string) => Promise<void>;
-  getIsMedicationEditable: (
-    type: 'order-new' | 'order-edit' | 'dispense',
-    medication?: ExtendedMedicationDataForResponse
-  ) => boolean;
+  getIsMedicationEditable: (type: MedicationOrderType, medication?: ExtendedMedicationDataForResponse) => boolean;
 } => {
   const { medications, loadMedications, updateMedication, deleteMedication } = useMedicationAPI();
   const getMedicationById = useCallback((id: string) => medications?.find((med) => med.id === id), [medications]);
 
   const getIsMedicationEditable = (
-    type: 'order-new' | 'order-edit' | 'dispense',
+    type: MedicationOrderType,
     medication?: ExtendedMedicationDataForResponse
   ): boolean => {
     return {
       'order-new': true,
       'order-edit': medication?.status === 'pending',
       dispense: medication?.status === 'pending',
+      'dispense-not-administered': medication?.status === 'pending',
     }[type];
   };
 
