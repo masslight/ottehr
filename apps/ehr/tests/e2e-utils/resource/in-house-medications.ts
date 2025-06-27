@@ -25,7 +25,7 @@ export async function getInHouseMedicationsResources(
         : [
             {
               name: 'context',
-              value: id,
+              value: `Encounter/${id}`,
             },
           ]),
     ],
