@@ -37,7 +37,6 @@ export function validateRequestParameters(
       if (!orderData.units) missedFields.push('units');
       if (!orderData.dose) missedFields.push('dose');
       if (!orderData.route) missedFields.push('route');
-      if (!orderData.associatedDx) missedFields.push('associatedDx');
     }
     if (missedFields.length > 0) throw new Error(`Missing fields in orderData: ${missedFields.join(', ')}`);
   }

@@ -98,7 +98,9 @@ export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
       status: isLocationLoading ? 'loading' : 'loaded',
     },
     route: {
-      options: getRoutesArray(medicationApplianceRoutes),
+      options: getRoutesArray(medicationApplianceRoutes)?.sort((a, b) =>
+        a.label.toLowerCase().localeCompare(b.label.toLowerCase())
+      ),
       status: 'loaded',
     },
     units: {
