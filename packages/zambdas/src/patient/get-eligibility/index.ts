@@ -1,5 +1,4 @@
 import Oystehr from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, CoverageEligibilityRequest } from 'fhir/r4b';
 import {
@@ -13,7 +12,7 @@ import {
   PRIVATE_EXTENSION_BASE_URL,
   SecretsKeys,
 } from 'utils';
-import { getAuth0Token, lambdaResponse, topLevelCatch, ZambdaInput } from '../../shared';
+import { getAuth0Token, lambdaResponse, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { getPayorRef, makeCoverageEligibilityRequest, parseEligibilityCheckResponsePromiseResult } from './helpers';
 import { prevalidationHandler } from './prevalidation-handler';
 import { complexInsuranceValidation, validateRequestParameters } from './validation';
@@ -21,7 +20,7 @@ import { complexInsuranceValidation, validateRequestParameters } from './validat
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrToken: string;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler('get-eligibility', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   let primary: InsuranceCheckStatusWithDate | undefined;
   let secondary: InsuranceCheckStatusWithDate | undefined;
   try {

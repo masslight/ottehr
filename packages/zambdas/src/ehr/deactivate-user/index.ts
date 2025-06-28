@@ -1,7 +1,6 @@
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DeactivateUserZambdaInput, DeactivateUserZambdaOutput, getSecret, Secrets, SecretsKeys } from 'utils';
-import { getAuth0Token, topLevelCatch, ZambdaInput } from '../../shared';
+import { getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface DeactivateUserZambdaInputValidated extends DeactivateUserZambdaInput {
@@ -10,7 +9,7 @@ export interface DeactivateUserZambdaInputValidated extends DeactivateUserZambda
 
 let oystehrToken: string;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler('deactivate-user', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);

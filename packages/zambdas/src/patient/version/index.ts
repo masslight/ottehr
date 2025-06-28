@@ -1,11 +1,9 @@
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { getSecret, SecretsKeys } from 'utils';
 import { version } from '../../../package.json';
-import { configSentry, topLevelCatch, ZambdaInput } from '../../shared';
+import { topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  configSentry('version', input.secrets);
+export const index = wrapHandler('get-version', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     return {
       statusCode: 200,

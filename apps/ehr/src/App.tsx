@@ -44,16 +44,16 @@ import { PatientVisitDetails } from './telemed/pages/PatientVisitDetailsPage';
 
 const { MODE: environment, VITE_APP_SENTRY_DSN } = import.meta.env;
 
-const isLowerEnvs = ['dev', 'testing', 'staging', 'training'].includes(environment);
+// const isLowerEnvs = ['development', 'testing', 'staging', 'training'].includes(environment);
 
-const isLowerEnvsOrProd = isLowerEnvs || import.meta.env.MODE === 'production';
-
-if (isLowerEnvsOrProd) {
-  setupSentry({
-    dsn: VITE_APP_SENTRY_DSN,
-    environment,
-  });
-}
+// const isLowerEnvsOrProd = isLowerEnvs || import.meta.env.MODE === 'production';
+// if (isLowerEnvsOrProd) {
+console.log('setting up sentry');
+setupSentry({
+  dsn: VITE_APP_SENTRY_DSN,
+  environment,
+});
+// }
 
 const CSSRoutingLazy = lazy(() => import('./features/css-module/routing/CSSRouting'));
 

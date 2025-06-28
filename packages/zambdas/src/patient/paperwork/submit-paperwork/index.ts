@@ -1,19 +1,16 @@
 import Oystehr from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { FHIR_EXTENSION, getSecret, OTTEHR_MODULE, SecretsKeys } from 'utils';
-import { configSentry, createOystehrClient, getAuth0Token, topLevelCatch, ZambdaInput } from '../../../shared';
+import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { AuditableZambdaEndpoints, createAuditEvent } from '../../../shared/userAuditLog';
 import { SubmitPaperworkEffectInput, validateSubmitInputs } from '../validateRequestParameters';
 
 // Lifting the token out of the handler function allows it to persist across warm lambda invocations.
 export let token: string;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  configSentry('submit-paperwork', input.secrets);
-  console.log(`Input body: ${JSON.stringify(input.body)}`);
+export const index = wrapHandler('submit-paperwork', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const secrets = input.secrets;
     if (!token) {

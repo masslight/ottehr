@@ -1,5 +1,4 @@
 import { BatchInputDeleteRequest, BatchInputGetRequest } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter, HealthcareService, Location, Patient, Practitioner, Schedule } from 'fhir/r4b';
@@ -30,7 +29,6 @@ import {
 import {
   AuditableZambdaEndpoints,
   checkIsEHRUser,
-  configSentry,
   createAuditEvent,
   createOystehrClient,
   getAuth0Token,
@@ -39,6 +37,7 @@ import {
   sendErrors,
   topLevelCatch,
   validateBundleAndExtractAppointment,
+  wrapHandler,
   ZambdaInput,
 } from '../../../shared';
 import { sendInPersonCancellationEmail } from '../../../shared/communication';
@@ -57,10 +56,7 @@ interface CancellationDetails {
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let zapehrToken: string;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  configSentry('cancel-appointment', input.secrets);
-  console.log(`Cancelation Input: ${JSON.stringify(input)}`);
-
+export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     console.log('getting user');

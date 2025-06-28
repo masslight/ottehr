@@ -1,5 +1,4 @@
 import Oystehr from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Appointment,
@@ -46,6 +45,7 @@ import {
   getRelatedPersonsFromResourceList,
   sortAppointments,
   topLevelCatch,
+  wrapHandler,
   ZambdaInput,
 } from '../../shared';
 import {
@@ -66,7 +66,7 @@ export interface GetAppointmentsZambdaInputValidated extends GetAppointmentsZamb
 
 let m2mToken: string;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler('get-appointments', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);

@@ -8,6 +8,7 @@ export const sendErrors = async (error: any, env: string, shouldCaptureException
   if (!['testing', 'staging', 'production'].includes(env)) {
     return;
   }
+  console.log('sendErrors running');
 
   if (shouldCaptureException) {
     const errorToThrow = handleUnknownError(error);

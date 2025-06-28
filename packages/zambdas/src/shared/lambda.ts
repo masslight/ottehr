@@ -39,6 +39,7 @@ export async function topLevelCatch(
   } else {
     await sendErrors(error, ENVIRONMENT, shouldCaptureException);
   }
+  console.log('handling Error Result');
   return handleErrorResult(error);
 }
 

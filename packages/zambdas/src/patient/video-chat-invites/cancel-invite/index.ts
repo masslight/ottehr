@@ -1,5 +1,4 @@
 import { User } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, EncounterParticipant, RelatedPerson } from 'fhir/r4b';
 import { JSONPath } from 'jsonpath-plus';
@@ -16,13 +15,14 @@ import {
   getVideoEncounterForAppointment,
   lambdaResponse,
   searchInvitedParticipantResourcesByEncounterId,
+  wrapHandler,
   ZambdaInput,
 } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let zapehrToken: string;
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler('cancel-invite', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const authorization = input.headers.Authorization;
     if (!authorization) {

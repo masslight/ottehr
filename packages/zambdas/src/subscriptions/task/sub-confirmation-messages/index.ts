@@ -1,4 +1,3 @@
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, HealthcareService, Location, Patient, Practitioner, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -12,21 +11,20 @@ import {
   VisitType,
 } from 'utils';
 import {
-  configSentry,
   createOystehrClient,
   getAuth0Token,
   sendInPersonMessages,
   topLevelCatch,
+  wrapHandler,
   ZambdaInput,
 } from '../../../shared';
 import { patchTaskStatus } from '../../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';
 
 let zapehrToken: string;
+const ZAMBDA_NAME = 'sub-confirmation-messages';
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  configSentry('sub-confirmation-messages', input.secrets);
-  console.log(`Input: ${JSON.stringify(input)}`);
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);

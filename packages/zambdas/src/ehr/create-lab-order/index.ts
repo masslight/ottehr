@@ -1,5 +1,4 @@
 import Oystehr, { BatchInputRequest, Bundle } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import {
@@ -38,7 +37,7 @@ import {
   SecretsKeys,
   SPECIMEN_CODING_CONFIG,
 } from 'utils';
-import { checkOrCreateM2MClientToken, getMyPractitionerId, topLevelCatch } from '../../shared';
+import { checkOrCreateM2MClientToken, getMyPractitionerId, topLevelCatch, wrapHandler } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { ZambdaInput } from '../../shared/types';
 import { getPrimaryInsurance } from '../shared/labs';
@@ -46,7 +45,7 @@ import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler('create-lab-order', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);

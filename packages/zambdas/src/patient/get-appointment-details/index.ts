@@ -1,4 +1,3 @@
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment as FhirAppointment, HealthcareService, Location, Practitioner, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -13,7 +12,7 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
-import { configSentry, createOystehrClient, getAuth0Token, topLevelCatch, ZambdaInput } from '../../shared';
+import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface GetAppointmentDetailInput {
@@ -23,9 +22,8 @@ export interface GetAppointmentDetailInput {
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let zapehrToken: string;
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  configSentry('get-appointment-details', input.secrets);
-  console.log(`Input: ${JSON.stringify(input)}`);
+const ZAMBDA_NAME = 'get-appointment-details';
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
