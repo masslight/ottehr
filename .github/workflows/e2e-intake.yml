@@ -47,9 +47,8 @@ jobs:
       - name: Check if Intake changes are relevant
         id: check
         run: |
-          # For schedule and workflow_dispatch events, always run tests
           if [ "${{ github.event_name }}" == "schedule" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "Event type: ${{ github.event_name }} - running tests"
+            echo "Event type: ${{ github.event_name }} - continue test flow"
             echo "should-run=true" >> $GITHUB_OUTPUT
             echo "skip-reason=" >> $GITHUB_OUTPUT
             exit 0
@@ -155,7 +154,7 @@ jobs:
 
   intake-login:
     needs: [check-changes, check-token-validity]
-    if: (needs.check-changes.outputs.should-run == 'true' && needs.check-token-validity.outputs.needs-login == 'true')
+    if: needs.check-changes.outputs.should-run == 'true' && needs.check-token-validity.outputs.needs-login == 'true'
     concurrency: # to prevent parallel login jobs; we can optimize it and eliminate user.json related steps when we have email login
       group: intake-login
       cancel-in-progress: false
