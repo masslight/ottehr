@@ -23,8 +23,8 @@ export async function getUser(token: string, secrets: Secrets | null, testProfil
     user = {
       id: 'test-M2M-user-id',
       email: 'test-M2M-user-email',
-      name: '+15555555555',
-      phoneNumber: '+15555555555',
+      name: '+12025555555',
+      phoneNumber: '+12025555555',
       profile: testProfile || 'test-M2M-user-profile',
       authenticationMethod: 'sms',
     };

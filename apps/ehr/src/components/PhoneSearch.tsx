@@ -56,7 +56,7 @@ export default function PhoneSearch({ phoneFilter, setPhoneFilter, onClear }: Ph
         notched
       />
       <FormHelperText error sx={{ visibility: error ? 'visible' : 'hidden' }}>
-        Phone number must be 10 digits in the format (xxx) xxx-xxxx
+        Phone number must be 10 digits in the format (xxx) xxx-xxxx and a valid number
       </FormHelperText>
     </FormControl>
   );

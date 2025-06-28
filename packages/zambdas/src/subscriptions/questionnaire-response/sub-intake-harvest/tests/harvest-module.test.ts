@@ -97,7 +97,7 @@ describe('Harvest Module', () => {
         telecom: [
           {
             system: 'phone',
-            value: '+15559876543',
+            value: '+19895556543',
           },
         ],
       },
@@ -184,7 +184,7 @@ describe('Harvest Module', () => {
       },
       relationship: 'Parent',
       birthSex: 'Female',
-      number: '(555) 987-6543',
+      number: '(989) 555-6543',
     };
 
     const flattened = flattenItems((questionnaireResponse1.item as QuestionnaireResponse['item']) ?? []);
@@ -3216,7 +3216,7 @@ const questionnaireResponse1: QuestionnaireResponse = {
           linkId: 'responsible-party-number',
           answer: [
             {
-              valueString: '(555) 987-6543',
+              valueString: '(989) 555-6543',
             },
           ],
         },

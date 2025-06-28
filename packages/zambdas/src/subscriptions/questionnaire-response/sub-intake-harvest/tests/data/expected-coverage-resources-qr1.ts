@@ -96,7 +96,7 @@ export const expectedAccountGuarantorFromQR1: RelatedPerson = {
   telecom: [
     {
       system: 'phone',
-      value: '+15559876543',
+      value: '+19895556543',
     },
   ],
 };

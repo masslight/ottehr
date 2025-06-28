@@ -18,7 +18,7 @@ import { UIDesign } from './UIdesign';
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
 const inviteeFirstName = 'Invitee First Name';
 const inviteeLastName = 'Invitee Last Name';
-const phone = '1234567890';
+const phone = '2024567890';
 const email = 'ykulik+invite@masslight.com';
 export class PaperworkTelemed {
   page: Page;

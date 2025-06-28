@@ -71,7 +71,7 @@
             ],
             "telecom": [
               {
-                "value": "+11234567890",
+                "value": "+12024567890",
                 "system": "phone"
               }
             ],
@@ -1072,7 +1072,7 @@
                 "linkId": "pcp-number",
                 "answer": [
                   {
-                    "valueString": "(123) 456-7890"
+                    "valueString": "(202) 456-7890"
                   }
                 ]
               }
@@ -1236,7 +1236,7 @@
                 "linkId": "responsible-party-number",
                 "answer": [
                   {
-                    "valueString": "(244) 333-3333"
+                    "valueString": "(240) 333-3333"
                   }
                 ]
               }
@@ -1409,7 +1409,7 @@
             "gender": "other",
             "telecom": [
               {
-                "value": "+12443333333",
+                "value": "+12403333333",
                 "system": "phone"
               }
             ],

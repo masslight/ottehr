@@ -99,7 +99,7 @@ export const SendFaxButton: FC<SendFaxButtonProps> = ({ appointment, encounter, 
                   }}
                 />
                 <FormHelperText error sx={{ visibility: faxError ? 'visible' : 'hidden' }}>
-                  Fax number must be 10 digits in the format (xxx) xxx-xxxx
+                  Fax number must be 10 digits in the format (xxx) xxx-xxxx and a valid number
                 </FormHelperText>
               </FormControl>
             }

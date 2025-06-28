@@ -148,7 +148,10 @@ export const ResponsibleInformationContainer: FC = () => {
           rules={{
             validate: (value: string) => {
               if (!value) return true;
-              return isPhoneNumberValid(value) || 'Phone number must be 10 digits in the format (xxx) xxx-xxxx';
+              return (
+                isPhoneNumberValid(value) ||
+                'Phone number must be 10 digits in the format (xxx) xxx-xxxx and a valid number'
+              );
             },
           }}
           disabled={selfSelected}

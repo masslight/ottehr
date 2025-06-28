@@ -101,7 +101,10 @@ export const PrimaryCareContainer: FC = () => {
               validate: (value: string) => {
                 if (!isActive) return true;
                 if (!value) return REQUIRED_FIELD_ERROR_MESSAGE;
-                return isPhoneNumberValid(value) || 'Phone number must be 10 digits in the format (xxx) xxx-xxxx';
+                return (
+                  isPhoneNumberValid(value) ||
+                  'Phone number must be 10 digits in the format (xxx) xxx-xxxx and a valid number'
+                );
               },
             }}
             id={FormFields.phone.key}
