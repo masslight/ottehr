@@ -3,32 +3,30 @@ import { FC } from 'react';
 import { FieldValues } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { CancellationReasonOptionsTelemed } from 'utils';
+import api from '../../api/ottehrApi';
 import { intakeFlowPageRoute } from '../../App';
 import { CustomDialog } from '../../components/CustomDialog';
 import PageForm from '../../components/PageForm';
 import { safelyCaptureException } from '../../helpers/sentry';
+import { useUCZambdaClient } from '../../hooks/useUCZambdaClient';
 import { useCancelAppointmentMutation } from '../features/appointments';
-import { useZapEHRAPIClient } from '../utils';
 
 type CancelVisitDialogProps = { onClose: (canceled: boolean) => void; appointmentID?: string };
 
 export const CancelVisitDialog: FC<CancelVisitDialogProps> = ({ onClose, appointmentID }) => {
-  const apiClient = useZapEHRAPIClient();
   const navigate = useNavigate();
   const cancelAppointment = useCancelAppointmentMutation();
+  const zambdaClient = useUCZambdaClient({ tokenless: false });
 
   const onSubmit = async (data: FieldValues): Promise<void> => {
     if (!appointmentID) {
       throw new Error('appointmentID is not defined');
     }
 
-    if (!apiClient) {
-      throw new Error('apiClient is not defined');
-    }
-
     cancelAppointment.mutate(
       {
-        apiClient: apiClient,
+        zambdaClient,
+        apiClient: api,
         appointmentID: appointmentID,
         cancellationReason: data.cancellationReason,
       },
