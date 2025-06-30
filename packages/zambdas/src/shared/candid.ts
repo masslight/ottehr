@@ -51,7 +51,7 @@ import { VideoResourcesAppointmentPackage } from './pdf/visit-details-pdf/types'
 import { getAccountAndCoverageResourcesForPatient } from '../ehr/shared/harvest';
 import { Sex } from 'candidhealth/api/resources/preEncounter/resources/common/types/Sex';
 import { AddressUse, ContactPointUse, PatientId } from 'candidhealth/api/resources/preEncounter';
-// import { APIResponse } from 'candidhealth/core';
+import { APIResponse } from 'candidhealth/core';
 
 export const CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM =
   'https://api.joincandidhealth.com/api/encounters/v4/response/encounter_id';
