@@ -5,7 +5,7 @@ env:
   TOKEN_VALIDITY_THRESHOLD_MINUTES: 60
   TEST_RESULTS_CACHE_RETENTION_DAYS: 30
   SECRETS_REPO: masslight/ottehr-secrets
-  USER_JSON_CACHE_KEY: intake-playwright-user-${{ github.event.inputs.environment || 'local' }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+  USER_JSON_CACHE_KEY: intake-playwright-user-${{ github.event.inputs.environment || 'local' }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.run_number }}
   USER_JSON_CACHE_RESTORE_KEYS: intake-playwright-user-${{ github.event.inputs.environment || 'local' }}-
   PLAYWRIGHT_CACHE_PATH: ~/.cache/ms-playwright
   USER_JSON_PATH: apps/intake/playwright/user.json
@@ -15,7 +15,7 @@ on:
     inputs:
       environment:
         description: 'Environment to run tests on'
-        required: true
+        required: false
         type: choice
         options:
           - local
@@ -27,10 +27,12 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [main, develop, 'release/**']
+  schedule:
+    - cron: '0 0 * * *'
 
 jobs:
   check-changes:
-    if: github.event.pull_request.draft == false || github.event_name == 'workflow_dispatch'
+    if: github.event.pull_request.draft == false || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 2
     outputs:
@@ -45,6 +47,14 @@ jobs:
       - name: Check if Intake changes are relevant
         id: check
         run: |
+          if [ "${{ github.event_name }}" == "schedule" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "Event type: ${{ github.event_name }} - continue test flow"
+            echo "should-run=true" >> $GITHUB_OUTPUT
+            echo "skip-reason=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # For PR events, check changed files
           TRACKED_FILES=$(node -e "
             const config = require('./.github/trigger-paths.js');
             console.log(config.getE2EPaths('intake').join(' '));
@@ -175,15 +185,7 @@ jobs:
           path: ${{ env.PLAYWRIGHT_CACHE_PATH }}
           key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-playwright-
-
-      - name: Try restore user.json cache
-        id: cache
-        uses: actions/cache/restore@v4
-        with:
-          path: ${{ env.USER_JSON_PATH }}
-          key: ${{ env.USER_JSON_CACHE_KEY }}
-          restore-keys: ${{ env.USER_JSON_CACHE_RESTORE_KEYS }}              
+            ${{ runner.os }}-playwright-         
 
       - name: Check out secrets repo
         uses: actions/checkout@v4
@@ -254,47 +256,6 @@ jobs:
           path: ${{ env.USER_JSON_PATH }}
           key: ${{ env.USER_JSON_CACHE_KEY }}
 
-      - name: Encrypt user.json for main branch
-        if: steps.validate.outcome == 'success' && github.ref != 'refs/heads/main'
-        id: encrypt
-        continue-on-error: true
-        run: |
-          if [ -z "${{ secrets.DEPLOY_OTTEHR_KEY }}" ]; then
-            echo "ERROR: DEPLOY_OTTEHR_KEY secret is empty or missing"
-            exit 1
-          fi
-          
-          if openssl enc -aes-256-cbc -a -salt \
-              -pass pass:"${{ secrets.DEPLOY_OTTEHR_KEY }}" \
-              -in ${{ env.USER_JSON_PATH }} \
-              -out user.json.enc; then
-            echo "File encrypted successfully"
-          else
-            echo "ERROR: Failed to encrypt user.json"
-            exit 1
-          fi
-          
-          # Convert to hex to avoid JSON escaping issues
-          ENCRYPTED_HEX=$(xxd -p user.json.enc | tr -d '\n')
-          echo "encrypted_content<<EOF" >> $GITHUB_OUTPUT
-          echo "$ENCRYPTED_HEX" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-          
-          rm -f user.json.enc
-
-      - name: Send to main branch for caching
-        if: steps.encrypt.outcome == 'success'
-        continue-on-error: true
-        uses: peter-evans/repository-dispatch@ff45666b9427631e3450c54a1bcbee4d9ff4d7c0  # v3.0.0
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          event-type: cache-user-json-to-main
-          client-payload: |
-            {
-              "encrypted_content": "${{ steps.encrypt.outputs.encrypted_content }}",
-              "cache_key": "${{ env.USER_JSON_CACHE_KEY }}"
-            }    
-
       - name: Upload login test results
         if: steps.login.outcome == 'success' || steps.login.outcome == 'failure' # log on success needed for investigate false success caces, we can remove it if login will work stable
         uses: actions/upload-artifact@v4
@@ -308,7 +269,7 @@ jobs:
   intake-e2e-tests-run:
     needs: [check-changes, check-token-validity, intake-login]
     if: |
-      always() && !cancelled() && 
+      always() && !cancelled() && github.event_name != 'schedule' &&
       needs.check-changes.outputs.should-run == 'true' &&
       (
         needs.check-token-validity.outputs.needs-login == 'false' ||
@@ -408,6 +369,9 @@ jobs:
         run: |
           if [ "${{ needs.check-changes.outputs.should-run }}" == "false" ]; then
             echo "Intake E2E tests skipped: ${{ needs.check-changes.outputs.skip-reason }}"
+            exit 0
+          elif [ "${{ github.event_name }}" == "schedule" ]; then
+            echo "Intake E2E tests skipped for scheduled run (login only)"
             exit 0
           elif [ "${{ needs.intake-e2e-tests-run.result }}" == "success" ]; then
             echo "Intake E2E tests passed"

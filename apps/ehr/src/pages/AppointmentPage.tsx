@@ -160,6 +160,15 @@ const consentToTreatPatientDetailsKey =
   'I have reviewed and accept Consent to Treat, Guarantee of Payment & Card on File Agreement';
 const consentToTreatPatientDetailsKeyOld = 'I have reviewed and accept Consent to Treat and Guarantee of Payment';
 
+type AppointmentBundleTypes =
+  | Appointment
+  | Patient
+  | Location
+  | Encounter
+  | QuestionnaireResponse
+  | Flag
+  | RelatedPerson;
+
 export default function AppointmentPage(): ReactElement {
   // variables
   const { id: appointmentID } = useParams();
@@ -168,7 +177,7 @@ export default function AppointmentPage(): ReactElement {
   const theme = useTheme();
 
   // state variables
-  const [resourceBundle, setResourceBundle] = useState<Bundle[] | undefined>(undefined);
+  const [resourceBundle, setResourceBundle] = useState<AppointmentBundleTypes[] | undefined>(undefined);
   const [patient, setPatient] = useState<Patient | undefined>(undefined);
   const [appointment, setAppointment] = useState<Appointment | undefined>(undefined);
   const [paperworkModifiedFlag, setPaperworkModifiedFlag] = useState<Flag | undefined>(undefined);
@@ -283,7 +292,7 @@ export default function AppointmentPage(): ReactElement {
     }
     // query the fhir database
     const searchResults = (
-      await oystehr.fhir.search<Bundle>({
+      await oystehr.fhir.search<AppointmentBundleTypes>({
         resourceType: 'Appointment',
         params: [
           { name: '_id', value: appointmentID },

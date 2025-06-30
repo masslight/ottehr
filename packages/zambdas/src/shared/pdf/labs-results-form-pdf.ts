@@ -1058,7 +1058,7 @@ const getAdditionalResultsForRepeats = async (
 const formatPerformingLabAddress = (org: Organization | undefined): string | undefined => {
   if (!org?.address?.[0]) return;
   const address = org.address?.[0];
-  const streetAddress = address.line?.join(',');
+  const streetAddress = address.line?.join(', ');
   const { city, state, postalCode } = address;
   if (!streetAddress && !city && !state && !postalCode) return;
   let formattedAddress = `${streetAddress}`;

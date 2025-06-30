@@ -96,8 +96,6 @@ const theme = createTheme({
   palette: {
     ...defaults.palette,
     ...customTheme.palette,
-    tertiary: customTheme.palette.secondary as any,
-    destructive: customTheme.palette.error as any,
   },
   typography: typography,
 });

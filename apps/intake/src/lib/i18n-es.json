@@ -37,8 +37,8 @@
       }
     },
     "patientName": {
-      "legalFirstName": "NOMBRE legal del paciente",
-      "legalLastName": "APELLIDO legal del paciente",
+      "legalFirstName": "Nombre legal del paciente",
+      "legalLastName": "Apellido legal del paciente",
       "legalMiddleName": "Segundo nombre legal del paciente",
       "placeholderFirstName": "Nombre",
       "placeholderLastName": "Apellido",
@@ -105,8 +105,8 @@
       "reason1": "El paciente mejoró",
       "reason2": "Hay demasiado tiempo de espera",
       "reason3": "Prefiero otro proveedor de atención de urgencia",
-      "reason4": "Cambio de ubicación de {{PROJECT_NAME}}",
-      "reason5": "Cambio a telemedicina de {{PROJECT_NAME}}",
+      "reason4": "Cambio de ubicación",
+      "reason5": "Cambio a telemedicina",
       "reason6": "Problema de responsabilidad financiera",
       "reason7": "Problema con el seguro"
     },
@@ -248,7 +248,7 @@
   },
   "emailComms": {
     "canceled": {
-      "subject": "{{PROJECT_NAME}} In Person: Su consulta ha sido cancelada",
+      "subject": "In Person: Su consulta ha sido cancelada",
       "bookAgainButton": "Reservar nuevamente",
       "bookAgainTitle": "Pulse \"Reservar nuevamente\" (Book again) si desea programar otra consulta.",
       "canceled": "CANCELADA",
@@ -256,18 +256,18 @@
       "title": "Su consulta ha sido cancelada"
     },
     "confirmed": {
-      "subject": "Confirmación de su consulta en {{PROJECT_NAME}} In Person",
+      "subject": "Confirmación de su consulta en {{PROJECT_NAME}}",
       "cancel": "Cancelar",
       "modify": "Modificar",
       "paperworkButton": "Completar la documentación",
       "paperworkTitle": "Complete la siguiente documentación antes de su horario de registro. Si no está completa, se le pedirá que lo haga en el centro.",
-      "subtitle": "¡Gracias por elegir {{PROJECT_NAME}} In Person!",
+      "subtitle": "¡Gracias por elegir {{PROJECT_NAME}}!",
       "subtitle2": "Esperamos poder ayudarle pronto.",
       "title": "Está confirmado."
     },
     "sincerely": "Atentamente",
-    "team": "Equipo de {{PROJECT_NAME}} In Person",
-    "thankYou": "Gracias nuevamente por elegir {{PROJECT_NAME}} In Person. Esperamos asociarnos con usted y su familia.",
+    "team": "Equipo de {{PROJECT_NAME}}",
+    "thankYou": "Gracias nuevamente por elegir {{PROJECT_NAME}}. Esperamos asociarnos con usted y su familia.",
     "inPerson": "Administrador de atención de urgencia",
     "visitDetails": "Detalles de la consulta: "
   },
@@ -380,7 +380,7 @@
   "newUser": {
     "body": "Nos complace ofrecer esta nueva tecnología para acceder a la atención. Deberá ingresar su información nuevamente solo una vez. Cuando regrese la próxima vez, todo estará aquí para usted.",
     "ok": "ACEPTAR",
-    "title": "¡Gracias por elegir {{PROJECT_NAME}} In Person!"
+    "title": "¡Gracias por elegir {{PROJECT_NAME}}!"
   },
   "pageFormsErrors": {
     "characterLimit1": "La información no puede tener más de",
@@ -428,7 +428,7 @@
       "notFound": "No se encontró la cita",
       "wrongDob": {
         "wrongDob1": "Puede volver a intentarlo o iniciar sesión en la cuenta asociada con este paciente.",
-        "wrongDob2": "Acérquese a la recepción o comuníquese con nosotros al",
+        "wrongDob2": "Acérquese a la recepción o comuníquese con {{PROJECT_NAME}} al",
         "wrongDob3": "para obtener asistencia."
       }
     },
@@ -495,6 +495,7 @@
     "Please provide the best mobile phone number for your family.": "Proporcione el mejor número de teléfono móvil de su familia.",
     "Phone number": "Número de teléfono",
     "s primary address": "'s dirección principal",
+    "Yes! I would like to receive helpful messages from {{PROJECT_NAME}} regarding patient education, events, and general information about our offices. Message frequency varies, and data rates may apply.": "¡Sí! Me gustaría recibir mensajes útiles de {{PROJECT_NAME}} sobre la educación del paciente y los eventos, así como información general sobre los consultorios. La frecuencia de los mensajes varía y pueden aplicarse tarifas por datos.",
     "Select...": "Seleccionar…",
     "State": "Estado",
     "Street address": "Dirección",
@@ -717,7 +718,15 @@
     "WA": "WA",
     "WI": "WI",
     "WV": "WV",
-    "WY": "WY"
+    "WY": "WY",
+    "Primary Care Physician": "Médico de atención primaria",
+    "Current medications": "Medicamentos actuales",
+    "Current allergies": "Alergias actuales",
+    "Medical history": "Historial médico",
+    "Surgical history": "Historial quirúrgico",
+    "Additional questions": "Preguntas adicionales",
+    "Patient condition": "Condición del paciente",
+    "Would you like someone to join this call?": "¿Le gustaría que alguien se uniera a esta llamada?"
   },
   "reviewAndSubmit": {
     "byProceeding": "Al proceder con la visita, reconoce que ha revisado y aceptado nuestra ",
@@ -733,7 +742,7 @@
     "finish": "Finalizar",
     "insuranceDetailsLabel": "Detalles del seguro",
     "notComplete": "No completo",
-    "office": "Consultorio",
+    "location": "Consultorio",
     "ok": "ACEPTAR",
     "patient": "Paciente",
     "patientDetailsLabel": "Detalles del paciente",
@@ -764,8 +773,8 @@
       "title": "Lo sentimos, el horario seleccionado ya no está disponible."
     },
     "officeClosed": {
-      "today": "¡Lo sentimos! Debido a circunstancias imprevistas, este consultorio permanecerá cerrado hoy. Revise nuestra conveniente opción de telemedicina para conectarse con un experto en pediatría de {{PROJECT_NAME}} desde la comodidad de su hogar O haga clic en el botón \"mañana\" (tomorrow) para ver las franjas horarias disponibles para mañana.",
-      "todayOrTomorrow": "¡Lo sentimos! Este consultorio no tiene ningún horario de reserva previo disponible para hoy ni mañana, pero tenemos todo lo que necesita. Revise nuestra conveniente opción de telemedicina para conectarse con un experto en pediatría de {{PROJECT_NAME}} desde la comodidad del hogar."
+      "today": "¡Lo sentimos! Debido a circunstancias imprevistas, este consultorio permanecerá cerrado hoy. Revise nuestra conveniente opción de telemedicina para conectarse con un experto en {{PROJECT_NAME}} desde la comodidad de su hogar O haga clic en el botón \"mañana\" (tomorrow) para ver las franjas horarias disponibles para mañana.",
+      "todayOrTomorrow": "¡Lo sentimos! Este consultorio no tiene ningún horario de reserva previo disponible para hoy ni mañana, pero tenemos todo lo que necesita. Revise nuestra conveniente opción de telemedicina para conectarse con un experto en {{PROJECT_NAME}} desde la comodidad del hogar."
     },
     "selectAnother": "Seleccionar otro horario",
     "selectATime": "Seleccionar una hora",
@@ -778,13 +787,13 @@
   },
   "textComms": {
     "confirmation": "Está confirmado.",
-    "thanks": "¡Gracias por elegir {{PROJECT_NAME}} In Person! Su hora de registro para",
+    "thanks": "¡Gracias por elegir {{PROJECT_NAME}}! Su hora de registro para",
     "at": "en",
     "isOn": "es el día",
     "newTech": "Nuestra nueva tecnología requiere que los pacientes nuevos Y los recurrentes completen los formularios y se aseguren de que los registros estén actualizados. Hágalo con anticipación para ahorrar tiempo en el registro.",
     "completePaperwork": "Para completar la documentación o modificar/cancelar su registro, visite:",
     "canceled1": "Su consulta para",
-    "canceled2": "con {{PROJECT_NAME}} In Person",
+    "canceled2": "con {{PROJECT_NAME}}",
     "canceled3": "ha sido cancelada. Toque",
     "canceled4": "para reservar una nueva consulta.",
     "checkedIn1": "¡Le damos la bienvenida y le agradecemos por registrarse! Nuestro equipo de atención hará todo lo posible para ayudar",
@@ -793,8 +802,8 @@
     "checkIn2": "en",
     "byVisiting": "ES - by visiting",
     "checkIn3": ". Acérquese a la recepción y escanee el código QR para registrarse. ¡Nos vemos pronto!",
-    "readyStatus": "Configure (o confirme) el acceso a su portal para pacientes de {{PROJECT_NAME}} para que pueda ver los resultados de las pruebas y la información del alta: {PROJECT_WEBSITE}/patient-portal",
-    "verificationCode": "Su código de verificación de admisión a IP {{PROJECT_NAME}} es el siguiente: "
+    "readyStatus": "Configure (o confirme) el acceso a su portal para pacientes de {{PROJECT_NAME}} para que pueda ver los resultados de las pruebas y la información del alta: {PROJECT_WEBSITE}",
+    "verificationCode": "Su código de verificación de admisión a {{PROJECT_NAME}} es el siguiente: "
   },
   "thanks": {
     "body1": "Su hora de registro está reservada para la siguiente fecha:",
@@ -814,7 +823,7 @@
     "registerAnother": "Registrar a otro paciente",
     "subtitle": "Esperamos poder ayudarle pronto.",
     "survey": "Encuesta de 1 minuto",
-    "title": "¡Gracias por elegir {{PROJECT_NAME}} In Person!"
+    "title": "¡Gracias por elegir {{PROJECT_NAME}}!"
   },
   "waitingEstimate": {
     "description": "Se ESTIMA que el tiempo de espera será de ",
@@ -853,7 +862,7 @@
     "subtitleBranded": "Esperamos poder ayudarle pronto.",
     "title": "Seleccione el horario de registro",
     "titleClosed": "Este consultorio de {{PROJECT_NAME}} está cerrado ahora",
-    "titleBranded": "Le damos la bienvenida a {{PROJECT_NAME}} In Person"
+    "titleBranded": "Le damos la bienvenida a {{PROJECT_NAME}}"
   },
   "welcomeBack": {
     "alreadyReserved": "¿Ya reservó un horario de registro?",

@@ -1,5 +1,5 @@
 import Oystehr, { User } from '@oystehr/sdk';
-import { RelatedPerson } from 'fhir/r4b';
+import { Patient, RelatedPerson } from 'fhir/r4b';
 import { decodeJwt } from 'jose';
 import { getPatientsForUser, getSecret, Secrets, SecretsKeys } from 'utils';
 import { getAuth0Token } from './getAuth0Token';
@@ -23,8 +23,8 @@ export async function getUser(token: string, secrets: Secrets | null, testProfil
     user = {
       id: 'test-M2M-user-id',
       email: 'test-M2M-user-email',
-      name: '+15555555555',
-      phoneNumber: '+15555555555',
+      name: '+12025555555',
+      phoneNumber: '+12025555555',
       profile: testProfile || 'test-M2M-user-profile',
       authenticationMethod: 'sms',
     };
@@ -35,7 +35,7 @@ export async function getUser(token: string, secrets: Secrets | null, testProfil
 
 export async function getPersonForPatient(patientID: string, oystehr: Oystehr): Promise<RelatedPerson | undefined> {
   const resources = (
-    await oystehr.fhir.search<RelatedPerson>({
+    await oystehr.fhir.search<Patient | RelatedPerson>({
       resourceType: 'Patient',
       params: [
         {

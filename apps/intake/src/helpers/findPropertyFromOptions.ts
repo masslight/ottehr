@@ -1,4 +1,4 @@
-import { SelectInputOption } from 'ui-components';
+import { SelectInputOption } from '../types';
 
 export function findLabelFromOptions(match: string, array: SelectInputOption[]): string {
   return array.filter((option) => option.value === match)[0].label;

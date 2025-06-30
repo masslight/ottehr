@@ -374,6 +374,7 @@ const formatSpecimenResources = (
   const specimenConfigs: Specimen[] = [];
 
   orderableItem.item.specimens.forEach((specimen, idx) => {
+    // labs sometimes set container, volume, mininumVolume, storageRequirements, or collectionInstructions to null, so need to coalesce to undefined
     const collectionInstructionsCoding = {
       coding: [
         {
@@ -381,26 +382,12 @@ const formatSpecimenResources = (
           code: SPECIMEN_CODING_CONFIG.collection.code.collectionInstructions,
         },
       ],
-      text: specimen.collectionInstructions,
+      text: specimen.collectionInstructions ?? undefined,
     };
     const specimenDefinitionId = `specimenDefinitionId${idx}`;
     const specimenDefitionConfig: SpecimenDefinition = {
       resourceType: 'SpecimenDefinition',
       id: specimenDefinitionId,
-      typeTested: [
-        {
-          preference: 'preferred',
-          container: {
-            description: specimen.container,
-            minimumVolumeString: specimen.minimumVolume,
-          },
-          handling: [
-            {
-              instruction: specimen.storageRequirements,
-            },
-          ],
-        },
-      ],
       collection: [
         collectionInstructionsCoding,
         {
@@ -410,10 +397,30 @@ const formatSpecimenResources = (
               code: SPECIMEN_CODING_CONFIG.collection.code.specimenVolume,
             },
           ],
-          text: specimen.volume,
+          text: specimen.volume ?? undefined,
+        },
+      ],
+      typeTested: [
+        {
+          preference: 'preferred',
+          container:
+            !!specimen.container || !!specimen.minimumVolume
+              ? {
+                  description: specimen.container ?? undefined,
+                  minimumVolumeString: specimen.minimumVolume ?? undefined,
+                }
+              : undefined,
+          handling: specimen.storageRequirements
+            ? [
+                {
+                  instruction: specimen.storageRequirements,
+                },
+              ]
+            : undefined,
         },
       ],
     };
+
     specimenDefinitionConfigs.push(specimenDefitionConfig);
     const specimenConfig: Specimen = {
       resourceType: 'Specimen',

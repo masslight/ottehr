@@ -14,9 +14,9 @@ import {
 import { Elements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
 import { FC, useState } from 'react';
-import { BoldPurpleInputLabel } from 'ui-components';
 import { AddCreditCardForm } from 'ui-components';
 import { CreditCardInfo } from 'utils';
+import { BoldPurpleInputLabel } from '../../../components/form';
 import { dataTestIds } from '../../../helpers/data-test-ids';
 import { otherColors } from '../../../IntakeThemeProvider';
 import {
@@ -46,9 +46,9 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({ value:
   const { isFetching: cardsAreLoading, refetch: refetchPaymentMethods } = useGetPaymentMethods({
     beneficiaryPatientId: patient?.id,
     setupCompleted: Boolean(setupData),
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       setCards(data.cards);
-      const defaultCard = data.cards.find((card) => card.default);
+      const defaultCard = data.cards.find((card: any) => card.default);
       setSelectedOption(defaultCard?.id);
       if (defaultCard?.id !== undefined) {
         onChange({ target: { value: true } });
@@ -121,7 +121,7 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({ value:
         <Skeleton variant="rounded" height={250} />
       ) : (
         <CreditCardContent
-          setupData={setupData}
+          setupData={setupData as any}
           pendingSelection={pendingSelection}
           selectedOption={selectedOption}
           cards={cards}
