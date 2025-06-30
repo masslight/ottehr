@@ -19,7 +19,6 @@ export const MedicationList: React.FC = () => {
     if (scrollTo && pendingMedications.length > 0) {
       requestAnimationFrame(() => {
         const element = document.getElementById(`medication-${scrollTo}`);
-        console.log('check the el', element);
         element?.scrollIntoView?.({ behavior: 'auto', block: 'start', inline: 'nearest' });
 
         const url = new URL(window.location.href);
