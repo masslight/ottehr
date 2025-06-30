@@ -140,7 +140,7 @@ export function BasicInformation({ control, existingUser }: BasicInformationProp
         rules={{
           pattern: {
             value: phoneRegex,
-            message: 'Fax number must be 10 digits in the format (xxx) xxx-xxxx',
+            message: 'Fax number must be 10 digits in the format (xxx) xxx-xxxx and a valid number',
           },
         }}
         render={({ field: { onChange, value }, fieldState: { error } }) => (
