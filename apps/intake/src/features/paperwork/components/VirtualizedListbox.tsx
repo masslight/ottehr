@@ -3,7 +3,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import * as React from 'react';
 import { FC, useCallback, useEffect, useRef } from 'react';
 import { ListChildComponentProps, VariableSizeList } from 'react-window';
-import { useWindowResize } from 'ui-components/lib/hooks';
+import { useWindowResize } from '../../../hooks/useWindowResize';
 
 const LISTBOX_PADDING = 8;
 

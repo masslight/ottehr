@@ -20,7 +20,6 @@ import { DateTime } from 'luxon';
 import { FC, ReactElement, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, Outlet, useLocation, useNavigate, useOutletContext, useParams } from 'react-router-dom';
-import { breakpoints, useUCZambdaClient } from 'ui-components';
 import {
   APIError,
   APPOINTMENT_NOT_FOUND_ERROR,
@@ -42,8 +41,10 @@ import { dataTestIds } from '../helpers/data-test-ids';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
 import useAppointmentNotFoundInformation from '../helpers/information';
 import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
+import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import { otherColors } from '../IntakeThemeProvider';
 import i18n from '../lib/i18n';
+import { breakpoints } from '../providers';
 
 const MODAL_STYLE = {
   position: 'absolute' as const,

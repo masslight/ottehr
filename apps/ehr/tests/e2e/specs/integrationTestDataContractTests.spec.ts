@@ -476,7 +476,7 @@ const cleanAccount = (account: Account): Account => {
 
 const getAllResourcesFromFHIR = async (appointmentId: string): Promise<Resource[]> => {
   return (
-    await e2eHandler.apiClient.fhir.search<Patient>({
+    await e2eHandler.apiClient.fhir.search<Appointment>({
       resourceType: 'Appointment',
       params: [
         {

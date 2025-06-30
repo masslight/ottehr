@@ -1,6 +1,6 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { useCallback, useEffect, useState } from 'react';
-import { safelyCaptureException } from 'ui-components';
+import { safelyCaptureException } from '../../../helpers/sentry';
 import { createIOSMessageWAccessToken, sendIOSAppMessage } from './iosCommunicationChannel';
 
 let tokenPassedToIOS = false;

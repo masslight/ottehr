@@ -4,7 +4,6 @@ import { Slot } from 'fhir/r4b';
 import noop from 'lodash/noop';
 import { FC, useState } from 'react';
 import { generatePath, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { BoldPurpleInputLabel, ErrorDialog, ErrorDialogConfig, useUCZambdaClient } from 'ui-components';
 import {
   APIError,
   BookableItem,
@@ -26,7 +25,10 @@ import {
   intakeFlowPageRoute,
 } from '../App';
 import { PageContainer, Schedule } from '../components';
+import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
+import { BoldPurpleInputLabel } from '../components/form';
 import { dataTestIds } from '../helpers/data-test-ids';
+import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import { otherColors } from '../IntakeThemeProvider';
 import { useGetBookableItems, useGetSchedule } from '../telemed/features/appointments/appointment.queries';
 import { useZapEHRAPIClient } from '../telemed/utils';

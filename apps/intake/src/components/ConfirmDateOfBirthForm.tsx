@@ -2,8 +2,9 @@ import { Box, Button, Dialog, Paper, Typography } from '@mui/material';
 import { FC, ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { FieldValues } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { FormInputType, PageForm } from 'ui-components';
 import { DateComponents, getDateComponentsFromISOString, PatientInfoInProgress } from 'utils';
+import { FormInputType } from '../types';
+import PageForm from './PageForm';
 
 interface ConfirmDateOfBirthFormProps {
   patientInfo: PatientInfoInProgress | undefined;

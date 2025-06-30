@@ -1326,7 +1326,7 @@ export const ottehrIdentifierSystem = (name: string): string => {
 };
 
 export async function getAllFhirSearchPages<T extends FhirResource>(
-  fhirSearchParams: FhirSearchParams,
+  fhirSearchParams: FhirSearchParams<T>,
   oystehr: Oystehr,
   maxMatchPerBatch = 1000
 ): Promise<T[]> {

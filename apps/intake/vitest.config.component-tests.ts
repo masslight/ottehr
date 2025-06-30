@@ -11,7 +11,7 @@ export default defineConfig({
     globals: true,
     include: ['**/*.test.tsx'],
     setupFiles: './tests/component/setup.ts',
-    environment: 'jsdom',
+    environment: 'happy-dom',
   },
   plugins: [tsconfigPaths(), react()],
 });

@@ -2,8 +2,8 @@ import { Autocomplete, MenuItem, SelectProps, TextField, useTheme } from '@mui/m
 import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { FC, ReactNode, useCallback, useContext, useMemo, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { IntakeThemeContext } from 'ui-components/lib/contexts';
 import { AnswerLoadingOptions, GetAnswerOptionsRequest } from 'utils';
+import { IntakeThemeContext } from '../../../contexts';
 import { useAnswerOptionsQuery } from '../../../telemed/features/paperwork';
 import { VirtualizedListbox } from './VirtualizedListbox';
 

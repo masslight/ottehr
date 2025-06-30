@@ -23,15 +23,10 @@ import {
 } from 'utils';
 import { createOystehrClient, getAuth0Token } from '../shared';
 
-const VALID_ENVS = ['local', 'development', 'dev', 'testing', 'staging', 'demo', 'production'];
+const VALID_ENVS = ['local', 'development', 'dev', 'testing', 'staging', 'demo', 'production', 'etc'];
 const USAGE_STR = `Usage: npm run make-in-house-test-items [${VALID_ENVS.join(' | ')}]\n`;
 
 const AD_CANONICAL_URL_BASE = 'https://ottehr.com/FHIR/InHouseLab/ActivityDefinition';
-
-const checkEnvPassedIsValid = (env: string | undefined): boolean => {
-  if (!env) return false;
-  return VALID_ENVS.includes(env);
-};
 
 const sanitizeForId = (str: string): string => {
   /* eslint-disable-next-line  no-useless-escape */
@@ -281,8 +276,8 @@ async function main(): Promise<void> {
   let ENV = process.argv[2].toLowerCase();
   ENV = ENV === 'dev' ? 'development' : ENV;
 
-  if (!checkEnvPassedIsValid(ENV)) {
-    console.error(`exiting, ENV variable passed is not valid: ${ENV}`);
+  if (!ENV) {
+    console.error(`exiting, ENV variable must be populated`);
     console.log(USAGE_STR);
     process.exit(2);
   }
