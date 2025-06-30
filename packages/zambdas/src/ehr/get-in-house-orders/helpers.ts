@@ -11,6 +11,7 @@ import {
   Practitioner,
   Provenance,
   Resource,
+  Schedule,
   ServiceRequest,
   Specimen,
   Task,
@@ -263,6 +264,7 @@ export const getInHouseResources = async (
   timezone: string | undefined;
 }> => {
   const searchParams = createInHouseServiceRequestSearchParams(params);
+  console.log('createInHouseServiceRequestSearchParams', searchParams);
 
   const inHouseOrdersResponse = await oystehr.fhir.search({
     resourceType: 'ServiceRequest',
@@ -283,6 +285,7 @@ export const getInHouseResources = async (
     observations,
     diagnosticReports,
     activityDefinitions,
+    schedules,
   } = extractInHouseResources(resources);
 
   const isDetailPageRequest = searchBy.searchBy.field === 'serviceRequestId';
@@ -324,7 +327,10 @@ export const getInHouseResources = async (
     }
   }
 
-  const timezone = locations[0] ? getTimezone(locations[0]) : undefined;
+  let timezone;
+  if (schedules?.[0]) {
+    timezone = getTimezone(schedules[0]);
+  }
 
   const [practitioners, appointments] = await Promise.all([
     fetchPractitionersForServiceRequests(oystehr, serviceRequests, encounters),
@@ -447,6 +453,22 @@ export const createInHouseServiceRequestSearchParams = (params: GetZambdaInHouse
       value: 'DiagnosticReport:based-on',
     });
 
+    // Include slot to get reliable timezone info
+    searchParams.push(
+      {
+        name: '_include:iterate',
+        value: 'Encounter:appointment',
+      },
+      {
+        name: '_include:iterate',
+        value: 'Appointment:slot',
+      },
+      {
+        name: '_include:iterate',
+        value: 'Slot:schedule',
+      }
+    );
+
     // Include any related repeat test SRs
     searchParams.push({
       name: '_include:iterate',
@@ -480,6 +502,7 @@ export const extractInHouseResources = (
   observations: Observation[];
   diagnosticReports: DiagnosticReport[];
   activityDefinitions: ActivityDefinition[];
+  schedules: Schedule[];
 } => {
   const serviceRequests: ServiceRequest[] = [];
   const tasks: Task[] = [];
@@ -490,6 +513,7 @@ export const extractInHouseResources = (
   const observations: Observation[] = [];
   const diagnosticReports: DiagnosticReport[] = [];
   const activityDefinitions: ActivityDefinition[] = [];
+  const schedules: Schedule[] = [];
 
   for (const resource of resources) {
     if (resource.resourceType === 'ServiceRequest') {
@@ -510,6 +534,8 @@ export const extractInHouseResources = (
       diagnosticReports.push(resource);
     } else if (resource.resourceType === 'ActivityDefinition') {
       activityDefinitions.push(resource);
+    } else if (resource.resourceType === 'Schedule') {
+      schedules.push(resource);
     }
   }
 
@@ -523,6 +549,7 @@ export const extractInHouseResources = (
     observations,
     diagnosticReports,
     activityDefinitions,
+    schedules,
   };
 };
 
