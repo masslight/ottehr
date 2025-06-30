@@ -222,7 +222,7 @@ export const getAllVirtualLocationsMap = async (oystehr: Oystehr): Promise<Locat
   ).unbundle();
 
   const virtualLocationsMap: LocationIdToAbbreviationMap = {};
-  const locations: Location[] = [];
+  const locationsByState: Record<string, Location[]> = {};
 
   resources.forEach((resource) => {
     if (resource.resourceType === 'Location' && isLocationVirtual(resource as Location)) {
@@ -231,9 +231,23 @@ export const getAllVirtualLocationsMap = async (oystehr: Oystehr): Promise<Locat
       const locationId = location.id;
 
       if (state && locationId) {
+        if (!locationsByState[state]) {
+          locationsByState[state] = [];
+        }
+
+        locationsByState[state].push(location);
+
         virtualLocationsMap[state] = location;
-        locations.push(location);
       }
+    }
+  });
+
+  Object.entries(locationsByState).forEach(([state, locs]) => {
+    if (locs.length > 1) {
+      console.warn(`⚠️ Found several virtual locations in ${state}:`);
+      locs.forEach((loc) => {
+        console.warn(`- ${loc.id}: ${loc.name}`);
+      });
     }
   });
 
