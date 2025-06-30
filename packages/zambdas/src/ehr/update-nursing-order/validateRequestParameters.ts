@@ -1,9 +1,7 @@
-import { Secrets, UpdateNursingOrderParameters } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { UpdateNursingOrderInputSchema, UpdateNursingOrderInputValidated } from 'utils';
+import { safeValidate, ZambdaInput } from '../../shared';
 
-export function validateRequestParameters(
-  input: ZambdaInput
-): UpdateNursingOrderParameters & { secrets: Secrets | null; userToken: string } {
+export function validateRequestParameters(input: ZambdaInput): UpdateNursingOrderInputValidated {
   console.group('validateRequestParameters');
 
   if (!input.body) {
@@ -15,33 +13,17 @@ export function validateRequestParameters(
   }
 
   const userToken = input.headers.Authorization.replace('Bearer ', '');
-  const secrets = input.secrets;
 
-  let params: UpdateNursingOrderParameters;
+  const parsed = JSON.parse(input.body) as unknown;
 
-  try {
-    params = JSON.parse(input.body);
-  } catch (error) {
-    throw Error('Invalid JSON in request body');
-  }
-
-  if (!userToken) {
-    throw new Error('User token is required');
-  }
-
-  if (!secrets) {
-    throw new Error('Secrets are required');
-  }
-
-  if (!params.serviceRequestId) {
-    throw new Error('Service Request ID is required');
-  }
-
-  if (!params.action) {
-    throw new Error('Action is required');
-  }
+  const { serviceRequestId, action } = safeValidate(UpdateNursingOrderInputSchema, parsed);
 
   console.groupEnd();
   console.log('validateRequestParameters success');
-  return { userToken, secrets, ...params };
+  return {
+    serviceRequestId,
+    action,
+    userToken,
+    secrets: input.secrets,
+  };
 }
