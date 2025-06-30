@@ -25,16 +25,6 @@ import { Controller, FormProvider, useForm, useFormContext } from 'react-hook-fo
 import Markdown from 'react-markdown';
 import { useBeforeUnload } from 'react-router-dom';
 import {
-  BoldPurpleInputLabel,
-  ControlButtons,
-  ControlButtonsProps,
-  DescriptionRenderer,
-  InputMask,
-  LightToolTip,
-  LinkRenderer,
-  useIntakeThemeContext,
-} from 'ui-components';
-import {
   IntakeQuestionnaireItem,
   makeValidationSchema,
   pickFirstValueFromAnswerItem,
@@ -44,8 +34,18 @@ import {
   stripMarkdownLink,
 } from 'utils';
 import { AnyObjectSchema } from 'yup';
+import {
+  BoldPurpleInputLabel,
+  ControlButtons,
+  DescriptionRenderer,
+  InputMask,
+  LightToolTip,
+  LinkRenderer,
+} from '../../components/form';
+import { useIntakeThemeContext } from '../../contexts';
 import { getUCInputType } from '../../helpers/paperworkUtils';
 import { otherColors } from '../../IntakeThemeProvider';
+import { ControlButtonsProps } from '../../types';
 import { CreditCardVerification } from './components/CreditCardVerification';
 import DateInput from './components/DateInput';
 import { FieldHelperText } from './components/FieldHelperText';

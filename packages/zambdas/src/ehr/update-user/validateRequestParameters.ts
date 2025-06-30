@@ -34,7 +34,7 @@ export function validateRequestParameters(input: ZambdaInput): UpdateUserParams 
   }
 
   if (phoneNumber && !isPhoneNumberValid(phoneNumber)) {
-    throw new Error('Invalid phone number format');
+    throw new Error('Invalid phone number');
   }
 
   if (selectedRoles?.includes(RoleType.Provider) && npi && !isNPIValid(npi)) {

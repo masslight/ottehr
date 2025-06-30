@@ -15,11 +15,10 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  CreateNursingOrderParameters,
+  CreateNursingOrderInputValidated,
   getSecret,
   NURSING_ORDER_PROVENANCE_ACTIVITY_CODING_ENTITY,
   PRACTITIONER_CODINGS,
-  Secrets,
   SecretsKeys,
 } from 'utils';
 import {
@@ -38,11 +37,10 @@ let m2mToken: string;
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`create-nursing-order started, input: ${JSON.stringify(input)}`);
 
-  let validatedParameters: CreateNursingOrderParameters & { secrets: Secrets | null; userToken: string };
+  let validatedParameters: CreateNursingOrderInputValidated;
 
   try {
     validatedParameters = validateRequestParameters(input);
-    console.log('validateRequestParameters success');
   } catch (error: any) {
     return {
       statusCode: 400,

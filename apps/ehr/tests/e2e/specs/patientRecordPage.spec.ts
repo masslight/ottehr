@@ -73,7 +73,7 @@ const NEW_FIRST_NAME_FROM_RESPONSIBLE_CONTAINER = 'First name';
 const NEW_LAST_NAME_FROM_RESPONSIBLE_CONTAINER = 'Last name';
 const NEW_BIRTHDATE_FROM_RESPONSIBLE_CONTAINER = '10/10/2000';
 const NEW_BIRTH_SEX_FROM_RESPONSIBLE_CONTAINER = 'Male';
-const NEW_PHONE_FROM_RESPONSIBLE_CONTAINER = '(111) 111-1111';
+const NEW_PHONE_FROM_RESPONSIBLE_CONTAINER = '(202) 111-1111';
 const NEW_ADDRESS_RESPONSIBLE_PARTY = '123 fake lane';
 const NEW_CITY_RESPONSIBLE_PARTY = 'Los Angeles';
 const NEW_STATE_RESPONSIBLE_PARTY = 'NY';
@@ -82,7 +82,7 @@ const NEW_PROVIDER_FIRST_NAME = 'John';
 const NEW_PROVIDER_LAST_NAME = 'Doe';
 const NEW_PRACTICE_NAME = 'Dental';
 const NEW_PHYSICIAN_ADDRESS = '5th avenue';
-const NEW_PHYSICIAN_MOBILE = '(222) 222-2222';
+const NEW_PHYSICIAN_MOBILE = '(202) 222-2222';
 const NEW_PATIENT_DETAILS_PLEASE_SPECIFY_FIELD = 'testing gender';
 
 //const RELEASE_OF_INFO = 'Yes, Release Allowed';
@@ -173,6 +173,21 @@ test.describe('Patient Record Page non-mutating tests', () => {
     await patientInformationPage.verifyPracticeNameFromPcpIsNotVisible();
     await patientInformationPage.verifyAddressFromPcpIsNotVisible();
     await patientInformationPage.verifyMobileFromPcpIsNotVisible();
+  });
+
+  test.skip('Check all fields from Primary Care Physician block after toggling the checkbox on and off', async ({
+    page,
+  }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+
+    await patientInformationPage.setCheckboxOn();
+    await patientInformationPage.setCheckboxOff();
+
+    await patientInformationPage.verifyFirstNameFromPcp(DEMO_VISIT_PROVIDER_FIRST_NAME);
+    await patientInformationPage.verifyLastNameFromPcp(DEMO_VISIT_PROVIDER_LAST_NAME);
+    await patientInformationPage.verifyPracticeNameFromPcp(DEMO_VISIT_PRACTICE_NAME);
+    await patientInformationPage.verifyAddressFromPcp(DEMO_VISIT_PHYSICIAN_ADDRESS);
+    await patientInformationPage.verifyMobileFromPcp(DEMO_VISIT_PHYSICIAN_MOBILE);
   });
 
   test('Check validation error is displayed for invalid phone number from Primary Care Physician block', async ({

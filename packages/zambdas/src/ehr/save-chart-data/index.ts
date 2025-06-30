@@ -22,10 +22,10 @@ import {
   SCHOOL_WORK_NOTE,
   SNOMEDCodeConceptInterface,
 } from 'utils';
-import { ZambdaInput } from '../../shared';
-import { checkOrCreateM2MClientToken, saveOrUpdateResourceRequest } from '../../shared';
 import {
+  checkOrCreateM2MClientToken,
   createDispositionServiceRequest,
+  createOystehrClient,
   createProcedureServiceRequest,
   followUpToPerformerMap,
   makeAllergyResource,
@@ -42,13 +42,14 @@ import {
   makeProcedureResource,
   makeSchoolWorkDR,
   makeServiceRequestResource,
+  saveOrUpdateResourceRequest,
   updateEncounterAddendumNote,
   updateEncounterAddToVisitNote,
   updateEncounterDiagnosis,
   updateEncounterDischargeDisposition,
   updateEncounterPatientInfoConfirmed,
+  ZambdaInput,
 } from '../../shared';
-import { createOystehrClient } from '../../shared';
 import { PdfDocumentReferencePublishedStatuses } from '../../shared/pdf/pdf-utils';
 import { createSchoolWorkNotePDF } from '../../shared/pdf/school-work-note-pdf';
 import { deleteResourceRequest } from '../delete-chart-data/helpers';

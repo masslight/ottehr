@@ -213,7 +213,7 @@ export default function SchedulePage(): ReactElement {
       setStatusPatchLoading(true);
       const value: string | boolean = item.owner.type === 'Location' ? (isActive ? 'active' : 'inactive') : isActive;
       const patched = await oystehr.fhir.patch<Location | Practitioner>({
-        resourceType: item.owner.type,
+        resourceType: item.owner.type as 'Location' | 'Practitioner',
         id: item.owner.id,
         operations: [
           {

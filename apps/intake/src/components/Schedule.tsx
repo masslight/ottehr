@@ -5,13 +5,15 @@ import { Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { FormEvent, ReactNode, SyntheticEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { breakpoints, ControlButtons, ErrorDialog, ErrorDialogConfig } from 'ui-components';
 import { createLocalDateTime, DATE_FULL_NO_YEAR, DATETIME_FULL_NO_YEAR, nextAvailableFrom, PROJECT_NAME } from 'utils';
 import { dataTestIds } from '../helpers/data-test-ids';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
 import { otherColors } from '../IntakeThemeProvider';
 import i18n from '../lib/i18n';
+import { breakpoints } from '../providers';
 import { SelectSlot } from '.';
+import { ErrorDialog, ErrorDialogConfig } from './ErrorDialog';
+import { ControlButtons } from './form';
 
 interface TabPanelProps {
   children?: ReactNode;

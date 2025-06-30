@@ -6,11 +6,13 @@ import { DateTime } from 'luxon';
 import { FC, useState } from 'react';
 import { useQuery } from 'react-query';
 import { generatePath, Link, useNavigate, useParams } from 'react-router-dom';
-import { ErrorDialog, ErrorDialogConfig, PageForm, useUCZambdaClient } from 'ui-components';
 import { APIError, CreateSlotParams, isApiError, PROJECT_NAME, ServiceMode } from 'utils';
 import { ottehrApi } from '../api';
 import { bookingBasePath } from '../App';
 import { PageContainer } from '../components';
+import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
+import PageForm from '../components/PageForm';
+import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 
 export const WalkinLanding: FC = () => {
   const navigate = useNavigate();
