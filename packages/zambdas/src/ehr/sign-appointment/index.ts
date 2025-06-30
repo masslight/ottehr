@@ -19,7 +19,7 @@ import {
 import { validateRequestParameters } from './validateRequestParameters';
 import { getChartData } from '../get-chart-data';
 import { checkOrCreateM2MClientToken, ZambdaInput } from '../../shared';
-import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createCandidEncounter } from '../../shared/candid';
+import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createEncounterFromAppointment } from '../../shared/candid';
 import { createOystehrClient } from '../../shared/helpers';
 import { getVideoResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
 import { makeVisitNotePdfDocumentReference } from '../../shared/pdf/visit-details-pdf/make-visit-note-pdf-document-reference';
@@ -77,7 +77,10 @@ export const performEffect = async (
     throw new Error(`No subject reference defined for encounter ${encounter?.id}`);
   }
 
-  const candidEncounterId = await createCandidEncounter(visitResources, secrets, oystehr);
+  const candidEncounterId = await createEncounterFromAppointment(visitResources, secrets, oystehr);
+
+  // We are removing simple encounter creation, since at this point swe should have pre-encounter resources
+  // const candidEncounterId = await createCandidEncounter(visitResources, secrets, oystehr);
 
   console.log(`appointment and encounter statuses: ${appointment.status}, ${encounter.status}`);
   const currentStatus = getVisitStatus(appointment, encounter);

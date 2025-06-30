@@ -16,10 +16,12 @@ import { RenderingProviderid } from 'candidhealth/api/resources/contracts/resour
 import {
   BillableStatusType,
   EncounterCreate,
+  EncounterCreateFromPreEncounter,
   ResponsiblePartyType,
 } from 'candidhealth/api/resources/encounters/resources/v4';
 import { ServiceLineCreate } from 'candidhealth/api/resources/serviceLines/resources/v2';
 import {
+  Appointment,
   CodeableConcept,
   Condition,
   Coverage,
@@ -47,9 +49,15 @@ import { chartDataResourceHasMetaTagByCode } from './chart-data';
 import { assertDefined } from './helpers';
 import { VideoResourcesAppointmentPackage } from './pdf/visit-details-pdf/types';
 import { getAccountAndCoverageResourcesForPatient } from '../ehr/shared/harvest';
+import { Sex } from 'candidhealth/api/resources/preEncounter/resources/common/types/Sex';
+import { AddressUse, ContactPointUse, PatientId } from 'candidhealth/api/resources/preEncounter';
+// import { APIResponse } from 'candidhealth/core';
 
 export const CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM =
   'https://api.joincandidhealth.com/api/encounters/v4/response/encounter_id';
+
+export const CANDID_PATIENT_ID_IDENTIFIER_SYSTEM =
+  'https://api.joincandidhealth.com/api/patients/v4/response/patient_id';
 
 const CODE_SYSTEM_HL7_IDENTIFIER_TYPE = 'http://terminology.hl7.org/CodeSystem/v2-0203';
 const CODE_SYSTEM_HL7_SUBSCRIBER_RELATIONSHIP = 'http://terminology.hl7.org/CodeSystem/subscriber-relationship';
@@ -476,10 +484,253 @@ function getSelfPayBillingProvider(): BillingProviderData {
   return STUB_BILLING_PROVIDER_DATA;
 }
 
-export const CANDID_PAYMENT_ID_SYSTEM = 'https://fhir.oystehr.com/PaymentIdSystem/candid';
-export const makeBusinessIdentifierForCandidPayment = (candidPaymentId: string): Identifier => {
+export async function fetchPreEncounterPatient(
+  medicalRecordNumber: string,
+  apiClient: CandidApiClient
+): Promise<string | undefined> {
+  const patientResponse = await apiClient.preEncounter.patients.v1.getMulti({
+    limit: 1,
+    mrn: medicalRecordNumber,
+  });
+  const patientId =
+    patientResponse.ok && patientResponse.body.items.length === 1 ? patientResponse.body.items[0].id : undefined;
+  return patientId;
+}
+
+export async function createPreEncounterPatient(
+  patient: Patient,
+  apiClient: CandidApiClient
+): Promise<string | undefined> {
+  const medicalRecordNumber = assertDefined(patient.id, 'Patient resource id');
+  const patientName = assertDefined(patient.name?.[0], 'Patient name');
+  const patientAddress = assertDefined(patient.address?.[0], 'Patient address');
+  const firstName = assertDefined(patientName.given?.[0], 'Patient first name');
+  const lastName = assertDefined(patientName.family, 'Patient last name');
+  const gender = assertDefined(patient.gender as Gender, 'Patient gender');
+  const dateOfBirth = assertDefined(patient.birthDate, 'Patient birth date');
+  const patientPhone = assertDefined(
+    patient.telecom?.find((telecom) => telecom.system === 'phone')?.value,
+    'Patient phone number'
+  );
+
+  const patientResponse = await apiClient.preEncounter.patients.v1.createWithMrn({
+    body: {
+      mrn: medicalRecordNumber,
+      name: {
+        family: lastName,
+        given: [firstName],
+        use: 'USUAL',
+      },
+      otherNames: [],
+      birthDate: dateOfBirth,
+      biologicalSex: mapGenderToSex(gender),
+      primaryAddress: {
+        line: assertDefined(patientAddress.line, 'Patient street address lines'),
+        city: assertDefined(patientAddress.city, 'Patient city'),
+        state: assertDefined(patientAddress.state as State, 'Patient state'),
+        postalCode: assertDefined(patientAddress.postalCode, 'Patient postal code'),
+        use: mapAddressUse(patientAddress.use),
+        country: patientAddress.country ? patientAddress.country : 'US',
+      },
+      otherAddresses: [],
+      primaryTelecom: {
+        value: patientPhone,
+        use: ContactPointUse.Home,
+      },
+      otherTelecoms: [],
+      contacts: [],
+      generalPractitioners: [],
+      filingOrder: {
+        coverages: [],
+      },
+    },
+  });
+  const patientId = patientResponse.ok && patientResponse.body.id ? patientResponse.body.id : undefined;
+  return patientId;
+}
+
+function mapGenderToSex(gender?: Gender): Sex {
+  switch (gender) {
+    case 'male':
+      return Sex.Male;
+    case 'female':
+      return Sex.Female;
+    case 'unknown':
+      return Sex.Unknown;
+    case 'other':
+    default:
+      return Sex.Refused;
+  }
+}
+
+function mapAddressUse(use?: ('home' | 'work' | 'temp' | 'old' | 'billing') | undefined): AddressUse {
+  switch (use) {
+    case 'home':
+      return AddressUse.Home;
+    case 'work':
+      return AddressUse.Work;
+    case 'billing':
+      return AddressUse.Billing;
+    case 'temp':
+      return AddressUse.Temp;
+    case 'old':
+      return AddressUse.Old;
+    default:
+      return AddressUse.Home;
+  }
+}
+
+export async function createAppointment(
+  patient: Patient,
+  appointment: Appointment,
+  apiClient: CandidApiClient
+): Promise<string | undefined> {
+  const patientId = assertDefined(
+    patient.identifier?.find((identifier) => identifier.system === CANDID_PATIENT_ID_IDENTIFIER_SYSTEM)?.value,
+    'Patient RCM Identifier'
+  );
+
+  const appointmentStart = DateTime.fromISO(assertDefined(appointment.start, 'Appointment start timestamp')).toJSDate();
+
+  const appointmentResponse = await apiClient.preEncounter.appointments.v1.create({
+    patientId: PatientId(patientId),
+    startTimestamp: appointmentStart,
+    serviceDuration: 0,
+    services: [],
+  });
+  const appointmentId = appointmentResponse.ok && appointmentResponse.body.id ? appointmentResponse.body.id : undefined;
+  return appointmentId;
+}
+
+export async function recordPatientPayment(
+  patient: Patient,
+  encounter: Encounter,
+  apiClient: CandidApiClient
+): Promise<void> {}
+
+export async function createEncounterFromAppointment(visitResources: VideoResourcesAppointmentPackage, secrets: Secrets, oystehr: Oystehr): Promise<string | undefined> {
+    console.log('Create candid encounter from appointment');
+  const candidClientId = getOptionalSecret(SecretsKeys.CANDID_CLIENT_ID, secrets);
+  if (candidClientId == null || candidClientId.length === 0) {
+    return undefined;
+  }
+  const apiClient = createCandidApiClient(secrets);
+  const createEncounterInput = await createCandidCreateEncounterInput(visitResources, oystehr);
+  const request = await candidCreateEncounterFromAppointmentRequest(createEncounterInput, apiClient);
+  console.log('Candid request:' + JSON.stringify(request, null, 2));
+  const response = await apiClient.encounters.v4.createFromPreEncounterPatient(request);
+  if (!response.ok) {
+    throw new Error(`Error creating a Candid encounter. Response body: ${JSON.stringify(response.error)}`);
+  }
+  const encounter = response.body;
+  console.log('Created Candid encounter:' + JSON.stringify(encounter));
+  return encounter.encounterId;
+}
+
+async function candidCreateEncounterFromAppointmentRequest(
+  input: CreateEncounterInput,
+  apiClient: CandidApiClient
+): Promise<EncounterCreateFromPreEncounter> {
+  const { encounter, patient, practitioner, diagnoses, procedures, insuranceResources } = input;
+  const patientName = assertDefined(patient.name?.[0], 'Patient name');
+  const patientAddress = assertDefined(patient.address?.[0], 'Patient address');
+  const practitionerNpi = assertDefined(getNpi(practitioner.identifier), 'Practitioner NPI');
+  const practitionerName = assertDefined(practitioner.name?.[0], 'Practitioner name');
+  const billingProviderData = insuranceResources
+    ? await fetchBillingProviderData(
+        practitionerNpi,
+        assertDefined(insuranceResources.payor.name, 'Payor name'),
+        SERVICE_FACILITY_LOCATION_STATE,
+        apiClient
+      )
+    : getSelfPayBillingProvider();
+  const serviceFacilityAddress = assertDefined(SERVICE_FACILITY_LOCATION.address, 'Service facility address');
+  const serviceFacilityPostalCodeTokens = assertDefined(
+    serviceFacilityAddress.postalCode,
+    'Service facility postal code'
+  ).split('-');
+  const candidDiagnoses = createCandidDiagnoses(encounter, diagnoses);
+  const primaryDiagnosisIndex = candidDiagnoses.findIndex(
+    (candidDiagnosis) => candidDiagnosis.codeType === DiagnosisTypeCode.Abk
+  );
+  if (primaryDiagnosisIndex === -1) {
+    throw new Error('Primary diagnosis is absent');
+  }
   return {
-    system: CANDID_PAYMENT_ID_SYSTEM,
-    value: candidPaymentId,
+    externalId: EncounterExternalId(assertDefined(encounter.id, 'Encounter.id')),
+    preEencounterPatientId: 'xxx',
+    preEncounterAppointmentIds: [
+      'xxx'
+    ],
+    billableStatus: BillableStatusType.Billable,
+    responsibleParty: insuranceResources != null ? ResponsiblePartyType.InsurancePay : ResponsiblePartyType.SelfPay,
+    benefitsAssignedToProvider: true,
+    patientAuthorizedRelease: true,
+    providerAcceptsAssignment: true,
+    patient: {
+      externalId: assertDefined(patient.id, 'Patient resource id'),
+      firstName: assertDefined(patientName.given?.[0], 'Patient first name'),
+      lastName: assertDefined(patientName.family, 'Patient last name'),
+      gender: assertDefined(patient.gender as Gender, 'Patient gender'),
+      dateOfBirth: assertDefined(patient.birthDate, 'Patient birth date'),
+      address: {
+        address1: assertDefined(patientAddress.line?.[0], 'Patient address line'),
+        city: assertDefined(patientAddress.city, 'Patient city'),
+        state: assertDefined(patientAddress.state as State, 'Patient state'),
+        zipCode: assertDefined(patientAddress.postalCode, 'Patient postal code'),
+      },
+    },
+    billingProvider: {
+      organizationName: billingProviderData.organizationName,
+      firstName: billingProviderData.firstName,
+      lastName: billingProviderData.lastName,
+      npi: billingProviderData.npi,
+      taxId: billingProviderData.taxId,
+      address: {
+        address1: billingProviderData.addressLine,
+        city: billingProviderData.city,
+        state: billingProviderData.state as State,
+        zipCode: billingProviderData.zipCode,
+        zipPlusFourCode: billingProviderData.zipPlusFourCode,
+      },
+    },
+    renderingProvider: {
+      firstName: assertDefined(practitionerName.given?.[0], 'Practitioner first name'),
+      lastName: assertDefined(practitionerName.family, 'Practitioner last name'),
+      npi: assertDefined(getNpi(practitioner.identifier), 'Practitioner NPI'),
+    },
+    serviceFacility: {
+      organizationName: assertDefined(SERVICE_FACILITY_LOCATION.name, 'Service facility name'),
+      address: {
+        address1: assertDefined(serviceFacilityAddress.line?.[0], 'Service facility address line'),
+        city: assertDefined(serviceFacilityAddress.city, 'Service facility city'),
+        state: assertDefined(serviceFacilityAddress.state as State, 'Service facility state'),
+        zipCode: serviceFacilityPostalCodeTokens[0],
+        zipPlusFourCode: serviceFacilityPostalCodeTokens[1] ?? '9998',
+      },
+    },
+    placeOfServiceCode: assertDefined(
+      getExtensionString(SERVICE_FACILITY_LOCATION.extension, CODE_SYSTEM_CMS_PLACE_OF_SERVICE) as FacilityTypeCode,
+      'Location place of service code'
+    ),
+    diagnoses: candidDiagnoses,
+    serviceLines: procedures.flatMap<ServiceLineCreate>((procedure) => {
+      const procedureCode = procedure.code?.coding?.[0].code;
+      if (procedureCode == null) {
+        return [];
+      }
+      return [
+        {
+          procedureCode: procedureCode,
+          quantity: Decimal('1'),
+          units: ServiceLineUnits.Un,
+          diagnosisPointers: [primaryDiagnosisIndex],
+          dateOfService: assertDefined(
+            DateTime.fromISO(assertDefined(procedure.meta?.lastUpdated, 'Procedure date')).toISODate(),
+            'Service line date'
+          ),
+        },
+      ];
+    })
   };
-};
+}

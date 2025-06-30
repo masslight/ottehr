@@ -32,6 +32,8 @@ import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 import Stripe from 'stripe';
 import { DateTime } from 'luxon';
 import Oystehr from '@oystehr/sdk';
+import { createEncounterFromAppointment } from '../../shared/candid';
+
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrM2MClientToken: string;
@@ -108,6 +110,7 @@ const performEffect = async (input: ComplexValidationOutput, oystehrClient: Oyst
     dateTimeIso,
     recipientId: organizationId,
   };
+
   if (input.cardInput && paymentMethod === 'card') {
     const stripeClient = getStripeClient(secrets);
     const customerId = input.cardInput.stripeCustomerId;
@@ -136,6 +139,22 @@ const performEffect = async (input: ComplexValidationOutput, oystehrClient: Oyst
     console.log('handling non card payment:', paymentMethod, amountInCents, description);
     // here's we might set a candidPayment id once candid stuff has been added
   }
+
+  //
+  // Candid Pre-Encounter Integration
+  //
+  // 1. Lookup patient by encounter ID->Patient Id
+  //   a. if not found, create a patient
+  // 2. check if patient has coverages, if not, add coverages
+  // 3. lookup patient appointments for the date of the visit (grab appointment ID)
+  //    a. if yes, grab the latest one
+  //    b. if not, create an appointment for the patient
+  // 4. record patient payment (amount in cents, allocation of type "appointment", appointment ID noted above)
+
+  const candidEncounterId = 
+
+
+
   const noticeToWrite = makePaymentNotice(paymentNoticeInput);
 
   return await oystehrClient.fhir.create<PaymentNotice>(noticeToWrite);
