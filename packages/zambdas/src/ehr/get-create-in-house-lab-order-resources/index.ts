@@ -23,7 +23,6 @@ import {
 import { fetchActiveInHouseLabActivityDefinitions } from '../shared/inhouse-labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
-
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-create-in-house-lab-order-resources';
 

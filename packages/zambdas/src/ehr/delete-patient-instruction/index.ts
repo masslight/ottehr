@@ -8,7 +8,9 @@ import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 
-export const index = wrapHandler('delete-patient-instruction', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+const ZAMBDA_NAME = 'delete-patient-instructions';
+
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.log(`Input: ${JSON.stringify(input)}`);
     const { instructionId, secrets, userToken } = validateRequestParameters(input);
@@ -20,23 +22,22 @@ export const index = wrapHandler('delete-patient-instruction', async (input: Zam
       throw new Error('Instruction deletion failed. Instruction does not belongs to provider');
     await deleteCommunication(oystehr, instructionId);
 
-      return {
-        body: JSON.stringify({
-          message: `Successfully deleted patient instruction: ${instructionId}`,
-        }),
-        statusCode: 200,
-      };
-    } catch (error) {
-      console.log(error);
-      const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-      await topLevelCatch('delete-patient-instruction', error, ENVIRONMENT);
-      return {
-        body: JSON.stringify({ message: 'Error deleting patient instructions...' }),
-        statusCode: 500,
-      };
-    }
+    return {
+      body: JSON.stringify({
+        message: `Successfully deleted patient instruction: ${instructionId}`,
+      }),
+      statusCode: 200,
+    };
+  } catch (error) {
+    console.log(error);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('delete-patient-instruction', error, ENVIRONMENT);
+    return {
+      body: JSON.stringify({ message: 'Error deleting patient instructions...' }),
+      statusCode: 500,
+    };
   }
-);
+});
 
 async function deleteCommunication(oystehr: Oystehr, id: string): Promise<void> {
   await oystehr.fhir.delete({ resourceType: 'Communication', id });

@@ -102,12 +102,30 @@ const getInHouseLabOrderRelatedResources = async (
   }
 };
 
-export const index = wrapHandler(
-  'delete-in-house-lab-order',
-  async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-    let secrets = input.secrets;
-    let validatedParameters: DeleteInHouseLabOrderParameters & { secrets: Secrets | null; userToken: string };
+const ZAMBDA_NAME = 'delete-in-house-lab-order';
 
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  console.log(`delete-in-house-lab-order started, input: ${JSON.stringify(input)}`);
+
+  let secrets = input.secrets;
+  let validatedParameters: DeleteInHouseLabOrderParameters & { secrets: Secrets | null; userToken: string };
+
+  try {
+    validatedParameters = validateRequestParameters(input);
+  } catch (error: any) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({
+        message: `Invalid request parameters. ${error.message || error}`,
+      }),
+    };
+  }
+
+  try {
+    secrets = validatedParameters.secrets;
+    const { serviceRequestId } = validatedParameters;
+
+    console.log('validateRequestParameters success');
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
@@ -116,85 +134,64 @@ export const index = wrapHandler(
 
     if (!serviceRequest) {
       return {
-        statusCode: 400,
+        statusCode: 404,
         body: JSON.stringify({
-          message: `Invalid request parameters. ${error.message || error}`,
+          message: `In-house lab order with ServiceRequest ID ${serviceRequestId} not found`,
         }),
       };
     }
 
-    try {
-      secrets = validatedParameters.secrets;
-      const { serviceRequestId } = validatedParameters;
+    const deleteRequests: BatchInputDeleteRequest[] = [];
 
-      console.log('validateRequestParameters success');
+    deleteRequests.push(makeDeleteResourceRequest('ServiceRequest', serviceRequestId));
 
-      m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-      const oystehr = createOystehrClient(m2mtoken, secrets);
-
-      const { serviceRequest, task, provenance } = await getInHouseLabOrderRelatedResources(oystehr, serviceRequestId);
-
-      if (!serviceRequest) {
-        return {
-          statusCode: 404,
-          body: JSON.stringify({
-            message: `In-house lab order with ServiceRequest ID ${serviceRequestId} not found`,
-          }),
-        };
-      }
-
-      const deleteRequests: BatchInputDeleteRequest[] = [];
-
-      deleteRequests.push(makeDeleteResourceRequest('ServiceRequest', serviceRequestId));
-
-      if (task?.id) {
-        deleteRequests.push(makeDeleteResourceRequest('Task', task.id));
-      }
-
-      if (provenance?.id) {
-        deleteRequests.push(makeDeleteResourceRequest('Provenance', provenance.id));
-      }
-
-      let transactionResponse: Bundle<FhirResource> = {
-        resourceType: 'Bundle',
-        entry: [],
-        type: 'transaction',
-      };
-
-      if (deleteRequests.length > 0) {
-        console.log(
-          `Deleting in-house lab order for ServiceRequest ID: ${serviceRequestId}; requests: ${JSON.stringify(
-            deleteRequests,
-            null,
-            2
-          )}`
-        );
-
-        transactionResponse = (await oystehr.fhir.transaction({
-          requests: deleteRequests,
-        })) as Bundle<FhirResource>;
-
-        if (!transactionResponse.entry?.every((entry) => entry.response?.status[0] === '2')) {
-          throw new Error('Error deleting in-house lab order resources in transaction');
-        }
-      }
-
-      const response: DeleteInHouseLabOrderZambdaOutput = {};
-
-      return {
-        statusCode: 200,
-        body: JSON.stringify(response),
-      };
-    } catch (error: any) {
-      console.error('Error deleting in-house lab order:', error);
-      const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-      await topLevelCatch('delete-in-house-lab-order', error, ENVIRONMENT);
-      return {
-        statusCode: error.statusCode || 500,
-        body: JSON.stringify({
-          message: `Error processing request: ${error.message || error}`,
-        }),
-      };
+    if (task?.id) {
+      deleteRequests.push(makeDeleteResourceRequest('Task', task.id));
     }
+
+    if (provenance?.id) {
+      deleteRequests.push(makeDeleteResourceRequest('Provenance', provenance.id));
+    }
+
+    let transactionResponse: Bundle<FhirResource> = {
+      resourceType: 'Bundle',
+      entry: [],
+      type: 'transaction',
+    };
+
+    if (deleteRequests.length > 0) {
+      console.log(
+        `Deleting in-house lab order for ServiceRequest ID: ${serviceRequestId}; requests: ${JSON.stringify(
+          deleteRequests,
+          null,
+          2
+        )}`
+      );
+
+      transactionResponse = (await oystehr.fhir.transaction({
+        requests: deleteRequests,
+      })) as Bundle<FhirResource>;
+
+      if (!transactionResponse.entry?.every((entry) => entry.response?.status[0] === '2')) {
+        throw new Error('Error deleting in-house lab order resources in transaction');
+      }
+    }
+
+    const response: DeleteInHouseLabOrderZambdaOutput = {};
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify(response),
+    };
+  } catch (error: any) {
+    console.error('Error deleting in-house lab order:', error);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('delete-in-house-lab-order', error, ENVIRONMENT);
+    return {
+      statusCode: error.statusCode || 500,
+      body: JSON.stringify({
+        message: `Error processing request: ${error.message || error}`,
+      }),
+    };
   }
-);
+});
