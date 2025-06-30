@@ -50,7 +50,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       diagnosticReports,
       resultsPDFs,
       currentPractitioner,
-      timezone,
+      slots,
+      scheduleMap,
     } = await getInHouseResources(
       oystehr,
       validatedParameters,
@@ -88,8 +89,9 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       diagnosticReports,
       resultsPDFs,
       ENVIRONMENT,
-      currentPractitioner,
-      timezone
+      slots,
+      scheduleMap,
+      currentPractitioner
     );
     const sortedOrders = inHouseOrders.sort((a, b) => compareDates(a.orderAddedDate, b.orderAddedDate));
 

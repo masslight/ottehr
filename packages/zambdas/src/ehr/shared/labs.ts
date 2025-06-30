@@ -15,6 +15,7 @@ import {
   QuestionnaireResponse,
   Schedule,
   ServiceRequest,
+  Slot,
   Specimen,
   Task,
 } from 'fhir/r4b';
@@ -24,6 +25,7 @@ import {
   ExternalLabOrderResult,
   ExternalLabOrderResultConfig,
   getPresignedURL,
+  getTimezone,
   IN_HOUSE_DIAGNOSTIC_REPORT_CATEGORY_CONFIG,
   IN_HOUSE_TEST_CODE_SYSTEM,
   InHouseLabResult,
@@ -565,4 +567,25 @@ export const parseAppointmentIdForServiceRequest = (
   }
 
   return NOT_FOUND;
+};
+
+export const parseTimezoneForAppointmentSchedule = (
+  appointment: Appointment | undefined,
+  slots: Slot[],
+  scheduleMap: Record<string, Schedule>
+): string | undefined => {
+  if (!appointment) return;
+  const slot = slots.find((slot) => {
+    const slotRef = `Slot/${slot.id}`;
+    return appointment.slot?.some((s) => s.reference === slotRef);
+  });
+  if (!slot) return;
+  const scheduleId = slot.schedule.reference?.replace('Schedule/', '');
+  if (!scheduleId) return;
+  const schedule = scheduleMap[scheduleId];
+  let timezone;
+  if (schedule) {
+    timezone = getTimezone(schedule);
+  }
+  return timezone;
 };

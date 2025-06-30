@@ -30,7 +30,6 @@ import {
   EMPTY_PAGINATION,
   ExternalLabsStatus,
   getFullestAvailableName,
-  getTimezone,
   isPositiveNumberOrZero,
   LAB_ACCOUNT_NUMBER_SYSTEM,
   LAB_ORDER_TASK,
@@ -54,7 +53,11 @@ import {
   SPECIMEN_CODING_CONFIG,
 } from 'utils';
 import { sendErrors } from '../../shared';
-import { fetchLabOrderPDFsPresignedUrls, parseAppointmentIdForServiceRequest } from '../shared/labs';
+import {
+  fetchLabOrderPDFsPresignedUrls,
+  parseAppointmentIdForServiceRequest,
+  parseTimezoneForAppointmentSchedule,
+} from '../shared/labs';
 import { GetZambdaLabOrdersParams } from './validateRequestParameters';
 
 // cache for the service request context: contains parsed tasks and results
@@ -2125,25 +2128,4 @@ export const getAllServiceRequestsForPatient = async (
   const allServiceRequests = Array.from(serviceRequestsMap.values());
   console.log(`Found ${allServiceRequests.length} unique service requests for patient`);
   return allServiceRequests;
-};
-
-const parseTimezoneForAppointmentSchedule = (
-  appointment: Appointment | undefined,
-  slots: Slot[],
-  scheduleMap: Record<string, Schedule>
-): string | undefined => {
-  if (!appointment) return;
-  const slot = slots.find((slot) => {
-    const slotRef = `Slot/${slot.id}`;
-    return appointment.slot?.some((s) => s.reference === slotRef);
-  });
-  if (!slot) return;
-  const scheduleId = slot.schedule.reference?.replace('Schedule/', '');
-  if (!scheduleId) return;
-  const schedule = scheduleMap[scheduleId];
-  let timezone;
-  if (schedule) {
-    timezone = getTimezone(schedule);
-  }
-  return timezone;
 };

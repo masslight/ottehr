@@ -13,6 +13,7 @@ import {
   Resource,
   Schedule,
   ServiceRequest,
+  Slot,
   Specimen,
   Task,
 } from 'fhir/r4b';
@@ -24,7 +25,6 @@ import {
   EMPTY_PAGINATION,
   fetchDocumentReferencesForDiagnosticReports,
   getFullestAvailableName,
-  getTimezone,
   IN_HOUSE_TEST_CODE_SYSTEM,
   InHouseGetOrdersResponseDTO,
   InHouseOrderListPageItemDTO,
@@ -45,7 +45,7 @@ import {
   getUrlAndVersionForADFromServiceRequest,
   taskIsBasedOnServiceRequest,
 } from '../shared/inhouse-labs';
-import { fetchLabOrderPDFsPresignedUrls } from '../shared/labs';
+import { fetchLabOrderPDFsPresignedUrls, parseTimezoneForAppointmentSchedule } from '../shared/labs';
 import { GetZambdaInHouseOrdersParams } from './validateRequestParameters';
 
 // cache for the service request context
@@ -68,8 +68,9 @@ export const mapResourcesToInHouseOrderDTOs = <SearchBy extends InHouseOrdersSea
   diagnosticReports: DiagnosticReport[],
   resultsPDFs: LabResultPDF[],
   ENVIRONMENT: string,
-  currentPractitioner?: Practitioner,
-  timezone?: string
+  slots: Slot[],
+  scheduleMap: Record<string, Schedule>,
+  currentPractitioner?: Practitioner
 ): InHouseGetOrdersResponseDTO<SearchBy>['data'] => {
   const result: InHouseGetOrdersResponseDTO<SearchBy>['data'] = [];
 
@@ -102,11 +103,12 @@ export const mapResourcesToInHouseOrderDTOs = <SearchBy extends InHouseOrdersSea
           activityDefinitions,
           specimens,
           observations,
+          slots,
+          scheduleMap,
           cache,
           resultsPDF,
           currentPractitionerName: currentPractitioner ? getFullestAvailableName(currentPractitioner) || '' : '',
           currentPractitionerId: currentPractitioner?.id || '',
-          timezone,
         })
       );
     } catch (error) {
@@ -129,11 +131,12 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
   activityDefinitions,
   specimens,
   observations,
+  slots,
+  scheduleMap,
   cache,
   resultsPDF,
   currentPractitionerName,
   currentPractitionerId,
-  timezone,
 }: {
   searchBy: SearchBy;
   serviceRequest: ServiceRequest;
@@ -145,11 +148,12 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
   activityDefinitions: ActivityDefinition[];
   specimens: Specimen[];
   observations: Observation[];
+  slots: Slot[];
+  scheduleMap: Record<string, Schedule>;
   cache?: Cache;
   resultsPDF?: LabResultPDF;
   currentPractitionerName?: string;
   currentPractitionerId?: string;
-  timezone?: string;
 }): InHouseGetOrdersResponseDTO<SearchBy>['data'][number] => {
   console.log('parsing inhouse order data');
   if (!serviceRequest.id) {
@@ -183,7 +187,7 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
     orderingPhysicianFullName: attendingPractitioner ? getFullestAvailableName(attendingPractitioner) || '' : '',
     resultReceivedDate: parseResultsReceivedDate(serviceRequest, tasks),
     diagnosesDTO: diagnosisDTO,
-    timezone: timezone,
+    timezone: parseTimezoneForAppointmentSchedule(appointment, slots, scheduleMap),
     orderAddedDate: parseOrderAddedDate(serviceRequest, tasks),
     serviceRequestId: serviceRequest.id,
   };
@@ -261,7 +265,8 @@ export const getInHouseResources = async (
   diagnosticReports: DiagnosticReport[];
   resultsPDFs: LabResultPDF[];
   currentPractitioner?: Practitioner;
-  timezone: string | undefined;
+  slots: Slot[];
+  scheduleMap: Record<string, Schedule>;
 }> => {
   const searchParams = createInHouseServiceRequestSearchParams(params);
   console.log('createInHouseServiceRequestSearchParams', searchParams);
@@ -285,7 +290,9 @@ export const getInHouseResources = async (
     observations,
     diagnosticReports,
     activityDefinitions,
-    schedules,
+    appointments,
+    slots,
+    scheduleMap,
   } = extractInHouseResources(resources);
 
   const isDetailPageRequest = searchBy.searchBy.field === 'serviceRequestId';
@@ -327,14 +334,8 @@ export const getInHouseResources = async (
     }
   }
 
-  let timezone;
-  if (schedules?.[0]) {
-    timezone = getTimezone(schedules[0]);
-  }
-
-  const [practitioners, appointments] = await Promise.all([
+  const [practitioners] = await Promise.all([
     fetchPractitionersForServiceRequests(oystehr, serviceRequests, encounters),
-    fetchAppointmentsForServiceRequests(oystehr, serviceRequests, encounters),
   ]);
 
   return {
@@ -352,7 +353,8 @@ export const getInHouseResources = async (
     diagnosticReports,
     resultsPDFs,
     currentPractitioner,
-    timezone,
+    slots,
+    scheduleMap,
   };
 };
 
@@ -405,6 +407,19 @@ export const createInHouseServiceRequestSearchParams = (params: GetZambdaInHouse
       name: '_include',
       value: 'ServiceRequest:instantiates-canonical',
     },
+    {
+      name: '_include:iterate',
+      value: 'Encounter:appointment',
+    },
+    // Include slot to get reliable timezone info
+    {
+      name: '_include:iterate',
+      value: 'Appointment:slot',
+    },
+    {
+      name: '_include:iterate',
+      value: 'Slot:schedule',
+    },
   ];
 
   // Search by specific criteria
@@ -453,22 +468,6 @@ export const createInHouseServiceRequestSearchParams = (params: GetZambdaInHouse
       value: 'DiagnosticReport:based-on',
     });
 
-    // Include slot to get reliable timezone info
-    searchParams.push(
-      {
-        name: '_include:iterate',
-        value: 'Encounter:appointment',
-      },
-      {
-        name: '_include:iterate',
-        value: 'Appointment:slot',
-      },
-      {
-        name: '_include:iterate',
-        value: 'Slot:schedule',
-      }
-    );
-
     // Include any related repeat test SRs
     searchParams.push({
       name: '_include:iterate',
@@ -502,7 +501,9 @@ export const extractInHouseResources = (
   observations: Observation[];
   diagnosticReports: DiagnosticReport[];
   activityDefinitions: ActivityDefinition[];
-  schedules: Schedule[];
+  appointments: Appointment[];
+  slots: Slot[];
+  scheduleMap: Record<string, Schedule>;
 } => {
   const serviceRequests: ServiceRequest[] = [];
   const tasks: Task[] = [];
@@ -513,7 +514,9 @@ export const extractInHouseResources = (
   const observations: Observation[] = [];
   const diagnosticReports: DiagnosticReport[] = [];
   const activityDefinitions: ActivityDefinition[] = [];
-  const schedules: Schedule[] = [];
+  const appointments: Appointment[] = [];
+  const slots: Slot[] = [];
+  const scheduleMap: Record<string, Schedule> = {};
 
   for (const resource of resources) {
     if (resource.resourceType === 'ServiceRequest') {
@@ -534,8 +537,15 @@ export const extractInHouseResources = (
       diagnosticReports.push(resource);
     } else if (resource.resourceType === 'ActivityDefinition') {
       activityDefinitions.push(resource);
+    } else if (resource.resourceType === 'Appointment') {
+      appointments.push(resource);
+    } else if (resource.resourceType === 'Slot') {
+      slots.push(resource);
     } else if (resource.resourceType === 'Schedule') {
-      schedules.push(resource);
+      const scheduleId = resource.id;
+      if (scheduleId && !scheduleMap[scheduleId]) {
+        scheduleMap[scheduleId] = resource;
+      }
     }
   }
 
@@ -549,7 +559,9 @@ export const extractInHouseResources = (
     observations,
     diagnosticReports,
     activityDefinitions,
-    schedules,
+    appointments,
+    slots,
+    scheduleMap,
   };
 };
 
@@ -599,30 +611,6 @@ export const fetchPractitionersForServiceRequests = async (
     console.error('Failed to fetch Practitioners', JSON.stringify(error, null, 2));
     return [];
   }
-};
-
-export const fetchAppointmentsForServiceRequests = async (
-  oystehr: Oystehr,
-  serviceRequests: ServiceRequest[],
-  encounters: Encounter[]
-): Promise<Appointment[]> => {
-  const appointmentIds = serviceRequests.map((sr) => parseAppointmentId(sr, encounters)).filter(Boolean);
-
-  if (!appointmentIds.length) {
-    return [];
-  }
-
-  const appointmentsResponse = await oystehr.fhir.search<Appointment>({
-    resourceType: 'Appointment',
-    params: [
-      {
-        name: '_id',
-        value: appointmentIds.join(','),
-      },
-    ],
-  });
-
-  return appointmentsResponse.unbundle();
 };
 
 export const findActivityDefinitionForServiceRequest = (
