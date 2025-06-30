@@ -82,7 +82,7 @@ export const performEffect = async (
 
   const resultAppointments: TelemedAppointmentInformation[] = [];
 
-  if (allResources.length > 0) {
+  if (allPackages.length > 0) {
     const allRelatedPersonMaps = await relatedPersonAndCommunicationMaps(oystehrm2m, allResources);
 
     for (let i = 0; i < allPackages.length; i++) {
