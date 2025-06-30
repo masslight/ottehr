@@ -15,6 +15,7 @@ import { useReactNavigationBlocker } from '../../../hooks/useReactNavigationBloc
 import { getEditOrderUrl } from '../../../routing/helpers';
 import { ROUTER_PATH, routesCSS } from '../../../routing/routesCSS';
 import { CSSModal } from '../../CSSModal';
+import { PATIENT_MEDS_COUNT_TO_LOAD } from '../medication-history/MedicationHistoryList';
 import { fieldsConfig, MedicationOrderType } from './fieldsConfig';
 import { MedicationCardView } from './MedicationCardView';
 import {
@@ -41,7 +42,7 @@ export const EditableMedicationCard: React.FC<{
   const { mappedData, resources } = useAppointment(appointmentId);
   const [isReasonSelected, setIsReasonSelected] = useState(true);
   const selectsOptions = useFieldsSelectsOptions();
-  const { refetchHistory } = useMedicationHistory();
+  const { refetchHistory } = useMedicationHistory('patient', PATIENT_MEDS_COUNT_TO_LOAD);
 
   const [localValues, setLocalValues] = useState<Partial<MedicationData>>(
     medication

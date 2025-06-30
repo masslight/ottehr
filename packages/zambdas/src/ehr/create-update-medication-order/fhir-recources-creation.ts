@@ -16,6 +16,7 @@ import {
   PRACTITIONER_ORDERED_MEDICATION_CODE,
   TIME_OF_MEDICATION_ADMINISTERED_SYSTEM,
 } from 'utils';
+import { fillMeta } from '../../shared';
 
 export interface MedicationAdministrationData {
   orderData: MedicationData;
@@ -77,7 +78,7 @@ export function createMedicationAdministrationResource(data: MedicationAdministr
       },
     ];
   }
-  if (dateTimeCreated) resource.effectiveDateTime = dateTimeCreated;
+  if (dateTimeCreated) resource.effectiveDateTime = dateTimeCreated; // todo: check if this is correct, effectiveDateTime is not date of creation, it's date of administration
   if (medicationResource) {
     resource.contained = [{ ...medicationResource, id: IN_HOUSE_CONTAINED_MEDICATION_ID }];
   }
@@ -125,6 +126,16 @@ export function createMedicationAdministrationResource(data: MedicationAdministr
           },
         ],
       },
+
+      // TODO: [TIMEZONE] Current approach loses timezone information.
+      // Replace separate date/time fields with effectiveDateTime or add timezone extension.
+      // Options:
+      // 1) Use ISO effectiveDateTime instead of separate date/time extensions
+      //    [good if medication timezone always corresponds to encounter timezone]
+      // 2) Add timezone extension + UI selector if we need to handle
+      //    cases where patient takes medication in different timezone than encounter timezone
+      // 3) [current variant]: dateGiven is used without timeGiven as effective date,
+      //    because using date without time is possible without timezone in FHIR
       extension: [
         {
           url: DATE_OF_MEDICATION_ADMINISTERED_SYSTEM,
@@ -153,7 +164,8 @@ export function createMedicationAdministrationResource(data: MedicationAdministr
 
 export function createMedicationStatementResource(
   medicationAdministration: MedicationAdministration,
-  medicationCodeableConcept: CodeableConcept
+  medicationCodeableConcept: CodeableConcept,
+  options: { effectiveDateTime?: string | undefined } = {}
 ): MedicationStatement {
   return {
     resourceType: 'MedicationStatement',
@@ -174,6 +186,7 @@ export function createMedicationStatementResource(
     ],
     subject: medicationAdministration.subject,
     informationSource: { reference: 'Practitioner/' + getCreatedTheOrderProviderId(medicationAdministration) },
-    effectiveDateTime: medicationAdministration.effectiveDateTime, // is it correct or shold be used date.now or something else?
+    ...(options.effectiveDateTime && { effectiveDateTime: options.effectiveDateTime }),
+    meta: fillMeta('in-house-medication', 'in-house-medication'),
   };
 }

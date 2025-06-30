@@ -4,7 +4,6 @@ export const INVENTORY_MEDICATION_TYPE_CODE = 'virtual-medication-inventory';
 
 export const MEDICATION_IDENTIFIER_NAME_SYSTEM = 'virtual-medication-identifier-name-system';
 
-// todo: duplicated MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM
 export const MEDICATION_DISPENSABLE_DRUG_ID =
   'https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id';
 
