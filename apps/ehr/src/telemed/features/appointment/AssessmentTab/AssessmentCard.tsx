@@ -1,19 +1,19 @@
-import React, { FC } from 'react';
 import { Box, Stack, Typography } from '@mui/material';
-import {
-  AssessmentTitle,
-  BillingCodesContainer,
-  EMCodeField,
-  DiagnosesContainer,
-  MedicalDecisionContainer,
-} from './components';
+import React, { FC } from 'react';
+import { useFeatureFlags } from '../../../../features/css-module/context/featureFlags';
+import { getSelectors } from '../../../../shared/store/getSelectors';
 import { AccordionCard, DoubleColumnContainer } from '../../../components';
 import { PageTitle } from '../../../components/PageTitle';
 import { useGetAppointmentAccessibility } from '../../../hooks';
 import { useAppointmentStore } from '../../../state';
-import { useFeatureFlags } from '../../../../features/css-module/context/featureFlags';
 import { AiPotentialDiagnosesCard } from './AiPotentialDiagnosesCard';
-import { getSelectors } from '../../../../shared/store/getSelectors';
+import {
+  AssessmentTitle,
+  BillingCodesContainer,
+  DiagnosesContainer,
+  EMCodeField,
+  MedicalDecisionContainer,
+} from './components';
 
 export const AssessmentCard: FC = () => {
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);

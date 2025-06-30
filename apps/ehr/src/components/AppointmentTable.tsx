@@ -1,5 +1,6 @@
 import ArrowDropDownCircleOutlinedIcon from '@mui/icons-material/ArrowDropDownCircleOutlined';
 import {
+  alpha,
   Box,
   IconButton,
   Paper,
@@ -10,23 +11,21 @@ import {
   TableHead,
   TableRow,
   Typography,
-  alpha,
   useTheme,
 } from '@mui/material';
 import { Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ReactElement, useState } from 'react';
-import { InHouseOrderListPageItemDTO, InPersonAppointmentInformation } from 'utils';
-import { AppointmentsStatusChipsCount } from './AppointmentStatusChipsCount';
-import AppointmentTableRow from './AppointmentTableRow';
-import { ApptTab } from './AppointmentTabs';
+import { InHouseOrderListPageItemDTO, InPersonAppointmentInformation, LabOrderListPageDTO, NursingOrder } from 'utils';
 import {
   ACTION_WIDTH,
   ACTION_WIDTH_MIN,
   CHAT_WIDTH,
   CHAT_WIDTH_MIN,
-  GO_TO_WIDTH,
-  GO_TO_WIDTH_MIN,
+  GO_TO_ONE_BUTTON_WIDTH,
+  GO_TO_ONE_BUTTON_WIDTH_MIN,
+  GO_TO_TWO_BUTTON_WIDTH,
+  GO_TO_TWO_BUTTON_WIDTH_MIN,
   NEXT_WIDTH,
   NOTES_WIDTH,
   NOTES_WIDTH_MIN,
@@ -43,6 +42,9 @@ import {
   VISIT_ICONS_WIDTH_MIN,
 } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
+import { AppointmentsStatusChipsCount } from './AppointmentStatusChipsCount';
+import AppointmentTableRow from './AppointmentTableRow';
+import { ApptTab } from './AppointmentTabs';
 
 interface AppointmentTableProps {
   appointments: InPersonAppointmentInformation[];
@@ -52,6 +54,8 @@ interface AppointmentTableProps {
   updateAppointments: () => void;
   setEditingComment: (editingComment: boolean) => void;
   inHouseLabOrdersByAppointmentId: Record<string, InHouseOrderListPageItemDTO[]>;
+  externalLabOrdersByAppointmentId: Record<string, LabOrderListPageDTO[]>;
+  nursingOrdersByAppointmentId: Record<string, NursingOrder[]>;
 }
 
 export default function AppointmentTable({
@@ -62,6 +66,8 @@ export default function AppointmentTable({
   updateAppointments,
   setEditingComment,
   inHouseLabOrdersByAppointmentId,
+  externalLabOrdersByAppointmentId,
+  nursingOrdersByAppointmentId,
 }: AppointmentTableProps): ReactElement {
   const theme = useTheme();
   const actionButtons = tab === ApptTab.prebooked ? true : false;
@@ -112,7 +118,7 @@ export default function AppointmentTable({
                 </TableCell>
                 <TableCell style={{ width: VISIT_ICONS_WIDTH, minWidth: VISIT_ICONS_WIDTH_MIN }}>
                   <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
-                    Visit Components
+                    {tab === ApptTab.completed ? 'Orders' : 'Visit Components'}
                   </Typography>
                 </TableCell>
                 <TableCell style={{ width: NOTES_WIDTH, minWidth: NOTES_WIDTH_MIN }}>
@@ -125,8 +131,13 @@ export default function AppointmentTable({
                     Chat
                   </Typography>
                 </TableCell>
-                <TableCell style={{ width: GO_TO_WIDTH, minWidth: GO_TO_WIDTH_MIN }}>
-                  <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
+                <TableCell
+                  style={{
+                    width: tab === ApptTab.prebooked ? GO_TO_ONE_BUTTON_WIDTH : GO_TO_TWO_BUTTON_WIDTH,
+                    minWidth: tab === ApptTab.prebooked ? GO_TO_ONE_BUTTON_WIDTH_MIN : GO_TO_TWO_BUTTON_WIDTH_MIN,
+                  }}
+                >
+                  <Typography variant="subtitle2" sx={{ fontSize: '14px', textAlign: 'center' }}>
                     Go to...
                   </Typography>
                 </TableCell>
@@ -143,7 +154,7 @@ export default function AppointmentTable({
               {tab === ApptTab['in-office'] ? (
                 <>
                   <TableRow>
-                    <TableCell sx={{ backgroundColor: alpha(theme.palette.secondary.main, 0.08) }} colSpan={11}>
+                    <TableCell sx={{ backgroundColor: alpha(theme.palette.secondary.main, 0.08) }} colSpan={10}>
                       <Box sx={{ display: 'flex', alignItems: 'center' }}>
                         <IconButton onClick={() => setCollapseWaiting(!collapseWaiting)} sx={{ mr: 0.75, p: 0 }}>
                           <ArrowDropDownCircleOutlinedIcon
@@ -185,6 +196,8 @@ export default function AppointmentTable({
                             setEditingComment={setEditingComment}
                             tab={tab}
                             inHouseLabOrders={inHouseLabOrdersByAppointmentId[appointment.id]}
+                            externalLabOrders={externalLabOrdersByAppointmentId[appointment.id]}
+                            nursingOrders={nursingOrdersByAppointmentId[appointment.id]}
                           ></AppointmentTableRow>
                         );
                       })}
@@ -203,6 +216,8 @@ export default function AppointmentTable({
                       setEditingComment={setEditingComment}
                       tab={tab}
                       inHouseLabOrders={inHouseLabOrdersByAppointmentId[appointment.id]}
+                      externalLabOrders={externalLabOrdersByAppointmentId[appointment.id]}
+                      nursingOrders={nursingOrdersByAppointmentId[appointment.id]}
                     ></AppointmentTableRow>
                   );
                 })
@@ -228,12 +243,14 @@ export default function AppointmentTable({
                   <TableCell style={{ width: VISIT_ICONS_WIDTH, minWidth: VISIT_ICONS_WIDTH_MIN }}></TableCell>
                   <TableCell style={{ width: NOTES_WIDTH, minWidth: NOTES_WIDTH_MIN }}></TableCell>
                   <TableCell style={{ width: CHAT_WIDTH, minWidth: CHAT_WIDTH_MIN }}></TableCell>
-                  <TableCell style={{ width: GO_TO_WIDTH, minWidth: GO_TO_WIDTH_MIN }}></TableCell>
+                  <TableCell
+                    style={{ width: GO_TO_TWO_BUTTON_WIDTH, minWidth: GO_TO_TWO_BUTTON_WIDTH_MIN }}
+                  ></TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 <TableRow>
-                  <TableCell sx={{ backgroundColor: alpha(theme.palette.secondary.main, 0.08) }} colSpan={11}>
+                  <TableCell sx={{ backgroundColor: alpha(theme.palette.secondary.main, 0.08) }} colSpan={10}>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                       <IconButton onClick={() => setCollapseExam(!collapseExam)} sx={{ mr: 0.75, p: 0 }}>
                         <ArrowDropDownCircleOutlinedIcon
@@ -275,6 +292,8 @@ export default function AppointmentTable({
                           setEditingComment={setEditingComment}
                           tab={tab}
                           inHouseLabOrders={inHouseLabOrdersByAppointmentId[appointment.id]}
+                          externalLabOrders={externalLabOrdersByAppointmentId[appointment.id]}
+                          nursingOrders={nursingOrdersByAppointmentId[appointment.id]}
                         ></AppointmentTableRow>
                       );
                     })}

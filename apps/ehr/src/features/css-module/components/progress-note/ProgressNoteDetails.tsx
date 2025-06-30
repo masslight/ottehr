@@ -1,6 +1,7 @@
 import { Stack, Typography } from '@mui/material';
 import { FC } from 'react';
-import { getProgressNoteChartDataRequestedFields, NOTE_TYPE, LabType } from 'utils';
+import { ProceduresContainer } from 'src/telemed/features/appointment/ReviewTab/components/ProceduresContainer';
+import { getProgressNoteChartDataRequestedFields, LabType, NOTE_TYPE } from 'utils';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { AccordionCard, SectionList, useAppointmentStore, usePatientInstructionsVisibility } from '../../../../telemed';
@@ -11,6 +12,7 @@ import {
   ChiefComplaintContainer,
   CPTCodesContainer,
   EMCodeContainer,
+  LabResultsReviewContainer,
   MedicalConditionsContainer,
   MedicalDecisionMakingContainer,
   MedicationsContainer,
@@ -19,13 +21,11 @@ import {
   PrivacyPolicyAcknowledgement,
   ReviewOfSystemsContainer,
   SurgicalHistoryContainer,
-  LabResultsReviewContainer,
 } from '../../../../telemed/features/appointment/ReviewTab';
 import { useChartData } from '../../hooks/useChartData';
 import { ExamReadOnlyBlock } from '../examination/ExamReadOnly';
 import { HospitalizationContainer } from './HospitalizationContainer';
 import { PatientVitalsContainer } from './PatientVitalsContainer';
-import { ProceduresContainer } from 'src/telemed/features/appointment/ReviewTab/components/ProceduresContainer';
 
 export const ProgressNoteDetails: FC = () => {
   const { chartData, encounter, setPartialChartData } = getSelectors(useAppointmentStore, [
@@ -109,7 +109,7 @@ export const ProgressNoteDetails: FC = () => {
     showCptCodes && <CPTCodesContainer />,
     showInHouseLabsResultsContainer && (
       <LabResultsReviewContainer
-        resultDetails={{ type: LabType.inhouse, results: inHouseLabResults.labOrderResults }}
+        resultDetails={{ type: LabType.inHouse, results: inHouseLabResults.labOrderResults }}
         resultsPending={inHouseLabResults.resultsPending}
       />
     ),

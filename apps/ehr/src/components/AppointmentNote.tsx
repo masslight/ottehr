@@ -1,12 +1,12 @@
-import { ReactElement, useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { Input, InputAdornment, useTheme } from '@mui/material';
-import Oystehr from '@oystehr/sdk';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 import { LoadingButton } from '@mui/lab';
+import { Input, InputAdornment, useTheme } from '@mui/material';
+import Oystehr from '@oystehr/sdk';
+import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { InPersonAppointmentInformation } from 'utils';
-import { GenericToolTip } from './GenericToolTip';
 import { patchAppointmentComment } from '../helpers';
 import { EvolveUser } from '../hooks/useEvolveUser';
+import { GenericToolTip } from './GenericToolTip';
 
 interface AppointmentNoteProps {
   appointment: InPersonAppointmentInformation;

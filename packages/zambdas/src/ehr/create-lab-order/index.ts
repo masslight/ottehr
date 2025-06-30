@@ -1,49 +1,52 @@
+import Oystehr, { BatchInputRequest, Bundle } from '@oystehr/sdk';
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { randomUUID } from 'crypto';
 import {
-  OrderableItemSearchResult,
-  PSC_HOLD_CONFIG,
-  LAB_ORDER_TASK,
-  OYSTEHR_LAB_OI_CODE_SYSTEM,
-  FHIR_IDC10_VALUESET_SYSTEM,
-  flattenBundleResources,
-  PRACTITIONER_CODINGS,
-  PROVENANCE_ACTIVITY_CODING_ENTITY,
-  EXTERNAL_LAB_ERROR,
-  isApiError,
-  APIError,
-  SPECIMEN_CODING_CONFIG,
-  RELATED_SPECIMEN_DEFINITION_SYSTEM,
-} from 'utils';
-import { validateRequestParameters } from './validateRequestParameters';
-import {
-  Encounter,
-  Location,
-  ServiceRequest,
-  QuestionnaireResponse,
-  Task,
-  Organization,
-  Coding,
-  FhirResource,
-  Coverage,
-  ActivityDefinition,
-  Patient,
   Account,
+  ActivityDefinition,
+  Coding,
+  Coverage,
+  Encounter,
+  FhirResource,
+  Location,
+  Organization,
+  Patient,
   Provenance,
-  SpecimenDefinition,
+  QuestionnaireResponse,
+  ServiceRequest,
   Specimen,
+  SpecimenDefinition,
+  Task,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import Oystehr, { BatchInputRequest, Bundle } from '@oystehr/sdk';
-import { randomUUID } from 'crypto';
+import {
+  APIError,
+  CreateLabOrderZambdaOutput,
+  EXTERNAL_LAB_ERROR,
+  FHIR_IDC10_VALUESET_SYSTEM,
+  flattenBundleResources,
+  getSecret,
+  isApiError,
+  LAB_ORDER_TASK,
+  OrderableItemSearchResult,
+  OYSTEHR_LAB_OI_CODE_SYSTEM,
+  PRACTITIONER_CODINGS,
+  PROVENANCE_ACTIVITY_CODING_ENTITY,
+  PSC_HOLD_CONFIG,
+  RELATED_SPECIMEN_DEFINITION_SYSTEM,
+  SecretsKeys,
+  SPECIMEN_CODING_CONFIG,
+} from 'utils';
+import { checkOrCreateM2MClientToken, getMyPractitionerId, topLevelCatch } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
-import { checkOrCreateM2MClientToken, topLevelCatch } from '../../shared';
 import { ZambdaInput } from '../../shared/types';
 import { getPrimaryInsurance } from '../shared/labs';
-import { getMyPractitionerId } from '../../shared';
+import { validateRequestParameters } from './validateRequestParameters';
 
-let m2mtoken: string;
+let m2mToken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
@@ -51,8 +54,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
     const userToken = input.headers.Authorization.replace('Bearer ', '');
     const oystehrCurrentUser = createOystehrClient(userToken, secrets);
@@ -274,12 +277,15 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.log('making transaction request');
     await oystehr.fhir.transaction({ requests });
 
+    const response: CreateLabOrderZambdaOutput = {};
+
     return {
       statusCode: 200,
-      body: JSON.stringify('successfully created fhir resources for external lab order'),
+      body: JSON.stringify(response),
     };
   } catch (error: any) {
-    await topLevelCatch('admin-create-lab-order', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('admin-create-lab-order', error, ENVIRONMENT);
     let body = JSON.stringify({ message: `Error creating external lab order: ${error}` });
     if (isApiError(error)) {
       const { code, message } = error as APIError;
@@ -290,7 +296,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body,
     };
   }
-};
+});
 
 const formatAoeQR = (
   serviceRequestFullUrl: string,
@@ -368,6 +374,7 @@ const formatSpecimenResources = (
   const specimenConfigs: Specimen[] = [];
 
   orderableItem.item.specimens.forEach((specimen, idx) => {
+    // labs sometimes set container, volume, mininumVolume, storageRequirements, or collectionInstructions to null, so need to coalesce to undefined
     const collectionInstructionsCoding = {
       coding: [
         {
@@ -375,26 +382,12 @@ const formatSpecimenResources = (
           code: SPECIMEN_CODING_CONFIG.collection.code.collectionInstructions,
         },
       ],
-      text: specimen.collectionInstructions,
+      text: specimen.collectionInstructions ?? undefined,
     };
     const specimenDefinitionId = `specimenDefinitionId${idx}`;
     const specimenDefitionConfig: SpecimenDefinition = {
       resourceType: 'SpecimenDefinition',
       id: specimenDefinitionId,
-      typeTested: [
-        {
-          preference: 'preferred',
-          container: {
-            description: specimen.container,
-            minimumVolumeString: specimen.minimumVolume,
-          },
-          handling: [
-            {
-              instruction: specimen.storageRequirements,
-            },
-          ],
-        },
-      ],
       collection: [
         collectionInstructionsCoding,
         {
@@ -404,10 +397,30 @@ const formatSpecimenResources = (
               code: SPECIMEN_CODING_CONFIG.collection.code.specimenVolume,
             },
           ],
-          text: specimen.volume,
+          text: specimen.volume ?? undefined,
+        },
+      ],
+      typeTested: [
+        {
+          preference: 'preferred',
+          container:
+            !!specimen.container || !!specimen.minimumVolume
+              ? {
+                  description: specimen.container ?? undefined,
+                  minimumVolumeString: specimen.minimumVolume ?? undefined,
+                }
+              : undefined,
+          handling: specimen.storageRequirements
+            ? [
+                {
+                  instruction: specimen.storageRequirements,
+                },
+              ]
+            : undefined,
         },
       ],
     };
+
     specimenDefinitionConfigs.push(specimenDefitionConfig);
     const specimenConfig: Specimen = {
       resourceType: 'Specimen',

@@ -1,3 +1,5 @@
+import { otherColors } from '@ehrTheme/colors';
+import { Add } from '@mui/icons-material';
 import SearchIcon from '@mui/icons-material/Search';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import {
@@ -26,16 +28,14 @@ import { default as React, ReactElement, useCallback, useMemo, useState } from '
 import { useQuery } from 'react-query';
 import { Link } from 'react-router-dom';
 import { AllStates, EmployeeDetails, RoleType, State } from 'utils';
-import { otherColors } from '@ehrTheme/colors';
 import { getEmployees } from '../api/api';
 import Loading from '../components/Loading';
 import { EMPLOYEE_ROWS_PER_PAGE, PROVIDER_ROWS_PER_PAGE } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 import { formatDateUsingSlashes } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
-import PageContainer from '../layout/PageContainer';
 import useEvolveUser, { EvolveUser } from '../hooks/useEvolveUser';
-import { Add } from '@mui/icons-material';
+import PageContainer from '../layout/PageContainer';
 
 enum PageTab {
   employees = 'employees',

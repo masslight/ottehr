@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { getSelectors, TelemedAppointmentInformationIntake } from 'utils';
-import { useAppointmentStore, useGetAppointments } from '..';
 import { useZapEHRAPIClient } from '../../../utils';
+import { useAppointmentStore, useGetAppointments } from '..';
 
 export const useAppointmentsData = (): {
   appointmentID: string | undefined;

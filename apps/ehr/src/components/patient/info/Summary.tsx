@@ -1,11 +1,11 @@
 import CakeOutlinedIcon from '@mui/icons-material/CakeOutlined';
-import { capitalize, Box, Skeleton, Typography } from '@mui/material';
-import { FC } from 'react';
-import { PATIENT_INDIVIDUAL_PRONOUNS_URL } from 'utils/lib/types';
-import { getExtensionValue } from '../../../features/css-module/parser';
-import { formatDOB } from 'utils';
-import { dataTestIds } from '../../../constants/data-test-ids';
+import { Box, capitalize, Skeleton, Typography } from '@mui/material';
 import { Patient } from 'fhir/r4b';
+import { FC } from 'react';
+import { formatDOB } from 'utils';
+import { PATIENT_INDIVIDUAL_PRONOUNS_URL } from 'utils/lib/types';
+import { dataTestIds } from '../../../constants/data-test-ids';
+import { getExtensionValue } from '../../../features/css-module/parser';
 
 type Props = {
   id?: string;

@@ -129,6 +129,7 @@ export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {
   resultsDetails: LabOrderResultDetails[];
   questionnaire: QuestionnaireData[];
   samples: sampleDTO[];
+  orderPdfUrl?: string; // will exist after order is submitted
 };
 
 export type LabOrderDTO<SearchBy extends LabOrdersSearchBy> = SearchBy extends {
@@ -146,6 +147,7 @@ export type PaginatedResponse<RequestParameters extends GetLabOrdersParameters =
 export type LabOrdersSearchBy = {
   searchBy:
     | { field: 'encounterId'; value: string }
+    | { field: 'encounterIds'; value: string[] }
     | { field: 'patientId'; value: string }
     | { field: 'serviceRequestId'; value: string };
 };
@@ -162,7 +164,7 @@ export type LabOrdersPaginationOptions = {
 
 export enum LabType {
   external = 'external',
-  inhouse = 'in-house',
+  inHouse = 'in-house',
 }
 
 export type GetLabOrdersParameters = LabOrdersSearchBy & LabOrdersSearchFilters & LabOrdersPaginationOptions;
@@ -193,6 +195,8 @@ export type CreateLabOrderParameters = {
   orderableItem: OrderableItemSearchResult;
   psc: boolean;
 };
+
+export type CreateLabOrderZambdaOutput = Record<string, never>;
 
 export type GetCreateLabOrderResources = {
   patientId?: string;
@@ -230,9 +234,11 @@ export type UpdateLabOrderResourcesParameters =
   | (TaskReviewedParameters & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.reviewed })
   | (SpecimenDateChangedParameters & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.specimenDateChanged });
 
-export type DeleteLabOrderParams = {
+export type DeleteLabOrderZambdaInput = {
   serviceRequestId: string;
 };
+
+export type DeleteLabOrderZambdaOutput = Record<string, never>;
 export interface LabelConfig {
   heightInches: number;
   widthInches: number;
@@ -251,3 +257,14 @@ export interface LabelPdf {
   documentReference: DocumentReference;
   presignedURL: string;
 }
+
+export type LabOrderPDF = {
+  presignedURL: string;
+  serviceRequestId: string;
+  docRefId: string;
+};
+
+export type LabResultPDF = {
+  presignedURL: string;
+  diagnosticReportId: string;
+};

@@ -1,9 +1,9 @@
 import { Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { getVisitStatusHistory, VisitStatusHistoryEntry, VisitStatusHistoryLabel } from 'utils';
+import { getVisitStatusHistory, VisitStatusHistoryEntry, VisitStatusLabel } from 'utils';
 
 const startTimeOfMostRecentInstanceOfStatus = (
-  status: VisitStatusHistoryLabel,
+  status: VisitStatusLabel,
   statusHistory: VisitStatusHistoryEntry[]
 ): number | null => {
   const matchedStati = statusHistory.filter((item) => {

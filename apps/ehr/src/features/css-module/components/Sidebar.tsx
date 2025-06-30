@@ -1,18 +1,18 @@
+import { otherColors } from '@ehrTheme/colors';
+import { ottehrAiIcon } from '@ehrTheme/icons';
+import BiotechOutlinedIcon from '@mui/icons-material/BiotechOutlined';
+import { alpha, Button, Drawer, IconButton, List, ListItem, ListItemIcon, ListItemText, styled } from '@mui/material';
+import { enqueueSnackbar } from 'notistack';
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Drawer, List, ListItem, ListItemIcon, ListItemText, IconButton, styled, alpha, Button } from '@mui/material';
-import { RouteCSS, useNavigationContext } from '../context/NavigationContext';
-import { ROUTER_PATH, routesCSS } from '../routing/routesCSS';
-import BiotechOutlinedIcon from '@mui/icons-material/BiotechOutlined';
-import { CompleteIntakeButton } from './CompleteIntakeButton';
-import { useAppointment } from '../hooks/useAppointment';
-import { usePractitionerActions } from '../hooks/usePractitioner';
 import { getSelectors, getVisitStatus, PRACTITIONER_CODINGS } from 'utils';
-import { enqueueSnackbar } from 'notistack';
 import { dataTestIds } from '../../../constants/data-test-ids';
 import { useAppointmentStore } from '../../../telemed';
-import { ottehrAiIcon } from '@ehrTheme/icons';
-import { otherColors } from '@ehrTheme/colors';
+import { RouteCSS, useNavigationContext } from '../context/NavigationContext';
+import { useAppointment } from '../hooks/useAppointment';
+import { usePractitionerActions } from '../hooks/usePractitioner';
+import { ROUTER_PATH, routesCSS } from '../routing/routesCSS';
+import { CompleteIntakeButton } from './CompleteIntakeButton';
 
 const ArrowIcon = ({ direction }: { direction: 'left' | 'right' }): React.ReactElement => (
   <svg width="9" height="18" viewBox="0 0 9 18" fill="none" xmlns="http://www.w3.org/2000/svg">

@@ -6,9 +6,9 @@ import { ControllerRenderProps, FieldValues, useFormContext } from 'react-hook-f
 interface DateQuestionProps {
   questionText: string;
   linkId: string;
-  answer?: string;
   extension: Extension[];
   required: boolean;
+  isReadOnly?: boolean;
   field: ControllerRenderProps<FieldValues, string>;
 }
 
@@ -17,7 +17,7 @@ export const AOEDateQuestion: React.FC<DateQuestionProps> = (props) => {
     formState: { errors },
   } = useFormContext();
 
-  const { questionText, linkId, answer, extension: _, required, field } = props;
+  const { questionText, linkId, extension: _, required, isReadOnly, field } = props;
 
   return (
     <>
@@ -35,8 +35,7 @@ export const AOEDateQuestion: React.FC<DateQuestionProps> = (props) => {
             },
             actionBar: { actions: ['today'] },
           }}
-          defaultValue={answer}
-          readOnly={answer !== undefined}
+          readOnly={isReadOnly}
         />
       </LocalizationProvider>
     </>

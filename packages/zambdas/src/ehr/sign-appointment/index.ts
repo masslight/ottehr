@@ -2,41 +2,39 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import {
-  SignAppointmentInput,
-  SignAppointmentResponse,
-  getVisitStatus,
+  getCriticalUpdateTagOp,
   getEncounterStatusHistoryUpdateOp,
   getPatchBinary,
-  VisitStatusLabel,
+  getProgressNoteChartDataRequestedFields,
+  getVisitStatus,
+  OTTEHR_MODULE,
+  SignAppointmentInput,
+  SignAppointmentResponse,
+  telemedProgressNoteChartDataRequestedFields,
   visitStatusToFhirAppointmentStatusMap,
   visitStatusToFhirEncounterStatusMap,
-  getCriticalUpdateTagOp,
-  getProgressNoteChartDataRequestedFields,
-  OTTEHR_MODULE,
-  telemedProgressNoteChartDataRequestedFields,
 } from 'utils';
-
-import { validateRequestParameters } from './validateRequestParameters';
-import { getChartData } from '../get-chart-data';
 import { checkOrCreateM2MClientToken, ZambdaInput } from '../../shared';
 import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createCandidEncounter } from '../../shared/candid';
+import { createPublishExcuseNotesOps } from '../../shared/createPublishExcuseNotesOps';
 import { createOystehrClient } from '../../shared/helpers';
 import { getVideoResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
 import { makeVisitNotePdfDocumentReference } from '../../shared/pdf/visit-details-pdf/make-visit-note-pdf-document-reference';
 import { VideoResourcesAppointmentPackage } from '../../shared/pdf/visit-details-pdf/types';
 import { composeAndCreateVisitNotePdf } from '../../shared/pdf/visit-details-pdf/visit-note-pdf-creation';
-import { createPublishExcuseNotesOps } from '../../shared/createPublishExcuseNotesOps';
+import { getChartData } from '../get-chart-data';
+import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mtoken: string;
+let m2mToken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, validatedParameters.secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
 
-    const oystehr = createOystehrClient(m2mtoken, validatedParameters.secrets);
+    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
     const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
     console.log('Created Oystehr client');
 
@@ -62,8 +60,6 @@ export const performEffect = async (
 ): Promise<SignAppointmentResponse> => {
   const { appointmentId, secrets } = params;
 
-  const newStatus = 'completed';
-
   const visitResources = await getVideoResources(oystehr, appointmentId, true);
 
   if (!visitResources) {
@@ -82,16 +78,16 @@ export const performEffect = async (
   console.log(`appointment and encounter statuses: ${appointment.status}, ${encounter.status}`);
   const currentStatus = getVisitStatus(appointment, encounter);
   if (currentStatus) {
-    await changeStatus(oystehr, oystehrCurrentUser, visitResources, newStatus, candidEncounterId);
+    await changeStatusToCompleted(oystehr, oystehrCurrentUser, visitResources, candidEncounterId);
   }
   console.debug(`Status has been changed.`);
 
   const isInPersonAppointment = !!visitResources.appointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.IP);
 
-  const chartDataPromise = getChartData(oystehr, m2mtoken, visitResources.encounter.id!);
+  const chartDataPromise = getChartData(oystehr, m2mToken, visitResources.encounter.id!);
   const additionalChartDataPromise = getChartData(
     oystehr,
-    m2mtoken,
+    m2mToken,
     visitResources.encounter.id!,
     isInPersonAppointment ? getProgressNoteChartDataRequestedFields() : telemedProgressNoteChartDataRequestedFields
   );
@@ -105,7 +101,7 @@ export const performEffect = async (
     { chartData, additionalChartData },
     visitResources,
     secrets,
-    m2mtoken
+    m2mToken
   );
   if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
   console.log(`Creating visit note pdf docRef`);
@@ -116,11 +112,10 @@ export const performEffect = async (
   };
 };
 
-const changeStatus = async (
+const changeStatusToCompleted = async (
   oystehr: Oystehr,
   oystehrCurrentUser: Oystehr,
   resourcesToUpdate: VideoResourcesAppointmentPackage,
-  status: VisitStatusLabel,
   candidEncounterId: string | undefined
 ): Promise<void> => {
   if (!resourcesToUpdate.appointment || !resourcesToUpdate.appointment.id) {
@@ -130,8 +125,8 @@ const changeStatus = async (
     throw new Error('Encounter is not defined');
   }
 
-  const appointmentStatus = visitStatusToFhirAppointmentStatusMap[status];
-  const encounterStatus = visitStatusToFhirEncounterStatusMap[status];
+  const appointmentStatus = visitStatusToFhirAppointmentStatusMap['completed'];
+  const encounterStatus = visitStatusToFhirEncounterStatusMap['completed'];
 
   const patchOps: Operation[] = [
     {

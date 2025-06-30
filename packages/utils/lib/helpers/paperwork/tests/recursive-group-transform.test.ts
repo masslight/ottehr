@@ -1,9 +1,9 @@
 //import { Questionnaire } from 'fhir/r4b';
 //import { mapQuestionnaireAndValueSetsToItemsList } from '../paperwork';
-import { describe, it, expect } from 'vitest';
-import { flattenItems, recursiveGroupTransform } from '../validation';
-import { mapQuestionnaireAndValueSetsToItemsList } from '../paperwork';
 import { Questionnaire } from 'fhir/r4b';
+import { describe, expect, it } from 'vitest';
+import { mapQuestionnaireAndValueSetsToItemsList } from '../paperwork';
+import { flattenItems, recursiveGroupTransform } from '../validation';
 
 const BASE_FORM_VALUES = [
   {
@@ -198,7 +198,7 @@ const BASE_FORM_VALUES = [
         linkId: 'policy-holder-last-name-2',
         answer: [
           {
-            valueString: 'Picklesworth',
+            valueString: 'PicklesWorth',
           },
         ],
       },

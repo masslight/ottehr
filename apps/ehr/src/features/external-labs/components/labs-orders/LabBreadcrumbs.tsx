@@ -1,7 +1,7 @@
 import { FC, useMemo } from 'react';
+import { BaseBreadcrumbs } from 'src/components/BaseBreadcrumbs';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../telemed';
-import { BaseBreadcrumbs } from 'src/components/BaseBreadcrumbs';
 
 interface LabBreadcrumbsProps {
   sectionName: string;

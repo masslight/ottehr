@@ -5,17 +5,17 @@ import React from 'react';
 import {
   AvailableLocationInformation,
   getAvailableSlots,
-  getScheduleExtension,
   getLocationInformation,
+  getScheduleExtension,
   getSlotCapacityMapForDayAndSchedule,
 } from 'utils';
 import { vi } from 'vitest';
 import { useCheckOfficeOpen } from '../../../apps/intake/src/hooks/useCheckOfficeOpen';
+import { getNextOpeningDateTime } from '../src/patient/get-schedule';
 import * as overrideData from './data/override-constants';
 import * as slotData from './data/slot-constants';
 import { addDateToSlotTimes } from './data/slot-constants';
 import { HoursOfOpConfig, makeLocationWithSchedule, OverrideScheduleConfig } from './helpers/testScheduleUtils';
-import { getNextOpeningDateTime } from '../src/patient/get-schedule';
 
 const oystehr = new Oystehr({});
 
@@ -765,8 +765,8 @@ describe.skip('test getNextOpeningDateTime', () => {
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 18, close: 23, workingDay: true }];
     const { schedule } = makeLocationWithSchedule(hoursInfo, 15, 0, 60);
     const testResult = getNextOpeningDateTime(time, schedule);
-    const exptectedResult = DateTime.now().set({ hour: 18, minute: 0 }).setZone('utc').toFormat('HH:mm MM-dd-yyyy z');
-    expect(testResult).toBe(exptectedResult);
+    const expectedResult = DateTime.now().set({ hour: 18, minute: 0 }).setZone('utc').toFormat('HH:mm MM-dd-yyyy z');
+    expect(testResult).toBe(expectedResult);
   });
 
   test('2: it should return opening time for tomorrow if walkin is closed and current time is after opening time', async () => {
@@ -775,12 +775,12 @@ describe.skip('test getNextOpeningDateTime', () => {
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 9, close: 23, workingDay: true }];
     const { schedule } = makeLocationWithSchedule(hoursInfo, 15, 0, 60);
     const testResult = getNextOpeningDateTime(time, schedule);
-    const exptectedResult = DateTime.now()
+    const expectedResult = DateTime.now()
       .set({ hour: 5, minute: 0 })
       .setZone('utc')
       .plus({ day: 1 })
       .toFormat('HH:mm MM-dd-yyyy z');
-    expect(testResult).toBe(exptectedResult);
+    expect(testResult).toBe(expectedResult);
   });
 
   test('3: it should return opening time for 5th day from today if walkin is closed, it is a working day, no schedule override, closure override for 4 days, and current time is after opening time', async () => {
@@ -792,12 +792,12 @@ describe.skip('test getNextOpeningDateTime', () => {
     const closures = overrideData.closureOverrideFourDays;
     const { schedule } = makeLocationWithSchedule(hoursInfo, 15, 0, 60, undefined, closures);
     const testResult = getNextOpeningDateTime(time, schedule);
-    const exptectedResult = DateTime.now()
+    const expectedResult = DateTime.now()
       .set({ weekday: 1, hour: 3, minute: 0 })
       .plus({ day: 4 })
       .setZone('utc')
       .toFormat('HH:mm MM-dd-yyyy z');
-    expect(testResult).toBe(exptectedResult);
+    expect(testResult).toBe(expectedResult);
   });
 
   test('4: it should return opening time of schedule override for tomorrow if walkin is closed, it is a working day, schedule override is for tomorrow, closure override is for today, and current time is after opening time', async () => {
@@ -807,12 +807,12 @@ describe.skip('test getNextOpeningDateTime', () => {
     const closures = overrideData.mondayClosureOverrideForOneDay;
     const { schedule } = makeLocationWithSchedule(hoursInfo, 15, 0, 60, overrideInfo, closures);
     const testResult = getNextOpeningDateTime(time, schedule);
-    const exptectedResult = DateTime.now()
+    const expectedResult = DateTime.now()
       .set({ weekday: 1, hour: 8, minute: 0 })
       .plus({ day: 1 })
       .setZone('utc')
       .toFormat('HH:mm MM-dd-yyyy z');
-    expect(testResult).toBe(exptectedResult);
+    expect(testResult).toBe(expectedResult);
   });
 
   test('5: it should return opening time for 3rd day from today if walkin is closed, it is a non-working day, no schedule override, closure override is for tomorrow, and current time is after opening time', async () => {
@@ -824,12 +824,12 @@ describe.skip('test getNextOpeningDateTime', () => {
     const closures = overrideData.tuesdayClosureOverrideForOneDay;
     const { location, schedule } = makeLocationWithSchedule(hoursInfo, 15, 0, 60, [], closures);
     const testResult = getNextOpeningDateTime(time, schedule);
-    const exptectedResult = DateTime.now()
+    const expectedResult = DateTime.now()
       .set({ weekday: 1, hour: 7, minute: 0 })
       .plus({ day: 2 })
       .setZone('utc')
       .toFormat('HH:mm MM-dd-yyyy z');
-    expect(testResult).toBe(exptectedResult);
+    expect(testResult).toBe(expectedResult);
   });
 
   test('6: it should return opening time of schedule override for tomorrow if walkin is closed, it is a non-working day, schedule override is for tomorrow, no closure override, and current time is after opening time', async () => {
@@ -841,11 +841,11 @@ describe.skip('test getNextOpeningDateTime', () => {
     const overrideInfo: OverrideScheduleConfig[] = overrideData.tuesdayScheduleOverride;
     const { schedule } = makeLocationWithSchedule(hoursInfo, 15, 0, 60, overrideInfo);
     const testResult = getNextOpeningDateTime(time, schedule);
-    const exptectedResult = DateTime.now()
+    const expectedResult = DateTime.now()
       .set({ weekday: 1, hour: 8, minute: 0 })
       .plus({ day: 1 })
       .setZone('utc')
       .toFormat('HH:mm MM-dd-yyyy z');
-    expect(testResult).toBe(exptectedResult);
+    expect(testResult).toBe(expectedResult);
   });
 });

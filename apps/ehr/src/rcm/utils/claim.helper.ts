@@ -1,13 +1,13 @@
 import { Claim, ClaimAccident, ClaimSupportingInfo, CodeableConcept, Coding } from 'fhir/r4b';
-import { FHIR_EXTENSION } from 'utils';
-import { getDateFromISO } from './resources.helper';
 import { DateTime } from 'luxon';
+import { FHIR_EXTENSION } from 'utils';
 import {
   AdditionalInformationFormValues,
   BillingFormValues,
   DiagnosesFormValues,
   SLBProviderFormValues,
 } from './form-values.types';
+import { getDateFromISO } from './resources.helper';
 
 function getCode(codeableConcept: CodeableConcept | undefined, system: string): string | undefined {
   return codeableConcept?.coding?.find((coding) => coding.system === system)?.code;

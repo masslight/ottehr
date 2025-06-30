@@ -19,8 +19,8 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
-import { ZambdaInput } from '../../shared';
 import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
+import { ZambdaInput } from '../../shared';
 
 interface GetEligibilityStandardInput {
   type: 'standard';
@@ -350,7 +350,7 @@ export const getDefaultBillingProviderResource = async (
   }
 
   const fetchedResources = await oystehrClient.fhir.search<BillingProviderResource>({
-    resourceType: defaultBillingResourceType,
+    resourceType: defaultBillingResourceType as BillingProviderResource['resourceType'],
     params: [
       {
         name: '_id',

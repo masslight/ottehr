@@ -1,5 +1,5 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
-import { Practitioner, ServiceRequest, Task, Provenance } from 'fhir/r4b';
+import { Encounter, Practitioner, Provenance, ServiceRequest, Task } from 'fhir/r4b';
 import {
   compareDates,
   NursingOrder,
@@ -10,6 +10,7 @@ import {
   PRIVATE_EXTENSION_BASE_URL,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
 } from 'utils';
+import { parseAppointmentIdForServiceRequest } from '../shared/labs';
 import { GetZambdaNursingOrdersParams } from './validateRequestParameters';
 
 export const mapResourcesNursingOrderDTOs = (
@@ -17,6 +18,7 @@ export const mapResourcesNursingOrderDTOs = (
   tasks: Task[],
   practitioners: Practitioner[],
   provenances: Provenance[],
+  encounters: Encounter[],
   searchBy?: NursingOrdersSearchBy
 ): NursingOrder[] => {
   const filteredServiceRequests =
@@ -31,6 +33,7 @@ export const mapResourcesNursingOrderDTOs = (
       tasks,
       practitioners,
       provenances,
+      encounters,
     });
   });
 };
@@ -41,12 +44,14 @@ const parseOrderData = ({
   tasks,
   provenances,
   practitioners,
+  encounters,
 }: {
   searchBy?: NursingOrdersSearchBy;
   serviceRequest: ServiceRequest;
   tasks: Task[];
   provenances: Provenance[];
   practitioners: Practitioner[];
+  encounters: Encounter[];
 }): NursingOrder => {
   if (!serviceRequest.id) {
     throw new Error('ServiceRequest ID is required');
@@ -71,8 +76,11 @@ const parseOrderData = ({
 
   const orderingPhysician = parsePractitionerNameFromProvenance(createOrderProvenance, practitioners);
 
+  const appointmentId = parseAppointmentIdForServiceRequest(serviceRequest, encounters) || '';
+
   const listDTO: NursingOrder = {
     serviceRequestId: serviceRequest.id,
+    appointmentId: appointmentId,
     note: note ?? '',
     status,
     orderAddedDate: serviceRequest.authoredOn ?? '',
@@ -91,7 +99,7 @@ const parseOrderData = ({
   return listDTO;
 };
 
-export const getNoursingOrderResources = async (
+export const getNursingOrderResources = async (
   oystehr: Oystehr,
   params: GetZambdaNursingOrdersParams
 ): Promise<{
@@ -99,8 +107,10 @@ export const getNoursingOrderResources = async (
   tasks: Task[];
   practitioners: Practitioner[];
   provenances: Provenance[];
+  encounters: Encounter[];
 }> => {
   const nursingServiceRequestSearchParams = createNursingServiceRequestSearchParams(params);
+  console.log('nursingServiceRequestSearchParams', nursingServiceRequestSearchParams);
 
   const nursingOrdersResponse = await oystehr.fhir.search({
     resourceType: 'ServiceRequest',
@@ -110,23 +120,26 @@ export const getNoursingOrderResources = async (
   const nursingOrdersResources =
     nursingOrdersResponse.entry
       ?.map((entry) => entry.resource)
-      .filter((res): res is ServiceRequest | Task | Provenance | Practitioner => Boolean(res)) || [];
+      .filter((res): res is ServiceRequest | Task | Provenance | Practitioner | Encounter => Boolean(res)) || [];
 
-  const { serviceRequests, tasks, provenances, practitioners } = extractNursingOrdersResources(nursingOrdersResources);
+  const { serviceRequests, tasks, provenances, practitioners, encounters } =
+    extractNursingOrdersResources(nursingOrdersResources);
 
   return {
     serviceRequests,
     tasks,
     practitioners,
     provenances,
+    encounters,
   };
 };
 
 const createNursingServiceRequestSearchParams = (params: GetZambdaNursingOrdersParams): SearchParam[] => {
+  const { searchBy } = params;
   const searchParams: SearchParam[] = [
     {
-      name: 'encounter',
-      value: `Encounter/${params.encounterId}`,
+      name: '_tag',
+      value: `${PRIVATE_EXTENSION_BASE_URL}/order-type-tag|nursing order`, // todo make these consts
     },
     {
       name: '_include',
@@ -144,18 +157,44 @@ const createNursingServiceRequestSearchParams = (params: GetZambdaNursingOrdersP
       name: '_include:iterate',
       value: 'Provenance:agent',
     },
+    {
+      name: '_include',
+      value: 'ServiceRequest:encounter',
+    },
   ];
+
+  if (searchBy.field === 'encounterId') {
+    searchParams.push({
+      name: 'encounter',
+      value: `Encounter/${searchBy.value}`,
+    });
+  }
+
+  if (searchBy.field === 'encounterIds') {
+    searchParams.push({
+      name: 'encounter',
+      value: searchBy.value.map((id) => `Encounter/${id}`).join(','),
+    });
+  }
+
+  if (searchBy.field === 'serviceRequestId') {
+    searchParams.push({
+      name: '_id',
+      value: searchBy.value,
+    });
+  }
 
   return searchParams;
 };
 
 const extractNursingOrdersResources = (
-  resources: (ServiceRequest | Task | Provenance | Practitioner)[]
+  resources: (ServiceRequest | Task | Provenance | Practitioner | Encounter)[]
 ): {
   serviceRequests: ServiceRequest[];
   tasks: Task[];
   provenances: Provenance[];
   practitioners: Practitioner[];
+  encounters: Encounter[];
 } => {
   console.log('extracting nursing orders resources');
   console.log(`${resources.length} resources total`);
@@ -164,21 +203,18 @@ const extractNursingOrdersResources = (
   const tasks: Task[] = [];
   const provenances: Provenance[] = [];
   const practitioners: Practitioner[] = [];
+  const encounters: Encounter[] = [];
   for (const resource of resources) {
     if (resource.resourceType === 'ServiceRequest') {
-      const serviceRequest = resource as ServiceRequest;
-      const withNursingOrderTag = serviceRequest.meta?.tag?.some(
-        (tag) => tag.system === `${PRIVATE_EXTENSION_BASE_URL}/order-type-tag` && tag.code === 'nursing order'
-      );
-      if (withNursingOrderTag) {
-        serviceRequests.push(serviceRequest);
-      }
+      serviceRequests.push(resource);
     } else if (resource.resourceType === 'Task') {
       tasks.push(resource);
     } else if (resource.resourceType === 'Provenance') {
       provenances.push(resource);
     } else if (resource.resourceType === 'Practitioner') {
       practitioners.push(resource);
+    } else if (resource.resourceType === 'Encounter') {
+      encounters.push(resource);
     }
   }
 
@@ -187,6 +223,7 @@ const extractNursingOrdersResources = (
     tasks,
     provenances,
     practitioners,
+    encounters,
   };
 };
 

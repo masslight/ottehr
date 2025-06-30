@@ -1,7 +1,7 @@
 import { Color, PageSizes, PDFDocument, PDFFont, PDFPage, PDFPageDrawTextOptions, StandardFonts } from 'pdf-lib';
-import { Document, ImageItem, ImageType, Item, PatientInfo, Section } from './document';
 import { assertDefined } from '../../shared/helpers';
 import { rgbNormalized } from '../../shared/pdf/pdf-utils';
+import { Document, ImageItem, ImageType, Item, PatientInfo, Section } from './document';
 
 const PAGE_WIDTH = PageSizes.A4[0];
 const PAGE_HEIGHT = PageSizes.A4[1];

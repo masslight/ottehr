@@ -6,15 +6,12 @@ import { Appointment, Encounter, HealthcareService, Location, Patient, Practitio
 import { DateTime } from 'luxon';
 import {
   APPOINTMENT_NOT_FOUND_ERROR,
-  CANT_CANCEL_CHECKED_IN_APT_ERROR,
+  CancelAppointmentZambdaInput,
+  CancelAppointmentZambdaOutput,
   CancellationReasonCodesInPerson,
-  CancellationReasonOptionsInPerson,
+  CANT_CANCEL_CHECKED_IN_APT_ERROR,
   DATETIME_FULL_NO_YEAR,
   FHIR_ZAPEHR_URL,
-  POST_TELEMED_APPOINTMENT_CANT_BE_CANCELED_ERROR,
-  ScheduleOwnerFhirResource,
-  Secrets,
-  SecretsKeys,
   formatPhoneNumberDisplay,
   getAppointmentResourceById,
   getCriticalUpdateTagOp,
@@ -25,11 +22,13 @@ import {
   getSecret,
   isAppointmentVirtual,
   isPostTelemedAppointment,
+  POST_TELEMED_APPOINTMENT_CANT_BE_CANCELED_ERROR,
+  ScheduleOwnerFhirResource,
+  Secrets,
+  SecretsKeys,
 } from 'utils';
 import {
   AuditableZambdaEndpoints,
-  ZambdaInput,
-  captureSentryException,
   checkIsEHRUser,
   configSentry,
   createAuditEvent,
@@ -37,20 +36,17 @@ import {
   getAuth0Token,
   getEncounterDetails,
   getUser,
+  sendErrors,
   topLevelCatch,
   validateBundleAndExtractAppointment,
+  ZambdaInput,
 } from '../../../shared';
 import { sendInPersonCancellationEmail } from '../../../shared/communication';
 import { validateRequestParameters } from './validateRequestParameters';
 
-export interface CancelAppointmentInput {
-  appointmentID: string;
-  cancellationReason: CancellationReasonOptionsInPerson;
-  silent?: boolean;
-  language: string;
+export interface CancelAppointmentZambdaInputValidated extends CancelAppointmentZambdaInput {
   secrets: Secrets | null;
 }
-
 interface CancellationDetails {
   startTime: string;
   email: string | undefined;
@@ -116,7 +112,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     // stamp critical update tag so this event can be surfaced in activity logs
     const formattedUserNumber = formatPhoneNumberDisplay(user?.name.replace('+1', ''));
     const cancelledBy = isEHRUser
-      ? `Staff ${user?.email} via QRS`
+      ? `Staff ${user?.email}`
       : `Patient${formattedUserNumber ? ` ${formattedUserNumber}` : ''}`;
     const criticalUpdateOp = getCriticalUpdateTagOp(appointment, cancelledBy);
 
@@ -218,13 +214,6 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.log('building location information');
     //const locationInformation: AvailableLocationInformation = getLocationInformation(oystehr, scheduleResource);
 
-    const response = {
-      message: 'Successfully canceled an appointment',
-      appointment: appointmentUpdated.id ?? null,
-      //location: locationInformation,
-      visitType: visitType,
-    };
-
     if (!silent) {
       if (email) {
         console.group('sendCancellationEmail');
@@ -279,6 +268,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
             });
           } catch (e) {
             console.log('failing silently, error sending cancellation text message');
+            const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+            void sendErrors(e, ENVIRONMENT);
           }
         } else {
           console.log(`No RelatedPerson found for patient ${patient.id} not sending text message`);
@@ -293,12 +284,15 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     await createAuditEvent(AuditableZambdaEndpoints.appointmentCancel, oystehr, input, patient.id || '', secrets);
 
+    const response: CancelAppointmentZambdaOutput = {};
+
     return {
       statusCode: 200,
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('cancel-appointment', error, input.secrets, captureSentryException);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('cancel-appointment', error, ENVIRONMENT, true);
   }
 });
 

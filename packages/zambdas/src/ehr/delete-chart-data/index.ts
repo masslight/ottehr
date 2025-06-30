@@ -1,8 +1,7 @@
 import { BatchInputDeleteRequest, BatchInputGetRequest, BatchInputPutRequest, BatchInputRequest } from '@oystehr/sdk';
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-
 import { Operation } from 'fast-json-patch';
-
 import {
   AllergyIntolerance,
   Bundle,
@@ -28,7 +27,6 @@ import {
   MedicationDTO,
   ObservationDTO,
 } from 'utils';
-import { createFindResourceRequestByPatientField } from '../get-chart-data/helpers';
 import { checkOrCreateM2MClientToken, parseCreatedResourcesBundle, ZambdaInput } from '../../shared';
 import {
   chartDataResourceHasMetaTagByCode,
@@ -38,11 +36,12 @@ import {
 } from '../../shared/chart-data';
 import { createOystehrClient } from '../../shared/helpers';
 import { deleteZ3Object } from '../../shared/z3Utils';
+import { createFindResourceRequestByPatientField } from '../get-chart-data/helpers';
 import { deleteResourceRequest, getEncounterAndRelatedResources } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mtoken: string;
+let m2mToken: string;
 
 type ChartData =
   | AllergyIntolerance
@@ -55,7 +54,7 @@ type ChartData =
   | Procedure
   | ServiceRequest;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.log(`Input: ${JSON.stringify(input)}`);
     console.log('Validating input');
@@ -84,9 +83,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       vitalsObservations,
     } = validateRequestParameters(input);
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
     // 0. get encounter
     console.log(`Getting encounter ${encounterId}`);
@@ -281,7 +280,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           | DocumentReference
           | undefined;
         const fileUrl = documentReference?.content?.[0]?.attachment.url;
-        if (fileUrl) await deleteZ3Object(fileUrl, m2mtoken);
+        if (fileUrl) await deleteZ3Object(fileUrl, m2mToken);
       }
     }
 
@@ -298,4 +297,4 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       statusCode: 500,
     };
   }
-};
+});

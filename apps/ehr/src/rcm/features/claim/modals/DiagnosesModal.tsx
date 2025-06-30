@@ -1,13 +1,13 @@
+import AddIcon from '@mui/icons-material/Add';
+import { Box, Divider, Typography } from '@mui/material';
 import { FC, Fragment } from 'react';
 import { FormProvider, useFieldArray, useForm } from 'react-hook-form';
-import { Box, Divider, Typography } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import { DiagnosisController, TextFieldController, EditModal } from './components';
 import { RoundedButton } from '../../../../components/RoundedButton';
-import { DeleteIconButton } from '../../../../telemed';
-import { DIAGNOSES_SEQUENCE_LETTER, DiagnosesFormValues, mapDiagnosesToClaimResource } from '../../../utils';
 import { getSelectors } from '../../../../shared/store/getSelectors';
+import { DeleteIconButton } from '../../../../telemed';
 import { ClaimState, useClaimStore, useEditClaimInformationMutation } from '../../../state';
+import { DIAGNOSES_SEQUENCE_LETTER, DiagnosesFormValues, mapDiagnosesToClaimResource } from '../../../utils';
+import { DiagnosisController, EditModal, TextFieldController } from './components';
 
 const getDefaultValues = (claimData: ClaimState['claimData']): DiagnosesFormValues => ({
   items: claimData?.diagnoses || [],

@@ -1,19 +1,19 @@
-import { FC, useState } from 'react';
-import { Box } from '@mui/material';
+import CallEndIcon from '@mui/icons-material/CallEnd';
 import MicIcon from '@mui/icons-material/Mic';
 import MicOffIcon from '@mui/icons-material/MicOff';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
 import VideocamIcon from '@mui/icons-material/Videocam';
 import VideocamOffIcon from '@mui/icons-material/VideocamOff';
-import CallEndIcon from '@mui/icons-material/CallEnd';
-import MoreVertIcon from '@mui/icons-material/MoreVert';
+import { Box } from '@mui/material';
 import { useLocalVideo, useToggleLocalMute } from 'amazon-chime-sdk-component-library-react';
-import { CallSettings, IconButtonContained, CallSettingsTooltip, SideCardList } from '../../components';
-import { otherColors } from '../../../IntakeThemeProvider';
-import { ConfirmEndCallDialog } from '.';
-import { intakeFlowPageRoute } from '../../../App';
-import { CustomDialog } from 'ui-components';
+import { FC, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import { intakeFlowPageRoute } from '../../../App';
+import { CustomDialog } from '../../../components/CustomDialog';
+import { otherColors } from '../../../IntakeThemeProvider';
+import { CallSettings, CallSettingsTooltip, IconButtonContained, SideCardList } from '../../components';
 import { useIsMobile } from '../../hooks/useIsMobile';
+import { ConfirmEndCallDialog } from '.';
 
 export const VideoControls: FC = () => {
   const { toggleVideo, isVideoEnabled } = useLocalVideo();

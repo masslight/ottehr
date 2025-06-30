@@ -2,9 +2,11 @@ import { Typography } from '@mui/material';
 import { FC } from 'react';
 import { FieldValues } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
-import { CustomDialog, PageForm, safelyCaptureException } from 'ui-components';
 import { CancellationReasonOptionsTelemed } from 'utils';
 import { intakeFlowPageRoute } from '../../App';
+import { CustomDialog } from '../../components/CustomDialog';
+import PageForm from '../../components/PageForm';
+import { safelyCaptureException } from '../../helpers/sentry';
 import { useCancelAppointmentMutation } from '../features/appointments';
 import { useZapEHRAPIClient } from '../utils';
 

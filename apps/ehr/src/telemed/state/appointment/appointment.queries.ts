@@ -16,27 +16,27 @@ import {
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect } from 'react';
-import { useMutation, useQuery } from 'react-query';
+import { useMutation, useQuery, UseQueryResult } from 'react-query';
 import {
   APIError,
   ChartDataFields,
   ChartDataRequestedFields,
+  createSmsModel,
+  filterResources,
   GetCreateLabOrderResources,
   GetMedicationOrdersResponse,
-  INVENTORY_MEDICATION_TYPE_CODE,
   IcdSearchRequestParams,
   InstructionType,
+  INVENTORY_MEDICATION_TYPE_CODE,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   MeetingData,
   RefreshableAppointmentData,
+  relatedPersonAndCommunicationMaps,
   ReviewAndSignData,
   SaveChartDataRequest,
   SchoolWorkNoteExcuseDocFileDTO,
   TelemedAppointmentInformation,
   UpdateMedicationOrderInput,
-  createSmsModel,
-  filterResources,
-  relatedPersonAndCommunicationMaps,
 } from 'utils';
 import { APPOINTMENT_REFRESH_INTERVAL, CHAT_REFETCH_INTERVAL, QUERY_STALE_TIME } from '../../../constants';
 import { useApiClients } from '../../../hooks/useAppClients';
@@ -157,7 +157,6 @@ export const useGetTelemedAppointmentPeriodicRefresh = (
 
 export type VisitResources = Appointment | DocumentReference | Encounter | Location | Patient | QuestionnaireResponse;
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetAppointment = (
   {
     appointmentId,
@@ -165,7 +164,7 @@ export const useGetAppointment = (
     appointmentId: string | undefined;
   },
   onSuccess: (data: VisitResources[]) => void
-) => {
+): UseQueryResult<VisitResources[], unknown> => {
   const { oystehr } = useApiClients();
   const query = useQuery(
     ['telemed-appointment', { appointmentId }],

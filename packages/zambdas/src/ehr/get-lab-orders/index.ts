@@ -1,13 +1,13 @@
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { topLevelCatch, ZambdaInput } from '../../shared';
-import { validateRequestParameters } from './validateRequestParameters';
+import { EMPTY_PAGINATION, getSecret, SecretsKeys } from 'utils';
+import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../shared';
 import { getLabResources, mapResourcesToLabOrderDTOs } from './helpers';
-import { EMPTY_PAGINATION } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared';
+import { validateRequestParameters } from './validateRequestParameters';
 
-let m2mtoken: string;
+let m2mToken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.log(`Input: ${JSON.stringify(input)}`);
     console.group('validateRequestParameters');
@@ -16,8 +16,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
     const {
       serviceRequests,
@@ -31,10 +31,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       provenances,
       organizations,
       questionnaires,
-      labPDFs,
+      resultPDFs,
+      orderPDF,
       specimens,
       patientLabItems,
-    } = await getLabResources(oystehr, validatedParameters, m2mtoken, {
+    } = await getLabResources(oystehr, validatedParameters, m2mToken, {
       searchBy: validatedParameters.searchBy,
     });
 
@@ -49,6 +50,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       };
     }
 
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
     const labOrders = mapResourcesToLabOrderDTOs(
       { searchBy },
       serviceRequests,
@@ -61,9 +63,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       provenances,
       organizations,
       questionnaires,
-      labPDFs,
+      resultPDFs,
+      orderPDF,
       specimens,
-      secrets
+      ENVIRONMENT
     );
 
     return {
@@ -75,10 +78,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       }),
     };
   } catch (error: any) {
-    await topLevelCatch('get-lab-orders', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('get-lab-orders', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify({ message: `Error fetching external lab orders: ${error}` }),
     };
   }
-};
+});

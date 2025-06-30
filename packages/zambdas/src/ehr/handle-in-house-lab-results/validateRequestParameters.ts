@@ -1,4 +1,4 @@
-import { Secrets, HandleInHouseLabResultsParameters } from 'utils';
+import { HandleInHouseLabResultsParameters, Secrets } from 'utils';
 import { ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(

@@ -1,13 +1,6 @@
 import { ReactElement } from 'react';
 import { VisitStatusLabel } from 'utils';
 
-export interface CancelAppointmentParameters {
-  appointmentID: string;
-  language: string;
-  cancellationReason: string;
-  silent?: boolean;
-}
-
 export interface UpdatePaperworkParameters {
   appointmentID: string;
   inProgress: string;

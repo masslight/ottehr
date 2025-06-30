@@ -1,14 +1,13 @@
 import { Autocomplete, AutocompleteRenderInputParams, TextField } from '@mui/material';
-import { ReactElement, useEffect, useMemo, useState } from 'react';
-
 import Oystehr from '@oystehr/sdk';
 import { Location, Schedule } from 'fhir/r4b';
+import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import { isLocationVirtual } from 'utils';
+import { dataTestIds } from '../constants/data-test-ids';
 import { sortLocationsByLabel } from '../helpers';
 import { useApiClients } from '../hooks/useAppClients';
-import { dataTestIds } from '../constants/data-test-ids';
-import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 
 type CustomFormEventHandler = (event: React.FormEvent<HTMLFormElement>, value: any, field: string) => void;
 

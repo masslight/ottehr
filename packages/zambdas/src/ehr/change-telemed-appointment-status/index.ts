@@ -1,18 +1,17 @@
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItem, Encounter, Task } from 'fhir/r4b';
 import {
   ChangeTelemedAppointmentStatusInput,
   ChangeTelemedAppointmentStatusResponse,
-  SecretsKeys,
-  TelemedAppointmentStatusEnum,
   getQuestionnaireResponseByLinkId,
   getSecret,
   mapStatusToTelemed,
+  SecretsKeys,
+  TelemedAppointmentStatusEnum,
   telemedProgressNoteChartDataRequestedFields,
 } from 'utils';
-
-import { getChartData } from '../get-chart-data';
 import { checkOrCreateM2MClientToken, parseCreatedResourcesBundle, saveResourceRequest } from '../../shared';
 import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createCandidEncounter } from '../../shared/candid';
 import { createOystehrClient } from '../../shared/helpers';
@@ -20,22 +19,23 @@ import { getVideoResources } from '../../shared/pdf/visit-details-pdf/get-video-
 import { makeVisitNotePdfDocumentReference } from '../../shared/pdf/visit-details-pdf/make-visit-note-pdf-document-reference';
 import { composeAndCreateVisitNotePdf } from '../../shared/pdf/visit-details-pdf/visit-note-pdf-creation';
 import { getMyPractitionerId } from '../../shared/practitioners';
+import { ZambdaInput } from '../../shared/types';
+import { getChartData } from '../get-chart-data';
 import { getInsurancePlan } from './helpers/fhir-utils';
 import { changeStatusIfPossible, makeAppointmentChargeItem, makeReceiptPdfDocumentReference } from './helpers/helpers';
 import { composeAndCreateReceiptPdf, getPaymentDataRequest, postChargeIssueRequest } from './helpers/payments';
 import { validateRequestParameters } from './validateRequestParameters';
-import { ZambdaInput } from '../../shared/types';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mtoken: string;
+let m2mToken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, validatedParameters.secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
 
-    const oystehr = createOystehrClient(m2mtoken, validatedParameters.secrets);
+    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
     const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
     console.log('Created Oystehr client');
 
@@ -52,7 +52,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify({ message: 'Error changing appointment status and creating a charge.' }),
     };
   }
-};
+});
 
 export const performEffect = async (
   oystehr: Oystehr,
@@ -88,7 +88,8 @@ export const performEffect = async (
   const currentStatus = mapStatusToTelemed(encounter.status, appointment.status);
   if (currentStatus) {
     const myPractId = await getMyPractitionerId(oystehrCurrentUser);
-    await changeStatusIfPossible(oystehr, visitResources, currentStatus, newStatus, myPractId);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+    await changeStatusIfPossible(oystehr, visitResources, currentStatus, newStatus, myPractId, ENVIRONMENT);
   }
 
   console.debug(`Status has been changed.`);
@@ -98,10 +99,10 @@ export const performEffect = async (
     const createResourcesRequests: BatchInputPostRequest<ChargeItem | Task>[] = [];
     console.debug(`Status change detected from ${currentStatus} to ${newStatus}`);
 
-    const chartDataPromise = getChartData(oystehr, m2mtoken, visitResources.encounter.id!);
+    const chartDataPromise = getChartData(oystehr, m2mToken, visitResources.encounter.id!);
     const additionalChartDataPromise = getChartData(
       oystehr,
-      m2mtoken,
+      m2mToken,
       visitResources.encounter.id!,
       telemedProgressNoteChartDataRequestedFields
     );
@@ -115,7 +116,7 @@ export const performEffect = async (
       { chartData, additionalChartData },
       visitResources,
       secrets,
-      m2mtoken
+      m2mToken
     );
     if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
     console.log(`Creating visit note pdf docRef`);
@@ -171,18 +172,18 @@ export const performEffect = async (
       try {
         const chargeOutcome = await postChargeIssueRequest(
           getSecret(SecretsKeys.PROJECT_API, params.secrets),
-          m2mtoken,
+          m2mToken,
           visitResources.encounter.id
         );
         console.log(`Charge outcome: ${JSON.stringify(chargeOutcome)}`);
 
         const paymentInfo = await getPaymentDataRequest(
           getSecret(SecretsKeys.PROJECT_API, params.secrets),
-          m2mtoken,
+          m2mToken,
           visitResources.encounter.id
         );
 
-        const pdfInfo = await composeAndCreateReceiptPdf(paymentInfo, chartData, visitResources, secrets, m2mtoken);
+        const pdfInfo = await composeAndCreateReceiptPdf(paymentInfo, chartData, visitResources, secrets, m2mToken);
         if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
 
         const resources = await makeReceiptPdfDocumentReference(

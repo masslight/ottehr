@@ -1,7 +1,7 @@
 import { FC } from 'react';
+import { dataTestIds } from '../../../../constants/data-test-ids';
 import { useExamCardCollapsed } from '../../../hooks/useExamCardCollapsed';
 import { ExamCardContainer, ExamCommentField, ExamFieldsFactory } from './components';
-import { dataTestIds } from '../../../../constants/data-test-ids';
 
 export const EarsCard: FC = () => {
   const [isCollapsed, onSwitch] = useExamCardCollapsed('ears');

@@ -1,34 +1,36 @@
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Appointment, DocumentReference, Encounter, Patient } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
-  getPresignedURL,
-  isApiError,
   APIError,
   DYMO_30334_LABEL_CONFIG,
+  getMiddleName,
   getPatientFirstName,
   getPatientLastName,
-  getMiddleName,
+  getPresignedURL,
+  getSecret,
+  isApiError,
+  SecretsKeys,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch } from '../../shared';
-import { ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../shared';
+import { createVisitLabelPDF, VISIT_LABEL_DOC_REF_DOCTYPE, VisitLabelConfig } from '../../shared/pdf/visit-label-pdf';
 import { validateRequestParameters } from './validateRequestParameters';
-import { Appointment, DocumentReference, Encounter, Patient } from 'fhir/r4b';
-import { createVisitLabelPDF, VisitLabelConfig, VISIT_LABEL_DOC_REF_DOCTYPE } from '../../shared/pdf/visit-label-pdf';
-import { DateTime } from 'luxon';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mtoken: string;
+let m2mToken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.log(`Input: ${JSON.stringify(input)}`);
     console.log('Validating input');
     const { encounterId, secrets } = validateRequestParameters(input);
 
     console.log('Getting token');
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    console.log('token', m2mtoken);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    console.log('token', m2mToken);
 
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
     const labelDocRefs = (
       await oystehr.fhir.search<DocumentReference>({
@@ -94,7 +96,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         labelConfig,
         encounterId,
         secrets,
-        m2mtoken,
+        m2mToken,
         oystehr
       );
 
@@ -117,7 +119,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         body: JSON.stringify([
           {
             documentReference: labelDocRef,
-            presignedURL: await getPresignedURL(url, m2mtoken),
+            presignedURL: await getPresignedURL(url, m2mToken),
           },
         ]),
         statusCode: 200,
@@ -127,7 +129,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     throw new Error(`Got ${labelDocRefs.length} docRefs for Encounter/${encounterId}. Expected 0 or 1`);
   } catch (error: any) {
     console.error('get or create visit label pdf error:', JSON.stringify(error));
-    await topLevelCatch('admin-get-or-create-visit-label-pdf', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('admin-get-or-create-visit-label-pdf', error, ENVIRONMENT);
     let body = JSON.stringify({ message: 'Error fetching or creating visit label pdf' });
     if (isApiError(error)) {
       const { code, message } = error as APIError;
@@ -138,4 +141,4 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body,
     };
   }
-};
+});

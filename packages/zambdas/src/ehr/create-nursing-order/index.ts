@@ -1,38 +1,41 @@
+import { BatchInputRequest } from '@oystehr/sdk';
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { randomUUID } from 'crypto';
 import {
-  Secrets,
-  PRACTITIONER_CODINGS,
+  Account,
+  Coverage,
+  Encounter,
+  FhirResource,
+  Location,
+  Patient,
+  Provenance,
+  ServiceRequest,
+  Task,
+} from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import {
   CreateNursingOrderParameters,
+  getSecret,
   NURSING_ORDER_PROVENANCE_ACTIVITY_CODING_ENTITY,
+  PRACTITIONER_CODINGS,
+  Secrets,
+  SecretsKeys,
 } from 'utils';
 import {
-  ZambdaInput,
   checkOrCreateM2MClientToken,
   createOystehrClient,
   fillMeta,
   getMyPractitionerId,
   topLevelCatch,
+  ZambdaInput,
 } from '../../shared';
-import { validateRequestParameters } from './validateRequestParameters';
-import {
-  Account,
-  Coverage,
-  Encounter,
-  Patient,
-  ServiceRequest,
-  Location,
-  Provenance,
-  Task,
-  FhirResource,
-} from 'fhir/r4b';
-import { DateTime } from 'luxon';
 import { getPrimaryInsurance } from '../shared/labs';
-import { BatchInputRequest } from '@oystehr/sdk';
-import { randomUUID } from 'crypto';
+import { validateRequestParameters } from './validateRequestParameters';
 
-let m2mtoken: string;
+let m2mToken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`create-nursing-order started, input: ${JSON.stringify(input)}`);
 
   let validatedParameters: CreateNursingOrderParameters & { secrets: Secrets | null; userToken: string };
@@ -52,8 +55,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   try {
     const { userToken, secrets, encounterId, notes } = validatedParameters;
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
     const oystehrCurrentUser = createOystehrClient(userToken, secrets);
     const _practitionerIdFromCurrentUser = await getMyPractitionerId(oystehrCurrentUser);
@@ -256,7 +259,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       }),
     };
   } catch (error: any) {
-    await topLevelCatch('create-nursing-order', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('create-nursing-order', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify({
@@ -264,4 +268,4 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       }),
     };
   }
-};
+});

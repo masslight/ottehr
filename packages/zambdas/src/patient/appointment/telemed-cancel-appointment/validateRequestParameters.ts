@@ -1,8 +1,8 @@
 import { CancellationReasonOptionsProviderSideTelemed, CancellationReasonOptionsTelemed } from 'utils';
 import { ZambdaInput } from '../../../shared';
-import { CancelAppointmentInput } from '.';
+import { CancelTelemedAppointmentInputValidated } from '.';
 
-export function validateRequestParameters(input: ZambdaInput): CancelAppointmentInput {
+export function validateRequestParameters(input: ZambdaInput): CancelTelemedAppointmentInputValidated {
   console.group('validateRequestParameters');
 
   if (!input.body) {

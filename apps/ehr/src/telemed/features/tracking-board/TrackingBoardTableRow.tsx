@@ -1,24 +1,24 @@
 // cSpell:ignore Español
+import { otherColors } from '@ehrTheme/colors';
 import ChatOutlineIcon from '@mui/icons-material/ChatOutlined';
 import { LoadingButton } from '@mui/lab';
 import {
+  alpha,
   Badge,
   Box,
+  capitalize,
   IconButton,
   Skeleton,
   TableCell,
   TableRow,
   Tooltip,
   Typography,
-  alpha,
-  capitalize,
   useTheme,
 } from '@mui/material';
-import { otherColors } from '@ehrTheme/colors';
 import { DateTime } from 'luxon';
 import { FC, ReactElement, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { TelemedAppointmentInformation, TelemedAppointmentStatusEnum, calculatePatientAge, getTimezone } from 'utils';
+import { calculatePatientAge, getTimezone, TelemedAppointmentInformation, TelemedAppointmentStatusEnum } from 'utils';
 import { dataTestIds } from '../../../constants/data-test-ids';
 import ChatModal from '../../../features/chat/ChatModal';
 import { formatDateUsingSlashes } from '../../../helpers/formatDateTime';

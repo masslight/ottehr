@@ -1,6 +1,6 @@
 import { expect, Locator, Page } from '@playwright/test';
-import { Locators } from './locators';
 import { DateTime } from 'luxon';
+import { Locators } from './locators';
 
 export class CommonLocatorsHelper {
   page: Page;

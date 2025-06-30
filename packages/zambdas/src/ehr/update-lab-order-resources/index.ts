@@ -1,32 +1,39 @@
+import { BatchInputPatchRequest, BatchInputPostRequest } from '@oystehr/sdk';
+import { Oystehr } from '@oystehr/sdk/dist/cjs/resources/classes';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Operation } from 'fast-json-patch';
 import {
   Bundle,
   DiagnosticReport,
-  Task,
-  Provenance,
-  ServiceRequest,
-  Reference,
   Encounter,
-  Observation,
   FhirResource,
+  Observation,
+  Provenance,
+  Reference,
+  ServiceRequest,
   Specimen,
+  Task,
 } from 'fhir/r4b';
-import { Oystehr } from '@oystehr/sdk/dist/cjs/resources/classes';
-import { getPatchBinary, PROVENANCE_ACTIVITY_CODING_ENTITY, Secrets, UpdateLabOrderResourcesParameters } from 'utils';
-import { Operation } from 'fast-json-patch';
-import { BatchInputPostRequest, BatchInputPatchRequest } from '@oystehr/sdk';
+import { DateTime } from 'luxon';
 import {
-  ZambdaInput,
-  topLevelCatch,
+  getPatchBinary,
+  getSecret,
+  PROVENANCE_ACTIVITY_CODING_ENTITY,
+  Secrets,
+  SecretsKeys,
+  UpdateLabOrderResourcesParameters,
+} from 'utils';
+import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   getMyPractitionerId,
+  topLevelCatch,
+  ZambdaInput,
 } from '../../shared';
-import { validateRequestParameters } from './validateRequestParameters';
-import { DateTime } from 'luxon';
 import { createExternalLabResultPDF } from '../../shared/pdf/labs-results-form-pdf';
+import { validateRequestParameters } from './validateRequestParameters';
 
-let m2mtoken: string;
+let m2mToken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`update-lab-order-resources started, input: ${JSON.stringify(input)}`);
@@ -50,8 +57,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     console.log('validateRequestParameters success');
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
     const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
     const practitionerIdFromCurrentUser = await getMyPractitionerId(oystehrCurrentUser);
 
@@ -99,7 +106,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     }
   } catch (error: any) {
     console.error('Error updating external lab order resource:', error);
-    await topLevelCatch('update-lab-order-resources', error, secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('update-lab-order-resources', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify({
@@ -237,7 +245,7 @@ const handleReviewedEvent = async ({
     requests,
   });
 
-  await createExternalLabResultPDF(oystehr, serviceRequestId, diagnosticReport, true, secrets, m2mtoken);
+  await createExternalLabResultPDF(oystehr, serviceRequestId, diagnosticReport, true, secrets, m2mToken);
 
   return updateTransactionRequest;
 };

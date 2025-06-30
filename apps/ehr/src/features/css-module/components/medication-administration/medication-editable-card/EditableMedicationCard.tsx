@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ExtendedMedicationDataForResponse,
@@ -199,12 +199,12 @@ export const EditableMedicationCard: React.FC<{
     }
   };
 
-  const getFieldValue = <Field extends keyof MedicationData>(
-    field: Field,
-    type = 'text'
-  ): MedicationData[Field] | '' | undefined => {
-    return localValues[field] ?? (medication ? getMedicationFieldValue(medication || {}, field, type) : undefined);
-  };
+  const getFieldValue = useCallback(
+    <Field extends keyof MedicationData>(field: Field, type = 'text'): MedicationData[Field] | '' | undefined => {
+      return localValues[field] ?? (medication ? getMedicationFieldValue(medication || {}, field, type) : undefined);
+    },
+    [localValues, medication, getMedicationFieldValue]
+  );
 
   const isUnsavedData = isUnsavedMedicationData(
     medication,
@@ -237,7 +237,8 @@ export const EditableMedicationCard: React.FC<{
         }
       });
     }
-  }, [type]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <>

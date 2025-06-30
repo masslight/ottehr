@@ -1,4 +1,5 @@
 import Oystehr, { RoleListItem, UserListItem } from '@oystehr/sdk';
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { FhirResource, Practitioner, PractitionerQualification, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -7,16 +8,17 @@ import {
   GetEmployeesResponse,
   getProviderNotificationSettingsForPractitioner,
   getResourcesFromBatchInlineRequests,
+  getSecret,
   PractitionerLicense,
   PractitionerQualificationCode,
   PromiseInnerType,
   RoleType,
   Secrets,
+  SecretsKeys,
   standardizePhoneNumber,
 } from 'utils';
-import { getAuth0Token, getRoleMembers, lambdaResponse, topLevelCatch } from '../../shared';
+import { getAuth0Token, getRoleMembers, lambdaResponse, topLevelCatch, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
-import { ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // For local development it makes it easier to track performance
@@ -30,7 +32,7 @@ export interface GetEmployeesInput {
 }
 
 let zapehrToken: string;
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
@@ -144,11 +146,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     return lambdaResponse(200, response);
   } catch (error: any) {
-    await topLevelCatch('admin-get-employee-details', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('admin-get-employee-details', error, ENVIRONMENT);
     console.log('Error: ', JSON.stringify(error.message));
     return lambdaResponse(500, error.message);
   }
-};
+});
 
 async function getEmployees(oystehr: Oystehr): Promise<UserListItem[]> {
   console.log('Getting all employees..');

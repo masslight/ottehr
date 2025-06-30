@@ -1,6 +1,6 @@
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Schedule, Location } from 'fhir/r4b';
+import { Location, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   AvailableLocationInformation,
@@ -18,9 +18,9 @@ import {
   isLocationVirtual,
   SecretsKeys,
   SlotListItem,
+  Timezone,
 } from 'utils';
 import {
-  captureSentryException,
   configSentry,
   createOystehrClient,
   getAuth0Token,
@@ -127,8 +127,13 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const waitingMinutes = await getWaitingMinutesAtSchedule(oystehr, now, scheduleOwner);
     console.timeEnd('get_waiting_minutes');
 
-    // const walkinOpen = isWalkinOpen(locationInformationWithClosures, now);
-    // const openTime = walkinOpen ? undefined : getNextOpeningDateTime(oystehr, now, scheduleOwner);
+    let timezone: Timezone | undefined;
+    if (scheduleList.length === 1) {
+      const schedule = scheduleList[0].schedule;
+      if (schedule) {
+        timezone = getTimezone(schedule);
+      }
+    }
 
     const response: GetScheduleResponse = {
       message: 'Successfully retrieved all available slot times',
@@ -137,8 +142,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       location: locationInformationWithClosures,
       displayTomorrowSlotsAtHour: DISPLAY_TOMORROW_SLOTS_AT_HOUR,
       waitingMinutes,
-      walkinOpen: true,
-      openTime: undefined,
+      timezone,
     };
 
     console.log('response to return: ', response);
@@ -148,7 +152,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('get-schedule', error, input.secrets, captureSentryException);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('get-schedule', error, ENVIRONMENT);
   }
 });
 

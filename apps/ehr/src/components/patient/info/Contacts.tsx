@@ -1,12 +1,12 @@
-import { Box, Skeleton, Tooltip, Typography } from '@mui/material';
 import ContactPhoneOutlinedIcon from '@mui/icons-material/ContactPhoneOutlined';
 import PhoneOutlinedIcon from '@mui/icons-material/PhoneOutlined';
 import PlaceOutlinedIcon from '@mui/icons-material/PlaceOutlined';
+import { Box, Skeleton, Tooltip, Typography } from '@mui/material';
+import { Patient } from 'fhir/r4b';
 import { FC } from 'react';
 import { getPatientAddress } from 'utils/lib/fhir/patient';
 import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
 import { dataTestIds } from '../../../constants/data-test-ids';
-import { Patient } from 'fhir/r4b';
 
 type Props = {
   patient: Patient | undefined;

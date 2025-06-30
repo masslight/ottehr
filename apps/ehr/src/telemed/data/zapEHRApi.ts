@@ -1,5 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import {
+  AssignPractitionerInput,
+  AssignPractitionerResponse,
+  ChangeInPersonVisitStatusInput,
+  ChangeInPersonVisitStatusResponse,
   ChangeTelemedAppointmentStatusInput,
   ChangeTelemedAppointmentStatusResponse,
   CommunicationDTO,
@@ -8,36 +12,32 @@ import {
   DeletePatientInstructionInput,
   GetChartDataRequest,
   GetChartDataResponse,
+  GetCreateLabOrderResources,
+  GetMedicationOrdersInput,
+  GetMedicationOrdersResponse,
+  GetPatientAccountZambdaInput,
   GetPatientInstructionsInput,
   GetTelemedAppointmentsResponseEhr,
+  getZapEHRApiHelpers,
   IcdSearchRequestParams,
   IcdSearchResponse,
   InitTelemedSessionRequestParams,
   InitTelemedSessionResponse,
+  LabOrderResourcesRes,
+  NotFoundAppointmentErrorHandler,
+  PatientAccountResponse,
+  RemoveCoverageZambdaInput,
   SaveChartDataRequest,
   SaveChartDataResponse,
   SavePatientInstructionInput,
-  SyncUserResponse,
-  getZapEHRApiHelpers,
-  NotFoundAppointmentErrorHandler,
-  GetMedicationOrdersResponse,
-  GetMedicationOrdersInput,
-  UpdateMedicationOrderInput,
-  AssignPractitionerInput,
-  AssignPractitionerResponse,
-  UnassignPractitionerInput,
-  UnassignPractitionerResponse,
+  SendFaxZambdaInput,
   SignAppointmentInput,
   SignAppointmentResponse,
-  ChangeInPersonVisitStatusInput,
-  ChangeInPersonVisitStatusResponse,
-  PatientAccountResponse,
-  RemoveCoverageZambdaInput,
+  SyncUserResponse,
+  UnassignPractitionerZambdaInput,
+  UnassignPractitionerZambdaOutput,
   UpdateCoverageZambdaInput,
-  GetPatientAccountZambdaInput,
-  SendFaxZambdaInput,
-  GetCreateLabOrderResources,
-  LabOrderResourcesRes,
+  UpdateMedicationOrderInput,
 } from 'utils';
 import { GetAppointmentsRequestParams } from '../utils';
 import { GetOystehrTelemedAPIParams } from './types';
@@ -221,15 +221,13 @@ export const getOystehrTelemedAPI = (
     return await makeZapRequest('change in person visit status', parameters);
   };
 
-  const assignPractitioner = async (
-    parameters: Omit<AssignPractitionerInput, 'secrets'>
-  ): Promise<AssignPractitionerResponse> => {
+  const assignPractitioner = async (parameters: AssignPractitionerInput): Promise<AssignPractitionerResponse> => {
     return await makeZapRequest('assign practitioner', parameters);
   };
 
   const unassignPractitioner = async (
-    parameters: Omit<UnassignPractitionerInput, 'secrets'>
-  ): Promise<UnassignPractitionerResponse> => {
+    parameters: UnassignPractitionerZambdaInput
+  ): Promise<UnassignPractitionerZambdaOutput> => {
     return await makeZapRequest('unassign practitioner', parameters);
   };
 

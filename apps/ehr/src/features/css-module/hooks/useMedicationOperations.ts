@@ -1,7 +1,7 @@
-import { useCreateUpdateMedicationOrder, useGetMedicationOrders } from '../../../telemed';
-import { UpdateMedicationOrderInput, ExtendedMedicationDataForResponse } from 'utils';
-import { useParams } from 'react-router-dom';
 import { useQueryClient } from 'react-query';
+import { useParams } from 'react-router-dom';
+import { ExtendedMedicationDataForResponse, UpdateMedicationOrderInput } from 'utils';
+import { useCreateUpdateMedicationOrder, useGetMedicationOrders } from '../../../telemed';
 
 interface MedicationAPI {
   medications: ExtendedMedicationDataForResponse[];

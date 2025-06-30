@@ -1,8 +1,8 @@
 import { BrowserContext, expect, Locator, Page } from '@playwright/test';
+import { chooseJson, GetSlotDetailsResponse } from 'utils';
 import { CommonLocatorsHelper } from '../CommonLocatorsHelper';
 import { Locators } from '../locators';
 import { FillingInfo } from './FillingInfo';
-import { chooseJson, GetSlotDetailsResponse } from 'utils';
 
 export abstract class BaseInPersonFlow {
   protected page: Page;

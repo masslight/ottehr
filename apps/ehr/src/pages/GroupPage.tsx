@@ -1,17 +1,17 @@
-import { ReactElement, useCallback, useEffect, useState } from 'react';
+import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
+import { LoadingButton } from '@mui/lab';
 import { Box, Button, CircularProgress, Grid, Skeleton, TextField, Tooltip, Typography } from '@mui/material';
+import { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
+import { Operation } from 'fast-json-patch';
 import { HealthcareService, Location, Practitioner, PractitionerRole, Resource } from 'fhir/r4b';
+import { enqueueSnackbar } from 'notistack';
+import { ReactElement, useCallback, useEffect, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
+import { getPatchBinary, getSlugForBookableResource, SLUG_SYSTEM } from 'utils';
 import GroupMembers from '../components/schedule/GroupMembers';
 import { useApiClients } from '../hooks/useAppClients';
-import { LoadingButton } from '@mui/lab';
-import { getPatchBinary, getSlugForBookableResource, SLUG_SYSTEM } from 'utils';
-import { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
-import { Link, useParams } from 'react-router-dom';
 import PageContainer from '../layout/PageContainer';
-import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
-import { enqueueSnackbar } from 'notistack';
-import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
-import { Operation } from 'fast-json-patch';
 
 const INTAKE_URL = import.meta.env.VITE_APP_INTAKE_URL;
 

@@ -10,11 +10,11 @@ import {
   RACE_OPTIONS,
   SEXUAL_ORIENTATION_OPTIONS,
 } from '../../constants';
+import { FormFields as AllFormFields } from '../../constants';
+import { dataTestIds } from '../../constants/data-test-ids';
 import { FormSelect, FormTextField } from '../form';
 import { Row, Section } from '../layout';
 import ShowMoreButton from './ShowMoreButton';
-import { dataTestIds } from '../../constants/data-test-ids';
-import { FormFields as AllFormFields } from '../../constants';
 
 const FormFields = AllFormFields.patientDetails;
 interface PatientDetailsContainerProps {

@@ -1,12 +1,12 @@
-import Oystehr from '@oystehr/sdk';
-import { FhirResource, Location, Practitioner, Resource } from 'fhir/r4b';
+import Oystehr, { FhirSearchParams } from '@oystehr/sdk';
+import { Appointment, FhirResource, Location, Practitioner, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  allLicensesForPractitioner,
   GetTelemedAppointmentsInput,
+  isLocationVirtual,
   OTTEHR_MODULE,
   PatientFilterType,
-  allLicensesForPractitioner,
-  isLocationVirtual,
 } from 'utils';
 import { isNonPaperworkQuestionnaireResponse } from '../../../common';
 import { joinLocationsIdsForFhirSearch } from './helpers';
@@ -20,8 +20,7 @@ export const getAllResourcesFromFhir = async (
   appointmentStatusesToSearchWith: string[],
   searchDate?: DateTime
 ): Promise<FhirResource[]> => {
-  const fhirSearchParams = {
-    //
+  const fhirSearchParams: FhirSearchParams<Appointment> = {
     resourceType: 'Appointment',
     params: [
       {
@@ -73,35 +72,35 @@ export const getAllResourcesFromFhir = async (
         name: '_revinclude:iterate',
         value: 'QuestionnaireResponse:encounter',
       },
+      ...(searchDate
+        ? [
+            {
+              name: 'date',
+              value: `ge${searchDate.startOf('day')}`,
+            },
+            {
+              name: 'date',
+              value: `le${searchDate.endOf('day')}`,
+            },
+          ]
+        : []),
+      ...(locationIds.length > 0
+        ? [
+            {
+              name: 'location',
+              value: joinLocationsIdsForFhirSearch(locationIds),
+            },
+          ]
+        : []),
     ],
   };
 
-  console.log(22222221, fhirSearchParams);
-
-  if (searchDate) {
-    fhirSearchParams.params.push(
-      {
-        name: 'date',
-        value: `ge${searchDate.startOf('day')}`,
-      },
-      {
-        name: 'date',
-        value: `le${searchDate.endOf('day')}`,
-      }
-    );
-  }
-  if (locationIds.length > 0) {
-    fhirSearchParams.params.push({
-      name: 'location',
-      value: joinLocationsIdsForFhirSearch(locationIds),
-    });
-  }
   return (await oystehr.fhir.search<FhirResource>(fhirSearchParams))
     .unbundle()
     .filter((resource) => isNonPaperworkQuestionnaireResponse(resource) === false);
 };
 
-export const getPractLicensesLocationsAbbreviations = async (oystehr: Oystehr): Promise<string[]> => {
+export const getPractitionerLicensesLocationsAbbreviations = async (oystehr: Oystehr): Promise<string[]> => {
   const practitionerId = (await oystehr.user.me()).profile.replace('Practitioner/', '');
 
   const practitioner: Practitioner =
@@ -159,7 +158,7 @@ const locationIdsForAppointmentsSearch = async (
   }
 
   if (patientFilter === 'my-patients') {
-    const licensedPractitionerStates = await getPractLicensesLocationsAbbreviations(oystehr);
+    const licensedPractitionerStates = await getPractitionerLicensesLocationsAbbreviations(oystehr);
     console.log('Licensed Practitioner US_states: ' + JSON.stringify(licensedPractitionerStates));
 
     if (hasNoUsStatesFiltersSet) {

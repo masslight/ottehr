@@ -1,0 +1,6297 @@
+{
+  "full": [
+    {
+      "id": "190e6f45-1da0-4c5b-b413-130855b9d6b6",
+      "description": "completed-with-insurance --valid",
+      "expectation": {
+        "valid": true,
+        "inner": [],
+        "validItemsToCheck": [
+          { "path": "2.item.0.linkId", "value": "payment-option" },
+          { "path": "2.item.0.answer.0.valueString", "value": "I have insurance" }
+        ]
+      },
+      "item": [
+        {
+          "linkId": "contact-information-page",
+          "item": [
+            {
+              "linkId": "patient-will-be-18",
+              "answer": [
+                {
+                  "valueBoolean": true
+                }
+              ]
+            },
+            {
+              "linkId": "is-new-qrs-patient",
+              "answer": [
+                {
+                  "valueBoolean": false
+                }
+              ]
+            },
+            {
+              "linkId": "patient-first-name",
+              "answer": [
+                {
+                  "valueString": "Alder"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-last-name",
+              "answer": [
+                {
+                  "valueString": "Fluke"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-birthdate",
+              "item": [
+                {
+                  "linkId": "patient-dob-day",
+                  "answer": [
+                    {
+                      "valueString": "01"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "patient-dob-month",
+                  "answer": [
+                    {
+                      "valueString": "01"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "patient-dob-year",
+                  "answer": [
+                    {
+                      "valueString": "2001"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "linkId": "patient-birth-sex-missing",
+              "answer": [
+                {
+                  "valueBoolean": true
+                }
+              ]
+            },
+            {
+              "linkId": "patient-street-address",
+              "answer": [
+                {
+                  "valueString": "12345 Rainy St"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-street-address-2",
+              "answer": [
+                {
+                  "valueString": "Apt 123"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-city",
+              "answer": [
+                {
+                  "valueString": "Arlen"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-state",
+              "answer": [
+                {
+                  "valueString": "TX"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-zip",
+              "answer": [
+                {
+                  "valueString": "12345"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-filling-out-as",
+              "answer": [
+                {
+                  "valueString": "Parent/Guardian"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-email",
+              "answer": [
+                {
+                  "valueString": "example@example.com"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-number",
+              "answer": [
+                {
+                  "valueString": "(123) 456-7890"
+                }
+              ]
+            },
+            {
+              "linkId": "guardian-email",
+              "answer": [
+                {
+                  "valueString": "mail@example.com"
+                }
+              ]
+            },
+            {
+              "linkId": "guardian-number",
+              "answer": [
+                {
+                  "valueString": "(098) 765-4321"
+                }
+              ]
+            },
+            {
+              "linkId": "mobile-opt-in",
+              "answer": [
+                {
+                  "valueBoolean": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "patient-details-page",
+          "item": [
+            {
+              "linkId": "ovrp-interest",
+              "answer": [
+                {
+                  "valueString": "No"
+                }
+              ]
+            },
+            {
+              "linkId": "pharmacy-phone",
+              "answer": [
+                {
+                  "valueString": "(836) 253-7848"
+                }
+              ]
+            },
+            {
+              "linkId": "pharmacy-address",
+              "answer": [
+                {
+                  "valueString": "12345 Georgia Ave"
+                }
+              ]
+            },
+            {
+              "linkId": "pharmacy-name",
+              "answer": [
+                {
+                  "valueString": "Walgreens"
+                }
+              ]
+            },
+            {
+              "linkId": "pcp-number",
+              "answer": [
+                {
+                  "valueString": "(736) 282-9847"
+                }
+              ]
+            },
+            {
+              "linkId": "pcp-last",
+              "answer": [
+                {
+                  "valueString": "Lockwood"
+                }
+              ]
+            },
+            {
+              "linkId": "pcp-first",
+              "answer": [
+                {
+                  "valueString": "Kat"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-pronouns",
+              "answer": [
+                {
+                  "valueString": "He/him"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-race",
+              "answer": [
+                {
+                  "valueString": "Native Hawaiian or Other Pacific Islander"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-ethnicity",
+              "answer": [
+                {
+                  "valueString": "Not Hispanic or Latino"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "payment-option-page",
+          "item": [
+            {
+              "linkId": "payment-option",
+              "answer": [
+                {
+                  "valueString": "I have insurance"
+                }
+              ]
+            },
+            {
+              "linkId": "insurance-carrier",
+              "answer": [
+                {
+                  "valueString": "Fidelis"
+                }
+              ]
+            },
+            {
+              "linkId": "insurance-member-id",
+              "answer": [
+                {
+                  "valueString": "12345678"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-first-name",
+              "answer": [
+                {
+                  "valueString": "Policy"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-last-name",
+              "answer": [
+                {
+                  "valueString": "Holder"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-date-of-birth",
+              "item": [
+                {
+                  "linkId": "policy-holder-dob-day",
+                  "answer": [
+                    {
+                      "valueString": "08"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-dob-month",
+                  "answer": [
+                    {
+                      "valueString": "02"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-dob-year",
+                  "answer": [
+                    {
+                      "valueString": "1997"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-birth-sex",
+              "answer": [
+                {
+                  "valueString": "Male"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-relationship-to-insured",
+              "answer": [
+                {
+                  "valueString": "Father"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-zip",
+              "answer": [
+                {
+                  "valueString": "20001"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-state",
+              "answer": [
+                {
+                  "valueString": "MS"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-city",
+              "answer": [
+                {
+                  "valueString": "DeliciousVilla"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-address-additional-line",
+              "answer": [
+                {
+                  "valueString": "Unit 2"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-address",
+              "answer": [
+                {
+                  "valueString": "317 Mustard Street"
+                }
+              ]
+            },
+            {
+              "linkId": "insurance-card-front",
+              "answer": [
+                {
+                  "valueAttachment": {
+                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-insurance-cards/58263486-b110-4fee-9676-5a94f0682747/1723133382249-insurance-card-front.jpeg",
+                    "title": "insurance-card-front",
+                    "creation": "2024-08-08T12:09:44.777-04:00",
+                    "contentType": "image/jpeg"
+                  }
+                }
+              ]
+            },
+            {
+              "linkId": "insurance-card-back",
+              "answer": [
+                {
+                  "valueAttachment": {
+                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-insurance-cards/58263486-b110-4fee-9676-5a94f0682747/1723133389571-insurance-card-back.jpeg",
+                    "title": "insurance-card-back",
+                    "creation": "2024-08-08T12:09:49.954-04:00",
+                    "contentType": "image/jpeg"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "responsible-party-page",
+          "item": [
+            {
+              "linkId": "responsible-party-relationship",
+              "answer": [
+                {
+                  "valueString": "Legal Guardian"
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-first-name",
+              "answer": [
+                {
+                  "valueString": "Legal"
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-last-name",
+              "answer": [
+                {
+                  "valueString": "Guardian"
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-date-of-birth",
+              "item": [
+                {
+                  "linkId": "responsible-party-dob-day",
+                  "answer": [
+                    {
+                      "valueString": "11"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "responsible-party-dob-month",
+                  "answer": [
+                    {
+                      "valueString": "05"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "responsible-party-dob-year",
+                  "answer": [
+                    {
+                      "valueString": "1967"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-birth-sex",
+              "answer": [
+                {
+                  "valueString": "Male"
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-number",
+              "answer": [
+                {
+                  "valueString": "(733) 873-3884"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "photo-id-page",
+          "item": [
+            {
+              "linkId": "photo-id-front",
+              "answer": [
+                {
+                  "valueAttachment": {
+                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-photo-id-cards/58263486-b110-4fee-9676-5a94f0682747/1723133435581-photo-id-front.jpeg",
+                    "title": "photo-id-front",
+                    "creation": "2024-08-08T12:10:36.693-04:00",
+                    "contentType": "image/jpeg"
+                  }
+                }
+              ]
+            },
+            {
+              "linkId": "photo-id-back",
+              "answer": [
+                {
+                  "valueAttachment": {
+                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-photo-id-cards/58263486-b110-4fee-9676-5a94f0682747/1723133447937-photo-id-back.jpeg",
+                    "title": "photo-id-back",
+                    "creation": "2024-08-08T12:10:48.553-04:00",
+                    "contentType": "image/jpeg"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "consent-forms-page",
+          "item": [
+            {
+              "linkId": "consent-jurisdiction",
+              "answer": [
+                {
+                  "valueString": "NY"
+                }
+              ]
+            },
+            {
+              "linkId": "hipaa-acknowledgement",
+              "answer": [
+                {
+                  "valueBoolean": true
+                }
+              ]
+            },
+            {
+              "linkId": "consent-to-treat",
+              "answer": [
+                {
+                  "valueBoolean": true
+                }
+              ]
+            },
+            {
+              "linkId": "signature",
+              "answer": [
+                {
+                  "valueString": "Alder Fluke"
+                }
+              ]
+            },
+            {
+              "linkId": "full-name",
+              "answer": [
+                {
+                  "valueString": "Alder Fluke"
+                }
+              ]
+            },
+            {
+              "linkId": "consent-form-signer-relationship",
+              "answer": [
+                {
+                  "valueString": "Self"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "5febb805-1b0f-4d18-bcec-75a44dbf096b",
+      "description": "completed-without-insurance rp=self --valid",
+      "expectation": {
+        "valid": true,
+        "inner": [],
+        "validItemsToCheck": [
+          { "path": "2.item.0.linkId", "value": "payment-option" },
+          { "path": "2.item.0.answer.0.valueString", "value": "I will pay without insurance" }
+        ]
+      },
+      "item": [
+        {
+          "linkId": "contact-information-page",
+          "item": [
+            {
+              "linkId": "patient-will-be-18",
+              "answer": [
+                {
+                  "valueBoolean": true
+                }
+              ]
+            },
+            {
+              "linkId": "is-new-qrs-patient",
+              "answer": [
+                {
+                  "valueBoolean": false
+                }
+              ]
+            },
+            {
+              "linkId": "patient-first-name",
+              "answer": [
+                {
+                  "valueString": "Agustus"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-last-name",
+              "answer": [
+                {
+                  "valueString": "Abbey"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-birthdate",
+              "item": [
+                {
+                  "linkId": "patient-dob-day",
+                  "answer": [
+                    {
+                      "valueString": "01"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "patient-dob-month",
+                  "answer": [
+                    {
+                      "valueString": "01"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "patient-dob-year",
+                  "answer": [
+                    {
+                      "valueString": "2001"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "linkId": "patient-birth-sex",
+              "answer": [
+                {
+                  "valueString": "Male"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-street-address",
+              "answer": [
+                {
+                  "valueString": "12345 Rainy Street"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-street-address-2",
+              "answer": [
+                {
+                  "valueString": "Apt 123"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-city",
+              "answer": [
+                {
+                  "valueString": "Arlen"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-state",
+              "answer": [
+                {
+                  "valueString": "TX"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-zip",
+              "answer": [
+                {
+                  "valueString": "12345"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-filling-out-as",
+              "answer": [
+                {
+                  "valueString": "Parent/Guardian"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-email",
+              "answer": [
+                {
+                  "valueString": "patient@example.com"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-number",
+              "answer": [
+                {
+                  "valueString": "(123) 456-7890"
+                }
+              ]
+            },
+            {
+              "linkId": "guardian-email",
+              "answer": [
+                {
+                  "valueString": "parent@example.com"
+                }
+              ]
+            },
+            {
+              "linkId": "guardian-number",
+              "answer": [
+                {
+                  "valueString": "(098) 765-4321"
+                }
+              ]
+            },
+            {
+              "linkId": "mobile-opt-in",
+              "answer": [
+                {
+                  "valueBoolean": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "patient-details-page",
+          "item": [
+            {
+              "linkId": "ovrp-interest",
+              "answer": [
+                {
+                  "valueString": "No"
+                }
+              ]
+            },
+            {
+              "linkId": "pharmacy-phone",
+              "answer": [
+                {
+                  "valueString": "(843) 935-3384"
+                }
+              ]
+            },
+            {
+              "linkId": "pharmacy-address",
+              "answer": [
+                {
+                  "valueString": "12345 Colesville Ave"
+                }
+              ]
+            },
+            {
+              "linkId": "pharmacy-name",
+              "answer": [
+                {
+                  "valueString": "CVS"
+                }
+              ]
+            },
+            {
+              "linkId": "pcp-number",
+              "answer": [
+                {
+                  "valueString": "(748) 292-4228"
+                }
+              ]
+            },
+            {
+              "linkId": "pcp-last",
+              "answer": [
+                {
+                  "valueString": "PCPLast"
+                }
+              ]
+            },
+            {
+              "linkId": "pcp-first",
+              "answer": [
+                {
+                  "valueString": "PCPFirst"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-pronouns",
+              "answer": [
+                {
+                  "valueString": "He/him"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-race",
+              "answer": [
+                {
+                  "valueString": "Native Hawaiian or Other Pacific Islander"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-ethnicity",
+              "answer": [
+                {
+                  "valueString": "Not Hispanic or Latino"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "payment-option-page",
+          "item": [
+            {
+              "linkId": "payment-option",
+              "answer": [
+                {
+                  "valueString": "I will pay without insurance"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "responsible-party-page",
+          "item": [
+            {
+              "linkId": "responsible-party-relationship",
+              "answer": [
+                {
+                  "valueString": "Self"
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-first-name",
+              "answer": [
+                {
+                  "valueString": "Agustus"
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-last-name",
+              "answer": [
+                {
+                  "valueString": "Abbey"
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-date-of-birth",
+              "item": [
+                {
+                  "linkId": "responsible-party-dob-day",
+                  "answer": [
+                    {
+                      "valueString": "01"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "responsible-party-dob-month",
+                  "answer": [
+                    {
+                      "valueString": "01"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "responsible-party-dob-year",
+                  "answer": [
+                    {
+                      "valueString": "2001"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-birth-sex",
+              "answer": [
+                {
+                  "valueString": "Male"
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-number",
+              "answer": [
+                {
+                  "valueString": "(837) 483-9329"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "photo-id-page",
+          "item": [
+            {
+              "linkId": "photo-id-front",
+              "answer": [
+                {
+                  "valueAttachment": {
+                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-photo-id-cards/54807495-57af-45df-ab80-dd4b2457d0f8/1723221804136-photo-id-front.jpeg",
+                    "title": "photo-id-front",
+                    "creation": "2024-08-09T12:43:24.662-04:00",
+                    "contentType": "image/jpeg"
+                  }
+                }
+              ]
+            },
+            {
+              "linkId": "photo-id-back",
+              "answer": [
+                {
+                  "valueAttachment": {
+                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-photo-id-cards/54807495-57af-45df-ab80-dd4b2457d0f8/1723221810779-photo-id-back.jpeg",
+                    "title": "photo-id-back",
+                    "creation": "2024-08-09T12:43:31.669-04:00",
+                    "contentType": "image/jpeg"
+                  }
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-date-of-birth",
+              "item": [
+                {
+                  "linkId": "responsible-party-dob-day",
+                  "answer": [
+                    {
+                      "valueString": "01"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "responsible-party-dob-month",
+                  "answer": [
+                    {
+                      "valueString": "01"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "responsible-party-dob-year",
+                  "answer": [
+                    {
+                      "valueString": "2001"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "consent-forms-page",
+          "item": [
+            {
+              "linkId": "consent-jurisdiction",
+              "answer": [
+                {
+                  "valueString": "NY"
+                }
+              ]
+            },
+            {
+              "linkId": "hipaa-acknowledgement",
+              "answer": [
+                {
+                  "valueBoolean": true
+                }
+              ]
+            },
+            {
+              "linkId": "consent-to-treat",
+              "answer": [
+                {
+                  "valueBoolean": true
+                }
+              ]
+            },
+            {
+              "linkId": "signature",
+              "answer": [
+                {
+                  "valueString": "Agustus Abbey"
+                }
+              ]
+            },
+            {
+              "linkId": "full-name",
+              "answer": [
+                {
+                  "valueString": "Agustus Abbey"
+                }
+              ]
+            },
+            {
+              "linkId": "consent-form-signer-relationship",
+              "answer": [
+                {
+                  "valueString": "Self"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "55f06a7f-b5cd-4148-8006-b869d45f19c7",
+      "description": "secondary-insurance --valid",
+      "expectation": {
+        "valid": true,
+        "inner": [
+          {
+            "path": "responsible-party-date-of-birth",
+            "errors": ["Please enter a valid date"]
+          }
+        ],
+        "validItemsToCheck": []
+      },
+      "item": [
+        {
+          "linkId": "contact-information-page",
+          "item": [
+            {
+              "linkId": "patient-will-be-18",
+              "answer": [
+                {
+                  "valueBoolean": true
+                }
+              ]
+            },
+            {
+              "linkId": "is-new-qrs-patient",
+              "answer": [
+                {
+                  "valueBoolean": false
+                }
+              ]
+            },
+            {
+              "linkId": "patient-first-name",
+              "answer": [
+                {
+                  "valueString": "Octavian"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-last-name",
+              "answer": [
+                {
+                  "valueString": "Quadravion"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-birthdate",
+              "item": [
+                {
+                  "linkId": "patient-dob-day",
+                  "answer": [
+                    {
+                      "valueString": "06"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "patient-dob-month",
+                  "answer": [
+                    {
+                      "valueString": "08"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "patient-dob-year",
+                  "answer": [
+                    {
+                      "valueString": "2004"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "linkId": "patient-birth-sex",
+              "answer": [
+                {
+                  "valueString": "Male"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-filling-out-as",
+              "answer": [
+                {
+                  "valueString": "Patient (Self)"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-number",
+              "answer": [
+                {
+                  "valueString": "(425) 326-8681"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-email",
+              "answer": [
+                {
+                  "valueString": "isaac.benham@gmail.com"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-zip",
+              "answer": [
+                {
+                  "valueString": "20001"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-state",
+              "answer": [
+                {
+                  "valueString": "AK"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-city",
+              "answer": [
+                {
+                  "valueString": "Washington"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-street-address-2",
+              "answer": [
+                {
+                  "valueString": "unit 2"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-street-address",
+              "answer": [
+                {
+                  "valueString": "317 R St NW Unit 2"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "patient-details-page",
+          "item": [
+            {
+              "linkId": "ovrp-interest",
+              "answer": [
+                {
+                  "valueString": "Yes / First available"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-race",
+              "answer": [
+                {
+                  "valueString": "Asian"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-ethnicity",
+              "answer": [
+                {
+                  "valueString": "Hispanic or Latino"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "payment-option-page",
+          "item": [
+            {
+              "item": [
+                {
+                  "linkId": "insurance-carrier-2",
+                  "answer": [
+                    {
+                      "valueString": "United"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "insurance-member-id-2",
+                  "answer": [
+                    {
+                      "valueString": "Fafsdfsgd"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-first-name-2",
+                  "answer": [
+                    {
+                      "valueString": "Barnabas"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-middle-name-2",
+                  "answer": [
+                    {
+                      "valueString": "Thaddeus"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-last-name-2",
+                  "answer": [
+                    {
+                      "valueString": "PicklesWorth"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-date-of-birth-2",
+                  "item": [
+                    {
+                      "linkId": "policy-holder-dob-day-2",
+                      "answer": [
+                        {
+                          "valueString": "09"
+                        }
+                      ]
+                    },
+                    {
+                      "linkId": "policy-holder-dob-month-2",
+                      "answer": [
+                        {
+                          "valueString": "06"
+                        }
+                      ]
+                    },
+                    {
+                      "linkId": "policy-holder-dob-year-2",
+                      "answer": [
+                        {
+                          "valueString": "2017"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-birth-sex-2",
+                  "answer": [
+                    {
+                      "valueString": "Male"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-address-additional-line-2"
+                },
+                {
+                  "linkId": "policy-holder-address-2",
+                  "answer": [
+                    {
+                      "valueString": "317 Mustard Street"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-address-additional-line-2",
+                  "answer": [
+                    {
+                      "valueString": "Unit 2"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-city-2",
+                  "answer": [
+                    {
+                      "valueString": "DeliciousVilla"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-state-2",
+                  "answer": [
+                    {
+                      "valueString": "AK"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-zip-2",
+                  "answer": [
+                    {
+                      "valueString": "20001"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "patient-relationship-to-insured-2",
+                  "answer": [
+                    {
+                      "valueString": "Child"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "insurance-card-front-2"
+                },
+                {
+                  "linkId": "insurance-card-back-2"
+                }
+              ],
+              "linkId": "secondary-insurance"
+            },
+            {
+              "linkId": "payment-option",
+              "answer": [
+                {
+                  "valueString": "I have insurance"
+                }
+              ]
+            },
+            {
+              "linkId": "display-secondary-insurance",
+              "answer": [
+                {
+                  "valueBoolean": true
+                }
+              ]
+            },
+            {
+              "linkId": "insurance-card-back",
+              "answer": [
+                {
+                  "valueAttachment": {
+                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-insurance-cards/1eb1f4cf-0a5f-481a-b32b-0ca8a79501d1/1724430743370-insurance-card-back.png",
+                    "title": "insurance-card-back",
+                    "creation": "2024-08-23T12:32:24.023-04:00",
+                    "contentType": "image/png"
+                  }
+                }
+              ]
+            },
+            {
+              "linkId": "insurance-card-front",
+              "answer": [
+                {
+                  "valueAttachment": {
+                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-insurance-cards/1eb1f4cf-0a5f-481a-b32b-0ca8a79501d1/1724430732337-insurance-card-front.png",
+                    "title": "insurance-card-front",
+                    "creation": "2024-08-23T12:32:12.968-04:00",
+                    "contentType": "image/png"
+                  }
+                }
+              ]
+            },
+            {
+              "linkId": "patient-relationship-to-insured",
+              "answer": [
+                {
+                  "valueString": "Child"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-zip",
+              "answer": [
+                {
+                  "valueString": "20001"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-state",
+              "answer": [
+                {
+                  "valueString": "MS"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-city",
+              "answer": [
+                {
+                  "valueString": "DeliciousVilla"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-address-additional-line",
+              "answer": [
+                {
+                  "valueString": "Unit 2"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-address",
+              "answer": [
+                {
+                  "valueString": "317 Mustard Street"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-birth-sex",
+              "answer": [
+                {
+                  "valueString": "Male"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-date-of-birth",
+              "item": [
+                {
+                  "linkId": "policy-holder-dob-day",
+                  "answer": [
+                    {
+                      "valueString": "02"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-dob-month",
+                  "answer": [
+                    {
+                      "valueString": "06"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-dob-year",
+                  "answer": [
+                    {
+                      "valueString": "1999"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-last-name",
+              "answer": [
+                {
+                  "valueString": "dffsdfsd"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-first-name",
+              "answer": [
+                {
+                  "valueString": "FNdfsdf"
+                }
+              ]
+            },
+            {
+              "linkId": "insurance-member-id",
+              "answer": [
+                {
+                  "valueString": "sdfsdgdg"
+                }
+              ]
+            },
+            {
+              "linkId": "insurance-carrier",
+              "answer": [
+                {
+                  "valueString": "United"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "responsible-party-page",
+          "item": [
+            {
+              "linkId": "responsible-party-birth-sex",
+              "answer": [
+                {
+                  "valueString": "Male"
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-date-of-birth",
+              "item": [
+                {
+                  "linkId": "responsible-party-dob-day",
+                  "answer": [
+                    {
+                      "valueString": "06"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "responsible-party-dob-month",
+                  "answer": [
+                    {
+                      "valueString": "08"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "responsible-party-dob-year",
+                  "answer": [
+                    {
+                      "valueString": "2004"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-last-name",
+              "answer": [
+                {
+                  "valueString": "Quadravion"
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-first-name",
+              "answer": [
+                {
+                  "valueString": "Octavian"
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-relationship",
+              "answer": [
+                {
+                  "valueString": "Self"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "photo-id-page",
+          "item": [
+            {
+              "linkId": "photo-id-front",
+              "answer": [
+                {
+                  "valueAttachment": {
+                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-photo-id-cards/1eb1f4cf-0a5f-481a-b32b-0ca8a79501d1/1724430789373-photo-id-front.png",
+                    "title": "photo-id-front",
+                    "creation": "2024-08-23T12:33:09.997-04:00",
+                    "contentType": "image/png"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "consent-forms-page",
+          "item": [
+            {
+              "linkId": "consent-jurisdiction",
+              "answer": [
+                {
+                  "valueString": "NY"
+                }
+              ]
+            },
+            {
+              "linkId": "hipaa-acknowledgement",
+              "answer": [
+                {
+                  "valueBoolean": true
+                }
+              ]
+            },
+            {
+              "linkId": "consent-to-treat",
+              "answer": [
+                {
+                  "valueBoolean": true
+                }
+              ]
+            },
+            {
+              "linkId": "signature",
+              "answer": [
+                {
+                  "valueString": "Barney Pickles"
+                }
+              ]
+            },
+            {
+              "linkId": "full-name",
+              "answer": [
+                {
+                  "valueString": "Barnabizness PicklesWorth"
+                }
+              ]
+            },
+            {
+              "linkId": "consent-form-signer-relationship",
+              "answer": [
+                {
+                  "valueString": "Parent"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "47bac09e-f433-4651-842e-6681d80cddd6",
+      "description": "no-insurance-rp=self-invalid:missing rp dob",
+      "expectation": {
+        "valid": false,
+        "inner": [
+          {
+            "path": "responsible-party-date-of-birth",
+            "errors": ["Please enter a valid date"]
+          }
+        ],
+        "validItemsToCheck": []
+      },
+      "item": [
+        {
+          "linkId": "contact-information-page",
+          "item": [
+            {
+              "linkId": "patient-will-be-18",
+              "answer": [
+                {
+                  "valueBoolean": false
+                }
+              ]
+            },
+            {
+              "linkId": "is-new-qrs-patient",
+              "answer": [
+                {
+                  "valueBoolean": false
+                }
+              ]
+            },
+            {
+              "linkId": "patient-first-name",
+              "answer": [
+                {
+                  "valueString": "Aloysious"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-last-name",
+              "answer": [
+                {
+                  "valueString": "Bijou"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-birthdate",
+              "item": [
+                {
+                  "linkId": "patient-dob-day",
+                  "answer": [
+                    {
+                      "valueString": "08"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "patient-dob-month",
+                  "answer": [
+                    {
+                      "valueString": "03"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "patient-dob-year",
+                  "answer": [
+                    {
+                      "valueString": "2013"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "linkId": "patient-birth-sex",
+              "answer": [
+                {
+                  "valueString": "Male"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-filling-out-as",
+              "answer": [
+                {
+                  "valueString": "Parent/Guardian"
+                }
+              ]
+            },
+            {
+              "linkId": "guardian-number",
+              "answer": [
+                {
+                  "valueString": "(555) 555-5555"
+                }
+              ]
+            },
+            {
+              "linkId": "guardian-email",
+              "answer": [
+                {
+                  "valueString": "ibenham+bpicks@masslight.com"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-zip",
+              "answer": [
+                {
+                  "valueString": "20001"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-state",
+              "answer": [
+                {
+                  "valueString": "CA"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-city",
+              "answer": [
+                {
+                  "valueString": "DeliciousVilla"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-street-address-2",
+              "answer": [
+                {
+                  "valueString": "Unit 2"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-street-address",
+              "answer": [
+                {
+                  "valueString": "317 Mustard Street"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "patient-details-page",
+          "item": [
+            {
+              "linkId": "ovrp-interest",
+              "answer": [
+                {
+                  "valueString": "Yes / First available"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-point-of-discovery"
+            },
+            {
+              "linkId": "patient-pronouns-custom"
+            },
+            {
+              "linkId": "patient-race",
+              "answer": [
+                {
+                  "valueString": "Native Hawaiian or Other Pacific Islander"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-ethnicity",
+              "answer": [
+                {
+                  "valueString": "Hispanic or Latino"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "payment-option-page",
+          "item": [
+            {
+              "linkId": "payment-option",
+              "answer": [
+                {
+                  "valueString": "I will pay without insurance"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "responsible-party-page",
+          "item": [
+            {
+              "linkId": "responsible-party-relationship",
+              "answer": [
+                {
+                  "valueString": "Self"
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-birth-sex",
+              "answer": [
+                {
+                  "valueString": "Male"
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-last-name",
+              "answer": [
+                {
+                  "valueString": "Bijou"
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-first-name",
+              "answer": [
+                {
+                  "valueString": "Aloysious"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "photo-id-page"
+        },
+        {
+          "linkId": "consent-forms-page",
+          "item": [
+            {
+              "linkId": "consent-jurisdiction",
+              "answer": [
+                {
+                  "valueString": "IL"
+                }
+              ]
+            },
+            {
+              "linkId": "hipaa-acknowledgement",
+              "answer": [
+                {
+                  "valueBoolean": true
+                }
+              ]
+            },
+            {
+              "linkId": "consent-to-treat",
+              "answer": [
+                {
+                  "valueBoolean": true
+                }
+              ]
+            },
+            {
+              "linkId": "signature",
+              "answer": [
+                {
+                  "valueString": "afdfda"
+                }
+              ]
+            },
+            {
+              "linkId": "full-name",
+              "answer": [
+                {
+                  "valueString": "wegweqt"
+                }
+              ]
+            },
+            {
+              "linkId": "consent-form-signer-relationship",
+              "answer": [
+                {
+                  "valueString": "Parent"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "description": "no-insurance-rp=self --valid",
+      "expectation": {
+        "valid": true,
+        "inner": [],
+        "validItemsToCheck": [
+          { "path": "3.item.4.item.0.answer.0.valueString", "value": "08" },
+          { "path": "3.item.4.item.0.linkId", "value": "responsible-party-dob-day" }
+        ]
+      },
+      "item": [
+        {
+          "linkId": "contact-information-page",
+          "item": [
+            {
+              "linkId": "patient-will-be-18",
+              "answer": [
+                {
+                  "valueBoolean": false
+                }
+              ]
+            },
+            {
+              "linkId": "is-new-qrs-patient",
+              "answer": [
+                {
+                  "valueBoolean": false
+                }
+              ]
+            },
+            {
+              "linkId": "patient-first-name",
+              "answer": [
+                {
+                  "valueString": "Aloysious"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-last-name",
+              "answer": [
+                {
+                  "valueString": "Bijou"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-birthdate",
+              "item": [
+                {
+                  "linkId": "patient-dob-day",
+                  "answer": [
+                    {
+                      "valueString": "08"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "patient-dob-month",
+                  "answer": [
+                    {
+                      "valueString": "03"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "patient-dob-year",
+                  "answer": [
+                    {
+                      "valueString": "2013"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "linkId": "patient-birth-sex",
+              "answer": [
+                {
+                  "valueString": "Male"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-filling-out-as",
+              "answer": [
+                {
+                  "valueString": "Parent/Guardian"
+                }
+              ]
+            },
+            {
+              "linkId": "guardian-number",
+              "answer": [
+                {
+                  "valueString": "(555) 555-5555"
+                }
+              ]
+            },
+            {
+              "linkId": "guardian-email",
+              "answer": [
+                {
+                  "valueString": "ibenham+bpicks@masslight.com"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-zip",
+              "answer": [
+                {
+                  "valueString": "20001"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-state",
+              "answer": [
+                {
+                  "valueString": "CA"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-city",
+              "answer": [
+                {
+                  "valueString": "DeliciousVilla"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-street-address-2",
+              "answer": [
+                {
+                  "valueString": "Unit 2"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-street-address",
+              "answer": [
+                {
+                  "valueString": "317 Mustard Street"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "patient-details-page",
+          "item": [
+            {
+              "linkId": "ovrp-interest",
+              "answer": [
+                {
+                  "valueString": "Yes / First available"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-point-of-discovery"
+            },
+            {
+              "linkId": "patient-pronouns-custom"
+            },
+            {
+              "linkId": "patient-race",
+              "answer": [
+                {
+                  "valueString": "Native Hawaiian or Other Pacific Islander"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-ethnicity",
+              "answer": [
+                {
+                  "valueString": "Hispanic or Latino"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "payment-option-page",
+          "item": [
+            {
+              "linkId": "payment-option",
+              "answer": [
+                {
+                  "valueString": "I will pay without insurance"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "responsible-party-page",
+          "item": [
+            {
+              "linkId": "responsible-party-relationship",
+              "answer": [
+                {
+                  "valueString": "Self"
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-birth-sex",
+              "answer": [
+                {
+                  "valueString": "Male"
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-last-name",
+              "answer": [
+                {
+                  "valueString": "Bijou"
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-first-name",
+              "answer": [
+                {
+                  "valueString": "Aloysious"
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-date-of-birth",
+              "item": [
+                {
+                  "linkId": "responsible-party-dob-day",
+                  "answer": [
+                    {
+                      "valueString": "08"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "responsible-party-dob-month",
+                  "answer": [
+                    {
+                      "valueString": "03"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "responsible-party-dob-year",
+                  "answer": [
+                    {
+                      "valueString": "2013"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "photo-id-page"
+        },
+        {
+          "linkId": "consent-forms-page",
+          "item": [
+            {
+              "linkId": "consent-jurisdiction",
+              "answer": [
+                {
+                  "valueString": "IL"
+                }
+              ]
+            },
+            {
+              "linkId": "hipaa-acknowledgement",
+              "answer": [
+                {
+                  "valueBoolean": true
+                }
+              ]
+            },
+            {
+              "linkId": "consent-to-treat",
+              "answer": [
+                {
+                  "valueBoolean": true
+                }
+              ]
+            },
+            {
+              "linkId": "signature",
+              "answer": [
+                {
+                  "valueString": "afdfda"
+                }
+              ]
+            },
+            {
+              "linkId": "full-name",
+              "answer": [
+                {
+                  "valueString": "wegweqt"
+                }
+              ]
+            },
+            {
+              "linkId": "consent-form-signer-relationship",
+              "answer": [
+                {
+                  "valueString": "Parent"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "3",
+      "description": "no-insurance-rp=self --valid",
+      "expectation": {
+        "valid": true,
+        "inner": [],
+        "validItemsToCheck": [
+          { "path": "3.item.4.item.0.answer.0.valueString", "value": "10" },
+          { "path": "3.item.4.item.0.linkId", "value": "responsible-party-dob-day" }
+        ]
+      },
+      "item": [
+        {
+          "linkId": "contact-information-page",
+          "item": [
+            {
+              "linkId": "patient-will-be-18",
+              "answer": [
+                {
+                  "valueBoolean": false
+                }
+              ]
+            },
+            {
+              "linkId": "is-new-qrs-patient",
+              "answer": [
+                {
+                  "valueBoolean": false
+                }
+              ]
+            },
+            {
+              "linkId": "patient-first-name",
+              "answer": [
+                {
+                  "valueString": "Aloysious"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-last-name",
+              "answer": [
+                {
+                  "valueString": "Bijou"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-birthdate",
+              "item": [
+                {
+                  "linkId": "patient-dob-day",
+                  "answer": [
+                    {
+                      "valueString": "08"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "patient-dob-month",
+                  "answer": [
+                    {
+                      "valueString": "03"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "patient-dob-year",
+                  "answer": [
+                    {
+                      "valueString": "2013"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "linkId": "patient-birth-sex",
+              "answer": [
+                {
+                  "valueString": "Male"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-filling-out-as",
+              "answer": [
+                {
+                  "valueString": "Parent/Guardian"
+                }
+              ]
+            },
+            {
+              "linkId": "guardian-number",
+              "answer": [
+                {
+                  "valueString": "(555) 555-5555"
+                }
+              ]
+            },
+            {
+              "linkId": "guardian-email",
+              "answer": [
+                {
+                  "valueString": "ibenham+bpicks@masslight.com"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-zip",
+              "answer": [
+                {
+                  "valueString": "20001"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-state",
+              "answer": [
+                {
+                  "valueString": "CA"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-city",
+              "answer": [
+                {
+                  "valueString": "DeliciousVilla"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-street-address-2",
+              "answer": [
+                {
+                  "valueString": "Unit 2"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-street-address",
+              "answer": [
+                {
+                  "valueString": "317 Mustard Street"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "patient-details-page",
+          "item": [
+            {
+              "linkId": "ovrp-interest",
+              "answer": [
+                {
+                  "valueString": "Yes / First available"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-point-of-discovery"
+            },
+            {
+              "linkId": "patient-pronouns-custom"
+            },
+            {
+              "linkId": "patient-race",
+              "answer": [
+                {
+                  "valueString": "Native Hawaiian or Other Pacific Islander"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-ethnicity",
+              "answer": [
+                {
+                  "valueString": "Hispanic or Latino"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "payment-option-page",
+          "item": [
+            {
+              "linkId": "payment-option",
+              "answer": [
+                {
+                  "valueString": "I will pay without insurance"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "responsible-party-page",
+          "item": [
+            {
+              "linkId": "responsible-party-relationship",
+              "answer": [
+                {
+                  "valueString": "Father"
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-birth-sex",
+              "answer": [
+                {
+                  "valueString": "Male"
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-last-name",
+              "answer": [
+                {
+                  "valueString": "Bijou"
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-first-name",
+              "answer": [
+                {
+                  "valueString": "Aloysious"
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-date-of-birth",
+              "item": [
+                {
+                  "linkId": "responsible-party-dob-day",
+                  "answer": [
+                    {
+                      "valueString": "10"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "responsible-party-dob-month",
+                  "answer": [
+                    {
+                      "valueString": "06"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "responsible-party-dob-year",
+                  "answer": [
+                    {
+                      "valueString": "1996"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "photo-id-page"
+        },
+        {
+          "linkId": "consent-forms-page",
+          "item": [
+            {
+              "linkId": "consent-jurisdiction",
+              "answer": [
+                {
+                  "valueString": "IL"
+                }
+              ]
+            },
+            {
+              "linkId": "hipaa-acknowledgement",
+              "answer": [
+                {
+                  "valueBoolean": true
+                }
+              ]
+            },
+            {
+              "linkId": "consent-to-treat",
+              "answer": [
+                {
+                  "valueBoolean": true
+                }
+              ]
+            },
+            {
+              "linkId": "signature",
+              "answer": [
+                {
+                  "valueString": "afdfda"
+                }
+              ]
+            },
+            {
+              "linkId": "full-name",
+              "answer": [
+                {
+                  "valueString": "wegweqt"
+                }
+              ]
+            },
+            {
+              "linkId": "consent-form-signer-relationship",
+              "answer": [
+                {
+                  "valueString": "Parent"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "55f06a7f-b5cd-4148-8006-b869d45f19c7-but wrong",
+      "description": "secondary-insurance --invalid",
+      "expectation": {
+        "valid": false,
+        "inner": [
+          {
+            "path": "secondary-insurance.item[0]",
+            "errors": ["This field is required"]
+          },
+          {
+            "path": "secondary-insurance.item[5]",
+            "errors": ["Please enter a valid date"]
+          }
+        ],
+        "validItemsToCheck": []
+      },
+      "item": [
+        {
+          "linkId": "contact-information-page",
+          "item": [
+            {
+              "linkId": "patient-will-be-18",
+              "answer": [
+                {
+                  "valueBoolean": true
+                }
+              ]
+            },
+            {
+              "linkId": "is-new-qrs-patient",
+              "answer": [
+                {
+                  "valueBoolean": false
+                }
+              ]
+            },
+            {
+              "linkId": "patient-first-name",
+              "answer": [
+                {
+                  "valueString": "Octavian"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-last-name",
+              "answer": [
+                {
+                  "valueString": "Quadravion"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-birthdate",
+              "item": [
+                {
+                  "linkId": "patient-dob-day",
+                  "answer": [
+                    {
+                      "valueString": "06"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "patient-dob-month",
+                  "answer": [
+                    {
+                      "valueString": "08"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "patient-dob-year",
+                  "answer": [
+                    {
+                      "valueString": "2004"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "linkId": "patient-birth-sex",
+              "answer": [
+                {
+                  "valueString": "Male"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-filling-out-as",
+              "answer": [
+                {
+                  "valueString": "Patient (Self)"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-number",
+              "answer": [
+                {
+                  "valueString": "(425) 326-8681"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-email",
+              "answer": [
+                {
+                  "valueString": "isaac.benham@gmail.com"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-zip",
+              "answer": [
+                {
+                  "valueString": "20001"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-state",
+              "answer": [
+                {
+                  "valueString": "AK"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-city",
+              "answer": [
+                {
+                  "valueString": "Washington"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-street-address-2",
+              "answer": [
+                {
+                  "valueString": "unit 2"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-street-address",
+              "answer": [
+                {
+                  "valueString": "317 R St NW Unit 2"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "patient-details-page",
+          "item": [
+            {
+              "linkId": "ovrp-interest",
+              "answer": [
+                {
+                  "valueString": "Yes / First available"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-race",
+              "answer": [
+                {
+                  "valueString": "Asian"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-ethnicity",
+              "answer": [
+                {
+                  "valueString": "Hispanic or Latino"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "payment-option-page",
+          "item": [
+            {
+              "item": [
+                {
+                  "linkId": "insurance-carrier-2"
+                },
+                {
+                  "linkId": "insurance-member-id-2",
+                  "answer": [
+                    {
+                      "valueString": "Fafsdfsgd"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-first-name-2",
+                  "answer": [
+                    {
+                      "valueString": "Barnabas"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-middle-name-2",
+                  "answer": [
+                    {
+                      "valueString": "Thaddeus"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-last-name-2",
+                  "answer": [
+                    {
+                      "valueString": "PicklesWorth"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-date-of-birth-2",
+                  "item": [
+                    {
+                      "linkId": "policy-holder-dob-day-2",
+                      "answer": [
+                        {
+                          "valueString": "09"
+                        }
+                      ]
+                    },
+                    {
+                      "linkId": "policy-holder-dob-month-2",
+                      "answer": [
+                        {
+                          "valueString": "06"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-birth-sex-2",
+                  "answer": [
+                    {
+                      "valueString": "Male"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-address-additional-line-2"
+                },
+                {
+                  "linkId": "policy-holder-address-2",
+                  "answer": [
+                    {
+                      "valueString": "317 Mustard Street"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-address-additional-line-2",
+                  "answer": [
+                    {
+                      "valueString": "Unit 2"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-city-2",
+                  "answer": [
+                    {
+                      "valueString": "DeliciousVilla"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-state-2",
+                  "answer": [
+                    {
+                      "valueString": "AK"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-zip-2",
+                  "answer": [
+                    {
+                      "valueString": "20001"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "patient-relationship-to-insured-2",
+                  "answer": [
+                    {
+                      "valueString": "Child"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "insurance-card-front-2"
+                },
+                {
+                  "linkId": "insurance-card-back-2"
+                }
+              ],
+              "linkId": "secondary-insurance"
+            },
+            {
+              "linkId": "payment-option",
+              "answer": [
+                {
+                  "valueString": "I have insurance"
+                }
+              ]
+            },
+            {
+              "linkId": "display-secondary-insurance",
+              "answer": [
+                {
+                  "valueBoolean": true
+                }
+              ]
+            },
+            {
+              "linkId": "insurance-card-back",
+              "answer": [
+                {
+                  "valueAttachment": {
+                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-insurance-cards/1eb1f4cf-0a5f-481a-b32b-0ca8a79501d1/1724430743370-insurance-card-back.png",
+                    "title": "insurance-card-back",
+                    "creation": "2024-08-23T12:32:24.023-04:00",
+                    "contentType": "image/png"
+                  }
+                }
+              ]
+            },
+            {
+              "linkId": "insurance-card-front",
+              "answer": [
+                {
+                  "valueAttachment": {
+                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-insurance-cards/1eb1f4cf-0a5f-481a-b32b-0ca8a79501d1/1724430732337-insurance-card-front.png",
+                    "title": "insurance-card-front",
+                    "creation": "2024-08-23T12:32:12.968-04:00",
+                    "contentType": "image/png"
+                  }
+                }
+              ]
+            },
+            {
+              "linkId": "patient-relationship-to-insured",
+              "answer": [
+                {
+                  "valueString": "Child"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-zip",
+              "answer": [
+                {
+                  "valueString": "20001"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-state",
+              "answer": [
+                {
+                  "valueString": "MS"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-city",
+              "answer": [
+                {
+                  "valueString": "DeliciousVilla"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-address-additional-line",
+              "answer": [
+                {
+                  "valueString": "Unit 2"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-address",
+              "answer": [
+                {
+                  "valueString": "317 Mustard Street"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-birth-sex",
+              "answer": [
+                {
+                  "valueString": "Male"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-date-of-birth",
+              "item": [
+                {
+                  "linkId": "policy-holder-dob-day",
+                  "answer": [
+                    {
+                      "valueString": "02"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-dob-month",
+                  "answer": [
+                    {
+                      "valueString": "06"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-dob-year",
+                  "answer": [
+                    {
+                      "valueString": "1999"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-last-name",
+              "answer": [
+                {
+                  "valueString": "dffsdfsd"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-first-name",
+              "answer": [
+                {
+                  "valueString": "FNdfsdf"
+                }
+              ]
+            },
+            {
+              "linkId": "insurance-member-id",
+              "answer": [
+                {
+                  "valueString": "sdfsdgdg"
+                }
+              ]
+            },
+            {
+              "linkId": "insurance-carrier",
+              "answer": [
+                {
+                  "valueString": "United"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "responsible-party-page",
+          "item": [
+            {
+              "linkId": "responsible-party-birth-sex",
+              "answer": [
+                {
+                  "valueString": "Male"
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-date-of-birth",
+              "item": [
+                {
+                  "linkId": "responsible-party-dob-day",
+                  "answer": [
+                    {
+                      "valueString": "06"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "responsible-party-dob-month",
+                  "answer": [
+                    {
+                      "valueString": "08"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "responsible-party-dob-year",
+                  "answer": [
+                    {
+                      "valueString": "2004"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-last-name",
+              "answer": [
+                {
+                  "valueString": "Quadravion"
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-first-name",
+              "answer": [
+                {
+                  "valueString": "Octavian"
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-relationship",
+              "answer": [
+                {
+                  "valueString": "Self"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "photo-id-page",
+          "item": [
+            {
+              "linkId": "photo-id-front",
+              "answer": [
+                {
+                  "valueAttachment": {
+                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-photo-id-cards/1eb1f4cf-0a5f-481a-b32b-0ca8a79501d1/1724430789373-photo-id-front.png",
+                    "title": "photo-id-front",
+                    "creation": "2024-08-23T12:33:09.997-04:00",
+                    "contentType": "image/png"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "consent-forms-page",
+          "item": [
+            {
+              "linkId": "consent-jurisdiction",
+              "answer": [
+                {
+                  "valueString": "NY"
+                }
+              ]
+            },
+            {
+              "linkId": "hipaa-acknowledgement",
+              "answer": [
+                {
+                  "valueBoolean": true
+                }
+              ]
+            },
+            {
+              "linkId": "consent-to-treat",
+              "answer": [
+                {
+                  "valueBoolean": true
+                }
+              ]
+            },
+            {
+              "linkId": "signature",
+              "answer": [
+                {
+                  "valueString": "Barney Pickles"
+                }
+              ]
+            },
+            {
+              "linkId": "full-name",
+              "answer": [
+                {
+                  "valueString": "Barnabizness PicklesWorth"
+                }
+              ]
+            },
+            {
+              "linkId": "consent-form-signer-relationship",
+              "answer": [
+                {
+                  "valueString": "Parent"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "55f06a7f-b5cd-4148-8006-b869d45f19c7 - but changed",
+      "description": "secondary-insurance-needs-fields-filtered --valid",
+      "expectation": {
+        "valid": true,
+        "inner": [
+          {
+            "path": "responsible-party-date-of-birth",
+            "errors": ["Please enter a valid date"]
+          }
+        ],
+        "validItemsToCheck": [{ "path": "2.item.18.linkId", "value": null }]
+      },
+      "item": [
+        {
+          "linkId": "contact-information-page",
+          "item": [
+            {
+              "linkId": "patient-will-be-18",
+              "answer": [
+                {
+                  "valueBoolean": true
+                }
+              ]
+            },
+            {
+              "linkId": "is-new-qrs-patient",
+              "answer": [
+                {
+                  "valueBoolean": false
+                }
+              ]
+            },
+            {
+              "linkId": "patient-first-name",
+              "answer": [
+                {
+                  "valueString": "Octavian"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-last-name",
+              "answer": [
+                {
+                  "valueString": "Quadravion"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-birthdate",
+              "item": [
+                {
+                  "linkId": "patient-dob-day",
+                  "answer": [
+                    {
+                      "valueString": "06"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "patient-dob-month",
+                  "answer": [
+                    {
+                      "valueString": "08"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "patient-dob-year",
+                  "answer": [
+                    {
+                      "valueString": "2004"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "linkId": "patient-birth-sex",
+              "answer": [
+                {
+                  "valueString": "Male"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-filling-out-as",
+              "answer": [
+                {
+                  "valueString": "Patient (Self)"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-number",
+              "answer": [
+                {
+                  "valueString": "(425) 326-8681"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-email",
+              "answer": [
+                {
+                  "valueString": "isaac.benham@gmail.com"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-zip",
+              "answer": [
+                {
+                  "valueString": "20001"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-state",
+              "answer": [
+                {
+                  "valueString": "AK"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-city",
+              "answer": [
+                {
+                  "valueString": "Washington"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-street-address-2",
+              "answer": [
+                {
+                  "valueString": "unit 2"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-street-address",
+              "answer": [
+                {
+                  "valueString": "317 R St NW Unit 2"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "patient-details-page",
+          "item": [
+            {
+              "linkId": "ovrp-interest",
+              "answer": [
+                {
+                  "valueString": "Yes / First available"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-race",
+              "answer": [
+                {
+                  "valueString": "Asian"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-ethnicity",
+              "answer": [
+                {
+                  "valueString": "Hispanic or Latino"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "payment-option-page",
+          "item": [
+            {
+              "item": [
+                {
+                  "linkId": "insurance-carrier-2",
+                  "answer": [
+                    {
+                      "valueString": "United"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "insurance-member-id-2",
+                  "answer": [
+                    {
+                      "valueString": "Fafsdfsgd"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-first-name-2",
+                  "answer": [
+                    {
+                      "valueString": "Barnabas"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-middle-name-2",
+                  "answer": [
+                    {
+                      "valueString": "Thaddeus"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-last-name-2",
+                  "answer": [
+                    {
+                      "valueString": "PicklesWorth"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-date-of-birth-2",
+                  "item": [
+                    {
+                      "linkId": "policy-holder-dob-day-2",
+                      "answer": [
+                        {
+                          "valueString": "09"
+                        }
+                      ]
+                    },
+                    {
+                      "linkId": "policy-holder-dob-month-2",
+                      "answer": [
+                        {
+                          "valueString": "06"
+                        }
+                      ]
+                    },
+                    {
+                      "linkId": "policy-holder-dob-year-2",
+                      "answer": [
+                        {
+                          "valueString": "2017"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-birth-sex-2",
+                  "answer": [
+                    {
+                      "valueString": "Male"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-address-additional-line-2"
+                },
+                {
+                  "linkId": "policy-holder-address-2",
+                  "answer": [
+                    {
+                      "valueString": "317 Mustard Street"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-address-additional-line-2",
+                  "answer": [
+                    {
+                      "valueString": "Unit 2"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-city-2",
+                  "answer": [
+                    {
+                      "valueString": "DeliciousVilla"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-state-2",
+                  "answer": [
+                    {
+                      "valueString": "AK"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-zip-2",
+                  "answer": [
+                    {
+                      "valueString": "20001"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "patient-relationship-to-insured-2",
+                  "answer": [
+                    {
+                      "valueString": "Child"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "insurance-card-front-2"
+                },
+                {
+                  "linkId": "insurance-card-back-2"
+                }
+              ],
+              "linkId": "secondary-insurance"
+            },
+            {
+              "linkId": "payment-option",
+              "answer": [
+                {
+                  "valueString": "I have insurance"
+                }
+              ]
+            },
+            {
+              "linkId": "display-secondary-insurance",
+              "answer": [
+                {
+                  "valueBoolean": false
+                }
+              ]
+            },
+            {
+              "linkId": "insurance-card-back",
+              "answer": [
+                {
+                  "valueAttachment": {
+                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-insurance-cards/1eb1f4cf-0a5f-481a-b32b-0ca8a79501d1/1724430743370-insurance-card-back.png",
+                    "title": "insurance-card-back",
+                    "creation": "2024-08-23T12:32:24.023-04:00",
+                    "contentType": "image/png"
+                  }
+                }
+              ]
+            },
+            {
+              "linkId": "insurance-card-front",
+              "answer": [
+                {
+                  "valueAttachment": {
+                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-insurance-cards/1eb1f4cf-0a5f-481a-b32b-0ca8a79501d1/1724430732337-insurance-card-front.png",
+                    "title": "insurance-card-front",
+                    "creation": "2024-08-23T12:32:12.968-04:00",
+                    "contentType": "image/png"
+                  }
+                }
+              ]
+            },
+            {
+              "linkId": "patient-relationship-to-insured",
+              "answer": [
+                {
+                  "valueString": "Child"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-zip",
+              "answer": [
+                {
+                  "valueString": "20001"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-state",
+              "answer": [
+                {
+                  "valueString": "MS"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-city",
+              "answer": [
+                {
+                  "valueString": "DeliciousVilla"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-address-additional-line",
+              "answer": [
+                {
+                  "valueString": "Unit 2"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-address",
+              "answer": [
+                {
+                  "valueString": "317 Mustard Street"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-birth-sex",
+              "answer": [
+                {
+                  "valueString": "Male"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-date-of-birth",
+              "item": [
+                {
+                  "linkId": "policy-holder-dob-day",
+                  "answer": [
+                    {
+                      "valueString": "02"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-dob-month",
+                  "answer": [
+                    {
+                      "valueString": "06"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-dob-year",
+                  "answer": [
+                    {
+                      "valueString": "1999"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-last-name",
+              "answer": [
+                {
+                  "valueString": "dffsdfsd"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-first-name",
+              "answer": [
+                {
+                  "valueString": "FNdfsdf"
+                }
+              ]
+            },
+            {
+              "linkId": "insurance-member-id",
+              "answer": [
+                {
+                  "valueString": "sdfsdgdg"
+                }
+              ]
+            },
+            {
+              "linkId": "insurance-carrier",
+              "answer": [
+                {
+                  "valueString": "United"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "responsible-party-page",
+          "item": [
+            {
+              "linkId": "responsible-party-birth-sex",
+              "answer": [
+                {
+                  "valueString": "Male"
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-date-of-birth",
+              "item": [
+                {
+                  "linkId": "responsible-party-dob-day",
+                  "answer": [
+                    {
+                      "valueString": "06"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "responsible-party-dob-month",
+                  "answer": [
+                    {
+                      "valueString": "08"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "responsible-party-dob-year",
+                  "answer": [
+                    {
+                      "valueString": "2004"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-last-name",
+              "answer": [
+                {
+                  "valueString": "Quadravion"
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-first-name",
+              "answer": [
+                {
+                  "valueString": "Octavian"
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-relationship",
+              "answer": [
+                {
+                  "valueString": "Self"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "photo-id-page",
+          "item": [
+            {
+              "linkId": "photo-id-front",
+              "answer": [
+                {
+                  "valueAttachment": {
+                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-photo-id-cards/1eb1f4cf-0a5f-481a-b32b-0ca8a79501d1/1724430789373-photo-id-front.png",
+                    "title": "photo-id-front",
+                    "creation": "2024-08-23T12:33:09.997-04:00",
+                    "contentType": "image/png"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "consent-forms-page",
+          "item": [
+            {
+              "linkId": "consent-jurisdiction",
+              "answer": [
+                {
+                  "valueString": "NY"
+                }
+              ]
+            },
+            {
+              "linkId": "hipaa-acknowledgement",
+              "answer": [
+                {
+                  "valueBoolean": true
+                }
+              ]
+            },
+            {
+              "linkId": "consent-to-treat",
+              "answer": [
+                {
+                  "valueBoolean": true
+                }
+              ]
+            },
+            {
+              "linkId": "signature",
+              "answer": [
+                {
+                  "valueString": "Barney Pickles"
+                }
+              ]
+            },
+            {
+              "linkId": "full-name",
+              "answer": [
+                {
+                  "valueString": "Barnabizness PicklesWorth"
+                }
+              ]
+            },
+            {
+              "linkId": "consent-form-signer-relationship",
+              "answer": [
+                {
+                  "valueString": "Parent"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "55f06a7f-b5cd-4148-8006-b869d45f19c7 - but changed some more",
+      "description": "insurance-fields-filtered-based-on-payment-option --valid",
+      "expectation": {
+        "valid": true,
+        "inner": [],
+        "validItemsToCheck": [
+          { "path": "2.item.18.linkId", "value": null },
+          { "path": "2.item.4.linkId", "value": null },
+          { "path": "2.item.8.linkId", "value": null },
+          { "path": "2.item.12.linkId", "value": null },
+          { "path": "2.item.16.linkId", "value": null }
+        ]
+      },
+      "item": [
+        {
+          "linkId": "contact-information-page",
+          "item": [
+            {
+              "linkId": "patient-will-be-18",
+              "answer": [
+                {
+                  "valueBoolean": true
+                }
+              ]
+            },
+            {
+              "linkId": "is-new-qrs-patient",
+              "answer": [
+                {
+                  "valueBoolean": false
+                }
+              ]
+            },
+            {
+              "linkId": "patient-first-name",
+              "answer": [
+                {
+                  "valueString": "Octavian"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-last-name",
+              "answer": [
+                {
+                  "valueString": "Quadravion"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-birthdate",
+              "item": [
+                {
+                  "linkId": "patient-dob-day",
+                  "answer": [
+                    {
+                      "valueString": "06"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "patient-dob-month",
+                  "answer": [
+                    {
+                      "valueString": "08"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "patient-dob-year",
+                  "answer": [
+                    {
+                      "valueString": "2004"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "linkId": "patient-birth-sex",
+              "answer": [
+                {
+                  "valueString": "Male"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-filling-out-as",
+              "answer": [
+                {
+                  "valueString": "Patient (Self)"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-number",
+              "answer": [
+                {
+                  "valueString": "(425) 326-8681"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-email",
+              "answer": [
+                {
+                  "valueString": "isaac.benham@gmail.com"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-zip",
+              "answer": [
+                {
+                  "valueString": "20001"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-state",
+              "answer": [
+                {
+                  "valueString": "AK"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-city",
+              "answer": [
+                {
+                  "valueString": "Washington"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-street-address-2",
+              "answer": [
+                {
+                  "valueString": "unit 2"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-street-address",
+              "answer": [
+                {
+                  "valueString": "317 R St NW Unit 2"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "patient-details-page",
+          "item": [
+            {
+              "linkId": "ovrp-interest",
+              "answer": [
+                {
+                  "valueString": "Yes / First available"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-race",
+              "answer": [
+                {
+                  "valueString": "Asian"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-ethnicity",
+              "answer": [
+                {
+                  "valueString": "Hispanic or Latino"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "payment-option-page",
+          "item": [
+            {
+              "item": [
+                {
+                  "linkId": "insurance-carrier-2",
+                  "answer": [
+                    {
+                      "valueString": "United"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "insurance-member-id-2",
+                  "answer": [
+                    {
+                      "valueString": "Fafsdfsgd"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-first-name-2",
+                  "answer": [
+                    {
+                      "valueString": "Barnabas"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-middle-name-2",
+                  "answer": [
+                    {
+                      "valueString": "Thaddeus"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-last-name-2",
+                  "answer": [
+                    {
+                      "valueString": "PicklesWorth"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-date-of-birth-2",
+                  "item": [
+                    {
+                      "linkId": "policy-holder-dob-day-2",
+                      "answer": [
+                        {
+                          "valueString": "09"
+                        }
+                      ]
+                    },
+                    {
+                      "linkId": "policy-holder-dob-month-2",
+                      "answer": [
+                        {
+                          "valueString": "06"
+                        }
+                      ]
+                    },
+                    {
+                      "linkId": "policy-holder-dob-year-2",
+                      "answer": [
+                        {
+                          "valueString": "2017"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-birth-sex-2",
+                  "answer": [
+                    {
+                      "valueString": "Male"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-address-additional-line-2"
+                },
+                {
+                  "linkId": "policy-holder-address-2",
+                  "answer": [
+                    {
+                      "valueString": "317 Mustard Street"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-address-additional-line-2",
+                  "answer": [
+                    {
+                      "valueString": "Unit 2"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-city-2",
+                  "answer": [
+                    {
+                      "valueString": "DeliciousVilla"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-state-2",
+                  "answer": [
+                    {
+                      "valueString": "AK"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-zip-2",
+                  "answer": [
+                    {
+                      "valueString": "20001"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "patient-relationship-to-insured-2",
+                  "answer": [
+                    {
+                      "valueString": "Child"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "insurance-card-front-2"
+                },
+                {
+                  "linkId": "insurance-card-back-2"
+                }
+              ],
+              "linkId": "secondary-insurance"
+            },
+            {
+              "linkId": "payment-option",
+              "answer": [
+                {
+                  "valueString": "I will pay without insurance"
+                }
+              ]
+            },
+            {
+              "linkId": "display-secondary-insurance",
+              "answer": [
+                {
+                  "valueBoolean": true
+                }
+              ]
+            },
+            {
+              "linkId": "insurance-card-back",
+              "answer": [
+                {
+                  "valueAttachment": {
+                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-insurance-cards/1eb1f4cf-0a5f-481a-b32b-0ca8a79501d1/1724430743370-insurance-card-back.png",
+                    "title": "insurance-card-back",
+                    "creation": "2024-08-23T12:32:24.023-04:00",
+                    "contentType": "image/png"
+                  }
+                }
+              ]
+            },
+            {
+              "linkId": "insurance-card-front",
+              "answer": [
+                {
+                  "valueAttachment": {
+                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-insurance-cards/1eb1f4cf-0a5f-481a-b32b-0ca8a79501d1/1724430732337-insurance-card-front.png",
+                    "title": "insurance-card-front",
+                    "creation": "2024-08-23T12:32:12.968-04:00",
+                    "contentType": "image/png"
+                  }
+                }
+              ]
+            },
+            {
+              "linkId": "patient-relationship-to-insured",
+              "answer": [
+                {
+                  "valueString": "Child"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-zip",
+              "answer": [
+                {
+                  "valueString": "20001"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-state",
+              "answer": [
+                {
+                  "valueString": "MS"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-city",
+              "answer": [
+                {
+                  "valueString": "DeliciousVilla"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-address-additional-line",
+              "answer": [
+                {
+                  "valueString": "Unit 2"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-address",
+              "answer": [
+                {
+                  "valueString": "317 Mustard Street"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-birth-sex",
+              "answer": [
+                {
+                  "valueString": "Male"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-date-of-birth",
+              "item": [
+                {
+                  "linkId": "policy-holder-dob-day",
+                  "answer": [
+                    {
+                      "valueString": "02"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-dob-month",
+                  "answer": [
+                    {
+                      "valueString": "06"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-dob-year",
+                  "answer": [
+                    {
+                      "valueString": "1999"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-last-name",
+              "answer": [
+                {
+                  "valueString": "dffsdfsd"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-first-name",
+              "answer": [
+                {
+                  "valueString": "FNdfsdf"
+                }
+              ]
+            },
+            {
+              "linkId": "insurance-member-id",
+              "answer": [
+                {
+                  "valueString": "sdfsdgdg"
+                }
+              ]
+            },
+            {
+              "linkId": "insurance-carrier",
+              "answer": [
+                {
+                  "valueString": "United"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "responsible-party-page",
+          "item": [
+            {
+              "linkId": "responsible-party-birth-sex",
+              "answer": [
+                {
+                  "valueString": "Male"
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-date-of-birth",
+              "item": [
+                {
+                  "linkId": "responsible-party-dob-day",
+                  "answer": [
+                    {
+                      "valueString": "06"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "responsible-party-dob-month",
+                  "answer": [
+                    {
+                      "valueString": "08"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "responsible-party-dob-year",
+                  "answer": [
+                    {
+                      "valueString": "2004"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-last-name",
+              "answer": [
+                {
+                  "valueString": "Quadravion"
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-first-name",
+              "answer": [
+                {
+                  "valueString": "Octavian"
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-relationship",
+              "answer": [
+                {
+                  "valueString": "Self"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "photo-id-page",
+          "item": [
+            {
+              "linkId": "photo-id-front",
+              "answer": [
+                {
+                  "valueAttachment": {
+                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-photo-id-cards/1eb1f4cf-0a5f-481a-b32b-0ca8a79501d1/1724430789373-photo-id-front.png",
+                    "title": "photo-id-front",
+                    "creation": "2024-08-23T12:33:09.997-04:00",
+                    "contentType": "image/png"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "consent-forms-page",
+          "item": [
+            {
+              "linkId": "consent-jurisdiction",
+              "answer": [
+                {
+                  "valueString": "NY"
+                }
+              ]
+            },
+            {
+              "linkId": "hipaa-acknowledgement",
+              "answer": [
+                {
+                  "valueBoolean": true
+                }
+              ]
+            },
+            {
+              "linkId": "consent-to-treat",
+              "answer": [
+                {
+                  "valueBoolean": true
+                }
+              ]
+            },
+            {
+              "linkId": "signature",
+              "answer": [
+                {
+                  "valueString": "Barney Pickles"
+                }
+              ]
+            },
+            {
+              "linkId": "full-name",
+              "answer": [
+                {
+                  "valueString": "Barnabizness PicklesWorth"
+                }
+              ]
+            },
+            {
+              "linkId": "consent-form-signer-relationship",
+              "answer": [
+                {
+                  "valueString": "Parent"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "55f06a7f-b5cd-4148-8006-b869d45f19c7 - missing optionls",
+      "description": "insurance-fields-missing-optional-values-are-inserted --valid",
+      "expectation": {
+        "valid": true,
+        "inner": [],
+        "validItemsToCheck": [{ "path": "2.item.18.item.3", "value": { "linkId": "policy-holder-middle-name-2" } }]
+      },
+      "item": [
+        {
+          "linkId": "contact-information-page",
+          "item": [
+            {
+              "linkId": "patient-will-be-18",
+              "answer": [
+                {
+                  "valueBoolean": true
+                }
+              ]
+            },
+            {
+              "linkId": "is-new-qrs-patient",
+              "answer": [
+                {
+                  "valueBoolean": false
+                }
+              ]
+            },
+            {
+              "linkId": "patient-first-name",
+              "answer": [
+                {
+                  "valueString": "Octavian"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-last-name",
+              "answer": [
+                {
+                  "valueString": "Quadravion"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-birthdate",
+              "item": [
+                {
+                  "linkId": "patient-dob-day",
+                  "answer": [
+                    {
+                      "valueString": "06"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "patient-dob-month",
+                  "answer": [
+                    {
+                      "valueString": "08"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "patient-dob-year",
+                  "answer": [
+                    {
+                      "valueString": "2004"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "linkId": "patient-birth-sex",
+              "answer": [
+                {
+                  "valueString": "Male"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-filling-out-as",
+              "answer": [
+                {
+                  "valueString": "Patient (Self)"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-number",
+              "answer": [
+                {
+                  "valueString": "(425) 326-8681"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-email",
+              "answer": [
+                {
+                  "valueString": "isaac.benham@gmail.com"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-zip",
+              "answer": [
+                {
+                  "valueString": "20001"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-state",
+              "answer": [
+                {
+                  "valueString": "AK"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-city",
+              "answer": [
+                {
+                  "valueString": "Washington"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-street-address-2",
+              "answer": [
+                {
+                  "valueString": "unit 2"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-street-address",
+              "answer": [
+                {
+                  "valueString": "317 R St NW Unit 2"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "patient-details-page",
+          "item": [
+            {
+              "linkId": "ovrp-interest",
+              "answer": [
+                {
+                  "valueString": "Yes / First available"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-race",
+              "answer": [
+                {
+                  "valueString": "Asian"
+                }
+              ]
+            },
+            {
+              "linkId": "patient-ethnicity",
+              "answer": [
+                {
+                  "valueString": "Hispanic or Latino"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "payment-option-page",
+          "item": [
+            {
+              "item": [
+                {
+                  "linkId": "insurance-carrier-2",
+                  "answer": [
+                    {
+                      "valueString": "United"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "insurance-member-id-2",
+                  "answer": [
+                    {
+                      "valueString": "Fafsdfsgd"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-first-name-2",
+                  "answer": [
+                    {
+                      "valueString": "Barnabas"
+                    }
+                  ]
+                },
+                {},
+                {
+                  "linkId": "policy-holder-last-name-2",
+                  "answer": [
+                    {
+                      "valueString": "PicklesWorth"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-date-of-birth-2",
+                  "item": [
+                    {
+                      "linkId": "policy-holder-dob-day-2",
+                      "answer": [
+                        {
+                          "valueString": "09"
+                        }
+                      ]
+                    },
+                    {
+                      "linkId": "policy-holder-dob-month-2",
+                      "answer": [
+                        {
+                          "valueString": "06"
+                        }
+                      ]
+                    },
+                    {
+                      "linkId": "policy-holder-dob-year-2",
+                      "answer": [
+                        {
+                          "valueString": "2017"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-birth-sex-2",
+                  "answer": [
+                    {
+                      "valueString": "Male"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-address-2",
+                  "answer": [
+                    {
+                      "valueString": "317 Mustard Street"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-address-additional-line-2",
+                  "answer": [{}]
+                },
+                {
+                  "linkId": "policy-holder-city-2",
+                  "answer": [
+                    {
+                      "valueString": "DeliciousVilla"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-state-2",
+                  "answer": [
+                    {
+                      "valueString": "AK"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-zip-2",
+                  "answer": [
+                    {
+                      "valueString": "20001"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "patient-relationship-to-insured-2",
+                  "answer": [
+                    {
+                      "valueString": "Child"
+                    }
+                  ]
+                },
+                {},
+                {}
+              ],
+              "linkId": "secondary-insurance"
+            },
+            {
+              "linkId": "payment-option",
+              "answer": [
+                {
+                  "valueString": "I have insurance"
+                }
+              ]
+            },
+            {
+              "linkId": "display-secondary-insurance",
+              "answer": [
+                {
+                  "valueBoolean": true
+                }
+              ]
+            },
+            {
+              "linkId": "insurance-card-back",
+              "answer": [
+                {
+                  "valueAttachment": {
+                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-insurance-cards/1eb1f4cf-0a5f-481a-b32b-0ca8a79501d1/1724430743370-insurance-card-back.png",
+                    "title": "insurance-card-back",
+                    "creation": "2024-08-23T12:32:24.023-04:00",
+                    "contentType": "image/png"
+                  }
+                }
+              ]
+            },
+            {
+              "linkId": "insurance-card-front",
+              "answer": [
+                {
+                  "valueAttachment": {
+                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-insurance-cards/1eb1f4cf-0a5f-481a-b32b-0ca8a79501d1/1724430732337-insurance-card-front.png",
+                    "title": "insurance-card-front",
+                    "creation": "2024-08-23T12:32:12.968-04:00",
+                    "contentType": "image/png"
+                  }
+                }
+              ]
+            },
+            {
+              "linkId": "patient-relationship-to-insured",
+              "answer": [
+                {
+                  "valueString": "Child"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-zip",
+              "answer": [
+                {
+                  "valueString": "20001"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-state",
+              "answer": [
+                {
+                  "valueString": "MS"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-city",
+              "answer": [
+                {
+                  "valueString": "DeliciousVilla"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-address-additional-line",
+              "answer": [
+                {
+                  "valueString": "Unit 2"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-address",
+              "answer": [
+                {
+                  "valueString": "317 Mustard Street"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-birth-sex",
+              "answer": [
+                {
+                  "valueString": "Male"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-date-of-birth",
+              "item": [
+                {
+                  "linkId": "policy-holder-dob-day",
+                  "answer": [
+                    {
+                      "valueString": "02"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-dob-month",
+                  "answer": [
+                    {
+                      "valueString": "06"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "policy-holder-dob-year",
+                  "answer": [
+                    {
+                      "valueString": "1999"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-last-name",
+              "answer": [
+                {
+                  "valueString": "dffsdfsd"
+                }
+              ]
+            },
+            {
+              "linkId": "policy-holder-first-name",
+              "answer": [
+                {
+                  "valueString": "FNdfsdf"
+                }
+              ]
+            },
+            {
+              "linkId": "insurance-member-id",
+              "answer": [
+                {
+                  "valueString": "sdfsdgdg"
+                }
+              ]
+            },
+            {
+              "linkId": "insurance-carrier",
+              "answer": [
+                {
+                  "valueString": "United"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "responsible-party-page",
+          "item": [
+            {
+              "linkId": "responsible-party-birth-sex",
+              "answer": [
+                {
+                  "valueString": "Male"
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-date-of-birth",
+              "item": [
+                {
+                  "linkId": "responsible-party-dob-day",
+                  "answer": [
+                    {
+                      "valueString": "06"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "responsible-party-dob-month",
+                  "answer": [
+                    {
+                      "valueString": "08"
+                    }
+                  ]
+                },
+                {
+                  "linkId": "responsible-party-dob-year",
+                  "answer": [
+                    {
+                      "valueString": "2004"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-last-name",
+              "answer": [
+                {
+                  "valueString": "Quadravion"
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-first-name",
+              "answer": [
+                {
+                  "valueString": "Octavian"
+                }
+              ]
+            },
+            {
+              "linkId": "responsible-party-relationship",
+              "answer": [
+                {
+                  "valueString": "Self"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "photo-id-page",
+          "item": [
+            {
+              "linkId": "photo-id-front",
+              "answer": [
+                {
+                  "valueAttachment": {
+                    "url": "https://testing.project-api.zapehr.com/v1/z3/local-photo-id-cards/1eb1f4cf-0a5f-481a-b32b-0ca8a79501d1/1724430789373-photo-id-front.png",
+                    "title": "photo-id-front",
+                    "creation": "2024-08-23T12:33:09.997-04:00",
+                    "contentType": "image/png"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "consent-forms-page",
+          "item": [
+            {
+              "linkId": "consent-jurisdiction",
+              "answer": [
+                {
+                  "valueString": "NY"
+                }
+              ]
+            },
+            {
+              "linkId": "hipaa-acknowledgement",
+              "answer": [
+                {
+                  "valueBoolean": true
+                }
+              ]
+            },
+            {
+              "linkId": "consent-to-treat",
+              "answer": [
+                {
+                  "valueBoolean": true
+                }
+              ]
+            },
+            {
+              "linkId": "signature",
+              "answer": [
+                {
+                  "valueString": "Barney Pickles"
+                }
+              ]
+            },
+            {
+              "linkId": "full-name",
+              "answer": [
+                {
+                  "valueString": "Barnabizness PicklesWorth"
+                }
+              ]
+            },
+            {
+              "linkId": "consent-form-signer-relationship",
+              "answer": [
+                {
+                  "valueString": "Parent"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "page": {
+    "contact-information-page": [
+      {
+        "fullFormId": "190e6f45-1da0-4c5b-b413-130855b9d6b6",
+        "description": "completed-contact-info --valid",
+        "expectation": {
+          "valid": true,
+          "inner": [],
+          "validItemsToCheck": []
+        },
+        "context": { "values": {}, "items": [] },
+        "item": [
+          {
+            "linkId": "patient-will-be-18",
+            "answer": [
+              {
+                "valueBoolean": true
+              }
+            ]
+          },
+          {
+            "linkId": "is-new-qrs-patient",
+            "answer": [
+              {
+                "valueBoolean": false
+              }
+            ]
+          },
+          {
+            "linkId": "patient-first-name",
+            "answer": [
+              {
+                "valueString": "Alder"
+              }
+            ]
+          },
+          {
+            "linkId": "patient-last-name",
+            "answer": [
+              {
+                "valueString": "Fluke"
+              }
+            ]
+          },
+          {
+            "linkId": "patient-birthdate",
+            "item": [
+              {
+                "linkId": "patient-dob-day",
+                "answer": [
+                  {
+                    "valueString": "01"
+                  }
+                ]
+              },
+              {
+                "linkId": "patient-dob-month",
+                "answer": [
+                  {
+                    "valueString": "01"
+                  }
+                ]
+              },
+              {
+                "linkId": "patient-dob-year",
+                "answer": [
+                  {
+                    "valueString": "2001"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "linkId": "patient-birth-sex-missing",
+            "answer": [
+              {
+                "valueBoolean": true
+              }
+            ]
+          },
+          {
+            "linkId": "patient-street-address",
+            "answer": [
+              {
+                "valueString": "12345 Rainy St"
+              }
+            ]
+          },
+          {
+            "linkId": "patient-street-address-2",
+            "answer": [
+              {
+                "valueString": "Apt 123"
+              }
+            ]
+          },
+          {
+            "linkId": "patient-city",
+            "answer": [
+              {
+                "valueString": "Arlen"
+              }
+            ]
+          },
+          {
+            "linkId": "patient-state",
+            "answer": [
+              {
+                "valueString": "TX"
+              }
+            ]
+          },
+          {
+            "linkId": "patient-zip",
+            "answer": [
+              {
+                "valueString": "12345"
+              }
+            ]
+          },
+          {
+            "linkId": "patient-filling-out-as",
+            "answer": [
+              {
+                "valueString": "Parent/Guardian"
+              }
+            ]
+          },
+          {
+            "linkId": "patient-email",
+            "answer": [
+              {
+                "valueString": "example@example.com"
+              }
+            ]
+          },
+          {
+            "linkId": "patient-number",
+            "answer": [
+              {
+                "valueString": "(123) 456-7890"
+              }
+            ]
+          },
+          {
+            "linkId": "guardian-email",
+            "answer": [
+              {
+                "valueString": "mail@example.com"
+              }
+            ]
+          },
+          {
+            "linkId": "guardian-number",
+            "answer": [
+              {
+                "valueString": "(098) 765-4321"
+              }
+            ]
+          },
+          {
+            "linkId": "mobile-opt-in",
+            "answer": [
+              {
+                "valueBoolean": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "fullFormId": "47bac09e-f433-4651-842e-6681d80cddd6",
+        "description": "contact info valid case 2",
+        "expectation": { "valid": true, "inner": [] },
+        "context": { "values": {}, "items": [] },
+        "item": [
+          {
+            "linkId": "patient-will-be-18",
+            "answer": [
+              {
+                "valueBoolean": false
+              }
+            ]
+          },
+          {
+            "linkId": "is-new-qrs-patient",
+            "answer": [
+              {
+                "valueBoolean": false
+              }
+            ]
+          },
+          {
+            "linkId": "patient-first-name",
+            "answer": [
+              {
+                "valueString": "Aloysious"
+              }
+            ]
+          },
+          {
+            "linkId": "patient-last-name",
+            "answer": [
+              {
+                "valueString": "Bijou"
+              }
+            ]
+          },
+          {
+            "linkId": "patient-birthdate",
+            "item": [
+              {
+                "linkId": "patient-dob-day",
+                "answer": [
+                  {
+                    "valueString": "08"
+                  }
+                ]
+              },
+              {
+                "linkId": "patient-dob-month",
+                "answer": [
+                  {
+                    "valueString": "03"
+                  }
+                ]
+              },
+              {
+                "linkId": "patient-dob-year",
+                "answer": [
+                  {
+                    "valueString": "2013"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "linkId": "patient-birth-sex",
+            "answer": [
+              {
+                "valueString": "Male"
+              }
+            ]
+          },
+          {
+            "linkId": "patient-filling-out-as",
+            "answer": [
+              {
+                "valueString": "Parent/Guardian"
+              }
+            ]
+          },
+          {
+            "linkId": "guardian-number",
+            "answer": [
+              {
+                "valueString": "(555) 555-5555"
+              }
+            ]
+          },
+          {
+            "linkId": "guardian-email",
+            "answer": [
+              {
+                "valueString": "ibenham+bpicks@masslight.com"
+              }
+            ]
+          },
+          {
+            "linkId": "patient-zip",
+            "answer": [
+              {
+                "valueString": "20001"
+              }
+            ]
+          },
+          {
+            "linkId": "patient-state",
+            "answer": [
+              {
+                "valueString": "CA"
+              }
+            ]
+          },
+          {
+            "linkId": "patient-city",
+            "answer": [
+              {
+                "valueString": "DeliciousVilla"
+              }
+            ]
+          },
+          {
+            "linkId": "patient-street-address-2",
+            "answer": [
+              {
+                "valueString": "Unit 2"
+              }
+            ]
+          },
+          {
+            "linkId": "patient-street-address",
+            "answer": [
+              {
+                "valueString": "317 Mustard Street"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "patient-details-page": [
+      {
+        "fullFormId": "190e6f45-1da0-4c5b-b413-130855b9d6b6",
+        "description": "completed-patient-details --valid",
+        "expectation": {
+          "valid": true,
+          "inner": [],
+          "validItemsToCheck": []
+        },
+        "context": { "values": {}, "items": [] },
+        "item": [
+          {
+            "linkId": "ovrp-interest",
+            "answer": [
+              {
+                "valueString": "No"
+              }
+            ]
+          },
+          {
+            "linkId": "pharmacy-phone",
+            "answer": [
+              {
+                "valueString": "(836) 253-7848"
+              }
+            ]
+          },
+          {
+            "linkId": "pharmacy-address",
+            "answer": [
+              {
+                "valueString": "12345 Georgia Ave"
+              }
+            ]
+          },
+          {
+            "linkId": "pharmacy-name",
+            "answer": [
+              {
+                "valueString": "Walgreens"
+              }
+            ]
+          },
+          {
+            "linkId": "pcp-number",
+            "answer": [
+              {
+                "valueString": "(736) 282-9847"
+              }
+            ]
+          },
+          {
+            "linkId": "pcp-last",
+            "answer": [
+              {
+                "valueString": "Lockwood"
+              }
+            ]
+          },
+          {
+            "linkId": "pcp-first",
+            "answer": [
+              {
+                "valueString": "Kat"
+              }
+            ]
+          },
+          {
+            "linkId": "patient-pronouns",
+            "answer": [
+              {
+                "valueString": "He/him"
+              }
+            ]
+          },
+          {
+            "linkId": "patient-race",
+            "answer": [
+              {
+                "valueString": "Native Hawaiian or Other Pacific Islander"
+              }
+            ]
+          },
+          {
+            "linkId": "patient-ethnicity",
+            "answer": [
+              {
+                "valueString": "Not Hispanic or Latino"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "payment-option-page": [
+      {
+        "fullFormId": "5febb805-1b0f-4d18-bcec-75a44dbf096b",
+        "description": "completed-payment-option-with-insurance --valid",
+        "expectation": {
+          "valid": true,
+          "inner": [],
+          "validItemsToCheck": []
+        },
+        "context": { "values": {}, "items": [] },
+        "item": [
+          {
+            "linkId": "payment-option",
+            "answer": [
+              {
+                "valueString": "I have insurance"
+              }
+            ]
+          },
+          {
+            "linkId": "insurance-carrier",
+            "answer": [
+              {
+                "valueString": "Fidelis"
+              }
+            ]
+          },
+          {
+            "linkId": "insurance-member-id",
+            "answer": [
+              {
+                "valueString": "12345678"
+              }
+            ]
+          },
+          {
+            "linkId": "policy-holder-first-name",
+            "answer": [
+              {
+                "valueString": "Policy"
+              }
+            ]
+          },
+          {
+            "linkId": "policy-holder-last-name",
+            "answer": [
+              {
+                "valueString": "Holder"
+              }
+            ]
+          },
+          {
+            "linkId": "policy-holder-zip",
+            "answer": [
+              {
+                "valueString": "11111"
+              }
+            ]
+          },
+          {
+            "linkId": "policy-holder-state",
+            "answer": [
+              {
+                "valueString": "FL"
+              }
+            ]
+          },
+          {
+            "linkId": "policy-holder-city",
+            "answer": [
+              {
+                "valueString": "test"
+              }
+            ]
+          },
+          {
+            "linkId": "policy-holder-address",
+            "answer": [
+              {
+                "valueString": "1234 test street"
+              }
+            ]
+          },
+          {
+            "linkId": "policy-holder-date-of-birth",
+            "item": [
+              {
+                "linkId": "policy-holder-dob-day",
+                "answer": [
+                  {
+                    "valueString": "08"
+                  }
+                ]
+              },
+              {
+                "linkId": "policy-holder-dob-month",
+                "answer": [
+                  {
+                    "valueString": "02"
+                  }
+                ]
+              },
+              {
+                "linkId": "policy-holder-dob-year",
+                "answer": [
+                  {
+                    "valueString": "1997"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "linkId": "policy-holder-birth-sex",
+            "answer": [
+              {
+                "valueString": "Male"
+              }
+            ]
+          },
+          {
+            "linkId": "patient-relationship-to-insured",
+            "answer": [
+              {
+                "valueString": "Father"
+              }
+            ]
+          },
+          {
+            "linkId": "insurance-additional-information",
+            "answer": [
+              {
+                "valueString": "Additional Information"
+              }
+            ]
+          },
+          {
+            "linkId": "insurance-card-front",
+            "answer": [
+              {
+                "valueAttachment": {
+                  "url": "https://testing.project-api.zapehr.com/v1/z3/local-insurance-cards/58263486-b110-4fee-9676-5a94f0682747/1723133382249-insurance-card-front.jpeg",
+                  "title": "insurance-card-front",
+                  "creation": "2024-08-08T12:09:44.777-04:00",
+                  "contentType": "image/jpeg"
+                }
+              }
+            ]
+          },
+          {
+            "linkId": "insurance-card-back",
+            "answer": [
+              {
+                "valueAttachment": {
+                  "url": "https://testing.project-api.zapehr.com/v1/z3/local-insurance-cards/58263486-b110-4fee-9676-5a94f0682747/1723133389571-insurance-card-back.jpeg",
+                  "title": "insurance-card-back",
+                  "creation": "2024-08-08T12:09:49.954-04:00",
+                  "contentType": "image/jpeg"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "fullFormId": "190e6f45-1da0-4c5b-b413-130855b9d6b6",
+        "description": "completed-payment-option-no-insurance --valid",
+        "expectation": {
+          "valid": true,
+          "inner": [],
+          "validItemsToCheck": []
+        },
+        "context": { "values": {}, "items": [] },
+        "item": [
+          {
+            "linkId": "payment-option",
+            "answer": [
+              {
+                "valueString": "I will pay without insurance"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "fullFormId": "55f06a7f-b5cd-4148-8006-b869d45f19c7 - but changed some more",
+        "description": "insurance-fields-with-fhir-invalid-no-value-cases --valid",
+        "expectation": {
+          "valid": true,
+          "inner": [],
+          "validItemsToCheck": []
+        },
+        "context": { "values": {}, "items": [] },
+        "item": [
+          {
+            "answer": [null],
+            "item": [
+              {
+                "linkId": "insurance-carrier-2",
+                "answer": [
+                  {
+                    "valueString": "United"
+                  }
+                ]
+              },
+              {
+                "linkId": "insurance-member-id-2",
+                "answer": [
+                  {
+                    "valueString": "Fafsdfsgd"
+                  }
+                ]
+              },
+              {
+                "linkId": "policy-holder-first-name-2",
+                "answer": [
+                  {
+                    "valueString": "Barnabas"
+                  }
+                ]
+              },
+              {
+                "linkId": "policy-holder-middle-name-2",
+                "answer": [
+                  {
+                    "valueString": "Thaddeus"
+                  }
+                ]
+              },
+              {
+                "linkId": "policy-holder-last-name-2",
+                "answer": [
+                  {
+                    "valueString": "PicklesWorth"
+                  }
+                ]
+              },
+              {
+                "linkId": "policy-holder-date-of-birth-2",
+                "item": [
+                  {
+                    "linkId": "policy-holder-dob-day-2",
+                    "answer": [
+                      {
+                        "valueString": "09"
+                      }
+                    ]
+                  },
+                  {
+                    "linkId": "policy-holder-dob-month-2",
+                    "answer": [
+                      {
+                        "valueString": "06"
+                      }
+                    ]
+                  },
+                  {
+                    "linkId": "policy-holder-dob-year-2",
+                    "answer": [
+                      {
+                        "valueString": "2017"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "linkId": "policy-holder-birth-sex-2",
+                "answer": [
+                  {
+                    "valueString": "Male"
+                  }
+                ]
+              },
+              {
+                "linkId": "policy-holder-address-additional-line-2"
+              },
+              {
+                "linkId": "policy-holder-address-2",
+                "answer": [
+                  {
+                    "valueString": "317 Mustard Street"
+                  }
+                ]
+              },
+              {
+                "linkId": "policy-holder-address-additional-line-2",
+                "answer": [
+                  {
+                    "valueString": "Unit 2"
+                  }
+                ]
+              },
+              {
+                "linkId": "policy-holder-city-2",
+                "answer": [
+                  {
+                    "valueString": "DeliciousVilla"
+                  }
+                ]
+              },
+              {
+                "linkId": "policy-holder-state-2",
+                "answer": [
+                  {
+                    "valueString": "AK"
+                  }
+                ]
+              },
+              {
+                "linkId": "policy-holder-zip-2",
+                "answer": [
+                  {
+                    "valueString": "20001"
+                  }
+                ]
+              },
+              {
+                "linkId": "patient-relationship-to-insured-2",
+                "answer": [
+                  {
+                    "valueString": "Child"
+                  }
+                ]
+              },
+              {
+                "linkId": "insurance-card-front-2"
+              },
+              {
+                "linkId": "insurance-card-back-2"
+              }
+            ],
+            "linkId": "secondary-insurance"
+          },
+          {
+            "linkId": "payment-option",
+            "answer": [
+              {
+                "valueString": "I have insurance"
+              }
+            ]
+          },
+          {
+            "linkId": "display-secondary-insurance",
+            "answer": [
+              {
+                "valueBoolean": true
+              }
+            ]
+          },
+          {
+            "linkId": "insurance-card-back",
+            "answer": [""]
+          },
+          {
+            "linkId": "insurance-card-front",
+            "answer": [
+              {
+                "valueAttachment": {
+                  "url": "https://testing.project-api.zapehr.com/v1/z3/local-insurance-cards/1eb1f4cf-0a5f-481a-b32b-0ca8a79501d1/1724430732337-insurance-card-front.png",
+                  "title": "insurance-card-front",
+                  "creation": "2024-08-23T12:32:12.968-04:00",
+                  "contentType": "image/png"
+                }
+              }
+            ]
+          },
+          {
+            "linkId": "patient-relationship-to-insured",
+            "answer": [
+              {
+                "valueString": "Child"
+              }
+            ]
+          },
+          {
+            "linkId": "policy-holder-zip",
+            "answer": [
+              {
+                "valueString": "20001"
+              }
+            ]
+          },
+          {
+            "linkId": "policy-holder-state",
+            "answer": [
+              {
+                "valueString": "MS"
+              }
+            ]
+          },
+          {
+            "linkId": "policy-holder-city",
+            "answer": [
+              {
+                "valueString": "DeliciousVilla"
+              }
+            ]
+          },
+          {
+            "linkId": "policy-holder-address-additional-line",
+            "answer": [
+              {
+                "valueString": "Unit 2"
+              }
+            ]
+          },
+          {
+            "linkId": "policy-holder-address",
+            "answer": [
+              {
+                "valueString": "317 Mustard Street"
+              }
+            ]
+          },
+          {
+            "linkId": "policy-holder-birth-sex",
+            "answer": [
+              {
+                "valueString": "Male"
+              }
+            ]
+          },
+          {
+            "linkId": "policy-holder-date-of-birth",
+            "item": [
+              {
+                "linkId": "policy-holder-dob-day",
+                "answer": [
+                  {
+                    "valueString": "02"
+                  }
+                ]
+              },
+              {
+                "linkId": "policy-holder-dob-month",
+                "answer": [
+                  {
+                    "valueString": "06"
+                  }
+                ]
+              },
+              {
+                "linkId": "policy-holder-dob-year",
+                "answer": [
+                  {
+                    "valueString": "1999"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "linkId": "policy-holder-last-name",
+            "answer": [
+              {
+                "valueString": "dffsdfsd"
+              }
+            ]
+          },
+          {
+            "linkId": "policy-holder-first-name",
+            "answer": [
+              {
+                "valueString": "FNdfsdf"
+              }
+            ]
+          },
+          {
+            "linkId": "insurance-member-id",
+            "answer": [
+              {
+                "valueString": "sdfsdgdg"
+              }
+            ]
+          },
+          {
+            "linkId": "insurance-carrier",
+            "answer": [
+              {
+                "valueString": "United"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "fullFormId": "5febb805-1b0f-4d18-bcec-75a44dbf096b",
+        "description": "empty values in need of massaging --valid",
+        "expectation": {
+          "valid": true,
+          "inner": [],
+          "validItemsToCheck": [
+            { "path": "secondary-insurance.item.3.linkId", "value": "policy-holder-middle-name-2" },
+            { "path": "secondary-insurance.item.3.answer", "value": null }
+          ]
+        },
+        "context": { "values": {}, "items": [] },
+        "item": [
+          {
+            "linkId": "payment-option",
+            "answer": [
+              {
+                "valueString": "I have insurance"
+              }
+            ]
+          },
+          {
+            "linkId": "insurance-carrier",
+            "answer": [
+              {
+                "valueString": "Fidelis"
+              }
+            ]
+          },
+          {
+            "linkId": "insurance-member-id",
+            "answer": [
+              {
+                "valueString": "12345678"
+              }
+            ]
+          },
+          {
+            "linkId": "policy-holder-first-name",
+            "answer": [
+              {
+                "valueString": "Policy"
+              }
+            ]
+          },
+          {
+            "linkId": "policy-holder-last-name",
+            "answer": [
+              {
+                "valueString": "Holder"
+              }
+            ]
+          },
+          {
+            "linkId": "policy-holder-date-of-birth",
+            "item": [
+              {
+                "linkId": "policy-holder-dob-day",
+                "answer": [
+                  {
+                    "valueString": "08"
+                  }
+                ]
+              },
+              {
+                "linkId": "policy-holder-dob-month",
+                "answer": [
+                  {
+                    "valueString": "02"
+                  }
+                ]
+              },
+              {
+                "linkId": "policy-holder-dob-year",
+                "answer": [
+                  {
+                    "valueString": "1997"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "linkId": "policy-holder-zip",
+            "answer": [
+              {
+                "valueString": "11111"
+              }
+            ]
+          },
+          {
+            "linkId": "policy-holder-state",
+            "answer": [
+              {
+                "valueString": "FL"
+              }
+            ]
+          },
+          {
+            "linkId": "policy-holder-city",
+            "answer": [
+              {
+                "valueString": "test"
+              }
+            ]
+          },
+          {
+            "linkId": "policy-holder-address",
+            "answer": [
+              {
+                "valueString": "1234 test street"
+              }
+            ]
+          },
+          {
+            "linkId": "policy-holder-birth-sex",
+            "answer": [
+              {
+                "valueString": "Male"
+              }
+            ]
+          },
+          {
+            "linkId": "patient-relationship-to-insured",
+            "answer": [
+              {
+                "valueString": "Father"
+              }
+            ]
+          },
+          {
+            "linkId": "insurance-additional-information",
+            "answer": [
+              {
+                "valueString": "Additional Information"
+              }
+            ]
+          },
+          {
+            "linkId": "insurance-card-front",
+            "answer": [
+              {
+                "valueAttachment": {
+                  "url": "https://testing.project-api.zapehr.com/v1/z3/local-insurance-cards/58263486-b110-4fee-9676-5a94f0682747/1723133382249-insurance-card-front.jpeg",
+                  "title": "insurance-card-front",
+                  "creation": "2024-08-08T12:09:44.777-04:00",
+                  "contentType": "image/jpeg"
+                }
+              }
+            ]
+          },
+          {
+            "linkId": "insurance-card-back",
+            "answer": [
+              {
+                "valueAttachment": {
+                  "url": "https://testing.project-api.zapehr.com/v1/z3/local-insurance-cards/58263486-b110-4fee-9676-5a94f0682747/1723133389571-insurance-card-back.jpeg",
+                  "title": "insurance-card-back",
+                  "creation": "2024-08-08T12:09:49.954-04:00",
+                  "contentType": "image/jpeg"
+                }
+              }
+            ]
+          },
+          {
+            "item": [
+              {
+                "linkId": "insurance-carrier-2",
+                "answer": [
+                  {
+                    "valueString": "United"
+                  }
+                ]
+              },
+              {
+                "linkId": "insurance-member-id-2",
+                "answer": [
+                  {
+                    "valueString": "Fafsdfsgd"
+                  }
+                ]
+              },
+              {
+                "linkId": "policy-holder-first-name-2",
+                "answer": [
+                  {
+                    "valueString": "Barnabas"
+                  }
+                ]
+              },
+              {},
+              {
+                "linkId": "policy-holder-last-name-2",
+                "answer": [
+                  {
+                    "valueString": "PicklesWorth"
+                  }
+                ]
+              },
+              {
+                "linkId": "policy-holder-date-of-birth-2",
+                "item": [
+                  {
+                    "linkId": "policy-holder-dob-day-2",
+                    "answer": [
+                      {
+                        "valueString": "09"
+                      }
+                    ]
+                  },
+                  {
+                    "linkId": "policy-holder-dob-month-2",
+                    "answer": [
+                      {
+                        "valueString": "06"
+                      }
+                    ]
+                  },
+                  {
+                    "linkId": "policy-holder-dob-year-2",
+                    "answer": [
+                      {
+                        "valueString": "2017"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "linkId": "policy-holder-birth-sex-2",
+                "answer": [
+                  {
+                    "valueString": "Male"
+                  }
+                ]
+              },
+              {
+                "linkId": "policy-holder-address-additional-line-2"
+              },
+              {
+                "linkId": "policy-holder-address-2",
+                "answer": [
+                  {
+                    "valueString": "317 Mustard Street"
+                  }
+                ]
+              },
+              {
+                "linkId": "policy-holder-address-additional-line-2",
+                "answer": [
+                  {
+                    "valueString": "Unit 2"
+                  }
+                ]
+              },
+              {
+                "linkId": "policy-holder-city-2",
+                "answer": [
+                  {
+                    "valueString": "DeliciousVilla"
+                  }
+                ]
+              },
+              {
+                "linkId": "policy-holder-state-2",
+                "answer": [
+                  {
+                    "valueString": "AK"
+                  }
+                ]
+              },
+              {
+                "linkId": "policy-holder-zip-2",
+                "answer": [
+                  {
+                    "valueString": "20001"
+                  }
+                ]
+              },
+              {
+                "linkId": "patient-relationship-to-insured-2",
+                "answer": [
+                  {
+                    "valueString": "Child"
+                  }
+                ]
+              },
+              {},
+              {
+                "linkId": "insurance-card-back-2",
+                "answer": [{}]
+              }
+            ],
+            "linkId": "secondary-insurance"
+          }
+        ]
+      }
+    ],
+    "responsible-party-page": [],
+    "photo-id-page": [
+      {
+        "fullFormId": "190e6f45-1da0-4c5b-b413-130855b9d6b6",
+        "description": "completed-photo-id --valid",
+        "expectation": {
+          "valid": true,
+          "inner": [],
+          "validItemsToCheck": []
+        },
+        "context": { "values": {}, "items": [] },
+        "item": [
+          {
+            "linkId": "photo-id-front",
+            "answer": [
+              {
+                "valueAttachment": {
+                  "url": "https://testing.project-api.zapehr.com/v1/z3/local-photo-id-cards/58263486-b110-4fee-9676-5a94f0682747/1723133435581-photo-id-front.jpeg",
+                  "title": "photo-id-front",
+                  "creation": "2024-08-08T12:10:36.693-04:00",
+                  "contentType": "image/jpeg"
+                }
+              }
+            ]
+          },
+          {
+            "linkId": "photo-id-back",
+            "answer": [
+              {
+                "valueAttachment": {
+                  "url": "https://testing.project-api.zapehr.com/v1/z3/local-photo-id-cards/58263486-b110-4fee-9676-5a94f0682747/1723133447937-photo-id-back.jpeg",
+                  "title": "photo-id-back",
+                  "creation": "2024-08-08T12:10:48.553-04:00",
+                  "contentType": "image/jpeg"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "consent-forms-page": []
+  }
+}

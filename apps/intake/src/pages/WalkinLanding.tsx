@@ -1,16 +1,18 @@
 import { Button, CircularProgress, Typography } from '@mui/material';
 import { Box } from '@mui/system';
-import { FC, useState } from 'react';
-import { generatePath, Link, useNavigate, useParams } from 'react-router-dom';
-import { useUCZambdaClient, ErrorDialog, PageForm, ErrorDialogConfig } from 'ui-components';
-import { ottehrApi } from '../api';
-import { PageContainer } from '../components';
-import { t } from 'i18next';
-import { useQuery } from 'react-query';
-import { APIError, CreateSlotParams, isApiError, PROJECT_NAME, ServiceMode } from 'utils';
-import { DateTime } from 'luxon';
-import { bookingBasePath } from '../App';
 import { ottehrLightBlue } from '@theme/icons';
+import { t } from 'i18next';
+import { DateTime } from 'luxon';
+import { FC, useState } from 'react';
+import { useQuery } from 'react-query';
+import { generatePath, Link, useNavigate, useParams } from 'react-router-dom';
+import { APIError, CreateSlotParams, isApiError, PROJECT_NAME, ServiceMode } from 'utils';
+import { ottehrApi } from '../api';
+import { bookingBasePath } from '../App';
+import { PageContainer } from '../components';
+import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
+import PageForm from '../components/PageForm';
+import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 
 export const WalkinLanding: FC = () => {
   const navigate = useNavigate();
@@ -69,7 +71,7 @@ export const WalkinLanding: FC = () => {
                   const createSlotInput: CreateSlotParams = {
                     scheduleId: data.scheduleId,
                     startISO: DateTime.now().toISO(),
-                    serviceModality: data.serviceMode as ServiceMode,
+                    serviceModality: data.serviceMode ?? ServiceMode['in-person'],
                     lengthInMinutes: 15,
                     status: 'busy-tentative',
                     walkin: true,

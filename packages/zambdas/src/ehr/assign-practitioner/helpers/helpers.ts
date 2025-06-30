@@ -1,14 +1,14 @@
 import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
-import { Encounter, Practitioner, PractitionerRole } from 'fhir/r4b';
-import { getPatchBinary, UserRole } from 'utils';
+import { Coding, Encounter, Practitioner, PractitionerRole } from 'fhir/r4b';
+import { getPatchBinary } from 'utils';
 import { EncounterPackage } from '../../../shared/practitioner/types';
 
 export const assignPractitionerIfPossible = async (
   oystehr: Oystehr,
   resourcesToUpdate: EncounterPackage,
   practitioner: Practitioner,
-  userRole: typeof UserRole,
+  userRole: Coding[],
   practitionerRole?: PractitionerRole
 ): Promise<void> => {
   if (!resourcesToUpdate.encounter?.id || !practitioner) {
@@ -43,7 +43,7 @@ export const assignPractitionerIfPossible = async (
 const getAssignPractitionerToEncounterOperation = async (
   encounter: Encounter,
   practitioner: Practitioner,
-  userRole: typeof UserRole,
+  userRole: Coding[],
   practitionerRole?: PractitionerRole
 ): Promise<Operation[] | undefined> => {
   const now = new Date().toISOString();

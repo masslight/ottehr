@@ -1,10 +1,10 @@
-import { BrowserContext, Page, expect, Locator } from '@playwright/test';
+import { BrowserContext, expect, Locator, Page } from '@playwright/test';
 import { AllStates, PatientEthnicity, PatientRace } from 'utils';
 import { CommonLocatorsHelper } from './CommonLocatorsHelper';
 import { FillingInfo } from './in-person/FillingInfo';
 import { Locators } from './locators';
-import { UploadDocs } from './UploadDocs';
 import { PaperworkTelemed } from './telemed/Paperwork';
+import { UploadDocs } from './UploadDocs';
 
 interface InsuranceRequiredData {
   firstName: string;
@@ -732,10 +732,8 @@ export class Paperwork {
     const insuranceOptionalData = await this.fillInsuranceOptionalFields(true);
     return { insuranceRequiredData, insuranceOptionalData };
   }
-  async fillResponsiblePartyDataSelf(): Promise<{ phone: string }> {
+  async fillResponsiblePartyDataSelf(): Promise<void> {
     await this.fillResponsiblePartySelfRelationship();
-    const { formattedPhoneNumber: phone } = await this.fillResponsiblePartyPhone();
-    return { phone };
   }
   async fillResponsiblePartyDataNotSelf(): Promise<{
     relationship: string;

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { TelemedAppointmentInformation, TelemedAppointmentStatusEnum, checkEncounterHasPractitioner } from 'utils';
+import { checkEncounterHasPractitioner, TelemedAppointmentInformation, TelemedAppointmentStatusEnum } from 'utils';
 import useEvolveUser from '../../hooks/useEvolveUser';
 import { getSelectors } from '../../shared/store/getSelectors';
 import { useTrackingBoardStore } from '../state';

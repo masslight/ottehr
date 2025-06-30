@@ -1,18 +1,3 @@
-import { ReactElement, useEffect, useMemo, useState } from 'react';
-import { PageTitle } from 'src/telemed/components/PageTitle';
-import {
-  AccordionCard,
-  ActionsList,
-  DeleteIconButton,
-  useAppointmentStore,
-  useDebounce,
-  useDeleteChartData,
-  useGetAppointmentAccessibility,
-  useGetIcd10Search,
-  useSaveChartData,
-} from 'src/telemed';
-import { Box, Stack, useTheme } from '@mui/system';
-import { DatePicker, LocalizationProvider, TimePicker } from '@mui/x-date-pickers-pro';
 import {
   Autocomplete,
   Backdrop,
@@ -31,95 +16,59 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { RoundedButton } from 'src/components/RoundedButton';
+import { Box, Stack, useTheme } from '@mui/system';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
+import { DatePicker, LocalizationProvider, TimePicker } from '@mui/x-date-pickers-pro';
+import Oystehr from '@oystehr/sdk';
+import { ValueSet } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import { enqueueSnackbar } from 'notistack';
+import { ReactElement, useEffect, useMemo, useState } from 'react';
+import { useQuery, UseQueryResult } from 'react-query';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { RoundedButton } from 'src/components/RoundedButton';
+import { QUERY_STALE_TIME } from 'src/constants';
+import { useApiClients } from 'src/hooks/useAppClients';
 import {
+  AccordionCard,
+  ActionsList,
+  DeleteIconButton,
+  useAppointmentStore,
+  useDebounce,
+  useDeleteChartData,
+  useGetAppointmentAccessibility,
+  useGetIcd10Search,
+  useSaveChartData,
+} from 'src/telemed';
+import { PageTitle } from 'src/telemed/components/PageTitle';
+import { DiagnosesField } from 'src/telemed/features/appointment/AssessmentTab';
+import {
+  BODY_SIDES_VALUE_SET_URL,
+  BODY_SITES_VALUE_SET_URL,
+  COMPLICATIONS_VALUE_SET_URL,
   CPTCodeDTO,
   DiagnosisDTO,
   getSelectors,
   getVisitStatus,
   IcdSearchResponse,
+  MEDICATIONS_USED_VALUE_SET_URL,
+  PATIENT_RESPONSES_VALUE_SET_URL,
+  POST_PROCEDURE_INSTRUCTIONS_VALUE_SET_URL,
+  PROCEDURE_TYPE_CPT_EXTENSION_URL,
+  PROCEDURE_TYPES_VALUE_SET_URL,
   REQUIRED_FIELD_ERROR_MESSAGE,
+  SUPPLIES_VALUE_SET_URL,
+  TECHNIQUES_VALUE_SET_URL,
   TelemedAppointmentStatusEnum,
+  TIME_SPENT_VALUE_SET_URL,
 } from 'utils';
-import { DiagnosesField } from 'src/telemed/features/appointment/AssessmentTab';
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ROUTER_PATH } from '../routing/routesCSS';
 import { InfoAlert } from '../components/InfoAlert';
-import { enqueueSnackbar } from 'notistack';
-import { DateTime } from 'luxon';
 import { useFeatureFlags } from '../context/featureFlags';
+import { ROUTER_PATH } from '../routing/routesCSS';
 
 const OTHER = 'Other';
-const PROCEDURE_TYPES = [
-  'Laceration Repair (Suturing/Stapling)',
-  'Wound Care / Dressing Change',
-  'Splint Application / Immobilization',
-  'Incision and Drainage (I&D) of Abscess',
-  'Reduction of Nursemaid’s Elbow',
-  'Burn Treatment / Dressing',
-  'Foreign Body Removal (Skin, Ear, Nose, Eye)',
-  'Nail Trephination (Subungual Hematoma Drainage)',
-  'Tick or Insect Removal',
-  'Staple or Suture Removal',
-  'Intravenous (IV) Catheter Placement',
-  'IV Fluid Administration',
-  'Intramuscular (IM) Medication Injection',
-  'Nebulizer Treatment (e.g., Albuterol)',
-  'Oral Rehydration / Medication Administration (including challenge doses)',
-  'Wart Treatment (Cryotherapy with Liquid Nitrogen',
-  'Urinary Catheterization',
-  'Ear Lavage / Cerumen Removal',
-  'Nasal Packing (Epistaxis Control)',
-  'Eye Irrigation or Eye Foreign Body Removal',
-  'Nasal Lavage (schnozzle)',
-  'EKG',
-];
-const PRE_POPULATED_CPT_CODE: Record<string, CPTCodeDTO> = {
-  'Nebulizer Treatment (e.g., Albuterol)': {
-    code: '94640',
-    display:
-      // cSpell:disable-next IPPB
-      'Pressurized or non-pressurized inhalation treatment for acute airway obstruction for therapeutic purposes and/or for diagnostic purposes such as sputum induction with an aerosol generator, nebulizer, metered dose inhaler or intermittent positive pressure breathing (IPPB) device',
-  },
-  'Wart Treatment (Cryotherapy with Liquid Nitrogen': {
-    code: '17110',
-    display:
-      'Destruction (eg, laser surgery, electrosurgery, cryosurgery, chemosurgery, surgical curettement), of benign lesions other than skin tags or cutaneous vascular proliferative lesions; up to 14 lesions',
-  },
-  'Nail Trephination (Subungual Hematoma Drainage)': {
-    code: '11740',
-    display: 'Evacuation of subungual hematoma',
-  },
-  'Tick or Insect Removal': {
-    code: '10120',
-    display: 'Incision and removal of foreign body, subcutaneous tissues; simple',
-  },
-  'Nasal Packing (Epistaxis Control)': {
-    code: '30901',
-    display: 'Control nasal hemorrhage, anterior, simple (limited cautery and/or packing) any method',
-  },
-  EKG: {
-    code: '93000',
-    display: 'Electrocardiogram, routine ECG with at least 12 leads; with interpretation and report',
-  },
-  'Intramuscular (IM) Medication Injection': {
-    code: '96372',
-    display:
-      'Therapeutic, prophylactic, or diagnostic injection (specify substance or drug); subcutaneous or intramuscular',
-  },
-};
 const PERFORMED_BY = ['Clinical support staff', 'Provider', 'Both'];
-const MEDICATIONS_USED = ['None', 'Topical', 'Local', 'Oral', 'IV', 'IM'];
-const SITES = ['Head', 'Face', 'Arm', 'Leg', 'Torso', 'Genital', 'Ear', 'Nose', 'Eye', OTHER];
-const SIDES_OF_BODY = ['Left', 'Right', 'Midline', 'Not Applicable'];
-const TECHNIQUES = ['Sterile', 'Clean', 'Aseptic', 'Field'];
-const SUPPLIES = ['Suture Kit', 'Splint', 'Irrigation Syringe', 'Speculum', 'Forceps', 'IV Kit', OTHER];
 const SPECIMEN_SENT = ['Yes', 'No'];
-const COMPLICATIONS = ['None', 'Bleeding', 'Incomplete Removal', 'Allergic Reaction', OTHER];
-const PATIENT_RESPONSES = ['Tolerated Well', 'Mild Distress', 'Severe Distress', 'Improved', 'Stable', 'Worsened'];
-const POST_PROCEDURE_INSTRUCTIONS = ['Wound Care', 'F/U with PCP', 'Return if worsening', OTHER];
-const TIME_SPENT = ['< 5 min', '5-10 min', '10-20 min', '20-30 min', '> 30 min'];
 const DOCUMENTED_BY = ['Provider', 'Clinical support staff'];
 
 interface PageState {
@@ -148,10 +97,33 @@ interface PageState {
   documentedBy?: string;
 }
 
+interface ProcedureType {
+  name: string;
+  cpt?: {
+    code: string;
+    display: string;
+  };
+}
+
+interface SelectOptions {
+  procedureTypes: ProcedureType[];
+  medicationsUsed: string[];
+  bodySites: string[];
+  bodySides: string[];
+  techniques: string[];
+  supplies: string[];
+  complications: string[];
+  patientResponses: string[];
+  postProcedureInstructions: string[];
+  timeSpent: string[];
+}
+
 export default function ProceduresNew(): ReactElement {
   const navigate = useNavigate();
   const theme = useTheme();
   const { id: appointmentId, procedureId } = useParams();
+  const { oystehr } = useApiClients();
+  const { data: selectOptions, isLoading: isSelectOptionsLoading } = useSelectOptions(oystehr);
   const { chartData, setPartialChartData, appointment, encounter } = getSelectors(useAppointmentStore, [
     'chartData',
     'setPartialChartData',
@@ -187,7 +159,7 @@ export default function ProceduresNew(): ReactElement {
   const [initialValuesSet, setInitialValuesSet] = useState<boolean>(false);
   useEffect(() => {
     const procedure = chartData?.procedures?.find((procedure) => procedure.resourceId === procedureId);
-    if (procedure == null || initialValuesSet) {
+    if (procedure == null || initialValuesSet || isSelectOptionsLoading) {
       return;
     }
     const procedureDateTime =
@@ -200,25 +172,28 @@ export default function ProceduresNew(): ReactElement {
       procedureTime: procedureDateTime,
       performerType: procedure.performerType,
       medicationUsed: procedure.medicationUsed,
-      bodySite: getPredefinedValueOrOther(procedure.bodySite, SITES),
-      otherBodySite: getPredefinedValueIfOther(procedure.bodySite, SITES),
+      bodySite: getPredefinedValueOrOther(procedure.bodySite, selectOptions?.bodySites),
+      otherBodySite: getPredefinedValueIfOther(procedure.bodySite, selectOptions?.bodySites),
       bodySide: procedure.bodySide,
       technique: procedure.technique,
-      suppliesUsed: getPredefinedValueOrOther(procedure.suppliesUsed, SUPPLIES),
-      otherSuppliesUsed: getPredefinedValueIfOther(procedure.suppliesUsed, SUPPLIES),
+      suppliesUsed: getPredefinedValueOrOther(procedure.suppliesUsed, selectOptions?.supplies),
+      otherSuppliesUsed: getPredefinedValueIfOther(procedure.suppliesUsed, selectOptions?.supplies),
       procedureDetails: procedure.procedureDetails,
       specimenSent: procedure.specimenSent,
-      complications: getPredefinedValueOrOther(procedure.complications, COMPLICATIONS),
-      otherComplications: getPredefinedValueIfOther(procedure.complications, COMPLICATIONS),
+      complications: getPredefinedValueOrOther(procedure.complications, selectOptions?.complications),
+      otherComplications: getPredefinedValueIfOther(procedure.complications, selectOptions?.complications),
       patientResponse: procedure.patientResponse,
-      postInstructions: getPredefinedValueOrOther(procedure.postInstructions, POST_PROCEDURE_INSTRUCTIONS),
-      otherPostInstructions: getPredefinedValueIfOther(procedure.postInstructions, POST_PROCEDURE_INSTRUCTIONS),
+      postInstructions: getPredefinedValueOrOther(procedure.postInstructions, selectOptions?.postProcedureInstructions),
+      otherPostInstructions: getPredefinedValueIfOther(
+        procedure.postInstructions,
+        selectOptions?.postProcedureInstructions
+      ),
       timeSpent: procedure.timeSpent,
       documentedBy: procedure.documentedBy,
       consentObtained: procedure.consentObtained,
     });
     setInitialValuesSet(true);
-  }, [procedureId, chartData?.procedures, setState, initialValuesSet]);
+  }, [procedureId, chartData?.procedures, setState, initialValuesSet, isSelectOptionsLoading, selectOptions]);
 
   const onCancel = (): void => {
     navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
@@ -431,7 +406,7 @@ export default function ProceduresNew(): ReactElement {
 
   const dropdown = (
     label: string,
-    options: string[],
+    options: string[] | undefined,
     value: string | undefined,
     stateMutator: (value: string, state: PageState) => void
   ): ReactElement => {
@@ -445,7 +420,7 @@ export default function ProceduresNew(): ReactElement {
           value={value ?? ''}
           onChange={(e) => updateState((state) => stateMutator(e.target.value, state))}
         >
-          {options.map((option) => {
+          {(options ?? []).map((option) => {
             return (
               <MenuItem key={option} value={option}>
                 <Typography color="textPrimary" sx={{ fontSize: '16px' }}>
@@ -526,14 +501,20 @@ export default function ProceduresNew(): ReactElement {
             <Typography style={{ marginTop: '16px', color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
               Procedure Type & CPT Code
             </Typography>
-            {dropdown('Procedure type', PROCEDURE_TYPES, state.procedureType, (value, state) => {
-              state.procedureType = value;
-              if (PRE_POPULATED_CPT_CODE[value] != null) {
-                state.cptCodes = [PRE_POPULATED_CPT_CODE[value]];
-              } else {
-                state.cptCodes = [];
+            {dropdown(
+              'Procedure type',
+              selectOptions?.procedureTypes.map((procedureType) => procedureType.name),
+              state.procedureType,
+              (value, state) => {
+                state.procedureType = value;
+                const cpt = selectOptions?.procedureTypes.find((procedureType) => procedureType.name === value)?.cpt;
+                if (cpt != null) {
+                  state.cptCodes = [cpt];
+                } else {
+                  state.cptCodes = [];
+                }
               }
-            })}
+            )}
             {cptWidget()}
             <Typography style={{ marginTop: '8px', color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
               Dx
@@ -576,11 +557,11 @@ export default function ProceduresNew(): ReactElement {
             <InfoAlert text="Please include body part including laterality, type and quantity anesthesia used, specific materials (type and quantity) used, technique, findings, complications, specimen sent, and after-procedure status." />
             {dropdown(
               'Anaesthesia / medication used',
-              MEDICATIONS_USED,
+              selectOptions?.medicationsUsed,
               state.medicationUsed,
               (value, state) => (state.medicationUsed = value)
             )}
-            {dropdown('Site/location', SITES, state.bodySite, (value, state) => {
+            {dropdown('Site/location', selectOptions?.bodySites, state.bodySite, (value, state) => {
               state.bodySite = value;
               state.otherBodySite = undefined;
             })}
@@ -590,9 +571,19 @@ export default function ProceduresNew(): ReactElement {
               state.otherBodySite,
               (value, state) => (state.otherBodySite = value)
             )}
-            {dropdown('Side of body', SIDES_OF_BODY, state.bodySide, (value, state) => (state.bodySide = value))}
-            {dropdown('Technique', TECHNIQUES, state.technique, (value, state) => (state.technique = value))}
-            {dropdown('Instruments / supplies used', SUPPLIES, state.suppliesUsed, (value, state) => {
+            {dropdown(
+              'Side of body',
+              selectOptions?.bodySides,
+              state.bodySide,
+              (value, state) => (state.bodySide = value)
+            )}
+            {dropdown(
+              'Technique',
+              selectOptions?.techniques,
+              state.technique,
+              (value, state) => (state.technique = value)
+            )}
+            {dropdown('Instruments / supplies used', selectOptions?.supplies, state.suppliesUsed, (value, state) => {
               state.suppliesUsed = value;
               state.otherSuppliesUsed = undefined;
             })}
@@ -616,7 +607,7 @@ export default function ProceduresNew(): ReactElement {
               state.specimenSent != null ? (state.specimenSent ? 'Yes' : 'No') : undefined,
               (value, state) => (state.specimenSent = value === 'Yes')
             )}
-            {dropdown('Complications', COMPLICATIONS, state.complications, (value, state) => {
+            {dropdown('Complications', selectOptions?.complications, state.complications, (value, state) => {
               state.complications = value;
               state.otherComplications = undefined;
             })}
@@ -628,13 +619,13 @@ export default function ProceduresNew(): ReactElement {
             )}
             {dropdown(
               'Patient response',
-              PATIENT_RESPONSES,
+              selectOptions?.patientResponses,
               state.patientResponse,
               (value, state) => (state.patientResponse = value)
             )}
             {dropdown(
               'Post-procedure Instructions',
-              POST_PROCEDURE_INSTRUCTIONS,
+              selectOptions?.postProcedureInstructions,
               state.postInstructions,
               (value, state) => {
                 state.postInstructions = value;
@@ -647,7 +638,12 @@ export default function ProceduresNew(): ReactElement {
               state.otherPostInstructions,
               (value, state) => (state.otherPostInstructions = value)
             )}
-            {dropdown('Time spent', TIME_SPENT, state.timeSpent, (value, state) => (state.timeSpent = value))}
+            {dropdown(
+              'Time spent',
+              selectOptions?.timeSpent,
+              state.timeSpent,
+              (value, state) => (state.timeSpent = value)
+            )}
             {radio('Documented by', DOCUMENTED_BY, state.documentedBy, (value, state) => (state.documentedBy = value))}
             <Divider orientation="horizontal" />
             <Box style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -668,16 +664,97 @@ export default function ProceduresNew(): ReactElement {
   );
 }
 
-function getPredefinedValueOrOther(value: string | undefined, predefinedValues: string[]): string | undefined {
-  if (value != null && predefinedValues.includes(value)) {
+function getPredefinedValueOrOther(
+  value: string | undefined,
+  predefinedValues: string[] | undefined
+): string | undefined {
+  if (value != null && predefinedValues?.includes(value)) {
     return value;
   }
   return value != null ? OTHER : undefined;
 }
 
-function getPredefinedValueIfOther(value: string | undefined, predefinedValues: string[]): string | undefined {
-  if (value != null && !predefinedValues.includes(value)) {
+function getPredefinedValueIfOther(
+  value: string | undefined,
+  predefinedValues: string[] | undefined
+): string | undefined {
+  if (value != null && !predefinedValues?.includes(value)) {
     return value;
   }
   return undefined;
+}
+
+function useSelectOptions(oystehr: Oystehr | undefined): UseQueryResult<SelectOptions, never> {
+  return useQuery(
+    ['procedures-new-dropdown-options'],
+    async () => {
+      if (oystehr == null) {
+        return [];
+      }
+      const valueSets = (
+        await oystehr.fhir.search<ValueSet>({
+          resourceType: 'ValueSet',
+          params: [
+            {
+              name: 'url',
+              value: [
+                PROCEDURE_TYPES_VALUE_SET_URL,
+                MEDICATIONS_USED_VALUE_SET_URL,
+                BODY_SITES_VALUE_SET_URL,
+                BODY_SIDES_VALUE_SET_URL,
+                TECHNIQUES_VALUE_SET_URL,
+                SUPPLIES_VALUE_SET_URL,
+                COMPLICATIONS_VALUE_SET_URL,
+                PATIENT_RESPONSES_VALUE_SET_URL,
+                POST_PROCEDURE_INSTRUCTIONS_VALUE_SET_URL,
+                TIME_SPENT_VALUE_SET_URL,
+              ].join(','),
+            },
+          ],
+        })
+      ).unbundle();
+      return {
+        procedureTypes: getProcedureTypes(valueSets),
+        medicationsUsed: getValueSetValues(MEDICATIONS_USED_VALUE_SET_URL, valueSets),
+        bodySites: getValueSetValues(BODY_SITES_VALUE_SET_URL, valueSets),
+        bodySides: getValueSetValues(BODY_SIDES_VALUE_SET_URL, valueSets),
+        techniques: getValueSetValues(TECHNIQUES_VALUE_SET_URL, valueSets),
+        supplies: getValueSetValues(SUPPLIES_VALUE_SET_URL, valueSets),
+        complications: getValueSetValues(COMPLICATIONS_VALUE_SET_URL, valueSets),
+        patientResponses: getValueSetValues(PATIENT_RESPONSES_VALUE_SET_URL, valueSets),
+        postProcedureInstructions: getValueSetValues(POST_PROCEDURE_INSTRUCTIONS_VALUE_SET_URL, valueSets),
+        timeSpent: getValueSetValues(TIME_SPENT_VALUE_SET_URL, valueSets),
+      };
+    },
+    {
+      onError: (_err) => {
+        return [];
+      },
+      keepPreviousData: true,
+      staleTime: QUERY_STALE_TIME,
+    }
+  );
+}
+
+function getValueSetValues(valueSetUrl: string, valueSets: ValueSet[] | undefined): string[] {
+  const valueSet = valueSets?.find((valueSet) => valueSet.url === valueSetUrl);
+  return valueSet?.expansion?.contains?.flatMap((item) => (item.display != null ? [item.display] : [])) ?? [];
+}
+
+function getProcedureTypes(valueSets: ValueSet[] | undefined): ProcedureType[] {
+  const valueSet = valueSets?.find((valueSet) => valueSet.url === PROCEDURE_TYPES_VALUE_SET_URL);
+  return (
+    valueSet?.expansion?.contains?.flatMap((item) => {
+      const name = item.display;
+      if (name == null) {
+        return [];
+      }
+      const cptCodeableConcept = item.extension?.find((extension) => extension.url === PROCEDURE_TYPE_CPT_EXTENSION_URL)
+        ?.valueCodeableConcept;
+      const cptCode = cptCodeableConcept?.coding?.[0].code;
+      const cptDisplay = cptCodeableConcept?.coding?.[0].display;
+      const cpt = cptCode != null && cptDisplay != null ? { code: cptCode, display: cptDisplay } : undefined;
+      return [{ name, cpt }];
+    }) ?? []
+  );
 }

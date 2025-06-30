@@ -14,6 +14,7 @@ import {
   getTimezone,
   OVERRIDE_DATE_FORMAT,
 } from 'utils';
+import { vi } from 'vitest';
 import * as slotData from './data/slot-constants';
 import { addDateToSlotMap, addDateToSlotTimes } from './data/slot-constants';
 import {
@@ -22,11 +23,10 @@ import {
   replaceSchedule,
   setHourlyCapacity,
 } from './helpers/testScheduleUtils';
-import { vi } from 'vitest';
 export const DEFAULT_TEST_TIMEOUT = 100000;
 /*
 
-export async function getTodayAndTorrowAppointments(
+export async function getTodayAndTomorrowAppointments(
   now: DateTime,
   location: Location,
   oystehr: Oystehr
@@ -820,18 +820,18 @@ describe.skip('test front end slot display: opening and closing buffers, varied 
     const { schedule } = makeLocationWithSchedule(hoursInfo, 4, 30, 30);
 
     // set specific hourly capacities
-    const scheduleDeets = getScheduleExtension(schedule);
+    const scheduleDetails = getScheduleExtension(schedule);
 
-    if (!scheduleDeets) throw new Error('location does not have schedule');
+    if (!scheduleDetails) throw new Error('location does not have schedule');
 
     const updatedDailySchedule = setHourlyCapacity(
-      setHourlyCapacity(scheduleDeets.schedule, todayDoW, 11, 2),
+      setHourlyCapacity(scheduleDetails.schedule, todayDoW, 11, 2),
       todayDoW,
       13,
       2
     );
-    scheduleDeets.schedule = updatedDailySchedule;
-    const updatedSchedule = replaceSchedule(schedule, scheduleDeets);
+    scheduleDetails.schedule = updatedDailySchedule;
+    const updatedSchedule = replaceSchedule(schedule, scheduleDetails);
 
     const testSlots = getAvailableSlots({
       now: time,
@@ -917,7 +917,7 @@ describe.skip('test front end slot display: opening and closing buffers, varied 
     expect(testSlots).toEqual(expectedSlots);
   });
 
-  test('16: open @2pm close @6pm, capacity 3, 15 miunte opening + closing buffer', async () => {
+  test('16: open @2pm close @6pm, capacity 3, 15 minute opening + closing buffer', async () => {
     const time = DateTime.now().startOf('day').set({ hour: 8 });
     const todayDoW: DOW = time.weekdayLong.toLocaleLowerCase() as DOW;
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 14, close: 18, workingDay: true }];
@@ -943,7 +943,7 @@ describe.skip('test front end slot display: opening and closing buffers, varied 
   });
 
   // todo check all of the below changes
-  test('17: open @2pm close @6pm, capacity 1, 15 miunte opening + closing buffer', async () => {
+  test('17: open @2pm close @6pm, capacity 1, 15 minute opening + closing buffer', async () => {
     const time = DateTime.now().startOf('day').set({ hour: 15, minute: 6 });
     const todayDoW: DOW = time.weekdayLong.toLocaleLowerCase() as DOW;
     const tomorrow = time.plus({ day: 1 });
@@ -976,7 +976,7 @@ describe.skip('test front end slot display: opening and closing buffers, varied 
     expect(testSlots).toEqual(expectedSlots);
   });
 
-  test('18: open @2pm close @6pm, capacity 2, 15 miunte opening + closing buffer', async () => {
+  test('18: open @2pm close @6pm, capacity 2, 15 minute opening + closing buffer', async () => {
     const time = DateTime.now().startOf('day').set({ hour: 15, minute: 6 });
     const todayDoW: DOW = time.weekdayLong.toLocaleLowerCase() as DOW;
     const tomorrow = time.plus({ day: 1 });

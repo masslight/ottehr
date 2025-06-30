@@ -1,3 +1,4 @@
+import { otherColors } from '@ehrTheme/colors';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { LoadingButton } from '@mui/lab';
 import {
@@ -12,7 +13,6 @@ import {
   useTheme,
 } from '@mui/material';
 import { MouseEventHandler, ReactElement } from 'react';
-import { otherColors } from '@ehrTheme/colors';
 
 interface ScheduleOverridesDialogProps {
   loading: boolean;

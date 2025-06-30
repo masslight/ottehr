@@ -1,15 +1,21 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter } from 'fhir/r4b';
-import { FOLLOWUP_TYPES, PatientFollowupDetails, Secrets } from 'utils';
+import {
+  FOLLOWUP_TYPES,
+  getSecret,
+  SaveFollowupEncounterZambdaInput,
+  SaveFollowupEncounterZambdaOutput,
+  Secrets,
+  SecretsKeys,
+} from 'utils';
+import { checkOrCreateM2MClientToken, topLevelCatch, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
-import { topLevelCatch, ZambdaInput } from '../../shared';
-import { createEncounterResource, makeEncounterDTO, updateEncounterResource } from './helpers';
-import { checkOrCreateM2MClientToken } from '../../shared';
+import { createEncounterResource, updateEncounterResource } from './helpers';
 
-export function validateRequestParameters(input: ZambdaInput): {
-  secrets: Secrets | null;
-  encounterDetails: PatientFollowupDetails;
-} {
+export interface SaveFollowupEncounterZambdaInputValidated extends SaveFollowupEncounterZambdaInput {
+  secrets: Secrets;
+}
+export function validateRequestParameters(input: ZambdaInput): SaveFollowupEncounterZambdaInputValidated {
   if (!input.body) {
     throw new Error('No request body provided');
   }
@@ -26,13 +32,17 @@ export function validateRequestParameters(input: ZambdaInput): {
     throw new Error(`followupType must be one of the following ${FOLLOWUP_TYPES}`);
   }
 
+  if (!input.secrets) {
+    throw new Error('No secrets provided');
+  }
+
   return {
     secrets: input.secrets,
     encounterDetails,
   };
 }
 
-let m2mtoken: string;
+let m2mToken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -40,8 +50,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const { secrets, encounterDetails } = validateRequestParameters(input);
     console.log('updated encounter details', encounterDetails);
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
     let encounter: Encounter | undefined;
 
     if (encounterDetails.encounterId) {
@@ -51,12 +61,22 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       console.log('creating a followup encounter for patient', encounterDetails.patientId);
       encounter = await createEncounterResource(encounterDetails, oystehr);
     }
+
+    if (encounter.id === undefined) {
+      throw new Error('Encounter ID is undefined after creation or update');
+    }
+
+    const response: SaveFollowupEncounterZambdaOutput = {
+      encounterId: encounter.id,
+    };
+
     return {
-      body: JSON.stringify(makeEncounterDTO(encounter)),
+      body: JSON.stringify(response),
       statusCode: 200,
     };
   } catch (error) {
-    await topLevelCatch('admin-save-followup-encounter', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('admin-save-followup-encounter', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify({ message: 'Error saving followup encounter' }),

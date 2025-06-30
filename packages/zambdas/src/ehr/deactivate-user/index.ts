@@ -1,16 +1,16 @@
-import { User } from '@oystehr/sdk';
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { DeactivateUserZambdaInput, DeactivateUserZambdaOutput, getSecret, Secrets, SecretsKeys } from 'utils';
 import { getAuth0Token, topLevelCatch, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
-import { Secrets, getSecret } from 'utils';
-export interface DeactivateUserInput {
-  secrets: Secrets | null;
-  user: User;
-  // locations: Location[];
+
+export interface DeactivateUserZambdaInputValidated extends DeactivateUserZambdaInput {
+  secrets: Secrets;
 }
 
-let zapehrToken: string;
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+let oystehrToken: string;
+
+export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
@@ -23,9 +23,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const userRoleIds = userRoles.map((role: any) => role.id);
     const userInactive = userRoles.find((role: any) => role.name === 'Inactive');
     if (!userInactive) {
-      if (!zapehrToken) {
+      if (!oystehrToken) {
         console.log('getting token');
-        zapehrToken = await getAuth0Token(secrets);
+        oystehrToken = await getAuth0Token(secrets);
       } else {
         console.log('already have token');
       }
@@ -34,7 +34,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       const headers = {
         accept: 'application/json',
         'content-type': 'application/json',
-        Authorization: `Bearer ${zapehrToken}`,
+        Authorization: `Bearer ${oystehrToken}`,
       };
 
       console.log('searching for Inactive role in the the project');
@@ -66,20 +66,19 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       }
     }
 
-    const response = {
-      message: `Successfully deactivated user ${user.id}`,
-    };
+    const response: DeactivateUserZambdaOutput = {};
 
     return {
       statusCode: 200,
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    await topLevelCatch('admin-deactivate-user', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('admin-deactivate-user', error, ENVIRONMENT);
     console.log('Error: ', JSON.stringify(error.message));
     return {
       statusCode: 500,
       body: JSON.stringify(error.message),
     };
   }
-};
+});

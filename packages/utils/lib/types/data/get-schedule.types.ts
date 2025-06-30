@@ -1,5 +1,5 @@
-import { AvailableLocationInformation, ScheduleType } from '../common';
 import { SlotListItem } from '../../utils';
+import { AvailableLocationInformation, ScheduleType, Timezone } from '../common';
 
 export interface GetScheduleResponse {
   message: string;
@@ -8,8 +8,7 @@ export interface GetScheduleResponse {
   location?: AvailableLocationInformation;
   telemedAvailable: SlotListItem[];
   displayTomorrowSlotsAtHour: number;
-  walkinOpen: boolean;
-  openTime: string | undefined;
+  timezone?: Timezone;
 }
 
 export interface GetScheduleRequestParams {

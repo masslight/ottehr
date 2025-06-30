@@ -5,9 +5,9 @@ import {
   AppointmentType,
   FhirAppointmentStatus,
   FhirEncounterStatus,
-  VisitStatusLabel,
   visitStatusToFhirAppointmentStatusMap,
   visitStatusToFhirEncounterStatusMap,
+  VisitStatusWithoutUnknown,
 } from 'utils';
 import { beforeAll, expect, test } from 'vitest';
 import { HOP_QUEUE_URI } from '../src/shared/constants';
@@ -167,7 +167,11 @@ const makeVisit_Arrived = (
   return { appointment, encounter };
 };
 
-const addNewStatusToVisit = (visit: VisitDetails, status: VisitStatusLabel, timeInLastStatus: number): VisitDetails => {
+const addNewStatusToVisit = (
+  visit: VisitDetails,
+  status: VisitStatusWithoutUnknown,
+  timeInLastStatus: number
+): VisitDetails => {
   const endTime = NOW.minus({
     minutes: timeInLastStatus,
   }).toISO()!;

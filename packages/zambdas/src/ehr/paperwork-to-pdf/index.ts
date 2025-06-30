@@ -1,10 +1,7 @@
+import Oystehr from '@oystehr/sdk';
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import Oystehr from '@oystehr/sdk';
-import { createDocument } from './document';
-import { generatePdf } from './draw';
 import { DocumentReference, List, QuestionnaireResponse } from 'fhir/r4b';
-import { BUCKET_PAPERWORK_PDF } from '../../scripts/setup';
 import { DateTime } from 'luxon';
 import {
   addOperation,
@@ -16,7 +13,6 @@ import {
   SecretsKeys,
 } from 'utils';
 import {
-  captureSentryException,
   configSentry,
   createOystehrClient,
   getAuth0Token,
@@ -25,6 +21,8 @@ import {
   validateString,
   ZambdaInput,
 } from '../../shared';
+import { createDocument } from './document';
+import { generatePdf } from './draw';
 
 interface Input {
   questionnaireResponseId: string;
@@ -33,6 +31,7 @@ interface Input {
 }
 
 const ZAMBDA_NAME = 'paperwork-to-pdf';
+const BUCKET_PAPERWORK_PDF = 'exported-questionnaires';
 
 let zapehrToken: string;
 
@@ -87,7 +86,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       }),
     };
   } catch (error: any) {
-    return topLevelCatch(ZAMBDA_NAME, error, input.secrets, captureSentryException);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
   }
 });
 

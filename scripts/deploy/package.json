@@ -10,6 +10,8 @@
   },
   "scripts": {
     "build": "",
+    "lint": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts,.js --report-unused-disable-directives --max-warnings 0 .",
+    "lint:fix": "eslint --ext .ts,.js --report-unused-disable-directives --max-warnings 0 --fix .",
     "watch": "tsc -w",
     "test": "vitest --silent",
     "cdk": "cdk",
@@ -24,7 +26,7 @@
   "dependencies": {
     "@aws-sdk/client-cloudfront": "^3.645.0",
     "@aws-sdk/credential-providers": "^3.645.0",
-    "@oystehr/sdk": "^4.0.0-alpha.2",
+    "@oystehr/sdk": "4.0.0",
     "@types/node-fetch": "^2.6.11",
     "constructs": "^10.0.0",
     "source-map-support": "^0.5.21",

@@ -1,9 +1,9 @@
 import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
 import { Task } from 'fhir/r4b';
 import fs from 'fs';
+import { Secrets } from 'utils';
 import { getAuth0Token } from '../shared';
 import { fhirApiUrlFromAuth0Audience } from './helpers';
-import { Secrets } from 'utils';
 
 const clearTasks = async (config: any): Promise<void> => {
   console.log('getting access token');

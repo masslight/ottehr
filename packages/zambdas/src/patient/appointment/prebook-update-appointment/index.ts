@@ -7,27 +7,28 @@ import {
   BookableScheduleData,
   CANT_UPDATE_CANCELED_APT_ERROR,
   CANT_UPDATE_CHECKED_IN_APT_ERROR,
+  checkValidBookingTime,
   DATETIME_FULL_NO_YEAR,
+  getAvailableSlotsForSchedules,
+  getPatientContactEmail,
+  getPatientFirstName,
+  getRelatedPersonForPatient,
+  getSecret,
+  getSMSNumberForIndividual,
+  isAppointmentVirtual,
+  isPostTelemedAppointment,
+  isValidUUID,
+  normalizeSlotToUTC,
   PAST_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
   POST_TELEMED_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
   SCHEDULE_NOT_FOUND_ERROR,
   ScheduleType,
   Secrets,
-  checkValidBookingTime,
-  getAvailableSlotsForSchedules,
-  getPatientContactEmail,
-  getPatientFirstName,
-  getRelatedPersonForPatient,
-  getSMSNumberForIndividual,
-  isPostTelemedAppointment,
+  SecretsKeys,
   UpdateAppointmentParameters,
-  normalizeSlotToUTC,
-  isValidUUID,
-  isAppointmentVirtual,
 } from 'utils';
 import {
   AuditableZambdaEndpoints,
-  captureSentryException,
   configSentry,
   createAuditEvent,
   createOystehrClient,
@@ -231,7 +232,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     const response = {
       message: 'Successfully updated an appointment',
-      appointmentID: updatedAppointment.id ?? null,
+      appointmentID: updatedAppointment.id,
     };
 
     await createAuditEvent(AuditableZambdaEndpoints.appointmentUpdate, oystehr, input, fhirPatient.id || '', secrets);
@@ -243,6 +244,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('update-appointment', error, input.secrets, captureSentryException);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('update-appointment', error, ENVIRONMENT, true);
   }
 });

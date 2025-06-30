@@ -1,27 +1,30 @@
+import { BatchInputRequest } from '@oystehr/sdk';
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { randomUUID } from 'crypto';
+import { Encounter, FhirResource, ServiceRequest, Specimen, Task } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
-  Secrets,
   CollectInHouseLabSpecimenParameters,
+  CollectInHouseLabSpecimenZambdaOutput,
+  getSecret,
   IN_HOUSE_LAB_TASK,
   PRACTITIONER_CODINGS,
+  Secrets,
+  SecretsKeys,
   SPECIMEN_COLLECTION_CUSTOM_SOURCE_SYSTEM,
 } from 'utils';
 import {
-  ZambdaInput,
-  topLevelCatch,
   checkOrCreateM2MClientToken,
   createOystehrClient,
   getMyPractitionerId,
+  topLevelCatch,
+  ZambdaInput,
 } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
-import { ServiceRequest, Specimen, Task, FhirResource, Encounter } from 'fhir/r4b';
-import { DateTime } from 'luxon';
-import { BatchInputRequest } from '@oystehr/sdk';
-import { randomUUID } from 'crypto';
+let m2mToken: string;
 
-let m2mtoken: string;
-
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`collect-in-house-lab-specimen started, input: ${JSON.stringify(input)}`);
 
   let secrets = input.secrets;
@@ -43,8 +46,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     console.log('validateRequestParameters success');
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
     const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
 
     const { encounterId, serviceRequestId, data } = validatedParameters;
@@ -201,16 +204,16 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       throw Error('Error collecting in-house lab specimen in transaction');
     }
 
+    const response: CollectInHouseLabSpecimenZambdaOutput = {};
+
     return {
       statusCode: 200,
-      body: JSON.stringify({
-        message: 'Successfully collected in-house lab specimen.',
-        transactionResponse,
-      }),
+      body: JSON.stringify(response),
     };
   } catch (error: any) {
     console.error('Error collecting in-house lab specimen:', error);
-    await topLevelCatch('collect-in-house-lab-specimen', error, secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('collect-in-house-lab-specimen', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify({
@@ -218,4 +221,4 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       }),
     };
   }
-};
+});

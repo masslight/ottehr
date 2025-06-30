@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
-import { Box, Typography, useTheme, IconButton } from '@mui/material';
-import { EditOutlined as EditIcon, DeleteOutlined as DeleteIcon } from '@mui/icons-material';
+import { DeleteOutlined as DeleteIcon, EditOutlined as EditIcon } from '@mui/icons-material';
+import { Box, IconButton, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
-import { BoxStyled } from './ui/BoxStyled';
+import React, { useState } from 'react';
 import { EditableNote, NoteLocales } from '../types';
 import { DeleteNoteModal } from './DeleteNoteModal';
 import { EditNoteModal } from './EditNoteModal';
+import { BoxStyled } from './ui/BoxStyled';
 
 export const NoteEntity: React.FC<{
   entity: EditableNote;

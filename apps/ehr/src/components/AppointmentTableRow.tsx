@@ -1,15 +1,13 @@
-import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
-import AssignmentTurnedInOutlinedIcon from '@mui/icons-material/AssignmentTurnedInOutlined';
-import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
+import { progressNoteIcon, startIntakeIcon } from '@ehrTheme/icons';
 import ChatOutlineIcon from '@mui/icons-material/ChatOutlined';
-import MedicalInformationIcon from '@mui/icons-material/MedicalInformationOutlined';
-import HealthAndSafetyOutlinedIcon from '@mui/icons-material/HealthAndSafetyOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import MedicalInformationIcon from '@mui/icons-material/MedicalInformationOutlined';
 import PriorityHighRoundedIcon from '@mui/icons-material/PriorityHighRounded';
 import { LoadingButton } from '@mui/lab';
 import {
   Badge,
   Box,
+  capitalize,
   Grid,
   IconButton,
   MenuItem,
@@ -19,32 +17,36 @@ import {
   TextField,
   Tooltip,
   Typography,
-  capitalize,
   useMediaQuery,
   useTheme,
 } from '@mui/material';
+import { Operation } from 'fast-json-patch';
 import { Appointment, Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { otherColors } from 'src/themes/ottehr/colors';
 import {
-  InPersonAppointmentInformation,
-  VisitStatusLabel,
   formatMinutes,
   getDurationOfStatus,
-  PROJECT_NAME,
-  getVisitTotalTime,
-  PRACTITIONER_CODINGS,
   getPatchBinary,
-  ROOM_EXTENSION_URL,
+  getVisitTotalTime,
   InHouseOrderListPageItemDTO,
+  InPersonAppointmentInformation,
+  LabOrderListPageDTO,
+  NursingOrder,
+  PRACTITIONER_CODINGS,
+  PROJECT_NAME,
+  ROOM_EXTENSION_URL,
+  VisitStatusLabel,
 } from 'utils';
 import { LANGUAGES } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 import ChatModal from '../features/chat/ChatModal';
 import { usePractitionerActions } from '../features/css-module/hooks/usePractitioner';
 import { checkInPatient } from '../helpers';
+import { displayOrdersToolTip } from '../helpers';
 import { getTimezone } from '../helpers/formatDateTime';
 import { formatPatientName } from '../helpers/formatPatientName';
 import { getOfficePhoneNumber } from '../helpers/getOfficePhoneNumber';
@@ -54,17 +56,12 @@ import useEvolveUser from '../hooks/useEvolveUser';
 import AppointmentNote from './AppointmentNote';
 import AppointmentTableRowMobile from './AppointmentTableRowMobile';
 import { ApptTab } from './AppointmentTabs';
-import { GenericToolTip, PaperworkToolTipContent } from './GenericToolTip';
+import { GenericToolTip } from './GenericToolTip';
+import GoToButton from './GoToButton';
+import { InfoIconsToolTip } from './InfoIconsToolTip';
 import { PatientDateOfBirth } from './PatientDateOfBirth';
-import { otherColors } from 'src/themes/ottehr/colors';
 import { PriorityIconWithBorder } from './PriorityIconWithBorder';
 import ReasonsForVisit from './ReasonForVisit';
-import { Operation } from 'fast-json-patch';
-import GoToButton from './GoToButton';
-import { progressNoteIcon, startIntakeIcon } from '@ehrTheme/icons';
-import { InHouseLabsAppointmentTooltip } from 'src/features/in-house-labs/components/tracking-board/InHouseLabsAppointmentTooltip';
-import { sidebarMenuIcons } from 'src/features/css-module/components/Sidebar';
-import { getInHouseLabsUrl } from 'src/features/css-module/routing/helpers';
 
 interface AppointmentTableProps {
   appointment: InPersonAppointmentInformation;
@@ -76,6 +73,8 @@ interface AppointmentTableProps {
   updateAppointments: () => void;
   setEditingComment: (editingComment: boolean) => void;
   inHouseLabOrders: InHouseOrderListPageItemDTO[] | undefined;
+  externalLabOrders: LabOrderListPageDTO[] | undefined;
+  nursingOrders: NursingOrder[] | undefined;
 }
 
 const VITE_APP_QRS_URL = import.meta.env.VITE_APP_QRS_URL;
@@ -241,6 +240,8 @@ export default function AppointmentTableRow({
   updateAppointments,
   setEditingComment,
   inHouseLabOrders,
+  externalLabOrders,
+  nursingOrders,
 }: AppointmentTableProps): ReactElement {
   const { oystehr, oystehrZambda } = useApiClients();
   const theme = useTheme();
@@ -253,6 +254,11 @@ export default function AppointmentTableRow({
   const [chatModalOpen, setChatModalOpen] = useState<boolean>(false);
   const [hasUnread, setHasUnread] = useState<boolean>(appointment.smsModel?.hasUnreadMessages || false);
   const user = useEvolveUser();
+
+  if (!user) {
+    throw new Error('User is not defined');
+  }
+
   const [startIntakeButtonLoading, setStartIntakeButtonLoading] = useState(false);
   const { handleUpdatePractitioner } = usePractitionerActions(encounter, 'start', PRACTITIONER_CODINGS.Admitter);
   const rooms = useMemo(() => {
@@ -585,7 +591,22 @@ export default function AppointmentTableRow({
     setStartIntakeButtonLoading(true);
     try {
       await handleUpdatePractitioner();
-      await handleChangeInPersonVisitStatus(encounter, user, oystehrZambda, 'intake');
+      if (!encounter.id) {
+        throw new Error('Encounter ID is not defined but it is required in order to start intake.');
+      }
+
+      if (!oystehrZambda) {
+        throw new Error('Oystehr Zambda client is not defined');
+      }
+
+      await handleChangeInPersonVisitStatus(
+        {
+          encounterId: encounter.id,
+          user,
+          updatedStatus: 'intake',
+        },
+        oystehrZambda
+      );
       navigate(`/in-person/${appointment.id}/patient-info`);
     } catch (error) {
       console.error(error);
@@ -595,12 +616,7 @@ export default function AppointmentTableRow({
   };
 
   const renderStartIntakeButton = (): ReactElement | undefined => {
-    if (
-      appointment.status === 'pending' ||
-      appointment.status === 'arrived' ||
-      appointment.status === 'ready' ||
-      appointment.status === 'intake'
-    ) {
+    if (appointment.status === 'arrived' || appointment.status === 'ready' || appointment.status === 'intake') {
       return (
         <GoToButton
           text="Start Intake"
@@ -633,6 +649,16 @@ export default function AppointmentTableRow({
     }
     return undefined;
   };
+
+  // there are two different tooltips that are show on the tracking board depending which tab/section you are on
+  // 1. visit components on prebooked, in-office/waiting and cancelled
+  // 2. orders on in-office/in-exam and discharged
+  // this bool determines what style mouse should show on hover for the cells that hold these tooltips
+  // if orders tooltip is displayed, we check if there are any orders - if no orders the cell will be empty and it doesn't make sense to have the pointer hand
+  // if visit components, there is always something in this cell, hence the default to true
+  const showPointerForInfoIcons = displayOrdersToolTip(appointment, tab)
+    ? inHouseLabOrders?.length || externalLabOrders?.length || nursingOrders?.length
+    : true;
 
   return (
     <TableRow
@@ -801,61 +827,16 @@ export default function AppointmentTableRow({
       <TableCell
         sx={{
           verticalAlign: 'center',
-          cursor: 'pointer',
+          cursor: `${showPointerForInfoIcons ? 'pointer' : 'auto'}`,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-          <GenericToolTip title={<PaperworkToolTipContent appointment={appointment} />} customWidth="none">
-            <Box sx={{ display: 'flex', gap: 0 }}>
-              <AccountCircleOutlinedIcon
-                sx={{ ml: 0, mr: 0.5, color: appointment.paperwork.demographics ? '#43A047' : '#BFC2C6' }}
-                fill={otherColors.cardChip}
-              ></AccountCircleOutlinedIcon>
-
-              <HealthAndSafetyOutlinedIcon
-                sx={{ mx: 0.5, color: appointment.paperwork.insuranceCard ? '#43A047' : '#BFC2C6' }}
-                fill={otherColors.cardChip}
-              ></HealthAndSafetyOutlinedIcon>
-
-              <BadgeOutlinedIcon
-                sx={{ mx: 0.5, color: appointment.paperwork.photoID ? '#43A047' : '#BFC2C6' }}
-                fill={otherColors.cardChip}
-              ></BadgeOutlinedIcon>
-
-              <AssignmentTurnedInOutlinedIcon
-                sx={{ mx: 0.5, color: appointment.paperwork.consent ? '#43A047' : '#BFC2C6' }}
-                fill={otherColors.cardChip}
-              ></AssignmentTurnedInOutlinedIcon>
-            </Box>
-          </GenericToolTip>
-
-          {!!inHouseLabOrders?.length && (
-            <GenericToolTip
-              title={<InHouseLabsAppointmentTooltip appointmentId={appointment.id} items={inHouseLabOrders} />}
-              customWidth="none"
-              placement="top"
-              leaveDelay={300}
-            >
-              <Link to={getInHouseLabsUrl(appointment.id)} style={{ textDecoration: 'none' }}>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    gap: 0,
-                    color: '#0F347C',
-                    backgroundColor: '#2169F514',
-                    borderRadius: '50%',
-                    width: '28px',
-                    height: '28px',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  {sidebarMenuIcons['In-house Labs']}
-                </Box>
-              </Link>
-            </GenericToolTip>
-          )}
-        </div>
+        <InfoIconsToolTip
+          appointment={appointment}
+          tab={tab}
+          inHouseLabOrders={inHouseLabOrders}
+          externalLabOrders={externalLabOrders}
+          nursingOrders={nursingOrders}
+        />
       </TableCell>
       <TableCell sx={{ verticalAlign: 'center' }}>
         <AppointmentNote

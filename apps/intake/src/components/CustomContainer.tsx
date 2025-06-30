@@ -1,12 +1,12 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import mixpanel from 'mixpanel-browser';
 import React, { useCallback } from 'react';
-import { ContainerProps, CustomContainer } from 'ui-components';
-import { ottehrLogo as logo } from '../themes/ottehr';
+import { PROJECT_NAME, PROJECT_WEBSITE } from 'utils';
 import { useClearStores } from '../features';
 import { useIntakeCommonStore } from '../features/common';
+import { ottehrLogo as logo } from '../themes/ottehr';
+import { ContainerProps, CustomContainer } from './CustomContainerFactory';
 import Footer from './Footer';
-import { PROJECT_NAME, PROJECT_WEBSITE } from 'utils';
 
 type PageContainerProps = Omit<ContainerProps, 'logo' | 'showLanguagePicker' | 'footer' | 'logoutHandler' | 'alt'>;
 

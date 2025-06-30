@@ -1,5 +1,5 @@
-import { CreateUploadPatientDocumentInput } from '.';
 import { ZambdaInput } from '../../shared';
+import { CreateUploadPatientDocumentInput } from '.';
 
 export function validateRequestParameters(input: ZambdaInput): CreateUploadPatientDocumentInput {
   if (!input.body) {

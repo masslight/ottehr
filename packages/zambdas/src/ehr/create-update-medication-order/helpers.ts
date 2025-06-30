@@ -3,7 +3,6 @@ import { Medication, MedicationAdministration } from 'fhir/r4b';
 import {
   getDosageUnitsAndRouteOfMedication,
   getLocationCodeFromMedicationAdministration,
-  getMedicationName,
   getResourcesFromBatchInlineRequests,
   INVENTORY_MEDICATION_TYPE_CODE,
   MedicationData,
@@ -13,29 +12,18 @@ import {
   searchRouteByCode,
   Secrets,
 } from 'utils';
-import { createOystehrClient } from '../../shared/helpers';
+import { createOystehrClient } from '../../shared';
+import { ZambdaInput } from '../../shared';
 import { createMedicationAdministrationResource } from './fhir-recources-creation';
-import { ExtendedMedicationData } from './index';
-import { ZambdaInput } from '../../shared/types';
 
 export function getPerformerId(medicationAdministration: MedicationAdministration): string | undefined {
   return medicationAdministration.performer?.find((perf) => perf.actor.reference)?.actor.reference;
 }
 
-export async function updateMedicationCopyForOrder(
-  oystehr: Oystehr,
-  inventoryMedication: Medication,
-  existedMedicationId: string,
-  orderData: MedicationData
-): Promise<Medication> {
-  const medicationCopy = createMedicationCopy(inventoryMedication, orderData);
-  medicationCopy.id = existedMedicationId;
-  return oystehr.fhir.update(medicationCopy);
-}
-
 export function createMedicationCopy(inventoryMedication: Medication, orderData: MedicationData): Medication {
   const resourceCopy = { ...inventoryMedication };
   delete resourceCopy.id;
+  delete resourceCopy.meta;
   // deleting identifier with code that indicates that this medication is inventory one
   const typeIdentifierArrId =
     resourceCopy.identifier?.findIndex((idn) => idn.value === INVENTORY_MEDICATION_TYPE_CODE) ?? -1;
@@ -56,47 +44,6 @@ export async function practitionerIdFromZambdaInput(input: ZambdaInput, secrets:
   const myPractId = removePrefix('Practitioner/', (await oystehr.user.me()).profile);
   if (!myPractId) throw new Error('No practitioner id was found for token provided');
   return myPractId;
-}
-
-export async function createOrRecreateMedicationForOrder(
-  oystehr: Oystehr,
-  orderResources: OrderPackage,
-  inputMedication: Medication,
-  orderData: MedicationData
-): Promise<Medication | undefined> {
-  let medicationCopy: Medication | undefined;
-  console.log(
-    `Inventory medication name: ${getMedicationName(inputMedication)}, id: ${
-      inputMedication.id
-    }. Existed medication copy for order name: ${
-      orderResources.medication && getMedicationName(orderResources.medication)
-    }, id: ${orderResources.medication?.id}`
-  );
-  if (!orderResources.medication) {
-    console.log('Creating inputMedication copy for this particular order');
-    medicationCopy = createMedicationCopy(inputMedication, orderData);
-    medicationCopy = await oystehr.fhir.create(medicationCopy);
-    console.log(`Created copy: ${medicationCopy.id}`);
-  } else if (getMedicationName(inputMedication) !== getMedicationName(orderResources.medication)) {
-    console.log('Updating inputMedication resource copy for this order');
-    medicationCopy = await updateMedicationCopyForOrder(
-      oystehr,
-      inputMedication,
-      orderResources.medication.id!,
-      orderData
-    );
-    console.log(`Updated resource with id: ${medicationCopy.id}`);
-  } else {
-    console.log(`Medications are identical, update just existed medication`);
-    medicationCopy = await updateMedicationCopyForOrder(
-      oystehr,
-      orderResources.medication,
-      orderResources.medication.id!,
-      orderData
-    );
-    medicationCopy = orderResources.medication;
-  }
-  return medicationCopy;
 }
 
 export async function getMedicationByName(oystehr: Oystehr, medicationName: string): Promise<Medication> {
@@ -130,28 +77,40 @@ export function validateProviderAccess(
     throw new Error(`You can't edit this order, because it was created by another provider`);
 }
 
-export async function updateMedicationAdministrationData(
-  oystehr: Oystehr,
-  data: ExtendedMedicationData,
-  pkg: OrderPackage
-): Promise<MedicationAdministration> {
-  const routeCode = data.route ? data.route : getDosageUnitsAndRouteOfMedication(pkg.medicationAdministration).route;
+export async function updateMedicationAdministrationData(data: {
+  oystehr: Oystehr;
+  orderData: MedicationData;
+  orderResources: OrderPackage;
+  administeredProviderId?: string;
+  medicationResource: Medication;
+}): Promise<MedicationAdministration> {
+  const { oystehr, orderResources, orderData, administeredProviderId, medicationResource } = data;
+  const routeCode = orderData.route
+    ? orderData.route
+    : getDosageUnitsAndRouteOfMedication(orderResources.medicationAdministration).route;
   const routeCoding = searchRouteByCode(routeCode!);
-  if (data.route && !routeCoding) throw new Error(`No route found with code provided: ${data.route}`);
-  const locationCode = data.location
-    ? data.location
-    : getLocationCodeFromMedicationAdministration(pkg.medicationAdministration);
+  if (orderData.route && !routeCoding) throw new Error(`No route found with code provided: ${orderData.route}`);
+  const locationCode = orderData.location
+    ? orderData.location
+    : getLocationCodeFromMedicationAdministration(orderResources.medicationAdministration);
   const locationCoding = locationCode ? searchMedicationLocation(locationCode) : undefined;
-  if (data.location && !locationCoding) throw new Error(`No location found with code provided: ${data.location}`);
+  if (orderData.location && !locationCoding)
+    throw new Error(`No location found with code provided: ${orderData.location}`);
 
   if (!routeCoding) throw new Error(`No medication appliance route was found for code: ${routeCode}`);
-  const newMA = createMedicationAdministrationResource(
-    data,
-    pkg.medicationAdministration.status,
-    routeCoding,
-    locationCoding,
-    pkg.medicationAdministration
-  );
-  newMA.id = pkg.medicationAdministration.id;
+  const newMA = createMedicationAdministrationResource({
+    orderData,
+    status: orderResources.medicationAdministration.status,
+    route: routeCoding,
+    location: locationCoding,
+    existedMA: orderResources.medicationAdministration,
+    administeredProviderId,
+    medicationResource,
+  });
+  newMA.id = orderResources.medicationAdministration.id;
   return oystehr.fhir.update(newMA);
+}
+
+export function getMedicationFromMA(medicationAdministration: MedicationAdministration): Medication | undefined {
+  return medicationAdministration.contained?.find((res) => res.resourceType === 'Medication') as Medication;
 }

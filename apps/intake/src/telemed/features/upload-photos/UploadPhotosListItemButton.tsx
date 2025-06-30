@@ -1,11 +1,11 @@
 import PhotoLibraryOutlinedIcon from '@mui/icons-material/PhotoLibraryOutlined';
-import { FC, useEffect, useState } from 'react';
-import { create } from 'zustand';
-import { UCGetPaperworkResponse } from 'utils';
-import { StyledListItemWithButton } from 'ui-components';
-import { useGetPaperwork } from '../paperwork';
-import { Attachment } from 'fhir/r4b';
 import { otherColors } from '@theme/colors';
+import { Attachment } from 'fhir/r4b';
+import { FC, useEffect, useState } from 'react';
+import { UCGetPaperworkResponse } from 'utils';
+import { create } from 'zustand';
+import { StyledListItemWithButton } from '../../../components/StyledListItemWithButton';
+import { useGetPaperwork } from '../paperwork';
 
 type UploadPhotosListItemButtonProps = {
   onClick: () => void;

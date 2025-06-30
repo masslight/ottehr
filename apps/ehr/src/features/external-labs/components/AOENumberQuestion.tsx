@@ -1,15 +1,15 @@
-import { ControllerRenderProps, FieldValues, useFormContext } from 'react-hook-form';
-import React from 'react';
-import { Extension } from 'fhir/r4b';
-import InputMask from '../../../components/InputMask';
 import { TextField } from '@mui/material';
+import { Extension } from 'fhir/r4b';
+import React from 'react';
+import { ControllerRenderProps, FieldValues, useFormContext } from 'react-hook-form';
+import InputMask from '../../../components/InputMask';
 
 interface NumberQuestionProps {
   questionText: string;
   linkId: string;
-  answer?: string;
   extension: Extension[];
   required: boolean;
+  isReadOnly?: boolean;
   idString: string;
   field: ControllerRenderProps<FieldValues, string>;
 }
@@ -20,7 +20,7 @@ export const AOENumberQuestion: React.FC<NumberQuestionProps> = (props) => {
   } = useFormContext();
 
   // Note: the extension will tell you the necessary number validation. See Oystehr docs for full explanation
-  const { questionText, linkId, answer, extension, required, idString, field } = props;
+  const { questionText, linkId, extension, required, isReadOnly, idString, field } = props;
 
   // splitting out the RHF passed ref here so it gets passed correctly to the styled component
   const { ref: fieldRef, ...otherField } = field;
@@ -63,10 +63,9 @@ export const AOENumberQuestion: React.FC<NumberQuestionProps> = (props) => {
           padFractionalZeros: true,
           scale: decimals,
           // step: decimals ? `0.${'0'.padStart(decimals - 1, '0')}1` : null,
-          readOnly: answer !== undefined,
+          readOnly: isReadOnly,
         },
       }}
-      defaultValue={answer}
     />
   );
 };

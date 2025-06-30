@@ -1,9 +1,9 @@
+import { Grid, Stack, Typography } from '@mui/material';
 import React from 'react';
-import { Typography, Stack, Grid } from '@mui/material';
-import { OrderCollection } from '../OrderCollection';
-import { CSSPageTitle } from '../../../../telemed/components/PageTitle';
 import { LabOrderDetailedPageDTO, PSC_LOCALE } from 'utils';
+import { CSSPageTitle } from '../../../../telemed/components/PageTitle';
 import { LabsOrderStatusChip } from '../ExternalLabsStatusChip';
+import { OrderCollection } from '../OrderCollection';
 
 export const DetailsWithoutResults: React.FC<{
   labOrder: LabOrderDetailedPageDTO;

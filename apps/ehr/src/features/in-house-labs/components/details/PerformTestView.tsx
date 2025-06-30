@@ -1,15 +1,15 @@
+import { LoadingButton } from '@mui/lab';
+import { Box, Button, Paper, Typography } from '@mui/material';
+import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 import React, { useState } from 'react';
-import { Box, Paper, Typography, Button } from '@mui/material';
-import { ResultEntryInput, LoadingState, InHouseOrderDetailPageItemDTO, getFormattedDiagnoses, PageName } from 'utils';
-import { ResultEntryRadioButton } from './ResultEntryRadioButton';
-import { ResultEntryTable } from './ResultsEntryTable';
-import { useForm, FormProvider, SubmitHandler } from 'react-hook-form';
+import { FormProvider, SubmitHandler, useForm } from 'react-hook-form';
+import { useParams } from 'react-router-dom';
 import { handleInHouseLabResults } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { LoadingButton } from '@mui/lab';
-import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
-import { useParams } from 'react-router-dom';
+import { getFormattedDiagnoses, InHouseOrderDetailPageItemDTO, LoadingState, PageName, ResultEntryInput } from 'utils';
 import { InHouseLabsDetailsCard } from './InHouseLabsDetailsCard';
+import { ResultEntryRadioButton } from './ResultEntryRadioButton';
+import { ResultEntryTable } from './ResultsEntryTable';
 
 interface PerformTestViewProps {
   testDetails: InHouseOrderDetailPageItemDTO;

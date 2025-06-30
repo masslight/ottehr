@@ -99,7 +99,7 @@ function composeDataForPdf(
 
   // --- Chief complaint ---
   const chiefComplaint = chartData.chiefComplaint?.text;
-  const spentTime = getSpentTime(encounter.statusHistory);
+  const spentTime = chartData.addToVisitNote?.value ? getSpentTime(encounter.statusHistory) : undefined;
 
   // --- Review of system ---
   const reviewOfSystems = chartData.ros?.text;

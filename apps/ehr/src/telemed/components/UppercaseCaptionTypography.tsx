@@ -1,5 +1,5 @@
-import React from 'react';
 import { styled, Typography, TypographyProps } from '@mui/material';
+import React from 'react';
 
 export const UppercaseCaptionTypography = styled((props: TypographyProps) => (
   <Typography variant="subtitle2" {...props} />

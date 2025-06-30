@@ -1,9 +1,9 @@
 import { Autocomplete, Skeleton, Tab, Tabs, TextField, Typography } from '@mui/material';
 import { Box, styled } from '@mui/system';
-import { FC, useState } from 'react';
-import { generatePath, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Slot } from 'fhir/r4b';
 import noop from 'lodash/noop';
-import { BoldPurpleInputLabel, ErrorDialog, ErrorDialogConfig, useUCZambdaClient } from 'ui-components';
+import { FC, useState } from 'react';
+import { generatePath, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   APIError,
   BookableItem,
@@ -15,21 +15,23 @@ import {
   ServiceMode,
   SlotListItem,
 } from 'utils';
+import ottehrApi from '../api/ottehrApi';
 import {
   BOOKING_SCHEDULE_ON_QUERY_PARAM,
+  BOOKING_SCHEDULE_SELECTED_SLOT,
   BOOKING_SCHEDULE_TYPE_QUERY_PARAM,
   BOOKING_SERVICE_MODE_PARAM,
-  BOOKING_SCHEDULE_SELECTED_SLOT,
-  intakeFlowPageRoute,
   bookingBasePath,
+  intakeFlowPageRoute,
 } from '../App';
 import { PageContainer, Schedule } from '../components';
+import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
+import { BoldPurpleInputLabel } from '../components/form';
+import { dataTestIds } from '../helpers/data-test-ids';
+import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import { otherColors } from '../IntakeThemeProvider';
 import { useGetBookableItems, useGetSchedule } from '../telemed/features/appointments/appointment.queries';
 import { useZapEHRAPIClient } from '../telemed/utils';
-import { dataTestIds } from '../helpers/data-test-ids';
-import { Slot } from 'fhir/r4b';
-import ottehrApi from '../api/ottehrApi';
 
 const SERVICE_MODES: ServiceMode[] = [ServiceMode['in-person'], ServiceMode['virtual']];
 
@@ -103,8 +105,6 @@ const useBookingData = (
 } => {
   const apiClient = useZapEHRAPIClient({ tokenless: true });
 
-  console.log('apiClient', apiClient);
-
   const { data: inPersonData, status: inPersonStatus } = useGetBookableItems(
     apiClient,
     Boolean(apiClient) && serviceMode === 'in-person',
@@ -165,6 +165,9 @@ const getLocationTitleText = ({
 const PrebookVisit: FC = () => {
   const navigate = useNavigate();
   const pathParams = useParams();
+  const { state: navState } = useLocation();
+
+  const isReschedule = Boolean(navState?.reschedule);
 
   const [serviceModeIndex, setServiceModeIndex] = useState<0 | 1>(0);
   const [selectedInPersonLocation, setSelectedInPersonLocation] = useState<BookableItem | null>(null);
@@ -204,13 +207,17 @@ const PrebookVisit: FC = () => {
 
       try {
         const slot = await ottehrApi.createSlot(createSlotInput, tokenlessZambdaClient);
-        console.log('createSlotResponse', slot);
         const basePath = generatePath(bookingBasePath, {
           slotId: slot.id!,
         });
-        // todo: it would be nice to navigate right back to the review page for the "edit time slot" use case
-        // we can just take take a query param for the patient id and pass it through here to make that happen
-        navigate(`${basePath}/patients`);
+        if (isReschedule) {
+          navigate(`${basePath}/review`);
+        } else {
+          const basePath = generatePath(bookingBasePath, {
+            slotId: slot.id!,
+          });
+          navigate(`${basePath}/patients`);
+        }
       } catch (error) {
         let errorMessage = 'Sorry, this time slot may no longer be available. Please select another time.';
         if (isApiError(error)) {
@@ -292,7 +299,7 @@ const PrebookVisit: FC = () => {
               slotData={(slotData?.available ?? []).map((sli) => sli.slot)}
               slotsLoading={false}
               existingSelectedSlot={findSelectedSlotFromAvailable(slotData?.available ?? [], selectedSlot)}
-              timezone={selectedLocation?.timezone ?? 'America/New_York'}
+              timezone={selectedLocation?.timezone ?? slotData?.timezone ?? 'America/New_York'}
               forceClosedToday={false}
               forceClosedTomorrow={false}
               handleSlotSelected={noop}

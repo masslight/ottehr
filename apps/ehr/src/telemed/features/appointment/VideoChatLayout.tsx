@@ -1,14 +1,14 @@
-import { FC, useState, useRef } from 'react';
-import { Box, Card, Container, Dialog, Divider, PaperProps, useTheme } from '@mui/material';
+import OpenInFullIcon from '@mui/icons-material/OpenInFull';
 import PictureInPictureIcon from '@mui/icons-material/PictureInPicture';
 import PushPinIcon from '@mui/icons-material/PushPin';
-import OpenInFullIcon from '@mui/icons-material/OpenInFull';
+import { Box, Card, Container, Dialog, Divider, PaperProps, useTheme } from '@mui/material';
+import { FC, useRef, useState } from 'react';
 import Draggable from 'react-draggable';
-import { AppointmentFooter } from './AppointmentFooter';
+import { dataTestIds } from '../../../constants/data-test-ids';
 import { PropsWithChildren } from '../../../shared/types';
 import { IconButtonContained } from '../../components';
+import { AppointmentFooter } from './AppointmentFooter';
 import { VideoProviderReminderPopover } from './VideoProviderReminderPopover';
-import { dataTestIds } from '../../../constants/data-test-ids';
 
 type LayoutType = 'pip' | 'pinned' | 'fullscreen';
 

@@ -1,12 +1,12 @@
-import React, { FC, useMemo } from 'react';
-import { FormProvider, useForm } from 'react-hook-form';
 import { Grid, TextField } from '@mui/material';
 import { Location } from 'fhir/r4b';
-import { EditModal, VirtualizedAutocompleteController } from './components';
+import React, { FC, useMemo } from 'react';
+import { FormProvider, useForm } from 'react-hook-form';
+import { FHIR_EXTENSION } from 'utils';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { ClaimState, useClaimStore, useEditClaimInformationMutation } from '../../../state';
-import { FHIR_EXTENSION } from 'utils';
 import { mapSLBProviderToClaimResource, SLBProviderFormValues } from '../../../utils';
+import { EditModal, VirtualizedAutocompleteController } from './components';
 
 const getDefaultValues = (
   claimData: ClaimState['claimData'],

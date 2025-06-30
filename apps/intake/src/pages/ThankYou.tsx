@@ -1,6 +1,7 @@
 import { EditCalendarOutlined, EventBusyOutlined } from '@mui/icons-material';
 import CreateOutlinedIcon from '@mui/icons-material/CreateOutlined';
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
+import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Button,
@@ -12,38 +13,38 @@ import {
   Typography,
   useMediaQuery,
 } from '@mui/material';
+import { ottehrLightBlue } from '@theme/icons';
+import { ottehrAiLogo } from '@theme/index';
 import { ContactPoint } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { FC, ReactElement, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, Outlet, useLocation, useNavigate, useOutletContext, useParams } from 'react-router-dom';
-import { breakpoints, useUCZambdaClient } from 'ui-components';
 import {
   APIError,
   APPOINTMENT_NOT_FOUND_ERROR,
   AppointmentData,
-  PROJECT_NAME,
-  UCGetPaperworkResponse,
-  VisitType,
   formatPhoneNumberDisplay,
   getSelectors,
   getSlugAndStateFromLocation,
+  PROJECT_NAME,
+  UCGetPaperworkResponse,
+  VisitType,
 } from 'utils';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { intakeFlowPageRoute, visitBasePath } from '../App';
-import { otherColors } from '../IntakeThemeProvider';
 import ottehrApi from '../api/ottehrApi';
+import api from '../api/ottehrApi';
+import { intakeFlowPageRoute, visitBasePath } from '../App';
 import { PageContainer } from '../components';
+import { dataTestIds } from '../helpers/data-test-ids';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
 import useAppointmentNotFoundInformation from '../helpers/information';
 import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
+import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
+import { otherColors } from '../IntakeThemeProvider';
 import i18n from '../lib/i18n';
-import { ottehrLightBlue } from '@theme/icons';
-import { dataTestIds } from '../helpers/data-test-ids';
-import { LoadingButton } from '@mui/lab';
-import api from '../api/ottehrApi';
-import { ottehrAiLogo } from '@theme/index';
+import { breakpoints } from '../providers';
 
 const MODAL_STYLE = {
   position: 'absolute' as const,

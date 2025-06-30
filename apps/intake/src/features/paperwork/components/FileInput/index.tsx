@@ -1,16 +1,16 @@
-import { FC, ChangeEvent, useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useFormContext } from 'react-hook-form';
-import { Attachment } from 'fhir/r4b';
-import { ottehrApi } from '../../../../api';
-import { ZambdaClient, useUCZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
-import { DateTime } from 'luxon';
-import { addContentTypeToAttachment } from 'utils';
-import CardDisplay from './CardDisplay';
-import UploadComponent from './UploadComponent';
 import Link from '@mui/material/Link';
 import imageCompression from 'browser-image-compression';
+import { Attachment } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import { ChangeEvent, FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useFormContext } from 'react-hook-form';
+import { addContentTypeToAttachment } from 'utils';
+import { ottehrApi } from '../../../../api';
+import { useUCZambdaClient, ZambdaClient } from '../../../../hooks/useUCZambdaClient';
 import { PaperworkContext } from '../../context';
+import CardDisplay from './CardDisplay';
 import NonImageCardComponent from './NonImageCardComponent';
+import UploadComponent from './UploadComponent';
 
 export type AttachmentType = 'image' | 'pdf';
 

@@ -1,6 +1,5 @@
 import { Operation } from 'fast-json-patch';
 import { Coverage, InsurancePlan, Organization, Patient, Reference, RelatedPerson } from 'fhir/r4b';
-
 import { create } from 'zustand';
 
 export interface Insurance {

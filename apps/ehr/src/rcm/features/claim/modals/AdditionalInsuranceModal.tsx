@@ -1,7 +1,6 @@
+import { Grid } from '@mui/material';
 import React, { FC } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { Grid } from '@mui/material';
-import { TextFieldController, EditModal } from './components';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import {
   ClaimState,
@@ -14,6 +13,7 @@ import {
   mapAdditionalInsuranceToCoverageResource,
   mapAdditionalInsuranceToRelatedPersonResource,
 } from '../../../utils';
+import { EditModal, TextFieldController } from './components';
 
 const getDefaultValues = (
   additionalCoverageData: ClaimState['additionalCoverageData']

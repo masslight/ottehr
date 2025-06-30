@@ -1,5 +1,11 @@
-import { ReactElement, useState } from 'react';
+import ClearIcon from '@mui/icons-material/Clear';
 import {
+  Box,
+  Button,
+  Grid,
+  IconButton,
+  Pagination,
+  Paper,
   Table,
   TableBody,
   TableCell,
@@ -7,19 +13,12 @@ import {
   TableHead,
   TableRow,
   Typography,
-  Box,
-  Pagination,
-  Grid,
-  Paper,
-  Button,
-  IconButton,
 } from '@mui/material';
-import ClearIcon from '@mui/icons-material/Clear';
 import { DatePicker } from '@mui/x-date-pickers';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
-import { LabsTableRow } from './LabsTableRow';
-import { usePatientLabOrders } from './usePatientLabOrders';
+import { DateTime } from 'luxon';
+import { ReactElement, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   LabOrderListPageDTO,
@@ -28,9 +27,10 @@ import {
   PSC_LOCALE,
 } from 'utils/lib/types/data/labs';
 import { getExternalLabOrderEditUrl } from '../../../css-module/routing/helpers';
-import { LabOrderLoading } from './LabOrderLoading';
-import { DateTime } from 'luxon';
 import { LabsAutocompleteForPatient } from '../LabsAutocompleteForPatient';
+import { LabOrderLoading } from './LabOrderLoading';
+import { LabsTableRow } from './LabsTableRow';
+import { usePatientLabOrders } from './usePatientLabOrders';
 
 export type LabsTableColumn =
   | 'testType'

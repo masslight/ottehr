@@ -1,21 +1,21 @@
-import React, { FC, useEffect, useMemo } from 'react';
 import { Box, CircularProgress, Skeleton } from '@mui/material';
+import React, { FC, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
+import { FHIR_EXTENSION } from 'utils';
 import CustomBreadcrumbs from '../../components/CustomBreadcrumbs';
+import { getSelectors } from '../../shared/store/getSelectors';
 import {
-  ClaimListCard,
-  BillingCard,
-  PatientInformationModal,
   AdditionalInformationModal,
-  ClaimHeader,
-  InsuredInformationModal,
-  DiagnosesModal,
   AdditionalInsuranceModal,
+  BillingCard,
+  ClaimHeader,
+  ClaimListCard,
+  DiagnosesModal,
+  InsuredInformationModal,
+  PatientInformationModal,
   SLBProviderCard,
 } from '../features';
-import { getSelectors } from '../../shared/store/getSelectors';
 import { useClaimStore, useGetClaim, useGetFacilities, useGetInsurancePlans, useGetOrganizations } from '../state';
-import { FHIR_EXTENSION } from 'utils';
 import { DIAGNOSES_SEQUENCE_LETTER } from '../utils';
 
 export const Claim: FC = () => {

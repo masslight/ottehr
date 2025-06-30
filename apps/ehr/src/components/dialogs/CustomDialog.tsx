@@ -1,5 +1,5 @@
-import { FC, ReactElement } from 'react';
 import { Close } from '@mui/icons-material';
+import { LoadingButton } from '@mui/lab';
 import {
   Button,
   Dialog,
@@ -8,10 +8,10 @@ import {
   DialogContentText,
   DialogTitle,
   IconButton,
-  useTheme,
   Typography,
+  useTheme,
 } from '@mui/material';
-import { LoadingButton } from '@mui/lab';
+import { FC, ReactElement } from 'react';
 import { dataTestIds } from '../../constants/data-test-ids';
 
 export interface CustomDialogProps {

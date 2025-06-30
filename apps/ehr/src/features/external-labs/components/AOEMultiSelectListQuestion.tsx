@@ -1,14 +1,13 @@
-import { Select, MenuItem, InputLabel, OutlinedInput, Box, Chip } from '@mui/material';
+import { Box, Chip, InputLabel, MenuItem, OutlinedInput, Select } from '@mui/material';
 import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { ControllerRenderProps, FieldValues, useFormContext } from 'react-hook-form';
-import { LabQuestionnaireResponseItem } from 'utils';
 
 interface MultiListQuestionProps {
   questionText: string;
   linkId: string;
-  answer?: LabQuestionnaireResponseItem;
   answerOption: QuestionnaireItemAnswerOption[];
   required: boolean;
+  isReadOnly?: boolean;
   field: ControllerRenderProps<FieldValues, string>;
 }
 
@@ -18,10 +17,9 @@ export const AOEMultiSelectListQuestion: React.FC<MultiListQuestionProps> = (pro
     formState: { errors },
   } = useFormContext();
 
-  const { questionText, linkId, answer, answerOption, field } = props;
+  const { questionText, linkId, answerOption, isReadOnly, field } = props;
 
   const labelId = `multi-select-${linkId}-label`;
-  console.log(5, answer);
   return (
     <>
       <InputLabel id={labelId}>{questionText}</InputLabel>
@@ -38,8 +36,7 @@ export const AOEMultiSelectListQuestion: React.FC<MultiListQuestionProps> = (pro
             {selected?.map((value: string, idx: number) => <Chip key={idx} label={value} />)}
           </Box>
         )}
-        {...(answer ? { value: answer } : {})}
-        readOnly={answer !== undefined}
+        readOnly={isReadOnly}
       >
         {answerOption.map((option, idx) => (
           <MenuItem key={idx} value={option.valueString}>

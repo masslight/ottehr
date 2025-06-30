@@ -1,9 +1,9 @@
-import { DocumentReference } from 'fhir/r4b';
-import { Color, PDFDocument, PDFFont, PDFImage, PDFPage, rgb, StandardFonts } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
-import { ImageStyle, LineStyle, PageStyles, PdfClient, PdfClientStyles, TextStyle } from './types';
-import { Y_POS_GAP, STANDARD_FONT_SIZE, STANDARD_FONT_SPACING } from './pdf-consts';
+import { DocumentReference } from 'fhir/r4b';
 import fs from 'fs';
+import { Color, PDFDocument, PDFFont, PDFImage, PDFPage, rgb, StandardFonts } from 'pdf-lib';
+import { STANDARD_FONT_SIZE, STANDARD_FONT_SPACING, Y_POS_GAP } from './pdf-consts';
+import { ImageStyle, LineStyle, PageStyles, PdfClient, PdfClientStyles, TextStyle } from './types';
 
 export type PdfInfo = { uploadURL: string; title: string };
 
@@ -163,13 +163,25 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     return { endXPos: currXPos, endYPos: currYPos };
   };
 
-  const drawTextSequential = (text: string, textStyle: Exclude<TextStyle, 'side'>): void => {
+  const drawTextSequential = (
+    text: string,
+    textStyle: Exclude<TextStyle, 'side'>,
+    leftIndentationXPos?: number
+  ): void => {
     const { font, fontSize, color, spacing } = textStyle;
     const { width: lineWidth, height: lineHeight } = getTextDimensions(text, textStyle);
+    const validatedLeftIndentationXPos =
+      leftIndentationXPos !== undefined && leftIndentationXPos < pageRightBound && leftIndentationXPos > pageLeftBound
+        ? leftIndentationXPos
+        : pageLeftBound;
+
+    if (leftIndentationXPos) currXPos = leftIndentationXPos;
 
     // Add a new page if there's no space on the current page
-    if (currYPos - lineHeight < (pageStyles.pageMargins.bottom ?? 0))
+    if (currYPos - lineHeight < (pageStyles.pageMargins.bottom ?? 0)) {
       addNewPage(pageStyles, pageLeftBound, pageRightBound);
+      if (leftIndentationXPos) currXPos = validatedLeftIndentationXPos;
+    }
 
     // Calculate available space on the current line
     const availableWidth = pageRightBound - currXPos;
@@ -190,6 +202,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       if (textStyle.newLineAfter) {
         currYPos -= lineHeight + spacing;
         currXPos = pageLeftBound;
+        if (leftIndentationXPos) currXPos = validatedLeftIndentationXPos;
       }
     } else {
       // If the text is too wide, find the part that fits
@@ -197,14 +210,18 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       let remainingText = text;
       let currentWidth = 0;
 
-      for (let i = 0; i < text.length; i++) {
-        const { width: charWidth } = getTextDimensions(text[i], textStyle);
-        if (currentWidth + charWidth > availableWidth) {
-          fittingText = text.substring(0, i);
-          remainingText = text.substring(i);
+      // we need to determine what fits based on word breaks to avoid cutting words off with linebreaks
+      const words = remainingText.split(' ');
+      const widthOfSpaceChar = getTextDimensions(' ', textStyle).width;
+
+      for (let i = 0; i < words.length; i++) {
+        const { width: charWidth } = getTextDimensions(words[i], textStyle);
+        if (currentWidth + charWidth + widthOfSpaceChar > availableWidth) {
+          fittingText = words.slice(0, i).join(' ');
+          remainingText = words.slice(i, undefined).join(' ');
           break;
         }
-        currentWidth += charWidth;
+        currentWidth += charWidth + widthOfSpaceChar;
       }
 
       // Draw the fitting part on the current line
@@ -220,7 +237,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       newLine(lineHeight + spacing);
 
       // Recursively call the function with the remaining text
-      drawTextSequential(remainingText, textStyle);
+      drawTextSequential(remainingText, textStyle, validatedLeftIndentationXPos);
     }
   };
 

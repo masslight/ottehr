@@ -1,6 +1,6 @@
 import { Identifier } from 'fhir/r4b';
 import Stripe from 'stripe';
-import { Secrets, getSecret, SecretsKeys } from 'utils';
+import { getSecret, Secrets, SecretsKeys } from 'utils';
 
 export interface StripeEnvironmentConfig {
   publicKey: string;

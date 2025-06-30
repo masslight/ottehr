@@ -1,26 +1,26 @@
 import Oystehr from '@oystehr/sdk';
 import {
-  TestStatus,
-  IN_HOUSE_LAB_TASK,
-  PROVENANCE_ACTIVITY_CODING_ENTITY,
-  PRACTITIONER_CODINGS,
-  SPECIMEN_COLLECTION_SOURCE_SYSTEM,
-  SPECIMEN_COLLECTION_CUSTOM_SOURCE_SYSTEM,
-  InHouseOrderDetailPageItemDTO,
-  IN_HOUSE_TAG_DEFINITION,
-} from 'utils';
-import {
-  Coding,
-  Task,
-  ServiceRequest,
-  Provenance,
-  Encounter,
-  Specimen,
   ActivityDefinition,
+  Coding,
   DiagnosticReport,
-  Observation,
+  Encounter,
   FhirResource,
+  Observation,
+  Provenance,
+  ServiceRequest,
+  Specimen,
+  Task,
 } from 'fhir/r4b';
+import {
+  IN_HOUSE_LAB_TASK,
+  IN_HOUSE_TAG_DEFINITION,
+  InHouseOrderDetailPageItemDTO,
+  PRACTITIONER_CODINGS,
+  PROVENANCE_ACTIVITY_CODING_ENTITY,
+  SPECIMEN_COLLECTION_CUSTOM_SOURCE_SYSTEM,
+  SPECIMEN_COLLECTION_SOURCE_SYSTEM,
+  TestStatus,
+} from 'utils';
 
 export function getAttendingPractionerId(encounter: Encounter): string {
   const practitionerId = encounter.participant

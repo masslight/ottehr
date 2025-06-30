@@ -1,9 +1,9 @@
-import { IntakeQuestionnaireItem, getQuestionnaireItemsAndProgress, makeValidationSchema } from 'utils';
+import { getQuestionnaireItemsAndProgress, IntakeQuestionnaireItem, makeValidationSchema } from 'utils';
+import { vi } from 'vitest';
 import { AnyObjectSchema, AnySchema } from 'yup';
 import { getAuth0Token } from '../src/shared';
 import { createOystehrClient } from '../src/shared';
-import QRData from './data/quetionnaire-responses.json';
-import { vi } from 'vitest';
+import QRData from './data/questionnaire-responses.json';
 import { SECRETS as S } from './data/secrets';
 // import { QuestionnaireResponseItem, QuestionnaireResponseItemAnswer } from 'fhir/r4b';
 
@@ -46,7 +46,7 @@ import { SECRETS as S } from './data/secrets';
 //   const fullQR = withInsurance ? COMPLETED_VALID_FULL_QR_WITH_INSURANCE : COMPLETED_VALID_FULL_QR_NO_INSURANCE;
 
 //   switch (pageId) {
-//     // making some assupmtions here about where the valid, completed pages are in the lists
+//     // making some assumptions here about where the valid, completed pages are in the lists
 //     case 'contact-information-page':
 //     case 'patient-details-page':
 //     case 'photo-id-page':
@@ -240,7 +240,7 @@ describe.skip('qr page validation tests', () => {
         expect(validationSchema).toBeDefined();
         expect(Object.keys(validationSchema).length).toBeGreaterThan(0);
         // console.log('item', item);
-        // aply schema
+        // apply schema
 
         // this covers patch object
         const validationSchemaForPatch = makeValidationSchema(questions, pageLinkId, context);
@@ -550,6 +550,7 @@ describe('QR item type tests', () => {
       const notABoolean = editQRAnswer(
         'contact-information-page',
         'mobile-opt-in',
+        //// cSpell:disable-next lol
         'Ongo Gablogian',
         'valueBoolean',
         qrType
@@ -576,7 +577,7 @@ describe('QR item type tests', () => {
       const invalidChoice = editQRAnswer(
         'payment-option-page',
         'payment-option',
-        'I will pay with dogecoin',
+        'I will pay with doge coin',
         'valueString',
         qrType
       );

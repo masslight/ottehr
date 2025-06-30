@@ -1,5 +1,5 @@
 import { Close, Search } from '@mui/icons-material';
-import { TextField, InputAdornment, IconButton } from '@mui/material';
+import { IconButton, InputAdornment, TextField } from '@mui/material';
 import { ChangeEvent, Dispatch, ReactElement, SetStateAction } from 'react';
 
 interface PatientSearchProps {

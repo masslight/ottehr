@@ -1,15 +1,15 @@
-import React, { useCallback, useState, JSX, useMemo, ChangeEvent } from 'react';
-import { Box, CircularProgress, TextField, Typography, Grid } from '@mui/material';
-import { VitalFieldNames, VitalsHeightObservationDTO, heightInCmToInch } from 'utils';
+import { Box, CircularProgress, Grid, TextField, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
+import React, { ChangeEvent, JSX, useCallback, useMemo, useState } from 'react';
+import { heightInCmToInch, VitalFieldNames, VitalsHeightObservationDTO } from 'utils';
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { AccordionCard, DoubleColumnContainer } from '../../../../../telemed/components';
-import { VitalHeightHistoryEntry } from './VitalHeightHistoryEntry';
-import { composeHeightVitalsHistoryEntries, textToHeightNumber, isValidHeightInCmValue } from './helpers';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
-import VitalHeightHistoryElement from './VitalHeightHistoryElement';
-import { useVitalsCardState } from '../hooks/useVitalsCardState';
 import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
+import { useVitalsCardState } from '../hooks/useVitalsCardState';
+import { composeHeightVitalsHistoryEntries, isValidHeightInCmValue, textToHeightNumber } from './helpers';
+import VitalHeightHistoryElement from './VitalHeightHistoryElement';
+import { VitalHeightHistoryEntry } from './VitalHeightHistoryEntry';
 
 const VitalsHeightCard: React.FC = (): JSX.Element => {
   const {

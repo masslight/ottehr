@@ -1,14 +1,14 @@
-import { CircularProgress, FormControl, Grid, MenuItem, Select, Skeleton, SelectChangeEvent } from '@mui/material';
-import React, { useEffect, useState } from 'react';
+import { CircularProgress, FormControl, Grid, MenuItem, Select, SelectChangeEvent, Skeleton } from '@mui/material';
 import { styled } from '@mui/system';
+import { enqueueSnackbar } from 'notistack';
+import React, { useEffect, useState } from 'react';
+import { getVisitStatus, Visit_Status_Array, VisitStatusLabel, VisitStatusWithoutUnknown } from 'utils';
 import { CHIP_STATUS_MAP } from '../../../components/AppointmentTableRow';
-import { Visit_Status_Array, VisitStatusLabel, getVisitStatus } from 'utils';
-import { useAppointment } from '../hooks/useAppointment';
+import { dataTestIds } from '../../../constants/data-test-ids';
 import { handleChangeInPersonVisitStatus } from '../../../helpers/inPersonVisitStatusUtils';
 import { useApiClients } from '../../../hooks/useAppClients';
 import useEvolveUser from '../../../hooks/useEvolveUser';
-import { enqueueSnackbar } from 'notistack';
-import { dataTestIds } from '../../../constants/data-test-ids';
+import { useAppointment } from '../hooks/useAppointment';
 
 const StyledSelect = styled(Select)<{ hasDropdown?: string; arrowColor: string }>(
   ({ hasDropdown: hasDropdown, arrowColor: arrowColor }) => ({
@@ -52,21 +52,41 @@ export const ChangeStatusDropdown = ({
   onStatusChange,
 }: {
   appointmentID?: string;
-  onStatusChange: (status: VisitStatusLabel | undefined) => void;
+  onStatusChange: (status: VisitStatusWithoutUnknown) => void;
 }): React.ReactElement => {
   const [statusLoading, setStatusLoading] = useState<boolean>(false);
-  const [status, setStatus] = useState<VisitStatusLabel | undefined>(undefined);
+  const [status, setStatus] = useState<VisitStatusWithoutUnknown | undefined>(undefined);
   const { oystehrZambda } = useApiClients();
   const user = useEvolveUser();
   const { visitState: telemedData, refetch } = useAppointment(appointmentID);
   const { appointment, encounter } = telemedData;
+
   const nonDropdownStatuses = ['checked out', 'canceled', 'no show'];
   const hasDropdown = status ? !nonDropdownStatuses.includes(status) : false;
 
   async function updateInPersonVisitStatus(event: SelectChangeEvent<VisitStatusLabel | unknown>): Promise<void> {
     setStatusLoading(true);
     try {
-      await handleChangeInPersonVisitStatus(encounter, user, oystehrZambda, event.target.value as VisitStatusLabel);
+      if (!user) {
+        throw new Error('User is required to change the visit status');
+      }
+
+      if (!encounter || !encounter.id) {
+        throw new Error('Encounter ID is required to change the visit status');
+      }
+
+      if (!oystehrZambda) {
+        throw new Error('Oystehr Zambda client is not available when changing the visit status');
+      }
+
+      await handleChangeInPersonVisitStatus(
+        {
+          encounterId: encounter.id,
+          user,
+          updatedStatus: event.target.value as VisitStatusWithoutUnknown,
+        },
+        oystehrZambda
+      );
       await refetch();
     } catch (error) {
       console.error(error);
@@ -78,6 +98,12 @@ export const ChangeStatusDropdown = ({
   useEffect(() => {
     if (appointment && encounter) {
       const encounterStatus = getVisitStatus(appointment, encounter);
+
+      if (encounterStatus === 'unknown') {
+        console.warn('Encounter status is unknown, so not setting a status');
+        return;
+      }
+
       setStatus(encounterStatus);
       onStatusChange(encounterStatus);
     } else {

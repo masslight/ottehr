@@ -4,8 +4,8 @@ import {
   VitalsObservationDTO,
   VitalsVisionObservationDTO,
 } from 'utils';
-import { VitalVisionHistoryEntry } from './VitalVisionEntry';
 import { composeVitalsHistoryEntries } from '../utils';
+import { VitalVisionHistoryEntry } from './VitalVisionEntry';
 
 export const composeVisionVitalsHistoryEntries = (
   encounterId: string,

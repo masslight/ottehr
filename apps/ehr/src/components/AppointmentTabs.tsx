@@ -1,14 +1,14 @@
+import { otherColors } from '@ehrTheme/colors';
 import FmdBadOutlinedIcon from '@mui/icons-material/FmdBadOutlined';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Grid, Tab, Typography } from '@mui/material';
 import { Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import React, { ReactElement, useState } from 'react';
-import { InHouseOrderListPageItemDTO, InPersonAppointmentInformation } from 'utils';
-import { otherColors } from '@ehrTheme/colors';
+import { InHouseOrderListPageItemDTO, InPersonAppointmentInformation, LabOrderListPageDTO, NursingOrder } from 'utils';
+import { dataTestIds } from '../constants/data-test-ids';
 import AppointmentTable from './AppointmentTable';
 import Loading from './Loading';
-import { dataTestIds } from '../constants/data-test-ids';
 
 export enum ApptTab {
   'prebooked' = 'prebooked',
@@ -29,6 +29,8 @@ interface AppointmentsTabProps {
   updateAppointments: () => void;
   setEditingComment: (editingComment: boolean) => void;
   inHouseLabOrdersByAppointmentId: Record<string, InHouseOrderListPageItemDTO[]>;
+  externalLabOrdersByAppointmentId: Record<string, LabOrderListPageDTO[]>;
+  nursingLabOrdersByAppointmentId: Record<string, NursingOrder[]>;
 }
 
 export default function AppointmentTabs({
@@ -43,6 +45,8 @@ export default function AppointmentTabs({
   updateAppointments,
   setEditingComment,
   inHouseLabOrdersByAppointmentId,
+  externalLabOrdersByAppointmentId,
+  nursingLabOrdersByAppointmentId,
 }: AppointmentsTabProps): ReactElement {
   const [value, setValue] = useState<ApptTab>(ApptTab['in-office']);
   const [now, setNow] = useState<DateTime>(DateTime.now());
@@ -134,7 +138,10 @@ export default function AppointmentTabs({
             {selectLocationMsg || (
               <AppointmentTable
                 appointments={preBookedAppointments}
+                // todo we dont need orders on the prebooked tab, think about making optional, maybe
                 inHouseLabOrdersByAppointmentId={inHouseLabOrdersByAppointmentId}
+                externalLabOrdersByAppointmentId={externalLabOrdersByAppointmentId}
+                nursingOrdersByAppointmentId={nursingLabOrdersByAppointmentId}
                 location={location}
                 tab={value}
                 now={now}
@@ -148,6 +155,8 @@ export default function AppointmentTabs({
               <AppointmentTable
                 appointments={inOfficeAppointments}
                 inHouseLabOrdersByAppointmentId={inHouseLabOrdersByAppointmentId}
+                externalLabOrdersByAppointmentId={externalLabOrdersByAppointmentId}
+                nursingOrdersByAppointmentId={nursingLabOrdersByAppointmentId}
                 location={location}
                 tab={value}
                 now={now}
@@ -161,6 +170,8 @@ export default function AppointmentTabs({
               <AppointmentTable
                 appointments={completedAppointments}
                 inHouseLabOrdersByAppointmentId={inHouseLabOrdersByAppointmentId}
+                externalLabOrdersByAppointmentId={externalLabOrdersByAppointmentId}
+                nursingOrdersByAppointmentId={nursingLabOrdersByAppointmentId}
                 location={location}
                 tab={value}
                 now={now}
@@ -174,6 +185,8 @@ export default function AppointmentTabs({
               <AppointmentTable
                 appointments={cancelledAppointments}
                 inHouseLabOrdersByAppointmentId={inHouseLabOrdersByAppointmentId}
+                externalLabOrdersByAppointmentId={externalLabOrdersByAppointmentId}
+                nursingOrdersByAppointmentId={nursingLabOrdersByAppointmentId}
                 location={location}
                 tab={value}
                 now={now}

@@ -1,3 +1,4 @@
+import { otherColors } from '@ehrTheme/colors';
 import { Error as ErrorIcon } from '@mui/icons-material';
 import AddIcon from '@mui/icons-material/Add';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
@@ -9,8 +10,10 @@ import { DateTime } from 'luxon';
 import React, { ReactElement, useEffect, useMemo, useState } from 'react';
 import { usePageVisibility } from 'react-page-visibility';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { InHouseOrderListPageItemDTO, InPersonAppointmentInformation } from 'utils';
-import { otherColors } from '@ehrTheme/colors';
+import { usePatientLabOrders } from 'src/features/external-labs/components/labs-orders/usePatientLabOrders';
+import { useInHouseLabOrders } from 'src/features/in-house-labs/components/orders/useInHouseLabOrders';
+import { useGetNursingOrders } from 'src/features/nursing-orders/components/orders/useNursingOrders';
+import { InHouseOrderListPageItemDTO, InPersonAppointmentInformation, LabOrderListPageDTO, NursingOrder } from 'utils';
 import { getAppointments } from '../api/api';
 import AppointmentTabs from '../components/AppointmentTabs';
 import CreateDemoVisits from '../components/CreateDemoVisits';
@@ -25,7 +28,6 @@ import PageContainer from '../layout/PageContainer';
 import { useDebounce } from '../telemed/hooks';
 import { VisitType, VisitTypeToLabel } from '../types/types';
 import { LocationWithWalkinSchedule } from './AddPatient';
-import { useInHouseLabOrders } from 'src/features/in-house-labs/components/orders/useInHouseLabOrders';
 
 type LoadingState = { status: 'loading' | 'initial'; id?: string | undefined } | { status: 'loaded'; id: string };
 
@@ -102,12 +104,26 @@ export default function Appointments(): ReactElement {
     activeApptDatesBeforeToday = [],
   } = searchResults || {};
 
-  const encountersIdToShowInInHouseLabs = inOfficeAppointments.map((appointment) => appointment.encounterId);
+  const inOfficeEncounterIds = inOfficeAppointments.map((appointment) => appointment.encounterId);
+  const completedEncounterIds = completedAppointments.map((appointment) => appointment.encounterId);
+  const encountersIdsEligibleForOrders = [...inOfficeEncounterIds, ...completedEncounterIds];
+
+  const externalLabOrders = usePatientLabOrders({
+    searchBy: { field: 'encounterIds', value: encountersIdsEligibleForOrders },
+  });
+  const externalLabOrdersByAppointmentId = useMemo(() => {
+    return externalLabOrders?.labOrders?.reduce(
+      (acc, order) => {
+        acc[order.appointmentId] = [...(acc[order.appointmentId] || []), order];
+        return acc;
+      },
+      {} as Record<string, LabOrderListPageDTO[]>
+    );
+  }, [externalLabOrders?.labOrders]);
 
   const inHouseOrders = useInHouseLabOrders({
-    searchBy: { field: 'encounterIds', value: encountersIdToShowInInHouseLabs },
+    searchBy: { field: 'encounterIds', value: encountersIdsEligibleForOrders },
   });
-
   const inHouseLabOrdersByAppointmentId = useMemo(() => {
     return inHouseOrders?.labOrders?.reduce(
       (acc, order) => {
@@ -117,6 +133,19 @@ export default function Appointments(): ReactElement {
       {} as Record<string, InHouseOrderListPageItemDTO[]>
     );
   }, [inHouseOrders?.labOrders]);
+
+  const { nursingOrders } = useGetNursingOrders({
+    searchBy: { field: 'encounterIds', value: encountersIdsEligibleForOrders },
+  });
+  const nursingOrdersByAppointmentId: Record<string, NursingOrder[]> = useMemo(() => {
+    return nursingOrders?.reduce(
+      (acc, order) => {
+        acc[order.appointmentId] = [...(acc[order.appointmentId] || []), order];
+        return acc;
+      },
+      {} as Record<string, NursingOrder[]>
+    );
+  }, [nursingOrders]);
 
   useEffect(() => {
     const selectedVisitTypes = localStorage.getItem('selectedVisitTypes');
@@ -208,13 +237,13 @@ export default function Appointments(): ReactElement {
 
       if (
         (locationID || locationSelected?.id || providers.length > 0 || groups.length > 0) &&
-        (searchDate || appointmentDate) &&
+        searchDate &&
         Array.isArray(visitType)
       ) {
         const searchResults = await getAppointments(client, {
           locationID: locationID || locationSelected?.id || undefined,
           searchDate,
-          visitType: visitType || [],
+          visitType: visitType,
           providerIDs: providers,
           groupIDs: groups,
         });
@@ -276,6 +305,8 @@ export default function Appointments(): ReactElement {
       cancelledAppointments={cancelledAppointments}
       inOfficeAppointments={inOfficeAppointments}
       inHouseLabOrdersByAppointmentId={inHouseLabOrdersByAppointmentId}
+      externalLabOrdersByAppointmentId={externalLabOrdersByAppointmentId}
+      nursingOrdersByAppointmentId={nursingOrdersByAppointmentId}
       locationSelected={locationSelected}
       setLocationSelected={setLocationSelected}
       practitioners={practitioners}
@@ -309,6 +340,8 @@ interface AppointmentsBodyProps {
   updateAppointments: () => void;
   setEditingComment: (editingComment: boolean) => void;
   inHouseLabOrdersByAppointmentId: Record<string, InHouseOrderListPageItemDTO[]>;
+  externalLabOrdersByAppointmentId: Record<string, LabOrderListPageDTO[]>;
+  nursingOrdersByAppointmentId: Record<string, NursingOrder[]>;
 }
 function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
   const {
@@ -332,6 +365,8 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
     updateAppointments,
     setEditingComment,
     inHouseLabOrdersByAppointmentId,
+    externalLabOrdersByAppointmentId,
+    nursingOrdersByAppointmentId,
   } = props;
 
   const [displayFilters, setDisplayFilters] = useState<boolean>(true);
@@ -520,6 +555,8 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
               completedAppointments={completedAppointments}
               inOfficeAppointments={inOfficeAppointments}
               inHouseLabOrdersByAppointmentId={inHouseLabOrdersByAppointmentId}
+              externalLabOrdersByAppointmentId={externalLabOrdersByAppointmentId}
+              nursingLabOrdersByAppointmentId={nursingOrdersByAppointmentId}
               loading={loadingState.status === 'loading'}
               updateAppointments={updateAppointments}
               setEditingComment={setEditingComment}

@@ -1,8 +1,8 @@
 import { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { Location, Practitioner, PractitionerRole } from 'fhir/r4b';
-import { FHIR_BASE_URL } from 'utils';
 import fs from 'fs';
+import { FHIR_BASE_URL } from 'utils';
 import { getAuth0Token } from '../shared';
 import { createOystehrClient } from '../shared';
 

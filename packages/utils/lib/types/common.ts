@@ -11,8 +11,8 @@ import {
   QuestionnaireResponse,
   Task,
 } from 'fhir/r4b';
-import { TIMEZONES } from './constants';
 import { ScheduleExtension } from '../utils';
+import { TIMEZONES } from './constants';
 
 export interface PatientBaseInfo {
   firstName?: string;
@@ -521,41 +521,22 @@ export const FacilitiesTelemed: FacilityInfo[] = [
 export interface InHouseMedicationInfo {
   name: string;
   NDC: string;
-  CPT: string;
-  adminCode: string;
+  erxData: {
+    id: string;
+  };
 }
 
 export const InHouseMedications: InHouseMedicationInfo[] = [
-  {
-    name: '0.9% Sodium Chloride IV (1000cc)',
-    NDC: '1727170107',
-    CPT: '96360',
-    adminCode: 'J7030',
-  },
-  {
-    name: '0.9% Sodium Chloride IV (250cc)',
-    NDC: '51662-1517-01',
-    CPT: '96360',
-    adminCode: 'todo',
-  },
-  {
-    name: '0.9% Sodium Chloride IV (500cc)',
-    NDC: '172717106',
-    CPT: '96360',
-    adminCode: 'j7050',
-  },
-  {
-    name: 'Acetaminophen (120mg)  Suppository PR',
-    NDC: '4580273230',
-    CPT: 'PM101',
-    adminCode: 'todo',
-  },
-  {
-    name: 'Acetaminophen (160mg)  Chewable Tablet PO',
-    NDC: 'todo',
-    CPT: 'PM101',
-    adminCode: 'todo',
-  },
+  { name: 'Acetaminophen (Liquid)', NDC: '50580-170-01', erxData: { id: '23562' } },
+  { name: 'Acetaminophen (Tabs)', NDC: '71399-8024-1', erxData: { id: '23170' } },
+  { name: 'Acetaminophen (80mg Suppository)', NDC: '51672-2114-2', erxData: { id: '23565' } },
+  { name: 'Acetaminophen (325mg Suppository)', NDC: '51672-2116-2', erxData: { id: '23564' } },
+  { name: 'Acetaminophen (120mg Suppository)', NDC: '45802-732-30', erxData: { id: '21887' } },
+  { name: 'Activated Charcoal', NDC: '66689-203-04', erxData: { id: '32034' } },
+  { name: 'Albuterol', NDC: '0487-9501-25', erxData: { id: '29518' } },
+  { name: 'Ventolin HFA', NDC: '0173-0682-24', erxData: { id: '38526' } },
+  { name: 'Amoxicillin', NDC: '0143-9887-01', erxData: { id: '34220' } },
+  { name: 'Amoxicillin Clavulanate', NDC: '65862-535-75', erxData: { id: '22329' } },
 ];
 
 export type TaskStatus = 'completed' | 'failed' | 'rejected' | undefined;

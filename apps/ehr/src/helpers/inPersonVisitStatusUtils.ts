@@ -1,22 +1,15 @@
-import { Encounter } from 'fhir/r4b';
 import Oystehr from '@oystehr/sdk';
+import { ChangeInPersonVisitStatusInput } from 'utils';
 import { changeInPersonVisitStatus } from '../api/api';
-import { User, VisitStatusWithoutUnknown } from 'utils';
 
 export const handleChangeInPersonVisitStatus = async (
-  encounter: Encounter | undefined,
-  user: User | undefined,
-  oystehr: Oystehr | undefined,
-  updatedStatus: VisitStatusWithoutUnknown
+  zambdaInput: ChangeInPersonVisitStatusInput,
+  oystehr: Oystehr
 ): Promise<void> => {
-  if (!oystehr || !encounter || !user || !updatedStatus) {
-    console.warn('Missing required data:', { oystehr, encounter, user, profileResource: user?.profileResource }); //
-    return;
-  }
-
   try {
+    const { encounterId, user, updatedStatus } = zambdaInput;
     await changeInPersonVisitStatus(oystehr, {
-      encounterId: encounter.id,
+      encounterId,
       user,
       updatedStatus,
     });
