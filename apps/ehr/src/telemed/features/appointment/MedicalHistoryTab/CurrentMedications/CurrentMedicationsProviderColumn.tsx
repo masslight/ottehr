@@ -84,11 +84,13 @@ export const CurrentMedicationsProviderColumn: FC = () => {
         id: data.medication?.id?.toString(),
         type: data.type,
         intakeInfo: {
-          date: data
-            .date!.set({ hour: data.time?.hour, minute: data.time?.minute })
-            .toUTC()
-            .toString(),
-          dose: data.dose!,
+          date: data.date
+            ? data.date
+                .set({ hour: data.time?.hour, minute: data.time?.minute })
+                .toUTC()
+                .toString()
+            : undefined,
+          dose: data.dose ?? undefined,
         },
         status: 'active',
       });
@@ -229,13 +231,11 @@ export const CurrentMedicationsProviderColumn: FC = () => {
               <Controller
                 name="dose"
                 control={control}
-                rules={{ required: true }}
                 render={({ field: { value, onChange }, fieldState: { error } }) => (
                   <TextField
                     value={value || ''}
                     onChange={onChange}
                     data-testid={dataTestIds.telemedEhrFlow.hpiCurrentMedicationsDoseInput}
-                    required={true}
                     size="small"
                     InputLabelProps={{ shrink: true }}
                     label="Recent dose amount and units"
@@ -248,8 +248,8 @@ export const CurrentMedicationsProviderColumn: FC = () => {
                 name="date"
                 control={control}
                 rules={{
-                  required: true,
                   validate: (val) => {
+                    if (!val) return true;
                     return !val ? 'Provide valid date' : val?.invalidExplanation || undefined;
                   },
                 }}
@@ -265,7 +265,6 @@ export const CurrentMedicationsProviderColumn: FC = () => {
                             InputLabelProps: { shrink: true },
                             InputProps: { size: 'small', placeholder: 'MM/DD/YYYY' },
                             error: !!error,
-                            required: true,
                           },
                         }}
                       />
@@ -277,8 +276,8 @@ export const CurrentMedicationsProviderColumn: FC = () => {
                 name="time"
                 control={control}
                 rules={{
-                  required: true,
                   validate: (val) => {
+                    if (!val) return true;
                     return !val ? 'Provide valid time' : val?.invalidExplanation || undefined;
                   },
                 }}
@@ -293,7 +292,6 @@ export const CurrentMedicationsProviderColumn: FC = () => {
                           textField: {
                             InputLabelProps: { shrink: true },
                             InputProps: { size: 'small', error: !!error },
-                            required: true,
                           },
                         }}
                       ></TimePicker>

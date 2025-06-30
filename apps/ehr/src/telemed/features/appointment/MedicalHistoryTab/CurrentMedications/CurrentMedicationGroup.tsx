@@ -56,7 +56,8 @@ function CurrentMedicationItem({ value }: { value: MedicationDTO }): JSX.Element
 
   return (
     <Typography variant="body2">
-      {value.name} {`(${value.intakeInfo?.dose} ${lastIntakeDateDisplay})`}
+      {value.name}
+      {(value.intakeInfo?.dose || lastIntakeDateDisplay) && `(${value.intakeInfo?.dose} ${lastIntakeDateDisplay})`}
     </Typography>
   );
 }
