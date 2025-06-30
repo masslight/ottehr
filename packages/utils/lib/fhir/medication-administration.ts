@@ -180,8 +180,14 @@ export const makeMedicationOrderUpdateRequestInput = ({
   orderData?: Partial<MedicationData>;
 }): UpdateMedicationOrderInput => {
   const request: UpdateMedicationOrderInput = {};
-  id && (request.orderId = id);
-  newStatus && (request.newStatus = newStatus);
-  orderData && (request.orderData = orderData as MedicationData);
+  if (id) {
+    request.orderId = id;
+  }
+  if (newStatus) {
+    request.newStatus = newStatus;
+  }
+  if (orderData) {
+    request.orderData = orderData as MedicationData;
+  }
   return request;
 };

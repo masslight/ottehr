@@ -198,7 +198,7 @@ export function getOtherOfficesForLocation(location: Location): { display: strin
   let parsedExtValue: { display: string; url: string }[] = [];
   try {
     parsedExtValue = JSON.parse(rawExtensionValue);
-  } catch (_) {
+  } catch {
     console.log('Location other-offices extension is formatted incorrectly');
     return [];
   }
@@ -1003,7 +1003,7 @@ export const extractHealthcareServiceAndSupportingLocations = (
   let locations = bundle.filter((resource) => {
     return (
       hs.location?.find((loc) => {
-        loc.reference === `${resource.resourceType}/${resource.id}`;
+        return loc.reference === `${resource.resourceType}/${resource.id}`;
       }) !== undefined
     );
   }) as Location[] | undefined;
@@ -1011,7 +1011,7 @@ export const extractHealthcareServiceAndSupportingLocations = (
   let coverageArea = bundle.filter((resource) => {
     return (
       hs.coverageArea?.find((loc) => {
-        loc.reference === `${resource.resourceType}/${resource.id}`;
+        return loc.reference === `${resource.resourceType}/${resource.id}`;
       }) !== undefined
     );
   }) as Location[] | undefined;
