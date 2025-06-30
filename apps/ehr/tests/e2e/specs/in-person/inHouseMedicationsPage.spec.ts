@@ -49,9 +49,6 @@ test('Open Order Medication screen, check all fields are required', async ({ pag
   await orderMedicationPage.editMedicationCard.verifyValidationErrorShown(Field.MEDICATION);
   await orderMedicationPage.editMedicationCard.selectAssociatedDx('Select associatedDx');
   await orderMedicationPage.editMedicationCard.selectMedication(MEDICATION);
-  // await orderMedicationPage.clickOrderMedicationButton();
-  // await orderMedicationPage.editMedicationCard.verifyValidationErrorShown(Field.ASSOCIATED_DX);
-  // await orderMedicationPage.editMedicationCard.selectAssociatedDx(DIAGNOSIS);
   await orderMedicationPage.clickOrderMedicationButton();
   await orderMedicationPage.editMedicationCard.verifyValidationErrorShown(Field.DOSE);
   await orderMedicationPage.editMedicationCard.enterDose(DOSE);
@@ -159,7 +156,6 @@ test('Edit order page is opened after clicking on pencil icon for order in "pend
     await editOrderPage.clickOrderMedicationButton();
 
     await editOrderPage.editMedicationCard.verifyValidationErrorShown(Field.MEDICATION);
-    // await editOrderPage.editMedicationCard.verifyValidationErrorShown(Field.ASSOCIATED_DX, false);
     await editOrderPage.editMedicationCard.verifyValidationErrorShown(Field.DOSE, false);
     await editOrderPage.editMedicationCard.verifyValidationErrorShown(Field.UNITS, false);
     await editOrderPage.editMedicationCard.verifyValidationErrorNotShown(Field.MANUFACTURER);
