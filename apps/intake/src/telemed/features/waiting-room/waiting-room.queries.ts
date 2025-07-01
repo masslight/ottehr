@@ -1,16 +1,15 @@
-import { useMutation, useQuery, useQueryClient } from 'react-query';
+import { useMutation, useQuery, useQueryClient, UseQueryResult } from 'react-query';
 import { ZapEHRAPIClient } from 'ui-components';
 import { CancelInviteParticipantRequestParameters, InviteParticipantRequestParameters, PromiseReturnType } from 'utils';
 import { useZapEHRAPIClient } from '../../utils';
 import { useAppointmentStore } from '../appointments';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetWaitStatus = (
   onSuccess: (data: PromiseReturnType<ReturnType<ZapEHRAPIClient['getWaitStatus']>>) => void,
   appointmentId: string,
   refetchInterval?: number | false,
   enabled?: boolean
-) => {
+): UseQueryResult<PromiseReturnType<ReturnType<ZapEHRAPIClient['getWaitStatus']>>, unknown> => {
   const apiClient = useZapEHRAPIClient();
   return useQuery(
     ['waiting-room', appointmentId, apiClient],

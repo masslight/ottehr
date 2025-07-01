@@ -1,11 +1,10 @@
 import { QuestionnaireItemAnswerOption, QuestionnaireResponseItem } from 'fhir/r4b';
-import { useMutation, useQuery } from 'react-query';
+import { useMutation, useQuery, UseQueryResult } from 'react-query';
 import { ZapEHRAPIClient } from 'ui-components';
 import { GetAnswerOptionsRequest, isNullOrUndefined, PromiseReturnType } from 'utils';
 import { useZapEHRAPIClient } from '../../utils';
 import { useAppointmentStore } from '../appointments';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetPaperwork = (
   onSuccess?: (data: PromiseReturnType<ReturnType<ZapEHRAPIClient['getPaperwork']>>) => void,
   params?: {
@@ -13,7 +12,7 @@ export const useGetPaperwork = (
     staleTime?: number;
     onError?: (error: any) => void;
   }
-) => {
+): UseQueryResult<PromiseReturnType<ReturnType<ZapEHRAPIClient['getPaperwork']>>, unknown> => {
   const apiClient = useZapEHRAPIClient();
   const appointmentID = useAppointmentStore((state) => state.appointmentID);
 
@@ -64,12 +63,11 @@ export const useUpdatePaperworkMutation = () => {
   });
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useAnswerOptionsQuery = (
   enabled = true,
   params: GetAnswerOptionsRequest | undefined,
   onSuccess?: (data: QuestionnaireItemAnswerOption[]) => void
-) => {
+): UseQueryResult<QuestionnaireItemAnswerOption[], unknown> => {
   const apiClient = useZapEHRAPIClient();
 
   return useQuery(
@@ -120,11 +118,10 @@ export const useGetPaymentMethods = (input: GetPaymentMethodsParams) => {
   );
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useSetupPaymentMethod = (
   beneficiaryPatientId: string | undefined,
   onSuccess?: (data: PromiseReturnType<ReturnType<ZapEHRAPIClient['setupPaymentMethod']>>) => void
-) => {
+): UseQueryResult<PromiseReturnType<ReturnType<ZapEHRAPIClient['setupPaymentMethod']>>, unknown> => {
   const apiClient = useZapEHRAPIClient();
 
   return useQuery(

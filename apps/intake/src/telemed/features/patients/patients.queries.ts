@@ -1,12 +1,11 @@
-import { useQuery } from 'react-query';
+import { useQuery, UseQueryResult } from 'react-query';
 import { ZapEHRAPIClient } from 'ui-components';
 import { PromiseReturnType } from 'utils';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetPatients = (
   apiClient: ZapEHRAPIClient | null,
   onSuccess: (data: PromiseReturnType<ReturnType<ZapEHRAPIClient['getPatients']>>) => void
-) => {
+): UseQueryResult<PromiseReturnType<ReturnType<ZapEHRAPIClient['getPatients']>>, unknown> => {
   return useQuery(
     ['patients'],
     () => {
