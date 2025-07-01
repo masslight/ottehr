@@ -81,7 +81,7 @@ function composeDataForPdf(
   // --- Patient information ---
   const patientName = getPatientLastFirstName(patient);
   const patientDOB = getPatientDob(patient);
-  const personAccompanying = getPersonAccompying(questionnaireResponse);
+  const personAccompanying = getPersonAccompanying(questionnaireResponse);
   const patientPhone = getQuestionnaireResponseByLinkId('guardian-number', questionnaireResponse)?.answer?.[0]
     .valueString;
 
@@ -328,7 +328,7 @@ function getPatientDob(patient: Patient): string | undefined {
   return patient?.birthDate && DateTime.fromFormat(patient.birthDate, 'yyyy-MM-dd').toFormat('MM/dd/yyyy');
 }
 
-function getPersonAccompying(questionnaireResponse?: QuestionnaireResponse): string | undefined {
+function getPersonAccompanying(questionnaireResponse?: QuestionnaireResponse): string | undefined {
   if (!questionnaireResponse) return;
 
   const personAccompanying = {

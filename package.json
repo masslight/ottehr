@@ -1,6 +1,6 @@
 {
   "name": "ottehr",
-  "version": "1.12.2",
+  "version": "1.12.4",
   "private": true,
   "engines": {
     "node": ">=20.0.0",
@@ -116,6 +116,8 @@
     "uuid": "^11.0.3",
     "wait-on": "^8.0.1",
     "yup": "^1.0.0",
+    "zod": "^3.25.67",
+    "zod-validation-error": "^3.5.2",
     "zustand": "^4.4.6"
   },
   "devDependencies": {

@@ -55,7 +55,7 @@ describe('PrimaryCareContainer', () => {
     [FormFields.primaryCarePhysician.firstName.key]: 'Dr. Jane',
     [FormFields.primaryCarePhysician.lastName.key]: 'Smith',
     [FormFields.primaryCarePhysician.practiceName.key]: 'Family Medical Center',
-    [FormFields.primaryCarePhysician.address.key]: '123 Main St, Anytown, ST 12345',
+    [FormFields.primaryCarePhysician.address.key]: '123 Main St, AnyTown, ST 12345',
     [FormFields.primaryCarePhysician.phone.key]: '5551234567',
   };
 
