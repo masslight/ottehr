@@ -12,11 +12,7 @@ import { dataTestIds } from '../../../../constants/data-test-ids';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../state';
 
-type DischargeButtonProps = {
-  onSigned?: () => void;
-};
-
-export const DischargeButton: FC<DischargeButtonProps> = () => {
+export const DischargeButton: FC = () => {
   const { appointment, encounter } = getSelectors(useAppointmentStore, ['appointment', 'encounter']);
   const { refetch } = useAppointment(appointment?.id);
   const { oystehrZambda } = useApiClients();
