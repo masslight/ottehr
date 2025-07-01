@@ -18,14 +18,13 @@ export const MedicationHistoryEntity: React.FC<MedicationHistoryEntityProps> = (
       if (item.chartDataField === 'inhouseMedications') {
         return 'In-house medication';
       } else if (item.chartDataField === 'medications') {
-        return item.type === 'scheduled' ? 'Scheduled medication' : 'As-needed medication';
+        if (item.type === 'scheduled') {
+          return 'Scheduled medication';
+        }
+        if (item.type === 'as-needed') {
+          return 'As-needed medication';
+        }
       }
-    }
-    if (item.type === 'scheduled') {
-      return 'Scheduled medication';
-    }
-    if (item.type === 'as-needed') {
-      return 'As-needed medication';
     }
     return '';
   };
