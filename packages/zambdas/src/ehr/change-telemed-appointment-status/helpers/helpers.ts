@@ -155,9 +155,9 @@ const mergeUnsignedStatusesTimesOp = (statusHistory: EncounterStatusHistory[]): 
     const secondUnsignedStart = new Date(lastRecord.period.start).getTime();
     const secondUnsignedEnd = new Date().getTime();
 
-    const unisgnedTimeSummary =
+    const unsignedTimeSummary =
       Math.abs(firstUnsignedEnd - firstUnsignedStart) + Math.abs(secondUnsignedEnd - secondUnsignedStart);
-    const unsignedSummaryStart = new Date(Math.abs(new Date().getTime() - unisgnedTimeSummary)).toISOString();
+    const unsignedSummaryStart = new Date(Math.abs(new Date().getTime() - unsignedTimeSummary)).toISOString();
     const unsignedSummaryEnd = now();
 
     encounterOperations.push(deleteStatusHistoryRecordOp(statusHistoryLength - 1));

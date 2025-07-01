@@ -22,7 +22,7 @@ import {
   TestStatus,
 } from 'utils';
 
-export function getAttendingPractionerId(encounter: Encounter): string {
+export function getAttendingPractitionerId(encounter: Encounter): string {
   const practitionerId = encounter.participant
     ?.find(
       (participant) =>
@@ -202,15 +202,15 @@ export const getServiceRequestsRelatedViaRepeat = (
   const serviceRequestsRelatedViaRepeat: ServiceRequest[] = [];
   if (additionalServiceRequests.length > 0 && serviceRequestSearched) {
     // was the service request passed as the search param the initial test or ran as repeat?
-    const intialServiceRequestId = serviceRequestSearched?.basedOn
+    const initialServiceRequestId = serviceRequestSearched?.basedOn
       ? serviceRequestSearched.basedOn[0].reference?.replace('ServiceRequest/', '')
       : serviceRequestSearched?.id;
-    console.log('intialServiceRequestId,', intialServiceRequestId);
+    console.log('initialServiceRequestId,', initialServiceRequestId);
     additionalServiceRequests.forEach((sr) => {
       // confirm its indeed related to the repeat testing group
       // tbh this check might be overkill
       const basedOn = sr.basedOn?.[0].reference?.replace('ServiceRequest/', '');
-      if (sr.id === intialServiceRequestId || (basedOn && basedOn === intialServiceRequestId)) {
+      if (sr.id === initialServiceRequestId || (basedOn && basedOn === initialServiceRequestId)) {
         serviceRequestsRelatedViaRepeat.push(sr);
       }
     });

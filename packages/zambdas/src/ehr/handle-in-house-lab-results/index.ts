@@ -50,10 +50,10 @@ import {
 } from '../../shared';
 import { createInHouseLabResultPDF } from '../../shared/pdf/labs-results-form-pdf';
 import {
-  getAttendingPractionerId,
+  getAttendingPractitionerId,
   getServiceRequestsRelatedViaRepeat,
   getUrlAndVersionForADFromServiceRequest,
-} from '../shared/inhouse-labs';
+} from '../shared/in-house-labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -294,7 +294,7 @@ const getInHouseLabResultResources = async (
   const patient = patients[0];
 
   const encounter = encounters[0];
-  const attendingPractitionerId = getAttendingPractionerId(encounter);
+  const attendingPractitionerId = getAttendingPractitionerId(encounter);
   const schedule = schedules[0];
   const location = locations.length ? locations[0] : undefined;
 
@@ -504,7 +504,7 @@ const formatObsValueAndInterpretation = (
       (resource) => resource.resourceType === 'ObservationDefinition' || resource.resourceType === 'ValueSet'
     ) as (ObservationDefinition | ValueSet)[];
     const abnormalValues = extractAbnormalValueSetValues(obsDef, filteredContained);
-    const interpretationCodeableConcept = deteremineCodeableConceptInterpretation(dataEntry, abnormalValues);
+    const interpretationCodeableConcept = determineCodeableConceptInterpretation(dataEntry, abnormalValues);
     const obsInterpretation = {
       interpretation: [interpretationCodeableConcept],
     };
@@ -532,7 +532,7 @@ const determineQuantInterpretation = (
 };
 
 // todo should also validate that the value passed is contained within normal values
-const deteremineCodeableConceptInterpretation = (
+const determineCodeableConceptInterpretation = (
   value: string,
   abnormalValues: LabComponentValueSetConfig[]
 ): CodeableConcept => {
@@ -613,7 +613,7 @@ const makeIrtTaskPatchRequest = (irtTask: Task, provenanceFullUrl: string): Batc
   const provRef = {
     reference: provenanceFullUrl,
   };
-  const relavantHistOp: Operation = {
+  const relevantHistoryOperation: Operation = {
     path: '/relevantHistory',
     op: irtTask.relevantHistory ? 'replace' : 'add',
     value: irtTask.relevantHistory ? [...irtTask.relevantHistory, provRef] : [provRef],
@@ -628,7 +628,7 @@ const makeIrtTaskPatchRequest = (irtTask: Task, provenanceFullUrl: string): Batc
         op: 'replace',
         value: 'completed',
       },
-      relavantHistOp,
+      relevantHistoryOperation,
     ],
   };
   return irtTaskPatchRequest;
