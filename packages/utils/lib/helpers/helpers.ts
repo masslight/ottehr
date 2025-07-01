@@ -1,8 +1,8 @@
 import Oystehr, { OystehrConfig } from '@oystehr/sdk';
 import { Appointment, Extension, PaymentNotice, QuestionnaireResponseItemAnswer, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { OTTEHR_MODULE, PAYMENT_METHOD_EXTENSION_URL } from '../fhir';
-import { CashPaymentDTO, PatchPaperworkParameters } from '../types';
+import { OTTEHR_MODULE, PAYMENT_METHOD_EXTENSION_URL, SLUG_SYSTEM } from '../fhir';
+import { CashPaymentDTO, PatchPaperworkParameters, ScheduleOwnerFhirResource } from '../types';
 import { phoneRegex, zipRegex } from '../validation';
 
 export function createOystehrClient(token: string, fhirAPI: string, projectAPI: string): Oystehr {
@@ -1109,4 +1109,9 @@ export const convertPaymentNoticeListToCashPaymentDTOs = (
     }
     return mapped;
   });
+};
+
+export const checkResourceHasSlug = (resource: ScheduleOwnerFhirResource, slug: string): boolean => {
+  const identifiers = resource.identifier ?? [];
+  return identifiers.some((id) => id.system === SLUG_SYSTEM && id.value === slug);
 };

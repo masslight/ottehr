@@ -21,6 +21,7 @@ import {
 import { uuid } from 'short-uuid';
 import {
   BookableScheduleData,
+  checkResourceHasSlug,
   isValidUUID,
   MISCONFIGURED_SCHEDULING_GROUP,
   SCHEDULE_NOT_FOUND_CUSTOM_ERROR,
@@ -50,7 +51,6 @@ export async function getSchedules(
   scheduleType: 'location' | 'provider' | 'group',
   slug: string
 ): Promise<GetScheduleResponse> {
-  //todo: change return type to include the owner outside the scheduleList
   const fhirType = (() => {
     if (scheduleType === 'location') {
       return 'Location';
@@ -113,7 +113,7 @@ export async function getSchedules(
   ).unbundle();
 
   const scheduleOwner = scheduleResources.find((res) => {
-    return res.resourceType === fhirType && res.identifier?.[0]?.value === slug;
+    return res.resourceType === fhirType && checkResourceHasSlug(res, slug);
   }) as Location | Practitioner | HealthcareService;
 
   let hsSchedulingStrategy: ScheduleStrategy | undefined;
