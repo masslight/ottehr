@@ -1,5 +1,8 @@
+import { DetectedIssue } from 'fhir/r4b';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useApiClients } from 'src/hooks/useAppClients';
+import { ERX } from 'src/telemed/features/appointment/ERX';
 import {
   ExtendedMedicationDataForResponse,
   MedicationData,
@@ -14,6 +17,7 @@ import { useReactNavigationBlocker } from '../../../hooks/useReactNavigationBloc
 import { getEditOrderUrl } from '../../../routing/helpers';
 import { ROUTER_PATH, routesCSS } from '../../../routing/routesCSS';
 import { CSSModal } from '../../CSSModal';
+import { InteractionAlertsDialog } from '../InteractionAlertsDialog';
 import { fieldsConfig, MedicationOrderType } from './fieldsConfig';
 import { MedicationCardView } from './MedicationCardView';
 import {
@@ -25,9 +29,6 @@ import {
   isUnsavedMedicationData,
   validateAllMedicationFields,
 } from './utils';
-import { ERX } from 'src/telemed/features/appointment/ERX';
-import { useApiClients } from 'src/hooks/useAppClients';
-import { InteractionAlertsDialog } from '../InteractionAlertsDialog';
 
 export const EditableMedicationCard: React.FC<{
   medication?: ExtendedMedicationDataForResponse;
@@ -317,6 +318,10 @@ export const EditableMedicationCard: React.FC<{
         }}
         onCancel={() => {
           console.log('onCancel');
+        }}
+        onConfirm={(issues: DetectedIssue[]) => {
+          console.log('onConfirm');
+          console.log(issues);
         }}
       />
     </>

@@ -1,18 +1,64 @@
-import React, { ReactElement } from 'react';
-import { Dialog, DialogContent, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
-import PriorityHighOutlinedIcon from '@mui/icons-material/PriorityHighOutlined';
-import { ErxCheckPrecheckInteractionsResponse } from '@oystehr/sdk';
-import { Box, Stack } from '@mui/system';
 import { otherColors } from '@ehrTheme/colors';
+import PriorityHighOutlinedIcon from '@mui/icons-material/PriorityHighOutlined';
+import {
+  Dialog,
+  DialogContent,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  TextField,
+  Typography,
+} from '@mui/material';
+import { Box, Stack } from '@mui/system';
+import { ErxCheckPrecheckInteractionsResponse } from '@oystehr/sdk';
+import { DetectedIssue } from 'fhir/r4b';
+import React, { ReactElement, useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
+
+const OTHER = 'Other';
+const OVERRIDE_REASON = [
+  'Will monitor or take precautions',
+  'Not clinically significant',
+  'Benefit Outweighs Risk',
+  'Patient tolerated previously',
+  'Dose adjusted',
+  OTHER,
+];
 
 interface Props {
   medicationName: string;
   interactions: ErxCheckPrecheckInteractionsResponse;
   onCancel: () => void;
+  onConfirm: (issues: DetectedIssue[]) => void;
+}
+
+interface State {
+  medications: {
+    drugId: string;
+    name: string;
+    severityLevel: 'MajorInteraction' | 'ModerateInteraction' | 'MinorInteraction' | 'Unknown';
+    message: string;
+    overrideReason?: string;
+    otherOverrideReason?: string;
+  }[];
+  allergies: {
+    message: string;
+    overrideReason?: string;
+    otherOverrideReason?: string;
+  }[];
 }
 
 export const InteractionAlertsDialog: React.FC<Props> = ({ medicationName, interactions, onCancel }) => {
+  const [state, setState] = useState<State>(initialStateFromInteractions(interactions));
+
+  console.log(state);
+
   const interactionTypeTitle = (title: string): ReactElement => {
     return (
       <Stack direction="row" spacing="12px" alignItems="center" style={{ marginTop: '16px' }}>
@@ -33,6 +79,7 @@ export const InteractionAlertsDialog: React.FC<Props> = ({ medicationName, inter
       </Stack>
     );
   };
+
   const interactionSubtitleBox = (text: string): ReactElement => {
     return (
       <Box
@@ -44,6 +91,55 @@ export const InteractionAlertsDialog: React.FC<Props> = ({ medicationName, inter
           {text}
         </Typography>
       </Box>
+    );
+  };
+
+  const overrideReasonDropdown = (
+    value: string | undefined,
+    id: string,
+    onChange: (newValue: string) => void
+  ): ReactElement => {
+    return (
+      <FormControl fullWidth sx={{ backgroundColor: 'white' }} size="small">
+        <InputLabel id={id}>Override reason</InputLabel>
+        <Select
+          label="Override reason"
+          labelId={id}
+          variant="outlined"
+          value={value ?? ''}
+          onChange={(e) => onChange(e.target.value)}
+        >
+          {OVERRIDE_REASON.map((reason) => {
+            return (
+              <MenuItem key={reason} value={reason}>
+                <Typography color="textPrimary" sx={{ fontSize: '16px' }}>
+                  {reason}
+                </Typography>
+              </MenuItem>
+            );
+          })}
+        </Select>
+      </FormControl>
+    );
+  };
+
+  const otherTextInput = (
+    parentValue: string | undefined,
+    value: string | undefined,
+    onChange: (newValue: string) => void
+  ): ReactElement => {
+    if (parentValue !== 'Other') {
+      return <></>;
+    }
+    return (
+      <TextField
+        label="Please specify*"
+        size="small"
+        value={value ?? ''}
+        fullWidth
+        onChange={(e: any) => onChange(e.target.value)}
+        style={{ marginTop: '8px' }}
+      />
     );
   };
 
@@ -60,24 +156,36 @@ export const InteractionAlertsDialog: React.FC<Props> = ({ medicationName, inter
         <Table style={{ border: '1px solid #DFE5E9', marginTop: '16px' }}>
           <TableHead>
             <TableRow>
-              <TableCell>Ordered</TableCell>
-              <TableCell>Interaction</TableCell>
-              <TableCell>Source</TableCell>
-              <TableCell>Severity</TableCell>
-              <TableCell>Interaction Description</TableCell>
-              <TableCell>Override reason</TableCell>
+              <TableCell width="15%">Ordered</TableCell>
+              <TableCell width="15%">Interaction</TableCell>
+              <TableCell width="10%">Source</TableCell>
+              <TableCell width="10%">Severity</TableCell>
+              <TableCell width="20%">Interaction Description</TableCell>
+              <TableCell width="30%">Override reason</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {interactions.medications.map((medication, index) => {
+            {state.medications.map((medication, index) => {
               return (
                 <TableRow key={index}>
                   <TableCell>todo</TableCell>
                   <TableCell>todo</TableCell>
                   <TableCell>todo</TableCell>
                   <TableCell>{medication.severityLevel}</TableCell>
-                  <TableCell>{medication.message}</TableCell>
-                  <TableCell>todo</TableCell>
+                  <TableCell style={{ verticalAlign: 'top' }}>{medication.message}</TableCell>
+                  <TableCell>
+                    {overrideReasonDropdown(medication.overrideReason, 'medication-' + index, (newValue: string) => {
+                      medication.overrideReason = newValue;
+                      if (newValue != OTHER) {
+                        medication.otherOverrideReason = undefined;
+                      }
+                      setState({ ...state });
+                    })}
+                    {otherTextInput(medication.overrideReason, medication.otherOverrideReason, (newValue: string) => {
+                      medication.otherOverrideReason = newValue;
+                      setState({ ...state });
+                    })}
+                  </TableCell>
                 </TableRow>
               );
             })}
@@ -88,31 +196,40 @@ export const InteractionAlertsDialog: React.FC<Props> = ({ medicationName, inter
   };
 
   const allergiesInteractions = (): ReactElement | undefined => {
-    if (interactions.allergies.length === 0) {
+    if (state.allergies.length === 0) {
       return undefined;
     }
     return (
       <Stack>
         {interactionTypeTitle('Allergy Interaction')}
         {interactionSubtitleBox(
-          `According to the patient's reported allergy to “[allergen name]”, ordering “${medicationName}” may result in an allergic reaction. `
+          `According to the patient's reported allergy, ordering “${medicationName}” may result in an allergic reaction.`
         )}
         <Table style={{ border: '1px solid #DFE5E9', marginTop: '16px' }}>
           <TableHead>
             <TableRow>
-              <TableCell>Patient Allergy</TableCell>
-              <TableCell>Reaction</TableCell>
-              <TableCell>Type</TableCell>
-              <TableCell>Allergy Description</TableCell>
-              <TableCell>Override reason</TableCell>
+              <TableCell width="70%">Allergy Description</TableCell>
+              <TableCell width="30%">Override reason</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {interactions.allergies.map((allergy, index) => {
+            {state.allergies.map((allergy, index) => {
               return (
                 <TableRow key={index}>
-                  <TableCell>{allergy.message}</TableCell>
-                  <TableCell>todo</TableCell>
+                  <TableCell style={{ verticalAlign: 'top' }}>{allergy.message}</TableCell>
+                  <TableCell>
+                    {overrideReasonDropdown(allergy.overrideReason, 'allergy-' + index, (newValue: string) => {
+                      allergy.overrideReason = newValue;
+                      if (newValue != OTHER) {
+                        allergy.otherOverrideReason = undefined;
+                      }
+                      setState({ ...state });
+                    })}
+                    {otherTextInput(allergy.overrideReason, allergy.otherOverrideReason, (newValue: string) => {
+                      allergy.otherOverrideReason = newValue;
+                      setState({ ...state });
+                    })}
+                  </TableCell>
                 </TableRow>
               );
             })}
@@ -137,3 +254,19 @@ export const InteractionAlertsDialog: React.FC<Props> = ({ medicationName, inter
     </Dialog>
   );
 };
+
+function initialStateFromInteractions(interactions: ErxCheckPrecheckInteractionsResponse): State {
+  return {
+    medications: interactions.medications.flatMap((medication) => {
+      return medication.drugIds.map((drugId) => ({
+        drugId: drugId.toString(),
+        name: 'todo',
+        severityLevel: medication.severityLevel,
+        message: medication.message,
+      }));
+    }),
+    allergies: interactions.allergies.map((allergy) => ({
+      message: allergy.message,
+    })),
+  };
+}
