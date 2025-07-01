@@ -1,5 +1,4 @@
 import { BatchInputDeleteRequest, BatchInputGetRequest, BatchInputPutRequest, BatchInputRequest } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import {
@@ -27,7 +26,7 @@ import {
   MedicationDTO,
   ObservationDTO,
 } from 'utils';
-import { checkOrCreateM2MClientToken, parseCreatedResourcesBundle, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, parseCreatedResourcesBundle, wrapHandler, ZambdaInput } from '../../shared';
 import {
   chartDataResourceHasMetaTagByCode,
   deleteEncounterAddendumNote,
@@ -54,7 +53,7 @@ type ChartData =
   | Procedure
   | ServiceRequest;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.log(`Input: ${JSON.stringify(input)}`);
     console.log('Validating input');

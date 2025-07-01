@@ -1,5 +1,4 @@
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter, Location, Patient, QuestionnaireResponse, Task } from 'fhir/r4b';
@@ -23,10 +22,10 @@ import {
 import { isNonPaperworkQuestionnaireResponse } from '../../common';
 import {
   checkPaperworkComplete,
-  configSentry,
   createOystehrClient,
   getAuth0Token,
   topLevelCatch,
+  wrapHandler,
   ZambdaInput,
 } from '../../shared';
 import { getUser } from '../../shared/auth';
@@ -40,9 +39,7 @@ export interface CheckInInputValidated extends CheckInInput {
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let zapehrToken: string;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  configSentry('check-in', input.secrets);
-  console.log(`Input: ${JSON.stringify(input)}`);
+export const index = wrapHandler('check-in', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.time('check-in-zambda');
 

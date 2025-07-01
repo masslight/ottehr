@@ -1,3 +1,4 @@
+// cSpell:ignore RCRT, RFRT, RPRT
 import { Pagination } from '..';
 import { LabelConfig } from './labs.types';
 
@@ -10,7 +11,7 @@ export const PSC_HOLD_CONFIG = {
 export const LAB_ORDER_TASK = {
   system: 'external-lab-task',
   code: {
-    presubmission: 'PST',
+    preSubmission: 'PST',
     reviewPreliminaryResult: 'RPRT',
     reviewFinalResult: 'RFRT',
     reviewCorrectedResult: 'RCRT',
