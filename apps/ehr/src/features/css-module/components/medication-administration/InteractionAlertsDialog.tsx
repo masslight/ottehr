@@ -54,10 +54,23 @@ interface State {
   }[];
 }
 
+const SEVERITY_TO_LABEL = {
+  MajorInteraction: 'Severe',
+  ModerateInteraction: 'Moderate',
+  MinorInteraction: 'Minor',
+  Unknown: 'Unknown',
+};
+
 export const InteractionAlertsDialog: React.FC<Props> = ({ medicationName, interactions, onCancel }) => {
   const [state, setState] = useState<State>(initialStateFromInteractions(interactions));
 
-  console.log(state);
+  const allReasonsValid: boolean = [...state.medications, ...state.allergies].reduce((acc, val) => {
+    return (
+      acc &&
+      val.overrideReason != null &&
+      (val.overrideReason !== OTHER || (val.otherOverrideReason ?? '').trim().length > 0)
+    );
+  }, true);
 
   const interactionTypeTitle = (title: string): ReactElement => {
     return (
@@ -143,6 +156,51 @@ export const InteractionAlertsDialog: React.FC<Props> = ({ medicationName, inter
     );
   };
 
+  const redCicrcle = (): ReactElement => {
+    return (
+      <Box
+        style={{
+          display: 'inline-block',
+          width: '12px',
+          height: '12px',
+          border: '6px #F44336 solid',
+          borderRadius: '6px',
+        }}
+      ></Box>
+    );
+  };
+
+  const emptyCicrcle = (): ReactElement => {
+    return (
+      <Box
+        style={{
+          display: 'inline-block',
+          width: '12px',
+          height: '12px',
+          border: '1px #DFE5E9 solid',
+          borderRadius: '6px',
+        }}
+      ></Box>
+    );
+  };
+
+  const severityWidget = (
+    severity: 'MajorInteraction' | 'ModerateInteraction' | 'MinorInteraction' | 'Unknown'
+  ): ReactElement => {
+    return (
+      <Stack direction="column">
+        {SEVERITY_TO_LABEL[severity]}
+        <Stack direction="row" spacing="2px">
+          {severity === 'MajorInteraction' || severity === 'ModerateInteraction' || severity === 'MinorInteraction'
+            ? redCicrcle()
+            : emptyCicrcle()}
+          {severity === 'MajorInteraction' || severity === 'ModerateInteraction' ? redCicrcle() : emptyCicrcle()}
+          {severity === 'MajorInteraction' ? redCicrcle() : emptyCicrcle()}
+        </Stack>
+      </Stack>
+    );
+  };
+
   const medicationsInteractions = (): ReactElement | undefined => {
     if (interactions.medications.length === 0) {
       return undefined;
@@ -171,7 +229,7 @@ export const InteractionAlertsDialog: React.FC<Props> = ({ medicationName, inter
                   <TableCell>todo</TableCell>
                   <TableCell>todo</TableCell>
                   <TableCell>todo</TableCell>
-                  <TableCell>{medication.severityLevel}</TableCell>
+                  <TableCell>{severityWidget(medication.severityLevel)}</TableCell>
                   <TableCell style={{ verticalAlign: 'top' }}>{medication.message}</TableCell>
                   <TableCell>
                     {overrideReasonDropdown(medication.overrideReason, 'medication-' + index, (newValue: string) => {
@@ -248,7 +306,9 @@ export const InteractionAlertsDialog: React.FC<Props> = ({ medicationName, inter
           <RoundedButton variant="outlined" onClick={onCancel}>
             Cancel
           </RoundedButton>
-          <RoundedButton variant="contained">Continue</RoundedButton>
+          <RoundedButton variant="contained" disabled={!allReasonsValid}>
+            Continue
+          </RoundedButton>
         </Box>
       </DialogContent>
     </Dialog>

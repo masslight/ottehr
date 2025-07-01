@@ -311,7 +311,25 @@ export const EditableMedicationCard: React.FC<{
             {
               message: 'med messsage',
               severityLevel: 'MajorInteraction',
-              drugIds: [235235, 23423, 3425235],
+              drugIds: [11, 111],
+              includesPending: false,
+            },
+            {
+              message: 'med messsage2',
+              severityLevel: 'ModerateInteraction',
+              drugIds: [22],
+              includesPending: false,
+            },
+            {
+              message: 'med messsage3',
+              severityLevel: 'MinorInteraction',
+              drugIds: [333],
+              includesPending: false,
+            },
+            {
+              message: 'med messsage4',
+              severityLevel: 'Unknown',
+              drugIds: [444],
               includesPending: false,
             },
           ],
