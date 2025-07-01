@@ -36,6 +36,8 @@ let m2mToken: string;
 
 export const index = async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
+    console.log('Received input body: ', JSON.stringify(unsafeInput.body, null, 2));
+
     const secrets = validateSecrets(unsafeInput.secrets);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
