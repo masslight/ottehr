@@ -31,7 +31,7 @@ export async function postChargeIssueRequest(apiUrl: string, token: string, enco
 export async function getPaymentDataRequest(apiUrl: string, token: string, encounterId?: string): Promise<any> {
   const serviceUrl = `${apiUrl}/payment/charge/status`;
 
-  console.debug(`Geting payment data at ${serviceUrl} for encounter ${encounterId}`);
+  console.debug(`Getting payment data at ${serviceUrl} for encounter ${encounterId}`);
 
   if (encounterId === undefined) {
     throw new Error('Encounter ID must be specified for payments.');

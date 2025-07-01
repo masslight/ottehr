@@ -1,8 +1,9 @@
 import { CodeableConcept, Medication, MedicationAdministration, MedicationStatement } from 'fhir/r4b';
-import { createReference, IN_HOUSE_CONTAINED_MEDICATION_ID, MedicationData } from 'utils';
 import {
+  createReference,
   DATE_OF_MEDICATION_ADMINISTERED_SYSTEM,
   getCreatedTheOrderProviderId,
+  IN_HOUSE_CONTAINED_MEDICATION_ID,
   MEDICATION_ADMINISTRATION_CSS_RESOURCE_CODE,
   MEDICATION_ADMINISTRATION_CSS_RESOURCE_SYSTEM,
   MEDICATION_ADMINISTRATION_OTHER_REASON_CODE,
@@ -12,6 +13,7 @@ import {
   MEDICATION_ADMINISTRATION_UNITS_SYSTEM,
   MedicationApplianceLocation,
   MedicationApplianceRoute,
+  MedicationData,
   PRACTITIONER_ADMINISTERED_MEDICATION_CODE,
   PRACTITIONER_ORDERED_MEDICATION_CODE,
   TIME_OF_MEDICATION_ADMINISTERED_SYSTEM,

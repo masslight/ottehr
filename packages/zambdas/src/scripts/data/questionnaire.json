@@ -540,7 +540,7 @@
           ]
         },
         {
-          "linkId": "preferred-pharmarcy-text",
+          "linkId": "preferred-pharmacy-text",
           "text": "Preferred pharmacy",
           "type": "display",
           "extension": [

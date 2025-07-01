@@ -66,6 +66,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
   const { isFetching: isSearchingCpt, data: cptData } = useGetIcd10Search({
     search: cptDebouncedSearchTerm,
     sabs: 'CPT',
+    radiologyOnly: true, // Only fetch CPT codes related to radiology
   });
   const cptSearchOptions = cptData?.codes || [];
   const { debounce } = useDebounce(800);
