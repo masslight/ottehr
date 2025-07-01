@@ -1078,9 +1078,9 @@ const mapResourceToChartDataFields = (
     resource?.resourceType === 'Observation' &&
     chartDataResourceHasMetaTagBySystem(resource, `${PRIVATE_EXTENSION_BASE_URL}/${ADDITIONAL_QUESTIONS_META_SYSTEM}`)
   ) {
-    const resourse = makeObservationDTO(resource);
-    // TODO check edge cases if resourse is null
-    if (resourse) data.observations?.push(resourse);
+    const resourceDto = makeObservationDTO(resource);
+    // TODO check edge cases if resource is null
+    if (resourceDto) data.observations?.push(resourceDto);
     resourceMapped = true;
   } else if (
     resource?.resourceType === 'Observation' &&
@@ -1143,8 +1143,8 @@ const mapResourceToChartDataFields = (
     resource?.resourceType === 'Observation' &&
     chartDataResourceHasMetaTagBySystem(resource, `${PRIVATE_EXTENSION_BASE_URL}/${AI_OBSERVATION_META_SYSTEM}`)
   ) {
-    const resourse = makeObservationDTO(resource);
-    if (resourse) data.observations?.push(resourse);
+    const resourceDto = makeObservationDTO(resource);
+    if (resourceDto) data.observations?.push(resourceDto);
     resourceMapped = true;
   } else if (
     resource.resourceType === 'QuestionnaireResponse' &&
