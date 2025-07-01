@@ -576,7 +576,7 @@ test('ready for discharge patients queue', () => {
     prebookedRightOnTime.appointment,
   ];
 
-  const sorted = sortAppointments(appointments, apptRefToEncounterMap).inOffice.inExam['ready for discharge'];
+  const sorted = sortAppointments(appointments, apptRefToEncounterMap).checkedOut;
 
   expect(sorted.length).toBe(expectedOrder.length);
   sorted.forEach((val, idx) => {
