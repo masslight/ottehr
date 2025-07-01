@@ -191,12 +191,10 @@ const addNewStatusToVisit = (
   const encounterStatusHistory = visit.encounter.statusHistory;
   const curStatus = encounterStatusHistory?.find((h) => !h.period.end);
   if (encounterStatusHistory) {
-    if (curStatus && curStatus?.status !== status) {
+    if (curStatus) {
       curStatus.period.end = endTime;
-      encounterStatusHistory.push(newStatusHistory);
-    } else if (!curStatus) {
-      encounterStatusHistory.push(newStatusHistory);
     }
+    encounterStatusHistory.push(newStatusHistory);
   } else {
     visit.encounter.statusHistory = [newStatusHistory];
   }
@@ -563,17 +561,17 @@ test('ready for discharge patients queue', () => {
   const { appointments, apptRefToEncounterMap } = getAppointmentsAndMap(visits);
 
   const expectedOrder: Appointment[] = [
-    walkin74MinsAgo.appointment,
-    walkin75MinsAgo.appointment,
-    walkin11MinsAgo.appointment,
-    prebooked15MinEarly.appointment,
-    preBooked17MinEarly.appointment,
-    preBooked5MinEarly.appointment,
-    preBooked10MinEarly.appointment,
+    prebookedRightOnTime.appointment,
+    prebooked15MinEarly2.appointment,
     prebookedAlmostRightOnTime.appointment,
     walkinJustNow.appointment,
-    prebooked15MinEarly2.appointment,
-    prebookedRightOnTime.appointment,
+    preBooked10MinEarly.appointment,
+    preBooked5MinEarly.appointment,
+    preBooked17MinEarly.appointment,
+    prebooked15MinEarly.appointment,
+    walkin11MinsAgo.appointment,
+    walkin75MinsAgo.appointment,
+    walkin74MinsAgo.appointment,
   ];
 
   const sorted = sortAppointments(appointments, apptRefToEncounterMap).checkedOut;
