@@ -50,7 +50,9 @@ export const CompletedFormsContainer: FC = () => {
       const bundleResource = bundleEntry.resource as Bundle;
       bundleResource.entry?.forEach((entry) => {
         const docRefResource = entry.resource as DocumentReference;
-        docRefResource && documentReferenceResources.push(docRefResource);
+        if (docRefResource) {
+          documentReferenceResources.push(docRefResource);
+        }
       });
     });
 

@@ -154,7 +154,9 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
       });
     }
 
-    onSigned && onSigned();
+    if (onSigned) {
+      onSigned();
+    }
   };
 
   return (

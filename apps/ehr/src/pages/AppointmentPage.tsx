@@ -689,7 +689,9 @@ export default function AppointmentPage(): ReactElement {
           const bundleResource = bundleEntry.resource as Bundle;
           bundleResource.entry?.forEach((entry) => {
             const docRefResource = entry.resource as DocumentReference;
-            docRefResource && documentReferenceResources.push(docRefResource);
+            if (docRefResource) {
+              documentReferenceResources.push(docRefResource);
+            }
           });
         });
 
@@ -710,12 +712,13 @@ export default function AppointmentPage(): ReactElement {
 
               if (z3Url && title && Object.values<string>(DocumentType).includes(title)) {
                 const presignedUrl = await getPresignedFileUrl(z3Url, authToken);
-                presignedUrl &&
+                if (presignedUrl) {
                   allZ3Documents.push({
                     z3Url: z3Url,
                     presignedUrl: presignedUrl,
                     type: title as DocumentType,
                   });
+                }
               }
             }
           }

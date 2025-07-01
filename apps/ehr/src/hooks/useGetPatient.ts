@@ -15,7 +15,7 @@ import {
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
-import { useMutation, useQuery } from 'react-query';
+import { useMutation, UseMutationResult, useQuery, UseQueryResult } from 'react-query';
 import { getVisitTypeLabelForAppointment } from 'src/types/types';
 import {
   getFirstName,
@@ -226,7 +226,6 @@ export const useGetPatient = (
   };
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetPatientAccount = (
   {
     apiClient,
@@ -236,7 +235,7 @@ export const useGetPatientAccount = (
     patientId: string | null;
   },
   onSuccess?: (data: PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getPatientAccount']>>) => void
-) => {
+): UseQueryResult<PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getPatientAccount']>>, unknown> => {
   return useQuery(
     ['patient-account-get', { apiClient, patientId }],
     () => {
@@ -254,8 +253,7 @@ export const useGetPatientAccount = (
   );
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useRemovePatientCoverage = () => {
+export const useRemovePatientCoverage = (): UseMutationResult<void, unknown, RemoveCoverageZambdaInput> => {
   const apiClient = useZapEHRAPIClient();
 
   return useMutation(['remove-patient-coverage'], async (input: RemoveCoverageZambdaInput): Promise<void> => {
@@ -269,8 +267,9 @@ export const useRemovePatientCoverage = () => {
   });
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useUpdatePatientAccount = (onSuccess?: () => void) => {
+export const useUpdatePatientAccount = (
+  onSuccess?: () => void
+): UseMutationResult<void, unknown, QuestionnaireResponse> => {
   const apiClient = useZapEHRAPIClient();
 
   return useMutation(
@@ -304,8 +303,9 @@ export const useUpdatePatientAccount = (onSuccess?: () => void) => {
   );
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useGetInsurancePlans = (onSuccess: (data: Bundle<InsurancePlan>) => void) => {
+export const useGetInsurancePlans = (
+  onSuccess: (data: Bundle<InsurancePlan>) => void
+): UseQueryResult<Bundle<InsurancePlan>, unknown> => {
   const { oystehr } = useApiClients();
 
   const fetchAllInsurancePlans = async (): Promise<Bundle<InsurancePlan>> => {
@@ -357,8 +357,9 @@ export const useGetInsurancePlans = (onSuccess: (data: Bundle<InsurancePlan>) =>
   });
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useGetPatientDetailsUpdateForm = (onSuccess?: (data: Questionnaire) => void) => {
+export const useGetPatientDetailsUpdateForm = (
+  onSuccess?: (data: Questionnaire) => void
+): UseQueryResult<Questionnaire, unknown> => {
   const { oystehr } = useApiClients();
 
   const [url, version] = updateQRUrl.split('|');

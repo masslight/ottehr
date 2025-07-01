@@ -48,7 +48,6 @@ import { useZapEHRAPIClient } from '../../hooks/useOystehrAPIClient';
 import { createRefreshableAppointmentData, extractReviewAndSignAppointmentData } from '../../utils';
 import { useAppointmentStore } from './appointment.store';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetReviewAndSignData = (
   {
     appointmentId,
@@ -58,7 +57,7 @@ export const useGetReviewAndSignData = (
     runImmediately: boolean;
   },
   onSuccess: (data: ReviewAndSignData | undefined) => void
-) => {
+): UseQueryResult<(Appointment | Encounter)[], unknown> => {
   const { oystehr } = useApiClients();
   return useQuery(
     ['telemed-appointment-review-and-sign', { appointmentId }],
@@ -89,7 +88,6 @@ export const useGetReviewAndSignData = (
   );
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useRefreshableAppointmentData = (
   {
     appointmentId,
@@ -99,6 +97,7 @@ export const useRefreshableAppointmentData = (
     isEnabled: boolean;
   },
   onSuccess: (data: RefreshableAppointmentData) => void
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
   return useGetTelemedAppointmentPeriodicRefresh(
     {
@@ -113,7 +112,6 @@ export const useRefreshableAppointmentData = (
   );
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetTelemedAppointmentPeriodicRefresh = (
   {
     appointmentId,
@@ -125,6 +123,7 @@ export const useGetTelemedAppointmentPeriodicRefresh = (
     refreshIntervalMs: number | undefined;
   },
   onSuccess: (data: VisitResources[]) => void
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
   const { oystehr } = useApiClients();
   const refetchOptions = refreshIntervalMs ? { refetchInterval: refreshIntervalMs } : {};
@@ -226,7 +225,6 @@ export const useGetAppointment = (
   return query;
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetDocumentReferences = (
   {
     appointmentId,
@@ -236,6 +234,7 @@ export const useGetDocumentReferences = (
     patientId: string | undefined;
   },
   onSuccess: (data: Bundle<FhirResource>) => void
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
   const { oystehr } = useApiClients();
   return useQuery(
@@ -317,11 +316,11 @@ export const useGetTelemedAppointmentWithSMSModel = (
   );
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetMeetingData = (
   getAccessTokenSilently: () => Promise<string>,
   onSuccess: (data: MeetingData) => void,
   onError: (error: Error) => void
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
   return useQuery(
     ['meeting-data'],
@@ -368,7 +367,6 @@ export type ChartDataCacheKey = [
   { [key: string]: any } | undefined,
 ];
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetChartData = (
   {
     apiClient,
@@ -385,6 +383,7 @@ export const useGetChartData = (
   },
   onSuccess: (data: PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getChartData']>>) => void,
   onError?: (error: any) => void
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
   const user = useEvolveUser();
   const { isAppointmentLoading } = getSelectors(useAppointmentStore, ['isAppointmentLoading']);
@@ -599,10 +598,10 @@ export const useUpdatePaperwork = () => {
   });
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetPatientInstructions = (
   { type }: { type: InstructionType },
   onSuccess?: (data: PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getPatientInstructions']>>) => void
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
   const apiClient = useZapEHRAPIClient();
 
@@ -654,7 +653,6 @@ export const useDeletePatientInstruction = () => {
   });
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useSyncERXPatient = ({
   patient,
   enabled,
@@ -663,6 +661,7 @@ export const useSyncERXPatient = ({
   patient: Patient;
   enabled: boolean;
   onError: (err: any) => void;
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 }) => {
   const { oystehr } = useApiClients();
 
