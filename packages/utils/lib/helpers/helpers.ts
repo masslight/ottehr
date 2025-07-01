@@ -1,7 +1,6 @@
 import Oystehr, { OystehrConfig } from '@oystehr/sdk';
 import { Appointment, Extension, PaymentNotice, QuestionnaireResponseItemAnswer, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { phone } from 'phone';
 import { OTTEHR_MODULE, PAYMENT_METHOD_EXTENSION_URL } from '../fhir';
 import { CashPaymentDTO, PatchPaperworkParameters } from '../types';
 import { phoneRegex, zipRegex } from '../validation';
@@ -68,10 +67,7 @@ export const isPhoneNumberValid = (phoneNumber: string | undefined): boolean => 
     return false;
   }
   const plusOneRegex = /^\+1\d{10}$/;
-  return (
-    (plusOneRegex.test(phoneNumber) || tenDigitRegex.test(phoneNumber) || phoneRegex.test(phoneNumber)) &&
-    phone(phoneNumber).isValid
-  );
+  return plusOneRegex.test(phoneNumber) || tenDigitRegex.test(phoneNumber) || phoneRegex.test(phoneNumber);
 };
 
 export function formatPhoneNumber(phoneNumber: string | undefined): string | undefined {
