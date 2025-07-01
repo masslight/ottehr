@@ -643,7 +643,8 @@ export default function AppointmentTableRow({
     if (
       appointment.status === 'ready for provider' ||
       appointment.status === 'provider' ||
-      appointment.status === 'completed'
+      appointment.status === 'completed' ||
+      appointment.status === 'ready for discharge'
     ) {
       return (
         <GoToButton
