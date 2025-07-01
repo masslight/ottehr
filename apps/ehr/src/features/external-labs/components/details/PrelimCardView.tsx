@@ -20,7 +20,7 @@ export const PrelimCardView: FC<PrelimCardViewProps> = ({
   const getDateEvent = (): { event: 'received' | 'reviewed'; date: string } => {
     return receivedDate
       ? { event: 'received', date: formatDateForLabs(receivedDate, timezone) }
-      : { event: 'reviewed', date: formatDateForLabs(reviewedDate || '', timezone) };
+      : { event: 'reviewed', date: formatDateForLabs(reviewedDate, timezone) };
   };
 
   const openPdf = (): void => {

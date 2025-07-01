@@ -334,9 +334,7 @@ export const getInHouseResources = async (
     }
   }
 
-  const [practitioners] = await Promise.all([
-    fetchPractitionersForServiceRequests(oystehr, serviceRequests, encounters),
-  ]);
+  const practitioners = await fetchPractitionersForServiceRequests(oystehr, serviceRequests, encounters);
 
   return {
     serviceRequests,
