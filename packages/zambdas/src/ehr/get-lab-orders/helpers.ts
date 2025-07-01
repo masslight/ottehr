@@ -82,8 +82,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
   resultPDFs: LabResultPDF[],
   orderPDF: LabOrderPDF | undefined,
   specimens: Specimen[],
-  slots: Slot[],
-  scheduleMap: Record<string, Schedule>,
+  appointmentScheduleMap: Record<string, Schedule>,
   ENVIRONMENT: string
 ): LabOrderDTO<SearchBy>[] => {
   console.log('mapResourcesToLabOrderDTOs');
@@ -116,8 +115,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
           resultPDFs,
           orderPDF,
           specimens,
-          slots,
-          scheduleMap,
+          appointmentScheduleMap,
           cache,
         })
       );
@@ -143,8 +141,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   resultPDFs,
   orderPDF,
   specimens,
-  slots,
-  scheduleMap,
+  appointmentScheduleMap,
   cache,
 }: {
   searchBy: SearchBy;
@@ -161,8 +158,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   resultPDFs: LabResultPDF[];
   orderPDF: LabOrderPDF | undefined;
   specimens: Specimen[];
-  slots: Slot[];
-  scheduleMap: Record<string, Schedule>;
+  appointmentScheduleMap: Record<string, Schedule>;
   cache?: Cache;
 }): LabOrderDTO<SearchBy> => {
   console.log('parsing external lab order data');
@@ -192,7 +188,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
     diagnosesDTO: parseDiagnoses(serviceRequest),
     orderingPhysician: parsePractitionerNameFromServiceRequest(serviceRequest, practitioners),
     diagnoses: parseDx(serviceRequest),
-    encounterTimezone: parseTimezoneForAppointmentSchedule(appointment, slots, scheduleMap),
+    encounterTimezone: parseTimezoneForAppointmentSchedule(appointment, appointmentScheduleMap),
   };
 
   if (searchBy.searchBy.field === 'serviceRequestId') {
@@ -420,8 +416,7 @@ export const getLabResources = async (
   orderPDF: LabOrderPDF | undefined;
   specimens: Specimen[];
   patientLabItems: PatientLabItem[];
-  slots: Slot[];
-  scheduleMap: Record<string, Schedule>;
+  appointmentScheduleMap: Record<string, Schedule>;
 }> => {
   const labServiceRequestSearchParams = createLabServiceRequestSearchParams(params);
   console.log('labServiceRequestSearchParams', JSON.stringify(labServiceRequestSearchParams));
@@ -482,8 +477,7 @@ export const getLabResources = async (
     practitioners,
     documentReferences,
     appointments,
-    slots,
-    scheduleMap,
+    appointmentScheduleMap,
   } = extractLabResources(labResources);
 
   const isDetailPageRequest = searchBy.searchBy.field === 'serviceRequestId';
@@ -528,8 +522,7 @@ export const getLabResources = async (
     specimens,
     pagination,
     patientLabItems,
-    slots,
-    scheduleMap,
+    appointmentScheduleMap,
   };
 };
 
@@ -711,8 +704,7 @@ export const extractLabResources = (
   practitioners: Practitioner[];
   documentReferences: DocumentReference[];
   appointments: Appointment[];
-  slots: Slot[];
-  scheduleMap: Record<string, Schedule>;
+  appointmentScheduleMap: Record<string, Schedule>;
 } => {
   console.log('extracting lab resources');
   console.log(`${resources.length} resources total`);
@@ -732,6 +724,8 @@ export const extractLabResources = (
   const appointments: Appointment[] = [];
   const slots: Slot[] = [];
   const scheduleMap: Record<string, Schedule> = {};
+  const appointmentScheduleMap: Record<string, Schedule> = {};
+
   for (const resource of resources) {
     if (resource.resourceType === 'ServiceRequest') {
       const serviceRequest = resource as ServiceRequest;
@@ -775,6 +769,20 @@ export const extractLabResources = (
     }
   }
 
+  for (const appointment of appointments) {
+    const slot = slots.find((slot) => {
+      const slotRef = `Slot/${slot.id}`;
+      return appointment.slot?.some((s) => s.reference === slotRef);
+    });
+    const scheduleId = slot?.schedule.reference?.replace('Schedule/', '');
+    if (scheduleId) {
+      const schedule = scheduleMap[scheduleId];
+      if (schedule && appointment.id && !appointmentScheduleMap[appointment.id]) {
+        appointmentScheduleMap[appointment.id] = schedule;
+      }
+    }
+  }
+
   return {
     serviceRequests,
     tasks,
@@ -789,8 +797,7 @@ export const extractLabResources = (
     practitioners,
     documentReferences,
     appointments,
-    slots,
-    scheduleMap,
+    appointmentScheduleMap,
   };
 };
 

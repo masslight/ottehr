@@ -55,8 +55,7 @@ export const index = wrapHandler('get-in-house-orders', async (input: ZambdaInpu
       diagnosticReports,
       resultsPDFs,
       currentPractitioner,
-      slots,
-      scheduleMap,
+      appointmentScheduleMap,
     } = await getInHouseResources(
       oystehr,
       validatedParameters,
@@ -94,8 +93,7 @@ export const index = wrapHandler('get-in-house-orders', async (input: ZambdaInpu
       diagnosticReports,
       resultsPDFs,
       ENVIRONMENT,
-      slots,
-      scheduleMap,
+      appointmentScheduleMap,
       currentPractitioner
     );
     const sortedOrders = inHouseOrders.sort((a, b) => compareDates(a.orderAddedDate, b.orderAddedDate));

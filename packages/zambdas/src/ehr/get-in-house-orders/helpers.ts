@@ -68,8 +68,7 @@ export const mapResourcesToInHouseOrderDTOs = <SearchBy extends InHouseOrdersSea
   diagnosticReports: DiagnosticReport[],
   resultsPDFs: LabResultPDF[],
   ENVIRONMENT: string,
-  slots: Slot[],
-  scheduleMap: Record<string, Schedule>,
+  appointmentScheduleMap: Record<string, Schedule>,
   currentPractitioner?: Practitioner
 ): InHouseGetOrdersResponseDTO<SearchBy>['data'] => {
   const result: InHouseGetOrdersResponseDTO<SearchBy>['data'] = [];
@@ -103,8 +102,7 @@ export const mapResourcesToInHouseOrderDTOs = <SearchBy extends InHouseOrdersSea
           activityDefinitions,
           specimens,
           observations,
-          slots,
-          scheduleMap,
+          appointmentScheduleMap,
           cache,
           resultsPDF,
           currentPractitionerName: currentPractitioner ? getFullestAvailableName(currentPractitioner) || '' : '',
@@ -131,8 +129,7 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
   activityDefinitions,
   specimens,
   observations,
-  slots,
-  scheduleMap,
+  appointmentScheduleMap,
   cache,
   resultsPDF,
   currentPractitionerName,
@@ -148,8 +145,7 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
   activityDefinitions: ActivityDefinition[];
   specimens: Specimen[];
   observations: Observation[];
-  slots: Slot[];
-  scheduleMap: Record<string, Schedule>;
+  appointmentScheduleMap: Record<string, Schedule>;
   cache?: Cache;
   resultsPDF?: LabResultPDF;
   currentPractitionerName?: string;
@@ -187,7 +183,7 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
     orderingPhysicianFullName: attendingPractitioner ? getFullestAvailableName(attendingPractitioner) || '' : '',
     resultReceivedDate: parseResultsReceivedDate(serviceRequest, tasks),
     diagnosesDTO: diagnosisDTO,
-    timezone: parseTimezoneForAppointmentSchedule(appointment, slots, scheduleMap),
+    timezone: parseTimezoneForAppointmentSchedule(appointment, appointmentScheduleMap),
     orderAddedDate: parseOrderAddedDate(serviceRequest, tasks),
     serviceRequestId: serviceRequest.id,
   };
@@ -265,8 +261,7 @@ export const getInHouseResources = async (
   diagnosticReports: DiagnosticReport[];
   resultsPDFs: LabResultPDF[];
   currentPractitioner?: Practitioner;
-  slots: Slot[];
-  scheduleMap: Record<string, Schedule>;
+  appointmentScheduleMap: Record<string, Schedule>;
 }> => {
   const searchParams = createInHouseServiceRequestSearchParams(params);
   console.log('createInHouseServiceRequestSearchParams', searchParams);
@@ -291,8 +286,7 @@ export const getInHouseResources = async (
     diagnosticReports,
     activityDefinitions,
     appointments,
-    slots,
-    scheduleMap,
+    appointmentScheduleMap,
   } = extractInHouseResources(resources);
 
   const isDetailPageRequest = searchBy.searchBy.field === 'serviceRequestId';
@@ -351,8 +345,7 @@ export const getInHouseResources = async (
     diagnosticReports,
     resultsPDFs,
     currentPractitioner,
-    slots,
-    scheduleMap,
+    appointmentScheduleMap,
   };
 };
 
@@ -500,8 +493,7 @@ export const extractInHouseResources = (
   diagnosticReports: DiagnosticReport[];
   activityDefinitions: ActivityDefinition[];
   appointments: Appointment[];
-  slots: Slot[];
-  scheduleMap: Record<string, Schedule>;
+  appointmentScheduleMap: Record<string, Schedule>;
 } => {
   const serviceRequests: ServiceRequest[] = [];
   const tasks: Task[] = [];
@@ -515,6 +507,7 @@ export const extractInHouseResources = (
   const appointments: Appointment[] = [];
   const slots: Slot[] = [];
   const scheduleMap: Record<string, Schedule> = {};
+  const appointmentScheduleMap: Record<string, Schedule> = {};
 
   for (const resource of resources) {
     if (resource.resourceType === 'ServiceRequest') {
@@ -547,6 +540,20 @@ export const extractInHouseResources = (
     }
   }
 
+  for (const appointment of appointments) {
+    const slot = slots.find((slot) => {
+      const slotRef = `Slot/${slot.id}`;
+      return appointment.slot?.some((s) => s.reference === slotRef);
+    });
+    const scheduleId = slot?.schedule.reference?.replace('Schedule/', '');
+    if (scheduleId) {
+      const schedule = scheduleMap[scheduleId];
+      if (schedule && appointment.id && !appointmentScheduleMap[appointment.id]) {
+        appointmentScheduleMap[appointment.id] = schedule;
+      }
+    }
+  }
+
   return {
     serviceRequests,
     tasks,
@@ -558,8 +565,7 @@ export const extractInHouseResources = (
     diagnosticReports,
     activityDefinitions,
     appointments,
-    slots,
-    scheduleMap,
+    appointmentScheduleMap,
   };
 };
 

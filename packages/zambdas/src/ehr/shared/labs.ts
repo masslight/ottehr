@@ -15,7 +15,6 @@ import {
   QuestionnaireResponse,
   Schedule,
   ServiceRequest,
-  Slot,
   Specimen,
   Task,
 } from 'fhir/r4b';
@@ -571,18 +570,10 @@ export const parseAppointmentIdForServiceRequest = (
 
 export const parseTimezoneForAppointmentSchedule = (
   appointment: Appointment | undefined,
-  slots: Slot[],
-  scheduleMap: Record<string, Schedule>
+  appointmentScheduleMap: Record<string, Schedule>
 ): string | undefined => {
-  if (!appointment) return;
-  const slot = slots.find((slot) => {
-    const slotRef = `Slot/${slot.id}`;
-    return appointment.slot?.some((s) => s.reference === slotRef);
-  });
-  if (!slot) return;
-  const scheduleId = slot.schedule.reference?.replace('Schedule/', '');
-  if (!scheduleId) return;
-  const schedule = scheduleMap[scheduleId];
+  if (!appointment || !appointment.id) return;
+  const schedule = appointmentScheduleMap[appointment.id];
   let timezone;
   if (schedule) {
     timezone = getTimezone(schedule);
