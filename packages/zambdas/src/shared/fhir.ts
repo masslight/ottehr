@@ -177,16 +177,16 @@ export async function getSchedules(
       }
     });
 
-    schedules.forEach((sched) => {
-      const owner = sched.actor[0]?.reference ?? '';
+    schedules.forEach((scheduleObj) => {
+      const owner = scheduleObj.actor[0]?.reference ?? '';
       const [ownerResourceType, ownerId] = owner.split('/');
       if (ownerResourceType === 'Practitioner' && ownerId) {
-        const practitioner = practitioners.find((prac) => {
-          return prac.id === ownerId;
+        const practitioner = practitioners.find((practitionerObj) => {
+          return practitionerObj.id === ownerId;
         });
         if (practitioner) {
           scheduleList.push({
-            schedule: sched,
+            schedule: scheduleObj,
             owner: practitioner,
           });
         }
@@ -208,8 +208,8 @@ export async function getSchedules(
       }
     });
 
-    schedules.forEach((sched) => {
-      const owner = sched.actor[0]?.reference ?? '';
+    schedules.forEach((scheduleObj) => {
+      const owner = scheduleObj.actor[0]?.reference ?? '';
       const [ownerResourceType, ownerId] = owner.split('/');
       if (ownerResourceType === 'Location' && ownerId) {
         const location = locations.find((loc) => {
@@ -217,7 +217,7 @@ export async function getSchedules(
         });
         if (location) {
           scheduleList.push({
-            schedule: sched,
+            schedule: scheduleObj,
             owner: location,
           });
         }
@@ -229,7 +229,7 @@ export async function getSchedules(
     const matchingSchedules = schedules.filter((res) => {
       return res.actor?.[0]?.reference === `${scheduleOwner.resourceType}/${scheduleOwner.id}`;
     });
-    scheduleList.push(...matchingSchedules.map((sched) => ({ schedule: sched, owner: scheduleOwner })));
+    scheduleList.push(...matchingSchedules.map((scheduleObj) => ({ schedule: scheduleObj, owner: scheduleOwner })));
   }
 
   return {

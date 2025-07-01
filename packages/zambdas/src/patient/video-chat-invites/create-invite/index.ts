@@ -16,7 +16,7 @@ import {
 } from 'utils';
 import { getAuth0Token, getVideoEncounterForAppointment, lambdaResponse, ZambdaInput } from '../../../shared';
 import { getUser } from '../../../shared/auth';
-import { sendSms, sendVideoChatInvititationEmail } from '../../../shared/communication';
+import { sendSms, sendVideoChatInvitationEmail } from '../../../shared/communication';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -133,7 +133,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const patientChosenName = chosenName || patientResource.name?.[0].given?.[0] || 'Patient';
 
     if (emailAddress) {
-      await sendVideoChatInvititationEmail({
+      await sendVideoChatInvitationEmail({
         toAddress: emailAddress,
         inviteUrl: inviteUrl,
         patientName: patientChosenName,

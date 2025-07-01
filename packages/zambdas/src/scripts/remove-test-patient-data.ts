@@ -19,7 +19,7 @@ const deleteTestPatientsData = async (config: any): Promise<void> => {
       params: [
         {
           name: 'name',
-          value: 'Test_Doe_Random,TA_User,TM_User,Test_firstname',
+          value: 'Test_Doe_Random,TA_User,TM_User,Test_first_name',
         },
         {
           name: '_revinclude',
