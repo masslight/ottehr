@@ -68,11 +68,12 @@ export enum ExternalLabsStatus {
   reviewed = 'reviewed',
   cancelled = 'cancelled',
   corrected = 'corrected',
+  'cancelled by lab' = 'cancelled by lab',
   unknown = 'unknown', // for debugging purposes
 }
 
 export type LabOrderUnreceivedHistoryRow = {
-  action: 'ordered' | 'performed';
+  action: 'ordered' | 'performed' | 'cancelled by lab';
   performer: string;
   date: string;
 };
@@ -89,7 +90,7 @@ export type LabOrderHistoryRow = LabOrderUnreceivedHistoryRow | LabOrderReceived
 export type LabOrderResultDetails = {
   testItem: string;
   testType: 'reflex' | 'ordered';
-  resultType: 'final' | 'preliminary';
+  resultType: 'final' | 'preliminary' | 'cancelled';
   labStatus: ExternalLabsStatus;
   diagnosticReportId: string;
   taskId: string;

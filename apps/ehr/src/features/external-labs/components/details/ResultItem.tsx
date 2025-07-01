@@ -47,7 +47,7 @@ export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails, loading 
         </Box>
       </Box>
 
-      {resultDetails.resultType === 'final' && (
+      {(resultDetails.resultType === 'final' || resultDetails.resultType === 'cancelled') && (
         <FinalCardView
           resultPdfUrl={resultDetails.resultPdfUrl}
           labStatus={resultDetails.labStatus}
