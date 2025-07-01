@@ -11,7 +11,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { DatePicker, TimePicker } from '@mui/x-date-pickers';
+import { DateTimePicker } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { LocalizationProvider } from '@mui/x-date-pickers-pro';
 import { ErxSearchMedicationsResponse } from '@oystehr/sdk';
@@ -30,13 +30,12 @@ interface CurrentMedicationsProviderColumnForm {
   medication: ExtractObjectType<ErxSearchMedicationsResponse> | null;
   type: MedicationDTO['type'];
   date: DateTime | null;
-  time: DateTime | null;
   dose: string | null;
 }
 
 export const CurrentMedicationsProviderColumn: FC = () => {
   const methods = useForm<CurrentMedicationsProviderColumnForm>({
-    defaultValues: { medication: null, time: null, dose: null, date: null, type: 'scheduled' },
+    defaultValues: { medication: null, dose: null, date: null, type: 'scheduled' },
   });
   const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
@@ -84,18 +83,13 @@ export const CurrentMedicationsProviderColumn: FC = () => {
         id: data.medication?.id?.toString(),
         type: data.type,
         intakeInfo: {
-          date: data.date
-            ? data.date
-                .set({ hour: data.time?.hour, minute: data.time?.minute })
-                .toUTC()
-                .toString()
-            : undefined,
+          date: data.date?.toUTC().toString(),
           dose: data.dose ?? undefined,
         },
         status: 'active',
       });
       if (success) {
-        reset({ medication: null, date: null, time: null, dose: null, type: 'scheduled' });
+        reset({ medication: null, date: null, dose: null, type: 'scheduled' });
       }
     }
   };
@@ -249,52 +243,30 @@ export const CurrentMedicationsProviderColumn: FC = () => {
                 control={control}
                 rules={{
                   validate: (val) => {
-                    if (!val) return true;
-                    return !val ? 'Provide valid date' : val?.invalidExplanation || undefined;
-                  },
-                }}
-                render={({ field: { onChange, value }, fieldState: { error } }) => (
-                  <Box data-testid={dataTestIds.telemedEhrFlow.hpiCurrentMedicationsDateInput}>
-                    <LocalizationProvider dateAdapter={AdapterLuxon}>
-                      <DatePicker
-                        onChange={onChange}
-                        label="Last date medication was taken"
-                        value={value || null}
-                        slotProps={{
-                          textField: {
-                            InputLabelProps: { shrink: true },
-                            InputProps: { size: 'small', placeholder: 'MM/DD/YYYY' },
-                            error: !!error,
-                          },
-                        }}
-                      />
-                    </LocalizationProvider>
-                  </Box>
-                )}
-              />
-              <Controller
-                name="time"
-                control={control}
-                rules={{
-                  validate: (val) => {
-                    if (!val) return true;
-                    return !val ? 'Provide valid time' : val?.invalidExplanation || undefined;
+                    if (val && !val.isValid) {
+                      return val.invalidExplanation ?? 'Provide valid date time';
+                    }
+                    return true;
                   },
                 }}
                 render={({ field: { value, onChange }, fieldState: { error } }) => (
-                  <Box data-testid={dataTestIds.telemedEhrFlow.hpiCurrentMedicationsTimeInput}>
+                  <Box
+                    sx={{ gridColumn: 'span 2' }}
+                    data-testid={dataTestIds.telemedEhrFlow.hpiCurrentMedicationsDateTimeInput}
+                  >
                     <LocalizationProvider dateAdapter={AdapterLuxon}>
-                      <TimePicker
+                      <DateTimePicker
                         onChange={onChange}
                         value={value || null}
                         label="Last time medication was taken"
                         slotProps={{
                           textField: {
+                            sx: { width: '100%' },
                             InputLabelProps: { shrink: true },
                             InputProps: { size: 'small', error: !!error },
                           },
                         }}
-                      ></TimePicker>
+                      ></DateTimePicker>
                     </LocalizationProvider>
                   </Box>
                 )}

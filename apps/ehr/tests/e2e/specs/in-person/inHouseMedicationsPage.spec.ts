@@ -42,7 +42,7 @@ test.afterEach(async () => {
   await resourceHandler.cleanupResources();
 });
 
-test('Open Order Medication screen, check all fields are required', async ({ page }) => {
+test('Open Order Medication screen, check required fields', async ({ page }) => {
   const orderMedicationPage = await prepareAndOpenOrderMedicationPage(page);
   // we have selected dx by default now so we can proceed to verification
   await orderMedicationPage.clickOrderMedicationButton();
@@ -60,6 +60,7 @@ test('Open Order Medication screen, check all fields are required', async ({ pag
   await orderMedicationPage.editMedicationCard.selectRoute(ROUTE);
   await orderMedicationPage.clickOrderMedicationButton();
 
+  await orderMedicationPage.editMedicationCard.verifyValidationErrorNotShown(Field.ASSOCIATED_DX);
   await orderMedicationPage.editMedicationCard.verifyValidationErrorNotShown(Field.MANUFACTURER);
   await orderMedicationPage.editMedicationCard.verifyValidationErrorNotShown(Field.INSTRUCTIONS);
 });
