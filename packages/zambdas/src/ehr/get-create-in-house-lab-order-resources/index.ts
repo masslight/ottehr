@@ -20,7 +20,7 @@ import {
   topLevelCatch,
   ZambdaInput,
 } from '../../shared';
-import { fetchActiveInHouseLabActivityDefinitions } from '../shared/inhouse-labs';
+import { fetchActiveInHouseLabActivityDefinitions } from '../shared/in-house-labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
