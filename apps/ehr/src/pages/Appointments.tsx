@@ -419,9 +419,9 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
                         handleSubmit={handleSubmit}
                         location={locationSelected}
                         updateURL={true}
-                        storeLocationInLocalStorage={true}
+                        //storeLocationInLocalStorage={true}
                         setLocation={setLocationSelected}
-                      ></LocationSelect>
+                      />
                     </Grid>
                     <Grid item md={4.7} xs={12}>
                       <Autocomplete
