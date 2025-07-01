@@ -1,12 +1,11 @@
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { Operation } from 'fast-json-patch';
 import { CodeableConcept, DocumentReference, List, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { addOperation, getSecret, OTTEHR_MODULE, replaceOperation, Secrets, SecretsKeys } from 'utils';
-import { checkOrCreateM2MClientToken, topLevelCatch, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { makeZ3Url } from '../../shared/presigned-file-urls';
 import { createPresignedUrl } from '../../shared/z3Utils';
@@ -32,10 +31,10 @@ export interface CreateUploadPatientDocumentOutput {
   documentRefId: string;
   folderId: string;
 }
-
+const ZAMBDA_NAME = 'create-upload-document';
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   logIt(`handler() start.`);
   try {
     const validatedInput = validateRequestParameters(input);
