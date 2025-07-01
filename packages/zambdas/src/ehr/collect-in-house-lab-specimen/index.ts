@@ -92,7 +92,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       practitionerFromEncounterId !== validatedParameters.data.specimen.collectedBy.id &&
       userPractitionerId !== validatedParameters.data.specimen.collectedBy.id
     ) {
-      // todo: not sure about this check, but looks better to have it, without this any participant may be setted with custom request
+      // todo: not sure about this check, but looks better to have it, without this any participant may be set with custom request
       throw Error('Practitioner mismatch');
     }
 

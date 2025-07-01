@@ -32,7 +32,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
             resourceType: 'Practitioner',
             id: practitionerId,
           })) ?? null;
-        console.log('Existing pract: ' + JSON.stringify(existingPractitionerResource));
+        console.log('Existing practitioner: ' + JSON.stringify(existingPractitionerResource));
       } catch (error: any) {
         if (
           error.resourceType === 'OperationOutcome' &&

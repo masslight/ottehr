@@ -51,6 +51,7 @@ export interface EnhancedBody
 }
 
 // Constants
+// cSpell:disable-next date format
 const DATE_FORMAT = 'yyyyMMddhhmmssuu';
 const PERSON_IDENTIFIER_CODE_SYSTEM = 'https://fhir.ottehr.com/Identifier/person-uuid';
 const SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL =
@@ -307,7 +308,7 @@ const writeAdvaPacsTransaction = async (
       },
     };
 
-    const serviceReqeuestToCreate: BatchInputPutRequest<ServiceRequestR5> = {
+    const serviceRequestToCreate: BatchInputPutRequest<ServiceRequestR5> = {
       method: 'PUT',
       url: `ServiceRequest?identifier=${ACCESSION_NUMBER_CODE_SYSTEM}|${ourServiceRequest.identifier?.[0].value}`,
       resource: {
@@ -360,7 +361,7 @@ const writeAdvaPacsTransaction = async (
     const advaPacsTransactionRequest = {
       resourceType: 'Bundle',
       type: 'transaction',
-      entry: [patientToCreate, requestingPractitionerToCreate, serviceReqeuestToCreate].map((request) => {
+      entry: [patientToCreate, requestingPractitionerToCreate, serviceRequestToCreate].map((request) => {
         return {
           resource: {
             ...request.resource,

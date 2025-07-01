@@ -9,7 +9,7 @@ export function validateRequestParameters(
   }
 
   if (input.headers.Authorization === undefined) {
-    throw new Error('Auhtorization token is not provided in headers');
+    throw new Error('Authorization token is not provided in headers');
   }
 
   const data = JSON.parse(input.body) as SaveChartDataRequest;
