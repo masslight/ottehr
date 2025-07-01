@@ -76,7 +76,7 @@ async function createReceiptPdfBytes(data: ReceiptData): Promise<Uint8Array> {
   drawBlockHeader('Receipt of Payment');
   pdfClient.newLine(12);
   pdfClient.drawText(
-    'Credit Card Transaction Details(card ending, card type, athorization/transaction number)',
+    'Credit Card Transaction Details(card ending, card type, authorization/transaction number)',
     textStyles.fieldHeader
   );
   pdfClient.newLine(24);

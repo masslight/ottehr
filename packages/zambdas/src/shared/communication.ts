@@ -90,6 +90,7 @@ export const sendInPersonCancellationEmail = async (input: InPersonCancellationE
   // In case of e.g. en-US or en-GB, ignore local dialect
   switch (language.split('-')[0]) {
     case 'es':
+      // cSpell:disable-next spanish
       subject = 'In Person: Su consulta ha sido cancelada';
       templateId = SENDGRID_SPANISH_CANCELLATION_EMAIL_TEMPLATE_ID;
       break;
@@ -154,11 +155,13 @@ export async function sendInPersonMessages(
     appointmentType === 'walkin' || appointmentType === 'posttelemed'
       ? `${messageAll}: ${WEBSITE_URL}/paperwork/${appointmentID}`
       : `You're confirmed! ${messageAll}, or modify/cancel your visit: ${WEBSITE_URL}/visit/${appointmentID}`;
+  // cSpell:disable-next spanish
   const messageAllSpanish = `¡Gracias por elegir ${PROJECT_NAME} In Person! Su hora de registro para ${firstName} en ${scheduleResource.name} es el día ${startTime}. Nuestra nueva tecnología requiere que los pacientes nuevos Y los recurrentes completen los formularios y se aseguren de que los registros estén actualizados. Para expediar el proceso, antes de su llegada por favor llene el papeleo`;
   const messageSpanish =
     appointmentType === 'walkin' || appointmentType === 'posttelemed'
       ? `${messageAllSpanish}: ${WEBSITE_URL}/paperwork/${appointmentID}`
-      : `¡Está confirmado! ${messageAllSpanish}. Para completar la documentación o modificar/cancelar su registro, visite: ${WEBSITE_URL}/visit/${appointmentID}`;
+      : // cSpell:disable-next spanish
+        `¡Está confirmado! ${messageAllSpanish}. Para completar la documentación o modificar/cancelar su registro, visite: ${WEBSITE_URL}/visit/${appointmentID}`;
 
   const oystehr = createOystehrClient(
     token,
@@ -180,11 +183,11 @@ export async function sendInPersonMessages(
   }
 
   try {
-    const commid = await oystehr.transactionalSMS.send({
+    const commId = await oystehr.transactionalSMS.send({
       message: selectedMessage,
       resource: messageRecipient,
     });
-    console.log('message send successful', commid);
+    console.log('message send successful', commId);
   } catch (e) {
     console.log('message send error: ', JSON.stringify(e));
     void sendErrors(e, getSecret(SecretsKeys.ENVIRONMENT, secrets));
@@ -214,6 +217,7 @@ export const sendInPersonConfirmationEmail = async (input: InPersonConfirmationE
   // In case of e.g. en-US or en-GB, ignore local dialect
   switch (language?.split('-')?.[0] ?? 'en') {
     case 'es':
+      // cSpell:disable-next spanish
       subject = `Confirmación de su consulta en ${PROJECT_NAME}`;
       templateId = SENDGRID_SPANISH_CONFIRMATION_EMAIL_TEMPLATE_ID;
       break;
@@ -351,7 +355,7 @@ export interface VideoChatInvitationEmailInput {
   secrets: Secrets | null;
 }
 
-export const sendVideoChatInvititationEmail = async (input: VideoChatInvitationEmailInput): Promise<void> => {
+export const sendVideoChatInvitationEmail = async (input: VideoChatInvitationEmailInput): Promise<void> => {
   try {
     const { toAddress, inviteUrl, patientName, secrets } = input;
     const SENDGRID_VIDEO_CHAT_INVITATION_EMAIL_TEMPLATE_ID = getSecret(
@@ -377,11 +381,11 @@ export async function sendSms(
   ENVIRONMENT: string
 ): Promise<void> {
   try {
-    const commid = await oystehr.transactionalSMS.send({
+    const commId = await oystehr.transactionalSMS.send({
       message,
       resource: resourceReference,
     });
-    console.log('message send res: ', commid);
+    console.log('message send res: ', commId);
   } catch (e) {
     console.log('message send error: ', JSON.stringify(e));
     void sendErrors(e, ENVIRONMENT);
@@ -403,6 +407,6 @@ export async function sendSmsForPatient(
     console.error("Message didn't send because no related person was found for this patient, patientId: " + patient.id);
     return;
   }
-  const recepient = `RelatedPerson/${relatedPerson.id}`;
-  await sendSms(message, recepient, oystehr, ENVIRONMENT);
+  const recipient = `RelatedPerson/${relatedPerson.id}`;
+  await sendSms(message, recipient, oystehr, ENVIRONMENT);
 }

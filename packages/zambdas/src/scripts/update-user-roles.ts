@@ -33,7 +33,7 @@ const updateUserRoles = async (config: any): Promise<void> => {
     { name: RoleType.Inactive, accessPolicy: INACTIVE_RULES },
   ];
 
-  console.log('searching for exisiting roles for the project');
+  console.log('searching for existing roles for the project');
   const existingRolesResponse = await fetch(`${config.PROJECT_API}/iam/role`, {
     method: 'GET',
     headers: {

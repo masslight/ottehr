@@ -297,7 +297,7 @@ async function updateProjectZambda(
     const createSubscriptionRequests: BatchInputPostRequest<Subscription>[] = [];
     const deleteSubscriptionRequests: BatchInputDeleteRequest[] = [];
 
-    // check existing subscriptions against current subscription details to determin if any should be deleted
+    // check existing subscriptions against current subscription details to determine if any should be deleted
     // if any events are changing, delete
     // if any existing criteria doesn't exist in the details array defined above, delete
     const subscriptionsNotChanging = subscriptionsSearch.reduce((acc: Subscription[], existingSubscription) => {
@@ -326,9 +326,9 @@ async function updateProjectZambda(
       return acc;
     }, []);
 
-    // check current subscription details again existing subscriptions to determin if any should be created
+    // check current subscription details again existing subscriptions to determine if any should be created
     zambda.subscriptionDetails.forEach((subscriptionDetail) => {
-      // if the subscription detail is found in subscriptions not chaning, do nothing
+      // if the subscription detail is found in subscriptions not changing, do nothing
       const foundSubscription = subscriptionsNotChanging.find(
         (subscription) => subscription.criteria === subscriptionDetail.criteria
       );

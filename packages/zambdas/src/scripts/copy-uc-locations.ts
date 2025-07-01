@@ -3,8 +3,7 @@ import { randomUUID } from 'crypto';
 import { Location, Practitioner, PractitionerRole } from 'fhir/r4b';
 import fs from 'fs';
 import { FHIR_BASE_URL } from 'utils';
-import { getAuth0Token } from '../shared';
-import { createOystehrClient } from '../shared';
+import { createOystehrClient, getAuth0Token } from '../shared';
 
 const directorsAreSame = (practitioner1: Practitioner, practitioner2: Practitioner | undefined): boolean => {
   if (!practitioner1 || !practitioner2) {
@@ -64,8 +63,8 @@ const getDirectorNPIUpdates = (practitioner: Practitioner): BatchInputPutRequest
 };
 
 const filterDirectorListForInclusion = (listToFilter: Practitioner[], sourceList: Practitioner[]): Practitioner[] => {
-  return listToFilter.filter((pract) => {
-    return sourceList.some((sp) => directorsAreSame(pract, sp));
+  return listToFilter.filter((practitioner) => {
+    return sourceList.some((sp) => directorsAreSame(practitioner, sp));
   });
 };
 
@@ -114,7 +113,7 @@ const copyLocations = async (fromConfig: any, toConfig: any, isDryRun = true): P
         });
       });
 
-    const sourceDirectorRolesAndPracts = (
+    const sourceDirectorRolesAndPractitioners = (
       await sourceEnvOystehrClient.fhir.search<PractitionerRole | Practitioner>({
         resourceType: 'PractitionerRole',
         params: [
@@ -133,7 +132,7 @@ const copyLocations = async (fromConfig: any, toConfig: any, isDryRun = true): P
         ],
       })
     ).unbundle();
-    const destinationDirectorRolesAndPracts = (
+    const destinationDirectorRolesAndPractitioners = (
       await destinationEnvOystehrClient.fhir.search<PractitionerRole | Practitioner>({
         resourceType: 'PractitionerRole',
         params: [
@@ -153,17 +152,17 @@ const copyLocations = async (fromConfig: any, toConfig: any, isDryRun = true): P
       })
     ).unbundle();
 
-    const sourceDirectorRoles = sourceDirectorRolesAndPracts.filter(
+    const sourceDirectorRoles = sourceDirectorRolesAndPractitioners.filter(
       (res) => res.resourceType === 'PractitionerRole'
     ) as PractitionerRole[];
-    const sourceDirectors = sourceDirectorRolesAndPracts.filter(
+    const sourceDirectors = sourceDirectorRolesAndPractitioners.filter(
       (res) => res.resourceType === 'Practitioner'
     ) as Practitioner[];
 
-    const destinationDirectorRoles = destinationDirectorRolesAndPracts.filter(
+    const destinationDirectorRoles = destinationDirectorRolesAndPractitioners.filter(
       (res) => res.resourceType === 'PractitionerRole'
     ) as PractitionerRole[];
-    let destinationDirectors = destinationDirectorRolesAndPracts.filter(
+    let destinationDirectors = destinationDirectorRolesAndPractitioners.filter(
       (res) => res.resourceType === 'Practitioner'
     ) as Practitioner[];
     destinationDirectors = filterDirectorListForInclusion(destinationDirectors, sourceDirectors);
@@ -182,33 +181,33 @@ const copyLocations = async (fromConfig: any, toConfig: any, isDryRun = true): P
       const sourceDirector = sourceDirectors.find(
         (dir) => sourceDirectorRole?.practitioner?.reference === `Practitioner/${dir.id}`
       );
-      const targLoc = toEnvUCLocs.find((loc) => {
+      const targetLoc = toEnvUCLocs.find((loc) => {
         return loc.name === sourceLoc.name && loc.address?.state && loc.address?.state === sourceLoc?.address?.state;
       });
-      if (targLoc) {
+      if (targetLoc) {
         locationsToUpdate.push({
           resource: {
-            ...targLoc,
+            ...targetLoc,
             extension: sourceLoc.extension,
           },
           method: 'PUT',
-          url: `Location/${targLoc.id}`,
+          url: `Location/${targetLoc.id}`,
         });
         let destDirectorRole = destinationDirectorRoles.find(
-          (role) => role.location?.[0]?.reference === `Location/${targLoc.id}`
+          (role) => role.location?.[0]?.reference === `Location/${targetLoc.id}`
         );
         if (!destDirectorRole) {
           destDirectorRole = await destinationEnvOystehrClient.fhir.create<PractitionerRole>({
             resourceType: 'PractitionerRole',
             location: [
               {
-                reference: `Location/${targLoc.id}`,
+                reference: `Location/${targetLoc.id}`,
               },
             ],
           });
         }
         if (!destDirectorRole) {
-          console.log('dest director role missing', targLoc.name);
+          console.log('dest director role missing', targetLoc.name);
           throw new Error('director role missing');
         }
         const destDirector = destinationDirectors.find(
@@ -218,14 +217,14 @@ const copyLocations = async (fromConfig: any, toConfig: any, isDryRun = true): P
           if (!sourceDirector) {
             console.log(`source director missing for ${sourceLoc.name} - skipping`);
           } else {
-            const practiontionerToUse = destinationDirectors.find((dd) => directorsAreSame(dd, sourceDirector));
-            console.log('linking practitioner to role for ', targLoc.name);
+            const practitionerToUse = destinationDirectors.find((dd) => directorsAreSame(dd, sourceDirector));
+            console.log('linking practitioner to role for ', targetLoc.name);
             rolesToUpdate.push({
               method: 'PUT',
               url: `PractitionerRole/${destDirectorRole.id}`,
               resource: {
                 ...destDirectorRole,
-                practitioner: { reference: `Practitioner/${practiontionerToUse?.id}` },
+                practitioner: { reference: `Practitioner/${practitionerToUse?.id}` },
               },
             });
           }
@@ -240,7 +239,7 @@ const copyLocations = async (fromConfig: any, toConfig: any, isDryRun = true): P
             }
           } else {
             // no cases of this observed...
-            console.log('directors different, update needed', targLoc.name);
+            console.log('directors different, update needed', targetLoc.name);
           }
         }
       } else {
@@ -254,15 +253,15 @@ const copyLocations = async (fromConfig: any, toConfig: any, isDryRun = true): P
             id: undefined,
           },
         });
-        let practiontionerToUse: Practitioner | undefined;
+        let practitionerToUse: Practitioner | undefined;
         if (sourceDirector) {
-          practiontionerToUse = destinationDirectors.find((dd) => directorsAreSame(dd, sourceDirector));
+          practitionerToUse = destinationDirectors.find((dd) => directorsAreSame(dd, sourceDirector));
         } else if (sourceDirectorRole) {
           const randomIdx = Math.round(Math.random() * 100) % destinationDirectors.length;
           console.log('randomIdx', randomIdx);
-          practiontionerToUse = destinationDirectors[randomIdx];
+          practitionerToUse = destinationDirectors[randomIdx];
 
-          const sourceDir = sourceDirectors.find((dir) => directorsAreSame(dir, practiontionerToUse));
+          const sourceDir = sourceDirectors.find((dir) => directorsAreSame(dir, practitionerToUse));
           sourceRolesToUpdate.push({
             method: 'PUT',
             url: `PractitionerRole/${sourceDirectorRole?.id}`,
@@ -274,7 +273,7 @@ const copyLocations = async (fromConfig: any, toConfig: any, isDryRun = true): P
         } else {
           console.log('source director role missing', sourceLoc.name);
           const randomIdx = Math.round(Math.random() * 100) % destinationDirectors.length;
-          practiontionerToUse = destinationDirectors[randomIdx];
+          practitionerToUse = destinationDirectors[randomIdx];
           const sourceDir = sourceDirectorRoles[randomIdx];
           sourceRolesToCreate.push({
             resource: {
@@ -297,7 +296,7 @@ const copyLocations = async (fromConfig: any, toConfig: any, isDryRun = true): P
           resource: {
             resourceType: 'PractitionerRole',
             location: [{ reference: fullUrl }],
-            practitioner: { reference: `Practitioner/${practiontionerToUse?.id}` },
+            practitioner: { reference: `Practitioner/${practitionerToUse?.id}` },
           },
         });
       }
