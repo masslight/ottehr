@@ -16,7 +16,7 @@ import {
   MEDICATION_ADMINISTRATION_CSS_RESOURCE_CODE,
   OrderPackage,
 } from 'utils';
-import { createOystehrClient } from '../../shared';
+import { createOystehrClient, wrapHandler } from '../../shared';
 import { ZambdaInput } from '../../shared';
 import { checkOrCreateM2MClientToken } from '../../shared';
 import { getMedicationFromMA } from '../create-update-medication-order/helpers';
