@@ -154,14 +154,17 @@ export const EditableMedicationCard: React.FC<{
       isSavedRef.current = true;
 
       if (type === 'order-new') {
-        response?.id && navigate(getEditOrderUrl(appointmentId!, response.id));
+        if (response?.id) {
+          navigate(getEditOrderUrl(appointmentId!, response.id));
+        }
         return;
       }
 
       // upd saved status in the local state
-      medicationUpdateRequestInputRefRef.current?.newStatus &&
+      if (medicationUpdateRequestInputRefRef.current?.newStatus) {
         void handleStatusSelect(medicationUpdateRequestInputRefRef.current.newStatus);
-    } catch (error) {
+      }
+    } catch {
       console.error(error);
     } finally {
       setIsUpdating(false);

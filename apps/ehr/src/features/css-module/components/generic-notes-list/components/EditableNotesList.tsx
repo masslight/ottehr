@@ -42,7 +42,7 @@ export const EditableNotesList: React.FC<EditableNotesListProps> = ({
     try {
       await handleSave(text);
       setSavingEntityText('');
-    } catch (error) {
+    } catch {
       enqueueSnackbar(locales.getErrorMessage('saving', locales.entityLabel), { variant: 'error' });
     } finally {
       setIsSaving(false);

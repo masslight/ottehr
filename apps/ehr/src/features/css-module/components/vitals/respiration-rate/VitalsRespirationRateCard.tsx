@@ -56,7 +56,7 @@ const VitalsRespirationRateCard: React.FC = (): JSX.Element => {
         };
         await handleSaveVital(vitalObs);
         setRespirationRateValueText('');
-      } catch (error) {
+      } catch {
         enqueueSnackbar('Error saving respiration rate data', { variant: 'error' });
       } finally {
         setSavingCardData(false);
