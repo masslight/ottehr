@@ -5,7 +5,13 @@ import HealthAndSafetyOutlinedIcon from '@mui/icons-material/HealthAndSafetyOutl
 import { Box } from '@mui/material';
 import { displayOrdersToolTip } from 'src/helpers';
 import { otherColors } from 'src/themes/ottehr/colors';
-import { InHouseOrderListPageItemDTO, InPersonAppointmentInformation, LabOrderListPageDTO, NursingOrder } from 'utils';
+import {
+  ExtendedMedicationDataForResponse,
+  InHouseOrderListPageItemDTO,
+  InPersonAppointmentInformation,
+  LabOrderListPageDTO,
+  NursingOrder,
+} from 'utils';
 import { ApptTab } from './AppointmentTabs';
 import { GenericToolTip, PaperworkToolTipContent } from './GenericToolTip';
 import { OrdersIconsToolTip } from './OrdersIconsToolTip';
@@ -16,6 +22,7 @@ interface InfoIconsToolTipProps {
   inHouseLabOrders: InHouseOrderListPageItemDTO[] | undefined;
   externalLabOrders: LabOrderListPageDTO[] | undefined;
   nursingOrders: NursingOrder[] | undefined;
+  inHouseMedications: ExtendedMedicationDataForResponse[] | undefined;
 }
 export const InfoIconsToolTip: React.FC<InfoIconsToolTipProps> = ({
   appointment,
@@ -23,6 +30,7 @@ export const InfoIconsToolTip: React.FC<InfoIconsToolTipProps> = ({
   inHouseLabOrders,
   externalLabOrders,
   nursingOrders,
+  inHouseMedications,
 }) => {
   const ordersToolTip = displayOrdersToolTip(appointment, tab);
 
@@ -34,6 +42,7 @@ export const InfoIconsToolTip: React.FC<InfoIconsToolTipProps> = ({
           externalLabOrders={externalLabOrders}
           inHouseLabOrders={inHouseLabOrders}
           nursingOrders={nursingOrders}
+          inHouseMedications={inHouseMedications}
         />
       ) : (
         // Visit Components

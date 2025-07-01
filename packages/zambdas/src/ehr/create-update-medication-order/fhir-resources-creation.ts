@@ -63,7 +63,7 @@ export function createMedicationAdministrationResource(data: MedicationAdministr
     ],
   };
   if (orderData.patient) resource.subject = { reference: `Patient/${orderData.patient}` };
-  if (orderData.encounter) resource.context = { reference: `Encounter/${orderData.encounter}` };
+  if (orderData.encounterId) resource.context = { reference: `Encounter/${orderData.encounterId}` };
   if (createdProviderId) {
     resource.performer = [
       {
