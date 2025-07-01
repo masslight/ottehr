@@ -1,4 +1,3 @@
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, Location, Practitioner } from 'fhir/r4b';
 import {
@@ -18,16 +17,16 @@ import {
   createOystehrClient,
   getMyPractitionerId,
   topLevelCatch,
+  wrapHandler,
   ZambdaInput,
 } from '../../shared';
 import { fetchActiveInHouseLabActivityDefinitions } from '../shared/in-house-labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
+const ZAMBDA_NAME = 'get-create-in-house-lab-order-resources';
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`get-create-in-house-lab-order-resources started, input: ${JSON.stringify(input)}`);
-
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   let secrets = input.secrets;
   let validatedParameters: GetCreateInHouseLabOrderResourcesParameters & { secrets: Secrets | null; userToken: string };
 

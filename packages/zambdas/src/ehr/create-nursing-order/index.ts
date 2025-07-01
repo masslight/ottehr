@@ -1,5 +1,4 @@
 import { BatchInputRequest } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import {
@@ -27,6 +26,7 @@ import {
   fillMeta,
   getMyPractitionerId,
   topLevelCatch,
+  wrapHandler,
   ZambdaInput,
 } from '../../shared';
 import { getPrimaryInsurance } from '../shared/labs';
@@ -34,7 +34,7 @@ import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler('create-nursing-order', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`create-nursing-order started, input: ${JSON.stringify(input)}`);
 
   let validatedParameters: CreateNursingOrderInputValidated;

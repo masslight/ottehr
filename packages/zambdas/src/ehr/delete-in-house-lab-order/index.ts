@@ -1,5 +1,4 @@
 import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Bundle, FhirResource, Provenance, ServiceRequest, Task } from 'fhir/r4b';
 import {
@@ -9,7 +8,13 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  topLevelCatch,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
 
@@ -97,7 +102,9 @@ const getInHouseLabOrderRelatedResources = async (
   }
 };
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+const ZAMBDA_NAME = 'delete-in-house-lab-order';
+
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`delete-in-house-lab-order started, input: ${JSON.stringify(input)}`);
 
   let secrets = input.secrets;
