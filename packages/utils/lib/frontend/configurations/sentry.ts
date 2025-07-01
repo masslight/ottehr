@@ -11,7 +11,7 @@ export function setupSentry(
   Sentry.init({
     integrations: [
       Sentry.reactRouterV6BrowserTracingIntegration({
-        useEffect: React.useEffect,
+        useEffect,
         useLocation,
         useNavigationType,
         createRoutesFromChildren,
