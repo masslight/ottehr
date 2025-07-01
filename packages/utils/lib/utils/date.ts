@@ -144,7 +144,7 @@ export const yupDateTransform = (d: any): string => {
   }
   try {
     return isoStringFromYMDString(d || '');
-  } catch (e) {
+  } catch {
     return d;
   }
 };
