@@ -109,7 +109,7 @@ export const getTimezone = async ({
         timezoneMap.set(resourceId, timezone);
         console.log(`timezone found for ${resourceId} and added to timezoneMap`, timezone);
       } else {
-        console.error(`timezone not setted for ${resourceId}`);
+        console.error(`timezone not set for ${resourceId}`);
       }
     } catch (e) {
       console.log('error getting location', JSON.stringify(e));
@@ -291,7 +291,9 @@ const getActorParamsForAppointmentQueryInput = async ({
           locationIdParams.push(...locations.map((location) => `Location/${location.id}`));
         }
         if (scheduleStrategy === ScheduleStrategy.poolsProviders || scheduleStrategy === ScheduleStrategy.poolsAll) {
-          practitionerIdParams.push(...practitioners.map((prac) => `Practitioner/${prac.id}`));
+          practitionerIdParams.push(
+            ...practitioners.map((currentPractitioner) => `Practitioner/${currentPractitioner.id}`)
+          );
         }
 
         if (scheduleStrategy === ScheduleStrategy.poolsLocations) {

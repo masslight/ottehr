@@ -210,7 +210,7 @@ export async function createVisitLabelPDF(
   console.log(`These are the docRefs returned for the label: `, JSON.stringify(docRefs));
 
   if (!docRefs.length) {
-    throw new Error('Unable to make docrefs for label');
+    throw new Error('Unable to make docRefs for label');
   }
 
   const presignedURL = await getPresignedURL(pdfInfo.uploadURL, token);

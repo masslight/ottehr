@@ -1,4 +1,3 @@
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Location, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -21,19 +20,18 @@ import {
   Timezone,
 } from 'utils';
 import {
-  configSentry,
   createOystehrClient,
   getAuth0Token,
   getSchedules,
   topLevelCatch,
+  wrapHandler,
   ZambdaInput,
 } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let zapehrToken: string;
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  configSentry('get-schedule', input.secrets);
+export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log('this should get logged out if the zambda has been deployed');
   console.log(`Input: ${JSON.stringify(input)}`);
 

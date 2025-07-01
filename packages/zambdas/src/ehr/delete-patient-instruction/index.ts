@@ -1,15 +1,16 @@
 import Oystehr from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Communication } from 'fhir/r4b';
 import { getSecret, SecretsKeys } from 'utils';
-import { checkOrCreateM2MClientToken, topLevelCatch, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+const ZAMBDA_NAME = 'delete-patient-instructions';
+
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.log(`Input: ${JSON.stringify(input)}`);
     const { instructionId, secrets, userToken } = validateRequestParameters(input);

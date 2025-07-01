@@ -1,5 +1,4 @@
 import Oystehr, { RoleListItem, UserListItem } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { FhirResource, Practitioner, PractitionerQualification, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -17,7 +16,7 @@ import {
   SecretsKeys,
   standardizePhoneNumber,
 } from 'utils';
-import { getAuth0Token, getRoleMembers, lambdaResponse, topLevelCatch, ZambdaInput } from '../../shared';
+import { getAuth0Token, getRoleMembers, lambdaResponse, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -32,7 +31,7 @@ export interface GetEmployeesInput {
 }
 
 let zapehrToken: string;
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler('get-employees', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);

@@ -1,5 +1,4 @@
 import Oystehr, { BatchInputPostRequest, Bundle } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import {
@@ -38,13 +37,13 @@ import {
 } from '../../../ehr/shared/harvest';
 import { getStripeClient } from '../../../patient/payment-methods/helpers';
 import {
-  configSentry,
   createOystehrClient,
   getAuth0Token,
   makeObservationResource,
   saveResourceRequest,
   topLevelCatch,
   triggerSlackAlarm,
+  wrapHandler,
   ZambdaInput,
 } from '../../../shared';
 import { createAdditionalQuestions } from '../../appointment/appointment-chart-data-prefilling/helpers';
@@ -52,15 +51,14 @@ import { QRSubscriptionInput, validateRequestParameters } from './validateReques
 
 let zapehrToken: string;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  configSentry('sub-intake-harvest', input.secrets);
+export const index = wrapHandler('sub-intake-harvest', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log('Intake Harvest Hath Been Invoked');
   console.log(`Input: ${JSON.stringify(input)}`);
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
     const { qr, secrets } = validatedParameters;
-    console.log('questionnaire reponse id', qr.id);
+    console.log('questionnaire response id', qr.id);
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
@@ -328,7 +326,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
   if (tasksFailed.length && ENVIRONMENT !== 'local') {
     await triggerSlackAlarm(
-      `Alert in ${ENVIRONMENT} zambda qr-subscriotion.\n\nOne or more harvest paperwork tasks failed for QR ${qr.id}:\n\n${tasksFailed}`,
+      `Alert in ${ENVIRONMENT} zambda qr-subscription.\n\nOne or more harvest paperwork tasks failed for QR ${qr.id}:\n\n${tasksFailed}`,
       secrets
     );
   }

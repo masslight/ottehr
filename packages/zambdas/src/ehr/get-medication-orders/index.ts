@@ -1,5 +1,4 @@
 import Oystehr from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { MedicationAdministration, Patient, Practitioner } from 'fhir/r4b';
 import {
@@ -17,15 +16,15 @@ import {
   MEDICATION_ADMINISTRATION_CSS_RESOURCE_CODE,
   OrderPackage,
 } from 'utils';
-import { createOystehrClient } from '../../shared';
+import { createOystehrClient, wrapHandler } from '../../shared';
 import { ZambdaInput } from '../../shared';
 import { checkOrCreateM2MClientToken } from '../../shared';
 import { getMedicationFromMA } from '../create-update-medication-order/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
-
 let m2mToken: string;
+const ZAMBDA_NAME = 'get-medication-orders';
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
 

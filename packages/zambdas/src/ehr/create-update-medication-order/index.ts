@@ -20,7 +20,7 @@ import {
   UpdateMedicationOrderInput,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, ZambdaInput } from '../../shared';
-import { createMedicationAdministrationResource, createMedicationStatementResource } from './fhir-recources-creation';
+import { createMedicationAdministrationResource, createMedicationStatementResource } from './fhir-resources-creation';
 import {
   createMedicationCopy,
   getMedicationById,
