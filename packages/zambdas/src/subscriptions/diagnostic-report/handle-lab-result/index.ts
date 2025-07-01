@@ -72,7 +72,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     // make the new task
     const newTask: Task = {
       resourceType: 'Task',
-      authoredOn: DateTime.now().toUTC().toISO(),
+      authoredOn: diagnosticReport.effectiveDateTime ?? DateTime.now().toUTC().toISO(), // the effective date is also UTC
       intent: 'order',
       basedOn: [
         {
