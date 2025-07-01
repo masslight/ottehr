@@ -214,7 +214,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
         coding: [
           {
             system: LAB_ORDER_TASK.system,
-            code: LAB_ORDER_TASK.code.presubmission,
+            code: LAB_ORDER_TASK.code.preSubmission,
           },
         ],
       },
@@ -374,7 +374,7 @@ const formatSpecimenResources = (
   const specimenConfigs: Specimen[] = [];
 
   orderableItem.item.specimens.forEach((specimen, idx) => {
-    // labs sometimes set container, volume, mininumVolume, storageRequirements, or collectionInstructions to null, so need to coalesce to undefined
+    // labs sometimes set container, volume, minimumVolume, storageRequirements, or collectionInstructions to null, so need to coalesce to undefined
     const collectionInstructionsCoding = {
       coding: [
         {
@@ -385,7 +385,7 @@ const formatSpecimenResources = (
       text: specimen.collectionInstructions ?? undefined,
     };
     const specimenDefinitionId = `specimenDefinitionId${idx}`;
-    const specimenDefitionConfig: SpecimenDefinition = {
+    const specimenDefinitionConfig: SpecimenDefinition = {
       resourceType: 'SpecimenDefinition',
       id: specimenDefinitionId,
       collection: [
@@ -421,7 +421,7 @@ const formatSpecimenResources = (
       ],
     };
 
-    specimenDefinitionConfigs.push(specimenDefitionConfig);
+    specimenDefinitionConfigs.push(specimenDefinitionConfig);
     const specimenConfig: Specimen = {
       resourceType: 'Specimen',
       request: [{ reference: serviceRequestFullUrl }],
@@ -525,11 +525,11 @@ const getAdditionalResources = async (
   const patientAccount = accountSearchResults[0];
   const patientPrimaryInsurance = getPrimaryInsurance(patientAccount, coverageSearchResults);
 
-  const missingRequiredResourcse: string[] = [];
-  if (!patientId) missingRequiredResourcse.push('patient');
+  const missingRequiredResources: string[] = [];
+  if (!patientId) missingRequiredResources.push('patient');
   if (!patientId) {
     throw EXTERNAL_LAB_ERROR(
-      `The following resources could not be found for this encounter: ${missingRequiredResourcse.join(', ')}`
+      `The following resources could not be found for this encounter: ${missingRequiredResources.join(', ')}`
     );
   }
 

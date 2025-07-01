@@ -884,7 +884,7 @@ async function createLabsResultsFormPDF(
   const { type, data } = dataConfig;
   if (type === 'external') {
     fileName = `${EXTERNAL_LAB_RESULT_PDF_BASE_NAME}-${data.resultStatus}${
-      data.resultStatus === 'preliminary' ? '' : data.reviewed ? '-reviewed' : '-unreviewed'
+      data.resultStatus === 'preliminary' ? '' : data.reviewed ? '-reviewed' : '-un-reviewed'
     }.pdf`;
   } else if (type === 'in-house') {
     fileName = `${IN_HOUSE_LAB_RESULT_PDF_BASE_NAME}.pdf`;

@@ -60,7 +60,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
     const { qr, secrets } = validatedParameters;
-    console.log('questionnaire reponse id', qr.id);
+    console.log('questionnaire response id', qr.id);
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
@@ -328,7 +328,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
   if (tasksFailed.length && ENVIRONMENT !== 'local') {
     await triggerSlackAlarm(
-      `Alert in ${ENVIRONMENT} zambda qr-subscriotion.\n\nOne or more harvest paperwork tasks failed for QR ${qr.id}:\n\n${tasksFailed}`,
+      `Alert in ${ENVIRONMENT} zambda qr-subscription.\n\nOne or more harvest paperwork tasks failed for QR ${qr.id}:\n\n${tasksFailed}`,
       secrets
     );
   }

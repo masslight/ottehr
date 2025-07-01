@@ -13,7 +13,7 @@ import {
 import { checkOrCreateM2MClientToken, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { filterAppointmentsAndCreatePackages, filterPatientForAppointment } from './helpers/fhir-resources-filters';
-import { getAllPartiallyPrefilteredFhirResources, getAllVirtualLocationsMap } from './helpers/fhir-utils';
+import { getAllPartiallyPreFilteredFhirResources, getAllVirtualLocationsMap } from './helpers/fhir-utils';
 import { getPhoneNumberFromQuestionnaire } from './helpers/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -51,15 +51,15 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
 export const performEffect = async (
   params: GetTelemedAppointmentsInput,
-  oystehrm2m: Oystehr,
+  oystehrM2m: Oystehr,
   oystehrCurrentUser: Oystehr
 ): Promise<GetTelemedAppointmentsResponseEhr> => {
   const { statusesFilter, locationsIdsFilter, visitTypesFilter } = params;
-  const virtualLocationsMap = await getAllVirtualLocationsMap(oystehrm2m);
+  const virtualLocationsMap = await getAllVirtualLocationsMap(oystehrM2m);
   console.log('Created virtual locations map.');
 
-  const allResources = await getAllPartiallyPrefilteredFhirResources(
-    oystehrm2m,
+  const allResources = await getAllPartiallyPreFilteredFhirResources(
+    oystehrM2m,
     oystehrCurrentUser,
     params,
     virtualLocationsMap
@@ -83,7 +83,7 @@ export const performEffect = async (
   const resultAppointments: TelemedAppointmentInformation[] = [];
 
   if (allPackages.length > 0) {
-    const allRelatedPersonMaps = await relatedPersonAndCommunicationMaps(oystehrm2m, allResources);
+    const allRelatedPersonMaps = await relatedPersonAndCommunicationMaps(oystehrM2m, allResources);
 
     for (let i = 0; i < allPackages.length; i++) {
       const appointmentPackage = allPackages[i];

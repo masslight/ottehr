@@ -2,8 +2,7 @@ import { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DiagnosticReport, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { getSecret, Secrets, SecretsKeys } from 'utils';
-import { LAB_ORDER_TASK } from 'utils';
+import { getSecret, LAB_ORDER_TASK, Secrets, SecretsKeys } from 'utils';
 import { getAuth0Token, topLevelCatch } from '../../../shared';
 import { createOystehrClient } from '../../../shared/helpers';
 import { createExternalLabResultPDF } from '../../../shared/pdf/labs-results-form-pdf';
@@ -48,7 +47,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         resourceType: 'Task',
         params: [
           { name: 'based-on', value: `DiagnosticReport/${diagnosticReport.id}` },
-          { name: 'code:not', value: LAB_ORDER_TASK.code.presubmission },
+          { name: 'code:not', value: LAB_ORDER_TASK.code.preSubmission },
           { name: 'status', value: 'ready,in-progress' },
         ],
       })

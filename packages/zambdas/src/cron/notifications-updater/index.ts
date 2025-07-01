@@ -114,8 +114,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const allPractitionersIdMap = Object.keys(statePractitionerMap).reduce<{ [key: string]: Practitioner }>(
       (acc, val) => {
         const practitioners = statePractitionerMap[val].map((practitioner) => practitioner);
-        practitioners.forEach((pract) => {
-          acc[pract.id!] = pract;
+        practitioners.forEach((currentPractitioner) => {
+          acc[currentPractitioner.id!] = currentPractitioner;
         });
         return acc;
       },
