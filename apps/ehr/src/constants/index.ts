@@ -93,9 +93,9 @@ export const NOTES_WIDTH_MIN = '170px';
 export const CHAT_WIDTH = '6%';
 export const CHAT_WIDTH_MIN = '80px';
 export const GO_TO_ONE_BUTTON_WIDTH = '6%';
-export const GO_TO_TWO_BUTTON_WIDTH = '12%';
+export const GO_TO_MANY_BUTTONS_WIDTH = '18%';
 export const GO_TO_ONE_BUTTON_WIDTH_MIN = '90px';
-export const GO_TO_TWO_BUTTON_WIDTH_MIN = '180px';
+export const GO_TO_MANY_BUTTONS_WIDTH_MIN = '270px';
 export const ACTION_WIDTH = '8%';
 export const ACTION_WIDTH_MIN = '110px';
 

@@ -1,6 +1,7 @@
 import { progressNoteIcon, startIntakeIcon } from '@ehrTheme/icons';
 import ChatOutlineIcon from '@mui/icons-material/ChatOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import LogoutIcon from '@mui/icons-material/Logout';
 import MedicalInformationIcon from '@mui/icons-material/MedicalInformationOutlined';
 import PriorityHighRoundedIcon from '@mui/icons-material/PriorityHighRounded';
 import { LoadingButton } from '@mui/lab';
@@ -63,7 +64,7 @@ import { PatientDateOfBirth } from './PatientDateOfBirth';
 import { PriorityIconWithBorder } from './PriorityIconWithBorder';
 import ReasonsForVisit from './ReasonForVisit';
 
-interface AppointmentTableProps {
+interface AppointmentTableRowProps {
   appointment: InPersonAppointmentInformation;
   location?: Location;
   actionButtons: boolean;
@@ -87,6 +88,8 @@ export function getAppointmentStatusChip(status: VisitStatusLabel | undefined, c
     return <span>todo2</span>;
   }
 
+  const label = STATUS_LABEL_MAP[status] || status;
+
   return (
     <span
       data-testid={dataTestIds.dashboard.appointmentStatus}
@@ -102,7 +105,7 @@ export function getAppointmentStatusChip(status: VisitStatusLabel | undefined, c
         verticalAlign: 'middle',
       }}
     >
-      {count ? `${status} - ${count}` : status}
+      {count ? `${label} - ${count}` : label}
     </span>
   );
 }
@@ -212,6 +215,10 @@ export const CHIP_STATUS_MAP: {
   },
 };
 
+const STATUS_LABEL_MAP: Partial<Record<VisitStatusLabel, string>> = {
+  'ready for discharge': 'Discharged',
+};
+
 const linkStyle = {
   display: 'contents',
   color: otherColors.tableRow,
@@ -242,7 +249,7 @@ export default function AppointmentTableRow({
   inHouseLabOrders,
   externalLabOrders,
   nursingOrders,
-}: AppointmentTableProps): ReactElement {
+}: AppointmentTableRowProps): ReactElement {
   const { oystehr, oystehrZambda } = useApiClients();
   const theme = useTheme();
   const navigate = useNavigate();
@@ -260,6 +267,7 @@ export default function AppointmentTableRow({
   }
 
   const [startIntakeButtonLoading, setStartIntakeButtonLoading] = useState(false);
+  const [dischargeButtonLoading, setDischargeButtonLoading] = useState(false);
   const { handleUpdatePractitioner } = usePractitionerActions(encounter, 'start', PRACTITIONER_CODINGS.Admitter);
   const rooms = useMemo(() => {
     return location?.extension?.filter((ext) => ext.url === ROOM_EXTENSION_URL).map((ext) => ext.valueString);
@@ -650,6 +658,51 @@ export default function AppointmentTableRow({
     return undefined;
   };
 
+  const handleDischargeButton = async (): Promise<void> => {
+    setDischargeButtonLoading(true);
+    try {
+      if (!encounter || !encounter.id) {
+        throw new Error('Encounter ID is required to change the visit status');
+      }
+      if (!oystehrZambda) {
+        throw new Error('Oystehr Zambda client is not available when changing the visit status');
+      }
+      if (!user) {
+        throw new Error('User is required to change the visit status');
+      }
+      await handleChangeInPersonVisitStatus(
+        {
+          encounterId: encounter.id,
+          user,
+          updatedStatus: 'ready for discharge',
+        },
+        oystehrZambda
+      );
+      await updateAppointments();
+      enqueueSnackbar('Patient discharged successfully', { variant: 'success' });
+    } catch (error) {
+      console.error(error);
+      enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
+    }
+    setDischargeButtonLoading(false);
+  };
+
+  const renderDischargeButton = (): ReactElement | undefined => {
+    if (appointment.status === 'provider') {
+      return (
+        <GoToButton
+          loading={dischargeButtonLoading}
+          text="Discharge"
+          onClick={handleDischargeButton}
+          dataTestId={dataTestIds.dashboard.dischargeButton}
+        >
+          <LogoutIcon />
+        </GoToButton>
+      );
+    }
+    return undefined;
+  };
+
   // there are two different tooltips that are show on the tracking board depending which tab/section you are on
   // 1. visit components on prebooked, in-office/waiting and cancelled
   // 2. orders on in-office/in-exam and discharged
@@ -914,6 +967,7 @@ export default function AppointmentTableRow({
           </GoToButton>
           {renderStartIntakeButton()}
           {renderProgressNoteButton()}
+          {renderDischargeButton()}
         </Stack>
       </TableCell>
       {actionButtons && (

@@ -74,6 +74,8 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     return appointmentAccessibility.status === TelemedAppointmentStatusEnum.complete;
   }, [css, inPersonStatus, appointmentAccessibility.status]);
 
+  const isProviderStatus = useMemo(() => inPersonStatus === 'provider', [inPersonStatus]);
+
   const errorMessage = useMemo(() => {
     const messages: string[] = [];
 
@@ -82,8 +84,10 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     }
 
     if (css && inPersonStatus) {
-      if (!['provider', 'ready for discharge'].includes(inPersonStatus)) {
-        messages.push('The appointment must be in the status of provider or ready for discharge');
+      if (isProviderStatus) {
+        messages.push('You must discharge the patient before signing');
+      } else if (inPersonStatus !== 'ready for discharge') {
+        messages.push('The appointment must be in the status of discharged');
       }
     } else {
       if (appointmentAccessibility.status !== TelemedAppointmentStatusEnum.unsigned) {
@@ -119,6 +123,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     appointmentAccessibility.status,
     externalLabResultsPending,
     inHouseLabResultsPending,
+    isProviderStatus,
   ]);
 
   const handleCloseTooltip = (): void => {
@@ -182,7 +187,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
           >
             {(showDialog) => (
               <RoundedButton
-                disabled={errorMessage.length > 0 || isLoading || completed}
+                disabled={errorMessage.length > 0 || isLoading || completed || isProviderStatus}
                 variant="contained"
                 onClick={showDialog}
                 startIcon={completed ? <CheckIcon color="inherit" /> : undefined}

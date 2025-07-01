@@ -97,106 +97,104 @@ export default function AppointmentTabs({
   );
 
   return (
-    <>
-      <Box sx={{ width: '100%', marginTop: 3 }}>
-        <TabContext value={value}>
-          <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-            <TabList
-              variant="scrollable"
-              allowScrollButtonsMobile={true}
-              onChange={handleChange}
-              aria-label="appointment tabs"
-            >
-              <Tab
-                data-testid={dataTestIds.dashboard.prebookedTab}
-                label={`Pre-booked${preBookedAppointments ? ` – ${preBookedAppointments?.length}` : ''}`}
-                value={ApptTab.prebooked}
-                sx={{ textTransform: 'none', fontWeight: 500 }}
-              />
-              <Tab
-                data-testid={dataTestIds.dashboard.inOfficeTab}
-                label={`In Office${inOfficeAppointments ? ` – ${inOfficeAppointments?.length}` : ''}`}
-                value={ApptTab['in-office']}
-                sx={{ textTransform: 'none', fontWeight: 500 }}
-              />
-              <Tab
-                data-testid={dataTestIds.dashboard.dischargedTab}
-                label={`Discharged${completedAppointments ? ` – ${completedAppointments?.length}` : ''}`}
-                value={ApptTab.completed}
-                sx={{ textTransform: 'none', fontWeight: 500 }}
-              />
-              <Tab
-                data-testid={dataTestIds.dashboard.cancelledTab}
-                label="Cancelled"
-                value={ApptTab.cancelled}
-                sx={{ textTransform: 'none', fontWeight: 500 }}
-              />
-              {loading && <Loading />}
-            </TabList>
-          </Box>
-          <TabPanel value={ApptTab.prebooked} sx={{ padding: 0 }}>
-            {selectLocationMsg || (
-              <AppointmentTable
-                appointments={preBookedAppointments}
-                // todo we dont need orders on the prebooked tab, think about making optional, maybe
-                inHouseLabOrdersByAppointmentId={inHouseLabOrdersByAppointmentId}
-                externalLabOrdersByAppointmentId={externalLabOrdersByAppointmentId}
-                nursingOrdersByAppointmentId={nursingLabOrdersByAppointmentId}
-                location={location}
-                tab={value}
-                now={now}
-                updateAppointments={updateAppointments}
-                setEditingComment={setEditingComment}
-              ></AppointmentTable>
-            )}
-          </TabPanel>
-          <TabPanel value={ApptTab['in-office']} sx={{ padding: 0 }}>
-            {selectLocationMsg || (
-              <AppointmentTable
-                appointments={inOfficeAppointments}
-                inHouseLabOrdersByAppointmentId={inHouseLabOrdersByAppointmentId}
-                externalLabOrdersByAppointmentId={externalLabOrdersByAppointmentId}
-                nursingOrdersByAppointmentId={nursingLabOrdersByAppointmentId}
-                location={location}
-                tab={value}
-                now={now}
-                updateAppointments={updateAppointments}
-                setEditingComment={setEditingComment}
-              ></AppointmentTable>
-            )}
-          </TabPanel>
-          <TabPanel value={ApptTab.completed} sx={{ padding: 0 }}>
-            {selectLocationMsg || (
-              <AppointmentTable
-                appointments={completedAppointments}
-                inHouseLabOrdersByAppointmentId={inHouseLabOrdersByAppointmentId}
-                externalLabOrdersByAppointmentId={externalLabOrdersByAppointmentId}
-                nursingOrdersByAppointmentId={nursingLabOrdersByAppointmentId}
-                location={location}
-                tab={value}
-                now={now}
-                updateAppointments={updateAppointments}
-                setEditingComment={setEditingComment}
-              ></AppointmentTable>
-            )}
-          </TabPanel>
-          <TabPanel value={ApptTab.cancelled} sx={{ padding: 0 }}>
-            {selectLocationMsg || (
-              <AppointmentTable
-                appointments={cancelledAppointments}
-                inHouseLabOrdersByAppointmentId={inHouseLabOrdersByAppointmentId}
-                externalLabOrdersByAppointmentId={externalLabOrdersByAppointmentId}
-                nursingOrdersByAppointmentId={nursingLabOrdersByAppointmentId}
-                location={location}
-                tab={value}
-                now={now}
-                updateAppointments={updateAppointments}
-                setEditingComment={setEditingComment}
-              ></AppointmentTable>
-            )}
-          </TabPanel>
-        </TabContext>
-      </Box>
-    </>
+    <Box sx={{ width: '100%', marginTop: 3 }}>
+      <TabContext value={value}>
+        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+          <TabList
+            variant="scrollable"
+            allowScrollButtonsMobile={true}
+            onChange={handleChange}
+            aria-label="appointment tabs"
+          >
+            <Tab
+              data-testid={dataTestIds.dashboard.prebookedTab}
+              label={`Pre-booked${preBookedAppointments ? ` – ${preBookedAppointments?.length}` : ''}`}
+              value={ApptTab.prebooked}
+              sx={{ textTransform: 'none', fontWeight: 500 }}
+            />
+            <Tab
+              data-testid={dataTestIds.dashboard.inOfficeTab}
+              label={`In Office${inOfficeAppointments ? ` – ${inOfficeAppointments?.length}` : ''}`}
+              value={ApptTab['in-office']}
+              sx={{ textTransform: 'none', fontWeight: 500 }}
+            />
+            <Tab
+              data-testid={dataTestIds.dashboard.dischargedTab}
+              label={`Discharged${completedAppointments ? ` – ${completedAppointments?.length}` : ''}`}
+              value={ApptTab.completed}
+              sx={{ textTransform: 'none', fontWeight: 500 }}
+            />
+            <Tab
+              data-testid={dataTestIds.dashboard.cancelledTab}
+              label="Cancelled"
+              value={ApptTab.cancelled}
+              sx={{ textTransform: 'none', fontWeight: 500 }}
+            />
+            {loading && <Loading />}
+          </TabList>
+        </Box>
+        <TabPanel value={ApptTab.prebooked} sx={{ padding: 0 }}>
+          {selectLocationMsg || (
+            <AppointmentTable
+              appointments={preBookedAppointments}
+              // todo we dont need orders on the prebooked tab, think about making optional, maybe
+              inHouseLabOrdersByAppointmentId={inHouseLabOrdersByAppointmentId}
+              externalLabOrdersByAppointmentId={externalLabOrdersByAppointmentId}
+              nursingOrdersByAppointmentId={nursingLabOrdersByAppointmentId}
+              location={location}
+              tab={value}
+              now={now}
+              updateAppointments={updateAppointments}
+              setEditingComment={setEditingComment}
+            ></AppointmentTable>
+          )}
+        </TabPanel>
+        <TabPanel value={ApptTab['in-office']} sx={{ padding: 0 }}>
+          {selectLocationMsg || (
+            <AppointmentTable
+              appointments={inOfficeAppointments}
+              inHouseLabOrdersByAppointmentId={inHouseLabOrdersByAppointmentId}
+              externalLabOrdersByAppointmentId={externalLabOrdersByAppointmentId}
+              nursingOrdersByAppointmentId={nursingLabOrdersByAppointmentId}
+              location={location}
+              tab={value}
+              now={now}
+              updateAppointments={updateAppointments}
+              setEditingComment={setEditingComment}
+            ></AppointmentTable>
+          )}
+        </TabPanel>
+        <TabPanel value={ApptTab.completed} sx={{ padding: 0 }}>
+          {selectLocationMsg || (
+            <AppointmentTable
+              appointments={completedAppointments}
+              inHouseLabOrdersByAppointmentId={inHouseLabOrdersByAppointmentId}
+              externalLabOrdersByAppointmentId={externalLabOrdersByAppointmentId}
+              nursingOrdersByAppointmentId={nursingLabOrdersByAppointmentId}
+              location={location}
+              tab={value}
+              now={now}
+              updateAppointments={updateAppointments}
+              setEditingComment={setEditingComment}
+            ></AppointmentTable>
+          )}
+        </TabPanel>
+        <TabPanel value={ApptTab.cancelled} sx={{ padding: 0 }}>
+          {selectLocationMsg || (
+            <AppointmentTable
+              appointments={cancelledAppointments}
+              inHouseLabOrdersByAppointmentId={inHouseLabOrdersByAppointmentId}
+              externalLabOrdersByAppointmentId={externalLabOrdersByAppointmentId}
+              nursingOrdersByAppointmentId={nursingLabOrdersByAppointmentId}
+              location={location}
+              tab={value}
+              now={now}
+              updateAppointments={updateAppointments}
+              setEditingComment={setEditingComment}
+            ></AppointmentTable>
+          )}
+        </TabPanel>
+      </TabContext>
+    </Box>
   );
 }

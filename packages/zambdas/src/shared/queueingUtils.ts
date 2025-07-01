@@ -29,7 +29,7 @@ const checkForHop = (app1: Appointment, app2: Appointment): number | undefined =
 };
 
 type WaitingRoomKey = 'arrived' | 'ready';
-type InExamKey = 'intake' | 'ready for provider' | 'provider' | 'ready for discharge';
+type InExamKey = 'intake' | 'ready for provider' | 'provider';
 type VisitDetails = { appointment: Appointment; encounter: Encounter };
 type AppointmentComparator = (visit1: VisitDetails, visit2: VisitDetails) => number;
 
@@ -282,7 +282,6 @@ class QueueBuilder {
           intake: { list: [], comparator: intakeSorter },
           'ready for provider': { list: [], comparator: r4ProviderSorter },
           provider: { list: [], comparator: currentStatusSorter },
-          'ready for discharge': { list: [], comparator: currentStatusSorter },
         },
       },
       checkedOut: { list: [], comparator: currentStatusReversedSorter },
@@ -316,11 +315,9 @@ class QueueBuilder {
           this.insertNew(appointment, encounter, this.queues.inOffice.inExam['ready for provider']);
         } else if (status === 'provider') {
           this.insertNew(appointment, encounter, this.queues.inOffice.inExam.provider);
-        } else if (status === 'ready for discharge') {
-          this.insertNew(appointment, encounter, this.queues.inOffice.inExam['ready for discharge']);
         } else if (status === 'cancelled' || status === 'no show') {
           this.insertNew(appointment, encounter, this.queues.canceled);
-        } else if (status === 'completed') {
+        } else if (status === 'completed' || status === 'ready for discharge') {
           this.insertNew(appointment, encounter, this.queues.checkedOut);
         }
       }
@@ -336,7 +333,6 @@ class QueueBuilder {
           intake: evalQueue(this.queues.inOffice.inExam.intake),
           'ready for provider': evalQueue(this.queues.inOffice.inExam['ready for provider']),
           provider: evalQueue(this.queues.inOffice.inExam.provider),
-          'ready for discharge': evalQueue(this.queues.inOffice.inExam['ready for discharge']),
         },
       },
       checkedOut: evalQueue(this.queues.checkedOut),
