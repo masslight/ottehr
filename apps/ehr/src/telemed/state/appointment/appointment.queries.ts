@@ -542,7 +542,7 @@ export const useGetCreateExternalLabResources = ({ patientId, search }: GetCreat
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useGetIcd10Search = ({ search, sabs }: IcdSearchRequestParams) => {
+export const useGetIcd10Search = ({ search, sabs, radiologyOnly }: IcdSearchRequestParams) => {
   const apiClient = useZapEHRAPIClient();
   const openError = (): void => {
     enqueueSnackbar('An error occurred during the search. Please try again in a moment.', {
@@ -551,9 +551,9 @@ export const useGetIcd10Search = ({ search, sabs }: IcdSearchRequestParams) => {
   };
 
   return useQuery(
-    ['icd-search', { search, sabs }],
+    ['icd-search', { search, sabs, radiologyOnly }],
     async () => {
-      return apiClient?.icdSearch({ search, sabs });
+      return apiClient?.icdSearch({ search, sabs, radiologyOnly });
     },
     {
       onError: (error: APIError) => {
