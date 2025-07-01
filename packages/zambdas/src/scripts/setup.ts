@@ -1,9 +1,9 @@
-import { promisify } from 'node:util';
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { exec } from 'child_process';
 import { FhirResource, HealthcareService, Organization, PractitionerRole, Schedule } from 'fhir/r4b';
 import fs from 'fs';
 import path from 'path';
+import { promisify } from 'util';
 import {
   FHIR_BASE_URL,
   FOLDERS_CONFIG,

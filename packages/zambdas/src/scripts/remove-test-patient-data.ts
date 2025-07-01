@@ -1,7 +1,7 @@
-import { exec as execCb } from 'node:child_process';
-import { promisify } from 'node:util';
 import { FhirSearchParams } from '@oystehr/sdk';
+import { exec as execCb } from 'child_process';
 import { Appointment, Patient } from 'fhir/r4b';
+import { promisify } from 'util';
 import { createOystehrClientFromConfig, performEffectWithEnvFile } from './helpers';
 
 const exec = promisify(execCb);
