@@ -34,7 +34,7 @@ import {
   parseCreatedResourcesBundle,
   ZambdaInput,
 } from '../../shared';
-import { getAttendingPractionerId } from '../shared/inhouse-labs';
+import { getAttendingPractitionerId } from '../shared/in-house-labs';
 import { getPrimaryInsurance } from '../shared/labs';
 import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
@@ -138,7 +138,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       console.log('run as repeat for', cptCode, testItem.name);
       // tests being run as repeat need to be linked via basedOn to the original test that was run
       // so we are looking for a test with the same cptCode that does not have any value in basedOn - this will be the initialServiceRequest
-      const intialServiceRequestSearch = async (): Promise<ServiceRequest[]> =>
+      const initialServiceRequestSearch = async (): Promise<ServiceRequest[]> =>
         (
           await oystehr.fhir.search({
             resourceType: 'ServiceRequest',
@@ -154,7 +154,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
             ],
           })
         ).unbundle() as ServiceRequest[];
-      requests.push(intialServiceRequestSearch());
+      requests.push(initialServiceRequestSearch());
     }
 
     const results = await Promise.all(requests);
@@ -256,7 +256,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
           console.log('More than one initial tests found for this encounter');
           // this really shouldn't happen, something is misconfigured
           throw IN_HOUSE_LAB_ERROR(
-            'Could not deduce which test is intial since more than one test has previously been run today'
+            'Could not deduce which test is initial since more than one test has previously been run today'
           );
         }
         if (possibleInitialSRs.length === 0) {
@@ -269,7 +269,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       return;
     })();
 
-    const attendingPractitionerId = getAttendingPractionerId(encounter);
+    const attendingPractitionerId = getAttendingPractitionerId(encounter);
 
     const { currentUserPractitionerName, attendingPractitionerName } = await Promise.all([
       oystehrCurrentUser.fhir.get<Practitioner>({

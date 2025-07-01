@@ -40,7 +40,7 @@ import {
   Secrets,
   TestItemComponent,
 } from 'utils';
-import { fetchResultResourcesForRepeatServiceRequest } from '../../ehr/shared/inhouse-labs';
+import { fetchResultResourcesForRepeatServiceRequest } from '../../ehr/shared/in-house-labs';
 import { getExternalLabOrderResources } from '../../ehr/shared/labs';
 import { LABS_DATE_STRING_FORMAT } from '../../ehr/submit-lab-order';
 import { makeZ3Url } from '../presigned-file-urls';
@@ -90,7 +90,7 @@ type LabTypeSpecificResources =
         reviewed: boolean;
         reviewingProvider: Practitioner | undefined;
         reviewDate: string | undefined;
-        resultsRecievedDate: string;
+        resultsReceivedDate: string;
         resultInterpretations: string[];
         performingLabDirectorFullName?: string;
         performingLabAddress?: string;
@@ -145,10 +145,10 @@ const getResultDataConfig = (
 
   if (type === LabType.inHouse) {
     const { inHouseLabResults } = specificResources;
-    const inhouseData: Omit<InHouseLabResultsData, keyof LabResultsData> = {
+    const inHouseData: Omit<InHouseLabResultsData, keyof LabResultsData> = {
       inHouseLabResults,
     };
-    const data: InHouseLabResultsData = { ...baseData, ...inhouseData };
+    const data: InHouseLabResultsData = { ...baseData, ...inHouseData };
     config = { type: LabType.inHouse, data };
   }
 
@@ -161,7 +161,7 @@ const getResultDataConfig = (
       reviewed,
       reviewingProvider,
       reviewDate,
-      resultsRecievedDate,
+      resultsReceivedDate,
       resultInterpretations,
       performingLabAddress,
       performingLabDirectorFullName,
@@ -189,7 +189,7 @@ const getResultDataConfig = (
         ?.telecom?.find((temp) => temp.system === 'phone')?.value,
       // abnormalResult: true,
       performingLabDirectorFullName,
-      resultsRecievedDate,
+      resultsReceivedDate,
     };
     const data: ExternalLabResultsData = { ...baseData, ...externalLabData };
     config = { type: LabType.external, data };
@@ -329,23 +329,23 @@ export async function createExternalLabResultPDF(
 
   let reviewDate = '',
     reviewingProvider = undefined,
-    resultsRecievedDate = '';
+    resultsReceivedDate = '';
 
   if (latestReviewTask) {
-    resultsRecievedDate = latestReviewTask?.authoredOn
+    resultsReceivedDate = latestReviewTask?.authoredOn
       ? DateTime.fromISO(latestReviewTask.authoredOn).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
       : '';
     if (latestReviewTask.status === 'completed') {
       ({ reviewingProvider, reviewDate } = await getTaskCompletedByAndWhen(oystehr, latestReviewTask, timezone));
     }
   }
-  if (!resultsRecievedDate && !latestReviewTask) {
-    console.log('no completed final or corrected tasks, checking ready tasks to parse a results recieved date');
+  if (!resultsReceivedDate && !latestReviewTask) {
+    console.log('no completed final or corrected tasks, checking ready tasks to parse a results received date');
     const sortedReadyFinalOrCorrected = readyFinalOrCorrected?.sort((a, b) => compareDates(a.authoredOn, b.authoredOn));
     const readyReviewTask = sortedReadyFinalOrCorrected[0];
     if (readyReviewTask && readyReviewTask?.authoredOn) {
       console.log('readyReviewTask: ', readyReviewTask.id);
-      resultsRecievedDate = DateTime.fromISO(readyReviewTask.authoredOn)
+      resultsReceivedDate = DateTime.fromISO(readyReviewTask.authoredOn)
         .setZone(timezone)
         .toFormat(LABS_DATE_STRING_FORMAT);
     }
@@ -413,7 +413,7 @@ export async function createExternalLabResultPDF(
       reviewed,
       reviewingProvider,
       reviewDate,
-      resultsRecievedDate,
+      resultsReceivedDate,
       resultInterpretations: resultInterpretationDisplays,
       performingLabAddress: formatPerformingLabAddress(organization),
       performingLabDirectorFullName: formatPerformingLabDirectorName(organization),
@@ -461,11 +461,11 @@ export async function createInHouseLabResultPDF(
   serviceRequestsRelatedViaRepeat: ServiceRequest[] | undefined,
   specimen: Specimen
 ): Promise<void> {
-  console.log('starting create inhouse lab result pdf');
+  console.log('starting create in-house lab result pdf');
   if (!encounter.id) throw new Error('encounter id is undefined');
   if (!patient.id) throw new Error('patient.id is undefined');
 
-  // todo will probably need to update to accomodate a more resilient method of fetching timezone
+  // todo will probably need to update to accommodate a more resilient method of fetching timezone
   let timezone = undefined;
   if (schedule) {
     timezone = getTimezone(schedule);
@@ -491,7 +491,7 @@ export async function createInHouseLabResultPDF(
     );
   }
 
-  const inhouseSpecificResources: LabTypeSpecificResources = {
+  const inHouseSpecificResources: LabTypeSpecificResources = {
     type: LabType.inHouse,
     specificResources: { inHouseLabResults: [inHouseLabResults, ...additionalResultsForRelatedSrs] },
   };
@@ -504,7 +504,7 @@ export async function createInHouseLabResultPDF(
     providerName: attendingPractitionerName,
     testName: activityDefinition.title,
   };
-  const dataConfig = getResultDataConfig(commonResources, inhouseSpecificResources);
+  const dataConfig = getResultDataConfig(commonResources, inHouseSpecificResources);
 
   const pdfDetail = await createLabsResultsFormPDF(dataConfig, patient.id, secrets, token);
 
@@ -623,7 +623,7 @@ async function createExternalLabsResultsFormPdfBytes(
   pdfClient.newLine(STANDARD_NEW_LINE);
   pdfClient = drawFieldLine(pdfClient, textStyles, 'Collection Date:', data.collectionDate);
   pdfClient.newLine(STANDARD_NEW_LINE);
-  pdfClient = drawFieldLine(pdfClient, textStyles, 'Results Date:', data.resultsRecievedDate);
+  pdfClient = drawFieldLine(pdfClient, textStyles, 'Results Date:', data.resultsReceivedDate);
   pdfClient.newLine(STANDARD_FONT_SIZE);
   pdfClient.newLine(STANDARD_FONT_SIZE);
 
@@ -657,7 +657,7 @@ async function createExternalLabsResultsFormPdfBytes(
     textStyles,
     { name: data.resultPhase, startXPos: 0 },
     { name: data.testName.toUpperCase(), startXPos: 70 },
-    { name: getResultValueToDiplay(data.resultInterpretations), startXPos: 340 },
+    { name: getResultValueToDisplay(data.resultInterpretations), startXPos: 340 },
     { name: data.testItemCode, startXPos: 490 },
     getResultRowDisplayColor(data.resultInterpretations)
   );
@@ -821,7 +821,7 @@ async function createInHouseLabsResultsFormPdfBytes(
   return await pdfClient.save();
 }
 
-function getResultValueToDiplay(resultInterpretations: string[]): string {
+function getResultValueToDisplay(resultInterpretations: string[]): string {
   const resultInterpretationsLen = resultInterpretations?.length;
   if (resultInterpretationsLen === 0) {
     return '';
@@ -843,7 +843,7 @@ function getResultRowDisplayColor(resultInterpretations: string[]): Color {
 }
 
 function getInHouseResultRowDisplayColor(labResult: InHouseLabResult): Color {
-  console.log('>>>in getInHouseReslutRowDisplayCOlor, this is the result value ', labResult.value);
+  console.log('>>>in getInHouseResultRowDisplayColor, this is the result value ', labResult.value);
   if (
     (labResult.value && labResult.rangeString?.includes(labResult.value)) ||
     labResult.value === IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG.valueCode
