@@ -1,12 +1,15 @@
 import { QueryObserverResult } from 'react-query';
-import { GetChartDataResponse, MedicationDTO, removePrefix, SearchParams } from 'utils';
+import { ChartDataFieldsKeys, GetChartDataResponse, MedicationDTO, removePrefix, SearchParams } from 'utils';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../telemed';
 import { useChartData } from './useChartData';
 
+export type MedicationHistoryField = Extract<ChartDataFieldsKeys, 'medications' | 'inhouseMedications'>;
+
 export const useMedicationHistory = (
   search_by: SearchParams['_search_by'] = 'encounter',
-  count = 10
+  count = 10,
+  chartDataField: MedicationHistoryField = 'medications'
 ): {
   isLoading: boolean;
   medicationHistory: MedicationDTO[];
@@ -21,7 +24,7 @@ export const useMedicationHistory = (
   } = useChartData({
     encounterId: encounter.id || '',
     requestedFields: {
-      inhouseMedications: {
+      [chartDataField]: {
         _sort: '-effective',
         _include: 'MedicationStatement:source',
         _search_by: search_by,
@@ -41,5 +44,5 @@ export const useMedicationHistory = (
     });
   }
 
-  return { isLoading, medicationHistory: historyData?.inhouseMedications || [], refetchHistory };
+  return { isLoading, medicationHistory: historyData?.[chartDataField] || [], refetchHistory };
 };

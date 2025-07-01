@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useMedicationHistory } from 'src/features/css-module/hooks/useMedicationHistory';
+import { MedicationHistoryField } from 'src/features/css-module/hooks/useMedicationHistory';
+import { useMultipleMedicationsHistory } from 'src/features/css-module/hooks/useMultipleMedicationsHistory';
 import {
   ExtendedMedicationDataForResponse,
   MedicationData,
@@ -28,6 +29,8 @@ import {
   validateAllMedicationFields,
 } from './utils';
 
+const MEDICATION_HISTORY_FIELDS: MedicationHistoryField[] = ['medications', 'inhouseMedications'];
+
 export const EditableMedicationCard: React.FC<{
   medication?: ExtendedMedicationDataForResponse;
   type: MedicationOrderType;
@@ -42,7 +45,11 @@ export const EditableMedicationCard: React.FC<{
   const { mappedData, resources } = useAppointment(appointmentId);
   const [isReasonSelected, setIsReasonSelected] = useState(true);
   const selectsOptions = useFieldsSelectsOptions();
-  const { refetchHistory } = useMedicationHistory('patient', PATIENT_MEDS_COUNT_TO_LOAD);
+  const { refetchHistory } = useMultipleMedicationsHistory(
+    MEDICATION_HISTORY_FIELDS,
+    'patient',
+    PATIENT_MEDS_COUNT_TO_LOAD
+  );
 
   const [localValues, setLocalValues] = useState<Partial<MedicationData>>(
     medication
