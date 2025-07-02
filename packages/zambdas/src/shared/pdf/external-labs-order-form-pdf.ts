@@ -424,7 +424,7 @@ export async function createExternalLabsOrderFormPDF(
   console.debug(`Created external labs order form pdf bytes`);
   const bucketName = 'visit-notes';
   const fileName = `ExternalLabsOrderForm-${getLabFileName(input.orderName || '')}-${DateTime.fromISO(
-    input.orderCreateDateFormat
+    input.orderCreateDateAuthoredOn
   ).toFormat('yyyy-MM-dd')}-${input.orderPriority}.pdf`;
   console.log('Creating base file url');
   const baseFileUrl = makeZ3Url({ secrets, fileName, bucketName, patientID });

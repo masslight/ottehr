@@ -133,7 +133,7 @@ const getResultDataConfig = (
     patientId: patient.id || '',
     patientPhone: patient.telecom?.find((telecomTemp) => telecomTemp.system === 'phone')?.value || '',
     todayDate: now.setZone().toFormat(LABS_DATE_STRING_FORMAT),
-    orderCreateDateFormat: serviceRequest.authoredOn || '',
+    orderCreateDateAuthoredOn: serviceRequest.authoredOn || '',
     orderCreateDate: orderCreateDate || '',
     orderPriority: serviceRequest.priority || '',
     testName: testName || '',
@@ -890,13 +890,13 @@ async function createLabsResultsFormPDF(
   if (type === 'external') {
     fileName = `${EXTERNAL_LAB_RESULT_PDF_BASE_NAME}-${getLabFileName(
       dataConfig.data.testName || ''
-    )}-${DateTime.fromISO(dataConfig.data.orderCreateDateFormat).toFormat('yyyy-MM-dd')}-${data.resultStatus}-${
+    )}-${DateTime.fromISO(dataConfig.data.orderCreateDateAuthoredOn).toFormat('yyyy-MM-dd')}-${data.resultStatus}-${
       data.resultStatus === 'preliminary' ? '' : data.reviewed ? 'reviewed' : 'unreviewed'
     }.pdf`;
   } else if (type === 'in-house') {
     fileName = `${IN_HOUSE_LAB_RESULT_PDF_BASE_NAME}-${getLabFileName(
       dataConfig.data.testName || ''
-    )}-${DateTime.fromISO(dataConfig.data.orderCreateDateFormat).toFormat('yyyy-MM-dd')}-${
+    )}-${DateTime.fromISO(dataConfig.data.orderCreateDateAuthoredOn).toFormat('yyyy-MM-dd')}-${
       dataConfig.data.resultStatus
     }.pdf`;
   } else {
