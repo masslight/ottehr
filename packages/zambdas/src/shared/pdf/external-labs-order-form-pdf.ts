@@ -227,7 +227,7 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
 
   const drawImage = async (imgPath: string): Promise<void> => {
     const imgBytes = fs.readFileSync(imgPath);
-    const img = pdfDoc.embedPng(imgBytes);
+    const img = pdfDoc.embedPng(new Uint8Array(imgBytes));
     currYPos -= 1.5;
     page.drawImage(await img, {
       x: currXPos,

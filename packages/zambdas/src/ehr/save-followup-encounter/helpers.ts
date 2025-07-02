@@ -1,4 +1,4 @@
-import { Oystehr } from '@oystehr/sdk/dist/cjs/resources/classes';
+import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import { CodeableConcept, Coding, Encounter, EncounterParticipant, Location, Reference } from 'fhir/r4b';
 import {
@@ -91,6 +91,7 @@ export async function updateEncounterResource(
       ],
     })
   ).unbundle();
+
   const curFhirEncounter = fhirResources.find((resource) => resource.resourceType === 'Encounter') as Encounter;
   const curFhirLocation = fhirResources.find((resource) => resource.resourceType === 'Location') as Location;
   const patientId = curFhirEncounter?.subject?.reference?.split('/')[1];
