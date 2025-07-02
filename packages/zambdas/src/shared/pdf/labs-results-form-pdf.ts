@@ -888,17 +888,15 @@ async function createLabsResultsFormPDF(
   let fileName = undefined;
   const { type, data } = dataConfig;
   if (type === 'external') {
-    fileName = `${EXTERNAL_LAB_RESULT_PDF_BASE_NAME}-${getLabFileName(
-      dataConfig.data.testName || ''
-    )}-${DateTime.fromISO(dataConfig.data.orderCreateDateAuthoredOn).toFormat('yyyy-MM-dd')}-${data.resultStatus}-${
+    fileName = `${EXTERNAL_LAB_RESULT_PDF_BASE_NAME}-${getLabFileName(dataConfig.data.testName)}-${DateTime.fromISO(
+      dataConfig.data.orderCreateDateAuthoredOn
+    ).toFormat('yyyy-MM-dd')}-${data.resultStatus}-${
       data.resultStatus === 'preliminary' ? '' : data.reviewed ? 'reviewed' : 'unreviewed'
     }.pdf`;
   } else if (type === 'in-house') {
-    fileName = `${IN_HOUSE_LAB_RESULT_PDF_BASE_NAME}-${getLabFileName(
-      dataConfig.data.testName || ''
-    )}-${DateTime.fromISO(dataConfig.data.orderCreateDateAuthoredOn).toFormat('yyyy-MM-dd')}-${
-      dataConfig.data.resultStatus
-    }.pdf`;
+    fileName = `${IN_HOUSE_LAB_RESULT_PDF_BASE_NAME}-${getLabFileName(dataConfig.data.testName)}-${DateTime.fromISO(
+      dataConfig.data.orderCreateDateAuthoredOn
+    ).toFormat('yyyy-MM-dd')}-${dataConfig.data.resultStatus}.pdf`;
   } else {
     throw new Error(`lab type is unexpected ${type}`);
   }
