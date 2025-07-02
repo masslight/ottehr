@@ -32,7 +32,7 @@ export const fieldsConfigForDispense = {
 
 export const fieldsConfigForNotAdministered = {
   medicationId: { xs: 6, isRequired: true },
-  associatedDx: { xs: 6, isRequired: true },
+  associatedDx: { xs: 6, isRequired: false },
   dose: { xs: 6, isRequired: true },
   units: { xs: 6, isRequired: true },
   lotNumber: { xs: 3, isRequired: false }, // Not required for partial administration
