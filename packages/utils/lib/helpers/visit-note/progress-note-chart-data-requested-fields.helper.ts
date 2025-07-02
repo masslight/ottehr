@@ -2,17 +2,6 @@ import { PRIVATE_EXTENSION_BASE_URL } from '../../fhir';
 import { ChartDataRequestedFields, CSS_NOTE_ID, NOTE_TYPE, VitalFieldNames } from '../../types';
 import { createVitalsSearchConfig } from './create-vitals-search-config.helper';
 
-const notesForProgressNote = [
-  NOTE_TYPE.SCREENING,
-  NOTE_TYPE.VITALS,
-  NOTE_TYPE.INTAKE,
-  NOTE_TYPE.ALLERGY,
-  NOTE_TYPE.INTAKE_MEDICATION,
-  NOTE_TYPE.HOSPITALIZATION,
-  NOTE_TYPE.MEDICAL_CONDITION,
-  NOTE_TYPE.SURGICAL_HISTORY,
-];
-
 export const getProgressNoteChartDataRequestedFields = (): ChartDataRequestedFields => ({
   episodeOfCare: {},
   prescribedMedications: {},
@@ -20,7 +9,18 @@ export const getProgressNoteChartDataRequestedFields = (): ChartDataRequestedFie
   notes: {
     _sort: '-_lastUpdated',
     _count: 1000,
-    _tag: notesForProgressNote.map((note) => `${PRIVATE_EXTENSION_BASE_URL}/${note}|${CSS_NOTE_ID}`).join(','),
+    _tag: [
+      NOTE_TYPE.SCREENING,
+      NOTE_TYPE.VITALS,
+      NOTE_TYPE.INTAKE,
+      NOTE_TYPE.ALLERGY,
+      NOTE_TYPE.INTAKE_MEDICATION,
+      NOTE_TYPE.HOSPITALIZATION,
+      NOTE_TYPE.MEDICAL_CONDITION,
+      NOTE_TYPE.SURGICAL_HISTORY,
+    ]
+      .map((note) => `${PRIVATE_EXTENSION_BASE_URL}/${note}|${CSS_NOTE_ID}`)
+      .join(','),
   },
   vitalsObservations: {
     _search_by: 'encounter',
