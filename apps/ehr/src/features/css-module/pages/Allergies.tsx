@@ -43,7 +43,7 @@ export const Allergies: React.FC<AllergiesProps> = () => {
           patientSide={<KnownAllergiesPatientColumn />}
           patientSideLabel="Patient provided"
           providerSide={<KnownAllergiesProviderColumn />}
-          providerSideLabel="Clinical support input"
+          providerSideLabel="Healthcare staff input"
         />
       </Box>
     </Stack>
