@@ -761,7 +761,7 @@ export const getRadiologyOrders = async (
   parameters: GetRadiologyOrderListZambdaInput
 ): Promise<GetRadiologyOrderListZambdaOutput> => {
   try {
-    const searchBy = parameters.encounterId || parameters.patientId || parameters.serviceRequestId;
+    const searchBy = parameters.encounterIds || parameters.patientId || parameters.serviceRequestId;
     if (!searchBy) {
       throw new Error(
         `Missing one of the required parameters (serviceRequestId | encounterId | patientId): ${JSON.stringify(

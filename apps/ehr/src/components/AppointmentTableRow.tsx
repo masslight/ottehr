@@ -44,7 +44,7 @@ import { dataTestIds } from '../constants/data-test-ids';
 import ChatModal from '../features/chat/ChatModal';
 import { usePractitionerActions } from '../features/css-module/hooks/usePractitioner';
 import { checkInPatient } from '../helpers';
-import { displayOrdersToolTip } from '../helpers';
+import { displayOrdersToolTip, hasAtLeastOneOrder } from '../helpers';
 import { getTimezone } from '../helpers/formatDateTime';
 import { formatPatientName } from '../helpers/formatPatientName';
 import { getOfficePhoneNumber } from '../helpers/getOfficePhoneNumber';
@@ -248,7 +248,6 @@ export default function AppointmentTableRow({
   const [chatModalOpen, setChatModalOpen] = useState<boolean>(false);
   const [hasUnread, setHasUnread] = useState<boolean>(appointment.smsModel?.hasUnreadMessages || false);
   const user = useEvolveUser();
-  const { inHouseLabOrders, externalLabOrders, nursingOrders, inHouseMedications } = orders;
 
   if (!user) {
     throw new Error('User is not defined');
@@ -651,9 +650,7 @@ export default function AppointmentTableRow({
   // this bool determines what style mouse should show on hover for the cells that hold these tooltips
   // if orders tooltip is displayed, we check if there are any orders - if no orders the cell will be empty and it doesn't make sense to have the pointer hand
   // if visit components, there is always something in this cell, hence the default to true
-  const showPointerForInfoIcons = displayOrdersToolTip(appointment, tab)
-    ? inHouseLabOrders?.length || externalLabOrders?.length || nursingOrders?.length || inHouseMedications?.length
-    : true;
+  const showPointerForInfoIcons = displayOrdersToolTip(appointment, tab) ? hasAtLeastOneOrder(orders) : true;
 
   return (
     <TableRow
@@ -825,14 +822,7 @@ export default function AppointmentTableRow({
           cursor: `${showPointerForInfoIcons ? 'pointer' : 'auto'}`,
         }}
       >
-        <InfoIconsToolTip
-          appointment={appointment}
-          tab={tab}
-          inHouseLabOrders={inHouseLabOrders}
-          externalLabOrders={externalLabOrders}
-          nursingOrders={nursingOrders}
-          inHouseMedications={inHouseMedications}
-        />
+        <InfoIconsToolTip appointment={appointment} tab={tab} orders={orders} />
       </TableCell>
       <TableCell sx={{ verticalAlign: 'center' }}>
         <AppointmentNote
