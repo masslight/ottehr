@@ -174,28 +174,32 @@ This repository uses a monorepo structure.
 
 ### Customization
 
-#### To customize your Ottehr app:
+#### To customize your Ottehr app
 
 - Update the "VITE_APP_NAME" environment variable from both ehr and intake env folders
 - Modify the project name, website and support email from `packages/utils/lib/types/constants.ts`
 
-#### To theme your Ottehr Intake app:
+#### To theme your Ottehr Intake app
 
 - Copy the files in `apps/intake/src/theme` into a new folder, for example `apps/intake/src/myTheme`
 - Update the theme environment variables to point to your new folders:
+
   ```bash
   THEME_PATH='/src/themes/myTheme'
   ```
+
 - Modify the images, svgs and colors as needed
 - Restart the app
 
-#### To theme your Ottehr Ehr app:
+#### To theme your Ottehr Ehr app
 
 - Copy the files in `apps/ehr/src/theme` into a new folder, for example `apps/ehr/src/myTheme`
 - Update the theme environment variables to point to your new folders:
+
   ```bash
   THEME_PATH='/src/themes/myTheme'
   ```
+
 - Modify the images, svgs and colors as needed
 - Restart the app
 

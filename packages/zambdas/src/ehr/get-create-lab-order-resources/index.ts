@@ -1,28 +1,30 @@
 import Oystehr, { BatchInputRequest, Bundle } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Account, Coverage, Organization } from 'fhir/r4b';
 import {
   APIError,
   CODE_SYSTEM_COVERAGE_CLASS,
   EXTERNAL_LAB_ERROR,
+  flattenBundleResources,
+  getSecret,
+  isApiError,
   LAB_ORG_TYPE_CODING,
   LabOrderResourcesRes,
+  OrderableItemSearchResult,
   OYSTEHR_LAB_GUID_SYSTEM,
   OYSTEHR_LAB_ORDERABLE_ITEM_SEARCH_API,
-  OrderableItemSearchResult,
-  flattenBundleResources,
-  isApiError,
+  SecretsKeys,
 } from 'utils';
-import { checkOrCreateM2MClientToken, topLevelCatch } from '../../shared';
+import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { ZambdaInput } from '../../shared/types';
 import { getPrimaryInsurance } from '../shared/labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
-let m2mtoken: string;
+let m2mToken: string;
+const ZAMBDA_NAME = 'get-create-lab-order-resources';
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
@@ -31,10 +33,10 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const { accounts, coverages, labOrgsGuids } = await getResources(oystehr, patientId, labSearch);
+    const { accounts, coverages, labOrgsGUIDs } = await getResources(oystehr, patientId, labSearch);
 
     let coverageName: string | undefined;
     if (patientId) {
@@ -43,7 +45,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     let labs: OrderableItemSearchResult[] = [];
     if (labSearch) {
-      labs = await getLabs(labOrgsGuids, labSearch, m2mtoken);
+      labs = await getLabs(labOrgsGUIDs, labSearch, m2mToken);
     }
 
     const response: LabOrderResourcesRes = {
@@ -56,7 +58,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    await topLevelCatch('admin-get-create-lab-order-resources', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('admin-get-create-lab-order-resources', error, ENVIRONMENT);
     let body = JSON.stringify({ message: `Error getting resources for create lab order: ${error}` });
     if (isApiError(error)) {
       const { code, message } = error as APIError;
@@ -73,7 +76,7 @@ const getResources = async (
   oystehr: Oystehr,
   patientId?: string,
   labSearch?: string
-): Promise<{ accounts: Account[]; coverages: Coverage[]; labOrgsGuids: string[] }> => {
+): Promise<{ accounts: Account[]; coverages: Coverage[]; labOrgsGUIDs: string[] }> => {
   const requests: BatchInputRequest<Coverage | Account | Organization>[] = [];
 
   if (patientId) {
@@ -104,28 +107,28 @@ const getResources = async (
   const coverages: Coverage[] = [];
   const accounts: Account[] = [];
   const organizations: Organization[] = [];
-  const labOrgsGuids: string[] = [];
+  const labOrgsGUIDs: string[] = [];
 
   resources.forEach((resource) => {
     if (resource.resourceType === 'Organization') {
       const fhirOrg = resource as Organization;
       organizations.push(fhirOrg);
       const labGuid = fhirOrg.identifier?.find((id) => id.system === OYSTEHR_LAB_GUID_SYSTEM)?.value;
-      if (labGuid) labOrgsGuids.push(labGuid);
+      if (labGuid) labOrgsGUIDs.push(labGuid);
     }
     if (resource.resourceType === 'Coverage') coverages.push(resource as Coverage);
     if (resource.resourceType === 'Account') accounts.push(resource as Account);
   });
 
-  return { coverages, accounts, labOrgsGuids };
+  return { coverages, accounts, labOrgsGUIDs };
 };
 
 const getLabs = async (
-  labOrgsGuids: string[],
+  labOrgsGUIDs: string[],
   search: string,
-  m2mtoken: string
+  m2mToken: string
 ): Promise<OrderableItemSearchResult[]> => {
-  const labIds = labOrgsGuids.join(',');
+  const labIds = labOrgsGUIDs.join(',');
   let cursor = '';
   const items: OrderableItemSearchResult[] = [];
 
@@ -134,7 +137,7 @@ const getLabs = async (
     const orderableItemsSearch = await fetch(url, {
       method: 'GET',
       headers: {
-        Authorization: `Bearer ${m2mtoken}`,
+        Authorization: `Bearer ${m2mToken}`,
       },
     });
     const response = await orderableItemsSearch.json();

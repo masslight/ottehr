@@ -1,6 +1,6 @@
-import { create } from 'zustand';
-import { ClaimsQueueGetRequest, ClaimsQueueItem, EmployeeDetails } from 'utils';
 import { InsurancePlan, Location, Organization } from 'fhir/r4b';
+import { ClaimsQueueGetRequest, ClaimsQueueItem, EmployeeDetails } from 'utils';
+import { create } from 'zustand';
 
 type ClaimsQueueState = ClaimsQueueGetRequest & {
   selectedRows: string[];

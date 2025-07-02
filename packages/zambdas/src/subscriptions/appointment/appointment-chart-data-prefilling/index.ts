@@ -13,6 +13,7 @@ import {
   getDefaultNote,
   getPatchBinary,
   getPatchOperationForNewMetaTag,
+  getSecret,
   inPersonExamCardsMap,
   InPersonExamCardsNames,
   inPersonExamFieldsMap,
@@ -20,6 +21,7 @@ import {
   MDM_FIELD_DEFAULT_TEXT,
   OTTEHR_MODULE,
   Secrets,
+  SecretsKeys,
   SNOMEDCodeConceptInterface,
 } from 'utils';
 import { checkOrCreateM2MClientToken, saveResourceRequest, topLevelCatch, ZambdaInput } from '../../../shared';
@@ -208,7 +210,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: 'Successfully pre-processed appointment',
     };
   } catch (error: any) {
-    await topLevelCatch('admin-telemed-appointment-subscription', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('admin-telemedicine-appointment-subscription', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify(error.message),

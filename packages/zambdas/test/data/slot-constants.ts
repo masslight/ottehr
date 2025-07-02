@@ -76,7 +76,7 @@ export const slotTimesAllDay10to6Cap3 = [
   'T17:45:00.000-04:00',
 ];
 
-// // arrays of slot strings formatted for the front end (no dups)
+// // arrays of slot strings formatted for the front end (no duplicates)
 // slots should start showing 40 minutes from now
 // if now is 2, slots will start at 2:45
 // if now is 1:47, slots will start at 2:30
@@ -377,7 +377,7 @@ export const slotsTimesGroupS = [
 // open @1pm close @5pm, capacity 1, no buffers, 1 appointment @15
 export const slotsTimesGroupT = ['T13:00:00.000-04:00', 'T14:00:00.000-04:00', 'T16:00:00.000-04:00'];
 
-// open @2pm close @5pm, capacity 3, 15 miunte opening + closing buffer
+// open @2pm close @5pm, capacity 3, 15 minute opening + closing buffer
 export const slotsTimesGroupU = [
   'T14:15:00.000-04:00',
   'T15:00:00.000-04:00',
@@ -391,7 +391,7 @@ export const slotsTimesGroupU = [
   'T17:30:00.000-04:00',
 ];
 
-// open @2pm close @5pm, capacity 1, 15 miunte opening + closing buffer
+// open @2pm close @5pm, capacity 1, 15 minute opening + closing buffer
 export const slotsTimesGroupV = ['T17:00:00.000-04:00'];
 export const slotsTimesGroupV2 = [
   'T14:15:00.000-04:00',
@@ -407,7 +407,7 @@ export const slotsTimesGroupV3 = [
   'T17:00:00.000-04:00',
 ];
 
-// open @2pm close @5pm, capacity 2, 15 miunte opening + closing buffer
+// open @2pm close @5pm, capacity 2, 15 minute opening + closing buffer
 export const slotsTimesGroupW = ['T17:00:00.000-04:00', 'T17:30:00.000-04:00'];
 
 export const slotsTimesForOpeningBufferBase = [

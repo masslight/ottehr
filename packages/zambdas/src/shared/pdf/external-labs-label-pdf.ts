@@ -1,21 +1,21 @@
+import Oystehr from '@oystehr/sdk';
+import { randomUUID } from 'crypto';
+import { DocumentReference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { StandardFonts } from 'pdf-lib';
 import {
   createFilesDocumentReferences,
   EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE,
   EXTERNAL_LAB_LABEL_PDF_BASE_NAME,
-  Secrets,
   getPresignedURL,
   LabelConfig,
+  Secrets,
 } from 'utils';
-import { PdfInfo, createPdfClient } from './pdf-utils';
-import { Y_POS_GAP as pdfClientGapSubtraction } from './pdf-consts';
-import { PdfClientStyles, TextStyle } from './types';
 import { makeZ3Url } from './../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from './../z3Utils';
-import Oystehr from '@oystehr/sdk';
-import { DocumentReference } from 'fhir/r4b';
-import { randomUUID } from 'crypto';
-import { StandardFonts } from 'pdf-lib';
+import { Y_POS_GAP as pdfClientGapSubtraction } from './pdf-consts';
+import { createPdfClient, PdfInfo } from './pdf-utils';
+import { PdfClientStyles, TextStyle } from './types';
 
 interface ExternalLabsLabelContent {
   patientLastName: string;
@@ -234,13 +234,13 @@ export async function createExternalLabsLabelPDF(
     oystehr,
     searchParams: [{ name: 'related', value: `ServiceRequest/${serviceRequestID}` }],
     generateUUID: randomUUID,
-    listResources: [], // this for whatever reason needs to get added otehrwise the function never adds the new docRef to the returned array
+    listResources: [], // this for whatever reason needs to get added otherwise the function never adds the new docRef to the returned array
   });
 
   console.log(`These are the docRefs returned for the label: `, JSON.stringify(docRefs));
 
   if (!docRefs.length) {
-    throw new Error('Unable to make docrefs for label');
+    throw new Error('Unable to make docRefs for label');
   }
 
   const presignedURL = await getPresignedURL(pdfInfo.uploadURL, token);

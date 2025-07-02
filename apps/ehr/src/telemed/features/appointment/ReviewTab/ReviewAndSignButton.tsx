@@ -1,8 +1,13 @@
 import CheckIcon from '@mui/icons-material/Check';
 import { Box, Tooltip, Typography } from '@mui/material';
+import { enqueueSnackbar } from 'notistack';
 import { FC, useMemo, useState } from 'react';
-import { getVisitStatus, TelemedAppointmentStatusEnum, PRACTITIONER_CODINGS } from 'utils';
+import { getVisitStatus, PRACTITIONER_CODINGS, TelemedAppointmentStatusEnum } from 'utils';
 import { RoundedButton } from '../../../../components/RoundedButton';
+import { dataTestIds } from '../../../../constants/data-test-ids';
+import { useFeatureFlags } from '../../../../features/css-module/context/featureFlags';
+import { useAppointment } from '../../../../features/css-module/hooks/useAppointment';
+import { usePractitionerActions } from '../../../../features/css-module/hooks/usePractitioner';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { ConfirmationDialog } from '../../../components';
 import { useGetAppointmentAccessibility } from '../../../hooks';
@@ -13,11 +18,6 @@ import {
   useSignAppointmentMutation,
 } from '../../../state';
 import { getPatientName } from '../../../utils';
-import { useFeatureFlags } from '../../../../features/css-module/context/featureFlags';
-import { useAppointment } from '../../../../features/css-module/hooks/useAppointment';
-import { usePractitionerActions } from '../../../../features/css-module/hooks/usePractitioner';
-import { enqueueSnackbar } from 'notistack';
-import { dataTestIds } from '../../../../constants/data-test-ids';
 
 type ReviewAndSignButtonProps = {
   onSigned?: () => void;

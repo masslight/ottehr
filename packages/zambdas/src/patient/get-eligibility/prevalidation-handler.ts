@@ -10,6 +10,7 @@ import {
   Organization,
   RelatedPerson,
 } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   BillingProviderDataObject,
   createFhirHumanName,
@@ -32,7 +33,6 @@ import {
   EligibilityCheckPrevalidationStructuredInput,
   validateInsuranceRequirements,
 } from './validation';
-import { DateTime } from 'luxon';
 
 interface Input extends EligibilityCheckPrevalidationStructuredInput {
   apiUrl: string;
@@ -125,7 +125,7 @@ export const prevalidationHandler = async (input: Input, oystehrClient: Oystehr)
     /*
       for some use cases it might make more sense to go fetch the billing provider data from Candid,
       in which case a contained resource would be created and added to the eligibility requests contained resources,
-      rather than attemping to get a reference to some resource in the FHIR db here. 
+      rather than attempting to get a reference to some resource in the FHIR db here. 
     */
     billingProviderData = await complexBillingProviderValidation(
       { primary, secondary },

@@ -1,10 +1,10 @@
 import Oystehr from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment } from 'fhir/r4b';
 import {
   APPOINTMENT_NOT_FOUND_ERROR,
   getAppointmentResourceById,
+  getSecret,
   INSURANCE_CARD_BACK_2_ID,
   INSURANCE_CARD_BACK_ID,
   INSURANCE_CARD_FRONT_2_ID,
@@ -17,23 +17,15 @@ import {
   SCHOOL_WORK_NOTE_SCHOOL_ID,
   SCHOOL_WORK_NOTE_WORK_ID,
   Secrets,
+  SecretsKeys,
 } from 'utils';
-import {
-  captureSentryException,
-  configSentry,
-  createOystehrClient,
-  getAuth0Token,
-  topLevelCatch,
-  ZambdaInput,
-} from '../../shared';
-import { validateRequestParameters } from './validateRequestParameters';
+import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { makeZ3Url } from '../../shared/presigned-file-urls';
+import { validateRequestParameters } from './validateRequestParameters';
 
 let zapehrToken: string;
-
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  configSentry('get-presigned-file-url', input.secrets);
-  console.log(`Input: ${JSON.stringify(input)}`);
+const ZAMBDA_NAME = 'get-presigned-file-url';
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     if (!zapehrToken) {
       zapehrToken = await getAuth0Token(input.secrets);
@@ -45,7 +37,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(result),
     };
   } catch (error: any) {
-    return topLevelCatch('get-presigned-file-url', error, input.secrets, captureSentryException);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('get-presigned-file-url', error, ENVIRONMENT, true);
   }
 });
 

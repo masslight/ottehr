@@ -1,10 +1,13 @@
 // cSpell:ignore fhirify
 import { Consent, QuestionnaireResponse, Slot } from 'fhir/r4b';
-import { ZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
 import {
-  AvailableLocationInformation,
+  CancelAppointmentZambdaInput,
+  CancelAppointmentZambdaOutput,
+  CheckInInput,
+  CheckInZambdaOutput,
   chooseJson,
   CreateAppointmentInputParams,
+  CreateAppointmentResponse,
   CreateSlotParams,
   GetAppointmentDetailsResponse,
   GetEligibilityParameters,
@@ -25,11 +28,12 @@ import {
   SubmitPaperworkParameters,
   UCGetPaperworkResponse,
   UpdateAppointmentParameters,
-  VisitType,
+  UpdateAppointmentZambdaOutput,
   WalkinAvailabilityCheckParams,
   WalkinAvailabilityCheckResult,
 } from 'utils';
-import { CancelAppointmentParameters, GetAppointmentParameters, GetPaperworkParameters } from '../types/types';
+import { ZambdaClient } from '../hooks/useUCZambdaClient';
+import { GetAppointmentParameters, GetPaperworkParameters } from '../types/types';
 import { apiErrorToThrow } from './errorHelpers';
 
 export interface ZapehrSearchParameter {
@@ -58,32 +62,17 @@ const GET_WALKIN_AVAILABILITY_ZAMBDA_ID = 'walkin-check-availability';
 const CREATE_SLOT_ZAMBDA_ID = 'create-slot';
 const GET_SLOT_DETAILS_ZAMBDA_ID = 'get-slot-details';
 
-export interface AppointmentBasicInfo {
-  start: string;
-  location: AvailableLocationInformation;
-  visitType: string;
-  status?: string;
-}
-
-export interface CreateAppointmentResponse {
-  message: string;
-  appointment: string;
-  fhirPatientId: string;
-}
-
-export interface CancelAppointmentResponse {
-  appointment: string | null;
-  location: AvailableLocationInformation;
-  visitType: VisitType;
-}
-
 class API {
-  async checkIn(zambdaClient: ZambdaClient, appointmentID: string, throwError = true): Promise<any> {
+  async checkIn(
+    zambdaClient: ZambdaClient,
+    parameters: CheckInInput,
+    throwError = true
+  ): Promise<CheckInZambdaOutput | undefined> {
     try {
       if (CHECK_IN_ZAMBDA_ID == null || REACT_APP_IS_LOCAL == null) {
         throw new Error('check in environment variable could not be loaded');
       }
-      const response = await zambdaClient.executePublic(CHECK_IN_ZAMBDA_ID, { appointment: appointmentID });
+      const response = await zambdaClient.executePublic(CHECK_IN_ZAMBDA_ID, parameters);
       const jsonToUse = chooseJson(response);
       return jsonToUse;
     } catch (error: any) {
@@ -91,7 +80,8 @@ class API {
         throw apiErrorToThrow(error, !isApiError(error));
       } else {
         // Fail silently
-        console.error('Error checking in appointment', error);
+        console.error('Error checking in appointment', error); // TODO this can't be a good thing why fail silently?
+        return undefined;
       }
     }
   }
@@ -117,9 +107,9 @@ class API {
 
   async cancelAppointment(
     zambdaClient: ZambdaClient,
-    parameters: CancelAppointmentParameters,
+    parameters: CancelAppointmentZambdaInput,
     throwError = true
-  ): Promise<CancelAppointmentResponse | void> {
+  ): Promise<CancelAppointmentZambdaOutput | void> {
     try {
       if (CANCEL_APPOINTMENT_ZAMBDA_ID == null || REACT_APP_IS_LOCAL == null) {
         throw new Error('cancel appointment environment variable could not be loaded');
@@ -139,7 +129,10 @@ class API {
     }
   }
 
-  async updateAppointment(zambdaClient: ZambdaClient, parameters: UpdateAppointmentParameters): Promise<any> {
+  async updateAppointment(
+    zambdaClient: ZambdaClient,
+    parameters: UpdateAppointmentParameters
+  ): Promise<UpdateAppointmentZambdaOutput> {
     try {
       if (UPDATE_APPOINTMENT_ZAMBDA_ID == null || REACT_APP_IS_LOCAL == null) {
         throw new Error('update appointment environment variable could not be loaded');

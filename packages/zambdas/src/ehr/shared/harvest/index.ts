@@ -31,27 +31,47 @@ import {
   RelatedPerson,
   Task,
 } from 'fhir/r4b';
+import _ from 'lodash';
 import { DateTime } from 'luxon';
+import Stripe from 'stripe';
 import {
   CONSENT_CODE,
   ConsentSigner,
   consolidateOperations,
   ContactTelecomConfig,
+  COVERAGE_ADDITIONAL_INFORMATION_URL,
   coverageFieldPaths,
   createConsentResource,
+  createCoverageMemberIdentifier,
+  createFhirHumanName,
   createFilesDocumentReferences,
   createPatchOperationForTelecom,
   DateComponents,
+  deduplicateContactPoints,
+  deduplicateIdentifiers,
+  deduplicateObjectsByStrictKeyValEquality,
+  deduplicateUnbundledResources,
   extractResourceTypeAndPath,
+  FHIR_BASE_URL,
   FHIR_EXTENSION,
   FileDocDataForDocReference,
   flattenIntakeQuestionnaireItems,
+  flattenItems,
+  formatPhoneNumber,
   getArrayInfo,
   getCurrentValue,
+  getEmailForIndividual,
+  getFullName,
+  getMemberIdFromCoverage,
   getPatchOperationToAddOrUpdateExtension,
+  getPatchOperationToAddOrUpdatePreferredLanguage,
+  getPatchOperationToAddOrUpdatePreferredName,
   getPatchOperationToRemoveExtension,
+  getPatchOperationToRemovePreferredLanguage,
   getPhoneNumberForIndividual,
   getResourcesFromBatchInlineRequests,
+  getSecret,
+  getStripeCustomerIdFromAccount,
   INSURANCE_CARD_BACK_2_ID,
   INSURANCE_CARD_BACK_ID,
   INSURANCE_CARD_CODE,
@@ -60,10 +80,17 @@ import {
   INSURANCE_COVERAGE_CODING,
   IntakeQuestionnaireItem,
   isoStringFromDateComponents,
-  FHIR_BASE_URL,
+  isValidUUID,
+  LanguageOption,
+  mapBirthSexToGender,
+  OrderedCoverages,
+  OrderedCoveragesWithSubscribers,
   OTTEHR_MODULE,
+  PATIENT_BILLING_ACCOUNT_TYPE,
+  PATIENT_NOT_FOUND_ERROR,
   PATIENT_PHOTO_CODE,
   PATIENT_PHOTO_ID_PREFIX,
+  PatientAccountAndCoverageResources,
   patientFieldPaths,
   PatientMasterRecordResource,
   PatientMasterRecordResourceType,
@@ -76,42 +103,15 @@ import {
   SCHOOL_WORK_NOTE_SCHOOL_ID,
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
   SCHOOL_WORK_NOTE_WORK_ID,
-  SUBSCRIBER_RELATIONSHIP_CODE_MAP,
-  uploadPDF,
-  LanguageOption,
-  getPatchOperationToAddOrUpdatePreferredLanguage,
-  createFhirHumanName,
-  mapBirthSexToGender,
-  createCoverageMemberIdentifier,
-  getMemberIdFromCoverage,
-  getFullName,
-  deduplicateContactPoints,
-  isValidUUID,
-  deduplicateIdentifiers,
-  deduplicateObjectsByStrictKeyValEquality,
-  deduplicateUnbundledResources,
-  takeContainedOrFind,
-  PATIENT_NOT_FOUND_ERROR,
-  OrderedCoverages,
-  OrderedCoveragesWithSubscribers,
-  PatientAccountAndCoverageResources,
-  flattenItems,
-  PATIENT_BILLING_ACCOUNT_TYPE,
-  formatPhoneNumber,
-  getSecret,
   Secrets,
   SecretsKeys,
-  getStripeCustomerIdFromAccount,
-  getEmailForIndividual,
   STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR,
-  getPatchOperationToAddOrUpdatePreferredName,
-  getPatchOperationToRemovePreferredLanguage,
-  COVERAGE_ADDITIONAL_INFORMATION_URL,
+  SUBSCRIBER_RELATIONSHIP_CODE_MAP,
+  takeContainedOrFind,
+  uploadPDF,
 } from 'utils';
-import _ from 'lodash';
 import { createOrUpdateFlags } from '../../../patient/paperwork/sharedHelpers';
 import { createPdfBytes } from '../../../shared';
-import Stripe from 'stripe';
 
 const IGNORE_CREATING_TASKS_FOR_REVIEW = true;
 
@@ -198,7 +198,7 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
   let oldConsentDocRefs: DocumentReference[] | undefined = undefined;
   let oldConsentResources: Consent[] | undefined = undefined;
   if (questionnaireResponse) {
-    console.log('searching for old conset doc refs');
+    console.log('searching for old consent doc refs');
     oldConsentDocRefs = (
       await oystehr.fhir.search<DocumentReference>({
         resourceType: 'DocumentReference',
@@ -409,7 +409,7 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
 }
 
 export async function createDocumentResources(
-  quesionnaireResponse: QuestionnaireResponse,
+  questionnaireResponse: QuestionnaireResponse,
   patientID: string,
   appointmentID: string,
   oystehr: Oystehr,
@@ -419,7 +419,7 @@ export async function createDocumentResources(
 
   const docsToSave: DocToSaveData[] = [];
 
-  const items = (quesionnaireResponse.item as IntakeQuestionnaireItem[]) ?? [];
+  const items = (questionnaireResponse.item as IntakeQuestionnaireItem[]) ?? [];
   const flattenedPaperwork = flattenIntakeQuestionnaireItems(items) as QuestionnaireResponseItem[];
 
   const photoIdFront = flattenedPaperwork.find((item) => {
@@ -996,13 +996,13 @@ export function createMasterRecordPatchOperations(
   // Separate Patient operations
   result.patient = separateResourceUpdates(tempOperations.patient, patient, 'Patient');
   result.patient.patchOpsForDirectUpdate = result.patient.patchOpsForDirectUpdate.filter((op) => {
-    const { path, op: oper } = op;
-    return path != undefined && oper != undefined;
+    const { path, op: innerOperation } = op;
+    return path != undefined && innerOperation != undefined;
   });
   result.patient.patchOpsForDirectUpdate = consolidateOperations(result.patient.patchOpsForDirectUpdate, patient);
-  // this needs to go here for now because consolitdateOperations breaks it
+  // this needs to go here for now because consolidateOperations breaks it
   result.patient.patchOpsForDirectUpdate.push(...getPCPPatchOps(pcpItems, patient));
-  console.log('result.patient.patchops', JSON.stringify(result.patient.patchOpsForDirectUpdate, null, 2));
+  console.log('result.patient.patchOps', JSON.stringify(result.patient.patchOpsForDirectUpdate, null, 2));
   return result;
 }
 
@@ -1546,7 +1546,7 @@ interface PrioritizedCoverageGroup {
   items: QuestionnaireResponseItem[];
 }
 
-const tagCoverageGroupWithPriortity = (items: QuestionnaireResponseItem[]): PrioritizedCoverageGroup | undefined => {
+const tagCoverageGroupWithPriority = (items: QuestionnaireResponseItem[]): PrioritizedCoverageGroup | undefined => {
   const primaryItem = items.find(
     (item) => item.linkId.startsWith('insurance-priority') && item.answer?.[0]?.valueString === 'Primary'
   );
@@ -1586,7 +1586,7 @@ export const getPrimaryPolicyHolderFromAnswers = (items: QuestionnaireResponseIt
   const coverageGroups = getCoverageGroups(items);
 
   const prioritizedCoverageGroups = coverageGroups
-    .map(tagCoverageGroupWithPriortity)
+    .map(tagCoverageGroupWithPriority)
     .filter(Boolean) as PrioritizedCoverageGroup[];
   const foundPrimaryGroup = prioritizedCoverageGroups.find((group) => group.priority === 'Primary');
 
@@ -1606,7 +1606,7 @@ export const getSecondaryPolicyHolderFromAnswers = (items: QuestionnaireResponse
   const coverageGroups = getCoverageGroups(items);
 
   const prioritizedCoverageGroups = coverageGroups
-    .map(tagCoverageGroupWithPriortity)
+    .map(tagCoverageGroupWithPriority)
     .filter(Boolean) as PrioritizedCoverageGroup[];
   const foundSecondaryGroup = prioritizedCoverageGroups.find((group) => group.priority === 'Secondary');
   if (foundSecondaryGroup) {
@@ -1616,7 +1616,7 @@ export const getSecondaryPolicyHolderFromAnswers = (items: QuestionnaireResponse
   return extractPolicyHolder(flattenedItems, '-2');
 };
 
-// EHR design calls for teritary insurance to be handled in addition to secondary - will need some changes to support this
+// EHR design calls for tertiary insurance to be handled in addition to secondary - will need some changes to support this
 const checkIsSecondaryOnly = (items: QuestionnaireResponseItem[]): boolean => {
   const priorities = items.filter(
     (item) => item.linkId === 'insurance-priority' || item.linkId === 'insurance-priority-2'
@@ -1850,7 +1850,7 @@ export function createErxContactOperation(
   const verifiedPhoneNumber = getPhoneNumberForIndividual(relatedPerson);
   console.log(`patient verified phone number ${verifiedPhoneNumber}`);
 
-  console.log('reviewing patient erx contact telecom phone nubmber');
+  console.log('reviewing patient erx contact telecom phone number');
   // find existing erx contact info and it's index so that the contact array can be updated
   const erxContactIdx = patientResource?.contact?.findIndex((contact) =>
     Boolean(
@@ -2725,10 +2725,10 @@ export const createContainedGuarantor = (guarantor: ResponsiblePartyContact, pat
 
 const replaceCurrentGuarantor = (
   newGuarantor: AccountGuarantor,
-  currentGurantors: AccountGuarantor[],
+  currentGuarantors: AccountGuarantor[],
   timestamp?: string
 ): AccountGuarantor[] => {
-  const combined = deduplicateObjectsByStrictKeyValEquality([newGuarantor, ...currentGurantors]);
+  const combined = deduplicateObjectsByStrictKeyValEquality([newGuarantor, ...currentGuarantors]);
   const periodEnd = timestamp ?? DateTime.now().toISO();
   return combined.map((guarantor, idx) => {
     if (idx !== 0) {
@@ -2767,8 +2767,8 @@ export const getCoverageUpdateResourcesFromUnbundled = (
 
   const existingCoverages: OrderedCoveragesWithSubscribers = {};
   if (existingAccount) {
-    const guarantorReference = existingAccount.guarantor?.find((gref) => {
-      return gref.period?.end === undefined;
+    const guarantorReference = existingAccount.guarantor?.find((gRef) => {
+      return gRef.period?.end === undefined;
     })?.party?.reference;
     if (guarantorReference) {
       existingGuarantorResource = takeContainedOrFind(guarantorReference, resources, existingAccount);
@@ -2787,9 +2787,9 @@ export const getCoverageUpdateResourcesFromUnbundled = (
     // find the free-floating existing coverages
     const primaryCoverages = coverageResources
       .filter((cov) => cov.order === 1 && cov.status === 'active')
-      .sort((cova, covb) => {
-        const covALastUpdate = cova.meta?.lastUpdated;
-        const covBLastUpdate = covb.meta?.lastUpdated;
+      .sort((covA, covB) => {
+        const covALastUpdate = covA.meta?.lastUpdated;
+        const covBLastUpdate = covB.meta?.lastUpdated;
         if (covALastUpdate && covBLastUpdate) {
           const covALastUpdateDate = DateTime.fromISO(covALastUpdate);
           const covBLastUpdateDate = DateTime.fromISO(covBLastUpdate);
@@ -2801,9 +2801,9 @@ export const getCoverageUpdateResourcesFromUnbundled = (
       });
     const secondaryCoverages = coverageResources
       .filter((cov) => cov.order === 2 && cov.status === 'active')
-      .sort((cova, covb) => {
-        const covALastUpdate = cova.meta?.lastUpdated;
-        const covBLastUpdate = covb.meta?.lastUpdated;
+      .sort((covA, covB) => {
+        const covALastUpdate = covA.meta?.lastUpdated;
+        const covBLastUpdate = covB.meta?.lastUpdated;
         if (covALastUpdate && covBLastUpdate) {
           const covALastUpdateDate = DateTime.fromISO(covALastUpdate);
           const covBLastUpdateDate = DateTime.fromISO(covBLastUpdate);
@@ -2861,7 +2861,7 @@ export const getCoverageUpdateResourcesFromUnbundled = (
   };
 };
 
-enum InsuanceCarrierKeys {
+enum InsuranceCarrierKeys {
   primary = 'insurance-carrier',
   secondary = 'insurance-carrier-2',
 }
@@ -2947,10 +2947,10 @@ export const updatePatientAccountFromQuestionnaire = async (
 
   // get insurance additional information
   const insurancePlans = [];
-  const primaryInsurancePlan = flattenedPaperwork.find((item) => item.linkId === InsuanceCarrierKeys.primary)
+  const primaryInsurancePlan = flattenedPaperwork.find((item) => item.linkId === InsuranceCarrierKeys.primary)
     ?.answer?.[0]?.valueReference?.reference;
   if (primaryInsurancePlan) insurancePlans.push(primaryInsurancePlan);
-  const secondaryInsurancePlan = flattenedPaperwork.find((item) => item.linkId === InsuanceCarrierKeys.secondary)
+  const secondaryInsurancePlan = flattenedPaperwork.find((item) => item.linkId === InsuranceCarrierKeys.secondary)
     ?.answer?.[0]?.valueReference?.reference;
   if (secondaryInsurancePlan) insurancePlans.push(secondaryInsurancePlan);
   const insuranceInformationResources = await searchInsuranceInformation(oystehr, insurancePlans);

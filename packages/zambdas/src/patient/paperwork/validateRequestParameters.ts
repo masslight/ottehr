@@ -1,10 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import {
-  PatchPaperworkParameters,
-  QUESTIONNAIRE_RESPONSE_INVALID_ERROR,
   getQuestionnaireItemsAndProgress,
   makeValidationSchema,
+  PatchPaperworkParameters,
+  QUESTIONNAIRE_RESPONSE_INVALID_ERROR,
   recursiveGroupTransform,
 } from 'utils';
 import { ValidationError } from 'yup';
@@ -162,7 +162,7 @@ const complexSubmitValidation = async (
         })
         .filter((i) => !!i) as string[];
 
-      console.log('errorpaths', JSON.stringify(errorPaths));
+      console.log('errorPaths', JSON.stringify(errorPaths));
 
       if (errorPaths.length === 0) {
         // this will be a 500

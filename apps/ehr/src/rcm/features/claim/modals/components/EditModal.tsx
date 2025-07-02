@@ -1,10 +1,10 @@
-import React, { FC, ReactNode } from 'react';
-import { Box, DialogProps, DialogTitle, IconButton, Typography } from '@mui/material';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import { LoadingButton } from '@mui/lab';
+import { Box, DialogProps, DialogTitle, IconButton, Typography } from '@mui/material';
+import React, { FC, ReactNode } from 'react';
+import { RoundedButton } from '../../../../../components/RoundedButton';
 import { PropsWithChildren } from '../../../../../shared/types';
 import { InnerStateDialog } from '../../../../../telemed';
-import { RoundedButton } from '../../../../../components/RoundedButton';
-import { LoadingButton } from '@mui/lab';
 
 type EditModalProps = PropsWithChildren<{
   onSave: (hideDialog: () => void) => void;

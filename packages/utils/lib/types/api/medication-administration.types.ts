@@ -1,4 +1,5 @@
-import { Medication, MedicationAdministration, MedicationStatement, Patient, Practitioner } from 'fhir/r4b';
+import { MedicationAdministration, MedicationStatement, Patient, Practitioner } from 'fhir/r4b';
+import { z } from 'zod';
 import { MEDICATION_APPLIANCE_LOCATION_SYSTEM } from './medication-administration.constants';
 
 export enum MedicationOrderStatuses {
@@ -10,10 +11,19 @@ export enum MedicationOrderStatuses {
 }
 export type MedicationOrderStatusesType = `${MedicationOrderStatuses}`;
 
-export interface GetMedicationOrdersInput {
-  encounterId: string;
-}
-
+export const GetMedicationOrdersInputSchema = z.object({
+  searchBy: z.union([
+    z.object({
+      field: z.literal('encounterId'),
+      value: z.string(),
+    }),
+    z.object({
+      field: z.literal('encounterIds'),
+      value: z.array(z.string()),
+    }),
+  ]),
+});
+export type GetMedicationOrdersInput = z.infer<typeof GetMedicationOrdersInputSchema>;
 export interface GetMedicationOrdersResponse {
   orders: ExtendedMedicationDataForResponse[];
 }
@@ -26,8 +36,8 @@ export interface UpdateMedicationOrderInput {
 
 export interface MedicationData {
   patient: string;
-  encounter: string;
-  medicationId: string;
+  encounterId: string;
+  medicationId?: string;
   dose: number;
   route: string;
   instructions?: string;
@@ -74,7 +84,6 @@ export interface OrderPackage {
   medicationAdministration: MedicationAdministration;
   patient: Patient;
   medicationStatement?: MedicationStatement;
-  medication?: Medication;
   providerCreatedOrder?: Practitioner;
   providerAdministeredOrder?: Practitioner;
 }

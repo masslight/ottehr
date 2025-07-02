@@ -1,5 +1,4 @@
 import { BatchInputRequest } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import {
@@ -20,28 +19,28 @@ import {
   APIError,
   CreateInHouseLabOrderParameters,
   FHIR_IDC10_VALUESET_SYSTEM,
+  getFullestAvailableName,
   IN_HOUSE_LAB_ERROR,
   IN_HOUSE_LAB_TASK,
+  isApiError,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   Secrets,
-  getFullestAvailableName,
-  isApiError,
 } from 'utils';
 import {
-  ZambdaInput,
   checkOrCreateM2MClientToken,
   createOystehrClient,
   getMyPractitionerId,
   parseCreatedResourcesBundle,
+  wrapHandler,
+  ZambdaInput,
 } from '../../shared';
-import { getAttendingPractionerId } from '../shared/inhouse-labs';
+import { getAttendingPractitionerId } from '../shared/in-house-labs';
 import { getPrimaryInsurance } from '../shared/labs';
 import { validateRequestParameters } from './validateRequestParameters';
-let m2mtoken: string;
-
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+let m2mToken: string;
+const ZAMBDA_NAME = 'create-in-house-lab-order';
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`create-in-house-lab-order started, input: ${JSON.stringify(input)}`);
-
   let secrets = input.secrets;
   let validatedParameters: CreateInHouseLabOrderParameters & { secrets: Secrets | null; userToken: string };
 
@@ -61,8 +60,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     console.log('validateRequestParameters success');
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
     const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
 
     const {
@@ -138,7 +137,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       console.log('run as repeat for', cptCode, testItem.name);
       // tests being run as repeat need to be linked via basedOn to the original test that was run
       // so we are looking for a test with the same cptCode that does not have any value in basedOn - this will be the initialServiceRequest
-      const intialServiceRequestSearch = async (): Promise<ServiceRequest[]> =>
+      const initialServiceRequestSearch = async (): Promise<ServiceRequest[]> =>
         (
           await oystehr.fhir.search({
             resourceType: 'ServiceRequest',
@@ -154,7 +153,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
             ],
           })
         ).unbundle() as ServiceRequest[];
-      requests.push(intialServiceRequestSearch());
+      requests.push(initialServiceRequestSearch());
     }
 
     const results = await Promise.all(requests);
@@ -256,7 +255,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
           console.log('More than one initial tests found for this encounter');
           // this really shouldn't happen, something is misconfigured
           throw IN_HOUSE_LAB_ERROR(
-            'Could not deduce which test is intial since more than one test has previously been run today'
+            'Could not deduce which test is initial since more than one test has previously been run today'
           );
         }
         if (possibleInitialSRs.length === 0) {
@@ -269,7 +268,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       return;
     })();
 
-    const attendingPractitionerId = getAttendingPractionerId(encounter);
+    const attendingPractitionerId = getAttendingPractitionerId(encounter);
 
     const { currentUserPractitionerName, attendingPractitionerName } = await Promise.all([
       oystehrCurrentUser.fhir.get<Practitioner>({

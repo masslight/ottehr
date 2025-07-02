@@ -1,17 +1,18 @@
+import mixpanel from 'mixpanel-browser';
 import { useMemo, useState } from 'react';
 import { FieldValues } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ErrorDialog, ErrorDialogConfig, PageForm } from 'ui-components';
 import { APIError, APPOINTMENT_NOT_FOUND_ERROR, CANT_CANCEL_CHECKED_IN_APT_ERROR, PROJECT_NAME } from 'utils';
 import ottehrApi from '../api/ottehrApi';
 import { PageContainer } from '../components';
+import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
+import PageForm from '../components/PageForm';
 import useAppointmentNotFoundInformation from '../helpers/information';
-import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
-import mixpanel from 'mixpanel-browser';
-import { useUCZambdaClient } from 'ui-components';
-import { useVisitContext } from './ThankYou';
 import { useNavigateInFlow } from '../hooks/useNavigateInFlow';
-import { useTranslation } from 'react-i18next';
+import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
+import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
+import { useVisitContext } from './ThankYou';
 
 // these are the options for a patient in the IP intake app and are a product requirement for that app
 // please don't attempt to extract this to a shared util. if another app has similar or even identical options

@@ -1,32 +1,32 @@
 {
-    "resourceType": "ValueSet",
-    "url": "https://fhir.ottehr.com/ValueSet/procedure-techniques",
-    "version": "1.0.0",
-    "name": "Procedures - Technique",
-    "status": "active",
-    "expansion": {
-        "timestamp": "2025-06-10T11:36:51.034Z",
-        "contains": [
-            {
-                "system": "https://fhir.ottehr.com/CodeSystem/procedure-techniques",
-                "code": "sterile",
-                "display": "Sterile"
-            },
-            {
-                "system": "https://fhir.ottehr.com/CodeSystem/procedure-techniques",
-                "code": "clean",
-                "display": "Clean"
-            },
-            {
-                "system": "https://fhir.ottehr.com/CodeSystem/procedure-techniques",
-                "code": "aseptic",
-                "display": "Aseptic"
-            },
-            {
-                "system": "https://fhir.ottehr.com/CodeSystem/procedure-techniques",
-                "code": "field",
-                "display": "Field"
-            }
-        ]
-    }
+  "resourceType": "ValueSet",
+  "url": "https://fhir.ottehr.com/ValueSet/procedure-techniques",
+  "version": "1.0.0",
+  "name": "Procedures - Technique",
+  "status": "active",
+  "expansion": {
+    "timestamp": "2025-06-10T11:36:51.034Z",
+    "contains": [
+      {
+        "system": "https://fhir.ottehr.com/CodeSystem/procedure-techniques",
+        "code": "sterile",
+        "display": "Sterile"
+      },
+      {
+        "system": "https://fhir.ottehr.com/CodeSystem/procedure-techniques",
+        "code": "clean",
+        "display": "Clean"
+      },
+      {
+        "system": "https://fhir.ottehr.com/CodeSystem/procedure-techniques",
+        "code": "aseptic",
+        "display": "Aseptic"
+      },
+      {
+        "system": "https://fhir.ottehr.com/CodeSystem/procedure-techniques",
+        "code": "field",
+        "display": "Field"
+      }
+    ]
+  }
 }

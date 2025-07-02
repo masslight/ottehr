@@ -1,4 +1,4 @@
-import { Secrets, GetCreateInHouseLabOrderResourcesParameters } from 'utils';
+import { GetCreateInHouseLabOrderResourcesParameters, Secrets } from 'utils';
 import { ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(

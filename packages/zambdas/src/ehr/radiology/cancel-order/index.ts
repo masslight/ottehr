@@ -14,14 +14,14 @@ export interface ValidatedInput {
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mtoken: string;
+let m2mToken: string;
 
 export const index = async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const secrets = validateSecrets(unsafeInput.secrets);
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
     const validatedInput = await validateInput(unsafeInput, oystehr);
 
@@ -121,22 +121,22 @@ const updateServiceRequestToRevokedInAdvaPacs = async (
       );
     }
 
-    const maybeAdvaPACSSR = await findServiceRequestResponse.json();
+    const maybeAdvaPACSSr = await findServiceRequestResponse.json();
 
-    if (maybeAdvaPACSSR.resourceType !== 'Bundle') {
-      throw new Error(`Expected response to be Bundle but got ${maybeAdvaPACSSR.resourceType}`);
+    if (maybeAdvaPACSSr.resourceType !== 'Bundle') {
+      throw new Error(`Expected response to be Bundle but got ${maybeAdvaPACSSr.resourceType}`);
     }
 
-    if (maybeAdvaPACSSR.entry.length === 0) {
+    if (maybeAdvaPACSSr.entry.length === 0) {
       throw new Error(`No service request found in AdvaPACS for accession number ${accessionNumber}`);
     }
-    if (maybeAdvaPACSSR.entry.length > 1) {
+    if (maybeAdvaPACSSr.entry.length > 1) {
       throw new Error(
         `Found multiple service requests in AdvaPACS for accession number ${accessionNumber}, cannot update.`
       );
     }
 
-    const advapacsSR = maybeAdvaPACSSR.entry[0].resource as ServiceRequest;
+    const advapacsSR = maybeAdvaPACSSr.entry[0].resource as ServiceRequest;
 
     // Update the AdvaPACS SR now that we have its latest data.
     const advapacsResponse = await fetch(`${ADVAPACS_FHIR_BASE_URL}/ServiceRequest/${advapacsSR.id}`, {

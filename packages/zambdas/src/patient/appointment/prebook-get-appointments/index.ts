@@ -1,27 +1,27 @@
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Encounter, Appointment as FhirAppointment, Location, Patient, QuestionnaireResponse, Slot } from 'fhir/r4b';
+import { Appointment as FhirAppointment, Encounter, Location, Patient, QuestionnaireResponse, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  NO_READ_ACCESS_TO_PATIENT_ERROR,
-  SLUG_SYSTEM,
-  Secrets,
-  VisitStatusLabel,
   getPatientsForUser,
+  getSecret,
   getVisitStatus,
+  NO_READ_ACCESS_TO_PATIENT_ERROR,
+  Secrets,
+  SecretsKeys,
+  SLUG_SYSTEM,
+  VisitStatusLabel,
 } from 'utils';
+import { isNonPaperworkQuestionnaireResponse } from '../../../common';
 import {
-  captureSentryException,
   checkPaperworkComplete,
-  configSentry,
   createOystehrClient,
   getAuth0Token,
   getUser,
   topLevelCatch,
+  wrapHandler,
   ZambdaInput,
 } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
-import { isNonPaperworkQuestionnaireResponse } from '../../../common';
 
 export interface GetPatientsInput {
   patientID?: string;
@@ -47,9 +47,7 @@ interface Appointment {
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let zapehrToken: string;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  configSentry('get-appointments', input.secrets);
-  console.log(`Input: ${JSON.stringify(input)}`);
+export const index = wrapHandler('get-appointments', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
@@ -227,6 +225,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('get-appointments', error, input.secrets, captureSentryException);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('get-appointments', error, ENVIRONMENT, true);
   }
 });

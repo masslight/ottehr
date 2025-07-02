@@ -1,6 +1,6 @@
+import { FileUpload, FileURLs } from 'utils';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { FileUpload, FileURLs } from 'utils';
 import { zustandDevtools } from '../../utils';
 
 interface FilesState {

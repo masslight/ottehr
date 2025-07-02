@@ -1,3 +1,5 @@
+import { otherColors } from '@ehrTheme/colors';
+import DeleteIcon from '@mui/icons-material/Delete';
 import {
   Card,
   FormControl,
@@ -13,17 +15,15 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
-import DeleteIcon from '@mui/icons-material/Delete';
-import { Control, Controller } from 'react-hook-form';
 import { Autocomplete, TextField } from '@mui/material';
-import { PractitionerLicense, PractitionerQualificationCodesLabels, AllStates } from 'utils';
-import { FormErrors } from './types';
-import { dataTestIds } from '../../constants/data-test-ids';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
-import { RoundedButton } from '../RoundedButton';
 import { DateTime } from 'luxon';
-import { otherColors } from '@ehrTheme/colors';
+import { Control, Controller } from 'react-hook-form';
+import { AllStates, PractitionerLicense, PractitionerQualificationCodesLabels } from 'utils';
+import { dataTestIds } from '../../constants/data-test-ids';
+import { RoundedButton } from '../RoundedButton';
+import { FormErrors } from './types';
 
 const displayStates = AllStates.map((state) => state.value);
 

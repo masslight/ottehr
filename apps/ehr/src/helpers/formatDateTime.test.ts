@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { DateTime } from 'luxon';
 import { calculatePatientAge } from 'utils';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
-  formatHourNumber,
-  formatDateUsingSlashes,
   datesCompareFn,
+  formatDateUsingSlashes,
+  formatHourNumber,
   formatISODateToLocaleDate,
   formatISOStringToDateAndTime,
   getTimezone,

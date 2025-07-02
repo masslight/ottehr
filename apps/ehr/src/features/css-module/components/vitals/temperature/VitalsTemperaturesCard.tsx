@@ -1,35 +1,35 @@
-import React, { useCallback, useState, JSX, useMemo, ChangeEvent } from 'react';
 import {
   Box,
   CircularProgress,
+  FormControl,
+  Grid,
+  InputLabel,
+  MenuItem,
+  Select,
   TextField,
   Typography,
-  Grid,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
 } from '@mui/material';
+import { enqueueSnackbar } from 'notistack';
+import React, { ChangeEvent, JSX, useCallback, useMemo, useState } from 'react';
 import {
   toVitalTemperatureObservationMethod,
   VitalFieldNames,
   VitalsTemperatureObservationDTO,
   VitalTemperatureObservationMethod,
 } from 'utils';
-import { enqueueSnackbar } from 'notistack';
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { AccordionCard, DoubleColumnContainer } from '../../../../../telemed/components';
-import { VitalTemperatureHistoryEntry } from './VitalTemperatureHistoryEntry';
-import {
-  composeTemperatureVitalsHistoryEntries,
-  textToTemperatureNumber,
-  celsiusToFahrenheit,
-  isValidTemperatureCelsius,
-} from './helpers';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
-import VitalTemperatureHistoryElement from './VitalTemperatureHistoryElement';
-import { useVitalsCardState } from '../hooks/useVitalsCardState';
 import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
+import { useVitalsCardState } from '../hooks/useVitalsCardState';
+import {
+  celsiusToFahrenheit,
+  composeTemperatureVitalsHistoryEntries,
+  isValidTemperatureCelsius,
+  textToTemperatureNumber,
+} from './helpers';
+import VitalTemperatureHistoryElement from './VitalTemperatureHistoryElement';
+import { VitalTemperatureHistoryEntry } from './VitalTemperatureHistoryEntry';
 
 const VitalsTemperaturesCard: React.FC = (): JSX.Element => {
   const {

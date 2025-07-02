@@ -1,5 +1,4 @@
 import { BatchInputDeleteRequest, BatchInputGetRequest } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter, HealthcareService, Location, Patient, Practitioner, Schedule } from 'fhir/r4b';
@@ -7,6 +6,7 @@ import { DateTime } from 'luxon';
 import {
   APPOINTMENT_NOT_FOUND_ERROR,
   CancelAppointmentZambdaInput,
+  CancelAppointmentZambdaOutput,
   CancellationReasonCodesInPerson,
   CANT_CANCEL_CHECKED_IN_APT_ERROR,
   DATETIME_FULL_NO_YEAR,
@@ -28,16 +28,16 @@ import {
 } from 'utils';
 import {
   AuditableZambdaEndpoints,
-  captureSentryException,
   checkIsEHRUser,
-  configSentry,
   createAuditEvent,
   createOystehrClient,
   getAuth0Token,
   getEncounterDetails,
   getUser,
+  sendErrors,
   topLevelCatch,
   validateBundleAndExtractAppointment,
+  wrapHandler,
   ZambdaInput,
 } from '../../../shared';
 import { sendInPersonCancellationEmail } from '../../../shared/communication';
@@ -56,10 +56,7 @@ interface CancellationDetails {
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let zapehrToken: string;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  configSentry('cancel-appointment', input.secrets);
-  console.log(`Cancelation Input: ${JSON.stringify(input)}`);
-
+export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     console.log('getting user');
@@ -111,7 +108,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     // stamp critical update tag so this event can be surfaced in activity logs
     const formattedUserNumber = formatPhoneNumberDisplay(user?.name.replace('+1', ''));
     const cancelledBy = isEHRUser
-      ? `Staff ${user?.email} via QRS`
+      ? `Staff ${user?.email}`
       : `Patient${formattedUserNumber ? ` ${formattedUserNumber}` : ''}`;
     const criticalUpdateOp = getCriticalUpdateTagOp(appointment, cancelledBy);
 
@@ -237,14 +234,16 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
         console.group('Send cancel message request');
         const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
 
-        // todo should this url be formated according the type of appointment being cancelled?
+        // todo should this url be formatted according the type of appointment being cancelled?
         const url = `${WEBSITE_URL}/home`;
 
         const message = `Your visit for ${getPatientFirstName(
           patient
         )} has been canceled. Tap ${url} to book a new visit.`;
+        // cSpell:disable-next Spanish
         const messageSpanish = `Su consulta para ${getPatientFirstName(
           patient
+          // cSpell:disable-next Spanish
         )} ha sido cancelada. Toque ${url} para reservar una nueva consulta.`;
 
         let selectedMessage;
@@ -267,6 +266,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
             });
           } catch (e) {
             console.log('failing silently, error sending cancellation text message');
+            const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+            void sendErrors(e, ENVIRONMENT);
           }
         } else {
           console.log(`No RelatedPerson found for patient ${patient.id} not sending text message`);
@@ -281,12 +282,15 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     await createAuditEvent(AuditableZambdaEndpoints.appointmentCancel, oystehr, input, patient.id || '', secrets);
 
+    const response: CancelAppointmentZambdaOutput = {};
+
     return {
       statusCode: 200,
-      body: JSON.stringify({}),
+      body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('cancel-appointment', error, input.secrets, captureSentryException);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('cancel-appointment', error, ENVIRONMENT, true);
   }
 });
 

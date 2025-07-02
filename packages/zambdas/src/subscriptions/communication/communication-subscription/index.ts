@@ -11,9 +11,9 @@ import {
 } from 'utils';
 import { getAuth0Token, sendgridEmail, sendSlackNotification, topLevelCatch } from '../../../shared';
 import { createOystehrClient } from '../../../shared/helpers';
+import { ZambdaInput } from '../../../shared/types';
 import { bundleResourcesConfig, codingContainedInList, getEmailsFromGroup } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
-import { ZambdaInput } from '../../../shared/types';
 
 export interface CommunicationSubscriptionInput {
   communication: Communication;
@@ -160,11 +160,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         }
 
         console.log('getting emails');
-        const pracitionersEmails = await getEmailsFromGroup(fhirGroup, oystehr);
-        console.log('pracitionersEmails', pracitionersEmails);
+        const practitionersEmails = await getEmailsFromGroup(fhirGroup, oystehr);
+        console.log('practitionersEmails', practitionersEmails);
 
         const fromEmail = SUPPORT_EMAIL;
-        const toEmail = pracitionersEmails || [fromEmail];
+        const toEmail = practitionersEmails || [fromEmail];
         const errorMessage = `Details: ${communication.payload?.[0].contentString} <br> Submitted By: ${submitterDetails} <br> Location: ${fhirLocation?.name} - ${fhirLocation?.address?.city}, ${fhirLocation?.address?.state} <br> Appointment Id: ${appointmentID} <br> Communication Fhir Resource: ${communication.id}`;
 
         console.log(`Sending issue report email to ${toEmail} with template id ${templateID}`);
@@ -210,7 +210,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    await topLevelCatch('admin-communication-subscription', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('admin-communication-subscription', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: error.message }),

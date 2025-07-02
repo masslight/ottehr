@@ -1,5 +1,6 @@
 import { RelatedPerson, Task } from 'fhir/r4b';
-import { Secrets, SecretsKeys, TaskStatus, createOystehrClient, getSMSNumberForIndividual, getSecret } from 'utils';
+import { createOystehrClient, getSecret, getSMSNumberForIndividual, Secrets, SecretsKeys, TaskStatus } from 'utils';
+import { sendErrors } from '../../shared';
 
 export const getDocReferenceIDFromFocus = (task: Task): string => {
   const ref = task.focus?.reference;
@@ -42,6 +43,8 @@ export const sendText = async (
       statusReason = 'text sent successfully';
     } catch (e) {
       console.log('message send error: ', JSON.stringify(e));
+      const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+      void sendErrors(e, ENVIRONMENT);
       taskStatus = 'failed';
       statusReason = `failed to send text to ${smsNumber}`;
     }

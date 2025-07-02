@@ -1,8 +1,8 @@
 import { ReactElement, useEffect } from 'react';
+import { allLicensesForPractitioner } from 'utils';
 import useEvolveUser from '../../hooks/useEvolveUser';
 import { TrackingBoardBody } from '../features';
 import { useTrackingBoardStore } from '../state';
-import { allLicensesForPractitioner } from 'utils';
 
 export function TrackingBoardPage(): ReactElement {
   const user = useEvolveUser();

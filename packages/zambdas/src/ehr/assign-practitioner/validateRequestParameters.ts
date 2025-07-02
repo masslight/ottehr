@@ -1,4 +1,4 @@
-import { Practitioner, Coding } from 'fhir/r4b';
+import { Coding, Practitioner } from 'fhir/r4b';
 import { AssignPractitionerInputValidated, getSecret, SecretsKeys } from 'utils';
 import { ZambdaInput } from '../../shared/types';
 

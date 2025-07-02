@@ -1,8 +1,6 @@
-import { Page, expect, Locator } from '@playwright/test';
+import { expect, Locator, Page } from '@playwright/test';
 import { waitForResponseWithData } from 'test-utils';
-import { FillingInfo } from './FillingInfo';
 import { CommonLocatorsHelper } from '../CommonLocatorsHelper';
-import { UIDesign } from './UIdesign';
 import {
   CURRENT_MEDICATIONS_ABSENT_LABEL,
   CURRENT_MEDICATIONS_PRESENT_LABEL,
@@ -14,11 +12,13 @@ import {
   SURGICAL_HISTORY_ABSENT_LABEL,
   SURGICAL_HISTORY_PRESENT_LABEL,
 } from '../locators';
+import { FillingInfo } from './FillingInfo';
+import { UIDesign } from './UIdesign';
 
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
 const inviteeFirstName = 'Invitee First Name';
 const inviteeLastName = 'Invitee Last Name';
-const phone = '1234567890';
+const phone = '2024567890';
 const email = 'ykulik+invite@masslight.com';
 export class PaperworkTelemed {
   page: Page;

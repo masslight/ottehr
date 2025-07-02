@@ -1,5 +1,5 @@
 import ManageAccountsOutlinedIcon from '@mui/icons-material/ManageAccountsOutlined';
-import { StyledListItemWithButton } from 'ui-components';
+import { StyledListItemWithButton } from '../../../components/StyledListItemWithButton';
 import { otherColors } from '../../../IntakeThemeProvider';
 import { useGetVideoChatInvites } from '../waiting-room';
 

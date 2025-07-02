@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+// cSpell:ignore Providerid
 import { CandidApiClient, CandidApiEnvironment } from 'candidhealth';
 import {
   Decimal,
@@ -19,6 +20,8 @@ import {
   EncounterCreateFromPreEncounter,
   ResponsiblePartyType,
 } from 'candidhealth/api/resources/encounters/resources/v4';
+import { AddressUse, ContactPointUse, PatientId } from 'candidhealth/api/resources/preEncounter';
+import { Sex } from 'candidhealth/api/resources/preEncounter/resources/common/types/Sex';
 import { ServiceLineCreate } from 'candidhealth/api/resources/serviceLines/resources/v2';
 import {
   Appointment,
@@ -45,13 +48,10 @@ import {
   SecretsKeys,
 } from 'utils';
 import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE } from 'utils/lib/helpers/rcm';
+import { getAccountAndCoverageResourcesForPatient } from '../ehr/shared/harvest';
 import { chartDataResourceHasMetaTagByCode } from './chart-data';
 import { assertDefined } from './helpers';
 import { VideoResourcesAppointmentPackage } from './pdf/visit-details-pdf/types';
-import { getAccountAndCoverageResourcesForPatient } from '../ehr/shared/harvest';
-import { Sex } from 'candidhealth/api/resources/preEncounter/resources/common/types/Sex';
-import { AddressUse, ContactPointUse, PatientId } from 'candidhealth/api/resources/preEncounter';
-import { APIResponse } from 'candidhealth/core';
 
 export const CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM =
   'https://api.joincandidhealth.com/api/encounters/v4/response/encounter_id';
@@ -79,7 +79,7 @@ interface BillingProviderData {
 
 interface InsuranceResources {
   coverage: Coverage;
-  subsriber: Patient | RelatedPerson;
+  subscriber: Patient | RelatedPerson;
   payor: Organization;
 }
 
@@ -224,7 +224,7 @@ const createCandidCreateEncounterInput = async (
     insuranceResources: coverage
       ? {
           coverage,
-          subsriber: coverageSubscriber!,
+          subscriber: coverageSubscriber!,
           payor: coveragePayor!,
         }
       : undefined,
@@ -395,23 +395,23 @@ function createSubscriberPrimary(insuranceResources: InsuranceResources | undefi
   if (insuranceResources == null) {
     return undefined;
   }
-  const { coverage, subsriber, payor } = insuranceResources;
-  const subsriberName = assertDefined(subsriber.name?.[0], 'Subscriber official name');
-  const subsriberAddress = assertDefined(subsriber.address?.[0], 'Subscriber address');
+  const { coverage, subscriber, payor } = insuranceResources;
+  const subscriberName = assertDefined(subscriber.name?.[0], 'Subscriber official name');
+  const subscriberAddress = assertDefined(subscriber.address?.[0], 'Subscriber address');
   return {
-    firstName: assertDefined(subsriberName.given?.[0], 'Subsriber first name'),
-    lastName: assertDefined(subsriberName.family, 'Subsriber last name'),
-    gender: assertDefined(subsriber.gender as Gender, 'Subsriber gender'),
+    firstName: assertDefined(subscriberName.given?.[0], 'Subscriber first name'),
+    lastName: assertDefined(subscriberName.family, 'Subscriber last name'),
+    gender: assertDefined(subscriber.gender as Gender, 'Subscriber gender'),
     patientRelationshipToSubscriberCode: relationshipCode(coverage),
-    dateOfBirth: assertDefined(subsriber.birthDate, 'Subsriber birth date'),
+    dateOfBirth: assertDefined(subscriber.birthDate, 'Subscriber birth date'),
     address: {
-      address1: assertDefined(subsriberAddress.line?.[0], 'Subsriber address line'),
-      city: assertDefined(subsriberAddress.city, 'Subsriber city'),
-      state: assertDefined(subsriberAddress.state as State, 'Subsriber state'),
-      zipCode: assertDefined(subsriberAddress.postalCode, 'Subsriber postal code'),
+      address1: assertDefined(subscriberAddress.line?.[0], 'Subscriber address line'),
+      city: assertDefined(subscriberAddress.city, 'Subscriber city'),
+      state: assertDefined(subscriberAddress.state as State, 'Subscriber state'),
+      zipCode: assertDefined(subscriberAddress.postalCode, 'Subscriber postal code'),
     },
     insuranceCard: {
-      memberId: assertDefined(coverage.subscriberId, 'Subsriber member id'),
+      memberId: assertDefined(coverage.subscriberId, 'Subscriber member id'),
       payerName: assertDefined(payor.name, 'Payor name'),
       payerId: assertDefined(getIdentifierValue(payor.identifier, CODE_SYSTEM_HL7_IDENTIFIER_TYPE, 'XX'), 'Payor id'),
     },
@@ -451,13 +451,13 @@ async function fetchBillingProviderData(
   if (billingProviderId == null) {
     return STUB_BILLING_PROVIDER_DATA;
   }
-  const billingProvierResponse = await apiClient.organizationProviders.v3.get(billingProviderId);
-  if (!billingProvierResponse.ok) {
+  const billingProviderResponse = await apiClient.organizationProviders.v3.get(billingProviderId);
+  if (!billingProviderResponse.ok) {
     return STUB_BILLING_PROVIDER_DATA;
   }
-  const billingProvider = billingProvierResponse.body;
-  const billingProvierAddress = billingProvider.addresses?.[0]?.address;
-  if (billingProvierAddress == null) {
+  const billingProvider = billingProviderResponse.body;
+  const billingProviderAddress = billingProvider.addresses?.[0]?.address;
+  if (billingProviderAddress == null) {
     return STUB_BILLING_PROVIDER_DATA;
   }
   const billingProviderTaxId = billingProvider.taxId;
@@ -470,11 +470,11 @@ async function fetchBillingProviderData(
     lastName: billingProvider.lastName,
     npi: billingProvider.npi,
     taxId: billingProviderTaxId,
-    addressLine: billingProvierAddress.address1,
-    city: billingProvierAddress.city,
-    state: billingProvierAddress.state,
-    zipCode: billingProvierAddress.zipCode,
-    zipPlusFourCode: billingProvierAddress.zipPlusFourCode,
+    addressLine: billingProviderAddress.address1,
+    city: billingProviderAddress.city,
+    state: billingProviderAddress.state,
+    zipCode: billingProviderAddress.zipCode,
+    zipPlusFourCode: billingProviderAddress.zipPlusFourCode,
   };
 }
 /*
@@ -608,8 +608,12 @@ export async function recordPatientPayment(
   apiClient: CandidApiClient
 ): Promise<void> {}
 
-export async function createEncounterFromAppointment(visitResources: VideoResourcesAppointmentPackage, secrets: Secrets, oystehr: Oystehr): Promise<string | undefined> {
-    console.log('Create candid encounter from appointment');
+export async function createEncounterFromAppointment(
+  visitResources: VideoResourcesAppointmentPackage,
+  secrets: Secrets,
+  oystehr: Oystehr
+): Promise<string | undefined> {
+  console.log('Create candid encounter from appointment');
   const candidClientId = getOptionalSecret(SecretsKeys.CANDID_CLIENT_ID, secrets);
   if (candidClientId == null || candidClientId.length === 0) {
     return undefined;
@@ -659,9 +663,7 @@ async function candidCreateEncounterFromAppointmentRequest(
   return {
     externalId: EncounterExternalId(assertDefined(encounter.id, 'Encounter.id')),
     preEencounterPatientId: 'xxx',
-    preEncounterAppointmentIds: [
-      'xxx'
-    ],
+    preEncounterAppointmentIds: ['xxx'],
     billableStatus: BillableStatusType.Billable,
     responsibleParty: insuranceResources != null ? ResponsiblePartyType.InsurancePay : ResponsiblePartyType.SelfPay,
     benefitsAssignedToProvider: true,
@@ -731,6 +733,6 @@ async function candidCreateEncounterFromAppointmentRequest(
           ),
         },
       ];
-    })
+    }),
   };
 }

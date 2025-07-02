@@ -1,5 +1,5 @@
-import React, { CSSProperties, ReactElement, ReactNode } from 'react';
 import { Box, Divider } from '@mui/material';
+import React, { CSSProperties, ReactElement, ReactNode } from 'react';
 
 type ActionsListProps<T extends unknown[], K = T[0]> = {
   data: T;

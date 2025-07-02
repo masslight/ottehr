@@ -1,6 +1,6 @@
-import { Select, FormControl, MenuItem, useTheme } from '@mui/material';
-import { TestItemComponent, LabComponentValueSetConfig } from 'utils';
-import { useFormContext, Controller } from 'react-hook-form';
+import { FormControl, MenuItem, Select, useTheme } from '@mui/material';
+import { Controller, useFormContext } from 'react-hook-form';
+import { LabComponentValueSetConfig, TestItemComponent } from 'utils';
 
 interface ResultEntrySelectProps {
   testItemComponent: TestItemComponent;

@@ -1,3 +1,4 @@
+import { otherColors } from '@ehrTheme/colors';
 import { Error as ErrorIcon } from '@mui/icons-material';
 import AddIcon from '@mui/icons-material/Add';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
@@ -9,8 +10,18 @@ import { DateTime } from 'luxon';
 import React, { ReactElement, useEffect, useMemo, useState } from 'react';
 import { usePageVisibility } from 'react-page-visibility';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { InHouseOrderListPageItemDTO, InPersonAppointmentInformation, LabOrderListPageDTO } from 'utils';
-import { otherColors } from '@ehrTheme/colors';
+import { usePatientLabOrders } from 'src/features/external-labs/components/labs-orders/usePatientLabOrders';
+import { useInHouseLabOrders } from 'src/features/in-house-labs/components/orders/useInHouseLabOrders';
+import { useGetNursingOrders } from 'src/features/nursing-orders/components/orders/useNursingOrders';
+import { useGetMedicationOrders } from 'src/telemed';
+import {
+  ExtendedMedicationDataForResponse,
+  InHouseOrderListPageItemDTO,
+  InPersonAppointmentInformation,
+  LabOrderListPageDTO,
+  NursingOrder,
+  OrdersForTrackingBoardTable,
+} from 'utils';
 import { getAppointments } from '../api/api';
 import AppointmentTabs from '../components/AppointmentTabs';
 import CreateDemoVisits from '../components/CreateDemoVisits';
@@ -25,8 +36,6 @@ import PageContainer from '../layout/PageContainer';
 import { useDebounce } from '../telemed/hooks';
 import { VisitType, VisitTypeToLabel } from '../types/types';
 import { LocationWithWalkinSchedule } from './AddPatient';
-import { useInHouseLabOrders } from 'src/features/in-house-labs/components/orders/useInHouseLabOrders';
-import { usePatientLabOrders } from 'src/features/external-labs/components/labs-orders/usePatientLabOrders';
 
 type LoadingState = { status: 'loading' | 'initial'; id?: string | undefined } | { status: 'loaded'; id: string };
 
@@ -133,6 +142,42 @@ export default function Appointments(): ReactElement {
     );
   }, [inHouseOrders?.labOrders]);
 
+  const { nursingOrders } = useGetNursingOrders({
+    searchBy: { field: 'encounterIds', value: encountersIdsEligibleForOrders },
+  });
+  const nursingOrdersByAppointmentId: Record<string, NursingOrder[]> = useMemo(() => {
+    return nursingOrders?.reduce(
+      (acc, order) => {
+        acc[order.appointmentId] = [...(acc[order.appointmentId] || []), order];
+        return acc;
+      },
+      {} as Record<string, NursingOrder[]>
+    );
+  }, [nursingOrders]);
+
+  const { data: inHouseMedications } = useGetMedicationOrders({
+    field: 'encounterIds',
+    value: encountersIdsEligibleForOrders,
+  });
+  const inHouseMedicationsByEncounterId = useMemo(() => {
+    if (!inHouseMedications?.orders) return {};
+
+    return inHouseMedications?.orders?.reduce(
+      (acc, med) => {
+        acc[med.encounterId] = [...(acc[med.encounterId] || []), med];
+        return acc;
+      },
+      {} as Record<string, ExtendedMedicationDataForResponse[]>
+    );
+  }, [inHouseMedications?.orders]);
+
+  const orders: OrdersForTrackingBoardTable = {
+    externalLabOrdersByAppointmentId,
+    inHouseLabOrdersByAppointmentId,
+    nursingOrdersByAppointmentId,
+    inHouseMedicationsByEncounterId,
+  };
+
   useEffect(() => {
     const selectedVisitTypes = localStorage.getItem('selectedVisitTypes');
     if (selectedVisitTypes) {
@@ -223,13 +268,13 @@ export default function Appointments(): ReactElement {
 
       if (
         (locationID || locationSelected?.id || providers.length > 0 || groups.length > 0) &&
-        (searchDate || appointmentDate) &&
+        searchDate &&
         Array.isArray(visitType)
       ) {
         const searchResults = await getAppointments(client, {
           locationID: locationID || locationSelected?.id || undefined,
           searchDate,
-          visitType: visitType || [],
+          visitType: visitType,
           providerIDs: providers,
           groupIDs: groups,
         });
@@ -290,8 +335,7 @@ export default function Appointments(): ReactElement {
       completedAppointments={completedAppointments}
       cancelledAppointments={cancelledAppointments}
       inOfficeAppointments={inOfficeAppointments}
-      inHouseLabOrdersByAppointmentId={inHouseLabOrdersByAppointmentId}
-      externalLabOrdersByAppointmentId={externalLabOrdersByAppointmentId}
+      orders={orders}
       locationSelected={locationSelected}
       setLocationSelected={setLocationSelected}
       practitioners={practitioners}
@@ -324,8 +368,7 @@ interface AppointmentsBodyProps {
   setAppointmentDate: (date: DateTime | null) => void;
   updateAppointments: () => void;
   setEditingComment: (editingComment: boolean) => void;
-  inHouseLabOrdersByAppointmentId: Record<string, InHouseOrderListPageItemDTO[]>;
-  externalLabOrdersByAppointmentId: Record<string, LabOrderListPageDTO[]>;
+  orders: OrdersForTrackingBoardTable;
 }
 function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
   const {
@@ -348,8 +391,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
     handleSubmit,
     updateAppointments,
     setEditingComment,
-    inHouseLabOrdersByAppointmentId,
-    externalLabOrdersByAppointmentId,
+    orders,
   } = props;
 
   const [displayFilters, setDisplayFilters] = useState<boolean>(true);
@@ -537,8 +579,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
               cancelledAppointments={cancelledAppointments}
               completedAppointments={completedAppointments}
               inOfficeAppointments={inOfficeAppointments}
-              inHouseLabOrdersByAppointmentId={inHouseLabOrdersByAppointmentId}
-              externalLabOrdersByAppointmentId={externalLabOrdersByAppointmentId}
+              orders={orders}
               loading={loadingState.status === 'loading'}
               updateAppointments={updateAppointments}
               setEditingComment={setEditingComment}

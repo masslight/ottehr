@@ -1,36 +1,50 @@
 import { Box } from '@mui/material';
 import { Link } from 'react-router-dom';
-import { GenericToolTip } from './GenericToolTip';
 import { OrdersToolTip } from 'src/features/common/OrdersToolTip';
+import { MedicationStatusChip } from 'src/features/css-module/components/medication-administration/statuses/MedicationStatusChip';
 import { sidebarMenuIcons } from 'src/features/css-module/components/Sidebar';
 import {
-  getInHouseLabsUrl,
-  getInHouseLabOrderDetailsUrl,
-  getExternalLabOrdersUrl,
   getExternalLabOrderEditUrl,
+  getExternalLabOrdersUrl,
+  getInHouseLabOrderDetailsUrl,
+  getInHouseLabsUrl,
+  getInHouseMedicationDetailsUrl,
+  getInHouseMedicationMARUrl,
+  getNursingOrderDetailsUrl,
+  getNursingOrdersUrl,
 } from 'src/features/css-module/routing/helpers';
+import { LabsOrderStatusChip } from 'src/features/external-labs/components/ExternalLabsStatusChip';
+import { InHouseLabsStatusChip } from 'src/features/in-house-labs/components/InHouseLabsStatusChip';
+import { NursingOrdersStatusChip } from 'src/features/nursing-orders/components/NursingOrdersStatusChip';
 import {
+  ExtendedMedicationDataForResponse,
   InHouseOrderListPageItemDTO,
   InPersonAppointmentInformation,
   LabOrderListPageDTO,
+  NursingOrder,
   OrderToolTipConfig,
 } from 'utils';
-import { InHouseLabsStatusChip } from 'src/features/in-house-labs/components/InHouseLabsStatusChip';
-import { LabsOrderStatusChip } from 'src/features/external-labs/components/ExternalLabsStatusChip';
+import { GenericToolTip } from './GenericToolTip';
 
 interface OrdersIconsToolTipProps {
   appointment: InPersonAppointmentInformation;
   inHouseLabOrders: InHouseOrderListPageItemDTO[] | undefined;
   externalLabOrders: LabOrderListPageDTO[] | undefined;
+  nursingOrders: NursingOrder[] | undefined;
+  inHouseMedications: ExtendedMedicationDataForResponse[] | undefined;
 }
 export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({
   appointment,
   inHouseLabOrders,
   externalLabOrders,
+  nursingOrders,
+  inHouseMedications,
 }) => {
   const hasInHouseOrders = !!inHouseLabOrders?.length;
   const hasExternalOrders = !!externalLabOrders?.length;
-  const ordersExistForAppointment = hasInHouseOrders || hasExternalOrders;
+  const hasNursingOrders = !!nursingOrders?.length;
+  const hasInHouseMedications = !!inHouseMedications?.length;
+  const ordersExistForAppointment = hasInHouseOrders || hasExternalOrders || hasNursingOrders || hasInHouseMedications;
 
   if (!ordersExistForAppointment) return null;
 
@@ -42,8 +56,8 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({
       title: 'External Labs',
       tableUrl: getExternalLabOrdersUrl(appointment.id),
       orders: externalLabOrders.map((order) => ({
-        serviceRequestId: order.serviceRequestId,
-        testItemName: order.testItem,
+        fhirResourceId: order.serviceRequestId,
+        itemDescription: order.testItem,
         detailPageUrl: getExternalLabOrderEditUrl(appointment.id, order.serviceRequestId),
         statusChip: <LabsOrderStatusChip status={order.orderStatus} />,
       })),
@@ -54,16 +68,46 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({
   if (hasInHouseOrders) {
     const inHouseLabOrderConfig: OrderToolTipConfig = {
       icon: sidebarMenuIcons['In-house Labs'],
-      title: 'In-house Labs',
+      title: 'In-House Labs',
       tableUrl: getInHouseLabsUrl(appointment.id),
       orders: inHouseLabOrders.map((order) => ({
-        serviceRequestId: order.serviceRequestId,
-        testItemName: order.testItemName,
+        fhirResourceId: order.serviceRequestId,
+        itemDescription: order.testItemName,
         detailPageUrl: getInHouseLabOrderDetailsUrl(appointment.id, order.serviceRequestId),
         statusChip: <InHouseLabsStatusChip status={order.status} />,
       })),
     };
     orderConfigs.push(inHouseLabOrderConfig);
+  }
+
+  if (hasNursingOrders) {
+    const nursingOrdersConfig: OrderToolTipConfig = {
+      icon: sidebarMenuIcons['Nursing Orders'],
+      title: 'Nursing Orders',
+      tableUrl: getNursingOrdersUrl(appointment.id),
+      orders: nursingOrders.map((order) => ({
+        fhirResourceId: order.serviceRequestId,
+        itemDescription: order.note,
+        detailPageUrl: getNursingOrderDetailsUrl(appointment.id, order.serviceRequestId),
+        statusChip: <NursingOrdersStatusChip status={order.status} />,
+      })),
+    };
+    orderConfigs.push(nursingOrdersConfig);
+  }
+
+  if (hasInHouseMedications) {
+    const inHouseMedicationConfig: OrderToolTipConfig = {
+      icon: sidebarMenuIcons['Med. Administration'],
+      title: 'In-House Medications',
+      tableUrl: getInHouseMedicationMARUrl(appointment.id),
+      orders: inHouseMedications.map((med) => ({
+        fhirResourceId: med.id,
+        itemDescription: med.medicationName,
+        detailPageUrl: `${getInHouseMedicationDetailsUrl(appointment.id)}?scrollTo=${med.id}`,
+        statusChip: <MedicationStatusChip medication={med} />,
+      })),
+    };
+    orderConfigs.push(inHouseMedicationConfig);
   }
 
   return (

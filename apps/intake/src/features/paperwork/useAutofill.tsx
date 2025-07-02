@@ -1,9 +1,9 @@
-import { useMemo, useEffect, useState } from 'react';
+import { QuestionnaireResponseItem } from 'fhir/r4b';
+import { useEffect, useMemo, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { IntakeQuestionnaireItem } from 'utils';
-import { getItemDisplayStrategy } from './useSelectItems';
-import { QuestionnaireResponseItem } from 'fhir/r4b';
 import { getPaperworkFieldId, useQRState } from './useFormHelpers';
+import { getItemDisplayStrategy } from './useSelectItems';
 
 const objectsEqual = (obj1: any, obj2: any): boolean => {
   const objectOneNoLink = { ...obj1, linkId: undefined };

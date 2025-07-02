@@ -1,9 +1,9 @@
 import { useMemo } from 'react';
-import { useChartData } from '../../../hooks/useChartData';
 import { VitalsObservationDTO } from 'utils';
+import { useChartData } from '../../../hooks/useChartData';
 import { UseVitalsHandlers } from '../types';
-import { useSaveVitals } from './useSaveVitals';
 import { useDeleteVitals } from './useDeleteVitals';
+import { useSaveVitals } from './useSaveVitals';
 
 export const useVitalsHandlers: UseVitalsHandlers = ({ encounterId, searchConfig }) => {
   const { chartData, isLoading } = useChartData({

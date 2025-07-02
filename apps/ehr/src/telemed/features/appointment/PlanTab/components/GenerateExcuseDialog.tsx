@@ -1,7 +1,8 @@
 import { Box, FormControl, FormGroup, FormLabel, Typography } from '@mui/material';
+import { enqueueSnackbar } from 'notistack';
 import { FC } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { PATIENT_SUPPORT_PHONE_NUMBER, getQuestionnaireResponseByLinkId } from 'utils';
+import { getQuestionnaireResponseByLinkId, PATIENT_SUPPORT_PHONE_NUMBER } from 'utils';
 import useEvolveUser from '../../../../../hooks/useEvolveUser';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore, useSaveChartData } from '../../../../state';
@@ -17,7 +18,6 @@ import { ControlledExcuseCheckbox } from './ControlledExcuseCheckbox';
 import { ControlledExcuseDatePicker } from './ControlledExcuseDatePicker';
 import { ControlledExcuseTextField } from './ControlledExcuseTextField';
 import { GenerateExcuseDialogContainer } from './GenerateExcuseDialogContainer';
-import { enqueueSnackbar } from 'notistack';
 
 type GenerateExcuseDialogExtendedProps = {
   open: boolean;
@@ -40,15 +40,20 @@ export const GenerateExcuseDialog: FC<GenerateExcuseDialogExtendedProps> = (prop
     'questionnaireResponse',
   ]);
   const user = useEvolveUser();
-  const accompanyingPerson = {
-    firstName: getQuestionnaireResponseByLinkId('person-accompanying-minor-first-name', questionnaireResponse)
-      ?.answer?.[0]?.valueString,
-    lastName: getQuestionnaireResponseByLinkId('person-accompanying-minor-last-name', questionnaireResponse)
-      ?.answer?.[0]?.valueString,
+
+  const responsibleParty = {
+    firstName: getQuestionnaireResponseByLinkId('responsible-party-first-name', questionnaireResponse)?.answer?.[0]
+      ?.valueString,
+    lastName: getQuestionnaireResponseByLinkId('responsible-party-last-name', questionnaireResponse)?.answer?.[0]
+      ?.valueString,
+    relationship: getQuestionnaireResponseByLinkId('responsible-party-relationship', questionnaireResponse)?.answer?.[0]
+      ?.valueString,
   };
   const fullParentName =
-    accompanyingPerson.firstName && accompanyingPerson.lastName
-      ? `${accompanyingPerson.firstName} ${accompanyingPerson.lastName}`
+    responsibleParty.firstName &&
+    responsibleParty.lastName &&
+    ['Parent', 'Legal Guardian'].includes(responsibleParty.relationship ?? '')
+      ? `${responsibleParty.firstName} ${responsibleParty.lastName}`
       : '';
   const methods = useForm<ExcuseFormValues>({
     defaultValues: getDefaultExcuseFormValues({

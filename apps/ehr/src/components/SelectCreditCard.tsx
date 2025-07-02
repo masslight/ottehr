@@ -1,23 +1,23 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import {
-  Snackbar,
   Alert,
   Autocomplete,
   AutocompleteRenderInputParams,
-  TextField,
   CircularProgress,
   FormHelperText,
+  Snackbar,
+  TextField,
 } from '@mui/material';
 import { Box } from '@mui/system';
-import { FC, useState } from 'react';
-import { CreditCardInfo } from 'utils';
 import { Elements } from '@stripe/react-stripe-js';
-import { AddCreditCardForm } from 'ui-components';
 import { loadStripe } from '@stripe/stripe-js/dist';
-import { useSetupStripe } from 'src/hooks/useSetupStripe';
-import { useGetPaymentMethods } from 'src/hooks/useGetPaymentMethods';
 import { Patient } from 'fhir/r4b';
+import { FC, useState } from 'react';
+import { useGetPaymentMethods } from 'src/hooks/useGetPaymentMethods';
 import { useSetDefaultPaymentMethod } from 'src/hooks/useSetDefaultPaymentMethod';
+import { useSetupStripe } from 'src/hooks/useSetupStripe';
+import { AddCreditCardForm } from 'ui-components';
+import { CreditCardInfo } from 'utils';
 
 interface CreditCardContentProps {
   patient: Patient;

@@ -1,14 +1,14 @@
-import React from 'react';
-import { alpha, Box, Button, useTheme } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ChevronLeft';
 import ArrowForwardIcon from '@mui/icons-material/ChevronRight';
-import { useNavigationContext } from '../context/NavigationContext';
-import { useParams } from 'react-router-dom';
-import { usePractitionerActions } from '../hooks/usePractitioner';
 import { LoadingButton } from '@mui/lab';
+import { alpha, Box, Button, useTheme } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import { useAppointment } from '../hooks/useAppointment';
+import React from 'react';
+import { useParams } from 'react-router-dom';
 import { PRACTITIONER_CODINGS } from 'utils';
+import { useNavigationContext } from '../context/NavigationContext';
+import { useAppointment } from '../hooks/useAppointment';
+import { usePractitionerActions } from '../hooks/usePractitioner';
 
 export const BottomNavigation = (): JSX.Element => {
   const { id: appointmentID } = useParams();

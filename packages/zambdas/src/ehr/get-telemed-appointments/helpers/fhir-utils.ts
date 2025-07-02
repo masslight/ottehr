@@ -1,12 +1,12 @@
-import Oystehr from '@oystehr/sdk';
-import { FhirResource, Location, Practitioner, Resource } from 'fhir/r4b';
+import Oystehr, { FhirSearchParams } from '@oystehr/sdk';
+import { Appointment, FhirResource, Location, Practitioner, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  allLicensesForPractitioner,
   GetTelemedAppointmentsInput,
+  isLocationVirtual,
   OTTEHR_MODULE,
   PatientFilterType,
-  allLicensesForPractitioner,
-  isLocationVirtual,
 } from 'utils';
 import { isNonPaperworkQuestionnaireResponse } from '../../../common';
 import { joinLocationsIdsForFhirSearch } from './helpers';
@@ -20,8 +20,7 @@ export const getAllResourcesFromFhir = async (
   appointmentStatusesToSearchWith: string[],
   searchDate?: DateTime
 ): Promise<FhirResource[]> => {
-  const fhirSearchParams = {
-    //
+  const fhirSearchParams: FhirSearchParams<Appointment> = {
     resourceType: 'Appointment',
     params: [
       {
@@ -73,35 +72,35 @@ export const getAllResourcesFromFhir = async (
         name: '_revinclude:iterate',
         value: 'QuestionnaireResponse:encounter',
       },
+      ...(searchDate
+        ? [
+            {
+              name: 'date',
+              value: `ge${searchDate.startOf('day')}`,
+            },
+            {
+              name: 'date',
+              value: `le${searchDate.endOf('day')}`,
+            },
+          ]
+        : []),
+      ...(locationIds.length > 0
+        ? [
+            {
+              name: 'location',
+              value: joinLocationsIdsForFhirSearch(locationIds),
+            },
+          ]
+        : []),
     ],
   };
 
-  console.log(22222221, fhirSearchParams);
-
-  if (searchDate) {
-    fhirSearchParams.params.push(
-      {
-        name: 'date',
-        value: `ge${searchDate.startOf('day')}`,
-      },
-      {
-        name: 'date',
-        value: `le${searchDate.endOf('day')}`,
-      }
-    );
-  }
-  if (locationIds.length > 0) {
-    fhirSearchParams.params.push({
-      name: 'location',
-      value: joinLocationsIdsForFhirSearch(locationIds),
-    });
-  }
   return (await oystehr.fhir.search<FhirResource>(fhirSearchParams))
     .unbundle()
     .filter((resource) => isNonPaperworkQuestionnaireResponse(resource) === false);
 };
 
-export const getPractLicensesLocationsAbbreviations = async (oystehr: Oystehr): Promise<string[]> => {
+export const getPractitionerLicensesLocationsAbbreviations = async (oystehr: Oystehr): Promise<string[]> => {
   const practitionerId = (await oystehr.user.me()).profile.replace('Practitioner/', '');
 
   const practitioner: Practitioner =
@@ -159,7 +158,7 @@ const locationIdsForAppointmentsSearch = async (
   }
 
   if (patientFilter === 'my-patients') {
-    const licensedPractitionerStates = await getPractLicensesLocationsAbbreviations(oystehr);
+    const licensedPractitionerStates = await getPractitionerLicensesLocationsAbbreviations(oystehr);
     console.log('Licensed Practitioner US_states: ' + JSON.stringify(licensedPractitionerStates));
 
     if (hasNoUsStatesFiltersSet) {
@@ -179,8 +178,8 @@ const locationIdsForAppointmentsSearch = async (
   return mapStatesToLocationIds([], virtualLocationsMap);
 };
 
-export const getAllPartiallyPrefilteredFhirResources = async (
-  oystehrm2m: Oystehr,
+export const getAllPartiallyPreFilteredFhirResources = async (
+  oystehrM2m: Oystehr,
   oystehrCurrentUser: Oystehr,
   params: GetTelemedAppointmentsInput,
   virtualLocationsMap: LocationIdToAbbreviationMap
@@ -204,7 +203,7 @@ export const getAllPartiallyPrefilteredFhirResources = async (
 
   const dateFilterConverted = dateFilter ? DateTime.fromISO(dateFilter) : undefined;
   allResources = await getAllResourcesFromFhir(
-    oystehrm2m,
+    oystehrM2m,
     locationsIdsToSearchWith,
     encounterStatusesToSearchWith,
     appointmentStatusesToSearchWith,
@@ -223,7 +222,7 @@ export const getAllVirtualLocationsMap = async (oystehr: Oystehr): Promise<Locat
   ).unbundle();
 
   const virtualLocationsMap: LocationIdToAbbreviationMap = {};
-  const locations: Location[] = [];
+  const locationsByState: Record<string, Location[]> = {};
 
   resources.forEach((resource) => {
     if (resource.resourceType === 'Location' && isLocationVirtual(resource as Location)) {
@@ -232,9 +231,23 @@ export const getAllVirtualLocationsMap = async (oystehr: Oystehr): Promise<Locat
       const locationId = location.id;
 
       if (state && locationId) {
+        if (!locationsByState[state]) {
+          locationsByState[state] = [];
+        }
+
+        locationsByState[state].push(location);
+
         virtualLocationsMap[state] = location;
-        locations.push(location);
       }
+    }
+  });
+
+  Object.entries(locationsByState).forEach(([state, locs]) => {
+    if (locs.length > 1) {
+      console.warn(`⚠️ Found several virtual locations in ${state}:`);
+      locs.forEach((loc) => {
+        console.warn(`- ${loc.id}: ${loc.name}`);
+      });
     }
   });
 

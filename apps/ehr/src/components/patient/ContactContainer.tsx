@@ -3,11 +3,11 @@ import { FC } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { emailRegex, isPhoneNumberValid, isPostalCodeValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { STATE_OPTIONS } from '../../constants';
-import { FormTextField } from '../form';
-import { Row, Section } from '../layout';
-import { dataTestIds } from '../../constants/data-test-ids';
-import InputMask from '../InputMask';
 import { FormFields as AllFormFields } from '../../constants';
+import { dataTestIds } from '../../constants/data-test-ids';
+import { FormTextField } from '../form';
+import InputMask from '../InputMask';
+import { Row, Section } from '../layout';
 
 const FormFields = AllFormFields.patientContactInformation;
 
@@ -109,7 +109,8 @@ export const ContactContainer: FC = () => {
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
             validate: (value: string) =>
-              isPhoneNumberValid(value) || 'Phone number must be 10 digits in the format (xxx) xxx-xxxx',
+              isPhoneNumberValid(value) ||
+              'Phone number must be 10 digits in the format (xxx) xxx-xxxx and a valid number',
           }}
           data-testid={dataTestIds.contactInformationContainer.patientMobile}
         />

@@ -13,9 +13,9 @@ import {
   QuestionnaireResponse,
   Resource,
 } from 'fhir/r4b';
+import { isNonPaperworkQuestionnaireResponse } from '../../../common';
 import { getVideoRoomResourceExtension } from '../../helpers';
 import { VideoResourcesAppointmentPackage } from './types';
-import { isNonPaperworkQuestionnaireResponse } from '../../../common';
 
 export const getVideoResources = async (
   oystehr: Oystehr,
@@ -32,7 +32,7 @@ export const getVideoResources = async (
   //          &_revinclude:iterate=Account:patient
   //
   // Given an appointment ID, find an Encounter for this appointment, a Charge Item for which the Encounter
-  // is its context, a patient that's the subject of the encounter, and the Accocunt for this patient
+  // is its context, a patient that's the subject of the encounter, and the Account for this patient
   //
 
   const items: Array<

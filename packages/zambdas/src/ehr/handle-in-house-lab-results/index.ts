@@ -1,59 +1,62 @@
-import { APIGatewayProxyResult } from 'aws-lambda';
 import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
+import { APIGatewayProxyResult } from 'aws-lambda';
+import { randomUUID } from 'crypto';
+import { Operation } from 'fast-json-patch';
 import {
-  ZambdaInput,
-  topLevelCatch,
+  ActivityDefinition,
+  CodeableConcept,
+  DiagnosticReport,
+  Encounter,
+  FhirResource,
+  Location,
+  Observation,
+  ObservationDefinition,
+  Patient,
+  Practitioner,
+  Provenance,
+  Quantity,
+  Reference,
+  Schedule,
+  ServiceRequest,
+  Specimen,
+  Task,
+  ValueSet,
+} from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import {
+  ABNORMAL_OBSERVATION_INTERPRETATION,
+  extractAbnormalValueSetValues,
+  extractQuantityRange,
+  getFullestAvailableName,
+  getSecret,
+  HandleInHouseLabResultsZambdaOutput,
+  IN_HOUSE_DIAGNOSTIC_REPORT_CATEGORY_CONFIG,
+  IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
+  IN_HOUSE_LAB_TASK,
+  IN_HOUSE_OBS_DEF_ID_SYSTEM,
+  INDETERMINATE_OBSERVATION_INTERPRETATION,
+  LabComponentValueSetConfig,
+  NORMAL_OBSERVATION_INTERPRETATION,
+  PROVENANCE_ACTIVITY_CODING_ENTITY,
+  ResultEntryInput,
+  SecretsKeys,
+} from 'utils';
+import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   getMyPractitionerId,
+  topLevelCatch,
+  ZambdaInput,
 } from '../../shared';
-import { validateRequestParameters } from './validateRequestParameters';
-import {
-  IN_HOUSE_LAB_TASK,
-  ResultEntryInput,
-  extractQuantityRange,
-  ABNORMAL_OBSERVATION_INTERPRETATION,
-  NORMAL_OBSERVATION_INTERPRETATION,
-  INDETERMINATE_OBSERVATION_INTERPRETATION,
-  extractAbnormalValueSetValues,
-  IN_HOUSE_DIAGNOSTIC_REPORT_CATEGORY_CONFIG,
-  IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
-  PROVENANCE_ACTIVITY_CODING_ENTITY,
-  IN_HOUSE_OBS_DEF_ID_SYSTEM,
-  getFullestAvailableName,
-  LabComponentValueSetConfig,
-} from 'utils';
-import {
-  ServiceRequest,
-  Task,
-  Specimen,
-  DiagnosticReport,
-  Observation,
-  ActivityDefinition,
-  Reference,
-  ObservationDefinition,
-  Quantity,
-  CodeableConcept,
-  FhirResource,
-  Provenance,
-  ValueSet,
-  Encounter,
-  Practitioner,
-  Patient,
-  Location,
-  Schedule,
-} from 'fhir/r4b';
-import { randomUUID } from 'crypto';
-import { DateTime } from 'luxon';
-import { Operation } from 'fast-json-patch';
-import {
-  getAttendingPractionerId,
-  getUrlAndVersionForADFromServiceRequest,
-  getServiceRequestsRelatedViaRepeat,
-} from '../shared/inhouse-labs';
 import { createInHouseLabResultPDF } from '../../shared/pdf/labs-results-form-pdf';
+import {
+  getAttendingPractitionerId,
+  getServiceRequestsRelatedViaRepeat,
+  getUrlAndVersionForADFromServiceRequest,
+} from '../shared/in-house-labs';
+import { validateRequestParameters } from './validateRequestParameters';
 
-let m2mtoken: string;
+let m2mToken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -63,10 +66,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.log('validateRequestParameters success');
 
     console.log('Getting token');
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    console.log('token', m2mtoken);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    console.log('token', m2mToken);
 
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
     const oystehrCurrentUser = createOystehrClient(userToken, secrets);
     const curUserPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
 
@@ -145,7 +148,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         observations,
         diagnosticReport,
         secrets,
-        m2mtoken,
+        m2mToken,
         activityDefinition,
         serviceRequestsRelatedViaRepeat,
         specimen
@@ -155,15 +158,16 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       console.log('error:', e, JSON.stringify(e));
     }
 
+    const response: HandleInHouseLabResultsZambdaOutput = {};
+
     return {
       statusCode: 200,
-      body: JSON.stringify({
-        message: 'Successfully processed in-house lab results.',
-      }),
+      body: JSON.stringify(response),
     };
   } catch (error: any) {
     console.error('Error handling in-house lab results:', error);
-    await topLevelCatch('handle-in-house-lab-results', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('handle-in-house-lab-results', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify({
@@ -290,7 +294,7 @@ const getInHouseLabResultResources = async (
   const patient = patients[0];
 
   const encounter = encounters[0];
-  const attendingPractitionerId = getAttendingPractionerId(encounter);
+  const attendingPractitionerId = getAttendingPractitionerId(encounter);
   const schedule = schedules[0];
   const location = locations.length ? locations[0] : undefined;
 
@@ -500,7 +504,7 @@ const formatObsValueAndInterpretation = (
       (resource) => resource.resourceType === 'ObservationDefinition' || resource.resourceType === 'ValueSet'
     ) as (ObservationDefinition | ValueSet)[];
     const abnormalValues = extractAbnormalValueSetValues(obsDef, filteredContained);
-    const interpretationCodeableConcept = deteremineCodeableConceptInterpretation(dataEntry, abnormalValues);
+    const interpretationCodeableConcept = determineCodeableConceptInterpretation(dataEntry, abnormalValues);
     const obsInterpretation = {
       interpretation: [interpretationCodeableConcept],
     };
@@ -528,7 +532,7 @@ const determineQuantInterpretation = (
 };
 
 // todo should also validate that the value passed is contained within normal values
-const deteremineCodeableConceptInterpretation = (
+const determineCodeableConceptInterpretation = (
   value: string,
   abnormalValues: LabComponentValueSetConfig[]
 ): CodeableConcept => {
@@ -609,7 +613,7 @@ const makeIrtTaskPatchRequest = (irtTask: Task, provenanceFullUrl: string): Batc
   const provRef = {
     reference: provenanceFullUrl,
   };
-  const relavantHistOp: Operation = {
+  const relevantHistoryOperation: Operation = {
     path: '/relevantHistory',
     op: irtTask.relevantHistory ? 'replace' : 'add',
     value: irtTask.relevantHistory ? [...irtTask.relevantHistory, provRef] : [provRef],
@@ -624,7 +628,7 @@ const makeIrtTaskPatchRequest = (irtTask: Task, provenanceFullUrl: string): Batc
         op: 'replace',
         value: 'completed',
       },
-      relavantHistOp,
+      relevantHistoryOperation,
     ],
   };
   return irtTaskPatchRequest;

@@ -1,42 +1,42 @@
 {
-    "resourceType": "ValueSet",
-    "url": "https://fhir.ottehr.com/ValueSet/procedure-patient-responses",
-    "version": "1.0.0",
-    "name": "Procedures - Patient response",
-    "status": "active",
-    "expansion": {
-        "timestamp": "2025-06-10T11:36:51.034Z",
-        "contains": [
-            {
-                "system": "https://fhir.ottehr.com/CodeSystem/procedure-patient-responses",
-                "code": "tolerated-well",
-                "display": "Tolerated Well"
-            },
-            {
-                "system": "https://fhir.ottehr.com/CodeSystem/procedure-patient-responses",
-                "code": "mild-distress",
-                "display": "Mild Distress"
-            },
-            {
-                "system": "https://fhir.ottehr.com/CodeSystem/procedure-patient-responses",
-                "code": "severe-distress",
-                "display": "Severe Distress"
-            },
-            {
-                "system": "https://fhir.ottehr.com/CodeSystem/procedure-patient-responses",
-                "code": "improved",
-                "display": "Improved"
-            },
-            {
-                "system": "https://fhir.ottehr.com/CodeSystem/procedure-patient-responses",
-                "code": "stable",
-                "display": "Stable"
-            },
-            {
-                "system": "https://fhir.ottehr.com/CodeSystem/procedure-patient-responses",
-                "code": "worsened",
-                "display": "Worsened"
-            }
-        ]
-    }
+  "resourceType": "ValueSet",
+  "url": "https://fhir.ottehr.com/ValueSet/procedure-patient-responses",
+  "version": "1.0.0",
+  "name": "Procedures - Patient response",
+  "status": "active",
+  "expansion": {
+    "timestamp": "2025-06-10T11:36:51.034Z",
+    "contains": [
+      {
+        "system": "https://fhir.ottehr.com/CodeSystem/procedure-patient-responses",
+        "code": "tolerated-well",
+        "display": "Tolerated Well"
+      },
+      {
+        "system": "https://fhir.ottehr.com/CodeSystem/procedure-patient-responses",
+        "code": "mild-distress",
+        "display": "Mild Distress"
+      },
+      {
+        "system": "https://fhir.ottehr.com/CodeSystem/procedure-patient-responses",
+        "code": "severe-distress",
+        "display": "Severe Distress"
+      },
+      {
+        "system": "https://fhir.ottehr.com/CodeSystem/procedure-patient-responses",
+        "code": "improved",
+        "display": "Improved"
+      },
+      {
+        "system": "https://fhir.ottehr.com/CodeSystem/procedure-patient-responses",
+        "code": "stable",
+        "display": "Stable"
+      },
+      {
+        "system": "https://fhir.ottehr.com/CodeSystem/procedure-patient-responses",
+        "code": "worsened",
+        "display": "Worsened"
+      }
+    ]
+  }
 }

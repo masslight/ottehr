@@ -1,4 +1,4 @@
-import { GetLabelPdfParameters, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS, INVALID_INPUT_ERROR } from 'utils';
+import { GetLabelPdfParameters, INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
 import { ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): GetLabelPdfParameters & Pick<ZambdaInput, 'secrets'> {

@@ -1,5 +1,6 @@
 import { Page, test } from '@playwright/test';
 import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   chooseJson,
   getConsentStepAnswers,
@@ -10,6 +11,7 @@ import {
   INSURANCE_PLAN_PAYER_META_TAG_CODE,
   isoToDateObject,
 } from 'utils';
+import { ENV_LOCATION_NAME } from '../../../e2e-utils/resource/constants';
 import {
   PATIENT_INSURANCE_MEMBER_ID,
   PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS,
@@ -38,12 +40,10 @@ import {
   PATIENT_INSURANCE_POLICY_HOLDER_ZIP,
   ResourceHandler,
 } from '../../../e2e-utils/resource-handler';
-import { ENV_LOCATION_NAME } from '../../../e2e-utils/resource/constants';
 import { expectAssessmentPage } from '../../page/in-person/InPersonAssessmentPage';
 import { expectInPersonProgressNotePage } from '../../page/in-person/InPersonProgressNotePage';
 import { expectPatientInfoPage, PatientInfoPage } from '../../page/PatientInfo';
 import { openVisitsPage } from '../../page/VisitsPage';
-import { DateTime } from 'luxon';
 
 // cSpell:disable-next inversus
 const DIAGNOSIS = 'Situs inversus';

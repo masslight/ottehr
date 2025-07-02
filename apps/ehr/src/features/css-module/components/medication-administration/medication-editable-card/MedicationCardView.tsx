@@ -1,25 +1,26 @@
-import React from 'react';
-import { Typography, Paper, Grid, Box } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { ButtonRounded } from '../../RoundedButton';
-import { MedicationStatusChip } from '../statuses/MedicationStatusChip';
-import { MedicationCardField } from './MedicationCardField';
-import { CSSLoader } from '../../CSSLoader';
+import { Box, Grid, Paper, Typography } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getInHouseMedicationMARUrl } from '../../../routing/helpers';
 import {
   ExtendedMedicationDataForResponse,
+  IN_HOUSE_CONTAINED_MEDICATION_ID,
   makeMedicationOrderUpdateRequestInput,
   MedicationData,
   MedicationOrderStatusesType,
   UpdateMedicationOrderInput,
 } from 'utils';
-import { OrderFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
+import { OrderFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
+import { getInHouseMedicationMARUrl } from '../../../routing/helpers';
+import { CSSLoader } from '../../CSSLoader';
+import { ButtonRounded } from '../../RoundedButton';
+import { MedicationStatusChip } from '../statuses/MedicationStatusChip';
+import { MedicationOrderType } from './fieldsConfig';
+import { MedicationCardField } from './MedicationCardField';
 import { InHouseMedicationFieldType } from './utils';
 
 type MedicationCardViewProps = {
-  type: 'dispense' | 'order-new' | 'order-edit';
+  type: MedicationOrderType;
   onSave: (medicationSaveOrUpdateRequest: UpdateMedicationOrderInput) => void;
   medication?: ExtendedMedicationDataForResponse;
   fieldsConfig: Partial<
@@ -204,8 +205,8 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
           const value = getFieldValue(field as keyof MedicationData);
           let renderValue: string | undefined;
 
-          // renderValue handles edge case when backend created new resource with new id and we can't match it with standard select options
-          if (field === 'medicationId' && medication?.medicationName && value === medication?.medicationId) {
+          // renderValue handles edge case when backend created new medication resource without id
+          if (field === 'medicationId' && medication?.medicationName && value === IN_HOUSE_CONTAINED_MEDICATION_ID) {
             renderValue = medication.medicationName;
           }
 
@@ -227,7 +228,7 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
           );
         })}
         <Grid item xs={12}>
-          {type === 'dispense' ? <DispenseFooter /> : <OrderFooter />}
+          {type === 'dispense' || type === 'dispense-not-administered' ? <DispenseFooter /> : <OrderFooter />}
         </Grid>
       </Grid>
     </Paper>

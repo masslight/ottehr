@@ -9,11 +9,11 @@ import {
   GetPastVisitsResponse,
   getPatientsForUser,
   getSecret,
+  getTimezone,
   getVisitStatus,
   mapStatusToTelemed,
-  TIMEZONE_EXTENSION_URL,
   SecretsKeys,
-  getTimezone,
+  TIMEZONE_EXTENSION_URL,
   TIMEZONES,
 } from 'utils';
 import { checkOrCreateM2MClientToken, getUser, ZambdaInput } from '../../../shared';

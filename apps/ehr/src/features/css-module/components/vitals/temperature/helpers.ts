@@ -5,8 +5,8 @@ import {
   VitalsObservationDTO,
   VitalsTemperatureObservationDTO,
 } from 'utils';
-import { VitalTemperatureHistoryEntry } from './VitalTemperatureHistoryEntry';
 import { composeVitalsHistoryEntries } from '../utils';
+import { VitalTemperatureHistoryEntry } from './VitalTemperatureHistoryEntry';
 
 export const textToTemperatureNumber = (text: string): number | undefined => {
   const tempVal = textToNumericValue(text);

@@ -1,23 +1,30 @@
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getMyPractitionerId, topLevelCatch, ZambdaInput } from '../../shared';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared';
-import { validateRequestParameters } from './validateRequestParameters';
-import {
-  getPatchBinary,
-  NURSING_ORDER_PROVENANCE_ACTIVITY_CODING_ENTITY,
-  Secrets,
-  UpdateNursingOrderParameters,
-} from 'utils';
 import { Provenance, ServiceRequest, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import {
+  getPatchBinary,
+  getSecret,
+  NURSING_ORDER_PROVENANCE_ACTIVITY_CODING_ENTITY,
+  SecretsKeys,
+  UpdateNursingOrderInputValidated,
+} from 'utils';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  getMyPractitionerId,
+  topLevelCatch,
+  ZambdaInput,
+} from '../../shared';
+import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mtoken: string;
+let m2mToken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`update-nursing-order started, input: ${JSON.stringify(input)}`);
 
-  let validatedParameters: UpdateNursingOrderParameters & { secrets: Secrets | null; userToken: string };
+  let validatedParameters: UpdateNursingOrderInputValidated;
 
   try {
     validatedParameters = validateRequestParameters(input);
@@ -33,8 +40,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   try {
     const { userToken, serviceRequestId, action, secrets } = validatedParameters;
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
     const oystehrCurrentUser = createOystehrClient(userToken, secrets);
     const _practitionerIdFromCurrentUser = await getMyPractitionerId(oystehrCurrentUser);
@@ -70,29 +77,35 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       userPractitionerIdRequest(),
     ]);
 
-    const { serviceReqestSearchResults, taskSerchResults } = orderResources.reduce(
+    const { serviceRequestSearchResults, taskSearchResults } = orderResources.reduce(
       (acc, resource) => {
-        if (resource.resourceType === 'ServiceRequest') acc.serviceReqestSearchResults.push(resource as ServiceRequest);
+        if (resource.resourceType === 'ServiceRequest')
+          acc.serviceRequestSearchResults.push(resource as ServiceRequest);
+        if (resource.resourceType === 'ServiceRequest')
+          acc.serviceRequestSearchResults.push(resource as ServiceRequest);
 
-        if (resource.resourceType === 'Task') acc.taskSerchResults.push(resource as Task);
+        if (resource.resourceType === 'Task') acc.taskSearchResults.push(resource as Task);
+        if (resource.resourceType === 'Task') acc.taskSearchResults.push(resource as Task);
 
         return acc;
       },
       {
-        serviceReqestSearchResults: [] as ServiceRequest[],
-        taskSerchResults: [] as Task[],
+        serviceRequestSearchResults: [] as ServiceRequest[],
+        taskSearchResults: [] as Task[],
       }
     );
 
     const serviceRequest = (() => {
-      const targetEncounter = serviceReqestSearchResults.find((serviceReqest) => serviceReqest.id === serviceRequestId);
+      const targetEncounter = serviceRequestSearchResults.find(
+        (serviceRequest) => serviceRequest.id === serviceRequestId
+      );
       if (!targetEncounter) throw Error('Encounter not found');
       return targetEncounter;
     })();
 
     const locationRef: string | undefined = serviceRequest.locationReference?.[0].reference;
 
-    const relatedTask = taskSerchResults[0];
+    const relatedTask = taskSearchResults[0];
     if (!relatedTask.id) throw Error('related Task not found');
 
     const taskStatus = getTaskStatusForAction(action);
@@ -162,14 +175,15 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       }),
     };
   } catch (error: any) {
-    await topLevelCatch('update-nursing-order', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('update-nursing-order', error, ENVIRONMENT);
 
     return {
       statusCode: error.statusCode || 500,
       body: JSON.stringify({ message: `Error updating nursing order: ${error.message || error}` }),
     };
   }
-};
+});
 
 const getTaskStatusForAction = (action: string): string => {
   switch (action) {

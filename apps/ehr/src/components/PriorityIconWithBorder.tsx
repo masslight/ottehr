@@ -1,6 +1,6 @@
-import { ReactElement } from 'react';
 import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
 import { Box } from '@mui/material';
+import { ReactElement } from 'react';
 
 interface PriorityIconWithBorderProps {
   fill: string;

@@ -1,5 +1,6 @@
 import ArrowDropDownCircleOutlinedIcon from '@mui/icons-material/ArrowDropDownCircleOutlined';
 import {
+  alpha,
   Box,
   IconButton,
   Paper,
@@ -10,16 +11,12 @@ import {
   TableHead,
   TableRow,
   Typography,
-  alpha,
   useTheme,
 } from '@mui/material';
 import { Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ReactElement, useState } from 'react';
-import { InHouseOrderListPageItemDTO, InPersonAppointmentInformation, LabOrderListPageDTO } from 'utils';
-import { AppointmentsStatusChipsCount } from './AppointmentStatusChipsCount';
-import AppointmentTableRow from './AppointmentTableRow';
-import { ApptTab } from './AppointmentTabs';
+import { InPersonAppointmentInformation, OrdersForTrackingBoardRow, OrdersForTrackingBoardTable } from 'utils';
 import {
   ACTION_WIDTH,
   ACTION_WIDTH_MIN,
@@ -45,6 +42,9 @@ import {
   VISIT_ICONS_WIDTH_MIN,
 } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
+import { AppointmentsStatusChipsCount } from './AppointmentStatusChipsCount';
+import AppointmentTableRow from './AppointmentTableRow';
+import { ApptTab } from './AppointmentTabs';
 
 interface AppointmentTableProps {
   appointments: InPersonAppointmentInformation[];
@@ -53,8 +53,7 @@ interface AppointmentTableProps {
   now: DateTime;
   updateAppointments: () => void;
   setEditingComment: (editingComment: boolean) => void;
-  inHouseLabOrdersByAppointmentId: Record<string, InHouseOrderListPageItemDTO[]>;
-  externalLabOrdersByAppointmentId: Record<string, LabOrderListPageDTO[]>;
+  orders: OrdersForTrackingBoardTable;
 }
 
 export default function AppointmentTable({
@@ -64,14 +63,27 @@ export default function AppointmentTable({
   now,
   updateAppointments,
   setEditingComment,
-  inHouseLabOrdersByAppointmentId,
-  externalLabOrdersByAppointmentId,
+  orders,
 }: AppointmentTableProps): ReactElement {
   const theme = useTheme();
   const actionButtons = tab === ApptTab.prebooked ? true : false;
   const showTime = tab !== ApptTab.prebooked ? true : false;
   const [collapseWaiting, setCollapseWaiting] = useState<boolean>(false);
   const [collapseExam, setCollapseExam] = useState<boolean>(false);
+
+  const {
+    inHouseLabOrdersByAppointmentId,
+    externalLabOrdersByAppointmentId,
+    nursingOrdersByAppointmentId,
+    inHouseMedicationsByEncounterId,
+  } = orders;
+
+  const ordersForAppointment = (appointmentId: string, encounterId: string): OrdersForTrackingBoardRow => ({
+    inHouseLabOrders: inHouseLabOrdersByAppointmentId[appointmentId],
+    externalLabOrders: externalLabOrdersByAppointmentId[appointmentId],
+    nursingOrders: nursingOrdersByAppointmentId[appointmentId],
+    inHouseMedications: inHouseMedicationsByEncounterId[encounterId],
+  });
 
   return (
     <>
@@ -193,8 +205,7 @@ export default function AppointmentTable({
                             updateAppointments={updateAppointments}
                             setEditingComment={setEditingComment}
                             tab={tab}
-                            inHouseLabOrders={inHouseLabOrdersByAppointmentId[appointment.id]}
-                            externalLabOrders={externalLabOrdersByAppointmentId[appointment.id]}
+                            orders={ordersForAppointment(appointment.id, appointment.encounterId)}
                           ></AppointmentTableRow>
                         );
                       })}
@@ -212,8 +223,7 @@ export default function AppointmentTable({
                       updateAppointments={updateAppointments}
                       setEditingComment={setEditingComment}
                       tab={tab}
-                      inHouseLabOrders={inHouseLabOrdersByAppointmentId[appointment.id]}
-                      externalLabOrders={externalLabOrdersByAppointmentId[appointment.id]}
+                      orders={ordersForAppointment(appointment.id, appointment.encounterId)}
                     ></AppointmentTableRow>
                   );
                 })
@@ -287,8 +297,7 @@ export default function AppointmentTable({
                           updateAppointments={updateAppointments}
                           setEditingComment={setEditingComment}
                           tab={tab}
-                          inHouseLabOrders={inHouseLabOrdersByAppointmentId[appointment.id]}
-                          externalLabOrders={externalLabOrdersByAppointmentId[appointment.id]}
+                          orders={ordersForAppointment(appointment.id, appointment.encounterId)}
                         ></AppointmentTableRow>
                       );
                     })}

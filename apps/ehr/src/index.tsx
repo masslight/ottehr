@@ -1,9 +1,10 @@
+import './index.css';
 import { Auth0Provider } from '@auth0/auth0-react';
+import { ErrorBoundary } from '@sentry/react';
 import { StrictMode } from 'react';
 import ReactDOM from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import App from './App';
-import './index.css';
 
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
 
@@ -34,7 +35,9 @@ root.render(
         }}
         cacheLocation="localstorage"
       >
-        <App />
+        <ErrorBoundary fallback={<p>An error has occurred</p>}>
+          <App />
+        </ErrorBoundary>
       </Auth0Provider>
     </QueryClientProvider>
   </StrictMode>

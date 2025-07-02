@@ -1,11 +1,12 @@
+import { Box } from '@mui/system';
 import { DateTime } from 'luxon';
 import { useMemo } from 'react';
 import { FieldValues } from 'react-hook-form';
-import { FormInputType, PageForm } from 'ui-components';
 import { getPatientInfoFullName, PatientInfo } from 'utils';
+import PageForm from '../../../components/PageForm';
 import { otherColors } from '../../../IntakeThemeProvider';
-import { Box } from '@mui/system';
 import { DIFFERENT_FAMILY_MEMBER_DATA } from '../../../telemed/utils/constants';
+import { FormInputType } from '../../../types';
 
 interface PatientListProps {
   patients: PatientInfo[];
@@ -62,7 +63,7 @@ const PatientList: React.FC<PatientListProps> = ({
               .concat(pastVisits ? [] : DIFFERENT_FAMILY_MEMBER_DATA),
       },
     ];
-  }, [patients, selectedPatient, subtitle]);
+  }, [hasNoPatients, pastVisits, patients, selectedPatient, subtitle]);
 
   return (
     <PageForm

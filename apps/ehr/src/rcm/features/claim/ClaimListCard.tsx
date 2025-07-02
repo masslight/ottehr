@@ -1,5 +1,5 @@
-import React, { FC, Fragment, ReactNode, useMemo } from 'react';
 import { Box, Divider, Typography } from '@mui/material';
+import React, { FC, Fragment, ReactNode, useMemo } from 'react';
 import { ClaimCard } from './ClaimCard';
 
 type ClaimListCardProps = {

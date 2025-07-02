@@ -1,13 +1,15 @@
 import { Typography } from '@mui/material';
+import { ottehrLightBlue } from '@theme/icons';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { generatePath, useNavigate } from 'react-router-dom';
-import { ErrorDialog, ErrorDialogConfig, PageForm } from 'ui-components';
-import { intakeFlowPageRoute, BOOKING_SLOT_ID_PARAM } from '../App';
-import { PageContainer } from '../components';
-import { useBookingContext } from './BookingHome';
 import { PROJECT_NAME } from 'utils';
-import { ottehrLightBlue } from '@theme/icons';
+import { BOOKING_SLOT_ID_PARAM, intakeFlowPageRoute } from '../App';
+import { PageContainer } from '../components';
+import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
+import PageForm from '../components/PageForm';
+import { useBookingContext } from './BookingHome';
+
 const NewUser = (): JSX.Element => {
   const navigate = useNavigate();
   const { slotId, patientInfo, setPatientInfo } = useBookingContext();

@@ -1,5 +1,5 @@
-import { FC } from 'react';
 import { Box, Card, Grid, Typography, useTheme } from '@mui/material';
+import { FC } from 'react';
 import { Link } from 'react-router-dom';
 import { otherColors } from '../IntakeThemeProvider';
 

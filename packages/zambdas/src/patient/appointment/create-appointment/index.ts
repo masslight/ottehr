@@ -1,5 +1,4 @@
 import Oystehr, { BatchInput, BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Account,
@@ -34,6 +33,7 @@ import {
   formatPhoneNumberDisplay,
   getAppointmentDurationFromSlot,
   getCanonicalQuestionnaire,
+  getSecret,
   getTaskResource,
   isValidUUID,
   makePrepopulatedItemsForPatient,
@@ -42,27 +42,26 @@ import {
   PatientInfo,
   ScheduleOwnerFhirResource,
   Secrets,
+  SecretsKeys,
   ServiceMode,
   TaskIndicator,
   User,
   VisitType,
 } from 'utils';
 import {
-  captureSentryException,
-  createOystehrClient,
-  configSentry,
-  getAuth0Token,
   AuditableZambdaEndpoints,
   createAuditEvent,
+  createOystehrClient,
   generatePatientRelatedRequests,
+  getAuth0Token,
   getUser,
-  topLevelCatch,
-  ZambdaInput,
   isTestUser,
+  topLevelCatch,
+  wrapHandler,
+  ZambdaInput,
 } from '../../../shared';
 import { getEncounterClass, getRelatedResources, getTelemedRequiredAppointmentEncounterExtensions } from '../helpers';
 import { createAppointmentComplexValidation, validateCreateAppointmentParams } from './validateRequestParameters';
-import _ from 'lodash';
 
 interface CreateAppointmentInput {
   slot: Slot;
@@ -81,9 +80,7 @@ interface CreateAppointmentInput {
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrToken: string;
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  configSentry('create-appointment', input.secrets);
-  console.log(`Input: ${JSON.stringify(input)}`);
+export const index = wrapHandler('create-appointment', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     // Step 1: Validate input
@@ -142,7 +139,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     console.log('appointment created');
 
-    const { message, appointment, fhirPatientId, questionnaireResponseId, encounterId, resources, relatedPersonId } =
+    const { message, appointmentId, fhirPatientId, questionnaireResponseId, encounterId, resources, relatedPersonId } =
       data_appointment;
 
     await createAuditEvent(
@@ -153,9 +150,9 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       validatedParameters.secrets
     );
 
-    const response = {
+    const response: CreateAppointmentResponse = {
       message,
-      appointment,
+      appointmentId,
       fhirPatientId,
       questionnaireResponseId,
       encounterId,
@@ -169,7 +166,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('create-appointment', error, input.secrets, captureSentryException);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('create-appointment', error, ENVIRONMENT, true);
   }
 });
 
@@ -199,7 +197,7 @@ export async function createAppointment(
   const endTime = originalDate.plus({ minutes: getAppointmentDurationFromSlot(slot) }).toISO() || '';
   const formattedUserNumber = formatPhoneNumberDisplay(user.name.replace('+1', ''));
   const createdBy = isEHRUser
-    ? `Staff ${user?.email} via QRS`
+    ? `Staff ${user?.email}`
     : `${visitType === VisitType.WalkIn ? 'QR - ' : ''}Patient${formattedUserNumber ? ` ${formattedUserNumber}` : ''}`;
 
   console.log('getting questionnaire ID to create blank questionnaire response');
@@ -264,7 +262,7 @@ export async function createAppointment(
     }
     // If it is a new patient, create a RelatedPerson resource for the Patient
     // and create a Person resource if there is not one for the account
-    // todo: this needs to happen transactionally with the other must-happen-for-this-request-to-succeed items
+    // todo: this needs to happen via a transactional with the other must-happen-for-this-request-to-succeed items
     const userResource = await createUserResourcesForPatient(oystehr, fhirPatient.id, verifiedFormattedPhoneNumber);
     relatedPersonId = userResource?.relatedPerson?.id || '';
     const person = userResource.person;
@@ -274,14 +272,26 @@ export async function createAppointment(
     }
   }
 
+  if (appointment.id === undefined) {
+    throw new Error('Appointment resource does not have an ID');
+  }
+
+  if (fhirPatient.id === undefined) {
+    throw new Error('Patient resource does not have an ID');
+  }
+
+  if (encounter.id === undefined) {
+    throw new Error('Encounter resource does not have an ID');
+  }
+
   console.log('success, here is the id: ', appointment.id);
 
   return {
     message: 'Successfully created an appointment and encounter',
-    appointment: appointment.id || '',
-    fhirPatientId: fhirPatient.id || '',
-    questionnaireResponseId: questionnaireResponseId || '',
-    encounterId: encounter.id || '',
+    appointmentId: appointment.id,
+    fhirPatientId: fhirPatient.id,
+    questionnaireResponseId: questionnaireResponseId,
+    encounterId: encounter.id,
     relatedPersonId: relatedPersonId,
     resources: {
       appointment,
@@ -660,13 +670,17 @@ const extractResourcesFromBundle = (bundle: Bundle<Resource>): TransactionOutput
     throw new Error('QuestionnaireResponse could not be created');
   }
 
+  if (questionnaireResponse.id === undefined) {
+    throw new Error('QuestionnaireResponse does not have an ID');
+  }
+
   console.log('successfully obtained resources from bundle');
   return {
     appointment,
     encounter,
     patient,
     questionnaire: questionnaireResponse,
-    questionnaireResponseId: questionnaireResponse.id || '',
+    questionnaireResponseId: questionnaireResponse.id,
   };
 };
 

@@ -5,8 +5,8 @@ import {
   VitalsBloodPressureObservationDTO,
   VitalsObservationDTO,
 } from 'utils';
-import { VitalBloodPressureHistoryEntry, VitalsBloodPressureSeverity } from './VitalBloodPressureHistoryEntry';
 import { composeVitalsHistoryEntries } from '../utils';
+import { VitalBloodPressureHistoryEntry, VitalsBloodPressureSeverity } from './VitalBloodPressureHistoryEntry';
 
 export const textToBloodPressureNumber = (text: string): number | undefined => {
   const bpVal = textToNumericValue(text);

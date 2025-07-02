@@ -1,3 +1,4 @@
+import { otherColors } from '@ehrTheme/colors';
 import {
   FormControl,
   FormControlLabel,
@@ -11,10 +12,8 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { otherColors } from '@ehrTheme/colors';
-import React, { useEffect, useState } from 'react';
-
 import { enqueueSnackbar } from 'notistack';
+import React, { useEffect, useState } from 'react';
 import {
   ADDITIONAL_QUESTIONS_META_SYSTEM,
   HISTORY_OBTAINED_FROM_FIELD,

@@ -1,3 +1,4 @@
+import { Box } from '@mui/material';
 import { FC } from 'react';
 import {
   ExamFieldsNames,
@@ -8,11 +9,10 @@ import {
   inPersonExamObservationFieldsDetailsArray,
   InPersonExamTabProviderCardNames,
 } from 'utils';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
+import { useFeatureFlags } from '../../../../../features/css-module/context/featureFlags';
 import { ControlledExamCheckbox } from './ControlledExamCheckbox';
 import { ControlledExamRadioGroup } from './ControlledExamRadioGroup';
-import { useFeatureFlags } from '../../../../../features/css-module/context/featureFlags';
-import { dataTestIds } from '../../../../../constants/data-test-ids';
-import { Box } from '@mui/material';
 
 type ExamFieldsFactoryProps = { radio?: boolean } & (
   | {

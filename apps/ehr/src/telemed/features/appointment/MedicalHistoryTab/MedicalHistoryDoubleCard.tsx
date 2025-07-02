@@ -1,6 +1,6 @@
+import { otherColors } from '@ehrTheme/colors';
 import React, { FC, ReactNode } from 'react';
 import { AccordionCard, DoubleColumnContainer, UppercaseCaptionTypography } from '../../../components';
-import { otherColors } from '@ehrTheme/colors';
 
 type MedicalHistoryDoubleCardProps = {
   collapsed?: boolean;
@@ -29,7 +29,7 @@ export const MedicalHistoryDoubleCard: FC<MedicalHistoryDoubleCardProps> = (prop
         rightColumn={
           <>
             <UppercaseCaptionTypography sx={{ color: otherColors.orange700, pb: 2 }}>
-              {providerSideLabel || 'Provider'}
+              {providerSideLabel || 'Healthcare staff input'}
             </UppercaseCaptionTypography>
             {providerSide}
           </>

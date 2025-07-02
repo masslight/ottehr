@@ -1,11 +1,11 @@
 import { sentryVitePlugin } from '@sentry/vite-plugin';
-import { defineConfig, loadEnv, UserConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import viteTsconfigPaths from 'vite-tsconfig-paths';
 import browserslistToEsbuild from 'browserslist-to-esbuild';
-import svgr from 'vite-plugin-svgr';
-import * as path from 'path';
 import { existsSync } from 'fs';
+import * as path from 'path';
+import { defineConfig, loadEnv, UserConfig } from 'vite';
+import svgr from 'vite-plugin-svgr';
+import viteTsconfigPaths from 'vite-tsconfig-paths';
 
 export default ({ mode }: { mode: string }): UserConfig => {
   const envDir = './env';

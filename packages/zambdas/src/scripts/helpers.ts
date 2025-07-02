@@ -16,7 +16,15 @@ import {
   Substance,
 } from 'fhir/r4b';
 import path from 'path';
-import { createOystehrClient, getSecret, Secrets, SecretsKeys } from 'utils';
+import {
+  createOystehrClient,
+  getMedicationTypeCode,
+  getResourcesFromBatchInlineRequests,
+  getSecret,
+  INVENTORY_MEDICATION_TYPE_CODE,
+  Secrets,
+  SecretsKeys,
+} from 'utils';
 import { getAuth0Token } from '../shared';
 
 export const fhirApiUrlFromAuth0Audience = (auth0Audience: string): string => {
@@ -174,7 +182,7 @@ const getBatchParams = (batchNo: number, params: SearchParam[]): SearchParam[] =
 };
 
 export const getAll = async <T extends FhirResource>(
-  resourceType: string,
+  resourceType: T['resourceType'],
   params: SearchParam[],
   oystehr: Oystehr
 ): Promise<T[]> => {
@@ -204,6 +212,22 @@ export const getAll = async <T extends FhirResource>(
   }
   return lists.flatMap((list) => list.unbundle());
 };
+
+export async function getInHouseInventoryMedications(oystehr: Oystehr): Promise<Medication[]> {
+  const allResources = await getResourcesFromBatchInlineRequests(oystehr, [
+    `Medication?identifier=${INVENTORY_MEDICATION_TYPE_CODE}`,
+  ]);
+  console.log('Received all Medications from fhir.');
+
+  return filterInHouseMedications(allResources);
+}
+
+export function filterInHouseMedications(allResources: Resource[]): Medication[] {
+  return allResources.filter(
+    (res) =>
+      res.resourceType === 'Medication' && getMedicationTypeCode(res as Medication) === INVENTORY_MEDICATION_TYPE_CODE
+  ) as Medication[];
+}
 
 export const createOystehrClientFromConfig = async (config: Secrets): Promise<Oystehr> => {
   const token = await getAuth0Token(config);

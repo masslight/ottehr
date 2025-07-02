@@ -1,7 +1,7 @@
 import { expect, Page } from '@playwright/test';
-import { SideMenu } from './SideMenu';
-import { CssHeader } from './CssHeader';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
+import { CssHeader } from './CssHeader';
+import { SideMenu } from './SideMenu';
 
 export class HospitalizationPage {
   #page: Page;

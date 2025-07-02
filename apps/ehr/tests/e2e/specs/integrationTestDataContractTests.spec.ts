@@ -1,9 +1,12 @@
 import { expect, test } from '@playwright/test';
 import {
+  Account,
   Appointment,
   ClinicalImpression,
+  Consent,
   DocumentReference,
   Encounter,
+  FhirResource,
   List,
   Observation,
   Patient,
@@ -13,12 +16,9 @@ import {
   Resource,
   ServiceRequest,
   Slot,
-  Consent,
-  Account,
-  FhirResource,
 } from 'fhir/r4b';
-import { ResourceHandler } from '../../e2e-utils/resource-handler';
 import { DateTime } from 'luxon';
+import { ResourceHandler } from '../../e2e-utils/resource-handler';
 
 const PROCESS_ID = `contractTests-${DateTime.now().toMillis()}`;
 const e2eHandler = new ResourceHandler(PROCESS_ID);
@@ -476,7 +476,7 @@ const cleanAccount = (account: Account): Account => {
 
 const getAllResourcesFromFHIR = async (appointmentId: string): Promise<Resource[]> => {
   return (
-    await e2eHandler.apiClient.fhir.search<Patient>({
+    await e2eHandler.apiClient.fhir.search<Appointment>({
       resourceType: 'Appointment',
       params: [
         {
@@ -513,7 +513,6 @@ const getAllResourcesFromFHIR = async (appointmentId: string): Promise<Resource[
         },
         {
           name: '_revinclude:iterate',
-          // cSpell:disable-next relatedperson is only valid FHIR search parameter
           value: 'Person:relatedperson',
         },
         {

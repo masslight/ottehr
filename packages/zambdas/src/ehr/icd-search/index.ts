@@ -7,7 +7,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
-    const { secrets, search, sabs } = validatedParameters;
+    const { secrets, search, sabs, radiologyOnly } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
@@ -20,8 +20,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const responseCodes = (
       await Promise.all([
         // fetching both NAME and CODE search results in parallel
-        searchTerminology(apiKey, search, sabs, 'NAME'),
-        searchTerminology(apiKey, search, sabs, 'CODE'),
+        searchTerminology(apiKey, search, sabs, 'NAME', radiologyOnly),
+        searchTerminology(apiKey, search, sabs, 'CODE', radiologyOnly),
       ])
     )
       .flatMap((result) => result.codes) // Flatten the array of arrays into a single array and map to codes.
@@ -38,7 +38,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));
-    return await topLevelCatch('ehr-icd-search', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return await topLevelCatch('ehr-icd-search', error, ENVIRONMENT);
   }
 };
 
@@ -46,7 +47,8 @@ const searchTerminology = async (
   apiKey: string,
   search: string,
   sabs: 'ICD10CM' | 'CPT',
-  codeOrName: 'CODE' | 'NAME'
+  codeOrName: 'CODE' | 'NAME',
+  radiologyOnly: boolean | undefined = false
 ): Promise<IcdSearchResponse> => {
   const results: IcdSearchResponse = { codes: [] };
   const encodedSearchString = encodeURIComponent(search);
@@ -78,6 +80,12 @@ const searchTerminology = async (
       code: entry.ui,
       display: entry.name,
     }));
+
+    if (sabs === 'CPT' && radiologyOnly) {
+      results.codes = results.codes.filter((code) => {
+        return code.code >= '7000' && code.code <= '7999'; // Filter codes to only include ICD-10 codes in the radiology range.
+      });
+    }
   } catch (error) {
     console.error('Error while trying to request NLM ICD10 search endpoint', error, JSON.stringify(error));
     throw new Error('Error while trying to get ICD-10 codes');

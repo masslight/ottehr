@@ -1,6 +1,4 @@
 import { Box, Typography } from '@mui/material';
-import { fieldsConfig, MedicationOrderType } from './fieldsConfig';
-import { ReasonSelect } from './ReasonSelect';
 import { DateTime } from 'luxon';
 import {
   ExtendedMedicationDataForResponse,
@@ -8,6 +6,8 @@ import {
   MedicationOrderStatusesType,
   UpdateMedicationOrderInput,
 } from 'utils';
+import { fieldsConfig, MedicationOrderType } from './fieldsConfig';
+import { ReasonSelect } from './ReasonSelect';
 
 export const medicationOrderFieldsWithOptions: Partial<keyof ExtendedMedicationDataForResponse>[] = [
   'medicationId',
@@ -105,7 +105,7 @@ export const getSaveButtonText = (
   selectedStatus: MedicationOrderStatusesType | undefined,
   isUnsavedData: boolean
 ): string => {
-  if (type === 'dispense' && currentStatus === 'pending' && selectedStatus) {
+  if ((type === 'dispense' || type === 'dispense-not-administered') && currentStatus === 'pending' && selectedStatus) {
     return `Mark as ${selectedStatus
       .toLocaleLowerCase()
       .split(' ')

@@ -27,17 +27,22 @@ import {
 import { DateTime } from 'luxon';
 import {
   ADDED_VIA_LAB_ORDER_SYSTEM,
+  addEmptyArrOperation,
   ADDITIONAL_QUESTIONS_META_SYSTEM,
+  addOperation,
+  addOrReplaceOperation,
   AI_OBSERVATION_META_SYSTEM,
   AllergyDTO,
-  BODY_SITE_SYSTEM,
   BirthHistoryDTO,
+  BODY_SITE_SYSTEM,
   BooleanValueDTO,
-  CPTCodeDTO,
-  CSS_NOTE_ID,
   ChartDataFields,
   ClinicalImpressionDTO,
   CommunicationDTO,
+  CPTCodeDTO,
+  createCodingCode,
+  createFilesDocumentReferences,
+  CSS_NOTE_ID,
   DiagnosisDTO,
   DispositionDTO,
   DispositionFollowUpType,
@@ -48,44 +53,39 @@ import {
   ExamFieldsNames,
   ExamObservationDTO,
   FHIR_EXTENSION,
+  fillVitalObservationAttributes,
   FreeTextNoteDTO,
   GetChartDataResponse,
   HospitalizationDTO,
-  MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM,
+  isVitalObservation,
+  makeVitalsObservationDTO,
   MedicalConditionDTO,
   MedicationDTO,
+  MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM,
+  NoteDTO,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   NOTHING_TO_EAT_OR_DRINK_ID,
-  NoteDTO,
   ObservationBooleanFieldDTO,
   ObservationDTO,
   ObservationTextFieldDTO,
   PATIENT_VITALS_META_SYSTEM,
   PERFORMER_TYPE_SYSTEM,
+  PrescribedMedicationDTO,
   PRIVATE_EXTENSION_BASE_URL,
   PROCEDURE_TYPE_SYSTEM,
-  PrescribedMedicationDTO,
   ProcedureDTO,
   ProviderChartDataFieldsNames,
+  removeOperation,
   SCHOOL_WORK_NOTE,
   SCHOOL_WORK_NOTE_CODE,
   SCHOOL_WORK_NOTE_TYPE_META_SYSTEM,
-  SNOMEDCodeConceptInterface,
   SchoolWorkNoteExcuseDocFileDTO,
   SchoolWorkNoteType,
-  addEmptyArrOperation,
-  addOperation,
-  addOrReplaceOperation,
-  createCodingCode,
-  createFilesDocumentReferences,
-  fillVitalObservationAttributes,
-  isVitalObservation,
-  makeVitalsObservationDTO,
-  removeOperation,
+  SNOMEDCodeConceptInterface,
 } from 'utils';
 import { removePrefix } from '../appointment/helpers';
 import { fillMeta } from '../helpers';
-import { PdfDocumentReferencePublishedStatuses, PdfInfo, isDocumentPublished } from '../pdf/pdf-utils';
+import { isDocumentPublished, PdfDocumentReferencePublishedStatuses, PdfInfo } from '../pdf/pdf-utils';
 import { saveOrUpdateResourceRequest } from '../resources.helpers';
 
 const getMetaWFieldName = (fieldName: ProviderChartDataFieldsNames): Meta => {
@@ -1078,9 +1078,9 @@ const mapResourceToChartDataFields = (
     resource?.resourceType === 'Observation' &&
     chartDataResourceHasMetaTagBySystem(resource, `${PRIVATE_EXTENSION_BASE_URL}/${ADDITIONAL_QUESTIONS_META_SYSTEM}`)
   ) {
-    const resourse = makeObservationDTO(resource);
-    // TODO check edge cases if resourse is null
-    if (resourse) data.observations?.push(resourse);
+    const resourceDto = makeObservationDTO(resource);
+    // TODO check edge cases if resource is null
+    if (resourceDto) data.observations?.push(resourceDto);
     resourceMapped = true;
   } else if (
     resource?.resourceType === 'Observation' &&
@@ -1143,8 +1143,8 @@ const mapResourceToChartDataFields = (
     resource?.resourceType === 'Observation' &&
     chartDataResourceHasMetaTagBySystem(resource, `${PRIVATE_EXTENSION_BASE_URL}/${AI_OBSERVATION_META_SYSTEM}`)
   ) {
-    const resourse = makeObservationDTO(resource);
-    if (resourse) data.observations?.push(resourse);
+    const resourceDto = makeObservationDTO(resource);
+    if (resourceDto) data.observations?.push(resourceDto);
     resourceMapped = true;
   } else if (
     resource.resourceType === 'QuestionnaireResponse' &&

@@ -1,27 +1,16 @@
 import Oystehr, { User } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Flag } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {} from 'utils';
-import {
-  captureSentryException,
-  createOystehrClient,
-  configSentry,
-  getAuth0Token,
-  getUser,
-  topLevelCatch,
-  ZambdaInput,
-} from '../../../shared';
+import { getSecret, SecretsKeys } from 'utils';
+import { createOystehrClient, getAuth0Token, getUser, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { createOrUpdateFlags } from '../sharedHelpers';
 import { validateUpdatePaperworkParams } from './validateRequestParameters';
 
 // Lifting the token out of the handler function allows it to persist across warm lambda invocations.
 export let token: string;
-
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  configSentry('update-paperwork-in-progress', input.secrets);
-  console.log(`Input: ${JSON.stringify(input)}`);
+const ZAMBDA_NAME = 'update-paperwork-in-progress';
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const secrets = input.secrets;
     if (!token) {
@@ -50,7 +39,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify({ message: 'Successfully updated appointment paperwork' }),
     };
   } catch (error: any) {
-    return topLevelCatch('update-paperwork', error, input.secrets, captureSentryException);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('update-paperwork', error, ENVIRONMENT);
   }
 });
 

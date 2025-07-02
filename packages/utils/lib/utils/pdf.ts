@@ -1,13 +1,13 @@
 import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  PDFDocument,
   PageSizes,
-  RotationTypes,
-  StandardFonts,
+  PDFDocument,
   popGraphicsState,
   pushGraphicsState,
+  RotationTypes,
   scale,
+  StandardFonts,
   translate,
 } from 'pdf-lib';
 // import fs from 'fs';

@@ -1,45 +1,45 @@
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter, Location, Patient, QuestionnaireResponse, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   APPOINTMENT_NOT_FOUND_ERROR,
+  CheckInInput,
+  CheckInZambdaOutput,
   formatPhoneNumberDisplay,
   getCriticalUpdateTagOp,
   getEncounterStatusHistoryIdx,
   getLocationInformation,
   getPatchBinary,
+  getSecret,
   getTaskResource,
   Secrets,
+  SecretsKeys,
   TaskIndicator,
+  VisitType,
 } from 'utils';
 import { isNonPaperworkQuestionnaireResponse } from '../../common';
 import {
-  captureSentryException,
   checkPaperworkComplete,
-  configSentry,
   createOystehrClient,
   getAuth0Token,
   topLevelCatch,
+  wrapHandler,
   ZambdaInput,
 } from '../../shared';
 import { getUser } from '../../shared/auth';
 import { AuditableZambdaEndpoints, createAuditEvent } from '../../shared/userAuditLog';
 import { validateRequestParameters } from './validateRequestParameters';
 
-export interface CheckInInput {
-  appointment: string;
-  secrets: Secrets | null;
+export interface CheckInInputValidated extends CheckInInput {
+  secrets: Secrets;
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let zapehrToken: string;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  configSentry('check-in', input.secrets);
-  console.log(`Input: ${JSON.stringify(input)}`);
+export const index = wrapHandler('check-in', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.time('check-in-zambda');
 
@@ -50,7 +50,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const formattedUserNumber = formatPhoneNumberDisplay(user?.name.replace('+1', ''));
     const checkedInBy = `Patient${formattedUserNumber ? ` ${formattedUserNumber}` : ''}`;
     const validatedParameters = validateRequestParameters(input);
-    const { appointment: appointmentID, secrets } = validatedParameters;
+    const { appointmentId: appointmentID, secrets } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
@@ -64,7 +64,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const oystehr = createOystehrClient(zapehrToken, secrets);
 
     console.log('getting all fhir resources');
-    console.time('resource search for checkin');
+    console.time('resource search for check in');
     const allResources = (
       await oystehr.fhir.search<Appointment | Encounter | Location | Patient | QuestionnaireResponse>({
         resourceType: 'Appointment',
@@ -94,7 +94,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     )
       .unbundle()
       .filter((resource) => isNonPaperworkQuestionnaireResponse(resource) === false);
-    console.timeEnd('resource search for checkin');
+    console.timeEnd('resource search for check in');
 
     let appointment: Appointment | undefined,
       patient: Patient | undefined,
@@ -134,7 +134,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const checkedIn = appointment.status !== 'booked';
     if (!checkedIn) {
       console.log('checking in the patient');
-      await checkin(oystehr, checkedInBy, appointment, encounter);
+      await checkIn(oystehr, checkedInBy, appointment, encounter);
       await createAuditEvent(AuditableZambdaEndpoints.appointmentCheckIn, oystehr, input, patient.id || '', secrets);
     } else {
       console.log('Appointment is already checked in');
@@ -150,21 +150,28 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     console.timeEnd('check-in-zambda');
 
+    if (!appointment.start) {
+      throw new Error('Appointment start time is missing');
+    }
+
+    const response: CheckInZambdaOutput = {
+      location: locationInformation,
+      visitType: appointment.appointmentType?.text as VisitType, // TODO safely check value is a VisitType
+      start: appointment.start,
+      paperworkCompleted,
+    };
+
     return {
       statusCode: 200,
-      body: JSON.stringify({
-        location: locationInformation,
-        visitType: appointment.appointmentType?.text,
-        start: appointment.start,
-        paperworkCompleted,
-      }),
+      body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('check-in', error, input.secrets, captureSentryException);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('check-in', error, ENVIRONMENT, true);
   }
 });
 
-async function checkin(
+async function checkIn(
   oystehr: Oystehr,
   checkedInBy: string,
   appointment: Appointment,

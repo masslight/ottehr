@@ -1,5 +1,6 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Encounter, QuestionnaireResponse } from 'fhir/r4b';
+import { Consent, Encounter, QuestionnaireResponse } from 'fhir/r4b';
 import {
   createOystehrClient,
   FHIR_AI_CHAT_CONSENT_CATEGORY_CODE,
@@ -9,7 +10,6 @@ import {
   StartInterviewInput,
 } from 'utils';
 import { getAuth0Token, validateJsonBody, validateString, ZambdaInput } from '../../../shared';
-import Oystehr from '@oystehr/sdk';
 import { invokeChatbot } from '../../../shared/ai';
 
 export const INTERVIEW_COMPLETED = 'Interview completed.';
@@ -96,7 +96,7 @@ async function findEncounter(appointmentId: string, oystehr: Oystehr): Promise<s
 async function consentPresent(appointmentId: string, oystehr: Oystehr): Promise<boolean> {
   return (
     (
-      await oystehr.fhir.search<Encounter>({
+      await oystehr.fhir.search<Consent>({
         resourceType: 'Consent',
         params: [
           {

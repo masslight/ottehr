@@ -1,3 +1,4 @@
+// cSpell:ignore ancheta, doeone, johnone, kovalenko, myroshnychenko, RM9d9e1b8efdc14c983e6861472912b37b, wesmond, willingham
 import {
   Appointment,
   Encounter,

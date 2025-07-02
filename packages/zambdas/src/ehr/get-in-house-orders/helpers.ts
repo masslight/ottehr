@@ -3,51 +3,49 @@ import {
   ActivityDefinition,
   Appointment,
   BundleEntry,
-  Encounter,
-  Resource,
-  Practitioner,
-  ServiceRequest,
-  Task,
-  Provenance,
-  Location,
-  FhirResource,
-  Specimen,
-  Observation,
   DiagnosticReport,
+  Encounter,
+  FhirResource,
+  Location,
+  Observation,
+  Practitioner,
+  Provenance,
+  Resource,
+  ServiceRequest,
+  Specimen,
+  Task,
 } from 'fhir/r4b';
 import {
   compareDates,
-  fetchLabOrderPDFs,
-  fetchDocumentReferencesForDiagnosticReports,
-  LabOrderPDF,
-  getTimezone,
+  convertActivityDefinitionToTestItem,
   DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE,
-  Secrets,
-  InHouseGetOrdersResponseDTO,
-} from 'utils';
-import { getMyPractitionerId, createOystehrClient, sendErrors, captureSentryException } from '../../shared';
-import { getSpecimenDetails, taskIsBasedOnServiceRequest } from '../shared/inhouse-labs';
-import {
+  DiagnosisDTO,
   EMPTY_PAGINATION,
-  isPositiveNumberOrZero,
+  fetchDocumentReferencesForDiagnosticReports,
+  getFullestAvailableName,
+  getTimezone,
+  IN_HOUSE_TEST_CODE_SYSTEM,
+  InHouseGetOrdersResponseDTO,
   InHouseOrderListPageItemDTO,
   InHouseOrdersSearchBy,
+  isPositiveNumberOrZero,
+  LabResultPDF,
   Pagination,
-  DiagnosisDTO,
-  convertActivityDefinitionToTestItem,
-  getFullestAvailableName,
   PRACTITIONER_CODINGS,
   TestStatus,
-  IN_HOUSE_TEST_CODE_SYSTEM,
 } from 'utils';
-import { GetZambdaInHouseOrdersParams } from './validateRequestParameters';
+import { createOystehrClient, getMyPractitionerId, sendErrors } from '../../shared';
 import {
-  determineOrderStatus,
   buildOrderHistory,
-  getUrlAndVersionForADFromServiceRequest,
-  getServiceRequestsRelatedViaRepeat,
+  determineOrderStatus,
   fetchResultResourcesForRepeatServiceRequest,
-} from '../shared/inhouse-labs';
+  getServiceRequestsRelatedViaRepeat,
+  getSpecimenDetails,
+  getUrlAndVersionForADFromServiceRequest,
+  taskIsBasedOnServiceRequest,
+} from '../shared/in-house-labs';
+import { fetchLabOrderPDFsPresignedUrls } from '../shared/labs';
+import { GetZambdaInHouseOrdersParams } from './validateRequestParameters';
 
 // cache for the service request context
 type Cache = {
@@ -67,8 +65,8 @@ export const mapResourcesToInHouseOrderDTOs = <SearchBy extends InHouseOrdersSea
   specimens: Specimen[],
   observations: Observation[],
   diagnosticReports: DiagnosticReport[],
-  resultsPDFs: LabOrderPDF[],
-  secrets: Secrets | null,
+  resultsPDFs: LabResultPDF[],
+  ENVIRONMENT: string,
   currentPractitioner?: Practitioner,
   timezone?: string
 ): InHouseGetOrdersResponseDTO<SearchBy>['data'] => {
@@ -112,7 +110,7 @@ export const mapResourcesToInHouseOrderDTOs = <SearchBy extends InHouseOrdersSea
       );
     } catch (error) {
       console.error(`Error parsing order data for service request ${serviceRequest.id}:`, error, JSON.stringify(error));
-      void sendErrors('get-in-house-orders', error, secrets, captureSentryException);
+      void sendErrors(error, ENVIRONMENT);
     }
   }
 
@@ -147,12 +145,12 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
   specimens: Specimen[];
   observations: Observation[];
   cache?: Cache;
-  resultsPDF?: LabOrderPDF;
+  resultsPDF?: LabResultPDF;
   currentPractitionerName?: string;
   currentPractitionerId?: string;
   timezone?: string;
 }): InHouseGetOrdersResponseDTO<SearchBy>['data'][number] => {
-  console.log('parsing inhouse order data');
+  console.log('parsing in-house order data');
   if (!serviceRequest.id) {
     throw new Error('ServiceRequest ID is required');
   }
@@ -190,7 +188,7 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
   };
 
   if (searchBy.searchBy.field === 'serviceRequestId') {
-    console.log('serchBy field === serviceRequestId - indicates request was triggered on detail page');
+    console.log('searchBy field === serviceRequestId - indicates request was triggered on detail page');
     const relatedSpecimen = specimens.find(
       (specimen) => specimen.request?.some((req) => req.reference === `ServiceRequest/${serviceRequest.id}`)
     );
@@ -205,7 +203,7 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
       orderingPhysicianId: attendingPractitioner?.id || '',
       currentUserFullName: currentPractitionerName || '',
       currentUserId: currentPractitionerId || '',
-      resultsPDFUrl: resultsPDF?.url,
+      resultsPDFUrl: resultsPDF?.presignedURL,
       orderHistory,
       specimen: relatedSpecimens[0] ? getSpecimenDetails(relatedSpecimens[0]) : undefined,
       notes: serviceRequest.note?.[0]?.text || '',
@@ -246,7 +244,7 @@ export const getInHouseResources = async (
   params: GetZambdaInHouseOrdersParams,
   searchBy: InHouseOrdersSearchBy,
   userToken: string,
-  m2mtoken: string
+  m2mToken: string
 ): Promise<{
   serviceRequests: ServiceRequest[];
   tasks: Task[];
@@ -260,7 +258,7 @@ export const getInHouseResources = async (
   observations: Observation[];
   pagination: Pagination;
   diagnosticReports: DiagnosticReport[];
-  resultsPDFs: LabOrderPDF[];
+  resultsPDFs: LabResultPDF[];
   currentPractitioner?: Practitioner;
   timezone: string | undefined;
 }> => {
@@ -290,7 +288,7 @@ export const getInHouseResources = async (
   const isDetailPageRequest = searchBy.searchBy.field === 'serviceRequestId';
 
   let currentPractitioner: Practitioner | undefined;
-  let resultsPDFs: LabOrderPDF[] = [];
+  let resultsPDFs: LabResultPDF[] = [];
 
   if (isDetailPageRequest && userToken) {
     // if more than one ServiceRequest is returned for when this is called from the detail page
@@ -320,8 +318,9 @@ export const getInHouseResources = async (
     }
 
     if (diagnosticReports.length > 0) {
-      const resultsDocumentReferences = await fetchDocumentReferencesForDiagnosticReports(oystehr, diagnosticReports);
-      resultsPDFs = await fetchLabOrderPDFs(resultsDocumentReferences, m2mtoken);
+      const resultsDocumentReferences = await fetchDocumentReferencesForDiagnosticReports(oystehr, diagnosticReports); // todo i think we can get this from the big query
+      const pdfs = await fetchLabOrderPDFsPresignedUrls(resultsDocumentReferences, m2mToken);
+      if (pdfs) resultsPDFs = pdfs.resultPDFs;
     }
   }
 

@@ -1,9 +1,8 @@
 import Oystehr, { BatchInputDeleteRequest, BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { DocumentReference, List, Patient } from 'fhir/r4b';
 import { createPatientDocumentList, FOLDERS_CONFIG, getPatchBinary } from 'utils';
-
-import { fhirApiUrlFromAuth0Audience, performEffectWithEnvFile } from './helpers';
 import { getAuth0Token } from '../shared';
+import { fhirApiUrlFromAuth0Audience, performEffectWithEnvFile } from './helpers';
 
 const BATCH_SIZE = 25;
 

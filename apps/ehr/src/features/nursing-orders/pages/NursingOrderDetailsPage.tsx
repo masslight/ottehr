@@ -1,34 +1,21 @@
 import ArrowDropDownCircleOutlinedIcon from '@mui/icons-material/ArrowDropDownCircleOutlined';
-import React, { useMemo, useState } from 'react';
-import { Box, Paper, Typography, Button, CircularProgress, Collapse, IconButton, Divider } from '@mui/material';
+import { Box, Button, CircularProgress, Collapse, Divider, IconButton, Paper, Typography } from '@mui/material';
+import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
-import { OrderDetails } from '../components/details/OrderDetails';
-import { getSelectors, NursingOrdersSearchBy } from 'utils';
-import { History } from '../components/details/History';
 import { BreadCrumbs } from '../components/BreadCrumbs';
+import { History } from '../components/details/History';
+import { OrderDetails } from '../components/details/OrderDetails';
 import { useGetNursingOrders, useUpdateNursingOrder } from '../components/orders/useNursingOrders';
-import { useAppointmentStore } from 'src/telemed';
 
 export const NursingOrderDetailsPage: React.FC = () => {
   const navigate = useNavigate();
   const { serviceRequestID } = useParams<{ serviceRequestID: string }>();
 
   const [showHistory, setShowHistory] = useState(true);
-  const { encounter } = getSelectors(useAppointmentStore, ['encounter']);
-
-  const searchBy: NursingOrdersSearchBy | undefined = useMemo(() => {
-    if (!serviceRequestID) return undefined;
-
-    return {
-      field: 'serviceRequestId',
-      value: serviceRequestID,
-    };
-  }, [serviceRequestID]);
 
   const { nursingOrders, loading, error } = useGetNursingOrders({
-    encounterId: encounter.id || '',
-    searchBy,
+    searchBy: { field: 'serviceRequestId', value: serviceRequestID || '' },
   });
 
   const order = nursingOrders.find((order) => order.serviceRequestId === serviceRequestID);

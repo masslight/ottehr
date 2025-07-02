@@ -19,7 +19,7 @@ export function validateRequestParameters(
     throw new Error('These fields are required: "newStatus".');
   }
 
-  // is it a good way to validate if string fit in typescirpt type??
+  // is it a good way to validate if string fit in typescript type??
   if (!TelemedCallStatusesArr.includes(newStatus)) {
     throw new Error('"newStatus" field value is not TelemedCallStatuses type.');
   }

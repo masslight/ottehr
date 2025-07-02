@@ -1,8 +1,8 @@
 import { LoadingButton } from '@mui/lab';
-import { Box } from '@mui/system';
-import { FC, useState } from 'react';
-import { CardElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { Checkbox, FormLabel } from '@mui/material';
+import { Box } from '@mui/system';
+import { CardElement, useElements, useStripe } from '@stripe/react-stripe-js';
+import { FC, useState } from 'react';
 
 type CreditCardFormProps = {
   clientSecret: string;

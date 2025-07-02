@@ -38,11 +38,11 @@ import { DateTime } from 'luxon';
 import {
   addOperation,
   findExistingListByDocumentTypeCode,
+  LAB_RESULT_DOC_REF_CODING_CODE,
   PatientMasterRecordResourceType,
   replaceOperation,
   TaskCoding,
   TELEMED_VIDEO_ROOM_CODE,
-  LAB_RESULT_DOC_REF_CODING_CODE,
 } from 'utils';
 import {
   BookableResource,
@@ -1326,7 +1326,7 @@ export const ottehrIdentifierSystem = (name: string): string => {
 };
 
 export async function getAllFhirSearchPages<T extends FhirResource>(
-  fhirSearchParams: FhirSearchParams,
+  fhirSearchParams: FhirSearchParams<T>,
   oystehr: Oystehr,
   maxMatchPerBatch = 1000
 ): Promise<T[]> {

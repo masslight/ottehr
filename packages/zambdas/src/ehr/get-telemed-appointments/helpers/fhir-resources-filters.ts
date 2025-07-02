@@ -46,7 +46,7 @@ export const filterPatientForAppointment = (appointment: Appointment, allResourc
 };
 
 const filterPractitionerForEncounter = (allResources: Resource[], encounter: Encounter): Practitioner | undefined => {
-  // console.log('encounter for appoinement: ' + JSON.stringify(encounter));
+  // console.log('encounter for appointment: ' + JSON.stringify(encounter));
   const practitionerRef = encounter.participant?.find((part) => part.individual?.reference?.includes('Practitioner/'))
     ?.individual?.reference;
   if (practitionerRef) {

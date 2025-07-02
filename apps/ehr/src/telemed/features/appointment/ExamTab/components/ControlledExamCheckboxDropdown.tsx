@@ -1,8 +1,8 @@
-import { FC, useState } from 'react';
 import { Autocomplete, Box, TextField } from '@mui/material';
+import { FC, useState } from 'react';
 import { ExamFieldsNames, ExamObservationDTO } from 'utils';
-import { StatelessExamCheckbox } from './StatelessExamCheckbox';
 import { useExamObservations } from '../../../../hooks/useExamObservations';
+import { StatelessExamCheckbox } from './StatelessExamCheckbox';
 
 export type ExamCheckboxDropdownOptionType = { label: string; name: ExamFieldsNames };
 

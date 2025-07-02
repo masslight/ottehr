@@ -1,14 +1,14 @@
+import { otherColors } from '@ehrTheme/colors';
 import { Autocomplete, Box, Card, TextField, Typography } from '@mui/material';
 import { FC } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { CPTCodeDTO } from 'utils';
-import { otherColors } from '@ehrTheme/colors';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { ActionsList, DeleteIconButton } from '../../../../components';
 import { useChartDataArrayValue } from '../../../../hooks';
 import { useAppointmentStore } from '../../../../state';
 import { ProviderSideListSkeleton } from '../ProviderSideListSkeleton';
-import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 const surgicalHistoryOptions: CPTCodeDTO[] = [
   { display: 'Adenoidectomy', code: '42830' },

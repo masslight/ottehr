@@ -1,7 +1,7 @@
 import { FC } from 'react';
 import { ExamCardsNames, ExamFieldsNames } from 'utils';
-import { StatelessExamCheckbox } from './StatelessExamCheckbox';
 import { useExamObservations } from '../../../../hooks/useExamObservations';
+import { StatelessExamCheckbox } from './StatelessExamCheckbox';
 
 type ControlledExamCheckboxProps = {
   label: string;
