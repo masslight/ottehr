@@ -733,7 +733,7 @@ export const cancelRadiologyOrder = async (
       id: 'radiology-cancel-order',
       ...parameters,
     });
-    return chooseJson(response);
+    return response ? chooseJson(response) : {};
   } catch (error: unknown) {
     console.log(error);
     throw error;
