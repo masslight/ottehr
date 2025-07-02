@@ -187,7 +187,7 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
   const userToken = input.headers.Authorization.replace('Bearer ', '');
 
   if (!userToken) {
-    throw new Error('usere token unexpectedly missing');
+    throw new Error('user token unexpectedly missing');
   }
 
   const { secrets } = input;
@@ -290,7 +290,7 @@ const complexValidation = async (input: BasicInput, oystehrM2M: Oystehr): Promis
         })
         .filter((i) => !!i) as string[];
       console.log('validationErrors', JSON.stringify(validationErrors, null, 2));
-      console.log('errorpaths', JSON.stringify(errorPaths));
+      console.log('errorPaths', JSON.stringify(errorPaths));
 
       if (errorPaths.length === 0) {
         // this will be a 500

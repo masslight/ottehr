@@ -1,5 +1,4 @@
 import Oystehr from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference, List, QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -13,12 +12,12 @@ import {
   SecretsKeys,
 } from 'utils';
 import {
-  configSentry,
   createOystehrClient,
   getAuth0Token,
   topLevelCatch,
   validateJsonBody,
   validateString,
+  wrapHandler,
   ZambdaInput,
 } from '../../shared';
 import { createDocument } from './document';
@@ -35,9 +34,7 @@ const BUCKET_PAPERWORK_PDF = 'exported-questionnaires';
 
 let zapehrToken: string;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  configSentry(ZAMBDA_NAME, input.secrets);
-  console.log(`Input: ${JSON.stringify(input)}`);
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const { questionnaireResponseId, documentReference: documentReferenceBase, secrets } = validateInput(input);
     const oystehr = await createOystehr(secrets);

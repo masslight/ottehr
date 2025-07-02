@@ -18,7 +18,7 @@ const updatePermissionsFromZambdaList = async (zambdaList: string[], config: any
       // fhir is implicitly denied
     ],
   };
-  console.log('searching for exisiting roles for the project');
+  console.log('searching for existing roles for the project');
   const existingRoles = await fetch(`${config.PROJECT_API}/iam/roles`, {
     method: 'GET',
     headers: {
