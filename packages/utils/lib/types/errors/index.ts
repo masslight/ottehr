@@ -136,7 +136,7 @@ export const POST_TELEMED_APPOINTMENT_CANT_BE_CANCELED_ERROR = {
 
 export const POST_TELEMED_APPOINTMENT_CANT_BE_MODIFIED_ERROR = {
   code: APIErrorCode.APPOINTMENT_CANT_BE_MODIFIED,
-  message: 'Post-telemed appointments are not reschedulable',
+  message: 'Post-telemed appointments cannot be rescheduled',
 };
 
 export const PAST_APPOINTMENT_CANT_BE_MODIFIED_ERROR = {
