@@ -38,7 +38,7 @@ export interface CancelTelemedAppointmentInputValidated extends CancelTelemedApp
 let zapehrToken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`Cancelation Input: ${JSON.stringify(input)}`);
+  console.log(`Telemed Cancelation Input: ${JSON.stringify(input)}`);
 
   try {
     const validatedParameters = validateRequestParameters(input);

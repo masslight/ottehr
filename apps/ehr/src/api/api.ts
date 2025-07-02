@@ -258,7 +258,7 @@ export const cancelTelemedAppointment = async (
       throw new Error('cancel appointment environment variable could not be loaded');
     }
 
-    const response = await oystehr.zambda.executePublic({
+    const response = await oystehr.zambda.execute({
       id: CANCEL_TELEMED_APPOINTMENT_ZAMBDA_ID,
       ...parameters,
     });
