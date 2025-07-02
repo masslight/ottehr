@@ -57,7 +57,7 @@ export interface UpdateScheduleBasicInput extends UpdateScheduleParams {
 }
 
 // this lives here because the create schedule zambda uses an input type that extends UpdateScheduleParams,
-// so this can be shared accross the update and create zambdas
+// so this can be shared across the update and create zambdas
 export const validateUpdateScheduleParameters = (input: ZambdaInput): UpdateScheduleBasicInput => {
   if (!input.body) {
     throw MISSING_REQUEST_BODY;

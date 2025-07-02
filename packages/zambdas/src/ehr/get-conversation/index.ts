@@ -70,7 +70,7 @@ export const index = wrapHandler('get-conversation', async (input: ZambdaInput):
       })
     )
       .unbundle()
-      .map((recip) => `RelatedPerson/${recip.id}`);
+      .map((recipient) => `RelatedPerson/${recipient.id}`);
     console.timeEnd('sms-query');
     console.log(
       `found ${allRecipients.length} related persons with the sms number ${smsQuery}; searching messages for all those recipients`
@@ -84,7 +84,7 @@ export const index = wrapHandler('get-conversation', async (input: ZambdaInput):
     ]);
     console.timeEnd('get_sent_and_received_messages');
 
-    console.time('structure_convo_data');
+    console.time('structure_conversation_data');
     const rpMap: Record<string, RelatedPerson> = {};
     const senderMap: Record<string, Device | Practitioner> = {};
     const patientMap: Record<string, Patient> = {};
@@ -168,7 +168,7 @@ export const index = wrapHandler('get-conversation', async (input: ZambdaInput):
           isFromPatient,
         };
       });
-    console.time('structure_convo_data');
+    console.time('structure_conversation_data');
 
     console.log('messages to return: ', allMessages.length);
 

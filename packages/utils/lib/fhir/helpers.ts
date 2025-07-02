@@ -717,8 +717,8 @@ export function allLicensesForPractitioner(practitioner: Practitioner): Practiti
   return allLicenses;
 }
 
-export const getPractitionerStateCredentials = (practioner: Practitioner): string[] => {
-  return allLicensesForPractitioner(practioner).map(({ state }) => state);
+export const getPractitionerStateCredentials = (practitioner: Practitioner): string[] => {
+  return allLicensesForPractitioner(practitioner).map(({ state }) => state);
 };
 
 export const getPlanIdAndNameFromCoverage = (coverage: Coverage): { planId?: string; planName?: string } => {
