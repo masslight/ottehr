@@ -13,9 +13,10 @@ import {
   QuestionnaireResponse,
 } from 'fhir/r4b';
 
-export interface VideoResourcesAppointmentPackage {
+export interface FullAppointmentResourcePackage {
   appointment: Appointment;
   encounter: Encounter;
+  timezone: string;
   chargeItem?: ChargeItem;
   patient?: Patient;
   account?: Account;
