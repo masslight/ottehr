@@ -38,8 +38,17 @@ const DEFAULT_TIMEOUT = { timeout: 15000 };
 
 async function getTestUserQualificationStates(resourceHandler: ResourceHandler): Promise<string[]> {
   const testsUser = await resourceHandler.getTestsUserAndPractitioner();
+
+  const telemedLocations = await getTelemedLocations(resourceHandler.apiClient);
+  if (!telemedLocations) {
+    throw new Error('No Telemed locations available');
+  }
+  const availableStates = new Set(
+    telemedLocations.filter((location) => location.available).map((location) => location.state)
+  );
+
   const userQualificationStates = allLicensesForPractitioner(testsUser.practitioner)
-    .filter((license) => license.active && license.state)
+    .filter((license) => license.active && license.state && availableStates.has(license.state))
     .map((license) => license.state);
   if (userQualificationStates.length < 1) throw new Error('User has no qualification locations');
   return userQualificationStates;

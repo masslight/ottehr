@@ -1,3 +1,4 @@
+// cSpell:ignore RCRT, RFRT, RPRT
 import Oystehr, { SearchParam } from '@oystehr/sdk';
 import {
   ActivityDefinition,
@@ -468,7 +469,7 @@ export const getLabResources = async (
   const isDetailPageRequest = searchBy.searchBy.field === 'serviceRequestId';
   console.log('isDetailPageRequest', isDetailPageRequest);
 
-  const [serviceRequsetPractitioners, appointments, finalAndPrelimAndCorrectedTasks, questionnaires] =
+  const [serviceRequestPractitioners, appointments, finalAndPrelimAndCorrectedTasks, questionnaires] =
     await Promise.all([
       fetchPractitionersForServiceRequests(oystehr, serviceRequests),
       fetchAppointmentsForServiceRequests(oystehr, serviceRequests, encounters),
@@ -478,7 +479,7 @@ export const getLabResources = async (
       ),
     ]);
 
-  const allPractitioners = [...practitioners, ...serviceRequsetPractitioners];
+  const allPractitioners = [...practitioners, ...serviceRequestPractitioners];
 
   let resultPDFs: LabResultPDF[] = [];
   let orderPDF: LabOrderPDF | undefined;
@@ -1432,7 +1433,7 @@ export const parseLabOrdersHistory = (
   };
 
   // only push performed to order history if this is a psc order or there is a specimen to parse data from
-  // not having a specimen for a non psc order is probably an edge case but was causing issues for autolab
+  // not having a specimen for a non psc order is probably an edge case but was causing issues for AutoLab
   (isPSC || specimens[0]) && pushPerformedHistory(specimens[0]);
 
   // todo: design is required https://github.com/masslight/ottehr/issues/2177
@@ -1715,7 +1716,7 @@ export const parseTaskPST = (tasks: Task[], serviceRequestId: string): Task | nu
 export const isTaskPST = (task: Task): boolean => {
   return (
     task.code?.coding?.some(
-      (coding) => coding.system === LAB_ORDER_TASK.system && coding.code === LAB_ORDER_TASK.code.presubmission
+      (coding) => coding.system === LAB_ORDER_TASK.system && coding.code === LAB_ORDER_TASK.code.preSubmission
     ) || false
   );
 };

@@ -1,5 +1,4 @@
 import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Bundle, Communication, Device, Patient, Practitioner, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -16,7 +15,7 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
-import { getAuth0Token, topLevelCatch, ZambdaInput } from '../../shared';
+import { getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 
 export interface GetConversationInputValidated extends GetConversationInput {
@@ -46,7 +45,7 @@ let zapehrToken: string;
 const CHUNK_SIZE = 100;
 const MAX_MESSAGE_COUNT = '1000';
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler('get-conversation', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
@@ -71,7 +70,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       })
     )
       .unbundle()
-      .map((recip) => `RelatedPerson/${recip.id}`);
+      .map((recipient) => `RelatedPerson/${recipient.id}`);
     console.timeEnd('sms-query');
     console.log(
       `found ${allRecipients.length} related persons with the sms number ${smsQuery}; searching messages for all those recipients`
@@ -85,7 +84,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     ]);
     console.timeEnd('get_sent_and_received_messages');
 
-    console.time('structure_convo_data');
+    console.time('structure_conversation_data');
     const rpMap: Record<string, RelatedPerson> = {};
     const senderMap: Record<string, Device | Practitioner> = {};
     const patientMap: Record<string, Patient> = {};
@@ -169,7 +168,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
           isFromPatient,
         };
       });
-    console.time('structure_convo_data');
+    console.time('structure_conversation_data');
 
     console.log('messages to return: ', allMessages.length);
 

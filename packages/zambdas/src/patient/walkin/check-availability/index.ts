@@ -1,5 +1,4 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { PractitionerRole, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -28,10 +27,10 @@ import {
   WalkinAvailabilityCheckResult,
 } from 'utils';
 import { getNameForOwner } from '../../../ehr/schedules/shared';
-import { getAuth0Token, topLevelCatch, ZambdaInput } from '../../../shared';
+import { getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 
 let zapehrToken: string;
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler('check-availability', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const fhirAPI = getSecret(SecretsKeys.FHIR_API, input.secrets);
     const projectAPI = getSecret(SecretsKeys.PROJECT_API, input.secrets);
@@ -247,7 +246,7 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
   }
 
   if (!resolvedScheduleId) {
-    throw new Error('Shcedule ID could not be resolved');
+    throw new Error('Schedule ID could not be resolved');
   }
 
   return { scheduleExtension, timezone, serviceMode, scheduleOwnerName, scheduleId: resolvedScheduleId };
@@ -260,16 +259,16 @@ interface CheckWalkinOpenInput {
   timezone: Timezone;
   timeNow: DateTime;
   // this optional prop can be used to allow checking in for a walkin/ad-hoc appointment prior to the opening time
-  minutesWalkinAvalilableBeforeOpening?: number;
+  minutesWalkinAvailableBeforeOpening?: number;
 }
 
 function isWalkinOpen(input: CheckWalkinOpenInput): boolean {
-  const { openingTime, closingTime, closures, timezone, timeNow, minutesWalkinAvalilableBeforeOpening = 0 } = input;
+  const { openingTime, closingTime, closures, timezone, timeNow, minutesWalkinAvailableBeforeOpening = 0 } = input;
   const officeHasClosureOverrideToday = isClosureOverride(closures, timezone, timeNow);
 
   return (
     openingTime !== undefined &&
-    openingTime.minus({ minute: minutesWalkinAvalilableBeforeOpening }) <= timeNow &&
+    openingTime.minus({ minute: minutesWalkinAvailableBeforeOpening }) <= timeNow &&
     (closingTime === undefined || closingTime > timeNow) &&
     !officeHasClosureOverrideToday
   );

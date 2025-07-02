@@ -83,7 +83,7 @@ const extractDisplayType = (obsDef: ObservationDefinition, obsName: string): 'Ra
     throw Error(
       `unknown display cast to this observation definition: ${obsName} (display should be one of the follow ${Object.values(
         OD_DISPLAY_CONFIG.valueString
-      )} and recieved: ${display})`
+      )} and received: ${display})`
     );
   return display;
 };

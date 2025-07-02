@@ -1,5 +1,4 @@
 import Oystehr, { BatchInput, BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Account,
@@ -18,7 +17,6 @@ import {
   Slot,
   Task,
 } from 'fhir/r4b';
-import _ from 'lodash';
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import {
@@ -52,7 +50,6 @@ import {
 } from 'utils';
 import {
   AuditableZambdaEndpoints,
-  configSentry,
   createAuditEvent,
   createOystehrClient,
   generatePatientRelatedRequests,
@@ -60,6 +57,7 @@ import {
   getUser,
   isTestUser,
   topLevelCatch,
+  wrapHandler,
   ZambdaInput,
 } from '../../../shared';
 import { getEncounterClass, getRelatedResources, getTelemedRequiredAppointmentEncounterExtensions } from '../helpers';
@@ -82,9 +80,7 @@ interface CreateAppointmentInput {
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrToken: string;
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  configSentry('create-appointment', input.secrets);
-  console.log(`Input: ${JSON.stringify(input)}`);
+export const index = wrapHandler('create-appointment', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     // Step 1: Validate input
@@ -266,7 +262,7 @@ export async function createAppointment(
     }
     // If it is a new patient, create a RelatedPerson resource for the Patient
     // and create a Person resource if there is not one for the account
-    // todo: this needs to happen transactionally with the other must-happen-for-this-request-to-succeed items
+    // todo: this needs to happen via a transactional with the other must-happen-for-this-request-to-succeed items
     const userResource = await createUserResourcesForPatient(oystehr, fhirPatient.id, verifiedFormattedPhoneNumber);
     relatedPersonId = userResource?.relatedPerson?.id || '';
     const person = userResource.person;

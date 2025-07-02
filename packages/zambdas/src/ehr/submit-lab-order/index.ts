@@ -66,7 +66,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       encounter,
       schedule,
       organization: labOrganization,
-      specimens: specimenResourses,
+      specimens: specimenResources,
     } = await getExternalLabOrderResources(oystehr, serviceRequestID);
 
     const locationID = serviceRequest.locationReference?.[0].reference?.replace('Location/', '');
@@ -163,8 +163,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const sampleCollectionDates: DateTime[] = [];
 
     const specimenPatchOperations: BatchInputPatchRequest<FhirResource>[] =
-      specimenResourses.length > 0
-        ? specimenResourses.reduce<BatchInputPatchRequest<FhirResource>[]>((acc, specimen) => {
+      specimenResources.length > 0
+        ? specimenResources.reduce<BatchInputPatchRequest<FhirResource>[]>((acc, specimen) => {
             if (!specimen.id) {
               return acc;
             }
@@ -173,15 +173,15 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
             const specimenFromSubmitDate = specimensFromSubmit?.[specimen.id]?.date
               ? DateTime.fromISO(specimensFromSubmit[specimen.id].date)
               : undefined;
-            const specimeCollection = specimen.collection;
-            const collectedDateTime = specimeCollection?.collectedDateTime;
-            const collector = specimeCollection?.collector;
+            const specimenCollection = specimen.collection;
+            const collectedDateTime = specimenCollection?.collectedDateTime;
+            const collector = specimenCollection?.collector;
             const specimenCollector = { reference: currentUser?.profile };
             const requests: Operation[] = [];
 
             specimenFromSubmitDate && sampleCollectionDates.push(specimenFromSubmitDate);
 
-            if (specimeCollection) {
+            if (specimenCollection) {
               requests.push(
                 {
                   path: '/collection/collectedDateTime',
@@ -218,7 +218,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         : [];
 
     // Specimen.collection.collected is required at time of order so we must make this patch before submitting to oystehr
-    const preSumbissionWriteRequests = [...specimenPatchOperations];
+    const preSubmissionWriteRequests = [...specimenPatchOperations];
 
     // not every order will have an AOE
     let questionsAndAnswers: AOEDisplayForOrderForm[] = [];
@@ -228,7 +228,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
       questionsAndAnswers = questionsAndAnswersForFormDisplay;
 
-      preSumbissionWriteRequests.push({
+      preSubmissionWriteRequests.push({
         method: 'PATCH',
         url: `QuestionnaireResponse/${questionnaireResponse.id}`,
         operations: [
@@ -246,10 +246,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       });
     }
 
-    if (preSumbissionWriteRequests.length > 0) {
-      console.log('writing updates that must occur before sending order to oysther');
+    if (preSubmissionWriteRequests.length > 0) {
+      console.log('writing updates that must occur before sending order to oystehr');
       await oystehr?.fhir.transaction({
-        requests: preSumbissionWriteRequests,
+        requests: preSubmissionWriteRequests,
       });
     }
 

@@ -29,7 +29,7 @@ import {
 export const EditableMedicationCard: React.FC<{
   medication?: ExtendedMedicationDataForResponse;
   type: MedicationOrderType;
-}> = ({ medication, type }) => {
+}> = ({ medication, type: typeFromProps }) => {
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
   const { id: appointmentId } = useParams();
   const navigate = useNavigate();
@@ -40,6 +40,12 @@ export const EditableMedicationCard: React.FC<{
   const { mappedData, resources } = useAppointment(appointmentId);
   const [isReasonSelected, setIsReasonSelected] = useState(true);
   const selectsOptions = useFieldsSelectsOptions();
+
+  // There are dynamic form config which depend on what button was clicked:
+  // - If "administered" was clicked, then "dispense" form config should be used
+  // - If "not-administered" was clicked, then "dispense-not-administered" form config will be used
+  // See: https://github.com/masslight/ottehr/issues/2799
+  const typeRef = useRef<MedicationOrderType>(typeFromProps);
 
   const [localValues, setLocalValues] = useState<Partial<MedicationData>>(
     medication
@@ -76,7 +82,19 @@ export const EditableMedicationCard: React.FC<{
   };
 
   const updateOrCreateOrder = async (updatedRequestInput: UpdateMedicationOrderInput): Promise<void> => {
-    const { isValid, missingFields } = validateAllMedicationFields(localValues, medication, type, setFieldErrors);
+    // set type dynamically after user click corresponding button to use correct form config https://github.com/masslight/ottehr/issues/2799
+    if (updatedRequestInput.newStatus === 'administered' || updatedRequestInput.newStatus === 'administered-partly') {
+      typeRef.current = 'dispense';
+    } else if (updatedRequestInput.newStatus === 'administered-not') {
+      typeRef.current = 'dispense-not-administered';
+    }
+
+    const { isValid, missingFields } = validateAllMedicationFields(
+      localValues,
+      medication,
+      typeRef.current,
+      setFieldErrors
+    );
 
     // we check that have not empty required fields
     if (!isValid) {
@@ -96,6 +114,7 @@ export const EditableMedicationCard: React.FC<{
      * will be sent to the endpoint and saved.
      * We can't use async useState value here, because we should save value synchronously after user confirmation.
      */
+
     confirmedMedicationUpdateRequestRef.current = {
       ...(updatedRequestInput.orderId ? { orderId: updatedRequestInput.orderId } : {}),
 
@@ -107,18 +126,18 @@ export const EditableMedicationCard: React.FC<{
         ...(medication ? medicationExtendedToMedicationData(medication) : {}),
         ...updatedRequestInput.orderData,
         patient: resources.patient?.id || '',
-        encounter: appointmentId,
+        encounterId: resources.encounter?.id || '',
       } as MedicationData,
     };
 
     // for order creating or editing we don't have to show confirmation modal, so we can save it immediately
-    if (type === 'order-new' || type === 'order-edit') {
+    if (typeRef.current === 'order-new' || typeRef.current === 'order-edit') {
       await handleConfirmSave(confirmedMedicationUpdateRequestRef);
       return;
     }
 
     if (
-      type === 'dispense' &&
+      (typeRef.current === 'dispense' || typeRef.current === 'dispense-not-administered') &&
       (updatedRequestInput.newStatus === 'administered' ||
         updatedRequestInput.newStatus === 'administered-partly' ||
         updatedRequestInput.newStatus === 'administered-not')
@@ -153,7 +172,7 @@ export const EditableMedicationCard: React.FC<{
       const response = await updateMedication(medicationUpdateRequestInputRefRef.current);
       isSavedRef.current = true;
 
-      if (type === 'order-new') {
+      if (typeRef.current === 'order-new') {
         response?.id && navigate(getEditOrderUrl(appointmentId!, response.id));
         return;
       }
@@ -196,15 +215,20 @@ export const EditableMedicationCard: React.FC<{
   const isOrderPage = location.pathname.includes(routesCSS[ROUTER_PATH.IN_HOUSE_ORDER_NEW].activeCheckPath as string);
   const shouldBlockNavigation = (): boolean => !isSavedRef.current && (isEditOrderPage || isOrderPage) && isUnsavedData;
   const { ConfirmationModal: ConfirmationModalForLeavePage } = useReactNavigationBlocker(shouldBlockNavigation);
-  const saveButtonText = getSaveButtonText(medication?.status || 'pending', type, selectedStatus, isUnsavedData);
-  const isCardSaveButtonDisabled = type !== 'dispense' && (isUpdating || !isUnsavedData);
+  const saveButtonText = getSaveButtonText(
+    medication?.status || 'pending',
+    typeRef.current,
+    selectedStatus,
+    isUnsavedData
+  );
+  const isCardSaveButtonDisabled = typeRef.current !== 'dispense' && (isUpdating || !isUnsavedData);
 
   const isModalSaveButtonDisabled =
     confirmedMedicationUpdateRequestRef.current.newStatus === 'administered' ? false : isReasonSelected;
 
   useEffect(() => {
-    if (type === 'order-new') {
-      Object.entries(fieldsConfig[type]).map(([field]) => {
+    if (typeRef.current === 'order-new') {
+      Object.entries(fieldsConfig[typeRef.current]).map(([field]) => {
         const defaultOption = selectsOptions[field as keyof OrderFieldsSelectsOptions]?.defaultOption?.value;
         if (defaultOption) {
           const value = getFieldValue(field as keyof MedicationData);
@@ -218,11 +242,11 @@ export const EditableMedicationCard: React.FC<{
   return (
     <>
       <MedicationCardView
-        isEditable={getIsMedicationEditable(type, medication)}
-        type={type}
+        isEditable={getIsMedicationEditable(typeRef.current, medication)}
+        type={typeRef.current}
         onSave={updateOrCreateOrder}
         medication={medication}
-        fieldsConfig={fieldsConfig[type]}
+        fieldsConfig={fieldsConfig[typeRef.current]}
         localValues={localValues}
         selectedStatus={selectedStatus}
         isUpdating={isUpdating}

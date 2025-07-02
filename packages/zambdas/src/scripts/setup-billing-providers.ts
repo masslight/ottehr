@@ -3,8 +3,7 @@ import { Location, Organization, Practitioner } from 'fhir/r4b';
 import fs from 'fs';
 import path from 'path';
 import { FHIR_IDENTIFIER_NPI, getNPI, getTaxID } from 'utils';
-import { getAuth0Token } from '../shared';
-import { createOystehrClient } from '../shared';
+import { createOystehrClient, getAuth0Token } from '../shared';
 
 const writeProviders = async (envConfig: any, env: string): Promise<void> => {
   const token = await getAuth0Token(envConfig);
@@ -52,7 +51,7 @@ const writeProviders = async (envConfig: any, env: string): Promise<void> => {
 
         if (existingResources.length > 1) {
           throw new Error(
-            `Found multiple existing resources. Please clean your fhir data so that only one matching resource matches the search critera (NPI = ${npi} and tax id = ${taxId})`
+            `Found multiple existing resources. Please clean your fhir data so that only one matching resource matches the search criteria (NPI = ${npi} and tax id = ${taxId})`
           );
         }
         const existingResource = existingResources[0];

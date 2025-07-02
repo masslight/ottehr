@@ -1,5 +1,4 @@
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter, Location, Patient, QuestionnaireResponse, Task } from 'fhir/r4b';
@@ -23,10 +22,10 @@ import {
 import { isNonPaperworkQuestionnaireResponse } from '../../common';
 import {
   checkPaperworkComplete,
-  configSentry,
   createOystehrClient,
   getAuth0Token,
   topLevelCatch,
+  wrapHandler,
   ZambdaInput,
 } from '../../shared';
 import { getUser } from '../../shared/auth';
@@ -40,9 +39,7 @@ export interface CheckInInputValidated extends CheckInInput {
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let zapehrToken: string;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  configSentry('check-in', input.secrets);
-  console.log(`Input: ${JSON.stringify(input)}`);
+export const index = wrapHandler('check-in', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.time('check-in-zambda');
 
@@ -67,7 +64,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const oystehr = createOystehrClient(zapehrToken, secrets);
 
     console.log('getting all fhir resources');
-    console.time('resource search for checkin');
+    console.time('resource search for check in');
     const allResources = (
       await oystehr.fhir.search<Appointment | Encounter | Location | Patient | QuestionnaireResponse>({
         resourceType: 'Appointment',
@@ -97,7 +94,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     )
       .unbundle()
       .filter((resource) => isNonPaperworkQuestionnaireResponse(resource) === false);
-    console.timeEnd('resource search for checkin');
+    console.timeEnd('resource search for check in');
 
     let appointment: Appointment | undefined,
       patient: Patient | undefined,
@@ -137,7 +134,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const checkedIn = appointment.status !== 'booked';
     if (!checkedIn) {
       console.log('checking in the patient');
-      await checkin(oystehr, checkedInBy, appointment, encounter);
+      await checkIn(oystehr, checkedInBy, appointment, encounter);
       await createAuditEvent(AuditableZambdaEndpoints.appointmentCheckIn, oystehr, input, patient.id || '', secrets);
     } else {
       console.log('Appointment is already checked in');
@@ -174,7 +171,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
   }
 });
 
-async function checkin(
+async function checkIn(
   oystehr: Oystehr,
   checkedInBy: string,
   appointment: Appointment,

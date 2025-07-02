@@ -268,7 +268,7 @@ const getUrlAndVersion = (
 
 async function main(): Promise<void> {
   if (process.argv.length !== 3) {
-    console.error(`exiting, incorrect number of arguemnts passed\n`);
+    console.error(`exiting, incorrect number of arguments passed\n`);
     console.log(USAGE_STR);
     process.exit(1);
   }
@@ -377,7 +377,7 @@ async function main(): Promise<void> {
           },
         },
       ],
-      // specimenRequirement -- nothing in the test reqs describes this
+      // specimenRequirement -- nothing in the test requirements describes this
       observationRequirement: obsDefReferences,
       contained: contained,
       url: activityDefUrl,
