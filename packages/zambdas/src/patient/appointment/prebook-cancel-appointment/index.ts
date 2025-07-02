@@ -238,14 +238,16 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
         console.group('Send cancel message request');
         const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
 
-        // todo should this url be formated according the type of appointment being cancelled?
+        // todo should this url be formatted according the type of appointment being cancelled?
         const url = `${WEBSITE_URL}/home`;
 
         const message = `Your visit for ${getPatientFirstName(
           patient
         )} has been canceled. Tap ${url} to book a new visit.`;
+        // cSpell:disable-next Spanish
         const messageSpanish = `Su consulta para ${getPatientFirstName(
           patient
+          // cSpell:disable-next Spanish
         )} ha sido cancelada. Toque ${url} para reservar una nueva consulta.`;
 
         let selectedMessage;

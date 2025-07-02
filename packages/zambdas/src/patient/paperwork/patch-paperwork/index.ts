@@ -50,7 +50,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 const performEffect = async (input: PatchPaperworkEffectInput, oystehr: Oystehr): Promise<QuestionnaireResponse> => {
   const { updatedAnswers, questionnaireResponseId, currentQRStatus, patchIndex } = input;
   console.log('patchIndex:', patchIndex);
-  console.log('updatedAnsewers', JSON.stringify(updatedAnswers));
+  console.log('updatedAnswers', JSON.stringify(updatedAnswers));
   const operations: Operation[] = [
     {
       op: 'add',

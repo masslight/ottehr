@@ -247,7 +247,7 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
   }
 
   if (!resolvedScheduleId) {
-    throw new Error('Shcedule ID could not be resolved');
+    throw new Error('Schedule ID could not be resolved');
   }
 
   return { scheduleExtension, timezone, serviceMode, scheduleOwnerName, scheduleId: resolvedScheduleId };
@@ -260,16 +260,16 @@ interface CheckWalkinOpenInput {
   timezone: Timezone;
   timeNow: DateTime;
   // this optional prop can be used to allow checking in for a walkin/ad-hoc appointment prior to the opening time
-  minutesWalkinAvalilableBeforeOpening?: number;
+  minutesWalkinAvailableBeforeOpening?: number;
 }
 
 function isWalkinOpen(input: CheckWalkinOpenInput): boolean {
-  const { openingTime, closingTime, closures, timezone, timeNow, minutesWalkinAvalilableBeforeOpening = 0 } = input;
+  const { openingTime, closingTime, closures, timezone, timeNow, minutesWalkinAvailableBeforeOpening = 0 } = input;
   const officeHasClosureOverrideToday = isClosureOverride(closures, timezone, timeNow);
 
   return (
     openingTime !== undefined &&
-    openingTime.minus({ minute: minutesWalkinAvalilableBeforeOpening }) <= timeNow &&
+    openingTime.minus({ minute: minutesWalkinAvailableBeforeOpening }) <= timeNow &&
     (closingTime === undefined || closingTime > timeNow) &&
     !officeHasClosureOverrideToday
   );

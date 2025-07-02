@@ -87,7 +87,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     const now = DateTime.now();
 
-    // todo: this should live on a fhir resource raather than being a global secret
+    // todo: this should live on a fhir resource rather than being a global secret
     const DISPLAY_TOMORROW_SLOTS_AT_HOUR = parseInt(
       getSecret(SecretsKeys.IN_PERSON_PREBOOK_DISPLAY_TOMORROW_SLOTS_AT_HOUR, secrets)
     );

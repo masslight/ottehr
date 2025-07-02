@@ -199,11 +199,11 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.log('base category resources found');
     console.timeEnd('get-appointment-encounter-location-patient');
 
-    const [sourceQuestionaireUrl, sourceQuestionnaireVersion] = questionnaireResponseResource.questionnaire?.split(
+    const [sourceQuestionnaireUrl, sourceQuestionnaireVersion] = questionnaireResponseResource.questionnaire?.split(
       '|'
     ) ?? [null, null];
 
-    const urlForQFetch = sourceQuestionaireUrl;
+    const urlForQFetch = sourceQuestionnaireUrl;
     const versionForQFetch = sourceQuestionnaireVersion;
     if (!urlForQFetch || !versionForQFetch) {
       throw new Error(`Questionnaire for QR is not well defined: ${urlForQFetch}|${versionForQFetch}`);
@@ -276,7 +276,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
         return sex as PersonSex | undefined;
       };
 
-      // console.log('qrresponse item', JSON.stringify(questionnaireResponseResource.item));
+      // console.log('qrResponse item', JSON.stringify(questionnaireResponseResource.item));
 
       const response: UCGetPaperworkResponse = {
         ...partialAppointment,
@@ -445,7 +445,7 @@ const makeLocationSummary = (input: LocationSummaryInput): AppointmentSummary['l
       scheduleExtension,
     };
   } else if (practitioner) {
-    // todo build out pracitioner scheduling more
+    // todo build out practitioner scheduling more
     return {
       id: practitioner?.id,
       slug: practitioner?.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)?.value,
