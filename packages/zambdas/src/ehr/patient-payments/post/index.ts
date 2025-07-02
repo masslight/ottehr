@@ -28,6 +28,7 @@ import {
   lambdaResponse,
   makeBusinessIdentifierForCandidPayment,
   makeBusinessIdentifierForStripePayment,
+  performCandidPreEncounterSync,
   topLevelCatch,
   ZambdaInput,
 } from '../../../shared';
@@ -87,7 +88,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       oystehrClient
     );
 
-    const notice = await performEffect(effectInput, oystehrClient);
+    const notice = await performEffect(effectInput, oystehrClient, requiredSecrets);
 
     return lambdaResponse(200, { notice, patientId, encounterId });
   } catch (error: any) {
@@ -97,8 +98,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   }
 };
 
-const performEffect = async (input: ComplexValidationOutput, oystehrClient: Oystehr): Promise<PaymentNotice> => {
-  const { encounterId, paymentDetails, organizationId, userProfile, secrets } = input;
+const performEffect = async (
+  input: ComplexValidationOutput,
+  oystehrClient: Oystehr,
+  secrets: Secrets
+): Promise<PaymentNotice> => {
+  const { encounterId, paymentDetails, organizationId, userProfile } = input;
   const { paymentMethod, amountInCents, description } = paymentDetails;
   const dateTimeIso = DateTime.now().toISO() || '';
   console.log('dateTimeIso', dateTimeIso);
@@ -109,6 +114,7 @@ const performEffect = async (input: ComplexValidationOutput, oystehrClient: Oyst
     dateTimeIso,
     recipientId: organizationId,
   };
+
   if (input.cardInput && paymentMethod === 'card') {
     const stripeClient = getStripeClient(secrets);
     const customerId = input.cardInput.stripeCustomerId;
@@ -135,8 +141,15 @@ const performEffect = async (input: ComplexValidationOutput, oystehrClient: Oyst
     console.log('Payment Intent created:', JSON.stringify(paymentIntent, null, 2));
   } else {
     console.log('handling non card payment:', paymentMethod, amountInCents, description);
-    // here's we might set a candidPayment id once candid stuff has been added
+    // here's where we might set a candidPayment id once candid stuff has been added
   }
+
+  await performCandidPreEncounterSync({
+    encounterId,
+    oystehr: oystehrClient,
+    secrets,
+  });
+
   const noticeToWrite = makePaymentNotice(paymentNoticeInput);
 
   return await oystehrClient.fhir.create<PaymentNotice>(noticeToWrite);
@@ -210,7 +223,7 @@ const validateRequestParameters = (input: ZambdaInput): PostPatientPaymentInput 
 interface RequiredSecrets {
   organizationId: string;
   stripeKey: string | null;
-  secrets: Secrets | null;
+  secrets: Secrets;
 }
 
 const validateEnvironmentParameters = (input: ZambdaInput, isCardPayment: boolean): RequiredSecrets => {

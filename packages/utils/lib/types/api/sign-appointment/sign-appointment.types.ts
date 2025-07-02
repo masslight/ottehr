@@ -2,7 +2,7 @@ import { Secrets } from '../../../secrets';
 
 export interface SignAppointmentInput {
   appointmentId: string;
-  secrets: Secrets | null;
+  secrets: Secrets;
 }
 
 export interface SignAppointmentResponse {
