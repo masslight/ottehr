@@ -388,6 +388,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         patientPhone: patient.telecom?.find((temp) => temp.system === 'phone')?.value || ORDER_ITEM_UNKNOWN,
         todayDate: now.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT),
         orderSubmitDate: now.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT),
+        orderCreateDateFormat: serviceRequest.authoredOn || '',
         orderCreateDate: orderCreateDate || ORDER_ITEM_UNKNOWN,
         sampleCollectionDate:
           mostRecentSampleCollectionDate?.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT) || undefined,

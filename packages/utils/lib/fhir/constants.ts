@@ -3,7 +3,10 @@ import {
   AppointmentType,
   CONSENT_CODE,
   EXPORTED_QUESTIONNAIRE_CODE,
+  EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE,
   INSURANCE_CARD_CODE,
+  LAB_ORDER_DOC_REF_CODING_CODE,
+  LAB_RESULT_DOC_REF_CODING_CODE,
   PATIENT_PHOTO_CODE,
   PHOTO_ID_CARD_CODE,
   PRIVACY_POLICY_CODE,
@@ -370,6 +373,15 @@ export const FOLDERS_CONFIG: ListConfig[] = [
     title: 'school-work-note-templates',
     display: 'School/Work Note templates',
     documentTypeCode: SCHOOL_WORK_NOTE_TEMPLATE_CODE,
+  },
+  {
+    title: 'labs',
+    display: 'Labs',
+    documentTypeCode: [
+      LAB_ORDER_DOC_REF_CODING_CODE.code,
+      LAB_RESULT_DOC_REF_CODING_CODE.code,
+      EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE.code,
+    ],
   },
   {
     title: 'receipts',

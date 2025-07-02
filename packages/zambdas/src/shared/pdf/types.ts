@@ -138,6 +138,7 @@ export interface LabsData {
   patientPhone: string;
   todayDate: string;
   orderSubmitDate: string;
+  orderCreateDateFormat: string;
   orderCreateDate: string;
   sampleCollectionDate?: string;
   primaryInsuranceName?: string;
