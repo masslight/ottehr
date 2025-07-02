@@ -325,9 +325,9 @@ function initialStateFromInteractions(interactions: ErxCheckPrecheckInteractions
   return {
     medications: interactions.medications
       .map((medication) => ({
-        drugs: medication.drugIds.map((drugId) => ({
-          id: drugId.toString(),
-          name: 'stub drug name',
+        drugs: (medication.medications ?? []).map((nestedMedication) => ({
+          id: nestedMedication.id.toString(),
+          name: nestedMedication.name,
         })),
         severity: SEVERITY_TO_LABEL[medication.severityLevel],
         message: medication.message,

@@ -304,32 +304,59 @@ export const EditableMedicationCard: React.FC<{
         interactions={{
           allergies: [
             {
-              message: 'alg1',
+              message: 'alg 1',
+            },
+            {
+              message: 'alg 2',
             },
           ],
           medications: [
             {
-              message: 'med messsage',
+              message: 'med messsage 1',
               severityLevel: 'MajorInteraction',
-              drugIds: [11, 111],
+              medications: [
+                {
+                  id: 1,
+                  name: 'med 1',
+                },
+                {
+                  id: 2,
+                  name: 'med 2',
+                },
+              ],
               includesPending: false,
             },
             {
-              message: 'med messsage2',
+              message: 'med messsage 2',
               severityLevel: 'ModerateInteraction',
-              drugIds: [22],
+              medications: [
+                {
+                  id: 3,
+                  name: 'med 3',
+                },
+              ],
               includesPending: false,
             },
             {
-              message: 'med messsage3',
+              message: 'med messsage 3',
               severityLevel: 'MinorInteraction',
-              drugIds: [333],
+              medications: [
+                {
+                  id: 4,
+                  name: 'med 4',
+                },
+              ],
               includesPending: false,
             },
             {
-              message: 'med messsage4',
+              message: 'med messsage 4',
               severityLevel: 'Unknown',
-              drugIds: [444],
+              medications: [
+                {
+                  id: 5,
+                  name: 'med 5',
+                },
+              ],
               includesPending: false,
             },
           ],
