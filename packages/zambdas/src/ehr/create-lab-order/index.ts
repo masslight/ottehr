@@ -386,7 +386,6 @@ const formatSpecimenResources = (
     specimenConfigs.push(specimenConfig);
   } else {
     orderableItem.item.specimens.forEach((specimen, idx) => {
-      // labs sometimes set container, volume, minimumVolume, storageRequirements, or collectionInstructions to null, so need to coalesce to undefined
       const { specimenDefinitionConfig, specimenConfig } = getSpecimenAndSpecimenDefConfig(
         serviceRequestFullUrl,
         patientID,
@@ -513,6 +512,7 @@ const getSpecimenAndSpecimenDefConfig = (
   specimenDefinitionConfig: SpecimenDefinition;
   specimenConfig: Specimen;
 } => {
+  // labs sometimes set container, volume, minimumVolume, storageRequirements, or collectionInstructions to null, so need to coalesce to undefined
   const collectionInstructionsCoding = {
     coding: [
       {
