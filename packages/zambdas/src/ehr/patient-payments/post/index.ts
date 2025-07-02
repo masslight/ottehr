@@ -28,6 +28,7 @@ import {
   lambdaResponse,
   makeBusinessIdentifierForCandidPayment,
   makeBusinessIdentifierForStripePayment,
+  performCandidPreEncounterSync,
   topLevelCatch,
   ZambdaInput,
 } from '../../../shared';
@@ -87,7 +88,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       oystehrClient
     );
 
-    const notice = await performEffect(effectInput, oystehrClient);
+    const notice = await performEffect(effectInput, oystehrClient, requiredSecrets);
 
     return lambdaResponse(200, { notice, patientId, encounterId });
   } catch (error: any) {
@@ -97,8 +98,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   }
 };
 
-const performEffect = async (input: ComplexValidationOutput, oystehrClient: Oystehr): Promise<PaymentNotice> => {
-  const { encounterId, paymentDetails, organizationId, userProfile, secrets } = input;
+const performEffect = async (
+  input: ComplexValidationOutput,
+  oystehrClient: Oystehr,
+  secrets: Secrets
+): Promise<PaymentNotice> => {
+  const { encounterId, paymentDetails, organizationId, userProfile } = input;
   const { paymentMethod, amountInCents, description } = paymentDetails;
   const dateTimeIso = DateTime.now().toISO() || '';
   console.log('dateTimeIso', dateTimeIso);
@@ -136,20 +141,14 @@ const performEffect = async (input: ComplexValidationOutput, oystehrClient: Oyst
     console.log('Payment Intent created:', JSON.stringify(paymentIntent, null, 2));
   } else {
     console.log('handling non card payment:', paymentMethod, amountInCents, description);
-    // here's we might set a candidPayment id once candid stuff has been added
+    // here's where we might set a candidPayment id once candid stuff has been added
   }
 
-  //
-  // Candid Pre-Encounter Integration
-  //
-  // 1. Look up the Candid patient from FHIR encounter ID->Patient Id
-  //   a. if Candid patient is not found, create a Candid patient
-  // 2. check if Candid patient has coverages, if not, add coverages to Candid patient
-  //   a. Use https://github.com/masslight/ottehr/blob/candid-pre-encounter-and-copay/packages/zambdas/src/shared/candid.ts#L394
-  // 3. look up Candid patient appointments for the date of the visit using get-appointments-multi (candid sdk)
-  //    a. if yes, grab the latest one, you need the appointment ID
-  //    b. if not, create a Candid appointment for the patient
-  // 4. record patient payment in candid (amount in cents, allocation of type "appointment", appointment ID noted above)
+  await performCandidPreEncounterSync({
+    encounterId,
+    oystehr: oystehrClient,
+    secrets,
+  });
 
   const noticeToWrite = makePaymentNotice(paymentNoticeInput);
 
@@ -224,7 +223,7 @@ const validateRequestParameters = (input: ZambdaInput): PostPatientPaymentInput 
 interface RequiredSecrets {
   organizationId: string;
   stripeKey: string | null;
-  secrets: Secrets | null;
+  secrets: Secrets;
 }
 
 const validateEnvironmentParameters = (input: ZambdaInput, isCardPayment: boolean): RequiredSecrets => {

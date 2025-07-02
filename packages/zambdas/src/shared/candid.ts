@@ -486,7 +486,7 @@ function getSelfPayBillingProvider(): BillingProviderData {
   return STUB_BILLING_PROVIDER_DATA;
 }
 
-export async function fetchPreEncounterPatient(
+async function fetchPreEncounterPatient(
   medicalRecordNumber: string,
   apiClient: CandidApiClient
 ): Promise<string | undefined> {
@@ -499,10 +499,7 @@ export async function fetchPreEncounterPatient(
   return patientId;
 }
 
-export async function createPreEncounterPatient(
-  patient: Patient,
-  apiClient: CandidApiClient
-): Promise<string | undefined> {
+async function createPreEncounterPatient(patient: Patient, apiClient: CandidApiClient): Promise<string | undefined> {
   const medicalRecordNumber = assertDefined(patient.id, 'Patient resource id');
   const patientName = assertDefined(patient.name?.[0], 'Patient name');
   const patientAddress = assertDefined(patient.address?.[0], 'Patient address');
@@ -604,11 +601,75 @@ export async function createAppointment(
   return appointmentId;
 }
 
+export interface PerformCandidPreEncounterSyncInput {
+  encounterId: string;
+  oystehr: Oystehr;
+  secrets: Secrets;
+}
+
+//
+// Candid Pre-Encounter Integration
+//
+// 1. Look up the Candid patient from FHIR encounter ID->Patient Id
+//   a. if Candid patient is not found, create a Candid patient
+// 2. check if Candid patient has coverages, if not, add coverages to Candid patient
+//   a. Use https://github.com/masslight/ottehr/blob/candid-pre-encounter-and-copay/packages/zambdas/src/shared/candid.ts#L394
+// 3. look up Candid patient appointments for the date of the visit using get-appointments-multi (candid sdk)
+//    a. if yes, grab the latest one, you need the appointment ID
+//    b. if not, create a Candid appointment for the patient
+// 4. record patient payment in candid (amount in cents, allocation of type "appointment", appointment ID noted above)
+
+export const performCandidPreEncounterSync = async (input: PerformCandidPreEncounterSyncInput): Promise<void> => {
+  const { encounterId, oystehr, secrets } = input;
+  const candidApiClient = createCandidApiClient(secrets);
+
+  const ourPatient = await fetchFHIRPatientFromEncounter(encounterId, oystehr);
+
+  if (!ourPatient.id) {
+    throw new Error(`Patient ID is not defined for encounter ${encounterId}`);
+  }
+
+  let candidPreEncounterPatientId = await fetchPreEncounterPatient(ourPatient.id, candidApiClient);
+
+  if (!candidPreEncounterPatientId) {
+    candidPreEncounterPatientId = await createPreEncounterPatient(ourPatient, candidApiClient);
+  }
+
+  // TODO continue implementation
+};
+
+const fetchFHIRPatientFromEncounter = async (encounterId: string, oystehr: Oystehr): Promise<Patient> => {
+  const searchBundleResponse = (
+    await oystehr.fhir.search<Encounter | Patient>({
+      resourceType: 'Encounter',
+      params: [
+        {
+          name: 'id',
+          value: encounterId,
+        },
+        {
+          name: 'include',
+          value: 'Encounter:subject',
+        },
+      ],
+    })
+  ).unbundle();
+
+  const patient = searchBundleResponse.find((resource) => resource.resourceType === 'Patient') as Patient | undefined;
+  if (!patient) {
+    throw new Error(`Patient not found for encounter ID: ${encounterId}`);
+  }
+
+  return patient;
+};
+
 // export async function recordPatientPayment(
 //   patient: Patient,
 //   encounter: Encounter,
 //   apiClient: CandidApiClient
-// ): Promise<void> {}
+// ): Promise<void> {
+//   console.log('todo', patient, encounter, apiClient);
+// }
 
 export async function createEncounterFromAppointment(
   visitResources: VideoResourcesAppointmentPackage,
