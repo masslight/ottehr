@@ -12,10 +12,6 @@ export function validateRequestParameters(input: ZambdaInput): GetMedicationOrde
   const { searchBy } = GetMedicationOrdersInputSchema.parse(parsedJSON);
   console.log('parsed searchBy', JSON.stringify(searchBy));
 
-  if (typeof encounterId !== 'string') {
-    throw new Error('Encounter ID is not a string');
-  }
-
   console.groupEnd();
   console.debug('validateRequestParameters success');
 
