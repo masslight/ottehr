@@ -40,9 +40,11 @@ interface Props {
 
 interface State {
   medications: {
-    drugId: string;
-    name: string;
-    severityLevel: 'MajorInteraction' | 'ModerateInteraction' | 'MinorInteraction' | 'Unknown';
+    drugs: {
+      id: string;
+      name: string;
+    }[];
+    severity: string;
     message: string;
     overrideReason?: string;
     otherOverrideReason?: string;
@@ -53,6 +55,8 @@ interface State {
     otherOverrideReason?: string;
   }[];
 }
+
+const SEVERITY_ORDER = ['Severe', 'Moderate', 'Minor', 'Unknown'];
 
 const SEVERITY_TO_LABEL = {
   MajorInteraction: 'Severe',
@@ -184,19 +188,14 @@ export const InteractionAlertsDialog: React.FC<Props> = ({ medicationName, inter
     );
   };
 
-  const severityWidget = (
-    severity: 'MajorInteraction' | 'ModerateInteraction' | 'MinorInteraction' | 'Unknown'
-  ): ReactElement => {
+  const severityWidget = (severity: string): ReactElement => {
+    const order = SEVERITY_ORDER.indexOf(severity);
     return (
-      <Stack direction="column">
-        {SEVERITY_TO_LABEL[severity]}
-        <Stack direction="row" spacing="2px">
-          {severity === 'MajorInteraction' || severity === 'ModerateInteraction' || severity === 'MinorInteraction'
-            ? redCicrcle()
-            : emptyCicrcle()}
-          {severity === 'MajorInteraction' || severity === 'ModerateInteraction' ? redCicrcle() : emptyCicrcle()}
-          {severity === 'MajorInteraction' ? redCicrcle() : emptyCicrcle()}
-        </Stack>
+      <Stack direction="row" spacing="2px" display="flex" alignItems="center">
+        {order < 3 ? redCicrcle() : emptyCicrcle()}
+        {order < 2 ? redCicrcle() : emptyCicrcle()}
+        {order < 1 ? redCicrcle() : emptyCicrcle()}
+        <Typography style={{ marginLeft: '8px' }}>{severity}</Typography>
       </Stack>
     );
   };
@@ -217,7 +216,6 @@ export const InteractionAlertsDialog: React.FC<Props> = ({ medicationName, inter
               <TableCell width="15%">Ordered</TableCell>
               <TableCell width="15%">Interaction</TableCell>
               <TableCell width="10%">Source</TableCell>
-              <TableCell width="10%">Severity</TableCell>
               <TableCell width="20%">Interaction Description</TableCell>
               <TableCell width="30%">Override reason</TableCell>
             </TableRow>
@@ -225,26 +223,34 @@ export const InteractionAlertsDialog: React.FC<Props> = ({ medicationName, inter
           <TableBody>
             {state.medications.map((medication, index) => {
               return (
-                <TableRow key={index}>
-                  <TableCell>todo</TableCell>
-                  <TableCell>todo</TableCell>
-                  <TableCell>todo</TableCell>
-                  <TableCell>{severityWidget(medication.severityLevel)}</TableCell>
-                  <TableCell style={{ verticalAlign: 'top' }}>{medication.message}</TableCell>
-                  <TableCell>
-                    {overrideReasonDropdown(medication.overrideReason, 'medication-' + index, (newValue: string) => {
-                      medication.overrideReason = newValue;
-                      if (newValue != OTHER) {
-                        medication.otherOverrideReason = undefined;
-                      }
-                      setState({ ...state });
-                    })}
-                    {otherTextInput(medication.overrideReason, medication.otherOverrideReason, (newValue: string) => {
-                      medication.otherOverrideReason = newValue;
-                      setState({ ...state });
-                    })}
-                  </TableCell>
-                </TableRow>
+                <>
+                  {index === 0 || state.medications[index - 1].severity != medication.severity ? (
+                    <TableRow key={index}>
+                      <TableCell colSpan={5} style={{ padding: '8px' }}>
+                        {severityWidget(medication.severity)}
+                      </TableCell>
+                    </TableRow>
+                  ) : undefined}
+                  <TableRow key={index}>
+                    <TableCell>todo</TableCell>
+                    <TableCell>{medication.drugs.map((drug) => drug.name).join(', ')}</TableCell>
+                    <TableCell>todo</TableCell>
+                    <TableCell style={{ verticalAlign: 'top' }}>{medication.message}</TableCell>
+                    <TableCell>
+                      {overrideReasonDropdown(medication.overrideReason, 'medication-' + index, (newValue: string) => {
+                        medication.overrideReason = newValue;
+                        if (newValue != OTHER) {
+                          medication.otherOverrideReason = undefined;
+                        }
+                        setState({ ...state });
+                      })}
+                      {otherTextInput(medication.overrideReason, medication.otherOverrideReason, (newValue: string) => {
+                        medication.otherOverrideReason = newValue;
+                        setState({ ...state });
+                      })}
+                    </TableCell>
+                  </TableRow>
+                </>
               );
             })}
           </TableBody>
@@ -317,14 +323,16 @@ export const InteractionAlertsDialog: React.FC<Props> = ({ medicationName, inter
 
 function initialStateFromInteractions(interactions: ErxCheckPrecheckInteractionsResponse): State {
   return {
-    medications: interactions.medications.flatMap((medication) => {
-      return medication.drugIds.map((drugId) => ({
-        drugId: drugId.toString(),
-        name: 'todo',
-        severityLevel: medication.severityLevel,
+    medications: interactions.medications
+      .map((medication) => ({
+        drugs: medication.drugIds.map((drugId) => ({
+          id: drugId.toString(),
+          name: 'stub drug name',
+        })),
+        severity: SEVERITY_TO_LABEL[medication.severityLevel],
         message: medication.message,
-      }));
-    }),
+      }))
+      .sort((a, b) => SEVERITY_ORDER.indexOf(a.severity) - SEVERITY_ORDER.indexOf(b.severity)),
     allergies: interactions.allergies.map((allergy) => ({
       message: allergy.message,
     })),
