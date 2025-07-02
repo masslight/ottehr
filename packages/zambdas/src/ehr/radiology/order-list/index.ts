@@ -24,7 +24,7 @@ import { validateInput, validateSecrets } from './validation';
 
 // Types
 export interface ValidatedInput {
-  body: GetRadiologyOrderListZambdaInput;
+  body: Omit<GetRadiologyOrderListZambdaInput, 'encounterIds'> & { encounterIds?: string[] };
   callerAccessToken: string;
 }
 
@@ -80,7 +80,6 @@ const performEffect = async (
   oystehr: Oystehr
 ): Promise<GetRadiologyOrderListZambdaOutput> => {
   const {
-    encounterId,
     encounterIds,
     patientId,
     serviceRequestId,
@@ -135,12 +134,7 @@ const performEffect = async (
     },
   ];
 
-  if (encounterId) {
-    searchParams.push({
-      name: 'encounter',
-      value: `Encounter/${encounterId}`,
-    });
-  } else if (patientId) {
+  if (patientId) {
     searchParams.push({
       name: 'subject',
       value: `Patient/${patientId}`,

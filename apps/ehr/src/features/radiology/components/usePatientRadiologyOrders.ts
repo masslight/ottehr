@@ -32,9 +32,8 @@ interface UsePatientRadiologyOrdersResult {
 
 export const usePatientRadiologyOrders = (options: {
   patientId?: string;
-  encounterId?: string;
+  encounterIds?: string | string[];
   serviceRequestId?: string;
-  encounterIds?: string[];
 }): UsePatientRadiologyOrdersResult => {
   const { oystehrZambda } = useApiClients();
 
@@ -52,22 +51,18 @@ export const usePatientRadiologyOrders = (options: {
   const getCurrentSearchParamsWithoutPageIndex = useCallback((): GetRadiologyOrderListZambdaInput => {
     const params: GetRadiologyOrderListZambdaInput = {} as GetRadiologyOrderListZambdaInput;
 
-    const { patientId, encounterId, serviceRequestId, encounterIds } = memoizedOptions;
+    const { patientId, encounterIds, serviceRequestId } = memoizedOptions;
 
     if (patientId) {
       params.patientId = patientId;
     }
 
-    if (encounterId) {
-      params.encounterId = encounterId;
+    if (encounterIds) {
+      params.encounterIds = encounterIds;
     }
 
     if (serviceRequestId) {
       params.serviceRequestId = serviceRequestId;
-    }
-
-    if (encounterIds) {
-      params.encounterIds = encounterIds;
     }
 
     return params;
@@ -137,12 +132,16 @@ export const usePatientRadiologyOrders = (options: {
   // initial fetch of lab orders
   useEffect(() => {
     const searchParams = getCurrentSearchParamsForPage(1);
-    if (
-      searchParams.patientId ||
-      searchParams.encounterId ||
-      searchParams.serviceRequestId ||
-      (searchParams.encounterIds && searchParams.encounterIds.length > 0)
-    ) {
+    let encounterIdsHasValue = false;
+    if (searchParams.encounterIds) {
+      if (Array.isArray(searchParams.encounterIds)) {
+        // we don't want to call this until there are values in the array
+        encounterIdsHasValue = searchParams.encounterIds.length > 0;
+      } else {
+        encounterIdsHasValue = true;
+      }
+    }
+    if (searchParams.patientId || encounterIdsHasValue || searchParams.serviceRequestId) {
       void fetchOrders(searchParams);
     }
   }, [fetchOrders, getCurrentSearchParamsForPage]);
