@@ -1,6 +1,6 @@
 import { TableCell, TableRow, Typography } from '@mui/material';
 import { Practitioner } from 'fhir/r4b';
-import { MedicationWithTypeDTO } from 'src/features/css-module/hooks/useMultipleMedicationsHistory';
+import { MedicationWithTypeDTO } from 'src/features/css-module/hooks/useMedicationHistory';
 import { getProviderNameWithProfession, mdyStringFromISOString, MedicationDTO } from 'utils';
 
 interface MedicationHistoryEntityProps {

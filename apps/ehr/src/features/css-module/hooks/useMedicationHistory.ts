@@ -6,16 +6,41 @@ import { useChartData } from './useChartData';
 
 export type MedicationHistoryField = Extract<ChartDataFieldsKeys, 'medications' | 'inhouseMedications'>;
 
-export const useMedicationHistory = (
-  search_by: SearchParams['_search_by'] = 'encounter',
-  count = 10,
-  chartDataField: MedicationHistoryField = 'medications'
-): {
+export const MEDICATION_HISTORY_FIELDS: MedicationHistoryField[] = ['medications', 'inhouseMedications'];
+export const PATIENT_MEDS_COUNT_TO_LOAD = 100;
+export const COLLAPSED_MEDS_COUNT = 3;
+
+export interface MedicationWithTypeDTO extends MedicationDTO {
+  chartDataField: MedicationHistoryField;
+}
+
+export const useMedicationHistory = ({
+  search_by = 'patient',
+  count = PATIENT_MEDS_COUNT_TO_LOAD,
+  chartDataFields = MEDICATION_HISTORY_FIELDS,
+}: {
+  search_by?: SearchParams['_search_by'];
+  count?: number;
+  chartDataFields?: MedicationHistoryField[];
+} = {}): {
   isLoading: boolean;
-  medicationHistory: MedicationDTO[];
+  medicationHistory: MedicationWithTypeDTO[];
   refetchHistory: () => Promise<QueryObserverResult<GetChartDataResponse, unknown>>;
 } => {
   const { encounter } = getSelectors(useAppointmentStore, ['encounter']);
+
+  const requestedFields = chartDataFields.reduce(
+    (acc, field) => {
+      acc[field] = {
+        _sort: '-effective',
+        _include: 'MedicationStatement:source',
+        _search_by: search_by,
+        _count: count,
+      };
+      return acc;
+    },
+    {} as Record<MedicationHistoryField, SearchParams>
+  );
 
   const {
     isLoading,
@@ -23,19 +48,12 @@ export const useMedicationHistory = (
     refetch: refetchHistory,
   } = useChartData({
     encounterId: encounter.id || '',
-    requestedFields: {
-      [chartDataField]: {
-        _sort: '-effective',
-        _include: 'MedicationStatement:source',
-        _search_by: search_by,
-        _count: count,
-      },
-    },
+    requestedFields,
     enabled: !!encounter.id,
   });
 
-  if (historyData?.practitioners?.length) {
-    historyData.inhouseMedications?.forEach((val) => {
+  if (historyData?.practitioners?.length && historyData.inhouseMedications) {
+    historyData.inhouseMedications.forEach((val) => {
       if ('practitioner' in val && val.practitioner && 'reference' in val.practitioner && val.practitioner.reference) {
         const ref = removePrefix('Practitioner/', val.practitioner.reference);
         const practitioner = historyData.practitioners?.find((practitioner) => practitioner.id === ref);
@@ -44,5 +62,24 @@ export const useMedicationHistory = (
     });
   }
 
-  return { isLoading, medicationHistory: historyData?.[chartDataField] || [], refetchHistory };
+  const combinedMedicationHistory: MedicationWithTypeDTO[] = chartDataFields
+    .flatMap((field) => {
+      const fieldData = historyData?.[field] || [];
+      return fieldData.map((medication: MedicationDTO) => ({
+        ...medication,
+        chartDataField: field,
+      }));
+    })
+    .sort((a, b) => {
+      const FALLBACK_DATE = 0; // move elements without date to the end of the list
+      const dateA = a?.intakeInfo.date ? new Date(a.intakeInfo.date) : FALLBACK_DATE;
+      const dateB = b?.intakeInfo.date ? new Date(b.intakeInfo.date) : FALLBACK_DATE;
+      return new Date(dateB).getTime() - new Date(dateA).getTime();
+    });
+
+  return {
+    isLoading,
+    medicationHistory: combinedMedicationHistory,
+    refetchHistory,
+  };
 };

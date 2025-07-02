@@ -1,5 +1,6 @@
 import { BatchInputGetRequest } from '@oystehr/sdk';
 import { Bundle, Encounter, FhirResource, Patient, Resource } from 'fhir/r4b';
+import uniqBy from 'lodash/uniqBy';
 import {
   addSearchParams,
   ChartDataFields,
@@ -225,9 +226,20 @@ export async function convertSearchResultsToResponse(
     if (getChartDataResponse.inHouseLabResults) getChartDataResponse.inHouseLabResults = inHouseLabResultConfig;
   }
 
+  // If several fields for search use the same resource type (e.g., medications and inhouseMedications both use MedicationStatement),
+  // duplicate resources may appear in the response. Deduplicate all arrays by id to ensure unique records.
+  const deduplicatedResponse = Object.fromEntries(
+    Object.entries(getChartDataResponse).map(([key, value]) => [
+      key,
+      Array.isArray(value) && value.length > 0 && value[0]?.id ? uniqBy(value, 'id') : value,
+    ])
+  ) as GetChartDataResponse;
+
+  const deduplicatedChartResources = uniqBy(chartDataResources, 'id');
+
   return {
-    chartData: { ...getChartDataResponse },
-    chartResources: chartDataResources,
+    chartData: deduplicatedResponse,
+    chartResources: deduplicatedChartResources,
   };
 }
 

@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { MedicationHistoryField } from 'src/features/css-module/hooks/useMedicationHistory';
-import { useMultipleMedicationsHistory } from 'src/features/css-module/hooks/useMultipleMedicationsHistory';
+import { useMedicationHistory } from 'src/features/css-module/hooks/useMedicationHistory';
 import {
   ExtendedMedicationDataForResponse,
   MedicationData,
@@ -16,7 +15,6 @@ import { useReactNavigationBlocker } from '../../../hooks/useReactNavigationBloc
 import { getEditOrderUrl } from '../../../routing/helpers';
 import { ROUTER_PATH, routesCSS } from '../../../routing/routesCSS';
 import { CSSModal } from '../../CSSModal';
-import { PATIENT_MEDS_COUNT_TO_LOAD } from '../medication-history/MedicationHistoryList';
 import { fieldsConfig, MedicationOrderType } from './fieldsConfig';
 import { MedicationCardView } from './MedicationCardView';
 import {
@@ -28,8 +26,6 @@ import {
   isUnsavedMedicationData,
   validateAllMedicationFields,
 } from './utils';
-
-const MEDICATION_HISTORY_FIELDS: MedicationHistoryField[] = ['medications', 'inhouseMedications'];
 
 export const EditableMedicationCard: React.FC<{
   medication?: ExtendedMedicationDataForResponse;
@@ -45,11 +41,8 @@ export const EditableMedicationCard: React.FC<{
   const { mappedData, resources } = useAppointment(appointmentId);
   const [isReasonSelected, setIsReasonSelected] = useState(true);
   const selectsOptions = useFieldsSelectsOptions();
-  const { refetchHistory } = useMultipleMedicationsHistory(
-    MEDICATION_HISTORY_FIELDS,
-    'patient',
-    PATIENT_MEDS_COUNT_TO_LOAD
-  );
+
+  const { refetchHistory } = useMedicationHistory();
 
   // There are dynamic form config which depend on what button was clicked:
   // - If "administered" was clicked, then "dispense" form config should be used
