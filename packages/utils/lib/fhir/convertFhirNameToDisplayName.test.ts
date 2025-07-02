@@ -3,7 +3,7 @@ import { convertFhirNameToDisplayName } from './convertFhirNameToDisplayName';
 
 describe('convertFhirNameToDisplayName', () => {
   it('should return full name string', () => {
-    const full = convertFhirNameToDisplayName({ family: 'John', given: ['Galt'] });
-    expect(full).toEqual('John, Galt');
+    const full = convertFhirNameToDisplayName({ family: 'John', given: ['Gait'] });
+    expect(full).toEqual('John, Gait');
   });
 });

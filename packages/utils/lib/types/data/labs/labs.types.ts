@@ -1,3 +1,4 @@
+// cSpell:ignore RFRT
 import {
   DocumentReference,
   Encounter,

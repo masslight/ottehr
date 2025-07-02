@@ -127,6 +127,7 @@ export const parseCoverageEligibilityResponse = (
       let copay: PatientPaymentBenefit[] | undefined;
       if (fullBenefitJSON) {
         try {
+          // cSpell:disable-next eligibility
           const benefitList = JSON.parse(fullBenefitJSON)?.elig?.benefit;
           copay = parseObjectsToCopayBenefits(benefitList);
         } catch (error) {
@@ -160,6 +161,7 @@ export const parseObjectsToCopayBenefits = (input: any[]): PatientPaymentBenefit
         percentage: item['benefit_percent'] ?? 0,
         code: item['benefit_code'] ?? '',
         description: item['benefit_description'] ?? CoverageCodeToDescriptionMap[benefitCoverageCode] ?? '',
+        // cSpell:disable-next in plan network
         inNetwork: item['inplan_network'] === 'Y',
         coverageDescription: item['benefit_coverage_description'] ?? '',
         coverageCode: benefitCoverageCode,
