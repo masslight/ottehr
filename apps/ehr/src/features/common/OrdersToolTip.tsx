@@ -53,7 +53,7 @@ export const OrdersToolTip: React.FC<{
           </Box>
           {config.orders.map((order) => (
             <Link
-              key={`tooltip-test-item${order.serviceRequestId}`}
+              key={`tooltip-test-item${order.fhirResourceId}`}
               to={order.detailPageUrl}
               style={{ textDecoration: 'none' }}
             >

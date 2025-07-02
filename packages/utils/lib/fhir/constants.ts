@@ -1,3 +1,4 @@
+// cSpell:ignore videoconference
 import { Account, CodeableConcept, HealthcareService, Identifier, Location, Practitioner, Schedule } from 'fhir/r4b';
 import {
   AppointmentType,
@@ -127,6 +128,7 @@ export const FHIR_EXTENSION = {
       url: `${PRIVATE_EXTENSION_BASE_URL}/claim-condition-code`,
     },
     claimInformationCategory: {
+      // cSpell:disable-next claiminformationcategory
       url: `${PRIVATE_EXTENSION_BASE_URL}/claiminformationcategory`,
     },
     resubmissionRelationship: {
@@ -147,6 +149,7 @@ export const FHIR_EXTENSION = {
   },
   AllergyIntolerance: {
     allergyIntoleranceClinical: {
+      // cSpell:disable-next allergyintolerance
       url: `${TERMINOLOGY_BASE_URL}/allergyintolerance-clinical`,
     },
   },
@@ -261,7 +264,7 @@ export const ServiceModeCoding = {
     display: 'Telephone',
     fullParam: `${SERVICE_MODE_SYSTEM}|telephone`,
   },
-  videoconference: {
+  videoConference: {
     system: SERVICE_MODE_SYSTEM,
     code: 'videoconference',
     display: 'Video Conference',
@@ -405,7 +408,7 @@ export const SUBSCRIBER_RELATIONSHIP_CODE_MAP: Record<string, string> = {
   'Injured Party': 'injured',
 };
 
-// this is recquired by US Core
+// this is required by US Core
 // https://build.fhir.org/ig/HL7/US-Core/StructureDefinition-us-core-coverage-definitions.html#key_Coverage.identifier:memberid.type
 export const COVERAGE_MEMBER_IDENTIFIER_BASE: Partial<Identifier> = {
   type: {

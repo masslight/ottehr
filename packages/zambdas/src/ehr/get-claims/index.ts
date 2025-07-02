@@ -1,5 +1,4 @@
 import Oystehr from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Appointment,
@@ -25,7 +24,7 @@ import {
   createReference,
   getResourcesFromBatchInlineRequests,
 } from 'utils';
-import { checkOrCreateM2MClientToken, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import {
   addCoverageAndRelatedResourcesToPackages,
@@ -53,7 +52,7 @@ export interface ClaimPackage {
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler('get-claims', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
@@ -76,7 +75,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 });
 
 async function performEffect(oystehr: Oystehr, validatedInput: ClaimsQueueGetRequest): Promise<ClaimsQueueGetResponse> {
-  const packages = await getPrefilteredClaimPackages(oystehr, validatedInput);
+  const packages = await getPreFilteredClaimPackages(oystehr, validatedInput);
   const items: ClaimsQueueItem[] = [];
   packages.forEach((pkg) => {
     const {
@@ -115,7 +114,7 @@ async function performEffect(oystehr: Oystehr, validatedInput: ClaimsQueueGetReq
   };
 }
 
-async function getPrefilteredClaimPackages(
+async function getPreFilteredClaimPackages(
   oystehr: Oystehr,
   validatedInput: ClaimsQueueGetRequest
 ): Promise<ClaimPackage[]> {
@@ -202,6 +201,7 @@ function addPaymentStatusToPackages(packages: ClaimPackage[]): void {
         payment.disposition === 'authorized'
       ) {
         // fully paid
+        // cSpell:disable-next pully :(
         pkg.paymentData = { paymentStatus: 'pully paid' };
       } else if (payment.status === 'cancelled' && payment.outcome === 'complete') {
         // refunded

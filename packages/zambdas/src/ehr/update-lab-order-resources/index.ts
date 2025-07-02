@@ -283,14 +283,14 @@ const handleSpecimenDateChangedEvent = async ({
     throw new Error(`Specimen/${specimenId} not found in ServiceRequest/${serviceRequestId}`);
   }
 
-  const hasSpecimeCollection = specimen.collection;
+  const hasSpecimenCollection = specimen.collection;
   const hasSpecimenDateTime = specimen.collection?.collectedDateTime;
   const hasSpecimenCollector = specimen.collection?.collector;
   const specimenCollector = { reference: `Practitioner/${practitionerIdFromCurrentUser}` };
 
   const operations: Operation[] = [];
 
-  if (hasSpecimeCollection) {
+  if (hasSpecimenCollection) {
     operations.push(
       {
         op: hasSpecimenCollector ? 'replace' : 'add',

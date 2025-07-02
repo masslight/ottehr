@@ -37,7 +37,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.error('Error: ' + error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ message: 'Error unassigning encounter participant' }),
+      body: JSON.stringify({ message: 'Error un-assigning encounter participant' }),
     };
   }
 };

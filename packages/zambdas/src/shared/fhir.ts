@@ -21,6 +21,7 @@ import {
 import { uuid } from 'short-uuid';
 import {
   BookableScheduleData,
+  checkResourceHasSlug,
   isValidUUID,
   MISCONFIGURED_SCHEDULING_GROUP,
   SCHEDULE_NOT_FOUND_CUSTOM_ERROR,
@@ -50,7 +51,6 @@ export async function getSchedules(
   scheduleType: 'location' | 'provider' | 'group',
   slug: string
 ): Promise<GetScheduleResponse> {
-  //todo: change return type to include the owner outside the scheduleList
   const fhirType = (() => {
     if (scheduleType === 'location') {
       return 'Location';
@@ -113,7 +113,7 @@ export async function getSchedules(
   ).unbundle();
 
   const scheduleOwner = scheduleResources.find((res) => {
-    return res.resourceType === fhirType && res.identifier?.[0]?.value === slug;
+    return res.resourceType === fhirType && checkResourceHasSlug(res, slug);
   }) as Location | Practitioner | HealthcareService;
 
   let hsSchedulingStrategy: ScheduleStrategy | undefined;
@@ -177,16 +177,16 @@ export async function getSchedules(
       }
     });
 
-    schedules.forEach((sched) => {
-      const owner = sched.actor[0]?.reference ?? '';
+    schedules.forEach((scheduleObj) => {
+      const owner = scheduleObj.actor[0]?.reference ?? '';
       const [ownerResourceType, ownerId] = owner.split('/');
       if (ownerResourceType === 'Practitioner' && ownerId) {
-        const practitioner = practitioners.find((prac) => {
-          return prac.id === ownerId;
+        const practitioner = practitioners.find((practitionerObj) => {
+          return practitionerObj.id === ownerId;
         });
         if (practitioner) {
           scheduleList.push({
-            schedule: sched,
+            schedule: scheduleObj,
             owner: practitioner,
           });
         }
@@ -208,8 +208,8 @@ export async function getSchedules(
       }
     });
 
-    schedules.forEach((sched) => {
-      const owner = sched.actor[0]?.reference ?? '';
+    schedules.forEach((scheduleObj) => {
+      const owner = scheduleObj.actor[0]?.reference ?? '';
       const [ownerResourceType, ownerId] = owner.split('/');
       if (ownerResourceType === 'Location' && ownerId) {
         const location = locations.find((loc) => {
@@ -217,7 +217,7 @@ export async function getSchedules(
         });
         if (location) {
           scheduleList.push({
-            schedule: sched,
+            schedule: scheduleObj,
             owner: location,
           });
         }
@@ -229,7 +229,7 @@ export async function getSchedules(
     const matchingSchedules = schedules.filter((res) => {
       return res.actor?.[0]?.reference === `${scheduleOwner.resourceType}/${scheduleOwner.id}`;
     });
-    scheduleList.push(...matchingSchedules.map((sched) => ({ schedule: sched, owner: scheduleOwner })));
+    scheduleList.push(...matchingSchedules.map((scheduleObj) => ({ schedule: scheduleObj, owner: scheduleOwner })));
   }
 
   return {

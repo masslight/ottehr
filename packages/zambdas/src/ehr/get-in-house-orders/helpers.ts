@@ -43,7 +43,7 @@ import {
   getSpecimenDetails,
   getUrlAndVersionForADFromServiceRequest,
   taskIsBasedOnServiceRequest,
-} from '../shared/inhouse-labs';
+} from '../shared/in-house-labs';
 import { fetchLabOrderPDFsPresignedUrls } from '../shared/labs';
 import { GetZambdaInHouseOrdersParams } from './validateRequestParameters';
 
@@ -150,7 +150,7 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
   currentPractitionerId?: string;
   timezone?: string;
 }): InHouseGetOrdersResponseDTO<SearchBy>['data'][number] => {
-  console.log('parsing inhouse order data');
+  console.log('parsing in-house order data');
   if (!serviceRequest.id) {
     throw new Error('ServiceRequest ID is required');
   }
@@ -188,7 +188,7 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
   };
 
   if (searchBy.searchBy.field === 'serviceRequestId') {
-    console.log('serchBy field === serviceRequestId - indicates request was triggered on detail page');
+    console.log('searchBy field === serviceRequestId - indicates request was triggered on detail page');
     const relatedSpecimen = specimens.find(
       (specimen) => specimen.request?.some((req) => req.reference === `ServiceRequest/${serviceRequest.id}`)
     );

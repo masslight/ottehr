@@ -1,4 +1,4 @@
-import { GetMedicationOrdersInput } from 'utils';
+import { GetMedicationOrdersInput, GetMedicationOrdersInputSchema } from 'utils';
 import { ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): GetMedicationOrdersInput & Pick<ZambdaInput, 'secrets'> {
@@ -8,13 +8,15 @@ export function validateRequestParameters(input: ZambdaInput): GetMedicationOrde
     throw new Error('No request body provided');
   }
 
-  const { encounterId } = JSON.parse(input.body);
+  const parsedJSON = JSON.parse(input.body) as unknown;
+  const { searchBy } = GetMedicationOrdersInputSchema.parse(parsedJSON);
+  console.log('parsed searchBy', JSON.stringify(searchBy));
 
   console.groupEnd();
   console.debug('validateRequestParameters success');
 
   return {
-    encounterId,
+    searchBy,
     secrets: input.secrets,
   };
 }

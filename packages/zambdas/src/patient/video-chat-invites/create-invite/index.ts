@@ -1,5 +1,4 @@
 import Oystehr, { FhirPatchParams, User } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, ContactPoint, Encounter, Patient, RelatedPerson } from 'fhir/r4b';
 import { SignJWT } from 'jose';
@@ -14,14 +13,21 @@ import {
   VideoChatCreateInviteInput,
   VideoChatCreateInviteResponse,
 } from 'utils';
-import { getAuth0Token, getVideoEncounterForAppointment, lambdaResponse, ZambdaInput } from '../../../shared';
+import {
+  getAuth0Token,
+  getVideoEncounterForAppointment,
+  lambdaResponse,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../shared';
 import { getUser } from '../../../shared/auth';
-import { sendSms, sendVideoChatInvititationEmail } from '../../../shared/communication';
+import { sendSms, sendVideoChatInvitationEmail } from '../../../shared/communication';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let zapehrToken: string;
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+const ZAMBDA_NAME = 'telemed-create-invites';
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const authorization = input.headers.Authorization;
     if (!authorization) {
@@ -133,7 +139,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const patientChosenName = chosenName || patientResource.name?.[0].given?.[0] || 'Patient';
 
     if (emailAddress) {
-      await sendVideoChatInvititationEmail({
+      await sendVideoChatInvitationEmail({
         toAddress: emailAddress,
         inviteUrl: inviteUrl,
         patientName: patientChosenName,

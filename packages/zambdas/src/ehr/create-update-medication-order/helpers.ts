@@ -12,9 +12,8 @@ import {
   searchRouteByCode,
   Secrets,
 } from 'utils';
-import { createOystehrClient } from '../../shared';
-import { ZambdaInput } from '../../shared';
-import { createMedicationAdministrationResource } from './fhir-recources-creation';
+import { createOystehrClient, ZambdaInput } from '../../shared';
+import { createMedicationAdministrationResource } from './fhir-resources-creation';
 
 export function getPerformerId(medicationAdministration: MedicationAdministration): string | undefined {
   return medicationAdministration.performer?.find((perf) => perf.actor.reference)?.actor.reference;
@@ -41,9 +40,9 @@ export function createMedicationCopy(inventoryMedication: Medication, orderData:
 export async function practitionerIdFromZambdaInput(input: ZambdaInput, secrets: Secrets | null): Promise<string> {
   const userToken = input.headers.Authorization.replace('Bearer ', '');
   const oystehr = createOystehrClient(userToken, secrets);
-  const myPractId = removePrefix('Practitioner/', (await oystehr.user.me()).profile);
-  if (!myPractId) throw new Error('No practitioner id was found for token provided');
-  return myPractId;
+  const myPractitionerId = removePrefix('Practitioner/', (await oystehr.user.me()).profile);
+  if (!myPractitionerId) throw new Error('No practitioner id was found for token provided');
+  return myPractitionerId;
 }
 
 export async function getMedicationByName(oystehr: Oystehr, medicationName: string): Promise<Medication> {
