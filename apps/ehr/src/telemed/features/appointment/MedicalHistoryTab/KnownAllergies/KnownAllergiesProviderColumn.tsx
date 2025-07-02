@@ -340,7 +340,7 @@ const AddAllergyField: FC = () => {
               value={value || null}
               onChange={(_e, data) => {
                 onChange((data || '') as any);
-                if (data?.id === 0) {
+                if (data?.name === 'Other') {
                   setIsOtherOptionSelected(true);
                 } else {
                   setIsOtherOptionSelected(false);
