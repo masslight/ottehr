@@ -9,6 +9,8 @@ import {
   FacilityTypeCode,
   Gender,
   PatientRelationshipToInsuredCodeAll,
+  PreEncounterAppointmentId,
+  PreEncounterPatientId,
   ServiceLineUnits,
   State,
   SubscriberCreate,
@@ -602,11 +604,11 @@ export async function createAppointment(
   return appointmentId;
 }
 
-export async function recordPatientPayment(
-  patient: Patient,
-  encounter: Encounter,
-  apiClient: CandidApiClient
-): Promise<void> {}
+// export async function recordPatientPayment(
+//   patient: Patient,
+//   encounter: Encounter,
+//   apiClient: CandidApiClient
+// ): Promise<void> {}
 
 export async function createEncounterFromAppointment(
   visitResources: VideoResourcesAppointmentPackage,
@@ -635,9 +637,7 @@ async function candidCreateEncounterFromAppointmentRequest(
   input: CreateEncounterInput,
   apiClient: CandidApiClient
 ): Promise<EncounterCreateFromPreEncounter> {
-  const { encounter, patient, practitioner, diagnoses, procedures, insuranceResources } = input;
-  const patientName = assertDefined(patient.name?.[0], 'Patient name');
-  const patientAddress = assertDefined(patient.address?.[0], 'Patient address');
+  const { encounter, practitioner, diagnoses, procedures, insuranceResources } = input;
   const practitionerNpi = assertDefined(getNpi(practitioner.identifier), 'Practitioner NPI');
   const practitionerName = assertDefined(practitioner.name?.[0], 'Practitioner name');
   const billingProviderData = insuranceResources
@@ -662,26 +662,12 @@ async function candidCreateEncounterFromAppointmentRequest(
   }
   return {
     externalId: EncounterExternalId(assertDefined(encounter.id, 'Encounter.id')),
-    preEencounterPatientId: 'xxx',
-    preEncounterAppointmentIds: ['xxx'],
-    billableStatus: BillableStatusType.Billable,
-    responsibleParty: insuranceResources != null ? ResponsiblePartyType.InsurancePay : ResponsiblePartyType.SelfPay,
+    preEncounterPatientId: PreEncounterPatientId('todo-alex'), // candid patient id
+    preEncounterAppointmentIds: [PreEncounterAppointmentId('todo-alex')], // candid appointment id
     benefitsAssignedToProvider: true,
+    billableStatus: BillableStatusType.Billable,
     patientAuthorizedRelease: true,
     providerAcceptsAssignment: true,
-    patient: {
-      externalId: assertDefined(patient.id, 'Patient resource id'),
-      firstName: assertDefined(patientName.given?.[0], 'Patient first name'),
-      lastName: assertDefined(patientName.family, 'Patient last name'),
-      gender: assertDefined(patient.gender as Gender, 'Patient gender'),
-      dateOfBirth: assertDefined(patient.birthDate, 'Patient birth date'),
-      address: {
-        address1: assertDefined(patientAddress.line?.[0], 'Patient address line'),
-        city: assertDefined(patientAddress.city, 'Patient city'),
-        state: assertDefined(patientAddress.state as State, 'Patient state'),
-        zipCode: assertDefined(patientAddress.postalCode, 'Patient postal code'),
-      },
-    },
     billingProvider: {
       organizationName: billingProviderData.organizationName,
       firstName: billingProviderData.firstName,
@@ -736,3 +722,11 @@ async function candidCreateEncounterFromAppointmentRequest(
     }),
   };
 }
+
+export const CANDID_PAYMENT_ID_SYSTEM = 'https://fhir.oystehr.com/PaymentIdSystem/candid';
+export const makeBusinessIdentifierForCandidPayment = (candidPaymentId: string): Identifier => {
+  return {
+    system: CANDID_PAYMENT_ID_SYSTEM,
+    value: candidPaymentId,
+  };
+};
