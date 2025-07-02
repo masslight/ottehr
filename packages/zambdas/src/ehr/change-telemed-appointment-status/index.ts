@@ -86,15 +86,15 @@ export const performEffect = async (
   const selfPayVisit: boolean = paymentOption.toUpperCase() === 'self-pay'.toUpperCase();
 
   if (encounter?.subject?.reference === undefined) {
-    throw new Error(`No subject reference defined for encoutner ${encounter?.id}`);
+    throw new Error(`No subject reference defined for encounter ${encounter?.id}`);
   }
 
   console.log(`appointment and encounter statuses: ${appointment.status}, ${encounter.status}`);
   const currentStatus = mapStatusToTelemed(encounter.status, appointment.status);
   if (currentStatus) {
-    const myPractId = await getMyPractitionerId(oystehrCurrentUser);
+    const myPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
-    await changeStatusIfPossible(oystehr, visitResources, currentStatus, newStatus, myPractId, ENVIRONMENT);
+    await changeStatusIfPossible(oystehr, visitResources, currentStatus, newStatus, myPractitionerId, ENVIRONMENT);
   }
 
   console.debug(`Status has been changed.`);
@@ -135,7 +135,7 @@ export const performEffect = async (
       if (visitResources.account?.id === undefined) {
         // TODO: add sentry notification: something is misconfigured
         console.error(
-          `No account has been found associated with the a self-pay visit for encouter ${visitResources.encounter?.id}`
+          `No account has been found associated with the a self-pay visit for encounter ${visitResources.encounter?.id}`
         );
       }
       // see if charge item already exists for the encounter and if not, create it

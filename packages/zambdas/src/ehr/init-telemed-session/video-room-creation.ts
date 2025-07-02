@@ -16,7 +16,7 @@ export const createVideoRoom = async (
 ): Promise<CreateTelemedVideoRoomResponse['encounter']> => {
   const patientId = getPatientFromAppointment(appointment);
   if (!patientId) {
-    throw new Error(`Pateint id not defined on appointment ${appointment.id}`);
+    throw new Error(`Patient id not defined on appointment ${appointment.id}`);
   }
   const relatedPerson = await getRelatedPersonForPatient(patientId, oystehr);
 

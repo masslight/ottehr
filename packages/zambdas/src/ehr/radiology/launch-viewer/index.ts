@@ -89,6 +89,7 @@ const performEffect = async (
         Authorization: advapacsAuthString,
       },
       body: JSON.stringify({
+        // cSpell:disable-next meddream
         viewer: 'meddream',
         patientId,
         accessionNumber: [accessionNumber],

@@ -160,11 +160,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         }
 
         console.log('getting emails');
-        const pracitionersEmails = await getEmailsFromGroup(fhirGroup, oystehr);
-        console.log('pracitionersEmails', pracitionersEmails);
+        const practitionersEmails = await getEmailsFromGroup(fhirGroup, oystehr);
+        console.log('practitionersEmails', practitionersEmails);
 
         const fromEmail = SUPPORT_EMAIL;
-        const toEmail = pracitionersEmails || [fromEmail];
+        const toEmail = practitionersEmails || [fromEmail];
         const errorMessage = `Details: ${communication.payload?.[0].contentString} <br> Submitted By: ${submitterDetails} <br> Location: ${fhirLocation?.name} - ${fhirLocation?.address?.city}, ${fhirLocation?.address?.state} <br> Appointment Id: ${appointmentID} <br> Communication Fhir Resource: ${communication.id}`;
 
         console.log(`Sending issue report email to ${toEmail} with template id ${templateID}`);

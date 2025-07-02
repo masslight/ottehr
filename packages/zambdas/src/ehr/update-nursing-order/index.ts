@@ -9,8 +9,13 @@ import {
   SecretsKeys,
   UpdateNursingOrderInputValidated,
 } from 'utils';
-import { getMyPractitionerId, topLevelCatch, ZambdaInput } from '../../shared';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  getMyPractitionerId,
+  topLevelCatch,
+  ZambdaInput,
+} from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -76,7 +81,10 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       (acc, resource) => {
         if (resource.resourceType === 'ServiceRequest')
           acc.serviceRequestSearchResults.push(resource as ServiceRequest);
+        if (resource.resourceType === 'ServiceRequest')
+          acc.serviceRequestSearchResults.push(resource as ServiceRequest);
 
+        if (resource.resourceType === 'Task') acc.taskSearchResults.push(resource as Task);
         if (resource.resourceType === 'Task') acc.taskSearchResults.push(resource as Task);
 
         return acc;

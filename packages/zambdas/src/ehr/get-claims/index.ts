@@ -75,7 +75,7 @@ export const index = wrapHandler('get-claims', async (input: ZambdaInput): Promi
 });
 
 async function performEffect(oystehr: Oystehr, validatedInput: ClaimsQueueGetRequest): Promise<ClaimsQueueGetResponse> {
-  const packages = await getPrefilteredClaimPackages(oystehr, validatedInput);
+  const packages = await getPreFilteredClaimPackages(oystehr, validatedInput);
   const items: ClaimsQueueItem[] = [];
   packages.forEach((pkg) => {
     const {
@@ -114,7 +114,7 @@ async function performEffect(oystehr: Oystehr, validatedInput: ClaimsQueueGetReq
   };
 }
 
-async function getPrefilteredClaimPackages(
+async function getPreFilteredClaimPackages(
   oystehr: Oystehr,
   validatedInput: ClaimsQueueGetRequest
 ): Promise<ClaimPackage[]> {
@@ -201,6 +201,7 @@ function addPaymentStatusToPackages(packages: ClaimPackage[]): void {
         payment.disposition === 'authorized'
       ) {
         // fully paid
+        // cSpell:disable-next pully :(
         pkg.paymentData = { paymentStatus: 'pully paid' };
       } else if (payment.status === 'cancelled' && payment.outcome === 'complete') {
         // refunded
