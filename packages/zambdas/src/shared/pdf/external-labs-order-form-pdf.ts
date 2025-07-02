@@ -259,7 +259,9 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
   const addLocationFaxInfo = async (): Promise<void> => {
     await drawImage(faxIcon);
     currXPos += imageWidth + regularTextWidth;
-    data.locationFax && drawRegularTextLeft(data.locationFax);
+    if (data.locationFax) {
+      drawRegularTextLeft(data.locationFax);
+    }
   };
 
   // --- add all sections to PDF ---

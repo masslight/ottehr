@@ -18,7 +18,7 @@ import { getPhoneNumberFromQuestionnaire } from './helpers/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 if (process.env.IS_OFFLINE === 'true') {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('console-stamp')(console, { pattern: 'HH:MM:ss.l' });
 }
 

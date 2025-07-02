@@ -179,7 +179,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
             const specimenCollector = { reference: currentUser?.profile };
             const requests: Operation[] = [];
 
-            specimenFromSubmitDate && sampleCollectionDates.push(specimenFromSubmitDate);
+            if (specimenFromSubmitDate) {
+              sampleCollectionDates.push(specimenFromSubmitDate);
+            }
 
             if (specimeCollection) {
               requests.push(

@@ -94,7 +94,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       try {
         const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
         return await getMyPractitionerId(oystehrCurrentUser);
-      } catch (e) {
+      } catch {
         throw Error('Resource configuration error - user creating this order must have a Practitioner resource linked');
       }
     };

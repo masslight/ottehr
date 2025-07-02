@@ -231,7 +231,7 @@ const validateEnvironmentParameters = (input: ZambdaInput, isCardPayment: boolea
   if (isCardPayment) {
     try {
       stripeKey = getSecret(SecretsKeys.STRIPE_SECRET_KEY, secrets);
-    } catch (error) {
+    } catch {
       throw MISCONFIGURED_ENVIRONMENT_ERROR(
         '"STRIPE_SECRET_KEY" environment variable was not set. Please ensure it is configured in project secrets.'
       );

@@ -21,7 +21,7 @@ export function validateRequestParameters(
 
   try {
     params = JSON.parse(input.body);
-  } catch (error) {
+  } catch {
     throw Error('Invalid JSON in request body');
   }
 

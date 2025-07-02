@@ -10,7 +10,7 @@ export function validateRequestParameters(input: ZambdaInput): GetAppointmentsZa
   let parsedBody: unknown;
   try {
     parsedBody = JSON.parse(input.body);
-  } catch (error) {
+  } catch {
     throw new Error('Invalid JSON in request body');
   }
 

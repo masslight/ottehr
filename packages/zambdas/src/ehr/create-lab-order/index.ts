@@ -62,7 +62,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     let curUserPractitionerId: string | undefined;
     try {
       curUserPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
-    } catch (e) {
+    } catch {
       throw EXTERNAL_LAB_ERROR(
         'Resource configuration error - user creating this external lab order must have a Practitioner resource linked'
       );

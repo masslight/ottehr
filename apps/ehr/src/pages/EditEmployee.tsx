@@ -87,14 +87,16 @@ export default function EditEmployeePage(): JSX.Element {
     }
 
     try {
-      mode === 'deactivate'
-        ? await deactivateUser(oystehrZambda, { user: user })
-        : await updateUser(oystehrZambda, { userId: user.id, selectedRoles: [RoleType.Staff] });
+      if (mode === 'deactivate') {
+        await deactivateUser(oystehrZambda, { user: user });
+      } else {
+        await updateUser(oystehrZambda, { userId: user.id, selectedRoles: [RoleType.Staff] });
+      }
       await getUserAndUpdatePage();
       enqueueSnackbar(`User was ${mode}d successfully`, {
         variant: 'success',
       });
-    } catch (error) {
+    } catch {
       const errorString = `Failed to ${mode} user. Please try again`;
       setErrors((prev) => ({ ...prev, submit: `${errorString}` }));
       enqueueSnackbar(`${errorString}`, {

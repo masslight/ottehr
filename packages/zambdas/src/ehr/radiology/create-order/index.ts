@@ -386,7 +386,7 @@ const getOurSubject = async (patientRelativeReference: string, oystehr: Oystehr)
       resourceType: 'Patient',
       id: patientRelativeReference.split('/')[1],
     });
-  } catch (error) {
+  } catch {
     throw new Error('Error while trying to fetch our subject patient');
   }
 };

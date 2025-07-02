@@ -45,7 +45,9 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     }
 
     labConditions.forEach((condition) => {
-      condition.id && deleteRequests.push(makeDeleteResourceRequest('Condition', condition.id));
+      if (condition.id) {
+        deleteRequests.push(makeDeleteResourceRequest('Condition', condition.id));
+      }
     });
 
     if (deleteRequests.length > 0) {

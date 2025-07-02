@@ -194,7 +194,7 @@ export const performEffect = async (
           listResources
         );
         console.log(`createdResources: ${JSON.stringify(resources)}`);
-      } catch (error) {
+      } catch {
         console.error('Error issuing a charge for self-pay encounter.');
         // TODO: add sentry notification: we had an issue posting a charge
       }
