@@ -282,8 +282,8 @@ export const parseTasks = ({
     compareDates(a.authoredOn, b.authoredOn)
   );
 
-  // theres a slim posibility that a result is both cancelled and belonging in one of these other arrays,
-  // meaning possibly that we've already recieved final results for an ordered test and then the lab cancelled it?? (seems super edge case but still)
+  // theres a slim possibility that a result is both cancelled and belonging in one of these other arrays,
+  // meaning possibly that we've already received final results for an ordered test and then the lab cancelled it?? (seems super edge case but still)
   const allOrderedResults = [...orderedFinalAndCorrectedResults, ...orderedCancelledResults];
   const allReflexResults = [...reflexFinalAndCorrectedResults, ...reflexCancelledResults];
 
@@ -402,26 +402,13 @@ export const parseResults = (
   deletePrelimResultsIfFinalExists(orderedPrelimResults, orderedFinalCodes);
   deletePrelimResultsIfFinalExists(reflexPrelimResults, reflexFinalCodes);
 
-  // todo: check the sort approach is correct
   return {
-    orderedFinalAndCorrectedResults: Array.from(orderedFinalAndCorrectedResults.values()).sort((a, b) =>
-      compareDates(a.meta?.lastUpdated, b.meta?.lastUpdated)
-    ),
-    reflexFinalAndCorrectedResults: Array.from(reflexFinalAndCorrectedResults.values()).sort((a, b) =>
-      compareDates(a.meta?.lastUpdated, b.meta?.lastUpdated)
-    ),
-    orderedPrelimResults: Array.from(orderedPrelimResults.values()).sort((a, b) =>
-      compareDates(a.meta?.lastUpdated, b.meta?.lastUpdated)
-    ),
-    reflexPrelimResults: Array.from(reflexPrelimResults.values()).sort((a, b) =>
-      compareDates(a.meta?.lastUpdated, b.meta?.lastUpdated)
-    ),
-    orderedCancelledResults: orderedCancelledResults.sort((a, b) =>
-      compareDates(a.meta?.lastUpdated, b.meta?.lastUpdated)
-    ),
-    reflexCancelledResults: reflexCancelledResults.sort((a, b) =>
-      compareDates(a.meta?.lastUpdated, b.meta?.lastUpdated)
-    ),
+    orderedFinalAndCorrectedResults: Array.from(orderedFinalAndCorrectedResults.values()),
+    reflexFinalAndCorrectedResults: Array.from(reflexFinalAndCorrectedResults.values()),
+    orderedPrelimResults: Array.from(orderedPrelimResults.values()),
+    reflexPrelimResults: Array.from(reflexPrelimResults.values()),
+    orderedCancelledResults: orderedCancelledResults,
+    reflexCancelledResults: reflexCancelledResults,
   };
 };
 
