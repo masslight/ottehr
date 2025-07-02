@@ -12,10 +12,12 @@ import {
   Practitioner,
   QuestionnaireResponse,
 } from 'fhir/r4b';
+import { Timezone } from 'utils';
 
-export interface VideoResourcesAppointmentPackage {
+export interface FullAppointmentResourcePackage {
   appointment: Appointment;
   encounter: Encounter;
+  timezone: Timezone;
   chargeItem?: ChargeItem;
   patient?: Patient;
   account?: Account;

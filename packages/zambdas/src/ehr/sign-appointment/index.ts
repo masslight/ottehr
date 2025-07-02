@@ -18,9 +18,9 @@ import { checkOrCreateM2MClientToken, ZambdaInput } from '../../shared';
 import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createCandidEncounter } from '../../shared/candid';
 import { createPublishExcuseNotesOps } from '../../shared/createPublishExcuseNotesOps';
 import { createOystehrClient } from '../../shared/helpers';
-import { getVideoResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
+import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
 import { makeVisitNotePdfDocumentReference } from '../../shared/pdf/visit-details-pdf/make-visit-note-pdf-document-reference';
-import { VideoResourcesAppointmentPackage } from '../../shared/pdf/visit-details-pdf/types';
+import { FullAppointmentResourcePackage } from '../../shared/pdf/visit-details-pdf/types';
 import { composeAndCreateVisitNotePdf } from '../../shared/pdf/visit-details-pdf/visit-note-pdf-creation';
 import { getChartData } from '../get-chart-data';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -60,7 +60,7 @@ export const performEffect = async (
 ): Promise<SignAppointmentResponse> => {
   const { appointmentId, secrets } = params;
 
-  const visitResources = await getVideoResources(oystehr, appointmentId, true);
+  const visitResources = await getAppointmentAndRelatedResources(oystehr, appointmentId, true);
 
   if (!visitResources) {
     {
@@ -115,7 +115,7 @@ export const performEffect = async (
 const changeStatusToCompleted = async (
   oystehr: Oystehr,
   oystehrCurrentUser: Oystehr,
-  resourcesToUpdate: VideoResourcesAppointmentPackage,
+  resourcesToUpdate: FullAppointmentResourcePackage,
   candidEncounterId: string | undefined
 ): Promise<void> => {
   if (!resourcesToUpdate.appointment || !resourcesToUpdate.appointment.id) {
