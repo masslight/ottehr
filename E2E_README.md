@@ -1,3 +1,5 @@
+<!-- cSpell:ignore turborepo -->
+
 # E2E Testing Documentation
 
 End-to-End testing guide for the Ottehr platform using Playwright in a Turborepo monorepo setup.
@@ -781,6 +783,8 @@ if (missingVars.length > 0) {
 ```
 
 ### Browser and Installation Issues
+
+<!-- cSpell:disable-next sevg_accerr -->
 
 **Chromium Crashes (Signal 11 SEGV_ACCERR):**
 

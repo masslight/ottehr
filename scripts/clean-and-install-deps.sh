@@ -59,6 +59,7 @@ rm -rf packages/*/.eslintcache
 
 # Prettier cache
 echo "Clean Prettier cache..."
+# cSpell:disable-next prettier cache
 rm -rf .prettiercache
 
 echo "Cleanup completed"
