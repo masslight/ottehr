@@ -1,4 +1,4 @@
-import { getSecret, SecretsKeys, SignAppointmentInput } from 'utils';
+import { getSecret, INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS, SecretsKeys, SignAppointmentInput } from 'utils';
 import { ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): SignAppointmentInput & { userToken: string } {
@@ -8,10 +8,10 @@ export function validateRequestParameters(input: ZambdaInput): SignAppointmentIn
     throw new Error('No request body provided');
   }
 
-  const { appointmentId } = JSON.parse(input.body);
+  const { appointmentId, timezone } = JSON.parse(input.body);
 
   if (appointmentId === undefined) {
-    throw new Error('These fields are required: "appointmentId".');
+    throw MISSING_REQUIRED_PARAMETERS(['appointmentId']);
   }
 
   if (getSecret(SecretsKeys.PROJECT_API, input.secrets) === undefined) {
@@ -22,6 +22,12 @@ export function validateRequestParameters(input: ZambdaInput): SignAppointmentIn
     throw new Error('"ORGANIZATION_ID" configuration not provided');
   }
 
+  if (timezone != undefined && typeof timezone !== 'string') {
+    throw INVALID_INPUT_ERROR(
+      `Invalid "timezone" parameter provided: ${JSON.stringify(timezone)}. It must be a string or null.`
+    );
+  }
+
   const userToken = input.headers.Authorization.replace('Bearer ', '');
 
   console.groupEnd();
@@ -30,6 +36,7 @@ export function validateRequestParameters(input: ZambdaInput): SignAppointmentIn
   return {
     appointmentId,
     secrets: input.secrets,
+    timezone: timezone ?? null,
     userToken,
   };
 }
