@@ -52,7 +52,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     if (!labelDocRefs.length) {
       // we should create the pdf. Need patient & appointment info
-      console.log(`No docrefs found for Encounter/${encounterId}. Making new label`);
+      console.log(`No docRefs found for Encounter/${encounterId}. Making new label`);
       const resources = (
         await oystehr.fhir.search<Encounter | Patient | Appointment>({
           resourceType: 'Encounter',

@@ -16,6 +16,7 @@
     "**/seed-ehr-appointment-data.json"
   ],
   "flagWords": ["hte"],
+  "ignoreRegExpList": ["/\\..*\\(\\(([^)]+)\\)\\s*=>/"],
   "words": [
     "accum",
     "adderall",

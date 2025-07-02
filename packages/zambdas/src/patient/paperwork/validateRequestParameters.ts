@@ -162,7 +162,7 @@ const complexSubmitValidation = async (
         })
         .filter((i) => !!i) as string[];
 
-      console.log('errorpaths', JSON.stringify(errorPaths));
+      console.log('errorPaths', JSON.stringify(errorPaths));
 
       if (errorPaths.length === 0) {
         // this will be a 500

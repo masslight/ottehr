@@ -23,18 +23,18 @@ const codingsEqual = (coding1: Coding, coding2: Coding | undefined): boolean => 
 
 export const getEmailsFromGroup = async (group: Group | undefined, oystehr: Oystehr): Promise<string[] | undefined> => {
   if (!group) return;
-  let pracitionersEmails: string[] | undefined;
+  let practitionersEmails: string[] | undefined;
   if (group.member) {
-    const pracitionerIds = group.member?.map((member) => member.entity.reference?.replace('Practitioner/', ''));
-    const pracitioners = (
+    const practitionerIds = group.member?.map((member) => member.entity.reference?.replace('Practitioner/', ''));
+    const practitioners = (
       await oystehr.fhir.search<Practitioner>({
         resourceType: 'Practitioner',
-        params: [{ name: '_id', value: pracitionerIds.join(',') }],
+        params: [{ name: '_id', value: practitionerIds.join(',') }],
       })
     ).unbundle();
 
-    pracitionersEmails = pracitioners.reduce((emails: string[], pracitioner) => {
-      const workTelecom = pracitioner?.telecom?.find((telecom) => telecom.use === 'work');
+    practitionersEmails = practitioners.reduce((emails: string[], practitioner) => {
+      const workTelecom = practitioner?.telecom?.find((telecom) => telecom.use === 'work');
       const workEmail = workTelecom?.value;
       if (workEmail) {
         emails.push(workEmail);
@@ -42,5 +42,5 @@ export const getEmailsFromGroup = async (group: Group | undefined, oystehr: Oyst
       return emails;
     }, []);
   }
-  return pracitionersEmails;
+  return practitionersEmails;
 };

@@ -44,7 +44,7 @@ export const SurgicalHistory: React.FC<SurgicalHistoryProps> = () => {
         patientSide={<SurgicalHistoryPatientColumn />}
         patientSideLabel="Patient provided"
         providerSide={<SurgicalHistoryProviderColumn />}
-        providerSideLabel="Clinical support input"
+        providerSideLabel="Healthcare staff input"
       />
       <SurgicalHistoryNotes />
     </Stack>

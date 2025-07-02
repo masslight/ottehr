@@ -13,7 +13,7 @@ import {
 } from 'utils';
 import { getUser, userHasAccessToPatient, ZambdaInput } from '../../shared';
 
-export interface BasePaymentMgmtInput {
+export interface BasePaymentManagementInput {
   secrets: Secrets | null;
   token: string;
   beneficiaryPatientId: string;
