@@ -364,7 +364,7 @@ export const EditableMedicationCard: React.FC<{
         onCancel={() => {
           console.log('onCancel');
         }}
-        onConfirm={(issues: DetectedIssue[]) => {
+        onResolve={(issues: DetectedIssue[]) => {
           console.log('onConfirm');
           console.log(issues);
         }}

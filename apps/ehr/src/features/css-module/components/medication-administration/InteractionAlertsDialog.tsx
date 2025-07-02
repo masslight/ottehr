@@ -20,6 +20,9 @@ import { ErxCheckPrecheckInteractionsResponse } from '@oystehr/sdk';
 import { DetectedIssue } from 'fhir/r4b';
 import React, { ReactElement, useState } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { INTERACTION_OVERRIDE_REASON_CODE_SYSTEM, MEDICATION_DISPENSABLE_DRUG_ID } from 'utils';
+
+const ACT_CODE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v3-ActCode';
 
 const OTHER = 'Other';
 const OVERRIDE_REASON = [
@@ -35,7 +38,7 @@ interface Props {
   medicationName: string;
   interactions: ErxCheckPrecheckInteractionsResponse;
   onCancel: () => void;
-  onConfirm: (issues: DetectedIssue[]) => void;
+  onResolve: (issues: DetectedIssue[]) => void;
 }
 
 interface State {
@@ -44,7 +47,7 @@ interface State {
       id: string;
       name: string;
     }[];
-    severity: string;
+    severity: Severity;
     message: string;
     overrideReason?: string;
     otherOverrideReason?: string;
@@ -56,16 +59,30 @@ interface State {
   }[];
 }
 
-const SEVERITY_ORDER = ['Severe', 'Moderate', 'Minor', 'Unknown'];
+enum Severity {
+  SEVERE = 'Severe',
+  MODERATE = 'Moderate',
+  MINOR = 'Minor',
+  UNKNOWN = 'Unknown',
+}
+
+const SEVERITY_ORDER = [Severity.SEVERE, Severity.MODERATE, Severity.MINOR, Severity.UNKNOWN];
 
 const SEVERITY_TO_LABEL = {
-  MajorInteraction: 'Severe',
-  ModerateInteraction: 'Moderate',
-  MinorInteraction: 'Minor',
-  Unknown: 'Unknown',
+  MajorInteraction: Severity.SEVERE,
+  ModerateInteraction: Severity.MODERATE,
+  MinorInteraction: Severity.MINOR,
+  Unknown: Severity.UNKNOWN,
 };
 
-export const InteractionAlertsDialog: React.FC<Props> = ({ medicationName, interactions, onCancel }) => {
+const SEVERITY_TO_FHIR_SEVERITY: any = {
+  Severe: 'high',
+  Moderate: 'moderate',
+  Minor: 'low',
+  Unknown: undefined,
+};
+
+export const InteractionAlertsDialog: React.FC<Props> = ({ medicationName, interactions, onCancel, onResolve }) => {
   const [state, setState] = useState<State>(initialStateFromInteractions(interactions));
 
   const allReasonsValid: boolean = [...state.medications, ...state.allergies].reduce((acc, val) => {
@@ -188,7 +205,7 @@ export const InteractionAlertsDialog: React.FC<Props> = ({ medicationName, inter
     );
   };
 
-  const severityWidget = (severity: string): ReactElement => {
+  const severityWidget = (severity: Severity): ReactElement => {
     const order = SEVERITY_ORDER.indexOf(severity);
     return (
       <Stack direction="row" spacing="2px" display="flex" alignItems="center">
@@ -225,7 +242,7 @@ export const InteractionAlertsDialog: React.FC<Props> = ({ medicationName, inter
               return (
                 <>
                   {index === 0 || state.medications[index - 1].severity != medication.severity ? (
-                    <TableRow key={index}>
+                    <TableRow key={medication.severity}>
                       <TableCell colSpan={5} style={{ padding: '8px' }}>
                         {severityWidget(medication.severity)}
                       </TableCell>
@@ -303,6 +320,83 @@ export const InteractionAlertsDialog: React.FC<Props> = ({ medicationName, inter
     );
   };
 
+  const onContinueClick = (): void => {
+    const drugIssues: DetectedIssue[] = state.medications.map((medication) => {
+      const overrideReason = medication.otherOverrideReason ?? medication.overrideReason;
+      return {
+        resourceType: 'DetectedIssue',
+        status: 'registered',
+        code: {
+          coding: [
+            {
+              system: ACT_CODE_SYSTEM,
+              code: 'DRG',
+            },
+          ],
+        },
+        severity: SEVERITY_TO_FHIR_SEVERITY[medication.severity],
+        detail: medication.message,
+        mitigation: [
+          {
+            action: {
+              coding: [
+                {
+                  system: INTERACTION_OVERRIDE_REASON_CODE_SYSTEM,
+                  code: overrideReason,
+                  display: overrideReason,
+                },
+              ],
+            },
+          },
+        ],
+        evidence: medication.drugs.map((drug) => {
+          return {
+            code: [
+              {
+                coding: [
+                  {
+                    system: MEDICATION_DISPENSABLE_DRUG_ID,
+                    code: drug.id,
+                  },
+                ],
+              },
+            ],
+          };
+        }),
+      };
+    });
+    const allergyIssues: DetectedIssue[] = state.allergies.map((allergy) => {
+      const overrideReason = allergy.otherOverrideReason ?? allergy.overrideReason;
+      return {
+        resourceType: 'DetectedIssue',
+        status: 'registered',
+        code: {
+          coding: [
+            {
+              system: ACT_CODE_SYSTEM,
+              code: 'ALGY',
+            },
+          ],
+        },
+        detail: allergy.message,
+        mitigation: [
+          {
+            action: {
+              coding: [
+                {
+                  system: INTERACTION_OVERRIDE_REASON_CODE_SYSTEM,
+                  code: overrideReason,
+                  display: overrideReason,
+                },
+              ],
+            },
+          },
+        ],
+      };
+    });
+    onResolve([...drugIssues, ...allergyIssues]);
+  };
+
   return (
     <Dialog open={true} maxWidth="lg" fullWidth>
       <DialogContent style={{ padding: '8px 24px 24px 24px' }}>
@@ -312,7 +406,7 @@ export const InteractionAlertsDialog: React.FC<Props> = ({ medicationName, inter
           <RoundedButton variant="outlined" onClick={onCancel}>
             Cancel
           </RoundedButton>
-          <RoundedButton variant="contained" disabled={!allReasonsValid}>
+          <RoundedButton variant="contained" onClick={onContinueClick} disabled={!allReasonsValid}>
             Continue
           </RoundedButton>
         </Box>
