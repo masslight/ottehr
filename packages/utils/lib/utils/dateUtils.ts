@@ -179,7 +179,7 @@ export const compareDates = (a: string | undefined, b: string | undefined): numb
   return dateB.toMillis() - dateA.toMillis();
 };
 
-export const formatDateForLabs = (datetime: string | undefined, timezone: string | undefined): string => {
+export const formatDateForLabs = (datetime: string | undefined | null, timezone: string | undefined): string => {
   if (!datetime || !DateTime.fromISO(datetime).isValid) return '';
   return DateTime.fromISO(datetime).setZone(timezone).toFormat('MM/dd/yyyy hh:mm a');
 };

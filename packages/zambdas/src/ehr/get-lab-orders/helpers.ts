@@ -18,7 +18,9 @@ import {
   QuestionnaireResponseItem,
   Reference,
   Resource,
+  Schedule,
   ServiceRequest,
+  Slot,
   Specimen,
   Task,
 } from 'fhir/r4b';
@@ -29,7 +31,6 @@ import {
   EMPTY_PAGINATION,
   ExternalLabsStatus,
   getFullestAvailableName,
-  getTimezone,
   isPositiveNumberOrZero,
   LAB_ACCOUNT_NUMBER_SYSTEM,
   LAB_ORDER_TASK,
@@ -53,7 +54,11 @@ import {
   SPECIMEN_CODING_CONFIG,
 } from 'utils';
 import { sendErrors } from '../../shared';
-import { fetchLabOrderPDFsPresignedUrls, parseAppointmentIdForServiceRequest } from '../shared/labs';
+import {
+  fetchLabOrderPDFsPresignedUrls,
+  parseAppointmentIdForServiceRequest,
+  parseTimezoneForAppointmentSchedule,
+} from '../shared/labs';
 import { GetZambdaLabOrdersParams } from './validateRequestParameters';
 
 // cache for the service request context: contains parsed tasks and results
@@ -77,6 +82,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
   resultPDFs: LabResultPDF[],
   orderPDF: LabOrderPDF | undefined,
   specimens: Specimen[],
+  appointmentScheduleMap: Record<string, Schedule>,
   ENVIRONMENT: string
 ): LabOrderDTO<SearchBy>[] => {
   console.log('mapResourcesToLabOrderDTOs');
@@ -109,6 +115,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
           resultPDFs,
           orderPDF,
           specimens,
+          appointmentScheduleMap,
           cache,
         })
       );
@@ -127,7 +134,6 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   results,
   appointments,
   encounters,
-  locations,
   practitioners,
   provenances,
   organizations,
@@ -135,6 +141,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   resultPDFs,
   orderPDF,
   specimens,
+  appointmentScheduleMap,
   cache,
 }: {
   searchBy: SearchBy;
@@ -151,6 +158,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   resultPDFs: LabResultPDF[];
   orderPDF: LabOrderPDF | undefined;
   specimens: Specimen[];
+  appointmentScheduleMap: Record<string, Schedule>;
   cache?: Cache;
 }): LabOrderDTO<SearchBy> => {
   console.log('parsing external lab order data');
@@ -180,7 +188,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
     diagnosesDTO: parseDiagnoses(serviceRequest),
     orderingPhysician: parsePractitionerNameFromServiceRequest(serviceRequest, practitioners),
     diagnoses: parseDx(serviceRequest),
-    encounterTimezone: parseLocationTimezoneForSR(serviceRequest, locations),
+    encounterTimezone: parseTimezoneForAppointmentSchedule(appointment, appointmentScheduleMap),
   };
 
   if (searchBy.searchBy.field === 'serviceRequestId') {
@@ -408,6 +416,7 @@ export const getLabResources = async (
   orderPDF: LabOrderPDF | undefined;
   specimens: Specimen[];
   patientLabItems: PatientLabItem[];
+  appointmentScheduleMap: Record<string, Schedule>;
 }> => {
   const labServiceRequestSearchParams = createLabServiceRequestSearchParams(params);
   console.log('labServiceRequestSearchParams', JSON.stringify(labServiceRequestSearchParams));
@@ -448,6 +457,9 @@ export const getLabResources = async (
           | Location
           | QuestionnaireResponse
           | DocumentReference
+          | Appointment
+          | Schedule
+          | Slot
           | Specimen => Boolean(res)
       ) || [];
 
@@ -464,20 +476,20 @@ export const getLabResources = async (
     specimens,
     practitioners,
     documentReferences,
+    appointments,
+    appointmentScheduleMap,
   } = extractLabResources(labResources);
 
   const isDetailPageRequest = searchBy.searchBy.field === 'serviceRequestId';
   console.log('isDetailPageRequest', isDetailPageRequest);
 
-  const [serviceRequestPractitioners, appointments, finalAndPrelimAndCorrectedTasks, questionnaires] =
-    await Promise.all([
-      fetchPractitionersForServiceRequests(oystehr, serviceRequests),
-      fetchAppointmentsForServiceRequests(oystehr, serviceRequests, encounters),
-      fetchFinalAndPrelimAndCorrectedTasks(oystehr, diagnosticReports),
-      executeByCondition(isDetailPageRequest, () =>
-        fetchQuestionnaireForServiceRequests(m2mToken, serviceRequests, questionnaireResponses)
-      ),
-    ]);
+  const [serviceRequestPractitioners, finalAndPrelimAndCorrectedTasks, questionnaires] = await Promise.all([
+    fetchPractitionersForServiceRequests(oystehr, serviceRequests),
+    fetchFinalAndPrelimAndCorrectedTasks(oystehr, diagnosticReports),
+    executeByCondition(isDetailPageRequest, () =>
+      fetchQuestionnaireForServiceRequests(m2mToken, serviceRequests, questionnaireResponses)
+    ),
+  ]);
 
   const allPractitioners = [...practitioners, ...serviceRequestPractitioners];
 
@@ -510,6 +522,7 @@ export const getLabResources = async (
     specimens,
     pagination,
     patientLabItems,
+    appointmentScheduleMap,
   };
 };
 
@@ -573,6 +586,21 @@ export const createLabServiceRequestSearchParams = (params: GetZambdaLabOrdersPa
     {
       name: '_include:iterate',
       value: 'Encounter:location',
+    },
+
+    {
+      name: '_include:iterate',
+      value: 'Encounter:appointment',
+    },
+
+    // Include slot to get reliable timezone info
+    {
+      name: '_include:iterate',
+      value: 'Appointment:slot',
+    },
+    {
+      name: '_include:iterate',
+      value: 'Slot:schedule',
     },
   ];
 
@@ -658,6 +686,9 @@ export const extractLabResources = (
     | Specimen
     | Practitioner
     | DocumentReference
+    | Appointment
+    | Schedule
+    | Slot
   )[]
 ): {
   serviceRequests: ServiceRequest[];
@@ -672,6 +703,8 @@ export const extractLabResources = (
   specimens: Specimen[];
   practitioners: Practitioner[];
   documentReferences: DocumentReference[];
+  appointments: Appointment[];
+  appointmentScheduleMap: Record<string, Schedule>;
 } => {
   console.log('extracting lab resources');
   console.log(`${resources.length} resources total`);
@@ -688,6 +721,11 @@ export const extractLabResources = (
   const specimens: Specimen[] = [];
   const practitioners: Practitioner[] = [];
   const documentReferences: DocumentReference[] = [];
+  const appointments: Appointment[] = [];
+  const slots: Slot[] = [];
+  const scheduleMap: Record<string, Schedule> = {};
+  const appointmentScheduleMap: Record<string, Schedule> = {};
+
   for (const resource of resources) {
     if (resource.resourceType === 'ServiceRequest') {
       const serviceRequest = resource as ServiceRequest;
@@ -719,6 +757,29 @@ export const extractLabResources = (
       practitioners.push(resource);
     } else if (resource.resourceType === 'DocumentReference' && resource.status === 'current') {
       documentReferences.push(resource);
+    } else if (resource.resourceType === 'Appointment') {
+      appointments.push(resource);
+    } else if (resource.resourceType === 'Slot') {
+      slots.push(resource);
+    } else if (resource.resourceType === 'Schedule') {
+      const scheduleId = resource.id;
+      if (scheduleId && !scheduleMap[scheduleId]) {
+        scheduleMap[scheduleId] = resource;
+      }
+    }
+  }
+
+  for (const appointment of appointments) {
+    const slot = slots.find((slot) => {
+      const slotRef = `Slot/${slot.id}`;
+      return appointment.slot?.some((s) => s.reference === slotRef);
+    });
+    const scheduleId = slot?.schedule.reference?.replace('Schedule/', '');
+    if (scheduleId) {
+      const schedule = scheduleMap[scheduleId];
+      if (schedule && appointment.id && !appointmentScheduleMap[appointment.id]) {
+        appointmentScheduleMap[appointment.id] = schedule;
+      }
     }
   }
 
@@ -735,6 +796,8 @@ export const extractLabResources = (
     specimens,
     practitioners,
     documentReferences,
+    appointments,
+    appointmentScheduleMap,
   };
 };
 
@@ -777,34 +840,6 @@ export const fetchPractitionersForServiceRequests = async (
     console.error(`Failed to fetch Practitioners`, JSON.stringify(error, null, 2));
     return [];
   }
-};
-
-export const fetchAppointmentsForServiceRequests = async (
-  oystehr: Oystehr,
-  serviceRequests: ServiceRequest[],
-  encounters: Encounter[]
-): Promise<Appointment[]> => {
-  const appointmentsIds = serviceRequests
-    .map((sr) => parseAppointmentIdForServiceRequest(sr, encounters))
-    .filter(Boolean);
-
-  if (!appointmentsIds.length) {
-    return [] as Appointment[];
-  }
-
-  const appointmentsResponse = await oystehr.fhir.search<Appointment>({
-    resourceType: 'Appointment',
-    params: [
-      {
-        name: '_id',
-        value: appointmentsIds.join(','),
-      },
-    ],
-  });
-
-  const appointments = appointmentsResponse.unbundle();
-
-  return appointments;
 };
 
 export const fetchFinalAndPrelimAndCorrectedTasks = async (
@@ -1272,15 +1307,6 @@ export const parsePaginationFromResponse = (data: {
     totalItems,
     totalPages,
   };
-};
-
-const parseLocationTimezoneForSR = (serviceRequest: ServiceRequest, locations: Location[]): string | undefined => {
-  const location = locations.find((location) => {
-    const locationRef = `Location/${location.id}`;
-    return serviceRequest.locationReference?.find((srLocationRef) => srLocationRef.reference === locationRef);
-  });
-
-  return location ? getTimezone(location) : undefined;
 };
 
 export const parseVisitDate = (appointment: Appointment | undefined): string => {
