@@ -169,7 +169,7 @@ export const getAppointmentAndRelatedResources = async (
 
   const listResources = items.filter((item) => item.resourceType === 'List') as List[];
 
-  let timezone: string | undefined;
+  let timezone: string;
   if (schedule) {
     timezone = getTimezone(schedule);
   } else {

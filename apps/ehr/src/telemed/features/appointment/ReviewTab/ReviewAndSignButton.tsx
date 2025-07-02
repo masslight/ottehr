@@ -1,5 +1,6 @@
 import CheckIcon from '@mui/icons-material/Check';
 import { Box, Tooltip, Typography } from '@mui/material';
+import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useMemo, useState } from 'react';
 import { getVisitStatus, PRACTITIONER_CODINGS, TelemedAppointmentStatusEnum } from 'utils';
@@ -136,8 +137,13 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
 
     if (css) {
       try {
+        const tz = DateTime.now().zoneName;
         await handleCompleteProvider();
-        await signAppointment({ apiClient, appointmentId: appointment.id });
+        await signAppointment({
+          apiClient,
+          appointmentId: appointment.id,
+          timezone: tz,
+        });
         await refetch();
       } catch (error: any) {
         console.log(error.message);

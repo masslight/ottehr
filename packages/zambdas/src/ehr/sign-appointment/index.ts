@@ -58,14 +58,18 @@ export const performEffect = async (
   oystehrCurrentUser: Oystehr,
   params: SignAppointmentInput
 ): Promise<SignAppointmentResponse> => {
-  const { appointmentId, secrets } = params;
+  const { appointmentId, timezone, secrets } = params;
 
   const visitResources = await getAppointmentAndRelatedResources(oystehr, appointmentId, true);
-
   if (!visitResources) {
     {
       throw new Error(`Visit resources are not properly defined for appointment ${appointmentId}`);
     }
+  }
+  if (timezone) {
+    // if the timezone is provided, it will be taken as the tz to use here rather than the location's schedule
+    // this allows the provider to specify their working location in the case of virtual encounters
+    visitResources.timezone = timezone;
   }
   const { encounter, patient, appointment, listResources } = visitResources;
 
