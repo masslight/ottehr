@@ -93,8 +93,7 @@ function mapMedicalAdministrationToDTO(orderPackage: OrderPackage): ExtendedMedi
     expDate: medication?.batch?.expirationDate,
 
     // administrating
-    dateGiven: administeredInfo?.dateAdministered,
-    timeGiven: administeredInfo?.timeAdministered,
+    effectiveDateTime: administeredInfo?.dateAdministered,
     administeredProviderId: administeredInfo?.administeredProviderId,
     administeredProvider: providerAdministeredOrderName,
   };

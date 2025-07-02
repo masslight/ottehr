@@ -52,13 +52,26 @@ export const useMedicationHistory = ({
     enabled: !!encounter.id,
   });
 
-  if (historyData?.practitioners?.length && historyData.inhouseMedications) {
-    historyData.inhouseMedications.forEach((val) => {
-      if ('practitioner' in val && val.practitioner && 'reference' in val.practitioner && val.practitioner.reference) {
-        const ref = removePrefix('Practitioner/', val.practitioner.reference);
-        const practitioner = historyData.practitioners?.find((practitioner) => practitioner.id === ref);
-        val.practitioner = practitioner;
-      }
+  /**
+   * Enrich medication records with practitioner details.
+   * _include=MedicationStatement:source fetches related Practitioner resources.
+   * Replace practitioner references with full objects for display.
+   * todo: consider to move this logic to the backend
+   */
+  if (historyData?.practitioners?.length) {
+    chartDataFields.forEach((field) => {
+      historyData[field]?.forEach((val) => {
+        if (
+          'practitioner' in val &&
+          val.practitioner &&
+          'reference' in val.practitioner &&
+          val.practitioner.reference
+        ) {
+          const ref = removePrefix('Practitioner/', val.practitioner.reference);
+          const practitioner = historyData.practitioners?.find((practitioner) => practitioner.id === ref);
+          val.practitioner = practitioner;
+        }
+      });
     });
   }
 

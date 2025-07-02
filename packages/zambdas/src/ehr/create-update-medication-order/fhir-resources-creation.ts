@@ -1,7 +1,6 @@
 import { CodeableConcept, Medication, MedicationAdministration, MedicationStatement } from 'fhir/r4b';
 import {
   createReference,
-  DATE_OF_MEDICATION_ADMINISTERED_SYSTEM,
   getCreatedTheOrderProviderId,
   IN_HOUSE_CONTAINED_MEDICATION_ID,
   MEDICATION_ADMINISTRATION_CSS_RESOURCE_CODE,
@@ -16,7 +15,6 @@ import {
   MedicationData,
   PRACTITIONER_ADMINISTERED_MEDICATION_CODE,
   PRACTITIONER_ORDERED_MEDICATION_CODE,
-  TIME_OF_MEDICATION_ADMINISTERED_SYSTEM,
 } from 'utils';
 import { fillMeta } from '../../shared';
 
@@ -117,7 +115,8 @@ export function createMedicationAdministrationResource(data: MedicationAdministr
       text: orderData.otherReason,
     });
   }
-  if (administeredProviderId && orderData.dateGiven && orderData.timeGiven)
+  // todo: check if we should validate effectiveDateTime to add performer
+  if (administeredProviderId && orderData.effectiveDateTime)
     resource.performer?.push({
       actor: { reference: `Practitioner/${administeredProviderId}` },
       function: {
@@ -128,26 +127,6 @@ export function createMedicationAdministrationResource(data: MedicationAdministr
           },
         ],
       },
-
-      // TODO: [TIMEZONE] Current approach loses timezone information.
-      // Replace separate date/time fields with effectiveDateTime or add timezone extension.
-      // Options:
-      // 1) Use ISO effectiveDateTime instead of separate date/time extensions
-      //    [good if medication timezone always corresponds to encounter timezone]
-      // 2) Add timezone extension + UI selector if we need to handle
-      //    cases where patient takes medication in different timezone than encounter timezone
-      // 3) [current variant]: dateGiven is used without timeGiven as effective date,
-      //    because using date without time is possible without timezone in FHIR
-      extension: [
-        {
-          url: DATE_OF_MEDICATION_ADMINISTERED_SYSTEM,
-          valueDate: orderData.dateGiven,
-        },
-        {
-          url: TIME_OF_MEDICATION_ADMINISTERED_SYSTEM,
-          valueTime: orderData.timeGiven,
-        },
-      ],
     });
   if (orderData.instructions && resource.dosage) resource.dosage.text = orderData.instructions;
   if (location && resource.dosage)

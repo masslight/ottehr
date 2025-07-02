@@ -1,7 +1,8 @@
 import { TableCell, TableRow, Typography } from '@mui/material';
 import { Practitioner } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { MedicationWithTypeDTO } from 'src/features/css-module/hooks/useMedicationHistory';
-import { getProviderNameWithProfession, mdyStringFromISOString, MedicationDTO } from 'utils';
+import { getProviderNameWithProfession, MedicationDTO } from 'utils';
 
 interface MedicationHistoryEntityProps {
   item: MedicationDTO | MedicationWithTypeDTO;
@@ -9,7 +10,7 @@ interface MedicationHistoryEntityProps {
 
 export const MedicationHistoryEntity: React.FC<MedicationHistoryEntityProps> = ({ item }) => {
   const practitioner = 'resourceType' in (item.practitioner || {}) ? (item.practitioner as Practitioner) : undefined;
-  const date = item.intakeInfo.date ? mdyStringFromISOString(item.intakeInfo.date) : undefined;
+  const date = item.intakeInfo.date ? DateTime.fromISO(item.intakeInfo.date).toFormat('MM/dd/yyyy hh:mm a') : undefined;
 
   const isMedicationWithType = 'chartDataField' in item;
 
@@ -41,7 +42,7 @@ export const MedicationHistoryEntity: React.FC<MedicationHistoryEntityProps> = (
       </TableCell>
       <TableCell>
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-          {practitioner ? getProviderNameWithProfession(practitioner) : 'Unknown Provider'}
+          {practitioner ? getProviderNameWithProfession(practitioner) : ''}
         </Typography>
       </TableCell>
       <TableCell>

@@ -43,8 +43,7 @@ export interface MedicationData {
   expDate?: string;
 
   // administrating
-  dateGiven?: string;
-  timeGiven?: string;
+  effectiveDateTime?: string;
 }
 
 export interface ExtendedMedicationDataForResponse extends MedicationData {
@@ -63,8 +62,7 @@ export interface ExtendedMedicationDataForResponse extends MedicationData {
   //   providerName: string;
   // };
   // administeredData?: {
-  //   dateGiven: string;
-  //   timeGiven: string;
+  //   effectiveDateTime: string;
   //   providerId: string;
   //   providerName: string;
   // };

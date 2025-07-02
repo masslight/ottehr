@@ -25,8 +25,7 @@ export const fieldsConfigForDispense = {
 
   // TODO: uncomment when the "anatomical locations" feature is completed
   // location: { xs: 6, isRequired: false },
-  dateGiven: { xs: 6, isRequired: true },
-  timeGiven: { xs: 6, isRequired: true },
+  effectiveDateTime: { xs: 6, isRequired: true },
   instructions: { xs: 12, isRequired: false },
 } as const;
 
@@ -42,8 +41,7 @@ export const fieldsConfigForNotAdministered = {
 
   // TODO: uncomment when the "anatomical locations" feature is completed
   // location: { xs: 6, isRequired: false },
-  dateGiven: { xs: 6, isRequired: true },
-  timeGiven: { xs: 6, isRequired: true },
+  effectiveDateTime: { xs: 6, isRequired: true },
   instructions: { xs: 12, isRequired: false },
 } as const;
 

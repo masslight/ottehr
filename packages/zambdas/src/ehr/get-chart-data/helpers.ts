@@ -226,12 +226,23 @@ export async function convertSearchResultsToResponse(
     if (getChartDataResponse.inHouseLabResults) getChartDataResponse.inHouseLabResults = inHouseLabResultConfig;
   }
 
-  // If several fields for search use the same resource type (e.g., medications and inhouseMedications both use MedicationStatement),
-  // duplicate resources may appear in the response. Deduplicate all arrays by id to ensure unique records.
+  /**
+   * If several fields for search use the same resource type (e.g., medications and inhouseMedications both use MedicationStatement),
+   * duplicate resources may appear in the response. Deduplicate all arrays by resourceId + id to ensure unique records.
+   *
+   * Note: Using only item.id for filtering is insufficient because items with the same id may have different configurations
+   * (e.g., ordered items in inHouseMedications). ResourceId-id combination is used for deduplication
+   * since this issue currently occurs only for medications which have resourceId field.
+   * --------------------------------------------------------------------------------------------------------------------------------
+   * This is EDGE CASE when chart data requested by several fields WITH the same resource type for the each field,
+   * it's used only for medications/in-house medications currently.
+   */
   const deduplicatedResponse = Object.fromEntries(
     Object.entries(getChartDataResponse).map(([key, value]) => [
       key,
-      Array.isArray(value) && value.length > 0 && value[0]?.id ? uniqBy(value, 'id') : value,
+      Array.isArray(value)
+        ? uniqBy(value, (item) => (item.resourceId ? `${item.resourceId}-${item.id}` : Math.random().toString()))
+        : value,
     ])
   ) as GetChartDataResponse;
 

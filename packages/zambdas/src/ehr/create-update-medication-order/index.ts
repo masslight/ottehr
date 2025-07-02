@@ -143,8 +143,7 @@ async function updateOrder(
         coding: [{ ...erxDataFromMedication, display: getMedicationName(newMedicationCopy) }],
       };
 
-      const { dateGiven } = orderData || {};
-      const effectiveDateTime = dateGiven || undefined;
+      const { effectiveDateTime } = orderData || {};
       resultPromises.push(
         oystehr.fhir
           .create<MedicationStatement>(
