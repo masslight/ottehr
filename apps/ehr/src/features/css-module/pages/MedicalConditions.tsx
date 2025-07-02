@@ -44,7 +44,7 @@ export const MedicalConditions: FC<MedicalConditionsProps> = () => {
           patientSide={<MedicalConditionsPatientColumn />}
           patientSideLabel="Patient provided"
           providerSide={<MedicalConditionsProviderColumn />}
-          providerSideLabel="Clinical support input"
+          providerSideLabel="Healthcare staff input"
         />
       </Box>
     </Stack>

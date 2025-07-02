@@ -29,7 +29,7 @@ export const MedicalHistoryDoubleCard: FC<MedicalHistoryDoubleCardProps> = (prop
         rightColumn={
           <>
             <UppercaseCaptionTypography sx={{ color: otherColors.orange700, pb: 2 }}>
-              {providerSideLabel || 'Provider'}
+              {providerSideLabel || 'Healthcare staff input'}
             </UppercaseCaptionTypography>
             {providerSide}
           </>
