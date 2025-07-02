@@ -97,7 +97,7 @@ describe('Harvest Module', () => {
         telecom: [
           {
             system: 'phone',
-            value: '+15559876543',
+            value: '+19895556543',
           },
         ],
       },
@@ -142,7 +142,7 @@ describe('Harvest Module', () => {
         postalCode: '20001',
       },
       relationship: 'Child',
-      memberId: 'FAfonejwgndkoetwwe6',
+      memberId: 'FafOneJwgNdkOetWwe6',
     };
 
     const flattened = flattenItems((questionnaireResponse1.item as QuestionnaireResponse['item']) ?? []);
@@ -184,7 +184,7 @@ describe('Harvest Module', () => {
       },
       relationship: 'Parent',
       birthSex: 'Female',
-      number: '(555) 987-6543',
+      number: '(989) 555-6543',
     };
 
     const flattened = flattenItems((questionnaireResponse1.item as QuestionnaireResponse['item']) ?? []);
@@ -199,7 +199,7 @@ describe('Harvest Module', () => {
         identifier: [
           {
             ...COVERAGE_MEMBER_IDENTIFIER_BASE, // this holds the 'type'
-            value: 'FAfonejwgndkoetwwe6',
+            value: 'FafOneJwgNdkOetWwe6',
             assigner: {
               reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176',
               display: 'Aetna',
@@ -210,7 +210,7 @@ describe('Harvest Module', () => {
         status: 'active',
         beneficiary: { reference: 'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61', type: 'Patient' },
         payor: [{ reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176' }],
-        subscriberId: 'FAfonejwgndkoetwwe6',
+        subscriberId: 'FafOneJwgNdkOetWwe6',
         subscriber: {
           reference: `#coverageSubscriber`,
         },
@@ -331,7 +331,7 @@ describe('Harvest Module', () => {
     expect(primary.payor?.[0].reference).toBe(expectedCoverageResources.primary.payor?.[0].reference);
     expect(secondary.payor?.[0].reference).toBe(expectedCoverageResources.secondary.payor?.[0].reference);
 
-    expect(primary.subscriberId).toBe('FAfonejwgndkoetwwe6');
+    expect(primary.subscriberId).toBe('FafOneJwgNdkOetWwe6');
     expect(secondary.subscriberId).toBe('FdfDfdFdfDfh7897');
     expect(primary.subscriber?.reference).toBe(`#${primary.contained?.[0].id}`);
     expect(secondary.subscriber?.reference).toBe(`#${secondary.contained?.[0].id}`);
@@ -443,13 +443,13 @@ describe('Harvest Module', () => {
       status: 'active',
       beneficiary: { reference: 'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61', type: 'Patient' },
       payor: [{ reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176' }],
-      subscriberId: 'FAfonejwgndkoetwwe6',
+      subscriberId: 'FafOneJwgNdkOetWwe6',
       subscriber: { reference: 'RelatedPerson/36ef99c3-43fb-50f4-bf9d-d9ea12c2bf62' },
       order: 1,
       identifier: [
         {
           ...COVERAGE_MEMBER_IDENTIFIER_BASE,
-          value: 'FAfonejwgndkoetwwe6',
+          value: 'FafOneJwgNdkOetWwe6',
           assigner: {
             reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176',
             display: 'Aetna',
@@ -1989,13 +1989,13 @@ describe('Harvest Module', () => {
         status: 'active',
         beneficiary: { reference: 'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61', type: 'Patient' },
         payor: [{ reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176' }],
-        subscriberId: 'FAfonejwgndkoetwwe6',
+        subscriberId: 'FafOneJwgNdkOetWwe6',
         subscriber: { reference: 'RelatedPerson/36ef99c3-43fb-50f4-bf9d-d9ea12c2bf62' },
         order: 1,
         identifier: [
           {
             ...COVERAGE_MEMBER_IDENTIFIER_BASE,
-            value: 'FAfonejwgndkoetwwe6',
+            value: 'FafOneJwgNdkOetWwe6',
             assigner: {
               reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176',
               display: 'Aetna',
@@ -2850,7 +2850,7 @@ const questionnaireResponse1: QuestionnaireResponse = {
           linkId: 'insurance-member-id',
           answer: [
             {
-              valueString: 'FAfonejwgndkoetwwe6',
+              valueString: 'FafOneJwgNdkOetWwe6',
             },
           ],
         },
@@ -3216,7 +3216,7 @@ const questionnaireResponse1: QuestionnaireResponse = {
           linkId: 'responsible-party-number',
           answer: [
             {
-              valueString: '(555) 987-6543',
+              valueString: '(989) 555-6543',
             },
           ],
         },
@@ -3650,7 +3650,7 @@ const bundle1Coverage: Coverage = {
     type: 'RelatedPerson',
     reference: 'RelatedPerson/90ad77cd-ff76-426a-951a-b35f5ef8b302',
   },
-  subscriberId: 'FAfonejwgndkoetwwe6',
+  subscriberId: 'FafOneJwgNdkOetWwe6',
   beneficiary: {
     type: 'Patient',
     reference: 'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61',

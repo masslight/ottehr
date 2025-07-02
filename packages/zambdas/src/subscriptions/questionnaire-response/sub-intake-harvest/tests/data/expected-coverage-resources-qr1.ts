@@ -96,7 +96,7 @@ export const expectedAccountGuarantorFromQR1: RelatedPerson = {
   telecom: [
     {
       system: 'phone',
-      value: '+15559876543',
+      value: '+19895556543',
     },
   ],
 };
@@ -107,7 +107,7 @@ export const expectedCoverageResources: { primary: Coverage; secondary: Coverage
     identifier: [
       {
         ...COVERAGE_MEMBER_IDENTIFIER_BASE, // this holds the 'type'
-        value: 'FAfonejwgndkoetwwe6',
+        value: 'FafOneJwgNdkOetWwe6',
         assigner: {
           reference: '{{ORGANIZATION_REF}}',
           display: 'Aetna',
@@ -118,7 +118,7 @@ export const expectedCoverageResources: { primary: Coverage; secondary: Coverage
     status: 'active',
     beneficiary: { reference: '{{PATIENT_REF}}', type: 'Patient' },
     payor: [{ reference: '{{ORGANIZATION_REF}}' }],
-    subscriberId: 'FAfonejwgndkoetwwe6',
+    subscriberId: 'FafOneJwgNdkOetWwe6',
     subscriber: {
       reference: `#coverageSubscriber`,
     },

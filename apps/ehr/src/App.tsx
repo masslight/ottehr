@@ -42,18 +42,12 @@ import EditInsurance from './telemed/features/telemed-admin/EditInsurance';
 import EditStatePage from './telemed/features/telemed-admin/EditState';
 import { PatientVisitDetails } from './telemed/pages/PatientVisitDetailsPage';
 
-const { MODE: environment, VITE_APP_SENTRY_DSN } = import.meta.env;
+const { VITE_APP_SENTRY_DSN, VITE_APP_SENTRY_ENV } = import.meta.env;
 
-const isLowerEnvs = ['dev', 'testing', 'staging', 'training'].includes(environment);
-
-const isLowerEnvsOrProd = isLowerEnvs || import.meta.env.MODE === 'production';
-
-if (isLowerEnvsOrProd) {
-  setupSentry({
-    dsn: VITE_APP_SENTRY_DSN,
-    environment,
-  });
-}
+setupSentry({
+  dsn: VITE_APP_SENTRY_DSN,
+  environment: VITE_APP_SENTRY_ENV,
+});
 
 const CSSRoutingLazy = lazy(() => import('./features/css-module/routing/CSSRouting'));
 

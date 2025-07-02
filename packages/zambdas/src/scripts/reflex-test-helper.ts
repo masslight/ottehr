@@ -5,7 +5,7 @@ import fs from 'fs';
 import { LAB_DR_TYPE_TAG } from 'utils';
 import { createOystehrClient, getAuth0Token } from '../shared';
 
-// Creates a DiagnosticReport and Observation(s) to mock a relfex test
+// Creates a DiagnosticReport and Observation(s) to mock a reflex test
 // npm run mock-reflex-test ['local' | 'dev' | 'development' | 'testing' | 'staging'] [serviceRequest Id]
 
 const VALID_ENVS = ['local', 'development', 'dev', 'testing', 'staging', 'demo'];
@@ -26,7 +26,7 @@ const checkEnvPassedIsValid = (env: string | undefined): boolean => {
 
 const main = async (): Promise<void> => {
   if (process.argv.length !== 4) {
-    console.log(`exiting, incorrect number of arguemnts passed\n`);
+    console.log(`exiting, incorrect number of arguments passed\n`);
     console.log(`Usage: npm run mock-reflex-test [${VALID_ENVS.join(' | ')}] [serviceRequest Id]\n`);
     process.exit(1);
   }
@@ -86,7 +86,7 @@ const main = async (): Promise<void> => {
 
   const requests: BatchInputPostRequest<DiagnosticReport | Observation>[] = [];
 
-  // grab first related diagnostic report thats not a relfex test
+  // grab first related diagnostic report thats not a reflex test
   const drToDuplicate = resultResources.find(
     (resource) =>
       resource.resourceType === 'DiagnosticReport' &&

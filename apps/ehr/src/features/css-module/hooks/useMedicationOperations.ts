@@ -1,7 +1,11 @@
 import { useQueryClient } from 'react-query';
-import { useParams } from 'react-router-dom';
-import { ExtendedMedicationDataForResponse, UpdateMedicationOrderInput } from 'utils';
-import { useCreateUpdateMedicationOrder, useGetMedicationOrders } from '../../../telemed';
+import {
+  ExtendedMedicationDataForResponse,
+  GetMedicationOrdersInput,
+  getSelectors,
+  UpdateMedicationOrderInput,
+} from 'utils';
+import { useAppointmentStore, useCreateUpdateMedicationOrder, useGetMedicationOrders } from '../../../telemed';
 
 interface MedicationAPI {
   medications: ExtendedMedicationDataForResponse[];
@@ -14,14 +18,17 @@ interface MedicationAPI {
 const emptyArray: ExtendedMedicationDataForResponse[] = [];
 
 export const useMedicationAPI = (): MedicationAPI => {
-  const { id: encounterId } = useParams();
+  const { encounter } = getSelectors(useAppointmentStore, ['encounter']);
   const queryClient = useQueryClient();
   const { mutateAsync: createUpdateMedicationOrder } = useCreateUpdateMedicationOrder();
-  const { data: medications, isLoading } = useGetMedicationOrders({ encounterId });
+
+  const searchBy: GetMedicationOrdersInput['searchBy'] = { field: 'encounterId', value: encounter.id || '' };
+
+  const { data: medications, isLoading } = useGetMedicationOrders(searchBy);
 
   const invalidateCache = async (): Promise<void> => {
     return await queryClient.invalidateQueries({
-      queryKey: ['telemed-get-medication-orders', encounterId],
+      queryKey: ['telemed-get-medication-orders', JSON.stringify(searchBy)],
       // 'exact: false' is used for ignoring other cache keys (apiClient)
       exact: false,
     });

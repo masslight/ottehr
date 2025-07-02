@@ -1,5 +1,4 @@
 import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Communication, Encounter, EncounterStatusHistory, Location, Practitioner } from 'fhir/r4b';
 import { DateTime, Duration } from 'luxon';
@@ -30,6 +29,7 @@ import {
   getRoleMembers,
   getRoles,
   topLevelCatch,
+  wrapHandler,
   ZambdaInput,
 } from '../../shared';
 import { removePrefix } from '../../shared/appointment/helpers';
@@ -44,7 +44,7 @@ export function validateRequestParameters(input: ZambdaInput): { secrets: Secret
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler('notification-Updater', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const sendSMSPractitionerCommunications: {
     [key: string]: { practitioner: Practitioner; communications: Communication[] };
   } = {};
@@ -114,8 +114,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const allPractitionersIdMap = Object.keys(statePractitionerMap).reduce<{ [key: string]: Practitioner }>(
       (acc, val) => {
         const practitioners = statePractitionerMap[val].map((practitioner) => practitioner);
-        practitioners.forEach((pract) => {
-          acc[pract.id!] = pract;
+        practitioners.forEach((currentPractitioner) => {
+          acc[currentPractitioner.id!] = currentPractitioner;
         });
         return acc;
       },

@@ -1,9 +1,8 @@
 import Oystehr, { OystehrConfig } from '@oystehr/sdk';
 import { Appointment, Extension, PaymentNotice, QuestionnaireResponseItemAnswer, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { phone } from 'phone';
-import { OTTEHR_MODULE, PAYMENT_METHOD_EXTENSION_URL } from '../fhir';
-import { CashPaymentDTO, PatchPaperworkParameters } from '../types';
+import { OTTEHR_MODULE, PAYMENT_METHOD_EXTENSION_URL, SLUG_SYSTEM } from '../fhir';
+import { CashPaymentDTO, PatchPaperworkParameters, ScheduleOwnerFhirResource } from '../types';
 import { phoneRegex, zipRegex } from '../validation';
 
 export function createOystehrClient(token: string, fhirAPI: string, projectAPI: string): Oystehr {
@@ -61,18 +60,14 @@ export const isPostalCodeValid = (postalCode: string | undefined): boolean => {
   return zipRegex.test(postalCode);
 };
 
+const tenDigitRegex = /^\d{10}$/;
+
 export const isPhoneNumberValid = (phoneNumber: string | undefined): boolean => {
   if (!phoneNumber) {
     return false;
   }
   const plusOneRegex = /^\+1\d{10}$/;
-  const tenDigitRegex = /^\d{10}$/;
-  return (
-    plusOneRegex.test(phoneNumber) ||
-    tenDigitRegex.test(phoneNumber) ||
-    phoneRegex.test(phoneNumber) ||
-    phone(phoneNumber).isValid
-  );
+  return plusOneRegex.test(phoneNumber) || tenDigitRegex.test(phoneNumber) || phoneRegex.test(phoneNumber);
 };
 
 export function formatPhoneNumber(phoneNumber: string | undefined): string | undefined {
@@ -81,9 +76,8 @@ export function formatPhoneNumber(phoneNumber: string | undefined): string | und
     return phoneNumber;
   }
   if (!isPhoneNumberValid(phoneNumber)) {
-    throw new Error('Invalid phone number format');
+    throw new Error('Invalid phone number');
   }
-  const tenDigitRegex = /^\d{10}$/;
   return tenDigitRegex.test(phoneNumber) ? `+1${phoneNumber}` : phoneNumber;
 }
 
@@ -232,7 +226,7 @@ export const DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_DAY = '13';
 export const DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_MONTH = '05';
 export const DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_YEAR = '1900';
 export const DEMO_VISIT_RESPONSIBLE_BIRTH_SEX = 'Intersex';
-export const DEMO_VISIT_RESPONSIBLE_PHONE = '(244) 333-3333';
+export const DEMO_VISIT_RESPONSIBLE_PHONE = '(240) 333-3333';
 export const DEMO_VISIT_RESPONSIBLE_ADDRESS1 = '333 test street';
 export const DEMO_VISIT_RESPONSIBLE_CITY = 'Cleveland';
 export const DEMO_VISIT_RESPONSIBLE_STATE = 'OH';
@@ -246,7 +240,7 @@ export const DEMO_VISIT_PROVIDER_FIRST_NAME = 'Provider first name';
 export const DEMO_VISIT_PROVIDER_LAST_NAME = 'Provider last name';
 export const DEMO_VISIT_PRACTICE_NAME = 'Practice name';
 export const DEMO_VISIT_PHYSICIAN_ADDRESS = '441 4th Street, NW';
-export const DEMO_VISIT_PHYSICIAN_MOBILE = '(123) 456-7890';
+export const DEMO_VISIT_PHYSICIAN_MOBILE = '(202) 456-7890';
 
 export function getContactInformationAnswers({
   willBe18 = false,
@@ -1115,4 +1109,9 @@ export const convertPaymentNoticeListToCashPaymentDTOs = (
     }
     return mapped;
   });
+};
+
+export const checkResourceHasSlug = (resource: ScheduleOwnerFhirResource, slug: string): boolean => {
+  const identifiers = resource.identifier ?? [];
+  return identifiers.some((id) => id.system === SLUG_SYSTEM && id.value === slug);
 };

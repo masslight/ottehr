@@ -1,7 +1,7 @@
-import { exec as execCb } from 'node:child_process';
-import { promisify } from 'node:util';
 import { FhirSearchParams } from '@oystehr/sdk';
+import { exec as execCb } from 'child_process';
 import { Appointment, Patient } from 'fhir/r4b';
+import { promisify } from 'util';
 import { createOystehrClientFromConfig, performEffectWithEnvFile } from './helpers';
 
 const exec = promisify(execCb);
@@ -19,7 +19,7 @@ const deleteTestPatientsData = async (config: any): Promise<void> => {
       params: [
         {
           name: 'name',
-          value: 'Test_Doe_Random,TA_User,TM_User,Test_firstname',
+          value: 'Test_Doe_Random,TA_User,TM_User,Test_first_name',
         },
         {
           name: '_revinclude',

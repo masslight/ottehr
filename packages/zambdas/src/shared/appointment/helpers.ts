@@ -4,6 +4,7 @@ import { Appointment, Encounter, List, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import {
+  AppointmentInsuranceRelatedResourcesExtension,
   createPatientDocumentLists,
   createUserResourcesForPatient,
   FHIR_EXTENSION,
@@ -18,7 +19,6 @@ import {
   TelemedCallStatuses,
   User,
 } from 'utils';
-import { AppointmentInsuranceRelatedResourcesExtension } from 'utils';
 import { checkIsEHRUser } from '../auth';
 import { assertDefined } from '../helpers';
 
@@ -321,11 +321,11 @@ export function getPatientPatchOpsPatientEmail(maybeFhirPatient: Patient, email:
   // update email
   if (email) {
     const telecom = maybeFhirPatient.telecom;
-    const curEmail = telecom?.find((tele) => tele.system === 'email');
-    const curEmailidx = telecom?.findIndex((tele) => tele.system === 'email');
+    const curEmail = telecom?.find((telecomToCheck) => telecomToCheck.system === 'email');
+    const curEmailIndex = telecom?.findIndex((telecomToCheck) => telecomToCheck.system === 'email');
     // check email exists in telecom but is different
-    if (telecom && curEmailidx && curEmailidx > -1 && email !== curEmail) {
-      telecom[curEmailidx] = {
+    if (telecom && curEmailIndex && curEmailIndex > -1 && email !== curEmail) {
+      telecom[curEmailIndex] = {
         system: 'email',
         value: email,
       };

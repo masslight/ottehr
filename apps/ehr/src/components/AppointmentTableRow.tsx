@@ -32,10 +32,8 @@ import {
   getDurationOfStatus,
   getPatchBinary,
   getVisitTotalTime,
-  InHouseOrderListPageItemDTO,
   InPersonAppointmentInformation,
-  LabOrderListPageDTO,
-  NursingOrder,
+  OrdersForTrackingBoardRow,
   PRACTITIONER_CODINGS,
   PROJECT_NAME,
   ROOM_EXTENSION_URL,
@@ -72,9 +70,7 @@ interface AppointmentTableProps {
   tab: ApptTab;
   updateAppointments: () => void;
   setEditingComment: (editingComment: boolean) => void;
-  inHouseLabOrders: InHouseOrderListPageItemDTO[] | undefined;
-  externalLabOrders: LabOrderListPageDTO[] | undefined;
-  nursingOrders: NursingOrder[] | undefined;
+  orders: OrdersForTrackingBoardRow;
 }
 
 const VITE_APP_QRS_URL = import.meta.env.VITE_APP_QRS_URL;
@@ -239,9 +235,7 @@ export default function AppointmentTableRow({
   tab,
   updateAppointments,
   setEditingComment,
-  inHouseLabOrders,
-  externalLabOrders,
-  nursingOrders,
+  orders,
 }: AppointmentTableProps): ReactElement {
   const { oystehr, oystehrZambda } = useApiClients();
   const theme = useTheme();
@@ -254,6 +248,7 @@ export default function AppointmentTableRow({
   const [chatModalOpen, setChatModalOpen] = useState<boolean>(false);
   const [hasUnread, setHasUnread] = useState<boolean>(appointment.smsModel?.hasUnreadMessages || false);
   const user = useEvolveUser();
+  const { inHouseLabOrders, externalLabOrders, nursingOrders, inHouseMedications } = orders;
 
   if (!user) {
     throw new Error('User is not defined');
@@ -657,7 +652,7 @@ export default function AppointmentTableRow({
   // if orders tooltip is displayed, we check if there are any orders - if no orders the cell will be empty and it doesn't make sense to have the pointer hand
   // if visit components, there is always something in this cell, hence the default to true
   const showPointerForInfoIcons = displayOrdersToolTip(appointment, tab)
-    ? inHouseLabOrders?.length || externalLabOrders?.length || nursingOrders?.length
+    ? inHouseLabOrders?.length || externalLabOrders?.length || nursingOrders?.length || inHouseMedications?.length
     : true;
 
   return (
@@ -836,6 +831,7 @@ export default function AppointmentTableRow({
           inHouseLabOrders={inHouseLabOrders}
           externalLabOrders={externalLabOrders}
           nursingOrders={nursingOrders}
+          inHouseMedications={inHouseMedications}
         />
       </TableCell>
       <TableCell sx={{ verticalAlign: 'center' }}>
