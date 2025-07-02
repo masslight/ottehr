@@ -155,7 +155,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         try {
           await sendSlackNotification(slackMessage, ENVIRONMENT);
           communicationStatusToUpdate = 'completed';
-        } catch (e) {
+        } catch {
           console.log('could not send slack notification');
         }
 

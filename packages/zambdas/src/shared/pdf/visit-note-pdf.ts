@@ -325,51 +325,61 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
 
   if (data.medications) {
     drawBlockHeader('Medications');
-    data.medications.length
-      ? data.medications.forEach((medication) => {
-          pdfClient.drawText(medication, textStyles.regularText);
-        })
-      : pdfClient.drawText('No current medications', textStyles.regularText);
+    if (data.medications.length) {
+      data.medications.forEach((medication) => {
+        pdfClient.drawText(medication, textStyles.regularText);
+      });
+    } else {
+      pdfClient.drawText('No current medications', textStyles.regularText);
+    }
     separateLine();
   }
 
   if (data.allergies) {
     drawBlockHeader('Allergies');
-    data.allergies.length
-      ? data.allergies.forEach((allergy) => {
-          pdfClient.drawText(allergy, textStyles.regularText);
-        })
-      : pdfClient.drawText('No known allergies', textStyles.regularText);
+    if (data.allergies.length) {
+      data.allergies.forEach((allergy) => {
+        pdfClient.drawText(allergy, textStyles.regularText);
+      });
+    } else {
+      pdfClient.drawText('No known allergies', textStyles.regularText);
+    }
     separateLine();
   }
 
   if (data.medicalConditions) {
     drawBlockHeader('Medical Conditions');
-    data.medicalConditions.length
-      ? data.medicalConditions.forEach((medicalCondition) => {
-          pdfClient.drawText(medicalCondition, textStyles.regularText);
-        })
-      : pdfClient.drawText('No known medical conditions', textStyles.regularText);
+    if (data.medicalConditions.length) {
+      data.medicalConditions.forEach((medicalCondition) => {
+        pdfClient.drawText(medicalCondition, textStyles.regularText);
+      });
+    } else {
+      pdfClient.drawText('No known medical conditions', textStyles.regularText);
+    }
     separateLine();
   }
 
   if (data.surgicalHistory) {
     drawBlockHeader('Surgical history');
-    data.surgicalHistory.length
-      ? data.surgicalHistory.forEach((record) => {
-          regularText(record);
-        })
-      : regularText('No surgical history');
+    if (data.surgicalHistory.length) {
+      data.surgicalHistory.forEach((record) => {
+        regularText(record);
+      });
+    } else {
+      regularText('No surgical history');
+    }
     separateLine();
   }
 
   if (data.hospitalization) {
     drawBlockHeader('Hospitalization');
-    data.hospitalization.length
-      ? data.hospitalization.forEach((record) => {
-          regularText(record);
-        })
-      : regularText('No hospitalizations');
+    if (data.hospitalization.length) {
+      data.hospitalization.forEach((record) => {
+        regularText(record);
+      });
+    } else {
+      regularText('No hospitalizations');
+    }
     separateLine();
   }
 

@@ -115,7 +115,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       await addWaitingMinutesToAppointment(fhirAppointment, waitingMinutes, oystehr);
       taskStatusToUpdate = 'completed';
       statusReasonToUpdate = `patch made to stamp waiting estimate: ${waitingMinutes.toString()}`;
-    } catch (e) {
+    } catch {
       console.log('appointment patch request failed');
       taskStatusToUpdate = 'failed';
       statusReasonToUpdate = `could not complete appointment patch to stamp waiting estimate: ${waitingMinutes.toString()}`;
