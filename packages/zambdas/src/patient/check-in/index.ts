@@ -64,7 +64,7 @@ export const index = wrapHandler('check-in', async (input: ZambdaInput): Promise
     const oystehr = createOystehrClient(zapehrToken, secrets);
 
     console.log('getting all fhir resources');
-    console.time('resource search for checkin');
+    console.time('resource search for check in');
     const allResources = (
       await oystehr.fhir.search<Appointment | Encounter | Location | Patient | QuestionnaireResponse>({
         resourceType: 'Appointment',
@@ -94,7 +94,7 @@ export const index = wrapHandler('check-in', async (input: ZambdaInput): Promise
     )
       .unbundle()
       .filter((resource) => isNonPaperworkQuestionnaireResponse(resource) === false);
-    console.timeEnd('resource search for checkin');
+    console.timeEnd('resource search for check in');
 
     let appointment: Appointment | undefined,
       patient: Patient | undefined,
@@ -134,7 +134,7 @@ export const index = wrapHandler('check-in', async (input: ZambdaInput): Promise
     const checkedIn = appointment.status !== 'booked';
     if (!checkedIn) {
       console.log('checking in the patient');
-      await checkin(oystehr, checkedInBy, appointment, encounter);
+      await checkIn(oystehr, checkedInBy, appointment, encounter);
       await createAuditEvent(AuditableZambdaEndpoints.appointmentCheckIn, oystehr, input, patient.id || '', secrets);
     } else {
       console.log('Appointment is already checked in');
@@ -171,7 +171,7 @@ export const index = wrapHandler('check-in', async (input: ZambdaInput): Promise
   }
 });
 
-async function checkin(
+async function checkIn(
   oystehr: Oystehr,
   checkedInBy: string,
   appointment: Appointment,

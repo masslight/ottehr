@@ -12,6 +12,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
+import { Coding } from 'fhir/r4b';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CPTCodeDTO, DiagnosisDTO } from 'utils';
@@ -24,6 +25,32 @@ import { WithRadiologyBreadcrumbs } from '../components/RadiologyBreadcrumbs';
 interface CreateRadiologyOrdersProps {
   appointmentID?: string;
 }
+
+const defaultStudies: Pick<Coding, 'code' | 'display'>[] = [
+  { code: '71045', display: 'Radiologic examination, chest; single view' },
+  { code: '71046', display: 'Radiologic examination, chest; 2 views' },
+  { code: '74018', display: 'Radiologic examination, abdomen; 1 view' },
+  { code: '74019', display: 'Radiologic examination, abdomen; 2 views' },
+  { code: '76010', display: 'Radiologic examination from nose to rectum for foreign body, single view, child' },
+  { code: '73000', display: 'Radiologic examination; clavicle, complete' },
+  { code: '73010', display: 'Radiologic examination; scapula, complete' },
+  { code: '73020', display: 'Radiologic examination, shoulder; 1 view' },
+  { code: '73060', display: 'Radiologic examination; humerus, minimum of 2 views' },
+  { code: '73070', display: 'Radiologic examination, elbow; 2 views' },
+  { code: '73090', display: 'Radiologic examination; forearm, 2 views' },
+  { code: '73100', display: 'Radiologic examination, wrist; 2 views' },
+  { code: '73120', display: 'Radiologic examination, hand; 2 views' },
+  { code: '73140', display: 'Radiologic examination, finger(s), minimum of 2 views' },
+  { code: '72170', display: 'Radiologic examination, pelvis; 1 or 2 views' },
+  { code: '73552', display: 'Radiologic examination, femur; minimum 2 views' },
+  { code: '73560', display: 'Radiologic examination, knee; 1 or 2 views' },
+  { code: '73590', display: 'Radiologic examination; tibia and fibula, 2 views' },
+  { code: '73600', display: 'Radiologic examination, ankle; 2 views' },
+  { code: '73610', display: 'Radiologic examination, ankle; complete, minimum of 3 views' },
+  { code: '73620', display: 'Radiologic examination, foot; 2 views' },
+  { code: '73630', display: 'Radiologic examination, foot; complete, minimum of 3 views' },
+  { code: '73660', display: 'Radiologic examination; toe(s), minimum of 2 views' },
+];
 
 export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => {
   const theme = useTheme();
@@ -68,7 +95,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
     sabs: 'CPT',
     radiologyOnly: true, // Only fetch CPT codes related to radiology
   });
-  const cptSearchOptions = cptData?.codes || [];
+  const cptSearchOptions = cptData?.codes || defaultStudies;
   const { debounce } = useDebounce(800);
   const debouncedCptHandleInputChange = (data: string): void => {
     debounce(() => {

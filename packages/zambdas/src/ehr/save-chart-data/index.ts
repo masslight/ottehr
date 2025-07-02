@@ -160,7 +160,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       );
     });
 
-    // convert Medications [] to MeicationStatement+Medication [] and preserve FHIR resource IDs
+    // convert Medications [] to MedicationStatement+Medication [] and preserve FHIR resource IDs
     medications?.forEach((medication) => {
       saveOrUpdateRequests.push(
         saveOrUpdateResourceRequest(

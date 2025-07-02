@@ -85,7 +85,7 @@ export const EditableMedicationCard: React.FC<{
   };
 
   const updateOrCreateOrder = async (updatedRequestInput: UpdateMedicationOrderInput): Promise<void> => {
-    // set type dinamically after user click corresponding button to use correct form config https://github.com/masslight/ottehr/issues/2799
+    // set type dynamically after user click corresponding button to use correct form config https://github.com/masslight/ottehr/issues/2799
     if (updatedRequestInput.newStatus === 'administered' || updatedRequestInput.newStatus === 'administered-partly') {
       typeRef.current = 'dispense';
     } else if (updatedRequestInput.newStatus === 'administered-not') {
@@ -117,6 +117,7 @@ export const EditableMedicationCard: React.FC<{
      * will be sent to the endpoint and saved.
      * We can't use async useState value here, because we should save value synchronously after user confirmation.
      */
+
     confirmedMedicationUpdateRequestRef.current = {
       ...(updatedRequestInput.orderId ? { orderId: updatedRequestInput.orderId } : {}),
 
@@ -128,7 +129,7 @@ export const EditableMedicationCard: React.FC<{
         ...(medication ? medicationExtendedToMedicationData(medication) : {}),
         ...updatedRequestInput.orderData,
         patient: resources.patient?.id || '',
-        encounter: appointmentId,
+        encounterId: resources.encounter?.id || '',
       } as MedicationData,
     };
 

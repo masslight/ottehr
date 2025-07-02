@@ -24,6 +24,7 @@ import {
   createSmsModel,
   filterResources,
   GetCreateLabOrderResources,
+  GetMedicationOrdersInput,
   GetMedicationOrdersResponse,
   IcdSearchRequestParams,
   InstructionType,
@@ -831,18 +832,22 @@ export const useCreateUpdateMedicationOrder = () => {
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useGetMedicationOrders = ({ encounterId }: { encounterId?: string }) => {
+export const useGetMedicationOrders = (searchBy: GetMedicationOrdersInput['searchBy']) => {
   const apiClient = useZapEHRAPIClient();
 
+  const encounterIdIsDefined = searchBy.field === 'encounterId' && searchBy.value;
+  const encounterIdsHasLen = searchBy.field === 'encounterIds' && searchBy.value.length > 0;
+
   return useQuery(
-    ['telemed-get-medication-orders', encounterId, apiClient],
+    ['telemed-get-medication-orders', JSON.stringify(searchBy), apiClient],
     () => {
-      if (apiClient && encounterId) {
-        return apiClient.getMedicationOrders({ encounterId }) as Promise<GetMedicationOrdersResponse>;
+      if (apiClient) {
+        return apiClient.getMedicationOrders({ searchBy }) as Promise<GetMedicationOrdersResponse>;
       }
       throw new Error('api client not defined');
     },
     {
+      enabled: !!apiClient && Boolean(encounterIdIsDefined || encounterIdsHasLen),
       retry: 2,
       staleTime: 5 * 60 * 1000,
     }
