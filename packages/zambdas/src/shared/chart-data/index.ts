@@ -174,15 +174,17 @@ export function makeAllergyResource(
             ],
           }
         : undefined,
-    code: {
-      coding: [
-        {
-          system: 'https://terminology.fhir.oystehr.com/CodeSystem/medispan-allergen-id',
-          code: data.id,
-          display: data.name,
-        },
-      ],
-    },
+    code: data.id
+      ? {
+          coding: [
+            {
+              system: 'https://terminology.fhir.oystehr.com/CodeSystem/medispan-allergen-id',
+              code: data.id,
+              display: data.name,
+            },
+          ],
+        }
+      : undefined,
   };
 }
 
@@ -380,7 +382,6 @@ export function makeHospitalizationResource(
   const result: EpisodeOfCare = {
     id: data.resourceId,
     resourceType: 'EpisodeOfCare',
-    identifier: [{ value: data.code }],
     status: 'finished',
     patient: { reference: `Patient/${patientId}` },
     type: [createCodingCode(data.code, data.display)],
@@ -397,8 +398,6 @@ export function makeHospitalizationDTO(resource: EpisodeOfCare): Hospitalization
         resourceId: resource.id,
         code: coding[0].coding?.[0]?.code,
         display: coding[0].coding?.[0]?.display,
-        snomedDescription: `${coding[0].coding?.[0]?.code} | ${coding[0].coding?.[0]?.display}`,
-        snomedRegionDescription: '',
       };
     }
   }
