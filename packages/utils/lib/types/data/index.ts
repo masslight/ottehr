@@ -5,7 +5,7 @@ export * from './get-wait-status.types';
 export * from './in-house';
 export * from './labs';
 export * from './orders';
-export * from './oystehr-api.types';
+export * from './oystehr-api.types.ts';
 export * from './pagination.types';
 export * from './paperwork';
 export * from './paperwork.types';
