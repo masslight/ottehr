@@ -42,7 +42,7 @@ const NewUser = (): JSX.Element => {
     <PageContainer
       title={t('newUser.title', { PROJECT_NAME })}
       img={ottehrLightBlue}
-      imgAlt="ottehr icon"
+      imgAlt={`${PROJECT_NAME} icon`}
       imgWidth={100}
     >
       <Typography variant="body1" className="user-description">
