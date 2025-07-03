@@ -401,7 +401,7 @@ export async function createExternalLabResultPDF(
   const specimenCollectionDate = sortedSpecimens?.[0]?.collection?.collectedDateTime;
   const collectionDate = specimenCollectionDate
     ? DateTime.fromISO(specimenCollectionDate).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
-    : DateTime.now().setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT);
+    : '';
 
   const externalSpecificResources: LabTypeSpecificResources = {
     type: LabType.external,
