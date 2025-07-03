@@ -174,10 +174,9 @@ export function TrackingBoardTableRow({ appointment, showProvider, next }: Appoi
             variant="body2"
             sx={{
               color: theme.palette.text.primary,
-              textOverflow: 'ellipsis',
               width: '80px',
               whiteSpace: 'wrap',
-              overflow: 'hidden',
+              overflow: 'visible',
               pt: '6px',
             }}
           >
@@ -211,10 +210,9 @@ export function TrackingBoardTableRow({ appointment, showProvider, next }: Appoi
           variant="body2"
           sx={{
             fontSize: '16px',
-            textOverflow: 'ellipsis',
             width: '160px',
             whiteSpace: 'wrap',
-            overflow: 'hidden',
+            overflow: 'visible',
           }}
         >
           {reasonForVisit}
