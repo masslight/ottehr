@@ -113,7 +113,7 @@ export const WalkinLanding: FC = () => {
               {t('welcome.errors.closed.description')}
             </Typography>
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', marginTop: 2.5 }}>
-              <Link to={PROJECT_WEBSITE} aria-label="Ottehr website" target="_blank">
+              <Link to={PROJECT_WEBSITE} aria-label={`${PROJECT_NAME} website`} target="_blank">
                 <Button variant="contained" color="primary" data-testid="loading-button">
                   {t('welcome.goToWebsite', { PROJECT_NAME })}
                 </Button>
