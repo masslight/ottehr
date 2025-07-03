@@ -1,10 +1,12 @@
 import { Box, Typography, useTheme } from '@mui/material';
 import { FC } from 'react';
+import { NoteDTO } from 'utils';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../state';
+import { AssessmentTitle } from '../../AssessmentTab/components/AssessmentTitle';
 
-export const SurgicalHistoryContainer: FC = () => {
+export const SurgicalHistoryContainer: FC<{ notes?: NoteDTO[] }> = ({ notes }) => {
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
   const theme = useTheme();
 
@@ -28,7 +30,16 @@ export const SurgicalHistoryContainer: FC = () => {
       ) : (
         <Typography color={theme.palette.text.secondary}>No surgical history</Typography>
       )}
-      <Typography>{surgicalHistoryNote}</Typography>
+      {surgicalHistoryNote && <Typography>{surgicalHistoryNote}</Typography>}
+
+      {notes && notes.length > 0 && (
+        <>
+          <AssessmentTitle>Surgical history notes</AssessmentTitle>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            {notes?.map((note) => <Typography key={note.resourceId}>{note.text}</Typography>)}
+          </Box>
+        </>
+      )}
     </Box>
   );
 };

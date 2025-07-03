@@ -9,7 +9,18 @@ export const getProgressNoteChartDataRequestedFields = (): ChartDataRequestedFie
   notes: {
     _sort: '-_lastUpdated',
     _count: 1000,
-    _tag: `${PRIVATE_EXTENSION_BASE_URL}/${NOTE_TYPE.SCREENING}|${CSS_NOTE_ID},${PRIVATE_EXTENSION_BASE_URL}/${NOTE_TYPE.VITALS}|${CSS_NOTE_ID},${PRIVATE_EXTENSION_BASE_URL}/${NOTE_TYPE.INTAKE}|${CSS_NOTE_ID}`,
+    _tag: [
+      NOTE_TYPE.SCREENING,
+      NOTE_TYPE.VITALS,
+      NOTE_TYPE.INTAKE,
+      NOTE_TYPE.ALLERGY,
+      NOTE_TYPE.INTAKE_MEDICATION,
+      NOTE_TYPE.HOSPITALIZATION,
+      NOTE_TYPE.MEDICAL_CONDITION,
+      NOTE_TYPE.SURGICAL_HISTORY,
+    ]
+      .map((note) => `${PRIVATE_EXTENSION_BASE_URL}/${note}|${CSS_NOTE_ID}`)
+      .join(','),
   },
   vitalsObservations: {
     _search_by: 'encounter',
