@@ -21,7 +21,7 @@ export const AppointmentHeader: FC = () => {
       }}
     >
       <Box sx={{ display: 'flex', mt: 1, mx: 3, justifyContent: 'space-between', alignItems: 'start' }}>
-        <Box sx={{ display: 'flex' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
           <IconButton onClick={() => navigate('/telemed/appointments')} sx={{ width: 40, height: 40, mr: 1 }}>
             <ArrowBackIcon />
           </IconButton>
