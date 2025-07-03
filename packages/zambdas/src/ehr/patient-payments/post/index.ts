@@ -101,7 +101,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 const performEffect = async (
   input: ComplexValidationOutput,
   oystehrClient: Oystehr,
-  secrets: Secrets
+  requiredSecrets: RequiredSecrets
 ): Promise<PaymentNotice> => {
   const { encounterId, paymentDetails, organizationId, userProfile } = input;
   const { paymentMethod, amountInCents, description } = paymentDetails;
@@ -116,7 +116,7 @@ const performEffect = async (
   };
 
   if (input.cardInput && paymentMethod === 'card') {
-    const stripeClient = getStripeClient(secrets);
+    const stripeClient = getStripeClient(requiredSecrets.secrets);
     const customerId = input.cardInput.stripeCustomerId;
     const paymentMethodId = paymentDetails.paymentMethodId;
     const paymentIntentInput: Stripe.PaymentIntentCreateParams = {
@@ -147,7 +147,7 @@ const performEffect = async (
   await performCandidPreEncounterSync({
     encounterId,
     oystehr: oystehrClient,
-    secrets,
+    secrets: requiredSecrets.secrets,
   });
 
   const noticeToWrite = makePaymentNotice(paymentNoticeInput);

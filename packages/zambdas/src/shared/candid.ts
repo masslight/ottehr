@@ -22,8 +22,18 @@ import {
   EncounterCreateFromPreEncounter,
   ResponsiblePartyType,
 } from 'candidhealth/api/resources/encounters/resources/v4';
-import { AddressUse, ContactPointUse, PatientId } from 'candidhealth/api/resources/preEncounter';
+import {
+  AddressUse,
+  ContactPointUse,
+  NameUse,
+  PatientId,
+  PayerId,
+  Relationship,
+} from 'candidhealth/api/resources/preEncounter';
 import { Sex } from 'candidhealth/api/resources/preEncounter/resources/common/types/Sex';
+import { Coverage as CandidPreEncounterCoverage } from 'candidhealth/api/resources/preEncounter/resources/coverages/resources/v1/types/Coverage';
+import { MutableCoverage } from 'candidhealth/api/resources/preEncounter/resources/coverages/resources/v1/types/MutableCoverage';
+import { Patient as CandidPreEncounterPatient } from 'candidhealth/api/resources/preEncounter/resources/patients/resources/v1/types/Patient';
 import { ServiceLineCreate } from 'candidhealth/api/resources/serviceLines/resources/v2';
 import {
   Appointment,
@@ -489,17 +499,20 @@ function getSelfPayBillingProvider(): BillingProviderData {
 async function fetchPreEncounterPatient(
   medicalRecordNumber: string,
   apiClient: CandidApiClient
-): Promise<string | undefined> {
+): Promise<CandidPreEncounterPatient | undefined> {
   const patientResponse = await apiClient.preEncounter.patients.v1.getMulti({
     limit: 1,
     mrn: medicalRecordNumber,
   });
-  const patientId =
-    patientResponse.ok && patientResponse.body.items.length === 1 ? patientResponse.body.items[0].id : undefined;
-  return patientId;
+  const patient: CandidPreEncounterPatient | undefined =
+    patientResponse.ok && patientResponse.body.items.length === 1 ? patientResponse.body.items[0] : undefined;
+  return patient;
 }
 
-async function createPreEncounterPatient(patient: Patient, apiClient: CandidApiClient): Promise<string | undefined> {
+async function createPreEncounterPatient(
+  patient: Patient,
+  apiClient: CandidApiClient
+): Promise<CandidPreEncounterPatient> {
   const medicalRecordNumber = assertDefined(patient.id, 'Patient resource id');
   const patientName = assertDefined(patient.name?.[0], 'Patient name');
   const patientAddress = assertDefined(patient.address?.[0], 'Patient address');
@@ -544,8 +557,16 @@ async function createPreEncounterPatient(patient: Patient, apiClient: CandidApiC
       },
     },
   });
-  const patientId = patientResponse.ok && patientResponse.body.id ? patientResponse.body.id : undefined;
-  return patientId;
+
+  if (!patientResponse.ok) {
+    throw new Error(
+      `Error creating Candid patient with MRN ${medicalRecordNumber}. Response body: ${JSON.stringify(
+        patientResponse.error
+      )}`
+    );
+  }
+
+  return patientResponse.body;
 }
 
 function mapGenderToSex(gender?: Gender): Sex {
@@ -629,13 +650,132 @@ export const performCandidPreEncounterSync = async (input: PerformCandidPreEncou
     throw new Error(`Patient ID is not defined for encounter ${encounterId}`);
   }
 
-  let candidPreEncounterPatientId = await fetchPreEncounterPatient(ourPatient.id, candidApiClient);
+  let candidPreEncounterPatient = await fetchPreEncounterPatient(ourPatient.id, candidApiClient);
 
-  if (!candidPreEncounterPatientId) {
-    candidPreEncounterPatientId = await createPreEncounterPatient(ourPatient, candidApiClient);
+  if (!candidPreEncounterPatient) {
+    candidPreEncounterPatient = await createPreEncounterPatient(ourPatient, candidApiClient);
   }
 
-  // TODO continue implementation
+  // Create Candid coverages for patient
+  const candidCoverages = await createCandidCoverages(ourPatient, candidPreEncounterPatient, oystehr, candidApiClient);
+
+  // Update patient with the coverages
+  candidPreEncounterPatient = await updateCandidPatientWithCoverages(
+    candidPreEncounterPatient,
+    candidCoverages,
+    candidApiClient
+  );
+};
+
+const updateCandidPatientWithCoverages = async (
+  candidPatient: CandidPreEncounterPatient,
+  candidCoverages: CandidPreEncounterCoverage[],
+  candidApiClient: CandidApiClient
+): Promise<CandidPreEncounterPatient> => {
+  const updatedPatient: CandidPreEncounterPatient = {
+    ...candidPatient,
+    filingOrder: {
+      coverages: candidCoverages.map((coverage) => coverage.id),
+    },
+  };
+
+  const patientResponse = await candidApiClient.preEncounter.patients.v1.update(
+    candidPatient.id,
+    candidPatient.version.toString(),
+    updatedPatient
+  );
+
+  if (!patientResponse.ok) {
+    throw new Error(`Error updating Candid patient. Response body: ${JSON.stringify(patientResponse.error)}`);
+  }
+
+  return patientResponse.body;
+};
+
+const createCandidCoverages = async (
+  patient: Patient,
+  candidPatient: CandidPreEncounterPatient,
+  oystehr: Oystehr,
+  candidApiClient: CandidApiClient
+): Promise<CandidPreEncounterCoverage[]> => {
+  if (!patient.id) {
+    throw new Error(`Patient ID is not defined for patient ${JSON.stringify(patient)}`);
+  }
+
+  const { coverages, insuranceOrgs } = await getAccountAndCoverageResourcesForPatient(patient.id, oystehr);
+
+  const candidCoverages: CandidPreEncounterCoverage[] = [];
+
+  if (coverages.primary && coverages.primarySubscriber && insuranceOrgs[0]) {
+    const candidCoverage = buildCandidCoverageCreateInput(
+      coverages.primary,
+      coverages.primarySubscriber,
+      insuranceOrgs[0],
+      candidPatient
+    );
+    const response = await candidApiClient.preEncounter.coverages.v1.create(candidCoverage);
+    if (!response.ok) {
+      throw new Error(`Error creating Candid Primary coverage. Response body: ${JSON.stringify(response.error)}`);
+    }
+    candidCoverages.push(response.body);
+  } else {
+    throw new Error('Primary coverage or subscriber or payor is not defined');
+  }
+
+  if (coverages.secondary && coverages.secondarySubscriber && insuranceOrgs[1]) {
+    const candidCoverage = buildCandidCoverageCreateInput(
+      coverages.secondary,
+      coverages.secondarySubscriber,
+      insuranceOrgs[1],
+      candidPatient
+    );
+    const response = await candidApiClient.preEncounter.coverages.v1.create(candidCoverage);
+    if (!response.ok) {
+      throw new Error(`Error creating Candid Secondary coverage. Response body: ${JSON.stringify(response.error)}`);
+    }
+    candidCoverages.push(response.body);
+  }
+
+  return candidCoverages;
+};
+
+const buildCandidCoverageCreateInput = (
+  coverage: Coverage,
+  subscriber: RelatedPerson,
+  insuranceOrg: Organization,
+  candidPatient: CandidPreEncounterPatient
+): MutableCoverage => {
+  return {
+    subscriber: {
+      name: {
+        family: assertDefined(subscriber.name?.[0].family, 'Subscriber last name'),
+        given: assertDefined(subscriber.name?.[0].given, 'Subscriber first name'),
+        use: assertDefined(subscriber.name?.[0].use, 'Subscriber name use').toUpperCase() as NameUse,
+      },
+      dateOfBirth: subscriber.birthDate!,
+      biologicalSex: mapGenderToSex(subscriber.gender),
+      address: {
+        line: assertDefined(subscriber.address?.[0].line, 'Subscriber address line'),
+        city: assertDefined(subscriber.address?.[0].city, 'Subscriber city'),
+        state: assertDefined(subscriber.address?.[0].state, 'Subscriber state'),
+        postalCode: assertDefined(subscriber.address?.[0].postalCode, 'Subscriber postal code'),
+        use: mapAddressUse(subscriber.address?.[0].use),
+        country: assertDefined(subscriber.address?.[0].country, 'Subscriber country'),
+      },
+    },
+    relationship: assertDefined(
+      coverage.relationship?.coding?.[0].code,
+      'Subscriber relationship'
+    ).toUpperCase() as Relationship,
+    status: 'ACTIVE',
+    patient: candidPatient.id,
+    verified: true,
+    insurancePlan: {
+      memberId: assertDefined(coverage.subscriberId, 'Member ID'),
+      payerName: assertDefined(insuranceOrg.name, 'Payor name'),
+      payerId: PayerId(assertDefined(insuranceOrg.id, 'Payor id')),
+    },
+  };
 };
 
 const fetchFHIRPatientFromEncounter = async (encounterId: string, oystehr: Oystehr): Promise<Patient> => {
