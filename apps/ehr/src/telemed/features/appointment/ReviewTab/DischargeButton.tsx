@@ -1,5 +1,5 @@
 import CheckIcon from '@mui/icons-material/Check';
-import { Box } from '@mui/material';
+import { Box, Skeleton } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useMemo, useState } from 'react';
 import { useAppointment } from 'src/features/css-module/hooks/useAppointment';
@@ -17,21 +17,20 @@ export const DischargeButton: FC = () => {
   const { refetch } = useAppointment(appointment?.id);
   const { oystehrZambda } = useApiClients();
   const user = useEvolveUser();
-
-  if (!user) {
-    throw new Error('User is not defined');
-  }
-
-  if (!encounter || !encounter.id) {
-    throw new Error('Encounter is not defined');
-  }
-
-  const encounterId: string = encounter.id;
   const [statusLoading, setStatusLoading] = useState<boolean>(false);
 
   const inPersonStatus = useMemo(() => appointment && getVisitStatus(appointment, encounter), [appointment, encounter]);
+  const isDischargedStatus = inPersonStatus === 'ready for discharge';
 
-  const isDischargedStatus = useMemo(() => inPersonStatus === 'ready for discharge', [inPersonStatus]);
+  if (!user || !encounter?.id) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'end' }}>
+        <Skeleton variant="rectangular" width={120} height={36} sx={{ borderRadius: '20px' }} />
+      </Box>
+    );
+  }
+
+  const encounterId: string = encounter.id;
 
   const handleDischarge = async (): Promise<void> => {
     setStatusLoading(true);
