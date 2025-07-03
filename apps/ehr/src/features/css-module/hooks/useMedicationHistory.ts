@@ -10,6 +10,19 @@ export const MEDICATION_HISTORY_FIELDS: MedicationHistoryField[] = ['medications
 export const PATIENT_MEDS_COUNT_TO_LOAD = 100;
 export const COLLAPSED_MEDS_COUNT = 3;
 
+const SEARCH_PARAMS: Record<MedicationHistoryField, SearchParams> = {
+  medications: {
+    _sort: '-effective',
+    _include: 'MedicationStatement:source',
+    _tag: 'current-medication',
+  },
+  inhouseMedications: {
+    _sort: '-effective',
+    _include: 'MedicationStatement:source',
+    _tag: 'in-house-medication',
+  },
+};
+
 export interface MedicationWithTypeDTO extends MedicationDTO {
   chartDataField: MedicationHistoryField;
 }
@@ -32,8 +45,7 @@ export const useMedicationHistory = ({
   const requestedFields = chartDataFields.reduce(
     (acc, field) => {
       acc[field] = {
-        _sort: '-effective',
-        _include: 'MedicationStatement:source',
+        ...SEARCH_PARAMS[field],
         _search_by: search_by,
         _count: count,
       };
