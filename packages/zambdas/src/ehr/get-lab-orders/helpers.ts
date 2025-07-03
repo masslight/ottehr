@@ -250,6 +250,8 @@ export const parseTasks = ({
   reflexFinalTasks: Task[];
   orderedCorrectedTasks: Task[];
   reflexCorrectedTasks: Task[];
+  orderedCancelledResultsTasks: Task[];
+  reflexCancelledResultsTasks: Task[];
 } => {
   if (!serviceRequest.id) {
     return {
@@ -260,6 +262,8 @@ export const parseTasks = ({
       reflexPrelimTasks: [],
       orderedCorrectedTasks: [],
       reflexCorrectedTasks: [],
+      orderedCancelledResultsTasks: [],
+      reflexCancelledResultsTasks: [],
     };
   }
 
@@ -269,8 +273,14 @@ export const parseTasks = ({
 
   // parseResults returns filtered prelim results if there are final results with the same code
   // so we can just use the results from parseResults as base for filtering tasks
-  const { orderedFinalAndCorrectedResults, reflexFinalAndCorrectedResults, orderedPrelimResults, reflexPrelimResults } =
-    cache?.parsedResults || parseResults(serviceRequest, results);
+  const {
+    orderedFinalAndCorrectedResults,
+    reflexFinalAndCorrectedResults,
+    orderedPrelimResults,
+    reflexPrelimResults,
+    orderedCancelledResults,
+    reflexCancelledResults,
+  } = cache?.parsedResults || parseResults(serviceRequest, results);
 
   const orderedPrelimTasks = filterPrelimTasks(tasks, orderedPrelimResults).sort((a, b) =>
     compareDates(a.authoredOn, b.authoredOn)
@@ -280,19 +290,32 @@ export const parseTasks = ({
     compareDates(a.authoredOn, b.authoredOn)
   );
 
-  const orderedFinalTasks = filterFinalTasks(tasks, orderedFinalAndCorrectedResults).sort((a, b) =>
+  // theres a slim possibility that a result is both cancelled and belonging in one of these other arrays,
+  // meaning possibly that we've already received final results for an ordered test and then the lab cancelled it?? (seems super edge case but still)
+  const allOrderedResults = [...orderedFinalAndCorrectedResults, ...orderedCancelledResults];
+  const allReflexResults = [...reflexFinalAndCorrectedResults, ...reflexCancelledResults];
+
+  const orderedFinalTasks = filterFinalTasks(tasks, allOrderedResults).sort((a, b) =>
     compareDates(a.authoredOn, b.authoredOn)
   );
 
-  const reflexFinalTasks = filterFinalTasks(tasks, reflexFinalAndCorrectedResults).sort((a, b) =>
+  const reflexFinalTasks = filterFinalTasks(tasks, allReflexResults).sort((a, b) =>
     compareDates(a.authoredOn, b.authoredOn)
   );
 
-  const orderedCorrectedTasks = filterCorrectedTasks(tasks, orderedFinalAndCorrectedResults).sort((a, b) =>
+  const orderedCorrectedTasks = filterCorrectedTasks(tasks, allOrderedResults).sort((a, b) =>
     compareDates(a.authoredOn, b.authoredOn)
   );
 
-  const reflexCorrectedTasks = filterCorrectedTasks(tasks, reflexFinalAndCorrectedResults).sort((a, b) =>
+  const reflexCorrectedTasks = filterCorrectedTasks(tasks, allReflexResults).sort((a, b) =>
+    compareDates(a.authoredOn, b.authoredOn)
+  );
+
+  const orderedCancelledResultsTasks = filterCancelledResultsTasks(tasks, orderedCancelledResults).sort((a, b) =>
+    compareDates(a.authoredOn, b.authoredOn)
+  );
+
+  const reflexCancelledResultsTasks = filterCancelledResultsTasks(tasks, reflexCancelledResults).sort((a, b) =>
     compareDates(a.authoredOn, b.authoredOn)
   );
 
@@ -306,6 +329,8 @@ export const parseTasks = ({
     reflexFinalTasks,
     orderedCorrectedTasks,
     reflexCorrectedTasks,
+    orderedCancelledResultsTasks,
+    reflexCancelledResultsTasks,
   };
 };
 
@@ -321,6 +346,8 @@ export const parseResults = (
   reflexFinalAndCorrectedResults: DiagnosticReport[];
   orderedPrelimResults: DiagnosticReport[];
   reflexPrelimResults: DiagnosticReport[];
+  orderedCancelledResults: DiagnosticReport[];
+  reflexCancelledResults: DiagnosticReport[];
 } => {
   console.log('parsing results for serviceRequest', serviceRequest.id);
   if (!serviceRequest.id) {
@@ -339,6 +366,8 @@ export const parseResults = (
   const reflexFinalAndCorrectedResults = new Map<string, DiagnosticReport>();
   const orderedPrelimResults = new Map<string, DiagnosticReport>();
   const reflexPrelimResults = new Map<string, DiagnosticReport>();
+  const orderedCancelledResults: DiagnosticReport[] = [];
+  const reflexCancelledResults: DiagnosticReport[] = [];
 
   const finalResultStatuses = ['final', 'corrected'];
 
@@ -357,6 +386,8 @@ export const parseResults = (
         orderedPrelimResults.set(result.id, result);
       } else if (finalResultStatuses.includes(result.status)) {
         orderedFinalAndCorrectedResults.set(result.id, result);
+      } else if (result.status === 'cancelled') {
+        orderedCancelledResults.push(result);
       } else {
         console.log(`Error: unknown status "${result.status}" for ordered result ${result.id}`);
       }
@@ -365,6 +396,8 @@ export const parseResults = (
         reflexPrelimResults.set(result.id, result);
       } else if (finalResultStatuses.includes(result.status)) {
         reflexFinalAndCorrectedResults.set(result.id, result);
+      } else if (result.status === 'cancelled') {
+        reflexCancelledResults.push(result);
       } else {
         console.log(`Error: unknown status "${result.status}" for reflex result ${result.id}`);
       }
@@ -377,20 +410,13 @@ export const parseResults = (
   deletePrelimResultsIfFinalExists(orderedPrelimResults, orderedFinalCodes);
   deletePrelimResultsIfFinalExists(reflexPrelimResults, reflexFinalCodes);
 
-  // todo: check the sort approach is correct
   return {
-    orderedFinalAndCorrectedResults: Array.from(orderedFinalAndCorrectedResults.values()).sort((a, b) =>
-      compareDates(a.meta?.lastUpdated, b.meta?.lastUpdated)
-    ),
-    reflexFinalAndCorrectedResults: Array.from(reflexFinalAndCorrectedResults.values()).sort((a, b) =>
-      compareDates(a.meta?.lastUpdated, b.meta?.lastUpdated)
-    ),
-    orderedPrelimResults: Array.from(orderedPrelimResults.values()).sort((a, b) =>
-      compareDates(a.meta?.lastUpdated, b.meta?.lastUpdated)
-    ),
-    reflexPrelimResults: Array.from(reflexPrelimResults.values()).sort((a, b) =>
-      compareDates(a.meta?.lastUpdated, b.meta?.lastUpdated)
-    ),
+    orderedFinalAndCorrectedResults: Array.from(orderedFinalAndCorrectedResults.values()),
+    reflexFinalAndCorrectedResults: Array.from(reflexFinalAndCorrectedResults.values()),
+    orderedPrelimResults: Array.from(orderedPrelimResults.values()),
+    reflexPrelimResults: Array.from(reflexPrelimResults.values()),
+    orderedCancelledResults: orderedCancelledResults,
+    reflexCancelledResults: reflexCancelledResults,
   };
 };
 
@@ -1012,13 +1038,25 @@ export const parseLabOrderStatus = (
   const { orderedFinalAndCorrectedResults, reflexFinalAndCorrectedResults, orderedPrelimResults, reflexPrelimResults } =
     cache?.parsedResults || parseResults(serviceRequest, results);
 
-  const { taskPST, orderedFinalTasks, reflexFinalTasks, orderedCorrectedTasks, reflexCorrectedTasks } =
+  const {
+    taskPST,
+    orderedFinalTasks,
+    reflexFinalTasks,
+    orderedCorrectedTasks,
+    reflexCorrectedTasks,
+    orderedCancelledResultsTasks,
+    reflexCancelledResultsTasks,
+  } =
     cache?.parsedTasks ||
     parseTasks({
       tasks,
       serviceRequest,
       results,
     });
+
+  if (orderedCancelledResultsTasks.length > 0 || reflexCancelledResultsTasks.length > 0) {
+    return ExternalLabsStatus['cancelled by lab'];
+  }
 
   const finalAndCorrectedTasks = [
     ...orderedFinalTasks,
@@ -1144,6 +1182,28 @@ export const parseLabOrderStatus = (
     )
   );
 
+  return ExternalLabsStatus.unknown;
+};
+
+// can we use this in place of parseLabOrderStatus? i dont understand why that one is so much more complicated
+const parseLabOrderStatusWithSpecificTask = (
+  result: DiagnosticReport,
+  task: Task,
+  serviceRequest: ServiceRequest,
+  PSTTask: Task | null
+): ExternalLabsStatus => {
+  if (
+    result.status === 'cancelled' &&
+    task.code?.coding?.some((c) => c.code === LAB_ORDER_TASK.code.reviewCancelledResult)
+  )
+    return ExternalLabsStatus['cancelled by lab'];
+  if (result.status === 'final' && task.status === 'ready') return ExternalLabsStatus.received;
+  if (result.status === 'corrected' && task.status === 'ready') return ExternalLabsStatus.corrected;
+  if ((result.status === 'final' || result.status == 'corrected') && task.status === 'completed')
+    return ExternalLabsStatus.reviewed;
+  if (result.status === 'preliminary') return ExternalLabsStatus.prelim;
+  if (serviceRequest.status === 'draft' && PSTTask?.status === 'ready') return ExternalLabsStatus.pending;
+  if (serviceRequest.status === 'active' && PSTTask?.status === 'completed') return ExternalLabsStatus.sent;
   return ExternalLabsStatus.unknown;
 };
 
@@ -1427,7 +1487,14 @@ export const parseLabOrdersHistory = (
   cache?: Cache
 ): LabOrderHistoryRow[] => {
   console.log('building order history for external lab service request', serviceRequest.id);
-  const { orderedFinalTasks, reflexFinalTasks, orderedCorrectedTasks, reflexCorrectedTasks } =
+  const {
+    orderedFinalTasks,
+    reflexFinalTasks,
+    orderedCorrectedTasks,
+    reflexCorrectedTasks,
+    orderedCancelledResultsTasks,
+    reflexCancelledResultsTasks,
+  } =
     cache?.parsedTasks ||
     parseTasks({
       tasks,
@@ -1481,6 +1548,14 @@ export const parseLabOrdersHistory = (
 
   finalTasks.forEach((task) => {
     history.push(...parseTaskReceivedAndReviewedAndCorrectedHistory(task, practitioners, provenances));
+  });
+
+  [...orderedCancelledResultsTasks, ...reflexCancelledResultsTasks].forEach((task) => {
+    history.push({
+      action: 'cancelled by lab',
+      performer: '',
+      date: task.authoredOn || '',
+    });
   });
 
   return history.sort((a, b) => compareDates(b.date, a.date));
@@ -1625,8 +1700,14 @@ export const parseLResultsDetails = (
     return [];
   }
 
-  const { orderedFinalAndCorrectedResults, reflexFinalAndCorrectedResults, orderedPrelimResults, reflexPrelimResults } =
-    cache?.parsedResults || parseResults(serviceRequest, results);
+  const {
+    orderedFinalAndCorrectedResults,
+    reflexFinalAndCorrectedResults,
+    orderedPrelimResults,
+    reflexPrelimResults,
+    orderedCancelledResults,
+    reflexCancelledResults,
+  } = cache?.parsedResults || parseResults(serviceRequest, results);
 
   const {
     orderedFinalTasks,
@@ -1635,6 +1716,8 @@ export const parseLResultsDetails = (
     reflexPrelimTasks,
     orderedCorrectedTasks,
     reflexCorrectedTasks,
+    orderedCancelledResultsTasks,
+    reflexCancelledResultsTasks,
   } =
     cache?.parsedTasks ||
     parseTasks({
@@ -1670,6 +1753,18 @@ export const parseLResultsDetails = (
       testType: 'reflex' as const,
       resultType: 'preliminary' as const,
     },
+    {
+      results: orderedCancelledResults,
+      tasks: orderedCancelledResultsTasks,
+      testType: 'ordered' as const,
+      resultType: 'cancelled' as const,
+    },
+    {
+      results: reflexCancelledResults,
+      tasks: reflexCancelledResultsTasks,
+      testType: 'ordered' as const,
+      resultType: 'cancelled' as const,
+    },
   ].forEach(({ results, tasks, testType, resultType }) => {
     results.forEach((result) => {
       const details = parseResultDetails(result, tasks, serviceRequest);
@@ -1704,21 +1799,7 @@ export const parseResultDetails = (
 
   const details = {
     testItem: result.code?.text || result.code?.coding?.[0]?.display || 'Unknown Test',
-    labStatus:
-      // todo: move status checkers to helper
-      result.status === 'final' && task.status === 'ready'
-        ? ExternalLabsStatus.received
-        : result.status === 'corrected' && task.status === 'ready'
-        ? ExternalLabsStatus.corrected
-        : (result.status === 'final' || result.status == 'corrected') && task.status === 'completed'
-        ? ExternalLabsStatus.reviewed
-        : result.status === 'preliminary'
-        ? ExternalLabsStatus.prelim
-        : serviceRequest.status === 'draft' && PSTTask?.status === 'ready'
-        ? ExternalLabsStatus.pending
-        : serviceRequest.status === 'active' && PSTTask?.status === 'completed'
-        ? ExternalLabsStatus.sent
-        : ExternalLabsStatus.unknown,
+    labStatus: parseLabOrderStatusWithSpecificTask(result, task, serviceRequest, PSTTask),
     diagnosticReportId: result.id,
     taskId: task.id,
     receivedDate: task.authoredOn || '',
@@ -1767,6 +1848,14 @@ export const isTaskCorrected = (task: Task): boolean => {
   return (
     task.code?.coding?.some(
       (coding) => coding.system === LAB_ORDER_TASK.system && coding.code === LAB_ORDER_TASK.code.reviewCorrectedResult
+    ) || false
+  );
+};
+
+const isTaskCancelledResult = (task: Task): boolean => {
+  return (
+    task.code?.coding?.some(
+      (coding) => coding.system === LAB_ORDER_TASK.system && coding.code === LAB_ORDER_TASK.code.reviewCancelledResult
     ) || false
   );
 };
@@ -1843,6 +1932,11 @@ export const filterPrelimTasks = (tasks: Task[], results: DiagnosticReport[]): T
 export const filterCorrectedTasks = (tasks: Task[], results: DiagnosticReport[]): Task[] => {
   const relatedTasks = filterResourcesBasedOnDiagnosticReports(tasks, results);
   return relatedTasks.filter(isTaskCorrected);
+};
+
+export const filterCancelledResultsTasks = (tasks: Task[], results: DiagnosticReport[]): Task[] => {
+  const relatedTasks = filterResourcesBasedOnDiagnosticReports(tasks, results);
+  return relatedTasks.filter(isTaskCancelledResult);
 };
 
 export const parseDx = (serviceRequest: ServiceRequest): string => {
