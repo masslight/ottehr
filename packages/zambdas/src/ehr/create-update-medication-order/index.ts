@@ -1,6 +1,14 @@
-import Oystehr, { BatchInputRequest, Bundle } from '@oystehr/sdk';
+import Oystehr, { BatchInput, BatchInputRequest, Bundle } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { CodeableConcept, Medication, MedicationAdministration, MedicationStatement, Patient } from 'fhir/r4b';
+import { randomUUID } from 'crypto';
+import {
+  CodeableConcept,
+  Medication,
+  MedicationAdministration,
+  MedicationRequest,
+  MedicationStatement,
+  Patient,
+} from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   getMedicationName,
@@ -20,7 +28,11 @@ import {
   UpdateMedicationOrderInput,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, ZambdaInput } from '../../shared';
-import { createMedicationAdministrationResource, createMedicationStatementResource } from './fhir-recources-creation';
+import {
+  createMedicationAdministrationResource,
+  createMedicationRequest,
+  createMedicationStatementResource,
+} from './fhir-recources-creation';
 import {
   createMedicationCopy,
   getMedicationById,
@@ -174,6 +186,8 @@ async function createOrder(
   if (orderData.location && !locationCoding)
     throw new Error(`No location found with code provided: ${orderData.location}`);
 
+  const medicationRequestToCreate = createMedicationRequest(orderData);
+  const medicationRequestFullUrl = 'urn:uuid:' + randomUUID();
   const medicationAdministrationToCreate = createMedicationAdministrationResource({
     orderData,
     status: mapOrderStatusToFhir('pending'),
@@ -183,9 +197,31 @@ async function createOrder(
     dateTimeCreated: DateTime.now().toISO(),
     medicationResource: medicationCopy,
   });
-  console.log('MedicationAdministration resource: ', JSON.stringify(medicationAdministrationToCreate));
-  const resultMedicationAdministration = await oystehr.fhir.create(medicationAdministrationToCreate);
-  return resultMedicationAdministration.id;
+  medicationAdministrationToCreate.request = {
+    reference: medicationRequestFullUrl,
+  };
+
+  const transactionInput: BatchInput<MedicationRequest | MedicationAdministration> = {
+    requests: [
+      {
+        method: 'POST',
+        fullUrl: medicationRequestFullUrl,
+        url: '/MedicationRequest',
+        resource: medicationRequestToCreate,
+      },
+      {
+        method: 'POST',
+        url: '/MedicationAdministration',
+        resource: medicationAdministrationToCreate,
+      },
+    ],
+  };
+  console.log('Transaction input: ', JSON.stringify(transactionInput));
+
+  const createdResources = (await oystehr.fhir.transaction(transactionInput)).unbundle();
+  console.log('Transaction result: ', JSON.stringify(createdResources));
+
+  return createdResources.find((resource) => resource.resourceType === 'MedicationAdministration')?.id;
 }
 
 async function changeOrderStatus(

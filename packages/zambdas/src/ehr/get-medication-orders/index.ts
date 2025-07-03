@@ -1,12 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { MedicationAdministration, Patient, Practitioner } from 'fhir/r4b';
+import { MedicationAdministration, MedicationRequest, Patient, Practitioner } from 'fhir/r4b';
 import {
   ExtendedMedicationDataForResponse,
   getDosageUnitsAndRouteOfMedication,
   getFullestAvailableName,
   getLocationCodeFromMedicationAdministration,
+  getMedicationInteractions,
   getMedicationName,
   GetMedicationOrdersInput,
   GetMedicationOrdersResponse,
@@ -60,7 +61,7 @@ async function performEffect(
 }
 
 function mapMedicalAdministrationToDTO(orderPackage: OrderPackage): ExtendedMedicationDataForResponse {
-  const { medicationAdministration, providerCreatedOrder, providerAdministeredOrder } = orderPackage;
+  const { medicationAdministration, providerCreatedOrder, providerAdministeredOrder, medicationRequest } = orderPackage;
   const medication = getMedicationFromMA(medicationAdministration);
   const dosageUnitsRoute = getDosageUnitsAndRouteOfMedication(medicationAdministration);
   const orderReasons = getReasonAndOtherReasonForNotAdministeredOrder(medicationAdministration);
@@ -98,6 +99,8 @@ function mapMedicalAdministrationToDTO(orderPackage: OrderPackage): ExtendedMedi
     timeGiven: administeredInfo?.timeAdministered,
     administeredProviderId: administeredInfo?.administeredProviderId,
     administeredProvider: providerAdministeredOrderName,
+
+    interactions: getMedicationInteractions(medicationRequest),
   };
 }
 
@@ -120,6 +123,10 @@ async function getOrderPackages(oystehr: Oystehr, encounterId: string): Promise<
       {
         name: '_include',
         value: 'MedicationAdministration:performer',
+      },
+      {
+        name: '_include',
+        value: 'MedicationAdministration:request',
       },
     ],
   });
@@ -147,11 +154,17 @@ async function getOrderPackages(oystehr: Oystehr, encounterId: string): Promise<
     const idOfProviderAdministeredOrder = getProviderIdAndDateMedicationWasAdministered(ma)?.administeredProviderId;
     const providerAdministeredOrder = resources.find((res) => res.id === idOfProviderAdministeredOrder) as Practitioner;
 
+    const medicationRequestId = ma.request?.reference?.split('/')[1];
+    const medicationRequest = resources.find(
+      (resource) => resource.resourceType === 'MedicationRequest' && resource.id === medicationRequestId
+    ) as MedicationRequest;
+
     resultPackages.push({
       medicationAdministration: ma,
       patient,
       providerCreatedOrder,
       providerAdministeredOrder,
+      medicationRequest,
     });
   });
 

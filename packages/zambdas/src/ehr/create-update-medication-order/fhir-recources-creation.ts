@@ -1,5 +1,21 @@
-import { CodeableConcept, Medication, MedicationAdministration, MedicationStatement } from 'fhir/r4b';
-import { createReference, IN_HOUSE_CONTAINED_MEDICATION_ID, MedicationData } from 'utils';
+import {
+  CodeableConcept,
+  DetectedIssue,
+  Medication,
+  MedicationAdministration,
+  MedicationRequest,
+  MedicationStatement,
+} from 'fhir/r4b';
+import {
+  AllergyInteraction,
+  CODE_SYSTEM_ACT_CODE_V3,
+  createReference,
+  DrugInteraction,
+  IN_HOUSE_CONTAINED_MEDICATION_ID,
+  INTERACTION_OVERRIDE_REASON_CODE_SYSTEM,
+  MEDICATION_DISPENSABLE_DRUG_ID,
+  MedicationData,
+} from 'utils';
 import {
   DATE_OF_MEDICATION_ADMINISTERED_SYSTEM,
   getCreatedTheOrderProviderId,
@@ -149,6 +165,107 @@ export function createMedicationAdministrationResource(data: MedicationAdministr
     };
   if (orderData.associatedDx) resource.reasonReference = [{ reference: `Condition/${orderData.associatedDx}` }];
   return resource;
+}
+
+export function createMedicationRequest(data: MedicationData): MedicationRequest {
+  const detectedIssues = [
+    ...(data.interactions?.drugInteractions?.map((interaction, index) =>
+      createDrugInteractionIssue('drg-' + index, interaction)
+    ) ?? []),
+    ...(data.interactions?.allergyInteractions?.map((interaction, index) =>
+      createAllergyInteractionIssue('algy-' + index, interaction)
+    ) ?? []),
+  ];
+  return {
+    resourceType: 'MedicationRequest',
+    status: 'active',
+    intent: 'order',
+    subject: { reference: `Patient/${data.patient}` },
+    encounter: data.encounter ? { reference: `Encounter/${data.encounter}` } : undefined,
+    detectedIssue:
+      detectedIssues.length > 0
+        ? detectedIssues.map((detectedIssue) => ({
+            reference: '#' + detectedIssue.id,
+          }))
+        : undefined,
+    contained: detectedIssues.length > 0 ? detectedIssues : undefined,
+  };
+}
+
+function createDrugInteractionIssue(resourceId: string, interation: DrugInteraction): DetectedIssue {
+  return {
+    resourceType: 'DetectedIssue',
+    id: resourceId,
+    status: 'registered',
+    code: {
+      coding: [
+        {
+          system: CODE_SYSTEM_ACT_CODE_V3,
+          code: 'DRG',
+        },
+      ],
+    },
+    severity: interation.severity,
+    detail: interation.message,
+    mitigation: [
+      {
+        action: {
+          coding: [
+            {
+              system: INTERACTION_OVERRIDE_REASON_CODE_SYSTEM,
+              code: interation.overrideReason,
+              display: interation.overrideReason,
+            },
+          ],
+        },
+      },
+    ],
+    evidence: interation.drugs.map((drug) => {
+      return {
+        code: [
+          {
+            coding: [
+              {
+                system: MEDICATION_DISPENSABLE_DRUG_ID,
+                code: drug.id,
+                display: drug.name,
+              },
+            ],
+          },
+        ],
+      };
+    }),
+  };
+}
+
+function createAllergyInteractionIssue(resourceId: string, interation: AllergyInteraction): DetectedIssue {
+  return {
+    resourceType: 'DetectedIssue',
+    id: resourceId,
+    status: 'registered',
+    code: {
+      coding: [
+        {
+          system: CODE_SYSTEM_ACT_CODE_V3,
+          code: 'ALGY',
+        },
+      ],
+    },
+    detail: interation.message,
+    mitigation: [
+      {
+        action: {
+          coding: [
+            {
+              system: INTERACTION_OVERRIDE_REASON_CODE_SYSTEM,
+              code: interation.overrideReason,
+              display: interation.overrideReason,
+            },
+          ],
+        },
+      },
+    ],
+  };
 }
 
 export function createMedicationStatementResource(
