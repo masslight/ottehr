@@ -19,7 +19,6 @@ import {
   DocumentReference,
   FhirResource,
   Flag,
-  InsurancePlan,
   List,
   Location,
   Organization,
@@ -68,8 +67,8 @@ import {
   getPatchOperationToAddOrUpdatePreferredName,
   getPatchOperationToRemoveExtension,
   getPatchOperationToRemovePreferredLanguage,
+  getPayerId,
   getPhoneNumberForIndividual,
-  getResourcesFromBatchInlineRequests,
   getSecret,
   getStripeCustomerIdFromAccount,
   INSURANCE_CARD_BACK_2_ID,
@@ -1388,6 +1387,8 @@ export const getCoverageResources = (input: GetCoveragesInput): GetCoverageResou
     questionnaireResponse.item as IntakeQuestionnaireItem[]
   ) as QuestionnaireResponseItem[];
   const isSecondaryOnly = checkIsSecondaryOnly(flattenedPaperwork);
+  console.log('isSecondaryOnly', isSecondaryOnly);
+  console.log('organizationResources', JSON.stringify(organizationResources, null, 2));
   let firstPolicyHolder: PolicyHolder | undefined;
   let firstInsuranceDetails: InsuranceDetails | undefined;
   let secondPolicyHolder = getSecondaryPolicyHolderFromAnswers(questionnaireResponse.item ?? []);
@@ -1400,6 +1401,11 @@ export const getCoverageResources = (input: GetCoveragesInput): GetCoverageResou
     secondInsuranceDetails =
       secondInsuranceDetails ?? getInsuranceDetailsFromAnswers(flattenedPaperwork, organizationResources);
   }
+
+  console.log('firstPolicyHolder', firstPolicyHolder);
+  console.log('firstInsuranceDetails', firstInsuranceDetails);
+  console.log('secondPolicyHolder', secondPolicyHolder);
+  console.log('secondInsuranceDetails', secondInsuranceDetails);
 
   const firstInsurance =
     firstPolicyHolder && firstInsuranceDetails
@@ -1458,6 +1464,8 @@ export const getCoverageResources = (input: GetCoveragesInput): GetCoverageResou
       });
     }
   }
+  console.log('newCoverages', JSON.stringify(newCoverages, null, 2));
+  console.log('accountCoverage', JSON.stringify(coverage, null, 2));
   return { orderedCoverages: newCoverages, accountCoverage: coverage };
 };
 
@@ -1503,17 +1511,27 @@ function resolveInsurancePriorities(
 
 export async function searchInsuranceInformation(
   oystehr: Oystehr,
-  insurancePlans: string[]
-): Promise<(InsurancePlan | Organization)[]> {
-  const requests: string[] = [];
-  insurancePlans.forEach((insurancePlan) => {
-    const id = insurancePlan.split('/')[1];
-    requests.push(`/InsurancePlan?_id=${id}&_include=InsurancePlan:owned-by`);
+  insuranceOrgRefs: string[]
+): Promise<Organization[]> {
+  const orgIds = insuranceOrgRefs
+    .map((ref) => {
+      const [resType, id] = ref.split('/');
+      if (resType === 'Organization' && id) {
+        return id;
+      }
+      return '';
+    })
+    .filter((id) => !!id);
+  const searchResults = await oystehr.fhir.search<Organization>({
+    resourceType: 'Organization',
+    params: [
+      {
+        name: '_id',
+        value: orgIds.join(','),
+      },
+    ],
   });
-
-  return (await getResourcesFromBatchInlineRequests(oystehr, requests)) as unknown as Promise<
-    (InsurancePlan | Organization)[]
-  >;
+  return searchResults.unbundle();
 }
 
 const getCoverageGroups = (items: QuestionnaireResponseItem[]): QuestionnaireResponseItem[][] => {
@@ -1721,9 +1739,11 @@ function getInsuranceDetailsFromAnswers(
   const suffix = keySuffix ? `${keySuffix}` : '';
   const insurancePlanReference = answers.find((item) => item.linkId === `insurance-carrier${suffix}`)?.answer?.[0]
     ?.valueReference;
+  console.log('insurancePlanReference', insurancePlanReference);
   if (!insurancePlanReference) return undefined;
 
-  const org = organizations.find((org) => org.id === insurancePlanReference.reference);
+  const org = organizations.find((org) => `${org.resourceType}/${org.id}` === insurancePlanReference.reference);
+  console.log('insurancePlanReference + org', org, organizations);
   if (!org) return undefined;
 
   const additionalInformation = answers.find((item) => item.linkId === `insurance-additional-information${suffix}`)
@@ -1745,6 +1765,12 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
   const { patientId, insurance } = input;
   const { org, policyHolder, additionalInformation } = insurance;
   const memberId = policyHolder.memberId;
+
+  const payerId = getPayerId(org);
+
+  if (!payerId) {
+    throw new Error('payerId unexpectedly missing from insuranceOrg');
+  }
 
   const policyHolderId = 'coverageSubscriber';
   const policyHolderName = createFhirHumanName(policyHolder.firstName, policyHolder.middleName, policyHolder.lastName);
@@ -1807,7 +1833,7 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
             },
           ],
         },
-        value: '', // todo: get the org identifier
+        value: payerId,
         name: `${org.name ?? ''}`,
       },
     ],
@@ -2924,6 +2950,7 @@ export const updatePatientAccountFromQuestionnaire = async (
   const secondaryInsurancePlan = flattenedPaperwork.find((item) => item.linkId === InsuranceCarrierKeys.secondary)
     ?.answer?.[0]?.valueReference?.reference;
   if (secondaryInsurancePlan) insuranceOrgs.push(secondaryInsurancePlan);
+  console.log('insuranceOrgs', insuranceOrgs);
   const insuranceInformationResources = await searchInsuranceInformation(oystehr, insuranceOrgs);
   console.log('insurance information resources', JSON.stringify(insuranceInformationResources, null, 2));
   const organizationResources = insuranceInformationResources.filter(
