@@ -240,8 +240,10 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
         const message = `Your visit for ${getPatientFirstName(
           patient
         )} has been canceled. Tap ${url} to book a new visit.`;
+        // cSpell:disable-next Spanish
         const messageSpanish = `Su consulta para ${getPatientFirstName(
           patient
+          // cSpell:disable-next Spanish
         )} ha sido cancelada. Toque ${url} para reservar una nueva consulta.`;
 
         let selectedMessage;

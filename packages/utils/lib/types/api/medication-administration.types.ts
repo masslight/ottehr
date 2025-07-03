@@ -53,8 +53,7 @@ export interface MedicationData {
   expDate?: string;
 
   // administrating
-  dateGiven?: string;
-  timeGiven?: string;
+  effectiveDateTime?: string;
 }
 
 export interface ExtendedMedicationDataForResponse extends MedicationData {
@@ -73,8 +72,7 @@ export interface ExtendedMedicationDataForResponse extends MedicationData {
   //   providerName: string;
   // };
   // administeredData?: {
-  //   dateGiven: string;
-  //   timeGiven: string;
+  //   effectiveDateTime: string;
   //   providerId: string;
   //   providerName: string;
   // };
@@ -257,6 +255,7 @@ export const medicationApplianceLocations: MedicationApplianceLocation[] = [
     display: 'Nonrebreather oxygen mask (physical object)',
   },
   {
+    // cSpell:disable-next facemask
     name: 'liters via facemask',
     code: '261352009',
     system: MEDICATION_APPLIANCE_LOCATION_SYSTEM,

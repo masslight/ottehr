@@ -19,13 +19,12 @@ export const medicationOrderFieldsWithOptions: Partial<keyof ExtendedMedicationD
 
 export type MedicationOrderFieldWithOptionsType = (typeof medicationOrderFieldsWithOptions)[number];
 
-export type InHouseMedicationFieldType = 'text' | 'number' | 'select' | 'date' | 'time' | 'month' | 'autocomplete';
+export type InHouseMedicationFieldType = 'text' | 'number' | 'select' | 'datetime' | 'month' | 'autocomplete';
 
 export const getFieldType = (field: keyof MedicationData): InHouseMedicationFieldType => {
   if (field === 'dose') return 'number';
   if (field === 'expDate') return 'month';
-  if (field === 'dateGiven') return 'date';
-  if (field === 'timeGiven') return 'time';
+  if (field === 'effectiveDateTime') return 'datetime';
   if (field === 'medicationId') return 'autocomplete';
   if (medicationOrderFieldsWithOptions.includes(field)) return 'select';
   return 'text';
@@ -217,14 +216,16 @@ export const getConfirmSaveModalConfigs = ({
 export const getInitialAutoFilledFields = (
   medication: ExtendedMedicationDataForResponse | undefined,
   autoFilledFieldsRef: React.MutableRefObject<Partial<MedicationData>>
-): Partial<Record<'dateGiven' | 'timeGiven', string>> => {
-  const shouldSetDefaultTime = medication?.status === 'pending' && !medication?.dateGiven && !medication?.timeGiven;
+): Partial<Record<'effectiveDateTime', string>> => {
+  const shouldSetDefaultTime = medication?.status === 'pending' && !medication?.effectiveDateTime;
 
   if (shouldSetDefaultTime) {
+    const currentDateTime = DateTime.now().toISO();
+
     autoFilledFieldsRef.current = {
-      dateGiven: DateTime.now().toFormat('yyyy-MM-dd'),
-      timeGiven: DateTime.now().toFormat('HH:mm:ss'),
+      effectiveDateTime: currentDateTime,
     };
+
     return autoFilledFieldsRef.current;
   }
 

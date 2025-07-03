@@ -24,7 +24,7 @@ import { validateInput, validateSecrets } from './validation';
 
 // Types
 export interface ValidatedInput {
-  body: GetRadiologyOrderListZambdaInput;
+  body: Omit<GetRadiologyOrderListZambdaInput, 'encounterIds'> & { encounterIds?: string[] };
   callerAccessToken: string;
 }
 
@@ -80,7 +80,7 @@ const performEffect = async (
   oystehr: Oystehr
 ): Promise<GetRadiologyOrderListZambdaOutput> => {
   const {
-    encounterId,
+    encounterIds,
     patientId,
     serviceRequestId,
     itemsPerPage = DEFAULT_RADIOLOGY_ITEMS_PER_PAGE,
@@ -134,12 +134,7 @@ const performEffect = async (
     },
   ];
 
-  if (encounterId) {
-    searchParams.push({
-      name: 'encounter',
-      value: `Encounter/${encounterId}`,
-    });
-  } else if (patientId) {
+  if (patientId) {
     searchParams.push({
       name: 'subject',
       value: `Patient/${patientId}`,
@@ -148,6 +143,11 @@ const performEffect = async (
     searchParams.push({
       name: '_id',
       value: serviceRequestId,
+    });
+  } else if (encounterIds) {
+    searchParams.push({
+      name: 'encounter',
+      value: encounterIds.map((id) => `Encounter/${id}`).join(','),
     });
   } else {
     throw new Error('Either encounterId or patientId must be provided, should not happen if validation step worked');

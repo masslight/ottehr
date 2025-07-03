@@ -46,7 +46,7 @@ export const Hospitalization: React.FC<HospitalizationProps> = () => {
         patientSide={<HospitalizationPatientComponent />}
         patientSideLabel="Patient provided"
         providerSide={<HospitalizationForm />}
-        providerSideLabel="Clinical support input"
+        providerSideLabel="Healthcare staff input"
       />
     </Stack>
   );

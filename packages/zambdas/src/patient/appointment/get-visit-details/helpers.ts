@@ -3,7 +3,7 @@ import { DocumentReference, MedicationRequest } from 'fhir/r4b';
 import {
   FileURLs,
   getPresignedURL,
-  MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM,
+  MEDICATION_DISPENSABLE_DRUG_ID,
   PaymentDataResponse,
   PrescribedMedication,
 } from 'utils';
@@ -66,7 +66,7 @@ export async function getPaymentDataRequest(
 ): Promise<PaymentDataResponse> {
   const serviceUrl = `${apiUrl}/payment/charge/status`;
 
-  console.debug(`Geting payment data at ${serviceUrl} for encounter ${encounterId}`);
+  console.debug(`Getting payment data at ${serviceUrl} for encounter ${encounterId}`);
 
   if (encounterId === undefined) {
     throw new Error('Encounter ID must be specified for payments.');
@@ -112,7 +112,7 @@ function makePrescribedMedicationDTO(medRequest: MedicationRequest): PrescribedM
   return {
     resourceId: medRequest.id,
     name: medRequest.medicationCodeableConcept?.coding?.find(
-      (coding) => coding.system === MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM
+      (coding) => coding.system === MEDICATION_DISPENSABLE_DRUG_ID
     )?.display,
     instructions: medRequest.dosageInstruction?.[0]?.patientInstruction,
   };

@@ -1,7 +1,6 @@
 import { CodeableConcept, Medication, MedicationAdministration, MedicationStatement } from 'fhir/r4b';
 import {
   createReference,
-  DATE_OF_MEDICATION_ADMINISTERED_SYSTEM,
   getCreatedTheOrderProviderId,
   IN_HOUSE_CONTAINED_MEDICATION_ID,
   MEDICATION_ADMINISTRATION_CSS_RESOURCE_CODE,
@@ -16,8 +15,8 @@ import {
   MedicationData,
   PRACTITIONER_ADMINISTERED_MEDICATION_CODE,
   PRACTITIONER_ORDERED_MEDICATION_CODE,
-  TIME_OF_MEDICATION_ADMINISTERED_SYSTEM,
 } from 'utils';
+import { fillMeta } from '../../shared';
 
 export interface MedicationAdministrationData {
   orderData: MedicationData;
@@ -79,7 +78,7 @@ export function createMedicationAdministrationResource(data: MedicationAdministr
       },
     ];
   }
-  if (dateTimeCreated) resource.effectiveDateTime = dateTimeCreated;
+  if (dateTimeCreated) resource.effectiveDateTime = dateTimeCreated; // todo: check if this is correct, effectiveDateTime is not date of creation, it's date of administration
   if (medicationResource) {
     resource.contained = [{ ...medicationResource, id: IN_HOUSE_CONTAINED_MEDICATION_ID }];
   }
@@ -116,7 +115,8 @@ export function createMedicationAdministrationResource(data: MedicationAdministr
       text: orderData.otherReason,
     });
   }
-  if (administeredProviderId && orderData.dateGiven && orderData.timeGiven)
+  // todo: check if we should validate effectiveDateTime to add performer
+  if (administeredProviderId && orderData.effectiveDateTime)
     resource.performer?.push({
       actor: { reference: `Practitioner/${administeredProviderId}` },
       function: {
@@ -127,16 +127,6 @@ export function createMedicationAdministrationResource(data: MedicationAdministr
           },
         ],
       },
-      extension: [
-        {
-          url: DATE_OF_MEDICATION_ADMINISTERED_SYSTEM,
-          valueDate: orderData.dateGiven,
-        },
-        {
-          url: TIME_OF_MEDICATION_ADMINISTERED_SYSTEM,
-          valueTime: orderData.timeGiven,
-        },
-      ],
     });
   if (orderData.instructions && resource.dosage) resource.dosage.text = orderData.instructions;
   if (location && resource.dosage)
@@ -155,7 +145,8 @@ export function createMedicationAdministrationResource(data: MedicationAdministr
 
 export function createMedicationStatementResource(
   medicationAdministration: MedicationAdministration,
-  medicationCodeableConcept: CodeableConcept
+  medicationCodeableConcept: CodeableConcept,
+  options: { effectiveDateTime?: string | undefined } = {}
 ): MedicationStatement {
   return {
     resourceType: 'MedicationStatement',
@@ -176,5 +167,7 @@ export function createMedicationStatementResource(
     ],
     subject: medicationAdministration.subject,
     informationSource: { reference: 'Practitioner/' + getCreatedTheOrderProviderId(medicationAdministration) },
+    ...(options.effectiveDateTime && { effectiveDateTime: options.effectiveDateTime }),
+    meta: fillMeta('in-house-medication', 'in-house-medication'),
   };
 }

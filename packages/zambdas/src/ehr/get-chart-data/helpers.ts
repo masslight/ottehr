@@ -226,7 +226,7 @@ export async function convertSearchResultsToResponse(
   }
 
   return {
-    chartData: { ...getChartDataResponse },
+    chartData: getChartDataResponse,
     chartResources: chartDataResources,
   };
 }

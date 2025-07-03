@@ -39,6 +39,7 @@ export const index = wrapHandler('get-lab-orders', async (input: ZambdaInput): P
       orderPDF,
       specimens,
       patientLabItems,
+      appointmentScheduleMap,
     } = await getLabResources(oystehr, validatedParameters, m2mToken, {
       searchBy: validatedParameters.searchBy,
     });
@@ -70,6 +71,7 @@ export const index = wrapHandler('get-lab-orders', async (input: ZambdaInput): P
       resultPDFs,
       orderPDF,
       specimens,
+      appointmentScheduleMap,
       ENVIRONMENT
     );
 

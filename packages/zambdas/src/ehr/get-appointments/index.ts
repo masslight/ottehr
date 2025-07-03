@@ -597,11 +597,11 @@ const makeAppointmentInformation = (
         })
         .filter((rec) => rec.recipientResourceUri !== undefined && rec.smsNumber !== undefined) as SMSRecipient[];
       if (recipients.length) {
-        const allComs = recipients.flatMap((recip) => {
-          return rpToCommMap[recip.recipientResourceUri] ?? [];
+        const allCommunications = recipients.flatMap((recipient) => {
+          return rpToCommMap[recipient.recipientResourceUri] ?? [];
         });
         smsModel = {
-          hasUnreadMessages: getChatContainsUnreadMessages(allComs),
+          hasUnreadMessages: getChatContainsUnreadMessages(allCommunications),
           recipients,
         };
       }

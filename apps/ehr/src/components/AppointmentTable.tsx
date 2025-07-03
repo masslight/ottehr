@@ -76,6 +76,7 @@ export default function AppointmentTable({
     externalLabOrdersByAppointmentId,
     nursingOrdersByAppointmentId,
     inHouseMedicationsByEncounterId,
+    radiologyOrdersByAppointmentId,
   } = orders;
 
   const ordersForAppointment = (appointmentId: string, encounterId: string): OrdersForTrackingBoardRow => ({
@@ -83,6 +84,7 @@ export default function AppointmentTable({
     externalLabOrders: externalLabOrdersByAppointmentId[appointmentId],
     nursingOrders: nursingOrdersByAppointmentId[appointmentId],
     inHouseMedications: inHouseMedicationsByEncounterId[encounterId],
+    radiologyOrders: radiologyOrdersByAppointmentId[appointmentId],
   });
 
   return (

@@ -133,17 +133,23 @@ async function updateOrder(
       const erxDataFromMedication = newMedicationCopy.code?.coding?.find(
         (code) => code.system === MEDICATION_DISPENSABLE_DRUG_ID
       );
+
       if (!erxDataFromMedication)
         throw new Error(
           `Can't create MedicationStatement for order, Medication resource don't have coding with ERX data in it`
         );
+
       const medicationCodeableConcept: CodeableConcept = {
-        coding: [erxDataFromMedication],
+        coding: [{ ...erxDataFromMedication, display: getMedicationName(newMedicationCopy) }],
       };
+
+      const { effectiveDateTime } = orderData || {};
       resultPromises.push(
         oystehr.fhir
           .create<MedicationStatement>(
-            createMedicationStatementResource(orderResources.medicationAdministration, medicationCodeableConcept)
+            createMedicationStatementResource(orderResources.medicationAdministration, medicationCodeableConcept, {
+              effectiveDateTime,
+            })
           )
           .then((res) => console.log('successfully created MedicationStatement: ', res.id))
       );
