@@ -8,6 +8,7 @@
   },
   "scripts": {
     "build": "turbo build lint",
+    "clean": "bash scripts/clean-and-install-deps.sh",
     "version": "npm version $npm_package_version --workspaces && git add **/package.json",
     "lint": "npm run lint:eslint && npm run lint:prettier",
     "lint:eslint": "turbo lint",

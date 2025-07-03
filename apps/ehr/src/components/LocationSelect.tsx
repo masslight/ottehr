@@ -15,7 +15,7 @@ interface LocationSelectProps {
   location?: LocationWithWalkinSchedule | undefined;
   setLocation: (location: LocationWithWalkinSchedule | undefined) => void;
   updateURL?: boolean;
-  storeLocationInLocalStorage?: boolean;
+  //storeLocationInLocalStorage?: boolean;
   required?: boolean;
   queryParams?: URLSearchParams;
   handleSubmit?: CustomFormEventHandler;
@@ -34,7 +34,7 @@ export default function LocationSelect({
   handleSubmit,
   setLocation,
   updateURL,
-  storeLocationInLocalStorage,
+  //storeLocationInLocalStorage,
   required,
   renderInputProps,
 }: LocationSelectProps): ReactElement {
@@ -107,13 +107,14 @@ export default function LocationSelect({
     console.log('selected location in handle location change', selectedLocation);
     setLocation(selectedLocation);
 
+    /*
     if (storeLocationInLocalStorage) {
       if (newValue) {
         localStorage.setItem('selectedLocation', JSON.stringify(selectedLocation));
       } else {
         localStorage.removeItem('selectedLocation');
       }
-    }
+    }*/
 
     if (handleSubmit) {
       handleSubmit(event, selectedLocation, 'location');

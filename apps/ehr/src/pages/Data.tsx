@@ -368,7 +368,6 @@ export default function Data(): React.ReactElement {
                   handleSubmit={handleLocationChange}
                   location={locationSelected}
                   updateURL={false}
-                  storeLocationInLocalStorage={false}
                   setLocation={setLocationSelected}
                 ></LocationSelect>
               </FormControl>
