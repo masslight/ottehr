@@ -30,9 +30,14 @@ import {
   PayerId,
   Relationship,
 } from 'candidhealth/api/resources/preEncounter';
+import {
+  Appointment as CandidPreEncounterAppointment,
+  Visit,
+} from 'candidhealth/api/resources/preEncounter/resources/appointments/resources/v1';
 import { Sex } from 'candidhealth/api/resources/preEncounter/resources/common/types/Sex';
 import { Coverage as CandidPreEncounterCoverage } from 'candidhealth/api/resources/preEncounter/resources/coverages/resources/v1/types/Coverage';
 import { MutableCoverage } from 'candidhealth/api/resources/preEncounter/resources/coverages/resources/v1/types/MutableCoverage';
+import { FilterQueryString } from 'candidhealth/api/resources/preEncounter/resources/lists/resources/v1';
 import { Patient as CandidPreEncounterPatient } from 'candidhealth/api/resources/preEncounter/resources/patients/resources/v1/types/Patient';
 import { ServiceLineCreate } from 'candidhealth/api/resources/serviceLines/resources/v2';
 import {
@@ -644,19 +649,19 @@ export const performCandidPreEncounterSync = async (input: PerformCandidPreEncou
   const { encounterId, oystehr, secrets } = input;
   const candidApiClient = createCandidApiClient(secrets);
 
-  const ourPatient = await fetchFHIRPatientFromEncounter(encounterId, oystehr);
+  const { patient: ourPatient, encounter: ourEncounter } = await fetchFHIRPatientAndEncounter(encounterId, oystehr);
 
   if (!ourPatient.id) {
     throw new Error(`Patient ID is not defined for encounter ${encounterId}`);
   }
 
+  // Get Candid Patient and create if it does not exist
   let candidPreEncounterPatient = await fetchPreEncounterPatient(ourPatient.id, candidApiClient);
 
   if (!candidPreEncounterPatient) {
     candidPreEncounterPatient = await createPreEncounterPatient(ourPatient, candidApiClient);
   }
 
-  // Create Candid coverages for patient
   const candidCoverages = await createCandidCoverages(ourPatient, candidPreEncounterPatient, oystehr, candidApiClient);
 
   // Update patient with the coverages
@@ -665,6 +670,54 @@ export const performCandidPreEncounterSync = async (input: PerformCandidPreEncou
     candidCoverages,
     candidApiClient
   );
+
+  // Create Candid appointment for the patient
+  // TODO this 'get visits' query is worthless.
+  let candidPreEncounterAppointment = await fetchPreEncounterAppointment(candidPreEncounterPatient);
+
+  if (!candidPreEncounterAppointment) {
+    candidPreEncounterAppointment = await createPreEncounterAppointment(candidPreEncounterPatient, ourEncounter);
+  }
+};
+
+const createPreEncounterAppointment = async (
+  candidPatient: CandidPreEncounterPatient,
+  encounter: Encounter
+): Promise<CandidPreEncounterAppointment> => {
+  if (!encounter.period?.start) {
+    throw new Error(`Encounter period start is not defined for encounter ${encounter.id}`);
+  }
+
+  const startTime = DateTime.fromISO(encounter.period.start).toJSDate();
+  const response = await candidApiClient.preEncounter.appointments.v1.create({
+    patientId: PatientId(candidPatient.id),
+    startTimestamp: startTime,
+    serviceDuration: 30,
+    services: [],
+  });
+
+  if (!response.ok) {
+    throw new Error(`Error creating Candid appointment. Response body: ${JSON.stringify(response.error)}`);
+  }
+
+  return response.body;
+};
+
+const fetchPreEncounterAppointment = async (candidPatient: CandidPreEncounterPatient): Promise<Visit | undefined> => {
+  const filterString = `patient.mrn|eq|${candidPatient.mrn}`;
+  const response = await candidApiClient.preEncounter.appointments.v1.getVisits({
+    filters: FilterQueryString(filterString),
+    // TODO might need to adjust sort to get newest appointment
+  });
+  if (!response.ok) {
+    throw new Error(`Error fetching Candid appointments. Response body: ${JSON.stringify(response.error)}`);
+  }
+  if (response.body.items.length === 0) {
+    return undefined;
+  }
+  // Assuming we want the latest appointment, we can sort by start time or similar criteria
+  const latestAppointment = response.body.items[0];
+  return latestAppointment;
 };
 
 const updateCandidPatientWithCoverages = async (
@@ -778,7 +831,10 @@ const buildCandidCoverageCreateInput = (
   };
 };
 
-const fetchFHIRPatientFromEncounter = async (encounterId: string, oystehr: Oystehr): Promise<Patient> => {
+const fetchFHIRPatientAndEncounter = async (
+  encounterId: string,
+  oystehr: Oystehr
+): Promise<{ patient: Patient; encounter: Encounter }> => {
   const searchBundleResponse = (
     await oystehr.fhir.search<Encounter | Patient>({
       resourceType: 'Encounter',
@@ -800,7 +856,17 @@ const fetchFHIRPatientFromEncounter = async (encounterId: string, oystehr: Oyste
     throw new Error(`Patient not found for encounter ID: ${encounterId}`);
   }
 
-  return patient;
+  const encounter = searchBundleResponse.find((resource) => resource.resourceType === 'Encounter') as
+    | Encounter
+    | undefined;
+  if (!encounter) {
+    throw new Error(`Encounter not found for ID: ${encounterId}`);
+  }
+
+  return {
+    patient,
+    encounter,
+  };
 };
 
 // export async function recordPatientPayment(
