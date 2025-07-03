@@ -58,17 +58,15 @@ export const DischargeButton: FC = () => {
 
   return (
     <Box sx={{ display: 'flex', justifyContent: 'end' }}>
-      <Box>
-        <RoundedButton
-          disabled={statusLoading || isDischargedStatus}
-          variant="contained"
-          onClick={handleDischarge}
-          startIcon={isDischargedStatus ? <CheckIcon color="inherit" /> : undefined}
-          data-testid={dataTestIds.progressNotePage.dischargeButton}
-        >
-          {isDischargedStatus ? 'Discharged' : 'Discharge'}
-        </RoundedButton>
-      </Box>
+      <RoundedButton
+        disabled={statusLoading || isDischargedStatus}
+        variant="contained"
+        onClick={handleDischarge}
+        startIcon={isDischargedStatus ? <CheckIcon color="inherit" /> : undefined}
+        data-testid={dataTestIds.progressNotePage.dischargeButton}
+      >
+        {isDischargedStatus ? 'Discharged' : 'Discharge'}
+      </RoundedButton>
     </Box>
   );
 };

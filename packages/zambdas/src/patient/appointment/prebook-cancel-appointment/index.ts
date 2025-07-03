@@ -234,7 +234,7 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
         console.group('Send cancel message request');
         const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
 
-        // todo should this url be formated according the type of appointment being cancelled?
+        // todo should this url be formatted according the type of appointment being cancelled?
         const url = `${WEBSITE_URL}/home`;
 
         const message = `Your visit for ${getPatientFirstName(
