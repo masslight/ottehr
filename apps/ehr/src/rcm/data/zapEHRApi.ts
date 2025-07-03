@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { ClaimsQueueGetRequest, ClaimsQueueGetResponse, getOystehrApiHelpers } from 'utils';
-import { GetZapEHR_RCM_APIParams } from './types';
+import { Get_Oystehr_RCM_API_Params } from './types';
 
 enum ZambdaNames {
   'get claims' = 'get claims',
@@ -13,7 +13,7 @@ const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
 export type ZapEHR_RCM_APIClient = ReturnType<typeof getZapEHR_RCM_API>;
 
 export const getZapEHR_RCM_API = (
-  params: GetZapEHR_RCM_APIParams,
+  params: Get_Oystehr_RCM_API_Params,
   oystehr: Oystehr
 ): {
   getClaims: typeof getClaims;
