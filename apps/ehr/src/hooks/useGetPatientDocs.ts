@@ -14,8 +14,8 @@ const CREATE_PATIENT_UPLOAD_DOCUMENT_URL_ZAMBDA_ID = import.meta.env
   .VITE_APP_CREATE_PATIENT_UPLOAD_DOCUMENT_URL_ZAMBDA_ID;
 
 export type PatientDocumentsFolder = {
-  id: string;
-  folderName: string;
+  id?: string;
+  folderName?: string;
   documentsCount: number;
   documentsRefs?: DocRef[];
 };
