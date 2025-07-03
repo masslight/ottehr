@@ -71,10 +71,12 @@ export const ProgressNote: React.FC<PatientInfoProps> = () => {
       <ProgressNoteDetails />
 
       {!isReadOnly && (
-        <Box sx={{ display: 'flex', justifyContent: 'end', gap: 1 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
           <SendFaxButton appointment={appointmentResource} encounter={encounter} css={css} />
-          <DischargeButton />
-          <ReviewAndSignButton />
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <DischargeButton />
+            <ReviewAndSignButton />
+          </Box>
         </Box>
       )}
     </Stack>
