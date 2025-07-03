@@ -58,28 +58,30 @@ export const ChangeStatusDropdown = ({
   const [status, setStatus] = useState<VisitStatusWithoutUnknown | undefined>(undefined);
   const { oystehrZambda } = useApiClients();
   const user = useEvolveUser();
-  if (!user) {
-    throw new Error('User is not defined');
-  }
-
   const { visitState: telemedData, refetch } = useAppointment(appointmentID);
   const { appointment, encounter } = telemedData;
-
-  if (!encounter || !encounter.id) {
-    throw new Error('Encounter is not defined');
-  }
-
-  const encounterId: string = encounter.id;
 
   const nonDropdownStatuses = ['checked out', 'canceled', 'no show'];
   const hasDropdown = status ? !nonDropdownStatuses.includes(status) : false;
 
-  const updateInPersonVisitStatus = async (event: SelectChangeEvent<VisitStatusLabel | unknown>): Promise<void> => {
+  async function updateInPersonVisitStatus(event: SelectChangeEvent<VisitStatusLabel | unknown>): Promise<void> {
     setStatusLoading(true);
     try {
+      if (!user) {
+        throw new Error('User is required to change the visit status');
+      }
+
+      if (!encounter || !encounter.id) {
+        throw new Error('Encounter ID is required to change the visit status');
+      }
+
+      if (!oystehrZambda) {
+        throw new Error('Oystehr Zambda client is not available when changing the visit status');
+      }
+
       await handleChangeInPersonVisitStatus(
         {
-          encounterId,
+          encounterId: encounter.id,
           user,
           updatedStatus: event.target.value as VisitStatusWithoutUnknown,
         },
@@ -91,7 +93,7 @@ export const ChangeStatusDropdown = ({
       enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
     }
     setStatusLoading(false);
-  };
+  }
 
   useEffect(() => {
     if (appointment && encounter) {
@@ -122,7 +124,7 @@ export const ChangeStatusDropdown = ({
               value={status}
               {...(hasDropdown ? { hasDropdown: 'true' } : {})}
               arrowColor={CHIP_STATUS_MAP[status].color.primary}
-              onChange={updateInPersonVisitStatus}
+              onChange={(event: SelectChangeEvent<VisitStatusLabel | unknown>) => updateInPersonVisitStatus(event)}
               sx={{
                 border: `1px solid ${CHIP_STATUS_MAP[status].color.primary}`,
                 borderRadius: ' 7px',
