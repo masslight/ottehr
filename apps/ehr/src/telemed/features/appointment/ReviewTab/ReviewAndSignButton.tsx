@@ -190,7 +190,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
           >
             {(showDialog) => (
               <RoundedButton
-                disabled={errorMessage.length > 0 || isLoading || completed || isProviderStatus}
+                disabled={errorMessage.length > 0 || isLoading || completed || inPersonStatus === 'provider'}
                 variant="contained"
                 onClick={showDialog}
                 startIcon={completed ? <CheckIcon color="inherit" /> : undefined}
