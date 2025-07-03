@@ -18,6 +18,15 @@ export const DischargeButton: FC = () => {
   const { oystehrZambda } = useApiClients();
   const user = useEvolveUser();
 
+  if (!user) {
+    throw new Error('User is not defined');
+  }
+
+  if (!encounter || !encounter.id) {
+    throw new Error('Encounter is not defined');
+  }
+
+  const encounterId: string = encounter.id;
   const [statusLoading, setStatusLoading] = useState<boolean>(false);
 
   const inPersonStatus = useMemo(() => appointment && getVisitStatus(appointment, encounter), [appointment, encounter]);
@@ -25,25 +34,10 @@ export const DischargeButton: FC = () => {
   const isDischargedStatus = useMemo(() => inPersonStatus === 'ready for discharge', [inPersonStatus]);
 
   const handleDischarge = async (): Promise<void> => {
-    if (!encounter || !encounter.id) {
-      throw new Error('Encounter ID is required to change the visit status');
-    }
-
-    if (!oystehrZambda) {
-      throw new Error('Oystehr Zambda client is not available when changing the visit status');
-    }
-
-    if (!user) {
-      throw new Error('User is required to change the visit status');
-    }
-
     setStatusLoading(true);
 
     try {
-      await handleChangeInPersonVisitStatus(
-        { encounterId: encounter.id, user, updatedStatus: 'ready for discharge' },
-        oystehrZambda
-      );
+      await handleChangeInPersonVisitStatus({ encounterId, user, updatedStatus: 'ready for discharge' }, oystehrZambda);
 
       await refetch();
 

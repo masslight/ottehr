@@ -260,6 +260,12 @@ export default function AppointmentTableRow({
     throw new Error('User is not defined');
   }
 
+  if (!encounter || !encounter.id) {
+    throw new Error('Encounter is not defined');
+  }
+
+  const encounterId: string = encounter.id;
+
   const [startIntakeButtonLoading, setStartIntakeButtonLoading] = useState(false);
   const [dischargeButtonLoading, setDischargeButtonLoading] = useState(false);
   const { handleUpdatePractitioner } = usePractitionerActions(encounter, 'start', PRACTITIONER_CODINGS.Admitter);
@@ -585,7 +591,7 @@ export default function AppointmentTableRow({
         statusTimeEl={showTime ? statusTimeEl : undefined}
         linkStyle={linkStyle}
         timeToolTip={timeToolTip}
-      ></AppointmentTableRowMobile>
+      />
     );
   }
 
@@ -593,17 +599,10 @@ export default function AppointmentTableRow({
     setStartIntakeButtonLoading(true);
     try {
       await handleUpdatePractitioner();
-      if (!encounter.id) {
-        throw new Error('Encounter ID is not defined but it is required in order to start intake.');
-      }
-
-      if (!oystehrZambda) {
-        throw new Error('Oystehr Zambda client is not defined');
-      }
 
       await handleChangeInPersonVisitStatus(
         {
-          encounterId: encounter.id,
+          encounterId: encounterId,
           user,
           updatedStatus: 'intake',
         },
@@ -656,18 +655,9 @@ export default function AppointmentTableRow({
   const handleDischargeButton = async (): Promise<void> => {
     setDischargeButtonLoading(true);
     try {
-      if (!encounter || !encounter.id) {
-        throw new Error('Encounter ID is required to change the visit status');
-      }
-      if (!oystehrZambda) {
-        throw new Error('Oystehr Zambda client is not available when changing the visit status');
-      }
-      if (!user) {
-        throw new Error('User is required to change the visit status');
-      }
       await handleChangeInPersonVisitStatus(
         {
-          encounterId: encounter.id,
+          encounterId: encounterId,
           user,
           updatedStatus: 'ready for discharge',
         },
