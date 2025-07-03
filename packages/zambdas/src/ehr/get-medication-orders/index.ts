@@ -100,8 +100,14 @@ function mapMedicalAdministrationToDTO(orderPackage: OrderPackage): ExtendedMedi
     administeredProviderId: administeredInfo?.administeredProviderId,
     administeredProvider: providerAdministeredOrderName,
 
-    // for backward compatibility, don't use these fields in the frontend new code, use effectiveDateTime instead
+    /**
+     * @deprecated Use effectiveDateTime instead. This field is kept for backward compatibility.
+     */
     dateGiven: administeredInfo?.dateAdministered,
+
+    /**
+     * @deprecated Use effectiveDateTime instead. This field is kept for backward compatibility.
+     */
     timeGiven: administeredInfo?.timeAdministered,
   };
 }

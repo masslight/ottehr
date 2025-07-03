@@ -55,8 +55,14 @@ export interface MedicationData {
   // administrating ISO date with timezone
   effectiveDateTime?: string;
 
-  // for backward compatibility, don't use these fields in the frontend new code, use effectiveDateTime instead
+  /**
+   * @deprecated Use effectiveDateTime instead. This field is kept for backward compatibility.
+   */
   dateGiven?: string;
+
+  /**
+   * @deprecated Use effectiveDateTime instead. This field is kept for backward compatibility.
+   */
   timeGiven?: string;
 }
 
