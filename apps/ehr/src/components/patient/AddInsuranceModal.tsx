@@ -134,13 +134,13 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
                   rules={{
                     required: REQUIRED_FIELD_ERROR_MESSAGE,
                     validate: (value) =>
-                      insurancePlans.some((option) => `InsurancePlan/${option.id}` === value?.reference),
+                      insurancePlans.some((option) => `Organization/${option.id}` === value?.reference),
                   }}
                   render={({ field: { value }, fieldState: { error } }) => {
                     const isLoading = insurancePlans.length === 0;
 
                     const selectedOption = insurancePlans.find(
-                      (option) => `InsurancePlan/${option.id}` === value?.reference
+                      (option) => `Organization/${option.id}` === value?.reference
                     );
                     return (
                       <Autocomplete
@@ -156,7 +156,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
                           if (newValue) {
                             setValue(
                               FormFields.insuranceCarrier.key,
-                              { reference: `InsurancePlan/${newValue.id}`, display: newValue.name },
+                              { reference: `Organization/${newValue.id}`, display: newValue.name },
                               { shouldDirty: true }
                             );
                           } else {

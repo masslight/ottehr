@@ -1,16 +1,8 @@
 // cSpell:ignore rawAGQR1, rawPPHQR1, rawSPHQR1
 import { BatchInputPostRequest } from '@oystehr/sdk';
-import {
-  Account,
-  Coverage,
-  InsurancePlan,
-  Organization,
-  Patient,
-  QuestionnaireResponse,
-  RelatedPerson,
-} from 'fhir/r4b';
+import { Account, Coverage, Organization, Patient, QuestionnaireResponse, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { COVERAGE_MEMBER_IDENTIFIER_BASE, flattenItems, INSURANCE_PLAN_PAYER_META_TAG_CODE, isValidUUID } from 'utils';
+import { COVERAGE_MEMBER_IDENTIFIER_BASE, flattenItems, isValidUUID } from 'utils';
 import InPersonQuestionnaireFile from 'utils/lib/deployed-resources/questionnaires/in-person-intake-questionnaire.json';
 import { v4 as uuidV4 } from 'uuid';
 import { assert, describe, expect, it } from 'vitest';
@@ -46,7 +38,6 @@ describe('Harvest Module', () => {
   const { orderedCoverages: coverageResources, accountCoverage } = getCoverageResources({
     questionnaireResponse: questionnaireResponse1,
     patientId: newPatient1.id ?? '',
-    insurancePlanResources: insurancePlans1,
     organizationResources: organizations1,
   });
   const primary = coverageResources.primary;
@@ -234,7 +225,7 @@ describe('Harvest Module', () => {
                 },
               ],
             },
-            value: 'InsurancePlan/45ae21d2-12a3-4727-b915-896f7dc57dbd',
+            value: 'Organization/45ae21d2-12a3-4727-b915-896f7dc57dbd',
           },
         ],
         type: {
@@ -313,7 +304,6 @@ describe('Harvest Module', () => {
     const { orderedCoverages: coverageResources } = getCoverageResources({
       questionnaireResponse: questionnaireResponse1,
       patientId: newPatient1.id ?? '',
-      insurancePlanResources: insurancePlans1,
       organizationResources: organizations1,
     });
     const primary = coverageResources.primary;
@@ -416,7 +406,6 @@ describe('Harvest Module', () => {
     const { orderedCoverages: coverages, accountCoverage } = getCoverageResources({
       questionnaireResponse: questionnaireResponse1,
       patientId: newPatient1.id ?? '',
-      insurancePlanResources: insurancePlans1,
       organizationResources: organizations1,
     });
 
@@ -476,7 +465,7 @@ describe('Harvest Module', () => {
               },
             ],
           },
-          value: 'InsurancePlan/45ae21d2-12a3-4727-b915-896f7dc57dbd',
+          value: 'Organization/45ae21d2-12a3-4727-b915-896f7dc57dbd',
         },
       ],
       type: {
@@ -1959,7 +1948,6 @@ describe('Harvest Module', () => {
       const result = getAccountOperations({
         patient,
         questionnaireResponseItem,
-        insurancePlanResources: insurancePlans1,
         organizationResources: organizations1,
         existingCoverages: {
           primary: undefined,
@@ -2022,7 +2010,7 @@ describe('Harvest Module', () => {
                 },
               ],
             },
-            value: 'InsurancePlan/45ae21d2-12a3-4727-b915-896f7dc57dbd',
+            value: 'Organization/45ae21d2-12a3-4727-b915-896f7dc57dbd',
           },
         ],
         type: {
@@ -2080,7 +2068,6 @@ describe('Harvest Module', () => {
       const result = getAccountOperations({
         patient,
         questionnaireResponseItem,
-        insurancePlanResources: insurancePlans1,
         organizationResources: organizations1,
         existingCoverages: {
           primary,
@@ -2150,7 +2137,7 @@ describe('Harvest Module', () => {
                 },
               ],
             },
-            value: 'InsurancePlan/45ae21d2-12a3-4727-b915-896f7dc57dbd',
+            value: 'Organization/45ae21d2-12a3-4727-b915-896f7dc57dbd',
           },
         ],
         type: {
@@ -2197,7 +2184,6 @@ describe('Harvest Module', () => {
       const result = getAccountOperations({
         patient,
         questionnaireResponseItem,
-        insurancePlanResources: insurancePlans1,
         organizationResources: organizations1,
         existingCoverages: {
           primary,
@@ -2263,7 +2249,7 @@ describe('Harvest Module', () => {
                 },
               ],
             },
-            value: 'InsurancePlan/45ae21d2-12a3-4727-b915-896f7dc57dbd',
+            value: 'Organization/45ae21d2-12a3-4727-b915-896f7dc57dbd',
           },
         ],
         type: {
@@ -2317,7 +2303,6 @@ describe('Harvest Module', () => {
       const result = getAccountOperations({
         patient,
         questionnaireResponseItem,
-        insurancePlanResources: insurancePlans1,
         organizationResources: organizations1,
         existingCoverages: {
           primary,
@@ -2840,7 +2825,7 @@ const questionnaireResponse1: QuestionnaireResponse = {
           answer: [
             {
               valueReference: {
-                reference: 'InsurancePlan/45ae21d2-12a3-4727-b915-896f7dc57dbd',
+                reference: 'Organization/45ae21d2-12a3-4727-b915-896f7dc57dbd',
                 display: 'Aetna',
               },
             },
@@ -3230,7 +3215,7 @@ const questionnaireResponse1: QuestionnaireResponse = {
     },
   ],
 };
-
+/*
 const insurancePlans1: InsurancePlan[] = [
   {
     resourceType: 'InsurancePlan',
@@ -3250,7 +3235,7 @@ const insurancePlans1: InsurancePlan[] = [
     status: 'active',
     extension: [
       {
-        url: 'https://extensions.fhir.zapehr.com/insurance-requirements',
+        url: INSURANCE_REQ_EXTENSION_URL,
         extension: [
           {
             url: 'requiresSubscriberId',
@@ -3311,7 +3296,7 @@ const insurancePlans1: InsurancePlan[] = [
     status: 'active',
     extension: [
       {
-        url: 'https://extensions.fhir.zapehr.com/insurance-requirements',
+        url: INSURANCE_REQ_EXTENSION_URL,
         extension: [
           {
             url: 'requiresSubscriberId',
@@ -3355,6 +3340,7 @@ const insurancePlans1: InsurancePlan[] = [
     id: '45ae21d2-12a3-4727-b915-896f7dc57dbd',
   },
 ];
+*/
 
 const organizations1: Organization[] = [
   {

@@ -8,6 +8,7 @@ import {
   chooseJson,
   CoverageCheckWithDetails,
   EligibilityCheckSimpleStatus,
+  InsurancePlanDTO,
   isPostalCodeValid,
   mapEligibilityCheckResultToSimpleStatus,
   PatientPaymentBenefit,
@@ -25,7 +26,7 @@ import {
 import { PatientAddressFields } from '../../constants';
 import { FormFields as AllFormFields } from '../../constants';
 import { dataTestIds } from '../../constants/data-test-ids';
-import { InsurancePlanDTO, usePatientStore } from '../../state/patient.store';
+import { usePatientStore } from '../../state/patient.store';
 import { Row, Section } from '../layout';
 import { RefreshableStatusChip, StatusStyleObject } from '../RefreshableStatusWidget';
 import { CopayWidget } from './CopayWidget';
