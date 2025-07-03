@@ -23,10 +23,8 @@ export function validateRequestParameters(
       throw new Error(`Reason should be provided if you changing status to anything except 'administered'`);
     }
     if (newStatus === 'administered') {
-      if (!orderData.dateGiven || !orderData.timeGiven)
-        throw new Error(
-          'On status change to "administered" dateGiven and timeGiven fields should be present in zambda input'
-        );
+      if (!orderData.effectiveDateTime)
+        throw new Error('On status change to "administered" effectiveDateTime field should be present in zambda input');
     }
 
     const missedFields: string[] = [];

@@ -1,5 +1,6 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Box, Grid, Paper, Typography } from '@mui/material';
+import { DateTime } from 'luxon';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ExtendedMedicationDataForResponse,
@@ -189,7 +190,9 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
             <Typography gutterBottom sx={{ height: '26px', display: 'flex', flexDirection: 'row', gap: 3 }}>
               <span>Order ID: {medication?.id}</span>
               <span>
-                {medication?.dateGiven} {medication?.timeGiven}
+                {medication?.effectiveDateTime
+                  ? DateTime.fromISO(medication.effectiveDateTime).toFormat('MM/dd/yyyy hh:mm a')
+                  : '-'}
               </span>
               <span>by {medication?.providerCreatedTheOrder}</span>{' '}
             </Typography>

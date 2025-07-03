@@ -5,6 +5,7 @@ export type ProviderChartDataFieldsNames =
   | 'chief-complaint'
   | 'ros'
   | 'current-medication'
+  | 'in-house-medication'
   | 'prescribed-medication'
   | 'known-allergy'
   | 'medical-condition'
