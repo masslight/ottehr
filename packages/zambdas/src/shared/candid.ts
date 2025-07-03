@@ -2,12 +2,14 @@ import Oystehr from '@oystehr/sdk';
 // cSpell:ignore Providerid
 import { CandidApiClient, CandidApiEnvironment } from 'candidhealth';
 import {
+  AppointmentId as CandidAppointmentId,
   Decimal,
   DiagnosisCreate,
   DiagnosisTypeCode,
   EncounterExternalId,
   FacilityTypeCode,
   Gender,
+  PatientExternalId,
   PatientRelationshipToInsuredCodeAll,
   PreEncounterAppointmentId,
   PreEncounterPatientId,
@@ -24,22 +26,20 @@ import {
 } from 'candidhealth/api/resources/encounters/resources/v4';
 import {
   AddressUse,
+  AppointmentId as CandidPreEncounterAppointmentId,
   ContactPointUse,
   NameUse,
   PatientId,
   PayerId,
   Relationship,
 } from 'candidhealth/api/resources/preEncounter';
-import {
-  Appointment as CandidPreEncounterAppointment,
-  Visit,
-} from 'candidhealth/api/resources/preEncounter/resources/appointments/resources/v1';
+import { Appointment as CandidPreEncounterAppointment } from 'candidhealth/api/resources/preEncounter/resources/appointments/resources/v1';
 import { Sex } from 'candidhealth/api/resources/preEncounter/resources/common/types/Sex';
 import { Coverage as CandidPreEncounterCoverage } from 'candidhealth/api/resources/preEncounter/resources/coverages/resources/v1/types/Coverage';
 import { MutableCoverage } from 'candidhealth/api/resources/preEncounter/resources/coverages/resources/v1/types/MutableCoverage';
-import { FilterQueryString } from 'candidhealth/api/resources/preEncounter/resources/lists/resources/v1';
 import { Patient as CandidPreEncounterPatient } from 'candidhealth/api/resources/preEncounter/resources/patients/resources/v1/types/Patient';
 import { ServiceLineCreate } from 'candidhealth/api/resources/serviceLines/resources/v2';
+import { Operation } from 'fast-json-patch';
 import {
   Appointment,
   CodeableConcept,
@@ -72,6 +72,9 @@ import { VideoResourcesAppointmentPackage } from './pdf/visit-details-pdf/types'
 
 export const CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM =
   'https://api.joincandidhealth.com/api/encounters/v4/response/encounter_id';
+
+export const CANDID_PRE_ENCOUNTER_APPOINTMENT_ID_IDENTIFIER_SYSTEM =
+  'https://pre-api.joincandidhealth.com/appointments/v1/response/appointment_id';
 
 export const CANDID_PATIENT_ID_IDENTIFIER_SYSTEM =
   'https://api.joincandidhealth.com/api/patients/v4/response/patient_id';
@@ -631,6 +634,7 @@ export interface PerformCandidPreEncounterSyncInput {
   encounterId: string;
   oystehr: Oystehr;
   secrets: Secrets;
+  amountCents: number;
 }
 
 //
@@ -646,10 +650,13 @@ export interface PerformCandidPreEncounterSyncInput {
 // 4. record patient payment in candid (amount in cents, allocation of type "appointment", appointment ID noted above)
 
 export const performCandidPreEncounterSync = async (input: PerformCandidPreEncounterSyncInput): Promise<void> => {
-  const { encounterId, oystehr, secrets } = input;
+  const { encounterId, oystehr, secrets, amountCents } = input;
   const candidApiClient = createCandidApiClient(secrets);
 
-  const { patient: ourPatient, encounter: ourEncounter } = await fetchFHIRPatientAndEncounter(encounterId, oystehr);
+  const { patient: ourPatient, appointment: ourAppointment } = await fetchFHIRPatientAndAppointmentFromEncounter(
+    encounterId,
+    oystehr
+  );
 
   if (!ourPatient.id) {
     throw new Error(`Patient ID is not defined for encounter ${encounterId}`);
@@ -671,24 +678,60 @@ export const performCandidPreEncounterSync = async (input: PerformCandidPreEncou
     candidApiClient
   );
 
-  // Create Candid appointment for the patient
-  // TODO this 'get visits' query is worthless.
-  let candidPreEncounterAppointment = await fetchPreEncounterAppointment(candidPreEncounterPatient);
+  // Get Candid appointment and create if it does not exist
+  const existingCandidPreEncounterAppointmentId = ourAppointment.identifier?.find(
+    (identifier) => identifier.system === CANDID_PRE_ENCOUNTER_APPOINTMENT_ID_IDENTIFIER_SYSTEM
+  )?.value;
 
-  if (!candidPreEncounterAppointment) {
-    candidPreEncounterAppointment = await createPreEncounterAppointment(candidPreEncounterPatient, ourEncounter);
+  let candidPreEncounterAppointment: CandidPreEncounterAppointment;
+  if (existingCandidPreEncounterAppointmentId) {
+    candidPreEncounterAppointment = await fetchPreEncounterAppointment(existingCandidPreEncounterAppointmentId);
+  } else {
+    candidPreEncounterAppointment = await createPreEncounterAppointment(
+      candidPreEncounterPatient,
+      ourAppointment,
+      oystehr
+    );
   }
+
+  await createPreEncounterPatientPayment(ourPatient, candidPreEncounterAppointment, amountCents);
+};
+
+const createPreEncounterPatientPayment = async (
+  ourPatient: Patient,
+  candidAppointment: CandidPreEncounterAppointment,
+  amountCents: number
+): Promise<void> => {
+  if (!ourPatient.id) {
+    throw new Error(`Patient ID is not defined for patient ${JSON.stringify(ourPatient)}`);
+  }
+
+  await candidApiClient.patientPayments.v4.create({
+    patientExternalId: PatientExternalId(ourPatient.id),
+    amountCents,
+    allocations: [
+      {
+        amountCents,
+        target: {
+          type: 'appointment_by_id_and_patient_external_id',
+          appointmentId: CandidAppointmentId(candidAppointment.id),
+          patientExternalId: PatientExternalId(ourPatient.id),
+        },
+      },
+    ],
+  });
 };
 
 const createPreEncounterAppointment = async (
   candidPatient: CandidPreEncounterPatient,
-  encounter: Encounter
+  appointment: Appointment,
+  oystehr: Oystehr
 ): Promise<CandidPreEncounterAppointment> => {
-  if (!encounter.period?.start) {
-    throw new Error(`Encounter period start is not defined for encounter ${encounter.id}`);
+  if (!appointment.start) {
+    throw new Error(`Appointment period start is not defined for appointment ${appointment.id}`);
   }
 
-  const startTime = DateTime.fromISO(encounter.period.start).toJSDate();
+  const startTime = DateTime.fromISO(appointment.start).toJSDate();
   const response = await candidApiClient.preEncounter.appointments.v1.create({
     patientId: PatientId(candidPatient.id),
     startTimestamp: startTime,
@@ -700,24 +743,39 @@ const createPreEncounterAppointment = async (
     throw new Error(`Error creating Candid appointment. Response body: ${JSON.stringify(response.error)}`);
   }
 
+  if (!appointment.id) {
+    throw new Error(`Appointment ID is not defined for appointment ${JSON.stringify(appointment)}`);
+  }
+
+  const patchOperations: Operation[] = [];
+  patchOperations.push({
+    op: appointment.identifier === undefined ? 'add' : 'replace',
+    path: '/identifier',
+    value: [
+      {
+        system: CANDID_PRE_ENCOUNTER_APPOINTMENT_ID_IDENTIFIER_SYSTEM,
+        value: response.body.id,
+      },
+    ],
+  });
+
+  await oystehr.fhir.patch<Appointment>({
+    resourceType: 'Appointment',
+    id: appointment.id,
+    operations: [{ op: 'add', path: '/identifier', value: 'arrived' }],
+  });
+
   return response.body;
 };
 
-const fetchPreEncounterAppointment = async (candidPatient: CandidPreEncounterPatient): Promise<Visit | undefined> => {
-  const filterString = `patient.mrn|eq|${candidPatient.mrn}`;
-  const response = await candidApiClient.preEncounter.appointments.v1.getVisits({
-    filters: FilterQueryString(filterString),
-    // TODO might need to adjust sort to get newest appointment
-  });
+const fetchPreEncounterAppointment = async (candidAppointmentId: string): Promise<CandidPreEncounterAppointment> => {
+  const response = await candidApiClient.preEncounter.appointments.v1.get(
+    CandidPreEncounterAppointmentId(candidAppointmentId)
+  );
   if (!response.ok) {
-    throw new Error(`Error fetching Candid appointments. Response body: ${JSON.stringify(response.error)}`);
+    throw new Error(`Error fetching Candid appointment. Response body: ${JSON.stringify(response.error)}`);
   }
-  if (response.body.items.length === 0) {
-    return undefined;
-  }
-  // Assuming we want the latest appointment, we can sort by start time or similar criteria
-  const latestAppointment = response.body.items[0];
-  return latestAppointment;
+  return response.body;
 };
 
 const updateCandidPatientWithCoverages = async (
@@ -831,12 +889,12 @@ const buildCandidCoverageCreateInput = (
   };
 };
 
-const fetchFHIRPatientAndEncounter = async (
+const fetchFHIRPatientAndAppointmentFromEncounter = async (
   encounterId: string,
   oystehr: Oystehr
-): Promise<{ patient: Patient; encounter: Encounter }> => {
+): Promise<{ patient: Patient; appointment: Appointment }> => {
   const searchBundleResponse = (
-    await oystehr.fhir.search<Encounter | Patient>({
+    await oystehr.fhir.search<Encounter | Patient | Appointment>({
       resourceType: 'Encounter',
       params: [
         {
@@ -847,6 +905,10 @@ const fetchFHIRPatientAndEncounter = async (
           name: 'include',
           value: 'Encounter:subject',
         },
+        {
+          name: 'include',
+          value: 'Encounter:appointment',
+        },
       ],
     })
   ).unbundle();
@@ -856,26 +918,18 @@ const fetchFHIRPatientAndEncounter = async (
     throw new Error(`Patient not found for encounter ID: ${encounterId}`);
   }
 
-  const encounter = searchBundleResponse.find((resource) => resource.resourceType === 'Encounter') as
-    | Encounter
+  const appointment = searchBundleResponse.find((resource) => resource.resourceType === 'Appointment') as
+    | Appointment
     | undefined;
-  if (!encounter) {
-    throw new Error(`Encounter not found for ID: ${encounterId}`);
+  if (!appointment) {
+    throw new Error(`Appointment not found for encounter ID: ${encounterId}`);
   }
 
   return {
     patient,
-    encounter,
+    appointment,
   };
 };
-
-// export async function recordPatientPayment(
-//   patient: Patient,
-//   encounter: Encounter,
-//   apiClient: CandidApiClient
-// ): Promise<void> {
-//   console.log('todo', patient, encounter, apiClient);
-// }
 
 export async function createEncounterFromAppointment(
   visitResources: VideoResourcesAppointmentPackage,

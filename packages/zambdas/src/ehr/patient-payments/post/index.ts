@@ -148,6 +148,7 @@ const performEffect = async (
     encounterId,
     oystehr: oystehrClient,
     secrets: requiredSecrets.secrets,
+    amountCents: amountInCents,
   });
 
   const noticeToWrite = makePaymentNotice(paymentNoticeInput);
