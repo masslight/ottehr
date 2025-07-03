@@ -23,14 +23,14 @@ import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaI
 import { makeZ3Url } from '../../shared/presigned-file-urls';
 import { validateRequestParameters } from './validateRequestParameters';
 
-let zapehrToken: string;
+let oystehrToken: string;
 const ZAMBDA_NAME = 'get-presigned-file-url';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
-    if (!zapehrToken) {
-      zapehrToken = await getAuth0Token(input.secrets);
+    if (!oystehrToken) {
+      oystehrToken = await getAuth0Token(input.secrets);
     }
-    const result = await makePresignedFileURL(input, createOystehrClient, getAppointmentResourceById, zapehrToken);
+    const result = await makePresignedFileURL(input, createOystehrClient, getAppointmentResourceById, oystehrToken);
 
     return {
       statusCode: 200,
@@ -46,7 +46,7 @@ const makePresignedFileURL = async (
   input: ZambdaInput,
   createOystehrClient: (token: string, secrets: Secrets | null) => Oystehr,
   getAppointmentResource: (appointmentID: string, oystehr: Oystehr) => Promise<Appointment | undefined>,
-  zapehrToken: string
+  oystehrToken: string
 ): Promise<PresignUploadUrlResponse> => {
   console.group('validateRequestParameters');
   const validatedParameters = validateRequestParameters(input);
@@ -54,7 +54,7 @@ const makePresignedFileURL = async (
   console.groupEnd();
   console.debug('validateRequestParameters success');
 
-  const oystehr = createOystehrClient(zapehrToken, secrets);
+  const oystehr = createOystehrClient(oystehrToken, secrets);
 
   console.log(`getting appointment with id ${appointmentID}`);
   const appointment = await getAppointmentResource(appointmentID, oystehr);
@@ -102,7 +102,7 @@ const makePresignedFileURL = async (
   const presignedURLRequest = await fetch(fileURL, {
     method: 'POST',
     headers: {
-      authorization: `Bearer ${zapehrToken}`,
+      authorization: `Bearer ${oystehrToken}`,
     },
     body: JSON.stringify({ action: 'upload' }),
   });

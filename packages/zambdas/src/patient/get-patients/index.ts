@@ -9,7 +9,7 @@ export interface GetPatientsInput {
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let zapehrToken: string;
+let oystehrToken: string;
 
 export const index = wrapHandler('get-patients', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -19,9 +19,9 @@ export const index = wrapHandler('get-patients', async (input: ZambdaInput): Pro
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    if (!zapehrToken) {
+    if (!oystehrToken) {
       console.log('getting token');
-      zapehrToken = await getAuth0Token(secrets);
+      oystehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }
@@ -30,7 +30,7 @@ export const index = wrapHandler('get-patients', async (input: ZambdaInput): Pro
     // const user = await appClient.getMe();
     // console.log(user);
 
-    const oystehr = createOystehrClient(zapehrToken, secrets);
+    const oystehr = createOystehrClient(oystehrToken, secrets);
     console.log('getting user');
     const user = await getUser(input.headers.Authorization.replace('Bearer ', ''), secrets);
     console.log('getting patients for user', user);
