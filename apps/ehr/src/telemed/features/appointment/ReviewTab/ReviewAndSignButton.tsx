@@ -75,8 +75,6 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     return appointmentAccessibility.status === TelemedAppointmentStatusEnum.complete;
   }, [css, inPersonStatus, appointmentAccessibility.status]);
 
-  const isProviderStatus = useMemo(() => inPersonStatus === 'provider', [inPersonStatus]);
-
   const errorMessage = useMemo(() => {
     const messages: string[] = [];
 
@@ -85,7 +83,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     }
 
     if (css && inPersonStatus) {
-      if (isProviderStatus) {
+      if (inPersonStatus === 'provider') {
         messages.push('You must discharge the patient before signing');
       } else if (inPersonStatus !== 'ready for discharge') {
         messages.push('The appointment must be in the status of discharged');
@@ -124,7 +122,6 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     appointmentAccessibility.status,
     externalLabResultsPending,
     inHouseLabResultsPending,
-    isProviderStatus,
   ]);
 
   const handleCloseTooltip = (): void => {
