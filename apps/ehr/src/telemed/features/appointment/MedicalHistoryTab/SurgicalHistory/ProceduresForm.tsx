@@ -1,7 +1,8 @@
 import { otherColors } from '@ehrTheme/colors';
-import { Autocomplete, Box, Card, TextField, Typography } from '@mui/material';
-import { FC } from 'react';
+import { Autocomplete, Box, Card, Stack, TextField, Typography } from '@mui/material';
+import { FC, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
+import { RoundedButton } from 'src/components/RoundedButton';
 import { CPTCodeDTO } from 'utils';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
@@ -47,108 +48,148 @@ const surgicalHistoryOptions: CPTCodeDTO[] = [
 export const ProceduresForm: FC = () => {
   const methods = useForm<{
     selectedProcedure: CPTCodeDTO | null;
+    otherProcedureName: string;
   }>({
     defaultValues: {
       selectedProcedure: null,
+      otherProcedureName: '',
     },
   });
   const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);
+  const [isOtherOptionSelected, setIsOtherOptionSelected] = useState(false);
 
-  const { control, reset } = methods;
+  const { control, reset, handleSubmit } = methods;
 
   const { isLoading, onSubmit, onRemove, values: procedures } = useChartDataArrayValue('surgicalHistory', reset, {});
 
   const handleSelectOption = (data: CPTCodeDTO | null): void => {
     if (data) {
       void onSubmit(data);
-      reset({ selectedProcedure: null });
+      reset({ selectedProcedure: null, otherProcedureName: '' });
+      setIsOtherOptionSelected(false);
+    }
+  };
+
+  const onSubmitForm = (data: { selectedProcedure: CPTCodeDTO | null; otherProcedureName: string }): void => {
+    if (data.selectedProcedure) {
+      handleSelectOption({
+        ...data.selectedProcedure,
+        display: 'Other' + (data.otherProcedureName ? ` (${data.otherProcedureName})` : ''),
+      });
     }
   };
 
   return (
-    <Box>
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 1,
-          mb: procedures.length || isChartDataLoading ? 2 : 0,
-        }}
-      >
-        {isChartDataLoading ? (
-          <ProviderSideListSkeleton />
-        ) : (
-          <Box data-testid={dataTestIds.telemedEhrFlow.hpiSurgicalHistoryList}>
-            <ActionsList
-              data={procedures}
-              itemDataTestId={dataTestIds.telemedEhrFlow.hpiSurgicalHistoryListItem}
-              getKey={(value) => value.resourceId!}
-              renderItem={(value) => (
-                <Typography>
-                  {value.code} {value.display}
-                </Typography>
-              )}
-              renderActions={(value) => (
-                <DeleteIconButton disabled={isLoading} onClick={() => onRemove(value.resourceId!)} />
-              )}
-              divider
-            />
-          </Box>
-        )}
-      </Box>
-      <Card
-        elevation={0}
-        sx={{
-          p: 3,
-          backgroundColor: otherColors.formCardBg,
-          borderRadius: 2,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 2,
-        }}
-      >
-        <Controller
-          name="selectedProcedure"
-          control={control}
-          rules={{ required: true }}
-          render={({ field: { value, onChange } }) => (
-            <Autocomplete
-              value={value || null}
-              onChange={(_e, data) => {
-                onChange(data);
-                handleSelectOption(data);
-              }}
-              fullWidth
-              size="small"
-              disabled={isLoading || isChartDataLoading}
-              options={surgicalHistoryOptions}
-              noOptionsText="Nothing found for this search criteria"
-              getOptionLabel={(option) => `${option.code} ${option.display}`}
-              renderOption={(props, option) => (
-                <li {...props}>
-                  <Typography component="span">
-                    {option.code} {option.display}
+    <form onSubmit={handleSubmit(onSubmitForm)}>
+      <Box>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 1,
+            mb: procedures.length || isChartDataLoading ? 2 : 0,
+          }}
+        >
+          {isChartDataLoading ? (
+            <ProviderSideListSkeleton />
+          ) : (
+            <Box data-testid={dataTestIds.telemedEhrFlow.hpiSurgicalHistoryList}>
+              <ActionsList
+                data={procedures}
+                itemDataTestId={dataTestIds.telemedEhrFlow.hpiSurgicalHistoryListItem}
+                getKey={(value) => value.resourceId!}
+                renderItem={(value) => (
+                  <Typography>
+                    {value.code} {value.display}
                   </Typography>
-                </li>
-              )}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Surgery"
-                  placeholder="Search"
-                  InputLabelProps={{ shrink: true }}
-                  data-testid={dataTestIds.telemedEhrFlow.hpiSurgicalHistoryInput}
-                  sx={{
-                    '& .MuiInputLabel-root': {
-                      fontWeight: 'bold',
-                    },
-                  }}
-                />
-              )}
-            />
+                )}
+                renderActions={(value) => (
+                  <DeleteIconButton disabled={isLoading} onClick={() => onRemove(value.resourceId!)} />
+                )}
+                divider
+              />
+            </Box>
           )}
-        />
-      </Card>
-    </Box>
+        </Box>
+        <Card
+          elevation={0}
+          sx={{
+            p: 3,
+            backgroundColor: otherColors.formCardBg,
+            borderRadius: 2,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 2,
+          }}
+        >
+          <Controller
+            name="selectedProcedure"
+            control={control}
+            rules={{ required: true }}
+            render={({ field: { value, onChange } }) => (
+              <Autocomplete
+                value={value || null}
+                onChange={(_e, data) => {
+                  onChange(data);
+                  if (data?.display === 'Other') {
+                    setIsOtherOptionSelected(true);
+                  } else {
+                    setIsOtherOptionSelected(false);
+                    handleSelectOption(data);
+                  }
+                }}
+                fullWidth
+                size="small"
+                disabled={isLoading || isChartDataLoading}
+                options={surgicalHistoryOptions}
+                noOptionsText="Nothing found for this search criteria"
+                getOptionLabel={(option) => `${option.code} ${option.display}`}
+                renderOption={(props, option) => (
+                  <li {...props}>
+                    <Typography component="span">
+                      {option.code} {option.display}
+                    </Typography>
+                  </li>
+                )}
+                isOptionEqualToValue={(option, value) => option.code === value.code}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Surgery"
+                    placeholder="Search"
+                    InputLabelProps={{ shrink: true }}
+                    data-testid={dataTestIds.telemedEhrFlow.hpiSurgicalHistoryInput}
+                    sx={{
+                      '& .MuiInputLabel-root': {
+                        fontWeight: 'bold',
+                      },
+                    }}
+                  />
+                )}
+              />
+            )}
+          />
+          {isOtherOptionSelected && (
+            <Stack direction="row" spacing={2} alignItems="center">
+              <Controller
+                name="otherProcedureName"
+                control={control}
+                render={({ field: { value, onChange } }) => (
+                  <TextField
+                    value={value}
+                    onChange={(e) => onChange(e.target.value)}
+                    label="Other procedure"
+                    placeholder="Please specify"
+                    fullWidth
+                    size="small"
+                  />
+                )}
+              />
+              <RoundedButton type="submit">Add</RoundedButton>
+            </Stack>
+          )}
+        </Card>
+      </Box>
+    </form>
   );
 };

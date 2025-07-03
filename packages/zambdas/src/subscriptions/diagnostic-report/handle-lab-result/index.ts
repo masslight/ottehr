@@ -7,6 +7,7 @@ import { getAuth0Token, topLevelCatch } from '../../../shared';
 import { createOystehrClient } from '../../../shared/helpers';
 import { createExternalLabResultPDF } from '../../../shared/pdf/labs-results-form-pdf';
 import { ZambdaInput } from '../../../shared/types';
+import { getCodeForNewTask, getStatusForNewTask } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface ReviewLabResultSubscriptionInput {
@@ -62,7 +63,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
             {
               op: 'replace',
               path: '/status',
-              value: 'cancelled',
+              value: diagnosticReport.status === 'cancelled' ? 'rejected' : 'cancelled',
             },
           ],
         });
@@ -79,20 +80,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           reference: `DiagnosticReport/${diagnosticReport.id}`,
         },
       ],
-      status: 'ready',
-      code: {
-        coding: [
-          {
-            system: LAB_ORDER_TASK.system,
-            code:
-              diagnosticReport.status === 'preliminary'
-                ? LAB_ORDER_TASK.code.reviewPreliminaryResult
-                : diagnosticReport.status === 'corrected'
-                ? LAB_ORDER_TASK.code.reviewCorrectedResult
-                : LAB_ORDER_TASK.code.reviewFinalResult,
-          },
-        ],
-      },
+      status: getStatusForNewTask(diagnosticReport.status),
+      code: getCodeForNewTask(diagnosticReport.status),
     };
 
     requests.push({
@@ -115,6 +104,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       else if (ent.response?.outcome?.id === 'created' && ent.resource) response.createdTasks.push(ent.resource);
     });
 
+    // todo waiting to find out if we are creating a new pdf if cancelled
     await createExternalLabResultPDF(oystehr, serviceRequestID, diagnosticReport, false, secrets, oystehrToken);
 
     return {

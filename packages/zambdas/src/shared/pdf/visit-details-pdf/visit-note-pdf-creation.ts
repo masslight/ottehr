@@ -108,17 +108,29 @@ function composeDataForPdf(
 
   // --- Medications ---
   const medications = chartData.medications ? mapResourceByNameField(chartData.medications) : [];
+  const medicationsNotes = additionalChartData?.notes
+    ?.filter((note) => note.type === NOTE_TYPE.INTAKE_MEDICATION)
+    ?.map((note) => note.text);
 
   // --- Allergies ---
   const allergies = chartData.allergies
     ? mapResourceByNameField(chartData?.allergies?.filter((allergy) => allergy.current === true))
     : [];
+  const allergiesNotes = additionalChartData?.notes
+    ?.filter((note) => note.type === NOTE_TYPE.ALLERGY)
+    ?.map((note) => note.text);
 
   // --- Medical conditions ---
   const medicalConditions = mapMedicalConditions(chartData);
+  const medicalConditionsNotes = additionalChartData?.notes
+    ?.filter((note) => note.type === NOTE_TYPE.MEDICAL_CONDITION)
+    ?.map((note) => note.text);
 
   // --- Surgical history ---
   const surgicalHistory = chartData.surgicalHistory ? mapResourceByNameField(chartData.surgicalHistory) : []; // surgical history
+  const surgicalHistoryNotes = additionalChartData?.notes
+    ?.filter((note) => note.type === NOTE_TYPE.SURGICAL_HISTORY)
+    ?.map((note) => note.text);
 
   // --- Addition questions ---
   const additionalQuestions = Object.values(AdditionalBooleanQuestionsFieldsNames).reduce(
@@ -156,6 +168,9 @@ function composeDataForPdf(
   // --- Hospitalization ---
   const hospitalization =
     additionalChartData?.episodeOfCare && mapResourceByNameField(additionalChartData.episodeOfCare);
+  const hospitalizationNotes = additionalChartData?.notes
+    ?.filter((note) => note.type === NOTE_TYPE.HOSPITALIZATION)
+    ?.map((note) => note.text);
 
   // --- Vitals ---
   const vitals = mapVitalsToDisplay(additionalChartData?.vitalsObservations);
@@ -276,9 +291,13 @@ function composeDataForPdf(
     providerTimeSpan: spentTime,
     reviewOfSystems: reviewOfSystems,
     medications,
+    medicationsNotes,
     allergies,
+    allergiesNotes,
     medicalConditions,
+    medicalConditionsNotes,
     surgicalHistory,
+    surgicalHistoryNotes,
     additionalQuestions,
     screening: {
       seenInLastThreeYears,
@@ -288,6 +307,7 @@ function composeDataForPdf(
       notes: screeningNotes,
     },
     hospitalization,
+    hospitalizationNotes,
     vitals: { notes: vitalsNotes, ...vitals },
     intakeNotes,
     examination: examination.examination,

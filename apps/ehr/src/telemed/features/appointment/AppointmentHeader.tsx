@@ -1,3 +1,4 @@
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CloseIcon from '@mui/icons-material/Close';
 import { AppBar, Box, IconButton, useTheme } from '@mui/material';
 import { FC } from 'react';
@@ -20,7 +21,12 @@ export const AppointmentHeader: FC = () => {
       }}
     >
       <Box sx={{ display: 'flex', mt: 1, mx: 3, justifyContent: 'space-between', alignItems: 'start' }}>
-        <AppointmentTabsHeader />
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <IconButton onClick={() => navigate('/telemed/appointments')} sx={{ width: 40, height: 40, mr: 1 }}>
+            <ArrowBackIcon />
+          </IconButton>
+          <AppointmentTabsHeader />
+        </Box>
 
         <IconButton onClick={() => navigate('/telemed/appointments')}>
           <CloseIcon fontSize="small" />
