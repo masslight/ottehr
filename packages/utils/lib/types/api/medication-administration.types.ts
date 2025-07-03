@@ -52,8 +52,12 @@ export interface MedicationData {
   lotNumber?: string;
   expDate?: string;
 
-  // administrating
+  // administrating ISO date with timezone
   effectiveDateTime?: string;
+
+  // for backward compatibility, don't use these fields in the frontend new code, use effectiveDateTime instead
+  dateGiven?: string;
+  timeGiven?: string;
 }
 
 export interface ExtendedMedicationDataForResponse extends MedicationData {
