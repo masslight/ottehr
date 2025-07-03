@@ -44,7 +44,7 @@ export const fhirApiUrlFromAuth0Audience = (auth0Audience: string): string => {
   }
 };
 
-// todo remove code duplication with configure-zapehr-secrets
+// todo remove code duplication with configure-secrets
 export const projectApiUrlFromAuth0Audience = (auth0Audience: string): string => {
   switch (auth0Audience) {
     case 'https://dev.api.zapehr.com':

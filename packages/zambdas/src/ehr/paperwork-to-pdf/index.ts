@@ -32,7 +32,7 @@ interface Input {
 const ZAMBDA_NAME = 'paperwork-to-pdf';
 const BUCKET_PAPERWORK_PDF = 'exported-questionnaires';
 
-let zapehrToken: string;
+let oystehrToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -101,10 +101,10 @@ function validateInput(input: ZambdaInput): Input {
 }
 
 async function createOystehr(secrets: Secrets | null): Promise<Oystehr> {
-  if (zapehrToken == null) {
-    zapehrToken = await getAuth0Token(secrets);
+  if (oystehrToken == null) {
+    oystehrToken = await getAuth0Token(secrets);
   }
-  return createOystehrClient(zapehrToken, secrets);
+  return createOystehrClient(oystehrToken, secrets);
 }
 
 async function createZ3Bucket(z3Bucket: string, oystehr: Oystehr): Promise<void> {

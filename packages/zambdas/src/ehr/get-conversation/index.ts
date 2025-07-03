@@ -41,7 +41,7 @@ interface ConversationItem {
   isFromPatient: boolean;
 }
 
-let zapehrToken: string;
+let oystehrToken: string;
 const CHUNK_SIZE = 100;
 const MAX_MESSAGE_COUNT = '1000';
 
@@ -51,14 +51,14 @@ export const index = wrapHandler('get-conversation', async (input: ZambdaInput):
     const validatedParameters = validateRequestParameters(input);
     const { secrets, smsNumbers, timezone } = validatedParameters;
     console.groupEnd();
-    if (!zapehrToken) {
+    if (!oystehrToken) {
       console.log('getting token');
-      zapehrToken = await getAuth0Token(secrets);
+      oystehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }
 
-    const oystehr = createOystehrClient(zapehrToken, secrets);
+    const oystehr = createOystehrClient(oystehrToken, secrets);
     const uniqueNumbers = Array.from(new Set(smsNumbers));
     const smsQuery = uniqueNumbers.map((number) => `${number}`).join(',');
     console.log('smsQuery', smsQuery);

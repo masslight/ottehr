@@ -37,7 +37,7 @@ export interface CheckInInputValidated extends CheckInInput {
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let zapehrToken: string;
+let oystehrToken: string;
 
 export const index = wrapHandler('check-in', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -54,14 +54,14 @@ export const index = wrapHandler('check-in', async (input: ZambdaInput): Promise
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    if (!zapehrToken) {
+    if (!oystehrToken) {
       console.log('getting token');
-      zapehrToken = await getAuth0Token(secrets);
+      oystehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }
 
-    const oystehr = createOystehrClient(zapehrToken, secrets);
+    const oystehr = createOystehrClient(oystehrToken, secrets);
 
     console.log('getting all fhir resources');
     console.time('resource search for check in');

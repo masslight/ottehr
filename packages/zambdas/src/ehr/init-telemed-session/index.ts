@@ -95,7 +95,7 @@ const execJoinVideoRoomRequest = async (
   userToken: string
 ): Promise<MeetingData> => {
   /** HINT: for this request to work - user should have the role with access policy rules as described in
-   * https://docs.zapehr.com/reference/get_telemed-token
+   * https://docs.oystehr.com/reference/get_telemed-token
    * Also user should be listed in Encounter.participants prop or other-participants extension
    * */
   const response = await fetch(

@@ -52,7 +52,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const userProfileString = userProfile.split('/');
 
     const practitionerId = userProfileString[1];
-    // Update user's zapEHR roles
+    // Update user's Oystehr roles
     // calling update user on an inactive user, reactivates them
     let roles: string[] = [];
 

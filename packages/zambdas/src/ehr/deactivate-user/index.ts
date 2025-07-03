@@ -17,7 +17,7 @@ export const index = wrapHandler('deactivate-user', async (input: ZambdaInput): 
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    // Deactivate zapEHR user by assigning Inactive role
+    // Deactivate Oystehr user by assigning Inactive role
     const userRoles = (user as any).roles;
     const userRoleIds = userRoles.map((role: any) => role.id);
     const userInactive = userRoles.find((role: any) => role.name === 'Inactive');
