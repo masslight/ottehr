@@ -6,7 +6,7 @@ import { TelemedAppointmentInformation, TelemedAppointmentStatus, TelemedAppoint
 import { dataTestIds } from '../../../constants/data-test-ids';
 import { ConfirmationDialog } from '../../components';
 import { useTrackingBoardTableButtonType } from '../../hooks';
-import { useZapEHRAPIClient } from '../../hooks/useOystehrAPIClient';
+import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
 import { useChangeTelemedAppointmentStatusMutation } from '../../state';
 
 const baseStyles = {
@@ -19,7 +19,7 @@ const baseStyles = {
 export const TrackingBoardTableButton: FC<{ appointment: TelemedAppointmentInformation }> = (props) => {
   const { appointment } = props;
 
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const mutation = useChangeTelemedAppointmentStatusMutation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();

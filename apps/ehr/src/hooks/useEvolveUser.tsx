@@ -184,7 +184,7 @@ const useSyncPractitioner = (_onSuccess: (data: SyncUserResponse) => void) => {
   /**
    * Credentials sync functionality -- Uncomment if you are synchronizing credentials from an external system
   
-  const client = useZapEHRAPIClient();
+  const client = useOystehrAPIClient();
   const token = useAuthToken();
   const { oystehr } = useApiClients();
   const queryClient = useQueryClient();

@@ -28,12 +28,12 @@ import {
 } from 'utils';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useAppointmentStore, useDebounce, useDeleteChartData } from '../../../../telemed';
-import { useZapEHRAPIClient } from '../../../../telemed/hooks/useOystehrAPIClient';
+import { useOystehrAPIClient } from '../../../../telemed/hooks/useOystehrAPIClient';
 import { useNavigationContext } from '../../context/NavigationContext';
 import { useChartData } from '../../hooks/useChartData';
 
 const AskThePatientComponent = (): React.ReactElement => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const theme = useTheme();
   const { chartData, updateObservation, encounter } = getSelectors(useAppointmentStore, [
     'chartData',

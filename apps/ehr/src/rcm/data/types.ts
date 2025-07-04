@@ -1,4 +1,4 @@
-export type GetZapEHR_RCM_APIParams = {
+export type Get_Oystehr_RCM_API_Params = {
   isAppLocal?: 'true' | 'false';
   getClaimsZambdaID?: string;
 };

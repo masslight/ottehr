@@ -3,7 +3,6 @@ import CloseIcon from '@mui/icons-material/Close';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { Box, Button, Typography, useTheme } from '@mui/material';
 import { BundleEntry, Coverage, InsurancePlan, Organization, QuestionnaireResponseItem } from 'fhir/r4b';
-import _ from 'lodash';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useEffect, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
@@ -44,7 +43,7 @@ import {
   useUpdatePatientAccount,
 } from '../hooks/useGetPatient';
 import { createInsurancePlanDto, InsurancePlanDTO, usePatientStore } from '../state/patient.store';
-import { useZapEHRAPIClient } from '../telemed/hooks/useOystehrAPIClient';
+import { useOystehrAPIClient } from '../telemed/hooks/useOystehrAPIClient';
 
 const getAnyAnswer = (item: QuestionnaireResponseItem): any | undefined => {
   let index = 0;
@@ -90,7 +89,7 @@ const PatientInformationPage: FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const { setInsurancePlans } = usePatientStore();
 
   // data queries

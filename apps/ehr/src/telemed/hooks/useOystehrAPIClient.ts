@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useApiClients } from '../../hooks/useAppClients';
 import { getOystehrTelemedAPI } from '../data';
 
-export const useZapEHRAPIClient = (): ReturnType<typeof getOystehrTelemedAPI> | null => {
+export const useOystehrAPIClient = (): ReturnType<typeof getOystehrTelemedAPI> | null => {
   const { oystehrZambda } = useApiClients();
 
   const apiClient = useMemo(() => {

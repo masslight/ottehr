@@ -1,20 +1,20 @@
 import { QuestionnaireItemAnswerOption, QuestionnaireResponseItem } from 'fhir/r4b';
 import { useMutation, useQuery } from 'react-query';
-import { ZapEHRAPIClient } from 'ui-components';
+import { OystehrAPIClient } from 'ui-components';
 import { GetAnswerOptionsRequest, isNullOrUndefined, PromiseReturnType } from 'utils';
-import { useZapEHRAPIClient } from '../../utils';
+import { useOystehrAPIClient } from '../../utils';
 import { useAppointmentStore } from '../appointments';
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetPaperwork = (
-  onSuccess?: (data: PromiseReturnType<ReturnType<ZapEHRAPIClient['getPaperwork']>>) => void,
+  onSuccess?: (data: PromiseReturnType<ReturnType<OystehrAPIClient['getPaperwork']>>) => void,
   params?: {
     enabled?: boolean;
     staleTime?: number;
     onError?: (error: any) => void;
   }
 ) => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const appointmentID = useAppointmentStore((state) => state.appointmentID);
 
   return useQuery(
@@ -52,7 +52,7 @@ export const useUpdatePaperworkMutation = () => {
       questionnaireResponseId,
       answers,
     }: {
-      apiClient: ZapEHRAPIClient;
+      apiClient: OystehrAPIClient;
       questionnaireResponseId: string;
       answers: QuestionnaireResponseItem;
     }) => {
@@ -70,7 +70,7 @@ export const useAnswerOptionsQuery = (
   params: GetAnswerOptionsRequest | undefined,
   onSuccess?: (data: QuestionnaireItemAnswerOption[]) => void
 ) => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
 
   return useQuery(
     ['insurances', { apiClient }],
@@ -92,11 +92,11 @@ export const useAnswerOptionsQuery = (
 interface GetPaymentMethodsParams {
   setupCompleted: boolean;
   beneficiaryPatientId: string | undefined;
-  onSuccess?: (data: PromiseReturnType<ReturnType<ZapEHRAPIClient['getPaymentMethods']>>) => void;
+  onSuccess?: (data: PromiseReturnType<ReturnType<OystehrAPIClient['getPaymentMethods']>>) => void;
 }
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetPaymentMethods = (input: GetPaymentMethodsParams) => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const { beneficiaryPatientId, setupCompleted, onSuccess } = input;
 
   return useQuery(
@@ -123,9 +123,9 @@ export const useGetPaymentMethods = (input: GetPaymentMethodsParams) => {
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useSetupPaymentMethod = (
   beneficiaryPatientId: string | undefined,
-  onSuccess?: (data: PromiseReturnType<ReturnType<ZapEHRAPIClient['setupPaymentMethod']>>) => void
+  onSuccess?: (data: PromiseReturnType<ReturnType<OystehrAPIClient['setupPaymentMethod']>>) => void
 ) => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
 
   return useQuery(
     ['setup-payment-method', beneficiaryPatientId],
@@ -150,7 +150,7 @@ export const useSetupPaymentMethod = (
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useDeletePaymentMethod = (beneficiaryPatientId: string | undefined) => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
 
   return useMutation({
     mutationFn: ({ paymentMethodId }: { paymentMethodId: string }) => {
@@ -173,7 +173,7 @@ export interface SetDefaultPaymentMethodParams {
 }
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useSetDefaultPaymentMethod = (beneficiaryPatientId: string | undefined) => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
 
   return useMutation({
     mutationFn: ({ paymentMethodId, onSuccess, onError }: SetDefaultPaymentMethodParams) => {

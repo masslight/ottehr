@@ -1,2 +1,2 @@
+export * from './oystehrApi';
 export * from './types';
-export * from './zapEHRApi';

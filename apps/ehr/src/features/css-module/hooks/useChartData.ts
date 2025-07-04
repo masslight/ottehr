@@ -3,7 +3,7 @@ import { QueryKey, QueryObserverResult } from 'react-query';
 import { ChartDataRequestedFields, GetChartDataResponse } from 'utils';
 import { useAppointmentStore, useGetChartData } from '../../../telemed';
 import { useExamObservations } from '../../../telemed/hooks/useExamObservations';
-import { useZapEHRAPIClient } from '../../../telemed/hooks/useOystehrAPIClient';
+import { useOystehrAPIClient } from '../../../telemed/hooks/useOystehrAPIClient';
 
 export const useChartData = ({
   encounterId,
@@ -32,7 +32,7 @@ export const useChartData = ({
   queryKey: QueryKey;
   isFetched: boolean;
 } => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const { update: updateExamObservations } = useExamObservations();
   const setPartialChartData = useAppointmentStore((state) => state.setPartialChartData);
 

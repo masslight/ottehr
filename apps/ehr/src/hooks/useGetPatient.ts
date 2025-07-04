@@ -32,7 +32,7 @@ import {
 import { getTimezone } from '../helpers/formatDateTime';
 import { getPatientNameSearchParams } from '../helpers/patientSearch';
 import { OystehrTelemedAPIClient } from '../telemed/data';
-import { useZapEHRAPIClient } from '../telemed/hooks/useOystehrAPIClient';
+import { useOystehrAPIClient } from '../telemed/hooks/useOystehrAPIClient';
 import { useApiClients } from './useAppClients';
 
 const updateQRUrl = import.meta.env.VITE_APP_EHR_ACCOUNT_UPDATE_FORM;
@@ -256,7 +256,7 @@ export const useGetPatientAccount = (
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useRemovePatientCoverage = () => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
 
   return useMutation(['remove-patient-coverage'], async (input: RemoveCoverageZambdaInput): Promise<void> => {
     try {
@@ -271,7 +271,7 @@ export const useRemovePatientCoverage = () => {
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useUpdatePatientAccount = (onSuccess?: () => void) => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
 
   return useMutation(
     ['update-patient-account'],

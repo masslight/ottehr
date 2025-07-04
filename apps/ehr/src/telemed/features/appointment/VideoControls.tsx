@@ -12,7 +12,7 @@ import { TelemedAppointmentStatusEnum } from 'utils';
 import { dataTestIds } from '../../../constants/data-test-ids';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { ConfirmationDialog, IconButtonContained } from '../../components';
-import { useZapEHRAPIClient } from '../../hooks/useOystehrAPIClient';
+import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
 import { useAppointmentStore, useChangeTelemedAppointmentStatusMutation, useVideoCallStore } from '../../state';
 import { updateEncounterStatusHistory } from '../../utils';
 import { CallSettings } from './CallSettings';
@@ -20,7 +20,7 @@ import { CallSettings } from './CallSettings';
 export const VideoControls: FC = () => {
   const theme = useTheme();
 
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const { mutateAsync, isLoading } = useChangeTelemedAppointmentStatusMutation();
   const { encounter } = getSelectors(useAppointmentStore, ['encounter']);
 

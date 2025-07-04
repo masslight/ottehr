@@ -36,7 +36,7 @@ import { ZambdaClient } from '../hooks/useUCZambdaClient';
 import { GetAppointmentParameters, GetPaperworkParameters } from '../types/types';
 import { apiErrorToThrow } from './errorHelpers';
 
-export interface ZapehrSearchParameter {
+export interface OystehrSearchParameter {
   key: string;
   value: string;
 }

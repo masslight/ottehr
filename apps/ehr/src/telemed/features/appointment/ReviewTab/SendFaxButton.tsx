@@ -10,7 +10,7 @@ import { RoundedButton } from '../../../../components/RoundedButton';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { ConfirmationDialog } from '../../../components';
 import { useGetAppointmentAccessibility } from '../../../hooks';
-import { useZapEHRAPIClient } from '../../../hooks/useOystehrAPIClient';
+import { useOystehrAPIClient } from '../../../hooks/useOystehrAPIClient';
 
 interface SendFaxButtonProps {
   appointment?: Appointment;
@@ -19,7 +19,7 @@ interface SendFaxButtonProps {
 }
 
 export const SendFaxButton: FC<SendFaxButtonProps> = ({ appointment, encounter, css }: SendFaxButtonProps) => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const [openTooltip, setOpenTooltip] = useState(false);
 
   const inPersonStatus = useMemo(

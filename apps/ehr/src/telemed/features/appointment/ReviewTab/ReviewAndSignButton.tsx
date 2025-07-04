@@ -12,7 +12,7 @@ import { usePractitionerActions } from '../../../../features/css-module/hooks/us
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { ConfirmationDialog } from '../../../components';
 import { useGetAppointmentAccessibility } from '../../../hooks';
-import { useZapEHRAPIClient } from '../../../hooks/useOystehrAPIClient';
+import { useOystehrAPIClient } from '../../../hooks/useOystehrAPIClient';
 import {
   useAppointmentStore,
   useChangeTelemedAppointmentStatusMutation,
@@ -31,7 +31,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     'encounter',
     'chartData',
   ]);
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const { mutateAsync: changeTelemedAppointmentStatus, isLoading: isChangeLoading } =
     useChangeTelemedAppointmentStatusMutation();
   const { mutateAsync: signAppointment, isLoading: isSignLoading } = useSignAppointmentMutation();

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { checkTelemedLocationAvailability, getSelectors, PROJECT_WEBSITE, TelemedLocation } from 'utils';
-import { useZapEHRAPIClient } from '../../utils';
+import { useOystehrAPIClient } from '../../utils';
 import { UpdateAppointmentFn, useAppointmentsData, useAppointmentUpdate, useGetTelemedStates } from '../appointments';
 import { useIntakeCommonStore } from '../common';
 import { usePatientInfoStore } from '../patient-info';
@@ -23,7 +23,7 @@ export type LocationError = {
 };
 
 export const useTelemedLocation = (): HookReturnType => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const { data: locationsResponse } = useGetTelemedStates(apiClient, Boolean(apiClient));
   const { appointment, appointmentID } = useAppointmentsData();
   const locationCodeFromStore = useIntakeCommonStore((state) => state.selectedLocationState);

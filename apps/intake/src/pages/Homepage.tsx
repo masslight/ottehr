@@ -19,12 +19,12 @@ import {
   useGetAppointments,
 } from '../telemed/features/appointments';
 import { CustomContainer, useIntakeCommonStore } from '../telemed/features/common';
-import { useZapEHRAPIClient } from '../telemed/utils';
+import { useOystehrAPIClient } from '../telemed/utils';
 
 const DEFAULT_WALKIN_LOCATION_NAME = import.meta.env.VITE_APP_DEFAULT_WALKIN_LOCATION_NAME;
 
 const Homepage = (): JSX.Element => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const navigate = useNavigate();
   const [isCancelVisitDialogOpen, setCancelVisitDialogOpen] = useState<boolean>(false);
   const { isAppointmentsFetching, refetchAppointments, appointments } = useAppointmentsData();

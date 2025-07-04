@@ -2,13 +2,13 @@ import { useCallback } from 'react';
 import { useQueryClient } from 'react-query';
 import { GetChartDataResponse, NoteDTO } from 'utils';
 import useEvolveUser from '../../../../../hooks/useEvolveUser';
-import { useZapEHRAPIClient } from '../../../../../telemed/hooks/useOystehrAPIClient';
+import { useOystehrAPIClient } from '../../../../../telemed/hooks/useOystehrAPIClient';
 import { useChartData } from '../../../hooks/useChartData';
 import { EditableNote, UseEditNote } from '../types';
 import { useChartDataCacheKey } from './useChartDataCacheKey';
 
 export const useEditNote: UseEditNote = ({ encounterId, apiConfig }) => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const queryClient = useQueryClient();
   const user = useEvolveUser();
   const cacheKey = useChartDataCacheKey(apiConfig.fieldName, apiConfig.searchParams);
