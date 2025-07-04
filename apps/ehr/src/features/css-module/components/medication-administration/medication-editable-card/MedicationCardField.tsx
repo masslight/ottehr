@@ -17,10 +17,11 @@ import React from 'react';
 import { IN_HOUSE_CONTAINED_MEDICATION_ID, MedicationData, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { OrderFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
+import { MedicationFieldType } from './fieldsConfig';
 import { InHouseMedicationFieldType, medicationOrderFieldsWithOptions } from './utils';
 
 interface MedicationCardFieldProps {
-  field: keyof MedicationData;
+  field: MedicationFieldType;
   label: string;
   type?: InHouseMedicationFieldType;
   value: string | number | undefined;
@@ -75,7 +76,7 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
       <LocalizationProvider dateAdapter={AdapterLuxon}>
         <DateTimePicker
           data-testid={dataTestIds.orderMedicationPage.inputField(field)}
-          label={'Give Date/Time'}
+          label={label}
           value={dateTimeValue}
           onChange={(newValue) => {
             if (!newValue) return;
@@ -99,8 +100,6 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
   }
 
   if (type === 'autocomplete') {
-    const mappedLabel = label === 'medicationId' ? 'Medication' : label;
-
     const options = selectsOptions[field as keyof OrderFieldsSelectsOptions].options;
     const foundOption =
       options.find((option) => option.value === value) ?? options.find((option) => option.value === '');
@@ -120,8 +119,8 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
         renderInput={(params) => (
           <TextField
             {...params}
-            label={mappedLabel}
-            placeholder={`Search ${mappedLabel}`}
+            label={label}
+            placeholder={`Search ${label}`}
             error={showError && required && !value}
           />
         )}
@@ -144,8 +143,6 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
   }
 
   if (type === 'select' && medicationOrderFieldsWithOptions.includes(field)) {
-    const mappedLabel = label === 'medicationId' ? 'Medication' : label;
-
     const options = selectsOptions[field as keyof OrderFieldsSelectsOptions].options;
     const isOptionsLoaded = selectsOptions[field as keyof OrderFieldsSelectsOptions].status === 'loaded';
 
@@ -165,7 +162,7 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
         error={showError && required && !value}
         autoComplete="off"
       >
-        <MenuItem value="">Select {mappedLabel}</MenuItem>
+        <MenuItem value="">Select {label}</MenuItem>
         {options.map((option) => (
           <MenuItem key={option.value} value={option.value}>
             {option.label}
@@ -183,7 +180,7 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
         required={required}
         error={showError && required && !value}
       >
-        <InputLabel id={`${field}-label`}>{mappedLabel}</InputLabel>
+        <InputLabel id={`${field}-label`}>{label}</InputLabel>
         {select}
         {showError && required && !value && <FormHelperText>This field is required</FormHelperText>}
       </StyledFormControl>

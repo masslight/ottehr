@@ -29,7 +29,7 @@ const checkForHop = (app1: Appointment, app2: Appointment): number | undefined =
 };
 
 type WaitingRoomKey = 'arrived' | 'ready';
-type InExamKey = 'intake' | 'ready for provider' | 'provider' | 'ready for discharge';
+type InExamKey = 'intake' | 'ready for provider' | 'provider';
 type VisitDetails = { appointment: Appointment; encounter: Encounter };
 type AppointmentComparator = (visit1: VisitDetails, visit2: VisitDetails) => number;
 
@@ -248,6 +248,54 @@ const r4ProviderSorter = (visit1: VisitDetails, visit2: VisitDetails): number =>
   return app2WaitingTime - app1WaitingTime;
 };
 
+const getArrivalTime = (encounter: Encounter): number => {
+  const history = encounter.statusHistory ?? [];
+  const arrived = history.find((h) => h.status === 'arrived');
+  if (!arrived || !arrived.period?.start) {
+    return Infinity;
+  }
+  return Date.parse(arrived.period.start);
+};
+
+function checkedOutSorter(visit1: VisitDetails, visit2: VisitDetails): number {
+  const app1 = visit1.appointment;
+  const app2 = visit2.appointment;
+  const app1Type = appointmentTypeForAppointment(app1);
+  const app2Type = appointmentTypeForAppointment(app2);
+
+  const visit1IsPre = app1Type === 'pre-booked' ? 0 : 1;
+  const visit2IsPre = app2Type === 'pre-booked' ? 0 : 1;
+
+  if (visit1IsPre !== visit2IsPre) {
+    return visit1IsPre - visit2IsPre;
+  }
+
+  const getStatusPriority = (visit: VisitDetails): number => {
+    const { appointment, encounter } = visit;
+    const status = getVisitStatus(appointment, encounter);
+    if (status === 'ready for discharge') return 0;
+    if (status === 'completed') return 1;
+    return 2;
+  };
+
+  const visit1StatusPriority = getStatusPriority(visit1);
+  const visit2StatusPriority = getStatusPriority(visit2);
+
+  if (visit1StatusPriority !== visit2StatusPriority) {
+    return visit1StatusPriority - visit2StatusPriority;
+  }
+
+  if (visit1IsPre === 0) {
+    const app1Start = Date.parse(app1.start ?? '');
+    const app2Start = Date.parse(app2.start ?? '');
+    return app2Start - app1Start;
+  }
+
+  const app1Arrived = getArrivalTime(visit1.encounter);
+  const app2Arrived = getArrivalTime(visit2.encounter);
+  return app1Arrived - app2Arrived;
+}
+
 const currentStatusSorter = (visit1: VisitDetails, visit2: VisitDetails): number => {
   const statusDiff = getTimeSpentInCurrentStatus(visit2.encounter) - getTimeSpentInCurrentStatus(visit1.encounter);
   if (statusDiff === 0) {
@@ -282,10 +330,9 @@ class QueueBuilder {
           intake: { list: [], comparator: intakeSorter },
           'ready for provider': { list: [], comparator: r4ProviderSorter },
           provider: { list: [], comparator: currentStatusSorter },
-          'ready for discharge': { list: [], comparator: currentStatusSorter },
         },
       },
-      checkedOut: { list: [], comparator: currentStatusReversedSorter },
+      checkedOut: { list: [], comparator: checkedOutSorter },
       canceled: { list: [], comparator: currentStatusReversedSorter },
     };
     this.queues = emptyQueues;
@@ -316,11 +363,9 @@ class QueueBuilder {
           this.insertNew(appointment, encounter, this.queues.inOffice.inExam['ready for provider']);
         } else if (status === 'provider') {
           this.insertNew(appointment, encounter, this.queues.inOffice.inExam.provider);
-        } else if (status === 'ready for discharge') {
-          this.insertNew(appointment, encounter, this.queues.inOffice.inExam['ready for discharge']);
         } else if (status === 'cancelled' || status === 'no show') {
           this.insertNew(appointment, encounter, this.queues.canceled);
-        } else if (status === 'completed') {
+        } else if (status === 'completed' || status === 'ready for discharge') {
           this.insertNew(appointment, encounter, this.queues.checkedOut);
         }
       }
@@ -336,7 +381,6 @@ class QueueBuilder {
           intake: evalQueue(this.queues.inOffice.inExam.intake),
           'ready for provider': evalQueue(this.queues.inOffice.inExam['ready for provider']),
           provider: evalQueue(this.queues.inOffice.inExam.provider),
-          'ready for discharge': evalQueue(this.queues.inOffice.inExam['ready for discharge']),
         },
       },
       checkedOut: evalQueue(this.queues.checkedOut),

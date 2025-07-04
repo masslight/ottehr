@@ -116,24 +116,30 @@ export function getLocationCodeFromMedicationAdministration(
 export function getProviderIdAndDateMedicationWasAdministered(medicationAdministration: MedicationAdministration):
   | {
       administeredProviderId: string;
-      dateAdministered: string;
-      timeAdministered: string;
+      dateAdministered?: string;
+      timeAdministered?: string;
     }
   | undefined {
   const administeredPerformer = medicationAdministration.performer?.find(
     (performer) =>
       performer.function?.coding?.find((coding) => coding.code === PRACTITIONER_ADMINISTERED_MEDICATION_CODE)
   );
+
   const administeredProviderId = administeredPerformer?.actor.reference?.replace('Practitioner/', '');
+
   const dateAdministered = administeredPerformer?.extension?.find(
     (ext) => ext.url === DATE_OF_MEDICATION_ADMINISTERED_SYSTEM
   )?.valueDate;
+
   const timeAdministered = administeredPerformer?.extension?.find(
     (ext) => ext.url === TIME_OF_MEDICATION_ADMINISTERED_SYSTEM
   )?.valueTime;
-  if (administeredProviderId && dateAdministered && timeAdministered)
+
+  if (administeredProviderId) {
     return { administeredProviderId, dateAdministered, timeAdministered };
-  else return undefined;
+  }
+
+  return undefined;
 }
 
 export function getCreatedTheOrderProviderId(medicationAdministration: MedicationAdministration): string | undefined {

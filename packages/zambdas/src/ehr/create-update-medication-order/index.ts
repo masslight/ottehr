@@ -84,6 +84,14 @@ async function performEffect(
       message: 'Order was updated successfully',
       id: orderId,
     };
+  } else if (orderId && newStatus) {
+    const orderResources = await getOrderResources(oystehr, orderId);
+    if (!orderResources) throw new Error(`No order found with id: ${orderId}`);
+    await changeOrderStatus(oystehr, orderResources, newStatus);
+    return {
+      message: 'Order status was changed successfully',
+      id: orderId,
+    };
   } else if (orderData) {
     const medicationAdministrationId = await createOrder(
       oystehr,
@@ -146,6 +154,7 @@ async function updateOrder(
       medicationResource: newMedicationCopy,
     });
   }
+
   if (currentStatus && newStatus) {
     if (updatedMedicationAdministration != null) {
       updatedMedicationAdministration.status = mapOrderStatusToFhir(newStatus);
