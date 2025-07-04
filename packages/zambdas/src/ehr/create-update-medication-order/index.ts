@@ -69,6 +69,14 @@ async function performEffect(
       message: 'Order was updated successfully',
       id: orderId,
     };
+  } else if (orderId && newStatus) {
+    const orderResources = await getOrderResources(oystehr, orderId);
+    if (!orderResources) throw new Error(`No order found with id: ${orderId}`);
+    await changeOrderStatus(oystehr, orderResources, newStatus);
+    return {
+      message: 'Order status was changed successfully',
+      id: orderId,
+    };
   } else if (orderData) {
     const medicationAdministrationId = await createOrder(oystehr, orderData, practitionerIdCalledZambda);
     return {
@@ -113,8 +121,11 @@ async function updateOrder(
       newMedicationCopy
     )}, newStatus: ${newStatus}`
   );
+
+  let updatedMedicationResource: MedicationAdministration = orderResources.medicationAdministration;
+
   if (orderData && newMedicationCopy) {
-    await updateMedicationAdministrationData({
+    updatedMedicationResource = await updateMedicationAdministrationData({
       oystehr,
       orderData,
       orderResources,
@@ -123,6 +134,7 @@ async function updateOrder(
     });
     console.log('MedicationAdministration data was successfully updated.');
   }
+
   if (currentStatus && newStatus) {
     resultPromises.push(changeOrderStatus(oystehr, orderResources, newStatus));
     if (newStatus === 'administered') {
@@ -144,10 +156,13 @@ async function updateOrder(
       };
 
       const { effectiveDateTime } = orderData || {};
+
       resultPromises.push(
         oystehr.fhir
           .create<MedicationStatement>(
-            createMedicationStatementResource(orderResources.medicationAdministration, medicationCodeableConcept, {
+            // effective date time for MedicationAdministration is date of creation,
+            // and effective date time for MedicationStatement is date of medication was given/taken
+            createMedicationStatementResource(updatedMedicationResource, medicationCodeableConcept, {
               effectiveDateTime,
             })
           )

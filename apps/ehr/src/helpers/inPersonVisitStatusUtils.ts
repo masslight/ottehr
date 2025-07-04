@@ -4,10 +4,19 @@ import { changeInPersonVisitStatus } from '../api/api';
 
 export const handleChangeInPersonVisitStatus = async (
   zambdaInput: ChangeInPersonVisitStatusInput,
-  oystehr: Oystehr
+  oystehr?: Oystehr
 ): Promise<void> => {
+  const { encounterId, user, updatedStatus } = zambdaInput;
+  if (!encounterId) {
+    throw new Error('Encounter ID is required to change the visit status');
+  }
+  if (!oystehr) {
+    throw new Error('Oystehr Zambda client is not available when changing the visit status');
+  }
+  if (!user) {
+    throw new Error('User is required to change the visit status');
+  }
   try {
-    const { encounterId, user, updatedStatus } = zambdaInput;
     await changeInPersonVisitStatus(oystehr, {
       encounterId,
       user,
