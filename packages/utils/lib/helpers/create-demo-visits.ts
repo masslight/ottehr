@@ -29,7 +29,7 @@ import {
   getSurgicalHistoryStepAnswers,
   isoToDateObject,
 } from './helpers';
-import { chooseJson } from './zapEHRApi';
+import { chooseJson } from './oystehrApi';
 
 interface AppointmentData {
   firstNames?: string[];

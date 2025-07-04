@@ -67,9 +67,9 @@ import { useFeatureFlags } from '../context/featureFlags';
 import { ROUTER_PATH } from '../routing/routesCSS';
 
 const OTHER = 'Other';
-const PERFORMED_BY = ['Clinical support staff', 'Provider', 'Both'];
+const PERFORMED_BY = ['Healthcare staff', 'Provider', 'Both'];
 const SPECIMEN_SENT = ['Yes', 'No'];
-const DOCUMENTED_BY = ['Provider', 'Clinical support staff'];
+const DOCUMENTED_BY = ['Provider', 'Healthcare staff'];
 
 interface PageState {
   consentObtained?: boolean;

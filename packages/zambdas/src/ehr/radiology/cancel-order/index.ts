@@ -70,6 +70,7 @@ const patchServiceRequestToRevokedInOystehr = async (
   serviceRequestId: string,
   oystehr: Oystehr
 ): Promise<ServiceRequest> => {
+  console.log('setting status to revoked for service request', serviceRequestId);
   return await oystehr.fhir.patch({
     resourceType: 'ServiceRequest',
     id: serviceRequestId,
@@ -121,22 +122,22 @@ const updateServiceRequestToRevokedInAdvaPacs = async (
       );
     }
 
-    const maybeAdvaPACSSR = await findServiceRequestResponse.json();
+    const maybeAdvaPACSSr = await findServiceRequestResponse.json();
 
-    if (maybeAdvaPACSSR.resourceType !== 'Bundle') {
-      throw new Error(`Expected response to be Bundle but got ${maybeAdvaPACSSR.resourceType}`);
+    if (maybeAdvaPACSSr.resourceType !== 'Bundle') {
+      throw new Error(`Expected response to be Bundle but got ${maybeAdvaPACSSr.resourceType}`);
     }
 
-    if (maybeAdvaPACSSR.entry.length === 0) {
+    if (maybeAdvaPACSSr.entry.length === 0) {
       throw new Error(`No service request found in AdvaPACS for accession number ${accessionNumber}`);
     }
-    if (maybeAdvaPACSSR.entry.length > 1) {
+    if (maybeAdvaPACSSr.entry.length > 1) {
       throw new Error(
         `Found multiple service requests in AdvaPACS for accession number ${accessionNumber}, cannot update.`
       );
     }
 
-    const advapacsSR = maybeAdvaPACSSR.entry[0].resource as ServiceRequest;
+    const advapacsSR = maybeAdvaPACSSr.entry[0].resource as ServiceRequest;
 
     // Update the AdvaPACS SR now that we have its latest data.
     const advapacsResponse = await fetch(`${ADVAPACS_FHIR_BASE_URL}/ServiceRequest/${advapacsSR.id}`, {

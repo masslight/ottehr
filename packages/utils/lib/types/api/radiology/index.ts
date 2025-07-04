@@ -26,7 +26,7 @@ export interface RadiologyLaunchViewerZambdaOutput {
 }
 
 export interface GetRadiologyOrderListZambdaInput {
-  encounterId?: string;
+  encounterIds?: string | string[];
   patientId?: string;
   serviceRequestId?: string;
   pageIndex?: number;

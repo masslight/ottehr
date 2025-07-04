@@ -24,6 +24,7 @@ import {
   ExternalLabOrderResult,
   ExternalLabOrderResultConfig,
   getPresignedURL,
+  getTimezone,
   IN_HOUSE_DIAGNOSTIC_REPORT_CATEGORY_CONFIG,
   IN_HOUSE_TEST_CODE_SYSTEM,
   InHouseLabResult,
@@ -379,7 +380,7 @@ export const makeEncounterLabResults = async (
       }
     } else {
       // something has gone awry during the document reference creation if there is no diagnostic report linked
-      // so this shouldnt happen but if it does we will still surface the report
+      // so this shouldn't happen but if it does we will still surface the report
       console.log('no diagnosticReportRef for', docRef.id);
     }
   }
@@ -462,7 +463,7 @@ export const configLabRequestsForGetChartData = (encounterId: string): BatchInpu
     method: 'GET',
     url: `/DocumentReference?status=current&type=${LAB_RESULT_DOC_REF_CODING_CODE.code}&encounter=${encounterId}&_include:iterate=DocumentReference:related&_include:iterate=DiagnosticReport:based-on`,
   };
-  // Grabbing active lab service requests seperately since they might not have results
+  // Grabbing active lab service requests separately since they might not have results
   // but we validate against actually signing the progress note if there are any pending
   const activeLabServiceRequestSearch: BatchInputGetRequest = {
     method: 'GET',
@@ -471,8 +472,12 @@ export const configLabRequestsForGetChartData = (encounterId: string): BatchInpu
   return [docRefSearch, activeLabServiceRequestSearch];
 };
 
-const diagnosticReportIncludesCategory = (diagnosicReport: DiagnosticReport, system: string, code: string): boolean => {
-  return !!diagnosicReport.category?.find((cat) => cat?.coding?.find((c) => c.system === system && c.code === code));
+const diagnosticReportIncludesCategory = (
+  diagnosticReport: DiagnosticReport,
+  system: string,
+  code: string
+): boolean => {
+  return !!diagnosticReport.category?.find((cat) => cat?.coding?.find((c) => c.system === system && c.code === code));
 };
 
 const getDocRefRelatedId = (
@@ -565,4 +570,17 @@ export const parseAppointmentIdForServiceRequest = (
   }
 
   return NOT_FOUND;
+};
+
+export const parseTimezoneForAppointmentSchedule = (
+  appointment: Appointment | undefined,
+  appointmentScheduleMap: Record<string, Schedule>
+): string | undefined => {
+  if (!appointment || !appointment.id) return;
+  const schedule = appointmentScheduleMap[appointment.id];
+  let timezone;
+  if (schedule) {
+    timezone = getTimezone(schedule);
+  }
+  return timezone;
 };

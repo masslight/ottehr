@@ -1,5 +1,4 @@
 import { BatchInputRequest } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { Encounter, FhirResource, ServiceRequest, Specimen, Task } from 'fhir/r4b';
@@ -19,14 +18,14 @@ import {
   createOystehrClient,
   getMyPractitionerId,
   topLevelCatch,
+  wrapHandler,
   ZambdaInput,
 } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
-
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+const ZAMBDA_NAME = 'collect-in-house-lab-specimen';
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`collect-in-house-lab-specimen started, input: ${JSON.stringify(input)}`);
-
   let secrets = input.secrets;
   let validatedParameters: CollectInHouseLabSpecimenParameters & { secrets: Secrets | null; userToken: string };
 
@@ -92,7 +91,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       practitionerFromEncounterId !== validatedParameters.data.specimen.collectedBy.id &&
       userPractitionerId !== validatedParameters.data.specimen.collectedBy.id
     ) {
-      // todo: not sure about this check, but looks better to have it, without this any participant may be setted with custom request
+      // todo: not sure about this check, but looks better to have it, without this any participant may be set with custom request
       throw Error('Practitioner mismatch');
     }
 

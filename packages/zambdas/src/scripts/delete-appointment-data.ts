@@ -73,16 +73,16 @@ const deleteAppointmentData = async (config: any): Promise<void> => {
         console.error(`Error patching resource: ${e}`, JSON.stringify(e));
         retries++;
         await new Promise((resolve) => setTimeout(resolve, 200));
-        const personRefetched = (
+        const personNewlyFetched = (
           await oystehr.fhir.search<Person>({
             resourceType: 'Person',
             params: [{ name: '_id', value: person.id! }],
           })
         ).unbundle()[0];
 
-        if (personRefetched) {
-          person.meta!.versionId = personRefetched.meta!.versionId!;
-          person.link = personRefetched.link;
+        if (personNewlyFetched) {
+          person.meta!.versionId = personNewlyFetched.meta!.versionId!;
+          person.link = personNewlyFetched.link;
         }
       }
     }

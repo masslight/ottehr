@@ -26,8 +26,8 @@ import {
   PATIENT_INDIVIDUAL_PRONOUNS_URL,
   PATIENT_SEXUAL_ORIENTATION_URL,
   PatientAccountResponse,
+  PRACTICE_NAME_URL,
 } from '../../types';
-import { PRACTICE_NAME_URL } from '../../types';
 import { formatPhoneNumberDisplay } from '../helpers';
 
 const genderMap = {
@@ -37,7 +37,7 @@ const genderMap = {
 };
 
 // used when patient books an appointment and some of the inputs come from the create-appointment params
-interface PrepopulationInput {
+interface PrePopulationInput {
   patient: Patient;
   appointmentStartTime: string;
   isNewQrsPatient: boolean;
@@ -51,7 +51,7 @@ interface PrepopulationInput {
   accountInfo?: PatientAccountResponse | undefined;
 }
 
-export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): QuestionnaireResponseItem[] => {
+export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): QuestionnaireResponseItem[] => {
   const {
     patient,
     newPatientDob,
@@ -129,7 +129,7 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
     contentType: photoIdBackDocumentReference?.content[0].attachment.contentType,
   };
 
-  console.log('patient info for prepop: ');
+  console.log('patient info for pre-population: ');
   console.log('patient: ', JSON.stringify(patient, null, 2));
   console.log('patientSex', patientSex);
   console.log('documents: ', JSON.stringify(documents, null, 2));
@@ -275,7 +275,7 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
     };
   });
 
-  console.log('prepopulation result', JSON.stringify(item));
+  console.log('pre-population result', JSON.stringify(item));
 
   return item;
 };
@@ -327,12 +327,12 @@ export const extractFirstValueFromAnswer = (
   return (answer[0] as any)?.[`value${valueType}`];
 };
 
-export interface PrepopulationFromPatientRecordInput extends PatientAccountResponse {
+export interface PrePopulationFromPatientRecordInput extends PatientAccountResponse {
   questionnaire: Questionnaire;
 }
 
 export const makePrepopulatedItemsFromPatientRecord = (
-  input: PrepopulationFromPatientRecordInput
+  input: PrePopulationFromPatientRecordInput
 ): QuestionnaireResponseItem[] => {
   const { patient, questionnaire, primaryCarePhysician, coverages, guarantorResource } = input;
   console.log('making prepopulated items from patient record', coverages);
@@ -401,10 +401,10 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
     ?.valueCodeableConcept?.coding?.[0]?.display;
   const patientRace = patient.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/race`)
     ?.valueCodeableConcept?.coding?.[0]?.display;
-  const patientPrefferedPronouns = patient.extension?.find((e) => e.url === PATIENT_INDIVIDUAL_PRONOUNS_URL)
+  const patientPreferredPronouns = patient.extension?.find((e) => e.url === PATIENT_INDIVIDUAL_PRONOUNS_URL)
     ?.valueCodeableConcept?.coding?.[0]?.display;
 
-  const patientPrefferedName = patient.name?.find((name) => name.use === 'nickname')?.given?.[0];
+  const patientPreferredName = patient.name?.find((name) => name.use === 'nickname')?.given?.[0];
 
   let patientSex: string | undefined;
   if (patient?.gender === 'male') {
@@ -457,12 +457,12 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
       answer = makeAnswer(getNameSuffix(patient) ?? '');
     }
 
-    if (linkId === 'patient-preferred-name' && patientPrefferedName) {
-      answer = makeAnswer(patientPrefferedName);
+    if (linkId === 'patient-preferred-name' && patientPreferredName) {
+      answer = makeAnswer(patientPreferredName);
     }
 
-    if (linkId === 'patient-pronouns' && patientPrefferedPronouns) {
-      answer = makeAnswer(patientPrefferedPronouns);
+    if (linkId === 'patient-pronouns' && patientPreferredPronouns) {
+      answer = makeAnswer(patientPreferredPronouns);
     }
 
     if (linkId === 'patient-street-address' && patientAddressLine1) {
@@ -856,12 +856,12 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
 };
 
 const GUARANTOR_ITEMS = ['responsible-party-section', 'responsible-party-page'];
-interface MapGuantorItemsInput {
+interface MapGuarantorItemsInput {
   items: QuestionnaireItem[];
   guarantorResource?: RelatedPerson | Patient;
 }
 
-const mapGuarantorToQuestionnaireResponseItems = (input: MapGuantorItemsInput): QuestionnaireResponseItem[] => {
+const mapGuarantorToQuestionnaireResponseItems = (input: MapGuarantorItemsInput): QuestionnaireResponseItem[] => {
   const { guarantorResource, items } = input;
 
   const phone = formatPhoneNumberDisplay(

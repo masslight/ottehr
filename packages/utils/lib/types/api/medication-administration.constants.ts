@@ -3,6 +3,7 @@ export const MEDICATION_TYPE_SYSTEM = 'virtual-medication-type';
 export const INVENTORY_MEDICATION_TYPE_CODE = 'virtual-medication-inventory';
 
 export const MEDICATION_IDENTIFIER_NAME_SYSTEM = 'virtual-medication-identifier-name-system';
+
 export const MEDICATION_DISPENSABLE_DRUG_ID =
   'https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id';
 

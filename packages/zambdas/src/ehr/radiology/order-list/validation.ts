@@ -1,4 +1,4 @@
-import { GetRadiologyOrderListZambdaInput, isValidUUID, Secrets } from 'utils';
+import { isValidUUID, Secrets } from 'utils';
 import { validateJsonBody, ZambdaInput } from '../../../shared';
 import { ValidatedInput } from '.';
 
@@ -16,23 +16,27 @@ export const validateInput = async (input: ZambdaInput): Promise<ValidatedInput>
   };
 };
 
-const validateBody = async (input: ZambdaInput): Promise<GetRadiologyOrderListZambdaInput> => {
-  const { encounterId, patientId, serviceRequestId, itemsPerPage, pageIndex } = validateJsonBody(input);
+const validateBody = async (input: ZambdaInput): Promise<ValidatedInput['body']> => {
+  const { encounterIds, patientId, serviceRequestId, itemsPerPage, pageIndex } = validateJsonBody(input);
 
   if (
-    (patientId && (encounterId || serviceRequestId)) ||
-    (encounterId && (patientId || serviceRequestId)) ||
-    (serviceRequestId && (patientId || encounterId))
+    (patientId && (serviceRequestId || encounterIds)) ||
+    (encounterIds && (patientId || serviceRequestId)) ||
+    (serviceRequestId && (patientId || encounterIds))
   ) {
-    throw new Error('Only one of patientId, encounterId, serviceRequestId may be sent at a time');
+    throw new Error('Only one of patientId, encounterIds, serviceRequestId may be sent at a time');
   }
 
-  if (!patientId && !encounterId && !serviceRequestId) {
-    throw new Error('One of patientId, encounterId, serviceRequestId is required');
+  if (!patientId && !encounterIds && !serviceRequestId) {
+    throw new Error('One of patientId, encounterIds, serviceRequestId is required');
   }
 
-  if (encounterId && !isValidUUID(encounterId)) {
-    throw new Error('encounterId must be a uuid');
+  if (encounterIds && !Array.isArray(encounterIds) && !isValidUUID(encounterIds)) {
+    throw new Error('encounterIds must be a valid uuid');
+  }
+
+  if (encounterIds && Array.isArray(encounterIds) && encounterIds.some((id: any) => !isValidUUID(id))) {
+    throw new Error('all strings within encounterIds must be valid uuids');
   }
 
   if (patientId && !isValidUUID(patientId)) {
@@ -51,8 +55,13 @@ const validateBody = async (input: ZambdaInput): Promise<GetRadiologyOrderListZa
     throw new Error('Invalid parameter: If pageIndex is included then it must be a number greater than or equal to 0');
   }
 
+  let encounterIdsArr: string[] | undefined;
+  if (encounterIds) {
+    encounterIdsArr = Array.isArray(encounterIds) ? [...encounterIds] : [encounterIds];
+  }
+
   return {
-    encounterId,
+    encounterIds: encounterIdsArr,
     patientId,
     serviceRequestId,
     itemsPerPage,

@@ -476,7 +476,7 @@
           "format": "Phone Number"
         },
         {
-          "id": "preferred-pharmarcy-text",
+          "id": "preferred-pharmacy-text",
           "text": "Preferred pharmacy",
           "type": "Header 3",
           "multiline": false

@@ -16,16 +16,16 @@ import {
 import { Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ReactElement, useState } from 'react';
-import { InHouseOrderListPageItemDTO, InPersonAppointmentInformation, LabOrderListPageDTO, NursingOrder } from 'utils';
+import { InPersonAppointmentInformation, OrdersForTrackingBoardRow, OrdersForTrackingBoardTable } from 'utils';
 import {
   ACTION_WIDTH,
   ACTION_WIDTH_MIN,
   CHAT_WIDTH,
   CHAT_WIDTH_MIN,
+  GO_TO_MANY_BUTTONS_WIDTH,
+  GO_TO_MANY_BUTTONS_WIDTH_MIN,
   GO_TO_ONE_BUTTON_WIDTH,
   GO_TO_ONE_BUTTON_WIDTH_MIN,
-  GO_TO_TWO_BUTTON_WIDTH,
-  GO_TO_TWO_BUTTON_WIDTH_MIN,
   NEXT_WIDTH,
   NOTES_WIDTH,
   NOTES_WIDTH_MIN,
@@ -53,9 +53,7 @@ interface AppointmentTableProps {
   now: DateTime;
   updateAppointments: () => void;
   setEditingComment: (editingComment: boolean) => void;
-  inHouseLabOrdersByAppointmentId: Record<string, InHouseOrderListPageItemDTO[]>;
-  externalLabOrdersByAppointmentId: Record<string, LabOrderListPageDTO[]>;
-  nursingOrdersByAppointmentId: Record<string, NursingOrder[]>;
+  orders: OrdersForTrackingBoardTable;
 }
 
 export default function AppointmentTable({
@@ -65,15 +63,29 @@ export default function AppointmentTable({
   now,
   updateAppointments,
   setEditingComment,
-  inHouseLabOrdersByAppointmentId,
-  externalLabOrdersByAppointmentId,
-  nursingOrdersByAppointmentId,
+  orders,
 }: AppointmentTableProps): ReactElement {
   const theme = useTheme();
   const actionButtons = tab === ApptTab.prebooked ? true : false;
   const showTime = tab !== ApptTab.prebooked ? true : false;
   const [collapseWaiting, setCollapseWaiting] = useState<boolean>(false);
   const [collapseExam, setCollapseExam] = useState<boolean>(false);
+
+  const {
+    inHouseLabOrdersByAppointmentId,
+    externalLabOrdersByAppointmentId,
+    nursingOrdersByAppointmentId,
+    inHouseMedicationsByEncounterId,
+    radiologyOrdersByAppointmentId,
+  } = orders;
+
+  const ordersForAppointment = (appointmentId: string, encounterId: string): OrdersForTrackingBoardRow => ({
+    inHouseLabOrders: inHouseLabOrdersByAppointmentId[appointmentId],
+    externalLabOrders: externalLabOrdersByAppointmentId[appointmentId],
+    nursingOrders: nursingOrdersByAppointmentId[appointmentId],
+    inHouseMedications: inHouseMedicationsByEncounterId[encounterId],
+    radiologyOrders: radiologyOrdersByAppointmentId[appointmentId],
+  });
 
   return (
     <>
@@ -133,12 +145,12 @@ export default function AppointmentTable({
                 </TableCell>
                 <TableCell
                   style={{
-                    width: tab === ApptTab.prebooked ? GO_TO_ONE_BUTTON_WIDTH : GO_TO_TWO_BUTTON_WIDTH,
-                    minWidth: tab === ApptTab.prebooked ? GO_TO_ONE_BUTTON_WIDTH_MIN : GO_TO_TWO_BUTTON_WIDTH_MIN,
+                    width: tab === ApptTab.prebooked ? GO_TO_ONE_BUTTON_WIDTH : GO_TO_MANY_BUTTONS_WIDTH,
+                    minWidth: tab === ApptTab.prebooked ? GO_TO_ONE_BUTTON_WIDTH_MIN : GO_TO_MANY_BUTTONS_WIDTH_MIN,
                   }}
                 >
-                  <Typography variant="subtitle2" sx={{ fontSize: '14px', textAlign: 'center' }}>
-                    Go to...
+                  <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
+                    Actions
                   </Typography>
                 </TableCell>
                 {tab === ApptTab.prebooked && (
@@ -195,9 +207,7 @@ export default function AppointmentTable({
                             updateAppointments={updateAppointments}
                             setEditingComment={setEditingComment}
                             tab={tab}
-                            inHouseLabOrders={inHouseLabOrdersByAppointmentId[appointment.id]}
-                            externalLabOrders={externalLabOrdersByAppointmentId[appointment.id]}
-                            nursingOrders={nursingOrdersByAppointmentId[appointment.id]}
+                            orders={ordersForAppointment(appointment.id, appointment.encounterId)}
                           ></AppointmentTableRow>
                         );
                       })}
@@ -215,9 +225,7 @@ export default function AppointmentTable({
                       updateAppointments={updateAppointments}
                       setEditingComment={setEditingComment}
                       tab={tab}
-                      inHouseLabOrders={inHouseLabOrdersByAppointmentId[appointment.id]}
-                      externalLabOrders={externalLabOrdersByAppointmentId[appointment.id]}
-                      nursingOrders={nursingOrdersByAppointmentId[appointment.id]}
+                      orders={ordersForAppointment(appointment.id, appointment.encounterId)}
                     ></AppointmentTableRow>
                   );
                 })
@@ -244,7 +252,7 @@ export default function AppointmentTable({
                   <TableCell style={{ width: NOTES_WIDTH, minWidth: NOTES_WIDTH_MIN }}></TableCell>
                   <TableCell style={{ width: CHAT_WIDTH, minWidth: CHAT_WIDTH_MIN }}></TableCell>
                   <TableCell
-                    style={{ width: GO_TO_TWO_BUTTON_WIDTH, minWidth: GO_TO_TWO_BUTTON_WIDTH_MIN }}
+                    style={{ width: GO_TO_MANY_BUTTONS_WIDTH, minWidth: GO_TO_MANY_BUTTONS_WIDTH_MIN }}
                   ></TableCell>
                 </TableRow>
               </TableHead>
@@ -291,9 +299,7 @@ export default function AppointmentTable({
                           updateAppointments={updateAppointments}
                           setEditingComment={setEditingComment}
                           tab={tab}
-                          inHouseLabOrders={inHouseLabOrdersByAppointmentId[appointment.id]}
-                          externalLabOrders={externalLabOrdersByAppointmentId[appointment.id]}
-                          nursingOrders={nursingOrdersByAppointmentId[appointment.id]}
+                          orders={ordersForAppointment(appointment.id, appointment.encounterId)}
                         ></AppointmentTableRow>
                       );
                     })}

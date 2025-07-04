@@ -1,9 +1,8 @@
 import Oystehr, { OystehrConfig } from '@oystehr/sdk';
 import { Appointment, Extension, PaymentNotice, QuestionnaireResponseItemAnswer, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { phone } from 'phone';
-import { OTTEHR_MODULE, PAYMENT_METHOD_EXTENSION_URL } from '../fhir';
-import { CashPaymentDTO, PatchPaperworkParameters } from '../types';
+import { OTTEHR_MODULE, PAYMENT_METHOD_EXTENSION_URL, SLUG_SYSTEM } from '../fhir';
+import { CashPaymentDTO, PatchPaperworkParameters, ScheduleOwnerFhirResource } from '../types';
 import { phoneRegex, zipRegex } from '../validation';
 
 export function createOystehrClient(token: string, fhirAPI: string, projectAPI: string): Oystehr {
@@ -68,10 +67,7 @@ export const isPhoneNumberValid = (phoneNumber: string | undefined): boolean => 
     return false;
   }
   const plusOneRegex = /^\+1\d{10}$/;
-  return (
-    (plusOneRegex.test(phoneNumber) || tenDigitRegex.test(phoneNumber) || phoneRegex.test(phoneNumber)) &&
-    phone(phoneNumber).isValid
-  );
+  return plusOneRegex.test(phoneNumber) || tenDigitRegex.test(phoneNumber) || phoneRegex.test(phoneNumber);
 };
 
 export function formatPhoneNumber(phoneNumber: string | undefined): string | undefined {
@@ -175,11 +171,11 @@ export function standardizePhoneNumber(phoneNumber: string | undefined): string 
   // input format:  some arbitrary format which may or may not include (, ), -, +1
   // output format: (XXX) XXX-XXXX
   if (!phoneNumber) {
-    return phoneNumber;
+    return undefined;
   }
 
   const digits = phoneNumber.replace(/\D/g, '');
-  let phoneNumberDigits = undefined;
+  let phoneNumberDigits: string | undefined;
 
   if (digits.length === 10) {
     phoneNumberDigits = digits;
@@ -187,7 +183,11 @@ export function standardizePhoneNumber(phoneNumber: string | undefined): string 
     phoneNumberDigits = digits.slice(1);
   }
 
-  return formatPhoneNumber(phoneNumberDigits);
+  if (!phoneNumberDigits) {
+    return undefined;
+  }
+
+  return `(${phoneNumberDigits.slice(0, 3)}) ${phoneNumberDigits.slice(3, 6)}-${phoneNumberDigits.slice(6)}`;
 }
 
 export function resourceHasMetaTag(resource: Resource, metaTag: OTTEHR_MODULE): boolean {
@@ -1113,4 +1113,9 @@ export const convertPaymentNoticeListToCashPaymentDTOs = (
     }
     return mapped;
   });
+};
+
+export const checkResourceHasSlug = (resource: ScheduleOwnerFhirResource, slug: string): boolean => {
+  const identifiers = resource.identifier ?? [];
+  return identifiers.some((id) => id.system === SLUG_SYSTEM && id.value === slug);
 };

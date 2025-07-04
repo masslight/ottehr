@@ -53,7 +53,7 @@ function getImageOrientation(file: ArrayBuffer): number {
 
 // Get rotation in degrees from EXIF orientation
 // https://sirv.com/help/articles/rotate-photos-to-be-upright/#exif-orientation-values
-// x-mirrored: the image is flipped horizontallly
+// x-mirrored: the image is flipped horizontally
 // y-mirrored: the image is flipped vertically
 function getOrientationCorrection(orientation: number): { degrees: number; mirrored?: 'x' | 'y' } {
   switch (orientation) {

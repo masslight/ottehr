@@ -52,7 +52,7 @@ export interface GetVisitDetailsResponse {
 }
 
 export interface PaymentDataResponse {
-  chargeuuid: string;
+  chargeUuid: string;
   amount: number;
   currency: string;
   date: string;
