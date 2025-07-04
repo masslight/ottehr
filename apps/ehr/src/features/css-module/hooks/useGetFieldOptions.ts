@@ -109,6 +109,8 @@ export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
         { value: 'ml', label: 'mL' },
         { value: 'g', label: 'g' },
         { value: 'cc', label: 'cc' },
+        { value: 'unit', label: 'unit' },
+        { value: 'application', label: 'application' },
       ],
       status: 'loaded',
     },
