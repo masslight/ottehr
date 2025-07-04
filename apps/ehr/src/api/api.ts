@@ -34,6 +34,7 @@ import {
   DeleteInHouseLabOrderZambdaOutput,
   DeleteLabOrderZambdaInput,
   DeleteLabOrderZambdaOutput,
+  DownloadPatientProfilePhotoInput,
   GetAppointmentsZambdaInput,
   GetAppointmentsZambdaOutput,
   GetConversationInput,
@@ -45,7 +46,6 @@ import {
   GetLabelPdfParameters,
   GetLabOrdersParameters,
   GetNursingOrdersInput,
-  GetOrUploadPatientProfilePhotoZambdaInput,
   GetOrUploadPatientProfilePhotoZambdaResponse,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOutput,
@@ -77,6 +77,7 @@ import {
   UpdateScheduleParams,
   UpdateUserParams,
   UpdateUserZambdaOutput,
+  UploadPatientProfilePhotoInput,
 } from 'utils';
 
 export interface PatchOperation {
@@ -555,10 +556,7 @@ export const createSchedule = async (params: CreateScheduleParams, oystehr: Oyst
   }
 };
 
-export type UploadPatientProfilePhotoParameters = Omit<
-  GetOrUploadPatientProfilePhotoZambdaInput,
-  'z3PhotoUrl' | 'action'
-> & {
+export type UploadPatientProfilePhotoParameters = Omit<UploadPatientProfilePhotoInput, 'action'> & {
   patientPhotoFile: File;
 };
 
@@ -600,7 +598,7 @@ export const uploadPatientProfilePhoto = async (
   }
 };
 
-export type GetPatientProfilePhotoParameters = Omit<GetOrUploadPatientProfilePhotoZambdaInput, 'patientID' | 'action'>;
+export type GetPatientProfilePhotoParameters = Omit<DownloadPatientProfilePhotoInput, 'action'>;
 
 export const getSignedPatientProfilePhotoUrl = async (
   oystehr: Oystehr,
