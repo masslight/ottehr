@@ -150,8 +150,10 @@ export enum VitalFieldNames {
 }
 
 export enum VitalTemperatureObservationMethod {
+  Axillary = 'Axillary',
   Oral = 'Oral',
   Rectal = 'Rectal',
+  Temporal = 'Temporal',
 }
 
 export enum VitalHeartbeatObservationMethod {
