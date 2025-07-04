@@ -11,6 +11,7 @@ import {
 import { PageTitle } from '../../../telemed/components/PageTitle';
 import { ChiefComplaintCard } from '../../../telemed/features/appointment';
 import {
+  AddendumCard,
   DischargeButton,
   MissingCard,
   ReviewAndSignButton,
@@ -69,6 +70,8 @@ export const ProgressNote: React.FC<PatientInfoProps> = () => {
       <ChiefComplaintCard />
 
       <ProgressNoteDetails />
+
+      <AddendumCard />
 
       {!isReadOnly && (
         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
