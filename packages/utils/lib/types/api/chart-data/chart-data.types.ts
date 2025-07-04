@@ -205,8 +205,8 @@ export type VitalsVisionOption = 'child_too_young' | 'with_glasses' | 'without_g
 export interface VitalsVisionObservationDTO extends VitalsBaseObservationDTO {
   field: Extract<VitalFieldNames, 'vital-vision'>;
   value?: never;
-  leftEyeVisionValue: number;
-  rightEyeVisionValue: number;
+  leftEyeVisionText: string;
+  rightEyeVisionText: string;
   extraVisionOptions?: VitalsVisionOption[];
 }
 
