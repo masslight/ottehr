@@ -298,6 +298,19 @@ async function createOrder(
   return createdResources.find((resource) => resource.resourceType === 'MedicationAdministration')?.id;
 }
 
+async function changeOrderStatus(
+  oystehr: Oystehr,
+  pkg: OrderPackage,
+  newStatus: MedicationOrderStatusesType
+): Promise<any> {
+  console.log(`Changing status to: ${newStatus}`);
+  return await oystehr.fhir.patch({
+    resourceType: 'MedicationAdministration',
+    id: pkg.medicationAdministration.id!,
+    operations: [replaceOperation('/status', mapOrderStatusToFhir(newStatus))],
+  });
+}
+
 async function getOrderResources(oystehr: Oystehr, orderId: string): Promise<OrderPackage | undefined> {
   const bundle = await oystehr.fhir.search({
     resourceType: 'MedicationAdministration',
