@@ -76,6 +76,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
 
   const onSubmit = (data: any): void => {
     // send the data to a zambda
+
     const questionnaireResponse = structureQuestionnaireResponse(questionnaire, data, patientId);
     submitQR.mutate(questionnaireResponse);
   };
