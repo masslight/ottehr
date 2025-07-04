@@ -7,9 +7,13 @@ import {
   MedicationStatement,
 } from 'fhir/r4b';
 import {
+  AllergyInteraction,
+  CODE_SYSTEM_ACT_CODE_V3,
   createReference,
+  DrugInteraction,
   getCreatedTheOrderProviderId,
   IN_HOUSE_CONTAINED_MEDICATION_ID,
+  INTERACTION_OVERRIDE_REASON_CODE_SYSTEM,
   MEDICATION_ADMINISTRATION_CSS_RESOURCE_CODE,
   MEDICATION_ADMINISTRATION_CSS_RESOURCE_SYSTEM,
   MEDICATION_ADMINISTRATION_OTHER_REASON_CODE,
@@ -17,6 +21,7 @@ import {
   MEDICATION_ADMINISTRATION_REASON_CODE,
   MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM,
   MEDICATION_ADMINISTRATION_UNITS_SYSTEM,
+  MEDICATION_DISPENSABLE_DRUG_ID,
   MedicationApplianceLocation,
   MedicationApplianceRoute,
   MedicationData,
@@ -164,7 +169,7 @@ export function createMedicationRequest(data: MedicationData): MedicationRequest
     status: 'active',
     intent: 'order',
     subject: { reference: `Patient/${data.patient}` },
-    encounter: data.encounter ? { reference: `Encounter/${data.encounter}` } : undefined,
+    encounter: data.encounterId ? { reference: `Encounter/${data.encounterId}` } : undefined,
     detectedIssue:
       detectedIssues.length > 0
         ? detectedIssues.map((detectedIssue) => ({
