@@ -8,6 +8,10 @@ export abstract class BaseProgressNotePage {
     this.#page = page;
   }
 
+  async clickDischargeButton(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.progressNotePage.dischargeButton).click();
+  }
+
   async clickReviewAndSignButton(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.progressNotePage.reviewAndSignButton).click();
   }
