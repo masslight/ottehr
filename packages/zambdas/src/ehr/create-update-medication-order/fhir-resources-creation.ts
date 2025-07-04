@@ -25,6 +25,7 @@ import {
   MedicationApplianceLocation,
   MedicationApplianceRoute,
   MedicationData,
+  MedicationInteractions,
   PRACTITIONER_ADMINISTERED_MEDICATION_CODE,
   PRACTITIONER_ORDERED_MEDICATION_CODE,
 } from 'utils';
@@ -155,12 +156,15 @@ export function createMedicationAdministrationResource(data: MedicationAdministr
   return resource;
 }
 
-export function createMedicationRequest(data: MedicationData): MedicationRequest {
+export function createMedicationRequest(
+  data: MedicationData,
+  interactions: MedicationInteractions | undefined
+): MedicationRequest {
   const detectedIssues = [
-    ...(data.interactions?.drugInteractions?.map((interaction, index) =>
+    ...(interactions?.drugInteractions?.map((interaction, index) =>
       createDrugInteractionIssue('drg-' + index, interaction)
     ) ?? []),
-    ...(data.interactions?.allergyInteractions?.map((interaction, index) =>
+    ...(interactions?.allergyInteractions?.map((interaction, index) =>
       createAllergyInteractionIssue('algy-' + index, interaction)
     ) ?? []),
   ];

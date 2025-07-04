@@ -1,8 +1,10 @@
-import Oystehr, { BatchInput, BatchInputRequest, Bundle } from '@oystehr/sdk';
+import Oystehr, { BatchInput, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
+import { Operation } from 'fast-json-patch';
 import {
   CodeableConcept,
+  FhirResource,
   Medication,
   MedicationAdministration,
   MedicationRequest,
@@ -20,6 +22,7 @@ import {
   mapOrderStatusToFhir,
   MEDICATION_DISPENSABLE_DRUG_ID,
   MedicationData,
+  MedicationInteractions,
   MedicationOrderStatusesType,
   OrderPackage,
   replaceOperation,
@@ -76,13 +79,18 @@ async function performEffect(
 ): Promise<any> {
   const { orderId, newStatus, orderData } = params;
   if (orderId && orderData) {
-    await updateOrder(oystehr, orderId, newStatus, orderData, practitionerIdCalledZambda);
+    await updateOrder(oystehr, orderId, newStatus, orderData, params.interactions, practitionerIdCalledZambda);
     return {
       message: 'Order was updated successfully',
       id: orderId,
     };
   } else if (orderData) {
-    const medicationAdministrationId = await createOrder(oystehr, orderData, practitionerIdCalledZambda);
+    const medicationAdministrationId = await createOrder(
+      oystehr,
+      orderData,
+      params.interactions,
+      practitionerIdCalledZambda
+    );
     return {
       message: 'Order was created successfully',
       id: medicationAdministrationId,
@@ -96,8 +104,11 @@ async function updateOrder(
   orderId: string,
   newStatus: MedicationOrderStatusesType | undefined,
   orderData: MedicationData,
+  interactions: MedicationInteractions | undefined,
   practitionerIdCalledZambda: string
 ): Promise<any> {
+  console.log('updateOrder');
+
   const orderResources = await getOrderResources(oystehr, orderId);
   if (!orderResources) throw new Error(`No order found with id: ${orderId}`);
   const currentStatus = mapFhirToOrderStatus(orderResources.medicationAdministration);
@@ -119,27 +130,30 @@ async function updateOrder(
     newMedicationCopy = createMedicationCopy(existingMedicationCopy, orderData);
   }
 
-  const resultPromises: Promise<any>[] = [];
+  const transactionRequests: BatchInputRequest<FhirResource>[] = [];
   console.log(
     `Updating MedicationAdministration, orderData present: ${Boolean(orderData)}, newMedicationCopy present: ${Boolean(
       newMedicationCopy
     )}, newStatus: ${newStatus}`
   );
+  let updatedMedicationAdministration: MedicationAdministration | undefined = undefined;
+  const medicationAdministrationPatchOperations: Operation[] = [];
   if (orderData && newMedicationCopy) {
-    await updateMedicationAdministrationData({
-      oystehr,
+    updatedMedicationAdministration = updateMedicationAdministrationData({
       orderData,
       orderResources,
       administeredProviderId: newStatus !== undefined ? practitionerIdCalledZambda : undefined,
       medicationResource: newMedicationCopy,
     });
-    console.log('MedicationAdministration data was successfully updated.');
   }
   if (currentStatus && newStatus) {
-    resultPromises.push(changeOrderStatus(oystehr, orderResources, newStatus));
-    if (newStatus === 'administered') {
-      console.log('Creating MedicationStatement resource on administered action');
+    if (updatedMedicationAdministration != null) {
+      updatedMedicationAdministration.status = mapOrderStatusToFhir(newStatus);
+    } else {
+      medicationAdministrationPatchOperations.push(replaceOperation('/status', mapOrderStatusToFhir(newStatus)));
+    }
 
+    if (newStatus === 'administered') {
       if (!newMedicationCopy) throw new Error(`Can't create MedicationStatement for order, no Medication copy.`);
 
       const erxDataFromMedication = newMedicationCopy.code?.coding?.find(
@@ -156,26 +170,69 @@ async function updateOrder(
       };
 
       const { effectiveDateTime } = orderData || {};
-      resultPromises.push(
-        oystehr.fhir
-          .create<MedicationStatement>(
-            createMedicationStatementResource(orderResources.medicationAdministration, medicationCodeableConcept, {
-              effectiveDateTime,
-            })
-          )
-          .then((res) => console.log('successfully created MedicationStatement: ', res.id))
-      );
+      transactionRequests.push({
+        method: 'POST',
+        url: `/MedicationStatement`,
+        resource: createMedicationStatementResource(
+          orderResources.medicationAdministration,
+          medicationCodeableConcept,
+          {
+            effectiveDateTime,
+          }
+        ),
+      });
     }
-    console.log('Status was successfully changed');
   }
-  await Promise.all(resultPromises);
+
+  if (interactions != null) {
+    if (orderResources.medicationRequest == null) {
+      const medicationRequestFullUrl = 'urn:uuid:' + randomUUID();
+      transactionRequests.push({
+        method: 'POST',
+        url: `/MedicationRequest`,
+        fullUrl: medicationRequestFullUrl,
+        resource: createMedicationRequest(orderData, interactions),
+      });
+      if (updatedMedicationAdministration != null) {
+        updatedMedicationAdministration.request = {
+          reference: medicationRequestFullUrl,
+        };
+      } else {
+        replaceOperation('/request', {
+          reference: medicationRequestFullUrl,
+        });
+      }
+    } else {
+      transactionRequests.push({
+        method: 'PUT',
+        url: `/MedicationRequest/${orderResources.medicationRequest.id}`,
+        resource: createMedicationRequest(orderData, interactions),
+      });
+    }
+  }
+
+  transactionRequests.push(
+    getPatchBinary({
+      resourceType: 'MedicationAdministration',
+      resourceId: orderResources.medicationAdministration.id!,
+      patchOperations: medicationAdministrationPatchOperations,
+    })
+  );
+
+  console.log('Transaction requests: ', JSON.stringify(transactionRequests));
+  const transactionResult = await oystehr.fhir.transaction({ requests: transactionRequests });
+
+  console.log('Transaction result: ', JSON.stringify(transactionResult));
 }
 
 async function createOrder(
   oystehr: Oystehr,
   orderData: MedicationData,
+  interactions: MedicationInteractions | undefined,
   practitionerIdCalledZambda: string
 ): Promise<string | undefined> {
+  console.log('createOrder');
+
   if (!orderData.medicationId) throw new Error('No "medicationId" provided');
   const inventoryMedication = await getMedicationById(oystehr, orderData.medicationId);
   if (inventoryMedication && getMedicationTypeCode(inventoryMedication) !== INVENTORY_MEDICATION_TYPE_CODE) {
@@ -192,7 +249,7 @@ async function createOrder(
   if (orderData.location && !locationCoding)
     throw new Error(`No location found with code provided: ${orderData.location}`);
 
-  const medicationRequestToCreate = createMedicationRequest(orderData);
+  const medicationRequestToCreate = createMedicationRequest(orderData, interactions);
   const medicationRequestFullUrl = 'urn:uuid:' + randomUUID();
   const medicationAdministrationToCreate = createMedicationAdministrationResource({
     orderData,
@@ -207,7 +264,7 @@ async function createOrder(
     reference: medicationRequestFullUrl,
   };
 
-  const transactionInput: BatchInput<MedicationRequest | MedicationAdministration> = {
+  const transactionRequests: BatchInput<FhirResource> = {
     requests: [
       {
         method: 'POST',
@@ -222,29 +279,12 @@ async function createOrder(
       },
     ],
   };
-  console.log('Transaction input: ', JSON.stringify(transactionInput));
+  console.log('Transaction input: ', JSON.stringify(transactionRequests));
 
-  const createdResources = (await oystehr.fhir.transaction(transactionInput)).unbundle();
+  const createdResources = (await oystehr.fhir.transaction(transactionRequests)).unbundle();
   console.log('Transaction result: ', JSON.stringify(createdResources));
 
   return createdResources.find((resource) => resource.resourceType === 'MedicationAdministration')?.id;
-}
-
-async function changeOrderStatus(
-  oystehr: Oystehr,
-  pkg: OrderPackage,
-  newStatus: MedicationOrderStatusesType
-): Promise<Bundle<MedicationAdministration>> {
-  const batchInputRequests: BatchInputRequest<MedicationAdministration>[] = [];
-  console.log(`Changing status to: ${newStatus}`);
-  batchInputRequests.push(
-    getPatchBinary({
-      resourceType: 'MedicationAdministration',
-      resourceId: pkg.medicationAdministration.id!,
-      patchOperations: [replaceOperation('/status', mapOrderStatusToFhir(newStatus))],
-    })
-  );
-  return await oystehr.fhir.transaction({ requests: batchInputRequests });
 }
 
 async function getOrderResources(oystehr: Oystehr, orderId: string): Promise<OrderPackage | undefined> {
@@ -263,6 +303,10 @@ async function getOrderResources(oystehr: Oystehr, orderId: string): Promise<Ord
         name: '_revinclude',
         value: 'MedicationStatement:part-of',
       },
+      {
+        name: '_include',
+        value: 'MedicationAdministration:request',
+      },
     ],
   });
   const resources = bundle.unbundle();
@@ -276,9 +320,15 @@ async function getOrderResources(oystehr: Oystehr, orderId: string): Promise<Ord
     (res) => res.resourceType === 'MedicationStatement'
   ) as MedicationStatement;
 
+  const medicationRequestId = medicationAdministration.request?.reference?.split('/')[1];
+  const medicationRequest = resources.find(
+    (resource) => resource.resourceType === 'MedicationRequest' && resource.id === medicationRequestId
+  ) as MedicationRequest;
+
   return {
     medicationAdministration,
     medicationStatement,
+    medicationRequest,
     patient,
   };
 }

@@ -32,6 +32,7 @@ export interface UpdateMedicationOrderInput {
   orderId?: string;
   newStatus?: MedicationOrderStatusesType;
   orderData?: MedicationData;
+  interactions?: MedicationInteractions;
 }
 
 export interface DrugInteraction {
@@ -74,8 +75,6 @@ export interface MedicationData {
 
   // administrating
   effectiveDateTime?: string;
-
-  interactions?: MedicationInteractions;
 }
 
 export interface ExtendedMedicationDataForResponse extends MedicationData {
@@ -87,6 +86,7 @@ export interface ExtendedMedicationDataForResponse extends MedicationData {
   dateTimeCreated: string;
   administeredProvider?: string;
   administeredProviderId?: string;
+  interactions?: MedicationInteractions;
   // todo i wanna change all long names to this short form
   // creationData: {
   //   dateTime: string;
