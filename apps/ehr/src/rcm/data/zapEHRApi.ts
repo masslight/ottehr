@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { ClaimsQueueGetRequest, ClaimsQueueGetResponse, getZapEHRApiHelpers } from 'utils';
+import { ClaimsQueueGetRequest, ClaimsQueueGetResponse, getOystehrApiHelpers } from 'utils';
 import { GetZapEHR_RCM_APIParams } from './types';
 
 enum ZambdaNames {
@@ -25,7 +25,7 @@ export const getZapEHR_RCM_API = (
   };
   const isAppLocalProvided = params.isAppLocal != null;
 
-  const { makeZapRequest } = getZapEHRApiHelpers(
+  const { makeZapRequest } = getOystehrApiHelpers(
     oystehr,
     ZambdaNames,
     zambdasToIdsMap,

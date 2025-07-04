@@ -18,6 +18,7 @@ import { ErxSearchMedicationsResponse } from '@oystehr/sdk';
 import { DateTime } from 'luxon';
 import { FC, useCallback, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
+import { useMedicationHistory } from 'src/features/css-module/hooks/useMedicationHistory';
 import { MedicationDTO } from 'utils';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
@@ -42,16 +43,24 @@ export const CurrentMedicationsProviderColumn: FC = () => {
 
   const { control, reset, handleSubmit } = methods;
 
+  const { refetchHistory } = useMedicationHistory();
+
   const {
     isLoading,
     onSubmit,
     onRemove,
     values: medications,
-  } = useChartDataArrayValue('medications', undefined, {
-    _sort: '-_lastUpdated',
-    _include: 'MedicationStatement:source',
-    status: { type: 'token', value: 'active' },
-  });
+  } = useChartDataArrayValue(
+    'medications',
+    undefined,
+    {
+      _sort: '-_lastUpdated',
+      _include: 'MedicationStatement:source',
+      status: { type: 'token', value: 'active' },
+    },
+    refetchHistory
+  );
+
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
   const { isFetching: isSearching, data } = useGetMedicationsSearch(debouncedSearchTerm);
@@ -90,6 +99,7 @@ export const CurrentMedicationsProviderColumn: FC = () => {
       });
       if (success) {
         reset({ medication: null, date: null, dose: null, type: 'scheduled' });
+        void refetchHistory();
       }
     }
   };

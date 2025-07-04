@@ -21,7 +21,7 @@ export interface GetAppointmentDetailInput {
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let zapehrToken: string;
+let oystehrToken: string;
 const ZAMBDA_NAME = 'get-appointment-details';
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -31,14 +31,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    if (!zapehrToken) {
+    if (!oystehrToken) {
       console.log('getting token');
-      zapehrToken = await getAuth0Token(secrets);
+      oystehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }
 
-    const oystehr = createOystehrClient(zapehrToken, secrets);
+    const oystehr = createOystehrClient(oystehrToken, secrets);
 
     const DISPLAY_TOMORROW_SLOTS_AT_HOUR = parseInt(
       getSecret(SecretsKeys.IN_PERSON_PREBOOK_DISPLAY_TOMORROW_SLOTS_AT_HOUR, secrets)

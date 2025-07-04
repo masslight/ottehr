@@ -178,11 +178,11 @@ export function standardizePhoneNumber(phoneNumber: string | undefined): string 
   // input format:  some arbitrary format which may or may not include (, ), -, +1
   // output format: (XXX) XXX-XXXX
   if (!phoneNumber) {
-    return phoneNumber;
+    return undefined;
   }
 
   const digits = phoneNumber.replace(/\D/g, '');
-  let phoneNumberDigits = undefined;
+  let phoneNumberDigits: string | undefined;
 
   if (digits.length === 10) {
     phoneNumberDigits = digits;
@@ -190,7 +190,11 @@ export function standardizePhoneNumber(phoneNumber: string | undefined): string 
     phoneNumberDigits = digits.slice(1);
   }
 
-  return formatPhoneNumber(phoneNumberDigits);
+  if (!phoneNumberDigits) {
+    return undefined;
+  }
+
+  return `(${phoneNumberDigits.slice(0, 3)}) ${phoneNumberDigits.slice(3, 6)}-${phoneNumberDigits.slice(6)}`;
 }
 
 export function resourceHasMetaTag(resource: Resource, metaTag: OTTEHR_MODULE): boolean {

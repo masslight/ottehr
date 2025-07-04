@@ -22,7 +22,7 @@ import {
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let zapehrToken: string;
+let oystehrToken: string;
 export const index = wrapHandler('telemed-list-invites', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const authorization = input.headers.Authorization;
@@ -55,15 +55,15 @@ export const index = wrapHandler('telemed-list-invites', async (input: ZambdaInp
       return lambdaResponse(401, { message: 'Unauthorized' });
     }
 
-    if (!zapehrToken) {
+    if (!oystehrToken) {
       console.log('getting m2m token for service calls');
-      zapehrToken = await getAuth0Token(secrets); // keeping token externally for reuse
+      oystehrToken = await getAuth0Token(secrets); // keeping token externally for reuse
     } else {
       console.log('already have a token, no need to update');
     }
 
     const oystehr = createOystehrClient(
-      zapehrToken,
+      oystehrToken,
       getSecret(SecretsKeys.FHIR_API, secrets),
       getSecret(SecretsKeys.PROJECT_API, secrets)
     );

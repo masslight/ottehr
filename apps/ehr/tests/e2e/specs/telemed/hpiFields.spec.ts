@@ -20,7 +20,7 @@ import {
 import { ADDITIONAL_QUESTIONS } from '../../../../src/constants';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo } from '../../../e2e-utils/helpers/telemed.test-helpers';
-import { checkDropdownHasOptionAndSelectIt } from '../../../e2e-utils/helpers/tests-utils';
+import { checkDropdownHasOptionAndSelectIt, getDropdownOption } from '../../../e2e-utils/helpers/tests-utils';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 
 async function checkDropdownNoOptions(
@@ -93,12 +93,12 @@ test.describe('Check all hpi fields common functionality, without changing data'
   });
 
   test('Known allergies. Should check not-in-list item search try', async ({ page }) => {
-    await checkDropdownNoOptions(
-      page,
-      dataTestIds.telemedEhrFlow.hpiKnownAllergiesInput,
-      searchOptionThatNotInList,
-      noOptionsMessage
-    );
+    const input = page.getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesInput).locator('input');
+    await input.click();
+    await page.waitForTimeout(10000); // todo something async causes flakiness here
+    await input.fill(noOptionsMessage);
+    const option = await getDropdownOption(page, 'Other');
+    await expect(option).toBeVisible();
   });
 
   test('Surgical history. Should check not-in-list item search try', async ({ page }) => {

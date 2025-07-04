@@ -113,9 +113,6 @@ export const GenerateExcuseDialog: FC<GenerateExcuseDialogExtendedProps> = (prop
             gap: 2,
           }}
         >
-          {fields.includes('parentName') && (
-            <ControlledExcuseTextField name="parentName" label="Parent/Guardian name" fullWidth required />
-          )}
           {fields.includes('headerNote') && (
             <ControlledExcuseTextField name="headerNote" label="Note" fullWidth multiline required />
           )}

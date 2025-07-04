@@ -87,7 +87,7 @@ const fhirApiUrlFromAuth0Audience = (auth0Audience: string): string => {
   }
 };
 
-// todo remove code duplication with configure-zapehr-secrets
+// todo remove code duplication with configure-secrets
 const projectApiUrlFromAuth0Audience = (auth0Audience: string): string => {
   switch (auth0Audience) {
     case 'https://dev.api.zapehr.com':
@@ -212,7 +212,7 @@ async function updateProjectZambda(
   const endpoint = `${projectApiUrl}/zambda/${zambdaId}/s3-upload`;
 
   console.log(`Getting S3 upload URL for zambda ${zambdaName}`);
-  const zapehrResponse = await fetch(endpoint, {
+  const oystehrResponse = await fetch(endpoint, {
     method: 'post',
     headers: {
       Authorization: `Bearer ${auth0Token}`,
@@ -220,16 +220,16 @@ async function updateProjectZambda(
     },
   });
 
-  if (!zapehrResponse.ok) {
-    const zapehrResponseJson = await zapehrResponse.json();
+  if (!oystehrResponse.ok) {
+    const oystehrResponseJson = await oystehrResponse.json();
     console.log(
-      `status, ${zapehrResponse.status}, status text, ${
-        zapehrResponse.statusText
-      }, zapehrResponseJson, ${JSON.stringify(zapehrResponseJson)}`
+      `status, ${oystehrResponse.status}, status text, ${
+        oystehrResponse.statusText
+      }, oystehrResponseJson, ${JSON.stringify(oystehrResponseJson)}`
     );
-    throw Error('An error occurred during the zapEHR Zambda S3 URL request');
+    throw Error('An error occurred during the Oystehr Zambda S3 URL request');
   }
-  const s3Url = (await zapehrResponse.json())['signedUrl'];
+  const s3Url = (await oystehrResponse.json())['signedUrl'];
   console.log(`Got S3 upload URL for zambda ${zambdaName}`);
 
   console.log('Uploading zip file to S3');

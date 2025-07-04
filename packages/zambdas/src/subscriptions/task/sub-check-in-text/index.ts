@@ -20,7 +20,7 @@ export interface TaskSubscriptionInput {
   secrets: Secrets | null;
 }
 
-let zapehrToken: string;
+let oystehrToken: string;
 
 export const index = wrapHandler('sub-check-in-text', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -31,14 +31,14 @@ export const index = wrapHandler('sub-check-in-text', async (input: ZambdaInput)
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    if (!zapehrToken) {
+    if (!oystehrToken) {
       console.log('getting token');
-      zapehrToken = await getAuth0Token(secrets);
+      oystehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }
 
-    const oystehr = createOystehrClient(zapehrToken, secrets);
+    const oystehr = createOystehrClient(oystehrToken, secrets);
 
     let taskStatusToUpdate: TaskStatus;
     let statusReasonToUpdate: string | undefined;
@@ -123,7 +123,7 @@ export const index = wrapHandler('sub-check-in-text', async (input: ZambdaInput)
       const message = `Welcome, and thanks for checking in! Our care team will see ${getPatientFirstName(
         fhirPatient
       )} soon. We appreciate your patience!`;
-      const { taskStatus, statusReason } = await sendText(message, fhirRelatedPerson, zapehrToken, secrets);
+      const { taskStatus, statusReason } = await sendText(message, fhirRelatedPerson, oystehrToken, secrets);
       taskStatusToUpdate = taskStatus;
       statusReasonToUpdate = statusReason;
     } else {
