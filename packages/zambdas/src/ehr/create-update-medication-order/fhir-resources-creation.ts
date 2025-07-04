@@ -158,7 +158,8 @@ export function createMedicationAdministrationResource(data: MedicationAdministr
 
 export function createMedicationRequest(
   data: MedicationData,
-  interactions: MedicationInteractions | undefined
+  interactions: MedicationInteractions | undefined,
+  medication: Medication
 ): MedicationRequest {
   const detectedIssues = [
     ...(interactions?.drugInteractions?.map((interaction, index) =>
@@ -180,7 +181,8 @@ export function createMedicationRequest(
             reference: '#' + detectedIssue.id,
           }))
         : undefined,
-    contained: detectedIssues.length > 0 ? detectedIssues : undefined,
+    medicationReference: { reference: `#${IN_HOUSE_CONTAINED_MEDICATION_ID}` },
+    contained: [{ ...medication, id: IN_HOUSE_CONTAINED_MEDICATION_ID }, ...detectedIssues],
   };
 }
 

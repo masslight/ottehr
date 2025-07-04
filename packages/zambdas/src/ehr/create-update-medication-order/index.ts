@@ -195,14 +195,14 @@ async function updateOrder(
     }
   }
 
-  if (interactions != null) {
+  if (interactions != null && newMedicationCopy != null) {
     if (orderResources.medicationRequest == null) {
       const medicationRequestFullUrl = 'urn:uuid:' + randomUUID();
       transactionRequests.push({
         method: 'POST',
         url: `/MedicationRequest`,
         fullUrl: medicationRequestFullUrl,
-        resource: createMedicationRequest(orderData, interactions),
+        resource: createMedicationRequest(orderData, interactions, newMedicationCopy),
       });
       if (updatedMedicationAdministration != null) {
         updatedMedicationAdministration.request = {
@@ -217,18 +217,27 @@ async function updateOrder(
       transactionRequests.push({
         method: 'PUT',
         url: `/MedicationRequest/${orderResources.medicationRequest.id}`,
-        resource: createMedicationRequest(orderData, interactions),
+        resource: createMedicationRequest(orderData, interactions, newMedicationCopy),
       });
     }
   }
 
-  transactionRequests.push(
-    getPatchBinary({
-      resourceType: 'MedicationAdministration',
-      resourceId: orderResources.medicationAdministration.id!,
-      patchOperations: medicationAdministrationPatchOperations,
-    })
-  );
+  if (updatedMedicationAdministration != null) {
+    transactionRequests.push({
+      method: 'PUT',
+      url: `/MedicationAdministration/${updatedMedicationAdministration.id}`,
+      resource: updatedMedicationAdministration,
+    });
+  }
+  if (medicationAdministrationPatchOperations.length > 0) {
+    transactionRequests.push(
+      getPatchBinary({
+        resourceType: 'MedicationAdministration',
+        resourceId: orderResources.medicationAdministration.id!,
+        patchOperations: medicationAdministrationPatchOperations,
+      })
+    );
+  }
 
   console.log('Transaction requests: ', JSON.stringify(transactionRequests));
   const transactionResult = await oystehr.fhir.transaction({ requests: transactionRequests });
@@ -260,7 +269,7 @@ async function createOrder(
   if (orderData.location && !locationCoding)
     throw new Error(`No location found with code provided: ${orderData.location}`);
 
-  const medicationRequestToCreate = createMedicationRequest(orderData, interactions);
+  const medicationRequestToCreate = createMedicationRequest(orderData, interactions, medicationCopy);
   const medicationRequestFullUrl = 'urn:uuid:' + randomUUID();
   const medicationAdministrationToCreate = createMedicationAdministrationResource({
     orderData,
@@ -292,10 +301,11 @@ async function createOrder(
   };
   console.log('Transaction input: ', JSON.stringify(transactionRequests));
 
-  const createdResources = (await oystehr.fhir.transaction(transactionRequests)).unbundle();
-  console.log('Transaction result: ', JSON.stringify(createdResources));
+  const transactionResult = await oystehr.fhir.transaction(transactionRequests);
+  console.log('Transaction result: ', JSON.stringify(transactionResult));
 
-  return createdResources.find((resource) => resource.resourceType === 'MedicationAdministration')?.id;
+  return transactionResult.entry?.find((entry) => entry?.resource?.resourceType === 'MedicationAdministration')
+    ?.resource?.id;
 }
 
 async function changeOrderStatus(
