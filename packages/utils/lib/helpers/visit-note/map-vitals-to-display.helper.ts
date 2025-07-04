@@ -59,7 +59,7 @@ export const mapVitalsToDisplay = (vitalsObservations?: VitalsObservationDTO[]):
         break;
       case VitalFieldNames.VitalVision:
         parsed = observation as VitalsVisionObservationDTO;
-        text = `Left eye: ${parsed.leftEyeVisionValue}; Right eye: ${parsed.rightEyeVisionValue};${
+        text = `Left eye: ${parsed.leftEyeVisionText}; Right eye: ${parsed.rightEyeVisionText};${
           parsed.extraVisionOptions && parsed.extraVisionOptions.length > 0
             ? ` ${getVisionExtraOptionsFormattedString(parseVisionExtraOptions(parsed.extraVisionOptions))}`
             : ''

@@ -336,8 +336,7 @@ export const extractOxySaturationObservationMethod = (
 export const getVisionObservationComponents = (visionDTO: VitalsVisionObservationDTO): ObservationComponent[] => {
   let result: ObservationComponent[] = [];
 
-  const leftEyeVision = visionDTO.leftEyeVisionValue;
-  if (leftEyeVision) {
+  if (visionDTO.leftEyeVisionText) {
     const leftEye: CodeableConcept = {
       coding: [
         {
@@ -349,14 +348,13 @@ export const getVisionObservationComponents = (visionDTO: VitalsVisionObservatio
     };
     const leftEyeVisionComponent: ObservationComponent = {
       code: leftEye,
-      valueQuantity: { value: leftEyeVision, system: 'http://unitsofmeasure.org' },
+      valueString: visionDTO.leftEyeVisionText,
     };
 
     result.push(leftEyeVisionComponent);
   }
 
-  const rightEyeVision = visionDTO.rightEyeVisionValue;
-  if (rightEyeVision) {
+  if (visionDTO.rightEyeVisionText) {
     const rightEyeCode: CodeableConcept = {
       coding: [
         {
@@ -368,7 +366,7 @@ export const getVisionObservationComponents = (visionDTO: VitalsVisionObservatio
     };
     const rightEyeVisionComponent: ObservationComponent = {
       code: rightEyeCode,
-      valueQuantity: { value: rightEyeVision, system: 'http://unitsofmeasure.org' },
+      valueString: visionDTO.rightEyeVisionText,
     };
 
     result.push(rightEyeVisionComponent);
@@ -421,19 +419,21 @@ export const getVisionObservationComponents = (visionDTO: VitalsVisionObservatio
 export const extractVisionValues = (
   components: ObservationComponent[]
 ): {
-  leftEyeVisValue?: number;
-  rightEyeVisValue?: number;
+  leftEyeVisText?: string;
+  rightEyeVisText?: string;
   visionOptions?: VitalsVisionOption[];
 } => {
   const leftEyeComponent = components.find((cmp) => {
     return cmp.code?.coding?.find((coding) => coding?.code === VITAL_LEFT_EYE_SNOMED_CODE);
   });
-  const leftEyeVisionValue = leftEyeComponent?.valueQuantity?.value;
+
+  const leftEyeVisionText = leftEyeComponent?.valueString || leftEyeComponent?.valueQuantity?.value?.toString();
 
   const rightEyeComponent = components.find((cmp) => {
     return cmp.code?.coding?.find((coding) => coding?.code === VITAL_RIGHT_EYE_SNOMED_CODE);
   });
-  const rightEyeVisionValue = rightEyeComponent?.valueQuantity?.value;
+
+  const rightEyeVisionText = rightEyeComponent?.valueString || rightEyeComponent?.valueQuantity?.value?.toString();
 
   const getVisionExtraOptionValue = (option: VitalsVisionOption): boolean | undefined => {
     let optionCode = '';
@@ -455,8 +455,8 @@ export const extractVisionValues = (
   const storedExtraVisionOptions = allExtraVisionOptions.filter((option) => getVisionExtraOptionValue(option) === true);
 
   return {
-    leftEyeVisValue: leftEyeVisionValue,
-    rightEyeVisValue: rightEyeVisionValue,
+    leftEyeVisText: leftEyeVisionText,
+    rightEyeVisText: rightEyeVisionText,
     visionOptions: storedExtraVisionOptions,
   };
 };
@@ -724,8 +724,8 @@ export function makeVitalsObservationDTO(observation: Observation): VitalsObserv
     const result: VitalsVisionObservationDTO = {
       ...baseProps,
       field: VitalFieldNames.VitalVision,
-      leftEyeVisionValue: visionValues.leftEyeVisValue ?? 0,
-      rightEyeVisionValue: visionValues.rightEyeVisValue ?? 0,
+      leftEyeVisionText: visionValues.leftEyeVisText ?? '',
+      rightEyeVisionText: visionValues.rightEyeVisText ?? '',
       extraVisionOptions: visionValues.visionOptions,
     };
     return result;
