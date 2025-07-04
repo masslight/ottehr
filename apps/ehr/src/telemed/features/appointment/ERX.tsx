@@ -1,4 +1,4 @@
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle } from '@mui/material';
+import { Alert, Box } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { useChartData } from 'src/features/css-module/hooks/useChartData';
@@ -17,15 +17,15 @@ import { ERXDialog } from './ERXDialog';
 
 export const ERX: FC<{
   onClose: () => void;
-  onStatusChange: (status: 'loading' | 'success') => void;
-}> = ({ onClose, onStatusChange }) => {
+  onLoadingStatusChange: (loading: boolean) => void;
+}> = ({ onClose, onLoadingStatusChange }) => {
   const { patient, encounter } = getSelectors(useAppointmentStore, ['patient', 'encounter']);
   const phoneNumber = patient?.telecom?.find((telecom) => telecom.system === 'phone')?.value;
   const user = useEvolveUser();
   const practitioner = user?.profileResource;
 
   const [alertMessage, setAlertMessage] = useState<string | null>(
-    'If something goes wrong - please close and open the page again.'
+    'If something goes wrong - please close and open the eRx again.'
   );
 
   const practitionerMissingFields: string[] = useMemo(() => {
@@ -57,13 +57,6 @@ export const ERX: FC<{
     }
     return missingFields;
   }, [practitioner]);
-
-  useEffect(() => {
-    if (practitionerMissingFields.length > 0) {
-      setAlertMessage(`To be able to proceed please fill in the following fields in your profile:
-              ${practitionerMissingFields.join(', ')}`);
-    }
-  }, [practitionerMissingFields]);
 
   // Step 1: Get patient vitals
   const heightSearchConfig = createVitalsSearchConfig(VitalFieldNames.VitalHeight, 'patient', 1);
@@ -256,17 +249,16 @@ export const ERX: FC<{
 
   // Handle loading state
   useEffect(() => {
-    if (
+    const isLoading =
       isVitalsLoading ||
       isCheckingPractitionerEnrollment ||
       isSyncingPatient ||
       isConnectingPractitioner ||
-      isEnrollingPractitioner
-    ) {
-      onStatusChange('loading');
-    }
+      isEnrollingPractitioner;
+
+    onLoadingStatusChange(isLoading);
   }, [
-    onStatusChange,
+    onLoadingStatusChange,
     isVitalsLoading,
     isCheckingPractitionerEnrollment,
     isSyncingPatient,
@@ -274,27 +266,23 @@ export const ERX: FC<{
     isEnrollingPractitioner,
   ]);
 
-  // Handle success state
+  // Cleanup on unmount
   useEffect(() => {
-    if (isPractitionerConnected) {
-      onStatusChange('success');
-    }
-  }, [onStatusChange, isPractitionerConnected]);
+    return () => {
+      onLoadingStatusChange(false);
+    };
+  }, [onLoadingStatusChange]);
 
   return (
     <>
       <Box>
-        <Dialog open={alertMessage != null} fullWidth>
-          <DialogTitle variant="h4" color="primary.dark" sx={{ width: '100%' }}>
-            Error
-          </DialogTitle>
-          <DialogContent>{alertMessage}</DialogContent>
-          <DialogActions>
-            <Button onClick={onClose} variant="text" color="primary" size="medium">
-              OK
-            </Button>
-          </DialogActions>
-        </Dialog>
+        {(practitionerMissingFields.length > 0 && (
+          <Alert severity="warning">
+            To be able to prescribe please fill in the following fields in your profile:{' '}
+            {practitionerMissingFields.join(', ')}.
+          </Alert>
+        )) ||
+          (alertMessage && <Alert severity="info">{alertMessage}</Alert>)}
         {(ssoLink || ssoLinkForEnrollment) && <ERXDialog ssoLink={ssoLink || ssoLinkForEnrollment || ''} />}
       </Box>
     </>

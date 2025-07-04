@@ -243,7 +243,7 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
               setIsERXOpen(false);
               setIsERXLoading(false);
             }}
-            onStatusChange={(status) => handleERXLoadingStatusChange(status === 'loading')}
+            onLoadingStatusChange={handleERXLoadingStatusChange}
           />
         )}
         <div id="prescribe-dialog" style={{ flex: '1 0 auto', display: 'flex' }} />

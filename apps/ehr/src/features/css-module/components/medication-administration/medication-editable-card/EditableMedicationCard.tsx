@@ -1,9 +1,6 @@
-import { DetectedIssue } from 'fhir/r4b';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMedicationHistory } from 'src/features/css-module/hooks/useMedicationHistory';
-import { useApiClients } from 'src/hooks/useAppClients';
-import { ERX } from 'src/telemed/features/appointment/ERX';
 import {
   ExtendedMedicationDataForResponse,
   MedicationData,
@@ -18,7 +15,6 @@ import { useReactNavigationBlocker } from '../../../hooks/useReactNavigationBloc
 import { getEditOrderUrl } from '../../../routing/helpers';
 import { ROUTER_PATH, routesCSS } from '../../../routing/routesCSS';
 import { CSSModal } from '../../CSSModal';
-import { InteractionAlertsDialog } from '../InteractionAlertsDialog';
 import { fieldsConfig, MedicationOrderType } from './fieldsConfig';
 import { MedicationCardView } from './MedicationCardView';
 import {
@@ -44,9 +40,7 @@ export const EditableMedicationCard: React.FC<{
   const [confirmationModalConfig, setConfirmationModalConfig] = useState<ConfirmSaveModalConfig | null>(null);
   const { mappedData, resources } = useAppointment(appointmentId);
   const [isReasonSelected, setIsReasonSelected] = useState(true);
-  const [showErx, setShowErx] = useState(false);
   const selectsOptions = useFieldsSelectsOptions();
-  const { oystehr } = useApiClients();
 
   const { refetchHistory } = useMedicationHistory();
 
@@ -87,26 +81,6 @@ export const EditableMedicationCard: React.FC<{
       setLocalValues((prev) => ({ ...prev, [field]: Number(value) }));
     } else {
       setLocalValues((prev) => ({ ...prev, [field]: value }));
-    }
-  };
-
-  const interactionsCheck = async (updatedRequestInput: UpdateMedicationOrderInput): Promise<void> => {
-    if (oystehr == null) {
-      console.error('oystehr is missing');
-      return;
-    }
-    const patientId = resources.patient?.id;
-    if (patientId == null) {
-      console.error('patientId is missing');
-      return;
-    }
-    await oystehr.erx.syncPatient({ patientId });
-    const interactionsCheckResult = await oystehr.erx.checkPrecheckInteractions({
-      patientId,
-      drugId: '5285',
-    });
-    if (interactionsCheckResult.allergies.length === 0 && interactionsCheckResult.medications.length === 0) {
-      await updateOrCreateOrder(updatedRequestInput);
     }
   };
 
@@ -275,7 +249,7 @@ export const EditableMedicationCard: React.FC<{
       <MedicationCardView
         isEditable={getIsMedicationEditable(typeRef.current, medication)}
         type={typeRef.current}
-        onSave={interactionsCheck}
+        onSave={updateOrCreateOrder}
         medication={medication}
         fieldsConfig={fieldsConfig[typeRef.current]}
         localValues={localValues}
@@ -318,86 +292,6 @@ export const EditableMedicationCard: React.FC<{
         />
       ) : null}
       <ConfirmationModalForLeavePage />
-      {showErx ? (
-        <ERX
-          onClose={() => {
-            setShowErx(false);
-          }}
-          onStatusChange={(status: string) => {
-            console.log('onStatusChange ' + status);
-          }}
-        />
-      ) : undefined}
-      <InteractionAlertsDialog
-        medicationName="lisoniplir"
-        interactions={{
-          allergies: [
-            {
-              message: 'alg 1',
-            },
-            {
-              message: 'alg 2',
-            },
-          ],
-          medications: [
-            {
-              message: 'med messsage 1',
-              severityLevel: 'MajorInteraction',
-              medications: [
-                {
-                  id: 1,
-                  name: 'med 1',
-                },
-                {
-                  id: 2,
-                  name: 'med 2',
-                },
-              ],
-              includesPending: false,
-            },
-            {
-              message: 'med messsage 2',
-              severityLevel: 'ModerateInteraction',
-              medications: [
-                {
-                  id: 3,
-                  name: 'med 3',
-                },
-              ],
-              includesPending: false,
-            },
-            {
-              message: 'med messsage 3',
-              severityLevel: 'MinorInteraction',
-              medications: [
-                {
-                  id: 4,
-                  name: 'med 4',
-                },
-              ],
-              includesPending: false,
-            },
-            {
-              message: 'med messsage 4',
-              severityLevel: 'Unknown',
-              medications: [
-                {
-                  id: 5,
-                  name: 'med 5',
-                },
-              ],
-              includesPending: false,
-            },
-          ],
-        }}
-        onCancel={() => {
-          console.log('onCancel');
-        }}
-        onResolve={(issues: DetectedIssue[]) => {
-          console.log('onConfirm');
-          console.log(issues);
-        }}
-      />
     </>
   );
 };
