@@ -19,7 +19,7 @@ const Welcome = ({ showEmergencyBanner = true }: { showEmergencyBanner?: boolean
     <CustomContainer
       title={`Welcome to ${PROJECT_NAME}`}
       img={ottehrLightBlue}
-      imgAlt="Ottehr icon"
+      imgAlt={`${PROJECT_NAME} icon`}
       imgWidth={150}
       isFirstPage={true}
       outsideCardComponent={showEmergencyBanner ? <EmergencyBanner /> : undefined}
