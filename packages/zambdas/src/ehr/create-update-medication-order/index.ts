@@ -182,6 +182,8 @@ async function updateOrder(
       transactionRequests.push({
         method: 'POST',
         url: `/MedicationStatement`,
+        // effective date time for MedicationAdministration is date of creation,
+        // and effective date time for MedicationStatement is date of medication was given/taken
         resource: createMedicationStatementResource(
           orderResources.medicationAdministration,
           medicationCodeableConcept,
