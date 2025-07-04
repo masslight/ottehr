@@ -1,4 +1,4 @@
-import { MedicationAdministration, MedicationStatement, Patient, Practitioner } from 'fhir/r4b';
+import { MedicationAdministration, MedicationRequest, MedicationStatement, Patient, Practitioner } from 'fhir/r4b';
 import { z } from 'zod';
 import { MEDICATION_APPLIANCE_LOCATION_SYSTEM } from './medication-administration.constants';
 
@@ -32,6 +32,27 @@ export interface UpdateMedicationOrderInput {
   orderId?: string;
   newStatus?: MedicationOrderStatusesType;
   orderData?: MedicationData;
+  interactions?: MedicationInteractions;
+}
+
+export interface DrugInteraction {
+  drugs: {
+    id: string;
+    name: string;
+  }[];
+  severity: 'high' | 'moderate' | 'low' | undefined;
+  message?: string;
+  overrideReason?: string;
+}
+
+export interface AllergyInteraction {
+  message?: string;
+  overrideReason?: string;
+}
+
+export interface MedicationInteractions {
+  drugInteractions?: DrugInteraction[];
+  allergyInteractions?: AllergyInteraction[];
 }
 
 export interface MedicationData {
@@ -75,6 +96,7 @@ export interface ExtendedMedicationDataForResponse extends MedicationData {
   dateTimeCreated: string;
   administeredProvider?: string;
   administeredProviderId?: string;
+  interactions?: MedicationInteractions;
   // todo i wanna change all long names to this short form
   // creationData: {
   //   dateTime: string;
@@ -94,6 +116,7 @@ export interface OrderPackage {
   medicationStatement?: MedicationStatement;
   providerCreatedOrder?: Practitioner;
   providerAdministeredOrder?: Practitioner;
+  medicationRequest?: MedicationRequest;
 }
 
 export interface MedicationApplianceLocation {

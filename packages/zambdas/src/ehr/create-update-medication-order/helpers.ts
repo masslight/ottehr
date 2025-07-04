@@ -76,14 +76,13 @@ export function validateProviderAccess(
     throw new Error(`You can't edit this order, because it was created by another provider`);
 }
 
-export async function updateMedicationAdministrationData(data: {
-  oystehr: Oystehr;
+export function updateMedicationAdministrationData(data: {
   orderData: MedicationData;
   orderResources: OrderPackage;
   administeredProviderId?: string;
   medicationResource: Medication;
-}): Promise<MedicationAdministration> {
-  const { oystehr, orderResources, orderData, administeredProviderId, medicationResource } = data;
+}): MedicationAdministration {
+  const { orderResources, orderData, administeredProviderId, medicationResource } = data;
   const routeCode = orderData.route
     ? orderData.route
     : getDosageUnitsAndRouteOfMedication(orderResources.medicationAdministration).route;
@@ -107,7 +106,7 @@ export async function updateMedicationAdministrationData(data: {
     medicationResource,
   });
   newMA.id = orderResources.medicationAdministration.id;
-  return oystehr.fhir.update(newMA);
+  return newMA;
 }
 
 export function getMedicationFromMA(medicationAdministration: MedicationAdministration): Medication | undefined {

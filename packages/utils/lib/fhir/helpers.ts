@@ -1355,3 +1355,17 @@ export async function getAllFhirSearchPages<T extends FhirResource>(
   );
   return result;
 }
+
+export function getCoding(
+  codeableConcept: CodeableConcept | CodeableConcept[] | undefined,
+  system: string
+): Coding | undefined {
+  const array = Array.isArray(codeableConcept) ? codeableConcept : [codeableConcept];
+  for (const codeableConcept of array) {
+    const coding = codeableConcept?.coding?.find((coding) => coding.system === system);
+    if (coding != null) {
+      return coding;
+    }
+  }
+  return undefined;
+}
