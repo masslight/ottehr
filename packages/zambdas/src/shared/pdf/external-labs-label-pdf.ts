@@ -234,13 +234,13 @@ export async function createExternalLabsLabelPDF(
     oystehr,
     searchParams: [{ name: 'related', value: `ServiceRequest/${serviceRequestID}` }],
     generateUUID: randomUUID,
-    listResources: [], // this for whatever reason needs to get added otehrwise the function never adds the new docRef to the returned array
+    listResources: [], // this for whatever reason needs to get added otherwise the function never adds the new docRef to the returned array
   });
 
   console.log(`These are the docRefs returned for the label: `, JSON.stringify(docRefs));
 
   if (!docRefs.length) {
-    throw new Error('Unable to make docrefs for label');
+    throw new Error('Unable to make docRefs for label');
   }
 
   const presignedURL = await getPresignedURL(pdfInfo.uploadURL, token);

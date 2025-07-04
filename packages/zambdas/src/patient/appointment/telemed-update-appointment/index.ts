@@ -26,14 +26,14 @@ import {
 import { validateUpdateAppointmentParams } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let zapehrToken: string;
+let oystehrToken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input)}`);
   try {
     const validatedParameters = validateUpdateAppointmentParams(input);
 
-    zapehrToken = await checkOrCreateM2MClientToken(zapehrToken, input.secrets);
+    oystehrToken = await checkOrCreateM2MClientToken(oystehrToken, input.secrets);
 
     const response = await performEffect({ input, params: validatedParameters });
 
@@ -59,7 +59,7 @@ async function performEffect(props: PerformEffectInputProps): Promise<APIGateway
   const { secrets } = input;
   const fhirAPI = getSecret(SecretsKeys.FHIR_API, secrets);
   const projectAPI = getSecret(SecretsKeys.PROJECT_API, secrets);
-  const oystehr = createOystehrClient(zapehrToken, fhirAPI, projectAPI);
+  const oystehr = createOystehrClient(oystehrToken, fhirAPI, projectAPI);
   console.log('getting user');
 
   const user = await getUser(input.headers.Authorization.replace('Bearer ', ''), secrets);

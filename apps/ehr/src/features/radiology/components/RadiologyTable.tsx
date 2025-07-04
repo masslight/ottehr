@@ -53,7 +53,7 @@ export const RadiologyTable = ({
     DeleteOrderDialog,
   } = usePatientRadiologyOrders({
     patientId,
-    encounterId,
+    encounterIds: encounterId,
   });
 
   const onRowClick = (order: GetRadiologyOrderListZambdaOrder): void => {

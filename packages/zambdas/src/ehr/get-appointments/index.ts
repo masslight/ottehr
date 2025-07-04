@@ -1,5 +1,4 @@
 import Oystehr from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Appointment,
@@ -46,6 +45,7 @@ import {
   getRelatedPersonsFromResourceList,
   sortAppointments,
   topLevelCatch,
+  wrapHandler,
   ZambdaInput,
 } from '../../shared';
 import {
@@ -66,7 +66,7 @@ export interface GetAppointmentsZambdaInputValidated extends GetAppointmentsZamb
 
 let m2mToken: string;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler('get-appointments', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
@@ -284,11 +284,11 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const phoneNumberToRpMap: Record<string, string[]> = {};
     const rpIdToResourceMap: Record<string, RelatedPerson> = {};
     const practitionerIdToResourceMap: Record<string, Practitioner> = {};
-    const participantIdToResorceMap: Record<string, Practitioner> = {};
+    const participantIdToResourceMap: Record<string, Practitioner> = {};
     const healthcareServiceIdToResourceMap: Record<string, HealthcareService> = {};
     appointmentResources.forEach((resource) => {
       if (resource.resourceType === 'Practitioner' && resource.id) {
-        participantIdToResorceMap[`Practitioner/${resource.id}`] = resource as Practitioner;
+        participantIdToResourceMap[`Practitioner/${resource.id}`] = resource as Practitioner;
       }
     });
     appointmentResources.forEach((resource) => {
@@ -431,7 +431,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
         patientIdMap,
         rpToCommMap,
         practitionerIdToResourceMap,
-        participantIdToResorceMap,
+        participantIdToResourceMap,
         healthcareServiceIdToResourceMap,
         next: false,
         group: undefined,
@@ -546,7 +546,7 @@ interface AppointmentInformationInputs {
   patientToRPMap: Record<string, RelatedPerson[]>;
   rpToCommMap: Record<string, Communication[]>;
   practitionerIdToResourceMap: Record<string, Practitioner>;
-  participantIdToResorceMap: Record<string, Practitioner>;
+  participantIdToResourceMap: Record<string, Practitioner>;
   healthcareServiceIdToResourceMap: Record<string, HealthcareService>;
   allDocRefs: DocumentReference[];
   next: boolean;
@@ -565,7 +565,7 @@ const makeAppointmentInformation = (
     allDocRefs,
     rpToCommMap,
     practitionerIdToResourceMap,
-    participantIdToResorceMap,
+    participantIdToResourceMap,
     next,
     patientToRPMap,
     group,
@@ -604,11 +604,11 @@ const makeAppointmentInformation = (
         })
         .filter((rec) => rec.recipientResourceUri !== undefined && rec.smsNumber !== undefined) as SMSRecipient[];
       if (recipients.length) {
-        const allComs = recipients.flatMap((recip) => {
-          return rpToCommMap[recip.recipientResourceUri] ?? [];
+        const allCommunications = recipients.flatMap((recipient) => {
+          return rpToCommMap[recipient.recipientResourceUri] ?? [];
         });
         smsModel = {
-          hasUnreadMessages: getChatContainsUnreadMessages(allComs),
+          hasUnreadMessages: getChatContainsUnreadMessages(allCommunications),
           recipients,
         };
       }
@@ -669,7 +669,7 @@ const makeAppointmentInformation = (
   // if the QR has been updated at least once, this tag will not be present
   const paperworkHasBeenSubmitted = !!questionnaireResponse?.authored;
 
-  const participants = parseEncounterParticipants(encounter, participantIdToResorceMap);
+  const participants = parseEncounterParticipants(encounter, participantIdToResourceMap);
 
   const timezoneResourceId = getTimezoneResourceIdFromAppointment(appointment);
   const appointmentTimezone = timezoneResourceId && timezoneMap.get(timezoneResourceId);

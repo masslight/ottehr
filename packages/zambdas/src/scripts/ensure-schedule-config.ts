@@ -8,8 +8,7 @@ import {
   SlotServiceCategory,
   TIMEZONE_EXTENSION_URL,
 } from 'utils';
-import { getAuth0Token } from '../shared';
-import { createOystehrClient } from '../shared';
+import { createOystehrClient, getAuth0Token } from '../shared';
 
 type EnsureScheduleResult = { telemedError: null | Error; inPersonGroupError: null | Error };
 const ensureSchedules = async (envConfig: any): Promise<EnsureScheduleResult> => {
@@ -39,7 +38,9 @@ const ensureSchedules = async (envConfig: any): Promise<EnsureScheduleResult> =>
       })
     ).unbundle();
 
-    const schedules = locationAndSchedules.filter((sched) => sched.resourceType === 'Schedule') as Schedule[];
+    const schedules = locationAndSchedules.filter(
+      (scheduleToFilter) => scheduleToFilter.resourceType === 'Schedule'
+    ) as Schedule[];
     const locations = locationAndSchedules.filter((loc) => loc.resourceType === 'Location') as Location[];
     console.log('locations count: ', locations.length);
 
@@ -48,7 +49,7 @@ const ensureSchedules = async (envConfig: any): Promise<EnsureScheduleResult> =>
 
     locations.forEach((location) => {
       const existingSchedule = schedules.find(
-        (sched) => sched.actor?.some((act) => act.reference === `Location/${location.id}`)
+        (scheduleToFilter) => scheduleToFilter.actor?.some((act) => act.reference === `Location/${location.id}`)
       );
       const extension = location.extension ?? [];
       const isVirtual = isLocationVirtual(location);
@@ -162,9 +163,11 @@ const ensureSchedules = async (envConfig: any): Promise<EnsureScheduleResult> =>
       })
     ).unbundle();
 
-    const schedules = practitionersAndSchedules.filter((sched) => sched.resourceType === 'Schedule') as Schedule[];
+    const schedules = practitionersAndSchedules.filter(
+      (scheduleToFilter) => scheduleToFilter.resourceType === 'Schedule'
+    ) as Schedule[];
     const practitioners = practitionersAndSchedules.filter(
-      (pract) => pract.resourceType === 'Practitioner'
+      (practitionerToFilter) => practitionerToFilter.resourceType === 'Practitioner'
     ) as Practitioner[];
 
     const schedulePostRequests: BatchInputPostRequest<Schedule>[] = [];
@@ -172,7 +175,7 @@ const ensureSchedules = async (envConfig: any): Promise<EnsureScheduleResult> =>
 
     practitioners.forEach((practitioner) => {
       const existingSchedule = schedules.find(
-        (sched) => sched.actor?.some((act) => act.reference === `Practitioner/${practitioner.id}`)
+        (scheduleToFind) => scheduleToFind.actor?.some((act) => act.reference === `Practitioner/${practitioner.id}`)
       );
       const extension = practitioner.extension ?? [];
 
@@ -223,7 +226,7 @@ const ensureSchedules = async (envConfig: any): Promise<EnsureScheduleResult> =>
 
     console.log('schedulePostRequests', schedulePostRequests.length);
     //console.log('practitionerUpdateRequests', practitionerUpdateRequests.length);
-    //console.log('pracititioners', JSON.stringify(practitioners, null, 2));
+    //console.log('practitioners', JSON.stringify(practitioners, null, 2));
 
     await oystehrClient.fhir.transaction<FhirResource>({
       requests: [...schedulePostRequests, ...practitionerUpdateRequests],

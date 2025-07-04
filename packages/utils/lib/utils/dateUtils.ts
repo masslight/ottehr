@@ -20,14 +20,14 @@ export const isISODateTime = (dateTimeString: string): boolean => {
 };
 
 export const convertCapacityListToBucketedTimeSlots = (
-  scheduleCapcityList: Capacity[],
+  scheduleCapacityList: Capacity[],
   startDate: DateTime,
   slotLength?: number
 ): SlotCapacityMap => {
   const startOfDate = startDate.startOf('day');
   const timeSlots: { [slot: string]: number } = {};
-  // console.log('scheduleCapcityList', scheduleCapcityList);
-  scheduleCapcityList.forEach((entry) => {
+  // console.log('scheduleCapacityList', scheduleCapacityList);
+  scheduleCapacityList.forEach((entry) => {
     const { capacity, hour } = entry;
     const bucketedCapacity = divideHourlyCapacityBySlotInterval(capacity, slotLength);
     Object.entries(bucketedCapacity).forEach(([key, value]) => {
@@ -179,7 +179,7 @@ export const compareDates = (a: string | undefined, b: string | undefined): numb
   return dateB.toMillis() - dateA.toMillis();
 };
 
-export const formatDateForLabs = (datetime: string | undefined, timezone: string | undefined): string => {
+export const formatDateForLabs = (datetime: string | undefined | null, timezone: string | undefined): string => {
   if (!datetime || !DateTime.fromISO(datetime).isValid) return '';
   return DateTime.fromISO(datetime).setZone(timezone).toFormat('MM/dd/yyyy hh:mm a');
 };

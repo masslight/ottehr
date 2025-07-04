@@ -21,7 +21,7 @@ import {
   CreateInHouseLabOrderResponse,
   CreateLabOrderParameters,
   CreateLabOrderZambdaOutput,
-  CreateNursingOrderParameters,
+  CreateNursingOrderInput,
   CreateRadiologyZambdaOrderInput,
   CreateRadiologyZambdaOrderOutput,
   CreateScheduleParams,
@@ -73,7 +73,7 @@ import {
   UnassignPractitionerZambdaInput,
   UnassignPractitionerZambdaOutput,
   UpdateLabOrderResourcesParameters,
-  UpdateNursingOrderParameters,
+  UpdateNursingOrderInput,
   UpdateScheduleParams,
   UpdateUserParams,
   UpdateUserZambdaOutput,
@@ -258,7 +258,7 @@ export const cancelTelemedAppointment = async (
       throw new Error('cancel appointment environment variable could not be loaded');
     }
 
-    const response = await oystehr.zambda.executePublic({
+    const response = await oystehr.zambda.execute({
       id: CANCEL_TELEMED_APPOINTMENT_ZAMBDA_ID,
       ...parameters,
     });
@@ -733,7 +733,7 @@ export const cancelRadiologyOrder = async (
       id: 'radiology-cancel-order',
       ...parameters,
     });
-    return chooseJson(response);
+    return response ? chooseJson(response) : {};
   } catch (error: unknown) {
     console.log(error);
     throw error;
@@ -761,7 +761,7 @@ export const getRadiologyOrders = async (
   parameters: GetRadiologyOrderListZambdaInput
 ): Promise<GetRadiologyOrderListZambdaOutput> => {
   try {
-    const searchBy = parameters.encounterId || parameters.patientId || parameters.serviceRequestId;
+    const searchBy = parameters.encounterIds || parameters.patientId || parameters.serviceRequestId;
     if (!searchBy) {
       throw new Error(
         `Missing one of the required parameters (serviceRequestId | encounterId | patientId): ${JSON.stringify(
@@ -914,10 +914,6 @@ export const deleteInHouseLabOrder = async (
 
 export const getNursingOrders = async (oystehr: Oystehr, parameters: GetNursingOrdersInput): Promise<any> => {
   try {
-    if (GET_NURSING_ORDERS_ZAMBDA_ID == null) {
-      throw new Error('get nursing orders zambda environment variable could not be loaded');
-    }
-
     const response = await oystehr.zambda.execute({
       id: GET_NURSING_ORDERS_ZAMBDA_ID,
       ...parameters,
@@ -930,11 +926,8 @@ export const getNursingOrders = async (oystehr: Oystehr, parameters: GetNursingO
   }
 };
 
-export const createNursingOrder = async (oystehr: Oystehr, parameters: CreateNursingOrderParameters): Promise<any> => {
+export const createNursingOrder = async (oystehr: Oystehr, parameters: CreateNursingOrderInput): Promise<any> => {
   try {
-    if (CREATE_NURSING_ORDER_ZAMBDA_ID == null) {
-      throw new Error('create nursing order zambda environment variable could not be loaded');
-    }
     const response = await oystehr.zambda.execute({
       id: CREATE_NURSING_ORDER_ZAMBDA_ID,
       ...parameters,
@@ -946,11 +939,8 @@ export const createNursingOrder = async (oystehr: Oystehr, parameters: CreateNur
   }
 };
 
-export const updateNursingOrder = async (oystehr: Oystehr, parameters: UpdateNursingOrderParameters): Promise<any> => {
+export const updateNursingOrder = async (oystehr: Oystehr, parameters: UpdateNursingOrderInput): Promise<any> => {
   try {
-    if (UPDATE_NURSING_ORDER == null) {
-      throw new Error('update nursing order zambda environment variable could not be loaded');
-    }
     const response = await oystehr.zambda.execute({
       id: UPDATE_NURSING_ORDER,
       ...parameters,

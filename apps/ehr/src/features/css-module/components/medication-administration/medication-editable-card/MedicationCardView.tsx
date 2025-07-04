@@ -1,6 +1,6 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Box, Grid, Paper, Typography } from '@mui/material';
-import React from 'react';
+import { DateTime } from 'luxon';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ExtendedMedicationDataForResponse,
@@ -16,11 +16,12 @@ import { getInHouseMedicationMARUrl } from '../../../routing/helpers';
 import { CSSLoader } from '../../CSSLoader';
 import { ButtonRounded } from '../../RoundedButton';
 import { MedicationStatusChip } from '../statuses/MedicationStatusChip';
+import { MedicationOrderType } from './fieldsConfig';
 import { MedicationCardField } from './MedicationCardField';
 import { InHouseMedicationFieldType } from './utils';
 
 type MedicationCardViewProps = {
-  type: 'dispense' | 'order-new' | 'order-edit';
+  type: MedicationOrderType;
   onSave: (medicationSaveOrUpdateRequest: UpdateMedicationOrderInput) => void;
   medication?: ExtendedMedicationDataForResponse;
   fieldsConfig: Partial<
@@ -189,7 +190,9 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
             <Typography gutterBottom sx={{ height: '26px', display: 'flex', flexDirection: 'row', gap: 3 }}>
               <span>Order ID: {medication?.id}</span>
               <span>
-                {medication?.dateGiven} {medication?.timeGiven}
+                {medication?.effectiveDateTime
+                  ? DateTime.fromISO(medication.effectiveDateTime).toFormat('MM/dd/yyyy hh:mm a')
+                  : '-'}
               </span>
               <span>by {medication?.providerCreatedTheOrder}</span>{' '}
             </Typography>
@@ -228,7 +231,7 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
           );
         })}
         <Grid item xs={12}>
-          {type === 'dispense' ? <DispenseFooter /> : <OrderFooter />}
+          {type === 'dispense' || type === 'dispense-not-administered' ? <DispenseFooter /> : <OrderFooter />}
         </Grid>
       </Grid>
     </Paper>

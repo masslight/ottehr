@@ -159,7 +159,7 @@ export const medicationExtendedToMedicationData = (
 ): MedicationData => {
   return {
     patient: medicationExtendedData.patient,
-    encounter: medicationExtendedData.encounter,
+    encounterId: medicationExtendedData.encounterId,
     medicationId: medicationExtendedData.medicationId,
     dose: medicationExtendedData.dose,
     route: medicationExtendedData.route,
@@ -172,8 +172,7 @@ export const medicationExtendedToMedicationData = (
     location: medicationExtendedData.location,
     lotNumber: medicationExtendedData.lotNumber,
     expDate: medicationExtendedData.expDate,
-    dateGiven: medicationExtendedData.dateGiven,
-    timeGiven: medicationExtendedData.timeGiven,
+    effectiveDateTime: medicationExtendedData.effectiveDateTime,
   };
 };
 

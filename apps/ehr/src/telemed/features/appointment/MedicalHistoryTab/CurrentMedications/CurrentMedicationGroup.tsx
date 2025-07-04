@@ -53,10 +53,12 @@ function CurrentMedicationItem({ value }: { value: MedicationDTO }): JSX.Element
   if (lastIntakeDate instanceof DateTime) {
     lastIntakeDateDisplay = `${lastIntakeDate.toFormat(DATE_FORMAT)} at ${lastIntakeDate.toFormat('HH:mm a')}`;
   }
+  const additionalInfo = [value.intakeInfo?.dose, lastIntakeDateDisplay].filter(Boolean).join(' ');
 
   return (
     <Typography variant="body2">
-      {value.name} {`(${value.intakeInfo?.dose} ${lastIntakeDateDisplay})`}
+      {value.name}
+      {additionalInfo ? `(${additionalInfo})` : ''}
     </Typography>
   );
 }

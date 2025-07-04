@@ -124,7 +124,7 @@ export async function getRelatedResources(
   let accountInfo: PatientAccountResponse | undefined = undefined;
 
   if (patientId) {
-    console.log('get related resources to prepopulate paperwork');
+    console.log('get related resources to pre-populate paperwork');
     const [docsResponse, insuranceResponse] = await Promise.all([
       oystehr.fhir.search<DocumentReference>({
         resourceType: 'DocumentReference',

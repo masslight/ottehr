@@ -22,7 +22,7 @@ export function validateRequestParameters(input: ZambdaInput): SaveFollowupEncou
   const { encounterDetails } = JSON.parse(input.body);
   if (!encounterDetails.patientId || !encounterDetails.followupType) {
     throw new Error(
-      `Missing required input param(s): ${!encounterDetails.patientId ? 'patintId' : ''} ${
+      `Missing required input param(s): ${!encounterDetails.patientId ? 'patientId' : ''} ${
         !encounterDetails.followupType ? 'followupType' : ''
       }`
     );

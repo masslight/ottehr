@@ -280,9 +280,9 @@ async function drawFirstPage({
     dIndex = 0;
   }
 
-  // ZapEHR ID
+  // Oystehr ID
   if (patient.id) {
-    page.drawText(`ZapEHR ID: ${patient.id}`, {
+    page.drawText(`Oystehr ID: ${patient.id}`, {
       font: styles.detail.font,
       size: styles.detail.fontSize,
       x: styles.margin.x,

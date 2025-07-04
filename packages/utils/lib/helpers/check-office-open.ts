@@ -22,7 +22,7 @@ export function getOpeningTime(
   timezone: Timezone,
   currentDate: DateTime
 ): DateTime | undefined {
-  // get the ovverriden values for the current date, if any, else get the default values for the current DOW
+  // get the overridden values for the current date, if any, else get the default values for the current DOW
   const currentHoursOfOperation =
     applyOverridesToDailySchedule({
       dailySchedule: scheduleDef.schedule,
@@ -47,7 +47,7 @@ export function getClosingTime(
   timezone: Timezone,
   currentDate: DateTime
 ): DateTime | undefined {
-  // get the ovverriden values for the current date, if any, else get the default values for the current DOW
+  // get the overridden values for the current date, if any, else get the default values for the current DOW
   const currentHoursOfOperation =
     applyOverridesToDailySchedule({
       dailySchedule: scheduleDef.schedule,

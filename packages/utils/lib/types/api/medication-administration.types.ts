@@ -1,4 +1,5 @@
 import { MedicationAdministration, MedicationRequest, MedicationStatement, Patient, Practitioner } from 'fhir/r4b';
+import { z } from 'zod';
 import { MEDICATION_APPLIANCE_LOCATION_SYSTEM } from './medication-administration.constants';
 
 export enum MedicationOrderStatuses {
@@ -10,10 +11,19 @@ export enum MedicationOrderStatuses {
 }
 export type MedicationOrderStatusesType = `${MedicationOrderStatuses}`;
 
-export interface GetMedicationOrdersInput {
-  encounterId: string;
-}
-
+export const GetMedicationOrdersInputSchema = z.object({
+  searchBy: z.union([
+    z.object({
+      field: z.literal('encounterId'),
+      value: z.string(),
+    }),
+    z.object({
+      field: z.literal('encounterIds'),
+      value: z.array(z.string()),
+    }),
+  ]),
+});
+export type GetMedicationOrdersInput = z.infer<typeof GetMedicationOrdersInputSchema>;
 export interface GetMedicationOrdersResponse {
   orders: ExtendedMedicationDataForResponse[];
 }
@@ -46,7 +56,7 @@ export interface MedicationInteractions {
 
 export interface MedicationData {
   patient: string;
-  encounter: string;
+  encounterId: string;
   medicationId?: string;
   dose: number;
   route: string;
@@ -63,8 +73,7 @@ export interface MedicationData {
   expDate?: string;
 
   // administrating
-  dateGiven?: string;
-  timeGiven?: string;
+  effectiveDateTime?: string;
 
   interactions?: MedicationInteractions;
 }
@@ -85,8 +94,7 @@ export interface ExtendedMedicationDataForResponse extends MedicationData {
   //   providerName: string;
   // };
   // administeredData?: {
-  //   dateGiven: string;
-  //   timeGiven: string;
+  //   effectiveDateTime: string;
   //   providerId: string;
   //   providerName: string;
   // };
@@ -270,6 +278,7 @@ export const medicationApplianceLocations: MedicationApplianceLocation[] = [
     display: 'Nonrebreather oxygen mask (physical object)',
   },
   {
+    // cSpell:disable-next facemask
     name: 'liters via facemask',
     code: '261352009',
     system: MEDICATION_APPLIANCE_LOCATION_SYSTEM,

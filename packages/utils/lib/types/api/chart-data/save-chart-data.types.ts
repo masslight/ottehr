@@ -1,3 +1,4 @@
+// cSpell:ignore abletobearweight, decreasedrom, lowerleg, upperarm
 import { CodeableConcept } from 'fhir/r4b';
 import {
   ChartDataFields,
@@ -120,6 +121,7 @@ export type ExamFieldsNames =
   // >> GROUP = abnormal
   | 'mouth-dry-mucous-membranes'
   | 'erythema-of-pharynx'
+  // cSpell:disable-next and/or
   | 'white-patches-on-tongue-andor-buccal-mucosa-that-do-not-wipe-off'
   | 'strawberry-tongue'
   | 'uvula-deviated'

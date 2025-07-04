@@ -6,7 +6,7 @@ import { getMedications, getPaymentDataRequest, getPresignedURLs } from './helpe
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let zapehrToken: string;
+let oystehrToken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -16,10 +16,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    zapehrToken = await checkOrCreateM2MClientToken(zapehrToken, secrets);
+    oystehrToken = await checkOrCreateM2MClientToken(oystehrToken, secrets);
 
     const oystehr = createOystehrClient(
-      zapehrToken,
+      oystehrToken,
       getSecret(SecretsKeys.FHIR_API, secrets),
       getSecret(SecretsKeys.PROJECT_API, secrets)
     );
@@ -58,7 +58,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     try {
       paymentInfo = await getPaymentDataRequest(
         getSecret(SecretsKeys.PROJECT_API, secrets),
-        zapehrToken,
+        oystehrToken,
         encounter?.id
       );
     } catch (error) {
@@ -69,7 +69,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     try {
       console.log(`getting presigned urls for document references files at ${appointmentId}`);
-      documents = await getPresignedURLs(oystehr, zapehrToken, encounter?.id);
+      documents = await getPresignedURLs(oystehr, oystehrToken, encounter?.id);
     } catch (error) {
       console.log('getPresignedURLs', error);
     }

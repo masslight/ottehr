@@ -8,7 +8,7 @@ import { telemedStatusToEncounter } from '../../../shared/appointment/helpers';
 import { sendSmsForPatient } from '../../../shared/communication';
 import { createPublishExcuseNotesOps } from '../../../shared/createPublishExcuseNotesOps';
 import { PdfInfo } from '../../../shared/pdf/pdf-utils';
-import { VideoResourcesAppointmentPackage } from '../../../shared/pdf/visit-details-pdf/types';
+import { FullAppointmentResourcePackage } from '../../../shared/pdf/visit-details-pdf/types';
 import {
   addPeriodEndOp,
   addStatusHistoryRecordOp,
@@ -20,7 +20,7 @@ import {
 
 export const changeStatusIfPossible = async (
   oystehr: Oystehr,
-  resourcesToUpdate: VideoResourcesAppointmentPackage,
+  resourcesToUpdate: FullAppointmentResourcePackage,
   currentStatus: TelemedCallStatuses,
   newStatus: TelemedCallStatuses,
   practitionerId: string,
@@ -155,9 +155,9 @@ const mergeUnsignedStatusesTimesOp = (statusHistory: EncounterStatusHistory[]): 
     const secondUnsignedStart = new Date(lastRecord.period.start).getTime();
     const secondUnsignedEnd = new Date().getTime();
 
-    const unisgnedTimeSummary =
+    const unsignedTimeSummary =
       Math.abs(firstUnsignedEnd - firstUnsignedStart) + Math.abs(secondUnsignedEnd - secondUnsignedStart);
-    const unsignedSummaryStart = new Date(Math.abs(new Date().getTime() - unisgnedTimeSummary)).toISOString();
+    const unsignedSummaryStart = new Date(Math.abs(new Date().getTime() - unsignedTimeSummary)).toISOString();
     const unsignedSummaryEnd = now();
 
     encounterOperations.push(deleteStatusHistoryRecordOp(statusHistoryLength - 1));
@@ -173,7 +173,7 @@ const mergeUnsignedStatusesTimesOp = (statusHistory: EncounterStatusHistory[]): 
 
 const defaultEncounterOperations = (
   newTelemedStatus: TelemedCallStatuses,
-  resourcesToUpdate: VideoResourcesAppointmentPackage
+  resourcesToUpdate: FullAppointmentResourcePackage
 ): Operation[] => {
   return encounterOperationsWrapper(newTelemedStatus, resourcesToUpdate, (newEncounterStatus, statusHistoryLength) => {
     return [
@@ -186,7 +186,7 @@ const defaultEncounterOperations = (
 
 const encounterOperationsWrapper = (
   newTelemedStatus: TelemedCallStatuses,
-  resourcesToUpdate: VideoResourcesAppointmentPackage,
+  resourcesToUpdate: FullAppointmentResourcePackage,
   callback: (newEncounterStatus: string, statusHistoryLength: number) => Operation[]
 ): Operation[] => {
   const newEncounterStatus = telemedStatusToEncounter(newTelemedStatus);

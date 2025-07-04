@@ -1,5 +1,4 @@
 import Oystehr from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { MedicationAdministration, MedicationRequest, Patient, Practitioner } from 'fhir/r4b';
 import {
@@ -18,15 +17,15 @@ import {
   MEDICATION_ADMINISTRATION_CSS_RESOURCE_CODE,
   OrderPackage,
 } from 'utils';
-import { createOystehrClient } from '../../shared';
+import { createOystehrClient, wrapHandler } from '../../shared';
 import { ZambdaInput } from '../../shared';
 import { checkOrCreateM2MClientToken } from '../../shared';
 import { getMedicationFromMA } from '../create-update-medication-order/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
-
 let m2mToken: string;
+const ZAMBDA_NAME = 'get-medication-orders';
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
 
@@ -53,7 +52,7 @@ async function performEffect(
   oystehr: Oystehr,
   validatedParameters: GetMedicationOrdersInput
 ): Promise<GetMedicationOrdersResponse> {
-  const orderPackages = await getOrderPackages(oystehr, validatedParameters.encounterId);
+  const orderPackages = await getOrderPackages(oystehr, validatedParameters.searchBy);
   const result = orderPackages?.map((pkg) => mapMedicalAdministrationToDTO(pkg));
   return {
     orders: result ?? [],
@@ -72,7 +71,7 @@ function mapMedicalAdministrationToDTO(orderPackage: OrderPackage): ExtendedMedi
     id: medicationAdministration.id ?? '',
     status: mapFhirToOrderStatus(medicationAdministration) ?? 'pending',
     patient: medicationAdministration.subject.reference?.replace('Patient/', '') ?? '',
-    encounter: medicationAdministration.context?.reference?.replace('Encounter/', '') ?? '',
+    encounterId: medicationAdministration.context?.reference?.replace('Encounter/', '') ?? '',
     medicationId: medication?.id,
     medicationName: (medication && getMedicationName(medication)) ?? '',
     dose: dosageUnitsRoute.dose ?? -1,
@@ -95,8 +94,7 @@ function mapMedicalAdministrationToDTO(orderPackage: OrderPackage): ExtendedMedi
     expDate: medication?.batch?.expirationDate,
 
     // administrating
-    dateGiven: administeredInfo?.dateAdministered,
-    timeGiven: administeredInfo?.timeAdministered,
+    effectiveDateTime: administeredInfo?.dateAdministered,
     administeredProviderId: administeredInfo?.administeredProviderId,
     administeredProvider: providerAdministeredOrderName,
 
@@ -104,31 +102,41 @@ function mapMedicalAdministrationToDTO(orderPackage: OrderPackage): ExtendedMedi
   };
 }
 
-async function getOrderPackages(oystehr: Oystehr, encounterId: string): Promise<OrderPackage[] | undefined> {
+async function getOrderPackages(
+  oystehr: Oystehr,
+  searchBy: GetMedicationOrdersInput['searchBy']
+): Promise<OrderPackage[] | undefined> {
+  const searchParams = [
+    {
+      name: '_tag',
+      value: MEDICATION_ADMINISTRATION_CSS_RESOURCE_CODE,
+    },
+    {
+      name: '_include',
+      value: 'MedicationAdministration:subject',
+    },
+    {
+      name: '_include',
+      value: 'MedicationAdministration:performer',
+    },
+    {
+      name: '_include',
+      value: 'MedicationAdministration:request',
+    },
+  ];
+
+  if (searchBy.field === 'encounterId') {
+    searchParams.push({ name: 'context', value: `Encounter/${searchBy.value}` });
+  } else if (searchBy.field === 'encounterIds') {
+    const encounterRefs = searchBy.value.map((id) => `Encounter/${id}`).join(',');
+    searchParams.push({ name: 'context', value: encounterRefs });
+  }
+
+  console.log('searchParams for MedicationAdministration', searchParams);
+
   const bundle = await oystehr.fhir.search({
     resourceType: 'MedicationAdministration',
-    params: [
-      {
-        name: 'context',
-        value: `Encounter/${encounterId}`,
-      },
-      {
-        name: '_tag',
-        value: MEDICATION_ADMINISTRATION_CSS_RESOURCE_CODE,
-      },
-      {
-        name: '_include',
-        value: 'MedicationAdministration:subject',
-      },
-      {
-        name: '_include',
-        value: 'MedicationAdministration:performer',
-      },
-      {
-        name: '_include',
-        value: 'MedicationAdministration:request',
-      },
-    ],
+    params: searchParams,
   });
   const resources = bundle.unbundle();
   const medicationAdministrations = resources.filter(
