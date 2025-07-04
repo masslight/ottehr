@@ -34,6 +34,7 @@ import {
   DeleteInHouseLabOrderZambdaOutput,
   DeleteLabOrderZambdaInput,
   DeleteLabOrderZambdaOutput,
+  DownloadPatientProfilePhotoInput,
   GetAppointmentsZambdaInput,
   GetAppointmentsZambdaOutput,
   GetConversationInput,
@@ -45,7 +46,6 @@ import {
   GetLabelPdfParameters,
   GetLabOrdersParameters,
   GetNursingOrdersInput,
-  GetOrUploadPatientProfilePhotoZambdaInput,
   GetOrUploadPatientProfilePhotoZambdaResponse,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOutput,
@@ -77,6 +77,7 @@ import {
   UpdateScheduleParams,
   UpdateUserParams,
   UpdateUserZambdaOutput,
+  UploadPatientProfilePhotoInput,
 } from 'utils';
 
 export interface PatchOperation {
@@ -555,10 +556,7 @@ export const createSchedule = async (params: CreateScheduleParams, oystehr: Oyst
   }
 };
 
-export type UploadPatientProfilePhotoParameters = Omit<
-  GetOrUploadPatientProfilePhotoZambdaInput,
-  'z3PhotoUrl' | 'action'
-> & {
+export type UploadPatientProfilePhotoParameters = Omit<UploadPatientProfilePhotoInput, 'action'> & {
   patientPhotoFile: File;
 };
 
@@ -571,22 +569,23 @@ export const uploadPatientProfilePhoto = async (
       throw new Error('Could not find environment variable GET_PATIENT_PROFILE_PHOTO_URL_ZAMBDA_ID');
     }
 
+    const { patientPhotoFile, ...zambdaInput } = parameters;
+
     const urlSigningResponse = await oystehr.zambda.execute({
       id: GET_PATIENT_PROFILE_PHOTO_URL_ZAMBDA_ID,
-      ...parameters,
+      ...zambdaInput,
       action: 'upload',
     });
 
     const { presignedImageUrl } = chooseJson(urlSigningResponse);
 
-    const photoFile = parameters.patientPhotoFile;
     // Upload the file to S3
     const uploadResponse = await fetch(presignedImageUrl, {
       method: 'PUT',
       headers: {
-        'Content-Type': photoFile.type,
+        'Content-Type': patientPhotoFile.type,
       },
-      body: photoFile,
+      body: patientPhotoFile,
     });
 
     if (!uploadResponse.ok) {
@@ -600,7 +599,7 @@ export const uploadPatientProfilePhoto = async (
   }
 };
 
-export type GetPatientProfilePhotoParameters = Omit<GetOrUploadPatientProfilePhotoZambdaInput, 'patientID' | 'action'>;
+export type GetPatientProfilePhotoParameters = Omit<DownloadPatientProfilePhotoInput, 'action'>;
 
 export const getSignedPatientProfilePhotoUrl = async (
   oystehr: Oystehr,
