@@ -568,16 +568,16 @@ export const uploadPatientProfilePhoto = async (
     if (GET_PATIENT_PROFILE_PHOTO_URL_ZAMBDA_ID == null) {
       throw new Error('Could not find environment variable GET_PATIENT_PROFILE_PHOTO_URL_ZAMBDA_ID');
     }
-
+    const { patientPhotoFile, ...zambdaInput } = parameters;
     const urlSigningResponse = await oystehr.zambda.execute({
       id: GET_PATIENT_PROFILE_PHOTO_URL_ZAMBDA_ID,
-      ...parameters,
+      ...zambdaInput,
       action: 'upload',
     });
 
     const { presignedImageUrl } = chooseJson(urlSigningResponse);
 
-    const photoFile = parameters.patientPhotoFile;
+    const photoFile = patientPhotoFile;
     // Upload the file to S3
     const uploadResponse = await fetch(presignedImageUrl, {
       method: 'PUT',
