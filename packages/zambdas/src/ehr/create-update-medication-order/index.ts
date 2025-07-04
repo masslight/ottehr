@@ -121,8 +121,11 @@ async function updateOrder(
       newMedicationCopy
     )}, newStatus: ${newStatus}`
   );
+
+  let updatedMedicationResource: MedicationAdministration = orderResources.medicationAdministration;
+
   if (orderData && newMedicationCopy) {
-    await updateMedicationAdministrationData({
+    updatedMedicationResource = await updateMedicationAdministrationData({
       oystehr,
       orderData,
       orderResources,
@@ -131,6 +134,7 @@ async function updateOrder(
     });
     console.log('MedicationAdministration data was successfully updated.');
   }
+
   if (currentStatus && newStatus) {
     resultPromises.push(changeOrderStatus(oystehr, orderResources, newStatus));
     if (newStatus === 'administered') {
@@ -152,10 +156,13 @@ async function updateOrder(
       };
 
       const { effectiveDateTime } = orderData || {};
+
       resultPromises.push(
         oystehr.fhir
           .create<MedicationStatement>(
-            createMedicationStatementResource(orderResources.medicationAdministration, medicationCodeableConcept, {
+            // effective date time for MedicationAdministration is date of creation,
+            // and effective date time for MedicationStatement is date of medication was given/taken
+            createMedicationStatementResource(updatedMedicationResource, medicationCodeableConcept, {
               effectiveDateTime,
             })
           )
