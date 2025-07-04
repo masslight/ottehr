@@ -213,6 +213,8 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
 
   const copayBenefits = eligibilityStatus?.copay ?? [];
 
+  console.log('insurance plans', insurancePlans);
+
   return (
     <Section title="Insurance information" dataTestId="insuranceContainer" titleWidget={<TitleWidget />}>
       <Box
@@ -252,12 +254,12 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
           control={control}
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
-            validate: (value) => insurancePlans.some((option) => `InsurancePlan/${option.id}` === value?.reference),
+            validate: (value) => insurancePlans.some((option) => `Organization/${option.id}` === value?.reference),
           }}
           render={({ field: { value }, fieldState: { error } }) => {
             const isLoading = insurancePlans.length === 0;
 
-            const selectedOption = insurancePlans.find((option) => `InsurancePlan/${option.id}` === value?.reference);
+            const selectedOption = insurancePlans.find((option) => `Organization/${option.id}` === value?.reference);
             return (
               <Autocomplete
                 options={insurancePlans}
@@ -272,7 +274,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
                   if (newValue) {
                     setValue(
                       FormFields.insuranceCarrier.key,
-                      { reference: `InsurancePlan/${newValue.id}`, display: newValue.name },
+                      { reference: `Organization/${newValue.id}`, display: newValue.name },
                       { shouldDirty: true }
                     );
                   } else {

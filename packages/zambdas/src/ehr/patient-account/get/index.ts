@@ -44,6 +44,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAccountResponse> => {
   const { patientId } = input;
   const accountAndCoverages = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
+  console.log('accountAndCoverages.insuranceOrgs', JSON.stringify(accountAndCoverages.insuranceOrgs, null, 2));
   const primaryCarePhysician = accountAndCoverages.patient?.contained?.find(
     (resource) => resource.resourceType === 'Practitioner' && resource.active === true
   ) as Practitioner;

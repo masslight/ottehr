@@ -2,6 +2,7 @@ import { Operation } from 'fast-json-patch';
 import { Coverage, Organization, Patient, RelatedPerson } from 'fhir/r4b';
 import {
   eligibilityRequirementKeys,
+  getPayerId,
   InsurancePlanDTO,
   InsurancePlanRequirementKeyBooleans,
   InsurancePlanRequirementKeys,
@@ -65,9 +66,7 @@ export const createInsurancePlanDto = (organization: Organization): InsurancePla
     throw new Error('Insurance is missing id, name or owning organization.');
   }
 
-  const payerId = organization?.identifier
-    ?.find((identifier) => identifier.type?.coding?.some((coding) => coding.system === 'payer-id'))
-    ?.type?.coding?.find((coding) => coding.system === 'payer-id')?.code;
+  const payerId = getPayerId(organization);
 
   if (!payerId) {
     throw new Error('Owning organization is missing payer-id.');

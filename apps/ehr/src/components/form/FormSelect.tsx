@@ -21,7 +21,7 @@ export const FormSelect = <T extends FieldValues>({
   name,
   control,
   options,
-  defaultValue = '',
+  //defaultValue,
   rules,
   onChangeHandler,
   ...selectProps
@@ -29,7 +29,7 @@ export const FormSelect = <T extends FieldValues>({
   <Controller
     name={name}
     control={control}
-    defaultValue={defaultValue as any}
+    //defaultValue={defaultValue as any}
     rules={rules}
     render={({ field, fieldState: { error } }) => (
       <Box sx={{ width: '100%' }}>
@@ -40,6 +40,7 @@ export const FormSelect = <T extends FieldValues>({
           fullWidth
           error={!!error}
           onChange={(e) => {
+            e.preventDefault();
             field.onChange(e as any);
             onChangeHandler?.(e as any);
           }}

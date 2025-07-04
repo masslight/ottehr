@@ -46,10 +46,27 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
 
   const methods = useForm({
     mode: 'onBlur',
+    defaultValues: {
+      [FormFields.insurancePriority.key]: priorityOptions[0]?.value || 'Primary',
+      [FormFields.insuranceCarrier.key]: null,
+      [FormFields.memberId.key]: '',
+      [FormFields.firstName.key]: '',
+      [FormFields.middleName.key]: '',
+      [FormFields.lastName.key]: '',
+      [FormFields.birthDate.key]: '',
+      [FormFields.birthSex.key]: '',
+      [FormFields.relationship.key]: '',
+      [FormFields.streetAddress.key]: '',
+      [FormFields.addressLine2.key]: '',
+      [FormFields.city.key]: '',
+      [FormFields.state.key]: null,
+      [FormFields.zip.key]: '',
+      [FormFields.additionalInformation.key]: '',
+    } as any,
   });
 
   const { control, formState, handleSubmit, setValue } = methods;
-  const { errors } = formState;
+  const { errors, defaultValues } = formState;
 
   const { insurancePlans } = usePatientStore();
   const queryClient = useQueryClient();
@@ -68,6 +85,12 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
       methods.reset();
     }
   }, [open, methods]);
+
+  useEffect(() => {
+    if (priorityOptions.length === 1 && priorityOptions[0]?.value) {
+      methods.setValue(FormFields.insurancePriority.key, priorityOptions[0].value);
+    }
+  }, [priorityOptions, methods]);
 
   useEffect(() => {
     if (!open && !submitQR.isIdle) {
@@ -118,11 +141,10 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
                   variant="outlined"
                   control={control}
                   options={priorityOptions}
-                  defaultValue={priorityOptions[0]?.value ?? 'Primary'}
+                  defaultValue={defaultValues?.insurancePriority || 'Primary'}
                   rules={{
                     required: REQUIRED_FIELD_ERROR_MESSAGE,
                   }}
-                  disabled={priorityOptions.length === 1}
                 />
               </LabeledField>
             </Grid>

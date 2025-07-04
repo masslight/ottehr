@@ -151,9 +151,11 @@ const PatientInformationPage: FC = () => {
     }
     const isFetching = accountFetching || questionnaireFetching;
     let defaultFormVals: any | undefined;
+
     if (!isFetching && accountData && questionnaire) {
       const prepopulatedForm = makePrepopulatedItemsFromPatientRecord({ ...accountData, questionnaire });
       defaultFormVals = makeFormDefaults(prepopulatedForm);
+      console.log('defaultFormVals', JSON.stringify(defaultFormVals, null, 2));
     }
     return { patient, coverages, isFetching, defaultFormVals };
   }, [accountData, questionnaire, questionnaireFetching, accountFetching]);

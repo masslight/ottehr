@@ -1522,6 +1522,12 @@ export async function searchInsuranceInformation(
       return '';
     })
     .filter((id) => !!id);
+  if (orgIds.length !== insuranceOrgRefs.length) {
+    console.log('searchInsuranceInformation: some Organization references were invalid:', insuranceOrgRefs);
+  }
+  if (orgIds.length === 0) {
+    return [];
+  }
   const searchResults = await oystehr.fhir.search<Organization>({
     resourceType: 'Organization',
     params: [
@@ -2920,6 +2926,8 @@ export const getAccountAndCoverageResourcesForPatient = async (
     throw PATIENT_NOT_FOUND_ERROR;
   }
 
+  console.log('raw fetched coverage resources', JSON.stringify(resources, null, 2));
+
   return getCoverageUpdateResourcesFromUnbundled({
     patient: patientResource,
     resources: [...resources],
@@ -2950,12 +2958,9 @@ export const updatePatientAccountFromQuestionnaire = async (
   const secondaryInsurancePlan = flattenedPaperwork.find((item) => item.linkId === InsuranceCarrierKeys.secondary)
     ?.answer?.[0]?.valueReference?.reference;
   if (secondaryInsurancePlan) insuranceOrgs.push(secondaryInsurancePlan);
-  console.log('insuranceOrgs', insuranceOrgs);
-  const insuranceInformationResources = await searchInsuranceInformation(oystehr, insuranceOrgs);
-  console.log('insurance information resources', JSON.stringify(insuranceInformationResources, null, 2));
-  const organizationResources = insuranceInformationResources.filter(
-    (res): res is Organization => res.resourceType === 'Organization'
-  );
+  console.log('update patient account insuranceOrgs', insuranceOrgs);
+  const organizationResources = await searchInsuranceInformation(oystehr, insuranceOrgs);
+  console.log('insurance Organization resources', JSON.stringify(organizationResources, null, 2));
 
   const {
     patient,
