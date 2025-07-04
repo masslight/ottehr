@@ -1,4 +1,4 @@
-import { MedicationAdministration, MedicationStatement, Patient, Practitioner } from 'fhir/r4b';
+import { MedicationAdministration, MedicationRequest, MedicationStatement, Patient, Practitioner } from 'fhir/r4b';
 import { z } from 'zod';
 import { MEDICATION_APPLIANCE_LOCATION_SYSTEM } from './medication-administration.constants';
 
@@ -34,6 +34,26 @@ export interface UpdateMedicationOrderInput {
   orderData?: MedicationData;
 }
 
+export interface DrugInteraction {
+  drugs: {
+    id: string;
+    name: string;
+  }[];
+  severity: 'high' | 'moderate' | 'low' | undefined;
+  message?: string;
+  overrideReason?: string;
+}
+
+export interface AllergyInteraction {
+  message?: string;
+  overrideReason?: string;
+}
+
+export interface MedicationInteractions {
+  drugInteractions?: DrugInteraction[];
+  allergyInteractions?: AllergyInteraction[];
+}
+
 export interface MedicationData {
   patient: string;
   encounterId: string;
@@ -54,6 +74,8 @@ export interface MedicationData {
 
   // administrating
   effectiveDateTime?: string;
+
+  interactions?: MedicationInteractions;
 }
 
 export interface ExtendedMedicationDataForResponse extends MedicationData {
@@ -84,6 +106,7 @@ export interface OrderPackage {
   medicationStatement?: MedicationStatement;
   providerCreatedOrder?: Practitioner;
   providerAdministeredOrder?: Practitioner;
+  medicationRequest?: MedicationRequest;
 }
 
 export interface MedicationApplianceLocation {
