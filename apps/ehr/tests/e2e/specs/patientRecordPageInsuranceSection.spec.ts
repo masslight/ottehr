@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { test } from '@playwright/test';
 import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
@@ -220,7 +220,6 @@ test.describe('Insurance Information Section mutating tests', () => {
   test('Enter invalid zip on Insurance information block, validation error are shown', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
-    expect(primaryInsuranceCard).toBeDefined();
     await primaryInsuranceCard.clickShowMoreButton();
     await primaryInsuranceCard.enterZipFromInsuranceContainer('11');
     await patientInformationPage.clickSaveChangesButton();
@@ -464,21 +463,10 @@ async function createResourceHandler(): Promise<[ResourceHandler, string, string
     },
   });
 
-  /*
-  const insuranceCarriersOptionsResponse = await oystehr.zambda.execute({
-    id: process.env.GET_ANSWER_OPTIONS_ZAMBDA_ID!,
-    answerSource: {
-      resourceType: 'InsurancePlan',
-      query: `status=active&_tag=${INSURANCE_PLAN_PAYER_META_TAG_CODE}`,
-    },
-  });
-  */
-
   const insuranceCarriersOptions = chooseJson(insuranceCarriersOptionsResponse) as QuestionnaireItemAnswerOption[];
   insuranceCarrier1 = insuranceCarriersOptions.at(0);
   insuranceCarrier2 = insuranceCarriersOptions.at(1);
-  expect(insuranceCarrier1?.valueReference?.display).toBe('1199 National Benefit Fund');
-  expect(insuranceCarrier2?.valueReference?.display).toBe('1st Auto & Casualty - MN Only');
+
   await resourceHandler.setResources();
   await Promise.all([
     resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!),

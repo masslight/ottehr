@@ -143,6 +143,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
                   control={control}
                   options={priorityOptions}
                   defaultValue={defaultValues?.insurancePriority || 'Primary'}
+                  disabled={priorityOptions.length === 1}
                   rules={{
                     required: REQUIRED_FIELD_ERROR_MESSAGE,
                   }}
