@@ -65,6 +65,7 @@ import {
   SecretsKeys,
 } from 'utils';
 import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE } from 'utils/lib/helpers/rcm';
+import { patient } from '../../test/appointment-validation.test';
 import { getAccountAndCoverageResourcesForPatient } from '../ehr/shared/harvest';
 import { chartDataResourceHasMetaTagByCode } from './chart-data';
 import { assertDefined } from './helpers';
@@ -104,6 +105,7 @@ interface InsuranceResources {
 }
 
 interface CreateEncounterInput {
+  appointment: Appointment;
   encounter: Encounter;
   patient: Patient;
   practitioner: Practitioner;
@@ -199,7 +201,15 @@ const createCandidCreateEncounterInput = async (
   if (coverage && (!coverageSubscriber || !coveragePayor)) {
     throw MISSING_PATIENT_COVERAGE_INFO_ERROR;
   }
+
+  if (!encounter.id) {
+    throw new Error(`Encounter id is not defined for encounter ${encounterId} in createCandidCreateEncounterInput`);
+  }
+
+  const { appointment } = await fetchFHIRPatientAndAppointmentFromEncounter(encounter.id, oystehr);
+
   return {
+    appointment: appointment,
     encounter: encounter,
     patient: assertDefined(visitResources.patient, `Patient on encounter ${encounterId}`),
     practitioner: assertDefined(visitResources.practitioner, `Practitioner on encounter ${encounterId}`),
@@ -958,7 +968,7 @@ async function candidCreateEncounterFromAppointmentRequest(
   input: CreateEncounterInput,
   apiClient: CandidApiClient
 ): Promise<EncounterCreateFromPreEncounter> {
-  const { encounter, practitioner, diagnoses, procedures, insuranceResources } = input;
+  const { appointment, encounter, practitioner, diagnoses, procedures, insuranceResources } = input;
   const practitionerNpi = assertDefined(getNpi(practitioner.identifier), 'Practitioner NPI');
   const practitionerName = assertDefined(practitioner.name?.[0], 'Practitioner name');
   const billingProviderData = insuranceResources
@@ -981,10 +991,29 @@ async function candidCreateEncounterFromAppointmentRequest(
   if (primaryDiagnosisIndex === -1) {
     throw new Error('Primary diagnosis is absent');
   }
+
+  const candidPatientId = await apiClient.preEncounter.patients.v1.getMulti({
+    mrn: patient.id,
+  });
+  if (!candidPatientId.ok || candidPatientId.body.items.length === 0) {
+    throw new Error(`Candid patient not found for patient ${patient.id}`);
+  }
+  if (candidPatientId.body.items.length > 1) {
+    throw new Error(`Multiple Candid patients found for patient ${patient.id}`);
+  }
+  const candidPatient = candidPatientId.body.items[0];
+
+  const candidAppointmentId = appointment.identifier?.find(
+    (identifier) => identifier.system === CANDID_PRE_ENCOUNTER_APPOINTMENT_ID_IDENTIFIER_SYSTEM
+  )?.value;
+  if (!candidAppointmentId) {
+    throw new Error(`Candid appointment ID is not defined for appointment ${appointment.id}`);
+  }
+
   return {
     externalId: EncounterExternalId(assertDefined(encounter.id, 'Encounter.id')),
-    preEncounterPatientId: PreEncounterPatientId('todo-alex'), // candid patient id
-    preEncounterAppointmentIds: [PreEncounterAppointmentId('todo-alex')], // candid appointment id
+    preEncounterPatientId: PreEncounterPatientId(candidPatient.id),
+    preEncounterAppointmentIds: [PreEncounterAppointmentId(candidAppointmentId)],
     benefitsAssignedToProvider: true,
     billableStatus: BillableStatusType.Billable,
     patientAuthorizedRelease: true,
