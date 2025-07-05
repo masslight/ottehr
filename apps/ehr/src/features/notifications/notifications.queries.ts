@@ -87,7 +87,11 @@ interface UpdateProviderNotificationsParams {
 
 export const useUpdateProviderNotificationSettingsMutation = (
   onSuccess: (params: UpdateProviderNotificationsParams) => void
-): UseMutationResult<void, unknown, UpdateProviderNotificationsParams> => {
+): UseMutationResult<
+  { method: ProviderNotificationMethod; enabled: boolean },
+  unknown,
+  UpdateProviderNotificationsParams
+> => {
   const user = useEvolveUser();
   const { oystehr } = useApiClients();
   return useMutation(

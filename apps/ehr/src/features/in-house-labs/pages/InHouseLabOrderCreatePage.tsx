@@ -17,7 +17,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import Oystehr from '@oystehr/sdk';
 import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -203,11 +203,11 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
           navigate(`/in-person/${appointment?.id}/in-house-lab-orders/${res.serviceRequestId}/order-details`);
         }
       } catch (e) {
-        const oyError = e as OystehrSdkError;
-        console.error('error creating in house lab order', oyError.code, oyError.message);
-        if (isApiError(oyError)) {
+        const sdkError = e as Oystehr.OystehrSdkError;
+        console.error('error creating in house lab order', sdkError.code, sdkError.message);
+        if (isApiError(sdkError)) {
           console.log('is api error');
-          setError([oyError.message || GENERIC_ERROR_MSG]);
+          setError([sdkError.message || GENERIC_ERROR_MSG]);
         } else {
           setError([GENERIC_ERROR_MSG]);
         }

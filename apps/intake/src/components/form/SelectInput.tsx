@@ -117,10 +117,11 @@ const SelectInput: FC<SelectInputProps> = ({
                   whiteSpace: 'normal',
                 },
               }}
-              renderValue={(selected) => {
+              renderValue={(selected: unknown) => {
+                const selectedValue = selected as string;
                 if (
-                  selected.length === 0 ||
-                  !options.find((option) => option.label === selected || option.value === selected)
+                  selectedValue.length === 0 ||
+                  !options.find((option) => option.label === selectedValue || option.value === selectedValue)
                 ) {
                   return (
                     <RenderLabelFromSelect styles={{ color: otherColors.placeholder }}>
@@ -128,7 +129,7 @@ const SelectInput: FC<SelectInputProps> = ({
                     </RenderLabelFromSelect>
                   );
                 }
-                return <RenderLabelFromSelect>{findLabelFromOptions(selected, options)}</RenderLabelFromSelect>;
+                return <RenderLabelFromSelect>{findLabelFromOptions(selectedValue, options)}</RenderLabelFromSelect>;
               }}
             >
               {options.map((option) => (

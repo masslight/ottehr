@@ -164,7 +164,7 @@ export const EditableMedicationCard: React.FC<{
       if (medicationUpdateRequestInputRefRef.current?.newStatus) {
         void handleStatusSelect(medicationUpdateRequestInputRefRef.current.newStatus);
       }
-    } catch {
+    } catch (error) {
       console.error(error);
     } finally {
       setIsUpdating(false);
@@ -211,7 +211,8 @@ export const EditableMedicationCard: React.FC<{
         const defaultOption = selectsOptions[field as keyof OrderFieldsSelectsOptions]?.defaultOption?.value;
         if (defaultOption) {
           const value = getFieldValue(field as keyof MedicationData);
-          if (!value || value < 0) setLocalValues((prev) => ({ ...prev, [field]: defaultOption }));
+          if (!value || (typeof value === 'number' && value < 0))
+            setLocalValues((prev) => ({ ...prev, [field]: defaultOption }));
         }
       });
     }
