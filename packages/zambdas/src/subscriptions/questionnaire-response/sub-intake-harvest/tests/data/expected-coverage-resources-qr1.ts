@@ -142,7 +142,7 @@ export const expectedCoverageResources: { primary: Coverage; secondary: Coverage
             },
           ],
         },
-        value: '{{INSURANCEPLAN_REF}}',
+        value: '60054',
       },
     ],
     type: {
@@ -198,7 +198,7 @@ export const expectedCoverageResources: { primary: Coverage; secondary: Coverage
             },
           ],
         },
-        value: '{{INSURANCEPLAN_REF}}',
+        value: '60054',
       },
     ],
     type: {

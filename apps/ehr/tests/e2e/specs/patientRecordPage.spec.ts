@@ -275,7 +275,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!);
   });
 
-  test.afterEach(async () => {
+  test.afterAll(async () => {
     await resourceHandler.cleanupResources();
   });
 

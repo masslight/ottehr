@@ -6,7 +6,6 @@ import {
   CoverageClass,
   CoverageEligibilityRequest,
   FhirResource,
-  InsurancePlan,
   Organization,
   RelatedPerson,
 } from 'fhir/r4b';
@@ -80,7 +79,7 @@ export const prevalidationHandler = async (input: Input, oystehrClient: Oystehr)
 
   console.log('primary and secondary insurances: ', primary, secondary);
 
-  const primaryInsurancePlanRequirements = createInsurancePlanDto(primary.insurancePlan);
+  const primaryInsurancePlanRequirements = createInsurancePlanDto(primary);
   let secondaryInsurancePlanRequirements: InsurancePlanDTO | undefined;
 
   console.log('primaryPolicyHolder', JSON.stringify(primaryPolicyHolder, null, 2));
@@ -91,9 +90,9 @@ export const prevalidationHandler = async (input: Input, oystehrClient: Oystehr)
     primary: true,
   });
 
-  if (secondary?.insurancePlan && secondaryInsuranceData && secondaryPolicyHolder) {
+  if (secondary && secondaryInsuranceData && secondaryPolicyHolder) {
     try {
-      secondaryInsurancePlanRequirements = createInsurancePlanDto(secondary.insurancePlan);
+      secondaryInsurancePlanRequirements = createInsurancePlanDto(secondary);
       validateInsuranceRequirements({
         insurancePlanDto: secondaryInsurancePlanRequirements,
         insuranceData: secondaryInsuranceData,
@@ -111,9 +110,8 @@ export const prevalidationHandler = async (input: Input, oystehrClient: Oystehr)
   const coverages = [
     makeCoverage({
       insuranceData: primaryInsuranceData,
-      insurancePlan: primary.insurancePlan,
       patientId,
-      payor: primary.organization,
+      payor: primary,
       policyHolder: primaryPolicyHolder,
       relatedPerson: rps[0],
       primary: true,
@@ -143,10 +141,9 @@ export const prevalidationHandler = async (input: Input, oystehrClient: Oystehr)
     coverages.push(
       makeCoverage({
         insuranceData: secondaryInsuranceData,
-        insurancePlan: secondary.insurancePlan,
         policyHolder: secondaryPolicyHolder,
         patientId,
-        payor: secondary.organization,
+        payor: secondary,
         relatedPerson: rps[1],
         primary: false,
       })
@@ -167,7 +164,7 @@ export const prevalidationHandler = async (input: Input, oystehrClient: Oystehr)
     coverage.id = id;
     const coverageReference = `#${coverage.id}`;
     const patientReference = `Patient/${patientId}`;
-    const payorReference = `Organization/${isPrimary ? primary.organization.id : secondary.organization.id}`;
+    const payorReference = `Organization/${isPrimary ? primary.id : secondary.id}`;
     const contained: FhirResource[] = [coverage];
     if (rps[idx]) {
       contained.push(rps[idx]);
@@ -229,7 +226,6 @@ export const prevalidationHandler = async (input: Input, oystehrClient: Oystehr)
 
 interface CoverageInput {
   insuranceData: GetEligibilityInsuranceData;
-  insurancePlan: InsurancePlan;
   policyHolder: GetEligibilityPolicyHolder;
   patientId: string;
   payor: Organization;
@@ -237,7 +233,7 @@ interface CoverageInput {
   primary: boolean;
 }
 const makeCoverage = (input: CoverageInput): Coverage => {
-  const { insuranceData, insurancePlan, policyHolder, patientId, payor, relatedPerson, primary } = input;
+  const { insuranceData, policyHolder, patientId, payor, relatedPerson, primary } = input;
   const subscriber = {
     reference: '',
   };
@@ -266,7 +262,7 @@ const makeCoverage = (input: CoverageInput): Coverage => {
         ],
       },
       value: insuranceIdentifierId,
-      name: insurancePlan.name,
+      name: payor.name,
     };
   }
 

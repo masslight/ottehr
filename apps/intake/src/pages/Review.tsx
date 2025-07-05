@@ -115,8 +115,6 @@ const Review = (): JSX.Element => {
     },
   ];
 
-  console.log('originalBookingUrl', originalBookingUrl);
-
   if (visitType === VisitType.PreBook) {
     let path = `${intakeFlowPageRoute.PrebookVisit.path}`;
     if (originalBookingUrl) {

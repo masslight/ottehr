@@ -105,7 +105,7 @@ const projectApiUrlFromAuth0Audience = (auth0Audience: string): string => {
   }
 };
 
-const updateZambdas = async (config: any): Promise<void> => {
+const updateZambdas = async (config: any, selectedTriggerMethod: string | undefined): Promise<void> => {
   const token = await getAuth0Token(config);
 
   if (!token) {
@@ -118,11 +118,26 @@ const updateZambdas = async (config: any): Promise<void> => {
   });
 
   console.log('Getting list of zambdas');
-  const currentZambdas = await oystehr.zambda.list();
+  const currentZambdas = (await oystehr.zambda.list()).filter((zambda) => {
+    if (selectedTriggerMethod) {
+      return zambda.triggerMethod === selectedTriggerMethod;
+    }
+    return true;
+  });
+
+  const zambdasToDeployEntries = Object.entries(ZAMBDAS).filter(([__key, zambda]) => {
+    if (selectedTriggerMethod) {
+      if (zambda.type !== selectedTriggerMethod) {
+        return false;
+      }
+    }
+    return true;
+  });
+  const zambdasToDeploy = Object.fromEntries(zambdasToDeployEntries);
 
   // First check if any zambdas are not found
-  for await (const zambda of Object.keys(ZAMBDAS)) {
-    const currentZambda = ZAMBDAS[zambda];
+  for await (const zambda of Object.keys(zambdasToDeploy)) {
+    const currentZambda = zambdasToDeploy[zambda];
     if (currentZambda.environments && !currentZambda.environments.includes(config.ENVIRONMENT)) {
       console.log(`\nZambda ${zambda} is not run in ${config.ENVIRONMENT}`);
       continue;
@@ -385,8 +400,13 @@ if (process.argv.length < 3) {
 // So we can use await
 const main = async (): Promise<void> => {
   const env = process.argv[2];
+  let selectedTriggerMethod: string | undefined = process.argv[3];
   const secrets = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
-  await updateZambdas(secrets);
+  if (selectedTriggerMethod && !['http_open', 'http_auth', 'subscription', 'cron'].includes(selectedTriggerMethod)) {
+    selectedTriggerMethod = undefined;
+  }
+
+  await updateZambdas(secrets, selectedTriggerMethod);
 };
 
 main().catch((error) => {

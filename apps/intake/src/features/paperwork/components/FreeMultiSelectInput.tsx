@@ -118,6 +118,8 @@ const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
     });
   }, [usesDynamicOptions, multiple, otherProps.value, data, staticOptions]);
 
+  console.log('options in free multi select input', options);
+
   return (
     <Autocomplete
       {...otherProps}

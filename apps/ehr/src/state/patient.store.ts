@@ -1,5 +1,12 @@
 import { Operation } from 'fast-json-patch';
-import { Coverage, InsurancePlan, Organization, Patient, Reference, RelatedPerson } from 'fhir/r4b';
+import { Coverage, Organization, Patient, RelatedPerson } from 'fhir/r4b';
+import {
+  eligibilityRequirementKeys,
+  getPayerId,
+  InsurancePlanDTO,
+  InsurancePlanRequirementKeyBooleans,
+  InsurancePlanRequirementKeys,
+} from 'utils';
 import { create } from 'zustand';
 
 export interface Insurance {
@@ -12,35 +19,6 @@ interface ResourcePatches {
   patient: Operation[];
   coverages: { [id: string]: Operation[] }; // key is Coverage.id
   relatedPersons: { [id: string]: Operation[] }; // key is RelatedPerson.id
-}
-
-export const eligibilityRequirementKeys = [
-  'requiresSubscriberId',
-  'requiresSubscriberName',
-  'requiresSubscriberDOB',
-  'requiresRelationshipToSubscriber',
-  'requiresInsuranceName',
-  'requiresInsuranceCardImage',
-  'requiresFacilityNPI',
-  'requiresStateUID',
-  'enabledEligibilityCheck',
-] as const;
-
-export type InsurancePlanRequirementKeys = (typeof eligibilityRequirementKeys)[number];
-
-export type InsurancePlanRequirementKeyBooleans = {
-  [key in InsurancePlanRequirementKeys]: boolean;
-};
-
-export interface InsurancePlanDTO extends InsurancePlanRequirementKeyBooleans {
-  id: string;
-  name: string;
-  ownedBy: Reference;
-  payerId: string;
-}
-
-export interface GetInsurancesResponse {
-  insurances: InsurancePlanDTO[];
 }
 
 type PatientState = {
@@ -81,16 +59,14 @@ export const usePatientStore = create<PatientState & PatientStoreActions>()((set
   },
 }));
 
-export const createInsurancePlanDto = (insurancePlan: InsurancePlan, organization: Organization): InsurancePlanDTO => {
-  const { id, name, ownedBy, extension } = insurancePlan;
+export const createInsurancePlanDto = (organization: Organization): InsurancePlanDTO => {
+  const { id, name, partOf, extension } = organization;
 
-  if (!id || !name || !ownedBy) {
+  if (!id || !name) {
     throw new Error('Insurance is missing id, name or owning organization.');
   }
 
-  const payerId = organization?.identifier
-    ?.find((identifier) => identifier.type?.coding?.some((coding) => coding.system === 'payer-id'))
-    ?.type?.coding?.find((coding) => coding.system === 'payer-id')?.code;
+  const payerId = getPayerId(organization);
 
   if (!payerId) {
     throw new Error('Owning organization is missing payer-id.');
@@ -99,7 +75,7 @@ export const createInsurancePlanDto = (insurancePlan: InsurancePlan, organizatio
   const insurancePlanDto: InsurancePlanDTO = {
     id,
     name,
-    ownedBy,
+    ownedBy: partOf,
     payerId,
     ...(Object.fromEntries(
       eligibilityRequirementKeys.map((key) => [key, false])

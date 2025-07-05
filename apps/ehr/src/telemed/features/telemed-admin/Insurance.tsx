@@ -23,7 +23,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { InsurancePlan } from 'fhir/r4b';
+import { Organization } from 'fhir/r4b';
 import React, { ReactElement } from 'react';
 import { Link } from 'react-router-dom';
 import { INSURANCES_URL } from '../../../App';
@@ -43,22 +43,23 @@ export default function Insurances(): ReactElement {
   const [rowsPerPage, setRowsPerPage] = React.useState(INSURANCE_ROWS_PER_PAGE);
   const [pageNumber, setPageNumber] = React.useState(0);
   const [searchText, setSearchText] = React.useState('');
-  const [statusFilter, setStatusFilter] = React.useState<IsActiveStatus | ''>('');
+  const [activeFilter, setActiveFilter] = React.useState<IsActiveStatus | ''>('');
 
   const { data, isFetching } = useInsurancesQuery();
 
   // Filter insurances based on filters and search
   const filteredInsurances = React.useMemo(() => {
-    const newData: InsurancePlan[] | undefined = data
+    const newData: Organization[] | undefined = data
       ?.sort((a, b) => a.name?.localeCompare(b.name ?? '') ?? 0)
-      .filter(
-        (insurance: InsurancePlan) =>
-          (searchText ? insurance.name?.toLowerCase().includes(searchText.toLowerCase()) : true) &&
-          insuranceStatusCheck(statusFilter, insurance)
-      );
+      .filter((insurance: Organization) => {
+        if (activeFilter === IsActiveStatus.deactivated && insurance.active !== false) {
+          return false;
+        }
+        return searchText ? insurance.name?.toLowerCase().includes(searchText.toLowerCase()) : true;
+      });
 
     return newData || [];
-  }, [data, searchText, statusFilter]);
+  }, [activeFilter, data, searchText]);
 
   // For pagination, only include the rows that are on the current page
   const currentPagesEntities = React.useMemo(
@@ -87,7 +88,7 @@ export default function Insurances(): ReactElement {
 
   // Handle change status
   const handleStatusChange = (ev: SelectChangeEvent<IsActiveStatus | ''>): void => {
-    setStatusFilter(ev.target.value as IsActiveStatus | '');
+    setActiveFilter(ev.target.value as IsActiveStatus | '');
   };
 
   const skeletonRow = (key: string): JSX.Element => (
@@ -165,9 +166,9 @@ export default function Insurances(): ReactElement {
           </TableHead>
           <TableBody>
             {isFetching && [1, 2, 3].map((id) => skeletonRow('skeleton-row-' + id))}
-            {currentPagesEntities.map((insurance: InsurancePlan, idx: number) => {
+            {currentPagesEntities.map((insurance: Organization, idx: number) => {
               const displayName = insurance.name;
-              const isActive = Boolean(insurance.status === 'active');
+              const isActive = insurance.active !== false;
               const isActiveLabel = isActive ? 'ACTIVE' : 'DEACTIVATED';
               return (
                 <TableRow key={idx}>
@@ -214,10 +215,4 @@ export default function Insurances(): ReactElement {
       </TableContainer>
     </Paper>
   );
-}
-
-function insuranceStatusCheck(currentStatus: IsActiveStatus | '', insurance: InsurancePlan): boolean {
-  if (currentStatus === '') return true;
-  const statusFilter = currentStatus === IsActiveStatus.active ? 'active' : 'retired';
-  return insurance.status === statusFilter;
 }

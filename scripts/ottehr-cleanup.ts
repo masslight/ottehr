@@ -1,6 +1,14 @@
 import { input } from '@inquirer/prompts';
 import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
-import { Group, HealthcareService, InsurancePlan, Medication, Organization, PractitionerRole } from 'fhir/r4b';
+import {
+  Group,
+  HealthcareService,
+  InsurancePlan,
+  Location,
+  Medication,
+  Organization,
+  PractitionerRole,
+} from 'fhir/r4b';
 
 const savedM2MId = '87d5be2e-19a9-4be4-a799-cfde9c74229b';
 
@@ -121,7 +129,7 @@ async function main(): Promise<void> {
   // delete all Location FHIR resources in the project
   logWithTimestamp('Deleting all Locations...');
   const locations = (
-    await oystehr.fhir.search<Organization>({
+    await oystehr.fhir.search<Location>({
       resourceType: 'Location',
     })
   ).unbundle();

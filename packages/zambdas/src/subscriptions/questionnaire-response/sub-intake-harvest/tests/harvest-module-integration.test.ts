@@ -5,7 +5,6 @@ import {
   Appointment,
   Coverage,
   Encounter,
-  InsurancePlan,
   Organization,
   Patient,
   QuestionnaireResponse,
@@ -52,7 +51,7 @@ const stubAccount: Account = {
 
 describe('Harvest Module Integration Tests', () => {
   const envConfig = JSON.parse(fs.readFileSync('.env/local.json', 'utf8'));
-  const INSURANCE_PLAN_ORG_MAP: Record<string, string> = {};
+  const INSURANCE_PLAN_ORGS_IDS: string[] = [];
   let token: string | undefined;
   let oystehrClient: Oystehr;
   let BASE_QR: QuestionnaireResponse;
@@ -108,15 +107,14 @@ describe('Harvest Module Integration Tests', () => {
       encounter: string;
     }
   ): string[] => {
-    const [ipId, orgId] = Object.entries(INSURANCE_PLAN_ORG_MAP)[0];
+    const [orgId] = INSURANCE_PLAN_ORGS_IDS;
     const persistedIds = patientIdsForCleanup[pId];
     if (persistedIds === undefined && dummyResourceRefs) {
       const { appointment, encounter } = dummyResourceRefs;
-      return [`InsurancePlan/${ipId}`, `Organization/${orgId}`, `Patient/${pId}`, encounter, appointment];
+      return [`Organization/${orgId}`, `Patient/${pId}`, encounter, appointment];
     }
     const [patientId, encounterId, appointmentId] = patientIdsForCleanup[pId];
     const refs = [
-      `InsurancePlan/${ipId}`,
       `Organization/${orgId}`,
       `Patient/${patientId}`,
       `Encounter/${encounterId}`,
@@ -360,50 +358,28 @@ describe('Harvest Module Integration Tests', () => {
     oystehrClient = createOystehrClient(token, envConfig);
     expect(oystehrClient).toBeDefined();
 
-    const ipAndOrg1 = (
-      await oystehrClient.fhir.search<InsurancePlan | Organization>({
-        resourceType: 'InsurancePlan',
+    const org1 = (
+      await oystehrClient.fhir.search<Organization>({
+        resourceType: 'Organization',
         params: [
           {
-            name: 'owned-by.name:exact',
+            name: 'name:exact',
             value: 'Aetna',
           },
           {
-            name: 'owned-by.active',
+            name: 'active',
             value: 'true',
-          },
-          {
-            name: 'status',
-            value: 'active',
-          },
-          {
-            name: '_include',
-            value: 'InsurancePlan:owned-by',
           },
         ],
       })
     ).unbundle();
 
-    const iPs = ipAndOrg1.filter((ip) => ip.resourceType === 'InsurancePlan') as InsurancePlan[];
-    const orgs = ipAndOrg1.filter((org) => org.resourceType === 'Organization') as Organization[];
-    expect(iPs.length).toBeGreaterThan(0);
+    const orgs = org1.filter((org) => org.resourceType === 'Organization') as Organization[];
     expect(orgs.length).toBeGreaterThan(0);
-    iPs.forEach((ip: InsurancePlan) => {
-      const ownedByReference = ip.ownedBy?.reference;
-      if (ownedByReference) {
-        const org = orgs.find((org) => `Organization/${org.id}` === ownedByReference);
-        if (org) {
-          INSURANCE_PLAN_ORG_MAP[ip.id!] = org.id!;
-        }
-      }
-    });
-    expect(Object.keys(INSURANCE_PLAN_ORG_MAP).length).toBeGreaterThan(0);
+    INSURANCE_PLAN_ORGS_IDS.push(...orgs.map((o) => o.id!));
+    expect(INSURANCE_PLAN_ORGS_IDS.length).toBeGreaterThan(0);
 
-    const firstPair = Object.entries(INSURANCE_PLAN_ORG_MAP)[0];
-
-    const [key, val] = firstPair;
-
-    const refs = [`InsurancePlan/${key}`, `Organization/${val}`];
+    const refs = [`Organization/${INSURANCE_PLAN_ORGS_IDS[0]}`];
 
     const replacedItem = fillReferences(questionnaireResponse.item, refs);
 
@@ -611,6 +587,7 @@ describe('Harvest Module Integration Tests', () => {
       const createdAccount = createdAccountBundle.unbundle()[0];
       expect(createdAccount).toBeDefined();
       assert(createdAccount.id);
+      expect(createdAccount.coverage).toBeDefined();
       const primaryCoverageRef = createdAccount.coverage?.find((cov) => cov.priority === 1)?.coverage?.reference;
       const secondaryCoverageRef = createdAccount.coverage?.find((cov) => cov.priority === 2)?.coverage?.reference;
       expect(primaryCoverageRef).toBeDefined();

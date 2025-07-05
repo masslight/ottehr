@@ -5,8 +5,8 @@ import {
   Encounter,
   EncounterStatusHistory,
   FhirResource,
-  InsurancePlan,
   Location,
+  Organization,
   Patient,
   Questionnaire,
   QuestionnaireResponse,
@@ -22,8 +22,9 @@ import {
   getLastName,
   getVisitStatusHistory,
   getVisitTotalTime,
-  INSURANCE_PLAN_PAYER_META_TAG_CODE,
+  INSURANCE_ORG_TYPE_PAYER,
   isAppointmentVirtual,
+  ORG_TYPE_CODE_SYSTEM,
   OTTEHR_MODULE,
   PromiseReturnType,
   RemoveCoverageZambdaInput,
@@ -305,26 +306,25 @@ export const useUpdatePatientAccount = (onSuccess?: () => void) => {
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useGetInsurancePlans = (onSuccess: (data: Bundle<InsurancePlan>) => void) => {
+export const useGetInsurancePlans = (onSuccess: (data: Bundle<Organization>) => void) => {
   const { oystehr } = useApiClients();
 
-  const fetchAllInsurancePlans = async (): Promise<Bundle<InsurancePlan>> => {
+  const fetchAllInsurancePlans = async (): Promise<Bundle<Organization>> => {
     if (!oystehr) {
       throw new Error('FHIR client not defined');
     }
 
     const searchParams = [
-      { name: '_tag', value: INSURANCE_PLAN_PAYER_META_TAG_CODE },
-      { name: 'status', value: 'active' },
-      { name: '_include', value: 'InsurancePlan:owned-by' },
+      { name: 'type', value: `${ORG_TYPE_CODE_SYSTEM}|${INSURANCE_ORG_TYPE_PAYER}` },
+      { name: 'active:not', value: 'false' },
       { name: '_count', value: '1000' },
     ];
 
     let offset = 0;
-    let allEntries: BundleEntry<InsurancePlan>[] = [];
+    let allEntries: BundleEntry<Organization>[] = [];
 
-    let bundle = await oystehr.fhir.search<InsurancePlan>({
-      resourceType: 'InsurancePlan',
+    let bundle = await oystehr.fhir.search<Organization>({
+      resourceType: 'Organization',
       params: [...searchParams, { name: '_offset', value: offset }],
     });
 
@@ -334,8 +334,8 @@ export const useGetInsurancePlans = (onSuccess: (data: Bundle<InsurancePlan>) =>
     while (bundle.link?.find((link) => link.relation === 'next')) {
       offset += 1000;
 
-      bundle = await oystehr.fhir.search<InsurancePlan>({
-        resourceType: 'InsurancePlan',
+      bundle = await oystehr.fhir.search<Organization>({
+        resourceType: 'Organization',
         params: [...searchParams.filter((param) => param.name !== '_offset'), { name: '_offset', value: offset }],
       });
 

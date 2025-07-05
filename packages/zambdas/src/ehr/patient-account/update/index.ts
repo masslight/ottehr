@@ -34,7 +34,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const { secrets } = validatedParameters;
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
+    console.log('complexly validating request parameters');
     const effectInput = await complexValidation(validatedParameters, oystehr);
+    console.log('complex validation successful');
     await performEffect(effectInput, oystehr);
 
     return {

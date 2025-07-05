@@ -370,7 +370,7 @@ export class ResourceHandler {
           })
         ).unbundle()[0] as Appointment;
 
-        const tags = appointment.meta?.tag || [];
+        const tags = appointment?.meta?.tag || [];
         const isProcessed = tags.some((tag) => tag?.code === FHIR_APPOINTMENT_PREPROCESSED_TAG.code);
         if (isProcessed) {
           return;
@@ -403,7 +403,7 @@ export class ResourceHandler {
           })
         ).unbundle()[0] as Appointment;
 
-        const tags = appointment.meta?.tag || [];
+        const tags = appointment?.meta?.tag || [];
         const isHarvestingDone = tags.some(
           (tag) => tag?.code === FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG.code
         );
