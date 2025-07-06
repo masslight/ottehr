@@ -351,7 +351,7 @@ export default function EditInsurance(): JSX.Element {
                     marginRight: 1,
                   }}
                   loading={mutationPending}
-                  onClick={() => handleStatusChange(isActive)}
+                  onClick={() => handleStatusChange(!isActive)}
                 >
                   {isActive ? 'Deactivate' : 'Activate'}
                 </LoadingButton>
