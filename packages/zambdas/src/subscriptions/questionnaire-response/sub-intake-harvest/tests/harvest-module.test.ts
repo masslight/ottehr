@@ -40,7 +40,7 @@ const expectedSecondaryPolicyHolderFromQR1 = fillReferences(rawSPHQR1, [
 ]);
 const expectedAccountGuarantorFromQR1 = fillReferences(rawAGQR1, ['Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61']);
 
-describe.skip('Harvest Module', () => {
+describe('Harvest Module', () => {
   const { orderedCoverages: coverageResources, accountCoverage } = getCoverageResources({
     questionnaireResponse: questionnaireResponse1,
     patientId: newPatient1.id ?? '',

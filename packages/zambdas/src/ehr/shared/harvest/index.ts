@@ -2915,8 +2915,6 @@ export const getAccountAndCoverageResourcesForPatient = async (
     throw PATIENT_NOT_FOUND_ERROR;
   }
 
-  console.log('raw fetched coverage resources', JSON.stringify(resources, null, 2));
-
   return getCoverageUpdateResourcesFromUnbundled({
     patient: patientResource,
     resources: [...resources],
@@ -2941,15 +2939,16 @@ export const updatePatientAccountFromQuestionnaire = async (
 
   // get insurance additional information
   const insuranceOrgs = [];
+
   const primaryInsuranceOrg = flattenedPaperwork.find((item) => item.linkId === InsuranceCarrierKeys.primary)
     ?.answer?.[0]?.valueReference?.reference;
   if (primaryInsuranceOrg) insuranceOrgs.push(primaryInsuranceOrg);
+
   const secondaryInsuranceOrg = flattenedPaperwork.find((item) => item.linkId === InsuranceCarrierKeys.secondary)
     ?.answer?.[0]?.valueReference?.reference;
   if (secondaryInsuranceOrg) insuranceOrgs.push(secondaryInsuranceOrg);
-  console.log('update patient account insuranceOrgs', insuranceOrgs);
+
   const organizationResources = await searchInsuranceInformation(oystehr, insuranceOrgs);
-  console.log('insurance Organization resources', JSON.stringify(organizationResources, null, 2));
 
   const {
     patient,
