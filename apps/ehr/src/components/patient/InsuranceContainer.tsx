@@ -213,8 +213,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
 
   const copayBenefits = eligibilityStatus?.copay ?? [];
 
-  console.log('insurance plans', insurancePlans);
-
   return (
     <Section title="Insurance information" dataTestId="insuranceContainer" titleWidget={<TitleWidget />}>
       <Box

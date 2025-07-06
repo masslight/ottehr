@@ -117,7 +117,7 @@ const PatientInformationPage: FC = () => {
             return createInsurancePlanDto(organization);
           } catch (err) {
             console.error(err);
-            console.log('Could not add insurance plan due to incomplete data:', JSON.stringify(organization));
+            console.log('Could not add insurance org due to incomplete data:', JSON.stringify(organization));
             return {} as InsurancePlanDTO;
           }
         })
@@ -155,7 +155,6 @@ const PatientInformationPage: FC = () => {
     if (!isFetching && accountData && questionnaire) {
       const prepopulatedForm = makePrepopulatedItemsFromPatientRecord({ ...accountData, questionnaire });
       defaultFormVals = makeFormDefaults(prepopulatedForm);
-      console.log('defaultFormVals', JSON.stringify(defaultFormVals, null, 2));
     }
     return { patient, coverages, isFetching, defaultFormVals };
   }, [accountData, questionnaire, questionnaireFetching, accountFetching]);

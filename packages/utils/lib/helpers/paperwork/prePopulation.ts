@@ -597,8 +597,6 @@ interface MapCoverageItemsInput {
 const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput): QuestionnaireResponseItem[] => {
   const { items, coverages, patient, documents, insuranceOrgs } = input;
 
-  console.log('insurance orgs for pre-population:', insuranceOrgs);
-
   const patientAddress = patient.address?.[0];
 
   const insuranceCardFrontDocumentReference = documents?.find((doc) =>

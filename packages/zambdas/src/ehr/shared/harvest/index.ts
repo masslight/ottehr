@@ -1387,8 +1387,6 @@ export const getCoverageResources = (input: GetCoveragesInput): GetCoverageResou
     questionnaireResponse.item as IntakeQuestionnaireItem[]
   ) as QuestionnaireResponseItem[];
   const isSecondaryOnly = checkIsSecondaryOnly(flattenedPaperwork);
-  console.log('isSecondaryOnly', isSecondaryOnly);
-  console.log('organizationResources', JSON.stringify(organizationResources, null, 2));
   let firstPolicyHolder: PolicyHolder | undefined;
   let firstInsuranceDetails: InsuranceDetails | undefined;
   let secondPolicyHolder = getSecondaryPolicyHolderFromAnswers(questionnaireResponse.item ?? []);
@@ -1401,11 +1399,6 @@ export const getCoverageResources = (input: GetCoveragesInput): GetCoverageResou
     secondInsuranceDetails =
       secondInsuranceDetails ?? getInsuranceDetailsFromAnswers(flattenedPaperwork, organizationResources);
   }
-
-  console.log('firstPolicyHolder', firstPolicyHolder);
-  console.log('firstInsuranceDetails', firstInsuranceDetails);
-  console.log('secondPolicyHolder', secondPolicyHolder);
-  console.log('secondInsuranceDetails', secondInsuranceDetails);
 
   const firstInsurance =
     firstPolicyHolder && firstInsuranceDetails
@@ -1464,8 +1457,6 @@ export const getCoverageResources = (input: GetCoveragesInput): GetCoverageResou
       });
     }
   }
-  console.log('newCoverages', JSON.stringify(newCoverages, null, 2));
-  console.log('accountCoverage', JSON.stringify(coverage, null, 2));
   return { orderedCoverages: newCoverages, accountCoverage: coverage };
 };
 
@@ -1743,13 +1734,11 @@ function getInsuranceDetailsFromAnswers(
   keySuffix?: string
 ): InsuranceDetails | undefined {
   const suffix = keySuffix ? `${keySuffix}` : '';
-  const insurancePlanReference = answers.find((item) => item.linkId === `insurance-carrier${suffix}`)?.answer?.[0]
+  const insuranceOrgReference = answers.find((item) => item.linkId === `insurance-carrier${suffix}`)?.answer?.[0]
     ?.valueReference;
-  console.log('insurancePlanReference', insurancePlanReference);
-  if (!insurancePlanReference) return undefined;
+  if (!insuranceOrgReference) return undefined;
 
-  const org = organizations.find((org) => `${org.resourceType}/${org.id}` === insurancePlanReference.reference);
-  console.log('insurancePlanReference + org', org, organizations);
+  const org = organizations.find((org) => `${org.resourceType}/${org.id}` === insuranceOrgReference.reference);
   if (!org) return undefined;
 
   const additionalInformation = answers.find((item) => item.linkId === `insurance-additional-information${suffix}`)
