@@ -739,11 +739,21 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
     secondary?.extension?.find((e: { url: string }) => e.url === COVERAGE_ADDITIONAL_INFORMATION_URL)?.valueString ??
     '';
 
+  let paymentOptionValue: string | undefined;
+
+  if (primaryInsurancePlanReference || secondaryInsurancePlanReference) {
+    paymentOptionValue = 'I have insurance';
+  }
+
   return items
     .filter((i: QuestionnaireItem) => i.type !== 'display')
     .map((item) => {
       let answer: QuestionnaireResponseItemAnswer[] | undefined;
       const { linkId } = item;
+
+      if (linkId === 'payment-option' && paymentOptionValue) {
+        answer = makeAnswer(paymentOptionValue);
+      }
 
       if (linkId === 'secondary-insurance' && item.type === 'group') {
         return {
