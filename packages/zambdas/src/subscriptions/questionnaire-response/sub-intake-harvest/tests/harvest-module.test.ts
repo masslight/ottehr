@@ -2,7 +2,13 @@
 import { BatchInputPostRequest } from '@oystehr/sdk';
 import { Account, Coverage, Organization, Patient, QuestionnaireResponse, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { COVERAGE_MEMBER_IDENTIFIER_BASE, flattenItems, INSURANCE_ORG_TYPE_PAYER, isValidUUID } from 'utils';
+import {
+  COVERAGE_MEMBER_IDENTIFIER_BASE,
+  flattenItems,
+  isValidUUID,
+  ORG_TYPE_CODE_SYSTEM,
+  ORG_TYPE_PAYER_CODE,
+} from 'utils';
 import InPersonQuestionnaireFile from 'utils/lib/deployed-resources/questionnaires/in-person-intake-questionnaire.json';
 import { v4 as uuidV4 } from 'uuid';
 import { assert, describe, expect, it } from 'vitest';
@@ -3352,8 +3358,8 @@ const organizations1: Organization[] = [
       {
         coding: [
           {
-            system: 'http://terminology.hl7.org/CodeSystem/organization-type',
-            code: INSURANCE_ORG_TYPE_PAYER,
+            system: `${ORG_TYPE_CODE_SYSTEM}`,
+            code: ORG_TYPE_PAYER_CODE,
           },
         ],
       },
@@ -3400,8 +3406,8 @@ const organizations1: Organization[] = [
       {
         coding: [
           {
-            system: 'http://terminology.hl7.org/CodeSystem/organization-type',
-            code: INSURANCE_ORG_TYPE_PAYER,
+            system: `${ORG_TYPE_CODE_SYSTEM}`,
+            code: ORG_TYPE_PAYER_CODE,
           },
         ],
       },

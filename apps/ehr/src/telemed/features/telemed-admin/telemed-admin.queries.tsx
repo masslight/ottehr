@@ -2,10 +2,10 @@ import { Extension, Location, Organization } from 'fhir/r4b';
 import { useMutation, useQuery } from 'react-query';
 import {
   FHIR_EXTENSION,
-  INSURANCE_ORG_TYPE_PAYER,
   INSURANCE_SETTINGS_MAP,
   isLocationVirtual,
   ORG_TYPE_CODE_SYSTEM,
+  ORG_TYPE_PAYER_CODE,
 } from 'utils';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { InsuranceData } from './EditInsurance';
@@ -57,7 +57,7 @@ export const useInsurancesQuery = (id?: string, enabled?: boolean) => {
         },
         {
           name: 'type',
-          value: `${ORG_TYPE_CODE_SYSTEM}|${INSURANCE_ORG_TYPE_PAYER}`,
+          value: `${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}`,
         },
         {
           name: '_offset',
@@ -132,7 +132,7 @@ export const useInsuranceMutation = (insurancePlan?: Organization) => {
           coding: [
             {
               system: ORG_TYPE_CODE_SYSTEM,
-              code: INSURANCE_ORG_TYPE_PAYER,
+              code: ORG_TYPE_PAYER_CODE,
             },
           ],
         },
@@ -171,7 +171,7 @@ export const useInsuranceOrganizationsQuery = () => {
         params: [
           {
             name: 'type',
-            value: `${ORG_TYPE_CODE_SYSTEM}|${INSURANCE_ORG_TYPE_PAYER}`,
+            value: `${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}`,
           },
         ],
       });

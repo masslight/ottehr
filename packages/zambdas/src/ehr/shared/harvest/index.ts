@@ -2952,12 +2952,12 @@ export const updatePatientAccountFromQuestionnaire = async (
 
   // get insurance additional information
   const insuranceOrgs = [];
-  const primaryInsurancePlan = flattenedPaperwork.find((item) => item.linkId === InsuranceCarrierKeys.primary)
+  const primaryInsuranceOrg = flattenedPaperwork.find((item) => item.linkId === InsuranceCarrierKeys.primary)
     ?.answer?.[0]?.valueReference?.reference;
-  if (primaryInsurancePlan) insuranceOrgs.push(primaryInsurancePlan);
-  const secondaryInsurancePlan = flattenedPaperwork.find((item) => item.linkId === InsuranceCarrierKeys.secondary)
+  if (primaryInsuranceOrg) insuranceOrgs.push(primaryInsuranceOrg);
+  const secondaryInsuranceOrg = flattenedPaperwork.find((item) => item.linkId === InsuranceCarrierKeys.secondary)
     ?.answer?.[0]?.valueReference?.reference;
-  if (secondaryInsurancePlan) insuranceOrgs.push(secondaryInsurancePlan);
+  if (secondaryInsuranceOrg) insuranceOrgs.push(secondaryInsuranceOrg);
   console.log('update patient account insuranceOrgs', insuranceOrgs);
   const organizationResources = await searchInsuranceInformation(oystehr, insuranceOrgs);
   console.log('insurance Organization resources', JSON.stringify(organizationResources, null, 2));

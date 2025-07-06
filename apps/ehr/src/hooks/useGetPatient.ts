@@ -22,9 +22,9 @@ import {
   getLastName,
   getVisitStatusHistory,
   getVisitTotalTime,
-  INSURANCE_ORG_TYPE_PAYER,
   isAppointmentVirtual,
   ORG_TYPE_CODE_SYSTEM,
+  ORG_TYPE_PAYER_CODE,
   OTTEHR_MODULE,
   PromiseReturnType,
   RemoveCoverageZambdaInput,
@@ -315,7 +315,7 @@ export const useGetInsurancePlans = (onSuccess: (data: Bundle<Organization>) => 
     }
 
     const searchParams = [
-      { name: 'type', value: `${ORG_TYPE_CODE_SYSTEM}|${INSURANCE_ORG_TYPE_PAYER}` },
+      { name: 'type', value: `${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}` },
       { name: 'active:not', value: 'false' },
       { name: '_count', value: '1000' },
     ];

@@ -17,7 +17,6 @@ import {
   HealthcareService,
   HumanName,
   Identifier,
-  InsurancePlan,
   List,
   Location,
   Meta,
@@ -832,12 +831,12 @@ export async function getResourcesFromBatchInlineRequests(oystehr: Oystehr, requ
   return parseBundleIntoResources(batchResult);
 }
 
-export async function getInsurancePlanById(id: string, oystehr: Oystehr): Promise<InsurancePlan> {
-  const insurancePlan = await oystehr.fhir.get<InsurancePlan>({
-    resourceType: 'InsurancePlan',
+export async function getInsuranceOrgById(id: string, oystehr: Oystehr): Promise<Organization> {
+  const insuranceOrg = await oystehr.fhir.get<Organization>({
+    resourceType: 'Organization',
     id,
   });
-  return insurancePlan;
+  return insuranceOrg;
 }
 
 export const getUnconfirmedDOBForAppointment = (appointment?: Appointment): string | undefined => {

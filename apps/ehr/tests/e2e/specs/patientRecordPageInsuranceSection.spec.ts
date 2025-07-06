@@ -9,9 +9,9 @@ import {
   getPaymentOptionInsuranceAnswers,
   getPrimaryCarePhysicianStepAnswers,
   getResponsiblePartyStepAnswers,
-  INSURANCE_ORG_TYPE_PAYER,
   isoToDateObject,
   ORG_TYPE_CODE_SYSTEM,
+  ORG_TYPE_PAYER_CODE,
 } from 'utils';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 import {
@@ -459,7 +459,7 @@ async function createResourceHandler(): Promise<[ResourceHandler, string, string
     id: 'get-answer-options',
     answerSource: {
       resourceType: 'Organization',
-      query: `active=true&type=${ORG_TYPE_CODE_SYSTEM}|${INSURANCE_ORG_TYPE_PAYER}`,
+      query: `active=true&type=${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}`,
     },
   });
 

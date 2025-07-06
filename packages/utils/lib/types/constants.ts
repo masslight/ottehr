@@ -47,4 +47,4 @@ export const ORG_TYPE_CODE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/organ
 // currently all orgs are payers. if we ever have a need to store a parent company (Aetna, rather than Aetna, New York, for instance)
 // we'll use the INSURANCE_ORG_TYPE_INSURANCE_COMPANY type on the parent org
 // export const INSURANCE_ORG_TYPE_INSURANCE_COMPANY = 'ins';
-export const INSURANCE_ORG_TYPE_PAYER = 'pay';
+export const ORG_TYPE_PAYER_CODE = 'pay';
