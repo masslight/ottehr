@@ -10,9 +10,9 @@ const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
   'get claims': false,
 };
 
-export type ZapEHR_RCM_APIClient = ReturnType<typeof getZapEHR_RCM_API>;
+export type Oystehr_RCM_APIClient = ReturnType<typeof getOystehr_RCM_API>;
 
-export const getZapEHR_RCM_API = (
+export const getOystehr_RCM_API = (
   params: Get_Oystehr_RCM_API_Params,
   oystehr: Oystehr
 ): {
