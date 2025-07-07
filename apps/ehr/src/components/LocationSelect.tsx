@@ -42,12 +42,14 @@ export default function LocationSelect({
   const [locations, setLocations] = useState<LocationWithWalkinSchedule[]>([]);
   const [loadingState, setLoadingState] = useState(LoadingState.initial);
   const navigate = useNavigate();
+
   useEffect(() => {
     if (updateURL && localStorage.getItem('selectedLocation')) {
       queryParams?.set('locationID', JSON.parse(localStorage.getItem('selectedLocation') ?? '')?.id ?? '');
       navigate(`?${queryParams?.toString()}`);
     }
   }, [navigate, queryParams, updateURL]);
+
   useEffect(() => {
     async function getLocationsResults(oystehr: Oystehr): Promise<void> {
       if (!oystehr) {
@@ -94,11 +96,17 @@ export default function LocationSelect({
 
   const options = useMemo(() => {
     const allLocations = locations.map((location) => {
-      return { label: `${location.address?.state?.toUpperCase()} - ${location.name}`, value: location.id };
+      return {
+        label: location.address?.state ? `${location.address.state.toUpperCase()} - ${location.name}` : location.name,
+        value: location.id,
+      };
     });
 
     return sortLocationsByLabel(allLocations as { label: string; value: string }[]);
   }, [locations]);
+
+  console.log('locations in LocationSelect', locations);
+  console.log('options in LocationSelect', options);
 
   const handleLocationChange = (event: any, newValue: any): void => {
     const selectedLocation = newValue
