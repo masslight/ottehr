@@ -907,15 +907,15 @@ const fetchFHIRPatientAndAppointmentFromEncounter = async (
       resourceType: 'Encounter',
       params: [
         {
-          name: 'id',
+          name: '_id',
           value: encounterId,
         },
         {
-          name: 'include',
+          name: '_include',
           value: 'Encounter:subject',
         },
         {
-          name: 'include',
+          name: '_include',
           value: 'Encounter:appointment',
         },
       ],
