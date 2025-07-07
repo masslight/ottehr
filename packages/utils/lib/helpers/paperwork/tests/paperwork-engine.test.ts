@@ -568,7 +568,7 @@ describe('Conditional logic', () => {
       expect(enabled).toBe(false);
     });
 
-    it('not enabled when enabled behavior = "all" and some codition item is false - boolean', () => {
+    it('not enabled when enabled behavior = "all" and some condition item is false - boolean', () => {
       const altered = setEnableBehavior(
         PAGE_ONE_ITEMS,
         [KEYS.dependents.bool.primaryTrue],

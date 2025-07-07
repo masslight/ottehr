@@ -20,7 +20,7 @@ export interface CommunicationSubscriptionInput {
   secrets: Secrets | null;
 }
 
-let zapehrToken: string;
+let oystehrToken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input)}`);
@@ -40,14 +40,14 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       };
     }
 
-    if (!zapehrToken) {
+    if (!oystehrToken) {
       console.log('getting token');
-      zapehrToken = await getAuth0Token(secrets);
+      oystehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }
 
-    const oystehr = createOystehrClient(zapehrToken, secrets);
+    const oystehr = createOystehrClient(oystehrToken, secrets);
 
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
     const communicationCodes = communication.category;
@@ -128,7 +128,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           const headers = {
             accept: 'application/json',
             'content-type': 'application/json',
-            Authorization: `Bearer ${zapehrToken}`,
+            Authorization: `Bearer ${oystehrToken}`,
           };
           const getUserByProfileResponse = await fetch(
             `${PROJECT_API}/user/v2/list?profile=Practitioner/${practitionerID}`,

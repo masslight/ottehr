@@ -17,8 +17,8 @@ npm run start
 Other scripts for running locally with an explanation of how they work:
 
 - `npm run start` -- Starts the frontend with the `.env.local` env file. The frontend will use your local backend, so make sure it is running.
-- `npm run start:local` -- Shortcut for `npm run start`. Starts the frontend with the `.env.local` env file. The frontend will point to our development environment on zapEHR.
-- `npm run start:demo` -- Starts the frontend with the `.env.demo` env file. The frontend will point to our development environment on zapEHR.
+- `npm run start:local` -- Shortcut for `npm run start`. Starts the frontend with the `.env.local` env file. The frontend will point to our development environment on Oystehr.
+- `npm run start:demo` -- Starts the frontend with the `.env.demo` env file. The frontend will point to our development environment on Oystehr.
 
 ## Deployment
 

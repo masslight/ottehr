@@ -70,6 +70,7 @@ const patchServiceRequestToRevokedInOystehr = async (
   serviceRequestId: string,
   oystehr: Oystehr
 ): Promise<ServiceRequest> => {
+  console.log('setting status to revoked for service request', serviceRequestId);
   return await oystehr.fhir.patch({
     resourceType: 'ServiceRequest',
     id: serviceRequestId,

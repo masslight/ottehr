@@ -7,6 +7,7 @@ import { getAuth0Token, topLevelCatch } from '../../../shared';
 import { createOystehrClient } from '../../../shared/helpers';
 import { createExternalLabResultPDF } from '../../../shared/pdf/labs-results-form-pdf';
 import { ZambdaInput } from '../../../shared/types';
+import { getCodeForNewTask, getStatusForNewTask } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface ReviewLabResultSubscriptionInput {
@@ -15,7 +16,7 @@ export interface ReviewLabResultSubscriptionInput {
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let zapehrToken: string;
+let oystehrToken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input, undefined, 2)}`);
@@ -23,9 +24,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   try {
     const { diagnosticReport, secrets } = validateRequestParameters(input);
 
-    if (!zapehrToken) {
+    if (!oystehrToken) {
       console.log('getting token');
-      zapehrToken = await getAuth0Token(secrets);
+      oystehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }
@@ -37,7 +38,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       throw new Error('ServiceRequest id is not found');
     }
 
-    const oystehr = createOystehrClient(zapehrToken, secrets);
+    const oystehr = createOystehrClient(oystehrToken, secrets);
     const requests: BatchInputRequest<Task>[] = [];
 
     // See if the diagnosticReport has any existing tasks associated in the
@@ -62,7 +63,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
             {
               op: 'replace',
               path: '/status',
-              value: 'cancelled',
+              value: diagnosticReport.status === 'cancelled' ? 'rejected' : 'cancelled',
             },
           ],
         });
@@ -79,20 +80,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           reference: `DiagnosticReport/${diagnosticReport.id}`,
         },
       ],
-      status: 'ready',
-      code: {
-        coding: [
-          {
-            system: LAB_ORDER_TASK.system,
-            code:
-              diagnosticReport.status === 'preliminary'
-                ? LAB_ORDER_TASK.code.reviewPreliminaryResult
-                : diagnosticReport.status === 'corrected'
-                ? LAB_ORDER_TASK.code.reviewCorrectedResult
-                : LAB_ORDER_TASK.code.reviewFinalResult,
-          },
-        ],
-      },
+      status: getStatusForNewTask(diagnosticReport.status),
+      code: getCodeForNewTask(diagnosticReport.status),
     };
 
     requests.push({
@@ -115,7 +104,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       else if (ent.response?.outcome?.id === 'created' && ent.resource) response.createdTasks.push(ent.resource);
     });
 
-    await createExternalLabResultPDF(oystehr, serviceRequestID, diagnosticReport, false, secrets, zapehrToken);
+    // todo waiting to find out if we are creating a new pdf if cancelled
+    await createExternalLabResultPDF(oystehr, serviceRequestID, diagnosticReport, false, secrets, oystehrToken);
 
     return {
       statusCode: 200,

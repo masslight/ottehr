@@ -1,4 +1,4 @@
-import { UpdateMedicationOrderInput } from 'utils';
+import { MedicationInteractions, UpdateMedicationOrderInput } from 'utils';
 import { ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(
@@ -23,10 +23,8 @@ export function validateRequestParameters(
       throw new Error(`Reason should be provided if you changing status to anything except 'administered'`);
     }
     if (newStatus === 'administered') {
-      if (!orderData.dateGiven || !orderData.timeGiven)
-        throw new Error(
-          'On status change to "administered" dateGiven and timeGiven fields should be present in zambda input'
-        );
+      if (!orderData.effectiveDateTime)
+        throw new Error('On status change to "administered" effectiveDateTime field should be present in zambda input');
     }
 
     const missedFields: string[] = [];
@@ -41,6 +39,8 @@ export function validateRequestParameters(
     if (missedFields.length > 0) throw new Error(`Missing fields in orderData: ${missedFields.join(', ')}`);
   }
 
+  validateInteractions(orderData.interactions);
+
   console.groupEnd();
   console.debug('validateRequestParameters success');
 
@@ -50,4 +50,21 @@ export function validateRequestParameters(
     orderData,
     secrets: input.secrets,
   };
+}
+
+function validateInteractions(interactions?: MedicationInteractions): void {
+  const missingOverrideReason: string[] = [];
+  interactions?.drugInteractions?.forEach((interaction, index) => {
+    if (!interaction.overrideReason) {
+      missingOverrideReason.push(`interactions.drugInteractions[${index}]`);
+    }
+  });
+  interactions?.allergyInteractions?.forEach((interaction, index) => {
+    if (!interaction.overrideReason) {
+      missingOverrideReason.push(`interactions.allergyInteractions[${index}]`);
+    }
+  });
+  if (missingOverrideReason.length > 0) {
+    throw new Error(`overrideReason is missing for ${missingOverrideReason.join(', ')}`);
+  }
 }

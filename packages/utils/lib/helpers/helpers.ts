@@ -1,7 +1,14 @@
 import Oystehr, { OystehrConfig } from '@oystehr/sdk';
-import { Appointment, Extension, PaymentNotice, QuestionnaireResponseItemAnswer, Resource } from 'fhir/r4b';
+import {
+  Appointment,
+  Extension,
+  Organization,
+  PaymentNotice,
+  QuestionnaireResponseItemAnswer,
+  Resource,
+} from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { OTTEHR_MODULE, PAYMENT_METHOD_EXTENSION_URL, SLUG_SYSTEM } from '../fhir';
+import { FHIR_IDENTIFIER_SYSTEM, OTTEHR_MODULE, PAYMENT_METHOD_EXTENSION_URL, SLUG_SYSTEM } from '../fhir';
 import { CashPaymentDTO, PatchPaperworkParameters, ScheduleOwnerFhirResource } from '../types';
 import { phoneRegex, zipRegex } from '../validation';
 
@@ -171,11 +178,11 @@ export function standardizePhoneNumber(phoneNumber: string | undefined): string 
   // input format:  some arbitrary format which may or may not include (, ), -, +1
   // output format: (XXX) XXX-XXXX
   if (!phoneNumber) {
-    return phoneNumber;
+    return undefined;
   }
 
   const digits = phoneNumber.replace(/\D/g, '');
-  let phoneNumberDigits = undefined;
+  let phoneNumberDigits: string | undefined;
 
   if (digits.length === 10) {
     phoneNumberDigits = digits;
@@ -183,7 +190,11 @@ export function standardizePhoneNumber(phoneNumber: string | undefined): string 
     phoneNumberDigits = digits.slice(1);
   }
 
-  return formatPhoneNumber(phoneNumberDigits);
+  if (!phoneNumberDigits) {
+    return undefined;
+  }
+
+  return `(${phoneNumberDigits.slice(0, 3)}) ${phoneNumberDigits.slice(3, 6)}-${phoneNumberDigits.slice(6)}`;
 }
 
 export function resourceHasMetaTag(resource: Resource, metaTag: OTTEHR_MODULE): boolean {
@@ -1114,4 +1125,12 @@ export const convertPaymentNoticeListToCashPaymentDTOs = (
 export const checkResourceHasSlug = (resource: ScheduleOwnerFhirResource, slug: string): boolean => {
   const identifiers = resource.identifier ?? [];
   return identifiers.some((id) => id.system === SLUG_SYSTEM && id.value === slug);
+};
+
+export const getPayerId = (org: Organization | undefined): string | undefined => {
+  const payerId = org?.identifier?.find(
+    (identifier) =>
+      identifier.type?.coding?.some((coding) => coding.system === FHIR_IDENTIFIER_SYSTEM && coding.code === 'XX')
+  )?.value;
+  return payerId;
 };

@@ -7,16 +7,16 @@ import { isNonPaperworkQuestionnaireResponse } from '../../common';
 import { createOystehrClient, getAuth0Token, sendErrors, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { getMessageRecipientForAppointment } from '../../shared/communication';
 
-let zapehrToken: string;
+let oystehrToken: string;
 
 export const index = wrapHandler('send-message-cron', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input)}`);
   const { secrets } = input;
-  if (!zapehrToken) {
-    zapehrToken = await getAuth0Token(secrets);
+  if (!oystehrToken) {
+    oystehrToken = await getAuth0Token(secrets);
   }
   try {
-    const oystehr = createOystehrClient(zapehrToken, secrets);
+    const oystehr = createOystehrClient(oystehrToken, secrets);
     const nowUTC = DateTime.now().toUTC();
     const startTime = roundToNearestQuarterHour(nowUTC.plus({ hour: 1 })); // round times to an even quarter minute
     console.log(

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useMedicationHistory } from 'src/features/css-module/hooks/useMedicationHistory';
 import {
   ExtendedMedicationDataForResponse,
   MedicationData,
@@ -40,6 +41,8 @@ export const EditableMedicationCard: React.FC<{
   const { mappedData, resources } = useAppointment(appointmentId);
   const [isReasonSelected, setIsReasonSelected] = useState(true);
   const selectsOptions = useFieldsSelectsOptions();
+
+  const { refetchHistory } = useMedicationHistory();
 
   // There are dynamic form config which depend on what button was clicked:
   // - If "administered" was clicked, then "dispense" form config should be used
@@ -180,6 +183,8 @@ export const EditableMedicationCard: React.FC<{
       // upd saved status in the local state
       medicationUpdateRequestInputRefRef.current?.newStatus &&
         void handleStatusSelect(medicationUpdateRequestInputRefRef.current.newStatus);
+
+      void refetchHistory();
     } catch (error) {
       console.error(error);
     } finally {

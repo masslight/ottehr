@@ -485,13 +485,6 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
             group: appointmentsToGroupMap.get(appointment.id ?? ''),
           });
         }),
-        ...appointmentQueues.inOffice.inExam['ready for discharge'].map((appointment) => {
-          return makeAppointmentInformation(oystehr, {
-            appointment,
-            ...baseMapInput,
-            group: appointmentsToGroupMap.get(appointment.id ?? ''),
-          });
-        }),
       ].filter(isTruthy);
       completed = appointmentQueues.checkedOut
         .map((appointment) => {

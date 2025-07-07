@@ -1,5 +1,6 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Box, Grid, Paper, Typography } from '@mui/material';
+import { DateTime } from 'luxon';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ExtendedMedicationDataForResponse,
@@ -15,7 +16,7 @@ import { getInHouseMedicationMARUrl } from '../../../routing/helpers';
 import { CSSLoader } from '../../CSSLoader';
 import { ButtonRounded } from '../../RoundedButton';
 import { MedicationStatusChip } from '../statuses/MedicationStatusChip';
-import { MedicationOrderType } from './fieldsConfig';
+import { getFieldLabel, MedicationFieldType, MedicationOrderType } from './fieldsConfig';
 import { MedicationCardField } from './MedicationCardField';
 import { InHouseMedicationFieldType } from './utils';
 
@@ -189,7 +190,9 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
             <Typography gutterBottom sx={{ height: '26px', display: 'flex', flexDirection: 'row', gap: 3 }}>
               <span>Order ID: {medication?.id}</span>
               <span>
-                {medication?.dateGiven} {medication?.timeGiven}
+                {medication?.effectiveDateTime
+                  ? DateTime.fromISO(medication.effectiveDateTime).toFormat('MM/dd/yyyy hh:mm a')
+                  : '-'}
               </span>
               <span>by {medication?.providerCreatedTheOrder}</span>{' '}
             </Typography>
@@ -214,8 +217,8 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
             <Grid item xs={config!.xs} key={field}>
               <MedicationCardField
                 isEditable={isEditable}
-                field={field as keyof MedicationData}
-                label={field}
+                field={field as MedicationFieldType}
+                label={getFieldLabel(field as MedicationFieldType, type)}
                 type={getFieldType(field as keyof MedicationData)}
                 value={value}
                 renderValue={renderValue}

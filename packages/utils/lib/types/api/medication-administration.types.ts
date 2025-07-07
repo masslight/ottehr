@@ -1,4 +1,4 @@
-import { MedicationAdministration, MedicationStatement, Patient, Practitioner } from 'fhir/r4b';
+import { MedicationAdministration, MedicationRequest, MedicationStatement, Patient, Practitioner } from 'fhir/r4b';
 import { z } from 'zod';
 import { MEDICATION_APPLIANCE_LOCATION_SYSTEM } from './medication-administration.constants';
 
@@ -32,6 +32,27 @@ export interface UpdateMedicationOrderInput {
   orderId?: string;
   newStatus?: MedicationOrderStatusesType;
   orderData?: MedicationData;
+  interactions?: MedicationInteractions;
+}
+
+export interface DrugInteraction {
+  drugs: {
+    id: string;
+    name: string;
+  }[];
+  severity: 'high' | 'moderate' | 'low' | undefined;
+  message?: string;
+  overrideReason?: string;
+}
+
+export interface AllergyInteraction {
+  message?: string;
+  overrideReason?: string;
+}
+
+export interface MedicationInteractions {
+  drugInteractions?: DrugInteraction[];
+  allergyInteractions?: AllergyInteraction[];
 }
 
 export interface MedicationData {
@@ -52,8 +73,17 @@ export interface MedicationData {
   lotNumber?: string;
   expDate?: string;
 
-  // administrating
+  // administrating ISO date with timezone
+  effectiveDateTime?: string;
+
+  /**
+   * @deprecated Use effectiveDateTime instead. This field is kept for backward compatibility.
+   */
   dateGiven?: string;
+
+  /**
+   * @deprecated Use effectiveDateTime instead. This field is kept for backward compatibility.
+   */
   timeGiven?: string;
 }
 
@@ -66,6 +96,7 @@ export interface ExtendedMedicationDataForResponse extends MedicationData {
   dateTimeCreated: string;
   administeredProvider?: string;
   administeredProviderId?: string;
+  interactions?: MedicationInteractions;
   // todo i wanna change all long names to this short form
   // creationData: {
   //   dateTime: string;
@@ -73,8 +104,7 @@ export interface ExtendedMedicationDataForResponse extends MedicationData {
   //   providerName: string;
   // };
   // administeredData?: {
-  //   dateGiven: string;
-  //   timeGiven: string;
+  //   effectiveDateTime: string;
   //   providerId: string;
   //   providerName: string;
   // };
@@ -86,6 +116,7 @@ export interface OrderPackage {
   medicationStatement?: MedicationStatement;
   providerCreatedOrder?: Practitioner;
   providerAdministeredOrder?: Practitioner;
+  medicationRequest?: MedicationRequest;
 }
 
 export interface MedicationApplianceLocation {
@@ -257,6 +288,7 @@ export const medicationApplianceLocations: MedicationApplianceLocation[] = [
     display: 'Nonrebreather oxygen mask (physical object)',
   },
   {
+    // cSpell:disable-next facemask
     name: 'liters via facemask',
     code: '261352009',
     system: MEDICATION_APPLIANCE_LOCATION_SYSTEM,

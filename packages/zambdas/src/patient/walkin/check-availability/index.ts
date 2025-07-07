@@ -29,7 +29,7 @@ import {
 import { getNameForOwner } from '../../../ehr/schedules/shared';
 import { getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 
-let zapehrToken: string;
+let oystehrToken: string;
 export const index = wrapHandler('check-availability', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const fhirAPI = getSecret(SecretsKeys.FHIR_API, input.secrets);
@@ -38,14 +38,14 @@ export const index = wrapHandler('check-availability', async (input: ZambdaInput
 
     console.log('basicInput', JSON.stringify(basicInput));
 
-    if (!zapehrToken) {
+    if (!oystehrToken) {
       console.log('getting m2m token for service calls');
-      zapehrToken = await getAuth0Token(input.secrets);
+      oystehrToken = await getAuth0Token(input.secrets);
     } else {
       console.log('already have a token, no need to update');
     }
 
-    const oystehr = createOystehrClient(zapehrToken, fhirAPI, projectAPI);
+    const oystehr = createOystehrClient(oystehrToken, fhirAPI, projectAPI);
 
     const effectInput = await complexValidation(basicInput, oystehr);
 

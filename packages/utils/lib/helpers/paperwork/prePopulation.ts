@@ -1,6 +1,7 @@
 import {
   Address,
   DocumentReference,
+  Organization,
   Patient,
   Practitioner,
   Questionnaire,
@@ -26,9 +27,9 @@ import {
   PATIENT_INDIVIDUAL_PRONOUNS_URL,
   PATIENT_SEXUAL_ORIENTATION_URL,
   PatientAccountResponse,
+  PRACTICE_NAME_URL,
 } from '../../types';
-import { PRACTICE_NAME_URL } from '../../types';
-import { formatPhoneNumberDisplay } from '../helpers';
+import { formatPhoneNumberDisplay, getPayerId } from '../helpers';
 
 const genderMap = {
   male: 'Male',
@@ -37,7 +38,7 @@ const genderMap = {
 };
 
 // used when patient books an appointment and some of the inputs come from the create-appointment params
-interface PrepopulationInput {
+interface PrePopulationInput {
   patient: Patient;
   appointmentStartTime: string;
   isNewQrsPatient: boolean;
@@ -51,7 +52,7 @@ interface PrepopulationInput {
   accountInfo?: PatientAccountResponse | undefined;
 }
 
-export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): QuestionnaireResponseItem[] => {
+export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): QuestionnaireResponseItem[] => {
   const {
     patient,
     newPatientDob,
@@ -129,7 +130,7 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
     contentType: photoIdBackDocumentReference?.content[0].attachment.contentType,
   };
 
-  console.log('patient info for prepop: ');
+  console.log('patient info for pre-population: ');
   console.log('patient: ', JSON.stringify(patient, null, 2));
   console.log('patientSex', patientSex);
   console.log('documents: ', JSON.stringify(documents, null, 2));
@@ -248,6 +249,7 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
           coverages: accountInfo?.coverages ?? {},
           patient,
           documents,
+          insuranceOrgs: accountInfo?.insuranceOrgs ?? [],
         });
       } else if (item.linkId === 'photo-id-page') {
         return itemItems.map((item) => {
@@ -275,7 +277,7 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
     };
   });
 
-  console.log('prepopulation result', JSON.stringify(item));
+  console.log('pre-population result', JSON.stringify(item));
 
   return item;
 };
@@ -327,14 +329,14 @@ export const extractFirstValueFromAnswer = (
   return (answer[0] as any)?.[`value${valueType}`];
 };
 
-export interface PrepopulationFromPatientRecordInput extends PatientAccountResponse {
+export interface PrePopulationFromPatientRecordInput extends PatientAccountResponse {
   questionnaire: Questionnaire;
 }
 
 export const makePrepopulatedItemsFromPatientRecord = (
-  input: PrepopulationFromPatientRecordInput
+  input: PrePopulationFromPatientRecordInput
 ): QuestionnaireResponseItem[] => {
-  const { patient, questionnaire, primaryCarePhysician, coverages, guarantorResource } = input;
+  const { patient, questionnaire, primaryCarePhysician, coverages, guarantorResource, insuranceOrgs } = input;
   console.log('making prepopulated items from patient record', coverages);
   const item: QuestionnaireResponseItem[] = (questionnaire.item ?? []).map((item) => {
     const populatedItem: QuestionnaireResponseItem[] = (() => {
@@ -357,6 +359,7 @@ export const makePrepopulatedItemsFromPatientRecord = (
           items: itemItems,
           coverages,
           patient,
+          insuranceOrgs,
         });
       }
       if (GUARANTOR_ITEMS.includes(item.linkId)) {
@@ -401,10 +404,10 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
     ?.valueCodeableConcept?.coding?.[0]?.display;
   const patientRace = patient.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/race`)
     ?.valueCodeableConcept?.coding?.[0]?.display;
-  const patientPrefferedPronouns = patient.extension?.find((e) => e.url === PATIENT_INDIVIDUAL_PRONOUNS_URL)
+  const patientPreferredPronouns = patient.extension?.find((e) => e.url === PATIENT_INDIVIDUAL_PRONOUNS_URL)
     ?.valueCodeableConcept?.coding?.[0]?.display;
 
-  const patientPrefferedName = patient.name?.find((name) => name.use === 'nickname')?.given?.[0];
+  const patientPreferredName = patient.name?.find((name) => name.use === 'nickname')?.given?.[0];
 
   let patientSex: string | undefined;
   if (patient?.gender === 'male') {
@@ -457,12 +460,12 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
       answer = makeAnswer(getNameSuffix(patient) ?? '');
     }
 
-    if (linkId === 'patient-preferred-name' && patientPrefferedName) {
-      answer = makeAnswer(patientPrefferedName);
+    if (linkId === 'patient-preferred-name' && patientPreferredName) {
+      answer = makeAnswer(patientPreferredName);
     }
 
-    if (linkId === 'patient-pronouns' && patientPrefferedPronouns) {
-      answer = makeAnswer(patientPrefferedPronouns);
+    if (linkId === 'patient-pronouns' && patientPreferredPronouns) {
+      answer = makeAnswer(patientPreferredPronouns);
     }
 
     if (linkId === 'patient-street-address' && patientAddressLine1) {
@@ -588,10 +591,11 @@ interface MapCoverageItemsInput {
   items: QuestionnaireItem[];
   coverages: PatientAccountResponse['coverages'];
   patient: Patient;
+  insuranceOrgs: Organization[];
   documents?: DocumentReference[];
 }
 const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput): QuestionnaireResponseItem[] => {
-  const { items, coverages, patient, documents } = input;
+  const { items, coverages, patient, documents, insuranceOrgs } = input;
 
   const patientAddress = patient.address?.[0];
 
@@ -650,17 +654,25 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
   let secondaryMemberId = '';
 
   if (primary) {
-    primaryInsurancePlanReference = {
-      reference: primary.class?.[0].value,
-      display: primary.class?.[0].name,
-    };
+    const payerId = primary.class?.[0].value;
+    const org = insuranceOrgs.find((tempOrg) => getPayerId(tempOrg) === payerId);
+    if (payerId && org) {
+      primaryInsurancePlanReference = {
+        reference: `Organization/${org.id}`,
+        display: org.name,
+      };
+    }
   }
 
   if (secondary) {
-    secondaryInsurancePlanReference = {
-      reference: secondary.class?.[0].value,
-      display: secondary.class?.[0].name,
-    };
+    const payerId = secondary.class?.[0].value;
+    const org = insuranceOrgs.find((tempOrg) => getPayerId(tempOrg) === payerId);
+    if (payerId && org) {
+      secondaryInsurancePlanReference = {
+        reference: `Organization/${org.id}`,
+        display: org.name,
+      };
+    }
   }
 
   if (primary) {
@@ -727,11 +739,21 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
     secondary?.extension?.find((e: { url: string }) => e.url === COVERAGE_ADDITIONAL_INFORMATION_URL)?.valueString ??
     '';
 
+  let paymentOptionValue: string | undefined;
+
+  if (primaryInsurancePlanReference || secondaryInsurancePlanReference) {
+    paymentOptionValue = 'I have insurance';
+  }
+
   return items
     .filter((i: QuestionnaireItem) => i.type !== 'display')
     .map((item) => {
       let answer: QuestionnaireResponseItemAnswer[] | undefined;
       const { linkId } = item;
+
+      if (linkId === 'payment-option' && paymentOptionValue) {
+        answer = makeAnswer(paymentOptionValue);
+      }
 
       if (linkId === 'secondary-insurance' && item.type === 'group') {
         return {
@@ -856,12 +878,12 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
 };
 
 const GUARANTOR_ITEMS = ['responsible-party-section', 'responsible-party-page'];
-interface MapGuantorItemsInput {
+interface MapGuarantorItemsInput {
   items: QuestionnaireItem[];
   guarantorResource?: RelatedPerson | Patient;
 }
 
-const mapGuarantorToQuestionnaireResponseItems = (input: MapGuantorItemsInput): QuestionnaireResponseItem[] => {
+const mapGuarantorToQuestionnaireResponseItems = (input: MapGuarantorItemsInput): QuestionnaireResponseItem[] => {
   const { guarantorResource, items } = input;
 
   const phone = formatPhoneNumberDisplay(

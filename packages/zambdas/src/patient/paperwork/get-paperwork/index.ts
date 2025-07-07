@@ -68,7 +68,7 @@ export type FullAccessPaperworkSupportingInfo = Omit<PaperworkSupportingInfo, 'p
 };
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let zapehrToken: string;
+let oystehrToken: string;
 export const index = wrapHandler('get-paperwork', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
@@ -77,15 +77,15 @@ export const index = wrapHandler('get-paperwork', async (input: ZambdaInput): Pr
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    if (!zapehrToken) {
+    if (!oystehrToken) {
       console.log('getting token');
-      zapehrToken = await getAuth0Token(secrets);
+      oystehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }
 
-    const oystehr = createOystehrClient(zapehrToken, secrets);
-    // const z3Client = createZ3Client(zapehrToken, secrets);
+    const oystehr = createOystehrClient(oystehrToken, secrets);
+    // const z3Client = createZ3Client(oystehrToken, secrets);
     // const projectAPI = getSecret(SecretsKeys.PROJECT_API, secrets);
 
     let appointment: Appointment | undefined = undefined;

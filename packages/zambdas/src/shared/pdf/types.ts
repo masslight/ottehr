@@ -238,9 +238,13 @@ export interface VisitNoteData extends ExaminationBlockData {
   providerTimeSpan?: string;
   reviewOfSystems?: string;
   medications?: string[];
+  medicationsNotes?: string[];
   allergies?: string[];
+  allergiesNotes?: string[];
   medicalConditions?: string[];
+  medicalConditionsNotes?: string[];
   surgicalHistory?: string[];
+  surgicalHistoryNotes?: string[];
   additionalQuestions: Record<AdditionalBooleanQuestionsFieldsNames, string>;
   screening?: {
     seenInLastThreeYears?: string;
@@ -250,6 +254,7 @@ export interface VisitNoteData extends ExaminationBlockData {
     notes?: string[];
   };
   hospitalization?: string[];
+  hospitalizationNotes?: string[];
   vitals?: VitalsVisitNoteData & {
     notes?: string[];
   };

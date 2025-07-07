@@ -1,4 +1,4 @@
-import { Box, Stack, Typography } from '@mui/material';
+import { Stack, Typography } from '@mui/material';
 import { FC } from 'react';
 import { useParams } from 'react-router-dom';
 import { getSelectors } from '../../../shared/store/getSelectors';
@@ -11,6 +11,7 @@ import {
 } from '../../../telemed/features/appointment';
 import { CSSLoader } from '../components/CSSLoader';
 import { InfoAlert } from '../components/InfoAlert';
+import { MedicalConditionsNotes } from '../components/medical-conditions/MedicalConditionsNotes';
 import { useNavigationContext } from '../context/NavigationContext';
 import { useAppointment } from '../hooks/useAppointment';
 
@@ -37,16 +38,15 @@ export const MedicalConditions: FC<MedicalConditionsProps> = () => {
   return (
     <Stack spacing={1}>
       <PageTitle label="Medical Conditions" showIntakeNotesButton={interactionMode === 'intake'} />
-      <Box sx={{ display: 'flex', flexDirection: 'column', mt: 3, gap: 3 }}>
-        <InfoAlert text="Ask: Does the patient have any significant past or ongoing medical issues?" />
-        <MedicalHistoryDoubleCard
-          label="Medical conditions"
-          patientSide={<MedicalConditionsPatientColumn />}
-          patientSideLabel="Patient provided"
-          providerSide={<MedicalConditionsProviderColumn />}
-          providerSideLabel="Healthcare staff input"
-        />
-      </Box>
+      <InfoAlert text="Ask: Does the patient have any significant past or ongoing medical issues?" />
+      <MedicalHistoryDoubleCard
+        label="Medical conditions"
+        patientSide={<MedicalConditionsPatientColumn />}
+        patientSideLabel="Patient provided"
+        providerSide={<MedicalConditionsProviderColumn />}
+        providerSideLabel="Healthcare staff input"
+      />
+      <MedicalConditionsNotes />
     </Stack>
   );
 };

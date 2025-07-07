@@ -291,7 +291,8 @@ const ThankYou = (): JSX.Element => {
           <Box style={{ background: '#FFF3E0', borderRadius: '8px', padding: '24px', display: 'flex' }}>
             <Box style={{ fontWeight: 600, fontSize: '18px' }}>
               <Typography variant="subtitle1" color="text.primary" style={{ paddingBottom: '16px', fontSize: '18px' }}>
-                Save your time and get ready for the visit with Oystehr AI Chat
+                Save time and help us prepare for your visit. Our medical chatbot will ask you a few questions and
+                securely present the information to your doctor before you arrive.
               </Typography>
               <Button
                 type="button"
@@ -299,7 +300,7 @@ const ThankYou = (): JSX.Element => {
                 style={{ backgroundColor: '#F57C00' }}
                 onClick={() => setAiChatConsentModalOpen(true)}
               >
-                Try Oystehr AI chat
+                Start Chatting
               </Button>
             </Box>
             <img src={ottehrAiLogo} style={{ width: '80px', marginLeft: '8px' }} />
@@ -449,11 +450,12 @@ const ThankYou = (): JSX.Element => {
           >
             <Box sx={MODAL_STYLE}>
               <Typography variant={'h2'} color="primary.main" style={{ marginBottom: '16px' }}>
-                Chat with Oystehr AI
+                Medical History Chatbot
               </Typography>
               <Typography color="text.primary" style={{ marginBottom: '8px' }}>
-                Our AI assistant will ask about your symptoms, conditions, and medical history. Your doctor will review
-                all information to provide personalized care.
+                Our AI medical assistant will ask about your symptoms and medical history. Your information is
+                completely private, accessible only by your doctor, and the interview helps your doctor better prepare
+                for your visit.
               </Typography>
               <Typography color="text.primary">
                 You can pause the interview, and then complete later. Once interview is completed, you cannot start a
@@ -461,7 +463,7 @@ const ThankYou = (): JSX.Element => {
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', margin: '16px 0 16px 0' }}>
                 <Checkbox color="secondary" onChange={(e) => setAiChatStartButtonEnabled(e.target.checked)} />
-                <Typography color="text.primary">I consent to Oystehr AI collecting my information</Typography>
+                <Typography color="text.primary">I consent</Typography>
               </Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                 <Button

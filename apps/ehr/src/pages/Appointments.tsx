@@ -13,9 +13,11 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { usePatientLabOrders } from 'src/features/external-labs/components/labs-orders/usePatientLabOrders';
 import { useInHouseLabOrders } from 'src/features/in-house-labs/components/orders/useInHouseLabOrders';
 import { useGetNursingOrders } from 'src/features/nursing-orders/components/orders/useNursingOrders';
+import { usePatientRadiologyOrders } from 'src/features/radiology/components/usePatientRadiologyOrders';
 import { useGetMedicationOrders } from 'src/telemed';
 import {
   ExtendedMedicationDataForResponse,
+  GetRadiologyOrderListZambdaOrder,
   InHouseOrderListPageItemDTO,
   InPersonAppointmentInformation,
   LabOrderListPageDTO,
@@ -171,11 +173,23 @@ export default function Appointments(): ReactElement {
     );
   }, [inHouseMedications?.orders]);
 
+  const { orders: radiologyOrders } = usePatientRadiologyOrders({ encounterIds: encountersIdsEligibleForOrders });
+  const radiologyOrdersByAppointmentId: Record<string, GetRadiologyOrderListZambdaOrder[]> = useMemo(() => {
+    return radiologyOrders?.reduce(
+      (acc, order) => {
+        acc[order.appointmentId] = [...(acc[order.appointmentId] || []), order];
+        return acc;
+      },
+      {} as Record<string, GetRadiologyOrderListZambdaOrder[]>
+    );
+  }, [radiologyOrders]);
+
   const orders: OrdersForTrackingBoardTable = {
     externalLabOrdersByAppointmentId,
     inHouseLabOrdersByAppointmentId,
     nursingOrdersByAppointmentId,
     inHouseMedicationsByEncounterId,
+    radiologyOrdersByAppointmentId,
   };
 
   useEffect(() => {

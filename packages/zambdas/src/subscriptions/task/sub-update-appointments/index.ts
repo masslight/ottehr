@@ -14,7 +14,7 @@ import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaI
 import { patchTaskStatus } from '../../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';
 
-let zapehrToken: string;
+let oystehrToken: string;
 const ZAMBDA_NAME = 'sub-update-appointments';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -26,14 +26,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    if (!zapehrToken) {
+    if (!oystehrToken) {
       console.log('getting token');
-      zapehrToken = await getAuth0Token(secrets);
+      oystehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }
 
-    const oystehr = createOystehrClient(zapehrToken, secrets);
+    const oystehr = createOystehrClient(oystehrToken, secrets);
 
     const taskCodingList = task.code?.coding ?? [];
     console.log('taskCodingList', JSON.stringify(taskCodingList));

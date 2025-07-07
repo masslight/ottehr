@@ -462,8 +462,8 @@ const makeValidationSchemaPrivate = (input: PrivateMakeSchemaArgs): Yup.AnyObjec
                     // powers some logic in the form, but is not actually a field that needs to be validated because it
                     // contributes no persisted values. there's probably a better way to handle this, but this works for now.
                     if (typeof e === 'object' && (e as any).message) {
-                      const mesage = (e as any).message as string | undefined;
-                      if (mesage?.startsWith('The schema does not contain the path') && item.required === false) {
+                      const message = (e as any).message as string | undefined;
+                      if (message?.startsWith('The schema does not contain the path') && item.required === false) {
                         return true;
                       }
                     }

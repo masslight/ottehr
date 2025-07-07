@@ -1,11 +1,19 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { MedicationAdministration, Patient, Practitioner } from 'fhir/r4b';
+import {
+  MedicationAdministration,
+  MedicationRequest,
+  MedicationStatement,
+  Patient,
+  Practitioner,
+  Reference,
+} from 'fhir/r4b';
 import {
   ExtendedMedicationDataForResponse,
   getDosageUnitsAndRouteOfMedication,
   getFullestAvailableName,
   getLocationCodeFromMedicationAdministration,
+  getMedicationInteractions,
   getMedicationName,
   GetMedicationOrdersInput,
   GetMedicationOrdersResponse,
@@ -59,13 +67,21 @@ async function performEffect(
 }
 
 function mapMedicalAdministrationToDTO(orderPackage: OrderPackage): ExtendedMedicationDataForResponse {
-  const { medicationAdministration, providerCreatedOrder, providerAdministeredOrder } = orderPackage;
+  const {
+    medicationAdministration,
+    providerCreatedOrder,
+    providerAdministeredOrder,
+    medicationRequest,
+    medicationStatement,
+  } = orderPackage;
+
   const medication = getMedicationFromMA(medicationAdministration);
   const dosageUnitsRoute = getDosageUnitsAndRouteOfMedication(medicationAdministration);
   const orderReasons = getReasonAndOtherReasonForNotAdministeredOrder(medicationAdministration);
   const administeredInfo = getProviderIdAndDateMedicationWasAdministered(medicationAdministration);
   const providerCreatedOrderName = providerCreatedOrder ? getFullestAvailableName(providerCreatedOrder) : '';
   const providerAdministeredOrderName = providerAdministeredOrder && getFullestAvailableName(providerAdministeredOrder);
+
   return {
     id: medicationAdministration.id ?? '',
     status: mapFhirToOrderStatus(medicationAdministration) ?? 'pending',
@@ -93,10 +109,21 @@ function mapMedicalAdministrationToDTO(orderPackage: OrderPackage): ExtendedMedi
     expDate: medication?.batch?.expirationDate,
 
     // administrating
-    dateGiven: administeredInfo?.dateAdministered,
-    timeGiven: administeredInfo?.timeAdministered,
+    effectiveDateTime: medicationStatement?.effectiveDateTime, // ISO date with timezone
     administeredProviderId: administeredInfo?.administeredProviderId,
     administeredProvider: providerAdministeredOrderName,
+
+    interactions: getMedicationInteractions(medicationRequest),
+
+    /**
+     * @deprecated Use effectiveDateTime instead. This field is kept for backward compatibility.
+     */
+    dateGiven: administeredInfo?.dateAdministered,
+
+    /**
+     * @deprecated Use effectiveDateTime instead. This field is kept for backward compatibility.
+     */
+    timeGiven: administeredInfo?.timeAdministered,
   };
 }
 
@@ -117,6 +144,14 @@ async function getOrderPackages(
       name: '_include',
       value: 'MedicationAdministration:performer',
     },
+    {
+      name: '_include',
+      value: 'MedicationAdministration:request',
+    },
+    {
+      name: '_revinclude',
+      value: 'MedicationStatement:part-of',
+    },
   ];
 
   if (searchBy.field === 'encounterId') {
@@ -132,18 +167,26 @@ async function getOrderPackages(
     resourceType: 'MedicationAdministration',
     params: searchParams,
   });
+
   const resources = bundle.unbundle();
+
   const medicationAdministrations = resources.filter(
     (res) => res.resourceType === 'MedicationAdministration'
   ) as MedicationAdministration[];
 
+  const medicationStatements = resources.filter(
+    (res) => res.resourceType === 'MedicationStatement'
+  ) as MedicationStatement[];
+
   console.log('All practitioners: ', JSON.stringify(resources.filter((res) => res.resourceType === 'Practitioner')));
+  console.log('All medication statements: ', JSON.stringify(medicationStatements));
   console.log(
     `All orders: ${resources
       .filter((res) => res.resourceType === 'MedicationAdministration')
       .map((ma) => ma.id)
       .join(',\n')}`
   );
+
   const resultPackages: OrderPackage[] = [];
   medicationAdministrations.forEach((ma) => {
     const patient = resources.find((res) => res.id === ma.subject.reference?.replace('Patient/', '')) as Patient;
@@ -156,11 +199,22 @@ async function getOrderPackages(
     const idOfProviderAdministeredOrder = getProviderIdAndDateMedicationWasAdministered(ma)?.administeredProviderId;
     const providerAdministeredOrder = resources.find((res) => res.id === idOfProviderAdministeredOrder) as Practitioner;
 
+    const medicationRequestId = ma.request?.reference?.split('/')[1];
+    const medicationRequest = resources.find(
+      (resource) => resource.resourceType === 'MedicationRequest' && resource.id === medicationRequestId
+    ) as MedicationRequest;
+
+    const relatedMedicationStatement = medicationStatements.find(
+      (ms) => ms.partOf?.some((partOf: Reference) => partOf.reference === `MedicationAdministration/${ma.id}`)
+    );
+
     resultPackages.push({
       medicationAdministration: ma,
       patient,
       providerCreatedOrder,
       providerAdministeredOrder,
+      medicationRequest,
+      medicationStatement: relatedMedicationStatement,
     });
   });
 

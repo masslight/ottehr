@@ -28,7 +28,7 @@ export const IN_HOUSE_LAB_TASK = {
   },
 } as const;
 
-export const IN_HOUSE_LAB_DOCREF_CATEGORY = {
+export const IN_HOUSE_LAB_DOC_REF_CATEGORY = {
   system: 'in-house-lab-document-type',
   code: {
     sampleLabel: 'sample-label-form',
