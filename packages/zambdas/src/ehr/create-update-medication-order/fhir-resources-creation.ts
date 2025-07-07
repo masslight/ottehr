@@ -186,7 +186,7 @@ export function createMedicationRequest(
   };
 }
 
-function createDrugInteractionIssue(resourceId: string, interation: DrugInteraction): DetectedIssue {
+function createDrugInteractionIssue(resourceId: string, interaction: DrugInteraction): DetectedIssue {
   return {
     resourceType: 'DetectedIssue',
     id: resourceId,
@@ -199,22 +199,22 @@ function createDrugInteractionIssue(resourceId: string, interation: DrugInteract
         },
       ],
     },
-    severity: interation.severity,
-    detail: interation.message,
+    severity: interaction.severity,
+    detail: interaction.message,
     mitigation: [
       {
         action: {
           coding: [
             {
               system: INTERACTION_OVERRIDE_REASON_CODE_SYSTEM,
-              code: interation.overrideReason,
-              display: interation.overrideReason,
+              code: interaction.overrideReason,
+              display: interaction.overrideReason,
             },
           ],
         },
       },
     ],
-    evidence: interation.drugs.map((drug) => {
+    evidence: interaction.drugs.map((drug) => {
       return {
         code: [
           {
@@ -232,7 +232,7 @@ function createDrugInteractionIssue(resourceId: string, interation: DrugInteract
   };
 }
 
-function createAllergyInteractionIssue(resourceId: string, interation: AllergyInteraction): DetectedIssue {
+function createAllergyInteractionIssue(resourceId: string, interaction: AllergyInteraction): DetectedIssue {
   return {
     resourceType: 'DetectedIssue',
     id: resourceId,
@@ -245,15 +245,15 @@ function createAllergyInteractionIssue(resourceId: string, interation: AllergyIn
         },
       ],
     },
-    detail: interation.message,
+    detail: interaction.message,
     mitigation: [
       {
         action: {
           coding: [
             {
               system: INTERACTION_OVERRIDE_REASON_CODE_SYSTEM,
-              code: interation.overrideReason,
-              display: interation.overrideReason,
+              code: interaction.overrideReason,
+              display: interaction.overrideReason,
             },
           ],
         },

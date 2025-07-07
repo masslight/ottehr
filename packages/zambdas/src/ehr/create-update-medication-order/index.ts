@@ -156,7 +156,7 @@ async function updateOrder(
   }
 
   if (currentStatus && newStatus) {
-    if (updatedMedicationAdministration != null) {
+    if (updatedMedicationAdministration) {
       updatedMedicationAdministration.status = mapOrderStatusToFhir(newStatus);
     } else {
       medicationAdministrationPatchOperations.push(replaceOperation('/status', mapOrderStatusToFhir(newStatus)));
@@ -195,7 +195,7 @@ async function updateOrder(
     }
   }
 
-  if (interactions != null && newMedicationCopy != null) {
+  if (interactions && newMedicationCopy) {
     if (orderResources.medicationRequest == null) {
       const medicationRequestFullUrl = 'urn:uuid:' + randomUUID();
       transactionRequests.push({
@@ -204,7 +204,7 @@ async function updateOrder(
         fullUrl: medicationRequestFullUrl,
         resource: createMedicationRequest(orderData, interactions, newMedicationCopy),
       });
-      if (updatedMedicationAdministration != null) {
+      if (updatedMedicationAdministration) {
         updatedMedicationAdministration.request = {
           reference: medicationRequestFullUrl,
         };
@@ -222,7 +222,7 @@ async function updateOrder(
     }
   }
 
-  if (updatedMedicationAdministration != null) {
+  if (updatedMedicationAdministration) {
     transactionRequests.push({
       method: 'PUT',
       url: `/MedicationAdministration/${updatedMedicationAdministration.id}`,

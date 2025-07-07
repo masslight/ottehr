@@ -214,7 +214,7 @@ export const getMedicationInteractions = (
           const coding = getCoding(evidence.code, MEDICATION_DISPENSABLE_DRUG_ID);
           const drugId = coding?.code;
           const drugName = coding?.display;
-          if (drugId != null && drugName != null) {
+          if (drugId && drugName) {
             return [
               {
                 id: drugId,
@@ -251,7 +251,7 @@ export const getMedicationInteractions = (
 const getOverrideReason = (issue: DetectedIssue): string | undefined => {
   for (const mitigation of issue.mitigation ?? []) {
     const overrideReason = getCoding(mitigation.action, INTERACTION_OVERRIDE_REASON_CODE_SYSTEM)?.code;
-    if (overrideReason != null) {
+    if (overrideReason) {
       return overrideReason;
     }
   }

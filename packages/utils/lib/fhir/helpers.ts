@@ -1363,7 +1363,7 @@ export function getCoding(
   const array = Array.isArray(codeableConcept) ? codeableConcept : [codeableConcept];
   for (const codeableConcept of array) {
     const coding = codeableConcept?.coding?.find((coding) => coding.system === system);
-    if (coding != null) {
+    if (coding) {
       return coding;
     }
   }
