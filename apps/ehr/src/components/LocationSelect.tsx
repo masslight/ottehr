@@ -105,9 +105,6 @@ export default function LocationSelect({
     return sortLocationsByLabel(allLocations as { label: string; value: string }[]);
   }, [locations]);
 
-  console.log('locations in LocationSelect', locations);
-  console.log('options in LocationSelect', options);
-
   const handleLocationChange = (event: any, newValue: any): void => {
     const selectedLocation = newValue
       ? locations.find((locationTemp) => locationTemp.id === newValue.value)
