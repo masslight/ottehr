@@ -15,10 +15,16 @@ import {
 } from '../../state';
 import { ERXDialog } from './ERXDialog';
 
+export enum ERXStatus {
+  LOADING,
+  READY,
+  ERROR,
+}
+
 export const ERX: FC<{
-  onClose: () => void;
-  onLoadingStatusChange: (loading: boolean) => void;
-}> = ({ onClose, onLoadingStatusChange }) => {
+  onStatusChanged: (status: ERXStatus) => void;
+}> = ({ onStatusChanged }) => {
+  const [status, setStatus] = useState(ERXStatus.LOADING);
   const { patient, encounter } = getSelectors(useAppointmentStore, ['patient', 'encounter']);
   const phoneNumber = patient?.telecom?.find((telecom) => telecom.system === 'phone')?.value;
   const user = useEvolveUser();
@@ -92,7 +98,6 @@ export const ERX: FC<{
   // Step 2: Check practitioner enrollment
   const {
     data: practitionerEnrollmentStatus,
-    isLoading: isCheckingPractitionerEnrollment,
     isFetched: isPractitionerEnrollmentChecked,
     refetch: refetchPractitionerEnrollment,
   } = useCheckPractitionerEnrollment({
@@ -100,7 +105,7 @@ export const ERX: FC<{
   });
 
   // Step 3: Sync patient
-  const { isLoading: isSyncingPatient, isFetched: isPatientSynced } = useSyncERXPatient({
+  const { isFetched: isPatientSynced } = useSyncERXPatient({
     patient: patient!,
     enabled: Boolean(practitionerEnrollmentStatus?.confirmed && hasVitals),
     onError: (error) => {
@@ -117,7 +122,7 @@ export const ERX: FC<{
       }
 
       enqueueSnackbar(errorMsg, { variant: 'error' });
-      onClose();
+      setStatus(ERXStatus.ERROR);
     },
   });
 
@@ -130,7 +135,7 @@ export const ERX: FC<{
   } = useEnrollPractitionerToERX({
     onError: () => {
       enqueueSnackbar('Enrolling practitioner to eRx failed', { variant: 'error' });
-      onClose();
+      setStatus(ERXStatus.ERROR);
     },
   });
 
@@ -247,31 +252,26 @@ export const ERX: FC<{
     practitionerEnrollmentStatus?.confirmed,
   ]);
 
-  // Handle loading state
+  // Handle ready state
   useEffect(() => {
-    const isLoading =
-      isVitalsLoading ||
-      isCheckingPractitionerEnrollment ||
-      isSyncingPatient ||
-      isConnectingPractitioner ||
-      isEnrollingPractitioner;
+    if (status === ERXStatus.LOADING && isPractitionerConnected) {
+      setStatus(ERXStatus.READY);
+    }
+  }, [setStatus, isPractitionerConnected, status]);
 
-    onLoadingStatusChange(isLoading);
-  }, [
-    onLoadingStatusChange,
-    isVitalsLoading,
-    isCheckingPractitionerEnrollment,
-    isSyncingPatient,
-    isConnectingPractitioner,
-    isEnrollingPractitioner,
-  ]);
+  // Report status updates
+  useEffect(() => {
+    return () => {
+      onStatusChanged(status);
+    };
+  }, [onStatusChanged, status]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      onLoadingStatusChange(false);
+      setStatus(ERXStatus.LOADING);
     };
-  }, [onLoadingStatusChange]);
+  }, [setStatus]);
 
   return (
     <>
