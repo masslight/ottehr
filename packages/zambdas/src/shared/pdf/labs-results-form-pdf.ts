@@ -133,6 +133,7 @@ const getResultDataConfig = (
     patientId: patient.id || '',
     patientPhone: patient.telecom?.find((telecomTemp) => telecomTemp.system === 'phone')?.value || '',
     todayDate: now.setZone().toFormat(LABS_DATE_STRING_FORMAT),
+    orderCreateDateAuthoredOn: serviceRequest.authoredOn || '',
     orderCreateDate: orderCreateDate || '',
     orderPriority: serviceRequest.priority || '',
     testName: testName || '',
@@ -202,6 +203,10 @@ const getResultDataConfig = (
 
   return config;
 };
+
+export function getLabFileName(labName: string): string {
+  return labName.replace(/ /g, '-').replace(/[^a-zA-Z0-9-]/g, '');
+}
 
 const getTaskCompletedByAndWhen = async (
   oystehr: Oystehr,
@@ -883,11 +888,15 @@ async function createLabsResultsFormPDF(
   let fileName = undefined;
   const { type, data } = dataConfig;
   if (type === 'external') {
-    fileName = `${EXTERNAL_LAB_RESULT_PDF_BASE_NAME}-${data.resultStatus}${
-      data.resultStatus === 'preliminary' ? '' : data.reviewed ? '-reviewed' : '-un-reviewed'
+    fileName = `${EXTERNAL_LAB_RESULT_PDF_BASE_NAME}-${getLabFileName(dataConfig.data.testName)}-${DateTime.fromISO(
+      dataConfig.data.orderCreateDateAuthoredOn
+    ).toFormat('yyyy-MM-dd')}-${data.resultStatus}-${
+      data.resultStatus === 'preliminary' ? '' : data.reviewed ? 'reviewed' : 'unreviewed'
     }.pdf`;
   } else if (type === 'in-house') {
-    fileName = `${IN_HOUSE_LAB_RESULT_PDF_BASE_NAME}.pdf`;
+    fileName = `${IN_HOUSE_LAB_RESULT_PDF_BASE_NAME}-${getLabFileName(dataConfig.data.testName)}-${DateTime.fromISO(
+      dataConfig.data.orderCreateDateAuthoredOn
+    ).toFormat('yyyy-MM-dd')}-${dataConfig.data.resultStatus}.pdf`;
   } else {
     throw new Error(`lab type is unexpected ${type}`);
   }
