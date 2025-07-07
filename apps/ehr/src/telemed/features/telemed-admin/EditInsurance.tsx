@@ -11,7 +11,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { InsurancePlan } from 'fhir/r4b';
+import { Organization } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -46,20 +46,13 @@ interface PayorOrg {
 }
 
 export type InsuranceData = InsuranceSettingsBooleans & {
-  id: InsurancePlan['id'];
+  id: Organization['id'];
   payor?: PayorOrg;
   displayName: string;
-  status: Extract<InsurancePlan['status'], 'active' | 'retired'>;
+  active: Organization['active'];
 };
 
-type InsuranceForm = Omit<InsuranceData, 'id' | 'status'>;
-
-function getInsurancePayor(insuranceDetails: InsurancePlan, orgs: PayorOrg[]): PayorOrg | undefined {
-  if (!insuranceDetails.ownedBy?.reference) {
-    return undefined;
-  }
-  return orgs.find((org) => org.id === insuranceDetails.ownedBy?.reference?.replace('Organization/', ''));
-}
+type InsuranceForm = Omit<InsuranceData, 'id' | 'active'>;
 
 export default function EditInsurance(): JSX.Element {
   const theme = useTheme();
@@ -80,25 +73,18 @@ export default function EditInsurance(): JSX.Element {
     },
   });
 
+  const { isFetching: insuranceOrgsFetching, data: insuranceOrgsData } = useInsuranceOrganizationsQuery();
+  const insurancePayorOrgs: PayorOrg[] = insuranceOrgsData?.map((org) => ({ name: org.name, id: org.id })) || [
+    { id: '', name: '' },
+  ];
+
   const {
     data: insuranceData,
     isFetching: insuranceDataLoading,
     refetch: refetchInsuranceData,
   } = useInsurancesQuery(insuranceId, insuranceId !== undefined);
   const insuranceDetails = isNew ? undefined : insuranceData?.[0];
-  const isActive = insuranceDetails?.status === 'active';
-
-  const { isFetching: insuranceOrgsFetching, data: insuranceOrgsData } = useInsuranceOrganizationsQuery();
-  const insurancePayorOrgs: PayorOrg[] = insuranceOrgsData?.map((org) => ({ name: org.name, id: org.id })) || [
-    { id: '', name: '' },
-  ];
-
-  const insuranceRelatedDataFetching = insuranceDataLoading || insuranceOrgsFetching;
-
-  const insurancePayor =
-    insuranceId && insuranceDetails && insurancePayorOrgs
-      ? getInsurancePayor(insuranceDetails, insurancePayorOrgs)
-      : undefined;
+  const isActive = insuranceDetails?.active ?? true;
 
   const [payerNameInputValue, setPayerNameInputValue] = useState('');
 
@@ -112,9 +98,9 @@ export default function EditInsurance(): JSX.Element {
       settingsMap[settingExt.url as keyof typeof INSURANCE_SETTINGS_MAP] = settingExt.valueBoolean || false;
     });
 
-  if (insuranceDetails && insuranceOrgsData && !didSetInsuranceDetailsForm.current) {
+  if (insuranceDetails && !didSetInsuranceDetailsForm.current) {
     reset({
-      payor: insurancePayor,
+      payor: insuranceDetails,
       displayName: insuranceDetails.name,
       ...settingsMap,
     });
@@ -129,7 +115,7 @@ export default function EditInsurance(): JSX.Element {
     const formData = getValues();
     const data: InsuranceData = {
       id: insuranceId,
-      status: insuranceDetails?.status === 'active' ? 'active' : 'retired',
+      active: insuranceDetails?.active ?? true,
       ...formData,
     };
     const submitSnackbarText = isNew
@@ -151,14 +137,14 @@ export default function EditInsurance(): JSX.Element {
     }
   };
 
-  const handleStatusChange = async (newStatus: InsuranceData['status']): Promise<void> => {
+  const handleStatusChange = async (newStatus: InsuranceData['active']): Promise<void> => {
     try {
       await mutateInsurance({
         id: insuranceId,
-        payor: insurancePayor!,
+        payor: insuranceDetails,
         displayName: insuranceDetails!.name || '',
         ...settingsMap,
-        status: newStatus,
+        active: newStatus,
       });
       await refetchInsuranceData();
       enqueueSnackbar(`${insuranceDetails!.name || 'Insurance'} status was updated successfully`, {
@@ -184,7 +170,7 @@ export default function EditInsurance(): JSX.Element {
                 link: '#',
                 children: isNew ? (
                   'New insurance'
-                ) : insuranceRelatedDataFetching ? (
+                ) : insuranceDataLoading ? (
                   <Skeleton width={150} />
                 ) : (
                   insuranceDetails?.name || ''
@@ -199,9 +185,9 @@ export default function EditInsurance(): JSX.Element {
             marginBottom={2}
             sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', fontWeight: '600 !important' }}
           >
-            {insuranceRelatedDataFetching ? <Skeleton width={250} /> : insuranceDetails?.name || (isNew ? 'New' : '')}
+            {insuranceDataLoading ? <Skeleton width={250} /> : insuranceDetails?.name || (isNew ? 'New' : '')}
           </Typography>
-          {insuranceId && insuranceRelatedDataFetching ? (
+          {insuranceId && insuranceDataLoading ? (
             <Skeleton height={550} sx={{ marginY: -5 }} />
           ) : (
             <Paper sx={{ padding: 3 }}>
@@ -341,7 +327,7 @@ export default function EditInsurance(): JSX.Element {
             </Paper>
           )}
           {insuranceId !== 'new' &&
-            (insuranceRelatedDataFetching ? (
+            (insuranceDataLoading ? (
               <Skeleton height={300} sx={{ marginTop: -8 }} />
             ) : (
               <Paper sx={{ padding: 3, marginTop: 3 }}>
@@ -365,7 +351,7 @@ export default function EditInsurance(): JSX.Element {
                     marginRight: 1,
                   }}
                   loading={mutationPending}
-                  onClick={() => handleStatusChange(isActive ? 'retired' : 'active')}
+                  onClick={() => handleStatusChange(!isActive)}
                 >
                   {isActive ? 'Deactivate' : 'Activate'}
                 </LoadingButton>

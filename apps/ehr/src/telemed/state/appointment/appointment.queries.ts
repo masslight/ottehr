@@ -792,6 +792,9 @@ export const useCheckPractitionerEnrollment = ({ enabled }: { enabled: boolean }
   );
 };
 
+/*
+ * This should be deletable now but need to verify that ClaimsQueue feature has been mothballed
+ */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetInsurancePlan = ({ id }: { id: string | undefined }) => {
   const { oystehr } = useApiClients();

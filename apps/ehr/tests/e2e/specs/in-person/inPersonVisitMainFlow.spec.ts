@@ -196,6 +196,7 @@ async function BookAppointmentFillInfoSignProgressNote(page: Page, resourceHandl
   await assessmentPage.selectDiagnosis({ diagnosisNamePart: DIAGNOSIS });
   await assessmentPage.selectEmCode(EM_CODE);
   await patientInfoPage.sideMenu().clickProgressNote();
+  await progressNotePage.clickDischargeButton();
   await progressNotePage.clickReviewAndSignButton();
   await progressNotePage.clickSignButton();
   await patientInfoPage.cssHeader().verifyStatus('completed');
