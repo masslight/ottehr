@@ -22,11 +22,12 @@ import {
   useTheme,
 } from '@mui/material';
 import { Operation } from 'fast-json-patch';
-import { Appointment, Location } from 'fhir/r4b';
+import { Appointment } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import { otherColors } from 'src/themes/ottehr/colors';
 import {
   formatMinutes,
@@ -64,7 +65,7 @@ import ReasonsForVisit from './ReasonForVisit';
 
 interface AppointmentTableRowProps {
   appointment: InPersonAppointmentInformation;
-  location?: Location;
+  location?: LocationWithWalkinSchedule;
   actionButtons: boolean;
   showTime: boolean;
   now: DateTime;

@@ -18,10 +18,18 @@ import {
   useTheme,
 } from '@mui/material';
 import Typography from '@mui/material/Typography';
-import { Location, Patient } from 'fhir/r4b';
+import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ChangeEvent, memo, ReactElement, UIEvent, useEffect, useMemo, useState } from 'react';
-import { AppointmentMessaging, ConversationMessage, initialsFromName, markAllMessagesRead } from 'utils';
+import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
+import {
+  AppointmentMessaging,
+  ConversationMessage,
+  getTimezone,
+  initialsFromName,
+  markAllMessagesRead,
+  Timezone,
+} from 'utils';
 import { CompleteConfiguration } from '../../components/CompleteConfiguration';
 import { LANGUAGES } from '../../constants';
 import { dataTestIds } from '../../constants/data-test-ids';
@@ -77,7 +85,7 @@ const ChatModal = memo(
   }: {
     appointment: AppointmentMessaging;
     patient?: Patient;
-    currentLocation?: Location;
+    currentLocation?: LocationWithWalkinSchedule;
     onClose: () => void;
     onMarkAllRead: () => void;
     quickTexts: { [key in LANGUAGES]: string }[] | string[];
@@ -230,6 +238,13 @@ const ChatModal = memo(
       if (pendingMessageSend === undefined && isMessagesFetching) {
         return [];
       }
+      const timezoneForMessageBody: string = (() => {
+        let tz: string | undefined;
+        if (currentLocation?.walkinSchedule) {
+          tz = getTimezone(currentLocation.walkinSchedule) ?? getTimezone(currentLocation);
+        }
+        return tz ?? 'America/New_York';
+      })();
       return messages.map((message) => {
         const contentKey = message.resolvedId ?? message.id;
         const isPending = message.id === pendingMessageSend?.id || message.id === pendingMessageSend?.resolvedId;
@@ -241,10 +256,11 @@ const ChatModal = memo(
             message={message}
             hasNewMessageLine={newMessagesStartId !== undefined && message.id === newMessagesStartId}
             showDaySent={true} //keeping this config in case minds change again, YAGNI, I know
+            timezone={timezoneForMessageBody}
           />
         );
       });
-    }, [isMessagesFetching, messages, newMessagesStartId, pendingMessageSend]);
+    }, [currentLocation, isMessagesFetching, messages, newMessagesStartId, pendingMessageSend]);
 
     useEffect(() => {
       if (MessageBodies.length) {
@@ -481,13 +497,24 @@ interface MessageBodyProps {
   message: ConversationMessage;
   contentKey: string;
   showDaySent: boolean;
+  timezone: Timezone;
 }
 const MessageBody: React.FC<MessageBodyProps> = (props) => {
-  const { isPending, message, contentKey, hasNewMessageLine, showDaySent } = props;
+  const { isPending, message, contentKey, hasNewMessageLine, showDaySent, timezone } = props;
   const theme = useTheme();
-  const authorInitials = useMemo(() => {
-    return initialsFromName(message.sender);
-  }, [message.sender]);
+  const authorInitials = initialsFromName(message.sender);
+
+  const sentTimeLabel = (() => {
+    if (!message.sentTime || !message.sentDay) return '';
+    console.log('timezone', timezone);
+    console.log('message.sentDay and sentTime', `${message.sentDay} ${message.sentTime}`);
+
+    const fromZone = 'America/New_York'; // message times are always in this zone
+    const sentDate = DateTime.fromFormat(`${message.sentDay} ${message.sentTime}`, 'M/d/yy h:mm a').setZone(fromZone);
+    console.log('sentDate', sentDate.toISO());
+    const inLocalZone = sentDate.setZone(timezone);
+    return inLocalZone.toFormat('M/d/yy h:mm a ZZZZ', { locale: 'en-US' });
+  })();
 
   return (
     <Grid container item key={contentKey} spacing={3} sx={{ opacity: isPending ? '0.5' : '1.0' }}>
@@ -514,7 +541,7 @@ const MessageBody: React.FC<MessageBodyProps> = (props) => {
                 paddingTop: '40px',
               }}
             >
-              {`${message.sentDay} ${message.sentTime}`}
+              {`${sentTimeLabel}`}
             </Typography>
           </Grid>
         )}

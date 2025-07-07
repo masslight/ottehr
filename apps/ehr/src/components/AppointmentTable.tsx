@@ -13,9 +13,9 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ReactElement, useState } from 'react';
+import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import { InPersonAppointmentInformation, OrdersForTrackingBoardRow, OrdersForTrackingBoardTable } from 'utils';
 import {
   ACTION_WIDTH_MIN,
@@ -37,7 +37,7 @@ import { ApptTab } from './AppointmentTabs';
 
 interface AppointmentTableProps {
   appointments: InPersonAppointmentInformation[];
-  location: Location | undefined;
+  location: LocationWithWalkinSchedule | undefined;
   tab: ApptTab;
   now: DateTime;
   updateAppointments: () => void;
