@@ -1,1 +1,1 @@
-export * from './zapEHRApi';
+export * from './oystehrApi';
