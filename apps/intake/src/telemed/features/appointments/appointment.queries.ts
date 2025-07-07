@@ -3,12 +3,15 @@ import { useMutation, useQuery } from 'react-query';
 import { ZapEHRAPIClient } from 'ui-components';
 import {
   BookableItemListResponse,
+  CancellationReasonOptionsInPerson,
   GetBookableItemListParams,
   GetScheduleRequestParams,
   GetScheduleResponse,
   GetTelemedLocationsResponse,
   PatientInfo,
 } from 'utils';
+import { API } from '../../../api/ottehrApi';
+import { ZambdaClient } from '../../../hooks/useUCZambdaClient';
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useCreateAppointmentMutation = () =>
@@ -62,14 +65,19 @@ export const useCancelAppointmentMutation = () =>
   useMutation({
     mutationFn: ({
       apiClient,
+      zambdaClient,
       appointmentID,
       cancellationReason,
     }: {
-      apiClient: ZapEHRAPIClient;
+      apiClient: API;
+      zambdaClient: ZambdaClient | null;
       appointmentID: string;
-      cancellationReason: string;
+      cancellationReason: CancellationReasonOptionsInPerson;
     }) => {
-      return apiClient.cancelAppointment({
+      if (!zambdaClient) {
+        throw new Error('zambdaClient not defined');
+      }
+      return apiClient.cancelAppointment(zambdaClient, {
         appointmentID,
         cancellationReason,
       });
