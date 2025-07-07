@@ -665,8 +665,19 @@ async function createExternalLabsResultsFormPdfBytes(
   for (const labResult of data.externalLabResults) {
     pdfClient.newLine(14);
     pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
-    pdfClient.newLine(5);
-    pdfClient.drawText(`Code: ${labResult.resultCode} (${labResult.resultCodeDisplay})`, textStyles.text);
+
+    let codeText: string | undefined;
+    if (labResult.resultCode) {
+      codeText = `Code: ${labResult.resultCode}`;
+    }
+    if (labResult.resultCodeDisplay) {
+      codeText += ` (${labResult.resultCodeDisplay})`;
+    }
+    if (codeText) {
+      pdfClient.newLine(5);
+      pdfClient.drawText(codeText, textStyles.text);
+    }
+
     if (labResult.resultInterpretation && labResult.resultInterpretationDisplay) {
       pdfClient.newLine(STANDARD_NEW_LINE);
       const fontStyleTemp = {
@@ -678,8 +689,11 @@ async function createExternalLabsResultsFormPdfBytes(
         fontStyleTemp
       );
     }
-    pdfClient.newLine(STANDARD_NEW_LINE);
-    pdfClient.drawText(`Value: ${labResult.resultValue}`, textStyles.text);
+
+    if (labResult.resultValue) {
+      pdfClient.newLine(STANDARD_NEW_LINE);
+      pdfClient.drawText(`Value: ${labResult.resultValue}`, textStyles.text);
+    }
 
     if (labResult.referenceRangeText) {
       pdfClient.newLine(STANDARD_NEW_LINE);
@@ -703,8 +717,6 @@ async function createExternalLabsResultsFormPdfBytes(
             pdfClient.newLine(STANDARD_NEW_LINE);
           }
         });
-
-        pdfClient.newLine(STANDARD_NEW_LINE);
       });
     }
   }
