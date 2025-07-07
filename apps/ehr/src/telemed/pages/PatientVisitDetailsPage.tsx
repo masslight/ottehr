@@ -2,7 +2,7 @@ import { Box, Grid } from '@mui/material';
 import { Appointment, Location, Patient, QuestionnaireResponse } from 'fhir/r4b';
 import { FC } from 'react';
 import { useLocation } from 'react-router-dom';
-import { getInsurancePlanById, isLocationVirtual } from 'utils';
+import { getInsuranceOrgById, isLocationVirtual } from 'utils';
 import { LoadingScreen } from '../../components/LoadingScreen';
 import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';
@@ -58,11 +58,11 @@ export const PatientVisitDetails: FC = () => {
             const insuranceId = item?.answer?.[0]?.valueString;
             try {
               if (oystehr) {
-                const insurancePlan = await getInsurancePlanById(insuranceId, oystehr);
-                item.answer[0].valueString = insurancePlan.name || '-';
+                const insuranceOrg = await getInsuranceOrgById(insuranceId, oystehr);
+                item.answer[0].valueString = insuranceOrg.name || '-';
               }
             } catch (error) {
-              console.error(`Error fetching InsurancePlan with id ${insuranceId}:`, error);
+              console.error(`Error fetching Organization with id ${insuranceId}:`, error);
             }
           }
         }

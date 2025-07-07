@@ -153,6 +153,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
 
   // we hold onto this in order to use the updated resources to update the stripe customer name and email
   let accountBundle: Bundle<FhirResource> | undefined;
+
   try {
     accountBundle = (await updatePatientAccountFromQuestionnaire(
       { patientId: patientResource.id, questionnaireResponseItem: flattenedPaperwork },

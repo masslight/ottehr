@@ -1,7 +1,14 @@
 import Oystehr, { OystehrConfig } from '@oystehr/sdk';
-import { Appointment, Extension, PaymentNotice, QuestionnaireResponseItemAnswer, Resource } from 'fhir/r4b';
+import {
+  Appointment,
+  Extension,
+  Organization,
+  PaymentNotice,
+  QuestionnaireResponseItemAnswer,
+  Resource,
+} from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { OTTEHR_MODULE, PAYMENT_METHOD_EXTENSION_URL, SLUG_SYSTEM } from '../fhir';
+import { FHIR_IDENTIFIER_SYSTEM, OTTEHR_MODULE, PAYMENT_METHOD_EXTENSION_URL, SLUG_SYSTEM } from '../fhir';
 import { CashPaymentDTO, PatchPaperworkParameters, ScheduleOwnerFhirResource } from '../types';
 import { phoneRegex, zipRegex } from '../validation';
 
@@ -1118,4 +1125,12 @@ export const convertPaymentNoticeListToCashPaymentDTOs = (
 export const checkResourceHasSlug = (resource: ScheduleOwnerFhirResource, slug: string): boolean => {
   const identifiers = resource.identifier ?? [];
   return identifiers.some((id) => id.system === SLUG_SYSTEM && id.value === slug);
+};
+
+export const getPayerId = (org: Organization | undefined): string | undefined => {
+  const payerId = org?.identifier?.find(
+    (identifier) =>
+      identifier.type?.coding?.some((coding) => coding.system === FHIR_IDENTIFIER_SYSTEM && coding.code === 'XX')
+  )?.value;
+  return payerId;
 };
