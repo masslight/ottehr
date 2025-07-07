@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMedicationHistory } from 'src/features/css-module/hooks/useMedicationHistory';
+import { useApiClients } from 'src/hooks/useAppClients';
+import { ERX, ERXStatus } from 'src/telemed/features/appointment/ERX';
 import {
   ExtendedMedicationDataForResponse,
   MedicationData,
@@ -27,6 +29,12 @@ import {
   validateAllMedicationFields,
 } from './utils';
 
+enum InteractionsCheckStatus {
+  IN_PROGRESS,
+  FINISHED,
+  ERROR,
+}
+
 export const EditableMedicationCard: React.FC<{
   medication?: ExtendedMedicationDataForResponse;
   type: MedicationOrderType;
@@ -41,6 +49,9 @@ export const EditableMedicationCard: React.FC<{
   const { mappedData, resources } = useAppointment(appointmentId);
   const [isReasonSelected, setIsReasonSelected] = useState(true);
   const selectsOptions = useFieldsSelectsOptions();
+  const [erxStatus, setERXStatus] = useState(ERXStatus.LOADING);
+  const [interactionsCheckStatus, setInteractionsCheckStatus] = useState(InteractionsCheckStatus.IN_PROGRESS);
+  const { oystehr } = useApiClients();
 
   const { refetchHistory } = useMedicationHistory();
 
@@ -85,6 +96,7 @@ export const EditableMedicationCard: React.FC<{
   };
 
   const updateOrCreateOrder = async (updatedRequestInput: UpdateMedicationOrderInput): Promise<void> => {
+    await interactionsCheck(updatedRequestInput);
     // set type dynamically after user click corresponding button to use correct form config https://github.com/masslight/ottehr/issues/2799
     if (updatedRequestInput.newStatus === 'administered' || updatedRequestInput.newStatus === 'administered-partly') {
       typeRef.current = 'dispense';
@@ -244,6 +256,27 @@ export const EditableMedicationCard: React.FC<{
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const interactionsCheck = async (updatedRequestInput: UpdateMedicationOrderInput): Promise<void> => {
+    if (oystehr == null) {
+      console.error('oystehr is missing');
+      return;
+    }
+    const patientId = resources.patient?.id;
+    if (patientId == null) {
+      console.error('patientId is missing');
+      return;
+    }
+    setInteractionsCheckStatus(InteractionsCheckStatus.IN_PROGRESS);
+    await oystehr.erx.syncPatient({ patientId });
+    const interactionsCheckResult = await oystehr.erx.checkPrecheckInteractions({
+      patientId,
+      drugId: '5285',
+    });
+    if (interactionsCheckResult.allergies.length === 0 && interactionsCheckResult.medications.length === 0) {
+      await updateOrCreateOrder(updatedRequestInput);
+    }
+  };
+
   return (
     <>
       <MedicationCardView
@@ -292,6 +325,13 @@ export const EditableMedicationCard: React.FC<{
         />
       ) : null}
       <ConfirmationModalForLeavePage />
+      <ERX onStatusChanged={setERXStatus} />
+      {erxStatus === ERXStatus.LOADING || interactionsCheckStatus === InteractionsCheckStatus.IN_PROGRESS ? (
+        <>Interactions checks in progress</>
+      ) : undefined}
+      {erxStatus === ERXStatus.ERROR || interactionsCheckStatus === InteractionsCheckStatus.ERROR ? (
+        <>Drug-to-Drug and Drug-Allergy interaction check failed. Please review manually</>
+      ) : undefined}
     </>
   );
 };
