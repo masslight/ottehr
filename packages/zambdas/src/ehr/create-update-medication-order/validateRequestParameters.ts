@@ -1,4 +1,4 @@
-import { UpdateMedicationOrderInput } from 'utils';
+import { MedicationInteractions, UpdateMedicationOrderInput } from 'utils';
 import { ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(
@@ -39,6 +39,8 @@ export function validateRequestParameters(
     if (missedFields.length > 0) throw new Error(`Missing fields in orderData: ${missedFields.join(', ')}`);
   }
 
+  validateInteractions(orderData.interactions);
+
   console.groupEnd();
   console.debug('validateRequestParameters success');
 
@@ -48,4 +50,21 @@ export function validateRequestParameters(
     orderData,
     secrets: input.secrets,
   };
+}
+
+function validateInteractions(interactions?: MedicationInteractions): void {
+  const missingOverrideReason: string[] = [];
+  interactions?.drugInteractions?.forEach((interaction, index) => {
+    if (!interaction.overrideReason) {
+      missingOverrideReason.push(`interactions.drugInteractions[${index}]`);
+    }
+  });
+  interactions?.allergyInteractions?.forEach((interaction, index) => {
+    if (!interaction.overrideReason) {
+      missingOverrideReason.push(`interactions.allergyInteractions[${index}]`);
+    }
+  });
+  if (missingOverrideReason.length > 0) {
+    throw new Error(`overrideReason is missing for ${missingOverrideReason.join(', ')}`);
+  }
 }
