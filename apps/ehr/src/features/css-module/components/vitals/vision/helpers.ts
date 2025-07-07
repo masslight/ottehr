@@ -21,8 +21,8 @@ export const composeVisionVitalsHistoryEntries = (
     isVisionVitalObservation,
     (observation) => {
       return {
-        leftEyeVision: observation.leftEyeVisionValue?.toString(),
-        rightEyeVision: observation.rightEyeVisionValue?.toString(),
+        leftEyeVision: observation.leftEyeVisionText,
+        rightEyeVision: observation.rightEyeVisionText,
         extraOptions: parseVisionExtraOptions(observation.extraVisionOptions),
       };
     }
