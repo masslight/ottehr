@@ -65,7 +65,6 @@ import {
   SecretsKeys,
 } from 'utils';
 import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE } from 'utils/lib/helpers/rcm';
-import { patient } from '../../test/appointment-validation.test';
 import { getAccountAndCoverageResourcesForPatient } from '../ehr/shared/harvest';
 import { chartDataResourceHasMetaTagByCode } from './chart-data';
 import { assertDefined } from './helpers';
@@ -968,7 +967,7 @@ async function candidCreateEncounterFromAppointmentRequest(
   input: CreateEncounterInput,
   apiClient: CandidApiClient
 ): Promise<EncounterCreateFromPreEncounter> {
-  const { appointment, encounter, practitioner, diagnoses, procedures, insuranceResources } = input;
+  const { appointment, encounter, patient, practitioner, diagnoses, procedures, insuranceResources } = input;
   const practitionerNpi = assertDefined(getNpi(practitioner.identifier), 'Practitioner NPI');
   const practitionerName = assertDefined(practitioner.name?.[0], 'Practitioner name');
   const billingProviderData = insuranceResources
