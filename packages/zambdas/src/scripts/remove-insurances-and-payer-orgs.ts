@@ -2,7 +2,7 @@
 import Oystehr from '@oystehr/sdk';
 import { InsurancePlan, Organization } from 'fhir/r4b';
 import fs from 'fs';
-import { INSURANCE_PLAN_PAYER_META_TAG_CODE } from 'utils';
+import { INSURANCE_PLAN_PAYER_META_TAG_CODE, ORG_TYPE_CODE_SYSTEM, ORG_TYPE_PAYER_CODE } from 'utils';
 import { getAuth0Token } from '../shared';
 import { fhirApiUrlFromAuth0Audience } from './helpers';
 
@@ -16,7 +16,7 @@ async function getPayerOrganizations(oystehr: Oystehr): Promise<Organization[]> 
       params: [
         {
           name: 'type',
-          value: 'http://terminology.hl7.org/CodeSystem/organization-type|pay',
+          value: `${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}`,
         },
         {
           name: '_offset',

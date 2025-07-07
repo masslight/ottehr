@@ -28,6 +28,7 @@ export const dataTestIds = {
     intakeButton: `intake-button`,
     visitDetailsButton: `visit-details-button`,
     progressNoteButton: `progress-note-button`,
+    dischargeButton: 'discharge-button',
     prebookedTab: 'prebooked-tab',
     locationSelect: 'location-select',
     datePickerTodayButton: 'date-picker-today-button',
@@ -347,6 +348,7 @@ export const dataTestIds = {
   },
   progressNotePage: {
     reviewAndSignButton: 'review-and-sign-button',
+    dischargeButton: 'discharge-button',
     sendFaxButton: 'send-fax-button',
     missingCard: 'missing-card',
     missingCardText: 'missing-card-text',

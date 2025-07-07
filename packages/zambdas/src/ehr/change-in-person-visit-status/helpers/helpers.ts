@@ -115,6 +115,21 @@ const getUpdateInPersonEncounterStatusOperation = async (
 
   const encounterPatchOps: Operation[] = [{ op: 'replace', path: '/status', value: encounterStatus }];
 
+  if (updatedStatus === 'ready for discharge') {
+    const attenderIndex = encounter.participant?.findIndex(
+      (p) => p?.type?.some((t) => t?.coding?.some((coding) => coding.code === 'ATND'))
+    );
+
+    if (attenderIndex !== -1) {
+      const now = new Date().toISOString();
+      encounterPatchOps.push({
+        op: 'add',
+        path: `/participant/${attenderIndex}/period/end`,
+        value: now,
+      });
+    }
+  }
+
   const encounterStatusHistoryUpdate: Operation = getEncounterStatusHistoryUpdateOp(encounter, encounterStatus);
   encounterPatchOps.push(encounterStatusHistoryUpdate);
 

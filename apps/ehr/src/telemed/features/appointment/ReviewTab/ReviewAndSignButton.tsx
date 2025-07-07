@@ -83,8 +83,10 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     }
 
     if (css && inPersonStatus) {
-      if (!['provider', 'ready for discharge'].includes(inPersonStatus)) {
-        messages.push('The appointment must be in the status of provider or ready for discharge');
+      if (inPersonStatus === 'provider') {
+        messages.push('You must discharge the patient before signing');
+      } else if (inPersonStatus !== 'ready for discharge') {
+        messages.push('The appointment must be in the status of discharged');
       }
     } else {
       if (appointmentAccessibility.status !== TelemedAppointmentStatusEnum.unsigned) {
@@ -188,7 +190,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
           >
             {(showDialog) => (
               <RoundedButton
-                disabled={errorMessage.length > 0 || isLoading || completed}
+                disabled={errorMessage.length > 0 || isLoading || completed || inPersonStatus === 'provider'}
                 variant="contained"
                 onClick={showDialog}
                 startIcon={completed ? <CheckIcon color="inherit" /> : undefined}

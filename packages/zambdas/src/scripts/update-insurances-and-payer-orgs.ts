@@ -1,15 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import csvToJson from 'csvtojson';
-import { InsurancePlan, Organization } from 'fhir/r4b';
+import { Organization } from 'fhir/r4b';
 import * as fs from 'fs';
 import path from 'path';
-import {
-  FHIR_EXTENSION,
-  INSURANCE_PLAN_PAYER_META_TAG_CODE,
-  INSURANCE_SETTINGS_DEFAULTS,
-  INSURANCE_SETTINGS_MAP,
-  PRIVATE_EXTENSION_BASE_URL,
-} from 'utils';
+import { getPayerId, ORG_TYPE_CODE_SYSTEM, ORG_TYPE_PAYER_CODE, PRIVATE_EXTENSION_BASE_URL } from 'utils';
 import { getAuth0Token } from '../shared';
 import { fhirApiUrlFromAuth0Audience } from './helpers';
 
@@ -41,8 +35,8 @@ function getOrganizationResourceFromDataRow(
       {
         coding: [
           {
-            system: 'http://terminology.hl7.org/CodeSystem/organization-type',
-            code: 'pay',
+            system: `${ORG_TYPE_CODE_SYSTEM}`,
+            code: `${ORG_TYPE_PAYER_CODE}`,
           },
         ],
       },
@@ -122,7 +116,7 @@ async function getPayerOrganizations(oystehr: Oystehr): Promise<Organization[]> 
       params: [
         {
           name: 'type',
-          value: 'http://terminology.hl7.org/CodeSystem/organization-type|pay',
+          value: `${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}`,
         },
         {
           name: '_offset',
@@ -148,138 +142,8 @@ async function getPayerOrganizations(oystehr: Oystehr): Promise<Organization[]> 
   return result;
 }
 
-async function getInsurancePlans(oystehr: Oystehr): Promise<InsurancePlan[]> {
-  let currentIndex = 0;
-  let total = 1;
-  const result: InsurancePlan[] = [];
-  while (currentIndex < total) {
-    const bundledResponse = await oystehr.fhir.search<InsurancePlan>({
-      resourceType: 'InsurancePlan',
-      params: [
-        {
-          name: '_tag',
-          value: INSURANCE_PLAN_PAYER_META_TAG_CODE,
-        },
-        {
-          name: '_offset',
-          value: currentIndex,
-        },
-        {
-          name: '_count',
-          value: 1000,
-        },
-        {
-          name: '_total',
-          value: 'accurate',
-        },
-      ],
-    });
-    total = bundledResponse.total || 0;
-    const unbundled = bundledResponse.unbundle();
-    result.push(...unbundled);
-    currentIndex += unbundled.length;
-  }
-
-  console.log('Found', result.length, 'insurance plans');
-  return result;
-}
-
-async function createOrUpdateInsurancePlan(
-  oystehr: Oystehr,
-  data: any,
-  organizationId: string,
-  existingPlansMap: Map<string, InsurancePlan>
-): Promise<InsurancePlan> {
-  const insurancePlanName = data[PayersFileColumns.payerName];
-
-  let insurancePlan: InsurancePlan | undefined = existingPlansMap.get(insurancePlanName);
-
-  if (!insurancePlan) {
-    // Create new InsurancePlan
-    insurancePlan = await oystehr.fhir.create<InsurancePlan>({
-      resourceType: 'InsurancePlan',
-      name: insurancePlanName,
-      meta: {
-        tag: [
-          {
-            code: INSURANCE_PLAN_PAYER_META_TAG_CODE,
-          },
-        ],
-      },
-      ownedBy: {
-        reference: `Organization/${organizationId}`,
-      },
-      status: 'active',
-      extension: [
-        {
-          url: FHIR_EXTENSION.InsurancePlan.insuranceRequirements.url,
-          extension: Object.keys(INSURANCE_SETTINGS_DEFAULTS).map((key) => ({
-            url: key,
-            valueBoolean: INSURANCE_SETTINGS_DEFAULTS[key as keyof typeof INSURANCE_SETTINGS_MAP],
-          })),
-        },
-      ],
-    });
-
-    console.log(`Created InsurancePlan: ${insurancePlan.id}`);
-    return insurancePlan;
-  } else {
-    /** ---------- not updating not to override existing resource changes -------- */
-
-    // Update existing InsurancePlan
-    // insurancePlan.status = 'active';
-    // insurancePlan.ownedBy = { reference: `Organization/${organizationId}` };
-
-    // const resourceExtensions = insurancePlan?.extension || [];
-    // const requirementSettingsExistingExtensions = resourceExtensions.find(
-    //   (ext) => ext.url === FHIR_EXTENSION.InsurancePlan.insuranceRequirements.url
-    // )?.extension;
-    // const requirementSettingsNewExtensions = requirementSettingsExistingExtensions || [];
-
-    // Object.keys(INSURANCE_SETTINGS_MAP).map((setting) => {
-    //   const defaultValue = INSURANCE_SETTINGS_DEFAULTS[setting as keyof typeof INSURANCE_SETTINGS_MAP] || false;
-    //   const currentSettingExt: Extension = {
-    //     url: setting,
-    //     valueBoolean: defaultValue,
-    //   };
-
-    //   const existingExtIndex = requirementSettingsNewExtensions.findIndex((ext) => ext.url === currentSettingExt.url);
-    //   if (existingExtIndex >= 0) {
-    //     if (defaultValue === true) {
-    //       requirementSettingsNewExtensions[existingExtIndex] = currentSettingExt;
-    //     }
-    //   } else {
-    //     requirementSettingsNewExtensions.push(currentSettingExt);
-    //   }
-    // });
-
-    // if (!requirementSettingsExistingExtensions) {
-    //   resourceExtensions?.push({
-    //     url: FHIR_EXTENSION.InsurancePlan.insuranceRequirements.url,
-    //     extension: requirementSettingsNewExtensions,
-    //   });
-    // }
-    // insurancePlan.extension = resourceExtensions;
-
-    // const updated = await oystehr.fhir.update(insurancePlan);
-
-    // console.log(`Updated InsurancePlan: ${insurancePlan.id}`);
-    // return updated;
-    return insurancePlan;
-  }
-}
-async function processCsv(
-  filePath: string,
-  oystehr: Oystehr,
-  organizations: Organization[],
-  existingPlansMap: Map<string, InsurancePlan>
-): Promise<void> {
-  const organizationMap = new Map(
-    organizations.map((org) => [
-      org.identifier?.find((id) => id.type?.coding?.[0]?.system === PAYER_ID_SYSTEM)?.type?.coding?.[0]?.code,
-      org,
-    ])
-  );
+async function processCsv(filePath: string, oystehr: Oystehr, organizations: Organization[]): Promise<void> {
+  const organizationMap = new Map(organizations.map((org) => [getPayerId(org), org]));
   const csvData = await csvToJson().fromFile(filePath);
   const BATCH_SIZE = 20;
 
@@ -290,25 +154,19 @@ async function processCsv(
       try {
         const payerIdKey = data[PayersFileColumns.payerId];
 
-        let organizationId = '';
         if (organizationMap.has(payerIdKey)) {
           const existingOrganization = organizationMap.get(payerIdKey);
           if (existingOrganization) {
             /** ---------- not updating not to override existing resource changes -------- */
             // existingOrganization = await updateOrganization(oystehr, existingOrganization, data);
             organizationMap.set(payerIdKey, existingOrganization);
-            organizationId = existingOrganization.id!;
           }
         } else {
           const newOrg = await createOrganization(oystehr, data);
           if (newOrg) {
             organizationMap.set(payerIdKey, newOrg);
-            organizationId = newOrg.id!;
           }
         }
-
-        const newInsPlan = await createOrUpdateInsurancePlan(oystehr, data, organizationId, existingPlansMap);
-        existingPlansMap.set(newInsPlan.name!, newInsPlan);
       } catch (error) {
         console.error(`Error processing row: ${JSON.stringify(error)}`, data);
         throw error;
@@ -341,16 +199,8 @@ async function main(): Promise<void> {
     fhirApiUrl: fhirApiUrlFromAuth0Audience(secrets.AUTH0_AUDIENCE),
   });
 
-  const [organizations, insurancePlans] = await Promise.all([
-    getPayerOrganizations(oystehr),
-    getInsurancePlans(oystehr),
-  ]);
-
-  const existingPlansMap = new Map(
-    insurancePlans.filter((plan) => Boolean(plan.name)).map((plan) => [plan.name!, plan])
-  );
-
-  await processCsv(CSV_FILE_PATH, oystehr, organizations, existingPlansMap);
+  const organizations = await getPayerOrganizations(oystehr);
+  await processCsv(CSV_FILE_PATH, oystehr, organizations);
 }
 
 main()

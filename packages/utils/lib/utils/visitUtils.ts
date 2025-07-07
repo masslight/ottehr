@@ -39,10 +39,10 @@ export const formatMinutes = (minutes: number): string => {
 };
 
 export const getVisitStatus = (appointment: Appointment, encounter: Encounter): VisitStatusLabel => {
-  const admParticipant = encounter.participant?.find(
+  const admitterParticipant = encounter.participant?.find(
     (p) => p?.type?.find((t) => t?.coding?.find((coding) => coding.code === 'ADM'))
   );
-  const atndParticipant = encounter.participant?.find(
+  const attenderParticipant = encounter.participant?.find(
     (p) => p?.type?.find((t) => t?.coding?.find((coding) => coding.code === 'ATND'))
   );
 
@@ -53,11 +53,11 @@ export const getVisitStatus = (appointment: Appointment, encounter: Encounter): 
   } else if (appointment.status === 'checked-in') {
     return 'ready';
   } else if (encounter.status === 'in-progress') {
-    if (atndParticipant?.period?.end) {
+    if (attenderParticipant?.period?.end) {
       return 'ready for discharge';
-    } else if (atndParticipant?.period?.start) {
+    } else if (attenderParticipant?.period?.start) {
       return 'provider';
-    } else if (admParticipant?.period?.end) {
+    } else if (admitterParticipant?.period?.end) {
       return 'ready for provider';
     } else {
       return 'intake';
