@@ -49,7 +49,7 @@ import {
 import { createAdditionalQuestions } from '../../appointment/appointment-chart-data-prefilling/helpers';
 import { QRSubscriptionInput, validateRequestParameters } from './validateRequestParameters';
 
-let zapehrToken: string;
+let oystehrToken: string;
 
 export const index = wrapHandler('sub-intake-harvest', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log('Intake Harvest Hath Been Invoked');
@@ -62,14 +62,14 @@ export const index = wrapHandler('sub-intake-harvest', async (input: ZambdaInput
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    if (!zapehrToken) {
+    if (!oystehrToken) {
       console.log('getting token');
-      zapehrToken = await getAuth0Token(secrets);
+      oystehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }
 
-    const oystehr = createOystehrClient(zapehrToken, secrets);
+    const oystehr = createOystehrClient(oystehrToken, secrets);
     const response = await performEffect(validatedParameters, oystehr);
     return {
       statusCode: 200,
@@ -153,6 +153,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
 
   // we hold onto this in order to use the updated resources to update the stripe customer name and email
   let accountBundle: Bundle<FhirResource> | undefined;
+
   try {
     accountBundle = (await updatePatientAccountFromQuestionnaire(
       { patientId: patientResource.id, questionnaireResponseItem: flattenedPaperwork },
@@ -206,7 +207,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
         patientResource,
         locationResource,
         appointmentId: appointmentResource.id,
-        oystehrAccessToken: zapehrToken,
+        oystehrAccessToken: oystehrToken,
         oystehr,
         secrets,
         listResources,

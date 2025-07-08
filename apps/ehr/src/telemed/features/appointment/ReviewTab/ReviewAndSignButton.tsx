@@ -1,5 +1,6 @@
 import CheckIcon from '@mui/icons-material/Check';
 import { Box, Tooltip, Typography } from '@mui/material';
+import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useMemo, useState } from 'react';
 import { getVisitStatus, PRACTITIONER_CODINGS, TelemedAppointmentStatusEnum } from 'utils';
@@ -82,8 +83,10 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     }
 
     if (css && inPersonStatus) {
-      if (!['provider', 'ready for discharge'].includes(inPersonStatus)) {
-        messages.push('The appointment must be in the status of provider or ready for discharge');
+      if (inPersonStatus === 'provider') {
+        messages.push('You must discharge the patient before signing');
+      } else if (inPersonStatus !== 'ready for discharge') {
+        messages.push('The appointment must be in the status of discharged');
       }
     } else {
       if (appointmentAccessibility.status !== TelemedAppointmentStatusEnum.unsigned) {
@@ -136,8 +139,13 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
 
     if (css) {
       try {
+        const tz = DateTime.now().zoneName;
         await handleCompleteProvider();
-        await signAppointment({ apiClient, appointmentId: appointment.id });
+        await signAppointment({
+          apiClient,
+          appointmentId: appointment.id,
+          timezone: tz,
+        });
         await refetch();
       } catch (error: any) {
         console.log(error.message);
@@ -182,7 +190,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
           >
             {(showDialog) => (
               <RoundedButton
-                disabled={errorMessage.length > 0 || isLoading || completed}
+                disabled={errorMessage.length > 0 || isLoading || completed || inPersonStatus === 'provider'}
                 variant="contained"
                 onClick={showDialog}
                 startIcon={completed ? <CheckIcon color="inherit" /> : undefined}

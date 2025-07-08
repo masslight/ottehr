@@ -1,44 +1,22 @@
-import { ZambdaInput } from '../../shared';
-import { GetOrUploadPatientProfilePhotoZambdaInputValidated } from '.';
+import { GetOrUploadPatientProfilePhotoInputSchema, GetOrUploadPatientProfilePhotoInputValidated } from 'utils';
+import { safeValidate, ZambdaInput } from '../../shared';
 
-export function validateRequestParameters(input: ZambdaInput): GetOrUploadPatientProfilePhotoZambdaInputValidated {
+export function validateRequestParameters(input: ZambdaInput): GetOrUploadPatientProfilePhotoInputValidated {
+  console.group('validateRequestParameters');
+
   if (!input.body) {
     throw new Error('No request body provided');
   }
 
-  const { patientId, action, z3PhotoUrl } = JSON.parse(input.body);
+  const parsed = JSON.parse(input.body) as unknown;
 
-  if (!action) {
-    throw new Error('There is missing required field: "action"');
-  }
+  const validatedParameters = safeValidate(GetOrUploadPatientProfilePhotoInputSchema, parsed);
 
-  const act = (action as string) ?? '';
-  if (!['upload', 'download'].includes(act.toLowerCase())) {
-    throw new Error('The field: "action" should has one of the values: "upload" OR "download"');
-  }
-
-  const resolvedAction = act.toLowerCase() === 'upload' ? 'upload' : 'download';
-
-  if (resolvedAction === 'download') {
-    if (!z3PhotoUrl) {
-      throw new Error('"z3PhotoUrl" filed is required for the "download" action');
-    }
-  }
-
-  if (resolvedAction === 'upload') {
-    if (!patientId) {
-      throw new Error('"patientId" filed is required for the "upload" action');
-    }
-  }
-
-  if (!input.secrets) {
-    throw new Error('No secrets provided');
-  }
+  console.groupEnd();
+  console.log('validateRequestParameters success');
 
   return {
+    ...validatedParameters,
     secrets: input.secrets,
-    patientID: patientId,
-    action: resolvedAction,
-    z3PhotoUrl: z3PhotoUrl,
   };
 }

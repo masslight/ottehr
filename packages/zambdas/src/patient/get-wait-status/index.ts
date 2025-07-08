@@ -18,7 +18,7 @@ import { convertStatesAbbreviationsToLocationIds, getAllAppointmentsByLocations 
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let zapehrToken: string;
+let oystehrToken: string;
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
@@ -65,16 +65,16 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       };
     }
 
-    if (!zapehrToken) {
+    if (!oystehrToken) {
       console.log('getting m2m token for service calls');
-      zapehrToken = await getAuth0Token(secrets); // keeping token externally for reuse
+      oystehrToken = await getAuth0Token(secrets); // keeping token externally for reuse
     } else {
       console.log('already have a token, no need to update');
       // TODO: wonder if we need to check if it's expired at some point?
     }
 
     const oystehr = createOystehrClient(
-      zapehrToken,
+      oystehrToken,
       getSecret(SecretsKeys.FHIR_API, secrets),
       getSecret(SecretsKeys.PROJECT_API, secrets)
     );

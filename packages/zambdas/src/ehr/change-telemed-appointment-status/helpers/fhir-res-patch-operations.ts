@@ -1,13 +1,13 @@
 import { Operation } from 'fast-json-patch';
 import { DateTime } from 'luxon';
-import { VideoResourcesAppointmentPackage } from '../../../shared/pdf/visit-details-pdf/types';
+import { FullAppointmentResourcePackage } from '../../../shared/pdf/visit-details-pdf/types';
 
 /**
  * This functions handles empty encounter status history and always guarantees that
  * there is at least one status history record with current status
  */
 export const handleEmptyEncounterStatusHistoryOp = (
-  appointmentPackage: VideoResourcesAppointmentPackage
+  appointmentPackage: FullAppointmentResourcePackage
 ): Operation[] => {
   const patchOperations = [];
   const now = DateTime.utc().toISO()!;

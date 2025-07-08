@@ -1,8 +1,11 @@
+import { ottehrCodeSystemUrl } from '../../fhir/helpers';
+
 // todo review all this systems and codes
 export const MEDICATION_TYPE_SYSTEM = 'virtual-medication-type';
 export const INVENTORY_MEDICATION_TYPE_CODE = 'virtual-medication-inventory';
 
 export const MEDICATION_IDENTIFIER_NAME_SYSTEM = 'virtual-medication-identifier-name-system';
+
 export const MEDICATION_DISPENSABLE_DRUG_ID =
   'https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id';
 
@@ -23,3 +26,4 @@ export const TIME_OF_MEDICATION_ADMINISTERED_SYSTEM = 'medication-administered-t
 
 export const MEDICATION_APPLIANCE_LOCATION_SYSTEM = 'http://snomed.info/sct';
 export const IN_HOUSE_CONTAINED_MEDICATION_ID = 'medicationId';
+export const INTERACTION_OVERRIDE_REASON_CODE_SYSTEM = ottehrCodeSystemUrl('interaction-override-reason');

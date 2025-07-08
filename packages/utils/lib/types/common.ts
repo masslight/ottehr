@@ -1,3 +1,5 @@
+// cSpell:ignore AKTELE, CATELE, CTTELE, DETELE, FLTELE, ILTELE, MATELE, MDTELE, NCTELE, NJTELE, NYTELE, PATELE, TNTELE
+// cSpell:ignore TXTELE, VATELE, Bayside, Dedham, Morrisville, Naperville
 /// <reference lib="dom" />
 import {
   Address,

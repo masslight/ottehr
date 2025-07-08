@@ -1,25 +1,26 @@
 import { Box, Button, Paper, Typography } from '@mui/material';
-import { DateTime } from 'luxon';
 import { FC } from 'react';
+import { formatDateForLabs } from 'utils';
 
 interface PrelimCardViewProps {
   resultPdfUrl: string | null;
   receivedDate: string | null;
   reviewedDate: string | null;
   onPrelimView: () => void;
+  timezone: string | undefined;
 }
 
-export const PrelimCardView: FC<PrelimCardViewProps> = ({ resultPdfUrl, receivedDate, reviewedDate, onPrelimView }) => {
-  const formatDate = (date: string | null): string => {
-    if (!date) return '';
-    const dateTime = DateTime.fromJSDate(new Date(date));
-    return dateTime.toFormat("M/d/yyyy 'at' h:mm a");
-  };
-
+export const PrelimCardView: FC<PrelimCardViewProps> = ({
+  resultPdfUrl,
+  receivedDate,
+  reviewedDate,
+  onPrelimView,
+  timezone,
+}) => {
   const getDateEvent = (): { event: 'received' | 'reviewed'; date: string } => {
     return receivedDate
-      ? { event: 'received', date: formatDate(receivedDate) }
-      : { event: 'reviewed', date: formatDate(reviewedDate) };
+      ? { event: 'received', date: formatDateForLabs(receivedDate, timezone) }
+      : { event: 'reviewed', date: formatDateForLabs(reviewedDate, timezone) };
   };
 
   const openPdf = (): void => {

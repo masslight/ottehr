@@ -61,27 +61,41 @@ export const ChangeStatusDropdown = ({
   const { visitState: telemedData, refetch } = useAppointment(appointmentID);
   const { appointment, encounter } = telemedData;
 
-  const nonDropdownStatuses = ['checked out', 'canceled', 'no show'];
-  const hasDropdown = status ? !nonDropdownStatuses.includes(status) : false;
+  useEffect(() => {
+    if (!encounter?.id || !appointment) {
+      return;
+    }
 
-  async function updateInPersonVisitStatus(event: SelectChangeEvent<VisitStatusLabel | unknown>): Promise<void> {
+    const encounterStatus = getVisitStatus(appointment, encounter);
+
+    if (encounterStatus === 'unknown') {
+      console.warn('Encounter status is unknown, so not setting a status');
+      return;
+    }
+
+    setStatus(encounterStatus);
+    onStatusChange(encounterStatus);
+  }, [appointment, encounter, onStatusChange]);
+
+  if (!user || !encounter?.id || statusLoading || !status) {
+    return (
+      <Grid item>
+        <Skeleton aria-busy="true" sx={{ marginTop: -1 }} width={120} height={52} />
+      </Grid>
+    );
+  }
+
+  const encounterId: string = encounter.id;
+
+  const nonDropdownStatuses = ['checked out', 'canceled', 'no show'];
+  const hasDropdown = !nonDropdownStatuses.includes(status);
+
+  const updateInPersonVisitStatus = async (event: SelectChangeEvent<VisitStatusLabel | unknown>): Promise<void> => {
     setStatusLoading(true);
     try {
-      if (!user) {
-        throw new Error('User is required to change the visit status');
-      }
-
-      if (!encounter || !encounter.id) {
-        throw new Error('Encounter ID is required to change the visit status');
-      }
-
-      if (!oystehrZambda) {
-        throw new Error('Oystehr Zambda client is not available when changing the visit status');
-      }
-
       await handleChangeInPersonVisitStatus(
         {
-          encounterId: encounter.id,
+          encounterId,
           user,
           updatedStatus: event.target.value as VisitStatusWithoutUnknown,
         },
@@ -91,99 +105,80 @@ export const ChangeStatusDropdown = ({
     } catch (error) {
       console.error(error);
       enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
+    } finally {
+      setStatusLoading(false);
     }
-    setStatusLoading(false);
-  }
-
-  useEffect(() => {
-    if (appointment && encounter) {
-      const encounterStatus = getVisitStatus(appointment, encounter);
-
-      if (encounterStatus === 'unknown') {
-        console.warn('Encounter status is unknown, so not setting a status');
-        return;
-      }
-
-      setStatus(encounterStatus);
-      onStatusChange(encounterStatus);
-    } else {
-      setStatus(undefined);
-    }
-  }, [appointment, encounter, onStatusChange]);
+  };
 
   return (
     <Grid item>
-      {statusLoading || !status ? (
-        <Skeleton aria-busy="true" sx={{ marginTop: -1 }} width={120} height={52} />
-      ) : (
-        <div id="user-set-appointment-status">
-          <FormControl size="small">
-            <StyledSelect
-              data-testid={dataTestIds.cssHeader.appointmentStatus}
-              id="appointment-status"
-              value={status}
-              {...(hasDropdown ? { hasDropdown: 'true' } : {})}
-              arrowColor={CHIP_STATUS_MAP[status].color.primary}
-              onChange={(event: SelectChangeEvent<VisitStatusLabel | unknown>) => updateInPersonVisitStatus(event)}
-              sx={{
-                border: `1px solid ${CHIP_STATUS_MAP[status].color.primary}`,
-                borderRadius: ' 7px',
+      <div id="user-set-appointment-status">
+        <FormControl size="small">
+          <StyledSelect
+            data-testid={dataTestIds.cssHeader.appointmentStatus}
+            id="appointment-status"
+            value={status}
+            {...(hasDropdown ? { hasDropdown: 'true' } : {})}
+            arrowColor={CHIP_STATUS_MAP[status].color.primary}
+            onChange={updateInPersonVisitStatus}
+            sx={{
+              border: `1px solid ${CHIP_STATUS_MAP[status].color.primary}`,
+              borderRadius: '7px',
+              backgroundColor: CHIP_STATUS_MAP[status].background.primary,
+              color: CHIP_STATUS_MAP[status].color.primary,
+              '&:hover': {
                 backgroundColor: CHIP_STATUS_MAP[status].background.primary,
-                color: CHIP_STATUS_MAP[status].color.primary,
-                '&:hover': {
-                  backgroundColor: CHIP_STATUS_MAP[status].background.primary,
-                  filter: 'brightness(0.95)',
-                },
-              }}
-              MenuProps={{
-                PaperProps: {
-                  sx: {
-                    maxHeight: 300,
-                    '& .MuiMenuItem-root': {
-                      padding: '6px 16px',
-                    },
+                filter: 'brightness(0.95)',
+              },
+            }}
+            MenuProps={{
+              PaperProps: {
+                sx: {
+                  maxHeight: 300,
+                  '& .MuiMenuItem-root': {
+                    padding: '6px 16px',
                   },
                 },
-              }}
-            >
-              {Visit_Status_Array.filter((statusTemp) => {
-                const allHiddenStatuses: Partial<VisitStatusLabel>[] = [
-                  'no show',
-                  'unknown',
-                  ...(['cancelled', 'intake', 'ready for provider', 'provider', 'ready for discharge'].filter(
-                    (s) => s !== status
-                  ) as Partial<VisitStatusLabel>[]),
-                ];
-                return !allHiddenStatuses.includes(statusTemp);
-              }).map((statusTemp) => (
-                <MenuItem
-                  key={statusTemp}
-                  value={statusTemp}
-                  sx={{
+              },
+            }}
+          >
+            {Visit_Status_Array.filter((statusTemp) => {
+              const allHiddenStatuses: Partial<VisitStatusLabel>[] = [
+                'no show',
+                'unknown',
+                ...(['cancelled', 'intake', 'ready for provider', 'provider', 'ready for discharge'].filter(
+                  (s) => s !== status
+                ) as Partial<VisitStatusLabel>[]),
+              ];
+              return !allHiddenStatuses.includes(statusTemp);
+            }).map((statusTemp) => (
+              <MenuItem
+                key={statusTemp}
+                value={statusTemp}
+                sx={{
+                  backgroundColor: CHIP_STATUS_MAP[statusTemp].background.primary,
+                  color: CHIP_STATUS_MAP[statusTemp].color.primary,
+                  '&:hover': {
+                    backgroundColor: CHIP_STATUS_MAP[statusTemp].background.primary,
+                    filter: 'brightness(0.95)',
+                  },
+                  '&.Mui-selected': {
                     backgroundColor: CHIP_STATUS_MAP[statusTemp].background.primary,
                     color: CHIP_STATUS_MAP[statusTemp].color.primary,
                     '&:hover': {
                       backgroundColor: CHIP_STATUS_MAP[statusTemp].background.primary,
                       filter: 'brightness(0.95)',
                     },
-                    '&.Mui-selected': {
-                      backgroundColor: CHIP_STATUS_MAP[statusTemp].background.primary,
-                      color: CHIP_STATUS_MAP[statusTemp].color.primary,
-                      '&:hover': {
-                        backgroundColor: CHIP_STATUS_MAP[statusTemp].background.primary,
-                        filter: 'brightness(0.95)',
-                      },
-                    },
-                  }}
-                >
-                  {statusTemp}
-                </MenuItem>
-              ))}
-            </StyledSelect>
-          </FormControl>
-          {statusLoading && <CircularProgress size="20px" sx={{ marginTop: 2.8, marginLeft: 1 }} />}
-        </div>
-      )}
+                  },
+                }}
+              >
+                {statusTemp}
+              </MenuItem>
+            ))}
+          </StyledSelect>
+        </FormControl>
+        {statusLoading && <CircularProgress size="20px" sx={{ marginTop: 2.8, marginLeft: 1 }} />}
+      </div>
     </Grid>
   );
 };

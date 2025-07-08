@@ -7,6 +7,7 @@ import {
   debounce,
   Divider,
   FormControlLabel,
+  Stack,
   Switch,
   TextField,
   Typography,
@@ -15,6 +16,7 @@ import { ErxSearchAllergensResponse } from '@oystehr/sdk';
 import { enqueueSnackbar } from 'notistack';
 import React, { FC, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
+import { RoundedButton } from 'src/components/RoundedButton';
 import { AllergyDTO } from 'utils';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { useFeatureFlags } from '../../../../../features/css-module/context/featureFlags';
@@ -229,20 +231,26 @@ const AddAllergyField: FC = () => {
   const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);
   const { mutate: updateChartData, isLoading: isUpdateLoading } = useSaveChartData();
 
-  const methods = useForm<{ value: ExtractObjectType<ErxSearchAllergensResponse> | null }>({
-    defaultValues: { value: null },
+  const methods = useForm<{ value: ExtractObjectType<ErxSearchAllergensResponse> | null; otherAllergyName: string }>({
+    defaultValues: { value: null, otherAllergyName: '' },
   });
-  const { control, reset } = methods;
+  const { control, reset, handleSubmit } = methods;
 
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const [isOtherOptionSelected, setIsOtherOptionSelected] = useState(false);
 
   const { isFetching: isSearching, data } = useGetAllergiesSearch(debouncedSearchTerm);
-  const allergiesSearchOptions = data || [];
+  const allergiesSearchOptions = useMemo(
+    () =>
+      data && !isSearching
+        ? [...(data || []), { name: 'Other' } as unknown as ExtractObjectType<ErxSearchAllergensResponse>]
+        : [],
+    [data, isSearching]
+  );
 
   const debouncedHandleInputChange = useMemo(
     () =>
       debounce((data) => {
-        console.log(data);
         if (data.length > 2) {
           setDebouncedSearchTerm(data);
         }
@@ -263,7 +271,8 @@ const AddAllergyField: FC = () => {
           allergies: [...(prevState.chartData?.allergies || []), newValue],
         },
       }));
-      reset({ value: null });
+      reset({ value: null, otherAllergyName: '' });
+      setIsOtherOptionSelected(false);
 
       updateChartData(
         { allergies: [newValue] },
@@ -297,60 +306,100 @@ const AddAllergyField: FC = () => {
     }
   };
 
+  const onSubmit = (data: {
+    value: ExtractObjectType<ErxSearchAllergensResponse> | null;
+    otherAllergyName: string;
+  }): void => {
+    if (data.value) {
+      handleSelectOption({
+        ...data.value,
+        name: 'Other' + (data.otherAllergyName ? ` (${data.otherAllergyName})` : ''),
+      });
+    }
+  };
+
   return (
-    <Card
-      elevation={0}
-      sx={{
-        p: 3,
-        backgroundColor: otherColors.formCardBg,
-        borderRadius: 2,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 2,
-      }}
-    >
-      <Controller
-        name="value"
-        control={control}
-        rules={{ required: true }}
-        render={({ field: { value, onChange } }) => (
-          <Autocomplete
-            value={value || null}
-            onChange={(_e, data) => {
-              onChange((data || '') as any);
-              handleSelectOption(data);
-            }}
-            getOptionLabel={(option) => (typeof option === 'string' ? option : option.name || '')}
-            fullWidth
-            size="small"
-            loading={isSearching}
-            disablePortal
-            blurOnSelect
-            disabled={isChartDataLoading || isUpdateLoading}
-            options={allergiesSearchOptions}
-            noOptionsText={
-              debouncedSearchTerm && debouncedSearchTerm.length > 2 && allergiesSearchOptions.length === 0
-                ? 'Nothing found for this search criteria'
-                : 'Start typing to load results'
-            }
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                onChange={(e) => debouncedHandleInputChange(e.target.value)}
-                data-testid={dataTestIds.telemedEhrFlow.hpiKnownAllergiesInput}
-                label="Agent/Substance"
-                placeholder="Search"
-                InputLabelProps={{ shrink: true }}
-                sx={{
-                  '& .MuiInputLabel-root': {
-                    fontWeight: 'bold',
-                  },
-                }}
-              />
-            )}
-          />
+    <form onSubmit={handleSubmit(onSubmit)}>
+      <Card
+        elevation={0}
+        sx={{
+          p: 3,
+          backgroundColor: otherColors.formCardBg,
+          borderRadius: 2,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+        }}
+      >
+        <Controller
+          name="value"
+          control={control}
+          rules={{ required: true }}
+          render={({ field: { value, onChange } }) => (
+            <Autocomplete
+              value={value || null}
+              onChange={(_e, data) => {
+                onChange((data || '') as any);
+                if (data?.name === 'Other') {
+                  setIsOtherOptionSelected(true);
+                } else {
+                  setIsOtherOptionSelected(false);
+                  handleSelectOption(data);
+                }
+              }}
+              getOptionLabel={(option) => (typeof option === 'string' ? option : option.name || '')}
+              fullWidth
+              size="small"
+              loading={isSearching}
+              filterOptions={(options) => options}
+              isOptionEqualToValue={(option, value) => option.name === value.name}
+              disablePortal
+              blurOnSelect
+              disabled={isChartDataLoading || isUpdateLoading}
+              options={allergiesSearchOptions}
+              noOptionsText={
+                debouncedSearchTerm && debouncedSearchTerm.length > 2 && allergiesSearchOptions.length === 0
+                  ? 'Nothing found for this search criteria'
+                  : 'Start typing to load results'
+              }
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  onChange={(e) => debouncedHandleInputChange(e.target.value)}
+                  data-testid={dataTestIds.telemedEhrFlow.hpiKnownAllergiesInput}
+                  label="Agent/Substance"
+                  placeholder="Search"
+                  InputLabelProps={{ shrink: true }}
+                  sx={{
+                    '& .MuiInputLabel-root': {
+                      fontWeight: 'bold',
+                    },
+                  }}
+                />
+              )}
+            />
+          )}
+        />
+        {isOtherOptionSelected && (
+          <Stack direction="row" spacing={2} alignItems="center">
+            <Controller
+              name="otherAllergyName"
+              control={control}
+              render={({ field: { value, onChange } }) => (
+                <TextField
+                  value={value || ''}
+                  onChange={(e) => onChange(e.target.value)}
+                  label="Other allergy"
+                  placeholder="Please specify"
+                  fullWidth
+                  size="small"
+                />
+              )}
+            />
+            <RoundedButton type="submit">Add</RoundedButton>
+          </Stack>
         )}
-      />
-    </Card>
+      </Card>
+    </form>
   );
 };

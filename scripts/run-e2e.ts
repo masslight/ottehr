@@ -1,4 +1,4 @@
-import { spawn, execSync } from 'child_process';
+import { execSync, spawn } from 'child_process';
 import { DateTime } from 'luxon';
 import path from 'path';
 
@@ -57,8 +57,8 @@ const clearPorts = (): void => {
   for (const port of [ports.intake, ports.ehr, ports.backend]) {
     try {
       const output = execSync(`lsof -i :${port} | grep "^node" | awk '{print $2}'`).toString().trim();
-      const pids = [...new Set(output.split('\n'))];
-      pids.forEach((pid) => process.kill(parseInt(pid, 10), 'SIGTERM'));
+      const processIds = [...new Set(output.split('\n'))];
+      processIds.forEach((pid) => process.kill(parseInt(pid, 10), 'SIGTERM'));
     } catch (error) {
       console.log(`No node process found on port ${port}`);
     }

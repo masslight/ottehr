@@ -60,8 +60,8 @@ import {
   isVitalObservation,
   makeVitalsObservationDTO,
   MedicalConditionDTO,
+  MEDICATION_DISPENSABLE_DRUG_ID,
   MedicationDTO,
-  MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM,
   NoteDTO,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   NOTHING_TO_EAT_OR_DRINK_ID,
@@ -174,15 +174,17 @@ export function makeAllergyResource(
             ],
           }
         : undefined,
-    code: {
-      coding: [
-        {
-          system: 'https://terminology.fhir.oystehr.com/CodeSystem/medispan-allergen-id',
-          code: data.id,
-          display: data.name,
-        },
-      ],
-    },
+    code: data.id
+      ? {
+          coding: [
+            {
+              system: 'https://terminology.fhir.oystehr.com/CodeSystem/medispan-allergen-id',
+              code: data.id,
+              display: data.name,
+            },
+          ],
+        }
+      : undefined,
   };
 }
 
@@ -222,7 +224,7 @@ export function makeMedicationResource(
     medicationCodeableConcept: {
       coding: [
         {
-          system: MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM,
+          system: MEDICATION_DISPENSABLE_DRUG_ID,
           code: data.id,
           display: data.name,
         },
@@ -252,7 +254,7 @@ export function makePrescribedMedicationDTO(medRequest: MedicationRequest): Pres
   return {
     resourceId: medRequest.id,
     name: medRequest.medicationCodeableConcept?.coding?.find(
-      (coding) => coding.system === MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM
+      (coding) => coding.system === MEDICATION_DISPENSABLE_DRUG_ID
     )?.display,
     instructions: medRequest.dosageInstruction?.[0]?.patientInstruction,
     added: medRequest.extension?.find((extension) => extension.url === 'http://api.zapehr.com/photon-event-time')
@@ -380,7 +382,6 @@ export function makeHospitalizationResource(
   const result: EpisodeOfCare = {
     id: data.resourceId,
     resourceType: 'EpisodeOfCare',
-    identifier: [{ value: data.code }],
     status: 'finished',
     patient: { reference: `Patient/${patientId}` },
     type: [createCodingCode(data.code, data.display)],
@@ -397,8 +398,6 @@ export function makeHospitalizationDTO(resource: EpisodeOfCare): Hospitalization
         resourceId: resource.id,
         code: coding[0].coding?.[0]?.code,
         display: coding[0].coding?.[0]?.display,
-        snomedDescription: `${coding[0].coding?.[0]?.code} | ${coding[0].coding?.[0]?.display}`,
-        snomedRegionDescription: '',
       };
     }
   }
@@ -1057,6 +1056,12 @@ const mapResourceToChartDataFields = (
     chartDataResourceHasMetaTagByCode(resource, 'current-medication')
   ) {
     data.medications?.push(makeMedicationDTO(resource));
+    resourceMapped = true;
+  } else if (
+    resource?.resourceType === 'MedicationStatement' &&
+    chartDataResourceHasMetaTagByCode(resource, 'in-house-medication')
+  ) {
+    data.inhouseMedications?.push(makeMedicationDTO(resource));
     resourceMapped = true;
   } else if (resource?.resourceType === 'MedicationRequest') {
     data.prescribedMedications?.push(makePrescribedMedicationDTO(resource));

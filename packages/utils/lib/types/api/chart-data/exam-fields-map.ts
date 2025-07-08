@@ -1,3 +1,4 @@
+// cSpell:ignore abletobearweight, decreasedrom, lowerleg, upperarm
 import { CodeableConcept } from 'fhir/r4b';
 import {
   ExamCardsNames,
@@ -357,6 +358,7 @@ export const examFieldsMap: { [field in ExamFieldsNames]: SNOMEDCodeConceptInter
     code: createCodingCode('247441003', 'Erythema (finding)'),
     bodySite: createCodingCode('54066008', 'Pharyngeal structure (body structure)'),
   },
+  // cSpell:disable-next and/or
   'white-patches-on-tongue-andor-buccal-mucosa-that-do-not-wipe-off': {
     code: createCodingCode('698193000', 'Coating of mucous membrane of tongue (finding)'),
     bodySite: createCodingCode('21974007', 'Tongue structure (body structure)'),

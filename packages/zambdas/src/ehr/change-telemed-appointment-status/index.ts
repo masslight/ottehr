@@ -19,7 +19,7 @@ import {
 } from '../../shared';
 import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createCandidEncounter } from '../../shared/candid';
 import { createOystehrClient } from '../../shared/helpers';
-import { getVideoResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
+import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
 import { makeVisitNotePdfDocumentReference } from '../../shared/pdf/visit-details-pdf/make-visit-note-pdf-document-reference';
 import { composeAndCreateVisitNotePdf } from '../../shared/pdf/visit-details-pdf/visit-note-pdf-creation';
 import { getMyPractitionerId } from '../../shared/practitioners';
@@ -66,7 +66,7 @@ export const performEffect = async (
 ): Promise<ChangeTelemedAppointmentStatusResponse> => {
   const { appointmentId, newStatus, secrets } = params;
 
-  const visitResources = await getVideoResources(oystehr, appointmentId);
+  const visitResources = await getAppointmentAndRelatedResources(oystehr, appointmentId);
   if (!visitResources) {
     {
       throw new Error(`Visit resources are not properly defined for appointment ${appointmentId}`);

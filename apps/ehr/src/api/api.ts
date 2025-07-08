@@ -34,6 +34,7 @@ import {
   DeleteInHouseLabOrderZambdaOutput,
   DeleteLabOrderZambdaInput,
   DeleteLabOrderZambdaOutput,
+  DownloadPatientProfilePhotoInput,
   GetAppointmentsZambdaInput,
   GetAppointmentsZambdaOutput,
   GetConversationInput,
@@ -45,7 +46,6 @@ import {
   GetLabelPdfParameters,
   GetLabOrdersParameters,
   GetNursingOrdersInput,
-  GetOrUploadPatientProfilePhotoZambdaInput,
   GetOrUploadPatientProfilePhotoZambdaResponse,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOutput,
@@ -77,6 +77,7 @@ import {
   UpdateScheduleParams,
   UpdateUserParams,
   UpdateUserZambdaOutput,
+  UploadPatientProfilePhotoInput,
 } from 'utils';
 
 export interface PatchOperation {
@@ -258,7 +259,7 @@ export const cancelTelemedAppointment = async (
       throw new Error('cancel appointment environment variable could not be loaded');
     }
 
-    const response = await oystehr.zambda.executePublic({
+    const response = await oystehr.zambda.execute({
       id: CANCEL_TELEMED_APPOINTMENT_ZAMBDA_ID,
       ...parameters,
     });
@@ -555,10 +556,7 @@ export const createSchedule = async (params: CreateScheduleParams, oystehr: Oyst
   }
 };
 
-export type UploadPatientProfilePhotoParameters = Omit<
-  GetOrUploadPatientProfilePhotoZambdaInput,
-  'z3PhotoUrl' | 'action'
-> & {
+export type UploadPatientProfilePhotoParameters = Omit<UploadPatientProfilePhotoInput, 'action'> & {
   patientPhotoFile: File;
 };
 
@@ -571,22 +569,23 @@ export const uploadPatientProfilePhoto = async (
       throw new Error('Could not find environment variable GET_PATIENT_PROFILE_PHOTO_URL_ZAMBDA_ID');
     }
 
+    const { patientPhotoFile, ...zambdaInput } = parameters;
+
     const urlSigningResponse = await oystehr.zambda.execute({
       id: GET_PATIENT_PROFILE_PHOTO_URL_ZAMBDA_ID,
-      ...parameters,
+      ...zambdaInput,
       action: 'upload',
     });
 
     const { presignedImageUrl } = chooseJson(urlSigningResponse);
 
-    const photoFile = parameters.patientPhotoFile;
     // Upload the file to S3
     const uploadResponse = await fetch(presignedImageUrl, {
       method: 'PUT',
       headers: {
-        'Content-Type': photoFile.type,
+        'Content-Type': patientPhotoFile.type,
       },
-      body: photoFile,
+      body: patientPhotoFile,
     });
 
     if (!uploadResponse.ok) {
@@ -600,7 +599,7 @@ export const uploadPatientProfilePhoto = async (
   }
 };
 
-export type GetPatientProfilePhotoParameters = Omit<GetOrUploadPatientProfilePhotoZambdaInput, 'patientID' | 'action'>;
+export type GetPatientProfilePhotoParameters = Omit<DownloadPatientProfilePhotoInput, 'action'>;
 
 export const getSignedPatientProfilePhotoUrl = async (
   oystehr: Oystehr,
@@ -733,7 +732,7 @@ export const cancelRadiologyOrder = async (
       id: 'radiology-cancel-order',
       ...parameters,
     });
-    return chooseJson(response);
+    return response ? chooseJson(response) : {};
   } catch (error: unknown) {
     console.log(error);
     throw error;
@@ -761,7 +760,7 @@ export const getRadiologyOrders = async (
   parameters: GetRadiologyOrderListZambdaInput
 ): Promise<GetRadiologyOrderListZambdaOutput> => {
   try {
-    const searchBy = parameters.encounterId || parameters.patientId || parameters.serviceRequestId;
+    const searchBy = parameters.encounterIds || parameters.patientId || parameters.serviceRequestId;
     if (!searchBy) {
       throw new Error(
         `Missing one of the required parameters (serviceRequestId | encounterId | patientId): ${JSON.stringify(

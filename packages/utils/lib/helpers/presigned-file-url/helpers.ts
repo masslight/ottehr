@@ -1,12 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { DiagnosticReport, DocumentReference } from 'fhir/r4b';
 
-export async function getPresignedURL(url: string, zapehrToken: string): Promise<string> {
+export async function getPresignedURL(url: string, oystehrToken: string): Promise<string> {
   console.log('getting presigned url');
   const presignedURLRequest = await fetch(url, {
     method: 'POST',
     headers: {
-      authorization: `Bearer ${zapehrToken}`,
+      authorization: `Bearer ${oystehrToken}`,
     },
     body: JSON.stringify({ action: 'download' }),
   });

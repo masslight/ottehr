@@ -1,3 +1,5 @@
+import { Reference } from 'fhir/r4b';
+
 export const eligibilityRequirementKeys = [
   'requiresSubscriberId',
   'requiresSubscriberName',
@@ -19,6 +21,8 @@ export type InsurancePlanRequirementKeyBooleans = {
 export interface InsurancePlanDTO extends InsurancePlanRequirementKeyBooleans {
   id: string;
   name: string;
+  payerId: string;
+  ownedBy?: Reference;
 }
 
 export interface GetInsurancesResponse {

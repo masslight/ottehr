@@ -29,6 +29,7 @@ import {
   isApiError,
   LAB_ORDER_TASK,
   OrderableItemSearchResult,
+  OrderableItemSpecimen,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   PRACTITIONER_CODINGS,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
@@ -94,7 +95,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
     const activityDefinitionToContain = formatActivityDefinitionToContain(orderableItem);
     const serviceRequestContained: FhirResource[] = [];
 
-    const createSpecimenResources = !psc && orderableItem.item.specimens.length > 0;
+    const createSpecimenResources = !psc;
     console.log('createSpecimenResources', createSpecimenResources, psc, orderableItem.item.specimens.length);
     const specimenFullUrlArr: string[] = [];
     if (createSpecimenResources) {
@@ -372,74 +373,29 @@ const formatSpecimenResources = (
   const specimenDefinitionConfigs: SpecimenDefinition[] = [];
   const specimenConfigs: Specimen[] = [];
 
-  orderableItem.item.specimens.forEach((specimen, idx) => {
-    // labs sometimes set container, volume, minimumVolume, storageRequirements, or collectionInstructions to null, so need to coalesce to undefined
-    const collectionInstructionsCoding = {
-      coding: [
-        {
-          system: SPECIMEN_CODING_CONFIG.collection.system,
-          code: SPECIMEN_CODING_CONFIG.collection.code.collectionInstructions,
-        },
-      ],
-      text: specimen.collectionInstructions ?? undefined,
-    };
-    const specimenDefinitionId = `specimenDefinitionId${idx}`;
-    const specimenDefinitionConfig: SpecimenDefinition = {
-      resourceType: 'SpecimenDefinition',
-      id: specimenDefinitionId,
-      collection: [
-        collectionInstructionsCoding,
-        {
-          coding: [
-            {
-              system: SPECIMEN_CODING_CONFIG.collection.system,
-              code: SPECIMEN_CODING_CONFIG.collection.code.specimenVolume,
-            },
-          ],
-          text: specimen.volume ?? undefined,
-        },
-      ],
-      typeTested: [
-        {
-          preference: 'preferred',
-          container:
-            !!specimen.container || !!specimen.minimumVolume
-              ? {
-                  description: specimen.container ?? undefined,
-                  minimumVolumeString: specimen.minimumVolume ?? undefined,
-                }
-              : undefined,
-          handling: specimen.storageRequirements
-            ? [
-                {
-                  instruction: specimen.storageRequirements,
-                },
-              ]
-            : undefined,
-        },
-      ],
-    };
-
+  // facilitates always showing specimen entry on submit page
+  // https://github.com/masslight/ottehr/issues/2934
+  if (orderableItem.item.specimens.length === 0) {
+    const { specimenDefinitionConfig, specimenConfig } = getSpecimenAndSpecimenDefConfig(
+      serviceRequestFullUrl,
+      patientID,
+      0,
+      undefined
+    );
     specimenDefinitionConfigs.push(specimenDefinitionConfig);
-    const specimenConfig: Specimen = {
-      resourceType: 'Specimen',
-      request: [{ reference: serviceRequestFullUrl }],
-      collection: {
-        method: collectionInstructionsCoding,
-      },
-      extension: [
-        {
-          url: RELATED_SPECIMEN_DEFINITION_SYSTEM,
-          valueString: specimenDefinitionId,
-        },
-      ],
-      subject: {
-        type: 'Patient',
-        reference: `Patient/${patientID}`,
-      },
-    };
     specimenConfigs.push(specimenConfig);
-  });
+  } else {
+    orderableItem.item.specimens.forEach((specimen, idx) => {
+      const { specimenDefinitionConfig, specimenConfig } = getSpecimenAndSpecimenDefConfig(
+        serviceRequestFullUrl,
+        patientID,
+        idx,
+        specimen
+      );
+      specimenDefinitionConfigs.push(specimenDefinitionConfig);
+      specimenConfigs.push(specimenConfig);
+    });
+  }
 
   return { specimenDefinitionConfigs, specimenConfigs };
 };
@@ -545,4 +501,80 @@ const getAdditionalResources = async (
     coverage: patientPrimaryInsurance,
     location,
   };
+};
+
+const getSpecimenAndSpecimenDefConfig = (
+  serviceRequestFullUrl: string,
+  patientID: string,
+  idx: number,
+  specimen: OrderableItemSpecimen | undefined
+): {
+  specimenDefinitionConfig: SpecimenDefinition;
+  specimenConfig: Specimen;
+} => {
+  // labs sometimes set container, volume, minimumVolume, storageRequirements, or collectionInstructions to null, so need to coalesce to undefined
+  const collectionInstructionsCoding = {
+    coding: [
+      {
+        system: SPECIMEN_CODING_CONFIG.collection.system,
+        code: SPECIMEN_CODING_CONFIG.collection.code.collectionInstructions,
+      },
+    ],
+    text: specimen?.collectionInstructions ?? undefined,
+  };
+  const specimenDefinitionId = `specimenDefinitionId${idx}`;
+  const specimenDefinitionConfig: SpecimenDefinition = {
+    resourceType: 'SpecimenDefinition',
+    id: specimenDefinitionId,
+    collection: [
+      collectionInstructionsCoding,
+      {
+        coding: [
+          {
+            system: SPECIMEN_CODING_CONFIG.collection.system,
+            code: SPECIMEN_CODING_CONFIG.collection.code.specimenVolume,
+          },
+        ],
+        text: specimen?.volume ?? undefined,
+      },
+    ],
+    typeTested: [
+      {
+        preference: 'preferred',
+        container:
+          !!specimen?.container || !!specimen?.minimumVolume
+            ? {
+                description: specimen.container ?? undefined,
+                minimumVolumeString: specimen.minimumVolume ?? undefined,
+              }
+            : undefined,
+        handling: specimen?.storageRequirements
+          ? [
+              {
+                instruction: specimen.storageRequirements,
+              },
+            ]
+          : undefined,
+      },
+    ],
+  };
+
+  const specimenConfig: Specimen = {
+    resourceType: 'Specimen',
+    request: [{ reference: serviceRequestFullUrl }],
+    collection: {
+      method: collectionInstructionsCoding,
+    },
+    extension: [
+      {
+        url: RELATED_SPECIMEN_DEFINITION_SYSTEM,
+        valueString: specimenDefinitionId,
+      },
+    ],
+    subject: {
+      type: 'Patient',
+      reference: `Patient/${patientID}`,
+    },
+  };
+  return { specimenDefinitionConfig, specimenConfig };
 };

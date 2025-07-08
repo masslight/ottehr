@@ -35,8 +35,8 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
   const [sourceType, setSourceType] = useState('');
   const [collectedById, setCollectedById] = useState('');
 
-  const initialDateTime = DateTime.now();
-  const [date, setDate] = useState(initialDateTime);
+  const initialDateTime = DateTime.now().setZone(testDetails.timezone);
+  const [date, setDate] = useState<DateTime>(initialDateTime);
   const timeValue = date.toFormat('HH:mm');
 
   const [showDetails, setShowDetails] = useState(false);
@@ -70,11 +70,16 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
   };
 
   const handleMarkAsCollected = (): void => {
+    const isoDate = date.toISO();
+    if (!isoDate) {
+      setError('Issue parsing date');
+      return;
+    }
     onSubmit({
       specimen: {
         source: sourceType,
         collectedBy: { id: collectedById, name: providers.find((p) => p.id === collectedById)?.name || '' },
-        collectionDate: date.toISO(),
+        collectionDate: isoDate,
       },
     });
   };

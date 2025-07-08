@@ -1,3 +1,4 @@
+// cSpell:ignore abletobearweight, decreasedrom, lowerleg, upperarm
 import {
   ExamCardsNames,
   ExamFieldsNames,
@@ -501,7 +502,9 @@ export const ExamObservationFieldsDetails: {
     card: 'mouth',
     label: 'Erythema of pharynx',
   },
+  // cSpell:disable-next and/or
   'white-patches-on-tongue-andor-buccal-mucosa-that-do-not-wipe-off': {
+    // cSpell:disable-next and/or
     field: 'white-patches-on-tongue-andor-buccal-mucosa-that-do-not-wipe-off',
     defaultValue: false,
     abnormal: true,

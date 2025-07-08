@@ -15,7 +15,7 @@ import {
   ExamObservationDTO,
   ExamObservationFieldItem,
   examObservationFieldsDetailsArray,
-  formatDateTimeToEDT,
+  formatDateTimeToZone,
   GetChartDataResponse,
   getDefaultNote,
   getProviderNameWithProfession,
@@ -43,17 +43,18 @@ import {
   recentVisitLabels,
   Secrets,
   SEEN_IN_LAST_THREE_YEARS_FIELD,
+  Timezone,
 } from 'utils';
 import { PdfInfo } from '../pdf-utils';
 import { InPersonExamBlockData, TelemedExamBlockData, VisitNoteData } from '../types';
 import { createVisitNotePDF } from '../visit-note-pdf';
-import { VideoResourcesAppointmentPackage } from './types';
+import { FullAppointmentResourcePackage } from './types';
 
 type AllChartData = { chartData: GetChartDataResponse; additionalChartData?: GetChartDataResponse };
 
 export async function composeAndCreateVisitNotePdf(
   allChartData: AllChartData,
-  appointmentPackage: VideoResourcesAppointmentPackage,
+  appointmentPackage: FullAppointmentResourcePackage,
   secrets: Secrets | null,
   token: string
 ): Promise<PdfInfo> {
@@ -69,12 +70,13 @@ export async function composeAndCreateVisitNotePdf(
 
 function composeDataForPdf(
   allChartData: AllChartData,
-  appointmentPackage: VideoResourcesAppointmentPackage,
+  appointmentPackage: FullAppointmentResourcePackage,
   isInPersonAppointment: boolean
 ): VisitNoteData {
   const { chartData, additionalChartData } = allChartData;
 
-  const { patient, encounter, appointment, location, questionnaireResponse, practitioner } = appointmentPackage;
+  const { patient, encounter, appointment, location, questionnaireResponse, practitioner, timezone } =
+    appointmentPackage;
   if (!patient) throw new Error('No patient found for this encounter');
   // if (!practitioner) throw new Error('No practitioner found for this encounter'); // TODO: fix that
 
@@ -86,7 +88,7 @@ function composeDataForPdf(
     .valueString;
 
   // --- Visit details ---
-  const { dateOfService, signedOnDate } = getStatusRelatedDates(encounter, appointment);
+  const { dateOfService, signedOnDate } = getStatusRelatedDates(encounter, appointment, timezone);
   const reasonForVisit = appointment?.description;
   const provider = practitioner && getProviderNameWithProfession(practitioner);
   const visitID = appointment.id;
@@ -106,17 +108,29 @@ function composeDataForPdf(
 
   // --- Medications ---
   const medications = chartData.medications ? mapResourceByNameField(chartData.medications) : [];
+  const medicationsNotes = additionalChartData?.notes
+    ?.filter((note) => note.type === NOTE_TYPE.INTAKE_MEDICATION)
+    ?.map((note) => note.text);
 
   // --- Allergies ---
   const allergies = chartData.allergies
     ? mapResourceByNameField(chartData?.allergies?.filter((allergy) => allergy.current === true))
     : [];
+  const allergiesNotes = additionalChartData?.notes
+    ?.filter((note) => note.type === NOTE_TYPE.ALLERGY)
+    ?.map((note) => note.text);
 
   // --- Medical conditions ---
   const medicalConditions = mapMedicalConditions(chartData);
+  const medicalConditionsNotes = additionalChartData?.notes
+    ?.filter((note) => note.type === NOTE_TYPE.MEDICAL_CONDITION)
+    ?.map((note) => note.text);
 
   // --- Surgical history ---
   const surgicalHistory = chartData.surgicalHistory ? mapResourceByNameField(chartData.surgicalHistory) : []; // surgical history
+  const surgicalHistoryNotes = additionalChartData?.notes
+    ?.filter((note) => note.type === NOTE_TYPE.SURGICAL_HISTORY)
+    ?.map((note) => note.text);
 
   // --- Addition questions ---
   const additionalQuestions = Object.values(AdditionalBooleanQuestionsFieldsNames).reduce(
@@ -154,6 +168,9 @@ function composeDataForPdf(
   // --- Hospitalization ---
   const hospitalization =
     additionalChartData?.episodeOfCare && mapResourceByNameField(additionalChartData.episodeOfCare);
+  const hospitalizationNotes = additionalChartData?.notes
+    ?.filter((note) => note.type === NOTE_TYPE.HOSPITALIZATION)
+    ?.map((note) => note.text);
 
   // --- Vitals ---
   const vitals = mapVitalsToDisplay(additionalChartData?.vitalsObservations);
@@ -274,9 +291,13 @@ function composeDataForPdf(
     providerTimeSpan: spentTime,
     reviewOfSystems: reviewOfSystems,
     medications,
+    medicationsNotes,
     allergies,
+    allergiesNotes,
     medicalConditions,
+    medicalConditionsNotes,
     surgicalHistory,
+    surgicalHistoryNotes,
     additionalQuestions,
     screening: {
       seenInLastThreeYears,
@@ -286,6 +307,7 @@ function composeDataForPdf(
       notes: screeningNotes,
     },
     hospitalization,
+    hospitalizationNotes,
     vitals: { notes: vitalsNotes, ...vitals },
     intakeNotes,
     examination: examination.examination,
@@ -345,15 +367,16 @@ function getPersonAccompanying(questionnaireResponse?: QuestionnaireResponse): s
 
 function getStatusRelatedDates(
   encounter: Encounter,
-  appointment: Appointment
+  appointment: Appointment,
+  timezone: Timezone
 ): { dateOfService?: string; signedOnDate?: string } {
   const statuses =
     encounter.statusHistory && appointment?.status
       ? mapEncounterStatusHistory(encounter.statusHistory, appointment.status)
       : undefined;
-  const dateOfService = formatDateTimeToEDT(statuses?.find((item) => item.status === 'on-video')?.start);
-  const currentTimeISO = new Date().toISOString();
-  const signedOnDate = formatDateTimeToEDT(currentTimeISO);
+  const dateOfService = formatDateTimeToZone(statuses?.find((item) => item.status === 'on-video')?.start, timezone);
+  const currentTimeISO = DateTime.now().toISO();
+  const signedOnDate = formatDateTimeToZone(currentTimeISO, timezone);
 
   return { dateOfService, signedOnDate };
 }
