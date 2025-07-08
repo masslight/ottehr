@@ -30,9 +30,7 @@ export const ERX: FC<{
   const user = useEvolveUser();
   const practitioner = user?.profileResource;
 
-  const [alertMessage, setAlertMessage] = useState<string | null>(
-    'If something goes wrong - please close and open the eRx again.'
-  );
+  const [alertMessage, setAlertMessage] = useState<string | null>('If something goes wrong - please reload the page.');
 
   const practitionerMissingFields: string[] = useMemo(() => {
     const missingFields: string[] = [];
@@ -113,7 +111,7 @@ export const ERX: FC<{
 
       if (error.status === 400) {
         if (error.message?.includes('phone')) {
-          errorMsg = `Patient has specified some wrong phone number: ${phoneNumber}. RX can be used only when a real phone number is provided`;
+          errorMsg = `Patient has specified some wrong phone number: ${phoneNumber}. Please provide a real patient's phone number`;
         } else if (error.message?.includes('eRx service is not configured')) {
           errorMsg = `eRx service is not configured. Please contact support.`;
         } else {
@@ -171,13 +169,12 @@ export const ERX: FC<{
       try {
         await (mode === 'confirmation' ? connectPractitionerForConfirmation() : connectPractitioner());
         if (mode === 'confirmation') {
-          setAlertMessage(
-            'When you complete the RxLink Agreement, please close the eRx by clicking the "Close eRx" button and open it again to start prescribing.'
-          );
+          setAlertMessage('When you complete the RxLink Agreement, please reload the page.');
         }
       } catch (error) {
         enqueueSnackbar('Something went wrong while trying to connect practitioner to eRx', { variant: 'error' });
         console.error('Error trying to connect practitioner to eRx: ', error);
+        setStatus(ERXStatus.ERROR);
       }
     },
     [connectPractitioner, connectPractitionerForConfirmation]
@@ -190,6 +187,7 @@ export const ERX: FC<{
         "Patient doesn't have height or weight vital specified. Please specify it first on the `Vitals` tab",
         { variant: 'error' }
       );
+      setStatus(ERXStatus.ERROR);
     }
   }, [isVitalsFetched, hasVitals]);
 
@@ -261,16 +259,12 @@ export const ERX: FC<{
 
   // Report status updates
   useEffect(() => {
-    return () => {
-      onStatusChanged(status);
-    };
+    onStatusChanged(status);
   }, [onStatusChanged, status]);
 
   // Cleanup on unmount
   useEffect(() => {
-    return () => {
-      setStatus(ERXStatus.LOADING);
-    };
+    setStatus(ERXStatus.LOADING);
   }, [setStatus]);
 
   return (

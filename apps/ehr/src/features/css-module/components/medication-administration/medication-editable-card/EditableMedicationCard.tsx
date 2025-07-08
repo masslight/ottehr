@@ -1,3 +1,4 @@
+import { Medication } from 'fhir/r4b';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMedicationHistory } from 'src/features/css-module/hooks/useMedicationHistory';
@@ -7,7 +8,9 @@ import {
   ExtendedMedicationDataForResponse,
   MedicationData,
   medicationExtendedToMedicationData,
+  MedicationInteractions,
   MedicationOrderStatusesType,
+  MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM,
   UpdateMedicationOrderInput,
 } from 'utils';
 import { useAppointment } from '../../../hooks/useAppointment';
@@ -25,14 +28,15 @@ import {
   getFieldType,
   getInitialAutoFilledFields,
   getSaveButtonText,
+  interactionsUnresolved,
   isUnsavedMedicationData,
+  medicationInteractionsFromErxResponse,
   validateAllMedicationFields,
 } from './utils';
 
-enum InteractionsCheckStatus {
-  IN_PROGRESS,
-  FINISHED,
-  ERROR,
+interface InteractionsCheckState {
+  status: 'todo' | 'in-progress' | 'done' | 'error';
+  interactions?: MedicationInteractions;
 }
 
 export const EditableMedicationCard: React.FC<{
@@ -50,7 +54,7 @@ export const EditableMedicationCard: React.FC<{
   const [isReasonSelected, setIsReasonSelected] = useState(true);
   const selectsOptions = useFieldsSelectsOptions();
   const [erxStatus, setERXStatus] = useState(ERXStatus.LOADING);
-  const [interactionsCheckStatus, setInteractionsCheckStatus] = useState(InteractionsCheckStatus.IN_PROGRESS);
+  const [interactionsCheckState, setInteractionsCheckState] = useState<InteractionsCheckState>({ status: 'done' });
   const { oystehr } = useApiClients();
 
   const { refetchHistory } = useMedicationHistory();
@@ -96,7 +100,6 @@ export const EditableMedicationCard: React.FC<{
   };
 
   const updateOrCreateOrder = async (updatedRequestInput: UpdateMedicationOrderInput): Promise<void> => {
-    await interactionsCheck(updatedRequestInput);
     // set type dynamically after user click corresponding button to use correct form config https://github.com/masslight/ottehr/issues/2799
     if (updatedRequestInput.newStatus === 'administered' || updatedRequestInput.newStatus === 'administered-partly') {
       typeRef.current = 'dispense';
@@ -238,7 +241,12 @@ export const EditableMedicationCard: React.FC<{
     selectedStatus,
     isUnsavedData
   );
-  const isCardSaveButtonDisabled = typeRef.current !== 'dispense' && (isUpdating || !isUnsavedData);
+  const isCardSaveButtonDisabled =
+    (typeRef.current !== 'dispense' && (isUpdating || !isUnsavedData)) ||
+    erxStatus === ERXStatus.LOADING ||
+    interactionsCheckState.status === 'todo' ||
+    interactionsCheckState.status === 'in-progress' ||
+    interactionsUnresolved(interactionsCheckState.interactions);
 
   const isModalSaveButtonDisabled =
     confirmedMedicationUpdateRequestRef.current.newStatus === 'administered' ? false : isReasonSelected;
@@ -256,26 +264,58 @@ export const EditableMedicationCard: React.FC<{
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const interactionsCheck = async (updatedRequestInput: UpdateMedicationOrderInput): Promise<void> => {
-    if (oystehr == null) {
-      console.error('oystehr is missing');
-      return;
+  const runInteractionsCheck = useCallback(
+    async (medicationId: string) => {
+      if (oystehr == null) {
+        setInteractionsCheckState({ status: 'error' });
+        console.error('oystehr is missing');
+        return;
+      }
+      const patientId = resources.patient?.id;
+      if (patientId == null) {
+        setInteractionsCheckState({ status: 'error' });
+        console.error('patientId is missing');
+        return;
+      }
+      setInteractionsCheckState({ status: 'in-progress' });
+      try {
+        const medication = await oystehr.fhir.get<Medication>({
+          resourceType: 'Medication',
+          id: medicationId,
+        });
+        console.log(medication);
+        const interactionsCheckResponse = await oystehr.erx.checkPrecheckInteractions({
+          patientId,
+          drugId:
+            medication.identifier?.find((identifier) => identifier.system === MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM)
+              ?.value ?? '',
+        });
+        setInteractionsCheckState({
+          status: 'done',
+          interactions: medicationInteractionsFromErxResponse(interactionsCheckResponse),
+        });
+      } catch (e) {
+        setInteractionsCheckState({ status: 'error' });
+        console.error(e);
+      }
+    },
+    [oystehr, resources.patient?.id]
+  );
+
+  useEffect(() => {
+    const medicationId = localValues.medicationId;
+    if (medicationId && erxStatus === ERXStatus.READY) {
+      void runInteractionsCheck(medicationId);
     }
-    const patientId = resources.patient?.id;
-    if (patientId == null) {
-      console.error('patientId is missing');
-      return;
-    }
-    setInteractionsCheckStatus(InteractionsCheckStatus.IN_PROGRESS);
-    await oystehr.erx.syncPatient({ patientId });
-    const interactionsCheckResult = await oystehr.erx.checkPrecheckInteractions({
-      patientId,
-      drugId: '5285',
-    });
-    if (interactionsCheckResult.allergies.length === 0 && interactionsCheckResult.medications.length === 0) {
-      await updateOrCreateOrder(updatedRequestInput);
-    }
-  };
+  }, [localValues.medicationId, runInteractionsCheck, erxStatus]);
+
+  useEffect(() => {
+    console.log('New ERX status ' + erxStatus);
+  }, [erxStatus]);
+
+  useEffect(() => {
+    console.log('New interactionsCheckState state ', interactionsCheckState);
+  }, [interactionsCheckState]);
 
   return (
     <>
@@ -326,11 +366,14 @@ export const EditableMedicationCard: React.FC<{
       ) : null}
       <ConfirmationModalForLeavePage />
       <ERX onStatusChanged={setERXStatus} />
-      {erxStatus === ERXStatus.LOADING || interactionsCheckStatus === InteractionsCheckStatus.IN_PROGRESS ? (
+      {erxStatus === ERXStatus.LOADING || interactionsCheckState.status === 'in-progress' ? (
         <>Interactions checks in progress</>
       ) : undefined}
-      {erxStatus === ERXStatus.ERROR || interactionsCheckStatus === InteractionsCheckStatus.ERROR ? (
+      {erxStatus === ERXStatus.ERROR || interactionsCheckState.status === 'error' ? (
         <>Drug-to-Drug and Drug-Allergy interaction check failed. Please review manually</>
+      ) : undefined}
+      {interactionsCheckState.status === 'done' && interactionsCheckState.interactions != null ? (
+        <>interactions red banner</>
       ) : undefined}
     </>
   );

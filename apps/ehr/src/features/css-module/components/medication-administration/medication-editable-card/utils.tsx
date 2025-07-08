@@ -1,8 +1,10 @@
 import { Box, Typography } from '@mui/material';
+import { ErxCheckPrecheckInteractionsResponse } from '@oystehr/sdk';
 import { DateTime } from 'luxon';
 import {
   ExtendedMedicationDataForResponse,
   MedicationData,
+  MedicationInteractions,
   MedicationOrderStatusesType,
   UpdateMedicationOrderInput,
 } from 'utils';
@@ -230,4 +232,41 @@ export const getInitialAutoFilledFields = (
   }
 
   return {};
+};
+
+const SEVERITY_LEVEL_TO_SEVERITY: Record<string, 'high' | 'moderate' | 'low' | undefined> = {
+  MinorInteraction: 'low',
+  ModerateInteraction: 'moderate',
+  MajorInteraction: 'high',
+  Unknown: undefined,
+};
+
+export const medicationInteractionsFromErxResponse = (
+  response: ErxCheckPrecheckInteractionsResponse
+): MedicationInteractions => {
+  return {
+    drugInteractions: (response.medications ?? []).map((medication) => {
+      return {
+        drugs: (medication.medications ?? []).map((nestedMedication) => ({
+          id: nestedMedication.id.toString(),
+          name: nestedMedication.name,
+        })),
+        severity: SEVERITY_LEVEL_TO_SEVERITY[medication.severityLevel],
+        message: medication.message,
+      };
+    }),
+    allergyInteractions: response.allergies?.map((allergy) => {
+      return {
+        message: allergy.message,
+      };
+    }),
+  };
+};
+
+export const interactionsUnresolved = (interactions: MedicationInteractions | undefined): boolean => {
+  const unresolvedInteration = [
+    ...(interactions?.drugInteractions ?? []),
+    ...(interactions?.allergyInteractions ?? []),
+  ].find((interaction) => interaction.overrideReason == null);
+  return unresolvedInteration != null;
 };
