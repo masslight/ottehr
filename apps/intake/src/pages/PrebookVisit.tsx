@@ -31,7 +31,7 @@ import { dataTestIds } from '../helpers/data-test-ids';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import { otherColors } from '../IntakeThemeProvider';
 import { useGetBookableItems, useGetSchedule } from '../telemed/features/appointments/appointment.queries';
-import { useZapEHRAPIClient } from '../telemed/utils';
+import { useOystehrAPIClient } from '../telemed/utils';
 
 const SERVICE_MODES: ServiceMode[] = [ServiceMode['in-person'], ServiceMode['virtual']];
 
@@ -103,7 +103,7 @@ const useBookingData = (
   isSlotsLoading: boolean;
   inPersonData?: { items: BookableItem[]; categorized: boolean };
 } => {
-  const apiClient = useZapEHRAPIClient({ tokenless: true });
+  const apiClient = useOystehrAPIClient({ tokenless: true });
 
   const { data: inPersonData, status: inPersonStatus } = useGetBookableItems(
     apiClient,

@@ -1,9 +1,19 @@
-import { CodeableConcept, Medication, MedicationAdministration, MedicationStatement } from 'fhir/r4b';
 import {
+  CodeableConcept,
+  DetectedIssue,
+  Medication,
+  MedicationAdministration,
+  MedicationRequest,
+  MedicationStatement,
+} from 'fhir/r4b';
+import {
+  AllergyInteraction,
+  CODE_SYSTEM_ACT_CODE_V3,
   createReference,
-  DATE_OF_MEDICATION_ADMINISTERED_SYSTEM,
+  DrugInteraction,
   getCreatedTheOrderProviderId,
   IN_HOUSE_CONTAINED_MEDICATION_ID,
+  INTERACTION_OVERRIDE_REASON_CODE_SYSTEM,
   MEDICATION_ADMINISTRATION_CSS_RESOURCE_CODE,
   MEDICATION_ADMINISTRATION_CSS_RESOURCE_SYSTEM,
   MEDICATION_ADMINISTRATION_OTHER_REASON_CODE,
@@ -11,13 +21,15 @@ import {
   MEDICATION_ADMINISTRATION_REASON_CODE,
   MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM,
   MEDICATION_ADMINISTRATION_UNITS_SYSTEM,
+  MEDICATION_DISPENSABLE_DRUG_ID,
   MedicationApplianceLocation,
   MedicationApplianceRoute,
   MedicationData,
+  MedicationInteractions,
   PRACTITIONER_ADMINISTERED_MEDICATION_CODE,
   PRACTITIONER_ORDERED_MEDICATION_CODE,
-  TIME_OF_MEDICATION_ADMINISTERED_SYSTEM,
 } from 'utils';
+import { fillMeta } from '../../shared';
 
 export interface MedicationAdministrationData {
   orderData: MedicationData;
@@ -79,7 +91,7 @@ export function createMedicationAdministrationResource(data: MedicationAdministr
       },
     ];
   }
-  if (dateTimeCreated) resource.effectiveDateTime = dateTimeCreated;
+  if (dateTimeCreated) resource.effectiveDateTime = dateTimeCreated; // todo: check if this is correct, effectiveDateTime is not date of creation, it's date of administration
   if (medicationResource) {
     resource.contained = [{ ...medicationResource, id: IN_HOUSE_CONTAINED_MEDICATION_ID }];
   }
@@ -116,7 +128,8 @@ export function createMedicationAdministrationResource(data: MedicationAdministr
       text: orderData.otherReason,
     });
   }
-  if (administeredProviderId && orderData.dateGiven && orderData.timeGiven)
+  // todo: check if we should validate effectiveDateTime to add performer
+  if (administeredProviderId && orderData.effectiveDateTime)
     resource.performer?.push({
       actor: { reference: `Practitioner/${administeredProviderId}` },
       function: {
@@ -127,16 +140,6 @@ export function createMedicationAdministrationResource(data: MedicationAdministr
           },
         ],
       },
-      extension: [
-        {
-          url: DATE_OF_MEDICATION_ADMINISTERED_SYSTEM,
-          valueDate: orderData.dateGiven,
-        },
-        {
-          url: TIME_OF_MEDICATION_ADMINISTERED_SYSTEM,
-          valueTime: orderData.timeGiven,
-        },
-      ],
     });
   if (orderData.instructions && resource.dosage) resource.dosage.text = orderData.instructions;
   if (location && resource.dosage)
@@ -153,9 +156,116 @@ export function createMedicationAdministrationResource(data: MedicationAdministr
   return resource;
 }
 
+export function createMedicationRequest(
+  data: MedicationData,
+  interactions: MedicationInteractions | undefined,
+  medication: Medication
+): MedicationRequest {
+  const detectedIssues = [
+    ...(interactions?.drugInteractions?.map((interaction, index) =>
+      createDrugInteractionIssue('drg-' + index, interaction)
+    ) ?? []),
+    ...(interactions?.allergyInteractions?.map((interaction, index) =>
+      createAllergyInteractionIssue('algy-' + index, interaction)
+    ) ?? []),
+  ];
+  return {
+    resourceType: 'MedicationRequest',
+    status: 'active',
+    intent: 'order',
+    subject: { reference: `Patient/${data.patient}` },
+    encounter: data.encounterId ? { reference: `Encounter/${data.encounterId}` } : undefined,
+    detectedIssue:
+      detectedIssues.length > 0
+        ? detectedIssues.map((detectedIssue) => ({
+            reference: '#' + detectedIssue.id,
+          }))
+        : undefined,
+    medicationReference: { reference: `#${IN_HOUSE_CONTAINED_MEDICATION_ID}` },
+    contained: [{ ...medication, id: IN_HOUSE_CONTAINED_MEDICATION_ID }, ...detectedIssues],
+  };
+}
+
+function createDrugInteractionIssue(resourceId: string, interaction: DrugInteraction): DetectedIssue {
+  return {
+    resourceType: 'DetectedIssue',
+    id: resourceId,
+    status: 'registered',
+    code: {
+      coding: [
+        {
+          system: CODE_SYSTEM_ACT_CODE_V3,
+          code: 'DRG',
+        },
+      ],
+    },
+    severity: interaction.severity,
+    detail: interaction.message,
+    mitigation: [
+      {
+        action: {
+          coding: [
+            {
+              system: INTERACTION_OVERRIDE_REASON_CODE_SYSTEM,
+              code: interaction.overrideReason,
+              display: interaction.overrideReason,
+            },
+          ],
+        },
+      },
+    ],
+    evidence: interaction.drugs.map((drug) => {
+      return {
+        code: [
+          {
+            coding: [
+              {
+                system: MEDICATION_DISPENSABLE_DRUG_ID,
+                code: drug.id,
+                display: drug.name,
+              },
+            ],
+          },
+        ],
+      };
+    }),
+  };
+}
+
+function createAllergyInteractionIssue(resourceId: string, interaction: AllergyInteraction): DetectedIssue {
+  return {
+    resourceType: 'DetectedIssue',
+    id: resourceId,
+    status: 'registered',
+    code: {
+      coding: [
+        {
+          system: CODE_SYSTEM_ACT_CODE_V3,
+          code: 'ALGY',
+        },
+      ],
+    },
+    detail: interaction.message,
+    mitigation: [
+      {
+        action: {
+          coding: [
+            {
+              system: INTERACTION_OVERRIDE_REASON_CODE_SYSTEM,
+              code: interaction.overrideReason,
+              display: interaction.overrideReason,
+            },
+          ],
+        },
+      },
+    ],
+  };
+}
+
 export function createMedicationStatementResource(
   medicationAdministration: MedicationAdministration,
-  medicationCodeableConcept: CodeableConcept
+  medicationCodeableConcept: CodeableConcept,
+  options: { effectiveDateTime?: string | undefined } = {}
 ): MedicationStatement {
   return {
     resourceType: 'MedicationStatement',
@@ -176,5 +286,7 @@ export function createMedicationStatementResource(
     ],
     subject: medicationAdministration.subject,
     informationSource: { reference: 'Practitioner/' + getCreatedTheOrderProviderId(medicationAdministration) },
+    ...(options.effectiveDateTime && { effectiveDateTime: options.effectiveDateTime }),
+    meta: fillMeta('in-house-medication', 'in-house-medication'),
   };
 }

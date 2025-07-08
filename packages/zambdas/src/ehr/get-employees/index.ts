@@ -30,7 +30,7 @@ export interface GetEmployeesInput {
   secrets: Secrets | null;
 }
 
-let zapehrToken: string;
+let oystehrToken: string;
 export const index = wrapHandler('get-employees', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
@@ -39,14 +39,14 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    if (!zapehrToken) {
+    if (!oystehrToken) {
       console.log('getting token');
-      zapehrToken = await getAuth0Token(secrets);
+      oystehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }
 
-    const oystehr = createOystehrClient(zapehrToken, secrets);
+    const oystehr = createOystehrClient(oystehrToken, secrets);
 
     const promises: [Promise<UserListItem[]>, Promise<RoleListItem[]>] = [getEmployees(oystehr), getRoles(oystehr)];
     const [allEmployees, existingRoles] = await Promise.all(promises);

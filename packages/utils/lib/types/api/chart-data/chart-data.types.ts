@@ -43,6 +43,7 @@ export interface ChartDataFields {
   ros?: FreeTextNoteDTO;
   conditions?: MedicalConditionDTO[];
   medications?: MedicationDTO[];
+  inhouseMedications?: MedicationDTO[];
   prescribedMedications?: PrescribedMedicationDTO[];
   allergies?: AllergyDTO[];
   surgicalHistory?: CPTCodeDTO[];
@@ -291,6 +292,11 @@ export enum NOTE_TYPE {
   VITALS = 'vitals',
   SCREENING = 'screening',
   MEDICATION = 'medication',
+  ALLERGY = 'allergy',
+  INTAKE_MEDICATION = 'intake-medication',
+  MEDICAL_CONDITION = 'medical-condition',
+  SURGICAL_HISTORY = 'surgical-history',
+  HOSPITALIZATION = 'hospitalization',
   UNKNOWN = 'unknown',
 }
 
@@ -326,8 +332,6 @@ export interface DispositionDTO {
 export interface HospitalizationDTO extends SaveableDTO {
   code: string;
   display: string;
-  snomedDescription: string;
-  snomedRegionDescription: string;
 }
 
 export interface DiagnosisDTO extends SaveableDTO {

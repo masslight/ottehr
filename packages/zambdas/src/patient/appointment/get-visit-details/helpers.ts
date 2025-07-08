@@ -3,19 +3,19 @@ import { DocumentReference, MedicationRequest } from 'fhir/r4b';
 import {
   FileURLs,
   getPresignedURL,
-  MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM,
+  MEDICATION_DISPENSABLE_DRUG_ID,
   PaymentDataResponse,
   PrescribedMedication,
 } from 'utils';
 
 async function makePresignedURLFromDocumentReference(
   resource: DocumentReference,
-  zapehrToken: string
+  oystehrToken: string
 ): Promise<string | undefined> {
   const documentBaseUrl = resource.content?.[0].attachment.url;
   if (!documentBaseUrl) throw new Error("Attached DocumentReference don't have attached base file URL");
 
-  const presignedUrl = await getPresignedURL(documentBaseUrl, zapehrToken);
+  const presignedUrl = await getPresignedURL(documentBaseUrl, oystehrToken);
 
   return presignedUrl;
 }
@@ -112,13 +112,17 @@ function makePrescribedMedicationDTO(medRequest: MedicationRequest): PrescribedM
   return {
     resourceId: medRequest.id,
     name: medRequest.medicationCodeableConcept?.coding?.find(
-      (coding) => coding.system === MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM
+      (coding) => coding.system === MEDICATION_DISPENSABLE_DRUG_ID
     )?.display,
     instructions: medRequest.dosageInstruction?.[0]?.patientInstruction,
   };
 }
 
-export async function getPresignedURLs(oystehr: Oystehr, zapehrToken: string, encounterId?: string): Promise<FileURLs> {
+export async function getPresignedURLs(
+  oystehr: Oystehr,
+  oystehrToken: string,
+  encounterId?: string
+): Promise<FileURLs> {
   if (encounterId === undefined) {
     throw new Error('Encounter ID must be specified for payments.');
   }
@@ -142,14 +146,14 @@ export async function getPresignedURLs(oystehr: Oystehr, zapehrToken: string, en
       const type = getDocumentType(resource);
       if (!type) return null;
       if (type !== 'school-work-note') {
-        presignedUrlObj[type] = { presignedUrl: await makePresignedURLFromDocumentReference(resource, zapehrToken) };
+        presignedUrlObj[type] = { presignedUrl: await makePresignedURLFromDocumentReference(resource, oystehrToken) };
         return null;
       }
       if (!isDocumentPublished(resource)) return undefined;
       const noteType = resource.meta?.tag?.find((tag) => tag.system === 'school-work-note/type')?.code;
       if (!noteType) return undefined;
       presignedUrlObj[noteType] = {
-        presignedUrl: await makePresignedURLFromDocumentReference(resource, zapehrToken),
+        presignedUrl: await makePresignedURLFromDocumentReference(resource, oystehrToken),
       };
       return null;
     })

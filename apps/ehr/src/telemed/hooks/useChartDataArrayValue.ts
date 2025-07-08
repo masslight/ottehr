@@ -26,11 +26,12 @@ export const useChartDataArrayValue = <
 >(
   name: T,
   reset?: () => void,
-  customParams?: SearchParams
+  customParams?: SearchParams,
+  onRemoveCallback?: () => any
 ): {
   isLoading: boolean;
   onSubmit: (data: ElementType<K>) => Promise<boolean>;
-  onRemove: (resourceId: string) => void;
+  onRemove: (resourceId: string) => Promise<void>;
   values: K;
 } => {
   const { mutate: saveChartData, isLoading: isSaveLoading } = useSaveChartData();
@@ -83,9 +84,9 @@ export const useChartDataArrayValue = <
     });
   };
 
-  const onRemove = (resourceId: string): void => {
+  const onRemove = async (resourceId: string): Promise<void> => {
     const newState = (values as K & SaveableDTO[]).filter((value) => value.resourceId === resourceId);
-    deleteChartData(
+    return deleteChartData(
       {
         [name]: newState,
       },
@@ -98,6 +99,7 @@ export const useChartDataArrayValue = <
             ...oldData!,
             [name]: (values as K & SaveableDTO[]).filter((value) => value.resourceId !== resourceId),
           }));
+          onRemoveCallback?.();
         },
         onError: () => {
           enqueueSnackbar(`An error has occurred while deleting ${mapValueToLabel[name]}. Please try again.`, {

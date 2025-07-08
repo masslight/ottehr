@@ -1,4 +1,4 @@
-import { Box, Stack, Typography } from '@mui/material';
+import { Stack, Typography } from '@mui/material';
 import React from 'react';
 import { useParams } from 'react-router-dom';
 import { getSelectors } from '../../../shared/store/getSelectors';
@@ -9,6 +9,7 @@ import {
   KnownAllergiesProviderColumn,
   MedicalHistoryDoubleCard,
 } from '../../../telemed/features/appointment';
+import { AllergiesNotes } from '../components/allergies/AllergiesNotes';
 import { CSSLoader } from '../components/CSSLoader';
 import { InfoAlert } from '../components/InfoAlert';
 import { useNavigationContext } from '../context/NavigationContext';
@@ -37,15 +38,14 @@ export const Allergies: React.FC<AllergiesProps> = () => {
   return (
     <Stack spacing={1}>
       <PageTitle label="Allergies" showIntakeNotesButton={interactionMode === 'intake'} />
-      <Box sx={{ display: 'flex', flexDirection: 'column', mt: 3, gap: 3 }}>
-        <InfoAlert text="Ask: Does the patient have any known allergies to medications, latex, or food?" />
-        <MedicalHistoryDoubleCard
-          patientSide={<KnownAllergiesPatientColumn />}
-          patientSideLabel="Patient provided"
-          providerSide={<KnownAllergiesProviderColumn />}
-          providerSideLabel="Healthcare staff input"
-        />
-      </Box>
+      <InfoAlert text="Ask: Does the patient have any known allergies to medications, latex, or food?" />
+      <MedicalHistoryDoubleCard
+        patientSide={<KnownAllergiesPatientColumn />}
+        patientSideLabel="Patient provided"
+        providerSide={<KnownAllergiesProviderColumn />}
+        providerSideLabel="Healthcare staff input"
+      />
+      <AllergiesNotes />
     </Stack>
   );
 };

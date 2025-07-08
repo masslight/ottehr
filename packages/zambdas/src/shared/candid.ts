@@ -68,7 +68,7 @@ import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE } from 'utils/lib/helpers/rcm';
 import { getAccountAndCoverageResourcesForPatient } from '../ehr/shared/harvest';
 import { chartDataResourceHasMetaTagByCode } from './chart-data';
 import { assertDefined } from './helpers';
-import { VideoResourcesAppointmentPackage } from './pdf/visit-details-pdf/types';
+import { FullAppointmentResourcePackage } from './pdf/visit-details-pdf/types';
 
 export const CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM =
   'https://api.joincandidhealth.com/api/encounters/v4/response/encounter_id';
@@ -143,7 +143,7 @@ const SERVICE_FACILITY_LOCATION: Location = {
   ],
 };
 
-type CandidVisitResources = Omit<VideoResourcesAppointmentPackage, 'account' | 'insurancePlan' | 'coverage'>;
+type CandidVisitResources = Omit<FullAppointmentResourcePackage, 'account' | 'insurancePlan' | 'coverage'>;
 
 export async function createCandidEncounter(
   visitResources: CandidVisitResources,
@@ -183,7 +183,7 @@ function createCandidApiClient(secrets: Secrets | null): CandidApiClient {
 }
 
 const createCandidCreateEncounterInput = async (
-  visitResources: CandidVisitResources,
+  visitResources: FullAppointmentResourcePackage,
   oystehr: Oystehr
 ): Promise<CreateEncounterInput> => {
   const { encounter, patient } = visitResources;
@@ -941,7 +941,7 @@ const fetchFHIRPatientAndAppointmentFromEncounter = async (
 };
 
 export async function createEncounterFromAppointment(
-  visitResources: VideoResourcesAppointmentPackage,
+  visitResources: FullAppointmentResourcePackage,
   secrets: Secrets,
   oystehr: Oystehr
 ): Promise<string | undefined> {

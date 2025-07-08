@@ -8,12 +8,12 @@ import { CustomDialog } from '../../components/CustomDialog';
 import PageForm from '../../components/PageForm';
 import { safelyCaptureException } from '../../helpers/sentry';
 import { useCancelAppointmentMutation } from '../features/appointments';
-import { useZapEHRAPIClient } from '../utils';
+import { useOystehrAPIClient } from '../utils';
 
 type CancelVisitDialogProps = { onClose: (canceled: boolean) => void; appointmentID?: string };
 
 export const CancelVisitDialog: FC<CancelVisitDialogProps> = ({ onClose, appointmentID }) => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const navigate = useNavigate();
   const cancelAppointment = useCancelAppointmentMutation();
 

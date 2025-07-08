@@ -1,7 +1,7 @@
 import sendgrid, { ClientResponse } from '@sendgrid/mail';
 import { captureException } from '@sentry/aws-serverless';
 import { DateTime } from 'luxon';
-import { getSecret, handleUnknownError, Secrets, SecretsKeys } from 'utils';
+import { getSecret, handleUnknownError, PROJECT_NAME, Secrets, SecretsKeys } from 'utils';
 
 export const sendErrors = async (error: any, env: string, shouldCaptureException?: boolean): Promise<void> => {
   // Only fires in testing, staging and production
@@ -52,7 +52,7 @@ export const sendgridEmail = async (
     to: toEmail,
     from: {
       email: fromEmail,
-      name: 'Ottehr',
+      name: PROJECT_NAME,
     },
     replyTo: fromEmail,
     templateId: sendgridTemplateId,

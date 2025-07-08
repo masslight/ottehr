@@ -51,6 +51,11 @@ export const ProgressNoteDetails: FC = () => {
 
   const screeningNotes = additionalChartData?.notes?.filter((note) => note.type === NOTE_TYPE.SCREENING);
   const vitalsNotes = additionalChartData?.notes?.filter((note) => note.type === NOTE_TYPE.VITALS);
+  const allergyNotes = additionalChartData?.notes?.filter((note) => note.type === NOTE_TYPE.ALLERGY);
+  const intakeMedicationNotes = additionalChartData?.notes?.filter((note) => note.type === NOTE_TYPE.INTAKE_MEDICATION);
+  const hospitalizationNotes = additionalChartData?.notes?.filter((note) => note.type === NOTE_TYPE.HOSPITALIZATION);
+  const medicalConditionNotes = additionalChartData?.notes?.filter((note) => note.type === NOTE_TYPE.MEDICAL_CONDITION);
+  const surgicalHistoryNotes = additionalChartData?.notes?.filter((note) => note.type === NOTE_TYPE.SURGICAL_HISTORY);
 
   const chiefComplaint = chartData?.chiefComplaint?.text;
   const ros = chartData?.ros?.text;
@@ -98,11 +103,11 @@ export const ProgressNoteDetails: FC = () => {
       </Typography>
       <ExamReadOnlyBlock />
     </Stack>,
-    <AllergiesContainer />,
-    <MedicationsContainer />,
-    <MedicalConditionsContainer />,
-    <SurgicalHistoryContainer />,
-    <HospitalizationContainer />,
+    <AllergiesContainer notes={allergyNotes} />,
+    <MedicationsContainer notes={intakeMedicationNotes} />,
+    <MedicalConditionsContainer notes={medicalConditionNotes} />,
+    <SurgicalHistoryContainer notes={surgicalHistoryNotes} />,
+    <HospitalizationContainer notes={hospitalizationNotes} />,
     showAssessment && <AssessmentContainer />,
     showMedicalDecisionMaking && <MedicalDecisionMakingContainer />,
     showEmCode && <EMCodeContainer />,

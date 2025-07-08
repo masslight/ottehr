@@ -1,6 +1,6 @@
 {
   "name": "zambdas",
-  "version": "1.12.6",
+  "version": "1.13.1",
   "private": true,
   "scripts": {
     "start": "ENV=${ENV:-local} npm run setup-deployed-resources ${ENV:-local} && tsx watch --include './src/**/*' src/local-server/index.ts -- env=.env/${ENV:-local}.json",
@@ -19,6 +19,7 @@
     "setup-default-locations": "tsx src/scripts/setup-default-locations.ts",
     "setup-secrets": "tsx src/scripts/configure-secrets.ts",
     "deploy-zambdas": "ENV=$ENV npm run bundle && tsx src/scripts/deploy-zambdas.ts",
+    "deploy-subscriptions": "npm run bundle && tsx src/scripts/deploy-zambdas.ts local subscription",
     "config-schedules": "tsx src/scripts/ensure-schedule-config.ts",
     "update-user-roles": "tsx src/scripts/update-user-roles.ts",
     "clean-up-e2e": "tsx src/scripts/clean-up-e2e.ts",

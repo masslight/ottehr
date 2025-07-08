@@ -154,7 +154,7 @@ const EXTENSION_CONFIGS: Record<string, ExtensionConfig> = {
     url: PATIENT_SEND_MARKETING_URL,
     valueType: 'valueBoolean',
   },
-  hearingEmpairedRelayService: {
+  hearingImpairedRelayService: {
     url: PATIENT_HEARING_IMPAIRED_RELAY_SERVICE_URL,
     valueType: 'valueBoolean',
   },

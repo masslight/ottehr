@@ -6,7 +6,7 @@ import CreateDemoVisits from '../../../components/CreateDemoVisits';
 import Loading from '../../../components/Loading';
 import { dataTestIds } from '../../../constants/data-test-ids';
 import { getSelectors } from '../../../shared/store/getSelectors';
-import { useZapEHRAPIClient } from '../../hooks/useOystehrAPIClient';
+import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
 import { useGetTelemedAppointments, useTrackingBoardStore } from '../../state';
 import { ApptTabToStatus } from '../../utils';
 import { TrackingBoardTable } from './TrackingBoardTable';
@@ -30,7 +30,7 @@ export function TrackingBoardTabs(): ReactElement {
     setValue(newValue);
   };
 
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
 
   const dateFilter = date ? date.toISODate()! : undefined;
 

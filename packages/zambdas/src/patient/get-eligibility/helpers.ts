@@ -1,11 +1,9 @@
-import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
+import Oystehr from '@oystehr/sdk';
 import {
-  Bundle,
   Coverage,
   CoverageEligibilityRequest,
   CoverageEligibilityResponse,
   DomainResource,
-  InsurancePlan,
   Organization,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -13,7 +11,6 @@ import {
   ELIGIBILITY_BENEFIT_CODES,
   InsuranceCheckStatusWithDate,
   InsuranceEligibilityCheckStatus,
-  InsurancePlanResources,
   parseCoverageEligibilityResponse,
   removeTimeFromDate,
 } from 'utils';
@@ -26,68 +23,29 @@ interface InsuranceIds {
 export const getInsurancePlansAndOrgs = async (
   planIds: InsuranceIds,
   oystehrClient: Oystehr
-): Promise<InsurancePlanResources[]> => {
-  const requests: BatchInputGetRequest[] = [];
+): Promise<Organization[]> => {
+  const orgs = (
+    await oystehrClient.fhir.search<Organization>({
+      resourceType: 'Organization',
+      params: [
+        {
+          name: '_id',
+          value: `${planIds.primary}${planIds.secondary ? `,${planIds.secondary}` : ''}`,
+        },
+      ],
+    })
+  ).unbundle();
 
-  console.log('planIds', planIds);
-  requests.push({
-    method: 'GET',
-    url: `InsurancePlan?_id=${planIds.primary}&_include=InsurancePlan:owned-by`,
-  });
-
-  if (planIds.secondary) {
-    requests.push({
-      method: 'GET',
-      url: `InsurancePlan?_id=${planIds.secondary}&_include=InsurancePlan:owned-by`,
-    });
-  }
-
-  const batchResults = (await oystehrClient.fhir.batch({ requests })) as Bundle<Bundle<InsurancePlan | Organization>>;
-
-  const unbundled = (batchResults.entry?.flatMap((e) => e?.resource ?? []) ?? []).flatMap(
-    (i) => i.entry?.flatMap((e) => e.resource ?? []) ?? []
-  );
-
-  console.log('unbundled insurance plan search results', JSON.stringify(unbundled, null, 2));
-
-  const reduced = unbundled.reduce((accum, curr) => {
-    if (curr.resourceType === 'InsurancePlan') {
-      const insurancePlan = curr as InsurancePlan;
-      const match = accum.findIndex((entry) => {
-        return entry?.organization && entry?.organization?.id === insurancePlan.ownedBy?.reference?.split('/')?.[1];
-      });
-      if (match >= 0) {
-        accum[match] = { ...accum[match], insurancePlan };
-      } else {
-        accum.push({ insurancePlan });
-      }
-    } else {
-      const organization = curr as Organization;
-      const match = accum.findIndex((entry) => {
-        return entry?.insurancePlan && entry?.insurancePlan?.ownedBy?.reference === `Organization/${organization.id}`;
-      });
-      if (match >= 0) {
-        accum[match] = { ...accum[match], organization };
-      } else {
-        accum.push({ organization });
-      }
-    }
-    return accum;
-  }, [] as Partial<InsurancePlanResources>[]);
-  const filtered = (
-    reduced.filter((entry) => {
-      return entry?.insurancePlan && entry?.organization;
-    }) as InsurancePlanResources[]
-  ).sort((r1, r2) => {
-    if (r1.insurancePlan.id === planIds.primary) {
+  const sorted = orgs.sort((r1, r2) => {
+    if (r1.id === planIds.primary) {
       return -1;
-    } else if (r2.insurancePlan.id === planIds.secondary) {
+    } else if (r2.id === planIds.secondary) {
       return 1;
     }
     return 0;
   });
-  console.log('reduced, filtered', JSON.stringify(reduced, null, 2), JSON.stringify(filtered, null, 2));
-  return filtered;
+  console.log('sorted', JSON.stringify(sorted, null, 2));
+  return sorted;
 };
 
 export interface MakeCoverageEligibilityRequestInput {

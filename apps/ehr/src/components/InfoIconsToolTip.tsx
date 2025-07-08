@@ -5,13 +5,7 @@ import HealthAndSafetyOutlinedIcon from '@mui/icons-material/HealthAndSafetyOutl
 import { Box } from '@mui/material';
 import { displayOrdersToolTip } from 'src/helpers';
 import { otherColors } from 'src/themes/ottehr/colors';
-import {
-  ExtendedMedicationDataForResponse,
-  InHouseOrderListPageItemDTO,
-  InPersonAppointmentInformation,
-  LabOrderListPageDTO,
-  NursingOrder,
-} from 'utils';
+import { InPersonAppointmentInformation, OrdersForTrackingBoardRow } from 'utils';
 import { ApptTab } from './AppointmentTabs';
 import { GenericToolTip, PaperworkToolTipContent } from './GenericToolTip';
 import { OrdersIconsToolTip } from './OrdersIconsToolTip';
@@ -19,31 +13,15 @@ import { OrdersIconsToolTip } from './OrdersIconsToolTip';
 interface InfoIconsToolTipProps {
   appointment: InPersonAppointmentInformation;
   tab: ApptTab;
-  inHouseLabOrders: InHouseOrderListPageItemDTO[] | undefined;
-  externalLabOrders: LabOrderListPageDTO[] | undefined;
-  nursingOrders: NursingOrder[] | undefined;
-  inHouseMedications: ExtendedMedicationDataForResponse[] | undefined;
+  orders: OrdersForTrackingBoardRow;
 }
-export const InfoIconsToolTip: React.FC<InfoIconsToolTipProps> = ({
-  appointment,
-  tab,
-  inHouseLabOrders,
-  externalLabOrders,
-  nursingOrders,
-  inHouseMedications,
-}) => {
+export const InfoIconsToolTip: React.FC<InfoIconsToolTipProps> = ({ appointment, tab, orders }) => {
   const ordersToolTip = displayOrdersToolTip(appointment, tab);
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'left', height: '100%' }}>
       {ordersToolTip ? (
-        <OrdersIconsToolTip
-          appointment={appointment}
-          externalLabOrders={externalLabOrders}
-          inHouseLabOrders={inHouseLabOrders}
-          nursingOrders={nursingOrders}
-          inHouseMedications={inHouseMedications}
-        />
+        <OrdersIconsToolTip appointment={appointment} orders={orders} />
       ) : (
         // Visit Components
         <GenericToolTip title={<PaperworkToolTipContent appointment={appointment} />} customWidth="none">

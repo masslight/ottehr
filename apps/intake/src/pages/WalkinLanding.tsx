@@ -6,7 +6,7 @@ import { DateTime } from 'luxon';
 import { FC, useState } from 'react';
 import { useQuery } from 'react-query';
 import { generatePath, Link, useNavigate, useParams } from 'react-router-dom';
-import { APIError, CreateSlotParams, isApiError, PROJECT_NAME, ServiceMode } from 'utils';
+import { APIError, CreateSlotParams, isApiError, PROJECT_NAME, PROJECT_WEBSITE, ServiceMode } from 'utils';
 import { ottehrApi } from '../api';
 import { bookingBasePath } from '../App';
 import { PageContainer } from '../components';
@@ -43,8 +43,7 @@ export const WalkinLanding: FC = () => {
     return (
       <PageContainer title={t('welcome.errors.notFound.title')}>
         <Typography variant="body1">
-          {t('welcome.errors.notFound.description')}{' '}
-          <a href="https://ottehr.com/find-care/">{t('welcome.errors.notFound.link')}</a>.
+          {t('welcome.errors.notFound.description')} <a href={PROJECT_WEBSITE}>{t('welcome.errors.notFound.link')}</a>.
         </Typography>
       </PageContainer>
     );
@@ -114,7 +113,7 @@ export const WalkinLanding: FC = () => {
               {t('welcome.errors.closed.description')}
             </Typography>
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', marginTop: 2.5 }}>
-              <Link to="https://ottehr.com" aria-label="Ottehr website" target="_blank">
+              <Link to={PROJECT_WEBSITE} aria-label={`${PROJECT_NAME} website`} target="_blank">
                 <Button variant="contained" color="primary" data-testid="loading-button">
                   {t('welcome.goToWebsite', { PROJECT_NAME })}
                 </Button>

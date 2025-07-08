@@ -4,7 +4,13 @@ import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter, Location, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ApptTab } from 'src/components/AppointmentTabs';
-import { getEncounterStatusHistoryUpdateOp, getPatchBinary, InPersonAppointmentInformation, PROJECT_NAME } from 'utils';
+import {
+  getEncounterStatusHistoryUpdateOp,
+  getPatchBinary,
+  InPersonAppointmentInformation,
+  OrdersForTrackingBoardRow,
+  PROJECT_NAME,
+} from 'utils';
 import { EvolveUser } from '../hooks/useEvolveUser';
 import { CRITICAL_CHANGE_SYSTEM } from './activityLogsUtils';
 import { getCriticalUpdateTagOp } from './activityLogsUtils';
@@ -184,4 +190,8 @@ export const displayOrdersToolTip = (appointment: InPersonAppointmentInformation
     display = true;
   }
   return display;
+};
+
+export const hasAtLeastOneOrder = (orders: OrdersForTrackingBoardRow): boolean => {
+  return Object.values(orders).some((orderList) => Array.isArray(orderList) && orderList.length > 0);
 };

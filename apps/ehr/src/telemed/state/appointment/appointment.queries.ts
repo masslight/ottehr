@@ -45,7 +45,7 @@ import useEvolveUser, { EvolveUser } from '../../../hooks/useEvolveUser';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { OystehrTelemedAPIClient, PromiseReturnType } from '../../data';
 import { useGetAppointmentAccessibility } from '../../hooks';
-import { useZapEHRAPIClient } from '../../hooks/useOystehrAPIClient';
+import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
 import { createRefreshableAppointmentData, extractReviewAndSignAppointmentData } from '../../utils';
 import { useAppointmentStore } from './appointment.store';
 
@@ -433,7 +433,7 @@ export const useGetChartData = (
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useSaveChartData = () => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const { encounter } = getSelectors(useAppointmentStore, ['encounter']);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
@@ -457,7 +457,7 @@ export const useSaveChartData = () => {
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useDeleteChartData = () => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const { encounter } = useAppointmentStore.getState();
 
   return useMutation({
@@ -528,7 +528,7 @@ export const useGetAllergiesSearch = (allergiesSearchTerm: string) => {
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetCreateExternalLabResources = ({ patientId, search }: GetCreateLabOrderResources) => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   return useQuery(
     ['external lab resource search', { patientId, search }],
     async () => {
@@ -544,7 +544,7 @@ export const useGetCreateExternalLabResources = ({ patientId, search }: GetCreat
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetIcd10Search = ({ search, sabs, radiologyOnly }: IcdSearchRequestParams) => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const openError = (): void => {
     enqueueSnackbar('An error occurred during the search. Please try again in a moment.', {
       variant: 'error',
@@ -605,7 +605,7 @@ export const useGetPatientInstructions = (
   { type }: { type: InstructionType },
   onSuccess?: (data: PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getPatientInstructions']>>) => void
 ) => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
 
   return useQuery(
     ['telemed-get-patient-instructions', { apiClient, type }],
@@ -629,7 +629,7 @@ export const useGetPatientInstructions = (
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useSavePatientInstruction = () => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
 
   return useMutation({
     mutationFn: (instruction: { text: string }) => {
@@ -643,7 +643,7 @@ export const useSavePatientInstruction = () => {
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useDeletePatientInstruction = () => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
 
   return useMutation({
     mutationFn: (instruction: { instructionId: string }) => {
@@ -792,6 +792,9 @@ export const useCheckPractitionerEnrollment = ({ enabled }: { enabled: boolean }
   );
 };
 
+/*
+ * This should be deletable now but need to verify that ClaimsQueue feature has been mothballed
+ */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetInsurancePlan = ({ id }: { id: string | undefined }) => {
   const { oystehr } = useApiClients();
@@ -817,7 +820,7 @@ export const useGetInsurancePlan = ({ id }: { id: string | undefined }) => {
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useCreateUpdateMedicationOrder = () => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   return useMutation({
     mutationFn: (props: UpdateMedicationOrderInput) => {
       if (apiClient) {
@@ -833,7 +836,7 @@ export const useCreateUpdateMedicationOrder = () => {
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetMedicationOrders = (searchBy: GetMedicationOrdersInput['searchBy']) => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
 
   const encounterIdIsDefined = searchBy.field === 'encounterId' && searchBy.value;
   const encounterIdsHasLen = searchBy.field === 'encounterIds' && searchBy.value.length > 0;

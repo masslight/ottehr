@@ -18,7 +18,7 @@ export interface GetPatientsInput {
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let zapehrToken: string;
+let oystehrToken: string;
 
 export const index = wrapHandler('telemed-get-patients', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -28,9 +28,9 @@ export const index = wrapHandler('telemed-get-patients', async (input: ZambdaInp
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    if (!zapehrToken) {
+    if (!oystehrToken) {
       console.log('getting token');
-      zapehrToken = await getAuth0Token(secrets);
+      oystehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }
@@ -40,7 +40,7 @@ export const index = wrapHandler('telemed-get-patients', async (input: ZambdaInp
     // console.log(user);
 
     const oystehr = createOystehrClient(
-      zapehrToken,
+      oystehrToken,
       getSecret(SecretsKeys.FHIR_API, secrets),
       getSecret(SecretsKeys.PROJECT_API, secrets)
     );
