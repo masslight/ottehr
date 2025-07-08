@@ -46,6 +46,7 @@ import {
   Pagination,
   PatientLabItem,
   PROVENANCE_ACTIVITY_CODES,
+  PROVENANCE_ACTIVITY_CODING_ENTITY,
   PROVENANCE_ACTIVITY_TYPE_SYSTEM,
   PSC_HOLD_CONFIG,
   QuestionnaireData,
@@ -1488,6 +1489,7 @@ export const parseLabOrdersHistory = (
 ): LabOrderHistoryRow[] => {
   console.log('building order history for external lab service request', serviceRequest.id);
   const {
+    taskPST,
     orderedFinalTasks,
     reflexFinalTasks,
     orderedCorrectedTasks,
@@ -1502,21 +1504,22 @@ export const parseLabOrdersHistory = (
       results,
     });
 
-  const orderedBy = parsePractitionerNameFromServiceRequest(serviceRequest, practitioners);
-  const orderAddedDate = parseLabOrderAddedDate(serviceRequest, tasks, results, cache);
+  const createdBy = parsePractitionerNameFromServiceRequest(serviceRequest, practitioners);
+  const createdDate = parseLabOrderAddedDate(serviceRequest, tasks, results, cache);
 
   const history: LabOrderHistoryRow[] = [
     {
-      action: 'ordered',
-      performer: orderedBy,
-      date: orderAddedDate,
+      action: 'created',
+      performer: createdBy,
+      date: createdDate,
     },
   ];
 
   if (orderStatus === ExternalLabsStatus.pending) return history;
 
-  const isPSC = parseIsPSC(serviceRequest);
+  history.push(...parseSubmittedHistory(taskPST, practitioners, provenances));
 
+  const isPSC = parseIsPSC(serviceRequest);
   const pushPerformedHistory = (specimen: Specimen): void => {
     history.push({
       action: 'performed',
@@ -1584,6 +1587,30 @@ export const parseAccountNumber = (serviceRequest: ServiceRequest, organizations
   }
 
   return NOT_FOUND;
+};
+
+export const parseSubmittedHistory = (
+  task: Task | null,
+  practitioners: Practitioner[],
+  provenances: Provenance[]
+): LabOrderHistoryRow[] => {
+  const pstTaskProvenance = provenances.find(
+    (provenance) =>
+      provenance.activity?.coding?.some(
+        (code) =>
+          code.code === PROVENANCE_ACTIVITY_CODING_ENTITY.submit.code &&
+          code.system === PROVENANCE_ACTIVITY_CODING_ENTITY.submit.system
+      )
+  );
+  if (!pstTaskProvenance || !task) return [];
+  const submittedBy = parseReviewerNameFromProvenance(pstTaskProvenance, practitioners);
+  const submitDate = pstTaskProvenance.recorded;
+  const submittedHistory: LabOrderHistoryRow = {
+    action: 'ordered',
+    performer: submittedBy,
+    date: submitDate,
+  };
+  return [submittedHistory];
 };
 
 export const parseTaskReceivedAndReviewedAndCorrectedHistory = (

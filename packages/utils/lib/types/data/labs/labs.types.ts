@@ -74,7 +74,7 @@ export enum ExternalLabsStatus {
 }
 
 export type LabOrderUnreceivedHistoryRow = {
-  action: 'ordered' | 'performed' | 'cancelled by lab';
+  action: 'created' | 'ordered' | 'performed' | 'cancelled by lab';
   performer: string;
   date: string;
 };

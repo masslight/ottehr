@@ -311,7 +311,7 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
   addNewLine();
   currXPos = styles.margin.x;
   drawFieldLineLeft('ID:', data.patientId);
-  drawFieldLineRight('Order Date: ', data.orderCreateDate);
+  drawFieldLineRight('Order Date: ', data.orderSubmitDate);
   addNewLine();
   await drawImage(locationIcon);
   currXPos += imageWidth + regularTextWidth;
