@@ -39,7 +39,9 @@ export function validateRequestParameters(
     if (missedFields.length > 0) throw new Error(`Missing fields in orderData: ${missedFields.join(', ')}`);
   }
 
-  validateInteractions(orderData.interactions);
+  if (orderData.interactions) {
+    validateInteractions(orderData.interactions);
+  }
 
   console.groupEnd();
   console.debug('validateRequestParameters success');
@@ -52,14 +54,14 @@ export function validateRequestParameters(
   };
 }
 
-function validateInteractions(interactions?: MedicationInteractions): void {
+function validateInteractions(interactions: MedicationInteractions): void {
   const missingOverrideReason: string[] = [];
-  interactions?.drugInteractions?.forEach((interaction, index) => {
+  interactions.drugInteractions?.forEach((interaction, index) => {
     if (!interaction.overrideReason) {
       missingOverrideReason.push(`interactions.drugInteractions[${index}]`);
     }
   });
-  interactions?.allergyInteractions?.forEach((interaction, index) => {
+  interactions.allergyInteractions?.forEach((interaction, index) => {
     if (!interaction.overrideReason) {
       missingOverrideReason.push(`interactions.allergyInteractions[${index}]`);
     }
