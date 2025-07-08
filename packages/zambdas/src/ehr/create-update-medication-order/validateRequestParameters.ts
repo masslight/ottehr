@@ -39,7 +39,7 @@ export function validateRequestParameters(
     if (missedFields.length > 0) throw new Error(`Missing fields in orderData: ${missedFields.join(', ')}`);
   }
 
-  if (orderData.interactions) {
+  if (orderData?.interactions) {
     validateInteractions(orderData.interactions);
   }
 
