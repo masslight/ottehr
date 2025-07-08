@@ -82,19 +82,23 @@ const performEffect = async (
       throw new Error('No patient ID found in oystehr service request.');
     }
 
+    const advapacsLaunchBody = {
+      // cSpell:disable-next meddream
+      viewer: 'meddream',
+      patientId,
+      accessionNumber: [accessionNumber],
+      username: advapacsViewerUsername,
+    };
+
+    console.log(`Launching AdvaPacs viewer with body: ${JSON.stringify(advapacsLaunchBody)}`);
+
     const response = await fetch(ADVAPACS_VIEWER_LAUNCH_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: advapacsAuthString,
       },
-      body: JSON.stringify({
-        // cSpell:disable-next meddream
-        viewer: 'meddream',
-        patientId,
-        accessionNumber: [accessionNumber],
-        username: advapacsViewerUsername,
-      }),
+      body: JSON.stringify(advapacsLaunchBody),
     });
 
     if (!response.ok) {
