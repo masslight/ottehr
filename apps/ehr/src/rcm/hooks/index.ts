@@ -1,2 +1,2 @@
-export * from './useZapEHRAPIClient';
+export * from './useOystehrAPIClient';
 export * from './useWindowResize';

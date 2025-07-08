@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getSelectors, TelemedAppointmentInformationIntake } from 'utils';
-import { useZapEHRAPIClient } from '../../../utils';
+import { useOystehrAPIClient } from '../../../utils';
 import { useAppointmentStore, useGetAppointments } from '..';
 
 export const useAppointmentsData = (): {
@@ -10,7 +10,7 @@ export const useAppointmentsData = (): {
   isAppointmentsFetching: boolean;
   refetchAppointments: () => Promise<unknown>;
 } => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const [appointment, setCurrentAppointment] = useState<TelemedAppointmentInformationIntake | undefined>();
   const { appointmentID } = getSelectors(useAppointmentStore, ['appointmentID']);
 

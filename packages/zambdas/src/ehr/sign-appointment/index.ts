@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import {
@@ -15,7 +16,7 @@ import {
   visitStatusToFhirEncounterStatusMap,
 } from 'utils';
 import { checkOrCreateM2MClientToken, ZambdaInput } from '../../shared';
-import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createCandidEncounter } from '../../shared/candid';
+import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createEncounterFromAppointment } from '../../shared/candid';
 import { createPublishExcuseNotesOps } from '../../shared/createPublishExcuseNotesOps';
 import { createOystehrClient } from '../../shared/helpers';
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
@@ -79,13 +80,12 @@ export const performEffect = async (
 
   let candidEncounterId: string | undefined;
   try {
-    candidEncounterId = await createCandidEncounter(visitResources, secrets, oystehr);
+    candidEncounterId = await createEncounterFromAppointment(visitResources, secrets, oystehr);
   } catch (error) {
-    console.error(`Error creating Candid encounter: ${error}`);
-    // We can still proceed with the rest of the logic even if Candid encounter creation fails
-    // longer term we probably want a more decoupled approach where the candid synching is offloaded and tracked
-    // as its own Task
+    console.error(`Error creating Candid encounter: ${error}, stringified error: ${JSON.stringify(error)}`);
+    captureException(error);
   }
+
   console.log(`appointment and encounter statuses: ${appointment.status}, ${encounter.status}`);
   const currentStatus = getVisitStatus(appointment, encounter);
   if (currentStatus) {
