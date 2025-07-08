@@ -77,8 +77,15 @@ export const performEffect = async (
     throw new Error(`No subject reference defined for encounter ${encounter?.id}`);
   }
 
-  const candidEncounterId = await createCandidEncounter(visitResources, secrets, oystehr);
-
+  let candidEncounterId: string | undefined;
+  try {
+    candidEncounterId = await createCandidEncounter(visitResources, secrets, oystehr);
+  } catch (error) {
+    console.error(`Error creating Candid encounter: ${error}`);
+    // We can still proceed with the rest of the logic even if Candid encounter creation fails
+    // longer term we probably want a more decoupled approach where the candid synching is offloaded and tracked
+    // as its own Task
+  }
   console.log(`appointment and encounter statuses: ${appointment.status}, ${encounter.status}`);
   const currentStatus = getVisitStatus(appointment, encounter);
   if (currentStatus) {

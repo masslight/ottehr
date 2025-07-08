@@ -339,7 +339,7 @@ const ThankYou = (): JSX.Element => {
           {visitType !== VisitType.WalkIn && <Divider />}
           <Grid container alignItems="center" marginTop={2} marginBottom={2}>
             <Grid item xs={12} md={2.5}>
-              <img src={ottehrLightBlue} alt="ottehr icon" width="80px" />
+              <img src={ottehrLightBlue} alt={`${PROJECT_NAME} icon`} width="80px" />
             </Grid>
             <Grid item xs={12} md={9.5}>
               <Typography variant="subtitle1" color="text.primary">

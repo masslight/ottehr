@@ -1,9 +1,11 @@
 import fontkit from '@pdf-lib/fontkit';
 import fs from 'fs';
+import { DateTime } from 'luxon';
 import { PageSizes, PDFDocument, PDFFont, StandardFonts } from 'pdf-lib';
 import { Secrets } from 'utils';
 import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
+import { getLabFileName } from './labs-results-form-pdf';
 import { PdfInfo } from './pdf-utils';
 import { LabsData } from './types';
 
@@ -421,7 +423,9 @@ export async function createExternalLabsOrderFormPDF(
 
   console.debug(`Created external labs order form pdf bytes`);
   const bucketName = 'visit-notes';
-  const fileName = 'ExternalLabsOrderForm.pdf';
+  const fileName = `ExternalLabsOrderForm-${
+    input.orderName ? getLabFileName(input.orderName) + '-' : ''
+  }-${DateTime.fromISO(input.orderCreateDateAuthoredOn).toFormat('yyyy-MM-dd')}-${input.orderPriority}.pdf`;
   console.log('Creating base file url');
   const baseFileUrl = makeZ3Url({ secrets, fileName, bucketName, patientID });
   console.log('Uploading file to bucket');
