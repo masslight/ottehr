@@ -1,7 +1,7 @@
 import { Box, Typography } from '@mui/material';
 import { FC, useMemo } from 'react';
 import {
-  formatDateTimeToEDT,
+  formatDateTimeToLocalTimezone,
   getProviderNameWithProfession,
   getQuestionnaireResponseByLinkId,
   mapEncounterStatusHistory,
@@ -35,8 +35,8 @@ export const VisitDetailsContainer: FC = () => {
         : undefined,
     [encounter.statusHistory, appointment?.status]
   );
-  const dateOfService = formatDateTimeToEDT(statuses?.find((item) => item.status === 'on-video')?.start);
-  const signedOnDate = formatDateTimeToEDT(reviewAndSignData?.signedOnDate);
+  const dateOfService = formatDateTimeToLocalTimezone(statuses?.find((item) => item.status === 'on-video')?.start);
+  const signedOnDate = formatDateTimeToLocalTimezone(reviewAndSignData?.signedOnDate);
 
   const insuranceCompanyID = getQuestionnaireResponseByLinkId('insurance-carrier', questionnaireResponse)?.answer?.[0]
     .valueString;
