@@ -85,6 +85,10 @@ export const DYMO_30334_LABEL_CONFIG: LabelConfig = {
   marginRightInches: 0.04,
   printerDPI: DYMO_550_TURBO_DPI,
 };
+
+// for manual orders
+export const OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM = 'https://identifiers.ottehr.com/lab-order-placer-id';
+
 // These are oystehr dependent
 // meaning that there is logic in oystehr labs specifically looking for these systems
 // so if we don't like any of them, we have to change there too

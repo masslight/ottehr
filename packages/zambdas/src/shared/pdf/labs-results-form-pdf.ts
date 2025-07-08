@@ -34,6 +34,7 @@ import {
   LAB_ORDER_TASK,
   LAB_RESULT_DOC_REF_CODING_CODE,
   LabType,
+  OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   quantityRangeFormat,
@@ -169,7 +170,10 @@ const getResultDataConfig = (
     } = specificResources;
     const externalLabData: Omit<ExternalLabResultsData, keyof LabResultsData> = {
       orderNumber:
-        serviceRequest.identifier?.find((item) => item.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)?.value || '',
+        serviceRequest.identifier?.find(
+          (item) =>
+            item.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM || item.system === OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM
+        )?.value || '',
       accessionNumber: diagnosticReport.identifier?.find((item) => item.type?.coding?.[0].code === 'FILL')?.value || '',
       collectionDate,
       orderSubmitDate,

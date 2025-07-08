@@ -1,3 +1,4 @@
+import { getRandomValues } from 'crypto';
 import {
   Questionnaire,
   QuestionnaireResponse,
@@ -117,3 +118,15 @@ export const populateQuestionnaireResponseItems = async (
 
   return { questionnaireResponseItems, questionsAndAnswersForFormDisplay };
 };
+
+export function createOrderNumber(length: number): string {
+  // https://sentry.io/answers/generate-random-string-characters-in-javascript/
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  const randomArray = new Uint8Array(length);
+  getRandomValues(randomArray);
+  randomArray.forEach((number) => {
+    result += chars[number % chars.length];
+  });
+  return result;
+}

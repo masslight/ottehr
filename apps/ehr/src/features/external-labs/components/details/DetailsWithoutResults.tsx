@@ -8,6 +8,7 @@ import { OrderCollection } from '../OrderCollection';
 export const DetailsWithoutResults: React.FC<{
   labOrder: LabOrderDetailedPageDTO;
 }> = ({ labOrder }) => {
+  console.log('hm', labOrder);
   return (
     <Stack spacing={2} sx={{ width: '100%' }}>
       <CSSPageTitle>{labOrder.testItem}</CSSPageTitle>
@@ -42,7 +43,7 @@ export const DetailsWithoutResults: React.FC<{
             taskStatus={taskStatus}
           />
         )} */}
-      <OrderCollection labOrder={labOrder} showOrderInfo={labOrder.orderStatus === 'sent'} />
+      <OrderCollection labOrder={labOrder} showOrderInfo={labOrder.orderStatus.includes('sent')} />
     </Stack>
   );
 };

@@ -42,6 +42,14 @@ export const ExternalLabsStatusPalette: {
       primary: '#4527A0',
     },
   },
+  'sent manually': {
+    background: {
+      primary: '#D1C4E9',
+    },
+    color: {
+      primary: '#4527A0',
+    },
+  },
   received: {
     background: {
       primary: '#BBDEFB',
