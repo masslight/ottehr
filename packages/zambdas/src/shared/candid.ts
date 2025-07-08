@@ -60,6 +60,7 @@ import {
   FHIR_IDENTIFIER_NPI,
   getOptionalSecret,
   getSecret,
+  INVALID_INPUT_ERROR,
   MISSING_PATIENT_COVERAGE_INFO_ERROR,
   Secrets,
   SecretsKeys,
@@ -530,17 +531,77 @@ async function createPreEncounterPatient(
   patient: Patient,
   apiClient: CandidApiClient
 ): Promise<CandidPreEncounterPatient> {
-  const medicalRecordNumber = assertDefined(patient.id, 'Patient resource id');
-  const patientName = assertDefined(patient.name?.[0], 'Patient name');
-  const patientAddress = assertDefined(patient.address?.[0], 'Patient address');
-  const firstName = assertDefined(patientName.given?.[0], 'Patient first name');
-  const lastName = assertDefined(patientName.family, 'Patient last name');
-  const gender = assertDefined(patient.gender as Gender, 'Patient gender');
-  const dateOfBirth = assertDefined(patient.birthDate, 'Patient birth date');
-  const patientPhone = assertDefined(
-    patient.telecom?.find((telecom) => telecom.system === 'phone')?.value,
-    'Patient phone number'
-  );
+  if (!patient.birthDate) {
+    throw INVALID_INPUT_ERROR(
+      'In order to collect payment, patient date of birth is required. Please update the patient record and try again.'
+    );
+  }
+
+  if (!patient.id) {
+    throw new Error('Patient ID is required');
+  }
+
+  const medicalRecordNumber = patient.id;
+  const patientName = patient.name?.[0];
+
+  if (!patientName?.given?.[0]) {
+    throw INVALID_INPUT_ERROR(
+      'In order to collect payment, patient first name is required. Please update the patient record and try again.'
+    );
+  }
+  if (!patientName?.family) {
+    throw INVALID_INPUT_ERROR(
+      'In order to collect payment, patient last name is required. Please update the patient record and try again.'
+    );
+  }
+
+  const patientAddress = patient.address?.[0];
+  if (!patientAddress) {
+    throw INVALID_INPUT_ERROR(
+      'In order to collect payment, patient address is required. Please update the patient record and try again.'
+    );
+  }
+  if (!patientAddress.line?.[0]) {
+    throw INVALID_INPUT_ERROR(
+      'In order to collect payment, patient address first line is required. Please update the patient record and try again.'
+    );
+  }
+  if (!patientAddress.city) {
+    throw INVALID_INPUT_ERROR(
+      'In order to collect payment, patient address city is required. Please update the patient record and try again.'
+    );
+  }
+  if (!patientAddress.state) {
+    throw INVALID_INPUT_ERROR(
+      'In order to collect payment, patient address state is required. Please update the patient record and try again.'
+    );
+  }
+  if (!patientAddress.postalCode) {
+    throw INVALID_INPUT_ERROR(
+      'In order to collect payment, patient address postal code is required. Please update the patient record and try again.'
+    );
+  }
+  if (!patientAddress.use) {
+    throw INVALID_INPUT_ERROR(
+      'In order to collect payment, patient address use is required. Please update the patient record and try again.'
+    );
+  }
+
+  const firstName = patientName?.given?.[0];
+  const lastName = patientName?.family;
+  const gender = patient.gender as Gender;
+  if (!gender) {
+    throw INVALID_INPUT_ERROR(
+      'In order to collect payment, patient gender is required. Please update the patient record and try again.'
+    );
+  }
+  const dateOfBirth = patient.birthDate;
+  const patientPhone = patient.telecom?.find((telecom) => telecom.system === 'phone')?.value;
+  if (!patientPhone) {
+    throw INVALID_INPUT_ERROR(
+      'In order to collect payment, patient phone number is required. Please update the patient record and try again.'
+    );
+  }
 
   const patientResponse = await apiClient.preEncounter.patients.v1.createWithMrn({
     body: {
@@ -554,10 +615,10 @@ async function createPreEncounterPatient(
       birthDate: dateOfBirth,
       biologicalSex: mapGenderToSex(gender),
       primaryAddress: {
-        line: assertDefined(patientAddress.line, 'Patient street address lines'),
-        city: assertDefined(patientAddress.city, 'Patient city'),
-        state: assertDefined(patientAddress.state as State, 'Patient state'),
-        postalCode: assertDefined(patientAddress.postalCode, 'Patient postal code'),
+        line: patientAddress.line,
+        city: patientAddress.city,
+        state: patientAddress.state as State,
+        postalCode: patientAddress.postalCode,
         use: mapAddressUse(patientAddress.use),
         country: patientAddress.country ? patientAddress.country : 'US',
       },
