@@ -11,6 +11,7 @@ import {
   QuantityComponent,
   VitalsVisitNoteData,
 } from 'utils';
+import { Column } from './pdf-utils';
 
 export interface PageElementStyle {
   side?: 'left' | 'right' | 'center';
@@ -59,11 +60,16 @@ export interface LineStyle {
 export interface PdfClient {
   addNewPage: (styles: PageStyles) => void;
   drawText: (text: string, textStyle: TextStyle) => void;
-  drawTextSequential: (text: string, textStyle: Exclude<TextStyle, 'side'>, leftIndentationXPos?: number) => void;
+  drawTextSequential: (
+    text: string,
+    textStyle: Exclude<TextStyle, 'side'>,
+    bounds?: { leftBound: number; rightBound: number }
+  ) => void;
   drawStartXPosSpecifiedText: (
     text: string,
     textStyle: TextStyle,
-    startingXPos: number
+    startingXPos: number,
+    bounds?: { leftBound: number; rightBound: number }
   ) => { endXPos: number; endYPos: number };
   drawImage: (img: PDFImage, styles: ImageStyle, textStyle?: TextStyle) => void;
   newLine: (yDrop: number) => void;
@@ -82,6 +88,7 @@ export interface PdfClient {
   setRightBound: (newBound: number) => void;
   getTextDimensions: (text: string, textStyle: TextStyle) => { width: number; height: number };
   setPageStyles: (newStyles: PageStyles) => void;
+  drawVariableWidthColumns: (columns: Column[], yPosStartOfColumn: number) => void;
 }
 
 export type TelemedExamBlockData = {
