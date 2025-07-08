@@ -319,6 +319,13 @@ export const formatDateTimeToZone = (isoDate: string | undefined, timezone: Time
   return `${dt.toLocaleString(DateTime.DATETIME_SHORT, { locale: 'en-US' })} (${dt.toFormat('ZZZZ')})`;
 };
 
+export const formatDateTimeToLocalTimezone = (isoDate: string | undefined): string | undefined => {
+  if (!isoDate) return undefined;
+  const timezone = DateTime.local().zone.name;
+  const dt = DateTime.fromISO(isoDate).setZone(timezone);
+  return `${dt.toLocaleString(DateTime.DATETIME_SHORT, { locale: 'en-US' })} (${dt.toFormat('ZZZZ')})`;
+};
+
 export const formatDateToMDYWithTime = (isoDate: string | undefined): string | undefined => {
   if (!isoDate) return undefined;
   const dateTime = DateTime.fromISO(isoDate, { zone: 'utc' });
