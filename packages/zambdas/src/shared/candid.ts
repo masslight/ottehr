@@ -801,7 +801,7 @@ const updateCandidPatientWithCoverages = async (
 
   const patientResponse = await candidApiClient.preEncounter.patients.v1.update(
     candidPatient.id,
-    candidPatient.version.toString(),
+    (candidPatient.version + 1).toString(),
     updatedPatient
   );
 
@@ -880,7 +880,7 @@ const buildCandidCoverageCreateInput = (
         state: assertDefined(subscriber.address?.[0].state, 'Subscriber state'),
         postalCode: assertDefined(subscriber.address?.[0].postalCode, 'Subscriber postal code'),
         use: mapAddressUse(subscriber.address?.[0].use),
-        country: assertDefined(subscriber.address?.[0].country, 'Subscriber country'),
+        country: subscriber.address?.[0].country ?? 'US', // TODO just save country into the FHIR resource when making it https://build.fhir.org/datatypes-definitions.html#Address.country. We can put US by default to start.
       },
     },
     relationship: assertDefined(
