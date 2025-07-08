@@ -838,8 +838,6 @@ const createCandidCoverages = async (
       throw new Error(`Error creating Candid Primary coverage. Response body: ${JSON.stringify(response.error)}`);
     }
     candidCoverages.push(response.body);
-  } else {
-    throw new Error('Primary coverage or subscriber or payor is not defined');
   }
 
   if (coverages.secondary && coverages.secondarySubscriber && insuranceOrgs[1]) {
