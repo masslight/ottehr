@@ -10,7 +10,7 @@ import {
   VitalsVisionObservationDTO,
   VitalsWeightObservationDTO,
 } from '../../types';
-import { formatDateTimeToEDT } from '../../utils';
+import { formatDateTimeToZone } from '../../utils';
 import {
   getVisionExtraOptionsFormattedString,
   heightInCmToInch,
@@ -19,10 +19,13 @@ import {
   VitalsVisitNoteData,
 } from '../vitals';
 
-export const mapVitalsToDisplay = (vitalsObservations?: VitalsObservationDTO[]): VitalsVisitNoteData | undefined =>
+export const mapVitalsToDisplay = (
+  vitalsObservations: VitalsObservationDTO[],
+  timezone?: string
+): VitalsVisitNoteData | undefined =>
   vitalsObservations?.reduce((vitals, observation) => {
     const field = observation.field;
-    const time = formatDateTimeToEDT(observation.lastUpdated);
+    const time = formatDateTimeToZone(observation.lastUpdated, timezone ?? 'America/New_York');
     let text;
     let parsed;
 
