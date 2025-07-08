@@ -131,6 +131,7 @@ export interface LabsData {
   locationPhone?: string;
   locationFax?: string;
   labOrganizationName: string; // this is only mapped for order pdf
+  accountNumber: string;
   serviceRequestID: string;
   orderNumber: string; // this is only for external
   providerName: string;
@@ -148,6 +149,7 @@ export interface LabsData {
   orderCreateDateAuthoredOn: string;
   orderCreateDate: string;
   sampleCollectionDate?: string;
+  billClass: string;
   primaryInsuranceName?: string;
   primaryInsuranceAddress?: string;
   primaryInsuranceSubNum?: string;
@@ -195,6 +197,8 @@ export interface LabResultsData
     | 'providerNPI'
     | 'patientAddress'
     | 'sampleCollectionDate'
+    | 'billClass'
+    | 'accountNumber'
   > {
   testName: string;
   resultStatus: string;

@@ -145,8 +145,11 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
   if (data.providerNPI) {
     currXPos = pdfClient.drawStartXPosSpecifiedText('NPI: ', textStyles.textBold, rightColumnXStart).endXPos;
     pdfClient.drawStartXPosSpecifiedText(data.providerNPI, textStyles.text, currXPos);
+    pdfClient.newLine(STANDARD_NEW_LINE);
   }
-  // TODO add client identifying info (account number)
+
+  currXPos = pdfClient.drawStartXPosSpecifiedText('Client ID: ', textStyles.textBold, rightColumnXStart).endXPos;
+  pdfClient.drawStartXPosSpecifiedText(data.accountNumber, textStyles.text, currXPos);
 
   // figure out which column drew farther down in the y direction, and set the new y to that, then add newline
   pdfClient.setY(min([pdfClient.getY(), yPosAtEndOfLocation])!);
@@ -187,8 +190,7 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
   pdfClient.drawSeparatedLine(BLACK_LINE_STYLE);
 
   // Insurance Section
-  // TODO: add bill class
-  pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, 'Bill class:', 'TODO');
+  pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, 'Bill class:', data.billClass);
   pdfClient.newLine(STANDARD_NEW_LINE);
 
   if (data.primaryInsuranceName) {
@@ -284,8 +286,9 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
   pdfClient.newLine(STANDARD_NEW_LINE);
 
   // Signature
-  // TODO: add signed on date
   pdfClient.drawTextSequential(`Electronically signed by: ${data.providerName}`, textStyles.textBold);
+  pdfClient.newLine(STANDARD_NEW_LINE);
+  pdfClient.drawTextSequential(data.orderSubmitDate, textStyles.textGreyBold);
   pdfClient.newLine(STANDARD_NEW_LINE);
   pdfClient.drawSeparatedLine(BLACK_LINE_STYLE);
 
