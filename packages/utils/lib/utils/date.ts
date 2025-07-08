@@ -308,11 +308,6 @@ export function isHoliday(date: DateTime, federalHolidays: Record<string, Set<st
 
 export const generateYyyyMmDdString = (year: string, month: string, day: string): string => `${year}-${month}-${day}`;
 
-export const formatDateTimeToEDT = (isoDate: string | undefined): string | undefined => {
-  if (!isoDate) return undefined;
-  return formatDateTimeToZone(isoDate, 'America/New_York');
-};
-
 export const formatDateTimeToZone = (isoDate: string | undefined, timezone: Timezone): string | undefined => {
   if (!isoDate) return undefined;
   const dt = DateTime.fromISO(isoDate).setZone(timezone);
