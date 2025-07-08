@@ -50,7 +50,7 @@ export const UserMenu: FC = () => {
     try {
       await enrollPractitioner(practitioner!.id!);
       const ssoLink = await connectPractitionerForConfirmation();
-      window.open(ssoLink, '_blank');
+      void Promise.resolve().then(() => window.open(ssoLink, '_blank'));
     } catch (error) {
       enqueueSnackbar('Something went wrong while trying to connect practitioner to eRx', { variant: 'error' });
       console.error('Error trying to connect practitioner to eRx: ', error);
@@ -89,7 +89,7 @@ export const UserMenu: FC = () => {
           </Box>
         </MenuItem>
         <Divider />
-        {isPractitionerEnrollmentChecked && userIsProvider && !practitionerEnrollmentStatus?.confirmed && (
+        {isPractitionerEnrollmentChecked && userIsProvider && !practitionerEnrollmentStatus?.identityVerified && (
           <>
             {practitionerMissingFields.length > 0 && (
               <Box sx={{ display: 'flex', alignItems: 'center', maxWidth: 300, gap: 1, padding: '6px 16px' }}>
