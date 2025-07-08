@@ -771,7 +771,7 @@ const createPreEncounterAppointment = async (
   await oystehr.fhir.patch<Appointment>({
     resourceType: 'Appointment',
     id: appointment.id,
-    operations: [{ op: 'add', path: '/identifier', value: 'arrived' }],
+    operations: patchOperations,
   });
 
   return response.body;
