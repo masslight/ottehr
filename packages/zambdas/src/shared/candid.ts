@@ -701,7 +701,7 @@ export interface PerformCandidPreEncounterSyncInput {
   encounterId: string;
   oystehr: Oystehr;
   secrets: Secrets;
-  amountCents: number;
+  amountCents?: number; // When amountCents is not provided, no payment will be recorded
 }
 
 //
@@ -761,7 +761,9 @@ export const performCandidPreEncounterSync = async (input: PerformCandidPreEncou
     );
   }
 
-  await createPreEncounterPatientPayment(ourPatient, candidPreEncounterAppointment, amountCents);
+  if (amountCents) {
+    await createPreEncounterPatientPayment(ourPatient, candidPreEncounterAppointment, amountCents);
+  }
 };
 
 const createPreEncounterPatientPayment = async (
@@ -1029,6 +1031,25 @@ export async function createEncounterFromAppointment(
   }
   const apiClient = createCandidApiClient(secrets);
   const createEncounterInput = await createCandidCreateEncounterInput(visitResources, oystehr);
+
+  if (
+    !createEncounterInput.appointment.identifier?.find(
+      (identifier) => identifier.system === CANDID_PRE_ENCOUNTER_APPOINTMENT_ID_IDENTIFIER_SYSTEM
+    )?.value
+  ) {
+    // If this is not set, then we did not yet complete pre-encounter sync by collecting any payment before the visit, so we need to do that now.
+    console.log('Candid pre-encounter appointment ID is not set, performing pre-encounter sync.');
+
+    if (!visitResources.encounter.id) {
+      throw new Error(`Encounter ID is not defined for visit resources ${JSON.stringify(visitResources)}`);
+    }
+    await performCandidPreEncounterSync({
+      encounterId: visitResources.encounter.id,
+      oystehr,
+      secrets,
+    });
+  }
+
   const request = await candidCreateEncounterFromAppointmentRequest(createEncounterInput, apiClient);
   console.log('Candid request:' + JSON.stringify(request, null, 2));
   const response = await apiClient.encounters.v4.createFromPreEncounterPatient(request);
