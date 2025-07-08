@@ -555,6 +555,8 @@ async function createPreEncounterPatient(
     );
   }
 
+  console.log('alex patient,', patient);
+
   const patientAddress = patient.address?.[0];
   if (!patientAddress) {
     throw INVALID_INPUT_ERROR(
@@ -579,11 +581,6 @@ async function createPreEncounterPatient(
   if (!patientAddress.postalCode) {
     throw INVALID_INPUT_ERROR(
       'In order to collect payment, patient address postal code is required. Please update the patient record and try again.'
-    );
-  }
-  if (!patientAddress.use) {
-    throw INVALID_INPUT_ERROR(
-      'In order to collect payment, patient address use is required. Please update the patient record and try again.'
     );
   }
 
@@ -924,20 +921,41 @@ const buildCandidCoverageCreateInput = (
   insuranceOrg: Organization,
   candidPatient: CandidPreEncounterPatient
 ): MutableCoverage => {
+  if (!subscriber.name?.[0].family || !subscriber.name?.[0].given || !subscriber.name?.[0].use) {
+    throw INVALID_INPUT_ERROR(
+      'In order to collect payment, insurance subscriber name is required. Please update the patient record and try again.'
+    );
+  }
+  if (!subscriber.birthDate) {
+    throw INVALID_INPUT_ERROR(
+      'In order to collect payment, insurance subscriber date of birth is required. Please update the patient record and try again.'
+    );
+  }
+  if (
+    !subscriber.address?.[0].line ||
+    !subscriber.address?.[0].city ||
+    !subscriber.address?.[0].state ||
+    !subscriber.address?.[0].postalCode
+  ) {
+    throw INVALID_INPUT_ERROR(
+      'In order to collect payment, insurance subscriber address is required. Please update the patient record and try again.'
+    );
+  }
+
   return {
     subscriber: {
       name: {
-        family: assertDefined(subscriber.name?.[0].family, 'Subscriber last name'),
-        given: assertDefined(subscriber.name?.[0].given, 'Subscriber first name'),
-        use: assertDefined(subscriber.name?.[0].use, 'Subscriber name use').toUpperCase() as NameUse,
+        family: subscriber.name?.[0].family,
+        given: subscriber.name?.[0].given,
+        use: subscriber.name?.[0].use.toUpperCase() as NameUse,
       },
-      dateOfBirth: subscriber.birthDate!,
+      dateOfBirth: subscriber.birthDate,
       biologicalSex: mapGenderToSex(subscriber.gender),
       address: {
-        line: assertDefined(subscriber.address?.[0].line, 'Subscriber address line'),
-        city: assertDefined(subscriber.address?.[0].city, 'Subscriber city'),
-        state: assertDefined(subscriber.address?.[0].state, 'Subscriber state'),
-        postalCode: assertDefined(subscriber.address?.[0].postalCode, 'Subscriber postal code'),
+        line: subscriber.address?.[0].line,
+        city: subscriber.address?.[0].city,
+        state: subscriber.address?.[0].state,
+        postalCode: subscriber.address?.[0].postalCode,
         use: mapAddressUse(subscriber.address?.[0].use),
         country: subscriber.address?.[0].country ?? 'US', // TODO just save country into the FHIR resource when making it https://build.fhir.org/datatypes-definitions.html#Address.country. We can put US by default to start.
       },
