@@ -259,6 +259,9 @@ class API {
       if (!parameters) {
         throw new Error('get paperwork parameters missing');
       }
+      if (!parameters.appointmentID) {
+        throw new Error('get paperwork parameters appointmentID missing');
+      }
 
       const response = await zambdaClient.executePublic(GET_PAPERWORK_ZAMBDA_ID, parameters);
       const jsonToUse = chooseJson(response);

@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import {
@@ -77,10 +78,13 @@ export const performEffect = async (
     throw new Error(`No subject reference defined for encounter ${encounter?.id}`);
   }
 
-  const candidEncounterId = await createEncounterFromAppointment(visitResources, secrets, oystehr);
-
-  // We are removing simple encounter creation, since at this point swe should have pre-encounter resources
-  // const candidEncounterId = await createCandidEncounter(visitResources, secrets, oystehr);
+  let candidEncounterId: string | undefined;
+  try {
+    candidEncounterId = await createEncounterFromAppointment(visitResources, secrets, oystehr);
+  } catch (error) {
+    console.error(`Error creating Candid encounter: ${error}, stringified error: ${JSON.stringify(error)}`);
+    captureException(error);
+  }
 
   console.log(`appointment and encounter statuses: ${appointment.status}, ${encounter.status}`);
   const currentStatus = getVisitStatus(appointment, encounter);
