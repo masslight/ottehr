@@ -1,5 +1,5 @@
 import { useMutation } from 'react-query';
-import { ZapEHRAPIClient } from 'ui-components';
+import { OystehrAPIClient } from 'ui-components';
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useCreateZ3ObjectMutation = () =>
@@ -11,7 +11,7 @@ export const useCreateZ3ObjectMutation = () =>
       file,
       appointmentID,
     }: {
-      apiClient: ZapEHRAPIClient | null;
+      apiClient: OystehrAPIClient | null;
       fileType: string;
       fileFormat: string;
       file: File;
