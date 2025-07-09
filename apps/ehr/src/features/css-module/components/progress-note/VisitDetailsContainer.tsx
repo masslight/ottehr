@@ -1,12 +1,16 @@
-import { Stack, Typography } from '@mui/material';
+import { Box, Stack, Typography } from '@mui/material';
 import { FC } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getProviderNameWithProfession, getQuestionnaireResponseByLinkId, getSelectors, PARTICIPANT_TYPE } from 'utils';
 import { formatDateUsingSlashes } from '../../../../helpers/formatDateTime';
 import { ActionsList, useAppointmentStore } from '../../../../telemed';
 import { VisitNoteItem } from '../../../../telemed/features/appointment/ReviewTab';
 import { useChartData } from '../../hooks/useChartData';
+import { ButtonRounded } from '../RoundedButton';
 
 export const VisitDetailsContainer: FC = () => {
+  const navigate = useNavigate();
+
   const { appointment, practitioner, location, questionnaireResponse, encounter, chartData, setPartialChartData } =
     getSelectors(useAppointmentStore, [
       'appointment',
@@ -45,9 +49,37 @@ export const VisitDetailsContainer: FC = () => {
 
   return (
     <Stack spacing={2}>
-      <Typography fontSize={18} color="primary.dark" fontWeight={600}>
-        Visit Details
-      </Typography>
+      <Box
+        sx={{
+          mb: 2,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 1,
+          '@media (max-width: 600px)': {
+            flexDirection: 'column',
+            alignItems: 'flex-start',
+            justifyContent: 'flex-start',
+          },
+        }}
+      >
+        <Typography fontSize={18} color="primary.dark" fontWeight={600}>
+          Visit information
+        </Typography>
+        <ButtonRounded
+          onClick={() => navigate(`/visit/${appointment?.id}`)}
+          variant="outlined"
+          sx={{
+            whiteSpace: 'nowrap',
+            '@media (max-width: 600px)': {
+              alignSelf: 'flex-start',
+            },
+          }}
+        >
+          <span className="button-text">Visit Details</span>
+        </ButtonRounded>
+      </Box>
 
       <ActionsList
         data={[
