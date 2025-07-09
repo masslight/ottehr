@@ -80,11 +80,11 @@ export const InteractionAlertsDialog: React.FC<Props> = (props) => {
   const interactionSubtitleBox = (text: string): ReactElement => {
     return (
       <Box
-        style={{ background: '#FBEAEA', marginTop: '16px', padding: '16px', borderRadius: '4px' }}
+        style={{ background: otherColors.lightErrorBg, marginTop: '16px', padding: '16px', borderRadius: '4px' }}
         display="flex"
         alignItems="center"
       >
-        <Typography variant="body2" style={{ color: '#541313' }}>
+        <Typography variant="body2" style={{ color: otherColors.lightErrorText }}>
           {text}
         </Typography>
       </Box>

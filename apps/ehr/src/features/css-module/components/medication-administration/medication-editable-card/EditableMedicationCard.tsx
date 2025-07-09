@@ -20,6 +20,7 @@ import { useReactNavigationBlocker } from '../../../hooks/useReactNavigationBloc
 import { getEditOrderUrl } from '../../../routing/helpers';
 import { ROUTER_PATH, routesCSS } from '../../../routing/routesCSS';
 import { CSSModal } from '../../CSSModal';
+import { InteractionAlertsDialog } from '../InteractionAlertsDialog';
 import { fieldsConfig, MedicationOrderType } from './fieldsConfig';
 import { MedicationCardView } from './MedicationCardView';
 import {
@@ -54,8 +55,12 @@ export const EditableMedicationCard: React.FC<{
   const [isReasonSelected, setIsReasonSelected] = useState(true);
   const selectsOptions = useFieldsSelectsOptions();
   const [erxStatus, setERXStatus] = useState(ERXStatus.LOADING);
-  const [interactionsCheckState, setInteractionsCheckState] = useState<InteractionsCheckState>({ status: 'done' });
+  const [interactionsCheckState, setInteractionsCheckState] = useState<InteractionsCheckState>({ status: 'todo' });
   const { oystehr } = useApiClients();
+  const [showInteractionAlerts, setShowInteractionAlerts] = useState(false);
+
+  console.log('erxStatus', erxStatus);
+  console.log('interactionsCheckState', interactionsCheckState);
 
   const { refetchHistory } = useMedicationHistory();
 
@@ -317,6 +322,29 @@ export const EditableMedicationCard: React.FC<{
     console.log('New interactionsCheckState state ', interactionsCheckState);
   }, [interactionsCheckState]);
 
+  const interactionsWarning = (): string | undefined => {
+    if (!localValues.medicationId) {
+      return undefined;
+    }
+    if (erxStatus === ERXStatus.LOADING || interactionsCheckState.status === 'in-progress') {
+      return 'Interactions checks in progress...';
+    } else if (erxStatus === ERXStatus.ERROR || interactionsCheckState.status === 'error') {
+      return 'Drug-to-Drug and Drug-Allergy interaction check failed. Please review manually.';
+    } else if (interactionsCheckState.status === 'done') {
+      const names: string[] = [];
+      interactionsCheckState.interactions?.drugInteractions?.flatMap((drugInteraction) => {
+        return drugInteraction.drugs.map((drug) => drug.name);
+      });
+      if (interactionsCheckState.interactions?.allergyInteractions) {
+        names.push('allergy');
+      }
+      if (names.length > 0) {
+        return names.join(',');
+      }
+    }
+    return undefined;
+  };
+
   return (
     <>
       <MedicationCardView
@@ -337,6 +365,12 @@ export const EditableMedicationCard: React.FC<{
         saveButtonText={saveButtonText}
         isSaveButtonDisabled={isCardSaveButtonDisabled}
         selectsOptions={selectsOptions}
+        interactionsWarning={interactionsWarning()}
+        onInteractionsWarningClick={() => {
+          if (interactionsCheckState.status === 'done') {
+            setShowInteractionAlerts(true);
+          }
+        }}
       />
       <CSSModal
         icon={null}
@@ -365,16 +399,21 @@ export const EditableMedicationCard: React.FC<{
         />
       ) : null}
       <ConfirmationModalForLeavePage />
+      {showInteractionAlerts ? (
+        <InteractionAlertsDialog
+          medicationName=""
+          interactions={interactionsCheckState.interactions ?? {}}
+          onCancel={() => setShowInteractionAlerts(false)}
+          onContinue={(interactions: MedicationInteractions) => {
+            setShowInteractionAlerts(false);
+            setInteractionsCheckState({
+              status: 'done',
+              interactions,
+            });
+          }}
+        />
+      ) : null}
       <ERX onStatusChanged={setERXStatus} />
-      {erxStatus === ERXStatus.LOADING || interactionsCheckState.status === 'in-progress' ? (
-        <>Interactions checks in progress</>
-      ) : undefined}
-      {erxStatus === ERXStatus.ERROR || interactionsCheckState.status === 'error' ? (
-        <>Drug-to-Drug and Drug-Allergy interaction check failed. Please review manually</>
-      ) : undefined}
-      {interactionsCheckState.status === 'done' && interactionsCheckState.interactions != null ? (
-        <>interactions red banner</>
-      ) : undefined}
     </>
   );
 };
