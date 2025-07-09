@@ -189,8 +189,8 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
 
   pdfClient.drawSeparatedLine(BLACK_LINE_STYLE);
 
-  // Insurance Section
-  pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, 'Bill class:', data.billClass);
+  // Insurance/billing Section
+  pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, 'Bill Class:', data.billClass);
   pdfClient.newLine(STANDARD_NEW_LINE);
 
   if (data.primaryInsuranceName) {
@@ -218,15 +218,8 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
     pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, 'Address:', data.insuredAddress);
     pdfClient.newLine(STANDARD_NEW_LINE);
   }
-  if (
-    data.primaryInsuranceName ||
-    data.primaryInsuranceAddress ||
-    data.primaryInsuranceSubNum ||
-    data.insuredAddress ||
-    data.insuredName
-  ) {
-    pdfClient.drawSeparatedLine(BLACK_LINE_STYLE);
-  }
+
+  pdfClient.drawSeparatedLine(BLACK_LINE_STYLE);
 
   // AOE Section
   if (data.aoeAnswers?.length) {
