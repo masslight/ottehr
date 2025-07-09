@@ -11,6 +11,7 @@ export const getPatientName = (
   firstLastName: string | undefined;
   lastFirstName: string | undefined;
   firstMiddleLastName: string | undefined;
+  lastFirstMiddleName: string | undefined;
 } => {
   const firstName = name?.[0]?.given?.[0];
   const lastName = name?.[0]?.family;
@@ -29,6 +30,15 @@ export const getPatientName = (
 
   const firstMiddleLastName = [firstName, middleName, lastName].filter((x) => !!x).join(' ') || undefined;
 
+  const lastFirstMiddleName = (() => {
+    if (!firstName || !lastName) return undefined;
+    const parts = [lastName, firstName];
+    if (middleName) {
+      parts.push(middleName);
+    }
+    return parts.join(', ');
+  })();
+
   return {
     firstName,
     lastName,
@@ -38,5 +48,6 @@ export const getPatientName = (
     lastFirstName,
     // suffix,
     firstMiddleLastName,
+    lastFirstMiddleName,
   };
 };
