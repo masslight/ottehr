@@ -104,7 +104,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       else if (ent.response?.outcome?.id === 'created' && ent.resource) response.createdTasks.push(ent.resource);
     });
 
-    // todo waiting to find out if we are creating a new pdf if cancelled
     await createExternalLabResultPDF(oystehr, serviceRequestID, diagnosticReport, false, secrets, oystehrToken);
 
     return {

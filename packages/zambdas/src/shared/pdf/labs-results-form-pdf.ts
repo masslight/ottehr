@@ -17,7 +17,6 @@ import {
   Specimen,
   Task,
 } from 'fhir/r4b';
-import fs from 'fs';
 import { DateTime } from 'luxon';
 import { Color } from 'pdf-lib';
 import {
@@ -45,14 +44,13 @@ import { getExternalLabOrderResources } from '../../ehr/shared/labs';
 import { LABS_DATE_STRING_FORMAT } from '../../ehr/submit-lab-order';
 import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
-import { ICON_STYLE, PDF_CLIENT_STYLES, STANDARD_FONT_SIZE, STANDARD_NEW_LINE } from './pdf-consts';
+import { ICON_STYLE, STANDARD_FONT_SIZE, STANDARD_NEW_LINE } from './pdf-consts';
 import {
   calculateAge,
-  createPdfClient,
   drawFieldLine,
   drawFieldLineRight,
   drawFourColumnText,
-  getTextStylesForLabsPDF,
+  getPdfClientForLabsPDFs,
   LAB_PDF_STYLES,
   LabsPDFTextStyleConfig,
   PdfInfo,
@@ -406,7 +404,7 @@ export async function createExternalLabResultPDF(
   const specimenCollectionDate = sortedSpecimens?.[0]?.collection?.collectedDateTime;
   const collectionDate = specimenCollectionDate
     ? DateTime.fromISO(specimenCollectionDate).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
-    : DateTime.now().setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT);
+    : '';
 
   const externalSpecificResources: LabTypeSpecificResources = {
     type: LabType.external,
@@ -528,10 +526,7 @@ export async function createInHouseLabResultPDF(
 async function createLabsResultsFormPdfBytes(dataConfig: ResultDataConfig): Promise<Uint8Array> {
   const { type, data } = dataConfig;
 
-  const pdfClient = await createPdfClient(PDF_CLIENT_STYLES);
-  const callIcon = await pdfClient.embedImage(fs.readFileSync('./assets/call.png'));
-  const faxIcon = await pdfClient.embedImage(fs.readFileSync('./assets/fax.png'));
-  const textStyles = await getTextStylesForLabsPDF(pdfClient);
+  const { pdfClient, callIcon, faxIcon, textStyles } = await getPdfClientForLabsPDFs();
 
   // draw header which is same for external and in house at the moment
   // drawFieldLine('Patient Name:', 'test');
@@ -670,8 +665,19 @@ async function createExternalLabsResultsFormPdfBytes(
   for (const labResult of data.externalLabResults) {
     pdfClient.newLine(14);
     pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
-    pdfClient.newLine(5);
-    pdfClient.drawText(`Code: ${labResult.resultCode} (${labResult.resultCodeDisplay})`, textStyles.text);
+
+    let codeText: string | undefined;
+    if (labResult.resultCode) {
+      codeText = `Code: ${labResult.resultCode}`;
+    }
+    if (labResult.resultCodeDisplay) {
+      codeText += ` (${labResult.resultCodeDisplay})`;
+    }
+    if (codeText) {
+      pdfClient.newLine(5);
+      pdfClient.drawText(codeText, textStyles.text);
+    }
+
     if (labResult.resultInterpretation && labResult.resultInterpretationDisplay) {
       pdfClient.newLine(STANDARD_NEW_LINE);
       const fontStyleTemp = {
@@ -683,8 +689,11 @@ async function createExternalLabsResultsFormPdfBytes(
         fontStyleTemp
       );
     }
-    pdfClient.newLine(STANDARD_NEW_LINE);
-    pdfClient.drawText(`Value: ${labResult.resultValue}`, textStyles.text);
+
+    if (labResult.resultValue) {
+      pdfClient.newLine(STANDARD_NEW_LINE);
+      pdfClient.drawText(`Value: ${labResult.resultValue}`, textStyles.text);
+    }
 
     if (labResult.referenceRangeText) {
       pdfClient.newLine(STANDARD_NEW_LINE);
@@ -704,12 +713,13 @@ async function createExternalLabsResultsFormPdfBytes(
           if (noteLine === '') pdfClient.newLine(STANDARD_NEW_LINE);
           else {
             // adding a little bit of a left indent for notes
-            pdfClient.drawTextSequential(noteLine, textStyles.text, 50);
+            pdfClient.drawTextSequential(noteLine, textStyles.text, {
+              leftBound: 50,
+              rightBound: pdfClient.getRightBound(),
+            });
             pdfClient.newLine(STANDARD_NEW_LINE);
           }
         });
-
-        pdfClient.newLine(STANDARD_NEW_LINE);
       });
     }
   }

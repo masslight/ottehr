@@ -11,7 +11,7 @@ import useEvolveUser from '../../../hooks/useEvolveUser';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { ConfirmationDialog } from '../../components';
 import { useGetAppointmentAccessibility } from '../../hooks';
-import { useZapEHRAPIClient } from '../../hooks/useOystehrAPIClient';
+import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
 import {
   useAppointmentStore,
   useChangeTelemedAppointmentStatusMutation,
@@ -48,7 +48,7 @@ export const AppointmentFooterButton: FC = () => {
   const location = useLocation();
   const theme = useTheme();
   const queryClient = useQueryClient();
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const changeTelemedAppointmentStatusEnum = useChangeTelemedAppointmentStatusMutation();
   const initTelemedSession = useInitTelemedSessionMutation();
   const getMeetingData = useGetMeetingData(

@@ -21,7 +21,7 @@ import { useAppointmentStore } from '../features/appointments';
 import { CustomContainer, useIntakeCommonStore } from '../features/common';
 import { useCallSettingsStore, useJoinCall, useVideoCallStore, VideoRoom } from '../features/video-call';
 import { useIsMobile } from '../hooks/useIsMobile';
-import { useZapEHRAPIClient } from '../utils';
+import { useOystehrAPIClient } from '../utils';
 
 const VideoChatPage: FC = () => {
   const { meetingData } = getSelectors(useVideoCallStore, ['meetingData']);
@@ -37,7 +37,7 @@ const VideoChatPage: FC = () => {
   const { devices: audioInputs, selectedDevice: selectedAudioDevice } = useAudioInputs();
   const isMobile = useIsMobile();
 
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const [searchParams] = useSearchParams();
   const urlAppointmentID = searchParams.get('appointmentID');
   const navigate = useNavigate();

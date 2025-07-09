@@ -1,12 +1,12 @@
 import { useQuery } from 'react-query';
-import { ZapEHRAPIClient } from 'ui-components';
+import { OystehrAPIClient } from 'ui-components';
 import { PromiseReturnType } from 'utils';
 import { useApiClients } from './useAppClients';
 
 interface GetPaymentMethodsParams {
   setupCompleted: boolean;
   beneficiaryPatientId: string | undefined;
-  onSuccess?: (data: PromiseReturnType<ReturnType<ZapEHRAPIClient['getPaymentMethods']>>) => void;
+  onSuccess?: (data: PromiseReturnType<ReturnType<OystehrAPIClient['getPaymentMethods']>>) => void;
 }
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetPaymentMethods = (input: GetPaymentMethodsParams) => {

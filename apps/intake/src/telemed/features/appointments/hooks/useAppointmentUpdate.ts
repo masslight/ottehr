@@ -1,8 +1,14 @@
 import { useCallback, useRef, useState } from 'react';
 import { useQueryClient } from 'react-query';
-import { getSelectors, isoStringFromMDYString, PatientInfo, UpdateAppointmentResponse, yupDateTransform } from 'utils';
-import { CreateAppointmentUCTelemedResponse } from 'utils';
-import { useZapEHRAPIClient } from '../../../utils';
+import {
+  CreateAppointmentUCTelemedResponse,
+  getSelectors,
+  isoStringFromMDYString,
+  PatientInfo,
+  UpdateAppointmentResponse,
+  yupDateTransform,
+} from 'utils';
+import { useOystehrAPIClient } from '../../../utils';
 import { useIntakeCommonStore } from '../../common';
 import { usePatientInfoStore } from '../../patient-info';
 import {
@@ -47,7 +53,7 @@ export const useAppointmentUpdate = (): {
   getAppointmentNextUpdateType: () => AppointmentUpdatingOperation;
   updateAppointment: UpdateAppointmentFn;
 } => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const queryClient = useQueryClient();
   const { appointmentID } = getSelectors(useAppointmentStore, ['appointmentID']);
   const intakeCommon = useIntakeCommonStore.getState();
