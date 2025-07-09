@@ -178,7 +178,7 @@ export const ProceduresForm: FC = () => {
                   <TextField
                     value={value}
                     onChange={(e) => onChange(e.target.value)}
-                    label="Other procedure"
+                    label="Other surgery"
                     placeholder="Please specify"
                     fullWidth
                     size="small"

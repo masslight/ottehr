@@ -173,7 +173,9 @@ function composeDataForPdf(
     ?.map((note) => note.text);
 
   // --- Vitals ---
-  const vitals = mapVitalsToDisplay(additionalChartData?.vitalsObservations);
+  const vitals = additionalChartData?.vitalsObservations
+    ? mapVitalsToDisplay(additionalChartData.vitalsObservations, timezone)
+    : undefined;
   const vitalsNotes = additionalChartData?.notes
     ?.filter((note) => note.type === NOTE_TYPE.VITALS)
     ?.map((note) => note.text);

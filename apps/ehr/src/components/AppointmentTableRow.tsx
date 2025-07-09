@@ -22,11 +22,12 @@ import {
   useTheme,
 } from '@mui/material';
 import { Operation } from 'fast-json-patch';
-import { Appointment, Location } from 'fhir/r4b';
+import { Appointment } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import { otherColors } from 'src/themes/ottehr/colors';
 import {
   formatMinutes,
@@ -64,7 +65,7 @@ import ReasonsForVisit from './ReasonForVisit';
 
 interface AppointmentTableRowProps {
   appointment: InPersonAppointmentInformation;
-  location?: Location;
+  location?: LocationWithWalkinSchedule;
   actionButtons: boolean;
   showTime: boolean;
   now: DateTime;
@@ -267,8 +268,18 @@ export default function AppointmentTableRow({
   const encounterId: string = encounter.id;
 
   const [startIntakeButtonLoading, setStartIntakeButtonLoading] = useState(false);
+  const [progressNoteButtonLoading, setProgressNoteButtonLoading] = useState(false);
   const [dischargeButtonLoading, setDischargeButtonLoading] = useState(false);
-  const { handleUpdatePractitioner } = usePractitionerActions(encounter, 'start', PRACTITIONER_CODINGS.Admitter);
+  const { handleUpdatePractitioner: handleUpdatePractitionerForIntake } = usePractitionerActions(
+    encounter,
+    'start',
+    PRACTITIONER_CODINGS.Admitter
+  );
+  const { handleUpdatePractitioner: handleUpdatePractitionerForProvider } = usePractitionerActions(
+    encounter,
+    'start',
+    PRACTITIONER_CODINGS.Attender
+  );
   const rooms = useMemo(() => {
     return location?.extension?.filter((ext) => ext.url === ROOM_EXTENSION_URL).map((ext) => ext.valueString);
   }, [location]);
@@ -598,7 +609,7 @@ export default function AppointmentTableRow({
   const handleStartIntakeButton = async (): Promise<void> => {
     setStartIntakeButtonLoading(true);
     try {
-      await handleUpdatePractitioner();
+      await handleUpdatePractitionerForIntake();
 
       await handleChangeInPersonVisitStatus(
         {
@@ -632,6 +643,20 @@ export default function AppointmentTableRow({
     return undefined;
   };
 
+  const handleProgressNoteButton = async (): Promise<void> => {
+    setProgressNoteButtonLoading(true);
+    try {
+      if (appointment.status === 'ready for provider') {
+        await handleUpdatePractitionerForProvider();
+      }
+      navigate(`/in-person/${appointment.id}`);
+    } catch (error) {
+      console.error(error);
+      enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
+    }
+    setProgressNoteButtonLoading(false);
+  };
+
   const renderProgressNoteButton = (): ReactElement | undefined => {
     if (
       appointment.status === 'ready for provider' ||
@@ -642,7 +667,8 @@ export default function AppointmentTableRow({
       return (
         <GoToButton
           text="Progress Note"
-          onClick={() => navigate(`/in-person/${appointment.id}`)}
+          loading={progressNoteButtonLoading}
+          onClick={handleProgressNoteButton}
           dataTestId={dataTestIds.dashboard.progressNoteButton}
         >
           <img src={progressNoteIcon} />

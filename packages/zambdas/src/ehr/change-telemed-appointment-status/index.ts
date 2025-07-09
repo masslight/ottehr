@@ -127,7 +127,14 @@ export const performEffect = async (
     console.log(`Creating visit note pdf docRef`);
     await makeVisitNotePdfDocumentReference(oystehr, pdfInfo, patient.id, appointmentId, encounter.id!, listResources);
 
-    const candidEncounterId = await createCandidEncounter(visitResources, secrets, oystehr);
+    let candidEncounterId: string | undefined;
+    try {
+      candidEncounterId = await createCandidEncounter(visitResources, secrets, oystehr);
+    } catch (error) {
+      console.error(`Error creating Candid encounter: ${error}`);
+      // longer term we probably want a more decoupled approach where the candid synching is offloaded and tracked
+      // for now prevent this failure from causing the endpoint to error out
+    }
     await addCandidEncounterIdToEncounter(candidEncounterId, encounter, oystehr);
 
     // if this is a self-pay encounter, create a charge item

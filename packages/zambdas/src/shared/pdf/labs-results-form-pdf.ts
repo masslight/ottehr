@@ -17,7 +17,6 @@ import {
   Specimen,
   Task,
 } from 'fhir/r4b';
-import fs from 'fs';
 import { DateTime } from 'luxon';
 import { Color } from 'pdf-lib';
 import {
@@ -34,8 +33,10 @@ import {
   LAB_ORDER_TASK,
   LAB_RESULT_DOC_REF_CODING_CODE,
   LabType,
+  OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
+  OYSTEHR_OBR_NOTE_CODING_SYSTEM,
   quantityRangeFormat,
   Secrets,
   TestItemComponent,
@@ -45,14 +46,13 @@ import { getExternalLabOrderResources } from '../../ehr/shared/labs';
 import { LABS_DATE_STRING_FORMAT } from '../../ehr/submit-lab-order';
 import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
-import { ICON_STYLE, PDF_CLIENT_STYLES, STANDARD_FONT_SIZE, STANDARD_NEW_LINE } from './pdf-consts';
+import { ICON_STYLE, STANDARD_FONT_SIZE, STANDARD_NEW_LINE } from './pdf-consts';
 import {
   calculateAge,
-  createPdfClient,
   drawFieldLine,
   drawFieldLineRight,
   drawFourColumnText,
-  getTextStylesForLabsPDF,
+  getPdfClientForLabsPDFs,
   LAB_PDF_STYLES,
   LabsPDFTextStyleConfig,
   PdfInfo,
@@ -133,6 +133,7 @@ const getResultDataConfig = (
     patientId: patient.id || '',
     patientPhone: patient.telecom?.find((telecomTemp) => telecomTemp.system === 'phone')?.value || '',
     todayDate: now.setZone().toFormat(LABS_DATE_STRING_FORMAT),
+    orderCreateDateAuthoredOn: serviceRequest.authoredOn || '',
     orderCreateDate: orderCreateDate || '',
     orderPriority: serviceRequest.priority || '',
     testName: testName || '',
@@ -168,7 +169,10 @@ const getResultDataConfig = (
     } = specificResources;
     const externalLabData: Omit<ExternalLabResultsData, keyof LabResultsData> = {
       orderNumber:
-        serviceRequest.identifier?.find((item) => item.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)?.value || '',
+        serviceRequest.identifier?.find(
+          (item) =>
+            item.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM || item.system === OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM
+        )?.value || '',
       accessionNumber: diagnosticReport.identifier?.find((item) => item.type?.coding?.[0].code === 'FILL')?.value || '',
       collectionDate,
       orderSubmitDate,
@@ -202,6 +206,10 @@ const getResultDataConfig = (
 
   return config;
 };
+
+export function getLabFileName(labName: string): string {
+  return labName.replace(/ /g, '-').replace(/[^a-zA-Z0-9-]/g, '');
+}
 
 const getTaskCompletedByAndWhen = async (
   oystehr: Oystehr,
@@ -358,6 +366,14 @@ export async function createExternalLabResultPDF(
       (observation) =>
         diagnosticReport.result?.some((resultTemp) => resultTemp.reference?.split('/')[1] === observation.id)
     )
+    .sort((a, b) => {
+      const aIsObrNote = a.code.coding?.some((c) => c.system === OYSTEHR_OBR_NOTE_CODING_SYSTEM);
+      const bIsObrNote = b.code.coding?.some((c) => c.system === OYSTEHR_OBR_NOTE_CODING_SYSTEM);
+
+      if (aIsObrNote && !bIsObrNote) return 1; // a comes after b
+      if (!aIsObrNote && bIsObrNote) return -1; // a comes before b
+      return 0; // no change
+    })
     .forEach((observation) => {
       const interpretationDisplay = observation.interpretation?.[0].coding?.[0].display;
       let value = undefined;
@@ -382,8 +398,16 @@ export async function createExternalLabResultPDF(
             .join('. ')
         : undefined;
 
+      const codes = observation.code.coding
+        ?.reduce((acc: string[], code) => {
+          if (code.system !== OYSTEHR_OBR_NOTE_CODING_SYSTEM) {
+            if (code.code) acc.push(code.code);
+          }
+          return acc;
+        }, [])
+        .join(',');
       const labResult: ExternalLabResult = {
-        resultCode: observation.code.coding?.[0].code || '',
+        resultCode: codes || '',
         resultCodeDisplay: observation.code.coding?.[0].display || '',
         resultInterpretation: observation.interpretation?.[0].coding?.[0].code,
         resultInterpretationDisplay: interpretationDisplay,
@@ -401,7 +425,7 @@ export async function createExternalLabResultPDF(
   const specimenCollectionDate = sortedSpecimens?.[0]?.collection?.collectedDateTime;
   const collectionDate = specimenCollectionDate
     ? DateTime.fromISO(specimenCollectionDate).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
-    : DateTime.now().setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT);
+    : '';
 
   const externalSpecificResources: LabTypeSpecificResources = {
     type: LabType.external,
@@ -523,10 +547,7 @@ export async function createInHouseLabResultPDF(
 async function createLabsResultsFormPdfBytes(dataConfig: ResultDataConfig): Promise<Uint8Array> {
   const { type, data } = dataConfig;
 
-  const pdfClient = await createPdfClient(PDF_CLIENT_STYLES);
-  const callIcon = await pdfClient.embedImage(fs.readFileSync('./assets/call.png'));
-  const faxIcon = await pdfClient.embedImage(fs.readFileSync('./assets/fax.png'));
-  const textStyles = await getTextStylesForLabsPDF(pdfClient);
+  const { pdfClient, callIcon, faxIcon, textStyles } = await getPdfClientForLabsPDFs();
 
   // draw header which is same for external and in house at the moment
   // drawFieldLine('Patient Name:', 'test');
@@ -666,9 +687,20 @@ async function createExternalLabsResultsFormPdfBytes(
     pdfClient.newLine(14);
     pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
     pdfClient.newLine(5);
-    pdfClient.drawText(`Code: ${labResult.resultCode} (${labResult.resultCodeDisplay})`, textStyles.text);
-    if (labResult.resultInterpretation && labResult.resultInterpretationDisplay) {
+
+    let codeText: string | undefined;
+    if (labResult.resultCode) {
+      codeText = `Code: ${labResult.resultCode}`;
+    }
+    if (labResult.resultCodeDisplay) {
+      codeText += ` (${labResult.resultCodeDisplay})`;
+    }
+    if (codeText) {
+      pdfClient.drawText(codeText, textStyles.text);
       pdfClient.newLine(STANDARD_NEW_LINE);
+    }
+
+    if (labResult.resultInterpretation && labResult.resultInterpretationDisplay) {
       const fontStyleTemp = {
         ...textStyles.text,
         color: getResultRowDisplayColor([labResult.resultInterpretationDisplay]),
@@ -677,18 +709,21 @@ async function createExternalLabsResultsFormPdfBytes(
         `Interpretation: ${labResult.resultInterpretation} (${labResult.resultInterpretationDisplay})`,
         fontStyleTemp
       );
+      pdfClient.newLine(STANDARD_NEW_LINE);
     }
-    pdfClient.newLine(STANDARD_NEW_LINE);
-    pdfClient.drawText(`Value: ${labResult.resultValue}`, textStyles.text);
+
+    if (labResult.resultValue) {
+      pdfClient.drawText(`Value: ${labResult.resultValue}`, textStyles.text);
+      pdfClient.newLine(STANDARD_NEW_LINE);
+    }
 
     if (labResult.referenceRangeText) {
-      pdfClient.newLine(STANDARD_NEW_LINE);
       pdfClient.drawText(`Reference range: ${labResult.referenceRangeText}`, textStyles.text);
+      pdfClient.newLine(STANDARD_NEW_LINE);
     }
 
     // add any notes included for the observation
     if (labResult.resultNotes?.length) {
-      pdfClient.newLine(STANDARD_NEW_LINE);
       pdfClient.drawText('Notes:', textStyles.textBold);
       pdfClient.newLine(STANDARD_NEW_LINE);
 
@@ -699,12 +734,13 @@ async function createExternalLabsResultsFormPdfBytes(
           if (noteLine === '') pdfClient.newLine(STANDARD_NEW_LINE);
           else {
             // adding a little bit of a left indent for notes
-            pdfClient.drawTextSequential(noteLine, textStyles.text, 50);
+            pdfClient.drawTextSequential(noteLine, textStyles.text, {
+              leftBound: 50,
+              rightBound: pdfClient.getRightBound(),
+            });
             pdfClient.newLine(STANDARD_NEW_LINE);
           }
         });
-
-        pdfClient.newLine(STANDARD_NEW_LINE);
       });
     }
   }
@@ -883,11 +919,15 @@ async function createLabsResultsFormPDF(
   let fileName = undefined;
   const { type, data } = dataConfig;
   if (type === 'external') {
-    fileName = `${EXTERNAL_LAB_RESULT_PDF_BASE_NAME}-${data.resultStatus}${
-      data.resultStatus === 'preliminary' ? '' : data.reviewed ? '-reviewed' : '-un-reviewed'
+    fileName = `${EXTERNAL_LAB_RESULT_PDF_BASE_NAME}-${getLabFileName(dataConfig.data.testName)}-${DateTime.fromISO(
+      dataConfig.data.orderCreateDateAuthoredOn
+    ).toFormat('yyyy-MM-dd')}-${data.resultStatus}-${
+      data.resultStatus === 'preliminary' ? '' : data.reviewed ? 'reviewed' : 'unreviewed'
     }.pdf`;
   } else if (type === 'in-house') {
-    fileName = `${IN_HOUSE_LAB_RESULT_PDF_BASE_NAME}.pdf`;
+    fileName = `${IN_HOUSE_LAB_RESULT_PDF_BASE_NAME}-${getLabFileName(dataConfig.data.testName)}-${DateTime.fromISO(
+      dataConfig.data.orderCreateDateAuthoredOn
+    ).toFormat('yyyy-MM-dd')}-${dataConfig.data.resultStatus}.pdf`;
   } else {
     throw new Error(`lab type is unexpected ${type}`);
   }

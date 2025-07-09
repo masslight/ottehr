@@ -14,8 +14,8 @@ const CREATE_PATIENT_UPLOAD_DOCUMENT_URL_ZAMBDA_ID = import.meta.env
   .VITE_APP_CREATE_PATIENT_UPLOAD_DOCUMENT_URL_ZAMBDA_ID;
 
 export type PatientDocumentsFolder = {
-  id?: string;
-  folderName?: string;
+  id: string;
+  folderName: string;
   documentsCount: number;
   documentsRefs?: DocRef[];
 };
@@ -367,7 +367,9 @@ const extractDocumentAttachments = (docRef: DocumentReference): PatientDocumentA
       let title = docRefAttachment.title || '';
       if (docRefAttachment.contentType) {
         const extension = docRefAttachment.contentType.split('/').pop();
-        if (extension) {
+        const currentExtension = parseFileExtension(title);
+        // Add a file type if it does not match the already set type
+        if (extension && currentExtension !== extension) {
           title = `${title}.${extension}`;
         }
       }

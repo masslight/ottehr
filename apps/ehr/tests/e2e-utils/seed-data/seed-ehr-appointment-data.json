@@ -507,6 +507,44 @@
         "resourceType": "List",
         "status": "current",
         "mode": "working",
+        "title": "labs",
+        "code": {
+          "coding": [
+            {
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions",
+              "code": "patient-docs-folder",
+              "display": "Labs"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "identifier": [
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "UDI",
+                  "display": "Universal Device Identifier"
+                }
+              ]
+            },
+            "value": "labs"
+          }
+        ]
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/List"
+      },
+      "resource": {
+        "resourceType": "List",
+        "status": "current",
+        "mode": "working",
         "title": "school-work-note-templates",
         "code": {
           "coding": [
