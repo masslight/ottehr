@@ -106,6 +106,7 @@ export const OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY = {
   code: 'OSL',
   display: 'Outside Lab',
 };
+export const OYSTEHR_OBR_NOTE_CODING_SYSTEM = 'https://identifiers.fhir.oystehr.com/obr-note';
 
 // Oystehr Labs APIs
 export const OYSTEHR_LAB_API_BASE = 'https://labs-api.zapehr.com/v1';

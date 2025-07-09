@@ -36,6 +36,7 @@ import {
   OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
+  OYSTEHR_OBR_NOTE_CODING_SYSTEM,
   quantityRangeFormat,
   Secrets,
   TestItemComponent,
@@ -389,8 +390,16 @@ export async function createExternalLabResultPDF(
             .join('. ')
         : undefined;
 
+      const codes = observation.code.coding
+        ?.reduce((acc: string[], code) => {
+          if (code.system !== OYSTEHR_OBR_NOTE_CODING_SYSTEM) {
+            if (code.code) acc.push(code.code);
+          }
+          return acc;
+        }, [])
+        .join(',');
       const labResult: ExternalLabResult = {
-        resultCode: observation.code.coding?.[0].code || '',
+        resultCode: codes || '',
         resultCodeDisplay: observation.code.coding?.[0].display || '',
         resultInterpretation: observation.interpretation?.[0].coding?.[0].code,
         resultInterpretationDisplay: interpretationDisplay,
@@ -669,6 +678,7 @@ async function createExternalLabsResultsFormPdfBytes(
   for (const labResult of data.externalLabResults) {
     pdfClient.newLine(14);
     pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
+    pdfClient.newLine(5);
 
     let codeText: string | undefined;
     if (labResult.resultCode) {
@@ -678,12 +688,11 @@ async function createExternalLabsResultsFormPdfBytes(
       codeText += ` (${labResult.resultCodeDisplay})`;
     }
     if (codeText) {
-      pdfClient.newLine(5);
       pdfClient.drawText(codeText, textStyles.text);
+      pdfClient.newLine(STANDARD_NEW_LINE);
     }
 
     if (labResult.resultInterpretation && labResult.resultInterpretationDisplay) {
-      pdfClient.newLine(STANDARD_NEW_LINE);
       const fontStyleTemp = {
         ...textStyles.text,
         color: getResultRowDisplayColor([labResult.resultInterpretationDisplay]),
@@ -692,21 +701,21 @@ async function createExternalLabsResultsFormPdfBytes(
         `Interpretation: ${labResult.resultInterpretation} (${labResult.resultInterpretationDisplay})`,
         fontStyleTemp
       );
+      pdfClient.newLine(STANDARD_NEW_LINE);
     }
 
     if (labResult.resultValue) {
-      pdfClient.newLine(STANDARD_NEW_LINE);
       pdfClient.drawText(`Value: ${labResult.resultValue}`, textStyles.text);
+      pdfClient.newLine(STANDARD_NEW_LINE);
     }
 
     if (labResult.referenceRangeText) {
-      pdfClient.newLine(STANDARD_NEW_LINE);
       pdfClient.drawText(`Reference range: ${labResult.referenceRangeText}`, textStyles.text);
+      pdfClient.newLine(STANDARD_NEW_LINE);
     }
 
     // add any notes included for the observation
     if (labResult.resultNotes?.length) {
-      pdfClient.newLine(STANDARD_NEW_LINE);
       pdfClient.drawText('Notes:', textStyles.textBold);
       pdfClient.newLine(STANDARD_NEW_LINE);
 
