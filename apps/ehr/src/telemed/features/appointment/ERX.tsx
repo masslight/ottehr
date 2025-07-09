@@ -23,14 +23,17 @@ export enum ERXStatus {
 
 export const ERX: FC<{
   onStatusChanged: (status: ERXStatus) => void;
-}> = ({ onStatusChanged }) => {
+  showDefaultAlert: boolean;
+}> = ({ onStatusChanged, showDefaultAlert }) => {
   const [status, setStatus] = useState(ERXStatus.LOADING);
   const { patient, encounter } = getSelectors(useAppointmentStore, ['patient', 'encounter']);
   const phoneNumber = patient?.telecom?.find((telecom) => telecom.system === 'phone')?.value;
   const user = useEvolveUser();
   const practitioner = user?.profileResource;
 
-  const [alertMessage, setAlertMessage] = useState<string | null>('If something goes wrong - please reload the page.');
+  const [alertMessage, setAlertMessage] = useState<string | null>(
+    showDefaultAlert ? 'If something goes wrong - please reload the page.' : null
+  );
 
   const practitionerMissingFields: string[] = useMemo(() => {
     const missingFields: string[] = [];

@@ -10,7 +10,7 @@ export function validateRequestParameters(
     throw new Error('No request body provided');
   }
 
-  const { orderId, newStatus, orderData } = JSON.parse(input.body);
+  const { orderId, newStatus, orderData, interactions } = JSON.parse(input.body);
 
   if (newStatus) {
     if (newStatus === 'administered' && !orderData) {
@@ -39,7 +39,7 @@ export function validateRequestParameters(
     if (missedFields.length > 0) throw new Error(`Missing fields in orderData: ${missedFields.join(', ')}`);
   }
 
-  validateInteractions(orderData.interactions);
+  validateInteractions(interactions);
 
   console.groupEnd();
   console.debug('validateRequestParameters success');
@@ -49,6 +49,7 @@ export function validateRequestParameters(
     newStatus,
     orderData,
     secrets: input.secrets,
+    interactions: interactions,
   };
 }
 

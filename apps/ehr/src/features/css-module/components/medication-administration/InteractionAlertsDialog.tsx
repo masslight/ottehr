@@ -124,7 +124,7 @@ export const InteractionAlertsDialog: React.FC<Props> = (props) => {
   };
 
   const otherTextInput = (value: string | undefined, onChange: (newValue: string) => void): ReactElement => {
-    if (value != null && OVERRIDE_REASON.includes(value)) {
+    if (value == null || OVERRIDE_REASON.includes(value)) {
       return <></>;
     }
     return (
@@ -194,8 +194,7 @@ export const InteractionAlertsDialog: React.FC<Props> = (props) => {
             <TableRow>
               <TableCell width="15%">Ordered</TableCell>
               <TableCell width="15%">Interaction</TableCell>
-              <TableCell width="10%">Source</TableCell>
-              <TableCell width="20%">Interaction Description</TableCell>
+              <TableCell width="30%">Interaction Description</TableCell>
               <TableCell width="30%">Override reason</TableCell>
             </TableRow>
           </TableHead>
@@ -213,9 +212,8 @@ export const InteractionAlertsDialog: React.FC<Props> = (props) => {
                       </TableRow>
                     ) : undefined}
                     <TableRow key={index}>
-                      <TableCell>todo</TableCell>
+                      <TableCell>{props.medicationName}</TableCell>
                       <TableCell>{interaction.drugs.map((drug) => drug.name).join(', ')}</TableCell>
-                      <TableCell>todo</TableCell>
                       <TableCell style={{ verticalAlign: 'top' }}>{interaction.message}</TableCell>
                       <TableCell>
                         {overrideReasonDropdown(

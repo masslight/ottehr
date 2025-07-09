@@ -258,9 +258,7 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
                 style={{ color: otherColors.lightErrorText, marginLeft: '12px' }}
                 display="inline"
               >
-                <Typography style={{ fontWeight: '500' }} display="inline">
-                  Interaction:{' '}
-                </Typography>
+                <span style={{ fontWeight: '500' }}>Interaction: </span>
                 {interactionsWarning}
               </Typography>
             </Stack>

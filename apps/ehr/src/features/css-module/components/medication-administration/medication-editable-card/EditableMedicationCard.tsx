@@ -6,6 +6,7 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import { ERX, ERXStatus } from 'src/telemed/features/appointment/ERX';
 import {
   ExtendedMedicationDataForResponse,
+  getMedicationName,
   MedicationData,
   medicationExtendedToMedicationData,
   MedicationInteractions,
@@ -37,6 +38,7 @@ import {
 
 interface InteractionsCheckState {
   status: 'todo' | 'in-progress' | 'done' | 'error';
+  medicationName?: string;
   interactions?: MedicationInteractions;
 }
 
@@ -58,9 +60,6 @@ export const EditableMedicationCard: React.FC<{
   const [interactionsCheckState, setInteractionsCheckState] = useState<InteractionsCheckState>({ status: 'todo' });
   const { oystehr } = useApiClients();
   const [showInteractionAlerts, setShowInteractionAlerts] = useState(false);
-
-  console.log('erxStatus', erxStatus);
-  console.log('interactionsCheckState', interactionsCheckState);
 
   const { refetchHistory } = useMedicationHistory();
 
@@ -151,6 +150,7 @@ export const EditableMedicationCard: React.FC<{
         patient: resources.patient?.id || '',
         encounterId: resources.encounter?.id || '',
       } as MedicationData,
+      interactions: interactionsCheckState.interactions,
     };
 
     // for order creating or editing we don't have to show confirmation modal, so we can save it immediately
@@ -298,6 +298,7 @@ export const EditableMedicationCard: React.FC<{
         setInteractionsCheckState({
           status: 'done',
           interactions: medicationInteractionsFromErxResponse(interactionsCheckResponse),
+          medicationName: getMedicationName(medication),
         });
       } catch (e) {
         setInteractionsCheckState({ status: 'error' });
@@ -322,12 +323,21 @@ export const EditableMedicationCard: React.FC<{
     console.log('New interactionsCheckState state ', interactionsCheckState);
   }, [interactionsCheckState]);
 
+  useEffect(() => {
+    if (medication) {
+      setInteractionsCheckState({
+        status: 'done',
+        interactions: medication.interactions,
+      });
+    }
+  }, [medication]);
+
   const interactionsWarning = (): string | undefined => {
-    if (!localValues.medicationId) {
+    if (!localValues.medicationId && !medication) {
       return undefined;
     }
-    if (erxStatus === ERXStatus.LOADING || interactionsCheckState.status === 'in-progress') {
-      return 'Interactions checks in progress...';
+    if ((erxStatus === ERXStatus.LOADING && !medication) || interactionsCheckState.status === 'in-progress') {
+      return 'checking...';
     } else if (erxStatus === ERXStatus.ERROR || interactionsCheckState.status === 'error') {
       return 'Drug-to-Drug and Drug-Allergy interaction check failed. Please review manually.';
     } else if (interactionsCheckState.status === 'done') {
@@ -336,7 +346,7 @@ export const EditableMedicationCard: React.FC<{
         return drugInteraction.drugs.map((drug) => drug.name);
       });
       if (interactionsCheckState.interactions?.allergyInteractions) {
-        names.push('allergy');
+        names.push('Allergy');
       }
       if (names.length > 0) {
         return names.join(',');
@@ -401,7 +411,7 @@ export const EditableMedicationCard: React.FC<{
       <ConfirmationModalForLeavePage />
       {showInteractionAlerts ? (
         <InteractionAlertsDialog
-          medicationName=""
+          medicationName={interactionsCheckState.medicationName ?? ''}
           interactions={interactionsCheckState.interactions ?? {}}
           onCancel={() => setShowInteractionAlerts(false)}
           onContinue={(interactions: MedicationInteractions) => {
@@ -413,7 +423,7 @@ export const EditableMedicationCard: React.FC<{
           }}
         />
       ) : null}
-      <ERX onStatusChanged={setERXStatus} />
+      <ERX onStatusChanged={setERXStatus} showDefaultAlert={false} />
     </>
   );
 };

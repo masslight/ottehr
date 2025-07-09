@@ -237,6 +237,7 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
               }
               setERXStatus(status);
             }}
+            showDefaultAlert={true}
           />
         )}
         <div id="prescribe-dialog" style={{ flex: '1 0 auto', display: 'flex' }} />
