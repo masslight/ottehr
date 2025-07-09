@@ -52,7 +52,7 @@ export let setNavigationDisable: NavigationContextType['setNavigationDisable'] =
 };
 
 export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { id: appointmentID } = useParams();
+  const { id: appointmentIdFromUrl } = useParams();
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -63,7 +63,9 @@ export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children
   const [isNavigationHidden, setIsNavigationHidden] = useState(false);
 
   const [isModeInitialized, setIsModeInitialized] = useState(false);
-  const [interactionMode, _setInteractionMode] = useState<InteractionMode>('intake'); // todo: calc actual initial InteractionMode value
+
+  // todo: calc actual initial InteractionMode value; in that case check "Intake Notes" button (or any other usages) in the Telemed works correctly
+  const [interactionMode, _setInteractionMode] = useState<InteractionMode>('intake');
 
   const [modalContent, setModalContent] = useState<ReturnType<CSSValidator>>();
 
@@ -71,7 +73,7 @@ export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children
 
   const [_disabledNavigationState, _setDisabledNavigationState] = useState<Record<string, boolean>>({});
 
-  const { isLoading, visitState } = useAppointment(appointmentID);
+  const { isLoading, visitState } = useAppointment(appointmentIdFromUrl);
   const { encounter } = visitState;
   const { chartData, isChartDataLoading } = getSelectors(useAppointmentStore, ['chartData', 'isChartDataLoading']);
 
@@ -102,6 +104,18 @@ export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children
   );
 
   useEffect(() => {
+    const appointmentIdReferenceFromEncounter = encounter?.appointment?.[0]?.reference?.replace('Appointment/', '');
+
+    if (!appointmentIdReferenceFromEncounter || !appointmentIdFromUrl) {
+      return;
+    }
+
+    const isEncounterLoadedToStore = appointmentIdReferenceFromEncounter === appointmentIdFromUrl;
+
+    if (!isEncounterLoadedToStore) {
+      return;
+    }
+
     if (
       encounter?.participant?.find(
         (participant) =>
@@ -120,7 +134,15 @@ export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children
     } else if (encounter?.id) {
       setIsModeInitialized(true);
     }
-  }, [encounter?.id, encounter?.participant, setInteractionMode, interactionMode, isModeInitialized]);
+  }, [
+    encounter?.id,
+    encounter?.participant,
+    setInteractionMode,
+    interactionMode,
+    isModeInitialized,
+    appointmentIdFromUrl,
+    encounter?.appointment,
+  ]);
 
   setNavigationDisable = (newState: Record<string, boolean>): void => {
     let shouldUpdate = false;
