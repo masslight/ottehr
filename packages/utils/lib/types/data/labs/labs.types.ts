@@ -70,6 +70,7 @@ export enum ExternalLabsStatus {
   cancelled = 'cancelled',
   corrected = 'corrected',
   'cancelled by lab' = 'cancelled by lab',
+  'sent manually' = 'sent manually',
   unknown = 'unknown', // for debugging purposes
 }
 
@@ -178,6 +179,7 @@ export interface DynamicAOEInput {
 export type SubmitLabOrderInput = {
   serviceRequestID: string;
   accountNumber: string;
+  manualOrder: boolean;
   data: DynamicAOEInput;
   specimens?: {
     [specimenId: string]: {

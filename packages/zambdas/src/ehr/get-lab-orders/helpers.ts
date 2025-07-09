@@ -42,6 +42,7 @@ import {
   LabOrderResultDetails,
   LabOrdersSearchBy,
   LabResultPDF,
+  OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   Pagination,
   PatientLabItem,
@@ -1093,7 +1094,12 @@ export const parseLabOrderStatus = (
   };
 
   if (hasAllConditions(sentStatusConditions)) {
-    return ExternalLabsStatus.sent;
+    const manualOrder = serviceRequest.identifier?.some((id) => id.system === OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM);
+    if (manualOrder) {
+      return ExternalLabsStatus['sent manually'];
+    } else {
+      return ExternalLabsStatus.sent;
+    }
   }
 
   const hasPrelimResults = prelimResults.length > 0;
