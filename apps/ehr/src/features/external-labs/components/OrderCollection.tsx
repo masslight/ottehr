@@ -192,7 +192,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
           confirmText="Manually submit lab order"
           handleClose={() => setErrorDialogOpen(false)}
           title="Error submitting lab order"
-          description={error?.join(',') || 'error submitting lab order'}
+          description={error?.join(',') || 'Error submitting lab order'}
           closeButtonText="cancel"
         />
       </form>

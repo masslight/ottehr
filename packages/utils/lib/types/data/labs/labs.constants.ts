@@ -2,6 +2,9 @@
 import { Pagination } from '..';
 import { LabelConfig } from './labs.types';
 
+// recommended from Dorn as a good length (also matches the len currently used when oystehr sets the order number)
+export const ORDER_NUMBER_LEN = 20;
+
 export const PSC_HOLD_CONFIG = {
   system: 'psc-identifier',
   code: 'psc',

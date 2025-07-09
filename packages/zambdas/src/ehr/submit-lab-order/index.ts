@@ -18,6 +18,7 @@ import {
   getTimezone,
   isApiError,
   isPSCOrder,
+  ORDER_NUMBER_LEN,
   OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
@@ -306,7 +307,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     ];
     let manualOrderId: string | undefined;
     if (manualOrder) {
-      manualOrderId = createOrderNumber(20);
+      manualOrderId = createOrderNumber(ORDER_NUMBER_LEN);
       serviceRequestPatchOps.push({
         path: '/identifier',
         op: 'add',
