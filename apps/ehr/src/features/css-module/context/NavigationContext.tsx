@@ -284,12 +284,12 @@ export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children
   );
 };
 
+// Quick fix for hot reload issue;
+let preContextForDevelopmentUseOnly: NavigationContextType | undefined;
+const isDevelopment = import.meta.env.VITE_APP_IS_LOCAL;
+
 export const useNavigationContext = (): NavigationContextType => {
   const context = useContext(NavigationContext);
-
-  if (context === undefined) {
-    throw new Error('useNavigationContext must be used within a NavigationProvider');
-  }
 
   // clear state on component unmount
   useEffect(() => {
@@ -298,6 +298,20 @@ export const useNavigationContext = (): NavigationContextType => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // TODO: try to move context higher to wrap routes (required some refactoring) - this should prevent additional
+  // reload after hot reload and this fix can be removed
+  if (isDevelopment) {
+    if (context === undefined) {
+      return preContextForDevelopmentUseOnly as NavigationContextType;
+    }
+    // context will be broken during hot reload, keep the last context
+    preContextForDevelopmentUseOnly = context;
+  }
+
+  if (context === undefined) {
+    throw new Error('useNavigationContext must be used within a NavigationProvider');
+  }
 
   return context;
 };
