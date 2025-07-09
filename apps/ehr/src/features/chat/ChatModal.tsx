@@ -104,11 +104,10 @@ const ChatModal = memo(
     const { patient: patientFromAppointment, smsModel: model } = appointment;
     const timezone = useMemo(() => {
       // const state = currentLocation?.address?.state;
-      return (
-        currentLocation?.extension?.find((ext) => {
-          return ext.url === 'http://hl7.org/fhir/StructureDefinition/timezone';
-        })?.valueString ?? 'America/New_York'
-      );
+      if (currentLocation) {
+        return getTimezone(currentLocation.walkinSchedule ?? currentLocation) ?? 'America/New_York';
+      }
+      return 'America/New_York';
     }, [currentLocation]);
 
     let patientName;
@@ -238,13 +237,6 @@ const ChatModal = memo(
       if (pendingMessageSend === undefined && isMessagesFetching) {
         return [];
       }
-      const timezoneForMessageBody: string = (() => {
-        let tz: string | undefined;
-        if (currentLocation?.walkinSchedule) {
-          tz = getTimezone(currentLocation.walkinSchedule) ?? getTimezone(currentLocation);
-        }
-        return tz ?? 'America/New_York';
-      })();
       return messages.map((message) => {
         const contentKey = message.resolvedId ?? message.id;
         const isPending = message.id === pendingMessageSend?.id || message.id === pendingMessageSend?.resolvedId;
@@ -256,11 +248,11 @@ const ChatModal = memo(
             message={message}
             hasNewMessageLine={newMessagesStartId !== undefined && message.id === newMessagesStartId}
             showDaySent={true} //keeping this config in case minds change again, YAGNI, I know
-            timezone={timezoneForMessageBody}
+            timezone={timezone}
           />
         );
       });
-    }, [currentLocation, isMessagesFetching, messages, newMessagesStartId, pendingMessageSend]);
+    }, [isMessagesFetching, messages, newMessagesStartId, pendingMessageSend, timezone]);
 
     useEffect(() => {
       if (MessageBodies.length) {
@@ -509,11 +501,11 @@ const MessageBody: React.FC<MessageBodyProps> = (props) => {
     console.log('timezone', timezone);
     console.log('message.sentDay and sentTime', `${message.sentDay} ${message.sentTime}`);
 
-    const fromZone = 'America/New_York'; // message times are always in this zone
-    const sentDate = DateTime.fromFormat(`${message.sentDay} ${message.sentTime}`, 'M/d/yy h:mm a').setZone(fromZone);
+    const sentDate = DateTime.fromFormat(`${message.sentDay} ${message.sentTime}`, 'M/d/yy h:mm a', {
+      zone: timezone,
+    });
     console.log('sentDate', sentDate.toISO());
-    const inLocalZone = sentDate.setZone(timezone);
-    return inLocalZone.toFormat('M/d/yy h:mm a ZZZZ', { locale: 'en-US' });
+    return sentDate.toFormat('M/d/yy h:mm a ZZZZ', { locale: 'en-US' });
   })();
 
   return (
