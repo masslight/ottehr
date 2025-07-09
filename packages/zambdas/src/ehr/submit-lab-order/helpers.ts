@@ -105,10 +105,11 @@ export const populateQuestionnaireResponseItems = async (
       throw new Error('answer is undefined');
     }
 
-    questionsAndAnswersForFormDisplay.push({
-      question: question.text || 'UNKNOWN',
-      answer: answerForDisplay,
-    });
+    if (answerForDisplay !== undefined && answerForDisplay !== '')
+      questionsAndAnswersForFormDisplay.push({
+        question: question.text || 'UNKNOWN',
+        answer: answerForDisplay,
+      });
 
     return {
       linkId: questionResponse,

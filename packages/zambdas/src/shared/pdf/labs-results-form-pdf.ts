@@ -17,7 +17,6 @@ import {
   Specimen,
   Task,
 } from 'fhir/r4b';
-import fs from 'fs';
 import { DateTime } from 'luxon';
 import { Color } from 'pdf-lib';
 import {
@@ -46,14 +45,13 @@ import { getExternalLabOrderResources } from '../../ehr/shared/labs';
 import { LABS_DATE_STRING_FORMAT } from '../../ehr/submit-lab-order';
 import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
-import { ICON_STYLE, PDF_CLIENT_STYLES, STANDARD_FONT_SIZE, STANDARD_NEW_LINE } from './pdf-consts';
+import { ICON_STYLE, STANDARD_FONT_SIZE, STANDARD_NEW_LINE } from './pdf-consts';
 import {
   calculateAge,
-  createPdfClient,
   drawFieldLine,
   drawFieldLineRight,
   drawFourColumnText,
-  getTextStylesForLabsPDF,
+  getPdfClientForLabsPDFs,
   LAB_PDF_STYLES,
   LabsPDFTextStyleConfig,
   PdfInfo,
@@ -532,10 +530,7 @@ export async function createInHouseLabResultPDF(
 async function createLabsResultsFormPdfBytes(dataConfig: ResultDataConfig): Promise<Uint8Array> {
   const { type, data } = dataConfig;
 
-  const pdfClient = await createPdfClient(PDF_CLIENT_STYLES);
-  const callIcon = await pdfClient.embedImage(fs.readFileSync('./assets/call.png'));
-  const faxIcon = await pdfClient.embedImage(fs.readFileSync('./assets/fax.png'));
-  const textStyles = await getTextStylesForLabsPDF(pdfClient);
+  const { pdfClient, callIcon, faxIcon, textStyles } = await getPdfClientForLabsPDFs();
 
   // draw header which is same for external and in house at the moment
   // drawFieldLine('Patient Name:', 'test');
@@ -722,7 +717,10 @@ async function createExternalLabsResultsFormPdfBytes(
           if (noteLine === '') pdfClient.newLine(STANDARD_NEW_LINE);
           else {
             // adding a little bit of a left indent for notes
-            pdfClient.drawTextSequential(noteLine, textStyles.text, 50);
+            pdfClient.drawTextSequential(noteLine, textStyles.text, {
+              leftBound: 50,
+              rightBound: pdfClient.getRightBound(),
+            });
             pdfClient.newLine(STANDARD_NEW_LINE);
           }
         });

@@ -385,6 +385,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           })
         : undefined;
 
+    // this is the same logic we use in oystehr to determine PV1-20
+    const coverageType = coverage?.type?.coding?.[0]?.code; // assumption: we'll use the first code in the list
+    const billClass = !coverage || coverageType === 'pay' ? 'Patient Bill (P)' : 'Third-Party Bill (T)';
+
     const orderFormPdfDetail = await createExternalLabsOrderFormPDF(
       {
         locationName: location?.name,
@@ -395,6 +399,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         locationPhone: location?.telecom?.find((t) => t.system === 'phone')?.value,
         locationFax: location?.telecom?.find((t) => t.system === 'fax')?.value,
         labOrganizationName: labOrganization?.name || ORDER_ITEM_UNKNOWN,
+        accountNumber,
         serviceRequestID: serviceRequest.id || ORDER_ITEM_UNKNOWN,
         orderNumber: orderID || ORDER_ITEM_UNKNOWN,
         providerName: getFullestAvailableName(provider) || ORDER_ITEM_UNKNOWN,
@@ -415,6 +420,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         orderCreateDate: orderCreateDate || ORDER_ITEM_UNKNOWN,
         sampleCollectionDate:
           mostRecentSampleCollectionDate?.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT) || undefined,
+        billClass,
         primaryInsuranceName: organization?.name,
         primaryInsuranceAddress: organization?.address
           ? oystehr.fhir.formatAddress(organization.address?.[0])
