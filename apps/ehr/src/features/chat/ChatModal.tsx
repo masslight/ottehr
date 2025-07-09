@@ -498,13 +498,10 @@ const MessageBody: React.FC<MessageBodyProps> = (props) => {
 
   const sentTimeLabel = (() => {
     if (!message.sentTime || !message.sentDay) return '';
-    console.log('timezone', timezone);
-    console.log('message.sentDay and sentTime', `${message.sentDay} ${message.sentTime}`);
-
     const sentDate = DateTime.fromFormat(`${message.sentDay} ${message.sentTime}`, 'M/d/yy h:mm a', {
       zone: timezone,
     });
-    console.log('sentDate', sentDate.toISO());
+
     return sentDate.toFormat('M/d/yy h:mm a ZZZZ', { locale: 'en-US' });
   })();
 
