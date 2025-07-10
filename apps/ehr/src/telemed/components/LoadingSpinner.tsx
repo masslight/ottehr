@@ -1,6 +1,6 @@
+import { otherColors } from '@ehrTheme/colors';
 import { Box, useTheme } from '@mui/material';
 import CircularProgress from '@mui/material/CircularProgress';
-import { otherColors } from '@ehrTheme/colors';
 import { FC } from 'react';
 import { dataTestIds } from '../../constants/data-test-ids';
 

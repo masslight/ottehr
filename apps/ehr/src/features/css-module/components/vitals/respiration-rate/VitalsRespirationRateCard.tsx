@@ -1,19 +1,19 @@
-import React, { useCallback, useState, JSX, ChangeEvent } from 'react';
 import { Box, CircularProgress, Grid } from '@mui/material';
-import { VitalFieldNames, VitalsRespirationRateObservationDTO } from 'utils';
 import { enqueueSnackbar } from 'notistack';
+import React, { ChangeEvent, JSX, useCallback, useState } from 'react';
+import { VitalFieldNames, VitalsRespirationRateObservationDTO } from 'utils';
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { AccordionCard, DoubleColumnContainer } from '../../../../../telemed/components';
-import { VitalsRespirationRateHistoryEntry } from './VitalsRespirationRateHistoryEntry';
+import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
+import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
+import { useVitalsCardState } from '../hooks/useVitalsCardState';
 import {
   composeRespirationRateHistoryEntries,
-  textToRespirationRateNumber,
   isValidRespirationRateValue,
+  textToRespirationRateNumber,
 } from './helpers';
-import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
 import VitalsRespirationRateHistoryElementElement from './VitalsRespirationRateHistoryElement';
-import { useVitalsCardState } from '../hooks/useVitalsCardState';
-import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
+import { VitalsRespirationRateHistoryEntry } from './VitalsRespirationRateHistoryEntry';
 
 const VitalsRespirationRateCard: React.FC = (): JSX.Element => {
   const {

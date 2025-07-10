@@ -1,10 +1,10 @@
 import Oystehr, { BatchInputDeleteRequest, BatchInputPostRequest } from '@oystehr/sdk';
+import { randomUUID } from 'crypto';
 import {
   Account,
   Appointment,
   Coverage,
   Encounter,
-  InsurancePlan,
   Organization,
   Patient,
   QuestionnaireResponse,
@@ -12,6 +12,7 @@ import {
   Resource,
 } from 'fhir/r4b';
 import * as fs from 'fs';
+import { uuid } from 'short-uuid';
 import {
   COVERAGE_MEMBER_IDENTIFIER_BASE,
   isValidUUID,
@@ -20,14 +21,15 @@ import {
   unbundleBatchPostOutput,
 } from 'utils';
 import { assert, describe, expect, it } from 'vitest';
-import { performEffect } from '..';
+import { relatedPersonsAreSame } from '../../../../ehr/shared/harvest';
 import { createOystehrClient, getAuth0Token } from '../../../../shared';
+import { performEffect } from '..';
 import questionnaireResponse from './data/base-qr.json';
 import {
   expectedAccountGuarantorFromQR1,
+  expectedCoverageResources as qr1ExpectedCoverageResources,
   expectedPrimaryPolicyHolderFromQR1,
   expectedSecondaryPolicyHolderFromQR1,
-  expectedCoverageResources as qr1ExpectedCoverageResources,
 } from './data/expected-coverage-resources-qr1';
 import {
   batchTestInsuranceWrites,
@@ -36,10 +38,6 @@ import {
   replaceGuarantorWithPatient,
   replaceSubscriberWithPatient,
 } from './helpers';
-
-import { randomUUID } from 'crypto';
-import { uuid } from 'short-uuid';
-import { relatedPersonsAreSame } from '../../../../ehr/shared/harvest';
 
 const DEFAULT_TIMEOUT = 20000;
 
@@ -53,7 +51,7 @@ const stubAccount: Account = {
 
 describe('Harvest Module Integration Tests', () => {
   const envConfig = JSON.parse(fs.readFileSync('.env/local.json', 'utf8'));
-  const INSURANCE_PLAN_ORG_MAP: Record<string, string> = {};
+  const INSURANCE_PLAN_ORGS_IDS: string[] = [];
   let token: string | undefined;
   let oystehrClient: Oystehr;
   let BASE_QR: QuestionnaireResponse;
@@ -109,15 +107,14 @@ describe('Harvest Module Integration Tests', () => {
       encounter: string;
     }
   ): string[] => {
-    const [ipId, orgId] = Object.entries(INSURANCE_PLAN_ORG_MAP)[0];
+    const [orgId] = INSURANCE_PLAN_ORGS_IDS;
     const persistedIds = patientIdsForCleanup[pId];
     if (persistedIds === undefined && dummyResourceRefs) {
       const { appointment, encounter } = dummyResourceRefs;
-      return [`InsurancePlan/${ipId}`, `Organization/${orgId}`, `Patient/${pId}`, encounter, appointment];
+      return [`Organization/${orgId}`, `Patient/${pId}`, encounter, appointment];
     }
     const [patientId, encounterId, appointmentId] = patientIdsForCleanup[pId];
     const refs = [
-      `InsurancePlan/${ipId}`,
       `Organization/${orgId}`,
       `Patient/${patientId}`,
       `Encounter/${encounterId}`,
@@ -143,7 +140,7 @@ describe('Harvest Module Integration Tests', () => {
     expect(template).toEqual(stripIdAndMeta(rawExpectation));
   };
 
-  const changeCoveragerMemberId = (coverage: Coverage, patientId: string): Coverage => {
+  const changeCoverageMemberId = (coverage: Coverage, patientId: string): Coverage => {
     const newId = uuid();
     return fillWithQR1Refs(
       {
@@ -167,10 +164,10 @@ describe('Harvest Module Integration Tests', () => {
   const cleanup = async (): Promise<{ error: Error | undefined }> => {
     const errors: string[] = [];
     try {
-      const cleanupOutcoems = await Promise.allSettled(
+      const cleanupOutcomes = await Promise.allSettled(
         (Object.values(patientIdsForCleanup) ?? []).map((resources) => cleanupPatientResources(resources))
       );
-      cleanupOutcoems.forEach((outcome, idx) => {
+      cleanupOutcomes.forEach((outcome, idx) => {
         if (outcome.status === 'rejected') {
           errors.push(`${Object.keys(patientIdsForCleanup)[idx]}`);
         }
@@ -312,7 +309,10 @@ describe('Harvest Module Integration Tests', () => {
     let foundGuarantor: RelatedPerson | Patient | undefined;
     if (guarantorRef && !guarantorRef.startsWith('#')) {
       const [resourceType, resourceId] = guarantorRef.split('/');
-      foundGuarantor = await oystehrClient.fhir.get<RelatedPerson | Patient>({ resourceType, id: resourceId });
+      foundGuarantor = await oystehrClient.fhir.get<RelatedPerson | Patient>({
+        resourceType: resourceType as 'RelatedPerson' | 'Patient',
+        id: resourceId,
+      });
     }
     const foundAccountResources = foundAccounts.filter((res) => res.resourceType === 'Account') as Account[];
     expect(foundAccountResources.length).toBe(1);
@@ -358,50 +358,28 @@ describe('Harvest Module Integration Tests', () => {
     oystehrClient = createOystehrClient(token, envConfig);
     expect(oystehrClient).toBeDefined();
 
-    const ipAndOrg1 = (
-      await oystehrClient.fhir.search<InsurancePlan | Organization>({
-        resourceType: 'InsurancePlan',
+    const org1 = (
+      await oystehrClient.fhir.search<Organization>({
+        resourceType: 'Organization',
         params: [
           {
-            name: 'owned-by.name:exact',
+            name: 'name:exact',
             value: 'Aetna',
           },
           {
-            name: 'owned-by.active',
+            name: 'active',
             value: 'true',
-          },
-          {
-            name: 'status',
-            value: 'active',
-          },
-          {
-            name: '_include',
-            value: 'InsurancePlan:owned-by',
           },
         ],
       })
     ).unbundle();
 
-    const iPs = ipAndOrg1.filter((ip) => ip.resourceType === 'InsurancePlan') as InsurancePlan[];
-    const orgs = ipAndOrg1.filter((org) => org.resourceType === 'Organization') as Organization[];
-    expect(iPs.length).toBeGreaterThan(0);
+    const orgs = org1.filter((org) => org.resourceType === 'Organization') as Organization[];
     expect(orgs.length).toBeGreaterThan(0);
-    iPs.forEach((ip: InsurancePlan) => {
-      const ownedByReference = ip.ownedBy?.reference;
-      if (ownedByReference) {
-        const org = orgs.find((org) => `Organization/${org.id}` === ownedByReference);
-        if (org) {
-          INSURANCE_PLAN_ORG_MAP[ip.id!] = org.id!;
-        }
-      }
-    });
-    expect(Object.keys(INSURANCE_PLAN_ORG_MAP).length).toBeGreaterThan(0);
+    INSURANCE_PLAN_ORGS_IDS.push(...orgs.map((o) => o.id!));
+    expect(INSURANCE_PLAN_ORGS_IDS.length).toBeGreaterThan(0);
 
-    const firstPair = Object.entries(INSURANCE_PLAN_ORG_MAP)[0];
-
-    const [key, val] = firstPair;
-
-    const refs = [`InsurancePlan/${key}`, `Organization/${val}`];
+    const refs = [`Organization/${INSURANCE_PLAN_ORGS_IDS[0]}`];
 
     const replacedItem = fillReferences(questionnaireResponse.item, refs);
 
@@ -609,6 +587,7 @@ describe('Harvest Module Integration Tests', () => {
       const createdAccount = createdAccountBundle.unbundle()[0];
       expect(createdAccount).toBeDefined();
       assert(createdAccount.id);
+      expect(createdAccount.coverage).toBeDefined();
       const primaryCoverageRef = createdAccount.coverage?.find((cov) => cov.priority === 1)?.coverage?.reference;
       const secondaryCoverageRef = createdAccount.coverage?.find((cov) => cov.priority === 2)?.coverage?.reference;
       expect(primaryCoverageRef).toBeDefined();
@@ -1173,7 +1152,7 @@ describe('Harvest Module Integration Tests', () => {
     async () => {
       const patientId = getPatientId();
       const persistedRP1 = fillWithQR1Refs(expectedPrimaryPolicyHolderFromQR1, patientId);
-      const persistedCoverage1 = changeCoveragerMemberId(qr1ExpectedCoverageResources.primary, patientId);
+      const persistedCoverage1 = changeCoverageMemberId(qr1ExpectedCoverageResources.primary, patientId);
 
       const batchRequests = batchTestInsuranceWrites({
         primary: { subscriber: persistedRP1, coverage: persistedCoverage1, ensureOrder: true },
@@ -1945,7 +1924,7 @@ describe('Harvest Module Integration Tests', () => {
       const persistedCoverage1 = fillReferences(qr1ExpectedCoverageResources.secondary, getQR1Refs(patientId));
 
       const persistedRP2 = fillWithQR1Refs(expectedPrimaryPolicyHolderFromQR1, patientId);
-      const persistedCoverage2 = changeCoveragerMemberId(qr1ExpectedCoverageResources.primary, patientId);
+      const persistedCoverage2 = changeCoverageMemberId(qr1ExpectedCoverageResources.primary, patientId);
 
       const batchRequests = batchTestInsuranceWrites({
         primary: { subscriber: persistedRP1, coverage: persistedCoverage1, ensureOrder: true },
@@ -2023,7 +2002,7 @@ describe('Harvest Module Integration Tests', () => {
     async () => {
       const patientId = getPatientId();
       const persistedRP1 = fillWithQR1Refs(expectedSecondaryPolicyHolderFromQR1, patientId);
-      const persistedCoverage1 = changeCoveragerMemberId(qr1ExpectedCoverageResources.secondary, patientId);
+      const persistedCoverage1 = changeCoverageMemberId(qr1ExpectedCoverageResources.secondary, patientId);
 
       const persistedRP2 = fillWithQR1Refs(expectedPrimaryPolicyHolderFromQR1, patientId);
       const persistedCoverage2 = fillWithQR1Refs(qr1ExpectedCoverageResources.primary, patientId);
@@ -2103,7 +2082,7 @@ describe('Harvest Module Integration Tests', () => {
     async () => {
       const patientId = getPatientId();
       const persistedRP1 = fillWithQR1Refs(expectedSecondaryPolicyHolderFromQR1, patientId);
-      const persistedCoverage1 = changeCoveragerMemberId(qr1ExpectedCoverageResources.secondary, patientId);
+      const persistedCoverage1 = changeCoverageMemberId(qr1ExpectedCoverageResources.secondary, patientId);
       const batchRequests = batchTestInsuranceWrites({
         primary: { subscriber: persistedRP1, coverage: persistedCoverage1, ensureOrder: true },
         account: fillWithQR1Refs(stubAccount, patientId),
@@ -2138,7 +2117,7 @@ describe('Harvest Module Integration Tests', () => {
     async () => {
       const patientId = getPatientId();
       const persistedRP1 = fillWithQR1Refs(expectedSecondaryPolicyHolderFromQR1, patientId);
-      const persistedCoverage1 = changeCoveragerMemberId(qr1ExpectedCoverageResources.secondary, patientId);
+      const persistedCoverage1 = changeCoverageMemberId(qr1ExpectedCoverageResources.secondary, patientId);
       const batchRequests = batchTestInsuranceWrites({
         primary: { subscriber: persistedRP1, coverage: persistedCoverage1, ensureOrder: true },
         account: fillWithQR1Refs(stubAccount, patientId),
@@ -2177,7 +2156,7 @@ describe('Harvest Module Integration Tests', () => {
     async () => {
       const patientId = getPatientId();
       const persistedRP1 = fillWithQR1Refs(expectedSecondaryPolicyHolderFromQR1, patientId);
-      const persistedCoverage1 = changeCoveragerMemberId(qr1ExpectedCoverageResources.secondary, patientId);
+      const persistedCoverage1 = changeCoverageMemberId(qr1ExpectedCoverageResources.secondary, patientId);
       const batchRequests = batchTestInsuranceWrites({
         primary: { subscriber: persistedRP1, coverage: persistedCoverage1, ensureOrder: true },
         account: fillWithQR1Refs(stubAccount, patientId),
@@ -2219,7 +2198,7 @@ describe('Harvest Module Integration Tests', () => {
     async () => {
       const patientId = getPatientId();
       const persistedRP1 = fillWithQR1Refs(expectedSecondaryPolicyHolderFromQR1, patientId);
-      const persistedCoverage1 = changeCoveragerMemberId(qr1ExpectedCoverageResources.secondary, patientId);
+      const persistedCoverage1 = changeCoverageMemberId(qr1ExpectedCoverageResources.secondary, patientId);
       const newRelationship = [
         {
           coding: [
@@ -2276,7 +2255,7 @@ describe('Harvest Module Integration Tests', () => {
   it('should update guarantor from referenced Patient to contained RP when guarantor relationship != self', async () => {
     const patientId = getPatientId();
     const persistedRP1 = fillWithQR1Refs(expectedSecondaryPolicyHolderFromQR1, patientId);
-    const persistedCoverage1 = changeCoveragerMemberId(qr1ExpectedCoverageResources.secondary, patientId);
+    const persistedCoverage1 = changeCoverageMemberId(qr1ExpectedCoverageResources.secondary, patientId);
     const batchRequests = batchTestInsuranceWrites({
       primary: { subscriber: persistedRP1, coverage: persistedCoverage1, ensureOrder: true },
       account: fillWithQR1Refs(stubAccount, patientId),
@@ -2315,7 +2294,7 @@ describe('Harvest Module Integration Tests', () => {
     async () => {
       const patientId = getPatientId();
       const persistedRP1 = fillWithQR1Refs(expectedSecondaryPolicyHolderFromQR1, patientId);
-      const persistedCoverage1 = changeCoveragerMemberId(qr1ExpectedCoverageResources.secondary, patientId);
+      const persistedCoverage1 = changeCoverageMemberId(qr1ExpectedCoverageResources.secondary, patientId);
       const batchRequests = batchTestInsuranceWrites({
         primary: { subscriber: persistedRP1, coverage: persistedCoverage1, ensureOrder: true },
         account: fillWithQR1Refs(stubAccount, patientId),
@@ -2359,7 +2338,7 @@ describe('Harvest Module Integration Tests', () => {
     async () => {
       const patientId = getPatientId();
       const persistedRP1 = fillWithQR1Refs(expectedSecondaryPolicyHolderFromQR1, patientId);
-      const persistedCoverage1 = changeCoveragerMemberId(qr1ExpectedCoverageResources.secondary, patientId);
+      const persistedCoverage1 = changeCoverageMemberId(qr1ExpectedCoverageResources.secondary, patientId);
       const batchRequests = batchTestInsuranceWrites({
         primary: { subscriber: persistedRP1, coverage: persistedCoverage1, ensureOrder: true },
         account: fillWithQR1Refs(stubAccount, patientId),
@@ -2406,7 +2385,7 @@ describe('Harvest Module Integration Tests', () => {
     async () => {
       const patientId = getPatientId();
       const persistedRP1 = fillWithQR1Refs(expectedPrimaryPolicyHolderFromQR1, patientId);
-      const persistedCoverage1 = changeCoveragerMemberId(qr1ExpectedCoverageResources.primary, patientId);
+      const persistedCoverage1 = changeCoverageMemberId(qr1ExpectedCoverageResources.primary, patientId);
       const batchRequests = batchTestInsuranceWrites({
         primary: { subscriber: persistedRP1, coverage: persistedCoverage1, ensureOrder: true },
         account: fillWithQR1Refs(stubAccount, patientId),
@@ -2453,7 +2432,7 @@ describe('Harvest Module Integration Tests', () => {
       expect(account2.contained?.length).toBe(2);
       expect(account2.guarantor?.length).toBe(3);
       expect(account2.guarantor?.[0]?.party?.reference).toEqual(`#${account2.contained?.[0]?.id}`);
-      expect((account2.guarantor ?? []).filter((gref) => gref.period?.end !== undefined).length).toBe(2);
+      expect((account2.guarantor ?? []).filter((gRef) => gRef.period?.end !== undefined).length).toBe(2);
       const uniqueContained = new Set(account2.contained?.map((res) => res.id));
       expect(uniqueContained.size).toBe(2);
 
@@ -2484,7 +2463,7 @@ describe('Harvest Module Integration Tests', () => {
     async () => {
       const patientId = getPatientId();
       const containedRP1 = fillWithQR1Refs(expectedSecondaryPolicyHolderFromQR1, patientId);
-      const persistedCoverage1 = changeCoveragerMemberId(qr1ExpectedCoverageResources.secondary, patientId);
+      const persistedCoverage1 = changeCoverageMemberId(qr1ExpectedCoverageResources.secondary, patientId);
       const batchRequests = batchTestInsuranceWrites({
         primary: {
           subscriber: containedRP1,
@@ -2526,7 +2505,7 @@ describe('Harvest Module Integration Tests', () => {
       });
       expect(primaryCoverageRef).toBeDefined();
       const [_, coverageId] = primaryCoverageRef.split('/');
-      const persistedCoverageAndSubsriber = (
+      const persistedCoverageAndSubscriber = (
         await oystehrClient.fhir.search<Coverage | RelatedPerson | Patient>({
           resourceType: 'Coverage',
           params: [
@@ -2541,10 +2520,10 @@ describe('Harvest Module Integration Tests', () => {
           ],
         })
       ).unbundle();
-      const persistedCoverage = persistedCoverageAndSubsriber.find(
+      const persistedCoverage = persistedCoverageAndSubscriber.find(
         (res) => res.resourceType === 'Coverage'
       ) as Coverage;
-      const persistedSubscriber = persistedCoverageAndSubsriber.find(
+      const persistedSubscriber = persistedCoverageAndSubscriber.find(
         (res) => `${res.resourceType}/${res.id}` === persistedCoverage.subscriber?.reference
       ) as RelatedPerson;
       expect(persistedCoverage).toBeDefined();
@@ -2561,7 +2540,7 @@ describe('Harvest Module Integration Tests', () => {
     async () => {
       const patientId = getPatientId();
       const containedRP2 = fillWithQR1Refs(expectedSecondaryPolicyHolderFromQR1, patientId);
-      const persistedCoverage2 = changeCoveragerMemberId(qr1ExpectedCoverageResources.secondary, patientId);
+      const persistedCoverage2 = changeCoverageMemberId(qr1ExpectedCoverageResources.secondary, patientId);
       const batchRequests = batchTestInsuranceWrites({
         secondary: {
           subscriber: containedRP2,
@@ -2604,7 +2583,7 @@ describe('Harvest Module Integration Tests', () => {
       });
       expect(secondaryCoverageRef).toBeDefined();
       const [_, coverageId] = secondaryCoverageRef.split('/');
-      const persistedCoverageAndSubsriber = (
+      const persistedCoverageAndSubscriber = (
         await oystehrClient.fhir.search<Coverage | RelatedPerson | Patient>({
           resourceType: 'Coverage',
           params: [
@@ -2619,10 +2598,10 @@ describe('Harvest Module Integration Tests', () => {
           ],
         })
       ).unbundle();
-      const persistedCoverage = persistedCoverageAndSubsriber.find(
+      const persistedCoverage = persistedCoverageAndSubscriber.find(
         (res) => res.resourceType === 'Coverage'
       ) as Coverage;
-      const persistedSubscriber = persistedCoverageAndSubsriber.find(
+      const persistedSubscriber = persistedCoverageAndSubscriber.find(
         (res) => `${res.resourceType}/${res.id}` === persistedCoverage.subscriber?.reference
       ) as RelatedPerson;
       expect(persistedCoverage).toBeDefined();
@@ -2640,7 +2619,7 @@ describe('Harvest Module Integration Tests', () => {
       const patientId = getPatientId();
       const containedRP1 = fillWithQR1Refs(expectedPrimaryPolicyHolderFromQR1, patientId);
       const containedRP2 = fillWithQR1Refs(expectedSecondaryPolicyHolderFromQR1, patientId);
-      const persistedCoverage1 = changeCoveragerMemberId(qr1ExpectedCoverageResources.primary, patientId);
+      const persistedCoverage1 = changeCoverageMemberId(qr1ExpectedCoverageResources.primary, patientId);
       const persistedCoverage2 = fillWithQR1Refs(qr1ExpectedCoverageResources.secondary, patientId);
       const batchRequests = batchTestInsuranceWrites({
         primary: {
@@ -2700,7 +2679,7 @@ describe('Harvest Module Integration Tests', () => {
       expect(secondaryCoverageRef).toBeDefined();
       const [, primaryCoverageId] = primaryCoverageRef.split('/');
       const [, secondaryCoverageId] = secondaryCoverageRef.split('/');
-      const persistedPrimaryCoverageAndSubsriber = (
+      const persistedPrimaryCoverageAndSubscriber = (
         await oystehrClient.fhir.search<Coverage | RelatedPerson | Patient>({
           resourceType: 'Coverage',
           params: [
@@ -2715,10 +2694,10 @@ describe('Harvest Module Integration Tests', () => {
           ],
         })
       ).unbundle();
-      const persistedPrimaryCoverage = persistedPrimaryCoverageAndSubsriber.find(
+      const persistedPrimaryCoverage = persistedPrimaryCoverageAndSubscriber.find(
         (res) => res.resourceType === 'Coverage'
       ) as Coverage;
-      const persistedPrimarySubscriber = persistedPrimaryCoverageAndSubsriber.find(
+      const persistedPrimarySubscriber = persistedPrimaryCoverageAndSubscriber.find(
         (res) => `${res.resourceType}/${res.id}` === persistedPrimaryCoverage.subscriber?.reference
       ) as RelatedPerson;
       expect(persistedPrimaryCoverage).toBeDefined();
@@ -2774,6 +2753,7 @@ describe('Harvest Module Integration Tests', () => {
         resourceType: 'Patient',
         name: [
           {
+            // cSpell:disable-next I don't know half of you half as well as I should like; and I like less than half of you half as well as you deserve.
             given: ['Bibi'],
             family: 'Baggins',
           },

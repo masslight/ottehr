@@ -1,5 +1,3 @@
-import React, { Dispatch, FC, Fragment, ReactElement, ReactNode, SetStateAction, useMemo } from 'react';
-import { Link, useLocation } from 'react-router-dom';
 import { KeyboardDoubleArrowRight } from '@mui/icons-material';
 import {
   Box,
@@ -14,6 +12,8 @@ import {
   Tooltip,
   useTheme,
 } from '@mui/material';
+import React, { Dispatch, FC, Fragment, ReactElement, ReactNode, SetStateAction, useMemo } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 
 export interface SidebarItem {
   label: string;

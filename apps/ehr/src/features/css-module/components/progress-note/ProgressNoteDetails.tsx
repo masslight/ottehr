@@ -1,6 +1,7 @@
 import { Stack, Typography } from '@mui/material';
 import { FC } from 'react';
-import { getProgressNoteChartDataRequestedFields, NOTE_TYPE, LabType } from 'utils';
+import { ProceduresContainer } from 'src/telemed/features/appointment/ReviewTab/components/ProceduresContainer';
+import { getProgressNoteChartDataRequestedFields, LabType, NOTE_TYPE } from 'utils';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { AccordionCard, SectionList, useAppointmentStore, usePatientInstructionsVisibility } from '../../../../telemed';
@@ -11,6 +12,7 @@ import {
   ChiefComplaintContainer,
   CPTCodesContainer,
   EMCodeContainer,
+  LabResultsReviewContainer,
   MedicalConditionsContainer,
   MedicalDecisionMakingContainer,
   MedicationsContainer,
@@ -19,13 +21,11 @@ import {
   PrivacyPolicyAcknowledgement,
   ReviewOfSystemsContainer,
   SurgicalHistoryContainer,
-  LabResultsReviewContainer,
 } from '../../../../telemed/features/appointment/ReviewTab';
 import { useChartData } from '../../hooks/useChartData';
 import { ExamReadOnlyBlock } from '../examination/ExamReadOnly';
 import { HospitalizationContainer } from './HospitalizationContainer';
 import { PatientVitalsContainer } from './PatientVitalsContainer';
-import { ProceduresContainer } from 'src/telemed/features/appointment/ReviewTab/components/ProceduresContainer';
 
 export const ProgressNoteDetails: FC = () => {
   const { chartData, encounter, setPartialChartData } = getSelectors(useAppointmentStore, [
@@ -51,6 +51,11 @@ export const ProgressNoteDetails: FC = () => {
 
   const screeningNotes = additionalChartData?.notes?.filter((note) => note.type === NOTE_TYPE.SCREENING);
   const vitalsNotes = additionalChartData?.notes?.filter((note) => note.type === NOTE_TYPE.VITALS);
+  const allergyNotes = additionalChartData?.notes?.filter((note) => note.type === NOTE_TYPE.ALLERGY);
+  const intakeMedicationNotes = additionalChartData?.notes?.filter((note) => note.type === NOTE_TYPE.INTAKE_MEDICATION);
+  const hospitalizationNotes = additionalChartData?.notes?.filter((note) => note.type === NOTE_TYPE.HOSPITALIZATION);
+  const medicalConditionNotes = additionalChartData?.notes?.filter((note) => note.type === NOTE_TYPE.MEDICAL_CONDITION);
+  const surgicalHistoryNotes = additionalChartData?.notes?.filter((note) => note.type === NOTE_TYPE.SURGICAL_HISTORY);
 
   const chiefComplaint = chartData?.chiefComplaint?.text;
   const ros = chartData?.ros?.text;
@@ -98,18 +103,18 @@ export const ProgressNoteDetails: FC = () => {
       </Typography>
       <ExamReadOnlyBlock />
     </Stack>,
-    <AllergiesContainer />,
-    <MedicationsContainer />,
-    <MedicalConditionsContainer />,
-    <SurgicalHistoryContainer />,
-    <HospitalizationContainer />,
+    <AllergiesContainer notes={allergyNotes} />,
+    <MedicationsContainer notes={intakeMedicationNotes} />,
+    <MedicalConditionsContainer notes={medicalConditionNotes} />,
+    <SurgicalHistoryContainer notes={surgicalHistoryNotes} />,
+    <HospitalizationContainer notes={hospitalizationNotes} />,
     showAssessment && <AssessmentContainer />,
     showMedicalDecisionMaking && <MedicalDecisionMakingContainer />,
     showEmCode && <EMCodeContainer />,
     showCptCodes && <CPTCodesContainer />,
     showInHouseLabsResultsContainer && (
       <LabResultsReviewContainer
-        resultDetails={{ type: LabType.inhouse, results: inHouseLabResults.labOrderResults }}
+        resultDetails={{ type: LabType.inHouse, results: inHouseLabResults.labOrderResults }}
         resultsPending={inHouseLabResults.resultsPending}
       />
     ),

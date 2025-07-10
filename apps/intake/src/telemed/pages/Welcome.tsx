@@ -1,13 +1,13 @@
 import LoadingButton from '@mui/lab/LoadingButton';
 import { Typography } from '@mui/material';
 import { Box } from '@mui/system';
+import { ottehrLightBlue } from '@theme/icons';
 import { useNavigate } from 'react-router-dom';
+import { PROJECT_NAME } from 'utils';
 import { intakeFlowPageRoute } from '../../App';
+import { dataTestIds } from '../../helpers/data-test-ids';
 import { EmergencyBanner } from '../components/EmergencyBanner';
 import { CustomContainer } from '../features/common';
-import { ottehrLightBlue } from '@theme/icons';
-import { dataTestIds } from '../../helpers/data-test-ids';
-import { PROJECT_NAME } from 'utils';
 const Welcome = ({ showEmergencyBanner = true }: { showEmergencyBanner?: boolean }): JSX.Element => {
   const navigate = useNavigate();
 
@@ -19,7 +19,7 @@ const Welcome = ({ showEmergencyBanner = true }: { showEmergencyBanner?: boolean
     <CustomContainer
       title={`Welcome to ${PROJECT_NAME}`}
       img={ottehrLightBlue}
-      imgAlt="Ottehr icon"
+      imgAlt={`${PROJECT_NAME} icon`}
       imgWidth={150}
       isFirstPage={true}
       outsideCardComponent={showEmergencyBanner ? <EmergencyBanner /> : undefined}

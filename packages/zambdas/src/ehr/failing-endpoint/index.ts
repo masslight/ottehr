@@ -1,12 +1,14 @@
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { captureSentryException, topLevelCatch, ZambdaInput } from '../../shared';
+import { getSecret, SecretsKeys } from 'utils';
+import { topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler('failing-endpoint', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  console.log(`Input: ${JSON.stringify(input)}`);
   try {
     throw new Error('Test zambda error');
   } catch (error) {
-    await topLevelCatch('failing-endpoint', error, input.secrets, captureSentryException);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('failing-endpoint', error, ENVIRONMENT);
     console.log(error);
     return {
       body: JSON.stringify({ message: 'Test zambda error' }),

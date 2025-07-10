@@ -4,15 +4,15 @@ import { uuid } from 'short-uuid';
 import altGuarantor from './data/alt-guarantor.json';
 
 export const fillReferences = (template: any, references: string[]): any => {
-  let stringinfiedTemplate = JSON.stringify(template);
+  let stringifiedTemplate = JSON.stringify(template);
   references.forEach((reference) => {
     const [resourceType] = reference.split('/');
-    stringinfiedTemplate = stringinfiedTemplate.replace(
+    stringifiedTemplate = stringifiedTemplate.replace(
       new RegExp(`{{${resourceType.toUpperCase()}_REF}}`, 'g'),
       reference
     );
   });
-  return JSON.parse(stringinfiedTemplate);
+  return JSON.parse(stringifiedTemplate);
 };
 
 interface BatchPostInput {

@@ -2,9 +2,9 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { chooseJson, CreateAppointmentResponse } from 'utils';
 import { Locators } from '../../utils/locators';
-import { PrebookTelemedFlow } from '../../utils/telemed/PrebookTelemedFlow';
-import { FillingInfo } from '../../utils/telemed/FillingInfo';
 import { Paperwork, PATIENT_ADDRESS, PATIENT_ADDRESS_LINE_2, PATIENT_CITY, PATIENT_ZIP } from '../../utils/Paperwork';
+import { FillingInfo } from '../../utils/telemed/FillingInfo';
+import { PrebookTelemedFlow } from '../../utils/telemed/PrebookTelemedFlow';
 
 let page: Page;
 let context: BrowserContext;
@@ -21,9 +21,9 @@ test.beforeAll(async ({ browser }) => {
   page = await context.newPage();
   page.on('response', async (response) => {
     if (response.url().includes('/create-appointment/')) {
-      const { appointment } = chooseJson(await response.json()) as CreateAppointmentResponse;
-      if (appointment && !appointmentIds.includes(appointment)) {
-        appointmentIds.push(appointment);
+      const { appointmentId } = chooseJson(await response.json()) as CreateAppointmentResponse;
+      if (!appointmentIds.includes(appointmentId)) {
+        appointmentIds.push(appointmentId);
       }
     }
   });

@@ -1,11 +1,10 @@
 import * as cdk from 'aws-cdk-lib';
-import { Construct } from 'constructs';
-import * as s3 from 'aws-cdk-lib/aws-s3';
+import { RemovalPolicy } from 'aws-cdk-lib';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as cloudfront_origins from 'aws-cdk-lib/aws-cloudfront-origins';
-
+import * as s3 from 'aws-cdk-lib/aws-s3';
+import { Construct } from 'constructs';
 import config from '../../deploy-config.json';
-import { RemovalPolicy } from 'aws-cdk-lib';
 
 export class OttehrInfraStack extends cdk.Stack {
   patientPortalBucket: s3.Bucket;

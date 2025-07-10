@@ -5,8 +5,8 @@ import {
   VitalsObservationDTO,
   VitalsRespirationRateObservationDTO,
 } from 'utils';
-import { VitalsRespirationRateSeverity, VitalsRespirationRateHistoryEntry } from './VitalsRespirationRateHistoryEntry';
 import { composeVitalsHistoryEntries } from '../utils';
+import { VitalsRespirationRateHistoryEntry, VitalsRespirationRateSeverity } from './VitalsRespirationRateHistoryEntry';
 
 export const textToRespirationRateNumber = (text: string): number | undefined => {
   const respRateVal = textToNumericValue(text);

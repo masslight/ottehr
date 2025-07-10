@@ -1,9 +1,9 @@
+import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Tab } from '@mui/material';
 import { ReactElement, useState } from 'react';
-import PageContainer from '../layout/PageContainer';
-import { TabContext, TabList, TabPanel } from '@mui/lab';
-import { ScheduleInformation } from '../components/ScheduleInformation';
 import { useLocation } from 'react-router-dom';
+import { ScheduleInformation } from '../components/ScheduleInformation';
+import PageContainer from '../layout/PageContainer';
 
 export default function SchedulesPage(): ReactElement {
   const location = useLocation();

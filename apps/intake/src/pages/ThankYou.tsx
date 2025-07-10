@@ -1,6 +1,7 @@
 import { EditCalendarOutlined, EventBusyOutlined } from '@mui/icons-material';
 import CreateOutlinedIcon from '@mui/icons-material/CreateOutlined';
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
+import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Button,
@@ -12,38 +13,38 @@ import {
   Typography,
   useMediaQuery,
 } from '@mui/material';
+import { ottehrLightBlue } from '@theme/icons';
+import { ottehrAiLogo } from '@theme/index';
 import { ContactPoint } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { FC, ReactElement, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, Outlet, useLocation, useNavigate, useOutletContext, useParams } from 'react-router-dom';
-import { breakpoints, useUCZambdaClient } from 'ui-components';
 import {
   APIError,
   APPOINTMENT_NOT_FOUND_ERROR,
   AppointmentData,
-  PROJECT_NAME,
-  UCGetPaperworkResponse,
-  VisitType,
   formatPhoneNumberDisplay,
   getSelectors,
   getSlugAndStateFromLocation,
+  PROJECT_NAME,
+  UCGetPaperworkResponse,
+  VisitType,
 } from 'utils';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { intakeFlowPageRoute, visitBasePath } from '../App';
-import { otherColors } from '../IntakeThemeProvider';
 import ottehrApi from '../api/ottehrApi';
+import api from '../api/ottehrApi';
+import { intakeFlowPageRoute, visitBasePath } from '../App';
 import { PageContainer } from '../components';
+import { dataTestIds } from '../helpers/data-test-ids';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
 import useAppointmentNotFoundInformation from '../helpers/information';
 import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
+import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
+import { otherColors } from '../IntakeThemeProvider';
 import i18n from '../lib/i18n';
-import { ottehrLightBlue } from '@theme/icons';
-import { dataTestIds } from '../helpers/data-test-ids';
-import { LoadingButton } from '@mui/lab';
-import api from '../api/ottehrApi';
-import { ottehrAiLogo } from '@theme/index';
+import { breakpoints } from '../providers';
 
 const MODAL_STYLE = {
   position: 'absolute' as const,
@@ -290,7 +291,8 @@ const ThankYou = (): JSX.Element => {
           <Box style={{ background: '#FFF3E0', borderRadius: '8px', padding: '24px', display: 'flex' }}>
             <Box style={{ fontWeight: 600, fontSize: '18px' }}>
               <Typography variant="subtitle1" color="text.primary" style={{ paddingBottom: '16px', fontSize: '18px' }}>
-                Save your time and get ready for the visit with Oystehr AI Chat
+                Save time and help us prepare for your visit. Our medical chatbot will ask you a few questions and
+                securely present the information to your doctor before you arrive.
               </Typography>
               <Button
                 type="button"
@@ -298,7 +300,7 @@ const ThankYou = (): JSX.Element => {
                 style={{ backgroundColor: '#F57C00' }}
                 onClick={() => setAiChatConsentModalOpen(true)}
               >
-                Try Oystehr AI chat
+                Start Chatting
               </Button>
             </Box>
             <img src={ottehrAiLogo} style={{ width: '80px', marginLeft: '8px' }} />
@@ -337,7 +339,7 @@ const ThankYou = (): JSX.Element => {
           {visitType !== VisitType.WalkIn && <Divider />}
           <Grid container alignItems="center" marginTop={2} marginBottom={2}>
             <Grid item xs={12} md={2.5}>
-              <img src={ottehrLightBlue} alt="ottehr icon" width="80px" />
+              <img src={ottehrLightBlue} alt={`${PROJECT_NAME} icon`} width="80px" />
             </Grid>
             <Grid item xs={12} md={9.5}>
               <Typography variant="subtitle1" color="text.primary">
@@ -448,11 +450,12 @@ const ThankYou = (): JSX.Element => {
           >
             <Box sx={MODAL_STYLE}>
               <Typography variant={'h2'} color="primary.main" style={{ marginBottom: '16px' }}>
-                Chat with Oystehr AI
+                Medical History Chatbot
               </Typography>
               <Typography color="text.primary" style={{ marginBottom: '8px' }}>
-                Our AI assistant will ask about your symptoms, conditions, and medical history. Your doctor will review
-                all information to provide personalized care.
+                Our AI medical assistant will ask about your symptoms and medical history. Your information is
+                completely private, accessible only by your doctor, and the interview helps your doctor better prepare
+                for your visit.
               </Typography>
               <Typography color="text.primary">
                 You can pause the interview, and then complete later. Once interview is completed, you cannot start a
@@ -460,7 +463,7 @@ const ThankYou = (): JSX.Element => {
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', margin: '16px 0 16px 0' }}>
                 <Checkbox color="secondary" onChange={(e) => setAiChatStartButtonEnabled(e.target.checked)} />
-                <Typography color="text.primary">I consent to Oystehr AI collecting my information</Typography>
+                <Typography color="text.primary">I consent</Typography>
               </Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                 <Button

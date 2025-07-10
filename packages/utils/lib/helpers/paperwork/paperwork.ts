@@ -1,6 +1,7 @@
+import Oystehr from '@oystehr/sdk';
 import {
-  FhirResource,
   Extension,
+  FhirResource,
   Questionnaire,
   QuestionnaireItem,
   QuestionnaireItemAnswerOption,
@@ -9,26 +10,25 @@ import {
   QuestionnaireResponseItemAnswer,
   ValueSet,
 } from 'fhir/r4b';
+import _ from 'lodash';
+import { DateTime } from 'luxon';
+import { getCanonicalQuestionnaire, OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from '../../fhir';
 import {
+  AnswerLoadingOptions,
+  ConditionKeyObject,
+  FormDisplayElementList,
+  FormElement,
+  FormSelectionElementList,
+  InputWidthOption,
   IntakeQuestionnaireItem,
   Question,
+  QuestionnaireItemConditionDefinition,
   QuestionnaireItemExtension,
+  QuestionnaireItemGroupType,
   QuestionnaireItemTextWhen,
   validateQuestionnaireDataType,
-  FormDisplayElementList,
-  FormSelectionElementList,
-  FormElement,
-  QuestionnaireItemGroupType,
-  AnswerLoadingOptions,
-  InputWidthOption,
-  QuestionnaireItemConditionDefinition,
-  ConditionKeyObject,
 } from '../../types';
-import Oystehr from '@oystehr/sdk';
-import { getCanonicalQuestionnaire, OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from '../../fhir';
-import { DateTime } from 'luxon';
 import { DOB_DATE_FORMAT } from '../../utils';
-import _ from 'lodash';
 
 export interface OptionConfig {
   label: string;
@@ -396,9 +396,9 @@ export const getQuestionnaireItemsAndProgress = async (
     return undefined;
   }
 
-  const [sourceQuestionaireUrl, sourceQuestionnaireVersion] = qr?.questionnaire?.split('|') ?? [null, null];
+  const [sourceQuestionnaireUrl, sourceQuestionnaireVersion] = qr?.questionnaire?.split('|') ?? [null, null];
 
-  console.log('source questionnaire url', sourceQuestionaireUrl, sourceQuestionnaireVersion);
+  console.log('source questionnaire url', sourceQuestionnaireUrl, sourceQuestionnaireVersion);
   console.log('questionnaire id, canonical', questionnaire.id, `${questionnaire.url}|${questionnaire.version}`);
 
   return {
@@ -476,7 +476,7 @@ export function checkEnable(item: Pick<Question, 'enableWhen' | 'hidden'>, value
   return true;
 }
 
-export const unflattenAnswers = (
+export const unFlattenAnswers = (
   items: QuestionnaireItem[],
   responses: QuestionnaireResponseItem[]
 ): QuestionnaireResponseItem[] => {
@@ -536,7 +536,7 @@ function capitalizeFirstLetter(string: string): string {
 /*
   This is used to convert a QuestionnaireResponse.item from an array of objects to a map where each key is the linkId
   of each object in the array and the value is just the value of that object. It is convenient to make make this conversion
-  to make the form values easier to manipulate, though it does add some complexity in introdudcing some stuctural variance
+  to make the form values easier to manipulate, though it does add some complexity in introducing some structural variance
   in the validation schema, which must account both for the map-type object as well as the array, depending on where it is
   being applied.
 */

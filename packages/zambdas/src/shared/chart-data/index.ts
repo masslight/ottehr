@@ -27,17 +27,22 @@ import {
 import { DateTime } from 'luxon';
 import {
   ADDED_VIA_LAB_ORDER_SYSTEM,
+  addEmptyArrOperation,
   ADDITIONAL_QUESTIONS_META_SYSTEM,
+  addOperation,
+  addOrReplaceOperation,
   AI_OBSERVATION_META_SYSTEM,
   AllergyDTO,
-  BODY_SITE_SYSTEM,
   BirthHistoryDTO,
+  BODY_SITE_SYSTEM,
   BooleanValueDTO,
-  CPTCodeDTO,
-  CSS_NOTE_ID,
   ChartDataFields,
   ClinicalImpressionDTO,
   CommunicationDTO,
+  CPTCodeDTO,
+  createCodingCode,
+  createFilesDocumentReferences,
+  CSS_NOTE_ID,
   DiagnosisDTO,
   DispositionDTO,
   DispositionFollowUpType,
@@ -48,44 +53,39 @@ import {
   ExamFieldsNames,
   ExamObservationDTO,
   FHIR_EXTENSION,
+  fillVitalObservationAttributes,
   FreeTextNoteDTO,
   GetChartDataResponse,
   HospitalizationDTO,
-  MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM,
+  isVitalObservation,
+  makeVitalsObservationDTO,
   MedicalConditionDTO,
+  MEDICATION_DISPENSABLE_DRUG_ID,
   MedicationDTO,
+  NoteDTO,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   NOTHING_TO_EAT_OR_DRINK_ID,
-  NoteDTO,
   ObservationBooleanFieldDTO,
   ObservationDTO,
   ObservationTextFieldDTO,
   PATIENT_VITALS_META_SYSTEM,
   PERFORMER_TYPE_SYSTEM,
+  PrescribedMedicationDTO,
   PRIVATE_EXTENSION_BASE_URL,
   PROCEDURE_TYPE_SYSTEM,
-  PrescribedMedicationDTO,
   ProcedureDTO,
   ProviderChartDataFieldsNames,
+  removeOperation,
   SCHOOL_WORK_NOTE,
   SCHOOL_WORK_NOTE_CODE,
   SCHOOL_WORK_NOTE_TYPE_META_SYSTEM,
-  SNOMEDCodeConceptInterface,
   SchoolWorkNoteExcuseDocFileDTO,
   SchoolWorkNoteType,
-  addEmptyArrOperation,
-  addOperation,
-  addOrReplaceOperation,
-  createCodingCode,
-  createFilesDocumentReferences,
-  fillVitalObservationAttributes,
-  isVitalObservation,
-  makeVitalsObservationDTO,
-  removeOperation,
+  SNOMEDCodeConceptInterface,
 } from 'utils';
 import { removePrefix } from '../appointment/helpers';
 import { fillMeta } from '../helpers';
-import { PdfDocumentReferencePublishedStatuses, PdfInfo, isDocumentPublished } from '../pdf/pdf-utils';
+import { isDocumentPublished, PdfDocumentReferencePublishedStatuses, PdfInfo } from '../pdf/pdf-utils';
 import { saveOrUpdateResourceRequest } from '../resources.helpers';
 
 const getMetaWFieldName = (fieldName: ProviderChartDataFieldsNames): Meta => {
@@ -174,15 +174,24 @@ export function makeAllergyResource(
             ],
           }
         : undefined,
-    code: {
-      coding: [
-        {
-          system: 'https://terminology.fhir.oystehr.com/CodeSystem/medispan-allergen-id',
-          code: data.id,
-          display: data.name,
+    code: data.id
+      ? {
+          coding: [
+            {
+              system: 'https://terminology.fhir.oystehr.com/CodeSystem/medispan-allergen-id',
+              code: data.id,
+              display: data.name,
+            },
+          ],
+        }
+      : {
+          coding: [
+            {
+              system: 'https://terminology.fhir.oystehr.com/CodeSystem/other-allergy',
+              display: data.name,
+            },
+          ],
         },
-      ],
-    },
   };
 }
 
@@ -222,7 +231,7 @@ export function makeMedicationResource(
     medicationCodeableConcept: {
       coding: [
         {
-          system: MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM,
+          system: MEDICATION_DISPENSABLE_DRUG_ID,
           code: data.id,
           display: data.name,
         },
@@ -252,7 +261,7 @@ export function makePrescribedMedicationDTO(medRequest: MedicationRequest): Pres
   return {
     resourceId: medRequest.id,
     name: medRequest.medicationCodeableConcept?.coding?.find(
-      (coding) => coding.system === MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM
+      (coding) => coding.system === MEDICATION_DISPENSABLE_DRUG_ID
     )?.display,
     instructions: medRequest.dosageInstruction?.[0]?.patientInstruction,
     added: medRequest.extension?.find((extension) => extension.url === 'http://api.zapehr.com/photon-event-time')
@@ -380,7 +389,6 @@ export function makeHospitalizationResource(
   const result: EpisodeOfCare = {
     id: data.resourceId,
     resourceType: 'EpisodeOfCare',
-    identifier: [{ value: data.code }],
     status: 'finished',
     patient: { reference: `Patient/${patientId}` },
     type: [createCodingCode(data.code, data.display)],
@@ -397,8 +405,6 @@ export function makeHospitalizationDTO(resource: EpisodeOfCare): Hospitalization
         resourceId: resource.id,
         code: coding[0].coding?.[0]?.code,
         display: coding[0].coding?.[0]?.display,
-        snomedDescription: `${coding[0].coding?.[0]?.code} | ${coding[0].coding?.[0]?.display}`,
-        snomedRegionDescription: '',
       };
     }
   }
@@ -1058,6 +1064,12 @@ const mapResourceToChartDataFields = (
   ) {
     data.medications?.push(makeMedicationDTO(resource));
     resourceMapped = true;
+  } else if (
+    resource?.resourceType === 'MedicationStatement' &&
+    chartDataResourceHasMetaTagByCode(resource, 'in-house-medication')
+  ) {
+    data.inhouseMedications?.push(makeMedicationDTO(resource));
+    resourceMapped = true;
   } else if (resource?.resourceType === 'MedicationRequest') {
     data.prescribedMedications?.push(makePrescribedMedicationDTO(resource));
     resourceMapped = true;
@@ -1078,9 +1090,9 @@ const mapResourceToChartDataFields = (
     resource?.resourceType === 'Observation' &&
     chartDataResourceHasMetaTagBySystem(resource, `${PRIVATE_EXTENSION_BASE_URL}/${ADDITIONAL_QUESTIONS_META_SYSTEM}`)
   ) {
-    const resourse = makeObservationDTO(resource);
-    // TODO check edge cases if resourse is null
-    if (resourse) data.observations?.push(resourse);
+    const resourceDto = makeObservationDTO(resource);
+    // TODO check edge cases if resource is null
+    if (resourceDto) data.observations?.push(resourceDto);
     resourceMapped = true;
   } else if (
     resource?.resourceType === 'Observation' &&
@@ -1143,8 +1155,8 @@ const mapResourceToChartDataFields = (
     resource?.resourceType === 'Observation' &&
     chartDataResourceHasMetaTagBySystem(resource, `${PRIVATE_EXTENSION_BASE_URL}/${AI_OBSERVATION_META_SYSTEM}`)
   ) {
-    const resourse = makeObservationDTO(resource);
-    if (resourse) data.observations?.push(resourse);
+    const resourceDto = makeObservationDTO(resource);
+    if (resourceDto) data.observations?.push(resourceDto);
     resourceMapped = true;
   } else if (
     resource.resourceType === 'QuestionnaireResponse' &&

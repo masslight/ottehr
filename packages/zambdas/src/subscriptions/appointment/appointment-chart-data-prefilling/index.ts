@@ -13,6 +13,7 @@ import {
   getDefaultNote,
   getPatchBinary,
   getPatchOperationForNewMetaTag,
+  getSecret,
   inPersonExamCardsMap,
   InPersonExamCardsNames,
   inPersonExamFieldsMap,
@@ -20,6 +21,7 @@ import {
   MDM_FIELD_DEFAULT_TEXT,
   OTTEHR_MODULE,
   Secrets,
+  SecretsKeys,
   SNOMEDCodeConceptInterface,
 } from 'utils';
 import { checkOrCreateM2MClientToken, saveResourceRequest, topLevelCatch, ZambdaInput } from '../../../shared';
@@ -41,7 +43,7 @@ export interface AppointmentSubscriptionInput {
   secrets: Secrets | null;
 }
 
-let zapehrToken: string;
+let oystehrToken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input)}`);
@@ -64,8 +66,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     if (!appointment.id) throw new Error("Appointment FHIR resource doesn't exist.");
 
-    zapehrToken = await checkOrCreateM2MClientToken(zapehrToken, secrets);
-    const oystehr = createOystehrClient(zapehrToken, secrets);
+    oystehrToken = await checkOrCreateM2MClientToken(oystehrToken, secrets);
+    const oystehr = createOystehrClient(oystehrToken, secrets);
     console.log('Created zapToken and fhir client');
 
     const resourceBundle = (
@@ -208,7 +210,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: 'Successfully pre-processed appointment',
     };
   } catch (error: any) {
-    await topLevelCatch('admin-telemed-appointment-subscription', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('admin-telemedicine-appointment-subscription', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify(error.message),

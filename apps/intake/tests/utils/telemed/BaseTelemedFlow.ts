@@ -1,9 +1,9 @@
 import { BrowserContext, Page } from '@playwright/test';
-import { Locators } from '../locators';
-import { FillingInfo } from './FillingInfo';
 import { CommonLocatorsHelper } from '../CommonLocatorsHelper';
-import { PaperworkTelemed } from './Paperwork';
+import { Locators } from '../locators';
 import { Paperwork } from '../Paperwork';
+import { FillingInfo } from './FillingInfo';
+import { PaperworkTelemed } from './Paperwork';
 
 export interface SlotAndLocation {
   selectedSlot: { time: string; fullSlot: string };

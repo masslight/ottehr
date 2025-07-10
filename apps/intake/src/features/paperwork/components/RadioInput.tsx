@@ -1,9 +1,10 @@
 import { FormControlLabel, Grid, Icon, Radio, RadioGroup, RadioGroupProps, Typography, useTheme } from '@mui/material';
+import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { FC, SyntheticEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
-import { RadioStyling, CustomRadioButtonIcon } from 'ui-components';
+import { CustomRadioButtonIcon } from '../../../components/form';
 import { otherColors } from '../../../IntakeThemeProvider';
+import { RadioStyling } from '../../../types';
 
 interface RadioInputProps extends RadioGroupProps {
   name: string;

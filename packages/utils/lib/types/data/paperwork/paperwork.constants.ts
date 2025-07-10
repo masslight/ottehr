@@ -33,5 +33,5 @@ export const VISIT_NOTE_SUMMARY_CODE = '75498-6';
 
 // only one type supported currently, but extension is invited here
 export const ComplexValidationType = {
-  insuranceEligibility: 'insurance elgibility',
+  insuranceEligibility: 'insurance eligibility',
 };

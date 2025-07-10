@@ -1,52 +1,54 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { GetOrUploadPatientProfilePhotoInputValidated, getSecret, Secrets, SecretsKeys } from 'utils';
+import { checkOrCreateM2MClientToken, topLevelCatch, ZambdaInput } from '../../shared';
 import { createPresignedUrl } from '../../shared/z3Utils';
-import { topLevelCatch, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
-import { checkOrCreateM2MClientToken } from '../../shared';
-import { Secrets, getSecret, SecretsKeys } from 'utils';
 
 const logIt = (msg: string): void => {
   console.log(`PatientProfilePhoto: ${msg}`);
 };
 
 const PATIENT_PHOTO_ID_PREFIX = 'patient-photo';
-export interface UpdatePatientPhotoInput {
-  secrets: Secrets | null;
-  patientID: string;
-  action: 'upload' | 'download';
-  z3PhotoUrl?: string;
-}
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mtoken: string;
+let m2mToken: string;
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  let validatedParameters: GetOrUploadPatientProfilePhotoInputValidated;
+
   try {
-    const { secrets, patientID, action, z3PhotoUrl } = validateRequestParameters(input);
-    logIt(`Parameters VALIDATED patId=[${patientID}] :: action=[${action}]`);
+    validatedParameters = validateRequestParameters(input);
+  } catch (error: any) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({
+        message: `Invalid request parameters. ${error.message || error}`,
+      }),
+    };
+  }
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
+  try {
+    const { secrets, action } = validatedParameters;
+
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     logIt(`Got m2mToken`);
+    const token = m2mToken;
 
-    const token = m2mtoken;
+    let z3PhotoUrl: string | undefined;
 
-    let resolvedPresignedUrl = undefined;
-    let resolvedZ3ImageFileUrl = undefined;
     if (action === 'upload') {
+      const { patientId } = validatedParameters;
       const bucketName = `${PATIENT_PHOTO_ID_PREFIX}s`;
-      const z3ImageFileUrl = makeZ3Url({ secrets, bucketName, patientID });
-      resolvedZ3ImageFileUrl = z3ImageFileUrl;
-      logIt(`Created image's z3Url=[${z3ImageFileUrl}]`);
-
-      logIt(`Pre-signing this URL ...`);
-      const presignedUploadUrl = await createPresignedUrl(token, z3ImageFileUrl, 'upload');
-      logIt(`Signed upload URL value=[${presignedUploadUrl}]`);
-      resolvedPresignedUrl = presignedUploadUrl;
-    } else if (action === 'download' && z3PhotoUrl) {
-      const presignedDownloadUrl = await createPresignedUrl(token, z3PhotoUrl, 'download');
-      logIt(`Signed download URL value=[${presignedDownloadUrl}]`);
-      resolvedPresignedUrl = presignedDownloadUrl;
-      resolvedZ3ImageFileUrl = z3PhotoUrl;
+      z3PhotoUrl = makeZ3Url({ secrets, bucketName, patientId });
+      logIt(`Created image's z3Url=[${z3PhotoUrl}]`);
+    } else {
+      z3PhotoUrl = validatedParameters.z3PhotoUrl;
     }
+
+    logIt(`Pre-signing this URL ...`);
+    const presignedDownloadUrl = await createPresignedUrl(token, z3PhotoUrl, action);
+    logIt(`Signed download URL value=[${presignedDownloadUrl}]`);
+    const resolvedPresignedUrl = presignedDownloadUrl;
+    const resolvedZ3ImageFileUrl = z3PhotoUrl;
 
     const response = {
       z3ImageUrl: resolvedZ3ImageFileUrl,
@@ -58,22 +60,23 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    await topLevelCatch('update-patient-profile-photo', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('update-patient-profile-photo', error, ENVIRONMENT);
     return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message }),
+      statusCode: error.statusCode || 500,
+      body: JSON.stringify({ message: `Error updating patient's photo: ${error.message || error}` }),
     };
   }
 };
 
-const makeZ3Url = (input: { secrets: Secrets | null; bucketName: string; patientID: string }): string => {
-  const { secrets, bucketName, patientID } = input;
+const makeZ3Url = (input: { secrets: Secrets | null; bucketName: string; patientId: string }): string => {
+  const { secrets, bucketName, patientId } = input;
   const fileType = 'patient-photo';
   const fileFormat = 'image';
   const projectId = getSecret(SecretsKeys.PROJECT_ID, secrets);
   const fileURL = `${getSecret(
     SecretsKeys.PROJECT_API,
     secrets
-  )}/z3/${projectId}-${bucketName}/${patientID}/${Date.now()}-${fileType}.${fileFormat}`;
+  )}/z3/${projectId}-${bucketName}/${patientId}/${Date.now()}-${fileType}.${fileFormat}`;
   return fileURL;
 };

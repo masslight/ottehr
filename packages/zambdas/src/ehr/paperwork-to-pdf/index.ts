@@ -1,8 +1,5 @@
-import { wrapHandler } from '@sentry/aws-serverless';
-import { APIGatewayProxyResult } from 'aws-lambda';
 import Oystehr from '@oystehr/sdk';
-import { createDocument } from './document';
-import { generatePdf } from './draw';
+import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference, List, QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
@@ -15,15 +12,16 @@ import {
   SecretsKeys,
 } from 'utils';
 import {
-  captureSentryException,
-  configSentry,
   createOystehrClient,
   getAuth0Token,
   topLevelCatch,
   validateJsonBody,
   validateString,
+  wrapHandler,
   ZambdaInput,
 } from '../../shared';
+import { createDocument } from './document';
+import { generatePdf } from './draw';
 
 interface Input {
   questionnaireResponseId: string;
@@ -34,11 +32,9 @@ interface Input {
 const ZAMBDA_NAME = 'paperwork-to-pdf';
 const BUCKET_PAPERWORK_PDF = 'exported-questionnaires';
 
-let zapehrToken: string;
+let oystehrToken: string;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  configSentry(ZAMBDA_NAME, input.secrets);
-  console.log(`Input: ${JSON.stringify(input)}`);
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const { questionnaireResponseId, documentReference: documentReferenceBase, secrets } = validateInput(input);
     const oystehr = await createOystehr(secrets);
@@ -87,7 +83,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       }),
     };
   } catch (error: any) {
-    return topLevelCatch(ZAMBDA_NAME, error, input.secrets, captureSentryException);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
   }
 });
 
@@ -104,10 +101,10 @@ function validateInput(input: ZambdaInput): Input {
 }
 
 async function createOystehr(secrets: Secrets | null): Promise<Oystehr> {
-  if (zapehrToken == null) {
-    zapehrToken = await getAuth0Token(secrets);
+  if (oystehrToken == null) {
+    oystehrToken = await getAuth0Token(secrets);
   }
-  return createOystehrClient(zapehrToken, secrets);
+  return createOystehrClient(oystehrToken, secrets);
 }
 
 async function createZ3Bucket(z3Bucket: string, oystehr: Oystehr): Promise<void> {

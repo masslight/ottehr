@@ -1,3 +1,5 @@
+<!-- cSpell:ignore turborepo -->
+
 # E2E Testing Documentation
 
 End-to-End testing guide for the Ottehr platform using Playwright in a Turborepo monorepo setup.
@@ -373,15 +375,16 @@ await expect(async () => {
 
 ### Hybrid Configuration Strategy
 
-The environment management system combines static configuration from a *secrets repository** with dynamic resource discovery from live systems. This approach balances security, flexibility, and maintainability across different deployment environments.
+The environment management system combines static configuration from a \*secrets repository\*\* with dynamic resource discovery from live systems. This approach balances security, flexibility, and maintainability across different deployment environments.
 
-**You can store secrets in a separate repository or integrate with your preferred secure secrets management solution with minimal configuration changes.*
+\*_You can store secrets in a separate repository or integrate with your preferred secure secrets management solution with minimal configuration changes._
 
 **Static Configuration**: Contains sensitive credentials and baseline settings that remain stable.
 
 **Dynamic Discovery**: Handles healthcare infrastructure that changes based on regulatory requirements, operational needs, or service updates.
 
 Possible secret repository structure:
+
 ```
 secrets/
 ├── zambdas/                     # Backend API configuration
@@ -780,6 +783,8 @@ if (missingVars.length > 0) {
 ```
 
 ### Browser and Installation Issues
+
+<!-- cSpell:disable-next sevg_accerr -->
 
 **Chromium Crashes (Signal 11 SEGV_ACCERR):**
 

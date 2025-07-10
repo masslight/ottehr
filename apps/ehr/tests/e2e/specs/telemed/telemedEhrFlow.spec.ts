@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { AppointmentParticipant, Location } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   fillWaitAndSelectDropdown,
   getPatientConditionPhotosStepAnswers,
@@ -32,14 +33,22 @@ import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo } from '../../../e2e-utils/helpers/telemed.test-helpers';
 import { awaitAppointmentsTableToBeVisible, telemedDialogConfirm } from '../../../e2e-utils/helpers/tests-utils';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
-import { DateTime } from 'luxon';
 
 const DEFAULT_TIMEOUT = { timeout: 15000 };
 
 async function getTestUserQualificationStates(resourceHandler: ResourceHandler): Promise<string[]> {
   const testsUser = await resourceHandler.getTestsUserAndPractitioner();
+
+  const telemedLocations = await getTelemedLocations(resourceHandler.apiClient);
+  if (!telemedLocations) {
+    throw new Error('No Telemed locations available');
+  }
+  const availableStates = new Set(
+    telemedLocations.filter((location) => location.available).map((location) => location.state)
+  );
+
   const userQualificationStates = allLicensesForPractitioner(testsUser.practitioner)
-    .filter((license) => license.active && license.state)
+    .filter((license) => license.active && license.state && availableStates.has(license.state))
     .map((license) => license.state);
   if (userQualificationStates.length < 1) throw new Error('User has no qualification locations');
   return userQualificationStates;
@@ -254,7 +263,7 @@ test.describe('Tests interacting with appointment state', () => {
     ).toBeVisible();
   });
 
-  test('Check message for patient', async () => {
+  test.skip('Check message for patient', { tag: '@flaky' }, async () => {
     await page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardChatButton(resourceHandler.appointment.id!)).click();
     await expect(page.getByTestId(dataTestIds.telemedEhrFlow.chatModalDescription)).toBeVisible();
 

@@ -1,5 +1,4 @@
 import Oystehr, { BatchInputPostRequest, Bundle } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import {
@@ -38,48 +37,47 @@ import {
 } from '../../../ehr/shared/harvest';
 import { getStripeClient } from '../../../patient/payment-methods/helpers';
 import {
-  captureSentryException,
-  configSentry,
   createOystehrClient,
   getAuth0Token,
   makeObservationResource,
   saveResourceRequest,
   topLevelCatch,
   triggerSlackAlarm,
+  wrapHandler,
   ZambdaInput,
 } from '../../../shared';
 import { createAdditionalQuestions } from '../../appointment/appointment-chart-data-prefilling/helpers';
 import { QRSubscriptionInput, validateRequestParameters } from './validateRequestParameters';
 
-let zapehrToken: string;
+let oystehrToken: string;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  configSentry('sub-intake-harvest', input.secrets);
+export const index = wrapHandler('sub-intake-harvest', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log('Intake Harvest Hath Been Invoked');
   console.log(`Input: ${JSON.stringify(input)}`);
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
     const { qr, secrets } = validatedParameters;
-    console.log('questionnaire reponse id', qr.id);
+    console.log('questionnaire response id', qr.id);
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    if (!zapehrToken) {
+    if (!oystehrToken) {
       console.log('getting token');
-      zapehrToken = await getAuth0Token(secrets);
+      oystehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }
 
-    const oystehr = createOystehrClient(zapehrToken, secrets);
+    const oystehr = createOystehrClient(oystehrToken, secrets);
     const response = await performEffect(validatedParameters, oystehr);
     return {
       statusCode: 200,
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('qr-subscription', error, input.secrets, captureSentryException);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('qr-subscription', error, ENVIRONMENT);
   }
 });
 
@@ -155,6 +153,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
 
   // we hold onto this in order to use the updated resources to update the stripe customer name and email
   let accountBundle: Bundle<FhirResource> | undefined;
+
   try {
     accountBundle = (await updatePatientAccountFromQuestionnaire(
       { patientId: patientResource.id, questionnaireResponseItem: flattenedPaperwork },
@@ -208,7 +207,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
         patientResource,
         locationResource,
         appointmentId: appointmentResource.id,
-        oystehrAccessToken: zapehrToken,
+        oystehrAccessToken: oystehrToken,
         oystehr,
         secrets,
         listResources,
@@ -328,7 +327,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
   if (tasksFailed.length && ENVIRONMENT !== 'local') {
     await triggerSlackAlarm(
-      `Alert in ${ENVIRONMENT} zambda qr-subscriotion.\n\nOne or more harvest paperwork tasks failed for QR ${qr.id}:\n\n${tasksFailed}`,
+      `Alert in ${ENVIRONMENT} zambda qr-subscription.\n\nOne or more harvest paperwork tasks failed for QR ${qr.id}:\n\n${tasksFailed}`,
       secrets
     );
   }

@@ -1,4 +1,4 @@
-import { Page, expect } from '@playwright/test';
+import { expect, Page } from '@playwright/test';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
 
 export abstract class BaseProgressNotePage {
@@ -6,6 +6,10 @@ export abstract class BaseProgressNotePage {
 
   constructor(page: Page) {
     this.#page = page;
+  }
+
+  async clickDischargeButton(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.progressNotePage.dischargeButton).click();
   }
 
   async clickReviewAndSignButton(): Promise<void> {

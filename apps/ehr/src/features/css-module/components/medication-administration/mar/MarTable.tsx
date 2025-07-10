@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
-import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper } from '@mui/material';
-import { MarTableRow } from './MarTableRow';
-import { AccordionCard } from '../../../../../telemed/components';
-import { CSSProperties } from 'react';
-import { CSSLoader } from '../../CSSLoader';
-import { useMedicationAPI } from '../../../hooks/useMedicationOperations';
-import { ExtendedMedicationDataForResponse } from 'utils';
+import { Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
 import { DateTime } from 'luxon';
+import React, { useState } from 'react';
+import { CSSProperties } from 'react';
+import { ExtendedMedicationDataForResponse } from 'utils';
+import { AccordionCard } from '../../../../../telemed/components';
+import { useMedicationAPI } from '../../../hooks/useMedicationOperations';
+import { CSSLoader } from '../../CSSLoader';
+import { MarTableRow } from './MarTableRow';
 
 interface ColumnStyles {
   [key: string]: CSSProperties;

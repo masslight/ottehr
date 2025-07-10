@@ -1,5 +1,5 @@
-import { PractitionerLicense } from '../types';
 import { Extension, PractitionerQualification } from 'fhir/r4b';
+import { PractitionerLicense } from '../types';
 import {
   PRACTITIONER_QUALIFICATION_CODE_SYSTEM,
   PRACTITIONER_QUALIFICATION_EXTENSION_URL,

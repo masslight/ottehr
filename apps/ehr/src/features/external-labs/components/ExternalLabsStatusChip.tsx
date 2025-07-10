@@ -1,13 +1,13 @@
 import { Chip } from '@mui/material';
 import { ReactElement } from 'react';
-import { ExternalLabsStatus } from 'utils';
+import { ExternalLabsStatus, LabOrderUnreceivedHistoryRow } from 'utils';
 
 interface LabsOrderStatusChipProps {
-  status: keyof typeof ExternalLabsStatus | 'ordered' | 'performed';
+  status: keyof typeof ExternalLabsStatus | LabOrderUnreceivedHistoryRow['action'];
 }
 
 export const ExternalLabsStatusPalette: {
-  [status in ExternalLabsStatus | 'ordered' | 'performed']: {
+  [status in ExternalLabsStatus | LabOrderUnreceivedHistoryRow['action']]: {
     background: {
       primary: string;
       secondary?: string;
@@ -18,6 +18,14 @@ export const ExternalLabsStatusPalette: {
     };
   };
 } = {
+  created: {
+    background: {
+      primary: '#E6E8EE',
+    },
+    color: {
+      primary: '#616161',
+    },
+  },
   pending: {
     background: {
       primary: '#E6E8EE',
@@ -27,6 +35,14 @@ export const ExternalLabsStatusPalette: {
     },
   },
   sent: {
+    background: {
+      primary: '#D1C4E9',
+    },
+    color: {
+      primary: '#4527A0',
+    },
+  },
+  'sent manually': {
     background: {
       primary: '#D1C4E9',
     },
@@ -88,6 +104,14 @@ export const ExternalLabsStatusPalette: {
     },
     color: {
       primary: '#4527A0',
+    },
+  },
+  'cancelled by lab': {
+    background: {
+      primary: '#FFCDD2',
+    },
+    color: {
+      primary: '#D32F2F',
     },
   },
   unknown: {

@@ -19,9 +19,9 @@ import {
 import { DateTime } from 'luxon';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { COLUMN_CONFIG, SEARCH_CONFIG } from './constants';
-import { SortField, SortOrder, SearchResult, PartialSearchOptionsState, SearchOptionsState } from './types';
 import { dataTestIds } from '../../constants/data-test-ids';
+import { COLUMN_CONFIG, SEARCH_CONFIG } from './constants';
+import { PartialSearchOptionsState, SearchOptionsState, SearchResult, SortField, SortOrder } from './types';
 
 const StyledTabs = styled(Tabs)(({ theme }) => ({
   color: theme.palette.background.paper,

@@ -1,8 +1,8 @@
-import { APPT_STATUS_MAP } from './appointments';
-import React, { ReactElement } from 'react';
 import { Chip } from '@mui/material';
+import React, { ReactElement } from 'react';
 import { TelemedAppointmentStatus } from 'utils';
 import { dataTestIds } from '../../constants/data-test-ids';
+import { APPT_STATUS_MAP } from './appointments';
 
 type Mapper<T extends string> = {
   [status in T]: {

@@ -1,13 +1,11 @@
 import { Coding, Practitioner } from 'fhir/r4b';
-import { Secrets } from '../../../secrets';
 
-export interface UnassignPractitionerInput {
+export interface UnassignPractitionerZambdaInput {
   encounterId: string;
   practitioner: Practitioner;
-  userRole: (code: string, display: string) => Coding[];
-  secrets: Secrets | null;
+  userRole: Coding[];
 }
 
-export interface UnassignPractitionerResponse {
+export interface UnassignPractitionerZambdaOutput {
   message: string;
 }

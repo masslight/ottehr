@@ -1,8 +1,8 @@
-import { defineConfig } from 'vitest/config';
+import react from '@vitejs/plugin-react';
 import dotenv from 'dotenv';
 import path from 'path';
 import tsconfigPaths from 'vite-tsconfig-paths';
-import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vitest/config';
 
 dotenv.config({ path: path.resolve(__dirname, 'env/.env.local') });
 
@@ -11,7 +11,7 @@ export default defineConfig({
     globals: true,
     include: ['**/*.test.tsx'],
     setupFiles: './tests/component/setup.ts',
-    environment: 'jsdom',
+    environment: 'happy-dom',
   },
   plugins: [tsconfigPaths(), react()],
 });

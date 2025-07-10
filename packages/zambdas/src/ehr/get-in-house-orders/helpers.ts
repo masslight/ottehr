@@ -3,51 +3,50 @@ import {
   ActivityDefinition,
   Appointment,
   BundleEntry,
-  Encounter,
-  Resource,
-  Practitioner,
-  ServiceRequest,
-  Task,
-  Provenance,
-  Location,
-  FhirResource,
-  Specimen,
-  Observation,
   DiagnosticReport,
+  Encounter,
+  FhirResource,
+  Location,
+  Observation,
+  Practitioner,
+  Provenance,
+  Resource,
+  Schedule,
+  ServiceRequest,
+  Slot,
+  Specimen,
+  Task,
 } from 'fhir/r4b';
 import {
   compareDates,
-  fetchLabOrderPDFs,
-  fetchDocumentReferencesForDiagnosticReports,
-  LabOrderPDF,
-  getTimezone,
+  convertActivityDefinitionToTestItem,
   DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE,
-  Secrets,
-  InHouseGetOrdersResponseDTO,
-} from 'utils';
-import { getMyPractitionerId, createOystehrClient, sendErrors, captureSentryException } from '../../shared';
-import { getSpecimenDetails, taskIsBasedOnServiceRequest } from '../shared/inhouse-labs';
-import {
+  DiagnosisDTO,
   EMPTY_PAGINATION,
-  isPositiveNumberOrZero,
+  fetchDocumentReferencesForDiagnosticReports,
+  getFullestAvailableName,
+  IN_HOUSE_TEST_CODE_SYSTEM,
+  InHouseGetOrdersResponseDTO,
   InHouseOrderListPageItemDTO,
   InHouseOrdersSearchBy,
+  isPositiveNumberOrZero,
+  LabResultPDF,
   Pagination,
-  DiagnosisDTO,
-  convertActivityDefinitionToTestItem,
-  getFullestAvailableName,
   PRACTITIONER_CODINGS,
   TestStatus,
-  IN_HOUSE_TEST_CODE_SYSTEM,
 } from 'utils';
-import { GetZambdaInHouseOrdersParams } from './validateRequestParameters';
+import { createOystehrClient, getMyPractitionerId, sendErrors } from '../../shared';
 import {
-  determineOrderStatus,
   buildOrderHistory,
-  getUrlAndVersionForADFromServiceRequest,
-  getServiceRequestsRelatedViaRepeat,
+  determineOrderStatus,
   fetchResultResourcesForRepeatServiceRequest,
-} from '../shared/inhouse-labs';
+  getServiceRequestsRelatedViaRepeat,
+  getSpecimenDetails,
+  getUrlAndVersionForADFromServiceRequest,
+  taskIsBasedOnServiceRequest,
+} from '../shared/in-house-labs';
+import { fetchLabOrderPDFsPresignedUrls, parseTimezoneForAppointmentSchedule } from '../shared/labs';
+import { GetZambdaInHouseOrdersParams } from './validateRequestParameters';
 
 // cache for the service request context
 type Cache = {
@@ -67,10 +66,10 @@ export const mapResourcesToInHouseOrderDTOs = <SearchBy extends InHouseOrdersSea
   specimens: Specimen[],
   observations: Observation[],
   diagnosticReports: DiagnosticReport[],
-  resultsPDFs: LabOrderPDF[],
-  secrets: Secrets | null,
-  currentPractitioner?: Practitioner,
-  timezone?: string
+  resultsPDFs: LabResultPDF[],
+  ENVIRONMENT: string,
+  appointmentScheduleMap: Record<string, Schedule>,
+  currentPractitioner?: Practitioner
 ): InHouseGetOrdersResponseDTO<SearchBy>['data'] => {
   const result: InHouseGetOrdersResponseDTO<SearchBy>['data'] = [];
 
@@ -103,16 +102,16 @@ export const mapResourcesToInHouseOrderDTOs = <SearchBy extends InHouseOrdersSea
           activityDefinitions,
           specimens,
           observations,
+          appointmentScheduleMap,
           cache,
           resultsPDF,
           currentPractitionerName: currentPractitioner ? getFullestAvailableName(currentPractitioner) || '' : '',
           currentPractitionerId: currentPractitioner?.id || '',
-          timezone,
         })
       );
     } catch (error) {
       console.error(`Error parsing order data for service request ${serviceRequest.id}:`, error, JSON.stringify(error));
-      void sendErrors('get-in-house-orders', error, secrets, captureSentryException);
+      void sendErrors(error, ENVIRONMENT);
     }
   }
 
@@ -130,11 +129,11 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
   activityDefinitions,
   specimens,
   observations,
+  appointmentScheduleMap,
   cache,
   resultsPDF,
   currentPractitionerName,
   currentPractitionerId,
-  timezone,
 }: {
   searchBy: SearchBy;
   serviceRequest: ServiceRequest;
@@ -146,13 +145,13 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
   activityDefinitions: ActivityDefinition[];
   specimens: Specimen[];
   observations: Observation[];
+  appointmentScheduleMap: Record<string, Schedule>;
   cache?: Cache;
-  resultsPDF?: LabOrderPDF;
+  resultsPDF?: LabResultPDF;
   currentPractitionerName?: string;
   currentPractitionerId?: string;
-  timezone?: string;
 }): InHouseGetOrdersResponseDTO<SearchBy>['data'][number] => {
-  console.log('parsing inhouse order data');
+  console.log('parsing in-house order data');
   if (!serviceRequest.id) {
     throw new Error('ServiceRequest ID is required');
   }
@@ -184,13 +183,13 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
     orderingPhysicianFullName: attendingPractitioner ? getFullestAvailableName(attendingPractitioner) || '' : '',
     resultReceivedDate: parseResultsReceivedDate(serviceRequest, tasks),
     diagnosesDTO: diagnosisDTO,
-    timezone: timezone,
+    timezone: parseTimezoneForAppointmentSchedule(appointment, appointmentScheduleMap),
     orderAddedDate: parseOrderAddedDate(serviceRequest, tasks),
     serviceRequestId: serviceRequest.id,
   };
 
   if (searchBy.searchBy.field === 'serviceRequestId') {
-    console.log('serchBy field === serviceRequestId - indicates request was triggered on detail page');
+    console.log('searchBy field === serviceRequestId - indicates request was triggered on detail page');
     const relatedSpecimen = specimens.find(
       (specimen) => specimen.request?.some((req) => req.reference === `ServiceRequest/${serviceRequest.id}`)
     );
@@ -205,7 +204,7 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
       orderingPhysicianId: attendingPractitioner?.id || '',
       currentUserFullName: currentPractitionerName || '',
       currentUserId: currentPractitionerId || '',
-      resultsPDFUrl: resultsPDF?.url,
+      resultsPDFUrl: resultsPDF?.presignedURL,
       orderHistory,
       specimen: relatedSpecimens[0] ? getSpecimenDetails(relatedSpecimens[0]) : undefined,
       notes: serviceRequest.note?.[0]?.text || '',
@@ -246,7 +245,7 @@ export const getInHouseResources = async (
   params: GetZambdaInHouseOrdersParams,
   searchBy: InHouseOrdersSearchBy,
   userToken: string,
-  m2mtoken: string
+  m2mToken: string
 ): Promise<{
   serviceRequests: ServiceRequest[];
   tasks: Task[];
@@ -260,11 +259,12 @@ export const getInHouseResources = async (
   observations: Observation[];
   pagination: Pagination;
   diagnosticReports: DiagnosticReport[];
-  resultsPDFs: LabOrderPDF[];
+  resultsPDFs: LabResultPDF[];
   currentPractitioner?: Practitioner;
-  timezone: string | undefined;
+  appointmentScheduleMap: Record<string, Schedule>;
 }> => {
   const searchParams = createInHouseServiceRequestSearchParams(params);
+  console.log('createInHouseServiceRequestSearchParams', searchParams);
 
   const inHouseOrdersResponse = await oystehr.fhir.search({
     resourceType: 'ServiceRequest',
@@ -285,12 +285,14 @@ export const getInHouseResources = async (
     observations,
     diagnosticReports,
     activityDefinitions,
+    appointments,
+    appointmentScheduleMap,
   } = extractInHouseResources(resources);
 
   const isDetailPageRequest = searchBy.searchBy.field === 'serviceRequestId';
 
   let currentPractitioner: Practitioner | undefined;
-  let resultsPDFs: LabOrderPDF[] = [];
+  let resultsPDFs: LabResultPDF[] = [];
 
   if (isDetailPageRequest && userToken) {
     // if more than one ServiceRequest is returned for when this is called from the detail page
@@ -320,17 +322,13 @@ export const getInHouseResources = async (
     }
 
     if (diagnosticReports.length > 0) {
-      const resultsDocumentReferences = await fetchDocumentReferencesForDiagnosticReports(oystehr, diagnosticReports);
-      resultsPDFs = await fetchLabOrderPDFs(resultsDocumentReferences, m2mtoken);
+      const resultsDocumentReferences = await fetchDocumentReferencesForDiagnosticReports(oystehr, diagnosticReports); // todo i think we can get this from the big query
+      const pdfs = await fetchLabOrderPDFsPresignedUrls(resultsDocumentReferences, m2mToken);
+      if (pdfs) resultsPDFs = pdfs.resultPDFs;
     }
   }
 
-  const timezone = locations[0] ? getTimezone(locations[0]) : undefined;
-
-  const [practitioners, appointments] = await Promise.all([
-    fetchPractitionersForServiceRequests(oystehr, serviceRequests, encounters),
-    fetchAppointmentsForServiceRequests(oystehr, serviceRequests, encounters),
-  ]);
+  const practitioners = await fetchPractitionersForServiceRequests(oystehr, serviceRequests, encounters);
 
   return {
     serviceRequests,
@@ -347,7 +345,7 @@ export const getInHouseResources = async (
     diagnosticReports,
     resultsPDFs,
     currentPractitioner,
-    timezone,
+    appointmentScheduleMap,
   };
 };
 
@@ -399,6 +397,19 @@ export const createInHouseServiceRequestSearchParams = (params: GetZambdaInHouse
     {
       name: '_include',
       value: 'ServiceRequest:instantiates-canonical',
+    },
+    {
+      name: '_include:iterate',
+      value: 'Encounter:appointment',
+    },
+    // Include slot to get reliable timezone info
+    {
+      name: '_include:iterate',
+      value: 'Appointment:slot',
+    },
+    {
+      name: '_include:iterate',
+      value: 'Slot:schedule',
     },
   ];
 
@@ -481,6 +492,8 @@ export const extractInHouseResources = (
   observations: Observation[];
   diagnosticReports: DiagnosticReport[];
   activityDefinitions: ActivityDefinition[];
+  appointments: Appointment[];
+  appointmentScheduleMap: Record<string, Schedule>;
 } => {
   const serviceRequests: ServiceRequest[] = [];
   const tasks: Task[] = [];
@@ -491,6 +504,10 @@ export const extractInHouseResources = (
   const observations: Observation[] = [];
   const diagnosticReports: DiagnosticReport[] = [];
   const activityDefinitions: ActivityDefinition[] = [];
+  const appointments: Appointment[] = [];
+  const slots: Slot[] = [];
+  const scheduleMap: Record<string, Schedule> = {};
+  const appointmentScheduleMap: Record<string, Schedule> = {};
 
   for (const resource of resources) {
     if (resource.resourceType === 'ServiceRequest') {
@@ -511,6 +528,29 @@ export const extractInHouseResources = (
       diagnosticReports.push(resource);
     } else if (resource.resourceType === 'ActivityDefinition') {
       activityDefinitions.push(resource);
+    } else if (resource.resourceType === 'Appointment') {
+      appointments.push(resource);
+    } else if (resource.resourceType === 'Slot') {
+      slots.push(resource);
+    } else if (resource.resourceType === 'Schedule') {
+      const scheduleId = resource.id;
+      if (scheduleId && !scheduleMap[scheduleId]) {
+        scheduleMap[scheduleId] = resource;
+      }
+    }
+  }
+
+  for (const appointment of appointments) {
+    const slot = slots.find((slot) => {
+      const slotRef = `Slot/${slot.id}`;
+      return appointment.slot?.some((s) => s.reference === slotRef);
+    });
+    const scheduleId = slot?.schedule.reference?.replace('Schedule/', '');
+    if (scheduleId) {
+      const schedule = scheduleMap[scheduleId];
+      if (schedule && appointment.id && !appointmentScheduleMap[appointment.id]) {
+        appointmentScheduleMap[appointment.id] = schedule;
+      }
     }
   }
 
@@ -524,6 +564,8 @@ export const extractInHouseResources = (
     observations,
     diagnosticReports,
     activityDefinitions,
+    appointments,
+    appointmentScheduleMap,
   };
 };
 
@@ -573,30 +615,6 @@ export const fetchPractitionersForServiceRequests = async (
     console.error('Failed to fetch Practitioners', JSON.stringify(error, null, 2));
     return [];
   }
-};
-
-export const fetchAppointmentsForServiceRequests = async (
-  oystehr: Oystehr,
-  serviceRequests: ServiceRequest[],
-  encounters: Encounter[]
-): Promise<Appointment[]> => {
-  const appointmentIds = serviceRequests.map((sr) => parseAppointmentId(sr, encounters)).filter(Boolean);
-
-  if (!appointmentIds.length) {
-    return [];
-  }
-
-  const appointmentsResponse = await oystehr.fhir.search<Appointment>({
-    resourceType: 'Appointment',
-    params: [
-      {
-        name: '_id',
-        value: appointmentIds.join(','),
-      },
-    ],
-  });
-
-  return appointmentsResponse.unbundle();
 };
 
 export const findActivityDefinitionForServiceRequest = (

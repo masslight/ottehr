@@ -1,4 +1,3 @@
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, HealthcareService, Location, Patient, Practitioner, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -7,28 +6,28 @@ import {
   BookableScheduleData,
   CANT_UPDATE_CANCELED_APT_ERROR,
   CANT_UPDATE_CHECKED_IN_APT_ERROR,
+  checkValidBookingTime,
   DATETIME_FULL_NO_YEAR,
+  getAvailableSlotsForSchedules,
+  getPatientContactEmail,
+  getPatientFirstName,
+  getRelatedPersonForPatient,
+  getSecret,
+  getSMSNumberForIndividual,
+  isAppointmentVirtual,
+  isPostTelemedAppointment,
+  isValidUUID,
+  normalizeSlotToUTC,
   PAST_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
   POST_TELEMED_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
   SCHEDULE_NOT_FOUND_ERROR,
   ScheduleType,
   Secrets,
-  checkValidBookingTime,
-  getAvailableSlotsForSchedules,
-  getPatientContactEmail,
-  getPatientFirstName,
-  getRelatedPersonForPatient,
-  getSMSNumberForIndividual,
-  isPostTelemedAppointment,
+  SecretsKeys,
   UpdateAppointmentParameters,
-  normalizeSlotToUTC,
-  isValidUUID,
-  isAppointmentVirtual,
 } from 'utils';
 import {
   AuditableZambdaEndpoints,
-  captureSentryException,
-  configSentry,
   createAuditEvent,
   createOystehrClient,
   getAuth0Token,
@@ -36,6 +35,7 @@ import {
   sendInPersonMessages,
   topLevelCatch,
   updateAppointmentTime,
+  wrapHandler,
   ZambdaInput,
 } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -45,10 +45,8 @@ export interface UpdateAppointmentInput extends UpdateAppointmentParameters {
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let zapehrToken: string;
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  configSentry('update-appointment', input.secrets);
-  console.log(`Input: ${JSON.stringify(input)}`);
+let oystehrToken: string;
+export const index = wrapHandler('update-appointment', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     // Step 1: Validate input
@@ -57,14 +55,14 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    if (!zapehrToken) {
+    if (!oystehrToken) {
       console.log('getting token');
-      zapehrToken = await getAuth0Token(secrets);
+      oystehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }
 
-    const oystehr = createOystehrClient(zapehrToken, secrets);
+    const oystehr = createOystehrClient(oystehrToken, secrets);
 
     const slot = normalizeSlotToUTC(inputSlot);
 
@@ -220,7 +218,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
           appointmentID,
           fhirAppointment.appointmentType?.text || '',
           language,
-          zapehrToken
+          oystehrToken
         );
       } else {
         console.log(`missing sms number for related person with id ${relatedPerson.id}`);
@@ -231,7 +229,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     const response = {
       message: 'Successfully updated an appointment',
-      appointmentID: updatedAppointment.id ?? null,
+      appointmentID: updatedAppointment.id,
     };
 
     await createAuditEvent(AuditableZambdaEndpoints.appointmentUpdate, oystehr, input, fhirPatient.id || '', secrets);
@@ -243,6 +241,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('update-appointment', error, input.secrets, captureSentryException);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('update-appointment', error, ENVIRONMENT);
   }
 });

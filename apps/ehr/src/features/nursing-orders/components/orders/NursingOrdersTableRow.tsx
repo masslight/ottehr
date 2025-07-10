@@ -1,10 +1,10 @@
-import { TableCell, TableRow, Box, IconButton } from '@mui/material';
+import { Box, IconButton, TableCell, TableRow } from '@mui/material';
 import { DateTime } from 'luxon';
 import { ReactElement } from 'react';
+import { NursingOrder } from 'utils';
+import { deleteIcon } from '../../../../themes/ottehr';
 import { NursingOrdersStatusChip } from '../NursingOrdersStatusChip';
 import { NursingOrdersTableColumn } from './NursingOrdersTable';
-import { deleteIcon } from 'ui-components/lib/assets';
-import { NursingOrder } from 'utils';
 import { useUpdateNursingOrder } from './useNursingOrders';
 interface NursingOrdersTableRowProps {
   columns: NursingOrdersTableColumn[];

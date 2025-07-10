@@ -1,14 +1,14 @@
 import { useCallback } from 'react';
-import useEvolveUser from '../../../../../hooks/useEvolveUser';
-import { useChartData } from '../../../hooks/useChartData';
-import { GetChartDataResponse, VitalsObservationDTO } from 'utils';
-import { UseSaveVitals } from '../types';
-import { useChartDataCacheKey } from '../../generic-notes-list/hooks/useChartDataCacheKey';
 import { useQueryClient } from 'react-query';
-import { useZapEHRAPIClient } from '../../../../../telemed/hooks/useOystehrAPIClient';
+import { GetChartDataResponse, VitalsObservationDTO } from 'utils';
+import useEvolveUser from '../../../../../hooks/useEvolveUser';
+import { useOystehrAPIClient } from '../../../../../telemed/hooks/useOystehrAPIClient';
+import { useChartData } from '../../../hooks/useChartData';
+import { useChartDataCacheKey } from '../../generic-notes-list/hooks/useChartDataCacheKey';
+import { UseSaveVitals } from '../types';
 
 export const useSaveVitals: UseSaveVitals = ({ encounterId, searchConfig }) => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const queryClient = useQueryClient();
   const user = useEvolveUser();
   const cacheKey = useChartDataCacheKey(searchConfig.fieldName, searchConfig.searchParams);

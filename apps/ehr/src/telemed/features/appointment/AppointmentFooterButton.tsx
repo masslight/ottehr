@@ -5,12 +5,13 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useEffect, useState } from 'react';
 import { useQueryClient } from 'react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { TelemedAppointmentStatusEnum, mapStatusToTelemed } from 'utils';
+import { mapStatusToTelemed, TelemedAppointmentStatusEnum } from 'utils';
+import { dataTestIds } from '../../../constants/data-test-ids';
 import useEvolveUser from '../../../hooks/useEvolveUser';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { ConfirmationDialog } from '../../components';
 import { useGetAppointmentAccessibility } from '../../hooks';
-import { useZapEHRAPIClient } from '../../hooks/useOystehrAPIClient';
+import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
 import {
   useAppointmentStore,
   useChangeTelemedAppointmentStatusMutation,
@@ -19,7 +20,6 @@ import {
   useVideoCallStore,
 } from '../../state';
 import { updateEncounterStatusHistory } from '../../utils';
-import { dataTestIds } from '../../../constants/data-test-ids';
 
 const FooterButton = styled(LoadingButton)(({ theme }) => ({
   textTransform: 'none',
@@ -48,7 +48,7 @@ export const AppointmentFooterButton: FC = () => {
   const location = useLocation();
   const theme = useTheme();
   const queryClient = useQueryClient();
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const changeTelemedAppointmentStatusEnum = useChangeTelemedAppointmentStatusMutation();
   const initTelemedSession = useInitTelemedSessionMutation();
   const getMeetingData = useGetMeetingData(

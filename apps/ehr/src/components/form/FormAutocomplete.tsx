@@ -1,4 +1,4 @@
-import { Autocomplete, TextField, AutocompleteProps } from '@mui/material';
+import { Autocomplete, AutocompleteProps, TextField } from '@mui/material';
 import { ReactElement } from 'react';
 import { Control, Controller, FieldValues, Path, RegisterOptions } from 'react-hook-form';
 

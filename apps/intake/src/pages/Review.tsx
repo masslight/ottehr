@@ -4,19 +4,21 @@ import { DateTime } from 'luxon';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
-import { ErrorDialog, ErrorDialogConfig, PageForm, useUCZambdaClient } from 'ui-components';
 import { APIError, APPOINTMENT_CANT_BE_IN_PAST_ERROR, ServiceMode, VisitType } from 'utils';
+import { dataTestIds } from '../../src/helpers/data-test-ids';
 import { ottehrApi } from '../api';
+import { intakeFlowPageRoute } from '../App';
 import { PageContainer } from '../components';
+import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
+import PageForm from '../components/PageForm';
 import { useIntakeCommonStore } from '../features/common';
 import { NO_PATIENT_ERROR, PAST_APPT_ERROR } from '../helpers';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
 import { safelyCaptureException } from '../helpers/sentry';
 import { useGetFullName } from '../hooks/useGetFullName';
+import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import i18n from '../lib/i18n';
 import { useBookingContext } from './BookingHome';
-import { dataTestIds } from '../../src/helpers/data-test-ids';
-import { intakeFlowPageRoute } from '../App';
 
 interface ReviewItem {
   name: string;
@@ -81,8 +83,7 @@ const Review = (): JSX.Element => {
         unconfirmedDateOfBirth,
         language: 'en', // replace with i18n.language to enable
       });
-      const { appointment } = res;
-      const fhirAppointmentId = appointment;
+      const fhirAppointmentId = res.appointmentId;
 
       navigate(getNextPath(fhirAppointmentId));
       completeBooking();
@@ -113,8 +114,6 @@ const Review = (): JSX.Element => {
       valueTestId: dataTestIds.locationNameReviewScreen,
     },
   ];
-
-  console.log('originalBookingUrl', originalBookingUrl);
 
   if (visitType === VisitType.PreBook) {
     let path = `${intakeFlowPageRoute.PrebookVisit.path}`;

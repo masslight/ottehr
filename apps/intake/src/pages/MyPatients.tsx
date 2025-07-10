@@ -1,16 +1,17 @@
 // cSpell:ignore tokenful
-import { FieldValues } from 'react-hook-form';
-import { generatePath, Outlet, useNavigate, useOutletContext, useParams } from 'react-router-dom';
-import PatientList from '../features/patients/components/selectable-list';
-import { PageContainer } from '../components';
-import { intakeFlowPageRoute } from '../App';
-import { ErrorDialog, useUCZambdaClient } from 'ui-components';
-import { APIError, getPatientInfoFullName, isApiError, PatientInfo } from 'utils';
-import { useQuery } from 'react-query';
 import { CircularProgress } from '@mui/material';
-import { useMemo, useState } from 'react';
-import ottehrApi from '../api/ottehrApi';
 import { DateTime } from 'luxon';
+import { useMemo, useState } from 'react';
+import { FieldValues } from 'react-hook-form';
+import { useQuery } from 'react-query';
+import { generatePath, Outlet, useNavigate, useOutletContext, useParams } from 'react-router-dom';
+import { APIError, getPatientInfoFullName, isApiError, PatientInfo } from 'utils';
+import ottehrApi from '../api/ottehrApi';
+import { intakeFlowPageRoute } from '../App';
+import { PageContainer } from '../components';
+import { ErrorDialog } from '../components/ErrorDialog';
+import PatientList from '../features/patients/components/selectable-list';
+import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 
 const MyPatients = (): JSX.Element => {
   const navigate = useNavigate();

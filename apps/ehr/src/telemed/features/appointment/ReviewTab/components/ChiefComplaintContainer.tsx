@@ -1,10 +1,10 @@
-import { FC } from 'react';
 import { Box, Typography } from '@mui/material';
+import { FC } from 'react';
+import { getSpentTime } from 'utils';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
+import { useFeatureFlags } from '../../../../../features/css-module/context/featureFlags';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../state';
-import { getSpentTime } from 'utils';
-import { useFeatureFlags } from '../../../../../features/css-module/context/featureFlags';
-import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 export const ChiefComplaintContainer: FC = () => {
   const { chartData, encounter } = getSelectors(useAppointmentStore, ['chartData', 'encounter']);

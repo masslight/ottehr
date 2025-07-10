@@ -1,9 +1,11 @@
-import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { AuditEvent, Bundle, Questionnaire, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   AUDIT_EVENT_OUTCOME_CODE,
   checkBundleOutcomeOk,
+  getSecret,
   getVersionedReferencesFromBundleResources,
   isValidUUID,
   makeValidationSchema,
@@ -15,13 +17,13 @@ import {
   QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR,
   QUESTIONNAIRE_RESPONSE_INVALID_ERROR,
   Secrets,
+  SecretsKeys,
 } from 'utils';
-import Oystehr from '@oystehr/sdk';
 import { ValidationError } from 'yup';
-import { DateTime } from 'luxon';
+import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
 import { updatePatientAccountFromQuestionnaire } from '../../shared/harvest';
 
-let m2mtoken: string;
+let m2mToken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -30,9 +32,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.groupEnd();
     console.debug('validateRequestParameters success');
     const { secrets } = validatedParameters;
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
+    console.log('complexly validating request parameters');
     const effectInput = await complexValidation(validatedParameters, oystehr);
+    console.log('complex validation successful');
     await performEffect(effectInput, oystehr);
 
     return {
@@ -41,7 +45,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));
-    return topLevelCatch('update-patient-account-from-questionnaire', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('update-patient-account-from-questionnaire', error, ENVIRONMENT);
   }
 };
 
@@ -184,7 +189,7 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
   const userToken = input.headers.Authorization.replace('Bearer ', '');
 
   if (!userToken) {
-    throw new Error('usere token unexpectedly missing');
+    throw new Error('user token unexpectedly missing');
   }
 
   const { secrets } = input;
@@ -287,7 +292,7 @@ const complexValidation = async (input: BasicInput, oystehrM2M: Oystehr): Promis
         })
         .filter((i) => !!i) as string[];
       console.log('validationErrors', JSON.stringify(validationErrors, null, 2));
-      console.log('errorpaths', JSON.stringify(errorPaths));
+      console.log('errorPaths', JSON.stringify(errorPaths));
 
       if (errorPaths.length === 0) {
         // this will be a 500

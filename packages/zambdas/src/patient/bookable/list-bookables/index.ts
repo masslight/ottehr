@@ -51,7 +51,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
   } catch (error: any) {
     console.error('Failed to get bookables', error);
-    return topLevelCatch('list-bookables', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('list-bookables', error, ENVIRONMENT);
   }
 };
 
@@ -67,9 +68,9 @@ async function getTelemedLocations(oystehr: Oystehr): Promise<BookableItem[]> {
   // make this fhir-queryable?
   const telemedLocations = resources.filter((location) => isLocationVirtual(location));
 
-  const someUndefiend = telemedLocations.map((location) => makeBookableVirtualLocation(location));
+  const someUndefined = telemedLocations.map((location) => makeBookableVirtualLocation(location));
 
-  const items = someUndefiend.filter((item) => !!item) as BookableItem[];
+  const items = someUndefined.filter((item) => !!item) as BookableItem[];
   return items;
 }
 
@@ -83,7 +84,7 @@ async function getGroups(oystehr: Oystehr, serviceMode: ServiceMode): Promise<Bo
       value: [
         ServiceModeCoding.chat.fullParam,
         ServiceModeCoding.telephone.fullParam,
-        ServiceModeCoding.videoconference.fullParam,
+        ServiceModeCoding.videoConference.fullParam,
       ].join(','),
     });
   }
@@ -111,8 +112,8 @@ async function getGroups(oystehr: Oystehr, serviceMode: ServiceMode): Promise<Bo
     }
   });
 
-  const someUndefiend = hsObjects.map((group) => makeBookableGroup(group.hs));
-  const items = someUndefiend.filter((item) => !!item) as BookableItem[];
+  const someUndefined = hsObjects.map((group) => makeBookableGroup(group.hs));
+  const items = someUndefined.filter((item) => !!item) as BookableItem[];
   return items;
 }
 
@@ -133,8 +134,8 @@ async function getPhysicalLocations(oystehr: Oystehr): Promise<BookableItem[]> {
 
   console.log('physical locations found', physicalLocations);
 
-  const someUndefiend = physicalLocations.map((location) => makeBookablePhysicalLocation(location));
-  const items = someUndefiend.filter((item) => !!item) as BookableItem[];
+  const someUndefined = physicalLocations.map((location) => makeBookablePhysicalLocation(location));
+  const items = someUndefined.filter((item) => !!item) as BookableItem[];
   return items;
 }
 

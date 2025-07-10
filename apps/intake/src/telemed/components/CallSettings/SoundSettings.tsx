@@ -1,8 +1,8 @@
-import { FC, RefObject, useState } from 'react';
-import { Box, Card, FormControl, IconButton, InputLabel, MenuItem, Select, Typography } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import ReplayIcon from '@mui/icons-material/Replay';
 import VolumeUpOutlinedIcon from '@mui/icons-material/VolumeUpOutlined';
+import { Box, Card, FormControl, IconButton, InputLabel, MenuItem, Select, Typography } from '@mui/material';
+import { FC, RefObject, useState } from 'react';
 import { otherColors } from '../../../IntakeThemeProvider';
 
 type SoundSettingsProps = {

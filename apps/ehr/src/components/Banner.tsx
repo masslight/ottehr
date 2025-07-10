@@ -35,6 +35,8 @@ export default function Banner({ text, icon, iconSize, bgcolor, color }: Props):
         padding: '5px',
         top: 0,
         zIndex: (theme) => theme.zIndex.drawer + 1,
+        opacity: 0.5,
+        pointerEvents: 'none',
       }}
     >
       {iconElement}

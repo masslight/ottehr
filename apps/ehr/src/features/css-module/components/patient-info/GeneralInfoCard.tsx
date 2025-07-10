@@ -1,9 +1,8 @@
-import { Box, Checkbox, FormControlLabel, Grid, Paper, Typography, alpha, lighten, useTheme } from '@mui/material';
-import React, { useCallback, useEffect, useState } from 'react';
-
+import { alpha, Box, Checkbox, FormControlLabel, Grid, lighten, Paper, Typography, useTheme } from '@mui/material';
 import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ChartDataRequestedFields } from 'utils';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { useSaveChartData } from '../../../../telemed';

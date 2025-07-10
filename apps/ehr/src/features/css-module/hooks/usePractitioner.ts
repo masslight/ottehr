@@ -4,6 +4,7 @@ import { useMutation } from 'react-query';
 import { assignPractitioner, unassignPractitioner } from 'src/api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import useEvolveUser, { EvolveUser } from '../../../hooks/useEvolveUser';
+import { useAppointment } from './useAppointment';
 
 export const usePractitionerActions = (
   encounter: Encounter | undefined,
@@ -11,11 +12,15 @@ export const usePractitionerActions = (
   practitionerType: Coding[]
 ): { isEncounterUpdatePending: boolean; handleUpdatePractitioner: () => Promise<void> } => {
   const { oystehrZambda } = useApiClients();
+  const { refetch: refetchAppointment } = useAppointment(
+    encounter?.appointment?.[0]?.reference?.replace('Appointment/', '')
+  );
   const user = useEvolveUser();
 
   const mutation = useMutation(async () => {
     try {
       await handleParticipantPeriod(oystehrZambda, encounter, user, action, practitionerType);
+      await refetchAppointment();
     } catch (error: any) {
       throw new Error(error.message);
     }

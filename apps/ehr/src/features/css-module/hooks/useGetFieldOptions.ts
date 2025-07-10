@@ -98,7 +98,9 @@ export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
       status: isLocationLoading ? 'loading' : 'loaded',
     },
     route: {
-      options: getRoutesArray(medicationApplianceRoutes),
+      options: getRoutesArray(medicationApplianceRoutes)?.sort((a, b) =>
+        a.label.toLowerCase().localeCompare(b.label.toLowerCase())
+      ),
       status: 'loaded',
     },
     units: {
@@ -107,6 +109,8 @@ export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
         { value: 'ml', label: 'mL' },
         { value: 'g', label: 'g' },
         { value: 'cc', label: 'cc' },
+        { value: 'unit', label: 'unit' },
+        { value: 'application', label: 'application' },
       ],
       status: 'loaded',
     },

@@ -1,4 +1,3 @@
-import { Patient } from 'fhir/r4b';
 import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
 import { LoadingButton } from '@mui/lab';
 import {
@@ -11,10 +10,11 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { Patient } from 'fhir/r4b';
 import { ReactElement, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { useEditPatientNameMutation } from '../../../hooks';
 import { getSelectors } from '../../../../shared/store/getSelectors';
+import { useEditPatientNameMutation } from '../../../hooks';
 import { useAppointmentStore } from '../../../state';
 
 interface EditPatientNameDialogProps {

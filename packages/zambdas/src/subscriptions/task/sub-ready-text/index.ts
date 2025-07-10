@@ -1,25 +1,22 @@
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Location, Patient, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { DATETIME_FULL_NO_YEAR, TaskStatus, getPatientContactEmail, PROJECT_WEBSITE } from 'utils';
 import {
-  captureSentryException,
-  createOystehrClient,
-  configSentry,
-  getAuth0Token,
-  topLevelCatch,
-  ZambdaInput,
-} from '../../../shared';
+  DATETIME_FULL_NO_YEAR,
+  getPatientContactEmail,
+  getSecret,
+  PROJECT_WEBSITE,
+  SecretsKeys,
+  TaskStatus,
+} from 'utils';
+import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
+import { patchTaskStatus } from '../../helpers';
 import { sendText } from '../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';
-import { patchTaskStatus } from '../../helpers';
 
-let zapehrToken: string;
+let oystehrToken: string;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  configSentry('sub-ready-text', input.secrets);
-  console.log(`Input: ${JSON.stringify(input)}`);
+export const index = wrapHandler('sub-ready-text', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
@@ -28,14 +25,14 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    if (!zapehrToken) {
+    if (!oystehrToken) {
       console.log('getting token');
-      zapehrToken = await getAuth0Token(secrets);
+      oystehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }
 
-    const oystehr = createOystehrClient(zapehrToken, secrets);
+    const oystehr = createOystehrClient(oystehrToken, secrets);
 
     let taskStatusToUpdate: TaskStatus;
     let statusReasonToUpdate: string | undefined;
@@ -73,7 +70,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
         ],
       })
     ).unbundle();
-    console.log(`number of reasources returned ${allResources.length}`);
+    console.log(`number of resources returned ${allResources.length}`);
 
     allResources.forEach((resource) => {
       if (resource.resourceType === 'Appointment') {
@@ -118,7 +115,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     if (fhirRelatedPerson) {
       const message = `Please set up access to your patient portal so you can view test results and discharge information: ${PROJECT_WEBSITE}/patient-portal`;
-      const { taskStatus, statusReason } = await sendText(message, fhirRelatedPerson, zapehrToken, secrets);
+      const { taskStatus, statusReason } = await sendText(message, fhirRelatedPerson, oystehrToken, secrets);
       taskStatusToUpdate = taskStatus;
       statusReasonToUpdate = statusReason;
     } else {
@@ -150,6 +147,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('sub-ready-text', error, input.secrets, captureSentryException);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('sub-ready-text', error, ENVIRONMENT);
   }
 });

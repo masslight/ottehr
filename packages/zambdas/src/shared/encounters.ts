@@ -1,11 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { Address, Appointment, Encounter, Location } from 'fhir/r4b';
 import {
+  getEncounterForAppointment,
+  getVirtualServiceResourceExtension,
   SLUG_SYSTEM,
   TELEMED_VIDEO_ROOM_CODE,
   VisitType,
-  getEncounterForAppointment,
-  getVirtualServiceResourceExtension,
 } from 'utils';
 import { getParticipantFromAppointment } from '../shared';
 

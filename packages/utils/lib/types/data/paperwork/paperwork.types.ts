@@ -121,8 +121,8 @@ export interface AppointmentSummary {
   unconfirmedDateOfBirth?: string;
 }
 
-// it's pretty tedious to have thie one-property interface and have to drill down to get the bits you're really after
-// but code written already accounts for this kruft so this can be a todo for a later time
+// it's pretty tedious to have this one-property interface and have to drill down to get the bits you're really after
+// but code written already accounts for this cruft so this can be a todo for a later time
 export interface AppointmentData {
   appointment: AppointmentSummary | undefined;
 }

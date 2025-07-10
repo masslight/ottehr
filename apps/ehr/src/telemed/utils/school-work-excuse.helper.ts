@@ -5,8 +5,8 @@ import { ArrayElement } from '../../shared/types';
 export const mapExcuseTypeToFields = {
   workTemplate: ['headerNote', 'workFields', 'footerNote'],
   workFree: ['headerNote'],
-  schoolTemplate: ['parentName', 'headerNote', 'schoolFields', 'footerNote'],
-  schoolFree: ['parentName', 'headerNote'],
+  schoolTemplate: ['headerNote', 'schoolFields', 'footerNote'],
+  schoolFree: ['headerNote'],
 };
 
 export const workExcuseFields = [
@@ -155,7 +155,7 @@ export const getDefaultExcuseFormValues = (params: {
 
   const currentDate = DateTime.now().toFormat('MM/dd/yyyy');
 
-  if (!params.isSchool && params.parentName) {
+  if (params.parentName) {
     defaultFormValues.parentName = params.parentName;
   }
 

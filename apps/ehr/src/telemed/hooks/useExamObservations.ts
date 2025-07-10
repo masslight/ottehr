@@ -10,9 +10,9 @@ import {
 import { useFeatureFlags } from '../../features/css-module/context/featureFlags';
 import {
   useDeleteChartData,
+  useExamObservationsStore as useTelemedExamObservationsStore,
   useInPersonExamObservationsStore,
   useSaveChartData,
-  useExamObservationsStore as useTelemedExamObservationsStore,
 } from '../state';
 
 type ExamNames = ExamCardsNames | ExamFieldsNames;

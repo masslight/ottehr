@@ -1,7 +1,7 @@
-import { FC } from 'react';
-import { List, ListItemIcon, ListItemText, ListItemButton, useTheme, Typography, Skeleton } from '@mui/material';
-import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 import FolderOpenOutlinedIcon from '@mui/icons-material/FolderOpenOutlined';
+import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
+import { List, ListItemButton, ListItemIcon, ListItemText, Skeleton, Typography, useTheme } from '@mui/material';
+import { FC } from 'react';
 import { PatientDocumentsFolder } from '../../../hooks/useGetPatientDocs';
 
 export type PatientDocumentFoldersColumnProps = {
@@ -23,35 +23,37 @@ export const PatientDocumentFoldersColumn: FC<PatientDocumentFoldersColumnProps>
 
   return (
     <List>
-      {documentsFolders.map((folder, index) => (
-        <ListItemButton
-          key={`${folder.folderName}__${index}`}
-          onClick={() => onFolderSelected && onFolderSelected(folder)}
-          sx={{
-            backgroundColor: selectedIndex === index ? '#4D15B714' : 'transparent',
-            borderRadius: 3,
-            py: 0.5,
-            marginX: 2,
-            '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.05)' },
-          }}
-        >
-          <ListItemIcon sx={{ color: theme.palette.primary.main }}>
-            {selectedIndex === index ? <FolderOpenOutlinedIcon /> : <FolderOutlinedIcon />}
-          </ListItemIcon>
-          <ListItemText
-            primary={
-              <Typography
-                sx={{
-                  color: theme.palette.text.primary,
-                  fontWeight: selectedIndex === index ? 'bold' : 'normal',
-                }}
-              >
-                {folder.folderName} - {folder.documentsCount}
-              </Typography>
-            }
-          />
-        </ListItemButton>
-      ))}
+      {documentsFolders
+        .sort((a, b) => a.folderName.localeCompare(b.folderName))
+        .map((folder, index) => (
+          <ListItemButton
+            key={`${folder.folderName}__${index}`}
+            onClick={() => onFolderSelected && onFolderSelected(folder)}
+            sx={{
+              backgroundColor: selectedIndex === index ? '#4D15B714' : 'transparent',
+              borderRadius: 3,
+              py: 0.5,
+              marginX: 2,
+              '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.05)' },
+            }}
+          >
+            <ListItemIcon sx={{ color: theme.palette.primary.main }}>
+              {selectedIndex === index ? <FolderOpenOutlinedIcon /> : <FolderOutlinedIcon />}
+            </ListItemIcon>
+            <ListItemText
+              primary={
+                <Typography
+                  sx={{
+                    color: theme.palette.text.primary,
+                    fontWeight: selectedIndex === index ? 'bold' : 'normal',
+                  }}
+                >
+                  {folder.folderName} - {folder.documentsCount}
+                </Typography>
+              }
+            />
+          </ListItemButton>
+        ))}
     </List>
   );
 };

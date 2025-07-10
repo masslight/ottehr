@@ -1,14 +1,13 @@
 import { Box, Button, Skeleton, Typography } from '@mui/material';
+import { generatePath, useNavigate, useParams } from 'react-router-dom';
+import { AppointmentInformationIntake, formatVisitDate } from 'utils';
 import { intakeFlowPageRoute } from '../App';
 import { useGetPastVisits } from '../features/past-visits';
-import { useZapEHRAPIClient } from '../telemed/utils';
-import { AppointmentInformationIntake } from 'utils';
 import { otherColors } from '../IntakeThemeProvider';
-import { generatePath, useNavigate, useParams } from 'react-router-dom';
-import { formatVisitDate } from 'utils';
+import { useOystehrAPIClient } from '../telemed/utils';
 
 const PastVisits = (): JSX.Element => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const { patientId } = useParams();
   const navigate = useNavigate();
 

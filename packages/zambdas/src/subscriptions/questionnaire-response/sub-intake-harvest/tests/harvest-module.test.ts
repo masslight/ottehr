@@ -1,17 +1,16 @@
+// cSpell:ignore rawAGQR1, rawPPHQR1, rawSPHQR1
 import { BatchInputPostRequest } from '@oystehr/sdk';
-import {
-  Account,
-  Coverage,
-  InsurancePlan,
-  Organization,
-  Patient,
-  QuestionnaireResponse,
-  RelatedPerson,
-} from 'fhir/r4b';
+import { Account, Coverage, Organization, Patient, QuestionnaireResponse, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { COVERAGE_MEMBER_IDENTIFIER_BASE, flattenItems, INSURANCE_PLAN_PAYER_META_TAG_CODE, isValidUUID } from 'utils';
+import {
+  COVERAGE_MEMBER_IDENTIFIER_BASE,
+  flattenItems,
+  isValidUUID,
+  ORG_TYPE_CODE_SYSTEM,
+  ORG_TYPE_PAYER_CODE,
+} from 'utils';
 import InPersonQuestionnaireFile from 'utils/lib/deployed-resources/questionnaires/in-person-intake-questionnaire.json';
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidV4 } from 'uuid';
 import { assert, describe, expect, it } from 'vitest';
 import {
   createAccount,
@@ -45,8 +44,7 @@ describe('Harvest Module', () => {
   const { orderedCoverages: coverageResources, accountCoverage } = getCoverageResources({
     questionnaireResponse: questionnaireResponse1,
     patientId: newPatient1.id ?? '',
-    insurancePlanResources: insurancePlans1,
-    organizationResources: organisations1,
+    organizationResources: organizations1,
   });
   const primary = coverageResources.primary;
   const secondary = coverageResources.secondary;
@@ -76,7 +74,7 @@ describe('Harvest Module', () => {
         patient: { reference: `Patient/${newPatient1.id}` },
         address: [
           {
-            city: 'fakeplace',
+            city: 'fakePlace',
             line: ['123 test lane'],
             postalCode: '11111',
             state: 'NY',
@@ -96,7 +94,7 @@ describe('Harvest Module', () => {
         telecom: [
           {
             system: 'phone',
-            value: '+15559876543',
+            value: '+19895556543',
           },
         ],
       },
@@ -131,17 +129,17 @@ describe('Harvest Module', () => {
     const expectedPrimaryPolicyHolder = {
       firstName: 'Barnabas',
       middleName: 'Thaddeus',
-      lastName: 'Picklesworth',
+      lastName: 'PicklesWorth',
       dob: '1982-02-23',
       birthSex: 'Male',
       address: {
         line: ['317 Mustard Street', 'Unit 2'],
-        city: 'Deliciousville',
+        city: 'DeliciousVilla',
         state: 'DE',
         postalCode: '20001',
       },
       relationship: 'Child',
-      memberId: 'FAfonejwgndkoetwwe6',
+      memberId: 'FafOneJwgNdkOetWwe6',
     };
 
     const flattened = flattenItems((questionnaireResponse1.item as QuestionnaireResponse['item']) ?? []);
@@ -153,7 +151,7 @@ describe('Harvest Module', () => {
     const expectedSecondaryPolicyHolder = {
       firstName: 'Jennifer',
       middleName: 'Celeste',
-      lastName: 'Picklesworth',
+      lastName: 'PicklesWorth',
       dob: '1983-02-23',
       birthSex: 'Female',
       address: {
@@ -163,7 +161,7 @@ describe('Harvest Module', () => {
         postalCode: '20001',
       },
       relationship: 'Child',
-      memberId: 'fdfdfdfdfdfh7897',
+      memberId: 'FdfDfdFdfDfh7897',
     };
     const flattened = flattenItems((questionnaireResponse1.item as QuestionnaireResponse['item']) ?? []);
     const secondaryPolicyHolder = getSecondaryPolicyHolderFromAnswers(flattened);
@@ -176,14 +174,14 @@ describe('Harvest Module', () => {
       lastName: 'Doe',
       dob: '1983-02-23',
       address: {
-        city: 'fakeplace',
+        city: 'fakePlace',
         line: ['123 test lane'],
         postalCode: '11111',
         state: 'NY',
       },
       relationship: 'Parent',
       birthSex: 'Female',
-      number: '(555) 987-6543',
+      number: '(989) 555-6543',
     };
 
     const flattened = flattenItems((questionnaireResponse1.item as QuestionnaireResponse['item']) ?? []);
@@ -198,7 +196,7 @@ describe('Harvest Module', () => {
         identifier: [
           {
             ...COVERAGE_MEMBER_IDENTIFIER_BASE, // this holds the 'type'
-            value: 'FAfonejwgndkoetwwe6',
+            value: 'FafOneJwgNdkOetWwe6',
             assigner: {
               reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176',
               display: 'Aetna',
@@ -209,7 +207,7 @@ describe('Harvest Module', () => {
         status: 'active',
         beneficiary: { reference: 'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61', type: 'Patient' },
         payor: [{ reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176' }],
-        subscriberId: 'FAfonejwgndkoetwwe6',
+        subscriberId: 'FafOneJwgNdkOetWwe6',
         subscriber: {
           reference: `#coverageSubscriber`,
         },
@@ -233,7 +231,7 @@ describe('Harvest Module', () => {
                 },
               ],
             },
-            value: 'InsurancePlan/45ae21d2-12a3-4727-b915-896f7dc57dbd',
+            value: '60054',
           },
         ],
         type: {
@@ -256,7 +254,7 @@ describe('Harvest Module', () => {
         identifier: [
           {
             ...COVERAGE_MEMBER_IDENTIFIER_BASE, // this holds the 'type'
-            value: 'fdfdfdfdfdfh7897',
+            value: 'FdfDfdFdfDfh7897',
             assigner: {
               reference: 'Organization/a9bada42-935a-45fa-ba8e-aa3b29478884',
               display: 'United Heartland',
@@ -267,7 +265,7 @@ describe('Harvest Module', () => {
         status: 'active',
         beneficiary: { reference: 'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61', type: 'Patient' },
         payor: [{ reference: 'Organization/a9bada42-935a-45fa-ba8e-aa3b29478884' }],
-        subscriberId: 'fdfdfdfdfdfh7897',
+        subscriberId: 'FdfDfdFdfDfh7897',
         subscriber: { reference: '#coverageSubscriber' },
         relationship: {
           coding: [
@@ -289,7 +287,7 @@ describe('Harvest Module', () => {
                 },
               ],
             },
-            value: 'InsurancePlan/217badd9-ded4-4efa-91b9-10ab7cdcb8b8',
+            value: 'J1859',
           },
         ],
         type: {
@@ -312,9 +310,9 @@ describe('Harvest Module', () => {
     const { orderedCoverages: coverageResources } = getCoverageResources({
       questionnaireResponse: questionnaireResponse1,
       patientId: newPatient1.id ?? '',
-      insurancePlanResources: insurancePlans1,
-      organizationResources: organisations1,
+      organizationResources: organizations1,
     });
+    expect(coverageResources).toBeDefined();
     const primary = coverageResources.primary;
     const secondary = coverageResources.secondary;
     expect(primary).toBeDefined();
@@ -330,8 +328,8 @@ describe('Harvest Module', () => {
     expect(primary.payor?.[0].reference).toBe(expectedCoverageResources.primary.payor?.[0].reference);
     expect(secondary.payor?.[0].reference).toBe(expectedCoverageResources.secondary.payor?.[0].reference);
 
-    expect(primary.subscriberId).toBe('FAfonejwgndkoetwwe6');
-    expect(secondary.subscriberId).toBe('fdfdfdfdfdfh7897');
+    expect(primary.subscriberId).toBe('FafOneJwgNdkOetWwe6');
+    expect(secondary.subscriberId).toBe('FdfDfdFdfDfh7897');
     expect(primary.subscriber?.reference).toBe(`#${primary.contained?.[0].id}`);
     expect(secondary.subscriber?.reference).toBe(`#${secondary.contained?.[0].id}`);
 
@@ -415,8 +413,7 @@ describe('Harvest Module', () => {
     const { orderedCoverages: coverages, accountCoverage } = getCoverageResources({
       questionnaireResponse: questionnaireResponse1,
       patientId: newPatient1.id ?? '',
-      insurancePlanResources: insurancePlans1,
-      organizationResources: organisations1,
+      organizationResources: organizations1,
     });
 
     const containedGuarantor = createContainedGuarantor(accountGuarantor, newPatient1.id ?? '');
@@ -438,17 +435,17 @@ describe('Harvest Module', () => {
 
     const primary: Coverage = {
       resourceType: 'Coverage',
-      id: uuidv4(),
+      id: uuidV4(),
       status: 'active',
       beneficiary: { reference: 'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61', type: 'Patient' },
       payor: [{ reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176' }],
-      subscriberId: 'FAfonejwgndkoetwwe6',
+      subscriberId: 'FafOneJwgNdkOetWwe6',
       subscriber: { reference: 'RelatedPerson/36ef99c3-43fb-50f4-bf9d-d9ea12c2bf62' },
       order: 1,
       identifier: [
         {
           ...COVERAGE_MEMBER_IDENTIFIER_BASE,
-          value: 'FAfonejwgndkoetwwe6',
+          value: 'FafOneJwgNdkOetWwe6',
           assigner: {
             reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176',
             display: 'Aetna',
@@ -475,7 +472,7 @@ describe('Harvest Module', () => {
               },
             ],
           },
-          value: 'InsurancePlan/45ae21d2-12a3-4727-b915-896f7dc57dbd',
+          value: '60054',
         },
       ],
       type: {
@@ -495,11 +492,11 @@ describe('Harvest Module', () => {
     };
     const primarySubscriber: RelatedPerson = {
       resourceType: 'RelatedPerson',
-      id: uuidv4(),
+      id: uuidV4(),
       name: [
         {
           given: ['Barnabas', 'Thaddeus'],
-          family: 'Picklesworth',
+          family: 'PicklesWorth',
         },
       ],
       birthDate: '1982-02-23',
@@ -519,7 +516,7 @@ describe('Harvest Module', () => {
       address: [
         {
           line: ['317 Mustard Street', 'Unit 2'],
-          city: 'Deliciousville',
+          city: 'DeliciousVilla',
           state: 'DE',
           postalCode: '20001',
         },
@@ -528,17 +525,17 @@ describe('Harvest Module', () => {
 
     const secondary: Coverage = {
       resourceType: 'Coverage',
-      id: uuidv4(),
+      id: uuidV4(),
       status: 'active',
       beneficiary: { reference: 'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61', type: 'Patient' },
       payor: [{ reference: 'Organization/a9bada42-935a-45fa-ba8e-aa3b29478884' }],
-      subscriberId: 'fdfdfdfdfdfh7897',
+      subscriberId: 'FdfDfdFdfDfh7897',
       subscriber: { reference: 'RelatedPerson/36ef99c3-43fa-40f4-bf9c-d9ea12c2bf63' },
       order: 1,
       identifier: [
         {
           ...COVERAGE_MEMBER_IDENTIFIER_BASE,
-          value: 'fdfdfdfdfdfh7897',
+          value: 'FdfDfdFdfDfh7897',
           assigner: {
             reference: 'Organization/a9bada42-935a-45fa-ba8e-aa3b29478884',
             display: 'United Heartland',
@@ -565,7 +562,7 @@ describe('Harvest Module', () => {
               },
             ],
           },
-          value: 'InsurancePlan/217badd9-ded4-4efa-91b9-10ab7cdcb8b8',
+          value: 'J1859',
         },
       ],
       type: {
@@ -585,11 +582,11 @@ describe('Harvest Module', () => {
     };
     const secondarySubscriber: RelatedPerson = {
       resourceType: 'RelatedPerson',
-      id: uuidv4(),
+      id: uuidV4(),
       name: [
         {
           given: ['Jennifer', 'Celeste'],
-          family: 'Picklesworth',
+          family: 'PicklesWorth',
         },
       ],
       birthDate: '1983-02-23',
@@ -761,7 +758,7 @@ describe('Harvest Module', () => {
         expect((update as any).value).toEqual([
           {
             line: ['317 Mustard Street', 'Unit 2'],
-            city: 'Deliciousville',
+            city: 'DeliciousVilla',
             state: 'DE',
             postalCode: '20001',
           },
@@ -1221,7 +1218,7 @@ describe('Harvest Module', () => {
         expect((update1 as any).value).toEqual([
           {
             line: ['317 Mustard Street', 'Unit 2'],
-            city: 'Deliciousville',
+            city: 'DeliciousVilla',
             state: 'DE',
             postalCode: '20001',
           },
@@ -1561,7 +1558,7 @@ describe('Harvest Module', () => {
         expect((update1 as any).value).toEqual([
           {
             line: ['317 Mustard Street', 'Unit 2'],
-            city: 'Deliciousville',
+            city: 'DeliciousVilla',
             state: 'DE',
             postalCode: '20001',
           },
@@ -1699,7 +1696,7 @@ describe('Harvest Module', () => {
         expect(guarantors).toEqual([existingGuarantor]);
       });
       it('should make no changes when existing account guarantor is a persisted RelatedPerson that matches the questionnaire responsible party', () => {
-        const existingGuarantorId = uuidv4();
+        const existingGuarantorId = uuidV4();
         const existingGuarantorReference = {
           party: {
             reference: `RelatedPerson/${existingGuarantorId}`,
@@ -1730,7 +1727,7 @@ describe('Harvest Module', () => {
         expect(guarantors).toEqual([existingGuarantorReference]);
       });
       it('should create a new contained RelatedPerson when existing account guarantor is a persisted RelatedPerson that does not match the questionnaire responsible party', () => {
-        const existingGuarantorId = uuidv4();
+        const existingGuarantorId = uuidV4();
         const existingGuarantorReference = {
           party: {
             reference: `RelatedPerson/${existingGuarantorId}`,
@@ -1862,9 +1859,9 @@ describe('Harvest Module', () => {
         expect(contained).toEqual([expectedAccountGuarantorFromQR1]);
       });
       it('it should leave period.end untouched when there is a long list of old guarantors', () => {
-        const existingGuarantorId = uuidv4();
-        const oldExistingGuarantorId1 = uuidv4();
-        const oldExistingGuarantorId2 = uuidv4();
+        const existingGuarantorId = uuidV4();
+        const oldExistingGuarantorId1 = uuidV4();
+        const oldExistingGuarantorId2 = uuidV4();
         const timestamp = DateTime.now().toISO();
         const timestamp2 = DateTime.now().minus({ years: 1 }).toISO();
         const timestamp3 = DateTime.now().minus({ years: 2, days: 21 }).toISO();
@@ -1947,7 +1944,7 @@ describe('Harvest Module', () => {
   describe('getAccountOperations', () => {
     const questionnaireResponseItem = questionnaireResponse1.item;
     /*
-    these optional params will be speficied in each test:
+    these optional params will be specified in each test:
 
     existingCoverages: { primary?: Coverage; secondary?: Coverage };
     existingGuarantorResource?: RelatedPerson | Patient;
@@ -1958,8 +1955,7 @@ describe('Harvest Module', () => {
       const result = getAccountOperations({
         patient,
         questionnaireResponseItem,
-        insurancePlanResources: insurancePlans1,
-        organizationResources: organisations1,
+        organizationResources: organizations1,
         existingCoverages: {
           primary: undefined,
           secondary: undefined,
@@ -1984,17 +1980,17 @@ describe('Harvest Module', () => {
     it('should return a well formulated post request for new Account and patch operations for Coverage updates', () => {
       const primary: Coverage = {
         resourceType: 'Coverage',
-        id: uuidv4(),
+        id: uuidV4(),
         status: 'active',
         beneficiary: { reference: 'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61', type: 'Patient' },
         payor: [{ reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176' }],
-        subscriberId: 'FAfonejwgndkoetwwe6',
+        subscriberId: 'FafOneJwgNdkOetWwe6',
         subscriber: { reference: 'RelatedPerson/36ef99c3-43fb-50f4-bf9d-d9ea12c2bf62' },
         order: 1,
         identifier: [
           {
             ...COVERAGE_MEMBER_IDENTIFIER_BASE,
-            value: 'FAfonejwgndkoetwwe6',
+            value: 'FafOneJwgNdkOetWwe6',
             assigner: {
               reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176',
               display: 'Aetna',
@@ -2021,7 +2017,7 @@ describe('Harvest Module', () => {
                 },
               ],
             },
-            value: 'InsurancePlan/45ae21d2-12a3-4727-b915-896f7dc57dbd',
+            value: '60054',
           },
         ],
         type: {
@@ -2035,11 +2031,11 @@ describe('Harvest Module', () => {
       };
       const primarySubscriber: RelatedPerson = {
         resourceType: 'RelatedPerson',
-        id: uuidv4(),
+        id: uuidV4(),
         name: [
           {
             given: ['Barnabas', 'Thaddeus'],
-            family: 'Picklesworth',
+            family: 'PicklesWorth',
           },
         ],
         birthDate: '1984-02-23',
@@ -2059,7 +2055,7 @@ describe('Harvest Module', () => {
         address: [
           {
             line: ['317 Mustard Street', 'Unit 2'],
-            city: 'Deliciousville',
+            city: 'DeliciousVilla',
             state: 'DE',
             postalCode: '20001',
           },
@@ -2079,8 +2075,7 @@ describe('Harvest Module', () => {
       const result = getAccountOperations({
         patient,
         questionnaireResponseItem,
-        insurancePlanResources: insurancePlans1,
-        organizationResources: organisations1,
+        organizationResources: organizations1,
         existingCoverages: {
           primary,
           primarySubscriber,
@@ -2112,17 +2107,17 @@ describe('Harvest Module', () => {
     it('should return a well formulated post request for new Account and patch operations to mark deactivated Coverages as inactive', () => {
       const primary: Coverage = {
         resourceType: 'Coverage',
-        id: uuidv4(),
+        id: uuidV4(),
         status: 'active',
         beneficiary: { reference: 'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61', type: 'Patient' },
         payor: [{ reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176' }],
-        subscriberId: 'FAfonejwgndkoet1234',
+        subscriberId: 'FafOneJwgDdkOet1234',
         subscriber: { reference: 'RelatedPerson/36ef99c3-43fb-50f4-bf9d-d9ea12c2bf62' },
         order: 1,
         identifier: [
           {
             ...COVERAGE_MEMBER_IDENTIFIER_BASE,
-            value: 'FAfonejwgndkoet1234',
+            value: 'FafOneJwgDdkOet1234',
             assigner: {
               reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176',
               display: 'Aetna',
@@ -2149,7 +2144,7 @@ describe('Harvest Module', () => {
                 },
               ],
             },
-            value: 'InsurancePlan/45ae21d2-12a3-4727-b915-896f7dc57dbd',
+            value: 'Organization/45ae21d2-12a3-4727-b915-896f7dc57dbd',
           },
         ],
         type: {
@@ -2163,11 +2158,11 @@ describe('Harvest Module', () => {
       };
       const primarySubscriber: RelatedPerson = {
         resourceType: 'RelatedPerson',
-        id: uuidv4(),
+        id: uuidV4(),
         name: [
           {
             given: ['Barnabas', 'Thaddeus'],
-            family: 'Picklesworth',
+            family: 'PicklesWorth',
           },
         ],
         birthDate: '1984-02-26',
@@ -2187,7 +2182,7 @@ describe('Harvest Module', () => {
         address: [
           {
             line: ['317 Mustard Street', 'Unit 2'],
-            city: 'Deliciousville',
+            city: 'DeliciousVilla',
             state: 'DE',
             postalCode: '20001',
           },
@@ -2196,8 +2191,7 @@ describe('Harvest Module', () => {
       const result = getAccountOperations({
         patient,
         questionnaireResponseItem,
-        insurancePlanResources: insurancePlans1,
-        organizationResources: organisations1,
+        organizationResources: organizations1,
         existingCoverages: {
           primary,
           primarySubscriber,
@@ -2225,17 +2219,17 @@ describe('Harvest Module', () => {
     it("should patch an existing Account when one exists and shouldn't post a new one", () => {
       const primary: Coverage = {
         resourceType: 'Coverage',
-        id: uuidv4(),
+        id: uuidV4(),
         status: 'active',
         beneficiary: { reference: 'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61', type: 'Patient' },
         payor: [{ reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176' }],
-        subscriberId: 'FAfonejwgndkoet1234',
+        subscriberId: 'FafOneJwgDdkOet1234',
         subscriber: { reference: 'RelatedPerson/36ef99c3-43fb-50f4-bf9d-d9ea12c2bf62' },
         order: 1,
         identifier: [
           {
             ...COVERAGE_MEMBER_IDENTIFIER_BASE,
-            value: 'FAfonejwgndkoet1234',
+            value: 'FafOneJwgDdkOet1234',
             assigner: {
               reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176',
               display: 'Aetna',
@@ -2262,7 +2256,7 @@ describe('Harvest Module', () => {
                 },
               ],
             },
-            value: 'InsurancePlan/45ae21d2-12a3-4727-b915-896f7dc57dbd',
+            value: '46320',
           },
         ],
         type: {
@@ -2276,11 +2270,11 @@ describe('Harvest Module', () => {
       };
       const primarySubscriber: RelatedPerson = {
         resourceType: 'RelatedPerson',
-        id: uuidv4(),
+        id: uuidV4(),
         name: [
           {
             given: ['Barnabas', 'Thaddeus'],
-            family: 'Picklesworth',
+            family: 'PicklesWorth',
           },
         ],
         birthDate: '1984-02-26',
@@ -2300,7 +2294,7 @@ describe('Harvest Module', () => {
         address: [
           {
             line: ['317 Mustard Street', 'Unit 2'],
-            city: 'Deliciousville',
+            city: 'DeliciousVilla',
             state: 'DE',
             postalCode: '20001',
           },
@@ -2309,15 +2303,14 @@ describe('Harvest Module', () => {
       const existingAccount: Account = {
         ...expectedAccount,
         status: 'active',
-        id: uuidv4(),
+        id: uuidV4(),
         guarantor: [{ party: { reference: `Patient/${newPatient1.id}`, type: 'Patient' } }],
       };
       existingAccount.contained = undefined;
       const result = getAccountOperations({
         patient,
         questionnaireResponseItem,
-        insurancePlanResources: insurancePlans1,
-        organizationResources: organisations1,
+        organizationResources: organizations1,
         existingCoverages: {
           primary,
           primarySubscriber,
@@ -2352,7 +2345,7 @@ describe('Harvest Module', () => {
       identifier: [
         {
           ...COVERAGE_MEMBER_IDENTIFIER_BASE, // this holds the 'type'
-          value: 'fdfdfdfdfdfh7897',
+          value: 'FdfDfdFdfDfh7897',
           assigner: {
             reference: 'Organization/a9bada42-935a-45fa-ba8e-aa3b29478884',
             display: 'United Heartland',
@@ -2363,7 +2356,7 @@ describe('Harvest Module', () => {
       status: 'active',
       beneficiary: { reference: `Patient/${bundle1Patient}`, type: 'Patient' },
       payor: [{ reference: 'Organization/a9bada42-935a-45fa-ba8e-aa3b29478884' }],
-      subscriberId: 'fdfdfdfdfdfh7897',
+      subscriberId: 'FdfDfdFdfDfh7897',
       subscriber: { reference: `RelatedPerson/${bundle1RP1.id}` },
       relationship: {
         coding: [
@@ -2385,7 +2378,7 @@ describe('Harvest Module', () => {
               },
             ],
           },
-          value: 'InsurancePlan/217badd9-ded4-4efa-91b9-10ab7cdcb8b8',
+          value: 'J1859',
         },
       ],
       type: {
@@ -2839,7 +2832,7 @@ const questionnaireResponse1: QuestionnaireResponse = {
           answer: [
             {
               valueReference: {
-                reference: 'InsurancePlan/45ae21d2-12a3-4727-b915-896f7dc57dbd',
+                reference: 'Organization/db875d9d-5726-4c45-a689-e11a7bbdf176',
                 display: 'Aetna',
               },
             },
@@ -2849,7 +2842,7 @@ const questionnaireResponse1: QuestionnaireResponse = {
           linkId: 'insurance-member-id',
           answer: [
             {
-              valueString: 'FAfonejwgndkoetwwe6',
+              valueString: 'FafOneJwgNdkOetWwe6',
             },
           ],
         },
@@ -2873,7 +2866,7 @@ const questionnaireResponse1: QuestionnaireResponse = {
           linkId: 'policy-holder-last-name',
           answer: [
             {
-              valueString: 'Picklesworth',
+              valueString: 'PicklesWorth',
             },
           ],
         },
@@ -2916,7 +2909,7 @@ const questionnaireResponse1: QuestionnaireResponse = {
           linkId: 'policy-holder-city',
           answer: [
             {
-              valueString: 'Deliciousville',
+              valueString: 'DeliciousVilla',
             },
           ],
         },
@@ -3004,7 +2997,7 @@ const questionnaireResponse1: QuestionnaireResponse = {
               answer: [
                 {
                   valueReference: {
-                    reference: 'InsurancePlan/217badd9-ded4-4efa-91b9-10ab7cdcb8b8',
+                    reference: 'Organization/a9bada42-935a-45fa-ba8e-aa3b29478884',
                     display: 'United Heartland',
                   },
                 },
@@ -3014,7 +3007,7 @@ const questionnaireResponse1: QuestionnaireResponse = {
               linkId: 'insurance-member-id-2',
               answer: [
                 {
-                  valueString: 'fdfdfdfdfdfh7897',
+                  valueString: 'FdfDfdFdfDfh7897',
                 },
               ],
             },
@@ -3038,7 +3031,7 @@ const questionnaireResponse1: QuestionnaireResponse = {
               linkId: 'policy-holder-last-name-2',
               answer: [
                 {
-                  valueString: 'Picklesworth',
+                  valueString: 'PicklesWorth',
                 },
               ],
             },
@@ -3191,7 +3184,7 @@ const questionnaireResponse1: QuestionnaireResponse = {
           linkId: 'responsible-party-city',
           answer: [
             {
-              valueString: 'fakeplace',
+              valueString: 'fakePlace',
             },
           ],
         },
@@ -3215,7 +3208,7 @@ const questionnaireResponse1: QuestionnaireResponse = {
           linkId: 'responsible-party-number',
           answer: [
             {
-              valueString: '(555) 987-6543',
+              valueString: '(989) 555-6543',
             },
           ],
         },
@@ -3229,7 +3222,7 @@ const questionnaireResponse1: QuestionnaireResponse = {
     },
   ],
 };
-
+/*
 const insurancePlans1: InsurancePlan[] = [
   {
     resourceType: 'InsurancePlan',
@@ -3249,7 +3242,7 @@ const insurancePlans1: InsurancePlan[] = [
     status: 'active',
     extension: [
       {
-        url: 'https://extensions.fhir.zapehr.com/insurance-requirements',
+        url: INSURANCE_REQ_EXTENSION_URL,
         extension: [
           {
             url: 'requiresSubscriberId',
@@ -3310,7 +3303,7 @@ const insurancePlans1: InsurancePlan[] = [
     status: 'active',
     extension: [
       {
-        url: 'https://extensions.fhir.zapehr.com/insurance-requirements',
+        url: INSURANCE_REQ_EXTENSION_URL,
         extension: [
           {
             url: 'requiresSubscriberId',
@@ -3354,8 +3347,9 @@ const insurancePlans1: InsurancePlan[] = [
     id: '45ae21d2-12a3-4727-b915-896f7dc57dbd',
   },
 ];
+*/
 
-const organisations1: Organization[] = [
+const organizations1: Organization[] = [
   {
     resourceType: 'Organization',
     active: true,
@@ -3364,23 +3358,13 @@ const organisations1: Organization[] = [
       {
         coding: [
           {
-            system: 'http://terminology.hl7.org/CodeSystem/organization-type',
-            code: 'pay',
+            system: `${ORG_TYPE_CODE_SYSTEM}`,
+            code: ORG_TYPE_PAYER_CODE,
           },
         ],
       },
     ],
     identifier: [
-      {
-        type: {
-          coding: [
-            {
-              system: 'payer-id',
-              code: 'J1859',
-            },
-          ],
-        },
-      },
       {
         type: {
           coding: [
@@ -3404,6 +3388,7 @@ const organisations1: Organization[] = [
       },
       {
         url: 'https://fhir.zapehr.com/r4/StructureDefinitions/payer-type',
+        // cSpell:disable-next workerscomp
         valueString: 'workerscomp',
       },
     ],
@@ -3421,23 +3406,13 @@ const organisations1: Organization[] = [
       {
         coding: [
           {
-            system: 'http://terminology.hl7.org/CodeSystem/organization-type',
-            code: 'pay',
+            system: `${ORG_TYPE_CODE_SYSTEM}`,
+            code: ORG_TYPE_PAYER_CODE,
           },
         ],
       },
     ],
     identifier: [
-      {
-        type: {
-          coding: [
-            {
-              system: 'payer-id',
-              code: '60054',
-            },
-          ],
-        },
-      },
       {
         type: {
           coding: [
@@ -3648,7 +3623,7 @@ const bundle1Coverage: Coverage = {
     type: 'RelatedPerson',
     reference: 'RelatedPerson/90ad77cd-ff76-426a-951a-b35f5ef8b302',
   },
-  subscriberId: 'FAfonejwgndkoetwwe6',
+  subscriberId: 'FafOneJwgNdkOetWwe6',
   beneficiary: {
     type: 'Patient',
     reference: 'Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61',

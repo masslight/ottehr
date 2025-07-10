@@ -59,7 +59,7 @@ const CancelVisitDialog = ({ onClose }: CancelVisitDialogProps): ReactElement =>
     }
 
     const typedReason = reason as CancellationReasonOptionsProviderSideTelemed;
-
+    let errorReceived = false;
     try {
       const response = await cancelTelemedAppointment(oystehrZambda, {
         appointmentID: appointmentID || '',
@@ -69,11 +69,14 @@ const CancelVisitDialog = ({ onClose }: CancelVisitDialogProps): ReactElement =>
       console.log('Appointment cancelled successfully', response);
     } catch (error) {
       setError(true);
+      errorReceived = true;
       console.error('Failed to cancel appointment', error);
     } finally {
       setIsCancelling(false);
-      navigate('/telemed/appointments');
-      onClose();
+      if (!errorReceived) {
+        onClose();
+        navigate('/telemed/appointments');
+      }
     }
   };
 

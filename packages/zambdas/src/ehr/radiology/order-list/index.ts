@@ -24,21 +24,21 @@ import { validateInput, validateSecrets } from './validation';
 
 // Types
 export interface ValidatedInput {
-  body: GetRadiologyOrderListZambdaInput;
+  body: Omit<GetRadiologyOrderListZambdaInput, 'encounterIds'> & { encounterIds?: string[] };
   callerAccessToken: string;
 }
 
 export const DEFAULT_RADIOLOGY_ITEMS_PER_PAGE = 10;
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mtoken: string;
+let m2mToken: string;
 
 export const index = async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const secrets = validateSecrets(unsafeInput.secrets);
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
     const validatedInput = await validateInput(unsafeInput);
 
@@ -80,7 +80,7 @@ const performEffect = async (
   oystehr: Oystehr
 ): Promise<GetRadiologyOrderListZambdaOutput> => {
   const {
-    encounterId,
+    encounterIds,
     patientId,
     serviceRequestId,
     itemsPerPage = DEFAULT_RADIOLOGY_ITEMS_PER_PAGE,
@@ -134,12 +134,7 @@ const performEffect = async (
     },
   ];
 
-  if (encounterId) {
-    searchParams.push({
-      name: 'encounter',
-      value: `Encounter/${encounterId}`,
-    });
-  } else if (patientId) {
+  if (patientId) {
     searchParams.push({
       name: 'subject',
       value: `Patient/${patientId}`,
@@ -148,6 +143,11 @@ const performEffect = async (
     searchParams.push({
       name: '_id',
       value: serviceRequestId,
+    });
+  } else if (encounterIds) {
+    searchParams.push({
+      name: 'encounter',
+      value: encounterIds.map((id) => `Encounter/${id}`).join(','),
     });
   } else {
     throw new Error('Either encounterId or patientId must be provided, should not happen if validation step worked');

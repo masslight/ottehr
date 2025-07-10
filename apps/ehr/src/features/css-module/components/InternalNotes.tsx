@@ -1,7 +1,7 @@
 import React from 'react';
 import { CSS_NOTE_ID, NOTE_TYPE, PRIVATE_EXTENSION_BASE_URL } from 'utils';
 import { useGetChartData } from '../../../telemed';
-import { useZapEHRAPIClient } from '../../../telemed/hooks/useOystehrAPIClient';
+import { useOystehrAPIClient } from '../../../telemed/hooks/useOystehrAPIClient';
 import { useInternalNotesModal } from '../hooks/useInternalNotes';
 import { ButtonRounded } from './RoundedButton';
 
@@ -19,7 +19,7 @@ const noop = (): void => {
 };
 
 export const InternalNotes = ({ encounterId }: { encounterId: string }): React.ReactElement => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const { isOpen, openModal, InternalNotesModal, closeModal } = useInternalNotesModal();
   const { data } = useGetChartData(
     {

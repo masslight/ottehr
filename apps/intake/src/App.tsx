@@ -3,9 +3,11 @@ import mixpanel from 'mixpanel-browser';
 import { useEffect } from 'react';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { QueryClient, QueryClientProvider } from 'react-query';
-import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom';
-import { MixpanelContextProps, ScrollToTop, setupMixpanel, setupSentry } from 'ui-components';
+import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
+import { setupSentry } from 'utils';
+import { ScrollToTop } from './components/ScrollToTop';
 import { TestErrorPage } from './components/TestErrorPage';
+import { MixpanelContextProps, setupMixpanel } from './configurations';
 import { IntakeThemeProvider } from './IntakeThemeProvider';
 import { BookingHome, GetReadyForVisit, NewUser, Reschedule, Version } from './pages';
 import AIInterview from './pages/AIInterview';
@@ -41,25 +43,12 @@ import { IOSVideoCallMenu } from './telemed/pages/IOS/IOSVideoCallMenu';
 import VideoChatPage from './telemed/pages/VideoChatPage';
 import WaitingRoom from './telemed/pages/WaitingRoom';
 import Welcome from './telemed/pages/Welcome';
-const {
-  MODE: environment,
-  VITE_APP_FHIR_API_URL,
-  VITE_APP_MIXPANEL_TOKEN,
-  VITE_APP_PROJECT_API_URL,
-  VITE_APP_SENTRY_DSN,
-} = import.meta.env;
+const { VITE_APP_MIXPANEL_TOKEN, VITE_APP_SENTRY_ENV, VITE_APP_SENTRY_DSN } = import.meta.env;
 
-const isLowerEnvs = ['dev', 'testing', 'staging', 'training'].includes(environment);
-
-const isLowerEnvsOrProd = isLowerEnvs || import.meta.env.MODE === 'production';
-
-if (isLowerEnvsOrProd) {
-  setupSentry({
-    dsn: VITE_APP_SENTRY_DSN,
-    environment,
-    networkDetailAllowUrls: isLowerEnvs ? [VITE_APP_FHIR_API_URL, VITE_APP_PROJECT_API_URL] : [],
-  });
-}
+setupSentry({
+  dsn: VITE_APP_SENTRY_DSN,
+  environment: VITE_APP_SENTRY_ENV,
+});
 
 const MIXPANEL_SETTINGS: MixpanelContextProps = {
   token: VITE_APP_MIXPANEL_TOKEN,

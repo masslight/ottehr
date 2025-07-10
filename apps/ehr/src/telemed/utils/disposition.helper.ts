@@ -1,11 +1,11 @@
 import {
+  dispositionCheckboxOptions,
   DispositionDTO,
   DispositionFollowUpType,
   DispositionType,
+  followUpInOptions,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   PROJECT_NAME,
-  dispositionCheckboxOptions,
-  followUpInOptions,
 } from 'utils';
 
 export const dispositionFieldsPerType: { [key in DispositionType]: string[] } = {

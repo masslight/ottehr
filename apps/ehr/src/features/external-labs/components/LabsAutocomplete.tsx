@@ -1,8 +1,8 @@
-import { FC, useState } from 'react';
-import { OrderableItemSearchResult, nameLabTest } from 'utils';
 import { Autocomplete, TextField } from '@mui/material';
+import { FC, useState } from 'react';
 import { useGetCreateExternalLabResources } from 'src/telemed';
 import { useDebounce } from 'src/telemed';
+import { nameLabTest, OrderableItemSearchResult } from 'utils';
 
 type LabsAutocompleteProps = {
   selectedLab: OrderableItemSearchResult | null;

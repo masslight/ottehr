@@ -9,4 +9,3 @@ export { default as CardWithDescription } from './CardWithDescription';
 export { default as CardWithDescriptionAndLink } from './CardWithDescriptionAndLink';
 export { default as Schedule } from './Schedule';
 export { default as LinkedButtonWithIcon } from './LinkedButtonWithIcon';
-export { LanguagePicker } from 'ui-components/lib/components/LanguagePicker';

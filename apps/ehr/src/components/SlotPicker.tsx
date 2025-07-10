@@ -1,9 +1,9 @@
 import { Box, Button, Tab, Tabs, Typography, useTheme } from '@mui/material';
+import { Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ReactNode, SyntheticEvent, useCallback, useEffect, useMemo, useState } from 'react';
-import { Slots } from './Slots';
-import { Slot } from 'fhir/r4b';
 import { nextAvailableFrom } from 'utils';
+import { Slots } from './Slots';
 
 interface TabPanelProps {
   children?: ReactNode;

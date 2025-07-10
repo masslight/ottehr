@@ -2,16 +2,16 @@ import Oystehr, { BatchInputRequest, User } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import { Communication, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { getPatchBinary, getPatchOperationForNewMetaTag, getSMSNumberForIndividual } from '.';
 import {
   ConversationMessage,
+  EvolvePatientMessageStatus,
   PATIENT_MESSAGE_CODE,
   PATIENT_MESSAGE_SYSTEM,
-  EvolvePatientMessageStatus,
   RelatedPersonMaps,
   SMSModel,
   SMSRecipient,
 } from '../types';
+import { getPatchBinary, getPatchOperationForNewMetaTag, getSMSNumberForIndividual } from '.';
 
 export const ZAP_SMS_MEDIUM_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v3-ParticipationMode';
 export const ZAP_SMS_MEDIUM_CODE = 'SMSWRIT';
@@ -80,7 +80,7 @@ export interface MarkChatReadInput {
 
 // todo?: this could be done with AuditEvents and then we wouldn't need to query up the existing state of the
 // Communication resource to make the batch requests to add the meta tags. the problem right now is this would
-// require additional work mapping between zap Users and the fhir Pracitioner resources associated with those users.
+// require additional work mapping between zap Users and the fhir Practitioner resources associated with those users.
 // if we eventually make changes to pull Practitioners (or at least references to those practitioners) on the front end
 // it might be a good time to consider changing to using audit events. migrating from tags to AuditEvents should be
 // fairly trivial
@@ -175,11 +175,11 @@ export const createSmsModel = (patientId: string, allRelatedPersonMaps: RelatedP
     rps = allRelatedPersonMaps.rpsToPatientIdMap[patientId];
     const recipients = filterValidRecipients(rps);
     if (recipients.length) {
-      const allComs = recipients.flatMap((recip) => {
-        return allRelatedPersonMaps.commsToRpRefMap[recip.recipientResourceUri] ?? [];
+      const allCommunications = recipients.flatMap((recipient) => {
+        return allRelatedPersonMaps.commsToRpRefMap[recipient.recipientResourceUri] ?? [];
       });
       return {
-        hasUnreadMessages: getChatContainsUnreadMessages(allComs),
+        hasUnreadMessages: getChatContainsUnreadMessages(allCommunications),
         recipients,
       };
     }

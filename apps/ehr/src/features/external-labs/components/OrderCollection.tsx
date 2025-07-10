@@ -1,15 +1,16 @@
-import React, { useState } from 'react';
 import { LoadingButton } from '@mui/lab';
-import { Box, Button, Stack, Typography, useTheme } from '@mui/material';
-import { AOECard } from './AOECard';
-import { useForm, SubmitHandler, FormProvider } from 'react-hook-form';
+import { Box, Button, Stack } from '@mui/material';
+import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import React, { useState } from 'react';
+import { FormProvider, SubmitHandler, useForm } from 'react-hook-form';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { CustomDialog } from 'src/components/dialogs';
 import { DynamicAOEInput, ExternalLabsStatus, LabOrderDetailedPageDTO, LabQuestionnaireResponse } from 'utils';
 import { submitLabOrder } from '../../../api/api';
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import { OrderInformationCard } from './OrderInformationCard';
-import { OrderHistoryCard } from './OrderHistoryCard';
 import { useApiClients } from '../../../hooks/useAppClients';
-import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import { AOECard } from './AOECard';
+import { OrderHistoryCard } from './OrderHistoryCard';
+import { OrderInformationCard } from './OrderInformationCard';
 import { SampleCollectionInstructionsCard } from './SampleCollectionInstructionsCard';
 
 interface SampleCollectionProps {
@@ -29,7 +30,6 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   showOrderInfo = true,
   isAOECollapsed = false,
 }) => {
-  const theme = useTheme();
   const { oystehrZambda: oystehr } = useApiClients();
   // can add a Yup resolver {resolver: yupResolver(definedSchema)} for validation, see PaperworkGroup for example
   const methods = useForm<DynamicAOEInput>();
@@ -42,77 +42,92 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   const labQuestionnaireResponses = questionnaireData?.questionnaireResponseItems;
   const [submitLoading, setSubmitLoading] = useState(false);
   const [error, setError] = useState<string[] | undefined>(undefined);
+  const [errorDialogOpen, setErrorDialogOpen] = useState<boolean>(false);
   const [specimensData, setSpecimensData] = useState<{ [specimenId: string]: { date: string } }>({});
   const shouldShowSampleCollectionInstructions =
     !labOrder.isPSC &&
     (labOrder.orderStatus === ExternalLabsStatus.pending || labOrder.orderStatus === ExternalLabsStatus.sent);
   const showAOECard = aoe.length > 0;
 
-  const sampleCollectionSubmit: SubmitHandler<DynamicAOEInput> = (data) => {
-    setSubmitLoading(true);
+  const sampleCollectionSubmit =
+    (manualOrder: boolean): SubmitHandler<DynamicAOEInput> =>
+    (data) => {
+      setSubmitLoading(true);
 
-    async function updateFhir(): Promise<void> {
-      if (!oystehr) {
-        setError(['Oystehr client is undefined']);
-        return;
-      }
-
-      Object.keys(data).forEach((item) => {
-        if (!data[item]) {
-          delete data[item];
+      async function updateFhir(): Promise<void> {
+        if (!oystehr) {
+          setError(['Oystehr client is undefined']);
+          setErrorDialogOpen(true);
           return;
         }
 
-        const question = aoe.find((question) => question.linkId === item);
-
-        if (question && question.type === 'boolean') {
-          if (data[item] === 'true') {
-            data[item] = true;
+        Object.keys(data).forEach((item) => {
+          if (!data[item]) {
+            delete data[item];
+            return;
           }
-          if (data[item] === 'false') {
-            data[item] = false;
-          }
-        }
-        console.log(data[item]);
-        if (question && (question.type === 'integer' || question.type === 'decimal')) {
-          data[item] = Number(data[item]);
-        }
-      });
 
-      try {
-        const { orderPdfUrl, labelPdfUrl } = await submitLabOrder(oystehr, {
-          serviceRequestID: labOrder.serviceRequestId,
-          accountNumber: labOrder.accountNumber,
-          data,
-          ...(!labOrder.isPSC && { specimens: specimensData }), // non PSC orders require specimens, validation is handled in the zambda
+          const question = aoe.find((question) => question.linkId === item);
+
+          if (question && question.type === 'boolean') {
+            if (data[item] === 'true') {
+              data[item] = true;
+            }
+            if (data[item] === 'false') {
+              data[item] = false;
+            }
+          }
+          console.log(data[item]);
+          if (question && (question.type === 'integer' || question.type === 'decimal')) {
+            data[item] = Number(data[item]);
+          }
         });
 
-        if (labelPdfUrl) await openPdf(labelPdfUrl);
+        try {
+          const { orderPdfUrl, labelPdfUrl } = await submitLabOrder(oystehr, {
+            serviceRequestID: labOrder.serviceRequestId,
+            accountNumber: labOrder.accountNumber,
+            manualOrder,
+            data,
+            ...(!labOrder.isPSC && { specimens: specimensData }), // non PSC orders require specimens, validation is handled in the zambda
+          });
 
-        await openPdf(orderPdfUrl);
-        setSubmitLoading(false);
-        setError(undefined);
-        navigate(`/in-person/${appointmentID}/external-lab-orders`);
-      } catch (e) {
+          if (labelPdfUrl) await openPdf(labelPdfUrl);
+
+          await openPdf(orderPdfUrl);
+          setSubmitLoading(false);
+          setError(undefined);
+          navigate(`/in-person/${appointmentID}/external-lab-orders`);
+        } catch (e) {
+          const oyError = e as OystehrSdkError;
+          console.log('error creating external lab order1', oyError.code, oyError.message);
+          const errorMessage = [oyError.message || 'There was an error submitting the lab order'];
+          setError(errorMessage);
+          setErrorDialogOpen(true);
+          setSubmitLoading(false);
+        }
+      }
+      updateFhir().catch((e) => {
         const oyError = e as OystehrSdkError;
-        console.log('error creating external lab order1', oyError.code, oyError.message);
+        console.log('error creating external lab order2', oyError.code, oyError.message);
         const errorMessage = [oyError.message || 'There was an error submitting the lab order'];
         setError(errorMessage);
-        setSubmitLoading(false);
-      }
+        setErrorDialogOpen(true);
+      });
+      console.log(`data at submit: ${JSON.stringify(data)}`);
+    };
+
+  const handleManualSubmit = async (): Promise<void> => {
+    try {
+      await methods.handleSubmit(sampleCollectionSubmit(true))();
+    } catch (e) {
+      console.log('error manually submitting', e);
     }
-    updateFhir().catch((e) => {
-      const oyError = e as OystehrSdkError;
-      console.log('error creating external lab order2', oyError.code, oyError.message);
-      const errorMessage = [oyError.message || 'There was an error submitting the lab order'];
-      setError(errorMessage);
-    });
-    console.log(`data at submit: ${JSON.stringify(data)}`);
   };
 
   return (
     <FormProvider {...methods}>
-      <form onSubmit={methods.handleSubmit(sampleCollectionSubmit)}>
+      <form onSubmit={methods.handleSubmit(sampleCollectionSubmit(false))}>
         {showAOECard && (
           <AOECard
             questions={aoe}
@@ -139,7 +154,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
             </Box>
           ))}
 
-        {showOrderInfo && <OrderInformationCard />}
+        {showOrderInfo && <OrderInformationCard orderPdfUrl={labOrder.orderPdfUrl} />}
 
         <Box sx={{ mt: 2 }}>
           <OrderHistoryCard
@@ -170,17 +185,16 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
             )}
           </Stack>
         )}
-        {error && error.length > 0 && (
-          <Box sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-            {error.map((msg, idx) => (
-              <Box sx={{ textAlign: 'right', paddingTop: 1 }} key={idx}>
-                <Typography sx={{ color: theme.palette.error.main }} key={`errorMsg-${idx}`}>
-                  {typeof msg === 'string' ? msg : JSON.stringify(msg, null, 2)}
-                </Typography>
-              </Box>
-            ))}
-          </Box>
-        )}
+        <CustomDialog
+          open={errorDialogOpen}
+          confirmLoading={submitLoading}
+          handleConfirm={handleManualSubmit}
+          confirmText="Manually submit lab order"
+          handleClose={() => setErrorDialogOpen(false)}
+          title="Error submitting lab order"
+          description={error?.join(',') || 'Error submitting lab order'}
+          closeButtonText="cancel"
+        />
       </form>
     </FormProvider>
   );

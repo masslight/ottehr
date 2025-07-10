@@ -1,42 +1,41 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import {
-  SignAppointmentInput,
-  SignAppointmentResponse,
-  getVisitStatus,
+  getCriticalUpdateTagOp,
   getEncounterStatusHistoryUpdateOp,
   getPatchBinary,
-  VisitStatusLabel,
+  getProgressNoteChartDataRequestedFields,
+  getVisitStatus,
+  OTTEHR_MODULE,
+  SignAppointmentInput,
+  SignAppointmentResponse,
+  telemedProgressNoteChartDataRequestedFields,
   visitStatusToFhirAppointmentStatusMap,
   visitStatusToFhirEncounterStatusMap,
-  getCriticalUpdateTagOp,
-  getProgressNoteChartDataRequestedFields,
-  OTTEHR_MODULE,
-  telemedProgressNoteChartDataRequestedFields,
 } from 'utils';
-
-import { validateRequestParameters } from './validateRequestParameters';
-import { getChartData } from '../get-chart-data';
 import { checkOrCreateM2MClientToken, ZambdaInput } from '../../shared';
-import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createCandidEncounter } from '../../shared/candid';
-import { createOystehrClient } from '../../shared/helpers';
-import { getVideoResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
-import { makeVisitNotePdfDocumentReference } from '../../shared/pdf/visit-details-pdf/make-visit-note-pdf-document-reference';
-import { VideoResourcesAppointmentPackage } from '../../shared/pdf/visit-details-pdf/types';
-import { composeAndCreateVisitNotePdf } from '../../shared/pdf/visit-details-pdf/visit-note-pdf-creation';
+import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createEncounterFromAppointment } from '../../shared/candid';
 import { createPublishExcuseNotesOps } from '../../shared/createPublishExcuseNotesOps';
+import { createOystehrClient } from '../../shared/helpers';
+import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
+import { makeVisitNotePdfDocumentReference } from '../../shared/pdf/visit-details-pdf/make-visit-note-pdf-document-reference';
+import { FullAppointmentResourcePackage } from '../../shared/pdf/visit-details-pdf/types';
+import { composeAndCreateVisitNotePdf } from '../../shared/pdf/visit-details-pdf/visit-note-pdf-creation';
+import { getChartData } from '../get-chart-data';
+import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mtoken: string;
+let m2mToken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, validatedParameters.secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
 
-    const oystehr = createOystehrClient(m2mtoken, validatedParameters.secrets);
+    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
     const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
     console.log('Created Oystehr client');
 
@@ -60,16 +59,18 @@ export const performEffect = async (
   oystehrCurrentUser: Oystehr,
   params: SignAppointmentInput
 ): Promise<SignAppointmentResponse> => {
-  const { appointmentId, secrets } = params;
+  const { appointmentId, timezone, secrets } = params;
 
-  const newStatus = 'completed';
-
-  const visitResources = await getVideoResources(oystehr, appointmentId, true);
-
+  const visitResources = await getAppointmentAndRelatedResources(oystehr, appointmentId, true);
   if (!visitResources) {
     {
       throw new Error(`Visit resources are not properly defined for appointment ${appointmentId}`);
     }
+  }
+  if (timezone) {
+    // if the timezone is provided, it will be taken as the tz to use here rather than the location's schedule
+    // this allows the provider to specify their working location in the case of virtual encounters
+    visitResources.timezone = timezone;
   }
   const { encounter, patient, appointment, listResources } = visitResources;
 
@@ -77,21 +78,27 @@ export const performEffect = async (
     throw new Error(`No subject reference defined for encounter ${encounter?.id}`);
   }
 
-  const candidEncounterId = await createCandidEncounter(visitResources, secrets, oystehr);
+  let candidEncounterId: string | undefined;
+  try {
+    candidEncounterId = await createEncounterFromAppointment(visitResources, secrets, oystehr);
+  } catch (error) {
+    console.error(`Error creating Candid encounter: ${error}, stringified error: ${JSON.stringify(error)}`);
+    captureException(error);
+  }
 
   console.log(`appointment and encounter statuses: ${appointment.status}, ${encounter.status}`);
   const currentStatus = getVisitStatus(appointment, encounter);
   if (currentStatus) {
-    await changeStatus(oystehr, oystehrCurrentUser, visitResources, newStatus, candidEncounterId);
+    await changeStatusToCompleted(oystehr, oystehrCurrentUser, visitResources, candidEncounterId);
   }
   console.debug(`Status has been changed.`);
 
   const isInPersonAppointment = !!visitResources.appointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.IP);
 
-  const chartDataPromise = getChartData(oystehr, m2mtoken, visitResources.encounter.id!);
+  const chartDataPromise = getChartData(oystehr, m2mToken, visitResources.encounter.id!);
   const additionalChartDataPromise = getChartData(
     oystehr,
-    m2mtoken,
+    m2mToken,
     visitResources.encounter.id!,
     isInPersonAppointment ? getProgressNoteChartDataRequestedFields() : telemedProgressNoteChartDataRequestedFields
   );
@@ -105,7 +112,7 @@ export const performEffect = async (
     { chartData, additionalChartData },
     visitResources,
     secrets,
-    m2mtoken
+    m2mToken
   );
   if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
   console.log(`Creating visit note pdf docRef`);
@@ -116,11 +123,10 @@ export const performEffect = async (
   };
 };
 
-const changeStatus = async (
+const changeStatusToCompleted = async (
   oystehr: Oystehr,
   oystehrCurrentUser: Oystehr,
-  resourcesToUpdate: VideoResourcesAppointmentPackage,
-  status: VisitStatusLabel,
+  resourcesToUpdate: FullAppointmentResourcePackage,
   candidEncounterId: string | undefined
 ): Promise<void> => {
   if (!resourcesToUpdate.appointment || !resourcesToUpdate.appointment.id) {
@@ -130,8 +136,8 @@ const changeStatus = async (
     throw new Error('Encounter is not defined');
   }
 
-  const appointmentStatus = visitStatusToFhirAppointmentStatusMap[status];
-  const encounterStatus = visitStatusToFhirEncounterStatusMap[status];
+  const appointmentStatus = visitStatusToFhirAppointmentStatusMap['completed'];
+  const encounterStatus = visitStatusToFhirEncounterStatusMap['completed'];
 
   const patchOps: Operation[] = [
     {

@@ -50,8 +50,8 @@ export const Visit_Status_Array = [
 ] as const;
 export type VISIT_STATUS_TYPE = typeof Visit_Status_Array;
 export type VisitStatusLabel = VISIT_STATUS_TYPE[number];
-export type VisitStatusWithoutUnknown = Exclude<VisitStatusLabel[number], 'unknown'>;
-export type VisitStatusHistoryLabel = Exclude<VisitStatusWithoutUnknown[number], 'ready'>;
+export type VisitStatusWithoutUnknown = Exclude<VisitStatusLabel, 'unknown'>;
+export type VisitStatusHistoryLabel = Exclude<VisitStatusWithoutUnknown, 'ready'>;
 
 export const visitStatusToFhirAppointmentStatusMap: Record<VisitStatusWithoutUnknown, FhirAppointmentStatus> = {
   pending: 'booked',
@@ -83,14 +83,17 @@ export interface VisitStatusHistoryEntry {
   status: VisitStatusHistoryLabel;
   period: Period;
 }
+
+export interface GetAppointmentResponseAppointmentDetails {
+  start: string;
+  slot: Slot;
+  location: AvailableLocationInformation;
+  visitType: string;
+  status?: string;
+}
+
 export interface GetAppointmentDetailsResponse {
-  appointment: {
-    start: string;
-    slot: Slot;
-    location: AvailableLocationInformation;
-    visitType: string;
-    status?: string;
-  };
+  appointment: GetAppointmentResponseAppointmentDetails;
   availableSlots: SlotListItem[];
   displayTomorrowSlotsAtHour: number;
 }
@@ -99,6 +102,12 @@ export interface UpdateAppointmentParameters {
   appointmentID: string;
   language: string;
   slot: Slot;
+}
+
+export interface UpdateAppointmentZambdaOutput {
+  message: string;
+  appointmentID?: string;
+  availableSlots?: SlotListItem[];
 }
 
 export interface WalkinAvailabilityCheckParams {

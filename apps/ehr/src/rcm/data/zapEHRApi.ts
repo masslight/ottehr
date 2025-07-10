@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
-import { ClaimsQueueGetRequest, ClaimsQueueGetResponse, getZapEHRApiHelpers } from 'utils';
-import { GetZapEHR_RCM_APIParams } from './types';
+import { ClaimsQueueGetRequest, ClaimsQueueGetResponse, getOystehrApiHelpers } from 'utils';
+import { Get_Oystehr_RCM_API_Params } from './types';
 
 enum ZambdaNames {
   'get claims' = 'get claims',
@@ -10,10 +10,10 @@ const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
   'get claims': false,
 };
 
-export type ZapEHR_RCM_APIClient = ReturnType<typeof getZapEHR_RCM_API>;
+export type Oystehr_RCM_APIClient = ReturnType<typeof getOystehr_RCM_API>;
 
-export const getZapEHR_RCM_API = (
-  params: GetZapEHR_RCM_APIParams,
+export const getOystehr_RCM_API = (
+  params: Get_Oystehr_RCM_API_Params,
   oystehr: Oystehr
 ): {
   getClaims: typeof getClaims;
@@ -25,7 +25,7 @@ export const getZapEHR_RCM_API = (
   };
   const isAppLocalProvided = params.isAppLocal != null;
 
-  const { makeZapRequest } = getZapEHRApiHelpers(
+  const { makeZapRequest } = getOystehrApiHelpers(
     oystehr,
     ZambdaNames,
     zambdasToIdsMap,

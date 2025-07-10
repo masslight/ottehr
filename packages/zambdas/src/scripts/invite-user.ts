@@ -1,21 +1,21 @@
+import Oystehr, { AccessPolicy, Role, RoleListItem } from '@oystehr/sdk';
 import { Practitioner } from 'fhir/r4b';
-import {
-  ADMINISTRATOR_RULES,
-  INACTIVE_RULES,
-  MANAGER_RULES,
-  STAFF_RULES,
-  PROVIDER_RULES,
-  PRESCRIBER_RULES,
-} from '../shared/';
 import {
   AllStatesValues,
   makeQualificationForPractitioner,
   PractitionerLicense,
-  SLUG_SYSTEM,
   SCHEDULE_EXTENSION_URL,
-  TIMEZONE_EXTENSION_URL
+  SLUG_SYSTEM,
+  TIMEZONE_EXTENSION_URL,
 } from 'utils';
-import Oystehr, { AccessPolicy, Role, RoleListItem } from '@oystehr/sdk';
+import {
+  ADMINISTRATOR_RULES,
+  INACTIVE_RULES,
+  MANAGER_RULES,
+  PRESCRIBER_RULES,
+  PROVIDER_RULES,
+  STAFF_RULES,
+} from '../shared/';
 
 const DEFAULTS = {
   firstName: 'Example',

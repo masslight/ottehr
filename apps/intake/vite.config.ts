@@ -1,7 +1,7 @@
 import { sentryVitePlugin } from '@sentry/vite-plugin';
 import { existsSync } from 'fs';
 import path from 'path';
-import { PluginOption, defineConfig, loadEnv, mergeConfig } from 'vite';
+import { defineConfig, loadEnv, mergeConfig, PluginOption } from 'vite';
 import IstanbulPlugin from 'vite-plugin-istanbul';
 import config from '../../vite.config';
 

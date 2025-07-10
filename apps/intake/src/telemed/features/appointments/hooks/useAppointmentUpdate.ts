@@ -1,6 +1,15 @@
 import { useCallback, useRef, useState } from 'react';
-import { getSelectors, isoStringFromMDYString, PatientInfo, UpdateAppointmentResponse, yupDateTransform } from 'utils';
-import { useZapEHRAPIClient } from '../../../utils';
+import { useQueryClient } from 'react-query';
+import {
+  CreateAppointmentUCTelemedResponse,
+  getSelectors,
+  isoStringFromMDYString,
+  PatientInfo,
+  UpdateAppointmentResponse,
+  yupDateTransform,
+} from 'utils';
+import { useOystehrAPIClient } from '../../../utils';
+import { useIntakeCommonStore } from '../../common';
 import { usePatientInfoStore } from '../../patient-info';
 import {
   createPatientInfoWithChangedFields,
@@ -10,9 +19,6 @@ import {
   useCreateAppointmentMutation,
   useUpdateAppointmentMutation,
 } from '..';
-import { useQueryClient } from 'react-query';
-import { useIntakeCommonStore } from '../../common';
-import { CreateAppointmentUCTelemedResponse } from 'utils';
 
 export type UpdateAppointmentFn = (data: {
   patientInfo: PatientInfo;
@@ -47,7 +53,7 @@ export const useAppointmentUpdate = (): {
   getAppointmentNextUpdateType: () => AppointmentUpdatingOperation;
   updateAppointment: UpdateAppointmentFn;
 } => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const queryClient = useQueryClient();
   const { appointmentID } = getSelectors(useAppointmentStore, ['appointmentID']);
   const intakeCommon = useIntakeCommonStore.getState();

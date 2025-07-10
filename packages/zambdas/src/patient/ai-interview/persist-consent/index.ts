@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Consent } from 'fhir/r4b';
 import {
@@ -5,11 +6,11 @@ import {
   FHIR_AI_CHAT_CONSENT_CATEGORY_CODE,
   getSecret,
   PersistConsentInput,
+  PROJECT_WEBSITE,
   Secrets,
   SecretsKeys,
 } from 'utils';
 import { getAuth0Token, validateJsonBody, validateString, ZambdaInput } from '../../../shared';
-import Oystehr from '@oystehr/sdk';
 
 let oystehrToken: string;
 
@@ -37,7 +38,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       ],
       policy: [
         {
-          uri: 'https://ottehr.com',
+          uri: PROJECT_WEBSITE,
         },
       ],
       scope: {

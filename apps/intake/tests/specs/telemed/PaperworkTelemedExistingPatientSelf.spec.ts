@@ -1,10 +1,8 @@
 // cSpell:ignore VVPPS
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { chooseJson, CreateAppointmentResponse } from 'utils';
-import { Locators } from '../../utils/locators';
-import { PrebookTelemedFlow } from '../../utils/telemed/PrebookTelemedFlow';
-import { FillingInfo } from '../../utils/telemed/FillingInfo';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
+import { Locators } from '../../utils/locators';
 import {
   CARD_NUMBER,
   Paperwork,
@@ -14,6 +12,8 @@ import {
   PATIENT_ZIP,
   RELATIONSHIP_RESPONSIBLE_PARTY_SELF,
 } from '../../utils/Paperwork';
+import { FillingInfo } from '../../utils/telemed/FillingInfo';
+import { PrebookTelemedFlow } from '../../utils/telemed/PrebookTelemedFlow';
 
 let page: Page;
 let context: BrowserContext;
@@ -31,9 +31,9 @@ test.beforeAll(async ({ browser }) => {
   page = await context.newPage();
   page.on('response', async (response) => {
     if (response.url().includes('/create-appointment/')) {
-      const { appointment } = chooseJson(await response.json()) as CreateAppointmentResponse;
-      if (appointment && !appointmentIds.includes(appointment)) {
-        appointmentIds.push(appointment);
+      const { appointmentId } = chooseJson(await response.json()) as CreateAppointmentResponse;
+      if (!appointmentIds.includes(appointmentId)) {
+        appointmentIds.push(appointmentId);
       }
     }
   });

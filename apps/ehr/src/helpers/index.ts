@@ -1,14 +1,20 @@
-import { Message } from '@twilio/conversations';
 import Oystehr from '@oystehr/sdk';
+import { Message } from '@twilio/conversations';
 import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter, Location, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { InPersonAppointmentInformation, getPatchBinary, getEncounterStatusHistoryUpdateOp, PROJECT_NAME } from 'utils';
-import { formatDateUsingSlashes, getTimezone } from './formatDateTime';
-import { CRITICAL_CHANGE_SYSTEM } from './activityLogsUtils';
-import { EvolveUser } from '../hooks/useEvolveUser';
-import { getCriticalUpdateTagOp } from './activityLogsUtils';
 import { ApptTab } from 'src/components/AppointmentTabs';
+import {
+  getEncounterStatusHistoryUpdateOp,
+  getPatchBinary,
+  InPersonAppointmentInformation,
+  OrdersForTrackingBoardRow,
+  PROJECT_NAME,
+} from 'utils';
+import { EvolveUser } from '../hooks/useEvolveUser';
+import { CRITICAL_CHANGE_SYSTEM } from './activityLogsUtils';
+import { getCriticalUpdateTagOp } from './activityLogsUtils';
+import { formatDateUsingSlashes, getTimezone } from './formatDateTime';
 
 export const classifyAppointments = (appointments: InPersonAppointmentInformation[]): Map<any, any> => {
   const statusCounts = new Map();
@@ -28,7 +34,7 @@ export const messageIsFromPatient = (message: Message): boolean => {
 const getCheckInNeededTagsPatchOperation = (appointment: Appointment, user: EvolveUser | undefined): Operation => {
   const criticalUpdateTagCoding = {
     system: CRITICAL_CHANGE_SYSTEM,
-    display: `Staff ${user?.email ? user.email : `(${user?.id})`} via QRS`,
+    display: `Staff ${user?.email ? user.email : `(${user?.id})`}`,
     version: DateTime.now().toISO() || '',
   };
 
@@ -173,8 +179,8 @@ export const patchAppointmentComment = async (
 };
 
 // there are two different tooltips that are show on the tracking board depending which tab/section you are on
-// 1. visit components on prebooked, inoffce/waiting and cancelled
-// 2. orders on inoffice/inexam and completed
+// 1. visit components on prebooked, in-office/waiting and cancelled
+// 2. orders on in-office/in-exam and completed
 export const displayOrdersToolTip = (appointment: InPersonAppointmentInformation, tab: ApptTab): boolean => {
   let display = false;
   if (tab === ApptTab.completed) {
@@ -184,4 +190,8 @@ export const displayOrdersToolTip = (appointment: InPersonAppointmentInformation
     display = true;
   }
   return display;
+};
+
+export const hasAtLeastOneOrder = (orders: OrdersForTrackingBoardRow): boolean => {
+  return Object.values(orders).some((orderList) => Array.isArray(orderList) && orderList.length > 0);
 };

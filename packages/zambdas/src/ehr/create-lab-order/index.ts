@@ -1,5 +1,4 @@
 import Oystehr, { BatchInputRequest, Bundle } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import {
@@ -22,28 +21,32 @@ import {
 import { DateTime } from 'luxon';
 import {
   APIError,
+  CreateLabOrderZambdaOutput,
   EXTERNAL_LAB_ERROR,
   FHIR_IDC10_VALUESET_SYSTEM,
   flattenBundleResources,
+  getSecret,
   isApiError,
   LAB_ORDER_TASK,
   OrderableItemSearchResult,
+  OrderableItemSpecimen,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   PRACTITIONER_CODINGS,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   PSC_HOLD_CONFIG,
   RELATED_SPECIMEN_DEFINITION_SYSTEM,
+  SecretsKeys,
   SPECIMEN_CODING_CONFIG,
 } from 'utils';
-import { checkOrCreateM2MClientToken, getMyPractitionerId, topLevelCatch } from '../../shared';
+import { checkOrCreateM2MClientToken, getMyPractitionerId, topLevelCatch, wrapHandler } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { ZambdaInput } from '../../shared/types';
 import { getPrimaryInsurance } from '../shared/labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
-let m2mtoken: string;
+let m2mToken: string;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler('create-lab-order', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
@@ -51,8 +54,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
     const userToken = input.headers.Authorization.replace('Bearer ', '');
     const oystehrCurrentUser = createOystehrClient(userToken, secrets);
@@ -92,7 +95,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const activityDefinitionToContain = formatActivityDefinitionToContain(orderableItem);
     const serviceRequestContained: FhirResource[] = [];
 
-    const createSpecimenResources = !psc && orderableItem.item.specimens.length > 0;
+    const createSpecimenResources = !psc;
     console.log('createSpecimenResources', createSpecimenResources, psc, orderableItem.item.specimens.length);
     const specimenFullUrlArr: string[] = [];
     if (createSpecimenResources) {
@@ -211,7 +214,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
         coding: [
           {
             system: LAB_ORDER_TASK.system,
-            code: LAB_ORDER_TASK.code.presubmission,
+            code: LAB_ORDER_TASK.code.preSubmission,
           },
         ],
       },
@@ -274,12 +277,15 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.log('making transaction request');
     await oystehr.fhir.transaction({ requests });
 
+    const response: CreateLabOrderZambdaOutput = {};
+
     return {
       statusCode: 200,
-      body: JSON.stringify('successfully created fhir resources for external lab order'),
+      body: JSON.stringify(response),
     };
   } catch (error: any) {
-    await topLevelCatch('admin-create-lab-order', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('admin-create-lab-order', error, ENVIRONMENT);
     let body = JSON.stringify({ message: `Error creating external lab order: ${error}` });
     if (isApiError(error)) {
       const { code, message } = error as APIError;
@@ -367,67 +373,29 @@ const formatSpecimenResources = (
   const specimenDefinitionConfigs: SpecimenDefinition[] = [];
   const specimenConfigs: Specimen[] = [];
 
-  orderableItem.item.specimens.forEach((specimen, idx) => {
-    const collectionInstructionsCoding = {
-      coding: [
-        {
-          system: SPECIMEN_CODING_CONFIG.collection.system,
-          code: SPECIMEN_CODING_CONFIG.collection.code.collectionInstructions,
-        },
-      ],
-      text: specimen.collectionInstructions,
-    };
-    const specimenDefinitionId = `specimenDefinitionId${idx}`;
-    const specimenDefitionConfig: SpecimenDefinition = {
-      resourceType: 'SpecimenDefinition',
-      id: specimenDefinitionId,
-      typeTested: [
-        {
-          preference: 'preferred',
-          container: {
-            description: specimen.container,
-            minimumVolumeString: specimen.minimumVolume,
-          },
-          handling: [
-            {
-              instruction: specimen.storageRequirements,
-            },
-          ],
-        },
-      ],
-      collection: [
-        collectionInstructionsCoding,
-        {
-          coding: [
-            {
-              system: SPECIMEN_CODING_CONFIG.collection.system,
-              code: SPECIMEN_CODING_CONFIG.collection.code.specimenVolume,
-            },
-          ],
-          text: specimen.volume,
-        },
-      ],
-    };
-    specimenDefinitionConfigs.push(specimenDefitionConfig);
-    const specimenConfig: Specimen = {
-      resourceType: 'Specimen',
-      request: [{ reference: serviceRequestFullUrl }],
-      collection: {
-        method: collectionInstructionsCoding,
-      },
-      extension: [
-        {
-          url: RELATED_SPECIMEN_DEFINITION_SYSTEM,
-          valueString: specimenDefinitionId,
-        },
-      ],
-      subject: {
-        type: 'Patient',
-        reference: `Patient/${patientID}`,
-      },
-    };
+  // facilitates always showing specimen entry on submit page
+  // https://github.com/masslight/ottehr/issues/2934
+  if (orderableItem.item.specimens.length === 0) {
+    const { specimenDefinitionConfig, specimenConfig } = getSpecimenAndSpecimenDefConfig(
+      serviceRequestFullUrl,
+      patientID,
+      0,
+      undefined
+    );
+    specimenDefinitionConfigs.push(specimenDefinitionConfig);
     specimenConfigs.push(specimenConfig);
-  });
+  } else {
+    orderableItem.item.specimens.forEach((specimen, idx) => {
+      const { specimenDefinitionConfig, specimenConfig } = getSpecimenAndSpecimenDefConfig(
+        serviceRequestFullUrl,
+        patientID,
+        idx,
+        specimen
+      );
+      specimenDefinitionConfigs.push(specimenDefinitionConfig);
+      specimenConfigs.push(specimenConfig);
+    });
+  }
 
   return { specimenDefinitionConfigs, specimenConfigs };
 };
@@ -512,11 +480,11 @@ const getAdditionalResources = async (
   const patientAccount = accountSearchResults[0];
   const patientPrimaryInsurance = getPrimaryInsurance(patientAccount, coverageSearchResults);
 
-  const missingRequiredResourcse: string[] = [];
-  if (!patientId) missingRequiredResourcse.push('patient');
+  const missingRequiredResources: string[] = [];
+  if (!patientId) missingRequiredResources.push('patient');
   if (!patientId) {
     throw EXTERNAL_LAB_ERROR(
-      `The following resources could not be found for this encounter: ${missingRequiredResourcse.join(', ')}`
+      `The following resources could not be found for this encounter: ${missingRequiredResources.join(', ')}`
     );
   }
 
@@ -533,4 +501,80 @@ const getAdditionalResources = async (
     coverage: patientPrimaryInsurance,
     location,
   };
+};
+
+const getSpecimenAndSpecimenDefConfig = (
+  serviceRequestFullUrl: string,
+  patientID: string,
+  idx: number,
+  specimen: OrderableItemSpecimen | undefined
+): {
+  specimenDefinitionConfig: SpecimenDefinition;
+  specimenConfig: Specimen;
+} => {
+  // labs sometimes set container, volume, minimumVolume, storageRequirements, or collectionInstructions to null, so need to coalesce to undefined
+  const collectionInstructionsCoding = {
+    coding: [
+      {
+        system: SPECIMEN_CODING_CONFIG.collection.system,
+        code: SPECIMEN_CODING_CONFIG.collection.code.collectionInstructions,
+      },
+    ],
+    text: specimen?.collectionInstructions ?? undefined,
+  };
+  const specimenDefinitionId = `specimenDefinitionId${idx}`;
+  const specimenDefinitionConfig: SpecimenDefinition = {
+    resourceType: 'SpecimenDefinition',
+    id: specimenDefinitionId,
+    collection: [
+      collectionInstructionsCoding,
+      {
+        coding: [
+          {
+            system: SPECIMEN_CODING_CONFIG.collection.system,
+            code: SPECIMEN_CODING_CONFIG.collection.code.specimenVolume,
+          },
+        ],
+        text: specimen?.volume ?? undefined,
+      },
+    ],
+    typeTested: [
+      {
+        preference: 'preferred',
+        container:
+          !!specimen?.container || !!specimen?.minimumVolume
+            ? {
+                description: specimen.container ?? undefined,
+                minimumVolumeString: specimen.minimumVolume ?? undefined,
+              }
+            : undefined,
+        handling: specimen?.storageRequirements
+          ? [
+              {
+                instruction: specimen.storageRequirements,
+              },
+            ]
+          : undefined,
+      },
+    ],
+  };
+
+  const specimenConfig: Specimen = {
+    resourceType: 'Specimen',
+    request: [{ reference: serviceRequestFullUrl }],
+    collection: {
+      method: collectionInstructionsCoding,
+    },
+    extension: [
+      {
+        url: RELATED_SPECIMEN_DEFINITION_SYSTEM,
+        valueString: specimenDefinitionId,
+      },
+    ],
+    subject: {
+      type: 'Patient',
+      reference: `Patient/${patientID}`,
+    },
+  };
+  return { specimenDefinitionConfig, specimenConfig };
 };

@@ -1,14 +1,14 @@
-import { useUCZambdaClient } from 'ui-components';
-import { PageContainer } from '../components';
+import { Send } from '@mui/icons-material';
+import ArrowBack from '@mui/icons-material/ArrowBack';
+import { Button, TextField, Typography } from '@mui/material';
+import { Box, Stack } from '@mui/system';
 import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import { useEffect, useState } from 'react';
-import api from '../api/ottehrApi';
-import { Box, Stack } from '@mui/system';
-import { Button, TextField, Typography } from '@mui/material';
-import { Send } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
+import api from '../api/ottehrApi';
+import { PageContainer } from '../components';
 import { AiChatHistory } from '../components/AiChatHistory';
-import ArrowBack from '@mui/icons-material/ArrowBack';
+import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import { useVisitContext } from './ThankYou';
 
 const AIInterview = (): JSX.Element => {

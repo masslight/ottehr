@@ -2,8 +2,8 @@ import Oystehr, { BatchInputPutRequest, User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, Patient, Practitioner, ServiceRequest } from 'fhir/r4b';
 import { ServiceRequest as ServiceRequestR5 } from 'fhir/r5';
-
 import { DateTime } from 'luxon';
+import randomstring from 'randomstring';
 import {
   CreateRadiologyZambdaOrderInput,
   CreateRadiologyZambdaOrderOutput,
@@ -18,7 +18,9 @@ import {
   ADVAPACS_FHIR_BASE_URL,
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM,
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM_ACCESSION_NUMBER,
+  HL7_IDENTIFIER_TYPE_CODE_SYSTEM_PLACER_ORDER_NUMBER,
   ORDER_TYPE_CODE_SYSTEM,
+  PLACER_ORDER_NUMBER_CODE_SYSTEM,
   SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
 } from '../shared';
 import { validateInput, validateSecrets } from './validation';
@@ -49,28 +51,29 @@ export interface EnhancedBody
 }
 
 // Constants
+// cSpell:disable-next date format
 const DATE_FORMAT = 'yyyyMMddhhmmssuu';
-const PERSON_IDENTIFIER_CODE_SYSTEM = 'https://terminology.fhir.ottehr.com/CodeSystem/person-uuid';
+const PERSON_IDENTIFIER_CODE_SYSTEM = 'https://fhir.ottehr.com/Identifier/person-uuid';
 const SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL =
-  'https://extensions.fhir.ottehr.com/service-request-order-detail-pre-release';
+  'https://fhir.ottehr.com/Extension/service-request-order-detail-pre-release';
 const SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL =
-  'https://extensions.fhir.ottehr.com/service-request-order-detail-parameter-pre-release';
+  'https://fhir.ottehr.com/Extension/service-request-order-detail-parameter-pre-release';
 const SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL =
-  'https://extensions.fhir.ottehr.com/service-request-order-detail-parameter-pre-release-code';
+  'https://fhir.ottehr.com/Extension/service-request-order-detail-parameter-pre-release-code';
 const SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL =
-  'https://extensions.fhir.ottehr.com/service-request-order-detail-parameter-pre-release-value-string';
+  'https://fhir.ottehr.com/Extension/service-request-order-detail-parameter-pre-release-value-string';
 const ADVAPACS_ORDER_DETAIL_MODALITY_CODE_SYSTEM_URL =
   'http://advapacs.com/fhir/servicerequest-orderdetail-parameter-code';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mtoken: string;
+let m2mToken: string;
 
 export const index = async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const secrets = validateSecrets(unsafeInput.secrets);
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
     const validatedInput = await validateInput(unsafeInput, secrets, oystehr);
 
@@ -164,6 +167,22 @@ const writeOurServiceRequest = (
         },
         system: ACCESSION_NUMBER_CODE_SYSTEM,
         value: now.toFormat(DATE_FORMAT),
+      },
+      {
+        type: {
+          coding: [
+            {
+              system: HL7_IDENTIFIER_TYPE_CODE_SYSTEM,
+              code: HL7_IDENTIFIER_TYPE_CODE_SYSTEM_PLACER_ORDER_NUMBER,
+            },
+          ],
+        },
+        system: PLACER_ORDER_NUMBER_CODE_SYSTEM,
+        value: randomstring.generate({
+          length: 22,
+          charset: 'alphanumeric',
+          capitalization: 'uppercase',
+        }),
       },
     ],
     category: [
@@ -289,7 +308,7 @@ const writeAdvaPacsTransaction = async (
       },
     };
 
-    const serviceReqeuestToCreate: BatchInputPutRequest<ServiceRequestR5> = {
+    const serviceRequestToCreate: BatchInputPutRequest<ServiceRequestR5> = {
       method: 'PUT',
       url: `ServiceRequest?identifier=${ACCESSION_NUMBER_CODE_SYSTEM}|${ourServiceRequest.identifier?.[0].value}`,
       resource: {
@@ -342,7 +361,7 @@ const writeAdvaPacsTransaction = async (
     const advaPacsTransactionRequest = {
       resourceType: 'Bundle',
       type: 'transaction',
-      entry: [patientToCreate, requestingPractitionerToCreate, serviceReqeuestToCreate].map((request) => {
+      entry: [patientToCreate, requestingPractitionerToCreate, serviceRequestToCreate].map((request) => {
         return {
           resource: {
             ...request.resource,

@@ -1,28 +1,28 @@
-import { useEffect, useState } from 'react';
-import {
-  Box,
-  Paper,
-  Typography,
-  Button,
-  Grid,
-  TextField,
-  MenuItem,
-  IconButton,
-  Collapse,
-  useTheme,
-  Stack,
-  FormControl,
-} from '@mui/material';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import {
+  Box,
+  Button,
+  Collapse,
+  FormControl,
+  Grid,
+  IconButton,
+  MenuItem,
+  Paper,
+  Stack,
+  TextField,
+  Typography,
+  useTheme,
+} from '@mui/material';
 import { DateTime } from 'luxon';
-import { useAppointmentStore } from '../../../../telemed/state/appointment/appointment.store';
-import { getSelectors } from '../../../../shared/store/getSelectors';
+import { useEffect, useState } from 'react';
 import { getOrCreateVisitLabel } from 'src/api/api';
-import { useApiClients } from '../../../../hooks/useAppClients';
-import { getFormattedDiagnoses, InHouseOrderDetailPageItemDTO, MarkAsCollectedData, PageName } from 'utils';
-import { InHouseLabsDetailsCard } from './InHouseLabsDetailsCard';
 import useEvolveUser from 'src/hooks/useEvolveUser';
+import { getFormattedDiagnoses, InHouseOrderDetailPageItemDTO, MarkAsCollectedData, PageName } from 'utils';
+import { useApiClients } from '../../../../hooks/useAppClients';
+import { getSelectors } from '../../../../shared/store/getSelectors';
+import { useAppointmentStore } from '../../../../telemed/state/appointment/appointment.store';
+import { InHouseLabsDetailsCard } from './InHouseLabsDetailsCard';
 
 interface CollectSampleViewProps {
   testDetails: InHouseOrderDetailPageItemDTO;
@@ -35,8 +35,8 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
   const [sourceType, setSourceType] = useState('');
   const [collectedById, setCollectedById] = useState('');
 
-  const initialDateTime = DateTime.now();
-  const [date, setDate] = useState(initialDateTime);
+  const initialDateTime = DateTime.now().setZone(testDetails.timezone);
+  const [date, setDate] = useState<DateTime>(initialDateTime);
   const timeValue = date.toFormat('HH:mm');
 
   const [showDetails, setShowDetails] = useState(false);
@@ -70,11 +70,16 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
   };
 
   const handleMarkAsCollected = (): void => {
+    const isoDate = date.toISO();
+    if (!isoDate) {
+      setError('Issue parsing date');
+      return;
+    }
     onSubmit({
       specimen: {
         source: sourceType,
         collectedBy: { id: collectedById, name: providers.find((p) => p.id === collectedById)?.name || '' },
-        collectionDate: date.toISO(),
+        collectionDate: isoDate,
       },
     });
   };

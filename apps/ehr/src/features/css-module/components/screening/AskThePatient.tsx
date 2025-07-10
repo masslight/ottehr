@@ -1,3 +1,4 @@
+import { otherColors } from '@ehrTheme/colors';
 import {
   FormControl,
   FormControlLabel,
@@ -11,10 +12,8 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { otherColors } from '@ehrTheme/colors';
-import React, { useEffect, useState } from 'react';
-
 import { enqueueSnackbar } from 'notistack';
+import React, { useEffect, useState } from 'react';
 import {
   ADDITIONAL_QUESTIONS_META_SYSTEM,
   HISTORY_OBTAINED_FROM_FIELD,
@@ -29,12 +28,12 @@ import {
 } from 'utils';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useAppointmentStore, useDebounce, useDeleteChartData } from '../../../../telemed';
-import { useZapEHRAPIClient } from '../../../../telemed/hooks/useOystehrAPIClient';
+import { useOystehrAPIClient } from '../../../../telemed/hooks/useOystehrAPIClient';
 import { useNavigationContext } from '../../context/NavigationContext';
 import { useChartData } from '../../hooks/useChartData';
 
 const AskThePatientComponent = (): React.ReactElement => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const theme = useTheme();
   const { chartData, updateObservation, encounter } = getSelectors(useAppointmentStore, [
     'chartData',

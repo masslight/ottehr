@@ -35,15 +35,15 @@ export interface CancelTelemedAppointmentInputValidated extends CancelTelemedApp
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let zapehrToken: string;
+let oystehrToken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`Cancelation Input: ${JSON.stringify(input)}`);
+  console.log(`Telemed Cancelation Input: ${JSON.stringify(input)}`);
 
   try {
     const validatedParameters = validateRequestParameters(input);
 
-    zapehrToken = await checkOrCreateM2MClientToken(zapehrToken, validatedParameters.secrets);
+    oystehrToken = await checkOrCreateM2MClientToken(oystehrToken, validatedParameters.secrets);
 
     const response = await performEffect({ input, params: validatedParameters });
 
@@ -68,7 +68,7 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
 
   const fhirAPI = getSecret(SecretsKeys.FHIR_API, secrets);
   const projectAPI = getSecret(SecretsKeys.PROJECT_API, secrets);
-  const oystehr = createOystehrClient(zapehrToken, fhirAPI, projectAPI);
+  const oystehr = createOystehrClient(oystehrToken, fhirAPI, projectAPI);
 
   console.group('gettingEmailProps');
 
@@ -193,7 +193,8 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
   if (relatedPerson) {
     const message = `Sorry to see you go. Questions? Call 202-555-1212 `;
 
-    await sendSms(message, `RelatedPerson/${relatedPerson.id}`, oystehr);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+    await sendSms(message, `RelatedPerson/${relatedPerson.id}`, oystehr, ENVIRONMENT);
   } else {
     console.log(`No RelatedPerson found for patient ${patient.id} not sending text message`);
   }

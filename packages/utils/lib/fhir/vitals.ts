@@ -19,11 +19,13 @@ import {
   VitalTemperatureObservationMethod,
 } from 'utils';
 
-export const VITAL_SNOMED_SYSTEM = 'http://snomed.info/sct';
-export const VITAL_LOINC_SYSTEM = 'http://loinc.org';
+export const SNOMED_SYSTEM = 'http://snomed.info/sct';
+export const LOINC_SYSTEM = 'http://loinc.org';
 
 export const VITAL_TEMPERATURE_OBS_METHOD_CODE_ORAL = '89003005';
 export const VITAL_TEMPERATURE_OBS_METHOD_CODE_RECTAL = '18649001';
+export const VITAL_TEMPERATURE_OBS_METHOD_LOINC_CODE_AXILLARY = '8328-7';
+export const VITAL_TEMPERATURE_OBS_METHOD_LOINC_CODE_TEMPORAL = '75539-7';
 
 export const VITAL_HEARTBEAT_OBS_METHOD_CODE_SITTING = '33586001';
 export const VITAL_HEARTBEAT_OBS_METHOD_CODE_STANDING = '10904000';
@@ -50,29 +52,57 @@ export const getTempObservationMethodCodable = (
   tempDTO: VitalsTemperatureObservationDTO
 ): CodeableConcept | undefined => {
   const obsMethod = tempDTO?.observationMethod;
+
   if (!obsMethod) return;
+
   if (obsMethod === VitalTemperatureObservationMethod.Oral) {
     return {
       coding: [
         {
-          system: VITAL_SNOMED_SYSTEM,
+          system: SNOMED_SYSTEM,
           code: VITAL_TEMPERATURE_OBS_METHOD_CODE_ORAL,
           display: 'Oral temperature taking',
         },
       ],
     };
   }
+
   if (obsMethod === VitalTemperatureObservationMethod.Rectal) {
     return {
       coding: [
         {
-          system: VITAL_SNOMED_SYSTEM,
+          system: SNOMED_SYSTEM,
           code: VITAL_TEMPERATURE_OBS_METHOD_CODE_RECTAL,
           display: 'Rectal temperature taking',
         },
       ],
     };
   }
+
+  if (obsMethod === VitalTemperatureObservationMethod.Axillary) {
+    return {
+      coding: [
+        {
+          system: LOINC_SYSTEM,
+          code: VITAL_TEMPERATURE_OBS_METHOD_LOINC_CODE_AXILLARY,
+          display: 'Axillary temperature',
+        },
+      ],
+    };
+  }
+
+  if (obsMethod === VitalTemperatureObservationMethod.Temporal) {
+    return {
+      coding: [
+        {
+          system: LOINC_SYSTEM,
+          code: VITAL_TEMPERATURE_OBS_METHOD_LOINC_CODE_TEMPORAL,
+          display: 'Body temperature - Temporal artery',
+        },
+      ],
+    };
+  }
+
   return undefined;
 };
 
@@ -90,6 +120,14 @@ export const extractTemperatureObservationMethod = (
     return VitalTemperatureObservationMethod.Rectal;
   }
 
+  if (obsMethodCode === VITAL_TEMPERATURE_OBS_METHOD_LOINC_CODE_AXILLARY) {
+    return VitalTemperatureObservationMethod.Axillary;
+  }
+
+  if (obsMethodCode === VITAL_TEMPERATURE_OBS_METHOD_LOINC_CODE_TEMPORAL) {
+    return VitalTemperatureObservationMethod.Temporal;
+  }
+
   return undefined;
 };
 
@@ -102,7 +140,7 @@ export const getHeartbeatObservationMethodCodable = (
     return {
       coding: [
         {
-          system: VITAL_SNOMED_SYSTEM,
+          system: SNOMED_SYSTEM,
           code: VITAL_HEARTBEAT_OBS_METHOD_CODE_SITTING,
           display: 'Sitting position',
         },
@@ -113,7 +151,7 @@ export const getHeartbeatObservationMethodCodable = (
     return {
       coding: [
         {
-          system: VITAL_SNOMED_SYSTEM,
+          system: SNOMED_SYSTEM,
           code: VITAL_HEARTBEAT_OBS_METHOD_CODE_STANDING,
           display: 'Orthostatic body position',
         },
@@ -124,7 +162,7 @@ export const getHeartbeatObservationMethodCodable = (
     return {
       coding: [
         {
-          system: VITAL_SNOMED_SYSTEM,
+          system: SNOMED_SYSTEM,
           code: VITAL_HEARTBEAT_OBS_METHOD_CODE_SUPINE,
           display: 'Supine body position',
         },
@@ -144,12 +182,12 @@ export const getBloodPressureObservationComponents = (
     const systolicCode: CodeableConcept = {
       coding: [
         {
-          system: VITAL_SNOMED_SYSTEM,
+          system: SNOMED_SYSTEM,
           code: '271649006',
           display: 'Systolic blood pressure',
         },
         {
-          system: VITAL_LOINC_SYSTEM,
+          system: LOINC_SYSTEM,
           code: VITAL_SYSTOLIC_BLOOD_PRESSURE_LOINC_CODE,
           display: 'Systolic blood pressure',
         },
@@ -168,7 +206,7 @@ export const getBloodPressureObservationComponents = (
     const diastolicCode: CodeableConcept = {
       coding: [
         {
-          system: VITAL_LOINC_SYSTEM,
+          system: LOINC_SYSTEM,
           code: VITAL_DIASTOLIC_BLOOD_PRESSURE_LOINC_CODE,
           display: 'Diastolic blood pressure',
         },
@@ -213,7 +251,7 @@ export const getBloodPressureObservationMethodCodable = (
     return {
       coding: [
         {
-          system: VITAL_SNOMED_SYSTEM,
+          system: SNOMED_SYSTEM,
           code: VITAL_BLOOD_PRESSURE_OBS_METHOD_CODE_SITTING,
           display: 'Sitting position',
         },
@@ -224,7 +262,7 @@ export const getBloodPressureObservationMethodCodable = (
     return {
       coding: [
         {
-          system: VITAL_SNOMED_SYSTEM,
+          system: SNOMED_SYSTEM,
           code: VITAL_BLOOD_PRESSURE_OBS_METHOD_CODE_STANDING,
           display: 'Orthostatic body position',
         },
@@ -235,7 +273,7 @@ export const getBloodPressureObservationMethodCodable = (
     return {
       coding: [
         {
-          system: VITAL_SNOMED_SYSTEM,
+          system: SNOMED_SYSTEM,
           code: VITAL_BLOOD_PRESSURE_OBS_METHOD_CODE_SUPINE,
           display: 'Supine body position',
         },
@@ -294,7 +332,7 @@ export const getOxygenSaturationObservationMethodCodable = (
     return {
       coding: [
         {
-          system: VITAL_SNOMED_SYSTEM,
+          system: SNOMED_SYSTEM,
           code: VITAL_OXY_SATURATION_OBS_METHOD_CODE_ROOM_AIR,
           display: 'Oxygen saturation in room air',
         },
@@ -305,7 +343,7 @@ export const getOxygenSaturationObservationMethodCodable = (
     return {
       coding: [
         {
-          system: VITAL_SNOMED_SYSTEM,
+          system: SNOMED_SYSTEM,
           code: VITAL_OXY_SATURATION_OBS_METHOD_CODE_SUPPLEMENTAL_O2,
           display: 'Oxygen saturation with supplemental oxygen',
         },
@@ -336,12 +374,11 @@ export const extractOxySaturationObservationMethod = (
 export const getVisionObservationComponents = (visionDTO: VitalsVisionObservationDTO): ObservationComponent[] => {
   let result: ObservationComponent[] = [];
 
-  const leftEyeVision = visionDTO.leftEyeVisionValue;
-  if (leftEyeVision) {
+  if (visionDTO.leftEyeVisionText) {
     const leftEye: CodeableConcept = {
       coding: [
         {
-          system: VITAL_SNOMED_SYSTEM,
+          system: SNOMED_SYSTEM,
           code: VITAL_LEFT_EYE_SNOMED_CODE,
           display: 'Left eye observation',
         },
@@ -349,18 +386,17 @@ export const getVisionObservationComponents = (visionDTO: VitalsVisionObservatio
     };
     const leftEyeVisionComponent: ObservationComponent = {
       code: leftEye,
-      valueQuantity: { value: leftEyeVision, system: 'http://unitsofmeasure.org' },
+      valueString: visionDTO.leftEyeVisionText,
     };
 
     result.push(leftEyeVisionComponent);
   }
 
-  const rightEyeVision = visionDTO.rightEyeVisionValue;
-  if (rightEyeVision) {
+  if (visionDTO.rightEyeVisionText) {
     const rightEyeCode: CodeableConcept = {
       coding: [
         {
-          system: VITAL_SNOMED_SYSTEM,
+          system: SNOMED_SYSTEM,
           code: VITAL_RIGHT_EYE_SNOMED_CODE,
           display: 'Right eye observation',
         },
@@ -368,7 +404,7 @@ export const getVisionObservationComponents = (visionDTO: VitalsVisionObservatio
     };
     const rightEyeVisionComponent: ObservationComponent = {
       code: rightEyeCode,
-      valueQuantity: { value: rightEyeVision, system: 'http://unitsofmeasure.org' },
+      valueString: visionDTO.rightEyeVisionText,
     };
 
     result.push(rightEyeVisionComponent);
@@ -396,7 +432,7 @@ export const getVisionObservationComponents = (visionDTO: VitalsVisionObservatio
     const optionCodeable: CodeableConcept = {
       coding: [
         {
-          system: VITAL_SNOMED_SYSTEM,
+          system: SNOMED_SYSTEM,
           code: optionCode,
           display: optionLabel,
         },
@@ -421,19 +457,21 @@ export const getVisionObservationComponents = (visionDTO: VitalsVisionObservatio
 export const extractVisionValues = (
   components: ObservationComponent[]
 ): {
-  leftEyeVisValue?: number;
-  rightEyeVisValue?: number;
+  leftEyeVisText?: string;
+  rightEyeVisText?: string;
   visionOptions?: VitalsVisionOption[];
 } => {
   const leftEyeComponent = components.find((cmp) => {
     return cmp.code?.coding?.find((coding) => coding?.code === VITAL_LEFT_EYE_SNOMED_CODE);
   });
-  const leftEyeVisionValue = leftEyeComponent?.valueQuantity?.value;
+
+  const leftEyeVisionText = leftEyeComponent?.valueString || leftEyeComponent?.valueQuantity?.value?.toString();
 
   const rightEyeComponent = components.find((cmp) => {
     return cmp.code?.coding?.find((coding) => coding?.code === VITAL_RIGHT_EYE_SNOMED_CODE);
   });
-  const rightEyeVisionValue = rightEyeComponent?.valueQuantity?.value;
+
+  const rightEyeVisionText = rightEyeComponent?.valueString || rightEyeComponent?.valueQuantity?.value?.toString();
 
   const getVisionExtraOptionValue = (option: VitalsVisionOption): boolean | undefined => {
     let optionCode = '';
@@ -455,8 +493,8 @@ export const extractVisionValues = (
   const storedExtraVisionOptions = allExtraVisionOptions.filter((option) => getVisionExtraOptionValue(option) === true);
 
   return {
-    leftEyeVisValue: leftEyeVisionValue,
-    rightEyeVisValue: rightEyeVisionValue,
+    leftEyeVisText: leftEyeVisionText,
+    rightEyeVisText: rightEyeVisionText,
     visionOptions: storedExtraVisionOptions,
   };
 };
@@ -599,7 +637,7 @@ export function fillVitalObservationAttributes(baseResource: Observation, vitalD
     const weightDTO = vitalDTO as VitalsWeightObservationDTO;
     return {
       ...baseResource,
-      code: { coding: [{ system: VITAL_LOINC_SYSTEM, code: '29463-7', display: 'Body weight' }] },
+      code: { coding: [{ system: LOINC_SYSTEM, code: '29463-7', display: 'Body weight' }] },
       valueQuantity: { value: weightDTO.value, system: 'http://unitsofmeasure.org', unit: 'kg' },
     };
   }
@@ -608,7 +646,7 @@ export function fillVitalObservationAttributes(baseResource: Observation, vitalD
     const heightDTO = vitalDTO as VitalsHeightObservationDTO;
     return {
       ...baseResource,
-      code: { coding: [{ system: VITAL_LOINC_SYSTEM, code: '8302-2', display: 'Body height' }] },
+      code: { coding: [{ system: LOINC_SYSTEM, code: '8302-2', display: 'Body height' }] },
       valueQuantity: { value: heightDTO.value, system: 'http://unitsofmeasure.org', unit: 'cm' },
     };
   }
@@ -724,8 +762,8 @@ export function makeVitalsObservationDTO(observation: Observation): VitalsObserv
     const result: VitalsVisionObservationDTO = {
       ...baseProps,
       field: VitalFieldNames.VitalVision,
-      leftEyeVisionValue: visionValues.leftEyeVisValue ?? 0,
-      rightEyeVisionValue: visionValues.rightEyeVisValue ?? 0,
+      leftEyeVisionText: visionValues.leftEyeVisText ?? '',
+      rightEyeVisionText: visionValues.rightEyeVisText ?? '',
       extraVisionOptions: visionValues.visionOptions,
     };
     return result;

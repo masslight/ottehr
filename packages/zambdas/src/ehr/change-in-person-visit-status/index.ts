@@ -1,5 +1,4 @@
 import Oystehr from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter } from 'fhir/r4b';
 import {
@@ -9,7 +8,7 @@ import {
   User,
   VisitStatusWithoutUnknown,
 } from 'utils';
-import { checkOrCreateM2MClientToken } from '../../shared';
+import { checkOrCreateM2MClientToken, wrapHandler } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { getVisitResources } from '../../shared/practitioner/helpers';
 import { ZambdaInput } from '../../shared/types';
@@ -21,15 +20,17 @@ export interface ChangeInPersonVisitStatusInputValidated extends ChangeInPersonV
   userToken: string;
 }
 
-let m2mtoken: string;
+let m2mToken: string;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+const ZAMBDA_NAME = 'change-in-person-visit-status';
+
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, validatedParameters.secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
 
-    const oystehr = createOystehrClient(m2mtoken, validatedParameters.secrets);
+    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
     console.log('Created Oystehr client');
 
     const validatedData = await complexValidation(oystehr, validatedParameters);

@@ -1,21 +1,21 @@
 import { Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { getVisitStatusHistory, VisitStatusHistoryEntry, VisitStatusHistoryLabel } from 'utils';
+import { getVisitStatusHistory, VisitStatusHistoryEntry, VisitStatusLabel } from 'utils';
 
 const startTimeOfMostRecentInstanceOfStatus = (
-  status: VisitStatusHistoryLabel,
+  status: VisitStatusLabel,
   statusHistory: VisitStatusHistoryEntry[]
 ): number | null => {
-  const matchedStati = statusHistory.filter((item) => {
+  const matchedStatuses = statusHistory.filter((item) => {
     if (item.status === status && item.period.start !== undefined) {
       return true;
     }
     return false;
   });
-  if (matchedStati.length === 1) {
-    return DateTime.fromISO(matchedStati[0].period.start!).toSeconds();
-  } else if (matchedStati.length > 1) {
-    const sorted = matchedStati.sort((a1, a2) => {
+  if (matchedStatuses.length === 1) {
+    return DateTime.fromISO(matchedStatuses[0].period.start!).toSeconds();
+  } else if (matchedStatuses.length > 1) {
+    const sorted = matchedStatuses.sort((a1, a2) => {
       return DateTime.fromISO(a1.period.start!).toSeconds() - DateTime.fromISO(a2.period.start!).toSeconds();
     });
     const mostRecent = sorted.pop();
@@ -26,17 +26,17 @@ const startTimeOfMostRecentInstanceOfStatus = (
 };
 
 const getLastUnterminatedStatusEntry = (statusHistory: VisitStatusHistoryEntry[]): VisitStatusHistoryEntry | null => {
-  const matchedStati = statusHistory.filter((item) => {
+  const matchedStatuses = statusHistory.filter((item) => {
     if (item.period.end === undefined) {
       return true;
     }
     return false;
   });
 
-  if (matchedStati.length === 1) {
-    return matchedStati[0];
-  } else if (matchedStati.length > 1) {
-    const sorted = matchedStati.sort((a1, a2) => {
+  if (matchedStatuses.length === 1) {
+    return matchedStatuses[0];
+  } else if (matchedStatuses.length > 1) {
+    const sorted = matchedStatuses.sort((a1, a2) => {
       return DateTime.fromISO(a1.period.start!).toSeconds() - DateTime.fromISO(a2.period.start!).toSeconds();
     });
     return sorted[sorted.length - 1];

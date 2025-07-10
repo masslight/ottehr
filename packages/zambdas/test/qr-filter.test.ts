@@ -1,7 +1,7 @@
-import { IntakeQuestionnaireItem, getQuestionnaireItemsAndProgress, recursiveGroupTransform } from 'utils';
+import { getQuestionnaireItemsAndProgress, IntakeQuestionnaireItem, recursiveGroupTransform } from 'utils';
 import { vi } from 'vitest';
 import { createOystehrClient, getAuth0Token } from '../src/shared';
-import QRData from './data/quetionnaire-responses.json';
+import QRData from './data/questionnaire-responses.json';
 import { SECRETS as S } from './data/secrets';
 
 // where does this come form, and how can we get the questionnaire id instead?
@@ -55,21 +55,21 @@ describe.skip('qr recursive filter validation tests', () => {
 
     console.log('filtered', JSON.stringify(filtered));
     expect(filtered).toBeDefined();
-    const paymenOptionPage = filtered.find((p: any) => p.linkId === 'payment-option-page');
-    expect(paymenOptionPage).toBeDefined();
-    expect(paymenOptionPage.item).toBeDefined();
+    const paymentOptionPage = filtered.find((p: any) => p.linkId === 'payment-option-page');
+    expect(paymentOptionPage).toBeDefined();
+    expect(paymentOptionPage.item).toBeDefined();
 
-    const secondaryInsurance = paymenOptionPage.item.find((p: any) => {
+    const secondaryInsurance = paymentOptionPage.item.find((p: any) => {
       return p?.linkId === 'secondary-insurance';
     });
     expect(secondaryInsurance?.item).toBeUndefined();
 
-    const nonPaymentOptionItems = paymenOptionPage.item.filter((i: any) => {
+    const nonPaymentOptionItems = paymentOptionPage.item.filter((i: any) => {
       return i !== undefined && i?.linkId !== 'payment-option' && (i?.item !== undefined || i?.answer !== undefined);
     });
     expect(nonPaymentOptionItems.length).toBe(0);
 
-    const paymentOptionItem = paymenOptionPage.item.find((i: any) => {
+    const paymentOptionItem = paymentOptionPage.item.find((i: any) => {
       return i?.linkId === 'payment-option';
     });
     expect(paymentOptionItem).toBeDefined();
@@ -94,23 +94,23 @@ describe.skip('qr recursive filter validation tests', () => {
 
     const pageQuestions = questions.find((q) => q.linkId === 'payment-option-page');
 
-    const paymenOptionPageItem = recursiveGroupTransform(pageQuestions?.item ?? [], stuffNeedingFilter.item);
+    const paymentOptionPageItem = recursiveGroupTransform(pageQuestions?.item ?? [], stuffNeedingFilter.item);
 
-    console.log('payment option page item', JSON.stringify(paymenOptionPageItem));
+    console.log('payment option page item', JSON.stringify(paymentOptionPageItem));
 
-    const secondaryInsurance = paymenOptionPageItem.find((p: any) => {
+    const secondaryInsurance = paymentOptionPageItem.find((p: any) => {
       return p?.linkId === 'secondary-insurance';
     });
     expect(secondaryInsurance?.item).toBeDefined();
     expect(secondaryInsurance?.answer).toBeUndefined();
 
-    const insuranceCardBack = paymenOptionPageItem.find((p: any) => {
+    const insuranceCardBack = paymentOptionPageItem.find((p: any) => {
       return p?.linkId === 'insurance-card-back';
     });
     expect(insuranceCardBack?.item).toBeUndefined();
     expect(insuranceCardBack?.answer).toBeUndefined();
 
-    const paymentOptionItem = paymenOptionPageItem.find((i: any) => {
+    const paymentOptionItem = paymentOptionPageItem.find((i: any) => {
       return i?.linkId === 'payment-option';
     });
     expect(paymentOptionItem).toBeDefined();

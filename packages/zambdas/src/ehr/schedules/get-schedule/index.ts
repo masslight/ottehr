@@ -1,8 +1,10 @@
-import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
 import {
   BLANK_SCHEDULE_JSON_TEMPLATE,
   getScheduleExtension,
+  getSecret,
   getSlugForBookableResource,
   getTimezone,
   INVALID_INPUT_ERROR,
@@ -19,13 +21,13 @@ import {
   ScheduleExtension,
   ScheduleOwnerFhirResource,
   Secrets,
+  SecretsKeys,
   TIMEZONES,
 } from 'utils';
-import Oystehr from '@oystehr/sdk';
-import { HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
+import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
 import { addressStringFromAddress, getNameForOwner } from '../shared';
 
-let m2mtoken: string;
+let m2mToken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -34,8 +36,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.groupEnd();
     console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
     const { secrets } = validatedParameters;
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
     const effectInput = await complexValidation(validatedParameters, oystehr);
 
     const scheduleDTO = performEffect(effectInput);
@@ -46,7 +48,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));
-    return topLevelCatch('ehr-get-schedule', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('ehr-get-schedule', error, ENVIRONMENT);
   }
 };
 
@@ -206,7 +209,7 @@ const getEffectInputFromSchedule = async (scheduleId: string, oystehr: Oystehr):
     })
   ).unbundle();
 
-  const schedule = scheduleAndOwner.find((sched) => sched.resourceType === 'Schedule') as Schedule;
+  const schedule = scheduleAndOwner.find((scheduleToFind) => scheduleToFind.resourceType === 'Schedule') as Schedule;
   if (!schedule || !schedule.id) {
     throw SCHEDULE_NOT_FOUND_ERROR;
   }
@@ -217,10 +220,10 @@ const getEffectInputFromSchedule = async (scheduleId: string, oystehr: Oystehr):
   }
 
   const scheduleOwnerRef = schedule.actor?.[0]?.reference ?? '';
-  const [schedulOwnerType, scheduleOwnerId] = scheduleOwnerRef.split('/');
+  const [scheduleOwnerType, scheduleOwnerId] = scheduleOwnerRef.split('/');
   let owner: Location | Practitioner | HealthcareService | PractitionerRole | undefined = undefined;
-  const permittedScheduleOwerTypes = ['Location', 'Practitioner', 'HealthcareService'];
-  if (scheduleOwnerId !== undefined && permittedScheduleOwerTypes.includes(schedulOwnerType)) {
+  const permittedScheduleOwnerTypes = ['Location', 'Practitioner', 'HealthcareService'];
+  if (scheduleOwnerId !== undefined && permittedScheduleOwnerTypes.includes(scheduleOwnerType)) {
     owner = scheduleAndOwner.find((res) => {
       return `${res.resourceType}/${res.id}` === scheduleOwnerRef;
     }) as ScheduleOwnerFhirResource;
@@ -262,7 +265,7 @@ const getEffectInputFromOwner = async (
 
   let scheduleId = 'new-schedule';
   let scheduleExtension: ScheduleExtension = BLANK_SCHEDULE_JSON_TEMPLATE;
-  const schedule = scheduleAndOwner.find((sched) => sched.resourceType === 'Schedule') as Schedule;
+  const schedule = scheduleAndOwner.find((scheduleToFind) => scheduleToFind.resourceType === 'Schedule') as Schedule;
   if (schedule && schedule.id) {
     scheduleId = schedule.id;
     scheduleExtension = getScheduleExtension(schedule) ?? BLANK_SCHEDULE_JSON_TEMPLATE;
@@ -271,10 +274,10 @@ const getEffectInputFromOwner = async (
   console.log('scheduleExtension', JSON.stringify(scheduleExtension, null, 2));
 
   const scheduleOwnerRef = schedule?.actor?.[0]?.reference ?? '';
-  const [schedulOwnerType, scheduleOwnerId] = scheduleOwnerRef.split('/');
+  const [scheduleOwnerType, scheduleOwnerId] = scheduleOwnerRef.split('/');
   let owner: ScheduleOwnerFhirResource | undefined = undefined;
-  const permttedScheduleOwerTypes = ['Location', 'Practitioner', 'HealthcareService'];
-  if (scheduleOwnerId !== undefined && permttedScheduleOwerTypes.includes(schedulOwnerType)) {
+  const permittedScheduleOwnerTypes = ['Location', 'Practitioner', 'HealthcareService'];
+  if (scheduleOwnerId !== undefined && permittedScheduleOwnerTypes.includes(scheduleOwnerType)) {
     owner = scheduleAndOwner.find((res) => {
       return `${res.resourceType}/${res.id}` === scheduleOwnerRef;
     }) as ScheduleOwnerFhirResource;

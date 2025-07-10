@@ -1,13 +1,13 @@
+import fs from 'fs';
 import fetch from 'node-fetch';
 import { AccessPolicy, RoleType } from 'utils';
-import fs from 'fs';
 import {
   ADMINISTRATOR_RULES,
+  getAuth0Token,
   INACTIVE_RULES,
   MANAGER_RULES,
   PROVIDER_RULES,
   STAFF_RULES,
-  getAuth0Token,
 } from '../shared/';
 import { FRONT_DESK_RULES } from '../shared/accessPolicies';
 
@@ -33,7 +33,7 @@ const updateUserRoles = async (config: any): Promise<void> => {
     { name: RoleType.Inactive, accessPolicy: INACTIVE_RULES },
   ];
 
-  console.log('searching for exisiting roles for the project');
+  console.log('searching for existing roles for the project');
   const existingRolesResponse = await fetch(`${config.PROJECT_API}/iam/role`, {
     method: 'GET',
     headers: {

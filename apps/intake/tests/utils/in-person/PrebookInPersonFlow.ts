@@ -1,5 +1,5 @@
-import { BaseInPersonFlow } from './BaseInPersonFlow';
 import { expect } from '@playwright/test';
+import { BaseInPersonFlow } from './BaseInPersonFlow';
 
 export class PrebookInPersonFlow extends BaseInPersonFlow {
   protected async clickVisitButton(): Promise<void> {

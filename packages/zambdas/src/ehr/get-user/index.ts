@@ -1,23 +1,22 @@
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Practitioner } from 'fhir/r4b';
 import { PractitionerLicense } from 'utils';
-import { checkOrCreateM2MClientToken, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mtoken: string;
+let m2mToken: string;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler('get-user', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
     const { secrets, userId } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
     let response = null;
     try {
       const getUserResponse = await oystehr.user.get({ id: userId });
@@ -32,7 +31,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
             resourceType: 'Practitioner',
             id: practitionerId,
           })) ?? null;
-        console.log('Existing pract: ' + JSON.stringify(existingPractitionerResource));
+        console.log('Existing practitioner: ' + JSON.stringify(existingPractitionerResource));
       } catch (error: any) {
         if (
           error.resourceType === 'OperationOutcome' &&

@@ -11,6 +11,7 @@ import {
 } from '../../../telemed/features/appointment';
 import { CSSLoader } from '../components/CSSLoader';
 import { InfoAlert } from '../components/InfoAlert';
+import { SurgicalHistoryNotes } from '../components/surgical-history/SurgicalHistoryNotes';
 import { useNavigationContext } from '../context/NavigationContext';
 import { useAppointment } from '../hooks/useAppointment';
 
@@ -43,8 +44,9 @@ export const SurgicalHistory: React.FC<SurgicalHistoryProps> = () => {
         patientSide={<SurgicalHistoryPatientColumn />}
         patientSideLabel="Patient provided"
         providerSide={<SurgicalHistoryProviderColumn />}
-        providerSideLabel="Clinical support input"
+        providerSideLabel="Healthcare staff input"
       />
+      <SurgicalHistoryNotes />
     </Stack>
   );
 };

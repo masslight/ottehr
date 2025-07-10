@@ -1,8 +1,8 @@
 import { Box, CircularProgress } from '@mui/material';
 import { FC } from 'react';
 import { useGetVideoChatInvites } from '../waiting-room';
-import { InviteParticipantForm } from './InviteParticipantForm';
 import { InvitedParticipantList } from './InvitedParticipantList';
+import { InviteParticipantForm } from './InviteParticipantForm';
 
 interface ManageParticipantsProps {
   onClose?: () => void;

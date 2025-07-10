@@ -1,9 +1,9 @@
-import React from 'react';
 import { styled, Typography, useTheme } from '@mui/material';
-import { BarIcon } from './BarIcon';
+import React from 'react';
 // import { ScanStatusChip } from '../statuses/ScanStatusChip';
 // import { MedicationField } from '../medicationTypes';
 import { ExtendedMedicationDataForResponse } from 'utils';
+import { BarIcon } from './BarIcon';
 
 interface MedicationNameProps {
   medication: ExtendedMedicationDataForResponse;
@@ -31,15 +31,13 @@ export const MedicationBarcodeScan: React.FC<MedicationNameProps> = ({ medicatio
 
   return (
     <>
-      <StyledTypography isScanned={isScanned}>
+      <StyledTypography isScanned={isScanned} sx={{ alignItems: 'center' }}>
         <BarIcon
           sx={{
-            width: '34px',
-            height: '34px',
-            display: 'block',
-            marginRight: theme.spacing(0.5),
-            marginLeft: theme.spacing(-2),
-            marginTop: theme.spacing(-1.4),
+            width: '24px',
+            height: '24px',
+            marginRight: theme.spacing(1.5),
+            flexShrink: 0,
           }}
         />
         {medication.medicationName}

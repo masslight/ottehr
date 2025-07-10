@@ -1,5 +1,5 @@
-import { FC } from 'react';
 import { Checkbox, FormControlLabel, Typography, useTheme } from '@mui/material';
+import { FC } from 'react';
 
 type StatelessExamCheckboxProps = {
   label?: string;

@@ -1,9 +1,9 @@
+import { Autocomplete, Chip, TextField } from '@mui/material';
 import { ReactElement } from 'react';
-import { useMemo, useCallback, useEffect } from 'react';
-import { Autocomplete, TextField, Chip } from '@mui/material';
-import { useTrackingBoardStore } from '../../state';
-import { getSelectors } from '../../../shared/store/getSelectors';
+import { useCallback, useEffect, useMemo } from 'react';
 import { AllStatesToVirtualLocationsData } from 'utils';
+import { getSelectors } from '../../../shared/store/getSelectors';
+import { useTrackingBoardStore } from '../../state';
 
 type UsStateDropdownOption = {
   label: string;

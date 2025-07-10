@@ -2,14 +2,13 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter } from 'fhir/r4b';
 import { getSecret, InitTelemedSessionResponse, MeetingData, Secrets, SecretsKeys } from 'utils';
+import { checkOrCreateM2MClientToken, ZambdaInput } from '../../shared';
 import { createOystehrClient, getVideoRoomResourceExtension } from '../../shared/helpers';
-import { ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 import { createVideoRoom } from './video-room-creation';
-import { checkOrCreateM2MClientToken } from '../../shared';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mtoken: string;
+let m2mToken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -18,10 +17,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const { appointmentId, secrets } = validateRequestParameters(input);
 
     console.log('Getting token');
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    console.log('token', m2mtoken);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    console.log('token', m2mToken);
 
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
     console.log(`Getting appointment ${appointmentId}`);
     const { appointment, encounters } = await getAppointmentWithEncounters({ appointmentId, oystehr });
@@ -95,7 +94,7 @@ const execJoinVideoRoomRequest = async (
   userToken: string
 ): Promise<MeetingData> => {
   /** HINT: for this request to work - user should have the role with access policy rules as described in
-   * https://docs.zapehr.com/reference/get_telemed-token
+   * https://docs.oystehr.com/reference/get_telemed-token
    * Also user should be listed in Encounter.participants prop or other-participants extension
    * */
   const response = await fetch(

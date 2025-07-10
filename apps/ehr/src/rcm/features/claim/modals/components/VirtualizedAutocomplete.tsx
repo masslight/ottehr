@@ -1,4 +1,15 @@
 import {
+  Autocomplete,
+  autocompleteClasses,
+  Popper,
+  styled,
+  TextField,
+  TextFieldProps,
+  Typography,
+  useMediaQuery,
+  useTheme,
+} from '@mui/material';
+import {
   createContext,
   FC,
   forwardRef,
@@ -11,18 +22,7 @@ import {
   useEffect,
   useRef,
 } from 'react';
-import {
-  TextField,
-  useMediaQuery,
-  Popper,
-  useTheme,
-  styled,
-  Autocomplete,
-  autocompleteClasses,
-  Typography,
-  TextFieldProps,
-} from '@mui/material';
-import { VariableSizeList, ListChildComponentProps } from 'react-window';
+import { ListChildComponentProps, VariableSizeList } from 'react-window';
 import { useWindowResize } from '../../../../hooks';
 
 const LISTBOX_PADDING = 8;

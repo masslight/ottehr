@@ -33,17 +33,17 @@ import {
   RelationshipOption,
   ServiceMode,
 } from 'utils';
+import inPersonIntakeQuestionnaire from '../../../../packages/utils/lib/deployed-resources/questionnaires/in-person-intake-questionnaire.json' assert { type: 'json' };
 import { getAuth0Token } from './auth/getAuth0Token';
 import { fetchWithOystehrAuth } from './helpers/tests-utils';
 import {
   inviteTestEmployeeUser,
   removeUser,
-  TestEmployee,
   TEST_EMPLOYEE_1,
   TEST_EMPLOYEE_2,
+  TestEmployee,
 } from './resource/employees';
 import fastSeedData from './seed-data/seed-ehr-appointment-data.json' assert { type: 'json' };
-import inPersonIntakeQuestionnaire from '../../../../packages/utils/lib/deployed-resources/questionnaires/in-person-intake-questionnaire.json' assert { type: 'json' };
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -370,7 +370,7 @@ export class ResourceHandler {
           })
         ).unbundle()[0] as Appointment;
 
-        const tags = appointment.meta?.tag || [];
+        const tags = appointment?.meta?.tag || [];
         const isProcessed = tags.some((tag) => tag?.code === FHIR_APPOINTMENT_PREPROCESSED_TAG.code);
         if (isProcessed) {
           return;
@@ -403,7 +403,7 @@ export class ResourceHandler {
           })
         ).unbundle()[0] as Appointment;
 
-        const tags = appointment.meta?.tag || [];
+        const tags = appointment?.meta?.tag || [];
         const isHarvestingDone = tags.some(
           (tag) => tag?.code === FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG.code
         );

@@ -1,5 +1,5 @@
-import React from 'react';
 import { Chip } from '@mui/material';
+import React from 'react';
 import styled from 'styled-components';
 
 interface ScanStatusChipProps {

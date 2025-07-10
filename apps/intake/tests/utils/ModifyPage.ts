@@ -1,4 +1,4 @@
-import { BrowserContext, Page, expect } from '@playwright/test';
+import { BrowserContext, expect, Page } from '@playwright/test';
 import { FillingInfo } from './in-person/FillingInfo';
 import { Locators } from './locators';
 
@@ -27,7 +27,7 @@ export class ModifyPage {
     console.log(this.locator.pageTitle);
   }
   async selectNewTimeSlot(): Promise<string | null> {
-    const buttons = this.page.locator('role=button[name=/\\d{1,2}:\\d{2} (AM|PM)/]');
+    const buttons = this.page.locator('role=button[name=/^\\d{1,2}:\\d{2} (AM|PM)$/]');
     const buttonCount = await buttons.count();
     const randomIndex = Math.min(Math.floor(Math.random() * (buttonCount - 1)) + 1, buttonCount - 1);
     const selectedButton = buttons.nth(randomIndex);

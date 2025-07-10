@@ -1,5 +1,4 @@
 import Oystehr, { RoleListItem, UserListItem } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { FhirResource, Practitioner, PractitionerQualification, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -8,14 +7,16 @@ import {
   GetEmployeesResponse,
   getProviderNotificationSettingsForPractitioner,
   getResourcesFromBatchInlineRequests,
+  getSecret,
   PractitionerLicense,
   PractitionerQualificationCode,
   PromiseInnerType,
   RoleType,
   Secrets,
+  SecretsKeys,
   standardizePhoneNumber,
 } from 'utils';
-import { getAuth0Token, getRoleMembers, lambdaResponse, topLevelCatch, ZambdaInput } from '../../shared';
+import { getAuth0Token, getRoleMembers, lambdaResponse, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -29,8 +30,8 @@ export interface GetEmployeesInput {
   secrets: Secrets | null;
 }
 
-let zapehrToken: string;
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+let oystehrToken: string;
+export const index = wrapHandler('get-employees', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
@@ -38,14 +39,14 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    if (!zapehrToken) {
+    if (!oystehrToken) {
       console.log('getting token');
-      zapehrToken = await getAuth0Token(secrets);
+      oystehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }
 
-    const oystehr = createOystehrClient(zapehrToken, secrets);
+    const oystehr = createOystehrClient(oystehrToken, secrets);
 
     const promises: [Promise<UserListItem[]>, Promise<RoleListItem[]>] = [getEmployees(oystehr), getRoles(oystehr)];
     const [allEmployees, existingRoles] = await Promise.all(promises);
@@ -144,7 +145,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     return lambdaResponse(200, response);
   } catch (error: any) {
-    await topLevelCatch('admin-get-employee-details', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('admin-get-employee-details', error, ENVIRONMENT);
     console.log('Error: ', JSON.stringify(error.message));
     return lambdaResponse(500, error.message);
   }

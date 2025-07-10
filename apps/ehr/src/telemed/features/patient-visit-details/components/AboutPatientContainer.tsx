@@ -1,13 +1,13 @@
 // cSpell:ignore Gmailerrorred
-import { capitalize, useTheme } from '@mui/material';
 import ReportGmailerrorredIcon from '@mui/icons-material/ReportGmailerrorred';
+import { capitalize, useTheme } from '@mui/material';
 import { FC, useMemo, useState } from 'react';
 import { getUnconfirmedDOBForAppointment, getWeightForPatient, mdyStringFromISOString } from 'utils';
+import { getSelectors } from '../../../../shared/store/getSelectors';
 import { PencilIconButton } from '../../../components';
+import { useAppointmentStore } from '../../../state';
 import { EditPatientBirthDateDialog } from './EditPatientBirthDateDialog';
 import { InformationCard } from './InformationCard';
-import { getSelectors } from '../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../state';
 
 export const AboutPatientContainer: FC = () => {
   const theme = useTheme();

@@ -1,28 +1,28 @@
+import AddIcon from '@mui/icons-material/Add';
+import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
 import { Box, debounce, Grid, IconButton, Paper, Stack, TextField, Typography, useTheme } from '@mui/material';
+import { styled } from '@mui/material';
+import { DateTime } from 'luxon';
+import { enqueueSnackbar } from 'notistack';
 import { ChangeEvent, FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getFullName } from 'utils';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
+import DateSearch, { CustomFormEventHandler } from '../components/DateSearch';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { Header } from '../components/patient';
-import { useGetPatient } from '../hooks/useGetPatient';
-import {
-  DocumentTableActions,
-  PatientDocumentsExplorerTable,
-} from '../components/patient/docs/PatientDocumentsExplorerTable';
-import { PatientDocumentsFilters, PatientDocumentsFolder, useGetPatientDocs } from '../hooks/useGetPatientDocs';
-import { RoundedButton } from '../components/RoundedButton';
-import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
-import DateSearch, { CustomFormEventHandler } from '../components/DateSearch';
 import {
   PatientDocumentFoldersColumn,
   PatientDocumentFoldersColumnSkeleton,
 } from '../components/patient/docs/PatientDocumentFoldersColumn';
-import AddIcon from '@mui/icons-material/Add';
-import { DateTime } from 'luxon';
+import {
+  DocumentTableActions,
+  PatientDocumentsExplorerTable,
+} from '../components/patient/docs/PatientDocumentsExplorerTable';
+import { RoundedButton } from '../components/RoundedButton';
+import { useGetPatient } from '../hooks/useGetPatient';
+import { PatientDocumentsFilters, PatientDocumentsFolder, useGetPatientDocs } from '../hooks/useGetPatientDocs';
 import { usePatientStore } from '../state/patient.store';
-import { styled } from '@mui/material';
-import { enqueueSnackbar } from 'notistack';
 
 const FileAttachmentHiddenInput = styled('input')({
   clip: 'rect(0 0 0 0)',

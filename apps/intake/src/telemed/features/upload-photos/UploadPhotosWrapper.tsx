@@ -2,21 +2,21 @@ import { CircularProgress, Typography } from '@mui/material';
 import { Box } from '@mui/system';
 import { useCallback, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { safelyCaptureException } from 'ui-components';
-import { useZapEHRAPIClient } from '../../utils';
-import { useUpdatePaperworkMutation } from '../paperwork';
-import FileInput from '../../../features/paperwork/components/FileInput';
-import ControlButtons from 'ui-components/lib/components/form/ControlButtons';
-import { useUploadPhotosStore } from './UploadPhotosListItemButton';
 import { useQueryClient } from 'react-query';
-import { PaperworkContext } from 'src/features/paperwork';
+import { ControlButtons } from '../../../components/form';
+import { PaperworkContext } from '../../../features/paperwork';
+import FileInput from '../../../features/paperwork/components/FileInput';
+import { safelyCaptureException } from '../../../helpers/sentry';
+import { useOystehrAPIClient } from '../../utils';
+import { useUpdatePaperworkMutation } from '../paperwork';
+import { useUploadPhotosStore } from './UploadPhotosListItemButton';
 
 export const UploadPhotosWrapper = ({ onClose }: { onClose: () => void }): JSX.Element => {
   const { paperworkData, isFetching, attachment, isLoading } = useUploadPhotosStore();
 
   const queryClient = useQueryClient();
   const updatePaperwork = useUpdatePaperworkMutation();
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const methods = useForm();
   const [uploadedAttachment, setUploadedAttachment] = useState(attachment);
 
