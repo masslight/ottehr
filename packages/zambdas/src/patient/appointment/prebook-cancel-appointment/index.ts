@@ -287,7 +287,7 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('cancel-appointment', error, ENVIRONMENT, true);
+    return topLevelCatch('cancel-appointment', error, ENVIRONMENT);
   }
 });
 
