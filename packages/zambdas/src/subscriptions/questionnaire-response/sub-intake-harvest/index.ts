@@ -186,6 +186,12 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
         } else {
           console.log('found no guarantor reference in account bundle, skipping stripe customer update');
         }
+      } else {
+        console.log(
+          'found no account resource in account bundle, skipping stripe customer update',
+          JSON.stringify(accountBundle),
+          JSON.stringify(bundleResources)
+        );
       }
     } catch (error: unknown) {
       tasksFailed.push('update stripe customer');
