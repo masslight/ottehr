@@ -1,7 +1,7 @@
 import { LoadingButton } from '@mui/lab';
 import { Box, Button, Stack } from '@mui/material';
 import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
-import React, { useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { FormProvider, SubmitHandler, useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { CustomDialog } from 'src/components/dialogs';
@@ -38,7 +38,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   // const currentUser = useEvolveUser();
   const questionnaireData = labOrder?.questionnaire[0];
   const orderStatus = labOrder.orderStatus;
-  const aoe = questionnaireData?.questionnaire.item || [];
+  const aoe = useMemo(() => questionnaireData?.questionnaire.item || [], [questionnaireData]);
   const labQuestionnaireResponses = questionnaireData?.questionnaireResponseItems;
   const [submitLoading, setSubmitLoading] = useState(false);
   const [error, setError] = useState<string[] | undefined>(undefined);
@@ -49,73 +49,84 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
     (labOrder.orderStatus === ExternalLabsStatus.pending || labOrder.orderStatus === ExternalLabsStatus.sent);
   const showAOECard = aoe.length > 0;
 
-  const sampleCollectionSubmit =
+  const sampleCollectionSubmit = useCallback(
     (manualOrder: boolean): SubmitHandler<DynamicAOEInput> =>
-    (data) => {
-      setSubmitLoading(true);
+      (data) => {
+        setSubmitLoading(true);
 
-      async function updateFhir(): Promise<void> {
-        if (!oystehr) {
-          setError(['Oystehr client is undefined']);
-          setErrorDialogOpen(true);
-          return;
-        }
-
-        Object.keys(data).forEach((item) => {
-          if (!data[item]) {
-            delete data[item];
+        async function updateFhir(): Promise<void> {
+          if (!oystehr) {
+            setError(['Oystehr client is undefined']);
+            setErrorDialogOpen(true);
             return;
           }
 
-          const question = aoe.find((question) => question.linkId === item);
-
-          if (question && question.type === 'boolean') {
-            if (data[item] === 'true') {
-              data[item] = true;
+          Object.keys(data).forEach((item) => {
+            if (!data[item]) {
+              delete data[item];
+              return;
             }
-            if (data[item] === 'false') {
-              data[item] = false;
-            }
-          }
-          console.log(data[item]);
-          if (question && (question.type === 'integer' || question.type === 'decimal')) {
-            data[item] = Number(data[item]);
-          }
-        });
 
-        try {
-          const { orderPdfUrl, labelPdfUrl } = await submitLabOrder(oystehr, {
-            serviceRequestID: labOrder.serviceRequestId,
-            accountNumber: labOrder.accountNumber,
-            manualOrder,
-            data,
-            ...(!labOrder.isPSC && { specimens: specimensData }), // non PSC orders require specimens, validation is handled in the zambda
+            const question = aoe.find((question) => question.linkId === item);
+
+            if (question && question.type === 'boolean') {
+              if (data[item] === 'true') {
+                data[item] = true;
+              }
+              if (data[item] === 'false') {
+                data[item] = false;
+              }
+            }
+            console.log(data[item]);
+            if (question && (question.type === 'integer' || question.type === 'decimal')) {
+              data[item] = Number(data[item]);
+            }
           });
 
-          if (labelPdfUrl) await openPdf(labelPdfUrl);
+          try {
+            const { orderPdfUrl, labelPdfUrl } = await submitLabOrder(oystehr, {
+              serviceRequestID: labOrder.serviceRequestId,
+              accountNumber: labOrder.accountNumber,
+              manualOrder,
+              data,
+              ...(!labOrder.isPSC && { specimens: specimensData }), // non PSC orders require specimens, validation is handled in the zambda
+            });
 
-          await openPdf(orderPdfUrl);
-          setSubmitLoading(false);
-          setError(undefined);
-          navigate(`/in-person/${appointmentID}/external-lab-orders`);
-        } catch (e) {
+            if (labelPdfUrl) await openPdf(labelPdfUrl);
+
+            await openPdf(orderPdfUrl);
+            setSubmitLoading(false);
+            setError(undefined);
+            navigate(`/in-person/${appointmentID}/external-lab-orders`);
+          } catch (e) {
+            const oyError = e as OystehrSdkError;
+            console.log('error creating external lab order1', oyError.code, oyError.message);
+            const errorMessage = [oyError.message || 'There was an error submitting the lab order'];
+            setError(errorMessage);
+            setErrorDialogOpen(true);
+            setSubmitLoading(false);
+          }
+        }
+        updateFhir().catch((e) => {
           const oyError = e as OystehrSdkError;
-          console.log('error creating external lab order1', oyError.code, oyError.message);
+          console.log('error creating external lab order2', oyError.code, oyError.message);
           const errorMessage = [oyError.message || 'There was an error submitting the lab order'];
           setError(errorMessage);
           setErrorDialogOpen(true);
-          setSubmitLoading(false);
-        }
-      }
-      updateFhir().catch((e) => {
-        const oyError = e as OystehrSdkError;
-        console.log('error creating external lab order2', oyError.code, oyError.message);
-        const errorMessage = [oyError.message || 'There was an error submitting the lab order'];
-        setError(errorMessage);
-        setErrorDialogOpen(true);
-      });
-      console.log(`data at submit: ${JSON.stringify(data)}`);
-    };
+        });
+        console.log(`data at submit: ${JSON.stringify(data)}`);
+      },
+    [
+      aoe,
+      appointmentID,
+      labOrder.accountNumber,
+      labOrder.isPSC,
+      labOrder.serviceRequestId,
+      navigate,
+      oystehr,
+      specimensData,
+    ]
+  );
 
   const handleManualSubmit = async (): Promise<void> => {
     try {
