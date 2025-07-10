@@ -37,7 +37,7 @@ import {
 } from './utils';
 
 interface InteractionsCheckState {
-  status: 'todo' | 'in-progress' | 'done' | 'error';
+  status: 'in-progress' | 'done' | 'error';
   medicationName?: string;
   interactions?: MedicationInteractions;
 }
@@ -67,7 +67,7 @@ export const EditableMedicationCard: React.FC<{
   const [isReasonSelected, setIsReasonSelected] = useState(true);
   const selectsOptions = useFieldsSelectsOptions();
   const [erxStatus, setERXStatus] = useState(ERXStatus.LOADING);
-  const [interactionsCheckState, setInteractionsCheckState] = useState<InteractionsCheckState>({ status: 'todo' });
+  const [interactionsCheckState, setInteractionsCheckState] = useState<InteractionsCheckState>({ status: 'done' });
   const { oystehr } = useApiClients();
   const [showInteractionAlerts, setShowInteractionAlerts] = useState(false);
   const [erxEnabled, setErxEnabled] = useState(false);
@@ -112,7 +112,7 @@ export const EditableMedicationCard: React.FC<{
     } else {
       setLocalValues((prev) => ({ ...prev, [field]: value }));
     }
-    if (field === 'medicationId') {
+    if (field === 'medicationId' && value !== '') {
       setErxEnabled(true);
     }
   };
@@ -264,7 +264,6 @@ export const EditableMedicationCard: React.FC<{
   const isCardSaveButtonDisabled =
     (typeRef.current !== 'dispense' && (isUpdating || !isUnsavedData)) ||
     (erxEnabled && erxStatus === ERXStatus.LOADING) ||
-    interactionsCheckState.status === 'todo' ||
     interactionsCheckState.status === 'in-progress' ||
     interactionsUnresolved(interactionsCheckState.interactions);
 
@@ -369,7 +368,7 @@ export const EditableMedicationCard: React.FC<{
       interactionsCheckState.interactions?.drugInteractions?.flatMap((drugInteraction) => {
         return drugInteraction.drugs.map((drug) => drug.name);
       });
-      if (interactionsCheckState.interactions?.allergyInteractions) {
+      if ((interactionsCheckState.interactions?.allergyInteractions?.length ?? 0) > 0) {
         names.push('Allergy');
       }
       if (names.length > 0) {
