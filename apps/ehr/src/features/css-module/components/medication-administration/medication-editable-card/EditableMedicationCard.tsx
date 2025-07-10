@@ -42,6 +42,16 @@ interface InteractionsCheckState {
   interactions?: MedicationInteractions;
 }
 
+const INTERACTIONS_CHECK_STATE_ERROR: InteractionsCheckState = {
+  status: 'error',
+  interactions: undefined,
+};
+
+const INTERACTIONS_CHECK_STATE_IN_PROGRESS: InteractionsCheckState = {
+  status: 'in-progress',
+  interactions: undefined,
+};
+
 export const EditableMedicationCard: React.FC<{
   medication?: ExtendedMedicationDataForResponse;
   type: MedicationOrderType;
@@ -277,17 +287,20 @@ export const EditableMedicationCard: React.FC<{
   const runInteractionsCheck = useCallback(
     async (medicationId: string) => {
       if (oystehr == null) {
-        setInteractionsCheckState({ status: 'error' });
+        setInteractionsCheckState(INTERACTIONS_CHECK_STATE_ERROR);
         console.error('oystehr is missing');
         return;
       }
       const patientId = resources.patient?.id;
       if (patientId == null) {
-        setInteractionsCheckState({ status: 'error' });
+        setInteractionsCheckState(INTERACTIONS_CHECK_STATE_ERROR);
         console.error('patientId is missing');
         return;
       }
-      setInteractionsCheckState({ status: 'in-progress' });
+      setInteractionsCheckState(INTERACTIONS_CHECK_STATE_IN_PROGRESS);
+      if (erxStatus === ERXStatus.LOADING) {
+        return;
+      }
       try {
         const medication = await oystehr.fhir.get<Medication>({
           resourceType: 'Medication',
@@ -306,16 +319,16 @@ export const EditableMedicationCard: React.FC<{
           medicationName: getMedicationName(medication),
         });
       } catch (e) {
-        setInteractionsCheckState({ status: 'error' });
+        setInteractionsCheckState(INTERACTIONS_CHECK_STATE_ERROR);
         console.error(e);
       }
     },
-    [oystehr, resources.patient?.id]
+    [oystehr, resources.patient?.id, erxStatus]
   );
 
   useEffect(() => {
     const medicationId = localValues.medicationId;
-    if (medicationId && erxStatus === ERXStatus.READY) {
+    if (medicationId) {
       void runInteractionsCheck(medicationId);
     }
   }, [localValues.medicationId, runInteractionsCheck, erxStatus]);
