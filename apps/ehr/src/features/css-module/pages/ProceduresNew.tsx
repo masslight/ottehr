@@ -27,6 +27,7 @@ import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { useQuery, UseQueryResult } from 'react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { CPT_TOOLTIP_PROPS, TooltipWrapper } from 'src/components/WithTooltip';
 import { QUERY_STALE_TIME } from 'src/constants';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
@@ -499,7 +500,7 @@ export default function ProceduresNew(): ReactElement {
               </Typography>
             </Box>
             <Typography style={{ marginTop: '16px', color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
-              Procedure Type & CPT Code
+              <TooltipWrapper tooltipProps={CPT_TOOLTIP_PROPS}>Procedure Type & CPT Code</TooltipWrapper>
             </Typography>
             {dropdown(
               'Procedure type',
