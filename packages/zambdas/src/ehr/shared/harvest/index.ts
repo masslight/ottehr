@@ -121,7 +121,7 @@ interface ResponsiblePartyContact {
   lastName: string;
   relationship: 'Self' | 'Spouse' | 'Parent' | 'Legal Guardian' | 'Other';
   address: Address;
-
+  email: string;
   number?: string;
 }
 
@@ -806,6 +806,7 @@ export function createMasterRecordPatchOperations(
     'guardian-number': { system: 'phone' },
     'guardian-email': { system: 'email' },
     'responsible-party-number': { system: 'phone', use: 'mobile' },
+    'responsible-party-email': { system: 'email' },
     'pcp-number': { system: 'phone' },
   };
 
@@ -1729,10 +1730,18 @@ export function extractAccountGuarantor(items: QuestionnaireResponseItem[]): Res
       | 'Legal Guardian'
       | 'Other',
     address: guarantorAddress,
+    email: findAnswer('responsible-party-email') ?? '',
     number: findAnswer('responsible-party-number'),
   };
 
-  if (contact.firstName && contact.lastName && contact.dob && contact.birthSex && contact.relationship) {
+  if (
+    contact.firstName &&
+    contact.lastName &&
+    contact.dob &&
+    contact.birthSex &&
+    contact.relationship &&
+    contact.email
+  ) {
     return contact;
   }
   return undefined;
@@ -2706,12 +2715,17 @@ export const createContainedGuarantor = (guarantor: ResponsiblePartyContact, pat
   const policyHolderName = createFhirHumanName(guarantor.firstName, undefined, guarantor.lastName);
   const relationshipCode = SUBSCRIBER_RELATIONSHIP_CODE_MAP[guarantor.relationship] || 'other';
   const number = guarantor.number;
+  const email = guarantor.email;
   let telecom: RelatedPerson['telecom'];
   if (number) {
     telecom = [
       {
         value: formatPhoneNumber(number),
         system: 'phone',
+      },
+      {
+        value: email,
+        system: 'email',
       },
     ];
   }
