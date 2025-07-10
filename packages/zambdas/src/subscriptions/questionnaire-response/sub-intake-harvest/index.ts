@@ -180,13 +180,19 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
             const stripeClient = getStripeClient(secrets);
             await updateStripeCustomer({ account: accountResource, guarantorResource, stripeClient });
             console.timeEnd('updating stripe customer');
+          } else {
+            console.log('found no guarantor resource in account bundle, skipping stripe customer update');
           }
+        } else {
+          console.log('found no guarantor reference in account bundle, skipping stripe customer update');
         }
       }
     } catch (error: unknown) {
       tasksFailed.push('update stripe customer');
       console.log(`Failed to update stripe customer: ${JSON.stringify(error)}`);
     }
+  } else {
+    console.log('Account bundle is not ok, skipping update stripe customer');
   }
 
   const hipaa = flattenedPaperwork.find((data) => data.linkId === 'hipaa-acknowledgement')?.answer?.[0]?.valueBoolean;
