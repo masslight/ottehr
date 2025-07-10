@@ -15,7 +15,7 @@ import { Stack } from '@mui/system';
 import { Practitioner } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
-import { ERX_MEDICATION_TAG, formatDateToMDYWithTime, RoleType } from 'utils';
+import { ERX_MEDICATION_META_TAG_CODE, formatDateToMDYWithTime, RoleType } from 'utils';
 import { RoundedButton } from '../../../../components/RoundedButton';
 import { useChartData } from '../../../../features/css-module/hooks/useChartData';
 import { useApiClients } from '../../../../hooks/useAppClients';
@@ -129,7 +129,7 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
     requestedFields: {
       prescribedMedications: {
         _include: 'MedicationRequest:requester',
-        _tag: ERX_MEDICATION_TAG.code,
+        _tag: ERX_MEDICATION_META_TAG_CODE,
       },
     },
     refetchInterval: 10000,

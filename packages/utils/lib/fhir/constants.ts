@@ -242,10 +242,7 @@ export const FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG = {
   code: 'SUB_INTAKE_HARVEST_TASK_COMPLETE',
 };
 
-export const ERX_MEDICATION_TAG = {
-  code: 'erx-medication',
-  system: `${PRIVATE_EXTENSION_BASE_URL}/erx-medication`,
-};
+export const ERX_MEDICATION_META_TAG_CODE = 'erx-medication';
 
 export const FHIR_APPOINTMENT_TYPE_MAP: Record<string, AppointmentType> = {
   walkin: 'walk-in',
