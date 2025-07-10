@@ -332,7 +332,7 @@ export const EditableMedicationCard: React.FC<{
     if (medication) {
       setInteractionsCheckState({
         status: 'done',
-        interactions: structuredClone(medication.interactions),
+        interactions: medication.interactions,
       });
     }
   }, [medication]);

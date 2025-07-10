@@ -47,7 +47,7 @@ const SEVERITY_TO_LABEL: any = {
 };
 
 export const InteractionAlertsDialog: React.FC<Props> = (props) => {
-  const [interactions, setInteractions] = useState<MedicationInteractions>(props.interactions);
+  const [interactions, setInteractions] = useState<MedicationInteractions>(structuredClone(props.interactions));
 
   const allReasonsValid: boolean = [
     ...(interactions.drugInteractions ?? []),
