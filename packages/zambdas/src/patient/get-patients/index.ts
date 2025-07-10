@@ -64,6 +64,6 @@ export const index = wrapHandler('get-patients', async (input: ZambdaInput): Pro
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('get-patients', error, ENVIRONMENT, true);
+    return topLevelCatch('get-patients', error, ENVIRONMENT);
   }
 });
