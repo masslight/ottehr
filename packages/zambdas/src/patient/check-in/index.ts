@@ -167,7 +167,7 @@ export const index = wrapHandler('check-in', async (input: ZambdaInput): Promise
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('check-in', error, ENVIRONMENT, true);
+    return topLevelCatch('check-in', error, ENVIRONMENT);
   }
 });
 

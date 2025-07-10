@@ -14,7 +14,7 @@ import {
   Resource,
   Schedule,
 } from 'fhir/r4b';
-import { getTimezone } from 'utils';
+import { getTimezone, TIMEZONES } from 'utils';
 import { isNonPaperworkQuestionnaireResponse } from '../../../common';
 import { getVideoRoomResourceExtension } from '../../helpers';
 import { FullAppointmentResourcePackage } from './types';
@@ -91,6 +91,7 @@ export const getAppointmentAndRelatedResources = async (
           name: '_revinclude:iterate',
           value: 'Schedule:actor:Location',
         },
+        { name: '_revinclude:iterate', value: 'Schedule:actor:Practitioner' },
         {
           name: '_include:iterate',
           value: 'Encounter:participant:Practitioner',
@@ -121,6 +122,7 @@ export const getAppointmentAndRelatedResources = async (
     .unbundle()
     .filter((resource) => isNonPaperworkQuestionnaireResponse(resource) === false);
 
+  // TODO: rewrite all casts cause potentially all those resources can be undefined
   const appointment: Appointment | undefined = items.find((item: Resource) => {
     return item.resourceType === 'Appointment';
   }) as Appointment;
@@ -172,8 +174,10 @@ export const getAppointmentAndRelatedResources = async (
   let timezone: string;
   if (schedule) {
     timezone = getTimezone(schedule);
-  } else {
+  } else if (location) {
     timezone = getTimezone(location);
+  } else {
+    timezone = TIMEZONES[0];
   }
 
   return {

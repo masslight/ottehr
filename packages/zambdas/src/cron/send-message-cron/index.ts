@@ -145,7 +145,7 @@ export const index = wrapHandler('send-message-cron', async (input: ZambdaInput)
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('send-message-cron', error, ENVIRONMENT, true);
+    return topLevelCatch('send-message-cron', error, ENVIRONMENT);
   }
 });
 

@@ -3,17 +3,14 @@ import { captureException } from '@sentry/aws-serverless';
 import { DateTime } from 'luxon';
 import { getSecret, handleUnknownError, PROJECT_NAME, Secrets, SecretsKeys } from 'utils';
 
-export const sendErrors = async (error: any, env: string, shouldCaptureException?: boolean): Promise<void> => {
-  // Only fires in testing, staging and production
-  if (!['testing', 'staging', 'production'].includes(env)) {
+export const sendErrors = async (error: any, env: string): Promise<void> => {
+  if (['local'].includes(env)) {
     return;
   }
   console.log('sendErrors running');
 
-  if (shouldCaptureException) {
-    const errorToThrow = handleUnknownError(error);
-    captureException(errorToThrow);
-  }
+  const errorToThrow = handleUnknownError(error);
+  captureException(errorToThrow);
 };
 
 export const sendSlackNotification = async (message: string, env: string): Promise<void> => {
