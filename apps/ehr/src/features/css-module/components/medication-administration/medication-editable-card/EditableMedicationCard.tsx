@@ -60,6 +60,7 @@ export const EditableMedicationCard: React.FC<{
   const [interactionsCheckState, setInteractionsCheckState] = useState<InteractionsCheckState>({ status: 'todo' });
   const { oystehr } = useApiClients();
   const [showInteractionAlerts, setShowInteractionAlerts] = useState(false);
+  const [erxEnabled, setErxEnabled] = useState(false);
 
   const { refetchHistory } = useMedicationHistory();
 
@@ -100,6 +101,9 @@ export const EditableMedicationCard: React.FC<{
       setLocalValues((prev) => ({ ...prev, [field]: Number(value) }));
     } else {
       setLocalValues((prev) => ({ ...prev, [field]: value }));
+    }
+    if (field === 'medicationId') {
+      setErxEnabled(true);
     }
   };
 
@@ -333,10 +337,16 @@ export const EditableMedicationCard: React.FC<{
   }, [medication]);
 
   const interactionsWarning = (): string | undefined => {
-    if (!localValues.medicationId && !medication) {
+    if (
+      (!localValues.medicationId && !medication) ||
+      (typeFromProps !== 'order-new' && typeFromProps !== 'order-edit')
+    ) {
       return undefined;
     }
-    if ((erxStatus === ERXStatus.LOADING && !medication) || interactionsCheckState.status === 'in-progress') {
+    if (
+      (erxEnabled && erxStatus === ERXStatus.LOADING && (!medication || medication.id !== localValues.medicationId)) ||
+      interactionsCheckState.status === 'in-progress'
+    ) {
       return 'checking...';
     } else if (erxStatus === ERXStatus.ERROR || interactionsCheckState.status === 'error') {
       return 'Drug-to-Drug and Drug-Allergy interaction check failed. Please review manually.';
@@ -423,7 +433,9 @@ export const EditableMedicationCard: React.FC<{
           }}
         />
       ) : null}
-      <ERX onStatusChanged={setERXStatus} showDefaultAlert={false} />
+      {(typeFromProps === 'order-new' || typeFromProps === 'order-edit') && erxEnabled ? (
+        <ERX onStatusChanged={setERXStatus} showDefaultAlert={false} />
+      ) : null}
     </>
   );
 };
