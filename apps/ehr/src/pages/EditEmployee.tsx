@@ -46,12 +46,13 @@ export default function EditEmployeePage(): JSX.Element {
         const res = await getUserDetails(oystehrZambda, {
           userId: id,
         });
-        console.log('res', res);
-        const { user: appUser, userScheduleId } = res;
-        setScheduleId(userScheduleId);
-        setUser(appUser);
-        setIsActive(checkUserIsActive(appUser));
-        loading = false;
+        if (loading) {
+          const { user: appUser, userScheduleId } = res;
+          setScheduleId(userScheduleId);
+          setUser(appUser);
+          setIsActive(checkUserIsActive(appUser));
+          loading = false;
+        }
       }
     }
 
