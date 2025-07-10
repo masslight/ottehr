@@ -30,6 +30,10 @@ export function validateRequestParameters(input: ZambdaInput): SignAppointmentIn
 
   const userToken = input.headers.Authorization.replace('Bearer ', '');
 
+  if (!input.secrets) {
+    throw new Error('Secrets are required for this operation');
+  }
+
   console.groupEnd();
   console.debug('validateRequestParameters success');
 

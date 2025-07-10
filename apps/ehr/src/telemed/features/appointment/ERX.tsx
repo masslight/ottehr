@@ -3,13 +3,14 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { useChartData } from 'src/features/css-module/hooks/useChartData';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { getPractitionerNPIIdentifier, VitalFieldNames } from 'utils';
+import { getPractitionerMissingFields } from 'src/shared/utils';
+import { VitalFieldNames } from 'utils';
 import { createVitalsSearchConfig } from 'utils/lib/helpers/visit-note/create-vitals-search-config.helper';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import {
   useAppointmentStore,
   useCheckPractitionerEnrollment,
-  useConnectPractitionerToERX as useConnectPractitionerToToConfirmEnrollment,
+  useConnectPractitionerToERX,
   useEnrollPractitionerToERX,
   useSyncERXPatient,
 } from '../../state';
@@ -35,34 +36,8 @@ export const ERX: FC<{
     showDefaultAlert ? 'If something goes wrong - please reload the page.' : null
   );
 
-  const practitionerMissingFields: string[] = useMemo(() => {
-    const missingFields: string[] = [];
-    if (!practitioner) return [];
-    if (!practitioner?.birthDate) {
-      missingFields.push('birth date');
-    }
-    if (!practitioner?.telecom?.find((telecom) => telecom.system === 'phone')?.value) {
-      missingFields.push('phone');
-    }
-    if (!practitioner?.telecom?.find((telecom) => telecom.system === 'fax')?.value) {
-      missingFields.push('fax');
-    }
-    if (!practitioner?.address?.find((address) => address.line?.length)) {
-      missingFields.push('Address line 1');
-    }
-    if (!practitioner?.address?.find((address) => address.city)) {
-      missingFields.push('City');
-    }
-    if (!practitioner?.address?.find((address) => address.state)) {
-      missingFields.push('State');
-    }
-    if (!practitioner?.address?.find((address) => address.postalCode)) {
-      missingFields.push('Zip code');
-    }
-    if (!getPractitionerNPIIdentifier(practitioner)) {
-      missingFields.push('NPI');
-    }
-    return missingFields;
+  const practitionerMissingFields = useMemo(() => {
+    return practitioner ? getPractitionerMissingFields(practitioner) : [];
   }, [practitioner]);
 
   // Step 1: Get patient vitals
@@ -158,14 +133,14 @@ export const ERX: FC<{
     isLoading: isConnectingPractitioner,
     mutateAsync: connectPractitioner,
     isSuccess: isPractitionerConnected,
-  } = useConnectPractitionerToToConfirmEnrollment({ patientId: patient?.id });
+  } = useConnectPractitionerToERX({ patientId: patient?.id });
 
   const {
     data: ssoLinkForEnrollment,
     isLoading: isConnectingPractitionerForConfirmation,
     mutateAsync: connectPractitionerForConfirmation,
     isSuccess: isPractitionerConnectedForConfirmation,
-  } = useConnectPractitionerToToConfirmEnrollment({});
+  } = useConnectPractitionerToERX({});
 
   const connectPractitionerFn = useCallback(
     async (mode: 'confirmation' | 'ordering') => {

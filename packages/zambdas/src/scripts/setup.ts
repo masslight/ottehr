@@ -363,7 +363,7 @@ export async function setupEHR(
 
     console.log('Starting to update in-house medications list...');
     const { stdout: stdout2, stderr: stderr2 } = await execPromise(
-      `cd packages/zambdas && npm run create-update-in-house-medications-list ${environment}`
+      `cd packages/zambdas && npm run recreate-in-house-medications-list ${environment}`
     );
     if (stderr2) {
       console.log(`Command executed with warnings: ${stderr2}`);

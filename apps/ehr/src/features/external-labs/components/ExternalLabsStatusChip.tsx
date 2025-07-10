@@ -18,6 +18,14 @@ export const ExternalLabsStatusPalette: {
     };
   };
 } = {
+  created: {
+    background: {
+      primary: '#E6E8EE',
+    },
+    color: {
+      primary: '#616161',
+    },
+  },
   pending: {
     background: {
       primary: '#E6E8EE',
@@ -27,6 +35,14 @@ export const ExternalLabsStatusPalette: {
     },
   },
   sent: {
+    background: {
+      primary: '#D1C4E9',
+    },
+    color: {
+      primary: '#4527A0',
+    },
+  },
+  'sent manually': {
     background: {
       primary: '#D1C4E9',
     },

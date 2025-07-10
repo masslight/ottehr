@@ -2,6 +2,9 @@
 import { Pagination } from '..';
 import { LabelConfig } from './labs.types';
 
+// recommended from Dorn as a good length (also matches the len currently used when oystehr sets the order number)
+export const ORDER_NUMBER_LEN = 20;
+
 export const PSC_HOLD_CONFIG = {
   system: 'psc-identifier',
   code: 'psc',
@@ -85,6 +88,10 @@ export const DYMO_30334_LABEL_CONFIG: LabelConfig = {
   marginRightInches: 0.04,
   printerDPI: DYMO_550_TURBO_DPI,
 };
+
+// for manual orders
+export const OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM = 'https://identifiers.ottehr.com/lab-order-placer-id';
+
 // These are oystehr dependent
 // meaning that there is logic in oystehr labs specifically looking for these systems
 // so if we don't like any of them, we have to change there too
@@ -99,6 +106,7 @@ export const OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY = {
   code: 'OSL',
   display: 'Outside Lab',
 };
+export const OYSTEHR_OBR_NOTE_CODING_SYSTEM = 'https://identifiers.fhir.oystehr.com/obr-note';
 
 // Oystehr Labs APIs
 export const OYSTEHR_LAB_API_BASE = 'https://labs-api.zapehr.com/v1';
