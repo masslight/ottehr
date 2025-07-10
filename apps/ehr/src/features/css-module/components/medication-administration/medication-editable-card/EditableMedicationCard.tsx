@@ -234,7 +234,8 @@ export const EditableMedicationCard: React.FC<{
     localValues,
     selectedStatus,
     getMedicationFieldValue,
-    autoFilledFieldsRef
+    autoFilledFieldsRef,
+    interactionsCheckState.interactions
   );
 
   const isEditOrderPage = location.pathname.includes(
@@ -252,7 +253,7 @@ export const EditableMedicationCard: React.FC<{
   );
   const isCardSaveButtonDisabled =
     (typeRef.current !== 'dispense' && (isUpdating || !isUnsavedData)) ||
-    erxStatus === ERXStatus.LOADING ||
+    (erxEnabled && erxStatus === ERXStatus.LOADING) ||
     interactionsCheckState.status === 'todo' ||
     interactionsCheckState.status === 'in-progress' ||
     interactionsUnresolved(interactionsCheckState.interactions);
@@ -331,7 +332,7 @@ export const EditableMedicationCard: React.FC<{
     if (medication) {
       setInteractionsCheckState({
         status: 'done',
-        interactions: medication.interactions,
+        interactions: structuredClone(medication.interactions),
       });
     }
   }, [medication]);

@@ -81,7 +81,8 @@ export const isUnsavedMedicationData = (
     field: Field,
     type?: string
   ) => MedicationData[Field] | '',
-  autoFilledFieldsRef: React.MutableRefObject<Partial<MedicationData>>
+  autoFilledFieldsRef: React.MutableRefObject<Partial<MedicationData>>,
+  interactions: MedicationInteractions | undefined
 ): boolean => {
   if (!savedMedication) {
     return Object.values(localValues).some((value) => value !== '');
@@ -89,6 +90,7 @@ export const isUnsavedMedicationData = (
 
   return (
     selectedStatus !== savedMedication?.status ||
+    JSON.stringify(interactions) !== JSON.stringify(savedMedication.interactions) ||
     Object.entries(localValues).some(([field, value]) => {
       const isAutofilledField = Object.keys(autoFilledFieldsRef.current).includes(field);
       const savedValue = getMedicationFieldValue(savedMedication, field as keyof MedicationData);
