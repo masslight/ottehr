@@ -242,6 +242,6 @@ export const index = wrapHandler('update-appointment', async (input: ZambdaInput
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('update-appointment', error, ENVIRONMENT, true);
+    return topLevelCatch('update-appointment', error, ENVIRONMENT);
   }
 });
