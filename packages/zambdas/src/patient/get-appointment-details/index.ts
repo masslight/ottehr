@@ -161,6 +161,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('get-appointment-details', error, ENVIRONMENT, true);
+    return topLevelCatch('get-appointment-details', error, ENVIRONMENT);
   }
 });

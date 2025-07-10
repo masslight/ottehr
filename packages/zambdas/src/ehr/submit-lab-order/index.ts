@@ -72,6 +72,14 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       specimens: specimenResources,
     } = await getExternalLabOrderResources(oystehr, serviceRequestID);
 
+    // if the serviceRequest already has an order number it has already been submitted,
+    // either electronically to the lab (system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)
+    // or manually by just printing the order form (system === OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM)
+    const orderNumber = serviceRequest.identifier?.find(
+      (id) => id.system === OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM || id.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM
+    )?.value;
+    if (orderNumber) throw EXTERNAL_LAB_ERROR('Order is already submitted');
+
     const locationID = serviceRequest.locationReference?.[0].reference?.replace('Location/', '');
 
     if (!appointment.id) {
