@@ -1,5 +1,8 @@
+import { otherColors } from '@ehrTheme/colors';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { Box, Grid, Paper, Typography } from '@mui/material';
+import ErrorOutlineOutlined from '@mui/icons-material/ErrorOutlineOutlined';
+import { Box, Grid, Paper, Typography, useTheme } from '@mui/material';
+import { Stack } from '@mui/system';
 import { DateTime } from 'luxon';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
@@ -49,6 +52,8 @@ type MedicationCardViewProps = {
   saveButtonText: string;
   isSaveButtonDisabled: boolean;
   selectsOptions: OrderFieldsSelectsOptions;
+  interactionsWarning?: string;
+  onInteractionsWarningClick: () => void;
 };
 
 export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
@@ -69,9 +74,12 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
   saveButtonText,
   isSaveButtonDisabled,
   selectsOptions,
+  interactionsWarning,
+  onInteractionsWarningClick,
 }) => {
   const navigate = useNavigate();
   const { id: appointmentId } = useParams();
+  const theme = useTheme();
 
   const OrderFooter = (): React.ReactElement => {
     return (
@@ -230,6 +238,32 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
             </Grid>
           );
         })}
+        {interactionsWarning ? (
+          <Grid item xs={12}>
+            <Stack
+              style={{
+                background: otherColors.lightErrorBg,
+                padding: '16px',
+                borderRadius: '4px',
+                width: '100%',
+                cursor: 'pointer',
+              }}
+              alignItems="center"
+              direction="row"
+              onClick={onInteractionsWarningClick}
+            >
+              <ErrorOutlineOutlined style={{ width: '20px', height: '20px', color: theme.palette.error.main }} />
+              <Typography
+                variant="body2"
+                style={{ color: otherColors.lightErrorText, marginLeft: '12px' }}
+                display="inline"
+              >
+                <span style={{ fontWeight: '500' }}>Interaction: </span>
+                {interactionsWarning}
+              </Typography>
+            </Stack>
+          </Grid>
+        ) : null}
         <Grid item xs={12}>
           {type === 'dispense' || type === 'dispense-not-administered' ? <DispenseFooter /> : <OrderFooter />}
         </Grid>
