@@ -3056,11 +3056,10 @@ interface UpdateStripeCustomerInput {
 export const updateStripeCustomer = async (input: UpdateStripeCustomerInput): Promise<void> => {
   const { guarantorResource, account } = input;
   console.log('updating Stripe customer for account', account.id);
-  console.log('guarantor resource:', JSON.stringify(guarantorResource, null, 2));
+  console.log('guarantor resource:', `${guarantorResource?.resourceType}/${guarantorResource?.id}`);
   const stripeCustomerId = getStripeCustomerIdFromAccount(account);
   const email = getEmailForIndividual(guarantorResource);
   const name = getFullName(guarantorResource);
-  console.log('email from guarantor', email);
   if (stripeCustomerId) {
     await input.stripeClient.customers.update(stripeCustomerId, {
       email,
