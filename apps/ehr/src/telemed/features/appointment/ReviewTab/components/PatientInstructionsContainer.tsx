@@ -37,7 +37,7 @@ export const PatientInstructionsContainer: FC = () => {
     showDischargeInstructions && (
       <>
         <AssessmentTitle>
-          Discharge instructions - {disposition?.type ? mapDispositionTypeToLabel[disposition.type] : 'Not provided'}
+          Disposition - {disposition?.type ? mapDispositionTypeToLabel[disposition.type] : 'Not provided'}
         </AssessmentTitle>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
           {disposition?.note && <Typography>{disposition?.note}</Typography>}
@@ -84,7 +84,7 @@ export const PatientInstructionsContainer: FC = () => {
     ),
     showSchoolWorkExcuse && (
       <>
-        <AssessmentTitle>Work / School Excuse</AssessmentTitle>
+        <AssessmentTitle>School / Work Excuse</AssessmentTitle>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
           {schoolWorkExcuses.map((excuse) => (
             <Link component={RouterLink} to={excuse.presignedUrl!} target="_blank" key={excuse.id}>
@@ -99,7 +99,7 @@ export const PatientInstructionsContainer: FC = () => {
   return (
     <Box data-testid={dataTestIds.telemedEhrFlow.reviewTabPatientInstructionsContainer}>
       <Typography variant="h5" color="primary.dark">
-        Patient instructions
+        Plan
       </Typography>
 
       <SectionList sections={sections} sx={{ width: '100%' }} />
