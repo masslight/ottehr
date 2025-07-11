@@ -20,7 +20,7 @@ export const DischargeButton: FC = () => {
   const [statusLoading, setStatusLoading] = useState<boolean>(false);
 
   const inPersonStatus = useMemo(() => appointment && getVisitStatus(appointment, encounter), [appointment, encounter]);
-  const isDischargedStatus = inPersonStatus === 'ready for discharge';
+  const isAlreadyDischarged = inPersonStatus === 'ready for discharge' || inPersonStatus === 'completed';
 
   if (!user || !encounter?.id) {
     return (
@@ -44,21 +44,21 @@ export const DischargeButton: FC = () => {
     } catch (error) {
       console.error(error);
       enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
+    } finally {
+      setStatusLoading(false);
     }
-
-    setStatusLoading(false);
   };
 
   return (
     <Box sx={{ display: 'flex', justifyContent: 'end' }}>
       <RoundedButton
-        disabled={statusLoading || isDischargedStatus}
+        disabled={statusLoading || isAlreadyDischarged}
         variant="contained"
         onClick={handleDischarge}
-        startIcon={isDischargedStatus ? <CheckIcon color="inherit" /> : undefined}
+        startIcon={isAlreadyDischarged ? <CheckIcon color="inherit" /> : undefined}
         data-testid={dataTestIds.progressNotePage.dischargeButton}
       >
-        {isDischargedStatus ? 'Discharged' : 'Discharge'}
+        {isAlreadyDischarged ? 'Discharged' : 'Discharge'}
       </RoundedButton>
     </Box>
   );

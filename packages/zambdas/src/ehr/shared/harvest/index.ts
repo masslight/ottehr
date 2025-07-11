@@ -320,6 +320,18 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
       },
     },
   ];
+
+  const pdfGroups: Record<string, typeof pdfsToCreate> = {};
+  for (const pdfInfo of pdfsToCreate) {
+    const typeCode = pdfInfo.type.coding[0].code;
+    if (!pdfGroups[typeCode]) {
+      pdfGroups[typeCode] = [];
+    }
+    pdfGroups[typeCode].push(pdfInfo);
+  }
+
+  const allDocRefsByType: Record<string, DocumentReference[]> = {};
+
   const nowIso = DateTime.now().setZone('UTC').toISO() || '';
 
   const isVirtualLocation =
@@ -369,23 +381,20 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
   }
 
   console.log('pdfsToCreate len', pdfsToCreate.length);
-  for (const pdfInfo of pdfsToCreate) {
-    const { docRefs: documentReferences } = await createFilesDocumentReferences({
-      files: [{ url: pdfInfo.uploadURL, title: pdfInfo.formTitle }],
-      type: pdfInfo.type,
+  for (const [typeCode, group] of Object.entries(pdfGroups)) {
+    const files = group.map((pdf) => ({
+      url: pdf.uploadURL,
+      title: pdf.formTitle,
+    }));
+
+    const { docRefs } = await createFilesDocumentReferences({
+      files,
+      type: group[0].type,
       dateCreated: nowIso,
       oystehr,
       references: {
-        subject: {
-          reference: `Patient/${patientResource.id}`,
-        },
-        context: {
-          related: [
-            {
-              reference: `Appointment/${appointmentId}`,
-            },
-          ],
-        },
+        subject: { reference: `Patient/${patientResource.id}` },
+        context: { related: [{ reference: `Appointment/${appointmentId}` }] },
       },
       generateUUID: randomUUID,
       listResources,
@@ -396,13 +405,19 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
       },
     });
 
-    if (!documentReferences?.[0]?.id) {
-      throw new Error('No consent document reference id found');
+    allDocRefsByType[typeCode] = docRefs;
+  }
+
+  for (const pdfInfo of pdfsToCreate) {
+    const typeCode = pdfInfo.type.coding[0].code;
+    const groupRefs = allDocRefsByType[typeCode] || [];
+    const matchingRef = groupRefs.find((dr) => dr.content[0]?.attachment.title === pdfInfo.formTitle);
+    if (!matchingRef?.id) {
+      throw new Error(`DocumentReference for "${pdfInfo.formTitle}" not found`);
     }
 
-    // Create FHIR Consent resource
-    if (pdfInfo.type.coding[0].code === CONSENT_CODE) {
-      await createConsentResource(patientResource.id ?? '', documentReferences?.[0]?.id, nowIso, oystehr);
+    if (typeCode === CONSENT_CODE) {
+      await createConsentResource(patientResource.id!, matchingRef.id, nowIso, oystehr);
     }
   }
 }

@@ -10,7 +10,7 @@ import { VisitNoteItem } from './VisitNoteItem';
 export const PatientInformationContainer: FC = () => {
   const { patient, questionnaireResponse } = getSelectors(useAppointmentStore, ['patient', 'questionnaireResponse']);
 
-  const patientName = getPatientName(patient?.name).lastFirstName;
+  const patientName = getPatientName(patient?.name).lastFirstMiddleName;
   const dob = patient?.birthDate && DateTime.fromFormat(patient.birthDate, 'yyyy-MM-dd').toFormat('MM/dd/yyyy');
   const phone = getQuestionnaireResponseByLinkId('guardian-number', questionnaireResponse)?.answer?.[0]?.valueString;
   const accompanyingPerson = {

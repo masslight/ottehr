@@ -1,6 +1,6 @@
 {
   "name": "zambdas",
-  "version": "1.13.1",
+  "version": "1.13.0",
   "private": true,
   "scripts": {
     "start": "ENV=${ENV:-local} npm run setup-deployed-resources ${ENV:-local} && tsx watch --include './src/**/*' src/local-server/index.ts -- env=.env/${ENV:-local}.json",

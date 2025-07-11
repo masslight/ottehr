@@ -3,59 +3,41 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { useChartData } from 'src/features/css-module/hooks/useChartData';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { getPractitionerNPIIdentifier, VitalFieldNames } from 'utils';
+import { getPractitionerMissingFields } from 'src/shared/utils';
+import { VitalFieldNames } from 'utils';
 import { createVitalsSearchConfig } from 'utils/lib/helpers/visit-note/create-vitals-search-config.helper';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import {
   useAppointmentStore,
   useCheckPractitionerEnrollment,
-  useConnectPractitionerToERX as useConnectPractitionerToToConfirmEnrollment,
+  useConnectPractitionerToERX,
   useEnrollPractitionerToERX,
   useSyncERXPatient,
 } from '../../state';
 import { ERXDialog } from './ERXDialog';
 
+export enum ERXStatus {
+  LOADING,
+  READY,
+  ERROR,
+}
+
 export const ERX: FC<{
-  onClose: () => void;
-  onLoadingStatusChange: (loading: boolean) => void;
-}> = ({ onClose, onLoadingStatusChange }) => {
+  onStatusChanged: (status: ERXStatus) => void;
+  showDefaultAlert: boolean;
+}> = ({ onStatusChanged, showDefaultAlert }) => {
+  const [status, setStatus] = useState(ERXStatus.LOADING);
   const { patient, encounter } = getSelectors(useAppointmentStore, ['patient', 'encounter']);
   const phoneNumber = patient?.telecom?.find((telecom) => telecom.system === 'phone')?.value;
   const user = useEvolveUser();
   const practitioner = user?.profileResource;
 
   const [alertMessage, setAlertMessage] = useState<string | null>(
-    'If something goes wrong - please close and open the eRx again.'
+    showDefaultAlert ? 'If something goes wrong - please reload the page.' : null
   );
 
-  const practitionerMissingFields: string[] = useMemo(() => {
-    const missingFields: string[] = [];
-    if (!practitioner) return [];
-    if (!practitioner?.birthDate) {
-      missingFields.push('birth date');
-    }
-    if (!practitioner?.telecom?.find((telecom) => telecom.system === 'phone')?.value) {
-      missingFields.push('phone');
-    }
-    if (!practitioner?.telecom?.find((telecom) => telecom.system === 'fax')?.value) {
-      missingFields.push('fax');
-    }
-    if (!practitioner?.address?.find((address) => address.line?.length)) {
-      missingFields.push('Address line 1');
-    }
-    if (!practitioner?.address?.find((address) => address.city)) {
-      missingFields.push('City');
-    }
-    if (!practitioner?.address?.find((address) => address.state)) {
-      missingFields.push('State');
-    }
-    if (!practitioner?.address?.find((address) => address.postalCode)) {
-      missingFields.push('Zip code');
-    }
-    if (!getPractitionerNPIIdentifier(practitioner)) {
-      missingFields.push('NPI');
-    }
-    return missingFields;
+  const practitionerMissingFields = useMemo(() => {
+    return practitioner ? getPractitionerMissingFields(practitioner) : [];
   }, [practitioner]);
 
   // Step 1: Get patient vitals
@@ -92,7 +74,6 @@ export const ERX: FC<{
   // Step 2: Check practitioner enrollment
   const {
     data: practitionerEnrollmentStatus,
-    isLoading: isCheckingPractitionerEnrollment,
     isFetched: isPractitionerEnrollmentChecked,
     refetch: refetchPractitionerEnrollment,
   } = useCheckPractitionerEnrollment({
@@ -100,7 +81,7 @@ export const ERX: FC<{
   });
 
   // Step 3: Sync patient
-  const { isLoading: isSyncingPatient, isFetched: isPatientSynced } = useSyncERXPatient({
+  const { isFetched: isPatientSynced } = useSyncERXPatient({
     patient: patient!,
     enabled: Boolean(practitionerEnrollmentStatus?.confirmed && hasVitals),
     onError: (error) => {
@@ -108,7 +89,7 @@ export const ERX: FC<{
 
       if (error.status === 400) {
         if (error.message?.includes('phone')) {
-          errorMsg = `Patient has specified some wrong phone number: ${phoneNumber}. RX can be used only when a real phone number is provided`;
+          errorMsg = `Patient has specified some wrong phone number: ${phoneNumber}. Please provide a real patient's phone number`;
         } else if (error.message?.includes('eRx service is not configured')) {
           errorMsg = `eRx service is not configured. Please contact support.`;
         } else {
@@ -117,7 +98,7 @@ export const ERX: FC<{
       }
 
       enqueueSnackbar(errorMsg, { variant: 'error' });
-      onClose();
+      setStatus(ERXStatus.ERROR);
     },
   });
 
@@ -130,7 +111,7 @@ export const ERX: FC<{
   } = useEnrollPractitionerToERX({
     onError: () => {
       enqueueSnackbar('Enrolling practitioner to eRx failed', { variant: 'error' });
-      onClose();
+      setStatus(ERXStatus.ERROR);
     },
   });
 
@@ -152,27 +133,26 @@ export const ERX: FC<{
     isLoading: isConnectingPractitioner,
     mutateAsync: connectPractitioner,
     isSuccess: isPractitionerConnected,
-  } = useConnectPractitionerToToConfirmEnrollment({ patientId: patient?.id });
+  } = useConnectPractitionerToERX({ patientId: patient?.id });
 
   const {
     data: ssoLinkForEnrollment,
     isLoading: isConnectingPractitionerForConfirmation,
     mutateAsync: connectPractitionerForConfirmation,
     isSuccess: isPractitionerConnectedForConfirmation,
-  } = useConnectPractitionerToToConfirmEnrollment({});
+  } = useConnectPractitionerToERX({});
 
   const connectPractitionerFn = useCallback(
     async (mode: 'confirmation' | 'ordering') => {
       try {
         await (mode === 'confirmation' ? connectPractitionerForConfirmation() : connectPractitioner());
         if (mode === 'confirmation') {
-          setAlertMessage(
-            'When you complete the RxLink Agreement, please close the eRx by clicking the "Close eRx" button and open it again to start prescribing.'
-          );
+          setAlertMessage('When you complete the RxLink Agreement, please reload the page.');
         }
       } catch (error) {
         enqueueSnackbar('Something went wrong while trying to connect practitioner to eRx', { variant: 'error' });
         console.error('Error trying to connect practitioner to eRx: ', error);
+        setStatus(ERXStatus.ERROR);
       }
     },
     [connectPractitioner, connectPractitionerForConfirmation]
@@ -185,6 +165,7 @@ export const ERX: FC<{
         "Patient doesn't have height or weight vital specified. Please specify it first on the `Vitals` tab",
         { variant: 'error' }
       );
+      setStatus(ERXStatus.ERROR);
     }
   }, [isVitalsFetched, hasVitals]);
 
@@ -247,31 +228,22 @@ export const ERX: FC<{
     practitionerEnrollmentStatus?.confirmed,
   ]);
 
-  // Handle loading state
+  // Handle ready state
   useEffect(() => {
-    const isLoading =
-      isVitalsLoading ||
-      isCheckingPractitionerEnrollment ||
-      isSyncingPatient ||
-      isConnectingPractitioner ||
-      isEnrollingPractitioner;
+    if (status === ERXStatus.LOADING && isPractitionerConnected) {
+      setStatus(ERXStatus.READY);
+    }
+  }, [setStatus, isPractitionerConnected, status]);
 
-    onLoadingStatusChange(isLoading);
-  }, [
-    onLoadingStatusChange,
-    isVitalsLoading,
-    isCheckingPractitionerEnrollment,
-    isSyncingPatient,
-    isConnectingPractitioner,
-    isEnrollingPractitioner,
-  ]);
+  // Report status updates
+  useEffect(() => {
+    onStatusChanged(status);
+  }, [onStatusChanged, status]);
 
   // Cleanup on unmount
   useEffect(() => {
-    return () => {
-      onLoadingStatusChange(false);
-    };
-  }, [onLoadingStatusChange]);
+    setStatus(ERXStatus.LOADING);
+  }, [setStatus]);
 
   return (
     <>

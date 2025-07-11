@@ -184,7 +184,14 @@ export function makeAllergyResource(
             },
           ],
         }
-      : undefined,
+      : {
+          coding: [
+            {
+              system: 'https://terminology.fhir.oystehr.com/CodeSystem/other-allergy',
+              display: data.name,
+            },
+          ],
+        },
   };
 }
 

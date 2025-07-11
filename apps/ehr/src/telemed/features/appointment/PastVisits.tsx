@@ -13,7 +13,7 @@ export const PastVisits: FC = () => {
   const { appointments, loading } = useGetPatient(patient?.id);
   const [open, setOpen] = useState(false);
 
-  const patientName = getPatientName(patient?.name).lastFirstName;
+  const patientName = getPatientName(patient?.name).lastFirstMiddleName;
 
   if (loading) {
     return <Skeleton sx={{ display: 'inline-block' }} variant="text" width={100} />;
@@ -30,7 +30,7 @@ export const PastVisits: FC = () => {
   return (
     <>
       <Typography variant="body2">
-        Established patient:{' '}
+        Established patient:
         <Link
           sx={{ cursor: 'pointer', color: 'inherit' }}
           onClick={() => setOpen(true)}

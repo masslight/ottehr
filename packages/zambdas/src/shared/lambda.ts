@@ -27,17 +27,12 @@ const handleErrorResult = (errorResult: unknown): APIGatewayProxyResult => {
   }
 };
 
-export async function topLevelCatch(
-  zambda: string,
-  error: any,
-  ENVIRONMENT: string,
-  shouldCaptureException?: boolean
-): Promise<APIGatewayProxyResult> {
+export async function topLevelCatch(zambda: string, error: any, ENVIRONMENT: string): Promise<APIGatewayProxyResult> {
   console.error(`Top level catch block in ${zambda}: \n ${error} \n Error stringified: ${JSON.stringify(error)}`);
   if (isApiError(error)) {
     console.error('Top level catch block returning silently');
   } else {
-    await sendErrors(error, ENVIRONMENT, shouldCaptureException);
+    await sendErrors(error, ENVIRONMENT);
   }
   console.log('handling Error Result');
   return handleErrorResult(error);

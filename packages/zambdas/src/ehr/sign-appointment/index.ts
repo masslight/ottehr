@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import {
@@ -15,7 +16,7 @@ import {
   visitStatusToFhirEncounterStatusMap,
 } from 'utils';
 import { checkOrCreateM2MClientToken, ZambdaInput } from '../../shared';
-import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createCandidEncounter } from '../../shared/candid';
+import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createEncounterFromAppointment } from '../../shared/candid';
 import { createPublishExcuseNotesOps } from '../../shared/createPublishExcuseNotesOps';
 import { createOystehrClient } from '../../shared/helpers';
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
@@ -77,7 +78,13 @@ export const performEffect = async (
     throw new Error(`No subject reference defined for encounter ${encounter?.id}`);
   }
 
-  const candidEncounterId = await createCandidEncounter(visitResources, secrets, oystehr);
+  let candidEncounterId: string | undefined;
+  try {
+    candidEncounterId = await createEncounterFromAppointment(visitResources, secrets, oystehr);
+  } catch (error) {
+    console.error(`Error creating Candid encounter: ${error}, stringified error: ${JSON.stringify(error)}`);
+    captureException(error);
+  }
 
   console.log(`appointment and encounter statuses: ${appointment.status}, ${encounter.status}`);
   const currentStatus = getVisitStatus(appointment, encounter);

@@ -1,4 +1,4 @@
-import { formatDateTimeToEDT, VitalsObservationDTO } from 'utils';
+import { formatDateTimeToLocalTimezone, VitalsObservationDTO } from 'utils';
 import { VitalHistoryEntry } from '../types';
 
 export function composeVitalsHistoryEntries<
@@ -30,7 +30,7 @@ export function composeVitalsHistoryEntries<
       const baseProps: VitalHistoryEntry<TypeObsDTO> = {
         vitalObservationDTO: vitalDTO as TypeObsDTO,
         fhirResourceId: vitalDTO.resourceId,
-        recordDateTime: formatDateTimeToEDT(vitalDTO.lastUpdated),
+        recordDateTime: formatDateTimeToLocalTimezone(vitalDTO.lastUpdated),
         author: vitalDTO.authorName,
         isDeletable: !!userId && userId === vitalDTO.authorId && encounterId === vitalDTO.encounterId,
         // debugEntrySource: byEncounterResourcesIds.has(vitalDTO.resourceId ?? '') ? 'encounter' : 'patient',

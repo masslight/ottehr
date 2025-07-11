@@ -1,6 +1,6 @@
 {
   "name": "ottehr",
-  "version": "1.13.1",
+  "version": "1.13.0",
   "private": true,
   "engines": {
     "node": ">=20.0.0",
@@ -80,7 +80,7 @@
     "@mui/material": "^5.14.18",
     "@mui/system": "^5.10.16",
     "@mui/x-date-pickers": "^6.18.6",
-    "@oystehr/sdk": "4.1.0",
+    "@oystehr/sdk": "4.1.1",
     "@pdf-lib/fontkit": "^1.1.1",
     "@sendgrid/mail": "^8.1.4",
     "@sentry/aws-serverless": "^8.26.0",
@@ -89,7 +89,7 @@
     "@types/inquirer": "^9.0.7",
     "browser-image-compression": "^2.0.2",
     "browserslist-to-esbuild": "^1.2.0",
-    "candidhealth": "0.38.2",
+    "candidhealth": "1.3.0",
     "fast-json-patch": "^3.1.1",
     "i18next": "^23.10.1",
     "i18next-browser-languagedetector": "^7.0.1",

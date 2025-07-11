@@ -35,6 +35,7 @@ import {
   LabResultPDF,
   LabType,
   nameLabTest,
+  OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
@@ -300,7 +301,11 @@ export const makeEncounterLabResults = async (
           type: isExternalLabServiceRequest ? LabType.external : LabType.inHouse,
         };
         if (resource.status === 'active') {
-          if (isExternalLabServiceRequest) activeExternalLabServiceRequests.push(resource);
+          if (isExternalLabServiceRequest) {
+            const isManual = resource.identifier?.some((id) => id.system === OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM);
+            // theres no guarantee that will we get electronic results back for manual labs so we can't validate
+            if (!isManual) activeExternalLabServiceRequests.push(resource);
+          }
           if (isInHouseLabServiceRequest) activeInHouseLabServiceRequests.push(resource);
         }
       }
@@ -341,7 +346,9 @@ export const makeEncounterLabResults = async (
           const isReflex = relatedDR?.meta?.tag?.find(
             (t) => t.system === LAB_DR_TYPE_TAG.system && t.display === LAB_DR_TYPE_TAG.display.reflex
           );
-          const orderNumber = sr.identifier?.find((id) => id.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)?.value;
+          const orderNumber = sr.identifier?.find(
+            (id) => id.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM || id.system === OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM
+          )?.value;
           const activityDef = sr.contained?.find(
             (resource) => resource.resourceType === 'ActivityDefinition'
           ) as ActivityDefinition;

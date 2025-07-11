@@ -52,7 +52,7 @@ export let setNavigationDisable: NavigationContextType['setNavigationDisable'] =
 };
 
 export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { id: appointmentID } = useParams();
+  const { id: appointmentIdFromUrl } = useParams();
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -63,7 +63,9 @@ export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children
   const [isNavigationHidden, setIsNavigationHidden] = useState(false);
 
   const [isModeInitialized, setIsModeInitialized] = useState(false);
-  const [interactionMode, _setInteractionMode] = useState<InteractionMode>('intake'); // todo: calc actual initial InteractionMode value
+
+  // todo: calc actual initial InteractionMode value; in that case check "Intake Notes" button (or any other usages) in the Telemed works correctly
+  const [interactionMode, _setInteractionMode] = useState<InteractionMode>('intake');
 
   const [modalContent, setModalContent] = useState<ReturnType<CSSValidator>>();
 
@@ -71,7 +73,7 @@ export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children
 
   const [_disabledNavigationState, _setDisabledNavigationState] = useState<Record<string, boolean>>({});
 
-  const { isLoading, visitState } = useAppointment(appointmentID);
+  const { isLoading, visitState } = useAppointment(appointmentIdFromUrl);
   const { encounter } = visitState;
   const { chartData, isChartDataLoading } = getSelectors(useAppointmentStore, ['chartData', 'isChartDataLoading']);
 
@@ -102,6 +104,18 @@ export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children
   );
 
   useEffect(() => {
+    const appointmentIdReferenceFromEncounter = encounter?.appointment?.[0]?.reference?.replace('Appointment/', '');
+
+    if (!appointmentIdReferenceFromEncounter || !appointmentIdFromUrl) {
+      return;
+    }
+
+    const isEncounterLoadedToStore = appointmentIdReferenceFromEncounter === appointmentIdFromUrl;
+
+    if (!isEncounterLoadedToStore) {
+      return;
+    }
+
     if (
       encounter?.participant?.find(
         (participant) =>
@@ -120,7 +134,15 @@ export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children
     } else if (encounter?.id) {
       setIsModeInitialized(true);
     }
-  }, [encounter?.id, encounter?.participant, setInteractionMode, interactionMode, isModeInitialized]);
+  }, [
+    encounter?.id,
+    encounter?.participant,
+    setInteractionMode,
+    interactionMode,
+    isModeInitialized,
+    appointmentIdFromUrl,
+    encounter?.appointment,
+  ]);
 
   setNavigationDisable = (newState: Record<string, boolean>): void => {
     let shouldUpdate = false;
@@ -284,12 +306,12 @@ export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children
   );
 };
 
+// Quick fix for hot reload issue;
+let preContextForDevelopmentUseOnly: NavigationContextType | undefined;
+const isDevelopment = import.meta.env.VITE_APP_IS_LOCAL;
+
 export const useNavigationContext = (): NavigationContextType => {
   const context = useContext(NavigationContext);
-
-  if (context === undefined) {
-    throw new Error('useNavigationContext must be used within a NavigationProvider');
-  }
 
   // clear state on component unmount
   useEffect(() => {
@@ -298,6 +320,20 @@ export const useNavigationContext = (): NavigationContextType => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // TODO: try to move context higher to wrap routes (required some refactoring) - this should prevent additional
+  // reload after hot reload and this fix can be removed
+  if (isDevelopment) {
+    if (context === undefined) {
+      return preContextForDevelopmentUseOnly as NavigationContextType;
+    }
+    // context will be broken during hot reload, keep the last context
+    preContextForDevelopmentUseOnly = context;
+  }
+
+  if (context === undefined) {
+    throw new Error('useNavigationContext must be used within a NavigationProvider');
+  }
 
   return context;
 };
