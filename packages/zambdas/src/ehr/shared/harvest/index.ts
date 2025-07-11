@@ -1734,14 +1734,7 @@ export function extractAccountGuarantor(items: QuestionnaireResponseItem[]): Res
     number: findAnswer('responsible-party-number'),
   };
 
-  if (
-    contact.firstName &&
-    contact.lastName &&
-    contact.dob &&
-    contact.birthSex &&
-    contact.relationship &&
-    contact.email
-  ) {
+  if (contact.firstName && contact.lastName && contact.dob && contact.birthSex && contact.relationship) {
     return contact;
   }
   return undefined;
@@ -2717,17 +2710,20 @@ export const createContainedGuarantor = (guarantor: ResponsiblePartyContact, pat
   const number = guarantor.number;
   const email = guarantor.email;
   let telecom: RelatedPerson['telecom'];
+  if (number || email) {
+    telecom = [];
+  }
   if (number) {
-    telecom = [
-      {
-        value: formatPhoneNumber(number),
-        system: 'phone',
-      },
-      {
-        value: email,
-        system: 'email',
-      },
-    ];
+    telecom?.push({
+      value: formatPhoneNumber(number),
+      system: 'phone',
+    });
+  }
+  if (email) {
+    telecom?.push({
+      value: email,
+      system: 'email',
+    });
   }
   return {
     resourceType: 'RelatedPerson',
