@@ -427,7 +427,7 @@ export const EditableMedicationCard: React.FC<{
       <ConfirmationModalForLeavePage />
       {showInteractionAlerts ? (
         <InteractionAlertsDialog
-          medicationName={interactionsCheckState.medicationName ?? ''}
+          medicationName={interactionsCheckState.medicationName ?? medication?.medicationName ?? ''}
           interactions={interactionsCheckState.interactions ?? {}}
           onCancel={() => setShowInteractionAlerts(false)}
           onContinue={(interactions: MedicationInteractions) => {
