@@ -499,9 +499,15 @@ export default function ProceduresNew(): ReactElement {
                 </Link>
               </Typography>
             </Box>
-            <Typography style={{ marginTop: '16px', color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
-              <TooltipWrapper tooltipProps={CPT_TOOLTIP_PROPS}>Procedure Type & CPT Code</TooltipWrapper>
-            </Typography>
+
+            <Box sx={{ marginTop: '16px', color: '#0F347C' }}>
+              <TooltipWrapper tooltipProps={CPT_TOOLTIP_PROPS}>
+                <Typography style={{ color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
+                  Procedure Type & CPT Code
+                </Typography>
+              </TooltipWrapper>
+            </Box>
+
             {dropdown(
               'Procedure type',
               selectOptions?.procedureTypes.map((procedureType) => procedureType.name),
