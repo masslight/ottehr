@@ -39,7 +39,7 @@ interface Props {
 
 const SEVERITY_ORDER = ['high', 'moderate', 'low'];
 
-const SEVERITY_TO_LABEL: any = {
+const SEVERITY_TO_LABEL = {
   high: 'Severe',
   moderate: 'Moderate',
   low: 'Minor',
@@ -123,9 +123,12 @@ export const InteractionAlertsDialog: React.FC<Props> = (props) => {
     );
   };
 
-  const otherTextInput = (value: string | undefined, onChange: (newValue: string) => void): ReactElement => {
+  const otherTextInput = (
+    value: string | undefined,
+    onChange: (newValue: string) => void
+  ): ReactElement | undefined => {
     if (value == null || OVERRIDE_REASON.includes(value)) {
-      return <></>;
+      return undefined;
     }
     return (
       <TextField
@@ -167,7 +170,7 @@ export const InteractionAlertsDialog: React.FC<Props> = (props) => {
     );
   };
 
-  const severityWidget = (severity: string | undefined): ReactElement => {
+  const severityWidget = (severity: 'high' | 'moderate' | 'low' | undefined): ReactElement => {
     const order = SEVERITY_ORDER.indexOf(severity ?? '');
     return (
       <Stack direction="row" spacing="2px" display="flex" alignItems="center">

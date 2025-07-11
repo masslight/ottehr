@@ -1,5 +1,5 @@
 import { Medication } from 'fhir/r4b';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMedicationHistory } from 'src/features/css-module/hooks/useMedicationHistory';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -305,7 +305,6 @@ export const EditableMedicationCard: React.FC<{
           resourceType: 'Medication',
           id: medicationId,
         });
-        console.log(medication);
         const interactionsCheckResponse = await oystehr.erx.checkPrecheckInteractions({
           patientId,
           drugId:
@@ -333,14 +332,6 @@ export const EditableMedicationCard: React.FC<{
   }, [localValues.medicationId, runInteractionsCheck, erxStatus]);
 
   useEffect(() => {
-    console.log('New ERX status ' + erxStatus);
-  }, [erxStatus]);
-
-  useEffect(() => {
-    console.log('New interactionsCheckState state ', interactionsCheckState);
-  }, [interactionsCheckState]);
-
-  useEffect(() => {
     if (medication) {
       setInteractionsCheckState({
         status: 'done',
@@ -349,7 +340,7 @@ export const EditableMedicationCard: React.FC<{
     }
   }, [medication]);
 
-  const interactionsWarning = (): string | undefined => {
+  const interactionsWarning = useMemo(() => {
     if (
       (!localValues.medicationId && !medication) ||
       (typeFromProps !== 'order-new' && typeFromProps !== 'order-edit')
@@ -365,18 +356,20 @@ export const EditableMedicationCard: React.FC<{
       return 'Drug-to-Drug and Drug-Allergy interaction check failed. Please review manually.';
     } else if (interactionsCheckState.status === 'done') {
       const names: string[] = [];
-      interactionsCheckState.interactions?.drugInteractions?.flatMap((drugInteraction) => {
-        return drugInteraction.drugs.map((drug) => drug.name);
-      });
+      interactionsCheckState.interactions?.drugInteractions
+        ?.flatMap((drugInteraction) => {
+          return drugInteraction.drugs.map((drug) => drug.name);
+        })
+        ?.forEach((name) => names.push(name));
       if ((interactionsCheckState.interactions?.allergyInteractions?.length ?? 0) > 0) {
         names.push('Allergy');
       }
       if (names.length > 0) {
-        return names.join(',');
+        return names.join(', ');
       }
     }
     return undefined;
-  };
+  }, [erxEnabled, erxStatus, interactionsCheckState, localValues.medicationId, medication, typeFromProps]);
 
   return (
     <>
@@ -398,7 +391,7 @@ export const EditableMedicationCard: React.FC<{
         saveButtonText={saveButtonText}
         isSaveButtonDisabled={isCardSaveButtonDisabled}
         selectsOptions={selectsOptions}
-        interactionsWarning={interactionsWarning()}
+        interactionsWarning={interactionsWarning}
         onInteractionsWarningClick={() => {
           if (interactionsCheckState.status === 'done') {
             setShowInteractionAlerts(true);
