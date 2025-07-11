@@ -159,6 +159,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     tasksFailed.push(`Failed to update Account: ${JSON.stringify(error)}`);
     console.log(`Failed to update Account: ${JSON.stringify(error)}`);
   }
+  // if the account update was successful, fetch the latest account resources and update the stripe customer
   if (accountBundle && checkBundleOutcomeOk(accountBundle)) {
     try {
       // refetch the patient account resources
