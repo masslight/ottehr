@@ -30,7 +30,8 @@ export const getPatientName = (
 
   const firstMiddleLastName = [firstName, middleName, lastName].filter((x) => !!x).join(' ') || undefined;
 
-  const lastFirstMiddleName = [firstName, lastName, middleName].filter((x) => !!x).join(' ') || undefined;
+  const lastFirstMiddleName = [lastName, firstLastName, middleName].filter((x) => !!x).join(', ') || undefined;
+
   return {
     firstName,
     lastName,
