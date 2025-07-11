@@ -217,7 +217,10 @@ async function updateOrder(
       transactionRequests.push({
         method: 'PUT',
         url: `/MedicationRequest/${orderResources.medicationRequest.id}`,
-        resource: createMedicationRequest(orderData, interactions, newMedicationCopy),
+        resource: {
+          ...createMedicationRequest(orderData, interactions, newMedicationCopy),
+          id: orderResources.medicationRequest.id,
+        },
       });
     }
   }
