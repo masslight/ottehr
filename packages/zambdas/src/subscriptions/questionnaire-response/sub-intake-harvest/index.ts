@@ -170,6 +170,11 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
       if (accountResource) {
         const guarantorReference = getActiveAccountGuarantorReference(accountResource);
         if (guarantorReference) {
+          console.log(
+            'found guarantor reference in account bundle',
+            guarantorReference,
+            JSON.stringify(bundleResources)
+          );
           const guarantorResource = takeContainedOrFind<RelatedPerson | Patient>(
             guarantorReference,
             bundleResources,
