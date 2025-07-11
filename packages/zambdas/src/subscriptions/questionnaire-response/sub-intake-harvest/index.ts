@@ -2,7 +2,6 @@ import Oystehr, { BatchInputPostRequest, Bundle } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import {
-  Account,
   Appointment,
   Encounter,
   FhirResource,
@@ -11,20 +10,16 @@ import {
   Observation,
   Patient,
   QuestionnaireResponseItem,
-  RelatedPerson,
 } from 'fhir/r4b';
 import {
   ADDITIONAL_QUESTIONS_META_SYSTEM,
   checkBundleOutcomeOk,
   FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG,
-  flattenBundleResources,
   flattenIntakeQuestionnaireItems,
-  getActiveAccountGuarantorReference,
   getRelatedPersonForPatient,
   getSecret,
   IntakeQuestionnaireItem,
   SecretsKeys,
-  takeContainedOrFind,
 } from 'utils';
 import {
   createConsentResources,
@@ -32,6 +27,7 @@ import {
   createErxContactOperation,
   createMasterRecordPatchOperations,
   flagPaperworkEdit,
+  getAccountAndCoverageResourcesForPatient,
   updatePatientAccountFromQuestionnaire,
   updateStripeCustomer,
 } from '../../../ehr/shared/harvest';
@@ -165,38 +161,20 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   }
   if (accountBundle && checkBundleOutcomeOk(accountBundle)) {
     try {
-      const bundleResources = flattenBundleResources<FhirResource>(accountBundle);
-      const accountResource = bundleResources.find((res): res is Account => res.resourceType === 'Account');
-      if (accountResource) {
-        const guarantorReference = getActiveAccountGuarantorReference(accountResource);
-        if (guarantorReference) {
-          console.log(
-            'found guarantor reference in account bundle',
-            guarantorReference,
-            JSON.stringify(bundleResources)
-          );
-          const guarantorResource = takeContainedOrFind<RelatedPerson | Patient>(
-            guarantorReference,
-            bundleResources,
-            accountResource
-          );
-          if (guarantorResource) {
-            console.time('updating stripe customer');
-            const stripeClient = getStripeClient(secrets);
-            await updateStripeCustomer({ account: accountResource, guarantorResource, stripeClient });
-            console.timeEnd('updating stripe customer');
-          } else {
-            console.log('found no guarantor resource in account bundle, skipping stripe customer update');
-          }
-        } else {
-          console.log('found no guarantor reference in account bundle, skipping stripe customer update');
-        }
+      // refetch the patient account resources
+      const { account: updatedAccount, guarantorResource: updatedGuarantorResource } =
+        await getAccountAndCoverageResourcesForPatient(patientResource.id, oystehr);
+      if (updatedAccount && updatedGuarantorResource) {
+        console.time('updating stripe customer');
+        const stripeClient = getStripeClient(secrets);
+        await updateStripeCustomer({
+          account: updatedAccount,
+          guarantorResource: updatedGuarantorResource,
+          stripeClient,
+        });
+        console.timeEnd('updating stripe customer');
       } else {
-        console.log(
-          'found no account resource in account bundle, skipping stripe customer update',
-          JSON.stringify(accountBundle),
-          JSON.stringify(bundleResources)
-        );
+        console.log('account or guarantor resource missing, skipping stripe customer update');
       }
     } catch (error: unknown) {
       tasksFailed.push('update stripe customer');

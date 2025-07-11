@@ -2956,6 +2956,9 @@ export interface UpdatePatientAccountInput {
   preserveOmittedCoverages?: boolean;
 }
 
+// todo:
+// would be much better to have some indication what the bundle is expected to include here...
+// should define a strong type, parse out this bundle, and return the expected type
 export const updatePatientAccountFromQuestionnaire = async (
   input: UpdatePatientAccountInput,
   oystehr: Oystehr
