@@ -214,21 +214,35 @@ function createDrugInteractionIssue(resourceId: string, interaction: DrugInterac
         },
       },
     ],
-    evidence: interaction.drugs.map((drug) => {
-      return {
-        code: [
-          {
-            coding: [
-              {
-                system: MEDICATION_DISPENSABLE_DRUG_ID,
-                code: drug.id,
-                display: drug.name,
-              },
-            ],
-          },
-        ],
-      };
-    }),
+    evidence: [
+      ...interaction.drugs.map((drug) => {
+        return {
+          code: [
+            {
+              coding: [
+                {
+                  system: MEDICATION_DISPENSABLE_DRUG_ID,
+                  code: drug.id,
+                  display: drug.name,
+                },
+              ],
+            },
+          ],
+        };
+      }),
+      ...(interaction.source
+        ? [
+            {
+              detail: [
+                {
+                  reference: interaction.source.medicationStatementId,
+                  display: interaction.source.display,
+                },
+              ],
+            },
+          ]
+        : []),
+    ],
   };
 }
 

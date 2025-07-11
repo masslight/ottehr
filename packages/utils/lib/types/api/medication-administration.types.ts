@@ -43,6 +43,10 @@ export interface DrugInteraction {
   severity: 'high' | 'moderate' | 'low' | undefined;
   message?: string;
   overrideReason?: string;
+  source?: {
+    medicationStatementId: string;
+    display: string;
+  };
 }
 
 export interface AllergyInteraction {

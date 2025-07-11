@@ -311,6 +311,15 @@ export const EditableMedicationCard: React.FC<{
             medication.identifier?.find((identifier) => identifier.system === MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM)
               ?.value ?? '',
         });
+        /*const activeMedicationStatements = await oystehr.fhir.search<MedicationStatement>({
+          resourceType: 'MedicationStatement',
+          params: [
+            {
+              name: 'status',
+              value: 'active',
+            },
+          ],
+        });*/
         setInteractionsCheckState({
           status: 'done',
           interactions: medicationInteractionsFromErxResponse(interactionsCheckResponse),
