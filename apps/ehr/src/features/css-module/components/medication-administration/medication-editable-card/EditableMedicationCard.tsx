@@ -1,11 +1,17 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Medication } from 'fhir/r4b';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMedicationHistory } from 'src/features/css-module/hooks/useMedicationHistory';
+import { useApiClients } from 'src/hooks/useAppClients';
+import { ERX, ERXStatus } from 'src/telemed/features/appointment/ERX';
 import {
   ExtendedMedicationDataForResponse,
+  getMedicationName,
   MedicationData,
   medicationExtendedToMedicationData,
+  MedicationInteractions,
   MedicationOrderStatusesType,
+  MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM,
   UpdateMedicationOrderInput,
 } from 'utils';
 import { useAppointment } from '../../../hooks/useAppointment';
@@ -15,6 +21,7 @@ import { useReactNavigationBlocker } from '../../../hooks/useReactNavigationBloc
 import { getEditOrderUrl } from '../../../routing/helpers';
 import { ROUTER_PATH, routesCSS } from '../../../routing/routesCSS';
 import { CSSModal } from '../../CSSModal';
+import { InteractionAlertsDialog } from '../InteractionAlertsDialog';
 import { fieldsConfig, MedicationOrderType } from './fieldsConfig';
 import { MedicationCardView } from './MedicationCardView';
 import {
@@ -23,9 +30,27 @@ import {
   getFieldType,
   getInitialAutoFilledFields,
   getSaveButtonText,
+  interactionsUnresolved,
   isUnsavedMedicationData,
+  medicationInteractionsFromErxResponse,
   validateAllMedicationFields,
 } from './utils';
+
+interface InteractionsCheckState {
+  status: 'in-progress' | 'done' | 'error';
+  medicationName?: string;
+  interactions?: MedicationInteractions;
+}
+
+const INTERACTIONS_CHECK_STATE_ERROR: InteractionsCheckState = {
+  status: 'error',
+  interactions: undefined,
+};
+
+const INTERACTIONS_CHECK_STATE_IN_PROGRESS: InteractionsCheckState = {
+  status: 'in-progress',
+  interactions: undefined,
+};
 
 export const EditableMedicationCard: React.FC<{
   medication?: ExtendedMedicationDataForResponse;
@@ -41,6 +66,11 @@ export const EditableMedicationCard: React.FC<{
   const { mappedData, resources } = useAppointment(appointmentId);
   const [isReasonSelected, setIsReasonSelected] = useState(true);
   const selectsOptions = useFieldsSelectsOptions();
+  const [erxStatus, setERXStatus] = useState(ERXStatus.LOADING);
+  const [interactionsCheckState, setInteractionsCheckState] = useState<InteractionsCheckState>({ status: 'done' });
+  const { oystehr } = useApiClients();
+  const [showInteractionAlerts, setShowInteractionAlerts] = useState(false);
+  const [erxEnabled, setErxEnabled] = useState(false);
 
   const { refetchHistory } = useMedicationHistory();
 
@@ -81,6 +111,9 @@ export const EditableMedicationCard: React.FC<{
       setLocalValues((prev) => ({ ...prev, [field]: Number(value) }));
     } else {
       setLocalValues((prev) => ({ ...prev, [field]: value }));
+    }
+    if (field === 'medicationId' && value !== '') {
+      setErxEnabled(true);
     }
   };
 
@@ -131,6 +164,7 @@ export const EditableMedicationCard: React.FC<{
         patient: resources.patient?.id || '',
         encounterId: resources.encounter?.id || '',
       } as MedicationData,
+      interactions: interactionsCheckState.interactions,
     };
 
     // for order creating or editing we don't have to show confirmation modal, so we can save it immediately
@@ -210,7 +244,8 @@ export const EditableMedicationCard: React.FC<{
     localValues,
     selectedStatus,
     getMedicationFieldValue,
-    autoFilledFieldsRef
+    autoFilledFieldsRef,
+    interactionsCheckState.interactions
   );
 
   const isEditOrderPage = location.pathname.includes(
@@ -226,7 +261,11 @@ export const EditableMedicationCard: React.FC<{
     selectedStatus,
     isUnsavedData
   );
-  const isCardSaveButtonDisabled = typeRef.current !== 'dispense' && (isUpdating || !isUnsavedData);
+  const isCardSaveButtonDisabled =
+    (typeRef.current !== 'dispense' && (isUpdating || !isUnsavedData)) ||
+    (erxEnabled && erxStatus === ERXStatus.LOADING) ||
+    interactionsCheckState.status === 'in-progress' ||
+    interactionsUnresolved(interactionsCheckState.interactions);
 
   const isModalSaveButtonDisabled =
     confirmedMedicationUpdateRequestRef.current.newStatus === 'administered' ? false : isReasonSelected;
@@ -243,6 +282,94 @@ export const EditableMedicationCard: React.FC<{
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const runInteractionsCheck = useCallback(
+    async (medicationId: string) => {
+      if (oystehr == null) {
+        setInteractionsCheckState(INTERACTIONS_CHECK_STATE_ERROR);
+        console.error('oystehr is missing');
+        return;
+      }
+      const patientId = resources.patient?.id;
+      if (patientId == null) {
+        setInteractionsCheckState(INTERACTIONS_CHECK_STATE_ERROR);
+        console.error('patientId is missing');
+        return;
+      }
+      setInteractionsCheckState(INTERACTIONS_CHECK_STATE_IN_PROGRESS);
+      if (erxStatus === ERXStatus.LOADING) {
+        return;
+      }
+      try {
+        const medication = await oystehr.fhir.get<Medication>({
+          resourceType: 'Medication',
+          id: medicationId,
+        });
+        const interactionsCheckResponse = await oystehr.erx.checkPrecheckInteractions({
+          patientId,
+          drugId:
+            medication.identifier?.find((identifier) => identifier.system === MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM)
+              ?.value ?? '',
+        });
+        setInteractionsCheckState({
+          status: 'done',
+          interactions: medicationInteractionsFromErxResponse(interactionsCheckResponse),
+          medicationName: getMedicationName(medication),
+        });
+      } catch (e) {
+        setInteractionsCheckState(INTERACTIONS_CHECK_STATE_ERROR);
+        console.error(e);
+      }
+    },
+    [oystehr, resources.patient?.id, erxStatus]
+  );
+
+  useEffect(() => {
+    const medicationId = localValues.medicationId;
+    if (medicationId) {
+      void runInteractionsCheck(medicationId);
+    }
+  }, [localValues.medicationId, runInteractionsCheck, erxStatus]);
+
+  useEffect(() => {
+    if (medication) {
+      setInteractionsCheckState({
+        status: 'done',
+        interactions: medication.interactions,
+      });
+    }
+  }, [medication]);
+
+  const interactionsWarning = useMemo(() => {
+    if (
+      (!localValues.medicationId && !medication) ||
+      (typeFromProps !== 'order-new' && typeFromProps !== 'order-edit')
+    ) {
+      return undefined;
+    }
+    if (
+      (erxEnabled && erxStatus === ERXStatus.LOADING && (!medication || medication.id !== localValues.medicationId)) ||
+      interactionsCheckState.status === 'in-progress'
+    ) {
+      return 'checking...';
+    } else if (erxStatus === ERXStatus.ERROR || interactionsCheckState.status === 'error') {
+      return 'Drug-to-Drug and Drug-Allergy interaction check failed. Please review manually.';
+    } else if (interactionsCheckState.status === 'done') {
+      const names: string[] = [];
+      interactionsCheckState.interactions?.drugInteractions
+        ?.flatMap((drugInteraction) => {
+          return drugInteraction.drugs.map((drug) => drug.name);
+        })
+        ?.forEach((name) => names.push(name));
+      if ((interactionsCheckState.interactions?.allergyInteractions?.length ?? 0) > 0) {
+        names.push('Allergy');
+      }
+      if (names.length > 0) {
+        return names.join(', ');
+      }
+    }
+    return undefined;
+  }, [erxEnabled, erxStatus, interactionsCheckState, localValues.medicationId, medication, typeFromProps]);
 
   return (
     <>
@@ -264,6 +391,12 @@ export const EditableMedicationCard: React.FC<{
         saveButtonText={saveButtonText}
         isSaveButtonDisabled={isCardSaveButtonDisabled}
         selectsOptions={selectsOptions}
+        interactionsWarning={interactionsWarning}
+        onInteractionsWarningClick={() => {
+          if (interactionsCheckState.status === 'done') {
+            setShowInteractionAlerts(true);
+          }
+        }}
       />
       <CSSModal
         icon={null}
@@ -292,6 +425,23 @@ export const EditableMedicationCard: React.FC<{
         />
       ) : null}
       <ConfirmationModalForLeavePage />
+      {showInteractionAlerts ? (
+        <InteractionAlertsDialog
+          medicationName={interactionsCheckState.medicationName ?? medication?.medicationName ?? ''}
+          interactions={interactionsCheckState.interactions ?? {}}
+          onCancel={() => setShowInteractionAlerts(false)}
+          onContinue={(interactions: MedicationInteractions) => {
+            setShowInteractionAlerts(false);
+            setInteractionsCheckState({
+              status: 'done',
+              interactions,
+            });
+          }}
+        />
+      ) : null}
+      {(typeFromProps === 'order-new' || typeFromProps === 'order-edit') && erxEnabled ? (
+        <ERX onStatusChanged={setERXStatus} showDefaultAlert={false} />
+      ) : null}
     </>
   );
 };
