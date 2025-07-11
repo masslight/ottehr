@@ -38,7 +38,10 @@ export const OrderDetails: React.FC<CollectSampleViewProps> = ({ orderDetails, o
             variant="contained"
             color="primary"
             onClick={handleMarkAsCollected}
-            disabled={orderDetails.status === NursingOrdersStatus.completed}
+            disabled={
+              orderDetails.status === NursingOrdersStatus.completed ||
+              orderDetails.status === NursingOrdersStatus.cancelled
+            }
             sx={{ borderRadius: '50px', px: 4 }}
           >
             Mark as Completed
