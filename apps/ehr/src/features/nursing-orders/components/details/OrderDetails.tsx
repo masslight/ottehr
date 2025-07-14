@@ -32,18 +32,21 @@ export const OrderDetails: React.FC<CollectSampleViewProps> = ({ orderDetails, o
             <Typography>{orderDetails.note}</Typography>
           </Box>
         </Box>
-        <Divider />
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', p: 3 }}>
-          <ButtonRounded
-            variant="contained"
-            color="primary"
-            onClick={handleMarkAsCollected}
-            disabled={orderDetails.status === NursingOrdersStatus.completed}
-            sx={{ borderRadius: '50px', px: 4 }}
-          >
-            Mark as Completed
-          </ButtonRounded>
-        </Box>
+        {orderDetails.status === NursingOrdersStatus.pending && (
+          <>
+            <Divider />
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', p: 3 }}>
+              <ButtonRounded
+                variant="contained"
+                color="primary"
+                onClick={handleMarkAsCollected}
+                sx={{ borderRadius: '50px', px: 4 }}
+              >
+                Mark as Completed
+              </ButtonRounded>
+            </Box>
+          </>
+        )}
       </Paper>
     </Box>
   );
