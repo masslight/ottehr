@@ -49,6 +49,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       secrets,
       specimens: specimensFromSubmit,
     } = validateRequestParameters(input);
+    console.log('manualOrder', serviceRequestID, manualOrder);
 
     console.log('Getting token');
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
@@ -379,6 +380,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const orderID = manualOrderId
       ? manualOrderId
       : serviceRequestTemp.identifier?.find((item) => item.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)?.value;
+
+    console.log('orderID', serviceRequestID, orderID);
 
     const orderCreateDate = serviceRequest.authoredOn
       ? DateTime.fromISO(serviceRequest.authoredOn).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)

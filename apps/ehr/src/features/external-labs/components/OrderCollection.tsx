@@ -186,7 +186,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
         <CustomDialog
           open={errorDialogOpen}
           confirmLoading={submitLoading}
-          handleConfirm={handleManualSubmit}
+          handleConfirm={() => handleManualSubmit()}
           confirmText="Manually submit lab order"
           handleClose={() => setErrorDialogOpen(false)}
           title="Error submitting lab order"
