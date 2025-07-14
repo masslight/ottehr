@@ -119,9 +119,11 @@ export const BillingCodesContainer: FC = () => {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-        <AssessmentTitle>
-          <TooltipWrapper tooltipProps={CPT_TOOLTIP_PROPS}>Billing</TooltipWrapper>
-        </AssessmentTitle>
+        <Box sx={{ color: '#0F347C' }}>
+          <TooltipWrapper tooltipProps={CPT_TOOLTIP_PROPS}>
+            <AssessmentTitle>Billing</AssessmentTitle>
+          </TooltipWrapper>
+        </Box>
         <Autocomplete
           options={emCodeOptions}
           disabled={disabledEM}
