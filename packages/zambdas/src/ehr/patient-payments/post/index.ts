@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Identifier, Money, PaymentNotice, PaymentReconciliation, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -144,12 +145,18 @@ const performEffect = async (
     // here's where we might set a candidPayment id once candid stuff has been added
   }
 
-  await performCandidPreEncounterSync({
-    encounterId,
-    oystehr: oystehrClient,
-    secrets: requiredSecrets.secrets,
-    amountCents: amountInCents,
-  });
+  try {
+    await performCandidPreEncounterSync({
+      encounterId,
+      oystehr: oystehrClient,
+      secrets: requiredSecrets.secrets,
+      amountCents: amountInCents,
+    });
+  } catch (error) {
+    console.error(`Error during Candid pre-encounter sync: ${error}`);
+    captureException(error);
+    // We are eating this error to allow the payment to still be recorded even though the Candid sync failed.
+  }
 
   const noticeToWrite = makePaymentNotice(paymentNoticeInput);
 

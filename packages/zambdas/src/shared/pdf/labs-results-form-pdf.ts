@@ -367,11 +367,12 @@ export async function createExternalLabResultPDF(
         diagnosticReport.result?.some((resultTemp) => resultTemp.reference?.split('/')[1] === observation.id)
     )
     .sort((a, b) => {
+      // obr notes should be sorted at the top of the observations list
       const aIsObrNote = a.code.coding?.some((c) => c.system === OYSTEHR_OBR_NOTE_CODING_SYSTEM);
       const bIsObrNote = b.code.coding?.some((c) => c.system === OYSTEHR_OBR_NOTE_CODING_SYSTEM);
 
-      if (aIsObrNote && !bIsObrNote) return 1; // a comes after b
-      if (!aIsObrNote && bIsObrNote) return -1; // a comes before b
+      if (!aIsObrNote && bIsObrNote) return 1; // a comes before b
+      if (aIsObrNote && !bIsObrNote) return -1; // a comes after b
       return 0; // no change
     })
     .forEach((observation) => {
