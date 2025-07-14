@@ -156,7 +156,7 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
   });
 
   const [isERXOpen, setIsERXOpen] = useState(false);
-  const [erxStatus, setERXStatus] = useState(ERXStatus.LOADING);
+  const [erxStatus, setERXStatus] = useState(ERXStatus.INITIAL);
   const [openTooltip, setOpenTooltip] = useState(false);
   const [cancellationLoading, setCancellationLoading] = useState<string[]>([]);
   const { oystehr } = useApiClients();
@@ -223,7 +223,7 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
                   onClick={() => onNewOrderClick()}
                   startIcon={erxStatus === ERXStatus.LOADING ? <CircularProgress size={16} /> : <AddIcon />}
                 >
-                  Open eRX
+                  {erxStatus === ERXStatus.LOADING ? 'Loading eRx' : 'Open eRx'}
                 </RoundedButton>
               )}
             </Stack>
