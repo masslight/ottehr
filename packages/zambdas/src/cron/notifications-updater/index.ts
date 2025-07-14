@@ -16,6 +16,7 @@ import {
   PROVIDER_NOTIFICATION_TYPE_SYSTEM,
   ProviderNotificationMethod,
   ProviderNotificationSettings,
+  removePrefix,
   RoleType,
   Secrets,
   SecretsKeys,
@@ -25,6 +26,7 @@ import {
 import { getTelemedEncounterAppointmentId } from '../../ehr/get-telemed-appointments/helpers/mappers';
 import {
   checkOrCreateM2MClientToken,
+  createOystehrClient,
   getEmployees,
   getRoleMembers,
   getRoles,
@@ -32,8 +34,6 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
-import { removePrefix } from '../../shared/appointment/helpers';
-import { createOystehrClient } from '../../shared/helpers';
 
 export function validateRequestParameters(input: ZambdaInput): { secrets: Secrets | null } {
   return {
@@ -369,7 +369,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
             // not to send multiple notifications of the same "Unsigned charts" type by sms one by one - check if theres any and update
             const existingUnsignedNotificationPending = sendSMSPractitionerCommunications[
               practitionerResource.id!
-            ].communications.find(
+            ]?.communications.find(
               (comm) =>
                 comm.category?.[0].coding?.[0].system === PROVIDER_NOTIFICATION_TYPE_SYSTEM &&
                 comm.category?.[0].coding?.[0].code === AppointmentProviderNotificationTypes.unsigned_charts
