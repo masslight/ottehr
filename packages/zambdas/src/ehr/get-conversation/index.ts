@@ -41,7 +41,7 @@ interface ConversationItem {
   isFromPatient: boolean;
 }
 
-let zapehrToken: string;
+let oystehrToken: string;
 const CHUNK_SIZE = 100;
 const MAX_MESSAGE_COUNT = '1000';
 
@@ -51,14 +51,14 @@ export const index = wrapHandler('get-conversation', async (input: ZambdaInput):
     const validatedParameters = validateRequestParameters(input);
     const { secrets, smsNumbers, timezone } = validatedParameters;
     console.groupEnd();
-    if (!zapehrToken) {
+    if (!oystehrToken) {
       console.log('getting token');
-      zapehrToken = await getAuth0Token(secrets);
+      oystehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }
 
-    const oystehr = createOystehrClient(zapehrToken, secrets);
+    const oystehr = createOystehrClient(oystehrToken, secrets);
     const uniqueNumbers = Array.from(new Set(smsNumbers));
     const smsQuery = uniqueNumbers.map((number) => `${number}`).join(',');
     console.log('smsQuery', smsQuery);
@@ -70,7 +70,7 @@ export const index = wrapHandler('get-conversation', async (input: ZambdaInput):
       })
     )
       .unbundle()
-      .map((recip) => `RelatedPerson/${recip.id}`);
+      .map((recipient) => `RelatedPerson/${recipient.id}`);
     console.timeEnd('sms-query');
     console.log(
       `found ${allRecipients.length} related persons with the sms number ${smsQuery}; searching messages for all those recipients`
@@ -84,7 +84,7 @@ export const index = wrapHandler('get-conversation', async (input: ZambdaInput):
     ]);
     console.timeEnd('get_sent_and_received_messages');
 
-    console.time('structure_convo_data');
+    console.time('structure_conversation_data');
     const rpMap: Record<string, RelatedPerson> = {};
     const senderMap: Record<string, Device | Practitioner> = {};
     const patientMap: Record<string, Patient> = {};
@@ -168,7 +168,7 @@ export const index = wrapHandler('get-conversation', async (input: ZambdaInput):
           isFromPatient,
         };
       });
-    console.time('structure_convo_data');
+    console.time('structure_conversation_data');
 
     console.log('messages to return: ', allMessages.length);
 

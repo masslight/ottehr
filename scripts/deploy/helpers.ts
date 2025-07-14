@@ -5,7 +5,7 @@ import config from './deploy-config.json';
 const projectConfig: any = config;
 const environment = projectConfig.environment;
 
-export async function updateZapehr(oystehr: Oystehr, patientPortalUrl: string, ehrUrl: string): Promise<void> {
+export async function updateOystehr(oystehr: Oystehr, patientPortalUrl: string, ehrUrl: string): Promise<void> {
   const applications = await oystehr.application.list();
   const envPatientPortalFile = fs.readFileSync(`${__dirname}/../../apps/intake/env/.env.${environment}`, 'utf8');
   const applicationPatientPortalClientID = envPatientPortalFile

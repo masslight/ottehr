@@ -36,7 +36,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const { accounts, coverages, labOrgsGuids } = await getResources(oystehr, patientId, labSearch);
+    const { accounts, coverages, labOrgsGUIDs } = await getResources(oystehr, patientId, labSearch);
 
     let coverageName: string | undefined;
     if (patientId) {
@@ -45,7 +45,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     let labs: OrderableItemSearchResult[] = [];
     if (labSearch) {
-      labs = await getLabs(labOrgsGuids, labSearch, m2mToken);
+      labs = await getLabs(labOrgsGUIDs, labSearch, m2mToken);
     }
 
     const response: LabOrderResourcesRes = {
@@ -76,7 +76,7 @@ const getResources = async (
   oystehr: Oystehr,
   patientId?: string,
   labSearch?: string
-): Promise<{ accounts: Account[]; coverages: Coverage[]; labOrgsGuids: string[] }> => {
+): Promise<{ accounts: Account[]; coverages: Coverage[]; labOrgsGUIDs: string[] }> => {
   const requests: BatchInputRequest<Coverage | Account | Organization>[] = [];
 
   if (patientId) {
@@ -107,28 +107,28 @@ const getResources = async (
   const coverages: Coverage[] = [];
   const accounts: Account[] = [];
   const organizations: Organization[] = [];
-  const labOrgsGuids: string[] = [];
+  const labOrgsGUIDs: string[] = [];
 
   resources.forEach((resource) => {
     if (resource.resourceType === 'Organization') {
       const fhirOrg = resource as Organization;
       organizations.push(fhirOrg);
       const labGuid = fhirOrg.identifier?.find((id) => id.system === OYSTEHR_LAB_GUID_SYSTEM)?.value;
-      if (labGuid) labOrgsGuids.push(labGuid);
+      if (labGuid) labOrgsGUIDs.push(labGuid);
     }
     if (resource.resourceType === 'Coverage') coverages.push(resource as Coverage);
     if (resource.resourceType === 'Account') accounts.push(resource as Account);
   });
 
-  return { coverages, accounts, labOrgsGuids };
+  return { coverages, accounts, labOrgsGUIDs };
 };
 
 const getLabs = async (
-  labOrgsGuids: string[],
+  labOrgsGUIDs: string[],
   search: string,
   m2mToken: string
 ): Promise<OrderableItemSearchResult[]> => {
-  const labIds = labOrgsGuids.join(',');
+  const labIds = labOrgsGUIDs.join(',');
   let cursor = '';
   const items: OrderableItemSearchResult[] = [];
 

@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon';
 import { useMutation, useQuery } from 'react-query';
-import { ZapEHRAPIClient } from 'ui-components';
+import { OystehrAPIClient } from 'ui-components';
 import {
   BookableItemListResponse,
   GetBookableItemListParams,
@@ -19,7 +19,7 @@ export const useCreateAppointmentMutation = () =>
       patientInfo,
       stateInfo,
     }: {
-      apiClient: ZapEHRAPIClient;
+      apiClient: OystehrAPIClient;
       patientInfo: PatientInfo;
       unconfirmedDateOfBirth?: string;
       stateInfo: { locationState: string };
@@ -43,7 +43,7 @@ export const useUpdateAppointmentMutation = () => {
       patientInfo,
       stateInfo,
     }: {
-      apiClient: ZapEHRAPIClient;
+      apiClient: OystehrAPIClient;
       patientInfo: PatientInfo;
       appointmentID: string;
       stateInfo?: { locationState: string };
@@ -65,7 +65,7 @@ export const useCancelAppointmentMutation = () =>
       appointmentID,
       cancellationReason,
     }: {
-      apiClient: ZapEHRAPIClient;
+      apiClient: OystehrAPIClient;
       appointmentID: string;
       cancellationReason: string;
     }) => {
@@ -77,7 +77,7 @@ export const useCancelAppointmentMutation = () =>
   });
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useGetAppointments = (apiClient: ZapEHRAPIClient | null, enabled = true, patientId?: string) =>
+export const useGetAppointments = (apiClient: OystehrAPIClient | null, enabled = true, patientId?: string) =>
   useQuery(
     ['appointments', patientId],
     () => {
@@ -96,7 +96,7 @@ export const useGetAppointments = (apiClient: ZapEHRAPIClient | null, enabled = 
   );
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useGetVisitDetails = (apiClient: ZapEHRAPIClient | null, enabled = true, appointmentId?: string) =>
+export const useGetVisitDetails = (apiClient: OystehrAPIClient | null, enabled = true, appointmentId?: string) =>
   useQuery(
     ['appointment', appointmentId],
     () => {
@@ -115,7 +115,7 @@ export const useGetVisitDetails = (apiClient: ZapEHRAPIClient | null, enabled = 
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetTelemedStates = (
-  apiClient: ZapEHRAPIClient | null,
+  apiClient: OystehrAPIClient | null,
   enabled = true,
   onSuccess?: (data: GetTelemedLocationsResponse) => void
 ) =>
@@ -139,7 +139,7 @@ export const useGetTelemedStates = (
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetBookableItems = (
-  apiClient: ZapEHRAPIClient | null,
+  apiClient: OystehrAPIClient | null,
   enabled = true,
   params: GetBookableItemListParams,
   onSuccess?: (data: BookableItemListResponse) => void
@@ -164,7 +164,7 @@ export const useGetBookableItems = (
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetSchedule = (
-  apiClient: ZapEHRAPIClient | null,
+  apiClient: OystehrAPIClient | null,
   enabled = true,
   params: GetScheduleRequestParams,
   onSuccess?: (data: GetScheduleResponse) => void

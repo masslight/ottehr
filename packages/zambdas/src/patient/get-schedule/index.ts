@@ -30,7 +30,7 @@ import {
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let zapehrToken: string;
+let oystehrToken: string;
 export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log('this should get logged out if the zambda has been deployed');
   console.log(`Input: ${JSON.stringify(input)}`);
@@ -42,14 +42,14 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    if (!zapehrToken) {
+    if (!oystehrToken) {
       console.log('getting token');
-      zapehrToken = await getAuth0Token(secrets);
+      oystehrToken = await getAuth0Token(secrets);
     } else {
-      console.log('already have token', zapehrToken);
+      console.log('already have token', oystehrToken);
     }
 
-    const oystehr = createOystehrClient(zapehrToken, secrets);
+    const oystehr = createOystehrClient(oystehrToken, secrets);
     if (!oystehr) {
       throw new Error('error initializing fhir client');
     }
@@ -85,7 +85,7 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
 
     const now = DateTime.now();
 
-    // todo: this should live on a fhir resource raather than being a global secret
+    // todo: this should live on a fhir resource rather than being a global secret
     const DISPLAY_TOMORROW_SLOTS_AT_HOUR = parseInt(
       getSecret(SecretsKeys.IN_PERSON_PREBOOK_DISPLAY_TOMORROW_SLOTS_AT_HOUR, secrets)
     );

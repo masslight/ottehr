@@ -68,7 +68,7 @@ export type FullAccessPaperworkSupportingInfo = Omit<PaperworkSupportingInfo, 'p
 };
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let zapehrToken: string;
+let oystehrToken: string;
 export const index = wrapHandler('get-paperwork', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
@@ -77,15 +77,15 @@ export const index = wrapHandler('get-paperwork', async (input: ZambdaInput): Pr
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    if (!zapehrToken) {
+    if (!oystehrToken) {
       console.log('getting token');
-      zapehrToken = await getAuth0Token(secrets);
+      oystehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }
 
-    const oystehr = createOystehrClient(zapehrToken, secrets);
-    // const z3Client = createZ3Client(zapehrToken, secrets);
+    const oystehr = createOystehrClient(oystehrToken, secrets);
+    // const z3Client = createZ3Client(oystehrToken, secrets);
     // const projectAPI = getSecret(SecretsKeys.PROJECT_API, secrets);
 
     let appointment: Appointment | undefined = undefined;
@@ -198,11 +198,11 @@ export const index = wrapHandler('get-paperwork', async (input: ZambdaInput): Pr
     console.log('base category resources found');
     console.timeEnd('get-appointment-encounter-location-patient');
 
-    const [sourceQuestionaireUrl, sourceQuestionnaireVersion] = questionnaireResponseResource.questionnaire?.split(
+    const [sourceQuestionnaireUrl, sourceQuestionnaireVersion] = questionnaireResponseResource.questionnaire?.split(
       '|'
     ) ?? [null, null];
 
-    const urlForQFetch = sourceQuestionaireUrl;
+    const urlForQFetch = sourceQuestionnaireUrl;
     const versionForQFetch = sourceQuestionnaireVersion;
     if (!urlForQFetch || !versionForQFetch) {
       throw new Error(`Questionnaire for QR is not well defined: ${urlForQFetch}|${versionForQFetch}`);
@@ -275,7 +275,7 @@ export const index = wrapHandler('get-paperwork', async (input: ZambdaInput): Pr
         return sex as PersonSex | undefined;
       };
 
-      // console.log('qrresponse item', JSON.stringify(questionnaireResponseResource.item));
+      // console.log('qrResponse item', JSON.stringify(questionnaireResponseResource.item));
 
       const response: UCGetPaperworkResponse = {
         ...partialAppointment,
@@ -444,7 +444,7 @@ const makeLocationSummary = (input: LocationSummaryInput): AppointmentSummary['l
       scheduleExtension,
     };
   } else if (practitioner) {
-    // todo build out pracitioner scheduling more
+    // todo build out practitioner scheduling more
     return {
       id: practitioner?.id,
       slug: practitioner?.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)?.value,

@@ -20,13 +20,13 @@ import {
   CODE_SYSTEM_CPT,
   CODE_SYSTEM_ICD_9,
   CODE_SYSTEM_ICD_10,
+  CODE_SYSTEM_OYSTEHR_RCM_CMS1500_DATE_TYPE,
+  CODE_SYSTEM_OYSTEHR_RCM_CMS1500_PROCEDURE_MODIFIER,
+  CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE,
+  CODE_SYSTEM_OYSTEHR_RCM_CMS1500_RESUBMISSION_RELATIONSHIP,
+  CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REVENUE_CODE,
   CODE_SYSTEM_PAYEE_TYPE,
   CODE_SYSTEM_PROCESS_PRIORITY,
-  CODE_SYSTEM_ZAPEHR_RCM_CMS1500_DATE_TYPE,
-  CODE_SYSTEM_ZAPEHR_RCM_CMS1500_PROCEDURE_MODIFIER,
-  CODE_SYSTEM_ZAPEHR_RCM_CMS1500_REFFERING_PROVIDER_TYPE,
-  CODE_SYSTEM_ZAPEHR_RCM_CMS1500_RESUBMITTION_RELATIONSHIP,
-  CODE_SYSTEM_ZAPEHR_RCM_CMS1500_REVENUE_CODE,
   EMERGENCY_REVENUE_CODE,
   EXTENSION_CLAIM_CONDITION_CODE,
   EXTENSION_OUTSIDE_CHARGES,
@@ -154,7 +154,7 @@ function createSupportingInfo(cms1500: Cms1500): ClaimSupportingInfo[] | undefin
             category: codeableConcept('onset', CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY),
             code: codeableConcept(
               validateDefined(cms1500.dateOfCurrentIllness.qualifier, 'dateOfCurrentIllness.qualifier'),
-              CODE_SYSTEM_ZAPEHR_RCM_CMS1500_DATE_TYPE
+              CODE_SYSTEM_OYSTEHR_RCM_CMS1500_DATE_TYPE
             ),
             timingDate: validateDefined(cms1500.dateOfCurrentIllness.date, 'dateOfCurrentIllness.date'),
           }
@@ -165,9 +165,9 @@ function createSupportingInfo(cms1500: Cms1500): ClaimSupportingInfo[] | undefin
             category: codeableConcept('other', CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY),
             code: codeableConcept(
               validateDefined(cms1500.otherDate.qualifier, 'otherDate.qualifier'),
-              CODE_SYSTEM_ZAPEHR_RCM_CMS1500_DATE_TYPE
+              CODE_SYSTEM_OYSTEHR_RCM_CMS1500_DATE_TYPE
             ),
-            timingDate: validateDefined(cms1500.otherDate.date, 'therDate.date'),
+            timingDate: validateDefined(cms1500.otherDate.date, 'otherDate.date'),
           }
         : undefined,
       cms1500.patientUnableToWorkPeriod
@@ -234,7 +234,7 @@ function createClaimRelated(cms1500: Cms1500): ClaimRelated[] | undefined {
     {
       relationship: codeableConcept(
         validateDefined(cms1500.resubmission.code, 'resubmission.code'),
-        CODE_SYSTEM_ZAPEHR_RCM_CMS1500_RESUBMITTION_RELATIONSHIP
+        CODE_SYSTEM_OYSTEHR_RCM_CMS1500_RESUBMISSION_RELATIONSHIP
       ),
       reference: {
         value: cms1500.resubmission.originalReferenceNumber,
@@ -322,7 +322,7 @@ function referringProviderRole(qualifier: string): CodeableConcept {
   if (code === undefined) {
     throw new Error(`Unsupported qualifier for referring provider "${qualifier}"`);
   }
-  return codeableConcept(code, CODE_SYSTEM_ZAPEHR_RCM_CMS1500_REFFERING_PROVIDER_TYPE);
+  return codeableConcept(code, CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE);
 }
 
 function createServiceItems(cms1500: Cms1500): ClaimItem[] | undefined {
@@ -336,7 +336,7 @@ function createServiceItems(cms1500: Cms1500): ClaimItem[] | undefined {
         CODE_SYSTEM_CMS_PLACE_OF_SERVICE
       ),
       revenue: service.emergency
-        ? codeableConcept(EMERGENCY_REVENUE_CODE, CODE_SYSTEM_ZAPEHR_RCM_CMS1500_REVENUE_CODE)
+        ? codeableConcept(EMERGENCY_REVENUE_CODE, CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REVENUE_CODE)
         : undefined,
       productOrService: {
         coding: [
@@ -367,7 +367,7 @@ function createServiceItems(cms1500: Cms1500): ClaimItem[] | undefined {
     };
     if (service.procedures?.modifiers) {
       item.modifier = service.procedures.modifiers.map((modifier) =>
-        codeableConcept(modifier, CODE_SYSTEM_ZAPEHR_RCM_CMS1500_PROCEDURE_MODIFIER)
+        codeableConcept(modifier, CODE_SYSTEM_OYSTEHR_RCM_CMS1500_PROCEDURE_MODIFIER)
       );
     }
     return item;

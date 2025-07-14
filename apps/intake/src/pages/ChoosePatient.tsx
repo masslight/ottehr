@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { FieldValues } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
-import { CancellationReasonOptionsInPerson, getDateComponentsFromISOString, VisitType } from 'utils';
+import { CancellationReasonOptionsInPerson, getDateComponentsFromISOString, PROJECT_NAME, VisitType } from 'utils';
 import { ottehrApi } from '../api';
 import { intakeFlowPageRoute } from '../App';
 import { CardWithDescriptionAndLink, PageContainer } from '../components';
@@ -356,7 +356,7 @@ const ChoosePatient = (): JSX.Element => {
           <CardWithDescriptionAndLink
             iconHeight={50}
             icon={ottehrLightBlue}
-            iconAlt="ottehr icon"
+            iconAlt={`${PROJECT_NAME} icon`}
             mainText={t('welcomeBack.alreadyReserved')}
             textColor={otherColors.white}
             descText={t('welcomeBack.checkIn')}

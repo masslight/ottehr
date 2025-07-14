@@ -47,7 +47,7 @@ export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails, loading 
         </Box>
       </Box>
 
-      {resultDetails.resultType === 'final' && (
+      {(resultDetails.resultType === 'final' || resultDetails.resultType === 'cancelled') && (
         <FinalCardView
           resultPdfUrl={resultDetails.resultPdfUrl}
           labStatus={resultDetails.labStatus}
@@ -62,6 +62,7 @@ export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails, loading 
           receivedDate={resultDetails.receivedDate}
           reviewedDate={resultDetails.reviewedDate}
           onPrelimView={() => onMarkAsReviewed()} // todo: add open PDF when task will be ready
+          timezone={labOrder.encounterTimezone}
         />
       )}
     </>

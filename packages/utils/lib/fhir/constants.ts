@@ -4,7 +4,10 @@ import {
   AppointmentType,
   CONSENT_CODE,
   EXPORTED_QUESTIONNAIRE_CODE,
+  EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE,
   INSURANCE_CARD_CODE,
+  LAB_ORDER_DOC_REF_CODING_CODE,
+  LAB_RESULT_DOC_REF_CODING_CODE,
   PATIENT_PHOTO_CODE,
   PHOTO_ID_CARD_CODE,
   PRIVACY_POLICY_CODE,
@@ -30,7 +33,7 @@ export const ROOM_EXTENSION_URL = 'http://hl7.org/fhir/StructureDefinition/room'
 export const FHIR_BASE_URL = 'https://fhir.ottehr.com';
 
 export const FHIR_IDENTIFIER_NPI = 'http://hl7.org/fhir/sid/us-npi';
-export const FHIR_IDENTIFIER_SYSTEM_TAX = 'http://terminology.hl7.org/CodeSystem/v2-0203';
+export const FHIR_IDENTIFIER_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v2-0203';
 export const FHIR_IDENTIFIER_CODE_TAX_EMPLOYER = 'NE';
 export const FHIR_IDENTIFIER_CODE_TAX_SS = 'SS';
 export const FHIR_AI_CHAT_CONSENT_CATEGORY_CODE = 'ai-chat';
@@ -373,6 +376,15 @@ export const FOLDERS_CONFIG: ListConfig[] = [
     title: 'school-work-note-templates',
     display: 'School/Work Note templates',
     documentTypeCode: SCHOOL_WORK_NOTE_TEMPLATE_CODE,
+  },
+  {
+    title: 'labs',
+    display: 'Labs',
+    documentTypeCode: [
+      LAB_ORDER_DOC_REF_CODING_CODE.code,
+      LAB_RESULT_DOC_REF_CODING_CODE.code,
+      EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE.code,
+    ],
   },
   {
     title: 'receipts',

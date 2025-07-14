@@ -18,10 +18,18 @@ import {
   useTheme,
 } from '@mui/material';
 import Typography from '@mui/material/Typography';
-import { Location, Patient } from 'fhir/r4b';
+import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ChangeEvent, memo, ReactElement, UIEvent, useEffect, useMemo, useState } from 'react';
-import { AppointmentMessaging, ConversationMessage, initialsFromName, markAllMessagesRead } from 'utils';
+import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
+import {
+  AppointmentMessaging,
+  ConversationMessage,
+  getTimezone,
+  initialsFromName,
+  markAllMessagesRead,
+  Timezone,
+} from 'utils';
 import { CompleteConfiguration } from '../../components/CompleteConfiguration';
 import { LANGUAGES } from '../../constants';
 import { dataTestIds } from '../../constants/data-test-ids';
@@ -77,7 +85,7 @@ const ChatModal = memo(
   }: {
     appointment: AppointmentMessaging;
     patient?: Patient;
-    currentLocation?: Location;
+    currentLocation?: LocationWithWalkinSchedule;
     onClose: () => void;
     onMarkAllRead: () => void;
     quickTexts: { [key in LANGUAGES]: string }[] | string[];
@@ -96,11 +104,10 @@ const ChatModal = memo(
     const { patient: patientFromAppointment, smsModel: model } = appointment;
     const timezone = useMemo(() => {
       // const state = currentLocation?.address?.state;
-      return (
-        currentLocation?.extension?.find((ext) => {
-          return ext.url === 'http://hl7.org/fhir/StructureDefinition/timezone';
-        })?.valueString ?? 'America/New_York'
-      );
+      if (currentLocation) {
+        return getTimezone(currentLocation.walkinSchedule ?? currentLocation) ?? 'America/New_York';
+      }
+      return 'America/New_York';
     }, [currentLocation]);
 
     let patientName;
@@ -241,10 +248,11 @@ const ChatModal = memo(
             message={message}
             hasNewMessageLine={newMessagesStartId !== undefined && message.id === newMessagesStartId}
             showDaySent={true} //keeping this config in case minds change again, YAGNI, I know
+            timezone={timezone}
           />
         );
       });
-    }, [isMessagesFetching, messages, newMessagesStartId, pendingMessageSend]);
+    }, [isMessagesFetching, messages, newMessagesStartId, pendingMessageSend, timezone]);
 
     useEffect(() => {
       if (MessageBodies.length) {
@@ -481,13 +489,21 @@ interface MessageBodyProps {
   message: ConversationMessage;
   contentKey: string;
   showDaySent: boolean;
+  timezone: Timezone;
 }
 const MessageBody: React.FC<MessageBodyProps> = (props) => {
-  const { isPending, message, contentKey, hasNewMessageLine, showDaySent } = props;
+  const { isPending, message, contentKey, hasNewMessageLine, showDaySent, timezone } = props;
   const theme = useTheme();
-  const authorInitials = useMemo(() => {
-    return initialsFromName(message.sender);
-  }, [message.sender]);
+  const authorInitials = initialsFromName(message.sender);
+
+  const sentTimeLabel = (() => {
+    if (!message.sentTime || !message.sentDay) return '';
+    const sentDate = DateTime.fromFormat(`${message.sentDay} ${message.sentTime}`, 'M/d/yy h:mm a', {
+      zone: timezone,
+    });
+
+    return sentDate.toFormat('M/d/yy h:mm a ZZZZ', { locale: 'en-US' });
+  })();
 
   return (
     <Grid container item key={contentKey} spacing={3} sx={{ opacity: isPending ? '0.5' : '1.0' }}>
@@ -514,7 +530,7 @@ const MessageBody: React.FC<MessageBodyProps> = (props) => {
                 paddingTop: '40px',
               }}
             >
-              {`${message.sentDay} ${message.sentTime}`}
+              {`${sentTimeLabel}`}
             </Typography>
           </Grid>
         )}

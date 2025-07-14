@@ -2,7 +2,8 @@ import { Secrets } from '../../../secrets';
 
 export interface SignAppointmentInput {
   appointmentId: string;
-  secrets: Secrets | null;
+  secrets: Secrets;
+  timezone: string | null;
 }
 
 export interface SignAppointmentResponse {

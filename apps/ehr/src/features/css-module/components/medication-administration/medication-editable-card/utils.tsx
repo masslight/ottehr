@@ -1,8 +1,10 @@
 import { Box, Typography } from '@mui/material';
+import { ErxCheckPrecheckInteractionsResponse } from '@oystehr/sdk';
 import { DateTime } from 'luxon';
 import {
   ExtendedMedicationDataForResponse,
   MedicationData,
+  MedicationInteractions,
   MedicationOrderStatusesType,
   UpdateMedicationOrderInput,
 } from 'utils';
@@ -19,13 +21,12 @@ export const medicationOrderFieldsWithOptions: Partial<keyof ExtendedMedicationD
 
 export type MedicationOrderFieldWithOptionsType = (typeof medicationOrderFieldsWithOptions)[number];
 
-export type InHouseMedicationFieldType = 'text' | 'number' | 'select' | 'date' | 'time' | 'month' | 'autocomplete';
+export type InHouseMedicationFieldType = 'text' | 'number' | 'select' | 'datetime' | 'month' | 'autocomplete';
 
 export const getFieldType = (field: keyof MedicationData): InHouseMedicationFieldType => {
   if (field === 'dose') return 'number';
   if (field === 'expDate') return 'month';
-  if (field === 'dateGiven') return 'date';
-  if (field === 'timeGiven') return 'time';
+  if (field === 'effectiveDateTime') return 'datetime';
   if (field === 'medicationId') return 'autocomplete';
   if (medicationOrderFieldsWithOptions.includes(field)) return 'select';
   return 'text';
@@ -80,7 +81,8 @@ export const isUnsavedMedicationData = (
     field: Field,
     type?: string
   ) => MedicationData[Field] | '',
-  autoFilledFieldsRef: React.MutableRefObject<Partial<MedicationData>>
+  autoFilledFieldsRef: React.MutableRefObject<Partial<MedicationData>>,
+  interactions: MedicationInteractions | undefined
 ): boolean => {
   if (!savedMedication) {
     return Object.values(localValues).some((value) => value !== '');
@@ -88,6 +90,7 @@ export const isUnsavedMedicationData = (
 
   return (
     selectedStatus !== savedMedication?.status ||
+    JSON.stringify(interactions) !== JSON.stringify(savedMedication.interactions) ||
     Object.entries(localValues).some(([field, value]) => {
       const isAutofilledField = Object.keys(autoFilledFieldsRef.current).includes(field);
       const savedValue = getMedicationFieldValue(savedMedication, field as keyof MedicationData);
@@ -217,16 +220,55 @@ export const getConfirmSaveModalConfigs = ({
 export const getInitialAutoFilledFields = (
   medication: ExtendedMedicationDataForResponse | undefined,
   autoFilledFieldsRef: React.MutableRefObject<Partial<MedicationData>>
-): Partial<Record<'dateGiven' | 'timeGiven', string>> => {
-  const shouldSetDefaultTime = medication?.status === 'pending' && !medication?.dateGiven && !medication?.timeGiven;
+): Partial<Record<'effectiveDateTime', string>> => {
+  const shouldSetDefaultTime = medication?.status === 'pending' && !medication?.effectiveDateTime;
 
   if (shouldSetDefaultTime) {
+    const currentDateTime = DateTime.now().toISO();
+
     autoFilledFieldsRef.current = {
-      dateGiven: DateTime.now().toFormat('yyyy-MM-dd'),
-      timeGiven: DateTime.now().toFormat('HH:mm:ss'),
+      effectiveDateTime: currentDateTime,
     };
+
     return autoFilledFieldsRef.current;
   }
 
   return {};
+};
+
+const SEVERITY_LEVEL_TO_SEVERITY: Record<string, 'high' | 'moderate' | 'low' | undefined> = {
+  MinorInteraction: 'low',
+  ModerateInteraction: 'moderate',
+  MajorInteraction: 'high',
+  Unknown: undefined,
+};
+
+export const medicationInteractionsFromErxResponse = (
+  response: ErxCheckPrecheckInteractionsResponse
+): MedicationInteractions => {
+  return {
+    drugInteractions: (response.medications ?? []).map((medication) => {
+      return {
+        drugs: (medication.medications ?? []).map((nestedMedication) => ({
+          id: nestedMedication.id.toString(),
+          name: nestedMedication.name,
+        })),
+        severity: SEVERITY_LEVEL_TO_SEVERITY[medication.severityLevel],
+        message: medication.message,
+      };
+    }),
+    allergyInteractions: response.allergies?.map((allergy) => {
+      return {
+        message: allergy.message,
+      };
+    }),
+  };
+};
+
+export const interactionsUnresolved = (interactions: MedicationInteractions | undefined): boolean => {
+  const unresolvedInteration = [
+    ...(interactions?.drugInteractions ?? []),
+    ...(interactions?.allergyInteractions ?? []),
+  ].find((interaction) => interaction.overrideReason == null);
+  return unresolvedInteration != null;
 };

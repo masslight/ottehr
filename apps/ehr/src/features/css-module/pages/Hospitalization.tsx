@@ -8,6 +8,7 @@ import { PageTitle } from '../../../telemed/components/PageTitle';
 import { MedicalHistoryDoubleCard } from '../../../telemed/features/appointment';
 import { CSSLoader } from '../components/CSSLoader';
 import { HospitalizationForm } from '../components/hospitalization/HospitalizationForm';
+import { HospitalizationNotes } from '../components/hospitalization/HospitalizationNotes';
 import { HospitalizationPatientComponent } from '../components/hospitalization/HospitalizationPatientComponent';
 import { InfoAlert } from '../components/InfoAlert';
 import { useNavigationContext } from '../context/NavigationContext';
@@ -46,8 +47,9 @@ export const Hospitalization: React.FC<HospitalizationProps> = () => {
         patientSide={<HospitalizationPatientComponent />}
         patientSideLabel="Patient provided"
         providerSide={<HospitalizationForm />}
-        providerSideLabel="Clinical support input"
+        providerSideLabel="Healthcare staff input"
       />
+      <HospitalizationNotes />
     </Stack>
   );
 };

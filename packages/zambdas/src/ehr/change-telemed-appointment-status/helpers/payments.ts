@@ -4,7 +4,7 @@ import { AllStatesToNames, FacilitiesTelemed, GetChartDataResponse, Secrets, Sta
 import { PdfInfo } from '../../../shared/pdf/pdf-utils';
 import { createReceiptPdf } from '../../../shared/pdf/receipt-pdf';
 import { GetPaymentDataResponse, ReceiptData } from '../../../shared/pdf/types';
-import { VideoResourcesAppointmentPackage } from '../../../shared/pdf/visit-details-pdf/types';
+import { FullAppointmentResourcePackage } from '../../../shared/pdf/visit-details-pdf/types';
 
 export async function postChargeIssueRequest(apiUrl: string, token: string, encounterId?: string): Promise<any> {
   const serviceUrl = `${apiUrl}/payment/charge/issue`;
@@ -54,7 +54,7 @@ export async function getPaymentDataRequest(apiUrl: string, token: string, encou
 export async function composeAndCreateReceiptPdf(
   paymentData: GetPaymentDataResponse,
   chartData: GetChartDataResponse,
-  appointmentPackage: VideoResourcesAppointmentPackage,
+  appointmentPackage: FullAppointmentResourcePackage,
   secrets: Secrets | null,
   token: string
 ): Promise<PdfInfo> {
@@ -67,7 +67,7 @@ export async function composeAndCreateReceiptPdf(
 function composeDataForPdf(
   paymentData: GetPaymentDataResponse,
   chartData: GetChartDataResponse,
-  appointmentPackage: VideoResourcesAppointmentPackage
+  appointmentPackage: FullAppointmentResourcePackage
 ): ReceiptData {
   const { patient, location } = appointmentPackage;
   if (!patient) throw new Error('No patient found for this encounter');

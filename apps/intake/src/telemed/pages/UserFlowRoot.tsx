@@ -7,10 +7,10 @@ import { initialLocationState, LoadingScreen, useIntakeCommonStore } from '../fe
 import { useFilesStore } from '../features/files';
 import { usePatientInfoStore } from '../features/patient-info';
 import { useGetPatients, usePatientsStore } from '../features/patients';
-import { useZapEHRAPIClient } from '../utils';
+import { useOystehrAPIClient } from '../utils';
 
 const UserFlowRoot = (): JSX.Element => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const navigate = useNavigate();
 
   const clearState = (): void => {

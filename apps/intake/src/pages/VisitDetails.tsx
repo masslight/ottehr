@@ -8,7 +8,7 @@ import { otherColors } from '../IntakeThemeProvider';
 import { useGetVisitDetails } from '../telemed/features/appointments';
 import { useIntakeCommonStore } from '../telemed/features/common';
 import { useOpenExternalLink } from '../telemed/hooks/useOpenExternalLink';
-import { useZapEHRAPIClient } from '../telemed/utils';
+import { useOystehrAPIClient } from '../telemed/utils';
 
 const ExcuseNoteContent = ({
   data,
@@ -117,7 +117,7 @@ const VisitDetails = (): JSX.Element => {
 
   const { patientId, visitId } = useParams();
 
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const { data, isLoading, error } = useGetVisitDetails(apiClient, Boolean(apiClient) && Boolean(visitId), visitId);
   const appointmentDate = (() => {
     if (!data?.appointmentTime) {

@@ -1,8 +1,8 @@
 import { useQuery } from 'react-query';
-import { ZapEHRAPIClient } from 'ui-components';
+import { OystehrAPIClient } from 'ui-components';
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useGetPastVisits = (apiClient: ZapEHRAPIClient | null, enabled = true, patientId?: string) =>
+export const useGetPastVisits = (apiClient: OystehrAPIClient | null, enabled = true, patientId?: string) =>
   useQuery(
     ['pastVisits', patientId],
     () => {

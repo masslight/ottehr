@@ -46,10 +46,10 @@ npm run deploy-zambdas
 
 These steps are kept here in case you need to deploy an individual zambda manually.
 
-1. Run `npm run package`. This will put deployment zips ready to be uploaded to the zapEHR platform into the `.dist/` folder.
-2. Go to the console you want to deploy to (e.g. [testing](https://testing-console.zapehr.com/)).
+1. Run `npm run package`. This will put deployment zips ready to be uploaded to the oystehr platform into the `.dist/` folder.
+2. Go to the console you want to deploy to (i.e. [console](https://console.oystehr.com/)).
 3. Log in with the appropriate account previously used for 'One Time Setup'.
-4. Navigate to /zambdas on the console (e.g. [testing](https://testing-console.zapehr.com/zambdas)).
+4. Navigate to /zambdas on the console (i.e. [console](https://console.oystehr.com/zambdas)).
 5. Click on the zambda you are trying to update
 6. Click the button "Upload zambda.zip"
 7. Select the appropriate zip from the [`.dist/` directory](.dist).

@@ -1,7 +1,7 @@
 import Oystehr, { ZambdaExecuteResult } from '@oystehr/sdk';
 import { APIError, isApiError } from '../types';
 
-export const getZapEHRApiHelpers = <T extends Record<string, string>>(
+export const getOystehrApiHelpers = <T extends Record<string, string>>(
   oystehr: Oystehr,
   ZambdaNames: T,
   zambdasToIdsMap: Record<keyof typeof ZambdaNames, string | undefined>,

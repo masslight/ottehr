@@ -98,6 +98,9 @@ export async function getChartData(
   addRequestIfNeeded({ field: 'medications', resourceType: 'MedicationStatement', defaultSearchBy: 'patient' });
 
   // search by patient by default
+  addRequestIfNeeded({ field: 'inhouseMedications', resourceType: 'MedicationStatement', defaultSearchBy: 'patient' });
+
+  // search by patient by default
   addRequestIfNeeded({ field: 'surgicalHistory', resourceType: 'Procedure', defaultSearchBy: 'patient' });
 
   // edge case for Procedures just for getting cpt codes..

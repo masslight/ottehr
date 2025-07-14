@@ -26,7 +26,7 @@ import PageForm from '../components/PageForm';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import { otherColors } from '../IntakeThemeProvider';
 import { useGetTelemedStates } from '../telemed/features/appointments';
-import { useZapEHRAPIClient } from '../telemed/utils';
+import { useOystehrAPIClient } from '../telemed/utils';
 
 const emptyArray: [] = [];
 
@@ -57,7 +57,7 @@ const StartVirtualVisit = (): JSX.Element => {
 
   const [errorDialogConfig, setErrorDialogConfig] = useState<ErrorDialogConfig | undefined>(undefined);
 
-  const apiClient = useZapEHRAPIClient({ tokenless: true });
+  const apiClient = useOystehrAPIClient({ tokenless: true });
   const { data: locationsResponse } = useGetTelemedStates(apiClient, Boolean(apiClient));
   const tokenlessZambdaClient = useUCZambdaClient({ tokenless: true });
 

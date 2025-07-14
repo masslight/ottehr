@@ -17,7 +17,6 @@ import {
   HealthcareService,
   HumanName,
   Identifier,
-  InsurancePlan,
   List,
   Location,
   Meta,
@@ -61,7 +60,7 @@ import {
   FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
   FHIR_IDENTIFIER_CODE_TAX_SS,
   FHIR_IDENTIFIER_NPI,
-  FHIR_IDENTIFIER_SYSTEM_TAX,
+  FHIR_IDENTIFIER_SYSTEM,
   PRACTITIONER_QUALIFICATION_CODE_SYSTEM,
   PRACTITIONER_QUALIFICATION_EXTENSION_URL,
   PRACTITIONER_QUALIFICATION_STATE_SYSTEM,
@@ -104,13 +103,13 @@ export function getTaxID(resource: Practitioner | Organization | Location | Heal
     if (resource.resourceType === 'Practitioner') {
       return ident.type?.coding?.some(
         (tc) =>
-          tc.system === FHIR_IDENTIFIER_SYSTEM_TAX &&
+          tc.system === FHIR_IDENTIFIER_SYSTEM &&
           (tc.code === FHIR_IDENTIFIER_CODE_TAX_EMPLOYER || tc.code === FHIR_IDENTIFIER_CODE_TAX_SS)
       );
     }
     // don't check for SS on anything that isn't a Practitioner
     return ident.type?.coding?.some(
-      (tc) => tc.system === FHIR_IDENTIFIER_SYSTEM_TAX && tc.code === FHIR_IDENTIFIER_CODE_TAX_EMPLOYER
+      (tc) => tc.system === FHIR_IDENTIFIER_SYSTEM && tc.code === FHIR_IDENTIFIER_CODE_TAX_EMPLOYER
     );
   })?.value;
 }
@@ -717,8 +716,8 @@ export function allLicensesForPractitioner(practitioner: Practitioner): Practiti
   return allLicenses;
 }
 
-export const getPractitionerStateCredentials = (practioner: Practitioner): string[] => {
-  return allLicensesForPractitioner(practioner).map(({ state }) => state);
+export const getPractitionerStateCredentials = (practitioner: Practitioner): string[] => {
+  return allLicensesForPractitioner(practitioner).map(({ state }) => state);
 };
 
 export const getPlanIdAndNameFromCoverage = (coverage: Coverage): { planId?: string; planName?: string } => {
@@ -832,12 +831,12 @@ export async function getResourcesFromBatchInlineRequests(oystehr: Oystehr, requ
   return parseBundleIntoResources(batchResult);
 }
 
-export async function getInsurancePlanById(id: string, oystehr: Oystehr): Promise<InsurancePlan> {
-  const insurancePlan = await oystehr.fhir.get<InsurancePlan>({
-    resourceType: 'InsurancePlan',
+export async function getInsuranceOrgById(id: string, oystehr: Oystehr): Promise<Organization> {
+  const insuranceOrg = await oystehr.fhir.get<Organization>({
+    resourceType: 'Organization',
     id,
   });
-  return insurancePlan;
+  return insuranceOrg;
 }
 
 export const getUnconfirmedDOBForAppointment = (appointment?: Appointment): string | undefined => {
@@ -1354,4 +1353,18 @@ export async function getAllFhirSearchPages<T extends FhirResource>(
     `${fhirSearchParams.resourceType} resources and ${result.length - currentIndex} included resources`
   );
   return result;
+}
+
+export function getCoding(
+  codeableConcept: CodeableConcept | CodeableConcept[] | undefined,
+  system: string
+): Coding | undefined {
+  const array = Array.isArray(codeableConcept) ? codeableConcept : [codeableConcept];
+  for (const codeableConcept of array) {
+    const coding = codeableConcept?.coding?.find((coding) => coding.system === system);
+    if (coding) {
+      return coding;
+    }
+  }
+  return undefined;
 }

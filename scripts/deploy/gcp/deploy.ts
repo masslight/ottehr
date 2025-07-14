@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import config from '../deploy-config.json';
-import { updateEnvFiles, updateZapehr } from '../helpers';
+import { updateEnvFiles, updateOystehr } from '../helpers';
 
 const projectConfig: any = config;
 const environment = projectConfig.environment;
@@ -16,7 +16,7 @@ async function deploy(): Promise<void> {
     accessToken,
     projectId,
   });
-  await updateZapehr(oystehr, intake, ehr);
+  await updateOystehr(oystehr, intake, ehr);
   await updateEnvFiles(environment, intake, ehr);
 }
 

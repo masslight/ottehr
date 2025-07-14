@@ -170,21 +170,18 @@ export function TrackingBoardTableRow({ appointment, showProvider, next }: Appoi
         </Typography>
         <AppointmentStatusChip status={appointment.telemedStatus} />
         {appointment.telemedStatus == TelemedAppointmentStatusEnum.cancelled ? (
-          <Tooltip title={appointment.cancellationReason}>
-            <Typography
-              variant="body2"
-              sx={{
-                color: theme.palette.text.primary,
-                textOverflow: 'ellipsis',
-                width: '80px',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                pt: '6px',
-              }}
-            >
-              {appointment.cancellationReason}
-            </Typography>
-          </Tooltip>
+          <Typography
+            variant="body2"
+            sx={{
+              color: theme.palette.text.primary,
+              width: '80px',
+              whiteSpace: 'wrap',
+              overflow: 'visible',
+              pt: '6px',
+            }}
+          >
+            {appointment.cancellationReason}
+          </Typography>
         ) : (
           <></>
         )}
@@ -209,20 +206,17 @@ export function TrackingBoardTableRow({ appointment, showProvider, next }: Appoi
       </TableCell>
       <TableCell sx={{ verticalAlign: 'middle', cursor: 'pointer' }} onClick={goToAppointment}>
         {patientInfo}
-        <Tooltip title={reasonForVisit}>
-          <Typography
-            variant="body2"
-            sx={{
-              fontSize: '16px',
-              textOverflow: 'ellipsis',
-              width: '160px',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-            }}
-          >
-            {reasonForVisit}
-          </Typography>
-        </Tooltip>
+        <Typography
+          variant="body2"
+          sx={{
+            fontSize: '16px',
+            width: '160px',
+            whiteSpace: 'wrap',
+            overflow: 'visible',
+          }}
+        >
+          {reasonForVisit}
+        </Typography>
       </TableCell>
       <TableCell sx={{ verticalAlign: 'middle', cursor: 'pointer' }} onClick={goToAppointment}>
         <Typography sx={{ fontSize: '16px' }}>{appointment.locationVirtual.state}</Typography>

@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import {
@@ -15,12 +16,12 @@ import {
   visitStatusToFhirEncounterStatusMap,
 } from 'utils';
 import { checkOrCreateM2MClientToken, ZambdaInput } from '../../shared';
-import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createCandidEncounter } from '../../shared/candid';
+import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createEncounterFromAppointment } from '../../shared/candid';
 import { createPublishExcuseNotesOps } from '../../shared/createPublishExcuseNotesOps';
 import { createOystehrClient } from '../../shared/helpers';
-import { getVideoResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
+import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
 import { makeVisitNotePdfDocumentReference } from '../../shared/pdf/visit-details-pdf/make-visit-note-pdf-document-reference';
-import { VideoResourcesAppointmentPackage } from '../../shared/pdf/visit-details-pdf/types';
+import { FullAppointmentResourcePackage } from '../../shared/pdf/visit-details-pdf/types';
 import { composeAndCreateVisitNotePdf } from '../../shared/pdf/visit-details-pdf/visit-note-pdf-creation';
 import { getChartData } from '../get-chart-data';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -58,14 +59,18 @@ export const performEffect = async (
   oystehrCurrentUser: Oystehr,
   params: SignAppointmentInput
 ): Promise<SignAppointmentResponse> => {
-  const { appointmentId, secrets } = params;
+  const { appointmentId, timezone, secrets } = params;
 
-  const visitResources = await getVideoResources(oystehr, appointmentId, true);
-
+  const visitResources = await getAppointmentAndRelatedResources(oystehr, appointmentId, true);
   if (!visitResources) {
     {
       throw new Error(`Visit resources are not properly defined for appointment ${appointmentId}`);
     }
+  }
+  if (timezone) {
+    // if the timezone is provided, it will be taken as the tz to use here rather than the location's schedule
+    // this allows the provider to specify their working location in the case of virtual encounters
+    visitResources.timezone = timezone;
   }
   const { encounter, patient, appointment, listResources } = visitResources;
 
@@ -73,7 +78,13 @@ export const performEffect = async (
     throw new Error(`No subject reference defined for encounter ${encounter?.id}`);
   }
 
-  const candidEncounterId = await createCandidEncounter(visitResources, secrets, oystehr);
+  let candidEncounterId: string | undefined;
+  try {
+    candidEncounterId = await createEncounterFromAppointment(visitResources, secrets, oystehr);
+  } catch (error) {
+    console.error(`Error creating Candid encounter: ${error}, stringified error: ${JSON.stringify(error)}`);
+    captureException(error);
+  }
 
   console.log(`appointment and encounter statuses: ${appointment.status}, ${encounter.status}`);
   const currentStatus = getVisitStatus(appointment, encounter);
@@ -115,7 +126,7 @@ export const performEffect = async (
 const changeStatusToCompleted = async (
   oystehr: Oystehr,
   oystehrCurrentUser: Oystehr,
-  resourcesToUpdate: VideoResourcesAppointmentPackage,
+  resourcesToUpdate: FullAppointmentResourcePackage,
   candidEncounterId: string | undefined
 ): Promise<void> => {
   if (!resourcesToUpdate.appointment || !resourcesToUpdate.appointment.id) {

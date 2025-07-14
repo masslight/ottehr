@@ -1,20 +1,20 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { createOystehrClient, getSecret, getTelemedLocations, GetTelemedLocationsResponse, SecretsKeys } from 'utils';
 import { getAuth0Token, wrapHandler, ZambdaInput } from '../../shared';
-let zapehrToken: string;
+let oystehrToken: string;
 export const index = wrapHandler('get-telemed-states', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const fhirAPI = getSecret(SecretsKeys.FHIR_API, input.secrets);
     const projectAPI = getSecret(SecretsKeys.PROJECT_API, input.secrets);
 
-    if (!zapehrToken) {
+    if (!oystehrToken) {
       console.log('getting m2m token for service calls');
-      zapehrToken = await getAuth0Token(input.secrets);
+      oystehrToken = await getAuth0Token(input.secrets);
     } else {
       console.log('already have a token, no need to update');
     }
 
-    const oystehr = createOystehrClient(zapehrToken, fhirAPI, projectAPI);
+    const oystehr = createOystehrClient(oystehrToken, fhirAPI, projectAPI);
 
     const telemedLocations = await getTelemedLocations(oystehr);
 

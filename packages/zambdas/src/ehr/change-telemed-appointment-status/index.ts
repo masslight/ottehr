@@ -19,7 +19,7 @@ import {
 } from '../../shared';
 import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createCandidEncounter } from '../../shared/candid';
 import { createOystehrClient } from '../../shared/helpers';
-import { getVideoResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
+import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
 import { makeVisitNotePdfDocumentReference } from '../../shared/pdf/visit-details-pdf/make-visit-note-pdf-document-reference';
 import { composeAndCreateVisitNotePdf } from '../../shared/pdf/visit-details-pdf/visit-note-pdf-creation';
 import { getMyPractitionerId } from '../../shared/practitioners';
@@ -66,7 +66,7 @@ export const performEffect = async (
 ): Promise<ChangeTelemedAppointmentStatusResponse> => {
   const { appointmentId, newStatus, secrets } = params;
 
-  const visitResources = await getVideoResources(oystehr, appointmentId);
+  const visitResources = await getAppointmentAndRelatedResources(oystehr, appointmentId);
   if (!visitResources) {
     {
       throw new Error(`Visit resources are not properly defined for appointment ${appointmentId}`);
@@ -86,15 +86,15 @@ export const performEffect = async (
   const selfPayVisit: boolean = paymentOption.toUpperCase() === 'self-pay'.toUpperCase();
 
   if (encounter?.subject?.reference === undefined) {
-    throw new Error(`No subject reference defined for encoutner ${encounter?.id}`);
+    throw new Error(`No subject reference defined for encounter ${encounter?.id}`);
   }
 
   console.log(`appointment and encounter statuses: ${appointment.status}, ${encounter.status}`);
   const currentStatus = mapStatusToTelemed(encounter.status, appointment.status);
   if (currentStatus) {
-    const myPractId = await getMyPractitionerId(oystehrCurrentUser);
+    const myPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
-    await changeStatusIfPossible(oystehr, visitResources, currentStatus, newStatus, myPractId, ENVIRONMENT);
+    await changeStatusIfPossible(oystehr, visitResources, currentStatus, newStatus, myPractitionerId, ENVIRONMENT);
   }
 
   console.debug(`Status has been changed.`);
@@ -127,7 +127,14 @@ export const performEffect = async (
     console.log(`Creating visit note pdf docRef`);
     await makeVisitNotePdfDocumentReference(oystehr, pdfInfo, patient.id, appointmentId, encounter.id!, listResources);
 
-    const candidEncounterId = await createCandidEncounter(visitResources, secrets, oystehr);
+    let candidEncounterId: string | undefined;
+    try {
+      candidEncounterId = await createCandidEncounter(visitResources, secrets, oystehr);
+    } catch (error) {
+      console.error(`Error creating Candid encounter: ${error}`);
+      // longer term we probably want a more decoupled approach where the candid synching is offloaded and tracked
+      // for now prevent this failure from causing the endpoint to error out
+    }
     await addCandidEncounterIdToEncounter(candidEncounterId, encounter, oystehr);
 
     // if this is a self-pay encounter, create a charge item
@@ -135,7 +142,7 @@ export const performEffect = async (
       if (visitResources.account?.id === undefined) {
         // TODO: add sentry notification: something is misconfigured
         console.error(
-          `No account has been found associated with the a self-pay visit for encouter ${visitResources.encounter?.id}`
+          `No account has been found associated with the a self-pay visit for encounter ${visitResources.encounter?.id}`
         );
       }
       // see if charge item already exists for the encounter and if not, create it

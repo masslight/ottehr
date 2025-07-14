@@ -1,4 +1,4 @@
 1. add "deploy:arbitrary_env_name" to package.json for apps
-2. change ehr configure-zapehr-secrets.ts to work like the intake one, load env secrets file based on name
+2. change ehr configure-secrets.ts to work like the intake one, load env secrets file based on name
 3. create aws profile titled "ottehr"
 4. needs to bootstrap account, give a bunch of permissions to the access key IAM user

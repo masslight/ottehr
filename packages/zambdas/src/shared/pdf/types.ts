@@ -11,6 +11,7 @@ import {
   QuantityComponent,
   VitalsVisitNoteData,
 } from 'utils';
+import { Column } from './pdf-utils';
 
 export interface PageElementStyle {
   side?: 'left' | 'right' | 'center';
@@ -59,11 +60,16 @@ export interface LineStyle {
 export interface PdfClient {
   addNewPage: (styles: PageStyles) => void;
   drawText: (text: string, textStyle: TextStyle) => void;
-  drawTextSequential: (text: string, textStyle: Exclude<TextStyle, 'side'>, leftIndentationXPos?: number) => void;
+  drawTextSequential: (
+    text: string,
+    textStyle: Exclude<TextStyle, 'side'>,
+    bounds?: { leftBound: number; rightBound: number }
+  ) => void;
   drawStartXPosSpecifiedText: (
     text: string,
     textStyle: TextStyle,
-    startingXPos: number
+    startingXPos: number,
+    bounds?: { leftBound: number; rightBound: number }
   ) => { endXPos: number; endYPos: number };
   drawImage: (img: PDFImage, styles: ImageStyle, textStyle?: TextStyle) => void;
   newLine: (yDrop: number) => void;
@@ -82,6 +88,7 @@ export interface PdfClient {
   setRightBound: (newBound: number) => void;
   getTextDimensions: (text: string, textStyle: TextStyle) => { width: number; height: number };
   setPageStyles: (newStyles: PageStyles) => void;
+  drawVariableWidthColumns: (columns: Column[], yPosStartOfColumn: number) => void;
 }
 
 export type TelemedExamBlockData = {
@@ -124,6 +131,7 @@ export interface LabsData {
   locationPhone?: string;
   locationFax?: string;
   labOrganizationName: string; // this is only mapped for order pdf
+  accountNumber: string;
   serviceRequestID: string;
   orderNumber: string; // this is only for external
   providerName: string;
@@ -138,8 +146,10 @@ export interface LabsData {
   patientPhone: string;
   todayDate: string;
   orderSubmitDate: string;
+  orderCreateDateAuthoredOn: string;
   orderCreateDate: string;
   sampleCollectionDate?: string;
+  billClass: string;
   primaryInsuranceName?: string;
   primaryInsuranceAddress?: string;
   primaryInsuranceSubNum?: string;
@@ -187,6 +197,8 @@ export interface LabResultsData
     | 'providerNPI'
     | 'patientAddress'
     | 'sampleCollectionDate'
+    | 'billClass'
+    | 'accountNumber'
   > {
   testName: string;
   resultStatus: string;
@@ -237,9 +249,13 @@ export interface VisitNoteData extends ExaminationBlockData {
   providerTimeSpan?: string;
   reviewOfSystems?: string;
   medications?: string[];
+  medicationsNotes?: string[];
   allergies?: string[];
+  allergiesNotes?: string[];
   medicalConditions?: string[];
+  medicalConditionsNotes?: string[];
   surgicalHistory?: string[];
+  surgicalHistoryNotes?: string[];
   additionalQuestions: Record<AdditionalBooleanQuestionsFieldsNames, string>;
   screening?: {
     seenInLastThreeYears?: string;
@@ -249,6 +265,7 @@ export interface VisitNoteData extends ExaminationBlockData {
     notes?: string[];
   };
   hospitalization?: string[];
+  hospitalizationNotes?: string[];
   vitals?: VitalsVisitNoteData & {
     notes?: string[];
   };

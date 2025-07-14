@@ -22,11 +22,11 @@ export const CODE_SYSTEM_COVERAGE_CLASS = 'http://terminology.hl7.org/CodeSystem
 export const CODE_SYSTEM_PAYEE_TYPE = 'http://terminology.hl7.org/CodeSystem/payeetype';
 export const CODE_SYSTEM_PROVIDER_TAXONOMY = 'http://nucc.org/provider-taxonomy';
 
-export const CODE_SYSTEM_ZAPEHR_RCM_CMS1500_REFFERING_PROVIDER_TYPE =
+export const CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REFERRING_PROVIDER_TYPE =
   'https://terminology.zapehr.com/rcm/cms1500/referring-provider-type';
-export const CODE_SYSTEM_ZAPEHR_RCM_CMS1500_DATE_TYPE = 'https://terminology.zapehr.com/rcm/cms1500/date-type';
-export const CODE_SYSTEM_ZAPEHR_RCM_CMS1500_RESUBMITTION_RELATIONSHIP =
+export const CODE_SYSTEM_OYSTEHR_RCM_CMS1500_DATE_TYPE = 'https://terminology.zapehr.com/rcm/cms1500/date-type';
+export const CODE_SYSTEM_OYSTEHR_RCM_CMS1500_RESUBMISSION_RELATIONSHIP =
   'https://terminology.zapehr.com/rcm/cms1500/resubmission-relationship';
-export const CODE_SYSTEM_ZAPEHR_RCM_CMS1500_PROCEDURE_MODIFIER =
+export const CODE_SYSTEM_OYSTEHR_RCM_CMS1500_PROCEDURE_MODIFIER =
   'https://terminology.zapehr.com/rcm/cms1500/procedure-modifier';
-export const CODE_SYSTEM_ZAPEHR_RCM_CMS1500_REVENUE_CODE = 'https://terminology.zapehr.com/rcm/cms1500/revenue-code';
+export const CODE_SYSTEM_OYSTEHR_RCM_CMS1500_REVENUE_CODE = 'https://terminology.zapehr.com/rcm/cms1500/revenue-code';

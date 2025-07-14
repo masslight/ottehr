@@ -1,6 +1,7 @@
 import { progressNoteIcon, startIntakeIcon } from '@ehrTheme/icons';
 import ChatOutlineIcon from '@mui/icons-material/ChatOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import LogoutIcon from '@mui/icons-material/Logout';
 import MedicalInformationIcon from '@mui/icons-material/MedicalInformationOutlined';
 import PriorityHighRoundedIcon from '@mui/icons-material/PriorityHighRounded';
 import { LoadingButton } from '@mui/lab';
@@ -21,11 +22,12 @@ import {
   useTheme,
 } from '@mui/material';
 import { Operation } from 'fast-json-patch';
-import { Appointment, Location } from 'fhir/r4b';
+import { Appointment } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import { otherColors } from 'src/themes/ottehr/colors';
 import {
   formatMinutes,
@@ -44,7 +46,7 @@ import { dataTestIds } from '../constants/data-test-ids';
 import ChatModal from '../features/chat/ChatModal';
 import { usePractitionerActions } from '../features/css-module/hooks/usePractitioner';
 import { checkInPatient } from '../helpers';
-import { displayOrdersToolTip } from '../helpers';
+import { displayOrdersToolTip, hasAtLeastOneOrder } from '../helpers';
 import { getTimezone } from '../helpers/formatDateTime';
 import { formatPatientName } from '../helpers/formatPatientName';
 import { getOfficePhoneNumber } from '../helpers/getOfficePhoneNumber';
@@ -61,9 +63,9 @@ import { PatientDateOfBirth } from './PatientDateOfBirth';
 import { PriorityIconWithBorder } from './PriorityIconWithBorder';
 import ReasonsForVisit from './ReasonForVisit';
 
-interface AppointmentTableProps {
+interface AppointmentTableRowProps {
   appointment: InPersonAppointmentInformation;
-  location?: Location;
+  location?: LocationWithWalkinSchedule;
   actionButtons: boolean;
   showTime: boolean;
   now: DateTime;
@@ -83,6 +85,8 @@ export function getAppointmentStatusChip(status: VisitStatusLabel | undefined, c
     return <span>todo2</span>;
   }
 
+  const label = STATUS_LABEL_MAP[status] || status;
+
   return (
     <span
       data-testid={dataTestIds.dashboard.appointmentStatus}
@@ -98,7 +102,7 @@ export function getAppointmentStatusChip(status: VisitStatusLabel | undefined, c
         verticalAlign: 'middle',
       }}
     >
-      {count ? `${status} - ${count}` : status}
+      {count ? `${label} - ${count}` : label}
     </span>
   );
 }
@@ -208,6 +212,10 @@ export const CHIP_STATUS_MAP: {
   },
 };
 
+const STATUS_LABEL_MAP: Partial<Record<VisitStatusLabel, string>> = {
+  'ready for discharge': 'Discharged',
+};
+
 const linkStyle = {
   display: 'contents',
   color: otherColors.tableRow,
@@ -236,7 +244,7 @@ export default function AppointmentTableRow({
   updateAppointments,
   setEditingComment,
   orders,
-}: AppointmentTableProps): ReactElement {
+}: AppointmentTableRowProps): ReactElement {
   const { oystehr, oystehrZambda } = useApiClients();
   const theme = useTheme();
   const navigate = useNavigate();
@@ -248,14 +256,30 @@ export default function AppointmentTableRow({
   const [chatModalOpen, setChatModalOpen] = useState<boolean>(false);
   const [hasUnread, setHasUnread] = useState<boolean>(appointment.smsModel?.hasUnreadMessages || false);
   const user = useEvolveUser();
-  const { inHouseLabOrders, externalLabOrders, nursingOrders, inHouseMedications } = orders;
 
   if (!user) {
     throw new Error('User is not defined');
   }
 
+  if (!encounter || !encounter.id) {
+    throw new Error('Encounter is not defined');
+  }
+
+  const encounterId: string = encounter.id;
+
   const [startIntakeButtonLoading, setStartIntakeButtonLoading] = useState(false);
-  const { handleUpdatePractitioner } = usePractitionerActions(encounter, 'start', PRACTITIONER_CODINGS.Admitter);
+  const [progressNoteButtonLoading, setProgressNoteButtonLoading] = useState(false);
+  const [dischargeButtonLoading, setDischargeButtonLoading] = useState(false);
+  const { handleUpdatePractitioner: handleUpdatePractitionerForIntake } = usePractitionerActions(
+    encounter,
+    'start',
+    PRACTITIONER_CODINGS.Admitter
+  );
+  const { handleUpdatePractitioner: handleUpdatePractitionerForProvider } = usePractitionerActions(
+    encounter,
+    'start',
+    PRACTITIONER_CODINGS.Attender
+  );
   const rooms = useMemo(() => {
     return location?.extension?.filter((ext) => ext.url === ROOM_EXTENSION_URL).map((ext) => ext.valueString);
   }, [location]);
@@ -578,25 +602,18 @@ export default function AppointmentTableRow({
         statusTimeEl={showTime ? statusTimeEl : undefined}
         linkStyle={linkStyle}
         timeToolTip={timeToolTip}
-      ></AppointmentTableRowMobile>
+      />
     );
   }
 
   const handleStartIntakeButton = async (): Promise<void> => {
     setStartIntakeButtonLoading(true);
     try {
-      await handleUpdatePractitioner();
-      if (!encounter.id) {
-        throw new Error('Encounter ID is not defined but it is required in order to start intake.');
-      }
-
-      if (!oystehrZambda) {
-        throw new Error('Oystehr Zambda client is not defined');
-      }
+      await handleUpdatePractitionerForIntake();
 
       await handleChangeInPersonVisitStatus(
         {
-          encounterId: encounter.id,
+          encounterId: encounterId,
           user,
           updatedStatus: 'intake',
         },
@@ -626,19 +643,71 @@ export default function AppointmentTableRow({
     return undefined;
   };
 
+  const handleProgressNoteButton = async (): Promise<void> => {
+    setProgressNoteButtonLoading(true);
+    try {
+      if (appointment.status === 'ready for provider') {
+        await handleUpdatePractitionerForProvider();
+      }
+      navigate(`/in-person/${appointment.id}`);
+    } catch (error) {
+      console.error(error);
+      enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
+    }
+    setProgressNoteButtonLoading(false);
+  };
+
   const renderProgressNoteButton = (): ReactElement | undefined => {
     if (
       appointment.status === 'ready for provider' ||
       appointment.status === 'provider' ||
-      appointment.status === 'completed'
+      appointment.status === 'completed' ||
+      appointment.status === 'ready for discharge'
     ) {
       return (
         <GoToButton
           text="Progress Note"
-          onClick={() => navigate(`/in-person/${appointment.id}`)}
+          loading={progressNoteButtonLoading}
+          onClick={handleProgressNoteButton}
           dataTestId={dataTestIds.dashboard.progressNoteButton}
         >
           <img src={progressNoteIcon} />
+        </GoToButton>
+      );
+    }
+    return undefined;
+  };
+
+  const handleDischargeButton = async (): Promise<void> => {
+    setDischargeButtonLoading(true);
+    try {
+      await handleChangeInPersonVisitStatus(
+        {
+          encounterId: encounterId,
+          user,
+          updatedStatus: 'ready for discharge',
+        },
+        oystehrZambda
+      );
+      await updateAppointments();
+      enqueueSnackbar('Patient discharged successfully', { variant: 'success' });
+    } catch (error) {
+      console.error(error);
+      enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
+    }
+    setDischargeButtonLoading(false);
+  };
+
+  const renderDischargeButton = (): ReactElement | undefined => {
+    if (appointment.status === 'provider') {
+      return (
+        <GoToButton
+          loading={dischargeButtonLoading}
+          text="Discharge"
+          onClick={handleDischargeButton}
+          dataTestId={dataTestIds.dashboard.dischargeButton}
+        >
+          <LogoutIcon />
         </GoToButton>
       );
     }
@@ -651,9 +720,7 @@ export default function AppointmentTableRow({
   // this bool determines what style mouse should show on hover for the cells that hold these tooltips
   // if orders tooltip is displayed, we check if there are any orders - if no orders the cell will be empty and it doesn't make sense to have the pointer hand
   // if visit components, there is always something in this cell, hence the default to true
-  const showPointerForInfoIcons = displayOrdersToolTip(appointment, tab)
-    ? inHouseLabOrders?.length || externalLabOrders?.length || nursingOrders?.length || inHouseMedications?.length
-    : true;
+  const showPointerForInfoIcons = displayOrdersToolTip(appointment, tab) ? hasAtLeastOneOrder(orders) : true;
 
   return (
     <TableRow
@@ -825,14 +892,7 @@ export default function AppointmentTableRow({
           cursor: `${showPointerForInfoIcons ? 'pointer' : 'auto'}`,
         }}
       >
-        <InfoIconsToolTip
-          appointment={appointment}
-          tab={tab}
-          inHouseLabOrders={inHouseLabOrders}
-          externalLabOrders={externalLabOrders}
-          nursingOrders={nursingOrders}
-          inHouseMedications={inHouseMedications}
-        />
+        <InfoIconsToolTip appointment={appointment} tab={tab} orders={orders} />
       </TableCell>
       <TableCell sx={{ verticalAlign: 'center' }}>
         <AppointmentNote
@@ -910,6 +970,7 @@ export default function AppointmentTableRow({
           </GoToButton>
           {renderStartIntakeButton()}
           {renderProgressNoteButton()}
+          {renderDischargeButton()}
         </Stack>
       </TableCell>
       {actionButtons && (

@@ -1,6 +1,7 @@
 import { DiagnosticReport } from 'fhir/r4b';
 import { ZambdaInput } from '../../../shared/types';
 import { ReviewLabResultSubscriptionInput } from '.';
+import { ACCEPTED_RESULTS_STATUS } from './helpers';
 
 // Note that this file is copied from BH and needs significant changes
 export function validateRequestParameters(input: ZambdaInput): ReviewLabResultSubscriptionInput {
@@ -17,9 +18,11 @@ export function validateRequestParameters(input: ZambdaInput): ReviewLabResultSu
   if (!diagnosticReport.id)
     throw new Error(`Triggering DiagnosticReport did not have an id. ${JSON.stringify(diagnosticReport)}`);
 
-  if (!['preliminary', 'final', 'corrected'].includes(diagnosticReport.status))
+  if (!ACCEPTED_RESULTS_STATUS.includes(diagnosticReport.status))
     throw new Error(
-      `Triggering DiagnosticReport.status was not preliminary or final. ${JSON.stringify(diagnosticReport)}`
+      `Triggering DiagnosticReport.status was not of expected value: ${ACCEPTED_RESULTS_STATUS.join(',')}. Id: ${
+        diagnosticReport.id
+      } Status: ${diagnosticReport.status}`
     );
 
   return {
