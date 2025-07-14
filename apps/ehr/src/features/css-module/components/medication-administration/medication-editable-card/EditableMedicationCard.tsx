@@ -56,7 +56,7 @@ export const EditableMedicationCard: React.FC<{
   medication?: ExtendedMedicationDataForResponse;
   type: MedicationOrderType;
 }> = ({ medication, type: typeFromProps }) => {
-  const [isUpdating, setIsUpdating] = useState<boolean>(false);
+  const [isOrderUpdating, setIsOrderUpdating] = useState<boolean>(false);
   const { id: appointmentId } = useParams();
   const navigate = useNavigate();
   const autoFilledFieldsRef = useRef<Partial<MedicationData>>({});
@@ -90,16 +90,16 @@ export const EditableMedicationCard: React.FC<{
   );
 
   const { updateMedication, getMedicationFieldValue, getIsMedicationEditable } = useMedicationManagement();
-  const [selectedStatus, setSelectedStatus] = useState<MedicationOrderStatusesType>(medication?.status || 'pending');
+  const [currentStatus, setCurrentStatus] = useState<MedicationOrderStatusesType>(medication?.status || 'pending');
   const [fieldErrors, setFieldErrors] = useState<Record<string, boolean>>({});
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [missingFields, setMissingFields] = useState<string[]>([]);
   const [showErrors, setShowErrors] = useState(false);
   const isSavedRef = useRef(false);
 
-  const handleStatusSelect = async (newStatus: MedicationOrderStatusesType): Promise<void> => {
+  const handleStatusChange = async (newStatus: MedicationOrderStatusesType): Promise<void> => {
     isSavedRef.current = false;
-    setSelectedStatus(newStatus);
+    setCurrentStatus(newStatus);
   };
 
   const handleFieldValueChange = <Field extends keyof MedicationData>(
@@ -204,25 +204,31 @@ export const EditableMedicationCard: React.FC<{
   ): Promise<void> => {
     if (!medicationUpdateRequestInputRefRef.current.orderData) return;
 
+    // modal window on close will clear the medicationUpdateRequest ref,
+    // so we need to save the new status to make it possible to set
+    // the correct state if the user closes the modal during the updating
+    const newStatus = medicationUpdateRequestInputRefRef.current?.newStatus;
+
     try {
-      setIsUpdating(true);
+      setIsOrderUpdating(true);
+
       const response = await updateMedication(medicationUpdateRequestInputRefRef.current);
       isSavedRef.current = true;
 
-      if (typeRef.current === 'order-new') {
-        response?.id && navigate(getEditOrderUrl(appointmentId!, response.id));
-        return;
+      // update saved status in the local state
+      if (newStatus) {
+        await handleStatusChange(newStatus);
       }
 
-      // upd saved status in the local state
-      medicationUpdateRequestInputRefRef.current?.newStatus &&
-        void handleStatusSelect(medicationUpdateRequestInputRefRef.current.newStatus);
+      if (typeRef.current === 'order-new') {
+        response?.id && navigate(getEditOrderUrl(appointmentId!, response.id));
+      }
 
       void refetchHistory();
     } catch (error) {
       console.error(error);
     } finally {
-      setIsUpdating(false);
+      setIsOrderUpdating(false);
       setShowErrors(false);
       setLocalValues({});
       setFieldErrors({});
@@ -242,7 +248,7 @@ export const EditableMedicationCard: React.FC<{
   const isUnsavedData = isUnsavedMedicationData(
     medication,
     localValues,
-    selectedStatus,
+    currentStatus,
     getMedicationFieldValue,
     autoFilledFieldsRef,
     interactionsCheckState.interactions
@@ -258,15 +264,23 @@ export const EditableMedicationCard: React.FC<{
   const saveButtonText = getSaveButtonText(
     medication?.status || 'pending',
     typeRef.current,
-    selectedStatus,
+    currentStatus,
     isUnsavedData
   );
-  const isCardSaveButtonDisabled =
-    (typeRef.current !== 'dispense' && (isUpdating || !isUnsavedData)) ||
-    (erxEnabled && erxStatus === ERXStatus.LOADING) ||
-    interactionsCheckState.status === 'in-progress' ||
-    interactionsUnresolved(interactionsCheckState.interactions);
 
+  const hasNotEditableStatus = currentStatus !== 'pending';
+  const isCreatingOrEditingOrder = typeRef.current === 'order-new' || typeRef.current === 'order-edit';
+  const isCreatingOrEditingOrderAndNothingToSave = isCreatingOrEditingOrder && !isUnsavedData;
+  const isErxLoading = erxEnabled && erxStatus === ERXStatus.LOADING;
+  const hasInprogressOrUnresolvedInteractions =
+    interactionsCheckState.status === 'in-progress' || interactionsUnresolved(interactionsCheckState.interactions);
+
+  const isCardSaveButtonDisabled =
+    isOrderUpdating ||
+    hasNotEditableStatus ||
+    isCreatingOrEditingOrderAndNothingToSave ||
+    isErxLoading ||
+    hasInprogressOrUnresolvedInteractions;
   const isModalSaveButtonDisabled =
     confirmedMedicationUpdateRequestRef.current.newStatus === 'administered' ? false : isReasonSelected;
 
@@ -380,10 +394,10 @@ export const EditableMedicationCard: React.FC<{
         medication={medication}
         fieldsConfig={fieldsConfig[typeRef.current]}
         localValues={localValues}
-        selectedStatus={selectedStatus}
-        isUpdating={isUpdating}
+        selectedStatus={currentStatus}
+        isUpdating={isOrderUpdating}
         onFieldValueChange={handleFieldValueChange}
-        onStatusSelect={handleStatusSelect}
+        onStatusSelect={handleStatusChange}
         getFieldValue={getFieldValue}
         showErrors={showErrors}
         fieldErrors={fieldErrors}
