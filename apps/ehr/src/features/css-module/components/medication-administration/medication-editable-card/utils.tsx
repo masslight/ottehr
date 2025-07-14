@@ -1,5 +1,6 @@
 import { Box, Typography } from '@mui/material';
 import { ErxCheckPrecheckInteractionsResponse } from '@oystehr/sdk';
+import { MedicationStatement } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   ExtendedMedicationDataForResponse,
@@ -244,8 +245,10 @@ const SEVERITY_LEVEL_TO_SEVERITY: Record<string, 'high' | 'moderate' | 'low' | u
 };
 
 export const medicationInteractionsFromErxResponse = (
-  response: ErxCheckPrecheckInteractionsResponse
+  response: ErxCheckPrecheckInteractionsResponse,
+  medicationStatements: MedicationStatement[]
 ): MedicationInteractions => {
+  console.log(medicationStatements);
   return {
     drugInteractions: (response.medications ?? []).map((medication) => {
       return {
