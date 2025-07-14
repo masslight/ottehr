@@ -11,6 +11,8 @@ export const useVitalsHandlers: UseVitalsHandlers = ({ encounterId, searchConfig
     requestedFields: { [searchConfig.fieldName]: searchConfig.searchParams },
   });
 
+  // console.log('chartData in useVitalsHandlers', chartData, searchConfig.fieldName, searchConfig.searchParams);
+
   const resultVitalsDTOs: VitalsObservationDTO[] = useMemo(() => {
     const chartDataVitalsDTOs: VitalsObservationDTO[] = (chartData?.[searchConfig.fieldName] ??
       []) as VitalsObservationDTO[];

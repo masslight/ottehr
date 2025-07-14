@@ -47,6 +47,7 @@ export const useChartData = ({
   } = useGetChartData(
     { apiClient, encounterId, requestedFields, enabled, refetchInterval },
     (data) => {
+      console.log('Chart data fetched successfully:', data);
       onSuccess?.(data);
       if (replaceStoreValues) {
         Object.keys(requestedFields || {}).forEach((field) => {
