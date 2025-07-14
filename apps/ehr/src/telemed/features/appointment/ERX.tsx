@@ -213,7 +213,7 @@ export const ERX: FC<{
   useEffect(() => {
     if (
       practitionerEnrollmentStatus?.registered &&
-      (!practitionerEnrollmentStatus?.confirmed || !(practitionerEnrollmentStatus as any)?.identityVerified) &&
+      (!practitionerEnrollmentStatus?.confirmed || !practitionerEnrollmentStatus?.identityVerified) &&
       !isConnectingPractitionerForConfirmation &&
       !isPractitionerConnectedForConfirmation
     ) {
