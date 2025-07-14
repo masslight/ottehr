@@ -13,6 +13,7 @@ import {
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   NOT_AUTHORIZED,
+  RemoveCoverageResponse,
   Secrets,
   SecretsKeys,
 } from 'utils';
@@ -34,10 +35,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const effectInput = await complexValidation(validatedParameters, oystehr);
 
     await performEffect(effectInput, oystehr);
-
+    const response: RemoveCoverageResponse = { message: 'Successfully removed coverage' };
     return {
       statusCode: 200,
-      body: JSON.stringify({ message: 'Successfully removed coverage' }),
+      body: JSON.stringify(response),
     };
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));

@@ -26,6 +26,7 @@ import {
   LabOrderResourcesRes,
   NotFoundAppointmentErrorHandler,
   PatientAccountResponse,
+  RemoveCoverageResponse,
   RemoveCoverageZambdaInput,
   SaveChartDataRequest,
   SaveChartDataResponse,
@@ -36,8 +37,9 @@ import {
   SyncUserResponse,
   UnassignPractitionerZambdaInput,
   UnassignPractitionerZambdaOutput,
-  UpdateCoverageZambdaInput,
   UpdateMedicationOrderInput,
+  UpdatePatientAccountInput,
+  UpdatePatientAccountResponse,
 } from 'utils';
 import { GetAppointmentsRequestParams } from '../utils';
 import { GetOystehrTelemedAPIParams } from './types';
@@ -275,11 +277,11 @@ export const getOystehrTelemedAPI = (
     return await makeZapRequest('get patient account', parameters);
   };
 
-  const updatePatientAccount = async (parameters: UpdateCoverageZambdaInput): Promise<PatientAccountResponse> => {
+  const updatePatientAccount = async (parameters: UpdatePatientAccountInput): Promise<UpdatePatientAccountResponse> => {
     return await makeZapRequest('update patient account', parameters);
   };
 
-  const removePatientCoverage = async (parameters: RemoveCoverageZambdaInput): Promise<PatientAccountResponse> => {
+  const removePatientCoverage = async (parameters: RemoveCoverageZambdaInput): Promise<RemoveCoverageResponse> => {
     return await makeZapRequest('remove patient coverage', parameters);
   };
 
