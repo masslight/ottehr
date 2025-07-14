@@ -727,6 +727,12 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
       data.workSchoolExcuse.forEach((item) => {
         regularText(item);
       });
+      separateLine();
+    }
+
+    if (data.addendumNote) {
+      drawBlockHeader('Addendum', textStyles.blockSubHeader);
+      regularText(data.addendumNote);
     }
   }
 

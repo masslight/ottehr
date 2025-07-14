@@ -102,9 +102,6 @@ export interface InPersonAppointmentInformation
   unconfirmedDOB: string;
   reasonForVisit: string;
   status: VisitStatusLabel;
-  provider?: string;
-  group?: string;
-  room?: string;
   paperwork: {
     demographics: boolean;
     photoID: boolean;
@@ -113,6 +110,9 @@ export interface InPersonAppointmentInformation
     ovrpInterest: boolean;
   };
   participants: AppointmentParticipants;
+  provider?: string;
+  group?: string;
+  room?: string;
   needsDOBConfirmation?: boolean;
   waitingMinutes?: number;
 }
