@@ -134,7 +134,7 @@ export const ERX: FC<{
     isLoading: isConnectingPractitioner,
     mutateAsync: connectPractitioner,
     isSuccess: isPractitionerConnected,
-  } = useConnectPractitionerToERX({ patientId: patient?.id });
+  } = useConnectPractitionerToERX({ patientId: patient?.id, encounterId: encounter.id });
 
   const {
     data: ssoLinkForEnrollment,
