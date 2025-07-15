@@ -1223,6 +1223,8 @@ export function flattenBundleResources<T extends FhirResource = ServiceRequest |
           flattenedResources.push(entry.resource);
         }
       });
+    } else if (bundle?.resourceType && bundle.resourceType !== 'Bundle') {
+      flattenedResources.push(bundle);
     }
   });
 

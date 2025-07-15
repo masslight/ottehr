@@ -70,6 +70,7 @@ export const PATIENT_ADDRESS_LINE_2 = 'Patient address line 2';
 export const PATIENT_CITY = 'PatientCity';
 export const RELATIONSHIP_RESPONSIBLE_PARTY_SELF = 'Self';
 export const PHONE_NUMBER = '1234567890';
+export const EMAIL = 'ibenham+knownothing@masslight.com';
 export const CARD_NUMBER = '4242424242424242';
 export const CARD_CVV = '123';
 export const CARD_EXP_DATE = '11/30';
@@ -747,6 +748,7 @@ export class Paperwork {
     city: string;
     state: string;
     zip: string;
+    email: string;
   }> {
     const { relationship } = await this.fillResponsiblePartyNotSelfRelationship();
     const name = await this.fillResponsiblePartyPatientName();
@@ -758,6 +760,7 @@ export class Paperwork {
     const { zip } = await this.fillResponsiblePartyZip();
     const { address: additionalAddress } = await this.fillResponsiblePartyAdditionalAddress();
     const { formattedPhoneNumber: phone } = await this.fillResponsiblePartyPhone();
+    const { email } = await this.fillResponsiblePartyEmail();
     return {
       relationship,
       birthSex,
@@ -770,6 +773,7 @@ export class Paperwork {
       city,
       state,
       zip,
+      email,
     };
   }
   async fillResponsiblePartyPatientName(): Promise<{ firstName: string; lastName: string }> {
@@ -820,6 +824,10 @@ export class Paperwork {
     const formattedPhoneNumber = this.formatPhoneNumber(PHONE_NUMBER);
     await this.locator.responsiblePartyNumber.fill(PHONE_NUMBER);
     return { formattedPhoneNumber };
+  }
+  async fillResponsiblePartyEmail(): Promise<{ email: string }> {
+    await this.locator.responsiblePartyEmail.fill(EMAIL);
+    return { email: EMAIL };
   }
   async fillResponsiblePartyAddress(): Promise<{ address: string }> {
     const address = `Address ${this.getRandomString()}`;
