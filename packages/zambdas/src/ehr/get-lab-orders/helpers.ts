@@ -1395,14 +1395,22 @@ export const parseAccessionNumbers = (
   results: DiagnosticReport[],
   cache?: Cache
 ): string[] => {
-  const { orderedFinalAndCorrectedResults, reflexFinalAndCorrectedResults, orderedPrelimResults, reflexPrelimResults } =
-    cache?.parsedResults || parseResults(serviceRequest, results);
+  const {
+    orderedFinalAndCorrectedResults,
+    reflexFinalAndCorrectedResults,
+    orderedPrelimResults,
+    reflexPrelimResults,
+    orderedCancelledResults,
+    reflexCancelledResults,
+  } = cache?.parsedResults || parseResults(serviceRequest, results);
 
   const accessionNumbers = [
     ...orderedFinalAndCorrectedResults,
     ...reflexFinalAndCorrectedResults,
     ...orderedPrelimResults,
     ...reflexPrelimResults,
+    ...orderedCancelledResults,
+    ...reflexCancelledResults,
   ]
     .map((result) => parseAccessionNumber([result]))
     .filter(Boolean)
@@ -1460,6 +1468,8 @@ export const parseLabOrderLastResultReceivedDate = (
     reflexFinalTasks,
     orderedCorrectedTasks,
     reflexCorrectedTasks,
+    orderedCancelledResultsTasks,
+    reflexCancelledResultsTasks,
   } =
     cache?.parsedTasks ||
     parseTasks({
@@ -1476,6 +1486,8 @@ export const parseLabOrderLastResultReceivedDate = (
       reflexFinalTasks[0]?.authoredOn,
       orderedCorrectedTasks[0]?.authoredOn,
       reflexCorrectedTasks[0]?.authoredOn,
+      orderedCancelledResultsTasks[0]?.authoredOn,
+      reflexCancelledResultsTasks[0]?.authoredOn,
     ]
       .filter(Boolean)
       .sort((a, b) => compareDates(a, b))[0] || '';

@@ -213,7 +213,7 @@ export const ERX: FC<{
   useEffect(() => {
     if (
       practitionerEnrollmentStatus?.registered &&
-      !practitionerEnrollmentStatus?.confirmed &&
+      (!practitionerEnrollmentStatus?.confirmed || !practitionerEnrollmentStatus?.identityVerified) &&
       !isConnectingPractitionerForConfirmation &&
       !isPractitionerConnectedForConfirmation
     ) {
@@ -224,8 +224,7 @@ export const ERX: FC<{
     connectPractitionerFn,
     isConnectingPractitionerForConfirmation,
     isPractitionerConnectedForConfirmation,
-    practitionerEnrollmentStatus?.registered,
-    practitionerEnrollmentStatus?.confirmed,
+    practitionerEnrollmentStatus,
   ]);
 
   // Handle ready state

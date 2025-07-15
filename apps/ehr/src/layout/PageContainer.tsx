@@ -1,6 +1,6 @@
-import InfoIcon from '@mui/icons-material/InfoOutlined';
-import { Box, Container, Tooltip, Typography } from '@mui/material';
+import { Container, Typography } from '@mui/material';
 import { ReactElement, useState } from 'react';
+import { CPT_TOOLTIP_PROPS, TooltipWrapper } from 'src/components/WithTooltip';
 import { Sidebar, SidebarItem } from '../components/navigation/Sidebar';
 
 const { VITE_APP_ORGANIZATION_NAME_LONG: ORGANIZATION_NAME_LONG } = import.meta.env;
@@ -31,26 +31,9 @@ export default function PageContainer({ sidebarItems, tabTitle, title, children 
       )}
       {children}
       <br />
-      <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+      <TooltipWrapper tooltipProps={CPT_TOOLTIP_PROPS}>
         Environment: {import.meta.env.VITE_APP_ENV}, Version: {import.meta.env.VITE_APP_VERSION}
-        <Tooltip
-          title={
-            <Box sx={{ whiteSpace: 'pre-line', fontSize: '0.75rem' }}>
-              {`CPT copyright 2023 American Medical Association. All rights reserved.
-
-Fee schedules, relative value units, conversion factors and/or related components are not assigned by the AMA, are not part of CPT, and the AMA is not recommending their use. The AMA does not directly or indirectly practice medicine or dispense medical services. The AMA assumes no liability for data contained or not contained herein.
-
-CPT is a registered trademark of the American Medical Association.`}
-            </Box>
-          }
-          placement="top"
-          arrow
-          enterTouchDelay={0}
-          leaveTouchDelay={5_000}
-        >
-          <InfoIcon sx={{ fontSize: 16, color: 'text.secondary', cursor: 'pointer' }} />
-        </Tooltip>
-      </Typography>
+      </TooltipWrapper>
     </Container>
   );
 

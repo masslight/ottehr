@@ -1,8 +1,14 @@
 import { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, MedicationRequest } from 'fhir/r4b';
-import { getPatchBinary, getSecret, isTruthy, Secrets, SecretsKeys } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
+import { ERX_MEDICATION_META_TAG_CODE, getPatchBinary, getSecret, isTruthy, Secrets, SecretsKeys } from 'utils';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  fillMeta,
+  topLevelCatch,
+  ZambdaInput,
+} from '../../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): { secrets: Secrets | null } {
   return {
@@ -102,6 +108,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
                   op: 'add',
                   path: '/encounter',
                   value: { reference: `Encounter/${encounter.id}` },
+                },
+                {
+                  op: 'add',
+                  path: '/meta',
+                  value: fillMeta(ERX_MEDICATION_META_TAG_CODE, ERX_MEDICATION_META_TAG_CODE),
                 },
               ],
             })
