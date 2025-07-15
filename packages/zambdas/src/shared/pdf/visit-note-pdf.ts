@@ -300,7 +300,9 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     drawFieldLine('Subscriber ID', data.insuranceSubscriberId);
   }
   drawFieldLine('Address', data.address);
-  regularText("Provider confirmed patient's name, DOB, introduced myself and gave my licensure and credentials");
+  regularText(
+    'Provider confirmed patient’s name, DOB, introduced themselves, and gave their licensure and credentials.'
+  );
   separateLine();
 
   if (data.chiefComplaint || data.providerTimeSpan) {
@@ -725,6 +727,12 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
       data.workSchoolExcuse.forEach((item) => {
         regularText(item);
       });
+      separateLine();
+    }
+
+    if (data.addendumNote) {
+      drawBlockHeader('Addendum', textStyles.blockSubHeader);
+      regularText(data.addendumNote);
     }
   }
 

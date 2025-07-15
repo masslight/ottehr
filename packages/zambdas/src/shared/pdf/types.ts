@@ -309,6 +309,7 @@ export interface VisitNoteData extends ExaminationBlockData {
     timeSpent?: string;
     documentedBy?: string;
   }[];
+  addendumNote?: string;
 }
 
 export interface ReceiptData {
