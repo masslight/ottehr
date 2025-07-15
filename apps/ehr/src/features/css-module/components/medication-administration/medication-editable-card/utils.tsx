@@ -291,12 +291,13 @@ export const medicationInteractionsFromErxResponse = (
       )?.code;
       return code && drugIds.includes(code);
     });
-    if (sourcePrescription && sourcePrescription.id && sourcePrescription.dispenseRequest?.validityPeriod?.start) {
+    const dateString = sourcePrescription?.extension?.find(
+      (extension) => extension.url === 'http://api.zapehr.com/photon-event-time'
+    )?.valueDateTime;
+    if (sourcePrescription && sourcePrescription.id && dateString) {
       drugInteraction.source = {
         reference: 'MedicationRequest/' + sourcePrescription.id,
-        display:
-          'Prescription\nfrom\n' +
-          DateTime.fromISO(sourcePrescription.dispenseRequest.validityPeriod.start).toFormat('MM/dd/yyyy'),
+        display: 'Prescription\nfrom\n' + DateTime.fromISO(dateString).toFormat('MM/dd/yyyy'),
       };
     }
   });
