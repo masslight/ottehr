@@ -439,7 +439,8 @@ export const useSaveChartData = () => {
 
   return useMutation({
     mutationFn: (chartDataFields: Omit<SaveChartDataRequest, 'encounterId'>) => {
-      if (isReadOnly) {
+      // disabled saving chart data in read only mode except addendum note
+      if (isReadOnly && Object.keys(chartDataFields).some((key) => (key as keyof ChartDataFields) !== 'addendumNote')) {
         throw new Error('update disabled in read only mode');
       }
 
