@@ -37,11 +37,14 @@ import { DateTime } from 'luxon';
 import {
   addOperation,
   findExistingListByDocumentTypeCode,
+  getPatchOperationsForNewMetaTags,
   LAB_RESULT_DOC_REF_CODING_CODE,
   PatientMasterRecordResourceType,
   replaceOperation,
   TaskCoding,
   TELEMED_VIDEO_ROOM_CODE,
+  User,
+  VisitStatusWithoutUnknown,
 } from 'utils';
 import {
   BookableResource,
@@ -612,6 +615,7 @@ export async function getRecentQrsQuestionnaireResponse(
 }
 
 export const CRITICAL_CHANGE_SYSTEM = 'critical-update-by'; // exists in ehr as well
+export const STATUS_UPDATE_TAG_SYSTEM = 'status-update';
 
 export const getCriticalUpdateTagOp = (resource: Resource, updateBy: string): Operation => {
   const recordUpdateByTag = {
@@ -645,6 +649,29 @@ export const getCriticalUpdateTagOp = (resource: Resource, updateBy: string): Op
       };
     }
   }
+};
+
+// adds critical update tag to track status changes & tag with corresponding status change code
+// todo we should come up with a better way to render activity logs, probably with provenance resources
+export const getAppointmentMetaTagOpForStatusUpdate = (
+  appointment: Appointment,
+  updatedStatus: VisitStatusWithoutUnknown,
+  updatedBy: {
+    user?: User;
+    updatedByOverride?: string;
+  }
+): Operation[] => {
+  const { user, updatedByOverride } = updatedBy;
+  const statusTag = { system: STATUS_UPDATE_TAG_SYSTEM, code: updatedStatus };
+  const staffUpdateBy = user ? `Staff ${user?.email ? user.email : `(${user?.id})`}` : 'n/a';
+  const updatedByText = updatedByOverride ? updatedByOverride : staffUpdateBy;
+  const updateTag = {
+    system: CRITICAL_CHANGE_SYSTEM,
+    display: updatedByText,
+    version: DateTime.now().toISO() || '',
+  };
+  const ops = getPatchOperationsForNewMetaTags(appointment, [statusTag, updateTag]);
+  return ops;
 };
 
 export const getLocationIdFromAppointment = (appointment: Appointment): string | undefined => {

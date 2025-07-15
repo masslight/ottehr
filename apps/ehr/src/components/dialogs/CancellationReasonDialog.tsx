@@ -26,6 +26,7 @@ interface CancellationReasonDialogProps {
   appointment: Appointment;
   encounter: Encounter;
   open: boolean;
+  getAndSetResources: ({ logs, notes }: { logs?: boolean; notes?: boolean }) => Promise<void>;
 }
 
 export default function CancellationReasonDialog({
@@ -34,6 +35,7 @@ export default function CancellationReasonDialog({
   appointment,
   encounter,
   open,
+  getAndSetResources,
 }: CancellationReasonDialogProps): ReactElement {
   const { oystehrZambda } = useApiClients();
   const [cancellationReason, setCancellationReason] = useState<CancellationReasonOptionsInPerson | ''>('');
@@ -82,6 +84,9 @@ export default function CancellationReasonDialog({
     } finally {
       if (response && !apiErr) {
         await getResourceBundle();
+        await getAndSetResources({ logs: true }).catch((error: any) => {
+          console.log('error getting activity logs after cancellation', error);
+        });
         handleClose();
         setError(false);
       } else {
