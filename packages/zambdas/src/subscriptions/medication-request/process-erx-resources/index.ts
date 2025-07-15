@@ -31,10 +31,6 @@ export function validateRequestParameters(input: ZambdaInput): {
     throw new Error('MedicationRequest does not have an erx prescription id');
   }
 
-  if (medicationRequest.status !== 'active') {
-    throw new Error('MedicationRequest is not active');
-  }
-
   return {
     medicationRequest: medicationRequest as MedicationRequest,
     secrets: input.secrets,
