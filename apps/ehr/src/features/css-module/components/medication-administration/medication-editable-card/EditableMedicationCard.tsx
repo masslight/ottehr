@@ -1,4 +1,4 @@
-import { Medication } from 'fhir/r4b';
+import { Medication, MedicationRequest } from 'fhir/r4b';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { MedicationWithTypeDTO, useMedicationHistory } from 'src/features/css-module/hooks/useMedicationHistory';
@@ -307,9 +307,32 @@ export const EditableMedicationCard: React.FC<{
             medication.code?.coding?.find((coding) => coding.system === MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM)
               ?.code ?? '',
         });
+        const prescriptions = (
+          await oystehr.fhir.search<MedicationRequest>({
+            resourceType: 'MedicationRequest',
+            params: [
+              {
+                name: 'status',
+                value: 'active',
+              },
+              {
+                name: 'subject',
+                value: 'Patient/' + resources.patient?.id,
+              },
+              {
+                name: '_tag',
+                value: 'erx-medication',
+              },
+            ],
+          })
+        ).unbundle();
         setInteractionsCheckState({
           status: 'done',
-          interactions: medicationInteractionsFromErxResponse(interactionsCheckResponse, medicationHistory),
+          interactions: medicationInteractionsFromErxResponse(
+            interactionsCheckResponse,
+            medicationHistory,
+            prescriptions
+          ),
           medicationName: getMedicationName(medication),
         });
       } catch (e) {

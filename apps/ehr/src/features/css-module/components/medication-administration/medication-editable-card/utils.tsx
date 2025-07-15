@@ -1,5 +1,6 @@
 import { Box, Typography } from '@mui/material';
 import { ErxCheckPrecheckInteractionsResponse } from '@oystehr/sdk';
+import { MedicationRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { MedicationWithTypeDTO } from 'src/features/css-module/hooks/useMedicationHistory';
 import {
@@ -7,6 +8,7 @@ import {
   MedicationData,
   MedicationInteractions,
   MedicationOrderStatusesType,
+  MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM,
   UpdateMedicationOrderInput,
 } from 'utils';
 import { fieldsConfig, MedicationOrderType } from './fieldsConfig';
@@ -246,7 +248,8 @@ const SEVERITY_LEVEL_TO_SEVERITY: Record<string, 'high' | 'moderate' | 'low' | u
 
 export const medicationInteractionsFromErxResponse = (
   response: ErxCheckPrecheckInteractionsResponse,
-  medicationHistory: MedicationWithTypeDTO[]
+  medicationHistory: MedicationWithTypeDTO[],
+  prescriptions: MedicationRequest[]
 ): MedicationInteractions => {
   console.log('medicationHistory', medicationHistory);
   const interactions: MedicationInteractions = {
@@ -269,26 +272,31 @@ export const medicationInteractionsFromErxResponse = (
   interactions.drugInteractions?.forEach((drugInteraction) => {
     const drugIds = drugInteraction.drugs.map((drug) => drug.id);
     const sourceMedication = medicationHistory.find((medication) => medication.id && drugIds.includes(medication.id));
-    let display = '';
-    if (sourceMedication?.chartDataField && sourceMedication?.type) {
-      if (sourceMedication.chartDataField === 'medications') {
-        display = 'Patient';
-      } else {
-        display = 'In-house';
-      }
-      if (sourceMedication.type == 'scheduled') {
-        display += ' - Scheduled';
-      } else {
-        display += ' - As needed';
-      }
+    let display: string | undefined = undefined;
+    if (sourceMedication && sourceMedication.resourceId && sourceMedication?.chartDataField && sourceMedication?.type) {
+      display = sourceMedication.chartDataField === 'medications' ? 'Patient' : 'In-house';
+      display += sourceMedication.type == 'scheduled' ? ' - Scheduled' : ' - As needed';
       if (sourceMedication?.intakeInfo?.date) {
-        display += '\nlast taken' + DateTime.fromISO(sourceMedication.intakeInfo.date).toFormat('MM/dd/yyyy');
+        display += '\nlast taken\n' + DateTime.fromISO(sourceMedication.intakeInfo.date).toFormat('MM/dd/yyyy');
       }
-    }
-    if (sourceMedication && sourceMedication.resourceId) {
       drugInteraction.source = {
         medicationStatementId: sourceMedication.resourceId,
         display: display,
+      };
+      return;
+    }
+    const sourcePrescription = prescriptions.find((prescription) => {
+      const code = prescription.medicationCodeableConcept?.coding?.find(
+        (coding) => coding.system === MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM
+      )?.code;
+      return code && drugIds.includes(code);
+    });
+    if (sourcePrescription && sourcePrescription.id && sourcePrescription.dispenseRequest?.validityPeriod?.start) {
+      drugInteraction.source = {
+        medicationStatementId: sourcePrescription.id,
+        display:
+          'Prescription\nfrom\n' +
+          DateTime.fromISO(sourcePrescription.dispenseRequest.validityPeriod.start).toFormat('MM/dd/yyyy'),
       };
     }
   });
