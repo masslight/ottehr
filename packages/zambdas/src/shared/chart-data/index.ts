@@ -48,6 +48,7 @@ import {
   DispositionFollowUpType,
   DispositionMetaFieldsNames,
   DispositionType,
+  ERX_MEDICATION_META_TAG_CODE,
   EXAM_OBSERVATION_META_SYSTEM,
   ExamCardsNames,
   ExamFieldsNames,
@@ -1070,7 +1071,10 @@ const mapResourceToChartDataFields = (
   ) {
     data.inhouseMedications?.push(makeMedicationDTO(resource));
     resourceMapped = true;
-  } else if (resource?.resourceType === 'MedicationRequest') {
+  } else if (
+    resource?.resourceType === 'MedicationRequest' &&
+    chartDataResourceHasMetaTagByCode(resource, ERX_MEDICATION_META_TAG_CODE)
+  ) {
     data.prescribedMedications?.push(makePrescribedMedicationDTO(resource));
     resourceMapped = true;
   } else if (
