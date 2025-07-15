@@ -210,7 +210,7 @@ export const getMedicationInteractions = (
     ?.map<DrugInteraction>((resource) => {
       const issue = resource as DetectedIssue;
       const sourceReference = issue.evidence?.find((evidence) => evidence.detail != null)?.detail?.[0];
-      const sourceMedicationStatementId = sourceReference?.reference?.split('/')[1];
+      const sourceReferenceString = sourceReference?.reference;
       const sourceDisplay = sourceReference?.display;
       return {
         drugs: (issue.evidence ?? []).flatMap((evidence) => {
@@ -231,9 +231,9 @@ export const getMedicationInteractions = (
         message: issue.detail,
         overrideReason: getOverrideReason(issue),
         source:
-          sourceMedicationStatementId && sourceDisplay
+          sourceReferenceString && sourceDisplay
             ? {
-                medicationStatementId: sourceMedicationStatementId,
+                reference: sourceReferenceString,
                 display: sourceDisplay,
               }
             : undefined,

@@ -44,7 +44,7 @@ export interface DrugInteraction {
   message?: string;
   overrideReason?: string;
   source?: {
-    medicationStatementId: string;
+    reference: string;
     display: string;
   };
 }

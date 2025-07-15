@@ -280,7 +280,7 @@ export const medicationInteractionsFromErxResponse = (
         display += '\nlast taken\n' + DateTime.fromISO(sourceMedication.intakeInfo.date).toFormat('MM/dd/yyyy');
       }
       drugInteraction.source = {
-        medicationStatementId: sourceMedication.resourceId,
+        reference: 'Medication/' + sourceMedication.resourceId,
         display: display,
       };
       return;
@@ -293,7 +293,7 @@ export const medicationInteractionsFromErxResponse = (
     });
     if (sourcePrescription && sourcePrescription.id && sourcePrescription.dispenseRequest?.validityPeriod?.start) {
       drugInteraction.source = {
-        medicationStatementId: sourcePrescription.id,
+        reference: 'MedicationRequest/' + sourcePrescription.id,
         display:
           'Prescription\nfrom\n' +
           DateTime.fromISO(sourcePrescription.dispenseRequest.validityPeriod.start).toFormat('MM/dd/yyyy'),
