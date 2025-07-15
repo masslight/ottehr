@@ -271,7 +271,6 @@ const getCriticalUpdateMadeBy = (diff: IChange, resource: Resource): string | un
   return activityBy;
 };
 const getStatusToDisplay = (diff: IChange): string => {
-  console.log('getStatusToDisplay diff', diff);
   let code = '';
   if (diff?.type === 'UPDATE') {
     code = diff.changes?.find((change) => change.key === 'code')?.value || '';
