@@ -21,14 +21,17 @@ import {
   getUser,
   topLevelCatch,
   userHasAccessToPatient,
+  wrapHandler,
   ZambdaInput,
 } from '../../../shared';
 import { validateUpdateAppointmentParams } from './validateRequestParameters';
 
+const ZAMBDA_NAME = 'telemed-update-appointment';
+
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrToken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input)}`);
   try {
     const validatedParameters = validateUpdateAppointmentParams(input);
@@ -46,7 +49,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify({ error: 'Internal error' }),
     };
   }
-};
+});
 
 interface PerformEffectInputProps {
   input: ZambdaInput;

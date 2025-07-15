@@ -7,6 +7,7 @@ import {
   createOystehrClient,
   fillMeta,
   topLevelCatch,
+  wrapHandler,
   ZambdaInput,
 } from '../../../shared';
 
@@ -19,7 +20,8 @@ export function validateRequestParameters(input: ZambdaInput): { secrets: Secret
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+const ZAMBDA_NAME = 'process-erx-resources';
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const { secrets } = validateRequestParameters(input);
@@ -140,4 +142,4 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify(error.message),
     };
   }
-};
+});
