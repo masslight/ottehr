@@ -271,6 +271,7 @@ export const PROVIDER_RULES: AccessPolicy = {
         'FHIR:List',
         'FHIR:Schedule',
         'FHIR:ValueSet',
+        'FHIR:Medication',
       ],
       action: ['FHIR:Search', 'FHIR:Read'],
       effect: 'Allow',
