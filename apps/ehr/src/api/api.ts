@@ -28,8 +28,6 @@ import {
   CreateSlotParams,
   CreateUserOutput,
   CreateUserParams,
-  DeactivateUserZambdaInput,
-  DeactivateUserZambdaOutput,
   DeleteInHouseLabOrderParameters,
   DeleteInHouseLabOrderZambdaOutput,
   DeleteLabOrderZambdaInput,
@@ -78,6 +76,8 @@ import {
   UpdateUserParams,
   UpdateUserZambdaOutput,
   UploadPatientProfilePhotoInput,
+  UserActivationZambdaInput,
+  UserActivationZambdaOutput,
 } from 'utils';
 
 export interface PatchOperation {
@@ -395,10 +395,10 @@ export const getUserDetails = async (oystehr: Oystehr, parameters: GetUserParams
   }
 };
 
-export const deactivateUser = async (
+export const userActivation = async (
   oystehr: Oystehr,
-  parameters: DeactivateUserZambdaInput
-): Promise<DeactivateUserZambdaOutput> => {
+  parameters: UserActivationZambdaInput
+): Promise<UserActivationZambdaOutput> => {
   try {
     if (DEACTIVATE_USER_ZAMBDA_ID == null) {
       throw new Error('deactivate user environment variable could not be loaded');
