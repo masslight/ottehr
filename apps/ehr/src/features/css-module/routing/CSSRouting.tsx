@@ -9,7 +9,7 @@ import { CSSLayout } from '../layout/CSSLayout';
 const CSSRouting: React.FC = () => {
   const permissions = useCSSPermissions();
   const navigate = useNavigate();
-  const { availableRoutes, isLoading } = useNavigationContext();
+  const { availableRoutes = [], isLoading = true } = useNavigationContext() || {};
 
   if (permissions.isPending || isLoading) {
     return <CSSLoader />;
