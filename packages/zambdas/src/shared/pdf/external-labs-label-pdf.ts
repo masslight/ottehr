@@ -79,6 +79,12 @@ const createExternalLabsLabelPdfBytes = async (data: ExternalLabsLabelConfig): P
       font: Courier,
       newLineAfter: false,
     },
+    fieldTextBold: {
+      fontSize: baseFontSize,
+      spacing: baseSpacing,
+      font: CourierBold,
+      newLineAfter: false,
+    },
     fieldHeader: {
       fontSize: baseFontSize,
       font: CourierBold,
@@ -100,7 +106,7 @@ const createExternalLabsLabelPdfBytes = async (data: ExternalLabsLabelConfig): P
 
   const drawHeaderAndInlineText = (header: string, text: string): void => {
     pdfClient.drawTextSequential(`${header}: `, textStyles.fieldHeader);
-    pdfClient.drawTextSequential(text, textStyles.fieldText);
+    pdfClient.drawTextSequential(text, textStyles.fieldTextBold);
   };
 
   const drawColumnRowAndNewline = (leftColumn: Column, rightColumn: Column): void => {
@@ -108,7 +114,7 @@ const createExternalLabsLabelPdfBytes = async (data: ExternalLabsLabelConfig): P
 
     let startXPos = pdfClient.getLeftBound();
     startXPos = pdfClient.drawStartXPosSpecifiedText(leftHeader, textStyles.fieldHeader, startXPos).endXPos;
-    pdfClient.drawStartXPosSpecifiedText(leftColumn.value, textStyles.fieldText, startXPos);
+    pdfClient.drawStartXPosSpecifiedText(leftColumn.value, textStyles.fieldTextBold, startXPos);
 
     // now start the right column
     pdfClient.setX(rightColumnXStart);
@@ -116,7 +122,7 @@ const createExternalLabsLabelPdfBytes = async (data: ExternalLabsLabelConfig): P
     const rightHeader = rightColumn.header ? `${rightColumn.header}: ` : '';
 
     startXPos = pdfClient.drawStartXPosSpecifiedText(rightHeader, textStyles.fieldHeader, pdfClient.getX()).endXPos;
-    pdfClient.drawStartXPosSpecifiedText(rightColumn.value, textStyles.fieldText, startXPos);
+    pdfClient.drawStartXPosSpecifiedText(rightColumn.value, textStyles.fieldTextBold, startXPos);
     pdfClient.newLine(NEWLINE_Y_DROP);
   };
 
