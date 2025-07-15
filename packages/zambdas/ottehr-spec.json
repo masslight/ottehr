@@ -710,7 +710,7 @@
       "src": "src/subscriptions/medication-request/process-erx-resources/index",
       "zip": ".dist/zips/process-erx-resources.zip",
       "subscription": {
-        "criteria": "MedicationRequest",
+        "criteria": "MedicationRequest?identifier=https://identifiers.fhir.oystehr.com/erx-prescription-id",
         "reason": "ERX incoming resources processor",
         "event": "create"
       }
