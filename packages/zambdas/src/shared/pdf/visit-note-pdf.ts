@@ -669,7 +669,7 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     (data.subSpecialtyFollowUp && data.subSpecialtyFollowUp.length > 0) ||
     (data.workSchoolExcuse && data.workSchoolExcuse.length > 0)
   ) {
-    drawBlockHeader('Patient instructions');
+    drawBlockHeader('Plan');
     if (data.patientInstructions && data.patientInstructions.length > 0) {
       drawBlockHeader('Patient instructions', textStyles.blockSubHeader);
       data.patientInstructions.forEach((instruction) => {
@@ -723,7 +723,7 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     }
 
     if (data.workSchoolExcuse && data.workSchoolExcuse.length > 0) {
-      drawBlockHeader('Work / School Excuse', textStyles.blockSubHeader);
+      drawBlockHeader('School / Work Excuse', textStyles.blockSubHeader);
       data.workSchoolExcuse.forEach((item) => {
         regularText(item);
       });
