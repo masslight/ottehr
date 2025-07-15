@@ -97,8 +97,14 @@ export async function getChartData(
   // search by patient by default
   addRequestIfNeeded({ field: 'medications', resourceType: 'MedicationStatement', defaultSearchBy: 'patient' });
 
-  // search by patient by default
-  addRequestIfNeeded({ field: 'inhouseMedications', resourceType: 'MedicationStatement', defaultSearchBy: 'patient' });
+  if (requestedFields?.inhouseMedications) {
+    // search by patient by default
+    addRequestIfNeeded({
+      field: 'inhouseMedications',
+      resourceType: 'MedicationStatement',
+      defaultSearchBy: 'patient',
+    });
+  }
 
   // search by patient by default
   addRequestIfNeeded({ field: 'surgicalHistory', resourceType: 'Procedure', defaultSearchBy: 'patient' });
