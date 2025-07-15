@@ -1457,6 +1457,10 @@
               {
                 "value": "+12403333333",
                 "system": "phone"
+              },
+              {
+                "system": "email",
+                "value": "ibenham+test@masslight.com"
               }
             ],
             "patient": {
