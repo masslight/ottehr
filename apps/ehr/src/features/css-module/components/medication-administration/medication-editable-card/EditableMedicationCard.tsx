@@ -1,7 +1,7 @@
-import { Medication, MedicationStatement } from 'fhir/r4b';
+import { Medication } from 'fhir/r4b';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useMedicationHistory } from 'src/features/css-module/hooks/useMedicationHistory';
+import { MedicationWithTypeDTO, useMedicationHistory } from 'src/features/css-module/hooks/useMedicationHistory';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { ERX, ERXStatus } from 'src/telemed/features/appointment/ERX';
 import {
@@ -71,8 +71,7 @@ export const EditableMedicationCard: React.FC<{
   const { oystehr } = useApiClients();
   const [showInteractionAlerts, setShowInteractionAlerts] = useState(false);
   const [erxEnabled, setErxEnabled] = useState(false);
-
-  const { refetchHistory } = useMedicationHistory();
+  const { isLoading: isMedicationHistoryLoading, medicationHistory, refetchHistory } = useMedicationHistory();
 
   // There are dynamic form config which depend on what button was clicked:
   // - If "administered" was clicked, then "dispense" form config should be used
@@ -284,7 +283,7 @@ export const EditableMedicationCard: React.FC<{
   }, []);
 
   const runInteractionsCheck = useCallback(
-    async (medicationId: string) => {
+    async (medicationId: string, medicationHistory: MedicationWithTypeDTO[]) => {
       if (oystehr == null) {
         setInteractionsCheckState(INTERACTIONS_CHECK_STATE_ERROR);
         console.error('oystehr is missing');
@@ -297,9 +296,6 @@ export const EditableMedicationCard: React.FC<{
         return;
       }
       setInteractionsCheckState(INTERACTIONS_CHECK_STATE_IN_PROGRESS);
-      if (erxStatus === ERXStatus.LOADING) {
-        return;
-      }
       try {
         const medication = await oystehr.fhir.get<Medication>({
           resourceType: 'Medication',
@@ -311,24 +307,9 @@ export const EditableMedicationCard: React.FC<{
             medication.code?.coding?.find((coding) => coding.system === MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM)
               ?.code ?? '',
         });
-        const activeMedicationStatements = (
-          await oystehr.fhir.search<MedicationStatement>({
-            resourceType: 'MedicationStatement',
-            params: [
-              {
-                name: 'status',
-                value: 'active',
-              },
-              {
-                name: 'subject',
-                value: 'Patient/' + resources.patient?.id,
-              },
-            ],
-          })
-        ).unbundle();
         setInteractionsCheckState({
           status: 'done',
-          interactions: medicationInteractionsFromErxResponse(interactionsCheckResponse, activeMedicationStatements),
+          interactions: medicationInteractionsFromErxResponse(interactionsCheckResponse, medicationHistory),
           medicationName: getMedicationName(medication),
         });
       } catch (e) {
@@ -336,15 +317,16 @@ export const EditableMedicationCard: React.FC<{
         console.error(e);
       }
     },
-    [oystehr, resources.patient?.id, erxStatus]
+    [oystehr, resources.patient?.id]
   );
 
+  const medicationHistoryJson = JSON.stringify(medicationHistory);
   useEffect(() => {
     const medicationId = localValues.medicationId;
-    if (medicationId) {
-      void runInteractionsCheck(medicationId);
+    if (medicationId && erxStatus === ERXStatus.READY && !isMedicationHistoryLoading) {
+      void runInteractionsCheck(medicationId, JSON.parse(medicationHistoryJson));
     }
-  }, [localValues.medicationId, runInteractionsCheck, erxStatus]);
+  }, [localValues.medicationId, runInteractionsCheck, erxStatus, isMedicationHistoryLoading, medicationHistoryJson]);
 
   useEffect(() => {
     if (medication) {
@@ -364,7 +346,8 @@ export const EditableMedicationCard: React.FC<{
     }
     if (
       (erxEnabled && erxStatus === ERXStatus.LOADING && (!medication || medication.id !== localValues.medicationId)) ||
-      interactionsCheckState.status === 'in-progress'
+      interactionsCheckState.status === 'in-progress' ||
+      isMedicationHistoryLoading
     ) {
       return 'checking...';
     } else if (erxStatus === ERXStatus.ERROR || interactionsCheckState.status === 'error') {
@@ -384,7 +367,15 @@ export const EditableMedicationCard: React.FC<{
       }
     }
     return undefined;
-  }, [erxEnabled, erxStatus, interactionsCheckState, localValues.medicationId, medication, typeFromProps]);
+  }, [
+    erxEnabled,
+    erxStatus,
+    interactionsCheckState,
+    localValues.medicationId,
+    medication,
+    typeFromProps,
+    isMedicationHistoryLoading,
+  ]);
 
   return (
     <>

@@ -1,7 +1,7 @@
 import { Box, Typography } from '@mui/material';
 import { ErxCheckPrecheckInteractionsResponse } from '@oystehr/sdk';
-import { MedicationStatement } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { MedicationWithTypeDTO } from 'src/features/css-module/hooks/useMedicationHistory';
 import {
   ExtendedMedicationDataForResponse,
   MedicationData,
@@ -246,10 +246,10 @@ const SEVERITY_LEVEL_TO_SEVERITY: Record<string, 'high' | 'moderate' | 'low' | u
 
 export const medicationInteractionsFromErxResponse = (
   response: ErxCheckPrecheckInteractionsResponse,
-  medicationStatements: MedicationStatement[]
+  medicationHistory: MedicationWithTypeDTO[]
 ): MedicationInteractions => {
-  console.log(medicationStatements);
-  return {
+  console.log('medicationHistory', medicationHistory);
+  const interactions: MedicationInteractions = {
     drugInteractions: (response.medications ?? []).map((medication) => {
       return {
         drugs: (medication.medications ?? []).map((nestedMedication) => ({
@@ -266,6 +266,33 @@ export const medicationInteractionsFromErxResponse = (
       };
     }),
   };
+  interactions.drugInteractions?.forEach((drugInteraction) => {
+    const drugIds = drugInteraction.drugs.map((drug) => drug.id);
+    const sourceMedication = medicationHistory.find((medication) => medication.id && drugIds.includes(medication.id));
+    let display = '';
+    if (sourceMedication?.chartDataField && sourceMedication?.type) {
+      if (sourceMedication.chartDataField === 'medications') {
+        display = 'Patient';
+      } else {
+        display = 'In-house';
+      }
+      if (sourceMedication.type == 'scheduled') {
+        display += ' - Scheduled';
+      } else {
+        display += ' - As needed';
+      }
+      if (sourceMedication?.intakeInfo?.date) {
+        display += '\nlast taken' + DateTime.fromISO(sourceMedication.intakeInfo.date).toFormat('MM/dd/yyyy');
+      }
+    }
+    if (sourceMedication && sourceMedication.resourceId) {
+      drugInteraction.source = {
+        medicationStatementId: sourceMedication.resourceId,
+        display: display,
+      };
+    }
+  });
+  return interactions;
 };
 
 export const interactionsUnresolved = (interactions: MedicationInteractions | undefined): boolean => {
