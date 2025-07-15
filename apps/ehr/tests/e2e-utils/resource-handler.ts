@@ -24,6 +24,7 @@ import { fileURLToPath } from 'url';
 import {
   cleanAppointmentGraph,
   CreateAppointmentResponse,
+  createFetchClientWithOystAuth,
   createSampleAppointments,
   E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
   FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG,
@@ -35,7 +36,6 @@ import {
 } from 'utils';
 import inPersonIntakeQuestionnaire from '../../../../packages/utils/lib/deployed-resources/questionnaires/in-person-intake-questionnaire.json' assert { type: 'json' };
 import { getAuth0Token } from './auth/getAuth0Token';
-import { fetchWithOystehrAuth } from './helpers/tests-utils';
 import {
   inviteTestEmployeeUser,
   removeUser,
@@ -496,14 +496,15 @@ export class ResourceHandler {
     practitioner: Practitioner;
   }> {
     await this.#initPromise;
-    const users = await fetchWithOystehrAuth<
+    const { fetchClient } = createFetchClientWithOystAuth(this.#authToken);
+    const users = await fetchClient<
       {
         id: string;
         name: string;
         email: string;
         profile: string;
       }[]
-    >('GET', 'https://project-api.zapehr.com/v1/user', this.#authToken);
+    >('GET', 'https://project-api.zapehr.com/v1/user');
 
     const user = users?.find((user) => user.email === process.env.TEXT_USERNAME);
     if (!user) throw new Error('Failed to find authorized user');
