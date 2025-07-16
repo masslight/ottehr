@@ -25,8 +25,9 @@ export const DetailsWithResults: React.FC<{
         {labOrder.diagnoses}
       </Typography>
 
-      {labOrder.resultsDetails.map((result) => (
+      {labOrder.resultsDetails.map((result, idx) => (
         <ResultItem
+          key={`result-detail-${idx}-${result.diagnosticReportId}`}
           onMarkAsReviewed={() =>
             markTaskAsReviewed({
               taskId: result.taskId,

@@ -300,7 +300,9 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     drawFieldLine('Subscriber ID', data.insuranceSubscriberId);
   }
   drawFieldLine('Address', data.address);
-  regularText("Provider confirmed patient's name, DOB, introduced myself and gave my licensure and credentials");
+  regularText(
+    'Provider confirmed patient’s name, DOB, introduced themselves, and gave their licensure and credentials.'
+  );
   separateLine();
 
   if (data.chiefComplaint || data.providerTimeSpan) {
@@ -667,7 +669,7 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     (data.subSpecialtyFollowUp && data.subSpecialtyFollowUp.length > 0) ||
     (data.workSchoolExcuse && data.workSchoolExcuse.length > 0)
   ) {
-    drawBlockHeader('Patient instructions');
+    drawBlockHeader('Plan');
     if (data.patientInstructions && data.patientInstructions.length > 0) {
       drawBlockHeader('Patient instructions', textStyles.blockSubHeader);
       data.patientInstructions.forEach((instruction) => {
@@ -721,10 +723,16 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     }
 
     if (data.workSchoolExcuse && data.workSchoolExcuse.length > 0) {
-      drawBlockHeader('Work / School Excuse', textStyles.blockSubHeader);
+      drawBlockHeader('School / Work Excuse', textStyles.blockSubHeader);
       data.workSchoolExcuse.forEach((item) => {
         regularText(item);
       });
+      separateLine();
+    }
+
+    if (data.addendumNote) {
+      drawBlockHeader('Addendum', textStyles.blockSubHeader);
+      regularText(data.addendumNote);
     }
   }
 

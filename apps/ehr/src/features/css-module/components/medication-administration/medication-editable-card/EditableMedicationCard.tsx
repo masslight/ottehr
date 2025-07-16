@@ -322,8 +322,8 @@ export const EditableMedicationCard: React.FC<{
         const interactionsCheckResponse = await oystehr.erx.checkPrecheckInteractions({
           patientId,
           drugId:
-            medication.identifier?.find((identifier) => identifier.system === MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM)
-              ?.value ?? '',
+            medication.code?.coding?.find((coding) => coding.system === MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM)
+              ?.code ?? '',
         });
         setInteractionsCheckState({
           status: 'done',
