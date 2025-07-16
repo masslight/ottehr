@@ -1,5 +1,5 @@
 import { Box, Typography } from '@mui/material';
-import { ErxCheckPrecheckInteractionsResponse } from '@oystehr/sdk';
+import Oystehr, { ErxCheckPrecheckInteractionsResponse } from '@oystehr/sdk';
 import { MedicationRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { MedicationWithTypeDTO } from 'src/features/css-module/hooks/useMedicationHistory';
@@ -302,6 +302,42 @@ export const medicationInteractionsFromErxResponse = (
     }
   });
   return interactions;
+};
+
+export const findPrescriptionsForInteractions = async (
+  patientId: string | undefined,
+  interationsResponse: ErxCheckPrecheckInteractionsResponse,
+  oystehr: Oystehr
+): Promise<MedicationRequest[]> => {
+  const interactingDrugIds = interationsResponse.medications.flatMap(
+    (medication) => medication.medications?.map((nestedMedication) => nestedMedication.id.toString()) ?? []
+  );
+  if (interactingDrugIds.length === 0) {
+    return [];
+  }
+  return (
+    await oystehr.fhir.search<MedicationRequest>({
+      resourceType: 'MedicationRequest',
+      params: [
+        {
+          name: 'status',
+          value: 'active',
+        },
+        {
+          name: 'subject',
+          value: 'Patient/' + patientId,
+        },
+        {
+          name: '_tag',
+          value: 'erx-medication',
+        },
+        {
+          name: 'code',
+          value: interactingDrugIds.map((drugId) => MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM + '|' + drugId).join(','),
+        },
+      ],
+    })
+  ).unbundle();
 };
 
 export const interactionsUnresolved = (interactions: MedicationInteractions | undefined): boolean => {
