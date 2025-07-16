@@ -131,7 +131,7 @@ const performEffect = async (
       description: description || `Payment for encounter ${encounterId}`,
       confirm: true,
       metadata: {
-        encounterId,
+        oystehr_encounter_id: encounterId,
       },
       automatic_payment_methods: {
         enabled: true,
