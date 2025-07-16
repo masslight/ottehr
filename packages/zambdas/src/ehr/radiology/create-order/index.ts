@@ -225,6 +225,7 @@ const writeOurServiceRequest = (
       },
     ],
     authoredOn: now.toISO(),
+    occurrenceDateTime: now.toISO(),
     extension: [
       {
         url: SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL,
@@ -355,6 +356,7 @@ const writeAdvaPacsTransaction = async (
           },
         ],
         authoredOn: ourServiceRequest.authoredOn,
+        occurrenceDateTime: ourServiceRequest.occurrenceDateTime,
       },
     };
 
