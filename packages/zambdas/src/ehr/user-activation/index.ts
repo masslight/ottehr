@@ -2,7 +2,13 @@ import { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { createFetchClientWithOystAuth, FetchClientWithOystAuth, getSecret, Secrets, SecretsKeys } from 'utils';
 import { UserActivationZambdaInput, UserActivationZambdaOutput } from 'utils/lib/types/api/user-activation.types';
-import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  topLevelCatch,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface UserActivationZambdaInputValidated extends UserActivationZambdaInput {
@@ -15,20 +21,26 @@ export const index = wrapHandler('user-activation', async (input: ZambdaInput): 
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
+    const { userId, mode, secrets } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    await checkOrCreateM2MClientToken(oystehrToken, validatedParameters.secrets);
-    const PROJECT_API = getSecret('PROJECT_API', validatedParameters.secrets);
+    oystehrToken = await checkOrCreateM2MClientToken(oystehrToken, secrets);
+    const PROJECT_API = getSecret('PROJECT_API', secrets);
+    const oystehr = createOystehrClient(oystehrToken, secrets);
     const fetchClient = createFetchClientWithOystAuth({ authToken: oystehrToken });
-    const user = await fetchClient.oystFetch<User>('GET', `${PROJECT_API}/user/${validatedParameters.userId}`);
+    let user = await oystehr.user.get({ id: userId });
+    console.log(`user before ${mode}ing: `, JSON.stringify(user));
 
     let response: UserActivationZambdaOutput = {};
-    if (validatedParameters.mode === 'activate') {
+    if (mode === 'activate') {
       response = await activateUser(user, fetchClient, PROJECT_API);
-    } else if (validatedParameters.mode === 'deactivate') {
+    } else if (mode === 'deactivate') {
       response = await deactivateUser(user, fetchClient, PROJECT_API);
     }
+
+    user = await oystehr.user.get({ id: userId });
+    console.log(`user after ${mode}ing: `, JSON.stringify(user));
 
     return {
       statusCode: 200,
@@ -79,10 +91,10 @@ async function deactivateUser(
       throw new Error('Failed to deactivate user');
     }
   } else {
-    console.log('User is already deactivated. Skipping.');
+    return { message: 'User is already deactivated.' };
   }
 
-  return {};
+  return { message: 'User successfully deactivated.' };
 }
 
 async function activateUser(
@@ -106,8 +118,8 @@ async function activateUser(
       throw new Error('Failed to activate user');
     }
   } else {
-    console.log('User is already active. Skipping.');
+    return { message: 'User is already activated.' };
   }
 
-  return {};
+  return { message: 'User successfully activated.' };
 }
