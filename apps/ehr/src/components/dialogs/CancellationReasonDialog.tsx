@@ -14,6 +14,7 @@ import {
   Typography,
 } from '@mui/material';
 import { Appointment, Encounter } from 'fhir/r4b';
+import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useState } from 'react';
 import { CancelAppointmentZambdaInput, CancellationReasonOptionsInPerson } from 'utils';
 import { cancelAppointment } from '../../api/api';
@@ -86,6 +87,9 @@ export default function CancellationReasonDialog({
         await getResourceBundle();
         await getAndSetResources({ logs: true }).catch((error: any) => {
           console.log('error getting activity logs after cancellation', error);
+        });
+        enqueueSnackbar('An error getting updated activity logs. Please try refreshing the page.', {
+          variant: 'error',
         });
         handleClose();
         setError(false);

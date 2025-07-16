@@ -662,7 +662,7 @@ export const getAppointmentMetaTagOpForStatusUpdate = (
   }
 ): Operation[] => {
   const { user, updatedByOverride } = updatedBy;
-  const statusTag = { system: STATUS_UPDATE_TAG_SYSTEM, code: updatedStatus };
+  const statusTag = { system: STATUS_UPDATE_TAG_SYSTEM, code: updatedStatus, display: updatedStatus };
   const staffUpdateBy = user ? `Staff ${user?.email ? user.email : `(${user?.id})`}` : 'n/a';
   const updatedByText = updatedByOverride ? updatedByOverride : staffUpdateBy;
   const updateTag = {

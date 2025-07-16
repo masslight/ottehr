@@ -107,6 +107,9 @@ export const ChangeStatusDropdown = ({
       if (getAndSetResources) {
         await getAndSetResources({ logs: true }).catch((error: any) => {
           console.log('error getting activity logs after status dropdown update', error);
+          enqueueSnackbar('An error getting updated activity logs. Please try refreshing the page.', {
+            variant: 'error',
+          });
         });
       }
     } catch (error) {

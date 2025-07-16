@@ -271,14 +271,14 @@ const getCriticalUpdateMadeBy = (diff: IChange, resource: Resource): string | un
   return activityBy;
 };
 const getStatusToDisplay = (diff: IChange): string => {
-  let code = '';
+  let display = '';
   if (diff?.type === 'UPDATE') {
-    code = diff.changes?.find((change) => change.key === 'code')?.value || '';
+    display = diff.changes?.find((change) => change.key === 'display')?.value || '';
   }
   if (diff?.type === 'ADD') {
-    code = diff?.value?.code || '';
+    display = diff?.value?.display || '';
   }
-  return code;
+  return display;
 };
 
 export const formatActivityDateTime = (dateTime: string, timezone: string): string => {
