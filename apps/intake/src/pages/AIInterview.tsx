@@ -35,7 +35,7 @@ const AIInterview = (): JSX.Element => {
 
   const onSend = async (): Promise<void> => {
     const trimmedAnswer = answer.trim();
-    if (trimmedAnswer.trim().length === 0) {
+    if (trimmedAnswer.length === 0) {
       setAnswer('');
       return;
     }
