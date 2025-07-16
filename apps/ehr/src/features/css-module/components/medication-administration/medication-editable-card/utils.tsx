@@ -297,7 +297,7 @@ export const medicationInteractionsFromErxResponse = (
     if (sourcePrescription && sourcePrescription.id && dateString) {
       drugInteraction.source = {
         reference: 'MedicationRequest/' + sourcePrescription.id,
-        display: 'Prescription\nfrom\n' + DateTime.fromISO(dateString).toFormat('MM/dd/yyyy'),
+        display: 'Prescription\norder added\n' + DateTime.fromISO(dateString).toFormat('MM/dd/yyyy'),
       };
     }
   });
