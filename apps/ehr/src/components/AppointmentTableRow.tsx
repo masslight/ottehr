@@ -744,7 +744,7 @@ export default function AppointmentTableRow({
               position: 'absolute',
               width: '25px',
               bottom: 0,
-              left: '-25px',
+              left: '-25px', // this is the issue with the next appointment indicator
               height: '100%',
               borderTopLeftRadius: '10px',
               borderBottomLeftRadius: '10px',

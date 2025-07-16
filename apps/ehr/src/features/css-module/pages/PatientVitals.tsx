@@ -1,8 +1,16 @@
 import { Box, Stack, Typography } from '@mui/material';
-import React from 'react';
+import { DateTime } from 'luxon';
+import React, { useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { AssessmentTitle } from 'src/telemed/features/appointment/AssessmentTab';
-import { allVitalsSearchConfigForEncounter, VitalFieldNames } from 'utils';
+import {
+  AlertRule,
+  allVitalsSearchConfigForEncounter,
+  VitalFieldNames,
+  VitalsDef,
+  VitalsKey,
+  VitalsNumericValueObservationDTO,
+} from 'utils';
 import { PageTitle } from '../../../telemed/components/PageTitle';
 import { CSSLoader } from '../components/CSSLoader';
 import VitalsNotesCard from '../components/patient-info/VitalsNotesCard';
@@ -37,16 +45,6 @@ interface PatientVitalsProps {
   appointmentID?: string;
 }
 
-const ABNORMAL_VITALS_VALUES_INITIAL: AbnormalVitalsValuesMap = {
-  [VitalFieldNames.VitalTemperature]: [],
-  [VitalFieldNames.VitalHeartbeat]: [],
-  [VitalFieldNames.VitalRespirationRate]: [],
-  [VitalFieldNames.VitalBloodPressure]: [],
-  [VitalFieldNames.VitalOxygenSaturation]: [],
-  [VitalFieldNames.VitalHeight]: [],
-  [VitalFieldNames.VitalWeight]: [],
-};
-
 export const PatientVitals: React.FC<PatientVitalsProps> = () => {
   const { id: appointmentID } = useParams();
   const {
@@ -66,6 +64,47 @@ export const PatientVitals: React.FC<PatientVitalsProps> = () => {
 
   const { interactionMode } = useNavigationContext();
 
+  console.log('VitalsDef', VitalsDef);
+
+  const abnormalVitalsValues = useMemo(() => {
+    const abnormalValues: AbnormalVitalsValuesMap = {
+      [VitalFieldNames.VitalTemperature]: [],
+      [VitalFieldNames.VitalHeartbeat]: [],
+      [VitalFieldNames.VitalRespirationRate]: [],
+      [VitalFieldNames.VitalBloodPressure]: [],
+      [VitalFieldNames.VitalOxygenSaturation]: [],
+      [VitalFieldNames.VitalHeight]: [],
+      [VitalFieldNames.VitalWeight]: [],
+    };
+
+    /*
+    if (!patient?.birthDate || !chartData) return abnormalValues;
+
+    const dob = patient.birthDate;
+
+    const patientAgeInMonths = DateTime.fromISO(dob).diffNow('months').months * -1;
+    Object.entries(vitalsKeyToFieldNameMap).forEach(([vitalsKey, fieldName]) => {
+      const rules = findRulesForVitalsKeyAndDOB(vitalsKey as VitalsKey, dob);
+      console.log('rules for', vitalsKey, rules.length);
+      const values = chartData.vitalsObservations?.filter((obs) => {
+        return (
+          obs.encounterId === encounter?.id &&
+          obs.field === fieldName &&
+          obs.value !== undefined &&
+          obs.value !== null &&
+          typeof obs.value === 'number'
+        );
+      }) as VitalsNumericValueObservationDTO[];
+      console.log('values for', vitalsKey, values);
+      const alertableValues = findAlertableValues({ vitalsValues: values, rules, patientAgeInMonths });
+      if (alertableValues.length > 0) {
+        console.log('alertable values for', vitalsKey, alertableValues);
+        abnormalValues[fieldName].push(...alertableValues);
+      }
+    });*/
+    return abnormalValues;
+  }, []);
+
   if (isLoading || isChartDataLoading) return <CSSLoader />;
   if (error) return <Typography>Error: {error.message}</Typography>;
   if (!appointment) return <Typography>No data available</Typography>;
@@ -82,7 +121,7 @@ export const PatientVitals: React.FC<PatientVitalsProps> = () => {
       <VitalsHeightCard />
       <VitalsVisionCard />
       <VitalsNotesCard />
-      <AbnormalVitalsModal abnormalVitalsValues={ABNORMAL_VITALS_VALUES_INITIAL} />
+      <AbnormalVitalsModal abnormalVitalsValues={abnormalVitalsValues} />
     </Stack>
   );
 };
@@ -99,6 +138,15 @@ type AbnormalVitalsValuesMap = {
   [VitalFieldNames.VitalOxygenSaturation]: VitalsOxygenSatHistoryEntry[];
   [VitalFieldNames.VitalHeight]: VitalHeightHistoryEntry[];
   [VitalFieldNames.VitalWeight]: VitalWeightHistoryEntry[];
+};
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const vitalsKeyToFieldNameMap: Record<VitalsKey, keyof AbnormalVitalsValuesMap> = {
+  temperature: VitalFieldNames.VitalTemperature,
+  heartRate: VitalFieldNames.VitalHeartbeat,
+  respiratoryRate: VitalFieldNames.VitalRespirationRate,
+  sp02: VitalFieldNames.VitalOxygenSaturation,
+  systolicBloodPressure: VitalFieldNames.VitalBloodPressure,
 };
 
 interface AbnormalVitalsModalProps {
@@ -228,4 +276,63 @@ const AbnormalVitalsModal: React.FC<AbnormalVitalsModalProps> = ({ abnormalVital
       closeButtonText="Continue"
     />
   );
+};
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const findRulesForVitalsKeyAndDOB = (key: VitalsKey, dob: string): AlertRule[] => {
+  const dateOfBirth = DateTime.fromISO(dob);
+  const now = DateTime.now();
+  const alertThresholds = VitalsDef[key]?.alertThresholds ?? [];
+  const rules = alertThresholds
+    .filter((threshold) => {
+      const { minAge, maxAge } = threshold;
+      if (!minAge && !maxAge) return true;
+      if (minAge) {
+        const minAgeDOB = now.minus({ [minAge.unit]: minAge.value });
+        if (dateOfBirth > minAgeDOB) return false;
+      }
+      if (maxAge) {
+        const maxAgeDOB = now.minus({ [maxAge.unit]: maxAge.value });
+        if (dateOfBirth < maxAgeDOB) return false;
+      }
+      return true;
+    })
+    .flatMap((threshold) => threshold.rules ?? []);
+  return rules;
+};
+
+interface AlertableValuesInput {
+  vitalsValues: VitalsNumericValueObservationDTO[];
+  rules: AlertRule[];
+  patientAgeInMonths: number;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const findAlertableValues = (input: AlertableValuesInput): VitalsNumericValueObservationDTO[] => {
+  const { vitalsValues, rules, patientAgeInMonths } = input;
+  return vitalsValues.filter((vitalVal) => {
+    const value = vitalVal.value;
+    if (value === undefined || value === null || typeof value !== 'number') {
+      console.warn('Vital value is not a number:', vitalVal);
+      return false;
+    }
+    return rules.some((rule) => {
+      const { type } = rule;
+      let thresholdValue: number | undefined;
+
+      if ((rule as any).value !== undefined) {
+        thresholdValue = (rule as any).value;
+      } else if ((rule as any).ageFunction) {
+        thresholdValue = (rule as any).ageFunction(patientAgeInMonths);
+      }
+      if (thresholdValue === undefined) {
+        console.warn('Rule does not have a value or ageFunction:', rule);
+        return false;
+      }
+
+      if (type === 'min' && value < thresholdValue) return true;
+      if (type === 'max' && value > thresholdValue) return true;
+      return false;
+    });
+  });
 };
