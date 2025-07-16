@@ -1,4 +1,5 @@
 import { Practitioner } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { Color, PDFFont, PDFImage, StandardFonts } from 'pdf-lib';
 import {
   AdditionalBooleanQuestionsFieldsNames,
@@ -181,8 +182,7 @@ export interface InHouseLabResult {
 }
 export interface InHouseLabResultConfig {
   collectionDate: string;
-  finalResultDateTimeFormatted: string;
-  finalResultDateTimeISO: string;
+  finalResultDateTime: DateTime;
   specimenSource: string;
   results: InHouseLabResult[];
 }
@@ -226,6 +226,7 @@ export interface ExternalLabResultsData extends LabResultsData {
 }
 export interface InHouseLabResultsData extends LabResultsData {
   inHouseLabResults: InHouseLabResultConfig[];
+  timezone: string | undefined;
 }
 
 export type ResultDataConfig =

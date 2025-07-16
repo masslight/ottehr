@@ -148,6 +148,7 @@ const getResultDataConfig = (
     const { inHouseLabResults } = specificResources;
     const inHouseData: Omit<InHouseLabResultsData, keyof LabResultsData> = {
       inHouseLabResults,
+      timezone,
     };
     const data: InHouseLabResultsData = { ...baseData, ...inHouseData };
     config = { type: LabType.inHouse, data };
@@ -213,12 +214,10 @@ export function getLabFileName(labName: string): string {
 
 const getTaskCompletedByAndWhen = async (
   oystehr: Oystehr,
-  task: Task,
-  timezone: string | undefined
+  task: Task
 ): Promise<{
   reviewingProvider: Practitioner;
-  reviewDateFormatted: string;
-  reviewDateISO: string;
+  reviewDate: DateTime;
 }> => {
   console.log('getting provenance for task', task.id);
   console.log('task relevant history', task.relevantHistory);
@@ -253,14 +252,11 @@ const getTaskCompletedByAndWhen = async (
   const taskProvenance = taskProvenanceTemp[0];
   const taskPractitioner = taskPractitionersTemp[0];
 
-  const reviewDateFormatted = DateTime.fromISO(taskProvenance.recorded)
-    .setZone(timezone)
-    .toFormat(LABS_DATE_STRING_FORMAT);
+  const reviewDate = DateTime.fromISO(taskProvenance.recorded);
 
   return {
     reviewingProvider: taskPractitioner,
-    reviewDateFormatted,
-    reviewDateISO: taskProvenance.recorded,
+    reviewDate,
   };
 };
 
@@ -304,7 +300,7 @@ export async function createExternalLabResultPDF(
   if (!patient.id) throw new Error('patient.id is undefined');
   if (!diagnosticReport.id) throw new Error('diagnosticReport id is undefined');
 
-  const { reviewDateFormatted: orderSubmitDate } = await getTaskCompletedByAndWhen(oystehr, pstTask, timezone);
+  const { reviewDate: orderSubmitDate } = await getTaskCompletedByAndWhen(oystehr, pstTask);
 
   const taskSearchForFinalOrCorrected = (
     await oystehr.fhir.search<Task>({
@@ -342,7 +338,7 @@ export async function createExternalLabResultPDF(
   const latestReviewTask = sortedCompletedFinalOrCorrected[0];
   console.log(`>>> in labs-results-form-pdf, this is the latestReviewTask`, latestReviewTask?.id);
 
-  let reviewDateFormatted = '',
+  let reviewDate: DateTime | undefined = undefined,
     reviewingProvider = undefined,
     resultsReceivedDate = '';
 
@@ -351,11 +347,7 @@ export async function createExternalLabResultPDF(
       ? DateTime.fromISO(latestReviewTask.authoredOn).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
       : '';
     if (latestReviewTask.status === 'completed') {
-      ({ reviewingProvider, reviewDateFormatted } = await getTaskCompletedByAndWhen(
-        oystehr,
-        latestReviewTask,
-        timezone
-      ));
+      ({ reviewingProvider, reviewDate } = await getTaskCompletedByAndWhen(oystehr, latestReviewTask));
     }
   }
   if (!resultsReceivedDate && !latestReviewTask) {
@@ -445,10 +437,10 @@ export async function createExternalLabResultPDF(
       externalLabResults,
       organization,
       collectionDate,
-      orderSubmitDate,
+      orderSubmitDate: orderSubmitDate.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT),
       reviewed,
       reviewingProvider,
-      reviewDate: reviewDateFormatted,
+      reviewDate: reviewDate?.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT),
       resultsReceivedDate,
       resultInterpretations: resultInterpretationDisplays,
       performingLabAddress: formatPerformingLabAddress(organization),
@@ -528,7 +520,9 @@ export async function createInHouseLabResultPDF(
   }
 
   const allResults = [inHouseLabResults, ...additionalResultsForRelatedSrs];
-  const allResultsSorted = allResults.sort((a, b) => compareDates(a.finalResultDateTimeISO, b.finalResultDateTimeISO));
+  const allResultsSorted = allResults.sort((a, b) =>
+    compareDates(a.finalResultDateTime.toISO() || '', b.finalResultDateTime.toISO() || '')
+  );
 
   const inHouseSpecificResources: LabTypeSpecificResources = {
     type: LabType.inHouse,
@@ -865,7 +859,12 @@ async function createInHouseLabsResultsFormPdfBytes(
     }
     pdfClient = drawFieldLineRight(pdfClient, textStyles, 'Collection Date:', labResult.collectionDate);
     pdfClient.newLine(STANDARD_FONT_SIZE + 3);
-    pdfClient = drawFieldLineRight(pdfClient, textStyles, 'Results Date:', labResult.finalResultDateTimeFormatted);
+    pdfClient = drawFieldLineRight(
+      pdfClient,
+      textStyles,
+      'Results Date:',
+      labResult.finalResultDateTime.setZone(data.timezone).toFormat(LABS_DATE_STRING_FORMAT)
+    );
     pdfClient.newLine(24);
   }
 
@@ -1038,8 +1037,7 @@ const getFormattedInHouseLabResults = async (
   }
 
   const specimenSource = specimen?.collection?.bodySite?.coding?.map((coding) => coding.display).join(', ') || '';
-  const { reviewDateFormatted: finalResultDateTimeFormatted, reviewDateISO: finalResultDateTimeISO } =
-    await getTaskCompletedByAndWhen(oystehr, task, timezone);
+  const { reviewDate: finalResultDateTime } = await getTaskCompletedByAndWhen(oystehr, task);
 
   const collectionDate = DateTime.fromISO(specimen?.collection?.collectedDateTime)
     .setZone(timezone)
@@ -1072,8 +1070,7 @@ const getFormattedInHouseLabResults = async (
 
   const resultConfig: InHouseLabResultConfig = {
     collectionDate,
-    finalResultDateTimeFormatted,
-    finalResultDateTimeISO,
+    finalResultDateTime,
     specimenSource,
     results,
   };
