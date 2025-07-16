@@ -9,4 +9,4 @@ export const UserActivationZambdaInputSchema = z.object({
 });
 export type UserActivationZambdaInput = z.infer<typeof UserActivationZambdaInputSchema>;
 
-export type UserActivationZambdaOutput = Record<string, string>;
+export type UserActivationZambdaOutput = Record<string, never>;
