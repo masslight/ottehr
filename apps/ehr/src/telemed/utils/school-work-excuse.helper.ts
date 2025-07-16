@@ -5,8 +5,8 @@ import { ArrayElement } from '../../shared/types';
 export const mapExcuseTypeToFields = {
   workTemplate: ['headerNote', 'workFields', 'footerNote'],
   workFree: ['headerNote'],
-  schoolTemplate: ['parentName', 'headerNote', 'schoolFields', 'footerNote'],
-  schoolFree: ['parentName', 'headerNote'],
+  schoolTemplate: ['headerNote', 'schoolFields', 'footerNote'],
+  schoolFree: ['headerNote'],
 };
 
 export const workExcuseFields = [

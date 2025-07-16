@@ -36,7 +36,7 @@ import { ZambdaClient } from '../hooks/useUCZambdaClient';
 import { GetAppointmentParameters, GetPaperworkParameters } from '../types/types';
 import { apiErrorToThrow } from './errorHelpers';
 
-export interface ZapehrSearchParameter {
+export interface OystehrSearchParameter {
   key: string;
   value: string;
 }
@@ -258,6 +258,9 @@ class API {
       }
       if (!parameters) {
         throw new Error('get paperwork parameters missing');
+      }
+      if (!parameters.appointmentID) {
+        throw new Error('get paperwork parameters appointmentID missing');
       }
 
       const response = await zambdaClient.executePublic(GET_PAPERWORK_ZAMBDA_ID, parameters);

@@ -7,7 +7,7 @@ import { ControlButtons } from '../../../components/form';
 import { PaperworkContext } from '../../../features/paperwork';
 import FileInput from '../../../features/paperwork/components/FileInput';
 import { safelyCaptureException } from '../../../helpers/sentry';
-import { useZapEHRAPIClient } from '../../utils';
+import { useOystehrAPIClient } from '../../utils';
 import { useUpdatePaperworkMutation } from '../paperwork';
 import { useUploadPhotosStore } from './UploadPhotosListItemButton';
 
@@ -16,7 +16,7 @@ export const UploadPhotosWrapper = ({ onClose }: { onClose: () => void }): JSX.E
 
   const queryClient = useQueryClient();
   const updatePaperwork = useUpdatePaperworkMutation();
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const methods = useForm();
   const [uploadedAttachment, setUploadedAttachment] = useState(attachment);
 

@@ -1,9 +1,10 @@
 import { LoadingButton } from '@mui/lab';
-import { Box, Button, Stack, Typography, useTheme } from '@mui/material';
+import { Box, Button, Stack } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { FormProvider, SubmitHandler, useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { CustomDialog } from 'src/components/dialogs';
 import { DynamicAOEInput, ExternalLabsStatus, LabOrderDetailedPageDTO, LabQuestionnaireResponse } from 'utils';
 import { submitLabOrder } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
@@ -29,7 +30,6 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   showOrderInfo = true,
   isAOECollapsed = false,
 }) => {
-  const theme = useTheme();
   const { oystehrZambda: oystehr } = useApiClients();
   // can add a Yup resolver {resolver: yupResolver(definedSchema)} for validation, see PaperworkGroup for example
   const methods = useForm<DynamicAOEInput>();
@@ -38,81 +38,95 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   // const currentUser = useEvolveUser();
   const questionnaireData = labOrder?.questionnaire[0];
   const orderStatus = labOrder.orderStatus;
-  const aoe = questionnaireData?.questionnaire.item || [];
+  const aoe = useMemo(() => questionnaireData?.questionnaire.item || [], [questionnaireData]);
   const labQuestionnaireResponses = questionnaireData?.questionnaireResponseItems;
   const [submitLoading, setSubmitLoading] = useState(false);
   const [error, setError] = useState<string[] | undefined>(undefined);
+  const [errorDialogOpen, setErrorDialogOpen] = useState<boolean>(false);
   const [specimensData, setSpecimensData] = useState<{ [specimenId: string]: { date: string } }>({});
   const shouldShowSampleCollectionInstructions =
     !labOrder.isPSC &&
     (labOrder.orderStatus === ExternalLabsStatus.pending || labOrder.orderStatus === ExternalLabsStatus.sent);
   const showAOECard = aoe.length > 0;
 
-  const sampleCollectionSubmit: SubmitHandler<DynamicAOEInput> = (data) => {
-    setSubmitLoading(true);
+  const sanitizeFormData = (data: DynamicAOEInput): DynamicAOEInput => {
+    const sanitizedData = { ...data };
 
-    async function updateFhir(): Promise<void> {
-      if (!oystehr) {
-        setError(['Oystehr client is undefined']);
+    Object.keys(sanitizedData).forEach((item) => {
+      if (!sanitizedData[item]) {
+        delete sanitizedData[item];
         return;
       }
 
-      Object.keys(data).forEach((item) => {
-        if (!data[item]) {
-          delete data[item];
-          return;
-        }
+      const question = aoe.find((question) => question.linkId === item);
 
-        const question = aoe.find((question) => question.linkId === item);
+      if (question && question.type === 'boolean') {
+        if (sanitizedData[item] === 'true') {
+          sanitizedData[item] = true;
+        }
+        if (sanitizedData[item] === 'false') {
+          sanitizedData[item] = false;
+        }
+      }
+      console.log(sanitizedData[item]);
+      if (question && (question.type === 'integer' || question.type === 'decimal')) {
+        sanitizedData[item] = Number(sanitizedData[item]);
+      }
+    });
 
-        if (question && question.type === 'boolean') {
-          if (data[item] === 'true') {
-            data[item] = true;
-          }
-          if (data[item] === 'false') {
-            data[item] = false;
-          }
-        }
-        console.log(data[item]);
-        if (question && (question.type === 'integer' || question.type === 'decimal')) {
-          data[item] = Number(data[item]);
-        }
+    return sanitizedData;
+  };
+
+  const submitOrder = async ({ data, manualOrder }: { data: DynamicAOEInput; manualOrder: boolean }): Promise<void> => {
+    setSubmitLoading(true);
+
+    if (!oystehr) {
+      setError(['Oystehr client is undefined']);
+      setErrorDialogOpen(true);
+      return;
+    }
+
+    const sanitizedData = sanitizeFormData(data);
+
+    try {
+      const { orderPdfUrl, labelPdfUrl } = await submitLabOrder(oystehr, {
+        serviceRequestID: labOrder.serviceRequestId,
+        accountNumber: labOrder.accountNumber,
+        manualOrder,
+        data: sanitizedData,
+        ...(!labOrder.isPSC && { specimens: specimensData }), // non PSC orders require specimens, validation is handled in the zambda
       });
 
-      try {
-        const { orderPdfUrl, labelPdfUrl } = await submitLabOrder(oystehr, {
-          serviceRequestID: labOrder.serviceRequestId,
-          accountNumber: labOrder.accountNumber,
-          data,
-          ...(!labOrder.isPSC && { specimens: specimensData }), // non PSC orders require specimens, validation is handled in the zambda
-        });
+      if (labelPdfUrl) await openPdf(labelPdfUrl);
+      await openPdf(orderPdfUrl);
 
-        if (labelPdfUrl) await openPdf(labelPdfUrl);
-
-        await openPdf(orderPdfUrl);
-        setSubmitLoading(false);
-        setError(undefined);
-        navigate(`/in-person/${appointmentID}/external-lab-orders`);
-      } catch (e) {
-        const sdkError = e as Oystehr.OystehrSdkError;
-        console.log('error creating external lab order1', sdkError.code, sdkError.message);
-        const errorMessage = [sdkError.message || 'There was an error submitting the lab order'];
-        setError(errorMessage);
-        setSubmitLoading(false);
-      }
-    }
-    updateFhir().catch((e) => {
+      setSubmitLoading(false);
+      setError(undefined);
+      navigate(`/in-person/${appointmentID}/external-lab-orders`);
+    } catch (e) {
       const sdkError = e as Oystehr.OystehrSdkError;
-      console.log('error creating external lab order2', sdkError.code, sdkError.message);
+      console.log('error creating external lab order1', sdkError.code, sdkError.message);
       const errorMessage = [sdkError.message || 'There was an error submitting the lab order'];
       setError(errorMessage);
-    });
-    console.log(`data at submit: ${JSON.stringify(data)}`);
+      setErrorDialogOpen(true);
+      setSubmitLoading(false);
+    }
+
+    console.log(`data at submit: ${JSON.stringify(sanitizedData)}`);
+  };
+
+  const handleAutomatedSubmit: SubmitHandler<DynamicAOEInput> = async (data) => {
+    await submitOrder({ data, manualOrder: false });
+  };
+
+  const handleManualSubmit = async (): Promise<void> => {
+    const data = methods.getValues();
+    await submitOrder({ data, manualOrder: true });
   };
 
   return (
     <FormProvider {...methods}>
-      <form onSubmit={methods.handleSubmit(sampleCollectionSubmit)}>
+      <form onSubmit={methods.handleSubmit(handleAutomatedSubmit)}>
         {showAOECard && (
           <AOECard
             questions={aoe}
@@ -124,9 +138,8 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
 
         {shouldShowSampleCollectionInstructions &&
           labOrder.samples.map((sample) => (
-            <Box sx={{ marginTop: showAOECard ? 2 : 0 }}>
+            <Box sx={{ marginTop: showAOECard ? 2 : 0 }} key={`sample-card-${sample.specimen.id}`}>
               <SampleCollectionInstructionsCard
-                key={sample.specimen.id}
                 sample={sample}
                 serviceRequestId={labOrder.serviceRequestId}
                 timezone={labOrder.encounterTimezone}
@@ -170,17 +183,16 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
             )}
           </Stack>
         )}
-        {error && error.length > 0 && (
-          <Box sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-            {error.map((msg, idx) => (
-              <Box sx={{ textAlign: 'right', paddingTop: 1 }} key={idx}>
-                <Typography sx={{ color: theme.palette.error.main }} key={`errorMsg-${idx}`}>
-                  {typeof msg === 'string' ? msg : JSON.stringify(msg, null, 2)}
-                </Typography>
-              </Box>
-            ))}
-          </Box>
-        )}
+        <CustomDialog
+          open={errorDialogOpen}
+          confirmLoading={submitLoading}
+          handleConfirm={() => handleManualSubmit()}
+          confirmText="Manually submit lab order"
+          handleClose={() => setErrorDialogOpen(false)}
+          title="Error submitting lab order"
+          description={error?.join(',') || 'Error submitting lab order'}
+          closeButtonText="cancel"
+        />
       </form>
     </FormProvider>
   );

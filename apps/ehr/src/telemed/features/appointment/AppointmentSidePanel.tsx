@@ -162,12 +162,15 @@ export const AppointmentSidePanel: FC = () => {
           width: '350px',
           boxSizing: 'border-box',
           top: adjustTopForBannerHeight(-7),
-          overflow: 'visible ',
+          overflow: 'auto',
+          '@media (max-height: 600px)': {
+            overflow: 'auto',
+          },
         },
       }}
     >
       <Toolbar />
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 3, overflow: 'visible' }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 3, overflow: 'auto', height: '100%' }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
             {getAppointmentStatusChip(mapStatusToTelemed(encounter.status, appointment?.status))}
@@ -195,7 +198,7 @@ export const AppointmentSidePanel: FC = () => {
               onClick={() => navigate(`/patient/${patient.id}`)}
               sx={{ cursor: 'pointer' }}
             >
-              {getPatientName(patient.name).lastFirstName}
+              {getPatientName(patient.name).lastFirstMiddleName}
             </Typography>
 
             {!isReadOnly && (
@@ -409,7 +412,7 @@ export const AppointmentSidePanel: FC = () => {
           <InviteParticipant modalOpen={isInviteParticipantOpen} onClose={() => setIsInviteParticipantOpen(false)} />
         )}
       </Box>
-      <Toolbar />
+      <Toolbar sx={{ marginBottom: `${adjustTopForBannerHeight(0)}px` }} />
     </Drawer>
   );
 };

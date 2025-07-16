@@ -316,7 +316,7 @@ export function getSlotCapacityMapForDayAndSchedule(
     throw Error('error getting available time slots, location has no opening time');
   }
   let timeSlots: SlotCapacityMap = {};
-  //console.log('scheudle capacity list', scheduleCapacityList);
+  //console.log('schedule capacity list', scheduleCapacityList);
 
   timeSlots = convertCapacityListToBucketedTimeSlots(scheduleCapacityList, now, slotLength);
 
@@ -469,7 +469,7 @@ export function getAvailableSlots(input: GetAvailableSlotsInput): string[] {
 }
 
 export async function deleteSpecificBusySlot(start: string, locationID: string, oystehr: Oystehr): Promise<void> {
-  console.log(`searching for busy-tenative slot with time ${start}`);
+  console.log(`searching for busy-tentative slot with time ${start}`);
   const slotResources = (
     await oystehr.fhir.search<Slot>({
       resourceType: 'Slot',
@@ -487,9 +487,9 @@ export async function deleteSpecificBusySlot(start: string, locationID: string, 
       ],
     })
   ).unbundle();
-  // only delete one busy-tenative slot for this time
+  // only delete one busy-tentative slot for this time
   if (slotResources.length > 0 && slotResources[0].id) {
-    console.log('deleteing slot: ', JSON.stringify(slotResources[0]));
+    console.log('deleting slot: ', JSON.stringify(slotResources[0]));
     await oystehr.fhir.delete({
       resourceType: 'Slot',
       id: slotResources[0].id,
@@ -630,12 +630,12 @@ export async function checkBusySlots(
 
   if (slotRequests.length > 0) {
     try {
-      console.log(`deleting ${slotRequests.length} expired busy-tenatative slots`);
+      console.log(`deleting ${slotRequests.length} expired busy-tentative slots`);
       console.time('delete_slots_batch');
       await oystehr.fhir.batch({ requests: slotRequests });
       console.timeEnd('delete_slots_batch');
     } catch (error) {
-      console.log('error deleting expired busy-tenatative slots', error, JSON.stringify(error));
+      console.log('error deleting expired busy-tentative slots', error, JSON.stringify(error));
     }
   } else {
     console.log('no slots to delete');
@@ -658,7 +658,7 @@ export async function getAppointments(
   // get iso date string for start and finish
   const { minimum: startTime, maximum: finishTime } = createMinimumAndMaximumTime(nowForTimeZone, numDays);
 
-  // search for appointment resources using the specific location and get all appointments starting today and end of finishtime
+  // search for appointment resources using the specific location and get all appointments starting today and end of finishTime
   console.log(
     `searching for appointments based on ${scheduleResource.id} ${scheduleResource.id}, for dates ${startTime} and ${finishTime}`
   );
@@ -1528,8 +1528,8 @@ export const getServiceModeFromScheduleOwner = (
   // customization point - override this to return a specific service mode given a known schedule owner, or, optionally a schedule.
   // for use cases that offer virtual or in-person services but not both, the owner resource may be sufficient to determine the service mode.
   // for more complex cases, a given provider may offer both virtual and in-person services, and may wish to configure separate schedules for each service mode.
-  // if a schedule with a specific serivce mode is provided, it will be used to determine the service mode for any slots returned against that schedule.
-  // in any event, the value returned here may be ovverridden by passing a value for the serviceMode param to the create-slot endpoint.
+  // if a schedule with a specific service mode is provided, it will be used to determine the service mode for any slots returned against that schedule.
+  // in any event, the value returned here may be overridden by passing a value for the serviceMode param to the create-slot endpoint.
 
   const scheduleServiceCategory = schedule?.serviceCategory;
   if (scheduleServiceCategory) {

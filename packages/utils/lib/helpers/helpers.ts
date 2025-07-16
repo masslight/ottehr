@@ -1,9 +1,15 @@
 import Oystehr, { OystehrConfig } from '@oystehr/sdk';
-import { Appointment, Extension, PaymentNotice, QuestionnaireResponseItemAnswer, Resource } from 'fhir/r4b';
+import {
+  Appointment,
+  Extension,
+  Organization,
+  PaymentNotice,
+  QuestionnaireResponseItemAnswer,
+  Resource,
+} from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { phone } from 'phone';
-import { OTTEHR_MODULE, PAYMENT_METHOD_EXTENSION_URL } from '../fhir';
-import { CashPaymentDTO, PatchPaperworkParameters } from '../types';
+import { FHIR_IDENTIFIER_SYSTEM, OTTEHR_MODULE, PAYMENT_METHOD_EXTENSION_URL, SLUG_SYSTEM } from '../fhir';
+import { CashPaymentDTO, PatchPaperworkParameters, ScheduleOwnerFhirResource } from '../types';
 import { phoneRegex, zipRegex } from '../validation';
 
 export function createOystehrClient(token: string, fhirAPI: string, projectAPI: string): Oystehr {
@@ -68,10 +74,7 @@ export const isPhoneNumberValid = (phoneNumber: string | undefined): boolean => 
     return false;
   }
   const plusOneRegex = /^\+1\d{10}$/;
-  return (
-    (plusOneRegex.test(phoneNumber) || tenDigitRegex.test(phoneNumber) || phoneRegex.test(phoneNumber)) &&
-    phone(phoneNumber).isValid
-  );
+  return plusOneRegex.test(phoneNumber) || tenDigitRegex.test(phoneNumber) || phoneRegex.test(phoneNumber);
 };
 
 export function formatPhoneNumber(phoneNumber: string | undefined): string | undefined {
@@ -175,11 +178,11 @@ export function standardizePhoneNumber(phoneNumber: string | undefined): string 
   // input format:  some arbitrary format which may or may not include (, ), -, +1
   // output format: (XXX) XXX-XXXX
   if (!phoneNumber) {
-    return phoneNumber;
+    return undefined;
   }
 
   const digits = phoneNumber.replace(/\D/g, '');
-  let phoneNumberDigits = undefined;
+  let phoneNumberDigits: string | undefined;
 
   if (digits.length === 10) {
     phoneNumberDigits = digits;
@@ -187,7 +190,11 @@ export function standardizePhoneNumber(phoneNumber: string | undefined): string 
     phoneNumberDigits = digits.slice(1);
   }
 
-  return formatPhoneNumber(phoneNumberDigits);
+  if (!phoneNumberDigits) {
+    return undefined;
+  }
+
+  return `(${phoneNumberDigits.slice(0, 3)}) ${phoneNumberDigits.slice(3, 6)}-${phoneNumberDigits.slice(6)}`;
 }
 
 export function resourceHasMetaTag(resource: Resource, metaTag: OTTEHR_MODULE): boolean {
@@ -231,6 +238,7 @@ export const DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_MONTH = '05';
 export const DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_YEAR = '1900';
 export const DEMO_VISIT_RESPONSIBLE_BIRTH_SEX = 'Intersex';
 export const DEMO_VISIT_RESPONSIBLE_PHONE = '(240) 333-3333';
+export const DEMO_VISIT_RESPONSIBLE_EMAIL = 'ibenham+test@masslight.com';
 export const DEMO_VISIT_RESPONSIBLE_ADDRESS1 = '333 test street';
 export const DEMO_VISIT_RESPONSIBLE_CITY = 'Cleveland';
 export const DEMO_VISIT_RESPONSIBLE_STATE = 'OH';
@@ -437,6 +445,7 @@ export function getResponsiblePartyStepAnswers({
   city = DEMO_VISIT_RESPONSIBLE_CITY,
   state = DEMO_VISIT_RESPONSIBLE_STATE,
   zip = DEMO_VISIT_RESPONSIBLE_ZIP,
+  email = DEMO_VISIT_RESPONSIBLE_EMAIL,
 }: {
   firstName?: string;
   relationship?: string;
@@ -447,6 +456,7 @@ export function getResponsiblePartyStepAnswers({
   city?: string;
   state?: string;
   zip?: string;
+  email?: string;
   phone?: string;
 }): PatchPaperworkParameters['answers'] {
   return {
@@ -497,6 +507,14 @@ export function getResponsiblePartyStepAnswers({
         answer: [
           {
             valueString: phone,
+          },
+        ],
+      },
+      {
+        linkId: 'responsible-party-email',
+        answer: [
+          {
+            valueString: email,
           },
         ],
       },
@@ -1113,4 +1131,17 @@ export const convertPaymentNoticeListToCashPaymentDTOs = (
     }
     return mapped;
   });
+};
+
+export const checkResourceHasSlug = (resource: ScheduleOwnerFhirResource, slug: string): boolean => {
+  const identifiers = resource.identifier ?? [];
+  return identifiers.some((id) => id.system === SLUG_SYSTEM && id.value === slug);
+};
+
+export const getPayerId = (org: Organization | undefined): string | undefined => {
+  const payerId = org?.identifier?.find(
+    (identifier) =>
+      identifier.type?.coding?.some((coding) => coding.system === FHIR_IDENTIFIER_SYSTEM && coding.code === 'XX')
+  )?.value;
+  return payerId;
 };

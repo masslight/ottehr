@@ -1,5 +1,6 @@
 import { Container, Typography } from '@mui/material';
 import { ReactElement, useState } from 'react';
+import { CPT_TOOLTIP_PROPS, TooltipWrapper } from 'src/components/WithTooltip';
 import { Sidebar, SidebarItem } from '../components/navigation/Sidebar';
 
 const { VITE_APP_ORGANIZATION_NAME_LONG: ORGANIZATION_NAME_LONG } = import.meta.env;
@@ -30,9 +31,9 @@ export default function PageContainer({ sidebarItems, tabTitle, title, children 
       )}
       {children}
       <br />
-      <Typography variant="subtitle2">
+      <TooltipWrapper tooltipProps={CPT_TOOLTIP_PROPS}>
         Environment: {import.meta.env.VITE_APP_ENV}, Version: {import.meta.env.VITE_APP_VERSION}
-      </Typography>
+      </TooltipWrapper>
     </Container>
   );
 

@@ -1,5 +1,4 @@
 import { BatchInputDeleteRequest, BatchInputGetRequest } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter, HealthcareService, Location, Patient, Practitioner, Schedule } from 'fhir/r4b';
@@ -30,7 +29,6 @@ import {
 import {
   AuditableZambdaEndpoints,
   checkIsEHRUser,
-  configSentry,
   createAuditEvent,
   createOystehrClient,
   getAuth0Token,
@@ -39,6 +37,7 @@ import {
   sendErrors,
   topLevelCatch,
   validateBundleAndExtractAppointment,
+  wrapHandler,
   ZambdaInput,
 } from '../../../shared';
 import { sendInPersonCancellationEmail } from '../../../shared/communication';
@@ -55,12 +54,9 @@ interface CancellationDetails {
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let zapehrToken: string;
+let oystehrToken: string;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  configSentry('cancel-appointment', input.secrets);
-  console.log(`Cancelation Input: ${JSON.stringify(input)}`);
-
+export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     console.log('getting user');
@@ -76,14 +72,14 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     // Get email props
     console.group('gettingEmailProps');
 
-    if (!zapehrToken) {
+    if (!oystehrToken) {
       console.log('getting token');
-      zapehrToken = await getAuth0Token(secrets);
+      oystehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }
 
-    const oystehr = createOystehrClient(zapehrToken, secrets);
+    const oystehr = createOystehrClient(oystehrToken, secrets);
 
     const appointment: Appointment | undefined = await getAppointmentResourceById(appointmentID, oystehr);
     if (!appointment) {
@@ -234,50 +230,49 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
         console.log('No email found. Skipping sending email.');
       }
 
-      if (!isEHRUser) {
-        console.group('Send cancel message request');
-        const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
+      console.group('Send cancel message request');
+      const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
 
-        // todo should this url be formated according the type of appointment being cancelled?
-        const url = `${WEBSITE_URL}/home`;
+      // todo should this url be formatted according the type of appointment being cancelled?
+      const url = `${WEBSITE_URL}/home`;
 
-        const message = `Your visit for ${getPatientFirstName(
-          patient
-        )} has been canceled. Tap ${url} to book a new visit.`;
-        const messageSpanish = `Su consulta para ${getPatientFirstName(
-          patient
-        )} ha sido cancelada. Toque ${url} para reservar una nueva consulta.`;
+      const message = `Your visit for ${getPatientFirstName(
+        patient
+      )} has been canceled. Tap ${url} to book a new visit.`;
+      // cSpell:disable-next Spanish
+      const messageSpanish = `Su consulta para ${getPatientFirstName(
+        patient
+        // cSpell:disable-next Spanish
+      )} ha sido cancelada. Toque ${url} para reservar una nueva consulta.`;
 
-        let selectedMessage;
-        switch (language.split('-')[0]) {
-          case 'es':
-            selectedMessage = messageSpanish;
-            break;
-          case 'en':
-          default:
-            selectedMessage = message;
-            break;
-        }
-
-        const relatedPerson = await getRelatedPersonForPatient(patient.id || '', oystehr);
-        if (relatedPerson) {
-          try {
-            await oystehr.transactionalSMS.send({
-              resource: `RelatedPerson/${relatedPerson.id}`,
-              message: selectedMessage,
-            });
-          } catch (e) {
-            console.log('failing silently, error sending cancellation text message');
-            const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
-            void sendErrors(e, ENVIRONMENT);
-          }
-        } else {
-          console.log(`No RelatedPerson found for patient ${patient.id} not sending text message`);
-        }
-        console.groupEnd();
-      } else {
-        console.log('cancelled by EHR user, not sending text');
+      let selectedMessage;
+      switch (language.split('-')[0]) {
+        case 'es':
+          selectedMessage = messageSpanish;
+          break;
+        case 'en':
+        default:
+          selectedMessage = message;
+          break;
       }
+
+      const relatedPerson = await getRelatedPersonForPatient(patient.id || '', oystehr);
+      if (relatedPerson) {
+        console.log('sending text message to relatedperson', relatedPerson.id);
+        try {
+          await oystehr.transactionalSMS.send({
+            resource: `RelatedPerson/${relatedPerson.id}`,
+            message: selectedMessage,
+          });
+        } catch (e) {
+          console.log('failing silently, error sending cancellation text message');
+          const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+          void sendErrors(e, ENVIRONMENT);
+        }
+      } else {
+        console.log(`No RelatedPerson found for patient ${patient.id} not sending text message`);
+      }
+      console.groupEnd();
     } else {
       console.log('Cancelling silently. Skipping email and text.');
     }
@@ -292,7 +287,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('cancel-appointment', error, ENVIRONMENT, true);
+    return topLevelCatch('cancel-appointment', error, ENVIRONMENT);
   }
 });
 

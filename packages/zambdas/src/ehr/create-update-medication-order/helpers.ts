@@ -12,9 +12,8 @@ import {
   searchRouteByCode,
   Secrets,
 } from 'utils';
-import { createOystehrClient } from '../../shared';
-import { ZambdaInput } from '../../shared';
-import { createMedicationAdministrationResource } from './fhir-recources-creation';
+import { createOystehrClient, ZambdaInput } from '../../shared';
+import { createMedicationAdministrationResource } from './fhir-resources-creation';
 
 export function getPerformerId(medicationAdministration: MedicationAdministration): string | undefined {
   return medicationAdministration.performer?.find((perf) => perf.actor.reference)?.actor.reference;
@@ -41,9 +40,9 @@ export function createMedicationCopy(inventoryMedication: Medication, orderData:
 export async function practitionerIdFromZambdaInput(input: ZambdaInput, secrets: Secrets | null): Promise<string> {
   const userToken = input.headers.Authorization.replace('Bearer ', '');
   const oystehr = createOystehrClient(userToken, secrets);
-  const myPractId = removePrefix('Practitioner/', (await oystehr.user.me()).profile);
-  if (!myPractId) throw new Error('No practitioner id was found for token provided');
-  return myPractId;
+  const myPractitionerId = removePrefix('Practitioner/', (await oystehr.user.me()).profile);
+  if (!myPractitionerId) throw new Error('No practitioner id was found for token provided');
+  return myPractitionerId;
 }
 
 export async function getMedicationByName(oystehr: Oystehr, medicationName: string): Promise<Medication> {
@@ -77,14 +76,13 @@ export function validateProviderAccess(
     throw new Error(`You can't edit this order, because it was created by another provider`);
 }
 
-export async function updateMedicationAdministrationData(data: {
-  oystehr: Oystehr;
+export function updateMedicationAdministrationData(data: {
   orderData: MedicationData;
   orderResources: OrderPackage;
   administeredProviderId?: string;
   medicationResource: Medication;
-}): Promise<MedicationAdministration> {
-  const { oystehr, orderResources, orderData, administeredProviderId, medicationResource } = data;
+}): MedicationAdministration {
+  const { orderResources, orderData, administeredProviderId, medicationResource } = data;
   const routeCode = orderData.route
     ? orderData.route
     : getDosageUnitsAndRouteOfMedication(orderResources.medicationAdministration).route;
@@ -108,7 +106,7 @@ export async function updateMedicationAdministrationData(data: {
     medicationResource,
   });
   newMA.id = orderResources.medicationAdministration.id;
-  return oystehr.fhir.update(newMA);
+  return newMA;
 }
 
 export function getMedicationFromMA(medicationAdministration: MedicationAdministration): Medication | undefined {

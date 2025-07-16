@@ -48,14 +48,14 @@ export const getRelatedPersonsFromResourceList = (resources: Resource[]): Record
   const mapToReturn: Record<string, RelatedPerson[]> = {};
   return (resources.filter((res) => res.resourceType === 'RelatedPerson') as RelatedPerson[]).reduce(
     (accum, current) => {
-      const patientref = current.patient.reference;
-      if (!patientref) {
+      const patientRef = current.patient.reference;
+      if (!patientRef) {
         return accum;
       }
-      if (accum[patientref] === undefined) {
-        accum[patientref] = [current];
+      if (accum[patientRef] === undefined) {
+        accum[patientRef] = [current];
       } else {
-        accum[patientref].push(current);
+        accum[patientRef].push(current);
       }
       return accum;
     },

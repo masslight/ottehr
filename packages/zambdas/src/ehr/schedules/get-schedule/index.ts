@@ -209,7 +209,7 @@ const getEffectInputFromSchedule = async (scheduleId: string, oystehr: Oystehr):
     })
   ).unbundle();
 
-  const schedule = scheduleAndOwner.find((sched) => sched.resourceType === 'Schedule') as Schedule;
+  const schedule = scheduleAndOwner.find((scheduleToFind) => scheduleToFind.resourceType === 'Schedule') as Schedule;
   if (!schedule || !schedule.id) {
     throw SCHEDULE_NOT_FOUND_ERROR;
   }
@@ -220,10 +220,10 @@ const getEffectInputFromSchedule = async (scheduleId: string, oystehr: Oystehr):
   }
 
   const scheduleOwnerRef = schedule.actor?.[0]?.reference ?? '';
-  const [schedulOwnerType, scheduleOwnerId] = scheduleOwnerRef.split('/');
+  const [scheduleOwnerType, scheduleOwnerId] = scheduleOwnerRef.split('/');
   let owner: Location | Practitioner | HealthcareService | PractitionerRole | undefined = undefined;
-  const permittedScheduleOwerTypes = ['Location', 'Practitioner', 'HealthcareService'];
-  if (scheduleOwnerId !== undefined && permittedScheduleOwerTypes.includes(schedulOwnerType)) {
+  const permittedScheduleOwnerTypes = ['Location', 'Practitioner', 'HealthcareService'];
+  if (scheduleOwnerId !== undefined && permittedScheduleOwnerTypes.includes(scheduleOwnerType)) {
     owner = scheduleAndOwner.find((res) => {
       return `${res.resourceType}/${res.id}` === scheduleOwnerRef;
     }) as ScheduleOwnerFhirResource;
@@ -265,7 +265,7 @@ const getEffectInputFromOwner = async (
 
   let scheduleId = 'new-schedule';
   let scheduleExtension: ScheduleExtension = BLANK_SCHEDULE_JSON_TEMPLATE;
-  const schedule = scheduleAndOwner.find((sched) => sched.resourceType === 'Schedule') as Schedule;
+  const schedule = scheduleAndOwner.find((scheduleToFind) => scheduleToFind.resourceType === 'Schedule') as Schedule;
   if (schedule && schedule.id) {
     scheduleId = schedule.id;
     scheduleExtension = getScheduleExtension(schedule) ?? BLANK_SCHEDULE_JSON_TEMPLATE;
@@ -274,10 +274,10 @@ const getEffectInputFromOwner = async (
   console.log('scheduleExtension', JSON.stringify(scheduleExtension, null, 2));
 
   const scheduleOwnerRef = schedule?.actor?.[0]?.reference ?? '';
-  const [schedulOwnerType, scheduleOwnerId] = scheduleOwnerRef.split('/');
+  const [scheduleOwnerType, scheduleOwnerId] = scheduleOwnerRef.split('/');
   let owner: ScheduleOwnerFhirResource | undefined = undefined;
-  const permttedScheduleOwerTypes = ['Location', 'Practitioner', 'HealthcareService'];
-  if (scheduleOwnerId !== undefined && permttedScheduleOwerTypes.includes(schedulOwnerType)) {
+  const permittedScheduleOwnerTypes = ['Location', 'Practitioner', 'HealthcareService'];
+  if (scheduleOwnerId !== undefined && permittedScheduleOwnerTypes.includes(scheduleOwnerType)) {
     owner = scheduleAndOwner.find((res) => {
       return `${res.resourceType}/${res.id}` === scheduleOwnerRef;
     }) as ScheduleOwnerFhirResource;

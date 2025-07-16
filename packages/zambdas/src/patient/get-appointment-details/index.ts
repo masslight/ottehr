@@ -1,4 +1,3 @@
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment as FhirAppointment, HealthcareService, Location, Practitioner, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -13,7 +12,7 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
-import { configSentry, createOystehrClient, getAuth0Token, topLevelCatch, ZambdaInput } from '../../shared';
+import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface GetAppointmentDetailInput {
@@ -22,10 +21,9 @@ export interface GetAppointmentDetailInput {
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let zapehrToken: string;
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  configSentry('get-appointment-details', input.secrets);
-  console.log(`Input: ${JSON.stringify(input)}`);
+let oystehrToken: string;
+const ZAMBDA_NAME = 'get-appointment-details';
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
@@ -33,14 +31,14 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    if (!zapehrToken) {
+    if (!oystehrToken) {
       console.log('getting token');
-      zapehrToken = await getAuth0Token(secrets);
+      oystehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }
 
-    const oystehr = createOystehrClient(zapehrToken, secrets);
+    const oystehr = createOystehrClient(oystehrToken, secrets);
 
     const DISPLAY_TOMORROW_SLOTS_AT_HOUR = parseInt(
       getSecret(SecretsKeys.IN_PERSON_PREBOOK_DISPLAY_TOMORROW_SLOTS_AT_HOUR, secrets)
@@ -163,6 +161,6 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('get-appointment-details', error, ENVIRONMENT, true);
+    return topLevelCatch('get-appointment-details', error, ENVIRONMENT);
   }
 });

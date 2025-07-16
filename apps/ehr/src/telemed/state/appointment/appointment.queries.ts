@@ -24,6 +24,7 @@ import {
   createSmsModel,
   filterResources,
   GetCreateLabOrderResources,
+  GetMedicationOrdersInput,
   GetMedicationOrdersResponse,
   IcdSearchRequestParams,
   InstructionType,
@@ -44,7 +45,7 @@ import useEvolveUser, { EvolveUser } from '../../../hooks/useEvolveUser';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { OystehrTelemedAPIClient, PromiseReturnType } from '../../data';
 import { useGetAppointmentAccessibility } from '../../hooks';
-import { useZapEHRAPIClient } from '../../hooks/useOystehrAPIClient';
+import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
 import { createRefreshableAppointmentData, extractReviewAndSignAppointmentData } from '../../utils';
 import { useAppointmentStore } from './appointment.store';
 
@@ -431,13 +432,14 @@ export const useGetChartData = (
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useSaveChartData = () => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const { encounter } = getSelectors(useAppointmentStore, ['encounter']);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   return useMutation({
     mutationFn: (chartDataFields: Omit<SaveChartDataRequest, 'encounterId'>) => {
-      if (isReadOnly) {
+      // disabled saving chart data in read only mode except addendum note
+      if (isReadOnly && Object.keys(chartDataFields).some((key) => (key as keyof ChartDataFields) !== 'addendumNote')) {
         throw new Error('update disabled in read only mode');
       }
 
@@ -455,7 +457,7 @@ export const useSaveChartData = () => {
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useDeleteChartData = () => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const { encounter } = useAppointmentStore.getState();
 
   return useMutation({
@@ -526,7 +528,7 @@ export const useGetAllergiesSearch = (allergiesSearchTerm: string) => {
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetCreateExternalLabResources = ({ patientId, search }: GetCreateLabOrderResources) => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   return useQuery(
     ['external lab resource search', { patientId, search }],
     async () => {
@@ -541,8 +543,8 @@ export const useGetCreateExternalLabResources = ({ patientId, search }: GetCreat
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useGetIcd10Search = ({ search, sabs }: IcdSearchRequestParams) => {
-  const apiClient = useZapEHRAPIClient();
+export const useGetIcd10Search = ({ search, sabs, radiologyOnly }: IcdSearchRequestParams) => {
+  const apiClient = useOystehrAPIClient();
   const openError = (): void => {
     enqueueSnackbar('An error occurred during the search. Please try again in a moment.', {
       variant: 'error',
@@ -550,9 +552,9 @@ export const useGetIcd10Search = ({ search, sabs }: IcdSearchRequestParams) => {
   };
 
   return useQuery(
-    ['icd-search', { search, sabs }],
+    ['icd-search', { search, sabs, radiologyOnly }],
     async () => {
-      return apiClient?.icdSearch({ search, sabs });
+      return apiClient?.icdSearch({ search, sabs, radiologyOnly });
     },
     {
       onError: (error: APIError) => {
@@ -603,7 +605,7 @@ export const useGetPatientInstructions = (
   onSuccess?: (data: PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getPatientInstructions']>>) => void
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
 
   return useQuery(
     ['telemed-get-patient-instructions', { apiClient, type }],
@@ -627,7 +629,7 @@ export const useGetPatientInstructions = (
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useSavePatientInstruction = () => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
 
   return useMutation({
     mutationFn: (instruction: { text: string }) => {
@@ -641,7 +643,7 @@ export const useSavePatientInstruction = () => {
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useDeletePatientInstruction = () => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
 
   return useMutation({
     mutationFn: (instruction: { instructionId: string }) => {
@@ -790,6 +792,9 @@ export const useCheckPractitionerEnrollment = ({ enabled }: { enabled: boolean }
   );
 };
 
+/*
+ * This should be deletable now but need to verify that ClaimsQueue feature has been mothballed
+ */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetInsurancePlan = ({ id }: { id: string | undefined }) => {
   const { oystehr } = useApiClients();
@@ -815,7 +820,7 @@ export const useGetInsurancePlan = ({ id }: { id: string | undefined }) => {
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useCreateUpdateMedicationOrder = () => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   return useMutation({
     mutationFn: (props: UpdateMedicationOrderInput) => {
       if (apiClient) {
@@ -830,18 +835,22 @@ export const useCreateUpdateMedicationOrder = () => {
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useGetMedicationOrders = ({ encounterId }: { encounterId?: string }) => {
-  const apiClient = useZapEHRAPIClient();
+export const useGetMedicationOrders = (searchBy: GetMedicationOrdersInput['searchBy']) => {
+  const apiClient = useOystehrAPIClient();
+
+  const encounterIdIsDefined = searchBy.field === 'encounterId' && searchBy.value;
+  const encounterIdsHasLen = searchBy.field === 'encounterIds' && searchBy.value.length > 0;
 
   return useQuery(
-    ['telemed-get-medication-orders', encounterId, apiClient],
+    ['telemed-get-medication-orders', JSON.stringify(searchBy), apiClient],
     () => {
-      if (apiClient && encounterId) {
-        return apiClient.getMedicationOrders({ encounterId }) as Promise<GetMedicationOrdersResponse>;
+      if (apiClient) {
+        return apiClient.getMedicationOrders({ searchBy }) as Promise<GetMedicationOrdersResponse>;
       }
       throw new Error('api client not defined');
     },
     {
+      enabled: !!apiClient && Boolean(encounterIdIsDefined || encounterIdsHasLen),
       retry: 2,
       staleTime: 5 * 60 * 1000,
     }

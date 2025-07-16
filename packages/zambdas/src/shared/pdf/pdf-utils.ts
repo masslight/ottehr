@@ -2,12 +2,19 @@ import fontkit from '@pdf-lib/fontkit';
 import { DocumentReference } from 'fhir/r4b';
 import fs from 'fs';
 import { Color, PDFDocument, PDFFont, PDFImage, PDFPage, rgb, StandardFonts } from 'pdf-lib';
-import { STANDARD_FONT_SIZE, STANDARD_FONT_SPACING, Y_POS_GAP } from './pdf-consts';
+import { PDF_CLIENT_STYLES, STANDARD_FONT_SIZE, STANDARD_FONT_SPACING, Y_POS_GAP } from './pdf-consts';
 import { ImageStyle, LineStyle, PageStyles, PdfClient, PdfClientStyles, TextStyle } from './types';
 
 export type PdfInfo = { uploadURL: string; title: string };
 
 export type LabsPDFTextStyleConfig = Record<string, TextStyle>;
+
+export interface Column {
+  startXPos: number;
+  width: number;
+  content: string;
+  textStyle: TextStyle;
+}
 
 // For testing needs
 export function savePdfLocally(pdfBytes: Uint8Array): void {
@@ -142,22 +149,27 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
   const drawStartXPosSpecifiedText = (
     text: string,
     textStyle: TextStyle,
-    startingXPos: number
+    startingXPos: number,
+    bounds?: { leftBound: number; rightBound: number }
   ): { endXPos: number; endYPos: number } => {
     const { font, fontSize, spacing } = textStyle;
+    const leftBound = bounds?.leftBound !== undefined ? bounds.leftBound : pageLeftBound;
+    const rightBound = bounds?.rightBound !== undefined ? bounds.rightBound : pageRightBound;
 
     const currentTextHeight = font.heightAtSize(fontSize);
-    if (startingXPos < pageLeftBound) currXPos = pageLeftBound;
-    else if (startingXPos >= pageRightBound) {
+    if (startingXPos < leftBound) currXPos = leftBound;
+    else if (startingXPos >= rightBound) {
       newLine(currentTextHeight);
-      currXPos = pageLeftBound;
+      currXPos = leftBound;
     } else currXPos = startingXPos;
 
-    drawTextSequential(text, textStyle);
+    console.log(`Drawing at xPos: ${currXPos}`);
+    drawTextSequential(text, textStyle, { leftBound: currXPos, rightBound: pageRightBound });
 
     if (textStyle.newLineAfter) {
+      console.log('>>>TextStyle included newline');
       currYPos -= currentTextHeight + spacing;
-      currXPos = pageLeftBound;
+      currXPos = leftBound;
     }
 
     return { endXPos: currXPos, endYPos: currYPos };
@@ -166,28 +178,26 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
   const drawTextSequential = (
     text: string,
     textStyle: Exclude<TextStyle, 'side'>,
-    leftIndentationXPos?: number
+    bounds?: { leftBound: number; rightBound: number }
   ): void => {
     const { font, fontSize, color, spacing } = textStyle;
     const { width: lineWidth, height: lineHeight } = getTextDimensions(text, textStyle);
-    const validatedLeftIndentationXPos =
-      leftIndentationXPos !== undefined && leftIndentationXPos < pageRightBound && leftIndentationXPos > pageLeftBound
-        ? leftIndentationXPos
-        : pageLeftBound;
+    const leftBound = bounds?.leftBound !== undefined ? bounds.leftBound : pageLeftBound;
+    const rightBound = bounds?.rightBound !== undefined ? bounds.rightBound : pageRightBound;
 
-    if (leftIndentationXPos) currXPos = leftIndentationXPos;
+    if (bounds?.leftBound !== undefined) currXPos = leftBound;
 
     // Add a new page if there's no space on the current page
     if (currYPos - lineHeight < (pageStyles.pageMargins.bottom ?? 0)) {
       addNewPage(pageStyles, pageLeftBound, pageRightBound);
-      if (leftIndentationXPos) currXPos = validatedLeftIndentationXPos;
+      currXPos = leftBound;
     }
 
     // Calculate available space on the current line
-    const availableWidth = pageRightBound - currXPos;
+    const availableWidth = rightBound - currXPos;
 
     // If the text fits within the current line, draw it directly
-    if (lineWidth < pageRightBound - pageLeftBound) {
+    if (lineWidth < rightBound - leftBound) {
       if (lineWidth > availableWidth) newLine(lineHeight + spacing);
       page.drawText(text, {
         font: font,
@@ -201,8 +211,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       // If textStyle specifies to move to the next line after drawing
       if (textStyle.newLineAfter) {
         currYPos -= lineHeight + spacing;
-        currXPos = pageLeftBound;
-        if (leftIndentationXPos) currXPos = validatedLeftIndentationXPos;
+        currXPos = leftBound;
       }
     } else {
       // If the text is too wide, find the part that fits
@@ -237,7 +246,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       newLine(lineHeight + spacing);
 
       // Recursively call the function with the remaining text
-      drawTextSequential(remainingText, textStyle, validatedLeftIndentationXPos);
+      drawTextSequential(remainingText, textStyle, bounds);
     }
   };
 
@@ -343,6 +352,51 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     pageStyles = newStyles;
   };
 
+  const drawVariableWidthColumns = (columns: Column[], yPosStartOfColumn: number): void => {
+    if (!columns.length) return;
+    // if the widths of all of the columns exceed the page bounds, convert to equal width
+    const totalWidth = columns.reduce((acc: number, col: Column) => {
+      return acc + col.startXPos + col.width;
+    }, 0);
+
+    const pageWidth = pageRightBound - pageLeftBound;
+    const DEFAULT_COL_GAP = 15;
+
+    if (totalWidth > pageWidth) {
+      console.warn(
+        `Columns and content exceed page width. Will attempt to split into even columns with a ${DEFAULT_COL_GAP}pt gap`
+      );
+
+      // determine what equal columns and gaps would be
+      const numGaps = columns.length - 1;
+      const totalGapWidth = numGaps * DEFAULT_COL_GAP;
+
+      const totalAvailableContentWidth = pageWidth - totalGapWidth;
+      const equalColumnWidth = totalAvailableContentWidth / columns.length;
+
+      for (let i = 0; i < columns.length; i++) {
+        const newStartingPos = pageLeftBound + (equalColumnWidth + DEFAULT_COL_GAP) * i;
+        columns[i] = { ...columns[i], startXPos: newStartingPos, width: equalColumnWidth };
+      }
+    }
+
+    // now just write the columns, and make sure they don't bleed into other columns
+    columns.forEach((col) => {
+      console.log(`Drawing column for ${JSON.stringify({ ...col, textStyle: undefined })}`);
+
+      console.log(`Setting yPos to ${yPosStartOfColumn}`);
+      currYPos = yPosStartOfColumn;
+
+      const { content, textStyle, width, startXPos } = col;
+      console.log(`This is getY at start of column ${currYPos} for col ${col.content}`);
+      drawTextSequential(`${content}`, textStyle, {
+        leftBound: startXPos,
+        rightBound: startXPos + width,
+      });
+      console.log(`This is getY at end of column ${currYPos} for col ${col.content}`);
+    });
+  };
+
   return {
     addNewPage,
     drawText,
@@ -365,6 +419,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     setRightBound,
     getTextDimensions,
     setPageStyles,
+    drawVariableWidthColumns,
   };
 }
 
@@ -373,6 +428,7 @@ export const LAB_PDF_STYLES = {
     red: rgbNormalized(255, 0, 0),
     purple: rgbNormalized(77, 21, 183),
     black: rgbNormalized(0, 0, 0),
+    grey: rgbNormalized(102, 102, 102),
   },
 };
 
@@ -384,6 +440,22 @@ export const SEPARATED_LINE_STYLE: LineStyle = {
     bottom: 8,
   },
 };
+
+export async function getPdfClientForLabsPDFs(): Promise<{
+  pdfClient: PdfClient;
+  callIcon: PDFImage;
+  faxIcon: PDFImage;
+  locationIcon: PDFImage;
+  textStyles: LabsPDFTextStyleConfig;
+}> {
+  const pdfClient = await createPdfClient(PDF_CLIENT_STYLES);
+  const callIcon = await pdfClient.embedImage(fs.readFileSync('./assets/call.png'));
+  const faxIcon = await pdfClient.embedImage(fs.readFileSync('./assets/fax.png'));
+  const locationIcon = await pdfClient.embedImage(fs.readFileSync('./assets/location_on.png'));
+  const textStyles = await getTextStylesForLabsPDF(pdfClient);
+
+  return { pdfClient, callIcon, faxIcon, locationIcon, textStyles };
+}
 
 export async function getTextStylesForLabsPDF(pdfClient: PdfClient): Promise<LabsPDFTextStyleConfig> {
   const RubikFont = await pdfClient.embedFont(fs.readFileSync('./assets/Rubik-Regular.otf'));
@@ -450,6 +522,18 @@ export async function getTextStylesForLabsPDF(pdfClient: PdfClient): Promise<Lab
       side: 'right',
       newLineAfter: true,
     },
+    textGrey: {
+      fontSize: STANDARD_FONT_SIZE,
+      spacing: 6,
+      font: RubikFont,
+      color: LAB_PDF_STYLES.color.grey,
+    },
+    textGreyBold: {
+      fontSize: STANDARD_FONT_SIZE,
+      spacing: 6,
+      font: RubikFontBold,
+      color: LAB_PDF_STYLES.color.grey,
+    },
   };
   return textStyles;
 }
@@ -477,6 +561,18 @@ export const drawFieldLine = (
   return pdfClient;
 };
 
+export const drawFieldLineBoldHeader = (
+  pdfClient: PdfClient,
+  textStyles: LabsPDFTextStyleConfig,
+  fieldName: string,
+  fieldValue: string
+): PdfClient => {
+  pdfClient.drawTextSequential(fieldName, textStyles.textBold);
+  pdfClient.drawTextSequential(' ', textStyles.text);
+  pdfClient.drawTextSequential(fieldValue, textStyles.text);
+  return pdfClient;
+};
+
 export const drawFieldLineRight = (
   pdfClient: PdfClient,
   textStyles: LabsPDFTextStyleConfig,
@@ -492,18 +588,33 @@ export const drawFieldLineRight = (
 export const drawFourColumnText = (
   pdfClient: PdfClient,
   textStyles: LabsPDFTextStyleConfig,
-  columnOne: { name: string; startXPos: number },
-  columnTwo: { name: string; startXPos: number },
-  columnThree: { name: string; startXPos: number },
-  columnFour: { name: string; startXPos: number },
+  columnOne: { name: string; startXPos: number; isBold?: boolean },
+  columnTwo: { name: string; startXPos: number; isBold?: boolean },
+  columnThree: { name: string; startXPos: number; isBold?: boolean },
+  columnFour: { name: string; startXPos: number; isBold?: boolean },
   color?: Color
 ): PdfClient => {
-  const font = textStyles.text;
   const fontSize = STANDARD_FONT_SIZE;
-  const fontStyleTemp = { ...font, fontSize: fontSize, color: color };
-  pdfClient.drawStartXPosSpecifiedText(columnOne.name, fontStyleTemp, columnOne.startXPos);
-  pdfClient.drawStartXPosSpecifiedText(columnTwo.name, fontStyleTemp, columnTwo.startXPos);
-  pdfClient.drawStartXPosSpecifiedText(columnThree.name, fontStyleTemp, columnThree.startXPos);
-  pdfClient.drawStartXPosSpecifiedText(columnFour.name, fontStyleTemp, columnFour.startXPos);
+  const fontStyleTemp = { fontSize: fontSize, color: color };
+  pdfClient.drawStartXPosSpecifiedText(
+    columnOne.name,
+    { ...(columnOne.isBold ? textStyles.textBold : textStyles.text), ...fontStyleTemp },
+    columnOne.startXPos
+  );
+  pdfClient.drawStartXPosSpecifiedText(
+    columnTwo.name,
+    { ...(columnTwo.isBold ? textStyles.textBold : textStyles.text), ...fontStyleTemp },
+    columnTwo.startXPos
+  );
+  pdfClient.drawStartXPosSpecifiedText(
+    columnThree.name,
+    { ...(columnThree.isBold ? textStyles.textBold : textStyles.text), ...fontStyleTemp },
+    columnThree.startXPos
+  );
+  pdfClient.drawStartXPosSpecifiedText(
+    columnFour.name,
+    { ...(columnFour.isBold ? textStyles.textBold : textStyles.text), ...fontStyleTemp },
+    columnFour.startXPos
+  );
   return pdfClient;
 };

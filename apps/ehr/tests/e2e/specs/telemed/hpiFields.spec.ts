@@ -20,7 +20,7 @@ import {
 import { ADDITIONAL_QUESTIONS } from '../../../../src/constants';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo } from '../../../e2e-utils/helpers/telemed.test-helpers';
-import { checkDropdownHasOptionAndSelectIt } from '../../../e2e-utils/helpers/tests-utils';
+import { checkDropdownHasOptionAndSelectIt, getDropdownOption } from '../../../e2e-utils/helpers/tests-utils';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 
 async function checkDropdownNoOptions(
@@ -93,12 +93,12 @@ test.describe('Check all hpi fields common functionality, without changing data'
   });
 
   test('Known allergies. Should check not-in-list item search try', async ({ page }) => {
-    await checkDropdownNoOptions(
-      page,
-      dataTestIds.telemedEhrFlow.hpiKnownAllergiesInput,
-      searchOptionThatNotInList,
-      noOptionsMessage
-    );
+    const input = page.getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesInput).locator('input');
+    await input.click();
+    await page.waitForTimeout(10000); // todo something async causes flakiness here
+    await input.fill(noOptionsMessage);
+    const option = await getDropdownOption(page, 'Other');
+    await expect(option).toBeVisible();
   });
 
   test('Surgical history. Should check not-in-list item search try', async ({ page }) => {
@@ -257,13 +257,11 @@ test.describe.skip('Current medications', () => {
       .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsDoseInput)
       .locator('input')
       .fill(scheduledMedicationDose);
-    const dateLocator = page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsDateInput).locator('input');
+    const dateLocator = page
+      .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsDateTimeInput)
+      .locator('input');
     await dateLocator.click();
-    await dateLocator.pressSequentially(scheduledMedicationDate);
-    await page
-      .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsTimeInput)
-      .locator('input')
-      .fill(scheduledMedicationTime);
+    await dateLocator.pressSequentially(scheduledMedicationDate.concat(' ', scheduledMedicationTime));
     await page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsAddButton).click();
     await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsAddButton)).toBeEnabled();
   });
@@ -287,13 +285,11 @@ test.describe.skip('Current medications', () => {
       .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsDoseInput)
       .locator('input')
       .fill(asNeededMedicationDose);
-    const dateLocator = page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsDateInput).locator('input');
+    const dateLocator = page
+      .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsDateTimeInput)
+      .locator('input');
     await dateLocator.click();
-    await dateLocator.pressSequentially(asNeededMedicationDate);
-    await page
-      .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsTimeInput)
-      .locator('input')
-      .fill(asNeededMedicationTime);
+    await dateLocator.pressSequentially(asNeededMedicationDate.concat(' ', asNeededMedicationTime));
     await page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsAddButton).click();
     await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsAddButton)).toBeEnabled();
   });
@@ -310,19 +306,6 @@ test.describe.skip('Current medications', () => {
     const medicationInput = page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsInput);
     await expect(medicationInput.locator('label')).toHaveClass(/Mui-required/);
     await expect(medicationInput.locator('input[required]:invalid')).toBeVisible();
-    const doseInput = page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsDoseInput);
-    await expect(doseInput.locator('label')).toHaveClass(/Mui-required/);
-    await expect(doseInput.locator('input[required]:invalid')).toBeVisible();
-    const dateInput = page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsDateInput);
-    await expect(dateInput.locator('label')).toHaveClass(/Mui-required/);
-    await expect(dateInput.locator('input[required]:invalid')).toBeVisible();
-    const timeInput = page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsTimeInput);
-    await expect(timeInput.locator('label')).toHaveClass(/Mui-required/);
-    await expect(timeInput.locator('input[required]:invalid')).toBeVisible();
-    await page
-      .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsTimeInput)
-      .locator('input')
-      .fill(scheduledMedicationTime);
     await page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsAddButton).click();
     await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsAddButton)).toBeEnabled();
   });

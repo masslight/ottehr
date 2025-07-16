@@ -1,4 +1,3 @@
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Location, Patient, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -11,15 +10,14 @@ import {
   SecretsKeys,
   TaskStatus,
 } from 'utils';
-import { configSentry, createOystehrClient, getAuth0Token, topLevelCatch, ZambdaInput } from '../../../shared';
+import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { patchTaskStatus } from '../../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';
 
-let zapehrToken: string;
+let oystehrToken: string;
+const ZAMBDA_NAME = 'sub-update-appointments';
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  configSentry('sub-update-appointments', input.secrets);
-  console.log(`Input: ${JSON.stringify(input)}`);
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
@@ -28,14 +26,14 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    if (!zapehrToken) {
+    if (!oystehrToken) {
       console.log('getting token');
-      zapehrToken = await getAuth0Token(secrets);
+      oystehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }
 
-    const oystehr = createOystehrClient(zapehrToken, secrets);
+    const oystehr = createOystehrClient(oystehrToken, secrets);
 
     const taskCodingList = task.code?.coding ?? [];
     console.log('taskCodingList', JSON.stringify(taskCodingList));

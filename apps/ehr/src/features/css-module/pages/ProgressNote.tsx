@@ -10,7 +10,13 @@ import {
 } from '../../../telemed';
 import { PageTitle } from '../../../telemed/components/PageTitle';
 import { ChiefComplaintCard } from '../../../telemed/features/appointment';
-import { MissingCard, ReviewAndSignButton, SendFaxButton } from '../../../telemed/features/appointment/ReviewTab';
+import {
+  AddendumCard,
+  DischargeButton,
+  MissingCard,
+  ReviewAndSignButton,
+  SendFaxButton,
+} from '../../../telemed/features/appointment/ReviewTab';
 import { CSSLoader } from '../components/CSSLoader';
 import { PatientInformationContainer } from '../components/progress-note/PatientInformationContainer';
 import { ProgressNoteDetails } from '../components/progress-note/ProgressNoteDetails';
@@ -65,10 +71,15 @@ export const ProgressNote: React.FC<PatientInfoProps> = () => {
 
       <ProgressNoteDetails />
 
+      <AddendumCard />
+
       {!isReadOnly && (
-        <Box sx={{ display: 'flex', justifyContent: 'end', gap: 1 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
           <SendFaxButton appointment={appointmentResource} encounter={encounter} css={css} />
-          <ReviewAndSignButton />
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <DischargeButton />
+            <ReviewAndSignButton />
+          </Box>
         </Box>
       )}
     </Stack>

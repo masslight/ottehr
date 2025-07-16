@@ -13,32 +13,21 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ReactElement, useState } from 'react';
-import { InHouseOrderListPageItemDTO, InPersonAppointmentInformation, LabOrderListPageDTO, NursingOrder } from 'utils';
+import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
+import { InPersonAppointmentInformation, OrdersForTrackingBoardRow, OrdersForTrackingBoardTable } from 'utils';
 import {
-  ACTION_WIDTH,
   ACTION_WIDTH_MIN,
-  CHAT_WIDTH,
   CHAT_WIDTH_MIN,
-  GO_TO_ONE_BUTTON_WIDTH,
+  GO_TO_MANY_BUTTONS_WIDTH_MIN,
   GO_TO_ONE_BUTTON_WIDTH_MIN,
-  GO_TO_TWO_BUTTON_WIDTH,
-  GO_TO_TWO_BUTTON_WIDTH_MIN,
-  NEXT_WIDTH,
-  NOTES_WIDTH,
   NOTES_WIDTH_MIN,
   PATIENT_AND_REASON_WIDTH_MIN,
-  PROVIDER_WIDTH,
   PROVIDER_WIDTH_MIN,
-  ROOM_WIDTH,
   ROOM_WIDTH_MIN,
-  TIME_WIDTH,
   TIME_WIDTH_MIN,
-  TYPE_WIDTH,
   TYPE_WIDTH_MIN,
-  VISIT_ICONS_WIDTH,
   VISIT_ICONS_WIDTH_MIN,
 } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
@@ -48,14 +37,12 @@ import { ApptTab } from './AppointmentTabs';
 
 interface AppointmentTableProps {
   appointments: InPersonAppointmentInformation[];
-  location: Location | undefined;
+  location: LocationWithWalkinSchedule | undefined;
   tab: ApptTab;
   now: DateTime;
   updateAppointments: () => void;
   setEditingComment: (editingComment: boolean) => void;
-  inHouseLabOrdersByAppointmentId: Record<string, InHouseOrderListPageItemDTO[]>;
-  externalLabOrdersByAppointmentId: Record<string, LabOrderListPageDTO[]>;
-  nursingOrdersByAppointmentId: Record<string, NursingOrder[]>;
+  orders: OrdersForTrackingBoardTable;
 }
 
 export default function AppointmentTable({
@@ -65,9 +52,7 @@ export default function AppointmentTable({
   now,
   updateAppointments,
   setEditingComment,
-  inHouseLabOrdersByAppointmentId,
-  externalLabOrdersByAppointmentId,
-  nursingOrdersByAppointmentId,
+  orders,
 }: AppointmentTableProps): ReactElement {
   const theme = useTheme();
   const actionButtons = tab === ApptTab.prebooked ? true : false;
@@ -75,25 +60,41 @@ export default function AppointmentTable({
   const [collapseWaiting, setCollapseWaiting] = useState<boolean>(false);
   const [collapseExam, setCollapseExam] = useState<boolean>(false);
 
+  const {
+    inHouseLabOrdersByAppointmentId,
+    externalLabOrdersByAppointmentId,
+    nursingOrdersByAppointmentId,
+    inHouseMedicationsByEncounterId,
+    radiologyOrdersByAppointmentId,
+  } = orders;
+
+  const ordersForAppointment = (appointmentId: string, encounterId: string): OrdersForTrackingBoardRow => ({
+    inHouseLabOrders: inHouseLabOrdersByAppointmentId[appointmentId],
+    externalLabOrders: externalLabOrdersByAppointmentId[appointmentId],
+    nursingOrders: nursingOrdersByAppointmentId[appointmentId],
+    inHouseMedications: inHouseMedicationsByEncounterId[encounterId],
+    radiologyOrders: radiologyOrdersByAppointmentId[appointmentId],
+  });
+
   return (
     <>
       <AppointmentsStatusChipsCount appointments={appointments} />
       <Paper>
-        <TableContainer sx={{ overflow: 'inherit' }} data-testid={dataTestIds.dashboard.appointmentsTable(tab)}>
-          <Table style={{ tableLayout: 'fixed', width: '100%' }}>
+        <TableContainer sx={{ overflow: 'auto' }} data-testid={dataTestIds.dashboard.appointmentsTable(tab)}>
+          <Table style={{ tableLayout: 'auto', width: '100%', maxWidth: '100%' }}>
             {/* column widths must add up to the table width ^ */}
             <TableHead>
               <TableRow
                 sx={{ '& .MuiTableCell-root': { px: '8px' }, display: { xs: 'none', sm: 'none', md: 'table-row' } }}
               >
-                <TableCell style={{ width: NEXT_WIDTH }}></TableCell>
-                <TableCell style={{ width: TYPE_WIDTH, minWidth: TYPE_WIDTH_MIN }}>
+                <TableCell></TableCell>
+                <TableCell style={{ minWidth: TYPE_WIDTH_MIN }}>
                   <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
                     {tab !== ApptTab.prebooked ? 'Type & Status' : 'Type'}
                   </Typography>
                 </TableCell>
                 {showTime && (
-                  <TableCell style={{ width: TIME_WIDTH, minWidth: TIME_WIDTH_MIN }}>
+                  <TableCell style={{ minWidth: TIME_WIDTH_MIN }}>
                     <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
                       Time
                     </Typography>
@@ -105,44 +106,43 @@ export default function AppointmentTable({
                   </Typography>
                 </TableCell>
                 {(tab === ApptTab['in-office'] || tab === ApptTab.completed) && (
-                  <TableCell style={{ width: ROOM_WIDTH, minWidth: ROOM_WIDTH_MIN }}>
+                  <TableCell style={{ minWidth: ROOM_WIDTH_MIN }}>
                     <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
                       Room
                     </Typography>
                   </TableCell>
                 )}
-                <TableCell style={{ width: PROVIDER_WIDTH, minWidth: PROVIDER_WIDTH_MIN }}>
+                <TableCell style={{ minWidth: PROVIDER_WIDTH_MIN }}>
                   <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
                     Provider
                   </Typography>
                 </TableCell>
-                <TableCell style={{ width: VISIT_ICONS_WIDTH, minWidth: VISIT_ICONS_WIDTH_MIN }}>
+                <TableCell style={{ minWidth: VISIT_ICONS_WIDTH_MIN }}>
                   <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
                     {tab === ApptTab.completed ? 'Orders' : 'Visit Components'}
                   </Typography>
                 </TableCell>
-                <TableCell style={{ width: NOTES_WIDTH, minWidth: NOTES_WIDTH_MIN }}>
+                <TableCell style={{ minWidth: NOTES_WIDTH_MIN }}>
                   <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
                     Notes
                   </Typography>
                 </TableCell>
-                <TableCell style={{ width: CHAT_WIDTH, minWidth: CHAT_WIDTH_MIN }}>
+                <TableCell style={{ minWidth: CHAT_WIDTH_MIN }}>
                   <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
                     Chat
                   </Typography>
                 </TableCell>
                 <TableCell
                   style={{
-                    width: tab === ApptTab.prebooked ? GO_TO_ONE_BUTTON_WIDTH : GO_TO_TWO_BUTTON_WIDTH,
-                    minWidth: tab === ApptTab.prebooked ? GO_TO_ONE_BUTTON_WIDTH_MIN : GO_TO_TWO_BUTTON_WIDTH_MIN,
+                    minWidth: tab === ApptTab.prebooked ? GO_TO_ONE_BUTTON_WIDTH_MIN : GO_TO_MANY_BUTTONS_WIDTH_MIN,
                   }}
                 >
-                  <Typography variant="subtitle2" sx={{ fontSize: '14px', textAlign: 'center' }}>
-                    Go to...
+                  <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
+                    Actions
                   </Typography>
                 </TableCell>
                 {tab === ApptTab.prebooked && (
-                  <TableCell style={{ width: ACTION_WIDTH, minWidth: ACTION_WIDTH_MIN }}>
+                  <TableCell style={{ minWidth: ACTION_WIDTH_MIN }}>
                     <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
                       Arrived
                     </Typography>
@@ -195,9 +195,7 @@ export default function AppointmentTable({
                             updateAppointments={updateAppointments}
                             setEditingComment={setEditingComment}
                             tab={tab}
-                            inHouseLabOrders={inHouseLabOrdersByAppointmentId[appointment.id]}
-                            externalLabOrders={externalLabOrdersByAppointmentId[appointment.id]}
-                            nursingOrders={nursingOrdersByAppointmentId[appointment.id]}
+                            orders={ordersForAppointment(appointment.id, appointment.encounterId)}
                           ></AppointmentTableRow>
                         );
                       })}
@@ -215,9 +213,7 @@ export default function AppointmentTable({
                       updateAppointments={updateAppointments}
                       setEditingComment={setEditingComment}
                       tab={tab}
-                      inHouseLabOrders={inHouseLabOrdersByAppointmentId[appointment.id]}
-                      externalLabOrders={externalLabOrdersByAppointmentId[appointment.id]}
-                      nursingOrders={nursingOrdersByAppointmentId[appointment.id]}
+                      orders={ordersForAppointment(appointment.id, appointment.encounterId)}
                     ></AppointmentTableRow>
                   );
                 })
@@ -228,24 +224,22 @@ export default function AppointmentTable({
       </Paper>
       {tab === ApptTab['in-office'] && (
         <Paper sx={{ marginTop: '16px' }}>
-          <TableContainer sx={{ overflow: 'inherit' }}>
-            <Table style={{ tableLayout: 'fixed', width: '100%' }}>
+          <TableContainer sx={{ overflow: 'auto' }}>
+            <Table style={{ tableLayout: 'auto', width: '100%', maxWidth: '100%' }}>
               <TableHead>
                 <TableRow
                   sx={{ '& .MuiTableCell-root': { px: '8px' }, display: { xs: 'none', sm: 'none', md: 'table-row' } }}
                 >
-                  <TableCell style={{ width: NEXT_WIDTH }}></TableCell>
-                  <TableCell style={{ width: TYPE_WIDTH, minWidth: TYPE_WIDTH_MIN }}></TableCell>
-                  {showTime && <TableCell style={{ width: TIME_WIDTH, minWidth: TIME_WIDTH_MIN }}></TableCell>}
+                  <TableCell></TableCell>
+                  <TableCell style={{ minWidth: TYPE_WIDTH_MIN }}></TableCell>
+                  {showTime && <TableCell style={{ minWidth: TIME_WIDTH_MIN }}></TableCell>}
                   <TableCell style={{ minWidth: PATIENT_AND_REASON_WIDTH_MIN }}></TableCell>
-                  <TableCell style={{ width: ROOM_WIDTH, minWidth: ROOM_WIDTH_MIN }}></TableCell>
-                  <TableCell style={{ width: PROVIDER_WIDTH, minWidth: PROVIDER_WIDTH_MIN }}></TableCell>
-                  <TableCell style={{ width: VISIT_ICONS_WIDTH, minWidth: VISIT_ICONS_WIDTH_MIN }}></TableCell>
-                  <TableCell style={{ width: NOTES_WIDTH, minWidth: NOTES_WIDTH_MIN }}></TableCell>
-                  <TableCell style={{ width: CHAT_WIDTH, minWidth: CHAT_WIDTH_MIN }}></TableCell>
-                  <TableCell
-                    style={{ width: GO_TO_TWO_BUTTON_WIDTH, minWidth: GO_TO_TWO_BUTTON_WIDTH_MIN }}
-                  ></TableCell>
+                  <TableCell style={{ minWidth: ROOM_WIDTH_MIN }}></TableCell>
+                  <TableCell style={{ minWidth: PROVIDER_WIDTH_MIN }}></TableCell>
+                  <TableCell style={{ minWidth: VISIT_ICONS_WIDTH_MIN }}></TableCell>
+                  <TableCell style={{ minWidth: NOTES_WIDTH_MIN }}></TableCell>
+                  <TableCell style={{ minWidth: CHAT_WIDTH_MIN }}></TableCell>
+                  <TableCell style={{ minWidth: GO_TO_MANY_BUTTONS_WIDTH_MIN }}></TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -291,9 +285,7 @@ export default function AppointmentTable({
                           updateAppointments={updateAppointments}
                           setEditingComment={setEditingComment}
                           tab={tab}
-                          inHouseLabOrders={inHouseLabOrdersByAppointmentId[appointment.id]}
-                          externalLabOrders={externalLabOrdersByAppointmentId[appointment.id]}
-                          nursingOrders={nursingOrdersByAppointmentId[appointment.id]}
+                          orders={ordersForAppointment(appointment.id, appointment.encounterId)}
                         ></AppointmentTableRow>
                       );
                     })}

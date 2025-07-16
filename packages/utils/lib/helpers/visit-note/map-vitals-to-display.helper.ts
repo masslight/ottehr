@@ -10,7 +10,7 @@ import {
   VitalsVisionObservationDTO,
   VitalsWeightObservationDTO,
 } from '../../types';
-import { formatDateTimeToEDT } from '../../utils';
+import { formatDateTimeToZone } from '../../utils';
 import {
   getVisionExtraOptionsFormattedString,
   heightInCmToInch,
@@ -19,10 +19,13 @@ import {
   VitalsVisitNoteData,
 } from '../vitals';
 
-export const mapVitalsToDisplay = (vitalsObservations?: VitalsObservationDTO[]): VitalsVisitNoteData | undefined =>
+export const mapVitalsToDisplay = (
+  vitalsObservations: VitalsObservationDTO[],
+  timezone?: string
+): VitalsVisitNoteData | undefined =>
   vitalsObservations?.reduce((vitals, observation) => {
     const field = observation.field;
-    const time = formatDateTimeToEDT(observation.lastUpdated);
+    const time = formatDateTimeToZone(observation.lastUpdated, timezone ?? 'America/New_York');
     let text;
     let parsed;
 
@@ -59,7 +62,7 @@ export const mapVitalsToDisplay = (vitalsObservations?: VitalsObservationDTO[]):
         break;
       case VitalFieldNames.VitalVision:
         parsed = observation as VitalsVisionObservationDTO;
-        text = `Left eye: ${parsed.leftEyeVisionValue}; Right eye: ${parsed.rightEyeVisionValue};${
+        text = `Left eye: ${parsed.leftEyeVisionText}; Right eye: ${parsed.rightEyeVisionText};${
           parsed.extraVisionOptions && parsed.extraVisionOptions.length > 0
             ? ` ${getVisionExtraOptionsFormattedString(parseVisionExtraOptions(parsed.extraVisionOptions))}`
             : ''

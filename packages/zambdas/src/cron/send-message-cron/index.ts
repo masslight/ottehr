@@ -1,25 +1,22 @@
 import Oystehr from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Location, Patient, QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { DATETIME_FULL_NO_YEAR, getSecret, SecretsKeys } from 'utils';
 import { isNonPaperworkQuestionnaireResponse } from '../../common';
-import { sendErrors, topLevelCatch, ZambdaInput } from '../../shared';
-import { configSentry, createOystehrClient, getAuth0Token } from '../../shared';
+import { createOystehrClient, getAuth0Token, sendErrors, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { getMessageRecipientForAppointment } from '../../shared/communication';
 
-let zapehrToken: string;
+let oystehrToken: string;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  configSentry('send-message-cron', input.secrets);
+export const index = wrapHandler('send-message-cron', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input)}`);
   const { secrets } = input;
-  if (!zapehrToken) {
-    zapehrToken = await getAuth0Token(secrets);
+  if (!oystehrToken) {
+    oystehrToken = await getAuth0Token(secrets);
   }
   try {
-    const oystehr = createOystehrClient(zapehrToken, secrets);
+    const oystehr = createOystehrClient(oystehrToken, secrets);
     const nowUTC = DateTime.now().toUTC();
     const startTime = roundToNearestQuarterHour(nowUTC.plus({ hour: 1 })); // round times to an even quarter minute
     console.log(
@@ -122,7 +119,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       const isPaperworkComplete =
         questionnaireResponse.status == 'completed' || questionnaireResponse.status == 'amended';
       // only send reminders for appointments scheduled within the next 90 minutes whose paperwork is incomplete and for appointments created more than 2 hours before visit time
-      // startTime is initalized to 1 hour from now, and adding 30 minutes approximately equals the visit time for appointments created 90 minutes from now
+      // startTime is initialized to 1 hour from now, and adding 30 minutes approximately equals the visit time for appointments created 90 minutes from now
       if (startTime.plus({ minutes: 30 }).diff(created, 'minutes').minutes > 120 && !isPaperworkComplete) {
         console.log(
           'send reminder for appointment with incomplete paperwork scheduled within the next 90 minutes and created 2 hours before visit time'
@@ -148,7 +145,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    return topLevelCatch('send-message-cron', error, ENVIRONMENT, true);
+    return topLevelCatch('send-message-cron', error, ENVIRONMENT);
   }
 });
 

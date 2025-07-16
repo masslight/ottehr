@@ -12,16 +12,18 @@ import {
   Practitioner,
   QuestionnaireResponse,
   Resource,
+  Schedule,
 } from 'fhir/r4b';
+import { getTimezone, TIMEZONES } from 'utils';
 import { isNonPaperworkQuestionnaireResponse } from '../../../common';
 import { getVideoRoomResourceExtension } from '../../helpers';
-import { VideoResourcesAppointmentPackage } from './types';
+import { FullAppointmentResourcePackage } from './types';
 
-export const getVideoResources = async (
+export const getAppointmentAndRelatedResources = async (
   oystehr: Oystehr,
   appointmentId: string,
   inPerson?: boolean
-): Promise<VideoResourcesAppointmentPackage | undefined> => {
+): Promise<FullAppointmentResourcePackage | undefined> => {
   //
   // Attempting to get three items: Encounter, Appointment and charge Item
   // FHIR API Query looks something like this:
@@ -32,7 +34,7 @@ export const getVideoResources = async (
   //          &_revinclude:iterate=Account:patient
   //
   // Given an appointment ID, find an Encounter for this appointment, a Charge Item for which the Encounter
-  // is its context, a patient that's the subject of the encounter, and the Accocunt for this patient
+  // is its context, a patient that's the subject of the encounter, and the Account for this patient
   //
 
   const items: Array<
@@ -47,6 +49,7 @@ export const getVideoResources = async (
     | DocumentReference
     | List
     | Coverage
+    | Schedule
   > = (
     await oystehr.fhir.search<
       | Appointment
@@ -60,6 +63,7 @@ export const getVideoResources = async (
       | DocumentReference
       | List
       | Coverage
+      | Schedule
     >({
       resourceType: 'Encounter',
       params: [
@@ -83,6 +87,11 @@ export const getVideoResources = async (
           name: '_include:iterate',
           value: 'Appointment:location',
         },
+        {
+          name: '_revinclude:iterate',
+          value: 'Schedule:actor:Location',
+        },
+        { name: '_revinclude:iterate', value: 'Schedule:actor:Practitioner' },
         {
           name: '_include:iterate',
           value: 'Encounter:participant:Practitioner',
@@ -113,6 +122,7 @@ export const getVideoResources = async (
     .unbundle()
     .filter((resource) => isNonPaperworkQuestionnaireResponse(resource) === false);
 
+  // TODO: rewrite all casts cause potentially all those resources can be undefined
   const appointment: Appointment | undefined = items.find((item: Resource) => {
     return item.resourceType === 'Appointment';
   }) as Appointment;
@@ -155,7 +165,20 @@ export const getVideoResources = async (
     return item.resourceType === 'Coverage';
   }) as Coverage;
 
+  const schedule: Schedule | undefined = items?.find((item: Resource) => {
+    return item.resourceType === 'Schedule';
+  }) as Schedule;
+
   const listResources = items.filter((item) => item.resourceType === 'List') as List[];
+
+  let timezone: string;
+  if (schedule) {
+    timezone = getTimezone(schedule);
+  } else if (location) {
+    timezone = getTimezone(location);
+  } else {
+    timezone = TIMEZONES[0];
+  }
 
   return {
     appointment,
@@ -169,5 +192,6 @@ export const getVideoResources = async (
     documentReferences,
     coverage,
     listResources,
+    timezone,
   };
 };

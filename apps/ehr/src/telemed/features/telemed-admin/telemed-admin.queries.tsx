@@ -1,6 +1,12 @@
-import { Extension, InsurancePlan, Location, Organization } from 'fhir/r4b';
+import { Extension, Location, Organization } from 'fhir/r4b';
 import { useMutation, useQuery } from 'react-query';
-import { FHIR_EXTENSION, INSURANCE_PLAN_PAYER_META_TAG_CODE, INSURANCE_SETTINGS_MAP, isLocationVirtual } from 'utils';
+import {
+  FHIR_EXTENSION,
+  INSURANCE_SETTINGS_MAP,
+  isLocationVirtual,
+  ORG_TYPE_CODE_SYSTEM,
+  ORG_TYPE_PAYER_CODE,
+} from 'utils';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { InsuranceData } from './EditInsurance';
 
@@ -50,19 +56,23 @@ export const useInsurancesQuery = (id?: string, enabled?: boolean) => {
           value: '1000',
         },
         {
+          name: 'type',
+          value: `${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}`,
+        },
+        {
           name: '_offset',
           value: offset,
         }
       );
-      let plans: InsurancePlan[] = [];
-      let resources = await oystehr!.fhir.search<InsurancePlan>({
-        resourceType: 'InsurancePlan',
+      let plans: Organization[] = [];
+      let resources = await oystehr!.fhir.search<Organization>({
+        resourceType: 'Organization',
         params: searchParams,
       });
       plans = plans.concat(resources.unbundle());
       while (resources.link?.find((link) => link.relation === 'next')) {
-        resources = await oystehr!.fhir.search<InsurancePlan>({
-          resourceType: 'InsurancePlan',
+        resources = await oystehr!.fhir.search<Organization>({
+          resourceType: 'Organization',
           params: searchParams.map((param) => {
             if (param.name === '_offset') {
               return {
@@ -86,7 +96,7 @@ export const useInsurancesQuery = (id?: string, enabled?: boolean) => {
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useInsuranceMutation = (insurancePlan?: InsurancePlan) => {
+export const useInsuranceMutation = (insurancePlan?: Organization) => {
   const { oystehr } = useApiClients();
 
   return useMutation(['insurances', { oystehr, id: insurancePlan?.id }], async (data: InsuranceData) => {
@@ -113,18 +123,20 @@ export const useInsuranceMutation = (insurancePlan?: InsurancePlan) => {
       }
     });
 
-    const resource: InsurancePlan = {
-      meta: {
-        tag: [
-          {
-            code: INSURANCE_PLAN_PAYER_META_TAG_CODE,
-          },
-        ],
-      },
-      resourceType: 'InsurancePlan',
-      status: data.status,
+    const resource: Organization = {
+      resourceType: 'Organization',
+      active: data.active ?? true,
       name: data.displayName,
-      ownedBy: { reference: `Organization/${data.payor?.id}` },
+      type: [
+        {
+          coding: [
+            {
+              system: ORG_TYPE_CODE_SYSTEM,
+              code: ORG_TYPE_PAYER_CODE,
+            },
+          ],
+        },
+      ],
     };
     if (!requirementSettingsExistingExtensions) {
       resourceExtensions?.push({
@@ -135,12 +147,12 @@ export const useInsuranceMutation = (insurancePlan?: InsurancePlan) => {
     resource.extension = resourceExtensions;
 
     if (!oystehr) throw new Error('Oystehr is not defined');
-    let prom: Promise<InsurancePlan>;
+    let prom: Promise<Organization>;
     if (data.id) {
       resource.id = data.id;
-      prom = oystehr.fhir.update<InsurancePlan>(resource);
+      prom = oystehr.fhir.update<Organization>(resource);
     } else {
-      prom = oystehr.fhir.create<InsurancePlan>(resource);
+      prom = oystehr.fhir.create<Organization>(resource);
     }
     const response = await prom;
     return response;
@@ -159,7 +171,7 @@ export const useInsuranceOrganizationsQuery = () => {
         params: [
           {
             name: 'type',
-            value: 'http://terminology.hl7.org/CodeSystem/organization-type|pay',
+            value: `${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}`,
           },
         ],
       });

@@ -1,3 +1,4 @@
+// cSpell:ignore RCRT, RFRT, RPRT
 import Oystehr, { SearchParam } from '@oystehr/sdk';
 import {
   ActivityDefinition,
@@ -17,7 +18,9 @@ import {
   QuestionnaireResponseItem,
   Reference,
   Resource,
+  Schedule,
   ServiceRequest,
+  Slot,
   Specimen,
   Task,
 } from 'fhir/r4b';
@@ -28,7 +31,6 @@ import {
   EMPTY_PAGINATION,
   ExternalLabsStatus,
   getFullestAvailableName,
-  getTimezone,
   isPositiveNumberOrZero,
   LAB_ACCOUNT_NUMBER_SYSTEM,
   LAB_ORDER_TASK,
@@ -40,10 +42,12 @@ import {
   LabOrderResultDetails,
   LabOrdersSearchBy,
   LabResultPDF,
+  OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   Pagination,
   PatientLabItem,
   PROVENANCE_ACTIVITY_CODES,
+  PROVENANCE_ACTIVITY_CODING_ENTITY,
   PROVENANCE_ACTIVITY_TYPE_SYSTEM,
   PSC_HOLD_CONFIG,
   QuestionnaireData,
@@ -52,7 +56,11 @@ import {
   SPECIMEN_CODING_CONFIG,
 } from 'utils';
 import { sendErrors } from '../../shared';
-import { fetchLabOrderPDFsPresignedUrls, parseAppointmentIdForServiceRequest } from '../shared/labs';
+import {
+  fetchLabOrderPDFsPresignedUrls,
+  parseAppointmentIdForServiceRequest,
+  parseTimezoneForAppointmentSchedule,
+} from '../shared/labs';
 import { GetZambdaLabOrdersParams } from './validateRequestParameters';
 
 // cache for the service request context: contains parsed tasks and results
@@ -76,6 +84,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
   resultPDFs: LabResultPDF[],
   orderPDF: LabOrderPDF | undefined,
   specimens: Specimen[],
+  appointmentScheduleMap: Record<string, Schedule>,
   ENVIRONMENT: string
 ): LabOrderDTO<SearchBy>[] => {
   console.log('mapResourcesToLabOrderDTOs');
@@ -108,6 +117,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
           resultPDFs,
           orderPDF,
           specimens,
+          appointmentScheduleMap,
           cache,
         })
       );
@@ -126,7 +136,6 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   results,
   appointments,
   encounters,
-  locations,
   practitioners,
   provenances,
   organizations,
@@ -134,6 +143,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   resultPDFs,
   orderPDF,
   specimens,
+  appointmentScheduleMap,
   cache,
 }: {
   searchBy: SearchBy;
@@ -150,6 +160,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   resultPDFs: LabResultPDF[];
   orderPDF: LabOrderPDF | undefined;
   specimens: Specimen[];
+  appointmentScheduleMap: Record<string, Schedule>;
   cache?: Cache;
 }): LabOrderDTO<SearchBy> => {
   console.log('parsing external lab order data');
@@ -179,7 +190,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
     diagnosesDTO: parseDiagnoses(serviceRequest),
     orderingPhysician: parsePractitionerNameFromServiceRequest(serviceRequest, practitioners),
     diagnoses: parseDx(serviceRequest),
-    encounterTimezone: parseLocationTimezoneForSR(serviceRequest, locations),
+    encounterTimezone: parseTimezoneForAppointmentSchedule(appointment, appointmentScheduleMap),
   };
 
   if (searchBy.searchBy.field === 'serviceRequestId') {
@@ -241,6 +252,8 @@ export const parseTasks = ({
   reflexFinalTasks: Task[];
   orderedCorrectedTasks: Task[];
   reflexCorrectedTasks: Task[];
+  orderedCancelledResultsTasks: Task[];
+  reflexCancelledResultsTasks: Task[];
 } => {
   if (!serviceRequest.id) {
     return {
@@ -251,6 +264,8 @@ export const parseTasks = ({
       reflexPrelimTasks: [],
       orderedCorrectedTasks: [],
       reflexCorrectedTasks: [],
+      orderedCancelledResultsTasks: [],
+      reflexCancelledResultsTasks: [],
     };
   }
 
@@ -260,8 +275,14 @@ export const parseTasks = ({
 
   // parseResults returns filtered prelim results if there are final results with the same code
   // so we can just use the results from parseResults as base for filtering tasks
-  const { orderedFinalAndCorrectedResults, reflexFinalAndCorrectedResults, orderedPrelimResults, reflexPrelimResults } =
-    cache?.parsedResults || parseResults(serviceRequest, results);
+  const {
+    orderedFinalAndCorrectedResults,
+    reflexFinalAndCorrectedResults,
+    orderedPrelimResults,
+    reflexPrelimResults,
+    orderedCancelledResults,
+    reflexCancelledResults,
+  } = cache?.parsedResults || parseResults(serviceRequest, results);
 
   const orderedPrelimTasks = filterPrelimTasks(tasks, orderedPrelimResults).sort((a, b) =>
     compareDates(a.authoredOn, b.authoredOn)
@@ -271,19 +292,32 @@ export const parseTasks = ({
     compareDates(a.authoredOn, b.authoredOn)
   );
 
-  const orderedFinalTasks = filterFinalTasks(tasks, orderedFinalAndCorrectedResults).sort((a, b) =>
+  // theres a slim possibility that a result is both cancelled and belonging in one of these other arrays,
+  // meaning possibly that we've already received final results for an ordered test and then the lab cancelled it?? (seems super edge case but still)
+  const allOrderedResults = [...orderedFinalAndCorrectedResults, ...orderedCancelledResults];
+  const allReflexResults = [...reflexFinalAndCorrectedResults, ...reflexCancelledResults];
+
+  const orderedFinalTasks = filterFinalTasks(tasks, allOrderedResults).sort((a, b) =>
     compareDates(a.authoredOn, b.authoredOn)
   );
 
-  const reflexFinalTasks = filterFinalTasks(tasks, reflexFinalAndCorrectedResults).sort((a, b) =>
+  const reflexFinalTasks = filterFinalTasks(tasks, allReflexResults).sort((a, b) =>
     compareDates(a.authoredOn, b.authoredOn)
   );
 
-  const orderedCorrectedTasks = filterCorrectedTasks(tasks, orderedFinalAndCorrectedResults).sort((a, b) =>
+  const orderedCorrectedTasks = filterCorrectedTasks(tasks, allOrderedResults).sort((a, b) =>
     compareDates(a.authoredOn, b.authoredOn)
   );
 
-  const reflexCorrectedTasks = filterCorrectedTasks(tasks, reflexFinalAndCorrectedResults).sort((a, b) =>
+  const reflexCorrectedTasks = filterCorrectedTasks(tasks, allReflexResults).sort((a, b) =>
+    compareDates(a.authoredOn, b.authoredOn)
+  );
+
+  const orderedCancelledResultsTasks = filterCancelledResultsTasks(tasks, orderedCancelledResults).sort((a, b) =>
+    compareDates(a.authoredOn, b.authoredOn)
+  );
+
+  const reflexCancelledResultsTasks = filterCancelledResultsTasks(tasks, reflexCancelledResults).sort((a, b) =>
     compareDates(a.authoredOn, b.authoredOn)
   );
 
@@ -297,6 +331,8 @@ export const parseTasks = ({
     reflexFinalTasks,
     orderedCorrectedTasks,
     reflexCorrectedTasks,
+    orderedCancelledResultsTasks,
+    reflexCancelledResultsTasks,
   };
 };
 
@@ -312,6 +348,8 @@ export const parseResults = (
   reflexFinalAndCorrectedResults: DiagnosticReport[];
   orderedPrelimResults: DiagnosticReport[];
   reflexPrelimResults: DiagnosticReport[];
+  orderedCancelledResults: DiagnosticReport[];
+  reflexCancelledResults: DiagnosticReport[];
 } => {
   console.log('parsing results for serviceRequest', serviceRequest.id);
   if (!serviceRequest.id) {
@@ -330,6 +368,8 @@ export const parseResults = (
   const reflexFinalAndCorrectedResults = new Map<string, DiagnosticReport>();
   const orderedPrelimResults = new Map<string, DiagnosticReport>();
   const reflexPrelimResults = new Map<string, DiagnosticReport>();
+  const orderedCancelledResults: DiagnosticReport[] = [];
+  const reflexCancelledResults: DiagnosticReport[] = [];
 
   const finalResultStatuses = ['final', 'corrected'];
 
@@ -348,6 +388,8 @@ export const parseResults = (
         orderedPrelimResults.set(result.id, result);
       } else if (finalResultStatuses.includes(result.status)) {
         orderedFinalAndCorrectedResults.set(result.id, result);
+      } else if (result.status === 'cancelled') {
+        orderedCancelledResults.push(result);
       } else {
         console.log(`Error: unknown status "${result.status}" for ordered result ${result.id}`);
       }
@@ -356,6 +398,8 @@ export const parseResults = (
         reflexPrelimResults.set(result.id, result);
       } else if (finalResultStatuses.includes(result.status)) {
         reflexFinalAndCorrectedResults.set(result.id, result);
+      } else if (result.status === 'cancelled') {
+        reflexCancelledResults.push(result);
       } else {
         console.log(`Error: unknown status "${result.status}" for reflex result ${result.id}`);
       }
@@ -368,20 +412,13 @@ export const parseResults = (
   deletePrelimResultsIfFinalExists(orderedPrelimResults, orderedFinalCodes);
   deletePrelimResultsIfFinalExists(reflexPrelimResults, reflexFinalCodes);
 
-  // todo: check the sort approach is correct
   return {
-    orderedFinalAndCorrectedResults: Array.from(orderedFinalAndCorrectedResults.values()).sort((a, b) =>
-      compareDates(a.meta?.lastUpdated, b.meta?.lastUpdated)
-    ),
-    reflexFinalAndCorrectedResults: Array.from(reflexFinalAndCorrectedResults.values()).sort((a, b) =>
-      compareDates(a.meta?.lastUpdated, b.meta?.lastUpdated)
-    ),
-    orderedPrelimResults: Array.from(orderedPrelimResults.values()).sort((a, b) =>
-      compareDates(a.meta?.lastUpdated, b.meta?.lastUpdated)
-    ),
-    reflexPrelimResults: Array.from(reflexPrelimResults.values()).sort((a, b) =>
-      compareDates(a.meta?.lastUpdated, b.meta?.lastUpdated)
-    ),
+    orderedFinalAndCorrectedResults: Array.from(orderedFinalAndCorrectedResults.values()),
+    reflexFinalAndCorrectedResults: Array.from(reflexFinalAndCorrectedResults.values()),
+    orderedPrelimResults: Array.from(orderedPrelimResults.values()),
+    reflexPrelimResults: Array.from(reflexPrelimResults.values()),
+    orderedCancelledResults: orderedCancelledResults,
+    reflexCancelledResults: reflexCancelledResults,
   };
 };
 
@@ -407,6 +444,7 @@ export const getLabResources = async (
   orderPDF: LabOrderPDF | undefined;
   specimens: Specimen[];
   patientLabItems: PatientLabItem[];
+  appointmentScheduleMap: Record<string, Schedule>;
 }> => {
   const labServiceRequestSearchParams = createLabServiceRequestSearchParams(params);
   console.log('labServiceRequestSearchParams', JSON.stringify(labServiceRequestSearchParams));
@@ -447,6 +485,9 @@ export const getLabResources = async (
           | Location
           | QuestionnaireResponse
           | DocumentReference
+          | Appointment
+          | Schedule
+          | Slot
           | Specimen => Boolean(res)
       ) || [];
 
@@ -463,22 +504,22 @@ export const getLabResources = async (
     specimens,
     practitioners,
     documentReferences,
+    appointments,
+    appointmentScheduleMap,
   } = extractLabResources(labResources);
 
   const isDetailPageRequest = searchBy.searchBy.field === 'serviceRequestId';
   console.log('isDetailPageRequest', isDetailPageRequest);
 
-  const [serviceRequsetPractitioners, appointments, finalAndPrelimAndCorrectedTasks, questionnaires] =
-    await Promise.all([
-      fetchPractitionersForServiceRequests(oystehr, serviceRequests),
-      fetchAppointmentsForServiceRequests(oystehr, serviceRequests, encounters),
-      fetchFinalAndPrelimAndCorrectedTasks(oystehr, diagnosticReports),
-      executeByCondition(isDetailPageRequest, () =>
-        fetchQuestionnaireForServiceRequests(m2mToken, serviceRequests, questionnaireResponses)
-      ),
-    ]);
+  const [serviceRequestPractitioners, finalAndPrelimAndCorrectedTasks, questionnaires] = await Promise.all([
+    fetchPractitionersForServiceRequests(oystehr, serviceRequests),
+    fetchFinalAndPrelimAndCorrectedTasks(oystehr, diagnosticReports),
+    executeByCondition(isDetailPageRequest, () =>
+      fetchQuestionnaireForServiceRequests(m2mToken, serviceRequests, questionnaireResponses)
+    ),
+  ]);
 
-  const allPractitioners = [...practitioners, ...serviceRequsetPractitioners];
+  const allPractitioners = [...practitioners, ...serviceRequestPractitioners];
 
   let resultPDFs: LabResultPDF[] = [];
   let orderPDF: LabOrderPDF | undefined;
@@ -509,6 +550,7 @@ export const getLabResources = async (
     specimens,
     pagination,
     patientLabItems,
+    appointmentScheduleMap,
   };
 };
 
@@ -572,6 +614,21 @@ export const createLabServiceRequestSearchParams = (params: GetZambdaLabOrdersPa
     {
       name: '_include:iterate',
       value: 'Encounter:location',
+    },
+
+    {
+      name: '_include:iterate',
+      value: 'Encounter:appointment',
+    },
+
+    // Include slot to get reliable timezone info
+    {
+      name: '_include:iterate',
+      value: 'Appointment:slot',
+    },
+    {
+      name: '_include:iterate',
+      value: 'Slot:schedule',
     },
   ];
 
@@ -657,6 +714,9 @@ export const extractLabResources = (
     | Specimen
     | Practitioner
     | DocumentReference
+    | Appointment
+    | Schedule
+    | Slot
   )[]
 ): {
   serviceRequests: ServiceRequest[];
@@ -671,6 +731,8 @@ export const extractLabResources = (
   specimens: Specimen[];
   practitioners: Practitioner[];
   documentReferences: DocumentReference[];
+  appointments: Appointment[];
+  appointmentScheduleMap: Record<string, Schedule>;
 } => {
   console.log('extracting lab resources');
   console.log(`${resources.length} resources total`);
@@ -687,6 +749,11 @@ export const extractLabResources = (
   const specimens: Specimen[] = [];
   const practitioners: Practitioner[] = [];
   const documentReferences: DocumentReference[] = [];
+  const appointments: Appointment[] = [];
+  const slots: Slot[] = [];
+  const scheduleMap: Record<string, Schedule> = {};
+  const appointmentScheduleMap: Record<string, Schedule> = {};
+
   for (const resource of resources) {
     if (resource.resourceType === 'ServiceRequest') {
       const serviceRequest = resource as ServiceRequest;
@@ -718,6 +785,29 @@ export const extractLabResources = (
       practitioners.push(resource);
     } else if (resource.resourceType === 'DocumentReference' && resource.status === 'current') {
       documentReferences.push(resource);
+    } else if (resource.resourceType === 'Appointment') {
+      appointments.push(resource);
+    } else if (resource.resourceType === 'Slot') {
+      slots.push(resource);
+    } else if (resource.resourceType === 'Schedule') {
+      const scheduleId = resource.id;
+      if (scheduleId && !scheduleMap[scheduleId]) {
+        scheduleMap[scheduleId] = resource;
+      }
+    }
+  }
+
+  for (const appointment of appointments) {
+    const slot = slots.find((slot) => {
+      const slotRef = `Slot/${slot.id}`;
+      return appointment.slot?.some((s) => s.reference === slotRef);
+    });
+    const scheduleId = slot?.schedule.reference?.replace('Schedule/', '');
+    if (scheduleId) {
+      const schedule = scheduleMap[scheduleId];
+      if (schedule && appointment.id && !appointmentScheduleMap[appointment.id]) {
+        appointmentScheduleMap[appointment.id] = schedule;
+      }
     }
   }
 
@@ -734,6 +824,8 @@ export const extractLabResources = (
     specimens,
     practitioners,
     documentReferences,
+    appointments,
+    appointmentScheduleMap,
   };
 };
 
@@ -776,34 +868,6 @@ export const fetchPractitionersForServiceRequests = async (
     console.error(`Failed to fetch Practitioners`, JSON.stringify(error, null, 2));
     return [];
   }
-};
-
-export const fetchAppointmentsForServiceRequests = async (
-  oystehr: Oystehr,
-  serviceRequests: ServiceRequest[],
-  encounters: Encounter[]
-): Promise<Appointment[]> => {
-  const appointmentsIds = serviceRequests
-    .map((sr) => parseAppointmentIdForServiceRequest(sr, encounters))
-    .filter(Boolean);
-
-  if (!appointmentsIds.length) {
-    return [] as Appointment[];
-  }
-
-  const appointmentsResponse = await oystehr.fhir.search<Appointment>({
-    resourceType: 'Appointment',
-    params: [
-      {
-        name: '_id',
-        value: appointmentsIds.join(','),
-      },
-    ],
-  });
-
-  const appointments = appointmentsResponse.unbundle();
-
-  return appointments;
 };
 
 export const fetchFinalAndPrelimAndCorrectedTasks = async (
@@ -976,13 +1040,25 @@ export const parseLabOrderStatus = (
   const { orderedFinalAndCorrectedResults, reflexFinalAndCorrectedResults, orderedPrelimResults, reflexPrelimResults } =
     cache?.parsedResults || parseResults(serviceRequest, results);
 
-  const { taskPST, orderedFinalTasks, reflexFinalTasks, orderedCorrectedTasks, reflexCorrectedTasks } =
+  const {
+    taskPST,
+    orderedFinalTasks,
+    reflexFinalTasks,
+    orderedCorrectedTasks,
+    reflexCorrectedTasks,
+    orderedCancelledResultsTasks,
+    reflexCancelledResultsTasks,
+  } =
     cache?.parsedTasks ||
     parseTasks({
       tasks,
       serviceRequest,
       results,
     });
+
+  if (orderedCancelledResultsTasks.length > 0 || reflexCancelledResultsTasks.length > 0) {
+    return ExternalLabsStatus['cancelled by lab'];
+  }
 
   const finalAndCorrectedTasks = [
     ...orderedFinalTasks,
@@ -1018,7 +1094,12 @@ export const parseLabOrderStatus = (
   };
 
   if (hasAllConditions(sentStatusConditions)) {
-    return ExternalLabsStatus.sent;
+    const manualOrder = serviceRequest.identifier?.some((id) => id.system === OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM);
+    if (manualOrder) {
+      return ExternalLabsStatus['sent manually'];
+    } else {
+      return ExternalLabsStatus.sent;
+    }
   }
 
   const hasPrelimResults = prelimResults.length > 0;
@@ -1108,6 +1189,28 @@ export const parseLabOrderStatus = (
     )
   );
 
+  return ExternalLabsStatus.unknown;
+};
+
+// can we use this in place of parseLabOrderStatus? i dont understand why that one is so much more complicated
+const parseLabOrderStatusWithSpecificTask = (
+  result: DiagnosticReport,
+  task: Task,
+  serviceRequest: ServiceRequest,
+  PSTTask: Task | null
+): ExternalLabsStatus => {
+  if (
+    result.status === 'cancelled' &&
+    task.code?.coding?.some((c) => c.code === LAB_ORDER_TASK.code.reviewCancelledResult)
+  )
+    return ExternalLabsStatus['cancelled by lab'];
+  if (result.status === 'final' && task.status === 'ready') return ExternalLabsStatus.received;
+  if (result.status === 'corrected' && task.status === 'ready') return ExternalLabsStatus.corrected;
+  if ((result.status === 'final' || result.status == 'corrected') && task.status === 'completed')
+    return ExternalLabsStatus.reviewed;
+  if (result.status === 'preliminary') return ExternalLabsStatus.prelim;
+  if (serviceRequest.status === 'draft' && PSTTask?.status === 'ready') return ExternalLabsStatus.pending;
+  if (serviceRequest.status === 'active' && PSTTask?.status === 'completed') return ExternalLabsStatus.sent;
   return ExternalLabsStatus.unknown;
 };
 
@@ -1273,15 +1376,6 @@ export const parsePaginationFromResponse = (data: {
   };
 };
 
-const parseLocationTimezoneForSR = (serviceRequest: ServiceRequest, locations: Location[]): string | undefined => {
-  const location = locations.find((location) => {
-    const locationRef = `Location/${location.id}`;
-    return serviceRequest.locationReference?.find((srLocationRef) => srLocationRef.reference === locationRef);
-  });
-
-  return location ? getTimezone(location) : undefined;
-};
-
 export const parseVisitDate = (appointment: Appointment | undefined): string => {
   return appointment?.created || '';
 };
@@ -1301,14 +1395,22 @@ export const parseAccessionNumbers = (
   results: DiagnosticReport[],
   cache?: Cache
 ): string[] => {
-  const { orderedFinalAndCorrectedResults, reflexFinalAndCorrectedResults, orderedPrelimResults, reflexPrelimResults } =
-    cache?.parsedResults || parseResults(serviceRequest, results);
+  const {
+    orderedFinalAndCorrectedResults,
+    reflexFinalAndCorrectedResults,
+    orderedPrelimResults,
+    reflexPrelimResults,
+    orderedCancelledResults,
+    reflexCancelledResults,
+  } = cache?.parsedResults || parseResults(serviceRequest, results);
 
   const accessionNumbers = [
     ...orderedFinalAndCorrectedResults,
     ...reflexFinalAndCorrectedResults,
     ...orderedPrelimResults,
     ...reflexPrelimResults,
+    ...orderedCancelledResults,
+    ...reflexCancelledResults,
   ]
     .map((result) => parseAccessionNumber([result]))
     .filter(Boolean)
@@ -1366,6 +1468,8 @@ export const parseLabOrderLastResultReceivedDate = (
     reflexFinalTasks,
     orderedCorrectedTasks,
     reflexCorrectedTasks,
+    orderedCancelledResultsTasks,
+    reflexCancelledResultsTasks,
   } =
     cache?.parsedTasks ||
     parseTasks({
@@ -1382,6 +1486,8 @@ export const parseLabOrderLastResultReceivedDate = (
       reflexFinalTasks[0]?.authoredOn,
       orderedCorrectedTasks[0]?.authoredOn,
       reflexCorrectedTasks[0]?.authoredOn,
+      orderedCancelledResultsTasks[0]?.authoredOn,
+      reflexCancelledResultsTasks[0]?.authoredOn,
     ]
       .filter(Boolean)
       .sort((a, b) => compareDates(a, b))[0] || '';
@@ -1400,7 +1506,15 @@ export const parseLabOrdersHistory = (
   cache?: Cache
 ): LabOrderHistoryRow[] => {
   console.log('building order history for external lab service request', serviceRequest.id);
-  const { orderedFinalTasks, reflexFinalTasks, orderedCorrectedTasks, reflexCorrectedTasks } =
+  const {
+    taskPST,
+    orderedFinalTasks,
+    reflexFinalTasks,
+    orderedCorrectedTasks,
+    reflexCorrectedTasks,
+    orderedCancelledResultsTasks,
+    reflexCancelledResultsTasks,
+  } =
     cache?.parsedTasks ||
     parseTasks({
       tasks,
@@ -1408,21 +1522,22 @@ export const parseLabOrdersHistory = (
       results,
     });
 
-  const orderedBy = parsePractitionerNameFromServiceRequest(serviceRequest, practitioners);
-  const orderAddedDate = parseLabOrderAddedDate(serviceRequest, tasks, results, cache);
+  const createdBy = parsePractitionerNameFromServiceRequest(serviceRequest, practitioners);
+  const createdDate = parseLabOrderAddedDate(serviceRequest, tasks, results, cache);
 
   const history: LabOrderHistoryRow[] = [
     {
-      action: 'ordered',
-      performer: orderedBy,
-      date: orderAddedDate,
+      action: 'created',
+      performer: createdBy,
+      date: createdDate,
     },
   ];
 
   if (orderStatus === ExternalLabsStatus.pending) return history;
 
-  const isPSC = parseIsPSC(serviceRequest);
+  history.push(...parseSubmittedHistory(taskPST, practitioners, provenances));
 
+  const isPSC = parseIsPSC(serviceRequest);
   const pushPerformedHistory = (specimen: Specimen): void => {
     history.push({
       action: 'performed',
@@ -1432,7 +1547,7 @@ export const parseLabOrdersHistory = (
   };
 
   // only push performed to order history if this is a psc order or there is a specimen to parse data from
-  // not having a specimen for a non psc order is probably an edge case but was causing issues for autolab
+  // not having a specimen for a non psc order is probably an edge case but was causing issues for AutoLab
   if (isPSC || specimens[0]) {
     pushPerformedHistory(specimens[0]);
   }
@@ -1456,6 +1571,14 @@ export const parseLabOrdersHistory = (
 
   finalTasks.forEach((task) => {
     history.push(...parseTaskReceivedAndReviewedAndCorrectedHistory(task, practitioners, provenances));
+  });
+
+  [...orderedCancelledResultsTasks, ...reflexCancelledResultsTasks].forEach((task) => {
+    history.push({
+      action: 'cancelled by lab',
+      performer: '',
+      date: task.authoredOn || '',
+    });
   });
 
   return history.sort((a, b) => compareDates(b.date, a.date));
@@ -1484,6 +1607,30 @@ export const parseAccountNumber = (serviceRequest: ServiceRequest, organizations
   }
 
   return NOT_FOUND;
+};
+
+export const parseSubmittedHistory = (
+  task: Task | null,
+  practitioners: Practitioner[],
+  provenances: Provenance[]
+): LabOrderHistoryRow[] => {
+  const pstTaskProvenance = provenances.find(
+    (provenance) =>
+      provenance.activity?.coding?.some(
+        (code) =>
+          code.code === PROVENANCE_ACTIVITY_CODING_ENTITY.submit.code &&
+          code.system === PROVENANCE_ACTIVITY_CODING_ENTITY.submit.system
+      )
+  );
+  if (!pstTaskProvenance || !task) return [];
+  const submittedBy = parseReviewerNameFromProvenance(pstTaskProvenance, practitioners);
+  const submitDate = pstTaskProvenance.recorded;
+  const submittedHistory: LabOrderHistoryRow = {
+    action: 'ordered',
+    performer: submittedBy,
+    date: submitDate,
+  };
+  return [submittedHistory];
 };
 
 export const parseTaskReceivedAndReviewedAndCorrectedHistory = (
@@ -1600,8 +1747,14 @@ export const parseLResultsDetails = (
     return [];
   }
 
-  const { orderedFinalAndCorrectedResults, reflexFinalAndCorrectedResults, orderedPrelimResults, reflexPrelimResults } =
-    cache?.parsedResults || parseResults(serviceRequest, results);
+  const {
+    orderedFinalAndCorrectedResults,
+    reflexFinalAndCorrectedResults,
+    orderedPrelimResults,
+    reflexPrelimResults,
+    orderedCancelledResults,
+    reflexCancelledResults,
+  } = cache?.parsedResults || parseResults(serviceRequest, results);
 
   const {
     orderedFinalTasks,
@@ -1610,6 +1763,8 @@ export const parseLResultsDetails = (
     reflexPrelimTasks,
     orderedCorrectedTasks,
     reflexCorrectedTasks,
+    orderedCancelledResultsTasks,
+    reflexCancelledResultsTasks,
   } =
     cache?.parsedTasks ||
     parseTasks({
@@ -1645,6 +1800,18 @@ export const parseLResultsDetails = (
       testType: 'reflex' as const,
       resultType: 'preliminary' as const,
     },
+    {
+      results: orderedCancelledResults,
+      tasks: orderedCancelledResultsTasks,
+      testType: 'ordered' as const,
+      resultType: 'cancelled' as const,
+    },
+    {
+      results: reflexCancelledResults,
+      tasks: reflexCancelledResultsTasks,
+      testType: 'ordered' as const,
+      resultType: 'cancelled' as const,
+    },
   ].forEach(({ results, tasks, testType, resultType }) => {
     results.forEach((result) => {
       const details = parseResultDetails(result, tasks, serviceRequest);
@@ -1679,21 +1846,7 @@ export const parseResultDetails = (
 
   const details = {
     testItem: result.code?.text || result.code?.coding?.[0]?.display || 'Unknown Test',
-    labStatus:
-      // todo: move status checkers to helper
-      result.status === 'final' && task.status === 'ready'
-        ? ExternalLabsStatus.received
-        : result.status === 'corrected' && task.status === 'ready'
-        ? ExternalLabsStatus.corrected
-        : (result.status === 'final' || result.status == 'corrected') && task.status === 'completed'
-        ? ExternalLabsStatus.reviewed
-        : result.status === 'preliminary'
-        ? ExternalLabsStatus.prelim
-        : serviceRequest.status === 'draft' && PSTTask?.status === 'ready'
-        ? ExternalLabsStatus.pending
-        : serviceRequest.status === 'active' && PSTTask?.status === 'completed'
-        ? ExternalLabsStatus.sent
-        : ExternalLabsStatus.unknown,
+    labStatus: parseLabOrderStatusWithSpecificTask(result, task, serviceRequest, PSTTask),
     diagnosticReportId: result.id,
     taskId: task.id,
     receivedDate: task.authoredOn || '',
@@ -1717,7 +1870,7 @@ export const parseTaskPST = (tasks: Task[], serviceRequestId: string): Task | nu
 export const isTaskPST = (task: Task): boolean => {
   return (
     task.code?.coding?.some(
-      (coding) => coding.system === LAB_ORDER_TASK.system && coding.code === LAB_ORDER_TASK.code.presubmission
+      (coding) => coding.system === LAB_ORDER_TASK.system && coding.code === LAB_ORDER_TASK.code.preSubmission
     ) || false
   );
 };
@@ -1742,6 +1895,14 @@ export const isTaskCorrected = (task: Task): boolean => {
   return (
     task.code?.coding?.some(
       (coding) => coding.system === LAB_ORDER_TASK.system && coding.code === LAB_ORDER_TASK.code.reviewCorrectedResult
+    ) || false
+  );
+};
+
+const isTaskCancelledResult = (task: Task): boolean => {
+  return (
+    task.code?.coding?.some(
+      (coding) => coding.system === LAB_ORDER_TASK.system && coding.code === LAB_ORDER_TASK.code.reviewCancelledResult
     ) || false
   );
 };
@@ -1818,6 +1979,11 @@ export const filterPrelimTasks = (tasks: Task[], results: DiagnosticReport[]): T
 export const filterCorrectedTasks = (tasks: Task[], results: DiagnosticReport[]): Task[] => {
   const relatedTasks = filterResourcesBasedOnDiagnosticReports(tasks, results);
   return relatedTasks.filter(isTaskCorrected);
+};
+
+export const filterCancelledResultsTasks = (tasks: Task[], results: DiagnosticReport[]): Task[] => {
+  const relatedTasks = filterResourcesBasedOnDiagnosticReports(tasks, results);
+  return relatedTasks.filter(isTaskCancelledResult);
 };
 
 export const parseDx = (serviceRequest: ServiceRequest): string => {

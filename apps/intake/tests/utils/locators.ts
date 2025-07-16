@@ -85,6 +85,7 @@ export class Locators {
   photoIdFrontImage: Locator;
   photoIdBackImage: Locator;
   responsiblePartyNumber: Locator;
+  responsiblePartyEmail: Locator;
   responsiblePartyAddress1: Locator;
   responsiblePartyCity: Locator;
   responsiblePartyState: Locator;
@@ -369,6 +370,7 @@ export class Locators {
     this.responsiblePartyLastName = page.locator('[id="responsible-party-last-name"]');
     this.responsiblePartyBirthSex = page.locator('[id="responsible-party-birth-sex"]');
     this.responsiblePartyNumber = page.locator('[id="responsible-party-number"]');
+    this.responsiblePartyEmail = page.locator('[id="responsible-party-email"]');
     this.responsiblePartyDOBAnswer = page.locator('[name="responsible-party-date-of-birth.answer.0.valueString"]');
     this.responsiblePartyAddress1 = page.locator('[id="responsible-party-address"]');
     this.responsiblePartyAddress2 = page.locator('[id="responsible-party-address-2"]');

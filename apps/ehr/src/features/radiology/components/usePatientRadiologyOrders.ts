@@ -1,4 +1,4 @@
-import { ReactElement, useCallback, useEffect, useState } from 'react';
+import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   CancelRadiologyOrderZambdaInput,
   EMPTY_PAGINATION,
@@ -32,11 +32,15 @@ interface UsePatientRadiologyOrdersResult {
 
 export const usePatientRadiologyOrders = (options: {
   patientId?: string;
-  encounterId?: string;
+  encounterIds?: string | string[];
   serviceRequestId?: string;
 }): UsePatientRadiologyOrdersResult => {
   const { oystehrZambda } = useApiClients();
-  const { patientId, encounterId, serviceRequestId } = options;
+
+  // Memoize options to prevent unnecessary re-renders
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const memoizedOptions = useMemo(() => options, [JSON.stringify(options)]);
+
   const [orders, setOrders] = useState<GetRadiologyOrderListZambdaOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -47,12 +51,14 @@ export const usePatientRadiologyOrders = (options: {
   const getCurrentSearchParamsWithoutPageIndex = useCallback((): GetRadiologyOrderListZambdaInput => {
     const params: GetRadiologyOrderListZambdaInput = {} as GetRadiologyOrderListZambdaInput;
 
+    const { patientId, encounterIds, serviceRequestId } = memoizedOptions;
+
     if (patientId) {
       params.patientId = patientId;
     }
 
-    if (encounterId) {
-      params.encounterId = encounterId;
+    if (encounterIds) {
+      params.encounterIds = encounterIds;
     }
 
     if (serviceRequestId) {
@@ -60,7 +66,7 @@ export const usePatientRadiologyOrders = (options: {
     }
 
     return params;
-  }, [patientId, encounterId, serviceRequestId]);
+  }, [memoizedOptions]);
 
   const getCurrentSearchParamsForPage = useCallback(
     (pageNumber: number): GetRadiologyOrderListZambdaInput => {
@@ -126,7 +132,16 @@ export const usePatientRadiologyOrders = (options: {
   // initial fetch of lab orders
   useEffect(() => {
     const searchParams = getCurrentSearchParamsForPage(1);
-    if (searchParams.patientId || searchParams.encounterId || searchParams.serviceRequestId) {
+    let encounterIdsHasValue = false;
+    if (searchParams.encounterIds) {
+      if (Array.isArray(searchParams.encounterIds)) {
+        // we don't want to call this until there are values in the array
+        encounterIdsHasValue = searchParams.encounterIds.length > 0;
+      } else {
+        encounterIdsHasValue = true;
+      }
+    }
+    if (searchParams.patientId || encounterIdsHasValue || searchParams.serviceRequestId) {
       void fetchOrders(searchParams);
     }
   }, [fetchOrders, getCurrentSearchParamsForPage]);
@@ -170,7 +185,7 @@ export const usePatientRadiologyOrders = (options: {
 
         return true;
       } catch (err) {
-        console.error('Error deleting lab order:', err);
+        console.error('Error deleting radiology order:', err);
 
         const errorObj =
           err instanceof Error ? err : new Error(typeof err === 'string' ? err : 'Failed to delete lab order');

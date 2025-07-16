@@ -1,12 +1,19 @@
 import Oystehr from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { MedicationAdministration, Patient, Practitioner } from 'fhir/r4b';
+import {
+  MedicationAdministration,
+  MedicationRequest,
+  MedicationStatement,
+  Patient,
+  Practitioner,
+  Reference,
+} from 'fhir/r4b';
 import {
   ExtendedMedicationDataForResponse,
   getDosageUnitsAndRouteOfMedication,
   getFullestAvailableName,
   getLocationCodeFromMedicationAdministration,
+  getMedicationInteractions,
   getMedicationName,
   GetMedicationOrdersInput,
   GetMedicationOrdersResponse,
@@ -17,15 +24,15 @@ import {
   MEDICATION_ADMINISTRATION_CSS_RESOURCE_CODE,
   OrderPackage,
 } from 'utils';
-import { createOystehrClient } from '../../shared';
+import { createOystehrClient, wrapHandler } from '../../shared';
 import { ZambdaInput } from '../../shared';
 import { checkOrCreateM2MClientToken } from '../../shared';
 import { getMedicationFromMA } from '../create-update-medication-order/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
-
 let m2mToken: string;
+const ZAMBDA_NAME = 'get-medication-orders';
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
 
@@ -52,7 +59,7 @@ async function performEffect(
   oystehr: Oystehr,
   validatedParameters: GetMedicationOrdersInput
 ): Promise<GetMedicationOrdersResponse> {
-  const orderPackages = await getOrderPackages(oystehr, validatedParameters.encounterId);
+  const orderPackages = await getOrderPackages(oystehr, validatedParameters.searchBy);
   const result = orderPackages?.map((pkg) => mapMedicalAdministrationToDTO(pkg));
   return {
     orders: result ?? [],
@@ -60,18 +67,26 @@ async function performEffect(
 }
 
 function mapMedicalAdministrationToDTO(orderPackage: OrderPackage): ExtendedMedicationDataForResponse {
-  const { medicationAdministration, providerCreatedOrder, providerAdministeredOrder } = orderPackage;
+  const {
+    medicationAdministration,
+    providerCreatedOrder,
+    providerAdministeredOrder,
+    medicationRequest,
+    medicationStatement,
+  } = orderPackage;
+
   const medication = getMedicationFromMA(medicationAdministration);
   const dosageUnitsRoute = getDosageUnitsAndRouteOfMedication(medicationAdministration);
   const orderReasons = getReasonAndOtherReasonForNotAdministeredOrder(medicationAdministration);
   const administeredInfo = getProviderIdAndDateMedicationWasAdministered(medicationAdministration);
   const providerCreatedOrderName = providerCreatedOrder ? getFullestAvailableName(providerCreatedOrder) : '';
   const providerAdministeredOrderName = providerAdministeredOrder && getFullestAvailableName(providerAdministeredOrder);
+
   return {
     id: medicationAdministration.id ?? '',
     status: mapFhirToOrderStatus(medicationAdministration) ?? 'pending',
     patient: medicationAdministration.subject.reference?.replace('Patient/', '') ?? '',
-    encounter: medicationAdministration.context?.reference?.replace('Encounter/', '') ?? '',
+    encounterId: medicationAdministration.context?.reference?.replace('Encounter/', '') ?? '',
     medicationId: medication?.id,
     medicationName: (medication && getMedicationName(medication)) ?? '',
     dose: dosageUnitsRoute.dose ?? -1,
@@ -94,47 +109,84 @@ function mapMedicalAdministrationToDTO(orderPackage: OrderPackage): ExtendedMedi
     expDate: medication?.batch?.expirationDate,
 
     // administrating
-    dateGiven: administeredInfo?.dateAdministered,
-    timeGiven: administeredInfo?.timeAdministered,
+    effectiveDateTime: medicationStatement?.effectiveDateTime, // ISO date with timezone
     administeredProviderId: administeredInfo?.administeredProviderId,
     administeredProvider: providerAdministeredOrderName,
+
+    interactions: getMedicationInteractions(medicationRequest),
+
+    /**
+     * @deprecated Use effectiveDateTime instead. This field is kept for backward compatibility.
+     */
+    dateGiven: administeredInfo?.dateAdministered,
+
+    /**
+     * @deprecated Use effectiveDateTime instead. This field is kept for backward compatibility.
+     */
+    timeGiven: administeredInfo?.timeAdministered,
   };
 }
 
-async function getOrderPackages(oystehr: Oystehr, encounterId: string): Promise<OrderPackage[] | undefined> {
+async function getOrderPackages(
+  oystehr: Oystehr,
+  searchBy: GetMedicationOrdersInput['searchBy']
+): Promise<OrderPackage[] | undefined> {
+  const searchParams = [
+    {
+      name: '_tag',
+      value: MEDICATION_ADMINISTRATION_CSS_RESOURCE_CODE,
+    },
+    {
+      name: '_include',
+      value: 'MedicationAdministration:subject',
+    },
+    {
+      name: '_include',
+      value: 'MedicationAdministration:performer',
+    },
+    {
+      name: '_include',
+      value: 'MedicationAdministration:request',
+    },
+    {
+      name: '_revinclude',
+      value: 'MedicationStatement:part-of',
+    },
+  ];
+
+  if (searchBy.field === 'encounterId') {
+    searchParams.push({ name: 'context', value: `Encounter/${searchBy.value}` });
+  } else if (searchBy.field === 'encounterIds') {
+    const encounterRefs = searchBy.value.map((id) => `Encounter/${id}`).join(',');
+    searchParams.push({ name: 'context', value: encounterRefs });
+  }
+
+  console.log('searchParams for MedicationAdministration', searchParams);
+
   const bundle = await oystehr.fhir.search({
     resourceType: 'MedicationAdministration',
-    params: [
-      {
-        name: 'context',
-        value: `Encounter/${encounterId}`,
-      },
-      {
-        name: '_tag',
-        value: MEDICATION_ADMINISTRATION_CSS_RESOURCE_CODE,
-      },
-      {
-        name: '_include',
-        value: 'MedicationAdministration:subject',
-      },
-      {
-        name: '_include',
-        value: 'MedicationAdministration:performer',
-      },
-    ],
+    params: searchParams,
   });
+
   const resources = bundle.unbundle();
+
   const medicationAdministrations = resources.filter(
     (res) => res.resourceType === 'MedicationAdministration'
   ) as MedicationAdministration[];
 
+  const medicationStatements = resources.filter(
+    (res) => res.resourceType === 'MedicationStatement'
+  ) as MedicationStatement[];
+
   console.log('All practitioners: ', JSON.stringify(resources.filter((res) => res.resourceType === 'Practitioner')));
+  console.log('All medication statements: ', JSON.stringify(medicationStatements));
   console.log(
     `All orders: ${resources
       .filter((res) => res.resourceType === 'MedicationAdministration')
       .map((ma) => ma.id)
       .join(',\n')}`
   );
+
   const resultPackages: OrderPackage[] = [];
   medicationAdministrations.forEach((ma) => {
     const patient = resources.find((res) => res.id === ma.subject.reference?.replace('Patient/', '')) as Patient;
@@ -147,11 +199,22 @@ async function getOrderPackages(oystehr: Oystehr, encounterId: string): Promise<
     const idOfProviderAdministeredOrder = getProviderIdAndDateMedicationWasAdministered(ma)?.administeredProviderId;
     const providerAdministeredOrder = resources.find((res) => res.id === idOfProviderAdministeredOrder) as Practitioner;
 
+    const medicationRequestId = ma.request?.reference?.split('/')[1];
+    const medicationRequest = resources.find(
+      (resource) => resource.resourceType === 'MedicationRequest' && resource.id === medicationRequestId
+    ) as MedicationRequest;
+
+    const relatedMedicationStatement = medicationStatements.find(
+      (ms) => ms.partOf?.some((partOf: Reference) => partOf.reference === `MedicationAdministration/${ma.id}`)
+    );
+
     resultPackages.push({
       medicationAdministration: ma,
       patient,
       providerCreatedOrder,
       providerAdministeredOrder,
+      medicationRequest,
+      medicationStatement: relatedMedicationStatement,
     });
   });
 

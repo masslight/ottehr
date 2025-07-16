@@ -1,12 +1,12 @@
 import { useQuery, UseQueryResult } from 'react-query';
-import { ZapEHRAPIClient } from 'ui-components';
+import { OystehrAPIClient } from 'ui-components';
 import { PromiseReturnType } from 'utils';
 import { useApiClients } from './useAppClients';
 
 export const useSetupStripe = (
   beneficiaryPatientId: string | undefined,
-  onSuccess?: (data: PromiseReturnType<ReturnType<ZapEHRAPIClient['setupPaymentMethod']>>) => void
-): UseQueryResult<string, unknown> => {
+  onSuccess?: (data: PromiseReturnType<ReturnType<OystehrAPIClient['setupPaymentMethod']>>) => void
+): UseQueryResult<string | undefined, Error> => {
   const { oystehrZambda } = useApiClients();
   return useQuery(
     [`setup-payment-method/${beneficiaryPatientId}`, beneficiaryPatientId],

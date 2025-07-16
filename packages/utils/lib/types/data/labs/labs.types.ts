@@ -1,3 +1,4 @@
+// cSpell:ignore RFRT
 import {
   DocumentReference,
   Encounter,
@@ -68,11 +69,13 @@ export enum ExternalLabsStatus {
   reviewed = 'reviewed',
   cancelled = 'cancelled',
   corrected = 'corrected',
+  'cancelled by lab' = 'cancelled by lab',
+  'sent manually' = 'sent manually',
   unknown = 'unknown', // for debugging purposes
 }
 
 export type LabOrderUnreceivedHistoryRow = {
-  action: 'ordered' | 'performed';
+  action: 'created' | 'ordered' | 'performed' | 'cancelled by lab';
   performer: string;
   date: string;
 };
@@ -89,7 +92,7 @@ export type LabOrderHistoryRow = LabOrderUnreceivedHistoryRow | LabOrderReceived
 export type LabOrderResultDetails = {
   testItem: string;
   testType: 'reflex' | 'ordered';
-  resultType: 'final' | 'preliminary';
+  resultType: 'final' | 'preliminary' | 'cancelled';
   labStatus: ExternalLabsStatus;
   diagnosticReportId: string;
   taskId: string;
@@ -176,6 +179,7 @@ export interface DynamicAOEInput {
 export type SubmitLabOrderInput = {
   serviceRequestID: string;
   accountNumber: string;
+  manualOrder: boolean;
   data: DynamicAOEInput;
   specimens?: {
     [specimenId: string]: {

@@ -6,6 +6,7 @@ import {
   FHIR_AI_CHAT_CONSENT_CATEGORY_CODE,
   getSecret,
   PersistConsentInput,
+  PROJECT_WEBSITE,
   Secrets,
   SecretsKeys,
 } from 'utils';
@@ -37,7 +38,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       ],
       policy: [
         {
-          uri: 'https://ottehr.com',
+          uri: PROJECT_WEBSITE,
         },
       ],
       scope: {

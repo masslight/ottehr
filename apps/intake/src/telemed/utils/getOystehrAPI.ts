@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { getZapEHRAPI } from 'ui-components';
+import { getOystehrAPI } from 'ui-components';
 import { useOystehrClient } from '../../hooks/zambdaClient';
 
-let _apiClient: ReturnType<typeof getZapEHRAPI> | null;
+let _apiClient: ReturnType<typeof getOystehrAPI> | null;
 
-export const useZapEHRAPIClient = (
+export const useOystehrAPIClient = (
   { tokenless }: { tokenless: boolean } = { tokenless: false }
-): ReturnType<typeof getZapEHRAPI> | null => {
+): ReturnType<typeof getOystehrAPI> | null => {
   const {
     VITE_APP_TELEMED_CANCEL_APPOINTMENT_ZAMBDA_ID,
     VITE_APP_CREATE_PAPERWORK_ZAMBDA_ID,
@@ -40,7 +40,7 @@ export const useZapEHRAPIClient = (
   const [apiClient, setApiClient] = useState<typeof _apiClient>(_apiClient);
 
   if (zambdaClient && !apiClient) {
-    const client = getZapEHRAPI(
+    const client = getOystehrAPI(
       {
         cancelAppointmentZambdaID: VITE_APP_TELEMED_CANCEL_APPOINTMENT_ZAMBDA_ID,
         createPaperworkZambdaID: VITE_APP_CREATE_PAPERWORK_ZAMBDA_ID,

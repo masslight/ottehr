@@ -1,5 +1,4 @@
 import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Communication, Encounter, EncounterStatusHistory, Location, Practitioner } from 'fhir/r4b';
 import { DateTime, Duration } from 'luxon';
@@ -17,6 +16,7 @@ import {
   PROVIDER_NOTIFICATION_TYPE_SYSTEM,
   ProviderNotificationMethod,
   ProviderNotificationSettings,
+  removePrefix,
   RoleType,
   Secrets,
   SecretsKeys,
@@ -26,14 +26,14 @@ import {
 import { getTelemedEncounterAppointmentId } from '../../ehr/get-telemed-appointments/helpers/mappers';
 import {
   checkOrCreateM2MClientToken,
+  createOystehrClient,
   getEmployees,
   getRoleMembers,
   getRoles,
   topLevelCatch,
+  wrapHandler,
   ZambdaInput,
 } from '../../shared';
-import { removePrefix } from '../../shared/appointment/helpers';
-import { createOystehrClient } from '../../shared/helpers';
 
 export function validateRequestParameters(input: ZambdaInput): { secrets: Secrets | null } {
   return {
@@ -44,7 +44,7 @@ export function validateRequestParameters(input: ZambdaInput): { secrets: Secret
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler('notification-Updater', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const sendSMSPractitionerCommunications: {
     [key: string]: { practitioner: Practitioner; communications: Communication[] };
   } = {};
@@ -114,8 +114,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const allPractitionersIdMap = Object.keys(statePractitionerMap).reduce<{ [key: string]: Practitioner }>(
       (acc, val) => {
         const practitioners = statePractitionerMap[val].map((practitioner) => practitioner);
-        practitioners.forEach((pract) => {
-          acc[pract.id!] = pract;
+        practitioners.forEach((currentPractitioner) => {
+          acc[currentPractitioner.id!] = currentPractitioner;
         });
         return acc;
       },
@@ -369,7 +369,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
             // not to send multiple notifications of the same "Unsigned charts" type by sms one by one - check if theres any and update
             const existingUnsignedNotificationPending = sendSMSPractitionerCommunications[
               practitionerResource.id!
-            ].communications.find(
+            ]?.communications.find(
               (comm) =>
                 comm.category?.[0].coding?.[0].system === PROVIDER_NOTIFICATION_TYPE_SYSTEM &&
                 comm.category?.[0].coding?.[0].code === AppointmentProviderNotificationTypes.unsigned_charts

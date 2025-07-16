@@ -86,7 +86,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Sche
     });
   }
   // todo: this isn't very "RESTful" but works for now while further decoupling the schedule from the owner a potential
-  // future task. note timezone is duplicaton on both schedule and owner for now.
+  // future task. note timezone is duplication on both schedule and owner for now.
   console.log('owner slug', ownerSlug);
   if (owner && (timezone || ownerSlug)) {
     const ownerExtension = (owner.extension ?? []).filter((ext: Extension) => {

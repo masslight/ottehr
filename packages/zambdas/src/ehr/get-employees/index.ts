@@ -1,5 +1,4 @@
 import Oystehr, { RoleListItem, UserListItem } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { FhirResource, Practitioner, PractitionerQualification, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -17,7 +16,7 @@ import {
   SecretsKeys,
   standardizePhoneNumber,
 } from 'utils';
-import { getAuth0Token, getRoleMembers, lambdaResponse, topLevelCatch, ZambdaInput } from '../../shared';
+import { getAuth0Token, getRoleMembers, lambdaResponse, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -31,8 +30,8 @@ export interface GetEmployeesInput {
   secrets: Secrets | null;
 }
 
-let zapehrToken: string;
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+let oystehrToken: string;
+export const index = wrapHandler('get-employees', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
@@ -40,14 +39,14 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    if (!zapehrToken) {
+    if (!oystehrToken) {
       console.log('getting token');
-      zapehrToken = await getAuth0Token(secrets);
+      oystehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }
 
-    const oystehr = createOystehrClient(zapehrToken, secrets);
+    const oystehr = createOystehrClient(oystehrToken, secrets);
 
     const promises: [Promise<UserListItem[]>, Promise<RoleListItem[]>] = [getEmployees(oystehr), getRoles(oystehr)];
     const [allEmployees, existingRoles] = await Promise.all(promises);
@@ -65,7 +64,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const practitionerIds = allEmployees.map((employee) => employee.profile.split('/')[1]);
     const encounterCutDate = DateTime.now().minus({ minutes: 30 }).toFormat("yyyy-MM-dd'T'HH:mm");
     const getResourcesRequest = getResourcesFromBatchInlineRequests(oystehr, [
-      `Practitioner?_id=${practitionerIds.join(',')}&_elements=id,meta,qualification,name,extension`,
+      `Practitioner?_id=${practitionerIds.join(',')}&_elements=id,meta,qualification,name,extension,telecom`,
       `Encounter?status=in-progress&_elements=id,participant`,
       `Encounter?status=finished&date=gt${encounterCutDate}&_elements=id,participant`,
     ]);
@@ -103,7 +102,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       const practitionerId = employee.profile.split('/')[1];
       const practitioner = resources.find((resource) => resource.id === practitionerId) as Practitioner | undefined;
 
-      const phone = practitioner?.telecom?.find((telecom) => telecom.system === 'phone')?.value;
+      const phone = practitioner?.telecom?.find((telecom) => telecom.system === 'sms')?.value;
 
       const licenses: PractitionerLicense[] = [];
       if (practitioner?.qualification) {

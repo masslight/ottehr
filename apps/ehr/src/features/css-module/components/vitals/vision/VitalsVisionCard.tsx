@@ -3,7 +3,6 @@ import { enqueueSnackbar } from 'notistack';
 import React, { JSX, useCallback, useMemo, useState } from 'react';
 import {
   getVisionExtraOptionsFormattedString,
-  textToNumericValue,
   VitalFieldNames,
   VitalsVisionObservationDTO,
   VitalsVisionOption,
@@ -11,7 +10,7 @@ import {
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { AccordionCard, DoubleColumnContainer } from '../../../../../telemed/components';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
-import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
+import { VitalsTextFreeInputField } from '../components/VitalsTextInputFiled';
 import { useVitalsCardState } from '../hooks/useVitalsCardState';
 import { composeVisionVitalsHistoryEntries } from './helpers';
 import { VitalVisionHistoryEntry } from './VitalVisionEntry';
@@ -60,10 +59,8 @@ const VitalsVisionCard: React.FC = (): JSX.Element => {
   }, [latestHistoryEntry]);
 
   const handleSaveVisionObservation = async (leftEyeVisionText: string, rightEeyVisionText: string): Promise<void> => {
-    const lefEyeValueNum = textToNumericValue(leftEyeVisionText);
-    if (!lefEyeValueNum) return;
-    const rightEyeValueNum = textToNumericValue(rightEeyVisionText);
-    if (!rightEyeValueNum) return;
+    if (!leftEyeVisionText) return;
+    if (!rightEeyVisionText) return;
 
     const extraOptions: VitalsVisionOption[] = [];
     if (isChildTooYoungOptionSelected) {
@@ -78,10 +75,11 @@ const VitalsVisionCard: React.FC = (): JSX.Element => {
 
     try {
       setSavingCardData(true);
+
       const vitalObs: VitalsVisionObservationDTO = {
         field: VitalFieldNames.VitalVision,
-        leftEyeVisionValue: lefEyeValueNum,
-        rightEyeVisionValue: rightEyeValueNum,
+        leftEyeVisionText: leftEyeVisionText,
+        rightEyeVisionText: rightEeyVisionText,
         extraVisionOptions: extraOptions,
       };
       await handleSaveVital(vitalObs);
@@ -176,7 +174,7 @@ const VitalsVisionCard: React.FC = (): JSX.Element => {
                     ml: 0,
                   }}
                 >
-                  <VitalsTextInputFiled
+                  <VitalsTextFreeInputField
                     label="Left eye"
                     value={leftEyeSelection}
                     disabled={isSavingCardData}
@@ -195,7 +193,7 @@ const VitalsVisionCard: React.FC = (): JSX.Element => {
                     ml: 1,
                   }}
                 >
-                  <VitalsTextInputFiled
+                  <VitalsTextFreeInputField
                     label="Right eye"
                     value={rightEyeSelection}
                     disabled={isSavingCardData}
@@ -222,7 +220,7 @@ const VitalsVisionCard: React.FC = (): JSX.Element => {
                     ml: 1,
                   }}
                 >
-                  <VitalsTextInputFiled
+                  <VitalsTextFreeInputField
                     label="Both eyes"
                     value={bothEyesSelection}
                     disabled={isSavingCardData}

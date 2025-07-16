@@ -43,7 +43,7 @@ export interface AppointmentSubscriptionInput {
   secrets: Secrets | null;
 }
 
-let zapehrToken: string;
+let oystehrToken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input)}`);
@@ -66,8 +66,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     if (!appointment.id) throw new Error("Appointment FHIR resource doesn't exist.");
 
-    zapehrToken = await checkOrCreateM2MClientToken(zapehrToken, secrets);
-    const oystehr = createOystehrClient(zapehrToken, secrets);
+    oystehrToken = await checkOrCreateM2MClientToken(oystehrToken, secrets);
+    const oystehr = createOystehrClient(oystehrToken, secrets);
     console.log('Created zapToken and fhir client');
 
     const resourceBundle = (

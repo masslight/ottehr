@@ -27,6 +27,7 @@ import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { useQuery, UseQueryResult } from 'react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { CPT_TOOLTIP_PROPS, TooltipWrapper } from 'src/components/WithTooltip';
 import { QUERY_STALE_TIME } from 'src/constants';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
@@ -67,9 +68,9 @@ import { useFeatureFlags } from '../context/featureFlags';
 import { ROUTER_PATH } from '../routing/routesCSS';
 
 const OTHER = 'Other';
-const PERFORMED_BY = ['Clinical support staff', 'Provider', 'Both'];
+const PERFORMED_BY = ['Healthcare staff', 'Provider', 'Both'];
 const SPECIMEN_SENT = ['Yes', 'No'];
-const DOCUMENTED_BY = ['Provider', 'Clinical support staff'];
+const DOCUMENTED_BY = ['Provider', 'Healthcare staff'];
 
 interface PageState {
   consentObtained?: boolean;
@@ -498,9 +499,15 @@ export default function ProceduresNew(): ReactElement {
                 </Link>
               </Typography>
             </Box>
-            <Typography style={{ marginTop: '16px', color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
-              Procedure Type & CPT Code
-            </Typography>
+
+            <Box sx={{ marginTop: '16px', color: '#0F347C' }}>
+              <TooltipWrapper tooltipProps={CPT_TOOLTIP_PROPS}>
+                <Typography style={{ color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
+                  Procedure Type & CPT Code
+                </Typography>
+              </TooltipWrapper>
+            </Box>
+
             {dropdown(
               'Procedure type',
               selectOptions?.procedureTypes.map((procedureType) => procedureType.name),

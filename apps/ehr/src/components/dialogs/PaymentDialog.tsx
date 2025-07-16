@@ -49,7 +49,7 @@ const PatientHeader = (props: { patient: Patient }): ReactElement => {
   const patientFirstName = getFirstName(patient);
   const patientLastName = getLastName(patient);
   const middleName = getMiddleName(patient);
-  const nameElements = [patientLastName, middleName, patientFirstName].filter(Boolean);
+  const nameElements = [patientLastName, patientFirstName, middleName].filter(Boolean);
   const patientDOB = patient.birthDate ? DateTime.fromISO(patient.birthDate).toFormat(DOB_DATE_FORMAT) : 'Unknown';
   const dobString = `DOB: ${patientDOB}`;
   const genderString = capitalize(patient.gender ?? '');

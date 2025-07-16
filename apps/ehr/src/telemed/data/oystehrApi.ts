@@ -15,10 +15,10 @@ import {
   GetCreateLabOrderResources,
   GetMedicationOrdersInput,
   GetMedicationOrdersResponse,
+  getOystehrApiHelpers,
   GetPatientAccountZambdaInput,
   GetPatientInstructionsInput,
   GetTelemedAppointmentsResponseEhr,
-  getZapEHRApiHelpers,
   IcdSearchRequestParams,
   IcdSearchResponse,
   InitTelemedSessionRequestParams,
@@ -177,7 +177,7 @@ export const getOystehrTelemedAPI = (
   };
   const isAppLocalProvided = params.isAppLocal != null;
 
-  const { makeZapRequest } = getZapEHRApiHelpers(
+  const { makeZapRequest } = getOystehrApiHelpers(
     oystehr,
     ZambdaNames,
     zambdasToIdsMap,

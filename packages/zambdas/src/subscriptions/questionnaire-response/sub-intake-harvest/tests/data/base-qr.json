@@ -1,6 +1,6 @@
 {
   "resourceType": "QuestionnaireResponse",
-  "questionnaire": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson|1.0.5",
+  "questionnaire": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson|1.0.9",
   "status": "completed",
   "subject": {
     "reference": "{{PATIENT_REF}}"
@@ -203,7 +203,7 @@
           "answer": [
             {
               "valueReference": {
-                "reference": "{{INSURANCEPLAN_REF}}",
+                "reference": "{{ORGANIZATION_REF}}",
                 "display": "Aetna"
               }
             }
@@ -213,7 +213,7 @@
           "linkId": "insurance-member-id",
           "answer": [
             {
-              "valueString": "FAfonejwgndkoetwwe6"
+              "valueString": "FafOneJwgNdkOetWwe6"
             }
           ]
         },
@@ -368,7 +368,7 @@
               "answer": [
                 {
                   "valueReference": {
-                    "reference": "{{INSURANCEPLAN_REF}}",
+                    "reference": "{{ORGANIZATION_REF}}",
                     "display": "Aetna"
                   }
                 }
@@ -580,6 +580,14 @@
           "answer": [
             {
               "valueString": "(989) 555-6543"
+            }
+          ]
+        },
+        {
+          "linkId": "responsible-party-email",
+          "answer": [
+            {
+              "valueString": "rowdyroddypiper@hotmail.com"
             }
           ]
         }

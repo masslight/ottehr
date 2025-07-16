@@ -42,7 +42,7 @@ export const DetailsWithoutResults: React.FC<{
             taskStatus={taskStatus}
           />
         )} */}
-      <OrderCollection labOrder={labOrder} showOrderInfo={labOrder.orderStatus === 'sent'} />
+      <OrderCollection labOrder={labOrder} showOrderInfo={labOrder.orderStatus.includes('sent')} />
     </Stack>
   );
 };

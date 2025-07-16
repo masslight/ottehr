@@ -1,5 +1,4 @@
 import { BatchInputRequest } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import {
@@ -15,11 +14,10 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  CreateNursingOrderParameters,
+  CreateNursingOrderInputValidated,
   getSecret,
   NURSING_ORDER_PROVENANCE_ACTIVITY_CODING_ENTITY,
   PRACTITIONER_CODINGS,
-  Secrets,
   SecretsKeys,
 } from 'utils';
 import {
@@ -28,6 +26,7 @@ import {
   fillMeta,
   getMyPractitionerId,
   topLevelCatch,
+  wrapHandler,
   ZambdaInput,
 } from '../../shared';
 import { getPrimaryInsurance } from '../shared/labs';
@@ -35,14 +34,13 @@ import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler('create-nursing-order', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`create-nursing-order started, input: ${JSON.stringify(input)}`);
 
-  let validatedParameters: CreateNursingOrderParameters & { secrets: Secrets | null; userToken: string };
+  let validatedParameters: CreateNursingOrderInputValidated;
 
   try {
     validatedParameters = validateRequestParameters(input);
-    console.log('validateRequestParameters success');
   } catch (error: any) {
     return {
       statusCode: 400,

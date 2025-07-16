@@ -54,6 +54,8 @@ const FileInput: FC<FileInputProps> = ({
   // show up in that case as well.
   const [existingValueCleared, setExistingValueCleared] = useState(false);
 
+  console.log('defaultValues', defaultValues);
+
   const defaultVal = (() => {
     const pathParts = name.split('.');
     const baseField = pathParts.reduce((accum, current) => {
@@ -80,8 +82,14 @@ const FileInput: FC<FileInputProps> = ({
     setZ3UploadState(UploadState.initial);
     setPreviewUrl(null);
     setExistingValueCleared(true);
-    onChange(defaultVal);
-  }, [defaultVal, onChange]);
+    if (attachmentType === 'pdf') {
+      // for pdfs, we don't offer the 're-upload' option, so we just clear the value and that will allow ths user to re-upload
+      // this could result in an image showing up in the EHR that the user believes they "removed", but we can address that later if necessary
+      onChange(null);
+    } else {
+      onChange(defaultVal);
+    }
+  }, [attachmentType, defaultVal, onChange]);
 
   const uploadDescription = useMemo(() => {
     const defaultVal = value; //((defaultValues ?? {})[name]);

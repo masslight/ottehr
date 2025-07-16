@@ -19,7 +19,6 @@ import {
   DocumentReference,
   FhirResource,
   Flag,
-  InsurancePlan,
   List,
   Location,
   Organization,
@@ -68,8 +67,8 @@ import {
   getPatchOperationToAddOrUpdatePreferredName,
   getPatchOperationToRemoveExtension,
   getPatchOperationToRemovePreferredLanguage,
+  getPayerId,
   getPhoneNumberForIndividual,
-  getResourcesFromBatchInlineRequests,
   getSecret,
   getStripeCustomerIdFromAccount,
   INSURANCE_CARD_BACK_2_ID,
@@ -122,7 +121,7 @@ interface ResponsiblePartyContact {
   lastName: string;
   relationship: 'Self' | 'Spouse' | 'Parent' | 'Legal Guardian' | 'Other';
   address: Address;
-
+  email: string;
   number?: string;
 }
 
@@ -198,7 +197,7 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
   let oldConsentDocRefs: DocumentReference[] | undefined = undefined;
   let oldConsentResources: Consent[] | undefined = undefined;
   if (questionnaireResponse) {
-    console.log('searching for old conset doc refs');
+    console.log('searching for old consent doc refs');
     oldConsentDocRefs = (
       await oystehr.fhir.search<DocumentReference>({
         resourceType: 'DocumentReference',
@@ -321,6 +320,18 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
       },
     },
   ];
+
+  const pdfGroups: Record<string, typeof pdfsToCreate> = {};
+  for (const pdfInfo of pdfsToCreate) {
+    const typeCode = pdfInfo.type.coding[0].code;
+    if (!pdfGroups[typeCode]) {
+      pdfGroups[typeCode] = [];
+    }
+    pdfGroups[typeCode].push(pdfInfo);
+  }
+
+  const allDocRefsByType: Record<string, DocumentReference[]> = {};
+
   const nowIso = DateTime.now().setZone('UTC').toISO() || '';
 
   const isVirtualLocation =
@@ -370,23 +381,20 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
   }
 
   console.log('pdfsToCreate len', pdfsToCreate.length);
-  for (const pdfInfo of pdfsToCreate) {
-    const { docRefs: documentReferences } = await createFilesDocumentReferences({
-      files: [{ url: pdfInfo.uploadURL, title: pdfInfo.formTitle }],
-      type: pdfInfo.type,
+  for (const [typeCode, group] of Object.entries(pdfGroups)) {
+    const files = group.map((pdf) => ({
+      url: pdf.uploadURL,
+      title: pdf.formTitle,
+    }));
+
+    const { docRefs } = await createFilesDocumentReferences({
+      files,
+      type: group[0].type,
       dateCreated: nowIso,
       oystehr,
       references: {
-        subject: {
-          reference: `Patient/${patientResource.id}`,
-        },
-        context: {
-          related: [
-            {
-              reference: `Appointment/${appointmentId}`,
-            },
-          ],
-        },
+        subject: { reference: `Patient/${patientResource.id}` },
+        context: { related: [{ reference: `Appointment/${appointmentId}` }] },
       },
       generateUUID: randomUUID,
       listResources,
@@ -397,19 +405,25 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
       },
     });
 
-    if (!documentReferences?.[0]?.id) {
-      throw new Error('No consent document reference id found');
+    allDocRefsByType[typeCode] = docRefs;
+  }
+
+  for (const pdfInfo of pdfsToCreate) {
+    const typeCode = pdfInfo.type.coding[0].code;
+    const groupRefs = allDocRefsByType[typeCode] || [];
+    const matchingRef = groupRefs.find((dr) => dr.content[0]?.attachment.title === pdfInfo.formTitle);
+    if (!matchingRef?.id) {
+      throw new Error(`DocumentReference for "${pdfInfo.formTitle}" not found`);
     }
 
-    // Create FHIR Consent resource
-    if (pdfInfo.type.coding[0].code === CONSENT_CODE) {
-      await createConsentResource(patientResource.id ?? '', documentReferences?.[0]?.id, nowIso, oystehr);
+    if (typeCode === CONSENT_CODE) {
+      await createConsentResource(patientResource.id!, matchingRef.id, nowIso, oystehr);
     }
   }
 }
 
 export async function createDocumentResources(
-  quesionnaireResponse: QuestionnaireResponse,
+  questionnaireResponse: QuestionnaireResponse,
   patientID: string,
   appointmentID: string,
   oystehr: Oystehr,
@@ -419,7 +433,7 @@ export async function createDocumentResources(
 
   const docsToSave: DocToSaveData[] = [];
 
-  const items = (quesionnaireResponse.item as IntakeQuestionnaireItem[]) ?? [];
+  const items = (questionnaireResponse.item as IntakeQuestionnaireItem[]) ?? [];
   const flattenedPaperwork = flattenIntakeQuestionnaireItems(items) as QuestionnaireResponseItem[];
 
   const photoIdFront = flattenedPaperwork.find((item) => {
@@ -792,6 +806,7 @@ export function createMasterRecordPatchOperations(
     'guardian-number': { system: 'phone' },
     'guardian-email': { system: 'email' },
     'responsible-party-number': { system: 'phone', use: 'mobile' },
+    'responsible-party-email': { system: 'email' },
     'pcp-number': { system: 'phone' },
   };
 
@@ -996,13 +1011,13 @@ export function createMasterRecordPatchOperations(
   // Separate Patient operations
   result.patient = separateResourceUpdates(tempOperations.patient, patient, 'Patient');
   result.patient.patchOpsForDirectUpdate = result.patient.patchOpsForDirectUpdate.filter((op) => {
-    const { path, op: oper } = op;
-    return path != undefined && oper != undefined;
+    const { path, op: innerOperation } = op;
+    return path != undefined && innerOperation != undefined;
   });
   result.patient.patchOpsForDirectUpdate = consolidateOperations(result.patient.patchOpsForDirectUpdate, patient);
-  // this needs to go here for now because consolitdateOperations breaks it
+  // this needs to go here for now because consolidateOperations breaks it
   result.patient.patchOpsForDirectUpdate.push(...getPCPPatchOps(pcpItems, patient));
-  console.log('result.patient.patchops', JSON.stringify(result.patient.patchOpsForDirectUpdate, null, 2));
+  console.log('result.patient.patchOps', JSON.stringify(result.patient.patchOpsForDirectUpdate, null, 2));
   return result;
 }
 
@@ -1372,7 +1387,6 @@ function areArraysDifferent(source: string[], target: string[]): boolean {
 interface GetCoveragesInput {
   questionnaireResponse: QuestionnaireResponse;
   patientId: string;
-  insurancePlanResources: InsurancePlan[];
   organizationResources: Organization[];
 }
 
@@ -1384,7 +1398,7 @@ interface GetCoverageResourcesResult {
 // this function is exported for testing purposes
 export const getCoverageResources = (input: GetCoveragesInput): GetCoverageResourcesResult => {
   const newCoverages: OrderedCoverages = {};
-  const { questionnaireResponse, insurancePlanResources, organizationResources, patientId } = input;
+  const { questionnaireResponse, organizationResources, patientId } = input;
   const flattenedPaperwork = flattenIntakeQuestionnaireItems(
     questionnaireResponse.item as IntakeQuestionnaireItem[]
   ) as QuestionnaireResponseItem[];
@@ -1392,24 +1406,14 @@ export const getCoverageResources = (input: GetCoveragesInput): GetCoverageResou
   let firstPolicyHolder: PolicyHolder | undefined;
   let firstInsuranceDetails: InsuranceDetails | undefined;
   let secondPolicyHolder = getSecondaryPolicyHolderFromAnswers(questionnaireResponse.item ?? []);
-  let secondInsuranceDetails = getInsuranceDetailsFromAnswers(
-    flattenedPaperwork,
-    insurancePlanResources,
-    organizationResources,
-    '-2'
-  );
+  let secondInsuranceDetails = getInsuranceDetailsFromAnswers(flattenedPaperwork, organizationResources, '-2');
   if (!isSecondaryOnly) {
     firstPolicyHolder = getPrimaryPolicyHolderFromAnswers(questionnaireResponse.item ?? []);
-    firstInsuranceDetails = getInsuranceDetailsFromAnswers(
-      flattenedPaperwork,
-      insurancePlanResources,
-      organizationResources
-    );
+    firstInsuranceDetails = getInsuranceDetailsFromAnswers(flattenedPaperwork, organizationResources);
   } else if (secondPolicyHolder === undefined || secondInsuranceDetails === undefined) {
     secondPolicyHolder = secondPolicyHolder ?? getPrimaryPolicyHolderFromAnswers(flattenedPaperwork);
     secondInsuranceDetails =
-      secondInsuranceDetails ??
-      getInsuranceDetailsFromAnswers(flattenedPaperwork, insurancePlanResources, organizationResources);
+      secondInsuranceDetails ?? getInsuranceDetailsFromAnswers(flattenedPaperwork, organizationResources);
   }
 
   const firstInsurance =
@@ -1514,17 +1518,33 @@ function resolveInsurancePriorities(
 
 export async function searchInsuranceInformation(
   oystehr: Oystehr,
-  insurancePlans: string[]
-): Promise<(InsurancePlan | Organization)[]> {
-  const requests: string[] = [];
-  insurancePlans.forEach((insurancePlan) => {
-    const id = insurancePlan.split('/')[1];
-    requests.push(`/InsurancePlan?_id=${id}&_include=InsurancePlan:owned-by`);
+  insuranceOrgRefs: string[]
+): Promise<Organization[]> {
+  const orgIds = insuranceOrgRefs
+    .map((ref) => {
+      const [resType, id] = ref.split('/');
+      if (resType === 'Organization' && id) {
+        return id;
+      }
+      return '';
+    })
+    .filter((id) => !!id);
+  if (orgIds.length !== insuranceOrgRefs.length) {
+    console.log('searchInsuranceInformation: some Organization references were invalid:', insuranceOrgRefs);
+  }
+  if (orgIds.length === 0) {
+    return [];
+  }
+  const searchResults = await oystehr.fhir.search<Organization>({
+    resourceType: 'Organization',
+    params: [
+      {
+        name: '_id',
+        value: orgIds.join(','),
+      },
+    ],
   });
-
-  return (await getResourcesFromBatchInlineRequests(oystehr, requests)) as unknown as Promise<
-    (InsurancePlan | Organization)[]
-  >;
+  return searchResults.unbundle();
 }
 
 const getCoverageGroups = (items: QuestionnaireResponseItem[]): QuestionnaireResponseItem[][] => {
@@ -1546,7 +1566,7 @@ interface PrioritizedCoverageGroup {
   items: QuestionnaireResponseItem[];
 }
 
-const tagCoverageGroupWithPriortity = (items: QuestionnaireResponseItem[]): PrioritizedCoverageGroup | undefined => {
+const tagCoverageGroupWithPriority = (items: QuestionnaireResponseItem[]): PrioritizedCoverageGroup | undefined => {
   const primaryItem = items.find(
     (item) => item.linkId.startsWith('insurance-priority') && item.answer?.[0]?.valueString === 'Primary'
   );
@@ -1586,7 +1606,7 @@ export const getPrimaryPolicyHolderFromAnswers = (items: QuestionnaireResponseIt
   const coverageGroups = getCoverageGroups(items);
 
   const prioritizedCoverageGroups = coverageGroups
-    .map(tagCoverageGroupWithPriortity)
+    .map(tagCoverageGroupWithPriority)
     .filter(Boolean) as PrioritizedCoverageGroup[];
   const foundPrimaryGroup = prioritizedCoverageGroups.find((group) => group.priority === 'Primary');
 
@@ -1606,7 +1626,7 @@ export const getSecondaryPolicyHolderFromAnswers = (items: QuestionnaireResponse
   const coverageGroups = getCoverageGroups(items);
 
   const prioritizedCoverageGroups = coverageGroups
-    .map(tagCoverageGroupWithPriortity)
+    .map(tagCoverageGroupWithPriority)
     .filter(Boolean) as PrioritizedCoverageGroup[];
   const foundSecondaryGroup = prioritizedCoverageGroups.find((group) => group.priority === 'Secondary');
   if (foundSecondaryGroup) {
@@ -1616,7 +1636,7 @@ export const getSecondaryPolicyHolderFromAnswers = (items: QuestionnaireResponse
   return extractPolicyHolder(flattenedItems, '-2');
 };
 
-// EHR design calls for teritary insurance to be handled in addition to secondary - will need some changes to support this
+// EHR design calls for tertiary insurance to be handled in addition to secondary - will need some changes to support this
 const checkIsSecondaryOnly = (items: QuestionnaireResponseItem[]): boolean => {
   const priorities = items.filter(
     (item) => item.linkId === 'insurance-priority' || item.linkId === 'insurance-priority-2'
@@ -1710,6 +1730,7 @@ export function extractAccountGuarantor(items: QuestionnaireResponseItem[]): Res
       | 'Legal Guardian'
       | 'Other',
     address: guarantorAddress,
+    email: findAnswer('responsible-party-email') ?? '',
     number: findAnswer('responsible-party-number'),
   };
 
@@ -1721,32 +1742,26 @@ export function extractAccountGuarantor(items: QuestionnaireResponseItem[]): Res
 
 // note: this function assumes items have been flattened before being passed in
 interface InsuranceDetails {
-  plan: InsurancePlan;
   org: Organization;
   additionalInformation?: string;
 }
 function getInsuranceDetailsFromAnswers(
   answers: QuestionnaireResponseItem[],
-  insurancePlans: InsurancePlan[],
   organizations: Organization[],
   keySuffix?: string
 ): InsuranceDetails | undefined {
   const suffix = keySuffix ? `${keySuffix}` : '';
-  const insurancePlanReference = answers.find((item) => item.linkId === `insurance-carrier${suffix}`)?.answer?.[0]
+  const insuranceOrgReference = answers.find((item) => item.linkId === `insurance-carrier${suffix}`)?.answer?.[0]
     ?.valueReference;
-  if (!insurancePlanReference) return undefined;
+  if (!insuranceOrgReference) return undefined;
 
-  const plan = insurancePlans.find((plan) => plan.id === insurancePlanReference.reference?.split('/')[1]);
-  if (!plan) return undefined;
-
-  const orgReference = plan.ownedBy?.reference;
-  const org = organizations.find((org) => org.id === orgReference?.split('/')[1]);
+  const org = organizations.find((org) => `${org.resourceType}/${org.id}` === insuranceOrgReference.reference);
   if (!org) return undefined;
 
   const additionalInformation = answers.find((item) => item.linkId === `insurance-additional-information${suffix}`)
     ?.answer?.[0]?.valueString;
 
-  return { plan, org, additionalInformation };
+  return { org, additionalInformation };
 }
 
 interface CreateCoverageResourceInput {
@@ -1754,15 +1769,20 @@ interface CreateCoverageResourceInput {
   order: number;
   insurance: {
     org: Organization;
-    plan: InsurancePlan;
     policyHolder: PolicyHolder;
     additionalInformation?: string;
   };
 }
 const createCoverageResource = (input: CreateCoverageResourceInput): Coverage => {
   const { patientId, insurance } = input;
-  const { org, plan, policyHolder, additionalInformation } = insurance;
+  const { org, policyHolder, additionalInformation } = insurance;
   const memberId = policyHolder.memberId;
+
+  const payerId = getPayerId(org);
+
+  if (!payerId) {
+    throw new Error('payerId unexpectedly missing from insuranceOrg');
+  }
 
   const policyHolderId = 'coverageSubscriber';
   const policyHolderName = createFhirHumanName(policyHolder.firstName, policyHolder.middleName, policyHolder.lastName);
@@ -1825,7 +1845,7 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
             },
           ],
         },
-        value: `InsurancePlan/${plan.id}`, // not sure what to put here. will put ref to insurance plan for now
+        value: payerId,
         name: `${org.name ?? ''}`,
       },
     ],
@@ -1850,7 +1870,7 @@ export function createErxContactOperation(
   const verifiedPhoneNumber = getPhoneNumberForIndividual(relatedPerson);
   console.log(`patient verified phone number ${verifiedPhoneNumber}`);
 
-  console.log('reviewing patient erx contact telecom phone nubmber');
+  console.log('reviewing patient erx contact telecom phone number');
   // find existing erx contact info and it's index so that the contact array can be updated
   const erxContactIdx = patientResource?.contact?.findIndex((contact) =>
     Boolean(
@@ -1921,7 +1941,6 @@ export function createErxContactOperation(
 export interface GetAccountOperationsInput {
   patient: Patient;
   questionnaireResponseItem: QuestionnaireResponse['item'];
-  insurancePlanResources: InsurancePlan[];
   organizationResources: Organization[];
   existingCoverages: OrderedCoveragesWithSubscribers;
   existingGuarantorResource?: RelatedPerson | Patient;
@@ -1943,7 +1962,6 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
     existingCoverages,
     questionnaireResponseItem,
     existingGuarantorResource,
-    insurancePlanResources,
     organizationResources,
     existingAccount,
     preserveOmittedCoverages,
@@ -1968,7 +1986,6 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
       item: flattenedItems,
     } as QuestionnaireResponse,
     patientId: patient.id,
-    insurancePlanResources,
     organizationResources,
   });
 
@@ -2691,14 +2708,22 @@ export const createContainedGuarantor = (guarantor: ResponsiblePartyContact, pat
   const policyHolderName = createFhirHumanName(guarantor.firstName, undefined, guarantor.lastName);
   const relationshipCode = SUBSCRIBER_RELATIONSHIP_CODE_MAP[guarantor.relationship] || 'other';
   const number = guarantor.number;
+  const email = guarantor.email;
   let telecom: RelatedPerson['telecom'];
+  if (number || email) {
+    telecom = [];
+  }
   if (number) {
-    telecom = [
-      {
-        value: formatPhoneNumber(number),
-        system: 'phone',
-      },
-    ];
+    telecom?.push({
+      value: formatPhoneNumber(number),
+      system: 'phone',
+    });
+  }
+  if (email) {
+    telecom?.push({
+      value: email,
+      system: 'email',
+    });
   }
   return {
     resourceType: 'RelatedPerson',
@@ -2725,10 +2750,10 @@ export const createContainedGuarantor = (guarantor: ResponsiblePartyContact, pat
 
 const replaceCurrentGuarantor = (
   newGuarantor: AccountGuarantor,
-  currentGurantors: AccountGuarantor[],
+  currentGuarantors: AccountGuarantor[],
   timestamp?: string
 ): AccountGuarantor[] => {
-  const combined = deduplicateObjectsByStrictKeyValEquality([newGuarantor, ...currentGurantors]);
+  const combined = deduplicateObjectsByStrictKeyValEquality([newGuarantor, ...currentGuarantors]);
   const periodEnd = timestamp ?? DateTime.now().toISO();
   return combined.map((guarantor, idx) => {
     if (idx !== 0) {
@@ -2744,7 +2769,7 @@ const replaceCurrentGuarantor = (
   });
 };
 
-type UnbundledAccountResources = (Account | Coverage | RelatedPerson | Patient | InsurancePlan | Organization)[];
+type UnbundledAccountResources = (Account | Coverage | RelatedPerson | Patient | Organization)[];
 interface UnbundledAccountResourceWithInsuranceResources {
   patient: Patient;
   resources: UnbundledAccountResources;
@@ -2767,8 +2792,8 @@ export const getCoverageUpdateResourcesFromUnbundled = (
 
   const existingCoverages: OrderedCoveragesWithSubscribers = {};
   if (existingAccount) {
-    const guarantorReference = existingAccount.guarantor?.find((gref) => {
-      return gref.period?.end === undefined;
+    const guarantorReference = existingAccount.guarantor?.find((gRef) => {
+      return gRef.period?.end === undefined;
     })?.party?.reference;
     if (guarantorReference) {
       existingGuarantorResource = takeContainedOrFind(guarantorReference, resources, existingAccount);
@@ -2787,9 +2812,9 @@ export const getCoverageUpdateResourcesFromUnbundled = (
     // find the free-floating existing coverages
     const primaryCoverages = coverageResources
       .filter((cov) => cov.order === 1 && cov.status === 'active')
-      .sort((cova, covb) => {
-        const covALastUpdate = cova.meta?.lastUpdated;
-        const covBLastUpdate = covb.meta?.lastUpdated;
+      .sort((covA, covB) => {
+        const covALastUpdate = covA.meta?.lastUpdated;
+        const covBLastUpdate = covB.meta?.lastUpdated;
         if (covALastUpdate && covBLastUpdate) {
           const covALastUpdateDate = DateTime.fromISO(covALastUpdate);
           const covBLastUpdateDate = DateTime.fromISO(covBLastUpdate);
@@ -2801,9 +2826,9 @@ export const getCoverageUpdateResourcesFromUnbundled = (
       });
     const secondaryCoverages = coverageResources
       .filter((cov) => cov.order === 2 && cov.status === 'active')
-      .sort((cova, covb) => {
-        const covALastUpdate = cova.meta?.lastUpdated;
-        const covBLastUpdate = covb.meta?.lastUpdated;
+      .sort((covA, covB) => {
+        const covALastUpdate = covA.meta?.lastUpdated;
+        const covBLastUpdate = covB.meta?.lastUpdated;
         if (covALastUpdate && covBLastUpdate) {
           const covALastUpdateDate = DateTime.fromISO(covALastUpdate);
           const covBLastUpdateDate = DateTime.fromISO(covBLastUpdate);
@@ -2844,9 +2869,6 @@ export const getCoverageUpdateResourcesFromUnbundled = (
     existingCoverages.secondarySubscriber = subscriberResult;
   }
 
-  const insurancePlans: InsurancePlan[] = resources.filter(
-    (res): res is InsurancePlan => res.resourceType === 'InsurancePlan'
-  );
   const insuranceOrgs: Organization[] = resources.filter(
     (res): res is Organization => res.resourceType === 'Organization'
   );
@@ -2856,12 +2878,11 @@ export const getCoverageUpdateResourcesFromUnbundled = (
     account: existingAccount,
     coverages: existingCoverages,
     insuranceOrgs,
-    insurancePlans,
     guarantorResource: existingGuarantorResource,
   };
 };
 
-enum InsuanceCarrierKeys {
+enum InsuranceCarrierKeys {
   primary = 'insurance-carrier',
   secondary = 'insurance-carrier-2',
 }
@@ -2872,7 +2893,7 @@ export const getAccountAndCoverageResourcesForPatient = async (
 ): Promise<PatientAccountAndCoverageResources> => {
   console.time('querying for Patient account resources');
   const accountAndCoverageResources = (
-    await oystehr.fhir.search<Account | Coverage | RelatedPerson | Patient | InsurancePlan | Organization>({
+    await oystehr.fhir.search<Account | Coverage | RelatedPerson | Patient | Organization>({
       resourceType: 'Patient',
       params: [
         {
@@ -2898,10 +2919,6 @@ export const getAccountAndCoverageResourcesForPatient = async (
         {
           name: '_include:iterate',
           value: 'Coverage:payor',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'InsurancePlan:owned-by',
         },
       ],
     })
@@ -2946,21 +2963,17 @@ export const updatePatientAccountFromQuestionnaire = async (
   ) as QuestionnaireResponseItem[];
 
   // get insurance additional information
-  const insurancePlans = [];
-  const primaryInsurancePlan = flattenedPaperwork.find((item) => item.linkId === InsuanceCarrierKeys.primary)
+  const insuranceOrgs = [];
+
+  const primaryInsuranceOrg = flattenedPaperwork.find((item) => item.linkId === InsuranceCarrierKeys.primary)
     ?.answer?.[0]?.valueReference?.reference;
-  if (primaryInsurancePlan) insurancePlans.push(primaryInsurancePlan);
-  const secondaryInsurancePlan = flattenedPaperwork.find((item) => item.linkId === InsuanceCarrierKeys.secondary)
+  if (primaryInsuranceOrg) insuranceOrgs.push(primaryInsuranceOrg);
+
+  const secondaryInsuranceOrg = flattenedPaperwork.find((item) => item.linkId === InsuranceCarrierKeys.secondary)
     ?.answer?.[0]?.valueReference?.reference;
-  if (secondaryInsurancePlan) insurancePlans.push(secondaryInsurancePlan);
-  const insuranceInformationResources = await searchInsuranceInformation(oystehr, insurancePlans);
-  console.log('insurance information resources', JSON.stringify(insuranceInformationResources, null, 2));
-  const insurancePlanResources = insuranceInformationResources.filter(
-    (res): res is InsurancePlan => res.resourceType === 'InsurancePlan'
-  );
-  const organizationResources = insuranceInformationResources.filter(
-    (res): res is Organization => res.resourceType === 'Organization'
-  );
+  if (secondaryInsuranceOrg) insuranceOrgs.push(secondaryInsuranceOrg);
+
+  const organizationResources = await searchInsuranceInformation(oystehr, insuranceOrgs);
 
   const {
     patient,
@@ -2995,7 +3008,6 @@ export const updatePatientAccountFromQuestionnaire = async (
   const accountOperations = getAccountOperations({
     patient,
     questionnaireResponseItem: flattenedPaperwork,
-    insurancePlanResources,
     organizationResources,
     existingCoverages,
     existingAccount,
@@ -3039,6 +3051,8 @@ interface UpdateStripeCustomerInput {
 }
 export const updateStripeCustomer = async (input: UpdateStripeCustomerInput): Promise<void> => {
   const { guarantorResource, account } = input;
+  console.log('updating Stripe customer for account', account.id);
+  console.log('guarantor resource:', `${guarantorResource?.resourceType}/${guarantorResource?.id}`);
   const stripeCustomerId = getStripeCustomerIdFromAccount(account);
   const email = getEmailForIndividual(guarantorResource);
   const name = getFullName(guarantorResource);

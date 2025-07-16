@@ -1,17 +1,15 @@
 import Oystehr from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { QuestionnaireResponse } from 'fhir/r4b';
 import { getSecret, SecretsKeys } from 'utils';
-import { createOystehrClient, getAuth0Token, topLevelCatch, ZambdaInput } from '../../../shared';
+import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { PatchPaperworkEffectInput, validatePatchInputs } from '../validateRequestParameters';
 
 // Lifting the token out of the handler function allows it to persist across warm lambda invocations.
 export let token: string;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`Input body: ${JSON.stringify(input.body)}`);
+export const index = wrapHandler('patch-paperwork', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const secrets = input.secrets;
     if (!token) {
@@ -50,7 +48,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 const performEffect = async (input: PatchPaperworkEffectInput, oystehr: Oystehr): Promise<QuestionnaireResponse> => {
   const { updatedAnswers, questionnaireResponseId, currentQRStatus, patchIndex } = input;
   console.log('patchIndex:', patchIndex);
-  console.log('updatedAnsewers', JSON.stringify(updatedAnswers));
+  console.log('updatedAnswers', JSON.stringify(updatedAnswers));
   const operations: Operation[] = [
     {
       op: 'add',

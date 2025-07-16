@@ -39,7 +39,7 @@ export async function createEncounterResource(
   }
 
   if (encounterDetails.reason) {
-    encounterResource.reasonCode = createEncounterReasoncode(encounterDetails.reason);
+    encounterResource.reasonCode = createEncounterReasonCode(encounterDetails.reason);
   }
 
   const encounterParticipant: EncounterParticipant[] = [];
@@ -118,7 +118,7 @@ export async function updateEncounterResource(
   }
 
   // check for deltas
-  // answered & date/time are read only after inital save so they should never be updated
+  // answered & date/time are read only after initial save so they should never be updated
 
   // followupType is required, it will only ever be replaced
   if (encounterDetails.followupType !== curEncounterDetails.followupType) {
@@ -134,7 +134,7 @@ export async function updateEncounterResource(
       operations.push({
         op: `${curEncounterDetails.reason ? 'replace' : 'add'}`,
         path: '/reasonCode',
-        value: createEncounterReasoncode(encounterDetails.reason),
+        value: createEncounterReasonCode(encounterDetails.reason),
       });
     } else if (curEncounterDetails.reason) {
       operations.push({
@@ -160,7 +160,7 @@ export async function updateEncounterResource(
         ],
       });
     } else if (curEncounterDetails?.location?.id) {
-      // locaiton is being removed
+      // location is being removed
       operations.push({
         op: 'remove',
         path: '/location',
@@ -323,7 +323,7 @@ const createEncounterType = (type: string): Encounter['type'] => {
   ];
 };
 
-const createEncounterReasoncode = (reason: FollowupReason): Encounter['reasonCode'] => {
+const createEncounterReasonCode = (reason: FollowupReason): Encounter['reasonCode'] => {
   return [
     {
       coding: [

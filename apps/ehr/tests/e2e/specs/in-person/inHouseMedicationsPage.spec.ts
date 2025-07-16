@@ -13,7 +13,7 @@ const resourceHandler = new ResourceHandler(PROCESS_ID, 'in-person');
 
 // cSpell:disable-next inversus
 const DIAGNOSIS = 'Situs inversus';
-const MEDICATION = '0.9% Sodium Chloride IV (1000cc)';
+const MEDICATION = 'Acetaminophen (80mg Suppository)';
 const DOSE = '2';
 const UNITS = 'mg';
 const MANUFACTURER = 'Test';
@@ -21,7 +21,7 @@ const ROUTE = 'Route of administration values';
 const INSTRUCTIONS = 'Instructions';
 
 const NEW_DIAGNOSIS = 'Situational type phobia';
-const NEW_MEDICATION = '0.9% Sodium Chloride IV (250cc)';
+const NEW_MEDICATION = 'Acetaminophen (325mg Suppository)';
 const NEW_DOSE = '1';
 const NEW_UNITS = 'g';
 const NEW_MANUFACTURER = 'Edited test';
@@ -42,16 +42,13 @@ test.afterEach(async () => {
   await resourceHandler.cleanupResources();
 });
 
-test('Open Order Medication screen, check all fields are required', async ({ page }) => {
+test('Open Order Medication screen, check required fields', async ({ page }) => {
   const orderMedicationPage = await prepareAndOpenOrderMedicationPage(page);
   // we have selected dx by default now so we can proceed to verification
   await orderMedicationPage.clickOrderMedicationButton();
   await orderMedicationPage.editMedicationCard.verifyValidationErrorShown(Field.MEDICATION);
-  await orderMedicationPage.editMedicationCard.selectAssociatedDx('Select associatedDx');
+  await orderMedicationPage.editMedicationCard.selectAssociatedDx('Select Associated Dx');
   await orderMedicationPage.editMedicationCard.selectMedication(MEDICATION);
-  await orderMedicationPage.clickOrderMedicationButton();
-  await orderMedicationPage.editMedicationCard.verifyValidationErrorShown(Field.ASSOCIATED_DX);
-  await orderMedicationPage.editMedicationCard.selectAssociatedDx(DIAGNOSIS);
   await orderMedicationPage.clickOrderMedicationButton();
   await orderMedicationPage.editMedicationCard.verifyValidationErrorShown(Field.DOSE);
   await orderMedicationPage.editMedicationCard.enterDose(DOSE);
@@ -63,13 +60,14 @@ test('Open Order Medication screen, check all fields are required', async ({ pag
   await orderMedicationPage.editMedicationCard.selectRoute(ROUTE);
   await orderMedicationPage.clickOrderMedicationButton();
 
+  await orderMedicationPage.editMedicationCard.verifyValidationErrorNotShown(Field.ASSOCIATED_DX);
   await orderMedicationPage.editMedicationCard.verifyValidationErrorNotShown(Field.MANUFACTURER);
   await orderMedicationPage.editMedicationCard.verifyValidationErrorNotShown(Field.INSTRUCTIONS);
 });
 
 test('"Order" button is disabled when all fields are empty', async ({ page }) => {
   const orderMedicationPage = await prepareAndOpenOrderMedicationPage(page);
-  await orderMedicationPage.editMedicationCard.selectAssociatedDx('Select associatedDx');
+  await orderMedicationPage.editMedicationCard.selectAssociatedDx('Select Associated Dx');
   await orderMedicationPage.verifyFillOrderToSaveButtonDisabled();
 });
 
@@ -150,16 +148,15 @@ test('Edit order page is opened after clicking on pencil icon for order in "pend
 
   await test.step('Update fields to empty values and click on [Save] - Validation errors appears', async () => {
     await editOrderPage.editMedicationCard.selectMedication('Select Medication');
-    await editOrderPage.editMedicationCard.selectAssociatedDx('Select associatedDx');
+    await editOrderPage.editMedicationCard.selectAssociatedDx('Select Associated Dx');
     await editOrderPage.editMedicationCard.clearDose();
-    await editOrderPage.editMedicationCard.selectUnits('Select units');
+    await editOrderPage.editMedicationCard.selectUnits('Select Units');
     await editOrderPage.editMedicationCard.clearManufacturer();
-    await editOrderPage.editMedicationCard.selectRoute('Select route');
+    await editOrderPage.editMedicationCard.selectRoute('Select Route');
     await editOrderPage.editMedicationCard.clearInstructions();
     await editOrderPage.clickOrderMedicationButton();
 
     await editOrderPage.editMedicationCard.verifyValidationErrorShown(Field.MEDICATION);
-    await editOrderPage.editMedicationCard.verifyValidationErrorShown(Field.ASSOCIATED_DX, false);
     await editOrderPage.editMedicationCard.verifyValidationErrorShown(Field.DOSE, false);
     await editOrderPage.editMedicationCard.verifyValidationErrorShown(Field.UNITS, false);
     await editOrderPage.editMedicationCard.verifyValidationErrorNotShown(Field.MANUFACTURER);

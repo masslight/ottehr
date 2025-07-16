@@ -1,4 +1,3 @@
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, DocumentReference, Encounter, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -13,14 +12,22 @@ import {
   isApiError,
   SecretsKeys,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  topLevelCatch,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
 import { createVisitLabelPDF, VISIT_LABEL_DOC_REF_DOCTYPE, VisitLabelConfig } from '../../shared/pdf/visit-label-pdf';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+const ZAMBDA_NAME = 'get-or-create-visit-label-pdf';
+
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.log(`Input: ${JSON.stringify(input)}`);
     console.log('Validating input');
@@ -45,7 +52,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     if (!labelDocRefs.length) {
       // we should create the pdf. Need patient & appointment info
-      console.log(`No docrefs found for Encounter/${encounterId}. Making new label`);
+      console.log(`No docRefs found for Encounter/${encounterId}. Making new label`);
       const resources = (
         await oystehr.fhir.search<Encounter | Patient | Appointment>({
           resourceType: 'Encounter',

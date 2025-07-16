@@ -48,7 +48,7 @@ import {
   WaitingRoomInput,
   WaitingRoomResponse,
 } from 'utils';
-import { GetZapEHRAPIParams } from '../main';
+import { GetOystehrAPIParams } from '../main';
 
 type ZambdaName =
   | 'cancel appointment'
@@ -109,10 +109,10 @@ const zambdasPublicityMap: Record<ZambdaName, boolean> = {
   'list bookables': true,
 };
 
-export type ZapEHRAPIClient = ReturnType<typeof getZapEHRAPI>;
+export type OystehrAPIClient = ReturnType<typeof getOystehrAPI>;
 
-export const getZapEHRAPI = (
-  params: GetZapEHRAPIParams,
+export const getOystehrAPI = (
+  params: GetOystehrAPIParams,
   oystehr: Oystehr
 ): {
   cancelAppointment: typeof cancelAppointment;

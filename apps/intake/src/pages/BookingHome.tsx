@@ -4,7 +4,7 @@ import { FC, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from 'react-query';
 import { generatePath, Navigate, Outlet, useLocation, useOutletContext, useParams } from 'react-router-dom';
-import { getSelectors, PatientInfo, ServiceMode, Timezone, TIMEZONES, VisitType } from 'utils';
+import { getSelectors, PatientInfo, PROJECT_WEBSITE, ServiceMode, Timezone, TIMEZONES, VisitType } from 'utils';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import ottehrApi from '../api/ottehrApi';
@@ -280,8 +280,7 @@ const BookingHome: FC = () => {
     return (
       <PageContainer title={t('welcome.errors.notFound.title')}>
         <Typography variant="body1">
-          {t('welcome.errors.notFound.description')}{' '}
-          <a href="https://ottehr.com/find-care/">{t('welcome.errors.notFound.link')}</a>.
+          {t('welcome.errors.notFound.description')} <a href={PROJECT_WEBSITE}>{t('welcome.errors.notFound.link')}</a>.
         </Typography>
       </PageContainer>
     );

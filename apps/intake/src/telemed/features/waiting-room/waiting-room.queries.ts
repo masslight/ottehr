@@ -1,16 +1,17 @@
-import { useMutation, useQuery, useQueryClient, UseQueryResult } from 'react-query';
-import { ZapEHRAPIClient } from 'ui-components';
+import { useMutation, useQuery, useQueryClient } from 'react-query';
+import { OystehrAPIClient } from 'ui-components';
 import { CancelInviteParticipantRequestParameters, InviteParticipantRequestParameters, PromiseReturnType } from 'utils';
-import { useZapEHRAPIClient } from '../../utils';
+import { useOystehrAPIClient } from '../../utils';
 import { useAppointmentStore } from '../appointments';
 
 export const useGetWaitStatus = (
-  onSuccess: (data: PromiseReturnType<ReturnType<ZapEHRAPIClient['getWaitStatus']>>) => void,
+  onSuccess: (data: PromiseReturnType<ReturnType<OystehrAPIClient['getWaitStatus']>>) => void,
   appointmentId: string,
   refetchInterval?: number | false,
   enabled?: boolean
-): UseQueryResult<PromiseReturnType<ReturnType<ZapEHRAPIClient['getWaitStatus']>>, unknown> => {
-  const apiClient = useZapEHRAPIClient();
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+) => {
+  const apiClient = useOystehrAPIClient();
   return useQuery(
     ['waiting-room', appointmentId, apiClient],
     () => {
@@ -33,7 +34,7 @@ export const useGetWaitStatus = (
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetVideoChatInvites = () => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const appointmentID = useAppointmentStore((state) => state.appointmentID);
 
   return useQuery(
@@ -53,7 +54,7 @@ export const useGetVideoChatInvites = () => {
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useCreateInviteMutation = () => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const { appointmentID } = useAppointmentStore.getState();
   const queryClient = useQueryClient();
 
@@ -75,7 +76,7 @@ export const useCreateInviteMutation = () => {
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useCancelInviteMutation = () => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const { appointmentID } = useAppointmentStore.getState();
   const queryClient = useQueryClient();
 

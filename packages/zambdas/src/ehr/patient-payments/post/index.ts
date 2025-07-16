@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Identifier, Money, PaymentNotice, PaymentReconciliation, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -28,6 +29,7 @@ import {
   lambdaResponse,
   makeBusinessIdentifierForCandidPayment,
   makeBusinessIdentifierForStripePayment,
+  performCandidPreEncounterSync,
   topLevelCatch,
   ZambdaInput,
 } from '../../../shared';
@@ -87,7 +89,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       oystehrClient
     );
 
-    const notice = await performEffect(effectInput, oystehrClient);
+    const notice = await performEffect(effectInput, oystehrClient, requiredSecrets);
 
     return lambdaResponse(200, { notice, patientId, encounterId });
   } catch (error: any) {
@@ -97,8 +99,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   }
 };
 
-const performEffect = async (input: ComplexValidationOutput, oystehrClient: Oystehr): Promise<PaymentNotice> => {
-  const { encounterId, paymentDetails, organizationId, userProfile, secrets } = input;
+const performEffect = async (
+  input: ComplexValidationOutput,
+  oystehrClient: Oystehr,
+  requiredSecrets: RequiredSecrets
+): Promise<PaymentNotice> => {
+  const { encounterId, paymentDetails, organizationId, userProfile } = input;
   const { paymentMethod, amountInCents, description } = paymentDetails;
   const dateTimeIso = DateTime.now().toISO() || '';
   console.log('dateTimeIso', dateTimeIso);
@@ -109,8 +115,9 @@ const performEffect = async (input: ComplexValidationOutput, oystehrClient: Oyst
     dateTimeIso,
     recipientId: organizationId,
   };
+
   if (input.cardInput && paymentMethod === 'card') {
-    const stripeClient = getStripeClient(secrets);
+    const stripeClient = getStripeClient(requiredSecrets.secrets);
     const customerId = input.cardInput.stripeCustomerId;
     const paymentMethodId = paymentDetails.paymentMethodId;
     const paymentIntentInput: Stripe.PaymentIntentCreateParams = {
@@ -135,8 +142,22 @@ const performEffect = async (input: ComplexValidationOutput, oystehrClient: Oyst
     console.log('Payment Intent created:', JSON.stringify(paymentIntent, null, 2));
   } else {
     console.log('handling non card payment:', paymentMethod, amountInCents, description);
-    // here's we might set a candidPayment id once candid stuff has been added
+    // here's where we might set a candidPayment id once candid stuff has been added
   }
+
+  try {
+    await performCandidPreEncounterSync({
+      encounterId,
+      oystehr: oystehrClient,
+      secrets: requiredSecrets.secrets,
+      amountCents: amountInCents,
+    });
+  } catch (error) {
+    console.error(`Error during Candid pre-encounter sync: ${error}`);
+    captureException(error);
+    // We are eating this error to allow the payment to still be recorded even though the Candid sync failed.
+  }
+
   const noticeToWrite = makePaymentNotice(paymentNoticeInput);
 
   return await oystehrClient.fhir.create<PaymentNotice>(noticeToWrite);
@@ -210,7 +231,7 @@ const validateRequestParameters = (input: ZambdaInput): PostPatientPaymentInput 
 interface RequiredSecrets {
   organizationId: string;
   stripeKey: string | null;
-  secrets: Secrets | null;
+  secrets: Secrets;
 }
 
 const validateEnvironmentParameters = (input: ZambdaInput, isCardPayment: boolean): RequiredSecrets => {

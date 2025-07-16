@@ -5,8 +5,8 @@ import {
   Encounter,
   EncounterStatusHistory,
   FhirResource,
-  InsurancePlan,
   Location,
+  Organization,
   Patient,
   Questionnaire,
   QuestionnaireResponse,
@@ -15,15 +15,16 @@ import {
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
-import { useMutation, UseMutationResult, useQuery, UseQueryResult } from 'react-query';
+import { useMutation, useQuery, UseQueryResult } from 'react-query';
 import { getVisitTypeLabelForAppointment } from 'src/types/types';
 import {
   getFirstName,
   getLastName,
   getVisitStatusHistory,
   getVisitTotalTime,
-  INSURANCE_PLAN_PAYER_META_TAG_CODE,
   isAppointmentVirtual,
+  ORG_TYPE_CODE_SYSTEM,
+  ORG_TYPE_PAYER_CODE,
   OTTEHR_MODULE,
   PromiseReturnType,
   RemoveCoverageZambdaInput,
@@ -32,7 +33,7 @@ import {
 import { getTimezone } from '../helpers/formatDateTime';
 import { getPatientNameSearchParams } from '../helpers/patientSearch';
 import { OystehrTelemedAPIClient } from '../telemed/data';
-import { useZapEHRAPIClient } from '../telemed/hooks/useOystehrAPIClient';
+import { useOystehrAPIClient } from '../telemed/hooks/useOystehrAPIClient';
 import { useApiClients } from './useAppClients';
 
 const updateQRUrl = import.meta.env.VITE_APP_EHR_ACCOUNT_UPDATE_FORM;
@@ -253,8 +254,9 @@ export const useGetPatientAccount = (
   );
 };
 
-export const useRemovePatientCoverage = (): UseMutationResult<void, unknown, RemoveCoverageZambdaInput> => {
-  const apiClient = useZapEHRAPIClient();
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const useRemovePatientCoverage = () => {
+  const apiClient = useOystehrAPIClient();
 
   return useMutation(['remove-patient-coverage'], async (input: RemoveCoverageZambdaInput): Promise<void> => {
     try {
@@ -267,10 +269,9 @@ export const useRemovePatientCoverage = (): UseMutationResult<void, unknown, Rem
   });
 };
 
-export const useUpdatePatientAccount = (
-  onSuccess?: () => void
-): UseMutationResult<void, unknown, QuestionnaireResponse> => {
-  const apiClient = useZapEHRAPIClient();
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const useUpdatePatientAccount = (onSuccess?: () => void) => {
+  const apiClient = useOystehrAPIClient();
 
   return useMutation(
     ['update-patient-account'],
@@ -303,28 +304,26 @@ export const useUpdatePatientAccount = (
   );
 };
 
-export const useGetInsurancePlans = (
-  onSuccess: (data: Bundle<InsurancePlan>) => void
-): UseQueryResult<Bundle<InsurancePlan>, unknown> => {
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const useGetInsurancePlans = (onSuccess: (data: Bundle<Organization>) => void) => {
   const { oystehr } = useApiClients();
 
-  const fetchAllInsurancePlans = async (): Promise<Bundle<InsurancePlan>> => {
+  const fetchAllInsurancePlans = async (): Promise<Bundle<Organization>> => {
     if (!oystehr) {
       throw new Error('FHIR client not defined');
     }
 
     const searchParams = [
-      { name: '_tag', value: INSURANCE_PLAN_PAYER_META_TAG_CODE },
-      { name: 'status', value: 'active' },
-      { name: '_include', value: 'InsurancePlan:owned-by' },
+      { name: 'type', value: `${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}` },
+      { name: 'active:not', value: 'false' },
       { name: '_count', value: '1000' },
     ];
 
     let offset = 0;
-    let allEntries: BundleEntry<InsurancePlan>[] = [];
+    let allEntries: BundleEntry<Organization>[] = [];
 
-    let bundle = await oystehr.fhir.search<InsurancePlan>({
-      resourceType: 'InsurancePlan',
+    let bundle = await oystehr.fhir.search<Organization>({
+      resourceType: 'Organization',
       params: [...searchParams, { name: '_offset', value: offset }],
     });
 
@@ -334,8 +333,8 @@ export const useGetInsurancePlans = (
     while (bundle.link?.find((link) => link.relation === 'next')) {
       offset += 1000;
 
-      bundle = await oystehr.fhir.search<InsurancePlan>({
-        resourceType: 'InsurancePlan',
+      bundle = await oystehr.fhir.search<Organization>({
+        resourceType: 'Organization',
         params: [...searchParams.filter((param) => param.name !== '_offset'), { name: '_offset', value: offset }],
       });
 

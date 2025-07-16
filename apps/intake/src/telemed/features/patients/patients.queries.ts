@@ -1,11 +1,12 @@
-import { useQuery, UseQueryResult } from 'react-query';
-import { ZapEHRAPIClient } from 'ui-components';
+import { useQuery } from 'react-query';
+import { OystehrAPIClient } from 'ui-components';
 import { PromiseReturnType } from 'utils';
 
 export const useGetPatients = (
-  apiClient: ZapEHRAPIClient | null,
-  onSuccess: (data: PromiseReturnType<ReturnType<ZapEHRAPIClient['getPatients']>>) => void
-): UseQueryResult<PromiseReturnType<ReturnType<ZapEHRAPIClient['getPatients']>>, unknown> => {
+  apiClient: OystehrAPIClient | null,
+  onSuccess: (data: PromiseReturnType<ReturnType<OystehrAPIClient['getPatients']>>) => void
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+) => {
   return useQuery(
     ['patients'],
     () => {

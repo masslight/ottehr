@@ -1,14 +1,14 @@
 import { useQuery, UseQueryResult } from 'react-query';
 import { ClaimsQueueGetResponse } from 'utils';
 import { getSelectors } from '../../../shared/store/getSelectors';
-import { ZapEHR_RCM_APIClient } from '../../data';
+import { Oystehr_RCM_APIClient } from '../../data';
 import { useClaimsQueueStore } from './claims-queue.store';
 
 export const useGetClaims = ({
   apiClient,
   onSuccess,
 }: {
-  apiClient: ZapEHR_RCM_APIClient | null;
+  apiClient: Oystehr_RCM_APIClient | null;
   onSuccess?: (data: ClaimsQueueGetResponse) => void;
 }): UseQueryResult<ClaimsQueueGetResponse, unknown> => {
   const params = getSelectors(useClaimsQueueStore, [

@@ -20,7 +20,7 @@ export const getDocReferenceIDFromFocus = (task: Task): string => {
 export const sendText = async (
   message: string,
   fhirRelatedPerson: RelatedPerson,
-  zapehrToken: string,
+  oystehrToken: string,
   secrets: Secrets | null
 ): Promise<{ taskStatus: TaskStatus; statusReason: string | undefined }> => {
   let taskStatus: TaskStatus, statusReason: string | undefined;
@@ -29,7 +29,7 @@ export const sendText = async (
     console.log('sending message to', smsNumber);
     const messageRecipient = `RelatedPerson/${fhirRelatedPerson.id}`;
     const oystehr = createOystehrClient(
-      zapehrToken,
+      oystehrToken,
       getSecret(SecretsKeys.FHIR_API, secrets),
       getSecret(SecretsKeys.PROJECT_API, secrets)
     );

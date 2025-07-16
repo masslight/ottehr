@@ -1,5 +1,5 @@
 import { DateTime, DateTimeJSOptions } from 'luxon';
-import { DateComponents } from '../types';
+import { DateComponents, Timezone } from '../types';
 
 interface timezone {
   value: string;
@@ -308,11 +308,17 @@ export function isHoliday(date: DateTime, federalHolidays: Record<string, Set<st
 
 export const generateYyyyMmDdString = (year: string, month: string, day: string): string => `${year}-${month}-${day}`;
 
-export const formatDateTimeToEDT = (isoDate: string | undefined): string | undefined => {
+export const formatDateTimeToZone = (isoDate: string | undefined, timezone: Timezone): string | undefined => {
   if (!isoDate) return undefined;
-  return `${DateTime.fromISO(isoDate)
-    .setZone('America/New_York')
-    .toLocaleString(DateTime.DATETIME_SHORT, { locale: 'en-US' })} (EDT)`;
+  const dt = DateTime.fromISO(isoDate).setZone(timezone);
+  return `${dt.toLocaleString(DateTime.DATETIME_SHORT, { locale: 'en-US' })} (${dt.toFormat('ZZZZ')})`;
+};
+
+export const formatDateTimeToLocalTimezone = (isoDate: string | undefined): string | undefined => {
+  if (!isoDate) return undefined;
+  const timezone = DateTime.local().zone.name;
+  const dt = DateTime.fromISO(isoDate).setZone(timezone);
+  return `${dt.toLocaleString(DateTime.DATETIME_SHORT, { locale: 'en-US' })} (${dt.toFormat('ZZZZ')})`;
 };
 
 export const formatDateToMDYWithTime = (isoDate: string | undefined): string | undefined => {
