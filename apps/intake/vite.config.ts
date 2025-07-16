@@ -50,7 +50,7 @@ export default (env: any): Record<string, any> => {
     config({ mode }),
     defineConfig({
       build: {
-        sourcemap: shouldUploadSentrySourceMaps,
+        sourcemap: true,
       },
       plugins,
       server: {
