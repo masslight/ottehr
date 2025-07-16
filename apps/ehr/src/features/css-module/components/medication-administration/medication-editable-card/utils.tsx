@@ -251,7 +251,6 @@ export const medicationInteractionsFromErxResponse = (
   medicationHistory: MedicationWithTypeDTO[],
   prescriptions: MedicationRequest[]
 ): MedicationInteractions => {
-  console.log('medicationHistory', medicationHistory);
   const interactions: MedicationInteractions = {
     drugInteractions: (response.medications ?? []).map((medication) => {
       return {
