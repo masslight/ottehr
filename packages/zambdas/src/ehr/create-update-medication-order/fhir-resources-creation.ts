@@ -235,7 +235,7 @@ function createDrugInteractionIssue(resourceId: string, interaction: DrugInterac
             {
               detail: [
                 {
-                  reference: interaction.source.medicationStatementId,
+                  reference: interaction.source.reference,
                   display: interaction.source.display,
                 },
               ],
