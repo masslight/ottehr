@@ -496,8 +496,10 @@ export class ResourceHandler {
     practitioner: Practitioner;
   }> {
     await this.#initPromise;
-    const { fetchClient } = createFetchClientWithOystAuth(this.#authToken);
-    const users = await fetchClient<
+    const oystehrProjectId = process.env.PROJECT_ID;
+    if (!oystehrProjectId) throw new Error('secret PROJECT_ID is not set');
+    const { oystFetch } = createFetchClientWithOystAuth({ authToken: this.#authToken, projectId: oystehrProjectId });
+    const users = await oystFetch<
       {
         id: string;
         name: string;

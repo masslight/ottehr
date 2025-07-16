@@ -87,7 +87,7 @@ export default function EditEmployeePage(): JSX.Element {
     }
 
     try {
-      await userActivation(oystehrZambda, { user: user, mode });
+      await userActivation(oystehrZambda, { userId: user.id, mode });
       await getUserAndUpdatePage();
       enqueueSnackbar(`User was ${mode}d successfully`, {
         variant: 'success',

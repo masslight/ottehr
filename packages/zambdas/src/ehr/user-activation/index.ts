@@ -1,7 +1,8 @@
+import { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { createFetchClientWithOystAuth, getSecret, Secrets, SecretsKeys } from 'utils';
+import { createFetchClientWithOystAuth, FetchClientWithOystAuth, getSecret, Secrets, SecretsKeys } from 'utils';
 import { UserActivationZambdaInput, UserActivationZambdaOutput } from 'utils/lib/types/api/user-activation.types';
-import { getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface UserActivationZambdaInputValidated extends UserActivationZambdaInput {
@@ -17,18 +18,16 @@ export const index = wrapHandler('user-activation', async (input: ZambdaInput): 
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    if (!oystehrToken) {
-      console.log('getting token');
-      oystehrToken = await getAuth0Token(validatedParameters.secrets);
-    } else {
-      console.log('already have token');
-    }
+    await checkOrCreateM2MClientToken(oystehrToken, validatedParameters.secrets);
+    const PROJECT_API = getSecret('PROJECT_API', validatedParameters.secrets);
+    const fetchClient = createFetchClientWithOystAuth({ authToken: oystehrToken });
+    const user = await fetchClient.oystFetch<User>('GET', `${PROJECT_API}/user/${validatedParameters.userId}`);
 
     let response: UserActivationZambdaOutput = {};
     if (validatedParameters.mode === 'activate') {
-      response = await activateUser(validatedParameters);
+      response = await activateUser(user, fetchClient, PROJECT_API);
     } else if (validatedParameters.mode === 'deactivate') {
-      response = await deactivateUser(validatedParameters);
+      response = await deactivateUser(user, fetchClient, PROJECT_API);
     }
 
     return {
@@ -47,23 +46,19 @@ export const index = wrapHandler('user-activation', async (input: ZambdaInput): 
 });
 
 async function deactivateUser(
-  validatedParams: UserActivationZambdaInputValidated
+  user: User,
+  client: FetchClientWithOystAuth,
+  projectApi: string
 ): Promise<UserActivationZambdaOutput> {
-  const { secrets, user } = validatedParams;
-
   // Deactivate Oystehr user by assigning Inactive role
   const userRoles = (user as any).roles;
   const userRoleIds = userRoles.map((role: any) => role.id);
   const userInactive = userRoles.find((role: any) => role.name === 'Inactive');
   if (!userInactive) {
-    const { fetchClient } = createFetchClientWithOystAuth(oystehrToken);
-
-    const PROJECT_API = getSecret('PROJECT_API', secrets);
-
     console.log('searching for Inactive role in the the project');
     let existingRoles;
     try {
-      existingRoles = await fetchClient('GET', `${PROJECT_API}/iam/role`);
+      existingRoles = await client.oystFetch('GET', `${projectApi}/iam/role`);
     } catch (error) {
       console.error(error);
       throw new Error('Error searching for existing roles');
@@ -76,40 +71,42 @@ async function deactivateUser(
 
     console.log('deactivating user');
     try {
-      await fetchClient('PATCH', `${PROJECT_API}/user/${user.id}`, {
+      await client.oystFetch('PATCH', `${projectApi}/user/${user.id}`, {
         roles: [...userRoleIds, inactiveRole.id],
       });
     } catch (error) {
       console.error(error);
       throw new Error('Failed to deactivate user');
     }
+  } else {
+    console.log('User is already deactivated. Skipping.');
   }
 
   return {};
 }
 
-async function activateUser(validatedParams: UserActivationZambdaInputValidated): Promise<UserActivationZambdaOutput> {
-  const { secrets, user } = validatedParams;
-
+async function activateUser(
+  user: User,
+  client: FetchClientWithOystAuth,
+  projectApi: string
+): Promise<UserActivationZambdaOutput> {
   // Activating Oystehr user by removing Inactive role
   const userRoles = (user as any).roles;
   const userInactive = userRoles.find((role: any) => role.name === 'Inactive');
   if (userInactive) {
-    const { fetchClient } = createFetchClientWithOystAuth(oystehrToken);
-
-    const PROJECT_API = getSecret('PROJECT_API', secrets);
-
     const userRoleIds = userRoles.filter((role: any) => role.id !== userInactive.id).map((role: any) => role.id);
 
-    console.log('deactivating user');
+    console.log('activating user');
     try {
-      await fetchClient('PATCH', `${PROJECT_API}/user/${user.id}`, {
+      await client.oystFetch('PATCH', `${projectApi}/user/${user.id}`, {
         roles: [...userRoleIds],
       });
     } catch (error) {
       console.error(error);
-      throw new Error('Failed to deactivate user');
+      throw new Error('Failed to activate user');
     }
+  } else {
+    console.log('User is already active. Skipping.');
   }
 
   return {};
