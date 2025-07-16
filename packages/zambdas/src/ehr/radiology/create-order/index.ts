@@ -16,8 +16,10 @@ import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaIn
 import {
   ACCESSION_NUMBER_CODE_SYSTEM,
   ADVAPACS_FHIR_BASE_URL,
+  FILLER_ORDER_NUMBER_CODE_SYSTEM,
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM,
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM_ACCESSION_NUMBER,
+  HL7_IDENTIFIER_TYPE_CODE_SYSTEM_FILLER_ORDER_NUMBER,
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM_PLACER_ORDER_NUMBER,
   ORDER_TYPE_CODE_SYSTEM,
   PLACER_ORDER_NUMBER_CODE_SYSTEM,
@@ -138,6 +140,12 @@ const performEffect = async (
   };
 };
 
+const fillerAndPlacerOrderNumber = randomstring.generate({
+  length: 22,
+  charset: 'alphanumeric',
+  capitalization: 'uppercase',
+});
+
 const writeOurServiceRequest = (
   validatedBody: EnhancedBody,
   practitionerRelativeReference: string,
@@ -180,11 +188,19 @@ const writeOurServiceRequest = (
           ],
         },
         system: PLACER_ORDER_NUMBER_CODE_SYSTEM,
-        value: randomstring.generate({
-          length: 22,
-          charset: 'alphanumeric',
-          capitalization: 'uppercase',
-        }),
+        value: fillerAndPlacerOrderNumber,
+      },
+      {
+        type: {
+          coding: [
+            {
+              system: HL7_IDENTIFIER_TYPE_CODE_SYSTEM,
+              code: HL7_IDENTIFIER_TYPE_CODE_SYSTEM_FILLER_ORDER_NUMBER,
+            },
+          ],
+        },
+        system: FILLER_ORDER_NUMBER_CODE_SYSTEM,
+        value: fillerAndPlacerOrderNumber,
       },
     ],
     category: [
