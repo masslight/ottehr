@@ -181,7 +181,8 @@ export interface InHouseLabResult {
 }
 export interface InHouseLabResultConfig {
   collectionDate: string;
-  finalResultDateTime: string;
+  finalResultDateTimeFormatted: string;
+  finalResultDateTimeISO: string;
   specimenSource: string;
   results: InHouseLabResult[];
 }

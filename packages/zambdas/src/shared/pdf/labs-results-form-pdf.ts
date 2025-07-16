@@ -217,7 +217,8 @@ const getTaskCompletedByAndWhen = async (
   timezone: string | undefined
 ): Promise<{
   reviewingProvider: Practitioner;
-  reviewDate: string;
+  reviewDateFormatted: string;
+  reviewDateISO: string;
 }> => {
   console.log('getting provenance for task', task.id);
   console.log('task relevant history', task.relevantHistory);
@@ -252,9 +253,15 @@ const getTaskCompletedByAndWhen = async (
   const taskProvenance = taskProvenanceTemp[0];
   const taskPractitioner = taskPractitionersTemp[0];
 
-  const reviewDate = DateTime.fromISO(taskProvenance.recorded).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT);
+  const reviewDateFormatted = DateTime.fromISO(taskProvenance.recorded)
+    .setZone(timezone)
+    .toFormat(LABS_DATE_STRING_FORMAT);
 
-  return { reviewingProvider: taskPractitioner, reviewDate };
+  return {
+    reviewingProvider: taskPractitioner,
+    reviewDateFormatted,
+    reviewDateISO: taskProvenance.recorded,
+  };
 };
 
 export async function createExternalLabResultPDF(
@@ -297,7 +304,7 @@ export async function createExternalLabResultPDF(
   if (!patient.id) throw new Error('patient.id is undefined');
   if (!diagnosticReport.id) throw new Error('diagnosticReport id is undefined');
 
-  const { reviewDate: orderSubmitDate } = await getTaskCompletedByAndWhen(oystehr, pstTask, timezone);
+  const { reviewDateFormatted: orderSubmitDate } = await getTaskCompletedByAndWhen(oystehr, pstTask, timezone);
 
   const taskSearchForFinalOrCorrected = (
     await oystehr.fhir.search<Task>({
@@ -335,7 +342,7 @@ export async function createExternalLabResultPDF(
   const latestReviewTask = sortedCompletedFinalOrCorrected[0];
   console.log(`>>> in labs-results-form-pdf, this is the latestReviewTask`, latestReviewTask?.id);
 
-  let reviewDate = '',
+  let reviewDateFormatted = '',
     reviewingProvider = undefined,
     resultsReceivedDate = '';
 
@@ -344,7 +351,11 @@ export async function createExternalLabResultPDF(
       ? DateTime.fromISO(latestReviewTask.authoredOn).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
       : '';
     if (latestReviewTask.status === 'completed') {
-      ({ reviewingProvider, reviewDate } = await getTaskCompletedByAndWhen(oystehr, latestReviewTask, timezone));
+      ({ reviewingProvider, reviewDateFormatted } = await getTaskCompletedByAndWhen(
+        oystehr,
+        latestReviewTask,
+        timezone
+      ));
     }
   }
   if (!resultsReceivedDate && !latestReviewTask) {
@@ -437,7 +448,7 @@ export async function createExternalLabResultPDF(
       orderSubmitDate,
       reviewed,
       reviewingProvider,
-      reviewDate,
+      reviewDate: reviewDateFormatted,
       resultsReceivedDate,
       resultInterpretations: resultInterpretationDisplays,
       performingLabAddress: formatPerformingLabAddress(organization),
@@ -516,9 +527,12 @@ export async function createInHouseLabResultPDF(
     );
   }
 
+  const allResults = [inHouseLabResults, ...additionalResultsForRelatedSrs];
+  const allResultsSorted = allResults.sort((a, b) => compareDates(a.finalResultDateTimeISO, b.finalResultDateTimeISO));
+
   const inHouseSpecificResources: LabTypeSpecificResources = {
     type: LabType.inHouse,
-    specificResources: { inHouseLabResults: [inHouseLabResults, ...additionalResultsForRelatedSrs] },
+    specificResources: { inHouseLabResults: allResultsSorted },
   };
   const commonResources: CommonDataConfigResources = {
     location,
@@ -851,7 +865,7 @@ async function createInHouseLabsResultsFormPdfBytes(
     }
     pdfClient = drawFieldLineRight(pdfClient, textStyles, 'Collection Date:', labResult.collectionDate);
     pdfClient.newLine(STANDARD_FONT_SIZE + 3);
-    pdfClient = drawFieldLineRight(pdfClient, textStyles, 'Results Date:', labResult.finalResultDateTime);
+    pdfClient = drawFieldLineRight(pdfClient, textStyles, 'Results Date:', labResult.finalResultDateTimeFormatted);
     pdfClient.newLine(24);
   }
 
@@ -1024,7 +1038,8 @@ const getFormattedInHouseLabResults = async (
   }
 
   const specimenSource = specimen?.collection?.bodySite?.coding?.map((coding) => coding.display).join(', ') || '';
-  const { reviewDate: finalResultDateTime } = await getTaskCompletedByAndWhen(oystehr, task, timezone);
+  const { reviewDateFormatted: finalResultDateTimeFormatted, reviewDateISO: finalResultDateTimeISO } =
+    await getTaskCompletedByAndWhen(oystehr, task, timezone);
 
   const collectionDate = DateTime.fromISO(specimen?.collection?.collectedDateTime)
     .setZone(timezone)
@@ -1057,7 +1072,8 @@ const getFormattedInHouseLabResults = async (
 
   const resultConfig: InHouseLabResultConfig = {
     collectionDate,
-    finalResultDateTime,
+    finalResultDateTimeFormatted,
+    finalResultDateTimeISO,
     specimenSource,
     results,
   };
