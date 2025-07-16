@@ -7,13 +7,14 @@ import {
   SecretsKeys,
   UpdateUserZambdaOutput,
 } from 'utils';
-import { checkOrCreateM2MClientToken, topLevelCatch, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { getRoleId } from '../../shared/rolesUtils';
 import { validateRequestParameters } from './validateRequestParameters';
 
+const ZAMBDA_NAME = 'update-user';
 let m2mToken: string;
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
@@ -232,4 +233,4 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify({ error: error.message }),
     };
   }
-};
+});

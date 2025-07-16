@@ -13,7 +13,7 @@ import {
   Secrets,
   User,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, ZambdaInput } from '../../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import {
   DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL,
   ORDER_TYPE_CODE_SYSTEM,
@@ -33,7 +33,9 @@ export const DEFAULT_RADIOLOGY_ITEMS_PER_PAGE = 10;
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
 
-export const index = async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
+const ZAMBDA_NAME = 'radiology-order-list';
+
+export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const secrets = validateSecrets(unsafeInput.secrets);
 
@@ -57,7 +59,7 @@ export const index = async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyRe
       body: JSON.stringify({ error: error.message }),
     };
   }
-};
+});
 
 const accessCheck = async (callerAccessToken: string, secrets: Secrets): Promise<void> => {
   const callerUser = await getCallerUserWithAccessToken(callerAccessToken, secrets);

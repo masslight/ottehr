@@ -12,7 +12,7 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, ZambdaInput } from '../../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import {
   ACCESSION_NUMBER_CODE_SYSTEM,
   ADVAPACS_FHIR_BASE_URL,
@@ -68,7 +68,9 @@ const ADVAPACS_ORDER_DETAIL_MODALITY_CODE_SYSTEM_URL =
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
 
-export const index = async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
+const ZAMBDA_NAME = 'create-radiology-order';
+
+export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const secrets = validateSecrets(unsafeInput.secrets);
 
@@ -93,7 +95,7 @@ export const index = async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyRe
       body: JSON.stringify({ error: error.message }),
     };
   }
-};
+});
 
 const accessCheck = async (callerUser: User): Promise<void> => {
   if (callerUser.profile.indexOf('Practitioner/') === -1) {

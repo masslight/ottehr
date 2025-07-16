@@ -27,9 +27,12 @@ import {
   sendSms,
   sendVirtualCancellationEmail,
   validateBundleAndExtractAppointment,
+  wrapHandler,
   ZambdaInput,
 } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
+
+const ZAMBDA_NAME = 'telemed-cancel-appointment';
 export interface CancelTelemedAppointmentInputValidated extends CancelTelemedAppointmentZambdaInput {
   secrets: Secrets | null;
 }
@@ -37,7 +40,7 @@ export interface CancelTelemedAppointmentInputValidated extends CancelTelemedApp
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrToken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Telemed Cancelation Input: ${JSON.stringify(input)}`);
 
   try {
@@ -55,7 +58,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify({ error: 'Internal error' }),
     };
   }
-};
+});
 
 interface PerformEffectInput {
   input: ZambdaInput;

@@ -1,14 +1,16 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, DocumentReference, Patient } from 'fhir/r4b';
 import { getSecret, SecretsKeys, VISIT_NOTE_SUMMARY_CODE } from 'utils';
-import { topLevelCatch, ZambdaInput } from '../../shared';
+import { topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { checkOrCreateM2MClientToken } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
+const ZAMBDA_NAME = 'send-fax';
+
 let m2mToken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.log(`Input: ${JSON.stringify(input)}`);
     console.group('validateRequestParameters()');
@@ -84,4 +86,4 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
     return topLevelCatch('send-fax', error, ENVIRONMENT);
   }
-};
+});
