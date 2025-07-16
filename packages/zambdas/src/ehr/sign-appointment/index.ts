@@ -83,7 +83,12 @@ export const performEffect = async (
     candidEncounterId = await createEncounterFromAppointment(visitResources, secrets, oystehr);
   } catch (error) {
     console.error(`Error creating Candid encounter: ${error}, stringified error: ${JSON.stringify(error)}`);
-    captureException(error);
+    captureException(error, {
+      tags: {
+        appointmentId,
+        encounterId: encounter.id,
+      },
+    });
   }
 
   console.log(`appointment and encounter statuses: ${appointment.status}, ${encounter.status}`);
@@ -108,15 +113,25 @@ export const performEffect = async (
   );
 
   console.log('Chart data received');
-  const pdfInfo = await composeAndCreateVisitNotePdf(
-    { chartData, additionalChartData },
-    visitResources,
-    secrets,
-    m2mToken
-  );
-  if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
-  console.log(`Creating visit note pdf docRef`);
-  await makeVisitNotePdfDocumentReference(oystehr, pdfInfo, patient.id, appointmentId, encounter.id!, listResources);
+  try {
+    const pdfInfo = await composeAndCreateVisitNotePdf(
+      { chartData, additionalChartData },
+      visitResources,
+      secrets,
+      m2mToken
+    );
+    if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
+    console.log(`Creating visit note pdf docRef`);
+    await makeVisitNotePdfDocumentReference(oystehr, pdfInfo, patient.id, appointmentId, encounter.id!, listResources);
+  } catch (error) {
+    console.error(`Error creating visit note pdf: ${error}`);
+    captureException(error, {
+      tags: {
+        appointmentId,
+        encounterId: encounter.id,
+      },
+    });
+  }
 
   return {
     message: 'Appointment status successfully changed.',
