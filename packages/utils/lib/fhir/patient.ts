@@ -430,7 +430,11 @@ export const getFullestAvailableName = (
   const lastName = getLastName(individual);
   let license = undefined;
   if (individual.resourceType === 'Practitioner') {
-    license = allLicensesForPractitioner(individual)[0]?.code;
+    const allLicensesWithDuplicates = allLicensesForPractitioner(individual)
+      ?.filter((license) => license.active)
+      .map((license) => license.code);
+
+    license = [...new Set(allLicensesWithDuplicates)].join(', ');
   }
   // const suffix = getSuffix(individual);
   if (firstName && lastName) {
