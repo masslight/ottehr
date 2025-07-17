@@ -160,7 +160,6 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
     const canBeSubmitted = encounterId && selectedTest && selectedCptCode;
     if (oystehrZambda && canBeSubmitted) {
       try {
-        console.log('calling create order');
         const res = await createInHouseLabOrder(oystehrZambda, {
           encounterId,
           testItem: selectedTest,
