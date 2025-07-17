@@ -1,4 +1,5 @@
 import { ErxConnectPractitionerParams, ErxEnrollPractitionerParams } from '@oystehr/sdk';
+import { keepPreviousData, useMutation, useQuery, UseQueryResult } from '@tanstack/react-query';
 import {
   Appointment,
   Bundle,
@@ -16,9 +17,7 @@ import {
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect } from 'react';
-import { useMutation, useQuery, UseQueryResult } from 'react-query';
 import {
-  APIError,
   ChartDataFields,
   ChartDataRequestedFields,
   createSmsModel,
@@ -49,7 +48,6 @@ import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
 import { createRefreshableAppointmentData, extractReviewAndSignAppointmentData } from '../../utils';
 import { useAppointmentStore } from './appointment.store';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetReviewAndSignData = (
   {
     appointmentId,
@@ -59,11 +57,13 @@ export const useGetReviewAndSignData = (
     runImmediately: boolean;
   },
   onSuccess: (data: ReviewAndSignData | undefined) => void
-) => {
+): UseQueryResult<(Appointment | Encounter)[], Error> => {
   const { oystehr } = useApiClients();
-  return useQuery(
-    ['telemed-appointment-review-and-sign', { appointmentId }],
-    async () => {
+
+  const queryResult = useQuery({
+    queryKey: ['telemed-appointment-review-and-sign', { appointmentId }],
+
+    queryFn: async () => {
       if (oystehr && appointmentId) {
         return (
           await oystehr.fhir.search<Appointment | Encounter>({
@@ -77,20 +77,20 @@ export const useGetReviewAndSignData = (
       }
       throw new Error('Oystehr client not defined or appointmentId not provided');
     },
-    {
-      enabled: runImmediately,
-      onSuccess: (data) => {
-        const reviewAndSignData = extractReviewAndSignAppointmentData(data);
-        onSuccess(reviewAndSignData);
-      },
-      onError: (err) => {
-        console.error('Error during fetching get telemed appointment: ', err);
-      },
+
+    enabled: runImmediately,
+  });
+
+  useEffect(() => {
+    if (queryResult.data && onSuccess) {
+      const reviewAndSignData = extractReviewAndSignAppointmentData(queryResult.data);
+      onSuccess(reviewAndSignData);
     }
-  );
+  }, [queryResult.data, onSuccess]);
+
+  return queryResult;
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useRefreshableAppointmentData = (
   {
     appointmentId,
@@ -100,7 +100,7 @@ export const useRefreshableAppointmentData = (
     isEnabled: boolean;
   },
   onSuccess: (data: RefreshableAppointmentData) => void
-) => {
+): UseQueryResult<VisitResources[], unknown> => {
   return useGetTelemedAppointmentPeriodicRefresh(
     {
       appointmentId: appointmentId,
@@ -114,7 +114,6 @@ export const useRefreshableAppointmentData = (
   );
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetTelemedAppointmentPeriodicRefresh = (
   {
     appointmentId,
@@ -126,12 +125,14 @@ export const useGetTelemedAppointmentPeriodicRefresh = (
     refreshIntervalMs: number | undefined;
   },
   onSuccess: (data: VisitResources[]) => void
-) => {
+): UseQueryResult<VisitResources[], unknown> => {
   const { oystehr } = useApiClients();
   const refetchOptions = refreshIntervalMs ? { refetchInterval: refreshIntervalMs } : {};
-  return useQuery(
-    ['telemed-appointment-periodic-refresh', { appointmentId }],
-    async () => {
+
+  const queryResult = useQuery({
+    queryKey: ['telemed-appointment-periodic-refresh', appointmentId],
+
+    queryFn: async () => {
       if (oystehr && appointmentId) {
         return (
           await oystehr.fhir.search<VisitResources>({
@@ -145,15 +146,18 @@ export const useGetTelemedAppointmentPeriodicRefresh = (
       }
       throw new Error('fhir client not defined or appointmentId not provided');
     },
-    {
-      ...refetchOptions,
-      enabled: isEnabled && Boolean(appointmentId) && Boolean(oystehr),
-      onSuccess,
-      onError: (err) => {
-        console.error('Error during fetching get telemed appointment periodic: ', err);
-      },
+
+    ...refetchOptions,
+    enabled: isEnabled && Boolean(appointmentId) && Boolean(oystehr),
+  });
+
+  useEffect(() => {
+    if (queryResult.data && onSuccess) {
+      onSuccess(queryResult.data);
     }
-  );
+  }, [queryResult.data, onSuccess]);
+
+  return queryResult;
 };
 
 export type VisitResources = Appointment | DocumentReference | Encounter | Location | Patient | QuestionnaireResponse;
@@ -167,9 +171,10 @@ export const useGetAppointment = (
   onSuccess: (data: VisitResources[]) => void
 ): UseQueryResult<VisitResources[], unknown> => {
   const { oystehr } = useApiClients();
-  const query = useQuery(
-    ['telemed-appointment', { appointmentId }],
-    async () => {
+  const query = useQuery({
+    queryKey: ['telemed-appointment', appointmentId],
+
+    queryFn: async () => {
       if (oystehr && appointmentId) {
         return (
           await oystehr.fhir.search<VisitResources>({
@@ -210,15 +215,17 @@ export const useGetAppointment = (
       }
       throw new Error('fhir client not defined or appointmentId not provided');
     },
-    {
-      enabled: Boolean(oystehr) && Boolean(appointmentId),
-      onSuccess,
-      onError: (err) => {
-        console.error('Error during fetching get telemed appointment: ', err);
-      },
-    }
-  );
+
+    enabled: Boolean(oystehr) && Boolean(appointmentId),
+  });
+
   const { isFetching } = query;
+
+  useEffect(() => {
+    if (query.data && onSuccess) {
+      onSuccess(query.data);
+    }
+  }, [query.data, onSuccess]);
 
   useEffect(() => {
     useAppointmentStore.setState({ isAppointmentLoading: isFetching });
@@ -239,9 +246,10 @@ export const useGetDocumentReferences = (
   onSuccess: (data: Bundle<FhirResource>) => void
 ) => {
   const { oystehr } = useApiClients();
-  return useQuery(
-    ['telemed-appointment-documents', { appointmentId }],
-    () => {
+  const queryResult = useQuery({
+    queryKey: ['telemed-appointment-documents', appointmentId],
+
+    queryFn: () => {
       if (oystehr && appointmentId && patientId) {
         return oystehr.fhir.batch({
           requests: [
@@ -254,14 +262,17 @@ export const useGetDocumentReferences = (
       }
       throw new Error('fhir client not defined or appointmentId and patientId not provided 3');
     },
-    {
-      enabled: Boolean(oystehr) && Boolean(appointmentId),
-      onSuccess,
-      onError: (err) => {
-        console.error('Error during fetching get telemed appointment related documents: ', err);
-      },
+
+    enabled: Boolean(oystehr) && Boolean(appointmentId),
+  });
+
+  useEffect(() => {
+    if (queryResult.data) {
+      onSuccess(queryResult.data as Bundle<FhirResource>);
     }
-  );
+  }, [queryResult.data, onSuccess]);
+
+  return queryResult;
 };
 
 export const useGetTelemedAppointmentWithSMSModel = (
@@ -276,9 +287,10 @@ export const useGetTelemedAppointmentWithSMSModel = (
 ): { data: TelemedAppointmentInformation | undefined; isFetching: boolean } => {
   const { oystehr } = useApiClients();
 
-  return useQuery(
-    ['telemed-appointment-messaging', { appointmentId }],
-    async () => {
+  const queryResult = useQuery({
+    queryKey: ['telemed-appointment-messaging', appointmentId],
+
+    queryFn: async () => {
       if (oystehr && appointmentId) {
         const appointmentResources = (
           await oystehr.fhir.search<Appointment | Patient | RelatedPerson>({
@@ -307,26 +319,29 @@ export const useGetTelemedAppointmentWithSMSModel = (
       }
       throw new Error('fhir client is not defined or appointmentId and patientId are not provided');
     },
-    {
-      refetchInterval: CHAT_REFETCH_INTERVAL,
-      onSuccess,
-      onError: (err) => {
-        console.error('Error during fetching appointment or creating SMS model: ', err);
-      },
-      enabled: !!oystehr && !!appointmentId,
+
+    refetchInterval: CHAT_REFETCH_INTERVAL,
+    enabled: !!oystehr && !!appointmentId,
+  });
+
+  useEffect(() => {
+    if (queryResult.data && onSuccess) {
+      onSuccess(queryResult.data as unknown as TelemedAppointmentInformation);
     }
-  );
+  }, [queryResult.data, onSuccess]);
+
+  return queryResult as unknown as { data: TelemedAppointmentInformation | undefined; isFetching: boolean };
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetMeetingData = (
   getAccessTokenSilently: () => Promise<string>,
   onSuccess: (data: MeetingData) => void,
   onError: (error: Error) => void
-) => {
-  return useQuery(
-    ['meeting-data'],
-    async () => {
+): UseQueryResult<MeetingData, Error> => {
+  const queryResult = useQuery({
+    queryKey: ['meeting-data'],
+
+    queryFn: async () => {
       const appointment = useAppointmentStore.getState();
       const token = await getAccessTokenSilently();
 
@@ -349,12 +364,23 @@ export const useGetMeetingData = (
 
       throw new Error('token or encounterId not provided');
     },
-    {
-      enabled: false,
-      onSuccess,
-      onError,
+
+    enabled: false,
+  });
+
+  useEffect(() => {
+    if (queryResult.data && onSuccess) {
+      onSuccess(queryResult.data);
     }
-  );
+  }, [queryResult.data, onSuccess]);
+
+  useEffect(() => {
+    if (queryResult.error && onError) {
+      onError(queryResult.error);
+    }
+  }, [queryResult.error, onError]);
+
+  return queryResult;
 };
 
 export const CHART_DATA_QUERY_KEY_BASE = 'telemed-get-chart-data';
@@ -401,9 +427,10 @@ export const useGetChartData = (
     requestedFields,
   ];
 
-  const query = useQuery(
-    key,
-    () => {
+  const query = useQuery({
+    queryKey: key,
+
+    queryFn: () => {
       if (apiClient && encounterId) {
         return apiClient.getChartData({
           encounterId,
@@ -412,19 +439,24 @@ export const useGetChartData = (
       }
       throw new Error('api client not defined or encounterId not provided');
     },
-    {
-      onSuccess: (data) => {
-        onSuccess(data);
-      },
-      onError: (err) => {
-        onError?.(err);
-        console.error('Error during fetching get telemed appointments: ', err);
-      },
-      enabled: !!apiClient && !!encounterId && !!user && !isAppointmentLoading && enabled,
-      staleTime: 0,
-      refetchInterval: refetchInterval || false,
+
+    enabled: !!apiClient && !!encounterId && !!user && !isAppointmentLoading && enabled,
+    staleTime: 0,
+    refetchInterval: refetchInterval || false,
+  });
+
+  useEffect(() => {
+    if (query.data && onSuccess) {
+      onSuccess(query.data);
     }
-  );
+  }, [query.data, onSuccess]);
+
+  useEffect(() => {
+    if (query.error && onError) {
+      onError?.(query.error);
+    }
+  }, [query.error, onError]);
+
   return {
     ...query,
     queryKey: key,
@@ -481,92 +513,103 @@ export type ExtractObjectType<T> = T extends (infer U)[] ? U : never;
 export const useGetMedicationsSearch = (medicationSearchTerm: string) => {
   const { oystehr } = useApiClients();
 
-  return useQuery(
-    ['medications-search', { medicationSearchTerm }],
-    async () => {
+  const queryResult = useQuery({
+    queryKey: ['medications-search', medicationSearchTerm],
+
+    queryFn: async () => {
       if (oystehr) {
         return oystehr.erx.searchMedications({ name: medicationSearchTerm });
       }
       throw new Error('api client not defined');
     },
-    {
-      onError: (_err) => {
-        enqueueSnackbar('An error occurred during the search. Please try again in a moment', {
-          variant: 'error',
-        });
-      },
-      enabled: Boolean(medicationSearchTerm),
-      keepPreviousData: true,
-      staleTime: QUERY_STALE_TIME,
+
+    enabled: Boolean(medicationSearchTerm),
+    placeholderData: keepPreviousData,
+    staleTime: QUERY_STALE_TIME,
+  });
+
+  useEffect(() => {
+    if (queryResult.error) {
+      enqueueSnackbar('An error occurred during the search. Please try again in a moment', {
+        variant: 'error',
+      });
     }
-  );
+  }, [queryResult.error]);
+
+  return queryResult;
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetAllergiesSearch = (allergiesSearchTerm: string) => {
   const { oystehr } = useApiClients();
 
-  return useQuery(
-    ['allergies-search', { allergiesSearchTerm }],
-    async () => {
+  const queryResult = useQuery({
+    queryKey: ['allergies-search', allergiesSearchTerm],
+
+    queryFn: async () => {
       if (oystehr) {
         return oystehr.erx.searchAllergens({ name: allergiesSearchTerm });
       }
       throw new Error('api client not defined');
     },
-    {
-      onError: (_err) => {
-        enqueueSnackbar('An error occurred during the search. Please try again in a moment', {
-          variant: 'error',
-        });
-      },
-      enabled: Boolean(allergiesSearchTerm),
-      keepPreviousData: true,
-      staleTime: QUERY_STALE_TIME,
+
+    enabled: Boolean(allergiesSearchTerm),
+    placeholderData: keepPreviousData,
+    staleTime: QUERY_STALE_TIME,
+  });
+
+  useEffect(() => {
+    if (queryResult.error) {
+      enqueueSnackbar('An error occurred during the search. Please try again in a moment', {
+        variant: 'error',
+      });
     }
-  );
+  }, [queryResult.error]);
+
+  return queryResult;
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetCreateExternalLabResources = ({ patientId, search }: GetCreateLabOrderResources) => {
   const apiClient = useOystehrAPIClient();
-  return useQuery(
-    ['external lab resource search', { patientId, search }],
-    async () => {
+  return useQuery({
+    queryKey: ['external lab resource search', patientId, search],
+
+    queryFn: async () => {
       return apiClient?.getCreateExternalLabResources({ patientId, search });
     },
-    {
-      enabled: Boolean(apiClient && (patientId || search)),
-      keepPreviousData: true,
-      staleTime: QUERY_STALE_TIME,
-    }
-  );
+
+    enabled: Boolean(apiClient && (patientId || search)),
+    placeholderData: keepPreviousData,
+    staleTime: QUERY_STALE_TIME,
+  });
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetIcd10Search = ({ search, sabs, radiologyOnly }: IcdSearchRequestParams) => {
   const apiClient = useOystehrAPIClient();
-  const openError = (): void => {
-    enqueueSnackbar('An error occurred during the search. Please try again in a moment.', {
-      variant: 'error',
-    });
-  };
 
-  return useQuery(
-    ['icd-search', { search, sabs, radiologyOnly }],
-    async () => {
+  const queryResult = useQuery({
+    queryKey: ['icd-search', search, sabs, radiologyOnly],
+
+    queryFn: async () => {
       return apiClient?.icdSearch({ search, sabs, radiologyOnly });
     },
-    {
-      onError: (error: APIError) => {
-        openError();
-        return error;
-      },
-      enabled: Boolean(apiClient && search),
-      keepPreviousData: true,
-      staleTime: QUERY_STALE_TIME,
+
+    enabled: Boolean(apiClient && search),
+    placeholderData: keepPreviousData,
+    staleTime: QUERY_STALE_TIME,
+  });
+
+  useEffect(() => {
+    if (queryResult.error) {
+      enqueueSnackbar('An error occurred during the search. Please try again in a moment.', {
+        variant: 'error',
+      });
     }
-  );
+  }, [queryResult.error]);
+
+  return queryResult;
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
@@ -608,9 +651,10 @@ export const useGetPatientInstructions = (
 ) => {
   const apiClient = useOystehrAPIClient();
 
-  return useQuery(
-    ['telemed-get-patient-instructions', { apiClient, type }],
-    () => {
+  const queryResult = useQuery({
+    queryKey: ['telemed-get-patient-instructions', type],
+
+    queryFn: () => {
       if (apiClient) {
         return apiClient.getPatientInstructions({
           type,
@@ -618,14 +662,17 @@ export const useGetPatientInstructions = (
       }
       throw new Error('api client not defined');
     },
-    {
-      onSuccess,
-      onError: (err) => {
-        console.error('Error during fetching get patient instructions: ', err);
-      },
-      enabled: !!apiClient,
+
+    enabled: !!apiClient,
+  });
+
+  useEffect(() => {
+    if (queryResult.data && onSuccess) {
+      onSuccess(queryResult.data);
     }
-  );
+  }, [queryResult.data, onSuccess]);
+
+  return queryResult;
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
@@ -668,9 +715,10 @@ export const useSyncERXPatient = ({
 }) => {
   const { oystehr } = useApiClients();
 
-  return useQuery(
-    ['erx-sync-patient', patient],
-    async () => {
+  const queryResult = useQuery({
+    queryKey: ['erx-sync-patient', patient],
+
+    queryFn: async () => {
       if (oystehr) {
         console.log(`Start syncing patient with erx patient ${patient.id}`);
         try {
@@ -684,24 +732,31 @@ export const useSyncERXPatient = ({
       }
       throw new Error('oystehr client is not defined');
     },
-    {
-      retry: 2,
-      enabled,
-      onError,
-      staleTime: 0,
-      cacheTime: 0,
-      refetchOnMount: true,
+
+    retry: 2,
+    enabled,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: true,
+  });
+
+  useEffect(() => {
+    if (queryResult.error && onError) {
+      onError(queryResult.error);
     }
-  );
+  }, [queryResult.error, onError]);
+
+  return queryResult;
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useConnectPractitionerToERX = ({ patientId }: { patientId?: string }) => {
   const { oystehr } = useApiClients();
 
-  return useMutation(
-    ['erx-connect-practitioner', { patientId }],
-    async () => {
+  return useMutation({
+    mutationKey: ['erx-connect-practitioner', patientId],
+
+    mutationFn: async () => {
       if (oystehr) {
         console.log(`Start connecting practitioner to erx`);
         try {
@@ -719,19 +774,19 @@ export const useConnectPractitionerToERX = ({ patientId }: { patientId?: string 
       }
       throw new Error('oystehr client is not defined');
     },
-    {
-      retry: 2,
-    }
-  );
+
+    retry: 2,
+  });
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useEnrollPractitionerToERX = ({ onError }: { onError?: (err: any) => void }) => {
   const { oystehr } = useApiClients();
 
-  return useMutation(
-    ['erx-enroll-practitioner'],
-    async (practitionerId: string) => {
+  return useMutation({
+    mutationKey: ['erx-enroll-practitioner'],
+
+    mutationFn: async (practitionerId: string) => {
       if (oystehr) {
         console.log(`Start enrolling practitioner to erx`);
         try {
@@ -750,11 +805,10 @@ export const useEnrollPractitionerToERX = ({ onError }: { onError?: (err: any) =
       }
       throw new Error('oystehr client is not defined');
     },
-    {
-      retry: 2,
-      onError,
-    }
-  );
+
+    retry: 2,
+    onError,
+  });
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
@@ -762,9 +816,10 @@ export const useCheckPractitionerEnrollment = ({ enabled }: { enabled: boolean }
   const { oystehr } = useApiClients();
   const user = useEvolveUser();
 
-  return useQuery(
-    ['erx-check-practitioner-enrollment'],
-    async () => {
+  return useQuery({
+    queryKey: ['erx-check-practitioner-enrollment'],
+
+    queryFn: async () => {
       if (oystehr) {
         console.log(`Start checking practitioner enrollment`);
         try {
@@ -783,14 +838,13 @@ export const useCheckPractitionerEnrollment = ({ enabled }: { enabled: boolean }
       }
       throw new Error('oystehr client is not defined');
     },
-    {
-      retry: 2,
-      enabled,
-      staleTime: 0,
-      cacheTime: 0,
-      refetchOnMount: true,
-    }
-  );
+
+    retry: 2,
+    enabled,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: true,
+  });
 };
 
 /*
@@ -799,9 +853,10 @@ export const useCheckPractitionerEnrollment = ({ enabled }: { enabled: boolean }
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetInsurancePlan = ({ id }: { id: string | undefined }) => {
   const { oystehr } = useApiClients();
-  return useQuery(
-    ['telemed-insurance-plan', { id }],
-    () => {
+  const queryResult = useQuery({
+    queryKey: ['telemed-insurance-plan', id],
+
+    queryFn: () => {
       if (oystehr && id) {
         return oystehr.fhir.get<InsurancePlan>({
           resourceType: 'InsurancePlan',
@@ -810,13 +865,11 @@ export const useGetInsurancePlan = ({ id }: { id: string | undefined }) => {
       }
       throw new Error('fhir client not defined or Insurance Plan ID not provided');
     },
-    {
-      enabled: Boolean(oystehr) && Boolean(id),
-      onError: (err) => {
-        console.error('Error during fetching get Insurance Plan: ', err);
-      },
-    }
-  );
+
+    enabled: Boolean(oystehr) && Boolean(id),
+  });
+
+  return queryResult;
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
@@ -842,31 +895,25 @@ export const useGetMedicationOrders = (searchBy: GetMedicationOrdersInput['searc
   const encounterIdIsDefined = searchBy.field === 'encounterId' && searchBy.value;
   const encounterIdsHasLen = searchBy.field === 'encounterIds' && searchBy.value.length > 0;
 
-  return useQuery(
-    ['telemed-get-medication-orders', JSON.stringify(searchBy), apiClient],
-    () => {
+  return useQuery({
+    queryKey: ['telemed-get-medication-orders', JSON.stringify(searchBy)],
+
+    queryFn: () => {
       if (apiClient) {
         return apiClient.getMedicationOrders({ searchBy }) as Promise<GetMedicationOrdersResponse>;
       }
       throw new Error('api client not defined');
     },
-    {
-      enabled: !!apiClient && Boolean(encounterIdIsDefined || encounterIdsHasLen),
-      retry: 2,
-      staleTime: 5 * 60 * 1000,
-    }
-  );
+
+    enabled: !!apiClient && Boolean(encounterIdIsDefined || encounterIdsHasLen),
+    retry: 2,
+    staleTime: 5 * 60 * 1000,
+  });
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetMedicationList = () => {
   const { oystehr } = useApiClients();
-
-  const openError = (): void => {
-    enqueueSnackbar('An error occurred while searching medications.', {
-      variant: 'error',
-    });
-  };
 
   const getMedicationIdentifierNames = (data: Medication[]): Record<string, string> => {
     return (data || []).reduce(
@@ -883,9 +930,10 @@ export const useGetMedicationList = () => {
     );
   };
 
-  return useQuery(
-    ['medication-list-search'],
-    async () => {
+  const queryResult = useQuery({
+    queryKey: ['medication-list-search'],
+
+    queryFn: async () => {
       if (!oystehr) {
         return [];
       }
@@ -896,13 +944,18 @@ export const useGetMedicationList = () => {
 
       return getMedicationIdentifierNames(data.unbundle());
     },
-    {
-      onError: (_err) => {
-        openError();
-        return {};
-      },
-      keepPreviousData: true,
-      staleTime: QUERY_STALE_TIME,
+
+    placeholderData: keepPreviousData,
+    staleTime: QUERY_STALE_TIME,
+  });
+
+  useEffect(() => {
+    if (queryResult.error) {
+      enqueueSnackbar('An error occurred while searching medications.', {
+        variant: 'error',
+      });
     }
-  );
+  }, [queryResult.error]);
+
+  return queryResult;
 };

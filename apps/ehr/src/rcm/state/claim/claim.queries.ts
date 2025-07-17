@@ -1,6 +1,6 @@
+import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   Appointment,
-  Bundle,
   Claim,
   Coverage,
   DocumentReference,
@@ -12,7 +12,7 @@ import {
   Patient,
   RelatedPerson,
 } from 'fhir/r4b';
-import { useMutation, useQuery } from 'react-query';
+import { useEffect } from 'react';
 import { INSURANCE_PLAN_PAYER_META_TAG_CODE } from 'utils';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { findResourceByType, generateOpByResourceData, getCoverageRelatedResources } from '../../utils';
@@ -24,13 +24,14 @@ export const useGetClaim = (
   }: {
     claimId: string | undefined;
   },
-  onSuccess: (data: Bundle<FhirResource>[]) => void
+  onSuccess: (data: FhirResource[]) => void
 ) => {
   const { oystehr } = useApiClients();
 
-  return useQuery(
-    ['rcm-claim', claimId],
-    async () => {
+  const queryResult = useQuery({
+    queryKey: ['rcm-claim', claimId],
+
+    queryFn: async () => {
       if (oystehr && claimId) {
         const resources = (
           await oystehr.fhir.search<
@@ -74,22 +75,25 @@ export const useGetClaim = (
       }
       throw new Error('fhir client not defined or claimId not provided');
     },
-    {
-      onSuccess,
-      onError: (err) => {
-        console.error('Error during fetching get claim: ', err);
-      },
+  });
+
+  useEffect(() => {
+    if (queryResult.data && onSuccess) {
+      onSuccess(queryResult.data);
     }
-  );
+  }, [queryResult.data, onSuccess]);
+
+  return queryResult;
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetInsurancePlans = (onSuccess: (data: InsurancePlan[]) => void) => {
   const { oystehr } = useApiClients();
 
-  return useQuery(
-    ['rcm-insurance-plans'],
-    async () => {
+  const queryResult = useQuery({
+    queryKey: ['rcm-insurance-plans'],
+
+    queryFn: async () => {
       if (oystehr) {
         return (
           await oystehr.fhir.search<InsurancePlan>({
@@ -109,22 +113,25 @@ export const useGetInsurancePlans = (onSuccess: (data: InsurancePlan[]) => void)
       }
       throw new Error('fhir client not defined');
     },
-    {
-      onSuccess,
-      onError: (err) => {
-        console.error('Error during fetching get insurance plans: ', err);
-      },
+  });
+
+  useEffect(() => {
+    if (queryResult.data && onSuccess) {
+      onSuccess(queryResult.data);
     }
-  );
+  }, [queryResult.data, onSuccess]);
+
+  return queryResult;
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetOrganizations = (onSuccess: (data: Organization[]) => void) => {
   const { oystehr } = useApiClients();
 
-  return useQuery(
-    ['rcm-organizations'],
-    async () => {
+  const queryResult = useQuery({
+    queryKey: ['rcm-organizations'],
+
+    queryFn: async () => {
       if (oystehr) {
         return (
           await oystehr.fhir.search<Organization>({
@@ -134,22 +141,25 @@ export const useGetOrganizations = (onSuccess: (data: Organization[]) => void) =
       }
       throw new Error('fhir client not defined');
     },
-    {
-      onSuccess,
-      onError: (err) => {
-        console.error('Error during fetching get organizations: ', err);
-      },
+  });
+
+  useEffect(() => {
+    if (queryResult.data && onSuccess) {
+      onSuccess(queryResult.data);
     }
-  );
+  }, [queryResult.data, onSuccess]);
+
+  return queryResult;
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetFacilities = (onSuccess: (data: Location[]) => void) => {
   const { oystehr } = useApiClients();
 
-  return useQuery(
-    ['rcm-facilities'],
-    async () => {
+  const queryResult = useQuery({
+    queryKey: ['rcm-facilities'],
+
+    queryFn: async () => {
       if (oystehr) {
         return (
           await oystehr.fhir.search<Location>({
@@ -159,13 +169,15 @@ export const useGetFacilities = (onSuccess: (data: Location[]) => void) => {
       }
       throw new Error('fhir client not defined');
     },
-    {
-      onSuccess,
-      onError: (err) => {
-        console.error('Error during fetching get facilities: ', err);
-      },
+  });
+
+  useEffect(() => {
+    if (queryResult.data && onSuccess) {
+      onSuccess(queryResult.data);
     }
-  );
+  }, [queryResult.data, onSuccess]);
+
+  return queryResult;
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
