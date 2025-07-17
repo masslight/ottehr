@@ -1,5 +1,4 @@
 import { Close } from '@mui/icons-material';
-import { LoadingButton } from '@mui/lab';
 import {
   Autocomplete,
   Button,
@@ -24,6 +23,7 @@ import { structureQuestionnaireResponse } from '../../helpers/qr-structure';
 import { useUpdatePatientAccount } from '../../hooks/useGetPatient';
 import { usePatientStore } from '../../state/patient.store';
 import { BasicDatePicker as DatePicker, FormSelect, FormTextField, LabeledField, Option } from '../form';
+import { RoundedButton } from '../RoundedButton';
 
 interface AddInsuranceModalProps {
   open: boolean;
@@ -415,7 +415,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
         >
           Cancel
         </Button>
-        <LoadingButton
+        <RoundedButton
           data-testid={dataTestIds.addInsuranceDialog.addInsuranceButton}
           variant="contained"
           color="primary"
@@ -426,9 +426,10 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
             fontWeight: 'bold',
           }}
           onClick={handleSubmit(onSubmit)}
+          loading={submitQR.isLoading}
         >
           Add Insurance
-        </LoadingButton>
+        </RoundedButton>
       </DialogActions>
     </Dialog>
   );
