@@ -89,7 +89,10 @@ export interface PdfClient {
   setRightBound: (newBound: number) => void;
   getTextDimensions: (text: string, textStyle: TextStyle) => { width: number; height: number };
   setPageStyles: (newStyles: PageStyles) => void;
-  drawVariableWidthColumns: (columns: Column[], yPosStartOfColumn: number) => void;
+  drawVariableWidthColumns: (columns: Column[], yPosStartOfColumn: number, startPageIndex: number) => void;
+  getCurrentPageIndex: () => number;
+  setPageByIndex: (pageIndex: number) => void;
+  getTotalPages: () => number;
 }
 
 export type TelemedExamBlockData = {

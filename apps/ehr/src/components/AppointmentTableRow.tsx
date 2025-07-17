@@ -736,18 +736,19 @@ export default function AppointmentTableRow({
         }),
       }}
     >
-      <TableCell sx={{ verticalAlign: 'center' }}>
+      <TableCell sx={{ verticalAlign: 'center', position: 'relative' }}>
         {appointment.next && (
           <Box
             sx={{
               backgroundColor: CHIP_STATUS_MAP[appointment.status].background.secondary,
               position: 'absolute',
-              width: '25px',
+              width: '22px',
               bottom: 0,
-              left: '-25px',
+              left: '0',
               height: '100%',
-              borderTopLeftRadius: '10px',
-              borderBottomLeftRadius: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
             <Typography
@@ -756,9 +757,6 @@ export default function AppointmentTableRow({
               sx={{
                 writingMode: 'vertical-lr',
                 transform: 'scale(-1)',
-                position: 'absolute',
-                top: '28%',
-                left: '10%',
                 color: theme.palette.background.paper,
               }}
             >
@@ -767,7 +765,10 @@ export default function AppointmentTableRow({
           </Box>
         )}
       </TableCell>
-      <TableCell data-testid={dataTestIds.dashboard.tableRowStatus(appointment.id)}>
+      <TableCell
+        sx={{ padding: '8px 8px 8px 23px !important' }}
+        data-testid={dataTestIds.dashboard.tableRowStatus(appointment.id)}
+      >
         <Typography variant="body1">
           {capitalize?.(
             appointment.appointmentType === 'post-telemed'

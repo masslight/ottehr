@@ -15,10 +15,12 @@ import {
   serviceModeForHealthcareService,
   stateCodeToFullName,
 } from 'utils';
-import { getAuth0Token, topLevelCatch, ZambdaInput } from '../../../shared';
+import { getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
+
+const ZAMBDA_NAME = 'list-bookables';
 
 let oystehrToken: string;
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const fhirAPI = getSecret(SecretsKeys.FHIR_API, input.secrets);
     const projectAPI = getSecret(SecretsKeys.PROJECT_API, input.secrets);
@@ -54,7 +56,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
     return topLevelCatch('list-bookables', error, ENVIRONMENT);
   }
-};
+});
 
 async function getTelemedLocations(oystehr: Oystehr): Promise<BookableItem[]> {
   const resources = (
