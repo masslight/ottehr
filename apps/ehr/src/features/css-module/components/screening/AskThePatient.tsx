@@ -262,7 +262,7 @@ const AskThePatientComponent = (): React.ReactElement => {
 
   return (
     <Paper elevation={3} sx={{ p: 3, mt: 3, boxShadow: '0px 2px 4px -1px rgba(0,0,0,0.1)' }}>
-      <Grid container display="flex">
+      <Grid container>
         <Grid item xs={12}>
           <Typography variant="subtitle2" sx={{ color: otherColors.orange700, mb: 2 }}>
             ASK THE PATIENT
