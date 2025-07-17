@@ -1277,6 +1277,14 @@
                     "valueString": "(240) 333-3333"
                   }
                 ]
+              },
+               {
+                "linkId": "responsible-party-email",
+                "answer": [
+                  {
+                    "valueString": "ibenham+test@masslight.com"
+                  }
+                ]
               }
             ]
           },
@@ -1449,6 +1457,10 @@
               {
                 "value": "+12403333333",
                 "system": "phone"
+              },
+              {
+                "system": "email",
+                "value": "ibenham+test@masslight.com"
               }
             ],
             "patient": {
