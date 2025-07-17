@@ -237,3 +237,16 @@ export const configProceduresRequestsForGetChartData = (encounterId: string): Ba
     url: `/ServiceRequest?encounter=Encounter/${encounterId}&status=completed`,
   };
 };
+
+export const defaultChartDataFieldsSearchParams: ChartDataRequestedFields = {
+  medications: {
+    _sort: '-effective',
+    _include: 'MedicationStatement:source',
+    _tag: 'current-medication',
+  },
+  inhouseMedications: {
+    _sort: '-effective',
+    _include: 'MedicationStatement:source',
+    _tag: 'in-house-medication',
+  },
+};
