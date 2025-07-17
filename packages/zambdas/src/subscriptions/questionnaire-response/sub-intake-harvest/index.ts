@@ -2,7 +2,6 @@ import Oystehr, { BatchInputPostRequest, Bundle } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import {
-  Account,
   Appointment,
   Encounter,
   FhirResource,
@@ -11,20 +10,16 @@ import {
   Observation,
   Patient,
   QuestionnaireResponseItem,
-  RelatedPerson,
 } from 'fhir/r4b';
 import {
   ADDITIONAL_QUESTIONS_META_SYSTEM,
   checkBundleOutcomeOk,
   FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG,
-  flattenBundleResources,
   flattenIntakeQuestionnaireItems,
-  getActiveAccountGuarantorReference,
   getRelatedPersonForPatient,
   getSecret,
   IntakeQuestionnaireItem,
   SecretsKeys,
-  takeContainedOrFind,
 } from 'utils';
 import {
   createConsentResources,
@@ -32,6 +27,7 @@ import {
   createErxContactOperation,
   createMasterRecordPatchOperations,
   flagPaperworkEdit,
+  getAccountAndCoverageResourcesForPatient,
   updatePatientAccountFromQuestionnaire,
   updateStripeCustomer,
 } from '../../../ehr/shared/harvest';
@@ -52,7 +48,7 @@ import { QRSubscriptionInput, validateRequestParameters } from './validateReques
 let oystehrToken: string;
 
 export const index = wrapHandler('sub-intake-harvest', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log('Intake Harvest Hath Been Invoked');
+  console.log("Intake Harvest Hath Been Invoked - isaac's branch");
   console.log(`Input: ${JSON.stringify(input)}`);
   try {
     console.group('validateRequestParameters');
@@ -163,30 +159,30 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     tasksFailed.push(`Failed to update Account: ${JSON.stringify(error)}`);
     console.log(`Failed to update Account: ${JSON.stringify(error)}`);
   }
+  // if the account update was successful, fetch the latest account resources and update the stripe customer
   if (accountBundle && checkBundleOutcomeOk(accountBundle)) {
     try {
-      const bundleResources = flattenBundleResources<FhirResource>(accountBundle);
-      const accountResource = bundleResources.find((res): res is Account => res.resourceType === 'Account');
-      if (accountResource) {
-        const guarantorReference = getActiveAccountGuarantorReference(accountResource);
-        if (guarantorReference) {
-          const guarantorResource = takeContainedOrFind<RelatedPerson | Patient>(
-            guarantorReference,
-            bundleResources,
-            accountResource
-          );
-          if (guarantorResource) {
-            console.time('updating stripe customer');
-            const stripeClient = getStripeClient(secrets);
-            await updateStripeCustomer({ account: accountResource, guarantorResource, stripeClient });
-            console.timeEnd('updating stripe customer');
-          }
-        }
+      // refetch the patient account resources
+      const { account: updatedAccount, guarantorResource: updatedGuarantorResource } =
+        await getAccountAndCoverageResourcesForPatient(patientResource.id, oystehr);
+      if (updatedAccount && updatedGuarantorResource) {
+        console.time('updating stripe customer');
+        const stripeClient = getStripeClient(secrets);
+        await updateStripeCustomer({
+          account: updatedAccount,
+          guarantorResource: updatedGuarantorResource,
+          stripeClient,
+        });
+        console.timeEnd('updating stripe customer');
+      } else {
+        console.log('account or guarantor resource missing, skipping stripe customer update');
       }
     } catch (error: unknown) {
       tasksFailed.push('update stripe customer');
       console.log(`Failed to update stripe customer: ${JSON.stringify(error)}`);
     }
+  } else {
+    console.log('Account bundle is not ok, skipping update stripe customer');
   }
 
   const hipaa = flattenedPaperwork.find((data) => data.linkId === 'hipaa-acknowledgement')?.answer?.[0]?.valueBoolean;

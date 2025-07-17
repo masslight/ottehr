@@ -8,7 +8,7 @@ import { createOystehrClient, getAuth0Token } from '../shared';
 // Creates a DiagnosticReport and Observation(s) to mock a reflex test
 // npm run mock-reflex-test ['local' | 'dev' | 'development' | 'testing' | 'staging'] [serviceRequest Id]
 
-const VALID_ENVS = ['local', 'development', 'dev', 'testing', 'staging', 'demo'];
+const EXAMPLE_ENVS = ['local', 'development', 'dev', 'testing', 'staging', 'demo', 'production', 'etc'];
 const REFLEX_TEST_CODE: CodeableConcept = {
   coding: [
     {
@@ -19,30 +19,23 @@ const REFLEX_TEST_CODE: CodeableConcept = {
   ],
 };
 
-const checkEnvPassedIsValid = (env: string | undefined): boolean => {
-  if (!env) return false;
-  return VALID_ENVS.includes(env);
-};
-
 const main = async (): Promise<void> => {
   if (process.argv.length !== 4) {
     console.log(`exiting, incorrect number of arguments passed\n`);
-    console.log(`Usage: npm run mock-reflex-test [${VALID_ENVS.join(' | ')}] [serviceRequest Id]\n`);
+    console.log(`Usage: npm run mock-reflex-test [${EXAMPLE_ENVS.join(' | ')}] [serviceRequest Id]\n`);
     process.exit(1);
   }
 
   const ENV = process.argv[2];
   const serviceRequestId = process.argv[3];
 
-  if (!checkEnvPassedIsValid(ENV)) {
-    console.log(
-      `exiting, ENV variable passed is not valid\nUsage: npm run mock-reflex-test [${VALID_ENVS.join(
-        ' | '
-      )}] [serviceRequest Id]\n`
-    );
-    process.exit(1);
+  let envConfig;
+  try {
+    envConfig = JSON.parse(fs.readFileSync(`.env/${ENV}.json`, 'utf8'));
+  } catch (error) {
+    console.error(`Error parsing secrets for ENV '${ENV}'. Error: ${JSON.stringify(error)}`);
   }
-  const envConfig = JSON.parse(fs.readFileSync(`.env/${ENV}.json`, 'utf8'));
+
   const token = await getAuth0Token(envConfig);
   if (!token) {
     throw new Error('Failed to fetch auth token.');

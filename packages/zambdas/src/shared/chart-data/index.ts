@@ -48,6 +48,7 @@ import {
   DispositionFollowUpType,
   DispositionMetaFieldsNames,
   DispositionType,
+  ERX_MEDICATION_META_TAG_CODE,
   EXAM_OBSERVATION_META_SYSTEM,
   ExamCardsNames,
   ExamFieldsNames,
@@ -264,12 +265,11 @@ export function makePrescribedMedicationDTO(medRequest: MedicationRequest): Pres
       (coding) => coding.system === MEDICATION_DISPENSABLE_DRUG_ID
     )?.display,
     instructions: medRequest.dosageInstruction?.[0]?.patientInstruction,
-    added: medRequest.extension?.find((extension) => extension.url === 'http://api.zapehr.com/photon-event-time')
-      ?.valueDateTime,
+    added: medRequest.meta?.lastUpdated,
     provider: medRequest.requester?.reference?.split('/')?.[1],
     status: medRequest.status,
     prescriptionId: medRequest.identifier?.find(
-      (identifier) => identifier.system === 'http://api.zapehr.com/photon-prescription-id'
+      (identifier) => identifier.system === 'https://identifiers.fhir.oystehr.com/erx-prescription-id'
     )?.value,
   };
 }
@@ -1070,7 +1070,10 @@ const mapResourceToChartDataFields = (
   ) {
     data.inhouseMedications?.push(makeMedicationDTO(resource));
     resourceMapped = true;
-  } else if (resource?.resourceType === 'MedicationRequest') {
+  } else if (
+    resource?.resourceType === 'MedicationRequest' &&
+    chartDataResourceHasMetaTagByCode(resource, ERX_MEDICATION_META_TAG_CODE)
+  ) {
     data.prescribedMedications?.push(makePrescribedMedicationDTO(resource));
     resourceMapped = true;
   } else if (

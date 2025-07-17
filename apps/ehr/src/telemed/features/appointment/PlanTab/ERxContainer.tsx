@@ -15,7 +15,7 @@ import { Stack } from '@mui/system';
 import { Practitioner } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
-import { formatDateToMDYWithTime, RoleType } from 'utils';
+import { ERX_MEDICATION_META_TAG_CODE, formatDateToMDYWithTime, RoleType } from 'utils';
 import { RoundedButton } from '../../../../components/RoundedButton';
 import { useChartData } from '../../../../features/css-module/hooks/useChartData';
 import { useApiClients } from '../../../../hooks/useAppClients';
@@ -129,6 +129,7 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
     requestedFields: {
       prescribedMedications: {
         _include: 'MedicationRequest:requester',
+        _tag: ERX_MEDICATION_META_TAG_CODE,
       },
     },
     refetchInterval: 10000,
@@ -155,7 +156,7 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
   });
 
   const [isERXOpen, setIsERXOpen] = useState(false);
-  const [erxStatus, setERXStatus] = useState(ERXStatus.LOADING);
+  const [erxStatus, setERXStatus] = useState(ERXStatus.INITIAL);
   const [openTooltip, setOpenTooltip] = useState(false);
   const [cancellationLoading, setCancellationLoading] = useState<string[]>([]);
   const { oystehr } = useApiClients();
@@ -222,7 +223,7 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
                   onClick={() => onNewOrderClick()}
                   startIcon={erxStatus === ERXStatus.LOADING ? <CircularProgress size={16} /> : <AddIcon />}
                 >
-                  Open eRX
+                  {erxStatus === ERXStatus.LOADING ? 'Loading eRx' : 'Open eRx'}
                 </RoundedButton>
               )}
             </Stack>

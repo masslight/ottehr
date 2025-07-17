@@ -923,7 +923,7 @@ const buildCandidCoverageCreateInput = (
   insuranceOrg: Organization,
   candidPatient: CandidPreEncounterPatient
 ): MutableCoverage => {
-  if (!subscriber.name?.[0].family || !subscriber.name?.[0].given || !subscriber.name?.[0].use) {
+  if (!subscriber.name?.[0].family || !subscriber.name?.[0].given) {
     throw INVALID_INPUT_ERROR(
       'In order to collect payment, insurance subscriber name is required. Please update the patient record and try again.'
     );
@@ -949,7 +949,7 @@ const buildCandidCoverageCreateInput = (
       name: {
         family: subscriber.name?.[0].family,
         given: subscriber.name?.[0].given,
-        use: subscriber.name?.[0].use.toUpperCase() as NameUse,
+        use: (subscriber.name?.[0].use?.toUpperCase() as NameUse) ?? 'USUAL', // TODO default to usual if not specified
       },
       dateOfBirth: subscriber.birthDate,
       biologicalSex: mapGenderToSex(subscriber.gender),
@@ -1030,7 +1030,7 @@ export async function createEncounterFromAppointment(
     return undefined;
   }
   const apiClient = createCandidApiClient(secrets);
-  const createEncounterInput = await createCandidCreateEncounterInput(visitResources, oystehr);
+  let createEncounterInput = await createCandidCreateEncounterInput(visitResources, oystehr);
 
   if (
     !createEncounterInput.appointment.identifier?.find(
@@ -1048,6 +1048,7 @@ export async function createEncounterFromAppointment(
       oystehr,
       secrets,
     });
+    createEncounterInput = await createCandidCreateEncounterInput(visitResources, oystehr);
   }
 
   const request = await candidCreateEncounterFromAppointmentRequest(createEncounterInput, apiClient);

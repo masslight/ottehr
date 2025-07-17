@@ -22,14 +22,7 @@ import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ChangeEvent, memo, ReactElement, UIEvent, useEffect, useMemo, useState } from 'react';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
-import {
-  AppointmentMessaging,
-  ConversationMessage,
-  getTimezone,
-  initialsFromName,
-  markAllMessagesRead,
-  Timezone,
-} from 'utils';
+import { AppointmentMessaging, ConversationMessage, initialsFromName, markAllMessagesRead, Timezone } from 'utils';
 import { CompleteConfiguration } from '../../components/CompleteConfiguration';
 import { LANGUAGES } from '../../constants';
 import { dataTestIds } from '../../constants/data-test-ids';
@@ -78,7 +71,6 @@ const ChatModal = memo(
   ({
     appointment,
     patient,
-    currentLocation,
     onClose,
     onMarkAllRead,
     quickTexts,
@@ -102,13 +94,7 @@ const ChatModal = memo(
     const [pendingMessageSend, setPendingMessageSend] = useState<MessageModel | undefined>();
 
     const { patient: patientFromAppointment, smsModel: model } = appointment;
-    const timezone = useMemo(() => {
-      // const state = currentLocation?.address?.state;
-      if (currentLocation) {
-        return getTimezone(currentLocation.walkinSchedule ?? currentLocation) ?? 'America/New_York';
-      }
-      return 'America/New_York';
-    }, [currentLocation]);
+    const timezone = DateTime.now().zoneName;
 
     let patientName;
     if (patientFromAppointment?.firstName || patientFromAppointment?.lastName)

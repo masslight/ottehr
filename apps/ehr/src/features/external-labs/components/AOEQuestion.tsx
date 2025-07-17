@@ -42,6 +42,11 @@ export const AOEQuestion: React.FC<AOEQuestionProps> = (questionProps) => {
     defaultValue = answer?.join(',');
   }
 
+  // keep components in a controlled state
+  if ((questionIsList || type === 'text' || type === 'boolean') && defaultValue === undefined) {
+    defaultValue = '';
+  }
+
   if (!text) {
     throw new Error('question text is not defined');
   }
