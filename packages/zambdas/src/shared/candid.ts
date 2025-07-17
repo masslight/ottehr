@@ -71,8 +71,7 @@ import { chartDataResourceHasMetaTagByCode } from './chart-data';
 import { assertDefined } from './helpers';
 import { FullAppointmentResourcePackage } from './pdf/visit-details-pdf/types';
 
-export const CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM =
-  'https://api.joincandidhealth.com/api/encounters/v4/response/encounter_id';
+export const CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM = 'https://api.joincandidhealth.com/api/encounters/v4/response/';
 
 export const CANDID_PRE_ENCOUNTER_APPOINTMENT_ID_IDENTIFIER_SYSTEM =
   'https://pre-api.joincandidhealth.com/appointments/v1/response/appointment_id';

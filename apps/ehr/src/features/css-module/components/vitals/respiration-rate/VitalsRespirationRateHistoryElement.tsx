@@ -2,17 +2,20 @@ import { DeleteOutlined as DeleteIcon } from '@mui/icons-material';
 import ErrorIcon from '@mui/icons-material/Error';
 import { Box, IconButton, Typography, useTheme } from '@mui/material';
 import React, { JSX, useMemo, useState } from 'react';
-import { VitalsObservationDTO } from 'utils';
+import { VitalsObservationDTO, VitalsRespirationRateObservationDTO } from 'utils';
 import { DeleteVitalModal } from '../DeleteVitalModal';
-import { VitalsRespirationRateHistoryEntry } from './VitalsRespirationRateHistoryEntry';
 
 type VitalsRespirationRateHistoryElementProps = {
-  historyEntry: VitalsRespirationRateHistoryEntry;
+  historyEntry: VitalsRespirationRateObservationDTO;
+  isAlert?: boolean;
+  isDeletable?: boolean;
   onDelete: (entity: VitalsObservationDTO) => Promise<void>;
 };
 
 export const VitalsRespirationRateHistoryElementElement: React.FC<VitalsRespirationRateHistoryElementProps> = ({
   historyEntry,
+  isAlert = false,
+  isDeletable = false,
   onDelete,
 }): JSX.Element => {
   const theme = useTheme();
@@ -25,31 +28,24 @@ export const VitalsRespirationRateHistoryElementElement: React.FC<VitalsRespirat
     setIsDeleteModalOpen(false);
   };
 
-  const hasAuthor = !!historyEntry.author && historyEntry.author?.length > 0;
+  const hasAuthor = !!historyEntry.authorName && historyEntry.authorName?.length > 0;
   const lineColor = useMemo(() => {
-    if (historyEntry.respirationRateSeverity === 'abnormal') return theme.palette.error.main;
+    if (isAlert) return theme.palette.error.main;
     return theme.palette.text.primary;
-  }, [historyEntry.respirationRateSeverity, theme.palette.error.main, theme.palette.text.primary]);
+  }, [isAlert, theme.palette.error.main, theme.palette.text.primary]);
 
   return (
     <>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography color="textPrimary">
-          {historyEntry.debugEntrySource && (
-            <Typography component="span" sx={{ fontWeight: 'bold', color: theme.palette.text.primary }}>
-              {historyEntry.debugEntrySource === 'encounter' ? '[DEBUG_ENC]' : '[DEBUG_PAT]'}&nbsp;
-            </Typography>
-          )}
-          {historyEntry.recordDateTime} {hasAuthor && 'by'} {historyEntry.author} - &nbsp;
+          {historyEntry.lastUpdated} {hasAuthor && 'by'} {historyEntry.authorId} - &nbsp;
           <Typography component="span" sx={{ fontWeight: 'bold', color: lineColor }}>
-            {historyEntry.respirationsPerMin}/min
+            {historyEntry.value}/min
           </Typography>
-          {historyEntry.respirationRateSeverity === 'abnormal' && (
-            <ErrorIcon fontSize="small" sx={{ ml: '4px', verticalAlign: 'middle', color: lineColor }} />
-          )}
+          {isAlert && <ErrorIcon fontSize="small" sx={{ ml: '4px', verticalAlign: 'middle', color: lineColor }} />}
         </Typography>
 
-        {historyEntry.isDeletable && (
+        {isDeletable && (
           <IconButton
             size="small"
             aria-label="delete"
@@ -64,7 +60,7 @@ export const VitalsRespirationRateHistoryElementElement: React.FC<VitalsRespirat
       <DeleteVitalModal
         open={isDeleteModalOpen}
         onClose={handleCloseDeleteModal}
-        entity={historyEntry.vitalObservationDTO}
+        entity={historyEntry}
         onDelete={onDelete}
       />
     </>

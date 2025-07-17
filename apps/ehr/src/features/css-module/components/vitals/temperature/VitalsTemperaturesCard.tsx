@@ -21,31 +21,20 @@ import { RoundedButton } from '../../../../../components/RoundedButton';
 import { AccordionCard, DoubleColumnContainer } from '../../../../../telemed/components';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
 import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
-import { useVitalsCardState } from '../hooks/useVitalsCardState';
-import {
-  celsiusToFahrenheit,
-  composeTemperatureVitalsHistoryEntries,
-  isValidTemperatureCelsius,
-  textToTemperatureNumber,
-} from './helpers';
+import { useScreenDimensions } from '../hooks/useScreenDimensions';
+import { VitalsCardProps } from '../types';
+import { celsiusToFahrenheit, textToTemperatureNumber } from './helpers';
 import VitalTemperatureHistoryElement from './VitalTemperatureHistoryElement';
-import { VitalTemperatureHistoryEntry } from './VitalTemperatureHistoryEntry';
 
-const VitalsTemperaturesCard: React.FC = (): JSX.Element => {
-  const {
-    isLoadingVitalsByEncounter,
-    handleSaveVital,
-    handleDeleteVital,
-    isSavingCardData,
-    setSavingCardData,
-    screenDimensions: { isLargeScreen },
-    vitalsHistory: { mainHistoryEntries, extraHistoryEntries, latestHistoryEntry },
-    historyElementSkeletonText,
-  } = useVitalsCardState<VitalsTemperatureObservationDTO, VitalTemperatureHistoryEntry>(
-    VitalFieldNames.VitalTemperature,
-    composeTemperatureVitalsHistoryEntries
-  );
-
+type VitalsTemperatureCardProps = VitalsCardProps<VitalsTemperatureObservationDTO>;
+const VitalsTemperaturesCard: React.FC<VitalsTemperatureCardProps> = ({
+  handleSaveVital,
+  handleDeleteVital,
+  isLoading,
+  currentObs,
+  historicalObs,
+  historyElementSkeletonText,
+}): JSX.Element => {
   const [temperatureValueText, setTemperatureValueText] = useState('');
 
   // the method how this Temperature observation has been acquired
@@ -58,10 +47,11 @@ const VitalsTemperaturesCard: React.FC = (): JSX.Element => {
     setIsCollapsed((prevCollapseState) => !prevCollapseState);
   }, [setIsCollapsed]);
 
-  const isDisabledAddButton =
-    !temperatureValueText || isSavingCardData || isLoadingVitalsByEncounter || isTemperatureValidationError;
+  const { isLargeScreen } = useScreenDimensions();
 
-  const latestTemperatureValue = latestHistoryEntry?.temperatureCelsius;
+  const isDisabledAddButton = !temperatureValueText || isLoading || isTemperatureValidationError;
+
+  const latestTemperatureValue = currentObs[0]?.value;
 
   const enteredTemperatureInFahrenheit: number | undefined = useMemo(() => {
     const temperatureCelsius = textToTemperatureNumber(temperatureValueText);
@@ -77,7 +67,6 @@ const VitalsTemperaturesCard: React.FC = (): JSX.Element => {
 
     const observationMethod = toVitalTemperatureObservationMethod(observationQualifier);
     try {
-      setSavingCardData(true);
       const vitalObs: VitalsTemperatureObservationDTO = {
         field: VitalFieldNames.VitalTemperature,
         value: temperatureValueNumber,
@@ -88,18 +77,12 @@ const VitalsTemperaturesCard: React.FC = (): JSX.Element => {
       setObservationsQualifier('');
     } catch (error) {
       enqueueSnackbar('Error saving Temperature data', { variant: 'error' });
-    } finally {
-      setSavingCardData(false);
     }
   };
 
   const handleTextInputChange = useCallback((e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
     const tempAsText = e.target.value;
     setTemperatureValueText(tempAsText);
-    const temperatureCelsius = textToTemperatureNumber(tempAsText);
-    if (temperatureCelsius) {
-      setTemperatureValidationError(!isValidTemperatureCelsius(temperatureCelsius));
-    }
     if (tempAsText.length === 0) {
       setTemperatureValidationError(false);
     }
@@ -110,7 +93,7 @@ const VitalsTemperaturesCard: React.FC = (): JSX.Element => {
 
   const renderTempQualifierDropdown = (): JSX.Element => {
     return (
-      <FormControl fullWidth sx={{ backgroundColor: 'white' }} size="small" disabled={isSavingCardData}>
+      <FormControl fullWidth sx={{ backgroundColor: 'white' }} size="small" disabled={isLoading}>
         <InputLabel id="qualifier-label">Qualifier</InputLabel>
         <Select
           value={observationQualifier}
@@ -176,7 +159,7 @@ const VitalsTemperaturesCard: React.FC = (): JSX.Element => {
                   <VitalsTextInputFiled
                     label="Temp (C)"
                     value={temperatureValueText}
-                    disabled={isSavingCardData}
+                    disabled={isLoading}
                     isInputError={isTemperatureValidationError}
                     onChange={handleTextInputChange}
                   />
@@ -232,7 +215,7 @@ const VitalsTemperaturesCard: React.FC = (): JSX.Element => {
                     px: 2,
                     ml: 1,
                   }}
-                  startIcon={isSavingCardData ? <CircularProgress size={20} color="inherit" /> : null}
+                  startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : null}
                 >
                   Add
                 </RoundedButton>
@@ -241,9 +224,9 @@ const VitalsTemperaturesCard: React.FC = (): JSX.Element => {
           }
           rightColumn={
             <VitalsHistoryContainer
-              mainHistoryEntries={mainHistoryEntries}
-              extraHistoryEntries={extraHistoryEntries}
-              isLoading={isLoadingVitalsByEncounter}
+              currentEncounterObs={currentObs}
+              historicalObs={historicalObs}
+              isLoading={isLoading}
               historyElementSkeletonText={historyElementSkeletonText}
               historyElementCreator={(historyEntry) => {
                 return <VitalTemperatureHistoryElement historyEntry={historyEntry} onDelete={handleDeleteVital} />;

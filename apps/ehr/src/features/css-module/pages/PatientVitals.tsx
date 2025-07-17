@@ -6,32 +6,32 @@ import { AssessmentTitle } from 'src/telemed/features/appointment/AssessmentTab'
 import {
   AlertRule,
   allVitalsSearchConfigForEncounter,
+  VitalBloodPressureHistoryEntry,
   VitalFieldNames,
+  VitalHeartbeatHistoryEntry,
   VitalsDef,
   VitalsKey,
   VitalsNumericValueObservationDTO,
+  VitalsOxygenSatHistoryEntry,
+  VitalsRespirationRateHistoryEntry,
+  VitalTemperatureHistoryEntry,
 } from 'utils';
 import { PageTitle } from '../../../telemed/components/PageTitle';
 import { CSSLoader } from '../components/CSSLoader';
 import VitalsNotesCard from '../components/patient-info/VitalsNotesCard';
 import VitalBloodPressureHistoryElement from '../components/vitals/blood-pressure/VitalBloodPressureHistoryElement';
-import { VitalBloodPressureHistoryEntry } from '../components/vitals/blood-pressure/VitalBloodPressureHistoryEntry';
 import VitalsBloodPressureCard from '../components/vitals/blood-pressure/VitalsBloodPressureCard';
 import VitalHeartbeatHistoryElement from '../components/vitals/heartbeat/VitalHeartbeatHistoryElement';
-import { VitalHeartbeatHistoryEntry } from '../components/vitals/heartbeat/VitalHeartbeatHistoryEntry';
 import VitalsHeartbeatCard from '../components/vitals/heartbeat/VitalsHeartbeatCard';
 import VitalHeightHistoryElement from '../components/vitals/heights/VitalHeightHistoryElement';
 import { VitalHeightHistoryEntry } from '../components/vitals/heights/VitalHeightHistoryEntry';
 import VitalsHeightCard from '../components/vitals/heights/VitalsHeightCard';
 import VitalOxygenSatHistoryElement from '../components/vitals/oxygen-saturation/VitalOxygenSatHistoryElement';
 import VitalsOxygenSatCard from '../components/vitals/oxygen-saturation/VitalsOxygenSatCard';
-import { VitalsOxygenSatHistoryEntry } from '../components/vitals/oxygen-saturation/VitalsOxygenSatHistoryEntry';
 import VitalsRespirationRateCard from '../components/vitals/respiration-rate/VitalsRespirationRateCard';
 import VitalsRespirationRateHistoryElementElement from '../components/vitals/respiration-rate/VitalsRespirationRateHistoryElement';
-import { VitalsRespirationRateHistoryEntry } from '../components/vitals/respiration-rate/VitalsRespirationRateHistoryEntry';
 import VitalsTemperaturesCard from '../components/vitals/temperature/VitalsTemperaturesCard';
 import VitalTemperatureHistoryElement from '../components/vitals/temperature/VitalTemperatureHistoryElement';
-import { VitalTemperatureHistoryEntry } from '../components/vitals/temperature/VitalTemperatureHistoryEntry';
 import VitalsVisionCard from '../components/vitals/vision/VitalsVisionCard';
 import VitalsWeightsCard from '../components/vitals/weights/VitalsWeightsCard';
 import VitalWeightHistoryElement from '../components/vitals/weights/VitalWeightHistoryElement';
@@ -48,7 +48,7 @@ interface PatientVitalsProps {
 export const PatientVitals: React.FC<PatientVitalsProps> = () => {
   const { id: appointmentID } = useParams();
   const {
-    resources: { appointment, encounter },
+    resources: { appointment, encounter, patient },
     isLoading,
     error,
   } = useAppointment(appointmentID);
@@ -77,7 +77,6 @@ export const PatientVitals: React.FC<PatientVitalsProps> = () => {
       [VitalFieldNames.VitalWeight]: [],
     };
 
-    /*
     if (!patient?.birthDate || !chartData) return abnormalValues;
 
     const dob = patient.birthDate;
@@ -101,9 +100,9 @@ export const PatientVitals: React.FC<PatientVitalsProps> = () => {
         console.log('alertable values for', vitalsKey, alertableValues);
         abnormalValues[fieldName].push(...alertableValues);
       }
-    });*/
+    });
     return abnormalValues;
-  }, []);
+  }, [chartData, encounter?.id, patient?.birthDate]);
 
   if (isLoading || isChartDataLoading) return <CSSLoader />;
   if (error) return <Typography>Error: {error.message}</Typography>;
@@ -140,7 +139,6 @@ type AbnormalVitalsValuesMap = {
   [VitalFieldNames.VitalWeight]: VitalWeightHistoryEntry[];
 };
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const vitalsKeyToFieldNameMap: Record<VitalsKey, keyof AbnormalVitalsValuesMap> = {
   temperature: VitalFieldNames.VitalTemperature,
   heartRate: VitalFieldNames.VitalHeartbeat,
@@ -278,7 +276,6 @@ const AbnormalVitalsModal: React.FC<AbnormalVitalsModalProps> = ({ abnormalVital
   );
 };
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const findRulesForVitalsKeyAndDOB = (key: VitalsKey, dob: string): AlertRule[] => {
   const dateOfBirth = DateTime.fromISO(dob);
   const now = DateTime.now();
@@ -307,7 +304,6 @@ interface AlertableValuesInput {
   patientAgeInMonths: number;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const findAlertableValues = (input: AlertableValuesInput): VitalsNumericValueObservationDTO[] => {
   const { vitalsValues, rules, patientAgeInMonths } = input;
   return vitalsValues.filter((vitalVal) => {

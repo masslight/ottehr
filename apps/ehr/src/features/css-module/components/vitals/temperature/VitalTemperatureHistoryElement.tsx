@@ -2,17 +2,20 @@ import { DeleteOutlined as DeleteIcon } from '@mui/icons-material';
 import ErrorIcon from '@mui/icons-material/Error';
 import { Box, IconButton, Typography, useTheme } from '@mui/material';
 import React, { JSX, useState } from 'react';
-import { VitalsObservationDTO } from 'utils';
+import { VitalsObservationDTO, VitalsTemperatureObservationDTO } from 'utils';
 import { DeleteVitalModal } from '../DeleteVitalModal';
-import { VitalTemperatureHistoryEntry } from './VitalTemperatureHistoryEntry';
 
 type VitalTemperatureHistoryElementProps = {
-  historyEntry: VitalTemperatureHistoryEntry;
+  historyEntry: VitalsTemperatureObservationDTO;
+  isAlert?: boolean;
+  isDeletable?: boolean;
   onDelete: (entity: VitalsObservationDTO) => Promise<void>;
 };
 
 export const VitalTemperatureHistoryElement: React.FC<VitalTemperatureHistoryElementProps> = ({
   historyEntry,
+  isAlert = false,
+  isDeletable = false,
   onDelete,
 }): JSX.Element => {
   const theme = useTheme();
@@ -25,31 +28,24 @@ export const VitalTemperatureHistoryElement: React.FC<VitalTemperatureHistoryEle
     setIsDeleteModalOpen(false);
   };
 
-  const hasAuthor = !!historyEntry.author && historyEntry.author?.length > 0;
-  const lineColor = historyEntry.isTemperatureWarning ? theme.palette.error.main : theme.palette.text.primary;
+  const hasAuthor = !!historyEntry.authorName && historyEntry.authorName?.length > 0;
+  const lineColor = isAlert ? theme.palette.error.main : theme.palette.text.primary;
 
-  const observationMethod = historyEntry.vitalObservationDTO?.observationMethod;
+  const observationMethod = historyEntry.observationMethod;
 
   return (
     <>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography color="textPrimary">
-          {historyEntry.debugEntrySource && (
-            <Typography component="span" sx={{ fontWeight: 'bold', color: theme.palette.text.primary }}>
-              {historyEntry.debugEntrySource === 'encounter' ? '[DEBUG_ENC]' : '[DEBUG_PAT]'}&nbsp;
-            </Typography>
-          )}
-          {historyEntry.recordDateTime} {hasAuthor && 'by'} {historyEntry.author} - &nbsp;
+          {historyEntry.lastUpdated} {hasAuthor && 'by'} {historyEntry.authorName} - &nbsp;
           <Typography component="span" sx={{ fontWeight: 'bold', color: lineColor }}>
-            {historyEntry.temperatureCelsius} C
+            {historyEntry.value} C
           </Typography>
-          {historyEntry.isTemperatureWarning && (
-            <ErrorIcon fontSize="small" sx={{ ml: '4px', verticalAlign: 'middle', color: lineColor }} />
-          )}
+          {isAlert && <ErrorIcon fontSize="small" sx={{ ml: '4px', verticalAlign: 'middle', color: lineColor }} />}
           {observationMethod && ` (${observationMethod})`}
         </Typography>
 
-        {historyEntry.isDeletable && (
+        {isDeletable && (
           <IconButton
             size="small"
             aria-label="delete"
@@ -64,7 +60,7 @@ export const VitalTemperatureHistoryElement: React.FC<VitalTemperatureHistoryEle
       <DeleteVitalModal
         open={isDeleteModalOpen}
         onClose={handleCloseDeleteModal}
-        entity={historyEntry.vitalObservationDTO}
+        entity={historyEntry}
         onDelete={onDelete}
       />
     </>

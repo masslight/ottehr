@@ -1,19 +1,22 @@
 import { DeleteOutlined as DeleteIcon } from '@mui/icons-material';
-import ErrorIcon from '@mui/icons-material/Error';
+// import ErrorIcon from '@mui/icons-material/Error';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import { Box, IconButton, Skeleton, Typography, useTheme } from '@mui/material';
 import React, { JSX, useMemo, useState } from 'react';
-import { VitalsObservationDTO } from 'utils';
+import { VitalsObservationDTO, VitalsOxygenSatObservationDTO } from 'utils';
 import { DeleteVitalModal } from '../DeleteVitalModal';
-import { VitalsOxygenSatHistoryEntry } from './VitalsOxygenSatHistoryEntry';
 
 type VitalOxygenSatHistoryElementProps = {
-  historyEntry: VitalsOxygenSatHistoryEntry;
+  historyEntry: VitalsOxygenSatObservationDTO;
+  isAlert?: boolean;
+  isDeletable?: boolean;
   onDelete: (entity: VitalsObservationDTO) => Promise<void>;
 };
 
 export const VitalOxygenSatHistoryElement: React.FC<VitalOxygenSatHistoryElementProps> = ({
   historyEntry,
+  isAlert = false,
+  isDeletable = false,
   onDelete,
 }): JSX.Element => {
   const theme = useTheme();
@@ -26,37 +29,26 @@ export const VitalOxygenSatHistoryElement: React.FC<VitalOxygenSatHistoryElement
     setIsDeleteModalOpen(false);
   };
 
-  const hasAuthor = !!historyEntry.author && historyEntry.author?.length > 0;
+  const hasAuthor = !!historyEntry.authorName && historyEntry.authorName?.length > 0;
   const lineColor = useMemo(() => {
-    if (historyEntry.oxygenSatSeverity === 'critical') return theme.palette.error.main;
-    if (historyEntry.oxygenSatSeverity === 'abnormal') return theme.palette.warning.main;
+    if (isAlert) return theme.palette.warning.main;
     return theme.palette.text.primary;
-  }, [
-    historyEntry.oxygenSatSeverity,
-    theme.palette.error.main,
-    theme.palette.warning.main,
-    theme.palette.text.primary,
-  ]);
+  }, [isAlert, theme.palette.warning.main, theme.palette.text.primary]);
 
-  const observationMethod = historyEntry.vitalObservationDTO?.observationMethod;
+  const observationMethod = historyEntry.observationMethod;
 
   return (
     <>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography color="textPrimary">
-          {historyEntry.debugEntrySource && (
-            <Typography component="span" sx={{ fontWeight: 'bold', color: theme.palette.text.primary }}>
-              {historyEntry.debugEntrySource === 'encounter' ? '[DEBUG_ENC]' : '[DEBUG_PAT]'}&nbsp;
-            </Typography>
-          )}
-          {historyEntry.recordDateTime} {hasAuthor && 'by'} {historyEntry.author} - &nbsp;
+          {historyEntry.lastUpdated} {hasAuthor && 'by'} {historyEntry.authorName} - &nbsp;
           <Typography component="span" sx={{ fontWeight: 'bold', color: lineColor }}>
-            {historyEntry.oxygenSatPercentage}%
+            {historyEntry.value}%
           </Typography>
-          {historyEntry.oxygenSatSeverity === 'critical' && (
+          {/*historyEntry.oxygenSatSeverity === 'critical' && (
             <ErrorIcon fontSize="small" sx={{ ml: '4px', verticalAlign: 'middle', color: lineColor }} />
-          )}
-          {historyEntry.oxygenSatSeverity === 'abnormal' && (
+          )*/}
+          {isAlert && (
             <WarningAmberOutlinedIcon
               fontSize="small"
               sx={{ ml: '4px', verticalAlign: 'middle', color: theme.palette.warning.light }}
@@ -65,7 +57,7 @@ export const VitalOxygenSatHistoryElement: React.FC<VitalOxygenSatHistoryElement
           {observationMethod && ` (${observationMethod})`}
         </Typography>
 
-        {historyEntry.isDeletable && (
+        {isDeletable && (
           <IconButton
             size="small"
             aria-label="delete"
@@ -80,7 +72,7 @@ export const VitalOxygenSatHistoryElement: React.FC<VitalOxygenSatHistoryElement
       <DeleteVitalModal
         open={isDeleteModalOpen}
         onClose={handleCloseDeleteModal}
-        entity={historyEntry.vitalObservationDTO}
+        entity={historyEntry}
         onDelete={onDelete}
       />
     </>

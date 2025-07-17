@@ -1,12 +1,4 @@
-import {
-  isOxygenSaturationVitalObservation,
-  roundNumberToDecimalPlaces,
-  textToNumericValue,
-  VitalsObservationDTO,
-  VitalsOxygenSatObservationDTO,
-} from 'utils';
-import { composeVitalsHistoryEntries } from '../utils';
-import { VitalsOxygenSatHistoryEntry, VitalsOxygenSatSeverity } from './VitalsOxygenSatHistoryEntry';
+import { roundNumberToDecimalPlaces, textToNumericValue } from 'utils';
 
 export const textToOxygenSatNumber = (text: string): number | undefined => {
   const oxySatVal = textToNumericValue(text);
@@ -14,6 +6,7 @@ export const textToOxygenSatNumber = (text: string): number | undefined => {
   return roundNumberToDecimalPlaces(oxySatVal, 0);
 };
 
+/*
 export const isValidOxySatPercentageValue = (oxySatPercentage: number): boolean => {
   return oxySatPercentage >= 80 && oxySatPercentage <= 100;
 };
@@ -38,26 +31,4 @@ const getOxygenSatSeverity = (oxySatPercentage?: number): VitalsOxygenSatSeverit
   }
   return undefined;
 };
-
-export const composeOxygenSatHistoryEntries = (
-  encounterId: string,
-  userId: string | undefined,
-  vitalsEntitiesByEncounter: VitalsObservationDTO[],
-  vitalsEntitiesByPatient: VitalsObservationDTO[]
-): VitalsOxygenSatHistoryEntry[] => {
-  const res = composeVitalsHistoryEntries<VitalsOxygenSatObservationDTO, VitalsOxygenSatHistoryEntry>(
-    encounterId,
-    userId,
-    vitalsEntitiesByEncounter,
-    vitalsEntitiesByPatient,
-    isOxygenSaturationVitalObservation,
-    (observation) => {
-      return {
-        oxygenSatPercentage: observation.value,
-        oxygenSatSeverity: getOxygenSatSeverity(observation.value),
-      };
-    }
-  );
-
-  return res;
-};
+*/

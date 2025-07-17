@@ -6,25 +6,18 @@ import { RoundedButton } from '../../../../../components/RoundedButton';
 import { AccordionCard, DoubleColumnContainer } from '../../../../../telemed';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
 import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
-import { useVitalsCardState } from '../hooks/useVitalsCardState';
-import { composeWeightVitalsHistoryEntries } from './helpers';
+import { VitalsCardProps } from '../types';
 import VitalWeightHistoryElement from './VitalWeightHistoryElement';
-import { VitalWeightHistoryEntry } from './VitalWeightHistoryEntry';
 
-const VitalsWeightsCard: React.FC = (): JSX.Element => {
-  const {
-    isLoadingVitalsByEncounter,
-    handleSaveVital,
-    handleDeleteVital,
-    isSavingCardData,
-    setSavingCardData,
-    vitalsHistory: { mainHistoryEntries, extraHistoryEntries, latestHistoryEntry },
-    historyElementSkeletonText,
-  } = useVitalsCardState<VitalsWeightObservationDTO, VitalWeightHistoryEntry>(
-    VitalFieldNames.VitalWeight,
-    composeWeightVitalsHistoryEntries
-  );
-
+type VitalsWeightsCardProps = VitalsCardProps<VitalsWeightObservationDTO>;
+const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
+  handleSaveVital,
+  handleDeleteVital,
+  isLoading,
+  currentObs,
+  historicalObs,
+  historyElementSkeletonText,
+}): JSX.Element => {
   const [weightValueText, setWeightValueText] = useState('');
 
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
@@ -32,7 +25,7 @@ const VitalsWeightsCard: React.FC = (): JSX.Element => {
     setIsCollapsed((prevCollapseState) => !prevCollapseState);
   }, [setIsCollapsed]);
 
-  const latestWeightValue = latestHistoryEntry?.weightKg;
+  const latestWeightValue = currentObs[0]?.value;
 
   const enteredWeightInLb: number | undefined = useMemo(() => {
     const weightKg = textToWeightNumber(weightValueText);
@@ -44,7 +37,6 @@ const VitalsWeightsCard: React.FC = (): JSX.Element => {
     const weightValueNumber = textToWeightNumber(weightValueText);
     if (!weightValueNumber) return;
     try {
-      setSavingCardData(true);
       const vitalObs: VitalsWeightObservationDTO = {
         field: VitalFieldNames.VitalWeight,
         value: weightValueNumber,
@@ -53,8 +45,6 @@ const VitalsWeightsCard: React.FC = (): JSX.Element => {
       setWeightValueText('');
     } catch (error) {
       enqueueSnackbar('Error saving Weight data', { variant: 'error' });
-    } finally {
-      setSavingCardData(false);
     }
   };
 
@@ -92,7 +82,7 @@ const VitalsWeightsCard: React.FC = (): JSX.Element => {
                   <VitalsTextInputFiled
                     label="Weight (kg)"
                     value={weightValueText}
-                    disabled={isSavingCardData}
+                    disabled={isLoading}
                     isInputError={false}
                     onChange={(e) => setWeightValueText(e.target.value)}
                   />
@@ -127,7 +117,7 @@ const VitalsWeightsCard: React.FC = (): JSX.Element => {
               >
                 <RoundedButton
                   size="small"
-                  disabled={!weightValueText || isSavingCardData || isLoadingVitalsByEncounter}
+                  disabled={!weightValueText || isLoading}
                   onClick={() => handleSaveWeightObservation(weightValueText)}
                   color="primary"
                   sx={{
@@ -135,7 +125,7 @@ const VitalsWeightsCard: React.FC = (): JSX.Element => {
                     px: 2,
                     ml: 1,
                   }}
-                  startIcon={isSavingCardData ? <CircularProgress size={20} color="inherit" /> : null}
+                  startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : null}
                 >
                   Add
                 </RoundedButton>
@@ -144,9 +134,9 @@ const VitalsWeightsCard: React.FC = (): JSX.Element => {
           }
           rightColumn={
             <VitalsHistoryContainer
-              mainHistoryEntries={mainHistoryEntries}
-              extraHistoryEntries={extraHistoryEntries}
-              isLoading={isLoadingVitalsByEncounter}
+              historicalObs={historicalObs}
+              currentEncounterObs={currentObs}
+              isLoading={isLoading}
               historyElementSkeletonText={historyElementSkeletonText}
               historyElementCreator={(historyEntry) => {
                 return <VitalWeightHistoryElement historyEntry={historyEntry} onDelete={handleDeleteVital} />;

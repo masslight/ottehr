@@ -1,5 +1,4 @@
-import { formatDateTimeToLocalTimezone, VitalsObservationDTO } from 'utils';
-import { VitalHistoryEntry } from '../types';
+import { formatDateTimeToLocalTimezone, VitalHistoryEntry, VitalsObservationDTO } from 'utils';
 
 export function composeVitalsHistoryEntries<
   TypeObsDTO extends VitalsObservationDTO,

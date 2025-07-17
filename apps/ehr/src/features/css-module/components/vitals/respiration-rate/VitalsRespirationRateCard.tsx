@@ -6,29 +6,19 @@ import { RoundedButton } from '../../../../../components/RoundedButton';
 import { AccordionCard, DoubleColumnContainer } from '../../../../../telemed/components';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
 import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
-import { useVitalsCardState } from '../hooks/useVitalsCardState';
-import {
-  composeRespirationRateHistoryEntries,
-  isValidRespirationRateValue,
-  textToRespirationRateNumber,
-} from './helpers';
+import { VitalsCardProps } from '../types';
+import { isValidRespirationRateValue, textToRespirationRateNumber } from './helpers';
 import VitalsRespirationRateHistoryElementElement from './VitalsRespirationRateHistoryElement';
-import { VitalsRespirationRateHistoryEntry } from './VitalsRespirationRateHistoryEntry';
 
-const VitalsRespirationRateCard: React.FC = (): JSX.Element => {
-  const {
-    isLoadingVitalsByEncounter,
-    handleSaveVital,
-    handleDeleteVital,
-    isSavingCardData,
-    setSavingCardData,
-    vitalsHistory: { mainHistoryEntries, extraHistoryEntries, latestHistoryEntry },
-    historyElementSkeletonText,
-  } = useVitalsCardState<VitalsRespirationRateObservationDTO, VitalsRespirationRateHistoryEntry>(
-    VitalFieldNames.VitalRespirationRate,
-    composeRespirationRateHistoryEntries
-  );
-
+type VitalsRespirationRateCardProps = VitalsCardProps<VitalsRespirationRateObservationDTO>;
+const VitalsRespirationRateCard: React.FC<VitalsRespirationRateCardProps> = ({
+  handleSaveVital,
+  handleDeleteVital,
+  isLoading,
+  currentObs,
+  historicalObs,
+  historyElementSkeletonText,
+}): JSX.Element => {
   const [respirationRateValueText, setRespirationRateValueText] = useState('');
 
   const [isRespirationRateValidationError, setRespirationRateValidationError] = useState<boolean>(false);
@@ -38,10 +28,9 @@ const VitalsRespirationRateCard: React.FC = (): JSX.Element => {
     setIsCollapsed((prevCollapseState) => !prevCollapseState);
   }, [setIsCollapsed]);
 
-  const isDisabledAddButton =
-    !respirationRateValueText || isSavingCardData || isLoadingVitalsByEncounter || isRespirationRateValidationError;
+  const isDisabledAddButton = !respirationRateValueText || isLoading || isRespirationRateValidationError;
 
-  const latestRespRateValue = latestHistoryEntry?.respirationsPerMin;
+  const latestRespRateValue = currentObs[0]?.value;
 
   const handleSaveRespirationRateObservation = useCallback(
     async (respRateValueText: string): Promise<void> => {
@@ -49,7 +38,6 @@ const VitalsRespirationRateCard: React.FC = (): JSX.Element => {
       if (!respRateValueNumber) return;
 
       try {
-        setSavingCardData(true);
         const vitalObs: VitalsRespirationRateObservationDTO = {
           field: VitalFieldNames.VitalRespirationRate,
           value: respRateValueNumber,
@@ -58,11 +46,9 @@ const VitalsRespirationRateCard: React.FC = (): JSX.Element => {
         setRespirationRateValueText('');
       } catch (error) {
         enqueueSnackbar('Error saving respiration rate data', { variant: 'error' });
-      } finally {
-        setSavingCardData(false);
       }
     },
-    [handleSaveVital, setSavingCardData]
+    [handleSaveVital]
   );
 
   const handleTextInputChange = useCallback(
@@ -108,7 +94,7 @@ const VitalsRespirationRateCard: React.FC = (): JSX.Element => {
                 <VitalsTextInputFiled
                   label="RR (/min)"
                   value={respirationRateValueText}
-                  disabled={isSavingCardData}
+                  disabled={isLoading}
                   isInputError={isRespirationRateValidationError}
                   onChange={handleTextInputChange}
                 />
@@ -126,7 +112,7 @@ const VitalsRespirationRateCard: React.FC = (): JSX.Element => {
                     px: 2,
                     ml: 1,
                   }}
-                  startIcon={isSavingCardData ? <CircularProgress size={20} color="inherit" /> : null}
+                  startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : null}
                 >
                   Add
                 </RoundedButton>
@@ -135,9 +121,9 @@ const VitalsRespirationRateCard: React.FC = (): JSX.Element => {
           }
           rightColumn={
             <VitalsHistoryContainer
-              mainHistoryEntries={mainHistoryEntries}
-              extraHistoryEntries={extraHistoryEntries}
-              isLoading={isLoadingVitalsByEncounter}
+              currentEncounterObs={currentObs}
+              historicalObs={historicalObs}
+              isLoading={isLoading}
               historyElementSkeletonText={historyElementSkeletonText}
               historyElementCreator={(historyEntry) => {
                 return (

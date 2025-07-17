@@ -11,26 +11,20 @@ import { RoundedButton } from '../../../../../components/RoundedButton';
 import { AccordionCard, DoubleColumnContainer } from '../../../../../telemed/components';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
 import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
-import { useVitalsCardState } from '../hooks/useVitalsCardState';
-import { composeHeartbeatHistoryEntries, isValidHeartbeatPerMinValue, textToHeartbeatNumber } from './helpers';
+import { useScreenDimensions } from '../hooks/useScreenDimensions';
+import { VitalsCardProps } from '../types';
+import { textToHeartbeatNumber } from './helpers';
 import VitalHeartbeatHistoryElement from './VitalHeartbeatHistoryElement';
-import { VitalHeartbeatHistoryEntry } from './VitalHeartbeatHistoryEntry';
 
-const VitalsHeartbeatCard: React.FC = (): JSX.Element => {
-  const {
-    isLoadingVitalsByEncounter,
-    handleSaveVital,
-    handleDeleteVital,
-    isSavingCardData,
-    setSavingCardData,
-    screenDimensions: { isLargeScreen },
-    vitalsHistory: { mainHistoryEntries, extraHistoryEntries, latestHistoryEntry },
-    historyElementSkeletonText,
-  } = useVitalsCardState<VitalsHeartbeatObservationDTO, VitalHeartbeatHistoryEntry>(
-    VitalFieldNames.VitalHeartbeat,
-    composeHeartbeatHistoryEntries
-  );
-
+type VitalsHeartbeatCardProps = VitalsCardProps<VitalsHeartbeatObservationDTO>;
+const VitalsHeartbeatCard: React.FC<VitalsHeartbeatCardProps> = ({
+  handleSaveVital,
+  handleDeleteVital,
+  isLoading,
+  currentObs,
+  historicalObs,
+  historyElementSkeletonText,
+}): JSX.Element => {
   const [heartbeatValueText, setHeartbeatValueText] = useState('');
 
   // the method how this Heartbeat observation has been acquired
@@ -38,15 +32,16 @@ const VitalsHeartbeatCard: React.FC = (): JSX.Element => {
 
   const [isHeartbeatValidationError, setHeartbeatValidationError] = useState<boolean>(false);
 
+  const { isLargeScreen } = useScreenDimensions();
+
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
   const handleSectionCollapse = useCallback(() => {
     setIsCollapsed((prevCollapseState) => !prevCollapseState);
   }, [setIsCollapsed]);
 
-  const isDisabledAddButton =
-    !heartbeatValueText || isSavingCardData || isLoadingVitalsByEncounter || isHeartbeatValidationError;
+  const isDisabledAddButton = !heartbeatValueText || isLoading || isHeartbeatValidationError;
 
-  const latestHeartbeatValue = latestHistoryEntry?.heartbeatPerMin;
+  const latestHeartbeatValue = currentObs[0]?.value;
 
   const handleSaveHeartbeatObservation = async (heartbeatValueText: string): Promise<void> => {
     const heartbeatValueNumber = textToHeartbeatNumber(heartbeatValueText);
@@ -54,7 +49,6 @@ const VitalsHeartbeatCard: React.FC = (): JSX.Element => {
 
     const observationMethod = toVitalHeartbeatObservationMethod(observationQualifier);
     try {
-      setSavingCardData(true);
       const vitalObs: VitalsHeartbeatObservationDTO = {
         field: VitalFieldNames.VitalHeartbeat,
         value: heartbeatValueNumber,
@@ -65,18 +59,12 @@ const VitalsHeartbeatCard: React.FC = (): JSX.Element => {
       setObservationsQualifier('');
     } catch (error) {
       enqueueSnackbar('Error saving Heartbeat data', { variant: 'error' });
-    } finally {
-      setSavingCardData(false);
     }
   };
 
   const handleTextInputChange = useCallback((e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
     const hrAsText = e.target.value;
     setHeartbeatValueText(hrAsText);
-    const heartbeat = textToHeartbeatNumber(hrAsText);
-    if (heartbeat) {
-      setHeartbeatValidationError(!isValidHeartbeatPerMinValue(heartbeat));
-    }
     if (hrAsText.length === 0) {
       setHeartbeatValidationError(false);
     }
@@ -84,7 +72,7 @@ const VitalsHeartbeatCard: React.FC = (): JSX.Element => {
 
   const renderQualifierDropdown = (): JSX.Element => {
     return (
-      <FormControl fullWidth sx={{ backgroundColor: 'white' }} size="small" disabled={isSavingCardData}>
+      <FormControl fullWidth sx={{ backgroundColor: 'white' }} size="small" disabled={isLoading}>
         <InputLabel id="qualifier-label">Qualifier</InputLabel>
         <Select
           value={observationQualifier}
@@ -144,7 +132,7 @@ const VitalsHeartbeatCard: React.FC = (): JSX.Element => {
                 <VitalsTextInputFiled
                   label="HR (/min)"
                   value={heartbeatValueText}
-                  disabled={isSavingCardData}
+                  disabled={isLoading}
                   isInputError={isHeartbeatValidationError}
                   onChange={handleTextInputChange}
                 />
@@ -183,7 +171,7 @@ const VitalsHeartbeatCard: React.FC = (): JSX.Element => {
                     px: 2,
                     ml: 1,
                   }}
-                  startIcon={isSavingCardData ? <CircularProgress size={20} color="inherit" /> : null}
+                  startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : null}
                 >
                   Add
                 </RoundedButton>
@@ -192,9 +180,9 @@ const VitalsHeartbeatCard: React.FC = (): JSX.Element => {
           }
           rightColumn={
             <VitalsHistoryContainer
-              mainHistoryEntries={mainHistoryEntries}
-              extraHistoryEntries={extraHistoryEntries}
-              isLoading={isLoadingVitalsByEncounter}
+              currentEncounterObs={currentObs}
+              historicalObs={historicalObs}
+              isLoading={isLoading}
               historyElementSkeletonText={historyElementSkeletonText}
               historyElementCreator={(historyEntry) => {
                 return <VitalHeartbeatHistoryElement historyEntry={historyEntry} onDelete={handleDeleteVital} />;

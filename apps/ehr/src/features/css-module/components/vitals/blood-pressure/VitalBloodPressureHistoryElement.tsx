@@ -1,19 +1,22 @@
 import { DeleteOutlined as DeleteIcon } from '@mui/icons-material';
 import ErrorIcon from '@mui/icons-material/Error';
-import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import { Box, IconButton, Typography, useTheme } from '@mui/material';
 import React, { JSX, useMemo, useState } from 'react';
-import { VitalsObservationDTO } from 'utils';
+import { VitalsBloodPressureObservationDTO, VitalsObservationDTO } from 'utils';
+import { VitalAbnormalValuePopover } from '../components/VitalAbnormalValuePopover';
 import { DeleteVitalModal } from '../DeleteVitalModal';
-import { VitalBloodPressureHistoryEntry } from './VitalBloodPressureHistoryEntry';
 
 type VitalBloodPressureHistoryElementProps = {
-  historyEntry: VitalBloodPressureHistoryEntry;
+  historyEntry: VitalsBloodPressureObservationDTO;
+  isAlert?: boolean;
+  isDeletable?: boolean;
   onDelete: (entity: VitalsObservationDTO) => Promise<void>;
 };
 
 export const VitalBloodPressureHistoryElement: React.FC<VitalBloodPressureHistoryElementProps> = ({
   historyEntry,
+  isAlert = false,
+  isDeletable = false,
   onDelete,
 }): JSX.Element => {
   const theme = useTheme();
@@ -26,46 +29,29 @@ export const VitalBloodPressureHistoryElement: React.FC<VitalBloodPressureHistor
     setIsDeleteModalOpen(false);
   };
 
-  const hasAuthor = !!historyEntry.author && historyEntry.author?.length > 0;
+  const hasAuthor = !!historyEntry.authorName && historyEntry.authorName.length > 0;
   const lineColor = useMemo(() => {
-    if (historyEntry.bloodPressureSeverity === 'critical') return theme.palette.error.main;
-    if (historyEntry.bloodPressureSeverity === 'abnormal') return theme.palette.warning.main;
+    if (isAlert) return theme.palette.warning.main;
     return theme.palette.text.primary;
-  }, [
-    historyEntry.bloodPressureSeverity,
-    theme.palette.error.main,
-    theme.palette.warning.main,
-    theme.palette.text.primary,
-  ]);
+  }, [isAlert, theme.palette.warning.main, theme.palette.text.primary]);
 
-  const observationMethod = historyEntry.vitalObservationDTO?.observationMethod;
+  const observationMethod = historyEntry.observationMethod;
 
   return (
     <>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography color="textPrimary">
-          {historyEntry.debugEntrySource && (
-            <Typography component="span" sx={{ fontWeight: 'bold', color: theme.palette.text.primary }}>
-              {historyEntry.debugEntrySource === 'encounter' ? '[DEBUG_ENC]' : '[DEBUG_PAT]'}&nbsp;
+          {historyEntry.lastUpdated} {hasAuthor && 'by'} {historyEntry.authorName} - &nbsp;
+          <VitalAbnormalValuePopover isAbnormal={isAlert}>
+            <Typography component="span" sx={{ fontWeight: 'bold', color: lineColor }}>
+              {historyEntry.systolicPressure}/{historyEntry.diastolicPressure} mm Hg
             </Typography>
-          )}
-          {historyEntry.recordDateTime} {hasAuthor && 'by'} {historyEntry.author} - &nbsp;
-          <Typography component="span" sx={{ fontWeight: 'bold', color: lineColor }}>
-            {historyEntry.systolicPressure}/{historyEntry.diastolicPressure} mm Hg
-          </Typography>
-          {historyEntry.bloodPressureSeverity === 'critical' && (
-            <ErrorIcon fontSize="small" sx={{ ml: '4px', verticalAlign: 'middle', color: lineColor }} />
-          )}
-          {historyEntry.bloodPressureSeverity === 'abnormal' && (
-            <WarningAmberOutlinedIcon
-              fontSize="small"
-              sx={{ ml: '4px', verticalAlign: 'middle', color: theme.palette.warning.light }}
-            />
-          )}
+            {isAlert && <ErrorIcon fontSize="small" sx={{ ml: '4px', verticalAlign: 'middle', color: lineColor }} />}
+          </VitalAbnormalValuePopover>
           {observationMethod && ` (${observationMethod})`}
         </Typography>
 
-        {historyEntry.isDeletable && (
+        {isDeletable && (
           <IconButton
             size="small"
             aria-label="delete"
@@ -80,7 +66,7 @@ export const VitalBloodPressureHistoryElement: React.FC<VitalBloodPressureHistor
       <DeleteVitalModal
         open={isDeleteModalOpen}
         onClose={handleCloseDeleteModal}
-        entity={historyEntry.vitalObservationDTO}
+        entity={historyEntry}
         onDelete={onDelete}
       />
     </>

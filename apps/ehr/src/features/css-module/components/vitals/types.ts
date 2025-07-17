@@ -17,11 +17,11 @@ export type UseDeleteVitals = (props: {
   searchConfig: VitalsSearchConfig;
 }) => (vitalEntity: VitalsObservationDTO) => Promise<void>;
 
-export type VitalHistoryEntry<T extends VitalsObservationDTO> = {
-  vitalObservationDTO: T;
-  fhirResourceId?: string;
-  recordDateTime?: string;
-  author?: string;
-  isDeletable: boolean;
-  debugEntrySource?: 'patient' | 'encounter';
-};
+export interface VitalsCardProps<TypeObsDTO extends VitalsObservationDTO> {
+  handleSaveVital: (vitalEntity: VitalsObservationDTO) => Promise<void>;
+  handleDeleteVital: (vitalEntity: VitalsObservationDTO) => Promise<void>;
+  isLoading: boolean;
+  currentObs: TypeObsDTO[];
+  historicalObs: TypeObsDTO[];
+  historyElementSkeletonText: string;
+}
