@@ -3,13 +3,13 @@ import { Secrets } from '../../../secrets';
 
 export interface AssignPractitionerInput {
   encounterId: string;
-  practitioner: Practitioner;
+  practitionerId: string;
   userRole: Coding[];
 }
 
 export interface AssignPractitionerInputValidated {
   encounterId: string;
-  practitioner: Practitioner;
+  practitionerId: string;
   userRole: Coding[];
   secrets: Secrets | null;
   userToken: string;

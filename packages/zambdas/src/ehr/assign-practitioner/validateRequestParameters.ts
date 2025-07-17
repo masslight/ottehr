@@ -25,13 +25,8 @@ export function validateRequestParameters(input: ZambdaInput): AssignPractitione
   const encounterId = body.encounterId;
 
   // Validate practitioner - check for required Practitioner properties
-  if (!body.practitioner || typeof body.practitioner !== 'object') {
-    throw new Error('practitioner must be a valid Practitioner object');
-  }
-
-  const practitionerObj = body.practitioner as Record<string, unknown>;
-  if (practitionerObj.resourceType !== 'Practitioner') {
-    throw new Error('practitioner must have resourceType "Practitioner"');
+  if (!body.practitionerId || typeof body.practitionerId !== 'string') {
+    throw new Error('practitionerId must be a string');
   }
 
   const practitioner = body.practitioner as Practitioner;

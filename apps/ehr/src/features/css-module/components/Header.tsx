@@ -1,13 +1,16 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CloseIcon from '@mui/icons-material/Close';
-import { Box, Grid, IconButton, Stack, Typography } from '@mui/material';
+import { Box, Grid, IconButton, MenuItem, Stack, TextField, Typography } from '@mui/material';
 import { TypographyOptions } from '@mui/material/styles/createTypography';
 import { styled } from '@mui/system';
 import { enqueueSnackbar } from 'notistack';
 import { useState } from 'react';
+import { useQuery } from 'react-query';
 import { useNavigate, useParams } from 'react-router-dom';
-import { PRACTITIONER_CODINGS, VisitStatusLabel } from 'utils';
+import { PRACTITIONER_CODINGS, ProviderDetails, VisitStatusLabel } from 'utils';
+import { getEmployees } from '../../../api/api';
 import { dataTestIds } from '../../../constants/data-test-ids';
+import { useApiClients } from '../../../hooks/useAppClients';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../telemed';
 import { useNavigationContext } from '../context/NavigationContext';
@@ -68,6 +71,14 @@ export const Header = (): JSX.Element => {
   const { encounter } = telemedData;
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
   const encounterId = encounter?.id;
+  const assignedIntakePerformer = encounter?.participant?.find(
+    (participant) =>
+      participant.type?.some((type) => type.coding?.some((coding) => coding === PRACTITIONER_CODINGS.Admitter))
+  );
+  const _assignedProvider = encounter?.participant?.find(
+    (participant) =>
+      participant.type?.some((type) => type.coding?.some((coding) => coding === PRACTITIONER_CODINGS.Attender))
+  );
   const patientName = format(mappedData?.patientName, 'Name');
   const pronouns = format(mappedData?.pronouns, 'Pronouns');
   const gender = format(mappedData?.gender, 'Gender');
@@ -94,12 +105,62 @@ export const Header = (): JSX.Element => {
     'start',
     practitionerTypeFromMode
   );
+  const { oystehrZambda } = useApiClients();
+
+  const { data: employees, isFetching: employeesIsFetching } = useQuery(
+    ['get-employees', { oystehrZambda }],
+    async () => {
+      if (oystehrZambda) {
+        const getEmployeesRes = await getEmployees(oystehrZambda);
+        const providers = getEmployeesRes.employees.filter((employee) => employee.isProvider);
+        const formattedProviders: ProviderDetails[] = providers.map((prov) => {
+          const id = prov.profile.split('/')[1];
+          return {
+            practitionerId: id,
+            name: `${prov.firstName} ${prov.lastName}`,
+          };
+        });
+        const nonProviders = getEmployeesRes.employees.filter((employee) => !employee.isProvider);
+        const formattedNonProviders: ProviderDetails[] = nonProviders.map((prov) => {
+          const id = prov.profile.split('/')[1];
+          return {
+            practitionerId: id,
+            name: `${prov.firstName} ${prov.lastName}`,
+          };
+        });
+        return {
+          providers: formattedProviders,
+          nonProviders: formattedNonProviders,
+        };
+      }
+      return null;
+    }
+  );
+
+  if (employeesIsFetching) {
+    return <Box sx={{ padding: '16px' }}>Loading...</Box>;
+  }
+
+  if (!employees) {
+    return <Box sx={{ padding: '16px' }}>There must be some employees registered to use charting.</Box>;
+  }
+
+  const handleUpdateIntakeAssignment = async (practitonerId: string): Promise<void> => {
+    try {
+      if (!appointmentID) return;
+      await handleUpdatePractitioner(practitonerId);
+      await refetch();
+    } catch (error: any) {
+      console.log(error.message);
+      enqueueSnackbar(`An error occurred trying to update the intake assignment. Please try again.`, {
+        variant: 'error',
+      });
+    }
+  };
 
   const handleSwitchMode = async (): Promise<void> => {
     try {
       if (!appointmentID) return;
-      await handleUpdatePractitioner();
-      void refetch();
       setInteractionMode(nextMode, true);
     } catch (error: any) {
       console.log(error.message);
@@ -132,6 +193,28 @@ export const Header = (): JSX.Element => {
                         {userId}
                       </u>
                     </PatientMetadata>
+                  </Grid>
+                  <Grid item>
+                    <Stack direction="row">
+                      <PatientMetadata>Intake: </PatientMetadata>
+                      <TextField
+                        select
+                        fullWidth
+                        sx={{ minWidth: 120 }}
+                        variant="standard"
+                        value={assignedIntakePerformer?.individual?.reference}
+                        onChange={(e) => {
+                          void handleUpdateIntakeAssignment(e.target.value);
+                        }}
+                      >
+                        <MenuItem value={''}>None</MenuItem>
+                        {employees.nonProviders?.map((nonProvider) => (
+                          <MenuItem key={nonProvider.practitionerId} value={nonProvider.name}>
+                            {nonProvider.name}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </Stack>
                   </Grid>
                 </Grid>
               </Grid>
