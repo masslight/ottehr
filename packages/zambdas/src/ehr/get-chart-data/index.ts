@@ -130,6 +130,8 @@ export async function getChartData(
      * }) without requestedFields produces URL like /Procedure?subject=Patient/:id.
      * Current solution: To avoid duplicates, run this request only with requestedFields.
      */
+
+    // Comment: theoretically can be solved by using defaultSearchParams added to addRequestIfNeeded logic
     addRequestIfNeeded({ field: 'cptCodes', resourceType: 'Procedure', defaultSearchBy: 'encounter' });
   }
 
