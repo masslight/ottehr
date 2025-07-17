@@ -98,6 +98,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
   const addNewPage = (styles: PageStyles, newLeftBound?: number, newRightBound?: number): void => {
     console.log('\nAdding new page');
     console.log(`currentPageIndex is ${currentPageIndex} of ${pages.length} pages`);
+    let addedBrandNewPage = false;
     // figure out if we just need to run on to a pre-exsiting page or truly add a new one
     if (currentPageIndex !== undefined && currentPageIndex < pages.length - 1) {
       console.log('Current page is not the last page. Setting page to the next page');
@@ -105,9 +106,11 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     } else {
       console.log('Current page was the last page. Adding brand new page');
       page = pdfDoc.addPage();
+      addedBrandNewPage = true;
+
       page.setSize(styles.width, styles.height);
+
       pageStyles = styles;
-      if (styles.setHeadline) styles.setHeadline();
       pages.push(page);
     }
 
@@ -123,6 +126,11 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       currentPageIndex++;
       console.log(`Incrementing page index to ${currentPageIndex}`);
     } else currentPageIndex = 0;
+
+    if (addedBrandNewPage && styles.setHeadline) {
+      console.log('addedBrandNewPage is true and styles.setHeadline is defined. settingHeadline');
+      styles.setHeadline();
+    }
 
     console.log('Done with new page\n');
   };
