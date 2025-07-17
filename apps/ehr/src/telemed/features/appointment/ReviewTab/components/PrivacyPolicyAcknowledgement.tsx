@@ -1,8 +1,8 @@
-import { FC } from 'react';
 import { Typography } from '@mui/material';
+import { FC } from 'react';
+import { formatDateToMDYWithTime } from 'utils';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../state';
-import { formatDateToMDYWithTime } from 'utils';
 
 export const PrivacyPolicyAcknowledgement: FC = () => {
   const { appointment } = getSelectors(useAppointmentStore, ['appointment']);

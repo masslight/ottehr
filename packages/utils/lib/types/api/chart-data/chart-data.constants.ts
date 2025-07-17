@@ -1,3 +1,4 @@
+import { ERX_MEDICATION_META_TAG_CODE } from '../../../fhir/constants';
 import { SCHOOL_WORK_NOTE } from '../../data';
 import { CSS_NOTE_ID, NOTHING_TO_EAT_OR_DRINK_ID } from './chart-data.types';
 
@@ -5,6 +6,7 @@ export type ProviderChartDataFieldsNames =
   | 'chief-complaint'
   | 'ros'
   | 'current-medication'
+  | 'in-house-medication'
   | 'prescribed-medication'
   | 'known-allergy'
   | 'medical-condition'
@@ -24,7 +26,8 @@ export type ProviderChartDataFieldsNames =
   | typeof CSS_NOTE_ID
   | 'birth-history'
   | 'ai-potential-diagnosis'
-  | 'procedure';
+  | 'procedure'
+  | typeof ERX_MEDICATION_META_TAG_CODE;
 
 export type DispositionMetaFieldsNames = 'disposition-follow-up' | 'sub-follow-up';
 
@@ -149,8 +152,10 @@ export enum VitalFieldNames {
 }
 
 export enum VitalTemperatureObservationMethod {
+  Axillary = 'Axillary',
   Oral = 'Oral',
   Rectal = 'Rectal',
+  Temporal = 'Temporal',
 }
 
 export enum VitalHeartbeatObservationMethod {

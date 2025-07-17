@@ -1,3 +1,4 @@
+// cSpell:ignore RFRT
 import {
   DocumentReference,
   Encounter,
@@ -68,11 +69,13 @@ export enum ExternalLabsStatus {
   reviewed = 'reviewed',
   cancelled = 'cancelled',
   corrected = 'corrected',
+  'cancelled by lab' = 'cancelled by lab',
+  'sent manually' = 'sent manually',
   unknown = 'unknown', // for debugging purposes
 }
 
 export type LabOrderUnreceivedHistoryRow = {
-  action: 'ordered' | 'performed';
+  action: 'created' | 'ordered' | 'performed' | 'cancelled by lab';
   performer: string;
   date: string;
 };
@@ -89,7 +92,7 @@ export type LabOrderHistoryRow = LabOrderUnreceivedHistoryRow | LabOrderReceived
 export type LabOrderResultDetails = {
   testItem: string;
   testType: 'reflex' | 'ordered';
-  resultType: 'final' | 'preliminary';
+  resultType: 'final' | 'preliminary' | 'cancelled';
   labStatus: ExternalLabsStatus;
   diagnosticReportId: string;
   taskId: string;
@@ -129,6 +132,7 @@ export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {
   resultsDetails: LabOrderResultDetails[];
   questionnaire: QuestionnaireData[];
   samples: sampleDTO[];
+  orderPdfUrl?: string; // will exist after order is submitted
 };
 
 export type LabOrderDTO<SearchBy extends LabOrdersSearchBy> = SearchBy extends {
@@ -163,7 +167,7 @@ export type LabOrdersPaginationOptions = {
 
 export enum LabType {
   external = 'external',
-  inhouse = 'in-house',
+  inHouse = 'in-house',
 }
 
 export type GetLabOrdersParameters = LabOrdersSearchBy & LabOrdersSearchFilters & LabOrdersPaginationOptions;
@@ -175,6 +179,7 @@ export interface DynamicAOEInput {
 export type SubmitLabOrderInput = {
   serviceRequestID: string;
   accountNumber: string;
+  manualOrder: boolean;
   data: DynamicAOEInput;
   specimens?: {
     [specimenId: string]: {
@@ -194,6 +199,8 @@ export type CreateLabOrderParameters = {
   orderableItem: OrderableItemSearchResult;
   psc: boolean;
 };
+
+export type CreateLabOrderZambdaOutput = Record<string, never>;
 
 export type GetCreateLabOrderResources = {
   patientId?: string;
@@ -231,9 +238,11 @@ export type UpdateLabOrderResourcesParameters =
   | (TaskReviewedParameters & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.reviewed })
   | (SpecimenDateChangedParameters & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.specimenDateChanged });
 
-export type DeleteLabOrderParams = {
+export type DeleteLabOrderZambdaInput = {
   serviceRequestId: string;
 };
+
+export type DeleteLabOrderZambdaOutput = Record<string, never>;
 export interface LabelConfig {
   heightInches: number;
   widthInches: number;
@@ -252,3 +261,14 @@ export interface LabelPdf {
   documentReference: DocumentReference;
   presignedURL: string;
 }
+
+export type LabOrderPDF = {
+  presignedURL: string;
+  serviceRequestId: string;
+  docRefId: string;
+};
+
+export type LabResultPDF = {
+  presignedURL: string;
+  diagnosticReportId: string;
+};

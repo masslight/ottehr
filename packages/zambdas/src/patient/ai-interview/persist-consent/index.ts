@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Consent } from 'fhir/r4b';
 import {
@@ -5,11 +6,13 @@ import {
   FHIR_AI_CHAT_CONSENT_CATEGORY_CODE,
   getSecret,
   PersistConsentInput,
+  PROJECT_WEBSITE,
   Secrets,
   SecretsKeys,
 } from 'utils';
-import { getAuth0Token, validateJsonBody, validateString, ZambdaInput } from '../../../shared';
-import Oystehr from '@oystehr/sdk';
+import { getAuth0Token, validateJsonBody, validateString, wrapHandler, ZambdaInput } from '../../../shared';
+
+const ZAMBDA_NAME = 'persist-consent';
 
 let oystehrToken: string;
 
@@ -17,7 +20,7 @@ interface Input extends PersistConsentInput {
   secrets: Secrets | null;
 }
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input)}`);
   try {
     const { appointmentId, secrets } = validateInput(input);
@@ -37,7 +40,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       ],
       policy: [
         {
-          uri: 'https://ottehr.com',
+          uri: PROJECT_WEBSITE,
         },
       ],
       scope: {
@@ -70,7 +73,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify({ error: 'Internal error' }),
     };
   }
-};
+});
 
 function validateInput(input: ZambdaInput): Input {
   const { appointmentId } = validateJsonBody(input);

@@ -1,13 +1,13 @@
+import { Box, CircularProgress, Divider, Paper, Stack, TextField, Typography } from '@mui/material';
 import React, { useState } from 'react';
-import { Box, Paper, Typography, TextField, CircularProgress, Stack, Divider } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
-import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
-import { getSelectors } from '../../../shared/store/getSelectors';
-import { BreadCrumbs } from '../components/BreadCrumbs';
-import { useApiClients } from 'src/hooks/useAppClients';
 import { createNursingOrder } from 'src/api/api';
-import { CreateNursingOrderParameters } from 'utils';
+import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
+import { useApiClients } from 'src/hooks/useAppClients';
+import { CreateNursingOrderInput } from 'utils';
+import { getSelectors } from '../../../shared/store/getSelectors';
+import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
+import { BreadCrumbs } from '../components/BreadCrumbs';
 
 export const NursingOrderCreatePage: React.FC = () => {
   const { oystehrZambda } = useApiClients();
@@ -36,7 +36,7 @@ export const NursingOrderCreatePage: React.FC = () => {
         throw new Error('Missing encounter ID');
       }
 
-      const zambdaParams: CreateNursingOrderParameters = {
+      const zambdaParams: CreateNursingOrderInput = {
         encounterId: encounter?.id,
         notes: orderNote,
       };

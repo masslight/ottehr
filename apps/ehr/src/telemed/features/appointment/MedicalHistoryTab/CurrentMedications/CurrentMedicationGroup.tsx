@@ -1,11 +1,11 @@
 import { Box, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { MedicationDTO } from 'utils';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { DATE_FORMAT } from '../../../../../helpers/formatDateTime';
 import { ActionsList, DeleteIconButton } from '../../../../components';
 import { MedHistorySubsectionTypography } from '../../../../components/MedHistorySubsectionTypography';
 import { useGetAppointmentAccessibility } from '../../../../hooks';
-import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 export const CurrentMedicationGroup = ({
   label,
@@ -53,10 +53,12 @@ function CurrentMedicationItem({ value }: { value: MedicationDTO }): JSX.Element
   if (lastIntakeDate instanceof DateTime) {
     lastIntakeDateDisplay = `${lastIntakeDate.toFormat(DATE_FORMAT)} at ${lastIntakeDate.toFormat('HH:mm a')}`;
   }
+  const additionalInfo = [value.intakeInfo?.dose, lastIntakeDateDisplay].filter(Boolean).join(' ');
 
   return (
     <Typography variant="body2">
-      {value.name} {`(${value.intakeInfo?.dose} ${lastIntakeDateDisplay})`}
+      {value.name}
+      {additionalInfo ? `(${additionalInfo})` : ''}
     </Typography>
   );
 }

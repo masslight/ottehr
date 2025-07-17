@@ -1,5 +1,4 @@
 import Oystehr, { User } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter } from 'fhir/r4b';
@@ -28,14 +27,14 @@ import {
   lambdaResponse,
   searchInvitedParticipantResourcesByEncounterId,
   userHasAccessToPatient,
+  wrapHandler,
   ZambdaInput,
 } from '../../shared';
-
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let zapehrToken: string;
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+let oystehrToken: string;
+export const index = wrapHandler('join-call', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const authorization = input.headers.Authorization;
     if (!authorization) {
@@ -87,15 +86,15 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       return lambdaResponse(401, { message: 'Unauthorized' });
     }
 
-    if (!zapehrToken) {
+    if (!oystehrToken) {
       console.log('getting m2m token for service calls');
-      zapehrToken = await getAuth0Token(secrets); // keeping token externally for reuse
+      oystehrToken = await getAuth0Token(secrets); // keeping token externally for reuse
     } else {
       console.log('already have a token, no need to update');
     }
 
     const oystehr = createOystehrClient(
-      zapehrToken,
+      oystehrToken,
       getSecret(SecretsKeys.FHIR_API, secrets),
       getSecret(SecretsKeys.PROJECT_API, secrets)
     );
@@ -136,7 +135,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       if (!(await isParticipantInvited(subject, videoEncounter.id, oystehr))) {
         return lambdaResponse(401, { message: 'Unauthorized' });
       }
-      userProfile = await getM2MUserProfile(zapehrToken, projectApiURL, telemedClientId);
+      userProfile = await getM2MUserProfile(oystehrToken, projectApiURL, telemedClientId);
     } else {
       // user is defined here cause it's not invited participant
       user = user as User;
@@ -156,7 +155,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       throw new Error(`Video encounter was not found for the appointment ${appointment.id}`);
     }
 
-    const userToken = isInvitedParticipant ? zapehrToken : jwt;
+    const userToken = isInvitedParticipant ? oystehrToken : jwt;
     const joinCallResponse = await joinTelemedMeeting(
       projectApiURL,
       userToken,

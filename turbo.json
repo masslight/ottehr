@@ -29,6 +29,9 @@
       ]
     },
     "lint": {},
+    "lint:fix": {
+      "cache": false
+    },
     "integration:zambdas": {
       "cache": false,
       "dependsOn": ["^build"]

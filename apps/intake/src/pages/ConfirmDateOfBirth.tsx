@@ -1,9 +1,9 @@
 import { Typography } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import { PageContainer } from '../components';
 import ConfirmDateOfBirthForm from '../components/ConfirmDateOfBirthForm';
-import { useBookingContext } from './BookingHome';
 import { useNavigateInFlow } from '../hooks/useNavigateInFlow';
-import { useTranslation } from 'react-i18next';
+import { useBookingContext } from './BookingHome';
 
 const ConfirmDateOfBirth = (): JSX.Element => {
   const { patientInfo, unconfirmedDateOfBirth, setUnconfirmedDateOfBirth } = useBookingContext();

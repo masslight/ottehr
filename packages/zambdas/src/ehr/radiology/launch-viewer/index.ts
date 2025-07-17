@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ServiceRequest } from 'fhir/r4b';
 import { getSecret, RadiologyLaunchViewerZambdaOutput, RoleType, Secrets, SecretsKeys, User } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, ZambdaInput } from '../../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { ACCESSION_NUMBER_CODE_SYSTEM, ADVAPACS_VIEWER_LAUNCH_URL } from '../shared';
 import { validateInput, validateSecrets } from './validation';
 
@@ -12,14 +12,16 @@ export interface ValidatedInput {
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mtoken: string;
+let m2mToken: string;
 
-export const index = async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
+const ZAMBDA_NAME = 'radiology-launch-viewer';
+
+export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const secrets = validateSecrets(unsafeInput.secrets);
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
     const validatedInput = await validateInput(unsafeInput, oystehr);
 
@@ -38,7 +40,7 @@ export const index = async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyRe
       body: JSON.stringify({ error: error.message }),
     };
   }
-};
+});
 
 const accessCheck = async (callerAccessToken: string, secrets: Secrets): Promise<void> => {
   const callerUser = await getCallerUserWithAccessToken(callerAccessToken, secrets);
@@ -82,18 +84,23 @@ const performEffect = async (
       throw new Error('No patient ID found in oystehr service request.');
     }
 
+    const advapacsLaunchBody = {
+      // cSpell:disable-next meddream
+      viewer: 'meddream',
+      patientId,
+      accessionNumber: [accessionNumber],
+      username: advapacsViewerUsername,
+    };
+
+    console.log(`Launching AdvaPacs viewer with body: ${JSON.stringify(advapacsLaunchBody)}`);
+
     const response = await fetch(ADVAPACS_VIEWER_LAUNCH_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: advapacsAuthString,
       },
-      body: JSON.stringify({
-        viewer: 'meddream',
-        patientId,
-        accessionNumber: [accessionNumber],
-        username: advapacsViewerUsername,
-      }),
+      body: JSON.stringify(advapacsLaunchBody),
     });
 
     if (!response.ok) {

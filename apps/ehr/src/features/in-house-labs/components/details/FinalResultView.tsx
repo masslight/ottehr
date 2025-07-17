@@ -1,10 +1,10 @@
-import React from 'react';
-import { Box, Typography, Button, Paper } from '@mui/material';
-import { InHouseOrderDetailPageItemDTO } from 'utils/lib/types/data/in-house/in-house.types';
-import { getFormattedDiagnoses, DiagnosisDTO } from 'utils';
-import { FinalResultCard } from './FinalResultCard';
-import { useNavigate } from 'react-router-dom';
 import { BiotechOutlined } from '@mui/icons-material';
+import { Box, Button, Paper, Typography } from '@mui/material';
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { DiagnosisDTO, getFormattedDiagnoses } from 'utils';
+import { InHouseOrderDetailPageItemDTO } from 'utils/lib/types/data/in-house/in-house.types';
+import { FinalResultCard } from './FinalResultCard';
 
 interface FinalResultViewProps {
   testDetails: InHouseOrderDetailPageItemDTO[] | undefined;

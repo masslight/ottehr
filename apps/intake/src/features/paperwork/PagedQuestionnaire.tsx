@@ -1,5 +1,9 @@
+import { yupResolver } from '@hookform/resolvers/yup';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import {
   Box,
+  Button,
+  Card,
   Checkbox,
   FormControl,
   FormControlLabel,
@@ -14,52 +18,48 @@ import {
   Tooltip,
   Typography,
   useTheme,
-  Button,
-  Card,
 } from '@mui/material';
 import _ from 'lodash';
 import { FC, ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Controller, FormProvider, useForm, useFormContext } from 'react-hook-form';
+import Markdown from 'react-markdown';
+import { useBeforeUnload } from 'react-router-dom';
+import {
+  IntakeQuestionnaireItem,
+  makeValidationSchema,
+  pickFirstValueFromAnswerItem,
+  QuestionnaireFormFields,
+  QuestionnaireItemGroupType,
+  SIGNATURE_FIELDS,
+  stripMarkdownLink,
+} from 'utils';
+import { AnyObjectSchema } from 'yup';
 import {
   BoldPurpleInputLabel,
   ControlButtons,
-  ControlButtonsProps,
   DescriptionRenderer,
   InputMask,
   LightToolTip,
   LinkRenderer,
-  useIntakeThemeContext,
-} from 'ui-components';
-import {
-  IntakeQuestionnaireItem,
-  QuestionnaireFormFields,
-  QuestionnaireItemGroupType,
-  SIGNATURE_FIELDS,
-  makeValidationSchema,
-  pickFirstValueFromAnswerItem,
-  stripMarkdownLink,
-} from 'utils';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import { StyledQuestionnaireItem, useStyledItems } from './useStyleItems';
+} from '../../components/form';
+import { useIntakeThemeContext } from '../../contexts';
+import { getUCInputType } from '../../helpers/paperworkUtils';
+import { otherColors } from '../../IntakeThemeProvider';
+import { ControlButtonsProps } from '../../types';
+import { CreditCardVerification } from './components/CreditCardVerification';
+import DateInput from './components/DateInput';
+import { FieldHelperText } from './components/FieldHelperText';
+import FileInput, { AttachmentType } from './components/FileInput';
+import FreeMultiSelectInput from './components/FreeMultiSelectInput';
+import GroupContainer from './components/group/GroupContainer';
+import MultiAnswerHeader from './components/group/MultiAnswerHeader';
 import RadioInput from './components/RadioInput';
 import RadioListInput from './components/RadioListInput';
-import FreeMultiSelectInput from './components/FreeMultiSelectInput';
-import { yupResolver } from '@hookform/resolvers/yup';
-import DateInput from './components/DateInput';
-import FileInput, { AttachmentType } from './components/FileInput';
-import Markdown from 'react-markdown';
-import { useBeforeUnload } from 'react-router-dom';
-import { getInputTypeForItem } from './utils';
-import { getPaperworkFieldId, useFieldError, usePaperworkFormHelpers, useQRState } from './useFormHelpers';
-import { useAutoFillValues } from './useAutofill';
-import { AnyObjectSchema } from 'yup';
-import { FieldHelperText } from './components/FieldHelperText';
-import { getUCInputType } from '../../helpers/paperworkUtils';
 import { usePaperworkContext } from './context';
-import MultiAnswerHeader from './components/group/MultiAnswerHeader';
-import GroupContainer from './components/group/GroupContainer';
-import { CreditCardVerification } from './components/CreditCardVerification';
-import { otherColors } from '../../IntakeThemeProvider';
+import { useAutoFillValues } from './useAutofill';
+import { getPaperworkFieldId, useFieldError, usePaperworkFormHelpers, useQRState } from './useFormHelpers';
+import { StyledQuestionnaireItem, useStyledItems } from './useStyleItems';
+import { getInputTypeForItem } from './utils';
 
 interface PagedQuestionnaireOptions {
   bottomComponent?: ReactElement;

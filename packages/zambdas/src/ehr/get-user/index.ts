@@ -1,38 +1,56 @@
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Practitioner } from 'fhir/r4b';
-import { PractitionerLicense } from 'utils';
-import { checkOrCreateM2MClientToken, ZambdaInput } from '../../shared';
+import { Practitioner, Schedule } from 'fhir/r4b';
+import { GetUserResponse, PractitionerLicense } from 'utils';
+import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mtoken: string;
+let m2mToken: string;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler('get-user', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
     const { secrets, userId } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
-    let response = null;
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
+    let response: GetUserResponse | null = null;
     try {
       const getUserResponse = await oystehr.user.get({ id: userId });
       let existingPractitionerResource: Practitioner | undefined = undefined;
+      let schedule: Schedule | undefined;
       const userProfile = getUserResponse.profile;
       const userProfileString = userProfile.split('/');
 
       const practitionerId = userProfileString[1];
       try {
-        existingPractitionerResource =
-          (await oystehr.fhir.get<Practitioner>({
+        const [practitionerResource, scheduleSearch] = await Promise.all([
+          oystehr.fhir.get<Practitioner>({
             resourceType: 'Practitioner',
             id: practitionerId,
-          })) ?? null;
-        console.log('Existing pract: ' + JSON.stringify(existingPractitionerResource));
+          }),
+          oystehr.fhir
+            .search<Schedule>({
+              resourceType: 'Schedule',
+              params: [
+                {
+                  name: 'actor',
+                  value: `Practitioner/${practitionerId}`,
+                },
+              ],
+            })
+            .then((bundle) => {
+              const resources = bundle.unbundle();
+              const schedule = resources.find((r) => r.resourceType === 'Schedule');
+              return schedule;
+            }),
+        ]);
+        existingPractitionerResource = practitionerResource;
+        schedule = scheduleSearch;
+        console.log('Existing practitioner: ' + JSON.stringify(existingPractitionerResource));
       } catch (error: any) {
         if (
           error.resourceType === 'OperationOutcome' &&
@@ -64,6 +82,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
           profileResource: existingPractitionerResource,
           licenses: allLicenses ?? [],
         },
+        userScheduleId: schedule?.id,
       };
     } catch (error: unknown) {
       throw new Error(`Failed to get User: ${JSON.stringify(error)}`);

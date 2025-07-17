@@ -41,3 +41,10 @@ export const E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM = 'E2E_TEST_RESOURCE_PROCESS_ID
 
 export const MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM =
   'https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id';
+
+export const INSURANCE_REQ_EXTENSION_URL = 'https://extensions.fhir.zapehr.com/insurance-requirements';
+export const ORG_TYPE_CODE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/organization-type';
+// currently all orgs are payers. if we ever have a need to store a parent company (Aetna, rather than Aetna, New York, for instance)
+// we'll use the INSURANCE_ORG_TYPE_INSURANCE_COMPANY type on the parent org
+// export const INSURANCE_ORG_TYPE_INSURANCE_COMPANY = 'ins';
+export const ORG_TYPE_PAYER_CODE = 'pay';

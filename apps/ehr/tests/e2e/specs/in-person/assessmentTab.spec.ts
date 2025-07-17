@@ -1,4 +1,5 @@
 import { BrowserContext, expect, Locator, Page, test } from '@playwright/test';
+import { DateTime } from 'luxon';
 import { waitForChartDataDeletion, waitForSaveChartDataResponse } from 'test-utils';
 import { MDM_FIELD_DEFAULT_TEXT } from 'utils';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
@@ -7,7 +8,6 @@ import { CssHeader } from '../../page/CssHeader';
 import { InPersonAssessmentPage } from '../../page/in-person/InPersonAssessmentPage';
 import { InPersonProgressNotePage } from '../../page/in-person/InPersonProgressNotePage';
 import { SideMenu } from '../../page/SideMenu';
-import { DateTime } from 'luxon';
 
 const PROCESS_ID = `assessmentTab.spec.ts-${DateTime.now().toMillis()}`;
 const resourceHandler = new ResourceHandler(PROCESS_ID, 'in-person');

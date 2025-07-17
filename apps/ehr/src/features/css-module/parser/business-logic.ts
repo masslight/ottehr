@@ -1,7 +1,7 @@
 import { DateTime } from 'luxon';
-import { PatientValues, VisitMappedData, QuestionnaireResponseValues } from './types';
-import { LBS_TO_KG_FACTOR, WEIGHT_ROUNDING_PRECISION } from './constants';
 import { DATE_FORMAT, DISPLAY_DATE_FORMAT } from 'utils';
+import { LBS_TO_KG_FACTOR, WEIGHT_ROUNDING_PRECISION } from './constants';
+import { PatientValues, QuestionnaireResponseValues, VisitMappedData } from './types';
 
 export const getPatientInfoWithFallback = (
   patient: PatientValues,

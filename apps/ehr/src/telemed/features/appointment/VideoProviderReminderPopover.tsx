@@ -1,12 +1,12 @@
-import { FC } from 'react';
 import { Box, Typography } from '@mui/material';
+import { FC } from 'react';
 import { getQuestionnaireResponseByLinkId } from 'utils';
+import useEvolveUser from '../../../hooks/useEvolveUser';
+import { getSelectors } from '../../../shared/store/getSelectors';
+import { ReminderIcon } from '../../assets';
 import { InnerStatePopover } from '../../components';
 import { useGetAppointmentAccessibility } from '../../hooks';
-import { getSelectors } from '../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../state';
-import useEvolveUser from '../../../hooks/useEvolveUser';
-import { ReminderIcon } from '../../assets';
 
 export const VideoProviderReminderPopover: FC = () => {
   const { licensedPractitionerStates: availableStates } = useGetAppointmentAccessibility();

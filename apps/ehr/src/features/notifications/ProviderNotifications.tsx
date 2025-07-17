@@ -1,18 +1,17 @@
 import { NotificationsOutlined } from '@mui/icons-material';
-import { Badge, Box, Button, Menu, Typography, alpha, useTheme } from '@mui/material';
+import { alpha, Badge, Box, Button, Menu, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
-import { EventHandler, FC, MouseEvent, memo, useEffect, useMemo, useRef, useState } from 'react';
+import { EventHandler, FC, memo, MouseEvent, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  getProviderNotificationSettingsForPractitioner,
   ProviderNotificationMethod,
   ProviderNotificationSettings,
-  getProviderNotificationSettingsForPractitioner,
 } from 'utils';
 import useEvolveUser from '../../hooks/useEvolveUser';
 import { IconButtonContained } from '../../telemed/components/IconButtonContained';
 import { useGetProviderNotifications, useUpdateProviderNotificationsMutation } from './notifications.queries';
 import { useProviderNotificationsStore } from './notifications.store';
-import { notificationSound } from '@ehrTheme/index';
 
 type ProviderNotificationDisplay = {
   id: string;
@@ -23,7 +22,6 @@ type ProviderNotificationDisplay = {
 };
 
 export const ProviderNotifications: FC = memo(() => {
-  const audioRef = useRef(new Audio(notificationSound));
   const theme = useTheme();
   const user = useEvolveUser();
   const navigate = useNavigate();
@@ -64,28 +62,6 @@ export const ProviderNotifications: FC = memo(() => {
   useEffect(() => {
     useProviderNotificationsStore.setState({ notificationsEnabled, notificationMethod: notificationMethod });
   }, [notificationsEnabled, notificationMethod]);
-
-  const notify =
-    notificationsEnabled &&
-    hasUnread &&
-    (notificationMethod === ProviderNotificationMethod.computer ||
-      notificationMethod === ProviderNotificationMethod['phone and computer']);
-
-  useEffect(() => {
-    const audio = audioRef.current;
-
-    if (notify) {
-      // Check if the audio is not already playing
-      if (audio.paused) {
-        void audio.play();
-      }
-    }
-
-    // Cleanup function to pause the audio if the component unmounts
-    return () => {
-      audio.pause();
-    };
-  }, [notify]);
 
   const handleIconButtonClick: EventHandler<MouseEvent<HTMLElement>> = (event) => {
     setNotificationsOpen(true);

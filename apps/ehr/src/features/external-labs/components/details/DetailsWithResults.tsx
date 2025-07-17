@@ -1,10 +1,10 @@
+import { Button, Typography } from '@mui/material';
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { LabOrderDetailedPageDTO, TaskReviewedParameters } from 'utils';
 import { CSSPageTitle } from '../../../../telemed/components/PageTitle';
-import { ResultItem } from './ResultItem';
-import { Button, Typography } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
 import { OrderCollection } from '../OrderCollection';
+import { ResultItem } from './ResultItem';
 
 export const DetailsWithResults: React.FC<{
   labOrder: LabOrderDetailedPageDTO;
@@ -25,8 +25,9 @@ export const DetailsWithResults: React.FC<{
         {labOrder.diagnoses}
       </Typography>
 
-      {labOrder.resultsDetails.map((result) => (
+      {labOrder.resultsDetails.map((result, idx) => (
         <ResultItem
+          key={`result-detail-${idx}-${result.diagnosticReportId}`}
           onMarkAsReviewed={() =>
             markTaskAsReviewed({
               taskId: result.taskId,

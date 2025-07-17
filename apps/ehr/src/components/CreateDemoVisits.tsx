@@ -1,9 +1,9 @@
 import { useAuth0 } from '@auth0/auth0-react';
+import { otherColors } from '@ehrTheme/colors';
+import { createDemoVisits } from '@ehrTheme/icons';
 import { LoadingButton } from '@mui/lab';
 import { Alert, Snackbar, TextField, Typography } from '@mui/material';
 import { Box } from '@mui/system';
-import { otherColors } from '@ehrTheme/colors';
-import { createDemoVisits } from '@ehrTheme/icons';
 import { Location } from 'fhir/r4b';
 import React, { ReactElement, useState } from 'react';
 import { ServiceMode } from 'utils';

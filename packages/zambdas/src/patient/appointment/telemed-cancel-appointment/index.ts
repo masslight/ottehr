@@ -27,23 +27,26 @@ import {
   sendSms,
   sendVirtualCancellationEmail,
   validateBundleAndExtractAppointment,
+  wrapHandler,
   ZambdaInput,
 } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
+
+const ZAMBDA_NAME = 'telemed-cancel-appointment';
 export interface CancelTelemedAppointmentInputValidated extends CancelTelemedAppointmentZambdaInput {
   secrets: Secrets | null;
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let zapehrToken: string;
+let oystehrToken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`Cancelation Input: ${JSON.stringify(input)}`);
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  console.log(`Telemed Cancelation Input: ${JSON.stringify(input)}`);
 
   try {
     const validatedParameters = validateRequestParameters(input);
 
-    zapehrToken = await checkOrCreateM2MClientToken(zapehrToken, validatedParameters.secrets);
+    oystehrToken = await checkOrCreateM2MClientToken(oystehrToken, validatedParameters.secrets);
 
     const response = await performEffect({ input, params: validatedParameters });
 
@@ -55,7 +58,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify({ error: 'Internal error' }),
     };
   }
-};
+});
 
 interface PerformEffectInput {
   input: ZambdaInput;
@@ -68,7 +71,7 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
 
   const fhirAPI = getSecret(SecretsKeys.FHIR_API, secrets);
   const projectAPI = getSecret(SecretsKeys.PROJECT_API, secrets);
-  const oystehr = createOystehrClient(zapehrToken, fhirAPI, projectAPI);
+  const oystehr = createOystehrClient(oystehrToken, fhirAPI, projectAPI);
 
   console.group('gettingEmailProps');
 
@@ -193,7 +196,8 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
   if (relatedPerson) {
     const message = `Sorry to see you go. Questions? Call 202-555-1212 `;
 
-    await sendSms(message, `RelatedPerson/${relatedPerson.id}`, oystehr);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+    await sendSms(message, `RelatedPerson/${relatedPerson.id}`, oystehr, ENVIRONMENT);
   } else {
     console.log(`No RelatedPerson found for patient ${patient.id} not sending text message`);
   }

@@ -1,9 +1,9 @@
-import { ReactElement, useState, useMemo, useEffect, useRef } from 'react';
-import { ApptTab } from './AppointmentTabs';
-import { FLAGGED_REASONS_FOR_VISIT, MOBILE_MODAL_STYLE } from '../constants';
-import { Typography, Modal, Box } from '@mui/material';
-import { GenericToolTip } from './GenericToolTip';
 import { otherColors } from '@ehrTheme/colors';
+import { Box, Modal, Typography } from '@mui/material';
+import { ReactElement, useEffect, useMemo, useRef, useState } from 'react';
+import { FLAGGED_REASONS_FOR_VISIT, MOBILE_MODAL_STYLE } from '../constants';
+import { ApptTab } from './AppointmentTabs';
+import { GenericToolTip } from './GenericToolTip';
 
 interface ReasonsForVisitProps {
   reasonsForVisit: string;

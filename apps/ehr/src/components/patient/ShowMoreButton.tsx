@@ -1,5 +1,5 @@
-import { FC } from 'react';
 import { Button } from '@mui/material';
+import { FC } from 'react';
 
 interface ShowMoreButtonProps {
   isOpen: boolean;

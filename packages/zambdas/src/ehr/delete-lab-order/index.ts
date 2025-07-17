@@ -1,14 +1,20 @@
 import { BatchInputDeleteRequest } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../shared';
+import { DeleteLabOrderZambdaOutput, getSecret, SecretsKeys } from 'utils';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  topLevelCatch,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
 import { getLabOrderRelatedResources, makeDeleteResourceRequest } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mtoken: string;
+let m2mToken: string;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler('delete-lab-order', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
@@ -16,8 +22,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
     const { serviceRequest, questionnaireResponse, task, labConditions } = await getLabOrderRelatedResources(
       oystehr,
@@ -61,20 +67,15 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       });
     }
 
+    const response: DeleteLabOrderZambdaOutput = {};
+
     return {
       statusCode: 200,
-      body: JSON.stringify({
-        message: `Successfully deleted external lab order resources`,
-        deletedResources: {
-          serviceRequest,
-          questionnaireResponse,
-          task,
-          labConditions,
-        },
-      }),
+      body: JSON.stringify(response),
     };
   } catch (error: any) {
-    await topLevelCatch('delete-lab-order', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('delete-lab-order', error, ENVIRONMENT);
 
     return {
       statusCode: error.statusCode || 500,

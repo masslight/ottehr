@@ -13,6 +13,7 @@ import {
   SEEN_IN_LAST_THREE_YEARS_LABEL,
   VitalFieldNames,
 } from 'utils';
+import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { createPdfClient, PdfInfo, rgbNormalized } from './pdf-utils';
 import {
@@ -25,7 +26,6 @@ import {
   TextStyle,
   VisitNoteData,
 } from './types';
-import { makeZ3Url } from '../presigned-file-urls';
 
 async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointment: boolean): Promise<Uint8Array> {
   const pdfClientStyles: PdfClientStyles = {
@@ -300,7 +300,9 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     drawFieldLine('Subscriber ID', data.insuranceSubscriberId);
   }
   drawFieldLine('Address', data.address);
-  regularText("Provider confirmed patient's name, DOB, introduced myself and gave my licensure and credentials");
+  regularText(
+    'Provider confirmed patient’s name, DOB, introduced themselves, and gave their licensure and credentials.'
+  );
   separateLine();
 
   if (data.chiefComplaint || data.providerTimeSpan) {
@@ -323,53 +325,93 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     separateLine();
   }
 
-  if (data.medications) {
+  if (data.medications || (data.medicationsNotes && data.medicationsNotes.length > 0)) {
     drawBlockHeader('Medications');
-    data.medications.length
+    data.medications?.length
       ? data.medications.forEach((medication) => {
           pdfClient.drawText(medication, textStyles.regularText);
         })
       : pdfClient.drawText('No current medications', textStyles.regularText);
+
+    if (data.medicationsNotes && data.medicationsNotes.length > 0) {
+      drawBlockHeader('Medications notes', textStyles.blockSubHeader);
+      data.medicationsNotes.forEach((record) => {
+        regularText(record);
+      });
+    }
+
     separateLine();
   }
 
-  if (data.allergies) {
+  if (data.allergies || (data.allergiesNotes && data.allergiesNotes.length > 0)) {
     drawBlockHeader('Allergies');
-    data.allergies.length
+    data.allergies?.length
       ? data.allergies.forEach((allergy) => {
           pdfClient.drawText(allergy, textStyles.regularText);
         })
       : pdfClient.drawText('No known allergies', textStyles.regularText);
+
+    if (data.allergiesNotes && data.allergiesNotes.length > 0) {
+      drawBlockHeader('Allergies notes', textStyles.blockSubHeader);
+      data.allergiesNotes.forEach((record) => {
+        regularText(record);
+      });
+    }
+
     separateLine();
   }
 
-  if (data.medicalConditions) {
+  if (data.medicalConditions || (data.medicalConditionsNotes && data.medicalConditionsNotes.length > 0)) {
     drawBlockHeader('Medical Conditions');
-    data.medicalConditions.length
+    data.medicalConditions?.length
       ? data.medicalConditions.forEach((medicalCondition) => {
           pdfClient.drawText(medicalCondition, textStyles.regularText);
         })
       : pdfClient.drawText('No known medical conditions', textStyles.regularText);
+
+    if (data.medicalConditionsNotes && data.medicalConditionsNotes.length > 0) {
+      drawBlockHeader('Medical conditions notes', textStyles.blockSubHeader);
+      data.medicalConditionsNotes.forEach((record) => {
+        regularText(record);
+      });
+    }
+
     separateLine();
   }
 
-  if (data.surgicalHistory) {
+  if (data.surgicalHistory || (data.surgicalHistoryNotes && data.surgicalHistoryNotes.length > 0)) {
     drawBlockHeader('Surgical history');
-    data.surgicalHistory.length
+    data.surgicalHistory?.length
       ? data.surgicalHistory.forEach((record) => {
           regularText(record);
         })
       : regularText('No surgical history');
+
+    if (data.surgicalHistoryNotes && data.surgicalHistoryNotes.length > 0) {
+      drawBlockHeader('Surgical history notes', textStyles.blockSubHeader);
+      data.surgicalHistoryNotes.forEach((record) => {
+        regularText(record);
+      });
+    }
+
     separateLine();
   }
 
-  if (data.hospitalization) {
+  if (data.hospitalization || (data.hospitalizationNotes && data.hospitalizationNotes.length > 0)) {
     drawBlockHeader('Hospitalization');
-    data.hospitalization.length
+    data.hospitalization?.length
       ? data.hospitalization.forEach((record) => {
           regularText(record);
         })
       : regularText('No hospitalizations');
+
+    if (data.hospitalizationNotes && data.hospitalizationNotes.length > 0) {
+      drawBlockHeader('Hospitalization notes', textStyles.blockSubHeader);
+      data.hospitalizationNotes.forEach((record) => {
+        regularText(record);
+      });
+    }
+
     separateLine();
   }
 
@@ -627,7 +669,7 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     (data.subSpecialtyFollowUp && data.subSpecialtyFollowUp.length > 0) ||
     (data.workSchoolExcuse && data.workSchoolExcuse.length > 0)
   ) {
-    drawBlockHeader('Patient instructions');
+    drawBlockHeader('Plan');
     if (data.patientInstructions && data.patientInstructions.length > 0) {
       drawBlockHeader('Patient instructions', textStyles.blockSubHeader);
       data.patientInstructions.forEach((instruction) => {
@@ -681,10 +723,16 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     }
 
     if (data.workSchoolExcuse && data.workSchoolExcuse.length > 0) {
-      drawBlockHeader('Work / School Excuse', textStyles.blockSubHeader);
+      drawBlockHeader('School / Work Excuse', textStyles.blockSubHeader);
       data.workSchoolExcuse.forEach((item) => {
         regularText(item);
       });
+      separateLine();
+    }
+
+    if (data.addendumNote) {
+      drawBlockHeader('Addendum', textStyles.blockSubHeader);
+      regularText(data.addendumNote);
     }
   }
 

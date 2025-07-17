@@ -9,20 +9,22 @@ import {
   SecretsKeys,
   SUPPORT_EMAIL,
 } from 'utils';
-import { getAuth0Token, sendgridEmail, sendSlackNotification, topLevelCatch } from '../../../shared';
+import { getAuth0Token, sendgridEmail, sendSlackNotification, topLevelCatch, wrapHandler } from '../../../shared';
 import { createOystehrClient } from '../../../shared/helpers';
+import { ZambdaInput } from '../../../shared/types';
 import { bundleResourcesConfig, codingContainedInList, getEmailsFromGroup } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
-import { ZambdaInput } from '../../../shared/types';
+
+const ZAMBDA_NAME = 'communication-subscription';
 
 export interface CommunicationSubscriptionInput {
   communication: Communication;
   secrets: Secrets | null;
 }
 
-let zapehrToken: string;
+let oystehrToken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input)}`);
   try {
     console.group('validateRequestParameters');
@@ -40,14 +42,14 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       };
     }
 
-    if (!zapehrToken) {
+    if (!oystehrToken) {
       console.log('getting token');
-      zapehrToken = await getAuth0Token(secrets);
+      oystehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }
 
-    const oystehr = createOystehrClient(zapehrToken, secrets);
+    const oystehr = createOystehrClient(oystehrToken, secrets);
 
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
     const communicationCodes = communication.category;
@@ -128,7 +130,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           const headers = {
             accept: 'application/json',
             'content-type': 'application/json',
-            Authorization: `Bearer ${zapehrToken}`,
+            Authorization: `Bearer ${oystehrToken}`,
           };
           const getUserByProfileResponse = await fetch(
             `${PROJECT_API}/user/v2/list?profile=Practitioner/${practitionerID}`,
@@ -160,11 +162,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         }
 
         console.log('getting emails');
-        const pracitionersEmails = await getEmailsFromGroup(fhirGroup, oystehr);
-        console.log('pracitionersEmails', pracitionersEmails);
+        const practitionersEmails = await getEmailsFromGroup(fhirGroup, oystehr);
+        console.log('practitionersEmails', practitionersEmails);
 
         const fromEmail = SUPPORT_EMAIL;
-        const toEmail = pracitionersEmails || [fromEmail];
+        const toEmail = practitionersEmails || [fromEmail];
         const errorMessage = `Details: ${communication.payload?.[0].contentString} <br> Submitted By: ${submitterDetails} <br> Location: ${fhirLocation?.name} - ${fhirLocation?.address?.city}, ${fhirLocation?.address?.state} <br> Appointment Id: ${appointmentID} <br> Communication Fhir Resource: ${communication.id}`;
 
         console.log(`Sending issue report email to ${toEmail} with template id ${templateID}`);
@@ -210,10 +212,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    await topLevelCatch('admin-communication-subscription', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('admin-communication-subscription', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: error.message }),
     };
   }
-};
+});

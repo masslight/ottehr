@@ -1,23 +1,24 @@
 import CheckIcon from '@mui/icons-material/Check';
 import { Box, Tooltip, Typography } from '@mui/material';
+import { DateTime } from 'luxon';
+import { enqueueSnackbar } from 'notistack';
 import { FC, useMemo, useState } from 'react';
-import { getVisitStatus, TelemedAppointmentStatusEnum, PRACTITIONER_CODINGS } from 'utils';
+import { getVisitStatus, PRACTITIONER_CODINGS, TelemedAppointmentStatusEnum } from 'utils';
 import { RoundedButton } from '../../../../components/RoundedButton';
+import { dataTestIds } from '../../../../constants/data-test-ids';
+import { useFeatureFlags } from '../../../../features/css-module/context/featureFlags';
+import { useAppointment } from '../../../../features/css-module/hooks/useAppointment';
+import { usePractitionerActions } from '../../../../features/css-module/hooks/usePractitioner';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { ConfirmationDialog } from '../../../components';
 import { useGetAppointmentAccessibility } from '../../../hooks';
-import { useZapEHRAPIClient } from '../../../hooks/useOystehrAPIClient';
+import { useOystehrAPIClient } from '../../../hooks/useOystehrAPIClient';
 import {
   useAppointmentStore,
   useChangeTelemedAppointmentStatusMutation,
   useSignAppointmentMutation,
 } from '../../../state';
 import { getPatientName } from '../../../utils';
-import { useFeatureFlags } from '../../../../features/css-module/context/featureFlags';
-import { useAppointment } from '../../../../features/css-module/hooks/useAppointment';
-import { usePractitionerActions } from '../../../../features/css-module/hooks/usePractitioner';
-import { enqueueSnackbar } from 'notistack';
-import { dataTestIds } from '../../../../constants/data-test-ids';
 
 type ReviewAndSignButtonProps = {
   onSigned?: () => void;
@@ -30,7 +31,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     'encounter',
     'chartData',
   ]);
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const { mutateAsync: changeTelemedAppointmentStatus, isLoading: isChangeLoading } =
     useChangeTelemedAppointmentStatusMutation();
   const { mutateAsync: signAppointment, isLoading: isSignLoading } = useSignAppointmentMutation();
@@ -82,8 +83,10 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     }
 
     if (css && inPersonStatus) {
-      if (!['provider', 'ready for discharge'].includes(inPersonStatus)) {
-        messages.push('The appointment must be in the status of provider or ready for discharge');
+      if (inPersonStatus === 'provider') {
+        messages.push('You must discharge the patient before signing');
+      } else if (inPersonStatus !== 'ready for discharge') {
+        messages.push('The appointment must be in the status of discharged');
       }
     } else {
       if (appointmentAccessibility.status !== TelemedAppointmentStatusEnum.unsigned) {
@@ -136,8 +139,13 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
 
     if (css) {
       try {
+        const tz = DateTime.now().zoneName;
         await handleCompleteProvider();
-        await signAppointment({ apiClient, appointmentId: appointment.id });
+        await signAppointment({
+          apiClient,
+          appointmentId: appointment.id,
+          timezone: tz,
+        });
         await refetch();
       } catch (error: any) {
         console.log(error.message);
@@ -171,7 +179,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
         <Box>
           <ConfirmationDialog
             title={`Review & Sign ${patientName}`}
-            description="Are you sure you have reviewed the patient chart, performed the examination, defined the diagnoses, medical decision making and E&M code and ready to sing this patient."
+            description="Are you sure you have reviewed the patient chart, performed the examination, defined the diagnoses, medical decision making and E&M code and are ready to sign this patient."
             response={handleSign}
             actionButtons={{
               proceed: {
@@ -182,7 +190,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
           >
             {(showDialog) => (
               <RoundedButton
-                disabled={errorMessage.length > 0 || isLoading || completed}
+                disabled={errorMessage.length > 0 || isLoading || completed || inPersonStatus === 'provider'}
                 variant="contained"
                 onClick={showDialog}
                 startIcon={completed ? <CheckIcon color="inherit" /> : undefined}

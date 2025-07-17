@@ -1,21 +1,21 @@
+import Oystehr from '@oystehr/sdk';
+import { randomUUID } from 'crypto';
+import { DocumentReference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { StandardFonts } from 'pdf-lib';
 import {
   createFilesDocumentReferences,
   EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE,
   EXTERNAL_LAB_LABEL_PDF_BASE_NAME,
-  Secrets,
   getPresignedURL,
   LabelConfig,
+  Secrets,
 } from 'utils';
-import { PdfInfo, createPdfClient } from './pdf-utils';
-import { Y_POS_GAP as pdfClientGapSubtraction } from './pdf-consts';
-import { PdfClientStyles, TextStyle } from './types';
 import { makeZ3Url } from './../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from './../z3Utils';
-import Oystehr from '@oystehr/sdk';
-import { DocumentReference } from 'fhir/r4b';
-import { randomUUID } from 'crypto';
-import { StandardFonts } from 'pdf-lib';
+import { Y_POS_GAP as pdfClientGapSubtraction } from './pdf-consts';
+import { createPdfClient, PdfInfo } from './pdf-utils';
+import { PdfClientStyles, TextStyle } from './types';
 
 interface ExternalLabsLabelContent {
   patientLastName: string;
@@ -79,6 +79,12 @@ const createExternalLabsLabelPdfBytes = async (data: ExternalLabsLabelConfig): P
       font: Courier,
       newLineAfter: false,
     },
+    fieldTextBold: {
+      fontSize: baseFontSize,
+      spacing: baseSpacing,
+      font: CourierBold,
+      newLineAfter: false,
+    },
     fieldHeader: {
       fontSize: baseFontSize,
       font: CourierBold,
@@ -100,7 +106,7 @@ const createExternalLabsLabelPdfBytes = async (data: ExternalLabsLabelConfig): P
 
   const drawHeaderAndInlineText = (header: string, text: string): void => {
     pdfClient.drawTextSequential(`${header}: `, textStyles.fieldHeader);
-    pdfClient.drawTextSequential(text, textStyles.fieldText);
+    pdfClient.drawTextSequential(text, textStyles.fieldTextBold);
   };
 
   const drawColumnRowAndNewline = (leftColumn: Column, rightColumn: Column): void => {
@@ -108,7 +114,7 @@ const createExternalLabsLabelPdfBytes = async (data: ExternalLabsLabelConfig): P
 
     let startXPos = pdfClient.getLeftBound();
     startXPos = pdfClient.drawStartXPosSpecifiedText(leftHeader, textStyles.fieldHeader, startXPos).endXPos;
-    pdfClient.drawStartXPosSpecifiedText(leftColumn.value, textStyles.fieldText, startXPos);
+    pdfClient.drawStartXPosSpecifiedText(leftColumn.value, textStyles.fieldTextBold, startXPos);
 
     // now start the right column
     pdfClient.setX(rightColumnXStart);
@@ -116,7 +122,7 @@ const createExternalLabsLabelPdfBytes = async (data: ExternalLabsLabelConfig): P
     const rightHeader = rightColumn.header ? `${rightColumn.header}: ` : '';
 
     startXPos = pdfClient.drawStartXPosSpecifiedText(rightHeader, textStyles.fieldHeader, pdfClient.getX()).endXPos;
-    pdfClient.drawStartXPosSpecifiedText(rightColumn.value, textStyles.fieldText, startXPos);
+    pdfClient.drawStartXPosSpecifiedText(rightColumn.value, textStyles.fieldTextBold, startXPos);
     pdfClient.newLine(NEWLINE_Y_DROP);
   };
 
@@ -234,13 +240,13 @@ export async function createExternalLabsLabelPDF(
     oystehr,
     searchParams: [{ name: 'related', value: `ServiceRequest/${serviceRequestID}` }],
     generateUUID: randomUUID,
-    listResources: [], // this for whatever reason needs to get added otehrwise the function never adds the new docRef to the returned array
+    listResources: [], // this for whatever reason needs to get added otherwise the function never adds the new docRef to the returned array
   });
 
   console.log(`These are the docRefs returned for the label: `, JSON.stringify(docRefs));
 
   if (!docRefs.length) {
-    throw new Error('Unable to make docrefs for label');
+    throw new Error('Unable to make docRefs for label');
   }
 
   const presignedURL = await getPresignedURL(pdfInfo.uploadURL, token);

@@ -1,9 +1,9 @@
-import { ReactElement } from 'react';
 import { Box, Typography, useTheme } from '@mui/material';
+import { ReactElement } from 'react';
 import { LabOrderDetailedPageDTO, LabOrderResultDetails, PSC_LOCALE } from 'utils';
+import { LabsOrderStatusChip } from '../ExternalLabsStatusChip';
 import { FinalCardView } from './FinalCardView';
 import { PrelimCardView } from './PrelimCardView';
-import { LabsOrderStatusChip } from '../ExternalLabsStatusChip';
 
 interface ResultItemProps {
   labOrder: LabOrderDetailedPageDTO;
@@ -47,7 +47,7 @@ export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails, loading 
         </Box>
       </Box>
 
-      {resultDetails.resultType === 'final' && (
+      {(resultDetails.resultType === 'final' || resultDetails.resultType === 'cancelled') && (
         <FinalCardView
           resultPdfUrl={resultDetails.resultPdfUrl}
           labStatus={resultDetails.labStatus}
@@ -62,6 +62,7 @@ export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails, loading 
           receivedDate={resultDetails.receivedDate}
           reviewedDate={resultDetails.reviewedDate}
           onPrelimView={() => onMarkAsReviewed()} // todo: add open PDF when task will be ready
+          timezone={labOrder.encounterTimezone}
         />
       )}
     </>

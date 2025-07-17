@@ -1,5 +1,5 @@
-import { FC } from 'react';
 import { Box, Typography } from '@mui/material';
+import { FC } from 'react';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../state';
 import { AssessmentTitle } from '../../AssessmentTab';

@@ -1,6 +1,6 @@
-import { FC, useContext } from 'react';
 import { Box, Button, Skeleton, useTheme } from '@mui/material';
-import { IntakeThemeContext } from 'ui-components';
+import { FC, useContext } from 'react';
+import { IntakeThemeContext } from '../../../../contexts';
 import { dataTestIds } from '../../../../helpers/data-test-ids';
 
 interface CardDisplayProps {

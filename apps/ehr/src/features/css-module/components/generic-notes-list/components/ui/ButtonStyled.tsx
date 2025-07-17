@@ -1,5 +1,5 @@
-import React from 'react';
 import { Button } from '@mui/material';
+import React from 'react';
 
 export const ButtonStyled: React.FC<React.ComponentProps<typeof Button>> = ({ children, ...props }) => (
   <Button

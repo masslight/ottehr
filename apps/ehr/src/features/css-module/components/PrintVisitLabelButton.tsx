@@ -1,4 +1,4 @@
-import { CircularProgress, ButtonBase } from '@mui/material';
+import { ButtonBase, CircularProgress } from '@mui/material';
 import { FC, useCallback, useState } from 'react';
 import { getOrCreateVisitLabel } from 'src/api/api';
 import { GenericToolTip } from 'src/components/GenericToolTip';

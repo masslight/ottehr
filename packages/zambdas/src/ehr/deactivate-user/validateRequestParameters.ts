@@ -1,5 +1,5 @@
-import { DeactivateUserZambdaInputValidated } from '.';
 import { ZambdaInput } from '../../shared';
+import { DeactivateUserZambdaInputValidated } from '.';
 
 export function validateRequestParameters(input: ZambdaInput): DeactivateUserZambdaInputValidated {
   if (!input.body) {

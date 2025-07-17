@@ -1,9 +1,9 @@
 import { Autocomplete, Skeleton, Tab, Tabs, TextField, Typography } from '@mui/material';
 import { Box, styled } from '@mui/system';
+import { Slot } from 'fhir/r4b';
+import noop from 'lodash/noop';
 import { FC, useState } from 'react';
 import { generatePath, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import noop from 'lodash/noop';
-import { BoldPurpleInputLabel, ErrorDialog, ErrorDialogConfig, useUCZambdaClient } from 'ui-components';
 import {
   APIError,
   BookableItem,
@@ -15,21 +15,23 @@ import {
   ServiceMode,
   SlotListItem,
 } from 'utils';
+import ottehrApi from '../api/ottehrApi';
 import {
   BOOKING_SCHEDULE_ON_QUERY_PARAM,
+  BOOKING_SCHEDULE_SELECTED_SLOT,
   BOOKING_SCHEDULE_TYPE_QUERY_PARAM,
   BOOKING_SERVICE_MODE_PARAM,
-  BOOKING_SCHEDULE_SELECTED_SLOT,
-  intakeFlowPageRoute,
   bookingBasePath,
+  intakeFlowPageRoute,
 } from '../App';
 import { PageContainer, Schedule } from '../components';
+import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
+import { BoldPurpleInputLabel } from '../components/form';
+import { dataTestIds } from '../helpers/data-test-ids';
+import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import { otherColors } from '../IntakeThemeProvider';
 import { useGetBookableItems, useGetSchedule } from '../telemed/features/appointments/appointment.queries';
-import { useZapEHRAPIClient } from '../telemed/utils';
-import { dataTestIds } from '../helpers/data-test-ids';
-import { Slot } from 'fhir/r4b';
-import ottehrApi from '../api/ottehrApi';
+import { useOystehrAPIClient } from '../telemed/utils';
 
 const SERVICE_MODES: ServiceMode[] = [ServiceMode['in-person'], ServiceMode['virtual']];
 
@@ -101,7 +103,7 @@ const useBookingData = (
   isSlotsLoading: boolean;
   inPersonData?: { items: BookableItem[]; categorized: boolean };
 } => {
-  const apiClient = useZapEHRAPIClient({ tokenless: true });
+  const apiClient = useOystehrAPIClient({ tokenless: true });
 
   const { data: inPersonData, status: inPersonStatus } = useGetBookableItems(
     apiClient,

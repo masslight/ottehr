@@ -9,21 +9,23 @@ import {
   GetPastVisitsResponse,
   getPatientsForUser,
   getSecret,
+  getTimezone,
   getVisitStatus,
   mapStatusToTelemed,
-  TIMEZONE_EXTENSION_URL,
   SecretsKeys,
-  getTimezone,
+  TIMEZONE_EXTENSION_URL,
   TIMEZONES,
 } from 'utils';
-import { checkOrCreateM2MClientToken, getUser, ZambdaInput } from '../../../shared';
+import { checkOrCreateM2MClientToken, getUser, wrapHandler, ZambdaInput } from '../../../shared';
 import { getFhirResources, mapEncountersToAppointmentIds } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
-// Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let zapehrToken: string;
+const ZAMBDA_NAME = 'get-past-visits';
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+// Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
+let oystehrToken: string;
+
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
@@ -31,10 +33,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    zapehrToken = await checkOrCreateM2MClientToken(zapehrToken, secrets);
+    oystehrToken = await checkOrCreateM2MClientToken(oystehrToken, secrets);
     const fhirAPI = getSecret(SecretsKeys.FHIR_API, secrets);
     const projectAPI = getSecret(SecretsKeys.PROJECT_API, secrets);
-    const oystehr = createOystehrClient(zapehrToken, fhirAPI, projectAPI);
+    const oystehr = createOystehrClient(oystehrToken, fhirAPI, projectAPI);
     console.log('getting user');
 
     const user = await getUser(input.headers.Authorization.replace('Bearer ', ''), secrets);
@@ -142,4 +144,4 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify({ error: 'Internal error' }),
     };
   }
-};
+});

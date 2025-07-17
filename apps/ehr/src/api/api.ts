@@ -5,20 +5,25 @@ import {
   AssignPractitionerInput,
   AssignPractitionerResponse,
   CancelAppointmentZambdaInput,
+  CancelAppointmentZambdaOutput,
   CancelRadiologyOrderZambdaInput,
+  CancelRadiologyOrderZambdaOutput,
   CancelTelemedAppointmentZambdaInput,
   CancelTelemedAppointmentZambdaOutput,
   ChangeInPersonVisitStatusInput,
   ChangeInPersonVisitStatusResponse,
   chooseJson,
   CollectInHouseLabSpecimenParameters,
+  CollectInHouseLabSpecimenZambdaOutput,
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
   CreateInHouseLabOrderParameters,
   CreateInHouseLabOrderResponse,
   CreateLabOrderParameters,
-  CreateNursingOrderParameters,
+  CreateLabOrderZambdaOutput,
+  CreateNursingOrderInput,
   CreateRadiologyZambdaOrderInput,
+  CreateRadiologyZambdaOrderOutput,
   CreateScheduleParams,
   CreateSlotParams,
   CreateUserOutput,
@@ -26,7 +31,10 @@ import {
   DeactivateUserZambdaInput,
   DeactivateUserZambdaOutput,
   DeleteInHouseLabOrderParameters,
-  DeleteLabOrderParams,
+  DeleteInHouseLabOrderZambdaOutput,
+  DeleteLabOrderZambdaInput,
+  DeleteLabOrderZambdaOutput,
+  DownloadPatientProfilePhotoInput,
   GetAppointmentsZambdaInput,
   GetAppointmentsZambdaOutput,
   GetConversationInput,
@@ -38,7 +46,6 @@ import {
   GetLabelPdfParameters,
   GetLabOrdersParameters,
   GetNursingOrdersInput,
-  GetOrUploadPatientProfilePhotoZambdaInput,
   GetOrUploadPatientProfilePhotoZambdaResponse,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOutput,
@@ -49,12 +56,12 @@ import {
   GetUserResponse,
   GetVisitLabelInput,
   HandleInHouseLabResultsParameters,
+  HandleInHouseLabResultsZambdaOutput,
   InHouseGetOrdersResponseDTO,
   InviteParticipantRequestParameters,
   LabelPdf,
   ListScheduleOwnersParams,
   ListScheduleOwnersResponse,
-  NursingOrdersSearchBy,
   PaginatedResponse,
   RadiologyLaunchViewerZambdaInput,
   RadiologyLaunchViewerZambdaOutput,
@@ -66,10 +73,11 @@ import {
   UnassignPractitionerZambdaInput,
   UnassignPractitionerZambdaOutput,
   UpdateLabOrderResourcesParameters,
-  UpdateNursingOrderParameters,
+  UpdateNursingOrderInput,
   UpdateScheduleParams,
   UpdateUserParams,
   UpdateUserZambdaOutput,
+  UploadPatientProfilePhotoInput,
 } from 'utils';
 
 export interface PatchOperation {
@@ -251,7 +259,7 @@ export const cancelTelemedAppointment = async (
       throw new Error('cancel appointment environment variable could not be loaded');
     }
 
-    const response = await oystehr.zambda.executePublic({
+    const response = await oystehr.zambda.execute({
       id: CANCEL_TELEMED_APPOINTMENT_ZAMBDA_ID,
       ...parameters,
     });
@@ -448,7 +456,7 @@ export const getLocations = async (
 export const cancelAppointment = async (
   oystehr: Oystehr,
   parameters: CancelAppointmentZambdaInput
-): Promise<Record<string, never>> => {
+): Promise<CancelAppointmentZambdaOutput> => {
   try {
     if (CANCEL_APPOINTMENT_ZAMBDA_ID == null) {
       throw new Error('cancel appointment environment variable could not be loaded');
@@ -548,10 +556,7 @@ export const createSchedule = async (params: CreateScheduleParams, oystehr: Oyst
   }
 };
 
-export type UploadPatientProfilePhotoParameters = Omit<
-  GetOrUploadPatientProfilePhotoZambdaInput,
-  'z3PhotoUrl' | 'action'
-> & {
+export type UploadPatientProfilePhotoParameters = Omit<UploadPatientProfilePhotoInput, 'action'> & {
   patientPhotoFile: File;
 };
 
@@ -564,22 +569,23 @@ export const uploadPatientProfilePhoto = async (
       throw new Error('Could not find environment variable GET_PATIENT_PROFILE_PHOTO_URL_ZAMBDA_ID');
     }
 
+    const { patientPhotoFile, ...zambdaInput } = parameters;
+
     const urlSigningResponse = await oystehr.zambda.execute({
       id: GET_PATIENT_PROFILE_PHOTO_URL_ZAMBDA_ID,
-      ...parameters,
+      ...zambdaInput,
       action: 'upload',
     });
 
     const { presignedImageUrl } = chooseJson(urlSigningResponse);
 
-    const photoFile = parameters.patientPhotoFile;
     // Upload the file to S3
     const uploadResponse = await fetch(presignedImageUrl, {
       method: 'PUT',
       headers: {
-        'Content-Type': photoFile.type,
+        'Content-Type': patientPhotoFile.type,
       },
-      body: photoFile,
+      body: patientPhotoFile,
     });
 
     if (!uploadResponse.ok) {
@@ -593,7 +599,7 @@ export const uploadPatientProfilePhoto = async (
   }
 };
 
-export type GetPatientProfilePhotoParameters = Omit<GetOrUploadPatientProfilePhotoZambdaInput, 'patientID' | 'action'>;
+export type GetPatientProfilePhotoParameters = Omit<DownloadPatientProfilePhotoInput, 'action'>;
 
 export const getSignedPatientProfilePhotoUrl = async (
   oystehr: Oystehr,
@@ -617,7 +623,10 @@ export const getSignedPatientProfilePhotoUrl = async (
   }
 };
 
-export const createExternalLabOrder = async (oystehr: Oystehr, parameters: CreateLabOrderParameters): Promise<any> => {
+export const createExternalLabOrder = async (
+  oystehr: Oystehr,
+  parameters: CreateLabOrderParameters
+): Promise<CreateLabOrderZambdaOutput> => {
   try {
     if (CREATE_LAB_ORDER_ZAMBDA_ID == null) {
       throw new Error('create external lab order environment variable could not be loaded');
@@ -660,7 +669,10 @@ export const getExternalLabOrders = async <RequestParameters extends GetLabOrder
   }
 };
 
-export const deleteLabOrder = async (oystehr: Oystehr, parameters: DeleteLabOrderParams): Promise<any> => {
+export const deleteLabOrder = async (
+  oystehr: Oystehr,
+  parameters: DeleteLabOrderZambdaInput
+): Promise<DeleteLabOrderZambdaOutput> => {
   try {
     if (DELETE_LAB_ORDER_ZAMBDA_ID == null) {
       throw new Error('delete lab order zambda environment variable could not be loaded');
@@ -698,7 +710,7 @@ export const updateLabOrderResources = async (
 export const createRadiologyOrder = async (
   oystehr: Oystehr,
   parameters: CreateRadiologyZambdaOrderInput
-): Promise<any> => {
+): Promise<CreateRadiologyZambdaOrderOutput> => {
   try {
     const response = await oystehr.zambda.execute({
       id: 'radiology-create-order',
@@ -714,12 +726,13 @@ export const createRadiologyOrder = async (
 export const cancelRadiologyOrder = async (
   oystehr: Oystehr,
   parameters: CancelRadiologyOrderZambdaInput
-): Promise<void> => {
+): Promise<CancelRadiologyOrderZambdaOutput> => {
   try {
-    await oystehr.zambda.execute({
+    const response = await oystehr.zambda.execute({
       id: 'radiology-cancel-order',
       ...parameters,
     });
+    return response ? chooseJson(response) : {};
   } catch (error: unknown) {
     console.log(error);
     throw error;
@@ -747,7 +760,7 @@ export const getRadiologyOrders = async (
   parameters: GetRadiologyOrderListZambdaInput
 ): Promise<GetRadiologyOrderListZambdaOutput> => {
   try {
-    const searchBy = parameters.encounterId || parameters.patientId || parameters.serviceRequestId;
+    const searchBy = parameters.encounterIds || parameters.patientId || parameters.serviceRequestId;
     if (!searchBy) {
       throw new Error(
         `Missing one of the required parameters (serviceRequestId | encounterId | patientId): ${JSON.stringify(
@@ -844,7 +857,7 @@ export const getCreateInHouseLabOrderResources = async (
 export const collectInHouseLabSpecimen = async (
   oystehr: Oystehr,
   parameters: CollectInHouseLabSpecimenParameters
-): Promise<any> => {
+): Promise<CollectInHouseLabSpecimenZambdaOutput> => {
   try {
     if (COLLECT_IN_HOUSE_LAB_SPECIMEN == null) {
       throw new Error('collect in house lab specimen zambda environment variable could not be loaded');
@@ -863,7 +876,7 @@ export const collectInHouseLabSpecimen = async (
 export const handleInHouseLabResults = async (
   oystehr: Oystehr,
   parameters: HandleInHouseLabResultsParameters
-): Promise<any> => {
+): Promise<HandleInHouseLabResultsZambdaOutput> => {
   try {
     if (HANDLE_IN_HOUSE_LAB_RESULTS == null) {
       throw new Error('handle in house lab results zambda environment variable could not be loaded');
@@ -882,7 +895,7 @@ export const handleInHouseLabResults = async (
 export const deleteInHouseLabOrder = async (
   oystehr: Oystehr,
   parameters: DeleteInHouseLabOrderParameters
-): Promise<any> => {
+): Promise<DeleteInHouseLabOrderZambdaOutput> => {
   try {
     if (DELETE_IN_HOUSE_LAB_ORDER == null) {
       throw new Error('delete in house lab order zambda environment variable could not be loaded');
@@ -898,15 +911,8 @@ export const deleteInHouseLabOrder = async (
   }
 };
 
-export const getNursingOrders = async (
-  oystehr: Oystehr,
-  parameters: GetNursingOrdersInput & { searchBy?: NursingOrdersSearchBy }
-): Promise<any> => {
+export const getNursingOrders = async (oystehr: Oystehr, parameters: GetNursingOrdersInput): Promise<any> => {
   try {
-    if (GET_NURSING_ORDERS_ZAMBDA_ID == null) {
-      throw new Error('get nursing orders zambda environment variable could not be loaded');
-    }
-
     const response = await oystehr.zambda.execute({
       id: GET_NURSING_ORDERS_ZAMBDA_ID,
       ...parameters,
@@ -919,11 +925,8 @@ export const getNursingOrders = async (
   }
 };
 
-export const createNursingOrder = async (oystehr: Oystehr, parameters: CreateNursingOrderParameters): Promise<any> => {
+export const createNursingOrder = async (oystehr: Oystehr, parameters: CreateNursingOrderInput): Promise<any> => {
   try {
-    if (CREATE_NURSING_ORDER_ZAMBDA_ID == null) {
-      throw new Error('create nursing order zambda environment variable could not be loaded');
-    }
     const response = await oystehr.zambda.execute({
       id: CREATE_NURSING_ORDER_ZAMBDA_ID,
       ...parameters,
@@ -935,11 +938,8 @@ export const createNursingOrder = async (oystehr: Oystehr, parameters: CreateNur
   }
 };
 
-export const updateNursingOrder = async (oystehr: Oystehr, parameters: UpdateNursingOrderParameters): Promise<any> => {
+export const updateNursingOrder = async (oystehr: Oystehr, parameters: UpdateNursingOrderInput): Promise<any> => {
   try {
-    if (UPDATE_NURSING_ORDER == null) {
-      throw new Error('update nursing order zambda environment variable could not be loaded');
-    }
     const response = await oystehr.zambda.execute({
       id: UPDATE_NURSING_ORDER,
       ...parameters,

@@ -1,4 +1,5 @@
 import { Address, FhirResource, HealthcareService, Location, Practitioner } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   ClosureType,
   getFullName,
@@ -13,7 +14,6 @@ import {
   UpdateScheduleParams,
 } from 'utils';
 import { ZambdaInput } from '../../../shared';
-import { DateTime } from 'luxon';
 
 export const addressStringFromAddress = (address: Address): string => {
   let addressString = '';
@@ -57,7 +57,7 @@ export interface UpdateScheduleBasicInput extends UpdateScheduleParams {
 }
 
 // this lives here because the create schedule zambda uses an input type that extends UpdateScheduleParams,
-// so this can be shared accross the update and create zambdas
+// so this can be shared across the update and create zambdas
 export const validateUpdateScheduleParameters = (input: ZambdaInput): UpdateScheduleBasicInput => {
   if (!input.body) {
     throw MISSING_REQUEST_BODY;

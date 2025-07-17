@@ -1,60 +1,74 @@
+import { BatchInputPatchRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import {
-  getPatchBinary,
-  PROVENANCE_ACTIVITY_CODING_ENTITY,
-  OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
-  getPresignedURL,
-  OYSTEHR_LAB_OI_CODE_SYSTEM,
-  EXTERNAL_LAB_ERROR,
-  isApiError,
-  APIError,
-  DYMO_30334_LABEL_CONFIG,
-  getPatientFirstName,
-  getPatientLastName,
-  isPSCOrder,
-  getTimezone,
-  allLicensesForPractitioner,
-  FHIR_IDENTIFIER_NPI,
-} from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch } from '../../shared';
-import { ZambdaInput } from '../../shared';
-import { validateRequestParameters } from './validateRequestParameters';
+import { Operation } from 'fast-json-patch';
 import { Coverage, FhirResource, Location, Organization, Patient, Provenance, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
+import {
+  APIError,
+  DYMO_30334_LABEL_CONFIG,
+  EXTERNAL_LAB_ERROR,
+  FHIR_IDENTIFIER_NPI,
+  getFullestAvailableName,
+  getPatchBinary,
+  getPatientFirstName,
+  getPatientLastName,
+  getPresignedURL,
+  getSecret,
+  getTimezone,
+  isApiError,
+  isPSCOrder,
+  ORDER_NUMBER_LEN,
+  OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
+  OYSTEHR_LAB_OI_CODE_SYSTEM,
+  OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
+  PROVENANCE_ACTIVITY_CODING_ENTITY,
+  SecretsKeys,
+} from 'utils';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  topLevelCatch,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
+import { createExternalLabsLabelPDF, ExternalLabsLabelConfig } from '../../shared/pdf/external-labs-label-pdf';
 import { createExternalLabsOrderFormPDF } from '../../shared/pdf/external-labs-order-form-pdf';
 import { makeLabPdfDocumentReference } from '../../shared/pdf/labs-results-form-pdf';
 import { getExternalLabOrderResources } from '../shared/labs';
-import { AOEDisplayForOrderForm, populateQuestionnaireResponseItems } from './helpers';
-import { BatchInputPatchRequest } from '@oystehr/sdk';
-import { Operation } from 'fast-json-patch';
-import { createExternalLabsLabelPDF, ExternalLabsLabelConfig } from '../../shared/pdf/external-labs-label-pdf';
+import { AOEDisplayForOrderForm, createOrderNumber, populateQuestionnaireResponseItems } from './helpers';
+import { validateRequestParameters } from './validateRequestParameters';
+
+const ZAMBDA_NAME = 'submit-lab-order';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mtoken: string;
+let m2mToken: string;
 export const LABS_DATE_STRING_FORMAT = 'MM/dd/yyyy hh:mm a ZZZZ';
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.log(`Input: ${JSON.stringify(input)}`);
     console.log('Validating input');
     const {
       serviceRequestID,
       accountNumber,
+      manualOrder,
       data,
       secrets,
       specimens: specimensFromSubmit,
     } = validateRequestParameters(input);
+    console.log('manualOrder', serviceRequestID, manualOrder);
 
     console.log('Getting token');
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    console.log('token', m2mtoken);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    console.log('token', m2mToken);
 
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
     const userToken = input.headers.Authorization.replace('Bearer ', '');
     const currentUser = await createOystehrClient(userToken, secrets).user.me();
 
+    console.log('getting resources needed for submit lab');
     const {
       serviceRequest,
       patient,
@@ -63,9 +77,19 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       task,
       appointment,
       encounter,
+      schedule,
       organization: labOrganization,
-      specimens: specimenResourses,
+      specimens: specimenResources,
     } = await getExternalLabOrderResources(oystehr, serviceRequestID);
+    console.log('submit lab resources retrieved');
+
+    // if the serviceRequest already has an order number it has already been submitted,
+    // either electronically to the lab (system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)
+    // or manually by just printing the order form (system === OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM)
+    const orderNumber = serviceRequest.identifier?.find(
+      (id) => id.system === OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM || id.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM
+    )?.value;
+    if (orderNumber) throw EXTERNAL_LAB_ERROR('Order is already submitted');
 
     const locationID = serviceRequest.locationReference?.[0].reference?.replace('Location/', '');
 
@@ -97,13 +121,15 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     let coveragePatient: Patient | undefined = undefined;
 
     if (serviceRequest.insurance && serviceRequest.insurance?.length > 0) {
+      const coverageId = serviceRequest.insurance?.[0].reference?.replace('Coverage/', '');
+      console.log('searching for coverage resource', coverageId);
       const insuranceRequestTemp = (
         await oystehr.fhir.search<Patient | Coverage | Organization>({
           resourceType: 'Coverage',
           params: [
             {
               name: '_id',
-              value: serviceRequest.insurance?.[0].reference?.replace('Coverage/', '') || 'UNKNOWN',
+              value: coverageId || 'UNKNOWN',
             },
             {
               name: '_include',
@@ -153,17 +179,17 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     }
 
     const now = DateTime.now();
-    let timezone = undefined;
-
-    if (location) {
-      timezone = getTimezone(location);
+    let timezone;
+    if (schedule) {
+      timezone = getTimezone(schedule);
     }
+    console.log('timezone found', timezone);
 
     const sampleCollectionDates: DateTime[] = [];
 
     const specimenPatchOperations: BatchInputPatchRequest<FhirResource>[] =
-      specimenResourses.length > 0
-        ? specimenResourses.reduce<BatchInputPatchRequest<FhirResource>[]>((acc, specimen) => {
+      specimenResources.length > 0
+        ? specimenResources.reduce<BatchInputPatchRequest<FhirResource>[]>((acc, specimen) => {
             if (!specimen.id) {
               return acc;
             }
@@ -172,15 +198,16 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
             const specimenFromSubmitDate = specimensFromSubmit?.[specimen.id]?.date
               ? DateTime.fromISO(specimensFromSubmit[specimen.id].date)
               : undefined;
-            const specimeCollection = specimen.collection;
-            const collectedDateTime = specimeCollection?.collectedDateTime;
-            const collector = specimeCollection?.collector;
+            const specimenCollection = specimen.collection;
+            const collectedDateTime = specimenCollection?.collectedDateTime;
+            const collector = specimenCollection?.collector;
             const specimenCollector = { reference: currentUser?.profile };
             const requests: Operation[] = [];
 
             specimenFromSubmitDate && sampleCollectionDates.push(specimenFromSubmitDate);
 
-            if (specimeCollection) {
+            if (specimenCollection) {
+              console.log('specimen collection found');
               requests.push(
                 {
                   path: '/collection/collectedDateTime',
@@ -194,6 +221,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
                 }
               );
             } else {
+              console.log('adding collection to specimen');
               requests.push({
                 path: '/collection',
                 op: 'add',
@@ -205,6 +233,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
             }
 
             if (requests.length) {
+              console.log('will patch specimen resource', specimen.id);
               acc.push({
                 method: 'PATCH',
                 url: `Specimen/${specimen.id}`,
@@ -217,17 +246,18 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         : [];
 
     // Specimen.collection.collected is required at time of order so we must make this patch before submitting to oystehr
-    const preSumbissionWriteRequests = [...specimenPatchOperations];
+    const preSubmissionWriteRequests = [...specimenPatchOperations];
 
     // not every order will have an AOE
     let questionsAndAnswers: AOEDisplayForOrderForm[] = [];
     if (questionnaireResponse !== undefined && questionnaireResponse.id) {
       const { questionnaireResponseItems, questionsAndAnswersForFormDisplay } =
-        await populateQuestionnaireResponseItems(questionnaireResponse, data, m2mtoken);
+        await populateQuestionnaireResponseItems(questionnaireResponse, data, m2mToken);
 
       questionsAndAnswers = questionsAndAnswersForFormDisplay;
 
-      preSumbissionWriteRequests.push({
+      console.log('adding patch questionnaire response request to pre-submission write requests');
+      preSubmissionWriteRequests.push({
         method: 'PATCH',
         url: `QuestionnaireResponse/${questionnaireResponse.id}`,
         operations: [
@@ -245,28 +275,32 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       });
     }
 
-    if (preSumbissionWriteRequests.length > 0) {
-      console.log('writing updates that must occur before sending order to oysther');
+    if (preSubmissionWriteRequests.length > 0) {
+      console.log('writing updates that must occur before sending order to oystehr');
       await oystehr?.fhir.transaction({
-        requests: preSumbissionWriteRequests,
+        requests: preSubmissionWriteRequests,
       });
     }
 
-    const submitLabRequest = await fetch('https://labs-api.zapehr.com/v1/submit', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${m2mtoken}`,
-      },
-      body: JSON.stringify({
-        serviceRequest: `ServiceRequest/${serviceRequest.id}`,
-        accountNumber: accountNumber,
-      }),
-    });
+    // submit to oystehr labs when NOT manual order
+    if (!manualOrder) {
+      console.log('calling oystehr submit lab');
+      const submitLabRequest = await fetch('https://labs-api.zapehr.com/v1/submit', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${m2mToken}`,
+        },
+        body: JSON.stringify({
+          serviceRequest: `ServiceRequest/${serviceRequest.id}`,
+          accountNumber: accountNumber,
+        }),
+      });
 
-    if (!submitLabRequest.ok) {
-      const submitLabRequestResponse = await submitLabRequest.json();
-      console.log('submitLabRequestResponse', submitLabRequestResponse);
-      throw EXTERNAL_LAB_ERROR(submitLabRequestResponse.message || 'error submitting lab request to oystehr');
+      if (!submitLabRequest.ok) {
+        const submitLabRequestResponse = await submitLabRequest.json();
+        console.log('submitLabRequestResponse', submitLabRequestResponse);
+        throw EXTERNAL_LAB_ERROR(submitLabRequestResponse.message || 'error submitting lab request to oystehr');
+      }
     }
 
     // submitted successful, so do the fhir provenance writes and update SR
@@ -291,18 +325,36 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       },
     };
 
+    const serviceRequestPatchOps: Operation[] = [
+      {
+        path: '/status',
+        op: 'replace',
+        value: 'active',
+      },
+    ];
+    let manualOrderId: string | undefined;
+    if (manualOrder) {
+      manualOrderId = createOrderNumber(ORDER_NUMBER_LEN);
+      console.log('adding order number for manual lab', manualOrderId);
+      serviceRequestPatchOps.push({
+        path: '/identifier',
+        op: 'add',
+        value: [
+          {
+            system: OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
+            value: manualOrderId,
+          },
+        ],
+      });
+    }
+
+    console.log('making fhir transaction requests');
     await oystehr?.fhir.transaction({
       requests: [
         getPatchBinary({
           resourceType: 'ServiceRequest',
           resourceId: serviceRequest.id || 'unknown',
-          patchOperations: [
-            {
-              path: '/status',
-              op: 'replace',
-              value: 'active',
-            },
-          ],
+          patchOperations: serviceRequestPatchOps,
         }),
         {
           method: 'POST',
@@ -345,8 +397,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       id: serviceRequestID,
     });
 
-    const orderID = serviceRequestTemp.identifier?.find((item) => item.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)
-      ?.value;
+    const orderID = manualOrderId
+      ? manualOrderId
+      : serviceRequestTemp.identifier?.find((item) => item.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)?.value;
+
+    console.log('orderID', serviceRequestID, orderID);
 
     const orderCreateDate = serviceRequest.authoredOn
       ? DateTime.fromISO(serviceRequest.authoredOn).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
@@ -361,7 +416,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           })
         : undefined;
 
-    const allPractitionerLicenses = allLicensesForPractitioner(provider);
+    // this is the same logic we use in oystehr to determine PV1-20
+    const coverageType = coverage?.type?.coding?.[0]?.code; // assumption: we'll use the first code in the list
+    const billClass = !coverage || coverageType === 'pay' ? 'Patient Bill (P)' : 'Third-Party Bill (T)';
+
+    console.log('creating external lab order form');
     const orderFormPdfDetail = await createExternalLabsOrderFormPDF(
       {
         locationName: location?.name,
@@ -372,11 +431,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         locationPhone: location?.telecom?.find((t) => t.system === 'phone')?.value,
         locationFax: location?.telecom?.find((t) => t.system === 'fax')?.value,
         labOrganizationName: labOrganization?.name || ORDER_ITEM_UNKNOWN,
+        accountNumber,
         serviceRequestID: serviceRequest.id || ORDER_ITEM_UNKNOWN,
-        reqId: orderID || ORDER_ITEM_UNKNOWN,
-        providerName: provider.name ? oystehr.fhir.formatHumanName(provider.name[0]) : ORDER_ITEM_UNKNOWN,
-        // if there are multiple titles, use the first one https://github.com/masslight/ottehr/issues/2184
-        providerTitle: allPractitionerLicenses.length ? allPractitionerLicenses[0].code : '',
+        orderNumber: orderID || ORDER_ITEM_UNKNOWN,
+        providerName: getFullestAvailableName(provider) || ORDER_ITEM_UNKNOWN,
         providerNPI: provider.identifier?.find((id) => id?.system === FHIR_IDENTIFIER_NPI)?.value,
         patientFirstName: patient.name?.[0].given?.[0] || ORDER_ITEM_UNKNOWN,
         patientMiddleName: patient.name?.[0].given?.[1],
@@ -390,9 +448,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         patientPhone: patient.telecom?.find((temp) => temp.system === 'phone')?.value || ORDER_ITEM_UNKNOWN,
         todayDate: now.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT),
         orderSubmitDate: now.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT),
+        orderCreateDateAuthoredOn: serviceRequest.authoredOn || '',
         orderCreateDate: orderCreateDate || ORDER_ITEM_UNKNOWN,
         sampleCollectionDate:
           mostRecentSampleCollectionDate?.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT) || undefined,
+        billClass,
         primaryInsuranceName: organization?.name,
         primaryInsuranceAddress: organization?.address
           ? oystehr.fhir.formatAddress(organization.address?.[0])
@@ -412,9 +472,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       },
       patient.id,
       secrets,
-      m2mtoken
+      m2mToken
     );
 
+    console.log('making lab pdf document reference');
     await makeLabPdfDocumentReference({
       oystehr,
       type: 'order',
@@ -424,7 +485,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       serviceRequestID: serviceRequest.id,
     });
 
-    const presignedOrderFormURL = await getPresignedURL(orderFormPdfDetail.uploadURL, m2mtoken);
+    const presignedOrderFormURL = await getPresignedURL(orderFormPdfDetail.uploadURL, m2mToken);
     let presignedLabelURL: string | undefined = undefined;
 
     if (!isPSCOrder(serviceRequest)) {
@@ -441,8 +502,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         },
       };
 
+      console.log('creating labs order label and getting url');
       presignedLabelURL = (
-        await createExternalLabsLabelPDF(labelConfig, encounter.id!, serviceRequest.id!, secrets, m2mtoken, oystehr)
+        await createExternalLabsLabelPDF(labelConfig, encounter.id!, serviceRequest.id!, secrets, m2mToken, oystehr)
       ).presignedURL;
     }
 
@@ -456,7 +518,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   } catch (error: any) {
     console.log(error);
     console.log('submit external lab order error:', JSON.stringify(error));
-    await topLevelCatch('admin-submit-lab-order', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('admin-submit-lab-order', error, ENVIRONMENT);
     let body = JSON.stringify({ message: 'Error submitting external lab order' });
     if (isApiError(error)) {
       const { code, message } = error as APIError;
@@ -467,4 +530,4 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body,
     };
   }
-};
+});

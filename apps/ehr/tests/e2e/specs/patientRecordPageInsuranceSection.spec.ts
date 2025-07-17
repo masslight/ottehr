@@ -1,4 +1,19 @@
 import { test } from '@playwright/test';
+import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import {
+  chooseJson,
+  getConsentStepAnswers,
+  getContactInformationAnswers,
+  getPatientDetailsStepAnswers,
+  getPaymentOptionInsuranceAnswers,
+  getPrimaryCarePhysicianStepAnswers,
+  getResponsiblePartyStepAnswers,
+  isoToDateObject,
+  ORG_TYPE_CODE_SYSTEM,
+  ORG_TYPE_PAYER_CODE,
+} from 'utils';
+import { dataTestIds } from '../../../src/constants/data-test-ids';
 import {
   PATIENT_INSURANCE_MEMBER_ID,
   PATIENT_INSURANCE_MEMBER_ID_2,
@@ -28,25 +43,7 @@ import {
   PATIENT_INSURANCE_POLICY_HOLDER_ZIP,
   ResourceHandler,
 } from '../../e2e-utils/resource-handler';
-
-import {
-  chooseJson,
-  getConsentStepAnswers,
-  getContactInformationAnswers,
-  getPatientDetailsStepAnswers,
-  getPaymentOptionInsuranceAnswers,
-  getPrimaryCarePhysicianStepAnswers,
-  getResponsiblePartyStepAnswers,
-  INSURANCE_PLAN_PAYER_META_TAG_CODE,
-  isoToDateObject,
-} from 'utils';
-
-import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
-
 import { openPatientInformationPage } from '../page/PatientInformationPage';
-
-import { dataTestIds } from '../../../src/constants/data-test-ids';
-import { DateTime } from 'luxon';
 
 const POLICY_HOLDER_DATE_OF_BIRTH = '01/01/1990';
 const POLICY_HOLDER_2_DATE_OF_BIRTH = '01/01/1991';
@@ -96,7 +93,7 @@ test.describe('Insurance Information Section non-mutating tests', () => {
     await resourceHandler.cleanupResources();
   });
 
-  test.skip(
+  test(
     'Verify data from Primary and Secondary Insurances blocks are displayed correctly',
     { tag: '@flaky' },
     async ({ page }) => {
@@ -459,15 +456,17 @@ async function createResourceHandler(): Promise<[ResourceHandler, string, string
   });
   const oystehr = await ResourceHandler.getOystehr();
   const insuranceCarriersOptionsResponse = await oystehr.zambda.execute({
-    id: process.env.GET_ANSWER_OPTIONS_ZAMBDA_ID!,
+    id: 'get-answer-options',
     answerSource: {
-      resourceType: 'InsurancePlan',
-      query: `status=active&_tag=${INSURANCE_PLAN_PAYER_META_TAG_CODE}`,
+      resourceType: 'Organization',
+      query: `active=true&type=${ORG_TYPE_CODE_SYSTEM}|${ORG_TYPE_PAYER_CODE}`,
     },
   });
+
   const insuranceCarriersOptions = chooseJson(insuranceCarriersOptionsResponse) as QuestionnaireItemAnswerOption[];
   insuranceCarrier1 = insuranceCarriersOptions.at(0);
   insuranceCarrier2 = insuranceCarriersOptions.at(1);
+
   await resourceHandler.setResources();
   await Promise.all([
     resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!),

@@ -1,19 +1,19 @@
-import React, { FC, useState } from 'react';
+import CloseIcon from '@mui/icons-material/Close';
 import { Box, Dialog, IconButton, Link, Skeleton, Typography } from '@mui/material';
+import React, { FC, useState } from 'react';
+import { dataTestIds } from 'src/constants/data-test-ids';
+import { PastVisitsTable } from '../../../components/PastVisitsTable';
+import { useGetPatient } from '../../../hooks/useGetPatient';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../state';
-import { useGetPatient } from '../../../hooks/useGetPatient';
-import { PastVisitsTable } from '../../../components/PastVisitsTable';
-import CloseIcon from '@mui/icons-material/Close';
 import { getPatientName } from '../../utils';
-import { dataTestIds } from 'src/constants/data-test-ids';
 
 export const PastVisits: FC = () => {
   const { patient } = getSelectors(useAppointmentStore, ['patient']);
   const { appointments, loading } = useGetPatient(patient?.id);
   const [open, setOpen] = useState(false);
 
-  const patientName = getPatientName(patient?.name).lastFirstName;
+  const patientName = getPatientName(patient?.name).lastFirstMiddleName;
 
   if (loading) {
     return <Skeleton sx={{ display: 'inline-block' }} variant="text" width={100} />;
@@ -30,7 +30,7 @@ export const PastVisits: FC = () => {
   return (
     <>
       <Typography variant="body2">
-        Established patient:{' '}
+        Established patient:
         <Link
           sx={{ cursor: 'pointer', color: 'inherit' }}
           onClick={() => setOpen(true)}

@@ -1,14 +1,6 @@
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { PatientInfo, Secrets, getPatientsForUser } from 'utils';
-import {
-  captureSentryException,
-  configSentry,
-  createOystehrClient,
-  getAuth0Token,
-  topLevelCatch,
-  ZambdaInput,
-} from '../../shared';
+import { getPatientsForUser, getSecret, PatientInfo, Secrets, SecretsKeys } from 'utils';
+import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { getUser } from '../../shared/auth';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -17,11 +9,9 @@ export interface GetPatientsInput {
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let zapehrToken: string;
+let oystehrToken: string;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  configSentry('get-patients', input.secrets);
-  console.log(`Input: ${JSON.stringify(input)}`);
+export const index = wrapHandler('get-patients', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
@@ -29,9 +19,9 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    if (!zapehrToken) {
+    if (!oystehrToken) {
       console.log('getting token');
-      zapehrToken = await getAuth0Token(secrets);
+      oystehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }
@@ -40,7 +30,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     // const user = await appClient.getMe();
     // console.log(user);
 
-    const oystehr = createOystehrClient(zapehrToken, secrets);
+    const oystehr = createOystehrClient(oystehrToken, secrets);
     console.log('getting user');
     const user = await getUser(input.headers.Authorization.replace('Bearer ', ''), secrets);
     console.log('getting patients for user', user);
@@ -73,6 +63,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('get-patients', error, input.secrets, captureSentryException);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('get-patients', error, ENVIRONMENT);
   }
 });

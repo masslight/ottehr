@@ -3,19 +3,19 @@ import { CssBaseline } from '@mui/material';
 // import Alert from '@mui/material/Alert';
 import { LicenseInfo } from '@mui/x-data-grid-pro';
 import { SnackbarProvider } from 'notistack';
-import { ReactElement, Suspense, lazy, useState } from 'react';
+import { lazy, ReactElement, Suspense, useState } from 'react';
 import { useIdleTimer } from 'react-idle-timer';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { RoleType, setupSentry } from 'utils';
-import { CustomThemeProvider } from './CustomThemeProvider';
 import Banner from './components/Banner';
-import { LoadingScreen } from './components/LoadingScreen';
-import { TestErrorPage } from './components/TestErrorPage';
 import LogoutWarning from './components/dialogs/LogoutWarning';
+import { LoadingScreen } from './components/LoadingScreen';
 import Navbar from './components/navigation/Navbar';
 import AddPatientFollowup from './components/patient/AddPatientFollowup';
 import PatientFollowup from './components/patient/PatientFollowup';
 import { ProtectedRoute } from './components/routing/ProtectedRoute';
+import { TestErrorPage } from './components/TestErrorPage';
+import { CustomThemeProvider } from './CustomThemeProvider';
 import { FeatureFlagsProvider } from './features/css-module/context/featureFlags';
 import { useApiClients } from './hooks/useAppClients';
 import useEvolveUser from './hooks/useEvolveUser';
@@ -42,18 +42,12 @@ import EditInsurance from './telemed/features/telemed-admin/EditInsurance';
 import EditStatePage from './telemed/features/telemed-admin/EditState';
 import { PatientVisitDetails } from './telemed/pages/PatientVisitDetailsPage';
 
-const { MODE: environment, VITE_APP_SENTRY_DSN } = import.meta.env;
+const { VITE_APP_SENTRY_DSN, VITE_APP_SENTRY_ENV } = import.meta.env;
 
-const isLowerEnvs = ['dev', 'testing', 'staging', 'training'].includes(environment);
-
-const isLowerEnvsOrProd = isLowerEnvs || import.meta.env.MODE === 'production';
-
-if (isLowerEnvsOrProd) {
-  setupSentry({
-    dsn: VITE_APP_SENTRY_DSN,
-    environment,
-  });
-}
+setupSentry({
+  dsn: VITE_APP_SENTRY_DSN,
+  environment: VITE_APP_SENTRY_ENV,
+});
 
 const CSSRoutingLazy = lazy(() => import('./features/css-module/routing/CSSRouting'));
 

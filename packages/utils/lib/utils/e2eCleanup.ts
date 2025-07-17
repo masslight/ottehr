@@ -1,6 +1,6 @@
-import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputDeleteRequest, FhirSearchParams } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
-import { Coding, FhirResource, Observation, Person } from 'fhir/r4b';
+import { Appointment, Coding, FhirResource, Observation, Patient, Person } from 'fhir/r4b';
 import { chunkThings, getAllFhirSearchPages } from '../fhir';
 import { sleep } from '../helpers';
 
@@ -126,16 +126,16 @@ const patchPerson = async (oystehr: Oystehr, person: Person, allResources: FhirR
         console.error(`Error patching resource: ${e}`, JSON.stringify(e));
         retries++;
         await new Promise((resolve) => setTimeout(resolve, 200));
-        const personRefetched = (
+        const personReFetched = (
           await oystehr.fhir.search<Person>({
             resourceType: 'Person',
             params: [{ name: '_id', value: person.id! }],
           })
         ).unbundle()[0];
 
-        if (personRefetched) {
-          person.meta!.versionId = personRefetched.meta!.versionId!;
-          person.link = personRefetched.link;
+        if (personReFetched) {
+          person.meta!.versionId = personReFetched.meta!.versionId!;
+          person.link = personReFetched.link;
         }
       }
     }
@@ -146,7 +146,7 @@ const patchPerson = async (oystehr: Oystehr, person: Person, allResources: FhirR
 
 const getAppointmentGraphByTag = async (oystehr: Oystehr, tag: Coding): Promise<FhirResource[]> => {
   const { system, code } = tag;
-  const appointmentSearchParams = {
+  const appointmentSearchParams: FhirSearchParams<Appointment | Patient> = {
     resourceType: 'Appointment',
     params: [
       {

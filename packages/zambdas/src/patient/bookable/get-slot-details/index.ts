@@ -1,8 +1,10 @@
-import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Appointment, Schedule, Slot } from 'fhir/r4b';
 import {
   FHIR_RESOURCE_NOT_FOUND,
   getOriginalBookingUrlFromSlot,
+  getSecret,
   getServiceModeFromScheduleOwner,
   getServiceModeFromSlot,
   GetSlotDetailsParams,
@@ -16,23 +18,31 @@ import {
   SCHEDULE_NOT_FOUND_CUSTOM_ERROR,
   ScheduleOwnerFhirResource,
   Secrets,
+  SecretsKeys,
   ServiceMode,
 } from 'utils';
-import Oystehr from '@oystehr/sdk';
-import { Appointment, Schedule, Slot } from 'fhir/r4b';
 import { getNameForOwner } from '../../../ehr/schedules/shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  topLevelCatch,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../shared';
 
-let m2mtoken: string;
+const ZAMBDA_NAME = 'get-slot-details';
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+let m2mToken: string;
+
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
     console.groupEnd();
     console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
     const { secrets } = validatedParameters;
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
     const effectInput = await complexValidation(validatedParameters, oystehr);
 
     const slotDetails = performEffect(effectInput);
@@ -43,9 +53,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));
-    return topLevelCatch('get-slot-details', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('get-slot-details', error, ENVIRONMENT);
   }
-};
+});
 
 const performEffect = (input: EffectInput): GetSlotDetailsResponse => {
   const { slot, schedule, scheduleOwner, appointmentId, originalBookingUrl } = input;
@@ -145,7 +156,7 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
   );
   if (!scheduleOwner) {
     const scheduleOwnerNotFoundError = SCHEDULE_NOT_FOUND_CUSTOM_ERROR(
-      `The schedule resoure owning this slot, Schedule/${schedule.id}, could not be connected to any resource referenced by its "actor" field. Please ensure that Schedule.actor[0] references an existing Practitioner, Location, or HealthcareService resource.`
+      `The schedule resource owning this slot, Schedule/${schedule.id}, could not be connected to any resource referenced by its "actor" field. Please ensure that Schedule.actor[0] references an existing Practitioner, Location, or HealthcareService resource.`
     );
     throw scheduleOwnerNotFoundError;
   }

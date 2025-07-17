@@ -1,8 +1,8 @@
 import { LoadingButton } from '@mui/lab';
-import { Box } from '@mui/system';
-import { FC, useState } from 'react';
-import { CardElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { Checkbox, FormLabel } from '@mui/material';
+import { Box } from '@mui/system';
+import { CardElement, useElements, useStripe } from '@stripe/react-stripe-js';
+import { FC, useState } from 'react';
 
 type CreditCardFormProps = {
   clientSecret: string;
@@ -58,6 +58,7 @@ export const AddCreditCardForm: FC<CreditCardFormProps> = (props) => {
         borderRadius: 1,
         padding: 2,
         width: '100%',
+        boxSizing: 'border-box',
       }}
     >
       <Box
@@ -67,6 +68,7 @@ export const AddCreditCardForm: FC<CreditCardFormProps> = (props) => {
           border: '1px solid rgba(0, 0, 0, 0.23)',
           padding: '10px 12px',
           borderRadius: 1,
+          boxSizing: 'border-box',
         }}
       >
         <CardElement

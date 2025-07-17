@@ -1,6 +1,6 @@
 import {} from 'utils';
-import { GetPatientsInput } from '.';
 import { ZambdaInput } from '../../../shared';
+import { GetPatientsInput } from '.';
 
 export function validateRequestParameters(input: ZambdaInput): GetPatientsInput {
   if (!input.body) {

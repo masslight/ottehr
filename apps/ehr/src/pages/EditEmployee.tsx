@@ -16,6 +16,7 @@ export default function EditEmployeePage(): JSX.Element {
   const { oystehr, oystehrZambda } = useApiClients();
   const [isActive, setIsActive] = useState<boolean>();
   const [user, setUser] = useState<User>();
+  const [scheduleId, setScheduleId] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState<boolean>(false);
   const [errors, setErrors] = useState({ submit: '' });
 
@@ -46,7 +47,8 @@ export default function EditEmployeePage(): JSX.Element {
           userId: id,
         });
         if (loading) {
-          const appUser = res.user;
+          const { user: appUser, userScheduleId } = res;
+          setScheduleId(userScheduleId);
           setUser(appUser);
           setIsActive(checkUserIsActive(appUser));
           loading = false;
@@ -151,11 +153,19 @@ export default function EditEmployeePage(): JSX.Element {
                   <Typography variant="h4" color="primary.dark" sx={{ fontWeight: '600 !important' }}>
                     Provider schedule
                   </Typography>
-                  <Link to={`/schedule/provider/${user?.profileResource?.id}`}>
-                    <Button variant="contained" sx={{ marginTop: 1 }}>
-                      Edit schedule
-                    </Button>
-                  </Link>
+                  {scheduleId ? (
+                    <Link to={`/schedule/id/${scheduleId}`}>
+                      <Button variant="contained" sx={{ marginTop: 1 }}>
+                        Edit schedule
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Link to={`/schedule/new/provider/${user?.profileResource?.id}`}>
+                      <Button variant="contained" sx={{ marginTop: 1 }}>
+                        Create schedule
+                      </Button>
+                    </Link>
+                  )}
                 </Paper>
               )}
 

@@ -1,15 +1,16 @@
 import FaxOutlinedIcon from '@mui/icons-material/FaxOutlined';
 import { Box, FormControl, FormHelperText, InputLabel, OutlinedInput, Tooltip, Typography } from '@mui/material';
+import { Appointment, Encounter } from 'fhir/r4b';
+import { enqueueSnackbar } from 'notistack';
+import { phone } from 'phone';
 import { FC, useMemo, useState } from 'react';
+import InputMask from 'src/components/InputMask';
 import { getVisitStatus, isPhoneNumberValid, TelemedAppointmentStatusEnum } from 'utils';
 import { RoundedButton } from '../../../../components/RoundedButton';
+import { dataTestIds } from '../../../../constants/data-test-ids';
 import { ConfirmationDialog } from '../../../components';
 import { useGetAppointmentAccessibility } from '../../../hooks';
-import { useZapEHRAPIClient } from '../../../hooks/useOystehrAPIClient';
-import { enqueueSnackbar } from 'notistack';
-import { dataTestIds } from '../../../../constants/data-test-ids';
-import InputMask from 'src/components/InputMask';
-import { Appointment, Encounter } from 'fhir/r4b';
+import { useOystehrAPIClient } from '../../../hooks/useOystehrAPIClient';
 
 interface SendFaxButtonProps {
   appointment?: Appointment;
@@ -18,7 +19,7 @@ interface SendFaxButtonProps {
 }
 
 export const SendFaxButton: FC<SendFaxButtonProps> = ({ appointment, encounter, css }: SendFaxButtonProps) => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const [openTooltip, setOpenTooltip] = useState(false);
 
   const inPersonStatus = useMemo(
@@ -95,11 +96,11 @@ export const SendFaxButton: FC<SendFaxButtonProps> = ({ appointment, encounter, 
                   onChange={(e) => {
                     const number = e.target.value.replace(/\D/g, '');
                     setFaxNumber(number);
-                    isPhoneNumberValid(number) ? setFaxError(false) : setFaxError(true);
+                    isPhoneNumberValid(number) && phone(number).isValid ? setFaxError(false) : setFaxError(true);
                   }}
                 />
                 <FormHelperText error sx={{ visibility: faxError ? 'visible' : 'hidden' }}>
-                  Fax number must be 10 digits in the format (xxx) xxx-xxxx
+                  Fax number must be 10 digits in the format (xxx) xxx-xxxx and a valid number
                 </FormHelperText>
               </FormControl>
             }

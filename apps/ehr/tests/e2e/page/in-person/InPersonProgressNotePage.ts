@@ -1,4 +1,4 @@
-import { Page, expect } from '@playwright/test';
+import { expect, Page } from '@playwright/test';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { BaseProgressNotePage } from '../abstract/BaseProgressNotePage';
 import { CssHeader } from '../CssHeader';

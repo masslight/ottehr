@@ -5,7 +5,7 @@ import { getAuth0Token } from '../auth/getAuth0Token';
 export abstract class ResourceHandlerAbstract {
   protected apiClient!: Oystehr;
   protected accessToken!: string;
-  private createdResourcesDeleteParams: FhirDeleteParams[] = [];
+  private createdResourcesDeleteParams: FhirDeleteParams<FhirResource>[] = [];
 
   protected async initApi(): Promise<void> {
     const accessToken = await getAuth0Token();
@@ -31,7 +31,7 @@ export abstract class ResourceHandlerAbstract {
     return undefined;
   }
 
-  protected async deleteResource(fhirDeleteParams: FhirDeleteParams): Promise<void> {
+  protected async deleteResource(fhirDeleteParams: FhirDeleteParams<FhirResource>): Promise<void> {
     try {
       await this.apiClient.fhir.delete(fhirDeleteParams);
       console.log(`✅ ${fhirDeleteParams.resourceType} deleted ${fhirDeleteParams.id}`);

@@ -1,5 +1,4 @@
 import Oystehr from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Appointment,
@@ -23,6 +22,7 @@ import {
   getMiddleName,
   getPatientFirstName,
   getPatientLastName,
+  getSecret,
   getSMSNumberForIndividual,
   getUnconfirmedDOBForAppointment,
   getVisitStatus,
@@ -33,6 +33,7 @@ import {
   PHOTO_ID_CARD_CODE,
   ROOM_EXTENSION_URL,
   Secrets,
+  SecretsKeys,
   SMSModel,
   SMSRecipient,
   ZAP_SMS_MEDIUM_CODE,
@@ -44,6 +45,7 @@ import {
   getRelatedPersonsFromResourceList,
   sortAppointments,
   topLevelCatch,
+  wrapHandler,
   ZambdaInput,
 } from '../../shared';
 import {
@@ -62,9 +64,9 @@ export interface GetAppointmentsZambdaInputValidated extends GetAppointmentsZamb
   secrets: Secrets | null;
 }
 
-let m2mtoken: string;
+let m2mToken: string;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler('get-appointments', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
@@ -81,8 +83,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
     console.time('get_active_encounters + get_appointment_data');
 
@@ -282,11 +284,11 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const phoneNumberToRpMap: Record<string, string[]> = {};
     const rpIdToResourceMap: Record<string, RelatedPerson> = {};
     const practitionerIdToResourceMap: Record<string, Practitioner> = {};
-    const participantIdToResorceMap: Record<string, Practitioner> = {};
+    const participantIdToResourceMap: Record<string, Practitioner> = {};
     const healthcareServiceIdToResourceMap: Record<string, HealthcareService> = {};
     appointmentResources.forEach((resource) => {
       if (resource.resourceType === 'Practitioner' && resource.id) {
-        participantIdToResorceMap[`Practitioner/${resource.id}`] = resource as Practitioner;
+        participantIdToResourceMap[`Practitioner/${resource.id}`] = resource as Practitioner;
       }
     });
     appointmentResources.forEach((resource) => {
@@ -429,7 +431,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
         patientIdMap,
         rpToCommMap,
         practitionerIdToResourceMap,
-        participantIdToResorceMap,
+        participantIdToResourceMap,
         healthcareServiceIdToResourceMap,
         next: false,
         group: undefined,
@@ -483,13 +485,6 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
             group: appointmentsToGroupMap.get(appointment.id ?? ''),
           });
         }),
-        ...appointmentQueues.inOffice.inExam['ready for discharge'].map((appointment) => {
-          return makeAppointmentInformation(oystehr, {
-            appointment,
-            ...baseMapInput,
-            group: appointmentsToGroupMap.get(appointment.id ?? ''),
-          });
-        }),
       ].filter(isTruthy);
       completed = appointmentQueues.checkedOut
         .map((appointment) => {
@@ -526,7 +521,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    await topLevelCatch('admin-get-appointments', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('admin-get-appointments', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify({ message: 'Error getting patient appointments' }),
@@ -543,7 +539,7 @@ interface AppointmentInformationInputs {
   patientToRPMap: Record<string, RelatedPerson[]>;
   rpToCommMap: Record<string, Communication[]>;
   practitionerIdToResourceMap: Record<string, Practitioner>;
-  participantIdToResorceMap: Record<string, Practitioner>;
+  participantIdToResourceMap: Record<string, Practitioner>;
   healthcareServiceIdToResourceMap: Record<string, HealthcareService>;
   allDocRefs: DocumentReference[];
   next: boolean;
@@ -562,7 +558,7 @@ const makeAppointmentInformation = (
     allDocRefs,
     rpToCommMap,
     practitionerIdToResourceMap,
-    participantIdToResorceMap,
+    participantIdToResourceMap,
     next,
     patientToRPMap,
     group,
@@ -601,11 +597,11 @@ const makeAppointmentInformation = (
         })
         .filter((rec) => rec.recipientResourceUri !== undefined && rec.smsNumber !== undefined) as SMSRecipient[];
       if (recipients.length) {
-        const allComs = recipients.flatMap((recip) => {
-          return rpToCommMap[recip.recipientResourceUri] ?? [];
+        const allCommunications = recipients.flatMap((recipient) => {
+          return rpToCommMap[recipient.recipientResourceUri] ?? [];
         });
         smsModel = {
-          hasUnreadMessages: getChatContainsUnreadMessages(allComs),
+          hasUnreadMessages: getChatContainsUnreadMessages(allCommunications),
           recipients,
         };
       }
@@ -666,7 +662,7 @@ const makeAppointmentInformation = (
   // if the QR has been updated at least once, this tag will not be present
   const paperworkHasBeenSubmitted = !!questionnaireResponse?.authored;
 
-  const participants = parseEncounterParticipants(encounter, participantIdToResorceMap);
+  const participants = parseEncounterParticipants(encounter, participantIdToResourceMap);
 
   const timezoneResourceId = getTimezoneResourceIdFromAppointment(appointment);
   const appointmentTimezone = timezoneResourceId && timezoneMap.get(timezoneResourceId);

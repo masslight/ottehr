@@ -1,9 +1,9 @@
-import { FC, RefObject } from 'react';
-import { Box, Button, Card, FormControl, IconButton, InputLabel, MenuItem, Select, Typography } from '@mui/material';
-import { otherColors } from '../../../IntakeThemeProvider';
-import VideocamOutlinedIcon from '@mui/icons-material/VideocamOutlined';
 import VideocamIcon from '@mui/icons-material/Videocam';
 import VideocamOffIcon from '@mui/icons-material/VideocamOff';
+import VideocamOutlinedIcon from '@mui/icons-material/VideocamOutlined';
+import { Box, Button, Card, FormControl, IconButton, InputLabel, MenuItem, Select, Typography } from '@mui/material';
+import { FC, RefObject } from 'react';
+import { otherColors } from '../../../IntakeThemeProvider';
 
 type CameraSettingsProps = {
   selectedVideoDevice: string;

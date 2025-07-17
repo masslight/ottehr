@@ -104,6 +104,12 @@ export interface UpdateAppointmentParameters {
   slot: Slot;
 }
 
+export interface UpdateAppointmentZambdaOutput {
+  message: string;
+  appointmentID?: string;
+  availableSlots?: SlotListItem[];
+}
+
 export interface WalkinAvailabilityCheckParams {
   scheduleId?: string;
   locationName?: string;

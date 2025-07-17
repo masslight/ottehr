@@ -1,11 +1,11 @@
 import { FC } from 'react';
 import { useFormContext } from 'react-hook-form';
+import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { PRONOUN_OPTIONS, SEX_OPTIONS } from '../../constants';
+import { FormFields as AllFormFields } from '../../constants';
+import { dataTestIds } from '../../constants/data-test-ids';
 import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../form';
 import { Row, Section } from '../layout';
-import { dataTestIds } from '../../constants/data-test-ids';
-import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
-import { FormFields as AllFormFields } from '../../constants';
 
 const FormFields = AllFormFields.patientSummary;
 

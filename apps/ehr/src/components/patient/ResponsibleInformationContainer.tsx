@@ -1,15 +1,15 @@
+import { Autocomplete, Box, TextField } from '@mui/material';
 import dayjs from 'dayjs';
 import { FC, useEffect } from 'react';
-import { useFormContext, Controller } from 'react-hook-form';
+import { Controller, useFormContext } from 'react-hook-form';
 import { isPhoneNumberValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { isPostalCodeValid } from 'utils';
 import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../../components/form';
 import { RELATIONSHIP_OPTIONS, SEX_OPTIONS } from '../../constants';
-import { Row, Section } from '../layout';
+import { FormFields as AllFormFields, STATE_OPTIONS } from '../../constants';
 import { dataTestIds } from '../../constants/data-test-ids';
 import InputMask from '../InputMask';
-import { FormFields as AllFormFields, STATE_OPTIONS } from '../../constants';
-import { Autocomplete, Box, TextField } from '@mui/material';
-import { isPostalCodeValid } from 'utils';
+import { Row, Section } from '../layout';
 
 const FormFields = AllFormFields.responsibleParty;
 
@@ -148,7 +148,10 @@ export const ResponsibleInformationContainer: FC = () => {
           rules={{
             validate: (value: string) => {
               if (!value) return true;
-              return isPhoneNumberValid(value) || 'Phone number must be 10 digits in the format (xxx) xxx-xxxx';
+              return (
+                isPhoneNumberValid(value) ||
+                'Phone number must be 10 digits in the format (xxx) xxx-xxxx and a valid number'
+              );
             },
           }}
           disabled={selfSelected}

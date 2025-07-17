@@ -1,14 +1,16 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Appointment, Encounter } from 'fhir/r4b';
 import { createOystehrClient, getSecret, GetVisitDetailsResponse, SecretsKeys } from 'utils';
-import { checkOrCreateM2MClientToken, ZambdaInput } from '../../../shared';
+import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { getMedications, getPaymentDataRequest, getPresignedURLs } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
-import { Appointment, Encounter } from 'fhir/r4b';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let zapehrToken: string;
+let oystehrToken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+const ZAMBDA_NAME = 'get-visit-details';
+
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
@@ -16,10 +18,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    zapehrToken = await checkOrCreateM2MClientToken(zapehrToken, secrets);
+    oystehrToken = await checkOrCreateM2MClientToken(oystehrToken, secrets);
 
     const oystehr = createOystehrClient(
-      zapehrToken,
+      oystehrToken,
       getSecret(SecretsKeys.FHIR_API, secrets),
       getSecret(SecretsKeys.PROJECT_API, secrets)
     );
@@ -58,7 +60,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     try {
       paymentInfo = await getPaymentDataRequest(
         getSecret(SecretsKeys.PROJECT_API, secrets),
-        zapehrToken,
+        oystehrToken,
         encounter?.id
       );
     } catch (error) {
@@ -69,7 +71,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     try {
       console.log(`getting presigned urls for document references files at ${appointmentId}`);
-      documents = await getPresignedURLs(oystehr, zapehrToken, encounter?.id);
+      documents = await getPresignedURLs(oystehr, oystehrToken, encounter?.id);
     } catch (error) {
       console.log('getPresignedURLs', error);
     }
@@ -100,9 +102,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
   } catch (error: any) {
     console.log('error', error, error.issue);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Internal error' }),
-    };
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
   }
-};
+});

@@ -1,5 +1,6 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Encounter, QuestionnaireResponse } from 'fhir/r4b';
+import { Consent, Encounter, QuestionnaireResponse } from 'fhir/r4b';
 import {
   createOystehrClient,
   FHIR_AI_CHAT_CONSENT_CATEGORY_CODE,
@@ -8,8 +9,7 @@ import {
   SecretsKeys,
   StartInterviewInput,
 } from 'utils';
-import { getAuth0Token, validateJsonBody, validateString, ZambdaInput } from '../../../shared';
-import Oystehr from '@oystehr/sdk';
+import { getAuth0Token, validateJsonBody, validateString, wrapHandler, ZambdaInput } from '../../../shared';
 import { invokeChatbot } from '../../../shared/ai';
 
 export const INTERVIEW_COMPLETED = 'Interview completed.';
@@ -28,7 +28,8 @@ interface Input extends StartInterviewInput {
   secrets: Secrets | null;
 }
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+const ZAMBDA_NAME = 'ai-interview-start';
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input)}`);
   try {
     const { appointmentId, secrets } = validateInput(input);
@@ -58,7 +59,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify({ error: 'Internal error' }),
     };
   }
-};
+});
 
 function validateInput(input: ZambdaInput): Input {
   const { appointmentId } = validateJsonBody(input);
@@ -96,7 +97,7 @@ async function findEncounter(appointmentId: string, oystehr: Oystehr): Promise<s
 async function consentPresent(appointmentId: string, oystehr: Oystehr): Promise<boolean> {
   return (
     (
-      await oystehr.fhir.search<Encounter>({
+      await oystehr.fhir.search<Consent>({
         resourceType: 'Consent',
         params: [
           {

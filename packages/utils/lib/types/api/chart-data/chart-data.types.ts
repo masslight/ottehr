@@ -15,6 +15,7 @@ import {
   Resource,
   ServiceRequest,
 } from 'fhir/r4b';
+import { EncounterExternalLabResult, EncounterInHouseLabResult } from '../lab';
 import {
   AiObservationField,
   ASQ_FIELD,
@@ -36,13 +37,13 @@ import {
   InPersonExamCardsNames,
   InPersonExamFieldsNames,
 } from './save-chart-data.types';
-import { EncounterExternalLabResult, EncounterInHouseLabResult } from '../lab';
 
 export interface ChartDataFields {
   chiefComplaint?: FreeTextNoteDTO;
   ros?: FreeTextNoteDTO;
   conditions?: MedicalConditionDTO[];
   medications?: MedicationDTO[];
+  inhouseMedications?: MedicationDTO[];
   prescribedMedications?: PrescribedMedicationDTO[];
   allergies?: AllergyDTO[];
   surgicalHistory?: CPTCodeDTO[];
@@ -118,7 +119,7 @@ export interface MedicationDTO extends SaveableDTO {
 
 export interface MedicationIntakeInfo {
   date?: string;
-  dose: string;
+  dose?: string;
 }
 
 export interface PrescribedMedicationDTO extends SaveableDTO {
@@ -204,8 +205,8 @@ export type VitalsVisionOption = 'child_too_young' | 'with_glasses' | 'without_g
 export interface VitalsVisionObservationDTO extends VitalsBaseObservationDTO {
   field: Extract<VitalFieldNames, 'vital-vision'>;
   value?: never;
-  leftEyeVisionValue: number;
-  rightEyeVisionValue: number;
+  leftEyeVisionText: string;
+  rightEyeVisionText: string;
   extraVisionOptions?: VitalsVisionOption[];
 }
 
@@ -291,6 +292,11 @@ export enum NOTE_TYPE {
   VITALS = 'vitals',
   SCREENING = 'screening',
   MEDICATION = 'medication',
+  ALLERGY = 'allergy',
+  INTAKE_MEDICATION = 'intake-medication',
+  MEDICAL_CONDITION = 'medical-condition',
+  SURGICAL_HISTORY = 'surgical-history',
+  HOSPITALIZATION = 'hospitalization',
   UNKNOWN = 'unknown',
 }
 
@@ -326,8 +332,6 @@ export interface DispositionDTO {
 export interface HospitalizationDTO extends SaveableDTO {
   code: string;
   display: string;
-  snomedDescription: string;
-  snomedRegionDescription: string;
 }
 
 export interface DiagnosisDTO extends SaveableDTO {

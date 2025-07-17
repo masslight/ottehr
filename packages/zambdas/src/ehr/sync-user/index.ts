@@ -3,29 +3,30 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ContactPoint, Identifier, Practitioner } from 'fhir/r4b';
 import {
+  allLicensesForPractitioner,
   FHIR_IDENTIFIER_NPI,
+  getPractitionerNPIIdentifier,
+  makeQualificationForPractitioner,
   PractitionerLicense,
   Secrets,
   SyncUserResponse,
-  allLicensesForPractitioner,
-  getPractitionerNPIIdentifier,
-  makeQualificationForPractitioner,
 } from 'utils';
+import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
-import { ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
-import { checkOrCreateM2MClientToken } from '../../shared';
+
+const ZAMBDA_NAME = 'sync-user';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mtoken: string;
+let m2mToken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const { secrets } = validateRequestParameters(input);
     console.log('Parameters: ' + JSON.stringify(input));
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const m2mOystehrClient = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const m2mOystehrClient = createOystehrClient(m2mToken, secrets);
 
     const userToken = input.headers.Authorization.replace('Bearer ', '');
     const userOystehrClient = createOystehrClient(userToken, secrets);
@@ -43,7 +44,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify({ message: 'Error synchronizing practitioner with remote credentialing authority.' }),
     };
   }
-};
+});
 
 async function performEffect(
   m2mOystehrClient: Oystehr,
@@ -65,7 +66,7 @@ async function performEffect(
   //       implemented the logic to update the remote authority.
   //       This code will never get called
   //
-  //       We will also need to properly handle how data from remote authoirity is reconciled with
+  //       We will also need to properly handle how data from remote authority is reconciled with
   //       the local EHR data that already exists.
   //
   let ehrPractitioner = { ...localPractitioner };
@@ -163,8 +164,8 @@ async function getLocalEHRPractitioner(oystehr: Oystehr): Promise<Practitioner> 
 }
 
 async function searchRemoteCredentialsAuthority(path: string, secrets: Secrets | null): Promise<any> {
-  // const url = getSecret(SecretsKeys.REMOT_AUTHORITY_URL, secrets);
-  // const apiKey = getSecret(SecretsKeys.REMOT_AUTHORITY_API_KEY, secrets);
+  // const url = getSecret(SecretsKeys.REMOTE_AUTHORITY_URL, secrets);
+  // const apiKey = getSecret(SecretsKeys.REMOTE_AUTHORITY_API_KEY, secrets);
   // return await fetch(`{url}{path}`, {
   //   method: 'GET',
   //   headers: {

@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon';
 import { useMemo, useState } from 'react';
-import { VitalFieldNames, VitalsObservationDTO, createVitalsSearchConfig } from 'utils';
+import { createVitalsSearchConfig, VitalFieldNames, VitalsObservationDTO } from 'utils';
 import useEvolveUser from '../../../../../hooks/useEvolveUser';
 import { useAppointment } from '../../../hooks/useAppointment';
 import { VitalHistoryEntry } from '../types';

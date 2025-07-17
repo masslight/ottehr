@@ -1,12 +1,17 @@
+import { LoadingButton } from '@mui/lab';
 import { Autocomplete, Box, Checkbox, FormControlLabel, TextField, Typography, useTheme } from '@mui/material';
 import { FC, ReactElement, useEffect, useMemo, useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
+import { useMutation } from 'react-query';
+import { useApiClients } from 'src/hooks/useAppClients';
 import {
   chooseJson,
   CoverageCheckWithDetails,
   EligibilityCheckSimpleStatus,
+  InsurancePlanDTO,
   isPostalCodeValid,
   mapEligibilityCheckResultToSimpleStatus,
+  PatientPaymentBenefit,
   REQUIRED_FIELD_ERROR_MESSAGE,
 } from 'utils';
 import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../../components/form';
@@ -18,16 +23,14 @@ import {
   SEX_OPTIONS,
   STATE_OPTIONS,
 } from '../../constants';
-import { Row, Section } from '../layout';
-import ShowMoreButton from './ShowMoreButton';
-import { InsurancePlanDTO, usePatientStore } from '../../state/patient.store';
 import { PatientAddressFields } from '../../constants';
 import { FormFields as AllFormFields } from '../../constants';
-import { LoadingButton } from '@mui/lab';
 import { dataTestIds } from '../../constants/data-test-ids';
+import { usePatientStore } from '../../state/patient.store';
+import { Row, Section } from '../layout';
 import { RefreshableStatusChip, StatusStyleObject } from '../RefreshableStatusWidget';
-import { useApiClients } from 'src/hooks/useAppClients';
-import { useMutation } from 'react-query';
+import { CopayWidget } from './CopayWidget';
+import ShowMoreButton from './ShowMoreButton';
 
 type InsuranceContainerProps = {
   ordinal: number;
@@ -60,6 +63,7 @@ function mapInitialStatus(
     return {
       status: status.status,
       dateISO: status.dateISO,
+      copay: initialCheckResult.copay,
     };
   }
   return undefined;
@@ -68,6 +72,7 @@ function mapInitialStatus(
 interface SimpleStatusCheckWithDate {
   status: EligibilityCheckSimpleStatus;
   dateISO: string;
+  copay?: PatientPaymentBenefit[];
 }
 
 export const InsuranceContainer: FC<InsuranceContainerProps> = ({
@@ -179,7 +184,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     }
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleRecheckEligibility = async (): Promise<void> => {
     console.log('recheck eligibility', recheckEligibility);
     try {
@@ -207,8 +211,18 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     );
   };
 
+  const copayBenefits = eligibilityStatus?.copay ?? [];
+
   return (
     <Section title="Insurance information" dataTestId="insuranceContainer" titleWidget={<TitleWidget />}>
+      <Box
+        sx={{
+          marginLeft: '12px',
+          marginTop: 2,
+        }}
+      >
+        <CopayWidget copay={copayBenefits} />
+      </Box>
       <Row label="Type" required dataTestId={dataTestIds.insuranceContainer.type}>
         <FormSelect
           name={FormFields.insurancePriority.key}
@@ -238,12 +252,12 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
           control={control}
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
-            validate: (value) => insurancePlans.some((option) => `InsurancePlan/${option.id}` === value?.reference),
+            validate: (value) => insurancePlans.some((option) => `Organization/${option.id}` === value?.reference),
           }}
           render={({ field: { value }, fieldState: { error } }) => {
             const isLoading = insurancePlans.length === 0;
 
-            const selectedOption = insurancePlans.find((option) => `InsurancePlan/${option.id}` === value?.reference);
+            const selectedOption = insurancePlans.find((option) => `Organization/${option.id}` === value?.reference);
             return (
               <Autocomplete
                 options={insurancePlans}
@@ -258,7 +272,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
                   if (newValue) {
                     setValue(
                       FormFields.insuranceCarrier.key,
-                      { reference: `InsurancePlan/${newValue.id}`, display: newValue.name },
+                      { reference: `Organization/${newValue.id}`, display: newValue.name },
                       { shouldDirty: true }
                     );
                   } else {

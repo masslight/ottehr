@@ -1,3 +1,4 @@
+import { yupResolver } from '@hookform/resolvers/yup';
 import LoadingButton from '@mui/lab/LoadingButton';
 import {
   Box,
@@ -17,9 +18,10 @@ import {
   RadioGroup,
   Typography,
 } from '@mui/material';
-import { ReactElement, useEffect } from 'react';
-import { dataTestIds } from '../../constants/data-test-ids';
 import { Patient } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import { ReactElement, useEffect } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import {
   CashOrCardPayment,
   DOB_DATE_FORMAT,
@@ -30,11 +32,9 @@ import {
   getPhoneNumberForIndividual,
   sleep,
 } from 'utils';
-import { DateTime } from 'luxon';
-import { Controller, useForm } from 'react-hook-form';
-import SelectCreditCard from '../SelectCreditCard';
 import * as yup from 'yup';
-import { yupResolver } from '@hookform/resolvers/yup';
+import { dataTestIds } from '../../constants/data-test-ids';
+import SelectCreditCard from '../SelectCreditCard';
 
 interface PaymentDialogProps {
   handleClose: () => void;
@@ -49,7 +49,7 @@ const PatientHeader = (props: { patient: Patient }): ReactElement => {
   const patientFirstName = getFirstName(patient);
   const patientLastName = getLastName(patient);
   const middleName = getMiddleName(patient);
-  const nameElements = [patientLastName, middleName, patientFirstName].filter(Boolean);
+  const nameElements = [patientLastName, patientFirstName, middleName].filter(Boolean);
   const patientDOB = patient.birthDate ? DateTime.fromISO(patient.birthDate).toFormat(DOB_DATE_FORMAT) : 'Unknown';
   const dobString = `DOB: ${patientDOB}`;
   const genderString = capitalize(patient.gender ?? '');
@@ -111,7 +111,6 @@ export default function ({
   patient,
   isSubmitting,
 }: PaymentDialogProps): ReactElement {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const buttonSx = {
     fontWeight: 500,
     textTransform: 'none',

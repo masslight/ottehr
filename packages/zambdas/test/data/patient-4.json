@@ -8,12 +8,12 @@
     {
       "use": "official",
       "given": ["George", "Mark"],
-      "family": "McLowrand",
+      "family": "McLeary",
       "suffix": ["Sir"]
     },
     {
       "use": "nickname",
-      "given": ["Goga"]
+      "given": ["Gemma"]
     }
   ],
   "active": true,
@@ -103,7 +103,7 @@
       ],
       "telecom": [
         {
-          "value": "+12222222222",
+          "value": "+12022222222",
           "system": "phone"
         }
       ],

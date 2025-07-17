@@ -1,6 +1,6 @@
 {
   "resourceType": "QuestionnaireResponse",
-  "questionnaire": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson|1.0.5",
+  "questionnaire": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson|1.0.9",
   "status": "completed",
   "subject": {
     "reference": "{{PATIENT_REF}}"
@@ -83,7 +83,7 @@
           "linkId": "patient-last-name",
           "answer": [
             {
-              "valueString": "Ottehrpus"
+              "valueString": "OttehrPus"
             }
           ]
         },
@@ -203,7 +203,7 @@
           "answer": [
             {
               "valueReference": {
-                "reference": "{{INSURANCEPLAN_REF}}",
+                "reference": "{{ORGANIZATION_REF}}",
                 "display": "Aetna"
               }
             }
@@ -213,7 +213,7 @@
           "linkId": "insurance-member-id",
           "answer": [
             {
-              "valueString": "FAfonejwgndkoetwwe6"
+              "valueString": "FafOneJwgNdkOetWwe6"
             }
           ]
         },
@@ -237,7 +237,7 @@
           "linkId": "policy-holder-last-name",
           "answer": [
             {
-              "valueString": "Picklesworth"
+              "valueString": "PicklesWorth"
             }
           ]
         },
@@ -280,7 +280,7 @@
           "linkId": "policy-holder-city",
           "answer": [
             {
-              "valueString": "Deliciousville"
+              "valueString": "DeliciousVilla"
             }
           ]
         },
@@ -368,7 +368,7 @@
               "answer": [
                 {
                   "valueReference": {
-                    "reference": "{{INSURANCEPLAN_REF}}",
+                    "reference": "{{ORGANIZATION_REF}}",
                     "display": "Aetna"
                   }
                 }
@@ -378,7 +378,7 @@
               "linkId": "insurance-member-id-2",
               "answer": [
                 {
-                  "valueString": "fdfdfdfdfdfh7897"
+                  "valueString": "FdfDfdFdfDfh7897"
                 }
               ]
             },
@@ -402,7 +402,7 @@
               "linkId": "policy-holder-last-name-2",
               "answer": [
                 {
-                  "valueString": "Picklesworth"
+                  "valueString": "PicklesWorth"
                 }
               ]
             },
@@ -555,7 +555,7 @@
           "linkId": "responsible-party-city",
           "answer": [
             {
-              "valueString": "fakeplace"
+              "valueString": "fakePlace"
             }
           ]
         },
@@ -579,7 +579,15 @@
           "linkId": "responsible-party-number",
           "answer": [
             {
-              "valueString": "(555) 987-6543"
+              "valueString": "(989) 555-6543"
+            }
+          ]
+        },
+        {
+          "linkId": "responsible-party-email",
+          "answer": [
+            {
+              "valueString": "rowdyroddypiper@hotmail.com"
             }
           ]
         }

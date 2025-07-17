@@ -1,9 +1,9 @@
 import { FC } from 'react';
 import { getQuestionnaireResponseByLinkId } from 'utils';
 import CopyButton from '../../../../components/CopyButton';
-import { InformationCard } from './InformationCard';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../state';
+import { InformationCard } from './InformationCard';
 
 export const ContactContainer: FC = () => {
   const { questionnaireResponse } = getSelectors(useAppointmentStore, ['questionnaireResponse']);

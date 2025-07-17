@@ -1,8 +1,8 @@
-import { ReactElement } from 'react';
-import { Box, Chip, CircularProgress, IconButton, Typography } from '@mui/material';
-import styled from 'styled-components';
 import { RefreshRounded } from '@mui/icons-material';
+import { Box, Chip, CircularProgress, IconButton, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
+import { ReactElement } from 'react';
+import styled from 'styled-components';
 
 const StyledChip = styled(Chip)(() => ({
   borderRadius: '8px',

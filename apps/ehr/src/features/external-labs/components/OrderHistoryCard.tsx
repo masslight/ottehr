@@ -1,9 +1,9 @@
-import { Table, TableRow, TableCell } from '@mui/material';
-import { AccordionCard } from '../../../telemed/components/AccordionCard';
+import { Table, TableCell, TableRow } from '@mui/material';
 import React, { useState } from 'react';
-import { LabOrderHistoryRow } from 'utils/lib/types/data/labs/labs.types';
-import { LabsOrderStatusChip } from './ExternalLabsStatusChip';
 import { formatDateForLabs, PSC_HOLD_LOCALE } from 'utils';
+import { LabOrderHistoryRow } from 'utils/lib/types/data/labs/labs.types';
+import { AccordionCard } from '../../../telemed/components/AccordionCard';
+import { LabsOrderStatusChip } from './ExternalLabsStatusChip';
 
 interface OrderHistoryProps {
   isLoading?: boolean;

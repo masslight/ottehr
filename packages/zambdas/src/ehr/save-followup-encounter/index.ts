@@ -1,9 +1,18 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter } from 'fhir/r4b';
-import { FOLLOWUP_TYPES, SaveFollowupEncounterZambdaInput, SaveFollowupEncounterZambdaOutput, Secrets } from 'utils';
-import { checkOrCreateM2MClientToken, topLevelCatch, ZambdaInput } from '../../shared';
+import {
+  FOLLOWUP_TYPES,
+  getSecret,
+  SaveFollowupEncounterZambdaInput,
+  SaveFollowupEncounterZambdaOutput,
+  Secrets,
+  SecretsKeys,
+} from 'utils';
+import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { createEncounterResource, updateEncounterResource } from './helpers';
+
+const ZAMBDA_NAME = 'save-followup-encounter';
 
 export interface SaveFollowupEncounterZambdaInputValidated extends SaveFollowupEncounterZambdaInput {
   secrets: Secrets;
@@ -15,7 +24,7 @@ export function validateRequestParameters(input: ZambdaInput): SaveFollowupEncou
   const { encounterDetails } = JSON.parse(input.body);
   if (!encounterDetails.patientId || !encounterDetails.followupType) {
     throw new Error(
-      `Missing required input param(s): ${!encounterDetails.patientId ? 'patintId' : ''} ${
+      `Missing required input param(s): ${!encounterDetails.patientId ? 'patientId' : ''} ${
         !encounterDetails.followupType ? 'followupType' : ''
       }`
     );
@@ -35,16 +44,16 @@ export function validateRequestParameters(input: ZambdaInput): SaveFollowupEncou
   };
 }
 
-let m2mtoken: string;
+let m2mToken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.log(`Input: ${JSON.stringify(input)}`);
     const { secrets, encounterDetails } = validateRequestParameters(input);
     console.log('updated encounter details', encounterDetails);
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
     let encounter: Encounter | undefined;
 
     if (encounterDetails.encounterId) {
@@ -68,10 +77,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       statusCode: 200,
     };
   } catch (error) {
-    await topLevelCatch('admin-save-followup-encounter', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('admin-save-followup-encounter', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify({ message: 'Error saving followup encounter' }),
     };
   }
-};
+});

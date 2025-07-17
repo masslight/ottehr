@@ -1,5 +1,5 @@
-import { AvailableLocationInformation, ScheduleType, Timezone } from '../common';
 import { SlotListItem } from '../../utils';
+import { AvailableLocationInformation, ScheduleType, Timezone } from '../common';
 
 export interface GetScheduleResponse {
   message: string;
@@ -15,5 +15,4 @@ export interface GetScheduleRequestParams {
   scheduleType: ScheduleType;
   slug: string;
   originalBookingUrl?: string;
-  // specificSlot?: string;
 }

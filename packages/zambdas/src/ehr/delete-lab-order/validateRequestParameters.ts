@@ -1,11 +1,11 @@
+import { DeleteLabOrderZambdaInput, Secrets } from 'utils';
 import { ZambdaInput } from '../../shared';
 
-export interface DeleteLabOrderParams {
-  serviceRequestId: string;
-  secrets: any;
+export interface DeleteLabOrderZambdaInputValidated extends DeleteLabOrderZambdaInput {
+  secrets: Secrets;
 }
 
-export function validateRequestParameters(input: ZambdaInput): DeleteLabOrderParams {
+export function validateRequestParameters(input: ZambdaInput): DeleteLabOrderZambdaInputValidated {
   if (!input.body) {
     throw new Error('No request body provided');
   }
@@ -14,6 +14,10 @@ export function validateRequestParameters(input: ZambdaInput): DeleteLabOrderPar
 
   if (!serviceRequestId) {
     throw new Error('missing required parameter: serviceRequestId');
+  }
+
+  if (!input.secrets) {
+    throw new Error('missing secrets');
   }
 
   return {

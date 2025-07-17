@@ -1,5 +1,5 @@
-import { FC } from 'react';
 import { Box, Link, Typography } from '@mui/material';
+import { FC } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import {
   dispositionCheckboxOptions,
@@ -7,13 +7,13 @@ import {
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   NOTHING_TO_EAT_OR_DRINK_LABEL,
 } from 'utils';
-import { AssessmentTitle } from '../../AssessmentTab';
-import { SectionList } from '../../../../components';
-import { useExcusePresignedFiles, usePatientInstructionsVisibility } from '../../../../hooks';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../../state';
 import { followUpInOptions } from 'utils';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
+import { getSelectors } from '../../../../../shared/store/getSelectors';
+import { SectionList } from '../../../../components';
+import { useExcusePresignedFiles, usePatientInstructionsVisibility } from '../../../../hooks';
+import { useAppointmentStore } from '../../../../state';
+import { AssessmentTitle } from '../../AssessmentTab';
 
 export const PatientInstructionsContainer: FC = () => {
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
@@ -37,7 +37,7 @@ export const PatientInstructionsContainer: FC = () => {
     showDischargeInstructions && (
       <>
         <AssessmentTitle>
-          Discharge instructions - {disposition?.type ? mapDispositionTypeToLabel[disposition.type] : 'Not provided'}
+          Disposition - {disposition?.type ? mapDispositionTypeToLabel[disposition.type] : 'Not provided'}
         </AssessmentTitle>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
           {disposition?.note && <Typography>{disposition?.note}</Typography>}
@@ -84,7 +84,7 @@ export const PatientInstructionsContainer: FC = () => {
     ),
     showSchoolWorkExcuse && (
       <>
-        <AssessmentTitle>Work / School Excuse</AssessmentTitle>
+        <AssessmentTitle>School / Work Excuse</AssessmentTitle>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
           {schoolWorkExcuses.map((excuse) => (
             <Link component={RouterLink} to={excuse.presignedUrl!} target="_blank" key={excuse.id}>
@@ -99,7 +99,7 @@ export const PatientInstructionsContainer: FC = () => {
   return (
     <Box data-testid={dataTestIds.telemedEhrFlow.reviewTabPatientInstructionsContainer}>
       <Typography variant="h5" color="primary.dark">
-        Patient instructions
+        Plan
       </Typography>
 
       <SectionList sections={sections} sx={{ width: '100%' }} />

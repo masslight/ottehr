@@ -2,7 +2,7 @@ export interface ApiError {
   message: string;
 }
 
-export type GetZapEHRAPIParams = {
+export type GetOystehrAPIParams = {
   cancelAppointmentZambdaID?: string;
   checkInZambdaID?: string;
   createAppointmentZambdaID?: string;

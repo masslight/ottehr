@@ -108,11 +108,13 @@ export const useSignAppointmentMutation = () =>
     mutationFn: ({
       apiClient,
       appointmentId,
+      timezone,
     }: {
       apiClient: OystehrTelemedAPIClient;
     } & Omit<SignAppointmentInput, 'secrets'>) => {
       return apiClient.signAppointment({
         appointmentId,
+        timezone,
       });
     },
   });

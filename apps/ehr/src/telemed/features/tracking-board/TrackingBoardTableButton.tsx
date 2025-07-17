@@ -3,11 +3,11 @@ import { FC } from 'react';
 import { useQueryClient } from 'react-query';
 import { useNavigate } from 'react-router-dom';
 import { TelemedAppointmentInformation, TelemedAppointmentStatus, TelemedAppointmentStatusEnum } from 'utils';
+import { dataTestIds } from '../../../constants/data-test-ids';
 import { ConfirmationDialog } from '../../components';
 import { useTrackingBoardTableButtonType } from '../../hooks';
-import { useZapEHRAPIClient } from '../../hooks/useOystehrAPIClient';
+import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
 import { useChangeTelemedAppointmentStatusMutation } from '../../state';
-import { dataTestIds } from '../../../constants/data-test-ids';
 
 const baseStyles = {
   borderRadius: 8,
@@ -19,7 +19,7 @@ const baseStyles = {
 export const TrackingBoardTableButton: FC<{ appointment: TelemedAppointmentInformation }> = (props) => {
   const { appointment } = props;
 
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const mutation = useChangeTelemedAppointmentStatusMutation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();

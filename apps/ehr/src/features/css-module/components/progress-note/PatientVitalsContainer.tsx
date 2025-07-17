@@ -1,25 +1,25 @@
-import { FC } from 'react';
 import { Box, Typography } from '@mui/material';
+import { FC } from 'react';
 import { NoteDTO, VitalFieldNames } from 'utils';
-import { useAppointmentStore } from '../../../../telemed';
 import { getSelectors } from '../../../../shared/store/getSelectors';
+import { useAppointmentStore } from '../../../../telemed';
 import { AssessmentTitle } from '../../../../telemed/features/appointment/AssessmentTab';
-import { composeTemperatureVitalsHistoryEntries } from '../vitals/temperature/helpers';
+import { composeBloodPressureVitalsHistoryEntries } from '../vitals/blood-pressure/helpers';
+import VitalBloodPressureHistoryElement from '../vitals/blood-pressure/VitalBloodPressureHistoryElement';
 import { composeHeartbeatHistoryEntries } from '../vitals/heartbeat/helpers';
 import VitalHeartbeatHistoryElement from '../vitals/heartbeat/VitalHeartbeatHistoryElement';
-import VitalTemperatureHistoryElement from '../vitals/temperature/VitalTemperatureHistoryElement';
-import { composeBloodPressureVitalsHistoryEntries } from '../vitals/blood-pressure/helpers';
-import { composeRespirationRateHistoryEntries } from '../vitals/respiration-rate/helpers';
-import VitalBloodPressureHistoryElement from '../vitals/blood-pressure/VitalBloodPressureHistoryElement';
-import VitalsRespirationRateHistoryElementElement from '../vitals/respiration-rate/VitalsRespirationRateHistoryElement';
-import { composeOxygenSatHistoryEntries } from '../vitals/oxygen-saturation/helpers';
-import VitalOxygenSatHistoryElement from '../vitals/oxygen-saturation/VitalOxygenSatHistoryElement';
-import { composeWeightVitalsHistoryEntries } from '../vitals/weights/helpers';
-import VitalWeightHistoryElement from '../vitals/weights/VitalWeightHistoryElement';
 import { composeHeightVitalsHistoryEntries } from '../vitals/heights/helpers';
 import VitalHeightHistoryElement from '../vitals/heights/VitalHeightHistoryElement';
+import { composeOxygenSatHistoryEntries } from '../vitals/oxygen-saturation/helpers';
+import VitalOxygenSatHistoryElement from '../vitals/oxygen-saturation/VitalOxygenSatHistoryElement';
+import { composeRespirationRateHistoryEntries } from '../vitals/respiration-rate/helpers';
+import VitalsRespirationRateHistoryElementElement from '../vitals/respiration-rate/VitalsRespirationRateHistoryElement';
+import { composeTemperatureVitalsHistoryEntries } from '../vitals/temperature/helpers';
+import VitalTemperatureHistoryElement from '../vitals/temperature/VitalTemperatureHistoryElement';
 import { composeVisionVitalsHistoryEntries } from '../vitals/vision/helpers';
 import VitalVisionHistoryElement from '../vitals/vision/VitalVisionHistoryElement';
+import { composeWeightVitalsHistoryEntries } from '../vitals/weights/helpers';
+import VitalWeightHistoryElement from '../vitals/weights/VitalWeightHistoryElement';
 
 const emptyDelete = async (): Promise<void> => {
   return;

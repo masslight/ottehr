@@ -1,23 +1,23 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useAuth0 } from '@auth0/auth0-react';
 import { Bundle } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
+import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useAuth0 } from '@auth0/auth0-react';
+import { SEARCH_CONFIG } from './constants';
 import {
+  PartialSearchOptionsState,
   SearchOptionsFilters,
+  SearchOptionsPagination,
+  SearchOptionsSort,
+  SearchOptionsState,
   SearchResult,
   SortField,
   SortOrder,
-  SearchOptionsState,
-  SearchOptionsSort,
-  SearchOptionsPagination,
-  PartialSearchOptionsState,
 } from './types';
+import { addSearchPagination } from './utils/addSearchPagination';
 import { addSearchSort } from './utils/addSearchSort';
 import { buildSearchQuery } from './utils/buildSearchQuery';
 import { parseSearchResults } from './utils/parseSearchResults';
-import { SEARCH_CONFIG } from './constants';
-import { addSearchPagination } from './utils/addSearchPagination';
 
 const emptySearchResult: SearchResult = {
   patients: [],

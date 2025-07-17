@@ -1,6 +1,6 @@
-import { PatientLabItem, OrderableItemSearchResult } from 'utils';
 import { Autocomplete, TextField } from '@mui/material';
 import { FC } from 'react';
+import { OrderableItemSearchResult, PatientLabItem } from 'utils';
 
 type LabsAutocompleteForPatientProps = {
   patientLabItems: PatientLabItem[];

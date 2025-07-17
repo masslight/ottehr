@@ -1,14 +1,5 @@
 import { BrowserContext, Page, test } from '@playwright/test';
-import {
-  PATIENT_BIRTH_DATE_SHORT,
-  PATIENT_EMAIL,
-  PATIENT_FIRST_NAME,
-  PATIENT_GENDER,
-  PATIENT_LAST_NAME,
-  PATIENT_PHONE_NUMBER,
-  ResourceHandler,
-} from '../../e2e-utils/resource-handler';
-
+import { DateTime } from 'luxon';
 import { waitForResponseWithData } from 'test-utils';
 import {
   CreateAppointmentResponse,
@@ -37,14 +28,22 @@ import {
   DEMO_VISIT_ZIP,
   unpackFhirResponse,
 } from 'utils';
+import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
+import {
+  PATIENT_BIRTH_DATE_SHORT,
+  PATIENT_EMAIL,
+  PATIENT_FIRST_NAME,
+  PATIENT_GENDER,
+  PATIENT_LAST_NAME,
+  PATIENT_PHONE_NUMBER,
+  ResourceHandler,
+} from '../../e2e-utils/resource-handler';
 import { openAddPatientPage } from '../page/AddPatientPage';
+import { expectDiscardChangesDialog } from '../page/patient-information/DiscardChangesDialog';
 import { expectPatientInformationPage, Field, openPatientInformationPage } from '../page/PatientInformationPage';
 import { expectPatientRecordPage } from '../page/PatientRecordPage';
 import { expectPatientsPage } from '../page/PatientsPage';
-import { dataTestIds } from '../../../src/constants/data-test-ids';
-import { expectDiscardChangesDialog } from '../page/patient-information/DiscardChangesDialog';
-import { DateTime } from 'luxon';
 
 const NEW_PATIENT_LAST_NAME = 'Test_last_name';
 const NEW_PATIENT_FIRST_NAME = 'Test_first_name';
@@ -74,7 +73,7 @@ const NEW_FIRST_NAME_FROM_RESPONSIBLE_CONTAINER = 'First name';
 const NEW_LAST_NAME_FROM_RESPONSIBLE_CONTAINER = 'Last name';
 const NEW_BIRTHDATE_FROM_RESPONSIBLE_CONTAINER = '10/10/2000';
 const NEW_BIRTH_SEX_FROM_RESPONSIBLE_CONTAINER = 'Male';
-const NEW_PHONE_FROM_RESPONSIBLE_CONTAINER = '(111) 111-1111';
+const NEW_PHONE_FROM_RESPONSIBLE_CONTAINER = '(202) 111-1111';
 const NEW_ADDRESS_RESPONSIBLE_PARTY = '123 fake lane';
 const NEW_CITY_RESPONSIBLE_PARTY = 'Los Angeles';
 const NEW_STATE_RESPONSIBLE_PARTY = 'NY';
@@ -83,7 +82,7 @@ const NEW_PROVIDER_FIRST_NAME = 'John';
 const NEW_PROVIDER_LAST_NAME = 'Doe';
 const NEW_PRACTICE_NAME = 'Dental';
 const NEW_PHYSICIAN_ADDRESS = '5th avenue';
-const NEW_PHYSICIAN_MOBILE = '(222) 222-2222';
+const NEW_PHYSICIAN_MOBILE = '(202) 222-2222';
 const NEW_PATIENT_DETAILS_PLEASE_SPECIFY_FIELD = 'testing gender';
 
 //const RELEASE_OF_INFO = 'Yes, Release Allowed';
@@ -176,6 +175,21 @@ test.describe('Patient Record Page non-mutating tests', () => {
     await patientInformationPage.verifyMobileFromPcpIsNotVisible();
   });
 
+  test.skip('Check all fields from Primary Care Physician block after toggling the checkbox on and off', async ({
+    page,
+  }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+
+    await patientInformationPage.setCheckboxOn();
+    await patientInformationPage.setCheckboxOff();
+
+    await patientInformationPage.verifyFirstNameFromPcp(DEMO_VISIT_PROVIDER_FIRST_NAME);
+    await patientInformationPage.verifyLastNameFromPcp(DEMO_VISIT_PROVIDER_LAST_NAME);
+    await patientInformationPage.verifyPracticeNameFromPcp(DEMO_VISIT_PRACTICE_NAME);
+    await patientInformationPage.verifyAddressFromPcp(DEMO_VISIT_PHYSICIAN_ADDRESS);
+    await patientInformationPage.verifyMobileFromPcp(DEMO_VISIT_PHYSICIAN_MOBILE);
+  });
+
   test('Check validation error is displayed for invalid phone number from Primary Care Physician block', async ({
     page,
   }) => {
@@ -261,7 +275,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!);
   });
 
-  test.afterEach(async () => {
+  test.afterAll(async () => {
     await resourceHandler.cleanupResources();
   });
 

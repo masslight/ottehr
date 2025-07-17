@@ -1,8 +1,8 @@
 import { Typography } from '@mui/material';
 import { Box, useTheme } from '@mui/system';
 import { ReactElement } from 'react';
-import { formatDateUsingSlashes } from '../helpers/formatDateTime';
 import { calculatePatientAge } from 'utils';
+import { formatDateUsingSlashes } from '../helpers/formatDateTime';
 
 export const PatientDateOfBirth = ({ dateOfBirth }: { dateOfBirth: string }): ReactElement => {
   const theme = useTheme();

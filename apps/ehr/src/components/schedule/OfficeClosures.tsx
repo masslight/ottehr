@@ -1,4 +1,4 @@
-import { ReactElement } from 'react';
+import DeleteIcon from '@mui/icons-material/Delete';
 import {
   Box,
   Button,
@@ -14,11 +14,11 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
-import DeleteIcon from '@mui/icons-material/Delete';
+import { DateTime } from 'luxon';
+import { ReactElement } from 'react';
+import { OVERRIDE_DATE_FORMAT } from '../../helpers/formatDateTime';
 import { Closure, ClosureType } from '../../types/types';
 import DateSearch from '../DateSearch';
-import { DateTime } from 'luxon';
-import { OVERRIDE_DATE_FORMAT } from '../../helpers/formatDateTime';
 
 interface OfficeClosuresProps {
   closures: Closure[] | undefined;

@@ -5,14 +5,6 @@ import { DateTime } from 'luxon';
 import { useMemo, useState } from 'react';
 import { generatePath, useNavigate } from 'react-router-dom';
 import {
-  BoldPurpleInputLabel,
-  CustomTooltip,
-  ErrorDialog,
-  ErrorDialogConfig,
-  PageForm,
-  useUCZambdaClient,
-} from 'ui-components';
-import {
   APIError,
   CreateSlotParams,
   getHoursOfOperationForToday,
@@ -27,9 +19,14 @@ import {
 import ottehrApi from '../api/ottehrApi';
 import { bookingBasePath, intakeFlowPageRoute } from '../App';
 import { PageContainer } from '../components';
+import { CustomTooltip } from '../components/CustomTooltip';
+import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
+import { BoldPurpleInputLabel } from '../components/form';
+import PageForm from '../components/PageForm';
+import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import { otherColors } from '../IntakeThemeProvider';
 import { useGetTelemedStates } from '../telemed/features/appointments';
-import { useZapEHRAPIClient } from '../telemed/utils';
+import { useOystehrAPIClient } from '../telemed/utils';
 
 const emptyArray: [] = [];
 
@@ -60,7 +57,7 @@ const StartVirtualVisit = (): JSX.Element => {
 
   const [errorDialogConfig, setErrorDialogConfig] = useState<ErrorDialogConfig | undefined>(undefined);
 
-  const apiClient = useZapEHRAPIClient({ tokenless: true });
+  const apiClient = useOystehrAPIClient({ tokenless: true });
   const { data: locationsResponse } = useGetTelemedStates(apiClient, Boolean(apiClient));
   const tokenlessZambdaClient = useUCZambdaClient({ tokenless: true });
 
@@ -131,13 +128,14 @@ const StartVirtualVisit = (): JSX.Element => {
         const currentWorkingHours = currentWorkingHoursText(serverState);
         return {
           state: stateCode,
-          available: serverState?.locationInformation?.scheduleExtension
-            ? isLocationOpen(
-                serverState.locationInformation.scheduleExtension,
-                serverState.locationInformation.timezone ?? TIMEZONES[0],
-                DateTime.now().setZone(serverState.locationInformation.timezone ?? '')
-              )
-            : false,
+          available:
+            serverState?.available && serverState?.locationInformation?.scheduleExtension
+              ? isLocationOpen(
+                  serverState.locationInformation.scheduleExtension,
+                  serverState.locationInformation.timezone ?? TIMEZONES[0],
+                  DateTime.now().setZone(serverState.locationInformation.timezone ?? '')
+                )
+              : false,
           workingHours: (Boolean(serverState?.available) && currentWorkingHours) || null,
           fullName: stateCodeToFullName[stateCode] || stateCode,
           scheduleId: serverState?.schedule.id || '',

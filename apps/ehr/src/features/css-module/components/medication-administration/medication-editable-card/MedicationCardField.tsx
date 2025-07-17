@@ -1,22 +1,27 @@
-import React from 'react';
 import {
-  TextField,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  FormHelperText,
-  Skeleton,
   Autocomplete,
+  FormControl,
+  FormHelperText,
+  InputLabel,
+  MenuItem,
+  Select,
+  Skeleton,
+  TextField,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import { OrderFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
-import { MedicationData, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
-import { InHouseMedicationFieldType, medicationOrderFieldsWithOptions } from './utils';
+import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
+import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { DateTime } from 'luxon';
+import React from 'react';
+import { IN_HOUSE_CONTAINED_MEDICATION_ID, MedicationData, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
+import { OrderFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
+import { MedicationFieldType } from './fieldsConfig';
+import { InHouseMedicationFieldType, medicationOrderFieldsWithOptions } from './utils';
 
 interface MedicationCardFieldProps {
-  field: keyof MedicationData;
+  field: MedicationFieldType;
   label: string;
   type?: InHouseMedicationFieldType;
   value: string | number | undefined;
@@ -64,28 +69,58 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
 
   const isInstruction = field === 'instructions';
 
-  if (type === 'autocomplete') {
-    const mappedLabel = label === 'medicationId' ? 'Medication' : label;
+  if (field === 'effectiveDateTime') {
+    const dateTimeValue = value ? DateTime.fromISO(value as string) : null;
 
+    return (
+      <LocalizationProvider dateAdapter={AdapterLuxon}>
+        <DateTimePicker
+          data-testid={dataTestIds.orderMedicationPage.inputField(field)}
+          label={label}
+          value={dateTimeValue}
+          onChange={(newValue) => {
+            if (!newValue) return;
+            const isoString = newValue.toISO();
+            isoString && handleChange(isoString);
+          }}
+          disabled={!isEditable}
+          slotProps={{
+            textField: {
+              fullWidth: true,
+              variant: 'outlined',
+              required: required,
+              error: showError && required && !value,
+              helperText: showError && required && !value ? REQUIRED_FIELD_ERROR_MESSAGE : '',
+            },
+          }}
+          format="yyyy-MM-dd HH:mm a"
+        />
+      </LocalizationProvider>
+    );
+  }
+
+  if (type === 'autocomplete') {
     const options = selectsOptions[field as keyof OrderFieldsSelectsOptions].options;
+    const foundOption =
+      options.find((option) => option.value === value) ?? options.find((option) => option.value === '');
     const isOptionsLoaded = selectsOptions[field as keyof OrderFieldsSelectsOptions].status === 'loaded';
-    const currentValue = renderValue
-      ? options.find((option) => option.label === renderValue)
-      : options.find((option) => option.value === value);
+    const currentValue = renderValue ? { value: IN_HOUSE_CONTAINED_MEDICATION_ID, label: renderValue } : foundOption;
 
     const autocomplete = isOptionsLoaded ? (
       <Autocomplete
         disabled={!isOptionsLoaded}
         options={options}
-        isOptionEqualToValue={(option, value) => option.value === value.value}
-        value={currentValue ?? null}
+        isOptionEqualToValue={(option, value) =>
+          option.value === value.value || value.value === IN_HOUSE_CONTAINED_MEDICATION_ID
+        }
+        value={currentValue}
         getOptionLabel={(option) => option.label}
         onChange={(_e, val) => handleChange(val?.value)}
         renderInput={(params) => (
           <TextField
             {...params}
-            label={mappedLabel}
-            placeholder={`Search ${mappedLabel}`}
+            label={label}
+            placeholder={`Search ${label}`}
             error={showError && required && !value}
           />
         )}
@@ -108,8 +143,6 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
   }
 
   if (type === 'select' && medicationOrderFieldsWithOptions.includes(field)) {
-    const mappedLabel = label === 'medicationId' ? 'Medication' : label;
-
     const options = selectsOptions[field as keyof OrderFieldsSelectsOptions].options;
     const isOptionsLoaded = selectsOptions[field as keyof OrderFieldsSelectsOptions].status === 'loaded';
 
@@ -129,7 +162,7 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
         error={showError && required && !value}
         autoComplete="off"
       >
-        <MenuItem value="">Select {mappedLabel}</MenuItem>
+        <MenuItem value="">Select {label}</MenuItem>
         {options.map((option) => (
           <MenuItem key={option.value} value={option.value}>
             {option.label}
@@ -147,7 +180,7 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
         required={required}
         error={showError && required && !value}
       >
-        <InputLabel id={`${field}-label`}>{mappedLabel}</InputLabel>
+        <InputLabel id={`${field}-label`}>{label}</InputLabel>
         {select}
         {showError && required && !value && <FormHelperText>This field is required</FormHelperText>}
       </StyledFormControl>
@@ -168,9 +201,7 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
       {...(type === 'number' ? { inputProps: { min: 0 } } : {})}
       multiline={isInstruction}
       rows={isInstruction ? 3 : undefined}
-      InputLabelProps={
-        type === 'date' || type === 'time' || type === 'month' || isInstruction ? { shrink: true } : undefined
-      }
+      InputLabelProps={type === 'datetime' || type === 'month' || isInstruction ? { shrink: true } : undefined}
       required={required}
       error={showError && required && !value}
       helperText={showError && required && !value ? REQUIRED_FIELD_ERROR_MESSAGE : ''}

@@ -1,10 +1,10 @@
-import React, { FC, useState } from 'react';
+import { otherColors } from '@ehrTheme/colors';
+import { ottehrAiIcon } from '@ehrTheme/icons';
+import CloseIcon from '@mui/icons-material/Close';
 import { Box, IconButton, Typography, useTheme } from '@mui/material';
+import React, { FC, useState } from 'react';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../state';
-import { otherColors } from '@ehrTheme/colors';
-import CloseIcon from '@mui/icons-material/Close';
-import { ottehrAiIcon } from '@ehrTheme/icons';
 
 export const AiPotentialDiagnosesCard: FC = () => {
   const theme = useTheme();

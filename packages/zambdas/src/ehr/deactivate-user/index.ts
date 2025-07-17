@@ -1,7 +1,6 @@
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { DeactivateUserZambdaInput, DeactivateUserZambdaOutput, getSecret, Secrets } from 'utils';
-import { getAuth0Token, topLevelCatch, ZambdaInput } from '../../shared';
+import { DeactivateUserZambdaInput, DeactivateUserZambdaOutput, getSecret, Secrets, SecretsKeys } from 'utils';
+import { getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface DeactivateUserZambdaInputValidated extends DeactivateUserZambdaInput {
@@ -10,7 +9,7 @@ export interface DeactivateUserZambdaInputValidated extends DeactivateUserZambda
 
 let oystehrToken: string;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler('deactivate-user', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
@@ -18,7 +17,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    // Deactivate zapEHR user by assigning Inactive role
+    // Deactivate Oystehr user by assigning Inactive role
     const userRoles = (user as any).roles;
     const userRoleIds = userRoles.map((role: any) => role.id);
     const userInactive = userRoles.find((role: any) => role.name === 'Inactive');
@@ -73,7 +72,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    await topLevelCatch('admin-deactivate-user', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('admin-deactivate-user', error, ENVIRONMENT);
     console.log('Error: ', JSON.stringify(error.message));
     return {
       statusCode: 500,

@@ -1,14 +1,21 @@
+import { otherColors } from '@ehrTheme/colors';
+import CloseIcon from '@mui/icons-material/Close';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { Box, Button, Typography, useTheme } from '@mui/material';
-import { BundleEntry, Coverage, InsurancePlan, Organization, QuestionnaireResponseItem } from 'fhir/r4b';
+import { BundleEntry, Coverage, Organization, QuestionnaireResponseItem } from 'fhir/r4b';
+import { enqueueSnackbar } from 'notistack';
 import { FC, useEffect, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
+import { useQueryClient } from 'react-query';
 import { useNavigate, useParams } from 'react-router-dom';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import {
   checkCoverageMatchesDetails,
   CoverageCheckWithDetails,
   extractFirstValueFromAnswer,
   flattenItems,
   getFullName,
+  InsurancePlanDTO,
   makePrepopulatedItemsFromPatientRecord,
   pruneEmptySections,
 } from 'utils';
@@ -25,26 +32,19 @@ import {
   PrimaryCareContainer,
   ResponsibleInformationContainer,
 } from '../components/patient';
+import { AddInsuranceModal } from '../components/patient/AddInsuranceModal';
+import { INSURANCE_COVERAGE_OPTIONS, InsurancePriorityOptions } from '../constants';
+import { structureQuestionnaireResponse } from '../helpers/qr-structure';
 import {
   useGetInsurancePlans,
   useGetPatient,
   useGetPatientAccount,
   useGetPatientDetailsUpdateForm,
-  useUpdatePatientAccount,
   useRemovePatientCoverage,
+  useUpdatePatientAccount,
 } from '../hooks/useGetPatient';
-import { createInsurancePlanDto, InsurancePlanDTO, usePatientStore } from '../state/patient.store';
-import CloseIcon from '@mui/icons-material/Close';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import { otherColors } from '@ehrTheme/colors';
-import { AddInsuranceModal } from '../components/patient/AddInsuranceModal';
-import { useZapEHRAPIClient } from '../telemed/hooks/useOystehrAPIClient';
-import { enqueueSnackbar } from 'notistack';
-import { structureQuestionnaireResponse } from '../helpers/qr-structure';
-import { useQueryClient } from 'react-query';
-import { INSURANCE_COVERAGE_OPTIONS, InsurancePriorityOptions } from '../constants';
-import _ from 'lodash';
-import { dataTestIds } from 'src/constants/data-test-ids';
+import { createInsurancePlanDto, usePatientStore } from '../state/patient.store';
+import { useOystehrAPIClient } from '../telemed/hooks/useOystehrAPIClient';
 
 const getAnyAnswer = (item: QuestionnaireResponseItem): any | undefined => {
   let index = 0;
@@ -76,12 +76,21 @@ const makeFormDefaults = (currentItemValues: QuestionnaireResponseItem[]): any =
   }, {});
 };
 
+const clearPCPFieldsIfInactive = (values: Record<string, any>): Record<string, any> => {
+  return Object.fromEntries(
+    Object.entries(values).map(([key, value]) => [
+      key,
+      !values['pcp-active'] && key.startsWith('pcp-') && key !== 'pcp-active' ? '' : value,
+    ])
+  );
+};
+
 const PatientInformationPage: FC = () => {
   const theme = useTheme();
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const { setInsurancePlans } = usePatientStore();
 
   // data queries
@@ -101,22 +110,13 @@ const PatientInformationPage: FC = () => {
         .filter((bundleEntry: BundleEntry) => bundleEntry.resource?.resourceType === 'Organization')
         .map((bundleEntry: BundleEntry) => bundleEntry.resource as Organization);
 
-      const transformedInsurancePlans = bundleEntries
-        .filter((bundleEntry: BundleEntry) => bundleEntry.resource?.resourceType === 'InsurancePlan')
-        .map((bundleEntry: BundleEntry) => {
-          const insurancePlanResource = bundleEntry.resource as InsurancePlan;
-
+      const transformedInsurancePlans = organizations
+        .map((organization: Organization) => {
           try {
-            const organizationId = insurancePlanResource.ownedBy?.reference?.split('/')[1];
-            const organizationResource = organizations.find((organization) => organization.id === organizationId);
-
-            if (!organizationResource) {
-              throw new Error(`Organization resource is not found by id: ${organizationId}.`);
-            }
-            return createInsurancePlanDto(insurancePlanResource, organizationResource);
+            return createInsurancePlanDto(organization);
           } catch (err) {
             console.error(err);
-            console.log('Could not add insurance plan due to incomplete data:', JSON.stringify(insurancePlanResource));
+            console.log('Could not add insurance org due to incomplete data:', JSON.stringify(organization));
             return {} as InsurancePlanDTO;
           }
         })
@@ -150,6 +150,7 @@ const PatientInformationPage: FC = () => {
     }
     const isFetching = accountFetching || questionnaireFetching;
     let defaultFormVals: any | undefined;
+
     if (!isFetching && accountData && questionnaire) {
       const prepopulatedForm = makePrepopulatedItemsFromPatientRecord({ ...accountData, questionnaire });
       defaultFormVals = makeFormDefaults(prepopulatedForm);
@@ -196,12 +197,15 @@ const PatientInformationPage: FC = () => {
     }
   };
 
-  const handleSaveForm = async (values: any): Promise<void> => {
-    if (!questionnaire) {
+  const handleSaveForm = async (values: Record<string, any>): Promise<void> => {
+    if (!questionnaire || !patient?.id) {
       enqueueSnackbar('Something went wrong. Please reload the page.', { variant: 'error' });
       return;
     }
-    const qr = pruneEmptySections(structureQuestionnaireResponse(questionnaire, values, patient?.id ?? ''));
+
+    const filteredValues = clearPCPFieldsIfInactive(values);
+
+    const qr = pruneEmptySections(structureQuestionnaireResponse(questionnaire, filteredValues, patient.id));
     submitQR.mutate(qr);
   };
 

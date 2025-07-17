@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
-import { Page, expect } from '@playwright/test';
+import { expect, Page } from '@playwright/test';
 
 export class UIDesign {
   page: Page;

@@ -1,12 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { Encounter, Patient } from 'fhir/r4b';
 
-export interface PatientEnounter {
+export interface PatientEncounter {
   encounter?: Encounter;
   patient?: Patient;
 }
 
-export async function getPatientEncounter(encounterId: string, oystehr: Oystehr): Promise<PatientEnounter> {
+export async function getPatientEncounter(encounterId: string, oystehr: Oystehr): Promise<PatientEncounter> {
   const resources = (
     await oystehr.fhir.search<Encounter | Patient>({
       resourceType: 'Encounter',

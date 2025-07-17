@@ -2,8 +2,8 @@ import { Container } from '@mui/material';
 import {
   DeviceLabels,
   GlobalStyles,
-  MeetingProvider,
   lightTheme,
+  MeetingProvider,
   useAudioInputs,
   useAudioVideo,
   useLocalVideo,
@@ -19,9 +19,9 @@ import { intakeFlowPageRoute } from '../../App';
 import { CallSideCard, LoadingSpinner } from '../components';
 import { useAppointmentStore } from '../features/appointments';
 import { CustomContainer, useIntakeCommonStore } from '../features/common';
-import { VideoRoom, useCallSettingsStore, useJoinCall, useVideoCallStore } from '../features/video-call';
-import { useZapEHRAPIClient } from '../utils';
+import { useCallSettingsStore, useJoinCall, useVideoCallStore, VideoRoom } from '../features/video-call';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { useOystehrAPIClient } from '../utils';
 
 const VideoChatPage: FC = () => {
   const { meetingData } = getSelectors(useVideoCallStore, ['meetingData']);
@@ -37,7 +37,7 @@ const VideoChatPage: FC = () => {
   const { devices: audioInputs, selectedDevice: selectedAudioDevice } = useAudioInputs();
   const isMobile = useIsMobile();
 
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useOystehrAPIClient();
   const [searchParams] = useSearchParams();
   const urlAppointmentID = searchParams.get('appointmentID');
   const navigate = useNavigate();

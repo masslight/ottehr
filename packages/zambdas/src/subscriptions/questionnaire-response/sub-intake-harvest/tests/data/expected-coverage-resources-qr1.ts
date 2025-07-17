@@ -7,7 +7,7 @@ export const expectedPrimaryPolicyHolderFromQR1: RelatedPerson = {
   name: [
     {
       given: ['Barnabas', 'Thaddeus'],
-      family: 'Picklesworth',
+      family: 'PicklesWorth',
     },
   ],
   birthDate: '1982-02-23',
@@ -27,7 +27,7 @@ export const expectedPrimaryPolicyHolderFromQR1: RelatedPerson = {
   address: [
     {
       line: ['317 Mustard Street', 'Unit 2'],
-      city: 'Deliciousville',
+      city: 'DeliciousVilla',
       state: 'DE',
       postalCode: '20001',
     },
@@ -40,7 +40,7 @@ export const expectedSecondaryPolicyHolderFromQR1: RelatedPerson = {
   name: [
     {
       given: ['Jennifer', 'Celeste'],
-      family: 'Picklesworth',
+      family: 'PicklesWorth',
     },
   ],
   birthDate: '1983-02-23',
@@ -76,7 +76,7 @@ export const expectedAccountGuarantorFromQR1: RelatedPerson = {
   patient: { reference: '{{PATIENT_REF}}' }, // newPatient1
   address: [
     {
-      city: 'fakeplace',
+      city: 'fakePlace',
       line: ['123 test lane'],
       postalCode: '11111',
       state: 'NY',
@@ -96,7 +96,11 @@ export const expectedAccountGuarantorFromQR1: RelatedPerson = {
   telecom: [
     {
       system: 'phone',
-      value: '+15559876543',
+      value: '+19895556543',
+    },
+    {
+      system: 'email',
+      value: 'rowdyroddypiper@hotmail.com',
     },
   ],
 };
@@ -107,7 +111,7 @@ export const expectedCoverageResources: { primary: Coverage; secondary: Coverage
     identifier: [
       {
         ...COVERAGE_MEMBER_IDENTIFIER_BASE, // this holds the 'type'
-        value: 'FAfonejwgndkoetwwe6',
+        value: 'FafOneJwgNdkOetWwe6',
         assigner: {
           reference: '{{ORGANIZATION_REF}}',
           display: 'Aetna',
@@ -118,7 +122,7 @@ export const expectedCoverageResources: { primary: Coverage; secondary: Coverage
     status: 'active',
     beneficiary: { reference: '{{PATIENT_REF}}', type: 'Patient' },
     payor: [{ reference: '{{ORGANIZATION_REF}}' }],
-    subscriberId: 'FAfonejwgndkoetwwe6',
+    subscriberId: 'FafOneJwgNdkOetWwe6',
     subscriber: {
       reference: `#coverageSubscriber`,
     },
@@ -142,7 +146,7 @@ export const expectedCoverageResources: { primary: Coverage; secondary: Coverage
             },
           ],
         },
-        value: '{{INSURANCEPLAN_REF}}',
+        value: '60054',
       },
     ],
     type: {
@@ -165,7 +169,7 @@ export const expectedCoverageResources: { primary: Coverage; secondary: Coverage
     identifier: [
       {
         ...COVERAGE_MEMBER_IDENTIFIER_BASE, // this holds the 'type'
-        value: 'fdfdfdfdfdfh7897',
+        value: 'FdfDfdFdfDfh7897',
         assigner: {
           reference: '{{ORGANIZATION_REF}}',
           display: 'Aetna',
@@ -176,7 +180,7 @@ export const expectedCoverageResources: { primary: Coverage; secondary: Coverage
     status: 'active',
     beneficiary: { reference: '{{PATIENT_REF}}', type: 'Patient' },
     payor: [{ reference: '{{ORGANIZATION_REF}}' }],
-    subscriberId: 'fdfdfdfdfdfh7897',
+    subscriberId: 'FdfDfdFdfDfh7897',
     subscriber: { reference: '#coverageSubscriber' },
     relationship: {
       coding: [
@@ -198,7 +202,7 @@ export const expectedCoverageResources: { primary: Coverage; secondary: Coverage
             },
           ],
         },
-        value: '{{INSURANCEPLAN_REF}}',
+        value: '60054',
       },
     ],
     type: {

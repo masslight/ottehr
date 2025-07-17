@@ -1,4 +1,4 @@
-import { Page, expect } from '@playwright/test';
+import { expect, Page } from '@playwright/test';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
 
 export abstract class BaseProgressNotePage {
@@ -8,8 +8,15 @@ export abstract class BaseProgressNotePage {
     this.#page = page;
   }
 
+  async clickDischargeButton(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.progressNotePage.dischargeButton).click();
+  }
+
   async clickReviewAndSignButton(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.progressNotePage.reviewAndSignButton).click();
+    const reviewAndSignButton = this.#page.getByTestId(dataTestIds.progressNotePage.reviewAndSignButton);
+    await reviewAndSignButton.waitFor({ state: 'visible' });
+    await expect(reviewAndSignButton).toBeEnabled();
+    await reviewAndSignButton.click();
   }
 
   async verifyReviewAndSignButtonDisabled(): Promise<void> {

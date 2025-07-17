@@ -1,3 +1,4 @@
+import { Practitioner } from 'fhir/r4b';
 import { Color, PDFFont, PDFImage, StandardFonts } from 'pdf-lib';
 import {
   AdditionalBooleanQuestionsFieldsNames,
@@ -5,11 +6,12 @@ import {
   ExamTabCardNames,
   InPersonExamObservationFieldItem,
   InPersonExamTabProviderCardNames,
+  LabType,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   QuantityComponent,
   VitalsVisitNoteData,
-  LabType,
 } from 'utils';
+import { Column } from './pdf-utils';
 
 export interface PageElementStyle {
   side?: 'left' | 'right' | 'center';
@@ -58,11 +60,16 @@ export interface LineStyle {
 export interface PdfClient {
   addNewPage: (styles: PageStyles) => void;
   drawText: (text: string, textStyle: TextStyle) => void;
-  drawTextSequential: (text: string, textStyle: Exclude<TextStyle, 'side'>) => void;
+  drawTextSequential: (
+    text: string,
+    textStyle: Exclude<TextStyle, 'side'>,
+    bounds?: { leftBound: number; rightBound: number }
+  ) => void;
   drawStartXPosSpecifiedText: (
     text: string,
     textStyle: TextStyle,
-    startingXPos: number
+    startingXPos: number,
+    bounds?: { leftBound: number; rightBound: number }
   ) => { endXPos: number; endYPos: number };
   drawImage: (img: PDFImage, styles: ImageStyle, textStyle?: TextStyle) => void;
   newLine: (yDrop: number) => void;
@@ -81,6 +88,10 @@ export interface PdfClient {
   setRightBound: (newBound: number) => void;
   getTextDimensions: (text: string, textStyle: TextStyle) => { width: number; height: number };
   setPageStyles: (newStyles: PageStyles) => void;
+  drawVariableWidthColumns: (columns: Column[], yPosStartOfColumn: number, startPageIndex: number) => void;
+  getCurrentPageIndex: () => number;
+  setPageByIndex: (pageIndex: number) => void;
+  getTotalPages: () => number;
 }
 
 export type TelemedExamBlockData = {
@@ -123,10 +134,10 @@ export interface LabsData {
   locationPhone?: string;
   locationFax?: string;
   labOrganizationName: string; // this is only mapped for order pdf
+  accountNumber: string;
   serviceRequestID: string;
-  reqId: string; // this is only for external
+  orderNumber: string; // this is only for external
   providerName: string;
-  providerTitle: string;
   providerNPI: string | undefined;
   patientFirstName: string;
   patientMiddleName: string | undefined;
@@ -138,8 +149,10 @@ export interface LabsData {
   patientPhone: string;
   todayDate: string;
   orderSubmitDate: string;
+  orderCreateDateAuthoredOn: string;
   orderCreateDate: string;
   sampleCollectionDate?: string;
+  billClass: string;
   primaryInsuranceName?: string;
   primaryInsuranceAddress?: string;
   primaryInsuranceSubNum?: string;
@@ -158,6 +171,7 @@ export interface ExternalLabResult {
   resultInterpretationDisplay?: string;
   resultValue: string;
   referenceRangeText?: string;
+  resultNotes?: string[];
 }
 
 export interface InHouseLabResult {
@@ -179,41 +193,38 @@ export interface LabResultsData
   extends Omit<
     LabsData,
     | 'aoeAnswers'
-    | 'reqId'
+    | 'orderNumber'
     | 'labOrganizationName'
     | 'orderSubmitDate'
     | 'providerTitle'
     | 'providerNPI'
     | 'patientAddress'
+    | 'sampleCollectionDate'
+    | 'billClass'
+    | 'accountNumber'
   > {
   testName: string;
   resultStatus: string;
   abnormalResult?: boolean;
 }
 export interface ExternalLabResultsData extends LabResultsData {
-  reqId: string;
+  orderNumber: string;
   accessionNumber: string;
   orderSubmitDate: string;
   collectionDate: string;
   resultPhase: string;
+  resultsReceivedDate: string;
   reviewed?: boolean;
-  reviewingProviderFirst: string;
-  reviewingProviderLast: string;
-  reviewingProviderTitle: string;
+  reviewingProvider: Practitioner | undefined;
   reviewDate: string | undefined;
   resultInterpretations: string[];
   externalLabResults: ExternalLabResult[];
   testItemCode: string;
   performingLabName: string;
-  performingLabStreetAddress: string;
-  performingLabCity: string;
-  performingLabState: string;
-  performingLabZip: string;
+  performingLabAddress?: string;
   performingLabDirector?: string;
-  performingLabPhone: string;
-  performingLabDirectorFirstName: string;
-  performingLabDirectorLastName: string;
-  performingLabDirectorTitle: string;
+  performingLabPhone?: string;
+  performingLabDirectorFullName?: string;
 }
 export interface InHouseLabResultsData extends LabResultsData {
   inHouseLabResults: InHouseLabResultConfig[];
@@ -221,7 +232,7 @@ export interface InHouseLabResultsData extends LabResultsData {
 
 export type ResultDataConfig =
   | { type: LabType.external; data: ExternalLabResultsData }
-  | { type: LabType.inhouse; data: InHouseLabResultsData };
+  | { type: LabType.inHouse; data: InHouseLabResultsData };
 
 export interface VisitNoteData extends ExaminationBlockData {
   patientName: string;
@@ -241,9 +252,13 @@ export interface VisitNoteData extends ExaminationBlockData {
   providerTimeSpan?: string;
   reviewOfSystems?: string;
   medications?: string[];
+  medicationsNotes?: string[];
   allergies?: string[];
+  allergiesNotes?: string[];
   medicalConditions?: string[];
+  medicalConditionsNotes?: string[];
   surgicalHistory?: string[];
+  surgicalHistoryNotes?: string[];
   additionalQuestions: Record<AdditionalBooleanQuestionsFieldsNames, string>;
   screening?: {
     seenInLastThreeYears?: string;
@@ -253,6 +268,7 @@ export interface VisitNoteData extends ExaminationBlockData {
     notes?: string[];
   };
   hospitalization?: string[];
+  hospitalizationNotes?: string[];
   vitals?: VitalsVisitNoteData & {
     notes?: string[];
   };
@@ -296,6 +312,7 @@ export interface VisitNoteData extends ExaminationBlockData {
     timeSpent?: string;
     documentedBy?: string;
   }[];
+  addendumNote?: string;
 }
 
 export interface ReceiptData {

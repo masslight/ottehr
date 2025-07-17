@@ -1,37 +1,27 @@
-import { Box } from '@mui/material';
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
 import AssignmentTurnedInOutlinedIcon from '@mui/icons-material/AssignmentTurnedInOutlined';
 import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
 import HealthAndSafetyOutlinedIcon from '@mui/icons-material/HealthAndSafetyOutlined';
-import { otherColors } from 'src/themes/ottehr/colors';
-import { GenericToolTip, PaperworkToolTipContent } from './GenericToolTip';
-import { InHouseOrderListPageItemDTO, InPersonAppointmentInformation, LabOrderListPageDTO } from 'utils';
-import { OrdersIconsToolTip } from './OrdersIconsToolTip';
+import { Box } from '@mui/material';
 import { displayOrdersToolTip } from 'src/helpers';
+import { otherColors } from 'src/themes/ottehr/colors';
+import { InPersonAppointmentInformation, OrdersForTrackingBoardRow } from 'utils';
 import { ApptTab } from './AppointmentTabs';
+import { GenericToolTip, PaperworkToolTipContent } from './GenericToolTip';
+import { OrdersIconsToolTip } from './OrdersIconsToolTip';
 
 interface InfoIconsToolTipProps {
   appointment: InPersonAppointmentInformation;
   tab: ApptTab;
-  inHouseLabOrders: InHouseOrderListPageItemDTO[] | undefined;
-  externalLabOrders: LabOrderListPageDTO[] | undefined;
+  orders: OrdersForTrackingBoardRow;
 }
-export const InfoIconsToolTip: React.FC<InfoIconsToolTipProps> = ({
-  appointment,
-  tab,
-  inHouseLabOrders,
-  externalLabOrders,
-}) => {
+export const InfoIconsToolTip: React.FC<InfoIconsToolTipProps> = ({ appointment, tab, orders }) => {
   const ordersToolTip = displayOrdersToolTip(appointment, tab);
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'left', height: '100%' }}>
       {ordersToolTip ? (
-        <OrdersIconsToolTip
-          appointment={appointment}
-          externalLabOrders={externalLabOrders}
-          inHouseLabOrders={inHouseLabOrders}
-        />
+        <OrdersIconsToolTip appointment={appointment} orders={orders} />
       ) : (
         // Visit Components
         <GenericToolTip title={<PaperworkToolTipContent appointment={appointment} />} customWidth="none">

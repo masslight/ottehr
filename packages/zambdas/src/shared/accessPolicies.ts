@@ -78,7 +78,7 @@ export const ADMINISTRATOR_RULES: AccessPolicy = {
     },
     {
       action: ['FHIR:Search', 'FHIR:Read', 'FHIR:Update', 'FHIR:Create'],
-      resource: ['FHIR:InsurancePlan:*', 'FHIR:PractitionerRole'],
+      resource: ['FHIR:Organization:*', 'FHIR:PractitionerRole'],
       effect: 'Allow',
     },
     {
@@ -171,7 +171,7 @@ export const MANAGER_RULES: AccessPolicy = {
     },
     {
       action: ['FHIR:Search', 'FHIR:Read', 'FHIR:Update', 'FHIR:Create'],
-      resource: ['FHIR:InsurancePlan:*'],
+      resource: ['FHIR:Organization:*'],
       effect: 'Allow',
     },
     {
@@ -271,6 +271,7 @@ export const PROVIDER_RULES: AccessPolicy = {
         'FHIR:List',
         'FHIR:Schedule',
         'FHIR:ValueSet',
+        'FHIR:Medication',
       ],
       action: ['FHIR:Search', 'FHIR:Read'],
       effect: 'Allow',

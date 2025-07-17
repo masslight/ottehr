@@ -1,18 +1,14 @@
+import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import {
-  createOystehrClient,
-  getAuth0Token,
-  getStripeClient,
-  lambdaResponse,
-  STRIPE_PAYMENT_ID_SYSTEM,
-  topLevelCatch,
-  ZambdaInput,
-} from '../../../shared';
+import { Account, PaymentNotice } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import Stripe from 'stripe';
 import {
   CardPaymentDTO,
   CashPaymentDTO,
   convertPaymentNoticeListToCashPaymentDTOs,
   FHIR_RESOURCE_NOT_FOUND,
+  getSecret,
   getStripeCustomerIdFromAccount,
   INVALID_INPUT_ERROR,
   isValidUUID,
@@ -23,16 +19,26 @@ import {
   NOT_AUTHORIZED,
   PatientPaymentDTO,
   Secrets,
+  SecretsKeys,
 } from 'utils';
-import { Account, PaymentNotice } from 'fhir/r4b';
+import {
+  createOystehrClient,
+  getAuth0Token,
+  getStripeClient,
+  lambdaResponse,
+  STRIPE_PAYMENT_ID_SYSTEM,
+  topLevelCatch,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../shared';
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
-import Stripe from 'stripe';
-import { DateTime } from 'luxon';
-import Oystehr, { SearchParam } from '@oystehr/sdk';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrM2MClientToken: string;
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+
+const ZAMBDA_NAME = 'patient-payments-list';
+
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     let validatedParameters: ReturnType<typeof validateRequestParameters>;
@@ -78,9 +84,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     return lambdaResponse(200, response);
   } catch (error: any) {
     console.error(error);
-    return topLevelCatch('patient-payments-list', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('patient-payments-list', error, ENVIRONMENT);
   }
-};
+});
 interface EffectInput extends ListPatientPaymentInput {
   stripeClient: Stripe;
   patientAccount: Account;

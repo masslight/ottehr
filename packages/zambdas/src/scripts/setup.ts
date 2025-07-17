@@ -2,23 +2,21 @@ import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { exec } from 'child_process';
 import { FhirResource, HealthcareService, Organization, PractitionerRole, Schedule } from 'fhir/r4b';
 import fs from 'fs';
-import { promisify } from 'node:util';
 import path from 'path';
+import { promisify } from 'util';
 import {
   FHIR_BASE_URL,
   FOLDERS_CONFIG,
+  generateDeployAccountNumber,
   PROJECT_DOMAIN,
   PROJECT_NAME,
   PROJECT_NAME_LOWER,
   SCHEDULE_EXTENSION_URL,
   ScheduleStrategyCoding,
   TIMEZONE_EXTENSION_URL,
-  generateDeployAccountNumber,
 } from 'utils';
 import { inviteUser } from './invite-user';
 import { defaultGroup } from './setup-default-locations';
-
-export const BUCKET_PAPERWORK_PDF = 'paperwork-pdf';
 
 async function createApplication(oystehr: Oystehr, applicationName: string): Promise<[string, string]> {
   const application = await oystehr.application.create({
@@ -346,7 +344,7 @@ export async function setupEHR(
   console.log('Created environment file:', envPath2);
 
   const documentExplorerFolders = FOLDERS_CONFIG.map((folder) => folder.title);
-  const bucketNames = ['photo-id-cards', 'school-work-notes', BUCKET_PAPERWORK_PDF, ...documentExplorerFolders];
+  const bucketNames = [...documentExplorerFolders];
 
   await createZ3(oystehr, bucketNames);
 
@@ -365,7 +363,7 @@ export async function setupEHR(
 
     console.log('Starting to update in-house medications list...');
     const { stdout: stdout2, stderr: stderr2 } = await execPromise(
-      `cd packages/zambdas && npm run create-update-in-house-medications-list ${environment}`
+      `cd packages/zambdas && npm run recreate-in-house-medications-list ${environment}`
     );
     if (stderr2) {
       console.log(`Command executed with warnings: ${stderr2}`);
@@ -382,22 +380,22 @@ export async function setupEHR(
     console.log('Configuring external labs resources...');
 
     const accountNumber = generateDeployAccountNumber();
-    const autolabLabguid = '790b282d-77e9-4697-9f59-0cef8238033a';
+    const autoLabGuid = '790b282d-77e9-4697-9f59-0cef8238033a';
 
     try {
-      await oystehr.lab.routeCreate({ labGuid: autolabLabguid, accountNumber });
+      await oystehr.lab.routeCreate({ labGuid: autoLabGuid, accountNumber });
     } catch (error) {
       console.log(`Error while creating a route with account number ${accountNumber}`);
       throw error;
     }
 
-    const autolabOrg: Organization = {
+    const autoLabOrg: Organization = {
       resourceType: 'Organization',
       name: 'AutoLab',
       identifier: [
         {
           system: 'https://identifiers.fhir.oystehr.com/lab-guid',
-          value: autolabLabguid,
+          value: autoLabGuid,
         },
         {
           system: 'https://identifiers.fhir.oystehr.com/lab-account-number',
@@ -440,7 +438,7 @@ export async function setupEHR(
       ],
     };
 
-    await oystehr.fhir.create(autolabOrg);
+    await oystehr.fhir.create(autoLabOrg);
     console.log('Successfully configured external labs resources...');
   } catch (error: any) {
     console.log(`Error occurred while setting up external labs AutoLab org: ${error.message}`);

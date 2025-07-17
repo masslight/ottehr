@@ -16,14 +16,6 @@ import {
   RelatedPerson,
   Resource,
 } from 'fhir/r4b';
-import {
-  FHIR_EXTENSION,
-  FHIR_IDENTIFIER_NPI,
-  filterResources,
-  getCommunicationsAndSenders,
-  getUniquePhonesNumbers,
-  PRIVATE_EXTENSION_BASE_URL,
-} from '.';
 import { removePrefix } from '../helpers';
 import {
   PATIENT_INDIVIDUAL_PRONOUNS_URL,
@@ -35,6 +27,15 @@ import {
   ProviderNotificationSettings,
   RelatedPersonMaps,
 } from '../types';
+import {
+  allLicensesForPractitioner,
+  FHIR_EXTENSION,
+  FHIR_IDENTIFIER_NPI,
+  filterResources,
+  getCommunicationsAndSenders,
+  getUniquePhonesNumbers,
+  PRIVATE_EXTENSION_BASE_URL,
+} from '.';
 
 // Return true if a new user
 export async function createUserResourcesForPatient(
@@ -265,6 +266,7 @@ export function getPatientInfoFullName(patient: PatientInfo): string {
 }
 
 export function getPatientChosenName(patient: PatientInfo, lowercaseP?: boolean): string {
+  // cSpell:disable-next {p|P}atient
   return patient.chosenName ? patient.chosenName : patient.firstName ?? `${lowercaseP ? 'p' : 'P'}atient`;
 }
 
@@ -426,12 +428,23 @@ export const getFullestAvailableName = (
 ): string | undefined => {
   const firstName = getFirstName(individual);
   const lastName = getLastName(individual);
+  let license = undefined;
+  if (individual.resourceType === 'Practitioner') {
+    license = allLicensesForPractitioner(individual)[0]?.code;
+  }
   // const suffix = getSuffix(individual);
   if (firstName && lastName) {
     // return lastFirst
     //   ? `${lastName}${suffix ? ` ${suffix}` : ''}, ${firstName}`
     //   : `${firstName} ${lastName}${suffix ? ` ${suffix}` : ''}`;
-    return lastFirst ? `${lastName}, ${firstName}` : `${firstName} ${lastName}`;
+    if (lastFirst) {
+      return `${lastName}, ${firstName}`;
+    }
+
+    if (license) {
+      return `${firstName} ${lastName}, ${license}`;
+    }
+    return `${firstName} ${lastName}`;
   } else if (firstName) {
     return firstName;
   } else if (lastName) {
@@ -577,14 +590,15 @@ export const getProviderNotificationSettingsForPractitioner = (
   const notifyExtension = practitioner?.extension?.find(
     (extension) => extension.url === PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL
   );
-  const notifValue = notifyExtension?.extension?.find((extension) => extension.url === PROVIDER_NOTIFICATION_METHOD_URL)
-    ?.valueString as ProviderNotificationMethod;
+  const notificationValue = notifyExtension?.extension?.find(
+    (extension) => extension.url === PROVIDER_NOTIFICATION_METHOD_URL
+  )?.valueString as ProviderNotificationMethod;
   const notificationsEnabled =
     notifyExtension?.extension?.find((extension) => extension.url === PROVIDER_NOTIFICATIONS_ENABLED_URL)
       ?.valueBoolean === true;
   return {
     enabled: notificationsEnabled,
-    method: notifValue,
+    method: notificationValue,
   };
 };
 
@@ -620,8 +634,8 @@ export const getParentContactForPatient = (
   options: GetContactOptions | undefined
 ): PatientContact | undefined => {
   const checkEmail = options?.hasEmail ?? false;
-  return patient?.contact?.find((cntct) => {
-    const isParent = cntct.relationship?.some((rel) => {
+  return patient?.contact?.find((contact) => {
+    const isParent = contact.relationship?.some((rel) => {
       return rel.coding?.some((coded) => {
         return (
           coded.code === 'Parent/Guardian' &&
@@ -630,7 +644,7 @@ export const getParentContactForPatient = (
       });
     });
     if (isParent && checkEmail) {
-      return cntct.telecom?.some((obj) => {
+      return contact.telecom?.some((obj) => {
         return obj?.system === 'email';
       });
     } else {

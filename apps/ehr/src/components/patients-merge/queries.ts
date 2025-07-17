@@ -1,8 +1,8 @@
 import { Bundle, FhirResource } from 'fhir/r4';
-import { useApiClients } from '../../hooks/useAppClients';
-import { useMutation, useQuery } from 'react-query';
-import { enqueueSnackbar } from 'notistack';
 import { Patient } from 'fhir/r4b';
+import { enqueueSnackbar } from 'notistack';
+import { useMutation, useQuery } from 'react-query';
+import { useApiClients } from '../../hooks/useAppClients';
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetPatientsForMerge = (

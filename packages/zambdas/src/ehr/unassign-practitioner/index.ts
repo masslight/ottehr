@@ -2,26 +2,28 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Practitioner, PractitionerRole } from 'fhir/r4b';
 import { Secrets, UnassignPractitionerZambdaInput, UnassignPractitionerZambdaOutput } from 'utils';
-import { checkOrCreateM2MClientToken, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { getVisitResources } from '../../shared/practitioner/helpers';
 import { getMyPractitionerId } from '../../shared/practitioners';
 import { unassignParticipantIfPossible } from './helpers/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
+
+const ZAMBDA_NAME = 'unassign-practitioner';
 export interface UnassignPractitionerZambdaInputValidated extends UnassignPractitionerZambdaInput {
   secrets: Secrets;
   userToken: string;
 }
 
-let m2mtoken: string;
+let m2mToken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, validatedParameters.secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
 
-    const oystehr = createOystehrClient(m2mtoken, validatedParameters.secrets);
+    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
     const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
     console.log('Created Oystehr client');
 
@@ -37,10 +39,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.error('Error: ' + error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ message: 'Error unassigning encounter participant' }),
+      body: JSON.stringify({ message: 'Error un-assigning encounter participant' }),
     };
   }
-};
+});
 export const complexValidation = async (
   oystehr: Oystehr,
   oystehrCurrentUser: Oystehr,

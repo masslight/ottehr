@@ -22,10 +22,10 @@ import {
   SCHOOL_WORK_NOTE,
   SNOMEDCodeConceptInterface,
 } from 'utils';
-import { ZambdaInput } from '../../shared';
-import { checkOrCreateM2MClientToken, saveOrUpdateResourceRequest } from '../../shared';
 import {
+  checkOrCreateM2MClientToken,
   createDispositionServiceRequest,
+  createOystehrClient,
   createProcedureServiceRequest,
   followUpToPerformerMap,
   makeAllergyResource,
@@ -42,13 +42,15 @@ import {
   makeProcedureResource,
   makeSchoolWorkDR,
   makeServiceRequestResource,
+  saveOrUpdateResourceRequest,
   updateEncounterAddendumNote,
   updateEncounterAddToVisitNote,
   updateEncounterDiagnosis,
   updateEncounterDischargeDisposition,
   updateEncounterPatientInfoConfirmed,
+  wrapHandler,
+  ZambdaInput,
 } from '../../shared';
-import { createOystehrClient } from '../../shared';
 import { PdfDocumentReferencePublishedStatuses } from '../../shared/pdf/pdf-utils';
 import { createSchoolWorkNotePDF } from '../../shared/pdf/school-work-note-pdf';
 import { deleteResourceRequest } from '../delete-chart-data/helpers';
@@ -59,10 +61,12 @@ import {
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
-// Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mtoken: string;
+const ZAMBDA_NAME = 'save-chart-data';
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+// Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
+let m2mToken: string;
+
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.log(`Input: ${JSON.stringify(input)}`);
     console.log('Validating input');
@@ -100,8 +104,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.time('time');
     console.timeLog('time', 'before creating fhir client and token resources');
     console.log('Getting token');
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
     const oystehrCurrentUser = createOystehrClient(userToken, secrets);
 
     console.timeLog('time', 'before fetching resources');
@@ -159,7 +163,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       );
     });
 
-    // convert Medications [] to MeicationStatement+Medication [] and preserve FHIR resource IDs
+    // convert Medications [] to MedicationStatement+Medication [] and preserve FHIR resource IDs
     medications?.forEach((medication) => {
       saveOrUpdateRequests.push(
         saveOrUpdateResourceRequest(
@@ -373,7 +377,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     // 14 convert work-school note to pdf file, upload it to z3 bucket and create DocumentReference (FHIR) for it
     if (newSchoolWorkNote) {
       if (appointment?.id === undefined) throw new Error(`No appointment found for encounterId: ${encounterId}`);
-      const pdfInfo = await createSchoolWorkNotePDF(newSchoolWorkNote, patient, secrets, m2mtoken);
+      const pdfInfo = await createSchoolWorkNotePDF(newSchoolWorkNote, patient, secrets, m2mToken);
       additionalResourcesForResponse.push(
         await makeSchoolWorkDR(
           oystehr,
@@ -476,7 +480,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       statusCode: 500,
     };
   }
-};
+});
 
 // ----- !!!DON'T DELETE!!! this is in #2129 scope -----
 // function createAuditEvent(chartResourcesBeforeUpdate: Resource[], chartResourcesAfterUpdate: Resource[]): AuditEvent {

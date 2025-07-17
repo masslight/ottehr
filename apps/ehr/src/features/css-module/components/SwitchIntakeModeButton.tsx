@@ -1,6 +1,6 @@
 import React from 'react';
-import { ButtonRounded } from './RoundedButton';
 import { dataTestIds } from '../../../constants/data-test-ids';
+import { ButtonRounded } from './RoundedButton';
 
 export const SwitchIntakeModeButton: React.FC<{
   isDisabled: boolean;

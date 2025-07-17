@@ -1,9 +1,13 @@
+// cSpell:ignore videoconference
 import { Account, CodeableConcept, HealthcareService, Identifier, Location, Practitioner, Schedule } from 'fhir/r4b';
 import {
   AppointmentType,
   CONSENT_CODE,
   EXPORTED_QUESTIONNAIRE_CODE,
+  EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE,
   INSURANCE_CARD_CODE,
+  LAB_ORDER_DOC_REF_CODING_CODE,
+  LAB_RESULT_DOC_REF_CODING_CODE,
   PATIENT_PHOTO_CODE,
   PHOTO_ID_CARD_CODE,
   PRIVACY_POLICY_CODE,
@@ -29,7 +33,7 @@ export const ROOM_EXTENSION_URL = 'http://hl7.org/fhir/StructureDefinition/room'
 export const FHIR_BASE_URL = 'https://fhir.ottehr.com';
 
 export const FHIR_IDENTIFIER_NPI = 'http://hl7.org/fhir/sid/us-npi';
-export const FHIR_IDENTIFIER_SYSTEM_TAX = 'http://terminology.hl7.org/CodeSystem/v2-0203';
+export const FHIR_IDENTIFIER_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v2-0203';
 export const FHIR_IDENTIFIER_CODE_TAX_EMPLOYER = 'NE';
 export const FHIR_IDENTIFIER_CODE_TAX_SS = 'SS';
 export const FHIR_AI_CHAT_CONSENT_CATEGORY_CODE = 'ai-chat';
@@ -124,6 +128,7 @@ export const FHIR_EXTENSION = {
       url: `${PRIVATE_EXTENSION_BASE_URL}/claim-condition-code`,
     },
     claimInformationCategory: {
+      // cSpell:disable-next claiminformationcategory
       url: `${PRIVATE_EXTENSION_BASE_URL}/claiminformationcategory`,
     },
     resubmissionRelationship: {
@@ -144,6 +149,7 @@ export const FHIR_EXTENSION = {
   },
   AllergyIntolerance: {
     allergyIntoleranceClinical: {
+      // cSpell:disable-next allergyintolerance
       url: `${TERMINOLOGY_BASE_URL}/allergyintolerance-clinical`,
     },
   },
@@ -236,6 +242,8 @@ export const FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG = {
   code: 'SUB_INTAKE_HARVEST_TASK_COMPLETE',
 };
 
+export const ERX_MEDICATION_META_TAG_CODE = 'erx-medication';
+
 export const FHIR_APPOINTMENT_TYPE_MAP: Record<string, AppointmentType> = {
   walkin: 'walk-in',
   prebook: 'pre-booked',
@@ -258,7 +266,7 @@ export const ServiceModeCoding = {
     display: 'Telephone',
     fullParam: `${SERVICE_MODE_SYSTEM}|telephone`,
   },
-  videoconference: {
+  videoConference: {
     system: SERVICE_MODE_SYSTEM,
     code: 'videoconference',
     display: 'Video Conference',
@@ -352,7 +360,7 @@ export const FOLDERS_CONFIG: ListConfig[] = [
     documentTypeCode: INSURANCE_CARD_CODE,
   },
   {
-    title: 'photo-ids',
+    title: 'photo-id-cards',
     display: 'Photo ID',
     documentTypeCode: PHOTO_ID_CARD_CODE,
   },
@@ -362,7 +370,7 @@ export const FOLDERS_CONFIG: ListConfig[] = [
     documentTypeCode: PATIENT_PHOTO_CODE,
   },
   {
-    title: 'school-work-note',
+    title: 'school-work-notes',
     display: 'School/Work Notes',
     documentTypeCode: SCHOOL_WORK_NOTE_CODE,
   },
@@ -370,6 +378,15 @@ export const FOLDERS_CONFIG: ListConfig[] = [
     title: 'school-work-note-templates',
     display: 'School/Work Note templates',
     documentTypeCode: SCHOOL_WORK_NOTE_TEMPLATE_CODE,
+  },
+  {
+    title: 'labs',
+    display: 'Labs',
+    documentTypeCode: [
+      LAB_ORDER_DOC_REF_CODING_CODE.code,
+      LAB_RESULT_DOC_REF_CODING_CODE.code,
+      EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE.code,
+    ],
   },
   {
     title: 'receipts',
@@ -393,7 +410,7 @@ export const SUBSCRIBER_RELATIONSHIP_CODE_MAP: Record<string, string> = {
   'Injured Party': 'injured',
 };
 
-// this is recquired by US Core
+// this is required by US Core
 // https://build.fhir.org/ig/HL7/US-Core/StructureDefinition-us-core-coverage-definitions.html#key_Coverage.identifier:memberid.type
 export const COVERAGE_MEMBER_IDENTIFIER_BASE: Partial<Identifier> = {
   type: {

@@ -1,5 +1,5 @@
-import React, { FC } from 'react';
 import { FormControl, InputLabel, MenuItem, Select } from '@mui/material';
+import React, { FC } from 'react';
 import { ClaimsQueueGetRequest } from 'utils';
 import { claimStatusOptions } from '../../../utils';
 

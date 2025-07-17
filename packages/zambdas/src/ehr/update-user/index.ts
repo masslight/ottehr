@@ -1,13 +1,20 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { HumanName, Practitioner } from 'fhir/r4b';
-import { FHIR_IDENTIFIER_NPI, getSecret, makeQualificationForPractitioner, UpdateUserZambdaOutput } from 'utils';
-import { checkOrCreateM2MClientToken, topLevelCatch, ZambdaInput } from '../../shared';
+import {
+  FHIR_IDENTIFIER_NPI,
+  getSecret,
+  makeQualificationForPractitioner,
+  SecretsKeys,
+  UpdateUserZambdaOutput,
+} from 'utils';
+import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { getRoleId } from '../../shared/rolesUtils';
 import { validateRequestParameters } from './validateRequestParameters';
 
-let m2mtoken: string;
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+const ZAMBDA_NAME = 'update-user';
+let m2mToken: string;
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
@@ -34,26 +41,26 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.groupEnd();
     console.debug('validateRequestParameters success');
     const PROJECT_API = getSecret('PROJECT_API', secrets);
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const headers = {
       accept: 'application/json',
       'content-type': 'application/json',
-      Authorization: `Bearer ${m2mtoken}`,
+      Authorization: `Bearer ${m2mToken}`,
     };
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
     const user = await oystehr.user.get({ id: userId });
     const userProfile = user.profile;
     const userProfileString = userProfile.split('/');
 
     const practitionerId = userProfileString[1];
-    // Update user's zapEHR roles
+    // Update user's Oystehr roles
     // calling update user on an inactive user, reactivates them
     let roles: string[] = [];
 
     if (selectedRoles && selectedRoles.length > 0) {
       const promises = selectedRoles
         .filter((roleName) => roleName !== 'Inactive')
-        .map((roleName) => getRoleId(roleName, m2mtoken, PROJECT_API));
+        .map((roleName) => getRoleId(roleName, m2mToken, PROJECT_API));
       roles = await Promise.all(promises);
     }
     const updatedUserResponse = await fetch(`${PROJECT_API}/user/${userId}`, {
@@ -219,10 +226,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    await topLevelCatch('admin-update-user', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('admin-update-user', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: error.message }),
     };
   }
-};
+});

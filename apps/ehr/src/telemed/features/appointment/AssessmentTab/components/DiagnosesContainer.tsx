@@ -1,7 +1,11 @@
+import { otherColors } from '@ehrTheme/colors';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { Box, Button, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC } from 'react';
 import { APIErrorCode, DIAGNOSIS_MAKE_PRIMARY_BUTTON, IcdSearchResponse } from 'utils';
+import { CompleteConfiguration } from '../../../../../components/CompleteConfiguration';
+import { GenericToolTip } from '../../../../../components/GenericToolTip';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { useFeatureFlags } from '../../../../../features/css-module/context/featureFlags';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
@@ -10,10 +14,6 @@ import { useGetAppointmentAccessibility } from '../../../../hooks';
 import { useAppointmentStore, useDeleteChartData, useGetIcd10Search, useSaveChartData } from '../../../../state';
 import { AssessmentTitle } from './AssessmentTitle';
 import { DiagnosesField } from './DiagnosesField';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import { GenericToolTip } from '../../../../../components/GenericToolTip';
-import { otherColors } from '@ehrTheme/colors';
-import { CompleteConfiguration } from '../../../../../components/CompleteConfiguration';
 
 export const DiagnosesContainer: FC = () => {
   const { chartData, setPartialChartData } = getSelectors(useAppointmentStore, ['chartData', 'setPartialChartData']);
@@ -109,12 +109,13 @@ export const DiagnosesContainer: FC = () => {
 
   const onMakePrimary = (resourceId: string): void => {
     const value = diagnoses.find((item) => item.resourceId === resourceId)!;
-    const preparedValue = { ...value, isPrimary: true };
-    const previousPrimary = { ...primaryDiagnosis!, isPrimary: false };
+    const previousAndNewValues = [];
+    previousAndNewValues.push({ ...value, isPrimary: true }); // prepared diagnosis
+    if (primaryDiagnosis) previousAndNewValues.push({ ...primaryDiagnosis, isPrimary: false }); // previous diagnosis
 
     saveChartData(
       {
-        diagnosis: [preparedValue, previousPrimary],
+        diagnosis: previousAndNewValues,
       },
       {
         onError: () => {

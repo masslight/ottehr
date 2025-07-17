@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test';
-import { BaseTelemedFlow, SlotAndLocation, StartVisitResponse } from './BaseTelemedFlow';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
+import { BaseTelemedFlow, SlotAndLocation, StartVisitResponse } from './BaseTelemedFlow';
 
 export class PrebookTelemedFlow extends BaseTelemedFlow {
   async clickVisitButton(): Promise<void> {

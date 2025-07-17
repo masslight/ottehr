@@ -1,4 +1,4 @@
-import { Box, Stack, Typography } from '@mui/material';
+import { Stack, Typography } from '@mui/material';
 import React from 'react';
 import { useParams } from 'react-router-dom';
 import { getSelectors } from '../../../shared/store/getSelectors';
@@ -12,6 +12,7 @@ import {
 import { CSSLoader } from '../components/CSSLoader';
 import { MedicationHistoryList } from '../components/medication-administration/medication-history/MedicationHistoryList';
 import { AskMedicationsAlert } from '../components/medications/AskMedicationsAlert';
+import { MedicationsNotes } from '../components/medications/MedicationsNotes';
 import { useNavigationContext } from '../context/NavigationContext';
 import { useAppointment } from '../hooks/useAppointment';
 
@@ -38,15 +39,15 @@ export const Medications: React.FC<MedicationsProps> = () => {
   return (
     <Stack spacing={1}>
       <PageTitle label="Medications" showIntakeNotesButton={interactionMode === 'intake'} />
-      <Box display={'flex'} flexDirection={'column'} gap={2} mt={2}>
-        <AskMedicationsAlert />
-        <MedicalHistoryDoubleCard
-          patientSide={<CurrentMedicationsPatientColumn />}
-          providerSide={<CurrentMedicationsProviderColumn />}
-        />
 
-        <MedicationHistoryList />
-      </Box>
+      <AskMedicationsAlert />
+      <MedicalHistoryDoubleCard
+        patientSide={<CurrentMedicationsPatientColumn />}
+        providerSide={<CurrentMedicationsProviderColumn />}
+      />
+
+      <MedicationHistoryList />
+      <MedicationsNotes />
     </Stack>
   );
 };

@@ -1,15 +1,15 @@
+import Oystehr from '@oystehr/sdk';
+import { randomUUID } from 'crypto';
+import { DocumentReference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { createFilesDocumentReferences, Secrets, getPresignedURL, LabelConfig } from 'utils';
-import { PdfInfo, createPdfClient } from './pdf-utils';
-import { Y_POS_GAP as pdfClientGapSubtraction } from './pdf-consts';
-import { TextStyle } from './types';
+import { StandardFonts } from 'pdf-lib';
+import { createFilesDocumentReferences, getPresignedURL, LabelConfig, Secrets } from 'utils';
 import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
-import Oystehr from '@oystehr/sdk';
-import { DocumentReference } from 'fhir/r4b';
-import { randomUUID } from 'crypto';
-import { StandardFonts } from 'pdf-lib';
 import { convertLabeConfigToPdfClientStyles } from './external-labs-label-pdf';
+import { Y_POS_GAP as pdfClientGapSubtraction } from './pdf-consts';
+import { createPdfClient, PdfInfo } from './pdf-utils';
+import { TextStyle } from './types';
 
 const VISIT_LABEL_PDF_BASE_NAME = 'VisitLabel';
 
@@ -60,6 +60,12 @@ const createVisitLabelPdfBytes = async (data: VisitLabelConfig): Promise<Uint8Ar
       font: Courier,
       newLineAfter: false,
     },
+    fieldTextBold: {
+      fontSize: baseFontSize,
+      spacing: baseSpacing,
+      font: CourierBold,
+      newLineAfter: false,
+    },
     fieldHeader: {
       fontSize: baseFontSize,
       font: CourierBold,
@@ -72,7 +78,7 @@ const createVisitLabelPdfBytes = async (data: VisitLabelConfig): Promise<Uint8Ar
 
   const drawHeaderAndInlineText = (header: string, text: string): void => {
     pdfClient.drawTextSequential(`${header}: `, textStyles.fieldHeader);
-    pdfClient.drawTextSequential(text, textStyles.fieldText);
+    pdfClient.drawTextSequential(text, textStyles.fieldTextBold);
   };
 
   const getAgeString = (dob: DateTime | undefined): string => {
@@ -210,7 +216,7 @@ export async function createVisitLabelPDF(
   console.log(`These are the docRefs returned for the label: `, JSON.stringify(docRefs));
 
   if (!docRefs.length) {
-    throw new Error('Unable to make docrefs for label');
+    throw new Error('Unable to make docRefs for label');
   }
 
   const presignedURL = await getPresignedURL(pdfInfo.uploadURL, token);

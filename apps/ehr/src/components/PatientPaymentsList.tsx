@@ -1,26 +1,26 @@
-import { ReactElement, Fragment, useState } from 'react';
 import {
+  Alert,
+  Box,
   Button,
+  capitalize,
   Paper,
   Skeleton,
+  Snackbar,
   Table,
   TableBody,
   TableCell,
   TableRow,
   Typography,
   useTheme,
-  Box,
-  capitalize,
-  Alert,
-  Snackbar,
 } from '@mui/material';
-import { DateTime } from 'luxon';
-import PaymentDialog from './dialogs/PaymentDialog';
 import { Patient } from 'fhir/r4b';
-import { APIError, CashOrCardPayment, isApiError, PatientPaymentDTO, PostPatientPaymentInput } from 'utils';
-import { useGetPatientPaymentsList } from 'src/hooks/useGetPatientPaymentsList';
+import { DateTime } from 'luxon';
+import { Fragment, ReactElement, useState } from 'react';
 import { useMutation } from 'react-query';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { useGetPatientPaymentsList } from 'src/hooks/useGetPatientPaymentsList';
+import { APIError, CashOrCardPayment, isApiError, PatientPaymentDTO, PostPatientPaymentInput } from 'utils';
+import PaymentDialog from './dialogs/PaymentDialog';
 
 export interface PaymentListProps {
   patient: Patient;

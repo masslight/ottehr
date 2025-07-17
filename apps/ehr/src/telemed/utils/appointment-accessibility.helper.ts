@@ -1,11 +1,11 @@
 import { Appointment, Encounter, Location } from 'fhir/r4b';
 import {
-  PractitionerLicense,
-  StateType,
-  TelemedAppointmentStatusEnum,
   allLicensesForPractitioner,
   checkEncounterHasPractitioner,
   mapStatusToTelemed,
+  PractitionerLicense,
+  StateType,
+  TelemedAppointmentStatusEnum,
 } from 'utils';
 import { FeatureFlags } from '../../features/css-module/context/featureFlags';
 import { EvolveUser } from '../../hooks/useEvolveUser';

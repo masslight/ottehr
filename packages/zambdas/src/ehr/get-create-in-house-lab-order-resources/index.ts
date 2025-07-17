@@ -1,31 +1,32 @@
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, Location, Practitioner } from 'fhir/r4b';
 import {
+  convertActivityDefinitionToTestItem,
   GetCreateInHouseLabOrderResourcesParameters,
   GetCreateInHouseLabOrderResourcesResponse,
+  getFullestAvailableName,
+  getSecret,
+  getTimezone,
   PRACTITIONER_CODINGS,
   Secrets,
+  SecretsKeys,
   TestItem,
-  convertActivityDefinitionToTestItem,
-  getFullestAvailableName,
-  getTimezone,
 } from 'utils';
 import {
-  ZambdaInput,
   checkOrCreateM2MClientToken,
   createOystehrClient,
   getMyPractitionerId,
   topLevelCatch,
+  wrapHandler,
+  ZambdaInput,
 } from '../../shared';
-import { fetchActiveInHouseLabActivityDefinitions } from '../shared/inhouse-labs';
+import { fetchActiveInHouseLabActivityDefinitions } from '../shared/in-house-labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
-let m2mtoken: string;
+let m2mToken: string;
+const ZAMBDA_NAME = 'get-create-in-house-lab-order-resources';
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`get-create-in-house-lab-order-resources started, input: ${JSON.stringify(input)}`);
-
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   let secrets = input.secrets;
   let validatedParameters: GetCreateInHouseLabOrderResourcesParameters & { secrets: Secrets | null; userToken: string };
 
@@ -45,8 +46,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     console.log('validateRequestParameters success');
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
     const {
       attendingPractitionerName,
@@ -159,7 +160,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     };
   } catch (error: any) {
     console.error('Error processing in-house lab order resources:', error);
-    await topLevelCatch('get-create-in-house-lab-order-resources', error, secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('get-create-in-house-lab-order-resources', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify({

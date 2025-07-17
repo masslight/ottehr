@@ -1,12 +1,12 @@
-import { ReactElement, useState } from 'react';
-import { Button, Dialog, DialogActions, DialogTitle, DialogContent, Typography, TextField } from '@mui/material';
 import LoadingButton from '@mui/lab/LoadingButton';
-import Oystehr from '@oystehr/sdk';
-import { Communication, Encounter, Patient, Appointment, Location } from 'fhir/r4b';
-import { DateTime } from 'luxon';
-import useEvolveUser from '../../hooks/useEvolveUser';
-import { COMMUNICATION_ISSUE_REPORT_CODE } from 'utils';
+import { Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Typography } from '@mui/material';
 import { AlertColor } from '@mui/material/Alert';
+import Oystehr from '@oystehr/sdk';
+import { Appointment, Communication, Encounter, Location, Patient } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import { ReactElement, useState } from 'react';
+import { COMMUNICATION_ISSUE_REPORT_CODE } from 'utils';
+import useEvolveUser from '../../hooks/useEvolveUser';
 
 interface ReportIssueDialogProps {
   open: boolean;

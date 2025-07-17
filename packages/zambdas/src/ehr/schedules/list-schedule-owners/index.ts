@@ -7,6 +7,7 @@ import {
   ClosureType,
   DOW,
   getScheduleExtension,
+  getSecret,
   getTimezone,
   INVALID_INPUT_ERROR,
   ListScheduleOwnersParams,
@@ -18,22 +19,31 @@ import {
   ScheduleListItem,
   ScheduleOwnerFhirResource,
   Secrets,
+  SecretsKeys,
   TIMEZONES,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  topLevelCatch,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../shared';
 import { addressStringFromAddress, getNameForOwner } from '../shared';
 
-let m2mtoken: string;
+let m2mToken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+const ZAMBDA_NAME = 'list-schedule-owners';
+
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
     console.groupEnd();
     console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
     const { secrets } = validatedParameters;
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
     const { ownerType } = validatedParameters;
 
     let effectInput: EffectInput;
@@ -52,9 +62,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));
-    return topLevelCatch('list-schedule-owners', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('list-schedule-owners', error, ENVIRONMENT);
   }
-};
+});
 
 const performEffect = (input: EffectInput): ListScheduleOwnersResponse => {
   const list = input.list
