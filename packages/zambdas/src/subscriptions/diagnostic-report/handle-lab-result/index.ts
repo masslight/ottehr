@@ -3,12 +3,14 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { DiagnosticReport, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getSecret, LAB_ORDER_TASK, Secrets, SecretsKeys } from 'utils';
-import { getAuth0Token, topLevelCatch } from '../../../shared';
+import { getAuth0Token, topLevelCatch, wrapHandler } from '../../../shared';
 import { createOystehrClient } from '../../../shared/helpers';
 import { createExternalLabResultPDF } from '../../../shared/pdf/labs-results-form-pdf';
 import { ZambdaInput } from '../../../shared/types';
 import { getCodeForNewTask, getStatusForNewTask } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
+
+const ZAMBDA_NAME = 'handle-lab-result';
 
 export interface ReviewLabResultSubscriptionInput {
   diagnosticReport: DiagnosticReport;
@@ -18,7 +20,7 @@ export interface ReviewLabResultSubscriptionInput {
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrToken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input, undefined, 2)}`);
 
   try {
@@ -118,4 +120,4 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify({ error: error.message }),
     };
   }
-};
+});

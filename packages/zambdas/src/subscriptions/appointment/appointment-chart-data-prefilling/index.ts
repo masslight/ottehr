@@ -24,7 +24,13 @@ import {
   SecretsKeys,
   SNOMEDCodeConceptInterface,
 } from 'utils';
-import { checkOrCreateM2MClientToken, saveResourceRequest, topLevelCatch, ZambdaInput } from '../../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  saveResourceRequest,
+  topLevelCatch,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../shared';
 import {
   createDispositionServiceRequest,
   makeClinicalImpressionResource,
@@ -45,7 +51,8 @@ export interface AppointmentSubscriptionInput {
 
 let oystehrToken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+const ZAMBDA_NAME = 'appointment-chart-data-prefilling';
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input)}`);
 
   const updateAppointmentRequests: BatchInputRequest<Appointment>[] = [];
@@ -217,4 +224,4 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify(error.message),
     };
   }
-};
+});

@@ -10,7 +10,9 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
-import { getAuth0Token, validateJsonBody, validateString, ZambdaInput } from '../../../shared';
+import { getAuth0Token, validateJsonBody, validateString, wrapHandler, ZambdaInput } from '../../../shared';
+
+const ZAMBDA_NAME = 'persist-consent';
 
 let oystehrToken: string;
 
@@ -18,7 +20,7 @@ interface Input extends PersistConsentInput {
   secrets: Secrets | null;
 }
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input)}`);
   try {
     const { appointmentId, secrets } = validateInput(input);
@@ -71,7 +73,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify({ error: 'Internal error' }),
     };
   }
-};
+});
 
 function validateInput(input: ZambdaInput): Input {
   const { appointmentId } = validateJsonBody(input);
