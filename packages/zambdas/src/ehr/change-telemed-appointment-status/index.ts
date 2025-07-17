@@ -232,7 +232,7 @@ export const performEffect = async (
         console.log(`createdResources: ${JSON.stringify(resources)}`);
       } catch {
         console.error('Error issuing a charge for self-pay encounter.');
-        captureException(error, {
+        captureException(Error, {
           tags: {
             appointmentId,
             encounterId: encounter.id,
