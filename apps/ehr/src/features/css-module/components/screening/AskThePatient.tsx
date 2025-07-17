@@ -1,5 +1,6 @@
 import { otherColors } from '@ehrTheme/colors';
 import {
+  Divider,
   FormControl,
   FormControlLabel,
   Grid,
@@ -22,6 +23,10 @@ import {
   ObservationHistoryObtainedFromDTO,
   ObservationSeenInLastThreeYearsDTO,
   ObservationTextFieldDTO,
+  PATIENT_IMMUNIZATION_STATUS,
+  PatientImmunizationDTO,
+  PatientImmunizationStatusKeys,
+  patientImmunizationStatusLabels,
   RecentVisitKeys,
   recentVisitLabels,
   SEEN_IN_LAST_THREE_YEARS_FIELD,
@@ -54,10 +59,12 @@ const AskThePatientComponent = (): React.ReactElement => {
   const { debounce } = useDebounce(1000);
 
   const [recentVisitKey, setRecentVisitKey] = useState<RecentVisitKeys | ''>('');
+  const [patientImmunizationKey, setPatientImmunizationKey] = useState<PatientImmunizationStatusKeys | ''>('');
   const [historySourceKey, setHistorySourceKey] = useState<HistorySourceKeys | ''>('');
   const [otherReason, setOtherReason] = useState<string>('');
 
   const [historySourceUpdating, setHistorySourceUpdating] = useState(false);
+  const [patientImmunzationUpdating, setPatientImmunzationUpdating] = useState(false);
   const [recentVisitUpdating, setRecentVisitUpdating] = useState(false);
 
   const { setNavigationDisable } = useNavigationContext();
@@ -72,6 +79,10 @@ const AskThePatientComponent = (): React.ReactElement => {
     (obs) => obs.field === HISTORY_OBTAINED_FROM_FIELD
   ) as ObservationHistoryObtainedFromDTO | undefined;
 
+  const currentPatientImmunizationFromObs = chartData?.observations?.find(
+    (obs) => obs.field === PATIENT_IMMUNIZATION_STATUS
+  ) as PatientImmunizationDTO | undefined;
+
   useEffect(() => {
     const seenInLastThreeYearsObs = chartData?.observations?.find(
       (obs) => obs.field === SEEN_IN_LAST_THREE_YEARS_FIELD
@@ -80,6 +91,10 @@ const AskThePatientComponent = (): React.ReactElement => {
     const historyObtainedFromObs = chartData?.observations?.find((obs) => obs.field === HISTORY_OBTAINED_FROM_FIELD) as
       | ObservationHistoryObtainedFromDTO
       | undefined;
+
+    const patientImmunizationFromObs = chartData?.observations?.find(
+      (obs) => obs.field === PATIENT_IMMUNIZATION_STATUS
+    ) as PatientImmunizationDTO | undefined;
 
     if (seenInLastThreeYearsObs?.value) {
       setRecentVisitKey(seenInLastThreeYearsObs.value);
@@ -90,6 +105,10 @@ const AskThePatientComponent = (): React.ReactElement => {
       if (historyObtainedFromObs.value === HistorySourceKeys.NotObtainedOther) {
         setOtherReason(historyObtainedFromObs.note);
       }
+    }
+
+    if (patientImmunizationFromObs?.value) {
+      setPatientImmunizationKey(patientImmunizationFromObs.value);
     }
   }, [chartData]);
 
@@ -146,6 +165,19 @@ const AskThePatientComponent = (): React.ReactElement => {
     }
   };
 
+  const handlePatientImmunizationStatusChange = (value: PatientImmunizationStatusKeys): void => {
+    setPatientImmunizationKey(value);
+    void handleSaveObservation(
+      currentPatientImmunizationFromObs
+        ? { ...currentPatientImmunizationFromObs, value }
+        : {
+            field: PATIENT_IMMUNIZATION_STATUS,
+            value,
+          },
+      setPatientImmunzationUpdating
+    );
+  };
+
   const handleOtherReasonChange = (value: string): void => {
     debounce(() => {
       if (value) {
@@ -180,73 +212,109 @@ const AskThePatientComponent = (): React.ReactElement => {
 
   return (
     <Paper elevation={3} sx={{ p: 3, mt: 3, boxShadow: '0px 2px 4px -1px rgba(0,0,0,0.1)' }}>
-      <Grid container>
-        <Grid item xs={6}>
+      <Grid container display="flex">
+        <Grid item xs={12}>
           <Typography variant="subtitle2" sx={{ color: otherColors.orange700, mb: 2 }}>
             ASK THE PATIENT
           </Typography>
+        </Grid>
 
+        <Grid item xs={12}>
+          <Grid item xs={6}>
+            <Typography
+              sx={{
+                color: theme.palette.primary.dark,
+                mb: 1,
+                fontWeight: 'bold',
+              }}
+            >
+              Has the patient been seen in one of our offices / telemed in last 3 years?
+            </Typography>
+
+            <FormControl component="fieldset" disabled={recentVisitUpdating || isChartDataLoading}>
+              <RadioGroup
+                row
+                value={recentVisitKey}
+                onChange={(e) => handleRecentVisitChange(e.target.value as RecentVisitKeys)}
+              >
+                {Object.values(RecentVisitKeys).map((key) => (
+                  <FormControlLabel key={key} value={key} control={<Radio />} label={recentVisitLabels[key]} />
+                ))}
+              </RadioGroup>
+            </FormControl>
+
+            <Typography variant="body1" sx={{ mt: 2, mb: 1 }}>
+              History obtained from
+            </Typography>
+
+            <FormControl fullWidth>
+              <Select
+                value={historySourceKey}
+                onChange={(e) => handleHistorySourceChange(e.target.value as HistorySourceKeys)}
+                displayEmpty
+                disabled={historySourceUpdating || isChartDataLoading}
+                renderValue={(selected) =>
+                  selected ? historySourceLabels[selected as HistorySourceKeys] : 'Select an option'
+                }
+              >
+                <MenuItem value="">
+                  <em>Select an option</em>
+                </MenuItem>
+                {Object.values(HistorySourceKeys).map((key) => (
+                  <MenuItem key={key} value={key}>
+                    {historySourceLabels[key]}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            {historySourceKey === HistorySourceKeys.NotObtainedOther && (
+              <TextField
+                fullWidth
+                placeholder="Please specify*"
+                variant="outlined"
+                sx={{ mt: 2 }}
+                value={otherReason}
+                onChange={(e) => {
+                  setOtherReason(e.target.value);
+                  handleOtherReasonChange(e.target.value);
+                }}
+                disabled={historySourceUpdating || isChartDataLoading}
+              />
+            )}
+          </Grid>
+        </Grid>
+        <Grid item xs={12} sx={{ mt: 2 }}>
+          <Divider />
+        </Grid>
+        <Grid item xs={12}>
           <Typography
             sx={{
               color: theme.palette.primary.dark,
+              mt: 2,
               mb: 1,
               fontWeight: 'bold',
             }}
           >
-            Has the patient been seen in one of our offices / telemed in last 3 years?
+            Has the patient received vaccinations?
           </Typography>
 
-          <FormControl component="fieldset" disabled={recentVisitUpdating || isChartDataLoading}>
+          <FormControl component="fieldset" disabled={patientImmunzationUpdating || isChartDataLoading}>
             <RadioGroup
               row
-              value={recentVisitKey}
-              onChange={(e) => handleRecentVisitChange(e.target.value as RecentVisitKeys)}
+              value={patientImmunizationKey}
+              onChange={(e) => handlePatientImmunizationStatusChange(e.target.value as PatientImmunizationStatusKeys)}
             >
-              {Object.values(RecentVisitKeys).map((key) => (
-                <FormControlLabel key={key} value={key} control={<Radio />} label={recentVisitLabels[key]} />
+              {Object.values(PatientImmunizationStatusKeys).map((key) => (
+                <FormControlLabel
+                  key={key}
+                  value={key}
+                  control={<Radio />}
+                  label={patientImmunizationStatusLabels[key]}
+                />
               ))}
             </RadioGroup>
           </FormControl>
-
-          <Typography variant="body1" sx={{ mt: 2, mb: 1 }}>
-            History obtained from
-          </Typography>
-
-          <FormControl fullWidth>
-            <Select
-              value={historySourceKey}
-              onChange={(e) => handleHistorySourceChange(e.target.value as HistorySourceKeys)}
-              displayEmpty
-              disabled={historySourceUpdating || isChartDataLoading}
-              renderValue={(selected) =>
-                selected ? historySourceLabels[selected as HistorySourceKeys] : 'Select an option'
-              }
-            >
-              <MenuItem value="">
-                <em>Select an option</em>
-              </MenuItem>
-              {Object.values(HistorySourceKeys).map((key) => (
-                <MenuItem key={key} value={key}>
-                  {historySourceLabels[key]}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
-          {historySourceKey === HistorySourceKeys.NotObtainedOther && (
-            <TextField
-              fullWidth
-              placeholder="Please specify*"
-              variant="outlined"
-              sx={{ mt: 2 }}
-              value={otherReason}
-              onChange={(e) => {
-                setOtherReason(e.target.value);
-                handleOtherReasonChange(e.target.value);
-              }}
-              disabled={historySourceUpdating || isChartDataLoading}
-            />
-          )}
         </Grid>
       </Grid>
     </Paper>
