@@ -2,7 +2,7 @@ import { otherColors } from '@ehrTheme/colors';
 import CloseIcon from '@mui/icons-material/Close';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { Box, Button, Typography, useTheme } from '@mui/material';
-import { BundleEntry, Coverage, Organization, QuestionnaireResponseItem } from 'fhir/r4b';
+import { BundleEntry, Coverage, Organization, Patient, Questionnaire, QuestionnaireResponseItem } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useEffect, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
@@ -17,6 +17,7 @@ import {
   getFullName,
   InsurancePlanDTO,
   makePrepopulatedItemsFromPatientRecord,
+  OrderedCoveragesWithSubscribers,
   pruneEmptySections,
 } from 'utils';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
@@ -39,6 +40,7 @@ import {
   useGetInsurancePlans,
   useGetPatient,
   useGetPatientAccount,
+  useGetPatientCoverages,
   useGetPatientDetailsUpdateForm,
   useRemovePatientCoverage,
   useUpdatePatientAccount,
@@ -75,6 +77,35 @@ const makeFormDefaults = (currentItemValues: QuestionnaireResponseItem[]): any =
     return acc;
   }, {});
 };
+const COVERAGE_ITEMS = ['insurance-section', 'insurance-section-2'];
+const makePrepopulatedCoveragesFormDefaults = ({
+  coverages,
+  patient,
+  insuranceOrgs,
+  questionnaire,
+}: {
+  coverages: OrderedCoveragesWithSubscribers;
+  patient: Patient;
+  insuranceOrgs: Organization[];
+  questionnaire: Questionnaire;
+}): Record<string, any> => {
+  if (!questionnaire?.item) return {};
+
+  const filteredQuestionnaire: Questionnaire = {
+    ...questionnaire,
+    item: questionnaire.item.filter((item) => COVERAGE_ITEMS.includes(item.linkId)),
+  };
+
+  const prepopulatedItems = makePrepopulatedItemsFromPatientRecord({
+    coverages,
+    patient,
+    insuranceOrgs,
+    questionnaire: filteredQuestionnaire,
+    coverageChecks: [],
+  });
+
+  return makeFormDefaults(prepopulatedItems);
+};
 
 const clearPCPFieldsIfInactive = (values: Record<string, any>): Record<string, any> => {
   return Object.fromEntries(
@@ -95,11 +126,32 @@ const PatientInformationPage: FC = () => {
 
   // data queries
   const { isFetching: accountFetching, data: accountData } = useGetPatientAccount({ apiClient, patientId: id ?? null });
+  console.log('accountData', accountData);
+
+  const { data: insuranceData, isFetching: coveragesFetching } = useGetPatientCoverages({
+    apiClient,
+    patientId: id ?? null,
+  });
+
+  const coverages: { resource: Coverage; startingPriority: number }[] = useMemo(() => {
+    if (!insuranceData?.coverages) return [];
+    const result: { resource: Coverage; startingPriority: number }[] = [];
+    if (insuranceData?.coverages.primary) {
+      result.push({ resource: insuranceData?.coverages.primary, startingPriority: 1 });
+    }
+    if (insuranceData?.coverages.secondary) {
+      result.push({ resource: insuranceData?.coverages.secondary, startingPriority: 2 });
+    }
+    console.log('coverages updated', result);
+    return result;
+  }, [insuranceData?.coverages]);
+  console.log('rawCoverages', insuranceData?.coverages);
   const { isFetching: questionnaireFetching, data: questionnaire } = useGetPatientDetailsUpdateForm();
   // data mutations
   const queryClient = useQueryClient();
-  const submitQR = useUpdatePatientAccount(() => {
-    void queryClient.invalidateQueries('patient-account-get');
+  const submitQR = useUpdatePatientAccount(async () => {
+    await queryClient.invalidateQueries('patient-account-get');
+    await queryClient.invalidateQueries('patient-coverages');
   });
   const removeCoverage = useRemovePatientCoverage();
 
@@ -139,23 +191,31 @@ const PatientInformationPage: FC = () => {
     }
   });
 
-  const { patient, coverages, isFetching, defaultFormVals } = useMemo(() => {
+  const { patient, isFetching, defaultFormVals } = useMemo(() => {
     const patient = accountData?.patient;
-    const coverages: { resource: Coverage; startingPriority: number }[] = [];
-    if (accountData?.coverages?.primary) {
-      coverages.push({ resource: accountData.coverages.primary, startingPriority: 1 });
-    }
-    if (accountData?.coverages?.secondary) {
-      coverages.push({ resource: accountData.coverages.secondary, startingPriority: 2 });
-    }
-    const isFetching = accountFetching || questionnaireFetching;
-    let defaultFormVals: any | undefined;
 
+    const isFetching = accountFetching || questionnaireFetching;
+    let defaultFormVals: any;
     if (!isFetching && accountData && questionnaire) {
-      const prepopulatedForm = makePrepopulatedItemsFromPatientRecord({ ...accountData, questionnaire });
-      defaultFormVals = makeFormDefaults(prepopulatedForm);
+      const prepopulatedForm = makePrepopulatedItemsFromPatientRecord({
+        ...accountData,
+        coverages: {},
+        insuranceOrgs: [],
+        questionnaire,
+      });
+      const formDefaults = makeFormDefaults(prepopulatedForm);
+      console.log('[defaultFormVals MEMO]', {
+        isFetching,
+        hasAccountData: !!accountData,
+        hasQuestionnaire: !!questionnaire,
+        defaultFormVals: formDefaults,
+      });
+
+      defaultFormVals = {
+        ...formDefaults,
+      };
     }
-    return { patient, coverages, isFetching, defaultFormVals };
+    return { patient, isFetching, defaultFormVals };
   }, [accountData, questionnaire, questionnaireFetching, accountFetching]);
 
   const { otherPatientsWithSameName, setOtherPatientsWithSameName } = useGetPatient(id);
@@ -169,9 +229,44 @@ const PatientInformationPage: FC = () => {
     mode: 'onBlur',
     reValidateMode: 'onChange',
   });
+  console.log('[useForm] defaultValues on init', defaultFormVals);
+  const { coveragesFormValues } = useMemo(() => {
+    let coveragesFormValues: any;
+    if (
+      !coveragesFetching &&
+      insuranceData?.coverages &&
+      insuranceData?.insuranceOrgs &&
+      questionnaire &&
+      accountData
+    ) {
+      console.log(insuranceData?.coverages);
+      const formDefaults = makePrepopulatedCoveragesFormDefaults({
+        coverages: insuranceData.coverages,
+        patient: accountData.patient,
+        insuranceOrgs: insuranceData.insuranceOrgs,
+        questionnaire,
+      });
+      coveragesFormValues = { ...formDefaults };
+    }
+    console.log('coveragesFormValues', coveragesFormValues);
+    return { coveragesFormValues };
+  }, [accountData, coveragesFetching, questionnaire, insuranceData?.coverages, insuranceData?.insuranceOrgs]);
+
+  useEffect(() => {
+    if (!coveragesFormValues || Object.keys(coveragesFormValues).length === 0) return;
+    console.log('[COVERAGES EFFECT] applying coveragesFormValues', coveragesFormValues);
+
+    Object.entries(coveragesFormValues).forEach(([key, value]) => {
+      methods.setValue(key, value, {
+        shouldDirty: false,
+        shouldTouch: false,
+      });
+    });
+  }, [coveragesFormValues, methods]);
 
   const { handleSubmit, watch, formState } = methods;
   const { dirtyFields } = formState;
+  console.log('dirtyFields', dirtyFields);
 
   useEffect(() => {
     if (defaultFormVals && formState.isSubmitSuccessful && submitQR.isSuccess) {
@@ -221,7 +316,7 @@ const PatientInformationPage: FC = () => {
             enqueueSnackbar('Coverage removed from patient account', {
               variant: 'success',
             });
-            void queryClient.invalidateQueries('patient-account-get');
+            void queryClient.invalidateQueries('patient-coverages');
           },
           onError: () => {
             enqueueSnackbar('Save operation failed. The server encountered an error while processing your request.', {
@@ -233,7 +328,7 @@ const PatientInformationPage: FC = () => {
     }
   };
 
-  if ((isFetching || questionnaireFetching) && !patient) {
+  if ((isFetching || questionnaireFetching || coveragesFetching) && !patient) {
     return <LoadingScreen />;
   } else {
     if (!patient) return null;

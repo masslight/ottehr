@@ -71,7 +71,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
   const { insurancePlans } = usePatientStore();
   const queryClient = useQueryClient();
   const submitQR = useUpdatePatientAccount(() => {
-    void queryClient.invalidateQueries('patient-account-get');
+    void queryClient.invalidateQueries(['patient-coverages']);
   });
 
   const onSubmit = (data: any): void => {
