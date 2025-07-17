@@ -1014,8 +1014,8 @@ const testItems: TestItem[] = [
     methods: {
       analyzer: { device: 'Abbott ID NOW' },
     },
-    method: 'Abbot ID Now',
-    device: 'Abbot ID Now',
+    method: 'Abbott ID Now',
+    device: 'Abbott ID Now',
     cptCode: ['87501'],
     loincCode: ['104730-7'],
     repeatTest: false,
@@ -1042,8 +1042,8 @@ const testItems: TestItem[] = [
     methods: {
       analyzer: { device: 'Abbott ID NOW' },
     },
-    method: 'Abbot ID Now',
-    device: 'Abbot ID Now',
+    method: 'Abbott ID Now',
+    device: 'Abbott ID Now',
     cptCode: ['87501'],
     loincCode: ['106618-2'],
     repeatTest: false,
@@ -1070,8 +1070,8 @@ const testItems: TestItem[] = [
     methods: {
       analyzer: { device: 'Abbott ID NOW' },
     },
-    method: 'Abbot ID Now',
-    device: 'Abbot ID Now',
+    method: 'Abbott ID Now',
+    device: 'Abbott ID Now',
     cptCode: ['87634'],
     loincCode: ['33045-6', '31949-1'],
     repeatTest: false,
@@ -1097,8 +1097,8 @@ const testItems: TestItem[] = [
     methods: {
       analyzer: { device: 'Abbott ID NOW' },
     },
-    method: 'Abbot ID Now',
-    device: 'Abbot ID Now',
+    method: 'Abbott ID Now',
+    device: 'Abbott ID Now',
     cptCode: ['87635'],
     loincCode: ['96119-3'],
     repeatTest: false,
