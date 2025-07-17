@@ -12,14 +12,16 @@ import {
   SecretsKeys,
   TelemedAppointmentStatusEnum,
 } from 'utils';
-import { getAuth0Token, getUser, getVideoEncounterForAppointment, ZambdaInput } from '../../shared';
+import { getAuth0Token, getUser, getVideoEncounterForAppointment, wrapHandler, ZambdaInput } from '../../shared';
 import { estimatedTimeStatesGroups } from '../../shared/appointment/constants';
 import { convertStatesAbbreviationsToLocationIds, getAllAppointmentsByLocations } from './utils/fhir';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrToken: string;
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+
+const ZAMBDA_NAME = 'get-wait-status';
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
@@ -142,7 +144,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify({ error: 'Internal error' }),
     };
   }
-};
+});
 
 const getAppointmentsForLocation = async (oystehr: Oystehr, locationId: string): Promise<Appointment[]> => {
   const location = await readLocationResource(oystehr, locationId);

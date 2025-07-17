@@ -60,6 +60,12 @@ const createVisitLabelPdfBytes = async (data: VisitLabelConfig): Promise<Uint8Ar
       font: Courier,
       newLineAfter: false,
     },
+    fieldTextBold: {
+      fontSize: baseFontSize,
+      spacing: baseSpacing,
+      font: CourierBold,
+      newLineAfter: false,
+    },
     fieldHeader: {
       fontSize: baseFontSize,
       font: CourierBold,
@@ -72,7 +78,7 @@ const createVisitLabelPdfBytes = async (data: VisitLabelConfig): Promise<Uint8Ar
 
   const drawHeaderAndInlineText = (header: string, text: string): void => {
     pdfClient.drawTextSequential(`${header}: `, textStyles.fieldHeader);
-    pdfClient.drawTextSequential(text, textStyles.fieldText);
+    pdfClient.drawTextSequential(text, textStyles.fieldTextBold);
   };
 
   const getAgeString = (dob: DateTime | undefined): string => {

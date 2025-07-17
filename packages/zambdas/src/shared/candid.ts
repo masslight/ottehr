@@ -1030,7 +1030,7 @@ export async function createEncounterFromAppointment(
     return undefined;
   }
   const apiClient = createCandidApiClient(secrets);
-  const createEncounterInput = await createCandidCreateEncounterInput(visitResources, oystehr);
+  let createEncounterInput = await createCandidCreateEncounterInput(visitResources, oystehr);
 
   if (
     !createEncounterInput.appointment.identifier?.find(
@@ -1048,6 +1048,7 @@ export async function createEncounterFromAppointment(
       oystehr,
       secrets,
     });
+    createEncounterInput = await createCandidCreateEncounterInput(visitResources, oystehr);
   }
 
   const request = await candidCreateEncounterFromAppointmentRequest(createEncounterInput, apiClient);

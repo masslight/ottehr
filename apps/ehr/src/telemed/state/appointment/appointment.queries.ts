@@ -696,7 +696,13 @@ export const useSyncERXPatient = ({
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useConnectPractitionerToERX = ({ patientId }: { patientId?: string }) => {
+export const useConnectPractitionerToERX = ({
+  patientId,
+  encounterId,
+}: {
+  patientId?: string;
+  encounterId?: string;
+}) => {
   const { oystehr } = useApiClients();
 
   return useMutation(
@@ -708,6 +714,9 @@ export const useConnectPractitionerToERX = ({ patientId }: { patientId?: string 
           const params: ErxConnectPractitionerParams = {};
           if (patientId) {
             params.patientId = patientId;
+          }
+          if (encounterId) {
+            params.encounterId = encounterId;
           }
           const resp = await oystehr.erx.connectPractitioner(params);
           console.log('Successfully connected practitioner to erx');
