@@ -19,11 +19,19 @@ import {
   SLOT_WALKIN_APPOINTMENT_TYPE_CODING,
   SlotServiceCategory,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  topLevelCatch,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../shared';
+
+const ZAMBDA_NAME = 'create-slot';
 
 let m2mToken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
@@ -45,7 +53,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
     return topLevelCatch('create-slot', error, ENVIRONMENT);
   }
-};
+});
 
 const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Slot> => {
   const { slot } = input;

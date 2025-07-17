@@ -10,7 +10,7 @@ import {
   relatedPersonAndCommunicationMaps,
   TelemedAppointmentInformation,
 } from 'utils';
-import { checkOrCreateM2MClientToken, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { filterAppointmentsAndCreatePackages, filterPatientForAppointment } from './helpers/fhir-resources-filters';
 import { getAllPartiallyPreFilteredFhirResources, getAllVirtualLocationsMap } from './helpers/fhir-utils';
@@ -25,7 +25,8 @@ if (process.env.IS_OFFLINE === 'true') {
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+const ZAMBDA_NAME = 'get-telemed-appointments';
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters: ReturnType<typeof validateRequestParameters> = validateRequestParameters(input);
     console.log('Parameters: ' + JSON.stringify(validatedParameters));
@@ -47,7 +48,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify({ message: 'Error getting appointments' }),
     };
   }
-};
+});
 
 export const performEffect = async (
   params: GetTelemedAppointmentsInput,

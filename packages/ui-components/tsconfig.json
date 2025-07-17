@@ -1,6 +1,8 @@
 {
   "extends": "tsconfig/react.json",
   "compilerOptions": {
+    "sourceMap": true,
+    "inlineSources": true,
     "baseUrl": ".",
     "paths": {
       "@theme/*": ["../../apps/intake/src/themes/ottehr/*"],
