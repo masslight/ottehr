@@ -2,7 +2,7 @@ import { Autocomplete, Box, TextField } from '@mui/material';
 import { DateTime } from 'luxon';
 import { FC, useEffect } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { isPhoneNumberValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { DOB_DATE_FORMAT, isPhoneNumberValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { isPostalCodeValid } from 'utils';
 import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../../components/form';
 import { RELATIONSHIP_OPTIONS, SEX_OPTIONS } from '../../constants';
@@ -107,7 +107,7 @@ export const ResponsibleInformationContainer: FC = () => {
             required: REQUIRED_FIELD_ERROR_MESSAGE,
             validate: (value: string) => {
               if (!value) return true;
-              const bdDateTime = DateTime.fromISO(value);
+              const bdDateTime = DateTime.fromFormat(value, DOB_DATE_FORMAT);
               return bdDateTime.isValid || 'Date is invalid';
             },
           }}
