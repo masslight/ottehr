@@ -406,7 +406,7 @@ const PatientInformationPage: FC = () => {
           <Header handleDiscard={handleBackClickWithConfirmation} id={id} />
           <Box sx={{ display: 'flex', flexDirection: 'column', padding: theme.spacing(3) }}>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <BreadCrumbs />
+              <BreadCrumbs patient={patient} />
               <Typography variant="h3" color="primary.main">
                 Patient Information
               </Typography>
