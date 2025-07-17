@@ -983,18 +983,18 @@ const testItems: TestItem[] = [
     ],
   },
   {
-    name: 'Strep',
+    name: 'ID Now Strep',
     methods: {
       analyzer: { device: 'Abbott ID NOW' },
     },
-    method: 'Abbot ID Now',
-    device: 'Abbot ID Now',
+    method: 'Abbott ID Now',
+    device: 'Abbott ID Now',
     cptCode: ['87651'],
     loincCode: ['104724-0'],
     repeatTest: false,
     components: [
       {
-        componentName: 'Strep',
+        componentName: 'ID Now Strep',
         loincCode: ['104724-0'],
         dataType: 'CodeableConcept' as const,
         valueSet: [
