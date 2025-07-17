@@ -1,7 +1,6 @@
 import CheckIcon from '@mui/icons-material/Check';
 import { Box, Tooltip, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
-import { enqueueSnackbar } from 'notistack';
 import { FC, useMemo, useState } from 'react';
 import { getVisitStatus, PRACTITIONER_CODINGS, TelemedAppointmentStatusEnum } from 'utils';
 import { RoundedButton } from '../../../../components/RoundedButton';
@@ -50,20 +49,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
 
   const patientName = getPatientName(patient?.name).firstLastName;
 
-  const { isEncounterUpdatePending, handleUpdatePractitioner } = usePractitionerActions(
-    encounter,
-    'end',
-    PRACTITIONER_CODINGS.Attender
-  );
-
-  const handleCompleteProvider = async (): Promise<void> => {
-    try {
-      await handleUpdatePractitioner();
-    } catch (error: any) {
-      console.log(error.message);
-      enqueueSnackbar('An error occurred trying to complete intake. Please try again.', { variant: 'error' });
-    }
-  };
+  const { isEncounterUpdatePending } = usePractitionerActions(encounter, 'end', PRACTITIONER_CODINGS.Attender);
 
   const isLoading = isChangeLoading || isSignLoading || isEncounterUpdatePending;
   const inPersonStatus = useMemo(() => appointment && getVisitStatus(appointment, encounter), [appointment, encounter]);
@@ -140,7 +126,6 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     if (css) {
       try {
         const tz = DateTime.now().zoneName;
-        await handleCompleteProvider();
         await signAppointment({
           apiClient,
           appointmentId: appointment.id,

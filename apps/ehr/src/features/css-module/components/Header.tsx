@@ -75,7 +75,7 @@ export const Header = (): JSX.Element => {
     (participant) =>
       participant.type?.some((type) => type.coding?.some((coding) => coding === PRACTITIONER_CODINGS.Admitter))
   );
-  const _assignedProvider = encounter?.participant?.find(
+  const assignedProvider = encounter?.participant?.find(
     (participant) =>
       participant.type?.some((type) => type.coding?.some((coding) => coding === PRACTITIONER_CODINGS.Attender))
   );
@@ -98,13 +98,15 @@ export const Header = (): JSX.Element => {
   const [_status, setStatus] = useState<VisitStatusLabel | undefined>(undefined);
   const { interactionMode, setInteractionMode } = useNavigationContext();
   const nextMode = interactionMode === 'intake' ? 'provider' : 'intake';
-  const practitionerTypeFromMode =
-    interactionMode === 'intake' ? PRACTITIONER_CODINGS.Attender : PRACTITIONER_CODINGS.Admitter;
-  const { isEncounterUpdatePending, handleUpdatePractitioner } = usePractitionerActions(
-    encounter,
-    'start',
-    practitionerTypeFromMode
-  );
+  const {
+    isEncounterUpdatePending: isUpdatingPractitionerForIntake,
+    handleUpdatePractitioner: handleUpdatePractitionerForIntake,
+  } = usePractitionerActions(encounter, 'start', PRACTITIONER_CODINGS.Admitter);
+  const {
+    isEncounterUpdatePending: isUpdatingPractitionerForProvider,
+    handleUpdatePractitioner: handleUpdatePractitionerForProvider,
+  } = usePractitionerActions(encounter, 'start', PRACTITIONER_CODINGS.Attender);
+  const isEncounterUpdatePending = isUpdatingPractitionerForIntake || isUpdatingPractitionerForProvider;
   const { oystehrZambda } = useApiClients();
 
   const { data: employees, isFetching: employeesIsFetching } = useQuery(
@@ -145,14 +147,27 @@ export const Header = (): JSX.Element => {
     return <Box sx={{ padding: '16px' }}>There must be some employees registered to use charting.</Box>;
   }
 
-  const handleUpdateIntakeAssignment = async (practitonerId: string): Promise<void> => {
+  const handleUpdateIntakeAssignment = async (practitionerId: string): Promise<void> => {
     try {
       if (!appointmentID) return;
-      await handleUpdatePractitioner(practitonerId);
+      await handleUpdatePractitionerForIntake(practitionerId);
       await refetch();
     } catch (error: any) {
       console.log(error.message);
       enqueueSnackbar(`An error occurred trying to update the intake assignment. Please try again.`, {
+        variant: 'error',
+      });
+    }
+  };
+
+  const handleUpdateProviderAssignment = async (practitionerId: string): Promise<void> => {
+    try {
+      if (!appointmentID) return;
+      await handleUpdatePractitionerForProvider(practitionerId);
+      await refetch();
+    } catch (error: any) {
+      console.log(error.message);
+      enqueueSnackbar(`An error occurred trying to update the provider assignment. Please try again.`, {
         variant: 'error',
       });
     }
@@ -209,7 +224,25 @@ export const Header = (): JSX.Element => {
                       >
                         <MenuItem value={''}>None</MenuItem>
                         {employees.nonProviders?.map((nonProvider) => (
-                          <MenuItem key={nonProvider.practitionerId} value={nonProvider.name}>
+                          <MenuItem key={nonProvider.practitionerId} value={nonProvider.practitionerId}>
+                            {nonProvider.name}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                      <PatientMetadata>Provider: </PatientMetadata>
+                      <TextField
+                        select
+                        fullWidth
+                        sx={{ minWidth: 120 }}
+                        variant="standard"
+                        value={assignedProvider?.individual?.reference}
+                        onChange={(e) => {
+                          void handleUpdateProviderAssignment(e.target.value);
+                        }}
+                      >
+                        <MenuItem value={''}>None</MenuItem>
+                        {employees.nonProviders?.map((nonProvider) => (
+                          <MenuItem key={nonProvider.practitionerId} value={nonProvider.practitionerId}>
                             {nonProvider.name}
                           </MenuItem>
                         ))}

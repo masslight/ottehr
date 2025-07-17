@@ -1,11 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Coding, Encounter, Practitioner, PractitionerRole } from 'fhir/r4b';
+import { Appointment, Coding, Encounter, PractitionerRole } from 'fhir/r4b';
 import { AssignPractitionerInput, AssignPractitionerResponse } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { getVisitResources } from '../../shared/practitioner/helpers';
-import { getMyPractitionerId } from '../../shared/practitioners';
 import { assignPractitionerIfPossible } from './helpers/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
@@ -17,10 +16,9 @@ export const index = wrapHandler('assign-practitioner', async (input: ZambdaInpu
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
 
     const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
-    const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
     console.log('Created Oystehr client');
 
-    const validatedData = await complexValidation(oystehr, oystehrCurrentUser, validatedParameters);
+    const validatedData = await complexValidation(oystehr, validatedParameters);
 
     const response = await performEffect(oystehr, validatedData);
     return {
@@ -39,22 +37,15 @@ export const index = wrapHandler('assign-practitioner', async (input: ZambdaInpu
 
 export const complexValidation = async (
   oystehr: Oystehr,
-  oystehrCurrentUser: Oystehr,
   params: AssignPractitionerInput
 ): Promise<{
   encounter: Encounter;
   appointment: Appointment;
   practitionerRole?: PractitionerRole;
-  practitioner: Practitioner;
+  practitionerId: string;
   userRole: Coding[];
 }> => {
-  const { encounterId, practitioner, userRole } = params;
-
-  const practitionerIdFromCurrentUser = await getMyPractitionerId(oystehrCurrentUser);
-
-  if (practitioner.id !== practitionerIdFromCurrentUser) {
-    throw new Error(`User ID ${practitioner.id} does not match practitioner ID ${practitionerIdFromCurrentUser}.`);
-  }
+  const { encounterId, practitionerId, userRole } = params;
   // todo: query practitionerRole array for this practitioner and determine if any matches for the encounter location
 
   const visitResources = await getVisitResources(oystehr, encounterId);
@@ -70,7 +61,7 @@ export const complexValidation = async (
     encounter,
     appointment,
     practitionerRole,
-    practitioner,
+    practitionerId,
     userRole,
   };
 };
@@ -81,17 +72,17 @@ export const performEffect = async (
     encounter: Encounter;
     appointment: Appointment;
     practitionerRole?: PractitionerRole;
-    practitioner: Practitioner;
+    practitionerId: string;
     userRole: Coding[];
   }
 ): Promise<AssignPractitionerResponse> => {
-  const { encounter, appointment, practitionerRole, practitioner, userRole } = validatedData;
+  const { encounter, appointment, practitionerRole, practitionerId, userRole } = validatedData;
 
-  await assignPractitionerIfPossible(oystehr, { encounter, appointment, practitionerRole }, practitioner, userRole);
+  await assignPractitionerIfPossible(oystehr, { encounter, appointment, practitionerRole }, practitionerId, userRole);
 
   return {
     message: `Successfully assigned practitioner with ID ${
-      practitionerRole ? practitionerRole.id : practitioner.id
+      practitionerRole ? practitionerRole.id : practitionerId
     } to encounter ${encounter.id}.`,
   };
 };

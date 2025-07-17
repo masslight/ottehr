@@ -1,4 +1,4 @@
-import { Coding, Practitioner } from 'fhir/r4b';
+import { Coding } from 'fhir/r4b';
 import { AssignPractitionerInputValidated, getSecret, SecretsKeys } from 'utils';
 import { ZambdaInput } from '../../shared/types';
 
@@ -29,7 +29,7 @@ export function validateRequestParameters(input: ZambdaInput): AssignPractitione
     throw new Error('practitionerId must be a string');
   }
 
-  const practitioner = body.practitioner as Practitioner;
+  const practitionerId = body.practitionerId;
 
   // Validate userRole - should be an array of Coding objects
   if (!Array.isArray(body.userRole)) {
@@ -61,8 +61,8 @@ export function validateRequestParameters(input: ZambdaInput): AssignPractitione
 
   const validatedUserRole = userRole as Coding[];
 
-  if (encounterId === undefined || practitioner === undefined || validatedUserRole === undefined) {
-    throw new Error('These fields are required: "encounterId" "practitioner" "userRole".');
+  if (encounterId === undefined || practitionerId === undefined || validatedUserRole === undefined) {
+    throw new Error('These fields are required: "encounterId" "practitionerId" "userRole".');
   }
 
   if (getSecret(SecretsKeys.PROJECT_API, input.secrets) === undefined) {
@@ -80,7 +80,7 @@ export function validateRequestParameters(input: ZambdaInput): AssignPractitione
 
   return {
     encounterId,
-    practitioner,
+    practitionerId,
     userRole: validatedUserRole,
     secrets: input.secrets,
     userToken,

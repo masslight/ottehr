@@ -1,17 +1,17 @@
 import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
-import { Coding, Encounter, Practitioner, PractitionerRole } from 'fhir/r4b';
+import { Coding, Encounter, PractitionerRole } from 'fhir/r4b';
 import { getPatchBinary } from 'utils';
 import { EncounterPackage } from '../../../shared/practitioner/types';
 
 export const assignPractitionerIfPossible = async (
   oystehr: Oystehr,
   resourcesToUpdate: EncounterPackage,
-  practitioner: Practitioner,
+  practitionerId: string,
   userRole: Coding[],
   practitionerRole?: PractitionerRole
 ): Promise<void> => {
-  if (!resourcesToUpdate.encounter?.id || !practitioner) {
+  if (!resourcesToUpdate.encounter?.id || !practitionerId) {
     throw new Error('Invalid Encounter or Practitioner ID');
   }
 
@@ -19,7 +19,7 @@ export const assignPractitionerIfPossible = async (
 
   const assignPractitionerOp = await getAssignPractitionerToEncounterOperation(
     resourcesToUpdate.encounter,
-    practitioner,
+    practitionerId,
     userRole,
     practitionerRole
   );
@@ -42,7 +42,7 @@ export const assignPractitionerIfPossible = async (
 
 const getAssignPractitionerToEncounterOperation = async (
   encounter: Encounter,
-  practitioner: Practitioner,
+  practitionerId: string,
   userRole: Coding[],
   practitionerRole?: PractitionerRole
 ): Promise<Operation[] | undefined> => {
@@ -50,7 +50,7 @@ const getAssignPractitionerToEncounterOperation = async (
   const participants = encounter.participant;
   const individualReference = practitionerRole
     ? `PractitionerRole/${practitionerRole.id}`
-    : `Practitioner/${practitioner.id}`;
+    : `Practitioner/${practitionerId}`;
 
   if (!participants || participants.length === 0) {
     return [
