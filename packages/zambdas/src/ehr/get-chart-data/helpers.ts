@@ -238,15 +238,7 @@ export const configProceduresRequestsForGetChartData = (encounterId: string): Ba
   };
 };
 
-export const defaultChartDataFieldsSearchParams: ChartDataRequestedFields = {
-  medications: {
-    _sort: '-effective',
-    _include: 'MedicationStatement:source',
-    _tag: 'current-medication',
-  },
-  inhouseMedications: {
-    _sort: '-effective',
-    _include: 'MedicationStatement:source',
-    _tag: 'in-house-medication',
-  },
+export const defaultChartDataFieldsSearchParams: Partial<Record<keyof GetChartDataResponse, { _tag: string }>> = {
+  medications: { _tag: 'current-medication' },
+  inhouseMedications: { _tag: 'in-house-medication' },
 };

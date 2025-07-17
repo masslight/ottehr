@@ -79,7 +79,7 @@ export async function getChartData(
     defaultSearchBy?: 'encounter' | 'patient';
   }): void {
     const fieldOptions = requestedFields?.[field];
-    const defaultSearchParams = !requestedFields ? defaultChartDataFieldsSearchParams[field] : undefined;
+    const defaultSearchParams = defaultChartDataFieldsSearchParams[field];
 
     if (!requestedFields || fieldOptions) {
       chartDataRequests.push(
@@ -87,7 +87,7 @@ export async function getChartData(
           patient,
           encounter,
           resourceType,
-          fieldOptions || defaultSearchParams,
+          { ...fieldOptions, ...defaultSearchParams },
           defaultSearchBy
         )
       );
