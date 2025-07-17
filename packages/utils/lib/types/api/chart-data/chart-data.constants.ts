@@ -39,18 +39,18 @@ export const HISTORY_OBTAINED_FROM_FIELD = 'history-obtained-from';
 
 export const SEEN_IN_LAST_THREE_YEARS_FIELD = 'seen-in-last-three-years';
 
-export const PATIENT_IMMUNIZATION_STATUS = 'patient-immunization-status';
+export const PATIENT_VACCINATION_STATUS = 'patient-vaccination-status';
 
-export enum PatientImmunizationStatusKeys {
+export enum PatientVaccinationKeys {
   yes = 'yes',
   partially = 'partially',
   no = 'no',
 }
 
-export const patientImmunizationStatusLabels: Record<PatientImmunizationStatusKeys, string> = {
-  [PatientImmunizationStatusKeys.yes]: 'Yes, up to date',
-  [PatientImmunizationStatusKeys.partially]: 'Partially vaccinated',
-  [PatientImmunizationStatusKeys.no]: 'No vaccinations',
+export const patientVaccinationLabels: Record<PatientVaccinationKeys, string> = {
+  [PatientVaccinationKeys.yes]: 'Yes, up to date',
+  [PatientVaccinationKeys.partially]: 'Partially vaccinated',
+  [PatientVaccinationKeys.no]: 'No vaccinations',
 };
 
 export enum HistorySourceKeys {

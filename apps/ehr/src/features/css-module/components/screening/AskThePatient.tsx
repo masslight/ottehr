@@ -1,6 +1,5 @@
 import { otherColors } from '@ehrTheme/colors';
 import {
-  Divider,
   FormControl,
   FormControlLabel,
   Grid,
@@ -23,10 +22,10 @@ import {
   ObservationHistoryObtainedFromDTO,
   ObservationSeenInLastThreeYearsDTO,
   ObservationTextFieldDTO,
-  PATIENT_IMMUNIZATION_STATUS,
-  PatientImmunizationDTO,
-  PatientImmunizationStatusKeys,
-  patientImmunizationStatusLabels,
+  PATIENT_VACCINATION_STATUS,
+  PatientVaccinationDTO,
+  PatientVaccinationKeys,
+  patientVaccinationLabels,
   RecentVisitKeys,
   recentVisitLabels,
   SEEN_IN_LAST_THREE_YEARS_FIELD,
@@ -59,12 +58,14 @@ const AskThePatientComponent = (): React.ReactElement => {
   const { debounce } = useDebounce(1000);
 
   const [recentVisitKey, setRecentVisitKey] = useState<RecentVisitKeys | ''>('');
-  const [patientImmunizationKey, setPatientImmunizationKey] = useState<PatientImmunizationStatusKeys | ''>('');
+  const [patientVaccinationKey, setPatientVaccinationKey] = useState<PatientVaccinationKeys | null>(null);
+  const [vaccinationNotes, setVaccinationNotes] = useState<string>('');
   const [historySourceKey, setHistorySourceKey] = useState<HistorySourceKeys | ''>('');
   const [otherReason, setOtherReason] = useState<string>('');
 
   const [historySourceUpdating, setHistorySourceUpdating] = useState(false);
-  const [patientImmunizationUpdating, setPatientImmunizationUpdating] = useState(false);
+  const [patientVaccinationUpdating, setPatientVaccinationUpdating] = useState(false);
+  const [vaccinationNotesUpdating, setVaccinationNotesUpdating] = useState(false);
   const [recentVisitUpdating, setRecentVisitUpdating] = useState(false);
 
   const { setNavigationDisable } = useNavigationContext();
@@ -79,9 +80,9 @@ const AskThePatientComponent = (): React.ReactElement => {
     (obs) => obs.field === HISTORY_OBTAINED_FROM_FIELD
   ) as ObservationHistoryObtainedFromDTO | undefined;
 
-  const currentPatientImmunizationFromObs = chartData?.observations?.find(
-    (obs) => obs.field === PATIENT_IMMUNIZATION_STATUS
-  ) as PatientImmunizationDTO | undefined;
+  const currentPatientVaccinationFromObs = chartData?.observations?.find(
+    (obs) => obs.field === PATIENT_VACCINATION_STATUS
+  ) as PatientVaccinationDTO | undefined;
 
   useEffect(() => {
     const seenInLastThreeYearsObs = chartData?.observations?.find(
@@ -92,9 +93,9 @@ const AskThePatientComponent = (): React.ReactElement => {
       | ObservationHistoryObtainedFromDTO
       | undefined;
 
-    const patientImmunizationFromObs = chartData?.observations?.find(
-      (obs) => obs.field === PATIENT_IMMUNIZATION_STATUS
-    ) as PatientImmunizationDTO | undefined;
+    const patientVaccinationFromObs = chartData?.observations?.find(
+      (obs) => obs.field === PATIENT_VACCINATION_STATUS
+    ) as PatientVaccinationDTO | undefined;
 
     if (seenInLastThreeYearsObs?.value) {
       setRecentVisitKey(seenInLastThreeYearsObs.value);
@@ -107,8 +108,11 @@ const AskThePatientComponent = (): React.ReactElement => {
       }
     }
 
-    if (patientImmunizationFromObs?.value) {
-      setPatientImmunizationKey(patientImmunizationFromObs.value);
+    if (patientVaccinationFromObs?.value) {
+      setPatientVaccinationKey(patientVaccinationFromObs.value);
+    }
+    if (patientVaccinationFromObs?.note) {
+      setVaccinationNotes(patientVaccinationFromObs?.note);
     }
   }, [chartData]);
 
@@ -165,17 +169,63 @@ const AskThePatientComponent = (): React.ReactElement => {
     }
   };
 
-  const handlePatientImmunizationStatusChange = (value: PatientImmunizationStatusKeys): void => {
-    setPatientImmunizationKey(value);
+  const handlePatientVaccinationStatusChange = (value: PatientVaccinationKeys): void => {
+    setPatientVaccinationKey(value);
+    const curValues: PatientVaccinationDTO = {
+      field: PATIENT_VACCINATION_STATUS,
+      value,
+    };
+    if (vaccinationNotes) {
+      curValues['note'] = vaccinationNotes;
+    }
     void handleSaveObservation(
-      currentPatientImmunizationFromObs
-        ? { ...currentPatientImmunizationFromObs, value }
+      currentPatientVaccinationFromObs
+        ? { ...currentPatientVaccinationFromObs, value }
         : {
-            field: PATIENT_IMMUNIZATION_STATUS,
-            value,
+            ...curValues,
           },
-      setPatientImmunizationUpdating
+      setPatientVaccinationUpdating
     );
+  };
+
+  const handleVaccinationNotesChange = (vaccinationNoteInput: string): void => {
+    debounce(() => {
+      if (!patientVaccinationKey) {
+        enqueueSnackbar('Please select a vaccination status above', { variant: 'error' });
+        return;
+      }
+      const curValues: PatientVaccinationDTO = {
+        field: PATIENT_VACCINATION_STATUS,
+        value: patientVaccinationKey,
+      };
+      if (vaccinationNoteInput) {
+        void handleSaveObservation(
+          {
+            ...currentPatientVaccinationFromObs,
+            ...curValues,
+            note: vaccinationNoteInput,
+          },
+          setVaccinationNotesUpdating
+        );
+      } else if (currentPatientVaccinationFromObs) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { note, ...patientVaccinationFromObsNoNote } = currentPatientVaccinationFromObs; // remove the note
+        void handleSaveObservation(
+          {
+            ...patientVaccinationFromObsNoNote,
+            ...curValues,
+          },
+          setVaccinationNotesUpdating
+        );
+      } else {
+        void handleSaveObservation(
+          {
+            ...curValues,
+          },
+          setVaccinationNotesUpdating
+        );
+      }
+    });
   };
 
   const handleOtherReasonChange = (value: string): void => {
@@ -242,8 +292,53 @@ const AskThePatientComponent = (): React.ReactElement => {
                 ))}
               </RadioGroup>
             </FormControl>
+          </Grid>
+          <Grid item xs={6}>
+            <Typography
+              sx={{
+                color: theme.palette.primary.dark,
+                mt: 2,
+                mb: 1,
+                fontWeight: 'bold',
+              }}
+            >
+              Has the patient received vaccinations?
+            </Typography>
 
-            <Typography variant="body1" sx={{ mt: 2, mb: 1 }}>
+            <FormControl component="fieldset" disabled={patientVaccinationUpdating || isChartDataLoading}>
+              <RadioGroup
+                row
+                value={patientVaccinationKey}
+                onChange={(e) => handlePatientVaccinationStatusChange(e.target.value as PatientVaccinationKeys)}
+              >
+                {Object.values(PatientVaccinationKeys).map((key) => (
+                  <FormControlLabel key={key} value={key} control={<Radio />} label={patientVaccinationLabels[key]} />
+                ))}
+              </RadioGroup>
+            </FormControl>
+
+            <TextField
+              fullWidth
+              label="Vaccination notes"
+              variant="outlined"
+              sx={{ mt: 2 }}
+              value={vaccinationNotes}
+              onChange={(e) => {
+                setVaccinationNotes(e.target.value);
+                handleVaccinationNotesChange(e.target.value);
+              }}
+              disabled={vaccinationNotesUpdating || isChartDataLoading}
+            />
+          </Grid>
+          <Grid item xs={6}>
+            <Typography
+              sx={{
+                color: theme.palette.primary.dark,
+                mt: 2,
+                mb: 1,
+                fontWeight: 'bold',
+              }}
+            >
               History obtained from
             </Typography>
 
@@ -283,38 +378,6 @@ const AskThePatientComponent = (): React.ReactElement => {
               />
             )}
           </Grid>
-        </Grid>
-        <Grid item xs={12} sx={{ mt: 2 }}>
-          <Divider />
-        </Grid>
-        <Grid item xs={12}>
-          <Typography
-            sx={{
-              color: theme.palette.primary.dark,
-              mt: 2,
-              mb: 1,
-              fontWeight: 'bold',
-            }}
-          >
-            Has the patient received vaccinations?
-          </Typography>
-
-          <FormControl component="fieldset" disabled={patientImmunizationUpdating || isChartDataLoading}>
-            <RadioGroup
-              row
-              value={patientImmunizationKey}
-              onChange={(e) => handlePatientImmunizationStatusChange(e.target.value as PatientImmunizationStatusKeys)}
-            >
-              {Object.values(PatientImmunizationStatusKeys).map((key) => (
-                <FormControlLabel
-                  key={key}
-                  value={key}
-                  control={<Radio />}
-                  label={patientImmunizationStatusLabels[key]}
-                />
-              ))}
-            </RadioGroup>
-          </FormControl>
         </Grid>
       </Grid>
     </Paper>
