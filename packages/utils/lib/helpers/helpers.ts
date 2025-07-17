@@ -238,6 +238,7 @@ export const DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_MONTH = '05';
 export const DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_YEAR = '1900';
 export const DEMO_VISIT_RESPONSIBLE_BIRTH_SEX = 'Intersex';
 export const DEMO_VISIT_RESPONSIBLE_PHONE = '(240) 333-3333';
+export const DEMO_VISIT_RESPONSIBLE_EMAIL = 'ibenham+test@masslight.com';
 export const DEMO_VISIT_RESPONSIBLE_ADDRESS1 = '333 test street';
 export const DEMO_VISIT_RESPONSIBLE_CITY = 'Cleveland';
 export const DEMO_VISIT_RESPONSIBLE_STATE = 'OH';
@@ -444,6 +445,7 @@ export function getResponsiblePartyStepAnswers({
   city = DEMO_VISIT_RESPONSIBLE_CITY,
   state = DEMO_VISIT_RESPONSIBLE_STATE,
   zip = DEMO_VISIT_RESPONSIBLE_ZIP,
+  email = DEMO_VISIT_RESPONSIBLE_EMAIL,
 }: {
   firstName?: string;
   relationship?: string;
@@ -454,6 +456,7 @@ export function getResponsiblePartyStepAnswers({
   city?: string;
   state?: string;
   zip?: string;
+  email?: string;
   phone?: string;
 }): PatchPaperworkParameters['answers'] {
   return {
@@ -504,6 +507,14 @@ export function getResponsiblePartyStepAnswers({
         answer: [
           {
             valueString: phone,
+          },
+        ],
+      },
+      {
+        linkId: 'responsible-party-email',
+        answer: [
+          {
+            valueString: email,
           },
         ],
       },

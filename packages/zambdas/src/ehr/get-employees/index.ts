@@ -64,7 +64,7 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
     const practitionerIds = allEmployees.map((employee) => employee.profile.split('/')[1]);
     const encounterCutDate = DateTime.now().minus({ minutes: 30 }).toFormat("yyyy-MM-dd'T'HH:mm");
     const getResourcesRequest = getResourcesFromBatchInlineRequests(oystehr, [
-      `Practitioner?_id=${practitionerIds.join(',')}&_elements=id,meta,qualification,name,extension`,
+      `Practitioner?_id=${practitionerIds.join(',')}&_elements=id,meta,qualification,name,extension,telecom`,
       `Encounter?status=in-progress&_elements=id,participant`,
       `Encounter?status=finished&date=gt${encounterCutDate}&_elements=id,participant`,
     ]);
@@ -102,7 +102,7 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
       const practitionerId = employee.profile.split('/')[1];
       const practitioner = resources.find((resource) => resource.id === practitionerId) as Practitioner | undefined;
 
-      const phone = practitioner?.telecom?.find((telecom) => telecom.system === 'phone')?.value;
+      const phone = practitioner?.telecom?.find((telecom) => telecom.system === 'sms')?.value;
 
       const licenses: PractitionerLicense[] = [];
       if (practitioner?.qualification) {

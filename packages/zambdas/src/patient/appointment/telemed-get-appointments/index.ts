@@ -10,14 +10,16 @@ import {
   SecretsKeys,
   TelemedAppointmentInformationIntake,
 } from 'utils';
-import { checkOrCreateM2MClientToken, getUser, ZambdaInput } from '../../../shared';
+import { checkOrCreateM2MClientToken, getUser, wrapHandler, ZambdaInput } from '../../../shared';
 import { filterTelemedVideoEncounters, getFhirResources } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
+
+const ZAMBDA_NAME = 'telemed-get-appointments';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrToken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
@@ -110,4 +112,4 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify({ error: 'Internal error' }),
     };
   }
-};
+});

@@ -1,6 +1,8 @@
 {
   "extends": "tsconfig/base.json",
   "compilerOptions": {
+    "sourceMap": true,
+    "inlineSources": true,
     "jsx": "react-jsx",
     "strict": true,
     "noUnusedLocals": true,

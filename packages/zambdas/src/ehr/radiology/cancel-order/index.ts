@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ServiceRequest } from 'fhir/r4b';
 import { CancelRadiologyOrderZambdaInput, getSecret, RoleType, Secrets, SecretsKeys, User } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, ZambdaInput } from '../../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import { ACCESSION_NUMBER_CODE_SYSTEM, ADVAPACS_FHIR_BASE_URL } from '../shared';
 import { validateInput, validateSecrets } from './validation';
 
@@ -16,7 +16,9 @@ export interface ValidatedInput {
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
 
-export const index = async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
+const ZAMBDA_NAME = 'cancel-radiology-order';
+
+export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const secrets = validateSecrets(unsafeInput.secrets);
 
@@ -40,7 +42,7 @@ export const index = async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyRe
       body: JSON.stringify({ error: error.message }),
     };
   }
-};
+});
 
 const accessCheck = async (callerAccessToken: string, secrets: Secrets): Promise<void> => {
   const callerUser = await getCallerUserWithAccessToken(callerAccessToken, secrets);

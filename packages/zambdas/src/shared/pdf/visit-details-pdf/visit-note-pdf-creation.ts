@@ -275,6 +275,8 @@ function composeDataForPdf(
     documentedBy: procedure.documentedBy,
   }));
 
+  const addendumNote = chartData?.addendumNote?.text;
+
   return {
     patientName: patientName ?? '',
     patientDOB: patientDOB ?? '',
@@ -334,6 +336,7 @@ function composeDataForPdf(
     subSpecialtyFollowUp,
     workSchoolExcuse,
     procedures,
+    addendumNote,
   };
 }
 

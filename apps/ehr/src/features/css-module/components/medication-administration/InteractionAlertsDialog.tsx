@@ -182,6 +182,24 @@ export const InteractionAlertsDialog: React.FC<Props> = (props) => {
     );
   };
 
+  const renderSource = (source: string | undefined): ReactElement | undefined => {
+    if (!source) {
+      return <>Unknown</>;
+    }
+    const lines = source.split('\n');
+    return (
+      <Stack>
+        <Typography variant="body2">{lines[0]}</Typography>
+        <Typography color="secondary.light" variant="body2">
+          {lines[1]}
+        </Typography>
+        <Typography color="secondary.light" variant="body2">
+          {lines[2]}
+        </Typography>
+      </Stack>
+    );
+  };
+
   const medicationsInteractions = (): ReactElement | undefined => {
     if (interactions.drugInteractions == null || interactions.drugInteractions.length === 0) {
       return undefined;
@@ -197,8 +215,9 @@ export const InteractionAlertsDialog: React.FC<Props> = (props) => {
             <TableRow>
               <TableCell width="15%">Ordered</TableCell>
               <TableCell width="15%">Interaction</TableCell>
-              <TableCell width="30%">Interaction Description</TableCell>
-              <TableCell width="30%">Override reason</TableCell>
+              <TableCell width="20%">Source</TableCell>
+              <TableCell width="25%">Interaction Description</TableCell>
+              <TableCell width="25%">Override reason</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -217,6 +236,7 @@ export const InteractionAlertsDialog: React.FC<Props> = (props) => {
                     <TableRow key={index}>
                       <TableCell>{props.medicationName}</TableCell>
                       <TableCell>{interaction.drugs.map((drug) => drug.name).join(', ')}</TableCell>
+                      <TableCell>{renderSource(interaction.source?.display)}</TableCell>
                       <TableCell style={{ verticalAlign: 'top' }}>{interaction.message}</TableCell>
                       <TableCell>
                         {overrideReasonDropdown(
