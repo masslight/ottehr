@@ -110,7 +110,6 @@ const getResultDataConfig = (
     commonResourceConfig;
   const { type, specificResources } = specificResourceConfig;
 
-  if (!serviceRequest.reasonCode) throw new Error('service request reasonCode is undefined');
   const orderCreateDate = serviceRequest.authoredOn
     ? DateTime.fromISO(serviceRequest.authoredOn).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
     : undefined;
@@ -137,10 +136,11 @@ const getResultDataConfig = (
     orderCreateDate: orderCreateDate || '',
     orderPriority: serviceRequest.priority || '',
     testName: testName || '',
-    orderAssessments: serviceRequest.reasonCode.map((code) => ({
-      code: code.coding?.[0].code || '',
-      name: code.text || '',
-    })),
+    orderAssessments:
+      serviceRequest?.reasonCode?.map((code) => ({
+        code: code.coding?.[0].code || '',
+        name: code.text || '',
+      })) || [],
     resultStatus: diagnosticReport.status.toUpperCase(),
   };
 

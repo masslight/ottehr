@@ -157,14 +157,10 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
     setLoading(true);
     const GENERIC_ERROR_MSG = 'There was an error creating in-house lab order';
     const encounterId = encounter.id;
-    const canBeSubmitted =
-      encounterId &&
-      selectedTest &&
-      selectedCptCode &&
-      (selectedAssessmentDiagnoses.length || selectedNewDiagnoses.length);
-
+    const canBeSubmitted = encounterId && selectedTest && selectedCptCode;
     if (oystehrZambda && canBeSubmitted) {
       try {
+        console.log('calling create order');
         const res = await createInHouseLabOrder(oystehrZambda, {
           encounterId,
           testItem: selectedTest,
@@ -216,12 +212,11 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
       }
     } else if (!canBeSubmitted) {
       const errorMessage: string[] = [];
-      if (!selectedAssessmentDiagnoses.length && !selectedNewDiagnoses.length)
-        errorMessage.push('Please enter at least one dx');
       if (!selectedTest) errorMessage.push('Please select a test to order');
       if (!attendingPractitioner) errorMessage.push('No attending practitioner has been assigned to this encounter');
       if (errorMessage.length === 0) errorMessage.push(GENERIC_ERROR_MSG);
       setError(errorMessage);
+      setLoading(false);
     }
   };
 
@@ -564,7 +559,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                     notesLabel={'Notes (optional)'}
                     readOnly={false}
                     additionalBoxSxProps={{ mb: 3 }}
-                    additionalTextFieldProps={{ rows: 4 }}
+                    additionalTextFieldProps={{ minRows: 4 }}
                     handleNotesUpdate={(newNote: string) => setNotes(newNote)}
                   />
                 </Grid>
@@ -611,11 +606,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                       <Button
                         variant="contained"
                         type="submit"
-                        disabled={
-                          !selectedTest ||
-                          !selectedCptCode ||
-                          (selectedAssessmentDiagnoses.length === 0 && selectedNewDiagnoses.length === 0)
-                        }
+                        disabled={!selectedTest || !selectedCptCode}
                         sx={{
                           borderRadius: '50px',
                           px: 4,
