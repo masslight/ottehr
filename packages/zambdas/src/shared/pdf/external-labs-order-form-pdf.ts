@@ -237,7 +237,10 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
   const secondColumnStart = pageWidth / 2 + columnGap;
 
   const columnOneStartAndWidth = { startXPos: pdfClient.getLeftBound(), width: pageWidth / 2 };
-  const columnTwoStartAndWidth = { startXPos: secondColumnStart, width: pdfClient.getRightBound() - secondColumnStart }; // just the rest of the page
+  const columnTwoStartAndWidth = {
+    startXPos: secondColumnStart,
+    width: pdfClient.getRightBound() - secondColumnStart,
+  }; // just the rest of the page
 
   pdfClient.drawSeparatedLine(GREY_LINE_STYLE);
   pdfClient.drawVariableWidthColumns(
@@ -253,7 +256,8 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
         ...columnTwoStartAndWidth,
       },
     ],
-    pdfClient.getY()
+    pdfClient.getY(),
+    pdfClient.getCurrentPageIndex()
   );
   pdfClient.newLine(STANDARD_NEW_LINE);
   pdfClient.drawSeparatedLine(GREY_LINE_STYLE);
@@ -272,7 +276,8 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
         ...columnTwoStartAndWidth,
       },
     ],
-    pdfClient.getY()
+    pdfClient.getY(),
+    pdfClient.getCurrentPageIndex()
   );
 
   pdfClient.newLine(STANDARD_NEW_LINE);

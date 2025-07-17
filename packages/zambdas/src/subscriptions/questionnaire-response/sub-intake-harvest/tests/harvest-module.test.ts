@@ -96,6 +96,10 @@ describe('Harvest Module', () => {
             system: 'phone',
             value: '+19895556543',
           },
+          {
+            system: 'email',
+            value: 'rowdyroddypiper@hotmail.com',
+          },
         ],
       },
     ],
@@ -182,6 +186,7 @@ describe('Harvest Module', () => {
       relationship: 'Parent',
       birthSex: 'Female',
       number: '(989) 555-6543',
+      email: 'rowdyroddypiper@hotmail.com',
     };
 
     const flattened = flattenItems((questionnaireResponse1.item as QuestionnaireResponse['item']) ?? []);
@@ -3209,6 +3214,14 @@ const questionnaireResponse1: QuestionnaireResponse = {
           answer: [
             {
               valueString: '(989) 555-6543',
+            },
+          ],
+        },
+        {
+          linkId: 'responsible-party-email',
+          answer: [
+            {
+              valueString: 'rowdyroddypiper@hotmail.com',
             },
           ],
         },

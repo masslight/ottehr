@@ -46,6 +46,7 @@ import {
   createOystehrClient,
   getMyPractitionerId,
   topLevelCatch,
+  wrapHandler,
   ZambdaInput,
 } from '../../shared';
 import { createInHouseLabResultPDF } from '../../shared/pdf/labs-results-form-pdf';
@@ -58,7 +59,8 @@ import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+const ZAMBDA_NAME = 'handle-in-house-lab-results';
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.log(`handle-in-house-lab-results started, input: ${JSON.stringify(input)}`);
     console.log('Validating input');
@@ -175,7 +177,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       }),
     };
   }
-};
+});
 
 // todo better errors
 const getInHouseLabResultResources = async (
