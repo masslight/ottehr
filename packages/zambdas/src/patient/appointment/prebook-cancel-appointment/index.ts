@@ -12,8 +12,8 @@ import {
   DATETIME_FULL_NO_YEAR,
   FHIR_ZAPEHR_URL,
   formatPhoneNumberDisplay,
+  getAppointmentMetaTagOpForStatusUpdate,
   getAppointmentResourceById,
-  getCriticalUpdateTagOp,
   getPatchBinary,
   getPatientContactEmail,
   getPatientFirstName,
@@ -110,10 +110,9 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
     const cancelledBy = isEHRUser
       ? `Staff ${user?.email}`
       : `Patient${formattedUserNumber ? ` ${formattedUserNumber}` : ''}`;
-    const criticalUpdateOp = getCriticalUpdateTagOp(appointment, cancelledBy);
 
     const appointmentPatchOperations: Operation[] = [
-      criticalUpdateOp,
+      ...getAppointmentMetaTagOpForStatusUpdate(appointment, 'cancelled', { updatedByOverride: cancelledBy }),
       {
         op: 'replace',
         path: '/status',

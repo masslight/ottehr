@@ -3,7 +3,7 @@ import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import {
-  getCriticalUpdateTagOp,
+  getAppointmentMetaTagOpForStatusUpdate,
   getEncounterStatusHistoryUpdateOp,
   getPatchBinary,
   getProgressNoteChartDataRequestedFields,
@@ -165,11 +165,7 @@ const changeStatusToCompleted = async (
 
   const user = await oystehrCurrentUser.user.me();
 
-  const updateTag = getCriticalUpdateTagOp(
-    resourcesToUpdate.appointment,
-    `Staff ${user?.email ? user.email : `(${user?.id})`}`
-  );
-  patchOps.push(updateTag);
+  patchOps.push(...getAppointmentMetaTagOpForStatusUpdate(resourcesToUpdate.appointment, 'completed', { user }));
 
   const encounterPatchOps: Operation[] = [
     {
