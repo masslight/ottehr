@@ -9,11 +9,13 @@ import {
   SecretsKeys,
   SUPPORT_EMAIL,
 } from 'utils';
-import { getAuth0Token, sendgridEmail, sendSlackNotification, topLevelCatch } from '../../../shared';
+import { getAuth0Token, sendgridEmail, sendSlackNotification, topLevelCatch, wrapHandler } from '../../../shared';
 import { createOystehrClient } from '../../../shared/helpers';
 import { ZambdaInput } from '../../../shared/types';
 import { bundleResourcesConfig, codingContainedInList, getEmailsFromGroup } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
+
+const ZAMBDA_NAME = 'communication-subscription';
 
 export interface CommunicationSubscriptionInput {
   communication: Communication;
@@ -22,7 +24,7 @@ export interface CommunicationSubscriptionInput {
 
 let oystehrToken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input)}`);
   try {
     console.group('validateRequestParameters');
@@ -217,4 +219,4 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify({ error: error.message }),
     };
   }
-};
+});

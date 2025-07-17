@@ -12,12 +12,14 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, ZambdaInput } from '../../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import {
   ACCESSION_NUMBER_CODE_SYSTEM,
   ADVAPACS_FHIR_BASE_URL,
+  FILLER_ORDER_NUMBER_CODE_SYSTEM,
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM,
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM_ACCESSION_NUMBER,
+  HL7_IDENTIFIER_TYPE_CODE_SYSTEM_FILLER_ORDER_NUMBER,
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM_PLACER_ORDER_NUMBER,
   ORDER_TYPE_CODE_SYSTEM,
   PLACER_ORDER_NUMBER_CODE_SYSTEM,
@@ -68,7 +70,9 @@ const ADVAPACS_ORDER_DETAIL_MODALITY_CODE_SYSTEM_URL =
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
 
-export const index = async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
+const ZAMBDA_NAME = 'create-radiology-order';
+
+export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const secrets = validateSecrets(unsafeInput.secrets);
 
@@ -93,7 +97,7 @@ export const index = async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyRe
       body: JSON.stringify({ error: error.message }),
     };
   }
-};
+});
 
 const accessCheck = async (callerUser: User): Promise<void> => {
   if (callerUser.profile.indexOf('Practitioner/') === -1) {
@@ -135,6 +139,12 @@ const performEffect = async (
     serviceRequestId: ourServiceRequest.id,
   };
 };
+
+const fillerAndPlacerOrderNumber = randomstring.generate({
+  length: 22,
+  charset: 'alphanumeric',
+  capitalization: 'uppercase',
+});
 
 const writeOurServiceRequest = (
   validatedBody: EnhancedBody,
@@ -178,11 +188,19 @@ const writeOurServiceRequest = (
           ],
         },
         system: PLACER_ORDER_NUMBER_CODE_SYSTEM,
-        value: randomstring.generate({
-          length: 22,
-          charset: 'alphanumeric',
-          capitalization: 'uppercase',
-        }),
+        value: fillerAndPlacerOrderNumber,
+      },
+      {
+        type: {
+          coding: [
+            {
+              system: HL7_IDENTIFIER_TYPE_CODE_SYSTEM,
+              code: HL7_IDENTIFIER_TYPE_CODE_SYSTEM_FILLER_ORDER_NUMBER,
+            },
+          ],
+        },
+        system: FILLER_ORDER_NUMBER_CODE_SYSTEM,
+        value: fillerAndPlacerOrderNumber,
       },
     ],
     category: [
@@ -225,6 +243,7 @@ const writeOurServiceRequest = (
       },
     ],
     authoredOn: now.toISO(),
+    occurrenceDateTime: now.toISO(),
     extension: [
       {
         url: SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL,
@@ -355,6 +374,7 @@ const writeAdvaPacsTransaction = async (
           },
         ],
         authoredOn: ourServiceRequest.authoredOn,
+        occurrenceDateTime: ourServiceRequest.occurrenceDateTime,
       },
     };
 

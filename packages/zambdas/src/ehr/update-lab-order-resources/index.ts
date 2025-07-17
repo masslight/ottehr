@@ -27,14 +27,17 @@ import {
   createOystehrClient,
   getMyPractitionerId,
   topLevelCatch,
+  wrapHandler,
   ZambdaInput,
 } from '../../shared';
 import { createExternalLabResultPDF } from '../../shared/pdf/labs-results-form-pdf';
 import { validateRequestParameters } from './validateRequestParameters';
 
+const ZAMBDA_NAME = 'update-lab-order-resources';
+
 let m2mToken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`update-lab-order-resources started, input: ${JSON.stringify(input)}`);
 
   let secrets = input.secrets;
@@ -114,7 +117,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       }),
     };
   }
-};
+});
 
 const handleReviewedEvent = async ({
   oystehr,

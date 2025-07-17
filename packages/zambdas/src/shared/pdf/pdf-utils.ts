@@ -92,10 +92,25 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     return pageRightBound - pageLeftBound;
   };
   let pageStyles = initialStyles.initialPage;
+  const pages: PDFPage[] = [];
+  let currentPageIndex: number | undefined;
 
   const addNewPage = (styles: PageStyles, newLeftBound?: number, newRightBound?: number): void => {
-    page = pdfDoc.addPage();
-    page.setSize(styles.width, styles.height);
+    console.log('\nAdding new page');
+    console.log(`currentPageIndex is ${currentPageIndex} of ${pages.length} pages`);
+    // figure out if we just need to run on to a pre-exsiting page or truly add a new one
+    if (currentPageIndex !== undefined && currentPageIndex < pages.length - 1) {
+      console.log('Current page is not the last page. Setting page to the next page');
+      page = pages[currentPageIndex + 1];
+    } else {
+      console.log('Current page was the last page. Adding brand new page');
+      page = pdfDoc.addPage();
+      page.setSize(styles.width, styles.height);
+      pageStyles = styles;
+      if (styles.setHeadline) styles.setHeadline();
+      pages.push(page);
+    }
+
     const { height, width } = page.getSize();
     // Start at the top of the page then move down as elements are added to the PDF.
     currYPos = height - (styles.pageMargins.top ?? 0); // top of page. Content starts after this point
@@ -103,8 +118,13 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     pageLeftBound = newLeftBound ? newLeftBound : styles.pageMargins.left ?? 0;
     pageRightBound = newRightBound ? newRightBound : width - (styles.pageMargins.right ?? 0);
     currXPos = pageLeftBound;
-    pageStyles = styles;
-    if (styles.setHeadline) styles.setHeadline();
+
+    if (currentPageIndex !== undefined) {
+      currentPageIndex++;
+      console.log(`Incrementing page index to ${currentPageIndex}`);
+    } else currentPageIndex = 0;
+
+    console.log('Done with new page\n');
   };
 
   // adding initial page when initializing pdfClient
@@ -278,6 +298,20 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     currXPos = pageLeftBound;
   };
 
+  const getCurrentPageIndex = (): number => {
+    return currentPageIndex ?? 0;
+  };
+
+  const getTotalPages = (): number => {
+    return pages.length;
+  };
+
+  const setPageByIndex = (pageIndex: number): void => {
+    if (!pages.length) throw new Error('Cannot set page. No pages exist');
+    if (pageIndex >= pages.length || pageIndex < 0) throw new Error('Page index is out of bounds');
+    page = pages[pageIndex];
+  };
+
   const getX = (): number => {
     return currXPos;
   };
@@ -352,7 +386,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     pageStyles = newStyles;
   };
 
-  const drawVariableWidthColumns = (columns: Column[], yPosStartOfColumn: number): void => {
+  const drawVariableWidthColumns = (columns: Column[], yPosStartOfColumn: number, startPageIndex: number): void => {
     if (!columns.length) return;
     // if the widths of all of the columns exceed the page bounds, convert to equal width
     const totalWidth = columns.reduce((acc: number, col: Column) => {
@@ -382,8 +416,13 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
 
     // now just write the columns, and make sure they don't bleed into other columns
     columns.forEach((col) => {
-      console.log(`Drawing column for ${JSON.stringify({ ...col, textStyle: undefined })}`);
+      console.log(`\n\n>>>Drawing column for ${JSON.stringify({ ...col, textStyle: undefined })}`);
+      // if a new page got added on a previous column, we need the next column to go back to the previous page
+      // continue writing, and if that column needs to run onto a new page, it needs to run onto the pre-existing new page
+      console.log(`Starting columb on page index ${startPageIndex}`);
+      currentPageIndex = startPageIndex;
 
+      console.log(`yPosStartOfColumn is ${yPosStartOfColumn}. Current yPos is ${currYPos}`);
       console.log(`Setting yPos to ${yPosStartOfColumn}`);
       currYPos = yPosStartOfColumn;
 
@@ -420,6 +459,9 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     getTextDimensions,
     setPageStyles,
     drawVariableWidthColumns,
+    getCurrentPageIndex,
+    setPageByIndex,
+    getTotalPages,
   };
 }
 

@@ -15,7 +15,7 @@ import {
   visitStatusToFhirAppointmentStatusMap,
   visitStatusToFhirEncounterStatusMap,
 } from 'utils';
-import { checkOrCreateM2MClientToken, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createEncounterFromAppointment } from '../../shared/candid';
 import { createPublishExcuseNotesOps } from '../../shared/createPublishExcuseNotesOps';
 import { createOystehrClient } from '../../shared/helpers';
@@ -29,7 +29,8 @@ import { validateRequestParameters } from './validateRequestParameters';
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+const ZAMBDA_NAME = 'sign-appointment';
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
 
@@ -52,7 +53,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify({ message: 'Error changing appointment status and creating a charge.' }),
     };
   }
-};
+});
 
 export const performEffect = async (
   oystehr: Oystehr,
@@ -83,7 +84,12 @@ export const performEffect = async (
     candidEncounterId = await createEncounterFromAppointment(visitResources, secrets, oystehr);
   } catch (error) {
     console.error(`Error creating Candid encounter: ${error}, stringified error: ${JSON.stringify(error)}`);
-    captureException(error);
+    captureException(error, {
+      tags: {
+        appointmentId,
+        encounterId: encounter.id,
+      },
+    });
   }
 
   console.log(`appointment and encounter statuses: ${appointment.status}, ${encounter.status}`);
@@ -108,15 +114,25 @@ export const performEffect = async (
   );
 
   console.log('Chart data received');
-  const pdfInfo = await composeAndCreateVisitNotePdf(
-    { chartData, additionalChartData },
-    visitResources,
-    secrets,
-    m2mToken
-  );
-  if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
-  console.log(`Creating visit note pdf docRef`);
-  await makeVisitNotePdfDocumentReference(oystehr, pdfInfo, patient.id, appointmentId, encounter.id!, listResources);
+  try {
+    const pdfInfo = await composeAndCreateVisitNotePdf(
+      { chartData, additionalChartData },
+      visitResources,
+      secrets,
+      m2mToken
+    );
+    if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
+    console.log(`Creating visit note pdf docRef`);
+    await makeVisitNotePdfDocumentReference(oystehr, pdfInfo, patient.id, appointmentId, encounter.id!, listResources);
+  } catch (error) {
+    console.error(`Error creating visit note pdf: ${error}`);
+    captureException(error, {
+      tags: {
+        appointmentId,
+        encounterId: encounter.id,
+      },
+    });
+  }
 
   return {
     message: 'Appointment status successfully changed.',
