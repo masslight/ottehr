@@ -64,7 +64,7 @@ const AskThePatientComponent = (): React.ReactElement => {
   const [otherReason, setOtherReason] = useState<string>('');
 
   const [historySourceUpdating, setHistorySourceUpdating] = useState(false);
-  const [patientImmunzationUpdating, setPatientImmunzationUpdating] = useState(false);
+  const [patientImmunizationUpdating, setPatientImmunizationUpdating] = useState(false);
   const [recentVisitUpdating, setRecentVisitUpdating] = useState(false);
 
   const { setNavigationDisable } = useNavigationContext();
@@ -174,7 +174,7 @@ const AskThePatientComponent = (): React.ReactElement => {
             field: PATIENT_IMMUNIZATION_STATUS,
             value,
           },
-      setPatientImmunzationUpdating
+      setPatientImmunizationUpdating
     );
   };
 
@@ -299,7 +299,7 @@ const AskThePatientComponent = (): React.ReactElement => {
             Has the patient received vaccinations?
           </Typography>
 
-          <FormControl component="fieldset" disabled={patientImmunzationUpdating || isChartDataLoading}>
+          <FormControl component="fieldset" disabled={patientImmunizationUpdating || isChartDataLoading}>
             <RadioGroup
               row
               value={patientImmunizationKey}
