@@ -663,7 +663,7 @@ async function createExternalLabsResultsFormPdfBytes(
     pdfClient,
     textStyles,
     'Dx:',
-    data.orderAssessments.map((assessment) => `${assessment.code} (${assessment.name})`).join(', ')
+    data.orderAssessments.map((assessment) => `${assessment.code} (${assessment.name})`).join('; ')
   );
   pdfClient.newLine(30);
   pdfClient.drawText(data.testName.toUpperCase(), textStyles.header);
@@ -810,7 +810,7 @@ async function createInHouseLabsResultsFormPdfBytes(
     textStyles,
     'Dx:',
     data.orderAssessments.length
-      ? data.orderAssessments.map((assessment) => `${assessment.code} (${assessment.name})`).join(', ')
+      ? data.orderAssessments.map((assessment) => `${assessment.code} (${assessment.name})`).join('; ')
       : 'Not specified'
   );
   pdfClient.newLine(30);
