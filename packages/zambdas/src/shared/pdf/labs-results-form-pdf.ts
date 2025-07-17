@@ -801,7 +801,9 @@ async function createInHouseLabsResultsFormPdfBytes(
     pdfClient,
     textStyles,
     'Dx:',
-    data.orderAssessments.map((assessment) => `${assessment.code} (${assessment.name})`).join(', ')
+    data.orderAssessments.length
+      ? data.orderAssessments.map((assessment) => `${assessment.code} (${assessment.name})`).join(', ')
+      : 'Not specified'
   );
   pdfClient.newLine(30);
 

@@ -152,16 +152,16 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
     navigate(-1);
   };
 
+  const canBeSubmitted = !!(encounter?.id && selectedTest && selectedCptCode);
+
   const handleSubmit = async (e: React.FormEvent | React.MouseEvent, shouldPrintLabel = false): Promise<void> => {
     e.preventDefault();
     setLoading(true);
     const GENERIC_ERROR_MSG = 'There was an error creating in-house lab order';
-    const encounterId = encounter.id;
-    const canBeSubmitted = encounterId && selectedTest && selectedCptCode;
     if (oystehrZambda && canBeSubmitted) {
       try {
         const res = await createInHouseLabOrder(oystehrZambda, {
-          encounterId,
+          encounterId: encounter.id!,
           testItem: selectedTest,
           cptCode: selectedCptCode,
           diagnosesAll: [...selectedAssessmentDiagnoses, ...selectedNewDiagnoses],
@@ -184,7 +184,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
         });
 
         if (shouldPrintLabel) {
-          const labelPdfs = await getOrCreateVisitLabel(oystehrZambda, { encounterId });
+          const labelPdfs = await getOrCreateVisitLabel(oystehrZambda, { encounterId: encounter.id! });
 
           if (labelPdfs.length !== 1) {
             setError(['Expected 1 label pdf, received unexpected number']);
@@ -588,11 +588,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                       <Button
                         variant="contained"
                         onClick={(e) => handleSubmit(e, true)}
-                        disabled={
-                          !selectedTest ||
-                          !selectedCptCode ||
-                          (selectedAssessmentDiagnoses.length === 0 && selectedNewDiagnoses.length === 0)
-                        }
+                        disabled={!canBeSubmitted}
                         sx={{
                           borderRadius: '50px',
                           px: 4,
@@ -605,7 +601,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                       <Button
                         variant="contained"
                         type="submit"
-                        disabled={!selectedTest || !selectedCptCode}
+                        disabled={!canBeSubmitted}
                         sx={{
                           borderRadius: '50px',
                           px: 4,
