@@ -720,6 +720,10 @@ export const getPractitionerStateCredentials = (practitioner: Practitioner): str
   return allLicensesForPractitioner(practitioner).map(({ state }) => state);
 };
 
+export const getAllPractitionerCredentials = (practitioner: Practitioner): string[] => {
+  return practitioner.name?.[0]?.suffix ?? [];
+};
+
 export const getPlanIdAndNameFromCoverage = (coverage: Coverage): { planId?: string; planName?: string } => {
   const coverageClass = coverage.class?.find((cc) => {
     const typeCoding = cc.type;
