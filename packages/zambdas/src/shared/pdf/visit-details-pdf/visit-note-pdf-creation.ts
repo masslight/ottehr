@@ -224,7 +224,7 @@ function composeDataForPdf(
 
   // --- Discharge instructions ---
   const disposition = additionalChartData?.disposition;
-  let dispositionHeader = 'Discharge instructions - ';
+  let dispositionHeader = 'Disposition - ';
   let dispositionText = '';
   if (disposition?.type) {
     dispositionHeader += mapDispositionTypeToLabel[disposition.type];
@@ -274,6 +274,8 @@ function composeDataForPdf(
     timeSpent: procedure.timeSpent,
     documentedBy: procedure.documentedBy,
   }));
+
+  const addendumNote = chartData?.addendumNote?.text;
 
   return {
     patientName: patientName ?? '',
@@ -334,6 +336,7 @@ function composeDataForPdf(
     subSpecialtyFollowUp,
     workSchoolExcuse,
     procedures,
+    addendumNote,
   };
 }
 

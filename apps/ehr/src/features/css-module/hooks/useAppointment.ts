@@ -16,6 +16,17 @@ type VisitState = Partial<{
   questionnaireResponse: QuestionnaireResponse;
 }>;
 
+const emptyResult = {
+  resources: {},
+  mappedData: {},
+  visitState: {},
+  error: null,
+  isLoading: true,
+  refetch: (() => {
+    return;
+  }) as any,
+};
+
 export const useAppointment = (
   appointmentId?: string
 ): {
@@ -38,11 +49,6 @@ export const useAppointment = (
     'encounter',
     'questionnaireResponse',
   ]);
-
-  if (!visitData.encounter) {
-    console.warn('Encounter is not available in the visit data. Ensure the appointment ID is provided.');
-    throw new Error('Encounter is not available in the visit data.');
-  }
 
   const { location, locationVirtual, patient, encounter, questionnaireResponse, appointment } = visitData;
 
@@ -80,6 +86,11 @@ export const useAppointment = (
     const parsedResources = parseBundle(visitResources as Bundle[]);
     useMappedVisitDataStore.setState(parsedResources);
   }, [appointment, patient, location, locationVirtual, encounter, questionnaireResponse]);
+
+  if (!visitData.encounter) {
+    console.warn('Encounter is not available in the visit data. Ensure the appointment ID is provided.');
+    return emptyResult;
+  }
 
   return { resources, mappedData, visitState: visitData, error, isLoading, refetch };
 };

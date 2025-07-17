@@ -1,6 +1,6 @@
 {
   "resourceType": "QuestionnaireResponse",
-  "questionnaire": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson|1.0.5",
+  "questionnaire": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson|1.0.9",
   "status": "completed",
   "subject": {
     "reference": "{{PATIENT_REF}}"
@@ -580,6 +580,14 @@
           "answer": [
             {
               "valueString": "(989) 555-6543"
+            }
+          ]
+        },
+        {
+          "linkId": "responsible-party-email",
+          "answer": [
+            {
+              "valueString": "rowdyroddypiper@hotmail.com"
             }
           ]
         }

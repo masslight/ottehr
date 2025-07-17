@@ -1,6 +1,8 @@
 import { Autocomplete, Box, TextField, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
+import { TooltipWrapper } from 'src/components/WithTooltip';
+import { CPT_TOOLTIP_PROPS } from 'src/components/WithTooltip';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { ActionsList, DeleteIconButton } from '../../../../components';
@@ -117,7 +119,11 @@ export const BillingCodesContainer: FC = () => {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-        <AssessmentTitle>Billing</AssessmentTitle>
+        <Box sx={{ color: '#0F347C' }}>
+          <TooltipWrapper tooltipProps={CPT_TOOLTIP_PROPS}>
+            <AssessmentTitle>Billing</AssessmentTitle>
+          </TooltipWrapper>
+        </Box>
         <Autocomplete
           options={emCodeOptions}
           disabled={disabledEM}
