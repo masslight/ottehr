@@ -71,14 +71,20 @@ export const Header = (): JSX.Element => {
   const { encounter } = telemedData;
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
   const encounterId = encounter?.id;
-  const assignedIntakePerformer = encounter?.participant?.find(
-    (participant) =>
-      participant.type?.some((type) => type.coding?.some((coding) => coding === PRACTITIONER_CODINGS.Admitter))
-  );
-  const assignedProvider = encounter?.participant?.find(
-    (participant) =>
-      participant.type?.some((type) => type.coding?.some((coding) => coding === PRACTITIONER_CODINGS.Attender))
-  );
+  const assignedIntakePerformer = encounter?.participant?.find((participant) => {
+    return participant.type?.some(
+      (type) =>
+        type.coding?.some((coding) => JSON.stringify(coding) === JSON.stringify(PRACTITIONER_CODINGS.Admitter[0]))
+    );
+  });
+  const assignedIntakePerformerId = assignedIntakePerformer?.individual?.reference?.split('/')[1];
+  const assignedProvider = encounter?.participant?.find((participant) => {
+    return participant.type?.some(
+      (type) =>
+        type.coding?.some((coding) => JSON.stringify(coding) === JSON.stringify(PRACTITIONER_CODINGS.Attender[0]))
+    );
+  });
+  const assignedProviderId = assignedProvider?.individual?.reference?.split('/')[1];
   const patientName = format(mappedData?.patientName, 'Name');
   const pronouns = format(mappedData?.pronouns, 'Pronouns');
   const gender = format(mappedData?.gender, 'Gender');
@@ -217,12 +223,11 @@ export const Header = (): JSX.Element => {
                         fullWidth
                         sx={{ minWidth: 120 }}
                         variant="standard"
-                        value={assignedIntakePerformer?.individual?.reference}
+                        value={assignedIntakePerformerId ?? ''}
                         onChange={(e) => {
                           void handleUpdateIntakeAssignment(e.target.value);
                         }}
                       >
-                        <MenuItem value={''}>None</MenuItem>
                         {employees.nonProviders?.map((nonProvider) => (
                           <MenuItem key={nonProvider.practitionerId} value={nonProvider.practitionerId}>
                             {nonProvider.name}
@@ -235,12 +240,11 @@ export const Header = (): JSX.Element => {
                         fullWidth
                         sx={{ minWidth: 120 }}
                         variant="standard"
-                        value={assignedProvider?.individual?.reference}
+                        value={assignedProviderId ?? ''}
                         onChange={(e) => {
                           void handleUpdateProviderAssignment(e.target.value);
                         }}
                       >
-                        <MenuItem value={''}>None</MenuItem>
                         {employees.nonProviders?.map((nonProvider) => (
                           <MenuItem key={nonProvider.practitionerId} value={nonProvider.practitionerId}>
                             {nonProvider.name}

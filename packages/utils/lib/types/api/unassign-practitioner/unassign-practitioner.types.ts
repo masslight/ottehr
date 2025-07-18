@@ -2,7 +2,7 @@ import { Coding, Practitioner } from 'fhir/r4b';
 
 export interface UnassignPractitionerZambdaInput {
   encounterId: string;
-  practitionerId: string;
+  practitioner: Practitioner;
   userRole: Coding[];
 }
 
