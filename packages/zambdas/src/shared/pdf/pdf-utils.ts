@@ -68,7 +68,7 @@ export function splitLongStringToPageSize(
         lineWidth += wordWidth;
       } else {
         resultStrings.push(validLine);
-        validLine = word;
+        validLine = word + ' ';
         lineWidth = wordWidth;
       }
     });
