@@ -1,4 +1,3 @@
-import { Typography } from '@mui/material';
 import React, { useRef } from 'react';
 import { Outlet } from 'react-router-dom';
 import { PRACTITIONER_CODINGS } from 'utils';
@@ -6,6 +5,7 @@ import { useResetAppointmentStore } from '../../../telemed';
 import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
 import { CommonLayoutBreadcrumbs } from '../components/breadcrumbs/CommonLayoutBreadcrumbs';
 import { Header } from '../components/Header';
+import { InfoAlert } from '../components/InfoAlert';
 import { Sidebar } from '../components/Sidebar';
 import { useChartData } from '../hooks/useChartData';
 import { BottomNavigation } from './BottomNavigation';
@@ -85,9 +85,7 @@ export const CSSLayout: React.FC = () => {
                 <Outlet />
               </>
             ) : (
-              <Typography variant="h6">
-                Select an intake performer and a provider in order to begin charting.
-              </Typography>
+              <InfoAlert text="Select an intake performer and a provider in order to begin charting." persistent />
             )}
           </div>
           <BottomNavigation />

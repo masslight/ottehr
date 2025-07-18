@@ -1,6 +1,6 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CloseIcon from '@mui/icons-material/Close';
-import { Box, Grid, IconButton, MenuItem, Stack, TextField, Typography } from '@mui/material';
+import { Box, Grid, IconButton, MenuItem, Skeleton, Stack, TextField, Typography } from '@mui/material';
 import { TypographyOptions } from '@mui/material/styles/createTypography';
 import { styled } from '@mui/system';
 import { enqueueSnackbar } from 'notistack';
@@ -146,7 +146,7 @@ export const Header = (): JSX.Element => {
   );
 
   if (employeesIsFetching) {
-    return <Box sx={{ padding: '16px' }}>Loading...</Box>;
+    return <HeaderSkeleton />;
   }
 
   if (!employees) {
@@ -216,41 +216,48 @@ export const Header = (): JSX.Element => {
                     </PatientMetadata>
                   </Grid>
                   <Grid item>
-                    <Stack direction="row">
-                      <PatientMetadata>Intake: </PatientMetadata>
-                      <TextField
-                        select
-                        fullWidth
-                        sx={{ minWidth: 120 }}
-                        variant="standard"
-                        value={assignedIntakePerformerId ?? ''}
-                        onChange={(e) => {
-                          void handleUpdateIntakeAssignment(e.target.value);
-                        }}
-                      >
-                        {employees.nonProviders?.map((nonProvider) => (
-                          <MenuItem key={nonProvider.practitionerId} value={nonProvider.practitionerId}>
-                            {nonProvider.name}
-                          </MenuItem>
-                        ))}
-                      </TextField>
-                      <PatientMetadata>Provider: </PatientMetadata>
-                      <TextField
-                        select
-                        fullWidth
-                        sx={{ minWidth: 120 }}
-                        variant="standard"
-                        value={assignedProviderId ?? ''}
-                        onChange={(e) => {
-                          void handleUpdateProviderAssignment(e.target.value);
-                        }}
-                      >
-                        {employees.nonProviders?.map((nonProvider) => (
-                          <MenuItem key={nonProvider.practitionerId} value={nonProvider.practitionerId}>
-                            {nonProvider.name}
-                          </MenuItem>
-                        ))}
-                      </TextField>
+                    <Stack direction="row" spacing={2}>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <PatientMetadata>Intake: </PatientMetadata>
+                        <TextField
+                          select
+                          fullWidth
+                          sx={{ minWidth: 120 }}
+                          variant="standard"
+                          value={assignedIntakePerformerId ?? ''}
+                          disabled={isUpdatingPractitionerForIntake}
+                          onChange={(e) => {
+                            void handleUpdateIntakeAssignment(e.target.value);
+                          }}
+                        >
+                          {employees.nonProviders?.map((nonProvider) => (
+                            <MenuItem key={nonProvider.practitionerId} value={nonProvider.practitionerId}>
+                              {nonProvider.name}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                      </Stack>
+
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <PatientMetadata>Provider: </PatientMetadata>
+                        <TextField
+                          select
+                          fullWidth
+                          sx={{ minWidth: 120 }}
+                          variant="standard"
+                          value={assignedProviderId ?? ''}
+                          disabled={isUpdatingPractitionerForProvider}
+                          onChange={(e) => {
+                            void handleUpdateProviderAssignment(e.target.value);
+                          }}
+                        >
+                          {employees.nonProviders?.map((nonProvider) => (
+                            <MenuItem key={nonProvider.practitionerId} value={nonProvider.practitionerId}>
+                              {nonProvider.name}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                      </Stack>
                     </Stack>
                   </Grid>
                 </Grid>
@@ -305,6 +312,79 @@ export const Header = (): JSX.Element => {
                   nextMode={nextMode}
                 />
                 {encounterId ? <InternalNotes encounterId={encounterId} /> : null}
+              </Grid>
+            </Grid>
+          </Grid>
+        </Grid>
+      </Stack>
+    </HeaderWrapper>
+  );
+};
+
+const HeaderSkeleton = (): JSX.Element => {
+  return (
+    <HeaderWrapper>
+      <Stack flexDirection="row">
+        <Box sx={{ width: 70 }} display="flex" alignItems="center" justifyContent="center">
+          <Skeleton sx={{ height: 40, width: 40 }} animation="wave" variant="circular" />
+        </Box>
+        <Grid container spacing={2} sx={{ padding: '0 18px 0 4px' }}>
+          <Grid item xs={12}>
+            <Grid container alignItems="center" justifyContent="space-between">
+              <Grid item>
+                <Grid container alignItems="center" spacing={2}>
+                  <Grid item>
+                    <Skeleton sx={{ width: 120, height: 40 }} animation="wave" />
+                  </Grid>
+                  <Grid item>
+                    <Skeleton sx={{ width: 200 }} animation="wave" variant="text" />
+                  </Grid>
+                  <Grid item>
+                    <Stack direction="row" spacing={2}>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Skeleton sx={{ width: 60 }} animation="wave" variant="text" />
+                        <Skeleton sx={{ width: 120 }} animation="wave" />
+                      </Stack>
+
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Skeleton sx={{ width: 60 }} animation="wave" variant="text" />
+                        <Skeleton sx={{ width: 120 }} animation="wave" />
+                      </Stack>
+                    </Stack>
+                  </Grid>
+                </Grid>
+              </Grid>
+              <Grid item>
+                <Skeleton sx={{ height: 40, width: 40 }} animation="wave" variant="circular" />
+              </Grid>
+            </Grid>
+          </Grid>
+          <Grid item xs={12} sx={{ mt: -2 }}>
+            <Grid container alignItems="center" spacing={2}>
+              <Grid item>
+                <Skeleton sx={{ height: 50, width: 50 }} animation="wave" variant="circular" />
+              </Grid>
+              <Grid item xs>
+                <PatientInfoWrapper>
+                  <Skeleton sx={{ width: 160 }} animation="wave" variant="text" />
+                  <Skeleton sx={{ width: 120 }} animation="wave" variant="text" />
+                </PatientInfoWrapper>
+                <PatientInfoWrapper>
+                  <Skeleton sx={{ width: 120 }} animation="wave" variant="text" />
+                  <Skeleton sx={{ width: 140 }} animation="wave" variant="text" />
+                </PatientInfoWrapper>
+              </Grid>
+              <Grid
+                item
+                sx={{
+                  '@media (max-width: 1179px)': {
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 0.5,
+                  },
+                }}
+              >
+                <Skeleton width={200} height={40} animation="wave" />
               </Grid>
             </Grid>
           </Grid>
