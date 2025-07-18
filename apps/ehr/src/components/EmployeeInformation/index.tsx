@@ -277,7 +277,7 @@ export default function EmployeeInformationForm({
   ) : (
     <Paper sx={{ padding: 3 }}>
       <form onSubmit={handleSubmit(updateUserRequest)} data-testid={dataTestIds.employeesPage.informationForm}>
-        <BasicInformation control={control} existingUser={existingUser} errors={errors} />
+        <BasicInformation control={control} existingUser={existingUser} errors={errors} isActive={isActive} />
 
         <RoleSelection
           control={control}

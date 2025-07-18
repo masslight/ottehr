@@ -9,7 +9,8 @@ import { dataTestIds } from '../../constants/data-test-ids';
 import InputMask from '../InputMask';
 import { BasicInformationProps } from './types';
 
-export function BasicInformation({ control, existingUser }: BasicInformationProps): JSX.Element {
+export function BasicInformation({ control, existingUser, isActive }: BasicInformationProps): JSX.Element {
+  const fieldsDisabled = isActive === false;
   return (
     <>
       <FormLabel sx={{ mb: 1, fontWeight: '600 !important' }}>Employee information</FormLabel>
@@ -20,6 +21,7 @@ export function BasicInformation({ control, existingUser }: BasicInformationProp
           <TextField
             label="First name"
             required
+            disabled={fieldsDisabled}
             data-testid={dataTestIds.employeesPage.firstName}
             value={value || ''}
             onChange={onChange}
@@ -36,6 +38,7 @@ export function BasicInformation({ control, existingUser }: BasicInformationProp
             label="Middle name"
             data-testid={dataTestIds.employeesPage.middleName}
             value={value || ''}
+            disabled={fieldsDisabled}
             onChange={onChange}
             sx={{ marginTop: 2, marginBottom: 1, width: '100%' }}
             margin="dense"
@@ -50,6 +53,7 @@ export function BasicInformation({ control, existingUser }: BasicInformationProp
             label="Last name"
             data-testid={dataTestIds.employeesPage.lastName}
             required
+            disabled={fieldsDisabled}
             value={value || ''}
             onChange={onChange}
             sx={{ marginBottom: 2, width: '100%' }}
@@ -79,6 +83,7 @@ export function BasicInformation({ control, existingUser }: BasicInformationProp
             <DatePicker
               label="Birth date"
               onChange={onChange}
+              disabled={fieldsDisabled}
               slotProps={{
                 textField: {
                   style: { width: '100%' },
@@ -100,6 +105,7 @@ export function BasicInformation({ control, existingUser }: BasicInformationProp
         value={existingUser?.email ?? ''}
         sx={{ marginBottom: 2, width: '100%' }}
         margin="dense"
+        disabled={fieldsDisabled}
         InputProps={{
           readOnly: true,
           disabled: true,
@@ -119,6 +125,7 @@ export function BasicInformation({ control, existingUser }: BasicInformationProp
             label="Phone"
             data-testid={dataTestIds.employeesPage.phone}
             value={value || ''}
+            disabled={fieldsDisabled}
             onChange={onChange}
             error={error?.message !== undefined}
             inputProps={{ mask: '(000) 000-0000' }}
@@ -149,6 +156,7 @@ export function BasicInformation({ control, existingUser }: BasicInformationProp
             data-testid={dataTestIds.employeesPage.fax}
             value={value || ''}
             onChange={onChange}
+            disabled={fieldsDisabled}
             error={error?.message !== undefined}
             sx={{ marginBottom: 2, width: '100%' }}
             inputProps={{ mask: '(000) 000-0000' }}
@@ -171,6 +179,7 @@ export function BasicInformation({ control, existingUser }: BasicInformationProp
             label="Address line 1"
             data-testid={dataTestIds.employeesPage.addressLine1}
             value={value || ''}
+            disabled={fieldsDisabled}
             onChange={onChange}
             sx={{ marginBottom: 2, width: '100%' }}
             margin="dense"
@@ -186,6 +195,7 @@ export function BasicInformation({ control, existingUser }: BasicInformationProp
             data-testid={dataTestIds.employeesPage.addressLine2}
             value={value || ''}
             onChange={onChange}
+            disabled={fieldsDisabled}
             error={error?.message !== undefined}
             helperText={error?.message ?? ''}
             FormHelperTextProps={{
@@ -204,6 +214,7 @@ export function BasicInformation({ control, existingUser }: BasicInformationProp
             label="City"
             data-testid={dataTestIds.employeesPage.addressCity}
             value={value || ''}
+            disabled={fieldsDisabled}
             onChange={onChange}
             sx={{ marginBottom: 2, width: '100%' }}
             margin="dense"
@@ -218,6 +229,7 @@ export function BasicInformation({ control, existingUser }: BasicInformationProp
             label="State"
             data-testid={dataTestIds.employeesPage.addressState}
             value={value || ''}
+            disabled={fieldsDisabled}
             onChange={onChange}
             sx={{ marginBottom: 2, width: '100%' }}
             margin="dense"
@@ -240,6 +252,7 @@ export function BasicInformation({ control, existingUser }: BasicInformationProp
             error={error?.message !== undefined}
             value={value || ''}
             onChange={onChange}
+            disabled={fieldsDisabled}
             helperText={error?.message ?? ''}
             FormHelperTextProps={{
               sx: { ml: 0, mt: 1 },
