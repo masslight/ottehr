@@ -31,7 +31,6 @@ import {
   OrderableItemSearchResult,
   OrderableItemSpecimen,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
-  PRACTITIONER_CODINGS,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   PSC_HOLD_CONFIG,
   RELATED_SPECIMEN_DEFINITION_SYSTEM,
@@ -41,6 +40,7 @@ import {
 import { checkOrCreateM2MClientToken, getMyPractitionerId, topLevelCatch, wrapHandler } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { ZambdaInput } from '../../shared/types';
+import { getAttendingPractitionerId } from '../shared/in-house-labs';
 import { getPrimaryInsurance } from '../shared/labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -68,19 +68,8 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
       );
     }
     console.log('>>> this is the encounter, ', JSON.stringify(encounter, undefined, 2));
-    const attendingPractitionerId = encounter.participant
-      ?.find(
-        (participant) =>
-          participant.type?.find(
-            (type) =>
-              type.coding?.some(
-                (c) =>
-                  c.system === PRACTITIONER_CODINGS.Attender[0].system &&
-                  c.code === PRACTITIONER_CODINGS.Attender[0].code
-              )
-          )
-      )
-      ?.individual?.reference?.replace('Practitioner/', '');
+    const attendingPractitionerId = getAttendingPractitionerId(encounter);
+
     if (!attendingPractitionerId) {
       // this should never happen since theres also a validation on the front end that you cannot submit without one
       throw EXTERNAL_LAB_ERROR(
