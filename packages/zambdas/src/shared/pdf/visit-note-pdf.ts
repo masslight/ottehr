@@ -419,6 +419,27 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
   }
 
   if (
+    (data.inHouseMedications && data.inHouseMedications.length > 0) ||
+    (data.inHouseMedicationsNotes && data.inHouseMedicationsNotes.length > 0)
+  ) {
+    drawBlockHeader('In-House Medications');
+    data.inHouseMedications?.length
+      ? data.inHouseMedications.forEach((record) => {
+          regularText(record);
+        })
+      : regularText('No in-house medications');
+
+    if (data.inHouseMedicationsNotes && data.inHouseMedicationsNotes.length > 0) {
+      drawBlockHeader('In-House Medications notes', textStyles.blockSubHeader);
+      data.inHouseMedicationsNotes.forEach((record) => {
+        regularText(record);
+      });
+    }
+
+    separateLine();
+  }
+
+  if (
     Object.values(data.additionalQuestions).some((value) => value !== '') ||
     data.screening?.seenInLastThreeYears ||
     data.screening?.historyObtainedFrom ||
