@@ -22,6 +22,8 @@ import {
   ASQKeys,
   HISTORY_OBTAINED_FROM_FIELD,
   HistorySourceKeys,
+  PATIENT_VACCINATION_STATUS,
+  PatientVaccinationKeys,
   RecentVisitKeys,
   SEEN_IN_LAST_THREE_YEARS_FIELD,
   VitalBloodPressureObservationMethod,
@@ -241,7 +243,8 @@ export interface ObservationBooleanFieldDTO extends SaveableDTO {
 export type ObservationTextFieldDTO =
   | ObservationHistoryObtainedFromDTO
   | ObservationSeenInLastThreeYearsDTO
-  | ASQObservationDTO;
+  | ASQObservationDTO
+  | PatientVaccinationDTO;
 
 export type ObservationHistoryObtainedFromDTO =
   | CustomOptionObservationHistoryObtainedFromDTO
@@ -261,6 +264,12 @@ export type ListOptionObservationHistoryObtainedFromDTO = {
 export type ObservationSeenInLastThreeYearsDTO = {
   field: typeof SEEN_IN_LAST_THREE_YEARS_FIELD;
   value: RecentVisitKeys;
+} & SaveableDTO;
+
+export type PatientVaccinationDTO = {
+  field: typeof PATIENT_VACCINATION_STATUS;
+  value: PatientVaccinationKeys;
+  note?: string;
 } & SaveableDTO;
 
 export type ASQObservationDTO = {

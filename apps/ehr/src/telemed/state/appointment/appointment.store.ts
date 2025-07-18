@@ -60,7 +60,6 @@ export const useAppointmentStore = create<AppointmentState & AppointmentStoreAct
       const updatedObservation = { ...updatedObservations[existingObservationIndex] };
 
       if (existingObservationIndex !== -1 && 'value' in newObservation) {
-        // @ts-expect-error removing note is a valid for that case
         if (!('note' in newObservation) && 'note' in updatedObservation) delete updatedObservation.note;
 
         updatedObservations[existingObservationIndex] = {
