@@ -39,8 +39,8 @@ import {
 } from 'utils';
 import { checkOrCreateM2MClientToken, getMyPractitionerId, topLevelCatch, wrapHandler } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
+import { getAttendingPractitionerId } from '../../shared/practitioner/helpers';
 import { ZambdaInput } from '../../shared/types';
-import { getAttendingPractitionerId } from '../shared/in-house-labs';
 import { getPrimaryInsurance } from '../shared/labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
