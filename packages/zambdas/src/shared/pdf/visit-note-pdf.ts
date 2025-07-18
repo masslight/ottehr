@@ -301,7 +301,7 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
   }
   drawFieldLine('Address', data.address);
   regularText(
-    'Provider confirmed patient’s name, DOB, introduced themselves, and gave their licensure and credentials.'
+    'Provider confirmed patient’s name, DOB, introduced themselves, and gave  their licensure and credentials.'
   );
   separateLine();
 
