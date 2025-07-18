@@ -133,11 +133,11 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
     } catch (e) {
       const oyError = e as OystehrSdkError;
       console.log('error creating external lab order1', oyError.code, oyError.message);
-      const errorMessage = [oyError.message || 'There was an error submitting the lab order'];
+      const errorMessages = [oyError.message || 'There was an error submitting the lab order'];
       if (oyError.message === ORDER_SUBMITTED_MESSAGE) {
-        errorMessage.push('please refresh this page');
+        errorMessages.push('please refresh this page');
       }
-      setManualSubmitError(errorMessage);
+      setManualSubmitError(errorMessages);
       setSubmitLoading(false);
     }
   };
