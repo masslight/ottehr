@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
+import { useMutation } from '@tanstack/react-query';
 import { Coding, Encounter } from 'fhir/r4b';
-import { useMutation } from 'react-query';
 import { assignPractitioner, unassignPractitioner } from 'src/api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import useEvolveUser, { EvolveUser } from '../../../hooks/useEvolveUser';
@@ -17,17 +17,19 @@ export const usePractitionerActions = (
   );
   const user = useEvolveUser();
 
-  const mutation = useMutation(async () => {
-    try {
-      await handleParticipantPeriod(oystehrZambda, encounter, user, action, practitionerType);
-      await refetchAppointment();
-    } catch (error: any) {
-      throw new Error(error.message);
-    }
+  const mutation = useMutation({
+    mutationFn: async () => {
+      try {
+        await handleParticipantPeriod(oystehrZambda, encounter, user, action, practitionerType);
+        await refetchAppointment();
+      } catch (error: any) {
+        throw new Error(error.message);
+      }
+    },
   });
 
   return {
-    isEncounterUpdatePending: mutation.isLoading,
+    isEncounterUpdatePending: mutation.isPending,
     handleUpdatePractitioner: mutation.mutateAsync,
   };
 };

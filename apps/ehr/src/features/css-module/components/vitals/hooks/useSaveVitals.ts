@@ -1,5 +1,5 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
-import { useQueryClient } from 'react-query';
 import { GetChartDataResponse, VitalsObservationDTO } from 'utils';
 import useEvolveUser from '../../../../../hooks/useEvolveUser';
 import { useOystehrAPIClient } from '../../../../../telemed/hooks/useOystehrAPIClient';
@@ -42,7 +42,7 @@ export const useSaveVitals: UseSaveVitals = ({ encounterId, searchConfig }) => {
             };
           }
           return oldData;
-        });
+        }) as GetChartDataResponse | undefined;
 
         if (result?.[searchConfig.fieldName] === undefined) {
           // refetch all if the cache didn't found

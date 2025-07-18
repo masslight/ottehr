@@ -1,5 +1,5 @@
+import { useMutation } from '@tanstack/react-query';
 import { Patient } from 'fhir/r4b';
-import { useMutation } from 'react-query';
 import { useApiClients } from '../../hooks/useAppClients';
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
@@ -21,9 +21,6 @@ export const useEditPatientNameMutation = () => {
           },
         ],
       });
-    },
-    onError: (err) => {
-      console.error('Error during editing patient name: ', err);
     },
   });
 };

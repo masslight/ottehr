@@ -68,8 +68,8 @@ export const CancelVisitDialog: FC<CancelVisitDialogProps> = ({ onClose, appoint
         ]}
         controlButtons={{
           submitLabel: 'Cancel visit',
-          loading: cancelAppointment.isLoading,
-          submitDisabled: cancelAppointment.isLoading,
+          loading: cancelAppointment.isPending,
+          submitDisabled: cancelAppointment.isPending,
           onBack: handleClose,
         }}
         onSubmit={onSubmit}

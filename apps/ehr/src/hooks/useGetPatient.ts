@@ -1,4 +1,5 @@
 import { BundleEntry } from '@oystehr/sdk';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   Appointment,
   Bundle,
@@ -15,7 +16,6 @@ import {
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
-import { useMutation, useQuery } from 'react-query';
 import { getVisitTypeLabelForAppointment } from 'src/types/types';
 import {
   getFirstName,
@@ -109,7 +109,7 @@ export const useGetPatient = (
             })
             .then((bundle) => bundle.unbundle())
         : undefined,
-    cacheTime: 10000,
+    gcTime: 10000,
     enabled: oystehr != null && id != null,
   });
 
@@ -132,7 +132,7 @@ export const useGetPatient = (
             })
             .then((bundle) => bundle.unbundle())
         : undefined,
-    cacheTime: 10000,
+    gcTime: 10000,
     enabled: oystehr != null && patientResource != null,
   });
 
@@ -238,35 +238,43 @@ export const useGetPatientAccount = (
   },
   onSuccess?: (data: PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getPatientAccount']>>) => void
 ) => {
-  return useQuery(
-    ['patient-account-get', { apiClient, patientId }],
-    () => {
+  const queryResult = useQuery({
+    queryKey: ['patient-account-get', { apiClient, patientId }],
+
+    queryFn: () => {
       return apiClient!.getPatientAccount({
         patientId: patientId!,
       });
     },
-    {
-      onSuccess,
-      onError: (err) => {
-        console.error('Error fetching patient account: ', err);
-      },
-      enabled: apiClient != null && patientId != null,
+
+    enabled: apiClient != null && patientId != null,
+  });
+
+  useEffect(() => {
+    if (queryResult.data && onSuccess) {
+      onSuccess(queryResult.data);
     }
-  );
+  }, [queryResult.data, onSuccess]);
+
+  return queryResult;
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useRemovePatientCoverage = () => {
   const apiClient = useOystehrAPIClient();
 
-  return useMutation(['remove-patient-coverage'], async (input: RemoveCoverageZambdaInput): Promise<void> => {
-    try {
-      if (!apiClient || !input) return;
-      await apiClient.removePatientCoverage(input);
-    } catch (error) {
-      console.error(error);
-      throw error;
-    }
+  return useMutation({
+    mutationKey: ['remove-patient-coverage'],
+
+    mutationFn: async (input: RemoveCoverageZambdaInput): Promise<void> => {
+      try {
+        if (!apiClient || !input) return;
+        await apiClient.removePatientCoverage(input);
+      } catch (error) {
+        console.error(error);
+        throw error;
+      }
+    },
   });
 };
 
@@ -274,9 +282,10 @@ export const useRemovePatientCoverage = () => {
 export const useUpdatePatientAccount = (onSuccess?: () => void) => {
   const apiClient = useOystehrAPIClient();
 
-  return useMutation(
-    ['update-patient-account'],
-    async (questionnaireResponse: QuestionnaireResponse): Promise<void> => {
+  return useMutation({
+    mutationKey: ['update-patient-account'],
+
+    mutationFn: async (questionnaireResponse: QuestionnaireResponse): Promise<void> => {
       try {
         if (!apiClient || !questionnaireResponse) return;
         await apiClient.updatePatientAccount({
@@ -287,22 +296,22 @@ export const useUpdatePatientAccount = (onSuccess?: () => void) => {
         throw error;
       }
     },
-    {
-      onSuccess: () => {
-        enqueueSnackbar('Patient information updated successfully', {
-          variant: 'success',
-        });
-        if (onSuccess) {
-          onSuccess();
-        }
-      },
-      onError: () => {
-        enqueueSnackbar('Save operation failed. The server encountered an error while processing your request.', {
-          variant: 'error',
-        });
-      },
-    }
-  );
+
+    onSuccess: () => {
+      enqueueSnackbar('Patient information updated successfully', {
+        variant: 'success',
+      });
+      if (onSuccess) {
+        onSuccess();
+      }
+    },
+
+    onError: () => {
+      enqueueSnackbar('Save operation failed. The server encountered an error while processing your request.', {
+        variant: 'error',
+      });
+    },
+  });
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
@@ -349,12 +358,18 @@ export const useGetInsurancePlans = (onSuccess: (data: Bundle<Organization>) => 
     };
   };
 
-  return useQuery(['insurance-plans'], fetchAllInsurancePlans, {
-    onSuccess,
-    onError: (err) => {
-      console.error('Error during fetching insurance plans: ', err);
-    },
+  const queryResult = useQuery({
+    queryKey: ['insurance-plans'],
+    queryFn: fetchAllInsurancePlans,
   });
+
+  useEffect(() => {
+    if (queryResult.data && onSuccess) {
+      onSuccess(queryResult.data);
+    }
+  }, [queryResult.data, onSuccess]);
+
+  return queryResult;
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
@@ -363,9 +378,10 @@ export const useGetPatientDetailsUpdateForm = (onSuccess?: (data: Questionnaire)
 
   const [url, version] = updateQRUrl.split('|');
 
-  return useQuery(
-    ['patient-update-form'],
-    async () => {
+  const queryResult = useQuery({
+    queryKey: ['patient-update-form'],
+
+    queryFn: async () => {
       if (oystehr) {
         const searchResults = (
           await oystehr.fhir.search<Questionnaire>({
@@ -391,12 +407,15 @@ export const useGetPatientDetailsUpdateForm = (onSuccess?: (data: Questionnaire)
         throw new Error('FHIR client not defined');
       }
     },
-    {
-      enabled: Boolean(oystehr) && Boolean(updateQRUrl),
-      onSuccess,
-      onError: (err) => {
-        console.error('Error during patient update form: ', err);
-      },
+
+    enabled: Boolean(oystehr) && Boolean(updateQRUrl),
+  });
+
+  useEffect(() => {
+    if (queryResult.data && onSuccess) {
+      onSuccess(queryResult.data);
     }
-  );
+  }, [queryResult.data, onSuccess]);
+
+  return queryResult;
 };

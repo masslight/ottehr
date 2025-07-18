@@ -77,7 +77,7 @@ export const PatientsMergeSelect: FC<PatientsMergeSelectProps> = (props) => {
     }
   };
 
-  const disabled = isFetching || getPatientById.isLoading;
+  const disabled = isFetching || getPatientById.isPending;
 
   return (
     <Dialog open={open} onClose={close} maxWidth="lg" fullWidth>
@@ -110,7 +110,7 @@ export const PatientsMergeSelect: FC<PatientsMergeSelectProps> = (props) => {
           InputProps={{
             endAdornment: (
               <InputAdornment position="end">
-                {getPatientById.isLoading ? <CircularProgress size={24} color="inherit" /> : <SearchIcon />}
+                {getPatientById.isPending ? <CircularProgress size={24} color="inherit" /> : <SearchIcon />}
               </InputAdornment>
             ),
           }}

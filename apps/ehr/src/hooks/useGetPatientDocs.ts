@@ -1,9 +1,9 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { SearchParam } from '@oystehr/sdk';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DocumentReference, FhirResource, List, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { useCallback, useState } from 'react';
-import { useQuery, useQueryClient } from 'react-query';
+import { useCallback, useEffect, useState } from 'react';
 import { chooseJson } from 'utils';
 import { getPresignedFileUrl, parseFileExtension } from '../helpers/files.helper';
 import { useApiClients } from './useAppClients';
@@ -212,9 +212,10 @@ const useGetPatientDocsFolders = (
   onSuccess: (data: PatientDocumentsFolder[]) => void
 ) => {
   const { oystehr } = useApiClients();
-  return useQuery(
-    [QUERY_KEYS.GET_PATIENT_DOCS_FOLDERS, { patientId }],
-    async () => {
+  const queryResult = useQuery({
+    queryKey: [QUERY_KEYS.GET_PATIENT_DOCS_FOLDERS, { patientId }],
+
+    queryFn: async () => {
       if (!oystehr) {
         throw new Error('useGetDocsFolders() oystehr client not defined');
       }
@@ -234,42 +235,43 @@ const useGetPatientDocsFolders = (
         })
       ).unbundle();
     },
-    {
-      onSuccess: (searchResultsResources: FhirResource[]) => {
-        const listResources =
-          searchResultsResources
-            ?.filter((resource: FhirResource) => resource.resourceType === 'List' && resource.status === 'current')
-            ?.map((listResource: FhirResource) => listResource as List) ?? [];
+  });
 
-        const patientFoldersResources = listResources.filter((listResource: List) =>
-          Boolean(listResource.code?.coding?.find((folderCoding) => folderCoding.code === PATIENT_FOLDERS_CODE))
+  useEffect(() => {
+    if (queryResult.data && onSuccess) {
+      const searchResultsResources: FhirResource[] = queryResult.data;
+      const listResources =
+        searchResultsResources
+          ?.filter((resource: FhirResource) => resource.resourceType === 'List' && resource.status === 'current')
+          ?.map((listResource: FhirResource) => listResource as List) ?? [];
+
+      const patientFoldersResources = listResources.filter((listResource: List) =>
+        Boolean(listResource.code?.coding?.find((folderCoding) => folderCoding.code === PATIENT_FOLDERS_CODE))
+      );
+
+      const docsFolders = patientFoldersResources.map((listRes) => {
+        const folderName = listRes.code?.coding?.find((folderCoding) => folderCoding.code === PATIENT_FOLDERS_CODE)
+          ?.display;
+        const docRefs: DocRef[] = (listRes.entry ?? []).map(
+          (entry) =>
+            ({
+              reference: entry.item,
+            }) as DocRef
         );
 
-        const docsFolders = patientFoldersResources.map((listRes) => {
-          const folderName = listRes.code?.coding?.find((folderCoding) => folderCoding.code === PATIENT_FOLDERS_CODE)
-            ?.display;
-          const docRefs: DocRef[] = (listRes.entry ?? []).map(
-            (entry) =>
-              ({
-                reference: entry.item,
-              }) as DocRef
-          );
+        return {
+          id: listRes.id!,
+          folderName: folderName,
+          documentsCount: docRefs.length,
+          documentsRefs: docRefs,
+        } as PatientDocumentsFolder;
+      });
 
-          return {
-            id: listRes.id!,
-            folderName: folderName,
-            documentsCount: docRefs.length,
-            documentsRefs: docRefs,
-          } as PatientDocumentsFolder;
-        });
-
-        onSuccess(docsFolders);
-      },
-      onError: (err) => {
-        console.error('useGetPatientDocsFolders() ERROR', err);
-      },
+      onSuccess(docsFolders);
     }
-  );
+  }, [queryResult.data, onSuccess]);
+
+  return queryResult;
 };
 
 /**
@@ -288,8 +290,8 @@ const useSearchPatientDocuments = (
 ) => {
   const docCreationDate = filters?.dateAdded?.toFormat('yyyy-MM-dd');
   const { oystehr } = useApiClients();
-  return useQuery(
-    [
+  const queryResult = useQuery({
+    queryKey: [
       QUERY_KEYS.GET_SEARCH_PATIENT_DOCUMENTS,
       {
         patientId,
@@ -298,7 +300,8 @@ const useSearchPatientDocuments = (
         docFolderId: filters?.documentsFolder?.id,
       },
     ],
-    async () => {
+
+    queryFn: async () => {
       if (!oystehr) throw new Error('useSearchPatientDocuments() oystehr not defined');
       if (!patientId) throw new Error('useSearchPatientDocuments() patientId not defined');
 
@@ -321,38 +324,39 @@ const useSearchPatientDocuments = (
         })
       ).unbundle();
     },
-    {
-      onSuccess: (searchResultsResources: FhirResource[]) => {
-        console.log(`useSearchPatientDocuments() search results cnt=[${searchResultsResources.length}]`);
+  });
 
-        //&& resource.status === 'current'
-        const docRefsResources =
-          searchResultsResources
-            ?.filter((resource: FhirResource) => resource.resourceType === 'DocumentReference')
-            ?.map((docRefResource: FhirResource) => docRefResource as DocumentReference) ?? [];
+  useEffect(() => {
+    if (queryResult.data && onSuccess) {
+      const searchResultsResources: FhirResource[] = queryResult.data;
+      console.log(`useSearchPatientDocuments() search results cnt=[${searchResultsResources.length}]`);
 
-        const documents = docRefsResources.map((docRef) => {
-          const docName = debug__createDisplayedDocumentName(docRef);
-          const attachments = extractDocumentAttachments(docRef);
+      //&& resource.status === 'current'
+      const docRefsResources =
+        searchResultsResources
+          ?.filter((resource: FhirResource) => resource.resourceType === 'DocumentReference')
+          ?.map((docRefResource: FhirResource) => docRefResource as DocumentReference) ?? [];
 
-          return {
-            id: docRef.id!,
-            docName: docName,
-            whenAddedDate: docRef.date,
-            attachments: attachments,
-          } as PatientDocumentInfo;
-        });
+      const documents = docRefsResources.map((docRef) => {
+        const docName = debug__createDisplayedDocumentName(docRef);
+        const attachments = extractDocumentAttachments(docRef);
 
-        //TODO: remove when _text search will be available
-        const resultDocuments = debug__mimicTextNarrativeDocumentsFilter(documents, filters);
+        return {
+          id: docRef.id!,
+          docName: docName,
+          whenAddedDate: docRef.date,
+          attachments: attachments,
+        } as PatientDocumentInfo;
+      });
 
-        onSuccess(resultDocuments);
-      },
-      onError: (err) => {
-        console.error('useSearchPatientDocuments() ERROR', err);
-      },
+      //TODO: remove when _text search will be available
+      const resultDocuments = debug__mimicTextNarrativeDocumentsFilter(documents, filters);
+
+      onSuccess(resultDocuments);
     }
-  );
+  }, [queryResult.data, onSuccess, filters]);
+
+  return queryResult;
 };
 
 const extractDocumentAttachments = (docRef: DocumentReference): PatientDocumentAttachment[] => {
@@ -457,8 +461,12 @@ const usePatientDocsActions = ({ patientId }: { patientId: string }): UsePatient
         console.log('Z3 file uploading SUCCESS');
 
         await Promise.all([
-          queryClient.refetchQueries([QUERY_KEYS.GET_PATIENT_DOCS_FOLDERS, { patientId }]),
-          queryClient.refetchQueries([QUERY_KEYS.GET_SEARCH_PATIENT_DOCUMENTS, { patientId }]),
+          queryClient.refetchQueries({
+            queryKey: [QUERY_KEYS.GET_PATIENT_DOCS_FOLDERS, { patientId }],
+          }),
+          queryClient.refetchQueries({
+            queryKey: [QUERY_KEYS.GET_SEARCH_PATIENT_DOCUMENTS, { patientId }],
+          }),
         ]);
 
         return {

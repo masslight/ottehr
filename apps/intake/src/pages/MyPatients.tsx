@@ -1,9 +1,9 @@
 // cSpell:ignore tokenful
 import { CircularProgress } from '@mui/material';
+import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FieldValues } from 'react-hook-form';
-import { useQuery } from 'react-query';
 import { generatePath, Outlet, useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import { APIError, getPatientInfoFullName, isApiError, PatientInfo } from 'utils';
 import ottehrApi from '../api/ottehrApi';
@@ -13,6 +13,8 @@ import { ErrorDialog } from '../components/ErrorDialog';
 import PatientList from '../features/patients/components/selectable-list';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 
+const emptyPatients = { patients: [] };
+
 const MyPatients = (): JSX.Element => {
   const navigate = useNavigate();
   const tokenfulZambdaClient = useUCZambdaClient({ tokenless: false });
@@ -21,30 +23,25 @@ const MyPatients = (): JSX.Element => {
   const params = useParams();
   const isRoot = !params.patientId;
 
-  const {
-    data: patientsData,
-    isLoading: patientsLoading,
-    isFetching: patientsFetching,
-    isRefetching: patientsRefetching,
-  } = useQuery(
-    ['get-patients', { zambdaClient: tokenfulZambdaClient }],
-    () => (tokenfulZambdaClient ? ottehrApi.getPatients(tokenfulZambdaClient) : null),
-    {
-      onSuccess: (response) => {
-        console.log('get patients response:', response);
-      },
-      onError: (error) => {
-        console.log('get patients error:', error);
-        setErrorForAlert(error);
-      },
-      enabled: Boolean(tokenfulZambdaClient),
-    }
-  );
+  const queryResult = useQuery({
+    queryKey: ['get-patients'],
+    queryFn: () => (tokenfulZambdaClient ? ottehrApi.getPatients(tokenfulZambdaClient) : null),
 
-  const patientsLoadingInSomeWay = patientsLoading || patientsFetching || patientsRefetching;
+    enabled: Boolean(tokenfulZambdaClient),
+  });
+
+  const patientsData = queryResult.data || emptyPatients;
+
+  useEffect(() => {
+    if (queryResult.error) {
+      setErrorForAlert(queryResult.error);
+    }
+  }, [queryResult.error, setErrorForAlert]);
+
+  const patientsLoadingInSomeWay = queryResult.isLoading;
 
   const { selectedPatient, patientFullName, formattedPatientBirthDay } = useMemo(() => {
-    const selectedPatient = patientsData?.patients.find((patient) => patient.id === params.patientId);
+    const selectedPatient = patientsData?.patients.find((patient: PatientInfo) => patient.id === params.patientId);
     const patientFullName = selectedPatient ? getPatientInfoFullName(selectedPatient) : 'Unknown Patient';
     let formattedPatientBirthDay = '';
     if (selectedPatient?.dateOfBirth) {
@@ -93,7 +90,7 @@ const MyPatients = (): JSX.Element => {
     <PageContainer title={selectedPatient ? patientFullName : 'My patients'} subtext={formattedPatientBirthDay}>
       {isRoot && (
         <PatientList
-          patients={patientsData?.patients ?? []}
+          patients={patientsData.patients}
           subtitle="Choose a patient to see their past visits"
           pastVisits={true}
           bottomMessage={bottomMessage}
@@ -104,7 +101,7 @@ const MyPatients = (): JSX.Element => {
       {!isRoot && (
         <Outlet
           context={{
-            patients: patientsData?.patients ?? [],
+            patients: patientsData.patients,
             loading: patientsLoadingInSomeWay,
             selectedPatient,
             patientFullName,
