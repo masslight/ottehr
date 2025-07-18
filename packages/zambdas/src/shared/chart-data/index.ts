@@ -248,7 +248,7 @@ export function makeMedicationDTO(medication: MedicationStatement): MedicationDT
     name: medication.medicationCodeableConcept?.coding?.[0].display || '',
     type: medication.dosage?.[0].asNeededBoolean ? 'as-needed' : 'scheduled',
     intakeInfo: {
-      dose: medication.dosage?.[0].text || '',
+      dose: getMedicationDosage(medication),
       date: medication.effectiveDateTime,
     },
     status: ['active', 'completed'].includes(medication.status)
@@ -1504,4 +1504,9 @@ function getCode(codeableConcept: CodeableConcept | CodeableConcept[] | undefine
 
 function getExtension(resource: DomainResource, url: string): Extension | undefined {
   return resource.extension?.find((extension) => extension.url === url);
+}
+
+function getMedicationDosage(medication: MedicationStatement): string | undefined {
+  const doseQuantity = medication.dosage?.[0].doseAndRate?.[0].doseQuantity;
+  return `${doseQuantity?.value}${doseQuantity?.unit}`;
 }
