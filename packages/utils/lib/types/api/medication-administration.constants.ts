@@ -12,6 +12,7 @@ export const MEDICATION_DISPENSABLE_DRUG_ID =
 export const MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM = 'performer-type';
 export const PRACTITIONER_ORDERED_MEDICATION_CODE = 'practitioner-ordered-medication';
 export const PRACTITIONER_ADMINISTERED_MEDICATION_CODE = 'practitioner-administered-medication';
+export const PRACTITIONER_ORDERED_BY_MEDICATION_CODE = 'practitioner-ordered-by-medication';
 export const MEDICATION_ADMINISTRATION_UNITS_SYSTEM = 'http://unitsofmeasure.org';
 export const MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM = 'http://hl7.org/fhir/ValueSet/route-codes';
 
