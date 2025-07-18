@@ -163,7 +163,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   if (isError || resourceFetchError) {
     return (
       <DetailPageContainer>
-        <LabBreadcrumbs sectionName="Order Lab">
+        <LabBreadcrumbs sectionName="Order External Lab">
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h4" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
               Order External Lab
