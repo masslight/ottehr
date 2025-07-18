@@ -67,7 +67,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
         'Resource configuration error - user creating this external lab order must have a Practitioner resource linked'
       );
     }
-    console.log('>>> this is the encounter, ', JSON.stringify(encounter, undefined, 2));
+
     const attendingPractitionerId = getAttendingPractitionerId(encounter);
 
     if (!attendingPractitionerId) {

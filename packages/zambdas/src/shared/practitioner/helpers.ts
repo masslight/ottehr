@@ -88,7 +88,7 @@ export const getVisitResources = async (
   };
 };
 
-export function getAttendingPractitionerId(encounter: Encounter): string {
+export function getAttendingPractitionerId(encounter: Encounter): string | undefined {
   const practitionerId = encounter.participant
     ?.find(
       (participant) =>
@@ -102,6 +102,5 @@ export function getAttendingPractitionerId(encounter: Encounter): string {
     )
     ?.individual?.reference?.replace('Practitioner/', '');
 
-  if (!practitionerId) throw Error('Attending practitioner not found');
   return practitionerId;
 }
