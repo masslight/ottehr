@@ -14,12 +14,20 @@ import {
   SecretsKeys,
   TIMEZONE_EXTENSION_URL,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  topLevelCatch,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../shared';
 import { validateUpdateScheduleParameters } from '../shared';
 
 let m2mToken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+const ZAMBDA_NAME = 'create-schedule';
+
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
@@ -41,7 +49,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
     return topLevelCatch('create-schedule', error, ENVIRONMENT);
   }
-};
+});
 
 const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Schedule> => {
   const { schedule } = input;

@@ -5,6 +5,7 @@ import { Appointment, Encounter, Location, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ApptTab } from 'src/components/AppointmentTabs';
 import {
+  getAppointmentMetaTagOpForStatusUpdate,
   getEncounterStatusHistoryUpdateOp,
   getPatchBinary,
   InPersonAppointmentInformation,
@@ -12,7 +13,6 @@ import {
   PROJECT_NAME,
 } from 'utils';
 import { EvolveUser } from '../hooks/useEvolveUser';
-import { CRITICAL_CHANGE_SYSTEM } from './activityLogsUtils';
 import { getCriticalUpdateTagOp } from './activityLogsUtils';
 import { formatDateUsingSlashes, getTimezone } from './formatDateTime';
 
@@ -31,36 +31,6 @@ export const messageIsFromPatient = (message: Message): boolean => {
   return message.author?.startsWith('+') ?? false;
 };
 
-const getCheckInNeededTagsPatchOperation = (appointment: Appointment, user: EvolveUser | undefined): Operation => {
-  const criticalUpdateTagCoding = {
-    system: CRITICAL_CHANGE_SYSTEM,
-    display: `Staff ${user?.email ? user.email : `(${user?.id})`}`,
-    version: DateTime.now().toISO() || '',
-  };
-
-  const meta = appointment.meta;
-  if (meta) {
-    let op: 'add' | 'replace' = 'add';
-    const value = (meta.tag ?? []).filter((coding) => coding.system !== CRITICAL_CHANGE_SYSTEM);
-    if (meta.tag != undefined) {
-      op = 'replace';
-    }
-    value.push(criticalUpdateTagCoding);
-    return {
-      op,
-      path: '/meta/tag',
-      value,
-    };
-  } else {
-    const value = { tag: [criticalUpdateTagCoding] };
-    return {
-      op: 'add',
-      path: '/meta',
-      value,
-    };
-  }
-};
-
 export const checkInPatient = async (
   oystehr: Oystehr,
   appointmentId: string,
@@ -75,7 +45,10 @@ export const checkInPatient = async (
     resourceType: 'Encounter',
     id: encounterId,
   });
-  const metaPatchOperation = getCheckInNeededTagsPatchOperation(appointmentToUpdate, user);
+  const checkedInBy = `Staff ${user?.email ? user.email : `(${user?.id})`}`;
+  const metaPatchOperations = getAppointmentMetaTagOpForStatusUpdate(appointmentToUpdate, 'arrived', {
+    updatedByOverride: checkedInBy,
+  });
 
   const encounterStatusHistoryUpdate: Operation = getEncounterStatusHistoryUpdateOp(encounterToUpdate, 'arrived');
 
@@ -90,7 +63,7 @@ export const checkInPatient = async (
       getPatchBinary({
         resourceId: appointmentId,
         resourceType: 'Appointment',
-        patchOperations: [patchOp, metaPatchOperation],
+        patchOperations: [patchOp, ...metaPatchOperations],
       }),
       getPatchBinary({
         resourceId: encounterId,

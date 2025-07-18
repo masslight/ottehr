@@ -9,7 +9,7 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getSecret, Secrets, SecretsKeys } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, ZambdaInput } from '../../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
 import {
   ACCESSION_NUMBER_CODE_SYSTEM,
   ADVAPACS_FHIR_BASE_URL,
@@ -34,7 +34,9 @@ export interface ValidatedInput {
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
 
-export const index = async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
+const ZAMBDA_NAME = 'radiology-pacs-webhook';
+
+export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.log('Received input body: ', JSON.stringify(unsafeInput.body, null, 2));
 
@@ -60,7 +62,7 @@ export const index = async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyRe
       body: JSON.stringify({ error: error.message }),
     };
   }
-};
+});
 
 const accessCheck = async (headers: any, secrets: Secrets): Promise<void> => {
   if (headers == null || !headers.Authorization) {
