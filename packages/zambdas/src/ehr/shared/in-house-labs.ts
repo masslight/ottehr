@@ -26,7 +26,13 @@ export function getAttendingPractitionerId(encounter: Encounter): string {
   const practitionerId = encounter.participant
     ?.find(
       (participant) =>
-        participant.type?.find((type) => type.coding?.some((c) => c.system === PRACTITIONER_CODINGS.Attender[0].system))
+        participant.type?.find(
+          (type) =>
+            type.coding?.some(
+              (c) =>
+                c.system === PRACTITIONER_CODINGS.Attender[0].system && c.code === PRACTITIONER_CODINGS.Attender[0].code
+            )
+        )
     )
     ?.individual?.reference?.replace('Practitioner/', '');
 
