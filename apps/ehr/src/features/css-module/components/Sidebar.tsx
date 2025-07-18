@@ -246,15 +246,10 @@ export const Sidebar = (): JSX.Element => {
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
   const { appointment, encounter } = telemedData;
   const status = appointment && encounter ? getVisitStatus(appointment, encounter) : undefined;
-  const { isEncounterUpdatePending, handleUpdatePractitioner } = usePractitionerActions(
-    encounter,
-    'end',
-    PRACTITIONER_CODINGS.Admitter
-  );
+  const { isEncounterUpdatePending } = usePractitionerActions(encounter, 'end', PRACTITIONER_CODINGS.Admitter);
 
   const handleCompleteIntake = async (): Promise<void> => {
     try {
-      await handleUpdatePractitioner();
       await refetch();
     } catch (error: any) {
       console.log(error.message);
