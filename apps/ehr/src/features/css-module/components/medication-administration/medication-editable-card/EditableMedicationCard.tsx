@@ -22,6 +22,7 @@ import { getEditOrderUrl } from '../../../routing/helpers';
 import { ROUTER_PATH, routesCSS } from '../../../routing/routesCSS';
 import { CSSModal } from '../../CSSModal';
 import { InteractionAlertsDialog } from '../InteractionAlertsDialog';
+import { interactionsSummary } from '../util';
 import { fieldsConfig, MedicationOrderType } from './fieldsConfig';
 import { MedicationCardView } from './MedicationCardView';
 import {
@@ -362,19 +363,8 @@ export const EditableMedicationCard: React.FC<{
       return 'checking...';
     } else if (erxStatus === ERXStatus.ERROR || interactionsCheckState.status === 'error') {
       return 'Drug-to-Drug and Drug-Allergy interaction check failed. Please review manually.';
-    } else if (interactionsCheckState.status === 'done') {
-      const names: string[] = [];
-      interactionsCheckState.interactions?.drugInteractions
-        ?.flatMap((drugInteraction) => {
-          return drugInteraction.drugs.map((drug) => drug.name);
-        })
-        ?.forEach((name) => names.push(name));
-      if ((interactionsCheckState.interactions?.allergyInteractions?.length ?? 0) > 0) {
-        names.push('Allergy');
-      }
-      if (names.length > 0) {
-        return names.join(', ');
-      }
+    } else if (interactionsCheckState.status === 'done' && interactionsCheckState.interactions) {
+      return interactionsSummary(interactionsCheckState.interactions);
     }
     return undefined;
   }, [
