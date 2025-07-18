@@ -1,98 +1,67 @@
 import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
-import { Coding, Encounter, PractitionerRole } from 'fhir/r4b';
+import { Coding, Encounter } from 'fhir/r4b';
 import { getPatchBinary } from 'utils';
-import { EncounterPackage } from '../../../shared/practitioner/types';
 
 export const assignPractitionerIfPossible = async (
   oystehr: Oystehr,
-  resourcesToUpdate: EncounterPackage,
+  encounter: Encounter,
   practitionerId: string,
-  userRole: Coding[],
-  practitionerRole?: PractitionerRole
+  userRole: Coding[]
 ): Promise<void> => {
-  if (!resourcesToUpdate.encounter?.id || !practitionerId) {
+  if (!encounter.id || !practitionerId) {
     throw new Error('Invalid Encounter or Practitioner ID');
   }
 
-  const encounterPatchOp: Operation[] = [];
-
-  const assignPractitionerOp = await getAssignPractitionerToEncounterOperation(
-    resourcesToUpdate.encounter,
-    practitionerId,
-    userRole,
-    practitionerRole
-  );
-  if (assignPractitionerOp) {
-    encounterPatchOp.push(...assignPractitionerOp);
-  }
-
-  if (encounterPatchOp.length > 0) {
-    await oystehr.fhir.transaction({
-      requests: [
-        getPatchBinary({
-          resourceType: 'Encounter',
-          resourceId: resourcesToUpdate.encounter.id!,
-          patchOperations: encounterPatchOp,
-        }),
-      ],
-    });
-  }
+  await oystehr.fhir.transaction({
+    requests: [
+      getPatchBinary({
+        resourceType: 'Encounter',
+        resourceId: encounter.id,
+        patchOperations: await getAssignPractitionerToEncounterOperation(encounter, practitionerId, userRole),
+      }),
+    ],
+  });
 };
 
 const getAssignPractitionerToEncounterOperation = async (
   encounter: Encounter,
   practitionerId: string,
-  userRole: Coding[],
-  practitionerRole?: PractitionerRole
-): Promise<Operation[] | undefined> => {
+  userRole: Coding[]
+): Promise<Operation[]> => {
   const now = new Date().toISOString();
   const participants = encounter.participant;
-  const individualReference = practitionerRole
-    ? `PractitionerRole/${practitionerRole.id}`
-    : `Practitioner/${practitionerId}`;
+  const individualReference = `Practitioner/${practitionerId}`;
 
+  const newParticipant = {
+    individual: { reference: individualReference },
+    period: { start: now },
+    type: [{ coding: userRole }],
+  };
+
+  // Empty participants case, 'add' operation.
   if (!participants || participants.length === 0) {
     return [
       {
         op: 'add',
         path: '/participant',
-        value: [
-          {
-            individual: { reference: individualReference },
-            period: { start: now },
-            type: [{ coding: userRole }],
-          },
-        ],
+        value: [newParticipant],
       },
     ];
   }
 
-  const existingParticipantIndex = participants.findIndex((participant) => {
-    const matchIndividualReference = participant.individual?.reference === individualReference;
-    const matchUserRole = Array.isArray(userRole)
-      ? participant.type?.some(
-          (type) =>
-            type.coding?.some((coding) =>
-              userRole.some((role) => role.code === coding.code || role.display === coding.display)
-            )
-        )
-      : participant.type?.some((type) => type.coding?.some((coding) => coding === userRole));
-
-    return matchIndividualReference && matchUserRole;
+  // If participants exist, we need to check if someone already has this same role and remove them and add the new person.
+  const participantsExcludingThoseWithRoleWeAreTaking = participants?.filter((participant) => {
+    return participant.type?.some((type) => {
+      return type.coding?.some((coding) => coding.code !== userRole[0].code);
+    });
   });
 
-  return existingParticipantIndex === -1
-    ? [
-        {
-          op: 'add',
-          path: '/participant/',
-          value: {
-            individual: { reference: individualReference },
-            period: { start: now },
-            type: [{ coding: userRole }],
-          },
-        },
-      ]
-    : [];
+  return [
+    {
+      op: 'replace',
+      path: `/participant`,
+      value: [...participantsExcludingThoseWithRoleWeAreTaking, newParticipant],
+    },
+  ];
 };

@@ -1,8 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Coding, Encounter, PractitionerRole } from 'fhir/r4b';
-import { AssignPractitionerInput, AssignPractitionerResponse } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { AssignPractitionerInput, AssignPractitionerResponse, getSecret, SecretsKeys } from 'utils';
+import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { getVisitResources } from '../../shared/practitioner/helpers';
 import { assignPractitionerIfPossible } from './helpers/helpers';
@@ -26,8 +26,8 @@ export const index = wrapHandler('assign-practitioner', async (input: ZambdaInpu
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    console.error('Stringified error: ' + JSON.stringify(error));
-    console.error('Error: ' + error);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('assign-practitioner', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify({ message: 'Error assigning encounter participant' }),
@@ -53,14 +53,13 @@ export const complexValidation = async (
     throw new Error(`Visit resources are not properly defined for encounter ${encounterId}`);
   }
 
-  const { encounter, appointment, practitionerRole } = visitResources;
+  const { encounter, appointment } = visitResources;
 
   if (!encounter?.id) throw new Error('Encounter not found');
 
   return {
     encounter,
     appointment,
-    practitionerRole,
     practitionerId,
     userRole,
   };
@@ -71,18 +70,15 @@ export const performEffect = async (
   validatedData: {
     encounter: Encounter;
     appointment: Appointment;
-    practitionerRole?: PractitionerRole;
     practitionerId: string;
     userRole: Coding[];
   }
 ): Promise<AssignPractitionerResponse> => {
-  const { encounter, appointment, practitionerRole, practitionerId, userRole } = validatedData;
+  const { encounter, practitionerId, userRole } = validatedData;
 
-  await assignPractitionerIfPossible(oystehr, { encounter, appointment, practitionerRole }, practitionerId, userRole);
+  await assignPractitionerIfPossible(oystehr, encounter, practitionerId, userRole);
 
   return {
-    message: `Successfully assigned practitioner with ID ${
-      practitionerRole ? practitionerRole.id : practitionerId
-    } to encounter ${encounter.id}.`,
+    message: `Successfully assigned practitioner with ID ${practitionerId} to encounter ${encounter.id}.`,
   };
 };
