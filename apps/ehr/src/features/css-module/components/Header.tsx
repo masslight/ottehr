@@ -128,7 +128,10 @@ export const Header = (): JSX.Element => {
             name: `${prov.firstName} ${prov.lastName}`,
           };
         });
-        const nonProviders = getEmployeesRes.employees.filter((employee) => !employee.isProvider);
+
+        // TODO: remove this once we have nurses role
+        // const nonProviders = getEmployeesRes.employees.filter((employee) => !employee.isProvider);
+        const nonProviders = getEmployeesRes.employees;
         const formattedNonProviders: ProviderDetails[] = nonProviders.map((prov) => {
           const id = prov.profile.split('/')[1];
           return {
