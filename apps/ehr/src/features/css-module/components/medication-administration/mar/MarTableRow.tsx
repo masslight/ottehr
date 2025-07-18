@@ -103,7 +103,7 @@ export const MarTableRow: React.FC<MarTableRowProps> = ({ medication, columnStyl
         {searchRouteByCode(medication.route)?.display || '-'}
       </TableCell>
       <TableCell sx={columnStyles.orderDateTime}>{formatOrderDateTime}</TableCell>
-      <TableCell sx={columnStyles.orderDateTime}>{medication.providerCreatedTheOrder}</TableCell>
+      <TableCell sx={columnStyles.orderDateTime}>{medication.orderedByProvider}</TableCell>
       {!isPending && (
         <>
           <TableCell sx={columnStyles.orderDateTime}>{formatGivenDateTime}</TableCell>

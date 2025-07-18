@@ -283,6 +283,16 @@ export const EditableMedicationCard: React.FC<{
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const defaultProviderValue = selectsOptions.providerId.defaultOption?.value;
+  const currentProviderValue = getFieldValue('providerId');
+  const wasProvidedByFieldTouched = useRef(false);
+  if (currentProviderValue) wasProvidedByFieldTouched.current = true;
+  useEffect(() => {
+    if (!wasProvidedByFieldTouched.current && !currentProviderValue && defaultProviderValue) {
+      setLocalValues((prev) => ({ ...prev, providerId: defaultProviderValue }));
+    }
+  }, [defaultProviderValue, currentProviderValue]);
+
   const runInteractionsCheck = useCallback(
     async (medicationId: string, medicationHistory: MedicationWithTypeDTO[]) => {
       if (oystehr == null) {
