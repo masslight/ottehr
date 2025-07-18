@@ -1,5 +1,5 @@
 import { QuestionnaireResponseItem } from 'fhir/r4b';
-import { useEffect, useMemo, useState } from 'react';
+import { useLayoutEffect, useMemo } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { IntakeQuestionnaireItem } from 'utils';
 import { getPaperworkFieldId, useQRState } from './useFormHelpers';
@@ -61,85 +61,46 @@ interface AutofillInputs {
 export const useAutoFillValues = (input: AutofillInputs): void => {
   const { questionnaireItems, fieldId, parentItem } = input;
   const { formValues, allFields } = useQRState();
-  // console.log('all fields', allFields);
-  const [replacedValues, setReplacedValues] = useState<{ id: string; value: string }[]>([]);
+  const { getValues, setValue } = useFormContext();
 
-  const itemsToFill = useMemo(() => {
+  const visibleItemsToFill = useMemo(() => {
+    if (!allFields) return [];
+
     return questionnaireItems.filter((qi) => {
-      if (!allFields) {
-        return false;
-      }
-      // console.log('allFields use items to auto fill', allFields);
+      console.log('allFields use items to auto fill', allFields);
       const displayStrategy = getItemDisplayStrategy(qi, questionnaireItems, allFields);
-      if (displayStrategy === 'hidden' || displayStrategy === 'protected') {
-        return qi.autofillFromWhenDisabled !== undefined;
-      }
-      return false;
+      return displayStrategy === 'enabled' && !!qi.autofillFromWhenDisabled;
     });
   }, [allFields, questionnaireItems]);
-  const { getValues, setValue } = useFormContext();
-  return useEffect(() => {
-    // console.log('autofill effect fired', itemsToFill, Object.entries(replacedValues.current));
-    if (itemsToFill.length === 0) {
-      replacedValues.forEach((val) => {
-        const pathNodes = val.id.split('.');
-        const currentVal = pathNodes.reduce((accum, current) => {
-          if (accum === undefined) {
-            return undefined;
-          }
-          const newVal = (accum as any)[current];
-          if (newVal) {
-            return newVal;
-          }
-          return (accum.item ?? []).find((i: any) => i?.linkId && i.linkId === current);
-        }, allFields as any);
-        // console.log('autofill currentVal', currentVal);
-        // const currentVal = allFields[key];
-        // console.log('new val, current val', newVal, currentVal);
-        if (currentVal?.answer !== undefined || currentVal?.item !== undefined) {
-          // console.log('autofill unsetting a value', val || undefined);
-          setValue(val.id, val.value);
-          setReplacedValues((rp) => {
-            return rp.filter((v) => v.id !== val.id);
-          });
-        }
-      });
+
+  useLayoutEffect(() => {
+    if (visibleItemsToFill.length === 0) {
       return;
     }
-    let shouldUpdateValue = false;
-    itemsToFill.forEach((item) => {
-      const autofillSource = item.autofillFromWhenDisabled; // the name of the field that's the source of the auto fill value
-      if (!autofillSource) {
-        return;
-      }
-      const autofillValue = allFields[autofillSource ?? ''];
-      if (!autofillValue) {
-        return;
-      }
 
-      // call site 1: ignore result when no parent item
+    visibleItemsToFill.forEach((item) => {
+      const autofillSource = item.autofillFromWhenDisabled;
+      if (!autofillSource) return;
+
+      const sourceValue = allFields[autofillSource];
+      if (!sourceValue) return;
+
       const id = parentItem ? getPaperworkFieldId({ parentItem, item }) : item.linkId;
-      const currentValue = getValues(id) || makeEmptyResponseItem(item);
+      const currentValue = getValues(id);
 
-      const autoFilled = autoFill(autofillValue, item);
-      // console.log('autoFilled', autoFilled);
-      shouldUpdateValue = // the comparison between autofillValue and currentValue is necessary to avoid an infinite render loop
-        autofillSource && autofillValue && typeof autofillValue === 'object' && !objectsEqual(autoFilled, currentValue);
-      // console.log('should update', shouldUpdateValue, item.linkId);
+      const autoFilledValue = autoFill(sourceValue, item);
 
-      if (shouldUpdateValue) {
-        setReplacedValues((rp) => {
-          return [
-            ...rp,
-            {
-              id,
-              value: currentValue,
-            },
-          ];
-        });
-        setValue(id, autoFilled, { shouldValidate: true });
+      const isEmptyValue =
+        !currentValue || JSON.stringify(currentValue) === JSON.stringify(makeEmptyResponseItem(item));
+
+      const shouldFill = isEmptyValue && !objectsEqual(currentValue, autoFilledValue);
+
+      if (shouldFill) {
+        console.log(`🔄 Auto-filling field [${id}] with value:`, autoFilledValue);
+        setValue(id, autoFilledValue, { shouldValidate: true });
+      } else {
+        console.log(`⏭ Skipping autofill for [${id}]. Already has value or no change needed.`);
       }
     });
-    // replace previously autoFilled values
-  }, [allFields, setValue, itemsToFill, formValues, parentItem, getValues, fieldId, replacedValues]);
+  }, [visibleItemsToFill, allFields, getValues, setValue, parentItem, fieldId, formValues]);
 };

@@ -112,7 +112,7 @@ const makeFormInputPropsForItem = (item: StyledQuestionnaireItem): FormInputProp
     },
   };
 
-  // (`input props for item ${item.linkId}`, inputProps);
+  // console.log(`input props for item ${item.linkId}`, inputProps);
   return inputProps;
 };
 
@@ -232,7 +232,7 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({
 
   const { saveButtonDisabled } = usePaperworkContext();
   //console.log('questionnaire response.q', questionnaireResponse?.questionnaire);
-  //console.log('all items', allItems);
+  // console.log('all items', items);
 
   const { handleSubmit, formState } = useFormContext();
 
@@ -365,9 +365,9 @@ const NestedInput: FC<NestedInputProps> = (props) => {
 
   // fieldId returns the path to the scalar value (the thing that the inputs manipulate directly)
   // call site 2: ignores result when no parent item
-  //console.log('item, parentItem', item.linkId, parentItem?.linkId, inheritedFieldId);
+  // console.log('item, parentItem', item.linkId, parentItem?.linkId, inheritedFieldId);
   const fieldId = getPaperworkFieldId({ item, parentItem, parentFieldId: inheritedFieldId });
-  //console.log('linkId, fieldId', item.linkId, fieldId);
+  // console.log('linkId, fieldId', item.linkId, fieldId);
 
   const { hasError, errorMessage } = useFieldError(parentItem ? fieldId : item.linkId);
 
