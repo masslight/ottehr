@@ -18,6 +18,7 @@ import {
   QUESTIONNAIRE_RESPONSE_INVALID_ERROR,
   Secrets,
   SecretsKeys,
+  UpdatePatientAccountResponse,
 } from 'utils';
 import { ValidationError } from 'yup';
 import {
@@ -46,10 +47,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const effectInput = await complexValidation(validatedParameters, oystehr);
     console.log('complex validation successful');
     await performEffect(effectInput, oystehr);
-
+    const response: UpdatePatientAccountResponse = { result: 'success' };
     return {
       statusCode: 200,
-      body: JSON.stringify({ result: 'success' }),
+      body: JSON.stringify(response),
     };
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));

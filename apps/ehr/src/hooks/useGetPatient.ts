@@ -256,6 +256,35 @@ export const useGetPatientAccount = (
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const useGetPatientCoverages = (
+  {
+    apiClient,
+    patientId,
+  }: {
+    apiClient: OystehrTelemedAPIClient | null;
+    patientId: string | null;
+  },
+  onSuccess?: (data: PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getPatientCoverages']>>) => void
+) => {
+  console.log('get coverages');
+  return useQuery(
+    ['patient-coverages', { apiClient, patientId }],
+    () => {
+      return apiClient!.getPatientCoverages({
+        patientId: patientId!,
+      });
+    },
+    {
+      onSuccess,
+      onError: (err) => {
+        console.error('Error fetching patient account: ', err);
+      },
+      enabled: apiClient != null && patientId != null,
+    }
+  );
+};
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useRemovePatientCoverage = () => {
   const apiClient = useOystehrAPIClient();
 
