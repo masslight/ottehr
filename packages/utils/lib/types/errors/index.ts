@@ -303,6 +303,7 @@ export const EXTERNAL_LAB_ERROR = (message: string): APIError => {
     message,
   };
 };
+export const ORDER_SUBMITTED_MESSAGE = 'Order is already submitted';
 
 export const IN_HOUSE_LAB_ERROR = (message: string): APIError => {
   return {

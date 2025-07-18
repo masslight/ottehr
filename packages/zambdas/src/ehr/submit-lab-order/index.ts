@@ -19,6 +19,7 @@ import {
   isApiError,
   isPSCOrder,
   ORDER_NUMBER_LEN,
+  ORDER_SUBMITTED_MESSAGE,
   OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
@@ -89,7 +90,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const orderNumber = serviceRequest.identifier?.find(
       (id) => id.system === OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM || id.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM
     )?.value;
-    if (orderNumber) throw EXTERNAL_LAB_ERROR('Order is already submitted');
+    if (orderNumber) throw EXTERNAL_LAB_ERROR(ORDER_SUBMITTED_MESSAGE);
 
     const locationID = serviceRequest.locationReference?.[0].reference?.replace('Location/', '');
 
@@ -160,7 +161,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       }
 
       if (organizationsRequestsTemp?.length !== 1) {
-        throw EXTERNAL_LAB_ERROR('organization is not found');
+        throw EXTERNAL_LAB_ERROR('organization for insurance is not found');
       }
 
       if (patientsRequestsTemp?.length !== 1) {
