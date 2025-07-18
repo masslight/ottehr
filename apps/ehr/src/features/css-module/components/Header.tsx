@@ -251,9 +251,9 @@ export const Header = (): JSX.Element => {
                             void handleUpdateProviderAssignment(e.target.value);
                           }}
                         >
-                          {employees.nonProviders?.map((nonProvider) => (
-                            <MenuItem key={nonProvider.practitionerId} value={nonProvider.practitionerId}>
-                              {nonProvider.name}
+                          {employees.providers?.map((provider) => (
+                            <MenuItem key={provider.practitionerId} value={provider.practitionerId}>
+                              {provider.name}
                             </MenuItem>
                           ))}
                         </TextField>
