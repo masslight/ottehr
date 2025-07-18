@@ -50,11 +50,8 @@ import {
   ZambdaInput,
 } from '../../shared';
 import { createInHouseLabResultPDF } from '../../shared/pdf/labs-results-form-pdf';
-import {
-  getAttendingPractitionerId,
-  getServiceRequestsRelatedViaRepeat,
-  getUrlAndVersionForADFromServiceRequest,
-} from '../shared/in-house-labs';
+import { getAttendingPractitionerId } from '../../shared/practitioner/helpers';
+import { getServiceRequestsRelatedViaRepeat, getUrlAndVersionForADFromServiceRequest } from '../shared/in-house-labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -297,6 +294,8 @@ const getInHouseLabResultResources = async (
 
   const encounter = encounters[0];
   const attendingPractitionerId = getAttendingPractitionerId(encounter);
+  if (!attendingPractitionerId) throw Error('Attending practitioner not found');
+
   const schedule = schedules[0];
   const location = locations.length ? locations[0] : undefined;
 

@@ -34,7 +34,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
-import { getAttendingPractitionerId } from '../shared/in-house-labs';
+import { getAttendingPractitionerId } from '../../shared/practitioner/helpers';
 import { getPrimaryInsurance } from '../shared/labs';
 import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
@@ -269,6 +269,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     })();
 
     const attendingPractitionerId = getAttendingPractitionerId(encounter);
+    if (!attendingPractitionerId) throw Error('Attending practitioner not found');
 
     const { currentUserPractitionerName, attendingPractitionerName } = await Promise.all([
       oystehrCurrentUser.fhir.get<Practitioner>({
