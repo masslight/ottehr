@@ -1,4 +1,5 @@
 {
   "extends": "tsconfig/base.json",
-  "include": ["src", "test", "local-server", "scripts", "./*.ts", "../utils/lib/secrets", ".eslintrc.cjs"]
+  "include": ["src", "test", "local-server", "scripts", "./*.ts", "../utils/lib/secrets", ".eslintrc.cjs"],
+  "exclude": ["node_modules", "dist", "build", "src/scripts/detect-tls.js"]
 }

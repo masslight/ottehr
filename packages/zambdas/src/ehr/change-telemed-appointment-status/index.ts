@@ -230,9 +230,9 @@ export const performEffect = async (
           listResources
         );
         console.log(`createdResources: ${JSON.stringify(resources)}`);
-      } catch (error) {
+      } catch {
         console.error('Error issuing a charge for self-pay encounter.');
-        captureException(error, {
+        captureException(Error, {
           tags: {
             appointmentId,
             encounterId: encounter.id,

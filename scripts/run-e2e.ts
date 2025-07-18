@@ -59,7 +59,7 @@ const clearPorts = (): void => {
       const output = execSync(`lsof -i :${port} | grep "^node" | awk '{print $2}'`).toString().trim();
       const processIds = [...new Set(output.split('\n'))];
       processIds.forEach((pid) => process.kill(parseInt(pid, 10), 'SIGTERM'));
-    } catch (error) {
+    } catch {
       console.log(`No node process found on port ${port}`);
     }
   }

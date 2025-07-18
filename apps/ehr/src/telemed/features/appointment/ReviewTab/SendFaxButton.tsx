@@ -96,7 +96,11 @@ export const SendFaxButton: FC<SendFaxButtonProps> = ({ appointment, encounter, 
                   onChange={(e) => {
                     const number = e.target.value.replace(/\D/g, '');
                     setFaxNumber(number);
-                    isPhoneNumberValid(number) && phone(number).isValid ? setFaxError(false) : setFaxError(true);
+                    if (isPhoneNumberValid(number) && phone(number).isValid) {
+                      setFaxError(false);
+                    } else {
+                      setFaxError(true);
+                    }
                   }}
                 />
                 <FormHelperText error sx={{ visibility: faxError ? 'visible' : 'hidden' }}>

@@ -1,10 +1,9 @@
 import { Bundle, FhirResource } from 'fhir/r4';
 import { Patient } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import { useMutation, useQuery } from 'react-query';
+import { useMutation, useQuery, UseQueryResult } from 'react-query';
 import { useApiClients } from '../../hooks/useAppClients';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetPatientsForMerge = (
   {
     patientIds,
@@ -12,7 +11,7 @@ export const useGetPatientsForMerge = (
     patientIds?: string[];
   },
   onSuccess: (data: Bundle<FhirResource>[]) => void
-) => {
+): UseQueryResult<Bundle<FhirResource>[], unknown> => {
   const { oystehr } = useApiClients();
 
   return useQuery(
@@ -38,7 +37,6 @@ export const useGetPatientsForMerge = (
   );
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetPatientForUpdate = (
   {
     patientId,
@@ -46,7 +44,7 @@ export const useGetPatientForUpdate = (
     patientId?: string;
   },
   onSuccess: (data: Bundle<FhirResource>[]) => void
-) => {
+): UseQueryResult<Bundle<FhirResource>[], unknown> => {
   const { oystehr } = useApiClients();
 
   return useQuery(

@@ -133,7 +133,9 @@ export const ProviderNotifications: FC = memo(() => {
                   subtitle={notification.sent}
                   key={`notification-link-${notification.id}`}
                   onClick={() => {
-                    notification.link ? navigate(notification.link) : undefined;
+                    if (notification.link) {
+                      navigate(notification.link);
+                    }
                   }}
                 />
               ))

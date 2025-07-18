@@ -26,7 +26,7 @@ export const expressLambda = async (
     let body;
     try {
       body = JSON.parse(handlerResponse.body);
-    } catch (_) {
+    } catch {
       body = handlerResponse.body;
     }
 

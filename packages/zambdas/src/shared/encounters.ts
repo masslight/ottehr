@@ -82,7 +82,7 @@ export const getEncounterDetails = async (appointmentID: string, oystehr: Oysteh
           ?.valueString || 'Unknown',
       address: fhirLocation?.address ?? undefined,
     };
-  } catch (error: any) {
+  } catch {
     throw new Error('Error getting location details');
   }
   try {
@@ -96,7 +96,7 @@ export const getEncounterDetails = async (appointmentID: string, oystehr: Oysteh
     patientID = getParticipantFromAppointment(appointment, 'Patient');
     appointmentStart = appointment.start;
     visitType = (appointment.appointmentType?.text as VisitType) || 'Unknown';
-  } catch (error: any) {
+  } catch {
     throw new Error('Error getting appointment details');
   }
 

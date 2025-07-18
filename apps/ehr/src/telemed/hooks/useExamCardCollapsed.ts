@@ -13,11 +13,13 @@ export const useExamCardCollapsed = (
     : useExamCardsStore((state) => state[cardName as ExamTabCardNames]);
 
   const onSwitch = (): void => {
-    css
-      ? useInPersonExamCardsStore.setState((prevState) => ({
-          [cardName]: !prevState[cardName as InPersonExamTabProviderCardNames],
-        }))
-      : useExamCardsStore.setState((prevState) => ({ [cardName]: !prevState[cardName as ExamTabCardNames] }));
+    if (css) {
+      useInPersonExamCardsStore.setState((prevState) => ({
+        [cardName]: !prevState[cardName as InPersonExamTabProviderCardNames],
+      }));
+    } else {
+      useExamCardsStore.setState((prevState) => ({ [cardName]: !prevState[cardName as ExamTabCardNames] }));
+    }
   };
 
   return [isCollapsed, onSwitch];

@@ -42,9 +42,11 @@ export const InHouseMedication: React.FC = () => {
   const handleChange = useCallback(() => {
     isTabTransitionRef.current = true;
     requestAnimationFrame(() => {
-      tabName === 'mar'
-        ? navigate(getInHouseMedicationDetailsUrl(appointmentId!))
-        : navigate(getInHouseMedicationMARUrl(appointmentId!));
+      if (tabName === 'mar') {
+        navigate(getInHouseMedicationDetailsUrl(appointmentId!));
+      } else {
+        navigate(getInHouseMedicationMARUrl(appointmentId!));
+      }
     });
   }, [appointmentId, navigate, tabName]);
 

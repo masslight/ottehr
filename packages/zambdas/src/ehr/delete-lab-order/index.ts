@@ -50,7 +50,9 @@ export const index = wrapHandler('delete-lab-order', async (input: ZambdaInput):
     }
 
     labConditions.forEach((condition) => {
-      condition.id && deleteRequests.push(makeDeleteResourceRequest('Condition', condition.id));
+      if (condition.id) {
+        deleteRequests.push(makeDeleteResourceRequest('Condition', condition.id));
+      }
     });
 
     if (deleteRequests.length > 0) {

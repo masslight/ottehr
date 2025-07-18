@@ -63,7 +63,7 @@ const VitalsHeartbeatCard: React.FC = (): JSX.Element => {
       await handleSaveVital(vitalObs);
       setHeartbeatValueText('');
       setObservationsQualifier('');
-    } catch (error) {
+    } catch {
       enqueueSnackbar('Error saving Heartbeat data', { variant: 'error' });
     } finally {
       setSavingCardData(false);

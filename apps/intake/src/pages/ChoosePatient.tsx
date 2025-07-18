@@ -109,7 +109,7 @@ const ChoosePatient = (): JSX.Element => {
       throw new Error('No patient ID selected!');
     }
 
-    patients &&
+    if (patients) {
       patients.forEach(async (currentPatient) => {
         const {
           year: dobYear,
@@ -139,6 +139,7 @@ const ChoosePatient = (): JSX.Element => {
           });
         }
       });
+    }
     if (!foundPatient) {
       // console.log('did not find patient in the patients list');
       if (currentInfo?.id === 'new-patient' && data.patientID === 'new-patient') {

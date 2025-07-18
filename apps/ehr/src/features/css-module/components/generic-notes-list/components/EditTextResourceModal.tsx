@@ -35,7 +35,7 @@ export const EditNoteModal: React.FC<{
     try {
       await onEdit(entity, editedText);
       onClose();
-    } catch (error) {
+    } catch {
       enqueueSnackbar(locales.getGenericErrorMessage(), { variant: 'error' });
     } finally {
       setIsSaving(false);

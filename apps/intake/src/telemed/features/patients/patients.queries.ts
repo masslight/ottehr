@@ -2,10 +2,10 @@ import { useQuery } from 'react-query';
 import { OystehrAPIClient } from 'ui-components';
 import { PromiseReturnType } from 'utils';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetPatients = (
   apiClient: OystehrAPIClient | null,
   onSuccess: (data: PromiseReturnType<ReturnType<OystehrAPIClient['getPatients']>>) => void
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
   return useQuery(
     ['patients'],

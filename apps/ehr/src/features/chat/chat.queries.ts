@@ -1,16 +1,15 @@
 import { TransactionalSMSSendResponse } from '@oystehr/sdk';
-import { useMutation, useQuery } from 'react-query';
+import { useMutation, UseMutationResult, useQuery, UseQueryResult } from 'react-query';
 import { ConversationMessage, SMSRecipient } from 'utils';
 import { getConversation } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import { MessageModel } from './ChatModal';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useFetchChatMessagesQuery = (
   timezone: string,
   numbersToSendTo?: string[],
   onSuccess?: (data: ConversationMessage[]) => void
-) => {
+): UseQueryResult<ConversationMessage[], unknown> => {
   const { oystehrZambda } = useApiClients();
   return useQuery(
     ['chat-messages', numbersToSendTo, timezone],
@@ -24,13 +23,12 @@ export const useFetchChatMessagesQuery = (
   );
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useSendMessagesMutation = (
   recipients: SMSRecipient[],
   message: string,
   onSuccess: (data: MessageModel) => void,
   onError: (error: any) => void
-) => {
+): UseMutationResult<MessageModel, unknown, MessageModel> => {
   const { oystehr } = useApiClients();
   return useMutation(
     ['chat-messages'],

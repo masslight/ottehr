@@ -70,7 +70,7 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
   if (verifiedPhoneNumber) {
     try {
       formattedVerifiedPhoneNumber = formatPhoneNumberDisplay(verifiedPhoneNumber);
-    } catch (e) {
+    } catch {
       console.log('unable to format phone number', verifiedPhoneNumber);
     }
   }

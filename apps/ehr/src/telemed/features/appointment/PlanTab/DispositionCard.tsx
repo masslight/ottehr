@@ -123,8 +123,8 @@ export const DispositionCard: FC = () => {
   );
 
   useEffect(() => {
-    const subscription = watch(() => {
-      if (!isResetting.current) {
+    const subscription = watch((data, { type }) => {
+      if (!isResetting.current && type === 'change') {
         void handleSubmit(onSubmit)();
       }
     });

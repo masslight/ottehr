@@ -234,8 +234,6 @@ export class ResourceHandler {
         throw new Error('Appointment not created');
       }
 
-      appointmentData.resources;
-
       Object.values(appointmentData.resources).forEach((resource) => {
         console.log(`✅ created ${resource.resourceType}: ${resource.id}`);
       });

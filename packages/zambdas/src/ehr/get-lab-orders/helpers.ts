@@ -1548,7 +1548,9 @@ export const parseLabOrdersHistory = (
 
   // only push performed to order history if this is a psc order or there is a specimen to parse data from
   // not having a specimen for a non psc order is probably an edge case but was causing issues for AutoLab
-  (isPSC || specimens[0]) && pushPerformedHistory(specimens[0]);
+  if (isPSC || specimens[0]) {
+    pushPerformedHistory(specimens[0]);
+  }
 
   // todo: design is required https://github.com/masslight/ottehr/issues/2177
   // handle if there are multiple specimens (the first one is handled above)
