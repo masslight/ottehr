@@ -736,14 +736,18 @@ export const performCandidPreEncounterSync = async (input: PerformCandidPreEncou
     candidPreEncounterPatient = await createPreEncounterPatient(ourPatient, candidApiClient);
   }
 
+  console.log(`zing >>> patient is here... we have a patient ... ${JSON.stringify(candidPreEncounterPatient)}`);
+
   const candidCoverages = await createCandidCoverages(ourPatient, candidPreEncounterPatient, oystehr, candidApiClient);
 
   // Update patient with the coverages
-  candidPreEncounterPatient = await updateCandidPatientWithCoverages(
-    candidPreEncounterPatient,
-    candidCoverages,
-    candidApiClient
-  );
+  if (candidCoverages.length > 0) {
+    candidPreEncounterPatient = await updateCandidPatientWithCoverages(
+      candidPreEncounterPatient,
+      candidCoverages,
+      candidApiClient
+    );
+  }
 
   // Get Candid appointment and create if it does not exist
   const existingCandidPreEncounterAppointmentId = ourAppointment.identifier?.find(
@@ -886,6 +890,10 @@ const createCandidCoverages = async (
 
   const candidCoverages: CandidPreEncounterCoverage[] = [];
 
+  if (coverages === undefined || coverages.primary === undefined) {
+    return candidCoverages;
+  }
+
   if (coverages.primary && coverages.primarySubscriber && insuranceOrgs[0]) {
     const candidCoverage = buildCandidCoverageCreateInput(
       coverages.primary,
@@ -944,6 +952,11 @@ const buildCandidCoverageCreateInput = (
     );
   }
 
+  // Get the code where system === "payer-id"
+  const insurancePayerId = insuranceOrg.identifier
+    ?.find((id) => id.type?.coding?.some((c) => c.system === 'payer-id'))
+    ?.type?.coding?.find((c) => c.system === 'payer-id')?.code;
+
   return {
     subscriber: {
       name: {
@@ -972,7 +985,7 @@ const buildCandidCoverageCreateInput = (
     insurancePlan: {
       memberId: assertDefined(coverage.subscriberId, 'Member ID'),
       payerName: assertDefined(insuranceOrg.name, 'Payor name'),
-      payerId: PayerId(assertDefined(insuranceOrg.id, 'Payor id')),
+      payerId: PayerId(assertDefined(insurancePayerId, 'Payor id')),
     },
   };
 };
