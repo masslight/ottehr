@@ -3,7 +3,7 @@ import { DeleteOutlined as DeleteIcon } from '@mui/icons-material';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import { Box, IconButton, Skeleton, Typography, useTheme } from '@mui/material';
 import React, { JSX, useMemo, useState } from 'react';
-import { VitalsObservationDTO, VitalsOxygenSatObservationDTO } from 'utils';
+import { formatDateTimeToLocalTimezone, VitalsObservationDTO, VitalsOxygenSatObservationDTO } from 'utils';
 import { DeleteVitalModal } from '../DeleteVitalModal';
 
 type VitalOxygenSatHistoryElementProps = {
@@ -41,7 +41,8 @@ export const VitalOxygenSatHistoryElement: React.FC<VitalOxygenSatHistoryElement
     <>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography color="textPrimary">
-          {historyEntry.lastUpdated} {hasAuthor && 'by'} {historyEntry.authorName} - &nbsp;
+          {formatDateTimeToLocalTimezone(historyEntry.lastUpdated)} {hasAuthor && 'by'} {historyEntry.authorName} -
+          &nbsp;
           <Typography component="span" sx={{ fontWeight: 'bold', color: lineColor }}>
             {historyEntry.value}%
           </Typography>

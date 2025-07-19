@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, Observation, Patient, Practitioner } from 'fhir/r4b';
 import {
   convertVitalsListToMap,
+  extractVisionValues,
   FHIR_RESOURCE_NOT_FOUND,
   FHIR_RESOURCE_NOT_FOUND_CUSTOM,
   getFullName,
@@ -173,20 +174,13 @@ const parseVisionObservation = (
 
   if (fieldCode !== VitalFieldNames.VitalVision) return undefined;
 
-  // Extract left and right eye values from components
-  const leftComponent = observation.component?.find(
-    (comp) =>
-      comp.code?.coding?.some((coding) => coding.system === 'http://snomed.info/sct' && coding.code === '8976008')
-  );
-  const rightComponent = observation.component?.find(
-    (comp) =>
-      comp.code?.coding?.some((coding) => coding.system === 'http://snomed.info/sct' && coding.code === '8977004')
-  );
+  const components = observation.component || [];
 
-  // You can now use these boolean flags as needed, e.g., add them to the DTO if required
-
-  const leftEyeVisionText = leftComponent?.valueString;
-  const rightEyeVisionText = rightComponent?.valueString;
+  const {
+    leftEyeVisText: leftEyeVisionText,
+    rightEyeVisText: rightEyeVisionText,
+    visionOptions,
+  } = extractVisionValues(components);
 
   if (leftEyeVisionText === undefined || rightEyeVisionText === undefined) return undefined;
 
@@ -198,6 +192,7 @@ const parseVisionObservation = (
     authorId: performer.id,
     authorName: getFullName(performer),
     lastUpdated: observation.effectiveDateTime || '',
+    extraVisionOptions: visionOptions,
   };
 };
 

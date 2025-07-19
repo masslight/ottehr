@@ -1,7 +1,12 @@
 import { DeleteOutlined as DeleteIcon } from '@mui/icons-material';
 import { Box, IconButton, Typography, useTheme } from '@mui/material';
 import React, { JSX, useMemo, useState } from 'react';
-import { getVisionExtraOptionsFormattedString, VitalsObservationDTO, VitalsVisionObservationDTO } from 'utils';
+import {
+  formatDateTimeToLocalTimezone,
+  getVisionExtraOptionsFormattedString,
+  VitalsObservationDTO,
+  VitalsVisionObservationDTO,
+} from 'utils';
 import { DeleteVitalModal } from '../DeleteVitalModal';
 
 type VitalVisionHistoryElementProps = {
@@ -36,7 +41,8 @@ export const VitalVisionHistoryElement: React.FC<VitalVisionHistoryElementProps>
     <>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography color="textPrimary">
-          {historyEntry.lastUpdated} {hasAuthor && 'by'} {historyEntry.authorName} - &nbsp;
+          {formatDateTimeToLocalTimezone(historyEntry.lastUpdated)} {hasAuthor && 'by'} {historyEntry.authorName} -
+          &nbsp;
           <Typography component="span" sx={{ fontWeight: 'bold', color: lineColor }}>
             Left eye: {historyEntry.leftEyeVisionText ?? '-'};&nbsp;
           </Typography>

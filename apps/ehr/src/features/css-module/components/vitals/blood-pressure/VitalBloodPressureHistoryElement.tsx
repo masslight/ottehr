@@ -2,7 +2,7 @@ import { DeleteOutlined as DeleteIcon } from '@mui/icons-material';
 import ErrorIcon from '@mui/icons-material/Error';
 import { Box, IconButton, Typography, useTheme } from '@mui/material';
 import React, { JSX, useMemo, useState } from 'react';
-import { VitalsBloodPressureObservationDTO, VitalsObservationDTO } from 'utils';
+import { formatDateTimeToLocalTimezone, VitalsBloodPressureObservationDTO, VitalsObservationDTO } from 'utils';
 import { VitalAbnormalValuePopover } from '../components/VitalAbnormalValuePopover';
 import { DeleteVitalModal } from '../DeleteVitalModal';
 
@@ -41,7 +41,8 @@ export const VitalBloodPressureHistoryElement: React.FC<VitalBloodPressureHistor
     <>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography color="textPrimary">
-          {historyEntry.lastUpdated} {hasAuthor && 'by'} {historyEntry.authorName} - &nbsp;
+          {formatDateTimeToLocalTimezone(historyEntry.lastUpdated)} {hasAuthor && 'by'} {historyEntry.authorName} -
+          &nbsp;
           <VitalAbnormalValuePopover isAbnormal={isAlert}>
             <Typography component="span" sx={{ fontWeight: 'bold', color: lineColor }}>
               {historyEntry.systolicPressure}/{historyEntry.diastolicPressure} mm Hg

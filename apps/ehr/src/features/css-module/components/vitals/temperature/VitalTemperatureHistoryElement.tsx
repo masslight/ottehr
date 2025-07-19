@@ -2,7 +2,7 @@ import { DeleteOutlined as DeleteIcon } from '@mui/icons-material';
 import ErrorIcon from '@mui/icons-material/Error';
 import { Box, IconButton, Typography, useTheme } from '@mui/material';
 import React, { JSX, useState } from 'react';
-import { VitalsObservationDTO, VitalsTemperatureObservationDTO } from 'utils';
+import { formatDateTimeToLocalTimezone, VitalsObservationDTO, VitalsTemperatureObservationDTO } from 'utils';
 import { DeleteVitalModal } from '../DeleteVitalModal';
 
 type VitalTemperatureHistoryElementProps = {
@@ -37,7 +37,8 @@ export const VitalTemperatureHistoryElement: React.FC<VitalTemperatureHistoryEle
     <>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography color="textPrimary">
-          {historyEntry.lastUpdated} {hasAuthor && 'by'} {historyEntry.authorName} - &nbsp;
+          {formatDateTimeToLocalTimezone(historyEntry.lastUpdated)} {hasAuthor && 'by'} {historyEntry.authorName} -
+          &nbsp;
           <Typography component="span" sx={{ fontWeight: 'bold', color: lineColor }}>
             {historyEntry.value} C
           </Typography>

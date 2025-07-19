@@ -1,7 +1,7 @@
 import { DeleteOutlined as DeleteIcon } from '@mui/icons-material';
 import { Box, IconButton, Typography, useTheme } from '@mui/material';
 import React, { JSX, useState } from 'react';
-import { kgToLbs, VitalsObservationDTO, VitalsWeightObservationDTO } from 'utils';
+import { formatDateTimeToLocalTimezone, kgToLbs, VitalsObservationDTO, VitalsWeightObservationDTO } from 'utils';
 import { DeleteVitalModal } from '../DeleteVitalModal';
 
 type VitalWeightHistoryElementProps = {
@@ -32,7 +32,8 @@ export const VitalWeightHistoryElement: React.FC<VitalWeightHistoryElementProps>
     <>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography color="textPrimary">
-          {historyEntry.lastUpdated} {hasAuthor && 'by'} {historyEntry.authorName} - &nbsp;
+          {formatDateTimeToLocalTimezone(historyEntry.lastUpdated)} {hasAuthor && 'by'} {historyEntry.authorName} -
+          &nbsp;
           <Typography component="span" sx={{ fontWeight: 'bold' }}>
             {historyEntry.value} kg &nbsp;
           </Typography>
