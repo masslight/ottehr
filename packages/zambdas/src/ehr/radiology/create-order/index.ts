@@ -146,12 +146,6 @@ const performEffect = async (
   };
 };
 
-const fillerAndPlacerOrderNumber = randomstring.generate({
-  length: 22,
-  charset: 'alphanumeric',
-  capitalization: 'uppercase',
-});
-
 const writeOurServiceRequest = (
   validatedBody: EnhancedBody,
   practitionerRelativeReference: string,
@@ -159,6 +153,13 @@ const writeOurServiceRequest = (
 ): Promise<ServiceRequest> => {
   const { encounter, diagnosis, cpt, stat } = validatedBody;
   const now = DateTime.now();
+
+  const fillerAndPlacerOrderNumber = randomstring.generate({
+    length: 22,
+    charset: 'alphanumeric',
+    capitalization: 'uppercase',
+  });
+
   const serviceRequest: ServiceRequest = {
     resourceType: 'ServiceRequest',
     meta: {
