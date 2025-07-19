@@ -7,7 +7,7 @@ import { PageTitle } from '../../../telemed/components/PageTitle';
 import { CSSLoader } from '../components/CSSLoader';
 import GeneralInfoCard from '../components/patient-info/GeneralInfoCard';
 import VitalsNotesCard from '../components/patient-info/VitalsNotesCard';
-import VitalsWeightsCard from '../components/vitals/weights/VitalsWeightsCard';
+// import VitalsWeightsCard from '../components/vitals/weights/VitalsWeightsCard';
 import { useAppointment } from '../hooks/useAppointment';
 
 interface PatientInfoProps {
@@ -32,7 +32,7 @@ export const PatientInfo: React.FC<PatientInfoProps> = () => {
     <Stack spacing={1}>
       <PageTitle label="General Info" />
       <GeneralInfoCard />
-      <VitalsWeightsCard />
+      {/* <VitalsWeightsCard /> */}
       <VitalsNotesCard />
     </Stack>
   );

@@ -8,7 +8,7 @@ import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
 import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
 import { useScreenDimensions } from '../hooks/useScreenDimensions';
 import { VitalsCardProps } from '../types';
-import { isValidHeightInCmValue, textToHeightNumber } from './helpers';
+import { textToHeightNumber } from './helpers';
 import VitalHeightHistoryElement from './VitalHeightHistoryElement';
 
 type VitalsHeightCardProps = VitalsCardProps<VitalsHeightObservationDTO>;
@@ -18,7 +18,6 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({
   isLoading,
   currentObs,
   historicalObs,
-  historyElementSkeletonText,
 }): JSX.Element => {
   const [heightValueText, setHeightValueText] = useState('');
 
@@ -33,6 +32,7 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({
   const isDisabledAddButton = !heightValueText || isLoading || isHeightValidationError;
 
   const latestHeightValue = currentObs[0]?.value;
+  console.log('currentObs', currentObs, historicalObs);
 
   const enteredHeightInInch: number | undefined = useMemo(() => {
     const heightCm = textToHeightNumber(heightValueText);
@@ -60,10 +60,6 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({
     (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
       const heightAsText = e.target.value;
       setHeightValueText(heightAsText);
-      const heightVal = textToHeightNumber(heightAsText);
-      if (heightVal) {
-        setHeightValidationError(!isValidHeightInCmValue(heightVal));
-      }
       if (heightAsText.length === 0) {
         setHeightValidationError(false);
       }
@@ -159,7 +155,6 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({
               currentEncounterObs={currentObs}
               historicalObs={historicalObs}
               isLoading={isLoading}
-              historyElementSkeletonText={historyElementSkeletonText}
               historyElementCreator={(historyEntry) => {
                 return <VitalHeightHistoryElement historyEntry={historyEntry} onDelete={handleDeleteVital} />;
               }}

@@ -1,17 +1,19 @@
 import { DeleteOutlined as DeleteIcon } from '@mui/icons-material';
 import { Box, IconButton, Typography, useTheme } from '@mui/material';
 import React, { JSX, useState } from 'react';
-import { VitalsObservationDTO } from 'utils';
+import { kgToLbs, VitalsObservationDTO, VitalsWeightObservationDTO } from 'utils';
 import { DeleteVitalModal } from '../DeleteVitalModal';
-import { VitalWeightHistoryEntry } from './VitalWeightHistoryEntry';
 
 type VitalWeightHistoryElementProps = {
-  historyEntry: VitalWeightHistoryEntry;
+  historyEntry: VitalsWeightObservationDTO;
+  isAlert?: boolean;
+  isDeletable?: boolean;
   onDelete: (entity: VitalsObservationDTO) => Promise<void>;
 };
 
 export const VitalWeightHistoryElement: React.FC<VitalWeightHistoryElementProps> = ({
   historyEntry,
+  isDeletable = false,
   onDelete,
 }): JSX.Element => {
   const theme = useTheme();
@@ -24,25 +26,20 @@ export const VitalWeightHistoryElement: React.FC<VitalWeightHistoryElementProps>
     setIsDeleteModalOpen(false);
   };
 
-  const hasAuthor = !!historyEntry.author && historyEntry.author?.length > 0;
+  const hasAuthor = !!historyEntry.authorName && historyEntry.authorName.length > 0;
 
   return (
     <>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography color="textPrimary">
-          {historyEntry.debugEntrySource && (
-            <Typography component="span" sx={{ fontWeight: 'bold', color: theme.palette.text.primary }}>
-              {historyEntry.debugEntrySource === 'encounter' ? '[DEBUG_ENC]' : '[DEBUG_PAT]'}&nbsp;
-            </Typography>
-          )}
-          {historyEntry.recordDateTime} {hasAuthor && 'by'} {historyEntry.author} - &nbsp;
+          {historyEntry.lastUpdated} {hasAuthor && 'by'} {historyEntry.authorName} - &nbsp;
           <Typography component="span" sx={{ fontWeight: 'bold' }}>
-            {historyEntry.weightKg} kg &nbsp;
+            {historyEntry.value} kg &nbsp;
           </Typography>
-          <Typography component="span">/ {historyEntry.weightLbs} lbs&nbsp;</Typography>
+          <Typography component="span">/ {kgToLbs(historyEntry.value).toFixed(2)} lbs&nbsp;</Typography>
         </Typography>
 
-        {historyEntry.isDeletable && (
+        {isDeletable && (
           <IconButton
             size="small"
             aria-label="delete"
@@ -57,7 +54,7 @@ export const VitalWeightHistoryElement: React.FC<VitalWeightHistoryElementProps>
       <DeleteVitalModal
         open={isDeleteModalOpen}
         onClose={handleCloseDeleteModal}
-        entity={historyEntry.vitalObservationDTO}
+        entity={historyEntry}
         onDelete={onDelete}
       />
     </>

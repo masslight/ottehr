@@ -3,12 +3,13 @@ import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
 import { Box, Button, Divider, Skeleton, Typography } from '@mui/material';
 import React, { JSX, useMemo, useState } from 'react';
 import { VitalsObservationDTO } from 'utils';
+import { HISTORY_ELEMENT_SKELETON_TEXT } from '../types';
 
 type VitalsHistoryContainerProps<TypeObsDTO extends VitalsObservationDTO> = {
   currentEncounterObs: TypeObsDTO[];
   historicalObs: TypeObsDTO[];
   isLoading: boolean;
-  historyElementSkeletonText: string;
+  historyElementSkeletonText?: string;
   historyElementCreator: (historyEntry: TypeObsDTO) => React.ReactNode;
 };
 
@@ -16,7 +17,7 @@ export function VitalsHistoryContainer<TypeObsDTO extends VitalsObservationDTO>(
   currentEncounterObs,
   historicalObs,
   isLoading,
-  historyElementSkeletonText,
+  historyElementSkeletonText = HISTORY_ELEMENT_SKELETON_TEXT,
   historyElementCreator: historyElement,
 }: VitalsHistoryContainerProps<TypeObsDTO>): JSX.Element {
   const [isMoreEntitiesShown, setIsMoreEntitiesShown] = useState(false);

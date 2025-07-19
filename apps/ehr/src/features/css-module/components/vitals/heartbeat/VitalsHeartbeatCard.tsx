@@ -23,7 +23,6 @@ const VitalsHeartbeatCard: React.FC<VitalsHeartbeatCardProps> = ({
   isLoading,
   currentObs,
   historicalObs,
-  historyElementSkeletonText,
 }): JSX.Element => {
   const [heartbeatValueText, setHeartbeatValueText] = useState('');
 
@@ -183,7 +182,6 @@ const VitalsHeartbeatCard: React.FC<VitalsHeartbeatCardProps> = ({
               currentEncounterObs={currentObs}
               historicalObs={historicalObs}
               isLoading={isLoading}
-              historyElementSkeletonText={historyElementSkeletonText}
               historyElementCreator={(historyEntry) => {
                 return <VitalHeartbeatHistoryElement historyEntry={historyEntry} onDelete={handleDeleteVital} />;
               }}

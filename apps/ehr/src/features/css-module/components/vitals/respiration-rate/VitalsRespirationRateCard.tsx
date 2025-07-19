@@ -7,7 +7,7 @@ import { AccordionCard, DoubleColumnContainer } from '../../../../../telemed/com
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
 import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
 import { VitalsCardProps } from '../types';
-import { isValidRespirationRateValue, textToRespirationRateNumber } from './helpers';
+import { textToRespirationRateNumber } from './helpers';
 import VitalsRespirationRateHistoryElementElement from './VitalsRespirationRateHistoryElement';
 
 type VitalsRespirationRateCardProps = VitalsCardProps<VitalsRespirationRateObservationDTO>;
@@ -17,7 +17,6 @@ const VitalsRespirationRateCard: React.FC<VitalsRespirationRateCardProps> = ({
   isLoading,
   currentObs,
   historicalObs,
-  historyElementSkeletonText,
 }): JSX.Element => {
   const [respirationRateValueText, setRespirationRateValueText] = useState('');
 
@@ -55,10 +54,6 @@ const VitalsRespirationRateCard: React.FC<VitalsRespirationRateCardProps> = ({
     (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
       const respirationRateAsText = e.target.value;
       setRespirationRateValueText(respirationRateAsText);
-      const respirationRate = textToRespirationRateNumber(respirationRateAsText);
-      if (respirationRate) {
-        setRespirationRateValidationError(!isValidRespirationRateValue(respirationRate));
-      }
       if (respirationRateAsText.length === 0) {
         setRespirationRateValidationError(false);
       }
@@ -124,7 +119,6 @@ const VitalsRespirationRateCard: React.FC<VitalsRespirationRateCardProps> = ({
               currentEncounterObs={currentObs}
               historicalObs={historicalObs}
               isLoading={isLoading}
-              historyElementSkeletonText={historyElementSkeletonText}
               historyElementCreator={(historyEntry) => {
                 return (
                   <VitalsRespirationRateHistoryElementElement

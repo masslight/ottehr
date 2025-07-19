@@ -1,7 +1,7 @@
 import { Box, CircularProgress, Grid, TextField, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { JSX, useCallback, useMemo, useState } from 'react';
-import { kgToLb, textToWeightNumber, VitalFieldNames, VitalsWeightObservationDTO } from 'utils';
+import { kgToLbs, textToWeightNumber, VitalFieldNames, VitalsWeightObservationDTO } from 'utils';
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { AccordionCard, DoubleColumnContainer } from '../../../../../telemed';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
@@ -16,7 +16,6 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
   isLoading,
   currentObs,
   historicalObs,
-  historyElementSkeletonText,
 }): JSX.Element => {
   const [weightValueText, setWeightValueText] = useState('');
 
@@ -25,12 +24,13 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
     setIsCollapsed((prevCollapseState) => !prevCollapseState);
   }, [setIsCollapsed]);
 
+  console.log('currentObs', currentObs, historicalObs);
   const latestWeightValue = currentObs[0]?.value;
 
   const enteredWeightInLb: number | undefined = useMemo(() => {
     const weightKg = textToWeightNumber(weightValueText);
     if (!weightKg) return;
-    return kgToLb(weightKg);
+    return kgToLbs(weightKg);
   }, [weightValueText]);
 
   const handleSaveWeightObservation = async (weightValueText: string): Promise<void> => {
@@ -137,7 +137,6 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
               historicalObs={historicalObs}
               currentEncounterObs={currentObs}
               isLoading={isLoading}
-              historyElementSkeletonText={historyElementSkeletonText}
               historyElementCreator={(historyEntry) => {
                 return <VitalWeightHistoryElement historyEntry={historyEntry} onDelete={handleDeleteVital} />;
               }}

@@ -7,10 +7,7 @@ export type UseVitalsHandlers = (props: { encounterId: string; searchConfig: Vit
   handleDelete: ReturnType<UseDeleteVitals>;
 };
 
-export type UseSaveVitals = (props: {
-  encounterId: string;
-  searchConfig: VitalsSearchConfig;
-}) => (vitalEntity: VitalsObservationDTO) => Promise<void>;
+export type UseSaveVitals = (props: { encounterId: string }) => (vitalEntity: VitalsObservationDTO) => Promise<void>;
 
 export type UseDeleteVitals = (props: {
   encounterId: string;
@@ -23,5 +20,7 @@ export interface VitalsCardProps<TypeObsDTO extends VitalsObservationDTO> {
   isLoading: boolean;
   currentObs: TypeObsDTO[];
   historicalObs: TypeObsDTO[];
-  historyElementSkeletonText: string;
+  historyElementSkeletonText?: string;
 }
+
+export const HISTORY_ELEMENT_SKELETON_TEXT = 'x'.repeat(55);

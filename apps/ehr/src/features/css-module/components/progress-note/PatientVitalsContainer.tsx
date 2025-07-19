@@ -4,21 +4,13 @@ import { NoteDTO, VitalFieldNames } from 'utils';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../telemed';
 import { AssessmentTitle } from '../../../../telemed/features/appointment/AssessmentTab';
-import { composeBloodPressureVitalsHistoryEntries } from '../vitals/blood-pressure/helpers';
 import VitalBloodPressureHistoryElement from '../vitals/blood-pressure/VitalBloodPressureHistoryElement';
-import { composeHeartbeatHistoryEntries } from '../vitals/heartbeat/helpers';
 import VitalHeartbeatHistoryElement from '../vitals/heartbeat/VitalHeartbeatHistoryElement';
-import { composeHeightVitalsHistoryEntries } from '../vitals/heights/helpers';
 import VitalHeightHistoryElement from '../vitals/heights/VitalHeightHistoryElement';
-import { composeOxygenSatHistoryEntries } from '../vitals/oxygen-saturation/helpers';
 import VitalOxygenSatHistoryElement from '../vitals/oxygen-saturation/VitalOxygenSatHistoryElement';
-import { composeRespirationRateHistoryEntries } from '../vitals/respiration-rate/helpers';
 import VitalsRespirationRateHistoryElementElement from '../vitals/respiration-rate/VitalsRespirationRateHistoryElement';
-import { composeTemperatureVitalsHistoryEntries } from '../vitals/temperature/helpers';
 import VitalTemperatureHistoryElement from '../vitals/temperature/VitalTemperatureHistoryElement';
-import { composeVisionVitalsHistoryEntries } from '../vitals/vision/helpers';
 import VitalVisionHistoryElement from '../vitals/vision/VitalVisionHistoryElement';
-import { composeWeightVitalsHistoryEntries } from '../vitals/weights/helpers';
 import VitalWeightHistoryElement from '../vitals/weights/VitalWeightHistoryElement';
 
 const emptyDelete = async (): Promise<void> => {
@@ -30,56 +22,21 @@ type PatientVitalsContainerProps = {
 };
 
 export const PatientVitalsContainer: FC<PatientVitalsContainerProps> = ({ notes }) => {
-  const { chartData, encounter } = getSelectors(useAppointmentStore, ['chartData', 'encounter']);
+  const { chartData } = getSelectors(useAppointmentStore, ['chartData', 'encounter']);
 
-  const temperature = composeTemperatureVitalsHistoryEntries(
-    encounter.id || '',
-    undefined,
-    chartData?.vitalsObservations?.filter((vital) => vital.field === VitalFieldNames.VitalTemperature) || [],
-    []
-  );
-  const heartbeat = composeHeartbeatHistoryEntries(
-    encounter.id || '',
-    undefined,
-    chartData?.vitalsObservations?.filter((vital) => vital.field === VitalFieldNames.VitalHeartbeat) || [],
-    []
-  );
-  const respirationRate = composeRespirationRateHistoryEntries(
-    encounter.id || '',
-    undefined,
-    chartData?.vitalsObservations?.filter((vital) => vital.field === VitalFieldNames.VitalRespirationRate) || [],
-    []
-  );
-  const bloodPressure = composeBloodPressureVitalsHistoryEntries(
-    encounter.id || '',
-    undefined,
-    chartData?.vitalsObservations?.filter((vital) => vital.field === VitalFieldNames.VitalBloodPressure) || [],
-    []
-  );
-  const oxygenSaturation = composeOxygenSatHistoryEntries(
-    encounter.id || '',
-    undefined,
-    chartData?.vitalsObservations?.filter((vital) => vital.field === VitalFieldNames.VitalOxygenSaturation) || [],
-    []
-  );
-  const weight = composeWeightVitalsHistoryEntries(
-    encounter.id || '',
-    undefined,
-    chartData?.vitalsObservations?.filter((vital) => vital.field === VitalFieldNames.VitalWeight) || [],
-    []
-  );
-  const height = composeHeightVitalsHistoryEntries(
-    encounter.id || '',
-    undefined,
-    chartData?.vitalsObservations?.filter((vital) => vital.field === VitalFieldNames.VitalHeight) || [],
-    []
-  );
-  const vision = composeVisionVitalsHistoryEntries(
-    encounter.id || '',
-    undefined,
-    chartData?.vitalsObservations?.filter((vital) => vital.field === VitalFieldNames.VitalVision) || [],
-    []
-  );
+  const temperature =
+    chartData?.vitalsObservations?.filter((vital) => vital.field === VitalFieldNames.VitalTemperature) || [];
+  const heartbeat =
+    chartData?.vitalsObservations?.filter((vital) => vital.field === VitalFieldNames.VitalHeartbeat) || [];
+  const respirationRate =
+    chartData?.vitalsObservations?.filter((vital) => vital.field === VitalFieldNames.VitalRespirationRate) || [];
+  const bloodPressure =
+    chartData?.vitalsObservations?.filter((vital) => vital.field === VitalFieldNames.VitalBloodPressure) || [];
+  const oxygenSaturation =
+    chartData?.vitalsObservations?.filter((vital) => vital.field === VitalFieldNames.VitalOxygenSaturation) || [];
+  const weight = chartData?.vitalsObservations?.filter((vital) => vital.field === VitalFieldNames.VitalWeight) || [];
+  const height = chartData?.vitalsObservations?.filter((vital) => vital.field === VitalFieldNames.VitalHeight) || [];
+  const vision = chartData?.vitalsObservations?.filter((vital) => vital.field === VitalFieldNames.VitalVision) || [];
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}>

@@ -23,7 +23,6 @@ const VitalsBloodPressureCard: React.FC<VitalsBloodPressureCardProps> = ({
   isLoading,
   currentObs,
   historicalObs,
-  historyElementSkeletonText,
 }): JSX.Element => {
   const [systolicValueText, setSystolicValueText] = useState('');
   const [diastolicValueText, setDiastolicValueText] = useState('');
@@ -238,7 +237,6 @@ const VitalsBloodPressureCard: React.FC<VitalsBloodPressureCardProps> = ({
               currentEncounterObs={currentObs}
               historicalObs={historicalObs}
               isLoading={isLoading}
-              historyElementSkeletonText={historyElementSkeletonText}
               historyElementCreator={(historyEntry) => {
                 return <VitalBloodPressureHistoryElement historyEntry={historyEntry} onDelete={handleDeleteVital} />;
               }}

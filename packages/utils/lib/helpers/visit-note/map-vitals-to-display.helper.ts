@@ -11,13 +11,7 @@ import {
   VitalsWeightObservationDTO,
 } from '../../types';
 import { formatDateTimeToZone } from '../../utils';
-import {
-  getVisionExtraOptionsFormattedString,
-  heightInCmToInch,
-  kgToLb,
-  parseVisionExtraOptions,
-  VitalsVisitNoteData,
-} from '../vitals';
+import { getVisionExtraOptionsFormattedString, heightInCmToInch, kgToLbs, VitalsVisitNoteData } from '../vitals';
 
 export const mapVitalsToDisplay = (
   vitalsObservations: VitalsObservationDTO[],
@@ -54,7 +48,7 @@ export const mapVitalsToDisplay = (
         break;
       case VitalFieldNames.VitalWeight:
         parsed = observation as VitalsWeightObservationDTO;
-        text = `${parsed.value} kg / ${kgToLb(parsed.value)} lbs`;
+        text = `${parsed.value} kg / ${kgToLbs(parsed.value)} lbs`;
         break;
       case VitalFieldNames.VitalHeight:
         parsed = observation as VitalsHeightObservationDTO;
@@ -64,7 +58,7 @@ export const mapVitalsToDisplay = (
         parsed = observation as VitalsVisionObservationDTO;
         text = `Left eye: ${parsed.leftEyeVisionText}; Right eye: ${parsed.rightEyeVisionText};${
           parsed.extraVisionOptions && parsed.extraVisionOptions.length > 0
-            ? ` ${getVisionExtraOptionsFormattedString(parseVisionExtraOptions(parsed.extraVisionOptions))}`
+            ? ` ${getVisionExtraOptionsFormattedString(parsed.extraVisionOptions)}`
             : ''
         }`;
         break;

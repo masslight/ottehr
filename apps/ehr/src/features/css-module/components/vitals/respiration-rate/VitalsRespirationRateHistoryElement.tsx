@@ -38,7 +38,7 @@ export const VitalsRespirationRateHistoryElementElement: React.FC<VitalsRespirat
     <>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography color="textPrimary">
-          {historyEntry.lastUpdated} {hasAuthor && 'by'} {historyEntry.authorId} - &nbsp;
+          {historyEntry.lastUpdated} {hasAuthor && 'by'} {historyEntry.authorName} - &nbsp;
           <Typography component="span" sx={{ fontWeight: 'bold', color: lineColor }}>
             {historyEntry.value}/min
           </Typography>

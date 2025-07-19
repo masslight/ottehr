@@ -22,7 +22,7 @@ import { AccordionCard, DoubleColumnContainer } from '../../../../../telemed/com
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
 import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
 import { useScreenDimensions } from '../hooks/useScreenDimensions';
-import { VitalsCardProps } from '../types';
+import { HISTORY_ELEMENT_SKELETON_TEXT, VitalsCardProps } from '../types';
 import { celsiusToFahrenheit, textToTemperatureNumber } from './helpers';
 import VitalTemperatureHistoryElement from './VitalTemperatureHistoryElement';
 
@@ -33,7 +33,7 @@ const VitalsTemperaturesCard: React.FC<VitalsTemperatureCardProps> = ({
   isLoading,
   currentObs,
   historicalObs,
-  historyElementSkeletonText,
+  historyElementSkeletonText = HISTORY_ELEMENT_SKELETON_TEXT,
 }): JSX.Element => {
   const [temperatureValueText, setTemperatureValueText] = useState('');
 

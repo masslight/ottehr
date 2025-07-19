@@ -2,9 +2,11 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, Observation, Patient, Practitioner } from 'fhir/r4b';
 import {
+  convertVitalsListToMap,
   FHIR_RESOURCE_NOT_FOUND,
   FHIR_RESOURCE_NOT_FOUND_CUSTOM,
   getFullName,
+  GetVitalsResponseData,
   INVALID_INPUT_ERROR,
   isValidUUID,
   PATIENT_VITALS_META_SYSTEM,
@@ -43,11 +45,14 @@ export const index = wrapHandler('get-vitals', async (input: ZambdaInput): Promi
   }
 });
 
-const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<any> => {
+const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<GetVitalsResponseData> => {
   const { encounter, mode } = input;
   if (mode === 'current') {
     // Fetch current vitals for the encounter
-    return fetchVitalsForEncounter(encounter.id, oystehr);
+    const list = await fetchVitalsForEncounter(encounter.id, oystehr);
+    const map = convertVitalsListToMap(list);
+    console.log('Vitals map:', map);
+    return map;
   } else {
     throw new Error('Historical mode is not implemented yet');
   }
@@ -63,6 +68,7 @@ const fetchVitalsForEncounter = async (encounterId: string, oystehr: Oystehr): P
         { name: 'encounter._id', value: encounterId },
         { name: '_tag', value: `${PRIVATE_EXTENSION_BASE_URL}/${PATIENT_VITALS_META_SYSTEM}|` },
         { name: '_include', value: 'Observation:performer' },
+        { name: '_sort', value: '-date' }, // Sort by date descending
       ],
     })
   ).unbundle();
@@ -89,7 +95,7 @@ const parseResourcesToDTOs = (observations: Observation[], practitioners: Practi
     }
   });
 
-  console.log('Observation to performer map:', observationPerformerMap, observations.length, practitioners.length);
+  // console.log('Observation to performer map:', observationPerformerMap, observations.length, practitioners.length);
 
   const vitalsDTOs: VitalsObservationDTO[] = Array.from(observationPerformerMap.entries()).flatMap(
     ([obsId, performer]) => {
@@ -137,11 +143,12 @@ const parseBloodPressureObservation = (
 ): VitalsBloodPressureObservationDTO | undefined => {
   // if (observation.code?.coding?.[0]?.code !== '85354-9') return undefined; interesting suggestion from AI...
   const systolicBP = observation.component?.find(
-    (comp) => comp.code?.coding?.[0]?.code === '8480-6' && comp.code?.coding?.[0]?.system === 'http://loinc.org'
+    (comp) => comp.code?.coding?.some((cc) => cc.code === '8480-6' && cc.system === 'http://loinc.org')
   )?.valueQuantity?.value;
   const diastolicBP = observation.component?.find(
-    (comp) => comp.code?.coding?.[0]?.code === '8462-4' && comp.code?.coding?.[0]?.system === 'http://loinc.org'
+    (comp) => comp.code?.coding?.some((cc) => cc.code === '8462-4' && cc.system === 'http://loinc.org')
   )?.valueQuantity?.value;
+  console.log('Systolic BP:', systolicBP, 'Diastolic BP:', diastolicBP);
   if (systolicBP === undefined || diastolicBP === undefined) return undefined;
   return {
     resourceId: observation.id,
@@ -208,6 +215,7 @@ const parseNumericValueObservation = (
   field: AllOtherFields
 ): VitalsObservationDTO | undefined => {
   const value = observation.valueQuantity?.value;
+  console.log(`Parsing observation for field ${field}:`, 'Value:', value);
   if (value === undefined) return undefined;
   return {
     resourceId: observation.id,

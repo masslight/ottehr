@@ -23,7 +23,6 @@ const VitalsOxygenSatCard: React.FC<VitalsOxygenSatCardProps> = ({
   isLoading,
   currentObs,
   historicalObs,
-  historyElementSkeletonText,
 }): JSX.Element => {
   const [oxySatValueText, setOxySatValueText] = useState('');
 
@@ -188,7 +187,6 @@ const VitalsOxygenSatCard: React.FC<VitalsOxygenSatCardProps> = ({
               currentEncounterObs={currentObs}
               historicalObs={historicalObs}
               isLoading={isLoading}
-              historyElementSkeletonText={historyElementSkeletonText}
               historyElementCreator={(historyEntry) => {
                 return <VitalOxygenSatHistoryElement historyEntry={historyEntry} onDelete={handleDeleteVital} />;
               }}
