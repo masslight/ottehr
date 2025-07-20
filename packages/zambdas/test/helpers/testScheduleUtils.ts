@@ -1229,6 +1229,20 @@ export const adjustHoursOfOperation = (
   };
 };
 
+export const setClosingHourForAllDays = (scheduleExt: ScheduleExtension, closingHour: HourOfDay): ScheduleExtension => {
+  const scheduleExtCopy = _.cloneDeep(scheduleExt);
+  const schedule = scheduleExtCopy.schedule;
+  const newHours = Object.fromEntries(
+    Object.entries(schedule).map(([day, daySchedule]) => {
+      const newDaySchedule = { ...daySchedule };
+      newDaySchedule.close = closingHour;
+      return [day, newDaySchedule];
+    })
+  ) as DailySchedule;
+  scheduleExtCopy.schedule = newHours;
+  return scheduleExtCopy;
+};
+
 interface PersistScheduleInput {
   scheduleExtension: ScheduleExtension;
   processId: string | null;
