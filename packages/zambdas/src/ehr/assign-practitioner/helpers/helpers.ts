@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import { Coding, Encounter, Practitioner, PractitionerRole } from 'fhir/r4b';
-import { getPatchBinary } from 'utils';
+import { getAppointmentMetaTagOpForStatusUpdate, getPatchBinary, PRACTITIONER_CODINGS, User } from 'utils';
 import { EncounterPackage } from '../../../shared/practitioner/types';
 
 export const assignPractitionerIfPossible = async (
@@ -9,6 +9,7 @@ export const assignPractitionerIfPossible = async (
   resourcesToUpdate: EncounterPackage,
   practitioner: Practitioner,
   userRole: Coding[],
+  curUser: User,
   practitionerRole?: PractitionerRole
 ): Promise<void> => {
   if (!resourcesToUpdate.encounter?.id || !practitioner) {
@@ -27,15 +28,33 @@ export const assignPractitionerIfPossible = async (
     encounterPatchOp.push(...assignPractitionerOp);
   }
 
+  const patchRequests = [
+    getPatchBinary({
+      resourceType: 'Encounter',
+      resourceId: resourcesToUpdate.encounter.id!,
+      patchOperations: encounterPatchOp,
+    }),
+  ];
+
+  // if provider is being added, status should be changing to provider
+  if (
+    userRole[0].code === PRACTITIONER_CODINGS.Attender[0].code &&
+    userRole[0].system === PRACTITIONER_CODINGS.Attender[0].system
+  ) {
+    patchRequests.push(
+      getPatchBinary({
+        resourceType: 'Appointment',
+        resourceId: resourcesToUpdate.appointment.id!,
+        patchOperations: getAppointmentMetaTagOpForStatusUpdate(resourcesToUpdate.appointment, 'provider', {
+          user: curUser,
+        }),
+      })
+    );
+  }
+
   if (encounterPatchOp.length > 0) {
     await oystehr.fhir.transaction({
-      requests: [
-        getPatchBinary({
-          resourceType: 'Encounter',
-          resourceId: resourcesToUpdate.encounter.id!,
-          patchOperations: encounterPatchOp,
-        }),
-      ],
+      requests: patchRequests,
     });
   }
 };

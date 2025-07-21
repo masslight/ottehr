@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import { Coding, Encounter, Practitioner, PractitionerRole } from 'fhir/r4b';
-import { getPatchBinary, UserRole } from 'utils';
+import { getAppointmentMetaTagOpForStatusUpdate, getPatchBinary, User, UserRole } from 'utils';
 import { EncounterPackage } from '../../../shared/practitioner/types';
 
 export const unassignParticipantIfPossible = async (
@@ -9,6 +9,7 @@ export const unassignParticipantIfPossible = async (
   resourcesToUpdate: EncounterPackage,
   practitioner: Practitioner,
   userRole: typeof UserRole,
+  curUser: User,
   practitionerRole?: PractitionerRole
 ): Promise<void> => {
   if (!resourcesToUpdate.encounter?.id || !practitioner) {
@@ -30,6 +31,13 @@ export const unassignParticipantIfPossible = async (
   if (encounterPatchOp.length > 0) {
     await oystehr.fhir.transaction({
       requests: [
+        getPatchBinary({
+          resourceType: 'Appointment',
+          resourceId: resourcesToUpdate.appointment.id!,
+          patchOperations: getAppointmentMetaTagOpForStatusUpdate(resourcesToUpdate.appointment, 'ready for provider', {
+            user: curUser,
+          }),
+        }),
         getPatchBinary({
           resourceType: 'Encounter',
           resourceId: resourcesToUpdate.encounter.id!,

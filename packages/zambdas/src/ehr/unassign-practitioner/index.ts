@@ -1,11 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Practitioner, PractitionerRole } from 'fhir/r4b';
-import { Secrets, UnassignPractitionerZambdaInput, UnassignPractitionerZambdaOutput } from 'utils';
+import { Secrets, UnassignPractitionerZambdaInput, UnassignPractitionerZambdaOutput, User } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { getVisitResources } from '../../shared/practitioner/helpers';
-import { getMyPractitionerId } from '../../shared/practitioners';
+import { getCurUserAndPractitionerId } from '../../shared/practitioners';
 import { unassignParticipantIfPossible } from './helpers/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -53,13 +53,14 @@ export const complexValidation = async (
   practitionerRole?: PractitionerRole;
   practitioner: Practitioner;
   userRole: any;
+  curUser: User;
 }> => {
   const { encounterId, practitioner, userRole } = params;
 
-  const practitionerIdFromCurrentUser = await getMyPractitionerId(oystehrCurrentUser);
+  const { curUser, curUserPractitionerId } = await getCurUserAndPractitionerId(oystehrCurrentUser);
 
-  if (practitioner.id !== practitionerIdFromCurrentUser) {
-    throw new Error(`User ID ${practitioner.id} does not match practitioner ID ${practitionerIdFromCurrentUser}.`);
+  if (practitioner.id !== curUserPractitionerId) {
+    throw new Error(`User ID ${practitioner.id} does not match practitioner ID ${curUserPractitionerId}.`);
   }
   // todo: query practitionerRole array for this practitioner and determine if any matches for the encounter location
 
@@ -78,6 +79,7 @@ export const complexValidation = async (
     practitionerRole,
     practitioner,
     userRole,
+    curUser,
   };
 };
 
@@ -89,15 +91,17 @@ export const performEffect = async (
     practitionerRole?: PractitionerRole;
     practitioner: Practitioner;
     userRole: any;
+    curUser: User;
   }
 ): Promise<UnassignPractitionerZambdaOutput> => {
-  const { encounter, appointment, practitionerRole, practitioner, userRole } = validatedData;
+  const { encounter, appointment, practitionerRole, practitioner, userRole, curUser } = validatedData;
 
   await unassignParticipantIfPossible(
     oystehr,
     { encounter, appointment, practitionerRole },
     practitioner,
     userRole,
+    curUser,
     practitionerRole
   );
 
