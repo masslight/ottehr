@@ -764,7 +764,7 @@ describe('slot availability tests', () => {
     const timezone = getTimezone(schedule);
     expect(timezone).toBeDefined();
 
-    const startDate = DateTime.now().set({ hour: 21, minute: 10, second: 0 });
+    const startDate = DateTime.now().setZone(timezone).set({ hour: 21, minute: 10, second: 0 });
 
     console.log('startDate', startDate.toISO(), startDate.weekdayLong);
     const close = scheduleExtension.schedule[startDate.weekdayLong!.toLowerCase() as DOW].close;
@@ -785,8 +785,8 @@ describe('slot availability tests', () => {
     console.log('availableSlots', availableSlots);
     const last3Slots = availableSlots.slice(-3);
     expect(last3Slots.length).toEqual(3);
-    const startString = startDate.setZone(timezone).toISO()!.split(':')[0];
-    const endString = startDate.setZone(timezone).toISO()!.split('-').pop()!;
+    const startString = startDate.toISO()!.split(':')[0];
+    const endString = startDate.toISO()!.split('-').pop()!;
     expect(last3Slots[0]).toEqual(`${startString}:15:00.000-${endString}`);
     expect(last3Slots[1]).toEqual(`${startString}:30:00.000-${endString}`);
     expect(last3Slots[2]).toEqual(`${startString}:45:00.000-${endString}`);
