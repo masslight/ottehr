@@ -1,4 +1,4 @@
-import { Box, FormControlLabel, Skeleton, Switch, TextField, Typography } from '@mui/material';
+import { Box, CircularProgress, FormControlLabel, Skeleton, Switch, TextField, Typography } from '@mui/material';
 import { FC } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
@@ -17,8 +17,9 @@ export const ChiefComplaintProviderColumn: FC = () => {
 
   const { control } = methods;
 
-  const { onValueChange: onChiefComplaintChange } = useDebounceNotesField('chiefComplaint');
-  const { onValueChange: onRosChange } = useDebounceNotesField('ros');
+  const { onValueChange: onChiefComplaintChange, isLoading: isChiefComplaintLoading } =
+    useDebounceNotesField('chiefComplaint');
+  const { onValueChange: onRosChange, isLoading: isRosLoading } = useDebounceNotesField('ros');
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -37,6 +38,13 @@ export const ChiefComplaintProviderColumn: FC = () => {
             multiline
             rows={3}
             data-testid={dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes}
+            InputProps={{
+              endAdornment: isChiefComplaintLoading && (
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <CircularProgress size="20px" />
+                </Box>
+              ),
+            }}
           />
         )}
       />
@@ -55,6 +63,13 @@ export const ChiefComplaintProviderColumn: FC = () => {
             fullWidth
             multiline
             data-testid={dataTestIds.telemedEhrFlow.hpiChiefComplaintRos}
+            InputProps={{
+              endAdornment: isRosLoading && (
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <CircularProgress size="20px" />
+                </Box>
+              ),
+            }}
           />
         )}
       />
