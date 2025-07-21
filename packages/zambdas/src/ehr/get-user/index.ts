@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Practitioner } from 'fhir/r4b';
-import { PractitionerLicense } from 'utils';
+import { Practitioner, Schedule } from 'fhir/r4b';
+import { GetUserResponse, PractitionerLicense } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -17,20 +17,39 @@ export const index = wrapHandler('get-user', async (input: ZambdaInput): Promise
     console.debug('validateRequestParameters success');
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
-    let response = null;
+    let response: GetUserResponse | null = null;
     try {
       const getUserResponse = await oystehr.user.get({ id: userId });
       let existingPractitionerResource: Practitioner | undefined = undefined;
+      let schedule: Schedule | undefined;
       const userProfile = getUserResponse.profile;
       const userProfileString = userProfile.split('/');
 
       const practitionerId = userProfileString[1];
       try {
-        existingPractitionerResource =
-          (await oystehr.fhir.get<Practitioner>({
+        const [practitionerResource, scheduleSearch] = await Promise.all([
+          oystehr.fhir.get<Practitioner>({
             resourceType: 'Practitioner',
             id: practitionerId,
-          })) ?? null;
+          }),
+          oystehr.fhir
+            .search<Schedule>({
+              resourceType: 'Schedule',
+              params: [
+                {
+                  name: 'actor',
+                  value: `Practitioner/${practitionerId}`,
+                },
+              ],
+            })
+            .then((bundle) => {
+              const resources = bundle.unbundle();
+              const schedule = resources.find((r) => r.resourceType === 'Schedule');
+              return schedule;
+            }),
+        ]);
+        existingPractitionerResource = practitionerResource;
+        schedule = scheduleSearch;
         console.log('Existing practitioner: ' + JSON.stringify(existingPractitionerResource));
       } catch (error: any) {
         if (
@@ -63,6 +82,7 @@ export const index = wrapHandler('get-user', async (input: ZambdaInput): Promise
           profileResource: existingPractitionerResource,
           licenses: allLicenses ?? [],
         },
+        userScheduleId: schedule?.id,
       };
     } catch (error: unknown) {
       throw new Error(`Failed to get User: ${JSON.stringify(error)}`);

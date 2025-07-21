@@ -770,8 +770,10 @@ export const useSyncERXPatient = ({
 
 export const useConnectPractitionerToERX = ({
   patientId,
+  encounterId,
 }: {
   patientId?: string;
+  encounterId?: string;
 }): UseMutationResult<string, Error, void> => {
   const { oystehr } = useApiClients();
 
@@ -785,6 +787,9 @@ export const useConnectPractitionerToERX = ({
           const params: ErxConnectPractitionerParams = {};
           if (patientId) {
             params.patientId = patientId;
+          }
+          if (encounterId) {
+            params.encounterId = encounterId;
           }
           const resp = await oystehr.erx.connectPractitioner(params);
           console.log('Successfully connected practitioner to erx');

@@ -42,6 +42,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   const labQuestionnaireResponses = questionnaireData?.questionnaireResponseItems;
   const [submitLoading, setSubmitLoading] = useState(false);
   const [error, setError] = useState<string[] | undefined>(undefined);
+  const [manualSubmitError, setManualSubmitError] = useState<string[] | undefined>(undefined);
   const [errorDialogOpen, setErrorDialogOpen] = useState<boolean>(false);
   const [specimensData, setSpecimensData] = useState<{ [specimenId: string]: { date: string } }>({});
   const shouldShowSampleCollectionInstructions =
@@ -88,21 +89,27 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
 
     const sanitizedData = sanitizeFormData(data);
 
+    const { orderPdfUrl, labelPdfUrl } = await submitLabOrder(oystehr, {
+      serviceRequestID: labOrder.serviceRequestId,
+      accountNumber: labOrder.accountNumber,
+      manualOrder,
+      data: sanitizedData,
+      ...(!labOrder.isPSC && { specimens: specimensData }), // non PSC orders require specimens, validation is handled in the zambda
+    });
+
+    if (labelPdfUrl) await openPdf(labelPdfUrl);
+    await openPdf(orderPdfUrl);
+
+    setSubmitLoading(false);
+    setError(undefined);
+    navigate(`/in-person/${appointmentID}/external-lab-orders`);
+
+    console.log(`data at submit: ${JSON.stringify(sanitizedData)}`);
+  };
+
+  const handleAutomatedSubmit: SubmitHandler<DynamicAOEInput> = async (data) => {
     try {
-      const { orderPdfUrl, labelPdfUrl } = await submitLabOrder(oystehr, {
-        serviceRequestID: labOrder.serviceRequestId,
-        accountNumber: labOrder.accountNumber,
-        manualOrder,
-        data: sanitizedData,
-        ...(!labOrder.isPSC && { specimens: specimensData }), // non PSC orders require specimens, validation is handled in the zambda
-      });
-
-      if (labelPdfUrl) await openPdf(labelPdfUrl);
-      await openPdf(orderPdfUrl);
-
-      setSubmitLoading(false);
-      setError(undefined);
-      navigate(`/in-person/${appointmentID}/external-lab-orders`);
+      await submitOrder({ data, manualOrder: false });
     } catch (e) {
       const oyError = e as OystehrSdkError;
       console.log('error creating external lab order1', oyError.code, oyError.message);
@@ -111,17 +118,19 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
       setErrorDialogOpen(true);
       setSubmitLoading(false);
     }
-
-    console.log(`data at submit: ${JSON.stringify(sanitizedData)}`);
-  };
-
-  const handleAutomatedSubmit: SubmitHandler<DynamicAOEInput> = async (data) => {
-    await submitOrder({ data, manualOrder: false });
   };
 
   const handleManualSubmit = async (): Promise<void> => {
     const data = methods.getValues();
-    await submitOrder({ data, manualOrder: true });
+    try {
+      await submitOrder({ data, manualOrder: true });
+    } catch (e) {
+      const oyError = e as OystehrSdkError;
+      console.log('error creating external lab order1', oyError.code, oyError.message);
+      const errorMessage = [oyError.message || 'There was an error submitting the lab order'];
+      setManualSubmitError(errorMessage);
+      setSubmitLoading(false);
+    }
   };
 
   return (
@@ -188,9 +197,13 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
           confirmLoading={submitLoading}
           handleConfirm={() => handleManualSubmit()}
           confirmText="Manually submit lab order"
-          handleClose={() => setErrorDialogOpen(false)}
+          handleClose={() => {
+            setErrorDialogOpen(false);
+            setManualSubmitError(undefined);
+          }}
           title="Error submitting lab order"
           description={error?.join(',') || 'Error submitting lab order'}
+          error={manualSubmitError?.join(',')}
           closeButtonText="cancel"
         />
       </form>

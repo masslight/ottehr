@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter } from 'fhir/r4b';
 import {
+  getAppointmentMetaTagOpForStatusUpdate,
   getEncounterStatusHistoryUpdateOp,
   getPatchBinary,
   User,
@@ -93,6 +94,8 @@ const getUpdateInPersonAppointmentStatusOperation = async (
   if (appointment.status === 'cancelled') {
     appointmentPatchOps.push({ op: 'remove', path: '/cancelationReason' });
   }
+
+  appointmentPatchOps.push(...getAppointmentMetaTagOpForStatusUpdate(appointment, updatedStatus, { user }));
 
   return appointmentPatchOps;
 };

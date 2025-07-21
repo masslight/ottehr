@@ -98,6 +98,10 @@ export const expectedAccountGuarantorFromQR1: RelatedPerson = {
       system: 'phone',
       value: '+19895556543',
     },
+    {
+      system: 'email',
+      value: 'rowdyroddypiper@hotmail.com',
+    },
   ],
 };
 

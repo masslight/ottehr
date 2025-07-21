@@ -34,8 +34,13 @@ const AIInterview = (): JSX.Element => {
   }, [questionnaireResponse, setQuestionnaireResponse, zambdaClient, appointmentId]);
 
   const onSend = async (): Promise<void> => {
-    if (zambdaClient == null || questionnaireResponse == null || answer.length === 0) return;
-    setUnprocessedUserAnswer(answer);
+    const trimmedAnswer = answer.trim();
+    if (trimmedAnswer.length === 0) {
+      setAnswer('');
+      return;
+    }
+    if (zambdaClient == null || questionnaireResponse == null) return;
+    setUnprocessedUserAnswer(trimmedAnswer);
     setAnswer('');
     setLoading(true);
     setQuestionnaireResponse(
@@ -43,7 +48,7 @@ const AIInterview = (): JSX.Element => {
         {
           questionnaireResponseId: questionnaireResponse.id ?? '',
           linkId: getLastQuestionLinkId(questionnaireResponse),
-          answer: answer,
+          answer: trimmedAnswer,
         },
         zambdaClient
       )

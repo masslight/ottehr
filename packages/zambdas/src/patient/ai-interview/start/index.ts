@@ -9,7 +9,7 @@ import {
   SecretsKeys,
   StartInterviewInput,
 } from 'utils';
-import { getAuth0Token, validateJsonBody, validateString, ZambdaInput } from '../../../shared';
+import { getAuth0Token, validateJsonBody, validateString, wrapHandler, ZambdaInput } from '../../../shared';
 import { invokeChatbot } from '../../../shared/ai';
 
 export const INTERVIEW_COMPLETED = 'Interview completed.';
@@ -28,7 +28,8 @@ interface Input extends StartInterviewInput {
   secrets: Secrets | null;
 }
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+const ZAMBDA_NAME = 'ai-interview-start';
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`Input: ${JSON.stringify(input)}`);
   try {
     const { appointmentId, secrets } = validateInput(input);
@@ -58,7 +59,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify({ error: 'Internal error' }),
     };
   }
-};
+});
 
 function validateInput(input: ZambdaInput): Input {
   const { appointmentId } = validateJsonBody(input);
