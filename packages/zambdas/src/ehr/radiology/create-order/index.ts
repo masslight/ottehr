@@ -121,6 +121,12 @@ const performEffect = async (
 ): Promise<CreateRadiologyZambdaOrderOutput> => {
   const { body } = validatedInput;
 
+  // Grab the practitioner
+  const ourPractitioner = await oystehr.fhir.get<Practitioner>({
+    resourceType: 'Practitioner',
+    id: practitionerRelativeReference.split('/')[1],
+  });
+
   // Create the order in FHIR
   const ourServiceRequest = await writeOurServiceRequest(body, practitionerRelativeReference, oystehr);
   if (!ourServiceRequest.id) {
@@ -129,7 +135,7 @@ const performEffect = async (
 
   // Send the order to AdvaPACS
   try {
-    await writeAdvaPacsTransaction(ourServiceRequest, secrets, oystehr);
+    await writeAdvaPacsTransaction(ourServiceRequest, ourPractitioner, secrets, oystehr);
   } catch (error) {
     console.error('Error sending order to AdvaPACS: ', error);
     await rollbackOurServiceRequest(ourServiceRequest, oystehr);
@@ -140,12 +146,6 @@ const performEffect = async (
   };
 };
 
-const fillerAndPlacerOrderNumber = randomstring.generate({
-  length: 22,
-  charset: 'alphanumeric',
-  capitalization: 'uppercase',
-});
-
 const writeOurServiceRequest = (
   validatedBody: EnhancedBody,
   practitionerRelativeReference: string,
@@ -153,6 +153,13 @@ const writeOurServiceRequest = (
 ): Promise<ServiceRequest> => {
   const { encounter, diagnosis, cpt, stat } = validatedBody;
   const now = DateTime.now();
+
+  const fillerAndPlacerOrderNumber = randomstring.generate({
+    length: 22,
+    charset: 'alphanumeric',
+    capitalization: 'uppercase',
+  });
+
   const serviceRequest: ServiceRequest = {
     resourceType: 'ServiceRequest',
     meta: {
@@ -281,6 +288,7 @@ const writeOurServiceRequest = (
 
 const writeAdvaPacsTransaction = async (
   ourServiceRequest: ServiceRequest,
+  ourPractitioner: Practitioner,
   secrets: Secrets,
   oystehr: Oystehr
 ): Promise<void> => {
@@ -321,9 +329,9 @@ const writeAdvaPacsTransaction = async (
             value: ourRequestingPractitionerId,
           },
         ],
-        name: ourPatient.name,
-        birthDate: ourPatient.birthDate,
-        gender: ourPatient.gender,
+        name: ourPractitioner.name,
+        birthDate: ourPractitioner.birthDate,
+        gender: ourPractitioner.gender,
       },
     };
 

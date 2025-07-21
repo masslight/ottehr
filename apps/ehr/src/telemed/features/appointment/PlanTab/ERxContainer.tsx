@@ -1,4 +1,5 @@
 import AddIcon from '@mui/icons-material/Add';
+import { LoadingButton } from '@mui/lab';
 import {
   CircularProgress,
   Paper,
@@ -116,11 +117,12 @@ interface ERxContainerProps {
 }
 
 export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
-  const { encounter, appointment, setPartialChartData, chartData } = getSelectors(useAppointmentStore, [
+  const { encounter, appointment, setPartialChartData, chartData, patient } = getSelectors(useAppointmentStore, [
     'encounter',
     'appointment',
     'setPartialChartData',
     'chartData',
+    'patient',
   ]);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
@@ -162,15 +164,21 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
   const { oystehr } = useApiClients();
   const user = useEvolveUser();
 
-  const cancelPrescription = async (prescriptionId: string): Promise<void> => {
+  const cancelPrescription = async (medRequestId: string, patientId: string): Promise<void> => {
     if (!oystehr) {
       enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
       return;
     }
-    setCancellationLoading((prevState) => [...prevState, prescriptionId]);
-    await oystehr.erxV1.cancelPrescription({ prescriptionId });
-    await refetch();
-    setCancellationLoading((prevState) => prevState.filter((item) => item !== prescriptionId));
+    setCancellationLoading((prevState) => [...prevState, medRequestId]);
+    try {
+      await oystehr.erx.cancelPrescription({ medicationRequestId: medRequestId, patientId });
+    } catch (error) {
+      enqueueSnackbar('An error occurred while cancelling prescription. Please try again.', { variant: 'error' });
+      console.error(`Error cancelling prescription: ${error}`);
+    } finally {
+      await refetch();
+      setCancellationLoading((prevState) => prevState.filter((item) => item !== medRequestId));
+    }
   };
 
   const handleCloseTooltip = (): void => {
@@ -296,20 +304,22 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
                     </TableCell>
                     {/*<TableCell>Pharmacy</TableCell>*/}
                     <TableCell>{getAppointmentStatusChip(row.status, medicationStatusMapper)}</TableCell>
-                    {!isReadOnly && (
+                    {!isReadOnly && patient?.id && (
                       <TableCell>
-                        <RoundedButton
+                        <LoadingButton
+                          loading={cancellationLoading.includes(row.resourceId!)}
                           variant="text"
                           color="error"
-                          onClick={() => cancelPrescription(row.prescriptionId!)}
+                          onClick={() => cancelPrescription(row.resourceId!, patient.id!)}
                           disabled={
-                            !row.prescriptionId ||
                             row.status === 'loading' ||
-                            cancellationLoading.includes(row.prescriptionId)
+                            row.status === 'completed' ||
+                            row.status === 'cancelled' ||
+                            cancellationLoading.includes(row.resourceId!)
                           }
                         >
                           Cancel
-                        </RoundedButton>
+                        </LoadingButton>
                       </TableCell>
                     )}
                   </TableRow>

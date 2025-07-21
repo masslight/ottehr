@@ -34,7 +34,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
-import { getAttendingPractitionerId } from '../shared/in-house-labs';
+import { getAttendingPractitionerId } from '../../shared/practitioner/helpers';
 import { getPrimaryInsurance } from '../shared/labs';
 import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
