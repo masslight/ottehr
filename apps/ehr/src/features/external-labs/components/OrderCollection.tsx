@@ -125,9 +125,9 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
     try {
       await submitOrder({ data, manualOrder: true });
     } catch (e) {
-      const oyError = e as OystehrSdkError;
-      console.log('error creating external lab order1', oyError.code, oyError.message);
-      const errorMessage = [oyError.message || 'There was an error submitting the lab order'];
+      const sdkError = e as Oystehr.OystehrSdkError;
+      console.log('error creating external lab order1', sdkError.code, sdkError.message);
+      const errorMessage = [sdkError.message || 'There was an error submitting the lab order'];
       setManualSubmitError(errorMessage);
       setSubmitLoading(false);
     }
