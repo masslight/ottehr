@@ -50,11 +50,8 @@ import {
   ZambdaInput,
 } from '../../shared';
 import { createInHouseLabResultPDF } from '../../shared/pdf/labs-results-form-pdf';
-import {
-  getAttendingPractitionerId,
-  getServiceRequestsRelatedViaRepeat,
-  getUrlAndVersionForADFromServiceRequest,
-} from '../shared/in-house-labs';
+import { getAttendingPractitionerId } from '../../shared/practitioner/helpers';
+import { getServiceRequestsRelatedViaRepeat, getUrlAndVersionForADFromServiceRequest } from '../shared/in-house-labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
