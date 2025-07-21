@@ -22,4 +22,16 @@ export class CssHeader {
   async clickSwitchStatusButton(status: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.cssHeader.switchStatusButton(status)).click();
   }
+
+  async selectIntakePractitioner(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.cssHeader.intakePractitionerInput).click();
+    await this.#page.getByRole('option').first().waitFor();
+    await this.#page.getByRole('option').first().click();
+  }
+
+  async selectProviderPractitioner(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.cssHeader.providerPractitionerInput).click();
+    await this.#page.getByRole('option').first().waitFor();
+    await this.#page.getByRole('option').first().click();
+  }
 }
