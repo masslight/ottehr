@@ -75,7 +75,7 @@ export const AdditionalInformationModal: FC = () => {
       <EditModal
         title="Additional Information"
         onSave={(hideDialog) => handleSubmit((values) => onSave(values, hideDialog))()}
-        isSaveLoading={editClaim.isLoading}
+        isSaveLoading={editClaim.isPending}
         onShow={() => reset(getDefaultValues(claimData))}
       >
         <Grid container spacing={2}>

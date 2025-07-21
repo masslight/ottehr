@@ -1,5 +1,5 @@
+import { QueryKey, QueryObserverResult } from '@tanstack/react-query';
 import { useEffect } from 'react';
-import { QueryKey, QueryObserverResult } from 'react-query';
 import { ChartDataRequestedFields, GetChartDataResponse } from 'utils';
 import { useAppointmentStore, useGetChartData } from '../../../telemed';
 import { useExamObservations } from '../../../telemed/hooks/useExamObservations';
@@ -84,5 +84,13 @@ export const useChartData = ({
     }
   }, [chartData, isFetching, requestedFields, enabled]);
 
-  return { refetch, chartData, isLoading, error: chartDataError, queryKey, isFetching, isFetched };
+  return {
+    refetch,
+    chartData,
+    isLoading,
+    error: chartDataError,
+    queryKey,
+    isFetching,
+    isFetched,
+  };
 };

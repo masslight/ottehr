@@ -106,7 +106,7 @@ export const ERX: FC<{
   // Step 4: Handle practitioner enrollment
   const {
     mutateAsync: enrollPractitioner,
-    isLoading: isEnrollingPractitioner,
+    isPending: isEnrollingPractitioner,
     isError: isEnrollPractitionerError,
     isSuccess: isEnrollPractitionerSuccess,
   } = useEnrollPractitionerToERX({
@@ -131,14 +131,14 @@ export const ERX: FC<{
   // Step 5: Connect practitioner
   const {
     data: ssoLink,
-    isLoading: isConnectingPractitioner,
+    isPending: isConnectingPractitioner,
     mutateAsync: connectPractitioner,
     isSuccess: isPractitionerConnected,
   } = useConnectPractitionerToERX({ patientId: patient?.id });
 
   const {
     data: ssoLinkForEnrollment,
-    isLoading: isConnectingPractitionerForConfirmation,
+    isPending: isConnectingPractitionerForConfirmation,
     mutateAsync: connectPractitionerForConfirmation,
     isSuccess: isPractitionerConnectedForConfirmation,
   } = useConnectPractitionerToERX({});

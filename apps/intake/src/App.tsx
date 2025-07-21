@@ -1,8 +1,8 @@
 import { useAuth0 } from '@auth0/auth0-react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import mixpanel from 'mixpanel-browser';
 import { useEffect } from 'react';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
-import { QueryClient, QueryClientProvider } from 'react-query';
 import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
 import { setupSentry } from 'utils';
 import { ScrollToTop } from './components/ScrollToTop';

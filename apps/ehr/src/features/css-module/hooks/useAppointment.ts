@@ -1,6 +1,6 @@
+import { QueryObserverResult, RefetchOptions } from '@tanstack/react-query';
 import { Appointment, Bundle, Encounter, FhirResource, Location, Patient, QuestionnaireResponse } from 'fhir/r4b';
 import { useEffect } from 'react';
-import { QueryObserverResult, RefetchOptions, RefetchQueryFilters } from 'react-query';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useAppointmentStore, useGetAppointment } from '../../../telemed';
 import { getResources } from '../parser/extractors';
@@ -35,9 +35,7 @@ export const useAppointment = (
   visitState: VisitState;
   error: any;
   isLoading: boolean;
-  refetch: <TPageData>(
-    options?: (RefetchOptions & RefetchQueryFilters<TPageData>) | undefined
-  ) => Promise<QueryObserverResult<FhirResource[], unknown>>;
+  refetch: (options?: RefetchOptions | undefined) => Promise<QueryObserverResult<FhirResource[], unknown>>;
 } => {
   const { resources, mappedData } = useMappedVisitDataStore();
 

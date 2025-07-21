@@ -1,5 +1,5 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
-import { useQueryClient } from 'react-query';
 import { ChartDataFields, GetChartDataResponse, VitalsObservationDTO } from 'utils';
 import { useDeleteChartData } from '../../../../../telemed';
 import { useChartData } from '../../../hooks/useChartData';
@@ -33,7 +33,7 @@ export const useDeleteVitals: UseDeleteVitals = ({ encounterId, searchConfig }) 
                   };
                 }
                 return oldData;
-              });
+              }) as GetChartDataResponse | undefined;
               if (result?.[searchConfig.fieldName] === undefined) {
                 // refetch all if the cache didn't found
                 await refetch();
