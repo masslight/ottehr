@@ -1,5 +1,6 @@
 import { DateTime } from 'luxon';
 import {
+  DOW,
   getAllSlotsAsCapacityMap,
   getAvailableSlots,
   GetAvailableSlotsInput,
@@ -14,6 +15,7 @@ import {
   changeAllCapacities,
   DEFAULT_SCHEDULE_JSON,
   makeSchedule,
+  setClosingHourForAllDays,
   setSlotLengthInMinutes,
   startOfDayWithTimezone,
 } from '../helpers/testScheduleUtils';
@@ -747,5 +749,46 @@ describe('slot availability tests', () => {
       expect(capacity).toEqual(1);
       now = now.plus({ minutes: 60 });
     }
+  });
+
+  it.only('should make slots available up until the last 45 minute slot when there is no buffer and no busy slots', async () => {
+    const scheduleAdjusted = setClosingHourForAllDays(DEFAULT_SCHEDULE_JSON, 22);
+    const schedule = makeSchedule({ scheduleObject: scheduleAdjusted, timezone: 'America/Chicago' });
+    expect(schedule).toBeDefined();
+    expect(schedule.id).toBeDefined();
+
+    const scheduleExtension = getScheduleExtension(schedule);
+    expect(scheduleExtension).toBeDefined();
+    assert(scheduleExtension);
+
+    const timezone = getTimezone(schedule);
+    expect(timezone).toBeDefined();
+
+    const startDate = DateTime.now().set({ hour: 21, minute: 10, second: 0 });
+
+    console.log('startDate', startDate.toISO(), startDate.weekdayLong);
+    const close = scheduleExtension.schedule[startDate.weekdayLong!.toLowerCase() as DOW].close;
+    console.log('close', close);
+    expect(close).toBeDefined();
+    expect(close).toEqual(22);
+
+    const getSlotsInput: GetAvailableSlotsInput = {
+      now: startDate,
+      schedule: schedule,
+      numDays: 1,
+      busySlots: [],
+    };
+
+    // this gives us a list of strings representing the start time of some 15 minute slots
+    const availableSlots = getAvailableSlots(getSlotsInput);
+    expect(availableSlots).toBeDefined();
+    console.log('availableSlots', availableSlots);
+    const last3Slots = availableSlots.slice(-3);
+    expect(last3Slots.length).toEqual(3);
+    const startString = startDate.setZone(timezone).toISO()!.split(':')[0];
+    const endString = startDate.setZone(timezone).toISO()!.split('-').pop()!;
+    expect(last3Slots[0]).toEqual(`${startString}:15:00.000-${endString}`);
+    expect(last3Slots[1]).toEqual(`${startString}:30:00.000-${endString}`);
+    expect(last3Slots[2]).toEqual(`${startString}:45:00.000-${endString}`);
   });
 });
