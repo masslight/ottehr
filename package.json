@@ -1,10 +1,6 @@
 {
   "name": "ottehr",
-<<<<<<< HEAD
   "version": "1.13.1",
-=======
-  "version": "1.14.0",
->>>>>>> 6c7181371 (1.14.0)
   "private": true,
   "engines": {
     "node": ">=20.0.0",
