@@ -167,16 +167,14 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
   saveProgress,
 }) => {
   const { paperwork, allItems } = usePaperworkContext();
-  const [cache, setCache] = useState({
-    pageId,
-    items,
-    defaultValues,
-  });
 
-  const validationSchema = makeValidationSchema(items, pageId, {
-    values: paperwork,
-    items: allItems,
-  }) as AnyObjectSchema;
+  const validationSchema = useMemo(() => {
+    return makeValidationSchema(items, pageId, {
+      values: paperwork,
+      items: allItems,
+    }) as AnyObjectSchema;
+  }, [items, pageId, paperwork, allItems]);
+
   const methods = useForm({
     mode: 'onSubmit', // onBlur doesn't seem to work but we use onBlur of FormControl in NestedInput to implement the desired behavior
     reValidateMode: 'onChange',
@@ -186,23 +184,8 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
     resolver: yupResolver(validationSchema, { abortEarly: false }),
   });
 
-  const { reset } = methods;
-
-  useEffect(() => {
-    if (
-      items &&
-      (cache.pageId !== pageId || !_.isEqual(cache.items, items) || !_.isEqual(cache.defaultValues, defaultValues))
-    ) {
-      setCache({ pageId, items, defaultValues });
-      console.log('resetting form with default values');
-      reset({
-        ...(defaultValues ?? {}),
-      });
-    }
-  }, [cache, defaultValues, items, reset, pageId]);
-
   return (
-    <FormProvider {...methods}>
+    <FormProvider {...methods} key={pageId}>
       <PaperworkFormRoot
         items={items}
         onSubmit={onSubmit}
