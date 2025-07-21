@@ -74,9 +74,6 @@ export const MarTableRow: React.FC<MarTableRowProps> = ({ medication, columnStyl
     return '-';
   }, [medication.effectiveDateTime, medication.dateGiven, medication.timeGiven]);
 
-  console.log('medication', medication);
-  console.log('medication dose', medication.dose);
-
   return (
     <TableRow
       data-testid={dataTestIds.inHouseMedicationsPage.marTableRow}
