@@ -21,6 +21,8 @@ export const dataTestIds = {
     patientName: 'patient-name',
     appointmentStatus: 'appointment-status',
     switchStatusButton: (status: string) => `switch-status-to-${status}`,
+    intakePractitionerInput: 'intake-practitioner-input',
+    providerPractitionerInput: 'provider-practitioner-input',
   },
   dashboard: {
     appointmentsTable: (tab: 'prebooked' | 'in-office' | 'completed' | 'cancelled') => `appointments-table-${tab}`,
