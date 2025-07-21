@@ -28,10 +28,10 @@ import {
   RelatedPersonMaps,
 } from '../types';
 import {
-  allLicensesForPractitioner,
   FHIR_EXTENSION,
   FHIR_IDENTIFIER_NPI,
   filterResources,
+  getAllPractitionerCredentials,
   getCommunicationsAndSenders,
   getUniquePhonesNumbers,
   PRIVATE_EXTENSION_BASE_URL,
@@ -430,7 +430,8 @@ export const getFullestAvailableName = (
   const lastName = getLastName(individual);
   let license = undefined;
   if (individual.resourceType === 'Practitioner') {
-    license = allLicensesForPractitioner(individual)[0]?.code;
+    // we want to use the credentials here, not licenses/qualifications
+    license = getAllPractitionerCredentials(individual).join(', ');
   }
   // const suffix = getSuffix(individual);
   if (firstName && lastName) {

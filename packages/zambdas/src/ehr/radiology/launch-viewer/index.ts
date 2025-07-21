@@ -121,7 +121,7 @@ const performEffect = async (
       url: responseJSON.url,
     };
   } catch (error) {
-    console.error('Error updating service request to revoked in AdvaPacs:', error);
-    throw new Error('Failed to update service request to revoked in AdvaPacs');
+    console.error('Error launching viewer:', error);
+    throw new Error('Failed to launch viewer');
   }
 };

@@ -59,6 +59,7 @@ import { DateTime } from 'luxon';
 import {
   FHIR_IDENTIFIER_NPI,
   getOptionalSecret,
+  getPayerId,
   getSecret,
   INVALID_INPUT_ERROR,
   MISSING_PATIENT_COVERAGE_INFO_ERROR,
@@ -739,11 +740,13 @@ export const performCandidPreEncounterSync = async (input: PerformCandidPreEncou
   const candidCoverages = await createCandidCoverages(ourPatient, candidPreEncounterPatient, oystehr, candidApiClient);
 
   // Update patient with the coverages
-  candidPreEncounterPatient = await updateCandidPatientWithCoverages(
-    candidPreEncounterPatient,
-    candidCoverages,
-    candidApiClient
-  );
+  if (candidCoverages.length > 0) {
+    candidPreEncounterPatient = await updateCandidPatientWithCoverages(
+      candidPreEncounterPatient,
+      candidCoverages,
+      candidApiClient
+    );
+  }
 
   // Get Candid appointment and create if it does not exist
   const existingCandidPreEncounterAppointmentId = ourAppointment.identifier?.find(
@@ -886,6 +889,10 @@ const createCandidCoverages = async (
 
   const candidCoverages: CandidPreEncounterCoverage[] = [];
 
+  if (coverages === undefined || coverages.primary === undefined) {
+    return candidCoverages;
+  }
+
   if (coverages.primary && coverages.primarySubscriber && insuranceOrgs[0]) {
     const candidCoverage = buildCandidCoverageCreateInput(
       coverages.primary,
@@ -972,7 +979,7 @@ const buildCandidCoverageCreateInput = (
     insurancePlan: {
       memberId: assertDefined(coverage.subscriberId, 'Member ID'),
       payerName: assertDefined(insuranceOrg.name, 'Payor name'),
-      payerId: PayerId(assertDefined(insuranceOrg.id, 'Payor id')),
+      payerId: PayerId(assertDefined(getPayerId(insuranceOrg), 'Payor id')),
     },
   };
 };
