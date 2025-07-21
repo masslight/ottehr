@@ -401,7 +401,7 @@ export const userActivation = async (
 ): Promise<UserActivationZambdaOutput> => {
   try {
     if (USER_ACTIVATION_ZAMBDA_ID == null) {
-      throw new Error('deactivate user environment variable could not be loaded');
+      throw new Error('user-activation environment variable could not be loaded');
     }
 
     const response = await oystehr.zambda.execute({
