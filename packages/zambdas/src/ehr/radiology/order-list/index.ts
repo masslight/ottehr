@@ -244,19 +244,43 @@ const parseResultsToOrder = (
   //   task.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`);
   // });
 
-  const myDiagnosticReport = diagnosticReports.find(
-    (report) => report.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`)
+  const myPreliminaryReportDR = diagnosticReports.find(
+    (report) =>
+      report.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`) &&
+      report.status === 'preliminary'
   );
 
-  const result = myDiagnosticReport?.presentedForm?.find((attachment) => attachment.contentType === 'text/html')?.data;
+  const myPreliminaryReportString = myPreliminaryReportDR?.presentedForm?.find(
+    (attachment) => attachment.contentType === 'text/html'
+  )?.data;
+
+  const myFinalReportDR = diagnosticReports.find(
+    (report) =>
+      report.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`) &&
+      report.status === 'final'
+  );
+
+  const myFinalReportString = myFinalReportDR?.presentedForm?.find(
+    (attachment) => attachment.contentType === 'text/html'
+  )?.data;
+
+  const myAmendedReportDR = diagnosticReports.find(
+    (report) =>
+      report.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`) &&
+      report.status === 'amended'
+  );
+
+  const myAmendedReportString = myAmendedReportDR?.presentedForm?.find(
+    (attachment) => attachment.contentType === 'text/html'
+  )?.data;
 
   if (serviceRequest.status === 'active') {
     status = RadiologyOrderStatus.pending;
-  } else if (serviceRequest.status === 'completed' && !myDiagnosticReport) {
+  } else if (serviceRequest.status === 'completed' && !myPreliminaryReportDR && !myFinalReportDR) {
     status = RadiologyOrderStatus.performed;
-  } else if (myDiagnosticReport?.status === 'preliminary') {
+  } else if (myPreliminaryReportDR) {
     status = RadiologyOrderStatus.preliminary;
-  } else if (myDiagnosticReport?.status === 'final') {
+  } else if (myFinalReportDR) {
     // && myReviewTask?.status === 'ready') {
     status = RadiologyOrderStatus.final;
     // } else if (myReviewTask?.status === 'completed') {
@@ -267,7 +291,7 @@ const parseResultsToOrder = (
 
   const appointmentId = parseAppointmentId(serviceRequest, encounters);
 
-  const history = buildHistory(serviceRequest, myDiagnosticReport, providerName);
+  const history = buildHistory(serviceRequest, myPreliminaryReportDR, myFinalReportDR, providerName);
 
   return {
     serviceRequestId: serviceRequest.id,
@@ -279,14 +303,17 @@ const parseResultsToOrder = (
     diagnosis: `${diagnosisCode} — ${diagnosisDisplay}`,
     status,
     isStat: serviceRequest.priority === 'stat',
-    result,
+    preliminaryReport: myPreliminaryReportString,
+    finalReport: myFinalReportString,
+    amendedReport: myAmendedReportString,
     history,
   };
 };
 
 const buildHistory = (
   serviceRequest: ServiceRequest,
-  diagnosticReport: DiagnosticReport | undefined,
+  preliminaryDR: DiagnosticReport | undefined,
+  finalDR: DiagnosticReport | undefined,
   orderingProviderName: string
 ): RadiologyOrderHistoryRow[] => {
   const history: RadiologyOrderHistoryRow[] = [];
@@ -313,22 +340,32 @@ const buildHistory = (
     });
   }
 
-  const diagnosticReportPreliminaryReadTimeExtensionValue = diagnosticReport?.extension?.find(
+  // Check for our 'preliminary review on' extension on either the prelim or final reports
+  const diagnosticReportPreliminaryReadTimeExtensionValueFromPreliminary = preliminaryDR?.extension?.find(
     (ext) => ext.url === DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL
   )?.valueDateTime;
-  if (diagnosticReportPreliminaryReadTimeExtensionValue) {
+  const diagnosticReportPreliminaryReadTimeExtensionValueFromFinal = finalDR?.extension?.find(
+    (ext) => ext.url === DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL
+  )?.valueDateTime;
+  if (diagnosticReportPreliminaryReadTimeExtensionValueFromPreliminary) {
     history.push({
       status: RadiologyOrderStatus.preliminary,
       performer: 'See AdvaPACS',
-      date: diagnosticReportPreliminaryReadTimeExtensionValue,
+      date: diagnosticReportPreliminaryReadTimeExtensionValueFromPreliminary,
+    });
+  } else if (diagnosticReportPreliminaryReadTimeExtensionValueFromFinal) {
+    history.push({
+      status: RadiologyOrderStatus.preliminary,
+      performer: 'See AdvaPACS',
+      date: diagnosticReportPreliminaryReadTimeExtensionValueFromFinal,
     });
   }
 
-  if (diagnosticReport?.issued) {
+  if (finalDR?.issued) {
     history.push({
       status: RadiologyOrderStatus.final,
       performer: 'See AdvaPACS',
-      date: diagnosticReport.issued,
+      date: finalDR.issued,
     });
   }
 

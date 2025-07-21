@@ -142,12 +142,31 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
                 </Box>
               )}
 
-              {order.result != null ? (
+              {order.preliminaryReport != null ? (
                 <Typography sx={{ mt: 2 }} variant="body2">
-                  <div dangerouslySetInnerHTML={{ __html: atob(order.result) }} />
+                  <strong>Preliminary Report:</strong>
+                  <div dangerouslySetInnerHTML={{ __html: atob(order.preliminaryReport) }} />
                 </Typography>
               ) : (
-                <div />
+                <></>
+              )}
+
+              {order.finalReport != null ? (
+                <Typography sx={{ mt: 2 }} variant="body2">
+                  <strong>Final Report:</strong>
+                  <div dangerouslySetInnerHTML={{ __html: atob(order.finalReport) }} />
+                </Typography>
+              ) : (
+                <></>
+              )}
+
+              {order.amendedReport != null ? (
+                <Typography sx={{ mt: 2 }} variant="body2">
+                  <strong>Amended Report:</strong>
+                  <div dangerouslySetInnerHTML={{ __html: atob(order.amendedReport) }} />
+                </Typography>
+              ) : (
+                <></>
               )}
             </Box>
           </Box>
@@ -172,6 +191,4 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
       </div>
     </WithRadiologyBreadcrumbs>
   );
-
-  return <Box>TODO</Box>;
 };
