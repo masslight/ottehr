@@ -15,9 +15,14 @@ export const cleanAppointmentGraph = async (tag: Coding, oystehr: Oystehr): Prom
     console.log(`Deleting resources...`);
     const chunkedRequests = chunkThings(deleteRequests, 100);
     for (let i = 0; i < chunkedRequests.length; i++) {
-      const result = await oystehr.fhir.transaction({ requests: [...chunkedRequests[i]] });
-      console.log(`successfully deleted resources, chunk ${i + 1} of ${chunkedRequests.length}`);
-      console.log('delete result:', result?.entry?.[0]?.response?.status);
+      try {
+        const result = await oystehr.fhir.transaction({ requests: [...chunkedRequests[i]] });
+        console.log(`successfully deleted resources, chunk ${i + 1} of ${chunkedRequests.length}`);
+        console.log('delete result:', result?.entry?.[0]?.response?.status);
+      } catch (e) {
+        console.log(`Error deleting resources, chunk ${i + 1} of ${chunkedRequests.length}: ${e}`, JSON.stringify(e));
+        console.log('Continuing with additional requests...');
+      }
       await sleep(250);
     }
     return true;
@@ -144,7 +149,11 @@ const patchPerson = async (oystehr: Oystehr, person: Person, allResources: FhirR
   }
 };
 
-const getAppointmentGraphByTag = async (oystehr: Oystehr, tag: Coding): Promise<FhirResource[]> => {
+const getAppointmentGraphByTag = async (
+  oystehr: Oystehr,
+  tag: Coding,
+  includeObservations = false
+): Promise<FhirResource[]> => {
   const { system, code } = tag;
   const appointmentSearchParams: FhirSearchParams<Appointment | Patient> = {
     resourceType: 'Appointment',
@@ -264,17 +273,36 @@ const getAppointmentGraphByTag = async (oystehr: Oystehr, tag: Coding): Promise<
     .map((p) => `Patient/${p.id}`);
 
   const allObservations: Observation[] = [];
-  const chunksOfPatients = chunkThings(allPatientRefs, 50);
 
-  for (const chunk of chunksOfPatients) {
-    const chunkParams = [{ name: 'patient', value: chunk.join(',') }];
-    const chunkObservations = await getAllFhirSearchPages<Observation>(
-      { resourceType: 'Observation', params: chunkParams },
-      oystehr
-    );
-    allObservations.push(...chunkObservations);
+  if (includeObservations) {
+    const chunksOfPatients = chunkThings(allPatientRefs, 50);
+
+    for (const chunk of chunksOfPatients) {
+      const chunkParams = [{ name: 'patient', value: chunk.join(',') }];
+      const chunkObservations = await getAllFhirSearchPages<Observation>(
+        { resourceType: 'Observation', params: chunkParams },
+        oystehr
+      );
+      allObservations.push(...chunkObservations);
+    }
+    console.log(`Found ${allResources.length} non-observation resources and ${allObservations.length} observations`);
+  } else {
+    console.log(`Found ${allResources.length} resources to delete`);
   }
+  const beforeDedupe = [...allResources, ...allObservations];
 
-  console.log(`Found ${allResources.length} non-observation resources and ${allObservations.length} observations`);
-  return [...allResources, ...allObservations];
+  const startLength = beforeDedupe.length;
+
+  const resourceIdSet = new Set<string>();
+  const dedupedResources = beforeDedupe.filter((resource) => {
+    const key = `${resource.resourceType}/${resource.id}`;
+    if (resourceIdSet.has(key)) {
+      return false;
+    }
+    resourceIdSet.add(key);
+    return true;
+  });
+  const dedupedLength = dedupedResources.length;
+  console.log(`Removed ${startLength - dedupedLength} duplicate resources`);
+  return dedupedResources;
 };
