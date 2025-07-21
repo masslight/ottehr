@@ -402,6 +402,15 @@ export const getAllSlotsAsCapacityMap = (input: GetSlotCapacityMapInput): SlotCa
   const finishDateForTimezone = DateTime.fromFormat(finishDate.setZone(timezone).toFormat('MM/dd/yyyy'), 'MM/dd/yyyy', {
     zone: timezone,
   });
+
+  /*
+  const nowForTimezone = DateTime.fromFormat(now.toFormat('MM/dd/yyyy'), 'MM/dd/yyyy', { zone: timezone }).startOf(
+    'day'
+  );
+  const finishDateForTimezone = DateTime.fromFormat(finishDate.toFormat('MM/dd/yyyy'), 'MM/dd/yyyy', {
+    zone: timezone,
+  });
+  */
   console.log('now for capacity map', nowForTimezone.toISO(), now.toISO());
   let currentDayTemp = nowForTimezone;
   let slots = {};
