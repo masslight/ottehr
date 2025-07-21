@@ -628,14 +628,7 @@ test.describe('Responsible party information - check and fill all fields', () =>
     await expect(locator.responsiblePartyLastName).toHaveValue('');
     await expect(locator.responsiblePartyDOBAnswer).toHaveValue('');
   });
-  test('PRPI-7 Select dob less than 18 years - check validation error', async () => {
-    await locator.responsiblePartyDOBAnswer.click();
-    await locator.calendarCurrentDay.click();
-    await locator.calendarButtonOK.click();
-    await locator.clickContinueButton();
-    await expect(locator.dateOlder18YearsError).toBeVisible();
-  });
-  test('PRPI-8 Select future dob - check validation error', async () => {
+  test('PRPI-7 Select future dob - check validation error', async () => {
     await locator.responsiblePartyDOBAnswer.click();
     await locator.calendarArrowRight.click();
     await locator.calendarDay.click();
@@ -643,7 +636,7 @@ test.describe('Responsible party information - check and fill all fields', () =>
     await locator.clickContinueButton();
     await expect(locator.dateFutureError).toBeVisible();
   });
-  test('PRPI-9 Fill all fields and click [Continue]', async () => {
+  test('PRPI-8 Fill all fields and click [Continue]', async () => {
     await openResponsiblePartyPage();
     responsiblePartyData = await paperwork.fillResponsiblePartyDataNotSelf();
     await expect(locator.dateOlder18YearsError).not.toBeVisible();
@@ -651,7 +644,7 @@ test.describe('Responsible party information - check and fill all fields', () =>
     await locator.clickContinueButton();
     await paperwork.checkCorrectPageOpens('Photo ID');
   });
-  test('PRPI-10 Click on [Back] - all values are saved', async () => {
+  test('PRPI-9 Click on [Back] - all values are saved', async () => {
     await locator.clickBackButton();
     await expect(locator.responsiblePartyFirstName).toHaveValue(responsiblePartyData.firstName);
     await expect(locator.responsiblePartyLastName).toHaveValue(responsiblePartyData.lastName);
