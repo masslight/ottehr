@@ -855,6 +855,13 @@
       "src": "src/ehr/radiology/launch-viewer/index",
       "zip": ".dist/zips/radiology-launch-viewer.zip"
     },
+    "RADIOLOGY-SAVE-PRELIMINARY-REPORT": {
+      "name": "RADIOLOGY-SAVE-PRELIMINARY-REPORT",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/radiology/save-preliminary-report/index",
+      "zip": ".dist/zips/radiology-save-preliminary-report.zip"
+    },
     "GET-LAB-ORDERS": {
       "name": "GET-LAB-ORDERS",
       "type": "http_auth",
