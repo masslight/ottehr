@@ -20,6 +20,7 @@ export class HospitalizationPage {
 
   async clickCompleteIntakeButton(): Promise<void> {
     await this.#page.locator('button:text("Confirmed No Hospitalization AND Complete Intake")').click();
+    await this.sideMenu().clickCompleteIntakeButton();
   }
 }
 

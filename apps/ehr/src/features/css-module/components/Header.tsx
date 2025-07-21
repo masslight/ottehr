@@ -225,6 +225,7 @@ export const Header = (): JSX.Element => {
                         <TextField
                           select
                           fullWidth
+                          data-testid={dataTestIds.cssHeader.intakePractitionerInput}
                           sx={{ minWidth: 120 }}
                           variant="standard"
                           value={assignedIntakePerformerId ?? ''}
@@ -246,6 +247,7 @@ export const Header = (): JSX.Element => {
                         <TextField
                           select
                           fullWidth
+                          data-testid={dataTestIds.cssHeader.providerPractitionerInput}
                           sx={{ minWidth: 120 }}
                           variant="standard"
                           value={assignedProviderId ?? ''}
