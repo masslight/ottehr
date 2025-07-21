@@ -337,7 +337,7 @@ export const InteractionAlertsDialog: React.FC<Props> = ({
           <RoundedButton variant="outlined" onClick={onCancel}>
             Cancel
           </RoundedButton>
-          {onContinue ? (
+          {onContinue && !readonly ? (
             <RoundedButton variant="contained" onClick={() => onContinue(interactions)} disabled={!allReasonsValid}>
               Continue
             </RoundedButton>

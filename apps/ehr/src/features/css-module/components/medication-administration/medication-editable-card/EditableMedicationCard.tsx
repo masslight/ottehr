@@ -113,7 +113,7 @@ export const EditableMedicationCard: React.FC<{
     } else {
       setLocalValues((prev) => ({ ...prev, [field]: value }));
     }
-    if (field === 'medicationId' && value !== '') {
+    if (field === 'medicationId' && value !== '' && (typeFromProps === 'order-new' || typeFromProps === 'order-edit')) {
       setErxEnabled(true);
     }
   };
@@ -349,10 +349,7 @@ export const EditableMedicationCard: React.FC<{
   }, [medication]);
 
   const interactionsWarning = useMemo(() => {
-    if (
-      (!localValues.medicationId && !medication) ||
-      (typeFromProps !== 'order-new' && typeFromProps !== 'order-edit')
-    ) {
+    if (!localValues.medicationId && !medication) {
       return undefined;
     }
     if (
@@ -367,15 +364,7 @@ export const EditableMedicationCard: React.FC<{
       return interactionsSummary(interactionsCheckState.interactions);
     }
     return undefined;
-  }, [
-    erxEnabled,
-    erxStatus,
-    interactionsCheckState,
-    localValues.medicationId,
-    medication,
-    typeFromProps,
-    isMedicationHistoryLoading,
-  ]);
+  }, [erxEnabled, erxStatus, interactionsCheckState, localValues.medicationId, medication, isMedicationHistoryLoading]);
 
   return (
     <>
@@ -443,6 +432,7 @@ export const EditableMedicationCard: React.FC<{
               interactions,
             });
           }}
+          readonly={typeFromProps !== 'order-new' && typeFromProps !== 'order-edit'}
         />
       ) : null}
       {(typeFromProps === 'order-new' || typeFromProps === 'order-edit') && erxEnabled ? (
