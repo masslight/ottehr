@@ -102,6 +102,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       { id: attendingPractitioner.id || '', name: attendingPractitionerName }
     );
 
+    console.log(`These are the fhir requests getting made: ${JSON.stringify(requests)}`);
     const res = await oystehr.fhir.transaction({ requests });
     console.log('check the res', JSON.stringify(res));
 
