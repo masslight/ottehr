@@ -294,7 +294,7 @@ export const makeValidationSchema = (
   pageId?: string,
   externalContext?: { values: any; items: any }
 ): any => {
-  // console.log('validation items', items);
+  console.log('validation items', items);
   if (pageId !== undefined) {
     // we are validating one page of the questionnaire
     const itemsToValidate = items.find((i) => {
@@ -308,7 +308,7 @@ export const makeValidationSchema = (
       // this is the branch hit from frontend validation. it is nearly the same as the branch hit by
       // patch. in this case item list is provided directly, where as with Patch it is provided as
       // the item field on { linkId: pageId, item: items }. might be nice to consolidate this.
-      // console.log('page id not found; assuming it is root and making schema from items');
+      console.log('page id not found; assuming it is root and making schema from items');
       return Yup.lazy((values: any, options: any) => {
         return makeValidationSchemaPrivate({
           items,
@@ -324,7 +324,7 @@ export const makeValidationSchema = (
         const { linkId: pageId, item: answerItem } = value;
         const questionItem = items.find((i) => i.linkId === pageId);
         if (!questionItem) {
-          // console.log('page not found');
+          console.log('page not found');
           return context.createError({ message: `Page ${pageId} not found in Questionnaire` });
         }
         if (answerItem === undefined) {
@@ -365,7 +365,7 @@ const makeValidationSchemaPrivate = (input: PrivateMakeSchemaArgs): Yup.AnyObjec
   const { items, formValues, externalContext: maybeExternalContext } = input;
   // const contextualItems = maybeExternalContext?.items ?? [];
   const externalValues = maybeExternalContext?.values ?? [];
-  // console.log('validation items', items);
+  console.log('validation items', items);
   // these allow us some flexibility to inject field dependencies from another
   // paperwork page, or anywhere outside the context of the immediate form being validated,
   // or to keep parent/sibling items in context when drilling down into a group
@@ -378,7 +378,56 @@ const makeValidationSchemaPrivate = (input: PrivateMakeSchemaArgs): Yup.AnyObjec
       }
       return accum;
     }, {} as any);
+
+  // Ensure current form values completely override external values for items on this page
+  // This prevents stale values from affecting validation when navigating back and forth
+  const currentPageItemIds = new Set<string>();
+  const collectItemIds = (itemList: IntakeQuestionnaireItem[]): void => {
+    itemList.forEach((item) => {
+      currentPageItemIds.add(item.linkId);
+      if (item.item && item.item.length > 0) {
+        collectItemIds(item.item);
+      }
+    });
+  };
+  collectItemIds(items);
+
+  // Remove stale values for current page items from external context
+  currentPageItemIds.forEach((linkId) => {
+    delete allValues[linkId];
+  });
+
+  // Now merge with form values, ensuring current values take precedence
   allValues = { ...allValues, ...formValues };
+
+  // Debug logging for back-and-forth validation issue
+  const hasConditionalGroup = items.some((item) => item.type === 'group' && (item.requireWhen || item.filterWhen));
+
+  if (hasConditionalGroup) {
+    console.log('[VALIDATION DEBUG] Page with conditional group:', {
+      pageItems: items.map((i) => ({
+        linkId: i.linkId,
+        type: i.type,
+        required: i.required,
+        requireWhen: i.requireWhen,
+        filterWhen: i.filterWhen,
+      })),
+      formValuesKeys: Object.keys(formValues),
+      allValuesKeys: Object.keys(allValues),
+      conditionalValues: items.reduce((acc, item) => {
+        if (item.linkId) {
+          acc[item.linkId] = {
+            value: allValues[item.linkId],
+            fromForm: formValues[item.linkId],
+            required: evalRequired(item, allValues),
+            filtered: evalFilterWhen(item, allValues),
+          };
+        }
+        return acc;
+      }, {} as any),
+    });
+  }
+
   const validatableItems = [...items]
     .filter((item) => item?.type !== 'display' && !item?.readOnly && !evalFilterWhen(item, allValues))
     .flatMap((item) => makeValidatableItem(item));
@@ -392,7 +441,11 @@ const makeValidationSchemaPrivate = (input: PrivateMakeSchemaArgs): Yup.AnyObjec
         formValues,
         externalContext: maybeExternalContext,
       });
-      // console.log('embedded schema', embeddedSchema);
+      console.log('embedded schema', embeddedSchema);
+
+      // Check if this group is conditionally required
+      const isGroupRequired = evalRequired(item, allValues);
+
       schemaTemp = Yup.object().shape({
         linkId: Yup.string(),
         item: Yup.array()
@@ -400,7 +453,7 @@ const makeValidationSchemaPrivate = (input: PrivateMakeSchemaArgs): Yup.AnyObjec
             if (!Array.isArray(v)) {
               return v;
             }
-            // console.log('sorted pre insert', JSON.stringify(v));
+            console.log('sorted pre insert', JSON.stringify(v));
             const filled = filteredItems.map((item) => {
               const match = v.find((i) => {
                 return i?.linkId === item?.linkId;
@@ -418,18 +471,57 @@ const makeValidationSchemaPrivate = (input: PrivateMakeSchemaArgs): Yup.AnyObjec
                 return { linkId: item.linkId };
               }
             });
-            // console.log('sorted post insert', JSON.stringify(filled));
+            console.log('sorted post insert', JSON.stringify(filled));
             return filled;
+          })
+          .test('group-has-content', 'This field is required', function (value) {
+            // Check if the group is required and has at least one item with actual content
+            if (isGroupRequired && item.groupType === 'list-with-form') {
+              console.log(`[GROUP CONTENT VALIDATION] ${item.linkId}:`, {
+                isGroupRequired,
+                groupType: item.groupType,
+                valueLength: value?.length,
+                value: JSON.stringify(value),
+              });
+
+              if (!value || !Array.isArray(value) || value.length === 0) {
+                return false;
+              }
+              // Check if at least one item has meaningful content (not just linkId)
+              const hasContent = value.some((item: any) => {
+                return item.answer && item.answer.length > 0 && itemAnswerHasValue(item);
+              });
+
+              console.log(`[GROUP CONTENT CHECK] hasContent: ${hasContent}`);
+
+              if (!hasContent) {
+                return this.createError({ message: REQUIRED_FIELD_ERROR_MESSAGE });
+              }
+            }
+            return true;
           })
           .of(
             Yup.object().test(
               `${item.linkId} group member test`,
               // test function, determines schema validity
               (val: any, context: any) => {
-                // console.log('testing val', val, context);
+                console.log('testing val', val, context);
                 const parentContext = context?.from?.pop()?.value ?? {};
                 const combinedContext = { ...(externalValues ?? {}), ...(parentContext ?? {}) };
                 const shouldFilter = evalFilterWhen(item, combinedContext);
+
+                // Debug logging for group validation
+                if (item.linkId?.includes('history') || item.linkId?.includes('allergies')) {
+                  console.log(`[GROUP VALIDATION] ${item.linkId}:`, {
+                    shouldFilter,
+                    required: item.required,
+                    requireWhen: item.requireWhen,
+                    contextValue: combinedContext[item.requireWhen?.question || ''],
+                    parentContext: Object.keys(parentContext),
+                    externalValues: Object.keys(externalValues || {}),
+                  });
+                }
+
                 // if the parent item should be filtered we've normalized any items to linkId placeholders
                 // and can safely return true here, only proceeding to test conformance of each embedded item
                 // with the schema if the encompassing parent is not filtered out.
@@ -667,7 +759,19 @@ export const evalRequired = (item: IntakeQuestionnaireItem, context: any, questi
     return false;
   }
 
-  return evalCondition(item.requireWhen, context, item.type, questionVal);
+  const result = evalCondition(item.requireWhen, context, item.type, questionVal);
+
+  // Debug logging for conditional requirements
+  if (item.linkId?.includes('history')) {
+    console.log(`[EVAL REQUIRED] ${item.linkId}:`, {
+      requireWhen: item.requireWhen,
+      contextKeys: Object.keys(context),
+      relevantValue: context[item.requireWhen.question],
+      result,
+    });
+  }
+
+  return result;
 };
 
 export const evalItemText = (item: IntakeQuestionnaireItem, context: any, questionVal?: any): string | undefined => {
@@ -726,7 +830,7 @@ export const evalComplexValidationTrigger = (
   context: any,
   questionVal?: any
 ): boolean => {
-  // console.log('item.complex', item.complexValidation?.type, item.complexValidation?.triggerWhen);
+  console.log('item.complex', item.complexValidation?.type, item.complexValidation?.triggerWhen);
   if (item.complexValidation === undefined) {
     return false;
   } else if (item.complexValidation?.triggerWhen === undefined) {

@@ -127,7 +127,19 @@ const makeFormErrorMessage = (items: IntakeQuestionnaireItem[], errors: any): st
     .filter((i) => errorKeys.includes(i.linkId) && (i.text !== undefined || i.type === 'group'))
     .flatMap((i) => {
       if (i.type === 'group' && i.dataType !== 'DOB') {
+        // Check if this is a direct group error (not nested items)
+        const groupError = errors[i.linkId];
+        if (groupError && typeof groupError === 'object' && !groupError.item) {
+          // This is a group-level validation error (e.g., "group must have content")
+          return `"${stripMarkdownLink(i.text ?? i.linkId)}"`;
+        }
+
         const items = ((errors[i.linkId] as any)?.item ?? []) as any[];
+        if (!Array.isArray(items)) {
+          // If items is not an array, treat it as a single group error
+          return `"${stripMarkdownLink(i.text ?? i.linkId)}"`;
+        }
+
         const internalErrors: IntakeQuestionnaireItem[] = [];
         items.forEach((e, idx) => {
           if (e != null) {
@@ -168,12 +180,22 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
 }) => {
   const { paperwork, allItems } = usePaperworkContext();
 
-  const validationSchema = useMemo(() => {
-    return makeValidationSchema(items, pageId, {
-      values: paperwork,
-      items: allItems,
-    }) as AnyObjectSchema;
-  }, [items, pageId, paperwork, allItems]);
+  const [cache, setCache] = useState({
+    pageId,
+    items,
+    defaultValues,
+  });
+  const validationSchema = makeValidationSchema(items, pageId, {
+    values: paperwork,
+    items: allItems,
+  }) as AnyObjectSchema;
+
+  // const validationSchema = useMemo(() => {
+  //   return makeValidationSchema(items, pageId, {
+  //     values: paperwork,
+  //     items: allItems,
+  //   }) as AnyObjectSchema;
+  // }, [items, pageId, paperwork, allItems]);
 
   const methods = useForm({
     mode: 'onSubmit', // onBlur doesn't seem to work but we use onBlur of FormControl in NestedInput to implement the desired behavior
@@ -183,10 +205,24 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
     shouldFocusError: true,
     resolver: yupResolver(validationSchema, { abortEarly: false }),
   });
+  const { reset } = methods;
 
+  useEffect(() => {
+    if (
+      items &&
+      (cache.pageId !== pageId || !_.isEqual(cache.items, items) || !_.isEqual(cache.defaultValues, defaultValues))
+    ) {
+      setCache({ pageId, items, defaultValues });
+      console.log('resetting form with default values');
+      reset({
+        ...(defaultValues ?? {}),
+      });
+    }
+  }, [cache, defaultValues, items, reset, pageId]);
   return (
-    <FormProvider {...methods} key={pageId}>
+    <FormProvider {...methods}>
       <PaperworkFormRoot
+        key={pageId}
         items={items}
         onSubmit={onSubmit}
         saveProgress={saveProgress}
