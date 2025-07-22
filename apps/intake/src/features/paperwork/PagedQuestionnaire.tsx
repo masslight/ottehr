@@ -123,6 +123,7 @@ const makeFormErrorMessage = (items: IntakeQuestionnaireItem[], errors: any): st
     return undefined;
   }
   // console.log('errors in form', JSON.stringify(errors, null, 2));
+  let hasGroupLevelError = false;
   const errorItems = items
     .filter((i) => errorKeys.includes(i.linkId) && (i.text !== undefined || i.type === 'group'))
     .flatMap((i) => {
@@ -131,13 +132,15 @@ const makeFormErrorMessage = (items: IntakeQuestionnaireItem[], errors: any): st
         const groupError = errors[i.linkId];
         if (groupError && typeof groupError === 'object' && !groupError.item) {
           // This is a group-level validation error (e.g., "group must have content")
-          return `"${stripMarkdownLink(i.text ?? i.linkId)}"`;
+          hasGroupLevelError = true;
+          return [];
         }
 
         const items = ((errors[i.linkId] as any)?.item ?? []) as any[];
         if (!Array.isArray(items)) {
           // If items is not an array, treat it as a single group error
-          return `"${stripMarkdownLink(i.text ?? i.linkId)}"`;
+          hasGroupLevelError = true;
+          return [];
         }
 
         const internalErrors: IntakeQuestionnaireItem[] = [];
@@ -156,6 +159,11 @@ const makeFormErrorMessage = (items: IntakeQuestionnaireItem[], errors: any): st
       }
       return `"${stripMarkdownLink(i.text ?? '')}"`;
     });
+  // If we have a group-level error, always use generic message
+  if (hasGroupLevelError && numErrors === 1) {
+    return 'Please fix the error in the field above to proceed';
+  }
+
   if (numErrors === errorItems.length) {
     if (numErrors > 1) {
       return `Please fix the errors in the following fields to proceed: ${errorItems.map((ei) => ei)}`;
