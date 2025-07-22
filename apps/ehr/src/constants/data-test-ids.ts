@@ -20,7 +20,7 @@ export const dataTestIds = {
     container: 'css-header-container',
     patientName: 'patient-name',
     appointmentStatus: 'appointment-status',
-    switchStatusButton: (status: string) => `switch-status-to-${status}`,
+    switchModeButton: (status: string) => `switch-status-to-${status}`,
     intakePractitionerInput: 'intake-practitioner-input',
     providerPractitionerInput: 'provider-practitioner-input',
   },

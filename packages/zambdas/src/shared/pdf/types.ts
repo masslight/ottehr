@@ -244,6 +244,7 @@ export interface VisitNoteData extends ExaminationBlockData {
   dateOfService: string;
   reasonForVisit: string;
   provider: string;
+  intakePerson?: string;
   signedOn: string;
   visitID: string;
   visitState: string;

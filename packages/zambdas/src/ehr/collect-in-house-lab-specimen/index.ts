@@ -6,9 +6,9 @@ import { DateTime } from 'luxon';
 import {
   CollectInHouseLabSpecimenParameters,
   CollectInHouseLabSpecimenZambdaOutput,
+  getAttendingPractitionerId,
   getSecret,
   IN_HOUSE_LAB_TASK,
-  PRACTITIONER_CODINGS,
   Secrets,
   SecretsKeys,
   SPECIMEN_COLLECTION_CUSTOM_SOURCE_SYSTEM,
@@ -78,14 +78,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       }),
     ]);
 
-    const practitionerFromEncounterId = encounter.participant
-      ?.find(
-        (participant) =>
-          participant.type?.find(
-            (type) => type.coding?.some((c) => c.system === PRACTITIONER_CODINGS.Attender[0].system)
-          )
-      )
-      ?.individual?.reference?.replace('Practitioner/', '');
+    const practitionerFromEncounterId = getAttendingPractitionerId(encounter);
 
     if (
       practitionerFromEncounterId !== validatedParameters.data.specimen.collectedBy.id &&

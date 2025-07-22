@@ -8,7 +8,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { handleChangeInPersonVisitStatus } from 'src/helpers/inPersonVisitStatusUtils';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { getSelectors, getVisitStatus, PRACTITIONER_CODINGS } from 'utils';
+import { getAdmitterPractitionerId, getSelectors, getVisitStatus, PRACTITIONER_CODINGS } from 'utils';
 import { dataTestIds } from '../../../constants/data-test-ids';
 import { useAppointmentStore } from '../../../telemed';
 import { RouteCSS, useNavigationContext } from '../context/NavigationContext';
@@ -256,13 +256,7 @@ export const Sidebar = (): JSX.Element => {
     'end',
     PRACTITIONER_CODINGS.Admitter
   );
-  const assignedIntakePerformer = encounter?.participant?.find((participant) => {
-    return participant.type?.some(
-      (type) =>
-        type.coding?.some((coding) => JSON.stringify(coding) === JSON.stringify(PRACTITIONER_CODINGS.Admitter[0]))
-    );
-  });
-  const assignedIntakePerformerId = assignedIntakePerformer?.individual?.reference?.split('/')[1];
+  const assignedIntakePerformerId = encounter ? getAdmitterPractitionerId(encounter) : undefined;
 
   const handleCompleteIntake = async (): Promise<void> => {
     try {
