@@ -70,7 +70,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     if (css && inPersonStatus) {
       if (inPersonStatus === 'provider') {
         messages.push('You must discharge the patient before signing');
-      } else if (inPersonStatus !== 'ready for discharge') {
+      } else if (inPersonStatus !== 'discharged') {
         messages.push('The appointment must be in the status of discharged');
       }
     } else {
