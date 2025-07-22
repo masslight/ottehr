@@ -1,4 +1,4 @@
-import { yupResolver } from '@hookform/resolvers/yup';
+import { zodResolver } from '@hookform/resolvers/zod';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import {
   Box,
@@ -31,9 +31,7 @@ import {
   QuestionnaireFormFields,
   QuestionnaireItemGroupType,
   SIGNATURE_FIELDS,
-  stripMarkdownLink,
 } from 'utils';
-import { AnyObjectSchema } from 'yup';
 import {
   BoldPurpleInputLabel,
   ControlButtons,
@@ -118,43 +116,57 @@ const makeFormInputPropsForItem = (item: StyledQuestionnaireItem): FormInputProp
 
 const makeFormErrorMessage = (items: IntakeQuestionnaireItem[], errors: any): string | undefined => {
   const errorKeys = Object.keys(errors);
-  let numErrors = errorKeys.length;
+  const numErrors = errorKeys.length;
   if (numErrors === 0) {
     return undefined;
   }
-  // console.log('errors in form', JSON.stringify(errors, null, 2));
-  const errorItems = items
-    .filter((i) => errorKeys.includes(i.linkId) && (i.text !== undefined || i.type === 'group'))
-    .flatMap((i) => {
-      if (i.type === 'group' && i.dataType !== 'DOB') {
-        const items = ((errors[i.linkId] as any)?.item ?? []) as any[];
-        const internalErrors: IntakeQuestionnaireItem[] = [];
-        items.forEach((e, idx) => {
-          if (e != null) {
-            const errorItem = (i.item ?? []).filter((i) => i.type !== 'display' && !i.readOnly)[idx];
-            if (errorItem) {
-              internalErrors.push(errorItem);
-            }
-          }
-        });
-        numErrors += internalErrors.length - 1;
-        return internalErrors.map((nestedItem) => {
-          return `"${stripMarkdownLink(nestedItem.text ?? '')}"`;
-        });
+
+  // Helper function to find item by linkId recursively
+  const findItemByLinkId = (
+    linkId: string,
+    itemList: IntakeQuestionnaireItem[]
+  ): IntakeQuestionnaireItem | undefined => {
+    for (const item of itemList) {
+      if (item.linkId === linkId) {
+        return item;
       }
-      return `"${stripMarkdownLink(i.text ?? '')}"`;
-    });
-  if (numErrors === errorItems.length) {
-    if (numErrors > 1) {
-      return `Please fix the errors in the following fields to proceed: ${errorItems.map((ei) => ei)}`;
-    } else {
-      return `Please fix the error in the ${errorItems[0]} field to proceed`;
+      if (item.item) {
+        const found = findItemByLinkId(linkId, item.item);
+        if (found) return found;
+      }
     }
-  } else if (numErrors === 1) {
-    return 'Please fix the error in the field above to proceed';
-  } else {
-    return `Please fix the error in the ${numErrors} fields above to proceed`;
+    return undefined;
+  };
+
+  // Get field names from error keys, excluding group items
+  const errorFieldNames = errorKeys
+    .map((key) => {
+      const item = findItemByLinkId(key, items);
+      // For group items, we should use the generic message
+      if (item?.type === 'group') {
+        return null;
+      }
+      return item?.text || key;
+    })
+    .filter(Boolean);
+
+  // For single error, return the field-specific message (but not for groups)
+  if (numErrors === 1 && errorFieldNames.length === 1) {
+    return `Please fix the error in the "${errorFieldNames[0]}" field to proceed`;
   }
+
+  // For multiple errors with specific fields
+  if (errorFieldNames.length > 1) {
+    return `Please fix the errors in the following fields to proceed: ${errorFieldNames
+      .map((name) => `"${name}"`)
+      .join(',')}`;
+  }
+
+  // Fallback messages
+  if (numErrors === 1) {
+    return 'Please fix the error in the field above to proceed';
+  }
+  return `Please fix the errors in the ${numErrors} fields above to proceed`;
 };
 
 const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
@@ -167,25 +179,46 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
   saveProgress,
 }) => {
   const { paperwork, allItems } = usePaperworkContext();
+  const [cache, setCache] = useState({
+    pageId,
+    items,
+    defaultValues,
+  });
 
-  const validationSchema = useMemo(() => {
-    return makeValidationSchema(items, pageId, {
-      values: paperwork,
-      items: allItems,
-    }) as AnyObjectSchema;
-  }, [items, pageId, paperwork, allItems]);
+  const validationSchema = useMemo(
+    () =>
+      makeValidationSchema(items, pageId, {
+        values: paperwork,
+        items: allItems,
+      }),
+    [items, pageId, paperwork, allItems]
+  );
 
   const methods = useForm({
     mode: 'onSubmit', // onBlur doesn't seem to work but we use onBlur of FormControl in NestedInput to implement the desired behavior
     reValidateMode: 'onChange',
-    context: paperwork,
     defaultValues,
     shouldFocusError: true,
-    resolver: yupResolver(validationSchema, { abortEarly: false }),
+    resolver: zodResolver(validationSchema),
   });
 
+  const { reset } = methods;
+
+  useEffect(() => {
+    if (
+      items &&
+      (cache.pageId !== pageId || !_.isEqual(cache.items, items) || !_.isEqual(cache.defaultValues, defaultValues))
+    ) {
+      setCache({ pageId, items, defaultValues });
+      console.log('resetting form with default values');
+      reset({
+        ...(defaultValues ?? {}),
+      });
+    }
+  }, [cache, defaultValues, items, reset, pageId]);
+
   return (
-    <FormProvider {...methods} key={pageId}>
+    <FormProvider {...methods}>
       <PaperworkFormRoot
         items={items}
         onSubmit={onSubmit}

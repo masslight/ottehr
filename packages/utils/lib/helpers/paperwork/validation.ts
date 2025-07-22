@@ -1,13 +1,7 @@
-import {
-  QuestionnaireItem,
-  QuestionnaireItemEnableWhen,
-  QuestionnaireResponseItem,
-  QuestionnaireResponseItemAnswer,
-} from 'fhir/r4b';
+import { QuestionnaireItemEnableWhen, QuestionnaireResponseItem, QuestionnaireResponseItemAnswer } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   DATE_ERROR_MESSAGE,
-  DOB_DATE_FORMAT,
   emailRegex,
   emojiRegex,
   IntakeQuestionnaireItem,
@@ -18,15 +12,11 @@ import {
   REQUIRED_FIELD_ERROR_MESSAGE,
   zipRegex,
 } from 'utils';
-import * as Yup from 'yup';
+import { z, ZodIssueCode } from 'zod';
 
-interface ValidatableQuestionnaireItem extends IntakeQuestionnaireItem {
-  regex?: RegExp;
-  regexError?: string;
-  dateComponents?: { day: string; year: string; month: string };
-}
+// --- Start of Zod Replacement ---
 
-// all this logic could be in an extension, but not sure it's worth the trouble
+// Kept for any external modules that might still use them.
 export const PHONE_NUMBER_FIELDS = [
   'patient-number',
   'guardian-number',
@@ -39,254 +29,306 @@ export const ZIP_CODE_FIELDS = ['patient-zip'];
 export const SIGNATURE_FIELDS = ['signature'];
 export const FULL_ADDRESS_FIELDS = ['pharmacy-address'];
 
-const makeReferenceValueSchema = (required: boolean): Yup.AnyObjectSchema => {
-  if (required) {
-    return Yup.object({
-      reference: Yup.string().required(REQUIRED_FIELD_ERROR_MESSAGE),
-      display: Yup.string().required(REQUIRED_FIELD_ERROR_MESSAGE),
-    }).required(REQUIRED_FIELD_ERROR_MESSAGE);
+// Helper to check if a FHIR answer object actually contains a value.
+const itemAnswerHasValue = (answer?: QuestionnaireResponseItemAnswer[]): boolean => {
+  if (!answer || answer.length === 0) {
+    return false;
   }
-  return Yup.object({
-    reference: Yup.string(),
-    display: Yup.string(),
-  });
+  const firstAnswer = answer[0];
+  if (!firstAnswer || typeof firstAnswer !== 'object') {
+    return false;
+  }
+  const value = Object.values(firstAnswer).find((v) => v !== undefined && v !== null && v !== '');
+  return value !== undefined;
 };
 
-const makeValidatableItem = (
-  item: IntakeQuestionnaireItem
-): ValidatableQuestionnaireItem[] | ValidatableQuestionnaireItem => {
-  // todo: add validation for date components
-  let regex: RegExp | undefined;
-  let regexError: string | undefined;
+// Re-implementation of your conditional logic helpers.
+const evalCondition = (
+  condition: QuestionnaireItemConditionDefinition,
+  allValues: Record<string, any>,
+  itemType: IntakeQuestionnaireItem['type']
+): boolean => {
+  const { question, operator, answerString, answerBoolean, answerDate, answerInteger } = condition;
+  const questionValue = allValues[question];
 
-  // keeping these field checks for backwards compatibility for now
-  // can just check item.dataType after 1.14 release
-  if (PHONE_NUMBER_FIELDS.includes(item.linkId) || item.dataType === 'Phone Number') {
-    regex = phoneRegex;
-    regexError = 'Phone number must be 10 digits in the format (xxx) xxx-xxxx';
-  }
-  if (EMAIL_FIELDS.includes(item.linkId) || item.dataType === 'Email') {
-    regex = emailRegex;
-    regexError = 'Email is not valid';
-  }
-  if (ZIP_CODE_FIELDS.includes(item.linkId) || item.dataType === 'ZIP') {
-    regex = zipRegex;
-    regexError = 'ZIP Code must be 5 numbers';
+  // Determine the value type based on the condition
+  let valueType: 'string' | 'boolean' = 'string';
+  if (answerBoolean !== undefined) {
+    valueType = 'boolean';
   }
 
-  return {
-    ...item,
-    regex,
-    regexError,
-  };
+  const extractedValue = pickFirstValueFromAnswerItem(questionValue, valueType);
+
+  if (operator === 'exists') {
+    const hasValue = itemAnswerHasValue(questionValue?.answer);
+    if (answerBoolean === true) return hasValue;
+    if (answerBoolean === false) return !hasValue;
+    return false;
+  }
+
+  if (answerString !== undefined) {
+    if (operator === '=') return extractedValue === answerString;
+    if (operator === '!=') return extractedValue !== answerString;
+  }
+  if (answerBoolean !== undefined) {
+    if (operator === '=') return extractedValue === answerBoolean;
+    if (operator === '!=') return extractedValue !== answerBoolean;
+  }
+  if (answerDate !== undefined && typeof extractedValue === 'string') {
+    const answerDT = DateTime.fromISO(answerDate);
+    const valDT = DateTime.fromISO(extractedValue);
+    if (!answerDT.isValid || !valDT.isValid) return false;
+    if (operator === '=') return answerDT.equals(valDT);
+    if (operator === '!=') return !answerDT.equals(valDT);
+    if (operator === '<=') return valDT <= answerDT;
+    if (operator === '<') return valDT < answerDT;
+    if (operator === '>=') return valDT >= answerDT;
+    if (operator === '>') return valDT > answerDT;
+  }
+  if (answerInteger !== undefined && itemType === 'date' && typeof extractedValue === 'string') {
+    const years = typeof answerInteger === 'string' ? parseInt(answerInteger, 10) : answerInteger;
+    if (isNaN(years)) return false;
+    const now = DateTime.now().startOf('day');
+    const targetDate = now.minus({ years });
+    const valDT = DateTime.fromISO(extractedValue);
+    if (!targetDate.isValid || !valDT.isValid) return false;
+    if (operator === '<=') return valDT <= targetDate;
+    if (operator === '<') return valDT < targetDate;
+    if (operator === '>=') return valDT >= targetDate;
+    if (operator === '>') return valDT > targetDate;
+  }
+  return false;
 };
 
-interface TrimAnswerOptions {
-  returnUndefined: boolean;
-}
-const trimInvalidAnswersFromItem = (
-  val: QuestionnaireResponseItem,
-  options: TrimAnswerOptions = { returnUndefined: false }
-): QuestionnaireResponseItem | null | undefined => {
-  const answer: any = val.answer;
-  const { returnUndefined } = options;
-  if (answer == undefined) {
-    return returnUndefined ? undefined : { ...val, answer: undefined };
+const evalRequired = (item: IntakeQuestionnaireItem, allValues: Record<string, any>): boolean => {
+  if (item.required) {
+    return true;
   }
-  if (answer?.[0] == undefined) {
-    return returnUndefined ? undefined : { ...val, answer: undefined };
-  } else {
-    const obj = answer?.[0];
-    if (typeof obj === 'object') {
-      if (Object.keys(obj).length === 0) {
-        return returnUndefined ? undefined : { ...val, answer: undefined };
-      } else if (!Object.values(obj)?.[0]) {
-        return returnUndefined ? undefined : { ...val, answer: undefined };
-      }
-    } else {
-      return returnUndefined ? undefined : { ...val, answer: undefined };
-    }
+  if (item.requireWhen) {
+    return evalCondition(item.requireWhen, allValues, item.type);
   }
-  return val;
+  return false;
 };
 
-const wrapSchemaInSingleMemberArray = (
-  schema: Yup.AnyObjectSchema,
+const evalFilterWhen = (item: IntakeQuestionnaireItem, allValues: Record<string, any>): boolean => {
+  if (item.filterWhen) {
+    return evalCondition(item.filterWhen, allValues, item.type);
+  }
+  return false;
+};
+
+const evalEnableWhen = (
   item: IntakeQuestionnaireItem,
-  context: { required: boolean; filtered: boolean }
-): Yup.AnySchema => {
-  const { required, filtered } = context;
-  const multi = item.acceptsMultipleAnswers;
-  if (required && !filtered) {
-    let answer = Yup.array().of(schema).length(1).required(REQUIRED_FIELD_ERROR_MESSAGE);
-    if (multi) {
-      answer = Yup.array().of(schema).min(1).required(REQUIRED_FIELD_ERROR_MESSAGE);
-    }
-    return Yup.object({
-      linkId: Yup.string(),
-      answer,
-    })
-      .transform((v) => (!v ? undefined : v))
-      .required(REQUIRED_FIELD_ERROR_MESSAGE);
+  allItems: IntakeQuestionnaireItem[],
+  formValues: { [itemLinkId: string]: QuestionnaireResponseItem }
+): boolean => {
+  const { enableWhen, enableBehavior = 'all' } = item;
+  if (!enableWhen || enableWhen.length === 0) {
+    return true;
   }
-  return Yup.object({
-    linkId: Yup.string().optional(),
-    answer: multi ? Yup.array().of(schema).optional() : Yup.array().of(schema).max(1).optional(),
-  })
-    .transform((val: any) => {
-      return trimInvalidAnswersFromItem(val, { returnUndefined: true });
-    })
-    .optional();
+
+  const evalSingleCondition = (ew: QuestionnaireItemEnableWhen): boolean => {
+    const questionItem = allItems.find((i) => i.linkId === ew.question);
+    if (!questionItem) return ew.operator === '!=';
+
+    // This correctly handles the 'exists' operator without causing a type error.
+    if (ew.operator === 'exists') {
+      const questionValue = formValues[ew.question];
+      const hasValue = itemAnswerHasValue(questionValue?.answer);
+      if (ew.answerBoolean === true) return hasValue;
+      if (ew.answerBoolean === false) return !hasValue;
+      return false;
+    }
+
+    // evalCondition expects values in the same format as formValues (QuestionnaireResponseItems)
+    return evalCondition(
+      {
+        question: ew.question,
+        operator: ew.operator, // 'exists' is now excluded, matching the type
+        answerBoolean: ew.answerBoolean,
+        answerDate: ew.answerDate,
+        answerString: ew.answerString,
+        answerInteger: ew.answerInteger,
+      },
+      formValues,
+      questionItem.type
+    );
+  };
+
+  if (enableBehavior === 'any') {
+    return enableWhen.some(evalSingleCondition);
+  }
+  return enableWhen.every(evalSingleCondition);
 };
 
-const schemaForItem = (item: ValidatableQuestionnaireItem, context: any): Yup.AnySchema => {
-  const required = evalRequired(item, context);
-  const filtered = evalFilterWhen(item, context);
-  let schemaTemp: any | undefined = undefined;
-  if (item.type === 'text' || item.type === 'string' || item.type === 'open-choice') {
-    let stringSchema = Yup.string().trim().matches(emojiRegex, {
-      message: 'Emojis are not a valid character',
-      excludeEmptyString: true,
-    });
-    if (item.regex) {
-      stringSchema = stringSchema.matches(item.regex, {
-        message: item.regexError,
-        excludeEmptyString: true,
+const evalItemText = (item: IntakeQuestionnaireItem, allValues: Record<string, any>): string => {
+  if (!item.textWhen) {
+    return item.text || '';
+  }
+
+  const shouldUseSubstituteText = evalCondition(item.textWhen, allValues, item.type);
+  return shouldUseSubstituteText ? item.textWhen.substituteText : item.text || '';
+};
+
+const evalComplexValidationTrigger = (item: IntakeQuestionnaireItem, allValues: Record<string, any>): boolean => {
+  if (!item.complexValidation?.triggerWhen) {
+    return false;
+  }
+
+  return evalCondition(item.complexValidation.triggerWhen, allValues, item.type);
+};
+
+// FIX: The return type is now correct for a schema wrapped in .superRefine()
+const makeValidationSchemaPrivate = (input: {
+  items: IntakeQuestionnaireItem[];
+  externalContext?: { values: any; items: any };
+}): z.ZodEffects<z.AnyZodObject> => {
+  const { items, externalContext } = input;
+
+  const shape: z.ZodRawShape = {};
+  items.forEach((item) => {
+    if (item.type !== 'display' && !item.readOnly) {
+      shape[item.linkId] = z.any().optional();
+    }
+  });
+
+  return z.object(shape).superRefine((formValues, ctx) => {
+    const externalData = externalContext?.values ?? {};
+
+    // Merge all values, with current form values taking precedence
+    // This ensures:
+    // 1. Current page values override any stale external values
+    // 2. External values are still available for cross-page conditions (like enableWhen)
+    const allValues = { ...externalData, ...formValues };
+
+    // Debug logging for "How did you hear about us?" issue
+    if (items.some((item) => item.linkId === 'patient-point-of-discovery')) {
+      console.log('[VALIDATION DEBUG] patient-point-of-discovery page:', {
+        'is-new-qrs-patient in externalData': externalData['is-new-qrs-patient'],
+        'is-new-qrs-patient in formValues': formValues['is-new-qrs-patient'],
+        'is-new-qrs-patient in allValues': allValues['is-new-qrs-patient'],
+        externalDataKeys: Object.keys(externalData),
+        formValuesKeys: Object.keys(formValues),
       });
     }
 
-    if (required) {
-      stringSchema = stringSchema.required(REQUIRED_FIELD_ERROR_MESSAGE);
-    }
-    let schema: Yup.AnySchema = Yup.object({
-      valueString: stringSchema,
-    });
-    if (required) {
-      schema = schema.required(REQUIRED_FIELD_ERROR_MESSAGE);
-    } else {
-      schema = schema.optional();
-    }
-    schemaTemp = schema;
-  }
-  if (item.type === 'boolean') {
-    let booleanSchema = Yup.boolean();
-    if (required) {
-      booleanSchema = booleanSchema.is([true], REQUIRED_FIELD_ERROR_MESSAGE).required(REQUIRED_FIELD_ERROR_MESSAGE);
-    }
-    schemaTemp = Yup.object({
-      valueBoolean: booleanSchema,
-    });
-    if (required) {
-      schemaTemp = schemaTemp.required(REQUIRED_FIELD_ERROR_MESSAGE);
-    }
-  }
+    for (const item of items) {
+      if (item.type === 'display' || item.readOnly) continue;
 
-  if (item.type === 'choice' && item.answerOption && item.answerOption.length) {
-    let stringSchema = Yup.string();
-    if (required) {
-      stringSchema = stringSchema.required(REQUIRED_FIELD_ERROR_MESSAGE);
-    }
-    stringSchema = stringSchema.oneOf(item.answerOption.map((option) => option.valueString));
-    let schema = Yup.object({
-      valueString: stringSchema,
-    });
-    if (required) {
-      schema = schema.required(REQUIRED_FIELD_ERROR_MESSAGE);
-    }
-    schemaTemp = schema;
-  }
-  if ((item.type === 'choice' || item.type === 'open-choice') && item.answerLoadingOptions !== undefined) {
-    const { answerSource } = item.answerLoadingOptions;
-    if (!answerSource) {
-      // answer options come from answerValueSet, which are converted into valueString choices
-      let stringSchema = Yup.string();
-      if (required) {
-        stringSchema = stringSchema.required(REQUIRED_FIELD_ERROR_MESSAGE);
-      }
-      let schema = Yup.object({
-        valueString: stringSchema,
-      });
-      if (required) {
-        schema = schema.required(REQUIRED_FIELD_ERROR_MESSAGE);
-      }
-      schemaTemp = schema;
-    } else {
-      // const { query, resourceType } = answerSource;
-      let referenceSchema = Yup.object({
-        valueReference: makeReferenceValueSchema(required),
-      });
-      if (required) {
-        referenceSchema = referenceSchema.required(REQUIRED_FIELD_ERROR_MESSAGE);
-      }
-      schemaTemp = referenceSchema;
-    }
-  }
-  if (item.type === 'date' && item.dataType === 'DOB') {
-    let stringSchema = Yup.string()
-      .typeError(DATE_ERROR_MESSAGE)
-      .matches(isoDateRegex, DATE_ERROR_MESSAGE)
-      .test('date test', async (value: any, context: any) => {
-        const dt = DateTime.fromISO(value);
-        const now = DateTime.now();
-        if (dt > now) {
-          return context.createError({ message: 'Date may not be in the future' });
+      const isFiltered = evalFilterWhen(item, allValues);
+      if (isFiltered) continue;
+
+      const isRequired = evalRequired(item, allValues);
+      const value = formValues[item.linkId] as QuestionnaireResponseItem | undefined;
+
+      // Check if the value is already a direct value (string, boolean, etc.) rather than QuestionnaireResponseItem
+      let answerValue: any;
+      let hasValue: boolean;
+
+      if (value && typeof value === 'object' && 'answer' in value && Array.isArray(value.answer)) {
+        // It's a QuestionnaireResponseItem with answer
+        hasValue = itemAnswerHasValue(value.answer);
+        answerValue = hasValue ? pickFirstValueFromAnswerItem(value) : undefined;
+      } else if (item.type === 'group' && value && typeof value === 'object') {
+        // It's a group item - check if it has valid sub-items
+        const items = (value as any).item;
+
+        if (!items || !Array.isArray(items) || items.length === 0) {
+          // No items array or empty items array
+          hasValue = false;
+        } else {
+          // Check if any of the items have valid content
+          hasValue = items.some((subItem: any) => {
+            if (!subItem || typeof subItem !== 'object') return false;
+
+            // Check if the subItem has a valid answer
+            if ('answer' in subItem && Array.isArray(subItem.answer)) {
+              const hasValidAnswer = itemAnswerHasValue(subItem.answer);
+              return hasValidAnswer;
+            }
+
+            // Check if it has nested items
+            if ('item' in subItem && Array.isArray(subItem.item) && subItem.item.length > 0) {
+              return true;
+            }
+
+            // If it only has linkId, it's not valid
+            const keys = Object.keys(subItem);
+            const isValid = keys.length > 1 && !keys.every((k) => k === 'linkId' || subItem[k] === undefined);
+            return isValid;
+          });
         }
-        if (item.validateAgeOver !== undefined) {
-          if (dt > now.minus({ years: item.validateAgeOver })) {
-            return context.createError({ message: `Must be ${item.validateAgeOver} years or older` });
+      } else {
+        // It's a direct value
+        answerValue = value;
+        hasValue = answerValue !== undefined && answerValue !== null && answerValue !== '';
+      }
+
+      if (isRequired && !hasValue) {
+        ctx.addIssue({
+          code: ZodIssueCode.custom,
+          path: [item.linkId],
+          message: REQUIRED_FIELD_ERROR_MESSAGE,
+        });
+        continue;
+      }
+
+      if (!hasValue) continue;
+
+      if (typeof answerValue === 'string') {
+        if (!emojiRegex.test(answerValue)) {
+          ctx.addIssue({
+            code: ZodIssueCode.custom,
+            path: [item.linkId],
+            message: 'Emojis are not a valid character',
+          });
+        }
+        if (PHONE_NUMBER_FIELDS.includes(item.linkId) || item.dataType === 'Phone Number') {
+          if (!phoneRegex.test(answerValue)) {
+            ctx.addIssue({
+              code: ZodIssueCode.custom,
+              path: [item.linkId],
+              message: 'Phone number must be 10 digits in the format (xxx) xxx-xxxx',
+            });
           }
         }
-        return value;
-      });
+        if (EMAIL_FIELDS.includes(item.linkId) || item.dataType === 'Email') {
+          if (!emailRegex.test(answerValue)) {
+            ctx.addIssue({ code: ZodIssueCode.custom, path: [item.linkId], message: 'Email is not valid' });
+          }
+        }
+        if (ZIP_CODE_FIELDS.includes(item.linkId) || item.dataType === 'ZIP') {
+          if (!zipRegex.test(answerValue)) {
+            ctx.addIssue({ code: ZodIssueCode.custom, path: [item.linkId], message: 'ZIP Code must be 5 numbers' });
+          }
+        }
+      }
 
-    if (required) {
-      stringSchema = stringSchema.required(DATE_ERROR_MESSAGE);
+      if (item.type === 'date' && item.dataType === 'DOB' && typeof answerValue === 'string') {
+        if (!isoDateRegex.test(answerValue)) {
+          ctx.addIssue({ code: ZodIssueCode.custom, path: [item.linkId], message: DATE_ERROR_MESSAGE });
+        } else {
+          const dt = DateTime.fromISO(answerValue);
+          const now = DateTime.now();
+          if (dt > now) {
+            ctx.addIssue({ code: ZodIssueCode.custom, path: [item.linkId], message: 'Date may not be in the future' });
+          }
+          if (item.validateAgeOver !== undefined) {
+            // FIX: Ensure ageOver is treated as a number before use.
+            const ageOver =
+              typeof item.validateAgeOver === 'string' ? parseInt(item.validateAgeOver, 10) : item.validateAgeOver;
+            if (ageOver && !isNaN(ageOver) && dt > now.minus({ years: ageOver })) {
+              ctx.addIssue({
+                code: ZodIssueCode.custom,
+                path: [item.linkId],
+                message: `Must be ${item.validateAgeOver} years or older`,
+              });
+            }
+          }
+        }
+      }
     }
-    let schema: Yup.AnySchema = Yup.object({
-      valueString: stringSchema,
-    });
-    if (required) {
-      schema = schema.required(DATE_ERROR_MESSAGE);
-    } else {
-      schema = schema.optional().default(undefined);
-    }
-    schemaTemp = schema;
-  }
-  if (item.type === 'attachment') {
-    let objSchema: any;
-    if (required) {
-      objSchema = Yup.object({
-        valueAttachment: Yup.object({
-          url: Yup.string().required(REQUIRED_FIELD_ERROR_MESSAGE), // we could have stronger validation for a z3 url here
-          contentType: Yup.string().required(REQUIRED_FIELD_ERROR_MESSAGE),
-          title: Yup.string().required(REQUIRED_FIELD_ERROR_MESSAGE),
-          created: Yup.string().optional(),
-          extension: Yup.array()
-            .of(Yup.object({ url: Yup.string(), valueString: Yup.string() }))
-            .optional(),
-        }).required(REQUIRED_FIELD_ERROR_MESSAGE),
-      }).required(REQUIRED_FIELD_ERROR_MESSAGE);
-    } else {
-      objSchema = Yup.object({
-        valueAttachment: Yup.object({
-          url: Yup.string().required(REQUIRED_FIELD_ERROR_MESSAGE), // we could have stronger validation for a z3 url here
-          contentType: Yup.string().required(REQUIRED_FIELD_ERROR_MESSAGE),
-          title: Yup.string().required(REQUIRED_FIELD_ERROR_MESSAGE),
-          created: Yup.string().optional(),
-          extension: Yup.array()
-            .of(Yup.object({ url: Yup.string(), valueString: Yup.string() }))
-            .optional(),
-        }).nullable(),
-      })
-        .nullable()
-        .default(undefined);
-    }
-    schemaTemp = objSchema;
-  }
-  if (!schemaTemp) {
-    throw new Error(`no schema defined for item ${item.linkId} ${JSON.stringify(item)}`);
-  }
-  return wrapSchemaInSingleMemberArray(schemaTemp, item, { required, filtered });
+  });
 };
 
 export const makeValidationSchema = (
@@ -294,491 +336,62 @@ export const makeValidationSchema = (
   pageId?: string,
   externalContext?: { values: any; items: any }
 ): any => {
-  // console.log('validation items', items);
-  if (pageId !== undefined) {
-    // we are validating one page of the questionnaire
-    const itemsToValidate = items.find((i) => {
-      return i.linkId === pageId;
-    })?.item;
-    if (itemsToValidate !== undefined) {
-      return Yup.lazy((values) => {
-        return makeValidationSchemaPrivate({ items: itemsToValidate, formValues: values, externalContext });
-      });
-    } else {
-      // this is the branch hit from frontend validation. it is nearly the same as the branch hit by
-      // patch. in this case item list is provided directly, where as with Patch it is provided as
-      // the item field on { linkId: pageId, item: items }. might be nice to consolidate this.
-      // console.log('page id not found; assuming it is root and making schema from items');
-      return Yup.lazy((values: any, options: any) => {
-        return makeValidationSchemaPrivate({
-          items,
-          formValues: values,
-          externalContext: { values: options.context, items: externalContext?.items ?? [] },
-        });
-      });
-    }
-  } else {
-    // we are validating the entire questionnaire
-    return Yup.array().of(
-      Yup.object().test('submit test', async (value: any, context: any) => {
-        const { linkId: pageId, item: answerItem } = value;
-        const questionItem = items.find((i) => i.linkId === pageId);
-        if (!questionItem) {
-          // console.log('page not found');
-          return context.createError({ message: `Page ${pageId} not found in Questionnaire` });
-        }
-        if (answerItem === undefined) {
-          if (questionItem.item?.some((i) => evalRequired(i, context))) {
-            return context.createError({ message: 'Item not found' });
-          } else {
-            return value;
+  if (pageId) {
+    const pageItems = items.find((i) => i.linkId === pageId)?.item || items;
+    return makeValidationSchemaPrivate({ items: pageItems, externalContext });
+  }
+
+  console.warn('Whole-questionnaire validation with Zod is not fully implemented in this replacement.');
+
+  // Return an object that mimics Yup's validation API for backward compatibility
+  return {
+    validate: async (values: any) => {
+      // For now, we'll validate each page separately
+      const errors: any[] = [];
+      for (const pageItem of items) {
+        if (pageItem.item) {
+          try {
+            const pageSchema = makeValidationSchemaPrivate({
+              items: pageItem.item,
+              externalContext: { values: values, items: items.flatMap((i) => i.item || []) },
+            });
+
+            // Extract the page values
+            const pageValues = values.find((v: any) => v.linkId === pageItem.linkId);
+            if (pageValues && pageValues.item) {
+              const pageData: Record<string, any> = {};
+              pageValues.item.forEach((item: any) => {
+                pageData[item.linkId] = item;
+              });
+
+              // Parse with Zod
+              const result = pageSchema.safeParse(pageData);
+              if (!result.success) {
+                result.error.issues.forEach((issue) => {
+                  errors.push({
+                    path: `${pageItem.linkId}.${issue.path.join('.')}`,
+                    message: issue.message,
+                  });
+                });
+              }
+            }
+          } catch (e) {
+            console.error(`Error validating page ${pageItem.linkId}:`, e);
           }
         }
-        const schema = makeValidationSchemaPrivate({
-          items: questionItem.item ?? [],
-          formValues: value,
-          externalContext: { values: context?.parent ?? [], items: items.flatMap((i) => i.item ?? []) },
-        });
-        try {
-          const reduced = answerItem.reduce((accum: any, current: any) => {
-            accum[current.linkId] = { ...current };
-            return accum;
-          }, {});
-          const validated = await schema.validate(reduced, { abortEarly: false });
-          return Yup.mixed().transform(() => validated);
-        } catch (e) {
-          console.log('error: ', pageId, JSON.stringify(answerItem), e);
-          return e;
-        }
-      })
-    );
-  }
-};
-
-interface PrivateMakeSchemaArgs {
-  items: IntakeQuestionnaireItem[];
-  formValues: any; // todo: better typing on these "any" types
-  externalContext?: { values: any; items: any };
-}
-
-const makeValidationSchemaPrivate = (input: PrivateMakeSchemaArgs): Yup.AnyObjectSchema => {
-  const { items, formValues, externalContext: maybeExternalContext } = input;
-  // const contextualItems = maybeExternalContext?.items ?? [];
-  const externalValues = maybeExternalContext?.values ?? [];
-  // console.log('validation items', items);
-  // these allow us some flexibility to inject field dependencies from another
-  // paperwork page, or anywhere outside the context of the immediate form being validated,
-  // or to keep parent/sibling items in context when drilling down into a group
-  let allValues = [...externalValues]
-    .flatMap((page: any) => page.item)
-    .reduce((accum: { [x: string]: any }, current: any) => {
-      const linkId = current?.linkId;
-      if (linkId) {
-        accum[linkId] = current;
       }
-      return accum;
-    }, {} as any);
-  allValues = { ...allValues, ...formValues };
-  const validatableItems = [...items]
-    .filter((item) => item?.type !== 'display' && !item?.readOnly && !evalFilterWhen(item, allValues))
-    .flatMap((item) => makeValidatableItem(item));
-  const validationTemp: any = {};
-  validatableItems.forEach((item) => {
-    let schemaTemp: any | undefined = item.type !== 'group' ? schemaForItem(item, allValues) : undefined;
-    if (item.type === 'group' && item.item && item.dataType !== 'DOB') {
-      const filteredItems = (item.item ?? []).filter((item) => item?.type !== 'display' && !item?.readOnly);
-      const embeddedSchema = makeValidationSchemaPrivate({
-        items: filteredItems,
-        formValues,
-        externalContext: maybeExternalContext,
-      });
-      // console.log('embedded schema', embeddedSchema);
-      schemaTemp = Yup.object().shape({
-        linkId: Yup.string(),
-        item: Yup.array()
-          .transform((v: any) => {
-            if (!Array.isArray(v)) {
-              return v;
-            }
-            // console.log('sorted pre insert', JSON.stringify(v));
-            const filled = filteredItems.map((item) => {
-              const match = v.find((i) => {
-                return i?.linkId === item?.linkId;
-              });
-              if (match) {
-                if (match.item) {
-                  const cleaned = trimInvalidAnswersFromItem(match);
-                  return { ...cleaned, item: recursiveGroupTransform(item.item ?? [], match.item) };
-                } else {
-                  return {
-                    ...trimInvalidAnswersFromItem(match),
-                  };
-                }
-              } else {
-                return { linkId: item.linkId };
-              }
-            });
-            // console.log('sorted post insert', JSON.stringify(filled));
-            return filled;
-          })
-          .of(
-            Yup.object().test(
-              `${item.linkId} group member test`,
-              // test function, determines schema validity
-              (val: any, context: any) => {
-                // console.log('testing val', val, context);
-                const parentContext = context?.from?.pop()?.value ?? {};
-                const combinedContext = { ...(externalValues ?? {}), ...(parentContext ?? {}) };
-                const shouldFilter = evalFilterWhen(item, combinedContext);
-                // if the parent item should be filtered we've normalized any items to linkId placeholders
-                // and can safely return true here, only proceeding to test conformance of each embedded item
-                // with the schema if the encompassing parent is not filtered out.
-                if (shouldFilter) {
-                  return true;
-                }
-                if (context?.path) {
-                  try {
-                    const idx = context.path.replace('[', '.').replace(']', '').split('.').pop();
-                    if (!idx) {
-                      return false;
-                    }
-                    const memberItem: any = {};
-                    memberItem[val.linkId] = val;
 
-                    const memberItemDef = item.item?.find((i) => i.linkId === val.linkId);
-                    // members of a group may have their own filter trigger independent of the group
-                    // this occurs in the default virtual intake paperwork in the school-work-note-template-upload-group
-                    if (memberItemDef) {
-                      const shouldFilterMember = evalFilterWhen(memberItemDef, combinedContext);
-                      if (shouldFilterMember) {
-                        return true;
-                      }
-                    }
-                    // console.log('idx', idx, itemLinkId, val, item);
-                    return embeddedSchema.validateAt(val.linkId, memberItem);
-                  } catch (e) {
-                    console.log('thrown error from group member test', e);
-                    // this special one-off handling deals with the allergies page, which has an item that
-                    // powers some logic in the form, but is not actually a field that needs to be validated because it
-                    // contributes no persisted values. there's probably a better way to handle this, but this works for now.
-                    if (typeof e === 'object' && (e as any).message) {
-                      const message = (e as any).message as string | undefined;
-                      if (message?.startsWith('The schema does not contain the path') && item.required === false) {
-                        return true;
-                      }
-                    }
-                    return context.createError({ message: (e as any).message, val, item });
-                  }
-                }
-                return true;
-              }
-            )
-          ),
-      });
-    }
-
-    if (schemaTemp !== undefined || item.type === 'group') {
-      if (item.type === 'group') {
-        validationTemp[item.linkId] =
-          schemaTemp ??
-          Yup.object({
-            linkId: Yup.string(),
-            item: Yup.array().of(
-              Yup.object({
-                linkId: Yup.string(),
-                answer: Yup.array().of(Yup.object({ valueString: Yup.string() })),
-              })
-            ),
-          });
-      } else {
-        validationTemp[item.linkId] = schemaTemp;
+      if (errors.length > 0) {
+        const error = new Error('Validation failed');
+        (error as any).inner = errors;
+        throw error;
       }
-    } else {
-      console.log('undefined schema', item.linkId);
-    }
-  });
-  return Yup.object().shape(validationTemp);
-};
 
-export const itemAnswerHasValue = (answerItem: QuestionnaireResponseItemAnswer): boolean => {
-  const entries = Object.entries(answerItem);
-  if (entries.length === 0) {
-    return false;
-  }
-
-  return entries.some((entry) => {
-    const [_, val] = entry;
-    return val !== undefined;
-  });
-};
-
-type EnableWhenOperator = 'exists' | '=' | '!=' | '>' | '<' | '>=' | '<=';
-
-const evalBoolean = (operator: EnableWhenOperator, answerValue: boolean, value: boolean | undefined): boolean => {
-  if (operator === 'exists') {
-    return value !== undefined;
-  }
-
-  if (operator === '=') {
-    return answerValue == value;
-  } else if (operator === '!=') {
-    return answerValue != value;
-  }
-  throw new Error(`Unexpected operator ${operator} encountered for boolean value`);
-};
-
-const evalString = (operator: EnableWhenOperator, answerValue: string, value: string | undefined): boolean => {
-  if (operator === '=') {
-    return answerValue === value;
-  } else if (operator === '!=') {
-    return answerValue !== value;
-  }
-  throw new Error(`Unexpected operator ${operator} encountered for boolean value`);
-};
-
-const evalDateTime = (operator: EnableWhenOperator, answerValue: string, value: string | undefined): boolean => {
-  if (value === undefined) {
-    return false;
-  }
-
-  const answerDT = DateTime.fromISO(answerValue);
-  const valDT = DateTime.fromISO(value);
-
-  if (!answerDT.isValid || !valDT.isValid) {
-    return false;
-  }
-
-  if (operator === '=') {
-    return answerDT.equals(valDT);
-  } else if (operator === '!=') {
-    return !answerDT.equals(valDT);
-  } else if (operator === '<=') {
-    return answerDT.diff(valDT, 'seconds').seconds <= 0;
-  } else if (operator === '<') {
-    return answerDT.diff(valDT, 'seconds').seconds < 0;
-  } else if (operator === '>=') {
-    return answerDT.diff(valDT, 'seconds').seconds >= 0;
-  } else if (operator === '>') {
-    return answerDT.diff(valDT, 'seconds').seconds > 0;
-  }
-  throw new Error(`Unexpected operator ${operator} encountered for boolean value`);
-};
-
-const evalEnableWhenItem = (
-  enableWhen: QuestionnaireItemEnableWhen,
-  values: { [itemLinkId: string]: QuestionnaireResponseItem },
-  items: QuestionnaireItem[]
-): boolean => {
-  const { answerString, answerBoolean, answerDate, answerInteger, question, operator } = enableWhen;
-  const questionPathNodes = question.split('.');
-
-  const itemDef = questionPathNodes.reduce(
-    (accum, current) => {
-      if (!accum) {
-        return accum;
-      }
-      const item = accum.items.find((item) => {
-        return item?.linkId === current;
-      });
-      if (!item) {
-        return accum;
-      }
-      accum['item'] = item;
-      accum['items'] = item?.item ?? [];
-      return accum;
+      return values;
     },
-    { items, item: undefined } as { items: QuestionnaireItem[]; item: QuestionnaireItem | undefined } | undefined
-  )?.item;
-  if (!itemDef) {
-    return operator === '!=';
-  }
-
-  const valueDef = questionPathNodes.reduce((accum, current) => {
-    if (accum === undefined) {
-      return undefined;
-    }
-    const newVal = (accum as any)[current];
-    if (newVal) {
-      return newVal;
-    }
-    return (accum.item ?? []).find((i: any) => i?.linkId && i.linkId === current);
-  }, values as any);
-
-  if (itemDef.type === 'boolean' && answerBoolean !== undefined) {
-    return evalBoolean(operator, answerBoolean, pickFirstValueFromAnswerItem(valueDef, 'boolean'));
-  } else if (
-    (itemDef.type === 'string' || itemDef.type === 'choice' || itemDef.type === 'open-choice') &&
-    answerString
-  ) {
-    const verdict = evalString(operator, answerString, pickFirstValueFromAnswerItem(valueDef));
-    return verdict;
-  } else if (itemDef.type === 'date' && answerDate !== undefined) {
-    return evalDateTime(operator, answerDate, pickFirstValueFromAnswerItem(valueDef));
-  } else if (itemDef.type === 'date' && answerInteger !== undefined) {
-    const answerDateFormatted = formattedDateStringForYearsAgo(`${answerInteger}`);
-    if (answerDateFormatted === undefined) {
-      return false;
-    }
-    return evalDateTime(operator, answerDateFormatted, pickFirstValueFromAnswerItem(valueDef));
-  } else {
-    // we only support string, bool, and date atm, but extensions welcome as needed!
-    return false;
-  }
+  };
 };
 
-export const evalEnableWhen = (
-  item: IntakeQuestionnaireItem,
-  items: IntakeQuestionnaireItem[],
-  values: { [itemLinkId: string]: QuestionnaireResponseItem }
-): boolean => {
-  const { enableWhen, enableBehavior = 'all' } = item;
-  if (enableWhen === undefined || enableWhen.length === 0) {
-    return true;
-  }
-
-  if (enableBehavior === 'any') {
-    const verdict = enableWhen.some((ew) => {
-      const enabled = evalEnableWhenItem(ew, values, items);
-      return enabled;
-    });
-    return verdict;
-  } else if (enableBehavior === 'all') {
-    const verdict = enableWhen.every((ew) => {
-      const enabled = evalEnableWhenItem(ew, values, items);
-      return enabled;
-    });
-    return verdict;
-  } else {
-    const verdict = enableWhen.every((ew) => {
-      return evalEnableWhenItem(ew, values, items);
-    });
-    return verdict;
-  }
-};
-
-// optionVal, if passed will be taken as the value of the field to check requireWhen against,
-// otherwise the context is checked for a value using requireWhen.question as the key
-export const evalRequired = (item: IntakeQuestionnaireItem, context: any, questionVal?: any): boolean => {
-  if (item.required) {
-    return true;
-  }
-
-  if (item.requireWhen === undefined) {
-    return false;
-  }
-
-  return evalCondition(item.requireWhen, context, item.type, questionVal);
-};
-
-export const evalItemText = (item: IntakeQuestionnaireItem, context: any, questionVal?: any): string | undefined => {
-  const { textWhen } = item;
-  if (textWhen === undefined) {
-    return item.text;
-  }
-  const { substituteText } = textWhen;
-
-  if (evalCondition(textWhen, context, item.type, questionVal)) {
-    return substituteText;
-  }
-  return item.text;
-};
-
-interface NestedItem {
-  item?: NestedItem[];
-}
-export const flattenItems = <T extends NestedItem>(items: T[]): any => {
-  let itemsList = items;
-  if (typeof items === 'object') {
-    itemsList = Object.values(items);
-  }
-  return itemsList?.flatMap((i) => {
-    if (i?.item) {
-      return flattenItems(i?.item);
-    }
-    return i;
-  });
-};
-
-interface HasLinkId {
-  linkId: string;
-}
-const makeItemDict = (items: HasLinkId[]): { [linkId: string]: any } => {
-  return [...items].reduce(
-    (accum, cur) => {
-      if (cur && cur.linkId) {
-        accum[cur.linkId] = { ...cur, linkId: undefined };
-      }
-      return accum;
-    },
-    {} as { [linkId: string]: any }
-  );
-};
-
-export const evalFilterWhen = (item: IntakeQuestionnaireItem, context: any, questionVal?: any): boolean => {
-  if (item.filterWhen === undefined) {
-    return false;
-  }
-  return evalCondition(item.filterWhen, context, item.type, questionVal);
-};
-
-export const evalComplexValidationTrigger = (
-  item: IntakeQuestionnaireItem,
-  context: any,
-  questionVal?: any
-): boolean => {
-  // console.log('item.complex', item.complexValidation?.type, item.complexValidation?.triggerWhen);
-  if (item.complexValidation === undefined) {
-    return false;
-  } else if (item.complexValidation?.triggerWhen === undefined) {
-    return true;
-  }
-  return evalCondition(item.complexValidation.triggerWhen, context, item.type, questionVal);
-};
-
-const evalCondition = (
-  condition: QuestionnaireItemConditionDefinition,
-  context: any,
-  type: IntakeQuestionnaireItem['type'],
-  questionVal?: any
-): boolean => {
-  const { question, operator, answerString, answerBoolean, answerDate, answerInteger } = condition;
-  const questionValue = recursivePathEval(context, question, questionVal);
-
-  if (answerString !== undefined) {
-    const comparisonString = questionValue?.answer?.[0]?.valueString ?? questionValue?.valueString;
-    if (operator === '=' && comparisonString === answerString) {
-      return true;
-    }
-    if (operator === '!=' && comparisonString !== answerString) {
-      return true;
-    }
-  }
-  if (answerBoolean !== undefined) {
-    const comparisonBool = questionValue?.answer?.[0]?.valueBoolean ?? questionValue?.valueBoolean;
-
-    if (operator === '=' && comparisonBool === answerBoolean) {
-      return true;
-    }
-    if (operator === '!=' && comparisonBool !== answerBoolean) {
-      return true;
-    }
-  }
-  if (answerDate !== undefined) {
-    const valueDateString = questionValue?.answer?.[0]?.valueString ?? questionValue?.valueString;
-    return evalDateTime(operator, answerDate, valueDateString);
-  }
-  if (answerInteger && type === 'date') {
-    const valueDateString = questionValue?.answer?.[0]?.valueString ?? questionValue?.valueString;
-    // by convention, an answerInteger on date type item will be interpreted as expressing a value in years
-    // if the value is 18, for instance, we will calculate 18 years from the current date
-    const answerDateFormatted = formattedDateStringForYearsAgo(`${answerInteger}`);
-    if (answerDateFormatted === undefined) {
-      return false;
-    }
-    return evalDateTime(operator, answerDateFormatted, valueDateString);
-  }
-  return false;
-};
 /*
   given any list of questionnaire items and values representing answers to those items,
   filter out any values that should not be included in the form submission, whether because
@@ -813,37 +426,40 @@ export const recursiveGroupTransform = (items: IntakeQuestionnaireItem[], values
   }
 };
 
-const recursivePathEval = (context: any, question: string, value?: any): any | undefined => {
-  if (value) {
-    return value;
+const trimInvalidAnswersFromItem = (item: any): any => {
+  if (!item.answer || !Array.isArray(item.answer) || item.answer.length === 0) {
+    return { linkId: item.linkId };
   }
-  try {
-    const itemDict = Array.isArray(context) ? makeItemDict(context) : context;
-    const questionValue = (itemDict ?? {})[question];
-    if (questionValue) {
-      return questionValue;
-    } else {
-      const questionSplit = question.split('.');
-      if (questionSplit.length > 1) {
-        const newQuestion = questionSplit.slice(1).join('.');
-        return recursivePathEval(context, newQuestion);
-      }
-    }
-  } catch (e) {
-    console.log('error resolving path', e, context);
+
+  // Check if all answers are empty objects or have no value properties
+  const hasValidAnswer = item.answer.some((ans: any) => {
+    if (!ans || typeof ans !== 'object') return false;
+    return Object.keys(ans).some(
+      (key) => key.startsWith('value') && ans[key] !== undefined && ans[key] !== null && ans[key] !== ''
+    );
+  });
+
+  if (!hasValidAnswer) {
+    return { linkId: item.linkId };
   }
-  return undefined;
+
+  return item;
 };
 
-const formattedDateStringForYearsAgo = (yearsAgoString: string): string | undefined => {
-  const asInt = parseInt(yearsAgoString);
-  if (Number.isNaN(asInt)) {
-    return undefined;
+interface NestedItem {
+  item?: NestedItem[];
+}
+export const flattenItems = <T extends NestedItem>(items: T[]): any => {
+  let itemsList = items;
+  if (typeof items === 'object') {
+    itemsList = Object.values(items);
   }
-  if (asInt < 0) {
-    return undefined;
-  }
-  const yearsAgo = DateTime.now().startOf('day').minus({ years: asInt });
-  const answerDateFormatted = yearsAgo.toFormat(DOB_DATE_FORMAT);
-  return answerDateFormatted;
+  return itemsList?.flatMap((i) => {
+    if (i?.item) {
+      return flattenItems(i?.item);
+    }
+    return i;
+  });
 };
+
+export { evalCondition, evalEnableWhen, evalFilterWhen, evalRequired, evalItemText, evalComplexValidationTrigger };

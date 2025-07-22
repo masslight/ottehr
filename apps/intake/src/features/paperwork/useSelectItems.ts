@@ -20,5 +20,18 @@ export const getItemDisplayStrategy = (
     return item.disabledDisplay ?? 'hidden';
   }
   const enabled = evalEnableWhen(item, items, values);
+
+  // Debug logging for "How did you hear about us?" issue
+  if (item.linkId === 'patient-point-of-discovery') {
+    const isNewQrsPatientValue = values['is-new-qrs-patient'];
+    console.log('[UI DEBUG] patient-point-of-discovery enableWhen check:', {
+      enabled,
+      'is-new-qrs-patient raw value': isNewQrsPatientValue,
+      'is-new-qrs-patient answer': isNewQrsPatientValue?.answer,
+      'is-new-qrs-patient answer[0]': isNewQrsPatientValue?.answer?.[0],
+      'enableWhen conditions': item.enableWhen,
+    });
+  }
+
   return enabled ? 'enabled' : item.disabledDisplay ?? 'hidden';
 };

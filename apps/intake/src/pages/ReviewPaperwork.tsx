@@ -6,7 +6,7 @@ import { DateTime } from 'luxon';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { makeValidationSchema, pickFirstValueFromAnswerItem, ServiceMode, uuidRegex, VisitType } from 'utils';
-import { ValidationError } from 'yup';
+import { z } from 'zod';
 import { dataTestIds } from '../../src/helpers/data-test-ids';
 import api from '../api/ottehrApi';
 import { intakeFlowPageRoute } from '../App';
@@ -131,11 +131,11 @@ const ReviewPaperwork = (): JSX.Element => {
     );
 
     try {
-      validationSchema.validate(completedPaperwork, { abortEarly: false });
+      validationSchema.parse(completedPaperwork);
     } catch (e) {
       const errorList =
-        (e as ValidationError).inner?.map((item) => {
-          return item.path?.split('.')?.[0];
+        (e as z.ZodError).errors?.map((error) => {
+          return error.path?.[0]?.toString();
         }) ?? [];
       console.log('errorList', errorList, e);
       const pagesWithError = (paperworkPages ?? [])

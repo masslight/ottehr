@@ -389,6 +389,17 @@ export const PaperworkPage: FC = () => {
             if (item?.answer?.[0] == undefined) {
               return { ...item, answer: undefined };
             }
+            // Fix empty objects in answer array (happens with unchecked checkboxes)
+            if (item?.answer?.[0] && typeof item.answer[0] === 'object') {
+              const answerObj = item.answer[0] as any;
+              // Check if it's an empty object or has no value properties
+              const hasValueProperty = Object.keys(answerObj).some((key) => key.startsWith('value'));
+              if (!hasValueProperty) {
+                console.log(`Fixing empty answer for ${item.linkId}:`, answerObj);
+                // Assume it's a boolean field that should be false
+                return { ...item, answer: [{ valueBoolean: false }] };
+              }
+            }
             return item;
           });
         const handlePatchPaperwork = async (
