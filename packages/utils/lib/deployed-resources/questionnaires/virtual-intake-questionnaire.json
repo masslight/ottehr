@@ -3418,10 +3418,6 @@
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
                 "valueString": "DOB"
-              },
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/validate-age-over",
-                "valueInteger": 18
               }
             ]
           },

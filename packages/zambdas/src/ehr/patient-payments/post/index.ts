@@ -140,6 +140,10 @@ const performEffect = async (
     };
     const paymentIntent = await stripeClient.paymentIntents.create(paymentIntentInput);
 
+    if (paymentIntent.status !== 'succeeded') {
+      throw new Error(`The card payment was not successful. Try a different card`);
+    }
+
     paymentNoticeInput.stripePaymentIntentId = paymentIntent.id;
 
     console.log('Payment Intent created:', JSON.stringify(paymentIntent, null, 2));

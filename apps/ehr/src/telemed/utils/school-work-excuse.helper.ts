@@ -198,7 +198,7 @@ export const mapValuesToExcuse = (
     headerNote: values.headerNote,
     footerNote: values.footerNote,
     providerDetails: {
-      credentials: params.suffix || 'Medical Doctor',
+      credentials: params.suffix || '',
       name: params.providerName || 'Unknown',
     },
   };
