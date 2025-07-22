@@ -8,9 +8,11 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
-import { checkOrCreateM2MClientToken, topLevelCatch, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { createEncounterResource, updateEncounterResource } from './helpers';
+
+const ZAMBDA_NAME = 'save-followup-encounter';
 
 export interface SaveFollowupEncounterZambdaInputValidated extends SaveFollowupEncounterZambdaInput {
   secrets: Secrets;
@@ -44,7 +46,7 @@ export function validateRequestParameters(input: ZambdaInput): SaveFollowupEncou
 
 let m2mToken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.log(`Input: ${JSON.stringify(input)}`);
     const { secrets, encounterDetails } = validateRequestParameters(input);
@@ -82,4 +84,4 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify({ message: 'Error saving followup encounter' }),
     };
   }
-};
+});

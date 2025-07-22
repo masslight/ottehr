@@ -31,13 +31,16 @@ import {
   makeBusinessIdentifierForStripePayment,
   performCandidPreEncounterSync,
   topLevelCatch,
+  wrapHandler,
   ZambdaInput,
 } from '../../../shared';
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 
+const ZAMBDA_NAME = 'post-patient-payment';
+
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrM2MClientToken: string;
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const authorization = input.headers.Authorization;
     const secrets = input.secrets;
@@ -97,7 +100,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
     return topLevelCatch('patient-payments-post', error, ENVIRONMENT);
   }
-};
+});
 
 const performEffect = async (
   input: ComplexValidationOutput,
@@ -128,7 +131,7 @@ const performEffect = async (
       description: description || `Payment for encounter ${encounterId}`,
       confirm: true,
       metadata: {
-        encounterId,
+        oystehr_encounter_id: encounterId,
       },
       automatic_payment_methods: {
         enabled: true,
@@ -136,6 +139,10 @@ const performEffect = async (
       },
     };
     const paymentIntent = await stripeClient.paymentIntents.create(paymentIntentInput);
+
+    if (paymentIntent.status !== 'succeeded') {
+      throw new Error(`The card payment was not successful. Try a different card`);
+    }
 
     paymentNoticeInput.stripePaymentIntentId = paymentIntent.id;
 

@@ -44,6 +44,8 @@ test.beforeAll(async ({ browser }) => {
   cssHeader = new CssHeader(page);
   await page.goto(`in-person/${resourceHandler.appointment.id}/progress-note`);
   await cssHeader.verifyStatus('pending');
+  await cssHeader.selectIntakePractitioner();
+  await cssHeader.selectProviderPractitioner();
   await cssHeader.clickSwitchStatusButton('provider');
   await progressNotePage.expectLoaded();
 });

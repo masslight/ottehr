@@ -1,3 +1,4 @@
+import { ERX_MEDICATION_META_TAG_CODE } from '../../../fhir/constants';
 import { SCHOOL_WORK_NOTE } from '../../data';
 import { CSS_NOTE_ID, NOTHING_TO_EAT_OR_DRINK_ID } from './chart-data.types';
 
@@ -25,7 +26,8 @@ export type ProviderChartDataFieldsNames =
   | typeof CSS_NOTE_ID
   | 'birth-history'
   | 'ai-potential-diagnosis'
-  | 'procedure';
+  | 'procedure'
+  | typeof ERX_MEDICATION_META_TAG_CODE;
 
 export type DispositionMetaFieldsNames = 'disposition-follow-up' | 'sub-follow-up';
 

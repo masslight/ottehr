@@ -1,4 +1,4 @@
-import { Coding, Practitioner } from 'fhir/r4b';
+import { Coding } from 'fhir/r4b';
 import { AssignPractitionerInputValidated, getSecret, SecretsKeys } from 'utils';
 import { ZambdaInput } from '../../shared/types';
 
@@ -25,16 +25,11 @@ export function validateRequestParameters(input: ZambdaInput): AssignPractitione
   const encounterId = body.encounterId;
 
   // Validate practitioner - check for required Practitioner properties
-  if (!body.practitioner || typeof body.practitioner !== 'object') {
-    throw new Error('practitioner must be a valid Practitioner object');
+  if (!body.practitionerId || typeof body.practitionerId !== 'string') {
+    throw new Error('practitionerId must be a string');
   }
 
-  const practitionerObj = body.practitioner as Record<string, unknown>;
-  if (practitionerObj.resourceType !== 'Practitioner') {
-    throw new Error('practitioner must have resourceType "Practitioner"');
-  }
-
-  const practitioner = body.practitioner as Practitioner;
+  const practitionerId = body.practitionerId;
 
   // Validate userRole - should be an array of Coding objects
   if (!Array.isArray(body.userRole)) {
@@ -66,8 +61,8 @@ export function validateRequestParameters(input: ZambdaInput): AssignPractitione
 
   const validatedUserRole = userRole as Coding[];
 
-  if (encounterId === undefined || practitioner === undefined || validatedUserRole === undefined) {
-    throw new Error('These fields are required: "encounterId" "practitioner" "userRole".');
+  if (encounterId === undefined || practitionerId === undefined || validatedUserRole === undefined) {
+    throw new Error('These fields are required: "encounterId" "practitionerId" "userRole".');
   }
 
   if (getSecret(SecretsKeys.PROJECT_API, input.secrets) === undefined) {
@@ -85,7 +80,7 @@ export function validateRequestParameters(input: ZambdaInput): AssignPractitione
 
   return {
     encounterId,
-    practitioner,
+    practitionerId,
     userRole: validatedUserRole,
     secrets: input.secrets,
     userToken,

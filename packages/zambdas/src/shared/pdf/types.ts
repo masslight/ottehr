@@ -1,4 +1,5 @@
 import { Practitioner } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { Color, PDFFont, PDFImage, StandardFonts } from 'pdf-lib';
 import {
   AdditionalBooleanQuestionsFieldsNames,
@@ -88,7 +89,10 @@ export interface PdfClient {
   setRightBound: (newBound: number) => void;
   getTextDimensions: (text: string, textStyle: TextStyle) => { width: number; height: number };
   setPageStyles: (newStyles: PageStyles) => void;
-  drawVariableWidthColumns: (columns: Column[], yPosStartOfColumn: number) => void;
+  drawVariableWidthColumns: (columns: Column[], yPosStartOfColumn: number, startPageIndex: number) => void;
+  getCurrentPageIndex: () => number;
+  setPageByIndex: (pageIndex: number) => void;
+  getTotalPages: () => number;
 }
 
 export type TelemedExamBlockData = {
@@ -181,7 +185,7 @@ export interface InHouseLabResult {
 }
 export interface InHouseLabResultConfig {
   collectionDate: string;
-  finalResultDateTime: string;
+  finalResultDateTime: DateTime;
   specimenSource: string;
   results: InHouseLabResult[];
 }
@@ -225,6 +229,7 @@ export interface ExternalLabResultsData extends LabResultsData {
 }
 export interface InHouseLabResultsData extends LabResultsData {
   inHouseLabResults: InHouseLabResultConfig[];
+  timezone: string | undefined;
 }
 
 export type ResultDataConfig =
