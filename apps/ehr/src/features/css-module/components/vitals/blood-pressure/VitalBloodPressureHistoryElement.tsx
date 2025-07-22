@@ -9,7 +9,7 @@ import { DeleteVitalModal } from '../DeleteVitalModal';
 type VitalBloodPressureHistoryElementProps = {
   historyEntry: VitalsBloodPressureObservationDTO;
   isAlert?: boolean;
-  onDelete: (entity: VitalsObservationDTO) => Promise<void>;
+  onDelete?: (entity: VitalsObservationDTO) => Promise<void>;
 };
 
 export const VitalBloodPressureHistoryElement: React.FC<VitalBloodPressureHistoryElementProps> = ({
@@ -68,7 +68,7 @@ export const VitalBloodPressureHistoryElement: React.FC<VitalBloodPressureHistor
         open={isDeleteModalOpen}
         onClose={handleCloseDeleteModal}
         entity={historyEntry}
-        onDelete={onDelete}
+        onDelete={async (obs) => onDelete?.(obs)}
       />
     </>
   );
