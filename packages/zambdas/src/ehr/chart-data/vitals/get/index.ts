@@ -3,6 +3,10 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Observation, Patient, Practitioner } from 'fhir/r4b';
 import {
   convertVitalsListToMap,
+  extractBloodPressureObservationMethod,
+  extractHeartbeatObservationMethod,
+  extractOxySaturationObservationMethod,
+  extractTemperatureObservationMethod,
   extractVisionValues,
   FHIR_RESOURCE_NOT_FOUND,
   FHIR_RESOURCE_NOT_FOUND_CUSTOM,
@@ -15,7 +19,10 @@ import {
   PRIVATE_EXTENSION_BASE_URL,
   VitalFieldNames,
   VitalsBloodPressureObservationDTO,
+  VitalsHeartbeatObservationDTO,
   VitalsObservationDTO,
+  VitalsOxygenSatObservationDTO,
+  VitalsTemperatureObservationDTO,
   VitalsVisionObservationDTO,
 } from 'utils';
 import * as z from 'zod';
@@ -189,7 +196,7 @@ const parseBloodPressureObservation = (
     diastolicPressure: diastolicBP,
     authorId: performer.id,
     authorName: getFullName(performer),
-    observationMethod: undefined, // todo: parse from method
+    observationMethod: extractBloodPressureObservationMethod(observation),
     lastUpdated: observation.effectiveDateTime || '',
   };
 };
@@ -243,7 +250,7 @@ const parseNumericValueObservation = (
   const value = observation.valueQuantity?.value;
   console.log(`Parsing observation for field ${field}:`, 'Value:', value);
   if (value === undefined) return undefined;
-  return {
+  const baseFields = {
     resourceId: observation.id,
     field,
     value,
@@ -251,6 +258,25 @@ const parseNumericValueObservation = (
     authorName: getFullName(performer),
     lastUpdated: observation.effectiveDateTime || '',
   };
+  if (field === VitalFieldNames.VitalOxygenSaturation) {
+    return {
+      ...baseFields,
+      observationMethod: extractOxySaturationObservationMethod(observation),
+    } as VitalsOxygenSatObservationDTO;
+  }
+  if (field === VitalFieldNames.VitalHeartbeat) {
+    return {
+      ...baseFields,
+      observationMethod: extractHeartbeatObservationMethod(observation),
+    } as VitalsHeartbeatObservationDTO;
+  }
+  if (field === VitalFieldNames.VitalTemperature) {
+    return {
+      ...baseFields,
+      observationMethod: extractTemperatureObservationMethod(observation),
+    } as VitalsTemperatureObservationDTO;
+  }
+  return baseFields;
 };
 
 interface InputParameters {
