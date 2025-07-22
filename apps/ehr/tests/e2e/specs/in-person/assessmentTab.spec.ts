@@ -46,7 +46,7 @@ test.beforeAll(async ({ browser }) => {
   await cssHeader.verifyStatus('pending');
   await cssHeader.selectIntakePractitioner();
   await cssHeader.selectProviderPractitioner();
-  await cssHeader.clickSwitchStatusButton('provider');
+  await cssHeader.clickSwitchModeButton('provider');
   await progressNotePage.expectLoaded();
 });
 
