@@ -256,7 +256,7 @@ export const Sidebar = (): JSX.Element => {
     'end',
     PRACTITIONER_CODINGS.Admitter
   );
-  const assignedIntakePerformerId = getAdmitterPractitionerId(encounter);
+  const assignedIntakePerformerId = encounter ? getAdmitterPractitionerId(encounter) : undefined;
 
   const handleCompleteIntake = async (): Promise<void> => {
     try {
