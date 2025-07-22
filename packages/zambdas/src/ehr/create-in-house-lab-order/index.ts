@@ -269,6 +269,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     })();
 
     const attendingPractitionerId = getAttendingPractitionerId(encounter);
+    if (!attendingPractitionerId) throw Error('Attending practitioner not found');
 
     const { currentUserPractitionerName, attendingPractitionerName } = await Promise.all([
       oystehrCurrentUser.fhir.get<Practitioner>({
