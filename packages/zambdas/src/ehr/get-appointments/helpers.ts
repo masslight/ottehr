@@ -197,38 +197,6 @@ export const getAppointmentQueryInput = async (input: {
   };
 };
 
-export const getActiveAppointmentsBeforeTodayQueryInput = async (input: {
-  oystehr: Oystehr;
-  resourceId: string;
-  resourceType: 'Location' | 'Practitioner' | 'HealthcareService';
-}): Promise<AppointmentQueryInput> => {
-  const { actorParams, healthcareService } = await getActorParamsForAppointmentQueryInput(input);
-  return {
-    resourceType: 'Appointment',
-    params: [
-      {
-        name: 'date:missing',
-        value: 'false',
-      },
-      {
-        name: 'actor:missing',
-        value: 'false',
-      },
-      {
-        name: '_include',
-        value: 'Appointment:patient',
-      },
-      {
-        name: '_sort',
-        value: 'date',
-      },
-      { name: '_count', value: '1000' },
-      ...actorParams,
-    ],
-    group: healthcareService,
-  };
-};
-
 const getActorParamsForAppointmentQueryInput = async ({
   oystehr,
   resourceId,

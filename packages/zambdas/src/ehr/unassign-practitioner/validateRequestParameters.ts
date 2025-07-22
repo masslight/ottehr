@@ -9,10 +9,10 @@ export function validateRequestParameters(input: ZambdaInput): UnassignPractitio
     throw new Error('No request body provided');
   }
 
-  const { encounterId, practitioner, userRole } = JSON.parse(input.body);
+  const { encounterId, practitionerId, userRole } = JSON.parse(input.body);
 
-  if (encounterId === undefined || practitioner === undefined || userRole === undefined) {
-    throw new Error('These fields are required: "encounterId" "practitioner" "userRole".');
+  if (encounterId === undefined || practitionerId === undefined || userRole === undefined) {
+    throw new Error('These fields are required: "encounterId" "practitionerId" "userRole".');
   }
 
   if (getSecret(SecretsKeys.PROJECT_API, input.secrets) === undefined) {
@@ -34,7 +34,7 @@ export function validateRequestParameters(input: ZambdaInput): UnassignPractitio
 
   return {
     encounterId,
-    practitioner,
+    practitionerId,
     userRole,
     secrets: input.secrets,
     userToken,
