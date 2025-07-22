@@ -80,16 +80,15 @@ export function createMedicationAdministrationResource(data: MedicationAdministr
   if (orderData.patient) resource.subject = { reference: `Patient/${orderData.patient}` };
   if (orderData.encounterId) resource.context = { reference: `Encounter/${orderData.encounterId}` };
 
-  // Initialize performer array if it doesn't exist
-  if (!resource.performer) resource.performer = [];
-
   if (createdProviderId) {
     // Check if "created" provider already exists, if not add it
-    const hasCreatedProvider = resource.performer.some(
+    const hasCreatedProvider = resource.performer?.some(
       (performer) => performer.function?.coding?.find((coding) => coding.code === PRACTITIONER_ORDERED_MEDICATION_CODE)
     );
 
     if (!hasCreatedProvider) {
+      if (!resource.performer) resource.performer = [];
+
       resource.performer.push({
         actor: { reference: `Practitioner/${createdProviderId}` },
         function: {
@@ -106,6 +105,8 @@ export function createMedicationAdministrationResource(data: MedicationAdministr
 
   // Add "ordered by" provider to history
   if (orderedByProviderId) {
+    if (!resource.performer) resource.performer = [];
+
     resource.performer.push({
       actor: { reference: `Practitioner/${orderedByProviderId}` },
       function: {
