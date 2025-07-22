@@ -57,7 +57,7 @@ export const visitStatusToFhirAppointmentStatusMap: Record<VisitStatusWithoutUnk
   pending: 'booked',
   arrived: 'arrived',
   ready: 'checked-in',
-  intake: 'fulfilled',
+  intake: 'checked-in',
   'ready for provider': 'fulfilled',
   provider: 'fulfilled',
   'ready for discharge': 'fulfilled',

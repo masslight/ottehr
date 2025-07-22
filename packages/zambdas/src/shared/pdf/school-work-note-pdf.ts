@@ -120,8 +120,7 @@ async function createSchoolWorkNotePdfBytes(data: SchoolWorkNoteExcuseDocDTO): P
   currYPos -= styles.spacing.block;
   if (data.providerDetails) {
     drawRegularText('Electronically signed by: ', styles.color.grey);
-    drawDigitalSign(data.providerDetails.name);
-    drawRegularText(data.providerDetails.credentials);
+    drawDigitalSign(data.providerDetails.name); // credentials are included in the name
   }
 
   return await pdfDoc.save();
