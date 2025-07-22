@@ -162,6 +162,7 @@ export interface LabsData {
   orderName?: string | undefined;
   orderAssessments: { code: string; name: string }[];
   orderPriority: string;
+  isManualOrder: boolean;
 }
 
 export interface ExternalLabResult {
@@ -202,6 +203,7 @@ export interface LabResultsData
     | 'sampleCollectionDate'
     | 'billClass'
     | 'accountNumber'
+    | 'isManualOrder'
   > {
   testName: string;
   resultStatus: string;
