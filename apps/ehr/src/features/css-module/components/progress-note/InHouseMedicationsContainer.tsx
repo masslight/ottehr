@@ -1,7 +1,7 @@
 import { Box, Typography } from '@mui/material';
 import { FC } from 'react';
 import { AssessmentTitle } from 'src/telemed/features/appointment/AssessmentTab/components/AssessmentTitle';
-import { ExtendedMedicationDataForResponse, NoteDTO } from 'utils';
+import { createMedicationString, ExtendedMedicationDataForResponse, NoteDTO } from 'utils';
 
 export const InHouseMedicationsContainer: FC<{
   medications: ExtendedMedicationDataForResponse[];
@@ -13,7 +13,7 @@ export const InHouseMedicationsContainer: FC<{
         In-House Medications
       </Typography>
       {medications.map((item) => (
-        <Typography key={item.id}>{item.medicationName}</Typography>
+        <Typography key={item.id}>{createMedicationString(item)}</Typography>
       ))}
 
       {notes && notes.length > 0 && (

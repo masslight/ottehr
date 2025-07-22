@@ -8,6 +8,7 @@ import {
   convertBooleanToString,
   convertTemperature,
   CPTCodeDTO,
+  createMedicationString,
   CustomOptionObservationHistoryObtainedFromDTO,
   dispositionCheckboxOptions,
   ExamCardsNames,
@@ -156,7 +157,9 @@ function composeDataForPdf(
     ?.map((note) => note.text);
 
   // --- In-House Medications ---
-  const inHouseMedications = medicationOrders?.map((order) => order.medicationName);
+  const inHouseMedications = medicationOrders
+    ?.filter((order) => order.status !== 'cancelled')
+    .map((order) => createMedicationString(order));
   const inHouseMedicationsNotes = additionalChartData?.notes
     ?.filter((note) => note.type === NOTE_TYPE.MEDICATION)
     ?.map((note) => note.text);

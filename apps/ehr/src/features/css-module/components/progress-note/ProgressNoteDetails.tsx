@@ -50,7 +50,8 @@ export const ProgressNoteDetails: FC = () => {
       });
     },
   });
-  const { medications: inHouseMedications } = useMedicationAPI();
+  const { medications: inHouseMedicationsWithCanceled } = useMedicationAPI();
+  const inHouseMedications = inHouseMedicationsWithCanceled.filter((medication) => medication.status !== 'cancelled');
 
   const screeningNotes = additionalChartData?.notes?.filter((note) => note.type === NOTE_TYPE.SCREENING);
   const vitalsNotes = additionalChartData?.notes?.filter((note) => note.type === NOTE_TYPE.VITALS);
