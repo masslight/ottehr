@@ -33,7 +33,11 @@ export const ExamCommentField = <T extends ExamCardsNames | InPersonExamCardsNam
   const [value, setValue] = useState(field.note || '');
 
   useEffect(() => {
-    setValue(field.note || '');
+    if (field.note?.trim() !== value.trim()) {
+      // update UI value only if it's different from the field value
+      setValue(field.note || '');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [field.note]);
 
   return (

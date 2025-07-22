@@ -50,6 +50,8 @@ export const getVisitStatus = (appointment: Appointment, encounter: Encounter): 
     return 'pending';
   } else if (appointment.status === 'arrived') {
     return 'arrived';
+  } else if (appointment.status === 'checked-in' && encounter.status === 'in-progress') {
+    return 'intake';
   } else if (appointment.status === 'checked-in') {
     return 'ready';
   } else if (encounter.status === 'in-progress') {
@@ -62,8 +64,6 @@ export const getVisitStatus = (appointment: Appointment, encounter: Encounter): 
     } else {
       return 'intake';
     }
-  } else if (encounter.status === 'arrived' && appointment.status === 'fulfilled') {
-    return 'intake';
   } else if (appointment.status === 'cancelled' || encounter.status === 'cancelled') {
     return 'cancelled';
   } else if (appointment.status === 'noshow') {
