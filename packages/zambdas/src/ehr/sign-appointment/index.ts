@@ -81,6 +81,7 @@ export const performEffect = async (
 
   let candidEncounterId: string | undefined;
   try {
+    console.log('[CLAIM SUBMISSION] Attempting to create encounter in candid...');
     candidEncounterId = await createEncounterFromAppointment(visitResources, secrets, oystehr);
   } catch (error) {
     console.error(`Error creating Candid encounter: ${error}, stringified error: ${JSON.stringify(error)}`);
@@ -91,6 +92,7 @@ export const performEffect = async (
       },
     });
   }
+  console.log(`[CLAIM SUBMISSION] Candid encounter created with ID ${candidEncounterId}`);
 
   console.log(`appointment and encounter statuses: ${appointment.status}, ${encounter.status}`);
   const currentStatus = getVisitStatus(appointment, encounter);
