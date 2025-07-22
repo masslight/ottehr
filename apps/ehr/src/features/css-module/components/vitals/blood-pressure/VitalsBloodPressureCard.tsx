@@ -238,7 +238,13 @@ const VitalsBloodPressureCard: React.FC<VitalsBloodPressureCardProps> = ({
               historicalObs={historicalObs}
               isLoading={isLoading}
               historyElementCreator={(historyEntry) => {
-                return <VitalBloodPressureHistoryElement historyEntry={historyEntry} onDelete={handleDeleteVital} />;
+                const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
+                return (
+                  <VitalBloodPressureHistoryElement
+                    historyEntry={historyEntry}
+                    onDelete={isCurrent ? handleDeleteVital : undefined}
+                  />
+                );
               }}
             />
           }

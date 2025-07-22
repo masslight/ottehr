@@ -64,7 +64,7 @@ export const VitalHeightHistoryElement: React.FC<VitalHeightHistoryElementProps>
         open={isDeleteModalOpen}
         onClose={handleCloseDeleteModal}
         entity={historyEntry}
-        onDelete={onDelete}
+        onDelete={async (obs) => onDelete?.(obs)}
       />
     </>
   );
