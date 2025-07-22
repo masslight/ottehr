@@ -72,6 +72,27 @@ export const PatientVitals: React.FC<PatientVitalsProps> = () => {
         const result = await oystehrZambda.zambda.execute({
           id: 'get-vitals',
           encounterId: encounter.id,
+          mode: 'current',
+        });
+        // todo: make this strictly typed once there is a common api file defining endpoints available
+        return result.output as GetVitalsResponseData;
+      }
+
+      throw new Error('api client not defined or encounter id is not provided');
+    },
+    {
+      enabled: Boolean(encounter?.id) && Boolean(oystehrZambda),
+    }
+  );
+
+  const { data: historicalVitals } = useQuery(
+    [`historical-encounter-vitals-${encounter?.id}`],
+    async () => {
+      if (oystehrZambda && encounter?.id) {
+        const result = await oystehrZambda.zambda.execute({
+          id: 'get-vitals',
+          encounterId: encounter.id,
+          mode: 'historical',
         });
         // todo: make this strictly typed once there is a common api file defining endpoints available
         return result.output as GetVitalsResponseData;
@@ -142,56 +163,56 @@ export const PatientVitals: React.FC<PatientVitalsProps> = () => {
         handleDeleteVital={handleDeleteVital}
         isLoading={false}
         currentObs={encounterVitals?.[VitalFieldNames.VitalTemperature] ?? []}
-        historicalObs={[]}
+        historicalObs={historicalVitals?.[VitalFieldNames.VitalTemperature] ?? []}
       />
       <VitalsHeartbeatCard
         handleSaveVital={handleSaveVital}
         handleDeleteVital={handleDeleteVital}
         isLoading={false}
         currentObs={encounterVitals?.[VitalFieldNames.VitalHeartbeat] ?? []}
-        historicalObs={[]}
+        historicalObs={historicalVitals?.[VitalFieldNames.VitalHeartbeat] ?? []}
       />
       <VitalsRespirationRateCard
         handleSaveVital={handleSaveVital}
         handleDeleteVital={handleDeleteVital}
         isLoading={false}
         currentObs={encounterVitals?.[VitalFieldNames.VitalRespirationRate] ?? []}
-        historicalObs={[]}
+        historicalObs={historicalVitals?.[VitalFieldNames.VitalRespirationRate] ?? []}
       />
       <VitalsBloodPressureCard
         handleSaveVital={handleSaveVital}
         handleDeleteVital={handleDeleteVital}
         isLoading={false}
         currentObs={encounterVitals?.[VitalFieldNames.VitalBloodPressure] ?? []}
-        historicalObs={[]}
+        historicalObs={historicalVitals?.[VitalFieldNames.VitalBloodPressure] ?? []}
       />
       <VitalsOxygenSatCard
         handleSaveVital={handleSaveVital}
         handleDeleteVital={handleDeleteVital}
         isLoading={false}
         currentObs={encounterVitals?.[VitalFieldNames.VitalOxygenSaturation] ?? []}
-        historicalObs={[]}
+        historicalObs={historicalVitals?.[VitalFieldNames.VitalOxygenSaturation] ?? []}
       />
       <VitalsWeightsCard
         handleSaveVital={handleSaveVital}
         handleDeleteVital={handleDeleteVital}
         isLoading={false}
         currentObs={encounterVitals?.[VitalFieldNames.VitalWeight] ?? []}
-        historicalObs={[]}
+        historicalObs={historicalVitals?.[VitalFieldNames.VitalWeight] ?? []}
       />
       <VitalsHeightCard
         handleSaveVital={handleSaveVital}
         handleDeleteVital={handleDeleteVital}
         isLoading={false}
         currentObs={encounterVitals?.[VitalFieldNames.VitalHeight] ?? []}
-        historicalObs={[]}
+        historicalObs={historicalVitals?.[VitalFieldNames.VitalHeight] ?? []}
       />
       <VitalsVisionCard
         handleSaveVital={handleSaveVital}
         handleDeleteVital={handleDeleteVital}
         isLoading={false}
         currentObs={encounterVitals?.[VitalFieldNames.VitalVision] ?? []}
-        historicalObs={[]}
+        historicalObs={historicalVitals?.[VitalFieldNames.VitalVision] ?? []}
       />
       <VitalsNotesCard />
       <AbnormalVitalsModal abnormalVitalsValues={abnormalVitalsValues} />

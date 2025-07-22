@@ -23,4 +23,5 @@ export type GetVitalsResponseData = {
 
 export type GetVitalsRequestPayload = {
   encounterId: string;
+  mode: 'current' | 'historical';
 };

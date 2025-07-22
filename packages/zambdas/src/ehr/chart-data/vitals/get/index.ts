@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Encounter, Observation, Patient, Practitioner } from 'fhir/r4b';
+import { Appointment, Encounter, Observation, Patient, Practitioner } from 'fhir/r4b';
 import {
   convertVitalsListToMap,
   extractVisionValues,
@@ -10,6 +10,7 @@ import {
   GetVitalsResponseData,
   INVALID_INPUT_ERROR,
   isValidUUID,
+  MISSING_REQUIRED_PARAMETERS,
   PATIENT_VITALS_META_SYSTEM,
   PRIVATE_EXTENSION_BASE_URL,
   VitalFieldNames,
@@ -26,11 +27,11 @@ export const index = wrapHandler('get-vitals', async (input: ZambdaInput): Promi
   try {
     console.log(`Input: ${JSON.stringify(input)}`);
     console.log('Validating input');
-    const { encounterId, secrets } = validateRequestParameters(input);
+    const { encounterId, mode, secrets } = validateRequestParameters(input);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const effectInput = await complexValidation({ encounterId, secrets }, oystehr);
+    const effectInput = await complexValidation({ encounterId, mode, secrets }, oystehr);
     const results = await performEffect(effectInput, oystehr);
 
     return {
@@ -48,17 +49,18 @@ export const index = wrapHandler('get-vitals', async (input: ZambdaInput): Promi
 
 const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<GetVitalsResponseData> => {
   const { encounter, mode } = input;
-  if (mode === 'current') {
+  if (!mode.historical) {
     // Fetch current vitals for the encounter
     const list = await fetchVitalsForEncounter(encounter.id, oystehr);
     const map = convertVitalsListToMap(list);
     console.log('Vitals map:', map);
     return map;
   } else {
-    throw new Error('Historical mode is not implemented yet');
+    const list = await fetchVitalsPriorToEncounter(encounter, input.patientId, mode.searchBefore, oystehr);
+    const map = convertVitalsListToMap(list);
+    console.log('Vitals map:', map);
+    return map;
   }
-
-  // Implement the effect logic here
 };
 
 const fetchVitalsForEncounter = async (encounterId: string, oystehr: Oystehr): Promise<any> => {
@@ -67,6 +69,35 @@ const fetchVitalsForEncounter = async (encounterId: string, oystehr: Oystehr): P
       resourceType: 'Observation',
       params: [
         { name: 'encounter._id', value: encounterId },
+        { name: 'status:not', value: 'entered-in-error,cancelled,unknown,cannot-be-obtained' },
+        { name: '_tag', value: `${PRIVATE_EXTENSION_BASE_URL}/${PATIENT_VITALS_META_SYSTEM}|` },
+        { name: '_include', value: 'Observation:performer' },
+        { name: '_sort', value: '-date' }, // Sort by date descending
+      ],
+    })
+  ).unbundle();
+
+  const observations = currentVitalsAndPerformers.filter((res) => res.resourceType === 'Observation') as Observation[];
+  const practitioners = currentVitalsAndPerformers.filter(
+    (res) => res.resourceType === 'Practitioner'
+  ) as Practitioner[];
+
+  return parseResourcesToDTOs(observations, practitioners);
+};
+
+const fetchVitalsPriorToEncounter = async (
+  encounter: Encounter,
+  patientId: string,
+  searchBefore: string,
+  oystehr: Oystehr
+): Promise<any> => {
+  const currentVitalsAndPerformers = (
+    await oystehr.fhir.search<Observation | Practitioner>({
+      resourceType: 'Observation',
+      params: [
+        { name: 'patient._id', value: patientId },
+        { name: 'status:not', value: 'entered-in-error,cancelled,unknown,cannot-be-obtained' }, // Exclude observations that are entered in error
+        { name: 'date', value: `lt${searchBefore}` }, // Fetch observations before the encounter start date
         { name: '_tag', value: `${PRIVATE_EXTENSION_BASE_URL}/${PATIENT_VITALS_META_SYSTEM}|` },
         { name: '_include', value: 'Observation:performer' },
         { name: '_sort', value: '-date' }, // Sort by date descending
@@ -224,8 +255,8 @@ const parseNumericValueObservation = (
 
 interface InputParameters {
   secrets: any;
-  encounterId?: string;
-  beforeEncounterId?: string;
+  encounterId: string;
+  mode: 'current' | 'historical';
 }
 
 const validateRequestParameters = (input: ZambdaInput): InputParameters => {
@@ -233,25 +264,32 @@ const validateRequestParameters = (input: ZambdaInput): InputParameters => {
     throw new Error('Request body is required');
   }
 
-  const { encounterId, beforeEncounterId } = JSON.parse(input.body);
+  const { encounterId, mode } = JSON.parse(input.body);
   const secrets = input.secrets;
 
-  if (encounterId && beforeEncounterId) {
-    throw INVALID_INPUT_ERROR('Cannot specify both "encounterId" and "beforeEncounterId"');
+  const missingParams: string[] = [];
+
+  if (!encounterId) {
+    missingParams.push('encounterId');
   }
 
-  if (encounterId && !isValidUUID(encounterId)) {
+  if (!mode) {
+    missingParams.push('mode');
+  }
+
+  if (missingParams.length > 0) {
+    throw MISSING_REQUIRED_PARAMETERS(missingParams);
+  }
+
+  if (typeof encounterId !== 'string' || !isValidUUID(encounterId)) {
     throw INVALID_INPUT_ERROR(`"${encounterId}" is not a valid UUID`);
   }
-  if (beforeEncounterId && !isValidUUID(beforeEncounterId)) {
-    throw INVALID_INPUT_ERROR(`"${beforeEncounterId}" is not a valid UUID`);
+
+  if (typeof mode !== 'string' || (mode !== 'current' && mode !== 'historical')) {
+    throw INVALID_INPUT_ERROR(`Invalid mode, "${mode}", specified - must be "current" or "historical"`);
   }
 
-  if (!encounterId && !beforeEncounterId) {
-    throw INVALID_INPUT_ERROR('Cannot specify both "encounterId" and "beforeEncounterId"');
-  }
-
-  return { encounterId, beforeEncounterId, secrets };
+  return { encounterId, mode, secrets };
 };
 
 interface EncounterWithId extends Encounter {
@@ -260,16 +298,15 @@ interface EncounterWithId extends Encounter {
 
 interface EffectInput {
   encounter: EncounterWithId;
-  mode: 'historical' | 'current';
-  patientId?: string;
+  mode: { historical: true; searchBefore: string } | { historical: false };
+  patientId: string;
 }
 
 const complexValidation = async (input: InputParameters, oystehr: Oystehr): Promise<EffectInput> => {
   // Add any complex validation logic here if needed
-  const { encounterId: maybeEncounterId, beforeEncounterId } = input;
-  const encounterId: string = maybeEncounterId || beforeEncounterId!;
-  const encounterAndPatient = (
-    await oystehr.fhir.search<Encounter | Patient>({
+  const { encounterId, mode } = input;
+  const resourcesFound = (
+    await oystehr.fhir.search<Encounter | Patient | Appointment>({
       resourceType: 'Encounter',
       params: [
         {
@@ -280,11 +317,16 @@ const complexValidation = async (input: InputParameters, oystehr: Oystehr): Prom
           name: '_include',
           value: 'Encounter:patient',
         },
+        {
+          name: '_include',
+          value: 'Encounter:appointment',
+        },
       ],
     })
   ).unbundle();
-  const maybeEncounter = encounterAndPatient.find((res) => res.resourceType === 'Encounter');
-  const patientId = encounterAndPatient.find((res) => res.resourceType === 'Patient')?.id;
+  const maybeEncounter = resourcesFound.find((res) => res.resourceType === 'Encounter');
+  const patientId = resourcesFound.find((res) => res.resourceType === 'Patient')?.id;
+  const maybeAppointment = resourcesFound.find((res) => res.resourceType === 'Appointment');
 
   if (!maybeEncounter) {
     throw FHIR_RESOURCE_NOT_FOUND('Encounter');
@@ -300,9 +342,27 @@ const complexValidation = async (input: InputParameters, oystehr: Oystehr): Prom
   // To avoid the cast, we use an object spread to assert the type:
   const encounter: EncounterWithId = { ...maybeEncounter, id: maybeEncounter.id };
 
+  if (mode === 'historical' && !maybeAppointment) {
+    throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(`No appointment found for Encounter/${encounterId}`);
+  }
+
+  const start = maybeAppointment?.start;
+
+  if (mode === 'historical' && !start) {
+    throw INVALID_INPUT_ERROR(
+      `"${encounterId}" does not reference an Appointment resource with a start time, which is required for historical mode.`
+    );
+  } else if (mode === 'historical') {
+    return {
+      encounter,
+      mode: { historical: true, searchBefore: start || '' },
+      patientId,
+    };
+  }
+
   return {
     encounter,
-    mode: beforeEncounterId ? 'historical' : 'current',
+    mode: { historical: false },
     patientId,
   };
 };
