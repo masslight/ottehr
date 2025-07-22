@@ -7,16 +7,16 @@ import { DeleteVitalModal } from '../DeleteVitalModal';
 type VitalWeightHistoryElementProps = {
   historyEntry: VitalsWeightObservationDTO;
   isAlert?: boolean;
-  isDeletable?: boolean;
-  onDelete: (entity: VitalsObservationDTO) => Promise<void>;
+  onDelete?: (entity: VitalsObservationDTO) => Promise<void>;
 };
 
 export const VitalWeightHistoryElement: React.FC<VitalWeightHistoryElementProps> = ({
   historyEntry,
-  isDeletable = false,
   onDelete,
 }): JSX.Element => {
   const theme = useTheme();
+
+  const isDeletable = onDelete !== undefined && historyEntry.resourceId !== undefined;
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const handleDeleteClick = (): void => {
@@ -56,7 +56,7 @@ export const VitalWeightHistoryElement: React.FC<VitalWeightHistoryElementProps>
         open={isDeleteModalOpen}
         onClose={handleCloseDeleteModal}
         entity={historyEntry}
-        onDelete={onDelete}
+        onDelete={async (obs) => onDelete?.(obs)}
       />
     </>
   );

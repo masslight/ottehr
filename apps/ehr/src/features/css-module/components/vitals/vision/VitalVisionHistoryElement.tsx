@@ -11,16 +11,16 @@ import { DeleteVitalModal } from '../DeleteVitalModal';
 
 type VitalVisionHistoryElementProps = {
   historyEntry: VitalsVisionObservationDTO;
-  isDeletable?: boolean;
-  onDelete: (entity: VitalsObservationDTO) => Promise<void>;
+  onDelete?: (entity: VitalsObservationDTO) => Promise<void>;
 };
 
 export const VitalVisionHistoryElement: React.FC<VitalVisionHistoryElementProps> = ({
   historyEntry,
-  isDeletable = false,
   onDelete,
 }): JSX.Element => {
   const theme = useTheme();
+
+  const isDeletable = onDelete !== undefined && historyEntry.resourceId !== undefined;
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const handleDeleteClick = (): void => {
@@ -67,7 +67,7 @@ export const VitalVisionHistoryElement: React.FC<VitalVisionHistoryElementProps>
         open={isDeleteModalOpen}
         onClose={handleCloseDeleteModal}
         entity={historyEntry}
-        onDelete={onDelete}
+        onDelete={async (obs) => onDelete?.(obs)}
       />
     </>
   );

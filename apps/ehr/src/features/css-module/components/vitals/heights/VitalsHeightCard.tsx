@@ -156,7 +156,13 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({
               historicalObs={historicalObs}
               isLoading={isLoading}
               historyElementCreator={(historyEntry) => {
-                return <VitalHeightHistoryElement historyEntry={historyEntry} onDelete={handleDeleteVital} />;
+                const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
+                return (
+                  <VitalHeightHistoryElement
+                    historyEntry={historyEntry}
+                    onDelete={isCurrent ? handleDeleteVital : undefined}
+                  />
+                );
               }}
             />
           }

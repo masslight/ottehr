@@ -8,14 +8,12 @@ import { DeleteVitalModal } from '../DeleteVitalModal';
 type VitalHeightHistoryElementProps = {
   historyEntry: VitalsHeightObservationDTO;
   isAlert?: boolean;
-  isDeletable?: boolean;
-  onDelete: (entity: VitalsObservationDTO) => Promise<void>;
+  onDelete?: (entity: VitalsObservationDTO) => Promise<void>;
 };
 
 export const VitalHeightHistoryElement: React.FC<VitalHeightHistoryElementProps> = ({
   historyEntry,
   isAlert = false,
-  isDeletable = false,
   onDelete,
 }): JSX.Element => {
   const theme = useTheme();
@@ -32,6 +30,8 @@ export const VitalHeightHistoryElement: React.FC<VitalHeightHistoryElementProps>
   const lineColor = isAlert ? theme.palette.error.main : theme.palette.text.primary;
 
   const valueInInches = historyEntry.value * 0.393701; // Convert cm to inches
+
+  const isDeletable = onDelete !== undefined && historyEntry.resourceId !== undefined;
 
   return (
     <>

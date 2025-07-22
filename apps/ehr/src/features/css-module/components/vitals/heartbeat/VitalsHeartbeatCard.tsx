@@ -183,7 +183,13 @@ const VitalsHeartbeatCard: React.FC<VitalsHeartbeatCardProps> = ({
               historicalObs={historicalObs}
               isLoading={isLoading}
               historyElementCreator={(historyEntry) => {
-                return <VitalHeartbeatHistoryElement historyEntry={historyEntry} onDelete={handleDeleteVital} />;
+                const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
+                return (
+                  <VitalHeartbeatHistoryElement
+                    historyEntry={historyEntry}
+                    onDelete={isCurrent ? handleDeleteVital : undefined}
+                  />
+                );
               }}
             />
           }

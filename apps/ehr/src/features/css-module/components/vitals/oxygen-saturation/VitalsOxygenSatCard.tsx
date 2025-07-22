@@ -188,7 +188,13 @@ const VitalsOxygenSatCard: React.FC<VitalsOxygenSatCardProps> = ({
               historicalObs={historicalObs}
               isLoading={isLoading}
               historyElementCreator={(historyEntry) => {
-                return <VitalOxygenSatHistoryElement historyEntry={historyEntry} onDelete={handleDeleteVital} />;
+                const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
+                return (
+                  <VitalOxygenSatHistoryElement
+                    historyEntry={historyEntry}
+                    onDelete={isCurrent ? handleDeleteVital : undefined}
+                  />
+                );
               }}
             />
           }

@@ -9,14 +9,12 @@ import { DeleteVitalModal } from '../DeleteVitalModal';
 type VitalOxygenSatHistoryElementProps = {
   historyEntry: VitalsOxygenSatObservationDTO;
   isAlert?: boolean;
-  isDeletable?: boolean;
-  onDelete: (entity: VitalsObservationDTO) => Promise<void>;
+  onDelete?: (entity: VitalsObservationDTO) => Promise<void>;
 };
 
 export const VitalOxygenSatHistoryElement: React.FC<VitalOxygenSatHistoryElementProps> = ({
   historyEntry,
   isAlert = false,
-  isDeletable = false,
   onDelete,
 }): JSX.Element => {
   const theme = useTheme();
@@ -28,6 +26,8 @@ export const VitalOxygenSatHistoryElement: React.FC<VitalOxygenSatHistoryElement
   const handleCloseDeleteModal = (): void => {
     setIsDeleteModalOpen(false);
   };
+
+  const isDeletable = onDelete !== undefined && historyEntry.resourceId !== undefined;
 
   const hasAuthor = !!historyEntry.authorName && historyEntry.authorName?.length > 0;
   const lineColor = useMemo(() => {
@@ -74,7 +74,7 @@ export const VitalOxygenSatHistoryElement: React.FC<VitalOxygenSatHistoryElement
         open={isDeleteModalOpen}
         onClose={handleCloseDeleteModal}
         entity={historyEntry}
-        onDelete={onDelete}
+        onDelete={async (obs) => onDelete?.(obs)}
       />
     </>
   );

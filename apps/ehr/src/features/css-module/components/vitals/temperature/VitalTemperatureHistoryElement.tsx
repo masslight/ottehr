@@ -8,17 +8,17 @@ import { DeleteVitalModal } from '../DeleteVitalModal';
 type VitalTemperatureHistoryElementProps = {
   historyEntry: VitalsTemperatureObservationDTO;
   isAlert?: boolean;
-  isDeletable?: boolean;
-  onDelete: (entity: VitalsObservationDTO) => Promise<void>;
+  onDelete?: (entity: VitalsObservationDTO) => Promise<void>;
 };
 
 export const VitalTemperatureHistoryElement: React.FC<VitalTemperatureHistoryElementProps> = ({
   historyEntry,
   isAlert = false,
-  isDeletable = false,
   onDelete,
 }): JSX.Element => {
   const theme = useTheme();
+
+  const isDeletable = onDelete !== undefined && historyEntry.resourceId !== undefined;
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const handleDeleteClick = (): void => {
@@ -62,7 +62,7 @@ export const VitalTemperatureHistoryElement: React.FC<VitalTemperatureHistoryEle
         open={isDeleteModalOpen}
         onClose={handleCloseDeleteModal}
         entity={historyEntry}
-        onDelete={onDelete}
+        onDelete={async (obs) => onDelete?.(obs)}
       />
     </>
   );

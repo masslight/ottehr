@@ -120,10 +120,11 @@ const VitalsRespirationRateCard: React.FC<VitalsRespirationRateCardProps> = ({
               historicalObs={historicalObs}
               isLoading={isLoading}
               historyElementCreator={(historyEntry) => {
+                const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
                 return (
                   <VitalsRespirationRateHistoryElementElement
                     historyEntry={historyEntry}
-                    onDelete={handleDeleteVital}
+                    onDelete={isCurrent ? handleDeleteVital : undefined}
                   />
                 );
               }}

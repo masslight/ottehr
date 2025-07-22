@@ -9,14 +9,12 @@ import { DeleteVitalModal } from '../DeleteVitalModal';
 type VitalBloodPressureHistoryElementProps = {
   historyEntry: VitalsBloodPressureObservationDTO;
   isAlert?: boolean;
-  isDeletable?: boolean;
   onDelete: (entity: VitalsObservationDTO) => Promise<void>;
 };
 
 export const VitalBloodPressureHistoryElement: React.FC<VitalBloodPressureHistoryElementProps> = ({
   historyEntry,
   isAlert = false,
-  isDeletable = false,
   onDelete,
 }): JSX.Element => {
   const theme = useTheme();
@@ -28,6 +26,8 @@ export const VitalBloodPressureHistoryElement: React.FC<VitalBloodPressureHistor
   const handleCloseDeleteModal = (): void => {
     setIsDeleteModalOpen(false);
   };
+
+  const isDeletable = onDelete !== undefined && historyEntry.resourceId !== undefined;
 
   const hasAuthor = !!historyEntry.authorName && historyEntry.authorName.length > 0;
   const lineColor = useMemo(() => {

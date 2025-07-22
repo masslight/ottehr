@@ -138,7 +138,13 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
               currentEncounterObs={currentObs}
               isLoading={isLoading}
               historyElementCreator={(historyEntry) => {
-                return <VitalWeightHistoryElement historyEntry={historyEntry} onDelete={handleDeleteVital} />;
+                const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
+                return (
+                  <VitalWeightHistoryElement
+                    historyEntry={historyEntry}
+                    onDelete={isCurrent ? handleDeleteVital : undefined}
+                  />
+                );
               }}
             />
           }

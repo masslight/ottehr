@@ -8,14 +8,12 @@ import { DeleteVitalModal } from '../DeleteVitalModal';
 type VitalHeartbeatHistoryElementProps = {
   historyEntry: VitalsHeartbeatObservationDTO;
   isAlert?: boolean;
-  isDeletable?: boolean;
-  onDelete: (entity: VitalsObservationDTO) => Promise<void>;
+  onDelete?: (entity: VitalsObservationDTO) => Promise<void>;
 };
 
 export const VitalHeartbeatHistoryElement: React.FC<VitalHeartbeatHistoryElementProps> = ({
   historyEntry,
   isAlert = false,
-  isDeletable = false,
   onDelete,
 }): JSX.Element => {
   const theme = useTheme();
@@ -32,6 +30,8 @@ export const VitalHeartbeatHistoryElement: React.FC<VitalHeartbeatHistoryElement
   const lineColor = isAlert ? theme.palette.error.main : theme.palette.text.primary;
 
   const observationMethod = historyEntry.observationMethod;
+
+  const isDeletable = onDelete !== undefined && historyEntry.resourceId !== undefined;
 
   return (
     <>
@@ -62,7 +62,7 @@ export const VitalHeartbeatHistoryElement: React.FC<VitalHeartbeatHistoryElement
         open={isDeleteModalOpen}
         onClose={handleCloseDeleteModal}
         entity={historyEntry}
-        onDelete={onDelete}
+        onDelete={async (obs) => onDelete?.(obs)}
       />
     </>
   );
