@@ -123,24 +123,25 @@ const makeFormErrorMessage = (items: IntakeQuestionnaireItem[], errors: any): st
     return undefined;
   }
   // console.log('errors in form', JSON.stringify(errors, null, 2));
-  let hasGroupLevelError = false;
+
+  // Check if any error is for a group with list-with-form type
+  const hasListWithFormError = items.some((item) => {
+    return errorKeys.includes(item.linkId) && item.type === 'group' && item.groupType === 'list-with-form';
+  });
+
+  // For list-with-form groups, always use the generic singular message
+  if (hasListWithFormError) {
+    return 'Please fix the error in the field above to proceed';
+  }
+
   const errorItems = items
     .filter((i) => errorKeys.includes(i.linkId) && (i.text !== undefined || i.type === 'group'))
     .flatMap((i) => {
       if (i.type === 'group' && i.dataType !== 'DOB') {
-        // Check if this is a direct group error (not nested items)
-        const groupError = errors[i.linkId];
-        if (groupError && typeof groupError === 'object' && !groupError.item) {
-          // This is a group-level validation error (e.g., "group must have content")
-          hasGroupLevelError = true;
-          return [];
-        }
-
         const items = ((errors[i.linkId] as any)?.item ?? []) as any[];
         if (!Array.isArray(items)) {
           // If items is not an array, treat it as a single group error
-          hasGroupLevelError = true;
-          return [];
+          return `"${stripMarkdownLink(i.text ?? i.linkId)}"`;
         }
 
         const internalErrors: IntakeQuestionnaireItem[] = [];
@@ -159,10 +160,6 @@ const makeFormErrorMessage = (items: IntakeQuestionnaireItem[], errors: any): st
       }
       return `"${stripMarkdownLink(i.text ?? '')}"`;
     });
-  // If we have a group-level error, always use generic message
-  if (hasGroupLevelError && numErrors === 1) {
-    return 'Please fix the error in the field above to proceed';
-  }
 
   if (numErrors === errorItems.length) {
     if (numErrors > 1) {
