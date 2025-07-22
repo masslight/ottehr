@@ -367,6 +367,7 @@ export const dataTestIds = {
   },
   diagnosisContainer: {
     diagnosisDropdown: 'diagnosis-dropdown',
+    allDiagnosesContainer: 'diagnosis-container-all-diagnoses',
     primaryDiagnosis: 'diagnosis-container-primary-diagnosis',
     secondaryDiagnosis: 'diagnosis-container-secondary-diagnosis',
     primaryDiagnosisDeleteButton: 'diagnosis-container-primary-diagnosis-delete-button',
@@ -374,6 +375,7 @@ export const dataTestIds = {
     makePrimaryButton: 'diagnosis-container-make-primary-button',
   },
   billingContainer: {
+    container: 'billing-container',
     deleteButton: 'billing-container-delete-button',
     deleteCptCodeButton: (code: string) => `billing-container-delete-cpt-code-button-${code}`,
     cptCodeEntry: (code: string) => `cpt-code-entry-${code}`,
