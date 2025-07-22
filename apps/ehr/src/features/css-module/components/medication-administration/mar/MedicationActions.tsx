@@ -1,18 +1,13 @@
-import { otherColors } from '@ehrTheme/colors';
 import { DeleteOutlined as DeleteIcon, EditOutlined as EditIcon } from '@mui/icons-material';
-import PriorityHighOutlinedIcon from '@mui/icons-material/PriorityHighOutlined';
 import WarningIcon from '@mui/icons-material/Warning';
 import { Box, IconButton, Typography, useTheme } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { GenericToolTip } from 'src/components/GenericToolTip';
 import { ExtendedMedicationDataForResponse } from 'utils';
 import { CustomDialog } from '../../../../../components/dialogs/CustomDialog';
 import { useMedicationManagement } from '../../../hooks/useMedicationManagement';
 import { getEditOrderUrl } from '../../../routing/helpers';
-import { InteractionAlertsDialog } from '../InteractionAlertsDialog';
-import { interactionsSummary } from '../util';
 
 interface MedicationActionsProps {
   medication: ExtendedMedicationDataForResponse;
@@ -27,7 +22,6 @@ export const MedicationActions: React.FC<MedicationActionsProps> = ({ medication
   const { id: appointmentId } = useParams();
 
   const [isDeleting, setIsDeleting] = useState(false);
-  const [showInteractionAlerts, setShowInteractionAlerts] = useState(false);
 
   useEffect(() => {
     if (error) {
@@ -86,28 +80,6 @@ export const MedicationActions: React.FC<MedicationActionsProps> = ({ medication
       <IconButton size="small" aria-label="delete" onClick={handleDeleteClick}>
         <DeleteIcon sx={{ color: theme.palette.warning.dark }} />
       </IconButton>
-      {medication.interactions ? (
-        <GenericToolTip
-          title={
-            'Interactions: ' + interactionsSummary(medication.interactions) + '. Click on alert icon to see details'
-          }
-          customWidth="500px"
-          placement="top"
-        >
-          <IconButton onClick={() => setShowInteractionAlerts(true)}>
-            <PriorityHighOutlinedIcon
-              style={{
-                width: '15px',
-                height: '15px',
-                color: '#FFF',
-                background: otherColors.priorityHighIcon,
-                borderRadius: '4px',
-                padding: '1px 2px 1px 2px',
-              }}
-            />
-          </IconButton>
-        </GenericToolTip>
-      ) : null}
       <CustomDialog
         open={isDeleteDialogOpen}
         handleClose={handleCloseDeleteDialog}
@@ -119,14 +91,6 @@ export const MedicationActions: React.FC<MedicationActionsProps> = ({ medication
         confirmText={isDeleting ? 'Deleting...' : 'Delete'}
         confirmLoading={isDeleting}
       />
-      {showInteractionAlerts ? (
-        <InteractionAlertsDialog
-          medicationName={medication.medicationName}
-          interactions={medication.interactions ?? {}}
-          readonly={true}
-          onCancel={() => setShowInteractionAlerts(false)}
-        />
-      ) : null}
     </Box>
   );
 };
