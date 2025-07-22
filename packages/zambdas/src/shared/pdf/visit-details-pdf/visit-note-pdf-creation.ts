@@ -16,6 +16,8 @@ import {
   ExamObservationFieldItem,
   examObservationFieldsDetailsArray,
   formatDateTimeToZone,
+  getAdmitterPractitionerId,
+  getAttendingPractitionerId,
   GetChartDataResponse,
   getDefaultNote,
   getProviderNameWithProfession,
@@ -39,7 +41,6 @@ import {
   ObservationSeenInLastThreeYearsDTO,
   OTTEHR_MODULE,
   parseMusculoskeletalFieldToName,
-  PRACTITIONER_CODINGS,
   rashesOptions,
   recentVisitLabels,
   Secrets,
@@ -94,22 +95,13 @@ function composeDataForPdf(
   let providerName: string;
   let intakePersonName: string | undefined = undefined;
   if (isInPersonAppointment) {
-    const admitterId = encounter.participant
-      ?.find((participant) => participant.type?.[0]?.coding?.[0].code === PRACTITIONER_CODINGS.Admitter[0].code)
-      ?.individual?.reference?.split('/')?.[1];
+    const admitterId = getAdmitterPractitionerId(encounter);
     const admitterPractitioner = additionalChartData?.practitioners?.find(
       (practitioner) => practitioner.id === admitterId
     );
     intakePersonName = admitterPractitioner && getProviderNameWithProfession(admitterPractitioner);
 
-    const attenderId = encounter.participant
-      ?.find(
-        (participant) =>
-          participant.type?.some(
-            (type) => type.coding?.some((coding) => coding.code === PRACTITIONER_CODINGS.Attender[0].code)
-          )
-      )
-      ?.individual?.reference?.split('/')?.[1];
+    const attenderId = getAttendingPractitionerId(encounter);
     const attenderPractitioner = additionalChartData?.practitioners?.find(
       (practitioner) => practitioner.id === attenderId
     );

@@ -19,6 +19,7 @@ import {
   APIError,
   CreateInHouseLabOrderParameters,
   FHIR_IDC10_VALUESET_SYSTEM,
+  getAttendingPractitionerId,
   getFullestAvailableName,
   IN_HOUSE_LAB_ERROR,
   IN_HOUSE_LAB_TASK,
@@ -34,7 +35,6 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
-import { getAttendingPractitionerId } from '../../shared/practitioner/helpers';
 import { getPrimaryInsurance } from '../shared/labs';
 import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;

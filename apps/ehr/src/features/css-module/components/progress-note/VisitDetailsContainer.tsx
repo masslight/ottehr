@@ -2,11 +2,11 @@ import { Box, Stack, Typography } from '@mui/material';
 import { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  getAdmitterPractitionerId,
+  getAttendingPractitionerId,
   getProviderNameWithProfession,
   getQuestionnaireResponseByLinkId,
   getSelectors,
-  PARTICIPANT_TYPE,
-  PRACTITIONER_CODINGS,
 } from 'utils';
 import { formatDateUsingSlashes } from '../../../../helpers/formatDateTime';
 import { ActionsList, useAppointmentStore } from '../../../../telemed';
@@ -41,20 +41,11 @@ export const VisitDetailsContainer: FC = () => {
   const date = formatDateUsingSlashes(appointment?.start);
 
   const facility = location?.name;
-  const admitterId = encounter.participant
-    ?.find((participant) => participant.type?.[0]?.coding?.[0].code === PARTICIPANT_TYPE.ADMITTER)
-    ?.individual?.reference?.split('/')?.[1];
+  const admitterId = getAdmitterPractitionerId(encounter);
   const admitterPractitioner = chartData?.practitioners?.find((practitioner) => practitioner.id === admitterId);
   const admitterPractitionerName = admitterPractitioner && getProviderNameWithProfession(admitterPractitioner);
 
-  const attenderId = encounter.participant
-    ?.find(
-      (participant) =>
-        participant.type?.some(
-          (type) => type.coding?.some((coding) => coding.code === PRACTITIONER_CODINGS.Attender[0].code)
-        )
-    )
-    ?.individual?.reference?.split('/')?.[1];
+  const attenderId = encounter ? getAttendingPractitionerId(encounter) : undefined;
   const attenderPractitioner = chartData?.practitioners?.find((practitioner) => practitioner.id === attenderId);
   const attenderPractitionerName = attenderPractitioner && getProviderNameWithProfession(attenderPractitioner);
 
