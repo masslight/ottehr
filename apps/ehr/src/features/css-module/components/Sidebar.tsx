@@ -5,7 +5,10 @@ import { alpha, Button, Drawer, IconButton, List, ListItem, ListItemIcon, ListIt
 import { enqueueSnackbar } from 'notistack';
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getSelectors, getVisitStatus, PRACTITIONER_CODINGS } from 'utils';
+import { handleChangeInPersonVisitStatus } from 'src/helpers/inPersonVisitStatusUtils';
+import { useApiClients } from 'src/hooks/useAppClients';
+import useEvolveUser from 'src/hooks/useEvolveUser';
+import { getAdmitterPractitionerId, getSelectors, getVisitStatus, PRACTITIONER_CODINGS } from 'utils';
 import { dataTestIds } from '../../../constants/data-test-ids';
 import { useAppointmentStore } from '../../../telemed';
 import { RouteCSS, useNavigationContext } from '../context/NavigationContext';
@@ -240,17 +243,38 @@ const StyledButton = styled(Button)<{ isActive: string }>(({ theme, isActive }) 
 export const Sidebar = (): JSX.Element => {
   const navigate = useNavigate();
   const [open, setOpen] = useState(true);
+  const { oystehrZambda } = useApiClients();
+  const user = useEvolveUser();
   const { interactionMode } = useNavigationContext();
   const { id: appointmentID } = useParams();
   const { visitState: telemedData, refetch } = useAppointment(appointmentID);
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
   const { appointment, encounter } = telemedData;
   const status = appointment && encounter ? getVisitStatus(appointment, encounter) : undefined;
-  const { isEncounterUpdatePending } = usePractitionerActions(encounter, 'end', PRACTITIONER_CODINGS.Admitter);
+  const { isEncounterUpdatePending, handleUpdatePractitioner } = usePractitionerActions(
+    encounter,
+    'end',
+    PRACTITIONER_CODINGS.Admitter
+  );
+  const assignedIntakePerformerId = encounter ? getAdmitterPractitionerId(encounter) : undefined;
 
   const handleCompleteIntake = async (): Promise<void> => {
     try {
-      await refetch();
+      if (assignedIntakePerformerId) {
+        await handleUpdatePractitioner(assignedIntakePerformerId);
+        await handleChangeInPersonVisitStatus(
+          {
+            encounterId: encounter!.id!,
+            user: user!,
+            updatedStatus: 'ready for provider',
+          },
+          oystehrZambda
+        );
+
+        await refetch();
+      } else {
+        enqueueSnackbar('Please select intake practitioner first', { variant: 'error' });
+      }
     } catch (error: any) {
       console.log(error.message);
       enqueueSnackbar('An error occurred trying to complete intake. Please try again.', { variant: 'error' });

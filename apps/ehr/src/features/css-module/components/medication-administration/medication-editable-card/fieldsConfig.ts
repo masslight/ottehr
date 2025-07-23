@@ -7,6 +7,7 @@ export type MedicationFieldType =
   | 'units'
   | 'manufacturer'
   | 'route'
+  | 'providerId'
   | 'effectiveDateTime'
   | 'instructions'
   | 'lotNumber'
@@ -26,6 +27,7 @@ export const fieldsConfigForOrder: Record<
   units: { xs: 6, isRequired: true },
   manufacturer: { xs: 6, isRequired: false },
   route: { xs: 6, isRequired: true },
+  providerId: { xs: 6, isRequired: true },
 
   // TODO: uncomment when the "anatomical locations" feature is completed
   // location: { xs: 6, isRequired: false },
@@ -41,6 +43,7 @@ export const fieldsConfigForDispense: Record<MedicationFieldType, { xs: XsVarian
   expDate: { xs: 3, isRequired: true },
   manufacturer: { xs: 6, isRequired: false },
   route: { xs: 6, isRequired: true },
+  providerId: { xs: 6, isRequired: true },
 
   // TODO: uncomment when the "anatomical locations" feature is completed
   // location: { xs: 6, isRequired: false },
@@ -57,6 +60,7 @@ export const fieldsConfigForNotAdministered: Record<MedicationFieldType, { xs: X
   expDate: { xs: 3, isRequired: false }, // Not required for partial administration
   manufacturer: { xs: 6, isRequired: false },
   route: { xs: 6, isRequired: true },
+  providerId: { xs: 6, isRequired: true },
 
   // TODO: uncomment when the "anatomical locations" feature is completed
   // location: { xs: 6, isRequired: false },
@@ -85,6 +89,7 @@ export const getFieldLabel = (
     units: { 'form-independent': 'Units' },
     manufacturer: { 'form-independent': 'Manufacturer' },
     route: { 'form-independent': 'Route' },
+    providerId: { 'form-independent': 'Ordered by' },
     effectiveDateTime: { 'form-independent': 'Date/Time Given' },
     instructions: { 'form-independent': 'Instructions', dispense: 'Comments', 'dispense-not-administered': 'Comments' },
     lotNumber: { 'form-independent': 'Lot Number' },

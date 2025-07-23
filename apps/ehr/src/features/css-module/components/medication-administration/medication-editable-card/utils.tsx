@@ -20,6 +20,7 @@ export const medicationOrderFieldsWithOptions: Partial<keyof ExtendedMedicationD
   'route',
   'location',
   'units',
+  'providerId',
 ];
 
 export type MedicationOrderFieldWithOptionsType = (typeof medicationOrderFieldsWithOptions)[number];

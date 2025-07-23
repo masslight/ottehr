@@ -5,7 +5,6 @@ import { Secrets, UnassignPractitionerZambdaInput, UnassignPractitionerZambdaOut
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { getVisitResources } from '../../shared/practitioner/helpers';
-import { getMyPractitionerId } from '../../shared/practitioners';
 import { unassignParticipantIfPossible } from './helpers/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -56,11 +55,6 @@ export const complexValidation = async (
 }> => {
   const { encounterId, practitionerId, userRole } = params;
 
-  const practitionerIdFromCurrentUser = await getMyPractitionerId(oystehrCurrentUser);
-
-  if (practitionerId !== practitionerIdFromCurrentUser) {
-    throw new Error(`User ID ${practitionerId} does not match practitioner ID ${practitionerIdFromCurrentUser}.`);
-  }
   // todo: query practitionerRole array for this practitioner and determine if any matches for the encounter location
 
   const visitResources = await getVisitResources(oystehr, encounterId);
