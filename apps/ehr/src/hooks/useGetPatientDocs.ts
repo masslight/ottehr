@@ -43,6 +43,7 @@ export type PatientDocumentInfo = {
   //TODO: where to get data for this field?
   whoAdded?: string;
   attachments?: PatientDocumentAttachment[];
+  encounterId?: string;
 };
 
 export type PatientDocumentsFilters = {
@@ -149,12 +150,7 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
           })
         ).unbundle()[0];
         if (docRef) {
-          patientDoc = {
-            id: docRef.id!,
-            docName: debug__createDisplayedDocumentName(docRef),
-            whenAddedDate: docRef.date,
-            attachments: extractDocumentAttachments(docRef),
-          } as PatientDocumentInfo;
+          patientDoc = createDocumentInfo(docRef);
           setDocuments([...(documents ?? []), patientDoc]);
         }
       }
@@ -355,17 +351,7 @@ const useSearchPatientDocuments = (
             ?.filter((resource: FhirResource) => resource.resourceType === 'DocumentReference')
             ?.map((docRefResource: FhirResource) => docRefResource as DocumentReference) ?? [];
 
-        const documents = docRefsResources.map((docRef) => {
-          const docName = debug__createDisplayedDocumentName(docRef);
-          const attachments = extractDocumentAttachments(docRef);
-
-          return {
-            id: docRef.id!,
-            docName: docName,
-            whenAddedDate: docRef.date,
-            attachments: attachments,
-          } as PatientDocumentInfo;
-        });
+        const documents = docRefsResources.map((docRef) => createDocumentInfo(docRef));
 
         //TODO: remove when _text search will be available
         const resultDocuments = debug__mimicTextNarrativeDocumentsFilter(documents, filters);
@@ -512,3 +498,13 @@ export interface UploadPatientDocumentResponse {
   z3Url: string;
   presignedUrl: string;
 }
+
+const createDocumentInfo = (documentReference: DocumentReference): PatientDocumentInfo => {
+  return {
+    id: documentReference.id!,
+    docName: debug__createDisplayedDocumentName(documentReference),
+    whenAddedDate: documentReference.date,
+    attachments: extractDocumentAttachments(documentReference),
+    encounterId: documentReference.context?.encounter?.[0]?.reference?.split('/')?.[1],
+  };
+};
