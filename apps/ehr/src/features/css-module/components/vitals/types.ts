@@ -1,18 +1,7 @@
-import { VitalsObservationDTO, VitalsSearchConfig } from 'utils';
-
-export type UseVitalsHandlers = (props: { encounterId: string; searchConfig: VitalsSearchConfig }) => {
-  vitalsEntities: VitalsObservationDTO[];
-  isLoading: boolean;
-  handleSave: ReturnType<UseSaveVitals>;
-  handleDelete: ReturnType<UseDeleteVitals>;
-};
+import { VitalsObservationDTO } from 'utils';
 
 export type UseSaveVitals = (props: { encounterId: string }) => (vitalEntity: VitalsObservationDTO) => Promise<void>;
-
-export type UseDeleteVitals = (props: {
-  encounterId: string;
-  searchConfig: VitalsSearchConfig;
-}) => (vitalEntity: VitalsObservationDTO) => Promise<void>;
+export type UseDeleteVitals = (props: { encounterId: string }) => (vitalEntity: VitalsObservationDTO) => Promise<void>;
 
 export interface VitalsCardProps<TypeObsDTO extends VitalsObservationDTO> {
   handleSaveVital: (vitalEntity: VitalsObservationDTO) => Promise<void>;

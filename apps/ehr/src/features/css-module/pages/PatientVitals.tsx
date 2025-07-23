@@ -12,6 +12,7 @@ import VitalsBloodPressureCard from '../components/vitals/blood-pressure/VitalsB
 import VitalHistoryElement from '../components/vitals/components/VitalsHistoryEntry';
 import VitalsHeartbeatCard from '../components/vitals/heartbeat/VitalsHeartbeatCard';
 import VitalsHeightCard from '../components/vitals/heights/VitalsHeightCard';
+import { useDeleteVitals } from '../components/vitals/hooks/useDeleteVitals';
 import { useSaveVitals } from '../components/vitals/hooks/useSaveVitals';
 import VitalsOxygenSatCard from '../components/vitals/oxygen-saturation/VitalsOxygenSatCard';
 import VitalsRespirationRateCard from '../components/vitals/respiration-rate/VitalsRespirationRateCard';
@@ -37,6 +38,10 @@ export const PatientVitals: React.FC<PatientVitalsProps> = () => {
   const { oystehrZambda } = useApiClients();
 
   const saveVitals = useSaveVitals({
+    encounterId: encounter?.id ?? '',
+  });
+
+  const deleteVitals = useDeleteVitals({
     encounterId: encounter?.id ?? '',
   });
 
@@ -110,15 +115,13 @@ export const PatientVitals: React.FC<PatientVitalsProps> = () => {
   const { interactionMode } = useNavigationContext();
 
   const handleSaveVital = async (vitalEntity: VitalsObservationDTO): Promise<void> => {
-    console.log('handleSaveVital called with:', vitalEntity);
-    // Implement the save logic here
     await saveVitals(vitalEntity);
-    await refetchEncounterVitals(); // Refetch to get the latest vitals after saving
+    await refetchEncounterVitals();
   };
 
   const handleDeleteVital = async (vitalEntity: VitalsObservationDTO): Promise<void> => {
-    console.log('handleDeleteVital called with:', vitalEntity);
-    // Implement the delete logic here
+    await deleteVitals(vitalEntity);
+    await refetchEncounterVitals();
   };
 
   if (isLoading || encounterVitalsLoading) return <CSSLoader />;
