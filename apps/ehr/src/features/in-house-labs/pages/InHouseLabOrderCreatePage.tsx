@@ -40,8 +40,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [availableTests, setAvailableTests] = useState<TestItem[]>([]);
   const [selectedTest, setSelectedTest] = useState<TestItem | null>(null);
-  const [availableCptCodes, setAvailableCptCodes] = useState<string[]>([]);
-  const [selectedCptCode, setSelectedCptCode] = useState<string>('');
+  const [relatedCptCode, setRelatedCptCode] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [providerName, setProviderName] = useState<string>('');
   const [error, setError] = useState<string[] | undefined>(undefined);
@@ -130,13 +129,8 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
         console.log('found', found);
         if (found) {
           setSelectedTest(found);
-          setAvailableCptCodes(found.cptCode);
           setRepeatTest(true);
-          // currently we aren't handling more than one cpt being selected
-          // in fact all our tests only have one cpt code so at the moment this is a non issue
-          if (found.cptCode.length === 1) {
-            setSelectedCptCode(found.cptCode[0]);
-          }
+          setRelatedCptCode(found.cptCode[0]); // we dont have any tests with more than one
         }
       }
       if (diagnoses) {
@@ -149,23 +143,18 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
     navigate(-1);
   };
 
+  const canBeSubmitted = !!(encounter?.id && selectedTest && relatedCptCode);
+
   const handleSubmit = async (e: React.FormEvent | React.MouseEvent, shouldPrintLabel = false): Promise<void> => {
     e.preventDefault();
     setLoading(true);
     const GENERIC_ERROR_MSG = 'There was an error creating in-house lab order';
-    const encounterId = encounter.id;
-    const canBeSubmitted =
-      encounterId &&
-      selectedTest &&
-      selectedCptCode &&
-      (selectedAssessmentDiagnoses.length || selectedNewDiagnoses.length);
-
     if (oystehrZambda && canBeSubmitted) {
       try {
         const res = await createInHouseLabOrder(oystehrZambda, {
-          encounterId,
+          encounterId: encounter.id!,
           testItem: selectedTest,
-          cptCode: selectedCptCode,
+          cptCode: relatedCptCode,
           diagnosesAll: [...selectedAssessmentDiagnoses, ...selectedNewDiagnoses],
           diagnosesNew: selectedNewDiagnoses,
           isRepeatTest: repeatTest,
@@ -186,7 +175,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
         });
 
         if (shouldPrintLabel) {
-          const labelPdfs = await getOrCreateVisitLabel(oystehrZambda, { encounterId });
+          const labelPdfs = await getOrCreateVisitLabel(oystehrZambda, { encounterId: encounter.id! });
 
           if (labelPdfs.length !== 1) {
             setError(['Expected 1 label pdf, received unexpected number']);
@@ -213,12 +202,11 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
       }
     } else if (!canBeSubmitted) {
       const errorMessage: string[] = [];
-      if (!selectedAssessmentDiagnoses.length && !selectedNewDiagnoses.length)
-        errorMessage.push('Please enter at least one dx');
       if (!selectedTest) errorMessage.push('Please select a test to order');
       if (!attendingPractitionerId) errorMessage.push('No attending practitioner has been assigned to this encounter');
       if (errorMessage.length === 0) errorMessage.push(GENERIC_ERROR_MSG);
       setError(errorMessage);
+      setLoading(false);
     }
   };
 
@@ -234,8 +222,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
     }
 
     setSelectedTest(foundEntry);
-    setSelectedCptCode('');
-    setAvailableCptCodes(foundEntry.cptCode);
+    setRelatedCptCode(foundEntry.cptCode[0]); // we dont have any tests with more than one
   };
 
   return (
@@ -296,50 +283,31 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                   </FormControl>
                 </Grid>
 
-                {availableCptCodes.length > 0 && (
+                {relatedCptCode && (
                   <>
                     <Grid item xs={selectedTest?.repeatable ? 8.5 : 12}>
-                      <FormControl
-                        fullWidth
-                        required
-                        sx={{
-                          '& .MuiInputBase-root': {
+                      <TextField
+                        InputProps={{
+                          readOnly: true,
+                          sx: {
+                            '& input': {
+                              cursor: 'default',
+                            },
                             height: '40px',
                           },
-                          '& .MuiSelect-select': {
-                            display: 'flex',
-                            alignItems: 'center',
-                            paddingTop: 0,
-                            paddingBottom: 0,
+                        }}
+                        fullWidth
+                        label="CPT Code"
+                        focused={false}
+                        value={relatedCptCode}
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            '&:hover .MuiOutlinedInput-notchedOutline': {
+                              borderColor: 'rgba(0, 0, 0, 0.23)',
+                            },
                           },
                         }}
-                      >
-                        <InputLabel
-                          id="cpt-code-label"
-                          sx={{
-                            transform: 'translate(14px, 10px) scale(1)',
-                            '&.MuiInputLabel-shrink': {
-                              transform: 'translate(14px, -9px) scale(0.75)',
-                            },
-                          }}
-                        >
-                          CPT code
-                        </InputLabel>
-                        <Select
-                          labelId="cpt-code-label"
-                          id="cpt-code"
-                          value={selectedCptCode}
-                          label="CPT code*"
-                          onChange={(e) => setSelectedCptCode(e.target.value)}
-                          size="small"
-                        >
-                          {availableCptCodes.map((cpt) => (
-                            <MenuItem key={cpt} value={cpt}>
-                              {cpt}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
+                      />
                     </Grid>
                     {selectedTest?.repeatable && (
                       <Grid item xs={3.5}>
@@ -561,7 +529,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                     notesLabel={'Notes (optional)'}
                     readOnly={false}
                     additionalBoxSxProps={{ mb: 3 }}
-                    additionalTextFieldProps={{ rows: 4 }}
+                    additionalTextFieldProps={{ minRows: 4 }}
                     handleNotesUpdate={(newNote: string) => setNotes(newNote)}
                   />
                 </Grid>
@@ -591,11 +559,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                       <Button
                         variant="contained"
                         onClick={(e) => handleSubmit(e, true)}
-                        disabled={
-                          !selectedTest ||
-                          !selectedCptCode ||
-                          (selectedAssessmentDiagnoses.length === 0 && selectedNewDiagnoses.length === 0)
-                        }
+                        disabled={!canBeSubmitted}
                         sx={{
                           borderRadius: '50px',
                           px: 4,
@@ -608,11 +572,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                       <Button
                         variant="contained"
                         type="submit"
-                        disabled={
-                          !selectedTest ||
-                          !selectedCptCode ||
-                          (selectedAssessmentDiagnoses.length === 0 && selectedNewDiagnoses.length === 0)
-                        }
+                        disabled={!canBeSubmitted}
                         sx={{
                           borderRadius: '50px',
                           px: 4,

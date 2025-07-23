@@ -198,7 +198,7 @@ export const AppointmentSidePanel: FC = () => {
               onClick={() => navigate(`/patient/${patient.id}`)}
               sx={{ cursor: 'pointer' }}
             >
-              {getPatientName(patient.name).lastFirstName}
+              {getPatientName(patient.name).lastFirstMiddleName}
             </Typography>
 
             {!isReadOnly && (

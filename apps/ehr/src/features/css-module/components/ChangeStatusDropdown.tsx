@@ -50,9 +50,11 @@ const StyledSelect = styled(Select)<{ hasDropdown?: string; arrowColor: string }
 export const ChangeStatusDropdown = ({
   appointmentID,
   onStatusChange,
+  getAndSetResources,
 }: {
   appointmentID?: string;
   onStatusChange: (status: VisitStatusWithoutUnknown) => void;
+  getAndSetResources?: ({ logs, notes }: { logs?: boolean; notes?: boolean }) => Promise<void>;
 }): React.ReactElement => {
   const [statusLoading, setStatusLoading] = useState<boolean>(false);
   const [status, setStatus] = useState<VisitStatusWithoutUnknown | undefined>(undefined);
@@ -102,6 +104,14 @@ export const ChangeStatusDropdown = ({
         oystehrZambda
       );
       await refetch();
+      if (getAndSetResources) {
+        await getAndSetResources({ logs: true }).catch((error: any) => {
+          console.log('error getting activity logs after status dropdown update', error);
+          enqueueSnackbar('An error getting updated activity logs. Please try refreshing the page.', {
+            variant: 'error',
+          });
+        });
+      }
     } catch (error) {
       console.error(error);
       enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });

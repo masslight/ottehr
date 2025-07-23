@@ -242,7 +242,7 @@ function composeDataForPdf(
 
   // --- Discharge instructions ---
   const disposition = additionalChartData?.disposition;
-  let dispositionHeader = 'Discharge instructions - ';
+  let dispositionHeader = 'Disposition - ';
   let dispositionText = '';
   if (disposition?.type) {
     dispositionHeader += mapDispositionTypeToLabel[disposition.type];

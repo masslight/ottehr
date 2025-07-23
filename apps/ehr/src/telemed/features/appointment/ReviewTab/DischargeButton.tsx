@@ -53,6 +53,7 @@ export const DischargeButton: FC = () => {
     <Box sx={{ display: 'flex', justifyContent: 'end' }}>
       <RoundedButton
         disabled={statusLoading || isAlreadyDischarged}
+        loading={statusLoading}
         variant="contained"
         onClick={handleDischarge}
         startIcon={isAlreadyDischarged ? <CheckIcon color="inherit" /> : undefined}

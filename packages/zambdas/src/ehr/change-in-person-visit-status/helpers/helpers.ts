@@ -3,6 +3,7 @@ import { captureException } from '@sentry/aws-serverless';
 import { Operation } from 'fast-json-patch';
 import { Appointment, Encounter } from 'fhir/r4b';
 import {
+  getAppointmentMetaTagOpForStatusUpdate,
   getEncounterStatusHistoryUpdateOp,
   getPatchBinary,
   PRACTITIONER_CODINGS,
@@ -109,6 +110,8 @@ const getUpdateInPersonAppointmentStatusOperation = async (
   if (appointment.status === 'cancelled') {
     appointmentPatchOps.push({ op: 'remove', path: '/cancelationReason' });
   }
+
+  appointmentPatchOps.push(...getAppointmentMetaTagOpForStatusUpdate(appointment, updatedStatus, { user }));
 
   return appointmentPatchOps;
 };

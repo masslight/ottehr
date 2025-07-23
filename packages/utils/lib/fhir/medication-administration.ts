@@ -233,6 +233,9 @@ export const getMedicationInteractions = (
     })
     ?.map<DrugInteraction>((resource) => {
       const issue = resource as DetectedIssue;
+      const sourceReference = issue.evidence?.find((evidence) => evidence.detail != null)?.detail?.[0];
+      const sourceReferenceString = sourceReference?.reference;
+      const sourceDisplay = sourceReference?.display;
       return {
         drugs: (issue.evidence ?? []).flatMap((evidence) => {
           const coding = getCoding(evidence.code, MEDICATION_DISPENSABLE_DRUG_ID);
@@ -251,6 +254,13 @@ export const getMedicationInteractions = (
         severity: issue.severity,
         message: issue.detail,
         overrideReason: getOverrideReason(issue),
+        source:
+          sourceReferenceString && sourceDisplay
+            ? {
+                reference: sourceReferenceString,
+                display: sourceDisplay,
+              }
+            : undefined,
       };
     });
   const allergyInteractions = medicationRequest?.contained
