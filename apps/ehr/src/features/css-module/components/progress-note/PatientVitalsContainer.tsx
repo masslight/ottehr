@@ -4,18 +4,7 @@ import { NoteDTO, VitalFieldNames } from 'utils';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../telemed';
 import { AssessmentTitle } from '../../../../telemed/features/appointment/AssessmentTab';
-import VitalBloodPressureHistoryElement from '../vitals/blood-pressure/VitalBloodPressureHistoryElement';
-import VitalHeartbeatHistoryElement from '../vitals/heartbeat/VitalHeartbeatHistoryElement';
-import VitalHeightHistoryElement from '../vitals/heights/VitalHeightHistoryElement';
-import VitalOxygenSatHistoryElement from '../vitals/oxygen-saturation/VitalOxygenSatHistoryElement';
-import VitalsRespirationRateHistoryElementElement from '../vitals/respiration-rate/VitalsRespirationRateHistoryElement';
-import VitalTemperatureHistoryElement from '../vitals/temperature/VitalTemperatureHistoryElement';
-import VitalVisionHistoryElement from '../vitals/vision/VitalVisionHistoryElement';
-import VitalWeightHistoryElement from '../vitals/weights/VitalWeightHistoryElement';
-
-const emptyDelete = async (): Promise<void> => {
-  return;
-};
+import VitalHistoryElement from '../vitals/components/VitalsHistoryEntry';
 
 type PatientVitalsContainerProps = {
   notes?: NoteDTO[];
@@ -48,7 +37,7 @@ export const PatientVitalsContainer: FC<PatientVitalsContainerProps> = ({ notes 
         <>
           <AssessmentTitle>Temperature</AssessmentTitle>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {temperature?.map((item) => <VitalTemperatureHistoryElement historyEntry={item} onDelete={emptyDelete} />)}
+            {temperature?.map((item) => <VitalHistoryElement historyEntry={item} />)}
           </Box>
         </>
       )}
@@ -56,7 +45,7 @@ export const PatientVitalsContainer: FC<PatientVitalsContainerProps> = ({ notes 
         <>
           <AssessmentTitle>Heartbeat</AssessmentTitle>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {heartbeat?.map((item) => <VitalHeartbeatHistoryElement historyEntry={item} onDelete={emptyDelete} />)}
+            {heartbeat?.map((item) => <VitalHistoryElement historyEntry={item} />)}
           </Box>
         </>
       )}
@@ -64,9 +53,7 @@ export const PatientVitalsContainer: FC<PatientVitalsContainerProps> = ({ notes 
         <>
           <AssessmentTitle>Respiration rate</AssessmentTitle>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {respirationRate?.map((item) => (
-              <VitalsRespirationRateHistoryElementElement historyEntry={item} onDelete={emptyDelete} />
-            ))}
+            {respirationRate?.map((item) => <VitalHistoryElement historyEntry={item} />)}
           </Box>
         </>
       )}
@@ -74,9 +61,7 @@ export const PatientVitalsContainer: FC<PatientVitalsContainerProps> = ({ notes 
         <>
           <AssessmentTitle>Blood pressure</AssessmentTitle>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {bloodPressure?.map((item) => (
-              <VitalBloodPressureHistoryElement historyEntry={item} onDelete={emptyDelete} />
-            ))}
+            {bloodPressure?.map((item) => <VitalHistoryElement historyEntry={item} />)}
           </Box>
         </>
       )}
@@ -84,9 +69,7 @@ export const PatientVitalsContainer: FC<PatientVitalsContainerProps> = ({ notes 
         <>
           <AssessmentTitle>Oxygen saturation</AssessmentTitle>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {oxygenSaturation?.map((item) => (
-              <VitalOxygenSatHistoryElement historyEntry={item} onDelete={emptyDelete} />
-            ))}
+            {oxygenSaturation?.map((item) => <VitalHistoryElement historyEntry={item} />)}
           </Box>
         </>
       )}
@@ -94,7 +77,7 @@ export const PatientVitalsContainer: FC<PatientVitalsContainerProps> = ({ notes 
         <>
           <AssessmentTitle>Weight</AssessmentTitle>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {weight?.map((item) => <VitalWeightHistoryElement historyEntry={item} onDelete={emptyDelete} />)}
+            {weight?.map((item) => <VitalHistoryElement historyEntry={item} />)}
           </Box>
         </>
       )}
@@ -102,7 +85,7 @@ export const PatientVitalsContainer: FC<PatientVitalsContainerProps> = ({ notes 
         <>
           <AssessmentTitle>Height</AssessmentTitle>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {height?.map((item) => <VitalHeightHistoryElement historyEntry={item} onDelete={emptyDelete} />)}
+            {height?.map((item) => <VitalHistoryElement historyEntry={item} />)}
           </Box>
         </>
       )}
@@ -110,7 +93,7 @@ export const PatientVitalsContainer: FC<PatientVitalsContainerProps> = ({ notes 
         <>
           <AssessmentTitle>Vision</AssessmentTitle>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {vision?.map((item) => <VitalVisionHistoryElement historyEntry={item} onDelete={emptyDelete} />)}
+            {vision?.map((item) => <VitalHistoryElement historyEntry={item} />)}
           </Box>
         </>
       )}

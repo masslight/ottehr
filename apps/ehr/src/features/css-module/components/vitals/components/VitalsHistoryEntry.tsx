@@ -39,7 +39,7 @@ export const VitalHistoryElement: React.FC<VitalHistoryElementProps> = ({ histor
 
   const observationMethod = getObservationMethod(historyEntry);
 
-  const observationValueElements = getObservationValueElements(historyEntry);
+  const observationValueElements = getObservationValueElements(historyEntry, lineColor);
 
   return (
     <>
@@ -47,11 +47,21 @@ export const VitalHistoryElement: React.FC<VitalHistoryElementProps> = ({ histor
         <Typography color="textPrimary">
           {formatDateTimeToLocalTimezone(historyEntry.lastUpdated)} {hasAuthor && 'by'} {historyEntry.authorName} -
           &nbsp;
-          {observationValueElements.map((value, index) => (
-            <Typography key={index} component="span" sx={{ fontWeight: 'bold', color: lineColor }}>
-              {value}
-            </Typography>
-          ))}
+          {observationValueElements.map((value, index) => {
+            if (typeof value === 'string') {
+              return (
+                <Typography
+                  key={index}
+                  component="span"
+                  sx={{ fontWeight: index === 0 ? 'bold' : 'normal', color: lineColor }}
+                >
+                  {value}
+                </Typography>
+              );
+            } else {
+              return value;
+            }
+          })}
           {historyEntry.alertCriticality === 'critical' && (
             <ErrorIcon fontSize="small" sx={{ ml: '4px', verticalAlign: 'middle', color: lineColor }} />
           )}
@@ -98,7 +108,10 @@ const getObservationMethod = (historyEntry: VitalsObservationDTO): string | unde
   return undefined;
 };
 
-const getObservationValueElements = (historyEntry: VitalsObservationDTO): string[] => {
+const getObservationValueElements = (
+  historyEntry: VitalsObservationDTO,
+  lineColor: string
+): (string | JSX.Element)[] => {
   // todo: it would be cool if the units came from the Observation resource
   switch (historyEntry.field) {
     case 'vital-temperature':
@@ -112,15 +125,20 @@ const getObservationValueElements = (historyEntry: VitalsObservationDTO): string
     case 'vital-respiration-rate':
       return [`${historyEntry.value}/min`];
     case 'vital-weight':
-      return [`${historyEntry.value} kg`, `/ ${kgToLbs(historyEntry.value).toFixed(2)} lb`];
+      return [`${historyEntry.value} kg`, ` / ${kgToLbs(historyEntry.value).toFixed(1)} lb`];
     case 'vital-height':
-      return [`${historyEntry.value} cm`, `/ ${cmToInches(historyEntry.value).toFixed(2)} in`];
+      return [`${historyEntry.value} cm`, ` / ${cmToInches(historyEntry.value).toFixed(0)} in`];
     case 'vital-vision':
       return [
-        `Left eye: ${historyEntry.leftEyeVisionText ?? '-'}`,
-        `Right eye: ${historyEntry.rightEyeVisionText ?? '-'} \n ${getVisionExtraOptionsFormattedString(
-          historyEntry.extraVisionOptions
-        )}`,
+        <>
+          <Typography component="span" sx={{ fontWeight: 'bold', color: lineColor }}>
+            Left eye: {historyEntry.leftEyeVisionText ?? '-'};&nbsp;
+          </Typography>
+          <Typography component="span" sx={{ fontWeight: 'bold', color: lineColor }}>
+            Right eye: {historyEntry.rightEyeVisionText ?? '-'};&nbsp;{' '}
+            {`${getVisionExtraOptionsFormattedString(historyEntry.extraVisionOptions) ?? ''}`}
+          </Typography>
+        </>,
       ];
     default:
       return [];

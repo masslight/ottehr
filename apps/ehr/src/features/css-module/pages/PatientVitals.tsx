@@ -8,22 +8,16 @@ import { GetVitalsResponseData, VitalFieldNames, VitalsObservationDTO } from 'ut
 import { PageTitle } from '../../../telemed/components/PageTitle';
 import { CSSLoader } from '../components/CSSLoader';
 import VitalsNotesCard from '../components/patient-info/VitalsNotesCard';
-import VitalBloodPressureHistoryElement from '../components/vitals/blood-pressure/VitalBloodPressureHistoryElement';
 import VitalsBloodPressureCard from '../components/vitals/blood-pressure/VitalsBloodPressureCard';
-import VitalHeartbeatHistoryElement from '../components/vitals/heartbeat/VitalHeartbeatHistoryElement';
+import VitalHistoryElement from '../components/vitals/components/VitalsHistoryEntry';
 import VitalsHeartbeatCard from '../components/vitals/heartbeat/VitalsHeartbeatCard';
-import VitalHeightHistoryElement from '../components/vitals/heights/VitalHeightHistoryElement';
 import VitalsHeightCard from '../components/vitals/heights/VitalsHeightCard';
 import { useSaveVitals } from '../components/vitals/hooks/useSaveVitals';
-import VitalOxygenSatHistoryElement from '../components/vitals/oxygen-saturation/VitalOxygenSatHistoryElement';
 import VitalsOxygenSatCard from '../components/vitals/oxygen-saturation/VitalsOxygenSatCard';
 import VitalsRespirationRateCard from '../components/vitals/respiration-rate/VitalsRespirationRateCard';
-import VitalsRespirationRateHistoryElementElement from '../components/vitals/respiration-rate/VitalsRespirationRateHistoryElement';
 import VitalsTemperaturesCard from '../components/vitals/temperature/VitalsTemperaturesCard';
-import VitalTemperatureHistoryElement from '../components/vitals/temperature/VitalTemperatureHistoryElement';
 import VitalsVisionCard from '../components/vitals/vision/VitalsVisionCard';
 import VitalsWeightsCard from '../components/vitals/weights/VitalsWeightsCard';
-import VitalWeightHistoryElement from '../components/vitals/weights/VitalWeightHistoryElement';
 import { useNavigationContext } from '../context/NavigationContext';
 import { useAppointment } from '../hooks/useAppointment';
 import { useReactNavigationBlocker } from '../hooks/useReactNavigationBlocker';
@@ -223,9 +217,7 @@ const AbnormalVitalsModal: React.FC<AbnormalVitalsModalProps> = ({ abnormalVital
             <>
               <AssessmentTitle>Temperature</AssessmentTitle>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                {temperature?.map((item) => (
-                  <VitalTemperatureHistoryElement key={item.resourceId} historyEntry={{ ...item }} />
-                ))}
+                {temperature?.map((item) => <VitalHistoryElement key={item.resourceId} historyEntry={{ ...item }} />)}
               </Box>
             </>
           )}
@@ -233,9 +225,7 @@ const AbnormalVitalsModal: React.FC<AbnormalVitalsModalProps> = ({ abnormalVital
             <>
               <AssessmentTitle>Heartbeat</AssessmentTitle>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                {heartbeat?.map((item) => (
-                  <VitalHeartbeatHistoryElement key={item.resourceId} historyEntry={{ ...item }} />
-                ))}
+                {heartbeat?.map((item) => <VitalHistoryElement key={item.resourceId} historyEntry={{ ...item }} />)}
               </Box>
             </>
           )}
@@ -244,7 +234,7 @@ const AbnormalVitalsModal: React.FC<AbnormalVitalsModalProps> = ({ abnormalVital
               <AssessmentTitle>Respiration Rate</AssessmentTitle>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                 {respirationRate?.map((item) => (
-                  <VitalsRespirationRateHistoryElementElement key={item.resourceId} historyEntry={{ ...item }} />
+                  <VitalHistoryElement key={item.resourceId} historyEntry={{ ...item }} />
                 ))}
               </Box>
             </>
@@ -253,9 +243,7 @@ const AbnormalVitalsModal: React.FC<AbnormalVitalsModalProps> = ({ abnormalVital
             <>
               <AssessmentTitle>Blood Pressure</AssessmentTitle>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                {bloodPressure?.map((item) => (
-                  <VitalBloodPressureHistoryElement key={item.resourceId} historyEntry={{ ...item }} />
-                ))}
+                {bloodPressure?.map((item) => <VitalHistoryElement key={item.resourceId} historyEntry={{ ...item }} />)}
               </Box>
             </>
           )}
@@ -264,7 +252,7 @@ const AbnormalVitalsModal: React.FC<AbnormalVitalsModalProps> = ({ abnormalVital
               <AssessmentTitle>Oxygen Saturation</AssessmentTitle>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                 {oxygenSaturation?.map((item) => (
-                  <VitalOxygenSatHistoryElement key={item.resourceId} historyEntry={{ ...item }} />
+                  <VitalHistoryElement key={item.resourceId} historyEntry={{ ...item }} />
                 ))}
               </Box>
             </>
@@ -273,7 +261,7 @@ const AbnormalVitalsModal: React.FC<AbnormalVitalsModalProps> = ({ abnormalVital
             <>
               <AssessmentTitle>Weight</AssessmentTitle>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                {weight?.map((item) => <VitalWeightHistoryElement key={item.resourceId} historyEntry={{ ...item }} />)}
+                {weight?.map((item) => <VitalHistoryElement key={item.resourceId} historyEntry={{ ...item }} />)}
               </Box>
             </>
           )}
@@ -281,7 +269,7 @@ const AbnormalVitalsModal: React.FC<AbnormalVitalsModalProps> = ({ abnormalVital
             <>
               <AssessmentTitle>Height</AssessmentTitle>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                {height?.map((item) => <VitalHeightHistoryElement key={item.resourceId} historyEntry={{ ...item }} />)}
+                {height?.map((item) => <VitalHistoryElement key={item.resourceId} historyEntry={{ ...item }} />)}
               </Box>
             </>
           )}
