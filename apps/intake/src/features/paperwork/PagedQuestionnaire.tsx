@@ -1,4 +1,3 @@
-// @ts-expect-error -temporary: testing validaiton with old version
 import { yupResolver } from '@hookform/resolvers/yup';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import {
