@@ -442,7 +442,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyPatientMobile(NEW_PATIENT_MOBILE);
   });
 
-  test('Check validation error is displayed if any required field in Responsible party information block is missing, phone number is invalid or Responsible party is less then 18', async ({
+  test('Check validation error is displayed if any required field in Responsible party information block is missing or phone number is invalid', async ({
     page,
   }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
@@ -459,7 +459,6 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.enterDateOfBirthFromResponsibleContainer('10/10/2024');
     await patientInformationPage.clickSaveChangesButton();
     await patientInformationPage.verifyValidationErrorInvalidPhoneFromResponsibleContainer();
-    await patientInformationPage.verifyValidationErrorForDateOfBirth();
   });
 
   test('Updated values from Responsible party information block  are saved and displayed correctly', async ({

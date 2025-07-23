@@ -27,20 +27,13 @@ export const BottomNavigation = (): JSX.Element => {
   } = useNavigationContext();
   const practitionerTypeFromMode =
     interactionMode === 'intake' ? PRACTITIONER_CODINGS.Admitter : PRACTITIONER_CODINGS.Attender;
-  const { isEncounterUpdatePending, handleUpdatePractitioner } = usePractitionerActions(
-    encounter,
-    'end',
-    practitionerTypeFromMode
-  );
+  const { isEncounterUpdatePending } = usePractitionerActions(encounter, 'end', practitionerTypeFromMode);
 
   const [nextButtonLoading, setNextButtonLoading] = React.useState<boolean>(false);
 
   const handleNextPage = async (): Promise<void> => {
     try {
       setNextButtonLoading(true);
-      if (isLastPage && interactionMode === 'intake') {
-        await handleUpdatePractitioner();
-      }
       goToNext();
       await refetch();
     } catch (error: any) {

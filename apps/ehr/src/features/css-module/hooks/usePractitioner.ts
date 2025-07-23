@@ -3,29 +3,25 @@ import { useMutation } from '@tanstack/react-query';
 import { Coding, Encounter } from 'fhir/r4b';
 import { assignPractitioner, unassignPractitioner } from 'src/api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
-import useEvolveUser, { EvolveUser } from '../../../hooks/useEvolveUser';
 import { useAppointment } from './useAppointment';
 
 export const usePractitionerActions = (
   encounter: Encounter | undefined,
   action: 'start' | 'end',
   practitionerType: Coding[]
-): { isEncounterUpdatePending: boolean; handleUpdatePractitioner: () => Promise<void> } => {
+): { isEncounterUpdatePending: boolean; handleUpdatePractitioner: (practitionerId: string) => Promise<void> } => {
   const { oystehrZambda } = useApiClients();
   const { refetch: refetchAppointment } = useAppointment(
     encounter?.appointment?.[0]?.reference?.replace('Appointment/', '')
   );
-  const user = useEvolveUser();
 
-  const mutation = useMutation({
-    mutationFn: async () => {
-      try {
-        await handleParticipantPeriod(oystehrZambda, encounter, user, action, practitionerType);
-        await refetchAppointment();
-      } catch (error: any) {
-        throw new Error(error.message);
-      }
-    },
+  const mutation = useMutation(async (practitionerId: string) => {
+    try {
+      await updateAssignment(oystehrZambda, encounter, practitionerId, action, practitionerType);
+      await refetchAppointment();
+    } catch (error: any) {
+      throw new Error(error.message);
+    }
   });
 
   return {
@@ -34,15 +30,15 @@ export const usePractitionerActions = (
   };
 };
 
-const handleParticipantPeriod = async (
+const updateAssignment = async (
   oystehrZambda: Oystehr | undefined,
   encounter: Encounter | undefined,
-  user: EvolveUser | undefined,
+  practitionerId: string,
   action: 'start' | 'end',
   practitionerType: Coding[]
 ): Promise<void> => {
-  if (!oystehrZambda || !encounter || !user || !user.profileResource?.id) {
-    console.warn('Missing required data:', { oystehrZambda, encounter, user, profileResource: user?.profileResource }); //
+  if (!oystehrZambda || !encounter || !practitionerId) {
+    console.warn('Missing required data:', { oystehrZambda, encounter, practitionerId });
     return;
   }
 
@@ -54,13 +50,13 @@ const handleParticipantPeriod = async (
     if (action === 'start') {
       await assignPractitioner(oystehrZambda, {
         encounterId: encounter.id,
-        practitioner: user.profileResource,
+        practitionerId,
         userRole: practitionerType,
       });
     } else {
       await unassignPractitioner(oystehrZambda, {
         encounterId: encounter.id,
-        practitioner: user.profileResource,
+        practitionerId,
         userRole: practitionerType,
       });
     }
