@@ -1090,7 +1090,7 @@ export default function AppointmentPage(): ReactElement {
                   }}
                   loading={paperworkPdfLoading}
                   color="primary"
-                  disabled={isLoadingDocuments}
+                  disabled={isLoadingDocuments || !patient?.id}
                   onClick={downloadPaperworkPdf}
                 >
                   Paperwork PDF
