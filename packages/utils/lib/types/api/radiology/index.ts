@@ -5,6 +5,7 @@ export interface CreateRadiologyZambdaOrderInput {
   diagnosisCode: string;
   cptCode: string;
   stat: boolean;
+  clinicalHistory: string;
 }
 
 export interface CreateRadiologyZambdaOrderOutput {

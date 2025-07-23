@@ -23,7 +23,7 @@ export const validateInput = async (
 };
 
 const validateBody = async (input: ZambdaInput, secrets: Secrets, oystehr: Oystehr): Promise<EnhancedBody> => {
-  const { diagnosisCode, cptCode, encounterId, stat } = validateJsonBody(input);
+  const { diagnosisCode, cptCode, encounterId, stat, clinicalHistory } = validateJsonBody(input);
 
   const diagnosis = await validateICD10Code(diagnosisCode, secrets);
   const cpt = await validateCPTCode(cptCode, secrets);
@@ -33,11 +33,16 @@ const validateBody = async (input: ZambdaInput, secrets: Secrets, oystehr: Oyste
     throw new Error('Stat is required and must be a boolean');
   }
 
+  if (!clinicalHistory || typeof clinicalHistory !== 'string') {
+    throw new Error('Clinical history is required and must be a string');
+  }
+
   return {
     diagnosis,
     cpt,
     encounter,
     stat,
+    clinicalHistory,
   };
 };
 

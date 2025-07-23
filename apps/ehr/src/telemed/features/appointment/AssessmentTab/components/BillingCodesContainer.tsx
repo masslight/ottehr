@@ -174,7 +174,10 @@ export const BillingCodesContainer: FC = () => {
       </Box>
 
       {emCode && (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <Box
+          sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
+          data-testid={dataTestIds.billingContainer.container}
+        >
           <AssessmentTitle>E&M code</AssessmentTitle>
           <ActionsList
             data={[emCode]}

@@ -153,6 +153,7 @@ async function updateOrder(
       orderData,
       orderResources,
       administeredProviderId: newStatus !== undefined ? practitionerIdCalledZambda : undefined,
+      orderedByProviderId: orderData.providerId,
       medicationResource: newMedicationCopy,
     });
   }
@@ -282,6 +283,7 @@ async function createOrder(
     route: routeCoding,
     location: locationCoding,
     createdProviderId: practitionerIdCalledZambda,
+    orderedByProviderId: orderData.providerId, // NEW: add initial provider to history
     dateTimeCreated: DateTime.now().toISO(),
     medicationResource: medicationCopy,
   });
