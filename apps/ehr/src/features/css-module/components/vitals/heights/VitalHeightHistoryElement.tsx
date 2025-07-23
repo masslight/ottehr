@@ -29,8 +29,6 @@ export const VitalHeightHistoryElement: React.FC<VitalHeightHistoryElementProps>
   const hasAuthor = !!historyEntry.authorName && historyEntry.authorName?.length > 0;
   const lineColor = isAlert ? theme.palette.error.main : theme.palette.text.primary;
 
-  const valueInInches = historyEntry.value * 0.393701; // Convert cm to inches
-
   const isDeletable = onDelete !== undefined && historyEntry.resourceId !== undefined;
 
   return (
@@ -43,7 +41,7 @@ export const VitalHeightHistoryElement: React.FC<VitalHeightHistoryElementProps>
             {historyEntry.value} cm &nbsp;
           </Typography>
           <Typography component="span" sx={{ color: lineColor }}>
-            / {valueInInches.toFixed(2)} inch
+            / {100} inch
           </Typography>
           {isAlert && <ErrorIcon fontSize="small" sx={{ ml: '4px', verticalAlign: 'middle', color: lineColor }} />}
         </Typography>

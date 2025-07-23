@@ -20,11 +20,11 @@ import {
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { AccordionCard, DoubleColumnContainer } from '../../../../../telemed/components';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
+import VitalHistoryElement from '../components/VitalsHistoryEntry';
 import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
 import { useScreenDimensions } from '../hooks/useScreenDimensions';
 import { HISTORY_ELEMENT_SKELETON_TEXT, VitalsCardProps } from '../types';
 import { celsiusToFahrenheit, textToTemperatureNumber } from './helpers';
-import VitalTemperatureHistoryElement from './VitalTemperatureHistoryElement';
 
 type VitalsTemperatureCardProps = VitalsCardProps<VitalsTemperatureObservationDTO>;
 const VitalsTemperaturesCard: React.FC<VitalsTemperatureCardProps> = ({
@@ -231,7 +231,7 @@ const VitalsTemperaturesCard: React.FC<VitalsTemperatureCardProps> = ({
               historyElementCreator={(historyEntry) => {
                 const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
                 return (
-                  <VitalTemperatureHistoryElement
+                  <VitalHistoryElement
                     historyEntry={historyEntry}
                     onDelete={isCurrent ? handleDeleteVital : undefined}
                   />

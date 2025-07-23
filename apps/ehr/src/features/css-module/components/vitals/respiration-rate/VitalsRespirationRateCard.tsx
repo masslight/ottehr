@@ -5,10 +5,10 @@ import { VitalFieldNames, VitalsRespirationRateObservationDTO } from 'utils';
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { AccordionCard, DoubleColumnContainer } from '../../../../../telemed/components';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
+import VitalHistoryElement from '../components/VitalsHistoryEntry';
 import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
 import { VitalsCardProps } from '../types';
 import { textToRespirationRateNumber } from './helpers';
-import VitalsRespirationRateHistoryElementElement from './VitalsRespirationRateHistoryElement';
 
 type VitalsRespirationRateCardProps = VitalsCardProps<VitalsRespirationRateObservationDTO>;
 const VitalsRespirationRateCard: React.FC<VitalsRespirationRateCardProps> = ({
@@ -122,7 +122,7 @@ const VitalsRespirationRateCard: React.FC<VitalsRespirationRateCardProps> = ({
               historyElementCreator={(historyEntry) => {
                 const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
                 return (
-                  <VitalsRespirationRateHistoryElementElement
+                  <VitalHistoryElement
                     historyEntry={historyEntry}
                     onDelete={isCurrent ? handleDeleteVital : undefined}
                   />

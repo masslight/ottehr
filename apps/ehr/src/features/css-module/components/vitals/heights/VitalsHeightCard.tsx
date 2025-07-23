@@ -1,15 +1,15 @@
 import { Box, CircularProgress, Grid, TextField, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { ChangeEvent, JSX, useCallback, useMemo, useState } from 'react';
-import { heightInCmToInch, VitalFieldNames, VitalsHeightObservationDTO } from 'utils';
+import { cmToInches, VitalFieldNames, VitalsHeightObservationDTO } from 'utils';
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { AccordionCard, DoubleColumnContainer } from '../../../../../telemed/components';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
+import VitalHistoryElement from '../components/VitalsHistoryEntry';
 import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
 import { useScreenDimensions } from '../hooks/useScreenDimensions';
 import { VitalsCardProps } from '../types';
 import { textToHeightNumber } from './helpers';
-import VitalHeightHistoryElement from './VitalHeightHistoryElement';
 
 type VitalsHeightCardProps = VitalsCardProps<VitalsHeightObservationDTO>;
 const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({
@@ -37,7 +37,7 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({
   const enteredHeightInInch: number | undefined = useMemo(() => {
     const heightCm = textToHeightNumber(heightValueText);
     if (!heightCm) return;
-    return heightInCmToInch(heightCm);
+    return cmToInches(heightCm);
   }, [heightValueText]);
 
   const handleSaveHeightObservation = async (heightValueText: string): Promise<void> => {
@@ -158,7 +158,7 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({
               historyElementCreator={(historyEntry) => {
                 const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
                 return (
-                  <VitalHeightHistoryElement
+                  <VitalHistoryElement
                     historyEntry={historyEntry}
                     onDelete={isCurrent ? handleDeleteVital : undefined}
                   />

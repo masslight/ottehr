@@ -5,9 +5,9 @@ import { kgToLbs, textToWeightNumber, VitalFieldNames, VitalsWeightObservationDT
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { AccordionCard, DoubleColumnContainer } from '../../../../../telemed';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
+import VitalHistoryElement from '../components/VitalsHistoryEntry';
 import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
 import { VitalsCardProps } from '../types';
-import VitalWeightHistoryElement from './VitalWeightHistoryElement';
 
 type VitalsWeightsCardProps = VitalsCardProps<VitalsWeightObservationDTO>;
 const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
@@ -140,7 +140,7 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
               historyElementCreator={(historyEntry) => {
                 const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
                 return (
-                  <VitalWeightHistoryElement
+                  <VitalHistoryElement
                     historyEntry={historyEntry}
                     onDelete={isCurrent ? handleDeleteVital : undefined}
                   />

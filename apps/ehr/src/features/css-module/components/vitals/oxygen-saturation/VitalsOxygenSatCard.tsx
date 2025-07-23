@@ -10,11 +10,11 @@ import {
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { AccordionCard, DoubleColumnContainer } from '../../../../../telemed/components';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
+import VitalHistoryElement from '../components/VitalsHistoryEntry';
 import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
 import { useScreenDimensions } from '../hooks/useScreenDimensions';
 import { VitalsCardProps } from '../types';
 import { textToOxygenSatNumber } from './helpers';
-import VitalOxygenSatHistoryElement from './VitalOxygenSatHistoryElement';
 
 type VitalsOxygenSatCardProps = VitalsCardProps<VitalsOxygenSatObservationDTO>;
 const VitalsOxygenSatCard: React.FC<VitalsOxygenSatCardProps> = ({
@@ -190,7 +190,7 @@ const VitalsOxygenSatCard: React.FC<VitalsOxygenSatCardProps> = ({
               historyElementCreator={(historyEntry) => {
                 const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
                 return (
-                  <VitalOxygenSatHistoryElement
+                  <VitalHistoryElement
                     historyEntry={historyEntry}
                     onDelete={isCurrent ? handleDeleteVital : undefined}
                   />
