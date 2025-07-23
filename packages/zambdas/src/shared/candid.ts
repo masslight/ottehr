@@ -979,7 +979,7 @@ const buildCandidCoverageCreateInput = (
         country: subscriber.address?.[0].country ?? 'US', // TODO just save country into the FHIR resource when making it https://build.fhir.org/datatypes-definitions.html#Address.country. We can put US by default to start.
       },
     },
-    relationship: fhirCoverageRelationshipToCandidRelationship(
+    relationship: convertCoverageRelationshipToCandidRelationship(
       assertDefined(coverage.relationship?.coding?.[0].code, 'Subscriber relationship')
     ),
     status: 'ACTIVE',
@@ -993,16 +993,13 @@ const buildCandidCoverageCreateInput = (
   };
 };
 
-function fhirCoverageRelationshipToCandidRelationship(relationship: string): Relationship {
+function convertCoverageRelationshipToCandidRelationship(relationship: string): Relationship {
   const normalizedString = relationship.toUpperCase().trim();
 
   //
   // Normalize the string to match the expected values from FHIR specification
   // defined here https://build.fhir.org/valueset-subscriber-relationship.html
   //
-  // Note: as ottehr is mapping responsible party relationship to patient, candid
-  // is looking for patient relationship to insured, so we need to swap
-  // parent to child.
   //
   switch (normalizedString) {
     case 'SELF':
@@ -1010,9 +1007,9 @@ function fhirCoverageRelationshipToCandidRelationship(relationship: string): Rel
     case 'SPOUSE':
       return Relationship.Spouse;
     case 'PARENT':
-      return Relationship.Child;
-    case 'CHILD':
       return Relationship.Other;
+    case 'CHILD':
+      return Relationship.Child;
     case 'COMMON':
       return Relationship.CommonLawSpouse;
     default:
