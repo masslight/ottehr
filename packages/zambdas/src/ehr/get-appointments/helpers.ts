@@ -4,8 +4,8 @@ import { DateTime } from 'luxon';
 import {
   AppointmentParticipants,
   OTTEHR_MODULE,
-  PARTICIPANT_TYPE,
   ParticipantInfo,
+  PRACTITIONER_CODINGS,
   ScheduleStrategy,
   scheduleStrategyForHealthcareService,
 } from 'utils';
@@ -33,10 +33,10 @@ export const parseEncounterParticipants = (
     const participantType = participant.type[0].coding[0].code;
 
     switch (participantType) {
-      case PARTICIPANT_TYPE.ADMITTER:
+      case PRACTITIONER_CODINGS.Admitter[0].code:
         participants.admitter = parseParticipantInfo(practitioner);
         break;
-      case PARTICIPANT_TYPE.ATTENDER:
+      case PRACTITIONER_CODINGS.Attender[0].code:
         participants.attender = parseParticipantInfo(practitioner);
         break;
     }

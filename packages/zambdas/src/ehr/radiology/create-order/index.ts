@@ -151,7 +151,7 @@ const writeOurServiceRequest = (
   practitionerRelativeReference: string,
   oystehr: Oystehr
 ): Promise<ServiceRequest> => {
-  const { encounter, diagnosis, cpt, stat } = validatedBody;
+  const { encounter, diagnosis, cpt, stat, clinicalHistory } = validatedBody;
   const now = DateTime.now();
 
   const fillerAndPlacerOrderNumber = randomstring.generate({
@@ -278,6 +278,31 @@ const writeOurServiceRequest = (
         ],
       },
       {
+        url: SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL,
+        extension: [
+          {
+            url: SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL,
+            extension: [
+              {
+                url: SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL,
+                valueCodeableConcept: {
+                  coding: [
+                    {
+                      system: ADVAPACS_ORDER_DETAIL_MODALITY_CODE_SYSTEM_URL,
+                      code: 'clinical-history',
+                    },
+                  ],
+                },
+              },
+              {
+                url: SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL,
+                valueString: clinicalHistory,
+              },
+            ],
+          },
+        ],
+      },
+      {
         url: SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
         valueDateTime: now.toISO(),
       },
@@ -372,7 +397,41 @@ const writeAdvaPacsTransaction = async (
                   ],
                 },
                 valueString: ourServiceRequest.extension
-                  ?.find((ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL)
+                  ?.filter((ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL)
+                  ?.find((orderDetailExt) => {
+                    const parameterExt = orderDetailExt.extension?.find(
+                      (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL
+                    );
+                    const codeExt = parameterExt?.extension?.find(
+                      (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL
+                    );
+                    return codeExt?.valueCodeableConcept?.coding?.[0]?.code === 'modality';
+                  })
+                  ?.extension?.find((ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL)
+                  ?.extension?.find(
+                    (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL
+                  )?.valueString,
+              },
+              {
+                code: {
+                  coding: [
+                    {
+                      system: ADVAPACS_ORDER_DETAIL_MODALITY_CODE_SYSTEM_URL,
+                      code: 'clinical-history',
+                    },
+                  ],
+                },
+                valueString: ourServiceRequest.extension
+                  ?.filter((ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL)
+                  ?.find((orderDetailExt) => {
+                    const parameterExt = orderDetailExt.extension?.find(
+                      (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL
+                    );
+                    const codeExt = parameterExt?.extension?.find(
+                      (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL
+                    );
+                    return codeExt?.valueCodeableConcept?.coding?.[0]?.code === 'clinical-history';
+                  })
                   ?.extension?.find((ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL)
                   ?.extension?.find(
                     (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL

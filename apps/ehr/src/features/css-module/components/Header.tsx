@@ -7,7 +7,13 @@ import { enqueueSnackbar } from 'notistack';
 import { useState } from 'react';
 import { useQuery } from 'react-query';
 import { useNavigate, useParams } from 'react-router-dom';
-import { PRACTITIONER_CODINGS, ProviderDetails, VisitStatusLabel } from 'utils';
+import {
+  getAdmitterPractitionerId,
+  getAttendingPractitionerId,
+  PRACTITIONER_CODINGS,
+  ProviderDetails,
+  VisitStatusLabel,
+} from 'utils';
 import { getEmployees } from '../../../api/api';
 import { dataTestIds } from '../../../constants/data-test-ids';
 import { useApiClients } from '../../../hooks/useAppClients';
@@ -71,20 +77,8 @@ export const Header = (): JSX.Element => {
   const { encounter } = telemedData;
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
   const encounterId = encounter?.id;
-  const assignedIntakePerformer = encounter?.participant?.find((participant) => {
-    return participant.type?.some(
-      (type) =>
-        type.coding?.some((coding) => JSON.stringify(coding) === JSON.stringify(PRACTITIONER_CODINGS.Admitter[0]))
-    );
-  });
-  const assignedIntakePerformerId = assignedIntakePerformer?.individual?.reference?.split('/')[1];
-  const assignedProvider = encounter?.participant?.find((participant) => {
-    return participant.type?.some(
-      (type) =>
-        type.coding?.some((coding) => JSON.stringify(coding) === JSON.stringify(PRACTITIONER_CODINGS.Attender[0]))
-    );
-  });
-  const assignedProviderId = assignedProvider?.individual?.reference?.split('/')[1];
+  const assignedIntakePerformerId = encounter ? getAdmitterPractitionerId(encounter) : undefined;
+  const assignedProviderId = encounter ? getAttendingPractitionerId(encounter) : undefined;
   const patientName = format(mappedData?.patientName, 'Name');
   const pronouns = format(mappedData?.pronouns, 'Pronouns');
   const gender = format(mappedData?.gender, 'Gender');

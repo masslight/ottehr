@@ -471,6 +471,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           name: code.text || ORDER_ITEM_UNKNOWN,
         })),
         orderPriority: serviceRequest.priority || ORDER_ITEM_UNKNOWN,
+        isManualOrder: manualOrder,
       },
       patient.id,
       secrets,
