@@ -94,6 +94,7 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
   const [documents, setDocuments] = useState<PatientDocumentInfo[]>();
   const [documentsFolders, setDocumentsFolders] = useState<PatientDocumentsFolder[]>([]);
   const [currentFilters, setCurrentFilters] = useState<PatientDocumentsFilters | undefined>(filters);
+  const { oystehr } = useApiClients();
 
   const { isLoading: isLoadingFolders, isFetching: isFetchingFolders } = useGetPatientDocsFolders(
     { patientId },
@@ -133,7 +134,30 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
   const downloadDocument = useCallback(
     async (documentId: string): Promise<void> => {
       const authToken = await getAccessTokenSilently();
-      const patientDoc = getDocumentById(documentId);
+      let patientDoc = getDocumentById(documentId);
+
+      if (!patientDoc && oystehr) {
+        const docRef = (
+          await oystehr.fhir.search<DocumentReference>({
+            resourceType: 'DocumentReference',
+            params: [
+              {
+                name: '_id',
+                value: documentId,
+              },
+            ],
+          })
+        ).unbundle()[0];
+        if (docRef) {
+          patientDoc = {
+            id: docRef.id!,
+            docName: debug__createDisplayedDocumentName(docRef),
+            whenAddedDate: docRef.date,
+            attachments: extractDocumentAttachments(docRef),
+          } as PatientDocumentInfo;
+          setDocuments([...(documents ?? []), patientDoc]);
+        }
+      }
 
       const docAttachments = patientDoc?.attachments ?? [];
       if (docAttachments.length === 0) {
@@ -187,7 +211,7 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
           });
       }
     },
-    [getAccessTokenSilently, getDocumentById]
+    [documents, getAccessTokenSilently, getDocumentById, oystehr]
   );
 
   return {
@@ -384,11 +408,7 @@ const extractDocumentAttachments = (docRef: DocumentReference): PatientDocumentA
 //TODO: for now its not clear how real doc_name will be created based on the attachments data
 // there is ongoing problem having multiple attachments per single DocumentReference resource
 const debug__createDisplayedDocumentName = (docRef: DocumentReference): string => {
-  const removeTrailingDelimiter = (str: string): string => str.replace(/&$/, '');
-  const docName = (extractDocumentAttachments(docRef) ?? []).reduce((acc: string, item: PatientDocumentAttachment) => {
-    return `${acc}${item.title} & `;
-  }, '');
-  return removeTrailingDelimiter(docName.trim());
+  return (extractDocumentAttachments(docRef) ?? []).map((item) => item.title).join(' & ');
 };
 
 //TODO: OystEHR FHIR backed is going to add support for "_text" search modifier and necessary migration changes is also
