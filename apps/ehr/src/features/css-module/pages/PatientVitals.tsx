@@ -1,25 +1,10 @@
 import { Box, Stack, Typography } from '@mui/material';
-import { DateTime } from 'luxon';
 import React, { useMemo } from 'react';
 import { useQuery } from 'react-query';
 import { useParams } from 'react-router-dom';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { AssessmentTitle } from 'src/telemed/features/appointment/AssessmentTab';
-import {
-  AlertRule,
-  GetVitalsResponseData,
-  VitalFieldNames,
-  VitalsBloodPressureObservationDTO,
-  VitalsDef,
-  VitalsHeartbeatObservationDTO,
-  VitalsHeightObservationDTO,
-  VitalsKey,
-  VitalsObservationDTO,
-  VitalsOxygenSatObservationDTO,
-  VitalsRespirationRateObservationDTO,
-  VitalsTemperatureObservationDTO,
-  VitalsWeightObservationDTO,
-} from 'utils';
+import { GetVitalsResponseData, VitalFieldNames, VitalsObservationDTO } from 'utils';
 import { PageTitle } from '../../../telemed/components/PageTitle';
 import { CSSLoader } from '../components/CSSLoader';
 import VitalsNotesCard from '../components/patient-info/VitalsNotesCard';
@@ -50,7 +35,7 @@ interface PatientVitalsProps {
 export const PatientVitals: React.FC<PatientVitalsProps> = () => {
   const { id: appointmentID } = useParams();
   const {
-    resources: { appointment, encounter, patient },
+    resources: { appointment, encounter },
     isLoading,
     error,
   } = useAppointment(appointmentID);
@@ -105,39 +90,30 @@ export const PatientVitals: React.FC<PatientVitalsProps> = () => {
     }
   );
 
-  const { interactionMode } = useNavigationContext();
-
-  console.log('VitalsDef', VitalsDef);
-
   const abnormalVitalsValues = useMemo(() => {
-    const abnormalValues: VitalsMap = {
-      [VitalFieldNames.VitalTemperature]: [],
-      [VitalFieldNames.VitalHeartbeat]: [],
-      [VitalFieldNames.VitalRespirationRate]: [],
-      [VitalFieldNames.VitalBloodPressure]: [],
-      [VitalFieldNames.VitalOxygenSaturation]: [],
-      [VitalFieldNames.VitalHeight]: [],
-      [VitalFieldNames.VitalWeight]: [],
-    };
+    const alertingEntries = Object.entries(encounterVitals || {})
+      .map(([key, values]) => {
+        if (Array.isArray(values)) {
+          const newValues = values.filter((value) => {
+            if (value.alertCriticality) {
+              return true;
+            } else {
+              return false;
+            }
+          });
+          return [key, newValues];
+        } else {
+          return [key, []];
+        }
+      })
+      .filter(([_, values]) => values.length > 0);
 
-    if (!patient?.birthDate || !encounterVitalsLoading) return abnormalValues;
+    return Object.fromEntries(alertingEntries);
+  }, [encounterVitals]);
 
-    const dob = patient.birthDate;
+  console.log('abnormalVitalsValues', abnormalVitalsValues, encounterVitals?.[VitalFieldNames.VitalTemperature]);
 
-    const patientAgeInMonths = DateTime.fromISO(dob).diffNow('months').months * -1;
-    Object.entries(vitalsKeyToFieldNameMap).forEach(([vitalsKey, fieldName]) => {
-      const rules = findRulesForVitalsKeyAndDOB(vitalsKey as VitalsKey, dob);
-      console.log('rules for', vitalsKey, rules.length);
-      const values = Object.values(encounterVitals || {}).flatMap((v) => v) as VitalsObservationDTO[];
-      console.log('values for', vitalsKey, values);
-      const alertableValues = findAlertableValues({ vitalsValues: values, rules, patientAgeInMonths });
-      if (alertableValues.length > 0) {
-        console.log('alertable values for', vitalsKey, alertableValues);
-        (abnormalValues[fieldName] as VitalsObservationDTO[]).push(...alertableValues);
-      }
-    });
-    return abnormalValues;
-  }, [patient?.birthDate, encounterVitalsLoading, encounterVitals]);
+  const { interactionMode } = useNavigationContext();
 
   const handleSaveVital = async (vitalEntity: VitalsObservationDTO): Promise<void> => {
     console.log('handleSaveVital called with:', vitalEntity);
@@ -220,30 +196,8 @@ export const PatientVitals: React.FC<PatientVitalsProps> = () => {
   );
 };
 
-const emptyDelete = async (): Promise<void> => {
-  return;
-};
-
-type VitalsMap = {
-  [VitalFieldNames.VitalTemperature]: VitalsTemperatureObservationDTO[];
-  [VitalFieldNames.VitalHeartbeat]: VitalsHeartbeatObservationDTO[];
-  [VitalFieldNames.VitalRespirationRate]: VitalsRespirationRateObservationDTO[];
-  [VitalFieldNames.VitalBloodPressure]: VitalsBloodPressureObservationDTO[];
-  [VitalFieldNames.VitalOxygenSaturation]: VitalsOxygenSatObservationDTO[];
-  [VitalFieldNames.VitalHeight]: VitalsHeightObservationDTO[];
-  [VitalFieldNames.VitalWeight]: VitalsWeightObservationDTO[];
-};
-
-const vitalsKeyToFieldNameMap: Record<VitalsKey, keyof VitalsMap> = {
-  temperature: VitalFieldNames.VitalTemperature,
-  heartRate: VitalFieldNames.VitalHeartbeat,
-  respiratoryRate: VitalFieldNames.VitalRespirationRate,
-  sp02: VitalFieldNames.VitalOxygenSaturation,
-  systolicBloodPressure: VitalFieldNames.VitalBloodPressure,
-};
-
 interface AbnormalVitalsModalProps {
-  abnormalVitalsValues: VitalsMap;
+  abnormalVitalsValues: GetVitalsResponseData;
 }
 
 const AbnormalVitalsModal: React.FC<AbnormalVitalsModalProps> = ({ abnormalVitalsValues }) => {
@@ -270,11 +224,7 @@ const AbnormalVitalsModal: React.FC<AbnormalVitalsModalProps> = ({ abnormalVital
               <AssessmentTitle>Temperature</AssessmentTitle>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                 {temperature?.map((item) => (
-                  <VitalTemperatureHistoryElement
-                    key={item.resourceId}
-                    historyEntry={{ ...item }}
-                    onDelete={emptyDelete}
-                  />
+                  <VitalTemperatureHistoryElement key={item.resourceId} historyEntry={{ ...item }} />
                 ))}
               </Box>
             </>
@@ -284,11 +234,7 @@ const AbnormalVitalsModal: React.FC<AbnormalVitalsModalProps> = ({ abnormalVital
               <AssessmentTitle>Heartbeat</AssessmentTitle>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                 {heartbeat?.map((item) => (
-                  <VitalHeartbeatHistoryElement
-                    key={item.resourceId}
-                    historyEntry={{ ...item }}
-                    onDelete={emptyDelete}
-                  />
+                  <VitalHeartbeatHistoryElement key={item.resourceId} historyEntry={{ ...item }} />
                 ))}
               </Box>
             </>
@@ -298,11 +244,7 @@ const AbnormalVitalsModal: React.FC<AbnormalVitalsModalProps> = ({ abnormalVital
               <AssessmentTitle>Respiration Rate</AssessmentTitle>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                 {respirationRate?.map((item) => (
-                  <VitalsRespirationRateHistoryElementElement
-                    key={item.resourceId}
-                    historyEntry={{ ...item }}
-                    onDelete={emptyDelete}
-                  />
+                  <VitalsRespirationRateHistoryElementElement key={item.resourceId} historyEntry={{ ...item }} />
                 ))}
               </Box>
             </>
@@ -312,11 +254,7 @@ const AbnormalVitalsModal: React.FC<AbnormalVitalsModalProps> = ({ abnormalVital
               <AssessmentTitle>Blood Pressure</AssessmentTitle>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                 {bloodPressure?.map((item) => (
-                  <VitalBloodPressureHistoryElement
-                    key={item.resourceId}
-                    historyEntry={{ ...item }}
-                    onDelete={emptyDelete}
-                  />
+                  <VitalBloodPressureHistoryElement key={item.resourceId} historyEntry={{ ...item }} />
                 ))}
               </Box>
             </>
@@ -326,11 +264,7 @@ const AbnormalVitalsModal: React.FC<AbnormalVitalsModalProps> = ({ abnormalVital
               <AssessmentTitle>Oxygen Saturation</AssessmentTitle>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                 {oxygenSaturation?.map((item) => (
-                  <VitalOxygenSatHistoryElement
-                    key={item.resourceId}
-                    historyEntry={{ ...item }}
-                    onDelete={emptyDelete}
-                  />
+                  <VitalOxygenSatHistoryElement key={item.resourceId} historyEntry={{ ...item }} />
                 ))}
               </Box>
             </>
@@ -339,9 +273,7 @@ const AbnormalVitalsModal: React.FC<AbnormalVitalsModalProps> = ({ abnormalVital
             <>
               <AssessmentTitle>Weight</AssessmentTitle>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                {weight?.map((item) => (
-                  <VitalWeightHistoryElement key={item.resourceId} historyEntry={{ ...item }} onDelete={emptyDelete} />
-                ))}
+                {weight?.map((item) => <VitalWeightHistoryElement key={item.resourceId} historyEntry={{ ...item }} />)}
               </Box>
             </>
           )}
@@ -349,9 +281,7 @@ const AbnormalVitalsModal: React.FC<AbnormalVitalsModalProps> = ({ abnormalVital
             <>
               <AssessmentTitle>Height</AssessmentTitle>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                {height?.map((item) => (
-                  <VitalHeightHistoryElement key={item.resourceId} historyEntry={{ ...item }} onDelete={emptyDelete} />
-                ))}
+                {height?.map((item) => <VitalHeightHistoryElement key={item.resourceId} historyEntry={{ ...item }} />)}
               </Box>
             </>
           )}
@@ -361,62 +291,4 @@ const AbnormalVitalsModal: React.FC<AbnormalVitalsModalProps> = ({ abnormalVital
       closeButtonText="Continue"
     />
   );
-};
-
-const findRulesForVitalsKeyAndDOB = (key: VitalsKey, dob: string): AlertRule[] => {
-  const dateOfBirth = DateTime.fromISO(dob);
-  const now = DateTime.now();
-  const alertThresholds = VitalsDef[key]?.alertThresholds ?? [];
-  const rules = alertThresholds
-    .filter((threshold) => {
-      const { minAge, maxAge } = threshold;
-      if (!minAge && !maxAge) return true;
-      if (minAge) {
-        const minAgeDOB = now.minus({ [minAge.unit]: minAge.value });
-        if (dateOfBirth > minAgeDOB) return false;
-      }
-      if (maxAge) {
-        const maxAgeDOB = now.minus({ [maxAge.unit]: maxAge.value });
-        if (dateOfBirth < maxAgeDOB) return false;
-      }
-      return true;
-    })
-    .flatMap((threshold) => threshold.rules ?? []);
-  return rules;
-};
-
-interface AlertableValuesInput {
-  vitalsValues: VitalsObservationDTO[];
-  rules: AlertRule[];
-  patientAgeInMonths: number;
-}
-
-const findAlertableValues = (input: AlertableValuesInput): VitalsObservationDTO[] => {
-  const { vitalsValues, rules, patientAgeInMonths } = input;
-  return vitalsValues.filter((vitalVal) => {
-    const value = vitalVal.value;
-    if (value === undefined || value === null || typeof value !== 'number') {
-      console.warn('Vital value is not a number:', vitalVal);
-      // todo: handle the non-numeric value cases
-      return false;
-    }
-    return rules.some((rule) => {
-      const { type } = rule;
-      let thresholdValue: number | undefined;
-
-      if ((rule as any).value !== undefined) {
-        thresholdValue = (rule as any).value;
-      } else if ((rule as any).ageFunction) {
-        thresholdValue = (rule as any).ageFunction(patientAgeInMonths);
-      }
-      if (thresholdValue === undefined) {
-        console.warn('Rule does not have a value or ageFunction:', rule);
-        return false;
-      }
-
-      if (type === 'min' && value < thresholdValue) return true;
-      if (type === 'max' && value > thresholdValue) return true;
-      return false;
-    });
-  });
 };

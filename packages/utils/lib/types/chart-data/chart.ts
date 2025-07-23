@@ -1,5 +1,5 @@
 const VitalsDef = {
-  temperature: {
+  'vital-temperature': {
     alertThresholds: [
       {
         rules: [
@@ -18,7 +18,7 @@ const VitalsDef = {
       },
     ],
   },
-  heartRate: {
+  'vital-heartbeat': {
     alertThresholds: [
       {
         rules: [
@@ -77,7 +77,7 @@ const VitalsDef = {
       },
     ],
   },
-  respiratoryRate: {
+  'vital-respiration-rate': {
     alertThresholds: [
       {
         rules: [
@@ -136,7 +136,7 @@ const VitalsDef = {
       },
     ],
   },
-  sp02: {
+  'vital-oxygen-sat': {
     alertThresholds: [
       {
         rules: [{ type: 'min', units: '', value: 95 }],
@@ -144,7 +144,7 @@ const VitalsDef = {
       },
     ],
   },
-  systolicBloodPressure: {
+  'vital-blood-pressure': {
     alertThresholds: [
       {
         rules: [{ type: 'min', units: '', value: 70 }],

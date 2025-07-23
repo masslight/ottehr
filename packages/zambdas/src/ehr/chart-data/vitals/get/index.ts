@@ -11,6 +11,7 @@ import {
   FHIR_RESOURCE_NOT_FOUND,
   FHIR_RESOURCE_NOT_FOUND_CUSTOM,
   getFullName,
+  getVitalDTOCriticalityFromObservation,
   GetVitalsResponseData,
   INVALID_INPUT_ERROR,
   isValidUUID,
@@ -63,7 +64,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<GetV
     console.log('Vitals map:', map);
     return map;
   } else {
-    const list = await fetchVitalsPriorToEncounter(encounter, input.patientId, mode.searchBefore, oystehr);
+    const list = await fetchVitalsPriorToEncounter(input.patientId, mode.searchBefore, oystehr);
     const map = convertVitalsListToMap(list);
     console.log('Vitals map:', map);
     return map;
@@ -92,12 +93,7 @@ const fetchVitalsForEncounter = async (encounterId: string, oystehr: Oystehr): P
   return parseResourcesToDTOs(observations, practitioners);
 };
 
-const fetchVitalsPriorToEncounter = async (
-  encounter: Encounter,
-  patientId: string,
-  searchBefore: string,
-  oystehr: Oystehr
-): Promise<any> => {
+const fetchVitalsPriorToEncounter = async (patientId: string, searchBefore: string, oystehr: Oystehr): Promise<any> => {
   const currentVitalsAndPerformers = (
     await oystehr.fhir.search<Observation | Practitioner>({
       resourceType: 'Observation',
@@ -167,6 +163,7 @@ const parseResourcesToDTOs = (observations: Observation[], practitioners: Practi
       }
 
       if (vitalObservation) {
+        vitalObservation.alertCriticality = getVitalDTOCriticalityFromObservation(observation);
         return vitalObservation;
       }
       return [];

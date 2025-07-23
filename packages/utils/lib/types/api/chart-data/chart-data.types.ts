@@ -24,6 +24,7 @@ import {
   HistorySourceKeys,
   RecentVisitKeys,
   SEEN_IN_LAST_THREE_YEARS_FIELD,
+  VitalAlertCriticality,
   VitalBloodPressureObservationMethod,
   VitalFieldNames,
   VitalHeartbeatObservationMethod,
@@ -169,6 +170,7 @@ export interface VitalsBaseObservationDTO extends SaveableDTO {
   authorId?: string;
   authorName?: string;
   lastUpdated?: string;
+  alertCriticality?: VitalAlertCriticality;
 }
 export interface VitalsNumericValueObservationDTO extends VitalsBaseObservationDTO {
   value: number;

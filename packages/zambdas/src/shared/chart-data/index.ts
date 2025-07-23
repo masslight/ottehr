@@ -57,6 +57,7 @@ import {
   fillVitalObservationAttributes,
   FreeTextNoteDTO,
   GetChartDataResponse,
+  getVitalObservationFhirInterpretations,
   HospitalizationDTO,
   isVitalObservation,
   makeVitalsObservationDTO,
@@ -306,7 +307,8 @@ export function makeObservationResource(
   patientId: string,
   practitionerId: string,
   data: ObservationDTO,
-  metaSystem: string
+  metaSystem: string,
+  patientDOB?: string
 ): Observation {
   const base: Observation = {
     id: data.resourceId,
@@ -326,7 +328,14 @@ export function makeObservationResource(
 
   if (isVitalObservation(data)) {
     console.log(`isVitalObservation() == true`);
-    return fillVitalObservationAttributes(base, data);
+    let interpretation: Observation['interpretation'];
+    if (patientDOB) {
+      interpretation = getVitalObservationFhirInterpretations({
+        patientDOB,
+        vitalsObservation: data,
+      });
+    }
+    return fillVitalObservationAttributes({ ...base, interpretation }, data);
   }
 
   if (isObservationBooleanFieldDTO(data)) {

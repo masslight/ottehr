@@ -209,7 +209,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             patient.id!,
             currentPractitioner.id!,
             element,
-            ADDITIONAL_QUESTIONS_META_SYSTEM
+            ADDITIONAL_QUESTIONS_META_SYSTEM,
+            patient.birthDate
           )
         )
       );
@@ -223,7 +224,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             patient.id!,
             currentPractitioner.id!,
             element,
-            PATIENT_VITALS_META_SYSTEM
+            PATIENT_VITALS_META_SYSTEM,
+            patient.birthDate
           )
         )
       );

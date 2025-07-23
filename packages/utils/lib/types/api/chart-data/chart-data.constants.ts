@@ -1,3 +1,4 @@
+import { CodeableConcept } from 'fhir/r4b';
 import { ERX_MEDICATION_META_TAG_CODE } from '../../../fhir/constants';
 import { SCHOOL_WORK_NOTE } from '../../data';
 import { CSS_NOTE_ID, NOTHING_TO_EAT_OR_DRINK_ID } from './chart-data.types';
@@ -150,6 +151,72 @@ export enum VitalFieldNames {
   VitalHeight = 'vital-height',
   VitalVision = 'vital-vision',
 }
+
+export enum VitalAlertCriticality {
+  Critical = 'critical',
+  Abnormal = 'abnormal',
+}
+
+export const FHIRObservationInterpretationSystem =
+  'http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation ';
+
+// subset taken from full expansion: https://hl7.org/fhir/R4B/valueset-observation-interpretation.html
+export enum FHIRObservationInterpretation {
+  CriticalHigh = 'HH',
+  CriticalLow = 'LL',
+  AbnormalHigh = 'HX',
+  AbnormalLow = 'LX',
+  Normal = 'N',
+}
+
+export const FHIRObservationInterpretationCodesMap: Record<FHIRObservationInterpretation, CodeableConcept> =
+  Object.freeze({
+    HH: {
+      coding: [
+        {
+          system: FHIRObservationInterpretationSystem,
+          code: FHIRObservationInterpretation.CriticalHigh,
+          display: 'Critical high',
+        },
+      ],
+    },
+    LL: {
+      coding: [
+        {
+          system: FHIRObservationInterpretationSystem,
+          code: FHIRObservationInterpretation.CriticalLow,
+          display: 'Critical low',
+        },
+      ],
+    },
+    HX: {
+      coding: [
+        {
+          system: FHIRObservationInterpretationSystem,
+          code: FHIRObservationInterpretation.AbnormalHigh,
+          display: 'Abnormal high',
+        },
+      ],
+    },
+    LX: {
+      coding: [
+        {
+          system: FHIRObservationInterpretationSystem,
+          code: FHIRObservationInterpretation.AbnormalLow,
+          display: 'Abnormal low',
+        },
+      ],
+    },
+    N: {
+      coding: [
+        {
+          system: FHIRObservationInterpretationSystem,
+          code: FHIRObservationInterpretation.Normal,
+          display: 'Normal',
+        },
+      ],
+    },
+  });
 
 export enum VitalTemperatureObservationMethod {
   Axillary = 'Axillary',

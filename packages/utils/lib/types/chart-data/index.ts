@@ -1,8 +1,7 @@
 import * as z from 'zod';
+import { VitalAlertCriticality, VitalFieldNames } from '../api';
 import ChartData from './chart';
 
-const VitalsKeyList = ['temperature', 'heartRate', 'respiratoryRate', 'sp02', 'systolicBloodPressure'] as const;
-export type VitalsKey = (typeof VitalsKeyList)[number];
 const AgeSchema = z.object({
   unit: z.enum(['years', 'months', 'days']),
   value: z.number().int().nonnegative(),
@@ -10,6 +9,7 @@ const AgeSchema = z.object({
 const BaseConstraintSchema = z.object({
   type: z.enum(['min', 'max']),
   units: z.string().optional(),
+  criticality: z.nativeEnum(VitalAlertCriticality).default(VitalAlertCriticality.Abnormal),
 });
 const ValueConstraintSchema = BaseConstraintSchema.extend({
   value: z.number(),
@@ -36,7 +36,7 @@ const VitalsObjectSchema = z.object({
   alertThresholds: z.array(AlertThresholdSchema),
 });
 
-export const VitalsMapSchema = z.record(z.enum(VitalsKeyList), VitalsObjectSchema);
+export const VitalsMapSchema = z.record(z.nativeEnum(VitalFieldNames), VitalsObjectSchema);
 export const ChartDataSchema = z.object({
   vitals: VitalsMapSchema,
 });
