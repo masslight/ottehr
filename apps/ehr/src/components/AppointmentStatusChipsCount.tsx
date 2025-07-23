@@ -15,7 +15,7 @@ const ORDER_STATUS = [
   'intake',
   'ready for provider',
   'provider',
-  'ready for discharge',
+  'discharged',
   'checked out',
   'canceled',
   'no show',
