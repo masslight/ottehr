@@ -22,7 +22,7 @@ export interface FullAppointmentResourcePackage {
   account?: Account;
   location?: Location;
   questionnaireResponse?: QuestionnaireResponse;
-  practitioner?: Practitioner;
+  practitioners?: Practitioner[];
   documentReferences?: DocumentReference[];
   listResources: List[];
   insurancePlan?: InsurancePlan;

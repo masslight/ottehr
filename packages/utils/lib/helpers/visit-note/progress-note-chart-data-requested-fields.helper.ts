@@ -32,6 +32,7 @@ export const getProgressNoteChartDataRequestedFields = (): ChartDataRequestedFie
   },
   externalLabResults: {},
   inHouseLabResults: {},
+  practitioners: {},
 });
 
 export const telemedProgressNoteChartDataRequestedFields: ChartDataRequestedFields = {

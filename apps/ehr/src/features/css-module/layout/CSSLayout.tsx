@@ -1,9 +1,11 @@
 import React, { useRef } from 'react';
 import { Outlet } from 'react-router-dom';
+import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils';
 import { useResetAppointmentStore } from '../../../telemed';
 import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
 import { CommonLayoutBreadcrumbs } from '../components/breadcrumbs/CommonLayoutBreadcrumbs';
 import { Header } from '../components/Header';
+import { InfoAlert } from '../components/InfoAlert';
 import { Sidebar } from '../components/Sidebar';
 import { useChartData } from '../hooks/useChartData';
 import { BottomNavigation } from './BottomNavigation';
@@ -48,6 +50,10 @@ export const CSSLayout: React.FC = () => {
     shouldUpdateExams: true,
   });
 
+  const assignedIntakePerformerId = getAdmitterPractitionerId(encounter);
+
+  const assignedProviderId = getAttendingPractitionerId(encounter);
+
   return (
     <div style={layoutStyle}>
       <Header />
@@ -63,8 +69,14 @@ export const CSSLayout: React.FC = () => {
               padding: '20px 20px 24px 20px',
             }}
           >
-            <CommonLayoutBreadcrumbs />
-            <Outlet />
+            {assignedIntakePerformerId && assignedProviderId ? (
+              <>
+                <CommonLayoutBreadcrumbs />
+                <Outlet />
+              </>
+            ) : (
+              <InfoAlert text="Select an intake performer and a provider in order to begin charting." persistent />
+            )}
           </div>
           <BottomNavigation />
         </div>

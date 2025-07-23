@@ -1,7 +1,13 @@
 import { Box, Stack, Typography } from '@mui/material';
 import { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getProviderNameWithProfession, getQuestionnaireResponseByLinkId, getSelectors, PARTICIPANT_TYPE } from 'utils';
+import {
+  getAdmitterPractitionerId,
+  getAttendingPractitionerId,
+  getProviderNameWithProfession,
+  getQuestionnaireResponseByLinkId,
+  getSelectors,
+} from 'utils';
 import { formatDateUsingSlashes } from '../../../../helpers/formatDateTime';
 import { ActionsList, useAppointmentStore } from '../../../../telemed';
 import { VisitNoteItem } from '../../../../telemed/features/appointment/ReviewTab';
@@ -11,16 +17,10 @@ import { ButtonRounded } from '../RoundedButton';
 export const VisitDetailsContainer: FC = () => {
   const navigate = useNavigate();
 
-  const { appointment, practitioner, location, questionnaireResponse, encounter, chartData, setPartialChartData } =
-    getSelectors(useAppointmentStore, [
-      'appointment',
-      'practitioner',
-      'location',
-      'questionnaireResponse',
-      'encounter',
-      'chartData',
-      'setPartialChartData',
-    ]);
+  const { appointment, location, questionnaireResponse, encounter, chartData, setPartialChartData } = getSelectors(
+    useAppointmentStore,
+    ['appointment', 'location', 'questionnaireResponse', 'encounter', 'chartData', 'setPartialChartData']
+  );
 
   useChartData({
     encounterId: encounter.id || '',
@@ -39,13 +39,15 @@ export const VisitDetailsContainer: FC = () => {
   const subscriberID = getQuestionnaireResponseByLinkId('insurance-member-id', questionnaireResponse)?.answer?.[0]
     .valueString;
   const date = formatDateUsingSlashes(appointment?.start);
-  const provider = practitioner && getProviderNameWithProfession(practitioner);
+
   const facility = location?.name;
-  const admitterId = encounter.participant
-    ?.find((participant) => participant.type?.[0]?.coding?.[0].code === PARTICIPANT_TYPE.ADMITTER)
-    ?.individual?.reference?.split('/')?.[1];
+  const admitterId = getAdmitterPractitionerId(encounter);
   const admitterPractitioner = chartData?.practitioners?.find((practitioner) => practitioner.id === admitterId);
   const admitterPractitionerName = admitterPractitioner && getProviderNameWithProfession(admitterPractitioner);
+
+  const attenderId = encounter ? getAttendingPractitionerId(encounter) : undefined;
+  const attenderPractitioner = chartData?.practitioners?.find((practitioner) => practitioner.id === attenderId);
+  const attenderPractitionerName = attenderPractitioner && getProviderNameWithProfession(attenderPractitioner);
 
   return (
     <Stack spacing={2}>
@@ -86,7 +88,7 @@ export const VisitDetailsContainer: FC = () => {
           { label: 'Primary Insurance', value: insuranceCompanyID },
           { label: 'Subscriber ID', value: subscriberID },
           { label: 'Encounter Date', value: date },
-          { label: 'Provider', value: provider },
+          { label: 'Provider', value: attenderPractitionerName },
           { label: 'Intake completed by', value: admitterPractitionerName },
           { label: 'Appointment Facility', value: facility },
         ]}

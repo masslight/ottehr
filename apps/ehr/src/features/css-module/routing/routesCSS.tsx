@@ -82,7 +82,7 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
   },
   [ROUTER_PATH.OTTEHR_AI]: {
     path: ROUTER_PATH.OTTEHR_AI,
-    modes: ['provider', 'readonly'],
+    modes: ['intake', 'provider', 'readonly'],
     element: <OttehrAi />,
     text: 'Oystehr AI',
     iconKey: 'Oystehr AI',

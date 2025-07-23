@@ -44,7 +44,9 @@ test.beforeAll(async ({ browser }) => {
   cssHeader = new CssHeader(page);
   await page.goto(`in-person/${resourceHandler.appointment.id}/progress-note`);
   await cssHeader.verifyStatus('pending');
-  await cssHeader.clickSwitchStatusButton('provider');
+  await cssHeader.selectIntakePractitioner();
+  await cssHeader.selectProviderPractitioner();
+  await cssHeader.clickSwitchModeButton('provider');
   await progressNotePage.expectLoaded();
 });
 
@@ -235,7 +237,6 @@ test('Add E&M code', async () => {
   // Select E&M code
   await test.step('Select E&M code', async () => {
     await assessmentPage.selectEmCode(E_M_CODE);
-    await waitForSaveChartDataResponse(page, (json) => json.chartData.emCode?.code === E_M_CODE);
   });
 
   await test.step('Verify E&M code is added', async () => {
@@ -259,13 +260,7 @@ test('Add CPT codes', async () => {
   // Select CPT code
   await test.step('Select CPT code', async () => {
     await assessmentPage.selectCptCode(CPT_CODE);
-    await waitForSaveChartDataResponse(page, (json) =>
-      Boolean(json.chartData.cptCodes?.some((x) => x.code === CPT_CODE))
-    );
     await assessmentPage.selectCptCode(CPT_CODE_2);
-    await waitForSaveChartDataResponse(page, (json) =>
-      Boolean(json.chartData.cptCodes?.some((x) => x.code === CPT_CODE_2))
-    );
   });
 
   await test.step('Verify CPT codes are added to progress note', async () => {

@@ -290,6 +290,9 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
   drawFieldLine('Date of Service', data.dateOfService);
   drawFieldLine('Reason for Visit', data.reasonForVisit);
   drawFieldLine('Provider', data.provider);
+  if (data.intakePerson) {
+    drawFieldLine('Intake completed by', data.intakePerson);
+  }
   drawFieldLine('Signed On', data.signedOn);
   drawFieldLine('Visit ID', data.visitID);
   drawFieldLine('Visit State', data.visitState);

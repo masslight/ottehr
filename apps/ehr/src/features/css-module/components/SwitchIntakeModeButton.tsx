@@ -9,7 +9,7 @@ export const SwitchIntakeModeButton: React.FC<{
 }> = ({ isDisabled, handleSwitchMode, nextMode }) => {
   return (
     <ButtonRounded
-      data-testid={dataTestIds.cssHeader.switchStatusButton(nextMode)}
+      data-testid={dataTestIds.cssHeader.switchModeButton(nextMode)}
       variant="contained"
       disabled={isDisabled}
       onClick={handleSwitchMode}

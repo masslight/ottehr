@@ -95,16 +95,13 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
   const [documentsFolders, setDocumentsFolders] = useState<PatientDocumentsFolder[]>([]);
   const [currentFilters, setCurrentFilters] = useState<PatientDocumentsFilters | undefined>(filters);
 
-  const { isLoading: isLoadingFolders, isFetching: isFetchingFolders } = useGetPatientDocsFolders(
-    { patientId },
-    (docsFolders) => {
-      console.log(`[useGetPatientDocs] Folders data loading SUCCESS size=[${docsFolders.length}]. Content => `);
-      console.log(docsFolders);
-      setDocumentsFolders(docsFolders);
-    }
-  );
+  const { isLoading: isLoadingFolders } = useGetPatientDocsFolders({ patientId }, (docsFolders) => {
+    console.log(`[useGetPatientDocs] Folders data loading SUCCESS size=[${docsFolders.length}]. Content => `);
+    console.log(docsFolders);
+    setDocumentsFolders(docsFolders);
+  });
 
-  const { isLoading: isLoadingDocuments, isFetching: isFetchingDocuments } = useSearchPatientDocuments(
+  const { isLoading: isLoadingDocuments } = useSearchPatientDocuments(
     { patientId: patientId, filters: currentFilters },
     (docs) => {
       console.log(`[useGetPatientDocs] found Docs [${docs.length}] => `);
@@ -191,10 +188,10 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
   );
 
   return {
-    isLoadingDocuments: isLoadingDocuments || isFetchingDocuments,
+    isLoadingDocuments: isLoadingDocuments,
     documents: documents,
     // documentsByFolders: documentsByFolders,
-    isLoadingFolders: isLoadingFolders || isFetchingFolders,
+    isLoadingFolders: isLoadingFolders,
     documentsFolders: documentsFolders,
     searchDocuments: searchDocuments,
     downloadDocument: downloadDocument,

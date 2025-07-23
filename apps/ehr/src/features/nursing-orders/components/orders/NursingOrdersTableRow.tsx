@@ -42,7 +42,7 @@ export const NursingOrdersTableRow = ({
       case 'order':
         return (
           <Box>
-            <Box>{nursingOrderData.note}</Box>
+            <Box style={{ whiteSpace: 'pre-line' }}>{nursingOrderData.note}</Box>
           </Box>
         );
       case 'orderAdded':

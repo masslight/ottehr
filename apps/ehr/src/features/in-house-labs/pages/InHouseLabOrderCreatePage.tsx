@@ -22,7 +22,7 @@ import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
-import { isApiError, PRACTITIONER_CODINGS, TestItem } from 'utils';
+import { getAttendingPractitionerId, isApiError, TestItem } from 'utils';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data';
 import { createInHouseLabOrder, getCreateInHouseLabOrderResources, getOrCreateVisitLabel } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
@@ -94,10 +94,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
     });
   };
 
-  const attendingPractitioner = encounter?.participant?.find(
-    (participant) =>
-      participant.type?.find((type) => type.coding?.some((c) => c.system === PRACTITIONER_CODINGS.Attender[0].system))
-  );
+  const attendingPractitionerId = getAttendingPractitionerId(encounter);
 
   useEffect(() => {
     if (!oystehrZambda) {
@@ -152,21 +149,16 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
     navigate(-1);
   };
 
+  const canBeSubmitted = !!(encounter?.id && selectedTest && selectedCptCode);
+
   const handleSubmit = async (e: React.FormEvent | React.MouseEvent, shouldPrintLabel = false): Promise<void> => {
     e.preventDefault();
     setLoading(true);
     const GENERIC_ERROR_MSG = 'There was an error creating in-house lab order';
-    const encounterId = encounter.id;
-    const canBeSubmitted =
-      encounterId &&
-      selectedTest &&
-      selectedCptCode &&
-      (selectedAssessmentDiagnoses.length || selectedNewDiagnoses.length);
-
     if (oystehrZambda && canBeSubmitted) {
       try {
         const res = await createInHouseLabOrder(oystehrZambda, {
-          encounterId,
+          encounterId: encounter.id!,
           testItem: selectedTest,
           cptCode: selectedCptCode,
           diagnosesAll: [...selectedAssessmentDiagnoses, ...selectedNewDiagnoses],
@@ -189,7 +181,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
         });
 
         if (shouldPrintLabel) {
-          const labelPdfs = await getOrCreateVisitLabel(oystehrZambda, { encounterId });
+          const labelPdfs = await getOrCreateVisitLabel(oystehrZambda, { encounterId: encounter.id! });
 
           if (labelPdfs.length !== 1) {
             setError(['Expected 1 label pdf, received unexpected number']);
@@ -216,12 +208,11 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
       }
     } else if (!canBeSubmitted) {
       const errorMessage: string[] = [];
-      if (!selectedAssessmentDiagnoses.length && !selectedNewDiagnoses.length)
-        errorMessage.push('Please enter at least one dx');
       if (!selectedTest) errorMessage.push('Please select a test to order');
-      if (!attendingPractitioner) errorMessage.push('No attending practitioner has been assigned to this encounter');
+      if (!attendingPractitionerId) errorMessage.push('No attending practitioner has been assigned to this encounter');
       if (errorMessage.length === 0) errorMessage.push(GENERIC_ERROR_MSG);
       setError(errorMessage);
+      setLoading(false);
     }
   };
 
@@ -564,7 +555,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                     notesLabel={'Notes (optional)'}
                     readOnly={false}
                     additionalBoxSxProps={{ mb: 3 }}
-                    additionalTextFieldProps={{ rows: 4 }}
+                    additionalTextFieldProps={{ minRows: 4 }}
                     handleNotesUpdate={(newNote: string) => setNotes(newNote)}
                   />
                 </Grid>
@@ -594,11 +585,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                       <Button
                         variant="contained"
                         onClick={(e) => handleSubmit(e, true)}
-                        disabled={
-                          !selectedTest ||
-                          !selectedCptCode ||
-                          (selectedAssessmentDiagnoses.length === 0 && selectedNewDiagnoses.length === 0)
-                        }
+                        disabled={!canBeSubmitted}
                         sx={{
                           borderRadius: '50px',
                           px: 4,
@@ -611,11 +598,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                       <Button
                         variant="contained"
                         type="submit"
-                        disabled={
-                          !selectedTest ||
-                          !selectedCptCode ||
-                          (selectedAssessmentDiagnoses.length === 0 && selectedNewDiagnoses.length === 0)
-                        }
+                        disabled={!canBeSubmitted}
                         sx={{
                           borderRadius: '50px',
                           px: 4,

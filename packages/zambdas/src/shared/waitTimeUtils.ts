@@ -60,7 +60,7 @@ const getArrivedTime = (statusHistory: VisitStatusHistoryEntry[]): number | null
 };
 
 const getWaitingTimeEndRange = (statusHistory: VisitStatusHistoryEntry[]): number => {
-  let stopTime = startTimeOfMostRecentInstanceOfStatus('ready for discharge', statusHistory);
+  let stopTime = startTimeOfMostRecentInstanceOfStatus('discharged', statusHistory);
   if (stopTime === null) {
     stopTime = startTimeOfMostRecentInstanceOfStatus('completed', statusHistory);
   }

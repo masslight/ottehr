@@ -1,4 +1,5 @@
 import { Practitioner } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { Color, PDFFont, PDFImage, StandardFonts } from 'pdf-lib';
 import {
   AdditionalBooleanQuestionsFieldsNames,
@@ -163,6 +164,7 @@ export interface LabsData {
   orderAssessments: { code: string; name: string }[];
   orderPriority: string;
   isPscOrder: boolean;
+  isManualOrder: boolean;
 }
 
 export interface ExternalLabResult {
@@ -185,7 +187,7 @@ export interface InHouseLabResult {
 }
 export interface InHouseLabResultConfig {
   collectionDate: string;
-  finalResultDateTime: string;
+  finalResultDateTime: DateTime;
   specimenSource: string;
   results: InHouseLabResult[];
 }
@@ -203,6 +205,7 @@ export interface LabResultsData
     | 'sampleCollectionDate'
     | 'billClass'
     | 'accountNumber'
+    | 'isManualOrder'
   > {
   testName: string;
   resultStatus: string;
@@ -229,6 +232,7 @@ export interface ExternalLabResultsData extends LabResultsData {
 }
 export interface InHouseLabResultsData extends LabResultsData {
   inHouseLabResults: InHouseLabResultConfig[];
+  timezone: string | undefined;
 }
 
 export type ResultDataConfig =
@@ -243,6 +247,7 @@ export interface VisitNoteData extends ExaminationBlockData {
   dateOfService: string;
   reasonForVisit: string;
   provider: string;
+  intakePerson?: string;
   signedOn: string;
   visitID: string;
   visitState: string;

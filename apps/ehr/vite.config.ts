@@ -57,6 +57,7 @@ export default ({ mode }: { mode: string }): UserConfig => {
     build: {
       outDir: './build',
       target: browserslistToEsbuild(),
+      sourcemap: true,
     },
     resolve: {
       alias: {

@@ -16,6 +16,8 @@ import {
   ExamObservationFieldItem,
   examObservationFieldsDetailsArray,
   formatDateTimeToZone,
+  getAdmitterPractitionerId,
+  getAttendingPractitionerId,
   GetChartDataResponse,
   getDefaultNote,
   getProviderNameWithProfession,
@@ -75,7 +77,7 @@ function composeDataForPdf(
 ): VisitNoteData {
   const { chartData, additionalChartData } = allChartData;
 
-  const { patient, encounter, appointment, location, questionnaireResponse, practitioner, timezone } =
+  const { patient, encounter, appointment, location, questionnaireResponse, practitioners, timezone } =
     appointmentPackage;
   if (!patient) throw new Error('No patient found for this encounter');
   // if (!practitioner) throw new Error('No practitioner found for this encounter'); // TODO: fix that
@@ -90,7 +92,23 @@ function composeDataForPdf(
   // --- Visit details ---
   const { dateOfService, signedOnDate } = getStatusRelatedDates(encounter, appointment, timezone);
   const reasonForVisit = appointment?.description;
-  const provider = practitioner && getProviderNameWithProfession(practitioner);
+  let providerName: string;
+  let intakePersonName: string | undefined = undefined;
+  if (isInPersonAppointment) {
+    const admitterId = getAdmitterPractitionerId(encounter);
+    const admitterPractitioner = additionalChartData?.practitioners?.find(
+      (practitioner) => practitioner.id === admitterId
+    );
+    intakePersonName = admitterPractitioner && getProviderNameWithProfession(admitterPractitioner);
+
+    const attenderId = getAttendingPractitionerId(encounter);
+    const attenderPractitioner = additionalChartData?.practitioners?.find(
+      (practitioner) => practitioner.id === attenderId
+    );
+    providerName = (attenderPractitioner && getProviderNameWithProfession(attenderPractitioner)) ?? '';
+  } else {
+    providerName = practitioners?.[0] ? getProviderNameWithProfession(practitioners[0]) : '';
+  }
   const visitID = appointment.id;
   const visitState = location?.address?.state;
   const address = getQuestionnaireResponseByLinkId('patient-street-address', questionnaireResponse)?.answer?.[0]
@@ -284,7 +302,8 @@ function composeDataForPdf(
     patientPhone: patientPhone ?? '',
     dateOfService: dateOfService ?? '',
     reasonForVisit: reasonForVisit ?? '',
-    provider: provider ?? '',
+    provider: providerName ?? '',
+    intakePerson: intakePersonName ?? '',
     signedOn: signedOnDate ?? '',
     visitID: visitID ?? '',
     visitState: visitState ?? '',

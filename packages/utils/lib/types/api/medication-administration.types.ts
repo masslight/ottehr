@@ -72,6 +72,7 @@ export interface MedicationData {
   units?: string;
   manufacturer?: string;
   location?: string;
+  providerId?: string;
 
   // scanning part
   lotNumber?: string;
@@ -100,6 +101,7 @@ export interface ExtendedMedicationDataForResponse extends MedicationData {
   dateTimeCreated: string;
   administeredProvider?: string;
   administeredProviderId?: string;
+  orderedByProvider?: string;
   interactions?: MedicationInteractions;
   // todo i wanna change all long names to this short form
   // creationData: {
@@ -120,6 +122,7 @@ export interface OrderPackage {
   medicationStatement?: MedicationStatement;
   providerCreatedOrder?: Practitioner;
   providerAdministeredOrder?: Practitioner;
+  providerOrderedBy?: Practitioner;
   medicationRequest?: MedicationRequest;
 }
 

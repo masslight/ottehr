@@ -8,7 +8,7 @@ import {
   CheckInInput,
   CheckInZambdaOutput,
   formatPhoneNumberDisplay,
-  getCriticalUpdateTagOp,
+  getAppointmentMetaTagOpForStatusUpdate,
   getEncounterStatusHistoryIdx,
   getLocationInformation,
   getPatchBinary,
@@ -221,7 +221,9 @@ async function checkIn(
       value: 'arrived',
     },
   ];
-  appointmentPatchOperations.push(getCriticalUpdateTagOp(appointment, checkedInBy));
+  appointmentPatchOperations.push(
+    ...getAppointmentMetaTagOpForStatusUpdate(appointment, 'arrived', { updatedByOverride: checkedInBy })
+  );
 
   const appointmentPatchRequest = getPatchBinary({
     resourceType: 'Appointment',

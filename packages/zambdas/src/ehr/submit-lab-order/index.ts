@@ -470,6 +470,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         })),
         orderPriority: serviceRequest.priority || ORDER_ITEM_UNKNOWN,
         isPscOrder: isPSCOrder(serviceRequest),
+        isManualOrder: manualOrder,
       },
       patient.id,
       secrets,

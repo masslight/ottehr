@@ -1132,6 +1132,7 @@ export default function AppointmentPage(): ReactElement {
                     appointment={appointment}
                     encounter={encounter}
                     open={cancelDialogOpen}
+                    getAndSetResources={getAndSetHistoricResources}
                   />
                 </>
               ) : null}
@@ -1483,7 +1484,11 @@ export default function AppointmentPage(): ReactElement {
             ) : (
               <div id="user-set-appointment-status">
                 <FormControl size="small" sx={{ marginTop: 2, marginLeft: { xs: 0, sm: 8 } }}>
-                  <ChangeStatusDropdown appointmentID={appointmentID} onStatusChange={setStatus} />
+                  <ChangeStatusDropdown
+                    appointmentID={appointmentID}
+                    onStatusChange={setStatus}
+                    getAndSetResources={getAndSetHistoricResources}
+                  />
                 </FormControl>
                 {loading && <CircularProgress size="20px" sx={{ marginTop: 2.8, marginLeft: 1 }} />}
               </div>

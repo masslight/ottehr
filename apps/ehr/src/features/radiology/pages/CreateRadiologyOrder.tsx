@@ -74,6 +74,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
   const [orderDx, setOrderDx] = useState<DiagnosisDTO | undefined>(primaryDiagnosis ? primaryDiagnosis : undefined);
   const [orderCpt, setOrderCpt] = useState<CPTCodeDTO | undefined>();
   const [stat, setStat] = useState<boolean>(false);
+  const [clinicalHistory, setClinicalHistory] = useState<string | undefined>();
 
   // used to fetch dx icd10 codes
   const [dxDebouncedSearchTerm, setDxDebouncedSearchTerm] = useState('');
@@ -107,7 +108,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     setSubmitting(true);
-    const paramsSatisfied = orderDx && orderCpt && encounter.id;
+    const paramsSatisfied = orderDx && orderCpt && encounter.id && clinicalHistory;
     if (oystehrZambda && paramsSatisfied && encounter.id) {
       try {
         await addAdditionalDxToEncounter();
@@ -116,6 +117,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
           cptCode: orderCpt.code,
           encounterId: encounter.id,
           stat: stat,
+          clinicalHistory: clinicalHistory,
         });
         navigate(getRadiologyUrl(appointment?.id || ''));
       } catch (e) {
@@ -244,6 +246,18 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                       InputLabelProps={{ shrink: true }}
                     />
                   )}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  id="clinical-history"
+                  label="Clinical History"
+                  placeholder="Enter clinical history for the radiology order"
+                  fullWidth
+                  multiline
+                  size="small"
+                  value={clinicalHistory}
+                  onChange={(e) => setClinicalHistory(e.target.value)}
                 />
               </Grid>
               <Grid item xs={12}>

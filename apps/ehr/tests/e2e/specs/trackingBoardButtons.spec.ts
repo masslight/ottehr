@@ -3,6 +3,7 @@ import { DateTime } from 'luxon';
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
 import { ResourceHandler } from '../../e2e-utils/resource-handler';
 import { expectAddPatientPage } from '../page/AddPatientPage';
+import { CssHeader } from '../page/CssHeader';
 import { expectPatientInfoPage } from '../page/PatientInfo';
 import { openVisitsPage } from '../page/VisitsPage';
 
@@ -57,11 +58,14 @@ test('Check clicks on appointment row elements', async ({ page }) => {
   await visitsPage.clickArrivedButton(resourceHandler.appointment.id!);
   await visitsPage.clickInOfficeTab();
   await visitsPage.clickIntakeButton(resourceHandler.appointment.id!);
+  const cssHeader = new CssHeader(page);
+  await cssHeader.selectIntakePractitioner();
+  await cssHeader.selectProviderPractitioner();
   const patientInfoPage = await expectPatientInfoPage(resourceHandler.appointment.id!, page);
   await patientInfoPage.cssHeader().changeStatus('completed');
 
   visitsPage = await openVisitsPage(page);
   await visitsPage.clickDischargedTab();
   await visitsPage.clickProgressNoteButton(resourceHandler.appointment.id!);
-  await expectPatientInfoPage(resourceHandler.appointment.id!, page);
+  await page.waitForURL(new RegExp(`/in-person/${resourceHandler.appointment.id!}/progress-note`), { timeout: 10000 });
 });
