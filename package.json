@@ -71,7 +71,7 @@
     "@aws-sdk/credential-providers": "^3.716.0",
     "@emotion/react": "^11.10.5",
     "@emotion/styled": "^11.10.5",
-    "@hookform/resolvers": "^5.1.1",
+    "@hookform/resolvers": "^2.9.10",
     "@inquirer/prompts": "^7.2.4",
     "@langchain/anthropic": "^0.3.15",
     "@langchain/core": "^0.3.42",
