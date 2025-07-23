@@ -440,6 +440,9 @@ const makeValidationSchemaPrivate = (input: PrivateMakeSchemaArgs): Yup.AnyObjec
             });
             return filled;
           })
+          // IMPORTANT: This test ensures that conditionally required list-with-form groups
+          // (like medication lists) have at least one item with actual content.
+          // This prevents users from bypassing validation by navigating back and forth
           .test('group-has-content', 'This field is required', function (value) {
             // Check if the group is required and has at least one item with actual content
             if (isGroupRequired && item.groupType === 'list-with-form') {
