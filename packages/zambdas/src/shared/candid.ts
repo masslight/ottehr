@@ -1000,6 +1000,10 @@ function fhirCoverageRelationshipToCandidRelationship(relationship: string): Rel
   // Normalize the string to match the expected values from FHIR specification
   // defined here https://build.fhir.org/valueset-subscriber-relationship.html
   //
+  // Note: as ottehr is mapping responsible party relationship to patient, candid
+  // is looking for patient relationship to insured, so we need to swap
+  // parent to child.
+  //
   switch (normalizedString) {
     case 'SELF':
       return Relationship.Self;
@@ -1008,7 +1012,7 @@ function fhirCoverageRelationshipToCandidRelationship(relationship: string): Rel
     case 'PARENT':
       return Relationship.Child;
     case 'CHILD':
-      return Relationship.Child;
+      return Relationship.Other;
     case 'COMMON':
       return Relationship.CommonLawSpouse;
     default:
