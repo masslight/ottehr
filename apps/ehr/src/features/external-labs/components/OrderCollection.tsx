@@ -5,7 +5,13 @@ import React, { useMemo, useState } from 'react';
 import { FormProvider, SubmitHandler, useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { CustomDialog } from 'src/components/dialogs';
-import { DynamicAOEInput, ExternalLabsStatus, LabOrderDetailedPageDTO, LabQuestionnaireResponse } from 'utils';
+import {
+  DynamicAOEInput,
+  ExternalLabsStatus,
+  LabOrderDetailedPageDTO,
+  LabQuestionnaireResponse,
+  ORDER_SUBMITTED_MESSAGE,
+} from 'utils';
 import { submitLabOrder } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { AOECard } from './AOECard';
@@ -127,8 +133,11 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
     } catch (e) {
       const oyError = e as OystehrSdkError;
       console.log('error creating external lab order1', oyError.code, oyError.message);
-      const errorMessage = [oyError.message || 'There was an error submitting the lab order'];
-      setManualSubmitError(errorMessage);
+      const errorMessages = [oyError.message || 'There was an error submitting the lab order'];
+      if (oyError.message === ORDER_SUBMITTED_MESSAGE) {
+        errorMessages.push('please refresh this page');
+      }
+      setManualSubmitError(errorMessages);
       setSubmitLoading(false);
     }
   };
@@ -203,7 +212,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
           }}
           title="Error submitting lab order"
           description={error?.join(',') || 'Error submitting lab order'}
-          error={manualSubmitError?.join(',')}
+          error={manualSubmitError?.join(', ')}
           closeButtonText="cancel"
         />
       </form>
