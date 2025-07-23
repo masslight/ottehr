@@ -376,25 +376,6 @@ const makeValidationSchemaPrivate = (input: PrivateMakeSchemaArgs): Yup.AnyObjec
       return accum;
     }, {} as any);
 
-  // // Ensure current form values completely override external values for items on this page
-  // // This prevents stale values from affecting validation when navigating back and forth
-  // const currentPageItemIds = new Set<string>();
-  // const collectItemIds = (itemList: IntakeQuestionnaireItem[]): void => {
-  //   itemList.forEach((item) => {
-  //     currentPageItemIds.add(item.linkId);
-  //     if (item.item && item.item.length > 0) {
-  //       collectItemIds(item.item);
-  //     }
-  //   });
-  // };
-  // collectItemIds(items);
-
-  // // Remove stale values for current page items from external context
-  // currentPageItemIds.forEach((linkId) => {
-  //   delete allValues[linkId];
-  // });
-
-  // // Now merge with form values, ensuring current values take precedence
   allValues = { ...allValues, ...formValues };
 
   const validatableItems = [...items]
@@ -410,10 +391,6 @@ const makeValidationSchemaPrivate = (input: PrivateMakeSchemaArgs): Yup.AnyObjec
         formValues,
         externalContext: maybeExternalContext,
       });
-
-      // Check if this group is conditionally required
-
-      // const isGroupRequired = evalRequired(item, allValues);
 
       schemaTemp = Yup.object().shape({
         linkId: Yup.string(),
@@ -441,25 +418,6 @@ const makeValidationSchemaPrivate = (input: PrivateMakeSchemaArgs): Yup.AnyObjec
             });
             return filled;
           })
-          // // IMPORTANT: This test ensures that conditionally required list-with-form groups
-          // // (like medication lists) have at least one item with actual content.
-          // // This prevents users from bypassing validation by navigating back and forth
-          // .test('group-has-content', 'This field is required', function (value) {
-          //   // Check if the group is required and has at least one item with actual content
-          //   if (isGroupRequired && item.groupType === 'list-with-form') {
-          //     if (!value || !Array.isArray(value) || value.length === 0) {
-          //       return false;
-          //     }
-          //     // Check if at least one item has meaningful content (not just linkId)
-          //     const hasContent = value.some((item: any) => {
-          //       return item.answer && item.answer.length > 0 && itemAnswerHasValue(item);
-          //     });
-          //     if (!hasContent) {
-          //       return this.createError({ message: REQUIRED_FIELD_ERROR_MESSAGE });
-          //     }
-          //   }
-          //   return true;
-          // })
           .of(
             Yup.object().test(
               `${item.linkId} group member test`,

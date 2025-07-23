@@ -117,7 +117,7 @@ const SelectInput: FC<SelectInputProps> = ({
                   whiteSpace: 'normal',
                 },
               }}
-              renderValue={(selected: unknown) => {
+              renderValue={(selected) => {
                 const selectedValue = selected as string;
                 if (
                   selectedValue.length === 0 ||
