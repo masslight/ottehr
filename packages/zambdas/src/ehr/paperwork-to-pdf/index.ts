@@ -59,6 +59,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     });
 
     const projectApi = getSecret(SecretsKeys.PROJECT_API, secrets);
+    if (questionnaireResponse.encounter) {
+      documentReferenceBase.context = {
+        encounter: [questionnaireResponse.encounter],
+      };
+    }
     const documentReference = await oystehr.fhir.create<DocumentReference>({
       ...documentReferenceBase,
       subject: {

@@ -38,8 +38,11 @@ import {
   RelatedPerson,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { generatePaperworkPdf } from 'src/api/api';
+import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import {
   CONSENT_CODE,
   FhirAppointmentType,
@@ -191,6 +194,7 @@ export default function AppointmentPage(): ReactElement {
   const [toastMessage, setToastMessage] = React.useState<string | undefined>(undefined);
   const [toastType, setToastType] = React.useState<AlertColor | undefined>(undefined);
   const [snackbarOpen, setSnackbarOpen] = React.useState<boolean>(false);
+  const [paperworkPdfLoading, setPaperworkPdfLoading] = React.useState<boolean>(false);
 
   // Update date of birth modal variables
   const [confirmDOBModalOpen, setConfirmDOBModalOpen] = useState<boolean>(false);
@@ -222,6 +226,8 @@ export default function AppointmentPage(): ReactElement {
   const [activityLogs, setActivityLogs] = useState<ActivityLogData[] | undefined>(undefined);
   const [notesHistory, setNotesHistory] = useState<NoteHistory[] | undefined>(undefined);
   const user = useEvolveUser();
+
+  const { documents, isLoadingDocuments, downloadDocument } = useGetPatientDocs(patient?.id ?? '');
 
   const { location, encounter, questionnaireResponse, relatedPerson } = useMemo(() => {
     const location = resourceBundle?.find(
@@ -1026,6 +1032,30 @@ export default function AppointmentPage(): ReactElement {
     return complaints.map((complaint) => complaint.trim()).join(', ');
   }, [appointment?.description]);
 
+  const downloadPaperworkPdf = async (): Promise<void> => {
+    setPaperworkPdfLoading(true);
+    const existingPaperworkPdf = documents?.find((doc) => doc.encounterId === encounter.id);
+    if (existingPaperworkPdf) {
+      await downloadDocument(existingPaperworkPdf.id);
+      setPaperworkPdfLoading(false);
+      return;
+    }
+    if (!oystehr || !questionnaireResponse.id) {
+      enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
+      setPaperworkPdfLoading(false);
+      return;
+    }
+    const response = await generatePaperworkPdf(oystehr, {
+      questionnaireResponseId: questionnaireResponse.id,
+      documentReference: {
+        resourceType: 'DocumentReference',
+        status: 'current',
+      } as DocumentReference,
+    });
+    await downloadDocument(response.documentReference.split('/')[1]);
+    setPaperworkPdfLoading(false);
+  };
+
   return (
     <PageContainer>
       <>
@@ -1042,14 +1072,31 @@ export default function AppointmentPage(): ReactElement {
         <Grid container direction="row">
           <Grid item xs={0.25}></Grid>
           <Grid item xs={11.5}>
-            {/* Breadcrumbs */}
-            <CustomBreadcrumbs
-              chain={[
-                { link: `/patient/${patient?.id}`, children: 'Visit Details' },
-                { link: '#', children: appointment?.id || <Skeleton width={150} /> },
-              ]}
-            />
-
+            <Grid container direction="row">
+              <Grid item xs={6}>
+                <CustomBreadcrumbs
+                  chain={[
+                    { link: `/patient/${patient?.id}`, children: 'Visit Details' },
+                    { link: '#', children: appointment?.id || <Skeleton width={150} /> },
+                  ]}
+                />
+              </Grid>
+              <Grid container xs={6} justifyContent="flex-end">
+                <LoadingButton
+                  variant="outlined"
+                  sx={{
+                    borderRadius: '20px',
+                    textTransform: 'none',
+                  }}
+                  loading={paperworkPdfLoading}
+                  color="primary"
+                  disabled={isLoadingDocuments || !patient?.id}
+                  onClick={downloadPaperworkPdf}
+                >
+                  Paperwork PDF
+                </LoadingButton>
+              </Grid>
+            </Grid>
             {/* page title row */}
             <Grid container direction="row" marginTop={1}>
               {loading || activityLogsLoading || !patient ? (
