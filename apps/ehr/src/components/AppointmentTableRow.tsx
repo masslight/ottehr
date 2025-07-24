@@ -82,8 +82,6 @@ export function getAppointmentStatusChip(status: VisitStatusLabel | undefined, c
     return <span>todo2</span>;
   }
 
-  const label = STATUS_LABEL_MAP[status] || status;
-
   return (
     <span
       data-testid={dataTestIds.dashboard.appointmentStatus}
@@ -99,7 +97,7 @@ export function getAppointmentStatusChip(status: VisitStatusLabel | undefined, c
         verticalAlign: 'middle',
       }}
     >
-      {count ? `${label} - ${count}` : label}
+      {count ? `${status} - ${count}` : status}
     </span>
   );
 }
@@ -167,7 +165,7 @@ export const CHIP_STATUS_MAP: {
       primary: '#01579B',
     },
   },
-  'ready for discharge': {
+  discharged: {
     background: {
       primary: '#B2EBF2',
     },
@@ -207,10 +205,6 @@ export const CHIP_STATUS_MAP: {
       primary: '#000000',
     },
   },
-};
-
-const STATUS_LABEL_MAP: Partial<Record<VisitStatusLabel, string>> = {
-  'ready for discharge': 'Discharged',
 };
 
 const linkStyle = {
@@ -392,7 +386,7 @@ export default function AppointmentTableRow({
     const currentStatusTime = getDurationOfStatus(recentStatus, now);
 
     let statusTimeTemp =
-      tab === ApptTab.cancelled || tab === ApptTab.completed || recentStatus.status === 'ready for discharge'
+      tab === ApptTab.cancelled || tab === ApptTab.completed || recentStatus.status === 'discharged'
         ? `${formatMinutes(totalMinutes)}m`
         : `${formatMinutes(currentStatusTime)}m`;
 
@@ -400,7 +394,7 @@ export default function AppointmentTableRow({
       tab !== ApptTab.cancelled &&
       tab !== ApptTab.completed &&
       statusTimeTemp !== `${formatMinutes(totalMinutes)}m` &&
-      recentStatus.status !== 'ready for discharge' &&
+      recentStatus.status !== 'discharged' &&
       appointment.visitStatusHistory &&
       appointment?.visitStatusHistory.length > 1
     ) {
@@ -645,7 +639,7 @@ export default function AppointmentTableRow({
       appointment.status === 'ready for provider' ||
       appointment.status === 'provider' ||
       appointment.status === 'completed' ||
-      appointment.status === 'ready for discharge'
+      appointment.status === 'discharged'
     ) {
       return (
         <GoToButton
@@ -668,7 +662,7 @@ export default function AppointmentTableRow({
         {
           encounterId: encounterId,
           user,
-          updatedStatus: 'ready for discharge',
+          updatedStatus: 'discharged',
         },
         oystehrZambda
       );

@@ -204,7 +204,7 @@ async function prepareAndOpenOrderMedicationPage(page: Page): Promise<OrderMedic
   const cssHeader = new CssHeader(page);
   await cssHeader.selectIntakePractitioner();
   await cssHeader.selectProviderPractitioner();
-  await cssHeader.clickSwitchStatusButton('provider');
+  await cssHeader.clickSwitchModeButton('provider');
   const sideMenu = new SideMenu(page);
   await sideMenu.clickAssessment();
   const assessmentPage = await expectAssessmentPage(page);

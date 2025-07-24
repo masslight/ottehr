@@ -58,6 +58,7 @@ import {
 import { DateTime } from 'luxon';
 import {
   FHIR_IDENTIFIER_NPI,
+  getAttendingPractitionerId,
   getOptionalSecret,
   getPayerId,
   getSecret,
@@ -208,11 +209,20 @@ const createCandidCreateEncounterInput = async (
 
   const { appointment } = await fetchFHIRPatientAndAppointmentFromEncounter(encounter.id, oystehr);
 
+  const practitionerId = getAttendingPractitionerId(encounter);
+  let practitioner: Practitioner | null = null;
+  if (practitionerId) {
+    practitioner = visitResources.practitioners?.find((practitioner) => practitioner.id === practitionerId) ?? null;
+  }
+  if (!practitioner) {
+    practitioner = visitResources.practitioners?.[0] ?? null;
+  }
+
   return {
     appointment: appointment,
     encounter: encounter,
     patient: assertDefined(visitResources.patient, `Patient on encounter ${encounterId}`),
-    practitioner: assertDefined(visitResources.practitioner, `Practitioner on encounter ${encounterId}`),
+    practitioner: assertDefined(practitioner, `Practitioner on encounter ${encounterId}`),
     diagnoses: (
       await oystehr.fhir.search<Condition>({
         resourceType: 'Condition',
