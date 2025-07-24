@@ -1,6 +1,5 @@
 import Oystehr from '@oystehr/sdk';
 import { Appointment, Encounter, Location, Patient, Practitioner, PractitionerRole, Resource } from 'fhir/r4b';
-import { PRACTITIONER_CODINGS } from 'utils';
 import { EncounterPackage } from './types';
 
 // called from assign-practitioner and unassign-practitioner zambdas
@@ -87,20 +86,3 @@ export const getVisitResources = async (
     practitionerRole,
   };
 };
-
-export function getAttendingPractitionerId(encounter: Encounter): string | undefined {
-  const practitionerId = encounter.participant
-    ?.find(
-      (participant) =>
-        participant.type?.find(
-          (type) =>
-            type.coding?.some(
-              (c) =>
-                c.system === PRACTITIONER_CODINGS.Attender[0].system && c.code === PRACTITIONER_CODINGS.Attender[0].code
-            )
-        )
-    )
-    ?.individual?.reference?.replace('Practitioner/', '');
-
-  return practitionerId;
-}

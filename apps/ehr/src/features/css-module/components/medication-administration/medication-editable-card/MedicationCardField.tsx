@@ -49,6 +49,7 @@ const emptySelectsOptions: OrderFieldsSelectsOptions = {
   associatedDx: { options: [], status: 'loading' },
   units: { options: [], status: 'loading' },
   location: { options: [], status: 'loading' },
+  providerId: { options: [], status: 'loading' },
 };
 
 export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
@@ -81,7 +82,9 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
           onChange={(newValue) => {
             if (!newValue) return;
             const isoString = newValue.toISO();
-            isoString && handleChange(isoString);
+            if (isoString) {
+              handleChange(isoString);
+            }
           }}
           disabled={!isEditable}
           slotProps={{

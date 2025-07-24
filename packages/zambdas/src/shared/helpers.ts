@@ -119,7 +119,7 @@ export function getPatchBinary<F extends FhirResource>(input: GetPatchBinaryInpu
 
 export function logTime(): void {
   if (process.env.IS_OFFLINE === 'true') {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     require('console-stamp')(console, 'HH:MM:ss.l');
   }
 }
@@ -163,7 +163,7 @@ export function validateJsonBody(input: ZambdaInput): any {
   }
   try {
     return JSON.parse(input.body);
-  } catch (_error) {
+  } catch {
     throw new Error('Invalid JSON in request body');
   }
 }
@@ -208,7 +208,7 @@ export function getOtherOfficesForLocation(location: Location): { display: strin
   let parsedExtValue: { display: string; url: string }[] = [];
   try {
     parsedExtValue = JSON.parse(rawExtensionValue);
-  } catch (_) {
+  } catch {
     console.log('Location other-offices extension is formatted incorrectly');
     return [];
   }

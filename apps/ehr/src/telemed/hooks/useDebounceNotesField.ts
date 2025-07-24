@@ -9,13 +9,13 @@ type ChartDataTextValueType = Pick<
   'chiefComplaint' | 'ros' | 'surgicalHistoryNote' | 'medicalDecision' | 'addendumNote'
 >;
 
-enum nameToTypeEnum {
-  'chiefComplaint' = 'text',
-  'ros' = 'text',
-  'surgicalHistoryNote' = 'text',
-  'medicalDecision' = 'text',
-  'addendumNote' = 'text',
-}
+const nameToTypeEnum = {
+  chiefComplaint: 'text',
+  ros: 'text',
+  surgicalHistoryNote: 'text',
+  medicalDecision: 'text',
+  addendumNote: 'text',
+} as const;
 
 const mapValueToLabel: Record<keyof ChartDataTextValueType, string> = {
   chiefComplaint: 'HPI note',

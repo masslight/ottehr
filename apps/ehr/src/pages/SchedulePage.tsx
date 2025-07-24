@@ -237,7 +237,7 @@ export default function SchedulePage(): ReactElement {
           active: newActiveStatus,
         },
       });
-    } catch (e) {
+    } catch {
       enqueueSnackbar('Oops. Something went wrong. Status update was not saved.', { variant: 'error' });
     } finally {
       setStatusPatchLoading(false);

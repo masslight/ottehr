@@ -17,12 +17,12 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import Oystehr from '@oystehr/sdk';
 import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
-import { isApiError, PRACTITIONER_CODINGS, TestItem } from 'utils';
+import { getAttendingPractitionerId, isApiError, TestItem } from 'utils';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data';
 import { createInHouseLabOrder, getCreateInHouseLabOrderResources, getOrCreateVisitLabel } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
@@ -94,10 +94,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
     });
   };
 
-  const attendingPractitioner = encounter?.participant?.find(
-    (participant) =>
-      participant.type?.find((type) => type.coding?.some((c) => c.system === PRACTITIONER_CODINGS.Attender[0].system))
-  );
+  const attendingPractitionerId = getAttendingPractitionerId(encounter);
 
   useEffect(() => {
     if (!oystehrZambda) {
@@ -198,11 +195,11 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
           navigate(`/in-person/${appointment?.id}/in-house-lab-orders/${res.serviceRequestId}/order-details`);
         }
       } catch (e) {
-        const oyError = e as OystehrSdkError;
-        console.error('error creating in house lab order', oyError.code, oyError.message);
-        if (isApiError(oyError)) {
+        const sdkError = e as Oystehr.OystehrSdkError;
+        console.error('error creating in house lab order', sdkError.code, sdkError.message);
+        if (isApiError(sdkError)) {
           console.log('is api error');
-          setError([oyError.message || GENERIC_ERROR_MSG]);
+          setError([sdkError.message || GENERIC_ERROR_MSG]);
         } else {
           setError([GENERIC_ERROR_MSG]);
         }
@@ -212,7 +209,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
     } else if (!canBeSubmitted) {
       const errorMessage: string[] = [];
       if (!selectedTest) errorMessage.push('Please select a test to order');
-      if (!attendingPractitioner) errorMessage.push('No attending practitioner has been assigned to this encounter');
+      if (!attendingPractitionerId) errorMessage.push('No attending practitioner has been assigned to this encounter');
       if (errorMessage.length === 0) errorMessage.push(GENERIC_ERROR_MSG);
       setError(errorMessage);
       setLoading(false);

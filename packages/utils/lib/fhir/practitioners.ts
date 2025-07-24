@@ -1,5 +1,5 @@
-import { Extension, PractitionerQualification } from 'fhir/r4b';
-import { PractitionerLicense } from '../types';
+import { Encounter, Extension, PractitionerQualification } from 'fhir/r4b';
+import { PRACTITIONER_CODINGS, PractitionerLicense } from '../types';
 import {
   PRACTITIONER_QUALIFICATION_CODE_SYSTEM,
   PRACTITIONER_QUALIFICATION_EXTENSION_URL,
@@ -56,4 +56,38 @@ export function makeQualificationForPractitioner(license: PractitionerLicense): 
       },
     ],
   };
+}
+
+export function getAttendingPractitionerId(encounter: Encounter): string | undefined {
+  const practitionerId = encounter.participant
+    ?.find(
+      (participant) =>
+        participant.type?.find(
+          (type) =>
+            type.coding?.some(
+              (c) =>
+                c.system === PRACTITIONER_CODINGS.Attender[0].system && c.code === PRACTITIONER_CODINGS.Attender[0].code
+            )
+        )
+    )
+    ?.individual?.reference?.replace('Practitioner/', '');
+
+  return practitionerId;
+}
+
+export function getAdmitterPractitionerId(encounter: Encounter): string | undefined {
+  const practitionerId = encounter.participant
+    ?.find(
+      (participant) =>
+        participant.type?.find(
+          (type) =>
+            type.coding?.some(
+              (c) =>
+                c.system === PRACTITIONER_CODINGS.Admitter[0].system && c.code === PRACTITIONER_CODINGS.Admitter[0].code
+            )
+        )
+    )
+    ?.individual?.reference?.replace('Practitioner/', '');
+
+  return practitionerId;
 }

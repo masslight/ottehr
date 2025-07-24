@@ -27,7 +27,7 @@ export function useUCZambdaClient({ tokenless }: { tokenless: boolean }): Zambda
           if (isAuthenticated && getAccessTokenSilently) {
             token = await getAccessTokenSilently();
           }
-        } catch (_) {
+        } catch {
           // no biggie
         }
 

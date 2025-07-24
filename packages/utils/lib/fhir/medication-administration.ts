@@ -21,6 +21,7 @@ import {
   MedicationInteractions,
   MedicationOrderStatusesType,
   PRACTITIONER_ADMINISTERED_MEDICATION_CODE,
+  PRACTITIONER_ORDERED_BY_MEDICATION_CODE,
   PRACTITIONER_ORDERED_MEDICATION_CODE,
   TIME_OF_MEDICATION_ADMINISTERED_SYSTEM,
   UpdateMedicationOrderInput,
@@ -150,6 +151,29 @@ export function getCreatedTheOrderProviderId(medicationAdministration: Medicatio
     ?.actor.reference?.replace('Practitioner/', '');
 }
 
+/**
+ * Gets all "ordered by" providers in chronological order (history)
+ */
+export function getAllOrderedByProviderIds(medicationAdministration: MedicationAdministration): string[] {
+  return (
+    (medicationAdministration.performer
+      ?.filter(
+        (performer) =>
+          performer.function?.coding?.find((coding) => coding.code === PRACTITIONER_ORDERED_BY_MEDICATION_CODE)
+      )
+      ?.map((performer) => performer.actor.reference?.replace('Practitioner/', ''))
+      ?.filter((id) => id !== undefined) as string[]) || []
+  );
+}
+
+/**
+ * Gets the current "ordered by" provider (last one in the history)
+ */
+export function getCurrentOrderedByProviderId(medicationAdministration: MedicationAdministration): string | undefined {
+  const allOrderedByProviders = getAllOrderedByProviderIds(medicationAdministration);
+  return allOrderedByProviders.length > 0 ? allOrderedByProviders[allOrderedByProviders.length - 1] : undefined;
+}
+
 export const searchRouteByCode = (
   code: keyof typeof medicationApplianceRoutes
 ): MedicationApplianceRoute | undefined => {
@@ -192,9 +216,15 @@ export const makeMedicationOrderUpdateRequestInput = ({
   orderData?: Partial<MedicationData>;
 }): UpdateMedicationOrderInput => {
   const request: UpdateMedicationOrderInput = {};
-  id && (request.orderId = id);
-  newStatus && (request.newStatus = newStatus);
-  orderData && (request.orderData = orderData as MedicationData);
+  if (id) {
+    request.orderId = id;
+  }
+  if (newStatus) {
+    request.newStatus = newStatus;
+  }
+  if (orderData) {
+    request.orderData = orderData as MedicationData;
+  }
   return request;
 };
 
