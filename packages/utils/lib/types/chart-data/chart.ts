@@ -145,18 +145,22 @@ const VitalsDef = {
     ],
   },
   'vital-blood-pressure': {
-    alertThresholds: [
-      {
-        rules: [{ type: 'min', units: '', value: 70 }],
-        minAge: { unit: 'months', value: 0 },
-        maxAge: { unit: 'months', value: 2 },
+    components: {
+      'systolic-pressure': {
+        alertThresholds: [
+          {
+            rules: [{ type: 'min', units: '', value: 70 }],
+            minAge: { unit: 'months', value: 0 },
+            maxAge: { unit: 'months', value: 2 },
+          },
+          {
+            rules: [{ type: 'min', units: '', ageFunction: (ageInYears: number) => 70 + ageInYears * 2 }],
+            minAge: { unit: 'months', value: 2 },
+            maxAge: { unit: 'months', value: 108 },
+          },
+        ],
       },
-      {
-        rules: [{ type: 'min', units: '', ageFunction: (ageInYears: number) => 70 + ageInYears * 2 }],
-        minAge: { unit: 'months', value: 2 },
-        maxAge: { unit: 'months', value: 108 },
-      },
-    ],
+    },
   },
 };
 

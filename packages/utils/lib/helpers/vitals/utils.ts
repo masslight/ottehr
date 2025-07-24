@@ -2,6 +2,7 @@ import { CodeableConcept, Observation } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   AlertRule,
+  AlertThreshold,
   FHIRObservationInterpretation,
   FHIRObservationInterpretationCodesMap,
   GetVitalsResponseData,
@@ -34,28 +35,40 @@ export const convertVitalsListToMap = (list: VitalsObservationDTO[]): GetVitalsR
 };
 
 export const getVitalDTOCriticalityFromObservation = (observation: Observation): VitalAlertCriticality | undefined => {
-  const interpretation = observation?.interpretation?.[0];
-  if (!interpretation) return undefined;
+  const interpretations = observation?.interpretation ?? [];
+  if (observation.component && observation.component.length > 0) {
+    const componentInterpretations = observation.component.flatMap((comp) => comp.interpretation ?? []);
+    interpretations.push(...componentInterpretations);
+  }
 
-  if (
-    interpretation.coding?.some(
-      (code) =>
-        code.code === FHIRObservationInterpretation.CriticalLow ||
-        code.code === FHIRObservationInterpretation.CriticalHigh
-    )
-  ) {
-    return VitalAlertCriticality.Critical;
-  }
-  if (
-    interpretation.coding?.some(
-      (code) =>
-        code.code === FHIRObservationInterpretation.AbnormalLow ||
-        code.code === FHIRObservationInterpretation.AbnormalHigh
-    )
-  ) {
-    return VitalAlertCriticality.Abnormal;
-  }
-  return undefined;
+  const mergeInterpretations = (interpretations: CodeableConcept[]): VitalAlertCriticality | undefined => {
+    if (
+      interpretations.some(
+        (item) =>
+          item.coding?.some(
+            (code) =>
+              code.code === FHIRObservationInterpretation.CriticalLow ||
+              code.code === FHIRObservationInterpretation.CriticalHigh
+          )
+      )
+    ) {
+      return VitalAlertCriticality.Critical;
+    }
+    if (
+      interpretations.some(
+        (item) =>
+          item.coding?.some(
+            (code) =>
+              code.code === FHIRObservationInterpretation.AbnormalLow ||
+              code.code === FHIRObservationInterpretation.AbnormalHigh
+          )
+      )
+    ) {
+      return VitalAlertCriticality.Abnormal;
+    }
+    return undefined;
+  };
+  return mergeInterpretations(interpretations);
 };
 
 interface CheckForAbnormalValueInput {
@@ -66,30 +79,56 @@ export const getVitalObservationAlertLevel = (input: CheckForAbnormalValueInput)
   const { patientDOB: dob, vitalsObservation } = input;
   const vitalsKey = vitalsObservation.field;
   const patientAgeInMonths = DateTime.fromISO(dob).diffNow('months').months * -1;
-  const rules = findRulesForVitalsKeyAndDOB(vitalsKey as VitalFieldNames, dob);
-  console.log('rules for', vitalsKey, rules.length);
-  const alertLevels = getAlertLevels({
-    observation: vitalsObservation,
-    rules,
-    patientAgeInMonths,
-  });
 
-  const someCritical = alertLevels.some(
-    (level) =>
-      level === FHIRObservationInterpretation.CriticalHigh || level === FHIRObservationInterpretation.CriticalLow
-  );
-  const someAbnormal = alertLevels.some(
-    (level) =>
-      level === FHIRObservationInterpretation.AbnormalHigh || level === FHIRObservationInterpretation.AbnormalLow
-  );
+  const getVitalCriticalityFromAlertLevels = (
+    alertLevels: FHIRObservationInterpretation[]
+  ): VitalAlertCriticality | undefined => {
+    const someCritical = alertLevels.some(
+      (level) =>
+        level === FHIRObservationInterpretation.CriticalHigh || level === FHIRObservationInterpretation.CriticalLow
+    );
+    const someAbnormal = alertLevels.some(
+      (level) =>
+        level === FHIRObservationInterpretation.AbnormalHigh || level === FHIRObservationInterpretation.AbnormalLow
+    );
 
-  if (someCritical) {
-    return VitalAlertCriticality.Critical;
+    if (someCritical) {
+      return VitalAlertCriticality.Critical;
+    }
+    if (someAbnormal) {
+      return VitalAlertCriticality.Abnormal;
+    }
+    return undefined;
+  };
+
+  const rulesOrComponents = findRulesForVitalsKeyAndDOB(vitalsKey as VitalFieldNames, dob);
+
+  const { type } = rulesOrComponents;
+  if (type === 'rules') {
+    const { rules } = rulesOrComponents;
+    const alertLevels = getAlertLevels({
+      observation: vitalsObservation,
+      rules,
+      patientAgeInMonths,
+    });
+    return getVitalCriticalityFromAlertLevels(alertLevels);
+  } else {
+    // currently we do nothing in the ui to identify which component is the source of the alert,
+    // so combining all components into a single criticality like this does the trick
+    const { components } = rulesOrComponents;
+    const result: { [componentName: string]: FHIRObservationInterpretation[] } = {};
+    Object.entries(components).forEach(([name, componentRules]) => {
+      const alertLevels = getAlertLevels({
+        observation: vitalsObservation,
+        rules: componentRules,
+        patientAgeInMonths,
+      });
+      result[name] = alertLevels;
+    });
+    // Combine all interpretations from components
+    const combinedAlertLevels = Object.values(result).flat();
+    return getVitalCriticalityFromAlertLevels(combinedAlertLevels);
   }
-  if (someAbnormal) {
-    return VitalAlertCriticality.Abnormal;
-  }
-  return undefined;
 };
 
 export const getVitalObservationFhirInterpretations = (
@@ -98,14 +137,47 @@ export const getVitalObservationFhirInterpretations = (
   const { patientDOB: dob, vitalsObservation } = input;
   const vitalsKey = vitalsObservation.field;
   const patientAgeInMonths = DateTime.fromISO(dob).diffNow('months').months * -1;
-  const rules = findRulesForVitalsKeyAndDOB(vitalsKey as VitalFieldNames, dob);
-  console.log('rules for', vitalsKey, rules.length);
-  const alertLevels = getAlertLevels({
-    observation: vitalsObservation,
-    rules,
-    patientAgeInMonths,
-  });
+  const rulesOrComponents = findRulesForVitalsKeyAndDOB(vitalsKey as VitalFieldNames, dob);
+  // console.log('rules for', vitalsKey, rulesOrComponents.length);
+  const { type } = rulesOrComponents;
+  if (type === 'rules') {
+    const { rules } = rulesOrComponents;
+    const alertLevels = getAlertLevels({
+      observation: vitalsObservation,
+      rules,
+      patientAgeInMonths,
+    });
+    return getAlertLevelsFromInterpretations(alertLevels);
+  }
+  return undefined;
+};
 
+export const getVitalObservationFhirComponentInterpretations = (
+  input: CheckForAbnormalValueInput
+): { [componentName: string]: CodeableConcept[] } | undefined => {
+  const { patientDOB: dob, vitalsObservation } = input;
+  const vitalsKey = vitalsObservation.field;
+  const patientAgeInMonths = DateTime.fromISO(dob).diffNow('months').months * -1;
+  const rulesOrComponents = findRulesForVitalsKeyAndDOB(vitalsKey as VitalFieldNames, dob);
+  const { type } = rulesOrComponents;
+  if (type === 'components') {
+    const { components } = rulesOrComponents;
+    const result: { [componentName: string]: CodeableConcept[] } = {};
+    Object.entries(components).forEach(([name, componentRules]) => {
+      const alertLevels = getAlertLevels({
+        observation: vitalsObservation,
+        rules: componentRules,
+        patientAgeInMonths,
+        componentName: name,
+      });
+      result[name] = getAlertLevelsFromInterpretations(alertLevels) ?? [];
+    });
+    return result;
+  }
+  return undefined;
+};
+
+const getAlertLevelsFromInterpretations = (alertLevels: FHIRObservationInterpretation[]): CodeableConcept[] => {
   let deduped = Array.from(new Set(alertLevels));
   // Remove AbnormalHigh if CriticalHigh is present
   if (deduped.includes(FHIRObservationInterpretation.CriticalHigh)) {
@@ -124,10 +196,34 @@ export const getVitalObservationFhirInterpretations = (
   });
 };
 
-const findRulesForVitalsKeyAndDOB = (key: VitalFieldNames, dob: string): AlertRule[] => {
+const findRulesForVitalsKeyAndDOB = (
+  key: VitalFieldNames,
+  dob: string
+):
+  | { type: 'rules'; rules: AlertRule[] }
+  | { type: 'components'; components: { [componentName: string]: AlertRule[] } } => {
   const dateOfBirth = DateTime.fromISO(dob);
   const now = DateTime.now();
-  const alertThresholds = VitalsDef[key]?.alertThresholds ?? [];
+  const alertThresholds: AlertThreshold[] = VitalsDef[key]?.alertThresholds ?? [];
+  const alertComponents: { [componentName: string]: AlertRule[] } = {};
+  if (key === 'vital-blood-pressure' || key === 'vital-vision') {
+    // For blood pressure, we need to check components
+    const components = VitalsDef[key]?.components;
+    if (components) {
+      Object.entries(components).forEach(([name, component]) => {
+        alertComponents[name] = getRulesForPatientDOB(component.alertThresholds ?? [], dateOfBirth, now);
+      });
+    }
+    return { type: 'components', components: alertComponents };
+  }
+  return { type: 'rules', rules: getRulesForPatientDOB(alertThresholds, dateOfBirth, now) };
+};
+
+const getRulesForPatientDOB = (
+  alertThresholds: AlertThreshold[],
+  dateOfBirth: DateTime,
+  now: DateTime
+): AlertRule[] => {
   const rules = alertThresholds
     .filter((threshold) => {
       const { minAge, maxAge } = threshold;
@@ -150,20 +246,24 @@ interface AlertableValuesInput {
   observation: VitalsObservationDTO;
   rules: AlertRule[];
   patientAgeInMonths: number;
+  componentName?: string;
 }
 
 const getAlertLevels = (input: AlertableValuesInput): FHIRObservationInterpretation[] => {
-  const { observation, rules, patientAgeInMonths } = input;
-
+  const { observation, rules, patientAgeInMonths, componentName } = input;
+  let value: number | undefined = observation.value;
   if (observation.field === VitalFieldNames.VitalVision) {
-    // do a vision-specific check on components
     return [];
   }
   if (observation.field === VitalFieldNames.VitalBloodPressure) {
     // do a blood pressure-specific check on components
-    return [];
+    if (componentName === 'systolic-pressure') {
+      value = observation.systolicPressure;
+    }
+    if (componentName === 'diastolic-pressure') {
+      value = observation.diastolicPressure;
+    }
   }
-  const value = observation.value;
 
   if (value === undefined || value === null || typeof value !== 'number') {
     console.warn('Vital value is not a number:', value);

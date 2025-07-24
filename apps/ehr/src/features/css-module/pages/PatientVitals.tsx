@@ -93,7 +93,7 @@ export const PatientVitals: React.FC<PatientVitalsProps> = () => {
     const alertingEntries = Object.entries(encounterVitals || {})
       .map(([key, values]) => {
         if (Array.isArray(values)) {
-          const newValues = values.filter((value) => {
+          const newValues = (values as VitalsObservationDTO[]).filter((value) => {
             if (value.alertCriticality) {
               return true;
             } else {
@@ -110,7 +110,7 @@ export const PatientVitals: React.FC<PatientVitalsProps> = () => {
     return Object.fromEntries(alertingEntries);
   }, [encounterVitals]);
 
-  console.log('abnormalVitalsValues', abnormalVitalsValues, encounterVitals?.[VitalFieldNames.VitalTemperature]);
+  console.log('abnormalVitalsValues', abnormalVitalsValues, encounterVitals?.[VitalFieldNames.VitalBloodPressure]);
 
   const { interactionMode } = useNavigationContext();
 

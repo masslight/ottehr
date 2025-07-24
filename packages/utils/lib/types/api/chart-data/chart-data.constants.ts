@@ -152,6 +152,16 @@ export enum VitalFieldNames {
   VitalVision = 'vital-vision',
 }
 
+export enum VitalVisionComponents {
+  LeftEye = 'left-eye',
+  RightEye = 'right-eye',
+}
+
+export enum VitalBloodPressureComponents {
+  SystolicPressure = 'systolic-pressure',
+  DiastolicPressure = 'diastolic-pressure',
+}
+
 export enum VitalAlertCriticality {
   Critical = 'critical',
   Abnormal = 'abnormal',

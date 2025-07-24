@@ -1,5 +1,5 @@
 import * as z from 'zod';
-import { VitalAlertCriticality, VitalFieldNames } from '../api';
+import { VitalAlertCriticality, VitalBloodPressureComponents, VitalVisionComponents } from '../api';
 import ChartData from './chart';
 
 const AgeSchema = z.object({
@@ -32,16 +32,46 @@ const AlertThresholdSchema = z
     return true;
   });
 
+// this will can be expanded to include things like out-of-range / invalid values
 const VitalsObjectSchema = z.object({
-  alertThresholds: z.array(AlertThresholdSchema),
+  alertThresholds: z.array(AlertThresholdSchema).optional(),
+});
+const VitalsVisionSchema = VitalsObjectSchema.extend({
+  components: z.record(z.nativeEnum(VitalVisionComponents), VitalsObjectSchema),
+}).refine((data) => {
+  if (data.alertThresholds) {
+    return { message: 'vital-vision object may only define components' };
+  }
+  return true;
+});
+const VitalsBloodPressureSchema = VitalsObjectSchema.extend({
+  components: z.record(z.nativeEnum(VitalBloodPressureComponents), VitalsObjectSchema),
+}).refine((data) => {
+  if (data.alertThresholds) {
+    return { message: 'vital-blood-pressure object may only define components' };
+  }
+  return true;
 });
 
-export const VitalsMapSchema = z.record(z.nativeEnum(VitalFieldNames), VitalsObjectSchema);
+// currently we only define alerts for vitals that are specified so these can all be optional currently
+// the time may come when some or all of these are required
+export const VitalsMapSchema = z.object({
+  'vital-temperature': VitalsObjectSchema.optional(),
+  'vital-heartbeat': VitalsObjectSchema.optional(),
+  'vital-oxygen-sat': VitalsObjectSchema.optional(),
+  'vital-respiration-rate': VitalsObjectSchema.optional(),
+  'vital-weight': VitalsObjectSchema.optional(),
+  'vital-height': VitalsObjectSchema.optional(),
+  'vital-blood-pressure': VitalsBloodPressureSchema.optional(),
+  'vital-vision': VitalsVisionSchema.optional(),
+});
 export const ChartDataSchema = z.object({
   vitals: VitalsMapSchema,
 });
 const ChartDataDef = ChartDataSchema.parse(ChartData);
 
 export const VitalsDef = Object.freeze(ChartDataDef.vitals);
+
+export type AlertThreshold = z.infer<typeof AlertThresholdSchema>;
 
 export type AlertRule = ReturnType<typeof ConstraintSchema.parse>;

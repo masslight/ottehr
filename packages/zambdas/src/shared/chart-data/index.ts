@@ -327,7 +327,6 @@ export function makeObservationResource(
   console.log(`makeObservationResource() fieldName=[${fieldName}]`);
 
   if (isVitalObservation(data)) {
-    console.log(`isVitalObservation() == true`);
     let interpretation: Observation['interpretation'];
     if (patientDOB) {
       interpretation = getVitalObservationFhirInterpretations({
@@ -335,7 +334,7 @@ export function makeObservationResource(
         vitalsObservation: data,
       });
     }
-    return fillVitalObservationAttributes({ ...base, interpretation }, data);
+    return fillVitalObservationAttributes({ ...base, interpretation }, data, patientDOB);
   }
 
   if (isObservationBooleanFieldDTO(data)) {

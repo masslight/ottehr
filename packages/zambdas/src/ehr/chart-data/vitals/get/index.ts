@@ -347,9 +347,9 @@ const complexValidation = async (input: InputParameters, oystehr: Oystehr): Prom
       ],
     })
   ).unbundle();
-  const maybeEncounter = resourcesFound.find((res) => res.resourceType === 'Encounter');
+  const maybeEncounter = resourcesFound.find((res) => res.resourceType === 'Encounter') as Encounter | undefined;
   const patientId = resourcesFound.find((res) => res.resourceType === 'Patient')?.id;
-  const maybeAppointment = resourcesFound.find((res) => res.resourceType === 'Appointment');
+  const maybeAppointment = resourcesFound.find((res) => res.resourceType === 'Appointment') as Appointment | undefined;
 
   if (!maybeEncounter) {
     throw FHIR_RESOURCE_NOT_FOUND('Encounter');
