@@ -290,6 +290,9 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
   drawFieldLine('Date of Service', data.dateOfService);
   drawFieldLine('Reason for Visit', data.reasonForVisit);
   drawFieldLine('Provider', data.provider);
+  if (data.intakePerson) {
+    drawFieldLine('Intake completed by', data.intakePerson);
+  }
   drawFieldLine('Signed On', data.signedOn);
   drawFieldLine('Visit ID', data.visitID);
   drawFieldLine('Visit State', data.visitState);
@@ -300,7 +303,9 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     drawFieldLine('Subscriber ID', data.insuranceSubscriberId);
   }
   drawFieldLine('Address', data.address);
-  regularText("Provider confirmed patient's name, DOB, introduced myself and gave my licensure and credentials");
+  regularText(
+    'Provider confirmed patient’s name, DOB, introduced themselves, and gave their licensure and credentials.'
+  );
   separateLine();
 
   if (data.chiefComplaint || data.providerTimeSpan) {
@@ -406,6 +411,27 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     if (data.hospitalizationNotes && data.hospitalizationNotes.length > 0) {
       drawBlockHeader('Hospitalization notes', textStyles.blockSubHeader);
       data.hospitalizationNotes.forEach((record) => {
+        regularText(record);
+      });
+    }
+
+    separateLine();
+  }
+
+  if (
+    (data.inHouseMedications && data.inHouseMedications.length > 0) ||
+    (data.inHouseMedicationsNotes && data.inHouseMedicationsNotes.length > 0)
+  ) {
+    drawBlockHeader('In-House Medications');
+    data.inHouseMedications?.length
+      ? data.inHouseMedications.forEach((record) => {
+          regularText(record);
+        })
+      : regularText('No in-house medications');
+
+    if (data.inHouseMedicationsNotes && data.inHouseMedicationsNotes.length > 0) {
+      drawBlockHeader('In-House Medications notes', textStyles.blockSubHeader);
+      data.inHouseMedicationsNotes.forEach((record) => {
         regularText(record);
       });
     }
@@ -667,7 +693,7 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     (data.subSpecialtyFollowUp && data.subSpecialtyFollowUp.length > 0) ||
     (data.workSchoolExcuse && data.workSchoolExcuse.length > 0)
   ) {
-    drawBlockHeader('Patient instructions');
+    drawBlockHeader('Plan');
     if (data.patientInstructions && data.patientInstructions.length > 0) {
       drawBlockHeader('Patient instructions', textStyles.blockSubHeader);
       data.patientInstructions.forEach((instruction) => {
@@ -721,10 +747,16 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     }
 
     if (data.workSchoolExcuse && data.workSchoolExcuse.length > 0) {
-      drawBlockHeader('Work / School Excuse', textStyles.blockSubHeader);
+      drawBlockHeader('School / Work Excuse', textStyles.blockSubHeader);
       data.workSchoolExcuse.forEach((item) => {
         regularText(item);
       });
+      separateLine();
+    }
+
+    if (data.addendumNote) {
+      drawBlockHeader('Addendum', textStyles.blockSubHeader);
+      regularText(data.addendumNote);
     }
   }
 

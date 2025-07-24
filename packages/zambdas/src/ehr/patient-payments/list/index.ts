@@ -28,13 +28,17 @@ import {
   lambdaResponse,
   STRIPE_PAYMENT_ID_SYSTEM,
   topLevelCatch,
+  wrapHandler,
   ZambdaInput,
 } from '../../../shared';
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrM2MClientToken: string;
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+
+const ZAMBDA_NAME = 'patient-payments-list';
+
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     let validatedParameters: ReturnType<typeof validateRequestParameters>;
@@ -83,7 +87,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
     return topLevelCatch('patient-payments-list', error, ENVIRONMENT);
   }
-};
+});
 interface EffectInput extends ListPatientPaymentInput {
   stripeClient: Stripe;
   patientAccount: Account;
@@ -98,7 +102,7 @@ const performEffect = async (input: EffectInput): Promise<ListPatientPaymentResp
     if (customerId) {
       const [paymentIntents, pms] = await Promise.all([
         stripeClient.paymentIntents.search({
-          query: `customer:"${customerId}" AND metadata['encounterId']:"${encounterId}"`,
+          query: `metadata['encounterId']:"${encounterId}" OR metadata['oystehr_encounter_id']:"${encounterId}"`,
         }),
         stripeClient.paymentMethods.list({
           customer: customerId,

@@ -82,4 +82,6 @@ export const otherColors = {
   warningText: '#5F2B00',
   infoAlert: '#e3f2fd',
   sidebarItemHover: '#F6F9FF',
+  lightErrorBg: '#FBEAEA',
+  lightErrorText: '#541313',
 };

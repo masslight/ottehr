@@ -76,6 +76,16 @@ const Review = (): JSX.Element => {
       }
       setLoading(true);
 
+      // hotfix for https://github.com/masslight/ottehr/issues/3290
+      // For the case when the time was rescheduled, the payload to the create-appointment zambda
+      // starts including "new-patient" in the id, and that breaks logic in many places
+      // across different zambdas and affects subsequent zambda calls too.
+      // It looks like the working variant is not to send the id for new users, but it looks like
+      // we should handle it in the zambda in a more optimal way.
+      if (patientInfo.newPatient) {
+        patientInfo.id = undefined;
+      }
+
       // Create the appointment
       const res = await ottehrApi.createAppointment(zambdaClient, {
         slotId,

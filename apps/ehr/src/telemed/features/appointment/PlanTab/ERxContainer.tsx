@@ -1,5 +1,5 @@
 import AddIcon from '@mui/icons-material/Add';
-import CloseIcon from '@mui/icons-material/Close';
+import { LoadingButton } from '@mui/lab';
 import {
   CircularProgress,
   Paper,
@@ -15,8 +15,8 @@ import {
 import { Stack } from '@mui/system';
 import { Practitioner } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import { FC, useCallback, useState } from 'react';
-import { formatDateToMDYWithTime, RoleType } from 'utils';
+import { FC, useState } from 'react';
+import { ERX_MEDICATION_META_TAG_CODE, formatDateToMDYWithTime, RoleType } from 'utils';
 import { RoundedButton } from '../../../../components/RoundedButton';
 import { useChartData } from '../../../../features/css-module/hooks/useChartData';
 import { useApiClients } from '../../../../hooks/useAppClients';
@@ -26,7 +26,7 @@ import { PageTitle } from '../../../components/PageTitle';
 import { useGetAppointmentAccessibility } from '../../../hooks';
 import { useAppointmentStore } from '../../../state';
 import { getAppointmentStatusChip } from '../../../utils';
-import { ERX } from '../ERX';
+import { ERX, ERXStatus } from '../ERX';
 
 const getPractitionerName = (practitioner?: Practitioner): string | undefined => {
   if (!practitioner) {
@@ -117,11 +117,12 @@ interface ERxContainerProps {
 }
 
 export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
-  const { encounter, appointment, setPartialChartData, chartData } = getSelectors(useAppointmentStore, [
+  const { encounter, appointment, setPartialChartData, chartData, patient } = getSelectors(useAppointmentStore, [
     'encounter',
     'appointment',
     'setPartialChartData',
     'chartData',
+    'patient',
   ]);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
@@ -130,6 +131,7 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
     requestedFields: {
       prescribedMedications: {
         _include: 'MedicationRequest:requester',
+        _tag: ERX_MEDICATION_META_TAG_CODE,
       },
     },
     refetchInterval: 10000,
@@ -156,26 +158,27 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
   });
 
   const [isERXOpen, setIsERXOpen] = useState(false);
-  const [isERXLoading, setIsERXLoading] = useState(false);
+  const [erxStatus, setERXStatus] = useState(ERXStatus.INITIAL);
   const [openTooltip, setOpenTooltip] = useState(false);
   const [cancellationLoading, setCancellationLoading] = useState<string[]>([]);
   const { oystehr } = useApiClients();
   const user = useEvolveUser();
 
-  const handleERXLoadingStatusChange = useCallback<(status: boolean) => void>(
-    (status) => setIsERXLoading(status),
-    [setIsERXLoading]
-  );
-
-  const cancelPrescription = async (prescriptionId: string): Promise<void> => {
+  const cancelPrescription = async (medRequestId: string, patientId: string): Promise<void> => {
     if (!oystehr) {
       enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
       return;
     }
-    setCancellationLoading((prevState) => [...prevState, prescriptionId]);
-    await oystehr.erxV1.cancelPrescription({ prescriptionId });
-    await refetch();
-    setCancellationLoading((prevState) => prevState.filter((item) => item !== prescriptionId));
+    setCancellationLoading((prevState) => [...prevState, medRequestId]);
+    try {
+      await oystehr.erx.cancelPrescription({ medicationRequestId: medRequestId, patientId });
+    } catch (error) {
+      enqueueSnackbar('An error occurred while cancelling prescription. Please try again.', { variant: 'error' });
+      console.error(`Error cancelling prescription: ${error}`);
+    } finally {
+      await refetch();
+      setCancellationLoading((prevState) => prevState.filter((item) => item !== medRequestId));
+    }
   };
 
   const handleCloseTooltip = (): void => {
@@ -211,26 +214,24 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
             onOpen={handleOpenTooltip}
           >
             <Stack>
-              {isERXOpen && !isERXLoading ? (
+              {isERXOpen && erxStatus !== ERXStatus.LOADING ? (
                 <RoundedButton
-                  disabled={isReadOnly || isERXLoading || !user?.hasRole([RoleType.Provider])}
+                  disabled={isReadOnly || !user?.hasRole([RoleType.Provider])}
                   variant="contained"
                   onClick={() => {
                     setIsERXOpen(false);
-                    setIsERXLoading(false);
                   }}
-                  startIcon={isERXLoading ? <CircularProgress size={16} /> : <CloseIcon />}
                 >
                   Close eRX
                 </RoundedButton>
               ) : (
                 <RoundedButton
-                  disabled={isReadOnly || isERXLoading || !user?.hasRole([RoleType.Provider])}
+                  disabled={isReadOnly || erxStatus === ERXStatus.LOADING || !user?.hasRole([RoleType.Provider])}
                   variant="contained"
                   onClick={() => onNewOrderClick()}
-                  startIcon={isERXLoading ? <CircularProgress size={16} /> : <AddIcon />}
+                  startIcon={erxStatus === ERXStatus.LOADING ? <CircularProgress size={16} /> : <AddIcon />}
                 >
-                  Open eRX
+                  {erxStatus === ERXStatus.LOADING ? 'Loading eRx' : 'Open eRx'}
                 </RoundedButton>
               )}
             </Stack>
@@ -239,11 +240,13 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
         {/* {!erxEnvVariable && <CompleteConfiguration handleSetup={handleSetup} />} */}
         {isERXOpen && (
           <ERX
-            onClose={() => {
-              setIsERXOpen(false);
-              setIsERXLoading(false);
+            onStatusChanged={(status) => {
+              if (status === ERXStatus.ERROR) {
+                setIsERXOpen(false);
+              }
+              setERXStatus(status);
             }}
-            onLoadingStatusChange={handleERXLoadingStatusChange}
+            showDefaultAlert={true}
           />
         )}
         <div id="prescribe-dialog" style={{ flex: '1 0 auto', display: 'flex' }} />
@@ -301,20 +304,22 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
                     </TableCell>
                     {/*<TableCell>Pharmacy</TableCell>*/}
                     <TableCell>{getAppointmentStatusChip(row.status, medicationStatusMapper)}</TableCell>
-                    {!isReadOnly && (
+                    {!isReadOnly && patient?.id && (
                       <TableCell>
-                        <RoundedButton
+                        <LoadingButton
+                          loading={cancellationLoading.includes(row.resourceId!)}
                           variant="text"
                           color="error"
-                          onClick={() => cancelPrescription(row.prescriptionId!)}
+                          onClick={() => cancelPrescription(row.resourceId!, patient.id!)}
                           disabled={
-                            !row.prescriptionId ||
                             row.status === 'loading' ||
-                            cancellationLoading.includes(row.prescriptionId)
+                            row.status === 'completed' ||
+                            row.status === 'cancelled' ||
+                            cancellationLoading.includes(row.resourceId!)
                           }
                         >
                           Cancel
-                        </RoundedButton>
+                        </LoadingButton>
                       </TableCell>
                     )}
                   </TableRow>

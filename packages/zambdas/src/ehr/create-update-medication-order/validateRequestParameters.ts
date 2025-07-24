@@ -10,7 +10,7 @@ export function validateRequestParameters(
     throw new Error('No request body provided');
   }
 
-  const { orderId, newStatus, orderData } = JSON.parse(input.body);
+  const { orderId, newStatus, orderData, interactions } = JSON.parse(input.body);
 
   if (newStatus) {
     if (newStatus === 'administered' && !orderData) {
@@ -39,9 +39,7 @@ export function validateRequestParameters(
     if (missedFields.length > 0) throw new Error(`Missing fields in orderData: ${missedFields.join(', ')}`);
   }
 
-  if (orderData?.interactions) {
-    validateInteractions(orderData.interactions);
-  }
+  validateInteractions(interactions);
 
   console.groupEnd();
   console.debug('validateRequestParameters success');
@@ -51,17 +49,18 @@ export function validateRequestParameters(
     newStatus,
     orderData,
     secrets: input.secrets,
+    interactions: interactions,
   };
 }
 
-function validateInteractions(interactions: MedicationInteractions): void {
+function validateInteractions(interactions?: MedicationInteractions): void {
   const missingOverrideReason: string[] = [];
-  interactions.drugInteractions?.forEach((interaction, index) => {
+  interactions?.drugInteractions?.forEach((interaction, index) => {
     if (!interaction.overrideReason) {
       missingOverrideReason.push(`interactions.drugInteractions[${index}]`);
     }
   });
-  interactions.allergyInteractions?.forEach((interaction, index) => {
+  interactions?.allergyInteractions?.forEach((interaction, index) => {
     if (!interaction.overrideReason) {
       missingOverrideReason.push(`interactions.allergyInteractions[${index}]`);
     }

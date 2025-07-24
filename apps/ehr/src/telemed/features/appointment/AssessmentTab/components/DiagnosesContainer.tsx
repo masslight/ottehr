@@ -152,7 +152,10 @@ export const DiagnosesContainer: FC = () => {
   );
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+    <Box
+      sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+      data-testid={dataTestIds.diagnosisContainer.allDiagnosesContainer}
+    >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
         <AssessmentTitle>{css ? 'Dx' : 'Diagnoses'}</AssessmentTitle>
         {!isReadOnly && <DiagnosesField onChange={onAdd} disabled={isLoading} disableForPrimary={!primaryDiagnosis} />}

@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Identifier, Money, PaymentNotice, PaymentReconciliation, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -30,13 +31,16 @@ import {
   makeBusinessIdentifierForStripePayment,
   performCandidPreEncounterSync,
   topLevelCatch,
+  wrapHandler,
   ZambdaInput,
 } from '../../../shared';
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 
+const ZAMBDA_NAME = 'post-patient-payment';
+
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrM2MClientToken: string;
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const authorization = input.headers.Authorization;
     const secrets = input.secrets;
@@ -96,7 +100,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
     return topLevelCatch('patient-payments-post', error, ENVIRONMENT);
   }
-};
+});
 
 const performEffect = async (
   input: ComplexValidationOutput,
@@ -127,7 +131,7 @@ const performEffect = async (
       description: description || `Payment for encounter ${encounterId}`,
       confirm: true,
       metadata: {
-        encounterId,
+        oystehr_encounter_id: encounterId,
       },
       automatic_payment_methods: {
         enabled: true,
@@ -135,6 +139,10 @@ const performEffect = async (
       },
     };
     const paymentIntent = await stripeClient.paymentIntents.create(paymentIntentInput);
+
+    if (paymentIntent.status !== 'succeeded') {
+      throw new Error(`The card payment was not successful. Try a different card`);
+    }
 
     paymentNoticeInput.stripePaymentIntentId = paymentIntent.id;
 
@@ -144,12 +152,18 @@ const performEffect = async (
     // here's where we might set a candidPayment id once candid stuff has been added
   }
 
-  await performCandidPreEncounterSync({
-    encounterId,
-    oystehr: oystehrClient,
-    secrets: requiredSecrets.secrets,
-    amountCents: amountInCents,
-  });
+  try {
+    await performCandidPreEncounterSync({
+      encounterId,
+      oystehr: oystehrClient,
+      secrets: requiredSecrets.secrets,
+      amountCents: amountInCents,
+    });
+  } catch (error) {
+    console.error(`Error during Candid pre-encounter sync: ${error}`);
+    captureException(error);
+    // We are eating this error to allow the payment to still be recorded even though the Candid sync failed.
+  }
 
   const noticeToWrite = makePaymentNotice(paymentNoticeInput);
 

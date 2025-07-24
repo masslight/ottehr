@@ -50,11 +50,13 @@ export const getVisitStatus = (appointment: Appointment, encounter: Encounter): 
     return 'pending';
   } else if (appointment.status === 'arrived') {
     return 'arrived';
+  } else if (appointment.status === 'checked-in' && encounter.status === 'in-progress') {
+    return 'intake';
   } else if (appointment.status === 'checked-in') {
     return 'ready';
   } else if (encounter.status === 'in-progress') {
     if (attenderParticipant?.period?.end) {
-      return 'ready for discharge';
+      return 'discharged';
     } else if (attenderParticipant?.period?.start) {
       return 'provider';
     } else if (admitterParticipant?.period?.end) {
@@ -62,8 +64,6 @@ export const getVisitStatus = (appointment: Appointment, encounter: Encounter): 
     } else {
       return 'intake';
     }
-  } else if (encounter.status === 'arrived' && appointment.status === 'fulfilled') {
-    return 'intake';
   } else if (appointment.status === 'cancelled' || encounter.status === 'cancelled') {
     return 'cancelled';
   } else if (appointment.status === 'noshow') {
@@ -129,10 +129,10 @@ const getInProgressVisitHistories = (
         status: 'provider',
         period: participantDetails.period,
       });
-      // add a status history for 'ready for discharge' with a start time == provider end time
+      // add a status history for 'discharged' with a start time == provider end time
       if (participantDetails.period?.end) {
         const readyForDischarge: VisitStatusHistoryEntry = {
-          status: 'ready for discharge',
+          status: 'discharged',
           period: { start: participantDetails.period.end },
         };
         acc.push(readyForDischarge);

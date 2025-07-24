@@ -16,22 +16,31 @@ import {
 } from '../../state';
 import { ERXDialog } from './ERXDialog';
 
+export enum ERXStatus {
+  INITIAL,
+  LOADING,
+  READY,
+  ERROR,
+}
+
 export const ERX: FC<{
-  onClose: () => void;
-  onLoadingStatusChange: (loading: boolean) => void;
-}> = ({ onClose, onLoadingStatusChange }) => {
+  onStatusChanged: (status: ERXStatus) => void;
+  showDefaultAlert: boolean;
+}> = ({ onStatusChanged, showDefaultAlert }) => {
   const { patient, encounter } = getSelectors(useAppointmentStore, ['patient', 'encounter']);
   const phoneNumber = patient?.telecom?.find((telecom) => telecom.system === 'phone')?.value;
   const user = useEvolveUser();
   const practitioner = user?.profileResource;
 
   const [alertMessage, setAlertMessage] = useState<string | null>(
-    'If something goes wrong - please close and open the eRx again.'
+    showDefaultAlert ? 'If something goes wrong - please reload the page.' : null
   );
 
   const practitionerMissingFields = useMemo(() => {
     return practitioner ? getPractitionerMissingFields(practitioner) : [];
   }, [practitioner]);
+
+  const [isTimeout, setIsTimeout] = useState<boolean>(false);
 
   // Step 1: Get patient vitals
   const heightSearchConfig = createVitalsSearchConfig(VitalFieldNames.VitalHeight, 'patient', 1);
@@ -64,18 +73,24 @@ export const ERX: FC<{
   const isVitalsLoading = isHeightLoading || isWeightLoading;
   const isVitalsFetched = isHeightFetched && isWeightFetched;
 
+  console.log(isVitalsLoading, hasVitals, practitionerMissingFields);
   // Step 2: Check practitioner enrollment
   const {
     data: practitionerEnrollmentStatus,
-    isLoading: isCheckingPractitionerEnrollment,
     isFetched: isPractitionerEnrollmentChecked,
     refetch: refetchPractitionerEnrollment,
   } = useCheckPractitionerEnrollment({
     enabled: !isVitalsLoading && hasVitals && practitionerMissingFields.length === 0,
   });
 
+  useEffect(() => {
+    if (practitionerMissingFields.length > 0) {
+      onStatusChanged(ERXStatus.ERROR);
+    }
+  }, [onStatusChanged, practitionerMissingFields]);
+
   // Step 3: Sync patient
-  const { isLoading: isSyncingPatient, isFetched: isPatientSynced } = useSyncERXPatient({
+  const { isFetched: isPatientSynced, isLoading: isPatientSyncing } = useSyncERXPatient({
     patient: patient!,
     enabled: Boolean(practitionerEnrollmentStatus?.confirmed && hasVitals),
     onError: (error) => {
@@ -83,7 +98,7 @@ export const ERX: FC<{
 
       if (error.status === 400) {
         if (error.message?.includes('phone')) {
-          errorMsg = `Patient has specified some wrong phone number: ${phoneNumber}. RX can be used only when a real phone number is provided`;
+          errorMsg = `Patient has specified some wrong phone number: ${phoneNumber}. Please provide a real patient's phone number`;
         } else if (error.message?.includes('eRx service is not configured')) {
           errorMsg = `eRx service is not configured. Please contact support.`;
         } else {
@@ -92,7 +107,7 @@ export const ERX: FC<{
       }
 
       enqueueSnackbar(errorMsg, { variant: 'error' });
-      onClose();
+      onStatusChanged(ERXStatus.ERROR);
     },
   });
 
@@ -105,7 +120,7 @@ export const ERX: FC<{
   } = useEnrollPractitionerToERX({
     onError: () => {
       enqueueSnackbar('Enrolling practitioner to eRx failed', { variant: 'error' });
-      onClose();
+      onStatusChanged(ERXStatus.ERROR);
     },
   });
 
@@ -127,7 +142,7 @@ export const ERX: FC<{
     isLoading: isConnectingPractitioner,
     mutateAsync: connectPractitioner,
     isSuccess: isPractitionerConnected,
-  } = useConnectPractitionerToERX({ patientId: patient?.id });
+  } = useConnectPractitionerToERX({ patientId: patient?.id, encounterId: encounter.id });
 
   const {
     data: ssoLinkForEnrollment,
@@ -141,16 +156,15 @@ export const ERX: FC<{
       try {
         await (mode === 'confirmation' ? connectPractitionerForConfirmation() : connectPractitioner());
         if (mode === 'confirmation') {
-          setAlertMessage(
-            'When you complete the RxLink Agreement, please close the eRx by clicking the "Close eRx" button and open it again to start prescribing.'
-          );
+          setAlertMessage('When you complete the RxLink Agreement, please reload the page.');
         }
       } catch (error) {
         enqueueSnackbar('Something went wrong while trying to connect practitioner to eRx', { variant: 'error' });
         console.error('Error trying to connect practitioner to eRx: ', error);
+        onStatusChanged(ERXStatus.ERROR);
       }
     },
-    [connectPractitioner, connectPractitionerForConfirmation]
+    [connectPractitioner, connectPractitionerForConfirmation, onStatusChanged]
   );
 
   // Handle vitals validation
@@ -160,8 +174,9 @@ export const ERX: FC<{
         "Patient doesn't have height or weight vital specified. Please specify it first on the `Vitals` tab",
         { variant: 'error' }
       );
+      onStatusChanged(ERXStatus.ERROR);
     }
-  }, [isVitalsFetched, hasVitals]);
+  }, [isVitalsFetched, hasVitals, onStatusChanged]);
 
   // Handle practitioner enrollment
   useEffect(() => {
@@ -207,7 +222,7 @@ export const ERX: FC<{
   useEffect(() => {
     if (
       practitionerEnrollmentStatus?.registered &&
-      !practitionerEnrollmentStatus?.confirmed &&
+      (!practitionerEnrollmentStatus?.confirmed || !practitionerEnrollmentStatus?.identityVerified) &&
       !isConnectingPractitionerForConfirmation &&
       !isPractitionerConnectedForConfirmation
     ) {
@@ -218,35 +233,47 @@ export const ERX: FC<{
     connectPractitionerFn,
     isConnectingPractitionerForConfirmation,
     isPractitionerConnectedForConfirmation,
-    practitionerEnrollmentStatus?.registered,
-    practitionerEnrollmentStatus?.confirmed,
+    practitionerEnrollmentStatus,
   ]);
 
-  // Handle loading state
+  // Handle ready state
   useEffect(() => {
-    const isLoading =
-      isVitalsLoading ||
-      isCheckingPractitionerEnrollment ||
-      isSyncingPatient ||
+    if (isPractitionerConnected) {
+      onStatusChanged(ERXStatus.READY);
+    }
+  }, [onStatusChanged, isPractitionerConnected]);
+
+  useEffect(() => {
+    if (isTimeout && !isPractitionerConnected) {
+      onStatusChanged(ERXStatus.ERROR);
+    } else if (
+      isHeightLoading ||
+      isWeightLoading ||
+      isPatientSyncing ||
+      isEnrollingPractitioner ||
       isConnectingPractitioner ||
-      isEnrollingPractitioner;
-
-    onLoadingStatusChange(isLoading);
+      isConnectingPractitionerForConfirmation
+    ) {
+      onStatusChanged(ERXStatus.LOADING);
+    }
   }, [
-    onLoadingStatusChange,
-    isVitalsLoading,
-    isCheckingPractitionerEnrollment,
-    isSyncingPatient,
-    isConnectingPractitioner,
+    isHeightLoading,
+    isWeightLoading,
+    isPatientSyncing,
+    onStatusChanged,
     isEnrollingPractitioner,
+    isConnectingPractitioner,
+    isConnectingPractitionerForConfirmation,
+    isTimeout,
+    isPractitionerConnected,
   ]);
 
-  // Cleanup on unmount
+  // Timeout after 30 seconds
   useEffect(() => {
-    return () => {
-      onLoadingStatusChange(false);
-    };
-  }, [onLoadingStatusChange]);
+    setTimeout(() => {
+      setIsTimeout(true);
+    }, 30000);
+  }, []);
 
   return (
     <>

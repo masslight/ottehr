@@ -3,7 +3,7 @@
   "resource": {
     "resourceType": "Questionnaire",
     "url": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual",
-    "version": "1.0.7",
+    "version": "1.0.8",
     "name": "virtual_pre-visit_paperwork (please_do_not_delete)",
     "title": "virtual pre-visit paperwork",
     "status": "active",
@@ -3418,10 +3418,6 @@
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
                 "valueString": "DOB"
-              },
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/validate-age-over",
-                "valueInteger": 18
               }
             ]
           },
@@ -3811,6 +3807,34 @@
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
                 "valueString": "patient-number"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                "valueString": "protected"
+              }
+            ]
+          },
+          {
+            "linkId": "responsible-party-email",
+            "text": "Email",
+            "type": "string",
+            "required": true,
+            "enableWhen": [
+              {
+                "question": "responsible-party-relationship",
+                "operator": "!=",
+                "answerString": "Self"
+              }
+            ],
+            "enableBehavior": "all",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                "valueString": "Email"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+                "valueString": "patient-email"
               },
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",

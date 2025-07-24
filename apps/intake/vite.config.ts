@@ -13,6 +13,7 @@ export default (env: any): Record<string, any> => {
   const shouldUploadSentrySourceMaps =
     Boolean(appEnv.SENTRY_AUTH_TOKEN) && Boolean(appEnv.SENTRY_ORG) && Boolean(appEnv.SENTRY_PROJECT);
 
+  console.log(shouldUploadSentrySourceMaps ? 'Configuring SentryVitePlugin' : 'skipping SentryVitePlugin');
   console.log('vite mode:', mode);
 
   const plugins: PluginOption[] = [
@@ -49,7 +50,7 @@ export default (env: any): Record<string, any> => {
     config({ mode }),
     defineConfig({
       build: {
-        sourcemap: shouldUploadSentrySourceMaps,
+        sourcemap: true,
       },
       plugins,
       server: {

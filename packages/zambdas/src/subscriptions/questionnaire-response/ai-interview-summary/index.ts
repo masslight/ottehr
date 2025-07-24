@@ -18,11 +18,14 @@ import {
   parseCreatedResourcesBundle,
   saveResourceRequest,
   validateJsonBody,
+  wrapHandler,
   ZambdaInput,
 } from '../../../shared';
 import { invokeChatbot } from '../../../shared/ai';
 
 export const INTERVIEW_COMPLETED = 'Interview completed.';
+
+const ZAMBDA_NAME = 'ai-interview-summary';
 
 const PROMPT = `I'll give you a transcript of a chat between a healthcare provider and a patient. 
 Please generate history of present illness, past medical history, past surgical history, medications history, 
@@ -49,7 +52,7 @@ interface Input {
   secrets: Secrets | null;
 }
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   configSentry('sub-ai-interview-summary', input.secrets);
   console.log('AI interview summary invoked');
   console.log(`Input: ${JSON.stringify(input)}`);
@@ -90,7 +93,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify({ error: 'Internal error' }),
     };
   }
-};
+});
 
 function createChatTranscript(questionnaireResponse: QuestionnaireResponse): string {
   const questionnaire = questionnaireResponse.contained?.[0] as Questionnaire;

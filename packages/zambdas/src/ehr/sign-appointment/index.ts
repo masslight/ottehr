@@ -3,7 +3,7 @@ import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import {
-  getCriticalUpdateTagOp,
+  getAppointmentMetaTagOpForStatusUpdate,
   getEncounterStatusHistoryUpdateOp,
   getPatchBinary,
   getProgressNoteChartDataRequestedFields,
@@ -15,7 +15,7 @@ import {
   visitStatusToFhirAppointmentStatusMap,
   visitStatusToFhirEncounterStatusMap,
 } from 'utils';
-import { checkOrCreateM2MClientToken, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createEncounterFromAppointment } from '../../shared/candid';
 import { createPublishExcuseNotesOps } from '../../shared/createPublishExcuseNotesOps';
 import { createOystehrClient } from '../../shared/helpers';
@@ -24,12 +24,14 @@ import { makeVisitNotePdfDocumentReference } from '../../shared/pdf/visit-detail
 import { FullAppointmentResourcePackage } from '../../shared/pdf/visit-details-pdf/types';
 import { composeAndCreateVisitNotePdf } from '../../shared/pdf/visit-details-pdf/visit-note-pdf-creation';
 import { getChartData } from '../get-chart-data';
+import { getMedicationOrders } from '../get-medication-orders';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+const ZAMBDA_NAME = 'sign-appointment';
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
 
@@ -52,7 +54,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify({ message: 'Error changing appointment status and creating a charge.' }),
     };
   }
-};
+});
 
 export const performEffect = async (
   oystehr: Oystehr,
@@ -80,11 +82,18 @@ export const performEffect = async (
 
   let candidEncounterId: string | undefined;
   try {
+    console.log('[CLAIM SUBMISSION] Attempting to create encounter in candid...');
     candidEncounterId = await createEncounterFromAppointment(visitResources, secrets, oystehr);
   } catch (error) {
     console.error(`Error creating Candid encounter: ${error}, stringified error: ${JSON.stringify(error)}`);
-    captureException(error);
+    captureException(error, {
+      tags: {
+        appointmentId,
+        encounterId: encounter.id,
+      },
+    });
   }
+  console.log(`[CLAIM SUBMISSION] Candid encounter created with ID ${candidEncounterId}`);
 
   console.log(`appointment and encounter statuses: ${appointment.status}, ${encounter.status}`);
   const currentStatus = getVisitStatus(appointment, encounter);
@@ -102,21 +111,38 @@ export const performEffect = async (
     visitResources.encounter.id!,
     isInPersonAppointment ? getProgressNoteChartDataRequestedFields() : telemedProgressNoteChartDataRequestedFields
   );
+  const medicationOrdersPromise = getMedicationOrders(oystehr, {
+    searchBy: {
+      field: 'encounterId',
+      value: visitResources.encounter.id!,
+    },
+  });
 
   const [chartData, additionalChartData] = (await Promise.all([chartDataPromise, additionalChartDataPromise])).map(
     (promise) => promise.response
   );
+  const medicationOrders = (await medicationOrdersPromise).orders;
 
   console.log('Chart data received');
-  const pdfInfo = await composeAndCreateVisitNotePdf(
-    { chartData, additionalChartData },
-    visitResources,
-    secrets,
-    m2mToken
-  );
-  if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
-  console.log(`Creating visit note pdf docRef`);
-  await makeVisitNotePdfDocumentReference(oystehr, pdfInfo, patient.id, appointmentId, encounter.id!, listResources);
+  try {
+    const pdfInfo = await composeAndCreateVisitNotePdf(
+      { chartData, additionalChartData, medicationOrders },
+      visitResources,
+      secrets,
+      m2mToken
+    );
+    if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
+    console.log(`Creating visit note pdf docRef`);
+    await makeVisitNotePdfDocumentReference(oystehr, pdfInfo, patient.id, appointmentId, encounter.id!, listResources);
+  } catch (error) {
+    console.error(`Error creating visit note pdf: ${error}`);
+    captureException(error, {
+      tags: {
+        appointmentId,
+        encounterId: encounter.id,
+      },
+    });
+  }
 
   return {
     message: 'Appointment status successfully changed.',
@@ -149,11 +175,7 @@ const changeStatusToCompleted = async (
 
   const user = await oystehrCurrentUser.user.me();
 
-  const updateTag = getCriticalUpdateTagOp(
-    resourcesToUpdate.appointment,
-    `Staff ${user?.email ? user.email : `(${user?.id})`}`
-  );
-  patchOps.push(updateTag);
+  patchOps.push(...getAppointmentMetaTagOpForStatusUpdate(resourcesToUpdate.appointment, 'completed', { user }));
 
   const encounterPatchOps: Operation[] = [
     {

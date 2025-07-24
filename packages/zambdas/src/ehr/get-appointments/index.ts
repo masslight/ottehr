@@ -29,6 +29,7 @@ import {
   getVisitStatusHistory,
   InPersonAppointmentInformation,
   INSURANCE_CARD_CODE,
+  isNonPaperworkQuestionnaireResponse,
   isTruthy,
   PHOTO_ID_CARD_CODE,
   ROOM_EXTENSION_URL,
@@ -38,7 +39,6 @@ import {
   SMSRecipient,
   ZAP_SMS_MEDIUM_CODE,
 } from 'utils';
-import { isNonPaperworkQuestionnaireResponse } from '../../common';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -49,7 +49,6 @@ import {
   ZambdaInput,
 } from '../../shared';
 import {
-  getActiveAppointmentsBeforeTodayQueryInput,
   getAppointmentQueryInput,
   getTimezoneResourceIdFromAppointment,
   makeEncounterSearchParams,
@@ -113,7 +112,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
       return resources;
     })();
 
-    const { appointmentResources, activeApptsBeforeToday, appointmentsToGroupMap } = await (async () => {
+    const { appointmentResources, appointmentsToGroupMap } = await (async () => {
       // prepare search options
       const searchOptions = await Promise.all(
         requestedTimezoneRelatedResources.map(async (resource) => {
@@ -155,43 +154,13 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
 
           const { group } = appointmentRequestInput;
 
-          const activeApptsBeforeTodayRequest = await getActiveAppointmentsBeforeTodayQueryInput({
-            oystehr,
-            resourceId: options.resourceId,
-            resourceType: options.resourceType,
-          });
+          const appointmentResponse = await oystehr.fhir.search<AppointmentRelatedResources>(appointmentRequest);
 
-          const appointmentPromise = oystehr.fhir.search<AppointmentRelatedResources>(appointmentRequest);
-          const activeApptsBeforeTodayPromise =
-            oystehr.fhir.search<AppointmentRelatedResources>(activeApptsBeforeTodayRequest);
-
-          const [appointmentResponse, activeApptsBeforeTodayResponse] = await Promise.all([
-            appointmentPromise,
-            activeApptsBeforeTodayPromise,
-          ]);
           const appointments = appointmentResponse
             .unbundle()
             .filter((resource) => !isNonPaperworkQuestionnaireResponse(resource));
 
-          const activeApptsBeforeTodayResources = activeApptsBeforeTodayResponse.unbundle();
-          let activeApptsBeforeToday: Appointment[] = [];
-          const activeApptsBeforeTodayPatientsIds: string[] = [];
-          activeApptsBeforeTodayResources.forEach((res) => {
-            if (res.resourceType === 'Appointment') activeApptsBeforeToday.push(res);
-            if (res.resourceType === 'Patient' && res.id) activeApptsBeforeTodayPatientsIds.push(res.id);
-          });
-
-          // here we are checking if appointments-before-today have patients, because this issue appears a lot
-          // and we can see date where we have appointment but nothing in waiting room because no patient for appointment
-          activeApptsBeforeToday = activeApptsBeforeToday.filter((res) => {
-            const patientRef = (res as Appointment).participant.find(
-              (participant) => participant.actor?.reference?.startsWith('Patient/')
-            )?.actor?.reference;
-            const patientId = patientRef?.replace('Patient/', '') ?? '';
-            return Boolean(activeApptsBeforeTodayPatientsIds.includes(patientId));
-          });
-
-          return { appointments, activeApptsBeforeToday, group };
+          return { appointments, group };
         })
       );
 
@@ -208,34 +177,13 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
         return appointments;
       });
 
-      const flatActiveApptsBeforeToday = resourceResults.flatMap((result) => {
-        return result.activeApptsBeforeToday || [];
-      });
-
       return {
         appointmentResources: mergeResources(flatAppointments),
-        activeApptsBeforeToday: mergeResources(flatActiveApptsBeforeToday),
         appointmentsToGroupMap,
       };
     })();
 
     console.timeEnd('get_active_encounters + get_appointment_data');
-
-    const activeAppointmentDatesBeforeToday = activeApptsBeforeToday
-      .sort((r1, r2) => {
-        const d1 = DateTime.fromISO((r1 as Appointment).start || '');
-        const d2 = DateTime.fromISO((r2 as Appointment).start || '');
-        return d1.diff(d2).toMillis();
-      })
-      .map((resource) => {
-        const timezoneResourceId = getTimezoneResourceIdFromAppointment(resource as Appointment);
-        const appointmentTimezone = timezoneResourceId && timezoneMap.get(timezoneResourceId);
-
-        return DateTime.fromISO((resource as Appointment).start || '')
-          .setZone(appointmentTimezone)
-          .toFormat('MM/dd/yyyy');
-      })
-      .filter((date, index, array) => array.indexOf(date) === index); // filter duplicates
 
     let preBooked: InPersonAppointmentInformation[] = [];
     let inOffice: InPersonAppointmentInformation[] = [];
@@ -244,7 +192,6 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
 
     if (appointmentResources?.length == 0) {
       const response = {
-        activeApptDatesBeforeToday: activeAppointmentDatesBeforeToday,
         message: 'Successfully retrieved all appointments',
         preBooked,
         inOffice,
@@ -507,7 +454,6 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     }
 
     const response = {
-      activeApptDatesBeforeToday: activeAppointmentDatesBeforeToday,
       message: 'Successfully retrieved all appointments',
       preBooked,
       inOffice,

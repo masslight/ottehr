@@ -1,9 +1,15 @@
 import { Box, Typography } from '@mui/material';
+import Oystehr, { ErxCheckPrecheckInteractionsResponse } from '@oystehr/sdk';
+import { MedicationRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { MedicationWithTypeDTO } from 'src/features/css-module/hooks/useMedicationHistory';
 import {
   ExtendedMedicationDataForResponse,
   MedicationData,
+  MedicationInteractions,
   MedicationOrderStatusesType,
+  medicationStatusDisplayLabelMap,
+  MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM,
   UpdateMedicationOrderInput,
 } from 'utils';
 import { fieldsConfig, MedicationOrderType } from './fieldsConfig';
@@ -15,6 +21,7 @@ export const medicationOrderFieldsWithOptions: Partial<keyof ExtendedMedicationD
   'route',
   'location',
   'units',
+  'providerId',
 ];
 
 export type MedicationOrderFieldWithOptionsType = (typeof medicationOrderFieldsWithOptions)[number];
@@ -61,14 +68,6 @@ export const validateAllMedicationFields = (
   return { isValid: missingFields.length === 0, missingFields };
 };
 
-export const medicationStatusDisplayLabelMap: Record<MedicationOrderStatusesType, string> = {
-  pending: 'Pending',
-  administered: 'Administered',
-  'administered-partly': 'Partly Administered',
-  'administered-not': 'Not Administered',
-  cancelled: 'Cancelled',
-};
-
 // this check is used in order-new and order-edit to prevent user from exit page and lose unsaved data
 export const isUnsavedMedicationData = (
   savedMedication: ExtendedMedicationDataForResponse | undefined,
@@ -79,7 +78,8 @@ export const isUnsavedMedicationData = (
     field: Field,
     type?: string
   ) => MedicationData[Field] | '',
-  autoFilledFieldsRef: React.MutableRefObject<Partial<MedicationData>>
+  autoFilledFieldsRef: React.MutableRefObject<Partial<MedicationData>>,
+  interactions: MedicationInteractions | undefined
 ): boolean => {
   if (!savedMedication) {
     return Object.values(localValues).some((value) => value !== '');
@@ -87,6 +87,7 @@ export const isUnsavedMedicationData = (
 
   return (
     selectedStatus !== savedMedication?.status ||
+    JSON.stringify(interactions) !== JSON.stringify(savedMedication.interactions) ||
     Object.entries(localValues).some(([field, value]) => {
       const isAutofilledField = Object.keys(autoFilledFieldsRef.current).includes(field);
       const savedValue = getMedicationFieldValue(savedMedication, field as keyof MedicationData);
@@ -230,4 +231,112 @@ export const getInitialAutoFilledFields = (
   }
 
   return {};
+};
+
+const SEVERITY_LEVEL_TO_SEVERITY: Record<string, 'high' | 'moderate' | 'low' | undefined> = {
+  MinorInteraction: 'low',
+  ModerateInteraction: 'moderate',
+  MajorInteraction: 'high',
+  Unknown: undefined,
+};
+
+export const medicationInteractionsFromErxResponse = (
+  response: ErxCheckPrecheckInteractionsResponse,
+  medicationHistory: MedicationWithTypeDTO[],
+  prescriptions: MedicationRequest[]
+): MedicationInteractions => {
+  const interactions: MedicationInteractions = {
+    drugInteractions: (response.medications ?? []).map((medication) => {
+      return {
+        drugs: (medication.medications ?? []).map((nestedMedication) => ({
+          id: nestedMedication.id.toString(),
+          name: nestedMedication.name,
+        })),
+        severity: SEVERITY_LEVEL_TO_SEVERITY[medication.severityLevel],
+        message: medication.message,
+      };
+    }),
+    allergyInteractions: response.allergies?.map((allergy) => {
+      return {
+        message: allergy.message,
+      };
+    }),
+  };
+  interactions.drugInteractions?.forEach((drugInteraction) => {
+    const drugIds = drugInteraction.drugs.map((drug) => drug.id);
+    const sourceMedication = medicationHistory.find((medication) => medication.id && drugIds.includes(medication.id));
+    let display: string | undefined = undefined;
+    if (sourceMedication && sourceMedication.resourceId && sourceMedication?.chartDataField && sourceMedication?.type) {
+      display = sourceMedication.chartDataField === 'medications' ? 'Patient' : 'In-house';
+      display += sourceMedication.type == 'scheduled' ? ' - Scheduled' : ' - As needed';
+      if (sourceMedication?.intakeInfo?.date) {
+        display += '\nlast taken\n' + DateTime.fromISO(sourceMedication.intakeInfo.date).toFormat('MM/dd/yyyy');
+      }
+      drugInteraction.source = {
+        reference: 'Medication/' + sourceMedication.resourceId,
+        display: display,
+      };
+      return;
+    }
+    const sourcePrescription = prescriptions.find((prescription) => {
+      const code = prescription.medicationCodeableConcept?.coding?.find(
+        (coding) => coding.system === MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM
+      )?.code;
+      return code && drugIds.includes(code);
+    });
+    const dateString = sourcePrescription?.extension?.find(
+      (extension) => extension.url === 'http://api.zapehr.com/photon-event-time'
+    )?.valueDateTime;
+    if (sourcePrescription && sourcePrescription.id && dateString) {
+      drugInteraction.source = {
+        reference: 'MedicationRequest/' + sourcePrescription.id,
+        display: 'Prescription\norder added\n' + DateTime.fromISO(dateString).toFormat('MM/dd/yyyy'),
+      };
+    }
+  });
+  return interactions;
+};
+
+export const findPrescriptionsForInteractions = async (
+  patientId: string | undefined,
+  interationsResponse: ErxCheckPrecheckInteractionsResponse,
+  oystehr: Oystehr
+): Promise<MedicationRequest[]> => {
+  const interactingDrugIds = interationsResponse.medications.flatMap(
+    (medication) => medication.medications?.map((nestedMedication) => nestedMedication.id.toString()) ?? []
+  );
+  if (interactingDrugIds.length === 0) {
+    return [];
+  }
+  return (
+    await oystehr.fhir.search<MedicationRequest>({
+      resourceType: 'MedicationRequest',
+      params: [
+        {
+          name: 'status',
+          value: 'active',
+        },
+        {
+          name: 'subject',
+          value: 'Patient/' + patientId,
+        },
+        {
+          name: '_tag',
+          value: 'erx-medication',
+        },
+        {
+          name: 'code',
+          value: interactingDrugIds.map((drugId) => MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM + '|' + drugId).join(','),
+        },
+      ],
+    })
+  ).unbundle();
+};
+
+export const interactionsUnresolved = (interactions: MedicationInteractions | undefined): boolean => {
+  const unresolvedInteration = [
+    ...(interactions?.drugInteractions ?? []),
+    ...(interactions?.allergyInteractions ?? []),
+  ].find((interaction) => interaction.overrideReason == null);
+  return unresolvedInteration != null;
 };

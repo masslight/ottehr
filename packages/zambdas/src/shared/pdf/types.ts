@@ -1,4 +1,5 @@
 import { Practitioner } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { Color, PDFFont, PDFImage, StandardFonts } from 'pdf-lib';
 import {
   AdditionalBooleanQuestionsFieldsNames,
@@ -88,7 +89,10 @@ export interface PdfClient {
   setRightBound: (newBound: number) => void;
   getTextDimensions: (text: string, textStyle: TextStyle) => { width: number; height: number };
   setPageStyles: (newStyles: PageStyles) => void;
-  drawVariableWidthColumns: (columns: Column[], yPosStartOfColumn: number) => void;
+  drawVariableWidthColumns: (columns: Column[], yPosStartOfColumn: number, startPageIndex: number) => void;
+  getCurrentPageIndex: () => number;
+  setPageByIndex: (pageIndex: number) => void;
+  getTotalPages: () => number;
 }
 
 export type TelemedExamBlockData = {
@@ -159,6 +163,7 @@ export interface LabsData {
   orderName?: string | undefined;
   orderAssessments: { code: string; name: string }[];
   orderPriority: string;
+  isManualOrder: boolean;
 }
 
 export interface ExternalLabResult {
@@ -181,7 +186,7 @@ export interface InHouseLabResult {
 }
 export interface InHouseLabResultConfig {
   collectionDate: string;
-  finalResultDateTime: string;
+  finalResultDateTime: DateTime;
   specimenSource: string;
   results: InHouseLabResult[];
 }
@@ -199,6 +204,7 @@ export interface LabResultsData
     | 'sampleCollectionDate'
     | 'billClass'
     | 'accountNumber'
+    | 'isManualOrder'
   > {
   testName: string;
   resultStatus: string;
@@ -225,6 +231,7 @@ export interface ExternalLabResultsData extends LabResultsData {
 }
 export interface InHouseLabResultsData extends LabResultsData {
   inHouseLabResults: InHouseLabResultConfig[];
+  timezone: string | undefined;
 }
 
 export type ResultDataConfig =
@@ -239,6 +246,7 @@ export interface VisitNoteData extends ExaminationBlockData {
   dateOfService: string;
   reasonForVisit: string;
   provider: string;
+  intakePerson?: string;
   signedOn: string;
   visitID: string;
   visitState: string;
@@ -256,6 +264,8 @@ export interface VisitNoteData extends ExaminationBlockData {
   medicalConditionsNotes?: string[];
   surgicalHistory?: string[];
   surgicalHistoryNotes?: string[];
+  inHouseMedications?: string[];
+  inHouseMedicationsNotes?: string[];
   additionalQuestions: Record<AdditionalBooleanQuestionsFieldsNames, string>;
   screening?: {
     seenInLastThreeYears?: string;
@@ -309,6 +319,7 @@ export interface VisitNoteData extends ExaminationBlockData {
     timeSpent?: string;
     documentedBy?: string;
   }[];
+  addendumNote?: string;
 }
 
 export interface ReceiptData {

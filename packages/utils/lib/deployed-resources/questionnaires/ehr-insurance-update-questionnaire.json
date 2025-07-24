@@ -3,7 +3,7 @@
   "resource": {
     "resourceType": "Questionnaire",
     "url": "https://ottehr.com/FHIR/Questionnaire/ehr-insurance-update-questionnaire",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "name": "ehr-insurance-update-questionnaire",
     "title": "EHR Insurance Update Form",
     "status": "active",
@@ -1282,10 +1282,6 @@
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
                 "valueString": "DOB"
-              },
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/validate-age-over",
-                "valueInteger": 18
               }
             ]
           },
@@ -1658,6 +1654,34 @@
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
                 "valueString": "patient-number"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                "valueString": "protected"
+              }
+            ]
+          },
+          {
+            "linkId": "responsible-party-email",
+            "text": "Email",
+            "type": "string",
+            "required": true,
+            "enableWhen": [
+              {
+                "question": "responsible-party-relationship",
+                "operator": "!=",
+                "answerString": "Self"
+              }
+            ],
+            "enableBehavior": "all",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                "valueString": "Email"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+                "valueString": "patient-email"
               },
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
