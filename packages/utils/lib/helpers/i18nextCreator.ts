@@ -14,7 +14,10 @@ export const i18nextCreator = (resources?: Resource, debug = false): i18n => {
         parseMissingKeyHandler: (key: string) => `No translation found for "${key}"`,
       }),
       resources: resources,
-    }).catch;
+    })
+    .catch((error) => {
+      console.error('i18next initialization failed:', error);
+    });
 
   return i18next;
 };

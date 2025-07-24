@@ -9,7 +9,7 @@ export function validateRequestParameters(input: ZambdaInput): DeactivateUserZam
   let parsedBody: any;
   try {
     parsedBody = JSON.parse(input.body);
-  } catch (error) {
+  } catch {
     throw new Error('Invalid JSON in request body');
   }
 

@@ -1,6 +1,6 @@
 import { LoadingButton } from '@mui/lab';
 import { Box, Button, Stack } from '@mui/material';
-import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import Oystehr from '@oystehr/sdk';
 import React, { useMemo, useState } from 'react';
 import { FormProvider, SubmitHandler, useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -111,9 +111,9 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
     try {
       await submitOrder({ data, manualOrder: false });
     } catch (e) {
-      const oyError = e as OystehrSdkError;
-      console.log('error creating external lab order1', oyError.code, oyError.message);
-      const errorMessage = [oyError.message || 'There was an error submitting the lab order'];
+      const sdkError = e as Oystehr.OystehrSdkError;
+      console.log('error creating external lab order1', sdkError.code, sdkError.message);
+      const errorMessage = [sdkError.message || 'There was an error submitting the lab order'];
       setError(errorMessage);
       setErrorDialogOpen(true);
       setSubmitLoading(false);
@@ -125,9 +125,9 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
     try {
       await submitOrder({ data, manualOrder: true });
     } catch (e) {
-      const oyError = e as OystehrSdkError;
-      console.log('error creating external lab order1', oyError.code, oyError.message);
-      const errorMessage = [oyError.message || 'There was an error submitting the lab order'];
+      const sdkError = e as Oystehr.OystehrSdkError;
+      console.log('error creating external lab order1', sdkError.code, sdkError.message);
+      const errorMessage = [sdkError.message || 'There was an error submitting the lab order'];
       setManualSubmitError(errorMessage);
       setSubmitLoading(false);
     }
