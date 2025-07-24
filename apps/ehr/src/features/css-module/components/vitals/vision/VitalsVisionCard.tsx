@@ -1,4 +1,4 @@
-import { Box, Checkbox, CircularProgress, FormControlLabel, Grid, lighten, Typography, useTheme } from '@mui/material';
+import { Box, Checkbox, FormControlLabel, Grid, lighten, Typography, useTheme } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { JSX, useCallback, useState } from 'react';
 import {
@@ -19,7 +19,6 @@ type VitalsVisionCardProps = VitalsCardProps<VitalsVisionObservationDTO>;
 const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({
   handleSaveVital,
   handleDeleteVital,
-  isLoading,
   currentObs,
   historicalObs,
   historyElementSkeletonText,
@@ -40,9 +39,9 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({
     setIsCollapsed((prevCollapseState) => !prevCollapseState);
   }, [setIsCollapsed]);
 
-  const isAddButtonDisabled = !leftEyeSelection || !rightEyeSelection || isLoading;
+  const isAddButtonDisabled = !leftEyeSelection || !rightEyeSelection;
 
-  const isCheckboxesDisabled = isLoading;
+  const isCheckboxesDisabled = isSaving;
 
   const { isLargeScreen } = useScreenDimensions();
 
@@ -173,7 +172,7 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({
                   <VitalsTextFreeInputField
                     label="Left eye"
                     value={leftEyeSelection}
-                    disabled={isLoading}
+                    disabled={isSaving}
                     isInputError={false}
                     onChange={handleLeftEyeSelectionChange}
                   />
@@ -192,7 +191,7 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({
                   <VitalsTextFreeInputField
                     label="Right eye"
                     value={rightEyeSelection}
-                    disabled={isLoading}
+                    disabled={isSaving}
                     isInputError={false}
                     onChange={handleRightEyeSelectionChange}
                   />
@@ -219,7 +218,7 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({
                   <VitalsTextFreeInputField
                     label="Both eyes"
                     value={bothEyesSelection}
-                    disabled={isLoading}
+                    disabled={isSaving}
                     isInputError={false}
                     onChange={handleBothEyesSelectionChange}
                   />
@@ -238,7 +237,6 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({
                     px: 2,
                     ml: 1,
                   }}
-                  startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : null}
                 >
                   Add
                 </RoundedButton>
@@ -375,7 +373,7 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({
             <VitalsHistoryContainer
               historicalObs={historicalObs}
               currentEncounterObs={currentObs}
-              isLoading={isLoading}
+              isLoading={false}
               historyElementSkeletonText={historyElementSkeletonText}
               historyElementCreator={(historyEntry) => {
                 const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);

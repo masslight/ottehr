@@ -1,4 +1,4 @@
-import { Box, CircularProgress, FormControl, Grid, InputLabel, MenuItem, Select, Typography } from '@mui/material';
+import { Box, FormControl, Grid, InputLabel, MenuItem, Select, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { ChangeEvent, JSX, useCallback, useState } from 'react';
 import {
@@ -20,7 +20,6 @@ type VitalsOxygenSatCardProps = VitalsCardProps<VitalsOxygenSatObservationDTO>;
 const VitalsOxygenSatCard: React.FC<VitalsOxygenSatCardProps> = ({
   handleSaveVital,
   handleDeleteVital,
-  isLoading,
   currentObs,
   historicalObs,
 }): JSX.Element => {
@@ -40,7 +39,7 @@ const VitalsOxygenSatCard: React.FC<VitalsOxygenSatCardProps> = ({
 
   const { isLargeScreen } = useScreenDimensions();
 
-  const isDisabledAddButton = !oxySatValueText || isLoading || isOxySatValidationError;
+  const isDisabledAddButton = !oxySatValueText || isOxySatValidationError;
 
   const latestOxySatValue = currentObs[0]?.value;
 
@@ -82,7 +81,7 @@ const VitalsOxygenSatCard: React.FC<VitalsOxygenSatCardProps> = ({
 
   const renderQualifierDropdown = (): JSX.Element => {
     return (
-      <FormControl fullWidth size="small" sx={{ backgroundColor: 'white' }} disabled={isLoading}>
+      <FormControl fullWidth size="small" sx={{ backgroundColor: 'white' }} disabled={isSaving}>
         <InputLabel id="qualifier-label">Qualifier</InputLabel>
         <Select
           value={observationQualifier}
@@ -142,7 +141,7 @@ const VitalsOxygenSatCard: React.FC<VitalsOxygenSatCardProps> = ({
                 <VitalsTextInputFiled
                   label="Sat (%)"
                   value={oxySatValueText}
-                  disabled={isLoading}
+                  disabled={isSaving}
                   isInputError={isOxySatValidationError}
                   onChange={handleTextInputChange}
                 />
@@ -181,7 +180,6 @@ const VitalsOxygenSatCard: React.FC<VitalsOxygenSatCardProps> = ({
                     px: 2,
                     ml: 1,
                   }}
-                  startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : null}
                 >
                   Add
                 </RoundedButton>
@@ -192,7 +190,7 @@ const VitalsOxygenSatCard: React.FC<VitalsOxygenSatCardProps> = ({
             <VitalsHistoryContainer
               currentEncounterObs={currentObs}
               historicalObs={historicalObs}
-              isLoading={isLoading}
+              isLoading={false}
               historyElementCreator={(historyEntry) => {
                 const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
                 return (

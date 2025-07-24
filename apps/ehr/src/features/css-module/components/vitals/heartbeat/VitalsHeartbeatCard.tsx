@@ -1,4 +1,4 @@
-import { Box, CircularProgress, FormControl, Grid, InputLabel, MenuItem, Select, Typography } from '@mui/material';
+import { Box, FormControl, Grid, InputLabel, MenuItem, Select, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { ChangeEvent, JSX, useCallback, useState } from 'react';
 import {
@@ -20,7 +20,6 @@ type VitalsHeartbeatCardProps = VitalsCardProps<VitalsHeartbeatObservationDTO>;
 const VitalsHeartbeatCard: React.FC<VitalsHeartbeatCardProps> = ({
   handleSaveVital,
   handleDeleteVital,
-  isLoading,
   currentObs,
   historicalObs,
 }): JSX.Element => {
@@ -40,7 +39,7 @@ const VitalsHeartbeatCard: React.FC<VitalsHeartbeatCardProps> = ({
     setIsCollapsed((prevCollapseState) => !prevCollapseState);
   }, [setIsCollapsed]);
 
-  const isDisabledAddButton = !heartbeatValueText || isLoading || isHeartbeatValidationError;
+  const isDisabledAddButton = !heartbeatValueText || isHeartbeatValidationError;
 
   const latestHeartbeatValue = currentObs[0]?.value;
 
@@ -76,7 +75,7 @@ const VitalsHeartbeatCard: React.FC<VitalsHeartbeatCardProps> = ({
 
   const renderQualifierDropdown = (): JSX.Element => {
     return (
-      <FormControl fullWidth sx={{ backgroundColor: 'white' }} size="small" disabled={isLoading}>
+      <FormControl fullWidth sx={{ backgroundColor: 'white' }} size="small" disabled={isSaving}>
         <InputLabel id="qualifier-label">Qualifier</InputLabel>
         <Select
           value={observationQualifier}
@@ -136,7 +135,7 @@ const VitalsHeartbeatCard: React.FC<VitalsHeartbeatCardProps> = ({
                 <VitalsTextInputFiled
                   label="HR (/min)"
                   value={heartbeatValueText}
-                  disabled={isLoading}
+                  disabled={isSaving}
                   isInputError={isHeartbeatValidationError}
                   onChange={handleTextInputChange}
                 />
@@ -176,7 +175,6 @@ const VitalsHeartbeatCard: React.FC<VitalsHeartbeatCardProps> = ({
                     px: 2,
                     ml: 1,
                   }}
-                  startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : null}
                 >
                   Add
                 </RoundedButton>
@@ -187,7 +185,7 @@ const VitalsHeartbeatCard: React.FC<VitalsHeartbeatCardProps> = ({
             <VitalsHistoryContainer
               currentEncounterObs={currentObs}
               historicalObs={historicalObs}
-              isLoading={isLoading}
+              isLoading={false}
               historyElementCreator={(historyEntry) => {
                 const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
                 return (

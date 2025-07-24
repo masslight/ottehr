@@ -134,56 +134,48 @@ export const PatientVitals: React.FC<PatientVitalsProps> = () => {
       <VitalsTemperaturesCard
         handleSaveVital={handleSaveVital}
         handleDeleteVital={handleDeleteVital}
-        isLoading={false}
         currentObs={encounterVitals?.[VitalFieldNames.VitalTemperature] ?? []}
         historicalObs={historicalVitals?.[VitalFieldNames.VitalTemperature] ?? []}
       />
       <VitalsHeartbeatCard
         handleSaveVital={handleSaveVital}
         handleDeleteVital={handleDeleteVital}
-        isLoading={false}
         currentObs={encounterVitals?.[VitalFieldNames.VitalHeartbeat] ?? []}
         historicalObs={historicalVitals?.[VitalFieldNames.VitalHeartbeat] ?? []}
       />
       <VitalsRespirationRateCard
         handleSaveVital={handleSaveVital}
         handleDeleteVital={handleDeleteVital}
-        isLoading={false}
         currentObs={encounterVitals?.[VitalFieldNames.VitalRespirationRate] ?? []}
         historicalObs={historicalVitals?.[VitalFieldNames.VitalRespirationRate] ?? []}
       />
       <VitalsBloodPressureCard
         handleSaveVital={handleSaveVital}
         handleDeleteVital={handleDeleteVital}
-        isLoading={false}
         currentObs={encounterVitals?.[VitalFieldNames.VitalBloodPressure] ?? []}
         historicalObs={historicalVitals?.[VitalFieldNames.VitalBloodPressure] ?? []}
       />
       <VitalsOxygenSatCard
         handleSaveVital={handleSaveVital}
         handleDeleteVital={handleDeleteVital}
-        isLoading={false}
         currentObs={encounterVitals?.[VitalFieldNames.VitalOxygenSaturation] ?? []}
         historicalObs={historicalVitals?.[VitalFieldNames.VitalOxygenSaturation] ?? []}
       />
       <VitalsWeightsCard
         handleSaveVital={handleSaveVital}
         handleDeleteVital={handleDeleteVital}
-        isLoading={false}
         currentObs={encounterVitals?.[VitalFieldNames.VitalWeight] ?? []}
         historicalObs={historicalVitals?.[VitalFieldNames.VitalWeight] ?? []}
       />
       <VitalsHeightCard
         handleSaveVital={handleSaveVital}
         handleDeleteVital={handleDeleteVital}
-        isLoading={false}
         currentObs={encounterVitals?.[VitalFieldNames.VitalHeight] ?? []}
         historicalObs={historicalVitals?.[VitalFieldNames.VitalHeight] ?? []}
       />
       <VitalsVisionCard
         handleSaveVital={handleSaveVital}
         handleDeleteVital={handleDeleteVital}
-        isLoading={false}
         currentObs={encounterVitals?.[VitalFieldNames.VitalVision] ?? []}
         historicalObs={historicalVitals?.[VitalFieldNames.VitalVision] ?? []}
       />

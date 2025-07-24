@@ -1,14 +1,4 @@
-import {
-  Box,
-  CircularProgress,
-  FormControl,
-  Grid,
-  InputLabel,
-  MenuItem,
-  Select,
-  TextField,
-  Typography,
-} from '@mui/material';
+import { Box, FormControl, Grid, InputLabel, MenuItem, Select, TextField, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { ChangeEvent, JSX, useCallback, useMemo, useState } from 'react';
 import {
@@ -30,7 +20,6 @@ type VitalsTemperatureCardProps = VitalsCardProps<VitalsTemperatureObservationDT
 const VitalsTemperaturesCard: React.FC<VitalsTemperatureCardProps> = ({
   handleSaveVital,
   handleDeleteVital,
-  isLoading,
   currentObs,
   historicalObs,
   historyElementSkeletonText = HISTORY_ELEMENT_SKELETON_TEXT,
@@ -51,7 +40,7 @@ const VitalsTemperaturesCard: React.FC<VitalsTemperatureCardProps> = ({
 
   const [isSaving, setIsSaving] = useState(false);
 
-  const isDisabledAddButton = !temperatureValueText || isLoading || isTemperatureValidationError;
+  const isDisabledAddButton = !temperatureValueText || isTemperatureValidationError;
 
   const latestTemperatureValue = currentObs[0]?.value;
 
@@ -98,7 +87,7 @@ const VitalsTemperaturesCard: React.FC<VitalsTemperatureCardProps> = ({
 
   const renderTempQualifierDropdown = (): JSX.Element => {
     return (
-      <FormControl fullWidth sx={{ backgroundColor: 'white' }} size="small" disabled={isLoading}>
+      <FormControl fullWidth sx={{ backgroundColor: 'white' }} size="small" disabled={isSaving}>
         <InputLabel id="qualifier-label">Qualifier</InputLabel>
         <Select
           value={observationQualifier}
@@ -164,7 +153,7 @@ const VitalsTemperaturesCard: React.FC<VitalsTemperatureCardProps> = ({
                   <VitalsTextInputFiled
                     label="Temp (C)"
                     value={temperatureValueText}
-                    disabled={isLoading}
+                    disabled={isSaving}
                     isInputError={isTemperatureValidationError}
                     onChange={handleTextInputChange}
                   />
@@ -221,7 +210,6 @@ const VitalsTemperaturesCard: React.FC<VitalsTemperatureCardProps> = ({
                     px: 2,
                     ml: 1,
                   }}
-                  startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : null}
                 >
                   Add
                 </RoundedButton>
@@ -232,7 +220,7 @@ const VitalsTemperaturesCard: React.FC<VitalsTemperatureCardProps> = ({
             <VitalsHistoryContainer
               currentEncounterObs={currentObs}
               historicalObs={historicalObs}
-              isLoading={isLoading}
+              isLoading={false}
               historyElementSkeletonText={historyElementSkeletonText}
               historyElementCreator={(historyEntry) => {
                 const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);

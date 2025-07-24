@@ -6,7 +6,6 @@ export type UseDeleteVitals = (props: { encounterId: string }) => (vitalEntity: 
 export interface VitalsCardProps<TypeObsDTO extends VitalsObservationDTO> {
   handleSaveVital: (vitalEntity: VitalsObservationDTO) => Promise<void>;
   handleDeleteVital: (vitalEntity: VitalsObservationDTO) => Promise<void>;
-  isLoading: boolean;
   currentObs: TypeObsDTO[];
   historicalObs: TypeObsDTO[];
   historyElementSkeletonText?: string;

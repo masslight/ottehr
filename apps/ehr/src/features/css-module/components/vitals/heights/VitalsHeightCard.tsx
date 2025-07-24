@@ -1,4 +1,4 @@
-import { Box, CircularProgress, Grid, TextField, Typography } from '@mui/material';
+import { Box, Grid, TextField, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { ChangeEvent, JSX, useCallback, useMemo, useState } from 'react';
 import { cmToInches, VitalFieldNames, VitalsHeightObservationDTO } from 'utils';
@@ -15,7 +15,6 @@ type VitalsHeightCardProps = VitalsCardProps<VitalsHeightObservationDTO>;
 const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({
   handleSaveVital,
   handleDeleteVital,
-  isLoading,
   currentObs,
   historicalObs,
 }): JSX.Element => {
@@ -31,7 +30,7 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({
 
   const [isSaving, setIsSaving] = useState(false);
 
-  const isDisabledAddButton = !heightValueText || isLoading || isHeightValidationError;
+  const isDisabledAddButton = !heightValueText || isHeightValidationError;
 
   const latestHeightValue = currentObs[0]?.value;
 
@@ -105,7 +104,7 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({
                   <VitalsTextInputFiled
                     label="Height (cm)"
                     value={heightValueText}
-                    disabled={isLoading}
+                    disabled={isSaving}
                     isInputError={isHeightValidationError}
                     onChange={handleTextInputChange}
                   />
@@ -148,7 +147,6 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({
                     px: 2,
                     ml: 1,
                   }}
-                  startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : null}
                 >
                   Add
                 </RoundedButton>
@@ -159,7 +157,7 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({
             <VitalsHistoryContainer
               currentEncounterObs={currentObs}
               historicalObs={historicalObs}
-              isLoading={isLoading}
+              isLoading={false}
               historyElementCreator={(historyEntry) => {
                 const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
                 return (

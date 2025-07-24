@@ -1,4 +1,4 @@
-import { Box, CircularProgress, FormControl, Grid, InputLabel, MenuItem, Select, Typography } from '@mui/material';
+import { Box, FormControl, Grid, InputLabel, MenuItem, Select, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { ChangeEvent, JSX, useCallback, useState } from 'react';
 import {
@@ -20,7 +20,6 @@ type VitalsBloodPressureCardProps = VitalsCardProps<VitalsBloodPressureObservati
 const VitalsBloodPressureCard: React.FC<VitalsBloodPressureCardProps> = ({
   handleSaveVital,
   handleDeleteVital,
-  isLoading,
   currentObs,
   historicalObs,
 }): JSX.Element => {
@@ -43,7 +42,7 @@ const VitalsBloodPressureCard: React.FC<VitalsBloodPressureCardProps> = ({
   const { isLargeScreen } = useScreenDimensions();
 
   const isDisabledAddButton =
-    !systolicValueText || !diastolicValueText || isLoading || isSystolicValidationError || isDiastolicValidationError;
+    !systolicValueText || !diastolicValueText || isSystolicValidationError || isDiastolicValidationError;
 
   const latestPressureValueLabel = (() => {
     const latestHistoryEntry = currentObs[0];
@@ -105,7 +104,7 @@ const VitalsBloodPressureCard: React.FC<VitalsBloodPressureCardProps> = ({
 
   const renderBloodPressureQualifierDropdown = (): JSX.Element => {
     return (
-      <FormControl size="small" fullWidth sx={{ backgroundColor: 'white' }} disabled={isLoading}>
+      <FormControl size="small" fullWidth sx={{ backgroundColor: 'white' }} disabled={isSaving}>
         <InputLabel id="qualifier-label">Qualifier</InputLabel>
         <Select
           value={observationQualifier}
@@ -171,7 +170,7 @@ const VitalsBloodPressureCard: React.FC<VitalsBloodPressureCardProps> = ({
                   <VitalsTextInputFiled
                     label="Systolic"
                     value={systolicValueText}
-                    disabled={isLoading}
+                    disabled={isSaving}
                     isInputError={isSystolicValidationError}
                     onChange={handleSystolicTextInputChange}
                   />
@@ -181,7 +180,7 @@ const VitalsBloodPressureCard: React.FC<VitalsBloodPressureCardProps> = ({
                   <VitalsTextInputFiled
                     label="Diastolic"
                     value={diastolicValueText}
-                    disabled={isLoading}
+                    disabled={isSaving}
                     isInputError={isDiastolicValidationError}
                     onChange={handleDiastolicTextInputChange}
                     sx={{ ml: 1 }}
@@ -231,7 +230,6 @@ const VitalsBloodPressureCard: React.FC<VitalsBloodPressureCardProps> = ({
                     px: 2,
                     ml: 1,
                   }}
-                  startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : null}
                 >
                   Add
                 </RoundedButton>
@@ -242,7 +240,7 @@ const VitalsBloodPressureCard: React.FC<VitalsBloodPressureCardProps> = ({
             <VitalsHistoryContainer
               currentEncounterObs={currentObs}
               historicalObs={historicalObs}
-              isLoading={isLoading}
+              isLoading={false}
               historyElementCreator={(historyEntry) => {
                 const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
                 return (

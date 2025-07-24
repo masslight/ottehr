@@ -1,4 +1,4 @@
-import { Box, CircularProgress, Grid } from '@mui/material';
+import { Box, Grid } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { ChangeEvent, JSX, useCallback, useState } from 'react';
 import { VitalFieldNames, VitalsRespirationRateObservationDTO } from 'utils';
@@ -14,7 +14,6 @@ type VitalsRespirationRateCardProps = VitalsCardProps<VitalsRespirationRateObser
 const VitalsRespirationRateCard: React.FC<VitalsRespirationRateCardProps> = ({
   handleSaveVital,
   handleDeleteVital,
-  isLoading,
   currentObs,
   historicalObs,
 }): JSX.Element => {
@@ -29,7 +28,7 @@ const VitalsRespirationRateCard: React.FC<VitalsRespirationRateCardProps> = ({
 
   const [isSaving, setIsSaving] = useState(false);
 
-  const isDisabledAddButton = !respirationRateValueText || isLoading || isRespirationRateValidationError;
+  const isDisabledAddButton = !respirationRateValueText || isRespirationRateValidationError;
 
   const latestRespRateValue = currentObs[0]?.value;
 
@@ -94,7 +93,7 @@ const VitalsRespirationRateCard: React.FC<VitalsRespirationRateCardProps> = ({
                 <VitalsTextInputFiled
                   label="RR (/min)"
                   value={respirationRateValueText}
-                  disabled={isLoading}
+                  disabled={isSaving}
                   isInputError={isRespirationRateValidationError}
                   onChange={handleTextInputChange}
                 />
@@ -113,7 +112,6 @@ const VitalsRespirationRateCard: React.FC<VitalsRespirationRateCardProps> = ({
                     px: 2,
                     ml: 1,
                   }}
-                  startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : null}
                 >
                   Add
                 </RoundedButton>
@@ -124,7 +122,7 @@ const VitalsRespirationRateCard: React.FC<VitalsRespirationRateCardProps> = ({
             <VitalsHistoryContainer
               currentEncounterObs={currentObs}
               historicalObs={historicalObs}
-              isLoading={isLoading}
+              isLoading={false}
               historyElementCreator={(historyEntry) => {
                 const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
                 return (
