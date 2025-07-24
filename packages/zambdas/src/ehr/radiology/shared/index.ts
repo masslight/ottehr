@@ -16,3 +16,11 @@ export const SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL =
   'https://fhir.ottehr.com/Extension/service-request-performed-on';
 export const SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL =
   'https://fhir.ottehr.com/Extension/service-request-requested-time';
+export const SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL =
+  'https://fhir.ottehr.com/Extension/service-request-order-detail-pre-release';
+export const SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL =
+  'https://fhir.ottehr.com/Extension/service-request-order-detail-parameter-pre-release';
+export const SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL =
+  'https://fhir.ottehr.com/Extension/service-request-order-detail-parameter-pre-release-code';
+export const SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL =
+  'https://fhir.ottehr.com/Extension/service-request-order-detail-parameter-pre-release-value-string';
