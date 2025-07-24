@@ -131,7 +131,7 @@ const AskThePatientComponent = (): React.ReactElement => {
       if (result?.chartData?.observations?.[0]) {
         updateObservation(result.chartData.observations[0]);
       }
-    } catch (error) {
+    } catch {
       enqueueSnackbar('An error occurred while saving the information. Please try again.', {
         variant: 'error',
       });

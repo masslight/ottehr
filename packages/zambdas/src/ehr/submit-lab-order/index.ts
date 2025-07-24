@@ -205,7 +205,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             const specimenCollector = { reference: currentUser?.profile };
             const requests: Operation[] = [];
 
-            specimenFromSubmitDate && sampleCollectionDates.push(specimenFromSubmitDate);
+            if (specimenFromSubmitDate) {
+              sampleCollectionDates.push(specimenFromSubmitDate);
+            }
 
             if (specimenCollection) {
               console.log('specimen collection found');
