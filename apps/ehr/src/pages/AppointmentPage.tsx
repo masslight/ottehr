@@ -54,6 +54,7 @@ import {
   getUnconfirmedDOBIdx,
   getVisitStatus,
   INSURANCE_CARD_CODE,
+  PAPERWORK_PDF_ATTACHMENT_TITLE,
   PHOTO_ID_CARD_CODE,
   PRIVACY_POLICY_CODE,
   VisitStatusLabel,
@@ -1034,7 +1035,11 @@ export default function AppointmentPage(): ReactElement {
 
   const downloadPaperworkPdf = async (): Promise<void> => {
     setPaperworkPdfLoading(true);
-    const existingPaperworkPdf = documents?.find((doc) => doc.encounterId === encounter.id);
+    const existingPaperworkPdf = documents?.find(
+      (doc) =>
+        doc.encounterId === encounter.id &&
+        doc.docName.toLowerCase().includes(PAPERWORK_PDF_ATTACHMENT_TITLE.toLowerCase())
+    );
     if (existingPaperworkPdf) {
       await downloadDocument(existingPaperworkPdf.id);
       setPaperworkPdfLoading(false);
