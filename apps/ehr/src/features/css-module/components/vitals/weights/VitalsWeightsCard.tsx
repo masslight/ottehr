@@ -24,8 +24,9 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
     setIsCollapsed((prevCollapseState) => !prevCollapseState);
   }, [setIsCollapsed]);
 
-  console.log('currentObs', currentObs, historicalObs);
   const latestWeightValue = currentObs[0]?.value;
+
+  const [isSaving, setIsSaving] = useState(false);
 
   const enteredWeightInLb: number | undefined = useMemo(() => {
     const weightKg = textToWeightNumber(weightValueText);
@@ -37,6 +38,7 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
     const weightValueNumber = textToWeightNumber(weightValueText);
     if (!weightValueNumber) return;
     try {
+      setIsSaving(true);
       const vitalObs: VitalsWeightObservationDTO = {
         field: VitalFieldNames.VitalWeight,
         value: weightValueNumber,
@@ -45,6 +47,8 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
       setWeightValueText('');
     } catch (error) {
       enqueueSnackbar('Error saving Weight data', { variant: 'error' });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -118,6 +122,7 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
                 <RoundedButton
                   size="small"
                   disabled={!weightValueText || isLoading}
+                  loading={isSaving}
                   onClick={() => handleSaveWeightObservation(weightValueText)}
                   color="primary"
                   sx={{

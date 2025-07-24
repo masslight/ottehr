@@ -33,6 +33,7 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({
   const [isChildTooYoungOptionSelected, setChildTooYoungOptionSelected] = useState<boolean>(false);
   const [isWithGlassesOptionSelected, setWithGlassesOptionSelected] = useState<boolean>(false);
   const [isWithoutGlassesOptionSelected, setWithoutGlassesOptionSelected] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
   const handleSectionCollapse = useCallback(() => {
@@ -70,6 +71,7 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({
     }
 
     try {
+      setIsSaving(true);
       const vitalObs: VitalsVisionObservationDTO = {
         field: VitalFieldNames.VitalVision,
         leftEyeVisionText: leftEyeVisionText,
@@ -85,6 +87,8 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({
       setWithoutGlassesOptionSelected(false);
     } catch (error) {
       enqueueSnackbar('Error saving Vision vital data', { variant: 'error' });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -226,6 +230,7 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({
               <Grid item xs={12} sm={3} md={3} lg={3} order={{ xs: 4, sm: 4, md: 4, lg: 4 }} sx={{ mt: 0 }}>
                 <RoundedButton
                   disabled={isAddButtonDisabled}
+                  loading={isSaving}
                   onClick={() => handleSaveVisionObservation(leftEyeSelection, rightEyeSelection)}
                   color="primary"
                   sx={{

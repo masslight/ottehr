@@ -33,6 +33,8 @@ const VitalsBloodPressureCard: React.FC<VitalsBloodPressureCardProps> = ({
   const [isSystolicValidationError, setSystolicValidationError] = useState<boolean>(false);
   const [isDiastolicValidationError, setDiastolicValidationError] = useState<boolean>(false);
 
+  const [isSaving, setIsSaving] = useState(false);
+
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
   const handleSectionCollapse = useCallback(() => {
     setIsCollapsed((prevCollapseState) => !prevCollapseState);
@@ -61,6 +63,7 @@ const VitalsBloodPressureCard: React.FC<VitalsBloodPressureCardProps> = ({
 
     const observationMethod = toVitalBloodPressureObservationMethod(observationQualifier);
     try {
+      setIsSaving(true);
       const vitalObs: VitalsBloodPressureObservationDTO = {
         field: VitalFieldNames.VitalBloodPressure,
         systolicPressure: systolicValueNum,
@@ -73,6 +76,8 @@ const VitalsBloodPressureCard: React.FC<VitalsBloodPressureCardProps> = ({
       setObservationsQualifier('');
     } catch (error) {
       enqueueSnackbar('Error saving Blood Pressure vital data', { variant: 'error' });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -218,6 +223,7 @@ const VitalsBloodPressureCard: React.FC<VitalsBloodPressureCardProps> = ({
                 <RoundedButton
                   size="small"
                   disabled={isDisabledAddButton}
+                  loading={isSaving}
                   onClick={() => handleSavePressureObservation(systolicValueText, diastolicValueText)}
                   color="primary"
                   sx={{

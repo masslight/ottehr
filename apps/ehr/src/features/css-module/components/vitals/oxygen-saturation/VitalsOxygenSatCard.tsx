@@ -36,6 +36,8 @@ const VitalsOxygenSatCard: React.FC<VitalsOxygenSatCardProps> = ({
     setIsCollapsed((prevCollapseState) => !prevCollapseState);
   }, [setIsCollapsed]);
 
+  const [isSaving, setIsSaving] = useState(false);
+
   const { isLargeScreen } = useScreenDimensions();
 
   const isDisabledAddButton = !oxySatValueText || isLoading || isOxySatValidationError;
@@ -49,6 +51,7 @@ const VitalsOxygenSatCard: React.FC<VitalsOxygenSatCardProps> = ({
 
       const observationMethod = toVitalOxygenSatObservationMethod(observationQualifier);
       try {
+        setIsSaving(true);
         const vitalObs: VitalsOxygenSatObservationDTO = {
           field: VitalFieldNames.VitalOxygenSaturation,
           value: oxySatValueNumber,
@@ -59,6 +62,8 @@ const VitalsOxygenSatCard: React.FC<VitalsOxygenSatCardProps> = ({
         setObservationsQualifier('');
       } catch (error) {
         enqueueSnackbar('Error saving oxygen saturation data', { variant: 'error' });
+      } finally {
+        setIsSaving(false);
       }
     },
     [observationQualifier, handleSaveVital]
@@ -168,6 +173,7 @@ const VitalsOxygenSatCard: React.FC<VitalsOxygenSatCardProps> = ({
               <Grid item xs={12} sm={4} md={4} lg={4} order={{ xs: 3, sm: 3, md: 3, lg: 3 }} sx={{ mt: 0 }}>
                 <RoundedButton
                   disabled={isDisabledAddButton}
+                  loading={isSaving}
                   onClick={() => handleSaveOxySatObservation(oxySatValueText)}
                   color="primary"
                   sx={{

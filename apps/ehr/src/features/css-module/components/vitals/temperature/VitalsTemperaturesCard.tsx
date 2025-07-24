@@ -49,6 +49,8 @@ const VitalsTemperaturesCard: React.FC<VitalsTemperatureCardProps> = ({
 
   const { isLargeScreen } = useScreenDimensions();
 
+  const [isSaving, setIsSaving] = useState(false);
+
   const isDisabledAddButton = !temperatureValueText || isLoading || isTemperatureValidationError;
 
   const latestTemperatureValue = currentObs[0]?.value;
@@ -67,6 +69,7 @@ const VitalsTemperaturesCard: React.FC<VitalsTemperatureCardProps> = ({
 
     const observationMethod = toVitalTemperatureObservationMethod(observationQualifier);
     try {
+      setIsSaving(true);
       const vitalObs: VitalsTemperatureObservationDTO = {
         field: VitalFieldNames.VitalTemperature,
         value: temperatureValueNumber,
@@ -77,6 +80,8 @@ const VitalsTemperaturesCard: React.FC<VitalsTemperatureCardProps> = ({
       setObservationsQualifier('');
     } catch (error) {
       enqueueSnackbar('Error saving Temperature data', { variant: 'error' });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -207,6 +212,7 @@ const VitalsTemperaturesCard: React.FC<VitalsTemperatureCardProps> = ({
               >
                 <RoundedButton
                   disabled={isDisabledAddButton}
+                  loading={isSaving}
                   size="small"
                   onClick={() => handleSaveTemperatureObservation(temperatureValueText)}
                   color="primary"

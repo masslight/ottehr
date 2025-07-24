@@ -33,6 +33,8 @@ const VitalsHeartbeatCard: React.FC<VitalsHeartbeatCardProps> = ({
 
   const { isLargeScreen } = useScreenDimensions();
 
+  const [isSaving, setIsSaving] = useState(false);
+
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
   const handleSectionCollapse = useCallback(() => {
     setIsCollapsed((prevCollapseState) => !prevCollapseState);
@@ -48,6 +50,7 @@ const VitalsHeartbeatCard: React.FC<VitalsHeartbeatCardProps> = ({
 
     const observationMethod = toVitalHeartbeatObservationMethod(observationQualifier);
     try {
+      setIsSaving(true);
       const vitalObs: VitalsHeartbeatObservationDTO = {
         field: VitalFieldNames.VitalHeartbeat,
         value: heartbeatValueNumber,
@@ -58,6 +61,8 @@ const VitalsHeartbeatCard: React.FC<VitalsHeartbeatCardProps> = ({
       setObservationsQualifier('');
     } catch (error) {
       enqueueSnackbar('Error saving Heartbeat data', { variant: 'error' });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -163,6 +168,7 @@ const VitalsHeartbeatCard: React.FC<VitalsHeartbeatCardProps> = ({
                 <RoundedButton
                   size="small"
                   disabled={isDisabledAddButton}
+                  loading={isSaving}
                   onClick={() => handleSaveHeartbeatObservation(heartbeatValueText)}
                   color="primary"
                   sx={{

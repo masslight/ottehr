@@ -27,6 +27,8 @@ const VitalsRespirationRateCard: React.FC<VitalsRespirationRateCardProps> = ({
     setIsCollapsed((prevCollapseState) => !prevCollapseState);
   }, [setIsCollapsed]);
 
+  const [isSaving, setIsSaving] = useState(false);
+
   const isDisabledAddButton = !respirationRateValueText || isLoading || isRespirationRateValidationError;
 
   const latestRespRateValue = currentObs[0]?.value;
@@ -37,6 +39,7 @@ const VitalsRespirationRateCard: React.FC<VitalsRespirationRateCardProps> = ({
       if (!respRateValueNumber) return;
 
       try {
+        setIsSaving(true);
         const vitalObs: VitalsRespirationRateObservationDTO = {
           field: VitalFieldNames.VitalRespirationRate,
           value: respRateValueNumber,
@@ -45,6 +48,8 @@ const VitalsRespirationRateCard: React.FC<VitalsRespirationRateCardProps> = ({
         setRespirationRateValueText('');
       } catch (error) {
         enqueueSnackbar('Error saving respiration rate data', { variant: 'error' });
+      } finally {
+        setIsSaving(false);
       }
     },
     [handleSaveVital]
@@ -100,6 +105,7 @@ const VitalsRespirationRateCard: React.FC<VitalsRespirationRateCardProps> = ({
                 <RoundedButton
                   size="small"
                   disabled={isDisabledAddButton}
+                  loading={isSaving}
                   onClick={() => handleSaveRespirationRateObservation(respirationRateValueText)}
                   color="primary"
                   sx={{

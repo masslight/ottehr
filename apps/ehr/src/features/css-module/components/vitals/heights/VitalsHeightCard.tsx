@@ -29,10 +29,11 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({
     setIsCollapsed((prevCollapseState) => !prevCollapseState);
   }, [setIsCollapsed]);
 
+  const [isSaving, setIsSaving] = useState(false);
+
   const isDisabledAddButton = !heightValueText || isLoading || isHeightValidationError;
 
   const latestHeightValue = currentObs[0]?.value;
-  console.log('currentObs', currentObs, historicalObs);
 
   const enteredHeightInInch: number | undefined = useMemo(() => {
     const heightCm = textToHeightNumber(heightValueText);
@@ -45,6 +46,7 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({
     if (!heightValueNumber) return;
 
     try {
+      setIsSaving(true);
       const vitalObs: VitalsHeightObservationDTO = {
         field: VitalFieldNames.VitalHeight,
         value: heightValueNumber,
@@ -53,6 +55,8 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({
       setHeightValueText('');
     } catch (error) {
       enqueueSnackbar('Error saving Height vital record', { variant: 'error' });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -137,6 +141,7 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({
                   size="small"
                   disabled={isDisabledAddButton}
                   onClick={() => handleSaveHeightObservation(heightValueText)}
+                  loading={isSaving}
                   color="primary"
                   sx={{
                     height: '40px',
