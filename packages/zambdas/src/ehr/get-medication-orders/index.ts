@@ -42,7 +42,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
     console.log('Created zapToken, fhir and clients.');
 
-    const response = await performEffect(oystehr, validatedParameters);
+    const response = await getMedicationOrders(oystehr, validatedParameters);
     return {
       statusCode: 200,
       body: JSON.stringify(response),
@@ -57,7 +57,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 });
 
-async function performEffect(
+export async function getMedicationOrders(
   oystehr: Oystehr,
   validatedParameters: GetMedicationOrdersInput
 ): Promise<GetMedicationOrdersResponse> {

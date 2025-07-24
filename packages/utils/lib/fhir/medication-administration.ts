@@ -291,3 +291,22 @@ const getOverrideReason = (issue: DetectedIssue): string | undefined => {
   }
   return undefined;
 };
+
+export const medicationStatusDisplayLabelMap: Record<MedicationOrderStatusesType, string> = {
+  pending: 'Pending',
+  administered: 'Administered',
+  'administered-partly': 'Partly Administered',
+  'administered-not': 'Not Administered',
+  cancelled: 'Cancelled',
+};
+
+export const createMedicationString = (medication: ExtendedMedicationDataForResponse): string => {
+  const name = medication.medicationName;
+  const dose = medication.dose && `${medication.dose} ${medication.units}`;
+  const route = searchRouteByCode(medication.route)?.display;
+  const givenBy = medication.administeredProvider && `given by ${medication.administeredProvider}`;
+  const instructions = medication.instructions && `instructions: ${medication.instructions}`;
+  const status = medicationStatusDisplayLabelMap[medication.status];
+
+  return [name, dose, route, givenBy, instructions, status].filter(Boolean).join(', ');
+};
