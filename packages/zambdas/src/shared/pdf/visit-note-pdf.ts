@@ -433,11 +433,13 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     (data.inHouseMedicationsNotes && data.inHouseMedicationsNotes.length > 0)
   ) {
     drawBlockHeader('In-House Medications');
-    data.inHouseMedications?.length
-      ? data.inHouseMedications.forEach((record) => {
-          regularText(record);
-        })
-      : regularText('No in-house medications');
+    if (data.inHouseMedications?.length) {
+      data.inHouseMedications.forEach((record) => {
+        regularText(record);
+      });
+    } else {
+      regularText('No in-house medications');
+    }
 
     if (data.inHouseMedicationsNotes && data.inHouseMedicationsNotes.length > 0) {
       drawBlockHeader('In-House Medications notes', textStyles.blockSubHeader);
