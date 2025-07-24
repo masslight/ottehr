@@ -14,8 +14,7 @@ import {
   Resource,
   Schedule,
 } from 'fhir/r4b';
-import { getTimezone, TIMEZONES } from 'utils';
-import { isNonPaperworkQuestionnaireResponse } from '../../../common';
+import { getTimezone, isNonPaperworkQuestionnaireResponse, TIMEZONES } from 'utils';
 import { getVideoRoomResourceExtension } from '../../helpers';
 import { FullAppointmentResourcePackage } from './types';
 

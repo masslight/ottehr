@@ -54,6 +54,7 @@ import {
   getUnconfirmedDOBIdx,
   getVisitStatus,
   INSURANCE_CARD_CODE,
+  isNonPaperworkQuestionnaireResponse,
   PAPERWORK_PDF_ATTACHMENT_TITLE,
   PHOTO_ID_CARD_CODE,
   PRIVACY_POLICY_CODE,
@@ -326,7 +327,9 @@ export default function AppointmentPage(): ReactElement {
           },
         ],
       })
-    ).unbundle();
+    )
+      .unbundle()
+      .filter((resource) => isNonPaperworkQuestionnaireResponse(resource) === false);
 
     if (!searchResults) {
       throw new Error('Could not get appointment, patient, location, and encounter resources from Zap DB');
