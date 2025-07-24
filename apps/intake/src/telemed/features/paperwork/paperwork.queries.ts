@@ -5,7 +5,6 @@ import { GetAnswerOptionsRequest, isNullOrUndefined, PromiseReturnType } from 'u
 import { useOystehrAPIClient } from '../../utils';
 import { useAppointmentStore } from '../appointments';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetPaperwork = (
   onSuccess?: (data: PromiseReturnType<ReturnType<OystehrAPIClient['getPaperwork']>>) => void,
   params?: {
@@ -13,6 +12,7 @@ export const useGetPaperwork = (
     staleTime?: number;
     onError?: (error: any) => void;
   }
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
   const apiClient = useOystehrAPIClient();
   const appointmentID = useAppointmentStore((state) => state.appointmentID);
@@ -64,11 +64,11 @@ export const useUpdatePaperworkMutation = () => {
   });
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useAnswerOptionsQuery = (
   enabled = true,
   params: GetAnswerOptionsRequest | undefined,
   onSuccess?: (data: QuestionnaireItemAnswerOption[]) => void
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
   const apiClient = useOystehrAPIClient();
 
@@ -120,10 +120,10 @@ export const useGetPaymentMethods = (input: GetPaymentMethodsParams) => {
   );
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useSetupPaymentMethod = (
   beneficiaryPatientId: string | undefined,
   onSuccess?: (data: PromiseReturnType<ReturnType<OystehrAPIClient['setupPaymentMethod']>>) => void
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
   const apiClient = useOystehrAPIClient();
 

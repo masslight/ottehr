@@ -82,7 +82,9 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
           onChange={(newValue) => {
             if (!newValue) return;
             const isoString = newValue.toISO();
-            isoString && handleChange(isoString);
+            if (isoString) {
+              handleChange(isoString);
+            }
           }}
           disabled={!isEditable}
           slotProps={{

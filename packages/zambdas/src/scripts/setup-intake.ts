@@ -185,7 +185,7 @@ async function createApplication(oystehr: Oystehr, applicationName: string): Pro
     const projectData = await oystehr.project.update({ defaultPatientRoleId: patientRole.id, signupEnabled: true });
     console.log('response json: ', projectData);
     console.groupEnd();
-  } catch (err) {
+  } catch {
     throw new Error('Failed to update default patient role');
   }
   console.log('successfully updated default patient role');

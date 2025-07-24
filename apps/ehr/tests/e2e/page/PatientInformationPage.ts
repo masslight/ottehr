@@ -813,7 +813,7 @@ export class PatientInformationPage {
   }
 
   async verifyAddInsuranceButtonIsVisible(): Promise<void> {
-    this.#page.getByTestId(dataTestIds.patientInformationPage.addInsuranceButton).isVisible;
+    await this.#page.getByTestId(dataTestIds.patientInformationPage.addInsuranceButton).isVisible();
   }
 
   async verifyCoverageRemovedMessageShown(): Promise<void> {

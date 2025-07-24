@@ -64,7 +64,7 @@ export const isApiError = (errorObject: unknown | undefined): boolean => {
   if (typeof asObj === 'string') {
     try {
       asObj = JSON.parse(asObj);
-    } catch (_) {
+    } catch {
       return false;
     }
   }

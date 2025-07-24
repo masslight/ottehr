@@ -94,7 +94,7 @@ export default function EditEmployeePage(): JSX.Element {
       enqueueSnackbar(`User was ${mode}d successfully`, {
         variant: 'success',
       });
-    } catch (error) {
+    } catch {
       const errorString = `Failed to ${mode} user. Please try again`;
       setErrors((prev) => ({ ...prev, submit: `${errorString}` }));
       enqueueSnackbar(`${errorString}`, {

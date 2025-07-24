@@ -208,7 +208,7 @@ export function stripMarkdownLink(text: string): string {
   try {
     const str = String(text).replace(/(?:__|[*#])|\[(.*?)\]\(.*?\)/gm, '$1');
     return str;
-  } catch (_) {
+  } catch {
     return text;
   }
 }

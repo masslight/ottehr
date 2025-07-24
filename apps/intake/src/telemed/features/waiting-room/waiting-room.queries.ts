@@ -4,12 +4,12 @@ import { CancelInviteParticipantRequestParameters, InviteParticipantRequestParam
 import { useOystehrAPIClient } from '../../utils';
 import { useAppointmentStore } from '../appointments';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetWaitStatus = (
   onSuccess: (data: PromiseReturnType<ReturnType<OystehrAPIClient['getWaitStatus']>>) => void,
   appointmentId: string,
   refetchInterval?: number | false,
   enabled?: boolean
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
   const apiClient = useOystehrAPIClient();
   return useQuery(
