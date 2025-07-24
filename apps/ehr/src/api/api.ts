@@ -126,7 +126,7 @@ const CREATE_NURSING_ORDER_ZAMBDA_ID = 'create-nursing-order';
 const UPDATE_NURSING_ORDER = 'update-nursing-order';
 const GET_LABEL_PDF_ZAMBDA_ID = import.meta.env.VITE_APP_GET_LABEL_PDF_ZAMBDA_ID;
 const GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID = import.meta.env.VITE_APP_GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID;
-const PAPERWORK_TO_PDF_ZAMBDA_ID = import.meta.env.VITE_APP_PAPERWORK_TO_PDF_ZAMBDA_ID;
+const PAPERWORK_TO_PDF_ZAMBDA_ID = 'paperwork-to-pdf';
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
