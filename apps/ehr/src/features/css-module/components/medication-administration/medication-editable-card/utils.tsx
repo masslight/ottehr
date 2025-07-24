@@ -82,7 +82,7 @@ export const isUnsavedMedicationData = (
   interactions: MedicationInteractions | undefined
 ): boolean => {
   if (!savedMedication) {
-    return Object.values(localValues).some((value) => value !== '');
+    return Object.values(localValues).some((value) => value !== '' && value !== undefined);
   }
 
   return (
@@ -334,9 +334,9 @@ export const findPrescriptionsForInteractions = async (
 };
 
 export const interactionsUnresolved = (interactions: MedicationInteractions | undefined): boolean => {
-  const unresolvedInteration = [
+  const unresolvedInteraction = [
     ...(interactions?.drugInteractions ?? []),
     ...(interactions?.allergyInteractions ?? []),
   ].find((interaction) => interaction.overrideReason == null);
-  return unresolvedInteration != null;
+  return unresolvedInteraction != null;
 };

@@ -228,11 +228,13 @@ export const Header = (): JSX.Element => {
                             void handleUpdateIntakeAssignment(e.target.value);
                           }}
                         >
-                          {employees.nonProviders?.map((nonProvider) => (
-                            <MenuItem key={nonProvider.practitionerId} value={nonProvider.practitionerId}>
-                              {nonProvider.name}
-                            </MenuItem>
-                          ))}
+                          {employees.nonProviders
+                            ?.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+                            ?.map((nonProvider) => (
+                              <MenuItem key={nonProvider.practitionerId} value={nonProvider.practitionerId}>
+                                {nonProvider.name}
+                              </MenuItem>
+                            ))}
                         </TextField>
                       </Stack>
 
@@ -250,11 +252,13 @@ export const Header = (): JSX.Element => {
                             void handleUpdateProviderAssignment(e.target.value);
                           }}
                         >
-                          {employees.providers?.map((provider) => (
-                            <MenuItem key={provider.practitionerId} value={provider.practitionerId}>
-                              {provider.name}
-                            </MenuItem>
-                          ))}
+                          {employees.providers
+                            ?.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+                            ?.map((provider) => (
+                              <MenuItem key={provider.practitionerId} value={provider.practitionerId}>
+                                {provider.name}
+                              </MenuItem>
+                            ))}
                         </TextField>
                       </Stack>
                     </Stack>
