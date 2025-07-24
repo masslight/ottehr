@@ -345,7 +345,7 @@ export function makeObservationResource(
   }
 
   if (isObservationTextFieldDTO(data)) {
-    if ('note' in data) {
+    if ('note' in data && data.note) {
       return {
         ...base,
         valueString: data.value,

@@ -73,7 +73,7 @@ const VitalsBloodPressureCard: React.FC<VitalsBloodPressureCardProps> = ({
       setSystolicValueText('');
       setDiastolicValueText('');
       setObservationsQualifier('');
-    } catch (error) {
+    } catch {
       enqueueSnackbar('Error saving Blood Pressure vital data', { variant: 'error' });
     } finally {
       setIsSaving(false);

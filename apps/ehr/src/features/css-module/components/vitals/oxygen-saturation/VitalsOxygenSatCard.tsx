@@ -59,7 +59,7 @@ const VitalsOxygenSatCard: React.FC<VitalsOxygenSatCardProps> = ({
         await handleSaveVital(vitalObs);
         setOxySatValueText('');
         setObservationsQualifier('');
-      } catch (error) {
+      } catch {
         enqueueSnackbar('Error saving oxygen saturation data', { variant: 'error' });
       } finally {
         setIsSaving(false);

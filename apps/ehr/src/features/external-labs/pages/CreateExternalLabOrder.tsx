@@ -15,7 +15,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import Oystehr from '@oystehr/sdk';
 import { enqueueSnackbar } from 'notistack';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -103,9 +103,9 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
         });
         navigate(`/in-person/${appointment?.id}/external-lab-orders`);
       } catch (e) {
-        const oyError = e as OystehrSdkError;
-        console.log('error creating external lab order', oyError.code, oyError.message);
-        const errorMessage = [oyError.message];
+        const sdkError = e as Oystehr.OystehrSdkError;
+        console.log('error creating external lab order', sdkError.code, sdkError.message);
+        const errorMessage = [sdkError.message];
         setError(errorMessage);
       }
     } else if (!paramsSatisfied) {

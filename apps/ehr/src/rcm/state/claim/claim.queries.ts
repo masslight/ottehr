@@ -12,12 +12,11 @@ import {
   Patient,
   RelatedPerson,
 } from 'fhir/r4b';
-import { useMutation, useQuery } from 'react-query';
+import { useMutation, UseMutationResult, useQuery, UseQueryResult } from 'react-query';
 import { INSURANCE_PLAN_PAYER_META_TAG_CODE } from 'utils';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { findResourceByType, generateOpByResourceData, getCoverageRelatedResources } from '../../utils';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetClaim = (
   {
     claimId,
@@ -25,7 +24,7 @@ export const useGetClaim = (
     claimId: string | undefined;
   },
   onSuccess: (data: Bundle<FhirResource>[]) => void
-) => {
+): UseQueryResult<FhirResource[], unknown> => {
   const { oystehr } = useApiClients();
 
   return useQuery(
@@ -83,8 +82,9 @@ export const useGetClaim = (
   );
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useGetInsurancePlans = (onSuccess: (data: InsurancePlan[]) => void) => {
+export const useGetInsurancePlans = (
+  onSuccess: (data: InsurancePlan[]) => void
+): UseQueryResult<InsurancePlan[], unknown> => {
   const { oystehr } = useApiClients();
 
   return useQuery(
@@ -118,8 +118,9 @@ export const useGetInsurancePlans = (onSuccess: (data: InsurancePlan[]) => void)
   );
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useGetOrganizations = (onSuccess: (data: Organization[]) => void) => {
+export const useGetOrganizations = (
+  onSuccess: (data: Organization[]) => void
+): UseQueryResult<Organization[], unknown> => {
   const { oystehr } = useApiClients();
 
   return useQuery(
@@ -143,8 +144,7 @@ export const useGetOrganizations = (onSuccess: (data: Organization[]) => void) =
   );
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useGetFacilities = (onSuccess: (data: Location[]) => void) => {
+export const useGetFacilities = (onSuccess: (data: Location[]) => void): UseQueryResult<Location[], unknown> => {
   const { oystehr } = useApiClients();
 
   return useQuery(
@@ -168,8 +168,15 @@ export const useGetFacilities = (onSuccess: (data: Location[]) => void) => {
   );
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useEditCoverageInformationMutation = () => {
+export const useEditCoverageInformationMutation = (): UseMutationResult<
+  Coverage,
+  unknown,
+  {
+    coverageData: Coverage;
+    previousCoverageData: Coverage;
+    fieldsToUpdate?: ('relationship' | 'class' | 'payor' | 'subscriberId')[];
+  }
+> => {
   const { oystehr } = useApiClients();
   return useMutation({
     mutationFn: ({
@@ -214,8 +221,15 @@ export const useEditCoverageInformationMutation = () => {
   });
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useEditRelatedPersonInformationMutation = () => {
+export const useEditRelatedPersonInformationMutation = (): UseMutationResult<
+  RelatedPerson,
+  unknown,
+  {
+    relatedPersonData: RelatedPerson;
+    previousRelatedPersonData: RelatedPerson;
+    fieldsToUpdate?: ('address' | 'birthDate' | 'gender' | 'name')[];
+  }
+> => {
   const { oystehr } = useApiClients();
   return useMutation({
     mutationFn: ({
@@ -254,8 +268,27 @@ export const useEditRelatedPersonInformationMutation = () => {
   });
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useEditClaimInformationMutation = () => {
+export const useEditClaimInformationMutation = (): UseMutationResult<
+  Claim,
+  unknown,
+  {
+    claimData: Claim;
+    previousClaimData: Claim;
+    fieldsToUpdate?: (
+      | 'accident'
+      | 'extension'
+      | 'supportingInfo'
+      | 'related'
+      | 'insurance'
+      | 'diagnosis'
+      | 'item'
+      | 'total'
+      | 'facility'
+      | 'provider'
+      | 'enterer'
+    )[];
+  }
+> => {
   const { oystehr } = useApiClients();
   return useMutation({
     mutationFn: ({

@@ -52,7 +52,7 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({
       };
       await handleSaveVital(vitalObs);
       setHeightValueText('');
-    } catch (error) {
+    } catch {
       enqueueSnackbar('Error saving Height vital record', { variant: 'error' });
     } finally {
       setIsSaving(false);

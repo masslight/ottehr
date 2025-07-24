@@ -84,7 +84,7 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({
       setChildTooYoungOptionSelected(false);
       setWithGlassesOptionSelected(false);
       setWithoutGlassesOptionSelected(false);
-    } catch (error) {
+    } catch {
       enqueueSnackbar('Error saving Vision vital data', { variant: 'error' });
     } finally {
       setIsSaving(false);

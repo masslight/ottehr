@@ -141,6 +141,7 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
   // go back to where the location info started to start the right column of text
   pdfClient.setY(yPosAtStartOfLocation);
   let currXPos = pdfClient.drawStartXPosSpecifiedText('Order Number: ', textStyles.textBold, rightColumnXStart).endXPos;
+  // eslint-disable-next-line @typescript-eslint/no-unused-expressions
   pdfClient.drawStartXPosSpecifiedText(data.orderNumber, textStyles.text, currXPos).endXPos;
 
   pdfClient.newLine(STANDARD_NEW_LINE);
