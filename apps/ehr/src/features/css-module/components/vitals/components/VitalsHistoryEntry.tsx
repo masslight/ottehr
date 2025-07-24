@@ -44,7 +44,7 @@ export const VitalHistoryElement: React.FC<VitalHistoryElementProps> = ({ histor
   return (
     <>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography color="textPrimary">
+        <Typography color="textPrimary" component="div">
           {formatDateTimeToLocalTimezone(historyEntry.lastUpdated)} {hasAuthor && 'by'} {historyEntry.authorName} -
           &nbsp;
           {observationValueElements.map((value, index) => {
@@ -59,7 +59,7 @@ export const VitalHistoryElement: React.FC<VitalHistoryElementProps> = ({ histor
                 </Typography>
               );
             } else {
-              return value;
+              return { ...value, key: index };
             }
           })}
           {historyEntry.alertCriticality === 'critical' && (

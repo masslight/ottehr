@@ -13,6 +13,7 @@ import VitalHistoryElement from '../components/vitals/components/VitalsHistoryEn
 import VitalsHeartbeatCard from '../components/vitals/heartbeat/VitalsHeartbeatCard';
 import VitalsHeightCard from '../components/vitals/heights/VitalsHeightCard';
 import { useDeleteVitals } from '../components/vitals/hooks/useDeleteVitals';
+import { useGetVitals } from '../components/vitals/hooks/useGetVitals';
 import { useSaveVitals } from '../components/vitals/hooks/useSaveVitals';
 import VitalsOxygenSatCard from '../components/vitals/oxygen-saturation/VitalsOxygenSatCard';
 import VitalsRespirationRateCard from '../components/vitals/respiration-rate/VitalsRespirationRateCard';
@@ -49,25 +50,7 @@ export const PatientVitals: React.FC<PatientVitalsProps> = () => {
     data: encounterVitals,
     isLoading: encounterVitalsLoading,
     refetch: refetchEncounterVitals,
-  } = useQuery(
-    [`current-encounter-vitals-${encounter?.id}`],
-    async () => {
-      if (oystehrZambda && encounter?.id) {
-        const result = await oystehrZambda.zambda.execute({
-          id: 'get-vitals',
-          encounterId: encounter.id,
-          mode: 'current',
-        });
-        // todo: make this strictly typed once there is a common api file defining endpoints available
-        return result.output as GetVitalsResponseData;
-      }
-
-      throw new Error('api client not defined or encounter id is not provided');
-    },
-    {
-      enabled: Boolean(encounter?.id) && Boolean(oystehrZambda),
-    }
-  );
+  } = useGetVitals(encounter?.id);
 
   const { data: historicalVitals } = useQuery(
     [`historical-encounter-vitals-${encounter?.id}`],

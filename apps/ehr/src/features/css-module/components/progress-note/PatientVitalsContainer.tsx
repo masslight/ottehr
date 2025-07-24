@@ -1,31 +1,26 @@
 import { Box, Typography } from '@mui/material';
 import { FC } from 'react';
 import { NoteDTO, VitalFieldNames } from 'utils';
-import { getSelectors } from '../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../../telemed';
 import { AssessmentTitle } from '../../../../telemed/features/appointment/AssessmentTab';
 import VitalHistoryElement from '../vitals/components/VitalsHistoryEntry';
+import { useGetVitals } from '../vitals/hooks/useGetVitals';
 
 type PatientVitalsContainerProps = {
   notes?: NoteDTO[];
+  encounterId: string | undefined;
 };
 
-export const PatientVitalsContainer: FC<PatientVitalsContainerProps> = ({ notes }) => {
-  const { chartData } = getSelectors(useAppointmentStore, ['chartData', 'encounter']);
+export const PatientVitalsContainer: FC<PatientVitalsContainerProps> = ({ notes, encounterId }) => {
+  const { data: encounterVitals } = useGetVitals(encounterId);
 
-  const temperature =
-    chartData?.vitalsObservations?.filter((vital) => vital.field === VitalFieldNames.VitalTemperature) || [];
-  const heartbeat =
-    chartData?.vitalsObservations?.filter((vital) => vital.field === VitalFieldNames.VitalHeartbeat) || [];
-  const respirationRate =
-    chartData?.vitalsObservations?.filter((vital) => vital.field === VitalFieldNames.VitalRespirationRate) || [];
-  const bloodPressure =
-    chartData?.vitalsObservations?.filter((vital) => vital.field === VitalFieldNames.VitalBloodPressure) || [];
-  const oxygenSaturation =
-    chartData?.vitalsObservations?.filter((vital) => vital.field === VitalFieldNames.VitalOxygenSaturation) || [];
-  const weight = chartData?.vitalsObservations?.filter((vital) => vital.field === VitalFieldNames.VitalWeight) || [];
-  const height = chartData?.vitalsObservations?.filter((vital) => vital.field === VitalFieldNames.VitalHeight) || [];
-  const vision = chartData?.vitalsObservations?.filter((vital) => vital.field === VitalFieldNames.VitalVision) || [];
+  const temperature = encounterVitals?.[VitalFieldNames.VitalTemperature] || [];
+  const heartbeat = encounterVitals?.[VitalFieldNames.VitalHeartbeat] || [];
+  const respirationRate = encounterVitals?.[VitalFieldNames.VitalRespirationRate] || [];
+  const bloodPressure = encounterVitals?.[VitalFieldNames.VitalBloodPressure] || [];
+  const oxygenSaturation = encounterVitals?.[VitalFieldNames.VitalOxygenSaturation] || [];
+  const weight = encounterVitals?.[VitalFieldNames.VitalWeight] || [];
+  const height = encounterVitals?.[VitalFieldNames.VitalHeight] || [];
+  const vision = encounterVitals?.[VitalFieldNames.VitalVision] || [];
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}>
@@ -37,7 +32,7 @@ export const PatientVitalsContainer: FC<PatientVitalsContainerProps> = ({ notes 
         <>
           <AssessmentTitle>Temperature</AssessmentTitle>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {temperature?.map((item) => <VitalHistoryElement historyEntry={item} />)}
+            {temperature?.map((item) => <VitalHistoryElement historyEntry={item} key={item.resourceId} />)}
           </Box>
         </>
       )}
@@ -45,7 +40,7 @@ export const PatientVitalsContainer: FC<PatientVitalsContainerProps> = ({ notes 
         <>
           <AssessmentTitle>Heartbeat</AssessmentTitle>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {heartbeat?.map((item) => <VitalHistoryElement historyEntry={item} />)}
+            {heartbeat?.map((item) => <VitalHistoryElement historyEntry={item} key={item.resourceId} />)}
           </Box>
         </>
       )}
@@ -53,7 +48,7 @@ export const PatientVitalsContainer: FC<PatientVitalsContainerProps> = ({ notes 
         <>
           <AssessmentTitle>Respiration rate</AssessmentTitle>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {respirationRate?.map((item) => <VitalHistoryElement historyEntry={item} />)}
+            {respirationRate?.map((item) => <VitalHistoryElement historyEntry={item} key={item.resourceId} />)}
           </Box>
         </>
       )}
@@ -61,7 +56,7 @@ export const PatientVitalsContainer: FC<PatientVitalsContainerProps> = ({ notes 
         <>
           <AssessmentTitle>Blood pressure</AssessmentTitle>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {bloodPressure?.map((item) => <VitalHistoryElement historyEntry={item} />)}
+            {bloodPressure?.map((item) => <VitalHistoryElement historyEntry={item} key={item.resourceId} />)}
           </Box>
         </>
       )}
@@ -69,7 +64,7 @@ export const PatientVitalsContainer: FC<PatientVitalsContainerProps> = ({ notes 
         <>
           <AssessmentTitle>Oxygen saturation</AssessmentTitle>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {oxygenSaturation?.map((item) => <VitalHistoryElement historyEntry={item} />)}
+            {oxygenSaturation?.map((item) => <VitalHistoryElement historyEntry={item} key={item.resourceId} />)}
           </Box>
         </>
       )}
@@ -77,7 +72,7 @@ export const PatientVitalsContainer: FC<PatientVitalsContainerProps> = ({ notes 
         <>
           <AssessmentTitle>Weight</AssessmentTitle>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {weight?.map((item) => <VitalHistoryElement historyEntry={item} />)}
+            {weight?.map((item) => <VitalHistoryElement historyEntry={item} key={item.resourceId} />)}
           </Box>
         </>
       )}
@@ -85,7 +80,7 @@ export const PatientVitalsContainer: FC<PatientVitalsContainerProps> = ({ notes 
         <>
           <AssessmentTitle>Height</AssessmentTitle>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {height?.map((item) => <VitalHistoryElement historyEntry={item} />)}
+            {height?.map((item) => <VitalHistoryElement historyEntry={item} key={item.resourceId} />)}
           </Box>
         </>
       )}
@@ -93,7 +88,7 @@ export const PatientVitalsContainer: FC<PatientVitalsContainerProps> = ({ notes 
         <>
           <AssessmentTitle>Vision</AssessmentTitle>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {vision?.map((item) => <VitalHistoryElement historyEntry={item} />)}
+            {vision?.map((item) => <VitalHistoryElement historyEntry={item} key={item.resourceId} />)}
           </Box>
         </>
       )}
