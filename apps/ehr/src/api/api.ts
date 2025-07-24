@@ -67,6 +67,8 @@ import {
   RadiologyLaunchViewerZambdaOutput,
   SaveFollowupEncounterZambdaInput,
   SaveFollowupEncounterZambdaOutput,
+  SavePreliminaryReportZambdaInput,
+  SavePreliminaryReportZambdaOutput,
   ScheduleDTO,
   SubmitLabOrderDTO,
   SubmitLabOrderInput,
@@ -746,6 +748,22 @@ export const radiologyLaunchViewer = async (
   try {
     const response = await oystehr.zambda.execute({
       id: 'radiology-launch-viewer',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const savePreliminaryReport = async (
+  oystehr: Oystehr,
+  parameters: SavePreliminaryReportZambdaInput
+): Promise<SavePreliminaryReportZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'radiology-save-preliminary-report',
       ...parameters,
     });
     return chooseJson(response);
