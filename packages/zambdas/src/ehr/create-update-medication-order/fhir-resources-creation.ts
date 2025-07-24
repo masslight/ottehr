@@ -27,6 +27,7 @@ import {
   MedicationData,
   MedicationInteractions,
   PRACTITIONER_ADMINISTERED_MEDICATION_CODE,
+  PRACTITIONER_ORDERED_BY_MEDICATION_CODE,
   PRACTITIONER_ORDERED_MEDICATION_CODE,
 } from 'utils';
 import { fillMeta } from '../../shared';
@@ -37,6 +38,7 @@ export interface MedicationAdministrationData {
   route: MedicationApplianceRoute;
   location?: MedicationApplianceLocation;
   createdProviderId?: string;
+  orderedByProviderId?: string; // NEW: provider to add to the "ordered by" history
   administeredProviderId?: string;
   existedMA?: MedicationAdministration;
   dateTimeCreated?: string;
@@ -50,6 +52,7 @@ export function createMedicationAdministrationResource(data: MedicationAdministr
     route,
     location,
     createdProviderId,
+    orderedByProviderId,
     administeredProviderId,
     existedMA,
     dateTimeCreated,
@@ -76,9 +79,17 @@ export function createMedicationAdministrationResource(data: MedicationAdministr
   };
   if (orderData.patient) resource.subject = { reference: `Patient/${orderData.patient}` };
   if (orderData.encounterId) resource.context = { reference: `Encounter/${orderData.encounterId}` };
+
   if (createdProviderId) {
-    resource.performer = [
-      {
+    // Check if "created" provider already exists, if not add it
+    const hasCreatedProvider = resource.performer?.some(
+      (performer) => performer.function?.coding?.find((coding) => coding.code === PRACTITIONER_ORDERED_MEDICATION_CODE)
+    );
+
+    if (!hasCreatedProvider) {
+      if (!resource.performer) resource.performer = [];
+
+      resource.performer.push({
         actor: { reference: `Practitioner/${createdProviderId}` },
         function: {
           coding: [
@@ -88,9 +99,27 @@ export function createMedicationAdministrationResource(data: MedicationAdministr
             },
           ],
         },
-      },
-    ];
+      });
+    }
   }
+
+  // Add "ordered by" provider to history
+  if (orderedByProviderId) {
+    if (!resource.performer) resource.performer = [];
+
+    resource.performer.push({
+      actor: { reference: `Practitioner/${orderedByProviderId}` },
+      function: {
+        coding: [
+          {
+            system: MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
+            code: PRACTITIONER_ORDERED_BY_MEDICATION_CODE,
+          },
+        ],
+      },
+    });
+  }
+
   if (dateTimeCreated) resource.effectiveDateTime = dateTimeCreated; // todo: check if this is correct, effectiveDateTime is not date of creation, it's date of administration
   if (medicationResource) {
     resource.contained = [{ ...medicationResource, id: IN_HOUSE_CONTAINED_MEDICATION_ID }];
@@ -214,21 +243,35 @@ function createDrugInteractionIssue(resourceId: string, interaction: DrugInterac
         },
       },
     ],
-    evidence: interaction.drugs.map((drug) => {
-      return {
-        code: [
-          {
-            coding: [
-              {
-                system: MEDICATION_DISPENSABLE_DRUG_ID,
-                code: drug.id,
-                display: drug.name,
-              },
-            ],
-          },
-        ],
-      };
-    }),
+    evidence: [
+      ...interaction.drugs.map((drug) => {
+        return {
+          code: [
+            {
+              coding: [
+                {
+                  system: MEDICATION_DISPENSABLE_DRUG_ID,
+                  code: drug.id,
+                  display: drug.name,
+                },
+              ],
+            },
+          ],
+        };
+      }),
+      ...(interaction.source
+        ? [
+            {
+              detail: [
+                {
+                  reference: interaction.source.reference,
+                  display: interaction.source.display,
+                },
+              ],
+            },
+          ]
+        : []),
+    ],
   };
 }
 

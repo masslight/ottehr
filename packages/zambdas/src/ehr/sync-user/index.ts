@@ -11,15 +11,16 @@ import {
   Secrets,
   SyncUserResponse,
 } from 'utils';
-import { ZambdaInput } from '../../shared';
-import { checkOrCreateM2MClientToken } from '../../shared';
+import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
+
+const ZAMBDA_NAME = 'sync-user';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const { secrets } = validateRequestParameters(input);
     console.log('Parameters: ' + JSON.stringify(input));
@@ -43,7 +44,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify({ message: 'Error synchronizing practitioner with remote credentialing authority.' }),
     };
   }
-};
+});
 
 async function performEffect(
   m2mOystehrClient: Oystehr,

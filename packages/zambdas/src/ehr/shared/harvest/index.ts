@@ -121,7 +121,7 @@ interface ResponsiblePartyContact {
   lastName: string;
   relationship: 'Self' | 'Spouse' | 'Parent' | 'Legal Guardian' | 'Other';
   address: Address;
-
+  email: string;
   number?: string;
 }
 
@@ -806,6 +806,7 @@ export function createMasterRecordPatchOperations(
     'guardian-number': { system: 'phone' },
     'guardian-email': { system: 'email' },
     'responsible-party-number': { system: 'phone', use: 'mobile' },
+    'responsible-party-email': { system: 'email' },
     'pcp-number': { system: 'phone' },
   };
 
@@ -1729,6 +1730,7 @@ export function extractAccountGuarantor(items: QuestionnaireResponseItem[]): Res
       | 'Legal Guardian'
       | 'Other',
     address: guarantorAddress,
+    email: findAnswer('responsible-party-email') ?? '',
     number: findAnswer('responsible-party-number'),
   };
 
@@ -2706,14 +2708,22 @@ export const createContainedGuarantor = (guarantor: ResponsiblePartyContact, pat
   const policyHolderName = createFhirHumanName(guarantor.firstName, undefined, guarantor.lastName);
   const relationshipCode = SUBSCRIBER_RELATIONSHIP_CODE_MAP[guarantor.relationship] || 'other';
   const number = guarantor.number;
+  const email = guarantor.email;
   let telecom: RelatedPerson['telecom'];
+  if (number || email) {
+    telecom = [];
+  }
   if (number) {
-    telecom = [
-      {
-        value: formatPhoneNumber(number),
-        system: 'phone',
-      },
-    ];
+    telecom?.push({
+      value: formatPhoneNumber(number),
+      system: 'phone',
+    });
+  }
+  if (email) {
+    telecom?.push({
+      value: email,
+      system: 'email',
+    });
   }
   return {
     resourceType: 'RelatedPerson',
@@ -3041,6 +3051,8 @@ interface UpdateStripeCustomerInput {
 }
 export const updateStripeCustomer = async (input: UpdateStripeCustomerInput): Promise<void> => {
   const { guarantorResource, account } = input;
+  console.log('updating Stripe customer for account', account.id);
+  console.log('guarantor resource:', `${guarantorResource?.resourceType}/${guarantorResource?.id}`);
   const stripeCustomerId = getStripeCustomerIdFromAccount(account);
   const email = getEmailForIndividual(guarantorResource);
   const name = getFullName(guarantorResource);

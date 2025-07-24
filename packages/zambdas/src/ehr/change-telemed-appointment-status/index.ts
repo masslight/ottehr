@@ -1,4 +1,5 @@
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItem, Encounter, Task } from 'fhir/r4b';
 import {
@@ -117,21 +118,44 @@ export const performEffect = async (
     );
 
     console.log('Chart data received');
-    const pdfInfo = await composeAndCreateVisitNotePdf(
-      { chartData, additionalChartData },
-      visitResources,
-      secrets,
-      m2mToken
-    );
-    if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
-    console.log(`Creating visit note pdf docRef`);
-    await makeVisitNotePdfDocumentReference(oystehr, pdfInfo, patient.id, appointmentId, encounter.id!, listResources);
+    try {
+      const pdfInfo = await composeAndCreateVisitNotePdf(
+        { chartData, additionalChartData },
+        visitResources,
+        secrets,
+        m2mToken
+      );
+      if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
+      console.log(`Creating visit note pdf docRef`);
+      await makeVisitNotePdfDocumentReference(
+        oystehr,
+        pdfInfo,
+        patient.id,
+        appointmentId,
+        encounter.id!,
+        listResources
+      );
+    } catch (error) {
+      console.error(`Error creating visit note pdf: ${error}`);
+      captureException(error, {
+        tags: {
+          appointmentId,
+          encounterId: encounter.id,
+        },
+      });
+    }
 
     let candidEncounterId: string | undefined;
     try {
       candidEncounterId = await createCandidEncounter(visitResources, secrets, oystehr);
     } catch (error) {
       console.error(`Error creating Candid encounter: ${error}`);
+      captureException(error, {
+        tags: {
+          appointmentId,
+          encounterId: encounter.id,
+        },
+      });
       // longer term we probably want a more decoupled approach where the candid synching is offloaded and tracked
       // for now prevent this failure from causing the endpoint to error out
     }
@@ -208,7 +232,12 @@ export const performEffect = async (
         console.log(`createdResources: ${JSON.stringify(resources)}`);
       } catch (error) {
         console.error('Error issuing a charge for self-pay encounter.');
-        // TODO: add sentry notification: we had an issue posting a charge
+        captureException(error, {
+          tags: {
+            appointmentId,
+            encounterId: encounter.id,
+          },
+        });
       }
     }
   }

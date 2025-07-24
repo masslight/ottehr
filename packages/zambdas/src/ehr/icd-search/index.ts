@@ -1,9 +1,10 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { getSecret, IcdSearchResponse, MISSING_NLM_API_KEY_ERROR, SecretsKeys } from 'utils';
-import { topLevelCatch, ZambdaInput } from '../../shared';
+import { topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+const ZAMBDA_NAME = 'icd-search';
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
@@ -41,7 +42,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
     return await topLevelCatch('ehr-icd-search', error, ENVIRONMENT);
   }
-};
+});
 
 const searchTerminology = async (
   apiKey: string,

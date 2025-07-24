@@ -30,7 +30,7 @@ import {
   searchRouteByCode,
   UpdateMedicationOrderInput,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../shared';
 import {
   createMedicationAdministrationResource,
   createMedicationRequest,
@@ -48,7 +48,9 @@ import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+const ZAMBDA_NAME = 'create-update-medication-order';
+
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
 
@@ -70,7 +72,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify({ message: `Error creating/updating order: ${JSON.stringify(error)}` }),
     };
   }
-};
+});
 
 async function performEffect(
   oystehr: Oystehr,
@@ -151,6 +153,7 @@ async function updateOrder(
       orderData,
       orderResources,
       administeredProviderId: newStatus !== undefined ? practitionerIdCalledZambda : undefined,
+      orderedByProviderId: orderData.providerId,
       medicationResource: newMedicationCopy,
     });
   }
@@ -280,6 +283,7 @@ async function createOrder(
     route: routeCoding,
     location: locationCoding,
     createdProviderId: practitionerIdCalledZambda,
+    orderedByProviderId: orderData.providerId, // NEW: add initial provider to history
     dateTimeCreated: DateTime.now().toISO(),
     medicationResource: medicationCopy,
   });

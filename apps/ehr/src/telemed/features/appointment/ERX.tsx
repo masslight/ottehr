@@ -40,6 +40,8 @@ export const ERX: FC<{
     return practitioner ? getPractitionerMissingFields(practitioner) : [];
   }, [practitioner]);
 
+  const [isTimeout, setIsTimeout] = useState<boolean>(false);
+
   // Step 1: Get patient vitals
   const heightSearchConfig = createVitalsSearchConfig(VitalFieldNames.VitalHeight, 'patient', 1);
   const weightSearchConfig = createVitalsSearchConfig(VitalFieldNames.VitalWeight, 'patient', 1);
@@ -80,6 +82,12 @@ export const ERX: FC<{
   } = useCheckPractitionerEnrollment({
     enabled: !isVitalsLoading && hasVitals && practitionerMissingFields.length === 0,
   });
+
+  useEffect(() => {
+    if (practitionerMissingFields.length > 0) {
+      onStatusChanged(ERXStatus.ERROR);
+    }
+  }, [onStatusChanged, practitionerMissingFields]);
 
   // Step 3: Sync patient
   const { isFetched: isPatientSynced, isLoading: isPatientSyncing } = useSyncERXPatient({
@@ -134,7 +142,7 @@ export const ERX: FC<{
     isLoading: isConnectingPractitioner,
     mutateAsync: connectPractitioner,
     isSuccess: isPractitionerConnected,
-  } = useConnectPractitionerToERX({ patientId: patient?.id });
+  } = useConnectPractitionerToERX({ patientId: patient?.id, encounterId: encounter.id });
 
   const {
     data: ssoLinkForEnrollment,
@@ -236,7 +244,9 @@ export const ERX: FC<{
   }, [onStatusChanged, isPractitionerConnected]);
 
   useEffect(() => {
-    if (
+    if (isTimeout && !isPractitionerConnected) {
+      onStatusChanged(ERXStatus.ERROR);
+    } else if (
       isHeightLoading ||
       isWeightLoading ||
       isPatientSyncing ||
@@ -254,7 +264,16 @@ export const ERX: FC<{
     isEnrollingPractitioner,
     isConnectingPractitioner,
     isConnectingPractitionerForConfirmation,
+    isTimeout,
+    isPractitionerConnected,
   ]);
+
+  // Timeout after 30 seconds
+  useEffect(() => {
+    setTimeout(() => {
+      setIsTimeout(true);
+    }, 30000);
+  }, []);
 
   return (
     <>

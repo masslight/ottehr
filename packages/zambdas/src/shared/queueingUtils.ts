@@ -273,7 +273,7 @@ function checkedOutSorter(visit1: VisitDetails, visit2: VisitDetails): number {
   const getStatusPriority = (visit: VisitDetails): number => {
     const { appointment, encounter } = visit;
     const status = getVisitStatus(appointment, encounter);
-    if (status === 'ready for discharge') return 0;
+    if (status === 'discharged') return 0;
     if (status === 'completed') return 1;
     return 2;
   };
@@ -365,7 +365,7 @@ class QueueBuilder {
           this.insertNew(appointment, encounter, this.queues.inOffice.inExam.provider);
         } else if (status === 'cancelled' || status === 'no show') {
           this.insertNew(appointment, encounter, this.queues.canceled);
-        } else if (status === 'completed' || status === 'ready for discharge') {
+        } else if (status === 'completed' || status === 'discharged') {
           this.insertNew(appointment, encounter, this.queues.checkedOut);
         }
       }

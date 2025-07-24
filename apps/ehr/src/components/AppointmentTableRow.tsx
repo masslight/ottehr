@@ -36,7 +36,6 @@ import {
   getVisitTotalTime,
   InPersonAppointmentInformation,
   OrdersForTrackingBoardRow,
-  PRACTITIONER_CODINGS,
   PROJECT_NAME,
   ROOM_EXTENSION_URL,
   VisitStatusLabel,
@@ -44,9 +43,7 @@ import {
 import { LANGUAGES } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 import ChatModal from '../features/chat/ChatModal';
-import { usePractitionerActions } from '../features/css-module/hooks/usePractitioner';
-import { checkInPatient } from '../helpers';
-import { displayOrdersToolTip, hasAtLeastOneOrder } from '../helpers';
+import { checkInPatient, displayOrdersToolTip, hasAtLeastOneOrder } from '../helpers';
 import { getTimezone } from '../helpers/formatDateTime';
 import { formatPatientName } from '../helpers/formatPatientName';
 import { getOfficePhoneNumber } from '../helpers/getOfficePhoneNumber';
@@ -85,8 +82,6 @@ export function getAppointmentStatusChip(status: VisitStatusLabel | undefined, c
     return <span>todo2</span>;
   }
 
-  const label = STATUS_LABEL_MAP[status] || status;
-
   return (
     <span
       data-testid={dataTestIds.dashboard.appointmentStatus}
@@ -102,7 +97,7 @@ export function getAppointmentStatusChip(status: VisitStatusLabel | undefined, c
         verticalAlign: 'middle',
       }}
     >
-      {count ? `${label} - ${count}` : label}
+      {count ? `${status} - ${count}` : status}
     </span>
   );
 }
@@ -170,7 +165,7 @@ export const CHIP_STATUS_MAP: {
       primary: '#01579B',
     },
   },
-  'ready for discharge': {
+  discharged: {
     background: {
       primary: '#B2EBF2',
     },
@@ -210,10 +205,6 @@ export const CHIP_STATUS_MAP: {
       primary: '#000000',
     },
   },
-};
-
-const STATUS_LABEL_MAP: Partial<Record<VisitStatusLabel, string>> = {
-  'ready for discharge': 'Discharged',
 };
 
 const linkStyle = {
@@ -270,16 +261,7 @@ export default function AppointmentTableRow({
   const [startIntakeButtonLoading, setStartIntakeButtonLoading] = useState(false);
   const [progressNoteButtonLoading, setProgressNoteButtonLoading] = useState(false);
   const [dischargeButtonLoading, setDischargeButtonLoading] = useState(false);
-  const { handleUpdatePractitioner: handleUpdatePractitionerForIntake } = usePractitionerActions(
-    encounter,
-    'start',
-    PRACTITIONER_CODINGS.Admitter
-  );
-  const { handleUpdatePractitioner: handleUpdatePractitionerForProvider } = usePractitionerActions(
-    encounter,
-    'start',
-    PRACTITIONER_CODINGS.Attender
-  );
+
   const rooms = useMemo(() => {
     return location?.extension?.filter((ext) => ext.url === ROOM_EXTENSION_URL).map((ext) => ext.valueString);
   }, [location]);
@@ -404,7 +386,7 @@ export default function AppointmentTableRow({
     const currentStatusTime = getDurationOfStatus(recentStatus, now);
 
     let statusTimeTemp =
-      tab === ApptTab.cancelled || tab === ApptTab.completed || recentStatus.status === 'ready for discharge'
+      tab === ApptTab.cancelled || tab === ApptTab.completed || recentStatus.status === 'discharged'
         ? `${formatMinutes(totalMinutes)}m`
         : `${formatMinutes(currentStatusTime)}m`;
 
@@ -412,7 +394,7 @@ export default function AppointmentTableRow({
       tab !== ApptTab.cancelled &&
       tab !== ApptTab.completed &&
       statusTimeTemp !== `${formatMinutes(totalMinutes)}m` &&
-      recentStatus.status !== 'ready for discharge' &&
+      recentStatus.status !== 'discharged' &&
       appointment.visitStatusHistory &&
       appointment?.visitStatusHistory.length > 1
     ) {
@@ -609,8 +591,6 @@ export default function AppointmentTableRow({
   const handleStartIntakeButton = async (): Promise<void> => {
     setStartIntakeButtonLoading(true);
     try {
-      await handleUpdatePractitionerForIntake();
-
       await handleChangeInPersonVisitStatus(
         {
           encounterId: encounterId,
@@ -646,9 +626,6 @@ export default function AppointmentTableRow({
   const handleProgressNoteButton = async (): Promise<void> => {
     setProgressNoteButtonLoading(true);
     try {
-      if (appointment.status === 'ready for provider') {
-        await handleUpdatePractitionerForProvider();
-      }
       navigate(`/in-person/${appointment.id}`);
     } catch (error) {
       console.error(error);
@@ -662,7 +639,7 @@ export default function AppointmentTableRow({
       appointment.status === 'ready for provider' ||
       appointment.status === 'provider' ||
       appointment.status === 'completed' ||
-      appointment.status === 'ready for discharge'
+      appointment.status === 'discharged'
     ) {
       return (
         <GoToButton
@@ -685,7 +662,7 @@ export default function AppointmentTableRow({
         {
           encounterId: encounterId,
           user,
-          updatedStatus: 'ready for discharge',
+          updatedStatus: 'discharged',
         },
         oystehrZambda
       );
@@ -736,18 +713,19 @@ export default function AppointmentTableRow({
         }),
       }}
     >
-      <TableCell sx={{ verticalAlign: 'center' }}>
+      <TableCell sx={{ verticalAlign: 'center', position: 'relative' }}>
         {appointment.next && (
           <Box
             sx={{
               backgroundColor: CHIP_STATUS_MAP[appointment.status].background.secondary,
               position: 'absolute',
-              width: '25px',
+              width: '22px',
               bottom: 0,
-              left: '-25px',
+              left: '0',
               height: '100%',
-              borderTopLeftRadius: '10px',
-              borderBottomLeftRadius: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
             <Typography
@@ -756,9 +734,6 @@ export default function AppointmentTableRow({
               sx={{
                 writingMode: 'vertical-lr',
                 transform: 'scale(-1)',
-                position: 'absolute',
-                top: '28%',
-                left: '10%',
                 color: theme.palette.background.paper,
               }}
             >
@@ -767,7 +742,10 @@ export default function AppointmentTableRow({
           </Box>
         )}
       </TableCell>
-      <TableCell data-testid={dataTestIds.dashboard.tableRowStatus(appointment.id)}>
+      <TableCell
+        sx={{ padding: '8px 8px 8px 23px !important' }}
+        data-testid={dataTestIds.dashboard.tableRowStatus(appointment.id)}
+      >
         <Typography variant="body1">
           {capitalize?.(
             appointment.appointmentType === 'post-telemed'

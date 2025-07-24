@@ -1,6 +1,6 @@
 {
   "name": "zambdas",
-  "version": "1.13.0",
+  "version": "1.14.1",
   "private": true,
   "scripts": {
     "start": "ENV=${ENV:-local} npm run setup-deployed-resources ${ENV:-local} && tsx watch --include './src/**/*' src/local-server/index.ts -- env=.env/${ENV:-local}.json",
@@ -8,6 +8,7 @@
     "start:demo": "ENV=demo npm run start",
     "cancel-telemed-appointments": "tsx src/scripts/cancel-telemed-appointments.ts",
     "remove-insurances-and-payer-orgs": "tsx src/scripts/remove-insurances-and-payer-orgs.ts",
+    "fix-payer-ids-in-orgs": "tsx src/scripts/fix-payer-ids-in-orgs.ts",
     "update-insurances-and-payer-orgs": "tsx src/scripts/update-insurances-and-payer-orgs.ts",
     "update-insurances-and-payer-orgs-debug": "node --inspect --import tsx src/scripts/update-insurances-and-payer-orgs.ts",
     "recreate-in-house-medications-list": "tsx src/scripts/recreate-in-house-medications-list.ts $npm_config_env",

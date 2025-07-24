@@ -209,7 +209,7 @@ export default function Data(): React.ReactElement {
           intake: { numAppointments: 0, averageTime: 0 },
           'ready for provider': { numAppointments: 0, averageTime: 0 },
           provider: { numAppointments: 0, averageTime: 0 },
-          'ready for discharge': { numAppointments: 0, averageTime: 0 },
+          discharged: { numAppointments: 0, averageTime: 0 },
           cancelled: { numAppointments: 0, averageTime: 0 },
           'no show': { numAppointments: 0, averageTime: 0 },
           completed: { numAppointments: 0, averageTime: 0 },

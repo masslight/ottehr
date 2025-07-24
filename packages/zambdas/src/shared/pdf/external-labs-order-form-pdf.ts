@@ -65,6 +65,12 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
   // Draw header
   pdfClient.drawText(`${data.labOrganizationName}: Order Form`, textStyles.headerRight); // the original was 18 font
   pdfClient.newLine(STANDARD_NEW_LINE);
+
+  // print 'e-req' if submitting electronically
+  if (!data.isManualOrder) {
+    pdfClient.drawText('E-REQ', { ...textStyles.textBoldRight, fontSize: textStyles.headerRight.fontSize - 2 });
+    pdfClient.newLine(STANDARD_NEW_LINE);
+  }
   pdfClient.drawSeparatedLine(BLACK_LINE_STYLE);
 
   // Location Details (left column)
@@ -237,7 +243,10 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
   const secondColumnStart = pageWidth / 2 + columnGap;
 
   const columnOneStartAndWidth = { startXPos: pdfClient.getLeftBound(), width: pageWidth / 2 };
-  const columnTwoStartAndWidth = { startXPos: secondColumnStart, width: pdfClient.getRightBound() - secondColumnStart }; // just the rest of the page
+  const columnTwoStartAndWidth = {
+    startXPos: secondColumnStart,
+    width: pdfClient.getRightBound() - secondColumnStart,
+  }; // just the rest of the page
 
   pdfClient.drawSeparatedLine(GREY_LINE_STYLE);
   pdfClient.drawVariableWidthColumns(
@@ -253,7 +262,8 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
         ...columnTwoStartAndWidth,
       },
     ],
-    pdfClient.getY()
+    pdfClient.getY(),
+    pdfClient.getCurrentPageIndex()
   );
   pdfClient.newLine(STANDARD_NEW_LINE);
   pdfClient.drawSeparatedLine(GREY_LINE_STYLE);
@@ -272,7 +282,8 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
         ...columnTwoStartAndWidth,
       },
     ],
-    pdfClient.getY()
+    pdfClient.getY(),
+    pdfClient.getCurrentPageIndex()
   );
 
   pdfClient.newLine(STANDARD_NEW_LINE);

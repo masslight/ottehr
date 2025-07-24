@@ -2,7 +2,7 @@
   "name": "utils",
   "private": true,
   "type": "module",
-  "version": "1.13.0",
+  "version": "1.14.1",
   "main": "lib/main.ts",
   "types": "lib/main.ts",
   "engines": {
