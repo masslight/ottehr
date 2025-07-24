@@ -315,7 +315,7 @@ async function candidCreateEncounterRequest(
 
   return {
     externalId: EncounterExternalId(assertDefined(encounter.id, 'Encounter.id')),
-    dateOfService: dateOfServiceString || undefined,
+    dateOfService: dateOfServiceString,
     billableStatus: BillableStatusType.Billable,
     responsibleParty: insuranceResources != null ? ResponsiblePartyType.InsurancePay : ResponsiblePartyType.SelfPay,
     benefitsAssignedToProvider: true,
