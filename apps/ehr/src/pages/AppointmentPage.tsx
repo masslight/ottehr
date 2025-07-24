@@ -1034,7 +1034,9 @@ export default function AppointmentPage(): ReactElement {
 
   const downloadPaperworkPdf = async (): Promise<void> => {
     setPaperworkPdfLoading(true);
-    const existingPaperworkPdf = documents?.find((doc) => doc.encounterId === encounter.id);
+    const existingPaperworkPdf = documents?.find(
+      (doc) => doc.encounterId === encounter.id && doc.docName.toLowerCase().includes('paperwork')
+    );
     if (existingPaperworkPdf) {
       await downloadDocument(existingPaperworkPdf.id);
       setPaperworkPdfLoading(false);
