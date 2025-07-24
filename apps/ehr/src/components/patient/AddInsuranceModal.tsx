@@ -12,10 +12,10 @@ import {
   TextField,
   useTheme,
 } from '@mui/material';
+import { useQueryClient } from '@tanstack/react-query';
 import { Questionnaire } from 'fhir/r4b';
 import React, { useEffect } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
-import { useQueryClient } from 'react-query';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { InsurancePlanDTO, isPostalCodeValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { RELATIONSHIP_TO_INSURED_OPTIONS, SEX_OPTIONS, STATE_OPTIONS } from '../../constants';
@@ -71,7 +71,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
   const { insurancePlans } = usePatientStore();
   const queryClient = useQueryClient();
   const submitQR = useUpdatePatientAccount(() => {
-    void queryClient.invalidateQueries('patient-account-get');
+    void queryClient.invalidateQueries({ queryKey: ['patient-account-get'] });
   });
 
   const onSubmit = (data: any): void => {

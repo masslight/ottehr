@@ -13,8 +13,7 @@ const useApiClientsStore = create<ApiClientsState>()(() => ({
   oystehrZambda: undefined,
 }));
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export function useApiClients() {
+export function useApiClients(): ApiClientsState {
   const token = useAuthToken();
   const { oystehr, oystehrZambda } = useApiClientsStore((state) => state);
   useEffect(() => {

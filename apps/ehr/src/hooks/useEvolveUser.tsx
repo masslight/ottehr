@@ -1,9 +1,9 @@
 import { useAuth0 } from '@auth0/auth0-react';
+import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { Operation } from 'fast-json-patch';
 import { Practitioner } from 'fhir/r4b';
 import { DateTime, Duration } from 'luxon';
 import { useCallback, useEffect, useMemo } from 'react';
-import { useMutation, useQuery } from 'react-query';
 import {
   getFullestAvailableName,
   getPatchOperationForNewMetaTag,
@@ -66,7 +66,7 @@ export default function useEvolveUser(): EvolveUser | undefined {
     }
   });
   const { refetch: refetchProfile } = useGetProfile();
-  const { isLoading: isPractitionerLastLoginBeingUpdated, mutateAsync: mutatePractitionerAsync } =
+  const { isPending: isPractitionerLastLoginBeingUpdated, mutateAsync: mutatePractitionerAsync } =
     useUpdatePractitioner();
 
   useEffect(() => {
@@ -126,14 +126,14 @@ export default function useEvolveUser(): EvolveUser | undefined {
 // const MINUTE = 1000 * 60; // For Credentials Sync
 // const DAY = MINUTE * 60 * 24; // For Credentials Sync
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-const useGetUser = () => {
+const useGetUser = (): UseQueryResult<void, Error> => {
   const token = useAuthToken();
   const user = useEvolveUserStore((state) => state.user);
 
-  return useQuery(
-    ['get-user'],
-    async (): Promise<void> => {
+  return useQuery({
+    queryKey: ['get-user'],
+
+    queryFn: async (): Promise<void> => {
       try {
         const user = await getUser(token!);
         useEvolveUserStore.setState({ user: user as User });
@@ -141,21 +141,20 @@ const useGetUser = () => {
         console.error(error);
       }
     },
-    {
-      enabled: Boolean(token && !user),
-    }
-  );
+
+    enabled: Boolean(token && !user),
+  });
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-const useGetProfile = () => {
+const useGetProfile = (): UseQueryResult<Practitioner | undefined, Error> => {
   const token = useAuthToken();
   const user = useEvolveUserStore((state) => state.user);
   const { oystehr } = useApiClients();
 
-  return useQuery(
-    ['get-practitioner-profile'],
-    async (): Promise<void> => {
+  return useQuery({
+    queryKey: ['get-practitioner-profile'],
+
+    queryFn: async (): Promise<Practitioner | undefined> => {
       try {
         if (!user?.profile) {
           useEvolveUserStore.setState({ profile: undefined });
@@ -166,16 +165,18 @@ const useGetProfile = () => {
         if (resourceType && resourceId && resourceType === 'Practitioner') {
           const practitioner = await oystehr?.fhir.get<Practitioner>({ resourceType, id: resourceId });
           useEvolveUserStore.setState({ profile: practitioner });
+          return practitioner;
         }
+        return;
       } catch (e) {
         console.error(`error fetching user's fhir profile: ${JSON.stringify(e)}`);
         useEvolveUserStore.setState({ profile: undefined });
+        return undefined;
       }
     },
-    {
-      enabled: Boolean(token && oystehr),
-    }
-  );
+
+    enabled: Boolean(token && oystehr),
+  });
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
@@ -204,7 +205,7 @@ const useSyncPractitioner = (_onSuccess: (data: SyncUserResponse) => void) => {
     },
     {
       onSuccess,
-      cacheTime: DAY,
+      gcTime: DAY,
       staleTime: DAY,
       enabled: Boolean(token && oystehr && oystehr.config.accessToken && !_practitionerSyncStarted),
     }
@@ -212,14 +213,14 @@ const useSyncPractitioner = (_onSuccess: (data: SyncUserResponse) => void) => {
   */
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-const useUpdatePractitioner = () => {
+const useUpdatePractitioner = (): UseMutationResult<void, Error, Operation[]> => {
   const user = useEvolveUserStore((state) => state.user);
   const { oystehr } = useApiClients();
 
-  return useMutation(
-    ['update-practitioner'],
-    async (patchOps: Operation[]): Promise<void> => {
+  return useMutation({
+    mutationKey: ['update-practitioner'],
+
+    mutationFn: async (patchOps: Operation[]): Promise<void> => {
       try {
         if (!oystehr || !user) return;
 
@@ -233,6 +234,7 @@ const useUpdatePractitioner = () => {
         throw error;
       }
     },
-    { retry: 3 }
-  );
+
+    retry: 3,
+  });
 };

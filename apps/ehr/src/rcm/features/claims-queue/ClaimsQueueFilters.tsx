@@ -1,7 +1,7 @@
 import SearchIcon from '@mui/icons-material/Search';
 import { Box, InputAdornment, TextField } from '@mui/material';
-import React, { FC, useEffect, useMemo, useState } from 'react';
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
+import { FC, useEffect, useMemo, useState } from 'react';
 import { FHIR_EXTENSION } from 'utils';
 import { getEmployees } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
@@ -53,13 +53,18 @@ export const ClaimsQueueFilters: FC = () => {
     }
   }, [visitId, setVisitIdValue]);
 
-  useQuery(['rcm-get-employees', { oystehrZambda }], () => (oystehrZambda ? getEmployees(oystehrZambda) : null), {
-    onSuccess: (response) => {
-      console.log('Employees', response?.employees);
-      useClaimsQueueStore.setState({ employees: response?.employees || [] });
-    },
+  const queryResult = useQuery({
+    queryKey: ['get-employees'],
+    queryFn: () => (oystehrZambda ? getEmployees(oystehrZambda) : Promise.resolve(null)),
+
     enabled: !!oystehrZambda,
   });
+
+  useEffect(() => {
+    if (queryResult.data) {
+      useClaimsQueueStore.setState({ employees: queryResult.data.employees || [] });
+    }
+  }, [queryResult.data]);
 
   useGetOrganizations((data) => {
     console.log('Organizations', data);

@@ -23,9 +23,9 @@ import {
   Tooltip,
   useTheme,
 } from '@mui/material';
+import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
-import { default as React, ReactElement, useCallback, useMemo, useState } from 'react';
-import { useQuery } from 'react-query';
+import { default as React, ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AllStates, EmployeeDetails, RoleType, State } from 'utils';
 import { getEmployees } from '../api/api';
@@ -89,16 +89,20 @@ export default function EmployeesPage(): ReactElement {
     []
   );
 
-  const { isFetching } = useQuery(
-    ['get-employees', { oystehrZambda }],
-    () => (oystehrZambda ? getEmployees(oystehrZambda) : null),
-    {
-      onSuccess: (response) => {
-        setEmployees(response?.employees ?? []);
-      },
-      enabled: !!oystehrZambda,
+  const queryResult = useQuery({
+    queryKey: ['get-employees'],
+    queryFn: () => (oystehrZambda ? getEmployees(oystehrZambda) : Promise.resolve(null)),
+
+    enabled: !!oystehrZambda,
+  });
+
+  useEffect(() => {
+    if (queryResult.data) {
+      setEmployees(queryResult.data.employees ?? []);
     }
-  );
+  }, [queryResult.data]);
+
+  const { isFetching } = queryResult;
 
   return (
     <PageContainer>

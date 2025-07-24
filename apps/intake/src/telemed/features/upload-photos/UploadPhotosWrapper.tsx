@@ -1,8 +1,8 @@
 import { CircularProgress, Typography } from '@mui/material';
 import { Box } from '@mui/system';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { useQueryClient } from 'react-query';
 import { ControlButtons } from '../../../components/form';
 import { PaperworkContext } from '../../../features/paperwork';
 import FileInput from '../../../features/paperwork/components/FileInput';
@@ -46,7 +46,9 @@ export const UploadPhotosWrapper = ({ onClose }: { onClose: () => void }): JSX.E
       },
       {
         onSuccess: () => {
-          void queryClient.invalidateQueries(['paperwork']);
+          void queryClient.invalidateQueries({
+            queryKey: ['paperwork'],
+          });
           onClose();
         },
         onError: (error) => {
@@ -90,7 +92,7 @@ export const UploadPhotosWrapper = ({ onClose }: { onClose: () => void }): JSX.E
               submitLabel="Save"
               backButtonLabel="Close"
               onBack={onClose}
-              loading={saveButtonDisabled || isLoading || isFetching || updatePaperwork.isLoading}
+              loading={saveButtonDisabled || isLoading || isFetching || updatePaperwork.isPending}
             />
           </FormProvider>
         </form>

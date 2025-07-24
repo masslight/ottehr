@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
+import { useMutation } from '@tanstack/react-query';
 import { Coding, Encounter } from 'fhir/r4b';
-import { useMutation } from 'react-query';
 import { assignPractitioner, unassignPractitioner } from 'src/api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { useAppointment } from './useAppointment';
@@ -25,7 +25,7 @@ export const usePractitionerActions = (
   });
 
   return {
-    isEncounterUpdatePending: mutation.isLoading,
+    isEncounterUpdatePending: mutation.isPending,
     handleUpdatePractitioner: mutation.mutateAsync,
   };
 };

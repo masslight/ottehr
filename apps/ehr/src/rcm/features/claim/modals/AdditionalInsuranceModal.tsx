@@ -78,7 +78,7 @@ export const AdditionalInsuranceModal: FC = () => {
         title="Additional Insurance"
         onSave={(hideDialog) => handleSubmit((values) => onSave(values, hideDialog))()}
         onShow={() => reset(getDefaultValues(additionalCoverageData))}
-        isSaveLoading={editCoverage.isLoading || editRelatedPerson.isLoading}
+        isSaveLoading={editCoverage.isPending || editRelatedPerson.isPending}
       >
         <Grid container spacing={2}>
           <Grid item xs={4}>

@@ -36,7 +36,7 @@ const UserFlowRoot = (): JSX.Element => {
     }
   }, [apiClient, getPatients]);
 
-  if (getPatients.isLoading || !apiClient) {
+  if (getPatients.isPending || !apiClient) {
     return <LoadingScreen />;
   }
 

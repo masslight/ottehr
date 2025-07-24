@@ -1,5 +1,6 @@
+import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
-import { useMutation, useQuery } from 'react-query';
+import { useEffect } from 'react';
 import { OystehrAPIClient } from 'ui-components';
 import {
   BookableItemListResponse,
@@ -8,10 +9,19 @@ import {
   GetScheduleResponse,
   GetTelemedLocationsResponse,
   PatientInfo,
+  PromiseReturnType,
 } from 'utils';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useCreateAppointmentMutation = () =>
+export const useCreateAppointmentMutation = (): UseMutationResult<
+  PromiseReturnType<ReturnType<OystehrAPIClient['createAppointment']>>,
+  Error,
+  {
+    apiClient: OystehrAPIClient;
+    unconfirmedDateOfBirth?: string;
+    patientInfo: PatientInfo;
+    stateInfo: { locationState: string };
+  }
+> =>
   useMutation({
     mutationFn: ({
       apiClient,
@@ -34,8 +44,16 @@ export const useCreateAppointmentMutation = () =>
     },
   });
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useUpdateAppointmentMutation = () => {
+export const useUpdateAppointmentMutation = (): UseMutationResult<
+  PromiseReturnType<ReturnType<OystehrAPIClient['updateAppointment']>>,
+  Error,
+  {
+    apiClient: OystehrAPIClient;
+    appointmentID: string;
+    patientInfo: PatientInfo;
+    stateInfo?: { locationState: string };
+  }
+> => {
   return useMutation({
     mutationFn: ({
       apiClient,
@@ -57,8 +75,15 @@ export const useUpdateAppointmentMutation = () => {
   });
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useCancelAppointmentMutation = () =>
+export const useCancelAppointmentMutation = (): UseMutationResult<
+  PromiseReturnType<ReturnType<OystehrAPIClient['cancelAppointment']>>,
+  Error,
+  {
+    apiClient: OystehrAPIClient;
+    appointmentID: string;
+    cancellationReason: string;
+  }
+> =>
   useMutation({
     mutationFn: ({
       apiClient,
@@ -76,114 +101,132 @@ export const useCancelAppointmentMutation = () =>
     },
   });
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useGetAppointments = (apiClient: OystehrAPIClient | null, enabled = true, patientId?: string) =>
-  useQuery(
-    ['appointments', patientId],
-    () => {
+export const useGetAppointments = (
+  apiClient: OystehrAPIClient | null,
+  enabled = true,
+  patientId?: string
+): UseQueryResult<PromiseReturnType<ReturnType<OystehrAPIClient['getAppointments']>>, Error> => {
+  const queryResult = useQuery({
+    queryKey: ['appointments', patientId],
+
+    queryFn: () => {
       if (!apiClient) {
         throw new Error('API client not defined');
       }
       return patientId ? apiClient.getAppointments({ patientId }) : apiClient.getAppointments();
     },
-    {
-      enabled,
-      onError: (err) => {
-        console.error('Error during fetching appointments: ', err);
-      },
-      staleTime: 1000 * 60 * 5,
-    }
-  );
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useGetVisitDetails = (apiClient: OystehrAPIClient | null, enabled = true, appointmentId?: string) =>
-  useQuery(
-    ['appointment', appointmentId],
-    () => {
+    enabled,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  return queryResult;
+};
+
+export const useGetVisitDetails = (
+  apiClient: OystehrAPIClient | null,
+  enabled = true,
+  appointmentId?: string
+): UseQueryResult<PromiseReturnType<ReturnType<OystehrAPIClient['getVisitDetails']>>, Error> => {
+  const queryResult = useQuery({
+    queryKey: ['appointment', appointmentId],
+
+    queryFn: () => {
       if (apiClient && appointmentId) {
         return apiClient.getVisitDetails({ appointmentId });
       }
       throw new Error('API client not defined or appointmentID is not provided');
     },
-    {
-      enabled,
-      onError: (err) => {
-        console.error('Error during fetching appointment: ', err);
-      },
-    }
-  );
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+    enabled,
+  });
+
+  return queryResult;
+};
+
 export const useGetTelemedStates = (
   apiClient: OystehrAPIClient | null,
   enabled = true,
   onSuccess?: (data: GetTelemedLocationsResponse) => void
-) =>
-  useQuery(
-    ['telemed-states'],
-    () => {
+): UseQueryResult<GetTelemedLocationsResponse, Error> => {
+  const queryResult = useQuery({
+    queryKey: ['telemed-states'],
+
+    queryFn: () => {
       if (!apiClient) {
         throw new Error('API client not defined');
       }
       return apiClient.getTelemedStates();
     },
-    {
-      enabled,
-      onError: (err) => {
-        console.error('Error during fetching telemed states: ', err);
-      },
-      onSuccess,
-      staleTime: 1000 * 60 * 5,
-    }
-  );
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+    enabled,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  useEffect(() => {
+    if (queryResult.data && onSuccess) {
+      onSuccess(queryResult.data);
+    }
+  }, [queryResult.data, onSuccess]);
+
+  return queryResult;
+};
+
 export const useGetBookableItems = (
   apiClient: OystehrAPIClient | null,
   enabled = true,
   params: GetBookableItemListParams,
   onSuccess?: (data: BookableItemListResponse) => void
-) =>
-  useQuery(
-    ['list-bookables', params],
-    () => {
+): UseQueryResult<BookableItemListResponse, Error> => {
+  const queryResult = useQuery({
+    queryKey: ['list-bookables', params],
+
+    queryFn: () => {
       if (!apiClient) {
         throw new Error('API client not defined');
       }
       return apiClient.listBookables(params);
     },
-    {
-      enabled,
-      onError: (err) => {
-        console.error('Error during fetching telemed states: ', err);
-      },
-      onSuccess,
-      staleTime: 1000 * 60 * 5,
-    }
-  );
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+    enabled,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  useEffect(() => {
+    if (queryResult.data && onSuccess) {
+      onSuccess(queryResult.data);
+    }
+  }, [queryResult.data, onSuccess]);
+
+  return queryResult;
+};
+
 export const useGetSchedule = (
   apiClient: OystehrAPIClient | null,
   enabled = true,
   params: GetScheduleRequestParams,
   onSuccess?: (data: GetScheduleResponse) => void
-) =>
-  useQuery(
-    ['get-schedule', params],
-    async () => {
+): UseQueryResult<GetScheduleResponse, Error> => {
+  const queryResult = useQuery({
+    queryKey: ['get-schedule', params],
+
+    queryFn: async () => {
       if (!apiClient) {
         throw new Error('API client not defined');
       }
       const res = await apiClient.getSchedule(params);
       return res;
     },
-    {
-      enabled,
-      onError: (err) => {
-        console.error('Error during fetching telemed states: ', err);
-      },
-      onSuccess,
-      staleTime: 1000 * 60 * 5,
+
+    enabled,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  useEffect(() => {
+    if (queryResult.data && onSuccess) {
+      onSuccess(queryResult.data);
     }
-  );
+  }, [queryResult.data, onSuccess]);
+
+  return queryResult;
+};

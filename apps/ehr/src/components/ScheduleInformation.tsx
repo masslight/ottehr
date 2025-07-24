@@ -17,11 +17,11 @@ import {
   Typography,
 } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
+import { useQuery } from '@tanstack/react-query';
 import { HealthcareService, Location, Practitioner, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { ReactElement, useMemo, useState } from 'react';
-import { useQuery } from 'react-query';
+import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { APIError, isApiError, SchedulesAndOwnerListItem } from 'utils';
 import { listScheduleOwners } from '../api/api';
@@ -73,23 +73,24 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
     return 'HealthcareService';
   })();
 
-  const { isLoading, isFetching, isRefetching, data } = useQuery(
-    [`list-schedule-owners + ${scheduleType}`, { zambdaClient: oystehrZambda }],
-    () => (oystehrZambda ? listScheduleOwners({ ownerType }, oystehrZambda) : null),
-    {
-      onError: (e) => {
-        let errorMessage = 'Error fetching schedule owners';
-        if (isApiError(e)) {
-          errorMessage = (e as APIError).message;
-        }
-        enqueueSnackbar({
-          message: errorMessage,
-          variant: 'error',
-        });
-      },
-      enabled: !!oystehrZambda,
+  const { data, error, isLoading, isFetching, isRefetching } = useQuery({
+    queryKey: ['schedule-list'],
+    queryFn: () => (oystehrZambda ? listScheduleOwners({ ownerType }, oystehrZambda) : null),
+    enabled: !!oystehrZambda,
+  });
+
+  useEffect(() => {
+    if (error) {
+      let errorMessage = 'Error fetching schedule owners';
+      if (isApiError(error)) {
+        errorMessage = (error as APIError).message;
+      }
+      enqueueSnackbar({
+        message: errorMessage,
+        variant: 'error',
+      });
     }
-  );
+  }, [error]);
 
   const loading = isLoading || isFetching || isRefetching;
 
