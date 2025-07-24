@@ -27,6 +27,7 @@ import {
   ABNORMAL_OBSERVATION_INTERPRETATION,
   extractAbnormalValueSetValues,
   extractQuantityRange,
+  getAttendingPractitionerId,
   getFullestAvailableName,
   getSecret,
   HandleInHouseLabResultsZambdaOutput,
@@ -50,7 +51,6 @@ import {
   ZambdaInput,
 } from '../../shared';
 import { createInHouseLabResultPDF } from '../../shared/pdf/labs-results-form-pdf';
-import { getAttendingPractitionerId } from '../../shared/practitioner/helpers';
 import { getServiceRequestsRelatedViaRepeat, getUrlAndVersionForADFromServiceRequest } from '../shared/in-house-labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -294,6 +294,7 @@ const getInHouseLabResultResources = async (
 
   const encounter = encounters[0];
   const attendingPractitionerId = getAttendingPractitionerId(encounter);
+  if (!attendingPractitionerId) throw Error('Attending practitioner not found');
   const schedule = schedules[0];
   const location = locations.length ? locations[0] : undefined;
 

@@ -68,6 +68,7 @@ test('Open Order Medication screen, check required fields', async ({ page }) => 
 test('"Order" button is disabled when all fields are empty', async ({ page }) => {
   const orderMedicationPage = await prepareAndOpenOrderMedicationPage(page);
   await orderMedicationPage.editMedicationCard.selectAssociatedDx('Select Associated Dx');
+  await orderMedicationPage.editMedicationCard.selectOrderedBy('Select Ordered By');
   await orderMedicationPage.verifyFillOrderToSaveButtonDisabled();
 });
 
@@ -204,7 +205,7 @@ async function prepareAndOpenOrderMedicationPage(page: Page): Promise<OrderMedic
   const cssHeader = new CssHeader(page);
   await cssHeader.selectIntakePractitioner();
   await cssHeader.selectProviderPractitioner();
-  await cssHeader.clickSwitchStatusButton('provider');
+  await cssHeader.clickSwitchModeButton('provider');
   const sideMenu = new SideMenu(page);
   await sideMenu.clickAssessment();
   const assessmentPage = await expectAssessmentPage(page);

@@ -67,7 +67,9 @@ const getAssignPractitionerToEncounterOperation = async (
 
   const newParticipant = {
     individual: { reference: individualReference },
-    period: { start: now },
+    // if it's an attender, we don't need to set the period start, because it will be set on changing status
+    // to provider
+    period: userRole.some((role) => role.code === PRACTITIONER_CODINGS.Attender[0].code) ? undefined : { start: now },
     type: [{ coding: userRole }],
   };
 

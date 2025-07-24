@@ -15,9 +15,9 @@ import {
 import { DateTime } from 'luxon';
 import {
   CreateNursingOrderInputValidated,
+  getAttendingPractitionerId,
   getSecret,
   NURSING_ORDER_PROVENANCE_ACTIVITY_CODING_ENTITY,
-  PRACTITIONER_CODINGS,
   SecretsKeys,
 } from 'utils';
 import {
@@ -152,14 +152,7 @@ export const index = wrapHandler('create-nursing-order', async (input: ZambdaInp
     })();
 
     const attendingPractitionerId = (() => {
-      const practitionerId = encounter.participant
-        ?.find(
-          (participant) =>
-            participant.type?.find(
-              (type) => type.coding?.some((c) => c.system === PRACTITIONER_CODINGS.Attender[0].system)
-            )
-        )
-        ?.individual?.reference?.replace('Practitioner/', '');
+      const practitionerId = getAttendingPractitionerId(encounter);
 
       if (!practitionerId) throw Error('Attending practitioner not found');
       return practitionerId;
