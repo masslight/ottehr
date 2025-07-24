@@ -7,6 +7,7 @@ import {
   EXPORTED_QUESTIONNAIRE_CODE,
   findExistingListByDocumentTypeCode,
   getSecret,
+  PAPERWORK_PDF_ATTACHMENT_TITLE,
   replaceOperation,
   Secrets,
   SecretsKeys,
@@ -74,7 +75,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           attachment: {
             url: `${projectApi}/z3/${z3Bucket}/${pdfFilePath}`,
             contentType: 'application/pdf',
-            title: 'Paperwork PDF',
+            title: PAPERWORK_PDF_ATTACHMENT_TITLE,
           },
         },
       ],

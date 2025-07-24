@@ -30,6 +30,8 @@ import {
 } from '../../types';
 import { DOB_DATE_FORMAT } from '../../utils';
 
+export const PAPERWORK_PDF_ATTACHMENT_TITLE = 'Paperwork';
+
 export interface OptionConfig {
   label: string;
   value: string;
