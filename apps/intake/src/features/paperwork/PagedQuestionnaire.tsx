@@ -220,7 +220,6 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
   return (
     <FormProvider {...methods}>
       <PaperworkFormRoot
-        key={pageId}
         items={items}
         onSubmit={onSubmit}
         saveProgress={saveProgress}
