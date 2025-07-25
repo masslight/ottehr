@@ -11,6 +11,7 @@ import { getInHouseMedicationDetailsUrl } from '../../../routing/helpers';
 import { MedicationStatusChip } from '../statuses/MedicationStatusChip';
 import { MedicationActions } from './MedicationActions';
 import { MedicationBarcodeScan } from './MedicationBarcodeScan';
+import { MedicationInteractionsAlertButton } from './MedicationInteractionsAlertButton';
 
 interface MarTableRowProps {
   medication: ExtendedMedicationDataForResponse;
@@ -93,6 +94,9 @@ export const MarTableRow: React.FC<MarTableRowProps> = ({ medication, columnStyl
       onClick={handleRowClick}
       {...getRippleHandlers()}
     >
+      <TableCell sx={columnStyles.interactionsAlert}>
+        <MedicationInteractionsAlertButton medication={medication} />
+      </TableCell>
       <TableCell data-testid={dataTestIds.inHouseMedicationsPage.marTableMedicationCell} sx={columnStyles.medication}>
         <MedicationBarcodeScan medication={medication} />
       </TableCell>
