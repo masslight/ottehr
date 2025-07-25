@@ -190,9 +190,11 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
   pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, 'Order Date:', data.orderCreateDate);
   pdfClient.newLine(STANDARD_NEW_LINE);
 
-  // TODO: with our new change to sample collection, I wonder if this type should be updated to be required for collectionDate
-  pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, 'Order Collection Date:', data.sampleCollectionDate ?? '');
-  pdfClient.newLine(STANDARD_NEW_LINE);
+  // only print this for non-psc orders
+  if (!data.isPscOrder) {
+    pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, 'Collection Date:', data.sampleCollectionDate ?? '');
+    pdfClient.newLine(STANDARD_NEW_LINE);
+  }
 
   pdfClient.drawSeparatedLine(BLACK_LINE_STYLE);
 

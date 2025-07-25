@@ -29,6 +29,7 @@ import {
   IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
   IN_HOUSE_LAB_RESULT_PDF_BASE_NAME,
   IN_HOUSE_LAB_TASK,
+  isPSCOrder,
   LAB_ORDER_DOC_REF_CODING_CODE,
   LAB_ORDER_TASK,
   LAB_RESULT_DOC_REF_CODING_CODE,
@@ -142,6 +143,7 @@ const getResultDataConfig = (
         name: code.text || '',
       })) || [],
     resultStatus: diagnosticReport.status.toUpperCase(),
+    isPscOrder: isPSCOrder(serviceRequest),
   };
 
   if (type === LabType.inHouse) {
@@ -426,7 +428,17 @@ export async function createExternalLabResultPDF(
   const sortedSpecimens = specimens?.sort((a, b) =>
     compareDates(a.collection?.collectedDateTime, b.collection?.collectedDateTime)
   );
-  const specimenCollectionDate = sortedSpecimens?.[0]?.collection?.collectedDateTime;
+
+  // we want the earliest date, and the sort puts cruft at the end
+  let specimenCollectionDate: string | undefined;
+  for (let i = sortedSpecimens.length - 1; i >= 0; i--) {
+    const date = sortedSpecimens[i]?.collection?.collectedDateTime;
+    if (date) {
+      specimenCollectionDate = date;
+      break;
+    }
+  }
+
   const collectionDate = specimenCollectionDate
     ? DateTime.fromISO(specimenCollectionDate).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
     : '';
