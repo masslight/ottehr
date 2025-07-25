@@ -2,8 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Location, Patient, QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { DATETIME_FULL_NO_YEAR, getSecret, SecretsKeys } from 'utils';
-import { isNonPaperworkQuestionnaireResponse } from '../../common';
+import { DATETIME_FULL_NO_YEAR, getSecret, isNonPaperworkQuestionnaireResponse, SecretsKeys } from 'utils';
 import { createOystehrClient, getAuth0Token, sendErrors, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { getMessageRecipientForAppointment } from '../../shared/communication';
 
