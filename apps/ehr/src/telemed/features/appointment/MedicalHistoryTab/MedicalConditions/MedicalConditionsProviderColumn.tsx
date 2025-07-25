@@ -7,6 +7,7 @@ import {
   debounce,
   Divider,
   FormControlLabel,
+  Skeleton,
   Switch,
   TextField,
   Typography,
@@ -329,21 +330,7 @@ const AddMedicalConditionField: FC = () => {
   };
 
   if (isChartDataLoading || isNlmLoading) {
-    return (
-      <Card
-        elevation={0}
-        sx={{
-          p: 3,
-          backgroundColor: otherColors.formCardBg,
-          borderRadius: 2,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <CircularProgress />
-      </Card>
-    );
+    return <Skeleton variant="rectangular" width="100%" height={56} />;
   }
 
   return (
