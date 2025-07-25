@@ -13,18 +13,19 @@ import {
   telemedProgressNoteChartDataRequestedFields,
 } from 'utils';
 import {
+  CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
   checkOrCreateM2MClientToken,
+  createEncounterFromAppointment,
+  createOystehrClient,
+  getMyPractitionerId,
   parseCreatedResourcesBundle,
   saveResourceRequest,
   wrapHandler,
+  ZambdaInput,
 } from '../../shared';
-import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createCandidEncounter } from '../../shared/candid';
-import { createOystehrClient } from '../../shared/helpers';
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
 import { makeVisitNotePdfDocumentReference } from '../../shared/pdf/visit-details-pdf/make-visit-note-pdf-document-reference';
 import { composeAndCreateVisitNotePdf } from '../../shared/pdf/visit-details-pdf/visit-note-pdf-creation';
-import { getMyPractitionerId } from '../../shared/practitioners';
-import { ZambdaInput } from '../../shared/types';
 import { getChartData } from '../get-chart-data';
 import { getInsurancePlan } from './helpers/fhir-utils';
 import { changeStatusIfPossible, makeAppointmentChargeItem, makeReceiptPdfDocumentReference } from './helpers/helpers';
@@ -147,7 +148,8 @@ export const performEffect = async (
 
     let candidEncounterId: string | undefined;
     try {
-      candidEncounterId = await createCandidEncounter(visitResources, secrets, oystehr);
+      if (!secrets) throw new Error('Secrets are not defined, cannot create Candid encounter.');
+      candidEncounterId = await createEncounterFromAppointment(visitResources, secrets, oystehr);
     } catch (error) {
       console.error(`Error creating Candid encounter: ${error}`);
       captureException(error, {
