@@ -93,8 +93,6 @@ export const PatientVitals: React.FC<PatientVitalsProps> = () => {
     return Object.fromEntries(alertingEntries);
   }, [encounterVitals]);
 
-  console.log('abnormalVitalsValues', abnormalVitalsValues, encounterVitals?.[VitalFieldNames.VitalBloodPressure]);
-
   const { interactionMode } = useNavigationContext();
 
   const handleSaveVital = async (vitalEntity: VitalsObservationDTO): Promise<void> => {

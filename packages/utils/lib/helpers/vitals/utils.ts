@@ -204,11 +204,11 @@ const findRulesForVitalsKeyAndDOB = (
   | { type: 'components'; components: { [componentName: string]: AlertRule[] } } => {
   const dateOfBirth = DateTime.fromISO(dob);
   const now = DateTime.now();
-  const alertThresholds: AlertThreshold[] = VitalsDef[key]?.alertThresholds ?? [];
+  const alertThresholds: AlertThreshold[] = VitalsDef()[key]?.alertThresholds ?? [];
   const alertComponents: { [componentName: string]: AlertRule[] } = {};
   if (key === 'vital-blood-pressure' || key === 'vital-vision') {
     // For blood pressure, we need to check components
-    const components = VitalsDef[key]?.components;
+    const components = VitalsDef()[key]?.components;
     if (components) {
       Object.entries(components).forEach(([name, component]) => {
         alertComponents[name] = getRulesForPatientDOB(component.alertThresholds ?? [], dateOfBirth, now);

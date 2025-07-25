@@ -1,4 +1,4 @@
-const VitalsDef = {
+const VitalsConfig = {
   'vital-temperature': {
     alertThresholds: [
       {
@@ -70,8 +70,8 @@ const VitalsDef = {
       },
       {
         rules: [
-          { type: 'min', units: 'bpm', value: 144 },
-          { type: 'max', units: 'bpm', value: 130 },
+          { type: 'min', units: 'bpm', value: 60 },
+          { type: 'max', units: 'bpm', value: 120 },
         ],
         minAge: { unit: 'months', value: 144 },
       },
@@ -164,6 +164,14 @@ const VitalsDef = {
   },
 };
 
-export default {
-  vitals: VitalsDef,
+const ChartConfig = {
+  components: {
+    vitals: {
+      components: VitalsConfig,
+      // fields that control things like conditionally rendering components
+    },
+  },
+  // meta fields that control things like conditionally rendering components
 };
+
+export default ChartConfig;

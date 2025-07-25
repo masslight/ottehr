@@ -1,5 +1,5 @@
 import * as z from 'zod';
-import ChartData from '../../../.ottehr_config/clinical-chart';
+import ChartDataSource from '../../../.ottehr_config/clinical-chart';
 import { VitalAlertCriticality, VitalBloodPressureComponents, VitalVisionComponents } from '../../types/api';
 
 const AgeSchema = z.object({
@@ -21,7 +21,31 @@ const AgeFunctionConstraintSchema = BaseConstraintSchema.extend({
 export const ConstraintSchema = z.union([ValueConstraintSchema, AgeFunctionConstraintSchema]);
 const AlertThresholdSchema = z
   .object({
-    rules: z.array(ConstraintSchema),
+    rules: z.array(ConstraintSchema).refine(
+      (rulesList) => {
+        const conflict = rulesList.some((rule, idx) => {
+          const otherRules = rulesList.slice(idx + 1);
+          const conflictingRule = otherRules.some((otherRule) => {
+            if (rule.type === 'min' && otherRule.type === 'max' && 'value' in rule && 'value' in otherRule) {
+              return rule.units === otherRule.units && rule.value > otherRule.value;
+            }
+            if (rule.type === 'max' && otherRule.type === 'min' && 'value' in rule && 'value' in otherRule) {
+              return rule.units === otherRule.units && rule.value < otherRule.value;
+            }
+            if (rule.type === otherRule.type && 'value' in rule && 'value' in otherRule) {
+              return rule.units === otherRule.units && rule.value !== otherRule.value;
+            }
+            return false;
+          });
+          if (conflictingRule) {
+            return true;
+          }
+          return false;
+        });
+        return !conflict;
+      },
+      { message: 'Conflicting rules found' }
+    ),
     minAge: AgeSchema.optional(),
     maxAge: AgeSchema.optional(),
   })
@@ -38,20 +62,26 @@ const VitalsObjectSchema = z.object({
 });
 const VitalsVisionSchema = VitalsObjectSchema.extend({
   components: z.record(z.nativeEnum(VitalVisionComponents), VitalsObjectSchema),
-}).refine((data) => {
-  if (data.alertThresholds) {
-    return { message: 'vital-vision object may only define components' };
-  }
-  return true;
-});
+}).refine(
+  (data) => {
+    if (data.alertThresholds) {
+      return false;
+    }
+    return true;
+  },
+  { message: 'vital-vision object may only define components' }
+);
 const VitalsBloodPressureSchema = VitalsObjectSchema.extend({
   components: z.record(z.nativeEnum(VitalBloodPressureComponents), VitalsObjectSchema),
-}).refine((data) => {
-  if (data.alertThresholds) {
-    return { message: 'vital-blood-pressure object may only define components' };
-  }
-  return true;
-});
+}).refine(
+  (data) => {
+    if (data.alertThresholds) {
+      return false;
+    }
+    return true;
+  },
+  { message: 'vital-blood-pressure object may only define components' }
+);
 
 // currently we only define alerts for vitals that are specified so these can all be optional currently
 // the time may come when some or all of these are required
@@ -66,11 +96,20 @@ export const VitalsMapSchema = z.object({
   'vital-vision': VitalsVisionSchema.optional(),
 });
 export const ChartDataSchema = z.object({
-  vitals: VitalsMapSchema,
+  components: z.object({
+    vitals: z.object({
+      components: VitalsMapSchema,
+    }),
+  }),
 });
-const ChartDataDef = ChartDataSchema.parse(ChartData);
+const ChartDataDef = Object.freeze(ChartDataSchema.parse(ChartDataSource));
 
-export const VitalsDef = Object.freeze(ChartDataDef.vitals);
+export type ChartData = z.infer<typeof ChartDataSchema>;
+export type Vitals = ChartData['components']['vitals']['components'];
+
+export const VitalsDef = (vitals?: Vitals): Vitals => {
+  return vitals ? Object.freeze(vitals) : ChartDataDef.components.vitals.components;
+};
 
 export type AlertThreshold = z.infer<typeof AlertThresholdSchema>;
 
