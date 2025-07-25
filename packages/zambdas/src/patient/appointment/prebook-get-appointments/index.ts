@@ -5,13 +5,13 @@ import {
   getPatientsForUser,
   getSecret,
   getVisitStatus,
+  isNonPaperworkQuestionnaireResponse,
   NO_READ_ACCESS_TO_PATIENT_ERROR,
   Secrets,
   SecretsKeys,
   SLUG_SYSTEM,
   VisitStatusLabel,
 } from 'utils';
-import { isNonPaperworkQuestionnaireResponse } from '../../../common';
 import {
   checkPaperworkComplete,
   createOystehrClient,

@@ -200,9 +200,8 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
               <span>
                 {medication?.effectiveDateTime
                   ? DateTime.fromISO(medication.effectiveDateTime).toFormat('MM/dd/yyyy hh:mm a')
-                  : '-'}
+                  : ''}
               </span>
-              <span>by {medication?.providerCreatedTheOrder}</span>{' '}
             </Typography>
           )}
           {isUpdating && (

@@ -264,6 +264,8 @@ export interface VisitNoteData extends ExaminationBlockData {
   medicalConditionsNotes?: string[];
   surgicalHistory?: string[];
   surgicalHistoryNotes?: string[];
+  inHouseMedications?: string[];
+  inHouseMedicationsNotes?: string[];
   additionalQuestions: Record<AdditionalBooleanQuestionsFieldsNames, string>;
   screening?: {
     seenInLastThreeYears?: string;

@@ -68,6 +68,7 @@ test('Open Order Medication screen, check required fields', async ({ page }) => 
 test('"Order" button is disabled when all fields are empty', async ({ page }) => {
   const orderMedicationPage = await prepareAndOpenOrderMedicationPage(page);
   await orderMedicationPage.editMedicationCard.selectAssociatedDx('Select Associated Dx');
+  await orderMedicationPage.editMedicationCard.selectOrderedBy('Select Ordered By');
   await orderMedicationPage.verifyFillOrderToSaveButtonDisabled();
 });
 
