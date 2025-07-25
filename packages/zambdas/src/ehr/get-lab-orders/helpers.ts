@@ -1991,11 +1991,11 @@ export const parseDx = (serviceRequest: ServiceRequest): string => {
     serviceRequest.reasonCode
       ?.map(
         (reasonCode) =>
-          reasonCode?.text ||
           reasonCode.coding
             ?.map((coding) => `${coding.code} ${coding.display}`.trim())
             .filter(Boolean)
             .join('; ') ||
+          reasonCode?.text ||
           ''
       )
       .filter(Boolean)

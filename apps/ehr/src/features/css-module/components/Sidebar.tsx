@@ -176,7 +176,7 @@ export const sidebarMenuIcons = {
     </svg>
   ),
   'Oystehr AI': <img src={ottehrAiIcon} style={{ width: '22px' }} />,
-  'In-house Labs': (
+  'In-House Labs': (
     <svg width="14" height="20" viewBox="0 0 14 20" xmlns="http://www.w3.org/2000/svg" fill="none">
       <path
         fill="currentColor"
