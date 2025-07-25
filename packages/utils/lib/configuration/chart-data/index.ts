@@ -1,6 +1,6 @@
 import * as z from 'zod';
-import { VitalAlertCriticality, VitalBloodPressureComponents, VitalVisionComponents } from '../api';
-import ChartData from './chart';
+import ChartData from '../../../.ottehr_config/clinical-chart';
+import { VitalAlertCriticality, VitalBloodPressureComponents, VitalVisionComponents } from '../../types/api';
 
 const AgeSchema = z.object({
   unit: z.enum(['years', 'months', 'days']),
