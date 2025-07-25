@@ -254,6 +254,7 @@ const parseResultsToOrder = (
   );
 
   // Find the best diagnostic report using our priority logic
+  const preliminaryDiagnosticReport = relatedDiagnosticReports.find((report) => report.status === 'preliminary');
   const bestDiagnosticReport = takeTheBestDiagnosticReport(relatedDiagnosticReports);
 
   const result = bestDiagnosticReport?.presentedForm?.find((attachment) => attachment.contentType === 'text/html')
@@ -276,7 +277,7 @@ const parseResultsToOrder = (
 
   const appointmentId = parseAppointmentId(serviceRequest, encounters);
 
-  const history = buildHistory(serviceRequest, bestDiagnosticReport, providerName);
+  const history = buildHistory(serviceRequest, bestDiagnosticReport, preliminaryDiagnosticReport, providerName);
 
   const clinicalHistory = extractClinicalHistory(serviceRequest);
 
@@ -336,7 +337,8 @@ const takeTheBestDiagnosticReport = (diagnosticReports: DiagnosticReport[]): Dia
 
 const buildHistory = (
   serviceRequest: ServiceRequest,
-  diagnosticReport: DiagnosticReport | undefined,
+  bestDiagnosticReport: DiagnosticReport | undefined,
+  preliminaryDiagnosticReport: DiagnosticReport | undefined,
   orderingProviderName: string
 ): RadiologyOrderHistoryRow[] => {
   const history: RadiologyOrderHistoryRow[] = [];
@@ -363,22 +365,31 @@ const buildHistory = (
     });
   }
 
-  const diagnosticReportPreliminaryReadTimeExtensionValue = diagnosticReport?.extension?.find(
+  const diagnosticReportPreliminaryReadTimeExtensionValueFromBest = bestDiagnosticReport?.extension?.find(
     (ext) => ext.url === DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL
   )?.valueDateTime;
-  if (diagnosticReportPreliminaryReadTimeExtensionValue) {
+  const diagnosticReportPreliminaryReadTimeExtensionValueFromPreliminary = preliminaryDiagnosticReport?.extension?.find(
+    (ext) => ext.url === DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL
+  )?.valueDateTime;
+  if (diagnosticReportPreliminaryReadTimeExtensionValueFromBest) {
     history.push({
       status: RadiologyOrderStatus.preliminary,
       performer: 'See AdvaPACS',
-      date: diagnosticReportPreliminaryReadTimeExtensionValue,
+      date: diagnosticReportPreliminaryReadTimeExtensionValueFromBest,
+    });
+  } else if (diagnosticReportPreliminaryReadTimeExtensionValueFromPreliminary) {
+    history.push({
+      status: RadiologyOrderStatus.preliminary,
+      performer: 'See AdvaPACS',
+      date: diagnosticReportPreliminaryReadTimeExtensionValueFromPreliminary,
     });
   }
 
-  if (diagnosticReport?.issued) {
+  if (bestDiagnosticReport?.issued) {
     history.push({
       status: RadiologyOrderStatus.final,
       performer: 'See AdvaPACS',
-      date: diagnosticReport.issued,
+      date: bestDiagnosticReport.issued,
     });
   }
 
