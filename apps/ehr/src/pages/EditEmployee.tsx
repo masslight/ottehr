@@ -3,8 +3,8 @@ import { Box, Button, Chip, Grid, Paper, Skeleton, Typography } from '@mui/mater
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { allLicensesForPractitioner, PractitionerLicense, RoleType, User } from 'utils';
-import { deactivateUser, getUserDetails, updateUser } from '../api/api';
+import { allLicensesForPractitioner, PractitionerLicense, User, UserActivationMode } from 'utils';
+import { getUserDetails, userActivation } from '../api/api';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import EmployeeInformationForm from '../components/EmployeeInformation';
 import { dataTestIds } from '../constants/data-test-ids';
@@ -77,7 +77,7 @@ export default function EditEmployeePage(): JSX.Element {
     setIsActive(checkUserIsActive(userTemp));
   }
 
-  const handleUserActivation = async (mode: 'activate' | 'deactivate'): Promise<void> => {
+  const handleUserActivation = async (mode: UserActivationMode): Promise<void> => {
     setLoading(true);
     if (!oystehrZambda) {
       throw new Error('Zambda Client not found');
@@ -89,11 +89,7 @@ export default function EditEmployeePage(): JSX.Element {
     }
 
     try {
-      if (mode === 'deactivate') {
-        await deactivateUser(oystehrZambda, { user: user });
-      } else {
-        await updateUser(oystehrZambda, { userId: user.id, selectedRoles: [RoleType.Staff] });
-      }
+      await userActivation(oystehrZambda, { userId: user.id, mode });
       await getUserAndUpdatePage();
       enqueueSnackbar(`User was ${mode}d successfully`, {
         variant: 'success',

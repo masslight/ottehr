@@ -28,8 +28,6 @@ import {
   CreateSlotParams,
   CreateUserOutput,
   CreateUserParams,
-  DeactivateUserZambdaInput,
-  DeactivateUserZambdaOutput,
   DeleteInHouseLabOrderParameters,
   DeleteInHouseLabOrderZambdaOutput,
   DeleteLabOrderZambdaInput,
@@ -78,6 +76,8 @@ import {
   UpdateUserParams,
   UpdateUserZambdaOutput,
   UploadPatientProfilePhotoInput,
+  UserActivationZambdaInput,
+  UserActivationZambdaOutput,
 } from 'utils';
 
 export interface PatchOperation {
@@ -99,7 +99,7 @@ const ASSIGN_PRACTITIONER_ZAMBDA_ID = import.meta.env.VITE_APP_ASSIGN_PRACTITION
 const UNASSIGN_PRACTITIONER_ZAMBDA_ID = import.meta.env.VITE_APP_UNASSIGN_PRACTITIONER_ZAMBDA_ID;
 const CHANGE_IN_PERSON_VISIT_STATUS_ZAMBDA_ID = import.meta.env.VITE_APP_CHANGE_IN_PERSON_VISIT_STATUS_ZAMBDA_ID;
 const GET_USER_ZAMBDA_ID = import.meta.env.VITE_APP_GET_USER_ZAMBDA_ID;
-const DEACTIVATE_USER_ZAMBDA_ID = import.meta.env.VITE_APP_DEACTIVATE_USER_ZAMBDA_ID;
+const USER_ACTIVATION_ZAMBDA_ID = import.meta.env.VITE_APP_USER_ACTIVATION_ZAMBDA_ID;
 const GET_CONVERSATION_ZAMBDA_ID = import.meta.env.VITE_APP_GET_CONVERSATION_ZAMBDA_ID;
 const GET_SCHEDULE_ZAMBDA_ID = import.meta.env.VITE_APP_GET_SCHEDULE_ZAMBDA_ID;
 const CANCEL_APPOINTMENT_ZAMBDA_ID = import.meta.env.VITE_APP_CANCEL_APPOINTMENT_ID;
@@ -396,17 +396,17 @@ export const getUserDetails = async (oystehr: Oystehr, parameters: GetUserParams
   }
 };
 
-export const deactivateUser = async (
+export const userActivation = async (
   oystehr: Oystehr,
-  parameters: DeactivateUserZambdaInput
-): Promise<DeactivateUserZambdaOutput> => {
+  parameters: UserActivationZambdaInput
+): Promise<UserActivationZambdaOutput> => {
   try {
-    if (DEACTIVATE_USER_ZAMBDA_ID == null) {
-      throw new Error('deactivate user environment variable could not be loaded');
+    if (USER_ACTIVATION_ZAMBDA_ID == null) {
+      throw new Error('user-activation environment variable could not be loaded');
     }
 
     const response = await oystehr.zambda.execute({
-      id: DEACTIVATE_USER_ZAMBDA_ID,
+      id: USER_ACTIVATION_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);
