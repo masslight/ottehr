@@ -55,6 +55,7 @@ export async function getEncounterAndRelatedResources(oystehr: Oystehr, encounte
   if (!encounterId) {
     throw new Error('Encounter ID is required');
   }
+  console.log(`isaac fetching encounter and related resources for encounter ID: ${encounterId}`);
   return (
     await oystehr.fhir.search<Encounter>({
       resourceType: 'Encounter',

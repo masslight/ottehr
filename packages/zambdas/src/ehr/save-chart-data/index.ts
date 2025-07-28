@@ -20,6 +20,7 @@ import {
   OTTEHR_MODULE,
   PATIENT_VITALS_META_SYSTEM,
   SCHOOL_WORK_NOTE,
+  Secrets,
   SNOMEDCodeConceptInterface,
 } from 'utils';
 import {
@@ -28,6 +29,7 @@ import {
   createOystehrClient,
   createProcedureServiceRequest,
   followUpToPerformerMap,
+  isTestM2MClient,
   makeAllergyResource,
   makeBirthHistoryObservationResource,
   makeClinicalImpressionResource,
@@ -106,7 +108,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('Getting token');
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
-    const oystehrCurrentUser = createOystehrClient(userToken, secrets);
 
     console.timeLog('time', 'before fetching resources');
     // get encounter and resources
@@ -117,9 +118,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     //   getUserPractitioner(oystehr, oystehrCurrentUser),
     //   getChartData(oystehr, encounterId),
     // ]);
+
     const [allResources, currentPractitioner] = await Promise.all([
       getEncounterAndRelatedResources(oystehr, encounterId),
-      getUserPractitioner(oystehr, oystehrCurrentUser),
+      getUserPractitioner(oystehr, userToken, secrets),
     ]);
 
     const encounter = allResources.filter((resource) => resource.resourceType === 'Encounter')[0] as Encounter;
@@ -551,18 +553,33 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 //   return entity;
 // }
 
-async function getUserPractitioner(oystehr: Oystehr, oystehrCurrentUser: Oystehr): Promise<Practitioner> {
+async function getUserPractitioner(
+  oystehr: Oystehr,
+  userToken: string,
+  secrets: Secrets | null
+): Promise<Practitioner> {
   try {
+    if (isTestM2MClient(m2mToken, secrets)) {
+      console.log('Running in test M2M client mode');
+      return await oystehr.fhir.get<Practitioner>({
+        resourceType: 'Practitioner',
+        id: '8909f510-b1b7-489a-be1a-3083bc897ee7',
+      });
+    }
+    const oystehrCurrentUser = createOystehrClient(userToken, secrets);
     const getUserResponse = await oystehrCurrentUser.user.me();
     const userProfile = getUserResponse.profile;
+    console.log('isaac getting user practitioner 3');
     const userProfileString = userProfile.split('/');
-
+    console.log('isaac getting user practitioner 4');
     const practitionerId = userProfileString[1];
+    console.log('isaac getting user practitioner 5');
     return await oystehr.fhir.get<Practitioner>({
       resourceType: 'Practitioner',
       id: practitionerId,
     });
   } catch (error) {
+    console.error(`Failed to get Practitioner: ${JSON.stringify(error)}`);
     throw new Error(`Failed to get Practitioner: ${JSON.stringify(error)}`);
   }
 }

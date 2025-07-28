@@ -83,7 +83,7 @@ const VitalsBloodPressureSchema = VitalsObjectSchema.extend({
   { message: 'vital-blood-pressure object may only define components' }
 );
 
-// currently we only define alerts for vitals that are specified so these can all be optional currently
+// currently we only define alerts for vitals that are specified so these can all be optional
 // the time may come when some or all of these are required
 export const VitalsMapSchema = z.object({
   'vital-temperature': VitalsObjectSchema.optional(),

@@ -1,14 +1,12 @@
 import { CodeableConcept, Observation } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { AlertRule, AlertThreshold, VitalsDef } from '../../configuration';
 import {
-  AlertRule,
-  AlertThreshold,
   FHIRObservationInterpretation,
   FHIRObservationInterpretationCodesMap,
   GetVitalsResponseData,
   VitalAlertCriticality,
   VitalFieldNames,
-  VitalsDef,
   VitalsObservationDTO,
 } from '../../types';
 
@@ -291,7 +289,7 @@ const getAlertLevel = (input: EvalRuleProps): FHIRObservationInterpretation => {
       console.warn('Rule has an ageFunction but no patientAgeInMonths provided:', rule);
       return FHIRObservationInterpretation.Normal;
     }
-    thresholdValue = rule.ageFunction(patientAgeInMonths);
+    thresholdValue = rule.ageFunction(patientAgeInMonths / 12.0);
   }
 
   if (thresholdValue === undefined) {

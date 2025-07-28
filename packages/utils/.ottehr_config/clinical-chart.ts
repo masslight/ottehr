@@ -85,14 +85,6 @@ const VitalsConfig = {
           { type: 'max', units: '', value: 60 },
         ],
         minAge: { unit: 'months', value: 0 },
-        maxAge: { unit: 'months', value: 2 },
-      },
-      {
-        rules: [
-          { type: 'min', units: '', value: 30 },
-          { type: 'max', units: '', value: 60 },
-        ],
-        minAge: { unit: 'months', value: 2 },
         maxAge: { unit: 'months', value: 12 },
       },
       {
@@ -140,7 +132,6 @@ const VitalsConfig = {
     alertThresholds: [
       {
         rules: [{ type: 'min', units: '', value: 95 }],
-        minAge: { unit: 'months', value: 0 },
       },
     ],
   },
@@ -157,6 +148,10 @@ const VitalsConfig = {
             rules: [{ type: 'min', units: '', ageFunction: (ageInYears: number) => 70 + ageInYears * 2 }],
             minAge: { unit: 'months', value: 2 },
             maxAge: { unit: 'months', value: 108 },
+          },
+          {
+            rules: [{ type: 'min', units: '', value: 90 }],
+            minAge: { unit: 'months', value: 108 },
           },
         ],
       },
