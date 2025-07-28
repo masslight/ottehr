@@ -49,6 +49,7 @@ const emptySelectsOptions: OrderFieldsSelectsOptions = {
   associatedDx: { options: [], status: 'loading' },
   units: { options: [], status: 'loading' },
   location: { options: [], status: 'loading' },
+  providerId: { options: [], status: 'loading' },
 };
 
 export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
@@ -81,7 +82,9 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
           onChange={(newValue) => {
             if (!newValue) return;
             const isoString = newValue.toISO();
-            isoString && handleChange(isoString);
+            if (isoString) {
+              handleChange(isoString);
+            }
           }}
           disabled={!isEditable}
           slotProps={{
@@ -205,6 +208,10 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
       required={required}
       error={showError && required && !value}
       helperText={showError && required && !value ? REQUIRED_FIELD_ERROR_MESSAGE : ''}
+      // https://github.com/mui/material-ui/issues/7960#issuecomment-1858083123
+      {...(type === 'number'
+        ? { onFocus: (e) => e.target.addEventListener('wheel', (e) => e.preventDefault(), { passive: false }) }
+        : {})}
     />
   );
 };

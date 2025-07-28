@@ -203,6 +203,7 @@ export const STAFF_RULES: AccessPolicy = {
         'FHIR:Person',
         'FHIR:Schedule',
         'FHIR:ValueSet',
+        'FHIR:List',
       ],
       action: ['FHIR:Search', 'FHIR:Read'],
       effect: 'Allow',

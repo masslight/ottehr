@@ -290,6 +290,9 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
   drawFieldLine('Date of Service', data.dateOfService);
   drawFieldLine('Reason for Visit', data.reasonForVisit);
   drawFieldLine('Provider', data.provider);
+  if (data.intakePerson) {
+    drawFieldLine('Intake completed by', data.intakePerson);
+  }
   drawFieldLine('Signed On', data.signedOn);
   drawFieldLine('Visit ID', data.visitID);
   drawFieldLine('Visit State', data.visitState);
@@ -327,11 +330,13 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
 
   if (data.medications || (data.medicationsNotes && data.medicationsNotes.length > 0)) {
     drawBlockHeader('Medications');
-    data.medications?.length
-      ? data.medications.forEach((medication) => {
-          pdfClient.drawText(medication, textStyles.regularText);
-        })
-      : pdfClient.drawText('No current medications', textStyles.regularText);
+    if (data.medications?.length) {
+      data.medications.forEach((medication) => {
+        pdfClient.drawText(medication, textStyles.regularText);
+      });
+    } else {
+      pdfClient.drawText('No current medications', textStyles.regularText);
+    }
 
     if (data.medicationsNotes && data.medicationsNotes.length > 0) {
       drawBlockHeader('Medications notes', textStyles.blockSubHeader);
@@ -345,11 +350,13 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
 
   if (data.allergies || (data.allergiesNotes && data.allergiesNotes.length > 0)) {
     drawBlockHeader('Allergies');
-    data.allergies?.length
-      ? data.allergies.forEach((allergy) => {
-          pdfClient.drawText(allergy, textStyles.regularText);
-        })
-      : pdfClient.drawText('No known allergies', textStyles.regularText);
+    if (data.allergies?.length) {
+      data.allergies.forEach((allergy) => {
+        pdfClient.drawText(allergy, textStyles.regularText);
+      });
+    } else {
+      pdfClient.drawText('No known allergies', textStyles.regularText);
+    }
 
     if (data.allergiesNotes && data.allergiesNotes.length > 0) {
       drawBlockHeader('Allergies notes', textStyles.blockSubHeader);
@@ -363,11 +370,13 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
 
   if (data.medicalConditions || (data.medicalConditionsNotes && data.medicalConditionsNotes.length > 0)) {
     drawBlockHeader('Medical Conditions');
-    data.medicalConditions?.length
-      ? data.medicalConditions.forEach((medicalCondition) => {
-          pdfClient.drawText(medicalCondition, textStyles.regularText);
-        })
-      : pdfClient.drawText('No known medical conditions', textStyles.regularText);
+    if (data.medicalConditions?.length) {
+      data.medicalConditions.forEach((medicalCondition) => {
+        pdfClient.drawText(medicalCondition, textStyles.regularText);
+      });
+    } else {
+      pdfClient.drawText('No known medical conditions', textStyles.regularText);
+    }
 
     if (data.medicalConditionsNotes && data.medicalConditionsNotes.length > 0) {
       drawBlockHeader('Medical conditions notes', textStyles.blockSubHeader);
@@ -381,11 +390,13 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
 
   if (data.surgicalHistory || (data.surgicalHistoryNotes && data.surgicalHistoryNotes.length > 0)) {
     drawBlockHeader('Surgical history');
-    data.surgicalHistory?.length
-      ? data.surgicalHistory.forEach((record) => {
-          regularText(record);
-        })
-      : regularText('No surgical history');
+    if (data.surgicalHistory?.length) {
+      data.surgicalHistory.forEach((record) => {
+        regularText(record);
+      });
+    } else {
+      regularText('No surgical history');
+    }
 
     if (data.surgicalHistoryNotes && data.surgicalHistoryNotes.length > 0) {
       drawBlockHeader('Surgical history notes', textStyles.blockSubHeader);
@@ -399,15 +410,40 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
 
   if (data.hospitalization || (data.hospitalizationNotes && data.hospitalizationNotes.length > 0)) {
     drawBlockHeader('Hospitalization');
-    data.hospitalization?.length
-      ? data.hospitalization.forEach((record) => {
-          regularText(record);
-        })
-      : regularText('No hospitalizations');
+    if (data.hospitalization?.length) {
+      data.hospitalization.forEach((record) => {
+        regularText(record);
+      });
+    } else {
+      regularText('No hospitalizations');
+    }
 
     if (data.hospitalizationNotes && data.hospitalizationNotes.length > 0) {
       drawBlockHeader('Hospitalization notes', textStyles.blockSubHeader);
       data.hospitalizationNotes.forEach((record) => {
+        regularText(record);
+      });
+    }
+
+    separateLine();
+  }
+
+  if (
+    (data.inHouseMedications && data.inHouseMedications.length > 0) ||
+    (data.inHouseMedicationsNotes && data.inHouseMedicationsNotes.length > 0)
+  ) {
+    drawBlockHeader('In-House Medications');
+    if (data.inHouseMedications?.length) {
+      data.inHouseMedications.forEach((record) => {
+        regularText(record);
+      });
+    } else {
+      regularText('No in-house medications');
+    }
+
+    if (data.inHouseMedicationsNotes && data.inHouseMedicationsNotes.length > 0) {
+      drawBlockHeader('In-House Medications notes', textStyles.blockSubHeader);
+      data.inHouseMedicationsNotes.forEach((record) => {
         regularText(record);
       });
     }

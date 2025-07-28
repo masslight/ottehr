@@ -1,98 +1,101 @@
 import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
-import { Coding, Encounter, Practitioner, PractitionerRole } from 'fhir/r4b';
-import { getPatchBinary } from 'utils';
-import { EncounterPackage } from '../../../shared/practitioner/types';
+import { Appointment, Coding, Encounter } from 'fhir/r4b';
+import {
+  getAppointmentMetaTagOpForStatusUpdate,
+  getPatchBinary,
+  getVisitStatus,
+  PRACTITIONER_CODINGS,
+  User,
+} from 'utils';
 
 export const assignPractitionerIfPossible = async (
   oystehr: Oystehr,
-  resourcesToUpdate: EncounterPackage,
-  practitioner: Practitioner,
+  encounter: Encounter,
+  appointment: Appointment,
+  practitionerId: string,
   userRole: Coding[],
-  practitionerRole?: PractitionerRole
+  user: User
 ): Promise<void> => {
-  if (!resourcesToUpdate.encounter?.id || !practitioner) {
+  if (!encounter.id || !practitionerId) {
     throw new Error('Invalid Encounter or Practitioner ID');
   }
 
-  const encounterPatchOp: Operation[] = [];
+  console.log('assigning practitioner: ', practitionerId);
+  const patchRequests = [
+    getPatchBinary({
+      resourceType: 'Encounter',
+      resourceId: encounter.id,
+      patchOperations: await getAssignPractitionerToEncounterOperation(encounter, practitionerId, userRole),
+    }),
+  ];
 
-  const assignPractitionerOp = await getAssignPractitionerToEncounterOperation(
-    resourcesToUpdate.encounter,
-    practitioner,
-    userRole,
-    practitionerRole
-  );
-  if (assignPractitionerOp) {
-    encounterPatchOp.push(...assignPractitionerOp);
-  }
+  const visitStatus = getVisitStatus(appointment, encounter);
+  console.log('current visitStatus: ', visitStatus);
 
-  if (encounterPatchOp.length > 0) {
-    await oystehr.fhir.transaction({
-      requests: [
+  // i believe the only time this will get hit is if the user does not assign a provider before clicking "complete intake"
+  // but since there is no logic to prevent not assigning the provider before clicking "complete intake" this is the only way to record the status update
+  if (visitStatus === 'ready for provider' && appointment.id) {
+    console.log('a provider is being assigned to an appointment in the status', visitStatus);
+    console.log('with user role: ', userRole);
+    const isAttender = userRole[0].code === PRACTITIONER_CODINGS.Attender[0].code;
+    if (isAttender) {
+      console.log('and isAttender therefore will add status update tags for provider status');
+      patchRequests.push(
         getPatchBinary({
-          resourceType: 'Encounter',
-          resourceId: resourcesToUpdate.encounter.id!,
-          patchOperations: encounterPatchOp,
-        }),
-      ],
-    });
+          resourceType: 'Appointment',
+          resourceId: appointment.id,
+          patchOperations: getAppointmentMetaTagOpForStatusUpdate(appointment, 'provider', { user }),
+        })
+      );
+    }
   }
+
+  await oystehr.fhir.transaction({
+    requests: patchRequests,
+  });
 };
 
 const getAssignPractitionerToEncounterOperation = async (
   encounter: Encounter,
-  practitioner: Practitioner,
-  userRole: Coding[],
-  practitionerRole?: PractitionerRole
-): Promise<Operation[] | undefined> => {
+  practitionerId: string,
+  userRole: Coding[]
+): Promise<Operation[]> => {
   const now = new Date().toISOString();
   const participants = encounter.participant;
-  const individualReference = practitionerRole
-    ? `PractitionerRole/${practitionerRole.id}`
-    : `Practitioner/${practitioner.id}`;
+  const individualReference = `Practitioner/${practitionerId}`;
 
+  const newParticipant = {
+    individual: { reference: individualReference },
+    // if it's an attender, we don't need to set the period start, because it will be set on changing status
+    // to provider
+    period: userRole.some((role) => role.code === PRACTITIONER_CODINGS.Attender[0].code) ? undefined : { start: now },
+    type: [{ coding: userRole }],
+  };
+
+  // Empty participants case, 'add' operation.
   if (!participants || participants.length === 0) {
     return [
       {
         op: 'add',
         path: '/participant',
-        value: [
-          {
-            individual: { reference: individualReference },
-            period: { start: now },
-            type: [{ coding: userRole }],
-          },
-        ],
+        value: [newParticipant],
       },
     ];
   }
 
-  const existingParticipantIndex = participants.findIndex((participant) => {
-    const matchIndividualReference = participant.individual?.reference === individualReference;
-    const matchUserRole = Array.isArray(userRole)
-      ? participant.type?.some(
-          (type) =>
-            type.coding?.some((coding) =>
-              userRole.some((role) => role.code === coding.code || role.display === coding.display)
-            )
-        )
-      : participant.type?.some((type) => type.coding?.some((coding) => coding === userRole));
-
-    return matchIndividualReference && matchUserRole;
+  // If participants exist, we need to check if someone already has this same role and remove them and add the new person.
+  const participantsExcludingThoseWithRoleWeAreTaking = participants?.filter((participant) => {
+    return participant.type?.some((type) => {
+      return type.coding?.some((coding) => coding.code !== userRole[0].code);
+    });
   });
 
-  return existingParticipantIndex === -1
-    ? [
-        {
-          op: 'add',
-          path: '/participant/',
-          value: {
-            individual: { reference: individualReference },
-            period: { start: now },
-            type: [{ coding: userRole }],
-          },
-        },
-      ]
-    : [];
+  return [
+    {
+      op: 'replace',
+      path: `/participant`,
+      value: [...participantsExcludingThoseWithRoleWeAreTaking, newParticipant],
+    },
+  ];
 };

@@ -11,7 +11,6 @@ import { useApiClients } from '../../../hooks/useAppClients';
 import { OystehrTelemedAPIClient, PromiseReturnType } from '../../data';
 import { GetAppointmentsRequestParams } from '../../utils';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetTelemedAppointments = (
   {
     apiClient,
@@ -27,6 +26,7 @@ export const useGetTelemedAppointments = (
     apiClient: OystehrTelemedAPIClient | null;
   } & GetAppointmentsRequestParams,
   onSuccess: (data: PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getTelemedAppointments']>>) => void
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
   return useQuery(
     [

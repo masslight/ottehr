@@ -1,7 +1,7 @@
 import AddIcon from '@mui/icons-material/Add';
 import { Box, Chip, Paper, Stack, Typography } from '@mui/material';
 import { DataGridPro, GridColDef, GridRowParams } from '@mui/x-data-grid-pro';
-import { Oystehr } from '@oystehr/sdk/dist/cjs/resources/classes';
+import Oystehr from '@oystehr/sdk';
 import { Encounter, Patient } from 'fhir/r4b';
 import { FC, ReactElement, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
