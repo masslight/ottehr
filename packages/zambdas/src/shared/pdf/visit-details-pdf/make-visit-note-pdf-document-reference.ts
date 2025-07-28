@@ -46,7 +46,10 @@ export async function makeVisitNotePdfDocumentReference(
     dateCreated: DateTime.now().setZone('UTC').toISO() ?? '',
     oystehr,
     generateUUID: randomUUID,
-    searchParams: [],
+    searchParams: [
+      { name: 'encounter', value: `Encounter/${encounterId}` },
+      { name: 'subject', value: `Patient/${patientId}` },
+    ],
     listResources,
   });
   return docRefs[0];
