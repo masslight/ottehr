@@ -255,8 +255,6 @@ const AddAllergyField: FC = () => {
     return [...allergies, { name: 'Other' } as unknown as ExtractObjectType<ErxSearchAllergensResponse>];
   }, [data, isSearching]);
 
-  console.log('allergiesSearchOptions', allergiesSearchOptions);
-
   const debouncedHandleInputChange = useMemo(
     () =>
       debounce((data) => {
