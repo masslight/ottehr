@@ -1508,5 +1508,8 @@ function getExtension(resource: DomainResource, url: string): Extension | undefi
 
 function getMedicationDosage(medication: MedicationStatement): string | undefined {
   const doseQuantity = medication.dosage?.[0].doseAndRate?.[0].doseQuantity;
-  return `${doseQuantity?.value}${doseQuantity?.unit}`;
+  if (!doseQuantity?.value || !doseQuantity?.unit) {
+    return undefined;
+  }
+  return `${doseQuantity.value}${doseQuantity.unit}`;
 }
