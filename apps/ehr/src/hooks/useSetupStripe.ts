@@ -1,13 +1,12 @@
-import { useQuery } from 'react-query';
+import { useQuery, UseQueryResult } from 'react-query';
 import { OystehrAPIClient } from 'ui-components';
 import { PromiseReturnType } from 'utils';
 import { useApiClients } from './useAppClients';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useSetupStripe = (
   beneficiaryPatientId: string | undefined,
   onSuccess?: (data: PromiseReturnType<ReturnType<OystehrAPIClient['setupPaymentMethod']>>) => void
-) => {
+): UseQueryResult<string | undefined, Error> => {
   const { oystehrZambda } = useApiClients();
   return useQuery(
     [`setup-payment-method/${beneficiaryPatientId}`, beneficiaryPatientId],

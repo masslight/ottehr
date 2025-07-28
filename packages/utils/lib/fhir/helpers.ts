@@ -200,7 +200,7 @@ export function getOtherOfficesForLocation(location: Location): { display: strin
   let parsedExtValue: { display: string; url: string }[] = [];
   try {
     parsedExtValue = JSON.parse(rawExtensionValue);
-  } catch (_) {
+  } catch {
     console.log('Location other-offices extension is formatted incorrectly');
     return [];
   }
@@ -747,6 +747,10 @@ export const getPractitionerStateCredentials = (practitioner: Practitioner): str
   return allLicensesForPractitioner(practitioner).map(({ state }) => state);
 };
 
+export const getAllPractitionerCredentials = (practitioner: Practitioner): string[] => {
+  return practitioner.name?.[0]?.suffix ?? [];
+};
+
 export const getPlanIdAndNameFromCoverage = (coverage: Coverage): { planId?: string; planName?: string } => {
   const coverageClass = coverage.class?.find((cc) => {
     const typeCoding = cc.type;
@@ -1029,7 +1033,7 @@ export const extractHealthcareServiceAndSupportingLocations = (
   let locations = bundle.filter((resource) => {
     return (
       hs.location?.find((loc) => {
-        loc.reference === `${resource.resourceType}/${resource.id}`;
+        return loc.reference === `${resource.resourceType}/${resource.id}`;
       }) !== undefined
     );
   }) as Location[] | undefined;
@@ -1037,7 +1041,7 @@ export const extractHealthcareServiceAndSupportingLocations = (
   let coverageArea = bundle.filter((resource) => {
     return (
       hs.coverageArea?.find((loc) => {
-        loc.reference === `${resource.resourceType}/${resource.id}`;
+        return loc.reference === `${resource.resourceType}/${resource.id}`;
       }) !== undefined
     );
   }) as Location[] | undefined;

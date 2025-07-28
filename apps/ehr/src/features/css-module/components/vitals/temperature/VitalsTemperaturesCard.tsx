@@ -86,7 +86,7 @@ const VitalsTemperaturesCard: React.FC = (): JSX.Element => {
       await handleSaveVital(vitalObs);
       setTemperatureValueText('');
       setObservationsQualifier('');
-    } catch (error) {
+    } catch {
       enqueueSnackbar('Error saving Temperature data', { variant: 'error' });
     } finally {
       setSavingCardData(false);
