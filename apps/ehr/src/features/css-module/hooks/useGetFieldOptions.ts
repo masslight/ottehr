@@ -1,9 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { Location } from 'fhir/r4b';
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { isLocationVirtual, MedicationApplianceRoutes, medicationApplianceRoutes } from 'utils';
+import { isLocationVirtual, MedicationApplianceRoutes, medicationApplianceRoutes, RoleType } from 'utils';
+import { getEmployees } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
+import useEvolveUser from '../../../hooks/useEvolveUser';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useAppointmentStore, useGetMedicationList } from '../../../telemed';
 import { Option } from '../components/medication-administration/medicationTypes';
@@ -16,7 +17,7 @@ const getRoutesArray = (routes: MedicationApplianceRoutes): Option[] => {
 };
 
 export type OrderFieldsSelectsOptions = Record<
-  'medicationId' | 'location' | 'route' | 'units' | 'associatedDx',
+  'medicationId' | 'location' | 'route' | 'units' | 'associatedDx' | 'providerId',
   { options: Option[]; status: 'loading' | 'loaded'; defaultOption?: Option }
 >;
 
@@ -27,9 +28,18 @@ export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
   const { data: medicationList, isLoading: isMedicationLoading } = useGetMedicationList();
   const [locationsOptions, setLocationsOptions] = useState<Option[]>([]);
   const [isLocationLoading, setIsLocationLoading] = useState(true);
-  const { oystehr } = useApiClients();
-  const { chartData, isChartDataLoading } = getSelectors(useAppointmentStore, ['chartData', 'isChartDataLoading']);
-  const { encounterId } = useParams();
+  const [providersOptions, setProvidersOptions] = useState<Option[]>([]);
+  const [isProvidersLoading, setIsProvidersLoading] = useState(true);
+  const { oystehrZambda } = useApiClients();
+  const currentUser = useEvolveUser();
+
+  const { chartData, isChartDataLoading, encounter } = getSelectors(useAppointmentStore, [
+    'chartData',
+    'isChartDataLoading',
+    'encounter',
+  ]);
+
+  const encounterId = encounter?.id;
 
   const diagnosis = chartData?.diagnosis;
 
@@ -45,7 +55,7 @@ export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
   };
 
   useEffect(() => {
-    if (!oystehr) {
+    if (!oystehrZambda) {
       return;
     }
 
@@ -60,9 +70,8 @@ export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
             params: [{ name: '_count', value: '1000' }],
           });
 
-        const locationsResults = (await cacheLocations[encounterId || 'default']).filter(
-          (loc: Location) => !isLocationVirtual(loc)
-        );
+        const locationsBundle = await cacheLocations[encounterId || 'default'];
+        const locationsResults = locationsBundle.unbundle().filter((loc: Location) => !isLocationVirtual(loc));
 
         setLocationsOptions(
           locationsResults.map((loc: Location) => ({
@@ -77,8 +86,45 @@ export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
       }
     }
 
-    void getLocationsResults(oystehr);
-  }, [encounterId, oystehr]);
+    void getLocationsResults(oystehrZambda);
+  }, [encounterId, oystehrZambda]);
+
+  useEffect(() => {
+    if (!oystehrZambda || !encounterId) {
+      return;
+    }
+
+    async function getProvidersResults(): Promise<void> {
+      try {
+        if (!oystehrZambda) {
+          return;
+        }
+
+        setIsProvidersLoading(true);
+        const data = await getEmployees(oystehrZambda);
+
+        if (data.employees) {
+          const activeProviders = data.employees.filter(
+            (employee: any) => employee.status === 'Active' && employee.isProvider
+          );
+
+          const providerOptions = activeProviders.map((employee: any) => ({
+            value: employee.profile.split('/')[1],
+            label: `${employee.firstName} ${employee.lastName}`.trim() || employee.name,
+          }));
+
+          providerOptions.sort((a: Option, b: Option) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
+          setProvidersOptions(providerOptions);
+        }
+      } catch (e) {
+        console.error('error loading provided by field', e);
+      } finally {
+        setIsProvidersLoading(false);
+      }
+    }
+
+    void getProvidersResults();
+  }, [oystehrZambda, encounterId]);
 
   const medicationListOptions: Option[] = Object.entries(medicationList || {})
     .map(([id, value]) => ({
@@ -87,6 +133,14 @@ export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
     }))
     .sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
   medicationListOptions.unshift({ value: '', label: 'Select Medication' });
+
+  // Determine default provider (current user for Provider role)
+  const currentUserProviderId = currentUser?.profile?.replace('Practitioner/', '');
+  const currentUserHasProviderRole = currentUser?.hasRole?.([RoleType.Provider]);
+  const defaultProvider =
+    currentUserHasProviderRole && currentUserProviderId
+      ? providersOptions.find((option) => option.value === currentUserProviderId)
+      : undefined;
 
   return {
     medicationId: {
@@ -118,6 +172,11 @@ export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
       options: diagnosisSelectOptions,
       status: isChartDataLoading ? 'loading' : 'loaded',
       defaultOption: diagnosisDefaultOption,
+    },
+    providerId: {
+      options: providersOptions,
+      status: isProvidersLoading ? 'loading' : 'loaded',
+      defaultOption: defaultProvider,
     },
   };
 };

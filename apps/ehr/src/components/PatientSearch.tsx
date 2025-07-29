@@ -21,7 +21,9 @@ export default function PatientSearch({ nameFilter, setNameFilter, onClear }: Pa
               <IconButton
                 aria-label="clear patient search"
                 onClick={() => {
-                  onClear && onClear();
+                  if (onClear) {
+                    onClear();
+                  }
                   setNameFilter(null);
                 }}
                 onMouseDown={(event) => event.preventDefault()}

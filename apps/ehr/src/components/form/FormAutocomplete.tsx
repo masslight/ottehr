@@ -1,6 +1,6 @@
 import { Autocomplete, AutocompleteProps, TextField } from '@mui/material';
 import { ReactElement } from 'react';
-import { Control, Controller, FieldValues, Path, RegisterOptions } from 'react-hook-form';
+import { Control, Controller, FieldValues, Path, UseControllerProps } from 'react-hook-form';
 
 export interface Option {
   label: string;
@@ -13,7 +13,7 @@ interface FormAutocompleteProps<T extends FieldValues>
   control: Control<T>;
   options: Option[];
   defaultValue?: string;
-  rules?: RegisterOptions;
+  rules?: UseControllerProps<T, Path<T>>['rules'];
   required?: boolean;
   onChangeHandler?: (name: string, value: string) => void;
   helperText?: string;

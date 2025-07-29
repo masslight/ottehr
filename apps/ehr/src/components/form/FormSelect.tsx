@@ -1,7 +1,7 @@
 import { FormHelperText, MenuItem, Select, SelectProps } from '@mui/material';
 import { Box } from '@mui/system';
 import React, { ReactElement } from 'react';
-import { Control, Controller, FieldValues, Path, RegisterOptions } from 'react-hook-form';
+import { Control, Controller, FieldValues, Path, UseControllerProps } from 'react-hook-form';
 
 interface SelectOption {
   label: string;
@@ -13,7 +13,7 @@ interface FormSelectProps<T extends FieldValues> extends Omit<SelectProps, 'name
   control: Control<T>;
   options: SelectOption[];
   defaultValue?: string;
-  rules?: RegisterOptions;
+  rules?: UseControllerProps<T, Path<T>>['rules'];
   onChangeHandler?: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
 

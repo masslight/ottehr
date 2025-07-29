@@ -1,6 +1,6 @@
 import { Operation } from 'fast-json-patch';
 import { Communication, Encounter, Extension } from 'fhir/r4b';
-import { useMutation, useQuery } from 'react-query';
+import { useMutation, UseMutationResult, useQuery } from 'react-query';
 import {
   AppointmentProviderNotificationTypes,
   getPatchBinary,
@@ -85,10 +85,13 @@ interface UpdateProviderNotificationsParams {
   enabled: boolean;
 }
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useUpdateProviderNotificationSettingsMutation = (
   onSuccess: (params: UpdateProviderNotificationsParams) => void
-) => {
+): UseMutationResult<
+  { method: ProviderNotificationMethod; enabled: boolean },
+  unknown,
+  UpdateProviderNotificationsParams
+> => {
   const user = useEvolveUser();
   const { oystehr } = useApiClients();
   return useMutation(
