@@ -101,6 +101,8 @@ jobs:
             mkdir -p "apps/$app/env"
             cp "secrets/$app/app/tests."*.json "apps/$app/env/"
             cp "secrets/$app/app/.env"* "apps/$app/env/"
+            mkdir -p "packages/utils/.ottehr_config"
+            cp secrets/ottehr_config/${{ github.event.inputs.environment }}/* "packages/utils/.ottehr_config"
           }
 
           for app in ehr intake; do
