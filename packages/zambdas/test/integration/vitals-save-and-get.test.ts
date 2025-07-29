@@ -1,20 +1,13 @@
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
-import { Appointment, Encounter, Patient } from 'fhir/r4b';
+import { Appointment, Encounter, Observation, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   DOB_DATE_FORMAT,
+  FHIRObservationInterpretationSystem,
   GetVitalsResponseData,
   VitalFieldNames,
-  VitalsBloodPressureObservationDTO,
-  VitalsHeartbeatObservationDTO,
-  VitalsHeightObservationDTO,
   VitalsObservationDTO,
-  VitalsOxygenSatObservationDTO,
-  VitalsRespirationRateObservationDTO,
-  VitalsTemperatureObservationDTO,
-  VitalsVisionObservationDTO,
-  VitalsWeightObservationDTO,
 } from 'utils';
 import { assert, inject, suite } from 'vitest';
 import { getAuth0Token } from '../../src/shared';
@@ -170,27 +163,13 @@ describe('saving and getting vitals', () => {
         assert(maybePatient?.id);
         encounterId = maybeEncounter?.id;
         patientId = maybePatient.id;
-      });
-      test.concurrent('saving normal heart beat observation succeeds with no alerts', async () => {
-        const obs: VitalsHeartbeatObservationDTO[] = [
+        const obs: VitalsObservationDTO[] = [
           {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalHeartbeat,
             value: 72,
           },
-        ];
-        await saveVital(obs, encounterId);
-        const vitals = await getVitals(encounterId);
-        expect(vitals).toBeDefined();
-        const heartbeatVitals = vitals[VitalFieldNames.VitalHeartbeat];
-        expect(heartbeatVitals.length).toBe(1);
-        expect(heartbeatVitals[0].field).toBe(VitalFieldNames.VitalHeartbeat);
-        expect(heartbeatVitals[0].value).toBe(72);
-        expect(heartbeatVitals[0].alertCriticality).toBeUndefined();
-      });
-      test.concurrent('saving height and weight observations succeeds with no alerts', async () => {
-        const obs: (VitalsHeightObservationDTO | VitalsWeightObservationDTO)[] = [
           {
             encounterId,
             patientId,
@@ -203,8 +182,51 @@ describe('saving and getting vitals', () => {
             field: VitalFieldNames.VitalWeight,
             value: 97,
           },
+          {
+            encounterId,
+            patientId,
+            field: VitalFieldNames.VitalRespirationRate,
+            value: 20,
+          },
+          {
+            encounterId,
+            patientId,
+            field: VitalFieldNames.VitalVision,
+            leftEyeVisionText: '20',
+            rightEyeVisionText: '20',
+          },
+          {
+            encounterId,
+            patientId,
+            field: VitalFieldNames.VitalBloodPressure,
+            systolicPressure: 120,
+            diastolicPressure: 80,
+          },
+          {
+            encounterId,
+            patientId,
+            field: VitalFieldNames.VitalOxygenSaturation,
+            value: 98,
+          },
+          {
+            encounterId,
+            patientId,
+            field: VitalFieldNames.VitalTemperature,
+            value: 37,
+          },
         ];
         await saveVital(obs, encounterId);
+      });
+      test.concurrent('saving normal heart beat observation succeeds with no alerts', async () => {
+        const vitals = await getVitals(encounterId);
+        expect(vitals).toBeDefined();
+        const heartbeatVitals = vitals[VitalFieldNames.VitalHeartbeat];
+        expect(heartbeatVitals.length).toBe(1);
+        expect(heartbeatVitals[0].field).toBe(VitalFieldNames.VitalHeartbeat);
+        expect(heartbeatVitals[0].value).toBe(72);
+        expect(heartbeatVitals[0].alertCriticality).toBeUndefined();
+      });
+      test.concurrent('saving height and weight observations succeeds with no alerts', async () => {
         const vitals = await getVitals(encounterId);
         expect(vitals).toBeDefined();
         const weightVitals = vitals[VitalFieldNames.VitalWeight];
@@ -219,15 +241,6 @@ describe('saving and getting vitals', () => {
         expect(heightVitals[0].alertCriticality).toBeUndefined();
       });
       test.concurrent('respiration rate observation is saved and retrieved correctly', async () => {
-        const obs: VitalsRespirationRateObservationDTO[] = [
-          {
-            encounterId,
-            patientId,
-            field: VitalFieldNames.VitalRespirationRate,
-            value: 20,
-          },
-        ];
-        await saveVital(obs, encounterId);
         const vitals = await getVitals(encounterId);
         expect(vitals).toBeDefined();
         const respirationRateVitals = vitals[VitalFieldNames.VitalRespirationRate];
@@ -237,16 +250,6 @@ describe('saving and getting vitals', () => {
         expect(respirationRateVitals[0].alertCriticality).toBeUndefined();
       });
       test.concurrent('vision observation is saved and retrieved correctly', async () => {
-        const obs: VitalsVisionObservationDTO[] = [
-          {
-            encounterId,
-            patientId,
-            field: VitalFieldNames.VitalVision,
-            leftEyeVisionText: '20',
-            rightEyeVisionText: '20',
-          },
-        ];
-        await saveVital(obs, encounterId);
         const vitals = await getVitals(encounterId);
         expect(vitals).toBeDefined();
         const visionVitals = vitals[VitalFieldNames.VitalVision];
@@ -257,16 +260,6 @@ describe('saving and getting vitals', () => {
         expect(visionVitals[0].alertCriticality).toBeUndefined();
       });
       test.concurrent('blood pressure observation is saved and retrieved correctly', async () => {
-        const obs: VitalsBloodPressureObservationDTO[] = [
-          {
-            encounterId,
-            patientId,
-            field: VitalFieldNames.VitalBloodPressure,
-            systolicPressure: 120,
-            diastolicPressure: 80,
-          },
-        ];
-        await saveVital(obs, encounterId);
         const vitals = await getVitals(encounterId);
         expect(vitals).toBeDefined();
         const bloodPressureVitals = vitals[VitalFieldNames.VitalBloodPressure];
@@ -277,15 +270,6 @@ describe('saving and getting vitals', () => {
         expect(bloodPressureVitals[0].alertCriticality).toBeUndefined();
       });
       test.concurrent('oxygen saturation observation is saved and retrieved correctly', async () => {
-        const obs: VitalsOxygenSatObservationDTO[] = [
-          {
-            encounterId,
-            patientId,
-            field: VitalFieldNames.VitalOxygenSaturation,
-            value: 98,
-          },
-        ];
-        await saveVital(obs, encounterId);
         const vitals = await getVitals(encounterId);
         expect(vitals).toBeDefined();
         const oxygenSaturationVitals = vitals[VitalFieldNames.VitalOxygenSaturation];
@@ -296,15 +280,6 @@ describe('saving and getting vitals', () => {
       });
 
       test.concurrent('temperature observation is saved and retrieved correctly', async () => {
-        const obs: VitalsTemperatureObservationDTO[] = [
-          {
-            encounterId,
-            patientId,
-            field: VitalFieldNames.VitalTemperature,
-            value: 37,
-          },
-        ];
-        await saveVital(obs, encounterId);
         const vitals = await getVitals(encounterId);
         expect(vitals).toBeDefined();
         const temperatureVitals = vitals[VitalFieldNames.VitalTemperature];
@@ -426,6 +401,28 @@ describe('saving and getting vitals', () => {
           expect(vital.field).toBe(VitalFieldNames.VitalBloodPressure);
           expect(vital.alertCriticality).toBe('abnormal');
         });
+        // verify fhir resource looks correct
+        const observationId = bloodPressureVitals[0].resourceId;
+        const observation = await oystehr.fhir.get<Observation>({ resourceType: 'Observation', id: observationId! });
+        expect(observation).toBeDefined();
+        expect(observation.component).toBeDefined();
+        const systolicComponent = observation.component?.find(
+          (c) => c.code?.coding?.some((coding) => coding.code === '8480-6' && coding.system === 'http://loinc.org')
+        );
+        expect(systolicComponent).toBeDefined();
+        expect(systolicComponent?.valueQuantity?.value).toBe(69);
+        assert(systolicComponent);
+        console.log('systolicComponent', JSON.stringify(systolicComponent, null, 2));
+        const interpretation = systolicComponent.interpretation;
+        expect(interpretation).toBeDefined();
+        assert(interpretation);
+        expect(interpretation?.[0].coding?.[0]?.code).toBe('LX');
+        expect(interpretation?.[0].coding?.[0]?.system).toBe(FHIRObservationInterpretationSystem);
+        const diastolicComponent = observation.component?.find(
+          (c) => c.code?.coding?.some((coding) => coding.code === '8462-4' && coding.system === 'http://loinc.org')
+        );
+        expect(diastolicComponent).toBeDefined();
+        expect(diastolicComponent?.valueQuantity?.value).toBe(40);
       });
       test.concurrent('abnormal oxygen saturation observation has abnormal alertCriticality', async () => {
         const vitals = await getVitals(encounterId);

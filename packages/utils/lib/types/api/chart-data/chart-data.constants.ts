@@ -181,8 +181,7 @@ export enum VitalAlertCriticality {
   Abnormal = 'abnormal',
 }
 
-export const FHIRObservationInterpretationSystem =
-  'http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation ';
+export const FHIRObservationInterpretationSystem = 'http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation';
 
 // subset taken from full expansion: https://hl7.org/fhir/R4B/valueset-observation-interpretation.html
 export enum FHIRObservationInterpretation {

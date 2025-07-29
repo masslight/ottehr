@@ -18,7 +18,19 @@ const AgeFunctionConstraintSchema = BaseConstraintSchema.extend({
   ageFunction: z.function().args(z.number()).returns(z.number()),
 });
 
-export const ConstraintSchema = z.union([ValueConstraintSchema, AgeFunctionConstraintSchema]);
+export const ConstraintSchema = z.union([ValueConstraintSchema, AgeFunctionConstraintSchema]).refine(
+  (data) => {
+    // Ensure that if a value is provided, it is a number
+    if ('value' in data) {
+      return typeof data.value === 'number';
+    } else if ('ageFunction' in data) {
+      return true;
+    } else {
+      return false;
+    }
+  },
+  { message: 'Constraint must have either a value or an ageFunction' }
+);
 const AlertThresholdSchema = z
   .object({
     rules: z.array(ConstraintSchema).refine(
@@ -49,12 +61,15 @@ const AlertThresholdSchema = z
     minAge: AgeSchema.optional(),
     maxAge: AgeSchema.optional(),
   })
-  .refine((data) => {
-    if (data.minAge && data.maxAge) {
-      return data.minAge.value <= data.maxAge.value;
-    }
-    return true;
-  });
+  .refine(
+    (data) => {
+      if (data.minAge && data.maxAge) {
+        return data.minAge.value <= data.maxAge.value;
+      }
+      return true;
+    },
+    { message: 'minAge must be less than or equal to maxAge in an alert threshold' }
+  );
 
 // this will can be expanded to include things like out-of-range / invalid values
 const VitalsObjectSchema = z.object({
@@ -107,8 +122,11 @@ const ChartDataDef = Object.freeze(ChartDataSchema.parse(ChartDataSource));
 export type ChartData = z.infer<typeof ChartDataSchema>;
 export type Vitals = ChartData['components']['vitals']['components'];
 
-export const VitalsDef = (vitals?: Vitals): Vitals => {
-  return vitals ? Object.freeze(vitals) : ChartDataDef.components.vitals.components;
+export const VitalsDef = (chartDataSource?: ChartData): Vitals => {
+  if (chartDataSource) {
+    return Object.freeze(ChartDataSchema.parse(chartDataSource)).components.vitals.components;
+  }
+  return ChartDataDef.components.vitals.components;
 };
 
 export type AlertThreshold = z.infer<typeof AlertThresholdSchema>;
