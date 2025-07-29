@@ -569,11 +569,8 @@ async function getUserPractitioner(
     const oystehrCurrentUser = createOystehrClient(userToken, secrets);
     const getUserResponse = await oystehrCurrentUser.user.me();
     const userProfile = getUserResponse.profile;
-    console.log('isaac getting user practitioner 3');
     const userProfileString = userProfile.split('/');
-    console.log('isaac getting user practitioner 4');
     const practitionerId = userProfileString[1];
-    console.log('isaac getting user practitioner 5');
     return await oystehr.fhir.get<Practitioner>({
       resourceType: 'Practitioner',
       id: practitionerId,
