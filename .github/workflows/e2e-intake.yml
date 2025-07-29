@@ -326,6 +326,8 @@ jobs:
           path: 'secrets'
 
       - name: Setup environment
+        env:
+          ENVIRONMENT: ${{ github.event.inputs.environment || 'local' }}
         run: |
           setup_env() {
             mkdir -p "packages/zambdas/.env"
@@ -334,7 +336,7 @@ jobs:
             cp "secrets/$app/app/tests."*.json "apps/$app/env/"
             cp "secrets/$app/app/.env"* "apps/$app/env/"
             mkdir -p "packages/utils/.ottehr_config"
-            cp secrets/ottehr_config/${{ github.event.inputs.environment }}/* "packages/utils/.ottehr_config"
+            cp secrets/ottehr_config/${{ env.ENVIRONMENT }}/* "packages/utils/.ottehr_config"
           }
       
           for app in ehr intake; do

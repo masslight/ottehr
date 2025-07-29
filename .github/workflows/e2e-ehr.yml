@@ -95,7 +95,7 @@ jobs:
 
       - name: Setup environment
         env:
-        ENVIRONMENT: ${{ github.event.inputs.environment }}
+          ENVIRONMENT: ${{ github.event.inputs.environment || 'local' }}
         run: |
           setup_env() {
             mkdir -p "packages/zambdas/.env"
