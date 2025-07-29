@@ -10,6 +10,7 @@ import {
   MedicationData,
   MedicationInteractions,
   MedicationOrderStatusesType,
+  medicationStatusDisplayLabelMap,
   MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM,
   UpdateMedicationOrderInput,
 } from 'utils';
@@ -67,14 +68,6 @@ export const validateAllMedicationFields = (
 
   setFieldErrors(errors);
   return { isValid: missingFields.length === 0, missingFields };
-};
-
-export const medicationStatusDisplayLabelMap: Record<MedicationOrderStatusesType, string> = {
-  pending: 'Pending',
-  administered: 'Administered',
-  'administered-partly': 'Partly Administered',
-  'administered-not': 'Not Administered',
-  cancelled: 'Cancelled',
 };
 
 // this check is used in order-new and order-edit to prevent user from exit page and lose unsaved data

@@ -206,9 +206,8 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
               <span>
                 {medication?.effectiveDateTime
                   ? DateTime.fromISO(medication.effectiveDateTime).toFormat('MM/dd/yyyy hh:mm a')
-                  : '-'}
+                  : ''}
               </span>
-              <span>by {medication?.providerCreatedTheOrder}</span>{' '}
             </Typography>
           )}
           {isUpdating && (
@@ -230,7 +229,7 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
           return (
             <Grid item xs={config!.xs} key={field}>
               <MedicationCardField
-                isEditable={isEditable}
+                isEditable={isEditable && !(type === 'dispense' && field === 'medicationId')}
                 field={field as MedicationFieldType}
                 label={getFieldLabel(field as MedicationFieldType, type)}
                 type={getFieldType(field as keyof MedicationData)}

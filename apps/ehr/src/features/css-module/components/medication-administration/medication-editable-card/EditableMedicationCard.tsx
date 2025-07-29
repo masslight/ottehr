@@ -22,6 +22,7 @@ import { getEditOrderUrl } from '../../../routing/helpers';
 import { ROUTER_PATH, routesCSS } from '../../../routing/routesCSS';
 import { CSSModal } from '../../CSSModal';
 import { InteractionAlertsDialog } from '../InteractionAlertsDialog';
+import { interactionsSummary } from '../util';
 import { fieldsConfig, MedicationOrderType } from './fieldsConfig';
 import { InteractionsMessage, MedicationCardView } from './MedicationCardView';
 import {
@@ -108,7 +109,7 @@ export const EditableMedicationCard: React.FC<{
     } else {
       setLocalValues((prev) => ({ ...prev, [field]: value }));
     }
-    if (field === 'medicationId' && value !== '') {
+    if (field === 'medicationId' && value !== '' && (typeFromProps === 'order-new' || typeFromProps === 'order-edit')) {
       setErxEnabled(true);
     }
   };
@@ -379,10 +380,7 @@ export const EditableMedicationCard: React.FC<{
   const interactionsMessage: InteractionsMessage | undefined = useMemo(() => {
     if (
       (!localValues.medicationId && !medication) ||
-      (erxEnabled &&
-        erxStatus === ERXStatus.READY &&
-        interactionsCheckState.medicationId !== localValues.medicationId) ||
-      (typeFromProps !== 'order-new' && typeFromProps !== 'order-edit')
+      (erxEnabled && erxStatus === ERXStatus.READY && interactionsCheckState.medicationId !== localValues.medicationId)
     ) {
       return undefined;
     }
@@ -401,17 +399,10 @@ export const EditableMedicationCard: React.FC<{
         message: 'Drug-to-Drug and Drug-Allergy interaction check failed. Please review manually.',
       };
     } else if (interactionsCheckState.status === 'done') {
-      const names: string[] = [];
-      interactionsCheckState.interactions?.drugInteractions
-        ?.flatMap((drugInteraction) => drugInteraction.drugs.map((drug) => drug.name))
-        ?.forEach((name) => names.push(name));
-      if ((interactionsCheckState.interactions?.allergyInteractions?.length ?? 0) > 0) {
-        names.push('Allergy');
-      }
-      if (names.length > 0) {
+      if (interactionsCheckState.interactions) {
         return {
           style: 'warning',
-          message: names.join(', '),
+          message: interactionsSummary(interactionsCheckState.interactions),
         };
       }
       return {
@@ -420,15 +411,7 @@ export const EditableMedicationCard: React.FC<{
       };
     }
     return undefined;
-  }, [
-    erxEnabled,
-    erxStatus,
-    interactionsCheckState,
-    localValues.medicationId,
-    medication,
-    typeFromProps,
-    isMedicationHistoryLoading,
-  ]);
+  }, [erxEnabled, erxStatus, interactionsCheckState, localValues.medicationId, medication, isMedicationHistoryLoading]);
 
   return (
     <>
@@ -497,6 +480,7 @@ export const EditableMedicationCard: React.FC<{
               interactions,
             });
           }}
+          readonly={typeFromProps !== 'order-new' && typeFromProps !== 'order-edit'}
         />
       ) : null}
       {(typeFromProps === 'order-new' || typeFromProps === 'order-edit') && erxEnabled ? (
