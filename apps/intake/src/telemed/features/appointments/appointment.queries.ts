@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { useMutation, useQuery } from 'react-query';
+import { useMutation, useQuery, UseQueryResult } from 'react-query';
 import { OystehrAPIClient } from 'ui-components';
 import {
   BookableItemListResponse,
@@ -113,12 +113,11 @@ export const useGetVisitDetails = (apiClient: OystehrAPIClient | null, enabled =
     }
   );
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetTelemedStates = (
   apiClient: OystehrAPIClient | null,
   enabled = true,
   onSuccess?: (data: GetTelemedLocationsResponse) => void
-) =>
+): UseQueryResult<GetTelemedLocationsResponse, unknown> =>
   useQuery(
     ['telemed-states'],
     () => {
@@ -137,13 +136,12 @@ export const useGetTelemedStates = (
     }
   );
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetBookableItems = (
   apiClient: OystehrAPIClient | null,
   enabled = true,
   params: GetBookableItemListParams,
   onSuccess?: (data: BookableItemListResponse) => void
-) =>
+): UseQueryResult<BookableItemListResponse, unknown> =>
   useQuery(
     ['list-bookables', params],
     () => {
@@ -162,13 +160,12 @@ export const useGetBookableItems = (
     }
   );
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetSchedule = (
   apiClient: OystehrAPIClient | null,
   enabled = true,
   params: GetScheduleRequestParams,
   onSuccess?: (data: GetScheduleResponse) => void
-) =>
+): UseQueryResult<GetScheduleResponse, unknown> =>
   useQuery(
     ['get-schedule', params],
     async () => {

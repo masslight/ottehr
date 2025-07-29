@@ -25,6 +25,7 @@ import {
   EXTERNAL_LAB_ERROR,
   FHIR_IDC10_VALUESET_SYSTEM,
   flattenBundleResources,
+  getAttendingPractitionerId,
   getSecret,
   isApiError,
   LAB_ORDER_TASK,
@@ -39,7 +40,6 @@ import {
 } from 'utils';
 import { checkOrCreateM2MClientToken, getMyPractitionerId, topLevelCatch, wrapHandler } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
-import { getAttendingPractitionerId } from '../../shared/practitioner/helpers';
 import { ZambdaInput } from '../../shared/types';
 import { getPrimaryInsurance } from '../shared/labs';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -62,7 +62,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
     let curUserPractitionerId: string | undefined;
     try {
       curUserPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
-    } catch (e) {
+    } catch {
       throw EXTERNAL_LAB_ERROR(
         'Resource configuration error - user creating this external lab order must have a Practitioner resource linked'
       );

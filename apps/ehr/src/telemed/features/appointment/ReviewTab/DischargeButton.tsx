@@ -20,7 +20,7 @@ export const DischargeButton: FC = () => {
   const [statusLoading, setStatusLoading] = useState<boolean>(false);
 
   const inPersonStatus = useMemo(() => appointment && getVisitStatus(appointment, encounter), [appointment, encounter]);
-  const isAlreadyDischarged = inPersonStatus === 'ready for discharge' || inPersonStatus === 'completed';
+  const isAlreadyDischarged = inPersonStatus === 'discharged' || inPersonStatus === 'completed';
 
   if (!user || !encounter?.id) {
     return (
@@ -36,7 +36,7 @@ export const DischargeButton: FC = () => {
     setStatusLoading(true);
 
     try {
-      await handleChangeInPersonVisitStatus({ encounterId, user, updatedStatus: 'ready for discharge' }, oystehrZambda);
+      await handleChangeInPersonVisitStatus({ encounterId, user, updatedStatus: 'discharged' }, oystehrZambda);
 
       await refetch();
 

@@ -1,33 +1,25 @@
-const iOSAppMessageTypeLiterals = {
-  CALL_STARTED: 'CALL_STARTED' as const,
-  ACCESS_TOKEN: 'ACCESS_TOKEN' as const,
-  CLOSE_WEB_VIEW: 'CLOSE_WEB_VIEW' as const,
-  OPEN_PAGE: 'OPEN_PAGE' as const,
-  OPEN_PAGE_EXTERNAL: 'OPEN_PAGE_EXTERNAL' as const,
-};
-
 // message types
 interface IOSMessageWWaitingRoomStatus {
-  type: typeof iOSAppMessageTypeLiterals.CALL_STARTED;
+  type: 'CALL_STARTED';
   payload: { appointmentID: string };
 }
 
 interface IOSMessageWAccessToken {
-  type: typeof iOSAppMessageTypeLiterals.ACCESS_TOKEN;
+  type: 'ACCESS_TOKEN';
   payload: string;
 }
 
 interface IOSMessageCloseWebView {
-  type: typeof iOSAppMessageTypeLiterals.CLOSE_WEB_VIEW;
+  type: 'CLOSE_WEB_VIEW';
 }
 
 interface IOSMessageOpenPage {
-  type: typeof iOSAppMessageTypeLiterals.OPEN_PAGE;
+  type: 'OPEN_PAGE';
   payload: string;
 }
 
 interface IOSMessageOpenPageExternal {
-  type: typeof iOSAppMessageTypeLiterals.OPEN_PAGE_EXTERNAL;
+  type: 'OPEN_PAGE_EXTERNAL';
   payload: string;
 }
 

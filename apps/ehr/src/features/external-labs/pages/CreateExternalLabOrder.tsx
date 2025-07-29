@@ -15,12 +15,12 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import Oystehr from '@oystehr/sdk';
 import { enqueueSnackbar } from 'notistack';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
-import { DiagnosisDTO, OrderableItemSearchResult, PRACTITIONER_CODINGS, PSC_HOLD_LOCALE } from 'utils';
+import { DiagnosisDTO, getAttendingPractitionerId, OrderableItemSearchResult, PSC_HOLD_LOCALE } from 'utils';
 import { createExternalLabOrder } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { getSelectors } from '../../../shared/store/getSelectors';
@@ -60,10 +60,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   const { diagnosis } = chartData || {};
   const primaryDiagnosis = diagnosis?.find((d) => d.isPrimary);
 
-  const attendingPractitioner = encounter.participant?.find(
-    (participant) =>
-      participant.type?.find((type) => type.coding?.some((c) => c.system === PRACTITIONER_CODINGS.Attender[0].system))
-  );
+  const attendingPractitionerId = getAttendingPractitionerId(encounter);
   const patientId = patient?.id || '';
 
   const [orderDx, setOrderDx] = useState<DiagnosisDTO[]>(primaryDiagnosis ? [primaryDiagnosis] : []);
@@ -106,16 +103,16 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
         });
         navigate(`/in-person/${appointment?.id}/external-lab-orders`);
       } catch (e) {
-        const oyError = e as OystehrSdkError;
-        console.log('error creating external lab order', oyError.code, oyError.message);
-        const errorMessage = [oyError.message];
+        const sdkError = e as Oystehr.OystehrSdkError;
+        console.log('error creating external lab order', sdkError.code, sdkError.message);
+        const errorMessage = [sdkError.message];
         setError(errorMessage);
       }
     } else if (!paramsSatisfied) {
       const errorMessage = [];
       if (!orderDx.length) errorMessage.push('Please enter at least one dx');
       if (!selectedLab) errorMessage.push('Please select a lab to order');
-      if (!attendingPractitioner) errorMessage.push('No attending practitioner has been assigned to this encounter');
+      if (!attendingPractitionerId) errorMessage.push('No attending practitioner has been assigned to this encounter');
       if (errorMessage.length === 0) errorMessage.push('There was an error creating this external lab order');
       setError(errorMessage);
     }
@@ -163,7 +160,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   if (isError || resourceFetchError) {
     return (
       <DetailPageContainer>
-        <LabBreadcrumbs sectionName="Order Lab">
+        <LabBreadcrumbs sectionName="Order External Lab">
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h4" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
               Order External Lab
