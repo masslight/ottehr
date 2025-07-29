@@ -18,8 +18,7 @@ export const useDeleteVitals: UseDeleteVitals = ({ encounterId }) => {
         vitalsObservations: [vitalEntity],
       };
 
-      const deleteResult = await apiClient?.deleteChartData?.(payload);
-      console.log('delete vital result', deleteResult);
+      await apiClient?.deleteChartData?.(payload);
     },
     [apiClient, encounterId, user]
   );

@@ -11,24 +11,25 @@ import {
 } from '../../types';
 
 export const convertVitalsListToMap = (list: VitalsObservationDTO[]): GetVitalsResponseData => {
-  const vitalsMap: Record<VitalFieldNames, VitalsObservationDTO[]> = {} as Record<
-    VitalFieldNames,
-    VitalsObservationDTO[]
-  >;
+  const vitalsMap: Partial<GetVitalsResponseData> = {};
 
   list.forEach((vital) => {
     // Ensure the field is a valid VitalFieldNames
     if (Object.values(VitalFieldNames).includes(vital.field)) {
-      const current = vitalsMap[vital.field as VitalFieldNames] ?? [];
+      const current = (vitalsMap as any)[vital.field] ?? [];
       current.push(vital);
-      vitalsMap[vital.field as VitalFieldNames] = current;
+      (vitalsMap as any)[vital.field] = current;
     } else {
       console.log('field is not a valid VitalFieldNames:', vital.field, Object.values(VitalFieldNames));
     }
   });
 
-  // todo: ts better
-  return vitalsMap as GetVitalsResponseData;
+  // Ensure all required fields are present and not undefined
+  const fullVitalsMap: GetVitalsResponseData = {} as GetVitalsResponseData;
+  Object.values(VitalFieldNames).forEach((field) => {
+    (fullVitalsMap as any)[field] = (vitalsMap as any)[field] ?? [];
+  });
+  return fullVitalsMap;
 };
 
 export const getVitalDTOCriticalityFromObservation = (observation: Observation): VitalAlertCriticality | undefined => {

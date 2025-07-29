@@ -1,8 +1,6 @@
 import { Box, Stack, Typography } from '@mui/material';
 import React, { useMemo } from 'react';
-import { useQuery } from 'react-query';
 import { useParams } from 'react-router-dom';
-import { useApiClients } from 'src/hooks/useAppClients';
 import { AssessmentTitle } from 'src/telemed/features/appointment/AssessmentTab';
 import { GetVitalsResponseData, VitalFieldNames, VitalsObservationDTO } from 'utils';
 import { PageTitle } from '../../../telemed/components/PageTitle';
@@ -13,7 +11,7 @@ import VitalHistoryElement from '../components/vitals/components/VitalsHistoryEn
 import VitalsHeartbeatCard from '../components/vitals/heartbeat/VitalsHeartbeatCard';
 import VitalsHeightCard from '../components/vitals/heights/VitalsHeightCard';
 import { useDeleteVitals } from '../components/vitals/hooks/useDeleteVitals';
-import { useGetVitals } from '../components/vitals/hooks/useGetVitals';
+import { useGetHistoricalVitals, useGetVitals } from '../components/vitals/hooks/useGetVitals';
 import { useSaveVitals } from '../components/vitals/hooks/useSaveVitals';
 import VitalsOxygenSatCard from '../components/vitals/oxygen-saturation/VitalsOxygenSatCard';
 import VitalsRespirationRateCard from '../components/vitals/respiration-rate/VitalsRespirationRateCard';
@@ -36,8 +34,6 @@ export const PatientVitals: React.FC<PatientVitalsProps> = () => {
     error,
   } = useAppointment(appointmentID);
 
-  const { oystehrZambda } = useApiClients();
-
   const saveVitals = useSaveVitals({
     encounterId: encounter?.id ?? '',
   });
@@ -52,25 +48,7 @@ export const PatientVitals: React.FC<PatientVitalsProps> = () => {
     refetch: refetchEncounterVitals,
   } = useGetVitals(encounter?.id);
 
-  const { data: historicalVitals } = useQuery(
-    [`historical-encounter-vitals-${encounter?.id}`],
-    async () => {
-      if (oystehrZambda && encounter?.id) {
-        const result = await oystehrZambda.zambda.execute({
-          id: 'get-vitals',
-          encounterId: encounter.id,
-          mode: 'historical',
-        });
-        // todo: make this strictly typed once there is a common api file defining endpoints available
-        return result.output as GetVitalsResponseData;
-      }
-
-      throw new Error('api client not defined or encounter id is not provided');
-    },
-    {
-      enabled: Boolean(encounter?.id) && Boolean(oystehrZambda),
-    }
-  );
+  const { data: historicalVitals } = useGetHistoricalVitals(encounter?.id);
 
   const abnormalVitalsValues = useMemo(() => {
     const alertingEntries = Object.entries(encounterVitals || {})

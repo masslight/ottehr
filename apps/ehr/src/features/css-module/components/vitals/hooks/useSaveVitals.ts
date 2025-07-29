@@ -17,8 +17,7 @@ export const useSaveVitals: UseSaveVitals = ({ encounterId }) => {
         vitalsObservations: [vitalEntity],
       };
 
-      const saveResult = await apiClient?.saveChartData?.(payload);
-      console.log('save vital result', saveResult);
+      await apiClient?.saveChartData?.(payload);
     },
     [apiClient, encounterId, user]
   );

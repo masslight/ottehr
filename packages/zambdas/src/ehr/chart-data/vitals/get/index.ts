@@ -15,9 +15,12 @@ import {
   GetVitalsResponseData,
   INVALID_INPUT_ERROR,
   isValidUUID,
+  LOINC_SYSTEM,
   MISSING_REQUIRED_PARAMETERS,
   PATIENT_VITALS_META_SYSTEM,
   PRIVATE_EXTENSION_BASE_URL,
+  VITAL_DIASTOLIC_BLOOD_PRESSURE_LOINC_CODE,
+  VITAL_SYSTOLIC_BLOOD_PRESSURE_LOINC_CODE,
   VitalFieldNames,
   VitalsBloodPressureObservationDTO,
   VitalsHeartbeatObservationDTO,
@@ -33,13 +36,14 @@ let m2mToken: string;
 
 export const index = wrapHandler('get-vitals', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
-    console.log(`Input: ${JSON.stringify(input)}`);
-    console.log('Validating input');
+    console.log(`Validating input: ${JSON.stringify(input.body)}`);
     const { encounterId, mode, secrets } = validateRequestParameters(input);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
 
+    console.log(`Performing complex validation for encounterId: ${encounterId}, mode: ${mode}`);
     const effectInput = await complexValidation({ encounterId, mode, secrets }, oystehr);
+    console.log(`Effect input: ${JSON.stringify(effectInput)}`);
     const results = await performEffect(effectInput, oystehr);
 
     return {
@@ -61,12 +65,10 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<GetV
     // Fetch current vitals for the encounter
     const list = await fetchVitalsForEncounter(encounter.id, oystehr);
     const map = convertVitalsListToMap(list);
-    console.log('Vitals map:', map);
     return map;
   } else {
     const list = await fetchVitalsPriorToEncounter(input.patientId, mode.searchBefore, oystehr);
     const map = convertVitalsListToMap(list);
-    console.log('Vitals map:', map);
     return map;
   }
 };
@@ -134,16 +136,12 @@ const parseResourcesToDTOs = (observations: Observation[], practitioners: Practi
 
   const vitalsDTOs: VitalsObservationDTO[] = Array.from(observationPerformerMap.entries()).flatMap(
     ([obsId, performer]) => {
-      console.log('Processing observation ID:', obsId);
       const observation = observations.find((obs) => obs.id === obsId);
-      console.log('Observation:', observation, 'Performer:', performer);
       if (!observation || !observation.id) return [];
       // todo: don't base this on meta tag, but on the observation code
       const fieldCode = observation?.meta?.tag?.find(
         (tag) => tag.system === `${PRIVATE_EXTENSION_BASE_URL}/${PATIENT_VITALS_META_SYSTEM}`
       )?.code;
-
-      console.log('Field code:', fieldCode);
 
       if (!fieldCode) return [];
 
@@ -169,7 +167,6 @@ const parseResourcesToDTOs = (observations: Observation[], practitioners: Practi
       return [];
     }
   );
-  console.log('Parsed vitals DTOs:', vitalsDTOs);
   return vitalsDTOs;
 };
 
@@ -179,12 +176,17 @@ const parseBloodPressureObservation = (
 ): VitalsBloodPressureObservationDTO | undefined => {
   // if (observation.code?.coding?.[0]?.code !== '85354-9') return undefined; interesting suggestion from AI...
   const systolicBP = observation.component?.find(
-    (comp) => comp.code?.coding?.some((cc) => cc.code === '8480-6' && cc.system === 'http://loinc.org')
+    (comp) =>
+      comp.code?.coding?.some(
+        (cc) => cc.code === VITAL_SYSTOLIC_BLOOD_PRESSURE_LOINC_CODE && cc.system === LOINC_SYSTEM
+      )
   )?.valueQuantity?.value;
   const diastolicBP = observation.component?.find(
-    (comp) => comp.code?.coding?.some((cc) => cc.code === '8462-4' && cc.system === 'http://loinc.org')
+    (comp) =>
+      comp.code?.coding?.some(
+        (cc) => cc.code === VITAL_DIASTOLIC_BLOOD_PRESSURE_LOINC_CODE && cc.system === LOINC_SYSTEM
+      )
   )?.valueQuantity?.value;
-  console.log('Systolic BP:', systolicBP, 'Diastolic BP:', diastolicBP);
   if (systolicBP === undefined || diastolicBP === undefined) return undefined;
   return {
     resourceId: observation.id,
@@ -245,7 +247,6 @@ const parseNumericValueObservation = (
   field: AllOtherFields
 ): VitalsObservationDTO | undefined => {
   const value = observation.valueQuantity?.value;
-  console.log(`Parsing observation for field ${field}:`, 'Value:', value);
   if (value === undefined) return undefined;
   const baseFields = {
     resourceId: observation.id,
