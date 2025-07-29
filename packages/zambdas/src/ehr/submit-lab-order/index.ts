@@ -301,12 +301,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         }),
       });
       const submitLabRequestResponse = await submitLabRequest.json();
+      console.log('submitLabRequestResponse', submitLabRequestResponse);
 
       if (!submitLabRequest.ok) {
-        console.log('submitLabRequestResponse', submitLabRequestResponse);
         throw EXTERNAL_LAB_ERROR(submitLabRequestResponse.message || 'error submitting lab request to oystehr');
       } else {
-        const submitLabRequestResponse = await submitLabRequest.json();
+        console.log('checking for eRequisitionDocumentReferences');
         if (submitLabRequestResponse?.eRequisitionDocumentReferences) {
           eReqDocumentReference = submitLabRequestResponse.eRequisitionDocumentReferences;
         }
@@ -399,6 +399,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             },
           ],
         }),
+        // todo: remove before merging, temp for testing while oystehr changes aren't live
+        // {
+        //   method: 'GET',
+        //   url: `/DocumentReference?related=ServiceRequest/${serviceRequestID}`,
+        // },
       ],
     });
 
@@ -408,7 +413,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       if (bundleEntry.resource?.resourceType === 'ServiceRequest') {
         serviceRequestTemp = bundleEntry.resource;
       }
-      // // todo: remove before merging, temp for testing while oystehr changes aren't live
+      // todo: remove before merging, temp for testing while oystehr changes aren't live
       // } else if (bundleEntry.resource?.resourceType === 'Bundle') {
       //   bundleEntry.resource?.entry?.forEach((entry) => {
       //     if (entry.resource?.resourceType === 'DocumentReference') {
