@@ -92,7 +92,7 @@ describe('testing vitals config validation', () => {
         ]);
       }
     });
-    test.concurrent('min value greater than max value on some alert threshold causes parsing failure', async () => {
+    test.concurrent('invalid rule types in alert thresholds cause parsing failure', async () => {
       try {
         const _vitals = VitalsDef(InvalidRuleTypeChartData as ChartData);
         expect(_vitals).toBeUndefined();
