@@ -6,6 +6,9 @@ import {
   DOB_DATE_FORMAT,
   FHIRObservationInterpretationSystem,
   GetVitalsResponseData,
+  LOINC_SYSTEM,
+  VITAL_DIASTOLIC_BLOOD_PRESSURE_LOINC_CODE,
+  VITAL_SYSTOLIC_BLOOD_PRESSURE_LOINC_CODE,
   VitalFieldNames,
   VitalsObservationDTO,
 } from 'utils';
@@ -407,19 +410,24 @@ describe('saving and getting vitals', () => {
         expect(observation).toBeDefined();
         expect(observation.component).toBeDefined();
         const systolicComponent = observation.component?.find(
-          (c) => c.code?.coding?.some((coding) => coding.code === '8480-6' && coding.system === 'http://loinc.org')
+          (c) =>
+            c.code?.coding?.some(
+              (coding) => coding.code === VITAL_SYSTOLIC_BLOOD_PRESSURE_LOINC_CODE && coding.system === LOINC_SYSTEM
+            )
         );
         expect(systolicComponent).toBeDefined();
         expect(systolicComponent?.valueQuantity?.value).toBe(69);
         assert(systolicComponent);
-        console.log('systolicComponent', JSON.stringify(systolicComponent, null, 2));
         const interpretation = systolicComponent.interpretation;
         expect(interpretation).toBeDefined();
         assert(interpretation);
         expect(interpretation?.[0].coding?.[0]?.code).toBe('LX');
         expect(interpretation?.[0].coding?.[0]?.system).toBe(FHIRObservationInterpretationSystem);
         const diastolicComponent = observation.component?.find(
-          (c) => c.code?.coding?.some((coding) => coding.code === '8462-4' && coding.system === 'http://loinc.org')
+          (c) =>
+            c.code?.coding?.some(
+              (coding) => coding.code === VITAL_DIASTOLIC_BLOOD_PRESSURE_LOINC_CODE && coding.system === LOINC_SYSTEM
+            )
         );
         expect(diastolicComponent).toBeDefined();
         expect(diastolicComponent?.valueQuantity?.value).toBe(40);
