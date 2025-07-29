@@ -149,9 +149,10 @@ export const performEffect = async (
     let candidEncounterId: string | undefined;
     try {
       if (!secrets) throw new Error('Secrets are not defined, cannot create Candid encounter.');
+      console.log('[CLAIM SUBMISSION] Attempting to create telemed encounter in candid...');
       candidEncounterId = await createEncounterFromAppointment(visitResources, secrets, oystehr);
     } catch (error) {
-      console.error(`Error creating Candid encounter: ${error}`);
+      console.error(`Error creating Candid encounter: ${error}, stringified error: ${JSON.stringify(error)}`);
       captureException(error, {
         tags: {
           appointmentId,
@@ -161,6 +162,7 @@ export const performEffect = async (
       // longer term we probably want a more decoupled approach where the candid synching is offloaded and tracked
       // for now prevent this failure from causing the endpoint to error out
     }
+    console.log(`[CLAIM SUBMISSION] Candid telemed encounter created with ID ${candidEncounterId}`);
     await addCandidEncounterIdToEncounter(candidEncounterId, encounter, oystehr);
 
     // if this is a self-pay encounter, create a charge item
