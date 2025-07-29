@@ -34,9 +34,18 @@ export const getProgressNoteChartDataRequestedFields = (): ChartDataRequestedFie
   externalLabResults: {},
   inHouseLabResults: {},
   practitioners: {},
+  medicalDecision: {
+    _tag: 'medical-decision',
+  },
 });
 
 export const telemedProgressNoteChartDataRequestedFields: ChartDataRequestedFields = {
   prescribedMedications: {},
   disposition: {},
+  medicalDecision: {
+    _tag: 'medical-decision',
+  },
+  surgicalHistoryNote: {
+    _tag: 'surgical-history-note',
+  },
 };

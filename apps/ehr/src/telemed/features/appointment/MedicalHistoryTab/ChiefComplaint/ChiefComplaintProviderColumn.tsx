@@ -17,9 +17,16 @@ export const ChiefComplaintProviderColumn: FC = () => {
 
   const { control } = methods;
 
-  const { onValueChange: onChiefComplaintChange, isLoading: isChiefComplaintLoading } =
-    useDebounceNotesField('chiefComplaint');
-  const { onValueChange: onRosChange, isLoading: isRosLoading } = useDebounceNotesField('ros');
+  const {
+    onValueChange: onChiefComplaintChange,
+    isLoading: isChiefComplaintLoading,
+    isChartDataLoading: isChiefComplaintChartDataLoading,
+  } = useDebounceNotesField('chiefComplaint');
+  const {
+    onValueChange: onRosChange,
+    isLoading: isRosLoading,
+    isChartDataLoading: isRosChartDataLoading,
+  } = useDebounceNotesField('ros');
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -33,6 +40,7 @@ export const ChiefComplaintProviderColumn: FC = () => {
               onChange(e);
               onChiefComplaintChange(e.target.value);
             }}
+            disabled={isChiefComplaintChartDataLoading}
             label="HPI provider notes"
             fullWidth
             multiline
@@ -59,6 +67,7 @@ export const ChiefComplaintProviderColumn: FC = () => {
               onChange(e);
               onRosChange(e.target.value);
             }}
+            disabled={isRosChartDataLoading}
             label="ROS (optional)"
             fullWidth
             multiline

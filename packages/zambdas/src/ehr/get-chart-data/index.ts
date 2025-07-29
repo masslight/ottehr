@@ -124,9 +124,6 @@ export async function getChartData(
   // search by encounter by default
   addRequestIfNeeded({ field: 'observations', resourceType: 'Observation', defaultSearchBy: 'encounter' });
 
-  // mdm is just per-encounter so no need to use for patient
-  addRequestIfNeeded({ field: 'medicalDecision', resourceType: 'ClinicalImpression', defaultSearchBy: 'encounter' });
-
   // instructions are just per-encounter, so no need to search by patient
   addRequestIfNeeded({ field: 'instructions', resourceType: 'Communication', defaultSearchBy: 'encounter' });
 
@@ -150,6 +147,22 @@ export async function getChartData(
   // notes included only by straight request
   if (requestedFields?.notes) {
     addRequestIfNeeded({ field: 'notes', resourceType: 'Communication', defaultSearchBy: 'patient' });
+  }
+
+  if (requestedFields?.chiefComplaint) {
+    addRequestIfNeeded({ field: 'chiefComplaint', resourceType: 'Condition', defaultSearchBy: 'encounter' });
+  }
+
+  if (requestedFields?.ros) {
+    addRequestIfNeeded({ field: 'ros', resourceType: 'Condition', defaultSearchBy: 'encounter' });
+  }
+
+  if (requestedFields?.surgicalHistoryNote) {
+    addRequestIfNeeded({ field: 'surgicalHistoryNote', resourceType: 'Procedure', defaultSearchBy: 'encounter' });
+  }
+
+  if (requestedFields?.medicalDecision) {
+    addRequestIfNeeded({ field: 'medicalDecision', resourceType: 'ClinicalImpression', defaultSearchBy: 'encounter' });
   }
 
   // vitalsObservations included only by straight request

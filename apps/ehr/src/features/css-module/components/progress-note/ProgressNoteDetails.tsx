@@ -47,6 +47,7 @@ export const ProgressNoteDetails: FC = () => {
         externalLabResults: data?.externalLabResults,
         inHouseLabResults: data?.inHouseLabResults,
         disposition: data?.disposition,
+        medicalDecision: data?.medicalDecision,
       });
     },
   });
