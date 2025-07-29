@@ -23,8 +23,10 @@ import {
   SurgicalHistoryContainer,
 } from '../../../../telemed/features/appointment/ReviewTab';
 import { useChartData } from '../../hooks/useChartData';
+import { useMedicationAPI } from '../../hooks/useMedicationOperations';
 import { ExamReadOnlyBlock } from '../examination/ExamReadOnly';
 import { HospitalizationContainer } from './HospitalizationContainer';
+import { InHouseMedicationsContainer } from './InHouseMedicationsContainer';
 import { PatientVitalsContainer } from './PatientVitalsContainer';
 
 export const ProgressNoteDetails: FC = () => {
@@ -48,6 +50,8 @@ export const ProgressNoteDetails: FC = () => {
       });
     },
   });
+  const { medications: inHouseMedicationsWithCanceled } = useMedicationAPI();
+  const inHouseMedications = inHouseMedicationsWithCanceled.filter((medication) => medication.status !== 'cancelled');
 
   const screeningNotes = additionalChartData?.notes?.filter((note) => note.type === NOTE_TYPE.SCREENING);
   const vitalsNotes = additionalChartData?.notes?.filter((note) => note.type === NOTE_TYPE.VITALS);
@@ -56,6 +60,7 @@ export const ProgressNoteDetails: FC = () => {
   const hospitalizationNotes = additionalChartData?.notes?.filter((note) => note.type === NOTE_TYPE.HOSPITALIZATION);
   const medicalConditionNotes = additionalChartData?.notes?.filter((note) => note.type === NOTE_TYPE.MEDICAL_CONDITION);
   const surgicalHistoryNotes = additionalChartData?.notes?.filter((note) => note.type === NOTE_TYPE.SURGICAL_HISTORY);
+  const inHouseMedicationNotes = additionalChartData?.notes?.filter((note) => note.type === NOTE_TYPE.MEDICATION);
 
   const chiefComplaint = chartData?.chiefComplaint?.text;
   const ros = chartData?.ros?.text;
@@ -88,6 +93,9 @@ export const ProgressNoteDetails: FC = () => {
   const showProceduresContainer = (chartData?.procedures?.length ?? 0) > 0;
   const showPrescribedMedications = !!(prescriptions && prescriptions.length > 0);
   const { showPatientInstructions } = usePatientInstructionsVisibility();
+  const showInHouseMedications =
+    !!(inHouseMedications && inHouseMedications.length > 0) ||
+    !!(inHouseMedicationNotes && inHouseMedicationNotes.length > 0);
 
   const showVitalsObservations =
     !!(vitalsObservations && vitalsObservations.length > 0) || !!(vitalsNotes && vitalsNotes.length > 0);
@@ -108,6 +116,9 @@ export const ProgressNoteDetails: FC = () => {
     <MedicalConditionsContainer notes={medicalConditionNotes} />,
     <SurgicalHistoryContainer notes={surgicalHistoryNotes} />,
     <HospitalizationContainer notes={hospitalizationNotes} />,
+    showInHouseMedications && (
+      <InHouseMedicationsContainer medications={inHouseMedications} notes={inHouseMedicationNotes} />
+    ),
     showAssessment && <AssessmentContainer />,
     showMedicalDecisionMaking && <MedicalDecisionMakingContainer />,
     showEmCode && <EMCodeContainer />,

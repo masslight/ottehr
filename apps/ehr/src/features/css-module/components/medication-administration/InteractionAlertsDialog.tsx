@@ -34,7 +34,8 @@ interface Props {
   medicationName: string;
   interactions: MedicationInteractions;
   onCancel: () => void;
-  onContinue: (interactions: MedicationInteractions) => void;
+  onContinue?: (interactions: MedicationInteractions) => void;
+  readonly?: boolean;
 }
 
 const SEVERITY_ORDER = ['high', 'moderate', 'low'];
@@ -46,8 +47,14 @@ const SEVERITY_TO_LABEL = {
   unknown: 'Unknown',
 };
 
-export const InteractionAlertsDialog: React.FC<Props> = (props) => {
-  const [interactions, setInteractions] = useState<MedicationInteractions>(structuredClone(props.interactions));
+export const InteractionAlertsDialog: React.FC<Props> = ({
+  medicationName,
+  interactions: initialInteractions,
+  onCancel,
+  onContinue,
+  readonly,
+}) => {
+  const [interactions, setInteractions] = useState<MedicationInteractions>(structuredClone(initialInteractions));
 
   const allReasonsValid: boolean = [
     ...(interactions.drugInteractions ?? []),
@@ -95,7 +102,14 @@ export const InteractionAlertsDialog: React.FC<Props> = (props) => {
     value: string | undefined,
     id: string,
     onChange: (newValue: string) => void
-  ): ReactElement => {
+  ): ReactElement | undefined => {
+    if (readonly) {
+      if (value && OVERRIDE_REASON.includes(value)) {
+        return <>{value}</>;
+      } else {
+        return undefined;
+      }
+    }
     if (value != null && !OVERRIDE_REASON.includes(value)) {
       value = OTHER;
     }
@@ -129,6 +143,9 @@ export const InteractionAlertsDialog: React.FC<Props> = (props) => {
   ): ReactElement | undefined => {
     if (value == null || OVERRIDE_REASON.includes(value)) {
       return undefined;
+    }
+    if (readonly) {
+      return <>Other: {value}</>;
     }
     return (
       <TextField
@@ -208,7 +225,7 @@ export const InteractionAlertsDialog: React.FC<Props> = (props) => {
       <Stack>
         {interactionTypeTitle('Drug Interaction')}
         {interactionSubtitleBox(
-          `According to the patient medication history, ordering “${props.medicationName}” may result in drug-drug interaction.`
+          `According to the patient medication history, ordering “${medicationName}” may result in drug-drug interaction.`
         )}
         <Table style={{ border: '1px solid #DFE5E9', marginTop: '16px' }}>
           <TableHead>
@@ -234,7 +251,7 @@ export const InteractionAlertsDialog: React.FC<Props> = (props) => {
                       </TableRow>
                     ) : undefined}
                     <TableRow key={index}>
-                      <TableCell>{props.medicationName}</TableCell>
+                      <TableCell>{medicationName}</TableCell>
                       <TableCell>{interaction.drugs.map((drug) => drug.name).join(', ')}</TableCell>
                       <TableCell>{renderSource(interaction.source?.display)}</TableCell>
                       <TableCell style={{ verticalAlign: 'top' }}>{interaction.message}</TableCell>
@@ -274,7 +291,7 @@ export const InteractionAlertsDialog: React.FC<Props> = (props) => {
       <Stack>
         {interactionTypeTitle('Allergy Interaction')}
         {interactionSubtitleBox(
-          `According to the patient's reported allergy, ordering “${props.medicationName}” may result in an allergic reaction.`
+          `According to the patient's reported allergy, ordering “${medicationName}” may result in an allergic reaction.`
         )}
         <Table style={{ border: '1px solid #DFE5E9', marginTop: '16px' }}>
           <TableHead>
@@ -317,12 +334,14 @@ export const InteractionAlertsDialog: React.FC<Props> = (props) => {
         {medicationsInteractions()}
         {allergiesInteractions()}
         <Box style={{ display: 'flex', justifyContent: 'space-between', marginTop: '16px' }}>
-          <RoundedButton variant="outlined" onClick={props.onCancel}>
+          <RoundedButton variant="outlined" onClick={onCancel}>
             Cancel
           </RoundedButton>
-          <RoundedButton variant="contained" onClick={() => props.onContinue(interactions)} disabled={!allReasonsValid}>
-            Continue
-          </RoundedButton>
+          {onContinue && !readonly ? (
+            <RoundedButton variant="contained" onClick={() => onContinue(interactions)} disabled={!allReasonsValid}>
+              Continue
+            </RoundedButton>
+          ) : null}
         </Box>
       </DialogContent>
     </Dialog>

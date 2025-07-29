@@ -1,4 +1,3 @@
-import { User } from '@oystehr/sdk';
 import { Appointment, Slot } from 'fhir/r4b';
 import { FhirAppointmentType, OTTEHR_MODULE, PatientFollowupDetails, ScheduleType, ServiceMode } from 'utils';
 
@@ -34,11 +33,6 @@ export type PatientInfo = {
 
 export { AllStates } from 'utils';
 export type { State, StateType } from 'utils';
-
-export interface DeactivateUserParameters {
-  user: User | undefined;
-  // locations: Location[];
-}
 
 export type EmailUserValue = 'Patient (Self)' | 'Parent/Guardian';
 

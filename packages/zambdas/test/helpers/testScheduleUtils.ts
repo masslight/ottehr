@@ -187,6 +187,7 @@ interface MakeTestScheduleInput {
   locationRef?: string;
   scheduleJsonString?: string;
   scheduleObject?: ScheduleExtension;
+  timezone?: string;
 }
 
 export const DELETABLE_RESOURCE_CODE_PREFIX = 'DELETE_ME-';
@@ -198,7 +199,7 @@ export const tagForProcessId = (processId?: string): string => {
 };
 
 export const makeSchedule = (input: MakeTestScheduleInput): Schedule => {
-  const { scheduleJsonString, scheduleObject, processId, locationRef } = input;
+  const { scheduleJsonString, scheduleObject, processId, locationRef, timezone } = input;
   let json = '';
   if (!scheduleJsonString && !scheduleObject) {
     throw new Error('scheduleJsonString or scheduleObject must be provided');
@@ -219,7 +220,7 @@ export const makeSchedule = (input: MakeTestScheduleInput): Schedule => {
     extension: [
       {
         url: 'http://hl7.org/fhir/StructureDefinition/timezone',
-        valueString: DEFAULT_TEST_TIMEZONE,
+        valueString: timezone ?? DEFAULT_TEST_TIMEZONE,
       },
       {
         url: SCHEDULE_EXTENSION_URL,
@@ -1227,6 +1228,20 @@ export const adjustHoursOfOperation = (
     ...scheduleExtCopy,
     schedule: scheduleNew,
   };
+};
+
+export const setClosingHourForAllDays = (scheduleExt: ScheduleExtension, closingHour: HourOfDay): ScheduleExtension => {
+  const scheduleExtCopy = _.cloneDeep(scheduleExt);
+  const schedule = scheduleExtCopy.schedule;
+  const newHours = Object.fromEntries(
+    Object.entries(schedule).map(([day, daySchedule]) => {
+      const newDaySchedule = { ...daySchedule };
+      newDaySchedule.close = closingHour;
+      return [day, newDaySchedule];
+    })
+  ) as DailySchedule;
+  scheduleExtCopy.schedule = newHours;
+  return scheduleExtCopy;
 };
 
 interface PersistScheduleInput {
