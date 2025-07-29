@@ -243,16 +243,20 @@ const AddAllergyField: FC = () => {
   const allergiesSearchOptions = useMemo(() => {
     if (!data || isSearching) return [];
 
-    const uniqueAllergyMap = new Map<string, ExtractObjectType<ErxSearchAllergensResponse>>();
-
-    data.forEach((item) => {
-      if (item.name && !uniqueAllergyMap.has(item.name)) {
-        uniqueAllergyMap.set(item.name, item);
+    // Process the data to include brandname
+    const allergiesWithBrand = data.map((allergy) => {
+      // Todo: fix the any type after the issue with brandName type is resolved in the SDK
+      const brandName = (allergy as any).brandName;
+      if (brandName && brandName !== allergy.name) {
+        return {
+          ...allergy,
+          name: `${allergy.name} (${brandName})`,
+        };
       }
+      return allergy;
     });
 
-    const allergies = Array.from(uniqueAllergyMap.values());
-    return [...allergies, { name: 'Other' } as unknown as ExtractObjectType<ErxSearchAllergensResponse>];
+    return [...allergiesWithBrand, { name: 'Other' } as unknown as ExtractObjectType<ErxSearchAllergensResponse>];
   }, [data, isSearching]);
 
   const debouncedHandleInputChange = useMemo(
