@@ -89,7 +89,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       content: [
         {
           attachment: {
-            url: presignedUrl,
+            url: baseFileUrl,
             contentType: 'application/pdf',
             title: PAPERWORK_PDF_ATTACHMENT_TITLE,
           },
