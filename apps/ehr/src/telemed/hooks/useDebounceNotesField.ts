@@ -28,8 +28,8 @@ const mapValueToLabel: Record<keyof ChartDataTextValueType, string> = {
 export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
   name: T
 ): { onValueChange: (text: string) => void; isLoading: boolean } => {
-  const { mutate: saveChartData, isLoading: isSaveLoading } = useSaveChartData();
-  const { mutate: deleteChartData, isLoading: isDeleteLoading } = useDeleteChartData();
+  const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
+  const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
   const { chartData, setPartialChartData } = getSelectors(useAppointmentStore, ['chartData', 'setPartialChartData']);
 
   const isLoading = isSaveLoading || isDeleteLoading;

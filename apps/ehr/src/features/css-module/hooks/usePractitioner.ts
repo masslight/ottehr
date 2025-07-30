@@ -15,13 +15,15 @@ export const usePractitionerActions = (
     encounter?.appointment?.[0]?.reference?.replace('Appointment/', '')
   );
 
-  const mutation = useMutation(async (practitionerId: string) => {
-    try {
-      await updateAssignment(oystehrZambda, encounter, practitionerId, action, practitionerType);
-      await refetchAppointment();
-    } catch (error: any) {
-      throw new Error(error.message);
-    }
+  const mutation = useMutation({
+    mutationFn: async (practitionerId: string) => {
+      try {
+        await updateAssignment(oystehrZambda, encounter, practitionerId, action, practitionerType);
+        await refetchAppointment();
+      } catch (error: any) {
+        throw new Error(error.message);
+      }
+    },
   });
 
   return {

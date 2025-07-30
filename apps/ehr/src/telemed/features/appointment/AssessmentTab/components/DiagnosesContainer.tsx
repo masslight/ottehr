@@ -18,11 +18,11 @@ import { DiagnosesField } from './DiagnosesField';
 export const DiagnosesContainer: FC = () => {
   const { chartData, setPartialChartData } = getSelectors(useAppointmentStore, ['chartData', 'setPartialChartData']);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-  const { mutate: saveChartData, isLoading: isSaveLoading } = useSaveChartData();
-  const { mutateAsync: deleteChartData, isLoading: isDeleteLoading } = useDeleteChartData();
+  const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
+  const { mutateAsync: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
   const { error: icdSearchError } = useGetIcd10Search({ search: 'E11', sabs: 'ICD10CM' });
 
-  const nlmApiKeyMissing = icdSearchError?.code === APIErrorCode.MISSING_NLM_API_KEY_ERROR;
+  const nlmApiKeyMissing = (icdSearchError as any)?.code === APIErrorCode.MISSING_NLM_API_KEY_ERROR;
 
   const isLoading = isSaveLoading || isDeleteLoading;
 

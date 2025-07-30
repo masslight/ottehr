@@ -189,27 +189,25 @@ const useSyncPractitioner = (_onSuccess: (data: SyncUserResponse) => void) => {
   const token = useAuthToken();
   const { oystehr } = useApiClients();
   const queryClient = useQueryClient();
-  return useQuery(
-    ['sync-user', oystehr],
-    async () => {
+  return useQuery({
+    queryKey: ['sync-user', oystehr],
+    queryFn: async () => {
       if (!client) return undefined;
       _practitionerSyncStarted = true;
       const result = await client?.syncUser();
       _practitionerSyncFinished = true;
       if (result.updated) {
-        void queryClient.refetchQueries('get-practitioner-profile');
+        void queryClient.refetchQueries({ queryKey: ['get-practitioner-profile'] });
       } else {
         useEvolveUserStore.setState((state) => ({ profile: { ...(state.profile! || {}) } }));
       }
       return result;
     },
-    {
-      onSuccess,
-      gcTime: DAY,
-      staleTime: DAY,
-      enabled: Boolean(token && oystehr && oystehr.config.accessToken && !_practitionerSyncStarted),
-    }
-  );
+    onSuccess,
+    gcTime: DAY,
+    staleTime: DAY,
+    enabled: Boolean(token && oystehr && oystehr.config.accessToken && !_practitionerSyncStarted),
+  });
   */
 };
 
