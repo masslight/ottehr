@@ -74,8 +74,6 @@ jobs:
           cp secrets/ehr/app/tests.*.json apps/ehr/env/
           cp secrets/intake/app/.env.local apps/intake/env/
           cp secrets/intake/app/tests.*.json apps/intake/env/
-          mkdir -p packages/utils/.ottehr_config
-          cp secrets/ottehr_config/local/* packages/utils/.ottehr_config
 
       - name: Cache node modules
         uses: actions/cache@v3

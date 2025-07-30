@@ -91,8 +91,6 @@ jobs:
             cp "secrets/$app/app/tests."*.json "apps/$app/env/"
             cp "secrets/$app/app/.env.local" "apps/$app/env/"
             cp -f "secrets/${app}/app/tests.clean-setup.json" "apps/${app}/env/tests.local.json"
-            mkdir -p "packages/utils/.ottehr_config"
-            cp secrets/ottehr_config/${{ github.event.inputs.environment }}/* "packages/utils/.ottehr_config"
           }
 
           for app in ehr intake; do
