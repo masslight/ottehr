@@ -164,6 +164,7 @@ export interface LabsData {
   orderAssessments: { code: string; name: string }[];
   orderPriority: string;
   isManualOrder: boolean;
+  isPscOrder: boolean;
 }
 
 export interface ExternalLabResult {
