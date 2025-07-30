@@ -68,7 +68,6 @@ const ChoosePatient = (): JSX.Element => {
         const response = await ottehrApi.getAppointments(zambdaClient, serviceMode, {
           dateRange: { greaterThan: todayStart.toISO() || '', lessThan: tomorrowEnd.toISO() || '' },
         });
-        console.log('get appointments response:', response.appointments);
         setAllAppointments(response.appointments ?? []);
       } catch (error) {
         safelyCaptureException(error);
@@ -233,7 +232,6 @@ const ChoosePatient = (): JSX.Element => {
   };
 
   const alreadyBooked = (patientID: string): string | undefined => {
-    console.log('already booked', patientID);
     let bookedAppointmentID: string | undefined;
 
     if (patientID && timezone) {
