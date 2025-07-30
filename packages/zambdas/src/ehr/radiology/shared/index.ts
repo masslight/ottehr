@@ -16,3 +16,58 @@ export const SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL =
   'https://fhir.ottehr.com/Extension/service-request-performed-on';
 export const SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL =
   'https://fhir.ottehr.com/Extension/service-request-requested-time';
+
+import { ServiceRequest } from 'fhir/r4b';
+import { getSecret, Secrets, SecretsKeys } from 'utils';
+
+/**
+ * Fetches a ServiceRequest from AdvaPACS using the accession number
+ * @param accessionNumber The accession number to search for
+ * @param secrets The secrets containing AdvaPACS credentials
+ * @returns The ServiceRequest from AdvaPACS
+ */
+export const fetchServiceRequestFromAdvaPACS = async (
+  accessionNumber: string,
+  secrets: Secrets
+): Promise<ServiceRequest> => {
+  const advapacsClientId = getSecret(SecretsKeys.ADVAPACS_CLIENT_ID, secrets);
+  const advapacsClientSecret = getSecret(SecretsKeys.ADVAPACS_CLIENT_SECRET, secrets);
+  const advapacsAuthString = `ID=${advapacsClientId},Secret=${advapacsClientSecret}`;
+
+  // Search for the ServiceRequest in AdvaPACS by the accession number
+  const findServiceRequestResponse = await fetch(
+    `${ADVAPACS_FHIR_BASE_URL}/ServiceRequest?identifier=${ACCESSION_NUMBER_CODE_SYSTEM}%7C${accessionNumber}`,
+    {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/fhir+json',
+        Authorization: advapacsAuthString,
+      },
+    }
+  );
+
+  if (!findServiceRequestResponse.ok) {
+    throw new Error(
+      `AdvaPACS search errored out with statusCode ${findServiceRequestResponse.status}, status text ${
+        findServiceRequestResponse.statusText
+      }, and body ${JSON.stringify(await findServiceRequestResponse.json(), null, 2)}`
+    );
+  }
+
+  const maybeAdvaPACSSr = await findServiceRequestResponse.json();
+
+  if (maybeAdvaPACSSr.resourceType !== 'Bundle') {
+    throw new Error(`Expected response to be Bundle but got ${maybeAdvaPACSSr.resourceType}`);
+  }
+
+  if (maybeAdvaPACSSr.entry.length === 0) {
+    throw new Error(`No service request found in AdvaPACS for accession number ${accessionNumber}`);
+  }
+  if (maybeAdvaPACSSr.entry.length > 1) {
+    throw new Error(
+      `Found multiple service requests in AdvaPACS for accession number ${accessionNumber}, cannot update.`
+    );
+  }
+
+  return maybeAdvaPACSSr.entry[0].resource as ServiceRequest;
+};
