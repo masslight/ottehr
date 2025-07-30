@@ -21,6 +21,7 @@ import {
 
 export const mapVitalsToDisplay = (
   vitalsObservations: VitalsObservationDTO[],
+  showTime = true,
   timezone?: string
 ): VitalsVisitNoteData | undefined =>
   vitalsObservations?.reduce((vitals, observation) => {
@@ -76,7 +77,7 @@ export const mapVitalsToDisplay = (
       if (!vitals[field]) {
         vitals[field] = [];
       }
-      vitals[field]!.push(`${time} - ${text}`);
+      vitals[field]!.push(showTime ? `${time} - ${text}` : text);
     }
 
     return vitals;
