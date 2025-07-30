@@ -2,23 +2,22 @@ import { randomUUID } from 'crypto';
 import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  ChartData,
+  DefaultVitalsConfig,
   DOB_DATE_FORMAT,
   getVitalObservationAlertLevel,
   VitalFieldNames,
-  Vitals,
   VitalsBloodPressureObservationDTO,
   VitalsDef,
   VitalsHeartbeatObservationDTO,
+  VitalsSchema,
   VitalsTemperatureObservationDTO,
 } from 'utils';
 import { assert, suite } from 'vitest';
-import DefaultChart from '../../utils/.ottehr_config/clinical-chart';
-import InvalidAgeUnitsChartData from './data/config-files/vitals-invalid-age-units-spec';
-import InvalidAgeChartData from './data/config-files/vitals-invalid-ages-spec';
-import InvalidBloodPressureShapeChartData from './data/config-files/vitals-invalid-bp-shape-spec';
-import InvalidMinMaxValChartData from './data/config-files/vitals-invalid-min-max-val-spec';
-import InvalidRuleTypeChartData from './data/config-files/vitals-invalid-rule-type-spec';
+import InvalidAgeUnitsVitals from './data/config-files/vitals-invalid-age-units-spec';
+import InvalidAgeVitals from './data/config-files/vitals-invalid-ages-spec';
+import InvalidBloodPressureShapeVitals from './data/config-files/vitals-invalid-bp-shape-spec';
+import InvalidMinMaxValVitals from './data/config-files/vitals-invalid-min-max-val-spec';
+import InvalidRuleTypeVitals from './data/config-files/vitals-invalid-rule-type-spec';
 import { makeTestPatient } from './helpers/testScheduleUtils';
 
 describe('testing vitals config validation', () => {
@@ -39,7 +38,7 @@ describe('testing vitals config validation', () => {
   suite('invalid config files are rejected by validation layer', () => {
     test.concurrent('min age greater than max age on some alert threshold causes parsing failure', async () => {
       try {
-        const _vitals = VitalsDef(InvalidAgeChartData as ChartData);
+        const _vitals = VitalsDef(InvalidAgeVitals);
         expect(_vitals).toBeUndefined();
       } catch (error) {
         expect(error).toBeDefined();
@@ -54,9 +53,6 @@ describe('testing vitals config validation', () => {
         expect(firstError.message).toBe('minAge must be less than or equal to maxAge in an alert threshold');
         expect(firstError.path).toBeDefined();
         expect(firstError.path).toEqual([
-          'components',
-          'vitals',
-          'components',
           'vital-blood-pressure',
           'components',
           'systolic-pressure',
@@ -67,7 +63,7 @@ describe('testing vitals config validation', () => {
     });
     test.concurrent('min value greater than max value on some alert threshold causes parsing failure', async () => {
       try {
-        const _vitals = VitalsDef(InvalidMinMaxValChartData as ChartData);
+        const _vitals = VitalsDef(InvalidMinMaxValVitals);
         expect(_vitals).toBeUndefined();
       } catch (error) {
         expect(error).toBeDefined();
@@ -81,20 +77,12 @@ describe('testing vitals config validation', () => {
         expect(firstError.message).toBeDefined();
         expect(firstError.message).toBe('Conflicting rules found');
         expect(firstError.path).toBeDefined();
-        expect(firstError.path).toEqual([
-          'components',
-          'vitals',
-          'components',
-          'vital-heartbeat',
-          'alertThresholds',
-          0,
-          'rules',
-        ]);
+        expect(firstError.path).toEqual(['vital-heartbeat', 'alertThresholds', 0, 'rules']);
       }
     });
     test.concurrent('invalid rule types in alert thresholds cause parsing failure', async () => {
       try {
-        const _vitals = VitalsDef(InvalidRuleTypeChartData as ChartData);
+        const _vitals = VitalsDef(InvalidRuleTypeVitals);
         expect(_vitals).toBeUndefined();
       } catch (error) {
         expect(error).toBeDefined();
@@ -108,37 +96,19 @@ describe('testing vitals config validation', () => {
         expect(firstError.message).toBeDefined();
         expect(firstError.message).toBe('Invalid input');
         expect(firstError.path).toBeDefined();
-        expect(firstError.path).toEqual([
-          'components',
-          'vitals',
-          'components',
-          'vital-heartbeat',
-          'alertThresholds',
-          0,
-          'rules',
-          0,
-        ]);
+        expect(firstError.path).toEqual(['vital-heartbeat', 'alertThresholds', 0, 'rules', 0]);
         const secondError = errorObject[1];
         expect(secondError).toBeDefined();
         expect(typeof secondError).toBe('object');
         expect(secondError.message).toBeDefined();
         expect(secondError.message).toBe('Invalid input');
         expect(secondError.path).toBeDefined();
-        expect(secondError.path).toEqual([
-          'components',
-          'vitals',
-          'components',
-          'vital-heartbeat',
-          'alertThresholds',
-          0,
-          'rules',
-          1,
-        ]);
+        expect(secondError.path).toEqual(['vital-heartbeat', 'alertThresholds', 0, 'rules', 1]);
       }
     });
     test.concurrent('invalid unit supplied on min/maxAge fails to parse', async () => {
       try {
-        const _vitals = VitalsDef(InvalidAgeUnitsChartData as ChartData);
+        const _vitals = VitalsDef(InvalidAgeUnitsVitals);
         expect(_vitals).toBeUndefined();
       } catch (error) {
         expect(error).toBeDefined();
@@ -152,23 +122,14 @@ describe('testing vitals config validation', () => {
         expect(firstError.message).toBeDefined();
         expect(firstError.message).toBe("Invalid enum value. Expected 'years' | 'months' | 'days', received 'decades'");
         expect(firstError.path).toBeDefined();
-        expect(firstError.path).toEqual([
-          'components',
-          'vitals',
-          'components',
-          'vital-heartbeat',
-          'alertThresholds',
-          0,
-          'minAge',
-          'unit',
-        ]);
+        expect(firstError.path).toEqual(['vital-heartbeat', 'alertThresholds', 0, 'minAge', 'unit']);
       }
     });
     test.concurrent(
       'alertThresholds supplied on blood pressure and not nested in components fails to parse',
       async () => {
         try {
-          const _vitals = VitalsDef(InvalidBloodPressureShapeChartData as ChartData);
+          const _vitals = VitalsDef(InvalidBloodPressureShapeVitals);
           expect(_vitals).toBeUndefined();
         } catch (error) {
           expect(error).toBeDefined();
@@ -182,14 +143,14 @@ describe('testing vitals config validation', () => {
           expect(firstError.message).toBeDefined();
           expect(firstError.message).toBe('vital-blood-pressure object may only define components');
           expect(firstError.path).toBeDefined();
-          expect(firstError.path).toEqual(['components', 'vitals', 'components', 'vital-blood-pressure']);
+          expect(firstError.path).toEqual(['vital-blood-pressure']);
         }
       }
     );
   });
   suite('valid config files customize various behavior per expectations', () => {
     beforeAll(() => {
-      const defaultVitalsDef = VitalsDef(DefaultChart as ChartData);
+      const defaultVitalsDef = VitalsDef();
       expect(defaultVitalsDef).toBeDefined();
       assert(defaultVitalsDef);
     });
@@ -197,12 +158,12 @@ describe('testing vitals config validation', () => {
       const updatedChart = mutateVitals(
         [
           {
-            path: ['vital-heartbeat', 'alertThresholds', 0, 'rules'],
-            value: { criticality: 'critical' },
+            path: ['vital-heartbeat', 'alertThresholds', 0, 'rules', 0],
+            value: { criticality: 'critical', value: 80, type: 'min' },
           },
           {
-            path: ['vital-temperature', 'alertThresholds', 0, 'rules'],
-            value: { criticality: 'abnormal' },
+            path: ['vital-temperature', 'alertThresholds', 0, 'rules', 0],
+            value: { criticality: 'abnormal', value: 36.5, type: 'min' },
           },
           {
             path: ['vital-heartbeat', 'alertThresholds', 0, 'minAge'],
@@ -221,23 +182,19 @@ describe('testing vitals config validation', () => {
             value: { unit: 'years', value: 1 },
           },
           {
-            path: ['vital-heartbeat', 'alertThresholds', 0, 'rules', 0, 'min'],
-            value: 80,
+            path: ['vital-heartbeat', 'alertThresholds', 0, 'rules', 1],
+            value: { value: 210, type: 'max', criticality: 'critical' },
           },
           {
-            path: ['vital-heartbeat', 'alertThresholds', 0, 'rules', 0, 'max'],
-            value: 210,
+            path: ['vital-temperature', 'alertThresholds', 0, 'rules', 1],
+            value: { value: 33, type: 'min', criticality: 'abnormal' },
           },
           {
-            path: ['vital-temperature', 'alertThresholds', 0, 'rules', 0, 'min'],
-            value: 33,
-          },
-          {
-            path: ['vital-temperature', 'alertThresholds', 0, 'rules', 0, 'max'],
-            value: 39,
+            path: ['vital-temperature', 'alertThresholds', 0, 'rules', 1],
+            value: { value: 39, type: 'max', criticality: 'abnormal' },
           },
         ],
-        DefaultChart as ChartData
+        DefaultVitalsConfig
       );
       const vitals = VitalsDef(updatedChart);
       expect(vitals).toBeDefined();
@@ -341,19 +298,15 @@ describe('testing vitals config validation', () => {
       const updatedChart = mutateVitals(
         [
           {
-            path: ['vital-blood-pressure', 'components', 'systolic-pressure', 'alertThresholds', 0, 'rules'],
-            value: { criticality: 'critical', type: 'min', value: 90 },
-          },
-          {
-            path: ['vital-blood-pressure', 'components', 'systolic-pressure', 'alertThresholds', 0, 'minAge'],
-            value: { unit: 'years', value: 2 },
-          },
-          {
-            path: ['vital-blood-pressure', 'components', 'systolic-pressure', 'alertThresholds', 0, 'maxAge'],
-            value: { unit: 'years', value: 4 },
+            path: ['vital-blood-pressure', 'components', 'systolic-pressure', 'alertThresholds', 0],
+            value: {
+              rules: [{ criticality: 'critical', type: 'min', value: 90 }],
+              minAge: { unit: 'years', value: 2 },
+              maxAge: { unit: 'years', value: 4 },
+            },
           },
         ],
-        DefaultChart as ChartData
+        DefaultVitalsConfig
       );
       const vitals = VitalsDef(updatedChart);
       expect(vitals).toBeDefined();
@@ -361,9 +314,8 @@ describe('testing vitals config validation', () => {
       const systolicPressureRules =
         vitals['vital-blood-pressure']?.components?.['systolic-pressure']?.alertThresholds?.[0]?.rules;
       expect(systolicPressureRules).toBeDefined();
-      systolicPressureRules?.forEach((rule) => {
-        expect(rule.criticality).toBe('critical');
-      });
+      assert(systolicPressureRules);
+      expect(systolicPressureRules[0].criticality).toBe('critical');
 
       const testPatient = makeTestPatientWithAge({ units: 'months', value: 3 * 12 });
       expect(testPatient).toBeDefined();
@@ -389,18 +341,18 @@ describe('testing vitals config validation', () => {
         [
           {
             path: ['vital-blood-pressure', 'components', 'diastolic-pressure'],
-            value: { alertThresholds: [{ rules: [{ criticality: 'abnormal', type: 'min', value: 80 }] }] },
-          },
-          {
-            path: ['vital-blood-pressure', 'components', 'diastolic-pressure', 'alertThresholds', 0, 'minAge'],
-            value: { unit: 'years', value: 2 },
-          },
-          {
-            path: ['vital-blood-pressure', 'components', 'diastolic-pressure', 'alertThresholds', 0, 'maxAge'],
-            value: { unit: 'years', value: 4 },
+            value: {
+              alertThresholds: [
+                {
+                  rules: [{ criticality: 'abnormal', type: 'min', value: 80 }],
+                  minAge: { unit: 'years', value: 2 },
+                  maxAge: { unit: 'years', value: 4 },
+                },
+              ],
+            },
           },
         ],
-        DefaultChart as ChartData
+        DefaultVitalsConfig
       );
       const vitals2 = VitalsDef(updatedChart2);
       expect(vitals2).toBeDefined();
@@ -444,17 +396,16 @@ interface MutateVitalsOperation {
   path: (string | number)[];
   value: any;
 }
-const mutateVitals = (operation: MutateVitalsOperation[], chartData: ChartData): ChartData => {
-  const vitals: Vitals & { [key: string]: any } = { ...chartData.components!.vitals!.components };
+const mutateVitals = (operation: MutateVitalsOperation[], vitals: VitalsSchema): VitalsSchema => {
   const newVal = { ...vitals };
 
   for (const { path, value } of operation) {
-    let target = newVal;
+    let target: any = newVal;
     for (let i = 0; i < path.length - 1; i++) {
       const key = path[i];
       if (typeof key === 'number') {
-        if (!Array.isArray(target[path[i - 1]])) {
-          target[path[i - 1]] = [];
+        if (!Array.isArray(target[path[i - 1] as any])) {
+          target[path[i - 1] as any] = [];
         }
         target = target[key];
       } else {
@@ -475,13 +426,5 @@ const mutateVitals = (operation: MutateVitalsOperation[], chartData: ChartData):
     }
   }
 
-  return {
-    ...chartData,
-    components: {
-      ...chartData.components,
-      vitals: {
-        components: newVal,
-      },
-    },
-  };
+  return newVal;
 };

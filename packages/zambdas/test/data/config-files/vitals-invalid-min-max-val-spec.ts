@@ -14,12 +14,4 @@ const VitalsConfig = {
   },
 };
 
-const ChartConfig = {
-  components: {
-    vitals: {
-      components: VitalsConfig,
-    },
-  },
-};
-
-export default ChartConfig;
+export default VitalsConfig;

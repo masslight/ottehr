@@ -1,12 +1,14 @@
 import { CodeableConcept, Observation } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { AlertRule, AlertThreshold, ChartData, VitalsDef } from '../../configuration';
 import {
+  AlertRule,
+  AlertThreshold,
   FHIRObservationInterpretation,
   FHIRObservationInterpretationCodesMap,
   GetVitalsResponseData,
   VitalAlertCriticality,
   VitalFieldNames,
+  VitalsDef,
   VitalsObservationDTO,
 } from '../../types';
 
@@ -72,7 +74,7 @@ export const getVitalDTOCriticalityFromObservation = (observation: Observation):
 interface CheckForAbnormalValueInput {
   patientDOB: string;
   vitalsObservation: VitalsObservationDTO;
-  configOverride?: ChartData;
+  configOverride?: any; // optional override for primarily for testing purposes
 }
 export const getVitalObservationAlertLevel = (input: CheckForAbnormalValueInput): VitalAlertCriticality | undefined => {
   const { patientDOB: dob, vitalsObservation, configOverride } = input;
@@ -199,7 +201,7 @@ const getAlertLevelsFromInterpretations = (alertLevels: FHIRObservationInterpret
 const findRulesForVitalsKeyAndDOB = (
   key: VitalFieldNames,
   dob: string,
-  configOverride?: ChartData // optional override for primarily for testing purposes
+  configOverride?: any // optional override for primarily for testing purposes
 ):
   | { type: 'rules'; rules: AlertRule[] }
   | { type: 'components'; components: { [componentName: string]: AlertRule[] } } => {

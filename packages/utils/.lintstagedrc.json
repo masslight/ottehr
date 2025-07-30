@@ -1,5 +1,5 @@
 {
   "*.(tsx|ts|js|jsx)": [
-    "cross-env NODE_OPTIONS='--max-old-space-size=8192' eslint --no-ignore '.ottehr_config/*' --report-unused-disable-directives --max-warnings 0 --fix"
+    "cross-env NODE_OPTIONS='--max-old-space-size=8192' eslint --report-unused-disable-directives --max-warnings 0 --fix"
   ]
 }
