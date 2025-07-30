@@ -3,6 +3,7 @@ import { Secrets } from '../../../secrets';
 
 export interface CreateDischargeSummaryResponse {
   message: string;
+  documentId: string;
 }
 
 export const CreateDischargeSummaryInputSchema = z.object({

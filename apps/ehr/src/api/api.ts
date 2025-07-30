@@ -18,6 +18,7 @@ import {
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
   CreateDischargeSummaryInput,
+  CreateDischargeSummaryResponse,
   CreateInHouseLabOrderParameters,
   CreateInHouseLabOrderResponse,
   CreateLabOrderParameters,
@@ -973,7 +974,7 @@ export const generatePaperworkPdf = async (
 export const createDischargeSummary = async (
   oystehr: Oystehr,
   parameters: CreateDischargeSummaryInput
-): Promise<any> => {
+): Promise<CreateDischargeSummaryResponse> => {
   try {
     const response = await oystehr.zambda.execute({
       id: CREATE_DISCHARGE_SUMMARY,

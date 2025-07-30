@@ -115,7 +115,7 @@ export const performEffect = async (
   );
   if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
   console.log(`Creating discharge summary pdf Document Reference`);
-  await makeDischargeSummaryPdfDocumentReference(
+  const documentReference = await makeDischargeSummaryPdfDocumentReference(
     oystehr,
     pdfInfo,
     patient.id,
@@ -126,5 +126,6 @@ export const performEffect = async (
 
   return {
     message: 'Discharge Summary created.',
+    documentId: documentReference.id ?? '',
   };
 };
