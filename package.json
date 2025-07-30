@@ -95,6 +95,7 @@
     "i18next-browser-languagedetector": "^7.0.1",
     "jose": "^5.2.2",
     "jsonpath-plus": "^10.2.0",
+    "jszip": "^3.10.1",
     "luxon": "^3.1.1",
     "mixpanel-browser": "^2.45.0",
     "object.hasown": "^1.1.4",
