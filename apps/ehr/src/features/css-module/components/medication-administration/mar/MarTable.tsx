@@ -125,6 +125,7 @@ export const MarTable: React.FC = () => {
                 <Table>
                   <TableHead>
                     <TableRow>
+                      <TableCell sx={{ ...columnStyles.interactionsAlert, ...HEADER_CELL_STYLES }}></TableCell>
                       <TableCell sx={{ ...columnStyles.medication, ...HEADER_CELL_STYLES }}>Medication</TableCell>
                       <TableCell sx={{ ...columnStyles.dose, ...HEADER_CELL_STYLES }}>Dose</TableCell>
                       <TableCell sx={{ ...columnStyles.route, ...HEADER_CELL_STYLES }}>Route</TableCell>
