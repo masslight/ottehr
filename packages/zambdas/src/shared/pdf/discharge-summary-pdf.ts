@@ -74,7 +74,7 @@ function composeDataForDischargeSummaryPdf(
 ): DischargeSummaryData {
   const { chartData, additionalChartData, radiologyData } = allChartData;
 
-  const { patient, encounter, appointment, location, practitioner, timezone } = appointmentPackage;
+  const { patient, encounter, appointment, location, practitioners, timezone } = appointmentPackage;
   if (!patient) throw new Error('No patient found for this encounter');
 
   const attachmentUrls: string[] = [];
@@ -168,8 +168,9 @@ function composeDataForDischargeSummaryPdf(
   });
 
   // --- Physician information ---
-  const { firstName: physicianFirstName, lastName: physicianLastName } =
-    (practitioner && parseParticipantInfo(practitioner)) ?? {};
+  const { firstName: physicianFirstName, lastName: physicianLastName } = practitioners?.[0]
+    ? parseParticipantInfo(practitioners[0])
+    : {};
   const admitterParticipant = encounter.participant?.find(
     (p) => p?.type?.find((t) => t?.coding?.find((coding) => coding.code === 'ADM'))
   );
