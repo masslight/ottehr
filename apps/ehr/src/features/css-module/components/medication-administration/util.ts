@@ -1,6 +1,6 @@
 import { MedicationInteractions } from 'utils';
 
-export function interactionsSummary(interactions: MedicationInteractions): string | undefined {
+export function interactionsSummary(interactions: MedicationInteractions): string {
   const names: string[] = [];
   interactions?.drugInteractions
     ?.flatMap((drugInteraction) => drugInteraction.drugs.map((drug) => drug.name))
@@ -8,8 +8,5 @@ export function interactionsSummary(interactions: MedicationInteractions): strin
   if ((interactions?.allergyInteractions?.length ?? 0) > 0) {
     names.push('Allergy');
   }
-  if (names.length > 0) {
-    return names.join(', ');
-  }
-  return undefined;
+  return names.join(', ');
 }
