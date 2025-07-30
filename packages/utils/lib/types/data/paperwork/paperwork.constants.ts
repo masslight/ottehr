@@ -36,3 +36,5 @@ export const DISCHARGE_SUMMARY_CODE = 'discharge-summary';
 export const ComplexValidationType = {
   insuranceEligibility: 'insurance eligibility',
 };
+
+export const PAPERWORK_PDF_BASE_NAME = 'paperwork';

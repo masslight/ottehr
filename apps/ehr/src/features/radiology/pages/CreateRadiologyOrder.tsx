@@ -108,7 +108,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     setSubmitting(true);
-    const paramsSatisfied = orderDx && orderCpt && encounter.id && clinicalHistory;
+    const paramsSatisfied = orderDx && orderCpt && encounter.id && clinicalHistory && clinicalHistory.length <= 255;
     if (oystehrZambda && paramsSatisfied && encounter.id) {
       try {
         await addAdditionalDxToEncounter();
@@ -130,6 +130,9 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
       const errorMessage = [];
       if (!orderDx) errorMessage.push('Please enter a diagnosis to continue');
       if (!orderCpt) errorMessage.push('Please select a study type (CPT code) to continue');
+      if (!clinicalHistory) errorMessage.push('Please enter clinical history to continue');
+      if (clinicalHistory && clinicalHistory.length > 255)
+        errorMessage.push('Clinical history must be 255 characters or less');
       if (errorMessage.length === 0) errorMessage.push('There was an error completing the order');
       setError(errorMessage);
     }
@@ -257,7 +260,18 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                   multiline
                   size="small"
                   value={clinicalHistory}
-                  onChange={(e) => setClinicalHistory(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value.length <= 255) {
+                      setClinicalHistory(value);
+                    }
+                  }}
+                  error={clinicalHistory !== undefined && clinicalHistory.length > 255}
+                  helperText={
+                    clinicalHistory !== undefined && clinicalHistory.length > 255
+                      ? 'Clinical history must be 255 characters or less'
+                      : `${clinicalHistory?.length || 0}/255 characters`
+                  }
                 />
               </Grid>
               <Grid item xs={12}>

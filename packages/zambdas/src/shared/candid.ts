@@ -301,8 +301,21 @@ async function candidCreateEncounterRequest(
   if (primaryDiagnosisIndex === -1) {
     throw new Error('Primary diagnosis is absent');
   }
+
+  // Validate and convert appointment start to proper date format
+  const appointmentStart = input.appointment.start;
+  let dateOfServiceString: string | undefined;
+
+  if (appointmentStart) {
+    const dateOfService = DateTime.fromISO(appointmentStart);
+    if (dateOfService.isValid) {
+      dateOfServiceString = dateOfService.toISODate();
+    }
+  }
+
   return {
     externalId: EncounterExternalId(assertDefined(encounter.id, 'Encounter.id')),
+    dateOfService: dateOfServiceString,
     billableStatus: BillableStatusType.Billable,
     responsibleParty: insuranceResources != null ? ResponsiblePartyType.InsurancePay : ResponsiblePartyType.SelfPay,
     benefitsAssignedToProvider: true,

@@ -23,6 +23,10 @@ import {
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM_PLACER_ORDER_NUMBER,
   ORDER_TYPE_CODE_SYSTEM,
   PLACER_ORDER_NUMBER_CODE_SYSTEM,
+  SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL,
+  SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL,
+  SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL,
+  SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL,
   SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
 } from '../shared';
 import { validateInput, validateSecrets } from './validation';
@@ -56,14 +60,6 @@ export interface EnhancedBody
 // cSpell:disable-next date format
 const DATE_FORMAT = 'yyyyMMddhhmmssuu';
 const PERSON_IDENTIFIER_CODE_SYSTEM = 'https://fhir.ottehr.com/Identifier/person-uuid';
-const SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL =
-  'https://fhir.ottehr.com/Extension/service-request-order-detail-pre-release';
-const SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL =
-  'https://fhir.ottehr.com/Extension/service-request-order-detail-parameter-pre-release';
-const SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL =
-  'https://fhir.ottehr.com/Extension/service-request-order-detail-parameter-pre-release-code';
-const SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL =
-  'https://fhir.ottehr.com/Extension/service-request-order-detail-parameter-pre-release-value-string';
 const ADVAPACS_ORDER_DETAIL_MODALITY_CODE_SYSTEM_URL =
   'http://advapacs.com/fhir/servicerequest-orderdetail-parameter-code';
 
