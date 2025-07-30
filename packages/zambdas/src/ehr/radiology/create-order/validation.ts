@@ -23,7 +23,7 @@ export const validateInput = async (
 };
 
 const validateBody = async (input: ZambdaInput, secrets: Secrets, oystehr: Oystehr): Promise<EnhancedBody> => {
-  const { diagnosisCode, cptCode, encounterId, stat } = validateJsonBody(input);
+  const { diagnosisCode, cptCode, encounterId, stat, clinicalHistory } = validateJsonBody(input);
 
   const diagnosis = await validateICD10Code(diagnosisCode, secrets);
   const cpt = await validateCPTCode(cptCode, secrets);
@@ -33,11 +33,16 @@ const validateBody = async (input: ZambdaInput, secrets: Secrets, oystehr: Oyste
     throw new Error('Stat is required and must be a boolean');
   }
 
+  if (!clinicalHistory || typeof clinicalHistory !== 'string') {
+    throw new Error('Clinical history is required and must be a string');
+  }
+
   return {
     diagnosis,
     cpt,
     encounter,
     stat,
+    clinicalHistory,
   };
 };
 
@@ -121,7 +126,7 @@ const validateICD10Code = async (diagnosisCode: unknown, secrets: Secrets): Prom
         recCount: number;
       };
     };
-  } catch (error) {
+  } catch {
     throw new Error('Error while trying to validate ICD-10 code');
   }
 
@@ -180,7 +185,7 @@ const validateCPTCode = async (cptCode: unknown, secrets: Secrets): Promise<Vali
         recCount: number;
       };
     };
-  } catch (error) {
+  } catch {
     throw new Error('Error while trying to validate CPT code');
   }
 
@@ -211,7 +216,7 @@ const fetchEncounter = async (encounterId: unknown, oystehr: Oystehr): Promise<E
       resourceType: 'Encounter',
       id: encounterId,
     });
-  } catch (error) {
+  } catch {
     throw new Error('Error while trying to fetch encounter');
   }
 };

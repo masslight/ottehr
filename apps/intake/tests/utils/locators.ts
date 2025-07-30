@@ -528,9 +528,11 @@ export class Locators {
   }
 
   async continueOrDifferentFamilyMember(): Promise<void> {
-    (await this.differentFamilyMember.isEnabled())
-      ? await this.selectDifferentFamilyMember()
-      : await this.clickContinueButton();
+    if (await this.differentFamilyMember.isEnabled()) {
+      await this.selectDifferentFamilyMember();
+    } else {
+      await this.clickContinueButton();
+    }
   }
   async selectDifferentFamilyMember(): Promise<void> {
     await this.differentFamilyMember.click({ force: true });

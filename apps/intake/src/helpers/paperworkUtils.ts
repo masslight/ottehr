@@ -102,8 +102,7 @@ export function isPaperworkPageComplete(
   }
 }
 
-const PaperworkTypes = ['text', 'email', 'tel', 'number'] as const;
-export type PaperworkType = (typeof PaperworkTypes)[number];
+export type PaperworkType = 'text' | 'email' | 'tel' | 'number';
 export function getUCInputType(dataType: QuestionnaireDataType | undefined): PaperworkType {
   switch (dataType) {
     case 'Email':

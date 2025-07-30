@@ -4,6 +4,7 @@ import Oystehr, { UserInviteParams } from '@oystehr/sdk';
 import { Practitioner } from 'fhir/r4b';
 import {
   allLicensesForPractitioner,
+  createFetchClientWithOystAuth,
   getFirstName,
   getLastName,
   getMiddleName,
@@ -13,7 +14,6 @@ import {
   PractitionerLicense,
   RoleType,
 } from 'utils';
-import { fetchWithOystehrAuth } from '../helpers/tests-utils';
 
 export interface TestEmployeeInviteParams {
   userName?: string;
@@ -173,17 +173,15 @@ export async function inviteTestEmployeeUser(
   oystehr: Oystehr,
   authToken: string
 ): Promise<TestEmployee | undefined> {
-  const rolesRaw = await fetchWithOystehrAuth<{ id: string; name: string }[]>(
-    'GET',
-    'https://project-api.zapehr.com/v1/iam/role',
-    authToken
-  );
+  const oystehrProjectId = process.env.PROJECT_ID;
+  if (!oystehrProjectId) throw new Error('secret PROJECT_ID is not set');
+  const { oystFetch } = createFetchClientWithOystAuth({ authToken, projectId: oystehrProjectId });
+  const rolesRaw = await oystFetch<{ id: string; name: string }[]>('GET', 'https://project-api.zapehr.com/v1/iam/role');
   const providerRoleId = rolesRaw.find((role) => role.name === RoleType.Provider)?.id;
   if (!providerRoleId) throw new Error(`Didn't found any role with name: ${RoleType.Provider}`);
-  const response = await fetchWithOystehrAuth<UserResponse>(
+  const response = await oystFetch<UserResponse>(
     'POST',
     'https://project-api.zapehr.com/v1/user/invite',
-    authToken,
     invitationParamsForEmployee(employee, [providerRoleId])
   );
   return await parseTestUser(response, oystehr);
@@ -195,7 +193,10 @@ export async function removeUser(
   oystehr: Oystehr,
   authToken: string
 ): Promise<void> {
-  const removeUser = fetchWithOystehrAuth('DELETE', `https://project-api.zapehr.com/v1/user/${userId}`, authToken);
+  const oystehrProjectId = process.env.PROJECT_ID;
+  if (!oystehrProjectId) throw new Error('secret PROJECT_ID is not set');
+  const { oystFetch } = createFetchClientWithOystAuth({ authToken, projectId: oystehrProjectId });
+  const removeUser = oystFetch('DELETE', `https://project-api.zapehr.com/v1/user/${userId}`);
   const removeUserPractitioner = oystehr.fhir.delete({ resourceType: 'Practitioner', id: practitionerId });
   await Promise.all([removeUser, removeUserPractitioner]);
 

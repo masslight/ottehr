@@ -102,7 +102,7 @@ const performEffect = async (input: EffectInput): Promise<ListPatientPaymentResp
     if (customerId) {
       const [paymentIntents, pms] = await Promise.all([
         stripeClient.paymentIntents.search({
-          query: `customer:"${customerId}" AND metadata['encounterId']:"${encounterId}"`,
+          query: `metadata['encounterId']:"${encounterId}" OR metadata['oystehr_encounter_id']:"${encounterId}"`,
         }),
         stripeClient.paymentMethods.list({
           customer: customerId,

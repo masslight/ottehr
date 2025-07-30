@@ -9,7 +9,6 @@ export interface GetAppointmentsZambdaInput {
 }
 
 export interface GetAppointmentsZambdaOutput {
-  activeApptDatesBeforeToday: string[];
   message: string;
   preBooked: InPersonAppointmentInformation[];
   inOffice: InPersonAppointmentInformation[];

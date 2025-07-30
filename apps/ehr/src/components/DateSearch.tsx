@@ -61,7 +61,9 @@ export default function DateSearch({
       setError(false);
       setErrorMessage('');
       setDate(date);
-      setValidDate && setValidDate(true);
+      if (setValidDate) {
+        setValidDate(true);
+      }
 
       if (storeDateInLocalStorage) {
         if (date) {
@@ -78,7 +80,9 @@ export default function DateSearch({
       setErrorMessage('please enter date in format MM/DD/YYYY');
       setError(true);
       setDate(date);
-      setValidDate && setValidDate(false);
+      if (setValidDate) {
+        setValidDate(false);
+      }
     }
   };
 

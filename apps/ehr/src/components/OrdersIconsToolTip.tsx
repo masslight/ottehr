@@ -52,7 +52,7 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
 
   if (inHouseLabOrders?.length) {
     const inHouseLabOrderConfig: OrderToolTipConfig = {
-      icon: sidebarMenuIcons['In-house Labs'],
+      icon: sidebarMenuIcons['In-House Labs'],
       title: 'In-House Labs',
       tableUrl: getInHouseLabsUrl(appointment.id),
       orders: inHouseLabOrders.map((order) => ({

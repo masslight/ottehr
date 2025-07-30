@@ -24,6 +24,7 @@ import {
   DiagnosisDTO,
   EMPTY_PAGINATION,
   fetchDocumentReferencesForDiagnosticReports,
+  getAttendingPractitionerId,
   getFullestAvailableName,
   IN_HOUSE_TEST_CODE_SYSTEM,
   InHouseGetOrdersResponseDTO,
@@ -32,7 +33,6 @@ import {
   isPositiveNumberOrZero,
   LabResultPDF,
   Pagination,
-  PRACTITIONER_CODINGS,
   TestStatus,
 } from 'utils';
 import { createOystehrClient, getMyPractitionerId, sendErrors } from '../../shared';
@@ -582,14 +582,7 @@ export const fetchPractitionersForServiceRequests = async (
   });
 
   encounters.forEach((encounter) => {
-    const attendingPractitionerId = encounter.participant
-      ?.find(
-        (participant) =>
-          participant.type?.find(
-            (type) => type.coding?.some((c) => c.system === PRACTITIONER_CODINGS.Attender[0].system)
-          )
-      )
-      ?.individual?.reference?.replace('Practitioner/', '');
+    const attendingPractitionerId = getAttendingPractitionerId(encounter);
 
     if (attendingPractitionerId) practitionerIds.add(attendingPractitionerId);
   });
@@ -671,12 +664,7 @@ export const parseAttendingPractitioner = (
 ): Practitioner | undefined => {
   if (!encounter) return undefined;
 
-  const practitionerId = encounter.participant
-    ?.find(
-      (participant) =>
-        participant.type?.find((type) => type.coding?.some((c) => c.system === PRACTITIONER_CODINGS.Attender[0].system))
-    )
-    ?.individual?.reference?.replace('Practitioner/', '');
+  const practitionerId = getAttendingPractitionerId(encounter);
 
   if (!practitionerId) return undefined;
 

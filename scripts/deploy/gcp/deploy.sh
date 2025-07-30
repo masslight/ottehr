@@ -8,6 +8,13 @@ provider_email=$(grep '"provider_email"' "$(dirname "$0")/../deploy-config.json"
 environment=$(grep '"environment"' "$(dirname "$0")/../deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
 ENV=$environment
 
+# Use "default" instead of "local" for build:env commands
+if [ "$environment" = "local" ]; then
+    build_env="default"
+else
+    build_env="$environment"
+fi
+
 if [ -f "apps/intake/env/.env.$environment" ]; then
     first_setup=false
 else
@@ -36,11 +43,11 @@ ENV=$environment npm run setup-secrets $environment
 popd
 
 pushd apps/intake
-npm run build:env --env=$environment
+npm run build:env --env=$build_env
 popd
 
 pushd apps/ehr
-npm run build:env --env=$environment
+npm run build:env --env=$build_env
 popd
 
 pushd scripts/deploy/gcp

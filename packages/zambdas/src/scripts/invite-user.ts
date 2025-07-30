@@ -64,7 +64,7 @@ const updateUserRoles = async (oystehr: Oystehr): Promise<{ id: string }[]> => {
   let existingRoles: RoleListItem[];
   try {
     existingRoles = await oystehr.role.list();
-  } catch (err) {
+  } catch {
     throw new Error('Error searching for existing roles');
   }
   console.log('existingRoles: ', existingRoles);

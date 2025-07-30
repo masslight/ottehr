@@ -140,9 +140,23 @@ const getLabs = async (
         Authorization: `Bearer ${m2mToken}`,
       },
     });
+
+    if (!orderableItemsSearch.ok)
+      throw EXTERNAL_LAB_ERROR(`Failed to fetch orderable items: ${orderableItemsSearch.status}`);
+
     const response = await orderableItemsSearch.json();
-    const orderableItemRes = response.orderableItems as OrderableItemSearchResult[];
-    items.push(...orderableItemRes);
+    console.log(`orderable item search response for search term "${search}": ${JSON.stringify(response)}`);
+
+    let orderableItemRes = response.orderableItems;
+    if (!Array.isArray(orderableItemRes)) {
+      console.error(
+        `orderableItemRes was not an array. It was: ${JSON.stringify(orderableItemRes)}. Returning no orderable items`
+      );
+      orderableItemRes = [];
+    }
+    console.log('This is orderableItemRes', JSON.stringify(orderableItemRes));
+
+    items.push(...(orderableItemRes as OrderableItemSearchResult[]));
     cursor = response?.metadata?.nextCursor || '';
   } while (cursor);
 

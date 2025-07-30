@@ -157,7 +157,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         try {
           await sendSlackNotification(slackMessage, ENVIRONMENT);
           communicationStatusToUpdate = 'completed';
-        } catch (e) {
+        } catch {
           console.log('could not send slack notification');
         }
 

@@ -2,7 +2,7 @@ import { Box, FormControl, FormGroup, FormLabel, Typography } from '@mui/materia
 import { enqueueSnackbar } from 'notistack';
 import { FC } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { getQuestionnaireResponseByLinkId, PATIENT_SUPPORT_PHONE_NUMBER } from 'utils';
+import { getAllPractitionerCredentials, getQuestionnaireResponseByLinkId, PATIENT_SUPPORT_PHONE_NUMBER } from 'utils';
 import useEvolveUser from '../../../../../hooks/useEvolveUser';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore, useSaveChartData } from '../../../../state';
@@ -75,7 +75,7 @@ export const GenerateExcuseDialog: FC<GenerateExcuseDialogExtendedProps> = (prop
       isTemplate,
       patientName: getPatientName(patient?.name).firstLastName,
       providerName: user?.userName,
-      suffix: user?.profileResource?.name?.[0]?.suffix?.join(' '),
+      suffix: user?.profileResource ? getAllPractitionerCredentials(user?.profileResource).join(' ') : undefined,
     });
     generate(
       { newSchoolWorkNote: excuse },

@@ -153,13 +153,16 @@ export const ChangeStatusDropdown = ({
             }}
           >
             {Visit_Status_Array.filter((statusTemp) => {
-              const allHiddenStatuses: Partial<VisitStatusLabel>[] = [
+              let allHiddenStatuses: Partial<VisitStatusLabel>[] = [
                 'no show',
                 'unknown',
-                ...(['cancelled', 'intake', 'ready for provider', 'provider', 'ready for discharge'].filter(
+                ...(['cancelled', 'intake', 'provider', 'ready for provider', 'discharged'].filter(
                   (s) => s !== status
                 ) as Partial<VisitStatusLabel>[]),
               ];
+              if (status === 'ready for provider' || status === 'intake') {
+                allHiddenStatuses = allHiddenStatuses.filter((s) => s !== 'provider');
+              }
               return !allHiddenStatuses.includes(statusTemp);
             }).map((statusTemp) => (
               <MenuItem

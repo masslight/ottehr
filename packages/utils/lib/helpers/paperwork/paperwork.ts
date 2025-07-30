@@ -30,6 +30,8 @@ import {
 } from '../../types';
 import { DOB_DATE_FORMAT } from '../../utils';
 
+export const PAPERWORK_PDF_ATTACHMENT_TITLE = 'Paperwork';
+
 export interface OptionConfig {
   label: string;
   value: string;
@@ -646,3 +648,11 @@ export const pruneEmptySections = (qr: QuestionnaireResponse): QuestionnaireResp
   //console.log('pruned qr.item', prunedQR.item);
   return prunedQR;
 };
+
+export function isNonPaperworkQuestionnaireResponse<T extends FhirResource>(resource: T): boolean {
+  return (
+    resource.resourceType === 'QuestionnaireResponse' &&
+    !resource.questionnaire?.includes('https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson') &&
+    !resource.questionnaire?.includes('https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual')
+  );
+}

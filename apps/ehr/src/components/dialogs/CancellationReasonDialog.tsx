@@ -102,7 +102,9 @@ export default function CancellationReasonDialog({
 
   const handleChange = (event: SelectChangeEvent<typeof cancellationReason>): void => {
     const value = event.target.value as CancellationReasonOptionsInPerson;
-    value && setCancellationReason && setCancellationReason(value);
+    if (value && setCancellationReason) {
+      setCancellationReason(value);
+    }
   };
 
   const handleDialogClose = (): void => {

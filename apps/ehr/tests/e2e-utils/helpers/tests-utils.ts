@@ -7,40 +7,6 @@ export async function waitForSnackbar(page: Page): Promise<void> {
   await expect(snackbar).toBeVisible();
 }
 
-export async function fetchWithOystehrAuth<T = any>(
-  method: 'GET' | 'POST' | 'DELETE' | 'PUT' | 'PATCH',
-  url: string,
-  authToken: string,
-  body?: any
-): Promise<T> {
-  const oystehrProjectId = process.env.PROJECT_ID;
-  if (!oystehrProjectId) throw new Error('secret PROJECT_ID is not set');
-
-  const response = await fetch(url, {
-    method,
-    headers: {
-      accept: 'application/json',
-      'content-type': 'application/json',
-      authorization: `Bearer ${authToken}`,
-      'x-zapehr-project-id': oystehrProjectId,
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-
-  if (!response.ok) {
-    const res = await response.json();
-    throw new Error(`HTTP error for ${method} ${url}: ${res}, ${JSON.stringify(res)}`);
-  }
-  console.log(`Request status for ${url}: `, response.status);
-
-  if (response.body) {
-    const data = await response.json();
-    return data?.output ? data.output : data;
-  }
-
-  return {} as T;
-}
-
 export async function awaitAppointmentsTableToBeVisible(page: Page): Promise<void> {
   await expect(page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTable)).toBeVisible();
   await expect(page.getByTestId(dataTestIds.dashboard.loadingIndicator)).not.toBeVisible();

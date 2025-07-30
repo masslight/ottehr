@@ -17,7 +17,7 @@ const makeEncounter = (statusHistory: EncounterStatusHistory[], status: FhirEnco
   };
 };
 
-test('waiting time, no ready for provider, no ready for discharge', () => {
+test('waiting time, no ready for provider, no discharged', () => {
   const statusHistory: EncounterStatusHistory[] = [
     {
       status: 'planned',
@@ -145,7 +145,7 @@ test('waiting time, no show appointment', () => {
   expect(waitingTimeProd).toEqual(0);
 });
 
-test('waiting time, no provider, no ready for provider and no ready for discharge', () => {
+test('waiting time, no provider, no ready for provider and no discharged', () => {
   const statusHistory: EncounterStatusHistory[] = [
     {
       status: 'planned',

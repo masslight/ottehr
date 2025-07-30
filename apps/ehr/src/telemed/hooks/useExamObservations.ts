@@ -160,8 +160,9 @@ export function useExamObservations(param?: AllExamNames | AllExamNames[]): {
       },
       {
         onSuccess: (data) => {
-          data.chartData.examObservations &&
+          if (data.chartData.examObservations) {
             useExamObservationsStore.setState(arrayToObject(data.chartData.examObservations));
+          }
         },
         onError: () => {
           enqueueSnackbar('An error has occurred while saving exam data. Please try again.', { variant: 'error' });

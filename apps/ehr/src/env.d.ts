@@ -17,7 +17,7 @@ interface ImportMetaEnv {
   readonly VITE_APP_GET_APPOINTMENTS_ZAMBDA_ID: string;
   readonly VITE_APP_CREATE_APPOINTMENT_ZAMBDA_ID: string;
   readonly VITE_APP_UPDATE_USER_ZAMBDA_ID: string;
-  readonly VITE_APP_DEACTIVATE_USER_ZAMBDA_ID: string;
+  readonly VITE_APP_USER_ACTIVATION_ZAMBDA_ID: string;
   readonly VITE_APP_CHECK_IN_ZAMBDA_ID?: string;
   readonly VITE_APP_GET_TELEMED_APPOINTMENTS_ZAMBDA_ID?: string;
   readonly VITE_APP_GET_USER_ZAMBDA_ID?: string;

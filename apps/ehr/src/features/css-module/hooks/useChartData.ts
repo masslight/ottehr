@@ -64,7 +64,9 @@ export const useChartData = ({
       if (requestedFields) return;
 
       // should be updated only from root (useAppointment hook)
-      shouldUpdateExams && updateExamObservations(data.examObservations, true);
+      if (shouldUpdateExams) {
+        updateExamObservations(data.examObservations, true);
+      }
     },
     (error) => {
       if (!requestedFields) {

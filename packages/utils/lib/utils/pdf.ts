@@ -202,7 +202,9 @@ export async function drawCardsPDF(
             rotate: { angle: orientationCorrection.degrees, type: RotationTypes.Degrees },
           });
 
-          orientationCorrection.mirrored && page.pushOperators(popGraphicsState());
+          if (orientationCorrection.mirrored) {
+            page.pushOperators(popGraphicsState());
+          }
 
           return correctedHeight;
         };

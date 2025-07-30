@@ -136,7 +136,7 @@ export const PatientInstructionsCard: FC = () => {
             <ActionsList
               data={instructions}
               getKey={(value, index) => value.resourceId || index}
-              renderItem={(value) => <Typography>{value.text}</Typography>}
+              renderItem={(value) => <Typography style={{ whiteSpace: 'pre-line' }}>{value.text}</Typography>}
               renderActions={
                 isReadOnly
                   ? undefined

@@ -343,7 +343,7 @@ describe.skip('full qr validation tests', () => {
     expect(validationSchema).toBeDefined();
   });
 
-  QRData.full.map(async (fullQR) => {
+  QRData.full.forEach((fullQR) => {
     return test(fullQR.description, async () => {
       const { expectation, item } = fullQR;
       const { valid, inner, validItemsToCheck } = expectation;

@@ -4,8 +4,8 @@ import { DateTime } from 'luxon';
 import {
   AppointmentParticipants,
   OTTEHR_MODULE,
-  PARTICIPANT_TYPE,
   ParticipantInfo,
+  PRACTITIONER_CODINGS,
   ScheduleStrategy,
   scheduleStrategyForHealthcareService,
 } from 'utils';
@@ -33,10 +33,10 @@ export const parseEncounterParticipants = (
     const participantType = participant.type[0].coding[0].code;
 
     switch (participantType) {
-      case PARTICIPANT_TYPE.ADMITTER:
+      case PRACTITIONER_CODINGS.Admitter[0].code:
         participants.admitter = parseParticipantInfo(practitioner);
         break;
-      case PARTICIPANT_TYPE.ATTENDER:
+      case PRACTITIONER_CODINGS.Attender[0].code:
         participants.attender = parseParticipantInfo(practitioner);
         break;
     }
@@ -191,38 +191,6 @@ export const getAppointmentQueryInput = async (input: {
       { name: '_revinclude:iterate', value: 'DocumentReference:patient' },
       { name: '_revinclude:iterate', value: 'QuestionnaireResponse:encounter' },
       { name: '_include', value: 'Appointment:actor' },
-      ...actorParams,
-    ],
-    group: healthcareService,
-  };
-};
-
-export const getActiveAppointmentsBeforeTodayQueryInput = async (input: {
-  oystehr: Oystehr;
-  resourceId: string;
-  resourceType: 'Location' | 'Practitioner' | 'HealthcareService';
-}): Promise<AppointmentQueryInput> => {
-  const { actorParams, healthcareService } = await getActorParamsForAppointmentQueryInput(input);
-  return {
-    resourceType: 'Appointment',
-    params: [
-      {
-        name: 'date:missing',
-        value: 'false',
-      },
-      {
-        name: 'actor:missing',
-        value: 'false',
-      },
-      {
-        name: '_include',
-        value: 'Appointment:patient',
-      },
-      {
-        name: '_sort',
-        value: 'date',
-      },
-      { name: '_count', value: '1000' },
       ...actorParams,
     ],
     group: healthcareService,

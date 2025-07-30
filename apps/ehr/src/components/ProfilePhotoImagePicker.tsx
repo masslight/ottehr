@@ -18,7 +18,7 @@ import { styled } from '@mui/material';
 import { Attachment, Patient } from 'fhir/r4b';
 import React, { ChangeEvent, FC, ReactElement, useCallback, useState } from 'react';
 import Cropper from 'react-easy-crop';
-import { Area, Point } from 'react-easy-crop/types';
+import { Area, Point } from 'react-easy-crop';
 import { uploadPatientProfilePhoto } from '../api/api';
 import {
   useEditPatientProfilePhotoMutation,

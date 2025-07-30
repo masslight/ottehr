@@ -24,7 +24,9 @@ export const ControlledExcuseCheckbox: FC<ControlledExcuseCheckboxProps> = (prop
             <Checkbox
               checked={value}
               onChange={(e) => {
-                onExternalChange && onExternalChange(e.target.checked);
+                if (onExternalChange) {
+                  onExternalChange(e.target.checked);
+                }
                 onChange(e);
               }}
             />

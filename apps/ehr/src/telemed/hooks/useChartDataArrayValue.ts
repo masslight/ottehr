@@ -80,7 +80,9 @@ export const useChartDataArrayValue = <
           },
         }
       );
-      reset && reset();
+      if (reset) {
+        reset();
+      }
     });
   };
 

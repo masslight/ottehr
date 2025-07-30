@@ -1,6 +1,6 @@
 import { LoadingButton } from '@mui/lab';
 import { Box, Button, Paper, Typography } from '@mui/material';
-import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import Oystehr from '@oystehr/sdk';
 import React, { useState } from 'react';
 import { FormProvider, SubmitHandler, useForm } from 'react-hook-form';
 import { useParams } from 'react-router-dom';
@@ -46,9 +46,9 @@ export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, s
       });
       setLoadingState(LoadingState.initial);
     } catch (e) {
-      const oyError = e as OystehrSdkError;
-      console.log('error entering results', oyError.code, oyError.message);
-      const errorMessage = [oyError.message];
+      const sdkError = e as Oystehr.OystehrSdkError;
+      console.log('error entering results', sdkError.code, sdkError.message);
+      const errorMessage = [sdkError.message];
       setError(errorMessage);
     }
     setSubmittingResults(false);

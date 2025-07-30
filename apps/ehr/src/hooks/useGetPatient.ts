@@ -15,7 +15,7 @@ import {
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
-import { useMutation, useQuery } from 'react-query';
+import { useMutation, useQuery, UseQueryResult } from 'react-query';
 import { getVisitTypeLabelForAppointment } from 'src/types/types';
 import {
   getFirstName,
@@ -227,7 +227,6 @@ export const useGetPatient = (
   };
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetPatientAccount = (
   {
     apiClient,
@@ -237,7 +236,7 @@ export const useGetPatientAccount = (
     patientId: string | null;
   },
   onSuccess?: (data: PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getPatientAccount']>>) => void
-) => {
+): UseQueryResult<PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getPatientAccount']>>, unknown> => {
   return useQuery(
     ['patient-account-get', { apiClient, patientId }],
     () => {
@@ -357,8 +356,9 @@ export const useGetInsurancePlans = (onSuccess: (data: Bundle<Organization>) => 
   });
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useGetPatientDetailsUpdateForm = (onSuccess?: (data: Questionnaire) => void) => {
+export const useGetPatientDetailsUpdateForm = (
+  onSuccess?: (data: Questionnaire) => void
+): UseQueryResult<Questionnaire, unknown> => {
   const { oystehr } = useApiClients();
 
   const [url, version] = updateQRUrl.split('|');

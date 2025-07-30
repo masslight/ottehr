@@ -51,7 +51,7 @@ const VitalsWeightsCard: React.FC = (): JSX.Element => {
       };
       await handleSaveVital(vitalObs);
       setWeightValueText('');
-    } catch (error) {
+    } catch {
       enqueueSnackbar('Error saving Weight data', { variant: 'error' });
     } finally {
       setSavingCardData(false);

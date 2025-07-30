@@ -285,7 +285,9 @@ const PageForm: React.FC<PageFormProps> = memo(
 
       if (JSON.stringify(values) !== JSON.stringify(formValues)) {
         setFormValues(values);
-        onFormValuesChange && onFormValuesChange(values, setValue);
+        if (onFormValuesChange) {
+          onFormValuesChange(values, setValue);
+        }
       }
     }, [formValues, values, onFormValuesChange, setValue, overrideValues]);
 

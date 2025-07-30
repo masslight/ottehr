@@ -151,7 +151,9 @@ export const useAppointmentUpdate = (): {
     );
 
     patientInfoSavingData.dateOfBirth = dateOfBirth || 'Unknown';
-    !patientInfo.id && (patientInfoSavingData.newPatient = patientInfo.newPatient);
+    if (!patientInfo.id) {
+      patientInfoSavingData.newPatient = patientInfo.newPatient;
+    }
 
     const isUpdateWithEqualPatientInfo =
       operation === 'update' && isPatientInfoEqual(initialPatientInfoRef.current, patientInfoSavingData);

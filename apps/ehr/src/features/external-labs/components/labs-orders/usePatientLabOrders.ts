@@ -80,8 +80,12 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
   // calling without arguments will refetch the data with the current search params
   const setSearchParams = useCallback(
     (searchParams: { pageNumber?: number; testTypeFilter?: string; visitDateFilter?: DateTime | null }) => {
-      searchParams.testTypeFilter !== undefined && (testTypeFilterRef.current = searchParams.testTypeFilter);
-      searchParams.visitDateFilter !== undefined && (visitDateFilterRef.current = searchParams.visitDateFilter);
+      if (searchParams.testTypeFilter !== undefined) {
+        testTypeFilterRef.current = searchParams.testTypeFilter;
+      }
+      if (searchParams.visitDateFilter !== undefined) {
+        visitDateFilterRef.current = searchParams.visitDateFilter;
+      }
       setPage((page) => ({ pageNumber: searchParams.pageNumber || page.pageNumber }));
     },
     []

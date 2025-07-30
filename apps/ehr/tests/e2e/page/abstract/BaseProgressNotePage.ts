@@ -9,7 +9,12 @@ export abstract class BaseProgressNotePage {
   }
 
   async clickDischargeButton(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.progressNotePage.dischargeButton).click();
+    const dischargeButton = this.#page.getByTestId(dataTestIds.progressNotePage.dischargeButton);
+    await expect(dischargeButton).toBeVisible();
+    await expect(dischargeButton).toBeEnabled();
+    await dischargeButton.click();
+    await expect(dischargeButton).toHaveText('Discharged');
+    await expect(dischargeButton).toBeDisabled();
   }
 
   async clickReviewAndSignButton(): Promise<void> {

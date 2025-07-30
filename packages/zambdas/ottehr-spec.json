@@ -205,12 +205,12 @@
       "src": "src/ehr/create-user/index",
       "zip": ".dist/zips/create-user.zip"
     },
-    "DEACTIVATE-USER": {
-      "name": "DEACTIVATE-USER",
+    "USER-ACTIVATION": {
+      "name": "USER-ACTIVATION",
       "type": "http_auth",
       "runtime": "nodejs20.x",
-      "src": "src/ehr/deactivate-user/index",
-      "zip": ".dist/zips/deactivate-user.zip"
+      "src": "src/ehr/user-activation/index",
+      "zip": ".dist/zips/user-activation.zip"
     },
     "GET-APPOINTMENTS": {
       "name": "GET-APPOINTMENTS",

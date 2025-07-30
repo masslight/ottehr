@@ -1,8 +1,8 @@
 import { Autocomplete, Box, TextField } from '@mui/material';
-import dayjs from 'dayjs';
+import { DateTime } from 'luxon';
 import { FC, useEffect } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { isPhoneNumberValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { DOB_DATE_FORMAT, isPhoneNumberValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { isPostalCodeValid } from 'utils';
 import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../../components/form';
 import { RELATIONSHIP_OPTIONS, SEX_OPTIONS } from '../../constants';
@@ -107,10 +107,8 @@ export const ResponsibleInformationContainer: FC = () => {
             required: REQUIRED_FIELD_ERROR_MESSAGE,
             validate: (value: string) => {
               if (!value) return true;
-              const dob = dayjs(value);
-              const today = dayjs();
-              const age = today.diff(dob, 'year');
-              return age >= 18 || 'Responsible party should be older than 18 years';
+              const bdDateTime = DateTime.fromFormat(value, DOB_DATE_FORMAT);
+              return bdDateTime.isValid || 'Date is invalid';
             },
           }}
           defaultValue={''}

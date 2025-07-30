@@ -119,7 +119,7 @@ export default function ({
 
   const { handleSubmit, register, watch, formState, control, setValue, reset } = useForm({
     defaultValues: {
-      amount: '',
+      amount: 0,
       paymentMethod: 'card',
       creditCard: '',
     },
@@ -230,7 +230,7 @@ export default function ({
             >
               <SelectCreditCard
                 patient={patient}
-                selectedCardId={creditCard}
+                selectedCardId={creditCard ?? ''}
                 handleCardSelected={(newVal: string | undefined) => {
                   setValue('creditCard', newVal ?? '');
                 }}

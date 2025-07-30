@@ -5,10 +5,10 @@ import {
   allLicensesForPractitioner,
   GetTelemedAppointmentsInput,
   isLocationVirtual,
+  isNonPaperworkQuestionnaireResponse,
   OTTEHR_MODULE,
   PatientFilterType,
 } from 'utils';
-import { isNonPaperworkQuestionnaireResponse } from '../../../common';
 import { joinLocationsIdsForFhirSearch } from './helpers';
 import { mapStatesToLocationIds, mapTelemedStatusToEncounterAndAppointment } from './mappers';
 import { LocationIdToAbbreviationMap } from './types';

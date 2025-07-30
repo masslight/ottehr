@@ -1,13 +1,22 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CloseIcon from '@mui/icons-material/Close';
-import { Box, Grid, IconButton, Stack, Typography } from '@mui/material';
+import { Box, Grid, IconButton, MenuItem, Skeleton, Stack, TextField, Typography } from '@mui/material';
 import { TypographyOptions } from '@mui/material/styles/createTypography';
 import { styled } from '@mui/system';
 import { enqueueSnackbar } from 'notistack';
 import { useState } from 'react';
+import { useQuery } from 'react-query';
 import { useNavigate, useParams } from 'react-router-dom';
-import { PRACTITIONER_CODINGS, VisitStatusLabel } from 'utils';
+import {
+  getAdmitterPractitionerId,
+  getAttendingPractitionerId,
+  PRACTITIONER_CODINGS,
+  ProviderDetails,
+  VisitStatusLabel,
+} from 'utils';
+import { getEmployees } from '../../../api/api';
 import { dataTestIds } from '../../../constants/data-test-ids';
+import { useApiClients } from '../../../hooks/useAppClients';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../telemed';
 import { useNavigationContext } from '../context/NavigationContext';
@@ -68,6 +77,8 @@ export const Header = (): JSX.Element => {
   const { encounter } = telemedData;
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
   const encounterId = encounter?.id;
+  const assignedIntakePerformerId = encounter ? getAdmitterPractitionerId(encounter) : undefined;
+  const assignedProviderId = encounter ? getAttendingPractitionerId(encounter) : undefined;
   const patientName = format(mappedData?.patientName, 'Name');
   const pronouns = format(mappedData?.pronouns, 'Pronouns');
   const gender = format(mappedData?.gender, 'Gender');
@@ -87,19 +98,87 @@ export const Header = (): JSX.Element => {
   const [_status, setStatus] = useState<VisitStatusLabel | undefined>(undefined);
   const { interactionMode, setInteractionMode } = useNavigationContext();
   const nextMode = interactionMode === 'intake' ? 'provider' : 'intake';
-  const practitionerTypeFromMode =
-    interactionMode === 'intake' ? PRACTITIONER_CODINGS.Attender : PRACTITIONER_CODINGS.Admitter;
-  const { isEncounterUpdatePending, handleUpdatePractitioner } = usePractitionerActions(
-    encounter,
-    'start',
-    practitionerTypeFromMode
+  const {
+    isEncounterUpdatePending: isUpdatingPractitionerForIntake,
+    handleUpdatePractitioner: handleUpdatePractitionerForIntake,
+  } = usePractitionerActions(encounter, 'start', PRACTITIONER_CODINGS.Admitter);
+  const {
+    isEncounterUpdatePending: isUpdatingPractitionerForProvider,
+    handleUpdatePractitioner: handleUpdatePractitionerForProvider,
+  } = usePractitionerActions(encounter, 'start', PRACTITIONER_CODINGS.Attender);
+  const isEncounterUpdatePending = isUpdatingPractitionerForIntake || isUpdatingPractitionerForProvider;
+  const { oystehrZambda } = useApiClients();
+
+  const { data: employees, isFetching: employeesIsFetching } = useQuery(
+    ['get-employees', { oystehrZambda }],
+    async () => {
+      if (oystehrZambda) {
+        const getEmployeesRes = await getEmployees(oystehrZambda);
+        const providers = getEmployeesRes.employees.filter((employee) => employee.isProvider);
+        const formattedProviders: ProviderDetails[] = providers.map((prov) => {
+          const id = prov.profile.split('/')[1];
+          return {
+            practitionerId: id,
+            name: `${prov.firstName} ${prov.lastName}`,
+          };
+        });
+
+        // TODO: remove this once we have nurses role
+        // const nonProviders = getEmployeesRes.employees.filter((employee) => !employee.isProvider);
+        const nonProviders = getEmployeesRes.employees;
+        const formattedNonProviders: ProviderDetails[] = nonProviders.map((prov) => {
+          const id = prov.profile.split('/')[1];
+          return {
+            practitionerId: id,
+            name: `${prov.firstName} ${prov.lastName}`,
+          };
+        });
+        return {
+          providers: formattedProviders,
+          nonProviders: formattedNonProviders,
+        };
+      }
+      return null;
+    }
   );
+
+  if (employeesIsFetching) {
+    return <HeaderSkeleton />;
+  }
+
+  if (!employees) {
+    return <Box sx={{ padding: '16px' }}>There must be some employees registered to use charting.</Box>;
+  }
+
+  const handleUpdateIntakeAssignment = async (practitionerId: string): Promise<void> => {
+    try {
+      if (!appointmentID) return;
+      await handleUpdatePractitionerForIntake(practitionerId);
+      await refetch();
+    } catch (error: any) {
+      console.log(error.message);
+      enqueueSnackbar(`An error occurred trying to update the intake assignment. Please try again.`, {
+        variant: 'error',
+      });
+    }
+  };
+
+  const handleUpdateProviderAssignment = async (practitionerId: string): Promise<void> => {
+    try {
+      if (!appointmentID) return;
+      await handleUpdatePractitionerForProvider(practitionerId);
+      await refetch();
+    } catch (error: any) {
+      console.log(error.message);
+      enqueueSnackbar(`An error occurred trying to update the provider assignment. Please try again.`, {
+        variant: 'error',
+      });
+    }
+  };
 
   const handleSwitchMode = async (): Promise<void> => {
     try {
       if (!appointmentID) return;
-      await handleUpdatePractitioner();
-      void refetch();
       setInteractionMode(nextMode, true);
     } catch (error: any) {
       console.log(error.message);
@@ -132,6 +211,57 @@ export const Header = (): JSX.Element => {
                         {userId}
                       </u>
                     </PatientMetadata>
+                  </Grid>
+                  <Grid item>
+                    <Stack direction="row" spacing={2}>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <PatientMetadata>Intake: </PatientMetadata>
+                        <TextField
+                          select
+                          fullWidth
+                          data-testid={dataTestIds.cssHeader.intakePractitionerInput}
+                          sx={{ minWidth: 120 }}
+                          variant="standard"
+                          value={assignedIntakePerformerId ?? ''}
+                          disabled={isUpdatingPractitionerForIntake}
+                          onChange={(e) => {
+                            void handleUpdateIntakeAssignment(e.target.value);
+                          }}
+                        >
+                          {employees.nonProviders
+                            ?.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+                            ?.map((nonProvider) => (
+                              <MenuItem key={nonProvider.practitionerId} value={nonProvider.practitionerId}>
+                                {nonProvider.name}
+                              </MenuItem>
+                            ))}
+                        </TextField>
+                      </Stack>
+
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <PatientMetadata>Provider: </PatientMetadata>
+                        <TextField
+                          select
+                          fullWidth
+                          data-testid={dataTestIds.cssHeader.providerPractitionerInput}
+                          sx={{ minWidth: 120 }}
+                          variant="standard"
+                          value={assignedProviderId ?? ''}
+                          disabled={isUpdatingPractitionerForProvider}
+                          onChange={(e) => {
+                            void handleUpdateProviderAssignment(e.target.value);
+                          }}
+                        >
+                          {employees.providers
+                            ?.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+                            ?.map((provider) => (
+                              <MenuItem key={provider.practitionerId} value={provider.practitionerId}>
+                                {provider.name}
+                              </MenuItem>
+                            ))}
+                        </TextField>
+                      </Stack>
+                    </Stack>
                   </Grid>
                 </Grid>
               </Grid>
@@ -185,6 +315,79 @@ export const Header = (): JSX.Element => {
                   nextMode={nextMode}
                 />
                 {encounterId ? <InternalNotes encounterId={encounterId} /> : null}
+              </Grid>
+            </Grid>
+          </Grid>
+        </Grid>
+      </Stack>
+    </HeaderWrapper>
+  );
+};
+
+const HeaderSkeleton = (): JSX.Element => {
+  return (
+    <HeaderWrapper>
+      <Stack flexDirection="row">
+        <Box sx={{ width: 70 }} display="flex" alignItems="center" justifyContent="center">
+          <Skeleton sx={{ height: 40, width: 40 }} animation="wave" variant="circular" />
+        </Box>
+        <Grid container spacing={2} sx={{ padding: '0 18px 0 4px' }}>
+          <Grid item xs={12}>
+            <Grid container alignItems="center" justifyContent="space-between">
+              <Grid item>
+                <Grid container alignItems="center" spacing={2}>
+                  <Grid item>
+                    <Skeleton sx={{ width: 120, height: 40 }} animation="wave" />
+                  </Grid>
+                  <Grid item>
+                    <Skeleton sx={{ width: 200 }} animation="wave" variant="text" />
+                  </Grid>
+                  <Grid item>
+                    <Stack direction="row" spacing={2}>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Skeleton sx={{ width: 60 }} animation="wave" variant="text" />
+                        <Skeleton sx={{ width: 120 }} animation="wave" />
+                      </Stack>
+
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Skeleton sx={{ width: 60 }} animation="wave" variant="text" />
+                        <Skeleton sx={{ width: 120 }} animation="wave" />
+                      </Stack>
+                    </Stack>
+                  </Grid>
+                </Grid>
+              </Grid>
+              <Grid item>
+                <Skeleton sx={{ height: 40, width: 40 }} animation="wave" variant="circular" />
+              </Grid>
+            </Grid>
+          </Grid>
+          <Grid item xs={12} sx={{ mt: -2 }}>
+            <Grid container alignItems="center" spacing={2}>
+              <Grid item>
+                <Skeleton sx={{ height: 50, width: 50 }} animation="wave" variant="circular" />
+              </Grid>
+              <Grid item xs>
+                <PatientInfoWrapper>
+                  <Skeleton sx={{ width: 160 }} animation="wave" variant="text" />
+                  <Skeleton sx={{ width: 120 }} animation="wave" variant="text" />
+                </PatientInfoWrapper>
+                <PatientInfoWrapper>
+                  <Skeleton sx={{ width: 120 }} animation="wave" variant="text" />
+                  <Skeleton sx={{ width: 140 }} animation="wave" variant="text" />
+                </PatientInfoWrapper>
+              </Grid>
+              <Grid
+                item
+                sx={{
+                  '@media (max-width: 1179px)': {
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 0.5,
+                  },
+                }}
+              >
+                <Skeleton width={200} height={40} animation="wave" />
               </Grid>
             </Grid>
           </Grid>

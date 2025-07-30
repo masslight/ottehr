@@ -147,11 +147,6 @@ export interface GetTelemedAppointmentsInput {
   userToken: string;
 }
 
-export const PARTICIPANT_TYPE = {
-  ADMITTER: 'ADM',
-  ATTENDER: 'ATND',
-};
-
 export const PRACTITIONER_CODINGS = {
   Admitter: [
     {

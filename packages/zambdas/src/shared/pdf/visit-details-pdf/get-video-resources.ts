@@ -14,8 +14,7 @@ import {
   Resource,
   Schedule,
 } from 'fhir/r4b';
-import { getTimezone, TIMEZONES } from 'utils';
-import { isNonPaperworkQuestionnaireResponse } from '../../../common';
+import { getTimezone, isNonPaperworkQuestionnaireResponse, TIMEZONES } from 'utils';
 import { getVideoRoomResourceExtension } from '../../helpers';
 import { FullAppointmentResourcePackage } from './types';
 
@@ -153,9 +152,9 @@ export const getAppointmentAndRelatedResources = async (
     (item: Resource) => item.resourceType === 'QuestionnaireResponse'
   ) as QuestionnaireResponse;
 
-  const practitioner: Practitioner | undefined = items?.find((item: Resource) => {
+  const practitioners: Practitioner[] | undefined = items.filter((item: Resource) => {
     return item.resourceType === 'Practitioner';
-  }) as Practitioner;
+  }) as Practitioner[];
 
   const documentReferences: DocumentReference[] | undefined = items.filter((item: Resource) => {
     return item.resourceType === 'DocumentReference';
@@ -188,7 +187,7 @@ export const getAppointmentAndRelatedResources = async (
     account,
     location,
     questionnaireResponse,
-    practitioner,
+    practitioners,
     documentReferences,
     coverage,
     listResources,

@@ -213,7 +213,7 @@ const addNewStatusToVisit = (
     }
   }
 
-  if (status === 'ready for discharge') {
+  if (status === 'discharged') {
     const curParticipant = visit.encounter.participant;
     if (curParticipant?.length) {
       const lastParticipant = curParticipant?.[curParticipant.length - 1];
@@ -528,22 +528,18 @@ test('ready for provider patients queue', async () => {
   });
 });
 
-test('ready for discharge patients queue', () => {
-  const prebooked15MinEarly = addNewStatusToVisit(makeVisit_Arrived('pre-booked', -15, 7), 'ready for discharge', 4);
-  const preBooked17MinEarly = addNewStatusToVisit(makeVisit_Arrived('pre-booked', -17, 10), 'ready for discharge', 2);
-  const preBooked10MinEarly = addNewStatusToVisit(makeVisit_Arrived('pre-booked', -10, 5), 'ready for discharge', 1);
-  const prebooked15MinEarly2 = addNewStatusToVisit(makeVisit_Arrived('pre-booked', -15, 1), 'ready for discharge', 0);
-  const preBooked5MinEarly = addNewStatusToVisit(makeVisit_Arrived('pre-booked', -5, 5), 'ready for discharge', 2);
-  const walkinJustNow = addNewStatusToVisit(makeWalkinVisit_Arrived(2), 'ready for discharge', 1);
-  const walkin74MinsAgo = addNewStatusToVisit(makeWalkinVisit_Arrived(74), 'ready for discharge', 20);
-  const walkin75MinsAgo = addNewStatusToVisit(makeWalkinVisit_Arrived(75), 'ready for discharge', 15);
-  const prebookedRightOnTime = addNewStatusToVisit(makeVisit_Arrived('pre-booked', 0, 0), 'ready for discharge', 0);
-  const prebookedAlmostRightOnTime = addNewStatusToVisit(
-    makeVisit_Arrived('pre-booked', 0, 2),
-    'ready for discharge',
-    1
-  );
-  const walkin11MinsAgo = addNewStatusToVisit(makeWalkinVisit_Arrived(11), 'ready for discharge', 6);
+test('discharged patients queue', () => {
+  const prebooked15MinEarly = addNewStatusToVisit(makeVisit_Arrived('pre-booked', -15, 7), 'discharged', 4);
+  const preBooked17MinEarly = addNewStatusToVisit(makeVisit_Arrived('pre-booked', -17, 10), 'discharged', 2);
+  const preBooked10MinEarly = addNewStatusToVisit(makeVisit_Arrived('pre-booked', -10, 5), 'discharged', 1);
+  const prebooked15MinEarly2 = addNewStatusToVisit(makeVisit_Arrived('pre-booked', -15, 1), 'discharged', 0);
+  const preBooked5MinEarly = addNewStatusToVisit(makeVisit_Arrived('pre-booked', -5, 5), 'discharged', 2);
+  const walkinJustNow = addNewStatusToVisit(makeWalkinVisit_Arrived(2), 'discharged', 1);
+  const walkin74MinsAgo = addNewStatusToVisit(makeWalkinVisit_Arrived(74), 'discharged', 20);
+  const walkin75MinsAgo = addNewStatusToVisit(makeWalkinVisit_Arrived(75), 'discharged', 15);
+  const prebookedRightOnTime = addNewStatusToVisit(makeVisit_Arrived('pre-booked', 0, 0), 'discharged', 0);
+  const prebookedAlmostRightOnTime = addNewStatusToVisit(makeVisit_Arrived('pre-booked', 0, 2), 'discharged', 1);
+  const walkin11MinsAgo = addNewStatusToVisit(makeWalkinVisit_Arrived(11), 'discharged', 6);
 
   const visits: VisitDetails[] = [
     prebooked15MinEarly,

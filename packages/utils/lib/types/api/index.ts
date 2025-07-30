@@ -8,7 +8,7 @@ export * from './change-telemed-appointment-status';
 export * from './chart-data';
 export * from './check-in.types';
 export * from './create-user.types';
-export * from './deactivate-user.types';
+export * from './user-activation.types';
 export * from './encounter.types';
 export * from './get-appointments.types';
 export * from './get-employees';

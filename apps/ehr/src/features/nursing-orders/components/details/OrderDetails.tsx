@@ -29,7 +29,7 @@ export const OrderDetails: React.FC<CollectSampleViewProps> = ({ orderDetails, o
             Order Note
           </Typography>
           <Box>
-            <Typography>{orderDetails.note}</Typography>
+            <Typography style={{ whiteSpace: 'pre-line' }}>{orderDetails.note}</Typography>
           </Box>
         </Box>
         {orderDetails.status === NursingOrdersStatus.pending && (

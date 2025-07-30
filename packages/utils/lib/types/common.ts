@@ -570,10 +570,7 @@ export type TaskCoding = {
   readonly code: Task_Codes;
 };
 
-const Task_Members = ['cancelEmail', 'readyText', 'checkInText', 'recordWaitTime', 'confirmationMessages'] as const;
-
-type TaskMember = typeof Task_Members;
-type TaskId = TaskMember[number];
+type TaskId = 'cancelEmail' | 'readyText' | 'checkInText' | 'recordWaitTime' | 'confirmationMessages';
 type TaskIndicator = {
   [key in TaskId]: TaskCoding;
 };

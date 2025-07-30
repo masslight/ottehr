@@ -305,6 +305,7 @@ export default function PatientFollowupForm({
               variant="outlined"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
+              multiline
             />
           </Grid>
           <Grid item xs={10}>

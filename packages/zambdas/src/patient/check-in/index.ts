@@ -14,12 +14,12 @@ import {
   getPatchBinary,
   getSecret,
   getTaskResource,
+  isNonPaperworkQuestionnaireResponse,
   Secrets,
   SecretsKeys,
   TaskIndicator,
   VisitType,
 } from 'utils';
-import { isNonPaperworkQuestionnaireResponse } from '../../common';
 import {
   checkPaperworkComplete,
   createOystehrClient,

@@ -50,7 +50,9 @@ export const InsuranceCardAndPhotoContainer: FC = () => {
       const bundleResource = bundleEntry.resource as Bundle;
       bundleResource.entry?.forEach((entry) => {
         const docRefResource = entry.resource as DocumentReference;
-        docRefResource && documentReferenceResources.push(docRefResource);
+        if (docRefResource) {
+          documentReferenceResources.push(docRefResource);
+        }
       });
     });
 
@@ -70,12 +72,13 @@ export const InsuranceCardAndPhotoContainer: FC = () => {
             (docRefCode === PHOTO_ID_CARD_CODE || (docRefCode === INSURANCE_CARD_CODE && !selfPay))
           ) {
             const presignedUrl = await getPresignedFileUrl(z3Url, authToken);
-            presignedUrl &&
+            if (presignedUrl) {
               allCards.push({
                 z3Url: z3Url,
                 presignedUrl: presignedUrl,
                 type: title as DocumentType,
               });
+            }
           }
         }
       }

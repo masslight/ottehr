@@ -35,7 +35,11 @@ const ControlButtons: FC<ControlButtonsProps> = ({
           data-testid="control-back-button"
           variant="outlined"
           onClick={() => {
-            onBack ? onBack() : navigate(-1);
+            if (onBack) {
+              onBack();
+            } else {
+              navigate(-1);
+            }
           }}
           size="large"
           type="button"
@@ -50,7 +54,7 @@ const ControlButtons: FC<ControlButtonsProps> = ({
         type={onSubmit === undefined ? 'submit' : 'button'}
         onClick={(e) => {
           if (onSubmit !== undefined) {
-            e.preventDefault;
+            e.preventDefault();
             onSubmit();
           }
         }}

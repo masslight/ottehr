@@ -140,6 +140,10 @@ const performEffect = async (
     };
     const paymentIntent = await stripeClient.paymentIntents.create(paymentIntentInput);
 
+    if (paymentIntent.status !== 'succeeded') {
+      throw new Error(`The card payment was not successful. Try a different card`);
+    }
+
     paymentNoticeInput.stripePaymentIntentId = paymentIntent.id;
 
     console.log('Payment Intent created:', JSON.stringify(paymentIntent, null, 2));
@@ -255,7 +259,7 @@ const validateEnvironmentParameters = (input: ZambdaInput, isCardPayment: boolea
   if (isCardPayment) {
     try {
       stripeKey = getSecret(SecretsKeys.STRIPE_SECRET_KEY, secrets);
-    } catch (error) {
+    } catch {
       throw MISCONFIGURED_ENVIRONMENT_ERROR(
         '"STRIPE_SECRET_KEY" environment variable was not set. Please ensure it is configured in project secrets.'
       );

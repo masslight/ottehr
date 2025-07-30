@@ -123,11 +123,27 @@ const makeFormErrorMessage = (items: IntakeQuestionnaireItem[], errors: any): st
     return undefined;
   }
   // console.log('errors in form', JSON.stringify(errors, null, 2));
+
+  // Check if any error is for a group with list-with-form type
+  const hasListWithFormError = items.some((item) => {
+    return errorKeys.includes(item.linkId) && item.type === 'group' && item.groupType === 'list-with-form';
+  });
+
+  // For list-with-form groups, always use the generic singular message
+  if (hasListWithFormError) {
+    return 'Please fix the error in the field above to proceed';
+  }
+
   const errorItems = items
     .filter((i) => errorKeys.includes(i.linkId) && (i.text !== undefined || i.type === 'group'))
     .flatMap((i) => {
       if (i.type === 'group' && i.dataType !== 'DOB') {
         const items = ((errors[i.linkId] as any)?.item ?? []) as any[];
+        if (!Array.isArray(items)) {
+          // If items is not an array, treat it as a single group error
+          return `"${stripMarkdownLink(i.text ?? i.linkId)}"`;
+        }
+
         const internalErrors: IntakeQuestionnaireItem[] = [];
         items.forEach((e, idx) => {
           if (e != null) {
@@ -144,6 +160,7 @@ const makeFormErrorMessage = (items: IntakeQuestionnaireItem[], errors: any): st
       }
       return `"${stripMarkdownLink(i.text ?? '')}"`;
     });
+
   if (numErrors === errorItems.length) {
     if (numErrors > 1) {
       return `Please fix the errors in the following fields to proceed: ${errorItems.map((ei) => ei)}`;
@@ -167,16 +184,17 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
   saveProgress,
 }) => {
   const { paperwork, allItems } = usePaperworkContext();
+
   const [cache, setCache] = useState({
     pageId,
     items,
     defaultValues,
   });
-
   const validationSchema = makeValidationSchema(items, pageId, {
     values: paperwork,
     items: allItems,
   }) as AnyObjectSchema;
+
   const methods = useForm({
     mode: 'onSubmit', // onBlur doesn't seem to work but we use onBlur of FormControl in NestedInput to implement the desired behavior
     reValidateMode: 'onChange',
@@ -185,7 +203,6 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
     shouldFocusError: true,
     resolver: yupResolver(validationSchema, { abortEarly: false }),
   });
-
   const { reset } = methods;
 
   useEffect(() => {
@@ -200,7 +217,6 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
       });
     }
   }, [cache, defaultValues, items, reset, pageId]);
-
   return (
     <FormProvider {...methods}>
       <PaperworkFormRoot

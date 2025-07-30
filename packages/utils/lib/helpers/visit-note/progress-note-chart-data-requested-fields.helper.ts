@@ -18,6 +18,7 @@ export const getProgressNoteChartDataRequestedFields = (): ChartDataRequestedFie
       NOTE_TYPE.HOSPITALIZATION,
       NOTE_TYPE.MEDICAL_CONDITION,
       NOTE_TYPE.SURGICAL_HISTORY,
+      NOTE_TYPE.MEDICATION,
     ]
       .map((note) => `${PRIVATE_EXTENSION_BASE_URL}/${note}|${CSS_NOTE_ID}`)
       .join(','),
@@ -32,6 +33,7 @@ export const getProgressNoteChartDataRequestedFields = (): ChartDataRequestedFie
   },
   externalLabResults: {},
   inHouseLabResults: {},
+  practitioners: {},
 });
 
 export const telemedProgressNoteChartDataRequestedFields: ChartDataRequestedFields = {

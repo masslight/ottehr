@@ -24,7 +24,9 @@ export const InviteParticipantForm: FC<InviteParticipantsFormProps> = ({ onInvit
 
     createInviteMutation.mutate(inviteParams, {
       onSuccess: () => {
-        onInviteSuccess && onInviteSuccess();
+        if (onInviteSuccess) {
+          onInviteSuccess();
+        }
       },
       onError: () => {
         setInviteErrorSnackbarOpen(true);

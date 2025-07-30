@@ -46,7 +46,7 @@ export function CSSModal<T = undefined>({
     try {
       await _handleConfirm(entity as T);
       handleClose();
-    } catch (error) {
+    } catch {
       setError(errorMessage);
       enqueueSnackbar(errorMessage, { variant: 'error' });
     } finally {

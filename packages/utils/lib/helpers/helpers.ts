@@ -23,6 +23,52 @@ export function createOystehrClient(token: string, fhirAPI: string, projectAPI: 
   return new Oystehr(CLIENT_CONFIG);
 }
 
+export type FetchClientWithOystAuth = {
+  oystFetch: <T = any>(method: 'GET' | 'POST' | 'DELETE' | 'PUT' | 'PATCH', url: string, body?: any) => Promise<T>;
+};
+
+export function createFetchClientWithOystAuth(params: {
+  authToken: string;
+  projectId?: string;
+}): FetchClientWithOystAuth {
+  const authToken = params.authToken;
+  const oystehrProjectId = params.projectId;
+
+  async function fetchWithOystehrAuth<T = any>(
+    method: 'GET' | 'POST' | 'DELETE' | 'PUT' | 'PATCH',
+    url: string,
+    body?: any
+  ): Promise<T> {
+    const headers: any = {
+      accept: 'application/json',
+      'content-type': 'application/json',
+      authorization: `Bearer ${authToken}`,
+    };
+    if (oystehrProjectId) headers['x-oystehr-project-id'] = oystehrProjectId;
+    const response = await fetch(url, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+
+    if (!response.ok) {
+      const res = await response.json();
+      throw new Error(`HTTP error for ${method} ${url}: ${res}, ${JSON.stringify(res)}`);
+    }
+    console.log(`Request status for ${method} ${url}: `, response.status);
+
+    if (response.body) {
+      const data = await response.json();
+      return data?.output ? data.output : data;
+    }
+
+    return {} as T;
+  }
+  return {
+    oystFetch: fetchWithOystehrAuth,
+  };
+}
+
 export function getParticipantIdFromAppointment(
   appointment: Appointment,
   participant: 'Patient' | 'Practitioner'
@@ -162,7 +208,7 @@ export function stripMarkdownLink(text: string): string {
   try {
     const str = String(text).replace(/(?:__|[*#])|\[(.*?)\]\(.*?\)/gm, '$1');
     return str;
-  } catch (_) {
+  } catch {
     return text;
   }
 }

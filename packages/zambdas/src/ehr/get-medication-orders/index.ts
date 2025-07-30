@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
+  FhirResource,
   MedicationAdministration,
   MedicationRequest,
   MedicationStatement,
@@ -10,6 +11,7 @@ import {
 } from 'fhir/r4b';
 import {
   ExtendedMedicationDataForResponse,
+  getCurrentOrderedByProviderId,
   getDosageUnitsAndRouteOfMedication,
   getFullestAvailableName,
   getLocationCodeFromMedicationAdministration,
@@ -40,7 +42,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
     console.log('Created zapToken, fhir and clients.');
 
-    const response = await performEffect(oystehr, validatedParameters);
+    const response = await getMedicationOrders(oystehr, validatedParameters);
     return {
       statusCode: 200,
       body: JSON.stringify(response),
@@ -55,7 +57,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 });
 
-async function performEffect(
+export async function getMedicationOrders(
   oystehr: Oystehr,
   validatedParameters: GetMedicationOrdersInput
 ): Promise<GetMedicationOrdersResponse> {
@@ -82,6 +84,10 @@ function mapMedicalAdministrationToDTO(orderPackage: OrderPackage): ExtendedMedi
   const providerCreatedOrderName = providerCreatedOrder ? getFullestAvailableName(providerCreatedOrder) : '';
   const providerAdministeredOrderName = providerAdministeredOrder && getFullestAvailableName(providerAdministeredOrder);
 
+  const currentOrderedByProviderId = getCurrentOrderedByProviderId(medicationAdministration);
+  const providerOrderedBy = orderPackage.providerOrderedBy;
+  const providerOrderedByName = providerOrderedBy ? getFullestAvailableName(providerOrderedBy) : '';
+
   return {
     id: medicationAdministration.id ?? '',
     status: mapFhirToOrderStatus(medicationAdministration) ?? 'pending',
@@ -103,6 +109,9 @@ function mapMedicalAdministrationToDTO(orderPackage: OrderPackage): ExtendedMedi
     dateTimeCreated: medicationAdministration.effectiveDateTime ?? '',
     providerCreatedTheOrderId: getPractitionerIdThatOrderedMedication(medicationAdministration) || '',
     providerCreatedTheOrder: providerCreatedOrderName ?? '',
+
+    providerId: currentOrderedByProviderId,
+    orderedByProvider: providerOrderedByName,
 
     // scanning part
     lotNumber: medication?.batch?.lotNumber,
@@ -168,7 +177,7 @@ async function getOrderPackages(
     params: searchParams,
   });
 
-  const resources = bundle.unbundle();
+  const resources = bundle.unbundle() as FhirResource[];
 
   const medicationAdministrations = resources.filter(
     (res) => res.resourceType === 'MedicationAdministration'
@@ -199,6 +208,11 @@ async function getOrderPackages(
     const idOfProviderAdministeredOrder = getProviderIdAndDateMedicationWasAdministered(ma)?.administeredProviderId;
     const providerAdministeredOrder = resources.find((res) => res.id === idOfProviderAdministeredOrder) as Practitioner;
 
+    const idOfProviderOrderedBy = getCurrentOrderedByProviderId(ma);
+    const providerOrderedBy = idOfProviderOrderedBy
+      ? (resources.find((res) => res.id === idOfProviderOrderedBy) as Practitioner)
+      : undefined;
+
     const medicationRequestId = ma.request?.reference?.split('/')[1];
     const medicationRequest = resources.find(
       (resource) => resource.resourceType === 'MedicationRequest' && resource.id === medicationRequestId
@@ -213,6 +227,7 @@ async function getOrderPackages(
       patient,
       providerCreatedOrder,
       providerAdministeredOrder,
+      providerOrderedBy,
       medicationRequest,
       medicationStatement: relatedMedicationStatement,
     });

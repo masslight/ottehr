@@ -19,6 +19,7 @@ import {
   APIError,
   CreateInHouseLabOrderParameters,
   FHIR_IDC10_VALUESET_SYSTEM,
+  getAttendingPractitionerId,
   getFullestAvailableName,
   IN_HOUSE_LAB_ERROR,
   IN_HOUSE_LAB_TASK,
@@ -34,7 +35,6 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
-import { getAttendingPractitionerId } from '../shared/in-house-labs';
 import { getPrimaryInsurance } from '../shared/labs';
 import { validateRequestParameters } from './validateRequestParameters';
 let m2mToken: string;
@@ -124,7 +124,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       try {
         const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
         return await getMyPractitionerId(oystehrCurrentUser);
-      } catch (e) {
+      } catch {
         throw Error(
           'Resource configuration error - user creating this in-house lab order must have a Practitioner resource linked'
         );
@@ -269,6 +269,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     })();
 
     const attendingPractitionerId = getAttendingPractitionerId(encounter);
+    if (!attendingPractitionerId) throw Error('Attending practitioner not found');
 
     const { currentUserPractitionerName, attendingPractitionerName } = await Promise.all([
       oystehrCurrentUser.fhir.get<Practitioner>({

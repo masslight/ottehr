@@ -1,15 +1,14 @@
 import { Operation } from 'fast-json-patch';
 import { Patient } from 'fhir/r4b';
-import { useMutation, useQuery } from 'react-query';
+import { useMutation, useQuery, UseQueryResult } from 'react-query';
 import { addOrReplaceOperation, GetOrUploadPatientProfilePhotoZambdaResponse, removeOperation } from 'utils';
 import { getSignedPatientProfilePhotoUrl } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetSignedPatientProfilePhotoUrlQuery = (
   z3PhotoUrl?: string,
   onSuccess?: (response: GetOrUploadPatientProfilePhotoZambdaResponse) => void
-) => {
+): UseQueryResult<GetOrUploadPatientProfilePhotoZambdaResponse, unknown> => {
   const { oystehrZambda } = useApiClients();
   return useQuery(
     ['Get-Signed-Patient-Profile-Photo-Url', z3PhotoUrl],
