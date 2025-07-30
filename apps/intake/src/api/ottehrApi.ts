@@ -24,6 +24,7 @@ import {
   PatientInfo,
   PersistConsentInput,
   PresignUploadUrlResponse,
+  ServiceMode,
   StartInterviewInput,
   SubmitPaperworkParameters,
   UCGetPaperworkResponse,
@@ -49,6 +50,7 @@ const UPDATE_APPOINTMENT_ZAMBDA_ID = 'update-appointment';
 const GET_PATIENTS_ZAMBDA_ID = 'get-patients';
 const GET_SCHEDULE_ZAMBDA_ID = 'get-schedule';
 const TELEMED_GET_APPOINTMENTS_ZAMBDA_ID = 'telemed-get-appointments';
+const IN_PERSON_GET_APPOINTMENTS_ZAMBDA_ID = 'intake-get-appointments';
 const GET_PAPERWORK_ZAMBDA_ID = 'get-paperwork';
 const GET_PRESIGNED_FILE_URL = 'get-presigned-file-url';
 const GET_APPOINTMENT_DETAILS = 'get-appointment-details';
@@ -234,12 +236,20 @@ class API {
     }
   }
 
-  async getAppointments(zambdaClient: ZambdaClient, parameters?: GetAppointmentParameters): Promise<any> {
+  async getAppointments(
+    zambdaClient: ZambdaClient,
+    serviceMode: ServiceMode,
+    parameters?: GetAppointmentParameters
+  ): Promise<any> {
     try {
-      if (TELEMED_GET_APPOINTMENTS_ZAMBDA_ID == null || REACT_APP_IS_LOCAL == null) {
+      const zambdaId =
+        serviceMode === ServiceMode['in-person']
+          ? IN_PERSON_GET_APPOINTMENTS_ZAMBDA_ID
+          : TELEMED_GET_APPOINTMENTS_ZAMBDA_ID;
+      if (zambdaId == null || REACT_APP_IS_LOCAL == null) {
         throw new Error('get appointments environment variable could not be loaded');
       }
-      const response = await zambdaClient.execute(TELEMED_GET_APPOINTMENTS_ZAMBDA_ID, parameters);
+      const response = await zambdaClient.execute(zambdaId, parameters);
 
       const jsonToUse = chooseJson(response);
       return jsonToUse;
