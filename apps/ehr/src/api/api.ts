@@ -17,6 +17,7 @@ import {
   CollectInHouseLabSpecimenZambdaOutput,
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
+  CreateDischargeSummaryInput,
   CreateInHouseLabOrderParameters,
   CreateInHouseLabOrderResponse,
   CreateLabOrderParameters,
@@ -126,6 +127,7 @@ const CREATE_NURSING_ORDER_ZAMBDA_ID = 'create-nursing-order';
 const UPDATE_NURSING_ORDER = 'update-nursing-order';
 const GET_LABEL_PDF_ZAMBDA_ID = import.meta.env.VITE_APP_GET_LABEL_PDF_ZAMBDA_ID;
 const GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID = import.meta.env.VITE_APP_GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID;
+const CREATE_DISCHARGE_SUMMARY = 'create-discharge-summary';
 const PAPERWORK_TO_PDF_ZAMBDA_ID = 'paperwork-to-pdf';
 
 export const getUser = async (token: string): Promise<User> => {
@@ -943,6 +945,22 @@ export const updateNursingOrder = async (oystehr: Oystehr, parameters: UpdateNur
   try {
     const response = await oystehr.zambda.execute({
       id: UPDATE_NURSING_ORDER,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const createDischargeSummary = async (
+  oystehr: Oystehr,
+  parameters: CreateDischargeSummaryInput
+): Promise<any> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: CREATE_DISCHARGE_SUMMARY,
       ...parameters,
     });
     return chooseJson(response);
