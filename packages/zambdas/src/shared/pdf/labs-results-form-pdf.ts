@@ -560,6 +560,9 @@ async function createLabsResultsFormPdfBytes(dataConfig: ResultDataConfig): Prom
 
   // draw header which is same for external and in house at the moment
   // drawFieldLine('Patient Name:', 'test');
+  console.log(
+    `Drawing patient name. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   if (data.patientMiddleName) {
     pdfClient.drawText(
       `${data.patientLastName}, ${data.patientFirstName}, ${data.patientMiddleName}`,
@@ -569,6 +572,9 @@ async function createLabsResultsFormPdfBytes(dataConfig: ResultDataConfig): Prom
     pdfClient.drawText(`${data.patientLastName}, ${data.patientFirstName}`, textStyles.textBold);
   }
 
+  console.log(
+    `Drawing location name. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   pdfClient.drawText(`Ottehr${data.locationName || ''}`, textStyles.textBoldRight);
   pdfClient.newLine(STANDARD_NEW_LINE);
 
@@ -576,11 +582,20 @@ async function createLabsResultsFormPdfBytes(dataConfig: ResultDataConfig): Prom
     data.locationState?.toUpperCase() || ''
   }${data.locationState ? ' ' : ''}${data.locationZip?.toUpperCase() || ''}`;
 
+  console.log(
+    `Drawing patient dob and sex. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   pdfClient.drawText(`${data.patientDOB}, ${calculateAge(data.patientDOB)} Y, ${data.patientSex}`, textStyles.text);
+  console.log(
+    `Drawing location city, state, zip. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   pdfClient.drawText(locationCityStateZip, textStyles.textRight);
 
   pdfClient.newLine(STANDARD_NEW_LINE);
 
+  console.log(
+    `Drawing patient id. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   pdfClient.drawText(`ID: ${data.patientId}`, textStyles.text);
 
   let margin =
@@ -596,6 +611,9 @@ async function createLabsResultsFormPdfBytes(dataConfig: ResultDataConfig): Prom
 
   let iconStyleTemp = { ...ICON_STYLE, margin: { left: margin } };
   if (data.locationPhone) {
+    console.log(
+      `Drawing phone. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+    );
     pdfClient.drawImage(callIcon, iconStyleTemp, textStyles.text);
     pdfClient.drawTextSequential(` ${data.locationPhone}`, textStyles.text);
   }
@@ -611,13 +629,23 @@ async function createLabsResultsFormPdfBytes(dataConfig: ResultDataConfig): Prom
         5;
     }
     iconStyleTemp = { ...iconStyleTemp, margin: { left: margin } };
+    console.log(
+      `Drawing fax. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+    );
     pdfClient.drawImage(faxIcon, iconStyleTemp, textStyles.text);
     pdfClient.drawTextSequential(` ${data.locationFax}`, textStyles.text);
   }
 
+  console.log(
+    `Drawing patient phone. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   pdfClient.newLine(STANDARD_NEW_LINE);
   pdfClient.drawText(data.patientPhone, textStyles.text);
   pdfClient.newLine(STANDARD_NEW_LINE);
+
+  console.log(
+    `Drawing result header. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   pdfClient.drawText(`${data.resultStatus} RESULT`, textStyles.headerRight);
   pdfClient.newLine(STANDARD_NEW_LINE);
   pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
@@ -625,8 +653,10 @@ async function createLabsResultsFormPdfBytes(dataConfig: ResultDataConfig): Prom
   // draw the rest of the pdf which is specific to the type of lab request
   let pdfBytes: Uint8Array | undefined;
   if (type === LabType.external) {
+    console.log('Getting pdf bytes for external lab results');
     pdfBytes = await createExternalLabsResultsFormPdfBytes(pdfClient, textStyles, data);
   } else if (type === LabType.inHouse) {
+    console.log('Getting pdf bytes for in house lab results');
     pdfBytes = await createInHouseLabsResultsFormPdfBytes(pdfClient, textStyles, data);
   }
   if (!pdfBytes) throw new Error('pdfBytes could not be drawn');
@@ -639,26 +669,60 @@ async function createExternalLabsResultsFormPdfBytes(
   data: ExternalLabResultsData
 ): Promise<Uint8Array> {
   // Order details
+  console.log(
+    `Drawing accession. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   pdfClient = drawFieldLine(pdfClient, textStyles, 'Accession ID:', data.accessionNumber);
   pdfClient.newLine(STANDARD_NEW_LINE);
+
+  console.log(
+    `Drawing requesting physician. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   pdfClient = drawFieldLine(pdfClient, textStyles, 'Requesting Physician:', data.providerName);
   pdfClient.newLine(STANDARD_NEW_LINE);
+
+  console.log(
+    `Drawing ordering physician. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   pdfClient = drawFieldLine(pdfClient, textStyles, 'Ordering Physician:', data.providerName);
   pdfClient.newLine(STANDARD_NEW_LINE);
+
+  console.log(
+    `Drawing order num. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   pdfClient = drawFieldLine(pdfClient, textStyles, 'Order Number:', data.orderNumber);
   pdfClient.newLine(STANDARD_NEW_LINE);
+
+  console.log(
+    `Drawing order pri. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   pdfClient = drawFieldLine(pdfClient, textStyles, 'Order Priority:', data.orderPriority.toUpperCase());
   pdfClient.newLine(STANDARD_NEW_LINE);
+
+  console.log(
+    `Drawing order date. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   pdfClient = drawFieldLine(pdfClient, textStyles, 'Order Date:', data.orderSubmitDate);
   pdfClient.newLine(STANDARD_NEW_LINE);
+
+  console.log(
+    `Drawing collection date. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   pdfClient = drawFieldLine(pdfClient, textStyles, 'Collection Date:', data.collectionDate);
   pdfClient.newLine(STANDARD_NEW_LINE);
+
+  console.log(
+    `Drawing results date. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   pdfClient = drawFieldLine(pdfClient, textStyles, 'Results Date:', data.resultsReceivedDate);
   pdfClient.newLine(STANDARD_FONT_SIZE);
   pdfClient.newLine(STANDARD_FONT_SIZE);
 
   pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
 
+  console.log(
+    `Drawing diagnoses. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   pdfClient = drawFieldLine(
     pdfClient,
     textStyles,
@@ -671,6 +735,9 @@ async function createExternalLabsResultsFormPdfBytes(
   pdfClient.newLine(STANDARD_NEW_LINE);
   pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
 
+  console.log(
+    `Drawing four column text header. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   pdfClient = drawFourColumnText(
     pdfClient,
     textStyles,
@@ -682,6 +749,10 @@ async function createExternalLabsResultsFormPdfBytes(
   pdfClient.newLine(STANDARD_NEW_LINE);
   pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
   pdfClient.newLine(STANDARD_NEW_LINE);
+
+  console.log(
+    `Drawing four column text content. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   pdfClient = drawFourColumnText(
     pdfClient,
     textStyles,
@@ -692,6 +763,10 @@ async function createExternalLabsResultsFormPdfBytes(
     getResultRowDisplayColor(data.resultInterpretations)
   );
   pdfClient.newLine(STANDARD_NEW_LINE);
+
+  console.log(
+    `Drawing results. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   for (const labResult of data.externalLabResults) {
     pdfClient.newLine(14);
     pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
@@ -733,6 +808,9 @@ async function createExternalLabsResultsFormPdfBytes(
 
     // add any notes included for the observation
     if (labResult.resultNotes?.length) {
+      console.log(
+        `Drawing observation notes. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+      );
       pdfClient.drawText('Notes:', textStyles.textBold);
       pdfClient.newLine(STANDARD_NEW_LINE);
 
@@ -759,6 +837,9 @@ async function createExternalLabsResultsFormPdfBytes(
   pdfClient.newLine(STANDARD_NEW_LINE);
 
   // Performing lab details
+  console.log(
+    `Drawing performing lab details. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   pdfClient.drawText(`PERFORMING LAB: ${data.performingLabName}`, textStyles.textRight);
   if (data.performingLabAddress) {
     pdfClient.newLine(STANDARD_NEW_LINE);
@@ -779,6 +860,9 @@ async function createExternalLabsResultsFormPdfBytes(
 
   // Reviewed by
   if (data.reviewed) {
+    console.log(
+      `Drawing reviewed by. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+    );
     pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
     pdfClient.newLine(STANDARD_NEW_LINE);
     const name = data.reviewingProvider ? getFullestAvailableName(data.reviewingProvider) : '';
