@@ -42,7 +42,7 @@ export const Visit_Status_Array = [
   'intake',
   'ready for provider',
   'provider',
-  'ready for discharge',
+  'discharged',
   'cancelled',
   'no show',
   'completed',
@@ -60,7 +60,7 @@ export const visitStatusToFhirAppointmentStatusMap: Record<VisitStatusWithoutUnk
   intake: 'checked-in',
   'ready for provider': 'fulfilled',
   provider: 'fulfilled',
-  'ready for discharge': 'fulfilled',
+  discharged: 'fulfilled',
   cancelled: 'cancelled',
   'no show': 'noshow',
   completed: 'fulfilled',
@@ -73,7 +73,7 @@ export const visitStatusToFhirEncounterStatusMap: Record<VisitStatusWithoutUnkno
   intake: 'in-progress',
   'ready for provider': 'in-progress',
   provider: 'in-progress',
-  'ready for discharge': 'in-progress',
+  discharged: 'in-progress',
   cancelled: 'cancelled',
   'no show': 'cancelled',
   completed: 'finished',
@@ -124,4 +124,19 @@ export interface WalkinAvailabilityCheckResult {
   scheduleOwnerName: string;
   scheduleId: string;
   serviceMode?: ServiceMode;
+}
+export interface PatientAppointmentDTO {
+  id: string;
+  patientID: string;
+  firstName: string;
+  middleName: string;
+  lastName: string;
+  start: string;
+  status: string;
+  location?: { name: string; id: string; slug: string; state: string; timezone: string };
+  paperworkComplete: boolean;
+  checkedIn: boolean;
+  visitType: string;
+  visitStatus: VisitStatusLabel;
+  slotId?: string;
 }

@@ -294,7 +294,6 @@ export const makeValidationSchema = (
   pageId?: string,
   externalContext?: { values: any; items: any }
 ): any => {
-  // console.log('validation items', items);
   if (pageId !== undefined) {
     // we are validating one page of the questionnaire
     const itemsToValidate = items.find((i) => {
@@ -308,7 +307,6 @@ export const makeValidationSchema = (
       // this is the branch hit from frontend validation. it is nearly the same as the branch hit by
       // patch. in this case item list is provided directly, where as with Patch it is provided as
       // the item field on { linkId: pageId, item: items }. might be nice to consolidate this.
-      // console.log('page id not found; assuming it is root and making schema from items');
       return Yup.lazy((values: any, options: any) => {
         return makeValidationSchemaPrivate({
           items,
@@ -324,7 +322,7 @@ export const makeValidationSchema = (
         const { linkId: pageId, item: answerItem } = value;
         const questionItem = items.find((i) => i.linkId === pageId);
         if (!questionItem) {
-          // console.log('page not found');
+          console.log('page not found');
           return context.createError({ message: `Page ${pageId} not found in Questionnaire` });
         }
         if (answerItem === undefined) {
@@ -365,7 +363,6 @@ const makeValidationSchemaPrivate = (input: PrivateMakeSchemaArgs): Yup.AnyObjec
   const { items, formValues, externalContext: maybeExternalContext } = input;
   // const contextualItems = maybeExternalContext?.items ?? [];
   const externalValues = maybeExternalContext?.values ?? [];
-  // console.log('validation items', items);
   // these allow us some flexibility to inject field dependencies from another
   // paperwork page, or anywhere outside the context of the immediate form being validated,
   // or to keep parent/sibling items in context when drilling down into a group
@@ -378,7 +375,9 @@ const makeValidationSchemaPrivate = (input: PrivateMakeSchemaArgs): Yup.AnyObjec
       }
       return accum;
     }, {} as any);
+
   allValues = { ...allValues, ...formValues };
+
   const validatableItems = [...items]
     .filter((item) => item?.type !== 'display' && !item?.readOnly && !evalFilterWhen(item, allValues))
     .flatMap((item) => makeValidatableItem(item));
@@ -392,7 +391,7 @@ const makeValidationSchemaPrivate = (input: PrivateMakeSchemaArgs): Yup.AnyObjec
         formValues,
         externalContext: maybeExternalContext,
       });
-      // console.log('embedded schema', embeddedSchema);
+
       schemaTemp = Yup.object().shape({
         linkId: Yup.string(),
         item: Yup.array()
@@ -400,7 +399,6 @@ const makeValidationSchemaPrivate = (input: PrivateMakeSchemaArgs): Yup.AnyObjec
             if (!Array.isArray(v)) {
               return v;
             }
-            // console.log('sorted pre insert', JSON.stringify(v));
             const filled = filteredItems.map((item) => {
               const match = v.find((i) => {
                 return i?.linkId === item?.linkId;
@@ -418,7 +416,6 @@ const makeValidationSchemaPrivate = (input: PrivateMakeSchemaArgs): Yup.AnyObjec
                 return { linkId: item.linkId };
               }
             });
-            // console.log('sorted post insert', JSON.stringify(filled));
             return filled;
           })
           .of(
@@ -426,10 +423,10 @@ const makeValidationSchemaPrivate = (input: PrivateMakeSchemaArgs): Yup.AnyObjec
               `${item.linkId} group member test`,
               // test function, determines schema validity
               (val: any, context: any) => {
-                // console.log('testing val', val, context);
                 const parentContext = context?.from?.pop()?.value ?? {};
                 const combinedContext = { ...(externalValues ?? {}), ...(parentContext ?? {}) };
                 const shouldFilter = evalFilterWhen(item, combinedContext);
+
                 // if the parent item should be filtered we've normalized any items to linkId placeholders
                 // and can safely return true here, only proceeding to test conformance of each embedded item
                 // with the schema if the encompassing parent is not filtered out.
@@ -457,7 +454,6 @@ const makeValidationSchemaPrivate = (input: PrivateMakeSchemaArgs): Yup.AnyObjec
                     // console.log('idx', idx, itemLinkId, val, item);
                     return embeddedSchema.validateAt(val.linkId, memberItem);
                   } catch (e) {
-                    console.log('thrown error from group member test', e);
                     // this special one-off handling deals with the allergies page, which has an item that
                     // powers some logic in the form, but is not actually a field that needs to be validated because it
                     // contributes no persisted values. there's probably a better way to handle this, but this works for now.
@@ -493,8 +489,6 @@ const makeValidationSchemaPrivate = (input: PrivateMakeSchemaArgs): Yup.AnyObjec
       } else {
         validationTemp[item.linkId] = schemaTemp;
       }
-    } else {
-      console.log('undefined schema', item.linkId);
     }
   });
   return Yup.object().shape(validationTemp);
@@ -667,7 +661,8 @@ export const evalRequired = (item: IntakeQuestionnaireItem, context: any, questi
     return false;
   }
 
-  return evalCondition(item.requireWhen, context, item.type, questionVal);
+  const result = evalCondition(item.requireWhen, context, item.type, questionVal);
+  return result;
 };
 
 export const evalItemText = (item: IntakeQuestionnaireItem, context: any, questionVal?: any): string | undefined => {
@@ -726,7 +721,7 @@ export const evalComplexValidationTrigger = (
   context: any,
   questionVal?: any
 ): boolean => {
-  // console.log('item.complex', item.complexValidation?.type, item.complexValidation?.triggerWhen);
+  console.log('item.complex', item.complexValidation?.type, item.complexValidation?.triggerWhen);
   if (item.complexValidation === undefined) {
     return false;
   } else if (item.complexValidation?.triggerWhen === undefined) {

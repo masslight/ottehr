@@ -70,16 +70,14 @@ test.describe('Book appointment', async () => {
     const patientInfoPage = await intakeTestAppointment(page, resourceHandler);
     await patientInfoPage.cssHeader().verifyStatus('intake');
     await patientInfoPage.sideMenu().clickCompleteIntakeButton();
-    await patientInfoPage.cssHeader().verifyStatus('provider');
-    // await patientInfoPage.cssHeader().verifyStatus('ready for provider');
+    await patientInfoPage.cssHeader().verifyStatus('ready for provider');
   });
 
   test('Book appointment, go to Hospitalization page and complete Intake, check statuses', async ({ page }) => {
     const patientInfoPage = await intakeTestAppointment(page, resourceHandler);
     const hospitalizationPage = await patientInfoPage.sideMenu().clickHospitalization();
     await hospitalizationPage.clickCompleteIntakeButton();
-    await patientInfoPage.cssHeader().verifyStatus('provider');
-    // await patientInfoPage.cssHeader().verifyStatus('ready for provider');
+    await patientInfoPage.cssHeader().verifyStatus('ready for provider');
   });
 
   test('Book appointment,fill required fields for signing the visit, review and sign progress note', async ({
@@ -189,7 +187,8 @@ async function BookAppointmentFillInfoSignProgressNote(page: Page, resourceHandl
   await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
   const patientInfoPage = await intakeTestAppointment(page, resourceHandler);
   await patientInfoPage.sideMenu().clickCompleteIntakeButton();
-  await patientInfoPage.cssHeader().clickSwitchStatusButton('provider');
+  await patientInfoPage.cssHeader().clickSwitchModeButton('provider');
+  await patientInfoPage.cssHeader().changeStatus('provider');
   const progressNotePage = await expectInPersonProgressNotePage(page);
   await progressNotePage.verifyReviewAndSignButtonDisabled();
   await patientInfoPage.sideMenu().clickAssessment();

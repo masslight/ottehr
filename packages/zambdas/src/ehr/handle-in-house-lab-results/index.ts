@@ -27,6 +27,7 @@ import {
   ABNORMAL_OBSERVATION_INTERPRETATION,
   extractAbnormalValueSetValues,
   extractQuantityRange,
+  getAttendingPractitionerId,
   getFullestAvailableName,
   getSecret,
   HandleInHouseLabResultsZambdaOutput,
@@ -50,7 +51,6 @@ import {
   ZambdaInput,
 } from '../../shared';
 import { createInHouseLabResultPDF } from '../../shared/pdf/labs-results-form-pdf';
-import { getAttendingPractitionerId } from '../../shared/practitioner/helpers';
 import { getServiceRequestsRelatedViaRepeat, getUrlAndVersionForADFromServiceRequest } from '../shared/in-house-labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -99,6 +99,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       { id: attendingPractitioner.id || '', name: attendingPractitionerName }
     );
 
+    console.log(`These are the fhir requests getting made: ${JSON.stringify(requests)}`);
     const res = await oystehr.fhir.transaction({ requests });
     console.log('check the res', JSON.stringify(res));
 
@@ -294,6 +295,7 @@ const getInHouseLabResultResources = async (
 
   const encounter = encounters[0];
   const attendingPractitionerId = getAttendingPractitionerId(encounter);
+  if (!attendingPractitionerId) throw Error('Attending practitioner not found');
   const schedule = schedules[0];
   const location = locations.length ? locations[0] : undefined;
 

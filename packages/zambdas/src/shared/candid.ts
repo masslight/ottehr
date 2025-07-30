@@ -58,6 +58,7 @@ import {
 import { DateTime } from 'luxon';
 import {
   FHIR_IDENTIFIER_NPI,
+  getAttendingPractitionerId,
   getOptionalSecret,
   getPayerId,
   getSecret,
@@ -209,11 +210,20 @@ const createCandidCreateEncounterInput = async (
 
   const { appointment } = await fetchFHIRPatientAndAppointmentFromEncounter(encounter.id, oystehr);
 
+  const practitionerId = getAttendingPractitionerId(encounter);
+  let practitioner: Practitioner | null = null;
+  if (practitionerId) {
+    practitioner = visitResources.practitioners?.find((practitioner) => practitioner.id === practitionerId) ?? null;
+  }
+  if (!practitioner) {
+    practitioner = visitResources.practitioners?.[0] ?? null;
+  }
+
   return {
     appointment: appointment,
     encounter: encounter,
     patient: assertDefined(visitResources.patient, `Patient on encounter ${encounterId}`),
-    practitioner: assertDefined(visitResources.practitioner, `Practitioner on encounter ${encounterId}`),
+    practitioner: assertDefined(practitioner, `Practitioner on encounter ${encounterId}`),
     diagnoses: (
       await oystehr.fhir.search<Condition>({
         resourceType: 'Condition',
@@ -556,7 +566,7 @@ async function createPreEncounterPatient(
     );
   }
 
-  console.log('alex patient,', patient);
+  console.log('[CLAIM SUBMISSION] patient details ', patient);
 
   const patientAddress = patient.address?.[0];
   if (!patientAddress) {
@@ -969,10 +979,9 @@ const buildCandidCoverageCreateInput = (
         country: subscriber.address?.[0].country ?? 'US', // TODO just save country into the FHIR resource when making it https://build.fhir.org/datatypes-definitions.html#Address.country. We can put US by default to start.
       },
     },
-    relationship: assertDefined(
-      coverage.relationship?.coding?.[0].code,
-      'Subscriber relationship'
-    ).toUpperCase() as Relationship,
+    relationship: convertCoverageRelationshipToCandidRelationship(
+      assertDefined(coverage.relationship?.coding?.[0].code, 'Subscriber relationship')
+    ),
     status: 'ACTIVE',
     patient: candidPatient.id,
     verified: true,
@@ -983,6 +992,30 @@ const buildCandidCoverageCreateInput = (
     },
   };
 };
+
+function convertCoverageRelationshipToCandidRelationship(relationship: string): Relationship {
+  const normalizedString = relationship.toUpperCase().trim();
+
+  //
+  // Normalize the string to match the expected values from FHIR specification
+  // defined here https://build.fhir.org/valueset-subscriber-relationship.html
+  //
+  //
+  switch (normalizedString) {
+    case 'SELF':
+      return Relationship.Self;
+    case 'SPOUSE':
+      return Relationship.Spouse;
+    case 'PARENT':
+      return Relationship.Other;
+    case 'CHILD':
+      return Relationship.Child;
+    case 'COMMON':
+      return Relationship.CommonLawSpouse;
+    default:
+      return Relationship.Other;
+  }
+}
 
 const fetchFHIRPatientAndAppointmentFromEncounter = async (
   encounterId: string,

@@ -43,6 +43,7 @@ export type PatientDocumentInfo = {
   //TODO: where to get data for this field?
   whoAdded?: string;
   attachments?: PatientDocumentAttachment[];
+  encounterId?: string;
 };
 
 export type PatientDocumentsFilters = {
@@ -94,6 +95,7 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
   const [documents, setDocuments] = useState<PatientDocumentInfo[]>();
   const [documentsFolders, setDocumentsFolders] = useState<PatientDocumentsFolder[]>([]);
   const [currentFilters, setCurrentFilters] = useState<PatientDocumentsFilters | undefined>(filters);
+  const { oystehr } = useApiClients();
 
   const { isLoading: isLoadingFolders } = useGetPatientDocsFolders({ patientId }, (docsFolders) => {
     console.log(`[useGetPatientDocs] Folders data loading SUCCESS size=[${docsFolders.length}]. Content => `);
@@ -130,7 +132,25 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
   const downloadDocument = useCallback(
     async (documentId: string): Promise<void> => {
       const authToken = await getAccessTokenSilently();
-      const patientDoc = getDocumentById(documentId);
+      let patientDoc = getDocumentById(documentId);
+
+      if (!patientDoc && oystehr) {
+        const docRef = (
+          await oystehr.fhir.search<DocumentReference>({
+            resourceType: 'DocumentReference',
+            params: [
+              {
+                name: '_id',
+                value: documentId,
+              },
+            ],
+          })
+        ).unbundle()[0];
+        if (docRef) {
+          patientDoc = createDocumentInfo(docRef);
+          setDocuments([...(documents ?? []), patientDoc]);
+        }
+      }
 
       const docAttachments = patientDoc?.attachments ?? [];
       if (docAttachments.length === 0) {
@@ -184,7 +204,7 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
           });
       }
     },
-    [getAccessTokenSilently, getDocumentById]
+    [documents, getAccessTokenSilently, getDocumentById, oystehr]
   );
 
   return {
@@ -383,11 +403,7 @@ const extractDocumentAttachments = (docRef: DocumentReference): PatientDocumentA
 //TODO: for now its not clear how real doc_name will be created based on the attachments data
 // there is ongoing problem having multiple attachments per single DocumentReference resource
 const debug__createDisplayedDocumentName = (docRef: DocumentReference): string => {
-  const removeTrailingDelimiter = (str: string): string => str.replace(/&$/, '');
-  const docName = (extractDocumentAttachments(docRef) ?? []).reduce((acc: string, item: PatientDocumentAttachment) => {
-    return `${acc}${item.title} & `;
-  }, '');
-  return removeTrailingDelimiter(docName.trim());
+  return (extractDocumentAttachments(docRef) ?? []).map((item) => item.title).join(' & ');
 };
 
 //TODO: OystEHR FHIR backed is going to add support for "_text" search modifier and necessary migration changes is also
@@ -495,3 +511,13 @@ export interface UploadPatientDocumentResponse {
   z3Url: string;
   presignedUrl: string;
 }
+
+const createDocumentInfo = (documentReference: DocumentReference): PatientDocumentInfo => {
+  return {
+    id: documentReference.id!,
+    docName: debug__createDisplayedDocumentName(documentReference),
+    whenAddedDate: documentReference.date,
+    attachments: extractDocumentAttachments(documentReference),
+    encounterId: documentReference.context?.encounter?.[0]?.reference?.split('/')?.[1],
+  };
+};

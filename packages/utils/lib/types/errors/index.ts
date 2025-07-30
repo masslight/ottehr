@@ -64,7 +64,7 @@ export const isApiError = (errorObject: unknown | undefined): boolean => {
   if (typeof asObj === 'string') {
     try {
       asObj = JSON.parse(asObj);
-    } catch (_) {
+    } catch {
       return false;
     }
   }
@@ -303,6 +303,7 @@ export const EXTERNAL_LAB_ERROR = (message: string): APIError => {
     message,
   };
 };
+export const ORDER_SUBMITTED_MESSAGE = 'Order is already submitted';
 
 export const IN_HOUSE_LAB_ERROR = (message: string): APIError => {
   return {

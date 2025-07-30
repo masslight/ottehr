@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { Outlet } from 'react-router-dom';
-import { PRACTITIONER_CODINGS } from 'utils';
+import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils';
 import { useResetAppointmentStore } from '../../../telemed';
 import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
 import { CommonLayoutBreadcrumbs } from '../components/breadcrumbs/CommonLayoutBreadcrumbs';
@@ -50,19 +50,9 @@ export const CSSLayout: React.FC = () => {
     shouldUpdateExams: true,
   });
 
-  const assignedIntakePerformer = encounter.participant?.find((participant) => {
-    return participant.type?.some(
-      (type) =>
-        type.coding?.some((coding) => JSON.stringify(coding) === JSON.stringify(PRACTITIONER_CODINGS.Admitter[0]))
-    );
-  });
+  const assignedIntakePerformerId = getAdmitterPractitionerId(encounter);
 
-  const assignedProvider = encounter.participant?.find((participant) => {
-    return participant.type?.some(
-      (type) =>
-        type.coding?.some((coding) => JSON.stringify(coding) === JSON.stringify(PRACTITIONER_CODINGS.Attender[0]))
-    );
-  });
+  const assignedProviderId = getAttendingPractitionerId(encounter);
 
   return (
     <div style={layoutStyle}>
@@ -79,7 +69,7 @@ export const CSSLayout: React.FC = () => {
               padding: '20px 20px 24px 20px',
             }}
           >
-            {assignedIntakePerformer && assignedProvider ? (
+            {assignedIntakePerformerId && assignedProviderId ? (
               <>
                 <CommonLayoutBreadcrumbs />
                 <Outlet />

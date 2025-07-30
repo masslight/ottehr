@@ -241,7 +241,6 @@ export const useGetAppointment = (
   return query;
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetDocumentReferences = (
   {
     appointmentId,
@@ -251,6 +250,7 @@ export const useGetDocumentReferences = (
     patientId: string | undefined;
   },
   onSuccess: (data: Bundle<FhirResource>) => void
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
   const { oystehr } = useApiClients();
   const queryResult = useQuery({
@@ -402,7 +402,6 @@ export type ChartDataCacheKey = [
   { [key: string]: any } | undefined,
 ];
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetChartData = (
   {
     apiClient,
@@ -419,6 +418,7 @@ export const useGetChartData = (
   },
   onSuccess: (data: PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getChartData']>>) => void,
   onError?: (error: any) => void
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
   const user = useEvolveUser();
   const { isAppointmentLoading } = getSelectors(useAppointmentStore, ['isAppointmentLoading']);
@@ -664,10 +664,10 @@ export const useUpdatePaperwork = () => {
   });
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetPatientInstructions = (
   { type }: { type: InstructionType },
   onSuccess?: (data: PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getPatientInstructions']>>) => void
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
   const apiClient = useOystehrAPIClient();
 
@@ -722,7 +722,6 @@ export const useDeletePatientInstruction = (): UseMutationResult<void, Error, { 
   });
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useSyncERXPatient = ({
   patient,
   enabled,
@@ -731,6 +730,7 @@ export const useSyncERXPatient = ({
   patient: Patient;
   enabled: boolean;
   onError: (err: any) => void;
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 }) => {
   const { oystehr } = useApiClients();
 

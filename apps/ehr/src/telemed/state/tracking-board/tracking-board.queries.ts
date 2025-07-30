@@ -42,7 +42,7 @@ export const useGetTelemedAppointments = (
         visitTypesFilter,
       },
     ],
-    enabled: Boolean(apiClient),
+
     queryFn: () => {
       if (apiClient) {
         return apiClient.getTelemedAppointments({
@@ -59,6 +59,7 @@ export const useGetTelemedAppointments = (
       throw new Error('api client not defined');
     },
 
+    enabled: Boolean(apiClient),
     refetchInterval: 10000,
   });
 
