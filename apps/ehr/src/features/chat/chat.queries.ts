@@ -1,6 +1,6 @@
 import { MessagingGetMessagingConfigResponse, TransactionalSMSSendResponse } from '@oystehr/sdk';
 import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useErrorQuery, useSuccessQuery } from 'utils';
 import { ConversationMessage, SMSRecipient } from 'utils';
 import { getConversation } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
@@ -23,11 +23,7 @@ export const useFetchChatMessagesQuery = (
     enabled: Boolean(oystehrZambda && numbersToSendTo?.length && timezone),
   });
 
-  useEffect(() => {
-    if (queryResult.data && onSuccess) {
-      onSuccess(queryResult.data);
-    }
-  }, [queryResult.data, onSuccess]);
+  useSuccessQuery(queryResult.data, onSuccess);
 
   return queryResult;
 };
@@ -104,17 +100,9 @@ export const useGetMessagingConfigQuery = (
     enabled: !!oystehr,
   });
 
-  useEffect(() => {
-    if (queryResult.data && onSuccess) {
-      onSuccess(queryResult.data);
-    }
-  }, [queryResult.data, onSuccess]);
+  useSuccessQuery(queryResult.data, onSuccess);
 
-  useEffect(() => {
-    if (queryResult.error && onError) {
-      onError();
-    }
-  }, [queryResult.error, onError]);
+  useErrorQuery(queryResult.error, onError);
 
   return queryResult;
 };

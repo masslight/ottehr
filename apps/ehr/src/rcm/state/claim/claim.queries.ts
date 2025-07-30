@@ -12,7 +12,7 @@ import {
   Patient,
   RelatedPerson,
 } from 'fhir/r4b';
-import { useEffect } from 'react';
+import { useSuccessQuery } from 'utils';
 import { INSURANCE_PLAN_PAYER_META_TAG_CODE } from 'utils';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { findResourceByType, generateOpByResourceData, getCoverageRelatedResources } from '../../utils';
@@ -76,11 +76,7 @@ export const useGetClaim = (
     },
   });
 
-  useEffect(() => {
-    if (queryResult.data && onSuccess) {
-      onSuccess(queryResult.data);
-    }
-  }, [queryResult.data, onSuccess]);
+  useSuccessQuery(queryResult.data, onSuccess);
 
   return queryResult;
 };
@@ -115,11 +111,7 @@ export const useGetInsurancePlans = (
     },
   });
 
-  useEffect(() => {
-    if (queryResult.data && onSuccess) {
-      onSuccess(queryResult.data);
-    }
-  }, [queryResult.data, onSuccess]);
+  useSuccessQuery(queryResult.data, onSuccess);
 
   return queryResult;
 };
@@ -144,11 +136,7 @@ export const useGetOrganizations = (
     },
   });
 
-  useEffect(() => {
-    if (queryResult.data && onSuccess) {
-      onSuccess(queryResult.data);
-    }
-  }, [queryResult.data, onSuccess]);
+  useSuccessQuery(queryResult.data, onSuccess);
 
   return queryResult;
 };
@@ -171,11 +159,7 @@ export const useGetFacilities = (onSuccess: (data: Location[]) => void): UseQuer
     },
   });
 
-  useEffect(() => {
-    if (queryResult.data && onSuccess) {
-      onSuccess(queryResult.data);
-    }
-  }, [queryResult.data, onSuccess]);
+  useSuccessQuery(queryResult.data, onSuccess);
 
   return queryResult;
 };

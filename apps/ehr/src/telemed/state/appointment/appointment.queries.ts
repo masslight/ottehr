@@ -22,6 +22,7 @@ import {
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect } from 'react';
+import { useErrorQuery, useSuccessQuery } from 'utils';
 import {
   ChartDataFields,
   ChartDataRequestedFields,
@@ -88,12 +89,10 @@ export const useGetReviewAndSignData = (
     enabled: runImmediately,
   });
 
-  useEffect(() => {
-    if (queryResult.data && onSuccess) {
-      const reviewAndSignData = extractReviewAndSignAppointmentData(queryResult.data);
-      onSuccess(reviewAndSignData);
-    }
-  }, [queryResult.data, onSuccess]);
+  useSuccessQuery(queryResult.data, (data) => {
+    const reviewAndSignData = extractReviewAndSignAppointmentData(data);
+    onSuccess?.(reviewAndSignData);
+  });
 
   return queryResult;
 };
@@ -158,11 +157,7 @@ export const useGetTelemedAppointmentPeriodicRefresh = (
     enabled: isEnabled && Boolean(appointmentId) && Boolean(oystehr),
   });
 
-  useEffect(() => {
-    if (queryResult.data && onSuccess) {
-      onSuccess(queryResult.data);
-    }
-  }, [queryResult.data, onSuccess]);
+  useSuccessQuery(queryResult.data, onSuccess);
 
   return queryResult;
 };
@@ -175,9 +170,10 @@ export const useGetAppointment = (
   }: {
     appointmentId: string | undefined;
   },
-  onSuccess: (data: VisitResources[]) => void
+  onSuccess?: (data: VisitResources[]) => void
 ): UseQueryResult<VisitResources[], unknown> => {
   const { oystehr } = useApiClients();
+
   const query = useQuery({
     queryKey: ['telemed-appointment', appointmentId],
 
@@ -228,11 +224,7 @@ export const useGetAppointment = (
 
   const { isFetching } = query;
 
-  useEffect(() => {
-    if (query.data && onSuccess) {
-      onSuccess(query.data);
-    }
-  }, [query.data, onSuccess]);
+  useSuccessQuery(query.data, onSuccess);
 
   useEffect(() => {
     useAppointmentStore.setState({ isAppointmentLoading: isFetching });
@@ -273,11 +265,7 @@ export const useGetDocumentReferences = (
     enabled: Boolean(oystehr) && Boolean(appointmentId),
   });
 
-  useEffect(() => {
-    if (queryResult.data) {
-      onSuccess(queryResult.data as Bundle<FhirResource>);
-    }
-  }, [queryResult.data, onSuccess]);
+  useSuccessQuery(queryResult.data, (data) => onSuccess?.(data as Bundle<FhirResource>));
 
   return queryResult;
 };
@@ -331,11 +319,7 @@ export const useGetTelemedAppointmentWithSMSModel = (
     enabled: !!oystehr && !!appointmentId,
   });
 
-  useEffect(() => {
-    if (queryResult.data && onSuccess) {
-      onSuccess(queryResult.data as unknown as TelemedAppointmentInformation);
-    }
-  }, [queryResult.data, onSuccess]);
+  useSuccessQuery(queryResult.data, (data) => onSuccess?.(data as unknown as TelemedAppointmentInformation));
 
   return queryResult as unknown as { data: TelemedAppointmentInformation | undefined; isFetching: boolean };
 };
@@ -375,17 +359,9 @@ export const useGetMeetingData = (
     enabled: false,
   });
 
-  useEffect(() => {
-    if (queryResult.data && onSuccess) {
-      onSuccess(queryResult.data);
-    }
-  }, [queryResult.data, onSuccess]);
+  useSuccessQuery(queryResult.data, onSuccess);
 
-  useEffect(() => {
-    if (queryResult.error && onError) {
-      onError(queryResult.error);
-    }
-  }, [queryResult.error, onError]);
+  useErrorQuery(queryResult.error, onError);
 
   return queryResult;
 };
@@ -452,17 +428,9 @@ export const useGetChartData = (
     refetchInterval: refetchInterval || false,
   });
 
-  useEffect(() => {
-    if (query.data && onSuccess) {
-      onSuccess(query.data);
-    }
-  }, [query.data, onSuccess]);
+  useSuccessQuery(query.data, onSuccess);
 
-  useEffect(() => {
-    if (query.error && onError) {
-      onError?.(query.error);
-    }
-  }, [query.error, onError]);
+  useErrorQuery(query.error, onError);
 
   return {
     ...query,
@@ -686,11 +654,7 @@ export const useGetPatientInstructions = (
     enabled: !!apiClient,
   });
 
-  useEffect(() => {
-    if (queryResult.data && onSuccess) {
-      onSuccess(queryResult.data);
-    }
-  }, [queryResult.data, onSuccess]);
+  useSuccessQuery(queryResult.data, onSuccess);
 
   return queryResult;
 };
@@ -759,11 +723,7 @@ export const useSyncERXPatient = ({
     refetchOnMount: true,
   });
 
-  useEffect(() => {
-    if (queryResult.error && onError) {
-      onError(queryResult.error);
-    }
-  }, [queryResult.error, onError]);
+  useErrorQuery(queryResult.error, onError);
 
   return queryResult;
 };

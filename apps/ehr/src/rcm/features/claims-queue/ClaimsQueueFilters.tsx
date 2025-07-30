@@ -2,7 +2,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import { Box, InputAdornment, TextField } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { FC, useEffect, useMemo, useState } from 'react';
-import { FHIR_EXTENSION } from 'utils';
+import { FHIR_EXTENSION, GetEmployeesResponse, useSuccessQuery } from 'utils';
 import { getEmployees } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { getSelectors } from '../../../shared/store/getSelectors';
@@ -60,11 +60,14 @@ export const ClaimsQueueFilters: FC = () => {
     enabled: !!oystehrZambda,
   });
 
-  useEffect(() => {
-    if (queryResult.data) {
-      useClaimsQueueStore.setState({ employees: queryResult.data.employees || [] });
-    }
-  }, [queryResult.data]);
+  useSuccessQuery(
+    queryResult.data,
+    (data: GetEmployeesResponse | null) => {
+      useClaimsQueueStore.setState({ employees: data?.employees || [] });
+    },
+    [],
+    true
+  );
 
   useGetOrganizations((data) => {
     console.log('Organizations', data);

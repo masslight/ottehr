@@ -3,7 +3,8 @@ import { SearchParam } from '@oystehr/sdk';
 import { useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { DocumentReference, FhirResource, List, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
+import { useSuccessQuery } from 'utils';
 import { chooseJson } from 'utils';
 import { getPresignedFileUrl, parseFileExtension } from '../helpers/files.helper';
 import { useApiClients } from './useAppClients';
@@ -253,39 +254,37 @@ const useGetPatientDocsFolders = (
     },
   });
 
-  useEffect(() => {
-    if (queryResult.data && onSuccess) {
-      const searchResultsResources: FhirResource[] = queryResult.data;
-      const listResources =
-        searchResultsResources
-          ?.filter((resource: FhirResource) => resource.resourceType === 'List' && resource.status === 'current')
-          ?.map((listResource: FhirResource) => listResource as List) ?? [];
+  useSuccessQuery(queryResult.data, (data) => {
+    const searchResultsResources: FhirResource[] = data;
+    const listResources =
+      searchResultsResources
+        ?.filter((resource: FhirResource) => resource.resourceType === 'List' && resource.status === 'current')
+        ?.map((listResource: FhirResource) => listResource as List) ?? [];
 
-      const patientFoldersResources = listResources.filter((listResource: List) =>
-        Boolean(listResource.code?.coding?.find((folderCoding) => folderCoding.code === PATIENT_FOLDERS_CODE))
+    const patientFoldersResources = listResources.filter((listResource: List) =>
+      Boolean(listResource.code?.coding?.find((folderCoding) => folderCoding.code === PATIENT_FOLDERS_CODE))
+    );
+
+    const docsFolders = patientFoldersResources.map((listRes) => {
+      const folderName = listRes.code?.coding?.find((folderCoding) => folderCoding.code === PATIENT_FOLDERS_CODE)
+        ?.display;
+      const docRefs: DocRef[] = (listRes.entry ?? []).map(
+        (entry) =>
+          ({
+            reference: entry.item,
+          }) as DocRef
       );
 
-      const docsFolders = patientFoldersResources.map((listRes) => {
-        const folderName = listRes.code?.coding?.find((folderCoding) => folderCoding.code === PATIENT_FOLDERS_CODE)
-          ?.display;
-        const docRefs: DocRef[] = (listRes.entry ?? []).map(
-          (entry) =>
-            ({
-              reference: entry.item,
-            }) as DocRef
-        );
+      return {
+        id: listRes.id!,
+        folderName: folderName,
+        documentsCount: docRefs.length,
+        documentsRefs: docRefs,
+      } as PatientDocumentsFolder;
+    });
 
-        return {
-          id: listRes.id!,
-          folderName: folderName,
-          documentsCount: docRefs.length,
-          documentsRefs: docRefs,
-        } as PatientDocumentsFolder;
-      });
-
-      onSuccess(docsFolders);
-    }
-  }, [queryResult.data, onSuccess]);
+    onSuccess?.(docsFolders);
+  });
 
   return queryResult;
 };
@@ -341,9 +340,10 @@ const useSearchPatientDocuments = (
     },
   });
 
-  useEffect(() => {
-    if (queryResult.data && onSuccess) {
-      const searchResultsResources: FhirResource[] = queryResult.data;
+  useSuccessQuery(
+    queryResult.data,
+    (data) => {
+      const searchResultsResources: FhirResource[] = data;
       console.log(`useSearchPatientDocuments() search results cnt=[${searchResultsResources.length}]`);
 
       //&& resource.status === 'current'
@@ -367,9 +367,10 @@ const useSearchPatientDocuments = (
       //TODO: remove when _text search will be available
       const resultDocuments = debug__mimicTextNarrativeDocumentsFilter(documents, filters);
 
-      onSuccess(resultDocuments);
-    }
-  }, [queryResult.data, onSuccess, filters]);
+      onSuccess?.(resultDocuments);
+    },
+    [filters]
+  );
 
   return queryResult;
 };

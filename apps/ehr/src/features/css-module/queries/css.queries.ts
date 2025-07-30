@@ -1,7 +1,7 @@
 import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { Operation } from 'fast-json-patch';
 import { Patient } from 'fhir/r4b';
-import { useEffect } from 'react';
+import { useSuccessQuery } from 'utils';
 import { addOrReplaceOperation, GetOrUploadPatientProfilePhotoZambdaResponse, removeOperation } from 'utils';
 import { getSignedPatientProfilePhotoUrl } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
@@ -21,11 +21,7 @@ export const useGetSignedPatientProfilePhotoUrlQuery = (
     enabled: Boolean(oystehrZambda && z3PhotoUrl),
   });
 
-  useEffect(() => {
-    if (queryResult.data && onSuccess) {
-      onSuccess(queryResult.data);
-    }
-  }, [queryResult.data, onSuccess]);
+  useSuccessQuery(queryResult.data, onSuccess);
 
   return queryResult;
 };

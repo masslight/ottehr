@@ -1,7 +1,7 @@
 import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
-import { useEffect } from 'react';
 import { OystehrAPIClient } from 'ui-components';
+import { useSuccessQuery } from 'utils';
 import {
   BookableItemListResponse,
   GetBookableItemListParams,
@@ -163,11 +163,7 @@ export const useGetTelemedStates = (
     staleTime: 1000 * 60 * 5,
   });
 
-  useEffect(() => {
-    if (queryResult.data && onSuccess) {
-      onSuccess(queryResult.data);
-    }
-  }, [queryResult.data, onSuccess]);
+  useSuccessQuery(queryResult.data, onSuccess);
 
   return queryResult;
 };
@@ -192,11 +188,7 @@ export const useGetBookableItems = (
     staleTime: 1000 * 60 * 5,
   });
 
-  useEffect(() => {
-    if (queryResult.data && onSuccess) {
-      onSuccess(queryResult.data);
-    }
-  }, [queryResult.data, onSuccess]);
+  useSuccessQuery(queryResult.data, onSuccess);
 
   return queryResult;
 };
@@ -222,11 +214,7 @@ export const useGetSchedule = (
     staleTime: 1000 * 60 * 5,
   });
 
-  useEffect(() => {
-    if (queryResult.data && onSuccess) {
-      onSuccess(queryResult.data);
-    }
-  }, [queryResult.data, onSuccess]);
+  useSuccessQuery(queryResult.data, onSuccess);
 
   return queryResult;
 };

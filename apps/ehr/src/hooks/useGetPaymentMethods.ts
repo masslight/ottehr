@@ -1,6 +1,6 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
-import { useEffect } from 'react';
 import { OystehrAPIClient } from 'ui-components';
+import { useSuccessQuery } from 'utils';
 import { chooseJson, PromiseReturnType } from 'utils';
 import { useApiClients } from './useAppClients';
 
@@ -33,11 +33,7 @@ export const useGetPaymentMethods = (
     enabled: Boolean(beneficiaryPatientId) && setupCompleted && Boolean(oystehrZambda),
   });
 
-  useEffect(() => {
-    if (queryResult.data && onSuccess) {
-      onSuccess(queryResult.data);
-    }
-  }, [queryResult.data, onSuccess]);
+  useSuccessQuery(queryResult.data, onSuccess);
 
   return queryResult;
 };

@@ -16,9 +16,9 @@ import Oystehr from '@oystehr/sdk';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Location } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { AllStatesToVirtualLocationsData, isLocationVirtual, StateType } from 'utils';
+import { AllStatesToVirtualLocationsData, isLocationVirtual, StateType, useSuccessQuery } from 'utils';
 import { STATES_URL } from '../../../App';
 import CustomBreadcrumbs from '../../../components/CustomBreadcrumbs';
 import { dataTestIds } from '../../../constants/data-test-ids';
@@ -41,11 +41,14 @@ export default function EditStatePage(): JSX.Element {
     queryFn: (): Promise<Location | undefined> => getStateLocation(oystehr, state as StateType),
   });
 
-  useEffect(() => {
-    if (queryResult.data) {
-      setIsOperateInStateChecked(Boolean(queryResult.data && queryResult.data.status === 'active'));
-    }
-  }, [queryResult.data]);
+  useSuccessQuery(
+    queryResult.data,
+    (data: Location) => {
+      setIsOperateInStateChecked(Boolean(data && data.status === 'active'));
+    },
+    [],
+    true
+  );
 
   const mutation = useMutation({
     mutationFn: async ({ newStatus, location }: { newStatus: string; location: Location }) => {

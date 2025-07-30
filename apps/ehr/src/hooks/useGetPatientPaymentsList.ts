@@ -1,5 +1,5 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useSuccessQuery } from 'utils';
 import { ListPatientPaymentInput, ListPatientPaymentResponse, PromiseReturnType } from 'utils';
 import { useApiClients } from './useAppClients';
 
@@ -33,11 +33,7 @@ export const useGetPatientPaymentsList = (
     enabled: Boolean(patientId) && Boolean(oystehrZambda) && !disabled,
   });
 
-  useEffect(() => {
-    if (queryResult.data && onSuccess) {
-      onSuccess(queryResult.data);
-    }
-  }, [queryResult.data, onSuccess]);
+  useSuccessQuery(queryResult.data, onSuccess);
 
   return queryResult;
 };

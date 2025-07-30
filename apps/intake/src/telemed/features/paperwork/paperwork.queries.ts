@@ -1,7 +1,7 @@
 import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { QuestionnaireItemAnswerOption, QuestionnaireResponseItem } from 'fhir/r4b';
-import { useEffect } from 'react';
 import { OystehrAPIClient } from 'ui-components';
+import { useSuccessQuery } from 'utils';
 import { GetAnswerOptionsRequest, isNullOrUndefined, PromiseReturnType } from 'utils';
 import { useOystehrAPIClient } from '../../utils';
 import { useAppointmentStore } from '../appointments';
@@ -37,11 +37,7 @@ export const useGetPaperwork = (
     staleTime: params?.staleTime,
   });
 
-  useEffect(() => {
-    if (queryResult.data && onSuccess) {
-      onSuccess(queryResult.data);
-    }
-  }, [queryResult.data, onSuccess]);
+  useSuccessQuery(queryResult.data, onSuccess);
 
   return queryResult;
 };
@@ -89,11 +85,7 @@ export const useAnswerOptionsQuery = (
     enabled: !!apiClient && enabled && params !== undefined,
   });
 
-  useEffect(() => {
-    if (queryResult.data && onSuccess) {
-      onSuccess(queryResult.data);
-    }
-  }, [queryResult.data, onSuccess]);
+  useSuccessQuery(queryResult.data, onSuccess);
 
   return queryResult;
 };
@@ -126,11 +118,7 @@ export const useGetPaymentMethods = (
     enabled: Boolean(beneficiaryPatientId) && setupCompleted && Boolean(apiClient),
   });
 
-  useEffect(() => {
-    if (queryResult.data && onSuccess) {
-      onSuccess(queryResult.data);
-    }
-  }, [queryResult.data, onSuccess]);
+  useSuccessQuery(queryResult.data, onSuccess);
 
   return queryResult;
 };
@@ -157,11 +145,7 @@ export const useSetupPaymentMethod = (
     enabled: Boolean(apiClient && beneficiaryPatientId),
   });
 
-  useEffect(() => {
-    if (queryResult.data && onSuccess) {
-      onSuccess(queryResult.data);
-    }
-  }, [queryResult.data, onSuccess]);
+  useSuccessQuery(queryResult.data, onSuccess);
 
   return queryResult;
 };

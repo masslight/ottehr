@@ -1,5 +1,5 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useSuccessQuery } from 'utils';
 import { chooseJson } from 'utils';
 import { useApiClients } from './useAppClients';
 
@@ -31,11 +31,7 @@ export const useSetupStripe = (
     enabled: Boolean(oystehrZambda && beneficiaryPatientId),
   });
 
-  useEffect(() => {
-    if (queryResult.data && onSuccess) {
-      onSuccess(queryResult.data);
-    }
-  }, [queryResult.data, onSuccess]);
+  useSuccessQuery(queryResult.data, onSuccess);
 
   return queryResult;
 };

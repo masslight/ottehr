@@ -1,6 +1,6 @@
 import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
-import { useEffect } from 'react';
 import { OystehrAPIClient } from 'ui-components';
+import { useSuccessQuery } from 'utils';
 import { CancelInviteParticipantRequestParameters, InviteParticipantRequestParameters, PromiseReturnType } from 'utils';
 import { useOystehrAPIClient } from '../../utils';
 import { useAppointmentStore } from '../appointments';
@@ -27,11 +27,7 @@ export const useGetWaitStatus = (
     enabled: Boolean(apiClient && appointmentId) && (enabled != undefined ? enabled : true),
   });
 
-  useEffect(() => {
-    if (queryResult.data) {
-      onSuccess(queryResult.data);
-    }
-  }, [queryResult.data, onSuccess]);
+  useSuccessQuery(queryResult.data, onSuccess);
 
   return queryResult;
 };

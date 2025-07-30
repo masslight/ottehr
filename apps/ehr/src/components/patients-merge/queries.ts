@@ -1,7 +1,7 @@
 import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { Patient } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import { useEffect } from 'react';
+import { useSuccessQuery } from 'utils';
 import { useApiClients } from '../../hooks/useAppClients';
 
 export const useGetPatientsForMerge = (
@@ -32,11 +32,7 @@ export const useGetPatientsForMerge = (
     enabled: Boolean(oystehr) && patientIds !== undefined,
   });
 
-  useEffect(() => {
-    if (queryResult.data && onSuccess) {
-      onSuccess(queryResult.data);
-    }
-  }, [queryResult.data, onSuccess]);
+  useSuccessQuery(queryResult.data, onSuccess);
 
   return queryResult;
 };
@@ -79,11 +75,7 @@ export const useGetPatientForUpdate = (
     enabled: Boolean(patientId) && Boolean(oystehr),
   });
 
-  useEffect(() => {
-    if (queryResult.data && onSuccess) {
-      onSuccess(queryResult.data);
-    }
-  }, [queryResult.data, onSuccess]);
+  useSuccessQuery(queryResult.data, onSuccess);
 
   return queryResult;
 };

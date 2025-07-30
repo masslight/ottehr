@@ -1,5 +1,5 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useSuccessQuery } from 'utils';
 import { ClaimsQueueGetResponse } from 'utils';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { Oystehr_RCM_APIClient } from '../../data';
@@ -44,11 +44,7 @@ export const useGetClaims = ({
     enabled: !!apiClient,
   });
 
-  useEffect(() => {
-    if (queryResult.data && onSuccess) {
-      onSuccess(queryResult.data);
-    }
-  }, [queryResult.data, onSuccess]);
+  useSuccessQuery(queryResult.data, onSuccess);
 
   return queryResult;
 };

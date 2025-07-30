@@ -17,7 +17,7 @@ import {
 } from '@mui/material';
 import { Patient } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import React, { FC, useMemo, useState } from 'react';
+import { FC, useMemo, useState } from 'react';
 import { getFullName, standardizePhoneNumber } from 'utils';
 import { formatDateUsingSlashes } from '../../helpers/formatDateTime';
 import { ConfirmationDialog, DeleteIconButton } from '../../telemed';

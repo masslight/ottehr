@@ -1,7 +1,7 @@
 import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { Operation } from 'fast-json-patch';
 import { Communication, Encounter, Extension, FhirResource } from 'fhir/r4b';
-import { useEffect } from 'react';
+import { useSuccessQuery } from 'utils';
 import {
   AppointmentProviderNotificationTypes,
   getPatchBinary,
@@ -85,11 +85,7 @@ export const useGetProviderNotifications = (
     refetchIntervalInBackground: true,
   });
 
-  useEffect(() => {
-    if (queryResult.data && onSuccess) {
-      onSuccess(queryResult.data);
-    }
-  }, [queryResult.data, onSuccess]);
+  useSuccessQuery(queryResult.data, onSuccess);
 
   return queryResult;
 };

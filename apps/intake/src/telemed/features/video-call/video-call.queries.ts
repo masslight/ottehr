@@ -1,6 +1,6 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
-import { useEffect } from 'react';
 import { OystehrAPIClient } from 'ui-components';
+import { useErrorQuery, useSuccessQuery } from 'utils';
 import { PromiseReturnType } from 'utils';
 import { useAppointmentStore } from '../appointments';
 
@@ -23,17 +23,8 @@ export const useJoinCall = (
     },
   });
 
-  useEffect(() => {
-    if (queryResult.data && onSuccess) {
-      onSuccess(queryResult.data);
-    }
-  }, [queryResult.data, onSuccess]);
-
-  useEffect(() => {
-    if (queryResult.error && onError) {
-      onError(queryResult.error);
-    }
-  }, [queryResult.error, onError]);
+  useSuccessQuery(queryResult.data, onSuccess);
+  useErrorQuery(queryResult.error, onError);
 
   return queryResult;
 };

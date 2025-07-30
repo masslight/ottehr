@@ -25,9 +25,9 @@ import {
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
-import { default as React, ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
+import { default as React, ReactElement, useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AllStates, EmployeeDetails, RoleType, State } from 'utils';
+import { AllStates, EmployeeDetails, GetEmployeesResponse, RoleType, State, useSuccessQuery } from 'utils';
 import { getEmployees } from '../api/api';
 import Loading from '../components/Loading';
 import { EMPLOYEE_ROWS_PER_PAGE, PROVIDER_ROWS_PER_PAGE } from '../constants';
@@ -96,11 +96,14 @@ export default function EmployeesPage(): ReactElement {
     enabled: !!oystehrZambda,
   });
 
-  useEffect(() => {
-    if (queryResult.data) {
-      setEmployees(queryResult.data.employees ?? []);
-    }
-  }, [queryResult.data]);
+  useSuccessQuery(
+    queryResult.data,
+    (data: GetEmployeesResponse | null) => {
+      setEmployees(data?.employees ?? []);
+    },
+    [],
+    true
+  );
 
   const { isFetching } = queryResult;
 

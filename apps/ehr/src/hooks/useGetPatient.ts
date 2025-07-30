@@ -17,6 +17,7 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
 import { getVisitTypeLabelForAppointment } from 'src/types/types';
+import { useSuccessQuery } from 'utils';
 import {
   getFirstName,
   getLastName,
@@ -249,11 +250,7 @@ export const useGetPatientAccount = (
     enabled: apiClient != null && patientId != null,
   });
 
-  useEffect(() => {
-    if (queryResult.data && onSuccess) {
-      onSuccess(queryResult.data);
-    }
-  }, [queryResult.data, onSuccess]);
+  useSuccessQuery(queryResult.data, onSuccess);
 
   return queryResult;
 };
@@ -363,11 +360,7 @@ export const useGetInsurancePlans = (
     queryFn: fetchAllInsurancePlans,
   });
 
-  useEffect(() => {
-    if (queryResult.data && onSuccess) {
-      onSuccess(queryResult.data);
-    }
-  }, [queryResult.data, onSuccess]);
+  useSuccessQuery(queryResult.data, onSuccess);
 
   return queryResult;
 };
@@ -412,11 +405,7 @@ export const useGetPatientDetailsUpdateForm = (
     enabled: Boolean(oystehr) && Boolean(updateQRUrl),
   });
 
-  useEffect(() => {
-    if (queryResult.data && onSuccess) {
-      onSuccess(queryResult.data);
-    }
-  }, [queryResult.data, onSuccess]);
+  useSuccessQuery(queryResult.data, onSuccess);
 
   return queryResult;
 };
