@@ -14,6 +14,7 @@ import {
 import { capitalize } from 'lodash-es';
 import { DateTime } from 'luxon';
 import {
+  genderMap,
   getFirstName,
   getLastName,
   getMiddleName,
@@ -30,12 +31,6 @@ import {
   PRACTICE_NAME_URL,
 } from '../../types';
 import { formatPhoneNumberDisplay, getPayerId } from '../helpers';
-
-const genderMap = {
-  male: 'Male',
-  female: 'Female',
-  other: 'Intersex',
-};
 
 // used when patient books an appointment and some of the inputs come from the create-appointment params
 interface PrePopulationInput {

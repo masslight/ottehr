@@ -5,6 +5,8 @@ import {
   AdditionalBooleanQuestionsFieldsNames,
   ExamObservationFieldItem,
   ExamTabCardNames,
+  Gender,
+  InHouseLabResult as IInHouseLabResult,
   InPersonExamObservationFieldItem,
   InPersonExamTabProviderCardNames,
   LabType,
@@ -93,6 +95,7 @@ export interface PdfClient {
   getCurrentPageIndex: () => number;
   setPageByIndex: (pageIndex: number) => void;
   getTotalPages: () => number;
+  drawLink: (text: string, url: string, textStyle: TextStyle) => void;
 }
 
 export type TelemedExamBlockData = {
@@ -337,6 +340,76 @@ export interface ReceiptData {
   amount: string;
   date: string;
 }
+
+export interface Medication {
+  name: string;
+  dose?: string;
+  date?: string;
+}
+
+export interface PrescribedMedication {
+  name?: string;
+  instructions?: string;
+  date?: string;
+}
+
+export type DischargeSummaryData = {
+  patient: {
+    fullName: string;
+    dob: string;
+    sex: Gender;
+    id: string;
+    phone?: string;
+  };
+  visit: {
+    type: string;
+    time: string;
+    date: string;
+    location?: string;
+    reasonForVisit: string;
+  };
+  vitals: {
+    temp?: string;
+    hr?: string;
+    rr?: string;
+    bp?: string;
+    oxygenSat?: string;
+    weight?: string;
+    height?: string;
+    vision?: string;
+  };
+  currentMedications?: string[];
+  currentMedicationsNotes?: string[];
+  allergies?: string[];
+  allergiesNotes?: string[];
+  inHouseLabs?: IInHouseLabResult[];
+  radiology?: {
+    name: string;
+    result?: string;
+  }[];
+  inhouseMedications?: Medication[];
+  erxMedications?: PrescribedMedication[];
+  diagnoses?: {
+    primary: string[];
+    secondary: string[];
+  };
+  patientInstructions?: string[];
+  educationDocuments?: { title: string; fileName: string }[];
+  disposition: {
+    label: string;
+    instruction: string;
+  };
+  physician: {
+    name: string;
+  };
+  dischargeDateTime?: string;
+  workSchoolExcuse?: {
+    note: string;
+    fileName: string;
+  }[];
+  documentsAttached?: boolean;
+  attachmentUrls?: string[];
+};
 
 export interface GetPaymentDataResponse {
   chargeUuid: string;
