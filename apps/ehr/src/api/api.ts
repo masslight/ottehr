@@ -18,6 +18,7 @@ import {
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
   CreateDischargeSummaryInput,
+  CreateDischargeSummaryResponse,
   CreateInHouseLabOrderParameters,
   CreateInHouseLabOrderResponse,
   CreateLabOrderParameters,
@@ -957,7 +958,7 @@ export const updateNursingOrder = async (oystehr: Oystehr, parameters: UpdateNur
 export const createDischargeSummary = async (
   oystehr: Oystehr,
   parameters: CreateDischargeSummaryInput
-): Promise<any> => {
+): Promise<CreateDischargeSummaryResponse> => {
   try {
     const response = await oystehr.zambda.execute({
       id: CREATE_DISCHARGE_SUMMARY,
