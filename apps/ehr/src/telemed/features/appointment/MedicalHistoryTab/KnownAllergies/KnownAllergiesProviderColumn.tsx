@@ -245,8 +245,7 @@ const AddAllergyField: FC = () => {
 
     // Process the data to include brandname
     const allergiesWithBrand = data.map((allergy) => {
-      // Todo: fix the any type after the issue with brandName type is resolved in the SDK
-      const brandName = (allergy as any).brandName;
+      const brandName = allergy.brandName;
       if (brandName && brandName !== allergy.name) {
         return {
           ...allergy,
