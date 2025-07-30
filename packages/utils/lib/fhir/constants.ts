@@ -417,7 +417,7 @@ export const FOLDERS_CONFIG: ListConfig[] = [
   },
   {
     title: BUCKET_NAMES.DISCHARGE_SUMMARIES,
-    display: 'Paperwork',
+    display: 'Discharge Summary',
     documentTypeCode: DISCHARGE_SUMMARY_CODE,
   },
 ];
