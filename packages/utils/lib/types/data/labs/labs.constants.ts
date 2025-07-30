@@ -31,6 +31,11 @@ export const LAB_ORDER_DOC_REF_CODING_CODE = {
   code: '51991-8',
   display: 'Referral lab test panel',
 };
+export const REQUISITION_DOC_CATEGORY_CODING = {
+  system: 'https://identifiers.fhir.oystehr.com/labs-documents',
+  code: 'lab-generated-requisition-document',
+  display: 'Lab Generated Requisition Document',
+};
 
 export const LAB_RESULT_DOC_REF_CODING_CODE = {
   system: 'http://loinc.org',
