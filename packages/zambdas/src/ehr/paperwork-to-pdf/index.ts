@@ -4,6 +4,7 @@ import { DocumentReference, List, QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   addOperation,
+  BUCKET_NAMES,
   EXPORTED_QUESTIONNAIRE_CODE,
   findExistingListByDocumentTypeCode,
   getSecret,
@@ -30,7 +31,6 @@ interface Input {
 }
 
 const ZAMBDA_NAME = 'paperwork-to-pdf';
-const BUCKET_PAPERWORK_PDF = 'exported-questionnaires';
 
 let oystehrToken: string;
 
@@ -47,7 +47,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const pdfDocument = await generatePdf(document);
 
     const projectId = getSecret(SecretsKeys.PROJECT_ID, secrets);
-    const z3Bucket = projectId + '-' + BUCKET_PAPERWORK_PDF;
+    const z3Bucket = projectId + '-' + BUCKET_NAMES.PAPERWORK;
     await createZ3Bucket(z3Bucket, oystehr);
 
     const timestamp = DateTime.now().toUTC().toFormat('yyyy-MM-dd-x');
