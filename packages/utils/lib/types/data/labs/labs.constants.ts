@@ -31,8 +31,11 @@ export const LAB_ORDER_DOC_REF_CODING_CODE = {
   code: '51991-8',
   display: 'Referral lab test panel',
 };
+
+const LAB_DOC_CATEGORY_CODING_SYSTEM = 'https://terminology.fhir.oystehr.com/CodeSystem/lab-documents';
+
 export const REQUISITION_DOC_CATEGORY_CODING = {
-  system: 'https://identifiers.fhir.oystehr.com/labs-documents',
+  system: LAB_DOC_CATEGORY_CODING_SYSTEM,
   code: 'lab-generated-requisition-document',
   display: 'Lab Generated Requisition Document',
 };
