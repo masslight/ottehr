@@ -160,18 +160,13 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
   });
 
   const [isERXOpen, setIsERXOpen] = useState(false);
-  const [isErxSetup, setIsErxSetup] = useState(true);
   const [erxStatus, setERXStatus] = useState(ERXStatus.INITIAL);
   const [openTooltip, setOpenTooltip] = useState(false);
   const [cancellationLoading, setCancellationLoading] = useState<string[]>([]);
   const { oystehr } = useApiClients();
   const user = useEvolveUser();
 
-  const { isLoading: isErxConfigLoading } = useGetErxConfigQuery((data) => {
-    if (!data.configured) {
-      setIsErxSetup(false);
-    }
-  });
+  const { data: erxConfigData, isLoading: isErxConfigLoading } = useGetErxConfigQuery();
 
   const cancelPrescription = async (medRequestId: string, patientId: string): Promise<void> => {
     if (!oystehr) {
@@ -246,7 +241,7 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
             </Stack>
           </Tooltip>
         </Stack>
-        {!isErxSetup && !isErxConfigLoading && <CompleteConfiguration handleSetup={handleSetup} />}
+        {!erxConfigData.configured && !isErxConfigLoading && <CompleteConfiguration handleSetup={handleSetup} />}
         {isERXOpen && (
           <ERX
             onStatusChanged={(status) => {
