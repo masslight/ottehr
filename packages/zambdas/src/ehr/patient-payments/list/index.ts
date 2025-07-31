@@ -152,7 +152,7 @@ const performEffect = async (input: EffectInput): Promise<ListPatientPaymentResp
         dateISO,
       };
     })
-    .slice(0, 10); // Limit to 100 payments for performance
+    .slice(0, 20); // We only fetch the last 20 payments from stripe, which should be more than enough for pretty much any real world use case
 
   // todo: the data here should be fetched from candid and then linked to the payment notice ala stripe,
   // but that awaits the candid integration portion
