@@ -1,5 +1,6 @@
 import { CodeableConcept, Observation, ObservationComponent } from 'fhir/r4b';
 import {
+  getVitalObservationFhirComponentInterpretations,
   ObservationDTO,
   VitalBloodPressureObservationMethod,
   VitalFieldNames,
@@ -173,9 +174,17 @@ export const getHeartbeatObservationMethodCodable = (
 };
 
 export const getBloodPressureObservationComponents = (
-  bloodPressureDTO: VitalsBloodPressureObservationDTO
+  bloodPressureDTO: VitalsBloodPressureObservationDTO,
+  patientDOB?: string
 ): ObservationComponent[] => {
   const result: ObservationComponent[] = [];
+
+  const componentAlerts = patientDOB
+    ? getVitalObservationFhirComponentInterpretations({
+        vitalsObservation: bloodPressureDTO,
+        patientDOB,
+      })
+    : {};
 
   const systolicPressure = bloodPressureDTO.systolicPressure;
   if (systolicPressure) {
@@ -193,9 +202,11 @@ export const getBloodPressureObservationComponents = (
         },
       ],
     };
+    const systolicInterpretation = componentAlerts?.['systolic-pressure'];
     const systolicComponent: ObservationComponent = {
       code: systolicCode,
       valueQuantity: { value: systolicPressure, system: 'http://unitsofmeasure.org', unit: 'mmHg' },
+      interpretation: systolicInterpretation && systolicInterpretation.length > 0 ? systolicInterpretation : undefined,
     };
 
     result.push(systolicComponent);
@@ -212,9 +223,12 @@ export const getBloodPressureObservationComponents = (
         },
       ],
     };
+    const diastolicInterpretation = componentAlerts?.['diastolic-pressure'];
     const diastolicComponent: ObservationComponent = {
       code: diastolicCode,
       valueQuantity: { value: diastolicPressure, system: 'http://unitsofmeasure.org', unit: 'mmHg' },
+      interpretation:
+        diastolicInterpretation && diastolicInterpretation.length > 0 ? diastolicInterpretation : undefined,
     };
 
     result.push(diastolicComponent);
@@ -588,7 +602,11 @@ export function toVitalOxygenSatObservationMethod(
   return undefined;
 }
 
-export function fillVitalObservationAttributes(baseResource: Observation, vitalDTO: VitalsObservationDTO): Observation {
+export function fillVitalObservationAttributes(
+  baseResource: Observation,
+  vitalDTO: VitalsObservationDTO,
+  patientDOB?: string
+): Observation {
   if (isTemperatureVitalObservation(vitalDTO)) {
     const temperatureDTO = vitalDTO as VitalsTemperatureObservationDTO;
     return {
@@ -611,7 +629,7 @@ export function fillVitalObservationAttributes(baseResource: Observation, vitalD
     const bloodPressureDTO = vitalDTO as VitalsBloodPressureObservationDTO;
     return {
       ...baseResource,
-      component: getBloodPressureObservationComponents(bloodPressureDTO),
+      component: getBloodPressureObservationComponents(bloodPressureDTO, patientDOB),
       method: getBloodPressureObservationMethodCodable(bloodPressureDTO),
     };
   }
