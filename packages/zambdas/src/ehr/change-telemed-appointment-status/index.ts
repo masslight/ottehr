@@ -13,18 +13,19 @@ import {
   telemedProgressNoteChartDataRequestedFields,
 } from 'utils';
 import {
+  CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
   checkOrCreateM2MClientToken,
+  createEncounterFromAppointment,
+  createOystehrClient,
+  getMyPractitionerId,
   parseCreatedResourcesBundle,
   saveResourceRequest,
   wrapHandler,
+  ZambdaInput,
 } from '../../shared';
-import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createCandidEncounter } from '../../shared/candid';
-import { createOystehrClient } from '../../shared/helpers';
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
 import { makeVisitNotePdfDocumentReference } from '../../shared/pdf/visit-details-pdf/make-visit-note-pdf-document-reference';
 import { composeAndCreateVisitNotePdf } from '../../shared/pdf/visit-details-pdf/visit-note-pdf-creation';
-import { getMyPractitionerId } from '../../shared/practitioners';
-import { ZambdaInput } from '../../shared/types';
 import { getChartData } from '../get-chart-data';
 import { getInsurancePlan } from './helpers/fhir-utils';
 import { changeStatusIfPossible, makeAppointmentChargeItem, makeReceiptPdfDocumentReference } from './helpers/helpers';
@@ -147,9 +148,11 @@ export const performEffect = async (
 
     let candidEncounterId: string | undefined;
     try {
-      candidEncounterId = await createCandidEncounter(visitResources, secrets, oystehr);
+      if (!secrets) throw new Error('Secrets are not defined, cannot create Candid encounter.');
+      console.log('[CLAIM SUBMISSION] Attempting to create telemed encounter in candid...');
+      candidEncounterId = await createEncounterFromAppointment(visitResources, secrets, oystehr);
     } catch (error) {
-      console.error(`Error creating Candid encounter: ${error}`);
+      console.error(`Error creating Candid encounter: ${error}, stringified error: ${JSON.stringify(error)}`);
       captureException(error, {
         tags: {
           appointmentId,
@@ -159,6 +162,7 @@ export const performEffect = async (
       // longer term we probably want a more decoupled approach where the candid synching is offloaded and tracked
       // for now prevent this failure from causing the endpoint to error out
     }
+    console.log(`[CLAIM SUBMISSION] Candid telemed encounter created with ID ${candidEncounterId}`);
     await addCandidEncounterIdToEncounter(candidEncounterId, encounter, oystehr);
 
     // if this is a self-pay encounter, create a charge item

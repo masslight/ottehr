@@ -17,6 +17,10 @@ import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaIn
 import {
   DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL,
   ORDER_TYPE_CODE_SYSTEM,
+  SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL,
+  SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL,
+  SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL,
+  SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL,
   SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL,
   SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
 } from '../shared';
@@ -250,6 +254,7 @@ const parseResultsToOrder = (
   );
 
   // Find the best diagnostic report using our priority logic
+  const preliminaryDiagnosticReport = relatedDiagnosticReports.find((report) => report.status === 'preliminary');
   const bestDiagnosticReport = takeTheBestDiagnosticReport(relatedDiagnosticReports);
 
   const result = bestDiagnosticReport?.presentedForm?.find((attachment) => attachment.contentType === 'text/html')
@@ -272,7 +277,9 @@ const parseResultsToOrder = (
 
   const appointmentId = parseAppointmentId(serviceRequest, encounters);
 
-  const history = buildHistory(serviceRequest, bestDiagnosticReport, providerName);
+  const history = buildHistory(serviceRequest, bestDiagnosticReport, preliminaryDiagnosticReport, providerName);
+
+  const clinicalHistory = extractClinicalHistory(serviceRequest);
 
   return {
     serviceRequestId: serviceRequest.id,
@@ -285,6 +292,7 @@ const parseResultsToOrder = (
     status,
     isStat: serviceRequest.priority === 'stat',
     result,
+    clinicalHistory,
     history,
   };
 };
@@ -329,7 +337,8 @@ const takeTheBestDiagnosticReport = (diagnosticReports: DiagnosticReport[]): Dia
 
 const buildHistory = (
   serviceRequest: ServiceRequest,
-  diagnosticReport: DiagnosticReport | undefined,
+  bestDiagnosticReport: DiagnosticReport | undefined,
+  preliminaryDiagnosticReport: DiagnosticReport | undefined,
   orderingProviderName: string
 ): RadiologyOrderHistoryRow[] => {
   const history: RadiologyOrderHistoryRow[] = [];
@@ -356,26 +365,60 @@ const buildHistory = (
     });
   }
 
-  const diagnosticReportPreliminaryReadTimeExtensionValue = diagnosticReport?.extension?.find(
+  const diagnosticReportPreliminaryReadTimeExtensionValueFromBest = bestDiagnosticReport?.extension?.find(
     (ext) => ext.url === DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL
   )?.valueDateTime;
-  if (diagnosticReportPreliminaryReadTimeExtensionValue) {
+  const diagnosticReportPreliminaryReadTimeExtensionValueFromPreliminary = preliminaryDiagnosticReport?.extension?.find(
+    (ext) => ext.url === DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL
+  )?.valueDateTime;
+  if (diagnosticReportPreliminaryReadTimeExtensionValueFromBest) {
     history.push({
       status: RadiologyOrderStatus.preliminary,
       performer: 'See AdvaPACS',
-      date: diagnosticReportPreliminaryReadTimeExtensionValue,
+      date: diagnosticReportPreliminaryReadTimeExtensionValueFromBest,
+    });
+  } else if (diagnosticReportPreliminaryReadTimeExtensionValueFromPreliminary) {
+    history.push({
+      status: RadiologyOrderStatus.preliminary,
+      performer: 'See AdvaPACS',
+      date: diagnosticReportPreliminaryReadTimeExtensionValueFromPreliminary,
     });
   }
 
-  if (diagnosticReport?.issued) {
+  if (bestDiagnosticReport?.issued) {
     history.push({
       status: RadiologyOrderStatus.final,
       performer: 'See AdvaPACS',
-      date: diagnosticReport.issued,
+      date: bestDiagnosticReport.issued,
     });
   }
 
   return history;
+};
+
+const extractClinicalHistory = (serviceRequest: ServiceRequest): string | undefined => {
+  // Find the clinical history extension within the service request
+  const clinicalHistoryExtension = serviceRequest.extension
+    ?.filter((ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL)
+    ?.find((orderDetailExt) => {
+      const parameterExt = orderDetailExt.extension?.find(
+        (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL
+      );
+      const codeExt = parameterExt?.extension?.find(
+        (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL
+      );
+      return codeExt?.valueCodeableConcept?.coding?.[0]?.code === 'clinical-history';
+    });
+
+  // Extract the clinical history value
+  const parameterExt = clinicalHistoryExtension?.extension?.find(
+    (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL
+  );
+  const valueStringExt = parameterExt?.extension?.find(
+    (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL
+  );
+
+  return valueStringExt?.valueString;
 };
 
 const extractResources = (

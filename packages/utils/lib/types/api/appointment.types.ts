@@ -125,3 +125,18 @@ export interface WalkinAvailabilityCheckResult {
   scheduleId: string;
   serviceMode?: ServiceMode;
 }
+export interface PatientAppointmentDTO {
+  id: string;
+  patientID: string;
+  firstName: string;
+  middleName: string;
+  lastName: string;
+  start: string;
+  status: string;
+  location?: { name: string; id: string; slug: string; state: string; timezone: string };
+  paperworkComplete: boolean;
+  checkedIn: boolean;
+  visitType: string;
+  visitStatus: VisitStatusLabel;
+  slotId?: string;
+}

@@ -63,17 +63,26 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
   const BLACK_LINE_STYLE = { ...GREY_LINE_STYLE, color: rgbNormalized(0, 0, 0) };
 
   // Draw header
+  console.log(
+    `Drawing header. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. Current page index is ${pdfClient.getCurrentPageIndex()} out of ${pdfClient.getTotalPages()} pages.`
+  );
   pdfClient.drawText(`${data.labOrganizationName}: Order Form`, textStyles.headerRight); // the original was 18 font
   pdfClient.newLine(STANDARD_NEW_LINE);
 
   // print 'e-req' if submitting electronically
   if (!data.isManualOrder) {
+    console.log(
+      `Drawing e-Req line. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. Current page index is ${pdfClient.getCurrentPageIndex()} out of ${pdfClient.getTotalPages()} pages.`
+    );
     pdfClient.drawText('E-REQ', { ...textStyles.textBoldRight, fontSize: textStyles.headerRight.fontSize - 2 });
     pdfClient.newLine(STANDARD_NEW_LINE);
   }
   pdfClient.drawSeparatedLine(BLACK_LINE_STYLE);
 
   // Location Details (left column)
+  console.log(
+    `Drawing location details left column. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. Current page index is ${pdfClient.getCurrentPageIndex()} out of ${pdfClient.getTotalPages()} pages.`
+  );
   const yPosAtStartOfLocation = pdfClient.getY();
   let yPosAtEndOfLocation = yPosAtStartOfLocation;
   if (
@@ -140,12 +149,17 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
   // Order number, physician info (right column)
   // go back to where the location info started to start the right column of text
   pdfClient.setY(yPosAtStartOfLocation);
+  console.log(
+    `Drawing order number, physician info right column. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. Current page index is ${pdfClient.getCurrentPageIndex()} out of ${pdfClient.getTotalPages()} pages.`
+  );
   let currXPos = pdfClient.drawStartXPosSpecifiedText('Order Number: ', textStyles.textBold, rightColumnXStart).endXPos;
   // eslint-disable-next-line @typescript-eslint/no-unused-expressions
   pdfClient.drawStartXPosSpecifiedText(data.orderNumber, textStyles.text, currXPos).endXPos;
 
   pdfClient.newLine(STANDARD_NEW_LINE);
-
+  console.log(
+    `Drawing physician info. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. Current page index is ${pdfClient.getCurrentPageIndex()} out of ${pdfClient.getTotalPages()} pages.`
+  );
   pdfClient.drawStartXPosSpecifiedText(data.providerName, textStyles.textBold, rightColumnXStart);
   pdfClient.newLine(STANDARD_NEW_LINE);
 
@@ -166,6 +180,9 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
   pdfClient.drawSeparatedLine(BLACK_LINE_STYLE);
 
   // Patient info (left column)
+  console.log(
+    `Drawing patient info left column. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. Current page index is ${pdfClient.getCurrentPageIndex()} out of ${pdfClient.getTotalPages()} pages.`
+  );
   pdfClient.drawTextSequential(
     `${data.patientLastName}, ${data.patientFirstName}${data.patientMiddleName ? ' ' + data.patientMiddleName : ''}, `,
     { ...textStyles.header, newLineAfter: false }
@@ -187,16 +204,24 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
   pdfClient.newLine(STANDARD_NEW_LINE);
 
   // Order date and collection date
+  console.log(
+    `Drawing order and collection date. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. Current page index is ${pdfClient.getCurrentPageIndex()} out of ${pdfClient.getTotalPages()} pages.`
+  );
   pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, 'Order Date:', data.orderCreateDate);
   pdfClient.newLine(STANDARD_NEW_LINE);
 
-  // TODO: with our new change to sample collection, I wonder if this type should be updated to be required for collectionDate
-  pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, 'Order Collection Date:', data.sampleCollectionDate ?? '');
-  pdfClient.newLine(STANDARD_NEW_LINE);
+  // only print this for non-psc orders
+  if (!data.isPscOrder) {
+    pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, 'Collection Date:', data.sampleCollectionDate ?? '');
+    pdfClient.newLine(STANDARD_NEW_LINE);
+  }
 
   pdfClient.drawSeparatedLine(BLACK_LINE_STYLE);
 
   // Insurance/billing Section
+  console.log(
+    `Drawing insurance. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. Current page index is ${pdfClient.getCurrentPageIndex()} out of ${pdfClient.getTotalPages()} pages.`
+  );
   pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, 'Bill Class:', data.billClass);
   pdfClient.newLine(STANDARD_NEW_LINE);
 
@@ -230,6 +255,9 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
 
   // AOE Section
   if (data.aoeAnswers?.length) {
+    console.log(
+      `Drawing AOE. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. Current page index is ${pdfClient.getCurrentPageIndex()} out of ${pdfClient.getTotalPages()} pages.`
+    );
     pdfClient.drawTextSequential('AOE Answers', textStyles.header);
     data.aoeAnswers.forEach((item) => {
       pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, `${item.question}: `, item.answer.toString());
@@ -249,6 +277,9 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
     width: pdfClient.getRightBound() - secondColumnStart,
   }; // just the rest of the page
 
+  console.log(
+    `Drawing lab and assessments header. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. Current page index is ${pdfClient.getCurrentPageIndex()} out of ${pdfClient.getTotalPages()} pages.`
+  );
   pdfClient.drawSeparatedLine(GREY_LINE_STYLE);
   pdfClient.drawVariableWidthColumns(
     [
@@ -270,6 +301,9 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
   pdfClient.drawSeparatedLine(GREY_LINE_STYLE);
 
   // second row
+  console.log(
+    `Drawing test name and assessments. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. Current page index is ${pdfClient.getCurrentPageIndex()} out of ${pdfClient.getTotalPages()} pages.`
+  );
   pdfClient.drawVariableWidthColumns(
     [
       {
@@ -291,6 +325,9 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
   pdfClient.newLine(STANDARD_NEW_LINE);
 
   // Signature
+  console.log(
+    `Drawing signature. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. Current page index is ${pdfClient.getCurrentPageIndex()} out of ${pdfClient.getTotalPages()} pages.`
+  );
   pdfClient.drawTextSequential(`Electronically signed by: ${data.providerName}`, textStyles.textBold);
   pdfClient.newLine(STANDARD_NEW_LINE);
   pdfClient.drawTextSequential(data.orderSubmitDate, textStyles.textGreyBold);
@@ -298,6 +335,9 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
   pdfClient.drawSeparatedLine(BLACK_LINE_STYLE);
 
   // Generated by Ottehr
+  console.log(
+    `Drawing ottehr signature. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. Current page index is ${pdfClient.getCurrentPageIndex()} out of ${pdfClient.getTotalPages()} pages.`
+  );
   pdfClient.drawTextSequential('Order generated by Ottehr', textStyles.textGreyBold);
 
   return await pdfClient.save();

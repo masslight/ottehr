@@ -37,6 +37,10 @@ const validateBody = async (input: ZambdaInput, secrets: Secrets, oystehr: Oyste
     throw new Error('Clinical history is required and must be a string');
   }
 
+  if (clinicalHistory.length > 255) {
+    throw new Error('Clinical history must be 255 characters or less');
+  }
+
   return {
     diagnosis,
     cpt,
