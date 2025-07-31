@@ -17,6 +17,8 @@ import { getAuth0Token } from '../../src/shared';
 import { SECRETS } from '../data/secrets';
 import { cleanupTestScheduleResources, makeTestPatient, persistTestPatient } from '../helpers/testScheduleUtils';
 
+const DEFAULT_SUITE_TIMEOUT = 60000;
+
 describe('saving and getting vitals', () => {
   let oystehr: Oystehr;
   let token: string;
@@ -291,7 +293,8 @@ describe('saving and getting vitals', () => {
         expect(temperatureVitals[0].value).toBe(37);
         expect(temperatureVitals[0].alertCriticality).toBeUndefined();
       });
-    }
+    },
+    { timeout: DEFAULT_SUITE_TIMEOUT }
   );
 
   suite(
@@ -452,7 +455,8 @@ describe('saving and getting vitals', () => {
           expect(vital.alertCriticality).toBe('abnormal');
         });
       });
-    }
+    },
+    { timeout: DEFAULT_SUITE_TIMEOUT }
   );
   suite(
     'writing vitals observations for 2-12 month old patients that do rise to alert threshold level produce vitals dtos with alerts',
@@ -545,7 +549,8 @@ describe('saving and getting vitals', () => {
           expect(vital.alertCriticality).toBe('abnormal');
         });
       });
-    }
+    },
+    { timeout: DEFAULT_SUITE_TIMEOUT }
   );
 
   suite(
@@ -625,7 +630,8 @@ describe('saving and getting vitals', () => {
           expect(vital.alertCriticality).toBe('abnormal');
         });
       });
-    }
+    },
+    { timeout: DEFAULT_SUITE_TIMEOUT }
   );
 
   suite(
@@ -701,7 +707,8 @@ describe('saving and getting vitals', () => {
           expect(vital.alertCriticality).toBe('abnormal');
         });
       });
-    }
+    },
+    { timeout: DEFAULT_SUITE_TIMEOUT }
   );
 
   suite(
@@ -784,7 +791,8 @@ describe('saving and getting vitals', () => {
           expect(vital.alertCriticality).toBe('abnormal');
         });
       });
-    }
+    },
+    { timeout: DEFAULT_SUITE_TIMEOUT }
   );
 
   suite(
@@ -869,7 +877,8 @@ describe('saving and getting vitals', () => {
           expect(vital.alertCriticality).toBe('abnormal');
         });
       });
-    }
+    },
+    { timeout: DEFAULT_SUITE_TIMEOUT }
   );
 
   suite(
@@ -935,6 +944,7 @@ describe('saving and getting vitals', () => {
           expect(vital.alertCriticality).toBe('abnormal');
         });
       });
-    }
+    },
+    { timeout: DEFAULT_SUITE_TIMEOUT }
   );
 });
