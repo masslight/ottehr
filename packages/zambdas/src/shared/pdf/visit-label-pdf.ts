@@ -219,5 +219,9 @@ export async function createVisitLabelPDF(
 
   const presignedURL = await getPresignedURL(pdfInfo.uploadURL, token);
 
+  if (!presignedURL) {
+    throw new Error('Failed to get presigned URL for visit label PDF');
+  }
+
   return { docRef: docRefs[0], presignedURL };
 }
