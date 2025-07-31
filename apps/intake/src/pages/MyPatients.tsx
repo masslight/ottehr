@@ -2,10 +2,10 @@
 import { CircularProgress } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { FieldValues } from 'react-hook-form';
 import { generatePath, Outlet, useNavigate, useOutletContext, useParams } from 'react-router-dom';
-import { APIError, getPatientInfoFullName, isApiError, PatientInfo } from 'utils';
+import { APIError, getPatientInfoFullName, isApiError, PatientInfo, useErrorQuery } from 'utils';
 import ottehrApi from '../api/ottehrApi';
 import { intakeFlowPageRoute } from '../App';
 import { PageContainer } from '../components';
@@ -32,11 +32,13 @@ const MyPatients = (): JSX.Element => {
 
   const patientsData = queryResult.data || emptyPatients;
 
-  useEffect(() => {
-    if (queryResult.error) {
-      setErrorForAlert(queryResult.error);
-    }
-  }, [queryResult.error, setErrorForAlert]);
+  useErrorQuery(
+    queryResult.error,
+    (error) => {
+      setErrorForAlert(error);
+    },
+    [setErrorForAlert]
+  );
 
   const patientsLoadingInSomeWay = queryResult.isLoading;
 

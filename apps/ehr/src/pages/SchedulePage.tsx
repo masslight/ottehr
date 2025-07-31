@@ -29,6 +29,7 @@ import {
   scheduleTypeFromFHIRType,
   TIMEZONES,
   UpdateScheduleParams,
+  useSuccessQuery,
 } from 'utils';
 import { createSchedule, getSchedule, updateSchedule } from '../api/api';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
@@ -127,11 +128,11 @@ export default function SchedulePage(): ReactElement {
     enabled: queryEnabled,
   });
 
-  useEffect(() => {
-    if (scheduleData !== null) {
-      setItem(scheduleData);
+  useSuccessQuery(scheduleData, (data) => {
+    if (data) {
+      setItem(data);
     }
-  }, [scheduleData]);
+  });
 
   const saveScheduleChanges = useMutation({
     mutationFn: async (params: UpdateScheduleParams) => {

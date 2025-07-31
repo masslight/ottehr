@@ -23,7 +23,7 @@ export const useGetClaim = (
   }: {
     claimId: string | undefined;
   },
-  onSuccess: (data: FhirResource[]) => void
+  onSuccess: (data: FhirResource[] | null) => void
 ): UseQueryResult<FhirResource[], Error> => {
   const { oystehr } = useApiClients();
 
@@ -82,7 +82,7 @@ export const useGetClaim = (
 };
 
 export const useGetInsurancePlans = (
-  onSuccess: (data: InsurancePlan[]) => void
+  onSuccess: (data: InsurancePlan[] | null) => void
 ): UseQueryResult<InsurancePlan[], Error> => {
   const { oystehr } = useApiClients();
 
@@ -117,7 +117,7 @@ export const useGetInsurancePlans = (
 };
 
 export const useGetOrganizations = (
-  onSuccess: (data: Organization[]) => void
+  onSuccess: (data: Organization[] | null) => void
 ): UseQueryResult<Organization[], Error> => {
   const { oystehr } = useApiClients();
 
@@ -141,7 +141,7 @@ export const useGetOrganizations = (
   return queryResult;
 };
 
-export const useGetFacilities = (onSuccess: (data: Location[]) => void): UseQueryResult<Location[], Error> => {
+export const useGetFacilities = (onSuccess: (data: Location[] | null) => void): UseQueryResult<Location[], Error> => {
   const { oystehr } = useApiClients();
 
   const queryResult = useQuery({

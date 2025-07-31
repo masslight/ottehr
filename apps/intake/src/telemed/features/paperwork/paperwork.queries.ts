@@ -7,7 +7,7 @@ import { useOystehrAPIClient } from '../../utils';
 import { useAppointmentStore } from '../appointments';
 
 export const useGetPaperwork = (
-  onSuccess?: (data: PromiseReturnType<ReturnType<OystehrAPIClient['getPaperwork']>>) => void,
+  onSuccess?: (data: PromiseReturnType<ReturnType<OystehrAPIClient['getPaperwork']>> | null) => void,
   params?: {
     enabled?: boolean;
     staleTime?: number;
@@ -66,7 +66,7 @@ export const useUpdatePaperworkMutation = () => {
 export const useAnswerOptionsQuery = (
   enabled = true,
   params: GetAnswerOptionsRequest | undefined,
-  onSuccess?: (data: QuestionnaireItemAnswerOption[]) => void
+  onSuccess?: (data: QuestionnaireItemAnswerOption[] | null) => void
 ): UseQueryResult<QuestionnaireItemAnswerOption[], Error> => {
   const apiClient = useOystehrAPIClient();
 
@@ -93,7 +93,7 @@ export const useAnswerOptionsQuery = (
 interface GetPaymentMethodsParams {
   setupCompleted: boolean;
   beneficiaryPatientId: string | undefined;
-  onSuccess?: (data: PromiseReturnType<ReturnType<OystehrAPIClient['getPaymentMethods']>>) => void;
+  onSuccess?: (data: PromiseReturnType<ReturnType<OystehrAPIClient['getPaymentMethods']>> | null) => void;
 }
 
 export const useGetPaymentMethods = (
@@ -125,7 +125,7 @@ export const useGetPaymentMethods = (
 
 export const useSetupPaymentMethod = (
   beneficiaryPatientId: string | undefined,
-  onSuccess?: (data: PromiseReturnType<ReturnType<OystehrAPIClient['setupPaymentMethod']>>) => void
+  onSuccess?: (data: PromiseReturnType<ReturnType<OystehrAPIClient['setupPaymentMethod']>> | null) => void
 ): UseQueryResult<PromiseReturnType<ReturnType<OystehrAPIClient['setupPaymentMethod']>>, Error> => {
   const apiClient = useOystehrAPIClient();
 

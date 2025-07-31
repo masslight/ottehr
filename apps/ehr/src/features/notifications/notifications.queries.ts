@@ -21,7 +21,7 @@ export type ProviderNotification = {
 };
 
 export const useGetProviderNotifications = (
-  onSuccess?: (data: ProviderNotification[]) => void
+  onSuccess?: (data: ProviderNotification[] | null) => void
 ): UseQueryResult<ProviderNotification[], Error> => {
   const { oystehr } = useApiClients();
   const user = useEvolveUser();

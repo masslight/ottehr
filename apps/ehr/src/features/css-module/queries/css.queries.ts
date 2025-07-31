@@ -8,14 +8,15 @@ import { useApiClients } from '../../../hooks/useAppClients';
 
 export const useGetSignedPatientProfilePhotoUrlQuery = (
   z3PhotoUrl?: string,
-  onSuccess?: (response: GetOrUploadPatientProfilePhotoZambdaResponse) => void
+  onSuccess?: (response: GetOrUploadPatientProfilePhotoZambdaResponse | null) => void
 ): UseQueryResult<GetOrUploadPatientProfilePhotoZambdaResponse, Error> => {
   const { oystehrZambda } = useApiClients();
   const queryResult = useQuery({
     queryKey: ['Get-Signed-Patient-Profile-Photo-Url', z3PhotoUrl],
 
     queryFn: async (): Promise<GetOrUploadPatientProfilePhotoZambdaResponse> => {
-      return await getSignedPatientProfilePhotoUrl(oystehrZambda!, { z3PhotoUrl: z3PhotoUrl! });
+      const data = await getSignedPatientProfilePhotoUrl(oystehrZambda!, { z3PhotoUrl: z3PhotoUrl! });
+      return data;
     },
 
     enabled: Boolean(oystehrZambda && z3PhotoUrl),

@@ -255,6 +255,9 @@ const useGetPatientDocsFolders = (
   });
 
   useSuccessQuery(queryResult.data, (data) => {
+    if (!data) {
+      return;
+    }
     const searchResultsResources: FhirResource[] = data;
     const listResources =
       searchResultsResources
@@ -343,6 +346,9 @@ const useSearchPatientDocuments = (
   useSuccessQuery(
     queryResult.data,
     (data) => {
+      if (!data) {
+        return;
+      }
       const searchResultsResources: FhirResource[] = data;
       console.log(`useSearchPatientDocuments() search results cnt=[${searchResultsResources.length}]`);
 

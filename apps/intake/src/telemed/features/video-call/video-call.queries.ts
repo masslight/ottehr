@@ -6,7 +6,7 @@ import { useAppointmentStore } from '../appointments';
 
 export const useJoinCall = (
   apiClient: OystehrAPIClient | null,
-  onSuccess: (data: PromiseReturnType<ReturnType<OystehrAPIClient['joinCall']>>) => void,
+  onSuccess: (data: PromiseReturnType<ReturnType<OystehrAPIClient['joinCall']>> | null) => void,
   onError: (error: unknown) => void
 ): UseQueryResult<PromiseReturnType<ReturnType<OystehrAPIClient['joinCall']>>> => {
   const queryResult = useQuery({

@@ -26,7 +26,7 @@ export const useGetTelemedAppointments = (
   }: {
     apiClient: OystehrTelemedAPIClient | null;
   } & GetAppointmentsRequestParams,
-  onSuccess: (data: PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getTelemedAppointments']>>) => void
+  onSuccess: (data: PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getTelemedAppointments']>> | null) => void
 ): UseQueryResult<PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getTelemedAppointments']>>, Error> => {
   const queryResult = useQuery({
     queryKey: [

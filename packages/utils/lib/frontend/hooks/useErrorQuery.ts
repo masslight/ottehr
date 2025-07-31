@@ -11,29 +11,18 @@ import { useEffect, useRef } from 'react';
  * 2. Callback changes → calls new callback with existing error
  * 3. Both change simultaneously → calls new callback with new error (no duplicates)
  */
-export function useErrorQuery<T = unknown>(
-  error: T | null | undefined,
-  onError?: (error: T) => void,
+export function useErrorQuery<T = any>(
+  error: T,
+  onError?: (error: NonNullable<T>) => void,
   dependencies: React.DependencyList = []
 ): void {
-  const previousErrorRef = useRef<T | null | undefined>();
-  const isErrorChanged = error && error !== previousErrorRef.current;
+  const previousDataRef = useRef<T | null>(null);
 
-  // handle onError callback changes
   useEffect(() => {
-    if (isErrorChanged) {
-      onError?.(error);
-      previousErrorRef.current = error;
+    if (error && error !== previousDataRef.current && onError) {
+      onError(error);
+      previousDataRef.current = error;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onError, isErrorChanged]);
-
-  // handle error changes
-  useEffect(() => {
-    if (isErrorChanged) {
-      onError?.(error);
-      previousErrorRef.current = error;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [error, isErrorChanged, ...dependencies]);
+  }, [onError, error, ...dependencies]);
 }

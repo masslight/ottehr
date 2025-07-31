@@ -13,6 +13,7 @@ import {
   RoleType,
   SyncUserResponse,
   User,
+  useSuccessQuery,
 } from 'utils';
 import { create } from 'zustand';
 import { getUser } from '../api/api';
@@ -60,6 +61,7 @@ export default function useEvolveUser(): EvolveUser | undefined {
   );
 
   useGetUser();
+
   useSyncPractitioner((data) => {
     if (data.updated) {
       console.log('Practitioner sync success');
@@ -69,11 +71,15 @@ export default function useEvolveUser(): EvolveUser | undefined {
   const { isPending: isPractitionerLastLoginBeingUpdated, mutateAsync: mutatePractitionerAsync } =
     useUpdatePractitioner();
 
-  useEffect(() => {
-    if (user?.profile && !profile) {
-      void refetchProfile();
-    }
-  }, [profile, refetchProfile, user?.profile]);
+  useSuccessQuery(
+    profile,
+    () => {
+      if (user?.profile && !profile) {
+        void refetchProfile();
+      }
+    },
+    [profile, user?.profile, refetchProfile]
+  );
 
   useEffect(() => {
     if (user && oystehr && profile && !isPractitionerLastLoginBeingUpdated && !_practitionerLoginUpdateStarted) {
@@ -126,27 +132,24 @@ export default function useEvolveUser(): EvolveUser | undefined {
 // const MINUTE = 1000 * 60; // For Credentials Sync
 // const DAY = MINUTE * 60 * 24; // For Credentials Sync
 
-const useGetUser = (): UseQueryResult<void, Error> => {
+const useGetUser = (): UseQueryResult<User, Error> => {
   const token = useAuthToken();
   const user = useEvolveUserStore((state) => state.user);
 
   return useQuery({
     queryKey: ['get-user'],
 
-    queryFn: async (): Promise<void> => {
-      try {
-        const user = await getUser(token!);
-        useEvolveUserStore.setState({ user: user as User });
-      } catch (error) {
-        console.error(error);
-      }
+    queryFn: async (): Promise<User> => {
+      const user = await getUser(token!);
+      useEvolveUserStore.setState({ user: user as User });
+      return user;
     },
 
     enabled: Boolean(token && !user),
   });
 };
 
-const useGetProfile = (): UseQueryResult<Practitioner | undefined, Error> => {
+const useGetProfile = (): UseQueryResult<Practitioner | null, Error> => {
   const token = useAuthToken();
   const user = useEvolveUserStore((state) => state.user);
   const { oystehr } = useApiClients();
@@ -154,24 +157,24 @@ const useGetProfile = (): UseQueryResult<Practitioner | undefined, Error> => {
   return useQuery({
     queryKey: ['get-practitioner-profile'],
 
-    queryFn: async (): Promise<Practitioner | undefined> => {
+    queryFn: async (): Promise<Practitioner | null> => {
       try {
         if (!user?.profile) {
           useEvolveUserStore.setState({ profile: undefined });
-          return;
+          return null;
         }
 
         const [resourceType, resourceId] = (user?.profile || '').split('/');
         if (resourceType && resourceId && resourceType === 'Practitioner') {
           const practitioner = await oystehr?.fhir.get<Practitioner>({ resourceType, id: resourceId });
           useEvolveUserStore.setState({ profile: practitioner });
-          return practitioner;
+          return practitioner ? practitioner : null;
         }
-        return;
+        return null;
       } catch (e) {
         console.error(`error fetching user's fhir profile: ${JSON.stringify(e)}`);
         useEvolveUserStore.setState({ profile: undefined });
-        return undefined;
+        throw e;
       }
     },
 
@@ -219,18 +222,13 @@ const useUpdatePractitioner = (): UseMutationResult<void, Error, Operation[]> =>
     mutationKey: ['update-practitioner'],
 
     mutationFn: async (patchOps: Operation[]): Promise<void> => {
-      try {
-        if (!oystehr || !user) return;
+      if (!oystehr || !user) return;
 
-        await oystehr.fhir.patch({
-          resourceType: 'Practitioner',
-          id: user.profile.replace('Practitioner/', ''),
-          operations: [...patchOps],
-        });
-      } catch (error) {
-        console.error(error);
-        throw error;
-      }
+      await oystehr.fhir.patch({
+        resourceType: 'Practitioner',
+        id: user.profile.replace('Practitioner/', ''),
+        operations: [...patchOps],
+      });
     },
 
     retry: 3,

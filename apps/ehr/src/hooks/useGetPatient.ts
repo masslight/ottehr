@@ -109,7 +109,7 @@ export const useGetPatient = (
               ],
             })
             .then((bundle) => bundle.unbundle())
-        : undefined,
+        : null,
     gcTime: 10000,
     enabled: oystehr != null && id != null,
   });
@@ -132,7 +132,7 @@ export const useGetPatient = (
               }),
             })
             .then((bundle) => bundle.unbundle())
-        : undefined,
+        : null,
     gcTime: 10000,
     enabled: oystehr != null && patientResource != null,
   });
@@ -236,7 +236,7 @@ export const useGetPatientAccount = (
     apiClient: OystehrTelemedAPIClient | null;
     patientId: string | null;
   },
-  onSuccess?: (data: PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getPatientAccount']>>) => void
+  onSuccess?: (data: PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getPatientAccount']>> | null) => void
 ): UseQueryResult<PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getPatientAccount']>>, Error> => {
   const queryResult = useQuery({
     queryKey: ['patient-account-get', { apiClient, patientId }],
@@ -311,7 +311,7 @@ export const useUpdatePatientAccount = (
 };
 
 export const useGetInsurancePlans = (
-  onSuccess: (data: Bundle<Organization>) => void
+  onSuccess: (data: Bundle<Organization> | null) => void
 ): UseQueryResult<Bundle<Organization>, Error> => {
   const { oystehr } = useApiClients();
 
@@ -366,7 +366,7 @@ export const useGetInsurancePlans = (
 };
 
 export const useGetPatientDetailsUpdateForm = (
-  onSuccess?: (data: Questionnaire) => void
+  onSuccess?: (data: Questionnaire | null) => void
 ): UseQueryResult<Questionnaire, Error> => {
   const { oystehr } = useApiClients();
 

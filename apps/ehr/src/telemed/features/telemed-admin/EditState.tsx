@@ -41,14 +41,9 @@ export default function EditStatePage(): JSX.Element {
     queryFn: (): Promise<Location | undefined> => getStateLocation(oystehr, state as StateType),
   });
 
-  useSuccessQuery(
-    queryResult.data,
-    (data: Location) => {
-      setIsOperateInStateChecked(Boolean(data && data.status === 'active'));
-    },
-    [],
-    true
-  );
+  useSuccessQuery(queryResult.data, (data) => {
+    setIsOperateInStateChecked(Boolean(data && data.status === 'active'));
+  });
 
   const mutation = useMutation({
     mutationFn: async ({ newStatus, location }: { newStatus: string; location: Location }) => {

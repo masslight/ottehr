@@ -10,7 +10,7 @@ export const useGetClaims = ({
   onSuccess,
 }: {
   apiClient: Oystehr_RCM_APIClient | null;
-  onSuccess?: (data: ClaimsQueueGetResponse) => void;
+  onSuccess?: (data: ClaimsQueueGetResponse | null) => void;
 }): UseQueryResult<ClaimsQueueGetResponse, Error> => {
   const params = getSelectors(useClaimsQueueStore, [
     'patient',

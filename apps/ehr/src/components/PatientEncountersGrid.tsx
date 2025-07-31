@@ -14,7 +14,7 @@ import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { useQuery } from '@tanstack/react-query';
 import { Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { FC, useEffect, useMemo, useState } from 'react';
+import { FC, useMemo, useState } from 'react';
 import { VisitTypeToLabel, VisitTypeToLabelTelemed } from 'src/types/types';
 import {
   EmployeeDetails,
@@ -24,6 +24,7 @@ import {
   OTTEHR_MODULE,
   ServiceMode,
   TelemedCallStatusesArr,
+  useSuccessQuery,
   Visit_Status_Array,
 } from 'utils';
 import { create } from 'zustand';
@@ -164,6 +165,8 @@ const columns: GridColDef<AppointmentHistoryRow>[] = [
   },
 ];
 
+const emptyEmployeeList: EmployeeDetails[] = [];
+
 export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => {
   const { appointments, loading } = props;
 
@@ -177,15 +180,23 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
 
   const { data: employeesData } = useQuery({
     queryKey: ['employees'],
-    queryFn: () => (oystehrZambda ? getEmployees(oystehrZambda) : null),
+    queryFn: async () => {
+      if (!oystehrZambda) {
+        return null;
+      }
+      const data = await getEmployees(oystehrZambda);
+      if (!data.employees) {
+        return null;
+      }
+      return data;
+    },
     enabled: !!oystehrZambda,
   });
 
-  useEffect(() => {
-    if (employeesData) {
-      useEmployeesStore.setState({ employees: employeesData.employees || [] });
-    }
-  }, [employeesData]);
+  useSuccessQuery(employeesData, (data) => {
+    const employees = data?.employees || emptyEmployeeList;
+    useEmployeesStore.setState({ employees });
+  });
 
   const filtered = useMemo(() => {
     let filtered = appointments || [];

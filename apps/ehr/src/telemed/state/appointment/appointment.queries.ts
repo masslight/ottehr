@@ -90,8 +90,11 @@ export const useGetReviewAndSignData = (
   });
 
   useSuccessQuery(queryResult.data, (data) => {
+    if (!data || !onSuccess) {
+      return;
+    }
     const reviewAndSignData = extractReviewAndSignAppointmentData(data);
-    onSuccess?.(reviewAndSignData);
+    onSuccess(reviewAndSignData);
   });
 
   return queryResult;
@@ -114,6 +117,9 @@ export const useRefreshableAppointmentData = (
       refreshIntervalMs: APPOINTMENT_REFRESH_INTERVAL,
     },
     (originalData) => {
+      if (!originalData || !onSuccess) {
+        return;
+      }
       const refreshedData = createRefreshableAppointmentData(originalData);
       onSuccess(refreshedData);
     }
@@ -130,7 +136,7 @@ export const useGetTelemedAppointmentPeriodicRefresh = (
     isEnabled: boolean;
     refreshIntervalMs: number | undefined;
   },
-  onSuccess: (data: VisitResources[]) => void
+  onSuccess: (data: VisitResources[] | null) => void
 ): UseQueryResult<VisitResources[], unknown> => {
   const { oystehr } = useApiClients();
   const refetchOptions = refreshIntervalMs ? { refetchInterval: refreshIntervalMs } : {};
@@ -170,7 +176,7 @@ export const useGetAppointment = (
   }: {
     appointmentId: string | undefined;
   },
-  onSuccess?: (data: VisitResources[]) => void
+  onSuccess?: (data: VisitResources[] | null) => void
 ): UseQueryResult<VisitResources[], unknown> => {
   const { oystehr } = useApiClients();
 
@@ -326,7 +332,7 @@ export const useGetTelemedAppointmentWithSMSModel = (
 
 export const useGetMeetingData = (
   getAccessTokenSilently: () => Promise<string>,
-  onSuccess: (data: MeetingData) => void,
+  onSuccess: (data: MeetingData | null) => void,
   onError: (error: Error) => void
 ): UseQueryResult<MeetingData, Error> => {
   const queryResult = useQuery({
@@ -392,7 +398,7 @@ export const useGetChartData = (
     enabled?: boolean;
     refetchInterval?: number;
   },
-  onSuccess: (data: PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getChartData']>>) => void,
+  onSuccess: (data: PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getChartData']>> | null) => void,
   onError?: (error: any) => void
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
@@ -634,7 +640,7 @@ export const useUpdatePaperwork = () => {
 
 export const useGetPatientInstructions = (
   { type }: { type: InstructionType },
-  onSuccess?: (data: PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getPatientInstructions']>>) => void
+  onSuccess?: (data: PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getPatientInstructions']>> | null) => void
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
   const apiClient = useOystehrAPIClient();
@@ -898,6 +904,8 @@ export const useGetMedicationOrders = (
   });
 };
 
+const emptyMedications: Record<string, string> = {};
+
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetMedicationList = () => {
   const { oystehr } = useApiClients();
@@ -922,7 +930,7 @@ export const useGetMedicationList = () => {
 
     queryFn: async () => {
       if (!oystehr) {
-        return [];
+        return emptyMedications;
       }
       const data = await oystehr.fhir.search<Medication>({
         resourceType: 'Medication',

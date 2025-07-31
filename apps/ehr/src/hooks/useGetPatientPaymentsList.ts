@@ -5,7 +5,7 @@ import { useApiClients } from './useAppClients';
 
 interface GetPatientPaymentsInput extends ListPatientPaymentInput {
   disabled?: boolean;
-  onSuccess?: (data: PromiseReturnType<Promise<ListPatientPaymentResponse>>) => void;
+  onSuccess?: (data: PromiseReturnType<Promise<ListPatientPaymentResponse>> | null) => void;
 }
 
 export const useGetPatientPaymentsList = (

@@ -76,6 +76,8 @@ export default function EmployeesPage(): ReactElement {
     setPageTab(newValue);
   }, []);
 
+  const emptyEmployeeList: EmployeeDetails[] = [];
+
   const handlePageStateChange = useCallback(
     (tab: PageTab, newPageState: Partial<(typeof pageStates)[PageTab.providers]>) => {
       setPageStates((prev) => ({
@@ -96,14 +98,9 @@ export default function EmployeesPage(): ReactElement {
     enabled: !!oystehrZambda,
   });
 
-  useSuccessQuery(
-    queryResult.data,
-    (data: GetEmployeesResponse | null) => {
-      setEmployees(data?.employees ?? []);
-    },
-    [],
-    true
-  );
+  useSuccessQuery(queryResult.data, (data: GetEmployeesResponse | null) => {
+    setEmployees(data?.employees ?? emptyEmployeeList);
+  });
 
   const { isFetching } = queryResult;
 

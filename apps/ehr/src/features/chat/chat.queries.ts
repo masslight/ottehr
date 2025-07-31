@@ -9,15 +9,16 @@ import { MessageModel } from './ChatModal';
 export const useFetchChatMessagesQuery = (
   timezone: string,
   numbersToSendTo?: string[],
-  onSuccess?: (data: ConversationMessage[]) => void
-): UseQueryResult<ConversationMessage[], Error> => {
+  onSuccess?: (data: ConversationMessage[] | null) => void
+): UseQueryResult<ConversationMessage[] | null, Error> => {
   const { oystehrZambda } = useApiClients();
 
   const queryResult = useQuery({
     queryKey: ['chat-messages', numbersToSendTo, timezone],
 
     queryFn: async () => {
-      return await getConversation(oystehrZambda!, { smsNumbers: numbersToSendTo!, timezone });
+      const data = await getConversation(oystehrZambda!, { smsNumbers: numbersToSendTo!, timezone });
+      return data ? data : null;
     },
 
     enabled: Boolean(oystehrZambda && numbersToSendTo?.length && timezone),

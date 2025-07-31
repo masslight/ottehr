@@ -6,7 +6,7 @@ import { useOystehrAPIClient } from '../../utils';
 import { useAppointmentStore } from '../appointments';
 
 export const useGetWaitStatus = (
-  onSuccess: (data: PromiseReturnType<ReturnType<OystehrAPIClient['getWaitStatus']>>) => void,
+  onSuccess: (data: PromiseReturnType<ReturnType<OystehrAPIClient['getWaitStatus']>> | null) => void,
   appointmentId: string,
   refetchInterval?: number | false,
   enabled?: boolean

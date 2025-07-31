@@ -692,24 +692,26 @@ function getPredefinedValueIfOther(
   return undefined;
 }
 
+const emptySelectOptions: SelectOptions = {
+  procedureTypes: [],
+  medicationsUsed: [],
+  bodySites: [],
+  bodySides: [],
+  techniques: [],
+  supplies: [],
+  complications: [],
+  patientResponses: [],
+  postProcedureInstructions: [],
+  timeSpent: [],
+};
+
 function useSelectOptions(oystehr: Oystehr | undefined): UseQueryResult<SelectOptions, Error> {
   return useQuery({
     queryKey: ['procedures-new-dropdown-options'],
 
     queryFn: async (): Promise<SelectOptions> => {
       if (oystehr == null) {
-        return {
-          procedureTypes: [],
-          medicationsUsed: [],
-          bodySites: [],
-          bodySides: [],
-          techniques: [],
-          supplies: [],
-          complications: [],
-          patientResponses: [],
-          postProcedureInstructions: [],
-          timeSpent: [],
-        };
+        return emptySelectOptions;
       }
       const valueSets = (
         await oystehr.fhir.search<ValueSet>({
@@ -746,7 +748,6 @@ function useSelectOptions(oystehr: Oystehr | undefined): UseQueryResult<SelectOp
         timeSpent: getValueSetValues(TIME_SPENT_VALUE_SET_URL, valueSets),
       };
     },
-
     placeholderData: keepPreviousData,
     staleTime: QUERY_STALE_TIME,
   });

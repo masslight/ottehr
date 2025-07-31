@@ -5,7 +5,7 @@ import { useApiClients } from './useAppClients';
 
 export const useSetupStripe = (
   beneficiaryPatientId: string | undefined,
-  onSuccess?: (data: string) => void
+  onSuccess?: (data: string | null) => void
 ): UseQueryResult<string, Error> => {
   const { oystehrZambda } = useApiClients();
 

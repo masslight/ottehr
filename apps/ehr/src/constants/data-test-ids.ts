@@ -337,6 +337,8 @@ export const dataTestIds = {
     editPatientButtonSideBar: 'telemed-edit-patient-button-side-bar',
     chatModalDescription: 'telemed-chat-modal-description',
     telemedNewOrExistingPatient: 'telemed-new-or-existing-patient',
+    hpiSurgicalHistoryAddNoteButton: 'telemed-hpi-surgical-history-add-note-button',
+    hpiSurgicalHistoryNoteIsLoading: 'telemed-hpi-surgical-history-note-is-loading',
   },
   sideMenu: {
     completeIntakeButton: 'complete-intake-button',
@@ -364,6 +366,7 @@ export const dataTestIds = {
     emCodeDropdown: 'em-code-dropdown',
     medicalDecisionField: 'medical-decision-field',
     cptCodeField: 'cpt-code-field',
+    medicalDecisionLoading: 'medical-decision-loading',
   },
   diagnosisContainer: {
     diagnosisDropdown: 'diagnosis-dropdown',

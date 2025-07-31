@@ -60,27 +60,31 @@ export const ClaimsQueueFilters: FC = () => {
     enabled: !!oystehrZambda,
   });
 
-  useSuccessQuery(
-    queryResult.data,
-    (data: GetEmployeesResponse | null) => {
-      useClaimsQueueStore.setState({ employees: data?.employees || [] });
-    },
-    [],
-    true
-  );
+  useSuccessQuery(queryResult.data, (data: GetEmployeesResponse | null) => {
+    useClaimsQueueStore.setState({ employees: data?.employees || [] });
+  });
 
   useGetOrganizations((data) => {
     console.log('Organizations', data);
+    if (!data) {
+      return;
+    }
     useClaimsQueueStore.setState({ organizations: data });
   });
 
   useGetFacilities((data) => {
     console.log('Facilities', data);
+    if (!data) {
+      return;
+    }
     useClaimsQueueStore.setState({ facilities: data });
   });
 
   useGetInsurancePlans((data) => {
     console.log('Insurance plans', data);
+    if (!data) {
+      return;
+    }
     useClaimsQueueStore.setState({ insurancePlans: data });
   });
 

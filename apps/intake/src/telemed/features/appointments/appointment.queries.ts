@@ -147,7 +147,7 @@ export const useGetVisitDetails = (
 export const useGetTelemedStates = (
   apiClient: OystehrAPIClient | null,
   enabled = true,
-  onSuccess?: (data: GetTelemedLocationsResponse) => void
+  onSuccess?: (data: GetTelemedLocationsResponse | null) => void
 ): UseQueryResult<GetTelemedLocationsResponse, Error> => {
   const queryResult = useQuery({
     queryKey: ['telemed-states'],
@@ -172,7 +172,7 @@ export const useGetBookableItems = (
   apiClient: OystehrAPIClient | null,
   enabled = true,
   params: GetBookableItemListParams,
-  onSuccess?: (data: BookableItemListResponse) => void
+  onSuccess?: (data: BookableItemListResponse | null) => void
 ): UseQueryResult<BookableItemListResponse, Error> => {
   const queryResult = useQuery({
     queryKey: ['list-bookables', params],
@@ -197,7 +197,7 @@ export const useGetSchedule = (
   apiClient: OystehrAPIClient | null,
   enabled = true,
   params: GetScheduleRequestParams,
-  onSuccess?: (data: GetScheduleResponse) => void
+  onSuccess?: (data: GetScheduleResponse | null) => void
 ): UseQueryResult<GetScheduleResponse, Error> => {
   const queryResult = useQuery({
     queryKey: ['get-schedule', params],

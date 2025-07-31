@@ -21,9 +21,9 @@ import { useQuery } from '@tanstack/react-query';
 import { HealthcareService, Location, Practitioner, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { ReactElement, useEffect, useMemo, useState } from 'react';
+import { ReactElement, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { APIError, isApiError, SchedulesAndOwnerListItem } from 'utils';
+import { APIError, isApiError, SchedulesAndOwnerListItem, useErrorQuery } from 'utils';
 import { listScheduleOwners } from '../api/api';
 import { dataTestIds } from '../constants/data-test-ids';
 import { useApiClients } from '../hooks/useAppClients';
@@ -57,6 +57,8 @@ export function getName(item: Resource): string {
   return name;
 }
 
+const emptyScheduleList: SchedulesAndOwnerListItem[] = [];
+
 export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps): ReactElement => {
   const { oystehrZambda } = useApiClients();
   const [rowsPerPage, setRowsPerPage] = useState(5);
@@ -79,7 +81,7 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
     enabled: !!oystehrZambda,
   });
 
-  useEffect(() => {
+  useErrorQuery(error, (error) => {
     if (error) {
       let errorMessage = 'Error fetching schedule owners';
       if (isApiError(error)) {
@@ -90,13 +92,15 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
         variant: 'error',
       });
     }
-  }, [error]);
+  });
 
   const loading = isLoading || isFetching || isRefetching;
 
   const filteredItems = useMemo(() => {
-    const unfiltered = data?.list ?? [];
-    return unfiltered.filter((item) => item.owner.name.toLowerCase().includes(searchText.toLowerCase()));
+    if (!data?.list) {
+      return emptyScheduleList;
+    }
+    return data.list.filter((item) => item.owner.name.toLowerCase().includes(searchText.toLowerCase()));
   }, [data, searchText]);
 
   // For pagination, only include the rows that are on the current page

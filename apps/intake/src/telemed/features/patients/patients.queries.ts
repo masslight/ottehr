@@ -5,7 +5,7 @@ import { PromiseReturnType } from 'utils';
 
 export const useGetPatients = (
   apiClient: OystehrAPIClient | null,
-  onSuccess: (data: PromiseReturnType<ReturnType<OystehrAPIClient['getPatients']>>) => void
+  onSuccess: (data: PromiseReturnType<ReturnType<OystehrAPIClient['getPatients']>> | null) => void
 ): UseQueryResult<PromiseReturnType<ReturnType<OystehrAPIClient['getPatients']>>> => {
   const queryResult = useQuery({
     queryKey: ['patients'],
