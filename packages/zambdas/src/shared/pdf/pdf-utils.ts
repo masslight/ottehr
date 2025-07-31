@@ -2,6 +2,7 @@ import fontkit from '@pdf-lib/fontkit';
 import { DocumentReference } from 'fhir/r4b';
 import fs from 'fs';
 import { Color, PDFDocument, PDFFont, PDFImage, PDFPage, rgb, StandardFonts } from 'pdf-lib';
+import { SupportedObsImgAttachmentTypes } from 'utils';
 import { PDF_CLIENT_STYLES, STANDARD_FONT_SIZE, STANDARD_FONT_SPACING, Y_POS_GAP } from './pdf-consts';
 import { ImageStyle, LineStyle, PageStyles, PdfClient, PdfClientStyles, TextStyle } from './types';
 
@@ -376,6 +377,48 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     return await pdfDoc.embedPng(new Uint8Array(file));
   };
 
+  const embedPdfFromBase64 = async (base64String: string): Promise<void> => {
+    console.log('decoding base64');
+    const byteArray = Uint8Array.from(atob(base64String), (c) => c.charCodeAt(0));
+    console.log('embedding PDF bytes');
+    const embeddedPages = await pdfDoc.embedPdf(byteArray);
+    for (const embeddedPage of embeddedPages) {
+      const page = pdfDoc.addPage([embeddedPage.width, embeddedPage.height]);
+      page.drawPage(embeddedPage, {
+        x: 0,
+        y: 0,
+        width: embeddedPage.width,
+        height: embeddedPage.height,
+      });
+    }
+  };
+
+  const embedImageFromBase64 = async (base64String: string, imgType: SupportedObsImgAttachmentTypes): Promise<void> => {
+    console.log('decoding base64');
+    const byteArray = Uint8Array.from(atob(base64String), (c) => c.charCodeAt(0));
+    console.log(`embedding ${imgType} IMG bytes`);
+    const image = imgType === 'PNG' ? await pdfDoc.embedPng(byteArray) : await pdfDoc.embedJpg(byteArray);
+    const page = pdfDoc.addPage();
+
+    const { width: pageWidth, height: pageHeight } = page.getSize();
+    const { width: imgWidth, height: imgHeight } = image;
+
+    const DEFAULT_MARGIN = 25;
+    const ITEM_WIDTH = (pageWidth - DEFAULT_MARGIN * 3) / 2;
+    const IMAGE_MAX_HEIGHT = pageHeight / 4;
+    const scale = Math.max(image.width / ITEM_WIDTH, image.height / IMAGE_MAX_HEIGHT);
+    const drawWidth = scale > 1 ? image.width / scale : image.width;
+    const drawHeight = scale > 1 ? image.height / scale : image.height;
+
+    console.log('drawing the image attachment on a new page', imgWidth, imgHeight);
+    page.drawImage(image, {
+      x: DEFAULT_MARGIN,
+      y: pageHeight - drawHeight - DEFAULT_MARGIN,
+      width: drawWidth,
+      height: drawHeight,
+    });
+  };
+
   const drawSeparatedLine = (lineStyle: LineStyle): void => {
     const startX = pageLeftBound + (lineStyle.margin?.left ?? 0);
     const endX = pageRightBound - (lineStyle.margin?.right ?? 0);
@@ -459,6 +502,8 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     embedFont,
     embedStandardFont,
     embedImage,
+    embedPdfFromBase64,
+    embedImageFromBase64,
     drawSeparatedLine,
     getLeftBound,
     getRightBound,
