@@ -11,6 +11,7 @@ import {
   StandardFonts,
   translate,
 } from 'pdf-lib';
+import { getPresignedURL } from '../helpers';
 
 // Get the image's EXIF orientation
 // https://github.com/Hopding/pdf-lib/issues/1284
@@ -310,7 +311,7 @@ async function uploadPDFWithAttachments(
 
   for (const url of attachmentUrls) {
     try {
-      const presignedUrl = await getPresignedFileUrl(url, token);
+      const presignedUrl = await getPresignedURL(url, token);
 
       if (!presignedUrl) continue;
 
@@ -345,28 +346,4 @@ export async function uploadDocument(
   } else {
     return uploadPDF(pdfBytes, fileURL, token, patientId);
   }
-}
-
-async function getPresignedFileUrl(url: string, token: string): Promise<string | undefined> {
-  if (!url) {
-    return;
-  }
-
-  const fetchParams = {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ action: 'download' }),
-  };
-  const presignedUrlResponse = await fetch(url, fetchParams);
-
-  if (!presignedUrlResponse.ok) {
-    console.error(`failed to fetch presigned url for ${url}`);
-    return;
-  }
-
-  const presignedUrlJSON = await presignedUrlResponse.json();
-
-  return presignedUrlJSON.signedUrl;
 }
