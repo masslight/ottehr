@@ -240,13 +240,23 @@ const AddAllergyField: FC = () => {
   const [isOtherOptionSelected, setIsOtherOptionSelected] = useState(false);
 
   const { isFetching: isSearching, data } = useGetAllergiesSearch(debouncedSearchTerm);
-  const allergiesSearchOptions = useMemo(
-    () =>
-      data && !isSearching
-        ? [...(data || []), { name: 'Other' } as unknown as ExtractObjectType<ErxSearchAllergensResponse>]
-        : [],
-    [data, isSearching]
-  );
+  const allergiesSearchOptions = useMemo(() => {
+    if (!data || isSearching) return [];
+
+    // Process the data to include brandname
+    const allergiesWithBrand = data.map((allergy) => {
+      const brandName = allergy.brandName;
+      if (brandName && brandName !== allergy.name) {
+        return {
+          ...allergy,
+          name: `${allergy.name} (${brandName})`,
+        };
+      }
+      return allergy;
+    });
+
+    return [...allergiesWithBrand, { name: 'Other' } as unknown as ExtractObjectType<ErxSearchAllergensResponse>];
+  }, [data, isSearching]);
 
   const debouncedHandleInputChange = useMemo(
     () =>
