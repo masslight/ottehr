@@ -969,7 +969,10 @@ export async function makeSchoolWorkDR(
     meta: {
       tag: [{ code: type, system: SCHOOL_WORK_NOTE_TYPE_META_SYSTEM }, ...(getMetaWFieldName(fieldName).tag || [])],
     },
-    searchParams: [],
+    searchParams: [
+      { name: 'encounter', value: `Encounter/${encounterId}` },
+      { name: 'subject', value: `Patient/${patientId}` },
+    ],
     listResources,
   });
   return docRefs[0];

@@ -398,7 +398,16 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
       },
       generateUUID: randomUUID,
       listResources,
-      searchParams: [],
+      searchParams: [
+        {
+          name: 'subject',
+          value: `Patient/${patientResource.id}`,
+        },
+        {
+          name: 'related',
+          value: `Appointment/${appointmentId}`,
+        },
+      ],
       meta: {
         // for backward compatibility. TODO: remove this
         tag: [{ code: OTTEHR_MODULE.IP }, { code: OTTEHR_MODULE.TM }],
@@ -610,12 +619,16 @@ export async function createDocumentResources(
       dateCreated: d.dateCreated,
       searchParams: [
         {
-          name: 'related',
+          name: 'subject',
           value: `Patient/${patientID}`,
         },
         {
           name: 'type',
           value: d.code,
+        },
+        {
+          name: 'related',
+          value: `Appointment/${appointmentID}`,
         },
       ],
       references: d.references,

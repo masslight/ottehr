@@ -318,7 +318,10 @@ export async function makeReceiptPdfDocumentReference(
     meta: {
       tag: [{ code: OTTEHR_MODULE.TM }],
     },
-    searchParams: [],
+    searchParams: [
+      { name: 'encounter', value: `Encounter/${encounterId}` },
+      { name: 'subject', value: `Patient/${patientId}` },
+    ],
     listResources,
   });
   return docRefs[0];
