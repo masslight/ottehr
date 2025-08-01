@@ -34,12 +34,16 @@ import {
   LAB_ORDER_TASK,
   LAB_RESULT_DOC_REF_CODING_CODE,
   LabType,
+  ObsContentType,
   OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
+  OYSTEHR_EXTERNAL_LABS_ATTACHMENT_EXT_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   OYSTEHR_OBR_NOTE_CODING_SYSTEM,
+  OYSTEHR_OBS_CONTENT_TYPES,
   quantityRangeFormat,
   Secrets,
+  SupportedObsImgAttachmentTypes,
   TestItemComponent,
 } from 'utils';
 import { fetchResultResourcesForRepeatServiceRequest } from '../../ehr/shared/in-house-labs';
@@ -61,6 +65,7 @@ import {
 } from './pdf-utils';
 import {
   ExternalLabResult,
+  ExternalLabResultAttachments,
   ExternalLabResultsData,
   InHouseLabResult,
   InHouseLabResultConfig,
@@ -93,6 +98,7 @@ type LabTypeSpecificResources =
         reviewDate: string | undefined;
         resultsReceivedDate: string;
         resultInterpretations: string[];
+        attachments: ExternalLabResultAttachments;
         performingLabDirectorFullName?: string;
         performingLabAddress?: string;
       };
@@ -167,6 +173,7 @@ const getResultDataConfig = (
       reviewDate,
       resultsReceivedDate,
       resultInterpretations,
+      attachments,
       performingLabAddress,
       performingLabDirectorFullName,
     } = specificResources;
@@ -184,6 +191,7 @@ const getResultDataConfig = (
       reviewingProvider,
       reviewDate,
       resultInterpretations,
+      attachments,
       externalLabResults,
       testItemCode:
         diagnosticReport.code.coding?.find((temp) => temp.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.code ||
@@ -366,6 +374,11 @@ export async function createExternalLabResultPDF(
 
   const resultInterpretationDisplays: string[] = [];
   const externalLabResults: ExternalLabResult[] = [];
+  const obsAttachments: ExternalLabResultAttachments = {
+    pdfAttachments: [],
+    pngAttachments: [],
+    jpgAttachments: [],
+  };
   observations
     .filter(
       (observation) =>
@@ -381,48 +394,13 @@ export async function createExternalLabResultPDF(
       return 0; // no change
     })
     .forEach((observation) => {
-      const interpretationDisplay = observation.interpretation?.[0].coding?.[0].display;
-      let value = undefined;
-      if (observation.valueQuantity) {
-        value = `${observation.valueQuantity?.value !== undefined ? observation.valueQuantity.value : ''} ${
-          observation.valueQuantity?.code || ''
-        }`;
-      } else if (observation.valueString) {
-        value = observation.valueString;
-      } else if (observation.valueCodeableConcept) {
-        value = observation.valueCodeableConcept.coding?.map((coding) => coding.display).join(', ') || '';
-      }
-
-      const referenceRangeText = observation.referenceRange
-        ? observation.referenceRange
-            .reduce((acc, refRange) => {
-              if (refRange.text) {
-                acc.push(refRange.text);
-              }
-              return acc;
-            }, [] as string[])
-            .join('. ')
-        : undefined;
-
-      const codes = observation.code.coding
-        ?.reduce((acc: string[], code) => {
-          if (code.system !== OYSTEHR_OBR_NOTE_CODING_SYSTEM) {
-            if (code.code) acc.push(code.code);
-          }
-          return acc;
-        }, [])
-        .join(',');
-      const labResult: ExternalLabResult = {
-        resultCode: codes || '',
-        resultCodeDisplay: observation.code.coding?.[0].display || '',
-        resultInterpretation: observation.interpretation?.[0].coding?.[0].code,
-        resultInterpretationDisplay: interpretationDisplay,
-        resultValue: value || '',
-        referenceRangeText,
-        resultNotes: observation.note?.map((note) => note.text),
-      };
+      const { labResult, interpretationDisplay, base64PdfAttachment, base64PngAttachment, base64JpgAttachment } =
+        parseObservationForPDF(observation);
       externalLabResults.push(labResult);
       if (interpretationDisplay) resultInterpretationDisplays.push(interpretationDisplay);
+      if (base64PdfAttachment) obsAttachments.pdfAttachments.push(base64PdfAttachment);
+      if (base64PngAttachment) obsAttachments.pngAttachments.push(base64PngAttachment);
+      if (base64JpgAttachment) obsAttachments.jpgAttachments.push(base64JpgAttachment);
     });
 
   const sortedSpecimens = specimens?.sort((a, b) =>
@@ -457,6 +435,7 @@ export async function createExternalLabResultPDF(
       resultInterpretations: resultInterpretationDisplays,
       performingLabAddress: formatPerformingLabAddress(organization),
       performingLabDirectorFullName: formatPerformingLabDirectorName(organization),
+      attachments: obsAttachments,
     },
   };
   const commonResources: CommonDataConfigResources = {
@@ -784,6 +763,11 @@ async function createExternalLabsResultsFormPdfBytes(
     pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
     pdfClient.newLine(5);
 
+    if (labResult.attachmentText) {
+      pdfClient.drawText(labResult.attachmentText, textStyles.text);
+      pdfClient.newLine(STANDARD_NEW_LINE);
+    }
+
     let codeText: string | undefined;
     if (labResult.resultCode) {
       codeText = `Code: ${labResult.resultCode}`;
@@ -879,6 +863,23 @@ async function createExternalLabsResultsFormPdfBytes(
     pdfClient.newLine(STANDARD_NEW_LINE);
     const name = data.reviewingProvider ? getFullestAvailableName(data.reviewingProvider) : '';
     pdfClient = drawFieldLine(pdfClient, textStyles, `Reviewed: ${data.reviewDate} by`, name || '');
+  }
+
+  const { pdfAttachments, pngAttachments, jpgAttachments } = data.attachments;
+  if (pdfAttachments.length > 0) {
+    for (const attachmentString of pdfAttachments) {
+      await pdfClient.embedPdfFromBase64(attachmentString);
+    }
+  }
+  if (pngAttachments.length > 0) {
+    for (const pngAttachmentString of pngAttachments) {
+      await pdfClient.embedImageFromBase64(pngAttachmentString, 'PNG');
+    }
+  }
+  if (jpgAttachments.length > 0) {
+    for (const jpgAttachmentString of jpgAttachments) {
+      await pdfClient.embedImageFromBase64(jpgAttachmentString, 'JPG');
+    }
   }
 
   return await pdfClient.save();
@@ -1230,4 +1231,104 @@ const formatPerformingLabDirectorName = (org: Organization | undefined): string 
   let formattedName = labDirectorName.given?.join(',');
   if (formattedName && labDirectorName?.family) formattedName += ` ${labDirectorName?.family}`;
   return formattedName || '';
+};
+
+const parseObservationForPDF = (
+  observation: Observation
+): {
+  labResult: ExternalLabResult;
+  interpretationDisplay: string | undefined;
+  base64PdfAttachment?: string;
+  base64PngAttachment?: string;
+  base64JpgAttachment?: string;
+} => {
+  const base64PdfAttachment = checkObsForAttachment(observation, OYSTEHR_OBS_CONTENT_TYPES.pdf);
+  const base64PngAttachment = checkObsForAttachment(observation, OYSTEHR_OBS_CONTENT_TYPES.image, ['PNG']);
+  const base64JpgAttachment = checkObsForAttachment(observation, OYSTEHR_OBS_CONTENT_TYPES.image, ['JPG', 'JPEG']);
+  if (base64PdfAttachment || base64PngAttachment || base64JpgAttachment) {
+    const initialText = base64PdfAttachment ? 'A pdf' : 'An image';
+    const attachmentResult: ExternalLabResult = {
+      resultCode: '',
+      resultCodeDisplay: '',
+      resultValue: '',
+      attachmentText: `${initialText} attachment is included at the end of this document`,
+    };
+    return {
+      labResult: attachmentResult,
+      interpretationDisplay: undefined,
+      base64PdfAttachment,
+      base64PngAttachment,
+      base64JpgAttachment,
+    };
+  }
+
+  const interpretationDisplay = observation.interpretation?.[0].coding?.[0].display;
+  let value = undefined;
+  if (observation.valueQuantity) {
+    value = `${observation.valueQuantity?.value !== undefined ? observation.valueQuantity.value : ''} ${
+      observation.valueQuantity?.code || ''
+    }`;
+  } else if (observation.valueString) {
+    value = observation.valueString;
+  } else if (observation.valueCodeableConcept) {
+    value = observation.valueCodeableConcept.coding?.map((coding) => coding.display).join(', ') || '';
+  }
+
+  const referenceRangeText = observation.referenceRange
+    ? observation.referenceRange
+        .reduce((acc, refRange) => {
+          if (refRange.text) {
+            acc.push(refRange.text);
+          }
+          return acc;
+        }, [] as string[])
+        .join('. ')
+    : undefined;
+
+  const codes = observation.code.coding
+    ?.reduce((acc: string[], code) => {
+      if (code.system !== OYSTEHR_OBR_NOTE_CODING_SYSTEM) {
+        if (code.code) acc.push(code.code);
+      }
+      return acc;
+    }, [])
+    .join(',');
+  const labResult: ExternalLabResult = {
+    resultCode: codes || '',
+    resultCodeDisplay: observation.code.coding?.[0].display || '',
+    resultInterpretation: observation.interpretation?.[0].coding?.[0].code,
+    resultInterpretationDisplay: interpretationDisplay,
+    resultValue: value || '',
+    referenceRangeText,
+    resultNotes: observation.note?.map((note) => note.text),
+  };
+
+  return { labResult, interpretationDisplay };
+};
+
+const checkObsForAttachment = (
+  obs: Observation,
+  obsContentType: ObsContentType,
+  imgType?: SupportedObsImgAttachmentTypes[]
+): string | undefined => {
+  const attachmentExt = obs.extension?.find((ext) => ext.url === OYSTEHR_EXTERNAL_LABS_ATTACHMENT_EXT_SYSTEM)
+    ?.valueAttachment;
+  const contentTypeCaps = attachmentExt?.contentType?.toUpperCase();
+
+  // logic on the oystehr side is that the file type and and file extension are mapped to the contentType field
+  // PDFs should be AP/PDF (where AP designates file type and PDF the file extension)
+  // similarly an image could be IM/PNG (where IM indicates an image file and png is the extension)
+
+  if (attachmentExt && contentTypeCaps && contentTypeCaps.startsWith(obsContentType)) {
+    if (!imgType) {
+      return attachmentExt.data;
+    } else {
+      for (const type of imgType) {
+        if (contentTypeCaps.endsWith(type)) {
+          return attachmentExt.data;
+        }
+      }
+    }
+  }
+  return;
 };

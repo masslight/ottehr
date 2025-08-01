@@ -343,9 +343,7 @@ export const makeEncounterLabResults = async (
         const relatedSRDetail = serviceRequestMap[serviceRequestRef];
         if (relatedSRDetail.type === LabType.external) {
           const sr = relatedSRDetail.resource;
-          const isReflex = relatedDR?.meta?.tag?.find(
-            (t) => t.system === LAB_DR_TYPE_TAG.system && t.display === LAB_DR_TYPE_TAG.display.reflex
-          );
+          const isReflex = diagnosticReportIsReflex(relatedDR);
           const orderNumber = sr.identifier?.find(
             (id) => id.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM || id.system === OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM
           )?.value;
@@ -590,4 +588,10 @@ export const parseTimezoneForAppointmentSchedule = (
     timezone = getTimezone(schedule);
   }
   return timezone;
+};
+
+export const diagnosticReportIsReflex = (dr: DiagnosticReport): boolean => {
+  return !!dr?.meta?.tag?.find(
+    (t) => t.system === LAB_DR_TYPE_TAG.system && t.display === LAB_DR_TYPE_TAG.display.reflex
+  );
 };
