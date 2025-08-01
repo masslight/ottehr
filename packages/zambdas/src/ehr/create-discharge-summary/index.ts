@@ -19,6 +19,8 @@ import { composeAndCreateDischargeSummaryPdf } from '../../shared/pdf/discharge-
 import { makeDischargeSummaryPdfDocumentReference } from '../../shared/pdf/make-discharge-summary-document-reference';
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
 import { getChartData } from '../get-chart-data';
+import { getInHouseResources } from '../get-in-house-orders/helpers';
+import { getLabResources } from '../get-lab-orders/helpers';
 import { getRadiologyOrders } from '../radiology/order-list';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -98,17 +100,45 @@ export const performEffect = async (
     encounterIds: [encounter.id!],
   });
 
-  const [chartDataResult, additionalChartDataResult, radiologyData] = await Promise.all([
-    chartDataPromise,
-    additionalChartDataPromise,
-    radiologyOrdersPromise,
-  ]);
+  const externalLabOrdersPromise = getLabResources(
+    oystehr,
+    {
+      searchBy: { field: 'encounterId', value: encounter.id! },
+      itemsPerPage: 10,
+      pageIndex: 0,
+      secrets,
+    },
+    m2mToken,
+    { searchBy: { field: 'encounterId', value: encounter.id! } }
+  );
+
+  const inHouseOrdersPromise = getInHouseResources(
+    oystehr,
+    {
+      searchBy: { field: 'encounterId', value: encounter.id! },
+      itemsPerPage: 10,
+      pageIndex: 0,
+      secrets,
+      userToken: '',
+    },
+    { searchBy: { field: 'encounterId', value: encounter.id! } },
+    m2mToken
+  );
+
+  const [chartDataResult, additionalChartDataResult, radiologyData, externalLabsData, inHouseOrdersData] =
+    await Promise.all([
+      chartDataPromise,
+      additionalChartDataPromise,
+      radiologyOrdersPromise,
+      externalLabOrdersPromise,
+      inHouseOrdersPromise,
+    ]);
   const chartData = chartDataResult.response;
   const additionalChartData = additionalChartDataResult.response;
 
   console.log('Chart data received');
   const pdfInfo = await composeAndCreateDischargeSummaryPdf(
-    { chartData, additionalChartData, radiologyData },
+    { chartData, additionalChartData, radiologyData, externalLabsData, inHouseOrdersData },
     visitResources,
     secrets,
     m2mToken
