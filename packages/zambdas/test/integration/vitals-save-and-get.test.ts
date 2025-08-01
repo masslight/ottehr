@@ -24,29 +24,46 @@ describe('saving and getting vitals', () => {
   let token: string;
   let processId: string;
 
-  const makeTestResources = async (
-    processId: string,
-    oystehr: Oystehr,
-    patientAge?: { units: 'years' | 'months'; value: number }
-  ): Promise<{ encounter: Encounter; patient: Patient }> => {
-    const partialPatient: Partial<Patient> = {};
-    if (patientAge) {
-      const now = DateTime.now();
-      const birthDate = now.minus({ [patientAge.units]: patientAge.value });
-      partialPatient.birthDate = birthDate.toFormat(DOB_DATE_FORMAT);
+  interface MakeTestResourcesParams {
+    processId: string;
+    oystehr: Oystehr;
+    addDays?: number;
+    existingPatientId?: string;
+    patientAge?: { units: 'years' | 'months'; value: number };
+  }
+
+  const makeTestResources = async ({
+    processId,
+    oystehr,
+    addDays = 0,
+    patientAge,
+    existingPatientId,
+  }: MakeTestResourcesParams): Promise<{ encounter: Encounter; patient?: Patient }> => {
+    let patientId = existingPatientId;
+    let testPatient: Patient | undefined;
+    if (!patientId) {
+      const partialPatient: Partial<Patient> = {};
+      if (patientAge) {
+        const now = DateTime.now();
+        const birthDate = now.minus({ [patientAge.units]: patientAge.value });
+        partialPatient.birthDate = birthDate.toFormat(DOB_DATE_FORMAT);
+      }
+      testPatient = await persistTestPatient({ patient: makeTestPatient(partialPatient), processId }, oystehr);
+      expect(testPatient).toBeDefined();
+      patientId = testPatient.id;
     }
-    const testPatient = await persistTestPatient({ patient: makeTestPatient(partialPatient), processId }, oystehr);
-    expect(testPatient).toBeDefined();
-    const now = DateTime.now().toISO();
+    expect(patientId).toBeDefined();
+    assert(patientId);
+    const now = DateTime.now().plus({ days: addDays });
     const appointment: Appointment = {
       resourceType: 'Appointment',
       status: 'fulfilled',
-      start: now,
+      start: now.toISO(),
+      end: now.plus({ minutes: 15 }).toISO(),
       participant: [
         {
           actor: {
-            reference: `Patient/${testPatient.id}`,
-            display: testPatient.name?.[0]?.text,
+            reference: `Patient/${patientId}`,
           },
           status: 'accepted',
         },
@@ -67,7 +84,7 @@ describe('saving and getting vitals', () => {
         display: 'ambulatory',
       },
       subject: {
-        reference: `Patient/${testPatient.id}`,
+        reference: `Patient/${patientId}`,
       },
       appointment: [
         {
@@ -75,7 +92,7 @@ describe('saving and getting vitals', () => {
         },
       ],
       period: {
-        start: now,
+        start: now.toISO(),
       },
     };
     const batchInputEnc: BatchInputPostRequest<Encounter> = {
@@ -87,7 +104,7 @@ describe('saving and getting vitals', () => {
     try {
       const batchResults =
         (
-          await oystehr.fhir.batch<Appointment | Encounter>({
+          await oystehr.fhir.transaction<Appointment | Encounter>({
             requests: [batchInputApp, batchInputEnc],
           })
         ).entry?.flatMap((entry) => entry.resource ?? []) || [];
@@ -95,6 +112,9 @@ describe('saving and getting vitals', () => {
       const createdEncounter = batchResults.find((entry) => entry.resourceType === 'Encounter') as Encounter;
       expect(createdEncounter?.id).toBeDefined();
       assert(createdEncounter);
+      const createdAppointment = batchResults.find((entry) => entry.resourceType === 'Appointment') as Appointment;
+      expect(createdAppointment?.id).toBeDefined();
+      assert(createdAppointment);
 
       return { encounter: createdEncounter, patient: testPatient };
     } catch (error) {
@@ -120,6 +140,17 @@ describe('saving and getting vitals', () => {
         id: 'get-vitals',
         encounterId,
         mode: 'current',
+      })
+    ).output as Promise<GetVitalsResponseData>;
+    return response;
+  };
+
+  const getHistoricVitals = async (encounterId: string): Promise<GetVitalsResponseData> => {
+    const response = (
+      await oystehr.zambda.execute({
+        id: 'get-vitals',
+        encounterId,
+        mode: 'historical',
       })
     ).output as Promise<GetVitalsResponseData>;
     return response;
@@ -161,7 +192,12 @@ describe('saving and getting vitals', () => {
       let encounterId: string;
       let patientId: string;
       beforeAll(async () => {
-        const { encounter: maybeEncounter, patient: maybePatient } = await makeTestResources(processId, oystehr);
+        // add one day in order to test for edge case where obs written for encounter in future show up for historic vitals
+        const { encounter: maybeEncounter, patient: maybePatient } = await makeTestResources({
+          processId,
+          oystehr,
+          addDays: 1,
+        });
         expect(maybeEncounter?.id).toBeDefined();
         expect(maybePatient?.id).toBeDefined();
         assert(maybeEncounter?.id);
@@ -293,6 +329,32 @@ describe('saving and getting vitals', () => {
         expect(temperatureVitals[0].value).toBe(37);
         expect(temperatureVitals[0].alertCriticality).toBeUndefined();
       });
+
+      test('historical vitals do not include current encounter vitals, but do include previous encounter vitals', async () => {
+        const originalVitals = await getVitals(encounterId);
+        const vitals = await getHistoricVitals(encounterId);
+        expect(vitals).toBeDefined();
+        const allEntries = Object.values(vitals).flat();
+        expect(allEntries).toHaveLength(0);
+
+        const { encounter: maybeEncounter, patient: maybePatient } = await makeTestResources({
+          processId,
+          oystehr,
+          addDays: 1,
+          existingPatientId: patientId,
+        });
+        expect(maybeEncounter?.id).toBeDefined();
+        expect(maybePatient).toBeUndefined();
+        const newEncounterId = maybeEncounter?.id;
+        assert(newEncounterId);
+        const newEncounterVitals = await getVitals(newEncounterId);
+        expect(newEncounterVitals).toBeDefined();
+        const newAllEntries = Object.values(newEncounterVitals).flat();
+        expect(newAllEntries).toHaveLength(0);
+        const newHistoricVitals = await getHistoricVitals(newEncounterId);
+        expect(newHistoricVitals).toBeDefined();
+        expect(newHistoricVitals).toEqual(originalVitals);
+      });
     },
     { timeout: DEFAULT_SUITE_TIMEOUT }
   );
@@ -304,11 +366,11 @@ describe('saving and getting vitals', () => {
       let patientId: string;
       beforeAll(async () => {
         const patientAge = { units: 'months', value: 1 } as { units: 'months'; value: number };
-        const { encounter: maybeEncounter, patient: maybePatient } = await makeTestResources(
+        const { encounter: maybeEncounter, patient: maybePatient } = await makeTestResources({
           processId,
           oystehr,
-          patientAge
-        );
+          patientAge,
+        });
         expect(maybeEncounter?.id).toBeDefined();
         expect(maybePatient?.id).toBeDefined();
         assert(maybeEncounter?.id);
@@ -465,11 +527,11 @@ describe('saving and getting vitals', () => {
       let patientId: string;
       beforeAll(async () => {
         const patientAge = { units: 'months', value: 10 } as { units: 'months'; value: number };
-        const { encounter: maybeEncounter, patient: maybePatient } = await makeTestResources(
+        const { encounter: maybeEncounter, patient: maybePatient } = await makeTestResources({
           processId,
           oystehr,
-          patientAge
-        );
+          patientAge,
+        });
         expect(maybeEncounter?.id).toBeDefined();
         expect(maybePatient?.id).toBeDefined();
         assert(maybeEncounter?.id);
@@ -560,11 +622,11 @@ describe('saving and getting vitals', () => {
       let patientId: string;
       beforeAll(async () => {
         const patientAge = { units: 'months', value: 24 } as { units: 'months'; value: number };
-        const { encounter: maybeEncounter, patient: maybePatient } = await makeTestResources(
+        const { encounter: maybeEncounter, patient: maybePatient } = await makeTestResources({
           processId,
           oystehr,
-          patientAge
-        );
+          patientAge,
+        });
         expect(maybeEncounter?.id).toBeDefined();
         expect(maybePatient?.id).toBeDefined();
         assert(maybeEncounter?.id);
@@ -641,11 +703,11 @@ describe('saving and getting vitals', () => {
       let patientId: string;
       beforeAll(async () => {
         const patientAge = { units: 'months', value: 70 } as { units: 'months'; value: number };
-        const { encounter: maybeEncounter, patient: maybePatient } = await makeTestResources(
+        const { encounter: maybeEncounter, patient: maybePatient } = await makeTestResources({
           processId,
           oystehr,
-          patientAge
-        );
+          patientAge,
+        });
         expect(maybeEncounter?.id).toBeDefined();
         expect(maybePatient?.id).toBeDefined();
         assert(maybeEncounter?.id);
@@ -718,11 +780,11 @@ describe('saving and getting vitals', () => {
       let patientId: string;
       beforeAll(async () => {
         const patientAge = { units: 'months', value: 98 } as { units: 'months'; value: number };
-        const { encounter: maybeEncounter, patient: maybePatient } = await makeTestResources(
+        const { encounter: maybeEncounter, patient: maybePatient } = await makeTestResources({
           processId,
           oystehr,
-          patientAge
-        );
+          patientAge,
+        });
         expect(maybeEncounter?.id).toBeDefined();
         expect(maybePatient?.id).toBeDefined();
         assert(maybeEncounter?.id);
@@ -802,11 +864,11 @@ describe('saving and getting vitals', () => {
       let patientId: string;
       beforeAll(async () => {
         const patientAge = { units: 'months', value: 120 } as { units: 'months'; value: number };
-        const { encounter: maybeEncounter, patient: maybePatient } = await makeTestResources(
+        const { encounter: maybeEncounter, patient: maybePatient } = await makeTestResources({
           processId,
           oystehr,
-          patientAge
-        );
+          patientAge,
+        });
         expect(maybeEncounter?.id).toBeDefined();
         expect(maybePatient?.id).toBeDefined();
         assert(maybeEncounter?.id);
@@ -888,11 +950,11 @@ describe('saving and getting vitals', () => {
       let patientId: string;
       beforeAll(async () => {
         const patientAge = { units: 'months', value: 144 } as { units: 'months'; value: number };
-        const { encounter: maybeEncounter, patient: maybePatient } = await makeTestResources(
+        const { encounter: maybeEncounter, patient: maybePatient } = await makeTestResources({
           processId,
           oystehr,
-          patientAge
-        );
+          patientAge,
+        });
         expect(maybeEncounter?.id).toBeDefined();
         expect(maybePatient?.id).toBeDefined();
         assert(maybeEncounter?.id);
