@@ -253,7 +253,22 @@ const handleUpdateDiagnosticReport = async (
     },
   ];
 
-  if (ourDiagnosticReport.status !== advaPacsDiagnosticReport.status && advaPacsDiagnosticReport.status === 'final') {
+  if (advaPacsDiagnosticReport.issued && ourDiagnosticReport.issued == null) {
+    operations.push({
+      op: 'add',
+      path: '/issued',
+      value: advaPacsDiagnosticReport.issued,
+    });
+  } else if (advaPacsDiagnosticReport.issued && ourDiagnosticReport.issued) {
+    operations.push({
+      op: 'replace',
+      path: '/issued',
+      value: advaPacsDiagnosticReport.issued,
+    });
+  } else if (
+    ourDiagnosticReport.status !== advaPacsDiagnosticReport.status &&
+    advaPacsDiagnosticReport.status === 'final'
+  ) {
     operations.push({
       op: 'add',
       path: '/issued',

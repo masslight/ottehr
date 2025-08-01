@@ -2,10 +2,10 @@ export interface CardPaymentDTO {
   paymentMethod: 'card';
   amountInCents: number;
   dateISO: string;
-  cardLast4: string;
-  stripePaymentId: string;
-  stripePaymentMethodId: string;
-  fhirPaymentNotificationId?: string;
+  fhirPaymentNotificationId: string;
+  cardLast4?: string; // this can be undefined for a brief period while it is being processed, but we have all we need to render the payment in FHIR
+  stripePaymentMethodId: string | undefined; // this can be undefined for a brief period while it is being processed, but we have all we need to render the payment in FHIR
+  stripePaymentId: string | undefined; // this can be undefined for a brief period while it is being processed, but we have all we need to render the payment in FHIR
   description?: string;
 }
 
