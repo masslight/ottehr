@@ -52,7 +52,7 @@ export const sendgridEmail = async (
       email: fromEmail,
       name: PROJECT_NAME,
     },
-    bcc: bccEmail ?? undefined,
+    bcc: bccEmail && bccEmail.length > 0 ? bccEmail : undefined,
     replyTo: fromEmail,
     templateId: sendgridTemplateId,
     dynamic_template_data: {
