@@ -186,11 +186,11 @@ async function createExternalLabsLabelPDFHelper(
   const baseFileUrl = makeZ3Url({
     secrets,
     fileName,
-    bucketName: BUCKET_NAMES.VISIT_NOTES,
+    bucketName: BUCKET_NAMES.LABS,
     patientID: input.content.patientId,
   });
 
-  console.log('Uploading file to bucket, ', BUCKET_NAMES.VISIT_NOTES);
+  console.log('Uploading file to bucket, ', BUCKET_NAMES.LABS);
 
   try {
     const presignedUrl = await createPresignedUrl(token, baseFileUrl, 'upload');
