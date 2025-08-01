@@ -2,6 +2,7 @@ import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Paper, Skeleton, Stack, Tab, Typography } from '@mui/material';
 import { useMemo, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
+import { PatientDevicesTab } from 'src/components/PatientDevicesTab';
 import { PatientInHouseLabsTab } from 'src/components/PatientInHouseLabsTab';
 import { PatientRadiologyTab } from 'src/components/PatientRadiologyTab';
 import { getFirstName, getLastName, ServiceMode } from 'utils';
@@ -151,6 +152,14 @@ export default function PatientPage(): JSX.Element {
                     }
                   />
                 )}
+                {FEATURE_FLAGS.DEVICES_ENABLED && (
+                  <Tab
+                    value="devices"
+                    label={
+                      <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>Devices</Typography>
+                    }
+                  />
+                )}
               </TabList>
             </Box>
 
@@ -173,6 +182,11 @@ export default function PatientPage(): JSX.Element {
             {FEATURE_FLAGS.RADIOLOGY_ENABLED && (
               <TabPanel value="radiology" sx={{ p: 0 }}>
                 <PatientRadiologyTab patientId={id || ''} />
+              </TabPanel>
+            )}
+            {FEATURE_FLAGS.DEVICES_ENABLED && (
+              <TabPanel value="devices" sx={{ p: 0 }}>
+                <PatientDevicesTab loading={loading} />
               </TabPanel>
             )}
           </TabContext>
