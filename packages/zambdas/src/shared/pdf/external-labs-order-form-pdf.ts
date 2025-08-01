@@ -31,7 +31,7 @@ export async function createExternalLabsOrderFormPDF(
   });
 
   console.debug(`Created external labs order form pdf bytes`);
-  const bucketName = BUCKET_NAMES.VISIT_NOTES;
+  const bucketName = BUCKET_NAMES.LABS;
   const fileName = `ExternalLabsOrderForm-${
     input.orderName ? getLabFileName(input.orderName) + '-' : ''
   }-${DateTime.fromISO(input.orderCreateDateAuthoredOn).toFormat('yyyy-MM-dd')}-${input.orderPriority}.pdf`;

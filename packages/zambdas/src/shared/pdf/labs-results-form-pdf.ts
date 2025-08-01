@@ -1028,7 +1028,7 @@ async function createLabsResultsFormPDF(
   });
 
   console.debug(`Created external labs order form pdf bytes`);
-  const bucketName = BUCKET_NAMES.VISIT_NOTES;
+  const bucketName = BUCKET_NAMES.LABS;
   let fileName = undefined;
   const { type, data } = dataConfig;
   if (type === 'external') {
