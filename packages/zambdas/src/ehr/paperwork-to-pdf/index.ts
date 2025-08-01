@@ -4,6 +4,7 @@ import { DocumentReference, List, QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   addOperation,
+  BUCKET_NAMES,
   EXPORTED_QUESTIONNAIRE_CODE,
   findExistingListByDocumentTypeCode,
   getSecret,
@@ -36,7 +37,6 @@ interface Input {
 }
 
 const ZAMBDA_NAME = 'paperwork-to-pdf';
-const BUCKET_PAPERWORK_PDF = 'exported-questionnaires';
 
 let oystehrToken: string;
 
@@ -62,11 +62,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const baseFileUrl = makeZ3Url({
       secrets,
       fileName,
-      bucketName: BUCKET_PAPERWORK_PDF,
+      bucketName: BUCKET_NAMES.PAPERWORK,
       patientID: document.patientInfo.id,
     });
 
-    console.log('Uploading file to bucket, ', BUCKET_PAPERWORK_PDF);
+    console.log('Uploading file to bucket, ', BUCKET_NAMES.PAPERWORK);
 
     let presignedUrl;
     try {

@@ -1,6 +1,6 @@
 import { min } from 'lodash';
 import { DateTime } from 'luxon';
-import { Secrets } from 'utils';
+import { BUCKET_NAMES, Secrets } from 'utils';
 import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { getLabFileName } from './labs-results-form-pdf';
@@ -31,7 +31,7 @@ export async function createExternalLabsOrderFormPDF(
   });
 
   console.debug(`Created external labs order form pdf bytes`);
-  const bucketName = 'visit-notes';
+  const bucketName = BUCKET_NAMES.LABS;
   const fileName = `ExternalLabsOrderForm-${
     input.orderName ? getLabFileName(input.orderName) + '-' : ''
   }-${DateTime.fromISO(input.orderCreateDateAuthoredOn).toFormat('yyyy-MM-dd')}-${input.orderPriority}.pdf`;
