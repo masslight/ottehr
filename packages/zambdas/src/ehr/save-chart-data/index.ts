@@ -559,7 +559,7 @@ async function getUserPractitioner(
   secrets: Secrets | null
 ): Promise<Practitioner> {
   try {
-    if (isTestM2MClient(m2mToken, secrets)) {
+    if (isTestM2MClient(userToken, secrets)) {
       console.log('Running in test M2M client mode');
       return await oystehr.fhir.get<Practitioner>({
         resourceType: 'Practitioner',
