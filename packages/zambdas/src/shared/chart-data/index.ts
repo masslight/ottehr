@@ -18,7 +18,6 @@ import {
   MedicationStatement,
   Meta,
   Observation,
-  Practitioner,
   Procedure,
   Reference,
   Resource,
@@ -215,7 +214,7 @@ export function makeAllergyDTO(allergy: AllergyIntolerance): AllergyDTO {
 export function makeMedicationResource(
   encounterId: string,
   patientId: string,
-  practitioner: Practitioner,
+  practitionerId: string,
   data: MedicationDTO,
   fieldName: ProviderChartDataFieldsNames
 ): MedicationStatement {
@@ -228,7 +227,7 @@ export function makeMedicationResource(
     status: data.status,
     dosage: [{ text: data.intakeInfo.dose, asNeededBoolean: data.type === 'as-needed' }],
     effectiveDateTime: data.intakeInfo.date,
-    informationSource: { reference: `Practitioner/${practitioner.id}` },
+    informationSource: { reference: `Practitioner/${practitionerId}` },
     meta: getMetaWFieldName(fieldName),
     medicationCodeableConcept: {
       coding: [

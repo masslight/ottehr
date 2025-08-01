@@ -169,7 +169,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     medications?.forEach((medication) => {
       saveOrUpdateRequests.push(
         saveOrUpdateResourceRequest(
-          makeMedicationResource(encounterId, patient.id!, currentPractitioner, medication, 'current-medication')
+          makeMedicationResource(encounterId, patient.id!, currentPractitioner.id!, medication, 'current-medication')
         )
       );
     });
