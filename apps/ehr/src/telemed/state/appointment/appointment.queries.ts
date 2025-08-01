@@ -19,6 +19,7 @@ import { useEffect } from 'react';
 import { useMutation, useQuery, UseQueryResult } from 'react-query';
 import {
   APIError,
+  APIErrorCode,
   ChartDataFields,
   ChartDataRequestedFields,
   createSmsModel,
@@ -558,10 +559,12 @@ export const useGetIcd10Search = ({ search, sabs, radiologyOnly }: IcdSearchRequ
     },
     {
       onError: (error: APIError) => {
-        openError();
+        if (error.code !== APIErrorCode.MISSING_NLM_API_KEY_ERROR) {
+          openError();
+        }
         return error;
       },
-      enabled: Boolean(apiClient && search),
+      enabled: Boolean(apiClient),
       keepPreviousData: true,
       staleTime: QUERY_STALE_TIME,
     }
