@@ -34,7 +34,8 @@ export const sendgridEmail = async (
   toEmail: string[],
   fromEmail: string,
   env: string,
-  message: string
+  message: string,
+  bccEmail?: string[]
 ): Promise<[ClientResponse, unknown] | undefined> => {
   const SENDGRID_API_KEY = getSecret(SecretsKeys.SENDGRID_API_KEY, secrets);
   if (!(SENDGRID_API_KEY && sendgridTemplateId)) {
@@ -51,6 +52,7 @@ export const sendgridEmail = async (
       email: fromEmail,
       name: PROJECT_NAME,
     },
+    bcc: bccEmail && bccEmail.length > 0 ? bccEmail : undefined,
     replyTo: fromEmail,
     templateId: sendgridTemplateId,
     dynamic_template_data: {
