@@ -22,6 +22,7 @@ import { DateTime } from 'luxon';
 import { FC, useState } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { useGetErxConfigQuery } from 'src/telemed/hooks/useGetErxConfig';
 import {
   calculatePatientAge,
   getQuestionnaireResponseByLinkId,
@@ -95,6 +96,8 @@ export const AppointmentSidePanel: FC = () => {
 
   const appointmentAccessibility = useGetAppointmentAccessibility();
   const isReadOnly = appointmentAccessibility.isAppointmentReadOnly;
+
+  const { data: erxConfigData } = useGetErxConfigQuery();
 
   const isCancellableStatus =
     appointmentAccessibility.status !== TelemedAppointmentStatusEnum.complete &&
@@ -317,7 +320,7 @@ export const AppointmentSidePanel: FC = () => {
                 }}
                 startIcon={<MedicationOutlinedIcon />}
                 onClick={() => useAppointmentStore.setState({ currentTab: TelemedAppointmentVisitTabs.plan })}
-                disabled={appointmentAccessibility.isAppointmentReadOnly}
+                disabled={appointmentAccessibility.isAppointmentReadOnly || !erxConfigData?.configured}
               >
                 RX
               </RoundedButton>
