@@ -10,8 +10,8 @@ export interface RemoveCoverageZambdaInput {
   coverageId: string;
 }
 
-export interface UpdateCoverageZambdaInput {
-  questionnaireResponse: QuestionnaireResponse;
+export interface RemoveCoverageResponse {
+  message: 'Successfully removed coverage';
 }
 
 export interface CoverageCheckCoverageDetails {
@@ -25,4 +25,12 @@ export type CoverageCheckWithDetails = InsuranceCheckStatusWithDate & CoverageCh
 export interface PatientAccountResponse extends PatientAccountAndCoverageResources {
   primaryCarePhysician?: Practitioner;
   coverageChecks: CoverageCheckWithDetails[];
+}
+
+export interface UpdatePatientAccountInput {
+  questionnaireResponse: QuestionnaireResponse;
+}
+
+export interface UpdatePatientAccountResponse {
+  result: 'success';
 }
