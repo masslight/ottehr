@@ -452,7 +452,7 @@ const makeValidationSchemaPrivate = (input: PrivateMakeSchemaArgs): Yup.AnyObjec
                       }
                     }
                     // console.log('idx', idx, itemLinkId, val, item);
-                    return embeddedSchema.validateAt(val.linkId, memberItem);
+                    return embeddedSchema.validateSyncAt(val.linkId, { [val.linkId]: val });
                   } catch (e) {
                     // this special one-off handling deals with the allergies page, which has an item that
                     // powers some logic in the form, but is not actually a field that needs to be validated because it
