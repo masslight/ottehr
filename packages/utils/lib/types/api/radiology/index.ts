@@ -53,6 +53,7 @@ export interface GetRadiologyOrderListZambdaOrder {
   status: RadiologyOrderStatus;
   isStat: boolean;
   result?: string;
+  clinicalHistory?: string;
   history?: RadiologyOrderHistoryRow[];
 }
 

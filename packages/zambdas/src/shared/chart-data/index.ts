@@ -57,6 +57,7 @@ import {
   fillVitalObservationAttributes,
   FreeTextNoteDTO,
   GetChartDataResponse,
+  getVitalObservationFhirInterpretations,
   HospitalizationDTO,
   isVitalObservation,
   makeVitalsObservationDTO,
@@ -248,7 +249,7 @@ export function makeMedicationDTO(medication: MedicationStatement): MedicationDT
     name: medication.medicationCodeableConcept?.coding?.[0].display || '',
     type: medication.dosage?.[0].asNeededBoolean ? 'as-needed' : 'scheduled',
     intakeInfo: {
-      dose: medication.dosage?.[0].text || '',
+      dose: getMedicationDosage(medication),
       date: medication.effectiveDateTime,
     },
     status: ['active', 'completed'].includes(medication.status)
@@ -306,7 +307,8 @@ export function makeObservationResource(
   patientId: string,
   practitionerId: string,
   data: ObservationDTO,
-  metaSystem: string
+  metaSystem: string,
+  patientDOB?: string
 ): Observation {
   const base: Observation = {
     id: data.resourceId,
@@ -325,8 +327,14 @@ export function makeObservationResource(
   console.log(`makeObservationResource() fieldName=[${fieldName}]`);
 
   if (isVitalObservation(data)) {
-    console.log(`isVitalObservation() == true`);
-    return fillVitalObservationAttributes(base, data);
+    let interpretation: Observation['interpretation'];
+    if (patientDOB) {
+      interpretation = getVitalObservationFhirInterpretations({
+        patientDOB,
+        vitalsObservation: data,
+      });
+    }
+    return fillVitalObservationAttributes({ ...base, interpretation }, data, patientDOB);
   }
 
   if (isObservationBooleanFieldDTO(data)) {
@@ -1504,4 +1512,12 @@ function getCode(codeableConcept: CodeableConcept | CodeableConcept[] | undefine
 
 function getExtension(resource: DomainResource, url: string): Extension | undefined {
   return resource.extension?.find((extension) => extension.url === url);
+}
+
+function getMedicationDosage(medication: MedicationStatement): string | undefined {
+  const doseQuantity = medication.dosage?.[0].doseAndRate?.[0].doseQuantity;
+  if (!doseQuantity?.value || !doseQuantity?.unit) {
+    return undefined;
+  }
+  return `${doseQuantity.value}${doseQuantity.unit}`;
 }

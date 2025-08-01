@@ -1516,6 +1516,6 @@ export const persistTestPatient = async (input: PersistTestPatientInput, oystehr
     return createdPatient;
   } catch (error) {
     console.error('Error creating test patient', error);
-    throw new Error('Error creating test patient');
+    throw new Error(`Error creating test patient: ${error}`);
   }
 };
