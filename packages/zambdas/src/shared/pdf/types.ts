@@ -215,6 +215,13 @@ export interface LabResultsData
   resultStatus: string;
   abnormalResult?: boolean;
 }
+
+// will be arrays of base64 encoded strings
+export interface ExternalLabResultAttachments {
+  pdfAttachments: string[];
+  pngAttachments: string[];
+  jpgAttachments: string[];
+}
 export interface ExternalLabResultsData extends LabResultsData {
   orderNumber: string;
   accessionNumber: string;
@@ -226,9 +233,7 @@ export interface ExternalLabResultsData extends LabResultsData {
   reviewingProvider: Practitioner | undefined;
   reviewDate: string | undefined;
   resultInterpretations: string[];
-  pdfAttachments: string[];
-  pngAttachments: string[];
-  jpgAttachments: string[];
+  attachments: ExternalLabResultAttachments;
   externalLabResults: ExternalLabResult[];
   testItemCode: string;
   performingLabName: string;

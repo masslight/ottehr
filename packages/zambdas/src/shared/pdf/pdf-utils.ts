@@ -100,7 +100,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     console.log('\nAdding new page');
     console.log(`currentPageIndex is ${currentPageIndex} of ${pages.length} pages`);
     let addedBrandNewPage = false;
-    // figure out if we just need to run on to a pre-exsiting page or truly add a new one
+    // figure out if we just need to run on to a pre-existing page or truly add a new one
     if (currentPageIndex !== undefined && currentPageIndex < pages.length - 1) {
       console.log('Current page is not the last page. Setting page to the next page');
       page = pages[currentPageIndex + 1];
@@ -404,9 +404,10 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     const { width: imgWidth, height: imgHeight } = image;
 
     const DEFAULT_MARGIN = 25;
-    const ITEM_WIDTH = (pageWidth - DEFAULT_MARGIN * 3) / 2;
-    const IMAGE_MAX_HEIGHT = pageHeight / 4;
+    const ITEM_WIDTH = pageWidth - DEFAULT_MARGIN * 2;
+    const IMAGE_MAX_HEIGHT = pageHeight - pageHeight * 0.25; // basically saying, never take up the whole page height wise
     const scale = Math.max(image.width / ITEM_WIDTH, image.height / IMAGE_MAX_HEIGHT);
+    // if its larger, it will be scaled down else it will keep its original dimensions
     const drawWidth = scale > 1 ? image.width / scale : image.width;
     const drawHeight = scale > 1 ? image.height / scale : image.height;
 

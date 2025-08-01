@@ -108,7 +108,7 @@ export const OYSTEHR_OBS_CONTENT_TYPES = {
   image: 'IM',
 } as const;
 export type ObsContentType = (typeof OYSTEHR_OBS_CONTENT_TYPES)[keyof typeof OYSTEHR_OBS_CONTENT_TYPES];
-export type SupportedObsImgAttachmentTypes = 'PNG' | 'JPG';
+export type SupportedObsImgAttachmentTypes = 'PNG' | 'JPG' | 'JPEG';
 
 export const OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY = {
   system: 'http://terminology.hl7.org/CodeSystem/v2-0074',
