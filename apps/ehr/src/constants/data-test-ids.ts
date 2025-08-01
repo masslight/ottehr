@@ -23,6 +23,7 @@ export const dataTestIds = {
     switchModeButton: (status: string) => `switch-status-to-${status}`,
     intakePractitionerInput: 'intake-practitioner-input',
     providerPractitionerInput: 'provider-practitioner-input',
+    changeStatusDropdown: 'change-status-dropdown-in-header',
   },
   dashboard: {
     appointmentsTable: (tab: 'prebooked' | 'in-office' | 'completed' | 'cancelled') => `appointments-table-${tab}`,
@@ -48,6 +49,7 @@ export const dataTestIds = {
   },
   appointmentPage: {
     patientFullName: 'patient-full-name',
+    changeStatusDropdown: 'change-status-dropdown-in-appointment-page',
   },
   addPatientPage: {
     locationHeader: 'location-header',

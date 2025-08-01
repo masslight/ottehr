@@ -241,7 +241,7 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
             </Stack>
           </Tooltip>
         </Stack>
-        {!erxConfigData.configured && !isErxConfigLoading && <CompleteConfiguration handleSetup={handleSetup} />}
+        {!erxConfigData?.configured && !isErxConfigLoading && <CompleteConfiguration handleSetup={handleSetup} />}
         {isERXOpen && (
           <ERX
             onStatusChanged={(status) => {

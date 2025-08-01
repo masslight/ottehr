@@ -202,7 +202,11 @@ export const Header = (): JSX.Element => {
               <Grid item>
                 <Grid container alignItems="center" spacing={2}>
                   <Grid item>
-                    <ChangeStatusDropdown appointmentID={appointmentID} onStatusChange={setStatus} />
+                    <ChangeStatusDropdown
+                      appointmentID={appointmentID}
+                      onStatusChange={setStatus}
+                      dataTestId={dataTestIds.cssHeader.changeStatusDropdown}
+                    />
                   </Grid>
                   <Grid item>
                     <PatientMetadata>

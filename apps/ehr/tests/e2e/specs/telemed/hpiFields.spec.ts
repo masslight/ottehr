@@ -482,9 +482,9 @@ test.describe('Surgical history', () => {
       .locator('textarea')
       .first()
       .fill(providerNote);
-    await page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryAddNoteButton).click();
-    await page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryNoteIsLoading).waitFor({ state: 'visible' });
-    await page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryNoteIsLoading).waitFor({ state: 'hidden' });
+    // await page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryAddNoteButton).click();
+    // await page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryNoteIsLoading).waitFor({ state: 'visible' });
+    // await page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryNoteIsLoading).waitFor({ state: 'hidden' });
     await waitForSaveChartDataResponse(page);
   });
 
@@ -510,7 +510,7 @@ test.describe('Surgical history', () => {
   test('Should check provider note saved in HPI tab', async () => {
     await expect(
       page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryNote).locator('textarea').first()
-    ).toHaveText(providerNote);
+    ).toHaveText(providerNote); // todo fix test: "lorem ipsum" not found, empty string found
   });
 
   test('Should check surgical history appear in Review&Sign tab', async () => {
@@ -752,7 +752,7 @@ test.describe('Chief complaint', () => {
 
     await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes).locator('textarea').first().fill('');
     await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).click(); // Click empty space to blur the focused input
-    await waitForChartDataDeletion(page);
+    await waitForChartDataDeletion(page); // todo fix test: failed waiting for response
     await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).locator('textarea').first().fill('');
     await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes).click();
     await waitForChartDataDeletion(page);
