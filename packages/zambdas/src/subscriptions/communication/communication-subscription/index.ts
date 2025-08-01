@@ -166,7 +166,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         console.log('practitionersEmails', practitionersEmails);
 
         const fromEmail = SUPPORT_EMAIL;
-        const toEmail = practitionersEmails || [fromEmail];
+        const toEmail = [fromEmail];
+        if (practitionersEmails) {
+          toEmail.push(...practitionersEmails);
+        }
         const errorMessage = `Details: ${communication.payload?.[0].contentString} <br> Submitted By: ${submitterDetails} <br> Location: ${fhirLocation?.name} - ${fhirLocation?.address?.city}, ${fhirLocation?.address?.state} <br> Appointment Id: ${appointmentID} <br> Communication Fhir Resource: ${communication.id}`;
 
         console.log(`Sending issue report email to ${toEmail} with template id ${templateID}`);
