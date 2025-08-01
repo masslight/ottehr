@@ -129,7 +129,7 @@ export interface GetAppointmentsRequest {
 }
 
 export const appointmentTypeMap: Record<string, string> = {
-  [OTTEHR_MODULE.IP]: 'In-Person Walk-In',
+  [OTTEHR_MODULE.IP]: 'In-Person',
   [OTTEHR_MODULE.TM]: 'Telemedicine',
 };
 
