@@ -48,7 +48,7 @@ import { QRSubscriptionInput, validateRequestParameters } from './validateReques
 let oystehrToken: string;
 
 export const index = wrapHandler('sub-intake-harvest', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log("Intake Harvest Hath Been Invoked - isaac's branch");
+  console.log('Intake Harvest Hath Been Invoked');
   console.log(`Input: ${JSON.stringify(input)}`);
   try {
     console.group('validateRequestParameters');

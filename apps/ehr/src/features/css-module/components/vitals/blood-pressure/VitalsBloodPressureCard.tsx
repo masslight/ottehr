@@ -1,6 +1,6 @@
-import { Box, CircularProgress, FormControl, Grid, InputLabel, MenuItem, Select, Typography } from '@mui/material';
+import { Box, FormControl, Grid, InputLabel, MenuItem, Select, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import React, { ChangeEvent, JSX, useCallback, useMemo, useState } from 'react';
+import React, { ChangeEvent, JSX, useCallback, useState } from 'react';
 import {
   toVitalBloodPressureObservationMethod,
   VitalBloodPressureObservationMethod,
@@ -10,32 +10,19 @@ import {
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { AccordionCard, DoubleColumnContainer } from '../../../../../telemed/components';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
+import VitalHistoryElement from '../components/VitalsHistoryEntry';
 import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
-import { useVitalsCardState } from '../hooks/useVitalsCardState';
-import {
-  composeBloodPressureVitalsHistoryEntries,
-  isValidDiastolicPressure,
-  isValidSystolicPressure,
-  textToBloodPressureNumber,
-} from './helpers';
-import VitalBloodPressureHistoryElement from './VitalBloodPressureHistoryElement';
-import { VitalBloodPressureHistoryEntry } from './VitalBloodPressureHistoryEntry';
+import { useScreenDimensions } from '../hooks/useScreenDimensions';
+import { VitalsCardProps } from '../types';
+import { textToBloodPressureNumber } from './helpers';
 
-const VitalsBloodPressureCard: React.FC = (): JSX.Element => {
-  const {
-    isLoadingVitalsByEncounter,
-    handleSaveVital,
-    handleDeleteVital,
-    isSavingCardData,
-    setSavingCardData,
-    screenDimensions: { isLargeScreen },
-    vitalsHistory: { mainHistoryEntries, extraHistoryEntries, latestHistoryEntry },
-    historyElementSkeletonText,
-  } = useVitalsCardState<VitalsBloodPressureObservationDTO, VitalBloodPressureHistoryEntry>(
-    VitalFieldNames.VitalBloodPressure,
-    composeBloodPressureVitalsHistoryEntries
-  );
-
+type VitalsBloodPressureCardProps = VitalsCardProps<VitalsBloodPressureObservationDTO>;
+const VitalsBloodPressureCard: React.FC<VitalsBloodPressureCardProps> = ({
+  handleSaveVital,
+  handleDeleteVital,
+  currentObs,
+  historicalObs,
+}): JSX.Element => {
   const [systolicValueText, setSystolicValueText] = useState('');
   const [diastolicValueText, setDiastolicValueText] = useState('');
 
@@ -45,23 +32,23 @@ const VitalsBloodPressureCard: React.FC = (): JSX.Element => {
   const [isSystolicValidationError, setSystolicValidationError] = useState<boolean>(false);
   const [isDiastolicValidationError, setDiastolicValidationError] = useState<boolean>(false);
 
+  const [isSaving, setIsSaving] = useState(false);
+
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
   const handleSectionCollapse = useCallback(() => {
     setIsCollapsed((prevCollapseState) => !prevCollapseState);
   }, [setIsCollapsed]);
 
-  const isDisabledAddButton =
-    !systolicValueText ||
-    !diastolicValueText ||
-    isSavingCardData ||
-    isLoadingVitalsByEncounter ||
-    isSystolicValidationError ||
-    isDiastolicValidationError;
+  const { isLargeScreen } = useScreenDimensions();
 
-  const latestPressureValueLabel = useMemo(() => {
+  const isDisabledAddButton =
+    !systolicValueText || !diastolicValueText || isSystolicValidationError || isDiastolicValidationError;
+
+  const latestPressureValueLabel = (() => {
+    const latestHistoryEntry = currentObs[0];
     if (!latestHistoryEntry) return;
     return `${latestHistoryEntry.systolicPressure}/${latestHistoryEntry.diastolicPressure}`;
-  }, [latestHistoryEntry]);
+  })();
 
   const handleSavePressureObservation = async (
     systolicPressureText: string,
@@ -75,7 +62,7 @@ const VitalsBloodPressureCard: React.FC = (): JSX.Element => {
 
     const observationMethod = toVitalBloodPressureObservationMethod(observationQualifier);
     try {
-      setSavingCardData(true);
+      setIsSaving(true);
       const vitalObs: VitalsBloodPressureObservationDTO = {
         field: VitalFieldNames.VitalBloodPressure,
         systolicPressure: systolicValueNum,
@@ -89,7 +76,7 @@ const VitalsBloodPressureCard: React.FC = (): JSX.Element => {
     } catch {
       enqueueSnackbar('Error saving Blood Pressure vital data', { variant: 'error' });
     } finally {
-      setSavingCardData(false);
+      setIsSaving(false);
     }
   };
 
@@ -97,10 +84,6 @@ const VitalsBloodPressureCard: React.FC = (): JSX.Element => {
     (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
       const systolicAsText = e.target.value;
       setSystolicValueText(systolicAsText);
-      const bloodPressureVal = textToBloodPressureNumber(systolicAsText);
-      if (bloodPressureVal) {
-        setSystolicValidationError(!isValidSystolicPressure(bloodPressureVal));
-      }
       if (systolicAsText.length === 0) {
         setSystolicValidationError(false);
       }
@@ -112,10 +95,6 @@ const VitalsBloodPressureCard: React.FC = (): JSX.Element => {
     (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
       const diastolicAsText = e.target.value;
       setDiastolicValueText(diastolicAsText);
-      const bloodPressureVal = textToBloodPressureNumber(diastolicAsText);
-      if (bloodPressureVal) {
-        setDiastolicValidationError(!isValidDiastolicPressure(bloodPressureVal));
-      }
       if (diastolicAsText.length === 0) {
         setDiastolicValidationError(false);
       }
@@ -125,7 +104,7 @@ const VitalsBloodPressureCard: React.FC = (): JSX.Element => {
 
   const renderBloodPressureQualifierDropdown = (): JSX.Element => {
     return (
-      <FormControl size="small" fullWidth sx={{ backgroundColor: 'white' }} disabled={isSavingCardData}>
+      <FormControl size="small" fullWidth sx={{ backgroundColor: 'white' }} disabled={isSaving}>
         <InputLabel id="qualifier-label">Qualifier</InputLabel>
         <Select
           value={observationQualifier}
@@ -191,7 +170,7 @@ const VitalsBloodPressureCard: React.FC = (): JSX.Element => {
                   <VitalsTextInputFiled
                     label="Systolic"
                     value={systolicValueText}
-                    disabled={isSavingCardData}
+                    disabled={isSaving}
                     isInputError={isSystolicValidationError}
                     onChange={handleSystolicTextInputChange}
                   />
@@ -201,7 +180,7 @@ const VitalsBloodPressureCard: React.FC = (): JSX.Element => {
                   <VitalsTextInputFiled
                     label="Diastolic"
                     value={diastolicValueText}
-                    disabled={isSavingCardData}
+                    disabled={isSaving}
                     isInputError={isDiastolicValidationError}
                     onChange={handleDiastolicTextInputChange}
                     sx={{ ml: 1 }}
@@ -243,6 +222,7 @@ const VitalsBloodPressureCard: React.FC = (): JSX.Element => {
                 <RoundedButton
                   size="small"
                   disabled={isDisabledAddButton}
+                  loading={isSaving}
                   onClick={() => handleSavePressureObservation(systolicValueText, diastolicValueText)}
                   color="primary"
                   sx={{
@@ -250,7 +230,6 @@ const VitalsBloodPressureCard: React.FC = (): JSX.Element => {
                     px: 2,
                     ml: 1,
                   }}
-                  startIcon={isSavingCardData ? <CircularProgress size={20} color="inherit" /> : null}
                 >
                   Add
                 </RoundedButton>
@@ -259,12 +238,17 @@ const VitalsBloodPressureCard: React.FC = (): JSX.Element => {
           }
           rightColumn={
             <VitalsHistoryContainer
-              mainHistoryEntries={mainHistoryEntries}
-              extraHistoryEntries={extraHistoryEntries}
-              isLoading={isLoadingVitalsByEncounter}
-              historyElementSkeletonText={historyElementSkeletonText}
+              currentEncounterObs={currentObs}
+              historicalObs={historicalObs}
+              isLoading={false}
               historyElementCreator={(historyEntry) => {
-                return <VitalBloodPressureHistoryElement historyEntry={historyEntry} onDelete={handleDeleteVital} />;
+                const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
+                return (
+                  <VitalHistoryElement
+                    historyEntry={historyEntry}
+                    onDelete={isCurrent ? handleDeleteVital : undefined}
+                  />
+                );
               }}
             />
           }

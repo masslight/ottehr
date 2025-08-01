@@ -6,6 +6,6 @@ export const textToWeightNumber = (text: string): number | undefined => {
   return roundVitalWeightValue(weightValue);
 };
 
-export const kgToLb = (kg: number): number => roundVitalWeightValue(2.2 * kg);
+export const kgToLbs = (kg: number): number => Math.round(kg * 2.20462 * 10) / 10;
 
 const roundVitalWeightValue = (weight: number): number => roundNumberToDecimalPlaces(weight, 1);

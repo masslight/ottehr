@@ -84,4 +84,6 @@ export const otherColors = {
   sidebarItemHover: '#F6F9FF',
   lightErrorBg: '#FBEAEA',
   lightErrorText: '#541313',
+  lightGreen: '#EAF2EA',
+  darkGreenText: '#123214',
 };

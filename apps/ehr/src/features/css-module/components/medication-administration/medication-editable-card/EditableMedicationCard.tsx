@@ -24,7 +24,7 @@ import { CSSModal } from '../../CSSModal';
 import { InteractionAlertsDialog } from '../InteractionAlertsDialog';
 import { interactionsSummary } from '../util';
 import { fieldsConfig, MedicationOrderType } from './fieldsConfig';
-import { MedicationCardView } from './MedicationCardView';
+import { InteractionsMessage, MedicationCardView } from './MedicationCardView';
 import {
   ConfirmSaveModalConfig,
   findPrescriptionsForInteractions,
@@ -40,17 +40,13 @@ import {
 
 interface InteractionsCheckState {
   status: 'in-progress' | 'done' | 'error';
+  medicationId?: string;
   medicationName?: string;
   interactions?: MedicationInteractions;
 }
 
 const INTERACTIONS_CHECK_STATE_ERROR: InteractionsCheckState = {
   status: 'error',
-  interactions: undefined,
-};
-
-const INTERACTIONS_CHECK_STATE_IN_PROGRESS: InteractionsCheckState = {
-  status: 'in-progress',
   interactions: undefined,
 };
 
@@ -324,7 +320,10 @@ export const EditableMedicationCard: React.FC<{
         console.error('patientId is missing');
         return;
       }
-      setInteractionsCheckState(INTERACTIONS_CHECK_STATE_IN_PROGRESS);
+      setInteractionsCheckState({
+        status: 'in-progress',
+        medicationId: medicationId,
+      });
       try {
         const medication = await oystehr.fhir.get<Medication>({
           resourceType: 'Medication',
@@ -348,6 +347,7 @@ export const EditableMedicationCard: React.FC<{
             medicationHistory,
             prescriptions
           ),
+          medicationId: medicationId,
           medicationName: getMedicationName(medication),
         });
       } catch (e) {
@@ -371,12 +371,17 @@ export const EditableMedicationCard: React.FC<{
       setInteractionsCheckState({
         status: 'done',
         interactions: medication.interactions,
+        medicationId: medication.medicationId,
+        medicationName: medication.medicationName,
       });
     }
   }, [medication]);
 
-  const interactionsWarning = useMemo(() => {
-    if (!localValues.medicationId && !medication) {
+  const interactionsMessage: InteractionsMessage | undefined = useMemo(() => {
+    if (
+      (!localValues.medicationId && !medication) ||
+      (erxEnabled && erxStatus === ERXStatus.READY && interactionsCheckState.medicationId !== localValues.medicationId)
+    ) {
       return undefined;
     }
     if (
@@ -384,11 +389,26 @@ export const EditableMedicationCard: React.FC<{
       interactionsCheckState.status === 'in-progress' ||
       isMedicationHistoryLoading
     ) {
-      return 'checking...';
+      return {
+        style: 'loading',
+        message: 'checking...',
+      };
     } else if (erxStatus === ERXStatus.ERROR || interactionsCheckState.status === 'error') {
-      return 'Drug-to-Drug and Drug-Allergy interaction check failed. Please review manually.';
-    } else if (interactionsCheckState.status === 'done' && interactionsCheckState.interactions) {
-      return interactionsSummary(interactionsCheckState.interactions);
+      return {
+        style: 'warning',
+        message: 'Drug-to-Drug and Drug-Allergy interaction check failed. Please review manually.',
+      };
+    } else if (interactionsCheckState.status === 'done') {
+      if (interactionsCheckState.interactions) {
+        return {
+          style: 'warning',
+          message: interactionsSummary(interactionsCheckState.interactions),
+        };
+      }
+      return {
+        style: 'success',
+        message: 'not found',
+      };
     }
     return undefined;
   }, [erxEnabled, erxStatus, interactionsCheckState, localValues.medicationId, medication, isMedicationHistoryLoading]);
@@ -413,9 +433,9 @@ export const EditableMedicationCard: React.FC<{
         saveButtonText={saveButtonText}
         isSaveButtonDisabled={isCardSaveButtonDisabled}
         selectsOptions={selectsOptions}
-        interactionsWarning={interactionsWarning}
-        onInteractionsWarningClick={() => {
-          if (interactionsCheckState.status === 'done') {
+        interactionsMessage={interactionsMessage}
+        onInteractionsMessageClick={() => {
+          if (interactionsCheckState.status === 'done' && interactionsCheckState.interactions) {
             setShowInteractionAlerts(true);
           }
         }}
@@ -456,6 +476,7 @@ export const EditableMedicationCard: React.FC<{
             setShowInteractionAlerts(false);
             setInteractionsCheckState({
               status: 'done',
+              medicationId: localValues.medicationId,
               interactions,
             });
           }}

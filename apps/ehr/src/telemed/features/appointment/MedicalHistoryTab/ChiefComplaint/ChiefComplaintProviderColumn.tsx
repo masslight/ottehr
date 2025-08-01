@@ -1,4 +1,4 @@
-import { Box, FormControlLabel, Skeleton, Switch, TextField, Typography } from '@mui/material';
+import { Box, CircularProgress, FormControlLabel, Skeleton, Switch, TextField, Typography } from '@mui/material';
 import { FC } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
@@ -17,8 +17,16 @@ export const ChiefComplaintProviderColumn: FC = () => {
 
   const { control } = methods;
 
-  const { onValueChange: onChiefComplaintChange } = useDebounceNotesField('chiefComplaint');
-  const { onValueChange: onRosChange } = useDebounceNotesField('ros');
+  const {
+    onValueChange: onChiefComplaintChange,
+    isLoading: isChiefComplaintLoading,
+    isChartDataLoading: isChiefComplaintChartDataLoading,
+  } = useDebounceNotesField('chiefComplaint');
+  const {
+    onValueChange: onRosChange,
+    isLoading: isRosLoading,
+    isChartDataLoading: isRosChartDataLoading,
+  } = useDebounceNotesField('ros');
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -32,11 +40,19 @@ export const ChiefComplaintProviderColumn: FC = () => {
               onChange(e);
               onChiefComplaintChange(e.target.value);
             }}
+            disabled={isChiefComplaintChartDataLoading}
             label="HPI provider notes"
             fullWidth
             multiline
             rows={3}
             data-testid={dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes}
+            InputProps={{
+              endAdornment: isChiefComplaintLoading && (
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <CircularProgress size="20px" />
+                </Box>
+              ),
+            }}
           />
         )}
       />
@@ -51,10 +67,18 @@ export const ChiefComplaintProviderColumn: FC = () => {
               onChange(e);
               onRosChange(e.target.value);
             }}
+            disabled={isRosChartDataLoading}
             label="ROS (optional)"
             fullWidth
             multiline
             data-testid={dataTestIds.telemedEhrFlow.hpiChiefComplaintRos}
+            InputProps={{
+              endAdornment: isRosLoading && (
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <CircularProgress size="20px" />
+                </Box>
+              ),
+            }}
           />
         )}
       />

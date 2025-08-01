@@ -74,7 +74,6 @@ jobs:
         with:
           path: apps/intake/playwright/user.json
           key: user-json-cache
-
       - name: Check out secrets repo
         uses: actions/checkout@v4
         with:

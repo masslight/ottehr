@@ -415,7 +415,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const mostRecentSampleCollectionDate =
       sampleCollectionDates.length > 0
         ? sampleCollectionDates.reduce((latest, current) => {
-            return current > latest ? current : latest;
+            return current < latest ? current : latest;
           })
         : undefined;
 
@@ -473,6 +473,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         })),
         orderPriority: serviceRequest.priority || ORDER_ITEM_UNKNOWN,
         isManualOrder: manualOrder,
+        isPscOrder: isPSCOrder(serviceRequest),
       },
       patient.id,
       secrets,

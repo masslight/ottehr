@@ -16,10 +16,14 @@ export const ExamCommentField = <T extends ExamCardsNames | InPersonExamCardsNam
 
   const { value: field, update, delete: deleteField, isLoading } = useExamObservations(name);
 
-  const { debounce } = useDebounce();
+  const { debounce } = useDebounce(700);
 
   const onChange = (value: string): void => {
     value = value.trim();
+
+    if (!field.resourceId && !value) {
+      return;
+    }
 
     if (value) {
       debounce(() => {

@@ -103,6 +103,7 @@ const performEffect = async (input: EffectInput): Promise<ListPatientPaymentResp
       const [paymentIntents, pms] = await Promise.all([
         stripeClient.paymentIntents.search({
           query: `metadata['encounterId']:"${encounterId}" OR metadata['oystehr_encounter_id']:"${encounterId}"`,
+          limit: 20, // default is 10
         }),
         stripeClient.paymentMethods.list({
           customer: customerId,
@@ -128,29 +129,30 @@ const performEffect = async (input: EffectInput): Promise<ListPatientPaymentResp
     paymentMethods.push(...pms.data);
   }
 
-  const cardPayments: CardPaymentDTO[] = stripePayments.flatMap((paymentIntent) => {
-    const cardUsed = paymentMethods.find((pm) => pm.id === paymentIntent.payment_method);
-    const last4 = cardUsed?.card?.last4;
-    const paymentMethodId = cardUsed?.id;
-    if (!last4 || !paymentMethodId) {
-      return [];
-    }
-    const fhirPaymentNoticeId = fhirPaymentNotices.find(
-      (notice) =>
-        notice.identifier?.some((id) => id.system === STRIPE_PAYMENT_ID_SYSTEM && id.value === paymentIntent.id) ??
-        false
-    )?.id;
-    return {
-      paymentMethod: 'card',
-      stripePaymentId: paymentIntent.id,
-      amountInCents: paymentIntent.amount,
-      description: paymentIntent.description ?? undefined,
-      stripePaymentMethodId: paymentMethodId,
-      fhirPaymentNoticeId,
-      cardLast4: last4,
-      dateISO: DateTime.fromSeconds(paymentIntent.created).toISO(),
-    };
-  });
+  const cardPayments: CardPaymentDTO[] = fhirPaymentNotices
+    .flatMap((paymentNotice) => {
+      const pnStripeId = paymentNotice.identifier?.find((id) => id.system === STRIPE_PAYMENT_ID_SYSTEM)?.value;
+      const paymentIntent = stripePayments.find((pi) => pi.id === pnStripeId);
+      const stripePaymentId = paymentIntent ? paymentIntent.id : pnStripeId;
+      const last4 = paymentMethods.find((pm) => pm.id === paymentIntent?.payment_method)?.card?.last4;
+      const paymentMethodId = paymentMethods.find((pm) => pm.id === paymentIntent?.payment_method)?.id;
+      const dateISO = DateTime.fromISO(paymentNotice.created).toISO();
+      if (!dateISO || !paymentNotice.id) {
+        console.log('missing data for payment notice:', paymentNotice.id, 'dateISO', dateISO);
+        return [];
+      }
+      return {
+        paymentMethod: 'card' as const,
+        stripePaymentId,
+        amountInCents: (paymentNotice.amount.value ?? 0) * 100,
+        description: paymentIntent?.description ?? undefined,
+        stripePaymentMethodId: paymentMethodId,
+        fhirPaymentNotificationId: paymentNotice.id,
+        cardLast4: last4,
+        dateISO,
+      };
+    })
+    .slice(0, 20); // We only fetch the last 20 payments from stripe, which should be more than enough for pretty much any real world use case
 
   // todo: the data here should be fetched from candid and then linked to the payment notice ala stripe,
   // but that awaits the candid integration portion

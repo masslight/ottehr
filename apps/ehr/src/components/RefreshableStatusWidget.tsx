@@ -9,16 +9,12 @@ const StyledChip = styled(Chip)(() => ({
   padding: '0 9px',
   margin: 0,
   height: '24px',
-  '& .MuiChip-label': {
-    padding: 0,
-    fontWeight: 'bold',
-    fontSize: '0.7rem',
-  },
 }));
 
 export interface StatusStyleObject {
   bgColor: string;
   textColor: string;
+  textSX?: React.CSSProperties;
 }
 
 interface StatusChipProps<StatusType extends string | number> {
@@ -26,6 +22,7 @@ interface StatusChipProps<StatusType extends string | number> {
   styleMap: Record<StatusType, StatusStyleObject>;
   lastRefreshISO: string;
   isRefreshing?: boolean;
+  flexDirection?: 'row' | 'column';
   handleRefresh?: () => void;
 }
 
@@ -34,6 +31,7 @@ export const RefreshableStatusChip = <StatusType extends string | number>({
   styleMap,
   lastRefreshISO,
   isRefreshing = false,
+  flexDirection = 'column',
   handleRefresh,
 }: StatusChipProps<StatusType>): ReactElement => {
   const chipColors = styleMap[status];
@@ -50,9 +48,9 @@ export const RefreshableStatusChip = <StatusType extends string | number>({
     <Box
       sx={{
         display: 'flex',
-        flexDirection: 'column',
+        flexDirection,
         justifyContent: 'space-between',
-        alignItems: 'flex-end',
+        alignItems: flexDirection === 'column' ? 'flex-end' : 'center',
       }}
     >
       <StyledChip
@@ -60,6 +58,12 @@ export const RefreshableStatusChip = <StatusType extends string | number>({
         sx={{
           backgroundColor: chipColors.bgColor,
           color: chipColors.textColor,
+          '& .MuiChip-label': {
+            padding: 0,
+            fontWeight: 'bold',
+            fontSize: '0.7rem',
+            ...(chipColors.textSX ?? {}),
+          },
         }}
       />
       {Boolean(handleRefresh) && (

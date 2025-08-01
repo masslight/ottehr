@@ -324,7 +324,7 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
         // rules of status described above
         if (notificationSettings?.enabled) {
           const unsignedChartsMessage = (length: number): string =>
-            `You have ${length} unsigned charts on ET. Please complete and sign ASAP. Thanks!`;
+            `You have ${length} unsigned charts on Ottehr. Please complete and sign ASAP. Thanks!`;
 
           const status = getCommunicationStatus(notificationSettings, busyPractitionerIds, practitionerResource);
           const request: BatchInputPostRequest<Communication> = {

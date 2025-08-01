@@ -58,6 +58,7 @@ gerd
 glucometer
 guaiac
 guanfacine
+HCPT
 hedera
 hydronephrosis
 hypospadias

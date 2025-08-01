@@ -152,9 +152,11 @@ function composeDataForPdf(
 
   // --- Surgical history ---
   const surgicalHistory = chartData.surgicalHistory ? mapResourceByNameField(chartData.surgicalHistory) : []; // surgical history
-  const surgicalHistoryNotes = additionalChartData?.notes
-    ?.filter((note) => note.type === NOTE_TYPE.SURGICAL_HISTORY)
-    ?.map((note) => note.text);
+  const surgicalHistoryNotes = isInPersonAppointment
+    ? additionalChartData?.notes?.filter((note) => note.type === NOTE_TYPE.SURGICAL_HISTORY)?.map((note) => note.text)
+    : additionalChartData?.surgicalHistoryNote?.text
+    ? [additionalChartData?.surgicalHistoryNote?.text]
+    : undefined;
 
   // --- In-House Medications ---
   const inHouseMedications = medicationOrders
@@ -228,7 +230,7 @@ function composeDataForPdf(
   const otherDiagnoses = diagnoses.filter((item) => !item.isPrimary).map((item) => item.display);
 
   // --- MDM ---
-  // const medicalDecision = chartData?.medicalDecision?.text;
+  // const medicalDecision = additionalChartData?.medicalDecision?.text;
   const medicalDecision = '';
 
   // --- E&M ---

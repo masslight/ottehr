@@ -1,14 +1,4 @@
-import {
-  Box,
-  CircularProgress,
-  FormControl,
-  Grid,
-  InputLabel,
-  MenuItem,
-  Select,
-  TextField,
-  Typography,
-} from '@mui/material';
+import { Box, FormControl, Grid, InputLabel, MenuItem, Select, TextField, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { ChangeEvent, JSX, useCallback, useMemo, useState } from 'react';
 import {
@@ -20,32 +10,20 @@ import {
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { AccordionCard, DoubleColumnContainer } from '../../../../../telemed/components';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
+import VitalHistoryElement from '../components/VitalsHistoryEntry';
 import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
-import { useVitalsCardState } from '../hooks/useVitalsCardState';
-import {
-  celsiusToFahrenheit,
-  composeTemperatureVitalsHistoryEntries,
-  isValidTemperatureCelsius,
-  textToTemperatureNumber,
-} from './helpers';
-import VitalTemperatureHistoryElement from './VitalTemperatureHistoryElement';
-import { VitalTemperatureHistoryEntry } from './VitalTemperatureHistoryEntry';
+import { useScreenDimensions } from '../hooks/useScreenDimensions';
+import { HISTORY_ELEMENT_SKELETON_TEXT, VitalsCardProps } from '../types';
+import { celsiusToFahrenheit, textToTemperatureNumber } from './helpers';
 
-const VitalsTemperaturesCard: React.FC = (): JSX.Element => {
-  const {
-    isLoadingVitalsByEncounter,
-    handleSaveVital,
-    handleDeleteVital,
-    isSavingCardData,
-    setSavingCardData,
-    screenDimensions: { isLargeScreen },
-    vitalsHistory: { mainHistoryEntries, extraHistoryEntries, latestHistoryEntry },
-    historyElementSkeletonText,
-  } = useVitalsCardState<VitalsTemperatureObservationDTO, VitalTemperatureHistoryEntry>(
-    VitalFieldNames.VitalTemperature,
-    composeTemperatureVitalsHistoryEntries
-  );
-
+type VitalsTemperatureCardProps = VitalsCardProps<VitalsTemperatureObservationDTO>;
+const VitalsTemperaturesCard: React.FC<VitalsTemperatureCardProps> = ({
+  handleSaveVital,
+  handleDeleteVital,
+  currentObs,
+  historicalObs,
+  historyElementSkeletonText = HISTORY_ELEMENT_SKELETON_TEXT,
+}): JSX.Element => {
   const [temperatureValueText, setTemperatureValueText] = useState('');
 
   // the method how this Temperature observation has been acquired
@@ -58,10 +36,13 @@ const VitalsTemperaturesCard: React.FC = (): JSX.Element => {
     setIsCollapsed((prevCollapseState) => !prevCollapseState);
   }, [setIsCollapsed]);
 
-  const isDisabledAddButton =
-    !temperatureValueText || isSavingCardData || isLoadingVitalsByEncounter || isTemperatureValidationError;
+  const { isLargeScreen } = useScreenDimensions();
 
-  const latestTemperatureValue = latestHistoryEntry?.temperatureCelsius;
+  const [isSaving, setIsSaving] = useState(false);
+
+  const isDisabledAddButton = !temperatureValueText || isTemperatureValidationError;
+
+  const latestTemperatureValue = currentObs[0]?.value;
 
   const enteredTemperatureInFahrenheit: number | undefined = useMemo(() => {
     const temperatureCelsius = textToTemperatureNumber(temperatureValueText);
@@ -77,7 +58,7 @@ const VitalsTemperaturesCard: React.FC = (): JSX.Element => {
 
     const observationMethod = toVitalTemperatureObservationMethod(observationQualifier);
     try {
-      setSavingCardData(true);
+      setIsSaving(true);
       const vitalObs: VitalsTemperatureObservationDTO = {
         field: VitalFieldNames.VitalTemperature,
         value: temperatureValueNumber,
@@ -89,17 +70,13 @@ const VitalsTemperaturesCard: React.FC = (): JSX.Element => {
     } catch {
       enqueueSnackbar('Error saving Temperature data', { variant: 'error' });
     } finally {
-      setSavingCardData(false);
+      setIsSaving(false);
     }
   };
 
   const handleTextInputChange = useCallback((e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
     const tempAsText = e.target.value;
     setTemperatureValueText(tempAsText);
-    const temperatureCelsius = textToTemperatureNumber(tempAsText);
-    if (temperatureCelsius) {
-      setTemperatureValidationError(!isValidTemperatureCelsius(temperatureCelsius));
-    }
     if (tempAsText.length === 0) {
       setTemperatureValidationError(false);
     }
@@ -110,7 +87,7 @@ const VitalsTemperaturesCard: React.FC = (): JSX.Element => {
 
   const renderTempQualifierDropdown = (): JSX.Element => {
     return (
-      <FormControl fullWidth sx={{ backgroundColor: 'white' }} size="small" disabled={isSavingCardData}>
+      <FormControl fullWidth sx={{ backgroundColor: 'white' }} size="small" disabled={isSaving}>
         <InputLabel id="qualifier-label">Qualifier</InputLabel>
         <Select
           value={observationQualifier}
@@ -176,7 +153,7 @@ const VitalsTemperaturesCard: React.FC = (): JSX.Element => {
                   <VitalsTextInputFiled
                     label="Temp (C)"
                     value={temperatureValueText}
-                    disabled={isSavingCardData}
+                    disabled={isSaving}
                     isInputError={isTemperatureValidationError}
                     onChange={handleTextInputChange}
                   />
@@ -224,6 +201,7 @@ const VitalsTemperaturesCard: React.FC = (): JSX.Element => {
               >
                 <RoundedButton
                   disabled={isDisabledAddButton}
+                  loading={isSaving}
                   size="small"
                   onClick={() => handleSaveTemperatureObservation(temperatureValueText)}
                   color="primary"
@@ -232,7 +210,6 @@ const VitalsTemperaturesCard: React.FC = (): JSX.Element => {
                     px: 2,
                     ml: 1,
                   }}
-                  startIcon={isSavingCardData ? <CircularProgress size={20} color="inherit" /> : null}
                 >
                   Add
                 </RoundedButton>
@@ -241,12 +218,18 @@ const VitalsTemperaturesCard: React.FC = (): JSX.Element => {
           }
           rightColumn={
             <VitalsHistoryContainer
-              mainHistoryEntries={mainHistoryEntries}
-              extraHistoryEntries={extraHistoryEntries}
-              isLoading={isLoadingVitalsByEncounter}
+              currentEncounterObs={currentObs}
+              historicalObs={historicalObs}
+              isLoading={false}
               historyElementSkeletonText={historyElementSkeletonText}
               historyElementCreator={(historyEntry) => {
-                return <VitalTemperatureHistoryElement historyEntry={historyEntry} onDelete={handleDeleteVital} />;
+                const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
+                return (
+                  <VitalHistoryElement
+                    historyEntry={historyEntry}
+                    onDelete={isCurrent ? handleDeleteVital : undefined}
+                  />
+                );
               }}
             />
           }
