@@ -1,13 +1,15 @@
-import { Skeleton, TextField } from '@mui/material';
+import { Box, CircularProgress, Skeleton, TextField, Typography } from '@mui/material';
 import React, { FC } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
-import { useDebounceNotesField } from '../../../../hooks';
+import { useDebounceNotesField, useGetAppointmentAccessibility } from '../../../../hooks';
 import { useAppointmentStore } from '../../../../state';
 
 export const ProceduresNoteField: FC = () => {
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+
   const methods = useForm({
     defaultValues: {
       text: chartData?.surgicalHistoryNote?.text || '',
@@ -15,9 +17,13 @@ export const ProceduresNoteField: FC = () => {
   });
 
   const { control } = methods;
-  const { onValueChange } = useDebounceNotesField('surgicalHistoryNote');
+  const { onValueChange, isChartDataLoading, isLoading } = useDebounceNotesField('surgicalHistoryNote');
 
-  return (
+  if (isReadOnly && !chartData?.surgicalHistoryNote?.text) {
+    return null;
+  }
+
+  return !isReadOnly ? (
     <Controller
       name="text"
       control={control}
@@ -33,9 +39,19 @@ export const ProceduresNoteField: FC = () => {
           multiline
           rows={3}
           data-testid={dataTestIds.telemedEhrFlow.hpiSurgicalHistoryNote}
+          disabled={isChartDataLoading}
+          InputProps={{
+            endAdornment: isLoading && (
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <CircularProgress size="20px" />
+              </Box>
+            ),
+          }}
         />
       )}
     />
+  ) : (
+    <Typography>{chartData?.surgicalHistoryNote?.text}</Typography>
   );
 };
 
