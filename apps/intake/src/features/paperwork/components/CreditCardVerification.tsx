@@ -58,7 +58,7 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({ value:
     },
   });
 
-  const { mutate: setDefault, isLoading: isSetDefaultLoading } = useSetDefaultPaymentMethod(patient?.id);
+  const { mutate: setDefault, isPending: isSetDefaultLoading } = useSetDefaultPaymentMethod(patient?.id);
 
   const disabled = cardsAreLoading || isSetDefaultLoading || isSetupDataLoading;
 

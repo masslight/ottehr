@@ -1,17 +1,18 @@
-import { useQuery } from 'react-query';
+import { useQuery, UseQueryResult } from '@tanstack/react-query';
 import { OystehrAPIClient } from 'ui-components';
+import { useErrorQuery, useSuccessQuery } from 'utils';
 import { PromiseReturnType } from 'utils';
 import { useAppointmentStore } from '../appointments';
 
 export const useJoinCall = (
   apiClient: OystehrAPIClient | null,
-  onSuccess: (data: PromiseReturnType<ReturnType<OystehrAPIClient['joinCall']>>) => void,
-  onError: (error: any) => void
-  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-) => {
-  return useQuery(
-    ['join-call', apiClient],
-    () => {
+  onSuccess: (data: PromiseReturnType<ReturnType<OystehrAPIClient['joinCall']>> | null) => void,
+  onError: (error: unknown) => void
+): UseQueryResult<PromiseReturnType<ReturnType<OystehrAPIClient['joinCall']>>> => {
+  const queryResult = useQuery({
+    queryKey: ['join-call', apiClient],
+
+    queryFn: () => {
       const { appointmentID } = useAppointmentStore.getState();
 
       if (apiClient && appointmentID) {
@@ -20,9 +21,10 @@ export const useJoinCall = (
 
       throw new Error('api client not defined or appointmentID not provided');
     },
-    {
-      onSuccess,
-      onError,
-    }
-  );
+  });
+
+  useSuccessQuery(queryResult.data, onSuccess);
+  useErrorQuery(queryResult.error, onError);
+
+  return queryResult;
 };

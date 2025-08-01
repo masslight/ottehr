@@ -320,7 +320,7 @@ export const AppointmentSidePanel: FC = () => {
                 }}
                 startIcon={<MedicationOutlinedIcon />}
                 onClick={() => useAppointmentStore.setState({ currentTab: TelemedAppointmentVisitTabs.plan })}
-                disabled={appointmentAccessibility.isAppointmentReadOnly || !erxConfigData.configured}
+                disabled={appointmentAccessibility.isAppointmentReadOnly || !erxConfigData?.configured}
               >
                 RX
               </RoundedButton>

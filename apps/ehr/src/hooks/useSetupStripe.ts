@@ -1,35 +1,37 @@
-import { useQuery, UseQueryResult } from 'react-query';
-import { OystehrAPIClient } from 'ui-components';
-import { PromiseReturnType } from 'utils';
+import { useQuery, UseQueryResult } from '@tanstack/react-query';
+import { useSuccessQuery } from 'utils';
+import { chooseJson } from 'utils';
 import { useApiClients } from './useAppClients';
 
 export const useSetupStripe = (
   beneficiaryPatientId: string | undefined,
-  onSuccess?: (data: PromiseReturnType<ReturnType<OystehrAPIClient['setupPaymentMethod']>>) => void
-): UseQueryResult<string | undefined, Error> => {
+  onSuccess?: (data: string | null) => void
+): UseQueryResult<string, Error> => {
   const { oystehrZambda } = useApiClients();
-  return useQuery(
-    [`setup-payment-method/${beneficiaryPatientId}`, beneficiaryPatientId],
-    async () => {
-      if (oystehrZambda && beneficiaryPatientId) {
-        const data = await oystehrZambda.zambda.execute({
-          id: 'payment-methods-setup',
-          beneficiaryPatientId,
-        });
-        if (onSuccess) {
-          onSuccess(data.output as string);
-        }
-        return data.output as string;
+
+  const queryResult = useQuery({
+    queryKey: ['setup-payment-method', beneficiaryPatientId],
+
+    queryFn: async (): Promise<string> => {
+      if (!oystehrZambda) {
+        throw new Error('zambda client not defined');
       }
 
-      throw new Error('api client not defined or patient id is not provided');
+      if (!beneficiaryPatientId) {
+        throw new Error('beneficiary patient id not defined');
+      }
+
+      const result = await oystehrZambda.zambda.execute({
+        id: 'setup-payment-method',
+        beneficiaryPatientId,
+      });
+      return chooseJson<string>(result);
     },
-    {
-      enabled: Boolean(oystehrZambda && beneficiaryPatientId),
-      onSuccess,
-      onError: (err) => {
-        console.error('Error during fetching setup payment method: ', err);
-      },
-    }
-  );
+
+    enabled: Boolean(oystehrZambda && beneficiaryPatientId),
+  });
+
+  useSuccessQuery(queryResult.data, onSuccess);
+
+  return queryResult;
 };

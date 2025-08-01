@@ -1,14 +1,13 @@
-import { useQuery } from 'react-query';
-import { UseQueryResult } from 'react-query';
+import { useQuery, UseQueryResult } from '@tanstack/react-query';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { GetVitalsResponseData } from 'utils';
 
 export const useGetVitals = (encounterId: string | undefined): UseQueryResult<GetVitalsResponseData, Error> => {
   const { oystehrZambda } = useApiClients();
   const queryKey = encounterId ? [`current-encounter-vitals-${encounterId}`] : [];
-  return useQuery(
+  return useQuery({
     queryKey,
-    async () => {
+    queryFn: async () => {
       if (oystehrZambda && encounterId) {
         const result = await oystehrZambda.zambda.execute({
           id: 'get-vitals',
@@ -21,10 +20,8 @@ export const useGetVitals = (encounterId: string | undefined): UseQueryResult<Ge
 
       throw new Error('api client not defined or encounter id is not provided');
     },
-    {
-      enabled: Boolean(encounterId) && Boolean(oystehrZambda),
-    }
-  );
+    enabled: Boolean(encounterId) && Boolean(oystehrZambda),
+  });
 };
 
 export const useGetHistoricalVitals = (
@@ -32,9 +29,9 @@ export const useGetHistoricalVitals = (
 ): UseQueryResult<GetVitalsResponseData, Error> => {
   const { oystehrZambda } = useApiClients();
   const queryKey = encounterId ? [`historical-encounter-vitals-${encounterId}`] : [];
-  return useQuery(
+  return useQuery({
     queryKey,
-    async () => {
+    queryFn: async () => {
       if (oystehrZambda && encounterId) {
         const result = await oystehrZambda.zambda.execute({
           id: 'get-vitals',
@@ -47,8 +44,6 @@ export const useGetHistoricalVitals = (
 
       throw new Error('api client not defined or encounter id is not provided');
     },
-    {
-      enabled: Boolean(encounterId) && Boolean(oystehrZambda),
-    }
-  );
+    enabled: Boolean(encounterId) && Boolean(oystehrZambda),
+  });
 };

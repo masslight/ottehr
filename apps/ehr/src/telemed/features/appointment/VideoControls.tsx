@@ -21,7 +21,7 @@ export const VideoControls: FC = () => {
   const theme = useTheme();
 
   const apiClient = useOystehrAPIClient();
-  const { mutateAsync, isLoading } = useChangeTelemedAppointmentStatusMutation();
+  const { mutateAsync, isPending: isLoading } = useChangeTelemedAppointmentStatusMutation();
   const { encounter } = getSelectors(useAppointmentStore, ['encounter']);
 
   const { id: appointmentId } = useParams();

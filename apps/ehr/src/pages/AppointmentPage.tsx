@@ -1546,6 +1546,7 @@ export default function AppointmentPage(): ReactElement {
                     appointmentID={appointmentID}
                     onStatusChange={setStatus}
                     getAndSetResources={getAndSetHistoricResources}
+                    dataTestId={dataTestIds.appointmentPage.changeStatusDropdown}
                   />
                 </FormControl>
                 {loading && <CircularProgress size="20px" sx={{ marginTop: 2.8, marginLeft: 1 }} />}

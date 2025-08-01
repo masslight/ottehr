@@ -20,11 +20,11 @@ import { Box, Stack, useTheme } from '@mui/system';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { DatePicker, LocalizationProvider, TimePicker } from '@mui/x-date-pickers-pro';
 import Oystehr from '@oystehr/sdk';
+import { keepPreviousData, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { ValueSet } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useMemo, useState } from 'react';
-import { useQuery, UseQueryResult } from 'react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { CPT_TOOLTIP_PROPS, TooltipWrapper } from 'src/components/WithTooltip';
@@ -293,7 +293,7 @@ export default function ProceduresNew(): ReactElement {
 
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const { isFetching: isSearching, data } = useGetIcd10Search({ search: debouncedSearchTerm, sabs: 'CPT' });
-  const cptSearchOptions = data?.codes || [];
+  const cptSearchOptions = (data as { codes?: CPTCodeDTO[] })?.codes || [];
   const { debounce } = useDebounce(800);
   const debouncedHandleInputChange = (data: string): void => {
     debounce(() => {
@@ -692,12 +692,26 @@ function getPredefinedValueIfOther(
   return undefined;
 }
 
-function useSelectOptions(oystehr: Oystehr | undefined): UseQueryResult<SelectOptions, never> {
-  return useQuery(
-    ['procedures-new-dropdown-options'],
-    async () => {
+const emptySelectOptions: SelectOptions = {
+  procedureTypes: [],
+  medicationsUsed: [],
+  bodySites: [],
+  bodySides: [],
+  techniques: [],
+  supplies: [],
+  complications: [],
+  patientResponses: [],
+  postProcedureInstructions: [],
+  timeSpent: [],
+};
+
+function useSelectOptions(oystehr: Oystehr | undefined): UseQueryResult<SelectOptions, Error> {
+  return useQuery({
+    queryKey: ['procedures-new-dropdown-options'],
+
+    queryFn: async (): Promise<SelectOptions> => {
       if (oystehr == null) {
-        return [];
+        return emptySelectOptions;
       }
       const valueSets = (
         await oystehr.fhir.search<ValueSet>({
@@ -734,14 +748,9 @@ function useSelectOptions(oystehr: Oystehr | undefined): UseQueryResult<SelectOp
         timeSpent: getValueSetValues(TIME_SPENT_VALUE_SET_URL, valueSets),
       };
     },
-    {
-      onError: (_err) => {
-        return [];
-      },
-      keepPreviousData: true,
-      staleTime: QUERY_STALE_TIME,
-    }
-  );
+    placeholderData: keepPreviousData,
+    staleTime: QUERY_STALE_TIME,
+  });
 }
 
 function getValueSetValues(valueSetUrl: string, valueSets: ValueSet[] | undefined): string[] {

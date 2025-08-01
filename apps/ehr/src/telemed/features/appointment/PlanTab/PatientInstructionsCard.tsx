@@ -19,8 +19,8 @@ export const PatientInstructionsCard: FC = () => {
 
   const [instruction, setInstruction] = useState('');
 
-  const { mutate: savePatientInstruction, isLoading: isSavePatientInstructionLoading } = useSavePatientInstruction();
-  const { mutate: saveChartData, isLoading: isSaveChartDataLoading } = useSaveChartData();
+  const { mutate: savePatientInstruction, isPending: isSavePatientInstructionLoading } = useSavePatientInstruction();
+  const { mutate: saveChartData, isPending: isSaveChartDataLoading } = useSaveChartData();
   const { mutate: deleteChartData } = useDeleteChartData();
 
   const isLoading = isSavePatientInstructionLoading || isSaveChartDataLoading;

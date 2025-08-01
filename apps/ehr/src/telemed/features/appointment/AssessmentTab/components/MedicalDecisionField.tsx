@@ -13,11 +13,19 @@ type MedicalDecisionFieldProps = {
 
 export const MedicalDecisionField: FC<MedicalDecisionFieldProps> = ({ loading, setIsUpdating }) => {
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
+
   const methods = useForm({
     defaultValues: {
       medicalDecision: chartData?.medicalDecision?.text || '',
     },
   });
+
+  useEffect(() => {
+    if (!methods.getValues('medicalDecision') && chartData?.medicalDecision?.text) {
+      methods.setValue('medicalDecision', chartData.medicalDecision.text);
+    }
+  }, [chartData?.medicalDecision?.text, methods]);
+
   const { control } = methods;
 
   const { onValueChange, isLoading } = useDebounceNotesField('medicalDecision');

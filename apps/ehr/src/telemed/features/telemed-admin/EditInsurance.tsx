@@ -107,7 +107,7 @@ export default function EditInsurance(): JSX.Element {
     didSetInsuranceDetailsForm.current = true;
   }
 
-  const { mutateAsync: mutateInsurance, isLoading: mutationPending } = useInsuranceMutation(insuranceDetails);
+  const { mutateAsync: mutateInsurance, isPending: mutationPending } = useInsuranceMutation(insuranceDetails);
 
   const onSubmit = async (event: any): Promise<void> => {
     setError('');

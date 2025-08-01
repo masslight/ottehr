@@ -37,13 +37,13 @@ export const UserMenu: FC = () => {
       enabled: Boolean(practitioner),
     });
 
-  const { mutateAsync: enrollPractitioner, isLoading: isEnrollingPractitioner } = useEnrollPractitionerToERX({
+  const { mutateAsync: enrollPractitioner, isPending: isEnrollingPractitioner } = useEnrollPractitionerToERX({
     onError: () => {
       enqueueSnackbar('Enrolling practitioner to eRx failed', { variant: 'error' });
     },
   });
 
-  const { isLoading: isConnectingPractitionerForConfirmation, mutateAsync: connectPractitionerForConfirmation } =
+  const { isPending: isConnectingPractitionerForConfirmation, mutateAsync: connectPractitionerForConfirmation } =
     useConnectPractitionerToERX({});
 
   const handleConnectPractitioner = useCallback(async () => {

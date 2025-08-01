@@ -13,10 +13,10 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
+import { useMutation } from '@tanstack/react-query';
 import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { Fragment, ReactElement, useState } from 'react';
-import { useMutation } from 'react-query';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useGetPatientPaymentsList } from 'src/hooks/useGetPatientPaymentsList';
 import { APIError, CashOrCardPayment, isApiError, PatientPaymentDTO, PostPatientPaymentInput } from 'utils';
@@ -185,7 +185,7 @@ export default function PatientPaymentList({ loading, patient, encounterId }: Pa
         open={paymentDialogOpen}
         patient={patient}
         handleClose={() => setPaymentDialogOpen(false)}
-        isSubmitting={createNewPayment.isLoading}
+        isSubmitting={createNewPayment.isPending}
         submitPayment={async (data: CashOrCardPayment) => {
           const postInput: PostPatientPaymentInput = {
             patientId: patient.id ?? '',

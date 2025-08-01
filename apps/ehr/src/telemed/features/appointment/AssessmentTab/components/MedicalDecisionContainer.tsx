@@ -1,5 +1,6 @@
 import { Box, CircularProgress, Typography } from '@mui/material';
-import React, { FC, useState } from 'react';
+import { FC, useState } from 'react';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useGetAppointmentAccessibility } from '../../../../hooks';
 import { useAppointmentStore } from '../../../../state';
@@ -19,7 +20,9 @@ export const MedicalDecisionContainer: FC = () => {
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
       <Box sx={{ display: 'flex', gap: 1 }}>
         <AssessmentTitle>Medical Decision Making</AssessmentTitle>
-        {(isUpdating || isLoading) && <CircularProgress size={16} />}
+        {(isUpdating || isLoading) && (
+          <CircularProgress data-testid={dataTestIds.assessmentCard.medicalDecisionLoading} size={16} />
+        )}
       </Box>
       {isReadOnly ? (
         mdm ? (

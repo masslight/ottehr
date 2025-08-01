@@ -3,9 +3,9 @@ import CloseIcon from '@mui/icons-material/Close';
 import { Box, Grid, IconButton, MenuItem, Skeleton, Stack, TextField, Typography } from '@mui/material';
 import { TypographyOptions } from '@mui/material/styles/createTypography';
 import { styled } from '@mui/system';
+import { useQuery } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { useState } from 'react';
-import { useQuery } from 'react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   getAdmitterPractitionerId,
@@ -109,9 +109,9 @@ export const Header = (): JSX.Element => {
   const isEncounterUpdatePending = isUpdatingPractitionerForIntake || isUpdatingPractitionerForProvider;
   const { oystehrZambda } = useApiClients();
 
-  const { data: employees, isFetching: employeesIsFetching } = useQuery(
-    ['get-employees', { oystehrZambda }],
-    async () => {
+  const { data: employees, isFetching: employeesIsFetching } = useQuery({
+    queryKey: ['get-employees', { oystehrZambda }],
+    queryFn: async () => {
       if (oystehrZambda) {
         const getEmployeesRes = await getEmployees(oystehrZambda);
         const providers = getEmployeesRes.employees.filter((employee) => employee.isProvider);
@@ -139,8 +139,8 @@ export const Header = (): JSX.Element => {
         };
       }
       return null;
-    }
-  );
+    },
+  });
 
   if (employeesIsFetching) {
     return <HeaderSkeleton />;
@@ -202,7 +202,11 @@ export const Header = (): JSX.Element => {
               <Grid item>
                 <Grid container alignItems="center" spacing={2}>
                   <Grid item>
-                    <ChangeStatusDropdown appointmentID={appointmentID} onStatusChange={setStatus} />
+                    <ChangeStatusDropdown
+                      appointmentID={appointmentID}
+                      onStatusChange={setStatus}
+                      dataTestId={dataTestIds.cssHeader.changeStatusDropdown}
+                    />
                   </Grid>
                   <Grid item>
                     <PatientMetadata>

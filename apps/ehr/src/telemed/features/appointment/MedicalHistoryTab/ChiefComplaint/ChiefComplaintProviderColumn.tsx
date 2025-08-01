@@ -1,5 +1,5 @@
 import { Box, CircularProgress, FormControlLabel, Skeleton, Switch, TextField, Typography } from '@mui/material';
-import { FC } from 'react';
+import { FC, useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
@@ -14,6 +14,16 @@ export const ChiefComplaintProviderColumn: FC = () => {
       ros: chartData?.ros?.text || '',
     },
   });
+
+  useEffect(() => {
+    if (!methods.getValues('chiefComplaint') && chartData?.chiefComplaint?.text) {
+      methods.setValue('chiefComplaint', chartData.chiefComplaint.text);
+    }
+
+    if (!methods.getValues('ros') && chartData?.ros?.text) {
+      methods.setValue('ros', chartData.ros.text);
+    }
+  }, [chartData?.chiefComplaint?.text, chartData?.ros?.text, methods]);
 
   const { control } = methods;
 

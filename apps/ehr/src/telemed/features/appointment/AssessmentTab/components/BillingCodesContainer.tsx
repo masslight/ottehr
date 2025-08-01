@@ -21,10 +21,10 @@ export const BillingCodesContainer: FC = () => {
   const { isFetching: isSearching, data } = useGetIcd10Search({ search: debouncedSearchTerm, sabs: 'CPT' });
   const cptSearchOptions = data?.codes || [];
 
-  const { mutate: saveEMChartData, isLoading: isSaveEMLoading } = useSaveChartData();
-  const { mutate: saveCPTChartData, isLoading: isSaveCPTLoading } = useSaveChartData();
-  const { mutate: deleteEMChartData, isLoading: isDeleteEMLoading } = useDeleteChartData();
-  const { mutate: deleteCPTChartData, isLoading: isDeleteCPTLoading } = useDeleteChartData();
+  const { mutate: saveEMChartData, isPending: isSaveEMLoading } = useSaveChartData();
+  const { mutate: saveCPTChartData, isPending: isSaveCPTLoading } = useSaveChartData();
+  const { mutate: deleteEMChartData, isPending: isDeleteEMLoading } = useDeleteChartData();
+  const { mutate: deleteCPTChartData, isPending: isDeleteCPTLoading } = useDeleteChartData();
 
   const disabledEM = isSaveEMLoading || isDeleteEMLoading || (emCode && !emCode.resourceId);
   const disabledCPT = isSaveCPTLoading || isDeleteCPTLoading;

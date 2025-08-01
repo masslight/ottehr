@@ -1,5 +1,5 @@
 import { Box, CircularProgress, Skeleton, TextField, Typography } from '@mui/material';
-import React, { FC } from 'react';
+import { FC, useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
@@ -8,6 +8,7 @@ import { useAppointmentStore } from '../../../../state';
 
 export const ProceduresNoteField: FC = () => {
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
+
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const methods = useForm({
@@ -15,6 +16,15 @@ export const ProceduresNoteField: FC = () => {
       text: chartData?.surgicalHistoryNote?.text || '',
     },
   });
+
+  useEffect(() => {
+    const currentValue = methods.getValues('text');
+    const newValue = chartData?.surgicalHistoryNote?.text;
+
+    if (!currentValue && newValue) {
+      methods.setValue('text', newValue);
+    }
+  }, [chartData?.surgicalHistoryNote?.text, methods]);
 
   const { control } = methods;
   const { onValueChange, isChartDataLoading, isLoading } = useDebounceNotesField('surgicalHistoryNote');

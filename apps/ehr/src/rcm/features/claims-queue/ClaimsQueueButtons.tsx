@@ -1,8 +1,8 @@
 import { LoadingButton } from '@mui/lab';
 import { Box, Dialog, DialogActions, DialogTitle, Typography } from '@mui/material';
+import { useQueryClient } from '@tanstack/react-query';
 import { Claim } from 'fhir/r4b';
 import React, { FC, useMemo, useState } from 'react';
-import { useQueryClient } from 'react-query';
 import { RoundedButton } from '../../../components/RoundedButton';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useClaimsQueueStore, useEditClaimInformationMutation } from '../../state';
@@ -111,7 +111,7 @@ export const ClaimsQueueButtons: FC = () => {
               mr: '8px',
               textTransform: 'none',
             }}
-            loading={editClaim.isLoading}
+            loading={editClaim.isPending}
             onClick={handleAssign}
             disabled={!currentTeamMember}
             variant="contained"

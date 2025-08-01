@@ -19,6 +19,8 @@ export const EditableNotesList: React.FC<EditableNotesListProps> = ({
   encounterId,
   patientId,
   separateEncounterNotes,
+  addNoteButtonDataTestId,
+  noteLoadingIndicatorDataTestId,
 }) => {
   const { entities, isLoading, handleSave, handleEdit, handleDelete } = useNoteHandlers({
     encounterId,
@@ -75,6 +77,7 @@ export const EditableNotesList: React.FC<EditableNotesListProps> = ({
         </Grid>
         <Grid item>
           <RoundedButton
+            data-testid={addNoteButtonDataTestId}
             disabled={!savingEntityText || isSaving}
             onClick={() => handleSaveEntity(savingEntityText)}
             variant="contained"
@@ -84,7 +87,11 @@ export const EditableNotesList: React.FC<EditableNotesListProps> = ({
               minWidth: '80px',
               px: 2,
             }}
-            startIcon={isSaving ? <CircularProgress size={20} color="inherit" /> : null}
+            startIcon={
+              isSaving ? (
+                <CircularProgress data-testid={noteLoadingIndicatorDataTestId} size={20} color="inherit" />
+              ) : null
+            }
           >
             {locales.getAddButtonText(isSaving)}
           </RoundedButton>

@@ -1,5 +1,5 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
-import { useQueryClient } from 'react-query';
 import { GetChartDataResponse, SaveableDTO, SearchParams } from 'utils';
 import { useChartData } from '../../features/css-module/hooks/useChartData';
 import { getSelectors } from '../../shared/store/getSelectors';
@@ -34,8 +34,8 @@ export const useChartDataArrayValue = <
   onRemove: (resourceId: string) => Promise<void>;
   values: K;
 } => {
-  const { mutate: saveChartData, isLoading: isSaveLoading } = useSaveChartData();
-  const { mutate: deleteChartData, isLoading: isDeleteLoading } = useDeleteChartData();
+  const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
+  const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
   const { chartData, setPartialChartData, encounter } = getSelectors(useAppointmentStore, [
     'chartData',
     'setPartialChartData',

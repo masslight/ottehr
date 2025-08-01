@@ -794,7 +794,7 @@ export default function AppointmentTableRow({
           <Link
             to={`/patient/${appointment.patient.id}`}
             style={{ textDecoration: 'none' }}
-            data-testId={dataTestIds.dashboard.patientName}
+            data-testid={dataTestIds.dashboard.patientName}
           >
             <Typography variant="subtitle2" sx={{ fontSize: '16px', color: '#000' }}>
               {patientName}

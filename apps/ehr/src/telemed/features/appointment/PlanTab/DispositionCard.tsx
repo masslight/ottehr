@@ -84,7 +84,7 @@ export const DispositionCard: FC = () => {
   const labServiceValue = useWatch({ control: methods.control, name: 'labService' });
   const showVirusTest = labServiceValue?.includes?.(SEND_OUT_VIRUS_TEST_LABEL);
   const { debounce } = useDebounce(1500);
-  const { mutate, isLoading } = useSaveChartData();
+  const { mutate, isPending: isLoading } = useSaveChartData();
   const [currentType, setCurrentType] = useState(getValues('type'));
   const [isError, setIsError] = useState(false);
 

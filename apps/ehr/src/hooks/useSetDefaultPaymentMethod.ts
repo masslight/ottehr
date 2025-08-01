@@ -1,4 +1,4 @@
-import { useMutation } from 'react-query';
+import { useMutation, UseMutationResult } from '@tanstack/react-query';
 import { useApiClients } from './useAppClients';
 
 interface SetDefaultPaymentMethodParams {
@@ -6,8 +6,10 @@ interface SetDefaultPaymentMethodParams {
   onSuccess?: () => void;
   onError?: (error: unknown) => void;
 }
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useSetDefaultPaymentMethod = (beneficiaryPatientId: string | undefined) => {
+
+export const useSetDefaultPaymentMethod = (
+  beneficiaryPatientId: string | undefined
+): UseMutationResult<void, Error, SetDefaultPaymentMethodParams> => {
   const { oystehrZambda: oystehr } = useApiClients();
 
   return useMutation({

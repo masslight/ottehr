@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Bundle, Coverage, DomainResource, FhirResource, Patient, RelatedPerson } from 'fhir/r4b';
+import { Coverage, DomainResource, FhirResource, Patient, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { NameInformation, PersonInformation } from './form-values.types';
 
@@ -22,11 +22,7 @@ export const findResourceByType = <Type extends FhirResource>(data: FhirResource
   return data.find((resource: FhirResource): resource is Type => resource.resourceType === type);
 };
 
-export const findResourceByTypeAndId = <Type>(
-  data: Bundle<FhirResource>[],
-  type?: string,
-  id?: string
-): Type | undefined => {
+export const findResourceByTypeAndId = <Type>(data: FhirResource[], type?: string, id?: string): Type | undefined => {
   if (!type || !id) {
     return;
   }
@@ -35,7 +31,7 @@ export const findResourceByTypeAndId = <Type>(
     | undefined;
 };
 
-export const filterResourcesByType = <Type>(data: Bundle<FhirResource>[], type: string): Type[] => {
+export const filterResourcesByType = <Type>(data: FhirResource[], type: string): Type[] => {
   return data.filter((resource: FhirResource) => resource.resourceType === type) as unknown as Type[];
 };
 

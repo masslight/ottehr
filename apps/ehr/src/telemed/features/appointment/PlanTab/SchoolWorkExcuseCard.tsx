@@ -21,8 +21,8 @@ export const SchoolWorkExcuseCard: FC = () => {
   const [generateSchoolTemplateOpen, setGenerateSchoolTemplateOpen] = useState(false);
   const [generateSchoolFreeOpen, setGenerateSchoolFreeOpen] = useState(false);
 
-  const { mutate: saveChartData, isLoading: isSaveLoading } = useSaveChartData();
-  const { mutate: deleteChartData, isLoading: isDeleteLoading } = useDeleteChartData();
+  const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
+  const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
   const isLoading = isSaveLoading || isDeleteLoading;
 
   const { chartData, questionnaireResponse, setPartialChartData } = getSelectors(useAppointmentStore, [

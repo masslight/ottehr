@@ -1,25 +1,30 @@
+import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { Operation } from 'fast-json-patch';
 import { Patient } from 'fhir/r4b';
-import { useMutation, useQuery, UseQueryResult } from 'react-query';
+import { useSuccessQuery } from 'utils';
 import { addOrReplaceOperation, GetOrUploadPatientProfilePhotoZambdaResponse, removeOperation } from 'utils';
 import { getSignedPatientProfilePhotoUrl } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 
 export const useGetSignedPatientProfilePhotoUrlQuery = (
   z3PhotoUrl?: string,
-  onSuccess?: (response: GetOrUploadPatientProfilePhotoZambdaResponse) => void
-): UseQueryResult<GetOrUploadPatientProfilePhotoZambdaResponse, unknown> => {
+  onSuccess?: (response: GetOrUploadPatientProfilePhotoZambdaResponse | null) => void
+): UseQueryResult<GetOrUploadPatientProfilePhotoZambdaResponse, Error> => {
   const { oystehrZambda } = useApiClients();
-  return useQuery(
-    ['Get-Signed-Patient-Profile-Photo-Url', z3PhotoUrl],
-    async () => {
-      return await getSignedPatientProfilePhotoUrl(oystehrZambda!, { z3PhotoUrl: z3PhotoUrl! });
+  const queryResult = useQuery({
+    queryKey: ['Get-Signed-Patient-Profile-Photo-Url', z3PhotoUrl],
+
+    queryFn: async (): Promise<GetOrUploadPatientProfilePhotoZambdaResponse> => {
+      const data = await getSignedPatientProfilePhotoUrl(oystehrZambda!, { z3PhotoUrl: z3PhotoUrl! });
+      return data;
     },
-    {
-      onSuccess,
-      enabled: Boolean(oystehrZambda && z3PhotoUrl),
-    }
-  );
+
+    enabled: Boolean(oystehrZambda && z3PhotoUrl),
+  });
+
+  useSuccessQuery(queryResult.data, onSuccess);
+
+  return queryResult;
 };
 
 export type EditPatientProfilePhotoParams = {
@@ -27,8 +32,11 @@ export type EditPatientProfilePhotoParams = {
   newPatientData: Patient;
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useEditPatientProfilePhotoMutation = () => {
+export const useEditPatientProfilePhotoMutation = (): UseMutationResult<
+  Patient,
+  Error,
+  EditPatientProfilePhotoParams
+> => {
   const { oystehr } = useApiClients();
   return useMutation({
     mutationFn: ({ originalPatient, newPatientData }: EditPatientProfilePhotoParams) => {

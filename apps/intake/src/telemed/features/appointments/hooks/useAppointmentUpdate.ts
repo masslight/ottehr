@@ -1,5 +1,5 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useRef, useState } from 'react';
-import { useQueryClient } from 'react-query';
 import {
   CreateAppointmentUCTelemedResponse,
   getSelectors,

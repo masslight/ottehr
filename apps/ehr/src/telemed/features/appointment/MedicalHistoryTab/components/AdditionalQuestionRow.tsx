@@ -20,7 +20,7 @@ export const AdditionalQuestionEdit = ({
 }): JSX.Element => {
   const { chartData, updateObservation } = getSelectors(useAppointmentStore, ['chartData', 'updateObservation']);
 
-  const { mutate, isLoading } = useSaveChartData();
+  const { mutate, isPending: isLoading } = useSaveChartData();
   const normalizedValue = value !== undefined ? String(value) : '';
 
   useEffect(() => {

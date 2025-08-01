@@ -7,8 +7,7 @@ export const getSelectors = <
 >(
   store: S,
   stateKeys: K[]
-  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-) => {
+): Pick<T, K> => {
   const selectors: Pick<T, K> = {} as any;
 
   for (const key of stateKeys) {

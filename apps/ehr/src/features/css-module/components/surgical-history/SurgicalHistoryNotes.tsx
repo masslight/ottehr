@@ -1,3 +1,4 @@
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { CSS_NOTE_ID, NOTE_TYPE, PRIVATE_EXTENSION_BASE_URL } from 'utils';
 import { defaultNoteLocales } from '../generic-notes-list/default-note-locales.helper';
 import { GenericNoteList } from '../generic-notes-list/GenericNoteList';
@@ -22,5 +23,10 @@ const surgicalHistoryNotesConfig: GenericNotesConfig = {
 };
 
 export const SurgicalHistoryNotes: React.FC = () => (
-  <GenericNoteList apiConfig={surgicalHistoryNotesConfig.apiConfig} locales={surgicalHistoryNotesConfig.locales} />
+  <GenericNoteList
+    apiConfig={surgicalHistoryNotesConfig.apiConfig}
+    locales={surgicalHistoryNotesConfig.locales}
+    addNoteButtonDataTestId={dataTestIds.telemedEhrFlow.hpiSurgicalHistoryAddNoteButton}
+    noteLoadingIndicatorDataTestId={dataTestIds.telemedEhrFlow.hpiSurgicalHistoryNoteIsLoading}
+  />
 );

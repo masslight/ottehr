@@ -1,8 +1,8 @@
 // cSpell:ignore tokenful
 import { CircularProgress, Typography } from '@mui/material';
+import { useQuery } from '@tanstack/react-query';
 import { FC, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useQuery } from 'react-query';
 import { generatePath, Navigate, Outlet, useLocation, useOutletContext, useParams } from 'react-router-dom';
 import { getSelectors, PatientInfo, PROJECT_WEBSITE, ServiceMode, Timezone, TIMEZONES, VisitType } from 'utils';
 import { create } from 'zustand';
@@ -143,19 +143,14 @@ const BookingHome: FC = () => {
     isLoading: slotDetailsLoading,
     isFetching: slotDetailsFetching,
     isRefetching: slotDetailsRefetching,
-  } = useQuery(
-    ['get-slot-details', { zambdaClient: tokenlessZambdaClient, slotIdParam }],
-    () =>
+  } = useQuery({
+    queryKey: ['get-slot-details', slotIdParam],
+    queryFn: () =>
       tokenlessZambdaClient && slotIdParam
         ? ottehrApi.getSlotDetails({ slotId: slotIdParam }, tokenlessZambdaClient)
         : null,
-    {
-      onSuccess: (response) => {
-        console.log('Slot details response:', response);
-      },
-      enabled: Boolean(slotIdParam) && Boolean(tokenlessZambdaClient),
-    }
-  );
+    enabled: Boolean(slotIdParam) && Boolean(tokenlessZambdaClient),
+  });
 
   const slotDetailsLoadingInSomeWay = slotDetailsLoading || slotDetailsFetching || slotDetailsRefetching;
 
@@ -173,16 +168,11 @@ const BookingHome: FC = () => {
     isLoading: patientsLoading,
     isFetching: patientsFetching,
     isRefetching: patientsRefetching,
-  } = useQuery(
-    ['get-patients', { zambdaClient: tokenfulZambdaClient, slotIdParam }],
-    () => (tokenfulZambdaClient ? ottehrApi.getPatients(tokenfulZambdaClient) : null),
-    {
-      onSuccess: (response) => {
-        console.log('get patients response:', response);
-      },
-      enabled: Boolean(tokenfulZambdaClient),
-    }
-  );
+  } = useQuery({
+    queryKey: ['get-patients', slotIdParam],
+    queryFn: () => (tokenfulZambdaClient ? ottehrApi.getPatients(tokenfulZambdaClient) : null),
+    enabled: Boolean(tokenfulZambdaClient),
+  });
 
   const patientsLoadingInSomeWay = patientsLoading || patientsFetching || patientsRefetching;
 

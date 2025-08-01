@@ -1,6 +1,5 @@
 import {
   Appointment,
-  Bundle,
   Claim,
   Coverage,
   DocumentReference,
@@ -43,7 +42,7 @@ export type ClaimState = {
 };
 
 type ClaimStoreActions = {
-  setResources: (data: Bundle[]) => void;
+  setResources: (data: FhirResource[]) => void;
   setPatientData: (patient?: Patient) => void;
   setCoverageData: (coverage?: Coverage, subscriber?: RelatedPerson) => void;
   setAdditionalCoverageData: (coverage?: Coverage, subscriber?: RelatedPerson) => void;

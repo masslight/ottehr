@@ -16,7 +16,7 @@ export class CssHeader {
 
   async changeStatus(status: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.cssHeader.appointmentStatus).click();
-    await this.#page.getByText(status, { exact: true }).click();
+    await this.#page.getByRole('option', { name: status, exact: true }).click();
     await this.verifyStatus(status);
   }
 

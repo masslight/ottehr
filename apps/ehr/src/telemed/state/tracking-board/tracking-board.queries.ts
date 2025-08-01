@@ -1,6 +1,7 @@
+import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { Operation } from 'fast-json-patch';
 import { Patient } from 'fhir/r4b';
-import { useMutation, useQuery } from 'react-query';
+import { useSuccessQuery } from 'utils';
 import {
   addOrReplaceOperation,
   ChangeTelemedAppointmentStatusInput,
@@ -25,14 +26,12 @@ export const useGetTelemedAppointments = (
   }: {
     apiClient: OystehrTelemedAPIClient | null;
   } & GetAppointmentsRequestParams,
-  onSuccess: (data: PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getTelemedAppointments']>>) => void
-  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-) => {
-  return useQuery(
-    [
+  onSuccess: (data: PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getTelemedAppointments']>> | null) => void
+): UseQueryResult<PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getTelemedAppointments']>>, Error> => {
+  const queryResult = useQuery({
+    queryKey: [
       'telemed-appointments',
       {
-        apiClient,
         usStatesFilter,
         providersFilter,
         groupsFilter,
@@ -43,7 +42,8 @@ export const useGetTelemedAppointments = (
         visitTypesFilter,
       },
     ],
-    () => {
+
+    queryFn: () => {
       if (apiClient) {
         return apiClient.getTelemedAppointments({
           usStatesFilter,
@@ -58,18 +58,25 @@ export const useGetTelemedAppointments = (
       }
       throw new Error('api client not defined');
     },
-    {
-      refetchInterval: 10000,
-      onSuccess,
-      onError: (err) => {
-        console.error('Error during fetching get telemed appointments: ', err);
-      },
-    }
-  );
+
+    enabled: Boolean(apiClient),
+    refetchInterval: 10000,
+  });
+
+  useSuccessQuery(queryResult.data, onSuccess);
+
+  return queryResult;
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useInitTelemedSessionMutation = () =>
+export const useInitTelemedSessionMutation = (): UseMutationResult<
+  PromiseReturnType<ReturnType<OystehrTelemedAPIClient['initTelemedSession']>>,
+  Error,
+  {
+    apiClient: OystehrTelemedAPIClient;
+    appointmentId: string;
+    userId: string;
+  }
+> =>
   useMutation({
     mutationFn: ({
       apiClient,
