@@ -5,6 +5,7 @@ import {
   AdditionalBooleanQuestionsFieldsNames,
   ExamObservationFieldItem,
   ExamTabCardNames,
+  ExternalLabOrderResult,
   Gender,
   InHouseLabResult as IInHouseLabResult,
   InPersonExamObservationFieldItem,
@@ -353,6 +354,11 @@ export interface PrescribedMedication {
   date?: string;
 }
 
+export interface LabOrder {
+  serviceRequestId: string;
+  testItemName: string;
+}
+
 export type DischargeSummaryData = {
   patient: {
     fullName: string;
@@ -382,7 +388,8 @@ export type DischargeSummaryData = {
   currentMedicationsNotes?: string[];
   allergies?: string[];
   allergiesNotes?: string[];
-  inHouseLabs?: IInHouseLabResult[];
+  inHouseLabs?: { orders: LabOrder[]; results: IInHouseLabResult[] };
+  externalLabs?: { orders: LabOrder[]; results: ExternalLabOrderResult[] };
   radiology?: {
     name: string;
     result?: string;

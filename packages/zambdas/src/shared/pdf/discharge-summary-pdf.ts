@@ -1,9 +1,25 @@
 import fs from 'node:fs';
-import { ContactPoint, Practitioner } from 'fhir/r4b';
+import {
+  ActivityDefinition,
+  Appointment,
+  ContactPoint,
+  DiagnosticReport,
+  Encounter,
+  Location,
+  Observation,
+  Organization,
+  Practitioner,
+  Provenance,
+  Schedule,
+  ServiceRequest,
+  Specimen,
+  Task,
+} from 'fhir/r4b';
 import { PageSizes } from 'pdf-lib';
 import {
   appointmentTypeMap,
   BUCKET_NAMES,
+  convertActivityDefinitionToTestItem,
   CPTCodeDTO,
   formatDateToMDYWithTime,
   formatDOB,
@@ -11,19 +27,26 @@ import {
   GetChartDataResponse,
   getDefaultNote,
   GetRadiologyOrderListZambdaOutput,
+  LabOrderPDF,
+  LabResultPDF,
   mapDispositionTypeToLabel,
   mapErxMedicationsToDisplay,
   mapMedicationsToDisplay,
   mapVitalsToDisplay,
   NOTE_TYPE,
+  Pagination,
   ParticipantInfo,
+  PatientLabItem,
+  QuestionnaireData,
   Secrets,
   uploadDocument,
 } from 'utils';
+import { findActivityDefinitionForServiceRequest } from '../../ehr/get-in-house-orders/helpers';
+import { parseLabInfo } from '../../ehr/get-lab-orders/helpers';
 import { makeZ3Url } from '../presigned-file-urls';
 import { Y_POS_GAP } from './pdf-consts';
 import { createPdfClient, PdfInfo, rgbNormalized } from './pdf-utils';
-import { DischargeSummaryData, LineStyle, PdfClientStyles, TextStyle } from './types';
+import { DischargeSummaryData, LabOrder, LineStyle, PdfClientStyles, TextStyle } from './types';
 import { FullAppointmentResourcePackage } from './visit-details-pdf/types';
 import { getPatientLastFirstName } from './visit-details-pdf/visit-note-pdf-creation';
 
@@ -31,6 +54,42 @@ type AllChartData = {
   chartData: GetChartDataResponse;
   additionalChartData?: GetChartDataResponse;
   radiologyData?: GetRadiologyOrderListZambdaOutput;
+  externalLabsData?: {
+    serviceRequests: ServiceRequest[];
+    tasks: Task[];
+    diagnosticReports: DiagnosticReport[];
+    practitioners: Practitioner[];
+    pagination: Pagination;
+    encounters: Encounter[];
+    locations: Location[];
+    observations: Observation[];
+    appointments: Appointment[];
+    provenances: Provenance[];
+    organizations: Organization[];
+    questionnaires: QuestionnaireData[];
+    resultPDFs: LabResultPDF[];
+    orderPDF: LabOrderPDF | undefined;
+    specimens: Specimen[];
+    patientLabItems: PatientLabItem[];
+    appointmentScheduleMap: Record<string, Schedule>;
+  };
+  inHouseOrdersData?: {
+    serviceRequests: ServiceRequest[];
+    tasks: Task[];
+    practitioners: Practitioner[];
+    encounters: Encounter[];
+    locations: Location[];
+    appointments: Appointment[];
+    provenances: Provenance[];
+    activityDefinitions: ActivityDefinition[];
+    specimens: Specimen[];
+    observations: Observation[];
+    pagination: Pagination;
+    diagnosticReports: DiagnosticReport[];
+    resultsPDFs: LabResultPDF[];
+    currentPractitioner?: Practitioner;
+    appointmentScheduleMap: Record<string, Schedule>;
+  };
 };
 
 function mapResourceByNameField(data: { name?: string }[] | CPTCodeDTO[]): string[] {
@@ -58,7 +117,6 @@ export async function composeAndCreateDischargeSummaryPdf(
   console.log('Start composing data for pdf');
   const data = composeDataForDischargeSummaryPdf(allChartData, appointmentPackage);
 
-  // attachmentUrls exist in data
   console.log('Start creating pdf');
   return await createDischargeSummaryPDF(data, appointmentPackage.patient.id, secrets, token);
 }
@@ -72,7 +130,7 @@ function composeDataForDischargeSummaryPdf(
   allChartData: AllChartData,
   appointmentPackage: FullAppointmentResourcePackage
 ): DischargeSummaryData {
-  const { chartData, additionalChartData, radiologyData } = allChartData;
+  const { chartData, additionalChartData, radiologyData, externalLabsData, inHouseOrdersData } = allChartData;
 
   const { patient, encounter, appointment, location, practitioners, timezone } = appointmentPackage;
   if (!patient) throw new Error('No patient found for this encounter');
@@ -113,7 +171,20 @@ function composeDataForDischargeSummaryPdf(
     : undefined;
 
   // --- In-House Labs ---
-  const inHouseLabs = additionalChartData?.inHouseLabResults?.labOrderResults ?? [];
+  const inHouseLabResults = additionalChartData?.inHouseLabResults?.labOrderResults ?? [];
+  const inHouseLabOrders = inHouseOrdersData?.serviceRequests?.length
+    ? mapResourcesToInHouseLabOrders(
+        inHouseOrdersData?.serviceRequests,
+        inHouseOrdersData?.activityDefinitions,
+        inHouseOrdersData?.observations
+      )
+    : [];
+  // --- External Labs ---
+  const externalLabResults = additionalChartData?.externalLabResults?.labOrderResults ?? [];
+
+  const externalLabOrders = externalLabsData?.serviceRequests?.length
+    ? mapResourcesToExternalLabOrders(externalLabsData?.serviceRequests)
+    : [];
 
   // --- Radiology ---
   const radiology = radiologyData?.orders.map((order) => ({
@@ -206,7 +277,14 @@ function composeDataForDischargeSummaryPdf(
     currentMedicationsNotes,
     allergies,
     allergiesNotes,
-    inHouseLabs,
+    inHouseLabs: {
+      orders: inHouseLabOrders,
+      results: inHouseLabResults,
+    },
+    externalLabs: {
+      orders: externalLabOrders,
+      results: externalLabResults,
+    },
     radiology,
     inhouseMedications,
     erxMedications,
@@ -413,10 +491,35 @@ async function createDischargeSummaryPdfBytes(data: DischargeSummaryData): Promi
 
   const drawInHouseLabs = (): void => {
     pdfClient.drawText('In-House Labs', textStyles.subHeader);
+    if (data.inHouseLabs?.orders.length) {
+      pdfClient.drawText('Orders:', textStyles.subHeader);
+      data.inHouseLabs?.orders.forEach((lab) => {
+        pdfClient.drawText(lab.testItemName, textStyles.regular);
+      });
+    }
+    if (data.inHouseLabs?.results.length) {
+      pdfClient.drawText('Results:', textStyles.subHeader);
+      data.inHouseLabs?.results.forEach((lab) => {
+        pdfClient.drawText(lab.name, textStyles.regular);
+      });
+    }
+    pdfClient.drawSeparatedLine(separatedLineStyle);
+  };
 
-    data.inHouseLabs?.forEach((lab) => {
-      pdfClient.drawText(`- ${lab.name}`, textStyles.regular);
-    });
+  const drawExternalLabs = (): void => {
+    pdfClient.drawText('External Labs', textStyles.subHeader);
+    if (data.externalLabs?.orders.length) {
+      pdfClient.drawText('Orders:', textStyles.subHeader);
+      data.externalLabs?.orders.forEach((lab) => {
+        pdfClient.drawText(lab.testItemName, textStyles.regular);
+      });
+    }
+    if (data.externalLabs?.results.length) {
+      pdfClient.drawText('Results:', textStyles.subHeader);
+      data.externalLabs?.results.forEach((lab) => {
+        pdfClient.drawText(lab.name, textStyles.regular);
+      });
+    }
     pdfClient.drawSeparatedLine(separatedLineStyle);
   };
 
@@ -453,15 +556,18 @@ async function createDischargeSummaryPdfBytes(data: DischargeSummaryData): Promi
 
   const drawAssessment = (): void => {
     pdfClient.drawText('Assessment', textStyles.subHeader);
-
-    pdfClient.drawText('Primary Dx', textStyles.subHeader);
-    data.diagnoses?.primary.forEach((dx) => {
-      pdfClient.drawText(dx, textStyles.regular);
-    });
-    pdfClient.drawText('Secondary Dx', textStyles.subHeader);
-    data.diagnoses?.secondary.forEach((dx) => {
-      pdfClient.drawText(dx, textStyles.regular);
-    });
+    if (data.diagnoses?.primary.length) {
+      pdfClient.drawText('Primary Dx:', textStyles.subHeader);
+      data.diagnoses?.primary.forEach((dx) => {
+        pdfClient.drawText(dx, textStyles.regular);
+      });
+    }
+    if (data.diagnoses?.secondary.length) {
+      pdfClient.drawText('Secondary Dx:', textStyles.subHeader);
+      data.diagnoses?.secondary.forEach((dx) => {
+        pdfClient.drawText(dx, textStyles.regular);
+      });
+    }
     pdfClient.drawSeparatedLine(separatedLineStyle);
   };
 
@@ -527,7 +633,8 @@ async function createDischargeSummaryPdfBytes(data: DischargeSummaryData): Promi
   if (data.currentMedications?.length || data.currentMedicationsNotes?.length) drawCurrentMedications();
   if (data.allergies?.length || data.allergiesNotes?.length) drawAllergies();
   if (Object.values(data.vitals || {}).some((val) => !!val)) drawVitalsSection();
-  if (data.inHouseLabs?.length) drawInHouseLabs();
+  if (data.inHouseLabs?.orders.length || data.inHouseLabs?.results.length) drawInHouseLabs();
+  if (data.externalLabs?.orders.length || data.externalLabs?.results.length) drawExternalLabs();
   if (data.radiology?.length) drawRadiology();
   if (data.inhouseMedications?.length) drawInHouseMedications();
   if (data.erxMedications?.length) drawErxMedications();
@@ -571,3 +678,37 @@ async function createDischargeSummaryPDF(
 
   return { title: fileName, uploadURL: baseFileUrl };
 }
+
+const mapResourcesToInHouseLabOrders = (
+  serviceRequests: ServiceRequest[],
+  activityDefinitions: ActivityDefinition[],
+  observations: Observation[]
+): LabOrder[] => {
+  return serviceRequests
+    .filter((sr) => sr.id)
+    .map((serviceRequest) => {
+      const activityDefinition = findActivityDefinitionForServiceRequest(serviceRequest, activityDefinitions);
+      if (!activityDefinition) {
+        console.warn(`ActivityDefinition not found for ServiceRequest ${serviceRequest.id}`);
+        return null;
+      }
+
+      const testItem = convertActivityDefinitionToTestItem(activityDefinition, observations, serviceRequest);
+
+      return {
+        serviceRequestId: serviceRequest.id!,
+        testItemName: testItem.name,
+      };
+    })
+    .filter(Boolean) as { serviceRequestId: string; testItemName: string }[];
+};
+
+const mapResourcesToExternalLabOrders = (serviceRequests: ServiceRequest[]): LabOrder[] => {
+  return serviceRequests.map((serviceRequest) => {
+    const { testItem } = parseLabInfo(serviceRequest);
+    return {
+      serviceRequestId: serviceRequest.id ?? '',
+      testItemName: testItem,
+    };
+  });
+};
