@@ -16,8 +16,6 @@ import { Stack } from '@mui/system';
 import { Practitioner } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
-import { CompleteConfiguration } from 'src/components/CompleteConfiguration';
-import { useGetErxConfigQuery } from 'src/telemed/hooks/useGetErxConfig';
 import { ERX_MEDICATION_META_TAG_CODE, formatDateToMDYWithTime, RoleType } from 'utils';
 import { RoundedButton } from '../../../../components/RoundedButton';
 import { useChartData } from '../../../../features/css-module/hooks/useChartData';
@@ -166,8 +164,6 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
   const { oystehr } = useApiClients();
   const user = useEvolveUser();
 
-  const { data: erxConfigData, isLoading: isErxConfigLoading } = useGetErxConfigQuery();
-
   const cancelPrescription = async (medRequestId: string, patientId: string): Promise<void> => {
     if (!oystehr) {
       enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
@@ -193,9 +189,9 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
     setOpenTooltip(true);
   };
 
-  const handleSetup = (): void => {
-    window.open('https://docs.oystehr.com/ottehr/setup/prescriptions/', '_blank');
-  };
+  // const handleSetup = (): void => {
+  //   window.open('https://docs.oystehr.com/ottehr/setup/prescriptions/', '_blank');
+  // };
 
   const onNewOrderClick = async (): Promise<void> => {
     // await oystehr?.erx.unenrollPractitioner({ practitionerId: user!.profileResource!.id! });
@@ -241,7 +237,7 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
             </Stack>
           </Tooltip>
         </Stack>
-        {!erxConfigData.configured && !isErxConfigLoading && <CompleteConfiguration handleSetup={handleSetup} />}
+        {/* {!erxEnvVariable && <CompleteConfiguration handleSetup={handleSetup} />} */}
         {isERXOpen && (
           <ERX
             onStatusChanged={(status) => {
