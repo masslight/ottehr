@@ -54,8 +54,6 @@ const FileInput: FC<FileInputProps> = ({
   // show up in that case as well.
   const [existingValueCleared, setExistingValueCleared] = useState(false);
 
-  console.log('defaultValues', defaultValues);
-
   const defaultVal = (() => {
     const pathParts = name.split('.');
     const baseField = pathParts.reduce((accum, current) => {
