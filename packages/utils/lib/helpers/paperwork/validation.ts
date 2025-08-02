@@ -225,7 +225,7 @@ const schemaForItem = (item: ValidatableQuestionnaireItem, context: any): Yup.An
     let stringSchema = Yup.string()
       .typeError(DATE_ERROR_MESSAGE)
       .matches(isoDateRegex, DATE_ERROR_MESSAGE)
-      .test('date test', async (value: any, context: any) => {
+      .test('date test', (value: any, context: any) => {
         const dt = DateTime.fromISO(value);
         const now = DateTime.now();
         if (dt > now) {
@@ -342,7 +342,7 @@ export const makeValidationSchema = (
             accum[current.linkId] = { ...current };
             return accum;
           }, {});
-          const validated = await schema.validate(reduced, { abortEarly: false });
+          const validated = await schema.validateSync(reduced, { abortEarly: false });
           return Yup.mixed().transform(() => validated);
         } catch (e) {
           console.log('error: ', pageId, JSON.stringify(answerItem), e);
