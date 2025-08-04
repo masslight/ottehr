@@ -5,11 +5,11 @@ import { NursingOrderCreatePage } from 'src/features/nursing-orders/pages/Nursin
 import { NursingOrderDetailsPage } from 'src/features/nursing-orders/pages/NursingOrderDetailsPage';
 import { NursingOrdersPage } from 'src/features/nursing-orders/pages/NursingOrdersPage';
 import { FEATURE_FLAGS } from '../../../constants/feature-flags';
-import { VaccineOrderCreate } from '../../../pages/VaccineOrderCreate';
 import { AssessmentCard } from '../../../telemed/features/appointment/AssessmentTab';
 import { CreateExternalLabOrder } from '../../external-labs/pages/CreateExternalLabOrder';
 import { ExternalLabOrdersListPage } from '../../external-labs/pages/ExternalLabOrdersListPage';
 import { OrderDetailsPage } from '../../external-labs/pages/OrderDetails';
+import { VaccineOrderCreate } from '../../immunization/pages/VaccineOrderCreate';
 import { CreateRadiologyOrder } from '../../radiology/pages/CreateRadiologyOrder';
 import { RadiologyOrderDetailsPage } from '../../radiology/pages/RadiologyOrderDetails';
 import { RadiologyOrdersListPage } from '../../radiology/pages/RadiologyOrdersListPage';

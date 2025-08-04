@@ -1,36 +1,11 @@
 import { Grid, Paper, Stack } from '@mui/material';
 import React from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { ProviderSelectInput } from 'src/components/input/ProviderSelectInput';
-import { SelectInput } from 'src/components/input/SelectInput';
-import { TextInput } from 'src/components/input/TextInput';
 import { BreadcrumbsView } from 'src/features/css-module/components/breadcrumbs/BreadcrumbsView';
 import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
 import { WarningBlock } from 'src/features/css-module/components/WarningBlock';
-import { medicationApplianceRoutes } from 'utils';
-import { MedicationSelectInput } from '../components/input/MedicationSelectInput';
-import { PageHeader } from '../features/css-module/components/medication-administration/PageHeader';
-
-const UNITS_OPTIONS = [
-  { value: 'mg', label: 'mg' },
-  { value: 'ml', label: 'mL' },
-  { value: 'g', label: 'g' },
-  { value: 'cc', label: 'cc' },
-  { value: 'unit', label: 'unit' },
-  { value: 'application', label: 'application' },
-];
-
-const ROUTE_OPTIONS = Object.entries(medicationApplianceRoutes)
-  .map(([_, value]) => ({
-    value: value.code,
-    label: value.display ?? '',
-  }))
-  ?.sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
-
-const LOCATION_OPTIONS = [
-  { value: 'location-a', label: 'Location A' },
-  { value: 'location-b', label: 'Location B' },
-];
+import { PageHeader } from '../../css-module/components/medication-administration/PageHeader';
+import { VaccineOrderDetailsSection } from '../components/VaccineOrderDetailsSection';
 
 const BREADCRUMBS = [
   {
@@ -59,26 +34,8 @@ export const VaccineOrderCreate: React.FC = () => {
           <PageHeader title="Order Vaccine" variant="h3" component="h1" />
           <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
             <Grid container spacing={2}>
-              <Grid xs={6} item>
-                <MedicationSelectInput name="vaccine" label="Vacine" required />
-              </Grid>
-              <Grid xs={3} item>
-                <TextInput name="dose" label="Dose" required />
-              </Grid>
-              <Grid xs={3} item>
-                <SelectInput name="units" label="Units" options={UNITS_OPTIONS} required />
-              </Grid>
-              <Grid xs={6} item>
-                <SelectInput name="route" label="Route" options={ROUTE_OPTIONS} />
-              </Grid>
-              <Grid xs={6} item>
-                <SelectInput name="location" label="Location" options={LOCATION_OPTIONS} />
-              </Grid>
               <Grid xs={12} item>
-                <TextInput name="instructions" label="Instructions" multiline />
-              </Grid>
-              <Grid xs={6} item>
-                <ProviderSelectInput name="ordered" label="Ordered by" required />
+                <VaccineOrderDetailsSection />
               </Grid>
               <Grid xs={12} item>
                 <WarningBlock
