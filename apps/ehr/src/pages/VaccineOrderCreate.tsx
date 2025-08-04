@@ -1,6 +1,7 @@
 import { Grid, Paper, Stack } from '@mui/material';
 import React from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
+import { ProviderSelectInput } from 'src/components/input/ProviderSelectInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { BreadcrumbsView } from 'src/features/css-module/components/breadcrumbs/BreadcrumbsView';
@@ -29,11 +30,6 @@ const ROUTE_OPTIONS = Object.entries(medicationApplianceRoutes)
 const LOCATION_OPTIONS = [
   { value: 'location-a', label: 'Location A' },
   { value: 'location-b', label: 'Location B' },
-];
-
-const ORDER_BY_OPTIONS = [
-  { value: 'order-by-a', label: 'Order by A' },
-  { value: 'order-by-b', label: 'Order by B' },
 ];
 
 const BREADCRUMBS = [
@@ -82,7 +78,7 @@ export const VaccineOrderCreate: React.FC = () => {
                 <TextInput name="instructions" label="Instructions" multiline />
               </Grid>
               <Grid xs={6} item>
-                <SelectInput name="ordered" label="Ordered by" options={ORDER_BY_OPTIONS} required />
+                <ProviderSelectInput name="ordered" label="Ordered by" required />
               </Grid>
               <Grid xs={12} item>
                 <WarningBlock

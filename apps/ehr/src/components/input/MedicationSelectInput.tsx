@@ -33,9 +33,9 @@ export const MedicationSelectInput: React.FC<Props> = ({ name, label, required }
             renderInput={(params) => (
               <TextField
                 {...params}
-                label={label}
+                label={label + (required ? '*' : '')}
                 placeholder={`Select ${label}`}
-                inputProps={{ ...params.inputProps, readOnly: true }}
+                inputProps={{ ...params.inputProps }}
                 error={formState.errors[name] != null}
               />
             )}

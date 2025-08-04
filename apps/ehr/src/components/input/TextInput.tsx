@@ -23,7 +23,7 @@ export const TextInput: React.FC<Props> = ({ name, label, loading, required, mul
         <Box sx={{ width: '100%' }}>
           <TextField
             value={field.value}
-            label={label}
+            label={label + (required ? '*' : '')}
             placeholder={`Select ${label}`}
             error={formState.errors[name] != null}
             onChange={(data) => field.onChange(data)}

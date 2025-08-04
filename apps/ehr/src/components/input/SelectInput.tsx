@@ -2,11 +2,7 @@ import { Autocomplete, Box, FormHelperText, Skeleton, TextField } from '@mui/mat
 import React from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
-
-interface Option {
-  label: string;
-  value: string;
-}
+import { Option } from './Option';
 
 type Props = {
   name: string;
@@ -32,7 +28,7 @@ export const SelectInput: React.FC<Props> = ({ name, label, options, loading, re
             renderInput={(params) => (
               <TextField
                 {...params}
-                label={label}
+                label={label + (required ? '*' : '')}
                 placeholder={`Select ${label}`}
                 inputProps={{ ...params.inputProps, readOnly: true }}
                 error={formState.errors[name] != null}
