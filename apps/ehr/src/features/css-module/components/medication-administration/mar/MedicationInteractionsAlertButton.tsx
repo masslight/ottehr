@@ -40,10 +40,10 @@ export const MedicationInteractionsAlertButton: React.FC<Props> = ({ medication 
           </IconButton>
         </GenericToolTip>
       ) : null}
-      {showInteractionAlerts ? (
+      {showInteractionAlerts && medication.interactions ? (
         <InteractionAlertsDialog
           medicationName={medication.medicationName}
-          interactions={medication.interactions ?? {}}
+          interactions={medication.interactions}
           readonly={true}
           onCancel={() => setShowInteractionAlerts(false)}
         />
