@@ -368,12 +368,20 @@ export const EditableMedicationCard: React.FC<{
 
   useEffect(() => {
     if (medication) {
-      setInteractionsCheckState({
-        status: 'done',
-        interactions: medication.interactions,
-        medicationId: medication.medicationId,
-        medicationName: medication.medicationName,
-      });
+      if (medication.interactions != null) {
+        setInteractionsCheckState({
+          status: 'done',
+          interactions: medication.interactions,
+          medicationId: medication.medicationId,
+          medicationName: medication.medicationName,
+        });
+      } else {
+        setInteractionsCheckState({
+          status: 'error',
+          medicationId: medication.medicationId,
+          medicationName: medication.medicationName,
+        });
+      }
     }
   }, [medication]);
 

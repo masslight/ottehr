@@ -14,6 +14,8 @@ import {
   getCreatedTheOrderProviderId,
   IN_HOUSE_CONTAINED_MEDICATION_ID,
   INTERACTION_OVERRIDE_REASON_CODE_SYSTEM,
+  INTERACTIONS_UNAVAILABLE,
+  ISSUE_TYPE_CODE_SYSTEM,
   MEDICATION_ADMINISTRATION_CSS_RESOURCE_CODE,
   MEDICATION_ADMINISTRATION_CSS_RESOURCE_SYSTEM,
   MEDICATION_ADMINISTRATION_OTHER_REASON_CODE,
@@ -190,14 +192,19 @@ export function createMedicationRequest(
   interactions: MedicationInteractions | undefined,
   medication: Medication
 ): MedicationRequest {
-  const detectedIssues = [
-    ...(interactions?.drugInteractions?.map((interaction, index) =>
-      createDrugInteractionIssue('drg-' + index, interaction)
-    ) ?? []),
-    ...(interactions?.allergyInteractions?.map((interaction, index) =>
-      createAllergyInteractionIssue('algy-' + index, interaction)
-    ) ?? []),
-  ];
+  let detectedIssues;
+  if (interactions == null) {
+    detectedIssues = [createInteractionsUnavailableIssue()];
+  } else {
+    detectedIssues = [
+      ...interactions.drugInteractions.map((interaction, index) =>
+        createDrugInteractionIssue('drg-' + index, interaction)
+      ),
+      ...interactions.allergyInteractions.map((interaction, index) =>
+        createAllergyInteractionIssue('algy-' + index, interaction)
+      ),
+    ];
+  }
   return {
     resourceType: 'MedicationRequest',
     status: 'active',
@@ -302,6 +309,22 @@ function createAllergyInteractionIssue(resourceId: string, interaction: AllergyI
         },
       },
     ],
+  };
+}
+
+function createInteractionsUnavailableIssue(): DetectedIssue {
+  return {
+    resourceType: 'DetectedIssue',
+    id: INTERACTIONS_UNAVAILABLE,
+    status: 'registered',
+    code: {
+      coding: [
+        {
+          system: ISSUE_TYPE_CODE_SYSTEM,
+          code: INTERACTIONS_UNAVAILABLE,
+        },
+      ],
+    },
   };
 }
 
