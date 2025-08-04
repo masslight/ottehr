@@ -14,7 +14,7 @@ const SEARCH_PARAMS: Record<MedicationHistoryField, SearchParams> = {
   medications: {
     _sort: '-effective',
     _include: 'MedicationStatement:source',
-    _tag: 'current-medication',
+    _tag: ['current-medication', 'prescribed-medication'],
   },
   inhouseMedications: {
     _sort: '-effective',

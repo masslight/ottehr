@@ -75,7 +75,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const medData = medicationRequest.medicationCodeableConcept?.coding?.find(
       (coding) => coding.system === MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM
     );
-    console.log('Patching medication request');
+    console.log('Patching MedicationRequest and create MedicationStatement');
     await Promise.all([
       oystehr.fhir.patch({
         resourceType: medicationRequest.resourceType,
@@ -98,7 +98,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             practitionerId,
             {
               status: 'active',
-              name: medData?.display,
+              name: medData?.display || '',
               id: medData?.code,
               intakeInfo: {
                 dose: medicationRequest.dispenseRequest?.quantity?.value

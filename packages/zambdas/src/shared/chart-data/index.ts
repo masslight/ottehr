@@ -246,7 +246,12 @@ export function makeMedicationDTO(medication: MedicationStatement): MedicationDT
     resourceId: medication.id,
     id: medication.medicationCodeableConcept?.coding?.[0].code || '',
     name: medication.medicationCodeableConcept?.coding?.[0].display || '',
-    type: medication.dosage?.[0].asNeededBoolean ? 'as-needed' : 'scheduled',
+    type:
+      medication.meta?.tag?.[0].code === 'prescribed-medication'
+        ? 'prescribed-medication'
+        : medication.dosage?.[0].asNeededBoolean
+        ? 'as-needed'
+        : 'scheduled',
     intakeInfo: {
       dose: getMedicationDosage(medication),
       date: medication.effectiveDateTime,
@@ -1067,7 +1072,8 @@ const mapResourceToChartDataFields = (
     resourceMapped = true;
   } else if (
     resource?.resourceType === 'MedicationStatement' &&
-    chartDataResourceHasMetaTagByCode(resource, 'current-medication')
+    (chartDataResourceHasMetaTagByCode(resource, 'current-medication') ||
+      chartDataResourceHasMetaTagByCode(resource, 'prescribed-medication'))
   ) {
     data.medications?.push(makeMedicationDTO(resource));
     resourceMapped = true;
