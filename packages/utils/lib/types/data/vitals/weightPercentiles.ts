@@ -5236,35 +5236,40 @@ const heightPercentilesRaw = [
   },
 ];
 
-export type Percentile = {
+export type Percentiles = {
   p5: number;
   p95: number;
 };
 
-export interface AgePercentileMap {
+export interface AgePercentileDef {
   ageUnits: 'months' | 'days' | 'years';
-  percentiles: Record<number, Percentile>;
+  age: number;
+  percentiles: Percentiles;
 }
 export type GenderPercentileMap = {
-  male: AgePercentileMap;
-  female: AgePercentileMap;
+  male: AgePercentileDef[];
+  female: AgePercentileDef[];
 };
 
 const GenderWeightPercentileMap: GenderPercentileMap = weightPercentilesRaw.reduce(
   (accum, current) => {
     const { sex, ageInMonths, p5, p95 } = current;
     const age = parseFloat(ageInMonths);
-    const percentile: Percentile = { p5: parseFloat(p5), p95: parseFloat(p95) };
+    const percentiles: Percentiles = { p5: parseFloat(p5), p95: parseFloat(p95) };
 
     if (accum[sex as 'male' | 'female']) {
-      accum[sex as 'male' | 'female'].percentiles[age] = percentile;
+      accum[sex as 'male' | 'female'].push({
+        ageUnits: 'months',
+        age,
+        percentiles,
+      });
     }
 
     return accum;
   },
   {
-    male: { ageUnits: 'months', percentiles: {} as Record<number, Percentile> },
-    female: { ageUnits: 'months', percentiles: {} as Record<number, Percentile> },
+    male: [] as AgePercentileDef[],
+    female: [] as AgePercentileDef[],
   }
 );
 
@@ -5272,34 +5277,43 @@ const GenderHeightPercentileMap: GenderPercentileMap = heightPercentilesRaw.redu
   (accum, current) => {
     const { sex, ageInMonths, p5, p95 } = current;
     const age = parseFloat(ageInMonths);
-    const percentile: Percentile = { p5: parseFloat(p5), p95: parseFloat(p95) };
+    const percentiles: Percentiles = { p5: parseFloat(p5), p95: parseFloat(p95) };
 
     if (accum[sex as 'male' | 'female']) {
-      accum[sex as 'male' | 'female'].percentiles[age] = percentile;
+      accum[sex as 'male' | 'female'].push({
+        ageUnits: 'months',
+        age,
+        percentiles,
+      });
     }
 
     return accum;
   },
   {
-    male: { ageUnits: 'months', percentiles: {} as Record<number, Percentile> },
-    female: { ageUnits: 'months', percentiles: {} as Record<number, Percentile> },
+    male: [] as AgePercentileDef[],
+    female: [] as AgePercentileDef[],
   }
 );
 
 const findApplicablePercentile = (
   patientAgeInMonths: number,
-  agePercentiles: AgePercentileMap
-): Percentile | undefined => {
-  const matchingPercentiles = Object.entries(agePercentiles.percentiles).find(([tempAgeInMonths]) => {
-    return patientAgeInMonths <= Number(tempAgeInMonths);
-  })?.[1];
-  return matchingPercentiles;
+  agePercentiles: AgePercentileDef[]
+): Percentiles | undefined => {
+  const startOfScale = agePercentiles[0]?.age;
+  const endOfScale = agePercentiles[agePercentiles.length - 1]?.age;
+  if (patientAgeInMonths < startOfScale || patientAgeInMonths > endOfScale) {
+    return undefined;
+  }
+  const matchingPercentiles = agePercentiles.find(({ age }) => {
+    return patientAgeInMonths <= age;
+  });
+  return matchingPercentiles?.percentiles;
 };
 
 export const getWeightPercentileLow = (ageInMonths: number, sex: 'male' | 'female'): number => {
   const agePercentiles = GenderWeightPercentileMap[sex];
   const percentileToUse = findApplicablePercentile(ageInMonths, agePercentiles)?.p5;
-  return percentileToUse ?? 0;
+  return percentileToUse ?? -Infinity;
 };
 
 export const getWeightPercentileHigh = (ageInMonths: number, sex: 'male' | 'female'): number => {
@@ -5310,7 +5324,7 @@ export const getWeightPercentileHigh = (ageInMonths: number, sex: 'male' | 'fema
 export const getHeightPercentileLow = (ageInMonths: number, sex: 'male' | 'female'): number | undefined => {
   const agePercentiles = GenderHeightPercentileMap[sex];
   const percentileToUse = findApplicablePercentile(ageInMonths, agePercentiles)?.p5;
-  return percentileToUse ?? 0;
+  return percentileToUse ?? -Infinity;
 };
 
 export const getHeightPercentileHigh = (ageInMonths: number, sex: 'male' | 'female'): number | undefined => {
