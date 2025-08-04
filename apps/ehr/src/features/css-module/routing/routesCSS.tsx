@@ -5,6 +5,7 @@ import { NursingOrderCreatePage } from 'src/features/nursing-orders/pages/Nursin
 import { NursingOrderDetailsPage } from 'src/features/nursing-orders/pages/NursingOrderDetailsPage';
 import { NursingOrdersPage } from 'src/features/nursing-orders/pages/NursingOrdersPage';
 import { FEATURE_FLAGS } from '../../../constants/feature-flags';
+import { VaccineOrderCreate } from '../../../pages/VaccineOrderCreate';
 import { AssessmentCard } from '../../../telemed/features/appointment/AssessmentTab';
 import { CreateExternalLabOrder } from '../../external-labs/pages/CreateExternalLabOrder';
 import { ExternalLabOrdersListPage } from '../../external-labs/pages/ExternalLabOrdersListPage';
@@ -70,6 +71,8 @@ export enum ROUTER_PATH {
   NURSING_ORDERS = 'nursing-orders',
   NURSING_ORDER_CREATE = 'nursing-orders/create',
   NURSING_ORDER_DETAILS = 'nursing-orders/:serviceRequestID/order-details',
+
+  VACCINE_ORDER_CREATE = 'vaccine-orders/create',
 }
 
 export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
@@ -168,6 +171,14 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
     activeCheckPath: 'order/edit',
     element: <InHouseOrderEdit />,
     text: 'In-house Medications',
+    iconKey: 'Med. Administration',
+  },
+  [ROUTER_PATH.VACCINE_ORDER_CREATE]: {
+    path: ROUTER_PATH.VACCINE_ORDER_CREATE,
+    modes: ['provider', 'readonly'],
+    activeCheckPath: 'vaccine-orders/create',
+    element: <VaccineOrderCreate />,
+    text: 'Create vaccine order',
     iconKey: 'Med. Administration',
   },
   [ROUTER_PATH.EXTERNAL_LAB_ORDER]: {
