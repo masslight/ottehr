@@ -10,7 +10,7 @@ export const useGetPatientsForMerge = (
   }: {
     patientIds?: string[];
   },
-  onSuccess?: (data: Patient[]) => void
+  onSuccess?: (data: Patient[] | null) => void
 ): UseQueryResult<Patient[], Error> => {
   const { oystehr } = useApiClients();
 
@@ -43,7 +43,7 @@ export const useGetPatientForUpdate = (
   }: {
     patientId?: string;
   },
-  onSuccess?: (data: Patient[]) => void
+  onSuccess?: (data: Patient[] | null) => void
 ): UseQueryResult<Patient[], Error> => {
   const { oystehr } = useApiClients();
 

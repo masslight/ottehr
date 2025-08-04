@@ -83,7 +83,7 @@ export const useSendMessagesMutation = (
 };
 
 export const useGetMessagingConfigQuery = (
-  onSuccess?: (data: MessagingGetMessagingConfigResponse) => void,
+  onSuccess?: (data: MessagingGetMessagingConfigResponse | null) => void,
   onError?: () => void
 ): UseQueryResult<MessagingGetMessagingConfigResponse, Error> => {
   const { oystehr } = useApiClients();

@@ -30,6 +30,7 @@ export const PatientInstructionsTemplatesDialog: FC<MyTemplatesDialogProps> = (p
   const theme = useTheme();
   const [patientInstructions, setPatientInstructions] = useState<CommunicationDTO[]>([]);
   const { isFetching } = useGetPatientInstructions({ type }, (data) => {
+    if (!data) return;
     setPatientInstructions(data);
   });
   const isMyTemplates = type === 'provider';

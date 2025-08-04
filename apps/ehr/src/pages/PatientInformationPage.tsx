@@ -104,6 +104,8 @@ const PatientInformationPage: FC = () => {
   const removeCoverage = useRemovePatientCoverage();
 
   useGetInsurancePlans((data) => {
+    if (!data) return;
+
     const bundleEntries = data.entry;
     if (bundleEntries) {
       const organizations = bundleEntries
