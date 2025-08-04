@@ -5286,30 +5286,14 @@ const GenderHeightPercentileMap: GenderPercentileMap = heightPercentilesRaw.redu
   }
 );
 
-// this assumes percentiles are in ascending order by age, so once a match has a larger diff than the best current match
-// we can stop looking
 const findApplicablePercentile = (
   patientAgeInMonths: number,
   agePercentiles: AgePercentileMap
 ): Percentile | undefined => {
-  let matchingPercentiles: Percentile | undefined;
-  let bestCurrentMatch: { percentile: Percentile; diff: number } | undefined;
-  for (const [tempAgeInMonths, percentile] of Object.entries(agePercentiles.percentiles)) {
-    const ageDiff = Math.abs(parseFloat(tempAgeInMonths) - patientAgeInMonths);
-    if (ageDiff <= 1) {
-      if (bestCurrentMatch) {
-        if (ageDiff < bestCurrentMatch.diff) {
-          bestCurrentMatch = { percentile, diff: ageDiff };
-        } else {
-          matchingPercentiles = bestCurrentMatch.percentile;
-          break;
-        }
-      } else {
-        bestCurrentMatch = { percentile, diff: ageDiff };
-      }
-    }
-  }
-  return matchingPercentiles ?? bestCurrentMatch?.percentile;
+  const matchingPercentiles = Object.entries(agePercentiles.percentiles).find(([tempAgeInMonths]) => {
+    return patientAgeInMonths <= Number(tempAgeInMonths);
+  })?.[1];
+  return matchingPercentiles;
 };
 
 export const getWeightPercentileLow = (ageInMonths: number, sex: 'male' | 'female'): number => {
