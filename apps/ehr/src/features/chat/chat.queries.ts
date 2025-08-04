@@ -1,4 +1,4 @@
-import { TransactionalSMSSendResponse } from '@oystehr/sdk';
+import { MessagingGetMessagingConfigResponse, TransactionalSMSSendResponse } from '@oystehr/sdk';
 import { useMutation, UseMutationResult, useQuery, UseQueryResult } from 'react-query';
 import { ConversationMessage, SMSRecipient } from 'utils';
 import { getConversation } from '../../api/api';
@@ -72,8 +72,10 @@ export const useSendMessagesMutation = (
   );
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useGetMessagingConfigQuery = (onSuccess?: (data: any) => void, onError?: () => void) => {
+export const useGetMessagingConfigQuery = (
+  onSuccess?: (data: MessagingGetMessagingConfigResponse) => void,
+  onError?: () => void
+): UseQueryResult<MessagingGetMessagingConfigResponse, unknown> => {
   const { oystehr } = useApiClients();
   return useQuery(
     'messaging-config',
