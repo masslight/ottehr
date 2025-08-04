@@ -574,7 +574,7 @@ describe('saving and getting vitals', () => {
             encounterId,
             patientId,
             field: VitalFieldNames.VitalBloodPressure,
-            systolicPressure: 71.66, // 70 + 5/6 * 2
+            systolicPressure: 69.9,
             diastolicPressure: 40,
           },
         ];

@@ -212,13 +212,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             currentPractitioner.id!,
             element,
             ADDITIONAL_QUESTIONS_META_SYSTEM,
-            patient.birthDate
+            patient.birthDate,
+            patient.gender
           )
         )
       );
     });
 
     vitalsObservations?.forEach((element) => {
+      console.log('patient for vital obs:', JSON.stringify(patient.gender));
       saveOrUpdateRequests.push(
         saveOrUpdateResourceRequest(
           makeObservationResource(
@@ -227,7 +229,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             currentPractitioner.id!,
             element,
             PATIENT_VITALS_META_SYSTEM,
-            patient.birthDate
+            patient.birthDate,
+            patient.gender
           )
         )
       );
