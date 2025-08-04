@@ -338,6 +338,13 @@ async function createDischargeSummaryPdfBytes(data: DischargeSummaryData): Promi
       spacing: 5,
       newLineAfter: true,
     },
+    attachmentTitle: {
+      fontSize: 12,
+      font: regularFont,
+      color: rgbNormalized(102, 102, 102),
+      spacing: 2,
+      newLineAfter: true,
+    },
     regular: {
       fontSize: 12,
       font: regularFont,
@@ -578,7 +585,7 @@ async function createDischargeSummaryPdfBytes(data: DischargeSummaryData): Promi
     data.educationDocuments?.forEach((doc) => {
       pdfClient.drawText(doc.title, textStyles.regular);
     });
-    pdfClient.drawText('Documents attached', textStyles.subHeader);
+    pdfClient.drawText('Documents attached', textStyles.attachmentTitle);
     data.educationDocuments?.forEach((doc) => {
       const path = `attachments/${doc.fileName}`;
       pdfClient.drawLink(`- ${doc.fileName}`, path, textStyles.regular);
@@ -599,7 +606,7 @@ async function createDischargeSummaryPdfBytes(data: DischargeSummaryData): Promi
       pdfClient.drawText(doc.note, textStyles.regular);
     });
 
-    pdfClient.drawText('Documents attached', textStyles.subHeader);
+    pdfClient.drawText('Documents attached', textStyles.attachmentTitle);
     data.workSchoolExcuse?.forEach((doc) => {
       const path = `attachments/${doc.fileName}`;
       pdfClient.drawLink(`- ${doc.fileName}`, path, textStyles.regular);
