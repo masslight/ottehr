@@ -1,9 +1,11 @@
-import { useQuery } from '@tanstack/react-query';
+import { ErxGetConfigurationResponse } from '@oystehr/sdk';
+import { useQuery, UseQueryResult } from '@tanstack/react-query';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useSuccessQuery } from 'utils';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useGetErxConfigQuery = (onSuccess?: (data: any) => void) => {
+export const useGetErxConfigQuery = (
+  onSuccess?: (data: ErxGetConfigurationResponse | null) => void
+): UseQueryResult<ErxGetConfigurationResponse, unknown> => {
   const { oystehr } = useApiClients();
   const queryResult = useQuery({
     queryKey: ['erx-config'],
