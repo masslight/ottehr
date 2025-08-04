@@ -56,12 +56,12 @@ export const InteractionAlertsDialog: React.FC<Props> = ({
 }) => {
   const [interactions, setInteractions] = useState<MedicationInteractions>(structuredClone(initialInteractions));
 
-  const allReasonsValid: boolean = [
-    ...(interactions.drugInteractions ?? []),
-    ...(interactions.allergyInteractions ?? []),
-  ].reduce((acc, val) => {
-    return acc && (val.overrideReason ?? '').trim().length > 0;
-  }, true);
+  const allReasonsValid: boolean = [...interactions.drugInteractions, ...interactions.allergyInteractions].reduce(
+    (acc, val) => {
+      return acc && (val.overrideReason ?? '').trim().length > 0;
+    },
+    true
+  );
 
   const interactionTypeTitle = (title: string): ReactElement => {
     return (
@@ -218,7 +218,7 @@ export const InteractionAlertsDialog: React.FC<Props> = ({
   };
 
   const medicationsInteractions = (): ReactElement | undefined => {
-    if (interactions.drugInteractions == null || interactions.drugInteractions.length === 0) {
+    if (interactions.drugInteractions.length === 0) {
       return undefined;
     }
     return (
@@ -284,7 +284,7 @@ export const InteractionAlertsDialog: React.FC<Props> = ({
   };
 
   const allergiesInteractions = (): ReactElement | undefined => {
-    if (interactions.allergyInteractions == null || interactions.allergyInteractions.length === 0) {
+    if (interactions.allergyInteractions.length === 0) {
       return undefined;
     }
     return (
