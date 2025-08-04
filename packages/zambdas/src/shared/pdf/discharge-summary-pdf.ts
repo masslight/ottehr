@@ -15,7 +15,6 @@ import {
   Specimen,
   Task,
 } from 'fhir/r4b';
-import { PageSizes } from 'pdf-lib';
 import {
   appointmentTypeLabels,
   appointmentTypeMap,
@@ -41,14 +40,15 @@ import {
   PatientLabItem,
   QuestionnaireData,
   Secrets,
+  standardizePhoneNumber,
   uploadDocument,
 } from 'utils';
 import { findActivityDefinitionForServiceRequest } from '../../ehr/get-in-house-orders/helpers';
 import { parseLabInfo } from '../../ehr/get-lab-orders/helpers';
 import { makeZ3Url } from '../presigned-file-urls';
-import { Y_POS_GAP } from './pdf-consts';
+import { ICON_STYLE, PDF_CLIENT_STYLES, Y_POS_GAP } from './pdf-consts';
 import { createPdfClient, PdfInfo, rgbNormalized } from './pdf-utils';
-import { DischargeSummaryData, LabOrder, LineStyle, PdfClientStyles, TextStyle } from './types';
+import { DischargeSummaryData, LabOrder, LineStyle, TextStyle } from './types';
 import { FullAppointmentResourcePackage } from './visit-details-pdf/types';
 import { getPatientLastFirstName } from './visit-details-pdf/visit-note-pdf-creation';
 
@@ -144,7 +144,9 @@ function composeDataForDischargeSummaryPdf(
   const dob = formatDOB(patient?.birthDate) ?? '';
   const sex = genderMap[patient.gender as keyof typeof genderMap] ?? '';
   const id = patient.id ?? '';
-  const phone = patient.telecom?.find((telecom: ContactPoint) => telecom.system === 'phone')?.value;
+  const phone = standardizePhoneNumber(
+    patient.telecom?.find((telecom: ContactPoint) => telecom.system === 'phone')?.value
+  );
 
   // --- Visit information ---
   const appointmentTypeTag = appointment.meta?.tag?.find((tag) => tag.code && tag.code in appointmentTypeMap);
@@ -311,24 +313,10 @@ function composeDataForDischargeSummaryPdf(
 }
 
 async function createDischargeSummaryPdfBytes(data: DischargeSummaryData): Promise<Uint8Array> {
-  const pdfClientStyles: PdfClientStyles = {
-    initialPage: {
-      width: PageSizes.A4[0],
-      height: PageSizes.A4[1],
-      pageMargins: {
-        top: 40,
-        bottom: 40,
-
-        // Left and right margins should be 37 to fit item "* Intact recent and remote memory, judgment and insight".
-        // The design of this page will be changed soon, so this simple fix is optimal for now.
-        right: 37,
-        left: 37,
-      },
-    },
-  };
-  const pdfClient = await createPdfClient(pdfClientStyles);
+  const pdfClient = await createPdfClient(PDF_CLIENT_STYLES);
   const regularFont = await pdfClient.embedFont(fs.readFileSync('./assets/Rubik-Regular.otf'));
   const boldFont = await pdfClient.embedFont(fs.readFileSync('./assets/Rubik-Medium.ttf'));
+  const callIcon = await pdfClient.embedImage(fs.readFileSync('./assets/call.png'));
 
   const textStyles: Record<string, TextStyle> = {
     header: {
@@ -387,7 +375,8 @@ async function createDischargeSummaryPdfBytes(data: DischargeSummaryData): Promi
     pdfClient.drawText(`DOB: ${data.patient.dob} | ${data.patient.sex}`, textStyles.regular);
     pdfClient.drawText(`PID: ${data.patient.id}`, textStyles.regular);
     if (data.patient.phone) {
-      pdfClient.drawText(`Phone: ${data.patient.phone}`, textStyles.regular);
+      pdfClient.drawImage(callIcon, ICON_STYLE, textStyles.text);
+      pdfClient.drawTextSequential(` ${data.patient.phone}`, textStyles.regular);
     }
     pdfClient.drawSeparatedLine(separatedLineStyle);
   };
@@ -630,7 +619,7 @@ async function createDischargeSummaryPdfBytes(data: DischargeSummaryData): Promi
   drawHeader('DISCHARGE SUMMARY');
   drawDescription();
 
-  pdfClient.setY(pdfClientStyles.initialPage.height - pdfClientStyles.initialPage.pageMargins.top! - Y_POS_GAP);
+  pdfClient.setY(PDF_CLIENT_STYLES.initialPage.height - PDF_CLIENT_STYLES.initialPage.pageMargins.top! - Y_POS_GAP);
   pdfClient.setX(pdfClient.getLeftBound());
 
   drawPatientInfo();
