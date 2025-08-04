@@ -407,7 +407,11 @@ export const EditableMedicationCard: React.FC<{
         message: 'Drug-to-Drug and Drug-Allergy interaction check failed. Please review manually.',
       };
     } else if (interactionsCheckState.status === 'done') {
-      if (interactionsCheckState.interactions) {
+      if (
+        interactionsCheckState.interactions &&
+        (interactionsCheckState.interactions.drugInteractions.length > 0 ||
+          interactionsCheckState.interactions.allergyInteractions.length > 0)
+      ) {
         return {
           style: 'warning',
           message: interactionsSummary(interactionsCheckState.interactions),
