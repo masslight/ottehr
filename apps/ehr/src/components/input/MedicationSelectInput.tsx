@@ -1,34 +1,35 @@
 import { Autocomplete, Box, FormHelperText, Skeleton, TextField } from '@mui/material';
-import React from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
+import { useGetMedicationList } from 'src/telemed';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
-
-export interface Option {
-  label: string;
-  value: string;
-}
 
 type Props = {
   name: string;
   label: string;
-  options: Option[] | undefined;
-  loading?: boolean;
   required?: boolean;
 };
 
-export const SelectInput: React.FC<Props> = ({ name, label, options, loading, required }) => {
+export const MedicationSelectInput: React.FC<Props> = ({ name, label, required }) => {
+  const { data: medications, isLoading: medicationsLoading } = useGetMedicationList();
+  const options = Object.entries(medications || {}).map(([value, label]) => {
+    return {
+      value,
+      label,
+    };
+  });
   const { formState, control } = useFormContext();
-  return !loading ? (
+  return !medicationsLoading ? (
     <Controller
       name={name}
       control={control}
       rules={{ required: required ? REQUIRED_FIELD_ERROR_MESSAGE : false }}
-      render={({ field: { onChange }, fieldState: { error } }) => (
+      render={({ field, fieldState: { error } }) => (
         <Box sx={{ width: '100%' }}>
           <Autocomplete
-            options={options ?? []}
+            options={options}
             getOptionLabel={(option) => option.label}
-            onChange={(data) => onChange(data)}
+            isOptionEqualToValue={(option, value) => option.value === value.value}
+            onChange={(_e, option: any) => field.onChange(option)}
             renderInput={(params) => (
               <TextField
                 {...params}
@@ -36,7 +37,6 @@ export const SelectInput: React.FC<Props> = ({ name, label, options, loading, re
                 placeholder={`Select ${label}`}
                 inputProps={{ ...params.inputProps, readOnly: true }}
                 error={formState.errors[name] != null}
-                required={required}
               />
             )}
             fullWidth

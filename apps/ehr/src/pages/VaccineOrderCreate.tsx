@@ -1,12 +1,13 @@
-import { Grid, Paper, Stack, TextField } from '@mui/material';
+import { Grid, Paper, Stack } from '@mui/material';
 import React from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
+import { SelectInput } from 'src/components/input/SelectInput';
+import { TextInput } from 'src/components/input/TextInput';
 import { BreadcrumbsView } from 'src/features/css-module/components/breadcrumbs/BreadcrumbsView';
-import { SelectInput } from 'src/features/css-module/components/input/SelectInput';
 import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
 import { WarningBlock } from 'src/features/css-module/components/WarningBlock';
 import { medicationApplianceRoutes } from 'utils';
-import { MedicationSelectInput } from '../features/css-module/components/input/MedicationSelectInput';
+import { MedicationSelectInput } from '../components/input/MedicationSelectInput';
 import { PageHeader } from '../features/css-module/components/medication-administration/PageHeader';
 
 const UNITS_OPTIONS = [
@@ -63,10 +64,10 @@ export const VaccineOrderCreate: React.FC = () => {
           <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
             <Grid container spacing={2}>
               <Grid xs={6} item>
-                <MedicationSelectInput name="vaccine" label="Vacine" registerOptions={{ required: true }} />
+                <MedicationSelectInput name="vaccine" label="Vacine" required />
               </Grid>
               <Grid xs={3} item>
-                <TextField label="Dose" variant="outlined" autoComplete="off" required fullWidth />
+                <TextInput name="dose" label="Dose" required />
               </Grid>
               <Grid xs={3} item>
                 <SelectInput name="units" label="Units" options={UNITS_OPTIONS} required />
@@ -78,7 +79,7 @@ export const VaccineOrderCreate: React.FC = () => {
                 <SelectInput name="location" label="Location" options={LOCATION_OPTIONS} />
               </Grid>
               <Grid xs={12} item>
-                <TextField label="Instructions" variant="outlined" autoComplete="off" multiline fullWidth />
+                <TextInput name="instructions" label="Instructions" multiline />
               </Grid>
               <Grid xs={6} item>
                 <SelectInput name="ordered" label="Ordered by" options={ORDER_BY_OPTIONS} required />
