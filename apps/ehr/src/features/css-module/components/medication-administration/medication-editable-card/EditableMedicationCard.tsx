@@ -447,7 +447,12 @@ export const EditableMedicationCard: React.FC<{
         selectsOptions={selectsOptions}
         interactionsMessage={interactionsMessage}
         onInteractionsMessageClick={() => {
-          if (interactionsCheckState.status === 'done' && interactionsCheckState.interactions) {
+          if (
+            interactionsCheckState.status === 'done' &&
+            interactionsCheckState.interactions &&
+            (interactionsCheckState.interactions.drugInteractions.length > 0 ||
+              interactionsCheckState.interactions.allergyInteractions.length > 0)
+          ) {
             setShowInteractionAlerts(true);
           }
         }}
@@ -479,10 +484,10 @@ export const EditableMedicationCard: React.FC<{
         />
       ) : null}
       <ConfirmationModalForLeavePage />
-      {showInteractionAlerts ? (
+      {showInteractionAlerts && interactionsCheckState.interactions ? (
         <InteractionAlertsDialog
           medicationName={interactionsCheckState.medicationName ?? medication?.medicationName ?? ''}
-          interactions={interactionsCheckState.interactions ?? {}}
+          interactions={interactionsCheckState.interactions}
           onCancel={() => setShowInteractionAlerts(false)}
           onContinue={(interactions: MedicationInteractions) => {
             setShowInteractionAlerts(false);
