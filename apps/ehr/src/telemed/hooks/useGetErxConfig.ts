@@ -1,8 +1,10 @@
-import { useQuery } from 'react-query';
+import { ErxGetConfigurationResponse } from '@oystehr/sdk';
+import { useQuery, UseQueryResult } from 'react-query';
 import { useApiClients } from 'src/hooks/useAppClients';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useGetErxConfigQuery = (onSuccess?: (data: any) => void) => {
+export const useGetErxConfigQuery = (
+  onSuccess?: (data: ErxGetConfigurationResponse) => void
+): UseQueryResult<ErxGetConfigurationResponse, unknown> => {
   const { oystehr } = useApiClients();
   return useQuery(
     'erx-config',
