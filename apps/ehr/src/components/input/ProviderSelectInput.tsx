@@ -1,9 +1,7 @@
-import { Autocomplete, Box, FormHelperText, Skeleton, TextField } from '@mui/material';
 import { useEffect, useState } from 'react';
-import { Controller, useFormContext } from 'react-hook-form';
 import { getEmployees } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { AutocompleteInput } from './AutocompleteInput';
 import { Option } from './Option';
 
 type Props = {
@@ -45,35 +43,5 @@ export const ProviderSelectInput: React.FC<Props> = ({ name, label, required }) 
     }
     void loadProvidersOptions();
   }, [oystehrZambda]);
-  const { formState, control } = useFormContext();
-  return !isLoading ? (
-    <Controller
-      name={name}
-      control={control}
-      rules={{ required: required ? REQUIRED_FIELD_ERROR_MESSAGE : false }}
-      render={({ field, fieldState: { error } }) => (
-        <Box sx={{ width: '100%' }}>
-          <Autocomplete
-            options={options}
-            getOptionLabel={(option) => option.label}
-            isOptionEqualToValue={(option, value) => option.value === value.value}
-            onChange={(_e, option: any) => field.onChange(option)}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label={label + (required ? '*' : '')}
-                placeholder={`Select ${label}`}
-                inputProps={{ ...params.inputProps }}
-                error={formState.errors[name] != null}
-              />
-            )}
-            fullWidth
-          />
-          {error && <FormHelperText error={true}>{error?.message}</FormHelperText>}
-        </Box>
-      )}
-    />
-  ) : (
-    <Skeleton variant="rectangular" width="100%" height={56} />
-  );
+  return <AutocompleteInput name={name} label={label} options={options} loading={isLoading} required={required} />;
 };
