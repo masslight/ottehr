@@ -305,7 +305,6 @@ const getAlertLevel = (input: EvalRuleProps): FHIRObservationInterpretation => {
     }
     thresholdValue = rule.ageFunction(patientAgeInMonths / 12.0);
   } else if ('ageSexFunction' in rule && typeof rule.ageSexFunction === 'function') {
-    console.log('rule has ageSexFunction:', rule);
     if (patientAgeInMonths === undefined) {
       console.warn('Rule has an ageSexFunction but no patientAgeInMonths provided:', rule);
       return FHIRObservationInterpretation.Normal;
@@ -322,7 +321,6 @@ const getAlertLevel = (input: EvalRuleProps): FHIRObservationInterpretation => {
       console.warn('Alert thresholds are not defined for patientSex:', patientSex);
       return FHIRObservationInterpretation.Normal;
     }
-    console.log('invoking age/sex function:', patientSexValidated);
     thresholdValue = rule.ageSexFunction(patientAgeInMonths, patientSexValidated);
   }
 

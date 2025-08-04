@@ -220,7 +220,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     });
 
     vitalsObservations?.forEach((element) => {
-      console.log('patient for vital obs:', JSON.stringify(patient.gender));
       saveOrUpdateRequests.push(
         saveOrUpdateResourceRequest(
           makeObservationResource(
