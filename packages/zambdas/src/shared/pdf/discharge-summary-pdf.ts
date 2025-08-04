@@ -17,10 +17,12 @@ import {
 } from 'fhir/r4b';
 import { PageSizes } from 'pdf-lib';
 import {
+  appointmentTypeLabels,
   appointmentTypeMap,
   BUCKET_NAMES,
   convertActivityDefinitionToTestItem,
   CPTCodeDTO,
+  FhirAppointmentType,
   formatDateToMDYWithTime,
   formatDOB,
   genderMap,
@@ -146,7 +148,10 @@ function composeDataForDischargeSummaryPdf(
 
   // --- Visit information ---
   const appointmentTypeTag = appointment.meta?.tag?.find((tag) => tag.code && tag.code in appointmentTypeMap);
-  const type = appointmentTypeTag?.code ? appointmentTypeMap[appointmentTypeTag.code] : 'Unknown';
+  const subType =
+    appointment.appointmentType?.text && appointmentTypeLabels[appointment.appointmentType.text as FhirAppointmentType];
+  const baseType = appointmentTypeTag?.code ? appointmentTypeMap[appointmentTypeTag.code] : 'Unknown';
+  const type = subType ? `${baseType} ${subType}` : baseType;
   const { date = '', time = '' } = formatDateToMDYWithTime(appointment?.start) ?? {};
   const locationName = location?.name ?? '';
   const reasonForVisit = appointment?.description ?? '';
