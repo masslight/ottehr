@@ -249,10 +249,10 @@ function composeDataForDischargeSummaryPdf(
   const { firstName: physicianFirstName, lastName: physicianLastName } = practitioners?.[0]
     ? parseParticipantInfo(practitioners[0])
     : {};
-  const admitterParticipant = encounter.participant?.find(
-    (p) => p?.type?.find((t) => t?.coding?.find((coding) => coding.code === 'ADM'))
+  const attenderParticipant = encounter.participant?.find(
+    (p) => p?.type?.find((t) => t?.coding?.find((coding) => coding.code === 'ATND'))
   );
-  const { date: dischargedDate, time: dischargeTime } = formatDateToMDYWithTime(admitterParticipant?.period?.end) ?? {};
+  const { date: dischargedDate, time: dischargeTime } = formatDateToMDYWithTime(attenderParticipant?.period?.end) ?? {};
   const dischargeDateTime = dischargedDate && dischargeTime ? `${dischargedDate} at ${dischargeTime}` : undefined;
 
   return {
