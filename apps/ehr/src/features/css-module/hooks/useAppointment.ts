@@ -54,6 +54,10 @@ export const useAppointment = (
   const { isLoading, error, refetch, data } = useGetAppointment({ appointmentId });
 
   useSuccessQuery(data, (appointmentData) => {
+    if (!appointmentData) {
+      return;
+    }
+
     const bundleResources = getResources(appointmentData);
     const parsedResources = parseBundle(appointmentData);
 

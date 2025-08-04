@@ -109,6 +109,10 @@ const VideoChatPage: FC = () => {
   useJoinCall(
     apiClient,
     async (response) => {
+      if (!response) {
+        return;
+      }
+
       useVideoCallStore.setState({ meetingData: response });
 
       const meetingSessionConfiguration = new MeetingSessionConfiguration(response.Meeting, response.Attendee);

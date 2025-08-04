@@ -206,7 +206,7 @@ export const AppointmentFooterButton: FC = () => {
           >
             {(showDialog) => (
               <FooterButton
-                loading={initTelemedSession.isPending || getMeetingData.isPending}
+                loading={initTelemedSession.isPending || getMeetingData.isLoading}
                 onClick={showDialog}
                 variant="contained"
                 data-testid={dataTestIds.telemedEhrFlow.footerButtonConnectToPatient}
@@ -254,7 +254,7 @@ export const AppointmentFooterButton: FC = () => {
     case 'reconnect': {
       return (
         <FooterButton
-          loading={initTelemedSession.isPending || getMeetingData.isPending}
+          loading={initTelemedSession.isPending || getMeetingData.isLoading}
           onClick={onConnect}
           variant="contained"
         >
