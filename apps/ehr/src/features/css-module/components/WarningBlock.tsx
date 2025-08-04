@@ -17,7 +17,6 @@ export const WarningBlock: React.FC<Props> = ({ title, text }) => {
         padding: '16px',
         borderRadius: '4px',
         width: '100%',
-        cursor: 'pointer',
       }}
       alignItems="center"
       direction="row"
