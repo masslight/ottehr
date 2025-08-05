@@ -1,23 +1,10 @@
 import { Grid, Paper, Stack } from '@mui/material';
 import React from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { BreadcrumbsView } from 'src/features/css-module/components/breadcrumbs/BreadcrumbsView';
 import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
 import { WarningBlock } from 'src/features/css-module/components/WarningBlock';
 import { PageHeader } from '../../css-module/components/medication-administration/PageHeader';
 import { VaccineOrderDetailsSection } from '../components/VaccineOrderDetailsSection';
-
-const BREADCRUMBS = [
-  {
-    text: 'Immunization',
-    link: '#',
-  },
-  {
-    text: 'Order Vaccine',
-    link: '#',
-    isActive: true,
-  },
-];
 
 export const VaccineOrderCreate: React.FC = () => {
   const methods = useForm();
@@ -30,7 +17,6 @@ export const VaccineOrderCreate: React.FC = () => {
     <FormProvider {...methods}>
       <form onSubmit={methods.handleSubmit(onSubmit)}>
         <Stack spacing={2}>
-          <BreadcrumbsView items={BREADCRUMBS} />
           <PageHeader title="Order Vaccine" variant="h3" component="h1" />
           <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
             <Grid container spacing={2}>

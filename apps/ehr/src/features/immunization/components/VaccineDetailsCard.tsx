@@ -1,7 +1,10 @@
-import { Grid, Paper, Stack, Typography, useTheme } from '@mui/material';
+import { Box, Grid, Paper, Stack, Typography, useTheme } from '@mui/material';
 import React from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
+import { CheckboxInput } from 'src/components/input/CheckboxInput';
+import { DateInput } from 'src/components/input/DateInput';
 import { TextInput } from 'src/components/input/TextInput';
+import { TimeInput } from 'src/components/input/TimeInput';
 import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
 import { VaccineOrderDetailsSection } from './VaccineOrderDetailsSection';
 
@@ -36,7 +39,7 @@ export const VaccineDetailsCard: React.FC = () => {
                 <TextInput name="lot" label="LOT number" required />
               </Grid>
               <Grid xs={3} item>
-                <TextInput name="expDate" label="Exp. Date" required />
+                <DateInput name="expDate" label="Exp. Date" required />
               </Grid>
               <Grid xs={3} item>
                 <TextInput name="mvx" label="MVX code" required />
@@ -51,16 +54,26 @@ export const VaccineDetailsCard: React.FC = () => {
                 <TextInput name="ndc" label="NDC code" required />
               </Grid>
               <Grid xs={3} item>
-                <TextInput name="administeredDate" label="Administered date" required />
+                <DateInput name="administeredDate" label="Administered date" required />
               </Grid>
               <Grid xs={3} item>
-                <TextInput name="administeredTime" label="Administered time" required />
+                <TimeInput name="administeredTime" label="Administered time" required />
               </Grid>
               <Grid xs={6} item>
-                VIS was given to the patient
+                <Box
+                  style={{
+                    background: '#2169F514',
+                    borderRadius: '8px',
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                >
+                  <CheckboxInput name="visGiven" label="VIS was given to the patient" />
+                </Box>
               </Grid>
               <Grid xs={6} item>
-                <TextInput name="visGivenDate" label="VIS given date" required />
+                <DateInput name="visGivenDate" label="VIS given date" required />
               </Grid>
               <Grid xs={12} item>
                 <Typography
