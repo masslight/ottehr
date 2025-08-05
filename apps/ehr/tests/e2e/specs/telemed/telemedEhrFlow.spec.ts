@@ -468,7 +468,7 @@ test.describe('Tests interacting with appointment state', () => {
     await test.step('check surgical history list and note', async () => {
       await expect(
         page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryNote).locator('textarea').first()
-      ).toHaveText(surgicalNote); // todo fix test: "surgical note" not found, empty string found
+      ).toHaveText(surgicalNote);
     });
 
     await test.step('check additional questions', async () => {
@@ -569,7 +569,7 @@ test.describe('Telemed appointment with two locations (physical and virtual)', (
       await test.step('Connect to patient', async () => {
         const connectButton = page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonConnectToPatient);
         await expect(connectButton).toBeVisible(DEFAULT_TIMEOUT);
-        await connectButton.click(DEFAULT_TIMEOUT); // todo fix test: element is not enabled
+        await connectButton.click(DEFAULT_TIMEOUT);
 
         await telemedDialogConfirm(page);
 

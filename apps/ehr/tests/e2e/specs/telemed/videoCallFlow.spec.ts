@@ -38,7 +38,7 @@ test('Should assign visit to practitioner', async () => {
 test('Should start video call', async () => {
   const connectButton = page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonConnectToPatient);
   await expect(connectButton).toBeVisible();
-  await connectButton.click(); // todo fix test: element is not enabled
+  await connectButton.click();
 
   await telemedDialogConfirm(page);
 

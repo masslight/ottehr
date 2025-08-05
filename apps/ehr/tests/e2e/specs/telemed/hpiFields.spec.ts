@@ -510,7 +510,7 @@ test.describe('Surgical history', () => {
   test('Should check provider note saved in HPI tab', async () => {
     await expect(
       page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryNote).locator('textarea').first()
-    ).toHaveText(providerNote); // todo fix test: "lorem ipsum" not found, empty string found
+    ).toHaveText(providerNote);
   });
 
   test('Should check surgical history appear in Review&Sign tab', async () => {
@@ -752,7 +752,7 @@ test.describe('Chief complaint', () => {
 
     await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes).locator('textarea').first().fill('');
     await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).click(); // Click empty space to blur the focused input
-    await waitForChartDataDeletion(page); // todo fix test: failed waiting for response
+    await waitForChartDataDeletion(page);
     await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).locator('textarea').first().fill('');
     await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes).click();
     await waitForChartDataDeletion(page);
