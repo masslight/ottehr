@@ -306,13 +306,15 @@ export function makeProcedureResource(
   return result;
 }
 
+// todo: make this input a single interface type
 export function makeObservationResource(
   encounterId: string,
   patientId: string,
   practitionerId: string,
   data: ObservationDTO,
   metaSystem: string,
-  patientDOB?: string
+  patientDOB?: string,
+  patientSex?: string
 ): Observation {
   const base: Observation = {
     id: data.resourceId,
@@ -336,6 +338,7 @@ export function makeObservationResource(
       interpretation = getVitalObservationFhirInterpretations({
         patientDOB,
         vitalsObservation: data,
+        patientSex,
       });
     }
     return fillVitalObservationAttributes({ ...base, interpretation }, data, patientDOB);
