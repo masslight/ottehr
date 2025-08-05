@@ -1,5 +1,11 @@
 import * as z from 'zod';
 import { VitalAlertCriticality, VitalBloodPressureComponents, VitalVisionComponents } from '../../api';
+import {
+  getHeightPercentileHigh,
+  getHeightPercentileLow,
+  getWeightPercentileHigh,
+  getWeightPercentileLow,
+} from './weightPercentiles';
 // for safety, we apply a schema to our vitals config to make sure no typological errors were made
 const VitalsConfig = {
   'vital-temperature': {
@@ -145,11 +151,11 @@ const VitalsConfig = {
           {
             rules: [{ type: 'min', units: '', value: 70 }],
             minAge: { unit: 'months', value: 0 },
-            maxAge: { unit: 'months', value: 2 },
+            maxAge: { unit: 'months', value: 12 },
           },
           {
             rules: [{ type: 'min', units: '', ageFunction: (ageInYears: number) => 70 + ageInYears * 2 }],
-            minAge: { unit: 'months', value: 2 },
+            minAge: { unit: 'months', value: 12 },
             maxAge: { unit: 'months', value: 108 },
           },
           {
@@ -159,6 +165,26 @@ const VitalsConfig = {
         ],
       },
     },
+  },
+  'vital-weight': {
+    alertThresholds: [
+      {
+        rules: [{ type: 'min', units: 'kg', ageSexFunction: getWeightPercentileLow }],
+      },
+      {
+        rules: [{ type: 'max', units: 'kg', ageSexFunction: getWeightPercentileHigh }],
+      },
+    ],
+  },
+  'vital-height': {
+    alertThresholds: [
+      {
+        rules: [{ type: 'min', units: 'cm', ageSexFunction: getHeightPercentileLow }],
+      },
+      {
+        rules: [{ type: 'max', units: 'cm', ageSexFunction: getHeightPercentileHigh }],
+      },
+    ],
   },
 };
 
@@ -177,20 +203,28 @@ const ValueConstraintSchema = BaseConstraintSchema.extend({
 const AgeFunctionConstraintSchema = BaseConstraintSchema.extend({
   ageFunction: z.function().args(z.number()).returns(z.number()),
 });
+const AgeSexFunctionConstraintSchema = BaseConstraintSchema.extend({
+  ageSexFunction: z
+    .function()
+    .args(z.number(), z.enum(['male', 'female']))
+    .returns(z.number()),
+});
 
-export const ConstraintSchema = z.union([ValueConstraintSchema, AgeFunctionConstraintSchema]).refine(
-  (data) => {
-    // Ensure that if a value is provided, it is a number
-    if ('value' in data) {
-      return typeof data.value === 'number';
-    } else if ('ageFunction' in data) {
-      return true;
-    } else {
-      return false;
-    }
-  },
-  { message: 'Constraint must have either a value or an ageFunction' }
-);
+export const ConstraintSchema = z
+  .union([ValueConstraintSchema, AgeFunctionConstraintSchema, AgeSexFunctionConstraintSchema])
+  .refine(
+    (data) => {
+      // Ensure that if a value is provided, it is a number
+      if ('value' in data) {
+        return typeof data.value === 'number';
+      } else if ('ageFunction' in data || 'ageSexFunction' in data) {
+        return true;
+      } else {
+        return false;
+      }
+    },
+    { message: 'Constraint must have either a value or an ageFunction' }
+  );
 const AlertThresholdSchema = z
   .object({
     rules: z.array(ConstraintSchema).refine(

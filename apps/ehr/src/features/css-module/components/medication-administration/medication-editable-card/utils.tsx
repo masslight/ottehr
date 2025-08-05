@@ -246,8 +246,8 @@ export const medicationInteractionsFromErxResponse = (
   response: ErxCheckPrecheckInteractionsResponse,
   medicationHistory: MedicationWithTypeDTO[],
   prescriptions: MedicationRequest[]
-): MedicationInteractions | undefined => {
-  const drugInteractions: DrugInteraction[] | undefined = response.medications?.map((medication) => {
+): MedicationInteractions => {
+  const drugInteractions: DrugInteraction[] = (response.medications ?? []).map((medication) => {
     return {
       drugs: (medication.medications ?? []).map((nestedMedication) => ({
         id: nestedMedication.id.toString(),
@@ -257,7 +257,7 @@ export const medicationInteractionsFromErxResponse = (
       message: medication.message,
     };
   });
-  drugInteractions?.forEach((drugInteraction) => {
+  drugInteractions.forEach((drugInteraction) => {
     const drugIds = drugInteraction.drugs.map((drug) => drug.id);
     const sourceMedication = medicationHistory.find((medication) => medication.id && drugIds.includes(medication.id));
     let display: string | undefined = undefined;
@@ -289,17 +289,11 @@ export const medicationInteractionsFromErxResponse = (
       };
     }
   });
-  const allergyInteractions: AllergyInteraction[] | undefined = response.allergies?.map((allergy) => {
+  const allergyInteractions: AllergyInteraction[] = (response.allergies ?? []).map((allergy) => {
     return {
       message: allergy.message,
     };
   });
-  if (
-    (!drugInteractions || drugInteractions.length === 0) &&
-    (!allergyInteractions || allergyInteractions.length === 0)
-  ) {
-    return undefined;
-  }
   return {
     drugInteractions,
     allergyInteractions,
