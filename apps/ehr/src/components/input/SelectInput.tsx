@@ -32,6 +32,7 @@ export const SelectInput: React.FC<Props> = ({ name, label, options, loading, re
                 placeholder={`Select ${label}`}
                 inputProps={{ ...params.inputProps, readOnly: true }}
                 error={formState.errors[name] != null}
+                size="small"
               />
             )}
             fullWidth

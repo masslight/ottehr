@@ -17,7 +17,7 @@ export const VaccineOrderDetailsSection: React.FC = () => {
     <Grid container spacing={2}>
       <Grid xs={12} item>
         <Typography
-          variant="h4"
+          variant="h5"
           sx={{
             color: theme.palette.primary.dark,
           }}

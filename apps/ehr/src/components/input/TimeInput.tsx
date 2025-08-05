@@ -28,7 +28,7 @@ export const TimeInput: React.FC<Props> = ({ name, label, required }) => {
                 textField: {
                   InputProps: {
                     style: { width: '100%' },
-                    size: 'medium',
+                    size: 'small',
                     error: formState.errors[name] != null,
                   },
                 },

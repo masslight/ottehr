@@ -32,6 +32,7 @@ export const AutocompleteInput: React.FC<Props> = ({ name, label, options, loadi
                 placeholder={`Select ${label}`}
                 inputProps={{ ...params.inputProps }}
                 error={formState.errors[name] != null}
+                size="small"
               />
             )}
             fullWidth

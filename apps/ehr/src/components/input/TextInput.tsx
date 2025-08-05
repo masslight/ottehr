@@ -30,6 +30,7 @@ export const TextInput: React.FC<Props> = ({ name, label, loading, required, mul
             multiline={multiline}
             autoComplete="off"
             variant="outlined"
+            size="small"
             fullWidth
           />
           {error && <FormHelperText error={true}>{error?.message}</FormHelperText>}
