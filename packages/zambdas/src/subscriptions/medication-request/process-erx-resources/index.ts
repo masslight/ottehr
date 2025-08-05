@@ -1,10 +1,17 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Identifier, MedicationRequest } from 'fhir/r4b';
-import { ERX_MEDICATION_META_TAG_CODE, getSecret, Secrets, SecretsKeys } from 'utils';
+import { Identifier, MedicationRequest, MedicationStatement } from 'fhir/r4b';
+import {
+  ERX_MEDICATION_META_TAG_CODE,
+  getSecret,
+  MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM,
+  Secrets,
+  SecretsKeys,
+} from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   fillMeta,
+  makeMedicationResource,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
@@ -56,23 +63,56 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log(`Medication request id: ${medicationRequest.id}`);
 
     const encounterReference = medicationRequest.encounter?.reference;
+    const encounterId = encounterReference?.split('/')[1];
     const patientReference = medicationRequest.subject?.reference;
+    const patientId = patientReference?.split('/')[1];
+    const practitionerReference = medicationRequest.requester?.reference;
+    const practitionerId = practitionerReference?.split('/')[1];
 
     console.log(`Encounter ref: ${encounterReference}`);
     console.log(`Patient ref: ${patientReference}`);
 
-    console.log('Patching medication request');
-    await oystehr.fhir.patch({
-      resourceType: medicationRequest.resourceType,
-      id: medicationRequest.id!,
-      operations: [
-        {
-          op: 'add',
-          path: '/meta',
-          value: fillMeta(ERX_MEDICATION_META_TAG_CODE, ERX_MEDICATION_META_TAG_CODE),
-        },
-      ],
-    });
+    const medData = medicationRequest.medicationCodeableConcept?.coding?.find(
+      (coding) => coding.system === MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM
+    );
+    console.log('Patching MedicationRequest and create MedicationStatement');
+    await Promise.all([
+      oystehr.fhir.patch({
+        resourceType: medicationRequest.resourceType,
+        id: medicationRequest.id!,
+        operations: [
+          {
+            op: 'add',
+            path: '/meta',
+            value: fillMeta(ERX_MEDICATION_META_TAG_CODE, ERX_MEDICATION_META_TAG_CODE),
+          },
+        ],
+      }),
+      encounterId &&
+        patientId &&
+        practitionerId &&
+        oystehr.fhir.create<MedicationStatement>(
+          makeMedicationResource(
+            encounterId,
+            patientId,
+            practitionerId,
+            {
+              status: 'active',
+              name: medData?.display || '',
+              id: medData?.code,
+              intakeInfo: {
+                dose: medicationRequest.dispenseRequest?.quantity?.value
+                  ? `${medicationRequest.dispenseRequest?.quantity?.value}${
+                      ' ' + medicationRequest.dispenseRequest?.quantity?.unit || ''
+                    }`
+                  : undefined,
+              },
+              type: 'scheduled',
+            },
+            'prescribed-medication'
+          )
+        ),
+    ]);
 
     return {
       statusCode: 200,

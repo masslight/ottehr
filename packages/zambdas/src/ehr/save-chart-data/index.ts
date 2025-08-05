@@ -169,7 +169,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     medications?.forEach((medication) => {
       saveOrUpdateRequests.push(
         saveOrUpdateResourceRequest(
-          makeMedicationResource(encounterId, patient.id!, currentPractitioner, medication, 'current-medication')
+          makeMedicationResource(encounterId, patient.id!, currentPractitioner.id!, medication, 'current-medication')
         )
       );
     });
@@ -212,7 +212,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             currentPractitioner.id!,
             element,
             ADDITIONAL_QUESTIONS_META_SYSTEM,
-            patient.birthDate
+            patient.birthDate,
+            patient.gender
           )
         )
       );
@@ -227,7 +228,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             currentPractitioner.id!,
             element,
             PATIENT_VITALS_META_SYSTEM,
-            patient.birthDate
+            patient.birthDate,
+            patient.gender
           )
         )
       );
@@ -559,7 +561,7 @@ async function getUserPractitioner(
   secrets: Secrets | null
 ): Promise<Practitioner> {
   try {
-    if (isTestM2MClient(m2mToken, secrets)) {
+    if (isTestM2MClient(userToken, secrets)) {
       console.log('Running in test M2M client mode');
       return await oystehr.fhir.get<Practitioner>({
         resourceType: 'Practitioner',
