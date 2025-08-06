@@ -30,6 +30,7 @@ export const ReviewTab: FC = () => {
       setPartialChartData({
         prescribedMedications: data.prescribedMedications,
         disposition: data.disposition,
+        medicalDecision: data.medicalDecision,
       });
     },
     onError: () => {

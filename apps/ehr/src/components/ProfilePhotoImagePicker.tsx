@@ -80,6 +80,8 @@ const ProfilePhotoImagePicker: FC<ProfilePhotoImageProps> = ({ open, setOpen, pa
   const { isFetching: isPhotoLoading } = useGetSignedPatientProfilePhotoUrlQuery(
     patientPhotoUrlUnsigned,
     (profilePhotoResponse) => {
+      if (!profilePhotoResponse) return;
+
       const { presignedImageUrl } = profilePhotoResponse;
 
       clearPickedPhotoState();

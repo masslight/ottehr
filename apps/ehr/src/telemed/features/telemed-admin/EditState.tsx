@@ -13,12 +13,12 @@ import {
   useTheme,
 } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { Location } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { useState } from 'react';
-import { useMutation, useQuery } from 'react-query';
 import { Link, useParams } from 'react-router-dom';
-import { AllStatesToVirtualLocationsData, isLocationVirtual, StateType } from 'utils';
+import { AllStatesToVirtualLocationsData, isLocationVirtual, StateType, useSuccessQuery } from 'utils';
 import { STATES_URL } from '../../../App';
 import CustomBreadcrumbs from '../../../components/CustomBreadcrumbs';
 import { dataTestIds } from '../../../constants/data-test-ids';
@@ -29,26 +29,30 @@ export default function EditStatePage(): JSX.Element {
   const { oystehr } = useApiClients();
   const theme = useTheme();
   const [isOperateInStateChecked, setIsOperateInStateChecked] = useState<boolean>(false);
-  const { state } = useParams();
+  const { state } = useParams<{ state: StateType }>();
   const fullLabel = `${state} - ${AllStatesToVirtualLocationsData[state as StateType]?.name}`;
 
   if (!oystehr || !state) {
     throw new Error('oystehr or state is not initialized.');
   }
 
-  const { data: location, isFetching } = useQuery(
-    ['state-location-data'],
-    () => getStateLocation(oystehr, state as StateType),
-    {
-      onSuccess: (location) => {
-        setIsOperateInStateChecked(Boolean(location && location.status === 'active'));
-      },
-    }
-  );
+  const queryResult = useQuery({
+    queryKey: ['state-location-data'],
+    queryFn: (): Promise<Location | undefined> => getStateLocation(oystehr, state as StateType),
+  });
 
-  const mutation = useMutation(({ location, newStatus }: { location: Location; newStatus: string }) =>
-    updateStateLocationStatus(oystehr, location, newStatus)
-  );
+  useSuccessQuery(queryResult.data, (data) => {
+    setIsOperateInStateChecked(Boolean(data && data.status === 'active'));
+  });
+
+  const mutation = useMutation({
+    mutationFn: async ({ newStatus, location }: { newStatus: string; location: Location }) => {
+      if (oystehr) {
+        return await updateStateLocationStatus(oystehr, location, newStatus);
+      }
+      throw new Error('Oystehr client not defined');
+    },
+  });
 
   const onSwitchChange = (value: boolean): void => {
     setIsOperateInStateChecked(value);
@@ -57,6 +61,8 @@ export default function EditStatePage(): JSX.Element {
   const onSubmit = async (event: any): Promise<void> => {
     event.preventDefault();
     const newStatus = isOperateInStateChecked ? 'active' : 'suspended';
+    const location = queryResult.data;
+
     if (!location) {
       enqueueSnackbar('Location was not loaded.', {
         variant: 'error',
@@ -128,7 +134,7 @@ export default function EditStatePage(): JSX.Element {
                 />
               </Box>
               <Box>
-                {isFetching ? (
+                {queryResult.isFetching ? (
                   <Skeleton width={140} height={38} />
                 ) : (
                   <FormControlLabel
@@ -158,7 +164,7 @@ export default function EditStatePage(): JSX.Element {
                     marginRight: 1,
                   }}
                   type="submit"
-                  loading={isFetching || mutation.isLoading}
+                  loading={queryResult.isFetching || mutation.isPending}
                   disabled={false}
                 >
                   Save changes
