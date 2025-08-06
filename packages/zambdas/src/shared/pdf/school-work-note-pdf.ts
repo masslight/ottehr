@@ -13,9 +13,11 @@ async function createSchoolWorkNotePdfBytes(data: SchoolWorkNoteExcuseDocDTO): P
   const page = pdfDoc.addPage();
   page.setSize(PageSizes.A4[0], PageSizes.A4[1]);
   const { height, width } = page.getSize();
-  const dancingSignatureFont = await pdfDoc.embedFont(fs.readFileSync('./assets/DancingScript-Regular.otf'));
-  const RubikFont = await pdfDoc.embedFont(fs.readFileSync('./assets/Rubik-Regular.otf'));
-  const RubikFontBold = await pdfDoc.embedFont(fs.readFileSync('./assets/Rubik-Bold.otf'));
+  const dancingSignatureFont = await pdfDoc.embedFont(
+    new Uint8Array(fs.readFileSync('./assets/DancingScript-Regular.otf'))
+  );
+  const RubikFont = await pdfDoc.embedFont(new Uint8Array(fs.readFileSync('./assets/Rubik-Regular.otf')));
+  const RubikFontBold = await pdfDoc.embedFont(new Uint8Array(fs.readFileSync('./assets/Rubik-Bold.otf')));
   const styles = {
     image: {
       width: 110,
@@ -98,7 +100,7 @@ async function createSchoolWorkNotePdfBytes(data: SchoolWorkNoteExcuseDocDTO): P
   // add Ottehr logo at the top of the PDF
   const imgPath = './assets/ottehrLogo.png';
   const imgBytes = fs.readFileSync(imgPath);
-  const img = await pdfDoc.embedPng(imgBytes);
+  const img = await pdfDoc.embedPng(new Uint8Array(imgBytes));
   currYPos -= styles.margin.y;
   page.drawImage(img, {
     x: styles.margin.x,
@@ -120,8 +122,7 @@ async function createSchoolWorkNotePdfBytes(data: SchoolWorkNoteExcuseDocDTO): P
   currYPos -= styles.spacing.block;
   if (data.providerDetails) {
     drawRegularText('Electronically signed by: ', styles.color.grey);
-    drawDigitalSign(data.providerDetails.name);
-    drawRegularText(data.providerDetails.credentials);
+    drawDigitalSign(data.providerDetails.name); // credentials are included in the name
   }
 
   return await pdfDoc.save();

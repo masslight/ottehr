@@ -24,7 +24,7 @@ test('Should log in', async ({ page, context, browser }) => {
     if (authorizeHeader) {
       await page.click('button:has-text("Accept")');
     }
-  } catch (e) {
+  } catch {
     console.log('No authorization page detected, continuing with test');
   }
 
@@ -40,7 +40,7 @@ test('Should log in', async ({ page, context, browser }) => {
     await zapehrButton.waitFor({ timeout: 5000 });
     await zapehrButton.click();
     console.log('Auth modal detected, logged in through ZapEHR');
-  } catch (e) {
+  } catch {
     console.log('Auth modal not detected, continuing');
   }
 

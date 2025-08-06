@@ -48,7 +48,7 @@ const main = async (): Promise<void> => {
       resourceType: 'ServiceRequest',
       id: serviceRequestId,
     });
-  } catch (e) {
+  } catch {
     console.log(`exiting, no service request found with that ID in this env\n`);
     process.exit(1);
   }

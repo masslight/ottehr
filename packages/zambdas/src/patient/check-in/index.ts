@@ -8,18 +8,18 @@ import {
   CheckInInput,
   CheckInZambdaOutput,
   formatPhoneNumberDisplay,
-  getCriticalUpdateTagOp,
+  getAppointmentMetaTagOpForStatusUpdate,
   getEncounterStatusHistoryIdx,
   getLocationInformation,
   getPatchBinary,
   getSecret,
   getTaskResource,
+  isNonPaperworkQuestionnaireResponse,
   Secrets,
   SecretsKeys,
   TaskIndicator,
   VisitType,
 } from 'utils';
-import { isNonPaperworkQuestionnaireResponse } from '../../common';
 import {
   checkPaperworkComplete,
   createOystehrClient,
@@ -221,7 +221,9 @@ async function checkIn(
       value: 'arrived',
     },
   ];
-  appointmentPatchOperations.push(getCriticalUpdateTagOp(appointment, checkedInBy));
+  appointmentPatchOperations.push(
+    ...getAppointmentMetaTagOpForStatusUpdate(appointment, 'arrived', { updatedByOverride: checkedInBy })
+  );
 
   const appointmentPatchRequest = getPatchBinary({
     resourceType: 'Appointment',

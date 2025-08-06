@@ -8,6 +8,7 @@ import {
   convertBooleanToString,
   convertTemperature,
   CPTCodeDTO,
+  createMedicationString,
   CustomOptionObservationHistoryObtainedFromDTO,
   dispositionCheckboxOptions,
   ExamCardsNames,
@@ -16,8 +17,11 @@ import {
   ExamObservationFieldItem,
   examObservationFieldsDetailsArray,
   formatDateTimeToZone,
+  getAdmitterPractitionerId,
+  getAttendingPractitionerId,
   GetChartDataResponse,
   getDefaultNote,
+  GetMedicationOrdersResponse,
   getProviderNameWithProfession,
   getQuestionnaireResponseByLinkId,
   getSpentTime,
@@ -50,7 +54,11 @@ import { InPersonExamBlockData, TelemedExamBlockData, VisitNoteData } from '../t
 import { createVisitNotePDF } from '../visit-note-pdf';
 import { FullAppointmentResourcePackage } from './types';
 
-type AllChartData = { chartData: GetChartDataResponse; additionalChartData?: GetChartDataResponse };
+type AllChartData = {
+  chartData: GetChartDataResponse;
+  additionalChartData?: GetChartDataResponse;
+  medicationOrders?: GetMedicationOrdersResponse['orders'];
+};
 
 export async function composeAndCreateVisitNotePdf(
   allChartData: AllChartData,
@@ -73,9 +81,9 @@ function composeDataForPdf(
   appointmentPackage: FullAppointmentResourcePackage,
   isInPersonAppointment: boolean
 ): VisitNoteData {
-  const { chartData, additionalChartData } = allChartData;
+  const { chartData, additionalChartData, medicationOrders } = allChartData;
 
-  const { patient, encounter, appointment, location, questionnaireResponse, practitioner, timezone } =
+  const { patient, encounter, appointment, location, questionnaireResponse, practitioners, timezone } =
     appointmentPackage;
   if (!patient) throw new Error('No patient found for this encounter');
   // if (!practitioner) throw new Error('No practitioner found for this encounter'); // TODO: fix that
@@ -90,7 +98,23 @@ function composeDataForPdf(
   // --- Visit details ---
   const { dateOfService, signedOnDate } = getStatusRelatedDates(encounter, appointment, timezone);
   const reasonForVisit = appointment?.description;
-  const provider = practitioner && getProviderNameWithProfession(practitioner);
+  let providerName: string;
+  let intakePersonName: string | undefined = undefined;
+  if (isInPersonAppointment) {
+    const admitterId = getAdmitterPractitionerId(encounter);
+    const admitterPractitioner = additionalChartData?.practitioners?.find(
+      (practitioner) => practitioner.id === admitterId
+    );
+    intakePersonName = admitterPractitioner && getProviderNameWithProfession(admitterPractitioner);
+
+    const attenderId = getAttendingPractitionerId(encounter);
+    const attenderPractitioner = additionalChartData?.practitioners?.find(
+      (practitioner) => practitioner.id === attenderId
+    );
+    providerName = (attenderPractitioner && getProviderNameWithProfession(attenderPractitioner)) ?? '';
+  } else {
+    providerName = practitioners?.[0] ? getProviderNameWithProfession(practitioners[0]) : '';
+  }
   const visitID = appointment.id;
   const visitState = location?.address?.state;
   const address = getQuestionnaireResponseByLinkId('patient-street-address', questionnaireResponse)?.answer?.[0]
@@ -128,8 +152,18 @@ function composeDataForPdf(
 
   // --- Surgical history ---
   const surgicalHistory = chartData.surgicalHistory ? mapResourceByNameField(chartData.surgicalHistory) : []; // surgical history
-  const surgicalHistoryNotes = additionalChartData?.notes
-    ?.filter((note) => note.type === NOTE_TYPE.SURGICAL_HISTORY)
+  const surgicalHistoryNotes = isInPersonAppointment
+    ? additionalChartData?.notes?.filter((note) => note.type === NOTE_TYPE.SURGICAL_HISTORY)?.map((note) => note.text)
+    : additionalChartData?.surgicalHistoryNote?.text
+    ? [additionalChartData?.surgicalHistoryNote?.text]
+    : undefined;
+
+  // --- In-House Medications ---
+  const inHouseMedications = medicationOrders
+    ?.filter((order) => order.status !== 'cancelled')
+    .map((order) => createMedicationString(order));
+  const inHouseMedicationsNotes = additionalChartData?.notes
+    ?.filter((note) => note.type === NOTE_TYPE.MEDICATION)
     ?.map((note) => note.text);
 
   // --- Addition questions ---
@@ -196,7 +230,7 @@ function composeDataForPdf(
   const otherDiagnoses = diagnoses.filter((item) => !item.isPrimary).map((item) => item.display);
 
   // --- MDM ---
-  // const medicalDecision = chartData?.medicalDecision?.text;
+  // const medicalDecision = additionalChartData?.medicalDecision?.text;
   const medicalDecision = '';
 
   // --- E&M ---
@@ -284,7 +318,8 @@ function composeDataForPdf(
     patientPhone: patientPhone ?? '',
     dateOfService: dateOfService ?? '',
     reasonForVisit: reasonForVisit ?? '',
-    provider: provider ?? '',
+    provider: providerName ?? '',
+    intakePerson: intakePersonName ?? '',
     signedOn: signedOnDate ?? '',
     visitID: visitID ?? '',
     visitState: visitState ?? '',
@@ -302,6 +337,8 @@ function composeDataForPdf(
     medicalConditionsNotes,
     surgicalHistory,
     surgicalHistoryNotes,
+    inHouseMedications,
+    inHouseMedicationsNotes,
     additionalQuestions,
     screening: {
       seenInLastThreeYears,

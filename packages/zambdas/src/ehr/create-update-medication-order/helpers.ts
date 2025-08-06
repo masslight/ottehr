@@ -80,9 +80,10 @@ export function updateMedicationAdministrationData(data: {
   orderData: MedicationData;
   orderResources: OrderPackage;
   administeredProviderId?: string;
+  orderedByProviderId?: string;
   medicationResource: Medication;
 }): MedicationAdministration {
-  const { orderResources, orderData, administeredProviderId, medicationResource } = data;
+  const { orderResources, orderData, administeredProviderId, orderedByProviderId, medicationResource } = data;
   const routeCode = orderData.route
     ? orderData.route
     : getDosageUnitsAndRouteOfMedication(orderResources.medicationAdministration).route;
@@ -103,6 +104,7 @@ export function updateMedicationAdministrationData(data: {
     location: locationCoding,
     existedMA: orderResources.medicationAdministration,
     administeredProviderId,
+    orderedByProviderId,
     medicationResource,
   });
   newMA.id = orderResources.medicationAdministration.id;

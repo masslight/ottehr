@@ -3,7 +3,6 @@ import { BundleEntry, Organization, Patient, Questionnaire, QuestionnaireRespons
 import { enqueueSnackbar } from 'notistack';
 import { FC, useEffect, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { useQueryClient } from 'react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   CoverageWithPriority,
@@ -378,7 +377,7 @@ const PatientInformationPage: FC = () => {
         {
           onSuccess: () => {
             enqueueSnackbar('Coverage removed from patient account', { variant: 'success' });
-            void queryClient.invalidateQueries('patient-coverages');
+            void queryClient.invalidateQueries({ queryKey: ['patient-coverages'] });
           },
           onError: () => {
             enqueueSnackbar('Save operation failed. The server encountered an error while processing your request.', {
@@ -440,7 +439,7 @@ const PatientInformationPage: FC = () => {
             handleSave={handleSubmit(handleSaveForm, () => {
               enqueueSnackbar('Please fix all field validation errors and try again', { variant: 'error' });
             })}
-            loading={submitQR.isLoading}
+            loading={submitQR.isPending}
             hidden={false}
             submitDisabled={Object.keys(dirtyFields).length === 0}
           />

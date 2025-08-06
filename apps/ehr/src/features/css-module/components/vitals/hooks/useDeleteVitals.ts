@@ -1,57 +1,26 @@
 import { useCallback } from 'react';
-import { useQueryClient } from 'react-query';
-import { ChartDataFields, GetChartDataResponse, VitalsObservationDTO } from 'utils';
-import { useDeleteChartData } from '../../../../../telemed';
-import { useChartData } from '../../../hooks/useChartData';
-import { useChartDataCacheKey } from '../../generic-notes-list/hooks/useChartDataCacheKey';
+import useEvolveUser from 'src/hooks/useEvolveUser';
+import { useOystehrAPIClient } from 'src/telemed/hooks/useOystehrAPIClient';
+import { VitalsObservationDTO } from 'utils';
 import { UseDeleteVitals } from '../types';
 
-export const useDeleteVitals: UseDeleteVitals = ({ encounterId, searchConfig }) => {
-  const queryClient = useQueryClient();
-  const { mutate: deleteChartData } = useDeleteChartData();
+export const useDeleteVitals: UseDeleteVitals = ({ encounterId }) => {
+  const apiClient = useOystehrAPIClient();
 
-  const { refetch } = useChartData({
-    encounterId,
-    requestedFields: { [searchConfig.fieldName]: searchConfig.searchParams },
-  });
-
-  const cacheKey = useChartDataCacheKey(searchConfig.fieldName, searchConfig.searchParams);
+  const user = useEvolveUser();
 
   const handleDelete = useCallback(
-    async (entity: VitalsObservationDTO): Promise<void> => {
-      return new Promise<void>((resolve, reject) => {
-        deleteChartData({ [searchConfig.fieldName]: [{ resourceId: entity.resourceId }] } as ChartDataFields, {
-          onSuccess: async () => {
-            try {
-              const result = queryClient.setQueryData(cacheKey, (oldData: any) => {
-                if (oldData?.[searchConfig.fieldName]) {
-                  return {
-                    ...oldData,
-                    [searchConfig.fieldName]: (
-                      oldData[searchConfig.fieldName] as GetChartDataResponse[typeof searchConfig.fieldName]
-                    )?.filter((note) => note?.resourceId !== entity.resourceId),
-                  };
-                }
-                return oldData;
-              });
-              if (result?.[searchConfig.fieldName] === undefined) {
-                // refetch all if the cache didn't found
-                await refetch();
-              }
-              resolve();
-            } catch (error) {
-              console.error(error);
-              reject(error);
-            }
-          },
-          onError: (error) => {
-            console.error(error);
-            reject(error);
-          },
-        });
-      });
+    async (vitalEntity: VitalsObservationDTO): Promise<void> => {
+      if (!user) throw new Error('User not found');
+
+      const payload = {
+        encounterId: encounterId,
+        vitalsObservations: [vitalEntity],
+      };
+
+      await apiClient?.deleteChartData?.(payload);
     },
-    [cacheKey, deleteChartData, queryClient, refetch, searchConfig]
+    [apiClient, encounterId, user]
   );
 
   return handleDelete;

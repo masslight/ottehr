@@ -12,6 +12,7 @@ export const MEDICATION_DISPENSABLE_DRUG_ID =
 export const MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM = 'performer-type';
 export const PRACTITIONER_ORDERED_MEDICATION_CODE = 'practitioner-ordered-medication';
 export const PRACTITIONER_ADMINISTERED_MEDICATION_CODE = 'practitioner-administered-medication';
+export const PRACTITIONER_ORDERED_BY_MEDICATION_CODE = 'practitioner-ordered-by-medication';
 export const MEDICATION_ADMINISTRATION_UNITS_SYSTEM = 'http://unitsofmeasure.org';
 export const MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM = 'http://hl7.org/fhir/ValueSet/route-codes';
 
@@ -27,3 +28,5 @@ export const TIME_OF_MEDICATION_ADMINISTERED_SYSTEM = 'medication-administered-t
 export const MEDICATION_APPLIANCE_LOCATION_SYSTEM = 'http://snomed.info/sct';
 export const IN_HOUSE_CONTAINED_MEDICATION_ID = 'medicationId';
 export const INTERACTION_OVERRIDE_REASON_CODE_SYSTEM = ottehrCodeSystemUrl('interaction-override-reason');
+export const ISSUE_TYPE_CODE_SYSTEM = ottehrCodeSystemUrl('issue-type');
+export const INTERACTIONS_UNAVAILABLE = 'interactions-unavailable';

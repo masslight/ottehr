@@ -53,7 +53,7 @@ const GeneralInfoCard: React.FC = (): JSX.Element => {
 
   const [isVerifiedNameAndDob, setVerifiedNameAndDob] = useState<boolean>(false);
 
-  const { mutateAsync: updateVerificationStatusAsync, isLoading: isUpdatingVerificationStatus } = useSaveChartData();
+  const { mutateAsync: updateVerificationStatusAsync, isPending: isUpdatingVerificationStatus } = useSaveChartData();
 
   const isCheckboxDisabled = isLoadingChartData || chartData === undefined || isUpdatingVerificationStatus;
 
@@ -66,7 +66,7 @@ const GeneralInfoCard: React.FC = (): JSX.Element => {
         if (patientInfoConfirmedUpdated) {
           setVerifiedNameAndDob(patientInfoConfirmedUpdated.value ?? false);
         }
-      } catch (error) {
+      } catch {
         enqueueSnackbar('An error has occurred while saving patient info verification status. Please try again.', {
           variant: 'error',
         });

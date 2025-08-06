@@ -37,11 +37,14 @@ import { DateTime } from 'luxon';
 import {
   addOperation,
   findExistingListByDocumentTypeCode,
+  getPatchOperationsForNewMetaTags,
   LAB_RESULT_DOC_REF_CODING_CODE,
   PatientMasterRecordResourceType,
   replaceOperation,
   TaskCoding,
   TELEMED_VIDEO_ROOM_CODE,
+  User,
+  VisitStatusWithoutUnknown,
 } from 'utils';
 import {
   BookableResource,
@@ -197,7 +200,7 @@ export function getOtherOfficesForLocation(location: Location): { display: strin
   let parsedExtValue: { display: string; url: string }[] = [];
   try {
     parsedExtValue = JSON.parse(rawExtensionValue);
-  } catch (_) {
+  } catch {
     console.log('Location other-offices extension is formatted incorrectly');
     return [];
   }
@@ -612,6 +615,7 @@ export async function getRecentQrsQuestionnaireResponse(
 }
 
 export const CRITICAL_CHANGE_SYSTEM = 'critical-update-by'; // exists in ehr as well
+export const STATUS_UPDATE_TAG_SYSTEM = 'status-update';
 
 export const getCriticalUpdateTagOp = (resource: Resource, updateBy: string): Operation => {
   const recordUpdateByTag = {
@@ -645,6 +649,29 @@ export const getCriticalUpdateTagOp = (resource: Resource, updateBy: string): Op
       };
     }
   }
+};
+
+// adds critical update tag to track status changes & tag with corresponding status change code
+// todo we should come up with a better way to render activity logs, probably with provenance resources
+export const getAppointmentMetaTagOpForStatusUpdate = (
+  appointment: Appointment,
+  updatedStatus: VisitStatusWithoutUnknown,
+  updatedBy: {
+    user?: User;
+    updatedByOverride?: string;
+  }
+): Operation[] => {
+  const { user, updatedByOverride } = updatedBy;
+  const statusTag = { system: STATUS_UPDATE_TAG_SYSTEM, code: updatedStatus, display: updatedStatus };
+  const staffUpdateBy = user ? `Staff ${user?.email ? user.email : `(${user?.id})`}` : 'n/a';
+  const updatedByText = updatedByOverride ? updatedByOverride : staffUpdateBy;
+  const updateTag = {
+    system: CRITICAL_CHANGE_SYSTEM,
+    display: updatedByText,
+    version: DateTime.now().toISO() || '',
+  };
+  const ops = getPatchOperationsForNewMetaTags(appointment, [statusTag, updateTag]);
+  return ops;
 };
 
 export const getLocationIdFromAppointment = (appointment: Appointment): string | undefined => {
@@ -718,6 +745,10 @@ export function allLicensesForPractitioner(practitioner: Practitioner): Practiti
 
 export const getPractitionerStateCredentials = (practitioner: Practitioner): string[] => {
   return allLicensesForPractitioner(practitioner).map(({ state }) => state);
+};
+
+export const getAllPractitionerCredentials = (practitioner: Practitioner): string[] => {
+  return practitioner.name?.[0]?.suffix ?? [];
 };
 
 export const getPlanIdAndNameFromCoverage = (coverage: Coverage): { planId?: string; planName?: string } => {
@@ -1002,7 +1033,7 @@ export const extractHealthcareServiceAndSupportingLocations = (
   let locations = bundle.filter((resource) => {
     return (
       hs.location?.find((loc) => {
-        loc.reference === `${resource.resourceType}/${resource.id}`;
+        return loc.reference === `${resource.resourceType}/${resource.id}`;
       }) !== undefined
     );
   }) as Location[] | undefined;
@@ -1010,7 +1041,7 @@ export const extractHealthcareServiceAndSupportingLocations = (
   let coverageArea = bundle.filter((resource) => {
     return (
       hs.coverageArea?.find((loc) => {
-        loc.reference === `${resource.resourceType}/${resource.id}`;
+        return loc.reference === `${resource.resourceType}/${resource.id}`;
       }) !== undefined
     );
   }) as Location[] | undefined;

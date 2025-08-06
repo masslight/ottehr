@@ -21,18 +21,28 @@ export const SurgicalHistoryProviderColumn: FC = () => {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       {isReadOnly ? (
-        <ActionsList
-          data={procedures}
-          getKey={(value) => value.resourceId!}
-          renderItem={(value) => (
-            <Typography>
-              {value.code} {value.display}
-            </Typography>
-          )}
-          divider
-        />
+        <>
+          <ActionsList
+            data={procedures}
+            getKey={(value) => value.resourceId!}
+            renderItem={(value) => (
+              <Typography>
+                {value.code} {value.display}
+              </Typography>
+            )}
+            divider
+          />
+          {!cssColumnFeatureFlag.css && <ProceduresNoteField />}
+        </>
       ) : (
-        <Box data-testid={dataTestIds.telemedEhrFlow.hpiSurgicalHistoryColumn}>
+        <Box
+          data-testid={dataTestIds.telemedEhrFlow.hpiSurgicalHistoryColumn}
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 2,
+          }}
+        >
           <ProceduresForm />
           {isChartDataLoading ? <ProceduresNoteFieldSkeleton /> : !cssColumnFeatureFlag.css && <ProceduresNoteField />}
         </Box>

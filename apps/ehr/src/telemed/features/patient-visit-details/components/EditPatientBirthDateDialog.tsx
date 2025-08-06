@@ -115,7 +115,7 @@ export const EditPatientBirthDateDialog = ({ modalOpen, onClose }: EditPatientBi
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'flex-start', marginLeft: 1 }}>
           <LoadingButton
-            loading={editPatientBirthDate.isLoading}
+            loading={editPatientBirthDate.isPending}
             type="submit"
             variant="contained"
             color="primary"

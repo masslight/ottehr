@@ -3,7 +3,7 @@ import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import {
-  getCriticalUpdateTagOp,
+  getAppointmentMetaTagOpForStatusUpdate,
   getEncounterStatusHistoryUpdateOp,
   getPatchBinary,
   getProgressNoteChartDataRequestedFields,
@@ -24,6 +24,7 @@ import { makeVisitNotePdfDocumentReference } from '../../shared/pdf/visit-detail
 import { FullAppointmentResourcePackage } from '../../shared/pdf/visit-details-pdf/types';
 import { composeAndCreateVisitNotePdf } from '../../shared/pdf/visit-details-pdf/visit-note-pdf-creation';
 import { getChartData } from '../get-chart-data';
+import { getMedicationOrders } from '../get-medication-orders';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -81,6 +82,7 @@ export const performEffect = async (
 
   let candidEncounterId: string | undefined;
   try {
+    console.log('[CLAIM SUBMISSION] Attempting to create encounter in candid...');
     candidEncounterId = await createEncounterFromAppointment(visitResources, secrets, oystehr);
   } catch (error) {
     console.error(`Error creating Candid encounter: ${error}, stringified error: ${JSON.stringify(error)}`);
@@ -91,6 +93,7 @@ export const performEffect = async (
       },
     });
   }
+  console.log(`[CLAIM SUBMISSION] Candid encounter created with ID ${candidEncounterId}`);
 
   console.log(`appointment and encounter statuses: ${appointment.status}, ${encounter.status}`);
   const currentStatus = getVisitStatus(appointment, encounter);
@@ -108,15 +111,22 @@ export const performEffect = async (
     visitResources.encounter.id!,
     isInPersonAppointment ? getProgressNoteChartDataRequestedFields() : telemedProgressNoteChartDataRequestedFields
   );
+  const medicationOrdersPromise = getMedicationOrders(oystehr, {
+    searchBy: {
+      field: 'encounterId',
+      value: visitResources.encounter.id!,
+    },
+  });
 
   const [chartData, additionalChartData] = (await Promise.all([chartDataPromise, additionalChartDataPromise])).map(
     (promise) => promise.response
   );
+  const medicationOrders = (await medicationOrdersPromise).orders;
 
   console.log('Chart data received');
   try {
     const pdfInfo = await composeAndCreateVisitNotePdf(
-      { chartData, additionalChartData },
+      { chartData, additionalChartData, medicationOrders },
       visitResources,
       secrets,
       m2mToken
@@ -165,11 +175,7 @@ const changeStatusToCompleted = async (
 
   const user = await oystehrCurrentUser.user.me();
 
-  const updateTag = getCriticalUpdateTagOp(
-    resourcesToUpdate.appointment,
-    `Staff ${user?.email ? user.email : `(${user?.id})`}`
-  );
-  patchOps.push(updateTag);
+  patchOps.push(...getAppointmentMetaTagOpForStatusUpdate(resourcesToUpdate.appointment, 'completed', { user }));
 
   const encounterPatchOps: Operation[] = [
     {

@@ -2,10 +2,14 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { UNSAFE_NavigationContext, useLocation, useNavigate } from 'react-router-dom';
 import { CSSModal } from '../components/CSSModal';
 
+type CSSModalProps =
+  | Partial<Omit<React.ComponentProps<typeof CSSModal>, 'handleConfirm' | 'open' | 'handleClose'>>
+  | undefined;
+
 export const useReactNavigationBlocker = (
   shouldBlock: () => boolean,
   modalText = 'You have unsaved changes that will be lost if you leave this page.'
-): { ConfirmationModal: React.FC } => {
+): { ConfirmationModal: React.FC<CSSModalProps> } => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const resolveRef = useRef<((value: unknown) => void) | null>(null);
 
@@ -76,7 +80,7 @@ export const useReactNavigationBlocker = (
     }
   }, [location, navigate, shouldBlock, showConfirmDialog]);
 
-  const ConfirmationModal = (): React.ReactElement => (
+  const ConfirmationModal = (props?: CSSModalProps): React.ReactElement => (
     <CSSModal
       open={isModalOpen}
       handleClose={handleClose}
@@ -86,6 +90,7 @@ export const useReactNavigationBlocker = (
       confirmText="Continue edit"
       closeButtonText="Leave"
       closeButton={false}
+      {...props}
     />
   );
 

@@ -93,6 +93,7 @@ export const AppointmentPage: FC = () => {
       appointmentId: id,
     },
     (data) => {
+      if (!data) return;
       const questionnaireResponse = data?.find(
         (resource: FhirResource) => resource.resourceType === 'QuestionnaireResponse'
       ) as QuestionnaireResponse;

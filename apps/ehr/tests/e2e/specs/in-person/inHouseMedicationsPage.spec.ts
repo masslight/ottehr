@@ -1,12 +1,12 @@
 import { Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
+import { CssHeader } from 'tests/e2e/page/CssHeader';
+import { SideMenu } from 'tests/e2e/page/SideMenu';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 import { Field } from '../../page/EditMedicationCard';
 import { InHouseMedicationsPage } from '../../page/in-person/InHouseMedicationsPage';
 import { expectAssessmentPage } from '../../page/in-person/InPersonAssessmentPage';
-import { expectInPersonProgressNotePage } from '../../page/in-person/InPersonProgressNotePage';
 import { expectEditOrderPage, OrderMedicationPage } from '../../page/OrderMedicationPage';
-import { expectPatientInfoPage } from '../../page/PatientInfo';
 
 const PROCESS_ID = `inHouseMedicationsPage.spec.ts-${DateTime.now().toMillis()}`;
 const resourceHandler = new ResourceHandler(PROCESS_ID, 'in-person');
@@ -68,6 +68,7 @@ test('Open Order Medication screen, check required fields', async ({ page }) => 
 test('"Order" button is disabled when all fields are empty', async ({ page }) => {
   const orderMedicationPage = await prepareAndOpenOrderMedicationPage(page);
   await orderMedicationPage.editMedicationCard.selectAssociatedDx('Select Associated Dx');
+  await orderMedicationPage.editMedicationCard.selectOrderedBy('Select Ordered By');
   await orderMedicationPage.verifyFillOrderToSaveButtonDisabled();
 });
 
@@ -201,13 +202,15 @@ test('Edit order page is opened after clicking on pencil icon for order in "pend
 
 async function prepareAndOpenOrderMedicationPage(page: Page): Promise<OrderMedicationPage> {
   await page.goto(`in-person/${resourceHandler.appointment.id}`);
-  const patientInfoPage = await expectPatientInfoPage(resourceHandler.appointment.id!, page);
-  await patientInfoPage.cssHeader().clickSwitchStatusButton('provider');
-  const progressNotePage = await expectInPersonProgressNotePage(page);
-  await patientInfoPage.sideMenu().clickAssessment();
+  const cssHeader = new CssHeader(page);
+  await cssHeader.selectIntakePractitioner();
+  await cssHeader.selectProviderPractitioner();
+  await cssHeader.clickSwitchModeButton('provider');
+  const sideMenu = new SideMenu(page);
+  await sideMenu.clickAssessment();
   const assessmentPage = await expectAssessmentPage(page);
   await assessmentPage.selectDiagnosis({ diagnosisNamePart: DIAGNOSIS });
   await assessmentPage.selectDiagnosis({ diagnosisNamePart: NEW_DIAGNOSIS });
-  const inHouseMedicationsPage = await progressNotePage.sideMenu().clickInHouseMedications();
+  const inHouseMedicationsPage = await sideMenu.clickInHouseMedications();
   return await inHouseMedicationsPage.clickOrderButton();
 }

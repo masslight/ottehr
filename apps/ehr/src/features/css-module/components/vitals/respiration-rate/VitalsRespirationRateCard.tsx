@@ -1,34 +1,22 @@
-import { Box, CircularProgress, Grid } from '@mui/material';
+import { Box, Grid } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { ChangeEvent, JSX, useCallback, useState } from 'react';
 import { VitalFieldNames, VitalsRespirationRateObservationDTO } from 'utils';
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { AccordionCard, DoubleColumnContainer } from '../../../../../telemed/components';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
+import VitalHistoryElement from '../components/VitalsHistoryEntry';
 import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
-import { useVitalsCardState } from '../hooks/useVitalsCardState';
-import {
-  composeRespirationRateHistoryEntries,
-  isValidRespirationRateValue,
-  textToRespirationRateNumber,
-} from './helpers';
-import VitalsRespirationRateHistoryElementElement from './VitalsRespirationRateHistoryElement';
-import { VitalsRespirationRateHistoryEntry } from './VitalsRespirationRateHistoryEntry';
+import { VitalsCardProps } from '../types';
+import { textToRespirationRateNumber } from './helpers';
 
-const VitalsRespirationRateCard: React.FC = (): JSX.Element => {
-  const {
-    isLoadingVitalsByEncounter,
-    handleSaveVital,
-    handleDeleteVital,
-    isSavingCardData,
-    setSavingCardData,
-    vitalsHistory: { mainHistoryEntries, extraHistoryEntries, latestHistoryEntry },
-    historyElementSkeletonText,
-  } = useVitalsCardState<VitalsRespirationRateObservationDTO, VitalsRespirationRateHistoryEntry>(
-    VitalFieldNames.VitalRespirationRate,
-    composeRespirationRateHistoryEntries
-  );
-
+type VitalsRespirationRateCardProps = VitalsCardProps<VitalsRespirationRateObservationDTO>;
+const VitalsRespirationRateCard: React.FC<VitalsRespirationRateCardProps> = ({
+  handleSaveVital,
+  handleDeleteVital,
+  currentObs,
+  historicalObs,
+}): JSX.Element => {
   const [respirationRateValueText, setRespirationRateValueText] = useState('');
 
   const [isRespirationRateValidationError, setRespirationRateValidationError] = useState<boolean>(false);
@@ -38,10 +26,11 @@ const VitalsRespirationRateCard: React.FC = (): JSX.Element => {
     setIsCollapsed((prevCollapseState) => !prevCollapseState);
   }, [setIsCollapsed]);
 
-  const isDisabledAddButton =
-    !respirationRateValueText || isSavingCardData || isLoadingVitalsByEncounter || isRespirationRateValidationError;
+  const [isSaving, setIsSaving] = useState(false);
 
-  const latestRespRateValue = latestHistoryEntry?.respirationsPerMin;
+  const isDisabledAddButton = !respirationRateValueText || isRespirationRateValidationError;
+
+  const latestRespRateValue = currentObs[0]?.value;
 
   const handleSaveRespirationRateObservation = useCallback(
     async (respRateValueText: string): Promise<void> => {
@@ -49,30 +38,26 @@ const VitalsRespirationRateCard: React.FC = (): JSX.Element => {
       if (!respRateValueNumber) return;
 
       try {
-        setSavingCardData(true);
+        setIsSaving(true);
         const vitalObs: VitalsRespirationRateObservationDTO = {
           field: VitalFieldNames.VitalRespirationRate,
           value: respRateValueNumber,
         };
         await handleSaveVital(vitalObs);
         setRespirationRateValueText('');
-      } catch (error) {
+      } catch {
         enqueueSnackbar('Error saving respiration rate data', { variant: 'error' });
       } finally {
-        setSavingCardData(false);
+        setIsSaving(false);
       }
     },
-    [handleSaveVital, setSavingCardData]
+    [handleSaveVital]
   );
 
   const handleTextInputChange = useCallback(
     (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
       const respirationRateAsText = e.target.value;
       setRespirationRateValueText(respirationRateAsText);
-      const respirationRate = textToRespirationRateNumber(respirationRateAsText);
-      if (respirationRate) {
-        setRespirationRateValidationError(!isValidRespirationRateValue(respirationRate));
-      }
       if (respirationRateAsText.length === 0) {
         setRespirationRateValidationError(false);
       }
@@ -108,7 +93,7 @@ const VitalsRespirationRateCard: React.FC = (): JSX.Element => {
                 <VitalsTextInputFiled
                   label="RR (/min)"
                   value={respirationRateValueText}
-                  disabled={isSavingCardData}
+                  disabled={isSaving}
                   isInputError={isRespirationRateValidationError}
                   onChange={handleTextInputChange}
                 />
@@ -119,6 +104,7 @@ const VitalsRespirationRateCard: React.FC = (): JSX.Element => {
                 <RoundedButton
                   size="small"
                   disabled={isDisabledAddButton}
+                  loading={isSaving}
                   onClick={() => handleSaveRespirationRateObservation(respirationRateValueText)}
                   color="primary"
                   sx={{
@@ -126,7 +112,6 @@ const VitalsRespirationRateCard: React.FC = (): JSX.Element => {
                     px: 2,
                     ml: 1,
                   }}
-                  startIcon={isSavingCardData ? <CircularProgress size={20} color="inherit" /> : null}
                 >
                   Add
                 </RoundedButton>
@@ -135,15 +120,15 @@ const VitalsRespirationRateCard: React.FC = (): JSX.Element => {
           }
           rightColumn={
             <VitalsHistoryContainer
-              mainHistoryEntries={mainHistoryEntries}
-              extraHistoryEntries={extraHistoryEntries}
-              isLoading={isLoadingVitalsByEncounter}
-              historyElementSkeletonText={historyElementSkeletonText}
+              currentEncounterObs={currentObs}
+              historicalObs={historicalObs}
+              isLoading={false}
               historyElementCreator={(historyEntry) => {
+                const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
                 return (
-                  <VitalsRespirationRateHistoryElementElement
+                  <VitalHistoryElement
                     historyEntry={historyEntry}
-                    onDelete={handleDeleteVital}
+                    onDelete={isCurrent ? handleDeleteVital : undefined}
                   />
                 );
               }}

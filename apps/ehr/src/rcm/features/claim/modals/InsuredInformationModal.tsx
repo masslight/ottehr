@@ -111,7 +111,7 @@ export const InsuredInformationModal: FC = () => {
         title="Insured Information"
         onSave={(hideDialog) => handleSubmit((values) => onSave(values, hideDialog))()}
         onShow={() => reset(getDefaultValues(coverageData, plan))}
-        isSaveLoading={editCoverage.isLoading || editRelatedPerson.isLoading}
+        isSaveLoading={editCoverage.isPending || editRelatedPerson.isPending}
       >
         <Grid container spacing={2}>
           <Grid item xs={4}>
