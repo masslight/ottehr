@@ -31,7 +31,7 @@ export const OrderDetailsPage: React.FC = () => {
 
   const pageName = `${labOrder.testItem}${labOrder.reflexResultsCount > 0 ? ' + Reflex' : ''}`;
 
-  if (status === 'pending' || status?.includes('sent')) {
+  if (status === 'pending' || status === 'ready' || status?.includes('sent')) {
     return (
       <DetailPageContainer>
         <LabBreadcrumbs sectionName={pageName}>

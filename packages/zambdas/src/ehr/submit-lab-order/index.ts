@@ -1,7 +1,7 @@
-import { BatchInputPatchRequest } from '@oystehr/sdk';
+import { BatchInputPatchRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { Coverage, FhirResource, Location, Organization, Patient, Provenance, ServiceRequest } from 'fhir/r4b';
+import { Coverage, FhirResource, Location, Organization, Patient, Provenance, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import {
@@ -10,6 +10,7 @@ import {
   EXTERNAL_LAB_ERROR,
   FHIR_IDENTIFIER_NPI,
   getFullestAvailableName,
+  getOrderNumber,
   getPatchBinary,
   getPatientFirstName,
   getPatientLastName,
@@ -18,11 +19,8 @@ import {
   getTimezone,
   isApiError,
   isPSCOrder,
-  ORDER_NUMBER_LEN,
-  ORDER_SUBMITTED_MESSAGE,
-  OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
+  MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
-  OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   SecretsKeys,
 } from 'utils';
@@ -36,8 +34,11 @@ import {
 import { createExternalLabsLabelPDF, ExternalLabsLabelConfig } from '../../shared/pdf/external-labs-label-pdf';
 import { createExternalLabsOrderFormPDF } from '../../shared/pdf/external-labs-order-form-pdf';
 import { makeLabPdfDocumentReference } from '../../shared/pdf/labs-results-form-pdf';
-import { getExternalLabOrderResources } from '../shared/labs';
-import { AOEDisplayForOrderForm, createOrderNumber, populateQuestionnaireResponseItems } from './helpers';
+import {
+  AOEDisplayForOrderForm,
+  getExternalLabOrderResources,
+  populateQuestionnaireResponseItems,
+} from '../shared/labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'submit-lab-order';
@@ -75,7 +76,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       patient,
       practitioner: provider,
       questionnaireResponse,
-      task,
+      preSubmissionTask: task,
       appointment,
       encounter,
       schedule,
@@ -84,13 +85,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     } = await getExternalLabOrderResources(oystehr, serviceRequestID);
     console.log('submit lab resources retrieved');
 
-    // if the serviceRequest already has an order number it has already been submitted,
-    // either electronically to the lab (system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)
-    // or manually by just printing the order form (system === OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM)
-    const orderNumber = serviceRequest.identifier?.find(
-      (id) => id.system === OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM || id.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM
-    )?.value;
-    if (orderNumber) throw EXTERNAL_LAB_ERROR(ORDER_SUBMITTED_MESSAGE);
+    // todo SARAH validate the order has not already been submitted
+    // i think i can do this by checking the status !== 'draft'
 
     const locationID = serviceRequest.locationReference?.[0].reference?.replace('Location/', '');
 
@@ -307,7 +303,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     // submitted successful, so do the fhir provenance writes and update SR
-    const fhirUrl = `urn:uuid:${uuid()}`;
+    const provenanceFhirUrl = `urn:uuid:${uuid()}`;
 
     const provenanceFhir: Provenance = {
       resourceType: 'Provenance',
@@ -328,83 +324,73 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       },
     };
 
-    const serviceRequestPatchOps: Operation[] = [
+    const requests: BatchInputRequest<Provenance | Task>[] = [
       {
-        path: '/status',
-        op: 'replace',
-        value: 'active',
+        method: 'POST',
+        url: '/Provenance',
+        fullUrl: provenanceFhirUrl,
+        resource: provenanceFhir,
       },
-    ];
-    let manualOrderId: string | undefined;
-    if (manualOrder) {
-      manualOrderId = createOrderNumber(ORDER_NUMBER_LEN);
-      console.log('adding order number for manual lab', manualOrderId);
-      serviceRequestPatchOps.push({
-        path: '/identifier',
-        op: 'add',
-        value: [
+      getPatchBinary({
+        resourceType: 'Task',
+        resourceId: task.id || 'unknown',
+        patchOperations: [
           {
-            system: OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
-            value: manualOrderId,
+            op: 'add',
+            path: '/owner',
+            value: {
+              reference: currentUser?.profile,
+            },
+          },
+          {
+            op: 'add',
+            path: '/relevantHistory',
+            value: [
+              {
+                reference: provenanceFhirUrl,
+              },
+            ],
+          },
+          {
+            op: 'replace',
+            path: '/status',
+            value: 'completed',
           },
         ],
-      });
+      }),
+    ];
+
+    if (manualOrder) {
+      requests.push(
+        getPatchBinary({
+          resourceType: 'ServiceRequest',
+          resourceId: serviceRequest.id || 'unknown',
+          patchOperations: [
+            {
+              op: 'replace',
+              path: '/status',
+              value: 'active',
+            },
+            {
+              op: 'add',
+              path: serviceRequest?.category ? '/category/-' : '/category',
+              value: serviceRequest?.category
+                ? { coding: MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING }
+                : [{ coding: MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING }],
+            },
+          ],
+        })
+      );
     }
 
     console.log('making fhir transaction requests');
     await oystehr?.fhir.transaction({
-      requests: [
-        getPatchBinary({
-          resourceType: 'ServiceRequest',
-          resourceId: serviceRequest.id || 'unknown',
-          patchOperations: serviceRequestPatchOps,
-        }),
-        {
-          method: 'POST',
-          url: '/Provenance',
-          fullUrl: fhirUrl,
-          resource: provenanceFhir,
-        },
-        getPatchBinary({
-          resourceType: 'Task',
-          resourceId: task.id || 'unknown',
-          patchOperations: [
-            {
-              op: 'add',
-              path: '/owner',
-              value: {
-                reference: currentUser?.profile,
-              },
-            },
-            {
-              op: 'add',
-              path: '/relevantHistory',
-              value: [
-                {
-                  reference: fhirUrl,
-                },
-              ],
-            },
-            {
-              op: 'replace',
-              path: '/status',
-              value: 'completed',
-            },
-          ],
-        }),
-      ],
+      requests,
     });
 
-    const serviceRequestTemp: ServiceRequest = await oystehr.fhir.get({
-      resourceType: 'ServiceRequest',
-      id: serviceRequestID,
-    });
+    const orderNumber = getOrderNumber(serviceRequest);
 
-    const orderID = manualOrderId
-      ? manualOrderId
-      : serviceRequestTemp.identifier?.find((item) => item.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)?.value;
-
-    console.log('orderID', serviceRequestID, orderID);
+    console.log('orderID', serviceRequestID, orderNumber);
 
     const orderCreateDate = serviceRequest.authoredOn
       ? DateTime.fromISO(serviceRequest.authoredOn).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
@@ -424,6 +410,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const billClass = !coverage || coverageType === 'pay' ? 'Patient Bill (P)' : 'Third-Party Bill (T)';
 
     console.log('creating external lab order form');
+    // todo SARAH update order form to accept all the service requests for the order
     const orderFormPdfDetail = await createExternalLabsOrderFormPDF(
       {
         locationName: location?.name,
@@ -436,7 +423,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         labOrganizationName: labOrganization?.name || ORDER_ITEM_UNKNOWN,
         accountNumber,
         serviceRequestID: serviceRequest.id || ORDER_ITEM_UNKNOWN,
-        orderNumber: orderID || ORDER_ITEM_UNKNOWN,
+        orderNumber: orderNumber || ORDER_ITEM_UNKNOWN,
         providerName: getFullestAvailableName(provider) || ORDER_ITEM_UNKNOWN,
         providerNPI: provider.identifier?.find((id) => id?.system === FHIR_IDENTIFIER_NPI)?.value,
         patientFirstName: patient.name?.[0].given?.[0] || ORDER_ITEM_UNKNOWN,
@@ -502,7 +489,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           patientLastName: getPatientLastName(patient) ?? '',
           patientDateOfBirth: patient.birthDate ? DateTime.fromISO(patient.birthDate) : undefined,
           sampleCollectionDate: mostRecentSampleCollectionDate,
-          orderNumber: orderID ?? '',
+          orderNumber: orderNumber ?? '',
           accountNumber,
         },
       };

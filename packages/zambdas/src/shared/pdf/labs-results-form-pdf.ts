@@ -25,6 +25,7 @@ import {
   createFilesDocumentReferences,
   EXTERNAL_LAB_RESULT_PDF_BASE_NAME,
   getFullestAvailableName,
+  getOrderNumber,
   getTimezone,
   IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
   IN_HOUSE_LAB_RESULT_PDF_BASE_NAME,
@@ -34,9 +35,7 @@ import {
   LAB_ORDER_TASK,
   LAB_RESULT_DOC_REF_CODING_CODE,
   LabType,
-  OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
-  OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   OYSTEHR_OBR_NOTE_CODING_SYSTEM,
   quantityRangeFormat,
   Secrets,
@@ -171,11 +170,7 @@ const getResultDataConfig = (
       performingLabDirectorFullName,
     } = specificResources;
     const externalLabData: Omit<ExternalLabResultsData, keyof LabResultsData> = {
-      orderNumber:
-        serviceRequest.identifier?.find(
-          (item) =>
-            item.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM || item.system === OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM
-        )?.value || '',
+      orderNumber: getOrderNumber(serviceRequest) || '',
       accessionNumber: diagnosticReport.identifier?.find((item) => item.type?.coding?.[0].code === 'FILL')?.value || '',
       collectionDate,
       orderSubmitDate,
@@ -274,7 +269,7 @@ export async function createExternalLabResultPDF(
     serviceRequest,
     patient,
     practitioner: provider,
-    task: pstTask,
+    preSubmissionTask: pstTask,
     appointment,
     encounter,
     schedule,

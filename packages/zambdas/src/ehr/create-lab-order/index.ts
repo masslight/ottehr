@@ -1,6 +1,7 @@
 import Oystehr, { BatchInputRequest, Bundle } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
+import { getRandomValues } from 'crypto';
 import {
   Account,
   ActivityDefinition,
@@ -26,11 +27,15 @@ import {
   FHIR_IDC10_VALUESET_SYSTEM,
   flattenBundleResources,
   getAttendingPractitionerId,
+  getOrderNumber,
   getSecret,
   isApiError,
   LAB_ORDER_TASK,
+  ORDER_NUMBER_LEN,
   OrderableItemSearchResult,
   OrderableItemSpecimen,
+  OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
+  OYSTEHR_LAB_GUID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   PSC_HOLD_CONFIG,
@@ -78,7 +83,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
     }
 
     console.log('encounter id', encounter.id);
-    const { labOrganization, coverage, location, patientId } = await getAdditionalResources(
+    const { labOrganization, coverage, location, patientId, existingOrderNumber } = await getAdditionalResources(
       orderableItem,
       encounter,
       oystehr
@@ -154,6 +159,12 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
       reasonCode: serviceRequestReasonCode,
       instantiatesCanonical: [`#${activityDefinitionToContain.id}`],
       contained: serviceRequestContained,
+      identifier: [
+        {
+          system: OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
+          value: existingOrderNumber || createOrderNumber(ORDER_NUMBER_LEN),
+        },
+      ],
     };
     if (location) {
       serviceRequestConfig.locationReference = [
@@ -432,6 +443,7 @@ const getAdditionalResources = async (
   patientId: string;
   coverage?: Coverage;
   location?: Location;
+  existingOrderNumber?: string;
 }> => {
   const labName = orderableItem.lab.labName;
   const labGuid = orderableItem.lab.labGuid;
@@ -441,7 +453,7 @@ const getAdditionalResources = async (
   };
   const encounterResourceSearch: BatchInputRequest<Patient | Location | Coverage | Account> = {
     method: 'GET',
-    url: `/Encounter?_id=${encounter.id}&_include=Encounter:patient&_include=Encounter:location&_revinclude:iterate=Coverage:patient&_revinclude:iterate=Account:patient`,
+    url: `/Encounter?_id=${encounter.id}&_include=Encounter:patient&_include=Encounter:location&_revinclude:iterate=Coverage:patient&_revinclude:iterate=Account:patient&_revinclude:iterate=ServiceRequest:encounter`,
   };
 
   console.log('searching for lab org and encounter resources');
@@ -452,20 +464,33 @@ const getAdditionalResources = async (
   const labOrganizationSearchResults: Organization[] = [];
   const coverageSearchResults: Coverage[] = [];
   const accountSearchResults: Account[] = [];
+  const serviceRequestsForBundle: ServiceRequest[] = [];
   let patientId: string | undefined;
   let location: Location | undefined;
 
-  const resources = flattenBundleResources<Organization | Coverage | Patient | Location | Account>(searchResults);
+  const resources = flattenBundleResources<Organization | Coverage | Patient | Location | Account | ServiceRequest>(
+    searchResults
+  );
 
   resources.forEach((resource) => {
-    if (resource.resourceType === 'Organization') labOrganizationSearchResults.push(resource as Organization);
-    if (resource.resourceType === 'Coverage' && resource.status === 'active')
-      coverageSearchResults.push(resource as Coverage);
+    if (resource.resourceType === 'Organization') labOrganizationSearchResults.push(resource);
+    if (resource.resourceType === 'Coverage' && resource.status === 'active') coverageSearchResults.push(resource);
     if (resource.resourceType === 'Patient') patientId = resource.id;
-    if (resource.resourceType === 'Location') location = resource as Location;
-    if (resource.resourceType === 'Account' && resource.status === 'active')
-      accountSearchResults.push(resource as Account);
+    if (resource.resourceType === 'Location') location = resource;
+    if (resource.resourceType === 'Account' && resource.status === 'active') accountSearchResults.push(resource);
+
+    // only requests to the same lab that have not yet been submitted will be bundled
+    if (
+      resource.resourceType === 'ServiceRequest' &&
+      resource.performer?.find((org) => org.identifier?.system === OYSTEHR_LAB_GUID_SYSTEM)?.identifier?.value ===
+        labGuid &&
+      resource.status === 'draft'
+    ) {
+      serviceRequestsForBundle.push(resource);
+    }
   });
+
+  console.log('serviceRequestsForBundle', JSON.stringify(serviceRequestsForBundle));
 
   if (accountSearchResults.length !== 1)
     throw EXTERNAL_LAB_ERROR(
@@ -490,11 +515,17 @@ const getAdditionalResources = async (
     );
   }
 
+  let existingOrderNumber: string | undefined;
+  if (serviceRequestsForBundle.length) {
+    existingOrderNumber = getOrderNumber(serviceRequestsForBundle[0]);
+  }
+
   return {
     labOrganization,
     patientId,
     coverage: patientPrimaryInsurance,
     location,
+    existingOrderNumber,
   };
 };
 
@@ -573,3 +604,15 @@ const getSpecimenAndSpecimenDefConfig = (
   };
   return { specimenDefinitionConfig, specimenConfig };
 };
+
+function createOrderNumber(length: number): string {
+  // https://sentry.io/answers/generate-random-string-characters-in-javascript/
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  const randomArray = new Uint8Array(length);
+  getRandomValues(randomArray);
+  randomArray.forEach((number) => {
+    result += chars[number % chars.length];
+  });
+  return result;
+}
