@@ -6,7 +6,7 @@ import { WarningBlock } from 'src/features/css-module/components/WarningBlock';
 import { PageHeader } from '../../css-module/components/medication-administration/PageHeader';
 import { VaccineOrderDetailsSection } from '../components/VaccineOrderDetailsSection';
 
-export const VaccineOrderCreate: React.FC = () => {
+export const ImmunizationOrderCreate: React.FC = () => {
   const methods = useForm();
 
   const onSubmit = (data: any): void => {

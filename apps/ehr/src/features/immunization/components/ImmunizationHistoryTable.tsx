@@ -3,7 +3,6 @@ import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
 import {
   Button,
   Paper,
-  Skeleton,
   Table,
   TableBody,
   TableCell,
@@ -12,12 +11,10 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
-import React, { ReactElement, useMemo, useState } from 'react';
-import {
-  COLLAPSED_MEDS_COUNT,
-  MedicationWithTypeDTO,
-  useMedicationHistory,
-} from 'src/features/css-module/hooks/useMedicationHistory';
+import React, { useMemo, useState } from 'react';
+import { COLLAPSED_MEDS_COUNT, useMedicationHistory } from 'src/features/css-module/hooks/useMedicationHistory';
+import { ImmunizationHistoryTableRow } from './ImmunizationHistoryTableRow';
+import { ImmunizationHistoryTableSkeletonBody } from './ImmunizationHistoryTableSkeletonBody';
 
 export const ImmunizationHistoryTable: React.FC = () => {
   const [seeMoreOpen, setSeeMoreOpen] = useState(false);
@@ -40,38 +37,6 @@ export const ImmunizationHistoryTable: React.FC = () => {
     return seeMoreOpen ? 'See less' : 'See more';
   };
 
-  const skeletonCell = (): ReactElement => {
-    return (
-      <TableCell>
-        <Skeleton width={'100%'} height={24} />
-      </TableCell>
-    );
-  };
-
-  const skeletonRow = (): ReactElement => {
-    return (
-      <TableRow>
-        {skeletonCell()}
-        {skeletonCell()}
-        {skeletonCell()}
-        {skeletonCell()}
-        {skeletonCell()}
-      </TableRow>
-    );
-  };
-
-  const historyRow = (medication: MedicationWithTypeDTO): ReactElement => {
-    return (
-      <TableRow>
-        <TableCell>{medication.name}</TableCell>
-        <TableCell>Dose / Route / Instructions</TableCell>
-        <TableCell>Ordered</TableCell>
-        <TableCell>Given</TableCell>
-        <TableCell>{medication.status}</TableCell>
-      </TableRow>
-    );
-  };
-
   return (
     <TableContainer component={Paper} elevation={0}>
       <Table>
@@ -84,27 +49,25 @@ export const ImmunizationHistoryTable: React.FC = () => {
             <TableCell>Status</TableCell>
           </TableRow>
         </TableHead>
-        <TableBody>
-          {isLoading ? (
-            <>
-              {skeletonRow()}
-              {skeletonRow()}
-              {skeletonRow()}
-            </>
-          ) : (
-            shownMeds.map(historyRow)
-          )}
-          {!isLoading && medicationHistory.length > COLLAPSED_MEDS_COUNT && (
-            <Button onClick={toggleShowMore} startIcon={seeMoreOpen ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />}>
-              {getSeeMoreButtonLabel()}
-            </Button>
-          )}
-          {!isLoading && medicationHistory.length === 0 && (
-            <Typography variant="body1" sx={{ opacity: 0.65 }}>
-              No items
-            </Typography>
-          )}
-        </TableBody>
+        {isLoading ? (
+          <ImmunizationHistoryTableSkeletonBody />
+        ) : (
+          <TableBody>
+            {shownMeds.map((med) => (
+              <ImmunizationHistoryTableRow historyEntry={med} />
+            ))}
+            {medicationHistory.length > COLLAPSED_MEDS_COUNT && (
+              <Button onClick={toggleShowMore} startIcon={seeMoreOpen ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />}>
+                {getSeeMoreButtonLabel()}
+              </Button>
+            )}
+            {medicationHistory.length === 0 && (
+              <Typography variant="body1" sx={{ opacity: 0.65 }}>
+                No items
+              </Typography>
+            )}
+          </TableBody>
+        )}
       </Table>
     </TableContainer>
   );

@@ -1,3 +1,4 @@
+import { Immunization } from 'src/features/immunization/pages/Immunization';
 import { InHouseLabOrderCreatePage } from 'src/features/in-house-labs/pages/InHouseLabOrderCreatePage';
 import { InHouseLabTestDetailsPage } from 'src/features/in-house-labs/pages/InHouseLabOrderDetailsPage';
 import { InHouseLabsPage } from 'src/features/in-house-labs/pages/InHouseLabsPage';
@@ -9,7 +10,7 @@ import { AssessmentCard } from '../../../telemed/features/appointment/Assessment
 import { CreateExternalLabOrder } from '../../external-labs/pages/CreateExternalLabOrder';
 import { ExternalLabOrdersListPage } from '../../external-labs/pages/ExternalLabOrdersListPage';
 import { OrderDetailsPage } from '../../external-labs/pages/OrderDetails';
-import { VaccineOrderCreate } from '../../immunization/pages/VaccineOrderCreate';
+import { ImmunizationOrderCreate } from '../../immunization/pages/ImmunizationOrderCreate';
 import { CreateRadiologyOrder } from '../../radiology/pages/CreateRadiologyOrder';
 import { RadiologyOrderDetailsPage } from '../../radiology/pages/RadiologyOrderDetails';
 import { RadiologyOrdersListPage } from '../../radiology/pages/RadiologyOrdersListPage';
@@ -72,7 +73,8 @@ export enum ROUTER_PATH {
   NURSING_ORDER_CREATE = 'nursing-orders/create',
   NURSING_ORDER_DETAILS = 'nursing-orders/:serviceRequestID/order-details',
 
-  VACCINE_ORDER_CREATE = 'vaccine-orders/create',
+  IMMUNIZATION = 'immunization',
+  IMMUNIZATION_NEW_ORDER = 'immunization/create',
 }
 
 export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
@@ -173,13 +175,20 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
     text: 'In-house Medications',
     iconKey: 'Med. Administration',
   },
-  [ROUTER_PATH.VACCINE_ORDER_CREATE]: {
-    path: ROUTER_PATH.VACCINE_ORDER_CREATE,
-    modes: ['provider', 'readonly'],
-    activeCheckPath: 'vaccine-orders/create',
-    element: <VaccineOrderCreate />,
-    text: 'Create vaccine order',
-    iconKey: 'Med. Administration',
+  [ROUTER_PATH.IMMUNIZATION]: {
+    path: ROUTER_PATH.IMMUNIZATION,
+    modes: ['provider'],
+    element: <Immunization />,
+    text: 'Immunization',
+    iconKey: 'Immunization',
+  },
+  [ROUTER_PATH.IMMUNIZATION_NEW_ORDER]: {
+    path: ROUTER_PATH.IMMUNIZATION_NEW_ORDER,
+    modes: ['provider'],
+    isSkippedInNavigation: true,
+    element: <ImmunizationOrderCreate />,
+    text: 'Immunization',
+    iconKey: 'Immunization',
   },
   [ROUTER_PATH.EXTERNAL_LAB_ORDER]: {
     path: ROUTER_PATH.EXTERNAL_LAB_ORDER,
