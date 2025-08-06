@@ -1,6 +1,7 @@
 import { Box, IconButton, TableCell, TableRow } from '@mui/material';
 import { DateTime } from 'luxon';
-import { ReactElement } from 'react';
+import { ReactElement, useState } from 'react';
+import { CSSModal } from 'src/features/css-module/components/CSSModal';
 import { NursingOrder } from 'utils';
 import { deleteIcon } from '../../../../themes/ottehr';
 import { NursingOrdersStatusChip } from '../NursingOrdersStatusChip';
@@ -19,17 +20,24 @@ export const NursingOrdersTableRow = ({
   refetchOrders,
   onRowClick,
 }: NursingOrdersTableRowProps): ReactElement => {
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const { updateNursingOrder } = useUpdateNursingOrder({
     serviceRequestId: nursingOrderData.serviceRequestId,
     action: 'CANCEL ORDER',
   });
 
-  const handleCancel = async (): Promise<void> => {
+  const handleCancelOrder = async (): Promise<void> => {
+    setIsDeleting(true);
     try {
       await updateNursingOrder();
+      refetchOrders();
+      setIsDeleteDialogOpen(false);
     } catch (error) {
       console.error('Error cancelling nursing order:', error);
     }
+    setIsDeleting(false);
   };
 
   const formatDate = (datetime: string): string => {
@@ -60,8 +68,7 @@ export const NursingOrdersTableRow = ({
               <IconButton
                 onClick={async (event) => {
                   event.stopPropagation();
-                  await handleCancel();
-                  refetchOrders();
+                  setIsDeleteDialogOpen(true);
                 }}
               >
                 <img alt="delete icon" src={deleteIcon} width={18} />
@@ -75,16 +82,28 @@ export const NursingOrdersTableRow = ({
   };
 
   return (
-    <TableRow
-      sx={{
-        '&:hover': { backgroundColor: '#f5f5f5' },
-        cursor: 'pointer',
-      }}
-      onClick={onRowClick}
-    >
-      {columns.map((column) => (
-        <TableCell key={column}>{renderCellContent(column)}</TableCell>
-      ))}
-    </TableRow>
+    <>
+      <TableRow
+        sx={{
+          '&:hover': { backgroundColor: '#f5f5f5' },
+          cursor: 'pointer',
+        }}
+        onClick={onRowClick}
+      >
+        {columns.map((column) => (
+          <TableCell key={column}>{renderCellContent(column)}</TableCell>
+        ))}
+      </TableRow>
+      <CSSModal
+        title="Cancel Nursing Order"
+        description={`Are you sure you want to cancel this order "${nursingOrderData.note}"?`}
+        open={isDeleteDialogOpen}
+        confirmText="Cancel Order"
+        handleConfirm={handleCancelOrder}
+        closeButtonText="Keep Order"
+        handleClose={() => setIsDeleteDialogOpen(false)}
+        disabled={isDeleting}
+      />
+    </>
   );
 };
