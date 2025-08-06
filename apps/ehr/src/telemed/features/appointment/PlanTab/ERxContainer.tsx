@@ -309,15 +309,15 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
                       {!isReadOnly && patient?.id && (
                         <TableCell>
                           <LoadingButton
-                          loading={cancellationLoading.includes(row.resourceId!)}
+                            loading={cancellationLoading.includes(row.resourceId!)}
                             variant="text"
                             color="error"
                             onClick={() => cancelPrescription(row.resourceId!, patient.id!)}
                             disabled={
-                                row.status === 'loading' ||
+                              row.status === 'loading' ||
                               row.status === 'completed' ||
-                            row.status === 'cancelled' ||
-                            cancellationLoading.includes(row.resourceId!)
+                              row.status === 'cancelled' ||
+                              cancellationLoading.includes(row.resourceId!)
                             }
                           >
                             Cancel
