@@ -50,6 +50,8 @@ export const PatientInformationUpdates: FC<PatientInformationUpdatesProps> = (pr
   const [task, setTask] = useState<Task>();
 
   useGetPatientForUpdate({ patientId }, (data) => {
+    if (!data) return;
+
     const patient = data.find((resource) => (resource as unknown as Patient).resourceType === 'Patient');
     const task = (data as unknown as Task[]).find((item) => item.resourceType === 'Task');
 

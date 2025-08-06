@@ -115,7 +115,7 @@ export interface MedicationDTO extends SaveableDTO {
   name: string;
   status: Extract<MedicationStatement['status'], 'active' | 'completed'>;
   intakeInfo: MedicationIntakeInfo;
-  type: 'scheduled' | 'as-needed';
+  type: 'scheduled' | 'as-needed' | 'prescribed-medication';
   id?: string;
   practitioner?: Practitioner | Reference;
 }
