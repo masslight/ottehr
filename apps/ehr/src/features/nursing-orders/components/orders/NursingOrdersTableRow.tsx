@@ -21,7 +21,7 @@ export const NursingOrdersTableRow = ({
   onRowClick,
 }: NursingOrdersTableRowProps): ReactElement => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [_isDeleting, setIsDeleting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const { updateNursingOrder } = useUpdateNursingOrder({
     serviceRequestId: nursingOrderData.serviceRequestId,
@@ -102,6 +102,7 @@ export const NursingOrdersTableRow = ({
         handleConfirm={handleCancelOrder}
         closeButtonText="Keep Order"
         handleClose={() => setIsDeleteDialogOpen(false)}
+        disabled={isDeleting}
       />
     </>
   );
