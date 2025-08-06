@@ -535,16 +535,18 @@ export async function createDocumentResources(
   }
 
   if (patientConditionPhoto) {
-    docsToSave.push(
-      buildDocToSave({
-        code: PATIENT_PHOTO_CODE,
-        attachments: [patientConditionPhoto],
-        subject: `Patient/${patientID}`,
-        context: `Appointment/${appointmentID}`,
-        display: 'Patient condition photos',
-        text: 'Patient photos',
-      })
-    );
+    if (!existingAttachments.has(patientConditionPhoto.url ?? '')) {
+      docsToSave.push(
+        buildDocToSave({
+          code: PATIENT_PHOTO_CODE,
+          attachments: [patientConditionPhoto],
+          subject: `Patient/${patientID}`,
+          context: `Appointment/${appointmentID}`,
+          display: 'Patient condition photos',
+          text: 'Patient photos',
+        })
+      );
+    }
   }
 
   if (schoolWorkNotes.length) {
