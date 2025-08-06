@@ -1,8 +1,8 @@
 import SearchIcon from '@mui/icons-material/Search';
 import { Box, InputAdornment, TextField } from '@mui/material';
-import React, { FC, useEffect, useMemo, useState } from 'react';
-import { useQuery } from 'react-query';
-import { FHIR_EXTENSION } from 'utils';
+import { useQuery } from '@tanstack/react-query';
+import { FC, useEffect, useMemo, useState } from 'react';
+import { FHIR_EXTENSION, GetEmployeesResponse, useSuccessQuery } from 'utils';
 import { getEmployees } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { getSelectors } from '../../../shared/store/getSelectors';
@@ -53,26 +53,38 @@ export const ClaimsQueueFilters: FC = () => {
     }
   }, [visitId, setVisitIdValue]);
 
-  useQuery(['rcm-get-employees', { oystehrZambda }], () => (oystehrZambda ? getEmployees(oystehrZambda) : null), {
-    onSuccess: (response) => {
-      console.log('Employees', response?.employees);
-      useClaimsQueueStore.setState({ employees: response?.employees || [] });
-    },
+  const queryResult = useQuery({
+    queryKey: ['get-employees'],
+    queryFn: () => (oystehrZambda ? getEmployees(oystehrZambda) : Promise.resolve(null)),
+
     enabled: !!oystehrZambda,
+  });
+
+  useSuccessQuery(queryResult.data, (data: GetEmployeesResponse | null) => {
+    useClaimsQueueStore.setState({ employees: data?.employees || [] });
   });
 
   useGetOrganizations((data) => {
     console.log('Organizations', data);
+    if (!data) {
+      return;
+    }
     useClaimsQueueStore.setState({ organizations: data });
   });
 
   useGetFacilities((data) => {
     console.log('Facilities', data);
+    if (!data) {
+      return;
+    }
     useClaimsQueueStore.setState({ facilities: data });
   });
 
   useGetInsurancePlans((data) => {
     console.log('Insurance plans', data);
+    if (!data) {
+      return;
+    }
     useClaimsQueueStore.setState({ insurancePlans: data });
   });
 

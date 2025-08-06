@@ -134,7 +134,7 @@ export const EditPatientNameDialog = ({ modalOpen, onClose }: EditPatientNameDia
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'flex-start', marginLeft: 1 }}>
           <LoadingButton
-            loading={editPatientName.isLoading}
+            loading={editPatientName.isPending}
             type="submit"
             variant="contained"
             color="primary"

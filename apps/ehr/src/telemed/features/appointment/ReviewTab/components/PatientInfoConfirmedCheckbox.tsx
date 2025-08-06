@@ -9,7 +9,7 @@ import { useAppointmentStore, useSaveChartData } from '../../../../state';
 export const PatientInfoConfirmedCheckbox: FC = () => {
   const { chartData, setPartialChartData } = getSelectors(useAppointmentStore, ['chartData', 'setPartialChartData']);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-  const { mutate, isLoading } = useSaveChartData();
+  const { mutate, isPending: isLoading } = useSaveChartData();
 
   const patientInfoConfirmed = chartData?.patientInfoConfirmed?.value || false;
 

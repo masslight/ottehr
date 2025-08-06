@@ -17,7 +17,7 @@ import {
 } from '@mui/material';
 import { Patient } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import React, { FC, useMemo, useState } from 'react';
+import { FC, useMemo, useState } from 'react';
 import { getFullName, standardizePhoneNumber } from 'utils';
 import { formatDateUsingSlashes } from '../../helpers/formatDateTime';
 import { ConfirmationDialog, DeleteIconButton } from '../../telemed';
@@ -77,7 +77,7 @@ export const PatientsMergeSelect: FC<PatientsMergeSelectProps> = (props) => {
     }
   };
 
-  const disabled = isFetching || getPatientById.isLoading;
+  const disabled = isFetching || getPatientById.isPending;
 
   return (
     <Dialog open={open} onClose={close} maxWidth="lg" fullWidth>
@@ -110,7 +110,7 @@ export const PatientsMergeSelect: FC<PatientsMergeSelectProps> = (props) => {
           InputProps={{
             endAdornment: (
               <InputAdornment position="end">
-                {getPatientById.isLoading ? <CircularProgress size={24} color="inherit" /> : <SearchIcon />}
+                {getPatientById.isPending ? <CircularProgress size={24} color="inherit" /> : <SearchIcon />}
               </InputAdornment>
             ),
           }}

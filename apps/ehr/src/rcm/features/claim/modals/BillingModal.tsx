@@ -94,7 +94,7 @@ export const BillingModal: FC = () => {
         title="24. Billing"
         onShow={() => reset(getDefaultValues(claimData))}
         onSave={(hideDialog) => handleSubmit((values) => onSave(values, hideDialog))()}
-        isSaveLoading={editClaim.isLoading}
+        isSaveLoading={editClaim.isPending}
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           {fields.length > 0 && (

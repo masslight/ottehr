@@ -209,7 +209,7 @@ const NumberDebounceField: FC<NumberDebounceFieldProps> = (props) => {
   const { field, disabled, fieldName, label, convertProps } = props;
 
   const [value, setValue] = useState<string>(typeof field?.value === 'number' ? field.value.toString() : '');
-  const { mutate: updateChartData, isLoading: isUpdateLoading } = useSaveChartData();
+  const { mutate: updateChartData, isPending: isUpdateLoading } = useSaveChartData();
 
   const areEqual = value === `${field?.value?.toString() || ''}`;
 
@@ -289,7 +289,7 @@ const CheckboxWithNotesField: FC<CheckboxWithNotesFieldProps> = (props) => {
   const { fieldName, field, disabled, label } = props;
 
   const [value, setValue] = useState(field?.note || '');
-  const { mutate: updateChartData, isLoading: isUpdateLoading } = useSaveChartData();
+  const { mutate: updateChartData, isPending: isUpdateLoading } = useSaveChartData();
 
   const areEqual = value === `${field?.note?.toString() || ''}`;
 

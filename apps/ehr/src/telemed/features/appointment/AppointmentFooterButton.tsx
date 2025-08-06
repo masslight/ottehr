@@ -1,9 +1,9 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { LoadingButton } from '@mui/lab';
 import { Box, darken, styled, useTheme } from '@mui/material';
+import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useEffect, useState } from 'react';
-import { useQueryClient } from 'react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { mapStatusToTelemed, TelemedAppointmentStatusEnum } from 'utils';
 import { dataTestIds } from '../../../constants/data-test-ids';
@@ -179,7 +179,7 @@ export const AppointmentFooterButton: FC = () => {
         >
           {(showDialog) => (
             <FooterButton
-              loading={changeTelemedAppointmentStatusEnum.isLoading || isAppointmentLoading}
+              loading={changeTelemedAppointmentStatusEnum.isPending || isAppointmentLoading}
               onClick={showDialog}
               variant="contained"
               data-testid={dataTestIds.telemedEhrFlow.footerButtonAssignMe}
@@ -206,7 +206,7 @@ export const AppointmentFooterButton: FC = () => {
           >
             {(showDialog) => (
               <FooterButton
-                loading={initTelemedSession.isLoading || getMeetingData.isLoading}
+                loading={initTelemedSession.isPending || getMeetingData.isLoading}
                 onClick={showDialog}
                 variant="contained"
                 data-testid={dataTestIds.telemedEhrFlow.footerButtonConnectToPatient}
@@ -229,7 +229,7 @@ export const AppointmentFooterButton: FC = () => {
           >
             {(showDialog) => (
               <FooterButton
-                loading={changeTelemedAppointmentStatusEnum.isLoading}
+                loading={changeTelemedAppointmentStatusEnum.isPending}
                 onClick={showDialog}
                 variant="contained"
                 data-testid={dataTestIds.telemedEhrFlow.footerButtonUnassign}
@@ -254,7 +254,7 @@ export const AppointmentFooterButton: FC = () => {
     case 'reconnect': {
       return (
         <FooterButton
-          loading={initTelemedSession.isLoading || getMeetingData.isLoading}
+          loading={initTelemedSession.isPending || getMeetingData.isLoading}
           onClick={onConnect}
           variant="contained"
         >
