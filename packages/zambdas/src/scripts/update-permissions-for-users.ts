@@ -91,13 +91,9 @@ const main = async (): Promise<void> => {
   const envAuthZambdas: string[] = [];
   const config = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
 
-  if (config.CREATE_APPOINTMENT_ZAMBDA_ID && config.GET_PATIENTS_ZAMBDA_ID && config.GET_APPOINTMENTS_ZAMBDA_ID) {
-    envAuthZambdas.push(config.CREATE_APPOINTMENT_ZAMBDA_ID);
-    envAuthZambdas.push(config.GET_PATIENTS_ZAMBDA_ID);
-    envAuthZambdas.push(config.GET_APPOINTMENTS_ZAMBDA_ID);
-  } else {
-    throw new Error('CREATE_APPOINTMENT_ZAMBDA_ID, GET_PATIENTS_ZAMBDA_ID, GET_APPOINTMENTS_ZAMBDA_ID must be defined');
-  }
+  envAuthZambdas.push('create-appointment');
+  envAuthZambdas.push('get-patients');
+  envAuthZambdas.push('get-appointments');
 
   if (!envAuthZambdas || envAuthZambdas.length === 0) {
     throw new Error('Issue getting authorized zambdas for this environment');

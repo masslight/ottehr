@@ -72,7 +72,7 @@ interface AppointmentTableRowProps {
   orders: OrdersForTrackingBoardRow;
 }
 
-const VITE_APP_QRS_URL = import.meta.env.VITE_APP_QRS_URL;
+const VITE_APP_PATIENT_APP_URL = import.meta.env.VITE_APP_PATIENT_APP_URL;
 
 export function getAppointmentStatusChip(status: VisitStatusLabel | undefined, count?: number): ReactElement {
   if (!status) {
@@ -527,9 +527,9 @@ export default function AppointmentTableRow({
     return [
       // todo need to make url dynamic or pull from location
       {
-        english: `Please complete the paperwork and sign consent forms to avoid a delay in check-in. For ${appointment.patient.firstName}, click here: ${VITE_APP_QRS_URL}/visit/${appointment.id}`,
+        english: `Please complete the paperwork and sign consent forms to avoid a delay in check-in. For ${appointment.patient.firstName}, click here: ${VITE_APP_PATIENT_APP_URL}/visit/${appointment.id}`,
         // cSpell:disable-next Spanish
-        spanish: `Complete la documentación y firme los formularios de consentimiento para evitar demoras en el registro. Para ${appointment.patient.firstName}, haga clic aquí: ${VITE_APP_QRS_URL}/visit/${appointment.id}`,
+        spanish: `Complete la documentación y firme los formularios de consentimiento para evitar demoras en el registro. Para ${appointment.patient.firstName}, haga clic aquí: ${VITE_APP_PATIENT_APP_URL}/visit/${appointment.id}`,
       },
       {
         english:

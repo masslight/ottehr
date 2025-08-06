@@ -10,8 +10,7 @@ import { useApiClients } from './useAppClients';
 
 const PATIENT_FOLDERS_CODE = 'patient-docs-folder';
 
-const CREATE_PATIENT_UPLOAD_DOCUMENT_URL_ZAMBDA_ID = import.meta.env
-  .VITE_APP_CREATE_PATIENT_UPLOAD_DOCUMENT_URL_ZAMBDA_ID;
+const CREATE_PATIENT_UPLOAD_DOCUMENT_URL_ZAMBDA_ID = 'create-upload-document-url';
 
 export type PatientDocumentsFolder = {
   id: string;
@@ -417,10 +416,6 @@ const usePatientDocsActions = ({ patientId }: { patientId: string }): UsePatient
       console.log(params);
       const { docFile, ...restParams } = params;
       try {
-        if (!CREATE_PATIENT_UPLOAD_DOCUMENT_URL_ZAMBDA_ID) {
-          throw new Error('Could not find environment variable VITE_APP_CREATE_PATIENT_UPLOAD_DOCUMENT_URL_ZAMBDA_ID');
-        }
-
         if (!oystehrZambda) {
           throw new Error('Could not initialize oystehrZambda client.');
         }

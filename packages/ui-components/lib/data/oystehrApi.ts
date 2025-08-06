@@ -10,8 +10,6 @@ import {
   chooseJson,
   CreateAppointmentUCTelemedParams,
   CreateAppointmentUCTelemedResponse,
-  CreatePaperworkInput,
-  CreatePaperworkResponse,
   CreditCardInfo,
   GetAnswerOptionsRequest,
   GetAppointmentsRequest,
@@ -54,7 +52,6 @@ type ZambdaName =
   | 'cancel appointment'
   | 'check in'
   | 'create appointment'
-  | 'create paperwork'
   | 'delete payment method'
   | 'get appointments'
   | 'get past visits'
@@ -83,7 +80,6 @@ const zambdasPublicityMap: Record<ZambdaName, boolean> = {
   'cancel appointment': false,
   'check in': true,
   'create appointment': false,
-  'create paperwork': false,
   'delete payment method': false,
   'get appointments': false,
   'get past visits': false,
@@ -118,7 +114,6 @@ export const getOystehrAPI = (
   cancelAppointment: typeof cancelAppointment;
   checkIn: typeof checkIn;
   createAppointment: typeof createAppointment;
-  createPaperwork: typeof createPaperwork;
   createZ3Object: typeof createZ3Object;
   deletePaymentMethod: typeof deletePaymentMethod;
   getAppointments: typeof getAppointments;
@@ -148,7 +143,6 @@ export const getOystehrAPI = (
     cancelAppointmentZambdaID,
     checkInZambdaID,
     createAppointmentZambdaID,
-    createPaperworkZambdaID,
     deletePaymentMethodZambdaID,
     getAppointmentsZambdaID,
     getPastVisitsZambdaID,
@@ -178,7 +172,6 @@ export const getOystehrAPI = (
     'cancel appointment': cancelAppointmentZambdaID,
     'check in': checkInZambdaID,
     'create appointment': createAppointmentZambdaID,
-    'create paperwork': createPaperworkZambdaID,
     'delete payment method': deletePaymentMethodZambdaID,
     'get appointments': getAppointmentsZambdaID,
     'get past visits': getPastVisitsZambdaID,
@@ -260,21 +253,6 @@ export const getOystehrAPI = (
   ): Promise<CreateAppointmentUCTelemedResponse> => {
     const fhirParams = fhirifyAppointmentInputs({ ...parameters });
     return await makeZapRequest('create appointment', fhirParams);
-  };
-
-  const createPaperwork = async (
-    parameters: Pick<
-      CreatePaperworkInput,
-      'appointmentID' | 'files' | 'paperwork' | 'paperworkComplete' | 'timezone' | 'patientId'
-    >
-  ): Promise<CreatePaperworkResponse> => {
-    const payload = Object.fromEntries(
-      Object.entries(parameters).filter(
-        ([_parameterKey, parameterValue]) =>
-          parameterValue && !Object.values(parameterValue).every((tempValue) => tempValue === undefined)
-      )
-    );
-    return await makeZapRequest('create paperwork', payload);
   };
 
   const createZ3Object = async (
@@ -435,7 +413,6 @@ export const getOystehrAPI = (
     cancelAppointment,
     checkIn,
     createAppointment,
-    createPaperwork,
     createZ3Object,
     deletePaymentMethod,
     getAppointments,

@@ -37,7 +37,7 @@ import ScheduleComponent from '../components/schedule/ScheduleComponent';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
 
-const INTAKE_URL = import.meta.env.VITE_APP_INTAKE_URL;
+const INTAKE_URL = import.meta.env.VITE_APP_PATIENT_APP_URL;
 
 export function getResource(
   scheduleType: 'location' | 'provider' | 'group'
