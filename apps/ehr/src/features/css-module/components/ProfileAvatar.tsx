@@ -36,6 +36,8 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
   }, [patientPhoto]);
 
   useGetSignedPatientProfilePhotoUrlQuery(patientPhoto, (profilePhotoResponse) => {
+    if (!profilePhotoResponse) return;
+
     const { presignedImageUrl } = profilePhotoResponse;
     setProfilePhotoUrl(presignedImageUrl);
   });

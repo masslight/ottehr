@@ -41,9 +41,9 @@
       "name": "SENDGRID_API_KEY",
       "value": "#var/SENDGRID_API_KEY"
     },
-    "VIRTUAL_SENDGRID_EMAIL_BCC": {
-      "name": "VIRTUAL_SENDGRID_EMAIL_BCC",
-      "value": "#var/VIRTUAL_SENDGRID_EMAIL_BCC"
+    "SENDGRID_ISSUE_REPORT_EMAIL_BCC": {
+      "name": "SENDGRID_ISSUE_REPORT_EMAIL_BCC",
+      "value": "#var/SENDGRID_ISSUE_REPORT_EMAIL_BCC"
     },
     "VIRTUAL_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID": {
       "name": "VIRTUAL_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID",
@@ -1048,6 +1048,13 @@
       "runtime": "nodejs20.x",
       "src": "src/ehr/failing-endpoint/index",
       "zip": ".dist/zips/failing-endpoint.zip"
+    },
+    "GET-VITALS": {
+      "name": "GET-VITALS",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/chart-data/vitals/get/index",
+      "zip": ".dist/zips/get-vitals.zip"
     }
   },
   "fhirResources": {

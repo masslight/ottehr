@@ -47,6 +47,7 @@ export const ProgressNoteDetails: FC = () => {
         externalLabResults: data?.externalLabResults,
         inHouseLabResults: data?.inHouseLabResults,
         disposition: data?.disposition,
+        medicalDecision: data?.medicalDecision,
       });
     },
   });
@@ -104,7 +105,7 @@ export const ProgressNoteDetails: FC = () => {
     showChiefComplaint && <ChiefComplaintContainer />,
     showReviewOfSystems && <ReviewOfSystemsContainer />,
     showAdditionalQuestions && <AdditionalQuestionsContainer notes={screeningNotes} />,
-    showVitalsObservations && <PatientVitalsContainer notes={vitalsNotes} />,
+    showVitalsObservations && <PatientVitalsContainer notes={vitalsNotes} encounterId={encounter?.id} />,
     <Stack spacing={1}>
       <Typography variant="h5" color="primary.dark">
         Examination

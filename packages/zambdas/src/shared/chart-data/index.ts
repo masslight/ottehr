@@ -18,7 +18,6 @@ import {
   MedicationStatement,
   Meta,
   Observation,
-  Practitioner,
   Procedure,
   Reference,
   Resource,
@@ -57,6 +56,7 @@ import {
   fillVitalObservationAttributes,
   FreeTextNoteDTO,
   GetChartDataResponse,
+  getVitalObservationFhirInterpretations,
   HospitalizationDTO,
   isVitalObservation,
   makeVitalsObservationDTO,
@@ -214,7 +214,7 @@ export function makeAllergyDTO(allergy: AllergyIntolerance): AllergyDTO {
 export function makeMedicationResource(
   encounterId: string,
   patientId: string,
-  practitioner: Practitioner,
+  practitionerId: string,
   data: MedicationDTO,
   fieldName: ProviderChartDataFieldsNames
 ): MedicationStatement {
@@ -227,7 +227,7 @@ export function makeMedicationResource(
     status: data.status,
     dosage: [{ text: data.intakeInfo.dose, asNeededBoolean: data.type === 'as-needed' }],
     effectiveDateTime: data.intakeInfo.date,
-    informationSource: { reference: `Practitioner/${practitioner.id}` },
+    informationSource: { reference: `Practitioner/${practitionerId}` },
     meta: getMetaWFieldName(fieldName),
     medicationCodeableConcept: {
       coding: [
@@ -246,9 +246,14 @@ export function makeMedicationDTO(medication: MedicationStatement): MedicationDT
     resourceId: medication.id,
     id: medication.medicationCodeableConcept?.coding?.[0].code || '',
     name: medication.medicationCodeableConcept?.coding?.[0].display || '',
-    type: medication.dosage?.[0].asNeededBoolean ? 'as-needed' : 'scheduled',
+    type:
+      medication.meta?.tag?.[0].code === 'prescribed-medication'
+        ? 'prescribed-medication'
+        : medication.dosage?.[0].asNeededBoolean
+        ? 'as-needed'
+        : 'scheduled',
     intakeInfo: {
-      dose: medication.dosage?.[0].text || '',
+      dose: getMedicationDosage(medication),
       date: medication.effectiveDateTime,
     },
     status: ['active', 'completed'].includes(medication.status)
@@ -301,12 +306,15 @@ export function makeProcedureResource(
   return result;
 }
 
+// todo: make this input a single interface type
 export function makeObservationResource(
   encounterId: string,
   patientId: string,
   practitionerId: string,
   data: ObservationDTO,
-  metaSystem: string
+  metaSystem: string,
+  patientDOB?: string,
+  patientSex?: string
 ): Observation {
   const base: Observation = {
     id: data.resourceId,
@@ -325,8 +333,15 @@ export function makeObservationResource(
   console.log(`makeObservationResource() fieldName=[${fieldName}]`);
 
   if (isVitalObservation(data)) {
-    console.log(`isVitalObservation() == true`);
-    return fillVitalObservationAttributes(base, data);
+    let interpretation: Observation['interpretation'];
+    if (patientDOB) {
+      interpretation = getVitalObservationFhirInterpretations({
+        patientDOB,
+        vitalsObservation: data,
+        patientSex,
+      });
+    }
+    return fillVitalObservationAttributes({ ...base, interpretation }, data, patientDOB);
   }
 
   if (isObservationBooleanFieldDTO(data)) {
@@ -1060,7 +1075,8 @@ const mapResourceToChartDataFields = (
     resourceMapped = true;
   } else if (
     resource?.resourceType === 'MedicationStatement' &&
-    chartDataResourceHasMetaTagByCode(resource, 'current-medication')
+    (chartDataResourceHasMetaTagByCode(resource, 'current-medication') ||
+      chartDataResourceHasMetaTagByCode(resource, 'prescribed-medication'))
   ) {
     data.medications?.push(makeMedicationDTO(resource));
     resourceMapped = true;
@@ -1504,4 +1520,12 @@ function getCode(codeableConcept: CodeableConcept | CodeableConcept[] | undefine
 
 function getExtension(resource: DomainResource, url: string): Extension | undefined {
   return resource.extension?.find((extension) => extension.url === url);
+}
+
+function getMedicationDosage(medication: MedicationStatement): string | undefined {
+  const doseQuantity = medication.dosage?.[0].doseAndRate?.[0].doseQuantity;
+  if (!doseQuantity?.value || !doseQuantity?.unit) {
+    return undefined;
+  }
+  return `${doseQuantity.value}${doseQuantity.unit}`;
 }
