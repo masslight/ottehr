@@ -132,6 +132,10 @@ const performEffect = async (input: EffectInput): Promise<ListPatientPaymentResp
   const cardPayments: CardPaymentDTO[] = fhirPaymentNotices
     .flatMap((paymentNotice) => {
       const pnStripeId = paymentNotice.identifier?.find((id) => id.system === STRIPE_PAYMENT_ID_SYSTEM)?.value;
+      if (!pnStripeId) {
+        // not a card payment, skip!
+        return [];
+      }
       const paymentIntent = stripePayments.find((pi) => pi.id === pnStripeId);
       const stripePaymentId = paymentIntent ? paymentIntent.id : pnStripeId;
       const last4 = paymentMethods.find((pm) => pm.id === paymentIntent?.payment_method)?.card?.last4;
