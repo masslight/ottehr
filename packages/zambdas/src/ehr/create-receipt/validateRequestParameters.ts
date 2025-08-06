@@ -14,7 +14,7 @@ export function validateRequestParameters(input: ZambdaInput): CreateReceiptZamb
   }
 
   const parsedJSON = JSON.parse(input.body);
-  const { encounterId } = CreateReceiptZambdaInputSchema.parse(parsedJSON);
+  const { encounterId, patientId } = CreateReceiptZambdaInputSchema.parse(parsedJSON);
   console.log('parsed encounterId: ', JSON.stringify(encounterId));
 
   console.groupEnd();
@@ -22,6 +22,7 @@ export function validateRequestParameters(input: ZambdaInput): CreateReceiptZamb
 
   return {
     encounterId,
+    patientId,
     secrets: input.secrets,
   };
 }
