@@ -73,11 +73,12 @@ export const getVitalDTOCriticalityFromObservation = (observation: Observation):
 
 interface CheckForAbnormalValueInput {
   patientDOB: string;
+  patientSex: string | undefined; // optional, used for ageSexFunction rules
   vitalsObservation: VitalsObservationDTO;
   configOverride?: any; // optional override for primarily for testing purposes
 }
 export const getVitalObservationAlertLevel = (input: CheckForAbnormalValueInput): VitalAlertCriticality | undefined => {
-  const { patientDOB: dob, vitalsObservation, configOverride } = input;
+  const { patientDOB: dob, patientSex, vitalsObservation, configOverride } = input;
   const vitalsKey = vitalsObservation.field;
   const patientAgeInMonths = DateTime.fromISO(dob).diffNow('months').months * -1;
 
@@ -111,6 +112,7 @@ export const getVitalObservationAlertLevel = (input: CheckForAbnormalValueInput)
       observation: vitalsObservation,
       rules,
       patientAgeInMonths,
+      patientSex,
     });
     return getVitalCriticalityFromAlertLevels(alertLevels);
   } else {
@@ -124,6 +126,7 @@ export const getVitalObservationAlertLevel = (input: CheckForAbnormalValueInput)
         rules: componentRules,
         patientAgeInMonths,
         componentName: name,
+        patientSex,
       });
       result[name] = alertLevels;
     });
@@ -136,19 +139,22 @@ export const getVitalObservationAlertLevel = (input: CheckForAbnormalValueInput)
 export const getVitalObservationFhirInterpretations = (
   input: CheckForAbnormalValueInput
 ): CodeableConcept[] | undefined => {
-  const { patientDOB: dob, vitalsObservation, configOverride } = input;
+  const { patientDOB: dob, patientSex, vitalsObservation, configOverride } = input;
   const vitalsKey = vitalsObservation.field;
   const patientAgeInMonths = DateTime.fromISO(dob).diffNow('months').months * -1;
   const rulesOrComponents = findRulesForVitalsKeyAndDOB(vitalsKey as VitalFieldNames, dob, configOverride);
   // console.log('rules for', vitalsKey, rulesOrComponents.length);
   const { type } = rulesOrComponents;
+  console.log('vitals key:', vitalsKey, 'type:', type, patientSex);
   if (type === 'rules') {
     const { rules } = rulesOrComponents;
     const alertLevels = getAlertLevels({
       observation: vitalsObservation,
       rules,
       patientAgeInMonths,
+      patientSex,
     });
+    console.log('alert levels:', alertLevels);
     return getAlertLevelsFromInterpretations(alertLevels);
   }
   return undefined;
@@ -157,7 +163,7 @@ export const getVitalObservationFhirInterpretations = (
 export const getVitalObservationFhirComponentInterpretations = (
   input: CheckForAbnormalValueInput
 ): { [componentName: string]: CodeableConcept[] } | undefined => {
-  const { patientDOB: dob, vitalsObservation, configOverride } = input;
+  const { patientDOB: dob, patientSex, vitalsObservation, configOverride } = input;
   const vitalsKey = vitalsObservation.field;
   const patientAgeInMonths = DateTime.fromISO(dob).diffNow('months').months * -1;
   const rulesOrComponents = findRulesForVitalsKeyAndDOB(vitalsKey as VitalFieldNames, dob, configOverride);
@@ -171,6 +177,7 @@ export const getVitalObservationFhirComponentInterpretations = (
         rules: componentRules,
         patientAgeInMonths,
         componentName: name,
+        patientSex,
       });
       result[name] = getAlertLevelsFromInterpretations(alertLevels) ?? [];
     });
@@ -249,11 +256,12 @@ interface AlertableValuesInput {
   observation: VitalsObservationDTO;
   rules: AlertRule[];
   patientAgeInMonths: number;
+  patientSex: string | undefined; // for ageSexFunction rules, should always be available, so we require specifying undefined if not available, or explicitly irrelevant
   componentName?: string;
 }
 
 const getAlertLevels = (input: AlertableValuesInput): FHIRObservationInterpretation[] => {
-  const { observation, rules, patientAgeInMonths, componentName } = input;
+  const { observation, rules, patientAgeInMonths, patientSex, componentName } = input;
   let value: number | undefined = observation.value;
   if (observation.field === VitalFieldNames.VitalVision) {
     return [];
@@ -274,7 +282,7 @@ const getAlertLevels = (input: AlertableValuesInput): FHIRObservationInterpretat
   }
 
   return rules
-    .map((rule) => getAlertLevel({ rule, numericValue: value, patientAgeInMonths }))
+    .map((rule) => getAlertLevel({ rule, numericValue: value, patientAgeInMonths, patientSex }))
     .filter((level) => level !== FHIRObservationInterpretation.Normal);
 };
 
@@ -282,9 +290,10 @@ interface EvalRuleProps {
   numericValue: number;
   rule: AlertRule;
   patientAgeInMonths?: number;
+  patientSex?: string;
 }
 const getAlertLevel = (input: EvalRuleProps): FHIRObservationInterpretation => {
-  const { numericValue: value, rule, patientAgeInMonths } = input;
+  const { numericValue: value, rule, patientAgeInMonths, patientSex } = input;
   let thresholdValue: number | undefined;
 
   if ('value' in rule && typeof rule.value === 'number') {
@@ -295,6 +304,24 @@ const getAlertLevel = (input: EvalRuleProps): FHIRObservationInterpretation => {
       return FHIRObservationInterpretation.Normal;
     }
     thresholdValue = rule.ageFunction(patientAgeInMonths / 12.0);
+  } else if ('ageSexFunction' in rule && typeof rule.ageSexFunction === 'function') {
+    if (patientAgeInMonths === undefined) {
+      console.warn('Rule has an ageSexFunction but no patientAgeInMonths provided:', rule);
+      return FHIRObservationInterpretation.Normal;
+    }
+    if (patientSex === undefined) {
+      console.warn('Rule has an ageSexFunction but no patientSex provided:', rule);
+      return FHIRObservationInterpretation.Normal;
+    }
+    let patientSexValidated: 'male' | 'female' | undefined;
+    if (patientSex === 'male' || patientSex === 'female') {
+      patientSexValidated = patientSex;
+    }
+    if (!patientSexValidated) {
+      console.warn('Alert thresholds are not defined for patientSex:', patientSex);
+      return FHIRObservationInterpretation.Normal;
+    }
+    thresholdValue = rule.ageSexFunction(patientAgeInMonths, patientSexValidated);
   }
 
   if (thresholdValue === undefined) {

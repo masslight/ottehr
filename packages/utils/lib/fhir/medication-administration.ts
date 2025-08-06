@@ -6,6 +6,8 @@ import {
   DrugInteraction,
   ExtendedMedicationDataForResponse,
   INTERACTION_OVERRIDE_REASON_CODE_SYSTEM,
+  INTERACTIONS_UNAVAILABLE,
+  ISSUE_TYPE_CODE_SYSTEM,
   MEDICATION_ADMINISTRATION_OTHER_REASON_CODE,
   MEDICATION_ADMINISTRATION_REASON_CODE,
   MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM,
@@ -231,57 +233,69 @@ export const makeMedicationOrderUpdateRequestInput = ({
 export const getMedicationInteractions = (
   medicationRequest: MedicationRequest | undefined
 ): MedicationInteractions | undefined => {
-  const drugInteractions = medicationRequest?.contained
-    ?.filter((resource) => {
-      return (
-        resource.resourceType === 'DetectedIssue' && getCoding(resource.code, CODE_SYSTEM_ACT_CODE_V3)?.code === 'DRG'
-      );
-    })
-    ?.map<DrugInteraction>((resource) => {
-      const issue = resource as DetectedIssue;
-      const sourceReference = issue.evidence?.find((evidence) => evidence.detail != null)?.detail?.[0];
-      const sourceReferenceString = sourceReference?.reference;
-      const sourceDisplay = sourceReference?.display;
-      return {
-        drugs: (issue.evidence ?? []).flatMap((evidence) => {
-          const coding = getCoding(evidence.code, MEDICATION_DISPENSABLE_DRUG_ID);
-          const drugId = coding?.code;
-          const drugName = coding?.display;
-          if (drugId && drugName) {
-            return [
-              {
-                id: drugId,
-                name: drugName,
-              },
-            ];
-          }
-          return [];
-        }),
-        severity: issue.severity,
-        message: issue.detail,
-        overrideReason: getOverrideReason(issue),
-        source:
-          sourceReferenceString && sourceDisplay
-            ? {
-                reference: sourceReferenceString,
-                display: sourceDisplay,
-              }
-            : undefined,
-      };
-    });
-  const allergyInteractions = medicationRequest?.contained
-    ?.filter((resource) => {
-      return (
-        resource.resourceType === 'DetectedIssue' && getCoding(resource.code, CODE_SYSTEM_ACT_CODE_V3)?.code === 'ALGY'
-      );
-    })
-    ?.map<AllergyInteraction>((resource) => {
-      const issue = resource as DetectedIssue;
-      return {
-        message: issue.detail,
-        overrideReason: getOverrideReason(issue),
-      };
-    });
+  const drugInteractions =
+    medicationRequest?.contained
+      ?.filter((resource) => {
+        return (
+          resource.resourceType === 'DetectedIssue' && getCoding(resource.code, CODE_SYSTEM_ACT_CODE_V3)?.code === 'DRG'
+        );
+      })
+      ?.map<DrugInteraction>((resource) => {
+        const issue = resource as DetectedIssue;
+        const sourceReference = issue.evidence?.find((evidence) => evidence.detail != null)?.detail?.[0];
+        const sourceReferenceString = sourceReference?.reference;
+        const sourceDisplay = sourceReference?.display;
+        return {
+          drugs: (issue.evidence ?? []).flatMap((evidence) => {
+            const coding = getCoding(evidence.code, MEDICATION_DISPENSABLE_DRUG_ID);
+            const drugId = coding?.code;
+            const drugName = coding?.display;
+            if (drugId && drugName) {
+              return [
+                {
+                  id: drugId,
+                  name: drugName,
+                },
+              ];
+            }
+            return [];
+          }),
+          severity: issue.severity,
+          message: issue.detail,
+          overrideReason: getOverrideReason(issue),
+          source:
+            sourceReferenceString && sourceDisplay
+              ? {
+                  reference: sourceReferenceString,
+                  display: sourceDisplay,
+                }
+              : undefined,
+        };
+      }) ?? [];
+  const allergyInteractions =
+    medicationRequest?.contained
+      ?.filter((resource) => {
+        return (
+          resource.resourceType === 'DetectedIssue' &&
+          getCoding(resource.code, CODE_SYSTEM_ACT_CODE_V3)?.code === 'ALGY'
+        );
+      })
+      ?.map<AllergyInteraction>((resource) => {
+        const issue = resource as DetectedIssue;
+        return {
+          message: issue.detail,
+          overrideReason: getOverrideReason(issue),
+        };
+      }) ?? [];
+  const interationUnavailableIssue = medicationRequest?.contained?.find((resource) => {
+    return (
+      resource.resourceType === 'DetectedIssue' &&
+      getCoding(resource.code, ISSUE_TYPE_CODE_SYSTEM)?.code === INTERACTIONS_UNAVAILABLE
+    );
+  });
+  if (interationUnavailableIssue) {
+    return undefined;
+  }
   return {
     drugInteractions,
     allergyInteractions,

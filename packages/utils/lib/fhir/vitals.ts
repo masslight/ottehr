@@ -183,6 +183,7 @@ export const getBloodPressureObservationComponents = (
     ? getVitalObservationFhirComponentInterpretations({
         vitalsObservation: bloodPressureDTO,
         patientDOB,
+        patientSex: undefined,
       })
     : {};
 

@@ -67,7 +67,10 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<GetV
     const map = convertVitalsListToMap(list);
     return map;
   } else {
-    const list = await fetchVitalsPriorToEncounter(input.patientId, mode.searchBefore, oystehr);
+    const list = await fetchVitalsPriorToEncounter(
+      { patientId: input.patientId, searchBefore: mode.searchBefore, encounterId: encounter.id },
+      oystehr
+    );
     const map = convertVitalsListToMap(list);
     return map;
   }
@@ -95,7 +98,14 @@ const fetchVitalsForEncounter = async (encounterId: string, oystehr: Oystehr): P
   return parseResourcesToDTOs(observations, practitioners);
 };
 
-const fetchVitalsPriorToEncounter = async (patientId: string, searchBefore: string, oystehr: Oystehr): Promise<any> => {
+interface FetchHistoricalVitalsInput {
+  patientId: string;
+  searchBefore: string;
+  encounterId: string; // Optional, used to exclude current encounter observations
+}
+
+const fetchVitalsPriorToEncounter = async (input: FetchHistoricalVitalsInput, oystehr: Oystehr): Promise<any> => {
+  const { patientId, searchBefore, encounterId } = input;
   const currentVitalsAndPerformers = (
     await oystehr.fhir.search<Observation | Practitioner>({
       resourceType: 'Observation',
@@ -110,7 +120,16 @@ const fetchVitalsPriorToEncounter = async (patientId: string, searchBefore: stri
     })
   ).unbundle();
 
-  const observations = currentVitalsAndPerformers.filter((res) => res.resourceType === 'Observation') as Observation[];
+  // filter out observations that are part of the current encounter
+  // todo: :not modifier isn't supported by Oystehr fhir api currently, but have put in a request to add it
+  // once it is added, this can be removed and the filtering done in the query
+
+  const observations = currentVitalsAndPerformers.filter((res) => {
+    if (res.resourceType !== 'Observation') {
+      return false;
+    }
+    return res.encounter?.reference?.replace('Encounter/', '') !== encounterId;
+  }) as Observation[];
   const practitioners = currentVitalsAndPerformers.filter(
     (res) => res.resourceType === 'Practitioner'
   ) as Practitioner[];

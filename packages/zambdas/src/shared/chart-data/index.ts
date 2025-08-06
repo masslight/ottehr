@@ -249,7 +249,7 @@ export function makeMedicationDTO(medication: MedicationStatement): MedicationDT
     name: medication.medicationCodeableConcept?.coding?.[0].display || '',
     type: medication.dosage?.[0].asNeededBoolean ? 'as-needed' : 'scheduled',
     intakeInfo: {
-      dose: medication.dosage?.[0].text || '',
+      dose: getMedicationDosage(medication),
       date: medication.effectiveDateTime,
     },
     status: ['active', 'completed'].includes(medication.status)
@@ -302,13 +302,15 @@ export function makeProcedureResource(
   return result;
 }
 
+// todo: make this input a single interface type
 export function makeObservationResource(
   encounterId: string,
   patientId: string,
   practitionerId: string,
   data: ObservationDTO,
   metaSystem: string,
-  patientDOB?: string
+  patientDOB?: string,
+  patientSex?: string
 ): Observation {
   const base: Observation = {
     id: data.resourceId,
@@ -332,6 +334,7 @@ export function makeObservationResource(
       interpretation = getVitalObservationFhirInterpretations({
         patientDOB,
         vitalsObservation: data,
+        patientSex,
       });
     }
     return fillVitalObservationAttributes({ ...base, interpretation }, data, patientDOB);
@@ -1515,4 +1518,12 @@ function getCode(codeableConcept: CodeableConcept | CodeableConcept[] | undefine
 
 function getExtension(resource: DomainResource, url: string): Extension | undefined {
   return resource.extension?.find((extension) => extension.url === url);
+}
+
+function getMedicationDosage(medication: MedicationStatement): string | undefined {
+  const doseQuantity = medication.dosage?.[0].doseAndRate?.[0].doseQuantity;
+  if (!doseQuantity?.value || !doseQuantity?.unit) {
+    return undefined;
+  }
+  return `${doseQuantity.value}${doseQuantity.unit}`;
 }
