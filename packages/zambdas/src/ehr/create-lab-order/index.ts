@@ -151,6 +151,10 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
       performer: [
         {
           reference: `Organization/${labOrganization.id}`,
+          identifier: {
+            system: OYSTEHR_LAB_GUID_SYSTEM,
+            value: labOrganization.identifier?.find((id) => id.system === OYSTEHR_LAB_GUID_SYSTEM)?.value,
+          },
         },
       ],
       authoredOn: DateTime.now().toISO() || undefined,

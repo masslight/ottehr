@@ -20,12 +20,7 @@ import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { DateTime } from 'luxon';
 import { ReactElement, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  LabOrderListPageDTO,
-  LabOrdersSearchBy,
-  OrderableItemSearchResult,
-  PSC_LOCALE,
-} from 'utils/lib/types/data/labs';
+import { LabOrderListPageDTO, LabOrdersSearchBy, OrderableItemSearchResult } from 'utils/lib/types/data/labs';
 import { getExternalLabOrderEditUrl } from '../../../css-module/routing/helpers';
 import { LabsAutocompleteForPatient } from '../LabsAutocompleteForPatient';
 import { LabOrderLoading } from './LabOrderLoading';
@@ -36,12 +31,14 @@ export type LabsTableColumn =
   | 'testType'
   | 'visit'
   | 'orderAdded'
+  | 'ordered'
   | 'provider'
   | 'dx'
   | 'resultsReceived'
   | 'accessionNumber'
+  | 'requisitionNumber'
   | 'status'
-  | 'psc'
+  | 'detail'
   | 'actions';
 
 type LabsTableProps<SearchBy extends LabOrdersSearchBy> = {
@@ -133,18 +130,20 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
         return '10%';
       case 'provider':
         return '13%';
+      case 'ordered':
+        return '15%';
       case 'dx':
-        return '18%';
+        return '13%';
       case 'resultsReceived':
-        return '10%';
+        return '15%';
       case 'accessionNumber':
         return '10%';
       case 'status':
         return '5%';
-      case 'psc':
-        return '6%';
+      case 'detail':
+        return '2%';
       case 'actions':
-        return '5%';
+        return '1%';
       default:
         return '10%';
     }
@@ -160,16 +159,20 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
         return 'Order added';
       case 'provider':
         return 'Provider';
+      case 'ordered':
+        return 'Ordered';
       case 'dx':
         return 'Dx';
       case 'resultsReceived':
         return 'Results received';
       case 'accessionNumber':
         return 'Accession #';
+      case 'requisitionNumber':
+        return 'Requisition Number';
       case 'status':
         return 'Status';
-      case 'psc':
-        return PSC_LOCALE;
+      case 'detail':
+        return '';
       case 'actions':
         return '';
       default:

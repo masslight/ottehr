@@ -189,6 +189,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
     accessionNumbers: parseAccessionNumbers(serviceRequest, results),
     lastResultReceivedDate: parseLabOrderLastResultReceivedDate(serviceRequest, results, tasks, cache),
     orderAddedDate: parseLabOrderAddedDate(serviceRequest, tasks, results, cache),
+    orderSubmittedDate: parseLabOrderSubmittedDate(provenances),
     orderStatus: orderStatus,
     visitDate: parseVisitDate(appointment),
     isPSC: parseIsPSC(serviceRequest),
@@ -1469,6 +1470,19 @@ export const parseLabOrderAddedDate = (
     });
 
   return taskPST?.authoredOn || '';
+};
+
+const parseLabOrderSubmittedDate = (provenances: Provenance[]): string | undefined => {
+  const submittedProvenance = provenances.find(
+    (prov) =>
+      prov.activity?.coding?.find(
+        (c) =>
+          c.system === PROVENANCE_ACTIVITY_CODING_ENTITY.submit.system &&
+          c.code === PROVENANCE_ACTIVITY_CODING_ENTITY.submit.code
+      )
+  );
+  console.log('submittedProvenance', submittedProvenance);
+  return submittedProvenance?.recorded;
 };
 
 export const parseLabOrderLastResultReceivedDate = (

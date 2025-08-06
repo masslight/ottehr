@@ -114,6 +114,7 @@ export type LabOrderListPageDTO = {
   testItem: string; // ServiceRequest.contained[0](ActivityDefinition).title
   fillerLab: string; // ServiceRequest.contained[0](ActivityDefinition).publisher
   orderAddedDate: string; // Task PST authoredOn
+  orderSubmittedDate: string | undefined; // Prov.recorded where activity.coding === PROVENANCE_ACTIVITY_CODING_ENTITY.submit
   orderingPhysician: string; // SR.requester name
   diagnosesDTO: DiagnosisDTO[]; // SR.reasonCode
   diagnoses: string; // SR.reasonCode joins
