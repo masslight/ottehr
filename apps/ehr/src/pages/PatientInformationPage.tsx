@@ -1,4 +1,5 @@
 import { Box, Typography, useTheme } from '@mui/material';
+import { useQueryClient } from '@tanstack/react-query';
 import { BundleEntry, Organization, Patient, Questionnaire, QuestionnaireResponseItem } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useEffect, useMemo, useState } from 'react';
@@ -268,8 +269,8 @@ const useMutations = (): {
   const queryClient = useQueryClient();
 
   const submitQR = useUpdatePatientAccount(async () => {
-    await queryClient.invalidateQueries('patient-account-get');
-    await queryClient.invalidateQueries('patient-coverages');
+    await queryClient.invalidateQueries({ queryKey: ['patient-account-get'] });
+    await queryClient.invalidateQueries({ queryKey: ['patient-coverages'] });
   });
 
   const removeCoverage = useRemovePatientCoverage();
@@ -311,6 +312,8 @@ const PatientInformationPage: FC = () => {
   const [openAddInsuranceModal, setOpenAddInsuranceModal] = useState(false);
 
   useGetInsurancePlans((data) => {
+    if (!data) return;
+
     const bundleEntries = data.entry;
     if (bundleEntries) {
       const uniquePlans = transformInsurancePlans(bundleEntries);

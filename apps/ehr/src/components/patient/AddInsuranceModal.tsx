@@ -70,7 +70,13 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
 
   const { insurancePlans } = usePatientStore();
   const queryClient = useQueryClient();
-  const submitQR = useUpdatePatientAccount(() => {
+  const {
+    mutate,
+    isPending: isLoading,
+    isIdle,
+    reset,
+    isSuccess,
+  } = useUpdatePatientAccount(() => {
     void queryClient.invalidateQueries({ queryKey: [['patient-coverages']] });
   });
 
@@ -78,7 +84,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
     // send the data to a zambda
 
     const questionnaireResponse = structureQuestionnaireResponse(questionnaire, data, patientId);
-    submitQR.mutate(questionnaireResponse);
+    mutate(questionnaireResponse);
   };
 
   useEffect(() => {
@@ -94,12 +100,12 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
   }, [priorityOptions, methods]);
 
   useEffect(() => {
-    if (!open && !submitQR.isIdle) {
-      submitQR.reset();
-    } else if (open && submitQR.isSuccess) {
+    if (!open && !isIdle) {
+      reset();
+    } else if (open && isSuccess) {
       onClose();
     }
-  }, [open, submitQR, onClose]);
+  }, [open, onClose, isIdle, isSuccess, reset]);
 
   return (
     <Dialog
@@ -426,7 +432,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
             fontWeight: 'bold',
           }}
           onClick={handleSubmit(onSubmit)}
-          loading={submitQR.isLoading}
+          loading={isLoading}
         >
           Add Insurance
         </RoundedButton>
