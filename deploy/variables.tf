@@ -33,3 +33,9 @@ variable "zambdas_dir_path" {
   type        = string
   default     = "../packages/zambdas"
 }
+
+variable "utils_dir_path" {
+  description = "Path to the directory containing Ottehr utils"
+  type        = string
+  default     = "../packages/utils"
+}
