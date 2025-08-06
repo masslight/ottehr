@@ -689,6 +689,7 @@ export const deleteLabOrder = async (
   }
 };
 
+// todo SARAH add return type
 export const updateLabOrderResources = async (
   oystehr: Oystehr,
   parameters: UpdateLabOrderResourcesParameters

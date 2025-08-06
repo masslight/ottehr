@@ -12,17 +12,23 @@ import {
   Organization,
   Patient,
   Practitioner,
+  Questionnaire,
   QuestionnaireResponse,
+  QuestionnaireResponseItem,
+  QuestionnaireResponseItemAnswer,
   Schedule,
   ServiceRequest,
   Specimen,
   Task,
 } from 'fhir/r4b';
 import {
+  DynamicAOEInput,
   EncounterExternalLabResult,
   EncounterInHouseLabResult,
+  externalLabOrderIsManual,
   ExternalLabOrderResult,
   ExternalLabOrderResultConfig,
+  getOrderNumber,
   getPresignedURL,
   getTimezone,
   IN_HOUSE_DIAGNOSTIC_REPORT_CATEGORY_CONFIG,
@@ -30,15 +36,14 @@ import {
   InHouseLabResult,
   LAB_DR_TYPE_TAG,
   LAB_ORDER_DOC_REF_CODING_CODE,
+  LAB_ORDER_TASK,
   LAB_RESULT_DOC_REF_CODING_CODE,
   LabOrderPDF,
   LabResultPDF,
   LabType,
   nameLabTest,
-  OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
-  OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
 } from 'utils';
 
 export type LabOrderResources = {
@@ -46,7 +51,7 @@ export type LabOrderResources = {
   patient: Patient;
   questionnaireResponse?: QuestionnaireResponse;
   practitioner: Practitioner;
-  task: Task;
+  preSubmissionTask: Task;
   organization: Organization | undefined;
   diagnosticReports: DiagnosticReport[];
   schedule?: Schedule;
@@ -227,12 +232,20 @@ export async function getExternalLabOrderResources(
   const encounter = encountersTemp?.[0];
   const observations = observationsTemp;
 
+  const taskIsPst = !!task.code?.coding?.find(
+    (c) => c.system === LAB_ORDER_TASK.system && c.code === LAB_ORDER_TASK.code.preSubmission
+  );
+
+  if (!taskIsPst) {
+    throw new Error(`task returned is not coded as pre-submission: ${task.id}`);
+  }
+
   return {
     serviceRequest: serviceRequest,
     patient,
     practitioner,
     questionnaireResponse: questionnaireResponse,
-    task,
+    preSubmissionTask: task,
     organization,
     diagnosticReports,
     schedule,
@@ -302,7 +315,7 @@ export const makeEncounterLabResults = async (
         };
         if (resource.status === 'active') {
           if (isExternalLabServiceRequest) {
-            const isManual = resource.identifier?.some((id) => id.system === OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM);
+            const isManual = externalLabOrderIsManual(resource);
             // theres no guarantee that will we get electronic results back for manual labs so we can't validate
             if (!isManual) activeExternalLabServiceRequests.push(resource);
           }
@@ -346,9 +359,7 @@ export const makeEncounterLabResults = async (
           const isReflex = relatedDR?.meta?.tag?.find(
             (t) => t.system === LAB_DR_TYPE_TAG.system && t.display === LAB_DR_TYPE_TAG.display.reflex
           );
-          const orderNumber = sr.identifier?.find(
-            (id) => id.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM || id.system === OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM
-          )?.value;
+          const orderNumber = getOrderNumber(sr);
           const activityDef = sr.contained?.find(
             (resource) => resource.resourceType === 'ActivityDefinition'
           ) as ActivityDefinition;
@@ -590,4 +601,116 @@ export const parseTimezoneForAppointmentSchedule = (
     timezone = getTimezone(schedule);
   }
   return timezone;
+};
+
+export interface AOEDisplayForOrderForm {
+  question: string;
+  answer: any[];
+}
+export const populateQuestionnaireResponseItems = async (
+  questionnaireResponse: QuestionnaireResponse,
+  data: DynamicAOEInput,
+  m2mToken: string
+): Promise<{
+  questionnaireResponseItems: QuestionnaireResponseItem[];
+  questionsAndAnswersForFormDisplay: AOEDisplayForOrderForm[];
+}> => {
+  const questionnaireUrl = questionnaireResponse.questionnaire;
+
+  if (!questionnaireUrl) {
+    throw new Error('questionnaire is not found');
+  }
+
+  console.log(questionnaireUrl);
+
+  const questionnaireRequest = await fetch(questionnaireUrl, {
+    headers: {
+      Authorization: `Bearer ${m2mToken}`,
+    },
+  });
+
+  const questionnaire: Questionnaire = await questionnaireRequest.json();
+
+  if (!questionnaire.item) {
+    throw new Error('questionnaire item is not found');
+  }
+
+  const questionsAndAnswersForFormDisplay: AOEDisplayForOrderForm[] = [];
+
+  const questionnaireResponseItems: QuestionnaireResponseItem[] = Object.keys(data).map((questionResponse) => {
+    const question = questionnaire.item?.find((item) => item.linkId === questionResponse);
+    if (!question) {
+      throw new Error('question is not found');
+    }
+
+    let answer: QuestionnaireResponseItemAnswer[] | undefined = undefined;
+    let answerForDisplay = data[questionResponse] !== undefined ? data[questionResponse] : 'UNKNOWN';
+
+    const multiSelect = question.extension?.find(
+      (currentExtension) =>
+        currentExtension.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/data-type' &&
+        currentExtension.valueString === 'multi-select list'
+    );
+    if (question.type === 'text' || (question.type === 'choice' && !multiSelect)) {
+      answer = [
+        {
+          valueString: data[questionResponse],
+        },
+      ];
+    }
+    if (multiSelect) {
+      answer = data[questionResponse].map((item: string) => ({ valueString: item }));
+      answerForDisplay = data[questionResponse].join(', ');
+    }
+
+    if (question.type === 'boolean') {
+      answer = [
+        {
+          valueBoolean: data[questionResponse],
+        },
+      ];
+      answerForDisplay = answerForDisplay === true ? 'Yes' : answerForDisplay === false ? 'No' : answerForDisplay;
+    }
+
+    if (question.type === 'date') {
+      answer = [
+        {
+          valueDate: data[questionResponse],
+        },
+      ];
+    }
+
+    if (question.type === 'decimal') {
+      answer = [
+        {
+          valueDecimal: data[questionResponse],
+        },
+      ];
+    }
+
+    if (question.type === 'integer') {
+      answer = [
+        {
+          valueInteger: data[questionResponse],
+        },
+      ];
+    }
+
+    if (answer == undefined) {
+      throw new Error('answer is undefined');
+    }
+
+    if (answerForDisplay !== undefined && answerForDisplay !== '')
+      questionsAndAnswersForFormDisplay.push({
+        question: question.text || 'UNKNOWN',
+        answer: answerForDisplay,
+      });
+
+    return {
+      linkId: questionResponse,
+      answer: answer,
+    };
+  });
+
+  return { questionnaireResponseItems, questionsAndAnswersForFormDisplay };
 };

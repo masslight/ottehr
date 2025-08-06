@@ -63,6 +63,7 @@ export interface OrderableItemLab {
 
 export enum ExternalLabsStatus {
   pending = 'pending',
+  ready = 'ready',
   sent = 'sent',
   prelim = 'prelim', // todo: this is not a status, need to refactor
   received = 'received',
@@ -124,6 +125,7 @@ export type LabOrderListPageDTO = {
   lastResultReceivedDate: string; // the most recent Task RFRT.authoredOn
   accessionNumbers: string[]; // DiagnosticReport.identifier (identifier assigned to a sample when it arrives at a laboratory)
   encounterTimezone: string | undefined; // used to format dates correctly on the front end
+  orderNumber: string | undefined; // ServiceRequest.identifier.value (system === OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM || OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)
 };
 
 export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {
@@ -220,6 +222,7 @@ export type PatientLabItem = {
 export const LAB_ORDER_UPDATE_RESOURCES_EVENTS = {
   reviewed: 'reviewed',
   specimenDateChanged: 'specimenDateChanged',
+  saveOrderCollectionData: 'saveOrderCollectionData',
 } as const;
 
 export type TaskReviewedParameters = {
@@ -234,9 +237,22 @@ export type SpecimenDateChangedParameters = {
   date: string;
 };
 
+export type SpecimenCollectionDateConfig = {
+  [specimenId: string]: {
+    date: string;
+  };
+};
+
+export type SaveOrderCollectionData = {
+  serviceRequestId: string;
+  data: DynamicAOEInput;
+  specimenCollectionDates?: SpecimenCollectionDateConfig;
+};
+
 export type UpdateLabOrderResourcesParameters =
   | (TaskReviewedParameters & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.reviewed })
-  | (SpecimenDateChangedParameters & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.specimenDateChanged });
+  | (SpecimenDateChangedParameters & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.specimenDateChanged })
+  | (SaveOrderCollectionData & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.saveOrderCollectionData });
 
 export type DeleteLabOrderZambdaInput = {
   serviceRequestId: string;

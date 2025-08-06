@@ -89,7 +89,16 @@ export const DYMO_30334_LABEL_CONFIG: LabelConfig = {
   printerDPI: DYMO_550_TURBO_DPI,
 };
 
-// for manual orders
+// to identify manual orders (orders we could not submit electronically for some reason)
+// mapped to SR.category.coding.system
+export const MANUAL_EXTERNAL_LAB_ORDER_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/manual-lab-order';
+export const MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING = {
+  system: MANUAL_EXTERNAL_LAB_ORDER_SYSTEM,
+  code: 'manual-lab-order',
+  display: 'manual-lab-order',
+};
+
+// ottehr equivalent of OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM
 export const OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM = 'https://identifiers.ottehr.com/lab-order-placer-id';
 
 // These are oystehr dependent
@@ -128,15 +137,15 @@ export const PROVENANCE_ACTIVITY_CODES = {
   submit: 'SUBMIT',
   createOrder: 'CREATE ORDER',
   inputResults: 'INPUT RESULTS',
-  collectSpecimen: 'COLLECT SPECIMEN',
+  fulFillPstTask: 'FULFILL PST TASK',
 } as const;
 
 export const PROVENANCE_ACTIVITY_DISPLAY = {
   review: 'review',
   submit: 'submit',
   createOrder: 'create order',
-  collectSpecimen: 'collect sample',
   inputResults: 'input results',
+  fulFillPstTask: 'fulfill pst task',
 } as const;
 
 export const PROVENANCE_ACTIVITY_CODING_ENTITY = {
@@ -160,9 +169,10 @@ export const PROVENANCE_ACTIVITY_CODING_ENTITY = {
     display: PROVENANCE_ACTIVITY_CODES.inputResults,
     system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
   },
-  collectSpecimen: {
-    code: PROVENANCE_ACTIVITY_CODES.collectSpecimen,
-    display: PROVENANCE_ACTIVITY_DISPLAY.collectSpecimen,
+  // specimen collection & aoe entry if applicable
+  fulFillPstTasks: {
+    code: PROVENANCE_ACTIVITY_CODES.fulFillPstTask,
+    display: PROVENANCE_ACTIVITY_DISPLAY.fulFillPstTask,
     system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
   },
 } as const;

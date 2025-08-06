@@ -29,10 +29,12 @@ import {
   DEFAULT_LABS_ITEMS_PER_PAGE,
   DiagnosisDTO,
   EMPTY_PAGINATION,
+  externalLabOrderIsManual,
   ExternalLabsStatus,
+  getAccountNumberFromOrganization,
   getFullestAvailableName,
+  getOrderNumber,
   isPositiveNumberOrZero,
-  LAB_ACCOUNT_NUMBER_SYSTEM,
   LAB_ORDER_TASK,
   LabOrderDetailedPageDTO,
   LabOrderDTO,
@@ -42,7 +44,6 @@ import {
   LabOrderResultDetails,
   LabOrdersSearchBy,
   LabResultPDF,
-  OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   Pagination,
   PatientLabItem,
@@ -191,6 +192,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
     orderingPhysician: parsePractitionerNameFromServiceRequest(serviceRequest, practitioners),
     diagnoses: parseDx(serviceRequest),
     encounterTimezone: parseTimezoneForAppointmentSchedule(appointment, appointmentScheduleMap),
+    orderNumber: getOrderNumber(serviceRequest),
   };
 
   if (searchBy.searchBy.field === 'serviceRequestId') {
@@ -1085,6 +1087,10 @@ export const parseLabOrderStatus = (
     return ExternalLabsStatus.pending;
   }
 
+  if (hasCompletedPSTTask && serviceRequest.status === 'draft') {
+    return ExternalLabsStatus.ready;
+  }
+
   // 'sent': If Task(PST).status == completed, SR.status == active, and there is no DR for the ordered test code
   const sentStatusConditions = {
     hasCompletedPSTTask,
@@ -1094,7 +1100,7 @@ export const parseLabOrderStatus = (
   };
 
   if (hasAllConditions(sentStatusConditions)) {
-    const manualOrder = serviceRequest.identifier?.some((id) => id.system === OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM);
+    const manualOrder = externalLabOrderIsManual(serviceRequest);
     if (manualOrder) {
       return ExternalLabsStatus['sent manually'];
     } else {
@@ -1597,10 +1603,7 @@ export const parseAccountNumber = (serviceRequest: ServiceRequest, organizations
       const matchingOrg = organizations.find((org) => org.id === organizationId);
 
       if (matchingOrg) {
-        const accountNumber = matchingOrg.identifier?.find(
-          (identifier) => identifier.system === LAB_ACCOUNT_NUMBER_SYSTEM
-        )?.value;
-
+        const accountNumber = getAccountNumberFromOrganization(matchingOrg);
         return accountNumber || NOT_FOUND;
       }
     }
