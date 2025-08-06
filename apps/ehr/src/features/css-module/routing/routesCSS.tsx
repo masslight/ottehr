@@ -73,7 +73,7 @@ export enum ROUTER_PATH {
   NURSING_ORDER_CREATE = 'nursing-orders/create',
   NURSING_ORDER_DETAILS = 'nursing-orders/:serviceRequestID/order-details',
 
-  IMMUNIZATION = 'immunization',
+  IMMUNIZATION = 'immunization/:tabName',
   IMMUNIZATION_NEW_ORDER = 'immunization/create',
 }
 
@@ -177,6 +177,8 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
   },
   [ROUTER_PATH.IMMUNIZATION]: {
     path: ROUTER_PATH.IMMUNIZATION,
+    sidebarPath: 'immunization/mar',
+    activeCheckPath: 'immunization',
     modes: ['provider'],
     element: <Immunization />,
     text: 'Immunization',

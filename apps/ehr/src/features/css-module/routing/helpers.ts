@@ -57,3 +57,11 @@ export const getNursingOrderCreateUrl = (appointmentId: string): string => {
 export const getNursingOrderDetailsUrl = (appointmentId: string, serviceRequestId: string): string => {
   return `/in-person/${appointmentId}/nursing-orders/${serviceRequestId}/order-details`;
 };
+
+export const getImmunizationMARUrl = (appointmentId: string): string => {
+  return `/in-person/${appointmentId}/immunization/mar`;
+};
+
+export const getImmunizationVaccineDetailsUrl = (appointmentId: string): string => {
+  return `/in-person/${appointmentId}/immunization/vaccine-details`;
+};

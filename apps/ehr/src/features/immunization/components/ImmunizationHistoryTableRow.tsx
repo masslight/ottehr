@@ -44,7 +44,7 @@ export const ImmunizationHistoryTableRow: React.FC<Props> = ({ historyEntry }) =
       <TableCell>Ordered</TableCell>
       <TableCell>Given</TableCell>
       <TableCell>
-        <Stack direction="row">
+        <Stack direction="row" justifyContent="space-between">
           {historyEntry.status}
           <Stack direction="row" onClick={(e) => e.stopPropagation()}>
             <IconButton size="small" aria-label="edit" onClick={navigateToEditOrder}>
