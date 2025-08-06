@@ -8,9 +8,10 @@ import { CustomDialog } from 'src/components/dialogs';
 
 interface Props {
   historyEntry: any;
+  showActions: boolean;
 }
 
-export const ImmunizationHistoryTableRow: React.FC<Props> = ({ historyEntry }) => {
+export const ImmunizationHistoryTableRow: React.FC<Props> = ({ historyEntry, showActions }) => {
   const theme = useTheme();
   const navigate = useNavigate();
   const { id: appointmentId } = useParams();
@@ -46,25 +47,27 @@ export const ImmunizationHistoryTableRow: React.FC<Props> = ({ historyEntry }) =
       <TableCell>
         <Stack direction="row" justifyContent="space-between">
           {historyEntry.status}
-          <Stack direction="row" onClick={(e) => e.stopPropagation()}>
-            <IconButton size="small" aria-label="edit" onClick={navigateToEditOrder}>
-              <EditIcon sx={{ color: theme.palette.primary.dark }} />
-            </IconButton>
-            <IconButton size="small" aria-label="delete" onClick={() => setIsDeleteDialogOpened(true)}>
-              <DeleteIcon sx={{ color: theme.palette.warning.dark }} />
-            </IconButton>
-            <CustomDialog
-              open={isDeleteDialogOpened}
-              handleClose={() => setIsDeleteDialogOpened(false)}
-              title="Delete vaccine order"
-              description={`Are you sure you want to delete the vacine order?`}
-              closeButtonText="Cancel"
-              closeButton={false}
-              handleConfirm={handleConfirmDelete}
-              confirmText={isDeleting ? 'Deleting...' : 'Delete'}
-              confirmLoading={isDeleting}
-            />
-          </Stack>
+          {showActions ? (
+            <Stack direction="row" onClick={(e) => e.stopPropagation()}>
+              <IconButton size="small" aria-label="edit" onClick={navigateToEditOrder}>
+                <EditIcon sx={{ color: theme.palette.primary.dark }} />
+              </IconButton>
+              <IconButton size="small" aria-label="delete" onClick={() => setIsDeleteDialogOpened(true)}>
+                <DeleteIcon sx={{ color: theme.palette.warning.dark }} />
+              </IconButton>
+              <CustomDialog
+                open={isDeleteDialogOpened}
+                handleClose={() => setIsDeleteDialogOpened(false)}
+                title="Delete vaccine order"
+                description={`Are you sure you want to delete the vacine order?`}
+                closeButtonText="Cancel"
+                closeButton={false}
+                handleConfirm={handleConfirmDelete}
+                confirmText={isDeleting ? 'Deleting...' : 'Delete'}
+                confirmLoading={isDeleting}
+              />
+            </Stack>
+          ) : null}
         </Stack>
       </TableCell>
     </TableRow>

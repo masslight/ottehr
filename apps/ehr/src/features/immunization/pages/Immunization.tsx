@@ -51,7 +51,7 @@ export const Immunization: React.FC = () => {
   }, [appointmentId, navigate, tabName]);
 
   useEffect(() => {
-    setContent({ mar: <ImmunizationHistoryTable />, details: <></> });
+    setContent({ mar: <ImmunizationHistoryTable showActions={true} />, details: <></> });
   }, []);
 
   if (!content) {

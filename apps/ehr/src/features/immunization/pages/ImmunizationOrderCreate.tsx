@@ -1,13 +1,16 @@
 import { Grid, Paper, Stack } from '@mui/material';
-import React from 'react';
+import React, { useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
 import { WarningBlock } from 'src/features/css-module/components/WarningBlock';
+import { AccordionCard } from 'src/telemed';
 import { PageHeader } from '../../css-module/components/medication-administration/PageHeader';
+import { ImmunizationHistoryTable } from '../components/ImmunizationHistoryTable';
 import { VaccineOrderDetailsSection } from '../components/VaccineOrderDetailsSection';
 
 export const ImmunizationOrderCreate: React.FC = () => {
   const methods = useForm();
+  const [isImmunizationHistoryCollapsed, setIsImmunizationHistoryCollapsed] = useState(false);
 
   const onSubmit = (data: any): void => {
     console.log(data);
@@ -41,6 +44,14 @@ export const ImmunizationOrderCreate: React.FC = () => {
               </Grid>
             </Grid>
           </Paper>
+          <AccordionCard
+            label="Pre-visit immunization history"
+            collapsed={isImmunizationHistoryCollapsed}
+            onSwitch={() => setIsImmunizationHistoryCollapsed((prev) => !prev)}
+            withBorder={false}
+          >
+            <ImmunizationHistoryTable showActions={false} />
+          </AccordionCard>
         </Stack>
       </form>
     </FormProvider>

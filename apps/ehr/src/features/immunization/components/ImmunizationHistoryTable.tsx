@@ -16,7 +16,11 @@ import { COLLAPSED_MEDS_COUNT, useMedicationHistory } from 'src/features/css-mod
 import { ImmunizationHistoryTableRow } from './ImmunizationHistoryTableRow';
 import { ImmunizationHistoryTableSkeletonBody } from './ImmunizationHistoryTableSkeletonBody';
 
-export const ImmunizationHistoryTable: React.FC = () => {
+interface Props {
+  showActions: boolean;
+}
+
+export const ImmunizationHistoryTable: React.FC<Props> = ({ showActions }) => {
   const [seeMoreOpen, setSeeMoreOpen] = useState(false);
 
   const { isLoading, medicationHistory } = useMedicationHistory();
@@ -54,7 +58,7 @@ export const ImmunizationHistoryTable: React.FC = () => {
         ) : (
           <TableBody>
             {shownMeds.map((med) => (
-              <ImmunizationHistoryTableRow historyEntry={med} />
+              <ImmunizationHistoryTableRow historyEntry={med} showActions={showActions} />
             ))}
             {medicationHistory.length > COLLAPSED_MEDS_COUNT && (
               <Button onClick={toggleShowMore} startIcon={seeMoreOpen ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />}>
