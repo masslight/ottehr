@@ -394,7 +394,7 @@ const handleSaveCollectionData = async (
 
   let presignedLabelURL: string | undefined = undefined;
   // update pst task to complete, add agent and relevant history (provenance created)
-  // and create provenance with activity PROVENANCE_ACTIVITY_CODING_ENTITY.fulFillPstTasks
+  // and create provenance with activity PROVENANCE_ACTIVITY_CODING_ENTITY.completePstTask
   const pstCompletedRequests = makePstCompletePatchRequests(
     pstTask,
     serviceRequest,

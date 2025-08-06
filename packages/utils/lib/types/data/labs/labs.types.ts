@@ -76,7 +76,7 @@ export enum ExternalLabsStatus {
 }
 
 export type LabOrderUnreceivedHistoryRow = {
-  action: 'created' | 'ordered' | 'performed' | 'cancelled by lab';
+  action: 'created' | 'performed' | 'ready' | 'ordered' | 'cancelled by lab';
   performer: string;
   date: string;
 };
@@ -134,6 +134,7 @@ export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {
   resultsDetails: LabOrderResultDetails[];
   questionnaire: QuestionnaireData[];
   samples: sampleDTO[];
+  labelPdfUrl?: string; // will exist after test is marked ready
   orderPdfUrl?: string; // will exist after order is submitted
 };
 

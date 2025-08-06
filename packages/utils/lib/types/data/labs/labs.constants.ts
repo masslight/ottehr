@@ -137,7 +137,7 @@ export const PROVENANCE_ACTIVITY_CODES = {
   submit: 'SUBMIT',
   createOrder: 'CREATE ORDER',
   inputResults: 'INPUT RESULTS',
-  fulFillPstTask: 'FULFILL PST TASK',
+  completePstTask: 'COMPLETE PST TASK',
 } as const;
 
 export const PROVENANCE_ACTIVITY_DISPLAY = {
@@ -145,7 +145,7 @@ export const PROVENANCE_ACTIVITY_DISPLAY = {
   submit: 'submit',
   createOrder: 'create order',
   inputResults: 'input results',
-  fulFillPstTask: 'fulfill pst task',
+  completePstTask: 'complete pst task',
 } as const;
 
 export const PROVENANCE_ACTIVITY_CODING_ENTITY = {
@@ -170,9 +170,9 @@ export const PROVENANCE_ACTIVITY_CODING_ENTITY = {
     system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
   },
   // specimen collection & aoe entry if applicable
-  fulFillPstTasks: {
-    code: PROVENANCE_ACTIVITY_CODES.fulFillPstTask,
-    display: PROVENANCE_ACTIVITY_DISPLAY.fulFillPstTask,
+  completePstTask: {
+    code: PROVENANCE_ACTIVITY_CODES.completePstTask,
+    display: PROVENANCE_ACTIVITY_DISPLAY.completePstTask,
     system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
   },
 } as const;

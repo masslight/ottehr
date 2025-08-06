@@ -25,6 +25,7 @@ import {
   DynamicAOEInput,
   EncounterExternalLabResult,
   EncounterInHouseLabResult,
+  EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE,
   externalLabOrderIsManual,
   ExternalLabOrderResult,
   ExternalLabOrderResultConfig,
@@ -38,6 +39,7 @@ import {
   LAB_ORDER_DOC_REF_CODING_CODE,
   LAB_ORDER_TASK,
   LAB_RESULT_DOC_REF_CODING_CODE,
+  LabelPdf,
   LabOrderPDF,
   LabResultPDF,
   LabType,
@@ -507,7 +509,11 @@ const getDocRefRelatedId = (
   return reference?.split('/')[1];
 };
 
-type FetchLabOrderPDFRes = { resultPDFs: LabResultPDF[]; orderPDF: LabOrderPDF | undefined };
+type FetchLabOrderPDFRes = {
+  resultPDFs: LabResultPDF[];
+  labelPDF: LabelPdf | undefined;
+  orderPDF: LabOrderPDF | undefined;
+};
 export const fetchLabOrderPDFsPresignedUrls = async (
   documentReferences: DocumentReference[],
   m2mToken: string
@@ -515,13 +521,18 @@ export const fetchLabOrderPDFsPresignedUrls = async (
   if (!documentReferences.length) {
     return;
   }
-  const pdfPromises: Promise<LabResultPDF | LabOrderPDF | null>[] = [];
+  const pdfPromises: Promise<LabResultPDF | LabelPdf | LabOrderPDF | null>[] = [];
 
   for (const docRef of documentReferences) {
     const diagnosticReportId = getDocRefRelatedId(docRef, 'DiagnosticReport');
     const serviceRequestId = getDocRefRelatedId(docRef, 'ServiceRequest');
     const isLabOrderDoc = docRef.type?.coding?.find(
       (code) => code.system === LAB_ORDER_DOC_REF_CODING_CODE.system && code.code === LAB_ORDER_DOC_REF_CODING_CODE.code
+    );
+    const isLabelDoc = docRef.type?.coding?.find(
+      (code) =>
+        code.system === EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE.system &&
+        code.code === EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE.code
     );
     const docRefId = docRef.id;
 
@@ -535,6 +546,8 @@ export const fetchLabOrderPDFsPresignedUrls = async (
                 return { presignedURL, diagnosticReportId } as LabResultPDF;
               } else if (serviceRequestId && isLabOrderDoc) {
                 return { presignedURL, serviceRequestId, docRefId } as LabOrderPDF;
+              } else if (serviceRequestId && isLabelDoc) {
+                return { presignedURL, documentReference: docRef } as LabelPdf;
               }
               return null;
             })
@@ -549,9 +562,9 @@ export const fetchLabOrderPDFsPresignedUrls = async (
 
   const pdfs = await Promise.allSettled(pdfPromises);
 
-  const { resultPDFs, orderPDF } = pdfs
+  const { resultPDFs, labelPDF, orderPDF } = pdfs
     .filter(
-      (result): result is PromiseFulfilledResult<LabResultPDF | LabOrderPDF> =>
+      (result): result is PromiseFulfilledResult<LabResultPDF | LabelPdf | LabOrderPDF> =>
         result.status === 'fulfilled' && result.value !== null
     )
     .reduce(
@@ -560,13 +573,15 @@ export const fetchLabOrderPDFsPresignedUrls = async (
           acc.resultPDFs.push(result.value);
         } else if ('serviceRequestId' in result.value) {
           acc.orderPDF = result.value;
+        } else if ('documentReference' in result.value) {
+          acc.labelPDF = result.value;
         }
         return acc;
       },
-      { resultPDFs: [], orderPDF: undefined }
+      { resultPDFs: [], labelPDF: undefined, orderPDF: undefined }
     );
 
-  return { resultPDFs, orderPDF };
+  return { resultPDFs, labelPDF, orderPDF };
 };
 
 export const parseAppointmentIdForServiceRequest = (

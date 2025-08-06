@@ -127,10 +127,10 @@ export const makePstCompletePatchRequests = (
       },
     ],
     recorded: now.toISO(),
-    location: pstTask.location, // todo i dont know if we really need this
+    location: pstTask.location,
     agent: [{ who: curUserReference }],
     activity: {
-      coding: [PROVENANCE_ACTIVITY_CODING_ENTITY.fulFillPstTasks],
+      coding: [PROVENANCE_ACTIVITY_CODING_ENTITY.completePstTask],
     },
   };
 
