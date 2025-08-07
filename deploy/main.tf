@@ -21,21 +21,9 @@ provider "sendgrid" {
   api_key = jsondecode(file(var.extra_vars_file_path)).SENDGRID_API_KEY
 }
 
-resource "sendgrid_template" "test_template" {
-  name = "my test template"
-  generation = "dynamic"
-}
-resource "sendgrid_template_version" "test_template_version" {
-  template_id  = sendgrid_template.test_template.id
-  active       = 1
-  html_content = "<h1>Hello Sendgrid with Terraform!</h1>"
-  subject      = "{{subject}}"
-  name         = "TestTemplateVersion"
-}
-
 module "sendgrid" {
   source = "./sendgrid"
-  extra_vars_file_path = jsondecode(file(var.extra_vars_file_path))
+  templates_file = file(var.sendgrid_templates_file_path)
   providers = {
     sendgrid = sendgrid
   }

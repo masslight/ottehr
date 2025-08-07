@@ -16,7 +16,8 @@
     "lint:fix": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts,.tsx,.js,.jsx --report-unused-disable-directives --max-warnings 0 --fix .",
     "preview": "vite preview",
     "test": "vitest --silent",
-    "coverage": "vitest run --coverage"
+    "coverage": "vitest run --coverage",
+    "write-infra-spec": "tsx scripts/write-IaC-spec.ts"
   },
   "dependencies": {
     "lodash-es": "^4.17.21"

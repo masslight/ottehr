@@ -5,24 +5,41 @@ import { CONFIG } from '../../../.ottehr_config';
 const overrides: any = CONFIG.branding || {};
 const BRANDING_DEFAULTS: any = {
   projectName: 'Ottehr',
-  pallette: {
+  email: {
+    logoURL: '',
+    supportPhoneNumber: '(629)&nbsp;219&#8209;2767',
+    palette: {
+      deemphasizedText: '#00000061',
+      headerText: '#0F347C',
+      bodyText: '#000000DE',
+      footerText: '#212130',
+      buttonColor: '#295F75',
+    },
+  },
+  /*
+  palette: {
     // these are dummy values, but ottehr theme defaults should come from here eventually
     primaryColor: '#4CAF50',
     secondaryColor: '#FFC107',
     backgroundColor: '#F5F5F5',
     textColor: '#212121',
-  },
+  },*/
 };
 
 const mergedBrandingConfig = _.merge(BRANDING_DEFAULTS, overrides);
 
 const BrandingConfigSchema = z.object({
   projectName: z.string().min(1, { message: 'Project name cannot be empty' }),
-  pallette: z.object({
-    primaryColor: z.string().min(1, { message: 'Primary color cannot be empty' }),
-    secondaryColor: z.string().min(1, { message: 'Secondary color cannot be empty' }),
-    backgroundColor: z.string().min(1, { message: 'Background color cannot be empty' }),
-    textColor: z.string().min(1, { message: 'Text color cannot be empty' }),
+  email: z.object({
+    logoURL: z.string().url().optional(),
+    supportPhoneNumber: z.string().optional(),
+    palette: z.object({
+      deemphasizedText: z.string().min(1, { message: 'Deemphasized text color cannot be empty' }),
+      headerText: z.string().min(1, { message: 'Header text color cannot be empty' }),
+      bodyText: z.string().min(1, { message: 'Body text color cannot be empty' }),
+      footerText: z.string().min(1, { message: 'Footer text color cannot be empty' }),
+      buttonColor: z.string().min(1, { message: 'Button color cannot be empty' }),
+    }),
   }),
 });
 

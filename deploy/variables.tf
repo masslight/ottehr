@@ -34,8 +34,8 @@ variable "zambdas_dir_path" {
   default     = "../packages/zambdas"
 }
 
-variable "utils_dir_path" {
-  description = "Path to the directory containing Ottehr utils"
+variable "sendgrid_templates_file_path" {
+  description = "Path to the files containing SendGrid templates"
   type        = string
-  default     = "../packages/utils"
+  default     = "../packages/utils/.ottehr_config/iac-inputs/sendgrid.json"
 }

@@ -6,98 +6,97 @@ import { CONFIG } from '../../../.ottehr_config';
 const SENDGRID_DEFAULTS = Object.freeze({
   errorReport: {
     template: {
-      templateId: 'error-report',
       templateName: 'Error Report',
       templateVersionName: '1.0.0',
       active: true,
       htmlFilePath: './template_html/error-report.html',
       subject: '⚠️ An error occurred in {{environment}}', // done
+      templateIdSecretName: 'SENDGRID_ERROR_REPORT_TEMPLATE_ID',
     },
   },
   inPersonCancelation: {
     template: {
-      templateId: 'in-person-cancelation',
       templateName: 'In-Person Cancellation',
       templateVersionName: '1.0.0',
       active: true,
       htmlFilePath: './configuration/sendgrid/template_html/in-person-cancelation.html',
       subject: 'Visit canceled', // done
+      templateIdSecretName: 'SENDGRID_IN_PERSON_CANCELATION_TEMPLATE_ID',
     },
   },
   inPersonConfirmation: {
     template: {
-      templateId: 'in-person-confirmation',
       templateName: 'In-Person Confirmation',
       templateVersionName: '1.0.0',
       active: true,
       htmlFilePath: './configuration/sendgrid/template_html/in-person-confirmation.html',
       subject: 'Visit confirmed on {{readableTime}}', // done
+      templateIdSecretName: 'SENDGRID_IN_PERSON_CONFIRMATION_TEMPLATE_ID',
     },
   },
   inPersonCompletion: {
     template: {
-      templateId: 'in-person-completion',
       templateName: 'In-Person Completion',
       templateVersionName: '1.0.0',
       active: true,
       htmlFilePath: './configuration/sendgrid/template_html/in-person-completion.html',
       subject: 'Visit completed. See visit note', // done
+      templateIdSecretName: 'SENDGRID_IN_PERSON_COMPLETION_TEMPLATE_ID',
     },
   },
   inPersonReminder: {
     template: {
-      templateId: 'in-person-reminder',
       templateName: 'In-Person Reminder',
       templateVersionName: '1.0.0',
       active: true,
       htmlFilePath: 'packages/utils/configuration/sendgrid/template_html/in-person-reminder.html',
       subject: 'Upcoming visit on {{readableTime}}', // done
+      templateIdSecretName: 'SENDGRID_IN_PERSON_REMINDER_TEMPLATE_ID',
     },
   },
   telemedCancelation: {
     template: {
-      templateId: 'telemed-cancelation',
       templateName: 'Telemed Cancelation',
       templateVersionName: '1.0.0',
       active: true,
       htmlFilePath: './template_html/telemed-cancelation.html',
       subject: 'Visit canceled', // done
+      templateIdSecretName: 'SENDGRID_TELEMED_CANCELATION_TEMPLATE_ID',
     },
   },
   telemedConfirmation: {
     template: {
-      templateId: 'telemed-confirmation',
       templateName: 'Telemed Confirmation',
       templateVersionName: '1.0.0',
       active: true,
       htmlFilePath: './template_html/telemed-confirmation.html',
       subject: 'Join virtual visit', // done
+      templateIdSecretName: 'SENDGRID_TELEMED_CONFIRMATION_TEMPLATE_ID',
     },
   },
   telemedCompletion: {
     template: {
-      templateId: 'telemed-completion',
       templateName: 'Telemed Completion',
       templateVersionName: '1.0.0',
       active: true,
       htmlFilePath: './template_html/telemed-completion.html',
       subject: 'Visit completed. See visit note', // done
+      templateIdSecretName: 'SENDGRID_TELEMED_COMPLETION_TEMPLATE_ID',
     },
   },
   telemedInvitation: {
     template: {
-      templateId: 'telemed-invitation',
       templateName: 'Telemed Invitation',
       templateVersionName: '1.0.0',
       active: true,
       htmlFilePath: './template_html/telemed-invitation.html',
       subject: 'Join virtual visit with {{patientName}}', // done
+      templateIdSecretName: 'SENDGRID_TELEMED_INVITATION_TEMPLATE_ID',
     },
   },
 });
 
 const TemplateVersionSchema = z.object({
-  templateId: z.string().min(1, { message: 'Template ID cannot be empty' }),
   templateName: z.string().min(1, { message: 'Template name cannot be empty' }),
   templateVersionName: z.string().min(1, { message: 'Template version name cannot be empty' }),
   active: z.boolean().default(true),
@@ -115,21 +114,60 @@ const TemplateVersionSchema = z.object({
   subject: z.string().min(1, { message: 'Subject cannot be empty' }),
 });
 
-const EmailResourceSchema = z.object({
-  template: TemplateVersionSchema,
+const ErrorReportSchema = TemplateVersionSchema.extend({
+  templateIdSecretName: z.literal('SENDGRID_ERROR_REPORT_TEMPLATE_ID'),
+  disabled: z.boolean().default(false),
+});
+const InPersonCancelationSchema = TemplateVersionSchema.extend({
+  templateIdSecretName: z.literal('SENDGRID_IN_PERSON_CANCELATION_TEMPLATE_ID'),
+  disabled: z.boolean().default(false),
+});
+const InPersonConfirmationSchema = TemplateVersionSchema.extend({
+  templateIdSecretName: z.literal('SENDGRID_IN_PERSON_CONFIRMATION_TEMPLATE_ID'),
+  disabled: z.boolean().default(false),
+});
+const InPersonCompletionSchema = TemplateVersionSchema.extend({
+  templateIdSecretName: z.literal('SENDGRID_IN_PERSON_COMPLETION_TEMPLATE_ID'),
+  disabled: z.boolean().default(false),
+});
+const InPersonReminderSchema = TemplateVersionSchema.extend({
+  templateIdSecretName: z.literal('SENDGRID_IN_PERSON_REMINDER_TEMPLATE_ID'),
+  disabled: z.boolean().default(false),
+});
+const TelemedCancelationSchema = TemplateVersionSchema.extend({
+  templateIdSecretName: z.literal('SENDGRID_TELEMED_CANCELATION_TEMPLATE_ID'),
+  disabled: z.boolean().default(false),
+});
+const TelemedConfirmationSchema = TemplateVersionSchema.extend({
+  templateIdSecretName: z.literal('SENDGRID_TELEMED_CONFIRMATION_TEMPLATE_ID'),
+  disabled: z.boolean().default(false),
+});
+const TelemedCompletionSchema = TemplateVersionSchema.extend({
+  templateIdSecretName: z.literal('SENDGRID_TELEMED_COMPLETION_TEMPLATE_ID'),
+  disabled: z.boolean().default(false),
+});
+const TelemedInvitationSchema = TemplateVersionSchema.extend({
+  templateIdSecretName: z.literal('SENDGRID_TELEMED_INVITATION_TEMPLATE_ID'),
   disabled: z.boolean().default(false),
 });
 
+/*
+const CustomEmailResourceSchema = TemplateVersionSchema.extend({
+  templateIdSecretName: z.string().min(1, { message: 'Template ID secret name cannot be empty' }),
+  disabled: z.boolean().default(false),
+});
+*/
+
 const DefaultTemplates = z.object({
-  errorReport: EmailResourceSchema,
-  inPersonCancelation: EmailResourceSchema,
-  inPersonConfirmation: EmailResourceSchema,
-  inPersonCompletion: EmailResourceSchema,
-  inPersonReminder: EmailResourceSchema,
-  telemedCancelation: EmailResourceSchema,
-  telemedConfirmation: EmailResourceSchema,
-  telemedCompletion: EmailResourceSchema,
-  telemedInvitation: EmailResourceSchema,
+  errorReport: ErrorReportSchema,
+  inPersonCancelation: InPersonCancelationSchema,
+  inPersonConfirmation: InPersonConfirmationSchema,
+  inPersonCompletion: InPersonCompletionSchema,
+  inPersonReminder: InPersonReminderSchema,
+  telemedCancelation: TelemedCancelationSchema,
+  telemedConfirmation: TelemedConfirmationSchema,
+  telemedCompletion: TelemedCompletionSchema,
+  telemedInvitation: TelemedInvitationSchema,
 });
 
 const validatedSendgridDefaults = DefaultTemplates.parse(SENDGRID_DEFAULTS);

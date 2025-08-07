@@ -8,7 +8,7 @@
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300..900&display=swap" rel="stylesheet">
-        <title>UrgiKids Telemed Completed</title>
+        <title>{{branding.projectName}} Telemed Completed</title>
     </head>
     <body style="
         font-family: 'Rubik', sans-serif;
@@ -24,23 +24,22 @@
     ">
         <table cellpadding="0" cellspacing="0" width="100%" style="padding-bottom: 40px;">
             <tr>
-                <td style="padding-bottom: 40px;">
+                <td style="padding-bottom: 40px; display: {{branding.email.logoURL ? 'block' : 'none'}};">
                     <img
-                        alt="UrgiKids logo"
+                        alt="{{branding.projectName}} logo"
                         width="211px"
-                        src="http://cdn.mcauto-images-production.sendgrid.net/978880ba6bbd1598/6a301b6f-e28c-432c-bdf4-ca87503881b1/1250x236.png"
+                        src="{{branding.email.logoURL}}"
                     >
                 </td>
             </tr>
             <tr>
                 <td style="padding-bottom: 40px;">
-                    <h1 style="
+                    <h1 color="{{branding.email.palette.headerText}}" style="
                         font-size: 24px;
                         font-weight: 600;
-                        color: #0F347C;
                         margin: 0;
                     ">
-                        Your visit is completed.<br>Thank you for choosing UrgiKids!
+                        Your visit is completed.<br>Thank you for choosing {{{branding.projectName}}}!
                     </h1>
                 </td>
             </tr>
@@ -49,24 +48,23 @@
                     <table cellpadding="0" cellspacing="0" width="100%">
                         <tr>
                             <td style="padding-bottom: 8px;">
-                                <p style="color: #000000DE; margin: 0;">
+                                <p style="color: {{branding.email.palette.bodyText}}; margin: 0;">
                                     Virtual Visit
                                 </p>
                             </td>
                         </tr>
                         <tr>
                             <td style="padding-bottom: 8px;">
-                                <p style="
+                                <p color="{{branding.email.palette.headerText}}" style="
                                     font-size: 18px;
                                     font-weight: 600;
-                                    color: #0F347C;
                                     margin: 0;
                                 ">On Demand Visit</p>
                             </td>
                         </tr>
                         <tr>
                             <td>
-                                <p style="color: #000000DE; margin: 0;">
+                                <p style="color: {{branding.email.palette.bodyText}}; margin: 0;">
                                     {{location}}
                                 </p>
                             </td>
@@ -79,7 +77,7 @@
                     <table cellpadding="0" cellspacing="0" width="100%">
                         <tr>
                             <td style="padding-bottom: 16px;">
-                                <p style="color: #000000DE; margin: 0;">Now you can review the visit note in your profile.</p>
+                                <p color="{{branding.email.palette.footerText}}" style="margin: 0;">Now you can review the visit note in your profile.</p>
                             </td>
                         </tr>
                         <tr>
@@ -89,10 +87,10 @@
                                     font-size: 15px;
                                     font-weight: 500;
                                     color: #FFFFFF;
-                                    background-color: #295F75;
                                     border-radius: 100px;
                                     padding: 8px 22px;
                                     text-decoration: none;
+                                    background-color: {{branding.email.palette.buttonColor}};
                                 ">See visit note</a>
                             </td>
                         </tr>
@@ -114,19 +112,19 @@
                     <table cellpadding="0" cellspacing="0" width="100%">
                         <tr>
                             <td style="padding-bottom: 8px;">
-                                <p style="margin: 0;">Thank you for choosing UrgiKids. We look forward to partnering with you and your family.</p>
+                                <p style="margin: 0;">Thank you for choosing {{{branding.projectName}}}. We look forward to partnering with you and your family.</p>
                             </td>
                         </tr>
                         <tr>
-                            <td style="padding-bottom: 24px;">
-                                <p style="margin: 0;">For questions or feedback, please contact (629)&nbsp;219&#8209;2767.</p>
+                            <td style="padding-bottom: 24px; display: {{branding.email.supportPhoneNumber ? 'block' : 'none'}};">
+                                <p style="margin: 0;">For questions or feedback, please contact {{{branding.email.supportPhoneNumber}}}.</p>
                             </td>
                         </tr>
                         <tr>
                             <td>
                                 <a href="<%asm_group_unsubscribe_raw_url%>" style="
                                     font-size: 14px;
-                                    color: #00000061;
+                                    color: {{branding.email.palette.deemphasizedText}};
                                     text-decoration: none;
                                     margin: 0;
                                 ">Turn off email notifications</a>
