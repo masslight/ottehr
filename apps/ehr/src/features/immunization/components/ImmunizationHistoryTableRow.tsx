@@ -1,13 +1,15 @@
 import { DeleteOutlined as DeleteIcon, EditOutlined as EditIcon } from '@mui/icons-material';
-import { IconButton, TableCell, TableRow } from '@mui/material';
+import { IconButton, TableCell, TableRow, Typography } from '@mui/material';
 import { Stack, useTheme } from '@mui/system';
 import { enqueueSnackbar } from 'notistack';
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { CustomDialog } from 'src/components/dialogs';
+import { StatusChip } from 'src/features/immunization/components/StatusChip';
+import { ImmunizationOrder } from '../ImmunizationOrder';
 
 interface Props {
-  historyEntry: any;
+  historyEntry: ImmunizationOrder;
   showActions: boolean;
 }
 
@@ -40,13 +42,24 @@ export const ImmunizationHistoryTableRow: React.FC<Props> = ({ historyEntry, sho
 
   return (
     <TableRow>
-      <TableCell>{historyEntry.name}</TableCell>
-      <TableCell>Dose / Route / Instructions</TableCell>
-      <TableCell>Ordered</TableCell>
-      <TableCell>Given</TableCell>
+      <TableCell>{historyEntry.vaccineName}</TableCell>
+      <TableCell>
+        {historyEntry.dose} {historyEntry.units} {historyEntry.route ? `/ ${historyEntry.route}` : null}
+        <Typography sx={{ fontSize: '14px', color: '#00000099' }}>{historyEntry.instructions}</Typography>
+      </TableCell>
+      <TableCell>
+        {historyEntry.orderedDate} {historyEntry.orderedTime}
+        <Typography sx={{ fontSize: '14px', color: '#00000099' }}>{historyEntry.orderedBy.providerName}</Typography>
+      </TableCell>
+      <TableCell>
+        {historyEntry.administeringData?.administeredDate} {historyEntry.administeringData?.administeredTime}
+        <Typography sx={{ fontSize: '14px', color: '#00000099' }}>
+          {historyEntry.administeringData?.providerName}
+        </Typography>
+      </TableCell>
       <TableCell>
         <Stack direction="row" justifyContent="space-between">
-          {historyEntry.status}
+          <StatusChip status={historyEntry.status} style={'gray'} />
           {showActions ? (
             <Stack direction="row" onClick={(e) => e.stopPropagation()}>
               <IconButton size="small" aria-label="edit" onClick={navigateToEditOrder}>

@@ -12,7 +12,8 @@ import {
   Typography,
 } from '@mui/material';
 import React, { useMemo, useState } from 'react';
-import { COLLAPSED_MEDS_COUNT, useMedicationHistory } from 'src/features/css-module/hooks/useMedicationHistory';
+import { COLLAPSED_MEDS_COUNT } from 'src/features/css-module/hooks/useMedicationHistory';
+import { STUB_IMMUNIZATION_ORDERS } from '../ImmunizationOrder';
 import { ImmunizationHistoryTableRow } from './ImmunizationHistoryTableRow';
 import { ImmunizationHistoryTableSkeletonBody } from './ImmunizationHistoryTableSkeletonBody';
 
@@ -23,15 +24,16 @@ interface Props {
 export const ImmunizationHistoryTable: React.FC<Props> = ({ showActions }) => {
   const [seeMoreOpen, setSeeMoreOpen] = useState(false);
 
-  const { isLoading, medicationHistory } = useMedicationHistory();
+  const isLoading = false;
+  const immunizationHistory = STUB_IMMUNIZATION_ORDERS;
 
-  const shownMeds = useMemo(() => {
+  const items = useMemo(() => {
     if (!seeMoreOpen) {
-      return medicationHistory.slice(0, COLLAPSED_MEDS_COUNT);
+      return immunizationHistory.slice(0, COLLAPSED_MEDS_COUNT);
     } else {
-      return medicationHistory;
+      return immunizationHistory;
     }
-  }, [seeMoreOpen, medicationHistory]);
+  }, [seeMoreOpen, immunizationHistory]);
 
   const toggleShowMore = (): void => {
     setSeeMoreOpen((state) => !state);
@@ -57,15 +59,15 @@ export const ImmunizationHistoryTable: React.FC<Props> = ({ showActions }) => {
           <ImmunizationHistoryTableSkeletonBody />
         ) : (
           <TableBody>
-            {shownMeds.map((med) => (
-              <ImmunizationHistoryTableRow historyEntry={med} showActions={showActions} />
+            {items.map((item) => (
+              <ImmunizationHistoryTableRow historyEntry={item} showActions={showActions} />
             ))}
-            {medicationHistory.length > COLLAPSED_MEDS_COUNT && (
+            {immunizationHistory.length > COLLAPSED_MEDS_COUNT && (
               <Button onClick={toggleShowMore} startIcon={seeMoreOpen ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />}>
                 {getSeeMoreButtonLabel()}
               </Button>
             )}
-            {medicationHistory.length === 0 && (
+            {immunizationHistory.length === 0 && (
               <Typography variant="body1" sx={{ opacity: 0.65 }}>
                 No items
               </Typography>
