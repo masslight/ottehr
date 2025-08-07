@@ -3,7 +3,7 @@ import { SearchParam } from '@oystehr/sdk';
 import { DocumentReference, FhirResource, List, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { useCallback, useState } from 'react';
-import { useQuery, useQueryClient } from 'react-query';
+import { useQuery, useQueryClient, UseQueryResult } from 'react-query';
 import { chooseJson } from 'utils';
 import { getPresignedFileUrl, parseFileExtension } from '../helpers/files.helper';
 import { useApiClients } from './useAppClients';
@@ -97,16 +97,13 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
   const [currentFilters, setCurrentFilters] = useState<PatientDocumentsFilters | undefined>(filters);
   const { oystehr } = useApiClients();
 
-  const { isLoading: isLoadingFolders, isFetching: isFetchingFolders } = useGetPatientDocsFolders(
-    { patientId },
-    (docsFolders) => {
-      console.log(`[useGetPatientDocs] Folders data loading SUCCESS size=[${docsFolders.length}]. Content => `);
-      console.log(docsFolders);
-      setDocumentsFolders(docsFolders);
-    }
-  );
+  const { isLoading: isLoadingFolders } = useGetPatientDocsFolders({ patientId }, (docsFolders) => {
+    console.log(`[useGetPatientDocs] Folders data loading SUCCESS size=[${docsFolders.length}]. Content => `);
+    console.log(docsFolders);
+    setDocumentsFolders(docsFolders);
+  });
 
-  const { isLoading: isLoadingDocuments, isFetching: isFetchingDocuments } = useSearchPatientDocuments(
+  const { isLoading: isLoadingDocuments } = useSearchPatientDocuments(
     { patientId: patientId, filters: currentFilters },
     (docs) => {
       console.log(`[useGetPatientDocs] found Docs [${docs.length}] => `);
@@ -211,10 +208,10 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
   );
 
   return {
-    isLoadingDocuments: isLoadingDocuments || isFetchingDocuments,
+    isLoadingDocuments: isLoadingDocuments,
     documents: documents,
     // documentsByFolders: documentsByFolders,
-    isLoadingFolders: isLoadingFolders || isFetchingFolders,
+    isLoadingFolders: isLoadingFolders,
     documentsFolders: documentsFolders,
     searchDocuments: searchDocuments,
     downloadDocument: downloadDocument,
@@ -222,7 +219,6 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
   };
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 const useGetPatientDocsFolders = (
   {
     patientId,
@@ -230,7 +226,7 @@ const useGetPatientDocsFolders = (
     patientId: string;
   },
   onSuccess: (data: PatientDocumentsFolder[]) => void
-) => {
+): UseQueryResult<FhirResource[], unknown> => {
   const { oystehr } = useApiClients();
   return useQuery(
     [QUERY_KEYS.GET_PATIENT_DOCS_FOLDERS, { patientId }],
@@ -295,7 +291,6 @@ const useGetPatientDocsFolders = (
 /**
  * [/DocumentReference?subject=Patient/104e4c8c-1866-4c96-a436-88080c691614&_has:List:item:_id=06654560-445a-4499-a5ec-48fae3495781]
  */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 const useSearchPatientDocuments = (
   {
     patientId,
@@ -305,7 +300,7 @@ const useSearchPatientDocuments = (
     filters?: PatientDocumentsFilters;
   },
   onSuccess: (data: PatientDocumentInfo[]) => void
-) => {
+): UseQueryResult<FhirResource[], unknown> => {
   const docCreationDate = filters?.dateAdded?.toFormat('yyyy-MM-dd');
   const { oystehr } = useApiClients();
   return useQuery(

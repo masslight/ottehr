@@ -21,6 +21,7 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import { useGetPatientPaymentsList } from 'src/hooks/useGetPatientPaymentsList';
 import { APIError, CashOrCardPayment, isApiError, PatientPaymentDTO, PostPatientPaymentInput } from 'utils';
 import PaymentDialog from './dialogs/PaymentDialog';
+import { RefreshableStatusChip } from './RefreshableStatusWidget';
 
 export interface PaymentListProps {
   patient: Patient;
@@ -30,17 +31,9 @@ export interface PaymentListProps {
 
 const idForPaymentDTO = (payment: PatientPaymentDTO): string => {
   if (payment.paymentMethod === 'card') {
-    return payment.stripePaymentId;
+    return payment.fhirPaymentNotificationId;
   } else {
     return payment.fhirPaymentNotificationId ?? 'unknown-payment-id'; //todo: should get something from candid
-  }
-};
-
-const getLabelForPayment = (payment: PatientPaymentDTO): string => {
-  if (payment.paymentMethod === 'card') {
-    return `XXXX - XXXX - XXXX - ${payment.cardLast4}`;
-  } else {
-    return capitalize(payment.paymentMethod);
   }
 };
 
@@ -48,7 +41,11 @@ export default function PatientPaymentList({ loading, patient, encounterId }: Pa
   const theme = useTheme();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
 
-  const { data: paymentData, refetch: refetchPaymentList } = useGetPatientPaymentsList({
+  const {
+    data: paymentData,
+    refetch: refetchPaymentList,
+    isRefetching,
+  } = useGetPatientPaymentsList({
     patientId: patient.id ?? '',
     encounterId,
     disabled: !encounterId || !patient.id,
@@ -56,6 +53,37 @@ export default function PatientPaymentList({ loading, patient, encounterId }: Pa
   const payments = paymentData?.payments ?? []; // Replace with actual payments when available
 
   const { oystehrZambda: oystehr } = useApiClients();
+
+  const getLabelForPayment = (payment: PatientPaymentDTO): string | ReactElement => {
+    if (payment.paymentMethod === 'card') {
+      if (payment.cardLast4) {
+        return `XXXX - XXXX - XXXX - ${payment.cardLast4}`;
+      } else {
+        return (
+          <RefreshableStatusChip
+            status={'processing...'}
+            styleMap={{
+              ['processing...']: {
+                textSX: {
+                  fontSize: '16px',
+                  fontWeight: 'normal',
+                  color: theme.palette.primary.dark,
+                },
+                bgColor: 'transparent',
+                textColor: theme.palette.primary.dark,
+              },
+            }}
+            lastRefreshISO={''}
+            handleRefresh={refetchPaymentList}
+            isRefreshing={isRefetching}
+            flexDirection="row"
+          />
+        );
+      }
+    } else {
+      return capitalize(payment.paymentMethod);
+    }
+  };
 
   const createNewPayment = useMutation({
     mutationFn: async (input: PostPatientPaymentInput) => {

@@ -64,7 +64,7 @@ export const isApiError = (errorObject: unknown | undefined): boolean => {
   if (typeof asObj === 'string') {
     try {
       asObj = JSON.parse(asObj);
-    } catch (_) {
+    } catch {
       return false;
     }
   }
@@ -238,6 +238,11 @@ export const MISSING_REQUEST_BODY = {
 export const FHIR_RESOURCE_NOT_FOUND = (resourceType: FhirResource['resourceType']): APIError => ({
   code: APIErrorCode.FHIR_RESOURCE_NOT_FOUND,
   message: `The requested ${resourceType} resource could not be found`,
+});
+
+export const FHIR_RESOURCE_NOT_FOUND_CUSTOM = (message: string): APIError => ({
+  code: APIErrorCode.FHIR_RESOURCE_NOT_FOUND,
+  message,
 });
 
 export const MISSING_REQUIRED_PARAMETERS = (params: string[]): APIError => {

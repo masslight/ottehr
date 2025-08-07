@@ -1,5 +1,6 @@
 import { enqueueSnackbar } from 'notistack';
 import { useRef } from 'react';
+import { useChartData } from 'src/features/css-module/hooks/useChartData';
 import { ChartDataFields } from 'utils';
 import { getSelectors } from '../../shared/store/getSelectors';
 import { useAppointmentStore, useDeleteChartData, useSaveChartData } from '../state';
@@ -9,13 +10,13 @@ type ChartDataTextValueType = Pick<
   'chiefComplaint' | 'ros' | 'surgicalHistoryNote' | 'medicalDecision' | 'addendumNote'
 >;
 
-enum nameToTypeEnum {
-  'chiefComplaint' = 'text',
-  'ros' = 'text',
-  'surgicalHistoryNote' = 'text',
-  'medicalDecision' = 'text',
-  'addendumNote' = 'text',
-}
+const nameToTypeEnum = {
+  chiefComplaint: 'text',
+  ros: 'text',
+  surgicalHistoryNote: 'text',
+  medicalDecision: 'text',
+  addendumNote: 'text',
+} as const;
 
 const mapValueToLabel: Record<keyof ChartDataTextValueType, string> = {
   chiefComplaint: 'HPI note',
@@ -25,16 +26,45 @@ const mapValueToLabel: Record<keyof ChartDataTextValueType, string> = {
   addendumNote: 'Addendum note',
 };
 
+const requestedFieldsOptions: Partial<Record<keyof ChartDataTextValueType, { _tag?: string }>> = {
+  chiefComplaint: { _tag: 'chief-complaint' },
+  ros: { _tag: 'ros' },
+  surgicalHistoryNote: { _tag: 'surgical-history-note' },
+  medicalDecision: { _tag: 'medical-decision' },
+  addendumNote: {},
+};
+
 export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
   name: T
-): { onValueChange: (text: string) => void; isLoading: boolean } => {
+): { onValueChange: (text: string) => void; isLoading: boolean; isChartDataLoading: boolean } => {
+  const { encounter, chartData, setPartialChartData } = getSelectors(useAppointmentStore, [
+    'encounter',
+    'chartData',
+    'setPartialChartData',
+  ]);
   const { mutate: saveChartData, isLoading: isSaveLoading } = useSaveChartData();
   const { mutate: deleteChartData, isLoading: isDeleteLoading } = useDeleteChartData();
-  const { chartData, setPartialChartData } = getSelectors(useAppointmentStore, ['chartData', 'setPartialChartData']);
 
-  const isLoading = isSaveLoading || isDeleteLoading;
+  const { isLoading: isChartDataLoading } = useChartData({
+    encounterId: encounter.id || '',
+    requestedFields: {
+      [name]: requestedFieldsOptions[name],
+    },
+    onSuccess: (data) => {
+      useAppointmentStore.setState((prevState) => ({
+        ...prevState,
+        chartData: {
+          ...prevState.chartData,
+          patientId: prevState.chartData?.patientId || '',
+          [name]: data[name],
+        },
+      }));
+    },
+  });
 
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const isLoading = isSaveLoading || isDeleteLoading;
 
   const onValueChange = (text: string): void => {
     if (timeoutRef.current) {
@@ -61,10 +91,8 @@ export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
           },
         });
       } else {
+        setPartialChartData({ [name]: undefined });
         deleteChartData(variables, {
-          onSuccess: (_data) => {
-            setPartialChartData({ [name]: undefined });
-          },
           onError: () => {
             enqueueSnackbar(`${mapValueToLabel[name]} field was not saved. Please change it's value to try again.`, {
               variant: 'error',
@@ -72,8 +100,8 @@ export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
           },
         });
       }
-    }, 500);
+    }, 700);
   };
 
-  return { onValueChange, isLoading };
+  return { onValueChange, isLoading, isChartDataLoading };
 };

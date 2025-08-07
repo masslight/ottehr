@@ -684,7 +684,7 @@ export default function AppointmentPage(): ReactElement {
             {
               // Consent
               method: 'GET',
-              url: `/DocumentReference?status=current&subject=Patient/${patientID}&related=Appointment/${appointmentID}`,
+              url: `/DocumentReference?_sort=-_lastUpdated&subject=Patient/${patientID}&related=Appointment/${appointmentID}`,
             },
             {
               // Photo ID & Insurance Cards
@@ -699,7 +699,9 @@ export default function AppointmentPage(): ReactElement {
           const bundleResource = bundleEntry.resource as Bundle;
           bundleResource.entry?.forEach((entry) => {
             const docRefResource = entry.resource as DocumentReference;
-            docRefResource && documentReferenceResources.push(docRefResource);
+            if (docRefResource) {
+              documentReferenceResources.push(docRefResource);
+            }
           });
         });
 
@@ -720,12 +722,13 @@ export default function AppointmentPage(): ReactElement {
 
               if (z3Url && title && Object.values<string>(DocumentType).includes(title)) {
                 const presignedUrl = await getPresignedFileUrl(z3Url, authToken);
-                presignedUrl &&
+                if (presignedUrl) {
                   allZ3Documents.push({
                     z3Url: z3Url,
                     presignedUrl: presignedUrl,
                     type: title as DocumentType,
                   });
+                }
               }
             }
           }
@@ -978,15 +981,16 @@ export default function AppointmentPage(): ReactElement {
   };
 
   const signedConsentForm: {
-    [consentToTreatPatientDetailsKey]?: 'Signed' | 'Not signed';
-    [consentToTreatPatientDetailsKeyOld]?: 'Signed' | 'Not signed';
+    [consentToTreatPatientDetailsKey]?: 'Signed' | 'Not signed' | 'Loading...';
+    [consentToTreatPatientDetailsKeyOld]?: 'Signed' | 'Not signed' | 'Loading...';
   } = {};
+
   if (consentPdfUrl) {
-    signedConsentForm[consentToTreatPatientDetailsKey] = 'Signed';
+    signedConsentForm[consentToTreatPatientDetailsKey] = imagesLoading ? 'Loading...' : 'Signed';
   } else if (consentPdfUrlOld) {
-    signedConsentForm[consentToTreatPatientDetailsKeyOld] = 'Signed';
+    signedConsentForm[consentToTreatPatientDetailsKeyOld] = imagesLoading ? 'Loading...' : 'Signed';
   } else {
-    signedConsentForm[consentToTreatPatientDetailsKey] = 'Not signed';
+    signedConsentForm[consentToTreatPatientDetailsKey] = imagesLoading ? 'Loading...' : 'Not signed';
   }
 
   // const suffixOptions = ['II', 'III', 'IV', 'Jr', 'Sr'];
@@ -1504,7 +1508,9 @@ export default function AppointmentPage(): ReactElement {
                   loading={loading}
                   editValue={consentEditProp()}
                   patientDetails={{
-                    [hipaaPatientDetailsKey]: getAnswerBooleanFor('hipaa-acknowledgement', flattenedItems)
+                    [hipaaPatientDetailsKey]: imagesLoading
+                      ? 'Loading...'
+                      : getAnswerBooleanFor('hipaa-acknowledgement', flattenedItems)
                       ? 'Signed'
                       : 'Not signed',
                     ...signedConsentForm,

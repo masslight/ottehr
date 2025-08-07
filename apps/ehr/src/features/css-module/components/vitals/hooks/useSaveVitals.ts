@@ -1,22 +1,12 @@
 import { useCallback } from 'react';
-import { useQueryClient } from 'react-query';
-import { GetChartDataResponse, VitalsObservationDTO } from 'utils';
+import { VitalsObservationDTO } from 'utils';
 import useEvolveUser from '../../../../../hooks/useEvolveUser';
 import { useOystehrAPIClient } from '../../../../../telemed/hooks/useOystehrAPIClient';
-import { useChartData } from '../../../hooks/useChartData';
-import { useChartDataCacheKey } from '../../generic-notes-list/hooks/useChartDataCacheKey';
 import { UseSaveVitals } from '../types';
 
-export const useSaveVitals: UseSaveVitals = ({ encounterId, searchConfig }) => {
+export const useSaveVitals: UseSaveVitals = ({ encounterId }) => {
   const apiClient = useOystehrAPIClient();
-  const queryClient = useQueryClient();
   const user = useEvolveUser();
-  const cacheKey = useChartDataCacheKey(searchConfig.fieldName, searchConfig.searchParams);
-
-  const { refetch } = useChartData({
-    encounterId,
-    requestedFields: { [searchConfig.fieldName]: searchConfig.searchParams },
-  });
 
   const handleSave = useCallback(
     async (vitalEntity: VitalsObservationDTO): Promise<void> => {
@@ -24,33 +14,12 @@ export const useSaveVitals: UseSaveVitals = ({ encounterId, searchConfig }) => {
 
       const payload = {
         encounterId: encounterId,
-        [searchConfig.fieldName]: [vitalEntity],
+        vitalsObservations: [vitalEntity],
       };
 
-      const saveResult = await apiClient?.saveChartData?.(payload);
-      const savedData = saveResult?.chartData?.[searchConfig.fieldName];
-
-      if (savedData) {
-        const result = queryClient.setQueryData(cacheKey, (oldData: any) => {
-          if (oldData?.[searchConfig.fieldName]) {
-            return {
-              ...oldData,
-              [searchConfig.fieldName]: [
-                ...savedData,
-                ...oldData[searchConfig.fieldName],
-              ] as GetChartDataResponse[typeof searchConfig.fieldName],
-            };
-          }
-          return oldData;
-        });
-
-        if (result?.[searchConfig.fieldName] === undefined) {
-          // refetch all if the cache didn't found
-          await refetch();
-        }
-      }
+      await apiClient?.saveChartData?.(payload);
     },
-    [apiClient, cacheKey, encounterId, queryClient, refetch, searchConfig, user]
+    [apiClient, encounterId, user]
   );
 
   return handleSave;

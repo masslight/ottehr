@@ -7,10 +7,10 @@ import {
   getVisitStatus,
   isNonPaperworkQuestionnaireResponse,
   NO_READ_ACCESS_TO_PATIENT_ERROR,
+  PatientAppointmentDTO,
   Secrets,
   SecretsKeys,
   SLUG_SYSTEM,
-  VisitStatusLabel,
 } from 'utils';
 import {
   checkPaperworkComplete,
@@ -27,21 +27,6 @@ export interface GetPatientsInput {
   patientID?: string;
   dateRange?: { greaterThan: string; lessThan: string }; // if no date range is passed, all appointment from today onwards will be returned
   secrets: Secrets | null;
-}
-
-interface Appointment {
-  id: string;
-  patientID: string;
-  firstName: string;
-  middleName: string;
-  lastName: string;
-  start: string;
-  status: string;
-  location: { name: string; slug: string; state: string; timezone: string };
-  paperworkComplete: boolean;
-  checkedIn: boolean;
-  visitType: string;
-  visitStatus: VisitStatusLabel | undefined;
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -168,7 +153,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
       .unbundle()
       .filter((resource) => isNonPaperworkQuestionnaireResponse(resource) === false);
     console.log('successfully retrieved appointment resources');
-    const appointments: Appointment[] = allResources
+    const appointments: PatientAppointmentDTO[] = allResources
       .filter((resourceTemp) => resourceTemp.resourceType === 'Appointment')
       .map((appointmentTemp) => {
         const fhirAppointment = appointmentTemp as FhirAppointment;
@@ -191,7 +176,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
         const patient = allResources.find((resourceTemp) => resourceTemp.id === patientID) as Patient | undefined;
         const location = allResources.find((resourceTemp) => resourceTemp.id === locationID) as Location | undefined;
         console.log(`build appointment resource for appointment with id ${fhirAppointment.id}`);
-        const appointment: Appointment = {
+        const appointment: PatientAppointmentDTO = {
           id: fhirAppointment.id || 'Unknown',
           patientID: patient?.id || 'Unknown',
           firstName: patient?.name?.[0]?.given?.[0] || 'Unknown',
@@ -201,6 +186,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
           status: fhirAppointment?.status,
           location: {
             name: location?.name || 'Unknown',
+            id: location?.id || 'Unknown',
             slug:
               location?.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)?.value || 'Unknown',
             state: location?.address?.state?.toLocaleLowerCase() || 'Unknown',

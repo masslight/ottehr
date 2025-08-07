@@ -11,6 +11,7 @@ import {
   createFindResourceRequest,
   createFindResourceRequestById,
   createFindResourceRequestByPatientField,
+  defaultChartDataFieldsSearchParams,
   SupportedResourceType,
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -78,10 +79,17 @@ export async function getChartData(
     defaultSearchBy?: 'encounter' | 'patient';
   }): void {
     const fieldOptions = requestedFields?.[field];
+    const defaultSearchParams = defaultChartDataFieldsSearchParams[field];
 
     if (!requestedFields || fieldOptions) {
       chartDataRequests.push(
-        createFindResourceRequest(patient, encounter, resourceType, fieldOptions, defaultSearchBy)
+        createFindResourceRequest(
+          patient,
+          encounter,
+          resourceType,
+          { ...fieldOptions, ...defaultSearchParams },
+          defaultSearchBy
+        )
       );
     }
   }
@@ -98,7 +106,11 @@ export async function getChartData(
   addRequestIfNeeded({ field: 'medications', resourceType: 'MedicationStatement', defaultSearchBy: 'patient' });
 
   // search by patient by default
-  addRequestIfNeeded({ field: 'inhouseMedications', resourceType: 'MedicationStatement', defaultSearchBy: 'patient' });
+  addRequestIfNeeded({
+    field: 'inhouseMedications',
+    resourceType: 'MedicationStatement',
+    defaultSearchBy: 'patient',
+  });
 
   // search by patient by default
   addRequestIfNeeded({ field: 'surgicalHistory', resourceType: 'Procedure', defaultSearchBy: 'patient' });
@@ -118,14 +130,13 @@ export async function getChartData(
      * }) without requestedFields produces URL like /Procedure?subject=Patient/:id.
      * Current solution: To avoid duplicates, run this request only with requestedFields.
      */
+
+    // Comment: theoretically can be solved by using defaultSearchParams added to addRequestIfNeeded logic
     addRequestIfNeeded({ field: 'cptCodes', resourceType: 'Procedure', defaultSearchBy: 'encounter' });
   }
 
   // search by encounter by default
   addRequestIfNeeded({ field: 'observations', resourceType: 'Observation', defaultSearchBy: 'encounter' });
-
-  // mdm is just per-encounter so no need to use for patient
-  addRequestIfNeeded({ field: 'medicalDecision', resourceType: 'ClinicalImpression', defaultSearchBy: 'encounter' });
 
   // instructions are just per-encounter, so no need to search by patient
   addRequestIfNeeded({ field: 'instructions', resourceType: 'Communication', defaultSearchBy: 'encounter' });
@@ -150,6 +161,22 @@ export async function getChartData(
   // notes included only by straight request
   if (requestedFields?.notes) {
     addRequestIfNeeded({ field: 'notes', resourceType: 'Communication', defaultSearchBy: 'patient' });
+  }
+
+  if (requestedFields?.chiefComplaint) {
+    addRequestIfNeeded({ field: 'chiefComplaint', resourceType: 'Condition', defaultSearchBy: 'encounter' });
+  }
+
+  if (requestedFields?.ros) {
+    addRequestIfNeeded({ field: 'ros', resourceType: 'Condition', defaultSearchBy: 'encounter' });
+  }
+
+  if (requestedFields?.surgicalHistoryNote) {
+    addRequestIfNeeded({ field: 'surgicalHistoryNote', resourceType: 'Procedure', defaultSearchBy: 'encounter' });
+  }
+
+  if (requestedFields?.medicalDecision) {
+    addRequestIfNeeded({ field: 'medicalDecision', resourceType: 'ClinicalImpression', defaultSearchBy: 'encounter' });
   }
 
   // vitalsObservations included only by straight request

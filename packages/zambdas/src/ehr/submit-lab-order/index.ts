@@ -205,7 +205,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             const specimenCollector = { reference: currentUser?.profile };
             const requests: Operation[] = [];
 
-            specimenFromSubmitDate && sampleCollectionDates.push(specimenFromSubmitDate);
+            if (specimenFromSubmitDate) {
+              sampleCollectionDates.push(specimenFromSubmitDate);
+            }
 
             if (specimenCollection) {
               console.log('specimen collection found');
@@ -413,7 +415,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const mostRecentSampleCollectionDate =
       sampleCollectionDates.length > 0
         ? sampleCollectionDates.reduce((latest, current) => {
-            return current > latest ? current : latest;
+            return current < latest ? current : latest;
           })
         : undefined;
 
@@ -471,6 +473,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         })),
         orderPriority: serviceRequest.priority || ORDER_ITEM_UNKNOWN,
         isManualOrder: manualOrder,
+        isPscOrder: isPSCOrder(serviceRequest),
       },
       patient.id,
       secrets,

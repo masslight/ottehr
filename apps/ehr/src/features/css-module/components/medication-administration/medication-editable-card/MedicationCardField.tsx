@@ -82,7 +82,9 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
           onChange={(newValue) => {
             if (!newValue) return;
             const isoString = newValue.toISO();
-            isoString && handleChange(isoString);
+            if (isoString) {
+              handleChange(isoString);
+            }
           }}
           disabled={!isEditable}
           slotProps={{
@@ -109,7 +111,7 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
 
     const autocomplete = isOptionsLoaded ? (
       <Autocomplete
-        disabled={!isOptionsLoaded}
+        disabled={!isOptionsLoaded || !isEditable}
         options={options}
         isOptionEqualToValue={(option, value) =>
           option.value === value.value || value.value === IN_HOUSE_CONTAINED_MEDICATION_ID

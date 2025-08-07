@@ -19,7 +19,7 @@ export interface Column {
 // For testing needs
 export function savePdfLocally(pdfBytes: Uint8Array): void {
   // Write the Uint8Array to a file
-  fs.writeFile('myTestFile.pdf', Buffer.from(pdfBytes), (err: any) => {
+  fs.writeFile('myTestFile.pdf', pdfBytes, (err: any) => {
     if (err) {
       console.error('Error saving PDF:', err);
     } else {
@@ -365,7 +365,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
   };
 
   const embedFont = async (file: Buffer): Promise<PDFFont> => {
-    return await pdfDoc.embedFont(file);
+    return await pdfDoc.embedFont(new Uint8Array(file));
   };
 
   const embedStandardFont = async (font: StandardFonts): Promise<PDFFont> => {
@@ -373,7 +373,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
   };
 
   const embedImage = async (file: Buffer): Promise<PDFImage> => {
-    return await pdfDoc.embedPng(file);
+    return await pdfDoc.embedPng(new Uint8Array(file));
   };
 
   const drawSeparatedLine = (lineStyle: LineStyle): void => {

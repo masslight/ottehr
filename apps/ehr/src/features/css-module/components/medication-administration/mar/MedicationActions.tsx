@@ -8,6 +8,7 @@ import { ExtendedMedicationDataForResponse } from 'utils';
 import { CustomDialog } from '../../../../../components/dialogs/CustomDialog';
 import { useMedicationManagement } from '../../../hooks/useMedicationManagement';
 import { getEditOrderUrl } from '../../../routing/helpers';
+
 interface MedicationActionsProps {
   medication: ExtendedMedicationDataForResponse;
 }

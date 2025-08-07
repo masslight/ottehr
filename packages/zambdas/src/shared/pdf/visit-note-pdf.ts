@@ -304,7 +304,8 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
   }
   drawFieldLine('Address', data.address);
   regularText(
-    'Provider confirmed patient’s name, DOB, introduced themselves, and gave their licensure and credentials.'
+    // Related to a node bug, a second space(good space) was added between the words gave, their to handle a bad space(no space) occurance
+    'Provider confirmed patient’s name, DOB, introduced themselves, and gave  their licensure and credentials.'
   );
   separateLine();
 
@@ -330,11 +331,13 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
 
   if (data.medications || (data.medicationsNotes && data.medicationsNotes.length > 0)) {
     drawBlockHeader('Medications');
-    data.medications?.length
-      ? data.medications.forEach((medication) => {
-          pdfClient.drawText(medication, textStyles.regularText);
-        })
-      : pdfClient.drawText('No current medications', textStyles.regularText);
+    if (data.medications?.length) {
+      data.medications.forEach((medication) => {
+        pdfClient.drawText(medication, textStyles.regularText);
+      });
+    } else {
+      pdfClient.drawText('No current medications', textStyles.regularText);
+    }
 
     if (data.medicationsNotes && data.medicationsNotes.length > 0) {
       drawBlockHeader('Medications notes', textStyles.blockSubHeader);
@@ -348,11 +351,13 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
 
   if (data.allergies || (data.allergiesNotes && data.allergiesNotes.length > 0)) {
     drawBlockHeader('Allergies');
-    data.allergies?.length
-      ? data.allergies.forEach((allergy) => {
-          pdfClient.drawText(allergy, textStyles.regularText);
-        })
-      : pdfClient.drawText('No known allergies', textStyles.regularText);
+    if (data.allergies?.length) {
+      data.allergies.forEach((allergy) => {
+        pdfClient.drawText(allergy, textStyles.regularText);
+      });
+    } else {
+      pdfClient.drawText('No known allergies', textStyles.regularText);
+    }
 
     if (data.allergiesNotes && data.allergiesNotes.length > 0) {
       drawBlockHeader('Allergies notes', textStyles.blockSubHeader);
@@ -366,11 +371,13 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
 
   if (data.medicalConditions || (data.medicalConditionsNotes && data.medicalConditionsNotes.length > 0)) {
     drawBlockHeader('Medical Conditions');
-    data.medicalConditions?.length
-      ? data.medicalConditions.forEach((medicalCondition) => {
-          pdfClient.drawText(medicalCondition, textStyles.regularText);
-        })
-      : pdfClient.drawText('No known medical conditions', textStyles.regularText);
+    if (data.medicalConditions?.length) {
+      data.medicalConditions.forEach((medicalCondition) => {
+        pdfClient.drawText(medicalCondition, textStyles.regularText);
+      });
+    } else {
+      pdfClient.drawText('No known medical conditions', textStyles.regularText);
+    }
 
     if (data.medicalConditionsNotes && data.medicalConditionsNotes.length > 0) {
       drawBlockHeader('Medical conditions notes', textStyles.blockSubHeader);
@@ -384,11 +391,13 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
 
   if (data.surgicalHistory || (data.surgicalHistoryNotes && data.surgicalHistoryNotes.length > 0)) {
     drawBlockHeader('Surgical history');
-    data.surgicalHistory?.length
-      ? data.surgicalHistory.forEach((record) => {
-          regularText(record);
-        })
-      : regularText('No surgical history');
+    if (data.surgicalHistory?.length) {
+      data.surgicalHistory.forEach((record) => {
+        regularText(record);
+      });
+    } else {
+      regularText('No surgical history');
+    }
 
     if (data.surgicalHistoryNotes && data.surgicalHistoryNotes.length > 0) {
       drawBlockHeader('Surgical history notes', textStyles.blockSubHeader);
@@ -402,11 +411,13 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
 
   if (data.hospitalization || (data.hospitalizationNotes && data.hospitalizationNotes.length > 0)) {
     drawBlockHeader('Hospitalization');
-    data.hospitalization?.length
-      ? data.hospitalization.forEach((record) => {
-          regularText(record);
-        })
-      : regularText('No hospitalizations');
+    if (data.hospitalization?.length) {
+      data.hospitalization.forEach((record) => {
+        regularText(record);
+      });
+    } else {
+      regularText('No hospitalizations');
+    }
 
     if (data.hospitalizationNotes && data.hospitalizationNotes.length > 0) {
       drawBlockHeader('Hospitalization notes', textStyles.blockSubHeader);
@@ -423,11 +434,13 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     (data.inHouseMedicationsNotes && data.inHouseMedicationsNotes.length > 0)
   ) {
     drawBlockHeader('In-House Medications');
-    data.inHouseMedications?.length
-      ? data.inHouseMedications.forEach((record) => {
-          regularText(record);
-        })
-      : regularText('No in-house medications');
+    if (data.inHouseMedications?.length) {
+      data.inHouseMedications.forEach((record) => {
+        regularText(record);
+      });
+    } else {
+      regularText('No in-house medications');
+    }
 
     if (data.inHouseMedicationsNotes && data.inHouseMedicationsNotes.length > 0) {
       drawBlockHeader('In-House Medications notes', textStyles.blockSubHeader);

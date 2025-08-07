@@ -59,4 +59,5 @@ export interface BasicInformationProps {
   control: Control<any>;
   existingUser?: User;
   errors: FormErrors;
+  isActive?: boolean;
 }
