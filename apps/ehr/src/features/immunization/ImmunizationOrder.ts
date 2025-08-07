@@ -3,17 +3,17 @@ import { DateTime } from 'luxon';
 export const STUB_IMMUNIZATION_ORDERS: ImmunizationOrder[] = [
   {
     id: 'order-1',
-    vaccineName: 'TdaP',
-    vaccineId: 'tdap-id',
+    vaccineName: 'Albuterol',
+    vaccineId: '6047ed6d-51a0-4afe-8f1e-2e009d37383c',
     dose: '5',
     units: 'mg',
-    route: 'route',
-    location: 'location',
+    route: '26643006',
+    location: 'location-a',
     instructions: 'instructions',
     status: 'pending',
     orderedBy: {
-      providerName: 'Stub provider',
-      providerId: 'stub-provider-id',
+      providerName: 'Bohdan Demo',
+      providerId: '30144c68-2422-4cbc-a21f-b15af079c965',
     },
     orderedDateTime: DateTime.now(),
     administeringData: {
@@ -36,18 +36,18 @@ export const STUB_IMMUNIZATION_ORDERS: ImmunizationOrder[] = [
   },
   {
     id: 'order-2',
-    vaccineName: 'Tetanus',
-    vaccineId: 'tetanus-id',
+    vaccineName: 'Albuterol',
+    vaccineId: '6047ed6d-51a0-4afe-8f1e-2e009d37383c',
     dose: '10',
     units: 'ml',
-    route: 'route',
-    location: 'location',
+    route: '26643006',
+    location: 'location-a',
     instructions: 'instructions',
     status: 'administered',
     statusReason: 'patient ok',
     orderedBy: {
-      providerName: 'Stub provider 2',
-      providerId: 'stub-provider-id-2',
+      providerName: 'Bohdan Demo',
+      providerId: '30144c68-2422-4cbc-a21f-b15af079c965',
     },
     orderedDateTime: DateTime.now(),
     administeringData: {

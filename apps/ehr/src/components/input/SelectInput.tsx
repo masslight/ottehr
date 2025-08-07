@@ -22,6 +22,11 @@ export const SelectInput: React.FC<Props> = ({ name, label, options, loading, re
       render={({ field, fieldState: { error } }) => (
         <Box sx={{ width: '100%' }}>
           <Autocomplete
+            value={
+              field.value != null
+                ? options?.find((option) => option.value === field.value) ?? { label: field.value, value: field.value }
+                : { label: '', value: '' }
+            }
             options={options ?? []}
             getOptionLabel={(option) => option.label}
             onChange={(_e, option: any) => field.onChange(option)}
