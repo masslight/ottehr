@@ -44,7 +44,7 @@ export const OrderDetailsSection: React.FC = () => {
         <TextInput name="instructions" label="Instructions" multiline />
       </Grid>
       <Grid xs={6} item>
-        <ProviderSelectInput name="ordered" label="Ordered by" required />
+        <ProviderSelectInput name="orderedBy.providerId" label="Ordered by" required />
       </Grid>
     </Grid>
   );
