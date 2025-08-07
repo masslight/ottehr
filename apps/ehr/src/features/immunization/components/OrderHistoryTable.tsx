@@ -14,20 +14,20 @@ import {
 import React, { useMemo, useState } from 'react';
 import { COLLAPSED_MEDS_COUNT } from 'src/features/css-module/hooks/useMedicationHistory';
 import { STUB_IMMUNIZATION_ORDERS } from '../ImmunizationOrder';
-import { HistoryTableRow } from './HistoryTableRow';
-import { HistoryTableSkeletonBody } from './HistoryTableSkeletonBody';
+import { OrderHistoryTableRow } from './OrderHistoryTableRow';
+import { OrderHistoryTableSkeletonBody } from './OrderHistoryTableSkeletonBody';
 
 interface Props {
   showActions: boolean;
 }
 
-export const HistoryTable: React.FC<Props> = ({ showActions }) => {
+export const OrderHistoryTable: React.FC<Props> = ({ showActions }) => {
   const [seeMoreOpen, setSeeMoreOpen] = useState(false);
 
   const isLoading = false;
   const immunizationHistory = STUB_IMMUNIZATION_ORDERS;
 
-  const items = useMemo(() => {
+  const orders = useMemo(() => {
     if (!seeMoreOpen) {
       return immunizationHistory.slice(0, COLLAPSED_MEDS_COUNT);
     } else {
@@ -56,11 +56,11 @@ export const HistoryTable: React.FC<Props> = ({ showActions }) => {
           </TableRow>
         </TableHead>
         {isLoading ? (
-          <HistoryTableSkeletonBody />
+          <OrderHistoryTableSkeletonBody />
         ) : (
           <TableBody>
-            {items.map((item) => (
-              <HistoryTableRow historyEntry={item} showActions={showActions} />
+            {orders.map((order) => (
+              <OrderHistoryTableRow key={order.id} order={order} showActions={showActions} />
             ))}
             {immunizationHistory.length > COLLAPSED_MEDS_COUNT && (
               <Button onClick={toggleShowMore} startIcon={seeMoreOpen ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />}>

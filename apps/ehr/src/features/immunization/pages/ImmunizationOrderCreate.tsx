@@ -1,15 +1,23 @@
 import { Grid, Paper, Stack } from '@mui/material';
 import React, { useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
+import { useNavigate, useParams } from 'react-router-dom';
 import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
 import { WarningBlock } from 'src/features/css-module/components/WarningBlock';
+import { getImmunizationMARUrl } from 'src/features/css-module/routing/helpers';
 import { AccordionCard } from 'src/telemed';
 import { PageHeader } from '../../css-module/components/medication-administration/PageHeader';
-import { HistoryTable } from '../components/HistoryTable';
-import { VaccineOrderDetailsSection } from '../components/VaccineOrderDetailsSection';
+import { OrderDetailsSection } from '../components/OrderDetailsSection';
+import { OrderHistoryTable } from '../components/OrderHistoryTable';
 
-export const ImmunizationOrderCreate: React.FC = () => {
+interface Props {
+  orderId?: string;
+}
+
+export const ImmunizationOrderCreate: React.FC<Props> = ({ orderId }) => {
   const methods = useForm();
+  const navigate = useNavigate();
+  const { id: appointmentId } = useParams();
   const [isImmunizationHistoryCollapsed, setIsImmunizationHistoryCollapsed] = useState(false);
 
   const onSubmit = (data: any): void => {
@@ -20,11 +28,11 @@ export const ImmunizationOrderCreate: React.FC = () => {
     <FormProvider {...methods}>
       <form onSubmit={methods.handleSubmit(onSubmit)}>
         <Stack spacing={2}>
-          <PageHeader title="Order Vaccine" variant="h3" component="h1" />
+          <PageHeader title={orderId ? 'Edit Vaccine Order' : 'Order Vaccine'} variant="h3" component="h1" />
           <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
             <Grid container spacing={2}>
               <Grid xs={12} item>
-                <VaccineOrderDetailsSection />
+                <OrderDetailsSection />
               </Grid>
               <Grid xs={12} item>
                 <WarningBlock
@@ -34,11 +42,16 @@ export const ImmunizationOrderCreate: React.FC = () => {
               </Grid>
               <Grid xs={12} item>
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
-                  <ButtonRounded variant="outlined" color="primary" size="large">
+                  <ButtonRounded
+                    variant="outlined"
+                    color="primary"
+                    size="large"
+                    onClick={() => navigate(getImmunizationMARUrl(appointmentId!))}
+                  >
                     Cancel
                   </ButtonRounded>
                   <ButtonRounded type="submit" variant="contained" color="primary" size="large">
-                    Order Vaccine
+                    {orderId ? 'Save changes' : 'Order Vaccine'}
                   </ButtonRounded>
                 </Stack>
               </Grid>
@@ -50,7 +63,7 @@ export const ImmunizationOrderCreate: React.FC = () => {
             onSwitch={() => setIsImmunizationHistoryCollapsed((prev) => !prev)}
             withBorder={false}
           >
-            <HistoryTable showActions={false} />
+            <OrderHistoryTable showActions={false} />
           </AccordionCard>
         </Stack>
       </form>

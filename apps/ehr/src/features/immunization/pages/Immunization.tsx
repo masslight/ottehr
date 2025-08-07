@@ -7,7 +7,8 @@ import { CSSLoader } from 'src/features/css-module/components/CSSLoader';
 import { getImmunizationMARUrl, getImmunizationVaccineDetailsUrl } from 'src/features/css-module/routing/helpers';
 import { ROUTER_PATH } from 'src/features/css-module/routing/routesCSS';
 import { PageTitle } from 'src/telemed/components/PageTitle';
-import { HistoryTable } from '../components/HistoryTable';
+import { OrderHistoryTable } from '../components/OrderHistoryTable';
+import { VaccineDetailsCardList } from '../components/VaccineDetailsCardList';
 
 interface TabContentProps {
   isActive: boolean;
@@ -51,7 +52,7 @@ export const Immunization: React.FC = () => {
   }, [appointmentId, navigate, tabName]);
 
   useEffect(() => {
-    setContent({ mar: <HistoryTable showActions={true} />, details: <></> });
+    setContent({ mar: <OrderHistoryTable showActions={true} />, details: <VaccineDetailsCardList /> });
   }, []);
 
   if (!content) {
@@ -94,7 +95,7 @@ export const Immunization: React.FC = () => {
         </AppBar>
 
         <TabContent isActive={tabName === 'mar'}>{content.mar}</TabContent>
-        <TabContent isActive={tabName === 'medication-details'}>{content.details}</TabContent>
+        <TabContent isActive={tabName === 'vaccine-details'}>{content.details}</TabContent>
       </Box>
     </Stack>
   );

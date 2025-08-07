@@ -42,6 +42,6 @@ export const AutocompleteInput: React.FC<Props> = ({ name, label, options, loadi
       )}
     />
   ) : (
-    <Skeleton variant="rectangular" width="100%" height={56} />
+    <Skeleton variant="rectangular" width="100%" height={40} />
   );
 };

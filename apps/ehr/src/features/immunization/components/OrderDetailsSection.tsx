@@ -11,7 +11,7 @@ const LOCATION_OPTIONS = [
   { value: 'location-b', label: 'Location B' },
 ];
 
-export const VaccineOrderDetailsSection: React.FC = () => {
+export const OrderDetailsSection: React.FC = () => {
   const theme = useTheme();
   return (
     <Grid container spacing={2}>

@@ -6,15 +6,15 @@ import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { CustomDialog } from 'src/components/dialogs';
-import { StatusChip } from 'src/features/immunization/components/StatusChip';
+import { OrderStatusChip } from 'src/features/immunization/components/OrderStatusChip';
 import { ImmunizationOrder } from '../ImmunizationOrder';
 
 interface Props {
-  historyEntry: ImmunizationOrder;
+  order: ImmunizationOrder;
   showActions: boolean;
 }
 
-export const HistoryTableRow: React.FC<Props> = ({ historyEntry, showActions }) => {
+export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) => {
   const theme = useTheme();
   const navigate = useNavigate();
   const { id: appointmentId } = useParams();
@@ -43,23 +43,26 @@ export const HistoryTableRow: React.FC<Props> = ({ historyEntry, showActions }) 
 
   return (
     <TableRow>
-      <TableCell>{historyEntry.vaccineName}</TableCell>
+      <TableCell>{order.vaccineName}</TableCell>
       <TableCell>
-        {historyEntry.dose} {historyEntry.units} {historyEntry.route ? `/ ${historyEntry.route}` : null}
-        {grayText(historyEntry.instructions)}
+        {order.dose} {order.units} {order.route ? `/ ${order.route}` : null}
+        {grayText(order.instructions)}
       </TableCell>
       <TableCell>
-        {formatDateTime(historyEntry.orderedDateTime)}
-        {grayText(historyEntry.orderedBy.providerName)}
+        {formatDateTime(order.orderedDateTime)}
+        {grayText(order.orderedBy.providerName)}
       </TableCell>
       <TableCell>
-        {formatDateTime(historyEntry.administeringData?.administeredDateTime)}
-        {grayText(historyEntry.administeringData?.providerName)}
+        {formatDateTime(order.administeringData?.administeredDateTime)}
+        {grayText(order.administeringData?.providerName)}
       </TableCell>
       <TableCell>
         <Stack direction="row" justifyContent="space-between">
-          <StatusChip status={historyEntry.status} />
-          {showActions ? (
+          <Stack>
+            <OrderStatusChip status={order.status} />
+            {order.statusReason}
+          </Stack>
+          {showActions && order.status === 'pending' ? (
             <Stack direction="row" onClick={(e) => e.stopPropagation()}>
               <IconButton size="small" aria-label="edit" onClick={navigateToEditOrder}>
                 <EditIcon sx={{ color: theme.palette.primary.dark }} />

@@ -34,7 +34,7 @@ const STATUS_TO_BG_COLOR: Record<string, Colors> = {
   },
 };
 
-export const StatusChip: React.FC<Props> = ({ status }) => {
+export const OrderStatusChip: React.FC<Props> = ({ status }) => {
   const colors = STATUS_TO_BG_COLOR[status];
   return (
     <Box

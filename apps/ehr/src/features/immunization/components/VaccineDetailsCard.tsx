@@ -6,15 +6,27 @@ import { DateInput } from 'src/components/input/DateInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { TimeInput } from 'src/components/input/TimeInput';
 import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
-import { VaccineOrderDetailsSection } from './VaccineOrderDetailsSection';
+import { ImmunizationOrder } from '../ImmunizationOrder';
+import { OrderDetailsSection } from './OrderDetailsSection';
 
-export const VaccineDetailsCard: React.FC = () => {
-  const methods = useForm();
+interface Props {
+  order: ImmunizationOrder;
+}
+
+export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
+  const methods = useForm({
+    defaultValues: {
+      ...order,
+      visGiven: order.administeringData?.visGivenDate != null,
+    },
+  });
   const theme = useTheme();
 
   const onSubmit = (data: any): void => {
     console.log(data);
   };
+
+  console.log(order);
 
   return (
     <FormProvider {...methods}>
@@ -23,7 +35,7 @@ export const VaccineDetailsCard: React.FC = () => {
           <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
             <Grid container spacing={2}>
               <Grid xs={12} item>
-                <VaccineOrderDetailsSection />
+                <OrderDetailsSection />
               </Grid>
               <Grid xs={12} item>
                 <Typography
@@ -36,22 +48,22 @@ export const VaccineDetailsCard: React.FC = () => {
                 </Typography>
               </Grid>
               <Grid xs={3} item>
-                <TextInput name="lot" label="LOT number" required />
+                <TextInput name="administeringData.lot" label="LOT number" required />
               </Grid>
               <Grid xs={3} item>
                 <DateInput name="expDate" label="Exp. Date" required />
               </Grid>
               <Grid xs={3} item>
-                <TextInput name="mvx" label="MVX code" required />
+                <TextInput name="administeringData.mvx" label="MVX code" required />
               </Grid>
               <Grid xs={3} item>
-                <TextInput name="cvx" label="CVX code" required />
+                <TextInput name="administeringData.cvx" label="CVX code" required />
               </Grid>
               <Grid xs={3} item>
-                <TextInput name="cpt" label="CPT code" />
+                <TextInput name="administeringData.cpt" label="CPT code" />
               </Grid>
               <Grid xs={3} item>
-                <TextInput name="ndc" label="NDC code" required />
+                <TextInput name="administeringData.ndc" label="NDC code" required />
               </Grid>
               <Grid xs={3} item>
                 <DateInput name="administeredDate" label="Administered date" required />
@@ -86,13 +98,13 @@ export const VaccineDetailsCard: React.FC = () => {
                 </Typography>
               </Grid>
               <Grid xs={4} item>
-                <TextInput name="relationship" label="Relationship" />
+                <TextInput name="emergencyContact.relationship" label="Relationship" />
               </Grid>
               <Grid xs={4} item>
-                <TextInput name="fullName" label="Full name" />
+                <TextInput name="emergencyContact.fullName" label="Full name" />
               </Grid>
               <Grid xs={4} item>
-                <TextInput name="mobile" label="Mobile" />
+                <TextInput name="emergencyContact.mobile" label="Mobile" />
               </Grid>
               <Grid xs={12} item>
                 <Stack direction="row" justifyContent="end" alignItems="center">

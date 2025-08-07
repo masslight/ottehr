@@ -42,6 +42,6 @@ export const SelectInput: React.FC<Props> = ({ name, label, options, loading, re
       )}
     />
   ) : (
-    <Skeleton variant="rectangular" width="100%" height={56} />
+    <Skeleton variant="rectangular" width="100%" height={40} />
   );
 };
