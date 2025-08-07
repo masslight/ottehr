@@ -133,8 +133,6 @@ export const AppointmentSidePanel: FC = () => {
   const interpreterString =
     preferredLanguage && isSpanish(preferredLanguage) ? `Interpreter: ${INTERPRETER_PHONE_NUMBER}` : '';
 
-  const paperworkAllergiesYesNo = getQuestionnaireResponseByLinkId('allergies-yes-no', questionnaireResponse);
-
   const allergiesStatus = (): string => {
     if (isChartDataLoading) {
       return 'Loading...';
@@ -142,11 +140,7 @@ export const AppointmentSidePanel: FC = () => {
     if (questionnaireResponse?.status === 'in-progress' && (allergies == null || allergies.length === 0)) {
       return 'No answer';
     }
-    if (
-      allergies == null ||
-      allergies.length === 0 ||
-      paperworkAllergiesYesNo?.answer?.[0].valueString === 'Patient has no known current allergies'
-    ) {
+    if (allergies == null || allergies.length === 0) {
       return 'No known allergies';
     }
     return allergies
