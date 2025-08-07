@@ -5,7 +5,7 @@ import { ButtonRounded } from 'src/features/css-module/components/RoundedButton'
 import { WarningBlock } from 'src/features/css-module/components/WarningBlock';
 import { AccordionCard } from 'src/telemed';
 import { PageHeader } from '../../css-module/components/medication-administration/PageHeader';
-import { ImmunizationHistoryTable } from '../components/ImmunizationHistoryTable';
+import { HistoryTable } from '../components/HistoryTable';
 import { VaccineOrderDetailsSection } from '../components/VaccineOrderDetailsSection';
 
 export const ImmunizationOrderCreate: React.FC = () => {
@@ -50,7 +50,7 @@ export const ImmunizationOrderCreate: React.FC = () => {
             onSwitch={() => setIsImmunizationHistoryCollapsed((prev) => !prev)}
             withBorder={false}
           >
-            <ImmunizationHistoryTable showActions={false} />
+            <HistoryTable showActions={false} />
           </AccordionCard>
         </Stack>
       </form>

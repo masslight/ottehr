@@ -1,7 +1,7 @@
 import { Skeleton, TableBody, TableCell, TableRow } from '@mui/material';
 import React, { ReactElement } from 'react';
 
-export const ImmunizationHistoryTableSkeletonBody: React.FC = () => {
+export const HistoryTableSkeletonBody: React.FC = () => {
   const skeletonCell = (): ReactElement => {
     return (
       <TableCell>

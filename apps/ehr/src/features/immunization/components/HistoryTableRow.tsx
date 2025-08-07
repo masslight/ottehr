@@ -13,7 +13,7 @@ interface Props {
   showActions: boolean;
 }
 
-export const ImmunizationHistoryTableRow: React.FC<Props> = ({ historyEntry, showActions }) => {
+export const HistoryTableRow: React.FC<Props> = ({ historyEntry, showActions }) => {
   const theme = useTheme();
   const navigate = useNavigate();
   const { id: appointmentId } = useParams();

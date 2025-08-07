@@ -7,7 +7,7 @@ import { CSSLoader } from 'src/features/css-module/components/CSSLoader';
 import { getImmunizationMARUrl, getImmunizationVaccineDetailsUrl } from 'src/features/css-module/routing/helpers';
 import { ROUTER_PATH } from 'src/features/css-module/routing/routesCSS';
 import { PageTitle } from 'src/telemed/components/PageTitle';
-import { ImmunizationHistoryTable } from '../components/ImmunizationHistoryTable';
+import { HistoryTable } from '../components/HistoryTable';
 
 interface TabContentProps {
   isActive: boolean;
@@ -51,7 +51,7 @@ export const Immunization: React.FC = () => {
   }, [appointmentId, navigate, tabName]);
 
   useEffect(() => {
-    setContent({ mar: <ImmunizationHistoryTable showActions={true} />, details: <></> });
+    setContent({ mar: <HistoryTable showActions={true} />, details: <></> });
   }, []);
 
   if (!content) {
