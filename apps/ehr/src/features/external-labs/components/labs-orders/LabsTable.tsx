@@ -1,3 +1,5 @@
+import { otherColors } from '@ehrTheme/colors';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ClearIcon from '@mui/icons-material/Clear';
 import {
   Box,
@@ -13,6 +15,7 @@ import {
   TableHead,
   TableRow,
   Typography,
+  useTheme,
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { LocalizationProvider } from '@mui/x-date-pickers';
@@ -20,6 +23,7 @@ import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { DateTime } from 'luxon';
 import { ReactElement, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
 import { LabOrderListPageDTO, LabOrdersSearchBy, OrderableItemSearchResult } from 'utils/lib/types/data/labs';
 import { getExternalLabOrderEditUrl } from '../../../css-module/routing/helpers';
 import { LabsAutocompleteForPatient } from '../LabsAutocompleteForPatient';
@@ -46,6 +50,7 @@ type LabsTableProps<SearchBy extends LabOrdersSearchBy> = {
   columns: LabsTableColumn[];
   showFilters?: boolean;
   allowDelete?: boolean;
+  allowSubmit?: boolean;
   titleText?: string;
   onCreateOrder?: () => void;
 };
@@ -55,10 +60,12 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
   columns,
   showFilters = false,
   allowDelete = false,
+  allowSubmit = false,
   titleText,
   onCreateOrder,
 }: LabsTableProps<SearchBy>): ReactElement => {
   const navigateTo = useNavigate();
+  const theme = useTheme();
 
   const {
     labOrders,
@@ -77,6 +84,17 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
   const [selectedOrderedItem, setSelectedOrderedItem] = useState<OrderableItemSearchResult | null>(null);
 
   const [tempDateFilter, setTempDateFilter] = useState(visitDateFilter);
+
+  const { pendingLabs, readyLabs } = labOrders.reduce(
+    (acc, lab) => {
+      if (lab.orderStatus === 'pending') acc.pendingLabs += 1;
+      if (lab.orderStatus === 'ready') acc.readyLabs += 1;
+      return acc;
+    },
+    { pendingLabs: 0, readyLabs: 0 }
+  );
+  const showSubmitButton = allowSubmit && readyLabs + pendingLabs > 0;
+  const showSubmitBanner = allowSubmit && readyLabs > 0 && pendingLabs === 0;
 
   const submitFilterByDate = (date?: DateTime | null): void => {
     const dateToSet = date || tempDateFilter;
@@ -181,148 +199,188 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
   };
 
   return (
-    <Paper
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: 3,
-        mt: 2,
-        p: 3,
-        position: 'relative',
-      }}
-    >
-      {loading && <LabOrderLoading />}
-
-      {titleText && (
-        <Typography
-          variant="h3"
-          color="primary.dark"
-          sx={{ mb: -2, mt: 2, width: '100%', display: 'flex', justifyContent: 'flex-start' }}
+    <>
+      {showSubmitBanner && (
+        <Box
+          sx={{
+            width: '100%',
+            height: '48px',
+            backgroundColor: `${otherColors.lightGreen}`,
+            display: 'flex',
+            justifyContent: 'left',
+            alignItems: 'center',
+            borderRadius: '4px',
+            py: '6px',
+            px: '16px',
+          }}
+          gap="12px"
         >
-          {titleText}
-        </Typography>
+          <CheckCircleOutlineIcon sx={{ color: `${theme.palette.success.main}` }}></CheckCircleOutlineIcon>
+          <Typography variant="button" sx={{ textTransform: 'none', color: `${theme.palette.success.dark}` }}>
+            Tests are ready to be sent. Please review then select submit.
+          </Typography>
+        </Box>
       )}
+      <Paper
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 3,
+          mt: 2,
+          p: 3,
+          position: 'relative',
+        }}
+      >
+        {loading && <LabOrderLoading />}
 
-      <Box sx={{ width: '100%' }}>
-        {showFilters && (
-          <LocalizationProvider dateAdapter={AdapterLuxon}>
-            <Grid container spacing={2} sx={{ mb: 2, mt: 1 }}>
-              <Grid item xs={4}>
-                {searchBy.searchBy.field === 'patientId' ? (
-                  <LabsAutocompleteForPatient
-                    patientLabItems={patientLabItems}
-                    selectedLabItem={selectedOrderedItem}
-                    setSelectedLabItem={handleOrderableItemCodeChange}
-                  />
-                ) : null}
-              </Grid>
-              <Grid item xs={4}>
-                <DatePicker
-                  label="Visit date"
-                  value={tempDateFilter}
-                  onChange={setTempDateFilter}
-                  onAccept={submitFilterByDate}
-                  format="MM/dd/yyyy"
-                  slotProps={{
-                    textField: (params) => ({
-                      ...params,
-                      onBlur: () => submitFilterByDate(),
-                      fullWidth: true,
-                      size: 'small',
-                      InputProps: {
-                        ...params.InputProps,
-                        endAdornment: (
-                          <>
-                            {tempDateFilter && (
-                              <IconButton size="small" onClick={handleClearDate} edge="end">
-                                <ClearIcon fontSize="small" />
-                              </IconButton>
-                            )}
-                            {params.InputProps?.endAdornment}
-                          </>
-                        ),
-                      },
-                    }),
-                  }}
-                />
-              </Grid>
-            </Grid>
-          </LocalizationProvider>
+        {titleText && (
+          <Typography
+            variant="h3"
+            color="primary.dark"
+            sx={{ mb: -2, mt: 2, width: '100%', display: 'flex', justifyContent: 'flex-start' }}
+          >
+            {titleText}
+          </Typography>
         )}
 
-        {!Array.isArray(labOrders) || labOrders.length === 0 ? (
-          <Box sx={{ p: 3, textAlign: 'center' }}>
-            <Typography variant="body1" gutterBottom>
-              No External Lab Orders to display
-            </Typography>
-            {onCreateOrder && (
-              <Button variant="contained" onClick={() => onCreateOrder()} sx={{ mt: 2 }}>
-                Create New External Lab Order
-              </Button>
-            )}
-          </Box>
-        ) : (
-          <TableContainer sx={{ border: '1px solid #e0e0e0' }}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  {columns.map((column) => (
-                    <TableCell
-                      key={column}
-                      align="left"
-                      sx={{
-                        fontWeight: 'bold',
-                        width: getColumnWidth(column),
-                        padding: column === 'testType' ? '16px 16px' : '8px 16px',
-                      }}
-                    >
-                      {getColumnHeader(column)}
-                    </TableCell>
+        <Box sx={{ width: '100%' }}>
+          {showFilters && (
+            <LocalizationProvider dateAdapter={AdapterLuxon}>
+              <Grid container spacing={2} sx={{ mb: 2, mt: 1 }}>
+                <Grid item xs={4}>
+                  {searchBy.searchBy.field === 'patientId' ? (
+                    <LabsAutocompleteForPatient
+                      patientLabItems={patientLabItems}
+                      selectedLabItem={selectedOrderedItem}
+                      setSelectedLabItem={handleOrderableItemCodeChange}
+                    />
+                  ) : null}
+                </Grid>
+                <Grid item xs={4}>
+                  <DatePicker
+                    label="Visit date"
+                    value={tempDateFilter}
+                    onChange={setTempDateFilter}
+                    onAccept={submitFilterByDate}
+                    format="MM/dd/yyyy"
+                    slotProps={{
+                      textField: (params) => ({
+                        ...params,
+                        onBlur: () => submitFilterByDate(),
+                        fullWidth: true,
+                        size: 'small',
+                        InputProps: {
+                          ...params.InputProps,
+                          endAdornment: (
+                            <>
+                              {tempDateFilter && (
+                                <IconButton size="small" onClick={handleClearDate} edge="end">
+                                  <ClearIcon fontSize="small" />
+                                </IconButton>
+                              )}
+                              {params.InputProps?.endAdornment}
+                            </>
+                          ),
+                        },
+                      }),
+                    }}
+                  />
+                </Grid>
+              </Grid>
+            </LocalizationProvider>
+          )}
+
+          {!Array.isArray(labOrders) || labOrders.length === 0 ? (
+            <Box sx={{ p: 3, textAlign: 'center' }}>
+              <Typography variant="body1" gutterBottom>
+                No External Lab Orders to display
+              </Typography>
+              {onCreateOrder && (
+                <Button variant="contained" onClick={() => onCreateOrder()} sx={{ mt: 2 }}>
+                  Create New External Lab Order
+                </Button>
+              )}
+            </Box>
+          ) : (
+            <TableContainer sx={{ border: '1px solid #e0e0e0' }}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    {columns.map((column) => (
+                      <TableCell
+                        key={column}
+                        align="left"
+                        sx={{
+                          fontWeight: 'bold',
+                          width: getColumnWidth(column),
+                          padding: column === 'testType' ? '16px 16px' : '8px 16px',
+                        }}
+                      >
+                        {getColumnHeader(column)}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {labOrders.map((order) => (
+                    <LabsTableRow
+                      key={order.serviceRequestId}
+                      labOrderData={order}
+                      onDeleteOrder={() =>
+                        showDeleteLabOrderDialog({
+                          serviceRequestId: order.serviceRequestId,
+                          testItemName: order.testItem,
+                        })
+                      }
+                      onRowClick={() => onRowClick(order)}
+                      columns={columns}
+                      allowDelete={allowDelete}
+                    />
                   ))}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {labOrders.map((order) => (
-                  <LabsTableRow
-                    key={order.serviceRequestId}
-                    labOrderData={order}
-                    onDeleteOrder={() =>
-                      showDeleteLabOrderDialog({
-                        serviceRequestId: order.serviceRequestId,
-                        testItemName: order.testItem,
-                      })
-                    }
-                    onRowClick={() => onRowClick(order)}
-                    columns={columns}
-                    allowDelete={allowDelete}
-                  />
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
 
-        {showPagination && totalPages > 1 && (
-          <Box sx={{ display: 'flex', justifyContent: 'flex-start', mt: 2, width: '100%' }}>
-            <Pagination
-              count={totalPages}
-              page={page}
-              onChange={handlePageChange}
-              sx={{
-                '& .MuiPaginationItem-root.Mui-selected': {
-                  backgroundColor: 'grey.300',
-                  '&:hover': {
-                    backgroundColor: 'grey.400',
+          {showPagination && totalPages > 1 && (
+            <Box sx={{ display: 'flex', justifyContent: 'flex-start', mt: 2, width: '100%' }}>
+              <Pagination
+                count={totalPages}
+                page={page}
+                onChange={handlePageChange}
+                sx={{
+                  '& .MuiPaginationItem-root.Mui-selected': {
+                    backgroundColor: 'grey.300',
+                    '&:hover': {
+                      backgroundColor: 'grey.400',
+                    },
                   },
-                },
-              }}
-            />
-          </Box>
-        )}
-      </Box>
-
-      {DeleteOrderDialog}
-    </Paper>
+                }}
+              />
+            </Box>
+          )}
+        </Box>
+        {DeleteOrderDialog}
+      </Paper>
+      {showSubmitButton && (
+        <Box display="flex" justifyContent="right" alignItems="center" mt={2} sx={{ width: '100%' }}>
+          <ButtonRounded
+            variant="contained"
+            color="primary"
+            size={'medium'}
+            onClick={() => console.log('submit!')}
+            disabled={pendingLabs > 0}
+            sx={{
+              py: 1,
+              px: 5,
+              textWrap: 'nowrap',
+            }}
+          >
+            Submit & Print Order(s)
+          </ButtonRounded>
+        </Box>
+      )}
+    </>
   );
 };

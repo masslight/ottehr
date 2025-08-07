@@ -56,6 +56,7 @@ export const ExternalLabOrdersListPage: React.FC = () => {
           columns={externalLabsColumns}
           showFilters={false}
           allowDelete={true}
+          allowSubmit={true}
           onCreateOrder={handleCreateOrder}
         />
       </Box>
