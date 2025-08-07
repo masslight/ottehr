@@ -1,3 +1,5 @@
+import { DateTime } from 'luxon';
+
 export const STUB_IMMUNIZATION_ORDERS: ImmunizationOrder[] = [
   {
     id: 'order-1',
@@ -8,10 +10,9 @@ export const STUB_IMMUNIZATION_ORDERS: ImmunizationOrder[] = [
     status: 'pending',
     orderedBy: {
       providerName: 'Stub provider',
-      privioderId: 'stub-provider-id',
+      providerId: 'stub-provider-id',
     },
-    orderedDate: 'orderedDate',
-    orderedTime: 'orderedTime',
+    orderedDateTime: DateTime.now(),
   },
   {
     id: 'order-2',
@@ -25,10 +26,9 @@ export const STUB_IMMUNIZATION_ORDERS: ImmunizationOrder[] = [
     status: 'administered',
     orderedBy: {
       providerName: 'Stub provider 2',
-      privioderId: 'stub-provider-id-2',
+      providerId: 'stub-provider-id-2',
     },
-    orderedDate: 'orderedDate',
-    orderedTime: 'orderedTime',
+    orderedDateTime: DateTime.now(),
     administeringData: {
       lot: 'lot',
       expDate: 'expDate',
@@ -36,11 +36,10 @@ export const STUB_IMMUNIZATION_ORDERS: ImmunizationOrder[] = [
       cvx: 'cvx',
       cpt: 'cpt',
       ndc: 'ndc',
-      administeredDate: 'administeredDate',
-      administeredTime: 'administeredTime',
-      visGivenDate: 'visGivenDate',
+      administeredDateTime: DateTime.now(),
+      visGivenDate: DateTime.now(),
       providerName: 'administeredProviderName',
-      privioderId: 'administeredProviderId',
+      providerId: 'administeredProviderId',
     },
     emergencyContact: {
       relationship: 'parent',
@@ -59,14 +58,13 @@ export interface ImmunizationOrder {
   route?: string;
   location?: string;
   instructions?: string;
-  status: string;
+  status: 'pending' | 'administered' | 'partly-administered' | 'not-administered' | 'cancelled';
   statusReason?: string;
   orderedBy: {
     providerName: string;
-    privioderId: string;
+    providerId: string;
   };
-  orderedDate: string;
-  orderedTime: string;
+  orderedDateTime: DateTime;
   administeringData?: {
     lot: string;
     expDate: string;
@@ -74,11 +72,10 @@ export interface ImmunizationOrder {
     cvx: string;
     cpt?: string;
     ndc: string;
-    administeredDate: string;
-    administeredTime: string;
-    visGivenDate?: string;
+    administeredDateTime: DateTime;
+    visGivenDate?: DateTime;
     providerName: string;
-    privioderId: string;
+    providerId: string;
   };
   emergencyContact?: {
     relationship?: string;

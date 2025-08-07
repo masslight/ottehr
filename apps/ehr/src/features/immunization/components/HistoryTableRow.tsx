@@ -1,8 +1,9 @@
 import { DeleteOutlined as DeleteIcon, EditOutlined as EditIcon } from '@mui/icons-material';
 import { IconButton, TableCell, TableRow, Typography } from '@mui/material';
 import { Stack, useTheme } from '@mui/system';
+import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import React, { useState } from 'react';
+import React, { ReactElement, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { CustomDialog } from 'src/components/dialogs';
 import { StatusChip } from 'src/features/immunization/components/StatusChip';
@@ -45,21 +46,19 @@ export const HistoryTableRow: React.FC<Props> = ({ historyEntry, showActions }) 
       <TableCell>{historyEntry.vaccineName}</TableCell>
       <TableCell>
         {historyEntry.dose} {historyEntry.units} {historyEntry.route ? `/ ${historyEntry.route}` : null}
-        <Typography sx={{ fontSize: '14px', color: '#00000099' }}>{historyEntry.instructions}</Typography>
+        {grayText(historyEntry.instructions)}
       </TableCell>
       <TableCell>
-        {historyEntry.orderedDate} {historyEntry.orderedTime}
-        <Typography sx={{ fontSize: '14px', color: '#00000099' }}>{historyEntry.orderedBy.providerName}</Typography>
+        {formatDateTime(historyEntry.orderedDateTime)}
+        {grayText(historyEntry.orderedBy.providerName)}
       </TableCell>
       <TableCell>
-        {historyEntry.administeringData?.administeredDate} {historyEntry.administeringData?.administeredTime}
-        <Typography sx={{ fontSize: '14px', color: '#00000099' }}>
-          {historyEntry.administeringData?.providerName}
-        </Typography>
+        {formatDateTime(historyEntry.administeringData?.administeredDateTime)}
+        {grayText(historyEntry.administeringData?.providerName)}
       </TableCell>
       <TableCell>
         <Stack direction="row" justifyContent="space-between">
-          <StatusChip status={historyEntry.status} style={'gray'} />
+          <StatusChip status={historyEntry.status} />
           {showActions ? (
             <Stack direction="row" onClick={(e) => e.stopPropagation()}>
               <IconButton size="small" aria-label="edit" onClick={navigateToEditOrder}>
@@ -86,3 +85,11 @@ export const HistoryTableRow: React.FC<Props> = ({ historyEntry, showActions }) 
     </TableRow>
   );
 };
+
+function formatDateTime(dateTime: DateTime | undefined): string | undefined {
+  return dateTime?.toFormat('MM/dd/yyyy HH:mm a');
+}
+
+function grayText(text: string | undefined): ReactElement {
+  return <Typography sx={{ fontSize: '14px', color: '#00000099' }}>{text}</Typography>;
+}
