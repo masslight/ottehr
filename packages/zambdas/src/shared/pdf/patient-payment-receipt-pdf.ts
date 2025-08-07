@@ -17,9 +17,11 @@ import {
 } from 'utils';
 import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
 import { createOystehrClient } from '../helpers';
+import { makeZ3Url } from '../presigned-file-urls';
 import { getStripeClient, STRIPE_PAYMENT_ID_SYSTEM } from '../stripeIntegration';
+import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { STANDARD_NEW_LINE } from './pdf-consts';
-import { createPdfClient, PdfInfo, rgbNormalized, savePdfLocally } from './pdf-utils';
+import { createPdfClient, PdfInfo, rgbNormalized } from './pdf-utils';
 import { ImageStyle, PdfClientStyles, TextStyle } from './types';
 
 interface PaymentData {
@@ -57,7 +59,7 @@ export async function createPatientPaymentReceiptPdf(
   patientId: string,
   secrets: Secrets | null,
   oystehrToken: string
-): Promise<any> {
+): Promise<PdfInfo> {
   const stripeClient = getStripeClient(secrets);
   const oystehr = createOystehrClient(oystehrToken, secrets);
   const billingOrganizationRef = getSecret(SecretsKeys.DEFAULT_BILLING_RESOURCE, secrets);
@@ -150,7 +152,7 @@ async function getReceiptData(
       id: patient.id!,
       name: getFullName(patient) ?? '',
       street: patientAddress.addressLine ?? '',
-      street2: patientAddress.addressLine2 ?? '??',
+      street2: patientAddress.addressLine2,
       city: patientAddress.city ?? '',
       state: patientAddress.state ?? '',
       zip: patientAddress.postalCode ?? '',
@@ -272,27 +274,23 @@ async function createReceiptPdf(receiptData: PatientPaymentReceiptData): Promise
     let totalAmount = 0;
 
     // Payments list
-    // Multiply the payments array 3 times
-    Array(10)
-      .fill(receiptData.payments)
-      .flat()
-      .forEach((payment, index) => {
-        const paymentMethodText = payment.method === 'card' ? `card ending ${payment.last4}` : payment.method;
-        totalAmount += payment.amount;
+    receiptData.payments.forEach((payment, index) => {
+      const paymentMethodText = payment.method === 'card' ? `card ending ${payment.last4}` : payment.method;
+      totalAmount += payment.amount;
 
-        pdfClient.setRightBound(initialLeftBound + columnWidth);
-        pdfClient.drawText(`Payment ${index + 1}`, textStyles.inlineText);
+      pdfClient.setRightBound(initialLeftBound + columnWidth);
+      pdfClient.drawText(`Payment ${index + 1}`, textStyles.inlineText);
 
-        pdfClient.setLeftBound(initialLeftBound + columnWidth);
-        pdfClient.setRightBound(initialLeftBound + columnWidth * 2);
+      pdfClient.setLeftBound(initialLeftBound + columnWidth);
+      pdfClient.setRightBound(initialLeftBound + columnWidth * 2);
 
-        pdfClient.drawText(paymentMethodText, textStyles.inlineText);
-        pdfClient.setLeftBound(initialLeftBound + columnWidth * 2);
-        pdfClient.setRightBound(initialLeftBound + columnWidth * 3);
+      pdfClient.drawText(paymentMethodText, textStyles.inlineText);
+      pdfClient.setLeftBound(initialLeftBound + columnWidth * 2);
+      pdfClient.setRightBound(initialLeftBound + columnWidth * 3);
 
-        regularText(`$${payment.amount}`);
-        pdfClient.setLeftBound(initialLeftBound);
-      });
+      regularText(`$${payment.amount}`);
+      pdfClient.setLeftBound(initialLeftBound);
+    });
 
     pdfClient.newLine(STANDARD_NEW_LINE);
 
@@ -315,25 +313,25 @@ async function createReceiptPdf(receiptData: PatientPaymentReceiptData): Promise
   return await pdfClient.save();
 }
 
+async function uploadPDF(pdfBytes: Uint8Array, token: string, baseFileUrl: string): Promise<void> {
+  const presignedUrl = await createPresignedUrl(token, baseFileUrl, 'upload');
+  await uploadObjectToZ3(pdfBytes, presignedUrl);
+}
+
 async function createReplaceReceiptOnZ3(
   pdfBytes: Uint8Array,
   patientId: string,
   secrets: Secrets | null,
   token: string
 ): Promise<PdfInfo> {
-  console.log('secrets: ', secrets);
-  console.log('token: ', token);
-  // const bucketName = 'receipts';
-  const fileName = 'receipt.pdf';
+  const bucketName = 'patient-payment-receipts';
+  const fileName = 'patient-payment-receipt.pdf';
   console.log('Creating base file url');
-  console.log('patientId: ', patientId);
-  // const baseFileUrl = makeZ3Url({ secrets, bucketName, patientID: patientId, fileName });
+  const baseFileUrl = makeZ3Url({ secrets, bucketName, patientID: patientId, fileName });
   console.log('Uploading file to bucket');
-  // await uploadPDF(pdfBytes, token, baseFileUrl, patientId).catch((error) => {
-  //   throw new Error('failed uploading pdf to z3: ' + error.message);
-  // });
+  await uploadPDF(pdfBytes, token, baseFileUrl).catch((error) => {
+    throw new Error('failed uploading pdf to z3: ' + error.message);
+  });
 
-  // for testing
-  savePdfLocally(pdfBytes);
   return { title: fileName, uploadURL: 'baseFileUrl' };
 }
