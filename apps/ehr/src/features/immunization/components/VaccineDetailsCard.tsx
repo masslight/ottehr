@@ -26,8 +26,6 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
     console.log(data);
   };
 
-  console.log(order);
-
   return (
     <FormProvider {...methods}>
       <form onSubmit={methods.handleSubmit(onSubmit)}>

@@ -9,9 +9,10 @@ type Props = {
   options: Option[] | undefined;
   loading?: boolean;
   required?: boolean;
+  selectOnly?: boolean;
 };
 
-export const AutocompleteInput: React.FC<Props> = ({ name, label, options, loading, required }) => {
+export const AutocompleteInput: React.FC<Props> = ({ name, label, options, loading, required, selectOnly }) => {
   const { formState, control } = useFormContext();
   return !loading ? (
     <Controller
@@ -24,18 +25,17 @@ export const AutocompleteInput: React.FC<Props> = ({ name, label, options, loadi
             value={
               field.value != null
                 ? options?.find((option) => option.value === field.value) ?? { label: field.value, value: field.value }
-                : { label: '', value: '' }
+                : null
             }
             options={options ?? []}
             getOptionLabel={(option) => option.label}
-            isOptionEqualToValue={(option, value) => option.value === value.value}
-            onChange={(_e, option: any) => field.onChange(option)}
+            onChange={(_e, option: any) => field.onChange(option?.value ?? null)}
             renderInput={(params) => (
               <TextField
                 {...params}
                 label={label + (required ? '*' : '')}
                 placeholder={`Select ${label}`}
-                inputProps={{ ...params.inputProps }}
+                inputProps={{ ...params.inputProps, readOnly: selectOnly }}
                 error={formState.errors[name] != null}
                 size="small"
               />

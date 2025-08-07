@@ -15,6 +15,5 @@ export const MedicationSelectInput: React.FC<Props> = ({ name, label, required }
       label,
     };
   });
-  console.log('options:', isLoading, options);
   return <AutocompleteInput name={name} label={label} options={options} loading={isLoading} required={required} />;
 };
