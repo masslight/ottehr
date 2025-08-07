@@ -11,10 +11,10 @@ import {
   Typography,
 } from '@mui/material';
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
+import { useQuery } from '@tanstack/react-query';
 import { Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { FC, useMemo, useState } from 'react';
-import { useQuery } from 'react-query';
 import { VisitTypeToLabel, VisitTypeToLabelTelemed } from 'src/types/types';
 import {
   EmployeeDetails,
@@ -24,6 +24,7 @@ import {
   OTTEHR_MODULE,
   ServiceMode,
   TelemedCallStatusesArr,
+  useSuccessQuery,
   Visit_Status_Array,
 } from 'utils';
 import { create } from 'zustand';
@@ -164,6 +165,8 @@ const columns: GridColDef<AppointmentHistoryRow>[] = [
   },
 ];
 
+const emptyEmployeeList: EmployeeDetails[] = [];
+
 export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => {
   const { appointments, loading } = props;
 
@@ -174,16 +177,26 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
   const [hideNoShow, setHideNoShow] = useState(false);
 
   const { oystehrZambda } = useApiClients();
-  useQuery(
-    ['patient-record-get-employees', { zambdaClient: oystehrZambda }],
-    () => (oystehrZambda ? getEmployees(oystehrZambda) : null),
-    {
-      onSuccess: (response) => {
-        useEmployeesStore.setState({ employees: response?.employees || [] });
-      },
-      enabled: !!oystehrZambda,
-    }
-  );
+
+  const { data: employeesData } = useQuery({
+    queryKey: ['employees'],
+    queryFn: async () => {
+      if (!oystehrZambda) {
+        return null;
+      }
+      const data = await getEmployees(oystehrZambda);
+      if (!data.employees) {
+        return null;
+      }
+      return data;
+    },
+    enabled: !!oystehrZambda,
+  });
+
+  useSuccessQuery(employeesData, (data) => {
+    const employees = data?.employees || emptyEmployeeList;
+    useEmployeesStore.setState({ employees });
+  });
 
   const filtered = useMemo(() => {
     let filtered = appointments || [];

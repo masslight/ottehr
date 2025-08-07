@@ -187,6 +187,7 @@ async function BookAppointmentFillInfoSignProgressNote(page: Page, resourceHandl
   await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
   const patientInfoPage = await intakeTestAppointment(page, resourceHandler);
   await patientInfoPage.sideMenu().clickCompleteIntakeButton();
+  await patientInfoPage.cssHeader().verifyStatus('ready for provider');
   await patientInfoPage.cssHeader().clickSwitchModeButton('provider');
   await patientInfoPage.cssHeader().changeStatus('provider');
   const progressNotePage = await expectInPersonProgressNotePage(page);

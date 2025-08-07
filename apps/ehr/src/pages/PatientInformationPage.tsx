@@ -2,11 +2,11 @@ import { otherColors } from '@ehrTheme/colors';
 import CloseIcon from '@mui/icons-material/Close';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { Box, Button, Typography, useTheme } from '@mui/material';
+import { useQueryClient } from '@tanstack/react-query';
 import { BundleEntry, Coverage, Organization, QuestionnaireResponseItem } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useEffect, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { useQueryClient } from 'react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import {
@@ -99,11 +99,13 @@ const PatientInformationPage: FC = () => {
   // data mutations
   const queryClient = useQueryClient();
   const submitQR = useUpdatePatientAccount(() => {
-    void queryClient.invalidateQueries('patient-account-get');
+    void queryClient.invalidateQueries({ queryKey: ['patient-account-get'] });
   });
   const removeCoverage = useRemovePatientCoverage();
 
   useGetInsurancePlans((data) => {
+    if (!data) return;
+
     const bundleEntries = data.entry;
     if (bundleEntries) {
       const organizations = bundleEntries
@@ -221,7 +223,7 @@ const PatientInformationPage: FC = () => {
             enqueueSnackbar('Coverage removed from patient account', {
               variant: 'success',
             });
-            void queryClient.invalidateQueries('patient-account-get');
+            void queryClient.invalidateQueries({ queryKey: ['patient-account-get'] });
           },
           onError: () => {
             enqueueSnackbar('Save operation failed. The server encountered an error while processing your request.', {
@@ -307,7 +309,7 @@ const PatientInformationPage: FC = () => {
                         coverage.resource,
                         accountData?.coverageChecks ?? []
                       )}
-                      removeInProgress={removeCoverage.isLoading}
+                      removeInProgress={removeCoverage.isPending}
                       handleRemoveClick={
                         coverage.resource.id !== undefined
                           ? () => {
@@ -343,7 +345,7 @@ const PatientInformationPage: FC = () => {
             handleSave={handleSubmit(handleSaveForm, () => {
               enqueueSnackbar('Please fix all field validation errors and try again', { variant: 'error' });
             })}
-            loading={submitQR.isLoading}
+            loading={submitQR.isPending}
             hidden={false}
             submitDisabled={Object.keys(dirtyFields).length === 0}
           />

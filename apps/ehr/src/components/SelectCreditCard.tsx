@@ -58,6 +58,8 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
     beneficiaryPatientId: patient?.id,
     setupCompleted: Boolean(setupData),
     onSuccess: (data) => {
+      if (!data) return;
+
       setCards(data.cards ?? []);
       const defaultCard = data.cards.find((card) => card.default);
       if (defaultCard && !selectedCardId) {

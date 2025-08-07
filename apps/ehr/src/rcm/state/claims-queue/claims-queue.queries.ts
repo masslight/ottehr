@@ -1,4 +1,5 @@
-import { useQuery, UseQueryResult } from 'react-query';
+import { useQuery, UseQueryResult } from '@tanstack/react-query';
+import { useSuccessQuery } from 'utils';
 import { ClaimsQueueGetResponse } from 'utils';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { Oystehr_RCM_APIClient } from '../../data';
@@ -9,8 +10,8 @@ export const useGetClaims = ({
   onSuccess,
 }: {
   apiClient: Oystehr_RCM_APIClient | null;
-  onSuccess?: (data: ClaimsQueueGetResponse) => void;
-}): UseQueryResult<ClaimsQueueGetResponse, unknown> => {
+  onSuccess?: (data: ClaimsQueueGetResponse | null) => void;
+}): UseQueryResult<ClaimsQueueGetResponse, Error> => {
   const params = getSelectors(useClaimsQueueStore, [
     'patient',
     'visitId',
@@ -30,20 +31,20 @@ export const useGetClaims = ({
     'pageSize',
   ]);
 
-  return useQuery(
-    ['rcm-claims-queue', apiClient, params],
-    () => {
+  const queryResult = useQuery({
+    queryKey: ['rcm-claims-queue', apiClient, params],
+
+    queryFn: () => {
       if (apiClient) {
         return apiClient.getClaims(params);
       }
       throw new Error('api client not defined');
     },
-    {
-      onError: (err) => {
-        console.error('Error during fetching get claims: ', err);
-      },
-      onSuccess,
-      enabled: !!apiClient,
-    }
-  );
+
+    enabled: !!apiClient,
+  });
+
+  useSuccessQuery(queryResult.data, onSuccess);
+
+  return queryResult;
 };
