@@ -22,6 +22,36 @@ import { STANDARD_NEW_LINE } from './pdf-consts';
 import { createPdfClient, PdfInfo, rgbNormalized, savePdfLocally } from './pdf-utils';
 import { ImageStyle, PdfClientStyles, TextStyle } from './types';
 
+interface PaymentData {
+  amount: number;
+  method: CashOrCardPayment['paymentMethod'];
+  last4?: string;
+  brand?: string;
+}
+
+interface PatientPaymentReceiptData {
+  receiptDate: string;
+  visitDate: string;
+  payments: PaymentData[];
+  organization: {
+    name: string;
+    street: string;
+    street2?: string;
+    city: string;
+    state: string;
+    zip: string;
+  };
+  patient: {
+    id: string;
+    name: string;
+    street: string;
+    street2?: string;
+    city: string;
+    state: string;
+    zip: string;
+  };
+}
+
 export async function createPatientPaymentReceiptPdf(
   encounterId: string,
   patientId: string,
@@ -39,38 +69,8 @@ export async function createPatientPaymentReceiptPdf(
   console.log('Creating receipt pdf');
   const receiptPdf = await createReceiptPdf(receiptData);
   console.log('Created receipt pdf');
-  const response = await createReplaceReceiptOnZ3(receiptPdf, receiptData.patient.id, secrets, oystehrToken);
-  return response;
-}
 
-interface PaymentData {
-  amount: number;
-  method: CashOrCardPayment['paymentMethod'];
-  last4?: string;
-}
-
-interface PatientPaymentReceiptData {
-  receiptDate: string;
-  visitDate: string;
-  payments: PaymentData[];
-  organization: {
-    name: string;
-    street: string;
-    street2: string;
-    city: string;
-    state: string;
-    zip: string;
-    phone: string;
-  };
-  patient: {
-    id: string;
-    name: string;
-    street: string;
-    street2?: string;
-    city: string;
-    state: string;
-    zip: string;
-  };
+  return await createReplaceReceiptOnZ3(receiptPdf, receiptData.patient.id, secrets, oystehrToken);
 }
 
 async function getReceiptData(
@@ -112,6 +112,7 @@ async function getReceiptData(
   const patientAddress = getPatientAddress(patient.address);
   const appointment = resources.find((r) => r.resourceType === 'Appointment') as Appointment;
   const paymentNoticess = resources.filter((r) => r.resourceType === 'PaymentNotice') as PaymentNotice[];
+
   const payments: PaymentData[] = paymentNoticess.map((paymentNotice) => {
     const method = paymentNotice.extension?.find((ext) => ext.url === PAYMENT_METHOD_EXTENSION_URL)
       ?.valueString as CashOrCardPayment['paymentMethod'];
@@ -119,12 +120,13 @@ async function getReceiptData(
     const pnStripeId = paymentNotice.identifier?.find((id) => id.system === STRIPE_PAYMENT_ID_SYSTEM)?.value;
     const paymentIntent = stripePayments.find((pi) => pi.id === pnStripeId);
     const last4 = paymentMethods.find((pm) => pm.id === paymentIntent?.payment_method)?.card?.last4;
-    // todo i have to add brand of card and change text to 'Card ending 1111'
+    const brand = paymentMethods.find((pm) => pm.id === paymentIntent?.payment_method)?.card?.brand;
 
     return {
       amount: paymentNotice.amount.value ?? -1,
       method: method,
       last4,
+      brand,
     };
   });
   const organizationAddress = organization.address?.[0];
@@ -139,17 +141,16 @@ async function getReceiptData(
     organization: {
       name: organization?.name ?? '',
       street: organizationAddress?.line?.[0] ?? '',
-      street2: organizationAddress?.line?.[1] ?? '',
+      street2: organizationAddress?.line?.[1],
       city: organizationAddress?.city ?? '',
       state: organizationAddress?.state ?? '',
       zip: organizationAddress?.postalCode ?? '',
-      phone: '??',
     },
     patient: {
       id: patient.id!,
       name: getFullName(patient) ?? '',
       street: patientAddress.addressLine ?? '',
-      street2: patientAddress.addressLine2,
+      street2: patientAddress.addressLine2 ?? '??',
       city: patientAddress.city ?? '',
       state: patientAddress.state ?? '',
       zip: patientAddress.postalCode ?? '',
@@ -174,39 +175,23 @@ async function createReceiptPdf(receiptData: PatientPaymentReceiptData): Promise
   console.log('creating client');
   const pdfClient = await createPdfClient(pdfClientStyles);
   console.log('created client');
-
   const RubikFont = await pdfClient.embedFont(fs.readFileSync('./assets/Rubik-Regular.otf'));
-  const RubikFontBold = await pdfClient.embedFont(fs.readFileSync('./assets/Rubik-Bold.otf'));
   const ottehrLogo = await pdfClient.embedImage(fs.readFileSync('./assets/ottehrLogo.png'));
 
   const textStyles: Record<string, TextStyle> = {
     header: {
-      fontSize: 20,
-      font: RubikFontBold,
-      spacing: 17,
+      fontSize: 18,
+      spacing: 8,
+      font: RubikFont,
       side: 'right',
-      newLineAfter: true,
+      color: rgbNormalized(48, 19, 103),
     },
     blockHeader: {
-      fontSize: 18,
+      fontSize: 16,
       spacing: 8,
       font: RubikFont,
       newLineAfter: true,
       color: rgbNormalized(48, 19, 103),
-    },
-    blockSubHeader: {
-      fontSize: 16,
-      spacing: 1,
-      font: RubikFontBold,
-      newLineAfter: true,
-      color: rgbNormalized(48, 19, 103),
-    },
-    fieldText: {
-      fontSize: 16,
-      spacing: 6,
-      font: RubikFont,
-      side: 'right',
-      newLineAfter: true,
     },
     text: {
       fontSize: 11,
@@ -225,13 +210,8 @@ async function createReceiptPdf(receiptData: PatientPaymentReceiptData): Promise
     pdfClient.drawText(text, textStyles.blockHeader);
   };
 
-  const drawBlockSubHeader = (text: string): void => {
-    pdfClient.drawText(text, textStyles.blockSubHeader);
-  };
-
-  const regularText = (text?: string, alternativeText?: string): void => {
-    if (text) pdfClient.drawText(text, textStyles.text);
-    else if (alternativeText) pdfClient.drawText(alternativeText, textStyles.alternativeRegularText);
+  const regularText = (text: string): void => {
+    pdfClient.drawText(text, textStyles.text);
   };
 
   const drawHeadline = (): void => {
@@ -240,6 +220,7 @@ async function createReceiptPdf(receiptData: PatientPaymentReceiptData): Promise
       height: 47,
     };
     pdfClient.drawImage(ottehrLogo, imgStyles);
+    pdfClient.drawText('Receipt', textStyles.header);
     pdfClient.setY(pdfClient.getY() - imgStyles.height); // new line after image
   };
 
@@ -249,145 +230,86 @@ async function createReceiptPdf(receiptData: PatientPaymentReceiptData): Promise
     const initialLeftBound = pdfClient.getLeftBound();
     const beforeColumnsY = pdfClient.getY();
 
-    // todo here i wanna put patient address in order:
-    //  Street,
-    //  Street2,
-    //  City, State Zip
-
     // Organization column
+    // Setting bounds for the first column
     pdfClient.setRightBound(pageWidth / 2);
-    pdfClient.drawText(receiptData.organization.name, textStyles.text);
-    pdfClient.drawText(`${receiptData.organization.street}`, textStyles.text);
+
+    regularText(receiptData.organization.name);
+    regularText(`${receiptData.organization.street}`);
     if (receiptData.organization.street2) {
-      pdfClient.drawText(`${receiptData.organization.street2}`, textStyles.text);
+      regularText(`${receiptData.organization.street2}`);
     }
-    pdfClient.drawText(
-      `${receiptData.organization.city}, ${receiptData.organization.state} ${receiptData.organization.zip}`,
-      textStyles.text
-    );
-    // pdfClient.drawTextSequential(`${receiptData.organization.street2}\n`, textStyles.text, {
-    //   leftBound: pdfClient.getLeftBound(),
-    //   rightBound: pageWidth / 2,
-    // });
-    // pdfClient.drawTextSequential(
-    //   `${receiptData.organization.city}, ${receiptData.organization.state} ${receiptData.organization.zip}`,
-    //   textStyles.text,
-    //   {
-    //     leftBound: pdfClient.getLeftBound(),
-    //     rightBound: pageWidth / 2,
-    //   }
-    // );
+    regularText(`${receiptData.organization.city}, ${receiptData.organization.state} ${receiptData.organization.zip}`);
 
     const afterFirstColumn = pdfClient.getY();
+
     // Patient column
+    // Setting Y to the start of the table
     pdfClient.setY(beforeColumnsY);
 
+    // Setting new bounds for the second column
     pdfClient.setRightBound(initialRightBound);
     pdfClient.setLeftBound(pageWidth / 2);
 
-    pdfClient.drawText(receiptData.patient.name, textStyles.text);
-    pdfClient.drawText(`${receiptData.patient.street}`, textStyles.text);
+    regularText(receiptData.patient.name);
+    regularText(`${receiptData.patient.street}`);
     if (receiptData.patient.street2) {
-      pdfClient.drawText(`${receiptData.patient.street2}`, textStyles.text);
+      regularText(`${receiptData.patient.street2}`);
     }
-    pdfClient.drawText(
-      `${receiptData.patient.city}, ${receiptData.patient.state} ${receiptData.patient.zip}`,
-      textStyles.text
-    );
+    regularText(`${receiptData.patient.city}, ${receiptData.patient.state} ${receiptData.patient.zip}`);
 
-    // if (receiptData.patient.street2) {
-    //   pdfClient.drawTextSequential(`${receiptData.patient.street2}\n`, textStyles.text, {
-    //     leftBound: pdfClient.getLeftBound() + pageWidth / 2,
-    //     rightBound: pageWidth / 2,
-    //   });
-    // }
-    // pdfClient.drawTextSequential(
-    //   `${receiptData.patient.city}, ${receiptData.patient.state} ${receiptData.patient.zip}`,
-    //   textStyles.text,
-    //   {
-    //     leftBound: pdfClient.getLeftBound() + pageWidth / 2,
-    //     rightBound: pageWidth / 2,
-    //   }
-    // );
+    // Setting Y to the minimum so cursor will be at the bottom of the table
+    if (afterFirstColumn < pdfClient.getY()) pdfClient.setY(afterFirstColumn);
+    else pdfClient.setY(pdfClient.getY());
 
-    // Setting Y to the minimum of the two columns Y positions
-    if (afterFirstColumn < pdfClient.getY()) {
-      pdfClient.setY(afterFirstColumn);
-    } else {
-      pdfClient.setY(pdfClient.getY());
-    }
     pdfClient.setLeftBound(initialLeftBound);
   };
 
   const drawPaymentDetails = (): void => {
-    const columnGap = 10;
-    const tableWidth = (pdfClient.getRightBound() - pdfClient.getLeftBound()) * 0.6;
-    const columnWidth = tableWidth / 3 - columnGap;
-    const leftBound = pdfClient.getLeftBound();
+    const tableWidth = (pdfClient.getRightBound() - pdfClient.getLeftBound()) * 0.9;
+    const columnWidth = tableWidth / 3;
+    const initialLeftBound = pdfClient.getLeftBound();
     let totalAmount = 0;
 
-    receiptData.payments.forEach((payment, index) => {
-      const paymentMethod = payment.method;
-      const last4 = payment.last4;
-      const amount = payment.amount;
-      const paymentMethodText = paymentMethod === 'card' ? `Card ending ${last4}` : paymentMethod;
-      const amountText = `$${amount}`;
-      totalAmount += amount;
-      pdfClient.drawVariableWidthColumns(
-        [
-          {
-            content: `Payment ${index + 1}`,
-            textStyle: textStyles.text,
-            startXPos: leftBound,
-            width: columnWidth,
-          },
-          {
-            content: paymentMethodText,
-            textStyle: textStyles.text,
-            startXPos: leftBound + columnWidth + columnGap,
-            width: columnWidth,
-          },
-          {
-            content: amountText,
-            textStyle: textStyles.text,
-            startXPos: leftBound + (columnWidth + columnGap) * 2,
-            width: columnWidth,
-          },
-        ],
-        pdfClient.getY(),
-        pdfClient.getCurrentPageIndex()
-      );
-    });
+    // Payments list
+    // Multiply the payments array 3 times
+    Array(10)
+      .fill(receiptData.payments)
+      .flat()
+      .forEach((payment, index) => {
+        const paymentMethodText = payment.method === 'card' ? `card ending ${payment.last4}` : payment.method;
+        totalAmount += payment.amount;
+
+        pdfClient.setRightBound(initialLeftBound + columnWidth);
+        pdfClient.drawText(`Payment ${index + 1}`, textStyles.inlineText);
+
+        pdfClient.setLeftBound(initialLeftBound + columnWidth);
+        pdfClient.setRightBound(initialLeftBound + columnWidth * 2);
+
+        pdfClient.drawText(paymentMethodText, textStyles.inlineText);
+        pdfClient.setLeftBound(initialLeftBound + columnWidth * 2);
+        pdfClient.setRightBound(initialLeftBound + columnWidth * 3);
+
+        regularText(`$${payment.amount}`);
+        pdfClient.setLeftBound(initialLeftBound);
+      });
 
     pdfClient.newLine(STANDARD_NEW_LINE);
-    pdfClient.drawVariableWidthColumns(
-      [
-        {
-          content: `Total Payments for date ${receiptData.receiptDate}`,
-          textStyle: textStyles.text,
-          startXPos: leftBound,
-          width: columnWidth * 2,
-        },
-        {
-          content: `$${totalAmount}`,
-          textStyle: textStyles.text,
-          startXPos: leftBound + (columnWidth + columnGap) * 2,
-          width: columnWidth,
-        },
-      ],
-      pdfClient.getY(),
-      pdfClient.getCurrentPageIndex()
-    );
+
+    // Totals
+    pdfClient.drawText(`Total Payments for date ${receiptData.receiptDate}`, textStyles.inlineText);
+    pdfClient.setLeftBound(initialLeftBound + columnWidth * 2);
+    regularText(`$${totalAmount}`);
+    pdfClient.setLeftBound(initialLeftBound);
   };
 
   drawHeadline();
-  drawBlockHeader('Receipt');
   regularText(`Receipt Date: ${receiptData.receiptDate}`);
   regularText(`Visit Date: ${receiptData.visitDate}`);
   pdfClient.newLine(STANDARD_NEW_LINE);
   drawOrganizationAndPatientDetails();
   pdfClient.newLine(STANDARD_NEW_LINE);
-  drawBlockSubHeader('Payments Details');
+  drawBlockHeader('Payments Details');
   drawPaymentDetails();
 
   return await pdfClient.save();
