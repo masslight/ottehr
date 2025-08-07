@@ -41,6 +41,7 @@ import {
   GetConversationZambdaOutput,
   GetCreateInHouseLabOrderResourcesParameters,
   GetCreateInHouseLabOrderResourcesResponse,
+  GetDevicesResponse,
   GetEmployeesResponse,
   GetInHouseOrdersParameters,
   GetLabelPdfParameters,
@@ -960,6 +961,19 @@ export const generatePaperworkPdf = async (
     const response = await oystehr.zambda.execute({
       id: PAPERWORK_TO_PDF_ZAMBDA_ID,
       ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getDevices = async (params: object, oystehr: Oystehr): Promise<GetDevicesResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'get-devices',
+      ...params,
     });
     return chooseJson(response);
   } catch (error: unknown) {

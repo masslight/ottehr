@@ -166,7 +166,6 @@ const columns: GridColDef<AppointmentHistoryRow>[] = [
 
 export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => {
   const { appointments, loading } = props;
-
   const [type, setType] = useState('all');
   const [period, setPeriod] = useState(0);
   const [status, setStatus] = useState('all');

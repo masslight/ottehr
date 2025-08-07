@@ -74,16 +74,16 @@ export const HeartbeatStatusTable: React.FC<HeartbeatStatusProps> = ({ loading }
   ];
 
   const columns: GridColDef[] = [
-    { field: 'timePeriod', headerName: 'Time Period', flex: 1 },
-    { field: 'createdAt', headerName: 'Created At', flex: 1 },
-    { field: 'data_type', headerName: 'Data Type', flex: 1 },
-    { field: 'imei', headerName: 'IMEI', flex: 1 },
-    { field: 'imsi', headerName: 'IMSI', flex: 1 },
-    { field: 'iccid', headerName: 'ICCID', flex: 1 },
-    { field: 'sig', headerName: 'Signal Strength', flex: 1 },
-    { field: 'bat', headerName: 'Battery', flex: 1 },
-    { field: 'tz', headerName: 'Timezone', flex: 1 },
-    { field: 'modelNumber', headerName: 'Model Number', flex: 1 },
+    { field: 'timePeriod', headerName: 'Time Period', width: 150 },
+    { field: 'createdAt', headerName: 'Created At', width: 150 },
+    { field: 'data_type', headerName: 'Data Type', width: 150 },
+    { field: 'imei', headerName: 'IMEI', width: 150 },
+    { field: 'imsi', headerName: 'IMSI', width: 150 },
+    { field: 'iccid', headerName: 'ICCID', width: 150 },
+    { field: 'sig', headerName: 'Signal Strength', width: 150 },
+    { field: 'bat', headerName: 'Battery', width: 150 },
+    { field: 'tz', headerName: 'Timezone', width: 150 },
+    { field: 'modelNumber', headerName: 'Model Number', width: 150 },
   ];
 
   return (
@@ -138,9 +138,17 @@ export const HeartbeatStatusTable: React.FC<HeartbeatStatusProps> = ({ loading }
         disableColumnMenu
         disableRowSelectionOnClick
         sx={{
+          width: '100%',
           border: 0,
+          overflowX: 'auto',
           '.MuiDataGrid-columnHeaderTitle': {
             fontWeight: 500,
+            whiteSpace: 'normal',
+            lineHeight: 1.2,
+          },
+          '.MuiDataGrid-cell': {
+            whiteSpace: 'normal',
+            lineHeight: 1.4,
           },
         }}
       />

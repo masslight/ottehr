@@ -1,87 +1,54 @@
 import AddIcon from '@mui/icons-material/Add';
 import { Box, Paper, Stack, Typography } from '@mui/material';
-import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
-import { FC, useCallback, useEffect, useRef, useState } from 'react';
+import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
+import { FC, useCallback, useState } from 'react';
+import { useQuery } from 'react-query';
 import { useNavigate } from 'react-router-dom';
+import { getDevices } from 'src/api/api';
+import { useApiClients } from 'src/hooks/useAppClients';
 import { DeviceAssignmentModal } from '../components/DeviceAssignModal';
 import { RoundedButton } from './RoundedButton';
 
 interface Device {
   id: string;
   name: string;
-  deviceId: string;
-  dateTime?: string;
+  manufacturer: string;
+  lastUpdated: string;
 }
 
 export const PatientDevicesTab: FC<{ loading: boolean }> = ({ loading }) => {
   const [openModal, setOpenModal] = useState(false);
   const [assignedDevices, setAssignedDevices] = useState<Device[]>([]);
-  const [availableDevices, setAvailableDevices] = useState<Device[]>([]);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const [_searchTerm, setSearchTerm] = useState('');
+  const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 5 });
+  const [totalCount, setTotalCount] = useState(0);
   const navigate = useNavigate();
+  const { oystehrZambda } = useApiClients();
 
-  const allDevices = useRef<Device[]>([]);
+  const payload = {
+    offset: paginationModel.page * paginationModel.pageSize,
+    count: paginationModel.pageSize,
+    patientId: 'Patient/1b1c9771-3da5-4798-aff9-0cea267b62bf',
+  };
 
-  const loadMoreDevices = useCallback(() => {
-    if (loadingMore) return;
-
-    setLoadingMore(true);
-    setTimeout(() => {
-      const newDevices = Array.from({ length: 20 }, (_, i) => ({
-        id: `new-${availableDevices.length + i}`,
-        name: `Device ${availableDevices.length + i + 1}`,
-        deviceId: `DV-${10000 + availableDevices.length + i}`,
-      }));
-
-      const updatedDevices = [...availableDevices, ...newDevices];
-      setAvailableDevices(updatedDevices);
-      allDevices.current = updatedDevices;
-      setLoadingMore(false);
-      setHasMore(updatedDevices.length < 100);
-    }, 1000);
-  }, [availableDevices, loadingMore]);
-
-  useEffect(() => {
-    const initialDevices = [
-      { id: '1', name: 'Blood Glucose Meter', deviceId: 'BG-12345', dateTime: '2023-05-15T10:30:00Z' },
-      { id: '2', name: 'Sphygmomanometer', deviceId: 'SM-67890', dateTime: '2023-05-10T14:45:00Z' },
-    ];
-    setAssignedDevices(initialDevices);
-    setAvailableDevices(initialDevices);
-    allDevices.current = initialDevices;
-    loadMoreDevices();
-  }, [loadMoreDevices]);
-
-  const handleSearch = useCallback((term: string) => {
-    setSearchTerm(term);
-    if (term) {
-      setAvailableDevices(
-        allDevices.current.filter(
-          (device) =>
-            device.name.toLowerCase().includes(term.toLowerCase()) ||
-            device.deviceId.toLowerCase().includes(term.toLowerCase())
-        )
-      );
-    } else {
-      setAvailableDevices(allDevices.current);
+  const { isFetching } = useQuery(
+    ['get-devices', paginationModel, { oystehrZambda }],
+    () => (oystehrZambda ? getDevices(payload, oystehrZambda) : null),
+    {
+      onSuccess: (response) => {
+        console.log('Devices fetched successfully:', response);
+        if (response?.devices) {
+          const devices = response?.devices.map((device: any) => ({
+            id: device.id,
+            name: device.deviceName[0]?.name || '-',
+            manufacturer: device.manufacturer || '-',
+            lastUpdated: device.meta.lastUpdated,
+          }));
+          setAssignedDevices(devices);
+          setTotalCount(response.total || 0);
+        }
+      },
+      enabled: !!oystehrZambda,
     }
-  }, []);
-
-  const handleAssignDevices = useCallback(
-    (deviceIds: string[]): void => {
-      const selectedDevices = availableDevices.filter((device) => deviceIds.includes(device.id));
-      const now = new Date().toISOString();
-      const devicesToAdd = selectedDevices.map((device) => ({
-        ...device,
-        dateTime: now,
-      }));
-      setAssignedDevices((prev) => [...prev, ...devicesToAdd]);
-      setAvailableDevices((prev) => prev.filter((device) => !deviceIds.includes(device.id)));
-      alert(`${selectedDevices.length} device(s) assigned successfully!`);
-    },
-    [availableDevices]
   );
 
   const handleViewHeartbeat = useCallback(
@@ -90,7 +57,18 @@ export const PatientDevicesTab: FC<{ loading: boolean }> = ({ loading }) => {
     },
     [navigate]
   );
+
+  const handlePaginationModelChange = useCallback((newPaginationModel: GridPaginationModel) => {
+    setPaginationModel(newPaginationModel);
+  }, []);
+
   const columns: GridColDef<Device>[] = [
+    {
+      field: 'id',
+      headerName: 'Device ID',
+      width: 350,
+      sortable: false,
+    },
     {
       field: 'name',
       headerName: 'Device Name',
@@ -98,15 +76,15 @@ export const PatientDevicesTab: FC<{ loading: boolean }> = ({ loading }) => {
       sortable: false,
     },
     {
-      field: 'deviceId',
-      headerName: 'Device ID',
+      field: 'manufacturer',
+      headerName: 'Device Manufacturer',
       width: 350,
       sortable: false,
     },
     {
-      field: 'dateTime',
-      headerName: 'Date & Time',
-      width: 350,
+      field: 'lastUpdated',
+      headerName: 'Last Updated',
+      width: 200,
       sortable: false,
       valueFormatter: (params) => {
         if (!params.value) return '-';
@@ -119,10 +97,10 @@ export const PatientDevicesTab: FC<{ loading: boolean }> = ({ loading }) => {
       headerName: 'Actions',
       width: 350,
       sortable: false,
-      renderCell: () => {
+      renderCell: (params) => {
         return (
           <div style={{ display: 'flex', width: '100%', gap: '8px' }}>
-            <RoundedButton onClick={() => handleViewHeartbeat('1')}>View Vitals</RoundedButton>
+            <RoundedButton onClick={() => handleViewHeartbeat(params.row.id)}>View Vitals</RoundedButton>
             <RoundedButton
               onClick={() => {
                 ('');
@@ -150,6 +128,10 @@ export const PatientDevicesTab: FC<{ loading: boolean }> = ({ loading }) => {
       <DataGridPro
         rows={assignedDevices}
         columns={columns}
+        paginationModel={paginationModel}
+        onPaginationModelChange={handlePaginationModelChange}
+        rowCount={totalCount}
+        paginationMode="server"
         initialState={{
           pagination: {
             paginationModel: {
@@ -158,7 +140,7 @@ export const PatientDevicesTab: FC<{ loading: boolean }> = ({ loading }) => {
           },
         }}
         autoHeight
-        loading={loading}
+        loading={loading || isFetching}
         pagination
         disableColumnMenu
         pageSizeOptions={[5]}
@@ -182,12 +164,17 @@ export const PatientDevicesTab: FC<{ loading: boolean }> = ({ loading }) => {
       <DeviceAssignmentModal
         open={openModal}
         onClose={() => setOpenModal(false)}
-        onAssign={handleAssignDevices}
-        availableDevices={availableDevices}
-        loadingMore={loadingMore}
-        hasMore={hasMore}
-        onSearch={handleSearch}
-        onLoadMore={loadMoreDevices}
+        onAssign={() => {
+          ('');
+        }}
+        loadingMore={false}
+        hasMore={false}
+        onSearch={() => {
+          ('');
+        }}
+        onLoadMore={() => {
+          ('');
+        }}
       />
     </Paper>
   );

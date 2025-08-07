@@ -1,41 +1,19 @@
 import CloseIcon from '@mui/icons-material/Close';
-import SearchIcon from '@mui/icons-material/Search';
 import {
+  Autocomplete,
   Box,
   Button,
   Chip,
   CircularProgress,
-  Divider,
   FormControl,
-  InputAdornment,
-  InputLabel,
-  MenuItem,
   Modal,
-  OutlinedInput,
-  Paper,
-  Popover,
-  Select,
   TextField,
   Typography,
 } from '@mui/material';
-import { FC, useEffect, useRef, useState } from 'react';
-
-interface Device {
-  id: string;
-  name: string;
-  deviceId: string;
-}
-
-interface DeviceAssignmentModalProps {
-  open: boolean;
-  onClose: () => void;
-  onAssign: (deviceIds: string[]) => void;
-  availableDevices: Device[];
-  loadingMore: boolean;
-  hasMore: boolean;
-  onSearch: (searchTerm: string) => void;
-  onLoadMore: () => void;
-}
+import { FC, useEffect, useState } from 'react';
+import { useQuery } from 'react-query';
+import { getDevices } from 'src/api/api';
+import { useApiClients } from 'src/hooks/useAppClients';
 
 const modalStyle = {
   position: 'absolute',
@@ -51,66 +29,66 @@ const modalStyle = {
   flexDirection: 'column',
 };
 
-export const DeviceAssignmentModal: FC<DeviceAssignmentModalProps> = ({
-  open,
-  onClose,
-  onAssign,
-  availableDevices,
-  loadingMore,
-  hasMore,
-  onSearch,
-  onLoadMore,
-}) => {
+interface DeviceAssignmentModalProps {
+  open: boolean;
+  onClose: () => void;
+  onAssign: (deviceIds: string[]) => void;
+  loadingMore: boolean;
+  hasMore: boolean;
+  onSearch: (searchTerm: string) => void;
+  onLoadMore: () => void;
+}
+
+interface DeviceOption {
+  label: string;
+  value: string;
+}
+
+export const DeviceAssignmentModal: FC<DeviceAssignmentModalProps> = ({ open, onClose, onAssign }) => {
   const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
+  const [deviceOptions, setDeviceOptions] = useState<DeviceOption[]>([]);
+  //eslint-disable-next-line
   const [searchTerm, setSearchTerm] = useState('');
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const anchorRef = useRef<HTMLDivElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) {
       setSelectedDevices([]);
       setSearchTerm('');
-      setDropdownOpen(false);
     }
   }, [open]);
-
-  useEffect(() => {
-    if (dropdownOpen && searchInputRef.current) {
-      setTimeout(() => searchInputRef.current?.focus(), 100);
-    }
-  }, [dropdownOpen]);
-
-  const handleDeviceSelection = (deviceId: string): void => {
-    return setSelectedDevices((prev) =>
-      prev.includes(deviceId) ? prev.filter((id) => id !== deviceId) : [...prev, deviceId]
-    );
-  };
-
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    const value = e.target.value;
-    setSearchTerm(value);
-    onSearch(value);
-  };
 
   const handleAssign = (): void => {
     onAssign(selectedDevices);
     onClose();
   };
 
-  const handleToggleDropdown = (): void => {
-    setDropdownOpen((prev) => !prev);
+  const { oystehrZambda } = useApiClients();
+
+  const payload = {
+    offset: 0,
+    count: 15,
+    missing: true,
   };
 
-  const handleCloseDropdown = (): void => {
-    setDropdownOpen(false);
-  };
-
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>): void => {
-    const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
-    if (scrollHeight - (scrollTop + clientHeight) < 50 && !loadingMore && hasMore && !searchTerm) {
-      onLoadMore();
+  const { isFetching } = useQuery(
+    ['get-unassigned-devices', { oystehrZambda }],
+    () => (oystehrZambda ? getDevices(payload, oystehrZambda) : null),
+    {
+      onSuccess: (response) => {
+        if (response?.devices) {
+          const options = response.devices.map((device: any) => ({
+            label: device.deviceName[0]?.name || 'Unknown Device',
+            value: device.id,
+          }));
+          setDeviceOptions(options);
+        }
+      },
+      enabled: !!oystehrZambda && open,
     }
+  );
+
+  const handleDeviceChange = (values: DeviceOption[]): void => {
+    setSelectedDevices(values.map((option) => option.value));
   };
 
   return (
@@ -126,132 +104,51 @@ export const DeviceAssignmentModal: FC<DeviceAssignmentModalProps> = ({
         </Typography>
 
         <FormControl fullWidth sx={{ mb: 3 }}>
-          <InputLabel id="devices-select-label">Devices</InputLabel>
-          <Select
-            labelId="devices-select-label"
-            id="devices-select"
+          <Autocomplete
             multiple
-            open={dropdownOpen}
-            onOpen={handleToggleDropdown}
-            onClose={handleCloseDropdown}
-            value={selectedDevices}
-            input={<OutlinedInput id="select-multiple-chip" label="Devices" />}
-            renderValue={(selected) => (
-              <Box
-                sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}
-                onClick={(e) => {
-                  if (e.target === e.currentTarget) {
-                    handleToggleDropdown();
-                  }
-                }}
-                onMouseDown={(e) => {
-                  e.stopPropagation();
-                }}
-              >
-                {selected.map((value) => {
-                  const device = availableDevices.find((d) => d.id === value);
-                  return (
-                    <Chip
-                      key={value}
-                      label={device ? `${device.name} (${device.deviceId})` : value}
-                      onDelete={(e) => {
-                        setSelectedDevices((prev) => prev.filter((id) => id !== value));
-                        e.stopPropagation();
-                      }}
-                      deleteIcon={
-                        <CloseIcon
-                          fontSize="small"
-                          onMouseDown={(e) => e.stopPropagation()}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      }
-                      onMouseDown={(e) => e.stopPropagation()}
-                      onClick={(e) => e.stopPropagation()}
-                      sx={{
-                        '& .MuiChip-deleteIcon': {
-                          pointerEvents: 'auto',
-                        },
-                      }}
-                    />
-                  );
-                })}
-              </Box>
+            disableCloseOnSelect
+            disabled={isFetching}
+            options={deviceOptions}
+            value={deviceOptions.filter((option) => selectedDevices.includes(option.value))}
+            onChange={(event, values) => handleDeviceChange(event, values || [])}
+            isOptionEqualToValue={(option, value) => option.value === value.value}
+            loading={isFetching}
+            renderOption={(props, option) => (
+              <li {...props} key={option.value}>
+                {option.label}
+              </li>
             )}
-            ref={anchorRef}
-          />
-
-          <Popover
-            open={dropdownOpen}
-            anchorEl={anchorRef.current}
-            onClose={handleCloseDropdown}
-            anchorOrigin={{
-              vertical: 'bottom',
-              horizontal: 'left',
-            }}
-            transformOrigin={{
-              vertical: 'top',
-              horizontal: 'left',
-            }}
-            sx={{
-              '& .MuiPaper-root': {
-                width: anchorRef.current?.clientWidth,
-                maxHeight: 300,
-                mt: 1,
-              },
-            }}
-          >
-            <Paper elevation={3} sx={{ width: '100%', maxHeight: 300, overflow: 'auto' }}>
-              <Box sx={{ p: 1 }}>
-                <TextField
-                  inputRef={searchInputRef}
-                  size="small"
-                  fullWidth
-                  placeholder="Search devices..."
-                  value={searchTerm}
-                  onChange={handleSearchChange}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon fontSize="small" />
-                      </InputAdornment>
-                    ),
+            renderTags={(value, getTagProps) =>
+              value.map((option, index) => (
+                <Chip
+                  {...getTagProps({ index })}
+                  key={option.value}
+                  label={option.label}
+                  onDelete={() => {
+                    setSelectedDevices(selectedDevices.filter((id) => id !== option.value));
                   }}
-                  autoFocus
+                  deleteIcon={<CloseIcon />}
                 />
-              </Box>
-              <Divider />
-              <div onScroll={handleScroll} style={{ maxHeight: 200, overflow: 'auto' }}>
-                {availableDevices.map((device) => (
-                  <MenuItem
-                    key={device.id}
-                    selected={selectedDevices.includes(device.id)}
-                    onClick={() => handleDeviceSelection(device.id)}
-                  >
-                    {device.name} ({device.deviceId})
-                  </MenuItem>
-                ))}
-                {loadingMore && (
-                  <Box display="flex" justifyContent="center" p={1}>
-                    <CircularProgress size={20} />
-                  </Box>
-                )}
-                {!hasMore && availableDevices.length > 0 && (
-                  <Box display="flex" justifyContent="center" p={1}>
-                    <Typography variant="body2" color="text.secondary">
-                      No more devices
-                    </Typography>
-                  </Box>
-                )}
-                {availableDevices.length === 0 && (
-                  <Box display="flex" justifyContent="center" p={2}>
-                    <Typography variant="body2" color="text.secondary">
-                      No devices found
-                    </Typography>
-                  </Box>
-                )}
-              </div>
-            </Paper>
-          </Popover>
+              ))
+            }
+            fullWidth
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Select Devices"
+                placeholder="Select Devices"
+                InputProps={{
+                  ...params.InputProps,
+                  endAdornment: (
+                    <>
+                      {isFetching ? <CircularProgress color="inherit" size={20} /> : null}
+                      {params.InputProps.endAdornment}
+                    </>
+                  ),
+                }}
+              />
+            )}
+          />
         </FormControl>
 
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
@@ -259,7 +156,7 @@ export const DeviceAssignmentModal: FC<DeviceAssignmentModalProps> = ({
             Cancel
           </Button>
           <Button variant="contained" onClick={handleAssign} disabled={selectedDevices.length === 0}>
-            Assign Devices
+            Assign Devices ({selectedDevices.length})
           </Button>
         </Box>
       </Box>
