@@ -12,7 +12,7 @@ import { Box, CircularProgress, Divider, Grid, Typography } from '@mui/material'
 import { DateTime } from 'luxon';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { VisitType } from 'utils';
+import { PatientAppointmentDTO, ServiceMode, VisitType } from 'utils';
 import { ottehrApi } from '../api';
 import { LinkedButtonWithIcon, PageContainer } from '../components';
 import { useIntakeCommonStore } from '../features/common';
@@ -21,10 +21,9 @@ import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
 import { useUCZambdaClient, ZambdaClient } from '../hooks/useUCZambdaClient';
 import { otherColors, palette } from '../IntakeThemeProvider';
 import i18n from '../lib/i18n';
-import { Appointment } from '../types';
 
 const Appointments = (): JSX.Element => {
-  const [appointments, setAppointments] = useState<Appointment[] | undefined>(undefined);
+  const [appointments, setAppointments] = useState<PatientAppointmentDTO[] | undefined>(undefined);
   const zambdaClient = useUCZambdaClient({ tokenless: false });
   const { t } = useTranslation();
 
@@ -45,7 +44,7 @@ const Appointments = (): JSX.Element => {
 
   useEffect(() => {
     async function getAppointments(zambdaClient: ZambdaClient): Promise<void> {
-      const res = await ottehrApi.getAppointments(zambdaClient);
+      const res = await ottehrApi.getAppointments(zambdaClient, ServiceMode['in-person']);
       const appointments = res.appointments;
       setAppointments(appointments);
     }
@@ -56,7 +55,7 @@ const Appointments = (): JSX.Element => {
     }
   }, [zambdaClient, isLoading, isAuthenticated]);
 
-  const getAppointmentStartTime = (appointment: Appointment): string => {
+  const getAppointmentStartTime = (appointment: PatientAppointmentDTO): string => {
     let dt = DateTime.fromISO(appointment.start);
     if (appointment.location?.timezone) {
       dt = dt.setZone(appointment.location.timezone);

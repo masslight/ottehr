@@ -28,29 +28,29 @@ interface CreateRadiologyOrdersProps {
 }
 
 const defaultStudies: Pick<Coding, 'code' | 'display'>[] = [
-  { code: '71045', display: 'Radiologic examination, chest; single view' },
-  { code: '71046', display: 'Radiologic examination, chest; 2 views' },
-  { code: '74018', display: 'Radiologic examination, abdomen; 1 view' },
-  { code: '74019', display: 'Radiologic examination, abdomen; 2 views' },
-  { code: '76010', display: 'Radiologic examination from nose to rectum for foreign body, single view, child' },
-  { code: '73000', display: 'Radiologic examination; clavicle, complete' },
-  { code: '73010', display: 'Radiologic examination; scapula, complete' },
-  { code: '73020', display: 'Radiologic examination, shoulder; 1 view' },
-  { code: '73060', display: 'Radiologic examination; humerus, minimum of 2 views' },
-  { code: '73070', display: 'Radiologic examination, elbow; 2 views' },
-  { code: '73090', display: 'Radiologic examination; forearm, 2 views' },
-  { code: '73100', display: 'Radiologic examination, wrist; 2 views' },
-  { code: '73120', display: 'Radiologic examination, hand; 2 views' },
-  { code: '73140', display: 'Radiologic examination, finger(s), minimum of 2 views' },
-  { code: '72170', display: 'Radiologic examination, pelvis; 1 or 2 views' },
-  { code: '73552', display: 'Radiologic examination, femur; minimum 2 views' },
-  { code: '73560', display: 'Radiologic examination, knee; 1 or 2 views' },
-  { code: '73590', display: 'Radiologic examination; tibia and fibula, 2 views' },
-  { code: '73600', display: 'Radiologic examination, ankle; 2 views' },
-  { code: '73610', display: 'Radiologic examination, ankle; complete, minimum of 3 views' },
-  { code: '73620', display: 'Radiologic examination, foot; 2 views' },
-  { code: '73630', display: 'Radiologic examination, foot; complete, minimum of 3 views' },
-  { code: '73660', display: 'Radiologic examination; toe(s), minimum of 2 views' },
+  { code: '71045', display: 'X-ray of chest, 1 view' },
+  { code: '71046', display: 'X-ray of chest, 2 views' },
+  { code: '74018', display: 'X-ray of abdomen, 1 view' },
+  { code: '74019', display: 'X-ray of abdomen, 2 views' },
+  { code: '76010', display: 'X-ray from nose to rectum' },
+  { code: '73000', display: 'X-ray of collar bone' },
+  { code: '73010', display: 'X-ray of shoulder blade' },
+  { code: '73020', display: 'X-ray of shoulder, 1 view' },
+  { code: '73060', display: 'X-ray of upper arm, minimum of 2 views' },
+  { code: '73070', display: 'X-ray of elbow, 2 views' },
+  { code: '73090', display: 'X-ray of forearm, 2 views' },
+  { code: '73100', display: 'X-ray of wrist, 2 views' },
+  { code: '73120', display: 'X-ray of hand, 2 views' },
+  { code: '73140', display: 'X-ray of finger, minimum of 2 views' },
+  { code: '72170', display: 'X-ray of pelvis, 1-2 views' },
+  { code: '73552', display: 'X-ray of thigh bone, minimum 2 views' },
+  { code: '73560', display: 'X-ray of knee, 1-2 views' },
+  { code: '73590', display: 'X-ray of lower leg, 2 views' },
+  { code: '73600', display: 'X-ray of ankle, 2 views' },
+  { code: '73610', display: 'X-ray of ankle, minimum of 3 views' },
+  { code: '73620', display: 'X-ray of foot, 2 views' },
+  { code: '73630', display: 'X-ray of foot, minimum of 3 views' },
+  { code: '73660', display: 'X-ray of toe, minimum of 2 views' },
 ];
 
 export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => {
@@ -74,6 +74,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
   const [orderDx, setOrderDx] = useState<DiagnosisDTO | undefined>(primaryDiagnosis ? primaryDiagnosis : undefined);
   const [orderCpt, setOrderCpt] = useState<CPTCodeDTO | undefined>();
   const [stat, setStat] = useState<boolean>(false);
+  const [clinicalHistory, setClinicalHistory] = useState<string | undefined>();
 
   // used to fetch dx icd10 codes
   const [dxDebouncedSearchTerm, setDxDebouncedSearchTerm] = useState('');
@@ -107,7 +108,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     setSubmitting(true);
-    const paramsSatisfied = orderDx && orderCpt && encounter.id;
+    const paramsSatisfied = orderDx && orderCpt && encounter.id && clinicalHistory && clinicalHistory.length <= 255;
     if (oystehrZambda && paramsSatisfied && encounter.id) {
       try {
         await addAdditionalDxToEncounter();
@@ -116,6 +117,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
           cptCode: orderCpt.code,
           encounterId: encounter.id,
           stat: stat,
+          clinicalHistory: clinicalHistory,
         });
         navigate(getRadiologyUrl(appointment?.id || ''));
       } catch (e) {
@@ -128,6 +130,9 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
       const errorMessage = [];
       if (!orderDx) errorMessage.push('Please enter a diagnosis to continue');
       if (!orderCpt) errorMessage.push('Please select a study type (CPT code) to continue');
+      if (!clinicalHistory) errorMessage.push('Please enter clinical history to continue');
+      if (clinicalHistory && clinicalHistory.length > 255)
+        errorMessage.push('Clinical history must be 255 characters or less');
       if (errorMessage.length === 0) errorMessage.push('There was an error completing the order');
       setError(errorMessage);
     }
@@ -244,6 +249,29 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                       InputLabelProps={{ shrink: true }}
                     />
                   )}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  id="clinical-history"
+                  label="Clinical History"
+                  placeholder="Enter clinical history for the radiology order"
+                  fullWidth
+                  multiline
+                  size="small"
+                  value={clinicalHistory}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value.length <= 255) {
+                      setClinicalHistory(value);
+                    }
+                  }}
+                  error={clinicalHistory !== undefined && clinicalHistory.length > 255}
+                  helperText={
+                    clinicalHistory !== undefined && clinicalHistory.length > 255
+                      ? 'Clinical history must be 255 characters or less'
+                      : `${clinicalHistory?.length || 0}/255 characters`
+                  }
                 />
               </Grid>
               <Grid item xs={12}>

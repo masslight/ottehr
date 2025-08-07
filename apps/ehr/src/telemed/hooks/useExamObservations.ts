@@ -43,7 +43,7 @@ const objectToArray: (object: ExamRecord) => ExamObservationDTO[] = (object) => 
  * @return {Object} state
  * @return {ExamObservationDTO} state.value - All exam observations.
  * @return {UpdateExamObservations} state.update - Function to update exam observations.
- * @return {boolean} state.isLoading - Update query loading status.
+ * @return {boolean} state.isPending - Update query loading status.
  */
 export function useExamObservations(): {
   value: ExamObservationDTO[];
@@ -58,7 +58,7 @@ export function useExamObservations(): {
  * @return {Object} state
  * @return {ExamObservationDTO} state.value - Exam observation with chosen field name.
  * @return {UpdateExamObservations} state.update - Function to update exam observations.
- * @return {boolean} state.isLoading - Update query loading status.
+ * @return {boolean} state.isPending - Update query loading status.
  */
 export function useExamObservations(param: AllExamNames): {
   value: ExamObservationDTO;
@@ -73,7 +73,7 @@ export function useExamObservations(param: AllExamNames): {
  * @return {Object} state
  * @return {ExamObservationDTO[]} state.value - Exam observations with chosen field names.
  * @return {UpdateExamObservations} state.update - Function to update exam observations.
- * @return {boolean} state.isLoading - Update query loading status.
+ * @return {boolean} state.isPending - Update query loading status.
  */
 export function useExamObservations(param: AllExamNames[]): {
   value: ExamObservationDTO[];
@@ -92,8 +92,8 @@ export function useExamObservations(param?: AllExamNames | AllExamNames[]): {
   const useExamObservationsStore = css ? useInPersonExamObservationsStore : useTelemedExamObservationsStore;
 
   const state = useExamObservationsStore() as ReturnType<(typeof useTelemedExamObservationsStore)['getState']>;
-  const { mutate: saveChartData, isLoading: isSaveLoading } = useSaveChartData();
-  const { mutate: deleteChartData, isLoading: isDeleteLoading } = useDeleteChartData();
+  const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
+  const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
 
   const getPrevStateAndValues = useCallback(
     (
@@ -160,8 +160,9 @@ export function useExamObservations(param?: AllExamNames | AllExamNames[]): {
       },
       {
         onSuccess: (data) => {
-          data.chartData.examObservations &&
+          if (data.chartData.examObservations) {
             useExamObservationsStore.setState(arrayToObject(data.chartData.examObservations));
+          }
         },
         onError: () => {
           enqueueSnackbar('An error has occurred while saving exam data. Please try again.', { variant: 'error' });

@@ -29,6 +29,7 @@ import {
   IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
   IN_HOUSE_LAB_RESULT_PDF_BASE_NAME,
   IN_HOUSE_LAB_TASK,
+  isPSCOrder,
   LAB_ORDER_DOC_REF_CODING_CODE,
   LAB_ORDER_TASK,
   LAB_RESULT_DOC_REF_CODING_CODE,
@@ -110,7 +111,6 @@ const getResultDataConfig = (
     commonResourceConfig;
   const { type, specificResources } = specificResourceConfig;
 
-  if (!serviceRequest.reasonCode) throw new Error('service request reasonCode is undefined');
   const orderCreateDate = serviceRequest.authoredOn
     ? DateTime.fromISO(serviceRequest.authoredOn).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
     : undefined;
@@ -137,17 +137,20 @@ const getResultDataConfig = (
     orderCreateDate: orderCreateDate || '',
     orderPriority: serviceRequest.priority || '',
     testName: testName || '',
-    orderAssessments: serviceRequest.reasonCode.map((code) => ({
-      code: code.coding?.[0].code || '',
-      name: code.text || '',
-    })),
+    orderAssessments:
+      serviceRequest?.reasonCode?.map((code) => ({
+        code: code.coding?.[0].code || '',
+        name: code.text || '',
+      })) || [],
     resultStatus: diagnosticReport.status.toUpperCase(),
+    isPscOrder: isPSCOrder(serviceRequest),
   };
 
   if (type === LabType.inHouse) {
     const { inHouseLabResults } = specificResources;
     const inHouseData: Omit<InHouseLabResultsData, keyof LabResultsData> = {
       inHouseLabResults,
+      timezone,
     };
     const data: InHouseLabResultsData = { ...baseData, ...inHouseData };
     config = { type: LabType.inHouse, data };
@@ -213,11 +216,10 @@ export function getLabFileName(labName: string): string {
 
 const getTaskCompletedByAndWhen = async (
   oystehr: Oystehr,
-  task: Task,
-  timezone: string | undefined
+  task: Task
 ): Promise<{
   reviewingProvider: Practitioner;
-  reviewDate: string;
+  reviewDate: DateTime;
 }> => {
   console.log('getting provenance for task', task.id);
   console.log('task relevant history', task.relevantHistory);
@@ -252,9 +254,12 @@ const getTaskCompletedByAndWhen = async (
   const taskProvenance = taskProvenanceTemp[0];
   const taskPractitioner = taskPractitionersTemp[0];
 
-  const reviewDate = DateTime.fromISO(taskProvenance.recorded).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT);
+  const reviewDate = DateTime.fromISO(taskProvenance.recorded);
 
-  return { reviewingProvider: taskPractitioner, reviewDate };
+  return {
+    reviewingProvider: taskPractitioner,
+    reviewDate,
+  };
 };
 
 export async function createExternalLabResultPDF(
@@ -297,7 +302,7 @@ export async function createExternalLabResultPDF(
   if (!patient.id) throw new Error('patient.id is undefined');
   if (!diagnosticReport.id) throw new Error('diagnosticReport id is undefined');
 
-  const { reviewDate: orderSubmitDate } = await getTaskCompletedByAndWhen(oystehr, pstTask, timezone);
+  const { reviewDate: orderSubmitDate } = await getTaskCompletedByAndWhen(oystehr, pstTask);
 
   const taskSearchForFinalOrCorrected = (
     await oystehr.fhir.search<Task>({
@@ -335,7 +340,7 @@ export async function createExternalLabResultPDF(
   const latestReviewTask = sortedCompletedFinalOrCorrected[0];
   console.log(`>>> in labs-results-form-pdf, this is the latestReviewTask`, latestReviewTask?.id);
 
-  let reviewDate = '',
+  let reviewDate: DateTime | undefined = undefined,
     reviewingProvider = undefined,
     resultsReceivedDate = '';
 
@@ -344,7 +349,7 @@ export async function createExternalLabResultPDF(
       ? DateTime.fromISO(latestReviewTask.authoredOn).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
       : '';
     if (latestReviewTask.status === 'completed') {
-      ({ reviewingProvider, reviewDate } = await getTaskCompletedByAndWhen(oystehr, latestReviewTask, timezone));
+      ({ reviewingProvider, reviewDate } = await getTaskCompletedByAndWhen(oystehr, latestReviewTask));
     }
   }
   if (!resultsReceivedDate && !latestReviewTask) {
@@ -423,7 +428,17 @@ export async function createExternalLabResultPDF(
   const sortedSpecimens = specimens?.sort((a, b) =>
     compareDates(a.collection?.collectedDateTime, b.collection?.collectedDateTime)
   );
-  const specimenCollectionDate = sortedSpecimens?.[0]?.collection?.collectedDateTime;
+
+  // we want the earliest date, and the sort puts cruft at the end
+  let specimenCollectionDate: string | undefined;
+  for (let i = sortedSpecimens.length - 1; i >= 0; i--) {
+    const date = sortedSpecimens[i]?.collection?.collectedDateTime;
+    if (date) {
+      specimenCollectionDate = date;
+      break;
+    }
+  }
+
   const collectionDate = specimenCollectionDate
     ? DateTime.fromISO(specimenCollectionDate).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
     : '';
@@ -434,10 +449,10 @@ export async function createExternalLabResultPDF(
       externalLabResults,
       organization,
       collectionDate,
-      orderSubmitDate,
+      orderSubmitDate: orderSubmitDate.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT),
       reviewed,
       reviewingProvider,
-      reviewDate,
+      reviewDate: reviewDate?.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT),
       resultsReceivedDate,
       resultInterpretations: resultInterpretationDisplays,
       performingLabAddress: formatPerformingLabAddress(organization),
@@ -516,9 +531,14 @@ export async function createInHouseLabResultPDF(
     );
   }
 
+  const allResults = [inHouseLabResults, ...additionalResultsForRelatedSrs];
+  const allResultsSorted = allResults.sort((a, b) =>
+    compareDates(a.finalResultDateTime.toISO() || '', b.finalResultDateTime.toISO() || '')
+  );
+
   const inHouseSpecificResources: LabTypeSpecificResources = {
     type: LabType.inHouse,
-    specificResources: { inHouseLabResults: [inHouseLabResults, ...additionalResultsForRelatedSrs] },
+    specificResources: { inHouseLabResults: allResultsSorted },
   };
   const commonResources: CommonDataConfigResources = {
     location,
@@ -552,6 +572,9 @@ async function createLabsResultsFormPdfBytes(dataConfig: ResultDataConfig): Prom
 
   // draw header which is same for external and in house at the moment
   // drawFieldLine('Patient Name:', 'test');
+  console.log(
+    `Drawing patient name. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   if (data.patientMiddleName) {
     pdfClient.drawText(
       `${data.patientLastName}, ${data.patientFirstName}, ${data.patientMiddleName}`,
@@ -561,6 +584,9 @@ async function createLabsResultsFormPdfBytes(dataConfig: ResultDataConfig): Prom
     pdfClient.drawText(`${data.patientLastName}, ${data.patientFirstName}`, textStyles.textBold);
   }
 
+  console.log(
+    `Drawing location name. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   pdfClient.drawText(`Ottehr${data.locationName || ''}`, textStyles.textBoldRight);
   pdfClient.newLine(STANDARD_NEW_LINE);
 
@@ -568,11 +594,20 @@ async function createLabsResultsFormPdfBytes(dataConfig: ResultDataConfig): Prom
     data.locationState?.toUpperCase() || ''
   }${data.locationState ? ' ' : ''}${data.locationZip?.toUpperCase() || ''}`;
 
+  console.log(
+    `Drawing patient dob and sex. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   pdfClient.drawText(`${data.patientDOB}, ${calculateAge(data.patientDOB)} Y, ${data.patientSex}`, textStyles.text);
+  console.log(
+    `Drawing location city, state, zip. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   pdfClient.drawText(locationCityStateZip, textStyles.textRight);
 
   pdfClient.newLine(STANDARD_NEW_LINE);
 
+  console.log(
+    `Drawing patient id. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   pdfClient.drawText(`ID: ${data.patientId}`, textStyles.text);
 
   let margin =
@@ -588,6 +623,9 @@ async function createLabsResultsFormPdfBytes(dataConfig: ResultDataConfig): Prom
 
   let iconStyleTemp = { ...ICON_STYLE, margin: { left: margin } };
   if (data.locationPhone) {
+    console.log(
+      `Drawing phone. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+    );
     pdfClient.drawImage(callIcon, iconStyleTemp, textStyles.text);
     pdfClient.drawTextSequential(` ${data.locationPhone}`, textStyles.text);
   }
@@ -603,13 +641,23 @@ async function createLabsResultsFormPdfBytes(dataConfig: ResultDataConfig): Prom
         5;
     }
     iconStyleTemp = { ...iconStyleTemp, margin: { left: margin } };
+    console.log(
+      `Drawing fax. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+    );
     pdfClient.drawImage(faxIcon, iconStyleTemp, textStyles.text);
     pdfClient.drawTextSequential(` ${data.locationFax}`, textStyles.text);
   }
 
+  console.log(
+    `Drawing patient phone. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   pdfClient.newLine(STANDARD_NEW_LINE);
   pdfClient.drawText(data.patientPhone, textStyles.text);
   pdfClient.newLine(STANDARD_NEW_LINE);
+
+  console.log(
+    `Drawing result header. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   pdfClient.drawText(`${data.resultStatus} RESULT`, textStyles.headerRight);
   pdfClient.newLine(STANDARD_NEW_LINE);
   pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
@@ -617,8 +665,10 @@ async function createLabsResultsFormPdfBytes(dataConfig: ResultDataConfig): Prom
   // draw the rest of the pdf which is specific to the type of lab request
   let pdfBytes: Uint8Array | undefined;
   if (type === LabType.external) {
+    console.log('Getting pdf bytes for external lab results');
     pdfBytes = await createExternalLabsResultsFormPdfBytes(pdfClient, textStyles, data);
   } else if (type === LabType.inHouse) {
+    console.log('Getting pdf bytes for in house lab results');
     pdfBytes = await createInHouseLabsResultsFormPdfBytes(pdfClient, textStyles, data);
   }
   if (!pdfBytes) throw new Error('pdfBytes could not be drawn');
@@ -631,31 +681,65 @@ async function createExternalLabsResultsFormPdfBytes(
   data: ExternalLabResultsData
 ): Promise<Uint8Array> {
   // Order details
+  console.log(
+    `Drawing accession. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   pdfClient = drawFieldLine(pdfClient, textStyles, 'Accession ID:', data.accessionNumber);
   pdfClient.newLine(STANDARD_NEW_LINE);
+
+  console.log(
+    `Drawing requesting physician. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   pdfClient = drawFieldLine(pdfClient, textStyles, 'Requesting Physician:', data.providerName);
   pdfClient.newLine(STANDARD_NEW_LINE);
+
+  console.log(
+    `Drawing ordering physician. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   pdfClient = drawFieldLine(pdfClient, textStyles, 'Ordering Physician:', data.providerName);
   pdfClient.newLine(STANDARD_NEW_LINE);
+
+  console.log(
+    `Drawing order num. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   pdfClient = drawFieldLine(pdfClient, textStyles, 'Order Number:', data.orderNumber);
   pdfClient.newLine(STANDARD_NEW_LINE);
+
+  console.log(
+    `Drawing order pri. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   pdfClient = drawFieldLine(pdfClient, textStyles, 'Order Priority:', data.orderPriority.toUpperCase());
   pdfClient.newLine(STANDARD_NEW_LINE);
+
+  console.log(
+    `Drawing order date. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   pdfClient = drawFieldLine(pdfClient, textStyles, 'Order Date:', data.orderSubmitDate);
   pdfClient.newLine(STANDARD_NEW_LINE);
+
+  console.log(
+    `Drawing collection date. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   pdfClient = drawFieldLine(pdfClient, textStyles, 'Collection Date:', data.collectionDate);
   pdfClient.newLine(STANDARD_NEW_LINE);
+
+  console.log(
+    `Drawing results date. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   pdfClient = drawFieldLine(pdfClient, textStyles, 'Results Date:', data.resultsReceivedDate);
   pdfClient.newLine(STANDARD_FONT_SIZE);
   pdfClient.newLine(STANDARD_FONT_SIZE);
 
   pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
 
+  console.log(
+    `Drawing diagnoses. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   pdfClient = drawFieldLine(
     pdfClient,
     textStyles,
     'Dx:',
-    data.orderAssessments.map((assessment) => `${assessment.code} (${assessment.name})`).join(', ')
+    data.orderAssessments.map((assessment) => `${assessment.code} (${assessment.name})`).join('; ')
   );
   pdfClient.newLine(30);
   pdfClient.drawText(data.testName.toUpperCase(), textStyles.header);
@@ -663,6 +747,9 @@ async function createExternalLabsResultsFormPdfBytes(
   pdfClient.newLine(STANDARD_NEW_LINE);
   pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
 
+  console.log(
+    `Drawing four column text header. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   pdfClient = drawFourColumnText(
     pdfClient,
     textStyles,
@@ -674,6 +761,10 @@ async function createExternalLabsResultsFormPdfBytes(
   pdfClient.newLine(STANDARD_NEW_LINE);
   pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
   pdfClient.newLine(STANDARD_NEW_LINE);
+
+  console.log(
+    `Drawing four column text content. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   pdfClient = drawFourColumnText(
     pdfClient,
     textStyles,
@@ -684,6 +775,10 @@ async function createExternalLabsResultsFormPdfBytes(
     getResultRowDisplayColor(data.resultInterpretations)
   );
   pdfClient.newLine(STANDARD_NEW_LINE);
+
+  console.log(
+    `Drawing results. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   for (const labResult of data.externalLabResults) {
     pdfClient.newLine(14);
     pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
@@ -725,6 +820,9 @@ async function createExternalLabsResultsFormPdfBytes(
 
     // add any notes included for the observation
     if (labResult.resultNotes?.length) {
+      console.log(
+        `Drawing observation notes. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+      );
       pdfClient.drawText('Notes:', textStyles.textBold);
       pdfClient.newLine(STANDARD_NEW_LINE);
 
@@ -751,6 +849,9 @@ async function createExternalLabsResultsFormPdfBytes(
   pdfClient.newLine(STANDARD_NEW_LINE);
 
   // Performing lab details
+  console.log(
+    `Drawing performing lab details. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
   pdfClient.drawText(`PERFORMING LAB: ${data.performingLabName}`, textStyles.textRight);
   if (data.performingLabAddress) {
     pdfClient.newLine(STANDARD_NEW_LINE);
@@ -771,6 +872,9 @@ async function createExternalLabsResultsFormPdfBytes(
 
   // Reviewed by
   if (data.reviewed) {
+    console.log(
+      `Drawing reviewed by. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+    );
     pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
     pdfClient.newLine(STANDARD_NEW_LINE);
     const name = data.reviewingProvider ? getFullestAvailableName(data.reviewingProvider) : '';
@@ -801,7 +905,9 @@ async function createInHouseLabsResultsFormPdfBytes(
     pdfClient,
     textStyles,
     'Dx:',
-    data.orderAssessments.map((assessment) => `${assessment.code} (${assessment.name})`).join(', ')
+    data.orderAssessments.length
+      ? data.orderAssessments.map((assessment) => `${assessment.code} (${assessment.name})`).join('; ')
+      : 'Not specified'
   );
   pdfClient.newLine(30);
 
@@ -851,7 +957,12 @@ async function createInHouseLabsResultsFormPdfBytes(
     }
     pdfClient = drawFieldLineRight(pdfClient, textStyles, 'Collection Date:', labResult.collectionDate);
     pdfClient.newLine(STANDARD_FONT_SIZE + 3);
-    pdfClient = drawFieldLineRight(pdfClient, textStyles, 'Results Date:', labResult.finalResultDateTime);
+    pdfClient = drawFieldLineRight(
+      pdfClient,
+      textStyles,
+      'Results Date:',
+      labResult.finalResultDateTime.setZone(data.timezone).toFormat(LABS_DATE_STRING_FORMAT)
+    );
     pdfClient.newLine(24);
   }
 
@@ -1024,7 +1135,7 @@ const getFormattedInHouseLabResults = async (
   }
 
   const specimenSource = specimen?.collection?.bodySite?.coding?.map((coding) => coding.display).join(', ') || '';
-  const { reviewDate: finalResultDateTime } = await getTaskCompletedByAndWhen(oystehr, task, timezone);
+  const { reviewDate: finalResultDateTime } = await getTaskCompletedByAndWhen(oystehr, task);
 
   const collectionDate = DateTime.fromISO(specimen?.collection?.collectedDateTime)
     .setZone(timezone)

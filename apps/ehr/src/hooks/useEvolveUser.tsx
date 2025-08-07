@@ -1,9 +1,9 @@
 import { useAuth0 } from '@auth0/auth0-react';
+import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { Operation } from 'fast-json-patch';
 import { Practitioner } from 'fhir/r4b';
 import { DateTime, Duration } from 'luxon';
 import { useCallback, useEffect, useMemo } from 'react';
-import { useMutation, useQuery } from 'react-query';
 import {
   getFullestAvailableName,
   getPatchOperationForNewMetaTag,
@@ -13,6 +13,7 @@ import {
   RoleType,
   SyncUserResponse,
   User,
+  useSuccessQuery,
 } from 'utils';
 import { create } from 'zustand';
 import { getUser } from '../api/api';
@@ -60,20 +61,25 @@ export default function useEvolveUser(): EvolveUser | undefined {
   );
 
   useGetUser();
+
   useSyncPractitioner((data) => {
     if (data.updated) {
       console.log('Practitioner sync success');
     }
   });
   const { refetch: refetchProfile } = useGetProfile();
-  const { isLoading: isPractitionerLastLoginBeingUpdated, mutateAsync: mutatePractitionerAsync } =
+  const { isPending: isPractitionerLastLoginBeingUpdated, mutateAsync: mutatePractitionerAsync } =
     useUpdatePractitioner();
 
-  useEffect(() => {
-    if (user?.profile && !profile) {
-      void refetchProfile();
-    }
-  }, [profile, refetchProfile, user?.profile]);
+  useSuccessQuery(
+    profile,
+    () => {
+      if (user?.profile && !profile) {
+        void refetchProfile();
+      }
+    },
+    [profile, user?.profile, refetchProfile]
+  );
 
   useEffect(() => {
     if (user && oystehr && profile && !isPractitionerLastLoginBeingUpdated && !_practitionerLoginUpdateStarted) {
@@ -126,56 +132,54 @@ export default function useEvolveUser(): EvolveUser | undefined {
 // const MINUTE = 1000 * 60; // For Credentials Sync
 // const DAY = MINUTE * 60 * 24; // For Credentials Sync
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-const useGetUser = () => {
+const useGetUser = (): UseQueryResult<User, Error> => {
   const token = useAuthToken();
   const user = useEvolveUserStore((state) => state.user);
 
-  return useQuery(
-    ['get-user'],
-    async (): Promise<void> => {
-      try {
-        const user = await getUser(token!);
-        useEvolveUserStore.setState({ user: user as User });
-      } catch (error) {
-        console.error(error);
-      }
+  return useQuery({
+    queryKey: ['get-user'],
+
+    queryFn: async (): Promise<User> => {
+      const user = await getUser(token!);
+      useEvolveUserStore.setState({ user: user as User });
+      return user;
     },
-    {
-      enabled: Boolean(token && !user),
-    }
-  );
+
+    enabled: Boolean(token && !user),
+  });
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-const useGetProfile = () => {
+const useGetProfile = (): UseQueryResult<Practitioner | null, Error> => {
   const token = useAuthToken();
   const user = useEvolveUserStore((state) => state.user);
   const { oystehr } = useApiClients();
 
-  return useQuery(
-    ['get-practitioner-profile'],
-    async (): Promise<void> => {
+  return useQuery({
+    queryKey: ['get-practitioner-profile'],
+
+    queryFn: async (): Promise<Practitioner | null> => {
       try {
         if (!user?.profile) {
           useEvolveUserStore.setState({ profile: undefined });
-          return;
+          return null;
         }
 
         const [resourceType, resourceId] = (user?.profile || '').split('/');
         if (resourceType && resourceId && resourceType === 'Practitioner') {
           const practitioner = await oystehr?.fhir.get<Practitioner>({ resourceType, id: resourceId });
           useEvolveUserStore.setState({ profile: practitioner });
+          return practitioner ? practitioner : null;
         }
+        return null;
       } catch (e) {
         console.error(`error fetching user's fhir profile: ${JSON.stringify(e)}`);
         useEvolveUserStore.setState({ profile: undefined });
+        throw e;
       }
     },
-    {
-      enabled: Boolean(token && oystehr),
-    }
-  );
+
+    enabled: Boolean(token && oystehr),
+  });
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
@@ -188,51 +192,45 @@ const useSyncPractitioner = (_onSuccess: (data: SyncUserResponse) => void) => {
   const token = useAuthToken();
   const { oystehr } = useApiClients();
   const queryClient = useQueryClient();
-  return useQuery(
-    ['sync-user', oystehr],
-    async () => {
+  return useQuery({
+    queryKey: ['sync-user', oystehr],
+    queryFn: async () => {
       if (!client) return undefined;
       _practitionerSyncStarted = true;
       const result = await client?.syncUser();
       _practitionerSyncFinished = true;
       if (result.updated) {
-        void queryClient.refetchQueries('get-practitioner-profile');
+        void queryClient.refetchQueries({ queryKey: ['get-practitioner-profile'] });
       } else {
         useEvolveUserStore.setState((state) => ({ profile: { ...(state.profile! || {}) } }));
       }
       return result;
     },
-    {
-      onSuccess,
-      cacheTime: DAY,
-      staleTime: DAY,
-      enabled: Boolean(token && oystehr && oystehr.config.accessToken && !_practitionerSyncStarted),
-    }
-  );
+    onSuccess,
+    gcTime: DAY,
+    staleTime: DAY,
+    enabled: Boolean(token && oystehr && oystehr.config.accessToken && !_practitionerSyncStarted),
+  });
   */
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-const useUpdatePractitioner = () => {
+const useUpdatePractitioner = (): UseMutationResult<void, Error, Operation[]> => {
   const user = useEvolveUserStore((state) => state.user);
   const { oystehr } = useApiClients();
 
-  return useMutation(
-    ['update-practitioner'],
-    async (patchOps: Operation[]): Promise<void> => {
-      try {
-        if (!oystehr || !user) return;
+  return useMutation({
+    mutationKey: ['update-practitioner'],
 
-        await oystehr.fhir.patch({
-          resourceType: 'Practitioner',
-          id: user.profile.replace('Practitioner/', ''),
-          operations: [...patchOps],
-        });
-      } catch (error) {
-        console.error(error);
-        throw error;
-      }
+    mutationFn: async (patchOps: Operation[]): Promise<void> => {
+      if (!oystehr || !user) return;
+
+      await oystehr.fhir.patch({
+        resourceType: 'Practitioner',
+        id: user.profile.replace('Practitioner/', ''),
+        operations: [...patchOps],
+      });
     },
-    { retry: 3 }
-  );
+
+    retry: 3,
+  });
 };

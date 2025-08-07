@@ -1,49 +1,43 @@
-import { Box, CircularProgress, Grid, TextField, Typography } from '@mui/material';
+import { Box, Grid, TextField, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { ChangeEvent, JSX, useCallback, useMemo, useState } from 'react';
-import { heightInCmToInch, VitalFieldNames, VitalsHeightObservationDTO } from 'utils';
+import { cmToInches, VitalFieldNames, VitalsHeightObservationDTO } from 'utils';
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { AccordionCard, DoubleColumnContainer } from '../../../../../telemed/components';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
+import VitalHistoryElement from '../components/VitalsHistoryEntry';
 import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
-import { useVitalsCardState } from '../hooks/useVitalsCardState';
-import { composeHeightVitalsHistoryEntries, isValidHeightInCmValue, textToHeightNumber } from './helpers';
-import VitalHeightHistoryElement from './VitalHeightHistoryElement';
-import { VitalHeightHistoryEntry } from './VitalHeightHistoryEntry';
+import { useScreenDimensions } from '../hooks/useScreenDimensions';
+import { VitalsCardProps } from '../types';
+import { textToHeightNumber } from './helpers';
 
-const VitalsHeightCard: React.FC = (): JSX.Element => {
-  const {
-    isLoadingVitalsByEncounter,
-    handleSaveVital,
-    handleDeleteVital,
-    isSavingCardData,
-    setSavingCardData,
-    screenDimensions: { isLargeScreen },
-    vitalsHistory: { mainHistoryEntries, extraHistoryEntries, latestHistoryEntry },
-    historyElementSkeletonText,
-  } = useVitalsCardState<VitalsHeightObservationDTO, VitalHeightHistoryEntry>(
-    VitalFieldNames.VitalHeight,
-    composeHeightVitalsHistoryEntries
-  );
-
+type VitalsHeightCardProps = VitalsCardProps<VitalsHeightObservationDTO>;
+const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({
+  handleSaveVital,
+  handleDeleteVital,
+  currentObs,
+  historicalObs,
+}): JSX.Element => {
   const [heightValueText, setHeightValueText] = useState('');
 
   const [isHeightValidationError, setHeightValidationError] = useState<boolean>(false);
+  const { isLargeScreen } = useScreenDimensions();
 
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
   const handleSectionCollapse = useCallback(() => {
     setIsCollapsed((prevCollapseState) => !prevCollapseState);
   }, [setIsCollapsed]);
 
-  const isDisabledAddButton =
-    !heightValueText || isSavingCardData || isLoadingVitalsByEncounter || isHeightValidationError;
+  const [isSaving, setIsSaving] = useState(false);
 
-  const latestHeightValue = latestHistoryEntry?.heightCm;
+  const isDisabledAddButton = !heightValueText || isHeightValidationError;
+
+  const latestHeightValue = currentObs[0]?.value;
 
   const enteredHeightInInch: number | undefined = useMemo(() => {
     const heightCm = textToHeightNumber(heightValueText);
     if (!heightCm) return;
-    return heightInCmToInch(heightCm);
+    return cmToInches(heightCm);
   }, [heightValueText]);
 
   const handleSaveHeightObservation = async (heightValueText: string): Promise<void> => {
@@ -51,17 +45,17 @@ const VitalsHeightCard: React.FC = (): JSX.Element => {
     if (!heightValueNumber) return;
 
     try {
-      setSavingCardData(true);
+      setIsSaving(true);
       const vitalObs: VitalsHeightObservationDTO = {
         field: VitalFieldNames.VitalHeight,
         value: heightValueNumber,
       };
       await handleSaveVital(vitalObs);
       setHeightValueText('');
-    } catch (error) {
+    } catch {
       enqueueSnackbar('Error saving Height vital record', { variant: 'error' });
     } finally {
-      setSavingCardData(false);
+      setIsSaving(false);
     }
   };
 
@@ -69,10 +63,6 @@ const VitalsHeightCard: React.FC = (): JSX.Element => {
     (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
       const heightAsText = e.target.value;
       setHeightValueText(heightAsText);
-      const heightVal = textToHeightNumber(heightAsText);
-      if (heightVal) {
-        setHeightValidationError(!isValidHeightInCmValue(heightVal));
-      }
       if (heightAsText.length === 0) {
         setHeightValidationError(false);
       }
@@ -114,7 +104,7 @@ const VitalsHeightCard: React.FC = (): JSX.Element => {
                   <VitalsTextInputFiled
                     label="Height (cm)"
                     value={heightValueText}
-                    disabled={isSavingCardData}
+                    disabled={isSaving}
                     isInputError={isHeightValidationError}
                     onChange={handleTextInputChange}
                   />
@@ -150,13 +140,13 @@ const VitalsHeightCard: React.FC = (): JSX.Element => {
                   size="small"
                   disabled={isDisabledAddButton}
                   onClick={() => handleSaveHeightObservation(heightValueText)}
+                  loading={isSaving}
                   color="primary"
                   sx={{
                     height: '40px',
                     px: 2,
                     ml: 1,
                   }}
-                  startIcon={isSavingCardData ? <CircularProgress size={20} color="inherit" /> : null}
                 >
                   Add
                 </RoundedButton>
@@ -165,12 +155,17 @@ const VitalsHeightCard: React.FC = (): JSX.Element => {
           }
           rightColumn={
             <VitalsHistoryContainer
-              mainHistoryEntries={mainHistoryEntries}
-              extraHistoryEntries={extraHistoryEntries}
-              isLoading={isLoadingVitalsByEncounter}
-              historyElementSkeletonText={historyElementSkeletonText}
+              currentEncounterObs={currentObs}
+              historicalObs={historicalObs}
+              isLoading={false}
               historyElementCreator={(historyEntry) => {
-                return <VitalHeightHistoryElement historyEntry={historyEntry} onDelete={handleDeleteVital} />;
+                const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
+                return (
+                  <VitalHistoryElement
+                    historyEntry={historyEntry}
+                    onDelete={isCurrent ? handleDeleteVital : undefined}
+                  />
+                );
               }}
             />
           }

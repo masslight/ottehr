@@ -1,7 +1,8 @@
 import { otherColors } from '@ehrTheme/colors';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
 import ErrorOutlineOutlined from '@mui/icons-material/ErrorOutlineOutlined';
-import { Box, Grid, Paper, Typography, useTheme } from '@mui/material';
+import { Box, CircularProgress, Grid, Paper, Typography, useTheme } from '@mui/material';
 import { Stack } from '@mui/system';
 import { DateTime } from 'luxon';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -22,6 +23,11 @@ import { MedicationStatusChip } from '../statuses/MedicationStatusChip';
 import { getFieldLabel, MedicationFieldType, MedicationOrderType } from './fieldsConfig';
 import { MedicationCardField } from './MedicationCardField';
 import { InHouseMedicationFieldType } from './utils';
+
+export interface InteractionsMessage {
+  style: 'loading' | 'warning' | 'success';
+  message: string;
+}
 
 type MedicationCardViewProps = {
   type: MedicationOrderType;
@@ -52,8 +58,8 @@ type MedicationCardViewProps = {
   saveButtonText: string;
   isSaveButtonDisabled: boolean;
   selectsOptions: OrderFieldsSelectsOptions;
-  interactionsWarning?: string;
-  onInteractionsWarningClick: () => void;
+  interactionsMessage?: InteractionsMessage;
+  onInteractionsMessageClick: () => void;
 };
 
 export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
@@ -74,8 +80,8 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
   saveButtonText,
   isSaveButtonDisabled,
   selectsOptions,
-  interactionsWarning,
-  onInteractionsWarningClick,
+  interactionsMessage,
+  onInteractionsMessageClick,
 }) => {
   const navigate = useNavigate();
   const { id: appointmentId } = useParams();
@@ -200,9 +206,8 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
               <span>
                 {medication?.effectiveDateTime
                   ? DateTime.fromISO(medication.effectiveDateTime).toFormat('MM/dd/yyyy hh:mm a')
-                  : '-'}
+                  : ''}
               </span>
-              <span>by {medication?.providerCreatedTheOrder}</span>{' '}
             </Typography>
           )}
           {isUpdating && (
@@ -224,7 +229,7 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
           return (
             <Grid item xs={config!.xs} key={field}>
               <MedicationCardField
-                isEditable={isEditable}
+                isEditable={isEditable && !(type === 'dispense' && field === 'medicationId')}
                 field={field as MedicationFieldType}
                 label={getFieldLabel(field as MedicationFieldType, type)}
                 type={getFieldType(field as keyof MedicationData)}
@@ -238,11 +243,16 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
             </Grid>
           );
         })}
-        {interactionsWarning ? (
+        {interactionsMessage ? (
           <Grid item xs={12}>
             <Stack
               style={{
-                background: otherColors.lightErrorBg,
+                background:
+                  interactionsMessage.style === 'warning'
+                    ? otherColors.lightErrorBg
+                    : interactionsMessage.style === 'success'
+                    ? otherColors.lightGreen
+                    : 'none',
                 padding: '16px',
                 borderRadius: '4px',
                 width: '100%',
@@ -250,16 +260,30 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
               }}
               alignItems="center"
               direction="row"
-              onClick={onInteractionsWarningClick}
+              onClick={onInteractionsMessageClick}
             >
-              <ErrorOutlineOutlined style={{ width: '20px', height: '20px', color: theme.palette.error.main }} />
+              {interactionsMessage.style === 'warning' ? (
+                <ErrorOutlineOutlined style={{ width: '20px', height: '20px', color: theme.palette.error.main }} />
+              ) : interactionsMessage.style === 'success' ? (
+                <CheckCircleOutline style={{ width: '20px', height: '20px', color: theme.palette.success.main }} />
+              ) : (
+                <CircularProgress size="16px" />
+              )}
               <Typography
                 variant="body2"
-                style={{ color: otherColors.lightErrorText, marginLeft: '12px' }}
+                style={{
+                  color:
+                    interactionsMessage.style === 'warning'
+                      ? otherColors.lightErrorText
+                      : interactionsMessage.style === 'success'
+                      ? otherColors.darkGreenText
+                      : '#000',
+                  marginLeft: '12px',
+                }}
                 display="inline"
               >
                 <span style={{ fontWeight: '500' }}>Interaction: </span>
-                {interactionsWarning}
+                {interactionsMessage.message}
               </Typography>
             </Stack>
           </Grid>

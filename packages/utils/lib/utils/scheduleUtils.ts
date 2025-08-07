@@ -396,12 +396,21 @@ interface GetSlotCapacityMapInput {
 export const getAllSlotsAsCapacityMap = (input: GetSlotCapacityMapInput): SlotCapacityMap => {
   const { now, finishDate, scheduleExtension, timezone } = input;
   const { schedule, scheduleOverrides, closures, slotLength } = scheduleExtension;
+  const nowForTimezone = DateTime.fromFormat(now.setZone(timezone).toFormat('MM/dd/yyyy'), 'MM/dd/yyyy', {
+    zone: timezone,
+  }).startOf('day');
+  const finishDateForTimezone = DateTime.fromFormat(finishDate.setZone(timezone).toFormat('MM/dd/yyyy'), 'MM/dd/yyyy', {
+    zone: timezone,
+  });
+
+  /*
   const nowForTimezone = DateTime.fromFormat(now.toFormat('MM/dd/yyyy'), 'MM/dd/yyyy', { zone: timezone }).startOf(
     'day'
   );
   const finishDateForTimezone = DateTime.fromFormat(finishDate.toFormat('MM/dd/yyyy'), 'MM/dd/yyyy', {
     zone: timezone,
   });
+  */
   console.log('now for capacity map', nowForTimezone.toISO(), now.toISO());
   let currentDayTemp = nowForTimezone;
   let slots = {};
@@ -452,7 +461,7 @@ export function getAvailableSlots(input: GetAvailableSlotsInput): string[] {
   // no appointments or busy slots have been factored in
   const slotCapacityMap = getAllSlotsAsCapacityMap({
     now,
-    finishDate: now.startOf('day').plus({ days: numDays }),
+    finishDate: now.setZone(timezone).startOf('day').plus({ days: numDays }),
     scheduleExtension,
     timezone,
   });

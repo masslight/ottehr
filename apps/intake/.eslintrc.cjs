@@ -4,5 +4,5 @@ module.exports = {
     tsconfigRootDir: __dirname,
     project: ['tsconfig.json'],
   },
-  ignorePatterns: ['build', 'playwright-report'],
+  ignorePatterns: ['build', 'playwright-report', 'playwright-report-login', 'setup-test-deps.js'],
 };

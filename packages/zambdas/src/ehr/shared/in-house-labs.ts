@@ -3,7 +3,6 @@ import {
   ActivityDefinition,
   Coding,
   DiagnosticReport,
-  Encounter,
   FhirResource,
   Observation,
   Provenance,
@@ -15,24 +14,11 @@ import {
   IN_HOUSE_LAB_TASK,
   IN_HOUSE_TAG_DEFINITION,
   InHouseOrderDetailPageItemDTO,
-  PRACTITIONER_CODINGS,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   SPECIMEN_COLLECTION_CUSTOM_SOURCE_SYSTEM,
   SPECIMEN_COLLECTION_SOURCE_SYSTEM,
   TestStatus,
 } from 'utils';
-
-export function getAttendingPractitionerId(encounter: Encounter): string {
-  const practitionerId = encounter.participant
-    ?.find(
-      (participant) =>
-        participant.type?.find((type) => type.coding?.some((c) => c.system === PRACTITIONER_CODINGS.Attender[0].system))
-    )
-    ?.individual?.reference?.replace('Practitioner/', '');
-
-  if (!practitionerId) throw Error('Attending practitioner not found');
-  return practitionerId;
-}
 
 export function determineOrderStatus(serviceRequest: ServiceRequest, tasks: Task[]): TestStatus {
   if (!serviceRequest) return 'ORDERED';

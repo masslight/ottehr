@@ -6,7 +6,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { FieldValues } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
-import { CancellationReasonOptionsInPerson, getDateComponentsFromISOString, PROJECT_NAME, VisitType } from 'utils';
+import {
+  CancellationReasonOptionsInPerson,
+  getDateComponentsFromISOString,
+  PatientAppointmentDTO,
+  PROJECT_NAME,
+  ServiceMode,
+  VisitType,
+} from 'utils';
 import { ottehrApi } from '../api';
 import { intakeFlowPageRoute } from '../App';
 import { CardWithDescriptionAndLink, PageContainer } from '../components';
@@ -17,7 +24,6 @@ import { safelyCaptureException } from '../helpers/sentry';
 import { useNavigateInFlow } from '../hooks/useNavigateInFlow';
 import { useUCZambdaClient, ZambdaClient } from '../hooks/useUCZambdaClient';
 import { otherColors } from '../IntakeThemeProvider';
-import { Appointment } from '../types';
 import { useBookingContext } from './BookingHome';
 
 const ChoosePatient = (): JSX.Element => {
@@ -33,14 +39,16 @@ const ChoosePatient = (): JSX.Element => {
     timezone,
     patientsLoading,
     scheduleOwnerName,
+    scheduleOwnerId,
+    serviceMode,
     setPatientInfo,
   } = useBookingContext();
   const [appointmentsLoading, setAppointmentsLoading] = useState<boolean>(false);
-  const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
+  const [allAppointments, setAllAppointments] = useState<PatientAppointmentDTO[]>([]);
   const [checkInModalOpen, setCheckInModalOpen] = useState<boolean>(false);
-  const [appointmentsToCheckIn, setAppointmentsToCheckIn] = useState<Appointment[]>([]);
-  const [appointmentsToCancel, setAppointmentsToCancel] = useState<Appointment[]>([]);
-  const [bookedAppointment, setBookedAppointment] = useState<Appointment>();
+  const [appointmentsToCheckIn, setAppointmentsToCheckIn] = useState<PatientAppointmentDTO[]>([]);
+  const [appointmentsToCancel, setAppointmentsToCancel] = useState<PatientAppointmentDTO[]>([]);
+  const [bookedAppointment, setBookedAppointment] = useState<PatientAppointmentDTO>();
   const [cancellingAppointment, setCancellingAppointment] = useState<boolean>(false);
   const [errorDialog, setErrorDialog] = useState<ErrorDialogConfig | undefined>(undefined);
   const { t } = useTranslation();
@@ -49,7 +57,7 @@ const ChoosePatient = (): JSX.Element => {
 
   // todo: consider whether this is better handled in BookingHome
   useEffect(() => {
-    const getAppointmentsTodayAndTomorrow = async (): Promise<void> => {
+    const getAppointmentsTodayAndTomorrow = async (serviceMode: ServiceMode): Promise<void> => {
       try {
         if (!zambdaClient) {
           throw new Error('zambdaClient is not defined');
@@ -57,7 +65,7 @@ const ChoosePatient = (): JSX.Element => {
         setAppointmentsLoading(true);
         const todayStart = DateTime.now().setZone(timezone).startOf('day');
         const tomorrowEnd = todayStart.plus({ day: 1 }).endOf('day');
-        const response = await ottehrApi.getAppointments(zambdaClient, {
+        const response = await ottehrApi.getAppointments(zambdaClient, serviceMode, {
           dateRange: { greaterThan: todayStart.toISO() || '', lessThan: tomorrowEnd.toISO() || '' },
         });
         setAllAppointments(response.appointments ?? []);
@@ -69,32 +77,32 @@ const ChoosePatient = (): JSX.Element => {
     };
 
     if (timezone) {
-      getAppointmentsTodayAndTomorrow().catch((error) => console.log(error));
+      getAppointmentsTodayAndTomorrow(serviceMode).catch((error) => console.log(error));
     }
-  }, [timezone, zambdaClient]);
+  }, [timezone, zambdaClient, serviceMode]);
 
   const { todayAppointments, tomorrowAppointments, showCheckIn } = useMemo(() => {
-    let todayAppointments: Appointment[] = [];
-    let tomorrowAppointments: Appointment[] = [];
+    let todayAppointments: PatientAppointmentDTO[] = [];
+    let tomorrowAppointments: PatientAppointmentDTO[] = [];
     let showCheckIn = false;
 
-    if (!allAppointments.length || timezone) {
+    if (!allAppointments.length || !timezone) {
       return { todayAppointments, tomorrowAppointments, showCheckIn };
     }
 
     const todayStart = DateTime.now().setZone(timezone).startOf('day');
     const tomorrowStart = todayStart.plus({ day: 1 });
     todayAppointments = allAppointments.filter(
-      (appointment: Appointment) =>
+      (appointment: PatientAppointmentDTO) =>
         DateTime.fromISO(appointment.start).setZone(appointment.location?.timezone) < tomorrowStart
     );
     tomorrowAppointments = allAppointments.filter(
-      (appointment: Appointment) =>
+      (appointment: PatientAppointmentDTO) =>
         DateTime.fromISO(appointment.start).setZone(appointment.location?.timezone) >= tomorrowStart
     );
     // console.log('today', todayAppointments, 'tomorrow', tomorrowAppointments);
     showCheckIn = todayAppointments.some(
-      (appointment: Appointment) =>
+      (appointment: PatientAppointmentDTO) =>
         !appointment.checkedIn && appointment.status !== 'fulfilled' && appointment.slotId === slotId
     );
 
@@ -109,7 +117,7 @@ const ChoosePatient = (): JSX.Element => {
       throw new Error('No patient ID selected!');
     }
 
-    patients &&
+    if (patients) {
       patients.forEach(async (currentPatient) => {
         const {
           year: dobYear,
@@ -117,11 +125,9 @@ const ChoosePatient = (): JSX.Element => {
           day: dobDay,
         } = getDateComponentsFromISOString(currentPatient?.dateOfBirth);
         if (patientInfo?.id && patientInfo.id === currentPatient.id && currentPatient.id === data.patientID) {
-          // console.log('path 1');
           foundPatient = true;
           // don't overwrite what's already in the booking store if we haven't chosen a new patient
         } else if (currentPatient.id === data.patientID) {
-          // console.log('path 2');
           foundPatient = true;
           patientFirstName = data.firstName || currentPatient.firstName;
           setPatientInfo({
@@ -139,6 +145,7 @@ const ChoosePatient = (): JSX.Element => {
           });
         }
       });
+    }
     if (!foundPatient) {
       // console.log('did not find patient in the patients list');
       if (currentInfo?.id === 'new-patient' && data.patientID === 'new-patient') {
@@ -197,18 +204,20 @@ const ChoosePatient = (): JSX.Element => {
 
   const getAppointmentsAndContinue = async (patientID: string): Promise<void> => {
     try {
-      let patientAppointments: Appointment[] = [];
+      let patientAppointments: PatientAppointmentDTO[] = [];
       if (patientID) {
         patientAppointments = todayAppointments.filter(
-          (appointment: Appointment) =>
+          (appointment: PatientAppointmentDTO) =>
             appointment.patientID === patientID && !appointment.checkedIn && appointment.status !== 'fulfilled'
         );
       }
+      // todo: send the appointment location id back and use that to filter instead of name
       const checkIns = patientAppointments.filter(
-        (appointment: Appointment) => appointment.slotId === slotId || appointment.location?.name === scheduleOwnerName
+        (appointment: PatientAppointmentDTO) =>
+          appointment.slotId === slotId || appointment.location?.id === scheduleOwnerId
       );
       const cancels = patientAppointments.filter(
-        (appointment: Appointment) => appointment.location?.name !== scheduleOwnerName
+        (appointment: PatientAppointmentDTO) => appointment.location?.id !== scheduleOwnerId
       );
 
       setAppointmentsToCheckIn(checkIns);
@@ -223,7 +232,6 @@ const ChoosePatient = (): JSX.Element => {
   };
 
   const alreadyBooked = (patientID: string): string | undefined => {
-    console.log('already booked', patientID);
     let bookedAppointmentID: string | undefined;
 
     if (patientID && timezone) {
@@ -235,7 +243,7 @@ const ChoosePatient = (): JSX.Element => {
 
       // check if selected patient already has appointment and return its id
       const alreadyBookedAtThisLocation = appointments.find(
-        (appointment: Appointment) =>
+        (appointment: PatientAppointmentDTO) =>
           appointment.patientID === patientID &&
           appointment.slotId === slotId &&
           appointment.visitStatus !== 'completed'
@@ -245,19 +253,19 @@ const ChoosePatient = (): JSX.Element => {
     return bookedAppointmentID;
   };
 
-  const checkInIfAppointmentBooked = async (checkIns: Appointment[], cancels: Appointment[]): Promise<void> => {
+  const checkInIfAppointmentBooked = async (
+    checkIns: PatientAppointmentDTO[],
+    cancels: PatientAppointmentDTO[]
+  ): Promise<void> => {
     if (!cancels.length && !checkIns.length) {
       // Continue walk-in flow for returning patient
       navigateInFlow('confirm-date-of-birth');
     } else if (!cancels.length && checkIns.length) {
       // Check in or walk in to location where appointment is booked
       const appointment = checkIns[0];
-      const timezone = appointment.location?.timezone;
-      const now = DateTime.now().setZone(timezone);
-      const start = DateTime.fromISO(checkIns[0].start).setZone(timezone);
-      const hoursBeforeArrival = start.diff(now).as('hours');
+      const start = appointment.start;
 
-      if (hoursBeforeArrival > 4 && visitType !== VisitType.PostTelemed) {
+      if (checkIsMoreThan4HoursInFuture(start) && visitType !== VisitType.PostTelemed) {
         // If patient walks in more than 4 hours before their pre-booked slot then cancel the appointment and walk-in
         await handleCancelAppointmentForSelectedLocation(appointment.id, zambdaClient);
         navigateInFlow('confirm-date-of-birth');
@@ -432,6 +440,17 @@ const ChoosePatient = (): JSX.Element => {
       />
     </PageContainer>
   );
+};
+
+const checkIsMoreThan4HoursInFuture = (startISO: string): boolean => {
+  const startDateTime = DateTime.fromISO(startISO);
+  if (!startDateTime.isValid) {
+    console.error('Invalid start date time:', startISO);
+    return false;
+  }
+  // Check if the start time is more than 4 hours in the future from now
+  const now = DateTime.now();
+  return startDateTime.diff(now).as('hours') > 4;
 };
 
 export default ChoosePatient;

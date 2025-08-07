@@ -63,7 +63,7 @@ export function TrackingBoardBody(): ReactElement {
                     control={
                       <Switch
                         value={notificationsEnabled || false}
-                        disabled={updateNotificationSettingsMutation.isLoading}
+                        disabled={updateNotificationSettingsMutation.isPending}
                         checked={notificationsEnabled || false}
                         onChange={() =>
                           updateNotificationSettingsMutation.mutateAsync({
@@ -95,7 +95,7 @@ export function TrackingBoardBody(): ReactElement {
                   id="alert-setting"
                   value={notificationMethod || ProviderNotificationMethod['phone and computer']}
                   label="Notify me by"
-                  disabled={updateNotificationSettingsMutation.isLoading}
+                  disabled={updateNotificationSettingsMutation.isPending}
                   onChange={(event) => {
                     console.log(event.target);
                     void updateNotificationSettingsMutation.mutateAsync({

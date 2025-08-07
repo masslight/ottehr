@@ -58,7 +58,9 @@ import {
 import { DateTime } from 'luxon';
 import {
   FHIR_IDENTIFIER_NPI,
+  getAttendingPractitionerId,
   getOptionalSecret,
+  getPayerId,
   getSecret,
   INVALID_INPUT_ERROR,
   MISSING_PATIENT_COVERAGE_INFO_ERROR,
@@ -208,11 +210,20 @@ const createCandidCreateEncounterInput = async (
 
   const { appointment } = await fetchFHIRPatientAndAppointmentFromEncounter(encounter.id, oystehr);
 
+  const practitionerId = getAttendingPractitionerId(encounter);
+  let practitioner: Practitioner | null = null;
+  if (practitionerId) {
+    practitioner = visitResources.practitioners?.find((practitioner) => practitioner.id === practitionerId) ?? null;
+  }
+  if (!practitioner) {
+    practitioner = visitResources.practitioners?.[0] ?? null;
+  }
+
   return {
     appointment: appointment,
     encounter: encounter,
     patient: assertDefined(visitResources.patient, `Patient on encounter ${encounterId}`),
-    practitioner: assertDefined(visitResources.practitioner, `Practitioner on encounter ${encounterId}`),
+    practitioner: assertDefined(practitioner, `Practitioner on encounter ${encounterId}`),
     diagnoses: (
       await oystehr.fhir.search<Condition>({
         resourceType: 'Condition',
@@ -290,8 +301,21 @@ async function candidCreateEncounterRequest(
   if (primaryDiagnosisIndex === -1) {
     throw new Error('Primary diagnosis is absent');
   }
+
+  // Validate and convert appointment start to proper date format
+  const appointmentStart = input.appointment.start;
+  let dateOfServiceString: string | undefined;
+
+  if (appointmentStart) {
+    const dateOfService = DateTime.fromISO(appointmentStart);
+    if (dateOfService.isValid) {
+      dateOfServiceString = dateOfService.toISODate();
+    }
+  }
+
   return {
     externalId: EncounterExternalId(assertDefined(encounter.id, 'Encounter.id')),
+    dateOfService: dateOfServiceString,
     billableStatus: BillableStatusType.Billable,
     responsibleParty: insuranceResources != null ? ResponsiblePartyType.InsurancePay : ResponsiblePartyType.SelfPay,
     benefitsAssignedToProvider: true,
@@ -555,7 +579,7 @@ async function createPreEncounterPatient(
     );
   }
 
-  console.log('alex patient,', patient);
+  console.log('[CLAIM SUBMISSION] patient details ', patient);
 
   const patientAddress = patient.address?.[0];
   if (!patientAddress) {
@@ -739,11 +763,13 @@ export const performCandidPreEncounterSync = async (input: PerformCandidPreEncou
   const candidCoverages = await createCandidCoverages(ourPatient, candidPreEncounterPatient, oystehr, candidApiClient);
 
   // Update patient with the coverages
-  candidPreEncounterPatient = await updateCandidPatientWithCoverages(
-    candidPreEncounterPatient,
-    candidCoverages,
-    candidApiClient
-  );
+  if (candidCoverages.length > 0) {
+    candidPreEncounterPatient = await updateCandidPatientWithCoverages(
+      candidPreEncounterPatient,
+      candidCoverages,
+      candidApiClient
+    );
+  }
 
   // Get Candid appointment and create if it does not exist
   const existingCandidPreEncounterAppointmentId = ourAppointment.identifier?.find(
@@ -886,6 +912,10 @@ const createCandidCoverages = async (
 
   const candidCoverages: CandidPreEncounterCoverage[] = [];
 
+  if (coverages === undefined || coverages.primary === undefined) {
+    return candidCoverages;
+  }
+
   if (coverages.primary && coverages.primarySubscriber && insuranceOrgs[0]) {
     const candidCoverage = buildCandidCoverageCreateInput(
       coverages.primary,
@@ -962,20 +992,43 @@ const buildCandidCoverageCreateInput = (
         country: subscriber.address?.[0].country ?? 'US', // TODO just save country into the FHIR resource when making it https://build.fhir.org/datatypes-definitions.html#Address.country. We can put US by default to start.
       },
     },
-    relationship: assertDefined(
-      coverage.relationship?.coding?.[0].code,
-      'Subscriber relationship'
-    ).toUpperCase() as Relationship,
+    relationship: convertCoverageRelationshipToCandidRelationship(
+      assertDefined(coverage.relationship?.coding?.[0].code, 'Subscriber relationship')
+    ),
     status: 'ACTIVE',
     patient: candidPatient.id,
     verified: true,
     insurancePlan: {
       memberId: assertDefined(coverage.subscriberId, 'Member ID'),
       payerName: assertDefined(insuranceOrg.name, 'Payor name'),
-      payerId: PayerId(assertDefined(insuranceOrg.id, 'Payor id')),
+      payerId: PayerId(assertDefined(getPayerId(insuranceOrg), 'Payor id')),
     },
   };
 };
+
+function convertCoverageRelationshipToCandidRelationship(relationship: string): Relationship {
+  const normalizedString = relationship.toUpperCase().trim();
+
+  //
+  // Normalize the string to match the expected values from FHIR specification
+  // defined here https://build.fhir.org/valueset-subscriber-relationship.html
+  //
+  //
+  switch (normalizedString) {
+    case 'SELF':
+      return Relationship.Self;
+    case 'SPOUSE':
+      return Relationship.Spouse;
+    case 'PARENT':
+      return Relationship.Other;
+    case 'CHILD':
+      return Relationship.Child;
+    case 'COMMON':
+      return Relationship.CommonLawSpouse;
+    default:
+      return Relationship.Other;
+  }
+}
 
 const fetchFHIRPatientAndAppointmentFromEncounter = async (
   encounterId: string,
@@ -1024,7 +1077,7 @@ export async function createEncounterFromAppointment(
   secrets: Secrets,
   oystehr: Oystehr
 ): Promise<string | undefined> {
-  console.log('Create candid encounter from appointment');
+  console.log('[CLAIM SUBMISSION] Starting encounter submission to candid');
   const candidClientId = getOptionalSecret(SecretsKeys.CANDID_CLIENT_ID, secrets);
   if (candidClientId == null || candidClientId.length === 0) {
     return undefined;
@@ -1043,17 +1096,21 @@ export async function createEncounterFromAppointment(
     if (!visitResources.encounter.id) {
       throw new Error(`Encounter ID is not defined for visit resources ${JSON.stringify(visitResources)}`);
     }
+    console.log(`[CLAIM SUBMISSION] Starting patient & encounter sync for encounter ${visitResources.encounter.id}`);
     await performCandidPreEncounterSync({
       encounterId: visitResources.encounter.id,
       oystehr,
       secrets,
     });
+    console.log(`[CLAIM SUBMISSION] Sync completed for encounter  ${visitResources.encounter.id}`);
     createEncounterInput = await createCandidCreateEncounterInput(visitResources, oystehr);
   }
 
   const request = await candidCreateEncounterFromAppointmentRequest(createEncounterInput, apiClient);
   console.log('Candid request:' + JSON.stringify(request, null, 2));
+  console.log(`[CLAIM SUBMISSION] Sending encounter to candid`);
   const response = await apiClient.encounters.v4.createFromPreEncounterPatient(request);
+  console.log(`[CLAIM SUBMISSION] Encounter sent to candid, response from candid ${JSON.stringify(response)}`);
   if (!response.ok) {
     throw new Error(`Error creating a Candid encounter. Response body: ${JSON.stringify(response.error)}`);
   }

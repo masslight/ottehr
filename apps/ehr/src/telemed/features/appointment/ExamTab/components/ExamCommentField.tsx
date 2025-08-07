@@ -16,10 +16,14 @@ export const ExamCommentField = <T extends ExamCardsNames | InPersonExamCardsNam
 
   const { value: field, update, delete: deleteField, isLoading } = useExamObservations(name);
 
-  const { debounce } = useDebounce();
+  const { debounce } = useDebounce(700);
 
   const onChange = (value: string): void => {
     value = value.trim();
+
+    if (!field.resourceId && !value) {
+      return;
+    }
 
     if (value) {
       debounce(() => {
@@ -33,7 +37,11 @@ export const ExamCommentField = <T extends ExamCardsNames | InPersonExamCardsNam
   const [value, setValue] = useState(field.note || '');
 
   useEffect(() => {
-    setValue(field.note || '');
+    if (field.note?.trim() !== value.trim()) {
+      // update UI value only if it's different from the field value
+      setValue(field.note || '');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [field.note]);
 
   return (

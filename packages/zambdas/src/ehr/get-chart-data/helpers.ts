@@ -237,3 +237,8 @@ export const configProceduresRequestsForGetChartData = (encounterId: string): Ba
     url: `/ServiceRequest?encounter=Encounter/${encounterId}&status=completed`,
   };
 };
+
+export const defaultChartDataFieldsSearchParams: Partial<Record<keyof GetChartDataResponse, { _tag: string }>> = {
+  medications: { _tag: 'current-medication' },
+  inhouseMedications: { _tag: 'in-house-medication' },
+};

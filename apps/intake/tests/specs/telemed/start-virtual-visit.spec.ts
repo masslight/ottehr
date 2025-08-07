@@ -434,7 +434,7 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
 
     // todo use another way to get appointment id
     // await getAppointmentIdFromCreateAppointmentRequest(page);
-    expect(slotId).toBeDefined;
+    expect(slotId).toBeDefined();
     await expect(page.getByText('Contact information')).toBeVisible({ timeout: 30000 });
   });
 

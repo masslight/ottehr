@@ -18,19 +18,33 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       throw MISSING_NLM_API_KEY_ERROR;
     }
 
-    const responseCodes = (
-      await Promise.all([
+    let responseCodes: IcdSearchResponse[];
+
+    if (sabs === 'CPT') {
+      responseCodes = await Promise.all([
+        // fetching both NAME and CODE search results in parallel
+        searchTerminology(apiKey, search, 'HCPCS', 'NAME', radiologyOnly),
+        searchTerminology(apiKey, search, 'HCPCS', 'CODE', radiologyOnly),
+        searchTerminology(apiKey, search, 'HCPT', 'NAME', radiologyOnly),
+        searchTerminology(apiKey, search, 'HCPT', 'CODE', radiologyOnly),
+      ]);
+    } else if (sabs === 'ICD10CM') {
+      responseCodes = await Promise.all([
         // fetching both NAME and CODE search results in parallel
         searchTerminology(apiKey, search, sabs, 'NAME', radiologyOnly),
         searchTerminology(apiKey, search, sabs, 'CODE', radiologyOnly),
-      ])
-    )
+      ]);
+    } else {
+      throw new Error(`Unsupported sabs value: ${sabs}. Supported values are 'ICD10CM' and 'CPT'.`);
+    }
+
+    const codes = responseCodes
       .flatMap((result) => result.codes) // Flatten the array of arrays into a single array and map to codes.
       .filter((codeValues, index, self) => index === self.findIndex((t) => t.code === codeValues.code)) // Remove duplicates based on code
       .sort((a, b) => a.code.localeCompare(b.code)); // Sort alphabetically by code.
 
     const response: IcdSearchResponse = {
-      codes: responseCodes,
+      codes,
     };
 
     return {
@@ -47,7 +61,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 const searchTerminology = async (
   apiKey: string,
   search: string,
-  sabs: 'ICD10CM' | 'CPT',
+  sabs: 'ICD10CM' | 'HCPCS' | 'HCPT',
   codeOrName: 'CODE' | 'NAME',
   radiologyOnly: boolean | undefined = false
 ): Promise<IcdSearchResponse> => {
@@ -82,7 +96,7 @@ const searchTerminology = async (
       display: entry.name,
     }));
 
-    if (sabs === 'CPT' && radiologyOnly) {
+    if ((sabs === 'HCPCS' || sabs === 'HCPT') && radiologyOnly) {
       results.codes = results.codes.filter((code) => {
         return code.code >= '7000' && code.code <= '7999'; // Filter codes to only include ICD-10 codes in the radiology range.
       });

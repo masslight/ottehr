@@ -17,6 +17,10 @@ import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaIn
 import {
   DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL,
   ORDER_TYPE_CODE_SYSTEM,
+  SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL,
+  SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL,
+  SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL,
+  SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL,
   SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL,
   SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
 } from '../shared';
@@ -244,19 +248,25 @@ const parseResultsToOrder = (
   //   task.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`);
   // });
 
-  const myDiagnosticReport = diagnosticReports.find(
+  // Get all diagnostic reports related to this service request
+  const relatedDiagnosticReports = diagnosticReports.filter(
     (report) => report.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`)
   );
 
-  const result = myDiagnosticReport?.presentedForm?.find((attachment) => attachment.contentType === 'text/html')?.data;
+  // Find the best diagnostic report using our priority logic
+  const preliminaryDiagnosticReport = relatedDiagnosticReports.find((report) => report.status === 'preliminary');
+  const bestDiagnosticReport = takeTheBestDiagnosticReport(relatedDiagnosticReports);
+
+  const result = bestDiagnosticReport?.presentedForm?.find((attachment) => attachment.contentType === 'text/html')
+    ?.data;
 
   if (serviceRequest.status === 'active') {
     status = RadiologyOrderStatus.pending;
-  } else if (serviceRequest.status === 'completed' && !myDiagnosticReport) {
+  } else if (serviceRequest.status === 'completed' && !bestDiagnosticReport) {
     status = RadiologyOrderStatus.performed;
-  } else if (myDiagnosticReport?.status === 'preliminary') {
+  } else if (bestDiagnosticReport?.status === 'preliminary') {
     status = RadiologyOrderStatus.preliminary;
-  } else if (myDiagnosticReport?.status === 'final') {
+  } else if (bestDiagnosticReport?.status === 'final') {
     // && myReviewTask?.status === 'ready') {
     status = RadiologyOrderStatus.final;
     // } else if (myReviewTask?.status === 'completed') {
@@ -267,7 +277,9 @@ const parseResultsToOrder = (
 
   const appointmentId = parseAppointmentId(serviceRequest, encounters);
 
-  const history = buildHistory(serviceRequest, myDiagnosticReport, providerName);
+  const history = buildHistory(serviceRequest, bestDiagnosticReport, preliminaryDiagnosticReport, providerName);
+
+  const clinicalHistory = extractClinicalHistory(serviceRequest);
 
   return {
     serviceRequestId: serviceRequest.id,
@@ -280,13 +292,53 @@ const parseResultsToOrder = (
     status,
     isStat: serviceRequest.priority === 'stat',
     result,
+    clinicalHistory,
     history,
   };
 };
 
+const takeTheBestDiagnosticReport = (diagnosticReports: DiagnosticReport[]): DiagnosticReport | undefined => {
+  if (!diagnosticReports.length) {
+    return undefined;
+  }
+
+  // Filter reports by status priority
+  const amendedCorrectedAppended = diagnosticReports.filter(
+    (report) => report.status === 'amended' || report.status === 'corrected' || report.status === 'appended'
+  );
+
+  const finalReports = diagnosticReports.filter((report) => report.status === 'final');
+  const preliminaryReports = diagnosticReports.filter((report) => report.status === 'preliminary');
+
+  // Helper function to get the most recent report by issued datetime
+  const getMostRecent = (reports: DiagnosticReport[]): DiagnosticReport | undefined => {
+    if (!reports.length) return undefined;
+
+    return reports.reduce((mostRecent, current) => {
+      if (!current.issued) return mostRecent;
+      if (!mostRecent.issued) return current;
+
+      return new Date(current.issued) > new Date(mostRecent.issued) ? current : mostRecent;
+    });
+  };
+
+  // Apply priority logic
+  if (amendedCorrectedAppended.length > 0) {
+    return getMostRecent(amendedCorrectedAppended);
+  } else if (finalReports.length > 0) {
+    return getMostRecent(finalReports);
+  } else if (preliminaryReports.length > 0) {
+    return getMostRecent(preliminaryReports);
+  }
+
+  // If no reports match the expected statuses, return the first one
+  return diagnosticReports[0];
+};
+
 const buildHistory = (
   serviceRequest: ServiceRequest,
-  diagnosticReport: DiagnosticReport | undefined,
+  bestDiagnosticReport: DiagnosticReport | undefined,
+  preliminaryDiagnosticReport: DiagnosticReport | undefined,
   orderingProviderName: string
 ): RadiologyOrderHistoryRow[] => {
   const history: RadiologyOrderHistoryRow[] = [];
@@ -313,26 +365,60 @@ const buildHistory = (
     });
   }
 
-  const diagnosticReportPreliminaryReadTimeExtensionValue = diagnosticReport?.extension?.find(
+  const diagnosticReportPreliminaryReadTimeExtensionValueFromBest = bestDiagnosticReport?.extension?.find(
     (ext) => ext.url === DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL
   )?.valueDateTime;
-  if (diagnosticReportPreliminaryReadTimeExtensionValue) {
+  const diagnosticReportPreliminaryReadTimeExtensionValueFromPreliminary = preliminaryDiagnosticReport?.extension?.find(
+    (ext) => ext.url === DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL
+  )?.valueDateTime;
+  if (diagnosticReportPreliminaryReadTimeExtensionValueFromBest) {
     history.push({
       status: RadiologyOrderStatus.preliminary,
       performer: 'See AdvaPACS',
-      date: diagnosticReportPreliminaryReadTimeExtensionValue,
+      date: diagnosticReportPreliminaryReadTimeExtensionValueFromBest,
+    });
+  } else if (diagnosticReportPreliminaryReadTimeExtensionValueFromPreliminary) {
+    history.push({
+      status: RadiologyOrderStatus.preliminary,
+      performer: 'See AdvaPACS',
+      date: diagnosticReportPreliminaryReadTimeExtensionValueFromPreliminary,
     });
   }
 
-  if (diagnosticReport?.issued) {
+  if (bestDiagnosticReport?.issued) {
     history.push({
       status: RadiologyOrderStatus.final,
       performer: 'See AdvaPACS',
-      date: diagnosticReport.issued,
+      date: bestDiagnosticReport.issued,
     });
   }
 
   return history;
+};
+
+const extractClinicalHistory = (serviceRequest: ServiceRequest): string | undefined => {
+  // Find the clinical history extension within the service request
+  const clinicalHistoryExtension = serviceRequest.extension
+    ?.filter((ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL)
+    ?.find((orderDetailExt) => {
+      const parameterExt = orderDetailExt.extension?.find(
+        (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL
+      );
+      const codeExt = parameterExt?.extension?.find(
+        (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL
+      );
+      return codeExt?.valueCodeableConcept?.coding?.[0]?.code === 'clinical-history';
+    });
+
+  // Extract the clinical history value
+  const parameterExt = clinicalHistoryExtension?.extension?.find(
+    (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL
+  );
+  const valueStringExt = parameterExt?.extension?.find(
+    (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL
+  );
+
+  return valueStringExt?.valueString;
 };
 
 const extractResources = (

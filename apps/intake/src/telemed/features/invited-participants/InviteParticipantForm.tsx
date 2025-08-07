@@ -24,7 +24,9 @@ export const InviteParticipantForm: FC<InviteParticipantsFormProps> = ({ onInvit
 
     createInviteMutation.mutate(inviteParams, {
       onSuccess: () => {
-        onInviteSuccess && onInviteSuccess();
+        if (onInviteSuccess) {
+          onInviteSuccess();
+        }
       },
       onError: () => {
         setInviteErrorSnackbarOpen(true);
@@ -88,7 +90,7 @@ export const InviteParticipantForm: FC<InviteParticipantsFormProps> = ({ onInvit
         ]}
         onSubmit={submitInviteParticipantForm}
         controlButtons={{
-          loading: createInviteMutation.isLoading,
+          loading: createInviteMutation.isPending,
           submitLabel: 'Send invite',
           backButtonLabel: 'Close',
           onBack: () => onClose?.(),
