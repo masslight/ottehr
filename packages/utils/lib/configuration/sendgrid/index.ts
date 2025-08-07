@@ -1,11 +1,12 @@
 //import fs from 'fs';
 import _ from 'lodash';
 import * as z from 'zod';
-import { CONFIG } from '../../../.ottehr_config';
+import { OVERRIDES } from '../../../.ottehr_config';
+import { BRANDING_CONFIG } from '../branding';
 
 const SENDGRID_DEFAULTS = Object.freeze({
-  errorReport: {
-    template: {
+  templates: {
+    errorReport: {
       templateName: 'Error Report',
       templateVersionName: '1.0.0',
       active: true,
@@ -13,9 +14,7 @@ const SENDGRID_DEFAULTS = Object.freeze({
       subject: '⚠️ An error occurred in {{environment}}', // done
       templateIdSecretName: 'SENDGRID_ERROR_REPORT_TEMPLATE_ID',
     },
-  },
-  inPersonCancelation: {
-    template: {
+    inPersonCancelation: {
       templateName: 'In-Person Cancellation',
       templateVersionName: '1.0.0',
       active: true,
@@ -23,9 +22,7 @@ const SENDGRID_DEFAULTS = Object.freeze({
       subject: 'Visit canceled', // done
       templateIdSecretName: 'SENDGRID_IN_PERSON_CANCELATION_TEMPLATE_ID',
     },
-  },
-  inPersonConfirmation: {
-    template: {
+    inPersonConfirmation: {
       templateName: 'In-Person Confirmation',
       templateVersionName: '1.0.0',
       active: true,
@@ -33,9 +30,7 @@ const SENDGRID_DEFAULTS = Object.freeze({
       subject: 'Visit confirmed on {{readableTime}}', // done
       templateIdSecretName: 'SENDGRID_IN_PERSON_CONFIRMATION_TEMPLATE_ID',
     },
-  },
-  inPersonCompletion: {
-    template: {
+    inPersonCompletion: {
       templateName: 'In-Person Completion',
       templateVersionName: '1.0.0',
       active: true,
@@ -43,9 +38,7 @@ const SENDGRID_DEFAULTS = Object.freeze({
       subject: 'Visit completed. See visit note', // done
       templateIdSecretName: 'SENDGRID_IN_PERSON_COMPLETION_TEMPLATE_ID',
     },
-  },
-  inPersonReminder: {
-    template: {
+    inPersonReminder: {
       templateName: 'In-Person Reminder',
       templateVersionName: '1.0.0',
       active: true,
@@ -53,9 +46,7 @@ const SENDGRID_DEFAULTS = Object.freeze({
       subject: 'Upcoming visit on {{readableTime}}', // done
       templateIdSecretName: 'SENDGRID_IN_PERSON_REMINDER_TEMPLATE_ID',
     },
-  },
-  telemedCancelation: {
-    template: {
+    telemedCancelation: {
       templateName: 'Telemed Cancelation',
       templateVersionName: '1.0.0',
       active: true,
@@ -63,9 +54,7 @@ const SENDGRID_DEFAULTS = Object.freeze({
       subject: 'Visit canceled', // done
       templateIdSecretName: 'SENDGRID_TELEMED_CANCELATION_TEMPLATE_ID',
     },
-  },
-  telemedConfirmation: {
-    template: {
+    telemedConfirmation: {
       templateName: 'Telemed Confirmation',
       templateVersionName: '1.0.0',
       active: true,
@@ -73,9 +62,7 @@ const SENDGRID_DEFAULTS = Object.freeze({
       subject: 'Join virtual visit', // done
       templateIdSecretName: 'SENDGRID_TELEMED_CONFIRMATION_TEMPLATE_ID',
     },
-  },
-  telemedCompletion: {
-    template: {
+    telemedCompletion: {
       templateName: 'Telemed Completion',
       templateVersionName: '1.0.0',
       active: true,
@@ -83,9 +70,7 @@ const SENDGRID_DEFAULTS = Object.freeze({
       subject: 'Visit completed. See visit note', // done
       templateIdSecretName: 'SENDGRID_TELEMED_COMPLETION_TEMPLATE_ID',
     },
-  },
-  telemedInvitation: {
-    template: {
+    telemedInvitation: {
       templateName: 'Telemed Invitation',
       templateVersionName: '1.0.0',
       active: true,
@@ -94,6 +79,17 @@ const SENDGRID_DEFAULTS = Object.freeze({
       templateIdSecretName: 'SENDGRID_TELEMED_INVITATION_TEMPLATE_ID',
     },
   },
+  from: {
+    email: 'noreply@ottehr.com',
+    name: 'Ottehr',
+  },
+});
+
+const EmailFromSchema = z.object({
+  email: z.string().email(),
+  emailLowers: z.string().email().optional(),
+  name: z.string().min(1, { message: 'Name cannot be empty' }),
+  appendVisitTypeToName: z.boolean().default(false),
 });
 
 const TemplateVersionSchema = z.object({
@@ -170,14 +166,27 @@ const DefaultTemplates = z.object({
   telemedInvitation: TelemedInvitationSchema,
 });
 
-const validatedSendgridDefaults = DefaultTemplates.parse(SENDGRID_DEFAULTS);
+const SENDGRID_CONFIG_SCHEMA = z.object({
+  templates: DefaultTemplates,
+  bcc: z.array(z.string().email()).default([]),
+  from: EmailFromSchema,
+  replyTo: z
+    .string()
+    .email()
+    .default('no-reply@' + BRANDING_CONFIG.projectDomain),
+});
 
-const overrides: any = CONFIG.sendgrid || {};
+console.log('parsing SendGrid defaults', SENDGRID_DEFAULTS);
+
+const validatedSendgridDefaults = SENDGRID_CONFIG_SCHEMA.parse(SENDGRID_DEFAULTS);
+
+const overrides: any = OVERRIDES.sendgrid || {};
 
 console.log('SendGrid overrides:', overrides);
 
 const mergedSendgridConfig = _.merge(validatedSendgridDefaults, overrides);
+console.log('Merged SendGrid config:', mergedSendgridConfig);
 
-export const SENDGRID_CONFIG = Object.freeze(DefaultTemplates.parse(mergedSendgridConfig));
-
-console.log('Validated SendGrid defaults:', SENDGRID_CONFIG);
+export const SENDGRID_CONFIG = Object.freeze(SENDGRID_CONFIG_SCHEMA.parse(mergedSendgridConfig));
+export type SendgridConfig = z.infer<typeof SENDGRID_CONFIG_SCHEMA>;
+export type EmailTemplate = SendgridConfig['templates'][keyof SendgridConfig['templates']];

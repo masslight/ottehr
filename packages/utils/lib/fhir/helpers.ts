@@ -2,6 +2,7 @@ import Oystehr, { BatchInputPostRequest, FhirSearchParams, SearchParam } from '@
 import { Operation } from 'fast-json-patch';
 import {
   Account,
+  Address,
   Appointment,
   Bundle,
   CodeableConcept,
@@ -1401,3 +1402,37 @@ export function getCoding(
   }
   return undefined;
 }
+
+export const getAddressString = (addressResource: Address | undefined): string => {
+  if (!addressResource) {
+    return '';
+  }
+  const { line, city, state, postalCode } = addressResource;
+
+  let address = '';
+  if (line?.[0]) {
+    address += line?.[0];
+    if (line?.[1]) {
+      address += `, ${line?.[1]}`;
+    }
+  }
+  if (city) {
+    if (address.length > 0) {
+      address += ', ';
+    }
+    address += city;
+  }
+  if (state) {
+    if (address.length > 0) {
+      address += ', ';
+    }
+    address += state;
+  }
+  if (postalCode) {
+    if (address.length > 0) {
+      address += ' ';
+    }
+    address += postalCode;
+  }
+  return address;
+};

@@ -1,11 +1,11 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Location, Patient, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { DATETIME_FULL_NO_YEAR, getPatientContactEmail, getSecret, Secrets, SecretsKeys, TaskStatus } from 'utils';
+import { getPatientContactEmail, getSecret, Secrets, SecretsKeys, TaskStatus } from 'utils';
 import {
   createOystehrClient,
   getAuth0Token,
-  sendInPersonCancellationEmail,
+  getEmailClient,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
@@ -98,22 +98,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const timezone = fhirLocation.extension?.find(
       (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
     )?.valueString;
-    const startTime = DateTime.fromISO(fhirAppointment?.start || '')
-      .setZone(timezone)
-      .toFormat(DATETIME_FULL_NO_YEAR);
-    const visitType = fhirAppointment.appointmentType?.text ?? 'Unknown';
-    console.log('info', email, timezone, startTime, visitType);
-
+    const startTime = DateTime.fromISO(fhirAppointment?.start || '').setZone(timezone);
     if (email) {
       console.group('sendCancellationEmail');
       try {
-        await sendInPersonCancellationEmail({
+        const emailClient = getEmailClient(secrets);
+        await emailClient.sendInPersonCancelationEmail({
           email,
           startTime,
-          secrets,
           scheduleResource: fhirLocation,
-          visitType,
-          language: 'en',
         });
         taskStatusToUpdate = 'completed';
         statusReasonToUpdate = 'email sent successfully';

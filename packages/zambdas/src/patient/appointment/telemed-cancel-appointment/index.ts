@@ -23,9 +23,9 @@ import {
   AuditableZambdaEndpoints,
   checkOrCreateM2MClientToken,
   createAuditEvent,
+  getEmailClient,
   getVideoEncounterForAppointment,
   sendSms,
-  sendVirtualCancellationEmail,
   validateBundleAndExtractAppointment,
   wrapHandler,
   ZambdaInput,
@@ -178,9 +178,9 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
   try {
     const email = getPatientContactEmail(patient);
     if (email) {
-      await sendVirtualCancellationEmail({
+      const emailClient = getEmailClient(secrets);
+      await emailClient.sendVirtualCancelationEmail({
         toAddress: email,
-        secrets,
       });
     } else {
       throw Error('no email found');

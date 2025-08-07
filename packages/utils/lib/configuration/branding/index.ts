@@ -1,10 +1,11 @@
 import _ from 'lodash';
 import * as z from 'zod';
-import { CONFIG } from '../../../.ottehr_config';
+import { OVERRIDES } from '../../../.ottehr_config';
 
-const overrides: any = CONFIG.branding || {};
+const overrides: any = OVERRIDES.branding || {};
 const BRANDING_DEFAULTS: any = {
   projectName: 'Ottehr',
+  projectDomain: 'ottehr.com',
   email: {
     logoURL: '',
     supportPhoneNumber: '(629)&nbsp;219&#8209;2767',
@@ -30,8 +31,9 @@ const mergedBrandingConfig = _.merge(BRANDING_DEFAULTS, overrides);
 
 const BrandingConfigSchema = z.object({
   projectName: z.string().min(1, { message: 'Project name cannot be empty' }),
+  projectDomain: z.string().min(1, { message: 'Project domain cannot be empty' }),
   email: z.object({
-    logoURL: z.string().url().optional(),
+    logoURL: z.string().optional(),
     supportPhoneNumber: z.string().optional(),
     palette: z.object({
       deemphasizedText: z.string().min(1, { message: 'Deemphasized text color cannot be empty' }),

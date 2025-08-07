@@ -1,51 +1,62 @@
 import Oystehr, { TransactionalSMSSendParams } from '@oystehr/sdk';
 import sendgrid from '@sendgrid/mail';
-import { Appointment, HealthcareService, Location, Patient, Practitioner } from 'fhir/r4b';
+import { Appointment, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   createOystehrClient,
-  formatPhoneNumberDisplay,
+  DATETIME_FULL_NO_YEAR,
+  getAddressString,
   getSecret,
-  isLocationVirtual,
-  PROJECT_DOMAIN,
   PROJECT_NAME,
+  ScheduleOwnerFhirResource,
   Secrets,
   SecretsKeys,
-  ServiceMode,
   SLUG_SYSTEM,
 } from 'utils';
+import { BRANDING_CONFIG } from 'utils/lib/configuration/branding';
+import { EmailTemplate, SENDGRID_CONFIG, SendgridConfig } from 'utils/lib/configuration/sendgrid';
 import { getNameForOwner } from '../ehr/schedules/shared';
 import { sendErrors } from './errors';
 import { getRelatedPersonForPatient } from './patients';
 
-export interface InPersonCancellationEmailSettings {
-  email: string;
-  startTime: string;
-  secrets: Secrets | null;
-  language: string;
-  scheduleResource: Location | HealthcareService | Practitioner;
-  visitType: string;
-}
-
-export interface InPersonConfirmationEmailSettings {
-  email: string;
-  startTime: string;
-  appointmentID: string;
-  language: string;
-  secrets: Secrets | null;
-  scheduleResource: Location | HealthcareService | Practitioner;
-  appointmentType: string;
-}
-
-export interface VirtualConfirmationEmailSettings {
-  toAddress: string;
-  appointmentID: string;
-  secrets: Secrets | null;
-}
-
 export interface VirtualCancellationEmailSettings {
   toAddress: string;
-  secrets: Secrets | null;
+}
+
+export interface InPersonConfirmationEmailSettings extends BaseAppointmentEmailSettings {
+  startTime: DateTime;
+  appointmentID: string;
+}
+
+export interface InPersonReminderEmailSettings extends BaseAppointmentEmailSettings {
+  startTime: DateTime;
+  appointmentID: string;
+}
+
+export interface InPersonCancellationEmailSettings extends BaseAppointmentEmailSettings {
+  startTime: DateTime;
+}
+
+export interface InPersonCompletionEmailSettings extends BaseAppointmentEmailSettings {
+  startTime: DateTime;
+  visitNoteUrl: string;
+}
+
+export interface VirtualConfirmationEmailSettings extends BaseAppointmentEmailSettings {
+  appointmentID: string;
+}
+
+export interface VirtualCompletionEmailSettings extends BaseAppointmentEmailSettings {
+  visitNoteUrl: string;
+}
+export interface BaseAppointmentEmailSettings {
+  email: string;
+  scheduleResource: ScheduleOwnerFhirResource;
+}
+export interface VideoChatInvitationEmailInput {
+  email: string;
+  inviteUrl: string;
+  patientName: string;
 }
 
 export async function getMessageRecipientForAppointment(
@@ -66,83 +77,40 @@ export async function getMessageRecipientForAppointment(
   }
 }
 
-export const sendInPersonCancellationEmail = async (input: InPersonCancellationEmailSettings): Promise<void> => {
-  const { email, language, startTime, secrets, scheduleResource, visitType } = input;
-  const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
-  const SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID = getSecret(
-    SecretsKeys.IN_PERSON_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID,
-    secrets
-  );
-  const SENDGRID_SPANISH_CANCELLATION_EMAIL_TEMPLATE_ID = getSecret(
-    SecretsKeys.IN_PERSON_SENDGRID_SPANISH_CANCELLATION_EMAIL_TEMPLATE_ID,
-    secrets
-  );
-  let subject = 'In Person: Your Visit Has Been Canceled';
-  let templateId = SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID;
-  let address;
-  if (scheduleResource.resourceType === 'Location') {
-    address = `${scheduleResource?.address?.line?.[0]}${
-      scheduleResource?.address?.line?.[1] ? `, ${scheduleResource.address.line[1]}` : ''
-    }, ${scheduleResource?.address?.city}, ${scheduleResource?.address?.state} ${scheduleResource?.address
-      ?.postalCode}`;
-  }
-
-  // In case of e.g. en-US or en-GB, ignore local dialect
-  switch (language.split('-')[0]) {
-    case 'es':
-      // cSpell:disable-next spanish
-      subject = 'In Person: Su consulta ha sido cancelada';
-      templateId = SENDGRID_SPANISH_CANCELLATION_EMAIL_TEMPLATE_ID;
-      break;
-    case 'en':
-      subject = 'In Person: Your Visit Has Been Canceled';
-      templateId = SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID;
-      break;
-    default:
-      subject = 'In Person: Your Visit Has Been Canceled';
-      templateId = SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID;
-      break;
-  }
-
-  const phone = formatPhoneNumberDisplay(scheduleResource.telecom?.find((el) => el.system === 'phone')?.value || '');
-  const isVirtual = scheduleResource.resourceType === 'Location' ? isLocationVirtual(scheduleResource) : false;
-  const slug =
-    scheduleResource.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)?.value || 'Unknown';
-
-  const templateInformation = {
-    appointmentTime: startTime,
-    locationName: scheduleResource.name,
-    locationAddress: address,
-    locationPhone: phone,
-    bookAgainUrl: `${WEBSITE_URL}/location/${slug}/${visitType}/${
-      isVirtual ? ServiceMode.virtual : ServiceMode['in-person']
-    }`,
-  };
-  await sendEmail(email, templateId, subject, templateInformation, secrets);
-};
-
-export async function sendInPersonMessages(
-  email: string | undefined,
-  firstName: string | undefined,
-  messageRecipient: string,
-  startTime: string,
-  secrets: Secrets | null,
-  scheduleResource: Location | HealthcareService | Practitioner,
-  appointmentID: string,
-  appointmentType: string,
-  language: string,
-  token: string
-): Promise<void> {
+interface SendInPersonMessagesInput {
+  email: string | undefined;
+  firstName: string | undefined;
+  messageRecipient: string;
+  startTime: DateTime;
+  secrets: Secrets | null;
+  scheduleResource: ScheduleOwnerFhirResource;
+  appointmentID: string;
+  appointmentType: string;
+  language: string;
+  token: string;
+}
+export async function sendInPersonMessages({
+  email,
+  firstName,
+  messageRecipient,
+  startTime,
+  secrets,
+  scheduleResource,
+  appointmentID,
+  appointmentType,
+  language,
+  token,
+}: SendInPersonMessagesInput): Promise<void> {
   const start = DateTime.now();
   if (email) {
-    await sendInPersonConfirmationEmail({
+    const emailClient = getEmailClient(secrets);
+    await emailClient.sendInPersonConfirmationEmail({
       email,
       startTime,
       appointmentID,
-      secrets,
       scheduleResource,
-      appointmentType,
-      language,
+      // TODO bring back when supporting spanish emails
+      // language,
     });
   } else {
     console.log('email undefined');
@@ -198,180 +166,222 @@ export async function sendInPersonMessages(
   }
 }
 
-export const sendInPersonConfirmationEmail = async (input: InPersonConfirmationEmailSettings): Promise<void> => {
-  const { email, startTime, language, appointmentID, secrets, scheduleResource, appointmentType } = input;
-  const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
-  const SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID = getSecret(
-    SecretsKeys.IN_PERSON_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID,
-    secrets
-  );
-  const SENDGRID_SPANISH_CONFIRMATION_EMAIL_TEMPLATE_ID = getSecret(
-    SecretsKeys.IN_PERSON_SENDGRID_SPANISH_CONFIRMATION_EMAIL_TEMPLATE_ID,
-    secrets
-  );
+class EmailClient {
+  private config: SendgridConfig;
+  private secrets: Secrets | null;
 
-  // Translation variables
-  let subject = `Your visit confirmation at ${PROJECT_NAME}`;
-  let templateId = SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID;
-
-  // In case of e.g. en-US or en-GB, ignore local dialect
-  switch (language?.split('-')?.[0] ?? 'en') {
-    case 'es':
-      // cSpell:disable-next spanish
-      subject = `Confirmación de su consulta en ${PROJECT_NAME}`;
-      templateId = SENDGRID_SPANISH_CONFIRMATION_EMAIL_TEMPLATE_ID;
-      break;
-    case 'en':
-      subject = `Your visit confirmation at ${PROJECT_NAME}`;
-      templateId = SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID;
-      break;
-    default:
-      subject = `Your visit confirmation at ${PROJECT_NAME}`;
-      templateId = SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID;
-      break;
+  constructor(config: SendgridConfig, secrets: Secrets | null) {
+    this.config = config;
+    this.secrets = secrets;
+    const SENDGRID_API_KEY = getSecret(SecretsKeys.SENDGRID_API_KEY, secrets);
+    if (!SENDGRID_API_KEY) {
+      throw new Error('SendGrid API key is not set in secrets');
+    }
+    sendgrid.setApiKey(SENDGRID_API_KEY);
   }
 
-  // todo handle these when scheduleResource is a healthcare service or a practitioner
-  let address: string | undefined;
-  let phone: string | undefined;
-  let state: string | undefined;
-  if (scheduleResource.resourceType === 'Location') {
-    address = `${scheduleResource?.address?.line?.[0]}${
-      scheduleResource?.address?.line?.[1] ? `, ${scheduleResource.address.line[1]}` : ''
-    }, ${scheduleResource?.address?.city}, ${scheduleResource?.address?.state} ${scheduleResource?.address
-      ?.postalCode}`;
-    phone = formatPhoneNumberDisplay(scheduleResource?.telecom?.find((el) => el.system === 'phone')?.value || '');
-    state = scheduleResource.address?.state;
+  private async sendEmail(to: string, template: EmailTemplate, templateInformation: any): Promise<void> {
+    const { templateIdSecretName, subject: templateSubject } = template;
+    const SENDGRID_EMAIL_BCC = this.config.bcc;
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, this.secrets);
+    const environmentSubjectPrepend = ENVIRONMENT === 'production' ? '' : `[${ENVIRONMENT}] `;
+    const subject = `${environmentSubjectPrepend}${templateSubject}`;
+    const templateId = getSecret(templateIdSecretName, this.secrets);
+
+    const from = this.config.from;
+    const replyTo = this.config.replyTo;
+
+    const { email, projectName, projectDomain } = BRANDING_CONFIG;
+
+    const emailConfiguration = {
+      to,
+      from,
+      bcc: SENDGRID_EMAIL_BCC,
+      replyTo,
+      templateId,
+      dynamic_template_data: {
+        subject,
+        ...templateInformation,
+        branding: {
+          email,
+          projectName,
+          projectDomain,
+        },
+      },
+    };
+
+    try {
+      const sendResult = await sendgrid.send(emailConfiguration);
+      console.log(
+        `Details of successful sendgrid send: statusCode, ${sendResult[0].statusCode}. body, ${JSON.stringify(
+          sendResult[0].body
+        )}`
+      );
+    } catch (error) {
+      const errorMessage = `Error sending email with subject ${subject} to ${to}`;
+      console.error(`${errorMessage}: ${error}`);
+      void sendErrors(errorMessage, ENVIRONMENT);
+    }
   }
 
-  // todo: some validation so we're not sending emails with broken links
-  const slug =
-    scheduleResource.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)?.value || 'Unknown';
-  let rescheduleUrl = `${WEBSITE_URL}/visit/${appointmentID}/reschedule?slug=${slug}`;
+  async sendVirtualConfirmationEmail(input: VirtualConfirmationEmailSettings): Promise<void> {
+    const { email, appointmentID } = input;
+    const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, this.secrets);
 
-  if (state) {
-    rescheduleUrl = `${rescheduleUrl}&state=${state}`;
+    // Translation variables
+    const templateInformation = {
+      url: `${WEBSITE_URL}/waiting-room?appointment_id=${appointmentID}`,
+    };
+    await this.sendEmail(email, this.config.templates.telemedConfirmation, templateInformation);
   }
-  const templateInformation = {
-    appointmentTime: startTime,
-    locationName: scheduleResource.name,
-    locationAddress: address,
-    locationPhone: phone,
-    appointmentType: appointmentType,
-    paperworkUrl: `${WEBSITE_URL}/paperwork/${appointmentID}`,
-    rescheduleUrl,
-    cancelUrl: `${WEBSITE_URL}/visit/${appointmentID}/cancel`,
-  };
-  await sendEmail(email, templateId, subject, templateInformation, secrets);
-};
 
-export async function sendEmail(
-  email: string,
-  templateID: string,
-  subject: string,
-  templateInformation: any,
-  secrets: Secrets | null
-): Promise<void> {
-  console.log(`Sending email confirmation to ${email}`);
-  const SENDGRID_API_KEY = getSecret(SecretsKeys.SENDGRID_API_KEY, secrets);
-  if (!(SENDGRID_API_KEY && templateID)) {
-    console.error(
-      "Email message can't be sent because either Sendgrid api key or message template ID variable was not set"
-    );
-    return;
+  async sendVirtualCancelationEmail(input: VirtualCancellationEmailSettings): Promise<void> {
+    const { toAddress } = input;
+    const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, this.secrets);
+
+    const templateInformation = {
+      url: `${WEBSITE_URL}/welcome`,
+    };
+    await this.sendEmail(toAddress, this.config.templates.telemedCancelation, templateInformation);
   }
-  sendgrid.setApiKey(SENDGRID_API_KEY);
-  const SENDGRID_EMAIL_BCC = getSecret(SecretsKeys.SENDGRID_EMAIL_BCC, secrets).split(',');
-  const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
-  const environmentSubjectPrepend = ENVIRONMENT === 'production' ? '' : `[${ENVIRONMENT}] `;
-  subject = `${environmentSubjectPrepend}${subject}`;
 
-  const emailConfiguration = {
-    to: email,
-    from: {
-      email: 'no-reply@' + PROJECT_DOMAIN,
-      name: `${PROJECT_NAME} In Person`,
-    },
-    bcc: SENDGRID_EMAIL_BCC,
-    replyTo: 'no-reply@' + PROJECT_DOMAIN,
-    templateId: templateID,
-    dynamic_template_data: {
-      subject,
-      ...templateInformation,
-    },
-  };
+  async sendVirtualCompletionEmail(input: VirtualCompletionEmailSettings): Promise<void> {
+    const { email, scheduleResource, visitNoteUrl } = input;
 
-  try {
-    const sendResult = await sendgrid.send(emailConfiguration);
-    console.log(
-      `Details of successful sendgrid send: statusCode, ${sendResult[0].statusCode}. body, ${JSON.stringify(
-        sendResult[0].body
-      )}`
-    );
-  } catch (error) {
-    const errorMessage = `Error sending email with subject ${subject} to ${email}`;
-    console.error(`${errorMessage}: ${error}`);
-    void sendErrors(errorMessage, ENVIRONMENT);
+    const templateInformation = {
+      location: getNameForOwner(scheduleResource),
+      'visit-note-url': visitNoteUrl,
+    };
+    await this.sendEmail(email, this.config.templates.telemedCompletion, templateInformation);
+    // unsubscribeGroupId: sendGridUnsubscribeGroupIds.telemed.completion,
   }
-}
 
-export const sendVirtualConfirmationEmail = async (input: VirtualConfirmationEmailSettings): Promise<void> => {
-  const { toAddress, appointmentID, secrets } = input;
-  const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
-  const SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID = getSecret(
-    SecretsKeys.VIRTUAL_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID,
-    secrets
-  );
-
-  // Translation variables
-  const subject = `${PROJECT_NAME} Telemedicine`;
-  const templateId = SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID;
-  const templateInformation = {
-    url: `${WEBSITE_URL}/waiting-room?appointment_id=${appointmentID}`,
-  };
-  await sendEmail(toAddress, templateId, subject, templateInformation, secrets);
-};
-
-export const sendVirtualCancellationEmail = async (input: VirtualCancellationEmailSettings): Promise<void> => {
-  const { toAddress, secrets } = input;
-  const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
-  const SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID = getSecret(
-    SecretsKeys.VIRTUAL_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID,
-    secrets
-  );
-  const subject = `${PROJECT_NAME} Telemedicine`;
-  const templateId = SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID;
-
-  const templateInformation = {
-    url: `${WEBSITE_URL}/welcome`,
-  };
-  await sendEmail(toAddress, templateId, subject, templateInformation, secrets);
-};
-
-export interface VideoChatInvitationEmailInput {
-  toAddress: string;
-  inviteUrl: string;
-  patientName: string;
-  secrets: Secrets | null;
-}
-
-export const sendVideoChatInvitationEmail = async (input: VideoChatInvitationEmailInput): Promise<void> => {
-  try {
-    const { toAddress, inviteUrl, patientName, secrets } = input;
-    const SENDGRID_VIDEO_CHAT_INVITATION_EMAIL_TEMPLATE_ID = getSecret(
-      SecretsKeys.VIRTUAL_SENDGRID_VIDEO_CHAT_INVITATION_EMAIL_TEMPLATE_ID,
-      secrets
-    );
-    const subject = `Invitation to Join a Visit - ${PROJECT_NAME} Telemedicine`;
-    const templateId = SENDGRID_VIDEO_CHAT_INVITATION_EMAIL_TEMPLATE_ID;
+  async sendVideoChatInvitationEmail(input: VideoChatInvitationEmailInput): Promise<void> {
+    const { email, inviteUrl, patientName } = input;
     const templateInformation = {
       inviteUrl: inviteUrl,
       patientName: patientName,
     };
-    await sendEmail(toAddress, templateId, subject, templateInformation, secrets);
-  } catch (e) {
-    console.error(`Error sending video chat invitation email: ${e}`);
+    await this.sendEmail(email, this.config.templates.telemedInvitation, templateInformation);
   }
+
+  async sendInPersonConfirmationEmail(input: InPersonConfirmationEmailSettings): Promise<void> {
+    const { email, startTime, appointmentID, scheduleResource } = input;
+    const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, this.secrets);
+    // const SENDGRID_SPANISH_CONFIRMATION_EMAIL_TEMPLATE_ID = getSecret(
+    //   SecretsKeys.IN_PERSON_SENDGRID_SPANISH_CONFIRMATION_EMAIL_TEMPLATE_ID,
+    //   secrets
+    // );
+
+    const readableTime = startTime.toFormat(DATETIME_FULL_NO_YEAR);
+
+    // todo handle these when scheduleResource is a healthcare service or a practitioner
+    let address: string | undefined;
+    let state: string | undefined;
+    if (scheduleResource.resourceType === 'Location') {
+      address = getAddressString(scheduleResource.address);
+      state = scheduleResource.address?.state;
+    }
+
+    // todo: some validation so we're not sending emails with broken links
+    const slug =
+      scheduleResource.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)?.value || 'Unknown';
+    let rescheduleUrl = `${WEBSITE_URL}/visit/${appointmentID}/reschedule?slug=${slug}`;
+
+    if (state) {
+      rescheduleUrl = `${rescheduleUrl}&state=${state}`;
+    }
+    const templateInformation = {
+      time: readableTime,
+      datetime: startTime,
+      location: scheduleResource.name,
+      address,
+      'address-url': `https://www.google.com/maps/search/?api=1&query=${encodeURI(address || '')}`,
+      'modify-visit-url': rescheduleUrl,
+      'cancel-visit-url': `${WEBSITE_URL}/visit/${appointmentID}/cancel`,
+      'paperwork-url': `${WEBSITE_URL}/paperwork/${appointmentID}`,
+    };
+    await this.sendEmail(email, this.config.templates.inPersonConfirmation, templateInformation);
+  }
+  async sendInPersonCancelationEmail(input: InPersonCancellationEmailSettings): Promise<void> {
+    const { email, /* language, */ startTime, scheduleResource } = input;
+    const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, this.secrets);
+    const readableTime = startTime.toFormat(DATETIME_FULL_NO_YEAR);
+
+    let address: string | undefined;
+    if (scheduleResource.resourceType === 'Location') {
+      address = getAddressString(scheduleResource.address);
+    }
+
+    const templateInformation = {
+      time: readableTime,
+      datetime: startTime,
+      location: scheduleResource.name,
+      address,
+      'address-url': `https://www.google.com/maps/search/?api=1&query=${encodeURI(address || '')}`,
+      'book-again-url': `${WEBSITE_URL}/home`,
+    };
+    await this.sendEmail(email, this.config.templates.inPersonCancelation, templateInformation);
+  }
+  async sendInPersonCompletionEmail(input: InPersonCompletionEmailSettings): Promise<void> {
+    const { email, startTime, scheduleResource, visitNoteUrl } = input;
+    const readableTime = startTime.toFormat(DATETIME_FULL_NO_YEAR);
+
+    let address: string | undefined;
+    if (scheduleResource.resourceType === 'Location') {
+      address = getAddressString(scheduleResource.address);
+    }
+
+    const templateInformation = {
+      time: readableTime,
+      datetime: startTime,
+      location: scheduleResource.name,
+      address,
+      'address-url': `https://www.google.com/maps/search/?api=1&query=${encodeURI(address || '')}`,
+      'visit-note-url': visitNoteUrl,
+    };
+    await this.sendEmail(email, this.config.templates.inPersonCompletion, templateInformation);
+    //  unsubscribeGroupId: sendGridUnsubscribeGroupIds.inPerson.completion,
+  }
+
+  async sendInPersonReminderEmail(input: InPersonReminderEmailSettings): Promise<void> {
+    const { email, startTime, appointmentID, scheduleResource } = input;
+    const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, this.secrets);
+
+    const readableTime = startTime.toFormat(DATETIME_FULL_NO_YEAR);
+    // todo handle these when scheduleResource is a healthcare service or a practitioner
+    let address: string | undefined;
+    let state: string | undefined;
+    if (scheduleResource.resourceType === 'Location') {
+      address = getAddressString(scheduleResource.address);
+      state = scheduleResource.address?.state;
+    }
+
+    // todo: some validation so we're not sending emails with broken links
+    const slug =
+      scheduleResource.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)?.value || 'Unknown';
+    let rescheduleUrl = `${WEBSITE_URL}/visit/${appointmentID}/reschedule?slug=${slug}`;
+
+    if (state) {
+      rescheduleUrl = `${rescheduleUrl}&state=${state}`;
+    }
+    const templateInformation = {
+      time: readableTime,
+      datetime: startTime,
+      location: scheduleResource.name,
+      address,
+      'address-url': `https://www.google.com/maps/search/?api=1&query=${encodeURI(address || '')}`,
+      'modify-visit-url': rescheduleUrl,
+      'cancel-visit-url': `${WEBSITE_URL}/visit/${appointmentID}/cancel`,
+      'paperwork-url': `${WEBSITE_URL}/paperwork/${appointmentID}`,
+    };
+    await this.sendEmail(email, this.config.templates.inPersonReminder, templateInformation);
+    //unsubscribeGroupId: sendGridUnsubscribeGroupIds.inPerson.reminder,
+  }
+}
+
+export const getEmailClient = (secrets: Secrets | null): EmailClient => {
+  return new EmailClient(SENDGRID_CONFIG, secrets);
 };
 
 export async function sendSms(

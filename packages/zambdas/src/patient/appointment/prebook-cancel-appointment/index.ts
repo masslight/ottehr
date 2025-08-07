@@ -9,7 +9,6 @@ import {
   CancelAppointmentZambdaOutput,
   CancellationReasonCodesInPerson,
   CANT_CANCEL_CHECKED_IN_APT_ERROR,
-  DATETIME_FULL_NO_YEAR,
   FHIR_ZAPEHR_URL,
   formatPhoneNumberDisplay,
   getAppointmentMetaTagOpForStatusUpdate,
@@ -40,14 +39,14 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
-import { sendInPersonCancellationEmail } from '../../../shared/communication';
+import { getEmailClient } from '../../../shared/communication';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface CancelAppointmentZambdaInputValidated extends CancelAppointmentZambdaInput {
   secrets: Secrets | null;
 }
 interface CancellationDetails {
-  startTime: string;
+  startTime: DateTime;
   email: string | undefined;
   patient: Patient;
   visitType: string;
@@ -202,7 +201,7 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
       patient,
     } = validateBundleAndExtractAppointment(transactionBundle);
 
-    const { startTime, email, visitType } = await getCancellationDetails(appointmentUpdated, patient, scheduleResource);
+    const { startTime, email } = await getCancellationDetails(appointmentUpdated, patient, scheduleResource);
     console.groupEnd();
     console.debug('gettingEmailProps success');
 
@@ -213,13 +212,11 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
       if (email) {
         console.group('sendCancellationEmail');
         try {
-          await sendInPersonCancellationEmail({
+          const emailClient = getEmailClient(secrets);
+          await emailClient.sendInPersonCancelationEmail({
             email,
             startTime,
-            secrets,
             scheduleResource,
-            visitType,
-            language,
           });
         } catch (error: any) {
           console.error('error sending cancellation email', error);
@@ -306,7 +303,7 @@ const getCancellationDetails = async (
     const visitType = appointment.appointmentType?.text ?? 'Unknown';
 
     return {
-      startTime: DateTime.fromISO(appointment.start).setZone(timezone).toFormat(DATETIME_FULL_NO_YEAR),
+      startTime: DateTime.fromISO(appointment.start).setZone(timezone),
       email,
       patient,
       visitType,
