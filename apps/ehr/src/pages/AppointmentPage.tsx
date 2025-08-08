@@ -55,7 +55,6 @@ import {
   getVisitStatus,
   INSURANCE_CARD_CODE,
   isNonPaperworkQuestionnaireResponse,
-  PAPERWORK_PDF_ATTACHMENT_TITLE,
   PHOTO_ID_CARD_CODE,
   PRIVACY_POLICY_CODE,
   VisitStatusLabel,
@@ -229,7 +228,7 @@ export default function AppointmentPage(): ReactElement {
   const [notesHistory, setNotesHistory] = useState<NoteHistory[] | undefined>(undefined);
   const user = useEvolveUser();
 
-  const { documents, isLoadingDocuments, downloadDocument } = useGetPatientDocs(patient?.id ?? '');
+  const { isLoadingDocuments, downloadDocument } = useGetPatientDocs(patient?.id ?? '');
 
   const { location, encounter, questionnaireResponse, relatedPerson } = useMemo(() => {
     const location = resourceBundle?.find(
@@ -1042,30 +1041,26 @@ export default function AppointmentPage(): ReactElement {
 
   const downloadPaperworkPdf = async (): Promise<void> => {
     setPaperworkPdfLoading(true);
-    const existingPaperworkPdf = documents?.find(
-      (doc) =>
-        doc.encounterId === encounter.id &&
-        doc.docName.toLowerCase().includes(PAPERWORK_PDF_ATTACHMENT_TITLE.toLowerCase())
-    );
-    if (existingPaperworkPdf) {
-      await downloadDocument(existingPaperworkPdf.id);
-      setPaperworkPdfLoading(false);
-      return;
-    }
     if (!oystehr || !questionnaireResponse.id) {
       enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
       setPaperworkPdfLoading(false);
       return;
     }
-    const response = await generatePaperworkPdf(oystehr, {
-      questionnaireResponseId: questionnaireResponse.id,
-      documentReference: {
-        resourceType: 'DocumentReference',
-        status: 'current',
-      } as DocumentReference,
-    });
-    await downloadDocument(response.documentReference.split('/')[1]);
-    setPaperworkPdfLoading(false);
+    try {
+      const response = await generatePaperworkPdf(oystehr, {
+        questionnaireResponseId: questionnaireResponse.id,
+        documentReference: {
+          resourceType: 'DocumentReference',
+          status: 'current',
+        } as DocumentReference,
+      });
+      await downloadDocument(response.documentReference.split('/')[1]);
+    } catch (error) {
+      console.error(error);
+      enqueueSnackbar('Failed to generate PDF.', { variant: 'error' });
+    } finally {
+      setPaperworkPdfLoading(false);
+    }
   };
 
   return (
