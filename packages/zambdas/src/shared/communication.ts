@@ -22,46 +22,6 @@ import { getNameForOwner } from '../ehr/schedules/shared';
 import { sendErrors } from './errors';
 import { getRelatedPersonForPatient } from './patients';
 
-export interface VirtualCancellationEmailSettings {
-  toAddress: string;
-}
-
-export interface InPersonConfirmationEmailSettings extends BaseAppointmentEmailSettings {
-  startTime: DateTime;
-  appointmentID: string;
-}
-
-export interface InPersonReminderEmailSettings extends BaseAppointmentEmailSettings {
-  startTime: DateTime;
-  appointmentID: string;
-}
-
-export interface InPersonCancellationEmailSettings extends BaseAppointmentEmailSettings {
-  startTime: DateTime;
-}
-
-export interface InPersonCompletionEmailSettings extends BaseAppointmentEmailSettings {
-  startTime: DateTime;
-  visitNoteUrl: string;
-}
-
-export interface VirtualConfirmationEmailSettings extends BaseAppointmentEmailSettings {
-  appointmentID: string;
-}
-
-export interface VirtualCompletionEmailSettings extends BaseAppointmentEmailSettings {
-  visitNoteUrl: string;
-}
-export interface BaseAppointmentEmailSettings {
-  email: string;
-  scheduleResource: ScheduleOwnerFhirResource;
-}
-export interface VideoChatInvitationEmailInput {
-  email: string;
-  inviteUrl: string;
-  patientName: string;
-}
-
 export async function getMessageRecipientForAppointment(
   appointment: Appointment,
   oystehr: Oystehr
@@ -297,13 +257,18 @@ class EmailClient {
     // unsubscribeGroupId: sendGridUnsubscribeGroupIds.telemed.completion,
   }
 
-  async sendVideoChatInvitationEmail(input: VideoChatInvitationEmailInput): Promise<void> {
-    const { email, inviteUrl, patientName } = input;
+  async sendVideoChatInvitationEmail(
+    to: string,
+    templateData: DynamicTemplateDataRecord<typeof this.config.templates.telemedInvitation>
+  ): Promise<void> {
+    /*
+    const { email, inviteUrl, patientName } = templateData;
     const templateInformation = {
       inviteUrl: inviteUrl,
       patientName: patientName,
     };
-    await this.sendEmail(email, this.config.templates.telemedInvitation, templateInformation);
+    */
+    await this.sendEmail(to, this.config.templates.telemedInvitation, templateData);
   }
 
   async sendInPersonConfirmationEmail(
