@@ -1,6 +1,7 @@
 import { Box, FormHelperText } from '@mui/material';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers-pro';
+import { DateTime } from 'luxon';
 import React from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
@@ -12,7 +13,7 @@ type Props = {
 };
 
 export const DateInput: React.FC<Props> = ({ name, label, required }) => {
-  const { formState, control } = useFormContext();
+  const { control } = useFormContext();
   return (
     <Controller
       name={name}
@@ -27,12 +28,12 @@ export const DateInput: React.FC<Props> = ({ name, label, required }) => {
               slotProps={{
                 textField: {
                   style: { width: '100%' },
-                  error: formState.errors[name] != null,
                   size: 'small',
+                  error: error != null,
                 },
               }}
-              value={field.value || null}
-              onChange={field.onChange}
+              value={field.value ? DateTime.fromISO(field.value) : null}
+              onChange={(val) => field.onChange(val ? val.toISO() : null)}
             />
           </LocalizationProvider>
           {error && <FormHelperText error={true}>{error?.message}</FormHelperText>}

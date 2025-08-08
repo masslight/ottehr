@@ -12,7 +12,7 @@ type Props = {
 };
 
 export const TextInput: React.FC<Props> = ({ name, label, loading, required, multiline }) => {
-  const { formState, control } = useFormContext();
+  const { control } = useFormContext();
   return !loading ? (
     <Controller
       name={name}
@@ -25,7 +25,7 @@ export const TextInput: React.FC<Props> = ({ name, label, loading, required, mul
             value={field.value}
             label={label + (required ? '*' : '')}
             placeholder={`Select ${label}`}
-            error={formState.errors[name] != null}
+            error={error != null}
             onChange={(data) => field.onChange(data)}
             multiline={multiline}
             autoComplete="off"

@@ -15,16 +15,16 @@ export const STUB_IMMUNIZATION_ORDERS: ImmunizationOrder[] = [
       providerName: 'Bohdan Demo',
       providerId: '30144c68-2422-4cbc-a21f-b15af079c965',
     },
-    orderedDateTime: DateTime.now(),
+    orderedDateTime: DateTime.now().toISO(),
     administeringData: {
       lot: 'lot2',
-      expDate: 'expDate2',
+      expDate: DateTime.now().toISO(),
       mvx: 'mvx2',
       cvx: 'cvx2',
       cpt: 'cpt2',
       ndc: 'ndc2',
-      administeredDateTime: DateTime.now(),
-      visGivenDate: DateTime.now(),
+      administeredDateTime: DateTime.now().toISO(),
+      visGivenDate: DateTime.now().toISO(),
       providerName: 'administeredProviderName2',
       providerId: 'administeredProviderId2',
     },
@@ -45,7 +45,7 @@ export const STUB_IMMUNIZATION_ORDERS: ImmunizationOrder[] = [
       providerName: 'Bohdan Demo',
       providerId: '30144c68-2422-4cbc-a21f-b15af079c965',
     },
-    orderedDateTime: DateTime.now(),
+    orderedDateTime: DateTime.now().toISO(),
   },
   {
     id: 'order-3',
@@ -62,16 +62,16 @@ export const STUB_IMMUNIZATION_ORDERS: ImmunizationOrder[] = [
       providerName: 'Bohdan Demo',
       providerId: '30144c68-2422-4cbc-a21f-b15af079c965',
     },
-    orderedDateTime: DateTime.now(),
+    orderedDateTime: DateTime.now().toISO(),
     administeringData: {
       lot: 'lot',
-      expDate: 'expDate',
+      expDate: DateTime.now().toISO(),
       mvx: 'mvx',
       cvx: 'cvx',
       cpt: 'cpt',
       ndc: 'ndc',
-      administeredDateTime: DateTime.now(),
-      visGivenDate: DateTime.now(),
+      administeredDateTime: DateTime.now().toISO(),
+      visGivenDate: DateTime.now().toISO(),
       providerName: 'administeredProviderName',
       providerId: 'administeredProviderId',
     },
@@ -98,7 +98,7 @@ export interface ImmunizationOrder {
     providerName: string;
     providerId: string;
   };
-  orderedDateTime: DateTime;
+  orderedDateTime: string;
   administeringData?: {
     lot: string;
     expDate: string;
@@ -106,8 +106,8 @@ export interface ImmunizationOrder {
     cvx: string;
     cpt?: string;
     ndc: string;
-    administeredDateTime: DateTime;
-    visGivenDate?: DateTime;
+    administeredDateTime: string;
+    visGivenDate?: string;
     providerName: string;
     providerId: string;
   };

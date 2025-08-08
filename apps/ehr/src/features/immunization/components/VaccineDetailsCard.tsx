@@ -49,7 +49,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                 <TextInput name="administeringData.lot" label="LOT number" required />
               </Grid>
               <Grid xs={3} item>
-                <DateInput name="expDate" label="Exp. Date" required />
+                <DateInput name="administeringData.expDate" label="Exp. Date" required />
               </Grid>
               <Grid xs={3} item>
                 <TextInput name="administeringData.mvx" label="MVX code" required />
@@ -64,10 +64,10 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                 <TextInput name="administeringData.ndc" label="NDC code" required />
               </Grid>
               <Grid xs={3} item>
-                <DateInput name="administeredDate" label="Administered date" required />
+                <DateInput name="administeringData.administeredDateTime" label="Administered date" required />
               </Grid>
               <Grid xs={3} item>
-                <TimeInput name="administeredTime" label="Administered time" required />
+                <TimeInput name="administeringData.administeredDateTime" label="Administered time" required />
               </Grid>
               <Grid xs={6} item>
                 <Box
@@ -83,7 +83,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                 </Box>
               </Grid>
               <Grid xs={6} item>
-                <DateInput name="visGivenDate" label="VIS given date" required />
+                <DateInput name="administeringData.visGivenDate" label="VIS given date" required />
               </Grid>
               <Grid xs={12} item>
                 <Typography

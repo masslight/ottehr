@@ -13,7 +13,7 @@ type Props = {
 };
 
 export const AutocompleteInput: React.FC<Props> = ({ name, label, options, loading, required, selectOnly }) => {
-  const { formState, control } = useFormContext();
+  const { control } = useFormContext();
   return !loading ? (
     <Controller
       name={name}
@@ -36,7 +36,7 @@ export const AutocompleteInput: React.FC<Props> = ({ name, label, options, loadi
                 label={label + (required ? '*' : '')}
                 placeholder={`Select ${label}`}
                 inputProps={{ ...params.inputProps, readOnly: selectOnly }}
-                error={formState.errors[name] != null}
+                error={error != null}
                 size="small"
               />
             )}

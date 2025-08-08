@@ -114,8 +114,11 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) =>
   );
 };
 
-function formatDateTime(dateTime: DateTime | undefined): string | undefined {
-  return dateTime?.toFormat('MM/dd/yyyy HH:mm a');
+function formatDateTime(dateTime: string | undefined): string | undefined {
+  if (!dateTime) {
+    return undefined;
+  }
+  return DateTime.fromISO(dateTime)?.toFormat('MM/dd/yyyy HH:mm a');
 }
 
 function grayText(text: string | undefined): ReactElement {
