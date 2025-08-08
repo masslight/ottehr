@@ -41,10 +41,8 @@ export const index = wrapHandler('create-user', async (input: ZambdaInput): Prom
         roles: [staffRole.id],
       });
       userId = user.id;
-    } catch (error: unknown) {
-      const sdkError = error as { code?: string | number; message?: string };
-
-      if (sdkError.code === '4004' || sdkError.message?.includes('already a member')) {
+    } catch (error: any) {
+      if (error?.code === '4004' || error?.message?.includes('already a member')) {
         throw {
           ...USER_ALREADY_EXISTS_ERROR,
           statusCode: 409,
@@ -53,7 +51,7 @@ export const index = wrapHandler('create-user', async (input: ZambdaInput): Prom
 
       throw {
         code: APIErrorCode.INVALID_INPUT,
-        message: `Failed to create user: ${sdkError.message ?? 'Unknown error'}`,
+        message: `Failed to create user: ${error?.message ?? 'Unknown error'}`,
         statusCode: 400,
       } satisfies APIError;
     }
