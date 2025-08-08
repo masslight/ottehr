@@ -26,11 +26,9 @@ export const DateInput: React.FC<Props> = ({ name, label, required }) => {
               label={label + (required ? '*' : '')}
               slotProps={{
                 textField: {
-                  InputProps: {
-                    style: { width: '100%' },
-                    size: 'small',
-                    error: formState.errors[name] != null,
-                  },
+                  style: { width: '100%' },
+                  error: formState.errors[name] != null,
+                  size: 'small',
                 },
               }}
               value={field.value || null}
