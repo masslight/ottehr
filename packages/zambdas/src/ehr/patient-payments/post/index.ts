@@ -34,6 +34,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
+import { createPatientPaymentReceiptPdf } from '../../../shared/pdf/patient-payment-receipt-pdf';
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 
 const ZAMBDA_NAME = 'post-patient-payment';
@@ -93,8 +94,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     );
 
     const notice = await performEffect(effectInput, oystehrClient, requiredSecrets);
+    const receiptPdfInfo = await createPatientPaymentReceiptPdf(encounterId, patientId, secrets, oystehrM2MClientToken);
 
-    return lambdaResponse(200, { notice, patientId, encounterId });
+    return lambdaResponse(200, { notice, patientId, encounterId, receiptInfo: receiptPdfInfo });
   } catch (error: any) {
     console.error(error);
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
