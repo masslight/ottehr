@@ -23,26 +23,28 @@
         margin: 8px auto;
     ">
         <table cellpadding="0" cellspacing="0" width="100%" style="padding-bottom: 40px;">
+            {{#if branding.email.logoURL}}
             <tr>
-                <td style="padding-bottom: 40px; display: {{branding.email.logoURL ? 'block' : 'none'}};">
-                    <img
-                        alt="{{branding.projectName}} logo"
-                        width="211px"
-                        src="{{branding.email.logoURL}}"
-                    >
-                </td>
+              <td style="padding-bottom: 40px;">
+                <img
+                    alt="{{branding.projectName}} logo"
+                    width="211px"
+                    src="{{branding.email.logoURL}}"
+                >
+              </td>
             </tr>
+            {{/if}}
             <tr>
-                <td style="padding-bottom: 40px;">
-                    <h1 style="
-                        font-size: 24px;
-                        font-weight: 600;
-                        color: '{{{branding.email.palette.headerText}}}';
-                        margin: 0;
-                    ">
-                        Your visit has been canceled
-                    </h1>
-                </td>
+              <td style="padding-bottom: 40px;">
+                <h1 style="
+                    font-size: 24px;
+                    font-weight: 600;
+                    color: '{{{branding.email.palette.headerText}}}';
+                    margin: 0;
+                ">
+                    Your visit has been canceled
+                </h1>
+              </td>
             </tr>
             <tr>
                 <td style="padding-bottom: 40px;">
@@ -138,11 +140,13 @@
                                 <p style="margin: 0;">Thank you for choosing {{branding.projectName}}. We look forward to partnering with you and your family.</p>
                             </td>
                         </tr>
+                        {{#if branding.email.supportPhoneNumber}}
                         <tr>
-                            <td style="padding-bottom: 24px; display: {{branding.email.supportPhoneNumber ? 'block' : 'none'}};">
+                            <td style="padding-bottom: 24px;">
                                 <p style="margin: 0;">For questions or feedback, please contact {{branding.email.supportPhoneNumber}}.</p>
                             </td>
                         </tr>
+                        {{/if}}
                     </table>
                 </td>
             </tr>
