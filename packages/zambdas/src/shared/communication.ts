@@ -197,8 +197,8 @@ class EmailClient {
       bcc: SENDGRID_EMAIL_BCC,
       replyTo,
       templateId,
+      subject,
       dynamic_template_data: {
-        subject,
         ...templateData,
         branding: {
           email,
@@ -235,13 +235,6 @@ class EmailClient {
     to: string,
     templateData: DynamicTemplateDataRecord<typeof this.config.templates.telemedConfirmation>
   ): Promise<void> {
-    /*const { email, appointmentID } = input;
-    const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, this.secrets);
-
-    // Translation variables
-    const templateInformation = {
-      url: `${WEBSITE_URL}/waiting-room?appointment_id=${appointmentID}`,
-    };*/
     await this.sendEmail(to, this.config.templates.telemedConfirmation, templateData);
   }
 
@@ -249,14 +242,6 @@ class EmailClient {
     to: string,
     templateData: DynamicTemplateDataRecord<typeof this.config.templates.telemedCancelation>
   ): Promise<void> {
-    /*
-    const { toAddress } = input;
-    const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, this.secrets);
-
-    const templateInformation = {
-      url: `${WEBSITE_URL}/welcome`,
-    };
-    */
     await this.sendEmail(to, this.config.templates.telemedCancelation, templateData);
   }
 
@@ -264,29 +249,13 @@ class EmailClient {
     to: string,
     templateData: DynamicTemplateDataRecord<typeof this.config.templates.telemedCompletion>
   ): Promise<void> {
-    /*
-    const { email, scheduleResource, visitNoteUrl } = input;
-
-    const templateInformation = {
-      location: getNameForOwner(scheduleResource),
-      'visit-note-url': visitNoteUrl,
-    };
-    */
     await this.sendEmail(to, this.config.templates.telemedCompletion, templateData);
-    // unsubscribeGroupId: sendGridUnsubscribeGroupIds.telemed.completion,
   }
 
   async sendVideoChatInvitationEmail(
     to: string,
     templateData: DynamicTemplateDataRecord<typeof this.config.templates.telemedInvitation>
   ): Promise<void> {
-    /*
-    const { email, inviteUrl, patientName } = templateData;
-    const templateInformation = {
-      inviteUrl: inviteUrl,
-      patientName: patientName,
-    };
-    */
     await this.sendEmail(to, this.config.templates.telemedInvitation, templateData);
   }
 
@@ -294,91 +263,20 @@ class EmailClient {
     to: string,
     templateData: DynamicTemplateDataRecord<typeof this.config.templates.inPersonConfirmation>
   ): Promise<void> {
-    /*const { email, startTime, appointmentID, scheduleResource } = input;
-    const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, this.secrets);
-    // const SENDGRID_SPANISH_CONFIRMATION_EMAIL_TEMPLATE_ID = getSecret(
-    //   SecretsKeys.IN_PERSON_SENDGRID_SPANISH_CONFIRMATION_EMAIL_TEMPLATE_ID,
-    //   secrets
-    // );
-
-    const readableTime = startTime.toFormat(DATETIME_FULL_NO_YEAR);
-
-    // todo handle these when scheduleResource is a healthcare service or a practitioner
-    const address = getAddressStringForScheduleResource(scheduleResource);
-    if (!address) {
-      throw new Error('Address is required to send reminder email');
-    }
-    const location = getNameFromScheduleResource(scheduleResource);
-    if (!location) {
-      throw new Error('Location is required to send reminder email');
-    }
-
-    const rescheduleUrl = `${WEBSITE_URL}/visit/${appointmentID}/reschedule`;
-    const templateInformation = {
-      time: readableTime,
-      location,
-      address,
-      'address-url': `https://www.google.com/maps/search/?api=1&query=${encodeURI(address || '')}`,
-      'modify-visit-url': rescheduleUrl,
-      'cancel-visit-url': `${WEBSITE_URL}/visit/${appointmentID}/cancel`,
-      'paperwork-url': `${WEBSITE_URL}/paperwork/${appointmentID}`,
-    };*/
     await this.sendEmail(to, this.config.templates.inPersonConfirmation, templateData);
   }
   async sendInPersonCancelationEmail(
     to: string,
     templateData: DynamicTemplateDataRecord<typeof this.config.templates.inPersonCancelation>
   ): Promise<void> {
-    /*
-    const { email, startTime, scheduleResource } = input;
-    const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, this.secrets);
-    const readableTime = startTime.toFormat(DATETIME_FULL_NO_YEAR);
-
-    const address = getAddressStringForScheduleResource(scheduleResource);
-    if (!address) {
-      throw new Error('Address is required to send reminder email');
-    }
-    const location = getNameFromScheduleResource(scheduleResource);
-    if (!location) {
-      throw new Error('Location is required to send reminder email');
-    }
-
-    const templateInformation = {
-      time: readableTime,
-      location,
-      address,
-      'address-url': `https://www.google.com/maps/search/?api=1&query=${encodeURI(address || '')}`,
-      'book-again-url': `${WEBSITE_URL}/home`,
-    };
-    */
     await this.sendEmail(to, this.config.templates.inPersonCancelation, templateData);
   }
   async sendInPersonCompletionEmail(
     to: string,
     templateData: DynamicTemplateDataRecord<typeof this.config.templates.inPersonCompletion>
   ): Promise<void> {
-    /*const { email, startTime, scheduleResource, visitNoteUrl } = input;
-    const readableTime = startTime.toFormat(DATETIME_FULL_NO_YEAR);
-
-    const address = getAddressStringForScheduleResource(scheduleResource);
-    if (!address) {
-      throw new Error('Address is required to send reminder email');
-    }
-    const location = getNameFromScheduleResource(scheduleResource);
-    if (!location) {
-      throw new Error('Location is required to send reminder email');
-    }
-
-    const templateInformation = {
-      time: readableTime,
-      location,
-      address,
-      'address-url': `https://www.google.com/maps/search/?api=1&query=${encodeURI(address || '')}`,
-      'visit-note-url': visitNoteUrl,
-    };*/
     const template = this.config.templates.inPersonCompletion;
     await this.sendEmail(to, template, templateData);
-    //  unsubscribeGroupId: sendGridUnsubscribeGroupIds.inPerson.completion,
   }
 
   async sendInPersonReminderEmail(
@@ -386,38 +284,6 @@ class EmailClient {
     templateData: DynamicTemplateDataRecord<typeof this.config.templates.inPersonReminder>
   ): Promise<void> {
     const template = this.config.templates.inPersonReminder;
-    /*
-    const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, this.secrets);
-    const readableTime = startTime.toFormat(DATETIME_FULL_NO_YEAR);
-    
-    const address = getAddressStringForScheduleResource(scheduleResource);
-    if (!address) {
-      throw new Error('Address is required to send reminder email');
-    }
-    const location = getNameFromScheduleResource(scheduleResource);
-    if (!location) {
-      throw new Error('Location is required to send reminder email');
-    }
-
-    const rescheduleUrl = `${WEBSITE_URL}/visit/${appointmentID}/reschedule`;
-
-    const location = getL
-
-    if (!location) {
-      throw new Error('Location is required to send reminder email');
-    }
-
-    // many of the
-    const templateData = {
-      time: readableTime,
-      location,
-      address,
-      'address-url': `https://www.google.com/maps/search/?api=1&query=${encodeURI(address || '')}`,
-      'modify-visit-url': rescheduleUrl,
-      'cancel-visit-url': `${WEBSITE_URL}/visit/${appointmentID}/cancel`,
-      'paperwork-url': `${WEBSITE_URL}/paperwork/${appointmentID}`,
-    };
-    */
     await this.sendEmail(email, template, templateData);
   }
 }
