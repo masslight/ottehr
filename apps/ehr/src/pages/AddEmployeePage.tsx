@@ -1,7 +1,9 @@
 import { LoadingButton } from '@mui/lab';
 import { Box, Paper, TextField, Typography } from '@mui/material';
+import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { APIErrorCode } from 'utils';
 import { createUser } from '../api/api';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { useApiClients } from '../hooks/useAppClients';
@@ -30,12 +32,26 @@ export default function AddEmployeePage(): ReactElement {
         lastName,
         applicationID,
       });
-      setLoading(false);
       navigate(`/employee/${createUserResponse.userID}`);
-    } catch (error) {
+    } catch (error: any) {
+      let parsedError = error;
+
+      if (typeof error.message === 'string') {
+        try {
+          parsedError = JSON.parse(error.message);
+        } catch {
+          // ignore parse error, keep original
+        }
+      }
+
+      if (parsedError?.code === APIErrorCode.USER_ALREADY_EXISTS) {
+        enqueueSnackbar('User is already a member of the project', { variant: 'error' });
+        return;
+      }
+
+      enqueueSnackbar('Unexpected error while creating user', { variant: 'error' });
+    } finally {
       setLoading(false);
-      console.error('error creating employee', error);
-      throw error;
     }
   }
 

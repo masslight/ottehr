@@ -22,6 +22,7 @@ export enum APIErrorCode {
   FHIR_RESOURCE_NOT_FOUND = 4017,
   SCHEDULE_OWNER_NOT_FOUND = 4018,
   SLOT_UNAVAILABLE = 4019,
+  USER_ALREADY_EXISTS = 4020,
   // 41xx
   QUESTIONNAIRE_RESPONSE_INVALID = 4100,
   QUESTIONNAIRE_NOT_FOUND_FOR_QR = 4101,
@@ -53,6 +54,7 @@ export enum APIErrorCode {
 export interface APIError {
   code?: APIErrorCode;
   message: string;
+  statusCode?: number;
 }
 
 export const isApiError = (errorObject: unknown | undefined): boolean => {
@@ -327,6 +329,11 @@ export const MISCONFIGURED_ENVIRONMENT_ERROR = (message: string): APIError => {
 export const SLOT_UNAVAILABLE_ERROR = {
   code: APIErrorCode.SLOT_UNAVAILABLE,
   message: 'The requested slot is unavailable',
+};
+
+export const USER_ALREADY_EXISTS_ERROR = {
+  code: APIErrorCode.USER_ALREADY_EXISTS,
+  message: 'User is already a member of the project',
 };
 
 export const APPOINTMENT_ALREADY_EXISTS_ERROR = {
