@@ -431,13 +431,68 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
   }
 }
 
+const getAttachment = (flattenedPaperwork: QuestionnaireResponseItem[], linkId: string): Attachment | undefined =>
+  flattenedPaperwork.find((item) => item.linkId === linkId)?.answer?.[0]?.valueAttachment;
+
+function isNewAttachment(attachment: Attachment, existing: Set<string>): boolean {
+  return !!attachment.url && !existing.has(attachment.url);
+}
+
+function isDefined<T>(value: T | undefined): value is T {
+  return value !== undefined;
+}
+
+function filterNewAttachments(attachments: (Attachment | undefined)[], existing: Set<string>): Attachment[] {
+  return attachments.filter(isDefined).filter((a) => isNewAttachment(a as Attachment, existing));
+}
+
+function buildDocToSave({
+  code,
+  attachments,
+  subject,
+  context,
+  display,
+  text,
+}: {
+  code: string;
+  attachments: Attachment[];
+  subject: string;
+  context: string;
+  display: string;
+  text: string;
+}): DocToSaveData {
+  const sorted = sortAttachmentsByCreationTime(attachments);
+  const dateCreated = sorted[0]?.creation ?? '';
+  return {
+    code,
+    files: sorted.map(({ url = '', title = '' }) => ({ url, title })),
+    references: {
+      subject: { reference: subject },
+      context: { related: [{ reference: context }] },
+    },
+    display,
+    text,
+    dateCreated,
+  };
+}
+
 export async function createDocumentResources(
   questionnaireResponse: QuestionnaireResponse,
   patientID: string,
   appointmentID: string,
   oystehr: Oystehr,
-  listResources: List[]
+  listResources: List[],
+  documentReferenceResources: DocumentReference[]
 ): Promise<void> {
+  const existingAttachments = new Set<string>();
+
+  for (const doc of documentReferenceResources) {
+    doc.content?.forEach((content) => {
+      const url = content.attachment?.url;
+      if (url) existingAttachments.add(url);
+    });
+  }
+
   console.log('reviewing insurance cards and photo id cards');
 
   const docsToSave: DocToSaveData[] = [];
@@ -445,160 +500,80 @@ export async function createDocumentResources(
   const items = (questionnaireResponse.item as IntakeQuestionnaireItem[]) ?? [];
   const flattenedPaperwork = flattenIntakeQuestionnaireItems(items) as QuestionnaireResponseItem[];
 
-  const photoIdFront = flattenedPaperwork.find((item) => {
-    return item.linkId === PHOTO_ID_FRONT_ID;
-  })?.answer?.[0]?.valueAttachment;
-  const photoIdBack = flattenedPaperwork.find((item) => {
-    return item.linkId === PHOTO_ID_BACK_ID;
-  })?.answer?.[0]?.valueAttachment;
+  const photoIdFront = getAttachment(flattenedPaperwork, PHOTO_ID_FRONT_ID);
+  const photoIdBack = getAttachment(flattenedPaperwork, PHOTO_ID_BACK_ID);
+  const insuranceCardFront = getAttachment(flattenedPaperwork, INSURANCE_CARD_FRONT_ID);
+  const insuranceCardBack = getAttachment(flattenedPaperwork, INSURANCE_CARD_BACK_ID);
+  const insuranceCardFrontSecondary = getAttachment(flattenedPaperwork, INSURANCE_CARD_FRONT_2_ID);
+  const insuranceCardBackSecondary = getAttachment(flattenedPaperwork, INSURANCE_CARD_BACK_2_ID);
+  const patientConditionPhoto = getAttachment(flattenedPaperwork, `${PATIENT_PHOTO_ID_PREFIX}s`);
+  const schoolNote = getAttachment(flattenedPaperwork, SCHOOL_WORK_NOTE_SCHOOL_ID);
+  const workNote = getAttachment(flattenedPaperwork, SCHOOL_WORK_NOTE_WORK_ID);
 
-  const insuranceCardFront = flattenedPaperwork.find((item) => {
-    return item.linkId === INSURANCE_CARD_FRONT_ID;
-  })?.answer?.[0]?.valueAttachment;
-  const insuranceCardBack = flattenedPaperwork.find((item) => {
-    return item.linkId === INSURANCE_CARD_BACK_ID;
-  })?.answer?.[0]?.valueAttachment;
-
-  const insuranceCardFrontSecondary = flattenedPaperwork.find((item) => {
-    return item.linkId === INSURANCE_CARD_FRONT_2_ID;
-  })?.answer?.[0]?.valueAttachment;
-  const insuranceCardBackSecondary = flattenedPaperwork.find((item) => {
-    return item.linkId === INSURANCE_CARD_BACK_2_ID;
-  })?.answer?.[0]?.valueAttachment;
-
-  const patientConditionPhoto = flattenedPaperwork.find((item) => {
-    return item.linkId === `${PATIENT_PHOTO_ID_PREFIX}s`;
-  })?.answer?.[0]?.valueAttachment;
-
-  const schoolNote = flattenedPaperwork.find((item) => {
-    return item.linkId === SCHOOL_WORK_NOTE_SCHOOL_ID;
-  })?.answer?.[0]?.valueAttachment;
-
-  const workNote = flattenedPaperwork.find((item) => {
-    return item.linkId === SCHOOL_WORK_NOTE_WORK_ID;
-  })?.answer?.[0]?.valueAttachment;
-
-  const idCards: Attachment[] = [];
-  if (photoIdBack) {
-    idCards.push(photoIdBack);
-  }
-  if (photoIdFront) {
-    idCards.push(photoIdFront);
-  }
-
-  const insuranceCards: Attachment[] = [];
-  if (insuranceCardFront) {
-    insuranceCards.push(insuranceCardFront);
-  }
-  if (insuranceCardBack) {
-    insuranceCards.push(insuranceCardBack);
-  }
-
-  if (insuranceCardFrontSecondary) {
-    insuranceCards.push(insuranceCardFrontSecondary);
-  }
-  if (insuranceCardBackSecondary) {
-    insuranceCards.push(insuranceCardBackSecondary);
-  }
-
-  const schoolWorkNotes: Attachment[] = [];
-  if (schoolNote) {
-    schoolWorkNotes.push(schoolNote);
-  }
-  if (workNote) {
-    schoolWorkNotes.push(workNote);
-  }
+  const idCards = filterNewAttachments([photoIdFront, photoIdBack], existingAttachments);
+  const insuranceCards = filterNewAttachments(
+    [insuranceCardFront, insuranceCardBack, insuranceCardFrontSecondary, insuranceCardBackSecondary],
+    existingAttachments
+  );
+  const schoolWorkNotes = filterNewAttachments([schoolNote, workNote], existingAttachments);
 
   if (idCards.length) {
-    const sorted = sortAttachmentsByCreationTime(idCards);
-    const dateCreated = sorted[0].creation ?? '';
-    const photoIdDocToSave = {
-      // photo id
-      code: PHOTO_ID_CARD_CODE,
-      files: sorted.map((attachment) => {
-        const { url = '', title = '' } = attachment;
-        return {
-          url,
-          title,
-        };
-      }),
-      references: {
-        subject: { reference: `Patient/${patientID}` },
-        context: { related: [{ reference: `Patient/${patientID}` }] },
-      },
-      display: 'Patient data Document',
-      text: 'Photo ID cards',
-      dateCreated,
-    };
-    docsToSave.push(photoIdDocToSave);
+    docsToSave.push(
+      buildDocToSave({
+        code: PHOTO_ID_CARD_CODE,
+        attachments: idCards,
+        subject: `Patient/${patientID}`,
+        context: `Patient/${patientID}`,
+        display: 'Patient data Document',
+        text: 'Photo ID cards',
+      })
+    );
   }
 
   if (insuranceCards.length) {
-    const sorted = sortAttachmentsByCreationTime(insuranceCards);
-    const dateCreated = sorted[0].creation ?? '';
-    const insuranceDocToSave = {
-      code: INSURANCE_CARD_CODE,
-      files: sorted.map((attachment) => {
-        const { url = '', title = '' } = attachment;
-        return {
-          url,
-          title,
-        };
-      }),
-      references: {
-        subject: { reference: `Patient/${patientID}` },
-        context: { related: [{ reference: `Patient/${patientID}` }] },
-      },
-      display: 'Health insurance card',
-      text: 'Insurance cards',
-      dateCreated,
-    };
-    docsToSave.push(insuranceDocToSave);
+    docsToSave.push(
+      buildDocToSave({
+        code: INSURANCE_CARD_CODE,
+        attachments: insuranceCards,
+        subject: `Patient/${patientID}`,
+        context: `Patient/${patientID}`,
+        display: 'Health insurance card',
+        text: 'Insurance cards',
+      })
+    );
   }
 
   if (patientConditionPhoto) {
-    const dateCreated = patientConditionPhoto.creation ?? '';
-    const conditionPhotosToSave = {
-      code: PATIENT_PHOTO_CODE,
-      files: [patientConditionPhoto].map((attachment) => {
-        const { url = '', title = '' } = attachment;
-        return {
-          url,
-          title,
-        };
-      }),
-      references: {
-        subject: { reference: `Patient/${patientID}` },
-        context: { related: [{ reference: `Appointment/${appointmentID}` }] },
-      },
-      display: 'Patient condition photos',
-      text: 'Patient photos',
-      dateCreated,
-    };
-    docsToSave.push(conditionPhotosToSave);
+    if (!existingAttachments.has(patientConditionPhoto.url ?? '')) {
+      docsToSave.push(
+        buildDocToSave({
+          code: PATIENT_PHOTO_CODE,
+          attachments: [patientConditionPhoto],
+          subject: `Patient/${patientID}`,
+          context: `Appointment/${appointmentID}`,
+          display: 'Patient condition photos',
+          text: 'Patient photos',
+        })
+      );
+    }
   }
 
   if (schoolWorkNotes.length) {
-    const sorted = sortAttachmentsByCreationTime(schoolWorkNotes);
-    const dateCreated = sorted[0].creation ?? '';
-    const schoolWorkNotesToSave = {
-      code: SCHOOL_WORK_NOTE_TEMPLATE_CODE,
-      files: schoolWorkNotes.map((attachment) => {
-        const { url = attachment.url || '', title = attachment.title || '' } = attachment;
-        return {
-          url,
-          title,
-        };
-      }),
-      references: {
-        subject: { reference: `Patient/${patientID}` },
-        context: { related: [{ reference: `Appointment/${appointmentID}` }] },
-      },
-      display: 'Patient status assessment note template',
-      text: 'Patient status assessment note template',
-      dateCreated,
-    };
-    docsToSave.push(schoolWorkNotesToSave);
+    docsToSave.push(
+      buildDocToSave({
+        code: SCHOOL_WORK_NOTE_TEMPLATE_CODE,
+        attachments: schoolWorkNotes,
+        subject: `Patient/${patientID}`,
+        context: `Appointment/${appointmentID}`,
+        display: 'Patient status assessment note template',
+        text: 'Patient status assessment note template',
+      })
+    );
+  }
+
+  if (docsToSave.length === 0) {
+    console.log('No new documents to save. Skipping document creation.');
+    return;
   }
 
   console.log('docsToSave len', docsToSave.length);

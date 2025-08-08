@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import {
   Appointment,
+  DocumentReference,
   Encounter,
   FhirResource,
   List,
@@ -84,7 +85,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
 
   console.time('querying for resources to support qr harvest');
   const resources = (
-    await oystehr.fhir.search<Encounter | Patient | Appointment | Location | List>({
+    await oystehr.fhir.search<Encounter | Patient | Appointment | Location | List | DocumentReference>({
       resourceType: 'Encounter',
       params: [
         {
@@ -107,6 +108,10 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
           name: '_revinclude:iterate',
           value: 'List:patient',
         },
+        {
+          name: '_revinclude:iterate',
+          value: 'DocumentReference:patient',
+        },
       ],
     })
   ).unbundle();
@@ -115,6 +120,9 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   const encounterResource = resources.find((res) => res.resourceType === 'Encounter') as Encounter | undefined;
   const patientResource = resources.find((res) => res.resourceType === 'Patient') as Patient | undefined;
   const listResources = resources.filter((res) => res.resourceType === 'List') as List[];
+  const documentReferenceResources = resources.filter(
+    (res) => res.resourceType === 'DocumentReference'
+  ) as DocumentReference[];
   const locationResource = resources.find((res) => res.resourceType === 'Location') as Location | undefined;
   const appointmentResource = resources.find((res) => res.resourceType === 'Appointment') as Appointment | undefined;
 
@@ -217,7 +225,14 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
 
   console.time('creating insurances cards, condition photo, work school notes resources');
   try {
-    await createDocumentResources(qr, patientResource.id, appointmentResource.id, oystehr, listResources);
+    await createDocumentResources(
+      qr,
+      patientResource.id,
+      appointmentResource.id,
+      oystehr,
+      listResources,
+      documentReferenceResources
+    );
   } catch (error: unknown) {
     tasksFailed.push('create insurances cards, condition photo, work school notes resources');
     console.log(`Failed to create insurances cards, condition photo, work school notes resources: ${error}`);
