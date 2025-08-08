@@ -1,12 +1,13 @@
 import Oystehr from '@oystehr/sdk';
-import { DomainResource, Encounter } from 'fhir/r4b';
-import { CreateRadiologyZambdaOrderInput, CreateRadiologyZambdaOrderOutput } from 'utils';
+import { DomainResource, Encounter, Practitioner } from 'fhir/r4b';
+import { CreateRadiologyZambdaOrderInput, CreateRadiologyZambdaOrderOutput, RoleType } from 'utils';
 import { v4 as uuidV4 } from 'uuid';
 import { inject } from 'vitest';
 import { getAuth0Token } from '../../src/shared';
 import { SECRETS } from '../data/secrets';
 
-describe('radiology integration tests', () => {
+describe.only('radiology integration tests', () => {
+  let oystehrLocalZambdas: Oystehr;
   let oystehr: Oystehr;
   let token = null;
   let encounter: Encounter;
@@ -26,9 +27,35 @@ describe('radiology integration tests', () => {
     oystehr = new Oystehr({
       accessToken: token,
       fhirApiUrl: FHIR_API,
+      projectId: PROJECT_ID,
+    });
+
+    oystehrLocalZambdas = new Oystehr({
+      accessToken: token,
+      fhirApiUrl: FHIR_API,
       projectApiUrl: EXECUTE_ZAMBDA_URL,
       projectId: PROJECT_ID,
     });
+
+    const practitionerForM2M = await oystehr.fhir.create<Practitioner>({
+      resourceType: 'Practitioner',
+      name: [{ given: ['M2M'], family: 'Client' }],
+      birthDate: '1978-01-01',
+      telecom: [{ system: 'phone', value: '+11231231234', use: 'mobile' }],
+    });
+    resourcesToCleanup.push(practitionerForM2M);
+
+    const projectRoles = await oystehr.role.list();
+    const providerRoleId = projectRoles.find((role) => role.name === RoleType.Provider)?.id;
+    expect(providerRoleId).toBeDefined();
+
+    await oystehr.m2m.update({
+      id: (await oystehr.m2m.me()).id,
+      profile: `Practitioner/${practitionerForM2M.id}`,
+      roles: [providerRoleId!],
+    });
+
+    console.log('alex me', await oystehr.m2m.me());
 
     encounter = await oystehr.fhir.create<Encounter>({
       resourceType: 'Encounter',
@@ -69,9 +96,9 @@ describe('radiology integration tests', () => {
       let orderOutput: any;
       try {
         orderOutput = (
-          await oystehr.zambda.execute({
+          await oystehrLocalZambdas.zambda.execute({
             id: 'RADIOLOGY-CREATE-ORDER',
-            body: createOrderInput,
+            ...createOrderInput,
           })
         ).output as CreateRadiologyZambdaOrderOutput;
       } catch (error) {

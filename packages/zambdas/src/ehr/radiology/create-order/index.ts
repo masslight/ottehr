@@ -2,6 +2,7 @@ import Oystehr, { BatchInputPutRequest, User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, Patient, Practitioner, ServiceRequest } from 'fhir/r4b';
 import { ServiceRequest as ServiceRequestR5 } from 'fhir/r5';
+import { decodeJwt } from 'jose';
 import { DateTime } from 'luxon';
 import randomstring from 'randomstring';
 import {
@@ -110,7 +111,22 @@ const accessCheck = async (callerUser: User): Promise<void> => {
 
 const getCallerUserWithAccessToken = async (token: string, secrets: Secrets): Promise<User> => {
   const oystehr = createOystehrClient(token, secrets);
-  return await oystehr.user.me();
+  const decodedToken = decodeJwt(token);
+  if (decodedToken.sub?.includes('@client')) {
+    // TODO helper function for this.
+    const m2mClient = await oystehr.m2m.me();
+    return {
+      id: m2mClient.id,
+      name: 'm2m client',
+      phoneNumber: '+11231231234',
+      authenticationMethod: 'email',
+      email: 'm2mClientTest@ottehr.com',
+      profile: m2mClient.profile,
+      roles: m2mClient.roles,
+    };
+  } else {
+    return await oystehr.user.me();
+  }
 };
 
 const performEffect = async (
