@@ -10,7 +10,7 @@ import { AssessmentCard } from '../../../telemed/features/appointment/Assessment
 import { CreateExternalLabOrder } from '../../external-labs/pages/CreateExternalLabOrder';
 import { ExternalLabOrdersListPage } from '../../external-labs/pages/ExternalLabOrdersListPage';
 import { OrderDetailsPage } from '../../external-labs/pages/OrderDetails';
-import { ImmunizationOrderCreate } from '../../immunization/pages/ImmunizationOrderCreate';
+import { ImmunizationOrderCreateEdit } from '../../immunization/pages/ImmunizationOrderCreateEdit';
 import { CreateRadiologyOrder } from '../../radiology/pages/CreateRadiologyOrder';
 import { RadiologyOrderDetailsPage } from '../../radiology/pages/RadiologyOrderDetails';
 import { RadiologyOrdersListPage } from '../../radiology/pages/RadiologyOrdersListPage';
@@ -74,7 +74,8 @@ export enum ROUTER_PATH {
   NURSING_ORDER_DETAILS = 'nursing-orders/:serviceRequestID/order-details',
 
   IMMUNIZATION = 'immunization/:tabName',
-  IMMUNIZATION_NEW_ORDER = 'immunization/create',
+  IMMUNIZATION_ORDER_CREATE = 'immunization/order',
+  IMMUNIZATION_ORDER_EDIT = 'immunization/order/:orderId',
 }
 
 export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
@@ -184,11 +185,19 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
     text: 'Immunization',
     iconKey: 'Immunization',
   },
-  [ROUTER_PATH.IMMUNIZATION_NEW_ORDER]: {
-    path: ROUTER_PATH.IMMUNIZATION_NEW_ORDER,
+  [ROUTER_PATH.IMMUNIZATION_ORDER_CREATE]: {
+    path: ROUTER_PATH.IMMUNIZATION_ORDER_CREATE,
     modes: ['provider'],
     isSkippedInNavigation: true,
-    element: <ImmunizationOrderCreate />,
+    element: <ImmunizationOrderCreateEdit />,
+    text: 'Immunization',
+    iconKey: 'Immunization',
+  },
+  [ROUTER_PATH.IMMUNIZATION_ORDER_EDIT]: {
+    path: ROUTER_PATH.IMMUNIZATION_ORDER_EDIT,
+    modes: ['provider'],
+    isSkippedInNavigation: true,
+    element: <ImmunizationOrderCreateEdit />,
     text: 'Immunization',
     iconKey: 'Immunization',
   },

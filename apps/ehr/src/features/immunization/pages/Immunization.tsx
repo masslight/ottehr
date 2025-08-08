@@ -37,7 +37,7 @@ export const Immunization: React.FC = () => {
   const [content, setContent] = useState<{ mar: React.ReactNode; details: React.ReactNode } | null>(null);
 
   const onNewOrderClick = (): void => {
-    navigate(`/in-person/${appointmentId}/${ROUTER_PATH.IMMUNIZATION_NEW_ORDER}`);
+    navigate(`/in-person/${appointmentId}/${ROUTER_PATH.IMMUNIZATION_ORDER_CREATE}`);
   };
 
   const onTabChanged = useCallback(() => {

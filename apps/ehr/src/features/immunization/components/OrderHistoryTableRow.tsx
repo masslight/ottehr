@@ -6,7 +6,7 @@ import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { CustomDialog } from 'src/components/dialogs';
-import { getImmunizationVaccineDetailsUrl } from 'src/features/css-module/routing/helpers';
+import { getImmunizationOrderEditUrl, getImmunizationVaccineDetailsUrl } from 'src/features/css-module/routing/helpers';
 import { OrderStatusChip } from 'src/features/immunization/components/OrderStatusChip';
 import { ImmunizationOrder } from '../ImmunizationOrder';
 
@@ -27,7 +27,7 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) =>
       enqueueSnackbar('navigation error', { variant: 'error' });
       return;
     }
-    navigate('todo');
+    navigate(getImmunizationOrderEditUrl(appointmentId, order.id));
   };
 
   const handleConfirmDelete = async (): Promise<void> => {

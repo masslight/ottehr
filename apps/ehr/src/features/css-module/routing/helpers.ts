@@ -65,3 +65,7 @@ export const getImmunizationMARUrl = (appointmentId: string): string => {
 export const getImmunizationVaccineDetailsUrl = (appointmentId: string): string => {
   return `/in-person/${appointmentId}/immunization/vaccine-details`;
 };
+
+export const getImmunizationOrderEditUrl = (appointmentId: string, orderId: string): string => {
+  return `/in-person/${appointmentId}/immunization/order/${orderId}`;
+};

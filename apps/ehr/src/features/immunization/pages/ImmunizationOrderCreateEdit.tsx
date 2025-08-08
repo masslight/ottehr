@@ -9,20 +9,21 @@ import { AccordionCard } from 'src/telemed';
 import { PageHeader } from '../../css-module/components/medication-administration/PageHeader';
 import { OrderDetailsSection } from '../components/OrderDetailsSection';
 import { OrderHistoryTable } from '../components/OrderHistoryTable';
+import { STUB_IMMUNIZATION_ORDERS } from '../ImmunizationOrder';
 
-interface Props {
-  orderId?: string;
-}
-
-export const ImmunizationOrderCreate: React.FC<Props> = ({ orderId }) => {
-  const methods = useForm();
+export const ImmunizationOrderCreateEdit: React.FC = () => {
   const navigate = useNavigate();
-  const { id: appointmentId } = useParams();
+  const { id: appointmentId, orderId } = useParams();
   const [isImmunizationHistoryCollapsed, setIsImmunizationHistoryCollapsed] = useState(false);
 
   const onSubmit = (data: any): void => {
     console.log(data);
   };
+
+  const order = STUB_IMMUNIZATION_ORDERS.find((order) => order.id === orderId);
+  const methods = useForm({
+    defaultValues: order,
+  });
 
   return (
     <FormProvider {...methods}>
