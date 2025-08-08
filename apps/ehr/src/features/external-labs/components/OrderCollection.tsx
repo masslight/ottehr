@@ -40,7 +40,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   const aoe = useMemo(() => questionnaireData?.questionnaire.item || [], [questionnaireData]);
   const labQuestionnaireResponses = questionnaireData?.questionnaireResponseItems;
   const [submitLoading, setSubmitLoading] = useState(false);
-  const [error, setError] = useState<string[] | undefined>(undefined); // todo SARAH add back error typography on this page
+  const [error, setError] = useState<string[] | undefined>(undefined);
   const [specimensData, setSpecimensData] = useState<{ [specimenId: string]: { date: string } }>({});
   const shouldShowSampleCollectionInstructions =
     !labOrder.isPSC &&

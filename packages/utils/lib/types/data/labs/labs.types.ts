@@ -181,20 +181,13 @@ export interface DynamicAOEInput {
 }
 
 export type SubmitLabOrderInput = {
-  serviceRequestID: string;
-  accountNumber: string;
+  serviceRequestIDs: string[];
+  // todo SARAH figure out how to handle manual submit in bundled orders world
   manualOrder: boolean;
-  data: DynamicAOEInput;
-  specimens?: {
-    [specimenId: string]: {
-      date: string;
-    };
-  };
 };
 
-export type SubmitLabOrderDTO = {
-  orderPdfUrl: string;
-  labelPdfUrl?: string;
+export type SubmitLabOrderOutput = {
+  orderPdfUrls: string[];
 };
 
 export type CreateLabOrderParameters = {

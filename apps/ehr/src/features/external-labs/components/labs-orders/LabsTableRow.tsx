@@ -51,8 +51,6 @@ export const LabsTableRow = ({
       case 'ordered':
         return (
           <Box>
-            {/* todo SARAH figure out if we should use orderAddedDate or orderSubmittedDate */}
-            {/* <Box>{formatDateForLabs(labOrderData.orderSubmittedDate, labOrderData.encounterTimezone)}</Box> */}
             <Box>{formatDateForLabs(labOrderData.orderAddedDate, labOrderData.encounterTimezone)}</Box>
             <Box>
               <Typography variant="body2" color="text.secondary">

@@ -2,6 +2,9 @@
 import { Pagination } from '..';
 import { LabelConfig } from './labs.types';
 
+// for order form pdf (we might not want this idk)
+export const ORDER_ITEM_UNKNOWN = 'UNKNOWN';
+
 // recommended from Dorn as a good length (also matches the len currently used when oystehr sets the order number)
 export const ORDER_NUMBER_LEN = 20;
 
@@ -121,6 +124,7 @@ export const OYSTEHR_OBR_NOTE_CODING_SYSTEM = 'https://identifiers.fhir.oystehr.
 export const OYSTEHR_LAB_API_BASE = 'https://labs-api.zapehr.com/v1';
 
 export const OYSTEHR_LAB_ORDERABLE_ITEM_SEARCH_API = `${OYSTEHR_LAB_API_BASE}/orderableItem`;
+export const OYSTEHR_SUBMIT_LAB_API = `${OYSTEHR_LAB_API_BASE}/submit`;
 
 export const DEFAULT_LABS_ITEMS_PER_PAGE = 10;
 

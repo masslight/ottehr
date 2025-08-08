@@ -99,7 +99,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     console.log('\nAdding new page');
     console.log(`currentPageIndex is ${currentPageIndex} of ${pages.length} pages`);
     let addedBrandNewPage = false;
-    // figure out if we just need to run on to a pre-exsiting page or truly add a new one
+    // figure out if we just need to run on to a pre-existing page or truly add a new one
     if (currentPageIndex !== undefined && currentPageIndex < pages.length - 1) {
       console.log('Current page is not the last page. Setting page to the next page');
       page = pages[currentPageIndex + 1];
@@ -271,7 +271,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       });
 
       // Move to the next line and reset x position
-      newLine(lineHeight + spacing);
+      newLine(lineHeight);
 
       // Recursively call the function with the remaining text
       drawTextSequential(remainingText, textStyle, bounds);
@@ -422,12 +422,12 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       }
     }
 
-    // now just write the columns, and make sure they don't bleed into other columns
+    // todo SARAH fix bug here related to line break within earlier columns
     columns.forEach((col) => {
       console.log(`\n\n>>>Drawing column for ${JSON.stringify({ ...col, textStyle: undefined })}`);
       // if a new page got added on a previous column, we need the next column to go back to the previous page
       // continue writing, and if that column needs to run onto a new page, it needs to run onto the pre-existing new page
-      console.log(`Starting columb on page index ${startPageIndex}`);
+      console.log(`Starting column on page index ${startPageIndex}`);
       currentPageIndex = startPageIndex;
 
       console.log(`yPosStartOfColumn is ${yPosStartOfColumn}. Current yPos is ${currYPos}`);

@@ -38,7 +38,7 @@ export const getSpecimenPatchAndMostRecentCollectionDate = (
   }
 
   if (sampleCollectionDates.length > 0) {
-    mostRecentCollectionDate = DateTime.max(...sampleCollectionDates); // todo SARAH make sure this works
+    mostRecentCollectionDate = DateTime.max(...sampleCollectionDates);
     console.log('mostRecentCollectionDate', mostRecentCollectionDate);
   }
 

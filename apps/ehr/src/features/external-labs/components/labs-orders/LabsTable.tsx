@@ -1,6 +1,7 @@
 import { otherColors } from '@ehrTheme/colors';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ClearIcon from '@mui/icons-material/Clear';
+import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Button,
@@ -23,10 +24,12 @@ import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { DateTime } from 'luxon';
 import { ReactElement, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
+import { submitLabOrder } from 'src/api/api';
+import { useApiClients } from 'src/hooks/useAppClients';
 import { LabOrderListPageDTO, LabOrdersSearchBy, OrderableItemSearchResult } from 'utils/lib/types/data/labs';
 import { getExternalLabOrderEditUrl } from '../../../css-module/routing/helpers';
 import { LabsAutocompleteForPatient } from '../LabsAutocompleteForPatient';
+import { openPdf } from '../OrderCollection'; // todo SARAH move this somewhere else
 import { LabOrderLoading } from './LabOrderLoading';
 import { LabsTableRow } from './LabsTableRow';
 import { usePatientLabOrders } from './usePatientLabOrders';
@@ -66,6 +69,7 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
 }: LabsTableProps<SearchBy>): ReactElement => {
   const navigateTo = useNavigate();
   const theme = useTheme();
+  const { oystehrZambda: oystehr } = useApiClients();
 
   const {
     labOrders,
@@ -82,8 +86,8 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
   } = usePatientLabOrders(searchBy);
 
   const [selectedOrderedItem, setSelectedOrderedItem] = useState<OrderableItemSearchResult | null>(null);
-
   const [tempDateFilter, setTempDateFilter] = useState(visitDateFilter);
+  const [submitLoading, setSubmitLoading] = useState<boolean>(false);
 
   const { pendingLabs, readyLabs } = labOrders.reduce(
     (acc, lab) => {
@@ -117,6 +121,31 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
   const handleOrderableItemCodeChange = (value: OrderableItemSearchResult | null): void => {
     setSelectedOrderedItem(value || null);
     setSearchParams({ pageNumber: 1, testTypeFilter: value?.item.itemLoinc || '' });
+  };
+
+  const submitOrders = async (): Promise<void> => {
+    if (!oystehr) {
+      // todo SARAH add some kind of error handling
+      return;
+    }
+
+    setSubmitLoading(true);
+    console.log('submitting the orders');
+
+    try {
+      const { orderPdfUrls } = await submitLabOrder(oystehr, {
+        serviceRequestIDs: labOrders.map((order) => order.serviceRequestId),
+        manualOrder: false,
+      });
+      console.log('orderPdfUrls', orderPdfUrls);
+      for (const pdfUrl of orderPdfUrls) {
+        await openPdf(pdfUrl);
+      }
+    } catch (e) {
+      // todo SARAH add some kind of error handling
+      console.log('error!', e);
+    }
+    setSubmitLoading(false);
   };
 
   if (loading || !labOrders) {
@@ -365,20 +394,17 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
       </Paper>
       {showSubmitButton && (
         <Box display="flex" justifyContent="right" alignItems="center" mt={2} sx={{ width: '100%' }}>
-          <ButtonRounded
+          <LoadingButton
+            loading={submitLoading}
             variant="contained"
+            sx={{ borderRadius: '50px', textTransform: 'none', py: 1, px: 5, textWrap: 'nowrap' }}
             color="primary"
             size={'medium'}
-            onClick={() => console.log('submit!')}
+            onClick={submitOrders}
             disabled={pendingLabs > 0}
-            sx={{
-              py: 1,
-              px: 5,
-              textWrap: 'nowrap',
-            }}
           >
             Submit & Print Order(s)
-          </ButtonRounded>
+          </LoadingButton>
         </Box>
       )}
     </>

@@ -1,6 +1,8 @@
+import Oystehr from '@oystehr/sdk';
 import { min } from 'lodash';
 import { DateTime } from 'luxon';
-import { Secrets } from 'utils';
+import { FHIR_IDENTIFIER_NPI, getFullestAvailableName, ORDER_ITEM_UNKNOWN, Secrets } from 'utils';
+import { LABS_DATE_STRING_FORMAT, resourcesForOrderForm } from '../../ehr/submit-lab-order/helpers';
 import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { getLabFileName } from './labs-results-form-pdf';
@@ -12,7 +14,7 @@ import {
   rgbNormalized,
   SEPARATED_LINE_STYLE as GREY_LINE_STYLE,
 } from './pdf-utils';
-import { LabsData, PdfClient } from './types';
+import { ExternalLabOrderFormData, PdfClient } from './types';
 
 async function uploadPDF(pdfBytes: Uint8Array, token: string, baseFileUrl: string): Promise<void> {
   const presignedUrl = await createPresignedUrl(token, baseFileUrl, 'upload');
@@ -20,7 +22,7 @@ async function uploadPDF(pdfBytes: Uint8Array, token: string, baseFileUrl: strin
 }
 
 export async function createExternalLabsOrderFormPDF(
-  input: LabsData,
+  input: ExternalLabOrderFormData,
   patientID: string,
   secrets: Secrets | null,
   token: string
@@ -33,8 +35,8 @@ export async function createExternalLabsOrderFormPDF(
   console.debug(`Created external labs order form pdf bytes`);
   const bucketName = 'visit-notes';
   const fileName = `ExternalLabsOrderForm-${
-    input.orderName ? getLabFileName(input.orderName) + '-' : ''
-  }-${DateTime.fromISO(input.orderCreateDateAuthoredOn).toFormat('yyyy-MM-dd')}-${input.orderPriority}.pdf`;
+    input.labOrganizationName ? getLabFileName(input.labOrganizationName) + '-' : ''
+  }-${DateTime.fromISO(input.dateIncludedInFileName).toFormat('yyyy-MM-dd')}-${input.orderPriority}.pdf`;
   console.log('Creating base file url');
   const baseFileUrl = makeZ3Url({ secrets, fileName, bucketName, patientID });
   console.log('Uploading file to bucket');
@@ -48,11 +50,8 @@ export async function createExternalLabsOrderFormPDF(
   return { title: fileName, uploadURL: baseFileUrl };
 }
 
-async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint8Array> {
-  if (!data.orderName) {
-    throw new Error('Order name is required');
-  }
-  console.log('drawing pdf for ', data.orderNumber, data.orderName);
+async function createExternalLabsOrderFormPdfBytes(data: ExternalLabOrderFormData): Promise<Uint8Array> {
+  console.log('drawing pdf for ', data.orderNumber);
 
   let pdfClient: PdfClient;
   const { pdfClient: client, callIcon, faxIcon, locationIcon, textStyles } = await getPdfClientForLabsPDFs();
@@ -207,14 +206,8 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
   console.log(
     `Drawing order and collection date. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. Current page index is ${pdfClient.getCurrentPageIndex()} out of ${pdfClient.getTotalPages()} pages.`
   );
-  pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, 'Order Date:', data.orderCreateDate);
+  pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, 'Order Date:', data.orderSubmitDate);
   pdfClient.newLine(STANDARD_NEW_LINE);
-
-  // only print this for non-psc orders
-  if (!data.isPscOrder) {
-    pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, 'Collection Date:', data.sampleCollectionDate ?? '');
-    pdfClient.newLine(STANDARD_NEW_LINE);
-  }
 
   pdfClient.drawSeparatedLine(BLACK_LINE_STYLE);
 
@@ -251,75 +244,88 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
     pdfClient.newLine(STANDARD_NEW_LINE);
   }
 
-  pdfClient.drawSeparatedLine(BLACK_LINE_STYLE);
-
-  // AOE Section
-  if (data.aoeAnswers?.length) {
-    console.log(
-      `Drawing AOE. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. Current page index is ${pdfClient.getCurrentPageIndex()} out of ${pdfClient.getTotalPages()} pages.`
-    );
-    pdfClient.drawTextSequential('AOE Answers', textStyles.header);
-    data.aoeAnswers.forEach((item) => {
-      pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, `${item.question}: `, item.answer.toString());
+  data.testDetails.forEach((detail) => {
+    pdfClient.drawSeparatedLine(BLACK_LINE_STYLE);
+    // AOE Section
+    if (detail.aoeAnswers?.length) {
+      console.log(
+        `Drawing AOE. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. Current page index is ${pdfClient.getCurrentPageIndex()} out of ${pdfClient.getTotalPages()} pages.`
+      );
+      pdfClient.drawTextSequential('AOE Answers', textStyles.header);
+      detail.aoeAnswers.forEach((item) => {
+        pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, `${item.question}: `, item.answer.toString());
+        pdfClient.newLine(STANDARD_NEW_LINE);
+      });
       pdfClient.newLine(STANDARD_NEW_LINE);
-    });
+    }
+
+    // only print this for non-psc orders
+    if (!data.isPscOrder) {
+      pdfClient = drawFieldLineBoldHeader(
+        pdfClient,
+        textStyles,
+        'Collection Date:',
+        detail.mostRecentSampleCollectionDate?.toFormat(LABS_DATE_STRING_FORMAT) ?? ''
+      );
+      pdfClient.newLine(STANDARD_NEW_LINE);
+    }
+
+    // Ordered test and diagnoses
+    const columnGap = 50;
+    const pageWidth = pdfClient.getRightBound() - pdfClient.getLeftBound();
+    const secondColumnStart = pageWidth / 2 + columnGap;
+
+    const columnOneStartAndWidth = { startXPos: pdfClient.getLeftBound(), width: pageWidth / 2 };
+    const columnTwoStartAndWidth = {
+      startXPos: secondColumnStart,
+      width: pdfClient.getRightBound() - secondColumnStart,
+    }; // just the rest of the page
+
+    console.log(
+      `Drawing lab and assessments header. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. Current page index is ${pdfClient.getCurrentPageIndex()} out of ${pdfClient.getTotalPages()} pages.`
+    );
+    pdfClient.drawSeparatedLine(GREY_LINE_STYLE);
+    pdfClient.drawVariableWidthColumns(
+      [
+        {
+          content: 'Lab',
+          textStyle: textStyles.text,
+          ...columnOneStartAndWidth,
+        },
+        {
+          content: 'Assessments',
+          textStyle: textStyles.text,
+          ...columnTwoStartAndWidth,
+        },
+      ],
+      pdfClient.getY(),
+      pdfClient.getCurrentPageIndex()
+    );
     pdfClient.newLine(STANDARD_NEW_LINE);
-  }
+    pdfClient.drawSeparatedLine(GREY_LINE_STYLE);
 
-  // Ordered test and diagnoses
-  const columnGap = 50;
-  const pageWidth = pdfClient.getRightBound() - pdfClient.getLeftBound();
-  const secondColumnStart = pageWidth / 2 + columnGap;
-
-  const columnOneStartAndWidth = { startXPos: pdfClient.getLeftBound(), width: pageWidth / 2 };
-  const columnTwoStartAndWidth = {
-    startXPos: secondColumnStart,
-    width: pdfClient.getRightBound() - secondColumnStart,
-  }; // just the rest of the page
-
-  console.log(
-    `Drawing lab and assessments header. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. Current page index is ${pdfClient.getCurrentPageIndex()} out of ${pdfClient.getTotalPages()} pages.`
-  );
-  pdfClient.drawSeparatedLine(GREY_LINE_STYLE);
-  pdfClient.drawVariableWidthColumns(
-    [
-      {
-        content: 'Lab',
-        textStyle: textStyles.text,
-        ...columnOneStartAndWidth,
-      },
-      {
-        content: 'Assessments',
-        textStyle: textStyles.text,
-        ...columnTwoStartAndWidth,
-      },
-    ],
-    pdfClient.getY(),
-    pdfClient.getCurrentPageIndex()
-  );
-  pdfClient.newLine(STANDARD_NEW_LINE);
-  pdfClient.drawSeparatedLine(GREY_LINE_STYLE);
-
-  // second row
-  console.log(
-    `Drawing test name and assessments. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. Current page index is ${pdfClient.getCurrentPageIndex()} out of ${pdfClient.getTotalPages()} pages.`
-  );
-  pdfClient.drawVariableWidthColumns(
-    [
-      {
-        content: data.orderName.toUpperCase(),
-        textStyle: textStyles.textBold,
-        ...columnOneStartAndWidth,
-      },
-      {
-        content: data.orderAssessments.map((assessment) => `${assessment.code} (${assessment.name})`).join(', '),
-        textStyle: textStyles.text,
-        ...columnTwoStartAndWidth,
-      },
-    ],
-    pdfClient.getY(),
-    pdfClient.getCurrentPageIndex()
-  );
+    // second row
+    console.log(
+      `Drawing test name and assessments. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. Current page index is ${pdfClient.getCurrentPageIndex()} out of ${pdfClient.getTotalPages()} pages.`
+    );
+    pdfClient.drawVariableWidthColumns(
+      [
+        {
+          content: detail.testName.toUpperCase(),
+          textStyle: textStyles.textBold,
+          ...columnOneStartAndWidth,
+        },
+        {
+          content: detail.testAssessments.map((assessment) => `${assessment.code} (${assessment.name})`).join(', '),
+          textStyle: textStyles.text,
+          ...columnTwoStartAndWidth,
+        },
+      ],
+      pdfClient.getY(),
+      pdfClient.getCurrentPageIndex()
+    );
+    pdfClient.newLine(STANDARD_NEW_LINE);
+  });
 
   pdfClient.newLine(STANDARD_NEW_LINE);
   pdfClient.newLine(STANDARD_NEW_LINE);
@@ -341,4 +347,69 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
   pdfClient.drawTextSequential('Order generated by Ottehr', textStyles.textGreyBold);
 
   return await pdfClient.save();
+}
+
+export function getOrderFormDataConfig(
+  accountNumber: string,
+  resources: resourcesForOrderForm,
+  now: DateTime<true>,
+  oystehr: Oystehr
+): ExternalLabOrderFormData {
+  const {
+    testDetails,
+    orderNumber,
+    labOrganization,
+    provider,
+    patient,
+    timezone,
+    location,
+    insuranceOrganization,
+    coverage,
+  } = resources;
+
+  // this is the same logic we use in oystehr to determine PV1-20
+  const coverageType = coverage?.type?.coding?.[0]?.code; // assumption: we'll use the first code in the list
+  const billClass = !coverage || coverageType === 'pay' ? 'Patient Bill (P)' : 'Third-Party Bill (T)';
+
+  const dataConfig: ExternalLabOrderFormData = {
+    locationName: location?.name,
+    locationStreetAddress: location?.address?.line?.join(','),
+    locationCity: location?.address?.city,
+    locationState: location?.address?.state,
+    locationZip: location?.address?.postalCode,
+    locationPhone: location?.telecom?.find((t) => t.system === 'phone')?.value,
+    locationFax: location?.telecom?.find((t) => t.system === 'fax')?.value,
+    labOrganizationName: labOrganization?.name || ORDER_ITEM_UNKNOWN,
+    accountNumber,
+    orderNumber: orderNumber || ORDER_ITEM_UNKNOWN,
+    providerName: getFullestAvailableName(provider) || ORDER_ITEM_UNKNOWN,
+    providerNPI: provider.identifier?.find((id) => id?.system === FHIR_IDENTIFIER_NPI)?.value,
+    patientFirstName: patient.name?.[0].given?.[0] || ORDER_ITEM_UNKNOWN,
+    patientMiddleName: patient.name?.[0].given?.[1],
+    patientLastName: patient.name?.[0].family || ORDER_ITEM_UNKNOWN,
+    patientSex: patient.gender || ORDER_ITEM_UNKNOWN,
+    patientDOB: patient.birthDate
+      ? DateTime.fromFormat(patient.birthDate, 'yyyy-MM-dd').toFormat('MM/dd/yyyy')
+      : ORDER_ITEM_UNKNOWN,
+    patientId: patient.id || ORDER_ITEM_UNKNOWN,
+    patientAddress: patient.address?.[0] ? oystehr.fhir.formatAddress(patient.address[0]) : ORDER_ITEM_UNKNOWN,
+    patientPhone: patient.telecom?.find((temp) => temp.system === 'phone')?.value || ORDER_ITEM_UNKNOWN,
+    todayDate: now.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT),
+    orderSubmitDate: now.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT),
+    dateIncludedInFileName: testDetails[0].serviceRequestCreatedDate,
+    orderPriority: testDetails[0].testPriority || ORDER_ITEM_UNKNOWN, // used for file name
+    billClass,
+    primaryInsuranceName: insuranceOrganization?.name,
+    primaryInsuranceAddress: insuranceOrganization?.address
+      ? oystehr.fhir.formatAddress(insuranceOrganization.address?.[0])
+      : undefined,
+    primaryInsuranceSubNum: coverage?.subscriberId,
+    insuredName: patient?.name ? oystehr.fhir.formatHumanName(patient.name[0]) : undefined,
+    insuredAddress: patient?.address ? oystehr.fhir.formatAddress(patient.address?.[0]) : undefined,
+    testDetails,
+    isManualOrder: false, // todo Sarah fix this
+    isPscOrder: false, // todo Sarah fix this
+  };
+
+  return dataConfig;
 }

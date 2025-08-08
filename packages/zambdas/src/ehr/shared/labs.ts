@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputGetRequest, SearchParam } from '@oystehr/sdk';
 import {
   Account,
   ActivityDefinition,
@@ -51,23 +51,80 @@ import {
 export type LabOrderResources = {
   serviceRequest: ServiceRequest;
   patient: Patient;
-  questionnaireResponse?: QuestionnaireResponse;
   practitioner: Practitioner;
   preSubmissionTask: Task;
-  organization: Organization | undefined;
-  diagnosticReports: DiagnosticReport[];
-  schedule?: Schedule;
-  appointment: Appointment;
+  labOrganization: Organization;
   encounter: Encounter;
-  observations: Observation[];
-  specimens: Specimen[];
+  diagnosticReports: DiagnosticReport[]; // only present if results have come in
+  observations: Observation[]; // only present if results have come in
+  specimens: Specimen[]; // not always required (psc)
+  questionnaireResponse?: QuestionnaireResponse; // not always required (psc)
+  schedule?: Schedule;
+};
+
+const makeSearchParams = (serviceRequestID: string): SearchParam[] => {
+  return [
+    {
+      name: '_id',
+      value: serviceRequestID,
+    },
+    {
+      name: '_revinclude',
+      value: 'Task:based-on',
+    },
+    {
+      name: '_include',
+      value: 'ServiceRequest:subject',
+    },
+    {
+      name: '_revinclude',
+      value: 'QuestionnaireResponse:based-on',
+    },
+    {
+      name: '_include',
+      value: 'ServiceRequest:requester',
+    },
+    {
+      name: '_include',
+      value: 'ServiceRequest:performer',
+    },
+    {
+      name: '_include',
+      value: 'ServiceRequest:encounter',
+    },
+    {
+      name: '_revinclude',
+      value: 'DiagnosticReport:based-on',
+    },
+    {
+      name: '_include:iterate',
+      value: 'Encounter:appointment',
+    },
+    {
+      name: '_include:iterate',
+      value: 'Appointment:slot',
+    },
+    {
+      name: '_include:iterate',
+      value: 'Slot:schedule',
+    },
+    {
+      name: '_include:iterate',
+      value: 'DiagnosticReport:result',
+    },
+    {
+      name: '_include',
+      value: 'ServiceRequest:specimen',
+    },
+  ];
 };
 
 export async function getExternalLabOrderResources(
   oystehr: Oystehr,
   serviceRequestID: string
 ): Promise<LabOrderResources> {
-  const serviceRequestTemp = (
+  const searchParams = makeSearchParams(serviceRequestID);
+  const resourceSearch = (
     await oystehr.fhir.search<
       | ServiceRequest
       | QuestionnaireResponse
@@ -83,178 +140,76 @@ export async function getExternalLabOrderResources(
       | Specimen
     >({
       resourceType: 'ServiceRequest',
-      params: [
-        {
-          name: '_id',
-          value: serviceRequestID,
-        },
-        {
-          name: '_revinclude',
-          value: 'Task:based-on',
-        },
-        {
-          name: '_include',
-          value: 'ServiceRequest:subject',
-        },
-        {
-          name: '_revinclude',
-          value: 'QuestionnaireResponse:based-on',
-        },
-        {
-          name: '_include',
-          value: 'ServiceRequest:requester',
-        },
-        {
-          name: '_include',
-          value: 'ServiceRequest:performer',
-        },
-        {
-          name: '_include',
-          value: 'ServiceRequest:encounter',
-        },
-        {
-          name: '_revinclude',
-          value: 'DiagnosticReport:based-on',
-        },
-        {
-          name: '_include:iterate',
-          value: 'Encounter:appointment',
-        },
-        {
-          name: '_include:iterate',
-          value: 'Appointment:slot',
-        },
-        {
-          name: '_include:iterate',
-          value: 'Slot:schedule',
-        },
-        {
-          name: '_include:iterate',
-          value: 'DiagnosticReport:result',
-        },
-        {
-          name: '_include',
-          value: 'ServiceRequest:specimen',
-        },
-      ],
+      params: searchParams,
     })
   )?.unbundle();
 
-  const serviceRequestsTemp: ServiceRequest[] | undefined = serviceRequestTemp?.filter(
-    (resourceTemp): resourceTemp is ServiceRequest => resourceTemp.resourceType === 'ServiceRequest'
-  );
+  const serviceRequests: ServiceRequest[] = [];
+  const patients: Patient[] = [];
+  const practitioners: Practitioner[] = [];
+  const tasks: Task[] = [];
+  const organizations: Organization[] = [];
+  const encounters: Encounter[] = [];
+  const diagnosticReports: DiagnosticReport[] = [];
+  const observations: Observation[] = [];
+  const specimens: Specimen[] = [];
+  const questionnaireResponses: QuestionnaireResponse[] = [];
+  const schedules: Schedule[] = [];
 
-  const patientsTemp: Patient[] | undefined = serviceRequestTemp?.filter(
-    (resourceTemp): resourceTemp is Patient => resourceTemp.resourceType === 'Patient'
-  );
-
-  const practitionersTemp: Practitioner[] | undefined = serviceRequestTemp?.filter(
-    (resourceTemp): resourceTemp is Practitioner => resourceTemp.resourceType === 'Practitioner'
-  );
-
-  const questionnaireResponsesTemp: QuestionnaireResponse[] | undefined = serviceRequestTemp?.filter(
-    (resourceTemp): resourceTemp is QuestionnaireResponse => resourceTemp.resourceType === 'QuestionnaireResponse'
-  );
-
-  const tasksTemp: Task[] | undefined = serviceRequestTemp?.filter(
-    (resourceTemp): resourceTemp is Task => resourceTemp.resourceType === 'Task'
-  );
-
-  const orgsTemp: Organization[] | undefined = serviceRequestTemp?.filter(
-    (resourceTemp): resourceTemp is Organization => resourceTemp.resourceType === 'Organization'
-  );
-
-  const diagnosticReportsTemp: DiagnosticReport[] | undefined = serviceRequestTemp?.filter(
-    (resourceTemp): resourceTemp is DiagnosticReport =>
-      resourceTemp.resourceType === 'DiagnosticReport' &&
-      diagnosticReportIncludesCategory(
-        resourceTemp,
+  resourceSearch.forEach((resource) => {
+    if (resource.resourceType === 'ServiceRequest') serviceRequests.push(resource);
+    if (resource.resourceType === 'Patient') patients.push(resource);
+    if (resource.resourceType === 'Practitioner') practitioners.push(resource);
+    if (resource.resourceType === 'Organization') organizations.push(resource);
+    if (resource.resourceType === 'Encounter') encounters.push(resource);
+    if (resource.resourceType === 'Observation') observations.push(resource);
+    if (resource.resourceType === 'Specimen') specimens.push(resource);
+    if (resource.resourceType === 'QuestionnaireResponse') questionnaireResponses.push(resource);
+    if (resource.resourceType === 'Schedule') schedules.push(resource);
+    if (resource.resourceType === 'Task') {
+      const taskIsPst = !!resource.code?.coding?.find(
+        (c) => c.system === LAB_ORDER_TASK.system && c.code === LAB_ORDER_TASK.code.preSubmission
+      );
+      if (taskIsPst) tasks.push(resource);
+    }
+    if (resource.resourceType === 'DiagnosticReport') {
+      const isCorrectCategory = diagnosticReportIncludesCategory(
+        resource,
         OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY.system,
         OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY.code
-      )
-  );
+      );
+      if (isCorrectCategory) diagnosticReports.push(resource);
+    }
+  });
 
-  const schedulesTemp: Schedule[] | undefined = serviceRequestTemp?.filter(
-    (resourceTemp): resourceTemp is Schedule => resourceTemp.resourceType === 'Schedule'
-  );
+  if (serviceRequests?.length !== 1) throw new Error('service request is not found');
+  if (patients?.length !== 1) throw new Error('patient is not found');
+  if (practitioners?.length !== 1) throw new Error('practitioner is not found');
+  if (tasks?.length !== 1) throw new Error('task is not found');
+  if (organizations?.length !== 1) throw new Error('performing lab Org not found');
+  if (encounters?.length !== 1) throw new Error('encounter is not found');
 
-  const appointmentsTemp: Appointment[] | undefined = serviceRequestTemp?.filter(
-    (resourceTemp): resourceTemp is Appointment => resourceTemp.resourceType === 'Appointment'
-  );
-
-  const encountersTemp: Encounter[] | undefined = serviceRequestTemp?.filter(
-    (resourceTemp): resourceTemp is Encounter => resourceTemp.resourceType === 'Encounter'
-  );
-
-  const observationsTemp: Observation[] | undefined = serviceRequestTemp?.filter(
-    (resourceTemp): resourceTemp is Observation => resourceTemp.resourceType === 'Observation'
-  );
-
-  const specimens = serviceRequestTemp?.filter(
-    (resource): resource is Specimen => resource.resourceType === 'Specimen'
-  );
-
-  if (serviceRequestsTemp?.length !== 1) {
-    throw new Error('service request is not found');
-  }
-
-  if (patientsTemp?.length !== 1) {
-    throw new Error('patient is not found');
-  }
-
-  if (practitionersTemp?.length !== 1) {
-    throw new Error('practitioner is not found');
-  }
-
-  if (tasksTemp?.length !== 1) {
-    throw new Error('task is not found');
-  }
-
-  if (orgsTemp?.length !== 1) {
-    throw new Error('performing lab Org not found');
-  }
-
-  if (appointmentsTemp?.length !== 1) {
-    throw new Error('appointment is not found');
-  }
-
-  if (encountersTemp?.length !== 1) {
-    throw new Error('encounter is not found');
-  }
-
-  const serviceRequest = serviceRequestsTemp?.[0];
-  const patient = patientsTemp?.[0];
-  const practitioner = practitionersTemp?.[0];
-  const questionnaireResponse = questionnaireResponsesTemp?.[0];
-  const task = tasksTemp?.[0];
-  const organization = orgsTemp?.[0];
-  const diagnosticReports = diagnosticReportsTemp;
-  const schedule = schedulesTemp?.[0];
-  const appointment = appointmentsTemp?.[0];
-  const encounter = encountersTemp?.[0];
-  const observations = observationsTemp;
-
-  const taskIsPst = !!task.code?.coding?.find(
-    (c) => c.system === LAB_ORDER_TASK.system && c.code === LAB_ORDER_TASK.code.preSubmission
-  );
-
-  if (!taskIsPst) {
-    throw new Error(`task returned is not coded as pre-submission: ${task.id}`);
-  }
+  const serviceRequest = serviceRequests[0];
+  const patient = patients[0];
+  const practitioner = practitioners[0];
+  const preSubmissionTask = tasks[0];
+  const labOrganization = organizations[0];
+  const encounter = encounters[0];
+  const questionnaireResponse = questionnaireResponses?.[0];
+  const schedule = schedules?.[0];
 
   return {
-    serviceRequest: serviceRequest,
+    serviceRequest,
     patient,
     practitioner,
-    questionnaireResponse: questionnaireResponse,
-    preSubmissionTask: task,
-    organization,
-    diagnosticReports,
-    schedule,
-    appointment,
+    preSubmissionTask,
+    labOrganization,
     encounter,
+    diagnosticReports,
     observations,
     specimens,
+    questionnaireResponse,
+    schedule,
   };
 }
 

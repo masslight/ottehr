@@ -359,12 +359,10 @@ const handleSaveCollectionData = async (
     questionnaireResponse,
     preSubmissionTask: pstTask,
     encounter,
-    organization: labOrganization,
+    labOrganization,
     specimens: specimenResources,
   } = await getExternalLabOrderResources(oystehr, serviceRequestId);
   console.log('resources retrieved');
-
-  console.log('pstTask', JSON.stringify(pstTask)); // todo SARAH remove
 
   const orderNumber = getOrderNumber(serviceRequest);
   console.log('orderNumber', orderNumber);
