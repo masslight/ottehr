@@ -84,7 +84,7 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
           statusChip: <NursingOrdersStatusChip status={order.status} />,
         })),
     };
-    orderConfigs.push(nursingOrdersConfig);
+    if (nursingOrdersConfig.orders.length > 0) orderConfigs.push(nursingOrdersConfig);
   }
 
   if (inHouseMedications?.length) {
