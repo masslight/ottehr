@@ -4,7 +4,7 @@ import { DateTime } from 'luxon';
 import { DATETIME_FULL_NO_YEAR } from 'utils';
 import { getEmailClient } from '../shared';
 
-const to = 'ibenham@masslight.com';
+const to = 'your email here';
 const randomVisitId = randomUUID();
 
 const inPersonConfirmationTestInput = {
