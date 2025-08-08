@@ -54,6 +54,7 @@ import {
   PractitionerLicense,
   PractitionerQualificationCode,
   PROJECT_WEBSITE,
+  ScheduleOwnerFhirResource,
   ServiceMode,
   VisitType,
 } from '../types';
@@ -1433,6 +1434,18 @@ export const getAddressString = (addressResource: Address | undefined): string =
       address += ' ';
     }
     address += postalCode;
+  }
+  return address;
+};
+
+export const getAddressStringForScheduleResource = (
+  scheduleResource: ScheduleOwnerFhirResource
+): string | undefined => {
+  let address: string | undefined;
+  if (scheduleResource.resourceType === 'Location') {
+    address = getAddressString(scheduleResource.address);
+  } else if (scheduleResource.resourceType === 'Practitioner') {
+    address = getAddressString(scheduleResource.address?.[0]);
   }
   return address;
 };

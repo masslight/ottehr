@@ -179,9 +179,12 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
     const email = getPatientContactEmail(patient);
     if (email) {
       const emailClient = getEmailClient(secrets);
-      await emailClient.sendVirtualCancelationEmail({
-        toAddress: email,
-      });
+      const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
+
+      const templateData = {
+        url: `${WEBSITE_URL}/welcome`,
+      };
+      await emailClient.sendVirtualCancelationEmail(email, templateData);
     } else {
       throw Error('no email found');
     }

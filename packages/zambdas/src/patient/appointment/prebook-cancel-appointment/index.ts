@@ -9,10 +9,13 @@ import {
   CancelAppointmentZambdaOutput,
   CancellationReasonCodesInPerson,
   CANT_CANCEL_CHECKED_IN_APT_ERROR,
+  DATETIME_FULL_NO_YEAR,
   FHIR_ZAPEHR_URL,
   formatPhoneNumberDisplay,
+  getAddressStringForScheduleResource,
   getAppointmentMetaTagOpForStatusUpdate,
   getAppointmentResourceById,
+  getNameFromScheduleResource,
   getPatchBinary,
   getPatientContactEmail,
   getPatientFirstName,
@@ -213,11 +216,26 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
         console.group('sendCancellationEmail');
         try {
           const emailClient = getEmailClient(secrets);
-          await emailClient.sendInPersonCancelationEmail({
-            email,
-            startTime,
-            scheduleResource,
-          });
+          const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
+          const readableTime = startTime.toFormat(DATETIME_FULL_NO_YEAR);
+
+          const address = getAddressStringForScheduleResource(scheduleResource);
+          if (!address) {
+            throw new Error('Address is required to send reminder email');
+          }
+          const location = getNameFromScheduleResource(scheduleResource);
+          if (!location) {
+            throw new Error('Location is required to send reminder email');
+          }
+
+          const templateData = {
+            time: readableTime,
+            location,
+            address,
+            'address-url': `https://www.google.com/maps/search/?api=1&query=${encodeURI(address || '')}`,
+            'book-again-url': `${WEBSITE_URL}/home`,
+          };
+          await emailClient.sendInPersonCancelationEmail(email, templateData);
         } catch (error: any) {
           console.error('error sending cancellation email', error);
         }

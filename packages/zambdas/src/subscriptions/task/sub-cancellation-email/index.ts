@@ -1,7 +1,16 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Location, Patient, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { getPatientContactEmail, getSecret, Secrets, SecretsKeys, TaskStatus } from 'utils';
+import {
+  DATETIME_FULL_NO_YEAR,
+  getAddressStringForScheduleResource,
+  getNameFromScheduleResource,
+  getPatientContactEmail,
+  getSecret,
+  Secrets,
+  SecretsKeys,
+  TaskStatus,
+} from 'utils';
 import {
   createOystehrClient,
   getAuth0Token,
@@ -103,11 +112,26 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       console.group('sendCancellationEmail');
       try {
         const emailClient = getEmailClient(secrets);
-        await emailClient.sendInPersonCancelationEmail({
-          email,
-          startTime,
-          scheduleResource: fhirLocation,
-        });
+        const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
+        const readableTime = startTime.toFormat(DATETIME_FULL_NO_YEAR);
+
+        const address = getAddressStringForScheduleResource(fhirLocation);
+        if (!address) {
+          throw new Error('Address is required to send reminder email');
+        }
+        const location = getNameFromScheduleResource(fhirLocation);
+        if (!location) {
+          throw new Error('Location is required to send reminder email');
+        }
+
+        const templateData = {
+          time: readableTime,
+          location,
+          address,
+          'address-url': `https://www.google.com/maps/search/?api=1&query=${encodeURI(address || '')}`,
+          'book-again-url': `${WEBSITE_URL}/home`,
+        };
+        await emailClient.sendInPersonCancelationEmail(email, templateData);
         taskStatusToUpdate = 'completed';
         statusReasonToUpdate = 'email sent successfully';
         console.groupEnd();

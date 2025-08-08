@@ -5,16 +5,19 @@ import { DateTime } from 'luxon';
 import {
   createOystehrClient,
   DATETIME_FULL_NO_YEAR,
-  getAddressString,
+  DynamicTemplateDataRecord,
+  EmailTemplate,
+  getAddressStringForScheduleResource,
+  getNameFromScheduleResource,
   getSecret,
   PROJECT_NAME,
   ScheduleOwnerFhirResource,
   Secrets,
   SecretsKeys,
-  SLUG_SYSTEM,
+  SENDGRID_CONFIG,
+  SendgridConfig,
 } from 'utils';
 import { BRANDING_CONFIG } from 'utils/lib/configuration/branding';
-import { EmailTemplate, SENDGRID_CONFIG, SendgridConfig } from 'utils/lib/configuration/sendgrid';
 import { getNameForOwner } from '../ehr/schedules/shared';
 import { sendErrors } from './errors';
 import { getRelatedPersonForPatient } from './patients';
@@ -104,14 +107,35 @@ export async function sendInPersonMessages({
   const start = DateTime.now();
   if (email) {
     const emailClient = getEmailClient(secrets);
-    await emailClient.sendInPersonConfirmationEmail({
-      email,
-      startTime,
-      appointmentID,
-      scheduleResource,
-      // TODO bring back when supporting spanish emails
-      // language,
-    });
+    const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
+    // const SENDGRID_SPANISH_CONFIRMATION_EMAIL_TEMPLATE_ID = getSecret(
+    //   SecretsKeys.IN_PERSON_SENDGRID_SPANISH_CONFIRMATION_EMAIL_TEMPLATE_ID,
+    //   secrets
+    // );
+
+    const readableTime = startTime.toFormat(DATETIME_FULL_NO_YEAR);
+
+    // todo handle these when scheduleResource is a healthcare service or a practitioner
+    const address = getAddressStringForScheduleResource(scheduleResource);
+    if (!address) {
+      throw new Error('Address is required to send reminder email');
+    }
+    const location = getNameFromScheduleResource(scheduleResource);
+    if (!location) {
+      throw new Error('Location is required to send reminder email');
+    }
+
+    const rescheduleUrl = `${WEBSITE_URL}/visit/${appointmentID}/reschedule`;
+    const templateData = {
+      time: readableTime,
+      location,
+      address,
+      'address-url': `https://www.google.com/maps/search/?api=1&query=${encodeURI(address || '')}`,
+      'modify-visit-url': rescheduleUrl,
+      'cancel-visit-url': `${WEBSITE_URL}/visit/${appointmentID}/cancel`,
+      'paperwork-url': `${WEBSITE_URL}/paperwork/${appointmentID}`,
+    };
+    await emailClient.sendInPersonConfirmationEmail(email, templateData);
   } else {
     console.log('email undefined');
   }
@@ -180,7 +204,11 @@ class EmailClient {
     sendgrid.setApiKey(SENDGRID_API_KEY);
   }
 
-  private async sendEmail(to: string, template: EmailTemplate, templateInformation: any): Promise<void> {
+  private async sendEmail<T extends EmailTemplate>(
+    to: string,
+    template: T,
+    templateData: DynamicTemplateDataRecord<T>
+  ): Promise<void> {
     const { templateIdSecretName, subject: templateSubject } = template;
     const SENDGRID_EMAIL_BCC = this.config.bcc;
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, this.secrets);
@@ -201,7 +229,7 @@ class EmailClient {
       templateId,
       dynamic_template_data: {
         subject,
-        ...templateInformation,
+        ...templateData,
         branding: {
           email,
           projectName,
@@ -224,35 +252,48 @@ class EmailClient {
     }
   }
 
-  async sendVirtualConfirmationEmail(input: VirtualConfirmationEmailSettings): Promise<void> {
-    const { email, appointmentID } = input;
+  async sendVirtualConfirmationEmail(
+    to: string,
+    templateData: DynamicTemplateDataRecord<typeof this.config.templates.telemedConfirmation>
+  ): Promise<void> {
+    /*const { email, appointmentID } = input;
     const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, this.secrets);
 
     // Translation variables
     const templateInformation = {
       url: `${WEBSITE_URL}/waiting-room?appointment_id=${appointmentID}`,
-    };
-    await this.sendEmail(email, this.config.templates.telemedConfirmation, templateInformation);
+    };*/
+    await this.sendEmail(to, this.config.templates.telemedConfirmation, templateData);
   }
 
-  async sendVirtualCancelationEmail(input: VirtualCancellationEmailSettings): Promise<void> {
+  async sendVirtualCancelationEmail(
+    to: string,
+    templateData: DynamicTemplateDataRecord<typeof this.config.templates.telemedCancelation>
+  ): Promise<void> {
+    /*
     const { toAddress } = input;
     const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, this.secrets);
 
     const templateInformation = {
       url: `${WEBSITE_URL}/welcome`,
     };
-    await this.sendEmail(toAddress, this.config.templates.telemedCancelation, templateInformation);
+    */
+    await this.sendEmail(to, this.config.templates.telemedCancelation, templateData);
   }
 
-  async sendVirtualCompletionEmail(input: VirtualCompletionEmailSettings): Promise<void> {
+  async sendVirtualCompletionEmail(
+    to: string,
+    templateData: DynamicTemplateDataRecord<typeof this.config.templates.telemedCompletion>
+  ): Promise<void> {
+    /*
     const { email, scheduleResource, visitNoteUrl } = input;
 
     const templateInformation = {
       location: getNameForOwner(scheduleResource),
       'visit-note-url': visitNoteUrl,
     };
-    await this.sendEmail(email, this.config.templates.telemedCompletion, templateInformation);
+    */
+    await this.sendEmail(to, this.config.templates.telemedCompletion, templateData);
     // unsubscribeGroupId: sendGridUnsubscribeGroupIds.telemed.completion,
   }
 
@@ -265,8 +306,11 @@ class EmailClient {
     await this.sendEmail(email, this.config.templates.telemedInvitation, templateInformation);
   }
 
-  async sendInPersonConfirmationEmail(input: InPersonConfirmationEmailSettings): Promise<void> {
-    const { email, startTime, appointmentID, scheduleResource } = input;
+  async sendInPersonConfirmationEmail(
+    to: string,
+    templateData: DynamicTemplateDataRecord<typeof this.config.templates.inPersonConfirmation>
+  ): Promise<void> {
+    /*const { email, startTime, appointmentID, scheduleResource } = input;
     const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, this.secrets);
     // const SENDGRID_SPANISH_CONFIRMATION_EMAIL_TEMPLATE_ID = getSecret(
     //   SecretsKeys.IN_PERSON_SENDGRID_SPANISH_CONFIRMATION_EMAIL_TEMPLATE_ID,
@@ -276,107 +320,121 @@ class EmailClient {
     const readableTime = startTime.toFormat(DATETIME_FULL_NO_YEAR);
 
     // todo handle these when scheduleResource is a healthcare service or a practitioner
-    let address: string | undefined;
-    let state: string | undefined;
-    if (scheduleResource.resourceType === 'Location') {
-      address = getAddressString(scheduleResource.address);
-      state = scheduleResource.address?.state;
+    const address = getAddressStringForScheduleResource(scheduleResource);
+    if (!address) {
+      throw new Error('Address is required to send reminder email');
+    }
+    const location = getNameFromScheduleResource(scheduleResource);
+    if (!location) {
+      throw new Error('Location is required to send reminder email');
     }
 
-    // todo: some validation so we're not sending emails with broken links
-    const slug =
-      scheduleResource.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)?.value || 'Unknown';
-    let rescheduleUrl = `${WEBSITE_URL}/visit/${appointmentID}/reschedule?slug=${slug}`;
-
-    if (state) {
-      rescheduleUrl = `${rescheduleUrl}&state=${state}`;
-    }
+    const rescheduleUrl = `${WEBSITE_URL}/visit/${appointmentID}/reschedule`;
     const templateInformation = {
       time: readableTime,
-      datetime: startTime,
-      location: scheduleResource.name,
+      location,
       address,
       'address-url': `https://www.google.com/maps/search/?api=1&query=${encodeURI(address || '')}`,
       'modify-visit-url': rescheduleUrl,
       'cancel-visit-url': `${WEBSITE_URL}/visit/${appointmentID}/cancel`,
       'paperwork-url': `${WEBSITE_URL}/paperwork/${appointmentID}`,
-    };
-    await this.sendEmail(email, this.config.templates.inPersonConfirmation, templateInformation);
+    };*/
+    await this.sendEmail(to, this.config.templates.inPersonConfirmation, templateData);
   }
-  async sendInPersonCancelationEmail(input: InPersonCancellationEmailSettings): Promise<void> {
-    const { email, /* language, */ startTime, scheduleResource } = input;
+  async sendInPersonCancelationEmail(
+    to: string,
+    templateData: DynamicTemplateDataRecord<typeof this.config.templates.inPersonCancelation>
+  ): Promise<void> {
+    /*
+    const { email, startTime, scheduleResource } = input;
     const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, this.secrets);
     const readableTime = startTime.toFormat(DATETIME_FULL_NO_YEAR);
 
-    let address: string | undefined;
-    if (scheduleResource.resourceType === 'Location') {
-      address = getAddressString(scheduleResource.address);
+    const address = getAddressStringForScheduleResource(scheduleResource);
+    if (!address) {
+      throw new Error('Address is required to send reminder email');
+    }
+    const location = getNameFromScheduleResource(scheduleResource);
+    if (!location) {
+      throw new Error('Location is required to send reminder email');
     }
 
     const templateInformation = {
       time: readableTime,
-      datetime: startTime,
-      location: scheduleResource.name,
+      location,
       address,
       'address-url': `https://www.google.com/maps/search/?api=1&query=${encodeURI(address || '')}`,
       'book-again-url': `${WEBSITE_URL}/home`,
     };
-    await this.sendEmail(email, this.config.templates.inPersonCancelation, templateInformation);
+    */
+    await this.sendEmail(to, this.config.templates.inPersonCancelation, templateData);
   }
-  async sendInPersonCompletionEmail(input: InPersonCompletionEmailSettings): Promise<void> {
-    const { email, startTime, scheduleResource, visitNoteUrl } = input;
+  async sendInPersonCompletionEmail(
+    to: string,
+    templateData: DynamicTemplateDataRecord<typeof this.config.templates.inPersonCompletion>
+  ): Promise<void> {
+    /*const { email, startTime, scheduleResource, visitNoteUrl } = input;
     const readableTime = startTime.toFormat(DATETIME_FULL_NO_YEAR);
 
-    let address: string | undefined;
-    if (scheduleResource.resourceType === 'Location') {
-      address = getAddressString(scheduleResource.address);
+    const address = getAddressStringForScheduleResource(scheduleResource);
+    if (!address) {
+      throw new Error('Address is required to send reminder email');
+    }
+    const location = getNameFromScheduleResource(scheduleResource);
+    if (!location) {
+      throw new Error('Location is required to send reminder email');
     }
 
     const templateInformation = {
       time: readableTime,
-      datetime: startTime,
-      location: scheduleResource.name,
+      location,
       address,
       'address-url': `https://www.google.com/maps/search/?api=1&query=${encodeURI(address || '')}`,
       'visit-note-url': visitNoteUrl,
-    };
-    await this.sendEmail(email, this.config.templates.inPersonCompletion, templateInformation);
+    };*/
+    const template = this.config.templates.inPersonCompletion;
+    await this.sendEmail(to, template, templateData);
     //  unsubscribeGroupId: sendGridUnsubscribeGroupIds.inPerson.completion,
   }
 
-  async sendInPersonReminderEmail(input: InPersonReminderEmailSettings): Promise<void> {
-    const { email, startTime, appointmentID, scheduleResource } = input;
+  async sendInPersonReminderEmail(
+    email: string,
+    templateData: DynamicTemplateDataRecord<typeof this.config.templates.inPersonReminder>
+  ): Promise<void> {
+    const template = this.config.templates.inPersonReminder;
+    /*
     const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, this.secrets);
-
     const readableTime = startTime.toFormat(DATETIME_FULL_NO_YEAR);
-    // todo handle these when scheduleResource is a healthcare service or a practitioner
-    let address: string | undefined;
-    let state: string | undefined;
-    if (scheduleResource.resourceType === 'Location') {
-      address = getAddressString(scheduleResource.address);
-      state = scheduleResource.address?.state;
+    
+    const address = getAddressStringForScheduleResource(scheduleResource);
+    if (!address) {
+      throw new Error('Address is required to send reminder email');
+    }
+    const location = getNameFromScheduleResource(scheduleResource);
+    if (!location) {
+      throw new Error('Location is required to send reminder email');
     }
 
-    // todo: some validation so we're not sending emails with broken links
-    const slug =
-      scheduleResource.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)?.value || 'Unknown';
-    let rescheduleUrl = `${WEBSITE_URL}/visit/${appointmentID}/reschedule?slug=${slug}`;
+    const rescheduleUrl = `${WEBSITE_URL}/visit/${appointmentID}/reschedule`;
 
-    if (state) {
-      rescheduleUrl = `${rescheduleUrl}&state=${state}`;
+    const location = getL
+
+    if (!location) {
+      throw new Error('Location is required to send reminder email');
     }
-    const templateInformation = {
+
+    // many of the
+    const templateData = {
       time: readableTime,
-      datetime: startTime,
-      location: scheduleResource.name,
+      location,
       address,
       'address-url': `https://www.google.com/maps/search/?api=1&query=${encodeURI(address || '')}`,
       'modify-visit-url': rescheduleUrl,
       'cancel-visit-url': `${WEBSITE_URL}/visit/${appointmentID}/cancel`,
       'paperwork-url': `${WEBSITE_URL}/paperwork/${appointmentID}`,
     };
-    await this.sendEmail(email, this.config.templates.inPersonReminder, templateInformation);
-    //unsubscribeGroupId: sendGridUnsubscribeGroupIds.inPerson.reminder,
+    */
+    await this.sendEmail(email, template, templateData);
   }
 }
 

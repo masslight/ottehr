@@ -13,6 +13,7 @@ const SENDGRID_DEFAULTS = Object.freeze({
       htmlFilePath: './template_html/error-report.html',
       subject: '⚠️ An error occurred in {{environment}}', // done
       templateIdSecretName: 'SENDGRID_ERROR_REPORT_TEMPLATE_ID',
+      dynamicTemplateData: ['environment', 'error-message', 'timestamp'],
     },
     inPersonCancelation: {
       templateName: 'In-Person Cancellation',
@@ -21,6 +22,7 @@ const SENDGRID_DEFAULTS = Object.freeze({
       htmlFilePath: './configuration/sendgrid/template_html/in-person-cancelation.html',
       subject: 'Visit canceled', // done
       templateIdSecretName: 'SENDGRID_IN_PERSON_CANCELATION_TEMPLATE_ID',
+      dynamicTemplateData: ['location', 'time', 'address'],
     },
     inPersonConfirmation: {
       templateName: 'In-Person Confirmation',
@@ -29,6 +31,7 @@ const SENDGRID_DEFAULTS = Object.freeze({
       htmlFilePath: './configuration/sendgrid/template_html/in-person-confirmation.html',
       subject: 'Visit confirmed on {{readableTime}}', // done
       templateIdSecretName: 'SENDGRID_IN_PERSON_CONFIRMATION_TEMPLATE_ID',
+      dynamicTemplateData: ['location', 'time', 'address'],
     },
     inPersonCompletion: {
       templateName: 'In-Person Completion',
@@ -37,6 +40,7 @@ const SENDGRID_DEFAULTS = Object.freeze({
       htmlFilePath: './configuration/sendgrid/template_html/in-person-completion.html',
       subject: 'Visit completed. See visit note', // done
       templateIdSecretName: 'SENDGRID_IN_PERSON_COMPLETION_TEMPLATE_ID',
+      dynamicTemplateData: ['location', 'time', 'address', 'visit-note-url', 'address-url'],
     },
     inPersonReminder: {
       templateName: 'In-Person Reminder',
@@ -45,6 +49,15 @@ const SENDGRID_DEFAULTS = Object.freeze({
       htmlFilePath: 'packages/utils/configuration/sendgrid/template_html/in-person-reminder.html',
       subject: 'Upcoming visit on {{readableTime}}', // done
       templateIdSecretName: 'SENDGRID_IN_PERSON_REMINDER_TEMPLATE_ID',
+      dynamicTemplateData: [
+        'location',
+        'time',
+        'address',
+        'modify-visit-url',
+        'cancel-visit-url',
+        'address-url',
+        'paperwork-url',
+      ],
     },
     telemedCancelation: {
       templateName: 'Telemed Cancelation',
@@ -53,6 +66,7 @@ const SENDGRID_DEFAULTS = Object.freeze({
       htmlFilePath: './template_html/telemed-cancelation.html',
       subject: 'Visit canceled', // done
       templateIdSecretName: 'SENDGRID_TELEMED_CANCELATION_TEMPLATE_ID',
+      dynamicTemplateData: ['location', 'book-again-url'],
     },
     telemedConfirmation: {
       templateName: 'Telemed Confirmation',
@@ -61,6 +75,7 @@ const SENDGRID_DEFAULTS = Object.freeze({
       htmlFilePath: './template_html/telemed-confirmation.html',
       subject: 'Join virtual visit', // done
       templateIdSecretName: 'SENDGRID_TELEMED_CONFIRMATION_TEMPLATE_ID',
+      dynamicTemplateData: ['location', 'join-visit-url', 'paperwork-url'],
     },
     telemedCompletion: {
       templateName: 'Telemed Completion',
@@ -69,6 +84,7 @@ const SENDGRID_DEFAULTS = Object.freeze({
       htmlFilePath: './template_html/telemed-completion.html',
       subject: 'Visit completed. See visit note', // done
       templateIdSecretName: 'SENDGRID_TELEMED_COMPLETION_TEMPLATE_ID',
+      dynamicTemplateData: ['location', 'visit-note-url'],
     },
     telemedInvitation: {
       templateName: 'Telemed Invitation',
@@ -77,6 +93,7 @@ const SENDGRID_DEFAULTS = Object.freeze({
       htmlFilePath: './template_html/telemed-invitation.html',
       subject: 'Join virtual visit with {{patientName}}', // done
       templateIdSecretName: 'SENDGRID_TELEMED_INVITATION_TEMPLATE_ID',
+      dynamicTemplateData: ['patient-name', 'join-visit-url'],
     },
   },
   from: {
@@ -84,6 +101,11 @@ const SENDGRID_DEFAULTS = Object.freeze({
     name: 'Ottehr',
   },
 });
+
+const overrides: any = OVERRIDES.sendgrid || {};
+
+const mergedSendgridConfig = _.merge(SENDGRID_DEFAULTS, overrides);
+console.log('Merged SendGrid config:', mergedSendgridConfig);
 
 const EmailFromSchema = z.object({
   email: z.string().email(),
@@ -108,43 +130,78 @@ const TemplateVersionSchema = z.object({
     { message: 'No valid HTML file found at path' }
   ),
   subject: z.string().min(1, { message: 'Subject cannot be empty' }),
+  dynamicTemplateData: z.array(z.string()).default([]).optional(),
 });
+
+/*
+  import { z } from 'zod';
+
+// 1. Define the Zod schema for an array of strings
+const listOfNamesSchema = z.array(z.string());
+
+// 2. Infer the TypeScript type from the schema
+type NamesList = z.infer<typeof listOfNamesSchema>;
+
+// Now, NamesList will be inferred as `string[]`
+
+// You can use this type for type-checking:
+const myNames: NamesList = ["Alice", "Bob", "Charlie"]; // This is valid
+// const invalidNames: NamesList = ["David", 123]; // This would cause a type error
+
+const colorSchema = z.enum(["red", "green", "blue"]); // Define a schema with allowed color strings
+type ColorType = z.infer<typeof colorSchema>; // Inferred type: "red" | "green" | "blue"
+
+const colorArraySchema = z.array(colorSchema);
+type ColorArrayType = z.infer<typeof colorArraySchema>;
+
+const StringListSchema = z.array(z.string());
+type DynamicTemplateDataList = z.infer<typeof StringListSchema>;
+*/
 
 const ErrorReportSchema = TemplateVersionSchema.extend({
   templateIdSecretName: z.literal('SENDGRID_ERROR_REPORT_TEMPLATE_ID'),
   disabled: z.boolean().default(false),
+  dynamicTemplateData: z.array(z.enum(mergedSendgridConfig.templates.errorReport.dynamicTemplateData)),
 });
 const InPersonCancelationSchema = TemplateVersionSchema.extend({
   templateIdSecretName: z.literal('SENDGRID_IN_PERSON_CANCELATION_TEMPLATE_ID'),
   disabled: z.boolean().default(false),
+  dynamicTemplateData: z.array(z.enum(mergedSendgridConfig.templates.inPersonCancelation.dynamicTemplateData)),
 });
 const InPersonConfirmationSchema = TemplateVersionSchema.extend({
   templateIdSecretName: z.literal('SENDGRID_IN_PERSON_CONFIRMATION_TEMPLATE_ID'),
   disabled: z.boolean().default(false),
+  dynamicTemplateData: z.array(z.enum(mergedSendgridConfig.templates.inPersonConfirmation.dynamicTemplateData)),
 });
 const InPersonCompletionSchema = TemplateVersionSchema.extend({
   templateIdSecretName: z.literal('SENDGRID_IN_PERSON_COMPLETION_TEMPLATE_ID'),
   disabled: z.boolean().default(false),
+  dynamicTemplateData: z.array(z.enum(mergedSendgridConfig.templates.inPersonCompletion.dynamicTemplateData)),
 });
 const InPersonReminderSchema = TemplateVersionSchema.extend({
   templateIdSecretName: z.literal('SENDGRID_IN_PERSON_REMINDER_TEMPLATE_ID'),
   disabled: z.boolean().default(false),
+  dynamicTemplateData: z.array(z.enum(mergedSendgridConfig.templates.inPersonReminder.dynamicTemplateData)),
 });
 const TelemedCancelationSchema = TemplateVersionSchema.extend({
   templateIdSecretName: z.literal('SENDGRID_TELEMED_CANCELATION_TEMPLATE_ID'),
   disabled: z.boolean().default(false),
+  dynamicTemplateData: z.array(z.enum(mergedSendgridConfig.templates.telemedCancelation.dynamicTemplateData)),
 });
 const TelemedConfirmationSchema = TemplateVersionSchema.extend({
   templateIdSecretName: z.literal('SENDGRID_TELEMED_CONFIRMATION_TEMPLATE_ID'),
   disabled: z.boolean().default(false),
+  dynamicTemplateData: z.array(z.enum(mergedSendgridConfig.templates.telemedConfirmation.dynamicTemplateData)),
 });
 const TelemedCompletionSchema = TemplateVersionSchema.extend({
   templateIdSecretName: z.literal('SENDGRID_TELEMED_COMPLETION_TEMPLATE_ID'),
   disabled: z.boolean().default(false),
+  dynamicTemplateData: z.array(z.enum(mergedSendgridConfig.templates.telemedCompletion.dynamicTemplateData)),
 });
 const TelemedInvitationSchema = TemplateVersionSchema.extend({
   templateIdSecretName: z.literal('SENDGRID_TELEMED_INVITATION_TEMPLATE_ID'),
   disabled: z.boolean().default(false),
+  dynamicTemplateData: z.array(z.enum(mergedSendgridConfig.templates.telemedInvitation.dynamicTemplateData)),
 });
 
 /*
@@ -176,17 +233,11 @@ const SENDGRID_CONFIG_SCHEMA = z.object({
     .default('no-reply@' + BRANDING_CONFIG.projectDomain),
 });
 
-console.log('parsing SendGrid defaults', SENDGRID_DEFAULTS);
-
-const validatedSendgridDefaults = SENDGRID_CONFIG_SCHEMA.parse(SENDGRID_DEFAULTS);
-
-const overrides: any = OVERRIDES.sendgrid || {};
-
-console.log('SendGrid overrides:', overrides);
-
-const mergedSendgridConfig = _.merge(validatedSendgridDefaults, overrides);
-console.log('Merged SendGrid config:', mergedSendgridConfig);
-
 export const SENDGRID_CONFIG = Object.freeze(SENDGRID_CONFIG_SCHEMA.parse(mergedSendgridConfig));
 export type SendgridConfig = z.infer<typeof SENDGRID_CONFIG_SCHEMA>;
 export type EmailTemplate = SendgridConfig['templates'][keyof SendgridConfig['templates']];
+
+export type DynamicTemplateDataRecord<T extends EmailTemplate> = Record<
+  Extract<T['dynamicTemplateData'] extends Array<infer K> ? K : never, string>,
+  string
+>;
