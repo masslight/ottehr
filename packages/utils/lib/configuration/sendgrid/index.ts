@@ -234,6 +234,7 @@ const SENDGRID_CONFIG_SCHEMA = z.object({
     .string()
     .email()
     .default('no-reply@' + BRANDING_CONFIG.projectDomain),
+  featureFlag: z.boolean().default(false),
 });
 
 export const SENDGRID_CONFIG = Object.freeze(SENDGRID_CONFIG_SCHEMA.parse(mergedSendgridConfig));

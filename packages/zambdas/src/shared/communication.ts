@@ -209,6 +209,14 @@ class EmailClient {
       },
     };
 
+    const featureFlag = this.config.featureFlag;
+
+    if (!featureFlag) {
+      console.log('Feature flag is disabled');
+      console.log('Email input being swallowed: ', JSON.stringify(emailConfiguration, null, 2));
+      return;
+    }
+
     try {
       const sendResult = await sendgrid.send(emailConfiguration);
       console.log(
