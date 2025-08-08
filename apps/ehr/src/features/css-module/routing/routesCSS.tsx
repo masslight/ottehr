@@ -181,6 +181,7 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
     sidebarPath: 'immunization/mar',
     activeCheckPath: 'immunization',
     modes: ['provider'],
+    isSkippedInNavigation: true,
     element: <Immunization />,
     text: 'Immunization',
     iconKey: 'Immunization',

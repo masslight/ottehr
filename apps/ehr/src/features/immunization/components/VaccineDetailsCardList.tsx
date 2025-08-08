@@ -32,7 +32,7 @@ export const VaccineDetailsCardList: React.FC = () => {
   }
 
   return (
-    <Stack spacing={1}>
+    <Stack spacing={2}>
       {pendingOrders.map((order) => (
         <Box
           sx={{
