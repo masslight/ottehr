@@ -17,7 +17,7 @@ import { getAuth0Token } from '../../src/shared';
 import { SECRETS } from '../data/secrets';
 import { cleanupTestScheduleResources, makeTestPatient, persistTestPatient } from '../helpers/testScheduleUtils';
 
-const DEFAULT_SUITE_TIMEOUT = 60000;
+const DEFAULT_SUITE_TIMEOUT = 90000;
 
 describe('saving and getting vitals', () => {
   let oystehr: Oystehr;

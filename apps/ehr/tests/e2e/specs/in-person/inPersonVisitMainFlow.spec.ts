@@ -94,7 +94,7 @@ test.describe('Book appointment filling insurances information on payment option
   test.beforeAll(async () => {
     const oystehr = await ResourceHandler.getOystehr();
     const insuranceCarriersOptionsResponse = await oystehr.zambda.execute({
-      id: process.env.GET_ANSWER_OPTIONS_ZAMBDA_ID!,
+      id: 'get-answer-options',
       answerSource: {
         resourceType: 'InsurancePlan',
         query: `status=active&_tag=${INSURANCE_PLAN_PAYER_META_TAG_CODE}`,
