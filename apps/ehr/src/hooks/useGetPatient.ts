@@ -17,7 +17,6 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
 import { getVisitTypeLabelForAppointment } from 'src/types/types';
-import { useSuccessQuery } from 'utils';
 import {
   getFirstName,
   getLastName,
@@ -30,14 +29,14 @@ import {
   PromiseReturnType,
   RemoveCoverageZambdaInput,
   ServiceMode,
+  useSuccessQuery,
 } from 'utils';
+import ehrInsuranceUpdateFormJson from 'utils/lib/deployed-resources/questionnaires/ehr-insurance-update-questionnaire.json';
 import { getTimezone } from '../helpers/formatDateTime';
 import { getPatientNameSearchParams } from '../helpers/patientSearch';
 import { OystehrTelemedAPIClient } from '../telemed/data';
 import { useOystehrAPIClient } from '../telemed/hooks/useOystehrAPIClient';
 import { useApiClients } from './useAppClients';
-
-const updateQRUrl = import.meta.env.VITE_APP_EHR_ACCOUNT_UPDATE_FORM;
 
 const getTelemedLength = (history?: EncounterStatusHistory[]): number => {
   const value = history?.find((item) => item.status === 'in-progress');
@@ -395,7 +394,7 @@ export const useGetPatientDetailsUpdateForm = (
 ): UseQueryResult<Questionnaire, Error> => {
   const { oystehr } = useApiClients();
 
-  const [url, version] = updateQRUrl.split('|');
+  const { url, version } = ehrInsuranceUpdateFormJson.resource;
 
   const queryResult = useQuery({
     queryKey: ['patient-update-form'],
@@ -427,7 +426,7 @@ export const useGetPatientDetailsUpdateForm = (
       }
     },
 
-    enabled: Boolean(oystehr) && Boolean(updateQRUrl),
+    enabled: Boolean(oystehr) && Boolean(ehrInsuranceUpdateFormJson.resource),
   });
 
   useSuccessQuery(queryResult.data, onSuccess);
