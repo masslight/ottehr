@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Account, Appointment, FhirResource, Organization, Patient, PaymentNotice } from 'fhir/r4b';
+import { Account, Appointment, FhirResource, List, Organization, Patient, PaymentNotice } from 'fhir/r4b';
 import fs from 'fs';
 import { DateTime } from 'luxon';
 import { PageSizes } from 'pdf-lib';
@@ -15,6 +15,7 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
+import { makeReceiptPdfDocumentReference } from '../../ehr/change-telemed-appointment-status/helpers/helpers';
 import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
 import { createOystehrClient } from '../helpers';
 import { makeZ3Url } from '../presigned-file-urls';
@@ -35,6 +36,7 @@ interface PatientPaymentReceiptData {
   receiptDate: string;
   visitDate: string;
   payments: PaymentData[];
+  listResources: List[];
   organization: {
     name: string;
     street: string;
@@ -72,7 +74,22 @@ export async function createPatientPaymentReceiptPdf(
   const receiptPdf = await createReceiptPdf(receiptData);
   console.log('Created receipt pdf');
 
-  return await createReplaceReceiptOnZ3(receiptPdf, receiptData.patient.id, secrets, oystehrToken);
+  const pdfInfo = await createReplaceReceiptOnZ3(
+    receiptPdf,
+    receiptData.patient.id,
+    encounterId,
+    secrets,
+    oystehrToken
+  );
+  const docRef = await makeReceiptPdfDocumentReference(
+    oystehr,
+    pdfInfo,
+    patientId,
+    encounterId,
+    receiptData.listResources
+  );
+  console.log('Created document reference: ', JSON.stringify(docRef));
+  return pdfInfo;
 }
 
 async function getReceiptData(
@@ -86,7 +103,7 @@ async function getReceiptData(
   const account: Account | undefined = accountResources.account;
   const customerId = account ? getStripeCustomerIdFromAccount(account) : undefined;
 
-  const [fhirBundle, organization, paymentIntents, pms] = await Promise.all([
+  const [fhirBundle, listResourcesBundle, organization, paymentIntents, pms] = await Promise.all([
     oystehr.fhir.search<FhirResource>({
       resourceType: 'Encounter',
       params: [
@@ -95,6 +112,10 @@ async function getReceiptData(
         { name: '_include', value: 'Encounter:subject' },
         { name: '_include', value: 'Encounter:appointment' },
       ],
+    }),
+    oystehr.fhir.search<List>({
+      resourceType: 'List',
+      params: [{ name: 'patient', value: `Patient/${patientId}` }],
     }),
     oystehr.fhir.get<Organization>({ resourceType: 'Organization', id: organizationId }),
     stripeClient.paymentIntents.search({
@@ -110,6 +131,7 @@ async function getReceiptData(
   const paymentMethods = pms.data;
 
   const resources = fhirBundle.unbundle();
+  const listResources = listResourcesBundle.unbundle();
   const patient = resources.find((r) => r.resourceType === 'Patient') as Patient;
   const patientAddress = getPatientAddress(patient.address);
   const appointment = resources.find((r) => r.resourceType === 'Appointment') as Appointment;
@@ -135,11 +157,11 @@ async function getReceiptData(
   if (!organization) throw new Error('Organization not found');
   if (!patient) throw new Error('Patient not found');
   if (!appointment) throw new Error('Appointment not found');
-  // todo: what date should i use as visitDate?
   return {
     receiptDate: DateTime.now().toFormat('MM/dd/yyyy'),
-    visitDate: DateTime.fromISO(appointment.end ?? '').toFormat('MM/dd/yyyy'),
+    visitDate: DateTime.fromISO(appointment.start ?? '').toFormat('MM/dd/yyyy'),
     payments,
+    listResources,
     organization: {
       name: organization?.name ?? '',
       street: organizationAddress?.line?.[0] ?? '',
@@ -321,11 +343,12 @@ async function uploadPDF(pdfBytes: Uint8Array, token: string, baseFileUrl: strin
 async function createReplaceReceiptOnZ3(
   pdfBytes: Uint8Array,
   patientId: string,
+  encounterId: string,
   secrets: Secrets | null,
   token: string
 ): Promise<PdfInfo> {
-  const bucketName = 'patient-payment-receipts';
-  const fileName = 'patient-payment-receipt.pdf';
+  const bucketName = 'receipts';
+  const fileName = `${encounterId}.pdf`;
   console.log('Creating base file url');
   const baseFileUrl = makeZ3Url({ secrets, bucketName, patientID: patientId, fileName });
   console.log('Uploading file to bucket');
@@ -333,5 +356,5 @@ async function createReplaceReceiptOnZ3(
     throw new Error('failed uploading pdf to z3: ' + error.message);
   });
 
-  return { title: fileName, uploadURL: 'baseFileUrl' };
+  return { title: fileName, uploadURL: baseFileUrl };
 }
