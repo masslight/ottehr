@@ -11,27 +11,33 @@ terraform {
 }
 
 locals {
-  templates = tomap(jsondecode(var.templates_file))
+  project_name = lookup(jsondecode(file(var.sendgrid_templates_file_path)), "projectName", null)
 }
 
-resource "sendgrid_template" "named_template" {
-  for_each = local.templates
-  name     = each.key
-  generation = "dynamic"
+resource "null_resource" "validate_project_name" {
+  lifecycle {
+    precondition {
+      condition     = local.project_name != null
+      error_message = "Invalid or missing project name in spec."
+    }
+  }
 }
 
-resource "sendgrid_template_version" "test_template_version" {
-  for_each = sendgrid_template.named_template
-  template_id  = each.value.id
-  active       = local.templates[each.key].active ? 1 : 0
-  subject      = local.templates[each.key].subject
-  html_content = file(local.templates[each.key].htmlFilePath)
-  name         = local.templates[each.key].templateVersionName
+resource "sendgrid_api_key" "template_api_key" {
+  name  = local.project_name
 }
 
-# resource "oystehr_secret" "secrets" {
-#   for_each = sendgrid_template.named_template
-#
-#   name  = local.templates[each.key].templateIdSecretName
-#   value =  each.value.id
+
+module "templates" {
+  source = "./templates"
+  templates_file = file(var.sendgrid_templates_file_path)
+  sg_api_key = sendgrid_api_key.template_api_key.api_key
+  project_name = local.project_name
+}
+
+
+
+# resource "oystehr_secret" "api_key_secret" {
+#   name  = "SG_SEND_EMAIL_API_KEY"
+#   value = sendgrid_api_key.api_key.id
 # }

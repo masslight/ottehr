@@ -1,5 +1,6 @@
-variable "templates_file" {
-  description = "the file containing SendGrid template model json"
+variable "sendgrid_templates_file_path" {
+  description = "Path to the files containing SendGrid templates"
   type        = string
-  nullable    = false
+  default     = "../packages/utils/.ottehr_config/iac-inputs/sendgrid.json"
 }
+

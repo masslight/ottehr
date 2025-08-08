@@ -4,13 +4,16 @@ import * as z from 'zod';
 import { OVERRIDES } from '../../../.ottehr_config';
 import { BRANDING_CONFIG } from '../branding';
 
+// this is relative to the deploy folder where tf runs
+const PATH_PREFIX = '../packages/utils/lib';
+
 const SENDGRID_DEFAULTS = Object.freeze({
   templates: {
     errorReport: {
       templateName: 'Error Report',
       templateVersionName: '1.0.0',
       active: true,
-      htmlFilePath: './template_html/error-report.html',
+      htmlFilePath: `${PATH_PREFIX}/configuration/sendgrid/template_html/error-report.html`,
       subject: '⚠️ An error occurred in {{environment}}', // done
       templateIdSecretName: 'SENDGRID_ERROR_REPORT_TEMPLATE_ID',
       dynamicTemplateData: ['environment', 'error-message', 'timestamp'],
@@ -19,7 +22,7 @@ const SENDGRID_DEFAULTS = Object.freeze({
       templateName: 'In-Person Cancellation',
       templateVersionName: '1.0.0',
       active: true,
-      htmlFilePath: './configuration/sendgrid/template_html/in-person-cancelation.html',
+      htmlFilePath: `${PATH_PREFIX}/configuration/sendgrid/template_html/in-person-cancelation.html`,
       subject: 'Visit canceled', // done
       templateIdSecretName: 'SENDGRID_IN_PERSON_CANCELATION_TEMPLATE_ID',
       dynamicTemplateData: ['location', 'time', 'address'],
@@ -28,7 +31,7 @@ const SENDGRID_DEFAULTS = Object.freeze({
       templateName: 'In-Person Confirmation',
       templateVersionName: '1.0.0',
       active: true,
-      htmlFilePath: './configuration/sendgrid/template_html/in-person-confirmation.html',
+      htmlFilePath: `${PATH_PREFIX}/configuration/sendgrid/template_html/in-person-confirmation.html`,
       subject: 'Visit confirmed on {{readableTime}}', // done
       templateIdSecretName: 'SENDGRID_IN_PERSON_CONFIRMATION_TEMPLATE_ID',
       dynamicTemplateData: ['location', 'time', 'address'],
@@ -37,7 +40,7 @@ const SENDGRID_DEFAULTS = Object.freeze({
       templateName: 'In-Person Completion',
       templateVersionName: '1.0.0',
       active: true,
-      htmlFilePath: './configuration/sendgrid/template_html/in-person-completion.html',
+      htmlFilePath: `${PATH_PREFIX}/configuration/sendgrid/template_html/in-person-completion.html`,
       subject: 'Visit completed. See visit note', // done
       templateIdSecretName: 'SENDGRID_IN_PERSON_COMPLETION_TEMPLATE_ID',
       dynamicTemplateData: ['location', 'time', 'address', 'visit-note-url', 'address-url'],
@@ -46,7 +49,7 @@ const SENDGRID_DEFAULTS = Object.freeze({
       templateName: 'In-Person Reminder',
       templateVersionName: '1.0.0',
       active: true,
-      htmlFilePath: 'packages/utils/configuration/sendgrid/template_html/in-person-reminder.html',
+      htmlFilePath: `${PATH_PREFIX}/configuration/sendgrid/template_html/in-person-reminder.html`,
       subject: 'Upcoming visit on {{readableTime}}', // done
       templateIdSecretName: 'SENDGRID_IN_PERSON_REMINDER_TEMPLATE_ID',
       dynamicTemplateData: [
@@ -63,7 +66,7 @@ const SENDGRID_DEFAULTS = Object.freeze({
       templateName: 'Telemed Cancelation',
       templateVersionName: '1.0.0',
       active: true,
-      htmlFilePath: './template_html/telemed-cancelation.html',
+      htmlFilePath: `${PATH_PREFIX}/configuration/sendgrid/template_html/telemed-cancelation.html`,
       subject: 'Visit canceled', // done
       templateIdSecretName: 'SENDGRID_TELEMED_CANCELATION_TEMPLATE_ID',
       dynamicTemplateData: ['location', 'book-again-url'],
@@ -72,7 +75,7 @@ const SENDGRID_DEFAULTS = Object.freeze({
       templateName: 'Telemed Confirmation',
       templateVersionName: '1.0.0',
       active: true,
-      htmlFilePath: './template_html/telemed-confirmation.html',
+      htmlFilePath: `${PATH_PREFIX}/configuration/sendgrid/template_html/telemed-confirmation.html`,
       subject: 'Join virtual visit', // done
       templateIdSecretName: 'SENDGRID_TELEMED_CONFIRMATION_TEMPLATE_ID',
       dynamicTemplateData: ['location', 'join-visit-url', 'paperwork-url'],
@@ -81,7 +84,7 @@ const SENDGRID_DEFAULTS = Object.freeze({
       templateName: 'Telemed Completion',
       templateVersionName: '1.0.0',
       active: true,
-      htmlFilePath: './template_html/telemed-completion.html',
+      htmlFilePath: `${PATH_PREFIX}/configuration/sendgrid/template_html/telemed-completion.html`,
       subject: 'Visit completed. See visit note', // done
       templateIdSecretName: 'SENDGRID_TELEMED_COMPLETION_TEMPLATE_ID',
       dynamicTemplateData: ['location', 'visit-note-url'],
@@ -90,7 +93,7 @@ const SENDGRID_DEFAULTS = Object.freeze({
       templateName: 'Telemed Invitation',
       templateVersionName: '1.0.0',
       active: true,
-      htmlFilePath: './template_html/telemed-invitation.html',
+      htmlFilePath: `${PATH_PREFIX}/configuration/sendgrid/template_html/telemed-invitation.html`,
       subject: 'Join virtual visit with {{patientName}}', // done
       templateIdSecretName: 'SENDGRID_TELEMED_INVITATION_TEMPLATE_ID',
       dynamicTemplateData: ['patient-name', 'join-visit-url'],

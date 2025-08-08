@@ -23,7 +23,6 @@ provider "sendgrid" {
 
 module "sendgrid" {
   source = "./sendgrid"
-  templates_file = file(var.sendgrid_templates_file_path)
   providers = {
     sendgrid = sendgrid
   }

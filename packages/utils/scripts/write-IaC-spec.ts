@@ -1,8 +1,8 @@
 import fs from 'fs';
-import { CONFIG } from '../lib/configuration';
+import { BRANDING_CONFIG, SENDGRID_CONFIG } from '../lib/configuration';
 
 const writeInfraSpec = (): void => {
-  const sendgridConfig = Object.values(CONFIG.sendgrid.templates || {})
+  const templates = Object.values(SENDGRID_CONFIG.templates || {})
     .filter(Boolean)
     .reduce(
       (acc, entry) => {
@@ -14,8 +14,15 @@ const writeInfraSpec = (): void => {
       },
       {} as Record<string, any>
     );
-
-  const stringifiedConfig = JSON.stringify(sendgridConfig, null, 2);
+  const { projectName } = BRANDING_CONFIG;
+  if (!projectName) {
+    throw new Error('Project name is not defined');
+  }
+  const tfModel = {
+    projectName,
+    templates,
+  };
+  const stringifiedConfig = JSON.stringify(tfModel, null, 2);
   fs.mkdirSync('.ottehr_config/iac-inputs', { recursive: true });
   fs.writeFileSync('.ottehr_config/iac-inputs/sendgrid.json', stringifiedConfig, 'utf8');
 };
