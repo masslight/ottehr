@@ -179,8 +179,18 @@ class EmailClient {
     const from = this.config.from;
     const replyTo = this.config.replyTo;
 
-    const { email, projectName, projectDomain } = BRANDING_CONFIG;
+    const { email: baseEmail, projectName, projectDomain } = BRANDING_CONFIG;
 
+    const { supportPhoneNumber: defaultSupportPhoneNumber, locationSupportPhoneNumberMap, ...emailRest } = baseEmail;
+    let supportPhoneNumber = defaultSupportPhoneNumber;
+    if (locationSupportPhoneNumberMap && (templateData as any).location) {
+      supportPhoneNumber = locationSupportPhoneNumberMap[(templateData as any).location] || defaultSupportPhoneNumber;
+    }
+
+    const email = {
+      ...emailRest,
+      supportPhoneNumber,
+    };
     const emailConfiguration = {
       to,
       from,
@@ -194,6 +204,7 @@ class EmailClient {
           email,
           projectName,
           projectDomain,
+          supportPhoneNumber,
         },
       },
     };

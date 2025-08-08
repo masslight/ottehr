@@ -8,7 +8,6 @@ const BRANDING_DEFAULTS: any = {
   projectDomain: 'ottehr.com',
   email: {
     logoURL: '',
-    supportPhoneNumber: '(629)&nbsp;219&#8209;2767',
     palette: {
       deemphasizedText: '#00000061',
       headerText: '#0F347C',
@@ -35,6 +34,7 @@ const BrandingConfigSchema = z.object({
   email: z.object({
     logoURL: z.string().optional(),
     supportPhoneNumber: z.string().optional(),
+    locationSupportPhoneNumberMap: z.record(z.string().min(1), z.string().min(1)).optional(),
     palette: z.object({
       deemphasizedText: z.string().min(1, { message: 'Deemphasized text color cannot be empty' }),
       headerText: z.string().min(1, { message: 'Header text color cannot be empty' }),
