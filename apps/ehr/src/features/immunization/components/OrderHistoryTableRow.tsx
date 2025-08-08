@@ -1,11 +1,12 @@
 import { DeleteOutlined as DeleteIcon, EditOutlined as EditIcon } from '@mui/icons-material';
 import { IconButton, TableCell, TableRow, Typography } from '@mui/material';
-import { Stack, useTheme } from '@mui/system';
+import { alpha, Stack, useTheme } from '@mui/system';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { CustomDialog } from 'src/components/dialogs';
+import { getImmunizationVaccineDetailsUrl } from 'src/features/css-module/routing/helpers';
 import { OrderStatusChip } from 'src/features/immunization/components/OrderStatusChip';
 import { ImmunizationOrder } from '../ImmunizationOrder';
 
@@ -41,8 +42,32 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) =>
     setIsDeleting(false);
   };
 
+  const isPending = order.status === 'pending';
+
+  const handleRowClick = (): void => {
+    if (!isPending) {
+      return;
+    }
+    requestAnimationFrame(() => {
+      navigate(`${getImmunizationVaccineDetailsUrl(appointmentId!)}?scrollTo=${order.id}`);
+    });
+  };
+
   return (
-    <TableRow>
+    <TableRow
+      sx={{
+        ...(isPending
+          ? {
+              '&:hover': {
+                backgroundColor: alpha(theme.palette.primary.main, 0.04),
+              },
+              willChange: 'background-color',
+              cursor: 'pointer',
+            }
+          : { cursor: 'default' }),
+      }}
+      onClick={handleRowClick}
+    >
       <TableCell>{order.vaccineName}</TableCell>
       <TableCell>
         {order.dose} {order.units} {order.route ? `/ ${order.route}` : null}

@@ -1,4 +1,4 @@
-import { Box, Typography } from '@mui/material';
+import { Box, Stack, Typography } from '@mui/material';
 import React, { useLayoutEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { STUB_IMMUNIZATION_ORDERS } from '../ImmunizationOrder';
@@ -17,7 +17,7 @@ export const VaccineDetailsCardList: React.FC = () => {
   useLayoutEffect(() => {
     if (scrollTo && pendingOrders.length > 0) {
       requestAnimationFrame(() => {
-        const element = document.getElementById(`medication-${scrollTo}`);
+        const element = document.getElementById(`order-${scrollTo}`);
         element?.scrollIntoView?.({ behavior: 'auto', block: 'start', inline: 'nearest' });
 
         const url = new URL(window.location.href);
@@ -32,7 +32,7 @@ export const VaccineDetailsCardList: React.FC = () => {
   }
 
   return (
-    <Box>
+    <Stack spacing={1}>
       {pendingOrders.map((order) => (
         <Box
           sx={{
@@ -44,6 +44,6 @@ export const VaccineDetailsCardList: React.FC = () => {
           <VaccineDetailsCard order={order} />
         </Box>
       ))}
-    </Box>
+    </Stack>
   );
 };
