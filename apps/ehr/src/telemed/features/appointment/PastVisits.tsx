@@ -13,7 +13,7 @@ export const PastVisits: FC = () => {
   const { appointments, loading } = useGetPatient(patient?.id);
   const [open, setOpen] = useState(false);
 
-  const patientName = getPatientName(patient?.name).lastFirstMiddleName;
+  const patientName = getPatientName(patient?.name).fullDisplayName;
 
   if (loading) {
     return <Skeleton sx={{ display: 'inline-block' }} variant="text" width={100} />;

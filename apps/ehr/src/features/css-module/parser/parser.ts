@@ -22,7 +22,7 @@ export const getVisitMappedData = (resourceBundle: FhirResource[]): Partial<Visi
 
   return {
     patientName:
-      patientName?.lastFirstMiddleName || patientName?.lastFirstName || patientName?.lastName || patientName?.firstName,
+      patientName?.fullDisplayName || patientName?.lastFirstName || patientName?.lastName || patientName?.firstName,
     patientAvatarPhotoUrl: patient?.photo?.at(0)?.url,
     patientConditionalPhotosUrls: extractUrlsFromAppointmentData(resourceBundle, PATIENT_PHOTO_CODE),
     schoolWorkNoteUrls: extractUrlsFromAppointmentData(resourceBundle, SCHOOL_WORK_NOTE_TEMPLATE_CODE),
