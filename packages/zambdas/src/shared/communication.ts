@@ -211,8 +211,8 @@ class EmailClient {
 
     const featureFlag = this.config.featureFlag;
 
-    if (!featureFlag) {
-      console.log('Feature flag is disabled');
+    if (!featureFlag || template.disabled) {
+      console.log('Email sending is disabled');
       console.log('Email input being swallowed: ', JSON.stringify(emailConfiguration, null, 2));
       return;
     }
