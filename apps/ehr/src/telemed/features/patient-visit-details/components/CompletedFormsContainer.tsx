@@ -3,8 +3,13 @@ import { otherColors } from '@ehrTheme/colors';
 import { Button } from '@mui/material';
 import { Bundle, BundleEntry, DocumentReference } from 'fhir/r4b';
 import { FC, ReactElement, useState } from 'react';
-import { CONSENT_CODE, getIpAddress, getQuestionnaireResponseByLinkId, mdyStringFromISOString } from 'utils';
-import { getPresignedFileUrl } from '../../../../helpers/files.helper';
+import {
+  CONSENT_CODE,
+  getIpAddress,
+  getPresignedURL,
+  getQuestionnaireResponseByLinkId,
+  mdyStringFromISOString,
+} from 'utils';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useAppointmentStore, useGetDocumentReferences } from '../../../state';
 import { InformationCard } from './InformationCard';
@@ -63,7 +68,7 @@ export const CompletedFormsContainer: FC = () => {
         for (const content of docRef.content) {
           const title = content.attachment.title;
           const z3Url = content.attachment.url;
-          const presignedUrl = z3Url && (await getPresignedFileUrl(z3Url, authToken));
+          const presignedUrl = z3Url && (await getPresignedURL(z3Url, authToken));
 
           if (title === 'Consent forms') {
             setConsentPdfUrl(presignedUrl);

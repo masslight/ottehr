@@ -4,10 +4,9 @@ import ContentPasteOffIcon from '@mui/icons-material/ContentPasteOff';
 import { Box, CircularProgress, Grid, Paper, Typography } from '@mui/material';
 import { Bundle, BundleEntry, DocumentReference } from 'fhir/r4b';
 import { FC, useMemo, useState } from 'react';
-import { getQuestionnaireResponseByLinkId, INSURANCE_CARD_CODE, PHOTO_ID_CARD_CODE } from 'utils';
+import { getPresignedURL, getQuestionnaireResponseByLinkId, INSURANCE_CARD_CODE, PHOTO_ID_CARD_CODE } from 'utils';
 import DownloadImagesButton from '../../../../components/DownloadImagesButton';
 import ImageCarousel, { ImageCarouselObject } from '../../../../components/ImageCarousel';
-import { getPresignedFileUrl } from '../../../../helpers/files.helper';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { DocumentInfo, DocumentType } from '../../../../types/types';
 import { useAppointmentStore, useGetDocumentReferences } from '../../../state';
@@ -71,7 +70,7 @@ export const InsuranceCardAndPhotoContainer: FC = () => {
             Object.values<string>(DocumentType).includes(title) &&
             (docRefCode === PHOTO_ID_CARD_CODE || (docRefCode === INSURANCE_CARD_CODE && !selfPay))
           ) {
-            const presignedUrl = await getPresignedFileUrl(z3Url, authToken);
+            const presignedUrl = await getPresignedURL(z3Url, authToken);
             if (presignedUrl) {
               allCards.push({
                 z3Url: z3Url,

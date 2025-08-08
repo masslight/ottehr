@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto';
 import { DocumentReference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { StandardFonts } from 'pdf-lib';
-import { createFilesDocumentReferences, getPresignedURL, LabelConfig, Secrets } from 'utils';
+import { BUCKET_NAMES, createFilesDocumentReferences, getPresignedURL, LabelConfig, Secrets } from 'utils';
 import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { convertLabeConfigToPdfClientStyles } from './external-labs-label-pdf';
@@ -35,8 +35,6 @@ export interface VisitLabelConfig {
   labelConfig: LabelConfig;
   content: VisitLabelContent;
 }
-
-const UPLOAD_BUCKET_NAME = 'visit-notes';
 
 const createVisitLabelPdfBytes = async (data: VisitLabelConfig): Promise<Uint8Array> => {
   const { labelConfig, content } = data;
@@ -164,11 +162,11 @@ async function createVisitLabelPDFHelper(
   const baseFileUrl = makeZ3Url({
     secrets,
     fileName,
-    bucketName: UPLOAD_BUCKET_NAME,
+    bucketName: BUCKET_NAMES.VISIT_NOTES,
     patientID: input.content.patientId,
   });
 
-  console.log('Uploading file to bucket, ', UPLOAD_BUCKET_NAME);
+  console.log('Uploading file to bucket, ', BUCKET_NAMES.VISIT_NOTES);
 
   try {
     const presignedUrl = await createPresignedUrl(token, baseFileUrl, 'upload');
@@ -220,6 +218,10 @@ export async function createVisitLabelPDF(
   }
 
   const presignedURL = await getPresignedURL(pdfInfo.uploadURL, token);
+
+  if (!presignedURL) {
+    throw new Error('Failed to get presigned URL for visit label PDF');
+  }
 
   return { docRef: docRefs[0], presignedURL };
 }
