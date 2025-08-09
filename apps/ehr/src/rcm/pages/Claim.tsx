@@ -254,7 +254,7 @@ export const Claim: FC = () => {
               items={[
                 {
                   label: '9.Other insured’s name',
-                  value: additionalCoverageData?.firstMiddleLastName,
+                  value: additionalCoverageData?.fullDisplayName,
                 },
                 {
                   label: '9a.Other insured’s policy or group number',
