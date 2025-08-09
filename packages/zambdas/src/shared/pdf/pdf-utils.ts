@@ -19,7 +19,7 @@ export interface Column {
 // For testing needs
 export function savePdfLocally(pdfBytes: Uint8Array): void {
   // Write the Uint8Array to a file
-  fs.writeFile('myTestFile.pdf', Buffer.from(pdfBytes), (err: any) => {
+  fs.writeFile('myTestFile.pdf', pdfBytes, (err: any) => {
     if (err) {
       console.error('Error saving PDF:', err);
     } else {
@@ -68,7 +68,7 @@ export function splitLongStringToPageSize(
         lineWidth += wordWidth;
       } else {
         resultStrings.push(validLine);
-        validLine = word;
+        validLine = word + ' ';
         lineWidth = wordWidth;
       }
     });
@@ -98,6 +98,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
   const addNewPage = (styles: PageStyles, newLeftBound?: number, newRightBound?: number): void => {
     console.log('\nAdding new page');
     console.log(`currentPageIndex is ${currentPageIndex} of ${pages.length} pages`);
+    let addedBrandNewPage = false;
     // figure out if we just need to run on to a pre-exsiting page or truly add a new one
     if (currentPageIndex !== undefined && currentPageIndex < pages.length - 1) {
       console.log('Current page is not the last page. Setting page to the next page');
@@ -105,9 +106,11 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     } else {
       console.log('Current page was the last page. Adding brand new page');
       page = pdfDoc.addPage();
+      addedBrandNewPage = true;
+
       page.setSize(styles.width, styles.height);
+
       pageStyles = styles;
-      if (styles.setHeadline) styles.setHeadline();
       pages.push(page);
     }
 
@@ -123,6 +126,11 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       currentPageIndex++;
       console.log(`Incrementing page index to ${currentPageIndex}`);
     } else currentPageIndex = 0;
+
+    if (addedBrandNewPage && styles.setHeadline) {
+      console.log('addedBrandNewPage is true and styles.setHeadline is defined. settingHeadline');
+      styles.setHeadline();
+    }
 
     console.log('Done with new page\n');
   };
@@ -357,7 +365,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
   };
 
   const embedFont = async (file: Buffer): Promise<PDFFont> => {
-    return await pdfDoc.embedFont(file);
+    return await pdfDoc.embedFont(new Uint8Array(file));
   };
 
   const embedStandardFont = async (font: StandardFonts): Promise<PDFFont> => {
@@ -365,7 +373,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
   };
 
   const embedImage = async (file: Buffer): Promise<PDFImage> => {
-    return await pdfDoc.embedPng(file);
+    return await pdfDoc.embedPng(new Uint8Array(file));
   };
 
   const drawSeparatedLine = (lineStyle: LineStyle): void => {

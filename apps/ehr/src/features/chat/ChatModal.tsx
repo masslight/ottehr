@@ -135,6 +135,9 @@ const ChatModal = memo(
       timezone,
       numbersToSendTo,
       (messages) => {
+        if (!messages) {
+          return;
+        }
         _setMessages(messages);
         setPendingMessageSend(undefined);
       }
@@ -248,7 +251,7 @@ const ChatModal = memo(
 
     const { isLoading: isMessagingConfigLoading } = useGetMessagingConfigQuery(
       (data) => {
-        if (!data.transactionalSMSConfig && !data.conversationConfig) {
+        if (!data?.transactionalSMSConfig && !data?.conversationConfig) {
           setIsMessagingSetup(false);
         }
       },

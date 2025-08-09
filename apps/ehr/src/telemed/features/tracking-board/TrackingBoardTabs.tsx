@@ -48,6 +48,7 @@ export function TrackingBoardTabs(): ReactElement {
       visitTypesFilter: visitTypes || undefined,
     },
     (data) => {
+      if (!data) return;
       setAppointments(data.appointments);
     }
   );

@@ -88,7 +88,7 @@ export const SLBProviderModal: FC = () => {
         title="Additional Insurance"
         onSave={(hideDialog) => handleSubmit((values) => onSave(values, hideDialog))()}
         onShow={() => reset(getDefaultValues(claimData, facilities))}
-        isSaveLoading={editClaim.isLoading}
+        isSaveLoading={editClaim.isPending}
       >
         <Grid container spacing={2}>
           <Grid item xs={6}>

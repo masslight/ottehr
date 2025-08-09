@@ -50,9 +50,13 @@ const StyledSelect = styled(Select)<{ hasDropdown?: string; arrowColor: string }
 export const ChangeStatusDropdown = ({
   appointmentID,
   onStatusChange,
+  getAndSetResources,
+  dataTestId,
 }: {
   appointmentID?: string;
   onStatusChange: (status: VisitStatusWithoutUnknown) => void;
+  getAndSetResources?: ({ logs, notes }: { logs?: boolean; notes?: boolean }) => Promise<void>;
+  dataTestId?: string;
 }): React.ReactElement => {
   const [statusLoading, setStatusLoading] = useState<boolean>(false);
   const [status, setStatus] = useState<VisitStatusWithoutUnknown | undefined>(undefined);
@@ -91,6 +95,10 @@ export const ChangeStatusDropdown = ({
   const hasDropdown = !nonDropdownStatuses.includes(status);
 
   const updateInPersonVisitStatus = async (event: SelectChangeEvent<VisitStatusLabel | unknown>): Promise<void> => {
+    if ((event.target.value as VisitStatusWithoutUnknown) === 'completed') {
+      alert('To mark a visit as completed, scroll to the bottom of the "Progress Note" and click "Review & Sign"');
+      return;
+    }
     setStatusLoading(true);
     try {
       await handleChangeInPersonVisitStatus(
@@ -102,6 +110,14 @@ export const ChangeStatusDropdown = ({
         oystehrZambda
       );
       await refetch();
+      if (getAndSetResources) {
+        await getAndSetResources({ logs: true }).catch((error: any) => {
+          console.log('error getting activity logs after status dropdown update', error);
+          enqueueSnackbar('An error getting updated activity logs. Please try refreshing the page.', {
+            variant: 'error',
+          });
+        });
+      }
     } catch (error) {
       console.error(error);
       enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
@@ -111,7 +127,7 @@ export const ChangeStatusDropdown = ({
   };
 
   return (
-    <Grid item>
+    <Grid item data-testid={dataTestId}>
       <div id="user-set-appointment-status">
         <FormControl size="small">
           <StyledSelect
@@ -143,13 +159,16 @@ export const ChangeStatusDropdown = ({
             }}
           >
             {Visit_Status_Array.filter((statusTemp) => {
-              const allHiddenStatuses: Partial<VisitStatusLabel>[] = [
+              let allHiddenStatuses: Partial<VisitStatusLabel>[] = [
                 'no show',
                 'unknown',
-                ...(['cancelled', 'intake', 'ready for provider', 'provider', 'ready for discharge'].filter(
+                ...(['cancelled', 'intake', 'provider', 'ready for provider', 'discharged'].filter(
                   (s) => s !== status
                 ) as Partial<VisitStatusLabel>[]),
               ];
+              if (status === 'ready for provider' || status === 'intake') {
+                allHiddenStatuses = allHiddenStatuses.filter((s) => s !== 'provider');
+              }
               return !allHiddenStatuses.includes(statusTemp);
             }).map((statusTemp) => (
               <MenuItem

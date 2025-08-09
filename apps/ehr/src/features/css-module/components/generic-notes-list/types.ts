@@ -34,6 +34,8 @@ export interface NoteLocales {
 export interface GenericNoteListProps extends CustomizableNotesConfig {
   apiConfig: NoteApiConfig;
   locales: NoteLocales;
+  addNoteButtonDataTestId?: string;
+  noteLoadingIndicatorDataTestId?: string;
 }
 
 export interface EditableNotesListProps extends CustomizableNotesConfig {
@@ -42,6 +44,8 @@ export interface EditableNotesListProps extends CustomizableNotesConfig {
   apiConfig: NoteApiConfig;
   encounterId: string;
   patientId: string;
+  addNoteButtonDataTestId?: string;
+  noteLoadingIndicatorDataTestId?: string;
 }
 
 export interface EditableNote extends NoteDTO {

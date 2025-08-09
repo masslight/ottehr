@@ -107,8 +107,8 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
   const featureFlags = useFeatureFlags();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
-  const { mutate: updateChartData, isLoading: isUpdateLoading } = useSaveChartData();
-  const { mutate: deleteChartData, isLoading: isDeleteLoading } = useDeleteChartData();
+  const { mutate: updateChartData, isPending: isUpdateLoading } = useSaveChartData();
+  const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
   const isLoading = isUpdateLoading || isDeleteLoading;
   const isLoadingOrAwaiting = isLoading || !areNotesEqual;
   const isAlreadySaved = !!value.resourceId;
@@ -251,7 +251,7 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
 
 const AddMedicalConditionField: FC = () => {
   const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);
-  const { mutate: updateChartData, isLoading: isUpdateLoading } = useSaveChartData();
+  const { mutate: updateChartData, isPending: isUpdateLoading } = useSaveChartData();
 
   const methods = useForm<{ value: IcdSearchResponse['codes'][number] | null }>({
     defaultValues: { value: null },

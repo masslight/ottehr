@@ -64,7 +64,7 @@ export const isApiError = (errorObject: unknown | undefined): boolean => {
   if (typeof asObj === 'string') {
     try {
       asObj = JSON.parse(asObj);
-    } catch (_) {
+    } catch {
       return false;
     }
   }
@@ -240,6 +240,11 @@ export const FHIR_RESOURCE_NOT_FOUND = (resourceType: FhirResource['resourceType
   message: `The requested ${resourceType} resource could not be found`,
 });
 
+export const FHIR_RESOURCE_NOT_FOUND_CUSTOM = (message: string): APIError => ({
+  code: APIErrorCode.FHIR_RESOURCE_NOT_FOUND,
+  message,
+});
+
 export const MISSING_REQUIRED_PARAMETERS = (params: string[]): APIError => {
   return {
     code: APIErrorCode.MISSING_REQUIRED_PARAMETERS,
@@ -303,6 +308,7 @@ export const EXTERNAL_LAB_ERROR = (message: string): APIError => {
     message,
   };
 };
+export const ORDER_SUBMITTED_MESSAGE = 'Order is already submitted';
 
 export const IN_HOUSE_LAB_ERROR = (message: string): APIError => {
   return {

@@ -5,7 +5,7 @@ export async function downloadFile(presignedURL: string, filename: string): Prom
   let downloadResponse;
   try {
     downloadResponse = await fetch(presignedURL, { method: 'GET' });
-  } catch (error) {
+  } catch {
     useIntakeCommonStore.setState({ error: t('general.errors.general') });
     return;
   }

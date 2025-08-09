@@ -18,11 +18,11 @@ import { DiagnosesField } from './DiagnosesField';
 export const DiagnosesContainer: FC = () => {
   const { chartData, setPartialChartData } = getSelectors(useAppointmentStore, ['chartData', 'setPartialChartData']);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-  const { mutate: saveChartData, isLoading: isSaveLoading } = useSaveChartData();
-  const { mutateAsync: deleteChartData, isLoading: isDeleteLoading } = useDeleteChartData();
+  const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
+  const { mutateAsync: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
   const { error: icdSearchError, isLoading: isNlmLoading } = useGetIcd10Search({ search: 'E11', sabs: 'ICD10CM' });
 
-  const nlmApiKeyMissing = icdSearchError?.code === APIErrorCode.MISSING_NLM_API_KEY_ERROR;
+  const nlmApiKeyMissing = (icdSearchError as any)?.code === APIErrorCode.MISSING_NLM_API_KEY_ERROR;
 
   const isLoading = isSaveLoading || isDeleteLoading;
 
@@ -152,7 +152,10 @@ export const DiagnosesContainer: FC = () => {
   );
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+    <Box
+      sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+      data-testid={dataTestIds.diagnosisContainer.allDiagnosesContainer}
+    >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
         <AssessmentTitle>{css ? 'Dx' : 'Diagnoses'}</AssessmentTitle>
         {!isReadOnly && <DiagnosesField onChange={onAdd} disabled={isLoading} disableForPrimary={!primaryDiagnosis} />}

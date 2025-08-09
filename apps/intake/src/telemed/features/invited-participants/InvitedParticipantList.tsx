@@ -94,7 +94,7 @@ export const InvitedParticipantList: FC<InvitedParticipantListProps> = ({ items,
             {(showDialog) => (
               <LoadingButton
                 variant="text"
-                loading={cancelInviteMutation.isLoading}
+                loading={cancelInviteMutation.isPending}
                 color="destructive"
                 size="large"
                 onClick={showDialog}
@@ -111,7 +111,7 @@ export const InvitedParticipantList: FC<InvitedParticipantListProps> = ({ items,
           controlButtons={{
             submitLabel: 'Done!',
             backButton: false,
-            loading: cancelInviteMutation.isLoading,
+            loading: cancelInviteMutation.isPending,
           }}
         />
       </Box>

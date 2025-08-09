@@ -1,9 +1,9 @@
 import './index.css';
 import { Auth0Provider } from '@auth0/auth0-react';
 import { ErrorBoundary } from '@sentry/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StrictMode } from 'react';
 import ReactDOM from 'react-dom/client';
-import { QueryClient, QueryClientProvider } from 'react-query';
 import App from './App';
 
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);

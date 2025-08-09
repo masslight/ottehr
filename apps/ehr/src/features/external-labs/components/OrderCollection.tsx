@@ -1,11 +1,17 @@
 import { LoadingButton } from '@mui/lab';
 import { Box, Button, Stack } from '@mui/material';
-import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import Oystehr from '@oystehr/sdk';
 import React, { useMemo, useState } from 'react';
 import { FormProvider, SubmitHandler, useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { CustomDialog } from 'src/components/dialogs';
-import { DynamicAOEInput, ExternalLabsStatus, LabOrderDetailedPageDTO, LabQuestionnaireResponse } from 'utils';
+import {
+  DynamicAOEInput,
+  ExternalLabsStatus,
+  LabOrderDetailedPageDTO,
+  LabQuestionnaireResponse,
+  ORDER_SUBMITTED_MESSAGE,
+} from 'utils';
 import { submitLabOrder } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { AOECard } from './AOECard';
@@ -42,6 +48,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   const labQuestionnaireResponses = questionnaireData?.questionnaireResponseItems;
   const [submitLoading, setSubmitLoading] = useState(false);
   const [error, setError] = useState<string[] | undefined>(undefined);
+  const [manualSubmitError, setManualSubmitError] = useState<string[] | undefined>(undefined);
   const [errorDialogOpen, setErrorDialogOpen] = useState<boolean>(false);
   const [specimensData, setSpecimensData] = useState<{ [specimenId: string]: { date: string } }>({});
   const shouldShowSampleCollectionInstructions =
@@ -88,40 +95,51 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
 
     const sanitizedData = sanitizeFormData(data);
 
-    try {
-      const { orderPdfUrl, labelPdfUrl } = await submitLabOrder(oystehr, {
-        serviceRequestID: labOrder.serviceRequestId,
-        accountNumber: labOrder.accountNumber,
-        manualOrder,
-        data: sanitizedData,
-        ...(!labOrder.isPSC && { specimens: specimensData }), // non PSC orders require specimens, validation is handled in the zambda
-      });
+    const { orderPdfUrl, labelPdfUrl } = await submitLabOrder(oystehr, {
+      serviceRequestID: labOrder.serviceRequestId,
+      accountNumber: labOrder.accountNumber,
+      manualOrder,
+      data: sanitizedData,
+      ...(!labOrder.isPSC && { specimens: specimensData }), // non PSC orders require specimens, validation is handled in the zambda
+    });
 
-      if (labelPdfUrl) await openPdf(labelPdfUrl);
-      await openPdf(orderPdfUrl);
+    if (labelPdfUrl) await openPdf(labelPdfUrl);
+    await openPdf(orderPdfUrl);
 
-      setSubmitLoading(false);
-      setError(undefined);
-      navigate(`/in-person/${appointmentID}/external-lab-orders`);
-    } catch (e) {
-      const oyError = e as OystehrSdkError;
-      console.log('error creating external lab order1', oyError.code, oyError.message);
-      const errorMessage = [oyError.message || 'There was an error submitting the lab order'];
-      setError(errorMessage);
-      setErrorDialogOpen(true);
-      setSubmitLoading(false);
-    }
+    setSubmitLoading(false);
+    setError(undefined);
+    navigate(`/in-person/${appointmentID}/external-lab-orders`);
 
     console.log(`data at submit: ${JSON.stringify(sanitizedData)}`);
   };
 
   const handleAutomatedSubmit: SubmitHandler<DynamicAOEInput> = async (data) => {
-    await submitOrder({ data, manualOrder: false });
+    try {
+      await submitOrder({ data, manualOrder: false });
+    } catch (e) {
+      const sdkError = e as Oystehr.OystehrSdkError;
+      console.log('error creating external lab order1', sdkError.code, sdkError.message);
+      const errorMessage = [sdkError.message || 'There was an error submitting the lab order'];
+      setError(errorMessage);
+      setErrorDialogOpen(true);
+      setSubmitLoading(false);
+    }
   };
 
   const handleManualSubmit = async (): Promise<void> => {
     const data = methods.getValues();
-    await submitOrder({ data, manualOrder: true });
+    try {
+      await submitOrder({ data, manualOrder: true });
+    } catch (e) {
+      const sdkError = e as Oystehr.OystehrSdkError;
+      console.log('error creating external lab order1', sdkError.code, sdkError.message);
+      const errorMessages = [sdkError.message || 'There was an error submitting the lab order'];
+      if (sdkError.message === ORDER_SUBMITTED_MESSAGE) {
+        errorMessages.push('please refresh this page');
+      }
+      setManualSubmitError(errorMessages);
+      setSubmitLoading(false);
+    }
   };
 
   return (
@@ -188,9 +206,13 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
           confirmLoading={submitLoading}
           handleConfirm={() => handleManualSubmit()}
           confirmText="Manually submit lab order"
-          handleClose={() => setErrorDialogOpen(false)}
+          handleClose={() => {
+            setErrorDialogOpen(false);
+            setManualSubmitError(undefined);
+          }}
           title="Error submitting lab order"
           description={error?.join(',') || 'Error submitting lab order'}
+          error={manualSubmitError?.join(', ')}
           closeButtonText="cancel"
         />
       </form>

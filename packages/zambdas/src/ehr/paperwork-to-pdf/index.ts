@@ -7,19 +7,25 @@ import {
   EXPORTED_QUESTIONNAIRE_CODE,
   findExistingListByDocumentTypeCode,
   getSecret,
+  PAPERWORK_PDF_ATTACHMENT_TITLE,
+  PAPERWORK_PDF_BASE_NAME,
   replaceOperation,
   Secrets,
   SecretsKeys,
 } from 'utils';
 import {
+  checkOrCreateM2MClientToken,
   createOystehrClient,
+  createPresignedUrl,
   getAuth0Token,
   topLevelCatch,
+  uploadObjectToZ3,
   validateJsonBody,
   validateString,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
+import { makeZ3Url } from '../../shared/presigned-file-urls';
 import { createDocument } from './document';
 import { generatePdf } from './draw';
 
@@ -34,10 +40,14 @@ const BUCKET_PAPERWORK_PDF = 'exported-questionnaires';
 
 let oystehrToken: string;
 
+// Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
+let m2mToken: string;
+
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const { questionnaireResponseId, documentReference: documentReferenceBase, secrets } = validateInput(input);
     const oystehr = await createOystehr(secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const questionnaireResponse = await oystehr.fhir.get<QuestionnaireResponse>({
       resourceType: 'QuestionnaireResponse',
       id: questionnaireResponseId,
@@ -46,19 +56,31 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const document = await createDocument(questionnaireResponse, oystehr);
     const pdfDocument = await generatePdf(document);
 
-    const projectId = getSecret(SecretsKeys.PROJECT_ID, secrets);
-    const z3Bucket = projectId + '-' + BUCKET_PAPERWORK_PDF;
-    await createZ3Bucket(z3Bucket, oystehr);
-
     const timestamp = DateTime.now().toUTC().toFormat('yyyy-MM-dd-x');
-    const pdfFilePath = `${document.patientInfo.id}/${questionnaireResponse.id}-${questionnaireResponse.meta?.versionId}-${timestamp}.pdf`;
-    await oystehr.z3.uploadFile({
-      bucketName: z3Bucket,
-      'objectPath+': pdfFilePath,
-      file: new Blob([new Uint8Array(await pdfDocument.save())]),
+    const fileName = `${PAPERWORK_PDF_BASE_NAME}-${questionnaireResponse.id}-${questionnaireResponse.meta?.versionId}-${timestamp}.pdf`;
+
+    const baseFileUrl = makeZ3Url({
+      secrets,
+      fileName,
+      bucketName: BUCKET_PAPERWORK_PDF,
+      patientID: document.patientInfo.id,
     });
 
-    const projectApi = getSecret(SecretsKeys.PROJECT_API, secrets);
+    console.log('Uploading file to bucket, ', BUCKET_PAPERWORK_PDF);
+
+    let presignedUrl;
+    try {
+      presignedUrl = await createPresignedUrl(m2mToken, baseFileUrl, 'upload');
+      await uploadObjectToZ3(new Uint8Array(await pdfDocument.save()), presignedUrl);
+    } catch (error: any) {
+      throw new Error(`failed uploading pdf to z3:  ${JSON.stringify(error.message)}`);
+    }
+
+    if (questionnaireResponse.encounter) {
+      documentReferenceBase.context = {
+        encounter: [questionnaireResponse.encounter],
+      };
+    }
     const documentReference = await oystehr.fhir.create<DocumentReference>({
       ...documentReferenceBase,
       subject: {
@@ -67,9 +89,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       content: [
         {
           attachment: {
-            url: `${projectApi}/z3/${z3Bucket}/${pdfFilePath}`,
+            url: baseFileUrl,
             contentType: 'application/pdf',
-            title: 'Paperwork PDF',
+            title: PAPERWORK_PDF_ATTACHMENT_TITLE,
           },
         },
       ],
@@ -105,17 +127,6 @@ async function createOystehr(secrets: Secrets | null): Promise<Oystehr> {
     oystehrToken = await getAuth0Token(secrets);
   }
   return createOystehrClient(oystehrToken, secrets);
-}
-
-async function createZ3Bucket(z3Bucket: string, oystehr: Oystehr): Promise<void> {
-  await oystehr.z3
-    .createBucket({
-      bucketName: z3Bucket,
-    })
-    .catch((e) => {
-      console.error(`Failed to create bucket "${z3Bucket}"`, e);
-      return Promise.resolve();
-    });
 }
 
 async function addDocumentReferenceToList(documentReference: DocumentReference, oystehr: Oystehr): Promise<void> {

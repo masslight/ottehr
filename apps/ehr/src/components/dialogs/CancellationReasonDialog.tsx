@@ -14,6 +14,7 @@ import {
   Typography,
 } from '@mui/material';
 import { Appointment, Encounter } from 'fhir/r4b';
+import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useState } from 'react';
 import { CancelAppointmentZambdaInput, CancellationReasonOptionsInPerson } from 'utils';
 import { cancelAppointment } from '../../api/api';
@@ -26,6 +27,7 @@ interface CancellationReasonDialogProps {
   appointment: Appointment;
   encounter: Encounter;
   open: boolean;
+  getAndSetResources: ({ logs, notes }: { logs?: boolean; notes?: boolean }) => Promise<void>;
 }
 
 export default function CancellationReasonDialog({
@@ -34,6 +36,7 @@ export default function CancellationReasonDialog({
   appointment,
   encounter,
   open,
+  getAndSetResources,
 }: CancellationReasonDialogProps): ReactElement {
   const { oystehrZambda } = useApiClients();
   const [cancellationReason, setCancellationReason] = useState<CancellationReasonOptionsInPerson | ''>('');
@@ -82,6 +85,12 @@ export default function CancellationReasonDialog({
     } finally {
       if (response && !apiErr) {
         await getResourceBundle();
+        await getAndSetResources({ logs: true }).catch((error: any) => {
+          console.log('error getting activity logs after cancellation', error);
+        });
+        enqueueSnackbar('An error getting updated activity logs. Please try refreshing the page.', {
+          variant: 'error',
+        });
         handleClose();
         setError(false);
       } else {
@@ -93,7 +102,9 @@ export default function CancellationReasonDialog({
 
   const handleChange = (event: SelectChangeEvent<typeof cancellationReason>): void => {
     const value = event.target.value as CancellationReasonOptionsInPerson;
-    value && setCancellationReason && setCancellationReason(value);
+    if (value && setCancellationReason) {
+      setCancellationReason(value);
+    }
   };
 
   const handleDialogClose = (): void => {

@@ -1,6 +1,7 @@
 import { Page, test } from '@playwright/test';
 import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { CssHeader } from 'tests/e2e/page/CssHeader';
 import {
   chooseJson,
   getConsentStepAnswers,
@@ -79,12 +80,6 @@ test.describe('Book appointment', async () => {
     await patientInfoPage.cssHeader().verifyStatus('ready for provider');
   });
 
-  test('Book appointment, click Provider on "Patient info", check statuses', async ({ page }) => {
-    const patientInfoPage = await intakeTestAppointment(page, resourceHandler);
-    await patientInfoPage.cssHeader().clickSwitchStatusButton('provider');
-    await patientInfoPage.cssHeader().verifyStatus('provider');
-  });
-
   test('Book appointment,fill required fields for signing the visit, review and sign progress note', async ({
     page,
   }) => {
@@ -99,7 +94,7 @@ test.describe('Book appointment filling insurances information on payment option
   test.beforeAll(async () => {
     const oystehr = await ResourceHandler.getOystehr();
     const insuranceCarriersOptionsResponse = await oystehr.zambda.execute({
-      id: process.env.GET_ANSWER_OPTIONS_ZAMBDA_ID!,
+      id: 'get-answer-options',
       answerSource: {
         resourceType: 'InsurancePlan',
         query: `status=active&_tag=${INSURANCE_PLAN_PAYER_META_TAG_CODE}`,
@@ -182,13 +177,19 @@ async function intakeTestAppointment(page: Page, resourceHandler: ResourceHandle
   await visitsPage.clickArrivedButton(resourceHandler.appointment.id!);
   await visitsPage.clickInOfficeTab();
   await visitsPage.clickIntakeButton(resourceHandler.appointment.id!);
+  const cssHeader = new CssHeader(page);
+  await cssHeader.selectIntakePractitioner();
+  await cssHeader.selectProviderPractitioner();
   return await expectPatientInfoPage(resourceHandler.appointment.id!, page);
 }
 
 async function BookAppointmentFillInfoSignProgressNote(page: Page, resourceHandler: ResourceHandler): Promise<void> {
   await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
   const patientInfoPage = await intakeTestAppointment(page, resourceHandler);
-  await patientInfoPage.cssHeader().clickSwitchStatusButton('provider');
+  await patientInfoPage.sideMenu().clickCompleteIntakeButton();
+  await patientInfoPage.cssHeader().verifyStatus('ready for provider');
+  await patientInfoPage.cssHeader().clickSwitchModeButton('provider');
+  await patientInfoPage.cssHeader().changeStatus('provider');
   const progressNotePage = await expectInPersonProgressNotePage(page);
   await progressNotePage.verifyReviewAndSignButtonDisabled();
   await patientInfoPage.sideMenu().clickAssessment();

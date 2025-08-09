@@ -20,6 +20,8 @@ export const PatientAvatar: FC<Props> = ({ id, sx }) => {
   }, [patient?.photo]);
 
   useGetSignedPatientProfilePhotoUrlQuery(patientPhoto, (profilePhotoResponse) => {
+    if (!profilePhotoResponse) return;
+
     const { presignedImageUrl } = profilePhotoResponse;
     setProfilePhotoUrl(presignedImageUrl);
   });
