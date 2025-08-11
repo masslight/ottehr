@@ -169,7 +169,7 @@ class EmailClient {
     template: T,
     templateData: DynamicTemplateDataRecord<T>
   ): Promise<void> {
-    const defaultBCCAndLowersEmail = `${BRANDING_CONFIG.projectName}-support@masslight.com`;
+    const defaultBCCAndLowersEmail = 'uk-support@masslight.com';
     const { templateIdSecretName, subject: templateSubject } = template;
     const SENDGRID_EMAIL_BCC = [defaultBCCAndLowersEmail];
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, this.secrets);
