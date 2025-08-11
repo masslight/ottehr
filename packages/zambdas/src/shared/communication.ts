@@ -176,7 +176,7 @@ class EmailClient {
     const subject = `${environmentSubjectPrepend}${templateSubject}`;
     const templateId = getSecret(templateIdSecretName, this.secrets);
 
-    const from = this.config.from;
+    const { email: fromEmail, name: fromName } = this.config.from;
     const replyTo = this.config.replyTo;
 
     const { email: baseEmail, projectName, projectDomain } = BRANDING_CONFIG;
@@ -193,7 +193,10 @@ class EmailClient {
     };
     const emailConfiguration = {
       to,
-      from,
+      from: {
+        email: fromEmail,
+        name: fromName,
+      },
       bcc: SENDGRID_EMAIL_BCC,
       replyTo,
       templateId,
@@ -204,7 +207,6 @@ class EmailClient {
           email,
           projectName,
           projectDomain,
-          supportPhoneNumber,
         },
       },
     };
@@ -215,6 +217,8 @@ class EmailClient {
       console.log('Email sending is disabled');
       console.log('Email input being swallowed: ', JSON.stringify(emailConfiguration, null, 2));
       return;
+    } else {
+      JSON.stringify(emailConfiguration, null, 2);
     }
 
     try {

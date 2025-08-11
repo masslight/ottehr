@@ -26,7 +26,7 @@ const BRANDING_DEFAULTS: any = {
   },*/
 };
 
-const mergedBrandingConfig = _.merge(BRANDING_DEFAULTS, overrides);
+const mergedBrandingConfig = _.merge({ ...BRANDING_DEFAULTS }, { ...overrides });
 
 const BrandingConfigSchema = z.object({
   projectName: z.string().min(1, { message: 'Project name cannot be empty' }),

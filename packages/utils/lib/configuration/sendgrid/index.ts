@@ -107,8 +107,8 @@ const SENDGRID_DEFAULTS = Object.freeze({
 
 const overrides: any = OVERRIDES.sendgrid || {};
 
-const mergedSendgridConfig = _.merge(SENDGRID_DEFAULTS, overrides);
-console.log('Merged SendGrid config:', mergedSendgridConfig);
+const mergedSendgridConfig = _.merge({ ...SENDGRID_DEFAULTS }, { ...overrides });
+// console.log('Merged SendGrid config:', mergedSendgridConfig);
 
 const EmailFromSchema = z.object({
   email: z.string().email(),
@@ -135,31 +135,6 @@ const TemplateVersionSchema = z.object({
   subject: z.string().min(1, { message: 'Subject cannot be empty' }),
   dynamicTemplateData: z.array(z.string()).default([]).optional(),
 });
-
-/*
-  import { z } from 'zod';
-
-// 1. Define the Zod schema for an array of strings
-const listOfNamesSchema = z.array(z.string());
-
-// 2. Infer the TypeScript type from the schema
-type NamesList = z.infer<typeof listOfNamesSchema>;
-
-// Now, NamesList will be inferred as `string[]`
-
-// You can use this type for type-checking:
-const myNames: NamesList = ["Alice", "Bob", "Charlie"]; // This is valid
-// const invalidNames: NamesList = ["David", 123]; // This would cause a type error
-
-const colorSchema = z.enum(["red", "green", "blue"]); // Define a schema with allowed color strings
-type ColorType = z.infer<typeof colorSchema>; // Inferred type: "red" | "green" | "blue"
-
-const colorArraySchema = z.array(colorSchema);
-type ColorArrayType = z.infer<typeof colorArraySchema>;
-
-const StringListSchema = z.array(z.string());
-type DynamicTemplateDataList = z.infer<typeof StringListSchema>;
-*/
 
 const ErrorReportSchema = TemplateVersionSchema.extend({
   templateIdSecretName: z.literal('SENDGRID_ERROR_REPORT_TEMPLATE_ID'),
