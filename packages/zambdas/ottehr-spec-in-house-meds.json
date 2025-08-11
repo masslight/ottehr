@@ -1,0 +1,1302 @@
+{
+  "in-house-med-ondansetron-solution": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Ondansetron (Solution)"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "54838-555-50"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "8335"
+        }
+      ]
+    }
+  },
+  "in-house-med-ketorolac": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Ketorolac"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "00338-0072-25"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "7271"
+        }
+      ]
+    }
+  },
+  "in-house-med-ibuprofen-tabs": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Ibuprofen (Tabs)"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "0113-0604-90"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "3784"
+        }
+      ]
+    }
+  },
+  "in-house-med-dexamethasone": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Dexamethasone"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "00641-0367-21"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "25582"
+        }
+      ]
+    }
+  },
+  "in-house-med-ventolin-hfa": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Ventolin HFA"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "0173-0682-24"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "38526"
+        }
+      ]
+    }
+  },
+  "in-house-med-glycerin-infant": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Glycerin (Infant)"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "58980-409-12"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "8432"
+        }
+      ]
+    }
+  },
+  "in-house-med-ibuprofen-liquid": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Ibuprofen (Liquid)"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "51672-2130-8"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "3695"
+        }
+      ]
+    }
+  },
+  "in-house-med-diphenhydramine-liquid": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Diphenhydramine (Liquid)"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "57237-317-05"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "27640"
+        }
+      ]
+    }
+  },
+  "in-house-med-albuterol": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Albuterol"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "0487-9501-25"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "29518"
+        }
+      ]
+    }
+  },
+  "in-house-med-epinephrine-1mgml": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Epinephrine (1mg/mL)"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "42023-159-01"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "29233"
+        }
+      ]
+    }
+  },
+  "in-house-med-magnesiumaluminumsimethicone-gerilanta": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Magnesium/Aluminum/Simethicone (Gerilanta)"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "57896-629-12"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "20352"
+        }
+      ]
+    }
+  },
+  "in-house-med-azithromycin-liquid": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Azithromycin (Liquid)"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "59762-3140-1"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "5675"
+        }
+      ]
+    }
+  },
+  "in-house-med-ipratropium-albuterol": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Ipratropium-Albuterol"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "76204-600-30"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "31529"
+        }
+      ]
+    }
+  },
+  "in-house-med-sulfamethoxazole-trimethoprim-susp": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Sulfamethoxazole-Trimethoprim (Susp)"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "0121-0854-16"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "28085"
+        }
+      ]
+    }
+  },
+  "in-house-med-acetaminophen-325mg-suppository": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Acetaminophen (325mg Suppository)"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "51672-2116-2"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "23564"
+        }
+      ]
+    }
+  },
+  "in-house-med-clindamycin": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Clindamycin"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "63304-692-01"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "1447"
+        }
+      ]
+    }
+  },
+  "in-house-med-sodium-chloride-ns-500ml": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Sodium Chloride (NS 500mL)"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "17271-701-06"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "17134"
+        }
+      ]
+    }
+  },
+  "in-house-med-cephalexin": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Cephalexin"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "67877-545-88"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "24460"
+        }
+      ]
+    }
+  },
+  "in-house-med-cefdinir": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Cefdinir"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "00093-4137-64"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "10052"
+        }
+      ]
+    }
+  },
+  "in-house-med-amoxicillin-clavulanate": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Amoxicillin Clavulanate"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "65862-535-75"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "22329"
+        }
+      ]
+    }
+  },
+  "in-house-med-phenylephrine": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Phenylephrine"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "37808-728-30"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "1112"
+        }
+      ]
+    }
+  },
+  "in-house-med-fluorescein-strips": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Fluorescein (Strips)"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "17238-900-11"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "2016"
+        }
+      ]
+    }
+  },
+  "in-house-med-ceftriaxone": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Ceftriaxone"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "60505-6148-0"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "30900"
+        }
+      ]
+    }
+  },
+  "in-house-med-acetaminophen-80mg-suppository": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Acetaminophen (80mg Suppository)"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "51672-2114-2"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "23565"
+        }
+      ]
+    }
+  },
+  "in-house-med-tetanus-diphtheria-pertussis-vaccine": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Tetanus-Diphtheria-Pertussis Vaccine"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "49281-400-20"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "32367"
+        }
+      ]
+    }
+  },
+  "in-house-med-silver-nitrate-stick": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Silver Nitrate stick"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "0404-1000-03"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "77520"
+        }
+      ]
+    }
+  },
+  "in-house-med-diphenhydramine-im": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Diphenhydramine (IM)"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "00641-0376-21"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "28533"
+        }
+      ]
+    }
+  },
+  "in-house-med-glycerin-suppository-pediatrics": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Glycerin Suppository (Pediatrics)"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "49781-0080-25"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "10251"
+        }
+      ]
+    }
+  },
+  "in-house-med-sodium-phosphate-fleet-pediatric-enema-pr": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Sodium Phosphate (Fleet) (Pediatric) Enema PR"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "00132-0119-46"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "22481"
+        }
+      ]
+    }
+  },
+  "in-house-med-acetaminophen-liquid": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Acetaminophen (Liquid)"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "50580-170-01"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "23562"
+        }
+      ]
+    }
+  },
+  "in-house-med-racemic-epinephrine": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Racemic Epinephrine"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "0487-5901-99"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "21383"
+        }
+      ]
+    }
+  },
+  "in-house-med-prednisone": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Prednisone"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "0591-5443-01"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "8051"
+        }
+      ]
+    }
+  },
+  "in-house-med-docusate-sodium": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Docusate Sodium"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "00121-0935-05"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "29722"
+        }
+      ]
+    }
+  },
+  "in-house-med-glucose-glutose15": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Glucose (Glutose15)"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "0574-0069-15"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "8601"
+        }
+      ]
+    }
+  },
+  "in-house-med-acetaminophen-tabs": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Acetaminophen (Tabs)"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "71399-8024-1"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "23170"
+        }
+      ]
+    }
+  },
+  "in-house-med-diphenhydramine-caps": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Diphenhydramine (Caps)"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "00185-0648-01"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "27641"
+        }
+      ]
+    }
+  },
+  "in-house-med-lidocaine-viscous": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Lidocaine (Viscous)"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "0054-3500-49"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "34978"
+        }
+      ]
+    }
+  },
+  "in-house-med-activated-charcoal": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Activated Charcoal"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "66689-203-04"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "32034"
+        }
+      ]
+    }
+  },
+  "in-house-med-fluorescein-sterile-dropper": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Fluorescein (Sterile Dropper)"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "59390-218-05"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "2017"
+        }
+      ]
+    }
+  },
+  "in-house-med-lidocaine-cream-lmx": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Lidocaine cream (LMX)"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "0496-0882-30"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "3757"
+        }
+      ]
+    }
+  },
+  "in-house-med-cetirizine-tabs": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Cetirizine (Tabs)"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "43598-811-12"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "15066"
+        }
+      ]
+    }
+  },
+  "in-house-med-glucose-d10-500ml": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Glucose (D10 500mL)"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "0264-7520-10"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "25596"
+        }
+      ]
+    }
+  },
+  "in-house-med-ondansetron-odt": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Ondansetron (ODT)"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "68462-157-13"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "38750"
+        }
+      ]
+    }
+  },
+  "in-house-med-amoxicillin": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Amoxicillin"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "0143-9887-01"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "34220"
+        }
+      ]
+    }
+  },
+  "in-house-med-azithromycin-tabs": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Azithromycin (Tabs)"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "65862-641-69"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "16811"
+        }
+      ]
+    }
+  },
+  "in-house-med-lidocaine-let": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Lidocaine (LET)"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "51552-1345-1"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "3757"
+        }
+      ]
+    }
+  },
+  "in-house-med-midazolam": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Midazolam"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "00641-6063-25"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "10764"
+        }
+      ]
+    }
+  },
+  "in-house-med-cetirizine-liquid": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Cetirizine (Liquid)"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "50580-730-05"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "15065"
+        }
+      ]
+    }
+  },
+  "in-house-med-sulfamethoxazole-trimethoprim-tabs": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Sulfamethoxazole-Trimethoprim (Tabs)"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "57237-232-01"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "35643"
+        }
+      ]
+    }
+  },
+  "in-house-med-acetaminophen-120mg-suppository": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Acetaminophen (120mg Suppository)"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "45802-732-30"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "21887"
+        }
+      ]
+    }
+  },
+  "in-house-med-ibuprofen-chew": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Ibuprofen (Chew)"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "70000-0239-1"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "3345"
+        }
+      ]
+    }
+  },
+  "in-house-med-sodium-phosphate-fleet-adult-enema-pr": {
+    "resourceType": "Medication",
+    "identifier": [
+      {
+        "system": "virtual-medication-type",
+        "value": "virtual-medication-inventory"
+      },
+      {
+        "system": "virtual-medication-identifier-name-system",
+        "value": "Sodium Phosphate (Fleet) (Adult) Enema PR"
+      }
+    ],
+    "code": {
+      "coding": [
+        {
+          "system": "http://hl7.org/fhir/sid/ndc",
+          "code": "00132-0202-20"
+        },
+        {
+          "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+          "code": "23832"
+        }
+      ]
+    }
+  }
+}
