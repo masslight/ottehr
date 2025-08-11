@@ -22,7 +22,7 @@ const SENDGRID_DEFAULTS = Object.freeze({
       templateVersionName: '1.0.0',
       active: true,
       htmlFilePath: `${PATH_PREFIX}/configuration/sendgrid/template_html/in-person-cancelation.html`,
-      subject: 'Visit canceled', // done
+      subject: '{{env}}Visit canceled', // done
       templateIdSecretName: 'SENDGRID_IN_PERSON_CANCELATION_TEMPLATE_ID',
       dynamicTemplateData: ['location', 'time', 'address', 'book-again-url', 'address-url'],
     },
@@ -31,7 +31,7 @@ const SENDGRID_DEFAULTS = Object.freeze({
       templateVersionName: '1.0.0',
       active: true,
       htmlFilePath: `${PATH_PREFIX}/configuration/sendgrid/template_html/in-person-confirmation.html`,
-      subject: 'Visit confirmed on {{{time}}}', // done
+      subject: '{{env}}Visit confirmed on {{{time}}}', // done
       templateIdSecretName: 'SENDGRID_IN_PERSON_CONFIRMATION_TEMPLATE_ID',
       dynamicTemplateData: [
         'location',
@@ -48,7 +48,7 @@ const SENDGRID_DEFAULTS = Object.freeze({
       templateVersionName: '1.0.0',
       active: true,
       htmlFilePath: `${PATH_PREFIX}/configuration/sendgrid/template_html/in-person-completion.html`,
-      subject: 'Visit completed. See visit note', // done
+      subject: '{{env}}Visit completed. See visit note', // done
       templateIdSecretName: 'SENDGRID_IN_PERSON_COMPLETION_TEMPLATE_ID',
       dynamicTemplateData: ['location', 'time', 'address', 'visit-note-url', 'address-url'],
     },
@@ -57,7 +57,7 @@ const SENDGRID_DEFAULTS = Object.freeze({
       templateVersionName: '1.0.0',
       active: true,
       htmlFilePath: `${PATH_PREFIX}/configuration/sendgrid/template_html/in-person-reminder.html`,
-      subject: 'Upcoming visit on {{{time}}}', // done
+      subject: '{{env}}Upcoming visit on {{{time}}}', // done
       templateIdSecretName: 'SENDGRID_IN_PERSON_REMINDER_TEMPLATE_ID',
       dynamicTemplateData: [
         'location',
@@ -74,7 +74,7 @@ const SENDGRID_DEFAULTS = Object.freeze({
       templateVersionName: '1.0.0',
       active: true,
       htmlFilePath: `${PATH_PREFIX}/configuration/sendgrid/template_html/telemed-cancelation.html`,
-      subject: 'Visit canceled', // done
+      subject: '{{env}}Visit canceled', // done
       templateIdSecretName: 'SENDGRID_TELEMED_CANCELATION_TEMPLATE_ID',
       dynamicTemplateData: ['location', 'book-again-url'],
     },
@@ -83,7 +83,7 @@ const SENDGRID_DEFAULTS = Object.freeze({
       templateVersionName: '1.0.0',
       active: true,
       htmlFilePath: `${PATH_PREFIX}/configuration/sendgrid/template_html/telemed-confirmation.html`,
-      subject: 'Join virtual visit', // done
+      subject: '{{env}}Join virtual visit', // done
       templateIdSecretName: 'SENDGRID_TELEMED_CONFIRMATION_TEMPLATE_ID',
       dynamicTemplateData: ['location', 'join-visit-url', 'cancel-visit-url', 'paperwork-url'],
     },
@@ -92,7 +92,7 @@ const SENDGRID_DEFAULTS = Object.freeze({
       templateVersionName: '1.0.0',
       active: true,
       htmlFilePath: `${PATH_PREFIX}/configuration/sendgrid/template_html/telemed-completion.html`,
-      subject: 'Visit completed. See visit note', // done
+      subject: '{{env}}Visit completed. See visit note', // done
       templateIdSecretName: 'SENDGRID_TELEMED_COMPLETION_TEMPLATE_ID',
       dynamicTemplateData: ['location', 'visit-note-url'],
     },
@@ -101,7 +101,7 @@ const SENDGRID_DEFAULTS = Object.freeze({
       templateVersionName: '1.0.0',
       active: true,
       htmlFilePath: `${PATH_PREFIX}/configuration/sendgrid/template_html/telemed-invitation.html`,
-      subject: 'Join virtual visit with {{patient-name}}', // done
+      subject: '{{env}}Join virtual visit with {{patient-name}}', // done
       templateIdSecretName: 'SENDGRID_TELEMED_INVITATION_TEMPLATE_ID',
       dynamicTemplateData: ['patient-name', 'join-visit-url'],
     },

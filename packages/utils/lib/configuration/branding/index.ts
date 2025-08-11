@@ -14,7 +14,7 @@ const BRANDING_DEFAULTS: any = {
       footerText: '#212130',
       buttonColor: '#295F75',
     },
-    sender: 'ottehr@masslight.com',
+    sender: 'ottehr-support@masslight.com',
   },
   /*
   palette: {
