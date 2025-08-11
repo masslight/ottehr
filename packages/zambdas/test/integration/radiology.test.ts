@@ -1,7 +1,6 @@
 import Oystehr from '@oystehr/sdk';
-import { DomainResource, Encounter, Practitioner } from 'fhir/r4b';
+import { DomainResource, Encounter, Patient, Practitioner } from 'fhir/r4b';
 import { CreateRadiologyZambdaOrderInput, CreateRadiologyZambdaOrderOutput, RoleType } from 'utils';
-import { v4 as uuidV4 } from 'uuid';
 import { inject } from 'vitest';
 import { getAuth0Token } from '../../src/shared';
 import { SECRETS } from '../data/secrets';
@@ -57,11 +56,18 @@ describe.only('radiology integration tests', () => {
 
     console.log('alex me', await oystehr.m2m.me());
 
+    const patient = await oystehr.fhir.create<Patient>({
+      resourceType: 'Patient',
+      name: [{ given: ['Test'], family: 'Patient' }],
+      birthDate: '2000-01-01',
+      gender: 'female',
+    });
+
     encounter = await oystehr.fhir.create<Encounter>({
       resourceType: 'Encounter',
       status: 'in-progress',
       class: { code: 'AMB' },
-      subject: { reference: `Patient/${uuidV4()}` },
+      subject: { reference: `Patient/${patient.id}` },
     });
     resourcesToCleanup.push(encounter);
     expect(encounter).toBeDefined();
@@ -106,7 +112,7 @@ describe.only('radiology integration tests', () => {
         orderOutput = error as Error;
       }
       expect(orderOutput).toBeDefined();
-      expect(orderOutput.code).toEqual(500);
+      expect(orderOutput).toEqual(200);
     });
   });
 });
