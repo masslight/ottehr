@@ -165,7 +165,7 @@ class EmailClient {
   }
 
   private async sendEmail<T extends EmailTemplate>(
-    to: string,
+    to: string | string[],
     template: T,
     templateData: DynamicTemplateDataRecord<T>
   ): Promise<void> {
@@ -244,48 +244,61 @@ class EmailClient {
     }
   }
 
+  async sendErrorEmail(
+    to: string | string[],
+    templateData: DynamicTemplateDataRecord<typeof this.config.templates.errorReport>
+  ): Promise<void> {
+    const recipients = typeof to === 'string' ? [to] : [...to];
+
+    if (!recipients.includes('ottehr-support@masslight.com')) {
+      recipients.push('ottehr-support@masslight.com');
+    }
+
+    await this.sendEmail(recipients, this.config.templates.errorReport, templateData);
+  }
+
   async sendVirtualConfirmationEmail(
-    to: string,
+    to: string | string[],
     templateData: DynamicTemplateDataRecord<typeof this.config.templates.telemedConfirmation>
   ): Promise<void> {
     await this.sendEmail(to, this.config.templates.telemedConfirmation, templateData);
   }
 
   async sendVirtualCancelationEmail(
-    to: string,
+    to: string | string[],
     templateData: DynamicTemplateDataRecord<typeof this.config.templates.telemedCancelation>
   ): Promise<void> {
     await this.sendEmail(to, this.config.templates.telemedCancelation, templateData);
   }
 
   async sendVirtualCompletionEmail(
-    to: string,
+    to: string | string[],
     templateData: DynamicTemplateDataRecord<typeof this.config.templates.telemedCompletion>
   ): Promise<void> {
     await this.sendEmail(to, this.config.templates.telemedCompletion, templateData);
   }
 
   async sendVideoChatInvitationEmail(
-    to: string,
+    to: string | string[],
     templateData: DynamicTemplateDataRecord<typeof this.config.templates.telemedInvitation>
   ): Promise<void> {
     await this.sendEmail(to, this.config.templates.telemedInvitation, templateData);
   }
 
   async sendInPersonConfirmationEmail(
-    to: string,
+    to: string | string[],
     templateData: DynamicTemplateDataRecord<typeof this.config.templates.inPersonConfirmation>
   ): Promise<void> {
     await this.sendEmail(to, this.config.templates.inPersonConfirmation, templateData);
   }
   async sendInPersonCancelationEmail(
-    to: string,
+    to: string | string[],
     templateData: DynamicTemplateDataRecord<typeof this.config.templates.inPersonCancelation>
   ): Promise<void> {
     await this.sendEmail(to, this.config.templates.inPersonCancelation, templateData);
   }
   async sendInPersonCompletionEmail(
-    to: string,
+    to: string | string[],
     templateData: DynamicTemplateDataRecord<typeof this.config.templates.inPersonCompletion>
   ): Promise<void> {
     const template = this.config.templates.inPersonCompletion;
@@ -293,7 +306,7 @@ class EmailClient {
   }
 
   async sendInPersonReminderEmail(
-    email: string,
+    email: string | string[],
     templateData: DynamicTemplateDataRecord<typeof this.config.templates.inPersonReminder>
   ): Promise<void> {
     const template = this.config.templates.inPersonReminder;
