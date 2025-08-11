@@ -111,3 +111,18 @@ export interface OrdersForTrackingBoardRow {
   inHouseMedications: ExtendedMedicationDataForResponse[] | undefined;
   radiologyOrders: GetRadiologyOrderListZambdaOrder[] | undefined;
 }
+
+export interface CreateImmunizationOrderInput {
+  encounterId: string;
+  medicationId: string;
+  dose: number;
+  units: string;
+  orderedProviderId: string;
+  route?: string;
+  location?: string;
+  instructions?: string;
+}
+
+export interface UpdateImmunizationOrderInput extends CreateImmunizationOrderInput {
+  orderId: string;
+}
