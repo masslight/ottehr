@@ -52,3 +52,7 @@ export function getOrderNumber(sr: ServiceRequest): string | undefined {
 export function getAccountNumberFromOrganization(org: Organization): string | undefined {
   return org.identifier?.find((identifier) => identifier.system === LAB_ACCOUNT_NUMBER_SYSTEM)?.value;
 }
+
+export async function openPdf(url: string): Promise<void> {
+  window.open(url, '_blank');
+}

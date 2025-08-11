@@ -1,6 +1,6 @@
 import { Button, Grid } from '@mui/material';
 import React from 'react';
-import { openPdf } from './OrderCollection';
+import { openPdf } from 'utils';
 interface OrderInfoProps {
   labelPdfUrl: string | undefined;
   orderPdfUrl: string | undefined;

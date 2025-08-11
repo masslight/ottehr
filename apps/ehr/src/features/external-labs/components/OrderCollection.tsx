@@ -4,7 +4,7 @@ import Oystehr from '@oystehr/sdk';
 import React, { useMemo, useState } from 'react';
 import { FormProvider, SubmitHandler, useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { DynamicAOEInput, ExternalLabsStatus, LabOrderDetailedPageDTO, LabQuestionnaireResponse } from 'utils';
+import { DynamicAOEInput, ExternalLabsStatus, LabOrderDetailedPageDTO, LabQuestionnaireResponse, openPdf } from 'utils';
 import { updateLabOrderResources } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { AOECard } from './AOECard';
@@ -17,10 +17,6 @@ interface SampleCollectionProps {
   showActionButtons?: boolean;
   showOrderInfo?: boolean;
   isAOECollapsed?: boolean;
-}
-
-export async function openPdf(url: string): Promise<void> {
-  window.open(url, '_blank');
 }
 
 export const OrderCollection: React.FC<SampleCollectionProps> = ({
@@ -123,12 +119,10 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
             <Box sx={{ marginTop: showAOECard ? 2 : 0 }} key={`sample-card-${sample.specimen.id}`}>
               <SampleCollectionInstructionsCard
                 sample={sample}
-                serviceRequestId={labOrder.serviceRequestId}
                 timezone={labOrder.encounterTimezone}
                 setSpecimenData={(specimenId: string, date: string) =>
                   setSpecimensData((prev) => ({ ...prev, [specimenId]: { date } }))
                 }
-                printLabelVisible={orderStatus === 'sent'}
                 isDateEditable={orderStatus === 'pending'}
               />
             </Box>

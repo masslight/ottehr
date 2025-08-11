@@ -422,7 +422,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       }
     }
 
-    // todo SARAH fix bug here related to line break within earlier columns
+    // theres a bug here related to line break within earlier columns
     columns.forEach((col) => {
       console.log(`\n\n>>>Drawing column for ${JSON.stringify({ ...col, textStyle: undefined })}`);
       // if a new page got added on a previous column, we need the next column to go back to the previous page

@@ -1,10 +1,15 @@
+import { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Operation } from 'fast-json-patch';
+import { FhirResource, Provenance, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   APIError,
   EXTERNAL_LAB_ERROR,
+  getPatchBinary,
   getSecret,
   isApiError,
+  MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING,
   OYSTEHR_SUBMIT_LAB_API,
   SecretsKeys,
   SubmitLabOrderOutput,
@@ -78,40 +83,42 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     // submit successful, do the fhir provenance writes
-    const provenancePostRequests = Object.values(bundledOrdersByAccountNumber).flatMap((resources) => {
-      return resources.testDetails.map((test) =>
-        makeProvenanceResourceRequest(now, test.serviceRequestID, currentUser)
-      );
-    });
+    const provenancePostRequests: BatchInputRequest<Provenance>[] = [];
+    const serviceRequestPatchRequest: BatchInputRequest<ServiceRequest>[] = [];
 
-    // todo SARAH add this back somehow
-    // if (manualOrder) {
-    //   requests.push(
-    //     getPatchBinary({
-    //       resourceType: 'ServiceRequest',
-    //       resourceId: serviceRequest.id || 'unknown',
-    //       patchOperations: [
-    //         {
-    //           op: 'replace',
-    //           path: '/status',
-    //           value: 'active',
-    //         },
-    //         {
-    //           op: 'add',
-    //           path: serviceRequest?.category ? '/category/-' : '/category',
-    //           value: serviceRequest?.category
-    //             ? { coding: MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING }
-    //             : [{ coding: MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING }],
-    //         },
-    //       ],
-    //     })
-    //   );
-    // }
+    Object.values(bundledOrdersByAccountNumber).forEach((resources) => {
+      resources.testDetails.forEach((test) => {
+        provenancePostRequests.push(makeProvenanceResourceRequest(now, test.serviceRequestID, currentUser));
+
+        const serviceRequestPatchOps: Operation[] = [
+          {
+            op: 'replace',
+            path: '/status',
+            value: 'active',
+          },
+        ];
+        if (manualOrder) {
+          serviceRequestPatchOps.push({
+            op: 'add',
+            path: test.serviceRequest?.category ? '/category/-' : '/category',
+            value: test.serviceRequest?.category
+              ? { coding: MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING }
+              : [{ coding: MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING }],
+          });
+        }
+        serviceRequestPatchRequest.push(
+          getPatchBinary({
+            resourceType: 'ServiceRequest',
+            resourceId: test.serviceRequestID,
+            patchOperations: serviceRequestPatchOps,
+          })
+        );
+      });
+    });
 
     console.log('making fhir transaction requests');
-    await oystehr?.fhir.transaction({
-      requests: provenancePostRequests,
-    });
+    const requests: BatchInputRequest<FhirResource>[] = [...provenancePostRequests, ...serviceRequestPatchRequest];
+    await oystehr?.fhir.transaction({ requests });
 
     const orderPdfUrls = await makeOrderFormsAndDocRefs(bundledOrdersByAccountNumber, now, secrets, m2mToken, oystehr);
 

@@ -5,6 +5,7 @@ import {
   Appointment,
   Bundle,
   BundleEntry,
+  Coding,
   DiagnosticReport,
   DocumentReference,
   Encounter,
@@ -44,6 +45,7 @@ import {
   LabOrderPDF,
   LabOrderResultDetails,
   LabOrdersSearchBy,
+  LabOrderUnreceivedHistoryRow,
   LabResultPDF,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   Pagination,
@@ -1565,10 +1567,18 @@ export const parseLabOrdersHistory = (
 
   if (orderStatus === ExternalLabsStatus.pending) return history;
 
-  history.push(...parsePstTaskCompleteHistory(practitioners, provenances));
+  history.push(
+    ...parseProvenancesForHistory(
+      'ready',
+      PROVENANCE_ACTIVITY_CODING_ENTITY.completePstTask,
+      practitioners,
+      provenances
+    )
+  );
 
-  // todo SARAH replace this with logic to parse submitted history
-  // history.push(...parseSubmittedHistory(taskPST, practitioners, provenances));
+  history.push(
+    ...parseProvenancesForHistory('ordered', PROVENANCE_ACTIVITY_CODING_ENTITY.submit, practitioners, provenances)
+  );
 
   const isPSC = parseIsPSC(serviceRequest);
   const pushPerformedHistory = (specimen: Specimen): void => {
@@ -1639,27 +1649,27 @@ export const parseAccountNumber = (serviceRequest: ServiceRequest, organizations
   return NOT_FOUND;
 };
 
-export const parsePstTaskCompleteHistory = (
+export const parseProvenancesForHistory = (
+  historyAction: LabOrderUnreceivedHistoryRow['action'],
+  activityCoding: Coding,
   practitioners: Practitioner[],
   provenances: Provenance[]
 ): LabOrderHistoryRow[] => {
-  const completePstTaskProvenance = provenances.find(
+  const relatedProvenance = provenances.find(
     (provenance) =>
       provenance.activity?.coding?.some(
-        (code) =>
-          code.code === PROVENANCE_ACTIVITY_CODING_ENTITY.completePstTask.code &&
-          code.system === PROVENANCE_ACTIVITY_CODING_ENTITY.completePstTask.system
+        (code) => code.code === activityCoding.code && code.system === activityCoding.system
       )
   );
-  if (!completePstTaskProvenance) return [];
-  const pstTaskCompletedBy = parseReviewerNameFromProvenance(completePstTaskProvenance, practitioners);
-  const date = completePstTaskProvenance.recorded;
-  const pstCompletedHistory: LabOrderHistoryRow = {
-    action: 'ready',
+  if (!relatedProvenance) return [];
+  const pstTaskCompletedBy = parseReviewerNameFromProvenance(relatedProvenance, practitioners);
+  const date = relatedProvenance.recorded;
+  const historyRow: LabOrderHistoryRow = {
+    action: historyAction,
     performer: pstTaskCompletedBy,
     date,
   };
-  return [pstCompletedHistory];
+  return [historyRow];
 };
 
 export const parseTaskReceivedAndReviewedAndCorrectedHistory = (

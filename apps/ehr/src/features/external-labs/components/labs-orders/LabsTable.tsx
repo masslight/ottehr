@@ -21,15 +21,15 @@ import {
 import { DatePicker } from '@mui/x-date-pickers';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
+import Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
 import { ReactElement, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { submitLabOrder } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { LabOrderListPageDTO, LabOrdersSearchBy, OrderableItemSearchResult } from 'utils/lib/types/data/labs';
+import { LabOrderDTO, LabOrderListPageDTO, LabOrdersSearchBy, openPdf, OrderableItemSearchResult } from 'utils';
 import { getExternalLabOrderEditUrl } from '../../../css-module/routing/helpers';
 import { LabsAutocompleteForPatient } from '../LabsAutocompleteForPatient';
-import { openPdf } from '../OrderCollection'; // todo SARAH move this somewhere else
 import { LabOrderLoading } from './LabOrderLoading';
 import { LabsTableRow } from './LabsTableRow';
 import { usePatientLabOrders } from './usePatientLabOrders';
@@ -79,26 +79,28 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
     setSearchParams,
     visitDateFilter,
     showPagination,
-    error,
+    error: fetchError,
     showDeleteLabOrderDialog,
     DeleteOrderDialog,
     patientLabItems,
+    fetchLabOrders,
   } = usePatientLabOrders(searchBy);
 
   const [selectedOrderedItem, setSelectedOrderedItem] = useState<OrderableItemSearchResult | null>(null);
   const [tempDateFilter, setTempDateFilter] = useState(visitDateFilter);
   const [submitLoading, setSubmitLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | undefined>();
 
   const { pendingLabs, readyLabs } = labOrders.reduce(
-    (acc, lab) => {
-      if (lab.orderStatus === 'pending') acc.pendingLabs += 1;
-      if (lab.orderStatus === 'ready') acc.readyLabs += 1;
+    (acc: { pendingLabs: LabOrderDTO<SearchBy>[]; readyLabs: LabOrderDTO<SearchBy>[] }, lab) => {
+      if (lab.orderStatus === 'pending') acc.pendingLabs.push(lab);
+      if (lab.orderStatus === 'ready') acc.readyLabs.push(lab);
       return acc;
     },
-    { pendingLabs: 0, readyLabs: 0 }
+    { pendingLabs: [], readyLabs: [] }
   );
-  const showSubmitButton = allowSubmit && readyLabs + pendingLabs > 0;
-  const showSubmitBanner = allowSubmit && readyLabs > 0 && pendingLabs === 0;
+  const showSubmitButton = allowSubmit && readyLabs.length + pendingLabs.length > 0;
+  const showSubmitBanner = allowSubmit && readyLabs.length > 0 && pendingLabs.length === 0;
 
   const submitFilterByDate = (date?: DateTime | null): void => {
     const dateToSet = date || tempDateFilter;
@@ -125,7 +127,8 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
 
   const submitOrders = async (): Promise<void> => {
     if (!oystehr) {
-      // todo SARAH add some kind of error handling
+      console.log('error: oystehr client is missing');
+      setError('error submitting orders');
       return;
     }
 
@@ -134,16 +137,18 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
 
     try {
       const { orderPdfUrls } = await submitLabOrder(oystehr, {
-        serviceRequestIDs: labOrders.map((order) => order.serviceRequestId),
+        serviceRequestIDs: readyLabs.map((order) => order.serviceRequestId),
         manualOrder: false,
       });
       console.log('orderPdfUrls', orderPdfUrls);
       for (const pdfUrl of orderPdfUrls) {
         await openPdf(pdfUrl);
       }
+      await fetchLabOrders(searchBy);
     } catch (e) {
-      // todo SARAH add some kind of error handling
-      console.log('error!', e);
+      const sdkError = e as Oystehr.OystehrSdkError;
+      console.log('error updating collection data and marking as ready', sdkError.code, sdkError.message);
+      setError(sdkError.message);
     }
     setSubmitLoading(false);
   };
@@ -152,11 +157,11 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
     return <LabOrderLoading />;
   }
 
-  if (error) {
+  if (fetchError) {
     return (
       <Paper sx={{ p: 4, textAlign: 'center' }}>
         <Typography color="error" variant="body1" gutterBottom>
-          {error.message || 'Failed to fetch external lab orders. Please try again later.'}
+          {fetchError.message || 'Failed to fetch external lab orders. Please try again later.'}
         </Typography>
         {onCreateOrder && (
           <Button variant="contained" onClick={() => onCreateOrder()} sx={{ mt: 2 }}>
@@ -401,10 +406,15 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
             color="primary"
             size={'medium'}
             onClick={submitOrders}
-            disabled={pendingLabs > 0}
+            disabled={pendingLabs.length > 0}
           >
             Submit & Print Order(s)
           </LoadingButton>
+        </Box>
+      )}
+      {error && (
+        <Box sx={{ textAlign: 'right', paddingTop: 1 }}>
+          <Typography sx={{ color: theme.palette.error.main }}>{error}</Typography>
         </Box>
       )}
     </>

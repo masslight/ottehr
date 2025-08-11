@@ -45,6 +45,7 @@ type LabOrderResourcesExtended = LabOrderResources & {
 
 export type testDataForOrderForm = {
   serviceRequestID: string;
+  serviceRequest: ServiceRequest;
   serviceRequestCreatedDate: string;
   testName: string;
   testAssessments: { code: string; name: string }[]; // dx
@@ -340,6 +341,7 @@ function getTestDataForOrderForm(
 
   const data: testDataForOrderForm = {
     serviceRequestID: sr.id || ORDER_ITEM_UNKNOWN,
+    serviceRequest: sr,
     serviceRequestCreatedDate: sr.authoredOn || '',
     testName:
       sr.code?.coding?.find((coding) => coding.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.display || ORDER_ITEM_UNKNOWN,
