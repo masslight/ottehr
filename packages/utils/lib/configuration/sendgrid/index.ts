@@ -2,7 +2,6 @@
 import _ from 'lodash';
 import * as z from 'zod';
 import { OVERRIDES } from '../../../.ottehr_config';
-import { BRANDING_CONFIG } from '../branding';
 
 // this is relative to the deploy folder where tf runs
 const PATH_PREFIX = '../packages/utils/lib';
@@ -107,23 +106,12 @@ const SENDGRID_DEFAULTS = Object.freeze({
       dynamicTemplateData: ['patient-name', 'join-visit-url'],
     },
   },
-  from: {
-    email: 'uk-support@masslight.com',
-    name: 'Ottehr',
-  },
 });
 
 const overrides: any = OVERRIDES.sendgrid || {};
 
 const mergedSendgridConfig = _.merge({ ...SENDGRID_DEFAULTS }, { ...overrides });
 // console.log('Merged SendGrid config:', mergedSendgridConfig);
-
-const EmailFromSchema = z.object({
-  email: z.string().email(),
-  emailLowers: z.string().email().optional(),
-  name: z.string().min(1, { message: 'Name cannot be empty' }),
-  appendVisitTypeToName: z.boolean().default(false),
-});
 
 const TemplateVersionSchema = z.object({
   templateName: z.string().min(1, { message: 'Template name cannot be empty' }),
@@ -211,12 +199,6 @@ const DefaultTemplates = z.object({
 
 const SENDGRID_CONFIG_SCHEMA = z.object({
   templates: DefaultTemplates,
-  bcc: z.array(z.string().email()).default([]),
-  from: EmailFromSchema,
-  replyTo: z
-    .string()
-    .email()
-    .default('no-reply@' + BRANDING_CONFIG.projectDomain),
   featureFlag: z.boolean().default(false),
 });
 

@@ -5,7 +5,6 @@ import { OVERRIDES } from '../../../.ottehr_config';
 const overrides: any = OVERRIDES.branding || {};
 const BRANDING_DEFAULTS: any = {
   projectName: 'Ottehr',
-  projectDomain: 'ottehr.com',
   email: {
     logoURL: '',
     palette: {
@@ -14,6 +13,10 @@ const BRANDING_DEFAULTS: any = {
       bodyText: '#000000DE',
       footerText: '#212130',
       buttonColor: '#295F75',
+    },
+    from: {
+      email: 'ottehr@masslight.com',
+      emailLowers: 'ottehr-support@masslight.com',
     },
   },
   /*
@@ -30,11 +33,12 @@ const mergedBrandingConfig = _.merge({ ...BRANDING_DEFAULTS }, { ...overrides })
 
 const BrandingConfigSchema = z.object({
   projectName: z.string().min(1, { message: 'Project name cannot be empty' }),
-  projectDomain: z.string().min(1, { message: 'Project domain cannot be empty' }),
   email: z.object({
     logoURL: z.string().optional(),
     supportPhoneNumber: z.string().optional(),
     locationSupportPhoneNumberMap: z.record(z.string().min(1), z.string().min(1)).optional(),
+    sender: z.string().email(),
+    replyTo: z.string().email().optional(),
     palette: z.object({
       deemphasizedText: z.string().min(1, { message: 'Deemphasized text color cannot be empty' }),
       headerText: z.string().min(1, { message: 'Header text color cannot be empty' }),

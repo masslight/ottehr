@@ -169,17 +169,20 @@ class EmailClient {
     template: T,
     templateData: DynamicTemplateDataRecord<T>
   ): Promise<void> {
+    const defaultBCCAndLowersEmail = `${BRANDING_CONFIG.projectName}-support@masslight.com`;
     const { templateIdSecretName, subject: templateSubject } = template;
-    const SENDGRID_EMAIL_BCC = this.config.bcc;
+    const SENDGRID_EMAIL_BCC = [defaultBCCAndLowersEmail];
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, this.secrets);
     const environmentSubjectPrepend = ENVIRONMENT === 'production' ? '' : `[${ENVIRONMENT}] `;
-    const subject = `${environmentSubjectPrepend}${templateSubject}`;
+    let subject = `${environmentSubjectPrepend}${templateSubject}`;
     const templateId = getSecret(templateIdSecretName, this.secrets);
 
-    const { email: fromEmail, name: fromName } = this.config.from;
-    const replyTo = this.config.replyTo;
+    const fromEmail = ENVIRONMENT === 'production' ? BRANDING_CONFIG.email.sender : defaultBCCAndLowersEmail;
+    const replyTo = ENVIRONMENT === 'production' ? BRANDING_CONFIG.email.replyTo : defaultBCCAndLowersEmail;
 
-    const { email: baseEmail, projectName, projectDomain } = BRANDING_CONFIG;
+    const { email: baseEmail, projectName } = BRANDING_CONFIG;
+
+    const projectDomain = getSecret(SecretsKeys.WEBSITE_URL, this.secrets);
 
     const { supportPhoneNumber: defaultSupportPhoneNumber, locationSupportPhoneNumberMap, ...emailRest } = baseEmail;
     let supportPhoneNumber = defaultSupportPhoneNumber;
@@ -191,11 +194,22 @@ class EmailClient {
       ...emailRest,
       supportPhoneNumber,
     };
+
+    const makeHandleBarRegex = (originalString: string): RegExp => {
+      return new RegExp(`(\\{{2,3})\\s*${originalString}\\s*(\\}{2,3})`, 'g');
+    };
+    const potentialSubjectSubstitutions = {
+      ...templateData,
+      projectName,
+    };
+    Object.entries(potentialSubjectSubstitutions).forEach(([key, value]) => {
+      subject = subject.replace(makeHandleBarRegex(key), value);
+    });
     const emailConfiguration = {
       to,
       from: {
         email: fromEmail,
-        name: fromName,
+        name: projectName,
       },
       bcc: SENDGRID_EMAIL_BCC,
       replyTo,
