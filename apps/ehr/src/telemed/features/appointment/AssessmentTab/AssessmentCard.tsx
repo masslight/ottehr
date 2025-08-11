@@ -22,6 +22,7 @@ export const AssessmentCard: FC = () => {
   const { chartData } = useChartData({
     encounterId: encounter.id || '',
     requestedFields: { cptCodes: {} },
+    replaceStoreValues: true,
   });
   // const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
