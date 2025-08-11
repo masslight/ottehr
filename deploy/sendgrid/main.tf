@@ -27,7 +27,6 @@ resource "sendgrid_api_key" "template_api_key" {
   name  = local.project_name
 }
 
-
 module "templates" {
   source = "./templates"
   templates_file = file(var.sendgrid_templates_file_path)

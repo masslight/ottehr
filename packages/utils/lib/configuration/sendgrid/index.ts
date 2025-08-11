@@ -32,7 +32,7 @@ const SENDGRID_DEFAULTS = Object.freeze({
       templateVersionName: '1.0.0',
       active: true,
       htmlFilePath: `${PATH_PREFIX}/configuration/sendgrid/template_html/in-person-confirmation.html`,
-      subject: 'Visit confirmed on {{time}}', // done
+      subject: 'Visit confirmed on {{{time}}}', // done
       templateIdSecretName: 'SENDGRID_IN_PERSON_CONFIRMATION_TEMPLATE_ID',
       dynamicTemplateData: ['location', 'time', 'address'],
     },
@@ -50,7 +50,7 @@ const SENDGRID_DEFAULTS = Object.freeze({
       templateVersionName: '1.0.0',
       active: true,
       htmlFilePath: `${PATH_PREFIX}/configuration/sendgrid/template_html/in-person-reminder.html`,
-      subject: 'Upcoming visit on {{time}}', // done
+      subject: 'Upcoming visit on {{{time}}}', // done
       templateIdSecretName: 'SENDGRID_IN_PERSON_REMINDER_TEMPLATE_ID',
       dynamicTemplateData: [
         'location',
@@ -100,7 +100,7 @@ const SENDGRID_DEFAULTS = Object.freeze({
     },
   },
   from: {
-    email: 'noreply@ottehr.com',
+    email: 'uk-support@masslight.com',
     name: 'Ottehr',
   },
 });
