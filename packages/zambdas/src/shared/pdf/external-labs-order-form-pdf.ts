@@ -6,7 +6,7 @@ import { LABS_DATE_STRING_FORMAT, resourcesForOrderForm } from '../../ehr/submit
 import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { getLabFileName } from './labs-results-form-pdf';
-import { ICON_STYLE, STANDARD_NEW_LINE } from './pdf-consts';
+import { ICON_STYLE, STANDARD_NEW_LINE, SUB_HEADER_FONT_SIZE } from './pdf-consts';
 import {
   drawFieldLineBoldHeader,
   getPdfClientForLabsPDFs,
@@ -60,6 +60,7 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabOrderFormDat
   const iconStyleWithMargin = { ...ICON_STYLE, margin: { left: 10, right: 10 } };
   const rightColumnXStart = 315;
   const BLACK_LINE_STYLE = { ...GREY_LINE_STYLE, color: rgbNormalized(0, 0, 0) };
+  const GREY_LINE_STYLE_NO_TOP_MARGIN = { ...GREY_LINE_STYLE, margin: { top: 0, bottom: 8 } };
 
   // Draw header
   console.log(
@@ -243,21 +244,24 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabOrderFormDat
     pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, 'Address:', data.insuredAddress);
     pdfClient.newLine(STANDARD_NEW_LINE);
   }
+  pdfClient.drawSeparatedLine(BLACK_LINE_STYLE);
+  pdfClient.drawTextSequential('Labs', textStyles.header);
 
-  data.testDetails.forEach((detail) => {
-    pdfClient.drawSeparatedLine(BLACK_LINE_STYLE);
-    // AOE Section
-    if (detail.aoeAnswers?.length) {
-      console.log(
-        `Drawing AOE. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. Current page index is ${pdfClient.getCurrentPageIndex()} out of ${pdfClient.getTotalPages()} pages.`
-      );
-      pdfClient.drawTextSequential('AOE Answers', textStyles.header);
-      detail.aoeAnswers.forEach((item) => {
-        pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, `${item.question}: `, item.answer.toString());
-        pdfClient.newLine(STANDARD_NEW_LINE);
-      });
-      pdfClient.newLine(STANDARD_NEW_LINE);
-    }
+  data.testDetails.forEach((detail, idx) => {
+    const lastTest = idx + 1 === data.testDetails.length;
+
+    pdfClient.drawTextSequential(detail.testName.toUpperCase(), {
+      ...textStyles.textBold,
+      fontSize: SUB_HEADER_FONT_SIZE,
+    });
+    pdfClient.newLine(STANDARD_NEW_LINE);
+    pdfClient = drawFieldLineBoldHeader(
+      pdfClient,
+      textStyles,
+      `Assessments: `,
+      detail.testAssessments.map((assessment) => `${assessment.code} (${assessment.name})`).join(', ')
+    );
+    pdfClient.newLine(STANDARD_NEW_LINE);
 
     // only print this for non-psc orders
     if (!data.isPscOrder) {
@@ -270,61 +274,22 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabOrderFormDat
       pdfClient.newLine(STANDARD_NEW_LINE);
     }
 
-    // Ordered test and diagnoses
-    const columnGap = 50;
-    const pageWidth = pdfClient.getRightBound() - pdfClient.getLeftBound();
-    const secondColumnStart = pageWidth / 2 + columnGap;
+    // AOE Section
+    if (detail.aoeAnswers?.length) {
+      pdfClient.newLine(STANDARD_NEW_LINE);
+      pdfClient.drawTextSequential('AOE Answers', textStyles.textBold);
+      console.log(
+        `Drawing AOE. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. Current page index is ${pdfClient.getCurrentPageIndex()} out of ${pdfClient.getTotalPages()} pages.`
+      );
+      pdfClient.newLine(STANDARD_NEW_LINE + 4);
+      detail.aoeAnswers.forEach((item) => {
+        pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, `${item.question}: `, item.answer.toString());
+        pdfClient.newLine(STANDARD_NEW_LINE);
+      });
+    }
 
-    const columnOneStartAndWidth = { startXPos: pdfClient.getLeftBound(), width: pageWidth / 2 };
-    const columnTwoStartAndWidth = {
-      startXPos: secondColumnStart,
-      width: pdfClient.getRightBound() - secondColumnStart,
-    }; // just the rest of the page
-
-    console.log(
-      `Drawing lab and assessments header. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. Current page index is ${pdfClient.getCurrentPageIndex()} out of ${pdfClient.getTotalPages()} pages.`
-    );
-    pdfClient.drawSeparatedLine(GREY_LINE_STYLE);
-    pdfClient.drawVariableWidthColumns(
-      [
-        {
-          content: 'Lab',
-          textStyle: textStyles.text,
-          ...columnOneStartAndWidth,
-        },
-        {
-          content: 'Assessments',
-          textStyle: textStyles.text,
-          ...columnTwoStartAndWidth,
-        },
-      ],
-      pdfClient.getY(),
-      pdfClient.getCurrentPageIndex()
-    );
     pdfClient.newLine(STANDARD_NEW_LINE);
-    pdfClient.drawSeparatedLine(GREY_LINE_STYLE);
-
-    // second row
-    console.log(
-      `Drawing test name and assessments. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. Current page index is ${pdfClient.getCurrentPageIndex()} out of ${pdfClient.getTotalPages()} pages.`
-    );
-    pdfClient.drawVariableWidthColumns(
-      [
-        {
-          content: detail.testName.toUpperCase(),
-          textStyle: textStyles.textBold,
-          ...columnOneStartAndWidth,
-        },
-        {
-          content: detail.testAssessments.map((assessment) => `${assessment.code} (${assessment.name})`).join(', '),
-          textStyle: textStyles.text,
-          ...columnTwoStartAndWidth,
-        },
-      ],
-      pdfClient.getY(),
-      pdfClient.getCurrentPageIndex()
-    );
-    pdfClient.newLine(STANDARD_NEW_LINE);
+    if (!lastTest) pdfClient.drawSeparatedLine(GREY_LINE_STYLE_NO_TOP_MARGIN);
   });
 
   pdfClient.newLine(STANDARD_NEW_LINE);
