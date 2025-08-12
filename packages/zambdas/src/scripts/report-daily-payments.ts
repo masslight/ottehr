@@ -1,23 +1,8 @@
 import Oystehr from '@oystehr/sdk';
-import { Organization, PaymentNotice } from 'fhir/r4b';
+import {  PaymentNotice } from 'fhir/r4b';
 import * as fs from 'fs';
-import { ORG_TYPE_CODE_SYSTEM, ORG_TYPE_PAYER_CODE } from 'utils';
 import { getAuth0Token } from '../shared';
 import { fhirApiUrlFromAuth0Audience } from './helpers';
-
-// Helper function to format date as yyyy-MM-dd HH:mm
-function formatDateTime(dateString: string): string {
-  if (!dateString) return 'N/A';
-  
-  try {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return 'N/A';
-    
-    return date.toISOString().slice(0, 16).replace('T', ' ');
-  } catch {
-    return 'N/A';
-  }
-}
 
 // Helper to get UTC range for a local date (YYYY-MM-DD)
 function getUTCRangeForLocalDate(localDate: string): { start: string, end: string } {
@@ -27,24 +12,6 @@ function getUTCRangeForLocalDate(localDate: string): { start: string, end: strin
   const startUTC = new Date(startLocal.getTime() - startLocal.getTimezoneOffset() * 60000).toISOString();
   const endUTC = new Date(endLocal.getTime() - endLocal.getTimezoneOffset() * 60000).toISOString();
   return { start: startUTC, end: endUTC };
-}
-
-// Helper to format date in local timezone as yyyy-MM-dd HH:mm
-function formatLocalDateTime(dateString: string): string {
-  if (!dateString) return 'N/A';
-  try {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return 'N/A';
-    // Format as yyyy-MM-dd HH:mm in local time
-    const yyyy = date.getFullYear();
-    const mm = String(date.getMonth() + 1).padStart(2, '0');
-    const dd = String(date.getDate()).padStart(2, '0');
-    const hh = String(date.getHours()).padStart(2, '0');
-    const min = String(date.getMinutes()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd} ${hh}:${min}`;
-  } catch {
-    return 'N/A';
-  }
 }
 
 // Helper to get timezone abbreviation (e.g., "PST", "EST")
