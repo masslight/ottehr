@@ -1,0 +1,11 @@
+{
+  "name": "deploy",
+  "version": "0.0.1",
+  "description": "Scripts for generating HCL and interacting with Terraform",
+  "scripts": {
+    "generate": "tsx generate-oystehr-resources.ts ../packages/zambdas/ottehr-spec.json,../packages/zambdas/ottehr-spec-payers.json ../packages/zambdas/.env/local.json ./oystehr/"
+  },
+  "devDependencies": {
+    "@types/node": "^24.2.1"
+  }
+}

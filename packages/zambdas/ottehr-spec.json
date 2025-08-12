@@ -1188,7 +1188,7 @@
         ]
       }
     },
-    "MEDICATION_ACETAMINOPHEN_120mg_SUPPOSITORY)": {
+    "MEDICATION_ACETAMINOPHEN_120mg_SUPPOSITORY": {
       "resourceType": "Medication",
       "identifier": [
         {
@@ -2166,16 +2166,16 @@
         },
         {
           "resource": [
-            "Z3:${projectId}-photo-id-cards/*",
-            "Z3:${projectId}-insurance-cards/*",
-            "Z3:${projectId}-school-work-note-templates/*",
-            "Z3:${projectId}-patient-photos/*",
-            "Z3:${projectId}-consent-forms/*",
-            "Z3:${projectId}-visit-notes/*",
-            "Z3:${projectId}-receipts/*",
-            "Z3:${projectId}-school-work-notes/*",
-            "Z3:${projectId}-privacy-policy/*",
-            "Z3:${projectId}-exported-questionnaires/*"
+            "Z3:#{var/PROJECT_ID}-photo-id-cards/*",
+            "Z3:#{var/PROJECT_ID}-insurance-cards/*",
+            "Z3:#{var/PROJECT_ID}-school-work-note-templates/*",
+            "Z3:#{var/PROJECT_ID}-patient-photos/*",
+            "Z3:#{var/PROJECT_ID}-consent-forms/*",
+            "Z3:#{var/PROJECT_ID}-visit-notes/*",
+            "Z3:#{var/PROJECT_ID}-receipts/*",
+            "Z3:#{var/PROJECT_ID}-school-work-notes/*",
+            "Z3:#{var/PROJECT_ID}-privacy-policy/*",
+            "Z3:#{var/PROJECT_ID}-exported-questionnaires/*"
           ],
           "action": [
             "Z3:PutObject",
