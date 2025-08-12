@@ -50,21 +50,17 @@ export const DeviceAssignmentModal: FC<DeviceAssignmentModalProps> = ({
 }) => {
   const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
   const [deviceOptions, setDeviceOptions] = useState<DeviceOption[]>([]);
-  //eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [searchTerm, setSearchTerm] = useState('');
-
   const { oystehrZambda } = useApiClients();
 
   useEffect(() => {
     if (!open) {
       setSelectedDevices([]);
-      setSearchTerm('');
     }
   }, [open]);
 
   const payload = {
     offset: 0,
-    count: 15,
+    count: 15, // I have set a default count, will update it later once I get the real mio devices
     missing: true,
   };
 
