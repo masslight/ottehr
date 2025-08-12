@@ -22,21 +22,29 @@ import { makeZ3Url } from '../presigned-file-urls';
 import { getStripeClient, STRIPE_PAYMENT_ID_SYSTEM } from '../stripeIntegration';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { STANDARD_NEW_LINE } from './pdf-consts';
-import { createPdfClient, PdfInfo, rgbNormalized } from './pdf-utils';
+import { createPdfClient, PdfInfo, SEPARATED_LINE_STYLE as GREY_LINE_STYLE } from './pdf-utils';
 import { ImageStyle, PdfClientStyles, TextStyle } from './types';
 
 interface PaymentData {
   amount: number;
   method: CashOrCardPayment['paymentMethod'];
+  paymentDate?: string;
   last4?: string;
   brand?: string;
+  priority?: string;
 }
 
 interface PatientPaymentReceiptData {
   receiptDate: string;
-  visitDate: string;
   payments: PaymentData[];
   listResources: List[];
+  visitData: {
+    date: string;
+    time: string;
+    type: string;
+    // todo: what location is this?
+    location: string;
+  };
   organization: {
     name: string;
     street: string;
@@ -135,6 +143,7 @@ async function getReceiptData(
   const patient = resources.find((r) => r.resourceType === 'Patient') as Patient;
   const patientAddress = getPatientAddress(patient.address);
   const appointment = resources.find((r) => r.resourceType === 'Appointment') as Appointment;
+  const visitDate = DateTime.fromISO(appointment.start ?? '');
   const paymentNoticess = resources.filter((r) => r.resourceType === 'PaymentNotice') as PaymentNotice[];
 
   const payments: PaymentData[] = paymentNoticess.map((paymentNotice) => {
@@ -145,10 +154,14 @@ async function getReceiptData(
     const paymentIntent = stripePayments.find((pi) => pi.id === pnStripeId);
     const last4 = paymentMethods.find((pm) => pm.id === paymentIntent?.payment_method)?.card?.last4;
     const brand = paymentMethods.find((pm) => pm.id === paymentIntent?.payment_method)?.card?.brand;
+    // todo: whats here?
+    // todo filter payments by date
+    const paymentDate = DateTime.fromISO(paymentNotice?.paymentDate ?? '').toFormat('MM/dd/yyyy');
 
     return {
       amount: paymentNotice.amount.value ?? -1,
       method: method,
+      paymentDate,
       last4,
       brand,
     };
@@ -158,10 +171,16 @@ async function getReceiptData(
   if (!patient) throw new Error('Patient not found');
   if (!appointment) throw new Error('Appointment not found');
   return {
+    // todo: get this date from last payment
     receiptDate: DateTime.now().toFormat('MM/dd/yyyy'),
-    visitDate: DateTime.fromISO(appointment.start ?? '').toFormat('MM/dd/yyyy'),
     payments,
     listResources,
+    visitData: {
+      date: visitDate.toFormat('MM/dd/yyyy'),
+      time: visitDate.toFormat('hh:mm a'),
+      type: '???',
+      location: '???',
+    },
     organization: {
       name: organization?.name ?? '',
       street: organizationAddress?.line?.[0] ?? '',
@@ -188,10 +207,10 @@ async function createReceiptPdf(receiptData: PatientPaymentReceiptData): Promise
       width: PageSizes.A4[0],
       height: PageSizes.A4[1],
       pageMargins: {
-        top: 40,
-        bottom: 40,
-        right: 37,
-        left: 37,
+        top: 24,
+        bottom: 24,
+        right: 24,
+        left: 24,
       },
     },
   };
@@ -200,33 +219,27 @@ async function createReceiptPdf(receiptData: PatientPaymentReceiptData): Promise
   const pdfClient = await createPdfClient(pdfClientStyles);
   console.log('created client');
   const RubikFont = await pdfClient.embedFont(fs.readFileSync('./assets/Rubik-Regular.otf'));
+  const RubikFontMedium = await pdfClient.embedFont(fs.readFileSync('./assets/Rubik-Medium.ttf'));
   const ottehrLogo = await pdfClient.embedImage(fs.readFileSync('./assets/ottehrLogo.png'));
 
   const textStyles: Record<string, TextStyle> = {
     header: {
-      fontSize: 18,
-      spacing: 8,
-      font: RubikFont,
-      side: 'right',
-      color: rgbNormalized(48, 19, 103),
-    },
-    blockHeader: {
       fontSize: 16,
       spacing: 8,
-      font: RubikFont,
+      font: RubikFontMedium,
+      side: 'right',
+    },
+    blockHeader: {
+      fontSize: 14,
+      spacing: 3,
+      font: RubikFontMedium,
       newLineAfter: true,
-      color: rgbNormalized(48, 19, 103),
     },
     text: {
-      fontSize: 11,
-      spacing: 1,
+      fontSize: 12,
+      spacing: 3,
       font: RubikFont,
       newLineAfter: true,
-    },
-    inlineText: {
-      fontSize: 11,
-      spacing: 1,
-      font: RubikFont,
     },
   };
 
@@ -234,18 +247,47 @@ async function createReceiptPdf(receiptData: PatientPaymentReceiptData): Promise
     pdfClient.drawText(text, textStyles.blockHeader);
   };
 
-  const regularText = (text: string): void => {
-    pdfClient.drawText(text, textStyles.text);
+  const writeText = (
+    text: string,
+    params?: {
+      side?: 'left' | 'right';
+      noNewLineAfter?: boolean;
+      bold?: boolean;
+      fontSize?: number;
+      spacing?: number;
+    }
+  ): void => {
+    const styles = { ...textStyles.text };
+    if (params?.side) styles.side = params.side;
+    if (params?.noNewLineAfter) delete styles.newLineAfter;
+    if (params?.bold) styles.font = RubikFontMedium;
+    if (params?.fontSize) styles.fontSize = params.fontSize;
+    if (params?.spacing) styles.spacing = params.spacing;
+    pdfClient.drawText(text, styles);
   };
 
   const drawHeadline = (): void => {
     const imgStyles: ImageStyle = {
-      width: 190,
-      height: 47,
+      width: 120,
+      height: 30,
     };
     pdfClient.drawImage(ottehrLogo, imgStyles);
-    pdfClient.drawText('Receipt', textStyles.header);
+    pdfClient.newLine(STANDARD_NEW_LINE);
+    pdfClient.drawText('RECEIPT', textStyles.header);
     pdfClient.setY(pdfClient.getY() - imgStyles.height); // new line after image
+  };
+
+  const drawVisitDetails = (): void => {
+    const visit = `${receiptData.visitData.type} | ${receiptData.visitData.time} | ${receiptData.visitData.date}`;
+    const textWidth = pdfClient.getTextDimensions(`Visit: ${visit}`, textStyles.text).width;
+    pdfClient.setX(pdfClient.getRightBound() - textWidth - 5);
+    pdfClient.drawTextSequential('Visit: ', { ...textStyles.text, font: RubikFontMedium, newLineAfter: false });
+    pdfClient.drawTextSequential(visit, textStyles.text);
+
+    pdfClient.drawTextSequential('Receipt date: ', { ...textStyles.text, font: RubikFontMedium, newLineAfter: false });
+    pdfClient.drawTextSequential(`${receiptData.receiptDate}`, { ...textStyles.text, newLineAfter: false });
+
+    writeText(`${receiptData.visitData.location}`, { side: 'right' });
   };
 
   const drawOrganizationAndPatientDetails = (): void => {
@@ -254,20 +296,21 @@ async function createReceiptPdf(receiptData: PatientPaymentReceiptData): Promise
     const initialLeftBound = pdfClient.getLeftBound();
     const beforeColumnsY = pdfClient.getY();
 
-    // Organization column
+    // Patient column
     // Setting bounds for the first column
     pdfClient.setRightBound(pageWidth / 2);
 
-    regularText(receiptData.organization.name);
-    regularText(`${receiptData.organization.street}`);
-    if (receiptData.organization.street2) {
-      regularText(`${receiptData.organization.street2}`);
+    drawBlockHeader(receiptData.patient.name);
+    writeText(`${receiptData.patient.street}`);
+    if (receiptData.patient.street2) {
+      writeText(`${receiptData.patient.street2}`);
     }
-    regularText(`${receiptData.organization.city}, ${receiptData.organization.state} ${receiptData.organization.zip}`);
+    writeText(`${receiptData.patient.city}, ${receiptData.patient.state} ${receiptData.patient.zip}`);
+    writeText('phone');
 
     const afterFirstColumn = pdfClient.getY();
 
-    // Patient column
+    // Organization column
     // Setting Y to the start of the table
     pdfClient.setY(beforeColumnsY);
 
@@ -275,12 +318,13 @@ async function createReceiptPdf(receiptData: PatientPaymentReceiptData): Promise
     pdfClient.setRightBound(initialRightBound);
     pdfClient.setLeftBound(pageWidth / 2);
 
-    regularText(receiptData.patient.name);
-    regularText(`${receiptData.patient.street}`);
-    if (receiptData.patient.street2) {
-      regularText(`${receiptData.patient.street2}`);
+    drawBlockHeader(receiptData.organization.name);
+    writeText(`${receiptData.organization.street}`);
+    if (receiptData.organization.street2) {
+      writeText(`${receiptData.organization.street2}`);
     }
-    regularText(`${receiptData.patient.city}, ${receiptData.patient.state} ${receiptData.patient.zip}`);
+    writeText(`${receiptData.organization.city}, ${receiptData.organization.state} ${receiptData.organization.zip}`);
+    writeText('phone');
 
     // Setting Y to the minimum so cursor will be at the bottom of the table
     if (afterFirstColumn < pdfClient.getY()) pdfClient.setY(afterFirstColumn);
@@ -290,46 +334,49 @@ async function createReceiptPdf(receiptData: PatientPaymentReceiptData): Promise
   };
 
   const drawPaymentDetails = (): void => {
-    const tableWidth = (pdfClient.getRightBound() - pdfClient.getLeftBound()) * 0.9;
-    const columnWidth = tableWidth / 3;
+    const tableWidth = pdfClient.getRightBound() - pdfClient.getLeftBound();
+    const firstColumnWidth = tableWidth / 2;
+    const otherColumnWidth = tableWidth / 4;
     const initialLeftBound = pdfClient.getLeftBound();
     let totalAmount = 0;
 
+    drawBlockHeader('Payments');
+
     // Payments list
-    receiptData.payments.forEach((payment, index) => {
-      const paymentMethodText = payment.method === 'card' ? `card ending ${payment.last4}` : payment.method;
+    receiptData.payments.forEach((payment) => {
+      // todo find primary payment method
+      const paymentMethodText =
+        payment.method === 'card' ? `$XXXX-XXXX-XXXX-${payment.last4} (${payment.priority})` : payment.method;
       totalAmount += payment.amount;
 
-      pdfClient.setRightBound(initialLeftBound + columnWidth);
-      pdfClient.drawText(`Payment ${index + 1}`, textStyles.inlineText);
+      pdfClient.setRightBound(initialLeftBound + firstColumnWidth);
+      writeText(paymentMethodText, { noNewLineAfter: true, spacing: 0 });
 
-      pdfClient.setLeftBound(initialLeftBound + columnWidth);
-      pdfClient.setRightBound(initialLeftBound + columnWidth * 2);
+      pdfClient.setLeftBound(initialLeftBound + firstColumnWidth);
+      pdfClient.setRightBound(initialLeftBound + firstColumnWidth + otherColumnWidth);
 
-      pdfClient.drawText(paymentMethodText, textStyles.inlineText);
-      pdfClient.setLeftBound(initialLeftBound + columnWidth * 2);
-      pdfClient.setRightBound(initialLeftBound + columnWidth * 3);
+      writeText(`${payment.paymentDate}`, { noNewLineAfter: true });
+      pdfClient.setLeftBound(initialLeftBound + firstColumnWidth + otherColumnWidth);
+      pdfClient.setRightBound(initialLeftBound + firstColumnWidth + otherColumnWidth * 2);
 
-      regularText(`$${payment.amount}`);
+      writeText(`$ ${payment.amount}`, { side: 'right' });
       pdfClient.setLeftBound(initialLeftBound);
+      const grayLine = { ...GREY_LINE_STYLE };
+      grayLine.margin = { top: 5, bottom: 1 };
+      pdfClient.drawSeparatedLine(grayLine);
     });
 
-    pdfClient.newLine(STANDARD_NEW_LINE);
-
     // Totals
-    pdfClient.drawText(`Total Payments for date ${receiptData.receiptDate}`, textStyles.inlineText);
-    pdfClient.setLeftBound(initialLeftBound + columnWidth * 2);
-    regularText(`$${totalAmount}`);
-    pdfClient.setLeftBound(initialLeftBound);
+    writeText(`Total:`, { noNewLineAfter: true, bold: true });
+    writeText(`$ ${totalAmount}`, { side: 'right', bold: true });
   };
 
   drawHeadline();
-  regularText(`Receipt Date: ${receiptData.receiptDate}`);
-  regularText(`Visit Date: ${receiptData.visitDate}`);
+  drawVisitDetails();
+  pdfClient.drawSeparatedLine(GREY_LINE_STYLE);
   pdfClient.newLine(STANDARD_NEW_LINE);
   drawOrganizationAndPatientDetails();
-  pdfClient.newLine(STANDARD_NEW_LINE);
-  drawBlockHeader('Payments Details');
+  pdfClient.newLine(56);
   drawPaymentDetails();
 
   return await pdfClient.save();
@@ -356,5 +403,6 @@ async function createReplaceReceiptOnZ3(
     throw new Error('failed uploading pdf to z3: ' + error.message);
   });
 
-  return { title: fileName, uploadURL: baseFileUrl };
+  // savePdfLocally(pdfBytes);
+  return { title: 'fileName', uploadURL: 'baseFileUrl' };
 }
