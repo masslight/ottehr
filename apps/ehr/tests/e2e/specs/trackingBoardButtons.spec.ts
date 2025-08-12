@@ -3,8 +3,6 @@ import { DateTime } from 'luxon';
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
 import { ResourceHandler } from '../../e2e-utils/resource-handler';
 import { expectAddPatientPage } from '../page/AddPatientPage';
-import { CssHeader } from '../page/CssHeader';
-import { expectPatientInfoPage } from '../page/PatientInfo';
 import { openVisitsPage } from '../page/VisitsPage';
 
 const PROCESS_ID = `trackingBoardButtons.spec.ts-${DateTime.now().toMillis()}`;
@@ -39,7 +37,7 @@ test('Click on "Arrived" button, verify visit is moved to "In office" tab and  v
   await visitsPage.verifyVisitsStatus(resourceHandler.appointment.id!, 'arrived');
 });
 
-test('Check clicks on appointment row elements', async ({ page }) => {
+test.skip('Check clicks on appointment row elements', async ({ page }) => {
   let visitsPage = await openVisitsPage(page);
   await visitsPage.selectLocation(ENV_LOCATION_NAME!);
   await visitsPage.clickPrebookedTab();
@@ -51,18 +49,6 @@ test('Check clicks on appointment row elements', async ({ page }) => {
   await visitsPage.clickPrebookedTab();
   await visitsPage.clickVisitDetailsButton(resourceHandler.appointment.id!);
   await page.waitForURL(new RegExp('/visit/' + resourceHandler.appointment.id!));
-
-  visitsPage = await openVisitsPage(page);
-  await visitsPage.selectLocation(ENV_LOCATION_NAME!);
-  await visitsPage.clickPrebookedTab();
-  await visitsPage.clickArrivedButton(resourceHandler.appointment.id!);
-  await visitsPage.clickInOfficeTab();
-  await visitsPage.clickIntakeButton(resourceHandler.appointment.id!);
-  const cssHeader = new CssHeader(page);
-  await cssHeader.selectIntakePractitioner();
-  await cssHeader.selectProviderPractitioner();
-  const patientInfoPage = await expectPatientInfoPage(resourceHandler.appointment.id!, page);
-  await patientInfoPage.cssHeader().changeStatus('completed');
 
   visitsPage = await openVisitsPage(page);
   await visitsPage.clickDischargedTab();

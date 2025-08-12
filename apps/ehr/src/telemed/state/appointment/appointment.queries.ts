@@ -618,13 +618,10 @@ export const useUpdatePaperwork = () => {
       appointmentID: string;
       paperwork: Record<string, string>;
     }) => {
-      const UPDATE_PAPERWORK_ZAMBDA_ID = import.meta.env.VITE_APP_UPDATE_PAPERWORK_ZAMBDA_ID;
+      const UPDATE_PAPERWORK_ZAMBDA_ID = 'update-paperwork';
 
       if (!oystehrZambda) {
         throw new Error('api client not defined');
-      }
-      if (!UPDATE_PAPERWORK_ZAMBDA_ID) {
-        throw new Error('update paperwork zambda id not defined');
       }
 
       const response = await oystehrZambda.zambda.execute({
