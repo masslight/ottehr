@@ -1,6 +1,6 @@
 import { LoadingButton } from '@mui/lab';
+import { useQueryClient } from '@tanstack/react-query';
 import { FC } from 'react';
-import { useQueryClient } from 'react-query';
 import { useNavigate } from 'react-router-dom';
 import { TelemedAppointmentInformation, TelemedAppointmentStatus, TelemedAppointmentStatusEnum } from 'utils';
 import { dataTestIds } from '../../../constants/data-test-ids';
@@ -75,7 +75,7 @@ export const TrackingBoardTableButton: FC<{ appointment: TelemedAppointmentInfor
           {(showDialog) => (
             <LoadingButton
               onClick={showDialog}
-              loading={mutation.isLoading}
+              loading={mutation.isPending}
               variant="contained"
               sx={baseStyles}
               data-testid={dataTestIds.telemedEhrFlow.trackingBoardAssignButton}
@@ -102,7 +102,7 @@ export const TrackingBoardTableButton: FC<{ appointment: TelemedAppointmentInfor
           {(showDialog) => (
             <LoadingButton
               onClick={showDialog}
-              loading={mutation.isLoading}
+              loading={mutation.isPending}
               color="error"
               variant="outlined"
               sx={baseStyles}
@@ -117,7 +117,7 @@ export const TrackingBoardTableButton: FC<{ appointment: TelemedAppointmentInfor
       return (
         <LoadingButton
           onClick={() => goToAppointment({ reconnect: true })}
-          loading={mutation.isLoading}
+          loading={mutation.isPending}
           variant="contained"
           sx={baseStyles}
         >

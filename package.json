@@ -1,6 +1,6 @@
 {
   "name": "ottehr",
-  "version": "1.15.0",
+  "version": "1.15.6",
   "private": true,
   "engines": {
     "node": ">=20.0.0",
@@ -85,6 +85,7 @@
     "@sendgrid/mail": "^8.1.4",
     "@sentry/aws-serverless": "^8.26.0",
     "@sentry/react": "^7.80.1",
+    "@tanstack/react-query": "^5.83.0",
     "@twilio/conversations": "^2.4.1",
     "@types/inquirer": "^9.0.7",
     "browser-image-compression": "^2.0.2",
@@ -108,7 +109,6 @@
     "react-i18next": "^12.2.0",
     "react-imask": "^7.6.1",
     "react-markdown": "^9.0.0",
-    "react-query": "^3.39.3",
     "react-router-dom": "^6.3.0",
     "react-window": "^1.8.10",
     "short-uuid": "^4.2.2",
@@ -126,6 +126,7 @@
     "@playwright/test": "^1.40.1",
     "@sentry/cli": "^2.27.0",
     "@sentry/vite-plugin": "^2.10.2",
+    "@tanstack/eslint-plugin-query": "^5.81.2",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",

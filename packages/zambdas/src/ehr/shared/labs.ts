@@ -313,9 +313,7 @@ export const makeEncounterLabResults = async (
         const relatedSRDetail = serviceRequestMap[serviceRequestRef];
         if (relatedSRDetail.type === LabType.external) {
           const sr = relatedSRDetail.resource;
-          const isReflex = relatedDR?.meta?.tag?.find(
-            (t) => t.system === LAB_DR_TYPE_TAG.system && t.display === LAB_DR_TYPE_TAG.display.reflex
-          );
+          const isReflex = diagnosticReportIsReflex(relatedDR);
           const orderNumber = getOrderNumber(sr);
           const activityDef = sr.contained?.find(
             (resource) => resource.resourceType === 'ActivityDefinition'
@@ -571,6 +569,12 @@ export const parseTimezoneForAppointmentSchedule = (
     timezone = getTimezone(schedule);
   }
   return timezone;
+};
+
+export const diagnosticReportIsReflex = (dr: DiagnosticReport): boolean => {
+  return !!dr?.meta?.tag?.find(
+    (t) => t.system === LAB_DR_TYPE_TAG.system && t.display === LAB_DR_TYPE_TAG.display.reflex
+  );
 };
 
 export interface AOEDisplayForOrderForm {

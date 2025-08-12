@@ -1,7 +1,7 @@
 import { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { FhirResource, Provenance, ServiceRequest } from 'fhir/r4b';
+import { DocumentReference, FhirResource, Provenance, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   APIError,
@@ -82,7 +82,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           }
 
           const result = await res.json();
-          return { status: 'fulfilled', accountNumber, result };
+          const eReq: DocumentReference | undefined = result?.eRequisitionDocumentReference;
+          return { status: 'fulfilled', accountNumber, result, eReqDocumentReference: eReq };
         } catch (e) {
           return { status: 'rejected', accountNumber, reason: (e as Error).message };
         }
@@ -94,7 +95,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       for (const res of submitLabResults) {
         if (res.status === 'fulfilled') {
           const resources = bundledOrdersByAccountNumber[res.accountNumber];
-          successfulBundledOrders[res.accountNumber] = resources;
+          if (res.eReqDocumentReference) {
+            console.log(
+              `eReq generated for order ${resources.orderNumber} - docRef id: ${res.eReqDocumentReference.id}`
+            );
+            successfulBundledOrders[res.accountNumber] = { ...resources, labGenerateEReq: res.eReqDocumentReference };
+          } else {
+            successfulBundledOrders[res.accountNumber] = { ...resources, labGenerateEReq: res.eReqDocumentReference };
+          }
         } else if (res.status === 'rejected') {
           console.log('rejected result', res);
           const resources = bundledOrdersByAccountNumber[res.accountNumber];

@@ -1,7 +1,7 @@
-import { Bundle, FhirResource } from 'fhir/r4';
+import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { Patient } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import { useMutation, useQuery, UseQueryResult } from 'react-query';
+import { useSuccessQuery } from 'utils';
 import { useApiClients } from '../../hooks/useAppClients';
 
 export const useGetPatientsForMerge = (
@@ -10,13 +10,14 @@ export const useGetPatientsForMerge = (
   }: {
     patientIds?: string[];
   },
-  onSuccess: (data: Bundle<FhirResource>[]) => void
-): UseQueryResult<Bundle<FhirResource>[], unknown> => {
+  onSuccess?: (data: Patient[] | null) => void
+): UseQueryResult<Patient[], Error> => {
   const { oystehr } = useApiClients();
 
-  return useQuery(
-    ['get-patients-for-merge', { patientIds }],
-    async () => {
+  const queryResult = useQuery({
+    queryKey: ['get-patients-for-merge', patientIds?.sort((a, b) => a.localeCompare(b))],
+
+    queryFn: async (): Promise<Patient[]> => {
       if (oystehr && patientIds) {
         return (
           await oystehr.fhir.search<Patient>({
@@ -27,14 +28,13 @@ export const useGetPatientsForMerge = (
       }
       throw new Error('fhir client not defined or patientIds not provided');
     },
-    {
-      enabled: Boolean(oystehr) && patientIds !== undefined,
-      onSuccess,
-      onError: (err) => {
-        console.error('Error during fetching get patients for merge: ', err);
-      },
-    }
-  );
+
+    enabled: Boolean(oystehr) && patientIds !== undefined,
+  });
+
+  useSuccessQuery(queryResult.data, onSuccess);
+
+  return queryResult;
 };
 
 export const useGetPatientForUpdate = (
@@ -43,13 +43,14 @@ export const useGetPatientForUpdate = (
   }: {
     patientId?: string;
   },
-  onSuccess: (data: Bundle<FhirResource>[]) => void
-): UseQueryResult<Bundle<FhirResource>[], unknown> => {
+  onSuccess?: (data: Patient[] | null) => void
+): UseQueryResult<Patient[], Error> => {
   const { oystehr } = useApiClients();
 
-  return useQuery(
-    ['get-patient-for-update', patientId],
-    async () => {
+  const queryResult = useQuery({
+    queryKey: ['get-patient-for-update', patientId],
+
+    queryFn: async (): Promise<Patient[]> => {
       if (oystehr && patientId) {
         return (
           await oystehr.fhir.search<Patient>({
@@ -70,22 +71,20 @@ export const useGetPatientForUpdate = (
       }
       throw new Error('fhir client not defined or patientId not provided');
     },
-    {
-      enabled: Boolean(patientId) && Boolean(oystehr),
-      onSuccess,
-      onError: (err) => {
-        console.error('Error during fetching get patient for update: ', err);
-      },
-    }
-  );
+
+    enabled: Boolean(patientId) && Boolean(oystehr),
+  });
+
+  useSuccessQuery(queryResult.data, onSuccess);
+
+  return queryResult;
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useGetPatientById = () => {
+export const useGetPatientById = (): UseMutationResult<Patient[], Error, string> => {
   const { oystehr } = useApiClients();
 
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async (id: string): Promise<Patient[]> => {
       if (oystehr && id) {
         return (
           await oystehr.fhir.search<Patient>({

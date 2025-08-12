@@ -27,6 +27,7 @@ import {
 } from 'utils';
 import { createExternalLabsOrderFormPDF, getOrderFormDataConfig } from '../../shared/pdf/external-labs-order-form-pdf';
 import { makeLabPdfDocumentReference, makeRelatedForLabsPDFDocRef } from '../../shared/pdf/labs-results-form-pdf';
+import { PdfInfo } from '../../shared/pdf/pdf-utils';
 import { AOEDisplayForOrderForm, getExternalLabOrderResources, LabOrderResources } from '../shared/labs';
 
 export const LABS_DATE_STRING_FORMAT = 'MM/dd/yyyy hh:mm a ZZZZ';
@@ -65,6 +66,7 @@ export type resourcesForOrderForm = {
   location?: Location;
   insuranceOrganization?: Organization;
   coverage?: Coverage;
+  labGenerateEReq?: DocumentReference; // will be assigned after submit to oystehr labs IF applicable (right now only for labcorp & quest)
 };
 
 export type OrderResourcesByAccountNumber = {
@@ -400,10 +402,19 @@ export async function makeOrderFormsAndDocRefs(
     const serviceRequestIds = resources.testDetails.map((detail) => detail.serviceRequestID);
     if (!patientId) throw new Error(`Patient id is missing, cannot create order form`);
     if (!encounterId) throw new Error(`Encounter id is missing, cannot create order form`);
-    const orderFormDataConfig = getOrderFormDataConfig(accountNumber, resources, now, oystehr);
-    const pdfInfo = await createExternalLabsOrderFormPDF(orderFormDataConfig, patientId, secrets, token);
+
+    let pdfInfo: PdfInfo | undefined;
+    let labGenerateEReqUrl: string | undefined;
+    if (resources.labGenerateEReq) {
+      labGenerateEReqUrl = resources.labGenerateEReq.content[0].attachment.url || '';
+    } else {
+      const orderFormDataConfig = getOrderFormDataConfig(accountNumber, resources, now, oystehr);
+      pdfInfo = await createExternalLabsOrderFormPDF(orderFormDataConfig, patientId, secrets, token);
+    }
+
     return {
       pdfInfo,
+      labGenerateEReqUrl,
       patientId,
       encounterId,
       serviceRequestIds,
@@ -416,17 +427,21 @@ export async function makeOrderFormsAndDocRefs(
       acc: { docRefPromises: Promise<DocumentReference>[]; presignedOrderFormURLPromises: Promise<string>[] },
       detail
     ) => {
-      acc.docRefPromises.push(
-        makeLabPdfDocumentReference({
-          oystehr,
-          type: 'order',
-          pdfInfo: detail.pdfInfo,
-          patientID: detail.patientId,
-          encounterID: detail.encounterId,
-          related: makeRelatedForLabsPDFDocRef({ serviceRequestIds: detail.serviceRequestIds }),
-        })
-      );
-      acc.presignedOrderFormURLPromises.push(getPresignedURL(detail.pdfInfo.uploadURL, token));
+      if (detail.pdfInfo) {
+        acc.docRefPromises.push(
+          makeLabPdfDocumentReference({
+            oystehr,
+            type: 'order',
+            pdfInfo: detail.pdfInfo,
+            patientID: detail.patientId,
+            encounterID: detail.encounterId,
+            related: makeRelatedForLabsPDFDocRef({ serviceRequestIds: detail.serviceRequestIds }),
+          })
+        );
+        acc.presignedOrderFormURLPromises.push(getPresignedURL(detail.pdfInfo.uploadURL, token));
+      } else if (detail.labGenerateEReqUrl) {
+        acc.presignedOrderFormURLPromises.push(getPresignedURL(detail.labGenerateEReqUrl, token));
+      }
       return acc;
     },
     { docRefPromises: [], presignedOrderFormURLPromises: [] }

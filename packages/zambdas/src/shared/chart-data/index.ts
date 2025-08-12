@@ -18,7 +18,6 @@ import {
   MedicationStatement,
   Meta,
   Observation,
-  Practitioner,
   Procedure,
   Reference,
   Resource,
@@ -215,7 +214,7 @@ export function makeAllergyDTO(allergy: AllergyIntolerance): AllergyDTO {
 export function makeMedicationResource(
   encounterId: string,
   patientId: string,
-  practitioner: Practitioner,
+  practitionerId: string,
   data: MedicationDTO,
   fieldName: ProviderChartDataFieldsNames
 ): MedicationStatement {
@@ -228,7 +227,7 @@ export function makeMedicationResource(
     status: data.status,
     dosage: [{ text: data.intakeInfo.dose, asNeededBoolean: data.type === 'as-needed' }],
     effectiveDateTime: data.intakeInfo.date,
-    informationSource: { reference: `Practitioner/${practitioner.id}` },
+    informationSource: { reference: `Practitioner/${practitionerId}` },
     meta: getMetaWFieldName(fieldName),
     medicationCodeableConcept: {
       coding: [
@@ -247,7 +246,12 @@ export function makeMedicationDTO(medication: MedicationStatement): MedicationDT
     resourceId: medication.id,
     id: medication.medicationCodeableConcept?.coding?.[0].code || '',
     name: medication.medicationCodeableConcept?.coding?.[0].display || '',
-    type: medication.dosage?.[0].asNeededBoolean ? 'as-needed' : 'scheduled',
+    type:
+      medication.meta?.tag?.[0].code === 'prescribed-medication'
+        ? 'prescribed-medication'
+        : medication.dosage?.[0].asNeededBoolean
+        ? 'as-needed'
+        : 'scheduled',
     intakeInfo: {
       dose: getMedicationDosage(medication),
       date: medication.effectiveDateTime,
@@ -302,13 +306,15 @@ export function makeProcedureResource(
   return result;
 }
 
+// todo: make this input a single interface type
 export function makeObservationResource(
   encounterId: string,
   patientId: string,
   practitionerId: string,
   data: ObservationDTO,
   metaSystem: string,
-  patientDOB?: string
+  patientDOB?: string,
+  patientSex?: string
 ): Observation {
   const base: Observation = {
     id: data.resourceId,
@@ -332,6 +338,7 @@ export function makeObservationResource(
       interpretation = getVitalObservationFhirInterpretations({
         patientDOB,
         vitalsObservation: data,
+        patientSex,
       });
     }
     return fillVitalObservationAttributes({ ...base, interpretation }, data, patientDOB);
@@ -969,7 +976,10 @@ export async function makeSchoolWorkDR(
     meta: {
       tag: [{ code: type, system: SCHOOL_WORK_NOTE_TYPE_META_SYSTEM }, ...(getMetaWFieldName(fieldName).tag || [])],
     },
-    searchParams: [],
+    searchParams: [
+      { name: 'encounter', value: `Encounter/${encounterId}` },
+      { name: 'subject', value: `Patient/${patientId}` },
+    ],
     listResources,
   });
   return docRefs[0];
@@ -1068,7 +1078,8 @@ const mapResourceToChartDataFields = (
     resourceMapped = true;
   } else if (
     resource?.resourceType === 'MedicationStatement' &&
-    chartDataResourceHasMetaTagByCode(resource, 'current-medication')
+    (chartDataResourceHasMetaTagByCode(resource, 'current-medication') ||
+      chartDataResourceHasMetaTagByCode(resource, 'prescribed-medication'))
   ) {
     data.medications?.push(makeMedicationDTO(resource));
     resourceMapped = true;

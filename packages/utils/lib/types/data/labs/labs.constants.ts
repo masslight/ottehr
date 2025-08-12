@@ -112,6 +112,15 @@ export const FHIR_IDC10_VALUESET_SYSTEM = 'http://hl7.org/fhir/valueset-icd-10.h
 export const SNOMED_CODE_SYSTEM = 'http://snomed.info/sct';
 export const OYSTEHR_LAB_GUID_SYSTEM = 'https://identifiers.fhir.oystehr.com/lab-guid';
 export const OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM = 'https://identifiers.fhir.oystehr.com/lab-order-placer-id';
+export const OYSTEHR_EXTERNAL_LABS_ATTACHMENT_EXT_SYSTEM =
+  'https://extensions.fhir.oystehr.com/observation-value-attachment-pre-release';
+
+export const OYSTEHR_OBS_CONTENT_TYPES = {
+  pdf: 'AP',
+  image: 'IM',
+} as const;
+export type ObsContentType = (typeof OYSTEHR_OBS_CONTENT_TYPES)[keyof typeof OYSTEHR_OBS_CONTENT_TYPES];
+export type SupportedObsImgAttachmentTypes = 'PNG' | 'JPG' | 'JPEG';
 
 export const OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY = {
   system: 'http://terminology.hl7.org/CodeSystem/v2-0074',

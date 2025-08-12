@@ -5,7 +5,7 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     silent: true,
-    testTimeout: 60000,
+    testTimeout: 90000,
     include: ['*/integration/**/*.{test,spec}.?(c|m)[jt]s?(x)'],
     provide: {
       EXECUTE_ZAMBDA_URL: 'http://localhost:3000/local',

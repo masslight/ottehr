@@ -61,6 +61,7 @@ import {
 } from 'utils';
 import { sendErrors } from '../../shared';
 import {
+  diagnosticReportIsReflex,
   fetchLabOrderPDFsPresignedUrls,
   parseAppointmentIdForServiceRequest,
   parseTimezoneForAppointmentSchedule,
@@ -392,9 +393,9 @@ export const parseResults = (
       continue;
     }
 
-    const resultCodes = result.code?.coding?.map((coding) => coding.code);
+    const isReflex = diagnosticReportIsReflex(result);
 
-    if (resultCodes?.some((code) => serviceRequestCodes?.includes(code))) {
+    if (!isReflex) {
       if (result.status === 'preliminary') {
         orderedPrelimResults.set(result.id, result);
       } else if (finalResultStatuses.includes(result.status)) {
