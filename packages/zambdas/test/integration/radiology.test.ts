@@ -54,8 +54,6 @@ describe.only('radiology integration tests', () => {
       roles: [providerRoleId!],
     });
 
-    console.log('alex me', await oystehr.m2m.me());
-
     const patient = await oystehr.fhir.create<Patient>({
       resourceType: 'Patient',
       name: [{ given: ['Test'], family: 'Patient' }],
@@ -112,7 +110,8 @@ describe.only('radiology integration tests', () => {
         orderOutput = error as Error;
       }
       expect(orderOutput).toBeDefined();
-      expect(orderOutput).toEqual(200);
+      expect(orderOutput).toHaveProperty('output');
+      expect(orderOutput.output).toHaveProperty('serviceRequestId');
     });
   });
 });
