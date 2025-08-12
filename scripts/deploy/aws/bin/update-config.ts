@@ -8,16 +8,17 @@ import { updateEnvFiles, updateOystehr } from '../../helpers';
 const projectConfig: any = config;
 const environment = projectConfig.environment;
 const projectId = projectConfig.project_id;
+const projectName = projectConfig.project_name;
 const accessToken = projectConfig.access_token;
 
 void (async () => {
   try {
     const distributions = await getCloudFrontDistributions();
     const patientPortalDistribution = distributions.DistributionList?.Items?.find(
-      (distribution: any) => distribution.Comment === `ottehr-patientPortal-${projectId}`
+      (distribution: any) => distribution.Comment === `${projectName}-ottehr-patientPortal-${projectId}`
     );
     const ehrDistribution = distributions.DistributionList?.Items?.find(
-      (distribution: any) => distribution.Comment === `ottehr-ehr-${projectId}`
+      (distribution: any) => distribution.Comment === `${projectName}-ottehr-ehr-${projectId}`
     );
     if (patientPortalDistribution && ehrDistribution) {
       const patientPortalUrl = `https://${patientPortalDistribution.DomainName}`;

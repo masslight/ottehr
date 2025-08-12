@@ -9,6 +9,7 @@ import { OttehrInfraStack } from '../lib/ottehr-infra-stack';
 const app = new cdk.App();
 const projectConfig: any = config;
 const environment = projectConfig.environment;
+const projectName = projectConfig.project_name;
 
 void (async () => {
   try {
@@ -20,8 +21,8 @@ void (async () => {
 })();
 
 async function setupDeploy(): Promise<void> {
-  const infra = new OttehrInfraStack(app, `ottehr-infra-stack-${environment}`);
-  new OttehrDataStack(app, `ottehr-data-stack-${environment}`, {
+  const infra = new OttehrInfraStack(app, `${projectName}-ottehr-infra-stack-${environment}`);
+  new OttehrDataStack(app, `${projectName}-ottehr-data-stack-${environment}`, {
     patientPortalBucket: infra.patientPortalBucket,
     ehrBucket: infra.ehrBucket,
   });
