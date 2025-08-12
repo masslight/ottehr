@@ -307,9 +307,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       if (!submitLabRequest.ok) {
         throw EXTERNAL_LAB_ERROR(submitLabRequestResponse.message || 'error submitting lab request to oystehr');
       } else {
-        console.log('checking for eRequisitionDocumentReferences');
-        if (submitLabRequestResponse?.eRequisitionDocumentReferences) {
-          eReqDocumentReference = submitLabRequestResponse.eRequisitionDocumentReferences;
+        console.log('checking for eRequisitionDocumentReference');
+        if (submitLabRequestResponse?.eRequisitionDocumentReference) {
+          eReqDocumentReference = submitLabRequestResponse.eRequisitionDocumentReference;
         }
       }
     }
