@@ -1,7 +1,6 @@
-//import fs from 'fs';
 import _ from 'lodash';
 import * as z from 'zod';
-import { OVERRIDES } from '../../../.ottehr_config';
+import { SENDGRID_OVERRIDES as OVERRIDES } from '../../../.ottehr_config';
 
 // this is relative to the deploy folder where tf runs
 const PATH_PREFIX = '../packages/utils/lib';
@@ -106,11 +105,11 @@ const SENDGRID_DEFAULTS = Object.freeze({
       dynamicTemplateData: ['patient-name', 'join-visit-url'],
     },
   },
-});
+} as const);
 
-const overrides: any = OVERRIDES.sendgrid || {};
+const overrides: any = OVERRIDES || {};
 
-const mergedSendgridConfig = _.merge({ ...SENDGRID_DEFAULTS }, { ...overrides });
+const mergedSendgridConfig = _.merge({ ...SENDGRID_DEFAULTS }, [{ ...overrides }]);
 // console.log('Merged SendGrid config:', mergedSendgridConfig);
 
 const TemplateVersionSchema = z.object({
@@ -178,13 +177,6 @@ const TelemedInvitationSchema = TemplateVersionSchema.extend({
   dynamicTemplateData: z.array(z.enum(mergedSendgridConfig.templates.telemedInvitation.dynamicTemplateData)),
 });
 
-/*
-const CustomEmailResourceSchema = TemplateVersionSchema.extend({
-  templateIdSecretName: z.string().min(1, { message: 'Template ID secret name cannot be empty' }),
-  disabled: z.boolean().default(false),
-});
-*/
-
 const DefaultTemplates = z.object({
   errorReport: ErrorReportSchema,
   inPersonCancelation: InPersonCancelationSchema,
@@ -206,7 +198,25 @@ export const SENDGRID_CONFIG = Object.freeze(SENDGRID_CONFIG_SCHEMA.parse(merged
 export type SendgridConfig = z.infer<typeof SENDGRID_CONFIG_SCHEMA>;
 export type EmailTemplate = SendgridConfig['templates'][keyof SendgridConfig['templates']];
 
-export type DynamicTemplateDataRecord<T extends EmailTemplate> = Record<
-  Extract<T['dynamicTemplateData'] extends Array<infer K> ? K : never, string>,
-  string
+export type DynamicTemplateDataRecord<T extends EmailTemplate> = {
+  [K in Extract<T['dynamicTemplateData'] extends Array<infer U> ? U : never, string>]: string;
+};
+export type ErrorReportTemplateData = DynamicTemplateDataRecord<SendgridConfig['templates']['errorReport']>;
+export type InPersonCancelationTemplateData = DynamicTemplateDataRecord<
+  SendgridConfig['templates']['inPersonCancelation']
 >;
+export type InPersonConfirmationTemplateData = DynamicTemplateDataRecord<
+  SendgridConfig['templates']['inPersonConfirmation']
+>;
+export type InPersonCompletionTemplateData = DynamicTemplateDataRecord<
+  SendgridConfig['templates']['inPersonCompletion']
+>;
+export type InPersonReminderTemplateData = DynamicTemplateDataRecord<SendgridConfig['templates']['inPersonReminder']>;
+export type TelemedCancelationTemplateData = DynamicTemplateDataRecord<
+  SendgridConfig['templates']['telemedCancelation']
+>;
+export type TelemedConfirmationTemplateData = DynamicTemplateDataRecord<
+  SendgridConfig['templates']['telemedConfirmation']
+>;
+export type TelemedCompletionTemplateData = DynamicTemplateDataRecord<SendgridConfig['templates']['telemedCompletion']>;
+export type TelemedInvitationTemplateData = DynamicTemplateDataRecord<SendgridConfig['templates']['telemedInvitation']>;

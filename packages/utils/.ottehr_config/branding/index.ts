@@ -1,1 +1,1 @@
-export default {};
+export const BRANDING_OVERRIDES = {};

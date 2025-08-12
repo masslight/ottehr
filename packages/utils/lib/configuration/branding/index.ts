@@ -1,8 +1,8 @@
 import _ from 'lodash';
 import * as z from 'zod';
-import { OVERRIDES } from '../../../.ottehr_config';
+import { BRANDING_OVERRIDES as OVERRIDES } from '../../../.ottehr_config';
 
-const overrides: any = OVERRIDES.branding || {};
+const overrides: any = OVERRIDES || {};
 const BRANDING_DEFAULTS: any = {
   projectName: 'Ottehr',
   email: {

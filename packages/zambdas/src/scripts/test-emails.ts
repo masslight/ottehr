@@ -1,26 +1,35 @@
 import { randomUUID } from 'crypto';
 import fs from 'fs';
 import { DateTime } from 'luxon';
-import { DATETIME_FULL_NO_YEAR } from 'utils';
+import { DATETIME_FULL_NO_YEAR, InPersonCancelationTemplateData, InPersonConfirmationTemplateData } from 'utils';
 import { getEmailClient } from '../shared';
 
 const to = 'ibenham@masslight.com';
 const randomVisitId = randomUUID();
 
-const inPersonConfirmationTestInput = {
+const inPersonConfirmationTestInput = (env: any): InPersonConfirmationTemplateData => ({
   location: 'Manassas',
   time: DateTime.now().toFormat(DATETIME_FULL_NO_YEAR),
   address: '123 Main St, Manassas, VA 20110',
   'address-url': `https://www.google.com/maps/search/?api=1&query=${encodeURI('123 Main St, Manassas, VA 20110')}`,
-  'modify-visit-url': `ottehr.com/visit/${randomVisitId}/reschedule`,
-  'cancel-visit-url': `ottehr.com/visit/${randomVisitId}/cancel`,
-  'paperwork-url': `ottehr.com/paperwork/${randomVisitId}`,
-};
+  'modify-visit-url': `${env['WEBSITE_URL']}/visit/${randomVisitId}/reschedule`,
+  'cancel-visit-url': `${env['WEBSITE_URL']}/visit/${randomVisitId}/cancel`,
+  'paperwork-url': `${env['WEBSITE_URL']}/paperwork/${randomVisitId}`,
+});
+
+const inPersonCancelationTestInput = (env: any): InPersonCancelationTemplateData => ({
+  location: 'Manassas',
+  time: DateTime.now().toFormat(DATETIME_FULL_NO_YEAR),
+  address: '123 Main St, Manassas, VA 20110',
+  'address-url': `https://www.google.com/maps/search/?api=1&query=${encodeURI('123 Main St, Manassas, VA 20110')}`,
+  'book-again-url': `${env['WEBSITE_URL']}/visit/${randomVisitId}/book-again`,
+});
 
 const testEmails = async (envConfig: any): Promise<void> => {
   try {
     const emailClient = getEmailClient(envConfig);
-    await emailClient.sendInPersonConfirmationEmail(to, inPersonConfirmationTestInput);
+    await emailClient.sendInPersonConfirmationEmail(to, inPersonConfirmationTestInput(envConfig));
+    await emailClient.sendInPersonCancelationEmail(to, inPersonCancelationTestInput(envConfig));
   } catch (e) {
     console.log('email test threw error:', e);
   }

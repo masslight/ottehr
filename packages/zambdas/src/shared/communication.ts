@@ -7,15 +7,24 @@ import {
   DATETIME_FULL_NO_YEAR,
   DynamicTemplateDataRecord,
   EmailTemplate,
+  ErrorReportTemplateData,
   getAddressStringForScheduleResource,
   getNameFromScheduleResource,
   getSecret,
+  InPersonCancelationTemplateData,
+  InPersonCompletionTemplateData,
+  InPersonConfirmationTemplateData,
+  InPersonReminderTemplateData,
   PROJECT_NAME,
   ScheduleOwnerFhirResource,
   Secrets,
   SecretsKeys,
   SENDGRID_CONFIG,
   SendgridConfig,
+  TelemedCancelationTemplateData,
+  TelemedCompletionTemplateData,
+  TelemedConfirmationTemplateData,
+  TelemedInvitationTemplateData,
 } from 'utils';
 import { BRANDING_CONFIG } from 'utils/lib/configuration/branding';
 import { getNameForOwner } from '../ehr/schedules/shared';
@@ -86,7 +95,7 @@ export async function sendInPersonMessages({
     }
 
     const rescheduleUrl = `${WEBSITE_URL}/visit/${appointmentID}/reschedule`;
-    const templateData = {
+    const templateData: InPersonConfirmationTemplateData = {
       time: readableTime,
       location,
       address,
@@ -244,10 +253,7 @@ class EmailClient {
     }
   }
 
-  async sendErrorEmail(
-    to: string | string[],
-    templateData: DynamicTemplateDataRecord<typeof this.config.templates.errorReport>
-  ): Promise<void> {
+  async sendErrorEmail(to: string | string[], templateData: ErrorReportTemplateData): Promise<void> {
     const recipients = typeof to === 'string' ? [to] : [...to];
 
     if (!recipients.includes('ottehr-support@masslight.com')) {
@@ -259,58 +265,50 @@ class EmailClient {
 
   async sendVirtualConfirmationEmail(
     to: string | string[],
-    templateData: DynamicTemplateDataRecord<typeof this.config.templates.telemedConfirmation>
+    templateData: TelemedConfirmationTemplateData
   ): Promise<void> {
     await this.sendEmail(to, this.config.templates.telemedConfirmation, templateData);
   }
 
   async sendVirtualCancelationEmail(
     to: string | string[],
-    templateData: DynamicTemplateDataRecord<typeof this.config.templates.telemedCancelation>
+    templateData: TelemedCancelationTemplateData
   ): Promise<void> {
     await this.sendEmail(to, this.config.templates.telemedCancelation, templateData);
   }
 
-  async sendVirtualCompletionEmail(
-    to: string | string[],
-    templateData: DynamicTemplateDataRecord<typeof this.config.templates.telemedCompletion>
-  ): Promise<void> {
+  async sendVirtualCompletionEmail(to: string | string[], templateData: TelemedCompletionTemplateData): Promise<void> {
     await this.sendEmail(to, this.config.templates.telemedCompletion, templateData);
   }
 
   async sendVideoChatInvitationEmail(
     to: string | string[],
-    templateData: DynamicTemplateDataRecord<typeof this.config.templates.telemedInvitation>
+    templateData: TelemedInvitationTemplateData
   ): Promise<void> {
     await this.sendEmail(to, this.config.templates.telemedInvitation, templateData);
   }
 
   async sendInPersonConfirmationEmail(
     to: string | string[],
-    templateData: DynamicTemplateDataRecord<typeof this.config.templates.inPersonConfirmation>
+    templateData: InPersonConfirmationTemplateData
   ): Promise<void> {
     await this.sendEmail(to, this.config.templates.inPersonConfirmation, templateData);
   }
   async sendInPersonCancelationEmail(
     to: string | string[],
-    templateData: DynamicTemplateDataRecord<typeof this.config.templates.inPersonCancelation>
+    templateData: InPersonCancelationTemplateData
   ): Promise<void> {
     await this.sendEmail(to, this.config.templates.inPersonCancelation, templateData);
   }
   async sendInPersonCompletionEmail(
     to: string | string[],
-    templateData: DynamicTemplateDataRecord<typeof this.config.templates.inPersonCompletion>
+    templateData: InPersonCompletionTemplateData
   ): Promise<void> {
-    const template = this.config.templates.inPersonCompletion;
-    await this.sendEmail(to, template, templateData);
+    await this.sendEmail(to, this.config.templates.inPersonCompletion, templateData);
   }
 
-  async sendInPersonReminderEmail(
-    email: string | string[],
-    templateData: DynamicTemplateDataRecord<typeof this.config.templates.inPersonReminder>
-  ): Promise<void> {
-    const template = this.config.templates.inPersonReminder;
-    await this.sendEmail(email, template, templateData);
+  async sendInPersonReminderEmail(email: string | string[], templateData: InPersonReminderTemplateData): Promise<void> {
+    await this.sendEmail(email, this.config.templates.inPersonReminder, templateData);
   }
 }
 
