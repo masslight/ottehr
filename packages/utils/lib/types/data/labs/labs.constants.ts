@@ -101,9 +101,6 @@ export const MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING = {
   display: 'manual-lab-order',
 };
 
-// ottehr equivalent of OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM
-export const OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM = 'https://identifiers.ottehr.com/lab-order-placer-id';
-
 // These are oystehr dependent
 // meaning that there is logic in oystehr labs specifically looking for these systems
 // so if we don't like any of them, we have to change there too

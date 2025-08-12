@@ -126,7 +126,7 @@ export type LabOrderListPageDTO = {
   lastResultReceivedDate: string; // the most recent Task RFRT.authoredOn
   accessionNumbers: string[]; // DiagnosticReport.identifier (identifier assigned to a sample when it arrives at a laboratory)
   encounterTimezone: string | undefined; // used to format dates correctly on the front end
-  orderNumber: string | undefined; // ServiceRequest.identifier.value (system === OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM || OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)
+  orderNumber: string | undefined; // ServiceRequest.identifier.value (system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)
 };
 
 export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {

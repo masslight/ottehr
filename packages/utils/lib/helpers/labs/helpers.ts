@@ -2,7 +2,6 @@ import { Organization, ServiceRequest } from 'fhir/r4b';
 import {
   LAB_ACCOUNT_NUMBER_SYSTEM,
   MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING,
-  OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   PSC_HOLD_CONFIG,
 } from '../../types';
@@ -44,9 +43,7 @@ export function externalLabOrderIsManual(sr: ServiceRequest): boolean {
 }
 
 export function getOrderNumber(sr: ServiceRequest): string | undefined {
-  return sr.identifier?.find(
-    (id) => id.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM || id.system === OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM
-  )?.value;
+  return sr.identifier?.find((id) => id.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)?.value;
 }
 
 export function getAccountNumberFromOrganization(org: Organization): string | undefined {

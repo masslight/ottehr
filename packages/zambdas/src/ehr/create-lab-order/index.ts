@@ -34,9 +34,9 @@ import {
   ORDER_NUMBER_LEN,
   OrderableItemSearchResult,
   OrderableItemSpecimen,
-  OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   OYSTEHR_LAB_GUID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
+  OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   PSC_HOLD_CONFIG,
   RELATED_SPECIMEN_DEFINITION_SYSTEM,
@@ -165,7 +165,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
       contained: serviceRequestContained,
       identifier: [
         {
-          system: OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
+          system: OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
           value: existingOrderNumber || createOrderNumber(ORDER_NUMBER_LEN),
         },
       ],
