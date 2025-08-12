@@ -25,6 +25,7 @@ export const ResponsibleInformationContainer: FC = () => {
       [FormFields.birthDate.key]: AllFormFields.patientSummary.birthDate.key,
       [FormFields.birthSex.key]: AllFormFields.patientSummary.birthSex.key,
       [FormFields.phone.key]: AllFormFields.patientContactInformation.phone.key,
+      [FormFields.email.key]: AllFormFields.patientContactInformation.email.key,
       [FormFields.addressLine1.key]: AllFormFields.patientContactInformation.streetAddress.key,
       [FormFields.addressLine2.key]: AllFormFields.patientContactInformation.addressLine2.key,
       [FormFields.city.key]: AllFormFields.patientContactInformation.city.key,
@@ -152,6 +153,19 @@ export const ResponsibleInformationContainer: FC = () => {
               );
             },
           }}
+          disabled={selfSelected}
+        />
+      </Row>
+      <Row label={FormFields.email.label} inputId={FormFields.email.key} required>
+        <FormTextField
+          id={FormFields.email.key}
+          name={FormFields.email.key}
+          data-testid={dataTestIds.responsiblePartyInformationContainer.emailInput}
+          control={control}
+          rules={{
+            required: REQUIRED_FIELD_ERROR_MESSAGE,
+          }}
+          required={true}
           disabled={selfSelected}
         />
       </Row>
