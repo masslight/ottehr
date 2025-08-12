@@ -32,6 +32,14 @@ export const LAB_ORDER_DOC_REF_CODING_CODE = {
   display: 'Referral lab test panel',
 };
 
+const LAB_DOC_CATEGORY_CODING_SYSTEM = 'https://terminology.fhir.oystehr.com/CodeSystem/lab-documents';
+
+export const REQUISITION_DOC_CATEGORY_CODING = {
+  system: LAB_DOC_CATEGORY_CODING_SYSTEM,
+  code: 'lab-generated-requisition-document',
+  display: 'Lab Generated Requisition Document',
+};
+
 export const LAB_RESULT_DOC_REF_CODING_CODE = {
   system: 'http://loinc.org',
   code: '11502-2',
