@@ -5,7 +5,6 @@ import { FhirResource, Provenance, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   APIError,
-  EXTERNAL_LAB_ERROR,
   getPatchBinary,
   getSecret,
   isApiError,
@@ -21,7 +20,12 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
-import { getBundledOrderResources, makeOrderFormsAndDocRefs, makeProvenanceResourceRequest } from './helpers';
+import {
+  getBundledOrderResources,
+  makeOrderFormsAndDocRefs,
+  makeProvenanceResourceRequest,
+  OrderResourcesByAccountNumber,
+} from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'submit-lab-order';
@@ -51,42 +55,63 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const bundledOrdersByAccountNumber = await getBundledOrderResources(oystehr, m2mToken, serviceRequestIDs);
     console.log('successfully retrieved resources');
 
-    console.log('check this! bundledOrdersByAccountNumber', JSON.stringify(bundledOrdersByAccountNumber));
+    console.log('bundledOrdersByAccountNumber', JSON.stringify(bundledOrdersByAccountNumber));
 
-    // todo SARAH comment out before testing, will not work
     // submit to oystehr labs when NOT manual order
+    const successfulBundledOrders: OrderResourcesByAccountNumber = {};
+    const failedBundledOrders: OrderResourcesByAccountNumber = {};
     if (!manualOrder) {
       console.log('calling oystehr submit lab');
 
-      const submitLabPromises = Object.entries(bundledOrdersByAccountNumber).map(([accountNumber, resources]) => {
-        return fetch(OYSTEHR_SUBMIT_LAB_API, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${m2mToken}`,
-          },
-          body: JSON.stringify({
-            serviceRequest: resources.testDetails.map((test) => `ServiceRequest/${test.serviceRequestID}`),
-            accountNumber: accountNumber,
-          }),
-        });
+      const submitLabPromises = Object.entries(bundledOrdersByAccountNumber).map(async ([accountNumber, resources]) => {
+        try {
+          const res = await fetch(OYSTEHR_SUBMIT_LAB_API, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${m2mToken}`,
+            },
+            body: JSON.stringify({
+              serviceRequest: resources.testDetails.map((test) => `ServiceRequest/${test.serviceRequestID}`),
+              accountNumber: accountNumber,
+            }),
+          });
+
+          if (!res.ok) {
+            const body = await res.json();
+            throw new Error(`Error submitting for account number: ${accountNumber}. Error: ${body.message}`);
+          }
+
+          const result = await res.json();
+          return { status: 'fulfilled', accountNumber, result };
+        } catch (e) {
+          return { status: 'rejected', accountNumber, reason: (e as Error).message };
+        }
       });
 
       const submitLabResults = await Promise.all(submitLabPromises);
+      console.log('submitLabResults', submitLabResults);
 
       for (const res of submitLabResults) {
-        if (!res.ok) {
-          const submitLabRequestResponse = await res.json();
-          console.log('submitLabRequestResponse', submitLabRequestResponse);
-          throw EXTERNAL_LAB_ERROR(submitLabRequestResponse.message || 'error submitting lab request to oystehr');
+        if (res.status === 'fulfilled') {
+          const resources = bundledOrdersByAccountNumber[res.accountNumber];
+          successfulBundledOrders[res.accountNumber] = resources;
+        } else if (res.status === 'rejected') {
+          console.log('rejected result', res);
+          const resources = bundledOrdersByAccountNumber[res.accountNumber];
+          failedBundledOrders[res.accountNumber] = resources;
         }
       }
+    } else {
+      Object.entries(bundledOrdersByAccountNumber).forEach(([accountNumber, resources]) => {
+        successfulBundledOrders[accountNumber] = resources;
+      });
     }
 
     // submit successful, do the fhir provenance writes
     const provenancePostRequests: BatchInputRequest<Provenance>[] = [];
     const serviceRequestPatchRequest: BatchInputRequest<ServiceRequest>[] = [];
 
-    Object.values(bundledOrdersByAccountNumber).forEach((resources) => {
+    Object.values(successfulBundledOrders).forEach((resources) => {
       resources.testDetails.forEach((test) => {
         provenancePostRequests.push(makeProvenanceResourceRequest(now, test.serviceRequestID, currentUser));
 
@@ -102,8 +127,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             op: 'add',
             path: test.serviceRequest?.category ? '/category/-' : '/category',
             value: test.serviceRequest?.category
-              ? { coding: MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING }
-              : [{ coding: MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING }],
+              ? { coding: [MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING] }
+              : [{ coding: [MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING] }],
           });
         }
         serviceRequestPatchRequest.push(
@@ -116,14 +141,25 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       });
     });
 
-    console.log('making fhir transaction requests');
     const requests: BatchInputRequest<FhirResource>[] = [...provenancePostRequests, ...serviceRequestPatchRequest];
-    await oystehr?.fhir.transaction({ requests });
+    if (requests.length) {
+      console.log('making fhir transaction requests');
+      await oystehr?.fhir.transaction({ requests });
+    } else {
+      console.log('no requests to make');
+    }
 
-    const orderPdfUrls = await makeOrderFormsAndDocRefs(bundledOrdersByAccountNumber, now, secrets, m2mToken, oystehr);
+    const hasSuccesses = Object.keys(successfulBundledOrders).length > 0;
+    const orderPdfUrls = hasSuccesses
+      ? await makeOrderFormsAndDocRefs(successfulBundledOrders, now, secrets, m2mToken, oystehr)
+      : [];
 
-    console.log('orderPdfUrls', orderPdfUrls);
-    const responseBody: SubmitLabOrderOutput = { orderPdfUrls };
+    const hasFailures = Object.keys(failedBundledOrders).length > 0;
+    const failedOrdersByOrderNumber = hasFailures
+      ? Object.values(failedBundledOrders).map((resources) => resources.orderNumber)
+      : undefined;
+
+    const responseBody: SubmitLabOrderOutput = { orderPdfUrls, failedOrdersByOrderNumber };
 
     return {
       body: JSON.stringify(responseBody),

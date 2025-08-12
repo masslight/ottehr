@@ -26,6 +26,7 @@ import { DateTime } from 'luxon';
 import { ReactElement, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { submitLabOrder } from 'src/api/api';
+import { CustomDialog } from 'src/components/dialogs';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { LabOrderDTO, LabOrderListPageDTO, LabOrdersSearchBy, openPdf, OrderableItemSearchResult } from 'utils';
 import { getExternalLabOrderEditUrl } from '../../../css-module/routing/helpers';
@@ -90,6 +91,9 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
   const [tempDateFilter, setTempDateFilter] = useState(visitDateFilter);
   const [submitLoading, setSubmitLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | undefined>();
+  const [errorDialogOpen, setErrorDialogOpen] = useState<boolean>(false);
+  const [manualError, setManualError] = useState<string | undefined>();
+  const [failedOrderNumbers, setFailedOrderNumbers] = useState<string[] | undefined>();
 
   const { pendingLabs, readyLabs } = labOrders.reduce(
     (acc: { pendingLabs: LabOrderDTO<SearchBy>[]; readyLabs: LabOrderDTO<SearchBy>[] }, lab) => {
@@ -125,7 +129,7 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
     setSearchParams({ pageNumber: 1, testTypeFilter: value?.item.itemLoinc || '' });
   };
 
-  const submitOrders = async (): Promise<void> => {
+  const submitOrders = async (manualOrder: boolean, labsToSubmit = readyLabs): Promise<void> => {
     if (!oystehr) {
       console.log('error: oystehr client is missing');
       setError('error submitting orders');
@@ -136,22 +140,55 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
     console.log('submitting the orders');
 
     try {
-      const { orderPdfUrls } = await submitLabOrder(oystehr, {
-        serviceRequestIDs: readyLabs.map((order) => order.serviceRequestId),
-        manualOrder: false,
+      const { orderPdfUrls, failedOrdersByOrderNumber } = await submitLabOrder(oystehr, {
+        serviceRequestIDs: labsToSubmit.map((order) => order.serviceRequestId),
+        manualOrder,
       });
       console.log('orderPdfUrls', orderPdfUrls);
+      console.log('failedOrdersByOrderNumber', failedOrdersByOrderNumber);
       for (const pdfUrl of orderPdfUrls) {
         await openPdf(pdfUrl);
       }
+      if (failedOrdersByOrderNumber) {
+        setFailedOrderNumbers(failedOrdersByOrderNumber);
+        throw Error(`submits failed for the following orders: ${failedOrdersByOrderNumber}`);
+      }
+      setErrorDialogOpen(false);
       await fetchLabOrders(searchBy);
     } catch (e) {
       const sdkError = e as Oystehr.OystehrSdkError;
-      console.log('error updating collection data and marking as ready', sdkError.code, sdkError.message);
-      setError(sdkError.message);
+      console.log('error submitting lab', sdkError.code, sdkError.message);
+      if (manualOrder) {
+        setManualError(sdkError.message);
+      } else if (sdkError.message.includes('submits failed for the following orders:')) {
+        setErrorDialogOpen(true);
+      } else {
+        setError(sdkError.message);
+      }
     }
     setSubmitLoading(false);
   };
+
+  const manualSubmit = async (): Promise<void> => {
+    if (!failedOrderNumbers) return;
+    const labs = labOrders.filter((order) => order.orderNumber && failedOrderNumbers.includes(order.orderNumber));
+    await submitOrders(true, labs);
+  };
+
+  const manualSubmitDialogDescription = (
+    <Box>
+      {manualError ? (
+        <Typography color="error">{`Error manually submitting: ${manualError}`}</Typography>
+      ) : (
+        <>
+          <Typography color="error">{`submits failed for the following orders: ${failedOrderNumbers}`}</Typography>
+          <Typography sx={{ marginTop: 1 }}>
+            {`After clicking confirm you can no longer electronically submit these orders, please confirm this action`}
+          </Typography>
+        </>
+      )}
+    </Box>
+  );
 
   if (loading || !labOrders) {
     return <LabOrderLoading />;
@@ -405,17 +442,28 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
             sx={{ borderRadius: '50px', textTransform: 'none', py: 1, px: 5, textWrap: 'nowrap' }}
             color="primary"
             size={'medium'}
-            onClick={submitOrders}
+            onClick={() => submitOrders(false)}
             disabled={pendingLabs.length > 0}
           >
             Submit & Print Order(s)
           </LoadingButton>
         </Box>
       )}
-      {error && (
-        <Box sx={{ textAlign: 'right', paddingTop: 1 }}>
-          <Typography sx={{ color: theme.palette.error.main }}>{error}</Typography>
-        </Box>
+      {error && <Typography color="error">{error}</Typography>}
+      {failedOrderNumbers && (
+        <CustomDialog
+          open={errorDialogOpen}
+          confirmLoading={submitLoading}
+          handleConfirm={manualError ? undefined : manualSubmit}
+          confirmText="Confirm manual submit"
+          handleClose={async () => {
+            await fetchLabOrders(searchBy);
+            setErrorDialogOpen(false);
+          }}
+          title="Manually submitting lab order"
+          description={manualSubmitDialogDescription}
+          closeButtonText="Cancel"
+        />
       )}
     </>
   );

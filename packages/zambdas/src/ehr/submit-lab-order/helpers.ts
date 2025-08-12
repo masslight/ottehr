@@ -67,7 +67,7 @@ export type resourcesForOrderForm = {
   coverage?: Coverage;
 };
 
-type OrderResourcesByAccountNumber = {
+export type OrderResourcesByAccountNumber = {
   [accountNumber: string]: resourcesForOrderForm;
 };
 
