@@ -1,13 +1,6 @@
 import { Encounter } from 'fhir/r4b';
 import { useEffect } from 'react';
-import {
-  EXAM_OBSERVATIONS_INITIAL,
-  IN_PERSON_EXAM_OBSERVATIONS_INITIAL,
-  useAppointmentStore,
-  useExamObservationsStore,
-  useInPersonExamObservationsStore,
-  useVideoCallStore,
-} from '../state';
+import { useAppointmentStore, useVideoCallStore } from '../state';
 import {
   EXAM_CARDS_INITIAL,
   IN_PERSON_EXAM_CARDS_INITIAL,
@@ -29,8 +22,8 @@ export const useResetAppointmentStore = (): void => {
       chartData: undefined,
       currentTab: 'hpi',
     });
-    useExamObservationsStore.setState(EXAM_OBSERVATIONS_INITIAL);
-    useInPersonExamObservationsStore.setState(IN_PERSON_EXAM_OBSERVATIONS_INITIAL);
+    // useExamObservationsStore.setState(EXAM_OBSERVATIONS_INITIAL);
+    // useInPersonExamObservationsStore.setState(IN_PERSON_EXAM_OBSERVATIONS_INITIAL);
     useVideoCallStore.setState({ meetingData: null });
     useExamCardsStore.setState(EXAM_CARDS_INITIAL);
     useInPersonExamCardsStore.setState(IN_PERSON_EXAM_CARDS_INITIAL);

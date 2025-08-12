@@ -11,8 +11,6 @@ import {
   createMedicationString,
   CustomOptionObservationHistoryObtainedFromDTO,
   dispositionCheckboxOptions,
-  ExamCardsNames,
-  ExamFieldsNames,
   ExamObservationDTO,
   ExamObservationFieldItem,
   examObservationFieldsDetailsArray,
@@ -29,8 +27,6 @@ import {
   HistorySourceKeys,
   historySourceLabels,
   IN_PERSON_EXAM_CARDS,
-  InPersonExamCardsNames,
-  InPersonExamFieldsNames,
   inPersonExamObservationFieldsDetailsArray,
   InPersonExamTabProviderCardNames,
   mapDispositionTypeToLabel,
@@ -449,7 +445,7 @@ function parseExamFieldsFromExamObservations(
   questionnaireResponse: QuestionnaireResponse | undefined
 ): { examination: TelemedExamBlockData } {
   const examObservations: {
-    [field in ExamFieldsNames | ExamCardsNames | InPersonExamCardsNames | InPersonExamFieldsNames]?: ExamObservationDTO;
+    [field: string]: ExamObservationDTO;
   } = {};
   chartData.examObservations?.forEach((exam) => {
     examObservations[exam.field] = exam;
@@ -586,7 +582,7 @@ function parseInPersonExamFieldsFromExamObservations(chartData: GetChartDataResp
   examination: InPersonExamBlockData;
 } {
   const examObservations: {
-    [field in ExamFieldsNames | ExamCardsNames | InPersonExamCardsNames | InPersonExamFieldsNames]?: ExamObservationDTO;
+    [field: string]: ExamObservationDTO;
   } = {};
   chartData.examObservations?.forEach((exam) => {
     examObservations[exam.field] = exam;
