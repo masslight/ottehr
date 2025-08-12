@@ -18,6 +18,7 @@ import {
   DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_DAY,
   DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_MONTH,
   DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_YEAR,
+  DEMO_VISIT_RESPONSIBLE_EMAIL,
   DEMO_VISIT_RESPONSIBLE_FIRST_NAME,
   DEMO_VISIT_RESPONSIBLE_LAST_NAME,
   DEMO_VISIT_RESPONSIBLE_PHONE,
@@ -74,6 +75,7 @@ const NEW_LAST_NAME_FROM_RESPONSIBLE_CONTAINER = 'Last name';
 const NEW_BIRTHDATE_FROM_RESPONSIBLE_CONTAINER = '10/10/2000';
 const NEW_BIRTH_SEX_FROM_RESPONSIBLE_CONTAINER = 'Male';
 const NEW_PHONE_FROM_RESPONSIBLE_CONTAINER = '(202) 111-1111';
+const NEW_EMAIL_FROM_RESPONSIBLE_CONTAINER = 'testemail@getMaxListeners.com';
 const NEW_ADDRESS_RESPONSIBLE_PARTY = '123 fake lane';
 const NEW_CITY_RESPONSIBLE_PARTY = 'Los Angeles';
 const NEW_STATE_RESPONSIBLE_PARTY = 'NY';
@@ -145,6 +147,7 @@ test.describe('Patient Record Page non-mutating tests', () => {
     );
     await patientInformationPage.verifyBirthSexFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_BIRTH_SEX);
     await patientInformationPage.verifyPhoneFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_PHONE);
+    await patientInformationPage.verifyEmailFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_EMAIL);
   });
 
   test('Verify entered by patient data from Patient details block is displayed correctly', async ({ page }) => {
@@ -303,6 +306,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.enterDateOfBirthFromResponsibleContainer(NEW_BIRTHDATE_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.selectBirthSexFromResponsibleContainer(NEW_BIRTH_SEX_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.enterPhoneFromResponsibleContainer(NEW_PHONE_FROM_RESPONSIBLE_CONTAINER);
+    await patientInformationPage.enterEmailFromResponsibleContainer(NEW_EMAIL_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.enterStreetLine1FromResponsibleContainer(NEW_ADDRESS_RESPONSIBLE_PARTY);
     await patientInformationPage.enterResponsiblePartyCity(NEW_CITY_RESPONSIBLE_PARTY);
     await patientInformationPage.selectResponsiblePartyState(NEW_STATE_RESPONSIBLE_PARTY);
@@ -333,6 +337,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyDateOfBirthFromResponsibleContainer(NEW_BIRTHDATE_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.verifyBirthSexFromResponsibleContainer(NEW_BIRTH_SEX_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.verifyPhoneFromResponsibleContainer(NEW_PHONE_FROM_RESPONSIBLE_CONTAINER);
+    await patientInformationPage.verifyEmailFromResponsibleContainer(NEW_EMAIL_FROM_RESPONSIBLE_CONTAINER);
 
     /*
     skipping these tests because this component has been hidden while await requirement clarification from product team
@@ -486,6 +491,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyDateOfBirthFromResponsibleContainer(NEW_BIRTHDATE_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.verifyBirthSexFromResponsibleContainer(NEW_BIRTH_SEX_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.verifyPhoneFromResponsibleContainer(NEW_PHONE_FROM_RESPONSIBLE_CONTAINER);
+    await patientInformationPage.verifyEmailFromResponsibleContainer(NEW_EMAIL_FROM_RESPONSIBLE_CONTAINER);
   });
 
   test('Updated values from Patient details  block  are saved and displayed correctly', async ({ page }) => {

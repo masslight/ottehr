@@ -22,6 +22,7 @@ export enum Field {
   DEMO_VISIT_RESPONSIBLE_LAST_NAME,
   DEMO_VISIT_RESPONSIBLE_BIRTHDATE,
   DEMO_VISIT_RESPONSIBLE_PHONE,
+  DEMO_VISIT_RESPONSIBLE_EMAIL,
   DEMO_VISIT_PROVIDER_FIRST_NAME,
   DEMO_VISIT_PROVIDER_LAST_NAME,
   DEMO_VISIT_PRACTICE_NAME,
@@ -50,6 +51,7 @@ const FIELD_TO_TEST_ID = new Map<Field, string>()
   .set(Field.DEMO_VISIT_RESPONSIBLE_LAST_NAME, dataTestIds.responsiblePartyInformationContainer.lastName)
   .set(Field.DEMO_VISIT_RESPONSIBLE_BIRTHDATE, dataTestIds.responsiblePartyInformationContainer.dateOfBirthDropdown)
   .set(Field.DEMO_VISIT_RESPONSIBLE_PHONE, dataTestIds.responsiblePartyInformationContainer.phoneInput)
+  .set(Field.DEMO_VISIT_RESPONSIBLE_EMAIL, dataTestIds.responsiblePartyInformationContainer.emailInput)
   .set(Field.DEMO_VISIT_POINT_OF_DISCOVERY, dataTestIds.patientDetailsContainer.sendMarketingMessages)
   .set(Field.DEMO_VISIT_PREFERRED_LANGUAGE, dataTestIds.patientDetailsContainer.preferredLanguage)
   .set(Field.DEMO_VISIT_PROVIDER_FIRST_NAME, dataTestIds.primaryCarePhysicianContainer.firstName)
@@ -529,10 +531,23 @@ export class PatientInformationPage {
       .fill(phone);
   }
 
+  async enterEmailFromResponsibleContainer(email: string): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.responsiblePartyInformationContainer.emailInput)
+      .locator('input')
+      .fill(email);
+  }
+
   async verifyPhoneFromResponsibleContainer(phone: string): Promise<void> {
     await expect(
       this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.phoneInput).locator('input')
     ).toHaveValue(phone);
+  }
+
+  async verifyEmailFromResponsibleContainer(email: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.emailInput).locator('input')
+    ).toHaveValue(email);
   }
 
   async clearPhoneFromResponsibleContainer(): Promise<void> {

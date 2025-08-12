@@ -2,11 +2,15 @@ import { Autocomplete, Box, TextField } from '@mui/material';
 import { DateTime } from 'luxon';
 import { FC, useEffect } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { DOB_DATE_FORMAT, isPhoneNumberValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
-import { isPostalCodeValid } from 'utils';
+import {
+  DOB_DATE_FORMAT,
+  emailRegex,
+  isPhoneNumberValid,
+  isPostalCodeValid,
+  REQUIRED_FIELD_ERROR_MESSAGE,
+} from 'utils';
 import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../../components/form';
-import { RELATIONSHIP_OPTIONS, SEX_OPTIONS } from '../../constants';
-import { FormFields as AllFormFields, STATE_OPTIONS } from '../../constants';
+import { FormFields as AllFormFields, RELATIONSHIP_OPTIONS, SEX_OPTIONS, STATE_OPTIONS } from '../../constants';
 import { dataTestIds } from '../../constants/data-test-ids';
 import InputMask from '../InputMask';
 import { Row, Section } from '../layout';
@@ -164,6 +168,10 @@ export const ResponsibleInformationContainer: FC = () => {
           control={control}
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
+            pattern: {
+              value: emailRegex,
+              message: 'Must be in the format "email@example.com"',
+            },
           }}
           required={true}
           disabled={selfSelected}
