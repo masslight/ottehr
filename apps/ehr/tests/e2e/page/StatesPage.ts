@@ -15,7 +15,7 @@ export class StatesPage extends PageWithTablePagination {
   }
 
   async verifyStateNameField(stateNameText: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.editState.stateNameField).locator('input')).toHaveValue(
+    await expect(this.#page.getByTestId(dataTestIds.editState.locationNameField).locator('input')).toHaveValue(
       new RegExp(stateNameText + '.*')
     );
   }

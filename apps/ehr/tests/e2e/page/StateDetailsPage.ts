@@ -24,33 +24,33 @@ export class StateDetailsPage {
   }
 
   async verifyStateNameField(stateNameText: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.editState.stateNameField).locator('input')).toHaveValue(
+    await expect(this.#page.getByTestId(dataTestIds.editState.locationNameField).locator('input')).toHaveValue(
       new RegExp(stateNameText + '.*')
     );
   }
 
   async setToggleOff(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.editState.operateInStateToggle).locator('input').setChecked(false);
+    await this.#page.getByTestId(dataTestIds.editState.operateInLocationToggle).locator('input').setChecked(false);
   }
 
   async verifyToggleOff(): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.editState.operateInStateToggle).locator('input')).toBeChecked({
+    await expect(this.#page.getByTestId(dataTestIds.editState.operateInLocationToggle).locator('input')).toBeChecked({
       checked: false,
     });
   }
 
   async setToggleOn(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.editState.operateInStateToggle).locator('input').setChecked(true);
+    await this.#page.getByTestId(dataTestIds.editState.operateInLocationToggle).locator('input').setChecked(true);
   }
 
   async verifyToggleOn(): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.editState.operateInStateToggle).locator('input')).toBeChecked({
+    await expect(this.#page.getByTestId(dataTestIds.editState.operateInLocationToggle).locator('input')).toBeChecked({
       checked: true,
     });
   }
 
   async isToggleOn(): Promise<boolean> {
-    return this.#page.getByTestId(dataTestIds.editState.operateInStateToggle).locator('input').isChecked();
+    return this.#page.getByTestId(dataTestIds.editState.operateInLocationToggle).locator('input').isChecked();
   }
 
   async reloadStateDetailsPage(): Promise<void> {

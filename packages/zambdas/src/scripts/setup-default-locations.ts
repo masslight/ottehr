@@ -2,7 +2,7 @@ import { BatchInputPostRequest, default as Oystehr } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { FhirResource, Location, Practitioner, Resource, Schedule } from 'fhir/r4b';
 import {
-  AllStatesToVirtualLocationsData,
+  AllStatesToVirtualLocationLabels,
   defaultLocation,
   ELIGIBILITY_PRACTITIONER_META_TAG_PREFIX,
   ELIGIBILITY_PRACTITIONER_TYPES,
@@ -54,7 +54,7 @@ export const checkLocations = async (oystehr: Oystehr): Promise<void> => {
   console.log('Filtered all virtual telemed locations.');
 
   for (const statePkg of virtualDefaultLocations) {
-    const stateData = AllStatesToVirtualLocationsData[statePkg.state];
+    const stateData = AllStatesToVirtualLocationLabels[statePkg.state];
     if (!telemedStates.includes(statePkg.state)) await createTelemedLocation(statePkg, stateData, oystehr);
   }
   console.log('All telemed locations exist');

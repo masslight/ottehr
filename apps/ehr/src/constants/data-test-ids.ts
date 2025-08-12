@@ -185,9 +185,10 @@ export const dataTestIds = {
   editState: {
     saveChangesButton: 'save-changes-button',
     cancelButton: 'cancel-button',
-    operateInStateToggle: 'operate-in-state-toggle',
+    operateInLocationToggle: 'operate-in-state-toggle',
     stateNameTitle: 'state-name-title',
-    stateNameField: 'state-name-field',
+    locationNameField: 'state-name-field',
+    locationStateField: 'state-state-field',
   },
   patients: {
     searchByLastNameField: 'search-last-name-field',
