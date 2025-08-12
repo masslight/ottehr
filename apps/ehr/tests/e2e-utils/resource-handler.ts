@@ -128,7 +128,7 @@ export type CreateTestAppointmentInput = {
 };
 
 export class ResourceHandler {
-  #apiClient!: Promise<Oystehr>;
+  apiClient!: Promise<Oystehr>;
   #authToken!: Promise<string>;
   #resources!: CreateAppointmentResponse['resources'] & { relatedPerson: { id: string; resourceType: string } };
   #createAppointmentZambdaId: string;
@@ -156,7 +156,7 @@ export class ResourceHandler {
     this.#createAppointmentZambdaId = 'create-appointment';
     this.#authToken = getAuth0Token();
 
-    this.#apiClient = this.#authToken.then((authToken) => {
+    this.apiClient = this.#authToken.then((authToken) => {
       return new Oystehr({
         accessToken: authToken,
         fhirApiUrl: process.env.FHIR_API,
@@ -204,7 +204,7 @@ export class ResourceHandler {
 
       // Create appointment and related resources using zambda
       const appointmentData = await createSampleAppointments({
-        oystehr: await this.#apiClient,
+        oystehr: await this.apiClient,
         authToken: getAccessToken(),
         phoneNumber: formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
         createAppointmentZambdaId: this.#createAppointmentZambdaId,
@@ -253,7 +253,7 @@ export class ResourceHandler {
       throw new Error('LOCATION_ID is not set');
     }
 
-    const apiClient = await this.#apiClient;
+    const apiClient = await this.apiClient;
 
     const schedule = (
       await apiClient.fhir.search<Schedule>({
@@ -334,12 +334,12 @@ export class ResourceHandler {
     // because for this moment frontend creates order with appointment id in place of encounter one
     const metaTagCoding = getProcessMetaTag(this.#processId!);
     if (metaTagCoding?.tag?.[0]) {
-      await cleanAppointmentGraph(metaTagCoding.tag[0], await this.#apiClient);
+      await cleanAppointmentGraph(metaTagCoding.tag[0], await this.apiClient);
     }
   }
 
   async waitTillAppointmentPreprocessed(id: string): Promise<void> {
-    const apiClient = await this.#apiClient;
+    const apiClient = await this.apiClient;
 
     try {
       for (let i = 0; i < 10; i++) {
@@ -372,7 +372,7 @@ export class ResourceHandler {
   }
 
   async waitTillHarvestingDone(appointmentId: string): Promise<void> {
-    const apiClient = await this.#apiClient;
+    const apiClient = await this.apiClient;
 
     try {
       for (let i = 0; i < 10; i++) {
@@ -407,7 +407,7 @@ export class ResourceHandler {
   }
 
   async setEmployees(): Promise<void> {
-    const apiClient = await this.#apiClient;
+    const apiClient = await this.apiClient;
     const authToken = await this.#authToken;
 
     try {
@@ -424,7 +424,7 @@ export class ResourceHandler {
   }
 
   async deleteEmployees(): Promise<void> {
-    const apiClient = await this.#apiClient;
+    const apiClient = await this.apiClient;
     const authToken = await this.#authToken;
 
     try {
@@ -466,7 +466,7 @@ export class ResourceHandler {
   }
 
   async patientIdByAppointmentId(appointmentId: string): Promise<string> {
-    const apiClient = await this.#apiClient;
+    const apiClient = await this.apiClient;
     const appointment = await apiClient.fhir.get<Appointment>({
       resourceType: 'Appointment',
       id: appointmentId,
@@ -486,7 +486,7 @@ export class ResourceHandler {
     email: string;
     practitioner: Practitioner;
   }> {
-    const apiClient = await this.#apiClient;
+    const apiClient = await this.apiClient;
     const oystehrProjectId = process.env.PROJECT_ID;
     if (!oystehrProjectId) throw new Error('secret PROJECT_ID is not set');
     const { oystFetch } = createFetchClientWithOystAuth({
