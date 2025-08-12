@@ -11,3 +11,4 @@ export * from './paperwork';
 export * from './paperwork.types';
 export * from './payment';
 export * from './telemed';
+export * from './vitals';

@@ -56,7 +56,8 @@ export const MarTable: React.FC = () => {
   };
 
   const columnStyles: ColumnStyles = {
-    medication: { width: '25%', ...cellStyles, paddingLeft: '16px' },
+    interactionsAlert: { width: '20px', ...cellStyles },
+    medication: { width: '25%', ...cellStyles },
     dose: { width: '7%', ...cellStyles },
     route: { width: '10%', ...cellStyles },
     orderDateTime: { width: '12%', ...cellStyles },
@@ -92,6 +93,7 @@ export const MarTable: React.FC = () => {
                 <Table>
                   <TableHead>
                     <TableRow>
+                      <TableCell sx={{ ...columnStyles.interactionsAlert, ...HEADER_CELL_STYLES }}></TableCell>
                       <TableCell sx={{ ...columnStyles.medication, ...HEADER_CELL_STYLES }}>Medication</TableCell>
                       <TableCell sx={{ ...columnStyles.dose, ...HEADER_CELL_STYLES }}>Dose</TableCell>
                       <TableCell sx={{ ...columnStyles.route, ...HEADER_CELL_STYLES }}>Route</TableCell>
@@ -123,6 +125,7 @@ export const MarTable: React.FC = () => {
                 <Table>
                   <TableHead>
                     <TableRow>
+                      <TableCell sx={{ ...columnStyles.interactionsAlert, ...HEADER_CELL_STYLES }}></TableCell>
                       <TableCell sx={{ ...columnStyles.medication, ...HEADER_CELL_STYLES }}>Medication</TableCell>
                       <TableCell sx={{ ...columnStyles.dose, ...HEADER_CELL_STYLES }}>Dose</TableCell>
                       <TableCell sx={{ ...columnStyles.route, ...HEADER_CELL_STYLES }}>Route</TableCell>

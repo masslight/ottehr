@@ -4,10 +4,13 @@ import { MedicationRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { MedicationWithTypeDTO } from 'src/features/css-module/hooks/useMedicationHistory';
 import {
+  AllergyInteraction,
+  DrugInteraction,
   ExtendedMedicationDataForResponse,
   MedicationData,
   MedicationInteractions,
   MedicationOrderStatusesType,
+  medicationStatusDisplayLabelMap,
   MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM,
   UpdateMedicationOrderInput,
 } from 'utils';
@@ -65,14 +68,6 @@ export const validateAllMedicationFields = (
 
   setFieldErrors(errors);
   return { isValid: missingFields.length === 0, missingFields };
-};
-
-export const medicationStatusDisplayLabelMap: Record<MedicationOrderStatusesType, string> = {
-  pending: 'Pending',
-  administered: 'Administered',
-  'administered-partly': 'Partly Administered',
-  'administered-not': 'Not Administered',
-  cancelled: 'Cancelled',
 };
 
 // this check is used in order-new and order-edit to prevent user from exit page and lose unsaved data
@@ -252,24 +247,17 @@ export const medicationInteractionsFromErxResponse = (
   medicationHistory: MedicationWithTypeDTO[],
   prescriptions: MedicationRequest[]
 ): MedicationInteractions => {
-  const interactions: MedicationInteractions = {
-    drugInteractions: (response.medications ?? []).map((medication) => {
-      return {
-        drugs: (medication.medications ?? []).map((nestedMedication) => ({
-          id: nestedMedication.id.toString(),
-          name: nestedMedication.name,
-        })),
-        severity: SEVERITY_LEVEL_TO_SEVERITY[medication.severityLevel],
-        message: medication.message,
-      };
-    }),
-    allergyInteractions: response.allergies?.map((allergy) => {
-      return {
-        message: allergy.message,
-      };
-    }),
-  };
-  interactions.drugInteractions?.forEach((drugInteraction) => {
+  const drugInteractions: DrugInteraction[] = (response.medications ?? []).map((medication) => {
+    return {
+      drugs: (medication.medications ?? []).map((nestedMedication) => ({
+        id: nestedMedication.id.toString(),
+        name: nestedMedication.name,
+      })),
+      severity: SEVERITY_LEVEL_TO_SEVERITY[medication.severityLevel],
+      message: medication.message,
+    };
+  });
+  drugInteractions.forEach((drugInteraction) => {
     const drugIds = drugInteraction.drugs.map((drug) => drug.id);
     const sourceMedication = medicationHistory.find((medication) => medication.id && drugIds.includes(medication.id));
     let display: string | undefined = undefined;
@@ -301,7 +289,15 @@ export const medicationInteractionsFromErxResponse = (
       };
     }
   });
-  return interactions;
+  const allergyInteractions: AllergyInteraction[] = (response.allergies ?? []).map((allergy) => {
+    return {
+      message: allergy.message,
+    };
+  });
+  return {
+    drugInteractions,
+    allergyInteractions,
+  };
 };
 
 export const findPrescriptionsForInteractions = async (

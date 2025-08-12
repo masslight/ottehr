@@ -46,6 +46,9 @@ const WaitingRoom = (): JSX.Element => {
 
   useGetWaitStatus(
     (data) => {
+      if (!data) {
+        return;
+      }
       useWaitingRoomStore.setState(data);
       if (data.status == 'on-video') {
         if (isIOSApp && currentAppointmentId) {

@@ -94,7 +94,7 @@ test.describe('Book appointment filling insurances information on payment option
   test.beforeAll(async () => {
     const oystehr = await ResourceHandler.getOystehr();
     const insuranceCarriersOptionsResponse = await oystehr.zambda.execute({
-      id: process.env.GET_ANSWER_OPTIONS_ZAMBDA_ID!,
+      id: 'get-answer-options',
       answerSource: {
         resourceType: 'InsurancePlan',
         query: `status=active&_tag=${INSURANCE_PLAN_PAYER_META_TAG_CODE}`,
@@ -187,6 +187,7 @@ async function BookAppointmentFillInfoSignProgressNote(page: Page, resourceHandl
   await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
   const patientInfoPage = await intakeTestAppointment(page, resourceHandler);
   await patientInfoPage.sideMenu().clickCompleteIntakeButton();
+  await patientInfoPage.cssHeader().verifyStatus('ready for provider');
   await patientInfoPage.cssHeader().clickSwitchModeButton('provider');
   await patientInfoPage.cssHeader().changeStatus('provider');
   const progressNotePage = await expectInPersonProgressNotePage(page);

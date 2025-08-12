@@ -14,7 +14,12 @@ export const MedicationHistoryEntity: React.FC<MedicationHistoryEntityProps> = (
 
   const isMedicationWithType = 'chartDataField' in item;
 
-  const getTypeLabel = (): 'Scheduled medication' | 'As-needed medication' | 'In-house medication' | '' => {
+  const getTypeLabel = ():
+    | 'Scheduled medication'
+    | 'As-needed medication'
+    | 'In-house medication'
+    | 'Prescribed medication'
+    | '' => {
     if (isMedicationWithType) {
       if (item.chartDataField === 'inhouseMedications') {
         return 'In-house medication';
@@ -24,6 +29,9 @@ export const MedicationHistoryEntity: React.FC<MedicationHistoryEntityProps> = (
         }
         if (item.type === 'as-needed') {
           return 'As-needed medication';
+        }
+        if (item.type === 'prescribed-medication') {
+          return 'Prescribed medication';
         }
       }
     }

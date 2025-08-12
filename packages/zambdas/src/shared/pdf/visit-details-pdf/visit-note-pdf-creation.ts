@@ -8,6 +8,7 @@ import {
   convertBooleanToString,
   convertTemperature,
   CPTCodeDTO,
+  createMedicationString,
   CustomOptionObservationHistoryObtainedFromDTO,
   dispositionCheckboxOptions,
   ExamCardsNames,
@@ -20,6 +21,7 @@ import {
   getAttendingPractitionerId,
   GetChartDataResponse,
   getDefaultNote,
+  GetMedicationOrdersResponse,
   getProviderNameWithProfession,
   getQuestionnaireResponseByLinkId,
   getSpentTime,
@@ -52,7 +54,11 @@ import { InPersonExamBlockData, TelemedExamBlockData, VisitNoteData } from '../t
 import { createVisitNotePDF } from '../visit-note-pdf';
 import { FullAppointmentResourcePackage } from './types';
 
-type AllChartData = { chartData: GetChartDataResponse; additionalChartData?: GetChartDataResponse };
+type AllChartData = {
+  chartData: GetChartDataResponse;
+  additionalChartData?: GetChartDataResponse;
+  medicationOrders?: GetMedicationOrdersResponse['orders'];
+};
 
 export async function composeAndCreateVisitNotePdf(
   allChartData: AllChartData,
@@ -75,7 +81,7 @@ function composeDataForPdf(
   appointmentPackage: FullAppointmentResourcePackage,
   isInPersonAppointment: boolean
 ): VisitNoteData {
-  const { chartData, additionalChartData } = allChartData;
+  const { chartData, additionalChartData, medicationOrders } = allChartData;
 
   const { patient, encounter, appointment, location, questionnaireResponse, practitioners, timezone } =
     appointmentPackage;
@@ -146,8 +152,18 @@ function composeDataForPdf(
 
   // --- Surgical history ---
   const surgicalHistory = chartData.surgicalHistory ? mapResourceByNameField(chartData.surgicalHistory) : []; // surgical history
-  const surgicalHistoryNotes = additionalChartData?.notes
-    ?.filter((note) => note.type === NOTE_TYPE.SURGICAL_HISTORY)
+  const surgicalHistoryNotes = isInPersonAppointment
+    ? additionalChartData?.notes?.filter((note) => note.type === NOTE_TYPE.SURGICAL_HISTORY)?.map((note) => note.text)
+    : additionalChartData?.surgicalHistoryNote?.text
+    ? [additionalChartData?.surgicalHistoryNote?.text]
+    : undefined;
+
+  // --- In-House Medications ---
+  const inHouseMedications = medicationOrders
+    ?.filter((order) => order.status !== 'cancelled')
+    .map((order) => createMedicationString(order));
+  const inHouseMedicationsNotes = additionalChartData?.notes
+    ?.filter((note) => note.type === NOTE_TYPE.MEDICATION)
     ?.map((note) => note.text);
 
   // --- Addition questions ---
@@ -214,7 +230,7 @@ function composeDataForPdf(
   const otherDiagnoses = diagnoses.filter((item) => !item.isPrimary).map((item) => item.display);
 
   // --- MDM ---
-  // const medicalDecision = chartData?.medicalDecision?.text;
+  // const medicalDecision = additionalChartData?.medicalDecision?.text;
   const medicalDecision = '';
 
   // --- E&M ---
@@ -321,6 +337,8 @@ function composeDataForPdf(
     medicalConditionsNotes,
     surgicalHistory,
     surgicalHistoryNotes,
+    inHouseMedications,
+    inHouseMedicationsNotes,
     additionalQuestions,
     screening: {
       seenInLastThreeYears,

@@ -304,7 +304,8 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
   }
   drawFieldLine('Address', data.address);
   regularText(
-    'Provider confirmed patient’s name, DOB, introduced themselves, and gave their licensure and credentials.'
+    // Related to a node bug, a second space(good space) was added between the words gave, their to handle a bad space(no space) occurance
+    'Provider confirmed patient’s name, DOB, introduced themselves, and gave  their licensure and credentials.'
   );
   separateLine();
 
@@ -421,6 +422,29 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     if (data.hospitalizationNotes && data.hospitalizationNotes.length > 0) {
       drawBlockHeader('Hospitalization notes', textStyles.blockSubHeader);
       data.hospitalizationNotes.forEach((record) => {
+        regularText(record);
+      });
+    }
+
+    separateLine();
+  }
+
+  if (
+    (data.inHouseMedications && data.inHouseMedications.length > 0) ||
+    (data.inHouseMedicationsNotes && data.inHouseMedicationsNotes.length > 0)
+  ) {
+    drawBlockHeader('In-House Medications');
+    if (data.inHouseMedications?.length) {
+      data.inHouseMedications.forEach((record) => {
+        regularText(record);
+      });
+    } else {
+      regularText('No in-house medications');
+    }
+
+    if (data.inHouseMedicationsNotes && data.inHouseMedicationsNotes.length > 0) {
+      drawBlockHeader('In-House Medications notes', textStyles.blockSubHeader);
+      data.inHouseMedicationsNotes.forEach((record) => {
         regularText(record);
       });
     }

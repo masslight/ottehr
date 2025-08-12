@@ -1,4 +1,4 @@
-import { Box, CircularProgress, FormControl, Grid, InputLabel, MenuItem, Select, Typography } from '@mui/material';
+import { Box, FormControl, Grid, InputLabel, MenuItem, Select, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { ChangeEvent, JSX, useCallback, useState } from 'react';
 import {
@@ -10,27 +10,19 @@ import {
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { AccordionCard, DoubleColumnContainer } from '../../../../../telemed/components';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
+import VitalHistoryElement from '../components/VitalsHistoryEntry';
 import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
-import { useVitalsCardState } from '../hooks/useVitalsCardState';
-import { composeOxygenSatHistoryEntries, isValidOxySatPercentageValue, textToOxygenSatNumber } from './helpers';
-import VitalOxygenSatHistoryElement from './VitalOxygenSatHistoryElement';
-import { VitalsOxygenSatHistoryEntry } from './VitalsOxygenSatHistoryEntry';
+import { useScreenDimensions } from '../hooks/useScreenDimensions';
+import { VitalsCardProps } from '../types';
+import { textToOxygenSatNumber } from './helpers';
 
-const VitalsOxygenSatCard: React.FC = (): JSX.Element => {
-  const {
-    isLoadingVitalsByEncounter,
-    handleSaveVital,
-    handleDeleteVital,
-    isSavingCardData,
-    setSavingCardData,
-    screenDimensions: { isLargeScreen },
-    vitalsHistory: { mainHistoryEntries, extraHistoryEntries, latestHistoryEntry },
-    historyElementSkeletonText,
-  } = useVitalsCardState<VitalsOxygenSatObservationDTO, VitalsOxygenSatHistoryEntry>(
-    VitalFieldNames.VitalOxygenSaturation,
-    composeOxygenSatHistoryEntries
-  );
-
+type VitalsOxygenSatCardProps = VitalsCardProps<VitalsOxygenSatObservationDTO>;
+const VitalsOxygenSatCard: React.FC<VitalsOxygenSatCardProps> = ({
+  handleSaveVital,
+  handleDeleteVital,
+  currentObs,
+  historicalObs,
+}): JSX.Element => {
   const [oxySatValueText, setOxySatValueText] = useState('');
 
   // the method how this Oxygen Saturation observation has been acquired
@@ -43,10 +35,13 @@ const VitalsOxygenSatCard: React.FC = (): JSX.Element => {
     setIsCollapsed((prevCollapseState) => !prevCollapseState);
   }, [setIsCollapsed]);
 
-  const isDisabledAddButton =
-    !oxySatValueText || isSavingCardData || isLoadingVitalsByEncounter || isOxySatValidationError;
+  const [isSaving, setIsSaving] = useState(false);
 
-  const latestOxySatValue = latestHistoryEntry?.oxygenSatPercentage;
+  const { isLargeScreen } = useScreenDimensions();
+
+  const isDisabledAddButton = !oxySatValueText || isOxySatValidationError;
+
+  const latestOxySatValue = currentObs[0]?.value;
 
   const handleSaveOxySatObservation = useCallback(
     async (oxySatValueText: string): Promise<void> => {
@@ -55,7 +50,7 @@ const VitalsOxygenSatCard: React.FC = (): JSX.Element => {
 
       const observationMethod = toVitalOxygenSatObservationMethod(observationQualifier);
       try {
-        setSavingCardData(true);
+        setIsSaving(true);
         const vitalObs: VitalsOxygenSatObservationDTO = {
           field: VitalFieldNames.VitalOxygenSaturation,
           value: oxySatValueNumber,
@@ -67,20 +62,16 @@ const VitalsOxygenSatCard: React.FC = (): JSX.Element => {
       } catch {
         enqueueSnackbar('Error saving oxygen saturation data', { variant: 'error' });
       } finally {
-        setSavingCardData(false);
+        setIsSaving(false);
       }
     },
-    [observationQualifier, setSavingCardData, handleSaveVital]
+    [observationQualifier, handleSaveVital]
   );
 
   const handleTextInputChange = useCallback(
     (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
       const oxySatAsText = e.target.value;
       setOxySatValueText(oxySatAsText);
-      const oxySaturation = textToOxygenSatNumber(oxySatAsText);
-      if (oxySaturation) {
-        setOxySatValidationError(!isValidOxySatPercentageValue(oxySaturation));
-      }
       if (oxySatAsText.length === 0) {
         setOxySatValidationError(false);
       }
@@ -90,7 +81,7 @@ const VitalsOxygenSatCard: React.FC = (): JSX.Element => {
 
   const renderQualifierDropdown = (): JSX.Element => {
     return (
-      <FormControl fullWidth size="small" sx={{ backgroundColor: 'white' }} disabled={isSavingCardData}>
+      <FormControl fullWidth size="small" sx={{ backgroundColor: 'white' }} disabled={isSaving}>
         <InputLabel id="qualifier-label">Qualifier</InputLabel>
         <Select
           value={observationQualifier}
@@ -150,7 +141,7 @@ const VitalsOxygenSatCard: React.FC = (): JSX.Element => {
                 <VitalsTextInputFiled
                   label="Sat (%)"
                   value={oxySatValueText}
-                  disabled={isSavingCardData}
+                  disabled={isSaving}
                   isInputError={isOxySatValidationError}
                   onChange={handleTextInputChange}
                 />
@@ -181,6 +172,7 @@ const VitalsOxygenSatCard: React.FC = (): JSX.Element => {
               <Grid item xs={12} sm={4} md={4} lg={4} order={{ xs: 3, sm: 3, md: 3, lg: 3 }} sx={{ mt: 0 }}>
                 <RoundedButton
                   disabled={isDisabledAddButton}
+                  loading={isSaving}
                   onClick={() => handleSaveOxySatObservation(oxySatValueText)}
                   color="primary"
                   sx={{
@@ -188,7 +180,6 @@ const VitalsOxygenSatCard: React.FC = (): JSX.Element => {
                     px: 2,
                     ml: 1,
                   }}
-                  startIcon={isSavingCardData ? <CircularProgress size={20} color="inherit" /> : null}
                 >
                   Add
                 </RoundedButton>
@@ -197,12 +188,17 @@ const VitalsOxygenSatCard: React.FC = (): JSX.Element => {
           }
           rightColumn={
             <VitalsHistoryContainer
-              mainHistoryEntries={mainHistoryEntries}
-              extraHistoryEntries={extraHistoryEntries}
-              isLoading={isLoadingVitalsByEncounter}
-              historyElementSkeletonText={historyElementSkeletonText}
+              currentEncounterObs={currentObs}
+              historicalObs={historicalObs}
+              isLoading={false}
               historyElementCreator={(historyEntry) => {
-                return <VitalOxygenSatHistoryElement historyEntry={historyEntry} onDelete={handleDeleteVital} />;
+                const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
+                return (
+                  <VitalHistoryElement
+                    historyEntry={historyEntry}
+                    onDelete={isCurrent ? handleDeleteVital : undefined}
+                  />
+                );
               }}
             />
           }

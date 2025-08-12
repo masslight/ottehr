@@ -1,6 +1,6 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { useCallback } from 'react';
-import { useQueryClient } from 'react-query';
 import { ChartDataFields, GetChartDataResponse } from 'utils';
 import { useDeleteChartData } from '../../../../../telemed';
 import { useChartData } from '../../../hooks/useChartData';
@@ -32,7 +32,7 @@ export const useDeleteNote: UseDeleteNote = ({ encounterId, apiConfig, locales }
                   };
                 }
                 return oldData;
-              });
+              }) as GetChartDataResponse | undefined;
               if (result?.[apiConfig.fieldName] === undefined) {
                 // refetch all if the cache didn't found
                 await refetch();

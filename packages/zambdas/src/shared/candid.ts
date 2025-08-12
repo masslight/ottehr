@@ -301,8 +301,21 @@ async function candidCreateEncounterRequest(
   if (primaryDiagnosisIndex === -1) {
     throw new Error('Primary diagnosis is absent');
   }
+
+  // Validate and convert appointment start to proper date format
+  const appointmentStart = input.appointment.start;
+  let dateOfServiceString: string | undefined;
+
+  if (appointmentStart) {
+    const dateOfService = DateTime.fromISO(appointmentStart);
+    if (dateOfService.isValid) {
+      dateOfServiceString = dateOfService.toISODate();
+    }
+  }
+
   return {
     externalId: EncounterExternalId(assertDefined(encounter.id, 'Encounter.id')),
+    dateOfService: dateOfServiceString,
     billableStatus: BillableStatusType.Billable,
     responsibleParty: insuranceResources != null ? ResponsiblePartyType.InsurancePay : ResponsiblePartyType.SelfPay,
     benefitsAssignedToProvider: true,
@@ -566,7 +579,7 @@ async function createPreEncounterPatient(
     );
   }
 
-  console.log('alex patient,', patient);
+  console.log('[CLAIM SUBMISSION] patient details ', patient);
 
   const patientAddress = patient.address?.[0];
   if (!patientAddress) {
@@ -979,10 +992,9 @@ const buildCandidCoverageCreateInput = (
         country: subscriber.address?.[0].country ?? 'US', // TODO just save country into the FHIR resource when making it https://build.fhir.org/datatypes-definitions.html#Address.country. We can put US by default to start.
       },
     },
-    relationship: assertDefined(
-      coverage.relationship?.coding?.[0].code,
-      'Subscriber relationship'
-    ).toUpperCase() as Relationship,
+    relationship: convertCoverageRelationshipToCandidRelationship(
+      assertDefined(coverage.relationship?.coding?.[0].code, 'Subscriber relationship')
+    ),
     status: 'ACTIVE',
     patient: candidPatient.id,
     verified: true,
@@ -993,6 +1005,30 @@ const buildCandidCoverageCreateInput = (
     },
   };
 };
+
+function convertCoverageRelationshipToCandidRelationship(relationship: string): Relationship {
+  const normalizedString = relationship.toUpperCase().trim();
+
+  //
+  // Normalize the string to match the expected values from FHIR specification
+  // defined here https://build.fhir.org/valueset-subscriber-relationship.html
+  //
+  //
+  switch (normalizedString) {
+    case 'SELF':
+      return Relationship.Self;
+    case 'SPOUSE':
+      return Relationship.Spouse;
+    case 'PARENT':
+      return Relationship.Other;
+    case 'CHILD':
+      return Relationship.Child;
+    case 'COMMON':
+      return Relationship.CommonLawSpouse;
+    default:
+      return Relationship.Other;
+  }
+}
 
 const fetchFHIRPatientAndAppointmentFromEncounter = async (
   encounterId: string,

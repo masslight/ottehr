@@ -99,7 +99,7 @@ export const PatientInformationModal: FC = () => {
             Edit on the Patient Master
           </RoundedButton>
         )}
-        isSaveLoading={editPatient.isLoading || editCoverage.isLoading}
+        isSaveLoading={editPatient.isPending || editCoverage.isPending}
       >
         <Grid container spacing={2}>
           <Grid item xs={4}>

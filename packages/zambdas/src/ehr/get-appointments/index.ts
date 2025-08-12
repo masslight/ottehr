@@ -29,6 +29,7 @@ import {
   getVisitStatusHistory,
   InPersonAppointmentInformation,
   INSURANCE_CARD_CODE,
+  isNonPaperworkQuestionnaireResponse,
   isTruthy,
   PHOTO_ID_CARD_CODE,
   ROOM_EXTENSION_URL,
@@ -38,7 +39,6 @@ import {
   SMSRecipient,
   ZAP_SMS_MEDIUM_CODE,
 } from 'utils';
-import { isNonPaperworkQuestionnaireResponse } from '../../common';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,

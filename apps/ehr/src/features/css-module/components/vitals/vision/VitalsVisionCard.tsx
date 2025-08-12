@@ -1,6 +1,6 @@
-import { Box, Checkbox, CircularProgress, FormControlLabel, Grid, lighten, Typography, useTheme } from '@mui/material';
+import { Box, Checkbox, FormControlLabel, Grid, lighten, Typography, useTheme } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import React, { JSX, useCallback, useMemo, useState } from 'react';
+import React, { JSX, useCallback, useState } from 'react';
 import {
   getVisionExtraOptionsFormattedString,
   VitalFieldNames,
@@ -10,28 +10,20 @@ import {
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { AccordionCard, DoubleColumnContainer } from '../../../../../telemed/components';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
+import VitalHistoryElement from '../components/VitalsHistoryEntry';
 import { VitalsTextFreeInputField } from '../components/VitalsTextInputFiled';
-import { useVitalsCardState } from '../hooks/useVitalsCardState';
-import { composeVisionVitalsHistoryEntries } from './helpers';
-import { VitalVisionHistoryEntry } from './VitalVisionEntry';
-import VitalVisionHistoryElement from './VitalVisionHistoryElement';
+import { useScreenDimensions } from '../hooks/useScreenDimensions';
+import { VitalsCardProps } from '../types';
 
-const VitalsVisionCard: React.FC = (): JSX.Element => {
+type VitalsVisionCardProps = VitalsCardProps<VitalsVisionObservationDTO>;
+const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({
+  handleSaveVital,
+  handleDeleteVital,
+  currentObs,
+  historicalObs,
+  historyElementSkeletonText,
+}): JSX.Element => {
   const theme = useTheme();
-
-  const {
-    isLoadingVitalsByEncounter,
-    handleSaveVital,
-    handleDeleteVital,
-    isSavingCardData,
-    setSavingCardData,
-    screenDimensions: { isLargeScreen },
-    vitalsHistory: { mainHistoryEntries, extraHistoryEntries, latestHistoryEntry },
-    historyElementSkeletonText,
-  } = useVitalsCardState<VitalsVisionObservationDTO, VitalVisionHistoryEntry>(
-    VitalFieldNames.VitalVision,
-    composeVisionVitalsHistoryEntries
-  );
 
   const [leftEyeSelection, setLeftEyeSelection] = useState<string>('');
   const [rightEyeSelection, setRightEyeSelection] = useState<string>('');
@@ -40,27 +32,31 @@ const VitalsVisionCard: React.FC = (): JSX.Element => {
   const [isChildTooYoungOptionSelected, setChildTooYoungOptionSelected] = useState<boolean>(false);
   const [isWithGlassesOptionSelected, setWithGlassesOptionSelected] = useState<boolean>(false);
   const [isWithoutGlassesOptionSelected, setWithoutGlassesOptionSelected] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
   const handleSectionCollapse = useCallback(() => {
     setIsCollapsed((prevCollapseState) => !prevCollapseState);
   }, [setIsCollapsed]);
 
-  const isAddButtonDisabled = !leftEyeSelection || !rightEyeSelection || isSavingCardData || isLoadingVitalsByEncounter;
+  const isAddButtonDisabled = !leftEyeSelection || !rightEyeSelection;
 
-  const isCheckboxesDisabled = isSavingCardData || isLoadingVitalsByEncounter;
+  const isCheckboxesDisabled = isSaving;
 
-  const latestVisionValueLabel = useMemo(() => {
+  const { isLargeScreen } = useScreenDimensions();
+
+  const latestVisionValueLabel = (() => {
+    const latestHistoryEntry = currentObs[0];
     if (!latestHistoryEntry) return;
-    const visionOptionsLine = getVisionExtraOptionsFormattedString(latestHistoryEntry.extraOptions);
-    return `Left eye: ${latestHistoryEntry.leftEyeVision}; Right eye: ${latestHistoryEntry.rightEyeVision}; ${
+    const visionOptionsLine = getVisionExtraOptionsFormattedString(latestHistoryEntry.extraVisionOptions);
+    return `Left eye: ${latestHistoryEntry.leftEyeVisionText}; Right eye: ${latestHistoryEntry.rightEyeVisionText}; ${
       visionOptionsLine ?? ''
     }`;
-  }, [latestHistoryEntry]);
+  })();
 
-  const handleSaveVisionObservation = async (leftEyeVisionText: string, rightEeyVisionText: string): Promise<void> => {
+  const handleSaveVisionObservation = async (leftEyeVisionText: string, rightEyeVisionText: string): Promise<void> => {
     if (!leftEyeVisionText) return;
-    if (!rightEeyVisionText) return;
+    if (!rightEyeVisionText) return;
 
     const extraOptions: VitalsVisionOption[] = [];
     if (isChildTooYoungOptionSelected) {
@@ -74,12 +70,11 @@ const VitalsVisionCard: React.FC = (): JSX.Element => {
     }
 
     try {
-      setSavingCardData(true);
-
+      setIsSaving(true);
       const vitalObs: VitalsVisionObservationDTO = {
         field: VitalFieldNames.VitalVision,
         leftEyeVisionText: leftEyeVisionText,
-        rightEyeVisionText: rightEeyVisionText,
+        rightEyeVisionText: rightEyeVisionText,
         extraVisionOptions: extraOptions,
       };
       await handleSaveVital(vitalObs);
@@ -92,7 +87,7 @@ const VitalsVisionCard: React.FC = (): JSX.Element => {
     } catch {
       enqueueSnackbar('Error saving Vision vital data', { variant: 'error' });
     } finally {
-      setSavingCardData(false);
+      setIsSaving(false);
     }
   };
 
@@ -177,7 +172,7 @@ const VitalsVisionCard: React.FC = (): JSX.Element => {
                   <VitalsTextFreeInputField
                     label="Left eye"
                     value={leftEyeSelection}
-                    disabled={isSavingCardData}
+                    disabled={isSaving}
                     isInputError={false}
                     onChange={handleLeftEyeSelectionChange}
                   />
@@ -196,7 +191,7 @@ const VitalsVisionCard: React.FC = (): JSX.Element => {
                   <VitalsTextFreeInputField
                     label="Right eye"
                     value={rightEyeSelection}
-                    disabled={isSavingCardData}
+                    disabled={isSaving}
                     isInputError={false}
                     onChange={handleRightEyeSelectionChange}
                   />
@@ -223,7 +218,7 @@ const VitalsVisionCard: React.FC = (): JSX.Element => {
                   <VitalsTextFreeInputField
                     label="Both eyes"
                     value={bothEyesSelection}
-                    disabled={isSavingCardData}
+                    disabled={isSaving}
                     isInputError={false}
                     onChange={handleBothEyesSelectionChange}
                   />
@@ -234,6 +229,7 @@ const VitalsVisionCard: React.FC = (): JSX.Element => {
               <Grid item xs={12} sm={3} md={3} lg={3} order={{ xs: 4, sm: 4, md: 4, lg: 4 }} sx={{ mt: 0 }}>
                 <RoundedButton
                   disabled={isAddButtonDisabled}
+                  loading={isSaving}
                   onClick={() => handleSaveVisionObservation(leftEyeSelection, rightEyeSelection)}
                   color="primary"
                   sx={{
@@ -241,7 +237,6 @@ const VitalsVisionCard: React.FC = (): JSX.Element => {
                     px: 2,
                     ml: 1,
                   }}
-                  startIcon={isSavingCardData ? <CircularProgress size={20} color="inherit" /> : null}
                 >
                   Add
                 </RoundedButton>
@@ -376,12 +371,18 @@ const VitalsVisionCard: React.FC = (): JSX.Element => {
           }
           rightColumn={
             <VitalsHistoryContainer
-              mainHistoryEntries={mainHistoryEntries}
-              extraHistoryEntries={extraHistoryEntries}
-              isLoading={isLoadingVitalsByEncounter}
+              historicalObs={historicalObs}
+              currentEncounterObs={currentObs}
+              isLoading={false}
               historyElementSkeletonText={historyElementSkeletonText}
               historyElementCreator={(historyEntry) => {
-                return <VitalVisionHistoryElement historyEntry={historyEntry} onDelete={handleDeleteVital} />;
+                const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
+                return (
+                  <VitalHistoryElement
+                    historyEntry={historyEntry}
+                    onDelete={isCurrent ? handleDeleteVital : undefined}
+                  />
+                );
               }}
             />
           }

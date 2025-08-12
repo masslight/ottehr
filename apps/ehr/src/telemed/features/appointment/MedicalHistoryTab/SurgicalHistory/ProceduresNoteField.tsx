@@ -1,23 +1,39 @@
-import { Skeleton, TextField } from '@mui/material';
-import React, { FC } from 'react';
+import { Box, CircularProgress, Skeleton, TextField, Typography } from '@mui/material';
+import { FC, useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
-import { useDebounceNotesField } from '../../../../hooks';
+import { useDebounceNotesField, useGetAppointmentAccessibility } from '../../../../hooks';
 import { useAppointmentStore } from '../../../../state';
 
 export const ProceduresNoteField: FC = () => {
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
+
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+
   const methods = useForm({
     defaultValues: {
       text: chartData?.surgicalHistoryNote?.text || '',
     },
   });
 
-  const { control } = methods;
-  const { onValueChange } = useDebounceNotesField('surgicalHistoryNote');
+  useEffect(() => {
+    const currentValue = methods.getValues('text');
+    const newValue = chartData?.surgicalHistoryNote?.text;
 
-  return (
+    if (!currentValue && newValue) {
+      methods.setValue('text', newValue);
+    }
+  }, [chartData?.surgicalHistoryNote?.text, methods]);
+
+  const { control } = methods;
+  const { onValueChange, isChartDataLoading, isLoading } = useDebounceNotesField('surgicalHistoryNote');
+
+  if (isReadOnly && !chartData?.surgicalHistoryNote?.text) {
+    return null;
+  }
+
+  return !isReadOnly ? (
     <Controller
       name="text"
       control={control}
@@ -33,9 +49,19 @@ export const ProceduresNoteField: FC = () => {
           multiline
           rows={3}
           data-testid={dataTestIds.telemedEhrFlow.hpiSurgicalHistoryNote}
+          disabled={isChartDataLoading}
+          InputProps={{
+            endAdornment: isLoading && (
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <CircularProgress size="20px" />
+              </Box>
+            ),
+          }}
         />
       )}
     />
+  ) : (
+    <Typography>{chartData?.surgicalHistoryNote?.text}</Typography>
   );
 };
 

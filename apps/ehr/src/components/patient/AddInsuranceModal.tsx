@@ -1,5 +1,4 @@
 import { Close } from '@mui/icons-material';
-import { LoadingButton } from '@mui/lab';
 import {
   Autocomplete,
   Button,
@@ -12,10 +11,10 @@ import {
   TextField,
   useTheme,
 } from '@mui/material';
+import { useQueryClient } from '@tanstack/react-query';
 import { Questionnaire } from 'fhir/r4b';
 import React, { useEffect } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
-import { useQueryClient } from 'react-query';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { InsurancePlanDTO, isPostalCodeValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { RELATIONSHIP_TO_INSURED_OPTIONS, SEX_OPTIONS, STATE_OPTIONS } from '../../constants';
@@ -24,6 +23,7 @@ import { structureQuestionnaireResponse } from '../../helpers/qr-structure';
 import { useUpdatePatientAccount } from '../../hooks/useGetPatient';
 import { usePatientStore } from '../../state/patient.store';
 import { BasicDatePicker as DatePicker, FormSelect, FormTextField, LabeledField, Option } from '../form';
+import { RoundedButton } from '../RoundedButton';
 
 interface AddInsuranceModalProps {
   open: boolean;
@@ -70,15 +70,21 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
 
   const { insurancePlans } = usePatientStore();
   const queryClient = useQueryClient();
-  const submitQR = useUpdatePatientAccount(() => {
-    void queryClient.invalidateQueries('patient-account-get');
+  const {
+    mutate,
+    isPending: isLoading,
+    isIdle,
+    reset,
+    isSuccess,
+  } = useUpdatePatientAccount(() => {
+    void queryClient.invalidateQueries({ queryKey: [['patient-coverages']] });
   });
 
   const onSubmit = (data: any): void => {
     // send the data to a zambda
 
     const questionnaireResponse = structureQuestionnaireResponse(questionnaire, data, patientId);
-    submitQR.mutate(questionnaireResponse);
+    mutate(questionnaireResponse);
   };
 
   useEffect(() => {
@@ -94,12 +100,12 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
   }, [priorityOptions, methods]);
 
   useEffect(() => {
-    if (!open && !submitQR.isIdle) {
-      submitQR.reset();
-    } else if (open && submitQR.isSuccess) {
+    if (!open && !isIdle) {
+      reset();
+    } else if (open && isSuccess) {
       onClose();
     }
-  }, [open, submitQR, onClose]);
+  }, [open, onClose, isIdle, isSuccess, reset]);
 
   return (
     <Dialog
@@ -415,7 +421,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
         >
           Cancel
         </Button>
-        <LoadingButton
+        <RoundedButton
           data-testid={dataTestIds.addInsuranceDialog.addInsuranceButton}
           variant="contained"
           color="primary"
@@ -426,9 +432,10 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
             fontWeight: 'bold',
           }}
           onClick={handleSubmit(onSubmit)}
+          loading={isLoading}
         >
           Add Insurance
-        </LoadingButton>
+        </RoundedButton>
       </DialogActions>
     </Dialog>
   );

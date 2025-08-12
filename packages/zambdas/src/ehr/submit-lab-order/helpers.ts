@@ -19,6 +19,7 @@ import {
   EXTERNAL_LAB_ERROR,
   FHIR_IDENTIFIER_NPI,
   getFullestAvailableName,
+  isPSCOrder,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   Secrets,
 } from 'utils';
@@ -260,6 +261,7 @@ export async function handleOttehrOrderForm(input: HandleOttehrOrderFormParams):
       })),
       orderPriority: serviceRequest.priority || ORDER_ITEM_UNKNOWN,
       isManualOrder: manualOrder,
+      isPscOrder: isPSCOrder(serviceRequest),
     },
     patient.id!,
     secrets,
