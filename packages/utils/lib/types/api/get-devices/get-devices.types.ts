@@ -1,4 +1,4 @@
-export interface Root {
+export interface GetDevicesResponse {
   status: number;
   output: Output;
 }
@@ -49,4 +49,25 @@ export interface Meta {
 export interface Patient {
   type: string;
   reference: string;
+}
+
+export interface DeviceResponse {
+  id: string;
+  deviceName: { name: string }[];
+  manufacturer?: string;
+  meta: {
+    lastUpdated: string;
+  };
+}
+
+export interface UnassinedDeviceResponse {
+  id: string;
+  deviceName: { name: string }[];
+}
+
+export interface DeviceColumns {
+  id: string;
+  name: string;
+  manufacturer: string;
+  lastUpdated: string;
 }

@@ -2,52 +2,47 @@ import AddIcon from '@mui/icons-material/Add';
 import { Box, Paper, Stack, Typography } from '@mui/material';
 import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
 import { FC, useCallback, useState } from 'react';
-import { useQuery } from 'react-query';
-import { useNavigate } from 'react-router-dom';
-import { getDevices } from 'src/api/api';
+import { useMutation, useQuery } from 'react-query';
+import { useNavigate, useParams } from 'react-router-dom';
+import { getDevices, unassignDevices } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { DeviceColumns, DeviceResponse, Output } from 'utils';
 import { DeviceAssignmentModal } from '../components/DeviceAssignModal';
 import { RoundedButton } from './RoundedButton';
 
-interface Device {
-  id: string;
-  name: string;
-  manufacturer: string;
-  lastUpdated: string;
-}
-
 export const PatientDevicesTab: FC<{ loading: boolean }> = ({ loading }) => {
   const [openModal, setOpenModal] = useState(false);
-  const [assignedDevices, setAssignedDevices] = useState<Device[]>([]);
+  const [assignedDevices, setAssignedDevices] = useState<DeviceColumns[]>([]);
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 5 });
   const [totalCount, setTotalCount] = useState(0);
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
 
+  const { id: patientId } = useParams<{ id: string }>();
+
   const payload = {
     offset: paginationModel.page * paginationModel.pageSize,
     count: paginationModel.pageSize,
-    patientId: 'Patient/1b1c9771-3da5-4798-aff9-0cea267b62bf',
+    patientId: patientId ? `Patient/${patientId}` : undefined,
   };
 
-  const { isFetching } = useQuery(
+  const { isFetching, refetch } = useQuery(
     ['get-devices', paginationModel, { oystehrZambda }],
     () => (oystehrZambda ? getDevices(payload, oystehrZambda) : null),
     {
-      onSuccess: (response) => {
-        console.log('Devices fetched successfully:', response);
+      onSuccess: (response: Output) => {
         if (response?.devices) {
-          const devices = response?.devices.map((device: any) => ({
+          const devices = response?.devices.map((device: DeviceResponse) => ({
             id: device.id,
             name: device.deviceName[0]?.name || '-',
             manufacturer: device.manufacturer || '-',
             lastUpdated: device.meta.lastUpdated,
           }));
           setAssignedDevices(devices);
-          setTotalCount(response.total || 0);
+          setTotalCount(response?.total || 0);
         }
       },
-      enabled: !!oystehrZambda,
+      enabled: !!oystehrZambda && !!patientId,
     }
   );
 
@@ -62,7 +57,23 @@ export const PatientDevicesTab: FC<{ loading: boolean }> = ({ loading }) => {
     setPaginationModel(newPaginationModel);
   }, []);
 
-  const columns: GridColDef<Device>[] = [
+  const { mutateAsync: unassignDevice, isLoading: isUnassigning } = useMutation(
+    (deviceId: string) => unassignDevices({ deviceId }, oystehrZambda!),
+    {
+      onSuccess: async () => {
+        await refetch();
+      },
+      onError: (error: unknown) => {
+        console.error('Failed to unassign devices:', error);
+      },
+    }
+  );
+
+  const handleUnAssign = async (deviceId: string): Promise<void> => {
+    await unassignDevice(deviceId);
+  };
+
+  const columns: GridColDef<DeviceColumns>[] = [
     {
       field: 'id',
       headerName: 'Device ID',
@@ -78,7 +89,7 @@ export const PatientDevicesTab: FC<{ loading: boolean }> = ({ loading }) => {
     {
       field: 'manufacturer',
       headerName: 'Device Manufacturer',
-      width: 350,
+      width: 250,
       sortable: false,
     },
     {
@@ -100,14 +111,20 @@ export const PatientDevicesTab: FC<{ loading: boolean }> = ({ loading }) => {
       renderCell: (params) => {
         return (
           <div style={{ display: 'flex', width: '100%', gap: '8px' }}>
-            <RoundedButton onClick={() => handleViewHeartbeat(params.row.id)}>View Vitals</RoundedButton>
-            <RoundedButton
-              onClick={() => {
-                ('');
-              }}
-            >
-              Unassign Device
-            </RoundedButton>
+            <div>
+              <RoundedButton
+                onClick={async () => {
+                  await handleUnAssign(params.row.id);
+                }}
+                disabled={isUnassigning}
+                variant="outlined"
+              >
+                Unassign Device
+              </RoundedButton>
+            </div>
+            <div>
+              <RoundedButton onClick={() => handleViewHeartbeat(params.row.id)}>View Vitals</RoundedButton>
+            </div>
           </div>
         );
       },
@@ -120,7 +137,12 @@ export const PatientDevicesTab: FC<{ loading: boolean }> = ({ loading }) => {
         <Typography variant="h4" color="primary.dark" sx={{ flexGrow: 1 }}>
           Patient Devices
         </Typography>
-        <RoundedButton onClick={() => setOpenModal(true)} variant="contained" startIcon={<AddIcon fontSize="small" />}>
+        <RoundedButton
+          onClick={() => setOpenModal(true)}
+          variant="contained"
+          startIcon={<AddIcon fontSize="small" />}
+          disabled={!patientId}
+        >
           Assign New Device
         </RoundedButton>
       </Box>
@@ -140,7 +162,7 @@ export const PatientDevicesTab: FC<{ loading: boolean }> = ({ loading }) => {
           },
         }}
         autoHeight
-        loading={loading || isFetching}
+        loading={loading || isFetching || isUnassigning}
         pagination
         disableColumnMenu
         pageSizeOptions={[5]}
@@ -161,21 +183,14 @@ export const PatientDevicesTab: FC<{ loading: boolean }> = ({ loading }) => {
         }}
       />
 
-      <DeviceAssignmentModal
-        open={openModal}
-        onClose={() => setOpenModal(false)}
-        onAssign={() => {
-          ('');
-        }}
-        loadingMore={false}
-        hasMore={false}
-        onSearch={() => {
-          ('');
-        }}
-        onLoadMore={() => {
-          ('');
-        }}
-      />
+      {patientId && (
+        <DeviceAssignmentModal
+          open={openModal}
+          onClose={() => setOpenModal(false)}
+          patientId={patientId}
+          refetchAssignedDevices={refetch}
+        />
+      )}
     </Paper>
   );
 };

@@ -352,6 +352,20 @@
       "src": "src/ehr/get-devices/index",
       "zip": ".dist/zips/get-devices.zip"
     },
+    "ASSIGN-DEVICES": {
+      "name": "ASSIGN-DEVICES",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/assign-devices/index",
+      "zip": ".dist/zips/assign-devices.zip"
+    },
+    "UNASSIGN-DEVICES": {
+      "name": "UNASSIGN-DEVICES",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/unassign-devices/index",
+      "zip": ".dist/zips/unassign-devices.zip"
+    },
     "SYNC-USER": {
       "name": "SYNC-USER",
       "type": "http_auth",

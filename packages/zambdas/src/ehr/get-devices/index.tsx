@@ -1,5 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { GetDevicesResponse } from 'utils';
+import { Output } from 'utils';
 import { createOystehrClient, getAuth0Token, lambdaResponse, wrapHandler, ZambdaInput } from '../../shared';
 
 // For local development it makes it easier to track performance
@@ -31,7 +31,7 @@ export const index = wrapHandler('get-devices', async (input: ZambdaInput): Prom
         { name: '_offset', value: body.offset },
         { name: '_count', value: body.count },
         { name: '_total', value: 'accurate' },
-        ...(body.patientId ? [{ name: 'patient', value: body.patientId }] : []), // 'Patient/1b1c9771-3da5-4798-aff9-0cea267b62bf'
+        ...(body.patientId ? [{ name: 'patient', value: body.patientId }] : []),
         ...(Object.prototype.hasOwnProperty.call(body, 'missing')
           ? [{ name: 'patient:missing', value: body.missing }]
           : []),
@@ -39,7 +39,7 @@ export const index = wrapHandler('get-devices', async (input: ZambdaInput): Prom
     });
     console.log('Total : ', locationsResults.total);
 
-    const response: GetDevicesResponse = {
+    const response: Output = {
       message: `Successfully retrieved devices details`,
       devices: locationsResults.unbundle(),
       total: Number(locationsResults.total),

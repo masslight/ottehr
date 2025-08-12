@@ -11,9 +11,10 @@ import {
   Typography,
 } from '@mui/material';
 import { FC, useEffect, useState } from 'react';
-import { useQuery } from 'react-query';
-import { getDevices } from 'src/api/api';
+import { useMutation, useQuery } from 'react-query';
+import { assignDevices, getDevices } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { Device, Output } from 'utils';
 
 const modalStyle = {
   position: 'absolute',
@@ -32,11 +33,8 @@ const modalStyle = {
 interface DeviceAssignmentModalProps {
   open: boolean;
   onClose: () => void;
-  onAssign: (deviceIds: string[]) => void;
-  loadingMore: boolean;
-  hasMore: boolean;
-  onSearch: (searchTerm: string) => void;
-  onLoadMore: () => void;
+  patientId: string;
+  refetchAssignedDevices: () => void;
 }
 
 interface DeviceOption {
@@ -44,11 +42,18 @@ interface DeviceOption {
   value: string;
 }
 
-export const DeviceAssignmentModal: FC<DeviceAssignmentModalProps> = ({ open, onClose, onAssign }) => {
+export const DeviceAssignmentModal: FC<DeviceAssignmentModalProps> = ({
+  open,
+  onClose,
+  patientId,
+  refetchAssignedDevices,
+}) => {
   const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
   const [deviceOptions, setDeviceOptions] = useState<DeviceOption[]>([]);
-  //eslint-disable-next-line
+  //eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [searchTerm, setSearchTerm] = useState('');
+
+  const { oystehrZambda } = useApiClients();
 
   useEffect(() => {
     if (!open) {
@@ -57,26 +62,19 @@ export const DeviceAssignmentModal: FC<DeviceAssignmentModalProps> = ({ open, on
     }
   }, [open]);
 
-  const handleAssign = (): void => {
-    onAssign(selectedDevices);
-    onClose();
-  };
-
-  const { oystehrZambda } = useApiClients();
-
   const payload = {
     offset: 0,
     count: 15,
     missing: true,
   };
 
-  const { isFetching } = useQuery(
+  const { isFetching: isFetchingDevices } = useQuery(
     ['get-unassigned-devices', { oystehrZambda }],
     () => (oystehrZambda ? getDevices(payload, oystehrZambda) : null),
     {
-      onSuccess: (response) => {
+      onSuccess: (response: Output) => {
         if (response?.devices) {
-          const options = response.devices.map((device: any) => ({
+          const options = response.devices.map((device: Device) => ({
             label: device.deviceName[0]?.name || 'Unknown Device',
             value: device.id,
           }));
@@ -87,8 +85,33 @@ export const DeviceAssignmentModal: FC<DeviceAssignmentModalProps> = ({ open, on
     }
   );
 
-  const handleDeviceChange = (values: DeviceOption[]): void => {
+  const { mutateAsync: assignDevicesMutate, isLoading: isAssigning } = useMutation(
+    () =>
+      assignDevices(
+        {
+          deviceIds: selectedDevices,
+          patientId: patientId,
+        },
+        oystehrZambda!
+      ),
+    {
+      onSuccess: () => {
+        refetchAssignedDevices();
+        onClose();
+      },
+      onError: (error: unknown) => {
+        console.error('Failed to assign devices:', error);
+      },
+    }
+  );
+
+  const handleAssign = async (): Promise<void> => {
+    await assignDevicesMutate();
+  };
+
+  const handleDeviceChange = (event: React.SyntheticEvent, values: DeviceOption[]): void => {
     setSelectedDevices(values.map((option) => option.value));
+    event.stopPropagation();
   };
 
   return (
@@ -107,12 +130,12 @@ export const DeviceAssignmentModal: FC<DeviceAssignmentModalProps> = ({ open, on
           <Autocomplete
             multiple
             disableCloseOnSelect
-            disabled={isFetching}
+            disabled={isFetchingDevices || isAssigning}
             options={deviceOptions}
             value={deviceOptions.filter((option) => selectedDevices.includes(option.value))}
-            onChange={(event, values) => handleDeviceChange(event, values || [])}
+            onChange={handleDeviceChange}
             isOptionEqualToValue={(option, value) => option.value === value.value}
-            loading={isFetching}
+            loading={isFetchingDevices}
             renderOption={(props, option) => (
               <li {...props} key={option.value}>
                 {option.label}
@@ -141,7 +164,7 @@ export const DeviceAssignmentModal: FC<DeviceAssignmentModalProps> = ({ open, on
                   ...params.InputProps,
                   endAdornment: (
                     <>
-                      {isFetching ? <CircularProgress color="inherit" size={20} /> : null}
+                      {isFetchingDevices ? <CircularProgress color="inherit" size={20} /> : null}
                       {params.InputProps.endAdornment}
                     </>
                   ),
@@ -152,11 +175,15 @@ export const DeviceAssignmentModal: FC<DeviceAssignmentModalProps> = ({ open, on
         </FormControl>
 
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-          <Button variant="outlined" onClick={onClose}>
+          <Button variant="outlined" onClick={onClose} disabled={isAssigning}>
             Cancel
           </Button>
-          <Button variant="contained" onClick={handleAssign} disabled={selectedDevices.length === 0}>
-            Assign Devices ({selectedDevices.length})
+          <Button variant="contained" onClick={handleAssign} disabled={selectedDevices.length === 0 || isAssigning}>
+            {isAssigning ? (
+              <CircularProgress size={24} color="inherit" />
+            ) : (
+              `Assign Devices (${selectedDevices.length})`
+            )}
           </Button>
         </Box>
       </Box>

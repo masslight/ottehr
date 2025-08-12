@@ -981,3 +981,29 @@ export const getDevices = async (params: object, oystehr: Oystehr): Promise<GetD
     throw error;
   }
 };
+
+export const assignDevices = async (params: object, oystehr: Oystehr): Promise<GetDevicesResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'assign-devices',
+      ...params,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.error('Error assigning devices:', error);
+    throw error;
+  }
+};
+
+export const unassignDevices = async (params: object, oystehr: Oystehr): Promise<GetDevicesResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'unassign-devices',
+      ...params,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.error('Error unassigning devices:', error);
+    throw error;
+  }
+};
