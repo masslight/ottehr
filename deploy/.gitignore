@@ -3,3 +3,4 @@
 *.tfvars
 *.tfstate
 *.tfstate.backup
+oystehr/*.tf.json
