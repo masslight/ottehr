@@ -400,11 +400,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             },
           ],
         }),
-        // todo: remove before merging, temp for testing while oystehr changes aren't live
-        // {
-        //   method: 'GET',
-        //   url: `/DocumentReference?related=ServiceRequest/${serviceRequestID}`,
-        // },
       ],
     });
 
@@ -414,14 +409,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       if (bundleEntry.resource?.resourceType === 'ServiceRequest') {
         serviceRequestTemp = bundleEntry.resource;
       }
-      // todo: remove before merging, temp for testing while oystehr changes aren't live
-      // } else if (bundleEntry.resource?.resourceType === 'Bundle') {
-      //   bundleEntry.resource?.entry?.forEach((entry) => {
-      //     if (entry.resource?.resourceType === 'DocumentReference') {
-      //       eReqDocumentReference = entry.resource;
-      //     }
-      //   });
-      // }
     });
     if (!serviceRequestTemp) throw new Error('Failed to get service request after update');
 
