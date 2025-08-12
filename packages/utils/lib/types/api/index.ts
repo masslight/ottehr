@@ -20,8 +20,6 @@ export * from './icd-search';
 export * from './init-telemed-session';
 export * from './insurances.constants';
 export * from './lab';
-export * from './medication-administration.constants';
-export * from './medication-administration.types';
 export * from './messaging.types';
 export * from './patient-account';
 export * from './patient-instructions';

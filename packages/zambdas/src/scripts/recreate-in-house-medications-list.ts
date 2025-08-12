@@ -4,7 +4,7 @@ import {
   CODE_SYSTEM_NDC,
   getMedicationName,
   InHouseMedicationInfo,
-  InHouseMedications,
+  InHouseMedicationsConfig,
   INVENTORY_MEDICATION_TYPE_CODE,
   MEDICATION_DISPENSABLE_DRUG_ID,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
@@ -31,7 +31,7 @@ const recreateInHouseMedications = async (config: any): Promise<void> => {
 
   console.log('\n--------- Creating new medications ---------\n');
 
-  for (const jsonMedication of InHouseMedications) {
+  for (const jsonMedication of InHouseMedicationsConfig) {
     const newMedication = createMedicationResource(jsonMedication);
     const newResource = await oystehr.fhir.create(newMedication);
     console.log(`Created FHIR Medication: ${getMedicationName(newResource)}, with id: ${newResource.id}`);
