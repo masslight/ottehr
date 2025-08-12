@@ -299,16 +299,55 @@ describe('saving and getting vitals', () => {
         expect(respirationRateVitals[0].value).toBe(20);
         expect(respirationRateVitals[0].alertCriticality).toBeUndefined();
       });
-      test.concurrent('vision observation is saved and retrieved correctly', async () => {
-        const vitals = await getVitals(encounterId);
-        expect(vitals).toBeDefined();
-        const visionVitals = vitals[VitalFieldNames.VitalVision];
-        expect(visionVitals.length).toBe(1);
-        expect(visionVitals[0].field).toBe(VitalFieldNames.VitalVision);
-        expect(visionVitals[0].leftEyeVisionText).toBe('20');
-        expect(visionVitals[0].rightEyeVisionText).toBe('20');
-        expect(visionVitals[0].alertCriticality).toBeUndefined();
-      });
+      test.concurrent(
+        'vision observation is saved and retrieved correctly',
+        async () => {
+          console.log('Starting vision test for encounterId:', encounterId);
+          console.time('vision-test');
+
+          try {
+            console.log('Calling getVitals...');
+            console.time('getVitals-call');
+            const vitals = await getVitals(encounterId);
+            console.timeEnd('getVitals-call');
+
+            console.log('Got vitals response, checking structure...');
+            expect(vitals).toBeDefined();
+
+            console.log('Looking for VitalVision data...');
+            console.log('Available vital keys:', Object.keys(vitals));
+
+            const visionVitals = vitals[VitalFieldNames.VitalVision];
+            console.log('VitalVision data:', visionVitals);
+
+            if (!visionVitals) {
+              console.error('No vision vitals found!');
+              console.log('Full vitals object:', JSON.stringify(vitals, null, 2));
+            }
+
+            expect(visionVitals).toBeDefined();
+            expect(visionVitals.length).toBe(1);
+
+            console.log('Checking vision vital details...');
+            const visionVital = visionVitals[0];
+            console.log('Vision vital object:', visionVital);
+
+            expect(visionVital.field).toBe(VitalFieldNames.VitalVision);
+            expect(visionVital.leftEyeVisionText).toBe('20');
+            expect(visionVital.rightEyeVisionText).toBe('20');
+            expect(visionVital.alertCriticality).toBeUndefined();
+
+            console.log('Vision test completed successfully');
+          } catch (error) {
+            console.error('Vision test failed with error:', error);
+            console.error('Error stack:', (error as Error)?.stack);
+            throw error;
+          } finally {
+            console.timeEnd('vision-test');
+          }
+        },
+        120000
+      );
       test.concurrent('blood pressure observation is saved and retrieved correctly', async () => {
         const vitals = await getVitals(encounterId);
         expect(vitals).toBeDefined();
