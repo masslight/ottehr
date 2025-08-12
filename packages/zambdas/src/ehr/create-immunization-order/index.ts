@@ -1,33 +1,40 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { MedicationAdministration } from 'fhir/r4b';
+import { Encounter, Medication, MedicationAdministration } from 'fhir/r4b';
 import {
   CreateImmunizationOrderInput,
-  IN_HOUSE_CONTAINED_MEDICATION_ID,
+  MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
   MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM,
   MEDICATION_ADMINISTRATION_UNITS_SYSTEM,
+  PRACTITIONER_ORDERED_BY_MEDICATION_CODE,
+  PRACTITIONER_ORDERED_MEDICATION_CODE,
   searchMedicationLocation,
   searchRouteByCode,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
+  getMyPractitionerId,
   validateJsonBody,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
+import { createMedicationCopy } from '../create-update-medication-order/helpers';
 
 let m2mToken: string;
 
 const ZAMBDA_NAME = 'create-immunization-order';
+const CONTAINED_MEDICATION_ID = 'medicationId';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
     const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
-    const practitionerId = 'todo'; // await practitionerIdFromZambdaInput(input, validatedParameters.secrets);
-    const response = await createImmunizationOrder(oystehr, validatedParameters, practitionerId);
+    const userToken = input.headers.Authorization.replace('Bearer ', '');
+    const oystehrCurrentUser = createOystehrClient(userToken, validatedParameters.secrets);
+    const userPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
+    const response = await createImmunizationOrder(oystehr, validatedParameters, userPractitionerId);
     return {
       statusCode: 200,
       body: JSON.stringify(response),
@@ -45,16 +52,27 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 async function createImmunizationOrder(
   oystehr: Oystehr,
   input: CreateImmunizationOrderInput,
-  practitionerIdCalledZambda: string
+  userPractitionerId: string
 ): Promise<any> {
   const { encounterId, medicationId, dose, units, orderedProviderId, route, location, instructions } = input;
-  console.log(practitionerIdCalledZambda, medicationId, orderedProviderId);
   const routeCoding = route ? searchRouteByCode(route) : undefined;
   const locationCoding = location ? searchMedicationLocation(location) : undefined;
+  const encounter = await oystehr.fhir.get<Encounter>({
+    resourceType: 'Encounter',
+    id: encounterId,
+  });
+  if (!encounter.subject) {
+    throw new Error(`Encounter ${encounterId} has no subject`);
+  }
+  const medication = await oystehr.fhir.get<Medication>({
+    resourceType: 'Medication',
+    id: medicationId,
+  });
+  const medicationLocalCopy = createMedicationCopy(medication, {});
   const medicationAdministration = await oystehr.fhir.create<MedicationAdministration>({
     resourceType: 'MedicationAdministration',
-    subject: { reference: `Patient/` }, // todo
-    medicationReference: { reference: `#${IN_HOUSE_CONTAINED_MEDICATION_ID}` },
+    subject: encounter.subject,
+    medicationReference: { reference: `#${CONTAINED_MEDICATION_ID}` },
     context: { reference: `Encounter/${encounterId}` },
     status: 'in-progress',
     dosage: {
@@ -87,6 +105,36 @@ async function createImmunizationOrder(
         : undefined,
       text: instructions,
     },
+    performer: [
+      {
+        actor: { reference: `Practitioner/${userPractitionerId}` },
+        function: {
+          coding: [
+            {
+              system: MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
+              code: PRACTITIONER_ORDERED_MEDICATION_CODE,
+            },
+          ],
+        },
+      },
+      {
+        actor: { reference: `Practitioner/${orderedProviderId}` },
+        function: {
+          coding: [
+            {
+              system: MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
+              code: PRACTITIONER_ORDERED_BY_MEDICATION_CODE,
+            },
+          ],
+        },
+      },
+    ],
+    contained: [
+      {
+        ...medicationLocalCopy,
+        id: CONTAINED_MEDICATION_ID,
+      },
+    ],
   });
   return {
     id: medicationAdministration.id,
