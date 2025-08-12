@@ -30,6 +30,7 @@ import {
   getOrderNumber,
   getSecret,
   isApiError,
+  isPSCOrder,
   LAB_ORDER_TASK,
   ORDER_NUMBER_LEN,
   OrderableItemSearchResult,
@@ -86,6 +87,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
     const { labOrganization, coverage, location, patientId, existingOrderNumber } = await getAdditionalResources(
       orderableItem,
       encounter,
+      psc,
       oystehr
     );
 
@@ -441,6 +443,7 @@ const getProvenanceConfig = (
 const getAdditionalResources = async (
   orderableItem: OrderableItemSearchResult,
   encounter: Encounter,
+  psc: boolean,
   oystehr: Oystehr
 ): Promise<{
   labOrganization: Organization;
@@ -490,7 +493,12 @@ const getAdditionalResources = async (
         labGuid &&
       resource.status === 'draft'
     ) {
-      serviceRequestsForBundle.push(resource);
+      const curSrIsPsc = isPSCOrder(resource);
+      if (curSrIsPsc === psc) {
+        // we bundled psc orders separately, so if the current test being submitted is psc
+        // it should only be bundled under the same order number if there are other psc orders for this lab
+        serviceRequestsForBundle.push(resource);
+      }
     }
   });
 

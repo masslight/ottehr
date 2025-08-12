@@ -20,6 +20,7 @@ import {
   getOrderNumber,
   getPresignedURL,
   getTimezone,
+  isPSCOrder,
   ORDER_ITEM_UNKNOWN,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
@@ -56,6 +57,8 @@ export type testDataForOrderForm = {
 };
 
 export type resourcesForOrderForm = {
+  isManualOrder: boolean;
+  isPscOrder: boolean;
   testDetails: testDataForOrderForm[];
   orderNumber: string;
   labOrganization: Organization;
@@ -76,7 +79,8 @@ export type OrderResourcesByAccountNumber = {
 export async function getBundledOrderResources(
   oystehr: Oystehr,
   m2mToken: string, // needed to get questionnaire via the qr.questionnaire url
-  serviceRequestIDs: string[]
+  serviceRequestIDs: string[],
+  isManualOrder: boolean
 ): Promise<OrderResourcesByAccountNumber> {
   const promises = serviceRequestIDs.map((serviceRequestID) =>
     getExternalLabOrderResources(oystehr, serviceRequestID).then((result) => ({ serviceRequestID, result }))
@@ -112,7 +116,9 @@ export async function getBundledOrderResources(
     const aoeAnswerPromise = makeQuestionnairePromise(serviceRequestID, questionnaireResponse, m2mToken);
     aoeAnswerPromises.push(aoeAnswerPromise);
 
-    const accountNumberForLab = getAccountNumberFromOrganization(result.labOrganization);
+    const isPSC = isPSCOrder(result.serviceRequest);
+
+    const accountNumberForLab = `${isPSC ? `psc-` : ''}${getAccountNumberFromOrganization(result.labOrganization)}`;
     if (!accountNumberForLab) throw Error(`Lab organization is missing account number ${result.labOrganization.id}`);
     if (bundledOrders[accountNumberForLab]) {
       bundledOrders[accountNumberForLab].push(serviceRequestID);
@@ -175,6 +181,7 @@ export async function getBundledOrderResources(
       const sampleCollectionDate = allResources.mostRecentSampleCollectionDate;
       const aoeAnswers = allResources.questionsAndAnswers;
       const srTestDetail = getTestDataForOrderForm(serviceRequest, aoeAnswers, sampleCollectionDate);
+      const isPscOrder = isPSCOrder(serviceRequest);
 
       if (bundledOrderResources[accountNumber]) {
         bundledOrderResources[accountNumber].testDetails.push(srTestDetail);
@@ -182,6 +189,8 @@ export async function getBundledOrderResources(
         // oystehr labs will validate that all these resources match for each ServiceRequest submitted within
         // a bundled order so there is no need for us to do that validation here, we will just take the resources from the first ServiceRequest for that bundle
         bundledOrderResources[accountNumber] = {
+          isManualOrder,
+          isPscOrder,
           testDetails: [srTestDetail],
           orderNumber: allResources.orderNumber,
           encounter: allResources.encounter,

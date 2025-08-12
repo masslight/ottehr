@@ -52,7 +52,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const now = DateTime.now();
 
     console.log('getting resources needed for submit lab');
-    const bundledOrdersByAccountNumber = await getBundledOrderResources(oystehr, m2mToken, serviceRequestIDs);
+    const bundledOrdersByAccountNumber = await getBundledOrderResources(
+      oystehr,
+      m2mToken,
+      serviceRequestIDs,
+      manualOrder
+    );
     console.log('successfully retrieved resources');
 
     console.log('bundledOrdersByAccountNumber', JSON.stringify(bundledOrdersByAccountNumber));
@@ -64,6 +69,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       console.log('calling oystehr submit lab');
 
       const submitLabPromises = Object.entries(bundledOrdersByAccountNumber).map(async ([accountNumber, resources]) => {
+        if (accountNumber.startsWith('psc-')) return { status: 'fulfilled', accountNumber };
         try {
           const res = await fetch(OYSTEHR_SUBMIT_LAB_API, {
             method: 'POST',
@@ -101,7 +107,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             );
             successfulBundledOrders[res.accountNumber] = { ...resources, labGenerateEReq: res.eReqDocumentReference };
           } else {
-            successfulBundledOrders[res.accountNumber] = { ...resources, labGenerateEReq: res.eReqDocumentReference };
+            successfulBundledOrders[res.accountNumber] = { ...resources };
           }
         } else if (res.status === 'rejected') {
           console.log('rejected result', res);

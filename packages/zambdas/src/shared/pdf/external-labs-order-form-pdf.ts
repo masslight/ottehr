@@ -330,6 +330,8 @@ export function getOrderFormDataConfig(
     location,
     insuranceOrganization,
     coverage,
+    isManualOrder,
+    isPscOrder,
   } = resources;
 
   // this is the same logic we use in oystehr to determine PV1-20
@@ -372,8 +374,8 @@ export function getOrderFormDataConfig(
     insuredName: patient?.name ? oystehr.fhir.formatHumanName(patient.name[0]) : undefined,
     insuredAddress: patient?.address ? oystehr.fhir.formatAddress(patient.address?.[0]) : undefined,
     testDetails,
-    isManualOrder: false, // todo Sarah fix this
-    isPscOrder: false, // todo Sarah fix this
+    isManualOrder,
+    isPscOrder,
   };
 
   return dataConfig;
