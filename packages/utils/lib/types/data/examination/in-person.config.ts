@@ -1,7 +1,7 @@
 import { createCodingCode } from '../../api';
-import { ExamConfig } from './exam-config.types';
+import { ExamItemConfig } from './exam-config.types';
 
-export const InPersonExamConfig: ExamConfig = {
+export const InPersonExamConfig: ExamItemConfig = {
   general: {
     label: 'General',
     components: {

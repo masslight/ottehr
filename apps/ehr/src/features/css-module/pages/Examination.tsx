@@ -1,6 +1,6 @@
 import { Box } from '@mui/material';
 import { FC } from 'react';
-import { InPersonExamConfig } from 'utils';
+import { ExamDef } from 'utils';
 import { useGetAppointmentAccessibility } from '../../../telemed';
 import { ExamReadOnly } from '../components/examination/ExamReadOnly';
 import { ExamTable } from '../components/examination/ExamTable';
@@ -16,7 +16,7 @@ export const Examination: FC = () => {
         gap: 1,
       }}
     >
-      {isReadOnly ? <ExamReadOnly /> : <ExamTable examConfig={InPersonExamConfig} />}
+      {isReadOnly ? <ExamReadOnly /> : <ExamTable examConfig={ExamDef().inPerson.default.components} />}
     </Box>
   );
 };

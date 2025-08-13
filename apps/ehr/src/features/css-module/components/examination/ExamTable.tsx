@@ -12,10 +12,10 @@ import {
 } from '@mui/material';
 import { FC } from 'react';
 import { ControlledExamCheckbox, ExamCommentField } from 'src/telemed/features/appointment';
-import { ExamCardComponent, ExamConfig } from 'utils';
+import { ExamCardComponent, ExamItemConfig } from 'utils';
 
 type ExamTableProps = {
-  examConfig: ExamConfig;
+  examConfig: ExamItemConfig;
 };
 
 export const ExamTable: FC<ExamTableProps> = ({ examConfig }) => {
