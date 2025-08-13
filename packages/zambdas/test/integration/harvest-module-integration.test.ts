@@ -21,23 +21,23 @@ import {
   unbundleBatchPostOutput,
 } from 'utils';
 import { assert, describe, expect, it } from 'vitest';
-import { relatedPersonsAreSame } from '../../../../ehr/shared/harvest';
-import { createOystehrClient, getAuth0Token } from '../../../../shared';
-import { performEffect } from '..';
-import questionnaireResponse from './data/base-qr.json';
+import { relatedPersonsAreSame } from '../../src/ehr/shared/harvest';
+import { createOystehrClient, getAuth0Token } from '../../src/shared';
+import { performEffect } from '../../src/subscriptions/questionnaire-response/sub-intake-harvest';
+import questionnaireResponse from '../data/base-qr.json';
 import {
   expectedAccountGuarantorFromQR1,
   expectedCoverageResources as qr1ExpectedCoverageResources,
   expectedPrimaryPolicyHolderFromQR1,
   expectedSecondaryPolicyHolderFromQR1,
-} from './data/expected-coverage-resources-qr1';
+} from '../data/expected-coverage-resources-qr1';
 import {
   batchTestInsuranceWrites,
   fillReferences,
   replaceGuarantorWithAlternate,
   replaceGuarantorWithPatient,
   replaceSubscriberWithPatient,
-} from './helpers';
+} from '../helpers/harvest-test-helpers';
 
 const DEFAULT_TIMEOUT = 20000;
 

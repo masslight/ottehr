@@ -1,7 +1,7 @@
 import { BatchInputPostRequest } from '@oystehr/sdk';
 import { Account, Coverage, Patient, QuestionnaireResponseItem, RelatedPerson } from 'fhir/r4b';
 import { uuid } from 'short-uuid';
-import altGuarantor from './data/alt-guarantor.json';
+import altGuarantor from '../data/alt-guarantor.json';
 
 export const fillReferences = (template: any, references: string[]): any => {
   let stringifiedTemplate = JSON.stringify(template);

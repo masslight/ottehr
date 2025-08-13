@@ -42,7 +42,6 @@ describe('radiology integration tests', () => {
       birthDate: '1978-01-01',
       telecom: [{ system: 'phone', value: '+11231231234', use: 'mobile' }],
     });
-    resourcesToCleanup.push(practitionerForM2M);
 
     const projectRoles = await oystehr.role.list();
     const providerRoleId = projectRoles.find((role) => role.name === RoleType.Provider)?.id;
@@ -60,6 +59,7 @@ describe('radiology integration tests', () => {
       birthDate: '2000-01-01',
       gender: 'female',
     });
+    resourcesToCleanup.push(patient);
 
     encounter = await oystehr.fhir.create<Encounter>({
       resourceType: 'Encounter',
