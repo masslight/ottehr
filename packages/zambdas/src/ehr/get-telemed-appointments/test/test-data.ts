@@ -164,9 +164,9 @@ export const completeEncounterMappedStatusHistory: TelemedStatusHistoryElement[]
 ];
 
 export const testVirtualLocationsMap: LocationIdToStateAbbreviationMap = {
-  NY: newYorkLocation,
-  TX: txLocation,
-  LA: losAngelesLocation,
+  NY: [newYorkLocation],
+  TX: [txLocation],
+  LA: [losAngelesLocation],
 };
 
 export const myPractitionerLocations: Location[] = [losAngelesLocation, newYorkLocation];
