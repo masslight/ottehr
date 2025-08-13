@@ -24,13 +24,13 @@ import {
   getSecondaryPolicyHolderFromAnswers,
   resolveCoverageUpdates,
   resolveGuarantor,
-} from '../../../../ehr/shared/harvest';
+} from '../src/ehr/shared/harvest';
 import {
   expectedAccountGuarantorFromQR1 as rawAGQR1,
   expectedPrimaryPolicyHolderFromQR1 as rawPPHQR1,
   expectedSecondaryPolicyHolderFromQR1 as rawSPHQR1,
 } from './data/expected-coverage-resources-qr1';
-import { fillReferences } from './helpers';
+import { fillReferences } from './helpers/harvest-test-helpers';
 
 const InPersonQuestionnaire = InPersonQuestionnaireFile.resource;
 
