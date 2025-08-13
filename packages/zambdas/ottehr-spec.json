@@ -3,191 +3,191 @@
   "secrets": {
     "WEBSITE_URL": {
       "name": "WEBSITE_URL",
-      "value": "#var/WEBSITE_URL"
+      "value": "#{var/WEBSITE_URL}"
     },
     "AUTH0_ENDPOINT": {
       "name": "AUTH0_ENDPOINT",
-      "value": "#var/AUTH0_ENDPOINT"
+      "value": "#{var/AUTH0_ENDPOINT}"
     },
     "AUTH0_AUDIENCE": {
       "name": "AUTH0_AUDIENCE",
-      "value": "#var/AUTH0_AUDIENCE"
+      "value": "#{var/AUTH0_AUDIENCE}"
     },
     "AUTH0_CLIENT": {
       "name": "AUTH0_CLIENT",
-      "value": "#var/AUTH0_CLIENT"
+      "value": "#{var/AUTH0_CLIENT}"
     },
     "AUTH0_SECRET": {
       "name": "AUTH0_SECRET",
-      "value": "#var/AUTH0_SECRET"
+      "value": "#{var/AUTH0_SECRET}"
     },
     "DEFAULT_BILLING_RESOURCE": {
       "name": "DEFAULT_BILLING_RESOURCE",
-      "value": "#var/DEFAULT_BILLING_RESOURCE"
+      "value": "#{var/DEFAULT_BILLING_RESOURCE}"
     },
     "FHIR_API": {
       "name": "FHIR_API",
-      "value": "#var/FHIR_API"
+      "value": "#{var/FHIR_API}"
     },
     "PROJECT_API": {
       "name": "PROJECT_API",
-      "value": "#var/PROJECT_API"
+      "value": "#{var/PROJECT_API}"
     },
     "ENVIRONMENT": {
       "name": "ENVIRONMENT",
-      "value": "#var/ENVIRONMENT"
+      "value": "#{var/ENVIRONMENT}"
     },
     "SENDGRID_API_KEY": {
       "name": "SENDGRID_API_KEY",
-      "value": "#var/SENDGRID_API_KEY"
+      "value": "#{var/SENDGRID_API_KEY}"
     },
     "SENDGRID_ISSUE_REPORT_EMAIL_BCC": {
       "name": "SENDGRID_ISSUE_REPORT_EMAIL_BCC",
-      "value": "#var/SENDGRID_ISSUE_REPORT_EMAIL_BCC"
+      "value": "#{var/SENDGRID_ISSUE_REPORT_EMAIL_BCC}"
     },
     "VIRTUAL_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID": {
       "name": "VIRTUAL_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID",
-      "value": "#var/VIRTUAL_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID"
+      "value": "#{var/VIRTUAL_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID}"
     },
     "VIRTUAL_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID": {
       "name": "VIRTUAL_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID",
-      "value": "#var/VIRTUAL_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID"
+      "value": "#{var/VIRTUAL_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID}"
     },
     "VIRTUAL_SENDGRID_ERROR_EMAIL_TEMPLATE_ID": {
       "name": "VIRTUAL_SENDGRID_ERROR_EMAIL_TEMPLATE_ID",
-      "value": "#var/VIRTUAL_SENDGRID_ERROR_EMAIL_TEMPLATE_ID"
+      "value": "#{var/VIRTUAL_SENDGRID_ERROR_EMAIL_TEMPLATE_ID}"
     },
     "VIRTUAL_SENDGRID_VIDEO_CHAT_INVITATION_EMAIL_TEMPLATE_ID": {
       "name": "VIRTUAL_SENDGRID_VIDEO_CHAT_INVITATION_EMAIL_TEMPLATE_ID",
-      "value": "#var/VIRTUAL_SENDGRID_VIDEO_CHAT_INVITATION_EMAIL_TEMPLATE_ID"
+      "value": "#{var/VIRTUAL_SENDGRID_VIDEO_CHAT_INVITATION_EMAIL_TEMPLATE_ID}"
     },
     "ORGANIZATION_ID": {
       "name": "ORGANIZATION_ID",
-      "value": "#var/ORGANIZATION_ID"
+      "value": "#{ref/fhirResources/OTTEHR_ORGANIZATION/id}"
     },
     "NLM_API_KEY": {
       "name": "NLM_API_KEY",
-      "value": "#var/NLM_API_KEY"
+      "value": "#{var/NLM_API_KEY}"
     },
     "SENDGRID_EMAIL_BCC": {
       "name": "SENDGRID_EMAIL_BCC",
-      "value": "#var/SENDGRID_EMAIL_BCC"
+      "value": "#{var/SENDGRID_EMAIL_BCC}"
     },
     "IN_PERSON_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID": {
       "name": "IN_PERSON_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID",
-      "value": "#var/IN_PERSON_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID"
+      "value": "#{var/IN_PERSON_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID}"
     },
     "IN_PERSON_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID": {
       "name": "IN_PERSON_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID",
-      "value": "#var/IN_PERSON_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID"
+      "value": "#{var/IN_PERSON_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID}"
     },
     "IN_PERSON_SENDGRID_SPANISH_CONFIRMATION_EMAIL_TEMPLATE_ID": {
       "name": "IN_PERSON_SENDGRID_SPANISH_CONFIRMATION_EMAIL_TEMPLATE_ID",
-      "value": "#var/IN_PERSON_SENDGRID_SPANISH_CONFIRMATION_EMAIL_TEMPLATE_ID"
+      "value": "#{var/IN_PERSON_SENDGRID_SPANISH_CONFIRMATION_EMAIL_TEMPLATE_ID}"
     },
     "IN_PERSON_SENDGRID_SPANISH_CANCELLATION_EMAIL_TEMPLATE_ID": {
       "name": "IN_PERSON_SENDGRID_SPANISH_CANCELLATION_EMAIL_TEMPLATE_ID",
-      "value": "#var/IN_PERSON_SENDGRID_SPANISH_CANCELLATION_EMAIL_TEMPLATE_ID"
+      "value": "#{var/IN_PERSON_SENDGRID_SPANISH_CANCELLATION_EMAIL_TEMPLATE_ID}"
     },
     "IN_PERSON_SENDGRID_ERROR_EMAIL_TEMPLATE_ID": {
       "name": "IN_PERSON_SENDGRID_ERROR_EMAIL_TEMPLATE_ID",
-      "value": "#var/IN_PERSON_SENDGRID_ERROR_EMAIL_TEMPLATE_ID"
+      "value": "#{var/IN_PERSON_SENDGRID_ERROR_EMAIL_TEMPLATE_ID}"
     },
     "IN_PERSON_SENDGRID_ISSUE_REPORT_EMAIL_TEMPLATE_ID": {
       "name": "IN_PERSON_SENDGRID_ISSUE_REPORT_EMAIL_TEMPLATE_ID",
-      "value": "#var/IN_PERSON_SENDGRID_ISSUE_REPORT_EMAIL_TEMPLATE_ID"
+      "value": "#{var/IN_PERSON_SENDGRID_ISSUE_REPORT_EMAIL_TEMPLATE_ID}"
     },
     "IN_PERSON_PREBOOK_DISPLAY_TOMORROW_SLOTS_AT_HOUR": {
       "name": "IN_PERSON_PREBOOK_DISPLAY_TOMORROW_SLOTS_AT_HOUR",
-      "value": "#var/IN_PERSON_PREBOOK_DISPLAY_TOMORROW_SLOTS_AT_HOUR"
+      "value": "#{var/IN_PERSON_PREBOOK_DISPLAY_TOMORROW_SLOTS_AT_HOUR}"
     },
     "UC_SENDGRID_ISSUE_REPORT_EMAIL_TEMPLATE_ID": {
       "name": "UC_SENDGRID_ISSUE_REPORT_EMAIL_TEMPLATE_ID",
-      "value": "#var/UC_SENDGRID_ISSUE_REPORT_EMAIL_TEMPLATE_ID"
+      "value": "#{var/UC_SENDGRID_ISSUE_REPORT_EMAIL_TEMPLATE_ID}"
     },
     "INTAKE_ISSUE_REPORT_EMAIL_GROUP_ID": {
       "name": "INTAKE_ISSUE_REPORT_EMAIL_GROUP_ID",
-      "value": "#var/INTAKE_ISSUE_REPORT_EMAIL_GROUP_ID"
+      "value": "#{var/INTAKE_ISSUE_REPORT_EMAIL_GROUP_ID}"
     },
     "SENTRY_INTAKE_API_AUTH_TOKEN": {
       "name": "SENTRY_INTAKE_API_AUTH_TOKEN",
-      "value": "#var/SENTRY_INTAKE_API_AUTH_TOKEN"
+      "value": "#{var/SENTRY_INTAKE_API_AUTH_TOKEN}"
     },
     "PROJECT_ID": {
       "name": "PROJECT_ID",
-      "value": "#var/PROJECT_ID"
+      "value": "#{var/PROJECT_ID}"
     },
     "SENTRY_AUTH_TOKEN": {
       "name": "SENTRY_AUTH_TOKEN",
-      "value": "#var/SENTRY_AUTH_TOKEN"
+      "value": "#{var/SENTRY_AUTH_TOKEN}"
     },
     "SENTRY_ORG": {
       "name": "SENTRY_ORG",
-      "value": "#var/SENTRY_ORG"
+      "value": "#{var/SENTRY_ORG}"
     },
     "SENTRY_PROJECT": {
       "name": "SENTRY_PROJECT",
-      "value": "#var/SENTRY_PROJECT"
+      "value": "#{var/SENTRY_PROJECT}"
     },
     "SENTRY_DSN": {
       "name": "SENTRY_DSN",
-      "value": "#var/SENTRY_DSN"
+      "value": "#{var/SENTRY_DSN}"
     },
     "TELEMED_CLIENT_ID": {
       "name": "TELEMED_CLIENT_ID",
-      "value": "#var/TELEMED_CLIENT_ID"
+      "value": "#{var/TELEMED_CLIENT_ID}"
     },
     "TELEMED_CLIENT_SECRET": {
       "name": "TELEMED_CLIENT_SECRET",
-      "value": "#var/TELEMED_CLIENT_SECRET"
+      "value": "#{var/TELEMED_CLIENT_SECRET}"
     },
     "IN_PERSON_PREVISIT_QUESTIONNAIRE": {
       "name": "IN_PERSON_PREVISIT_QUESTIONNAIRE",
-      "value": "#var/IN_PERSON_PREVISIT_QUESTIONNAIRE"
+      "value": "#{var/IN_PERSON_PREVISIT_QUESTIONNAIRE}"
     },
     "VIRTUAL_PREVISIT_QUESTIONNAIRE": {
       "name": "VIRTUAL_PREVISIT_QUESTIONNAIRE",
-      "value": "#var/VIRTUAL_PREVISIT_QUESTIONNAIRE"
+      "value": "#{var/VIRTUAL_PREVISIT_QUESTIONNAIRE}"
     },
     "CANDID_CLIENT_ID": {
       "name": "CANDID_CLIENT_ID",
-      "value": "#var/CANDID_CLIENT_ID"
+      "value": "#{var/CANDID_CLIENT_ID}"
     },
     "CANDID_CLIENT_SECRET": {
       "name": "CANDID_CLIENT_SECRET",
-      "value": "#var/CANDID_CLIENT_SECRET"
+      "value": "#{var/CANDID_CLIENT_SECRET}"
     },
     "CANDID_ENV": {
       "name": "CANDID_ENV",
-      "value": "#var/CANDID_ENV"
+      "value": "#{var/CANDID_ENV}"
     },
     "STRIPE_PUBLIC_KEY": {
       "name": "STRIPE_PUBLIC_KEY",
-      "value": "#var/STRIPE_PUBLIC_KEY"
+      "value": "#{var/STRIPE_PUBLIC_KEY}"
     },
     "STRIPE_SECRET_KEY": {
       "name": "STRIPE_SECRET_KEY",
-      "value": "#var/STRIPE_SECRET_KEY"
+      "value": "#{var/STRIPE_SECRET_KEY}"
     },
     "ANTHROPIC_API_KEY": {
       "name": "ANTHROPIC_API_KEY",
-      "value": "#var/ANTHROPIC_API_KEY"
+      "value": "#{var/ANTHROPIC_API_KEY}"
     },
     "ADVAPACS_CLIENT_ID": {
       "name": "ADVAPACS_CLIENT_ID",
-      "value": "#var/ADVAPACS_CLIENT_ID"
+      "value": "#{var/ADVAPACS_CLIENT_ID}"
     },
     "ADVAPACS_CLIENT_SECRET": {
       "name": "ADVAPACS_CLIENT_SECRET",
-      "value": "#var/ADVAPACS_CLIENT_SECRET"
+      "value": "#{var/ADVAPACS_CLIENT_SECRET}"
     },
     "ADVAPACS_WEBHOOK_SECRET": {
       "name": "ADVAPACS_WEBHOOK_SECRET",
-      "value": "#var/ADVAPACS_WEBHOOK_SECRET"
+      "value": "#{var/ADVAPACS_WEBHOOK_SECRET}"
     },
     "ADVAPACS_VIEWER_USERNAME": {
       "name": "ADVAPACS_VIEWER_USERNAME",
-      "value": "#var/ADVAPACS_VIEWER_USERNAME"
+      "value": "#{var/ADVAPACS_VIEWER_USERNAME}"
     }
   },
   "zambdas": {
@@ -413,11 +413,7 @@
       "type": "subscription",
       "runtime": "nodejs20.x",
       "src": "src/subscriptions/diagnostic-report/handle-lab-result/index",
-      "zip": ".dist/zips/handle-lab-result.zip",
-      "subscription": {
-        "criteria": "DiagnosticReport?category=OSL",
-        "reason": "Received new preliminary or final lab result"
-      }
+      "zip": ".dist/zips/handle-lab-result.zip"
     },
     "PAPERWORK-TO-PDF": {
       "name": "PAPERWORK-TO-PDF",
@@ -696,60 +692,35 @@
       "type": "subscription",
       "runtime": "nodejs20.x",
       "src": "src/subscriptions/communication/communication-subscription/index",
-      "zip": ".dist/zips/communication-subscription.zip",
-      "subscription": {
-        "criteria": "Communication?category=intra-communication|intake-issue-report&status=in-progress",
-        "reason": "Internal communication",
-        "event": "create"
-      }
+      "zip": ".dist/zips/communication-subscription.zip"
     },
     "PROCESS-ERX-RESOURCES": {
       "name": "PROCESS-ERX-RESOURCES",
       "type": "subscription",
       "runtime": "nodejs20.x",
       "src": "src/subscriptions/medication-request/process-erx-resources/index",
-      "zip": ".dist/zips/process-erx-resources.zip",
-      "subscription": {
-        "criteria": "MedicationRequest?identifier=https://identifiers.fhir.oystehr.com/erx-prescription-id|",
-        "reason": "ERX incoming resources processor",
-        "event": "create"
-      }
+      "zip": ".dist/zips/process-erx-resources.zip"
     },
     "APPOINTMENT-CHART-DATA-PREFILLING": {
       "name": "APPOINTMENT-CHART-DATA-PREFILLING",
       "type": "subscription",
       "runtime": "nodejs20.x",
       "src": "src/subscriptions/appointment/appointment-chart-data-prefilling/index",
-      "zip": ".dist/zips/appointment-chart-data-prefilling.zip",
-      "subscription": {
-        "criteria": "Appointment?_tag=APPOINTMENT_READY_FOR_PREPROCESSING",
-        "reason": "Appointment pre-processor",
-        "event": "create"
-      }
+      "zip": ".dist/zips/appointment-chart-data-prefilling.zip"
     },
     "SUB-CANCELLATION-EMAIL": {
       "name": "SUB-CANCELLATION-EMAIL",
       "type": "subscription",
       "runtime": "nodejs20.x",
       "src": "src/subscriptions/task/sub-cancellation-email/index",
-      "zip": ".dist/zips/sub-cancellation-email.zip",
-      "subscription": {
-        "criteria": "Task?code=urgent-care-email|&status=requested",
-        "reason": "in person communication",
-        "event": "create"
-      }
+      "zip": ".dist/zips/sub-cancellation-email.zip"
     },
     "SUB-CHECK-IN-TEXT": {
       "name": "SUB-CHECK-IN-TEXT",
       "type": "subscription",
       "runtime": "nodejs20.x",
       "src": "src/subscriptions/task/sub-check-in-text/index",
-      "zip": ".dist/zips/sub-check-in-text.zip",
-      "subscription": {
-        "criteria": "Task?code=urgent-care-text|checkin&status=requested",
-        "reason": "in person communication",
-        "event": "create"
-      }
+      "zip": ".dist/zips/sub-check-in-text.zip"
     },
     "SUB-READY-TEXT": {
       "name": "SUB-READY-TEXT",
@@ -768,36 +739,21 @@
       "type": "subscription",
       "runtime": "nodejs20.x",
       "src": "src/subscriptions/task/sub-update-appointments/index",
-      "zip": ".dist/zips/sub-update-appointments.zip",
-      "subscription": {
-        "criteria": "Task?code=urgent-care-update-appointment|&status=requested",
-        "reason": "in person appointment update",
-        "event": "create"
-      }
+      "zip": ".dist/zips/sub-update-appointments.zip"
     },
     "SUB-CONFIRMATION-MESSAGES": {
       "name": "SUB-CONFIRMATION-MESSAGES",
       "type": "subscription",
       "runtime": "nodejs20.x",
       "src": "src/subscriptions/task/sub-confirmation-messages/index",
-      "zip": ".dist/zips/sub-confirmation-messages.zip",
-      "subscription": {
-        "criteria": "Task?code=urgent-care-send-messages|&status=requested",
-        "reason": "in person appointment confirmation messages",
-        "event": "create"
-      }
+      "zip": ".dist/zips/sub-confirmation-messages.zip"
     },
     "SUB-INTAKE-HARVEST": {
       "name": "SUB-INTAKE-HARVEST",
       "type": "subscription",
       "runtime": "nodejs20.x",
       "src": "src/subscriptions/questionnaire-response/sub-intake-harvest/index",
-      "zip": ".dist/zips/sub-intake-harvest.zip",
-      "subscription": {
-        "criteria": "QuestionnaireResponse?status=completed,amended&questionnaire=https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson,https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual",
-        "reason": "paperwork harvest",
-        "event": "update"
-      }
+      "zip": ".dist/zips/sub-intake-harvest.zip"
     },
     "AI-INTERVIEW-START": {
       "name": "AI-INTERVIEW-START",
@@ -930,12 +886,7 @@
       "type": "subscription",
       "runtime": "nodejs20.x",
       "src": "src/subscriptions/questionnaire-response/ai-interview-summary/index",
-      "zip": ".dist/zips/ai-interview-summary.zip",
-      "subscription": {
-        "criteria": "QuestionnaireResponse?status=completed&questionnaire=#aiInterviewQuestionnaire",
-        "reason": "Generate summary of chat with AI",
-        "event": "update"
-      }
+      "zip": ".dist/zips/ai-interview-summary.zip"
     },
     "SEND-FAX": {
       "name": "SEND-FAX",
@@ -1058,51 +1009,1674 @@
     }
   },
   "fhirResources": {
-    "patient-paperwork-questionnaire-v1.0.0": {
-      "content": {
-        "resourceType": "Questionnaire",
-        "name": "cool-questionnaire",
-        "url": "http: //google.com",
-        "patient": "patient-id",
-        "title": "My Questions"
+    "OTTEHR_ORGANIZATION": {
+      "resourceType": "Organization",
+      "active": true,
+      "name": "Example Organization"
+    },
+    "AUTOLAB_ORGANIZATION": {
+      "resourceType": "Organization",
+      "name": "AutoLab",
+      "identifier": [
+        {
+          "system": "https://identifiers.fhir.oystehr.com/lab-guid",
+          "value": "790b282d-77e9-4697-9f59-0cef8238033a"
+        },
+        {
+          "system": "https://identifiers.fhir.oystehr.com/lab-account-number",
+          "value": "#{var/lab-autolab-account-number}"
+        }
+      ],
+      "type": [
+        {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "261904005",
+              "display": "Laboratory"
+            }
+          ]
+        }
+      ],
+      "contact": [
+        {
+          "name": {
+            "family": "Smith",
+            "given": ["John"]
+          },
+          "telecom": [
+            {
+              "system": "phone",
+              "value": "+12223334444"
+            }
+          ],
+          "purpose": {
+            "coding": [
+              {
+                "system": "https://identifiers.fhir.oystehr.com/lab-director-contact",
+                "code": "lab_director",
+                "display": "Lab Director"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "DEFAULT_PRACTITIONER": {
+      "resourceType": "Practitioner",
+      "identifier": [
+        {
+          "system": "http://hl7.org/fhir/sid/us-npi",
+          "type": {
+            "coding": [
+              {
+                "code": "NPI",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0203"
+              }
+            ]
+          },
+          "value": "npi"
+        }
+      ],
+      "meta": {
+        "tag": [
+          {
+            "code": "ELIGIBILITY_PRACTITIONER_META_TAG_PREFIX_type"
+          }
+        ]
+      }
+    },
+    "MEDICATION_ACETAMINOPHEN_LIQUID": {
+      "resourceType": "Medication",
+      "identifier": [
+        {
+          "system": "virtual-medication-type",
+          "value": "virtual-medication-inventory"
+        },
+        {
+          "system": "virtual-medication-identifier-name-system",
+          "value": "Acetaminophen (Liquid)"
+        }
+      ],
+      "code": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/sid/ndc",
+            "code": "50580-170-01"
+          },
+          {
+            "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+            "code": "23562"
+          }
+        ]
+      }
+    },
+    "MEDICATION_ACETAMINOPHEN_TABS": {
+      "resourceType": "Medication",
+      "identifier": [
+        {
+          "system": "virtual-medication-type",
+          "value": "virtual-medication-inventory"
+        },
+        {
+          "system": "virtual-medication-identifier-name-system",
+          "value": "Acetaminophen (Tabs)"
+        }
+      ],
+      "code": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/sid/ndc",
+            "code": "71399-8024-1"
+          },
+          {
+            "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+            "code": "23170"
+          }
+        ]
+      }
+    },
+    "MEDICATION_ACETAMINOPHEN_80mg_SUPPOSITORY": {
+      "resourceType": "Medication",
+      "identifier": [
+        {
+          "system": "virtual-medication-type",
+          "value": "virtual-medication-inventory"
+        },
+        {
+          "system": "virtual-medication-identifier-name-system",
+          "value": "Acetaminophen (80mg Suppository)"
+        }
+      ],
+      "code": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/sid/ndc",
+            "code": "51672-2114-2"
+          },
+          {
+            "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+            "code": "23565"
+          }
+        ]
+      }
+    },
+    "MEDICATION_ACETAMINOPHEN_325mg_SUPPOSITORY": {
+      "resourceType": "Medication",
+      "identifier": [
+        {
+          "system": "virtual-medication-type",
+          "value": "virtual-medication-inventory"
+        },
+        {
+          "system": "virtual-medication-identifier-name-system",
+          "value": "Acetaminophen (325mg Suppository)"
+        }
+      ],
+      "code": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/sid/ndc",
+            "code": "51672-2116-2"
+          },
+          {
+            "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+            "code": "23564"
+          }
+        ]
+      }
+    },
+    "MEDICATION_ACETAMINOPHEN_120mg_SUPPOSITORY": {
+      "resourceType": "Medication",
+      "identifier": [
+        {
+          "system": "virtual-medication-type",
+          "value": "virtual-medication-inventory"
+        },
+        {
+          "system": "virtual-medication-identifier-name-system",
+          "value": "Acetaminophen (120mg Suppository)"
+        }
+      ],
+      "code": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/sid/ndc",
+            "code": "45802-732-30"
+          },
+          {
+            "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+            "code": "21887"
+          }
+        ]
+      }
+    },
+    "MEDICATION_ACTIVATED_CHARCOAL": {
+      "resourceType": "Medication",
+      "identifier": [
+        {
+          "system": "virtual-medication-type",
+          "value": "virtual-medication-inventory"
+        },
+        {
+          "system": "virtual-medication-identifier-name-system",
+          "value": "Activated Charcoal"
+        }
+      ],
+      "code": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/sid/ndc",
+            "code": "66689-203-04"
+          },
+          {
+            "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+            "code": "32034"
+          }
+        ]
+      }
+    },
+    "MEDICATION_ALBUTEROL": {
+      "resourceType": "Medication",
+      "identifier": [
+        {
+          "system": "virtual-medication-type",
+          "value": "virtual-medication-inventory"
+        },
+        {
+          "system": "virtual-medication-identifier-name-system",
+          "value": "Albuterol"
+        }
+      ],
+      "code": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/sid/ndc",
+            "code": "0487-9501-25"
+          },
+          {
+            "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+            "code": "29518"
+          }
+        ]
+      }
+    },
+    "MEDICATION_VENTOLIN_HFA": {
+      "resourceType": "Medication",
+      "identifier": [
+        {
+          "system": "virtual-medication-type",
+          "value": "virtual-medication-inventory"
+        },
+        {
+          "system": "virtual-medication-identifier-name-system",
+          "value": "Ventolin HFA"
+        }
+      ],
+      "code": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/sid/ndc",
+            "code": "0173-0682-24"
+          },
+          {
+            "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+            "code": "38526"
+          }
+        ]
+      }
+    },
+    "MEDICATION_AMOXICILLIN": {
+      "resourceType": "Medication",
+      "identifier": [
+        {
+          "system": "virtual-medication-type",
+          "value": "virtual-medication-inventory"
+        },
+        {
+          "system": "virtual-medication-identifier-name-system",
+          "value": "Amoxicillin"
+        }
+      ],
+      "code": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/sid/ndc",
+            "code": "0143-9887-01"
+          },
+          {
+            "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+            "code": "34220"
+          }
+        ]
+      }
+    },
+    "MEDICATION_AMOXICILLIN_CLAVULANATE": {
+      "resourceType": "Medication",
+      "identifier": [
+        {
+          "system": "virtual-medication-type",
+          "value": "virtual-medication-inventory"
+        },
+        {
+          "system": "virtual-medication-identifier-name-system",
+          "value": "Amoxicillin Clavulanate"
+        }
+      ],
+      "code": {
+        "coding": [
+          {
+            "system": "http://hl7.org/fhir/sid/ndc",
+            "code": "65862-535-75"
+          },
+          {
+            "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
+            "code": "22329"
+          }
+        ]
+      }
+    },
+    "HANDLE_LAB_RESULT_SUBSCRIPTION": {
+      "resourceType": "Subscription",
+      "status": "active",
+      "reason": "Received new preliminary or final lab result",
+      "criteria": "DiagnosticReport?category=OSL",
+      "channel": {
+        "type": "rest-hook",
+        "endpoint": "zapehr-lambda:#{ref/zambdas/HANDLE-LAB-RESULT/id}"
+      }
+    },
+    "COMMUNICATION_SUBSCRIPTION": {
+      "resourceType": "Subscription",
+      "status": "active",
+      "reason": "Internal communication",
+      "criteria": "Communication?category=intra-communication|intake-issue-report&status=in-progress",
+      "channel": {
+        "type": "rest-hook",
+        "endpoint": "zapehr-lambda:#{ref/zambdas/COMMUNICATION-SUBSCRIPTION/id}"
       },
-      "managedFields": ["name", "title"]
+      "extension": [
+        {
+          "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+          "valueString": "create"
+        }
+      ]
+    },
+    "PROCESS_ERX_RESOURCES_SUBSCRIPTION": {
+      "resourceType": "Subscription",
+      "status": "active",
+      "reason": "ERX incoming resources processor",
+      "criteria": "MedicationRequest?identifier=https://identifiers.fhir.oystehr.com/erx-prescription-id|",
+      "channel": {
+        "type": "rest-hook",
+        "endpoint": "zapehr-lambda:#{ref/zambdas/PROCESS-ERX-RESOURCES/id}"
+      },
+      "extension": [
+        {
+          "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+          "valueString": "create"
+        }
+      ]
+    },
+    "APPOINTMENT_CHART_DATA_PREFILLING_SUBSCRIPTION": {
+      "resourceType": "Subscription",
+      "status": "active",
+      "reason": "Appointment pre-processor",
+      "criteria": "Appointment?_tag=APPOINTMENT_READY_FOR_PREPROCESSING",
+      "channel": {
+        "type": "rest-hook",
+        "endpoint": "zapehr-lambda:#{ref/zambdas/APPOINTMENT-CHART-DATA-PREFILLING/id}"
+      },
+      "extension": [
+        {
+          "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+          "valueString": "create"
+        }
+      ]
+    },
+    "SUB_CANCELLATION_EMAIL_SUBSCRIPTION": {
+      "resourceType": "Subscription",
+      "status": "active",
+      "reason": "in person communication",
+      "criteria": "Task?code=urgent-care-email|&status=requested",
+      "channel": {
+        "type": "rest-hook",
+        "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-CANCELLATION-EMAIL/id}"
+      },
+      "extension": [
+        {
+          "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+          "valueString": "create"
+        }
+      ]
+    },
+    "SUB_CHECK_IN_TEXT_SUBSCRIPTION": {
+      "resourceType": "Subscription",
+      "status": "active",
+      "reason": "in person communication",
+      "criteria": "Task?code=urgent-care-text|checkin&status=requested",
+      "channel": {
+        "type": "rest-hook",
+        "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-CHECK-IN-TEXT/id}"
+      },
+      "extension": [
+        {
+          "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+          "valueString": "create"
+        }
+      ]
+    },
+    "SUB_READY_TEXT_SUBSCRIPTION": {
+      "resourceType": "Subscription",
+      "status": "active",
+      "reason": "in person communication",
+      "criteria": "Task?code=urgent-care-text|ready&status=requested",
+      "channel": {
+        "type": "rest-hook",
+        "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-READY-TEXT/id}"
+      },
+      "extension": [
+        {
+          "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+          "valueString": "create"
+        }
+      ]
+    },
+    "SUB_UPDATE_APPOINTMENTS_SUBSCRIPTION": {
+      "resourceType": "Subscription",
+      "status": "active",
+      "reason": "in person appointment update",
+      "criteria": "Task?code=urgent-care-update-appointment|&status=requested",
+      "channel": {
+        "type": "rest-hook",
+        "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-UPDATE-APPOINTMENTS/id}"
+      },
+      "extension": [
+        {
+          "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+          "valueString": "create"
+        }
+      ]
+    },
+    "SUB_CONFIRMATION_MESSAGES_SUBSCRIPTION": {
+      "resourceType": "Subscription",
+      "status": "active",
+      "reason": "in person appointment confirmation messages",
+      "criteria": "Task?code=urgent-care-send-messages|&status=requested",
+      "channel": {
+        "type": "rest-hook",
+        "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-CONFIRMATION-MESSAGES/id}"
+      },
+      "extension": [
+        {
+          "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+          "valueString": "create"
+        }
+      ]
+    },
+    "SUB_INTAKE_HARVEST_SUBSCRIPTION": {
+      "resourceType": "Subscription",
+      "status": "active",
+      "reason": "paperwork harvest",
+      "criteria": "QuestionnaireResponse?status=completed,amended&questionnaire=https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson,https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual",
+      "channel": {
+        "type": "rest-hook",
+        "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-INTAKE-HARVEST/id}"
+      },
+      "extension": [
+        {
+          "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+          "valueString": "update"
+        }
+      ]
+    },
+    "AI_INTERVIEW_SUMMARY_SUBSCRIPTION": {
+      "resourceType": "Subscription",
+      "status": "active",
+      "reason": "Generate summary of chat with AI",
+      "criteria": "QuestionnaireResponse?status=completed&questionnaire=#aiInterviewQuestionnaire",
+      "channel": {
+        "type": "rest-hook",
+        "endpoint": "zapehr-lambda:#{ref/zambdas/AI-INTERVIEW-SUMMARY/id}"
+      },
+      "extension": [
+        {
+          "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+          "valueString": "update"
+        }
+      ]
+    },
+    "LOCATION_TELEMED_NJ": {
+      "resourceType": "Location",
+      "status": "active",
+      "address": {
+        "state": "NJ"
+      },
+      "extension": [
+        {
+          "url": "https://extensions.fhir.zapehr.com/location-form-pre-release",
+          "valueCoding": {
+            "system": "http://terminology.hl7.org/CodeSystem/location-physical-type",
+            "code": "vi",
+            "display": "Virtual"
+          }
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/timezone",
+          "valueString": "America/New_York"
+        }
+      ],
+      "identifier": [
+        {
+          "system": "https://fhir.ottehr.com/r4/slug",
+          "value": "TelemedNewJersey"
+        }
+      ],
+      "name": "Telemed New Jersey"
+    },
+    "SCHEDULE_TELEMED_NJ": {
+      "resourceType": "Schedule",
+      "active": true,
+      "extension": [
+        {
+          "url": "https://fhir.zapehr.com/r4/StructureDefinitions/schedule",
+          "valueString": "{\"schedule\":{\"monday\":{\"open\":8,\"close\":15,\"openingBuffer\":0,\"closingBuffer\":0,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":2},{\"hour\":9,\"capacity\":2},{\"hour\":10,\"capacity\":2},{\"hour\":11,\"capacity\":2},{\"hour\":12,\"capacity\":2},{\"hour\":13,\"capacity\":2},{\"hour\":14,\"capacity\":2},{\"hour\":15,\"capacity\":2},{\"hour\":16,\"capacity\":2},{\"hour\":17,\"capacity\":3},{\"hour\":18,\"capacity\":3},{\"hour\":19,\"capacity\":3},{\"hour\":20,\"capacity\":1}]},\"tuesday\":{\"open\":8,\"close\":15,\"openingBuffer\":0,\"closingBuffer\":0,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":2},{\"hour\":9,\"capacity\":2},{\"hour\":10,\"capacity\":2},{\"hour\":11,\"capacity\":2},{\"hour\":12,\"capacity\":2},{\"hour\":13,\"capacity\":2},{\"hour\":14,\"capacity\":2},{\"hour\":15,\"capacity\":2},{\"hour\":16,\"capacity\":2},{\"hour\":17,\"capacity\":3},{\"hour\":18,\"capacity\":3},{\"hour\":19,\"capacity\":3},{\"hour\":20,\"capacity\":1}]},\"wednesday\":{\"open\":8,\"close\":15,\"openingBuffer\":0,\"closingBuffer\":0,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":2},{\"hour\":9,\"capacity\":2},{\"hour\":10,\"capacity\":2},{\"hour\":11,\"capacity\":2},{\"hour\":12,\"capacity\":2},{\"hour\":13,\"capacity\":2},{\"hour\":14,\"capacity\":2},{\"hour\":15,\"capacity\":2},{\"hour\":16,\"capacity\":2},{\"hour\":17,\"capacity\":3},{\"hour\":18,\"capacity\":3},{\"hour\":19,\"capacity\":3},{\"hour\":20,\"capacity\":1}]},\"thursday\":{\"open\":8,\"close\":15,\"openingBuffer\":0,\"closingBuffer\":0,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":2},{\"hour\":9,\"capacity\":2},{\"hour\":10,\"capacity\":2},{\"hour\":11,\"capacity\":2},{\"hour\":12,\"capacity\":2},{\"hour\":13,\"capacity\":2},{\"hour\":14,\"capacity\":2},{\"hour\":15,\"capacity\":2},{\"hour\":16,\"capacity\":2},{\"hour\":17,\"capacity\":3},{\"hour\":18,\"capacity\":3},{\"hour\":19,\"capacity\":3},{\"hour\":20,\"capacity\":1}]},\"friday\":{\"open\":8,\"close\":15,\"openingBuffer\":0,\"closingBuffer\":0,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":2},{\"hour\":9,\"capacity\":2},{\"hour\":10,\"capacity\":2},{\"hour\":11,\"capacity\":2},{\"hour\":12,\"capacity\":2},{\"hour\":13,\"capacity\":2},{\"hour\":14,\"capacity\":2},{\"hour\":15,\"capacity\":2},{\"hour\":16,\"capacity\":2},{\"hour\":17,\"capacity\":3},{\"hour\":18,\"capacity\":3},{\"hour\":19,\"capacity\":3},{\"hour\":20,\"capacity\":1}]},\"saturday\":{\"open\":8,\"close\":15,\"openingBuffer\":0,\"closingBuffer\":0,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":2},{\"hour\":9,\"capacity\":2},{\"hour\":10,\"capacity\":2},{\"hour\":11,\"capacity\":2},{\"hour\":12,\"capacity\":2},{\"hour\":13,\"capacity\":2},{\"hour\":14,\"capacity\":2},{\"hour\":15,\"capacity\":2},{\"hour\":16,\"capacity\":2},{\"hour\":17,\"capacity\":3},{\"hour\":18,\"capacity\":3},{\"hour\":19,\"capacity\":3},{\"hour\":20,\"capacity\":1}]},\"sunday\":{\"open\":8,\"close\":15,\"openingBuffer\":0,\"closingBuffer\":0,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":2},{\"hour\":9,\"capacity\":2},{\"hour\":10,\"capacity\":2},{\"hour\":11,\"capacity\":2},{\"hour\":12,\"capacity\":2},{\"hour\":13,\"capacity\":2},{\"hour\":14,\"capacity\":2},{\"hour\":15,\"capacity\":2},{\"hour\":16,\"capacity\":2},{\"hour\":17,\"capacity\":3},{\"hour\":18,\"capacity\":3},{\"hour\":19,\"capacity\":3},{\"hour\":20,\"capacity\":1}]}},\"scheduleOverrides\":{}}"
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/timezone",
+          "valueString": "America/New_York"
+        }
+      ],
+      "actor": [
+        {
+          "reference": "#{ref/fhirResources/LOCATION_TELEMED_NJ/type}/#{ref/fhirResources/LOCATION_TELEMED_NJ/id}"
+        }
+      ]
+    },
+    "LOCATION_TELEMED_OH": {
+      "resourceType": "Location",
+      "status": "active",
+      "address": {
+        "state": "OH"
+      },
+      "extension": [
+        {
+          "url": "https://extensions.fhir.zapehr.com/location-form-pre-release",
+          "valueCoding": {
+            "system": "http://terminology.hl7.org/CodeSystem/location-physical-type",
+            "code": "vi",
+            "display": "Virtual"
+          }
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/timezone",
+          "valueString": "America/New_York"
+        }
+      ],
+      "identifier": [
+        {
+          "system": "https://fhir.ottehr.com/r4/slug",
+          "value": "TelemedOhio"
+        }
+      ],
+      "name": "Telemed Ohio"
+    },
+    "SCHEDULE_TELEMED_OH": {
+      "resourceType": "Schedule",
+      "active": true,
+      "extension": [
+        {
+          "url": "https://fhir.zapehr.com/r4/StructureDefinitions/schedule",
+          "valueString": "{\"schedule\":{\"monday\":{\"open\":8,\"close\":15,\"openingBuffer\":0,\"closingBuffer\":0,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":2},{\"hour\":9,\"capacity\":2},{\"hour\":10,\"capacity\":2},{\"hour\":11,\"capacity\":2},{\"hour\":12,\"capacity\":2},{\"hour\":13,\"capacity\":2},{\"hour\":14,\"capacity\":2},{\"hour\":15,\"capacity\":2},{\"hour\":16,\"capacity\":2},{\"hour\":17,\"capacity\":3},{\"hour\":18,\"capacity\":3},{\"hour\":19,\"capacity\":3},{\"hour\":20,\"capacity\":1}]},\"tuesday\":{\"open\":8,\"close\":15,\"openingBuffer\":0,\"closingBuffer\":0,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":2},{\"hour\":9,\"capacity\":2},{\"hour\":10,\"capacity\":2},{\"hour\":11,\"capacity\":2},{\"hour\":12,\"capacity\":2},{\"hour\":13,\"capacity\":2},{\"hour\":14,\"capacity\":2},{\"hour\":15,\"capacity\":2},{\"hour\":16,\"capacity\":2},{\"hour\":17,\"capacity\":3},{\"hour\":18,\"capacity\":3},{\"hour\":19,\"capacity\":3},{\"hour\":20,\"capacity\":1}]},\"wednesday\":{\"open\":8,\"close\":15,\"openingBuffer\":0,\"closingBuffer\":0,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":2},{\"hour\":9,\"capacity\":2},{\"hour\":10,\"capacity\":2},{\"hour\":11,\"capacity\":2},{\"hour\":12,\"capacity\":2},{\"hour\":13,\"capacity\":2},{\"hour\":14,\"capacity\":2},{\"hour\":15,\"capacity\":2},{\"hour\":16,\"capacity\":2},{\"hour\":17,\"capacity\":3},{\"hour\":18,\"capacity\":3},{\"hour\":19,\"capacity\":3},{\"hour\":20,\"capacity\":1}]},\"thursday\":{\"open\":8,\"close\":15,\"openingBuffer\":0,\"closingBuffer\":0,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":2},{\"hour\":9,\"capacity\":2},{\"hour\":10,\"capacity\":2},{\"hour\":11,\"capacity\":2},{\"hour\":12,\"capacity\":2},{\"hour\":13,\"capacity\":2},{\"hour\":14,\"capacity\":2},{\"hour\":15,\"capacity\":2},{\"hour\":16,\"capacity\":2},{\"hour\":17,\"capacity\":3},{\"hour\":18,\"capacity\":3},{\"hour\":19,\"capacity\":3},{\"hour\":20,\"capacity\":1}]},\"friday\":{\"open\":8,\"close\":15,\"openingBuffer\":0,\"closingBuffer\":0,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":2},{\"hour\":9,\"capacity\":2},{\"hour\":10,\"capacity\":2},{\"hour\":11,\"capacity\":2},{\"hour\":12,\"capacity\":2},{\"hour\":13,\"capacity\":2},{\"hour\":14,\"capacity\":2},{\"hour\":15,\"capacity\":2},{\"hour\":16,\"capacity\":2},{\"hour\":17,\"capacity\":3},{\"hour\":18,\"capacity\":3},{\"hour\":19,\"capacity\":3},{\"hour\":20,\"capacity\":1}]},\"saturday\":{\"open\":8,\"close\":15,\"openingBuffer\":0,\"closingBuffer\":0,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":2},{\"hour\":9,\"capacity\":2},{\"hour\":10,\"capacity\":2},{\"hour\":11,\"capacity\":2},{\"hour\":12,\"capacity\":2},{\"hour\":13,\"capacity\":2},{\"hour\":14,\"capacity\":2},{\"hour\":15,\"capacity\":2},{\"hour\":16,\"capacity\":2},{\"hour\":17,\"capacity\":3},{\"hour\":18,\"capacity\":3},{\"hour\":19,\"capacity\":3},{\"hour\":20,\"capacity\":1}]},\"sunday\":{\"open\":8,\"close\":15,\"openingBuffer\":0,\"closingBuffer\":0,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":2},{\"hour\":9,\"capacity\":2},{\"hour\":10,\"capacity\":2},{\"hour\":11,\"capacity\":2},{\"hour\":12,\"capacity\":2},{\"hour\":13,\"capacity\":2},{\"hour\":14,\"capacity\":2},{\"hour\":15,\"capacity\":2},{\"hour\":16,\"capacity\":2},{\"hour\":17,\"capacity\":3},{\"hour\":18,\"capacity\":3},{\"hour\":19,\"capacity\":3},{\"hour\":20,\"capacity\":1}]}},\"scheduleOverrides\":{}}"
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/timezone",
+          "valueString": "America/New_York"
+        }
+      ],
+      "actor": [
+        {
+          "reference": "#{ref/fhirResources/LOCATION_TELEMED_OH/type}/#{ref/fhirResources/LOCATION_TELEMED_OH/id}"
+        }
+      ]
+    },
+    "LOCATION_PHYSICAL_NY": {
+      "resourceType": "Location",
+      "status": "active",
+      "name": "New York",
+      "description": "Test description",
+      "address": {
+        "use": "work",
+        "type": "physical",
+        "line": ["12345 Test St"],
+        "city": "New York",
+        "state": "NY",
+        "postalCode": "12345"
+      },
+      "identifier": [
+        {
+          "system": "https://fhir.ottehr.com/r4/slug",
+          "value": "NewYork-NY"
+        }
+      ],
+      "telecom": [
+        {
+          "system": "phone",
+          "use": "work",
+          "value": "1234567890"
+        },
+        {
+          "system": "url",
+          "use": "work",
+          "value": "https://example.com"
+        }
+      ],
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/timezone",
+          "valueString": "America/New_York"
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/room",
+          "valueString": "1"
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/room",
+          "valueString": "2"
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/room",
+          "valueString": "3"
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/room",
+          "valueString": "4"
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/room",
+          "valueString": "5"
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/room",
+          "valueString": "6"
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/room",
+          "valueString": "7"
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/room",
+          "valueString": "8"
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/room",
+          "valueString": "9"
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/room",
+          "valueString": "10"
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/room",
+          "valueString": "11"
+        }
+      ],
+      "hoursOfOperation": [
+        {
+          "openingTime": "04:00:00",
+          "closingTime": "20:00:00",
+          "daysOfWeek": ["mon"]
+        },
+        {
+          "openingTime": "08:00:00",
+          "closingTime": "21:00:00",
+          "daysOfWeek": ["tue"]
+        },
+        {
+          "openingTime": "08:00:00",
+          "closingTime": "00:00:00",
+          "daysOfWeek": ["wed"]
+        },
+        {
+          "openingTime": "18:00:00",
+          "daysOfWeek": ["thu"]
+        },
+        {
+          "openingTime": "14:00:00",
+          "closingTime": "21:00:00",
+          "daysOfWeek": ["fri"]
+        },
+        {
+          "openingTime": "04:00:00",
+          "closingTime": "20:00:00",
+          "daysOfWeek": ["sat"]
+        },
+        {
+          "openingTime": "04:00:00",
+          "closingTime": "20:00:00",
+          "daysOfWeek": ["sun"]
+        }
+      ]
+    },
+    "SCHEDULE_PHYSICAL_NY": {
+      "resourceType": "Schedule",
+      "active": true,
+      "extension": [
+        {
+          "url": "https://fhir.zapehr.com/r4/StructureDefinitions/schedule",
+          "valueString": "{\"schedule\":{\"monday\":{\"open\":4,\"close\":20,\"openingBuffer\":90,\"closingBuffer\":60,\"workingDay\":true,\"hours\":[{\"hour\":4,\"capacity\":0},{\"hour\":5,\"capacity\":2},{\"hour\":6,\"capacity\":3},{\"hour\":7,\"capacity\":4},{\"hour\":8,\"capacity\":5},{\"hour\":9,\"capacity\":6},{\"hour\":10,\"capacity\":7},{\"hour\":11,\"capacity\":8},{\"hour\":12,\"capacity\":9},{\"hour\":13,\"capacity\":10},{\"hour\":14,\"capacity\":11},{\"hour\":15,\"capacity\":10},{\"hour\":16,\"capacity\":12},{\"hour\":17,\"capacity\":13},{\"hour\":18,\"capacity\":14},{\"hour\":19,\"capacity\":18}]},\"tuesday\":{\"open\":8,\"close\":21,\"openingBuffer\":0,\"closingBuffer\":30,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":10},{\"hour\":9,\"capacity\":5},{\"hour\":10,\"capacity\":7},{\"hour\":11,\"capacity\":4},{\"hour\":12,\"capacity\":8},{\"hour\":13,\"capacity\":11},{\"hour\":14,\"capacity\":1},{\"hour\":15,\"capacity\":2},{\"hour\":16,\"capacity\":1},{\"hour\":17,\"capacity\":1},{\"hour\":18,\"capacity\":2},{\"hour\":19,\"capacity\":2},{\"hour\":20,\"capacity\":6}]},\"wednesday\":{\"open\":8,\"close\":0,\"openingBuffer\":30,\"closingBuffer\":30,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":20},{\"hour\":9,\"capacity\":20},{\"hour\":10,\"capacity\":20},{\"hour\":11,\"capacity\":20},{\"hour\":12,\"capacity\":20},{\"hour\":13,\"capacity\":20},{\"hour\":14,\"capacity\":20},{\"hour\":15,\"capacity\":20},{\"hour\":16,\"capacity\":20},{\"hour\":17,\"capacity\":20},{\"hour\":18,\"capacity\":20},{\"hour\":19,\"capacity\":20},{\"hour\":20,\"capacity\":20},{\"hour\":21,\"capacity\":20},{\"hour\":22,\"capacity\":20},{\"hour\":23,\"capacity\":20}]},\"thursday\":{\"open\":18,\"close\":24,\"openingBuffer\":30,\"closingBuffer\":0,\"workingDay\":true,\"hours\":[{\"hour\":0,\"capacity\":0},{\"hour\":1,\"capacity\":0},{\"hour\":2,\"capacity\":0},{\"hour\":3,\"capacity\":0},{\"hour\":4,\"capacity\":0},{\"hour\":5,\"capacity\":0},{\"hour\":6,\"capacity\":0},{\"hour\":7,\"capacity\":0},{\"hour\":8,\"capacity\":0},{\"hour\":9,\"capacity\":6},{\"hour\":10,\"capacity\":7},{\"hour\":11,\"capacity\":8},{\"hour\":12,\"capacity\":9},{\"hour\":13,\"capacity\":10},{\"hour\":14,\"capacity\":11},{\"hour\":15,\"capacity\":0},{\"hour\":16,\"capacity\":12},{\"hour\":17,\"capacity\":12},{\"hour\":18,\"capacity\":10},{\"hour\":19,\"capacity\":10},{\"hour\":20,\"capacity\":10},{\"hour\":21,\"capacity\":0},{\"hour\":22,\"capacity\":10},{\"hour\":23,\"capacity\":10}]},\"friday\":{\"open\":14,\"close\":21,\"openingBuffer\":30,\"closingBuffer\":30,\"workingDay\":true,\"hours\":[{\"hour\":14,\"capacity\":5},{\"hour\":15,\"capacity\":6},{\"hour\":16,\"capacity\":6},{\"hour\":17,\"capacity\":5},{\"hour\":18,\"capacity\":5},{\"hour\":19,\"capacity\":5},{\"hour\":20,\"capacity\":5}]},\"saturday\":{\"open\":4,\"close\":20,\"openingBuffer\":90,\"closingBuffer\":60,\"workingDay\":true,\"hours\":[{\"hour\":4,\"capacity\":0},{\"hour\":5,\"capacity\":2},{\"hour\":6,\"capacity\":3},{\"hour\":7,\"capacity\":4},{\"hour\":8,\"capacity\":5},{\"hour\":9,\"capacity\":6},{\"hour\":10,\"capacity\":7},{\"hour\":11,\"capacity\":8},{\"hour\":12,\"capacity\":9},{\"hour\":13,\"capacity\":10},{\"hour\":14,\"capacity\":11},{\"hour\":15,\"capacity\":0},{\"hour\":16,\"capacity\":12},{\"hour\":17,\"capacity\":13},{\"hour\":18,\"capacity\":14},{\"hour\":19,\"capacity\":18}]},\"sunday\":{\"open\":4,\"close\":20,\"openingBuffer\":90,\"closingBuffer\":60,\"workingDay\":true,\"hours\":[{\"hour\":4,\"capacity\":0},{\"hour\":5,\"capacity\":2},{\"hour\":6,\"capacity\":3},{\"hour\":7,\"capacity\":4},{\"hour\":8,\"capacity\":5},{\"hour\":9,\"capacity\":6},{\"hour\":10,\"capacity\":7},{\"hour\":11,\"capacity\":8},{\"hour\":12,\"capacity\":9},{\"hour\":13,\"capacity\":10},{\"hour\":14,\"capacity\":11},{\"hour\":15,\"capacity\":0},{\"hour\":16,\"capacity\":12},{\"hour\":17,\"capacity\":13},{\"hour\":18,\"capacity\":14},{\"hour\":19,\"capacity\":18}]}},\"scheduleOverrides\":{\"12/21/2023\":{\"open\":8,\"close\":17,\"openingBuffer\":0,\"closingBuffer\":0,\"hours\":[]},\"12/9/2023\":{\"open\":8,\"close\":17,\"openingBuffer\":0,\"closingBuffer\":0,\"hours\":[]},\"05/01/2024\":{\"open\":8,\"close\":17,\"openingBuffer\":0,\"closingBuffer\":0,\"hours\":[]},\"1/19/2024\":{\"open\":7,\"close\":17,\"openingBuffer\":0,\"closingBuffer\":0,\"hours\":[]}}}"
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/timezone",
+          "valueString": "America/New_York"
+        }
+      ],
+      "actor": [
+        {
+          "reference": "#{ref/fhirResources/LOCATION_PHYSICAL_NY/type}/#{ref/fhirResources/LOCATION_PHYSICAL_NY/id}"
+        }
+      ],
+      "serviceCategory": [
+        {
+          "coding": [
+            {
+              "system": "https://fhir.ottehr.com/slot-service-category",
+              "code": "in-person-service-mode"
+            }
+          ]
+        }
+      ]
+    },
+    "LOCATION_PHYSICAL_CA": {
+      "resourceType": "Location",
+      "status": "active",
+      "name": "Los Angeles",
+      "description": "Test description",
+      "address": {
+        "use": "work",
+        "type": "physical",
+        "line": ["12345 Test St"],
+        "city": "Los Angeles",
+        "state": "CA",
+        "postalCode": "12345"
+      },
+      "identifier": [
+        {
+          "system": "https://fhir.ottehr.com/r4/slug",
+          "value": "LosAngeles-CA"
+        }
+      ],
+      "telecom": [
+        {
+          "system": "phone",
+          "use": "work",
+          "value": "1234567890"
+        },
+        {
+          "system": "url",
+          "use": "work",
+          "value": "https://example.com"
+        }
+      ],
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/timezone",
+          "valueString": "America/New_York"
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/room",
+          "valueString": "1"
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/room",
+          "valueString": "2"
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/room",
+          "valueString": "3"
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/room",
+          "valueString": "4"
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/room",
+          "valueString": "5"
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/room",
+          "valueString": "6"
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/room",
+          "valueString": "7"
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/room",
+          "valueString": "8"
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/room",
+          "valueString": "9"
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/room",
+          "valueString": "10"
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/room",
+          "valueString": "11"
+        }
+      ],
+      "hoursOfOperation": [
+        {
+          "openingTime": "04:00:00",
+          "closingTime": "20:00:00",
+          "daysOfWeek": ["mon"]
+        },
+        {
+          "openingTime": "08:00:00",
+          "closingTime": "21:00:00",
+          "daysOfWeek": ["tue"]
+        },
+        {
+          "openingTime": "08:00:00",
+          "closingTime": "00:00:00",
+          "daysOfWeek": ["wed"]
+        },
+        {
+          "openingTime": "18:00:00",
+          "daysOfWeek": ["thu"]
+        },
+        {
+          "openingTime": "14:00:00",
+          "closingTime": "21:00:00",
+          "daysOfWeek": ["fri"]
+        },
+        {
+          "openingTime": "04:00:00",
+          "closingTime": "20:00:00",
+          "daysOfWeek": ["sat"]
+        },
+        {
+          "openingTime": "04:00:00",
+          "closingTime": "20:00:00",
+          "daysOfWeek": ["sun"]
+        }
+      ]
+    },
+    "SCHEDULE_PHYSICAL_CA": {
+      "resourceType": "Schedule",
+      "active": true,
+      "extension": [
+        {
+          "url": "https://fhir.zapehr.com/r4/StructureDefinitions/schedule",
+          "valueString": "{\"schedule\":{\"monday\":{\"open\":4,\"close\":20,\"openingBuffer\":90,\"closingBuffer\":60,\"workingDay\":true,\"hours\":[{\"hour\":4,\"capacity\":0},{\"hour\":5,\"capacity\":2},{\"hour\":6,\"capacity\":3},{\"hour\":7,\"capacity\":4},{\"hour\":8,\"capacity\":5},{\"hour\":9,\"capacity\":6},{\"hour\":10,\"capacity\":7},{\"hour\":11,\"capacity\":8},{\"hour\":12,\"capacity\":9},{\"hour\":13,\"capacity\":10},{\"hour\":14,\"capacity\":11},{\"hour\":15,\"capacity\":10},{\"hour\":16,\"capacity\":12},{\"hour\":17,\"capacity\":13},{\"hour\":18,\"capacity\":14},{\"hour\":19,\"capacity\":18}]},\"tuesday\":{\"open\":8,\"close\":21,\"openingBuffer\":0,\"closingBuffer\":30,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":10},{\"hour\":9,\"capacity\":5},{\"hour\":10,\"capacity\":7},{\"hour\":11,\"capacity\":4},{\"hour\":12,\"capacity\":8},{\"hour\":13,\"capacity\":11},{\"hour\":14,\"capacity\":1},{\"hour\":15,\"capacity\":2},{\"hour\":16,\"capacity\":1},{\"hour\":17,\"capacity\":1},{\"hour\":18,\"capacity\":2},{\"hour\":19,\"capacity\":2},{\"hour\":20,\"capacity\":6}]},\"wednesday\":{\"open\":8,\"close\":0,\"openingBuffer\":30,\"closingBuffer\":30,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":20},{\"hour\":9,\"capacity\":20},{\"hour\":10,\"capacity\":20},{\"hour\":11,\"capacity\":20},{\"hour\":12,\"capacity\":20},{\"hour\":13,\"capacity\":20},{\"hour\":14,\"capacity\":20},{\"hour\":15,\"capacity\":20},{\"hour\":16,\"capacity\":20},{\"hour\":17,\"capacity\":20},{\"hour\":18,\"capacity\":20},{\"hour\":19,\"capacity\":20},{\"hour\":20,\"capacity\":20},{\"hour\":21,\"capacity\":20},{\"hour\":22,\"capacity\":20},{\"hour\":23,\"capacity\":20}]},\"thursday\":{\"open\":18,\"close\":24,\"openingBuffer\":30,\"closingBuffer\":0,\"workingDay\":true,\"hours\":[{\"hour\":0,\"capacity\":0},{\"hour\":1,\"capacity\":0},{\"hour\":2,\"capacity\":0},{\"hour\":3,\"capacity\":0},{\"hour\":4,\"capacity\":0},{\"hour\":5,\"capacity\":0},{\"hour\":6,\"capacity\":0},{\"hour\":7,\"capacity\":0},{\"hour\":8,\"capacity\":0},{\"hour\":9,\"capacity\":6},{\"hour\":10,\"capacity\":7},{\"hour\":11,\"capacity\":8},{\"hour\":12,\"capacity\":9},{\"hour\":13,\"capacity\":10},{\"hour\":14,\"capacity\":11},{\"hour\":15,\"capacity\":0},{\"hour\":16,\"capacity\":12},{\"hour\":17,\"capacity\":12},{\"hour\":18,\"capacity\":10},{\"hour\":19,\"capacity\":10},{\"hour\":20,\"capacity\":10},{\"hour\":21,\"capacity\":0},{\"hour\":22,\"capacity\":10},{\"hour\":23,\"capacity\":10}]},\"friday\":{\"open\":14,\"close\":21,\"openingBuffer\":30,\"closingBuffer\":30,\"workingDay\":true,\"hours\":[{\"hour\":14,\"capacity\":5},{\"hour\":15,\"capacity\":6},{\"hour\":16,\"capacity\":6},{\"hour\":17,\"capacity\":5},{\"hour\":18,\"capacity\":5},{\"hour\":19,\"capacity\":5},{\"hour\":20,\"capacity\":5}]},\"saturday\":{\"open\":4,\"close\":20,\"openingBuffer\":90,\"closingBuffer\":60,\"workingDay\":true,\"hours\":[{\"hour\":4,\"capacity\":0},{\"hour\":5,\"capacity\":2},{\"hour\":6,\"capacity\":3},{\"hour\":7,\"capacity\":4},{\"hour\":8,\"capacity\":5},{\"hour\":9,\"capacity\":6},{\"hour\":10,\"capacity\":7},{\"hour\":11,\"capacity\":8},{\"hour\":12,\"capacity\":9},{\"hour\":13,\"capacity\":10},{\"hour\":14,\"capacity\":11},{\"hour\":15,\"capacity\":0},{\"hour\":16,\"capacity\":12},{\"hour\":17,\"capacity\":13},{\"hour\":18,\"capacity\":14},{\"hour\":19,\"capacity\":18}]},\"sunday\":{\"open\":4,\"close\":20,\"openingBuffer\":90,\"closingBuffer\":60,\"workingDay\":true,\"hours\":[{\"hour\":4,\"capacity\":0},{\"hour\":5,\"capacity\":2},{\"hour\":6,\"capacity\":3},{\"hour\":7,\"capacity\":4},{\"hour\":8,\"capacity\":5},{\"hour\":9,\"capacity\":6},{\"hour\":10,\"capacity\":7},{\"hour\":11,\"capacity\":8},{\"hour\":12,\"capacity\":9},{\"hour\":13,\"capacity\":10},{\"hour\":14,\"capacity\":11},{\"hour\":15,\"capacity\":0},{\"hour\":16,\"capacity\":12},{\"hour\":17,\"capacity\":13},{\"hour\":18,\"capacity\":14},{\"hour\":19,\"capacity\":18}]}},\"scheduleOverrides\":{\"12/21/2023\":{\"open\":8,\"close\":17,\"openingBuffer\":0,\"closingBuffer\":0,\"hours\":[]},\"12/9/2023\":{\"open\":8,\"close\":17,\"openingBuffer\":0,\"closingBuffer\":0,\"hours\":[]},\"05/01/2024\":{\"open\":8,\"close\":17,\"openingBuffer\":0,\"closingBuffer\":0,\"hours\":[]},\"1/19/2024\":{\"open\":7,\"close\":17,\"openingBuffer\":0,\"closingBuffer\":0,\"hours\":[]}}}"
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/timezone",
+          "valueString": "America/New_York"
+        }
+      ],
+      "actor": [
+        {
+          "reference": "#{ref/fhirResources/LOCATION_PHYSICAL_CA/type}/#{ref/fhirResources/LOCATION_PHYSICAL_CA/id}"
+        }
+      ],
+      "serviceCategory": [
+        {
+          "coding": [
+            {
+              "system": "https://fhir.ottehr.com/slot-service-category",
+              "code": "in-person-service-mode"
+            }
+          ]
+        }
+      ]
+    },
+    "HEALTHCARE_SERVICE_VISIT_FOLLOWUP_GROUP": {
+      "resourceType": "HealthcareService",
+      "name": "Visit Followup Group",
+      "active": true,
+      "identifier": [
+        {
+          "system": "https://fhir.ottehr.com/r4/slug",
+          "value": "visit-followup-group"
+        }
+      ],
+      "characteristic": [
+        {
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/service-mode",
+              "code": "in-person",
+              "display": "In Person"
+            }
+          ]
+        },
+        {
+          "coding": [
+            {
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions/healthcare-service-schedule-strategy",
+              "code": "pools-all",
+              "display": "Pools All"
+            }
+          ]
+        }
+      ]
+    },
+    "PRACTITIONER_ROLE_VISIT_FOLLOWUP_GROUP_1": {
+      "resourceType": "PractitionerRole",
+      "practitioner": {
+        "reference": "Practitioner/#{var/practitioner-id-1}"
+      },
+      "healthcareService": [
+        {
+          "reference": "#{ref/fhirResources/HEALTHCARE_SERVICE_VISIT_FOLLOWUP_GROUP/type}/#{ref/fhirResources/HEALTHCARE_SERVICE_VISIT_FOLLOWUP_GROUP/id}"
+        }
+      ]
+    },
+    "PRACTITIONER_ROLE_VISIT_FOLLOWUP_GROUP_2": {
+      "resourceType": "PractitionerRole",
+      "practitioner": {
+        "reference": "Practitioner/#{var/practitioner-id-2}"
+      },
+      "healthcareService": [
+        {
+          "reference": "#{ref/fhirResources/HEALTHCARE_SERVICE_VISIT_FOLLOWUP_GROUP/type}/#{ref/fhirResources/HEALTHCARE_SERVICE_VISIT_FOLLOWUP_GROUP/id}"
+        }
+      ]
+    },
+    "SCHEDULE_VISIT_FOLLOWUP_GROUP_PRACTITIONER_1": {
+      "resourceType": "Schedule",
+      "active": true,
+      "extension": [
+        {
+          "url": "https://fhir.zapehr.com/r4/StructureDefinitions/schedule",
+          "valueString": "{\"schedule\":{\"monday\":{\"open\":8,\"close\":15,\"openingBuffer\":0,\"closingBuffer\":0,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":2},{\"hour\":9,\"capacity\":2},{\"hour\":10,\"capacity\":2},{\"hour\":11,\"capacity\":2},{\"hour\":12,\"capacity\":2},{\"hour\":13,\"capacity\":2},{\"hour\":14,\"capacity\":2},{\"hour\":15,\"capacity\":2},{\"hour\":16,\"capacity\":2},{\"hour\":17,\"capacity\":3},{\"hour\":18,\"capacity\":3},{\"hour\":19,\"capacity\":3},{\"hour\":20,\"capacity\":1}]},\"tuesday\":{\"open\":8,\"close\":15,\"openingBuffer\":0,\"closingBuffer\":0,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":2},{\"hour\":9,\"capacity\":2},{\"hour\":10,\"capacity\":2},{\"hour\":11,\"capacity\":2},{\"hour\":12,\"capacity\":2},{\"hour\":13,\"capacity\":2},{\"hour\":14,\"capacity\":2},{\"hour\":15,\"capacity\":2},{\"hour\":16,\"capacity\":2},{\"hour\":17,\"capacity\":3},{\"hour\":18,\"capacity\":3},{\"hour\":19,\"capacity\":3},{\"hour\":20,\"capacity\":1}]},\"wednesday\":{\"open\":8,\"close\":15,\"openingBuffer\":0,\"closingBuffer\":0,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":2},{\"hour\":9,\"capacity\":2},{\"hour\":10,\"capacity\":2},{\"hour\":11,\"capacity\":2},{\"hour\":12,\"capacity\":2},{\"hour\":13,\"capacity\":2},{\"hour\":14,\"capacity\":2},{\"hour\":15,\"capacity\":2},{\"hour\":16,\"capacity\":2},{\"hour\":17,\"capacity\":3},{\"hour\":18,\"capacity\":3},{\"hour\":19,\"capacity\":3},{\"hour\":20,\"capacity\":1}]},\"thursday\":{\"open\":8,\"close\":15,\"openingBuffer\":0,\"closingBuffer\":0,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":2},{\"hour\":9,\"capacity\":2},{\"hour\":10,\"capacity\":2},{\"hour\":11,\"capacity\":2},{\"hour\":12,\"capacity\":2},{\"hour\":13,\"capacity\":2},{\"hour\":14,\"capacity\":2},{\"hour\":15,\"capacity\":2},{\"hour\":16,\"capacity\":2},{\"hour\":17,\"capacity\":3},{\"hour\":18,\"capacity\":3},{\"hour\":19,\"capacity\":3},{\"hour\":20,\"capacity\":1}]},\"friday\":{\"open\":8,\"close\":15,\"openingBuffer\":0,\"closingBuffer\":0,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":2},{\"hour\":9,\"capacity\":2},{\"hour\":10,\"capacity\":2},{\"hour\":11,\"capacity\":2},{\"hour\":12,\"capacity\":2},{\"hour\":13,\"capacity\":2},{\"hour\":14,\"capacity\":2},{\"hour\":15,\"capacity\":2},{\"hour\":16,\"capacity\":2},{\"hour\":17,\"capacity\":3},{\"hour\":18,\"capacity\":3},{\"hour\":19,\"capacity\":3},{\"hour\":20,\"capacity\":1}]},\"saturday\":{\"open\":8,\"close\":15,\"openingBuffer\":0,\"closingBuffer\":0,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":2},{\"hour\":9,\"capacity\":2},{\"hour\":10,\"capacity\":2},{\"hour\":11,\"capacity\":2},{\"hour\":12,\"capacity\":2},{\"hour\":13,\"capacity\":2},{\"hour\":14,\"capacity\":2},{\"hour\":15,\"capacity\":2},{\"hour\":16,\"capacity\":2},{\"hour\":17,\"capacity\":3},{\"hour\":18,\"capacity\":3},{\"hour\":19,\"capacity\":3},{\"hour\":20,\"capacity\":1}]},\"sunday\":{\"open\":8,\"close\":15,\"openingBuffer\":0,\"closingBuffer\":0,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":2},{\"hour\":9,\"capacity\":2},{\"hour\":10,\"capacity\":2},{\"hour\":11,\"capacity\":2},{\"hour\":12,\"capacity\":2},{\"hour\":13,\"capacity\":2},{\"hour\":14,\"capacity\":2},{\"hour\":15,\"capacity\":2},{\"hour\":16,\"capacity\":2},{\"hour\":17,\"capacity\":3},{\"hour\":18,\"capacity\":3},{\"hour\":19,\"capacity\":3},{\"hour\":20,\"capacity\":1}]}},\"scheduleOverrides\":{}}"
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/timezone",
+          "valueString": "America/New_York"
+        }
+      ],
+      "actor": [
+        {
+          "reference": "Practitioner/#{var/practitioner-id-1}"
+        }
+      ]
+    },
+    "SCHEDULE_VISIT_FOLLOWUP_GROUP_PRACTITIONER_2": {
+      "resourceType": "Schedule",
+      "active": true,
+      "extension": [
+        {
+          "url": "https://fhir.zapehr.com/r4/StructureDefinitions/schedule",
+          "valueString": "{\"schedule\":{\"monday\":{\"open\":8,\"close\":15,\"openingBuffer\":0,\"closingBuffer\":0,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":2},{\"hour\":9,\"capacity\":2},{\"hour\":10,\"capacity\":2},{\"hour\":11,\"capacity\":2},{\"hour\":12,\"capacity\":2},{\"hour\":13,\"capacity\":2},{\"hour\":14,\"capacity\":2},{\"hour\":15,\"capacity\":2},{\"hour\":16,\"capacity\":2},{\"hour\":17,\"capacity\":3},{\"hour\":18,\"capacity\":3},{\"hour\":19,\"capacity\":3},{\"hour\":20,\"capacity\":1}]},\"tuesday\":{\"open\":8,\"close\":15,\"openingBuffer\":0,\"closingBuffer\":0,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":2},{\"hour\":9,\"capacity\":2},{\"hour\":10,\"capacity\":2},{\"hour\":11,\"capacity\":2},{\"hour\":12,\"capacity\":2},{\"hour\":13,\"capacity\":2},{\"hour\":14,\"capacity\":2},{\"hour\":15,\"capacity\":2},{\"hour\":16,\"capacity\":2},{\"hour\":17,\"capacity\":3},{\"hour\":18,\"capacity\":3},{\"hour\":19,\"capacity\":3},{\"hour\":20,\"capacity\":1}]},\"wednesday\":{\"open\":8,\"close\":15,\"openingBuffer\":0,\"closingBuffer\":0,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":2},{\"hour\":9,\"capacity\":2},{\"hour\":10,\"capacity\":2},{\"hour\":11,\"capacity\":2},{\"hour\":12,\"capacity\":2},{\"hour\":13,\"capacity\":2},{\"hour\":14,\"capacity\":2},{\"hour\":15,\"capacity\":2},{\"hour\":16,\"capacity\":2},{\"hour\":17,\"capacity\":3},{\"hour\":18,\"capacity\":3},{\"hour\":19,\"capacity\":3},{\"hour\":20,\"capacity\":1}]},\"thursday\":{\"open\":8,\"close\":15,\"openingBuffer\":0,\"closingBuffer\":0,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":2},{\"hour\":9,\"capacity\":2},{\"hour\":10,\"capacity\":2},{\"hour\":11,\"capacity\":2},{\"hour\":12,\"capacity\":2},{\"hour\":13,\"capacity\":2},{\"hour\":14,\"capacity\":2},{\"hour\":15,\"capacity\":2},{\"hour\":16,\"capacity\":2},{\"hour\":17,\"capacity\":3},{\"hour\":18,\"capacity\":3},{\"hour\":19,\"capacity\":3},{\"hour\":20,\"capacity\":1}]},\"friday\":{\"open\":8,\"close\":15,\"openingBuffer\":0,\"closingBuffer\":0,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":2},{\"hour\":9,\"capacity\":2},{\"hour\":10,\"capacity\":2},{\"hour\":11,\"capacity\":2},{\"hour\":12,\"capacity\":2},{\"hour\":13,\"capacity\":2},{\"hour\":14,\"capacity\":2},{\"hour\":15,\"capacity\":2},{\"hour\":16,\"capacity\":2},{\"hour\":17,\"capacity\":3},{\"hour\":18,\"capacity\":3},{\"hour\":19,\"capacity\":3},{\"hour\":20,\"capacity\":1}]},\"saturday\":{\"open\":8,\"close\":15,\"openingBuffer\":0,\"closingBuffer\":0,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":2},{\"hour\":9,\"capacity\":2},{\"hour\":10,\"capacity\":2},{\"hour\":11,\"capacity\":2},{\"hour\":12,\"capacity\":2},{\"hour\":13,\"capacity\":2},{\"hour\":14,\"capacity\":2},{\"hour\":15,\"capacity\":2},{\"hour\":16,\"capacity\":2},{\"hour\":17,\"capacity\":3},{\"hour\":18,\"capacity\":3},{\"hour\":19,\"capacity\":3},{\"hour\":20,\"capacity\":1}]},\"sunday\":{\"open\":8,\"close\":15,\"openingBuffer\":0,\"closingBuffer\":0,\"workingDay\":true,\"hours\":[{\"hour\":8,\"capacity\":2},{\"hour\":9,\"capacity\":2},{\"hour\":10,\"capacity\":2},{\"hour\":11,\"capacity\":2},{\"hour\":12,\"capacity\":2},{\"hour\":13,\"capacity\":2},{\"hour\":14,\"capacity\":2},{\"hour\":15,\"capacity\":2},{\"hour\":16,\"capacity\":2},{\"hour\":17,\"capacity\":3},{\"hour\":18,\"capacity\":3},{\"hour\":19,\"capacity\":3},{\"hour\":20,\"capacity\":1}]}},\"scheduleOverrides\":{}}"
+        },
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/timezone",
+          "valueString": "America/New_York"
+        }
+      ],
+      "actor": [
+        {
+          "reference": "Practitioner/#{var/practitioner-id-2}"
+        }
+      ]
+    },
+    "ISSUE_REPORT_GROUP": {
+      "resourceType": "Group",
+      "identifier": [
+        {
+          "system": "ottehr-internal",
+          "value": "intake-issue-reports"
+        }
+      ],
+      "active": true,
+      "type": "practitioner",
+      "code": {
+        "text": "ottehr-admins"
+      },
+      "name": "Issue Report Recipients",
+      "member": [],
+      "actual": true
+    },
+    "DEFAULT_BILLING_RESOURCE": {
+      "resourceType": "Organization",
+      "name": "Default Billing Provider",
+      "identifier": [
+        {
+          "system": "http://hl7.org/fhir/sid/us-npi",
+          "type": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                "code": "NPI"
+              }
+            ]
+          },
+          "value": "1275837114"
+        },
+        {
+          "type": {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                "code": "NE"
+              }
+            ]
+          },
+          "value": "99-9999999"
+        }
+      ],
+      "address": [
+        {
+          "use": "billing",
+          "city": "Seattle",
+          "state": "WA",
+          "postalCode": "98105",
+          "country": "United States",
+          "type": "physical",
+          "line": ["371 Pine St"]
+        }
+      ]
     }
   },
   "apps": {
     "PATIENT_PORTAL": {
-      "name": "patient-portal",
-      "description": "Patient Portal",
-      "callbackUrls": [],
-      "allowedOrigins": [],
-      "allowedWebOrigins": [],
-      "allowedLogoutUrls": []
+      "name": "Ottehr Patient Portal",
+      "description": "Patient Portal application with sms authentication",
+      "loginRedirectUri": "https://intake-local.ottehr.com/patients",
+      "allowedCallbackUrls": [
+        "#{var/PATIENT_ALLOWED_URL_1}",
+        "#{var/PATIENT_ALLOWED_URL_2}",
+        "#{var/PATIENT_ALLOWED_URL_3}",
+        "#{var/PATIENT_ALLOWED_URL_4}",
+        "#{var/PATIENT_ALLOWED_URL_5}",
+        "#{var/PATIENT_ALLOWED_URL_6}"
+      ],
+      "allowedLogoutUrls": ["#{var/PATIENT_ALLOWED_URL_1}", "#{var/PATIENT_ALLOWED_URL_4}"],
+      "allowedWebOriginsUrls": ["#{var/PATIENT_ALLOWED_URL_1}", "#{var/PATIENT_ALLOWED_URL_4}"],
+      "allowedCORSOriginsUrls": ["#{var/PATIENT_ALLOWED_URL_1}", "#{var/PATIENT_ALLOWED_URL_4}"],
+      "loginWithEmailEnabled": true,
+      "passwordlessSMS": true,
+      "mfaEnabled": false,
+      "shouldSendInviteEmail": false,
+      "refreshTokenEnabled": true,
+      "logoUri": "#{var/PATIENT_APP_LOGO_URI}"
+    },
+    "OTTEHR_EHR": {
+      "name": "Ottehr EHR",
+      "description": "EHR application with email authentication",
+      "loginRedirectUri": "https://ehr-local.ottehr.com/dashboard",
+      "allowedCallbackUrls": [
+        "#{var/PROVIDER_ALLOWED_URL_1}",
+        "#{var/PROVIDER_ALLOWED_URL_2}",
+        "#{var/PROVIDER_ALLOWED_URL_3}",
+        "#{var/PROVIDER_ALLOWED_URL_4}"
+      ],
+      "allowedLogoutUrls": ["#{var/PROVIDER_ALLOWED_URL_1}", "#{var/PROVIDER_ALLOWED_URL_3}"],
+      "allowedWebOriginsUrls": ["#{var/PROVIDER_ALLOWED_URL_1}", "#{var/PROVIDER_ALLOWED_URL_3}"],
+      "allowedCORSOriginsUrls": ["#{var/PROVIDER_ALLOWED_URL_1}", "#{var/PROVIDER_ALLOWED_URL_3}"],
+      "shouldSendInviteEmail": true
     }
   },
   "m2ms": {
     "ZAMBDAS_ADMIN": {
-      "name": "zambdas-admin",
-      "policy": [
+      "name": "Example M2M Client",
+      "description": "This M2M Client is used for initial Ottehr setup.",
+      "accessPolicy": [
         {
-          "action": "*",
-          "resource": "*",
+          "resource": ["FHIR:*"],
+          "action": ["FHIR:*"],
           "effect": "Allow"
+        },
+        {
+          "resource": ["Telemed:*"],
+          "action": ["Telemed:*"],
+          "effect": "Allow"
+        },
+        {
+          "resource": ["App:User"],
+          "action": ["App:CreateUser", "App:GetUser", "App:UpdateUser", "App:ListAllUsers"],
+          "effect": "Allow"
+        },
+        {
+          "resource": ["Zambda:*"],
+          "action": ["Zambda:*"],
+          "effect": "Allow"
+        },
+        {
+          "resource": ["Fax:Fax:*"],
+          "action": ["Fax:Send"],
+          "effect": "Allow"
+        },
+        {
+          "resource": ["IAM:M2MClient:*"],
+          "action": ["IAM:ListAllM2MClients", "IAM:GetM2MClient"],
+          "effect": "Allow"
+        },
+        {
+          "resource": ["IAM:Role"],
+          "action": ["IAM:GetRole", "IAM:ListAllRoles", "IAM:CreateRole", "IAM:UpdateRole"],
+          "effect": "Allow"
+        },
+        {
+          "resource": ["Lab:*"],
+          "action": ["Lab:*"],
+          "effect": "Allow"
+        },
+        {
+          "resource": [
+            "Z3:#{var/PROJECT_ID}-photo-id-cards/*",
+            "Z3:#{var/PROJECT_ID}-insurance-cards/*",
+            "Z3:#{var/PROJECT_ID}-school-work-note-templates/*",
+            "Z3:#{var/PROJECT_ID}-patient-photos/*",
+            "Z3:#{var/PROJECT_ID}-consent-forms/*",
+            "Z3:#{var/PROJECT_ID}-visit-notes/*",
+            "Z3:#{var/PROJECT_ID}-receipts/*",
+            "Z3:#{var/PROJECT_ID}-school-work-notes/*",
+            "Z3:#{var/PROJECT_ID}-privacy-policy/*",
+            "Z3:#{var/PROJECT_ID}-exported-questionnaires/*"
+          ],
+          "action": ["Z3:PutObject", "Z3:GetObject"],
+          "effect": "Allow"
+        },
+        {
+          "action": ["Messaging:SendTransactionalSMS"],
+          "effect": "Allow",
+          "resource": ["*"]
+        },
+        {
+          "action": ["RCM:CheckInsuranceEligibility"],
+          "effect": "Allow",
+          "resource": ["RCM:InsuranceEligibility"]
         }
-      ],
-      "roles": ["#ref/EHR_SUPER_ADMIN"]
+      ]
     }
   },
   "roles": {
-    "EHR_SUPER_ADMIN": {
-      "name": "ehr-admin",
-      "description": "EHR Super Admin",
-      "policy": [
+    "PATIENT": {
+      "name": "Patient",
+      "description": "Patient Role",
+      "accessPolicy": [
         {
-          "action": "*",
-          "resource": "*",
+          "resource": [
+            "Zambda:Function:telemed-get-patients",
+            "Zambda:Function:telemed-get-appointments",
+            "Zambda:Function:telemed-get-paperwork",
+            "Zambda:Function:telemed-create-paperwork",
+            "Zambda:Function:telemed-cancel-telemed-appointment",
+            "Zambda:Function:check-in",
+            "Zambda:Function:create-appointment",
+            "Zambda:Function:cancel-appointment",
+            "Zambda:Function:get-patients",
+            "Zambda:Function:update-appointment",
+            "Zambda:Function:get-schedule",
+            "Zambda:Function:intake-get-appointments",
+            "Zambda:Function:get-paperwork",
+            "Zambda:Function:update-paperwork-in-progress",
+            "Zambda:Function:get-presigned-file-url",
+            "Zambda:Function:get-appointment-details",
+            "Zambda:Function:patch-paperwork",
+            "Zambda:Function:submit-paperwork",
+            "Zambda:Function:payment-methods-list",
+            "Zambda:Function:payment-methods-delete",
+            "Zambda:Function:payment-methods-setup",
+            "Zambda:Function:payment-methods-set-default",
+            "Zambda:Function:video-chat-invites-cancel",
+            "Zambda:Function:video-chat-invites-create",
+            "Zambda:Function:video-chat-invites-list",
+            "Zambda:Function:get-eligibility",
+            "Zambda:Function:get-answer-options",
+            "Zambda:Function:get-telemed-states",
+            "Zambda:Function:get-wait-status",
+            "Zambda:Function:get-past-visits",
+            "Zambda:Function:join-call",
+            "Zambda:Function:telemed-cancel-appointment",
+            "Zambda:Function:telemed-update-appointment",
+            "Zambda:Function:get-visit-details",
+            "Zambda:Function:list-bookables",
+            "Zambda:Function:version",
+            "Zambda:Function:ai-interview-start",
+            "Zambda:Function:ai-interview-handle-answer",
+            "Zambda:Function:ai-interview-persist-consent",
+            "Zambda:Function:get-lab-orders",
+            "Zambda:Function:submit-lab-order",
+            "Zambda:Function:update-lab-order-resources",
+            "Zambda:Function:get-create-in-house-lab-order-resources",
+            "Zambda:Function:create-in-house-lab-order",
+            "Zambda:Function:collect-in-house-lab-specimen",
+            "Zambda:Function:handle-in-house-lab-results",
+            "Zambda:Function:get-in-house-orders",
+            "Zambda:Function:delete-in-house-lab-order",
+            "Zambda:Function:get-nursing-orders",
+            "Zambda:Function:create-nursing-order",
+            "Zambda:Function:update-nursing-order"
+          ],
+          "action": ["Zambda:InvokeFunction"],
+          "effect": "Allow"
+        },
+        {
+          "action": ["Telemed:JoinMeeting"],
+          "effect": "Allow",
+          "resource": ["Telemed:Meeting"]
+        },
+        {
+          "action": ["FHIR:Read"],
+          "effect": "Allow",
+          "resource": ["FHIR:Encounter"]
+        }
+      ]
+    },
+    "INACTIVE": {
+      "name": "Inactive",
+      "accessPolicy": [
+        {
+          "resource": ["*"],
+          "action": ["*"],
+          "effect": "Deny"
+        }
+      ]
+    },
+    "ADMINISTRATOR": {
+      "name": "Administrator",
+      "accessPolicy": [
+        {
+          "action": ["FHIR:Search", "FHIR:Read"],
+          "effect": "Allow",
+          "resource": [
+            "FHIR:Consent",
+            "FHIR:Coverage",
+            "FHIR:RelatedPerson",
+            "FHIR:Organization",
+            "FHIR:QuestionnaireResponse",
+            "FHIR:Questionnaire",
+            "FHIR:DocumentReference",
+            "FHIR:Person",
+            "FHIR:Medication",
+            "FHIR:List",
+            "FHIR:Schedule"
+          ]
+        },
+        {
+          "action": ["App:ListAllUsers", "App:GetUser"],
+          "effect": "Allow",
+          "resource": ["App:User"]
+        },
+        {
+          "action": ["FHIR:Search", "FHIR:Read", "FHIR:Update"],
+          "effect": "Allow",
+          "resource": [
+            "FHIR:Patient",
+            "FHIR:Appointment",
+            "FHIR:Encounter",
+            "FHIR:Location",
+            "FHIR:HealthcareService",
+            "FHIR:Communication",
+            "FHIR:Flag",
+            "FHIR:QuestionnaireResponse"
+          ]
+        },
+        {
+          "action": ["Z3:GetObject"],
+          "effect": "Allow",
+          "resource": ["Z3:*"]
+        },
+        {
+          "action": ["Zambda:InvokeFunction"],
+          "effect": "Allow",
+          "resource": ["Zambda:Function:*"]
+        },
+        {
+          "action": ["FHIR:Create"],
+          "effect": "Allow",
+          "resource": ["FHIR:Location", "FHIR:Practitioner", "FHIR:HealthcareService"]
+        },
+        {
+          "action": ["FHIR:Read", "FHIR:Update", "FHIR:Search"],
+          "effect": "Allow",
+          "resource": ["FHIR:Practitioner"]
+        },
+        {
+          "action": ["FHIR:Search", "FHIR:Read", "FHIR:Create"],
+          "effect": "Allow",
+          "resource": ["FHIR:Communication"]
+        },
+        {
+          "action": ["Messaging:SendTransactionalSMS"],
+          "effect": "Allow",
+          "resource": ["*"]
+        },
+        {
+          "action": ["Messaging:GetConfiguration"],
+          "effect": "Allow",
+          "resource": ["Messaging:Messaging:*"]
+        },
+        {
+          "action": ["FHIR:Search", "FHIR:Read", "FHIR:Update", "FHIR:Create"],
+          "resource": ["FHIR:Organization:*", "FHIR:PractitionerRole"],
+          "effect": "Allow"
+        },
+        {
+          "action": ["FHIR:History"],
+          "effect": "Allow",
+          "resource": ["FHIR:Patient", "FHIR:Appointment"]
+        },
+        {
+          "resource": ["Zambda:Function:*"],
+          "action": ["Zambda:InvokeFunction"],
           "effect": "Allow"
         }
       ]
+    },
+    "MANAGER": {
+      "name": "Manager",
+      "accessPolicy": [
+        {
+          "action": ["FHIR:Search", "FHIR:Read"],
+          "effect": "Allow",
+          "resource": [
+            "FHIR:Consent",
+            "FHIR:Coverage",
+            "FHIR:RelatedPerson",
+            "FHIR:Questionnaire",
+            "FHIR:Organization",
+            "FHIR:QuestionnaireResponse",
+            "FHIR:DocumentReference",
+            "FHIR:Person",
+            "FHIR:Medication",
+            "FHIR:List",
+            "FHIR:Schedule"
+          ]
+        },
+        {
+          "action": ["App:ListAllUsers", "App:GetUser"],
+          "effect": "Allow",
+          "resource": ["App:User"]
+        },
+        {
+          "action": ["Telemed:GetRoomToken"],
+          "effect": "Allow",
+          "resource": ["Telemed:Room"]
+        },
+        {
+          "action": ["Telemed:JoinMeeting"],
+          "effect": "Allow",
+          "resource": ["Telemed:Meeting:*"]
+        },
+        {
+          "action": ["FHIR:Search", "FHIR:Read", "FHIR:Update"],
+          "effect": "Allow",
+          "resource": [
+            "FHIR:Patient",
+            "FHIR:Appointment",
+            "FHIR:Encounter",
+            "FHIR:Location",
+            "FHIR:HealthcareService",
+            "FHIR:Questionnaire",
+            "FHIR:QuestionnaireResponse",
+            "FHIR:Flag"
+          ]
+        },
+        {
+          "action": ["Z3:GetObject"],
+          "effect": "Allow",
+          "resource": ["Z3:*"]
+        },
+        {
+          "action": ["Zambda:InvokeFunction"],
+          "effect": "Allow",
+          "resource": ["Zambda:Function:*"]
+        },
+        {
+          "action": ["FHIR:Read", "FHIR:Update"],
+          "effect": "Allow",
+          "resource": ["FHIR:Practitioner"]
+        },
+        {
+          "action": ["FHIR:Search", "FHIR:Read", "FHIR:Update", "FHIR:Create"],
+          "effect": "Allow",
+          "resource": ["FHIR:Communication"]
+        },
+        {
+          "action": ["Messaging:SendTransactionalSMS"],
+          "effect": "Allow",
+          "resource": ["*"]
+        },
+        {
+          "action": ["Messaging:GetConfiguration"],
+          "effect": "Allow",
+          "resource": ["Messaging:Messaging:*"]
+        },
+        {
+          "action": ["FHIR:Search", "FHIR:Read", "FHIR:Update", "FHIR:Create"],
+          "resource": ["FHIR:Organization:*"],
+          "effect": "Allow"
+        },
+        {
+          "action": ["FHIR:History"],
+          "effect": "Allow",
+          "resource": ["FHIR:Patient", "FHIR:Appointment"]
+        },
+        {
+          "action": ["FHIR:Search", "FHIR:Read"],
+          "effect": "Allow",
+          "resource": ["FHIR:List"]
+        },
+        {
+          "resource": ["Zambda:Function:*"],
+          "action": ["Zambda:InvokeFunction"],
+          "effect": "Allow"
+        }
+      ]
+    },
+    "STAFF": {
+      "name": "Staff",
+      "accessPolicy": [
+        {
+          "resource": [
+            "FHIR:Consent",
+            "FHIR:Coverage",
+            "FHIR:RelatedPerson",
+            "FHIR:Organization",
+            "FHIR:Location",
+            "FHIR:HealthcareService",
+            "FHIR:Questionnaire",
+            "FHIR:QuestionnaireResponse",
+            "FHIR:DocumentReference",
+            "FHIR:Person",
+            "FHIR:Schedule",
+            "FHIR:ValueSet",
+            "FHIR:List"
+          ],
+          "action": ["FHIR:Search", "FHIR:Read"],
+          "effect": "Allow"
+        },
+        {
+          "resource": ["FHIR:Appointment", "FHIR:Encounter", "FHIR:Patient", "FHIR:Flag"],
+          "action": ["FHIR:Search", "FHIR:Read", "FHIR:Update"],
+          "effect": "Allow"
+        },
+        {
+          "resource": ["Z3:*"],
+          "action": ["Z3:GetObject"],
+          "effect": "Allow"
+        },
+        {
+          "action": ["Zambda:InvokeFunction"],
+          "effect": "Allow",
+          "resource": ["Zambda:Function:*"]
+        },
+        {
+          "action": ["FHIR:Read", "FHIR:Update"],
+          "effect": "Allow",
+          "resource": ["FHIR:Practitioner"]
+        },
+        {
+          "action": ["FHIR:Search", "FHIR:Read", "FHIR:Update", "FHIR:Create"],
+          "effect": "Allow",
+          "resource": ["FHIR:Communication"]
+        },
+        {
+          "action": ["Messaging:SendTransactionalSMS"],
+          "effect": "Allow",
+          "resource": ["*"]
+        },
+        {
+          "action": ["Messaging:GetConfiguration"],
+          "effect": "Allow",
+          "resource": ["Messaging:Messaging:*"]
+        },
+        {
+          "action": ["FHIR:History"],
+          "effect": "Allow",
+          "resource": ["FHIR:Patient", "FHIR:Appointment"]
+        },
+        {
+          "resource": ["Zambda:Function:*"],
+          "action": ["Zambda:InvokeFunction"],
+          "effect": "Allow"
+        }
+      ]
+    },
+    "PROVIDER": {
+      "name": "Provider",
+      "accessPolicy": [
+        {
+          "resource": [
+            "FHIR:Consent",
+            "FHIR:Coverage",
+            "FHIR:RelatedPerson",
+            "FHIR:Organization",
+            "FHIR:Location",
+            "FHIR:HealthcareService",
+            "FHIR:PractitionerRole",
+            "FHIR:Questionnaire",
+            "FHIR:QuestionnaireResponse",
+            "FHIR:DocumentReference",
+            "FHIR:Person",
+            "FHIR:Task",
+            "FHIR:List",
+            "FHIR:Schedule",
+            "FHIR:ValueSet",
+            "FHIR:Medication"
+          ],
+          "action": ["FHIR:Search", "FHIR:Read"],
+          "effect": "Allow"
+        },
+        {
+          "resource": ["FHIR:Appointment", "FHIR:Encounter", "FHIR:Patient", "FHIR:Flag", "FHIR:QuestionnaireResponse"],
+          "action": ["FHIR:Search", "FHIR:Read", "FHIR:Update"],
+          "effect": "Allow"
+        },
+        {
+          "action": ["Telemed:JoinMeeting"],
+          "effect": "Allow",
+          "resource": ["Telemed:Meeting:*"]
+        },
+        {
+          "resource": ["Z3:*"],
+          "action": ["Z3:GetObject"],
+          "effect": "Allow"
+        },
+        {
+          "action": ["Zambda:InvokeFunction"],
+          "effect": "Allow",
+          "resource": ["Zambda:Function:*"]
+        },
+        {
+          "action": ["FHIR:Read", "FHIR:Update"],
+          "effect": "Allow",
+          "resource": ["FHIR:Practitioner"]
+        },
+        {
+          "action": ["FHIR:Search", "FHIR:Read", "FHIR:Update", "FHIR:Create"],
+          "effect": "Allow",
+          "resource": ["FHIR:Communication"]
+        },
+        {
+          "action": ["Messaging:SendTransactionalSMS"],
+          "effect": "Allow",
+          "resource": ["*"]
+        },
+        {
+          "action": ["Messaging:GetConfiguration"],
+          "effect": "Allow",
+          "resource": ["Messaging:Messaging:*"]
+        },
+        {
+          "action": ["*"],
+          "effect": "Allow",
+          "resource": ["eRx:*"]
+        },
+        {
+          "resource": ["FHIR:AllergyIntolerance:*", "FHIR:MedicationStatement:*"],
+          "action": ["FHIR:Read", "FHIR:Search"],
+          "effect": "Allow"
+        },
+        {
+          "action": ["FHIR:History"],
+          "effect": "Allow",
+          "resource": ["FHIR:Patient", "FHIR:Appointment"]
+        },
+        {
+          "action": ["FHIR:Search", "FHIR:Read", "FHIR:Update", "FHIR:Create"],
+          "effect": "Allow",
+          "resource": [
+            "FHIR:Claim",
+            "FHIR:Appointment",
+            "FHIR:Location",
+            "FHIR:HealthcareService",
+            "FHIR:Coverage",
+            "FHIR:Practitioner",
+            "FHIR:Patient",
+            "FHIR:RelatedPerson"
+          ]
+        },
+        {
+          "resource": ["Zambda:Function:*"],
+          "action": ["Zambda:InvokeFunction"],
+          "effect": "Allow"
+        }
+      ]
+    },
+    "PRESCRIBER": {
+      "name": "Prescriber",
+      "accessPolicy": [
+        {
+          "action": ["FHIR:Search", "FHIR:Read"],
+          "effect": "Allow",
+          "resource": ["FHIR:AllergyIntolerance", "FHIR:MedicationStatement"]
+        },
+        {
+          "action": ["eRx:SearchMedication"],
+          "effect": "Allow",
+          "resource": ["eRx:Medication"]
+        },
+        {
+          "action": ["eRx:SearchAllergy"],
+          "effect": "Allow",
+          "resource": ["eRx:Allergy"]
+        },
+        {
+          "action": ["eRx:SyncPatient"],
+          "effect": "Allow",
+          "resource": ["eRx:Patient"]
+        },
+        {
+          "action": ["eRx:Create", "eRx:Read"],
+          "effect": "Allow",
+          "resource": ["eRx:Enrollment"]
+        },
+        {
+          "resource": ["Zambda:Function:*"],
+          "action": ["Zambda:InvokeFunction"],
+          "effect": "Allow"
+        }
+      ]
+    }
+  },
+  "buckets": {
+    "VISIT_NOTES": {
+      "name": "#{var/PROJECT_ID}-visit-notes"
+    },
+    "CONSENT_FORMS": {
+      "name": "#{var/PROJECT_ID}-consent-forms"
+    },
+    "PRIVACY_POLICY": {
+      "name": "#{var/PROJECT_ID}-privacy-policy"
+    },
+    "INSURANCE_CARDS": {
+      "name": "#{var/PROJECT_ID}-insurance-cards"
+    },
+    "PHOTO_ID_CARDS": {
+      "name": "#{var/PROJECT_ID}-photo-id-cards"
+    },
+    "PATIENT_PHOTOS": {
+      "name": "#{var/PROJECT_ID}-patient-photos"
+    },
+    "SCHOOL_WORK_NOTES": {
+      "name": "#{var/PROJECT_ID}-school-work-notes"
+    },
+    "SCHOOL_WORK_NOTE_TEMPLATES": {
+      "name": "#{var/PROJECT_ID}-school-work-note-templates"
+    },
+    "LABS": {
+      "name": "#{var/PROJECT_ID}-labs"
+    },
+    "RECEIPTS": {
+      "name": "#{var/PROJECT_ID}-receipts"
+    },
+    "PAPERWORK": {
+      "name": "#{var/PROJECT_ID}-paperwork"
+    }
+  },
+  "labRoutes": {
+    "AUTOLAB": {
+      "accountNumber": "#{var/lab-autolab-account-number}",
+      "labId": "#{var/lab-autolab-lab-id}"
     }
   }
 }
