@@ -21,7 +21,6 @@ export class OttehrInfraStack extends cdk.Stack {
 
     const projectConfig: any = config;
     const projectIdentifier = projectConfig.project_id;
-    const projectName = projectConfig.project_name;
 
     const domain = 'domain' in projectConfig ? projectConfig.domain : 'ottehr.com';
     const patientPortalSubdomain = 'intake_subdomain' in projectConfig ? projectConfig.intake_subdomain : 'intake';
@@ -30,19 +29,17 @@ export class OttehrInfraStack extends cdk.Stack {
       this,
       'patientPortal',
       projectIdentifier,
-      projectName,
       domain,
       patientPortalSubdomain
     );
-    this.ehrBucket = createWebsiteBucket(this, 'ehr', projectIdentifier, projectName, domain, ehrSubdomain);
+    this.ehrBucket = createWebsiteBucket(this, 'ehr', projectIdentifier, domain, ehrSubdomain);
     this.patientPortalDistribution = setUpCloudFront(
       this,
       'patientPortal',
       this.patientPortalBucket,
-      projectIdentifier,
-      projectName
+      projectIdentifier
     );
-    this.ehrDistribution = setUpCloudFront(this, 'ehr', this.ehrBucket, projectIdentifier, projectName);
+    this.ehrDistribution = setUpCloudFront(this, 'ehr', this.ehrBucket, projectIdentifier);
   }
 }
 
@@ -50,7 +47,6 @@ function createWebsiteBucket(
   scope: Construct,
   website: 'patientPortal' | 'ehr',
   projectIdentifier: string,
-  projectName: string,
   domain: string,
   subdomain: string
 ): s3.Bucket {
@@ -64,7 +60,7 @@ function createWebsiteBucket(
       ignorePublicAcls: true,
       restrictPublicBuckets: false,
     },
-    bucketName: `${projectName}-ottehr-${projectIdentifier}-${subdomain}.${domain}`,
+    bucketName: `ottehr-${projectIdentifier}-${subdomain}.${domain}`,
     removalPolicy: RemovalPolicy.DESTROY,
     autoDeleteObjects: true,
   });
@@ -74,13 +70,12 @@ function setUpCloudFront(
   scope: Construct,
   website: 'patientPortal' | 'ehr',
   bucket: s3.Bucket,
-  projectId: string,
-  projectName: string
+  projectId: string
 ): cloudfront.Distribution {
   return new cloudfront.Distribution(scope, `create-${website}-cloudfront-distribution`, {
     defaultBehavior: {
       origin: new cloudfront_origins.S3Origin(bucket),
     },
-    comment: `${projectName}-ottehr-${website}-${projectId}`,
+    comment: `ottehr-${website}-${projectId}`,
   });
 }
