@@ -21,11 +21,14 @@ export function IOSCallEndedPage(): JSX.Element {
 
   const { isFetching } = useGetWaitStatus(
     (data) => {
-      if (data.status == 'complete') {
+      if (!data) {
+        return;
+      }
+      if (data?.status == 'complete') {
         useIntakeCommonStore.setState({ error: 'The call has ended. Please, request another visit' });
         navigate(intakeFlowPageRoute.Homepage.path);
       }
-      if (data.status == 'cancelled') {
+      if (data?.status == 'cancelled') {
         useIntakeCommonStore.setState({ error: 'The appointment you tried to access was canceled' });
         navigate(intakeFlowPageRoute.Homepage.path);
       }

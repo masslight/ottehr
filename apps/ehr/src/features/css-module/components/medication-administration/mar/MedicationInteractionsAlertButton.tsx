@@ -17,8 +17,8 @@ export const MedicationInteractionsAlertButton: React.FC<Props> = ({ medication 
   return (
     <Box onClick={(e) => e.stopPropagation()}>
       {medication.interactions &&
-      ((medication.interactions.allergyInteractions?.length ?? 0) > 0 ||
-        (medication.interactions.drugInteractions?.length ?? 0) > 0) ? (
+      (medication.interactions.allergyInteractions.length > 0 ||
+        medication.interactions.drugInteractions.length > 0) ? (
         <GenericToolTip
           title={
             'Interactions: ' + interactionsSummary(medication.interactions) + '. Click on alert icon to see details'
@@ -40,10 +40,10 @@ export const MedicationInteractionsAlertButton: React.FC<Props> = ({ medication 
           </IconButton>
         </GenericToolTip>
       ) : null}
-      {showInteractionAlerts ? (
+      {showInteractionAlerts && medication.interactions ? (
         <InteractionAlertsDialog
           medicationName={medication.medicationName}
-          interactions={medication.interactions ?? {}}
+          interactions={medication.interactions}
           readonly={true}
           onCancel={() => setShowInteractionAlerts(false)}
         />

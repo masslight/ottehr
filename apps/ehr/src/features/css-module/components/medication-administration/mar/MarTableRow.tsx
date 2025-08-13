@@ -101,7 +101,7 @@ export const MarTableRow: React.FC<MarTableRowProps> = ({ medication, columnStyl
         <MedicationBarcodeScan medication={medication} />
       </TableCell>
       <TableCell data-testid={dataTestIds.inHouseMedicationsPage.marTableDoseCell} sx={columnStyles.dose}>
-        {medication.dose}
+        {medication.dose} {medication.units}
       </TableCell>
       <TableCell data-testid={dataTestIds.inHouseMedicationsPage.marTableRouteCell} sx={columnStyles.route}>
         {searchRouteByCode(medication.route)?.display || '-'}

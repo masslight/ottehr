@@ -55,8 +55,8 @@ export interface AllergyInteraction {
 }
 
 export interface MedicationInteractions {
-  drugInteractions?: DrugInteraction[];
-  allergyInteractions?: AllergyInteraction[];
+  drugInteractions: DrugInteraction[];
+  allergyInteractions: AllergyInteraction[];
 }
 
 export interface MedicationData {

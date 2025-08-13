@@ -87,7 +87,7 @@ export async function getChartData(
           patient,
           encounter,
           resourceType,
-          { ...fieldOptions, ...defaultSearchParams },
+          { ...defaultSearchParams, ...fieldOptions },
           defaultSearchBy
         )
       );

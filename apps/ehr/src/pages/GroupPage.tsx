@@ -13,7 +13,7 @@ import GroupMembers from '../components/schedule/GroupMembers';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
 
-const INTAKE_URL = import.meta.env.VITE_APP_INTAKE_URL;
+const INTAKE_URL = import.meta.env.VITE_APP_PATIENT_APP_URL;
 
 export default function GroupPage(): ReactElement {
   return (

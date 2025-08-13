@@ -42,8 +42,8 @@ export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
     'chartData',
     'setPartialChartData',
   ]);
-  const { mutate: saveChartData, isLoading: isSaveLoading } = useSaveChartData();
-  const { mutate: deleteChartData, isLoading: isDeleteLoading } = useDeleteChartData();
+  const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
+  const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
 
   const { isLoading: isChartDataLoading } = useChartData({
     encounterId: encounter.id || '',

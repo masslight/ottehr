@@ -482,6 +482,9 @@ test.describe('Surgical history', () => {
       .locator('textarea')
       .first()
       .fill(providerNote);
+    // await page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryAddNoteButton).click();
+    // await page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryNoteIsLoading).waitFor({ state: 'visible' });
+    // await page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryNoteIsLoading).waitFor({ state: 'hidden' });
     await waitForSaveChartDataResponse(page);
   });
 

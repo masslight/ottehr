@@ -20,7 +20,7 @@ import { DateTime } from 'luxon';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { PatternFormat } from 'react-number-format';
-import { AllStatesToVirtualLocationsData } from 'utils';
+import { AllStatesToVirtualLocationsData, standardizePhoneNumber } from 'utils';
 import { EMAIL_REGEX, ZIP_REGEX } from '../../constants';
 import { getSelectors } from '../../shared/store/getSelectors';
 import { useAppointmentStore, useEditPatientInformationMutation } from '../../telemed/state';
@@ -191,8 +191,10 @@ const EditPatientDialog = ({ modalOpen, onClose }: EditPatientDialogProps): Reac
     const telecomEntry = patient?.telecom || [];
 
     const phoneNumbers = telecomEntry.filter((element) => element?.system?.toLowerCase() === 'phone');
-    const masterPrimaryPhone = phoneNumbers.find((element) => element.rank === 1)?.value ?? phoneNumbers?.[0]?.value;
-    const masterSecondaryPhone = phoneNumbers.find((element) => element.rank === 2)?.value;
+    const masterPrimaryPhone = standardizePhoneNumber(
+      phoneNumbers.find((element) => element.rank === 1)?.value ?? phoneNumbers?.[0]?.value
+    );
+    const masterSecondaryPhone = standardizePhoneNumber(phoneNumbers.find((element) => element.rank === 2)?.value);
     setValue('primaryPhoneNumber', masterPrimaryPhone);
     setValue('secondaryPhoneNumber', masterSecondaryPhone);
 

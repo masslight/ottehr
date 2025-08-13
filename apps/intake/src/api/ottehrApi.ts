@@ -45,7 +45,7 @@ export interface OystehrSearchParameter {
 const REACT_APP_IS_LOCAL = import.meta.env.VITE_APP_IS_LOCAL;
 const CHECK_IN_ZAMBDA_ID = 'check-in';
 const CREATE_APPOINTMENT_ZAMBDA_ID = 'create-appointment';
-const CANCEL_APPOINTMENT_ZAMBDA_ID = import.meta.env.VITE_APP_CANCEL_APPOINTMENT_ZAMBDA_ID;
+const CANCEL_APPOINTMENT_ZAMBDA_ID = 'cancel-appointment';
 const UPDATE_APPOINTMENT_ZAMBDA_ID = 'update-appointment';
 const GET_PATIENTS_ZAMBDA_ID = 'get-patients';
 const GET_SCHEDULE_ZAMBDA_ID = 'get-schedule';

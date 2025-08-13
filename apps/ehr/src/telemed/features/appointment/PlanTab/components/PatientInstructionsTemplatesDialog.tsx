@@ -10,8 +10,8 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import React, { FC, useState } from 'react';
-import { useQueryClient } from 'react-query';
+import { useQueryClient } from '@tanstack/react-query';
+import { FC, useState } from 'react';
 import { CommunicationDTO, InstructionType, PROJECT_NAME } from 'utils';
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { ActionsList, DeleteIconButton } from '../../../../components';
@@ -30,10 +30,11 @@ export const PatientInstructionsTemplatesDialog: FC<MyTemplatesDialogProps> = (p
   const theme = useTheme();
   const [patientInstructions, setPatientInstructions] = useState<CommunicationDTO[]>([]);
   const { isFetching } = useGetPatientInstructions({ type }, (data) => {
+    if (!data) return;
     setPatientInstructions(data);
   });
   const isMyTemplates = type === 'provider';
-  const { mutate, isLoading: isDeleting } = useDeletePatientInstruction();
+  const { mutate, isPending: isDeleting } = useDeletePatientInstruction();
   const queryClient = useQueryClient();
 
   const onDelete = (id: string): void => {

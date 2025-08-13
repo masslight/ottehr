@@ -10,6 +10,7 @@ import {
   LabType,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   QuantityComponent,
+  SupportedObsImgAttachmentTypes,
   VitalsVisitNoteData,
 } from 'utils';
 import { Column } from './pdf-utils';
@@ -82,6 +83,8 @@ export interface PdfClient {
   embedFont: (path: Buffer) => Promise<PDFFont>;
   embedStandardFont: (font: StandardFonts) => Promise<PDFFont>;
   embedImage: (file: Buffer) => Promise<PDFImage>;
+  embedPdfFromBase64: (base64String: string) => Promise<void>;
+  embedImageFromBase64: (base64String: string, imgType: SupportedObsImgAttachmentTypes) => Promise<void>;
   drawSeparatedLine: (lineStyle: LineStyle) => void;
   getLeftBound: () => number;
   getRightBound: () => number;
@@ -175,6 +178,7 @@ export interface ExternalLabResult {
   resultValue: string;
   referenceRangeText?: string;
   resultNotes?: string[];
+  attachmentText?: string;
 }
 
 export interface InHouseLabResult {
@@ -211,6 +215,13 @@ export interface LabResultsData
   resultStatus: string;
   abnormalResult?: boolean;
 }
+
+// will be arrays of base64 encoded strings
+export interface ExternalLabResultAttachments {
+  pdfAttachments: string[];
+  pngAttachments: string[];
+  jpgAttachments: string[];
+}
 export interface ExternalLabResultsData extends LabResultsData {
   orderNumber: string;
   accessionNumber: string;
@@ -222,6 +233,7 @@ export interface ExternalLabResultsData extends LabResultsData {
   reviewingProvider: Practitioner | undefined;
   reviewDate: string | undefined;
   resultInterpretations: string[];
+  attachments: ExternalLabResultAttachments;
   externalLabResults: ExternalLabResult[];
   testItemCode: string;
   performingLabName: string;
