@@ -63,7 +63,7 @@
     },
     "ORGANIZATION_ID": {
       "name": "ORGANIZATION_ID",
-      "value": "#{var/ORGANIZATION_ID}"
+      "value": "#{ref/fhirResources/OTTEHR_ORGANIZATION/id}"
     },
     "NLM_API_KEY": {
       "name": "NLM_API_KEY",
