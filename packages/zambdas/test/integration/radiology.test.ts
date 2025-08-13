@@ -89,7 +89,7 @@ describe.only('radiology integration tests', () => {
   };
 
   describe('create order', () => {
-    it('should create a radiology order -- 500 cant because m2m cannot hit user/me ', async () => {
+    it('should create a radiology order -- success', async () => {
       const createOrderInput: CreateRadiologyZambdaOrderInput = {
         encounterId: encounter.id!,
         diagnosisCode: 'W21.89XA',
