@@ -109,7 +109,7 @@ async function generate20250319(specs: { path: string, spec: {[key: string]: any
             allowed_logout_urls: getValue(app.allowedLogoutUrls, vars, resources),
             allowed_web_origins_urls: getValue(app.allowedWebOriginsUrls, vars, resources),
             allowed_cors_origins_urls: getValue(app.allowedCorsOriginsUrls, vars, resources),
-            passwordless_sms: getValue(app.passwordlessSms, vars, resources),
+            passwordless_sms: getValue(app.passwordlessSMS, vars, resources),
             mfa_enabled: getValue(app.mfaEnabled, vars, resources),
             should_send_invite_email: getValue(app.shouldSendInviteEmail, vars, resources),
             logo_uri: getValue(app.logoUri, vars, resources),
