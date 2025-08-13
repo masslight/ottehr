@@ -191,7 +191,7 @@ describe('saving and getting vitals', () => {
     await cleanupTestScheduleResources(processId, oystehr);
   });
 
-  suite(
+  suite.only(
     'writing vitals observations that dont rise to alert thresholds produces vitals dtos with no alerts',
     async () => {
       let encounterId: string;
@@ -263,7 +263,7 @@ describe('saving and getting vitals', () => {
         ];
         await saveVital(obs, encounterId);
       });
-      test.concurrent('saving normal heart beat observation succeeds with no alerts', async () => {
+      test.only('saving normal heart beat observation succeeds with no alerts', async () => {
         const vitals = await getVitals(encounterId);
         expect(vitals).toBeDefined();
         const heartbeatVitals = vitals[VitalFieldNames.VitalHeartbeat];

@@ -8,7 +8,7 @@ import { getSecret, Secrets, SecretsKeys } from '../secrets';
  * When token is for an M2M Client, this function
  * calls oystehr.m2m.me() with that token and then returns a User object so that the m2m
  * can pretend to be a User for integration testing purposes. */
-export const userMe = async (token: string, secrets: Secrets): Promise<User> => {
+export const userMe = async (token: string, secrets: Secrets | null): Promise<User> => {
   const fhirAPI = getSecret(SecretsKeys.FHIR_API, secrets);
   const projectAPI = getSecret(SecretsKeys.PROJECT_API, secrets);
   const oystehr = createOystehrClient(token, fhirAPI, projectAPI);
