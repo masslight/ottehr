@@ -17,3 +17,8 @@ export interface PatientAccountAndCoverageResources {
   account?: Account;
   guarantorResource?: RelatedPerson | Patient;
 }
+
+export interface CoverageWithPriority {
+  resource: Coverage;
+  startingPriority: number;
+}

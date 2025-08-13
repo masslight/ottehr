@@ -1,25 +1,26 @@
+import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { QuestionnaireItemAnswerOption, QuestionnaireResponseItem } from 'fhir/r4b';
-import { useMutation, useQuery } from 'react-query';
 import { OystehrAPIClient } from 'ui-components';
+import { useSuccessQuery } from 'utils';
 import { GetAnswerOptionsRequest, isNullOrUndefined, PromiseReturnType } from 'utils';
 import { useOystehrAPIClient } from '../../utils';
 import { useAppointmentStore } from '../appointments';
 
 export const useGetPaperwork = (
-  onSuccess?: (data: PromiseReturnType<ReturnType<OystehrAPIClient['getPaperwork']>>) => void,
+  onSuccess?: (data: PromiseReturnType<ReturnType<OystehrAPIClient['getPaperwork']>> | null) => void,
   params?: {
     enabled?: boolean;
     staleTime?: number;
     onError?: (error: any) => void;
   }
-  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-) => {
+): UseQueryResult<PromiseReturnType<ReturnType<OystehrAPIClient['getPaperwork']>>, Error> => {
   const apiClient = useOystehrAPIClient();
   const appointmentID = useAppointmentStore((state) => state.appointmentID);
 
-  return useQuery(
-    ['paperwork', appointmentID],
-    () => {
+  const queryResult = useQuery({
+    queryKey: ['paperwork', appointmentID],
+
+    queryFn: () => {
       if (apiClient && appointmentID) {
         return apiClient.getPaperwork({
           appointmentID: appointmentID,
@@ -28,19 +29,17 @@ export const useGetPaperwork = (
 
       throw new Error('api client not defined or appointmentID is not provided');
     },
-    {
-      enabled:
-        (params?.enabled && Boolean(apiClient && appointmentID)) ||
-        (isNullOrUndefined(params?.enabled) && Boolean(apiClient && appointmentID)),
-      staleTime: params?.staleTime,
-      onSuccess,
-      onError:
-        params?.onError ||
-        ((err) => {
-          console.error('Error during fetching get paperwork: ', err);
-        }),
-    }
-  );
+
+    enabled:
+      (params?.enabled && Boolean(apiClient && appointmentID)) ||
+      (isNullOrUndefined(params?.enabled) && Boolean(apiClient && appointmentID)),
+
+    staleTime: params?.staleTime,
+  });
+
+  useSuccessQuery(queryResult.data, onSuccess);
+
+  return queryResult;
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
@@ -67,14 +66,14 @@ export const useUpdatePaperworkMutation = () => {
 export const useAnswerOptionsQuery = (
   enabled = true,
   params: GetAnswerOptionsRequest | undefined,
-  onSuccess?: (data: QuestionnaireItemAnswerOption[]) => void
-  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-) => {
+  onSuccess?: (data: QuestionnaireItemAnswerOption[] | null) => void
+): UseQueryResult<QuestionnaireItemAnswerOption[], Error> => {
   const apiClient = useOystehrAPIClient();
 
-  return useQuery(
-    ['insurances', { apiClient }],
-    async () => {
+  const queryResult = useQuery({
+    queryKey: ['insurances', { apiClient }],
+
+    queryFn: async () => {
       if (!apiClient) {
         throw new Error('App client is not provided');
       }
@@ -82,26 +81,31 @@ export const useAnswerOptionsQuery = (
       const resources = await apiClient.getAnswerOptions(params as GetAnswerOptionsRequest);
       return resources;
     },
-    {
-      enabled: !!apiClient && enabled && params !== undefined,
-      onSuccess,
-    }
-  );
+
+    enabled: !!apiClient && enabled && params !== undefined,
+  });
+
+  useSuccessQuery(queryResult.data, onSuccess);
+
+  return queryResult;
 };
 
 interface GetPaymentMethodsParams {
   setupCompleted: boolean;
   beneficiaryPatientId: string | undefined;
-  onSuccess?: (data: PromiseReturnType<ReturnType<OystehrAPIClient['getPaymentMethods']>>) => void;
+  onSuccess?: (data: PromiseReturnType<ReturnType<OystehrAPIClient['getPaymentMethods']>> | null) => void;
 }
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useGetPaymentMethods = (input: GetPaymentMethodsParams) => {
+
+export const useGetPaymentMethods = (
+  input: GetPaymentMethodsParams
+): UseQueryResult<PromiseReturnType<ReturnType<OystehrAPIClient['getPaymentMethods']>>, Error> => {
   const apiClient = useOystehrAPIClient();
   const { beneficiaryPatientId, setupCompleted, onSuccess } = input;
 
-  return useQuery(
-    ['payment-methods', beneficiaryPatientId],
-    () => {
+  const queryResult = useQuery({
+    queryKey: ['payment-methods', beneficiaryPatientId],
+
+    queryFn: () => {
       if (apiClient && beneficiaryPatientId) {
         return apiClient.getPaymentMethods({
           beneficiaryPatientId,
@@ -110,26 +114,25 @@ export const useGetPaymentMethods = (input: GetPaymentMethodsParams) => {
 
       throw new Error('api client not defined or patient id is not provided');
     },
-    {
-      enabled: Boolean(beneficiaryPatientId) && setupCompleted && Boolean(apiClient),
-      onSuccess,
-      onError: (err) => {
-        console.error('Error during fetching get payment methods: ', err);
-      },
-    }
-  );
+
+    enabled: Boolean(beneficiaryPatientId) && setupCompleted && Boolean(apiClient),
+  });
+
+  useSuccessQuery(queryResult.data, onSuccess);
+
+  return queryResult;
 };
 
 export const useSetupPaymentMethod = (
   beneficiaryPatientId: string | undefined,
-  onSuccess?: (data: PromiseReturnType<ReturnType<OystehrAPIClient['setupPaymentMethod']>>) => void
-  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-) => {
+  onSuccess?: (data: PromiseReturnType<ReturnType<OystehrAPIClient['setupPaymentMethod']>> | null) => void
+): UseQueryResult<PromiseReturnType<ReturnType<OystehrAPIClient['setupPaymentMethod']>>, Error> => {
   const apiClient = useOystehrAPIClient();
 
-  return useQuery(
-    ['setup-payment-method', beneficiaryPatientId],
-    () => {
+  const queryResult = useQuery({
+    queryKey: ['setup-payment-method', beneficiaryPatientId],
+
+    queryFn: () => {
       if (apiClient && beneficiaryPatientId) {
         return apiClient.setupPaymentMethod({
           beneficiaryPatientId,
@@ -138,18 +141,22 @@ export const useSetupPaymentMethod = (
 
       throw new Error('api client not defined or patient id is not provided');
     },
-    {
-      enabled: Boolean(apiClient && beneficiaryPatientId),
-      onSuccess,
-      onError: (err) => {
-        console.error('Error during fetching setup payment method: ', err);
-      },
-    }
-  );
+
+    enabled: Boolean(apiClient && beneficiaryPatientId),
+  });
+
+  useSuccessQuery(queryResult.data, onSuccess);
+
+  return queryResult;
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useDeletePaymentMethod = (beneficiaryPatientId: string | undefined) => {
+export const useDeletePaymentMethod = (
+  beneficiaryPatientId: string | undefined
+): UseMutationResult<
+  PromiseReturnType<ReturnType<OystehrAPIClient['deletePaymentMethod']>>,
+  Error,
+  { paymentMethodId: string }
+> => {
   const apiClient = useOystehrAPIClient();
 
   return useMutation({
@@ -171,8 +178,13 @@ export interface SetDefaultPaymentMethodParams {
   onSuccess?: () => void;
   onError?: (error: unknown) => void;
 }
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useSetDefaultPaymentMethod = (beneficiaryPatientId: string | undefined) => {
+export const useSetDefaultPaymentMethod = (
+  beneficiaryPatientId: string | undefined
+): UseMutationResult<
+  PromiseReturnType<ReturnType<OystehrAPIClient['setDefaultPaymentMethod']>>,
+  Error,
+  SetDefaultPaymentMethodParams
+> => {
   const apiClient = useOystehrAPIClient();
 
   return useMutation({

@@ -38,8 +38,9 @@ const prepareSecretsFromSpecAndEnv = (env: string): Record<string, string> => {
 
   const secrets: Record<string, string> = {};
   Object.entries(ottehrSpec.secrets).forEach(([_key, secret]) => {
-    if (secret.value.startsWith('#var/')) {
-      const varName = secret.value.split('#var/')[1];
+    const secretMatch = secret.value.match(/#\{var\/([^}]*)\}/);
+    if (secretMatch) {
+      const varName = secretMatch[1];
       const secretValue = envFile[varName];
       if (secretValue == null) {
         throw new Error(`Secret ${secret.name} was not found in the env file.`);

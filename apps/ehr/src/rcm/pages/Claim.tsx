@@ -42,7 +42,7 @@ export const Claim: FC = () => {
   ]);
 
   const { isLoading } = useGetClaim({ claimId: id }, (data) => {
-    console.log(data);
+    if (!data) return;
     setResources(data);
   });
 
@@ -62,7 +62,7 @@ export const Claim: FC = () => {
 
   useGetFacilities((data) => {
     console.log('Facilities', data);
-    useClaimStore.setState({ facilities: data });
+    useClaimStore.setState({ facilities: data || undefined });
   });
 
   useEffect(() => {

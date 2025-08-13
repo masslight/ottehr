@@ -15,10 +15,10 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Location, Practitioner, Schedule } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from 'react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   APIError,
@@ -29,6 +29,7 @@ import {
   scheduleTypeFromFHIRType,
   TIMEZONES,
   UpdateScheduleParams,
+  useSuccessQuery,
 } from 'utils';
 import { createSchedule, getSchedule, updateSchedule } from '../api/api';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
@@ -37,7 +38,7 @@ import ScheduleComponent from '../components/schedule/ScheduleComponent';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
 
-const INTAKE_URL = import.meta.env.VITE_APP_INTAKE_URL;
+const INTAKE_URL = import.meta.env.VITE_APP_PATIENT_APP_URL;
 
 export function getResource(
   scheduleType: 'location' | 'provider' | 'group'
@@ -108,25 +109,30 @@ export default function SchedulePage(): ReactElement {
     return false;
   })();
 
-  const { isLoading, isFetching, isRefetching } = useQuery(
-    ['ehr-get-schedule', { zambdaClient: oystehrZambda, scheduleId, ownerId, scheduleType }],
-    () =>
+  const {
+    isLoading,
+    isFetching,
+    isRefetching,
+    data: scheduleData,
+  } = useQuery({
+    queryKey: ['ehr-get-schedule', scheduleId, ownerId, scheduleType],
+
+    queryFn: () =>
       oystehrZambda
         ? getSchedule(
             { scheduleId, ownerId, ownerType: scheduleType ? getResource(scheduleType) : undefined },
             oystehrZambda
           )
         : null,
-    {
-      onSuccess: (response) => {
-        if (response !== null) {
-          console.log('schedule response', response);
-          setItem(response);
-        }
-      },
-      enabled: queryEnabled,
+
+    enabled: queryEnabled,
+  });
+
+  useSuccessQuery(scheduleData, (data) => {
+    if (data) {
+      setItem(data);
     }
-  );
+  });
 
   const saveScheduleChanges = useMutation({
     mutationFn: async (params: UpdateScheduleParams) => {
@@ -145,7 +151,9 @@ export default function SchedulePage(): ReactElement {
       }
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries(['ehr-get-schedule']);
+      await queryClient.invalidateQueries({
+        queryKey: ['ehr-get-schedule'],
+      });
       enqueueSnackbar('Schedule changes saved successfully!', { variant: 'success' });
     },
   });
@@ -172,7 +180,7 @@ export default function SchedulePage(): ReactElement {
     },
   });
 
-  const somethingIsLoadingInSomeWay = isLoading || isFetching || isRefetching || saveScheduleChanges.isLoading;
+  const somethingIsLoadingInSomeWay = isLoading || isFetching || isRefetching || saveScheduleChanges.isPending;
 
   // console.log('scheduleFetchState (loading/fetching/error/success): ', isLoading, isFetching, isError, isSuccess);
 

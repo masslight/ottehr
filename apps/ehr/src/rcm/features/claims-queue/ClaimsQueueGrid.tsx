@@ -18,6 +18,7 @@ export const ClaimsQueueGrid: FC<ClaimsQueueGridProps> = (props) => {
   const { data, isFetching } = useGetClaims({
     apiClient,
     onSuccess: (data) => {
+      if (!data) return;
       useClaimsQueueStore.setState({ items: data.items });
     },
   });
