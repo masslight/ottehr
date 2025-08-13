@@ -1090,11 +1090,11 @@
       "resourceType": "Medication",
       "identifier": [
         {
-          "system": "MEDICATION_TYPE_SYSTEM",
+          "system": "virtual-medication-type",
           "value": "virtual-medication-inventory"
         },
         {
-          "system": "MEDICATION_IDENTIFIER_NAME_SYSTEM",
+          "system": "virtual-medication-identifier-name-system",
           "value": "Acetaminophen (Liquid)"
         }
       ],
@@ -1115,11 +1115,11 @@
       "resourceType": "Medication",
       "identifier": [
         {
-          "system": "MEDICATION_TYPE_SYSTEM",
+          "system": "virtual-medication-type",
           "value": "virtual-medication-inventory"
         },
         {
-          "system": "MEDICATION_IDENTIFIER_NAME_SYSTEM",
+          "system": "virtual-medication-identifier-name-system",
           "value": "Acetaminophen (Tabs)"
         }
       ],
@@ -1140,11 +1140,11 @@
       "resourceType": "Medication",
       "identifier": [
         {
-          "system": "MEDICATION_TYPE_SYSTEM",
+          "system": "virtual-medication-type",
           "value": "virtual-medication-inventory"
         },
         {
-          "system": "MEDICATION_IDENTIFIER_NAME_SYSTEM",
+          "system": "virtual-medication-identifier-name-system",
           "value": "Acetaminophen (80mg Suppository)"
         }
       ],
@@ -1165,11 +1165,11 @@
       "resourceType": "Medication",
       "identifier": [
         {
-          "system": "MEDICATION_TYPE_SYSTEM",
+          "system": "virtual-medication-type",
           "value": "virtual-medication-inventory"
         },
         {
-          "system": "MEDICATION_IDENTIFIER_NAME_SYSTEM",
+          "system": "virtual-medication-identifier-name-system",
           "value": "Acetaminophen (325mg Suppository)"
         }
       ],
@@ -1190,11 +1190,11 @@
       "resourceType": "Medication",
       "identifier": [
         {
-          "system": "MEDICATION_TYPE_SYSTEM",
+          "system": "virtual-medication-type",
           "value": "virtual-medication-inventory"
         },
         {
-          "system": "MEDICATION_IDENTIFIER_NAME_SYSTEM",
+          "system": "virtual-medication-identifier-name-system",
           "value": "Acetaminophen (120mg Suppository)"
         }
       ],
@@ -1215,11 +1215,11 @@
       "resourceType": "Medication",
       "identifier": [
         {
-          "system": "MEDICATION_TYPE_SYSTEM",
+          "system": "virtual-medication-type",
           "value": "virtual-medication-inventory"
         },
         {
-          "system": "MEDICATION_IDENTIFIER_NAME_SYSTEM",
+          "system": "virtual-medication-identifier-name-system",
           "value": "Activated Charcoal"
         }
       ],
@@ -1240,11 +1240,11 @@
       "resourceType": "Medication",
       "identifier": [
         {
-          "system": "MEDICATION_TYPE_SYSTEM",
+          "system": "virtual-medication-type",
           "value": "virtual-medication-inventory"
         },
         {
-          "system": "MEDICATION_IDENTIFIER_NAME_SYSTEM",
+          "system": "virtual-medication-identifier-name-system",
           "value": "Albuterol"
         }
       ],
@@ -1265,11 +1265,11 @@
       "resourceType": "Medication",
       "identifier": [
         {
-          "system": "MEDICATION_TYPE_SYSTEM",
+          "system": "virtual-medication-type",
           "value": "virtual-medication-inventory"
         },
         {
-          "system": "MEDICATION_IDENTIFIER_NAME_SYSTEM",
+          "system": "virtual-medication-identifier-name-system",
           "value": "Ventolin HFA"
         }
       ],
@@ -1290,11 +1290,11 @@
       "resourceType": "Medication",
       "identifier": [
         {
-          "system": "MEDICATION_TYPE_SYSTEM",
+          "system": "virtual-medication-type",
           "value": "virtual-medication-inventory"
         },
         {
-          "system": "MEDICATION_IDENTIFIER_NAME_SYSTEM",
+          "system": "virtual-medication-identifier-name-system",
           "value": "Amoxicillin"
         }
       ],
@@ -1315,11 +1315,11 @@
       "resourceType": "Medication",
       "identifier": [
         {
-          "system": "MEDICATION_TYPE_SYSTEM",
+          "system": "virtual-medication-type",
           "value": "virtual-medication-inventory"
         },
         {
-          "system": "MEDICATION_IDENTIFIER_NAME_SYSTEM",
+          "system": "virtual-medication-identifier-name-system",
           "value": "Amoxicillin Clavulanate"
         }
       ],
