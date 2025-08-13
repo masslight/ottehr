@@ -1549,7 +1549,7 @@
       ],
       "actor": [
         {
-          "reference": "#{ref/fhirResources/LOCATION_TELEMED_NJ/id}"
+          "reference": "#{ref/fhirResources/LOCATION_TELEMED_NJ/type}/#{ref/fhirResources/LOCATION_TELEMED_NJ/id}"
         }
       ]
     },
@@ -1596,7 +1596,7 @@
       ],
       "actor": [
         {
-          "reference": "#{ref/fhirResources/LOCATION_TELEMED_OH/id}"
+          "reference": "#{ref/fhirResources/LOCATION_TELEMED_OH/type}/#{ref/fhirResources/LOCATION_TELEMED_OH/id}"
         }
       ]
     },
@@ -1733,10 +1733,19 @@
       ],
       "actor": [
         {
-          "reference": "#{ref/fhirResources/LOCATION_PHYSICAL_NY/id}"
+          "reference": "#{ref/fhirResources/LOCATION_PHYSICAL_NY/type}/#{ref/fhirResources/LOCATION_PHYSICAL_NY/id}"
         }
       ],
-      "serviceCategory": ["in-person-service-mode"]
+      "serviceCategory": [
+        {
+          "coding": [
+            {
+              "system": "https://fhir.ottehr.com/slot-service-category",
+              "code": "in-person-service-mode"
+            }
+          ]
+        }
+      ]
     },
     "LOCATION_PHYSICAL_CA": {
       "resourceType": "Location",
@@ -1871,10 +1880,19 @@
       ],
       "actor": [
         {
-          "reference": "#{ref/fhirResources/LOCATION_PHYSICAL_CA/id}"
+          "reference": "#{ref/fhirResources/LOCATION_PHYSICAL_CA/type}/#{ref/fhirResources/LOCATION_PHYSICAL_CA/id}"
         }
       ],
-      "serviceCategory": ["in-person-service-mode"]
+      "serviceCategory": [
+        {
+          "coding": [
+            {
+              "system": "https://fhir.ottehr.com/slot-service-category",
+              "code": "in-person-service-mode"
+            }
+          ]
+        }
+      ]
     },
     "HEALTHCARE_SERVICE_VISIT_FOLLOWUP_GROUP": {
       "resourceType": "HealthcareService",
@@ -1914,7 +1932,7 @@
       },
       "healthcareService": [
         {
-          "reference": "#{ref/fhirResources/HEALTHCARE_SERVICE_VISIT_FOLLOWUP_GROUP/resourceType}/#{ref/fhirResources/HEALTHCARE_SERVICE_VISIT_FOLLOWUP_GROUP/id}"
+          "reference": "#{ref/fhirResources/HEALTHCARE_SERVICE_VISIT_FOLLOWUP_GROUP/type}/#{ref/fhirResources/HEALTHCARE_SERVICE_VISIT_FOLLOWUP_GROUP/id}"
         }
       ]
     },
@@ -1925,7 +1943,7 @@
       },
       "healthcareService": [
         {
-          "reference": "#{ref/fhirResources/HEALTHCARE_SERVICE_VISIT_FOLLOWUP_GROUP/resourceType}/#{ref/fhirResources/HEALTHCARE_SERVICE_VISIT_FOLLOWUP_GROUP/id}"
+          "reference": "#{ref/fhirResources/HEALTHCARE_SERVICE_VISIT_FOLLOWUP_GROUP/type}/#{ref/fhirResources/HEALTHCARE_SERVICE_VISIT_FOLLOWUP_GROUP/id}"
         }
       ]
     },

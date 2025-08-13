@@ -136,7 +136,7 @@ async function generate20250319(specs: { path: string, spec: {[key: string]: any
     for (const [resourceKey, resource] of Object.entries(resources.fhirResources)) {
         fhirResources.resource.oystehr_fhir_resource[resourceKey] = {
             type: getValue(resource.resourceType, vars, resources),
-            data: getValue(JSON.stringify(resource), vars, resources),
+            data: JSON.parse(getValue(JSON.stringify(resource), vars, resources)),
         };
     }
     await fs.writeFile(fhirOutFile, JSON.stringify(fhirResources, null, 2));
@@ -243,7 +243,7 @@ function getValue(value: any, vars: { [key: string]: any }, resources: ValidSpec
             const oystehrResource = oystehrResourceFromResourceType(resourceType);
             const fieldParts = fieldName.split('.');
             const fieldRef = fieldParts.map(part => `["${part}"]`).join('');
-            return `${oystehrResource}.${resourceType}[\"${resourceName}\"]${fieldRef}`;
+            return `\${${oystehrResource}.${resourceName}.${fieldName}}`;
         }
         return match;
     });
