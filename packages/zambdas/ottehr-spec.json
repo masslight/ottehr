@@ -2008,10 +2008,3514 @@
         }
       ]
     },
+    "PRACTITIONER_EXAMPLE_1": {
+      "resourceType": "Practitioner",
+      "name": [
+        {
+          "family": "Doe",
+          "given": [
+            "Jane"
+          ]
+        }
+      ],
+      "active": true,
+      "identifier": [
+        {
+          "system": "http://hl7.org/fhir/sid/us-npi",
+          "value": "1234567890",
+          "use": "official"
+        },
+        {
+          "system": "https://fhir.ottehr.com/r4/slug",
+          "value": "practitioner1"
+        }
+      ],
+      "telecom": [
+        {
+          "system": "sms",
+          "use": "mobile",
+          "value": "+12125551212"
+        },
+        {
+          "system": "email",
+          "value": "jane.doe@ottehr.com"
+        }
+      ],
+      "qualification": [
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "AL",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "AK",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "AZ",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "AR",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "CA",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "CO",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "CT",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "DE",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "DC",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "FL",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "GA",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "HI",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "ID",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "IL",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "IN",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "IA",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "KS",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "KY",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "LA",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "ME",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "MD",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "MA",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "MI",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "MN",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "MS",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "MO",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "MT",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "NE",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "NV",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "NH",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "NJ",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "NM",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "NY",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "NC",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "ND",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "OH",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "OK",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "OR",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "PA",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "RI",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "SC",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "SD",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "TN",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "TX",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "UT",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "VT",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "VA",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "VI",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "WA",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "WV",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "WI",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "WY",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "PRACTITIONER_EXAMPLE_2": {
+      "resourceType": "Practitioner",
+      "name": [
+        {
+          "family": "Brown",
+          "given": [
+            "Kevin"
+          ]
+        }
+      ],
+      "active": true,
+      "identifier": [
+        {
+          "system": "http://hl7.org/fhir/sid/us-npi",
+          "value": "1234567890",
+          "use": "official"
+        },
+        {
+          "system": "https://fhir.ottehr.com/r4/slug",
+          "value": "practitioner2"
+        }
+      ],
+      "telecom": [
+        {
+          "system": "sms",
+          "use": "mobile",
+          "value": "+12125551212"
+        },
+        {
+          "system": "email",
+          "value": "kevin.brown@ottehr.com"
+        }
+      ],
+      "qualification": [
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "AL",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "AK",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "AZ",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "AR",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "CA",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "CO",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "CT",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "DE",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "DC",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "FL",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "GA",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "HI",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "ID",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "IL",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "IN",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "IA",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "KS",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "KY",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "LA",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "ME",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "MD",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "MA",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "MI",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "MN",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "MS",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "MO",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "MT",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "NE",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "NV",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "NH",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "NJ",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "NM",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "NY",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "NC",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "ND",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "OH",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "OK",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "OR",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "PA",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "RI",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "SC",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "SD",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "TN",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "TX",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "UT",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "VT",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "VA",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "VI",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "WA",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "WV",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "WI",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": {
+            "text": "Qualification code",
+            "coding": [
+              {
+                "code": "MD",
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0360|2.7"
+              }
+            ]
+          },
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/us/davinci-pdex-plan-net/StructureDefinition/practitioner-qualification",
+              "extension": [
+                {
+                  "url": "status",
+                  "valueCode": "active"
+                },
+                {
+                  "url": "whereValid",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "code": "WY",
+                        "system": "http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
     "PRACTITIONER_ROLE_VISIT_FOLLOWUP_GROUP_1": {
       "resourceType": "PractitionerRole",
       "practitioner": {
-        "reference": "Practitioner/#{var/practitioner-id-1}"
+        "reference": "Practitioner/#{ref/fhirResources/PRACTITIONER_EXAMPLE_1/id}"
       },
       "healthcareService": [
         {
@@ -2022,7 +5526,7 @@
     "PRACTITIONER_ROLE_VISIT_FOLLOWUP_GROUP_2": {
       "resourceType": "PractitionerRole",
       "practitioner": {
-        "reference": "Practitioner/#{var/practitioner-id-2}"
+        "reference": "Practitioner/#{ref/fhirResources/PRACTITIONER_EXAMPLE_2/id}"
       },
       "healthcareService": [
         {
@@ -2045,7 +5549,7 @@
       ],
       "actor": [
         {
-          "reference": "Practitioner/#{var/practitioner-id-1}"
+          "reference": "Practitioner/#{ref/fhirResources/PRACTITIONER_EXAMPLE_1/id}"
         }
       ]
     },
@@ -2064,7 +5568,7 @@
       ],
       "actor": [
         {
-          "reference": "Practitioner/#{var/practitioner-id-2}"
+          "reference": "Practitioner/#{ref/fhirResources/PRACTITIONER_EXAMPLE_2/id}"
         }
       ]
     },
