@@ -361,6 +361,7 @@ export type StateType = (typeof AllStates extends readonly (infer TElementType)[
 
 export interface VirtualLocationBody {
   name: string;
+  state: StateType;
 }
 
 export const AllStatesToVirtualLocationLabels: {
