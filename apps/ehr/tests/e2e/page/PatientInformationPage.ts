@@ -189,7 +189,7 @@ export class PatientInformationPage {
 
   async selectPatientBirthSex(birthSex: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.patientInformationContainer.patientBirthSex).click();
-    await this.#page.getByText(birthSex, { exact: true }).click();
+    await this.#page.locator('li').getByText(birthSex, { exact: true }).click();
   }
 
   async verifyPatientBirthSex(patientBirthSex: string): Promise<void> {
@@ -327,7 +327,7 @@ export class PatientInformationPage {
 
   async selectPatientEthnicity(patientEthnicity: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.patientDetailsContainer.patientsEthnicity).click();
-    await this.#page.getByText(patientEthnicity, { exact: true }).click();
+    await this.#page.locator('li').getByText(patientEthnicity, { exact: true }).click();
   }
 
   async verifyPatientEthnicity(patientEthnicity: string): Promise<void> {
@@ -336,9 +336,9 @@ export class PatientInformationPage {
     ).toHaveValue(patientEthnicity);
   }
 
-  async selectPatientRace(patientEthnicity: string): Promise<void> {
+  async selectPatientRace(patientRace: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.patientDetailsContainer.patientsRace).click();
-    await this.#page.getByText(patientEthnicity, { exact: true }).click();
+    await this.#page.locator('li').getByText(patientRace, { exact: true }).click();
   }
 
   async verifyPatientRace(patientRace: string): Promise<void> {
@@ -393,7 +393,7 @@ export class PatientInformationPage {
 
   async selectGenderIdentity(genderIdentity: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.patientDetailsContainer.genderIdentity).click();
-    await this.#page.getByText(genderIdentity, { exact: true }).click();
+    await this.#page.locator('li').getByText(genderIdentity, { exact: true }).click();
   }
 
   async verifyGenderIdentity(genderIdentity: string): Promise<void> {
@@ -434,7 +434,7 @@ export class PatientInformationPage {
 
   async selectRelationshipFromResponsibleContainer(relationship: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.relationshipDropdown).click();
-    await this.#page.getByText(relationship, { exact: true }).click();
+    await this.#page.locator('li').getByText(relationship, { exact: true }).click();
   }
 
   async verifyRelationshipFromResponsibleContainer(relationship: string): Promise<void> {
@@ -531,17 +531,24 @@ export class PatientInformationPage {
       .fill(phone);
   }
 
+  async verifyPhoneFromResponsibleContainer(phone: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.phoneInput).locator('input')
+    ).toHaveValue(phone);
+  }
+
+  async clearPhoneFromResponsibleContainer(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.phoneInput).locator('input').click();
+    for (let i = 0; i <= 20; i++) {
+      await this.#page.keyboard.press('Backspace');
+    }
+  }
+
   async enterEmailFromResponsibleContainer(email: string): Promise<void> {
     await this.#page
       .getByTestId(dataTestIds.responsiblePartyInformationContainer.emailInput)
       .locator('input')
       .fill(email);
-  }
-
-  async verifyPhoneFromResponsibleContainer(phone: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.phoneInput).locator('input')
-    ).toHaveValue(phone);
   }
 
   async verifyEmailFromResponsibleContainer(email: string): Promise<void> {
@@ -550,9 +557,9 @@ export class PatientInformationPage {
     ).toHaveValue(email);
   }
 
-  async clearPhoneFromResponsibleContainer(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.phoneInput).locator('input').click();
-    for (let i = 0; i <= 20; i++) {
+  async clearEmailFromResponsibleContainer(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.emailInput).locator('input').click();
+    for (let i = 0; i <= 50; i++) {
       await this.#page.keyboard.press('Backspace');
     }
   }
