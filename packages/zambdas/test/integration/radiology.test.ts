@@ -5,7 +5,7 @@ import { inject } from 'vitest';
 import { getAuth0Token } from '../../src/shared';
 import { SECRETS } from '../data/secrets';
 
-describe.only('radiology integration tests', () => {
+describe('radiology integration tests', () => {
   let oystehrLocalZambdas: Oystehr;
   let oystehr: Oystehr;
   let token = null;
