@@ -18,6 +18,7 @@ import {
   DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_DAY,
   DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_MONTH,
   DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_YEAR,
+  DEMO_VISIT_RESPONSIBLE_EMAIL,
   DEMO_VISIT_RESPONSIBLE_FIRST_NAME,
   DEMO_VISIT_RESPONSIBLE_LAST_NAME,
   DEMO_VISIT_RESPONSIBLE_PHONE,
@@ -178,6 +179,7 @@ test.describe('Patient Record Page non-mutating tests', () => {
     );
     await patientInformationPage.verifyBirthSexFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_BIRTH_SEX);
     await patientInformationPage.verifyPhoneFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_PHONE);
+    await patientInformationPage.verifyEmailFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_EMAIL);
   });
 
   test('Verify entered by patient data from Patient details block is displayed correctly', async ({ page }) => {
@@ -343,6 +345,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyDateOfBirthFromResponsibleContainer(NEW_BIRTHDATE_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.verifyBirthSexFromResponsibleContainer(NEW_BIRTH_SEX_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.verifyPhoneFromResponsibleContainer(NEW_PHONE_FROM_RESPONSIBLE_CONTAINER);
+    await patientInformationPage.verifyEmailFromResponsibleContainer(NEW_EMAIL_FROM_RESPONSIBLE_CONTAINER);
 
     /*
     skipping these tests because this component has been hidden while await requirement clarification from product team
@@ -490,6 +493,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyDateOfBirthFromResponsibleContainer(NEW_BIRTHDATE_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.verifyBirthSexFromResponsibleContainer(NEW_BIRTH_SEX_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.verifyPhoneFromResponsibleContainer(NEW_PHONE_FROM_RESPONSIBLE_CONTAINER);
+    await patientInformationPage.verifyEmailFromResponsibleContainer(NEW_EMAIL_FROM_RESPONSIBLE_CONTAINER);
   });
 
   test('Updated values from Patient details  block  are saved and displayed correctly', async ({ page }) => {
