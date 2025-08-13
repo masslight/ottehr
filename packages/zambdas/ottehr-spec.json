@@ -2031,36 +2031,36 @@
       "description": "Patient Portal application with sms authentication",
       "loginRedirectUri": "https://intake-local.ottehr.com/patients",
       "allowedCallbackUrls": [
-        "http://localhost:3002",
-        "http://localhost:3002/patients",
-        "http://localhost:3002/redirect",
-        "https://localhost:3002",
-        "https://localhost:3002/patients",
-        "https://localhost:3002/redirect"
+        "#{var/PATIENT_ALLOWED_URL_1}",
+        "#{var/PATIENT_ALLOWED_URL_2}",
+        "#{var/PATIENT_ALLOWED_URL_3}",
+        "#{var/PATIENT_ALLOWED_URL_4}",
+        "#{var/PATIENT_ALLOWED_URL_5}",
+        "#{var/PATIENT_ALLOWED_URL_6}"
       ],
-      "allowedLogoutUrls": ["http://localhost:3002", "https://localhost:3002"],
-      "allowedWebOriginsUrls": ["http://localhost:3002", "https://localhost:3002"],
-      "allowedCORSOriginsUrls": ["http://localhost:3002", "https://localhost:3002"],
+      "allowedLogoutUrls": ["#{var/PATIENT_ALLOWED_URL_1}", "#{var/PATIENT_ALLOWED_URL_4}"],
+      "allowedWebOriginsUrls": ["#{var/PATIENT_ALLOWED_URL_1}", "#{var/PATIENT_ALLOWED_URL_4}"],
+      "allowedCORSOriginsUrls": ["#{var/PATIENT_ALLOWED_URL_1}", "#{var/PATIENT_ALLOWED_URL_4}"],
       "loginWithEmailEnabled": true,
       "passwordlessSMS": true,
       "mfaEnabled": false,
       "shouldSendInviteEmail": false,
       "refreshTokenEnabled": true,
-      "logoUri": "https://assets-global.website-files.com/653fce065d76f84cf31488ae/65438838a5f9308ca9498887_otter%20logo%20dark.svg"
+      "logoUri": "#{var/PATIENT_APP_LOGO_URI}"
     },
     "OTTEHR_EHR": {
       "name": "Ottehr EHR",
       "description": "EHR application with email authentication",
       "loginRedirectUri": "https://ehr-local.ottehr.com/dashboard",
       "allowedCallbackUrls": [
-        "http://localhost:4002",
-        "http://localhost:4002/dashboard",
-        "https://localhost:4002",
-        "https://localhost:4002/dashboard"
+        "#{var/PROVIDER_ALLOWED_URL_1}",
+        "#{var/PROVIDER_ALLOWED_URL_2}",
+        "#{var/PROVIDER_ALLOWED_URL_3}",
+        "#{var/PROVIDER_ALLOWED_URL_4}"
       ],
-      "allowedLogoutUrls": ["http://localhost:4002", "https://localhost:4002"],
-      "allowedWebOriginsUrls": ["http://localhost:4002", "https://localhost:4002"],
-      "allowedCORSOriginsUrls": ["http://localhost:4002", "https://localhost:4002"],
+      "allowedLogoutUrls": ["#{var/PROVIDER_ALLOWED_URL_1}", "#{var/PROVIDER_ALLOWED_URL_3}"],
+      "allowedWebOriginsUrls": ["#{var/PROVIDER_ALLOWED_URL_1}", "#{var/PROVIDER_ALLOWED_URL_3}"],
+      "allowedCORSOriginsUrls": ["#{var/PROVIDER_ALLOWED_URL_1}", "#{var/PROVIDER_ALLOWED_URL_3}"],
       "shouldSendInviteEmail": true
     }
   },
