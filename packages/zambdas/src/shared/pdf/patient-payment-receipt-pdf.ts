@@ -8,6 +8,7 @@ import {
   CashOrCardPayment,
   getFullName,
   getPatientAddress,
+  getPhoneNumberForIndividual,
   getSecret,
   getStripeCustomerIdFromAccount,
   PAYMENT_METHOD_EXTENSION_URL,
@@ -52,6 +53,7 @@ interface PatientPaymentReceiptData {
     city: string;
     state: string;
     zip: string;
+    phone: string;
   };
   patient: {
     id: string;
@@ -61,6 +63,7 @@ interface PatientPaymentReceiptData {
     city: string;
     state: string;
     zip: string;
+    phone: string;
   };
 }
 
@@ -142,6 +145,7 @@ async function getReceiptData(
   const listResources = listResourcesBundle.unbundle();
   const patient = resources.find((r) => r.resourceType === 'Patient') as Patient;
   const patientAddress = getPatientAddress(patient.address);
+  const patientPhone = getPhoneNumberForIndividual(patient);
   const appointment = resources.find((r) => r.resourceType === 'Appointment') as Appointment;
   const visitDate = DateTime.fromISO(appointment.start ?? '');
   const paymentNoticess = resources.filter((r) => r.resourceType === 'PaymentNotice') as PaymentNotice[];
@@ -154,9 +158,9 @@ async function getReceiptData(
     const paymentIntent = stripePayments.find((pi) => pi.id === pnStripeId);
     const last4 = paymentMethods.find((pm) => pm.id === paymentIntent?.payment_method)?.card?.last4;
     const brand = paymentMethods.find((pm) => pm.id === paymentIntent?.payment_method)?.card?.brand;
-    // todo: whats here?
-    // todo filter payments by date
-    const paymentDate = DateTime.fromISO(paymentNotice?.paymentDate ?? '').toFormat('MM/dd/yyyy');
+    // todo: what date should i put here?
+    // todo sort payments by date
+    const paymentDate = DateTime.fromISO(paymentNotice?.created ?? '').toFormat('MM/dd/yyyy');
 
     return {
       amount: paymentNotice.amount.value ?? -1,
@@ -188,6 +192,8 @@ async function getReceiptData(
       city: organizationAddress?.city ?? '',
       state: organizationAddress?.state ?? '',
       zip: organizationAddress?.postalCode ?? '',
+      // todo: where this phone number is coming from?
+      phone: '??',
     },
     patient: {
       id: patient.id!,
@@ -197,6 +203,7 @@ async function getReceiptData(
       city: patientAddress.city ?? '',
       state: patientAddress.state ?? '',
       zip: patientAddress.postalCode ?? '',
+      phone: patientPhone ?? '',
     },
   };
 }
@@ -215,9 +222,7 @@ async function createReceiptPdf(receiptData: PatientPaymentReceiptData): Promise
     },
   };
 
-  console.log('creating client');
   const pdfClient = await createPdfClient(pdfClientStyles);
-  console.log('created client');
   const RubikFont = await pdfClient.embedFont(fs.readFileSync('./assets/Rubik-Regular.otf'));
   const RubikFontMedium = await pdfClient.embedFont(fs.readFileSync('./assets/Rubik-Medium.ttf'));
   const ottehrLogo = await pdfClient.embedImage(fs.readFileSync('./assets/ottehrLogo.png'));
@@ -306,7 +311,7 @@ async function createReceiptPdf(receiptData: PatientPaymentReceiptData): Promise
       writeText(`${receiptData.patient.street2}`);
     }
     writeText(`${receiptData.patient.city}, ${receiptData.patient.state} ${receiptData.patient.zip}`);
-    writeText('phone');
+    writeText(`${receiptData.patient.phone}`);
 
     const afterFirstColumn = pdfClient.getY();
 
@@ -324,7 +329,7 @@ async function createReceiptPdf(receiptData: PatientPaymentReceiptData): Promise
       writeText(`${receiptData.organization.street2}`);
     }
     writeText(`${receiptData.organization.city}, ${receiptData.organization.state} ${receiptData.organization.zip}`);
-    writeText('phone');
+    writeText(`${receiptData.organization.phone}`);
 
     // Setting Y to the minimum so cursor will be at the bottom of the table
     if (afterFirstColumn < pdfClient.getY()) pdfClient.setY(afterFirstColumn);
@@ -404,5 +409,5 @@ async function createReplaceReceiptOnZ3(
   });
 
   // savePdfLocally(pdfBytes);
-  return { title: 'fileName', uploadURL: 'baseFileUrl' };
+  return { title: fileName, uploadURL: baseFileUrl };
 }
