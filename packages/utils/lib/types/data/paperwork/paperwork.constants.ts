@@ -35,3 +35,5 @@ export const VISIT_NOTE_SUMMARY_CODE = '75498-6';
 export const ComplexValidationType = {
   insuranceEligibility: 'insurance eligibility',
 };
+
+export const PAPERWORK_PDF_BASE_NAME = 'paperwork';

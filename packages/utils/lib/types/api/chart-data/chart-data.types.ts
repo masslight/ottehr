@@ -26,6 +26,7 @@ import {
   PatientVaccinationKeys,
   RecentVisitKeys,
   SEEN_IN_LAST_THREE_YEARS_FIELD,
+  VitalAlertCriticality,
   VitalBloodPressureObservationMethod,
   VitalFieldNames,
   VitalHeartbeatObservationMethod,
@@ -114,7 +115,7 @@ export interface MedicationDTO extends SaveableDTO {
   name: string;
   status: Extract<MedicationStatement['status'], 'active' | 'completed'>;
   intakeInfo: MedicationIntakeInfo;
-  type: 'scheduled' | 'as-needed';
+  type: 'scheduled' | 'as-needed' | 'prescribed-medication';
   id?: string;
   practitioner?: Practitioner | Reference;
 }
@@ -171,26 +172,26 @@ export interface VitalsBaseObservationDTO extends SaveableDTO {
   authorId?: string;
   authorName?: string;
   lastUpdated?: string;
+  alertCriticality?: VitalAlertCriticality;
 }
-export interface VitalsWeightObservationDTO extends VitalsBaseObservationDTO {
+export interface VitalsNumericValueObservationDTO extends VitalsBaseObservationDTO {
+  value: number;
+}
+export interface VitalsWeightObservationDTO extends VitalsNumericValueObservationDTO {
   field: Extract<VitalFieldNames, 'vital-weight'>;
-  value: number;
 }
 
-export interface VitalsHeightObservationDTO extends VitalsBaseObservationDTO {
+export interface VitalsHeightObservationDTO extends VitalsNumericValueObservationDTO {
   field: Extract<VitalFieldNames, 'vital-height'>;
-  value: number;
 }
 
-export interface VitalsTemperatureObservationDTO extends VitalsBaseObservationDTO {
+export interface VitalsTemperatureObservationDTO extends VitalsNumericValueObservationDTO {
   field: Extract<VitalFieldNames, 'vital-temperature'>;
-  value: number;
   observationMethod?: VitalTemperatureObservationMethod;
 }
 
-export interface VitalsHeartbeatObservationDTO extends VitalsBaseObservationDTO {
+export interface VitalsHeartbeatObservationDTO extends VitalsNumericValueObservationDTO {
   field: Extract<VitalFieldNames, 'vital-heartbeat'>;
-  value: number;
   observationMethod?: VitalHeartbeatObservationMethod;
 }
 
@@ -212,15 +213,13 @@ export interface VitalsVisionObservationDTO extends VitalsBaseObservationDTO {
   extraVisionOptions?: VitalsVisionOption[];
 }
 
-export interface VitalsOxygenSatObservationDTO extends VitalsBaseObservationDTO {
+export interface VitalsOxygenSatObservationDTO extends VitalsNumericValueObservationDTO {
   field: Extract<VitalFieldNames, 'vital-oxygen-sat'>;
-  value: number;
   observationMethod?: VitalsOxygenSatObservationMethod;
 }
 
-export interface VitalsRespirationRateObservationDTO extends VitalsBaseObservationDTO {
+export interface VitalsRespirationRateObservationDTO extends VitalsNumericValueObservationDTO {
   field: Extract<VitalFieldNames, 'vital-respiration-rate'>;
-  value: number;
 }
 
 export type VitalsObservationDTO =

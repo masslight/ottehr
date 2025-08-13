@@ -1,36 +1,33 @@
-import { otherColors } from '@ehrTheme/colors';
-import CloseIcon from '@mui/icons-material/Close';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import { Box, Button, Typography, useTheme } from '@mui/material';
-import { BundleEntry, Coverage, Organization, QuestionnaireResponseItem } from 'fhir/r4b';
+import { Box, Typography, useTheme } from '@mui/material';
+import { useQueryClient } from '@tanstack/react-query';
+import { BundleEntry, Organization, Patient, Questionnaire, QuestionnaireResponseItem } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useEffect, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { useQueryClient } from 'react-query';
 import { useNavigate, useParams } from 'react-router-dom';
-import { dataTestIds } from 'src/constants/data-test-ids';
 import {
-  checkCoverageMatchesDetails,
-  CoverageCheckWithDetails,
+  CoverageWithPriority,
   extractFirstValueFromAnswer,
   flattenItems,
-  getFullName,
   InsurancePlanDTO,
   makePrepopulatedItemsFromPatientRecord,
+  OrderedCoveragesWithSubscribers,
+  PatientAccountResponse,
   pruneEmptySections,
 } from 'utils';
-import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { CustomDialog } from '../components/dialogs';
 import { LoadingScreen } from '../components/LoadingScreen';
 import {
   AboutPatientContainer,
   ActionBar,
+  BreadCrumbs,
   ContactContainer,
   Header,
-  InsuranceContainer,
+  InsuranceSection,
   PatientDetailsContainer,
   PrimaryCareContainer,
   ResponsibleInformationContainer,
+  WarningBanner,
 } from '../components/patient';
 import { AddInsuranceModal } from '../components/patient/AddInsuranceModal';
 import { INSURANCE_COVERAGE_OPTIONS, InsurancePriorityOptions } from '../constants';
@@ -39,6 +36,7 @@ import {
   useGetInsurancePlans,
   useGetPatient,
   useGetPatientAccount,
+  useGetPatientCoverages,
   useGetPatientDetailsUpdateForm,
   useRemovePatientCoverage,
   useUpdatePatientAccount,
@@ -46,34 +44,60 @@ import {
 import { createInsurancePlanDto, usePatientStore } from '../state/patient.store';
 import { useOystehrAPIClient } from '../telemed/hooks/useOystehrAPIClient';
 
+const COVERAGE_ITEMS = ['insurance-section', 'insurance-section-2'];
+const ANSWER_TYPES: ('String' | 'Boolean' | 'Reference' | 'Attachment')[] = [
+  'String',
+  'Boolean',
+  'Reference',
+  'Attachment',
+];
+
 const getAnyAnswer = (item: QuestionnaireResponseItem): any | undefined => {
-  let index = 0;
-  let answer: any | undefined;
-  const types: ('String' | 'Boolean' | 'Reference' | 'Attachment')[] = ['String', 'Boolean', 'Reference', 'Attachment'];
-
-  do {
-    answer = extractFirstValueFromAnswer(item.answer ?? [], types[index]);
-    index++;
-  } while (answer === undefined && index < types.length);
-  return answer;
+  for (let i = 0; i < ANSWER_TYPES.length; i++) {
+    const answer = extractFirstValueFromAnswer(item.answer ?? [], ANSWER_TYPES[i]);
+    if (answer !== undefined) {
+      return answer;
+    }
+  }
+  return undefined;
 };
 
-const getEligibilityCheckDetailsForCoverage = (
-  coverage: Coverage,
-  coverageChecks: CoverageCheckWithDetails[]
-): CoverageCheckWithDetails | undefined => {
-  return coverageChecks.find((check) => {
-    return checkCoverageMatchesDetails(coverage, check);
-  });
-};
-
-const makeFormDefaults = (currentItemValues: QuestionnaireResponseItem[]): any => {
+const makeFormDefaults = (currentItemValues: QuestionnaireResponseItem[]): Record<string, any> => {
   const flattened = flattenItems(currentItemValues);
-  return flattened.reduce((acc: any, item: QuestionnaireResponseItem) => {
+  return flattened.reduce((acc: Record<string, any>, item: QuestionnaireResponseItem) => {
     const value = getAnyAnswer(item);
     acc[item.linkId] = value;
     return acc;
   }, {});
+};
+
+const makePrepopulatedCoveragesFormDefaults = ({
+  coverages,
+  patient,
+  insuranceOrgs,
+  questionnaire,
+}: {
+  coverages: OrderedCoveragesWithSubscribers;
+  patient: Patient;
+  insuranceOrgs: Organization[];
+  questionnaire: Questionnaire;
+}): Record<string, any> => {
+  if (!questionnaire?.item) return {};
+
+  const filteredQuestionnaire: Questionnaire = {
+    ...questionnaire,
+    item: questionnaire.item.filter((item) => COVERAGE_ITEMS.includes(item.linkId)),
+  };
+
+  const prepopulatedItems = makePrepopulatedItemsFromPatientRecord({
+    coverages,
+    patient,
+    insuranceOrgs,
+    questionnaire: filteredQuestionnaire,
+    coverageChecks: [],
+  });
+
+  return makeFormDefaults(prepopulatedItems);
 };
 
 const clearPCPFieldsIfInactive = (values: Record<string, any>): Record<string, any> => {
@@ -85,89 +109,216 @@ const clearPCPFieldsIfInactive = (values: Record<string, any>): Record<string, a
   );
 };
 
+const transformInsurancePlans = (bundleEntries: BundleEntry[]): InsurancePlanDTO[] => {
+  const organizations = bundleEntries
+    .filter((bundleEntry) => bundleEntry.resource?.resourceType === 'Organization')
+    .map((bundleEntry) => bundleEntry.resource as Organization);
+
+  const transformedPlans = organizations
+    .map((organization) => {
+      try {
+        return createInsurancePlanDto(organization);
+      } catch (err) {
+        console.error(err);
+        console.log('Could not add insurance org due to incomplete data:', JSON.stringify(organization));
+        return {} as InsurancePlanDTO;
+      }
+    })
+    .filter((insurancePlan) => insurancePlan.id !== undefined)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const insurancePlanMap: Record<string, InsurancePlanDTO> = {};
+  transformedPlans.forEach((plan) => {
+    insurancePlanMap[plan.name ?? ''] = plan;
+  });
+
+  return Object.values(insurancePlanMap);
+};
+
+const usePatientData = (
+  id: string | undefined
+): {
+  accountData?: PatientAccountResponse;
+  insuranceData?: {
+    coverages: OrderedCoveragesWithSubscribers;
+    insuranceOrgs: Organization[];
+  };
+  questionnaire?: Questionnaire;
+  coverages: CoverageWithPriority[];
+  patient?: Patient;
+  isFetching: boolean;
+  defaultFormVals: any;
+  coveragesFetching: boolean;
+  questionnaireFetching: boolean;
+} => {
+  const apiClient = useOystehrAPIClient();
+
+  const { isFetching: accountFetching, data: accountData } = useGetPatientAccount({
+    apiClient,
+    patientId: id ?? null,
+  });
+
+  const { data: insuranceData, isFetching: coveragesFetching } = useGetPatientCoverages({
+    apiClient,
+    patientId: id ?? null,
+  });
+
+  const { isFetching: questionnaireFetching, data: questionnaire } = useGetPatientDetailsUpdateForm();
+
+  const coverages: CoverageWithPriority[] = useMemo(() => {
+    if (!insuranceData?.coverages) return [];
+
+    const result: CoverageWithPriority[] = [];
+    if (insuranceData.coverages.primary) {
+      result.push({ resource: insuranceData.coverages.primary, startingPriority: 1 });
+    }
+    if (insuranceData.coverages.secondary) {
+      result.push({ resource: insuranceData.coverages.secondary, startingPriority: 2 });
+    }
+
+    return result;
+  }, [insuranceData?.coverages]);
+
+  const { patient, isFetching, defaultFormVals } = useMemo(() => {
+    const patient = accountData?.patient;
+    const isFetching = accountFetching || questionnaireFetching;
+
+    let defaultFormVals: any;
+    if (!isFetching && accountData && questionnaire) {
+      const prepopulatedForm = makePrepopulatedItemsFromPatientRecord({
+        ...accountData,
+        coverages: {},
+        insuranceOrgs: [],
+        questionnaire,
+      });
+      defaultFormVals = makeFormDefaults(prepopulatedForm);
+    }
+
+    return { patient, isFetching, defaultFormVals };
+  }, [accountData, questionnaire, questionnaireFetching, accountFetching]);
+
+  return {
+    accountData,
+    insuranceData,
+    questionnaire,
+    coverages,
+    patient,
+    isFetching,
+    defaultFormVals,
+    coveragesFetching,
+    questionnaireFetching,
+  };
+};
+
+const useFormData = (
+  defaultFormVals: any,
+  coveragesFetching: boolean,
+  insuranceData: any,
+  questionnaire: Questionnaire | undefined,
+  accountData: any
+): {
+  methods: ReturnType<typeof useForm>;
+  coveragesFormValues: any;
+} => {
+  const methods = useForm({
+    defaultValues: defaultFormVals,
+    values: defaultFormVals,
+    mode: 'onBlur',
+    reValidateMode: 'onChange',
+  });
+
+  const { coveragesFormValues } = useMemo(() => {
+    let coveragesFormValues: any;
+    if (
+      !coveragesFetching &&
+      insuranceData?.coverages &&
+      insuranceData?.insuranceOrgs &&
+      questionnaire &&
+      accountData
+    ) {
+      const formDefaults = makePrepopulatedCoveragesFormDefaults({
+        coverages: insuranceData.coverages,
+        patient: accountData.patient,
+        insuranceOrgs: insuranceData.insuranceOrgs,
+        questionnaire,
+      });
+      coveragesFormValues = { ...formDefaults };
+    }
+    return { coveragesFormValues };
+  }, [accountData, coveragesFetching, questionnaire, insuranceData?.coverages, insuranceData?.insuranceOrgs]);
+
+  useEffect(() => {
+    if (!coveragesFormValues || Object.keys(coveragesFormValues).length === 0) return;
+
+    Object.entries(coveragesFormValues).forEach(([key, value]) => {
+      methods.setValue(key, value, {
+        shouldDirty: false,
+        shouldTouch: false,
+      });
+    });
+  }, [coveragesFormValues, methods]);
+
+  return { methods, coveragesFormValues };
+};
+
+const useMutations = (): {
+  submitQR: ReturnType<typeof useUpdatePatientAccount>;
+  removeCoverage: ReturnType<typeof useRemovePatientCoverage>;
+  queryClient: ReturnType<typeof useQueryClient>;
+} => {
+  const queryClient = useQueryClient();
+
+  const submitQR = useUpdatePatientAccount(async () => {
+    await queryClient.invalidateQueries({ queryKey: ['patient-account-get'] });
+    await queryClient.invalidateQueries({ queryKey: ['patient-coverages'] });
+  });
+
+  const removeCoverage = useRemovePatientCoverage();
+
+  return { submitQR, removeCoverage, queryClient };
+};
+
 const PatientInformationPage: FC = () => {
   const theme = useTheme();
   const { id } = useParams();
   const navigate = useNavigate();
-
-  const apiClient = useOystehrAPIClient();
   const { setInsurancePlans } = usePatientStore();
 
-  // data queries
-  const { isFetching: accountFetching, data: accountData } = useGetPatientAccount({ apiClient, patientId: id ?? null });
-  const { isFetching: questionnaireFetching, data: questionnaire } = useGetPatientDetailsUpdateForm();
-  // data mutations
-  const queryClient = useQueryClient();
-  const submitQR = useUpdatePatientAccount(() => {
-    void queryClient.invalidateQueries('patient-account-get');
-  });
-  const removeCoverage = useRemovePatientCoverage();
+  const {
+    accountData,
+    insuranceData,
+    questionnaire,
+    coverages,
+    patient,
+    isFetching,
+    defaultFormVals,
+    coveragesFetching,
+    questionnaireFetching,
+  } = usePatientData(id);
 
-  useGetInsurancePlans((data) => {
-    const bundleEntries = data.entry;
-    if (bundleEntries) {
-      const organizations = bundleEntries
-        .filter((bundleEntry: BundleEntry) => bundleEntry.resource?.resourceType === 'Organization')
-        .map((bundleEntry: BundleEntry) => bundleEntry.resource as Organization);
+  const { methods, coveragesFormValues } = useFormData(
+    defaultFormVals,
+    coveragesFetching,
+    insuranceData,
+    questionnaire,
+    accountData
+  );
 
-      const transformedInsurancePlans = organizations
-        .map((organization: Organization) => {
-          try {
-            return createInsurancePlanDto(organization);
-          } catch (err) {
-            console.error(err);
-            console.log('Could not add insurance org due to incomplete data:', JSON.stringify(organization));
-            return {} as InsurancePlanDTO;
-          }
-        })
-        .filter((insurancePlan) => insurancePlan.id !== undefined)
-        .sort((a, b) => {
-          if (a.name < b.name) return -1;
-          if (a.name > b.name) return 1;
-          return 0;
-        });
-
-      const insurancePlanMap: Record<string, InsurancePlanDTO> = {};
-
-      transformedInsurancePlans.forEach((insurancePlan) => {
-        insurancePlanMap[insurancePlan.name ?? ''] = insurancePlan;
-      });
-
-      const uniquePlans = Object.values(insurancePlanMap);
-
-      setInsurancePlans(uniquePlans);
-    }
-  });
-
-  const { patient, coverages, isFetching, defaultFormVals } = useMemo(() => {
-    const patient = accountData?.patient;
-    const coverages: { resource: Coverage; startingPriority: number }[] = [];
-    if (accountData?.coverages?.primary) {
-      coverages.push({ resource: accountData.coverages.primary, startingPriority: 1 });
-    }
-    if (accountData?.coverages?.secondary) {
-      coverages.push({ resource: accountData.coverages.secondary, startingPriority: 2 });
-    }
-    const isFetching = accountFetching || questionnaireFetching;
-    let defaultFormVals: any | undefined;
-
-    if (!isFetching && accountData && questionnaire) {
-      const prepopulatedForm = makePrepopulatedItemsFromPatientRecord({ ...accountData, questionnaire });
-      defaultFormVals = makeFormDefaults(prepopulatedForm);
-    }
-    return { patient, coverages, isFetching, defaultFormVals };
-  }, [accountData, questionnaire, questionnaireFetching, accountFetching]);
+  const { submitQR, removeCoverage, queryClient } = useMutations();
 
   const { otherPatientsWithSameName, setOtherPatientsWithSameName } = useGetPatient(id);
 
   const [openConfirmationDialog, setOpenConfirmationDialog] = useState(false);
   const [openAddInsuranceModal, setOpenAddInsuranceModal] = useState(false);
 
-  const methods = useForm({
-    defaultValues: defaultFormVals,
-    values: defaultFormVals,
-    mode: 'onBlur',
-    reValidateMode: 'onChange',
+  useGetInsurancePlans((data) => {
+    if (!data) return;
+
+    const bundleEntries = data.entry;
+    if (bundleEntries) {
+      const uniquePlans = transformInsurancePlans(bundleEntries);
+      setInsurancePlans(uniquePlans);
+    }
   });
 
   const { handleSubmit, watch, formState } = methods;
@@ -178,6 +329,17 @@ const PatientInformationPage: FC = () => {
       methods.reset();
     }
   }, [defaultFormVals, methods, formState.isSubmitSuccessful, submitQR.isSuccess]);
+
+  useEffect(() => {
+    if (!coveragesFormValues || Object.keys(coveragesFormValues).length === 0) return;
+
+    Object.entries(coveragesFormValues).forEach(([key, value]) => {
+      methods.setValue(key, value, {
+        shouldDirty: false,
+        shouldTouch: false,
+      });
+    });
+  }, [coveragesFormValues, methods]);
 
   const handleDiscardChanges = (): void => {
     methods.reset();
@@ -204,7 +366,6 @@ const PatientInformationPage: FC = () => {
     }
 
     const filteredValues = clearPCPFieldsIfInactive(values);
-
     const qr = pruneEmptySections(structureQuestionnaireResponse(questionnaire, filteredValues, patient.id));
     submitQR.mutate(qr);
   };
@@ -218,10 +379,8 @@ const PatientInformationPage: FC = () => {
         },
         {
           onSuccess: () => {
-            enqueueSnackbar('Coverage removed from patient account', {
-              variant: 'success',
-            });
-            void queryClient.invalidateQueries('patient-account-get');
+            enqueueSnackbar('Coverage removed from patient account', { variant: 'success' });
+            void queryClient.invalidateQueries({ queryKey: ['patient-coverages'] });
           },
           onError: () => {
             enqueueSnackbar('Save operation failed. The server encountered an error while processing your request.', {
@@ -233,63 +392,30 @@ const PatientInformationPage: FC = () => {
     }
   };
 
-  if ((isFetching || questionnaireFetching) && !patient) {
+  if ((isFetching || questionnaireFetching || coveragesFetching) && !patient) {
     return <LoadingScreen />;
-  } else {
-    if (!patient) return null;
   }
+
+  if (!patient) return null;
 
   const currentlyAssignedPriorities = watch(InsurancePriorityOptions);
 
   return (
     <div>
-      {isFetching ? <LoadingScreen /> : null}
+      {isFetching && <LoadingScreen />}
       <FormProvider {...methods}>
         <Box>
           <Header handleDiscard={handleBackClickWithConfirmation} id={id} />
           <Box sx={{ display: 'flex', flexDirection: 'column', padding: theme.spacing(3) }}>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <CustomBreadcrumbs
-                chain={[
-                  { link: '/patients', children: 'Patients' },
-                  {
-                    link: `/patient/${patient?.id}`,
-                    children: patient ? getFullName(patient) : '',
-                  },
-                  {
-                    link: '#',
-                    children: `Patient Information`,
-                  },
-                ]}
-              />
+              <BreadCrumbs patient={patient} />
               <Typography variant="h3" color="primary.main">
                 Patient Information
               </Typography>
-              {otherPatientsWithSameName && (
-                <Box
-                  sx={{
-                    marginTop: 1,
-                    padding: 1,
-                    background: otherColors.dialogNote,
-                    borderRadius: '4px',
-                  }}
-                  display="flex"
-                >
-                  <WarningAmberIcon sx={{ marginTop: 1, color: otherColors.warningIcon }} />
-                  <Typography
-                    variant="body2"
-                    color={otherColors.closeCross}
-                    sx={{ m: 1.25, maxWidth: 850, fontWeight: 500 }}
-                  >
-                    There are other patients with this name in our database. Please confirm by the DOB that you are
-                    viewing the right patient.
-                  </Typography>
-                  <CloseIcon
-                    onClick={() => setOtherPatientsWithSameName(false)}
-                    sx={{ marginLeft: 'auto', marginRight: 0, marginTop: 1, color: otherColors.closeCross }}
-                  />
-                </Box>
-              )}
+              <WarningBanner
+                otherPatientsWithSameName={otherPatientsWithSameName}
+                onClose={() => setOtherPatientsWithSameName(false)}
+              />
               <Box sx={{ display: 'flex', gap: 3 }}>
                 <Box sx={{ flex: '1 1', display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <AboutPatientContainer />
@@ -298,41 +424,14 @@ const PatientInformationPage: FC = () => {
                   <PrimaryCareContainer />
                 </Box>
                 <Box sx={{ flex: '1 1', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  {coverages.map((coverage) => (
-                    <InsuranceContainer
-                      key={coverage.resource.id}
-                      patientId={patient.id ?? ''}
-                      ordinal={coverage.startingPriority}
-                      initialEligibilityCheck={getEligibilityCheckDetailsForCoverage(
-                        coverage.resource,
-                        accountData?.coverageChecks ?? []
-                      )}
-                      removeInProgress={removeCoverage.isLoading}
-                      handleRemoveClick={
-                        coverage.resource.id !== undefined
-                          ? () => {
-                              handleRemoveCoverage(coverage.resource.id!);
-                            }
-                          : undefined
-                      }
-                    />
-                  ))}
-                  {coverages.length < 2 && (
-                    <Button
-                      data-testid={dataTestIds.patientInformationPage.addInsuranceButton}
-                      variant="outlined"
-                      color="primary"
-                      onClick={() => setOpenAddInsuranceModal(true)}
-                      sx={{
-                        borderRadius: 25,
-                        textTransform: 'none',
-                        fontWeight: 'bold',
-                        width: 'fit-content',
-                      }}
-                    >
-                      + Add Insurance
-                    </Button>
-                  )}
+                  <InsuranceSection
+                    coverages={coverages}
+                    patient={patient}
+                    accountData={accountData}
+                    removeCoverage={removeCoverage}
+                    onRemoveCoverage={handleRemoveCoverage}
+                    onAddInsurance={() => setOpenAddInsuranceModal(true)}
+                  />
                   <ResponsibleInformationContainer />
                 </Box>
               </Box>
@@ -343,7 +442,7 @@ const PatientInformationPage: FC = () => {
             handleSave={handleSubmit(handleSaveForm, () => {
               enqueueSnackbar('Please fix all field validation errors and try again', { variant: 'error' });
             })}
-            loading={submitQR.isLoading}
+            loading={submitQR.isPending}
             hidden={false}
             submitDisabled={Object.keys(dirtyFields).length === 0}
           />

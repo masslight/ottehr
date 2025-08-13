@@ -87,8 +87,8 @@ const AllergyListItem: FC<{ value: AllergyDTO; index: number; length: number }> 
   const featureFlags = useFeatureFlags();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
-  const { mutate: updateChartData, isLoading: isUpdateLoading } = useSaveChartData();
-  const { mutate: deleteChartData, isLoading: isDeleteLoading } = useDeleteChartData();
+  const { mutate: updateChartData, isPending: isUpdateLoading } = useSaveChartData();
+  const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
   const isLoading = isUpdateLoading || isDeleteLoading;
   const isLoadingOrAwaiting = isLoading || !areNotesEqual;
   const isAlreadySaved = !!value.resourceId;
@@ -229,7 +229,7 @@ const AllergyListItem: FC<{ value: AllergyDTO; index: number; length: number }> 
 
 const AddAllergyField: FC = () => {
   const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);
-  const { mutate: updateChartData, isLoading: isUpdateLoading } = useSaveChartData();
+  const { mutate: updateChartData, isPending: isUpdateLoading } = useSaveChartData();
 
   const methods = useForm<{ value: ExtractObjectType<ErxSearchAllergensResponse> | null; otherAllergyName: string }>({
     defaultValues: { value: null, otherAllergyName: '' },
@@ -240,13 +240,23 @@ const AddAllergyField: FC = () => {
   const [isOtherOptionSelected, setIsOtherOptionSelected] = useState(false);
 
   const { isFetching: isSearching, data } = useGetAllergiesSearch(debouncedSearchTerm);
-  const allergiesSearchOptions = useMemo(
-    () =>
-      data && !isSearching
-        ? [...(data || []), { name: 'Other' } as unknown as ExtractObjectType<ErxSearchAllergensResponse>]
-        : [],
-    [data, isSearching]
-  );
+  const allergiesSearchOptions = useMemo(() => {
+    if (!data || isSearching) return [];
+
+    // Process the data to include brandname
+    const allergiesWithBrand = data.map((allergy) => {
+      const brandName = allergy.brandName;
+      if (brandName && brandName !== allergy.name) {
+        return {
+          ...allergy,
+          name: `${allergy.name} (${brandName})`,
+        };
+      }
+      return allergy;
+    });
+
+    return [...allergiesWithBrand, { name: 'Other' } as unknown as ExtractObjectType<ErxSearchAllergensResponse>];
+  }, [data, isSearching]);
 
   const debouncedHandleInputChange = useMemo(
     () =>

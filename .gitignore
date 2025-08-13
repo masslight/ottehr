@@ -6,6 +6,7 @@ build
 .idea
 .env
 .serverlessrc
+out.log
 
 # Packages for zambda deployment
 .dist
@@ -28,3 +29,4 @@ packages/ui-components/dist/*
 
 **/vite.config.ts.timestamp-*.mjs
 **/ottehr-secrets/
+packages/utils/.ottehr_config/*

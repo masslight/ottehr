@@ -9,7 +9,7 @@ export const useOystehrAPIClient = (): ReturnType<typeof getOystehr_RCM_API> | n
     if (oystehrZambda)
       return getOystehr_RCM_API(
         {
-          getClaimsZambdaID: import.meta.env.VITE_APP_GET_CLAIMS_ZAMBDA_ID,
+          getClaimsZambdaID: 'get-claims',
           isAppLocal: import.meta.env.VITE_APP_IS_LOCAL,
         },
         oystehrZambda
