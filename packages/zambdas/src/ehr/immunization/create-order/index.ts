@@ -1,15 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Encounter, Medication, MedicationAdministration } from 'fhir/r4b';
+import { Encounter, MedicationAdministration } from 'fhir/r4b';
 import {
   CreateImmunizationOrderInput,
   MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
-  MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM,
-  MEDICATION_ADMINISTRATION_UNITS_SYSTEM,
-  PRACTITIONER_ORDERED_BY_MEDICATION_CODE,
   PRACTITIONER_ORDERED_MEDICATION_CODE,
-  searchMedicationLocation,
-  searchRouteByCode,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -18,13 +13,12 @@ import {
   validateJsonBody,
   wrapHandler,
   ZambdaInput,
-} from '../../shared';
-import { createMedicationCopy } from '../create-update-medication-order/helpers';
+} from '../../../shared';
+import { updateOrderDetails } from '../common';
 
 let m2mToken: string;
 
 const ZAMBDA_NAME = 'create-immunization-order';
-const CONTAINED_MEDICATION_ID = 'medicationId';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -54,57 +48,18 @@ async function createImmunizationOrder(
   input: CreateImmunizationOrderInput,
   userPractitionerId: string
 ): Promise<any> {
-  const { encounterId, medicationId, dose, units, orderedProviderId, route, location, instructions } = input;
-  const routeCoding = route ? searchRouteByCode(route) : undefined;
-  const locationCoding = location ? searchMedicationLocation(location) : undefined;
   const encounter = await oystehr.fhir.get<Encounter>({
     resourceType: 'Encounter',
-    id: encounterId,
+    id: input.encounterId,
   });
   if (!encounter.subject) {
-    throw new Error(`Encounter ${encounterId} has no subject`);
+    throw new Error(`Encounter ${encounter.id} has no subject`);
   }
-  const medication = await oystehr.fhir.get<Medication>({
-    resourceType: 'Medication',
-    id: medicationId,
-  });
-  const medicationLocalCopy = createMedicationCopy(medication, {});
   const medicationAdministration = await oystehr.fhir.create<MedicationAdministration>({
     resourceType: 'MedicationAdministration',
     subject: encounter.subject,
-    medicationReference: { reference: `#${CONTAINED_MEDICATION_ID}` },
-    context: { reference: `Encounter/${encounterId}` },
+    context: { reference: `Encounter/${encounter.id}` },
     status: 'in-progress',
-    dosage: {
-      dose: {
-        unit: units,
-        value: dose,
-        system: MEDICATION_ADMINISTRATION_UNITS_SYSTEM,
-      },
-      route: routeCoding
-        ? {
-            coding: [
-              {
-                code: routeCoding.code,
-                system: MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM,
-                display: routeCoding.display,
-              },
-            ],
-          }
-        : undefined,
-      site: locationCoding
-        ? {
-            coding: [
-              {
-                system: locationCoding.system,
-                code: locationCoding.code,
-                display: locationCoding.display,
-              },
-            ],
-          }
-        : undefined,
-      text: instructions,
-    },
     performer: [
       {
         actor: { reference: `Practitioner/${userPractitionerId}` },
@@ -117,25 +72,9 @@ async function createImmunizationOrder(
           ],
         },
       },
-      {
-        actor: { reference: `Practitioner/${orderedProviderId}` },
-        function: {
-          coding: [
-            {
-              system: MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
-              code: PRACTITIONER_ORDERED_BY_MEDICATION_CODE,
-            },
-          ],
-        },
-      },
-    ],
-    contained: [
-      {
-        ...medicationLocalCopy,
-        id: CONTAINED_MEDICATION_ID,
-      },
     ],
   });
+  await updateOrderDetails(medicationAdministration, input, oystehr);
   return {
     id: medicationAdministration.id,
   };
