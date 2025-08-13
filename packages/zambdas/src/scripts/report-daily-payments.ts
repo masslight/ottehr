@@ -1,11 +1,11 @@
 import Oystehr from '@oystehr/sdk';
-import {  PaymentNotice } from 'fhir/r4b';
+import { PaymentNotice } from 'fhir/r4b';
 import * as fs from 'fs';
 import { getAuth0Token } from '../shared';
 import { fhirApiUrlFromAuth0Audience } from './helpers';
 
 // Helper to get UTC range for a local date (YYYY-MM-DD)
-function getUTCRangeForLocalDate(localDate: string): { start: string, end: string } {
+function getUTCRangeForLocalDate(localDate: string): { start: string; end: string } {
   // localDate: 'YYYY-MM-DD'
   const startLocal = new Date(`${localDate}T00:00:00`);
   const endLocal = new Date(`${localDate}T23:59:59.999`);
@@ -17,10 +17,12 @@ function getUTCRangeForLocalDate(localDate: string): { start: string, end: strin
 // Helper to get timezone abbreviation (e.g., "PST", "EST")
 function getTimezoneAbbreviation(): string {
   const date = new Date();
-  const timeZoneName = date.toLocaleDateString('en', {
-    day: '2-digit',
-    timeZoneName: 'short'
-  }).slice(4);
+  const timeZoneName = date
+    .toLocaleDateString('en', {
+      day: '2-digit',
+      timeZoneName: 'short',
+    })
+    .slice(4);
   return timeZoneName;
 }
 
@@ -31,7 +33,7 @@ function formatGMTToLocalDateTime(gmtDateString: string): string {
     // Parse the GMT date string
     const gmtDate = new Date(gmtDateString);
     if (isNaN(gmtDate.getTime())) return 'N/A';
-    
+
     // Convert to local timezone and format as yyyy-MM-dd HH:mm
     const yyyy = gmtDate.getFullYear();
     const mm = String(gmtDate.getMonth() + 1).padStart(2, '0');
@@ -84,7 +86,7 @@ async function getPaymentNoticesByDateRange(oystehr: Oystehr, start: string, end
 async function main(): Promise<void> {
   const env = process.argv[2];
   const dateArg = process.argv[3]; // Optional date argument
-  
+
   const secrets = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
 
   const token = await getAuth0Token(secrets);
@@ -119,10 +121,10 @@ async function main(): Promise<void> {
 
   console.log(`\n📊 Daily Payment Report for ${targetDate}:`);
   console.log(`🔍 Searching GMT range: ${start} to ${end}`);
-  
+
   // Fetch all payment notices for the local date range (in UTC)
   const paymentNotices = await getPaymentNoticesByDateRange(oystehr, start, end);
-  
+
   if (paymentNotices.length === 0) {
     console.log('No payment notices found for this date.');
     return;
@@ -130,7 +132,7 @@ async function main(): Promise<void> {
 
   // Get timezone abbreviation for CSV header
   const timezoneAbbr = getTimezoneAbbreviation();
-  
+
   // Prepare CSV content with timezone in header
   const csvHeaders = [`Date (${timezoneAbbr})`, 'Amount', 'Currency', 'Payment Method'];
   const csvRows: string[] = [csvHeaders.join(',')];
@@ -140,28 +142,28 @@ async function main(): Promise<void> {
   for (const notice of paymentNotices) {
     // Extract and format the GMT created date to local timezone
     const createdDate = formatGMTToLocalDateTime(notice.created || '');
-    
+
     // Extract amount and currency
     const amount = notice.amount?.value || 'N/A';
     const currency = notice.amount?.currency || 'N/A';
-    
+
     // Find the payment method extension
     const paymentMethodExtension = notice.extension?.find(
-      ext => ext.url === 'https://extensions.fhir.zapehr.com/payment-method'
+      (ext) => ext.url === 'https://extensions.fhir.zapehr.com/payment-method'
     );
     const paymentMethod = paymentMethodExtension?.valueString || 'N/A';
-    
+
     // Create CSV row (escape commas in values)
-    const csvRow = [createdDate, amount, currency, paymentMethod].map(value => 
-      typeof value === 'string' && value.includes(',') ? `"${value}"` : value
-    ).join(',');
-    
+    const csvRow = [createdDate, amount, currency, paymentMethod]
+      .map((value) => (typeof value === 'string' && value.includes(',') ? `"${value}"` : value))
+      .join(',');
+
     csvRows.push(csvRow);
   }
 
   // Generate CSV filename
   const csvFilename = `payments-report-${targetDate}.csv`;
-  
+
   // Write CSV file
   const csvContent = csvRows.join('\n');
   fs.writeFileSync(csvFilename, csvContent, 'utf8');
@@ -172,8 +174,8 @@ async function main(): Promise<void> {
     return sum + (typeof value === 'number' ? value : parseFloat(value) || 0);
   }, 0);
 
-  const currencies = [...new Set(paymentNotices.map(notice => notice.amount?.currency).filter(Boolean))];
-  
+  const currencies = [...new Set(paymentNotices.map((notice) => notice.amount?.currency).filter(Boolean))];
+
   console.log(`\n✅ CSV report generated: ${csvFilename}`);
   console.log(`📊 Summary:`);
   console.log(`   Total Amount: ${totalAmount.toFixed(2)} (currencies: ${currencies.join(', ') || 'N/A'})`);
