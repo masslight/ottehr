@@ -536,14 +536,12 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.clickSaveChangesButton();
     await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
     await patientInformationPage.reloadPatientInformationPage();
-    // await populateAllRequiredFields(patientInformationPage);
     await patientInformationPage.verifyGenderIdentity('Other');
     await patientInformationPage.verifyOtherGenderInput(NEW_PATIENT_DETAILS_PLEASE_SPECIFY_FIELD);
     await patientInformationPage.selectGenderIdentity(NEW_PATIENT_GENDER_IDENTITY);
     await patientInformationPage.verifyOtherGenderFieldIsNotVisible();
     await patientInformationPage.clickSaveChangesButton();
     await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
-    // await populateAllRequiredFields(patientInformationPage);
     await patientInformationPage.reloadPatientInformationPage();
     await patientInformationPage.verifyGenderIdentity(NEW_PATIENT_GENDER_IDENTITY);
     await patientInformationPage.verifyOtherGenderFieldIsNotVisible();

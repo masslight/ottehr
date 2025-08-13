@@ -889,6 +889,9 @@ const mapGuarantorToQuestionnaireResponseItems = (input: MapGuarantorItemsInput)
   const phone = formatPhoneNumberDisplay(
     guarantorResource?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value ?? ''
   );
+  const email = formatPhoneNumberDisplay(
+    guarantorResource?.telecom?.find((c) => c.system === 'email' && c.period?.end === undefined)?.value ?? ''
+  );
   let birthSex: string | undefined;
   if (guarantorResource?.gender) {
     const genderString = guarantorResource?.gender === 'other' ? 'Intersex' : guarantorResource?.gender;
@@ -945,6 +948,9 @@ const mapGuarantorToQuestionnaireResponseItems = (input: MapGuarantorItemsInput)
     }
     if (linkId === 'responsible-party-number' && phone) {
       answer = makeAnswer(phone);
+    }
+    if (linkId === 'responsible-party-email' && email) {
+      answer = makeAnswer(email);
     }
     if (linkId === 'responsible-party-address' && line) {
       answer = makeAnswer(line);

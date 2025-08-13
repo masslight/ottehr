@@ -531,23 +531,10 @@ export class PatientInformationPage {
       .fill(phone);
   }
 
-  async enterEmailFromResponsibleContainer(email: string): Promise<void> {
-    await this.#page
-      .getByTestId(dataTestIds.responsiblePartyInformationContainer.emailInput)
-      .locator('input')
-      .fill(email);
-  }
-
   async verifyPhoneFromResponsibleContainer(phone: string): Promise<void> {
     await expect(
       this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.phoneInput).locator('input')
     ).toHaveValue(phone);
-  }
-
-  async verifyEmailFromResponsibleContainer(email: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.emailInput).locator('input')
-    ).toHaveValue(email);
   }
 
   async clearPhoneFromResponsibleContainer(): Promise<void> {
