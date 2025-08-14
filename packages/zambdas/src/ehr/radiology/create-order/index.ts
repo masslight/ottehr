@@ -1,6 +1,6 @@
 import Oystehr, { BatchInputPutRequest, User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Encounter, Patient, Practitioner, ServiceRequest } from 'fhir/r4b';
+import { Encounter, Patient, Practitioner, Procedure, ServiceRequest } from 'fhir/r4b';
 import { ServiceRequest as ServiceRequestR5 } from 'fhir/r5';
 import { DateTime } from 'luxon';
 import randomstring from 'randomstring';
@@ -11,8 +11,9 @@ import {
   RoleType,
   Secrets,
   SecretsKeys,
+  userMe,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, wrapHandler, ZambdaInput } from '../../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, fillMeta, wrapHandler, ZambdaInput } from '../../../shared';
 import {
   ACCESSION_NUMBER_CODE_SYSTEM,
   ADVAPACS_FHIR_BASE_URL,
@@ -105,8 +106,7 @@ const accessCheck = async (callerUser: User): Promise<void> => {
 };
 
 const getCallerUserWithAccessToken = async (token: string, secrets: Secrets): Promise<User> => {
-  const oystehr = createOystehrClient(token, secrets);
-  return await oystehr.user.me();
+  return userMe(token, secrets);
 };
 
 const performEffect = async (
@@ -128,6 +128,8 @@ const performEffect = async (
   if (!ourServiceRequest.id) {
     throw new Error('Error creating service request, id is missing');
   }
+
+  await writeOurProcedure(ourServiceRequest, secrets, oystehr);
 
   // Send the order to AdvaPACS
   try {
@@ -305,6 +307,26 @@ const writeOurServiceRequest = (
     ],
   };
   return oystehr.fhir.create<ServiceRequest>(serviceRequest);
+};
+
+// This Procedure holds the CPT code for billing purposes
+const writeOurProcedure = async (
+  ourServiceRequest: ServiceRequest,
+  secrets: Secrets,
+  oystehr: Oystehr
+): Promise<void> => {
+  const procedureConfig: Procedure = {
+    resourceType: 'Procedure',
+    status: 'completed',
+    subject: ourServiceRequest.subject,
+    encounter: ourServiceRequest.encounter,
+    performer: ourServiceRequest.performer?.map((performer) => ({
+      actor: performer,
+    })),
+    code: ourServiceRequest.code,
+    meta: fillMeta('cpt-code', 'cpt-code'), // This is necessary to get the Assessment part of the chart showing the CPT codes. It is some kind of save-chart-data feature that this meta is used to find and save the CPT codes instead of just looking at the FHIR Procedure resources code values.
+  };
+  await oystehr.fhir.create<Procedure>(procedureConfig);
 };
 
 const writeAdvaPacsTransaction = async (

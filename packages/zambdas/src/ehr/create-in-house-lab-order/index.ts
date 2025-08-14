@@ -10,6 +10,7 @@ import {
   Location,
   Patient,
   Practitioner,
+  Procedure,
   Provenance,
   ServiceRequest,
   Task,
@@ -30,6 +31,7 @@ import {
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
+  fillMeta,
   getMyPractitionerId,
   parseCreatedResourcesBundle,
   wrapHandler,
@@ -386,6 +388,33 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       ],
     };
 
+    const procedureConfig: Procedure = {
+      resourceType: 'Procedure',
+      status: 'completed',
+      subject: {
+        reference: `Patient/${patient.id}`,
+      },
+      encounter: {
+        reference: `Encounter/${encounterId}`,
+      },
+      performer: [
+        {
+          actor: {
+            reference: `Practitioner/${attendingPractitionerId}`,
+          },
+        },
+      ],
+      code: {
+        coding: [
+          {
+            ...activityDefinition.code?.coding?.find((coding) => coding.system === 'http://www.ama-assn.org/go/cpt'),
+            display: activityDefinition.name,
+          },
+        ],
+      },
+      meta: fillMeta('cpt-code', 'cpt-code'), // This is necessary to get the Assessment part of the chart showing the CPT codes. It is some kind of save-chart-data feature that this meta is used to find and save the CPT codes instead of just looking at the FHIR Procedure resources code values.
+    };
+
     const transactionResponse = await oystehr.fhir.transaction({
       requests: [
         {
@@ -403,6 +432,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           method: 'POST',
           url: '/Provenance',
           resource: provenanceConfig,
+        },
+        {
+          method: 'POST',
+          url: '/Procedure',
+          resource: procedureConfig,
         },
       ] as BatchInputRequest<FhirResource>[],
     });

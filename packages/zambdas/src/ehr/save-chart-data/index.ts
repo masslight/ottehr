@@ -22,6 +22,7 @@ import {
   SCHOOL_WORK_NOTE,
   Secrets,
   SNOMEDCodeConceptInterface,
+  userMe,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -29,7 +30,6 @@ import {
   createOystehrClient,
   createProcedureServiceRequest,
   followUpToPerformerMap,
-  isTestM2MClient,
   makeAllergyResource,
   makeBirthHistoryObservationResource,
   makeClinicalImpressionResource,
@@ -561,16 +561,9 @@ async function getUserPractitioner(
   secrets: Secrets | null
 ): Promise<Practitioner> {
   try {
-    if (isTestM2MClient(userToken, secrets)) {
-      console.log('Running in test M2M client mode');
-      return await oystehr.fhir.get<Practitioner>({
-        resourceType: 'Practitioner',
-        id: '8909f510-b1b7-489a-be1a-3083bc897ee7',
-      });
-    }
-    const oystehrCurrentUser = createOystehrClient(userToken, secrets);
-    const getUserResponse = await oystehrCurrentUser.user.me();
+    const getUserResponse = await userMe(userToken, secrets);
     const userProfile = getUserResponse.profile;
+    console.log(`User Profile: ${JSON.stringify(userProfile)}`);
     const userProfileString = userProfile.split('/');
     const practitionerId = userProfileString[1];
     return await oystehr.fhir.get<Practitioner>({
