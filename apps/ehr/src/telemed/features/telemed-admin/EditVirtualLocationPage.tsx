@@ -20,7 +20,7 @@ import { enqueueSnackbar } from 'notistack';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Link, useParams } from 'react-router-dom';
-import { AllStates, getVirtualLocationStateAndName, isLocationVirtual, useSuccessQuery } from 'utils';
+import { AllStates, isLocationVirtual, useSuccessQuery } from 'utils';
 import { VIRTUAL_LOCATIONS_URL } from '../../../App';
 import CustomBreadcrumbs from '../../../components/CustomBreadcrumbs';
 import { dataTestIds } from '../../../constants/data-test-ids';
@@ -65,7 +65,7 @@ export default function EditVirtualLocationPage(): JSX.Element {
       getVirtualLocation(oystehr, id),
   });
 
-  const fullLabel = originalLocation ? getVirtualLocationStateAndName(originalLocation) : 'Loading...';
+  const fullLabel = originalLocation?.name || 'Loading...';
 
   useSuccessQuery(getVirtualLocationDataQueryResult.data, (data) => {
     if (data) {
@@ -141,7 +141,7 @@ export default function EditVirtualLocationPage(): JSX.Element {
 
             {/* Page Title */}
             <Typography
-              data-testid={dataTestIds.editState.stateNameTitle}
+              data-testid={dataTestIds.editVirtualLocation.locationNameTitle}
               variant="h3"
               color="primary.dark"
               marginTop={2}
@@ -173,7 +173,7 @@ export default function EditVirtualLocationPage(): JSX.Element {
                     rules={{ required: 'Location name is required' }}
                     render={({ field, fieldState: { error } }) => (
                       <TextField
-                        data-testid={dataTestIds.editState.locationNameField}
+                        data-testid={dataTestIds.editVirtualLocation.locationNameField}
                         {...field}
                         label="Location name"
                         sx={{ marginBottom: 2 }}
@@ -204,7 +204,7 @@ export default function EditVirtualLocationPage(): JSX.Element {
                         onChange={(_, value) => field.onChange(value || '')}
                         renderInput={(params) => (
                           <TextField
-                            data-testid={dataTestIds.editState.locationStateField}
+                            data-testid={dataTestIds.editVirtualLocation.locationStateField}
                             {...params}
                             label="Location state"
                             required
@@ -229,12 +229,12 @@ export default function EditVirtualLocationPage(): JSX.Element {
                       <FormControlLabel
                         control={
                           <Switch
-                            data-testid={dataTestIds.editState.operateInLocationToggle}
+                            data-testid={dataTestIds.editVirtualLocation.operateInLocationToggle}
                             checked={field.value}
                             onChange={field.onChange}
                           />
                         }
-                        label="Operate in location"
+                        label="Active"
                       />
                     )}
                   />
@@ -254,7 +254,7 @@ export default function EditVirtualLocationPage(): JSX.Element {
               {/* Update State and Cancel Buttons */}
               <Grid>
                 <LoadingButton
-                  data-testid={dataTestIds.editState.saveChangesButton}
+                  data-testid={dataTestIds.editVirtualLocation.saveChangesButton}
                   variant="contained"
                   color="primary"
                   sx={{
@@ -273,7 +273,7 @@ export default function EditVirtualLocationPage(): JSX.Element {
 
                 <Link to={VIRTUAL_LOCATIONS_URL}>
                   <Button
-                    data-testid={dataTestIds.editState.cancelButton}
+                    data-testid={dataTestIds.editVirtualLocation.cancelButton}
                     variant="text"
                     color="primary"
                     sx={{

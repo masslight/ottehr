@@ -18,7 +18,6 @@ import {
 import { Location } from 'fhir/r4b';
 import React, { ReactElement } from 'react';
 import { Link } from 'react-router-dom';
-import { getVirtualLocationStateAndName } from 'utils';
 import { VIRTUAL_LOCATIONS_URL } from '../../../App';
 import Loading from '../../../components/Loading';
 import { STATES_ROWS_PER_PAGE } from '../../../constants';
@@ -39,9 +38,7 @@ export default function VirtualLocationsPage(): ReactElement {
   // Filter the states based on the search text
   const filteredLocations = React.useMemo(
     () =>
-      virtualLocations.filter((location: Location) =>
-        getVirtualLocationStateAndName(location).toLowerCase().includes(searchText.toLowerCase())
-      ),
+      virtualLocations.filter((location: Location) => location.name?.toLowerCase().includes(searchText.toLowerCase())),
     [searchText, virtualLocations]
   );
 
@@ -89,7 +86,7 @@ export default function VirtualLocationsPage(): ReactElement {
                   InputProps={{ endAdornment: <SearchIcon /> }}
                   sx={{ marginBottom: 2 }}
                   margin="dense"
-                  data-testid={dataTestIds.statesPage.statesSearch}
+                  data-testid={dataTestIds.virtualLocationsPage.locationsSearch}
                 />
               </Box>
             </Box>
@@ -103,17 +100,21 @@ export default function VirtualLocationsPage(): ReactElement {
             <TableRow>
               <TableCell sx={{ fontWeight: 'bold', width: '50%' }}>Location</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }} align="left">
-                Operate in location
+                Active
               </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {pageLocations.map((location: Location, idx: number) => {
+            {pageLocations.map((location: Location) => {
               const operatesInLocation = Boolean(location && location.status === 'active');
               const operatesLabelText = operatesInLocation ? 'yes' : 'no';
               return (
-                <TableRow key={idx} data-testid={dataTestIds.statesPage.stateRow(location.address?.state ?? '')}>
-                  <TableCell data-testid={dataTestIds.statesPage.stateValue}>
+                <TableRow
+                  role="row"
+                  key={location.id}
+                  data-testid={dataTestIds.virtualLocationsPage.locationRow(location.id!)}
+                >
+                  <TableCell data-testid={dataTestIds.virtualLocationsPage.locationValue}>
                     <Link
                       to={`${VIRTUAL_LOCATIONS_URL}/${location.id}`}
                       style={{
@@ -121,7 +122,7 @@ export default function VirtualLocationsPage(): ReactElement {
                         color: theme.palette.primary.main,
                       }}
                     >
-                      {getVirtualLocationStateAndName(location)}
+                      {location.name}
                     </Link>
                   </TableCell>
                   <TableCell
@@ -134,7 +135,7 @@ export default function VirtualLocationsPage(): ReactElement {
                       <Skeleton width={35} height={20} />
                     ) : (
                       <BooleanStateChip
-                        dataTestId={dataTestIds.statesPage.operateInStateValue}
+                        dataTestId={dataTestIds.virtualLocationsPage.operateInLocationValue}
                         label={operatesLabelText}
                         state={operatesInLocation}
                       />
