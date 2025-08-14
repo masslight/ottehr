@@ -95,6 +95,10 @@ export const ChangeStatusDropdown = ({
   const hasDropdown = !nonDropdownStatuses.includes(status);
 
   const updateInPersonVisitStatus = async (event: SelectChangeEvent<VisitStatusLabel | unknown>): Promise<void> => {
+    if ((event.target.value as VisitStatusWithoutUnknown) === 'completed') {
+      alert('To mark a visit as completed, scroll to the bottom of the "Progress Note" and click "Review & Sign"');
+      return;
+    }
     setStatusLoading(true);
     try {
       await handleChangeInPersonVisitStatus(

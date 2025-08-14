@@ -6,6 +6,7 @@ build
 .idea
 .env
 .serverlessrc
+out.log
 
 # Packages for zambda deployment
 .dist

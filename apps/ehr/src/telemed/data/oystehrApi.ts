@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { Organization } from 'fhir/r4b';
 import {
   AssignPractitionerInput,
   AssignPractitionerResponse,
@@ -25,7 +26,9 @@ import {
   InitTelemedSessionResponse,
   LabOrderResourcesRes,
   NotFoundAppointmentErrorHandler,
+  OrderedCoveragesWithSubscribers,
   PatientAccountResponse,
+  RemoveCoverageResponse,
   RemoveCoverageZambdaInput,
   SaveChartDataRequest,
   SaveChartDataResponse,
@@ -36,8 +39,9 @@ import {
   SyncUserResponse,
   UnassignPractitionerZambdaInput,
   UnassignPractitionerZambdaOutput,
-  UpdateCoverageZambdaInput,
   UpdateMedicationOrderInput,
+  UpdatePatientAccountInput,
+  UpdatePatientAccountResponse,
 } from 'utils';
 import { GetAppointmentsRequestParams } from '../utils';
 import { GetOystehrTelemedAPIParams } from './types';
@@ -120,6 +124,7 @@ export const getOystehrTelemedAPI = (
   savePatientFollowup: typeof savePatientFollowup;
   getPatientAccount: typeof getPatientAccount;
   updatePatientAccount: typeof updatePatientAccount;
+  getPatientCoverages: typeof getPatientCoverages;
   removePatientCoverage: typeof removePatientCoverage;
   sendFax: typeof sendFax;
   getCreateExternalLabResources: typeof getCreateExternalLabResources;
@@ -272,14 +277,33 @@ export const getOystehrTelemedAPI = (
   };
 
   const getPatientAccount = async (parameters: GetPatientAccountZambdaInput): Promise<PatientAccountResponse> => {
-    return await makeZapRequest('get patient account', parameters);
+    const response = await makeZapRequest<PatientAccountResponse, GetPatientAccountZambdaInput>(
+      'get patient account',
+      parameters
+    );
+    response.coverages = {};
+    response.insuranceOrgs = [];
+    return response;
   };
 
-  const updatePatientAccount = async (parameters: UpdateCoverageZambdaInput): Promise<PatientAccountResponse> => {
+  const updatePatientAccount = async (parameters: UpdatePatientAccountInput): Promise<UpdatePatientAccountResponse> => {
     return await makeZapRequest('update patient account', parameters);
   };
 
-  const removePatientCoverage = async (parameters: RemoveCoverageZambdaInput): Promise<PatientAccountResponse> => {
+  const getPatientCoverages = async (
+    parameters: GetPatientAccountZambdaInput
+  ): Promise<{ coverages: OrderedCoveragesWithSubscribers; insuranceOrgs: Organization[] }> => {
+    const response = await makeZapRequest<PatientAccountResponse, GetPatientAccountZambdaInput>(
+      'get patient account',
+      parameters
+    );
+    return {
+      coverages: response.coverages,
+      insuranceOrgs: response.insuranceOrgs,
+    };
+  };
+
+  const removePatientCoverage = async (parameters: RemoveCoverageZambdaInput): Promise<RemoveCoverageResponse> => {
     return await makeZapRequest('remove patient coverage', parameters);
   };
 
@@ -314,6 +338,7 @@ export const getOystehrTelemedAPI = (
     savePatientFollowup,
     getPatientAccount,
     updatePatientAccount,
+    getPatientCoverages,
     removePatientCoverage,
     sendFax,
     getCreateExternalLabResources,

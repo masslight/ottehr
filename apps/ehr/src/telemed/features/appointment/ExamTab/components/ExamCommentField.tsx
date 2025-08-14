@@ -22,13 +22,13 @@ export const ExamCommentField = (props: ExamCommentFieldProps): ReactElement => 
       return;
     }
 
-    if (value) {
-      debounce(() => {
+    debounce(() => {
+      if (value) {
         update({ ...field, note: value });
-      });
-    } else {
-      deleteField(field);
-    }
+      } else {
+        deleteField(field);
+      }
+    });
   };
 
   const [value, setValue] = useState(field?.note || '');

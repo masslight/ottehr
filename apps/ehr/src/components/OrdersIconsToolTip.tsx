@@ -20,7 +20,12 @@ import { InHouseLabsStatusChip } from 'src/features/in-house-labs/components/InH
 import { NursingOrdersStatusChip } from 'src/features/nursing-orders/components/NursingOrdersStatusChip';
 import { RadiologyTableStatusChip } from 'src/features/radiology/components/RadiologyTableStatusChip';
 import { hasAtLeastOneOrder } from 'src/helpers';
-import { InPersonAppointmentInformation, OrdersForTrackingBoardRow, OrderToolTipConfig } from 'utils';
+import {
+  InPersonAppointmentInformation,
+  NursingOrdersStatus,
+  OrdersForTrackingBoardRow,
+  OrderToolTipConfig,
+} from 'utils';
 import { GenericToolTip } from './GenericToolTip';
 
 interface OrdersIconsToolTipProps {
@@ -70,14 +75,16 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
       icon: sidebarMenuIcons['Nursing Orders'],
       title: 'Nursing Orders',
       tableUrl: getNursingOrdersUrl(appointment.id),
-      orders: nursingOrders.map((order) => ({
-        fhirResourceId: order.serviceRequestId,
-        itemDescription: order.note,
-        detailPageUrl: getNursingOrderDetailsUrl(appointment.id, order.serviceRequestId),
-        statusChip: <NursingOrdersStatusChip status={order.status} />,
-      })),
+      orders: nursingOrders
+        .filter((order) => order.status !== NursingOrdersStatus.cancelled)
+        .map((order) => ({
+          fhirResourceId: order.serviceRequestId,
+          itemDescription: order.note,
+          detailPageUrl: getNursingOrderDetailsUrl(appointment.id, order.serviceRequestId),
+          statusChip: <NursingOrdersStatusChip status={order.status} />,
+        })),
     };
-    orderConfigs.push(nursingOrdersConfig);
+    if (nursingOrdersConfig.orders.length > 0) orderConfigs.push(nursingOrdersConfig);
   }
 
   if (inHouseMedications?.length) {

@@ -134,8 +134,13 @@ export function useExamObservations(param?: string | string[]): {
       },
       {
         onSuccess: (data) => {
-          if (data.chartData.examObservations) {
-            useExamObservationsStore.setState(arrayToObject(data.chartData.examObservations));
+          const newState = data.chartData.examObservations?.filter(
+            (observation) =>
+              !observation.field.endsWith('-comment') ||
+              !prevValues[observation.field as ExamNames & InPersonExamNames]?.resourceId
+          );
+          if (newState) {
+            useExamObservationsStore.setState(arrayToObject(newState));
           }
         },
         onError: () => {
