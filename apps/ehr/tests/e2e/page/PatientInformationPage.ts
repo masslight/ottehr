@@ -538,10 +538,7 @@ export class PatientInformationPage {
   }
 
   async clearPhoneFromResponsibleContainer(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.phoneInput).locator('input').click();
-    for (let i = 0; i <= 20; i++) {
-      await this.#page.keyboard.press('Backspace');
-    }
+    await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.phoneInput).locator('input').clear();
   }
 
   async enterEmailFromResponsibleContainer(email: string): Promise<void> {
@@ -558,10 +555,7 @@ export class PatientInformationPage {
   }
 
   async clearEmailFromResponsibleContainer(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.emailInput).locator('input').click();
-    for (let i = 0; i <= 50; i++) {
-      await this.#page.keyboard.press('Backspace');
-    }
+    await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.emailInput).locator('input').clear();
   }
 
   async enterStreetLine1FromResponsibleContainer(line1: string): Promise<void> {
@@ -581,10 +575,7 @@ export class PatientInformationPage {
     await this.#page
       .getByTestId(dataTestIds.responsiblePartyInformationContainer.addressLine1)
       .locator('input')
-      .click();
-    for (let i = 0; i <= 20; i++) {
-      await this.#page.keyboard.press('Backspace');
-    }
+      .clear();
   }
 
   async enterResponsiblePartyCity(city: string): Promise<void> {
