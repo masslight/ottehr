@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Medication, MedicationAdministration } from 'fhir/r4b';
 import {
+  AdministerImmunizationOrderInput,
   CODE_SYSTEM_CPT,
   CODE_SYSTEM_NDC,
   codeableConcept,
@@ -9,7 +10,6 @@ import {
   mapOrderStatusToFhir,
   MEDICATION_ADMINISTRATION_REASON_CODE,
   ottehrExtensionUrl,
-  UpdateImmunizationOrderInput,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -54,7 +54,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 async function updateImmunizationOrder(
   oystehr: Oystehr,
-  input: UpdateImmunizationOrderInput,
+  input: AdministerImmunizationOrderInput,
   _userPractitionerId: string
 ): Promise<any> {
   const { orderId, orderDetails, administering } = input; // todo emergencyContact
@@ -126,7 +126,7 @@ async function updateImmunizationOrder(
 
 export function validateRequestParameters(
   input: ZambdaInput
-): UpdateImmunizationOrderInput & Pick<ZambdaInput, 'secrets'> {
+): AdministerImmunizationOrderInput & Pick<ZambdaInput, 'secrets'> {
   const { orderId, orderDetails, administering, emergencyContact } = validateJsonBody(input);
 
   const missingFields: string[] = [];

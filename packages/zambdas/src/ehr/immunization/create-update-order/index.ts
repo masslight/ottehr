@@ -2,7 +2,8 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, MedicationAdministration } from 'fhir/r4b';
 import {
-  CreateImmunizationOrderInput,
+  createReference,
+  CreateUpdateImmunizationOrderInput,
   MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
   PRACTITIONER_ORDERED_MEDICATION_CODE,
 } from 'utils';
@@ -18,7 +19,7 @@ import { updateOrderDetails } from '../common';
 
 let m2mToken: string;
 
-const ZAMBDA_NAME = 'create-immunization-order';
+const ZAMBDA_NAME = 'create-update-immunization-order';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -28,7 +29,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const userToken = input.headers.Authorization.replace('Bearer ', '');
     const oystehrCurrentUser = createOystehrClient(userToken, validatedParameters.secrets);
     const userPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
-    const response = await createImmunizationOrder(oystehr, validatedParameters, userPractitionerId);
+    let response;
+    if (validatedParameters.orderId) {
+      response = await updateImmunizationOrder(oystehr, validatedParameters);
+    } else {
+      response = await createImmunizationOrder(oystehr, validatedParameters, userPractitionerId);
+    }
     return {
       statusCode: 200,
       body: JSON.stringify(response),
@@ -38,14 +44,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('Stringified error: ', JSON.stringify(error));
     return {
       statusCode: 500,
-      body: JSON.stringify({ message: `Error creating/updating order: ${JSON.stringify(error)}` }),
+      body: JSON.stringify({ message: `Error creating order: ${JSON.stringify(error)}` }),
     };
   }
 });
 
 async function createImmunizationOrder(
   oystehr: Oystehr,
-  input: CreateImmunizationOrderInput,
+  input: CreateUpdateImmunizationOrderInput,
   userPractitionerId: string
 ): Promise<any> {
   const encounter = await oystehr.fhir.get<Encounter>({
@@ -55,10 +61,10 @@ async function createImmunizationOrder(
   if (!encounter.subject) {
     throw new Error(`Encounter ${encounter.id} has no subject`);
   }
-  const medicationAdministration = await oystehr.fhir.create<MedicationAdministration>({
+  const medicationAdministration: MedicationAdministration = {
     resourceType: 'MedicationAdministration',
     subject: encounter.subject,
-    context: { reference: `Encounter/${encounter.id}` },
+    context: createReference(encounter),
     status: 'in-progress',
     performer: [
       {
@@ -73,8 +79,21 @@ async function createImmunizationOrder(
         },
       },
     ],
+  };
+  await updateOrderDetails(medicationAdministration, input, oystehr);
+  const createdMedicationAdministration = await oystehr.fhir.create(medicationAdministration);
+  return {
+    id: createdMedicationAdministration.id,
+  };
+}
+
+async function updateImmunizationOrder(oystehr: Oystehr, input: CreateUpdateImmunizationOrderInput): Promise<any> {
+  const medicationAdministration = await oystehr.fhir.get<MedicationAdministration>({
+    resourceType: 'MedicationAdministration',
+    id: input.orderId!,
   });
   await updateOrderDetails(medicationAdministration, input, oystehr);
+  await oystehr.fhir.update(medicationAdministration);
   return {
     id: medicationAdministration.id,
   };
@@ -82,8 +101,8 @@ async function createImmunizationOrder(
 
 export function validateRequestParameters(
   input: ZambdaInput
-): CreateImmunizationOrderInput & Pick<ZambdaInput, 'secrets'> {
-  const { encounterId, medicationId, dose, units, route, location, instructions, orderedProviderId } =
+): CreateUpdateImmunizationOrderInput & Pick<ZambdaInput, 'secrets'> {
+  const { encounterId, orderId, medicationId, dose, units, route, location, instructions, orderedProviderId } =
     validateJsonBody(input);
 
   const missingFields: string[] = [];
@@ -96,6 +115,7 @@ export function validateRequestParameters(
 
   return {
     encounterId,
+    orderId,
     medicationId,
     dose,
     units,

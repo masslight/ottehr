@@ -1,0 +1,99 @@
+import Oystehr from '@oystehr/sdk';
+import { APIGatewayProxyResult } from 'aws-lambda';
+import { MedicationAdministration } from 'fhir/r4b';
+import {
+  addOperation,
+  CancelImmunizationOrderInput,
+  mapFhirToOrderStatus,
+  mapOrderStatusToFhir,
+  MEDICATION_ADMINISTRATION_REASON_CODE,
+  replaceOperation,
+} from 'utils';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  validateJsonBody,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../shared';
+
+let m2mToken: string;
+
+const ZAMBDA_NAME = 'cancel-immunization-order';
+
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  try {
+    const validatedParameters = validateRequestParameters(input);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
+    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+    const response = await cancelImmunizationOrder(oystehr, validatedParameters);
+    return {
+      statusCode: 200,
+      body: JSON.stringify(response),
+    };
+  } catch (error: any) {
+    console.log('Error: ', error);
+    console.log('Stringified error: ', JSON.stringify(error));
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ message: `Error cancelling order: ${JSON.stringify(error)}` }),
+    };
+  }
+});
+
+async function cancelImmunizationOrder(oystehr: Oystehr, input: CancelImmunizationOrderInput): Promise<any> {
+  const { orderId, status, reason } = input;
+  const medicationAdministration = await oystehr.fhir.get<MedicationAdministration>({
+    resourceType: 'MedicationAdministration',
+    id: orderId,
+  });
+
+  if (medicationAdministration.status !== 'in-progress') {
+    const currentStatus = mapFhirToOrderStatus(medicationAdministration);
+    throw new Error(`Can't cancel order in "${currentStatus}" status`);
+  }
+
+  const patchOperations = [replaceOperation('/status', mapOrderStatusToFhir(status))];
+  if (reason) {
+    patchOperations.push(
+      addOperation('/note', [
+        {
+          authorString: MEDICATION_ADMINISTRATION_REASON_CODE,
+          text: reason,
+        },
+      ])
+    );
+  }
+
+  await oystehr.fhir.patch({
+    resourceType: 'MedicationAdministration',
+    id: orderId,
+    operations: patchOperations,
+  });
+
+  return {
+    message: 'Order was cancelled',
+    id: orderId,
+  };
+}
+
+export function validateRequestParameters(
+  input: ZambdaInput
+): CancelImmunizationOrderInput & Pick<ZambdaInput, 'secrets'> {
+  const { orderId, status, reason } = validateJsonBody(input);
+
+  const missingFields: string[] = [];
+  if (!orderId) missingFields.push('orderId');
+  if (!status) missingFields.push('status');
+  if (!reason && ['administered-partly', 'administered-not'].includes(status)) {
+    missingFields.push('reason');
+  }
+  if (missingFields.length > 0) throw new Error(`Missing required fields [${missingFields.join(', ')}]`);
+
+  return {
+    orderId,
+    status,
+    reason,
+    secrets: input.secrets,
+  };
+}
