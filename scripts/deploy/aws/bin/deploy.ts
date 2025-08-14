@@ -24,6 +24,8 @@ async function setupDeploy(): Promise<void> {
   new OttehrDataStack(app, `ottehr-data-stack-${environment}`, {
     patientPortalBucket: infra.patientPortalBucket,
     ehrBucket: infra.ehrBucket,
+    patientPortalDistribution: infra.patientPortalDistribution,
+    ehrDistribution: infra.ehrDistribution,
   });
 }
 
