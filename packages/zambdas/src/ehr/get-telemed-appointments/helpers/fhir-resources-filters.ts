@@ -10,24 +10,25 @@ import { mapStatusToTelemed, removePrefix } from '../../../shared/appointment/he
 import { getVideoRoomResourceExtension } from '../../../shared/helpers';
 import { getLocationIdFromAppointment } from './helpers';
 import { mapQuestionnaireToEncountersIds, mapTelemedEncountersToAppointmentsIdsMap } from './mappers';
-import { AppointmentPackage, LocationIdToAbbreviationMap } from './types';
+import { AppointmentPackage, LocationIdToStateAbbreviationMap } from './types';
 
 export const findVirtualLocationForAppointment = (
   appointment: Appointment,
-  virtualLocationsMap: LocationIdToAbbreviationMap
+  virtualLocationsMap: LocationIdToStateAbbreviationMap
 ): AppointmentLocation | undefined => {
   const locationId = getLocationIdFromAppointment(appointment);
   if (locationId) {
     const stateAbbreviation = Object.keys(virtualLocationsMap).find((abbreviation) => {
-      return virtualLocationsMap[abbreviation].id === locationId;
+      return virtualLocationsMap[abbreviation].find((location) => location.id === locationId);
     });
     if (!stateAbbreviation) {
       console.error('No state abbreviation found for location', locationId);
       return undefined;
     }
-    const location = virtualLocationsMap[stateAbbreviation];
+    const location = virtualLocationsMap[stateAbbreviation].find((location) => location.id === locationId)!;
     return {
       reference: locationId ? `Location/${locationId}` : undefined,
+      name: location.name,
       state: stateAbbreviation,
       resourceType: 'Location',
       id: locationId,
@@ -65,7 +66,7 @@ export const filterAppointmentsAndCreatePackages = ({
 }: {
   allResources: Resource[];
   statusesFilter: TelemedCallStatuses[];
-  virtualLocationsMap: LocationIdToAbbreviationMap;
+  virtualLocationsMap: LocationIdToStateAbbreviationMap;
   visitTypes?: string[];
   locationsIdsFilter?: string[];
 }): AppointmentPackage[] => {
