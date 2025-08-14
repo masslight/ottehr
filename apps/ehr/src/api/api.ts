@@ -24,8 +24,12 @@ import {
   CreateNursingOrderInput,
   CreateRadiologyZambdaOrderInput,
   CreateRadiologyZambdaOrderOutput,
+  CreateResourcesFromAudioRecordingInput,
+  CreateResourcesFromAudioRecordingOutput,
   CreateScheduleParams,
   CreateSlotParams,
+  CreateUploadAudioRecordingInput,
+  CreateUploadAudioRecordingOutput,
   CreateUserOutput,
   CreateUserParams,
   DeleteInHouseLabOrderParameters,
@@ -125,6 +129,8 @@ const GET_NURSING_ORDERS_ZAMBDA_ID = 'get-nursing-orders';
 const CREATE_NURSING_ORDER_ZAMBDA_ID = 'create-nursing-order';
 const UPDATE_NURSING_ORDER = 'update-nursing-order';
 const GET_LABEL_PDF_ZAMBDA_ID = 'get-label-pdf';
+const UPLOAD_AUDIO_RECORDING_ZAMBDA_ID = 'upload-audio-recording';
+const CREATE_RESOURCES_FROM_AUDIO_RECORDING_ZAMBDA_ID = 'create-resources-from-audio-recording';
 const GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID = 'get-or-create-visit-label-pdf';
 const PAPERWORK_TO_PDF_ZAMBDA_ID = 'paperwork-to-pdf';
 
@@ -173,6 +179,46 @@ export const getLabelPdf = async (oystehr: Oystehr, parameters: GetLabelPdfParam
     return chooseJson(response);
   } catch (error: unknown) {
     console.error(error);
+    throw error;
+  }
+};
+
+export const uploadAudioRecording = async (
+  oystehr: Oystehr,
+  parameters: CreateUploadAudioRecordingInput
+): Promise<CreateUploadAudioRecordingOutput> => {
+  try {
+    if (UPLOAD_AUDIO_RECORDING_ZAMBDA_ID == null) {
+      throw new Error('upload audio recording zambda environment variable could not be loaded');
+    }
+
+    const response = await oystehr.zambda.execute({
+      id: UPLOAD_AUDIO_RECORDING_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const createResourcesFromAudioRecording = async (
+  oystehr: Oystehr,
+  parameters: CreateResourcesFromAudioRecordingInput
+): Promise<CreateResourcesFromAudioRecordingOutput> => {
+  try {
+    if (CREATE_RESOURCES_FROM_AUDIO_RECORDING_ZAMBDA_ID == null) {
+      throw new Error('create resources from audio recording zambda environment variable could not be loaded');
+    }
+
+    const response = await oystehr.zambda.execute({
+      id: CREATE_RESOURCES_FROM_AUDIO_RECORDING_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
     throw error;
   }
 };

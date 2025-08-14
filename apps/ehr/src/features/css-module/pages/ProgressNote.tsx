@@ -1,4 +1,4 @@
-import { Box, Stack, Typography } from '@mui/material';
+import { Box, Grid, Stack, Typography } from '@mui/material';
 import React from 'react';
 import { useParams } from 'react-router-dom';
 import { getSelectors } from '../../../shared/store/getSelectors';
@@ -20,6 +20,7 @@ import {
 import { CSSLoader } from '../components/CSSLoader';
 import { PatientInformationContainer } from '../components/progress-note/PatientInformationContainer';
 import { ProgressNoteDetails } from '../components/progress-note/ProgressNoteDetails';
+import { RecordAudioButton } from '../components/progress-note/RecordAudioButton';
 import { VisitDetailsContainer } from '../components/progress-note/VisitDetailsContainer';
 import { useFeatureFlags } from '../context/featureFlags';
 import { useAppointment } from '../hooks/useAppointment';
@@ -36,7 +37,6 @@ export const ProgressNote: React.FC<PatientInfoProps> = () => {
     isLoading,
     error,
   } = useAppointment(appointmentID);
-
   const {
     appointment: appointmentResource,
     encounter,
@@ -48,10 +48,20 @@ export const ProgressNote: React.FC<PatientInfoProps> = () => {
   if (isLoading || isChartDataLoading) return <CSSLoader />;
   if (error) return <Typography>Error: {error.message}</Typography>;
   if (!appointment) return <Typography>No data available</Typography>;
+  if (!encounter.id) return <Typography>Encounter ID is undefined</Typography>;
 
   return (
     <Stack spacing={1}>
-      <PageTitle label="Progress Note" showIntakeNotesButton={false} />
+      <Grid container>
+        <Grid item xs={6}>
+          <PageTitle label="Progress Note" showIntakeNotesButton={false} />
+        </Grid>
+        <Grid item xs={6} sx={{ textAlign: 'right' }}>
+          <RecordAudioButton visitID={encounter.id} />
+          {/* <WavesurferPlayer height={100} waveColor="violet" ></WavesurferPlayer> */}
+          {/* <ButtonRounded variant="outlined" startIcon={isRecording ? <MicOff /> : <Mic />} onClick={() => recordAudio(mediaRecorder, mediaChunks, isRecording)}>{isRecording ? 'Stop' : 'Start'} Recording</ButtonRounded> */}
+        </Grid>
+      </Grid>
       <MissingCard />
 
       <AccordionCard>
