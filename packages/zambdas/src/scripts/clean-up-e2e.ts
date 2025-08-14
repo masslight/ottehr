@@ -9,7 +9,7 @@ const deleteAppointmentData = async (config: any): Promise<void> => {
 };
 
 const main = async (): Promise<void> => {
-  const secrets = JSON.parse(fs.readFileSync(`.env/local.json`, 'utf8'));
+  const secrets = JSON.parse(fs.readFileSync(`../../config/.env/local.json`, 'utf8'));
   await deleteAppointmentData(secrets);
 };
 

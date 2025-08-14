@@ -9,7 +9,7 @@ import {
   PROJECT_ID,
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
-} from '../../.env/local.json';
+} from '../../../../config/.env/local.json';
 
 export const SECRETS = {
   FHIR_API: FHIR_API,

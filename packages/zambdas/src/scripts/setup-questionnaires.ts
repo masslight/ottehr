@@ -88,7 +88,7 @@ const writeQuestionnaires = async (envConfig: any, env: string): Promise<void> =
 
     const newLocalEnv = { ...envConfig, ...newSecrets };
     const envString = JSON.stringify(newLocalEnv, null, 2);
-    fs.writeFileSync(`.env/${env}.json`, envString);
+    fs.writeFileSync(`../../config/.env/${env}.json`, envString);
 
     for await (const entry of Object.entries(newSecrets)) {
       const [key, value] = entry;
@@ -112,7 +112,7 @@ const writeQuestionnaires = async (envConfig: any, env: string): Promise<void> =
 const main = async (): Promise<void> => {
   const env = process.argv[2];
 
-  const envConfig = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
+  const envConfig = JSON.parse(fs.readFileSync(`../../config/.env/${env}.json`, 'utf8'));
   await writeQuestionnaires(envConfig, env);
 };
 

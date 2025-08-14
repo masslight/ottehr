@@ -301,7 +301,7 @@ export async function createTestEnvFiles(): Promise<void> {
     const skipPrompts = process.argv.includes('--skip-prompts');
 
     const zambdaEnv: Record<string, string> = JSON.parse(
-      fs.readFileSync(`packages/zambdas/.env/${environment}.json`, 'utf8')
+      fs.readFileSync(`config/.env/${environment}.json`, 'utf8')
     );
 
     const ehrUiEnv: Record<string, string> = dotenv.parse(fs.readFileSync(`apps/ehr/env/.env.${environment}`, 'utf8'));

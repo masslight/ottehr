@@ -197,8 +197,8 @@ jobs:
       - name: Setup environment
         run: |
           setup_env() {
-            mkdir -p "packages/zambdas/.env"
-            cp secrets/zambdas/* "packages/zambdas/.env"
+            mkdir -p "config/.env"
+            cp secrets/zambdas/* "config/.env"
             mkdir -p "apps/$app/env"
             cp "secrets/$app/app/tests."*.json "apps/$app/env/"
             cp "secrets/$app/app/.env"* "apps/$app/env/"
@@ -328,8 +328,8 @@ jobs:
       - name: Setup environment
         run: |
           setup_env() {
-            mkdir -p "packages/zambdas/.env"
-            cp secrets/zambdas/* "packages/zambdas/.env"
+            mkdir -p "config/.env"
+            cp secrets/zambdas/* "config/.env"
             mkdir -p "apps/$app/env"
             cp "secrets/$app/app/tests."*.json "apps/$app/env/"
             cp "secrets/$app/app/.env"* "apps/$app/env/"

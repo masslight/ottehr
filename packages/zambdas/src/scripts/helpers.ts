@@ -245,7 +245,7 @@ export const performEffectWithEnvFile = async (callback: (config: any) => Promis
   const env = process.argv[2];
   let config: any;
   try {
-    const configPath = path.resolve(__dirname, `../../.env/${env}.json`);
+    const configPath = path.resolve(__dirname, `../../config/../../.env/${env}.json`);
     config = await import(configPath);
     config = { ...config, env };
   } catch (e) {

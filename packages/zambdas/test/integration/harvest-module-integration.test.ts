@@ -50,7 +50,7 @@ const stubAccount: Account = {
 };
 
 describe('Harvest Module Integration Tests', () => {
-  const envConfig = JSON.parse(fs.readFileSync('.env/local.json', 'utf8'));
+  const envConfig = JSON.parse(fs.readFileSync('../../config/.env/local.json', 'utf8'));
   const INSURANCE_PLAN_ORGS_IDS: string[] = [];
   let token: string | undefined;
   let oystehrClient: Oystehr;

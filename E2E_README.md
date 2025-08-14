@@ -55,7 +55,7 @@ The E2E testing system supports two main applications:
 
 ```bash
 # Clean existing environments (optional)
-rm -rf packages/zambdas/.env
+rm -f config/.env/*.json
 rm -rf apps/ehr/env
 rm -rf apps/intake/env
 
@@ -427,7 +427,7 @@ The discovery process:
 
 ```bash
 # Delete existing env directories and run any test to auto-setup
-rm -rf packages/zambdas/.env
+rm -f config/.env/*.json
 rm -rf apps/ehr/env
 npm run ehr:e2e:local:ui  # Automatically creates and populates directories
 ```
@@ -439,7 +439,7 @@ The environment configuration system maps secrets from the secrets repository to
 | secrets repository Path    | EHR Project Path                   | Purpose                                                                 | Used In                      |
 | :------------------------- | :--------------------------------- | :---------------------------------------------------------------------- | :--------------------------- |
 | `ehr/app/.env.local`       | `apps/ehr/env/.env.local`          | Local application build configuration                                   | Local development, CI builds |
-| `zambdas/local.json`       | `packages/zambdas/.env/local.json` | Backend API configuration and credentials                               | Local development, CI builds |
+| `zambdas/local.json`       | `config/.env/local.json`           | System configuration and credentials                               | Local development, CI builds |
 | `ehr/app/tests.local.json` | `apps/ehr/env/tests.local.json`    | Test configuration (frontend URL, FHIR API, authentication credentials) | Local test execution, CI     |
 | `ehr/app/tests.demo.json`  | `apps/ehr/env/tests.demo.json`     | Demo environment test configuration                                     | Demo environment testing     |
 
@@ -538,7 +538,7 @@ fi
 ├── apps/
 │   ├── ehr/tests/e2e/             # EHR test files
 │   └── intake/tests/              # Intake test files
-├── packages/zambdas/.env/         # Backend configuration
+├── config/.env/                   # System configuration
 ├── .github/workflows/             # CI/CD pipelines
 ├── scripts/                       # Test execution scripts
 └── turbo.json                     # Monorepo configuration
@@ -552,7 +552,7 @@ fi
 | `apps/ehr/tests/e2e/e2e-utils/*.ts`       | Helper utilities including ResourceHandler for FHIR resource management |
 | `apps/ehr/src/constants/data-test-ids.ts` | Centralized repository of data-test ID selectors                        |
 | `.github/workflows/e2e-ehr.yml`           | CI/CD pipeline for EHR tests with artifact collection                   |
-| `packages/zambdas/.env/*`                 | Backend API configuration and credentials                               |
+| `config/.env/*`                           | System configuration and credentials                               |
 | `apps/ehr/env/*`                          | UI application and test environment variables                           |
 | `apps/ehr/playwright.config.ts`           | Playwright configuration with browser settings and reporters            |
 | `scripts/run-e2e.js`                      | Main test orchestration script with environment management              |
@@ -816,7 +816,7 @@ lsof -ti:3000,3002,4002
 lsof -ti:3000,3002,4002 | xargs kill -9
 
 # Clean and restart
-rm -rf packages/zambdas/.env
+rm -f config/.env/*.json
 rm -rf apps/ehr/env
 npm run ehr:e2e:local:ui
 ```

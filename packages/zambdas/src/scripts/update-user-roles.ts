@@ -121,10 +121,10 @@ const updateUserRoles = async (config: any): Promise<void> => {
 
 const main = async (): Promise<void> => {
   const env = process.argv[2];
-  const configuration = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
+  const configuration = JSON.parse(fs.readFileSync(`../../config/.env/${env}.json`, 'utf8'));
 
   if (!configuration) {
-    throw new Error(`could not read environment configuration for .env/${env}.json`);
+    throw new Error(`could not read environment configuration for ../../config/.env/${env}.json`);
   }
 
   await updateUserRoles(configuration);

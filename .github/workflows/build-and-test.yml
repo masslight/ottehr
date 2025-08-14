@@ -67,8 +67,8 @@ jobs:
 
       - name: Setup secrets
         run: |
-          mkdir -p packages/zambdas/.env
-          cp secrets/zambdas/* packages/zambdas/.env
+          mkdir -p config/.env
+          cp secrets/zambdas/* config/.env
           mkdir -p apps/ehr/env apps/intake/env
           cp secrets/ehr/app/.env.local apps/ehr/env/
           cp secrets/ehr/app/tests.*.json apps/ehr/env/

@@ -285,7 +285,7 @@ async function main(): Promise<void> {
   let envConfig: any | undefined = undefined;
 
   try {
-    envConfig = JSON.parse(fs.readFileSync(`.env/${ENV}.json`, 'utf8'));
+    envConfig = JSON.parse(fs.readFileSync(`../../config/.env/${ENV}.json`, 'utf8'));
   } catch (e) {
     console.error(`Unable to read env file. Error: ${JSON.stringify(e)}`);
     process.exit(3);

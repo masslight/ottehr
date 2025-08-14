@@ -404,7 +404,7 @@ if (process.argv.length < 3) {
 const main = async (): Promise<void> => {
   const env = process.argv[2];
   let selectedTriggerMethod: string | undefined = process.argv[3];
-  const secrets = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
+  const secrets = JSON.parse(fs.readFileSync(`../../config/.env/${env}.json`, 'utf8'));
   if (selectedTriggerMethod && !['http_open', 'http_auth', 'subscription', 'cron'].includes(selectedTriggerMethod)) {
     selectedTriggerMethod = undefined;
   }

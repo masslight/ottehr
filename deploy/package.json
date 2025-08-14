@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "description": "Scripts for generating HCL and interacting with Terraform",
   "scripts": {
-    "generate": "tsx generate-oystehr-resources.ts ../config ../packages/zambdas/.env/${ENV:-local}.json ./oystehr/"
+    "generate": "tsx generate-oystehr-resources.ts ../config ../config/.env/${ENV:-local}.json ./oystehr/"
   },
   "devDependencies": {
     "@types/node": "^24.2.1"

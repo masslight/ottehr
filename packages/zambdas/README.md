@@ -4,7 +4,7 @@ Backend endpoints for the urgent care application.
 
 ## Setup
 
-Before you can run locally or deploy, you must copy in the env files from the [ottehr-secrets](https://github.com/masslight/ottehr-secrets) repository. These should be copied into [`.env/`](.env) (e.g. dev: [`.env/dev.json`](.env/dev.json)).
+Before you can run locally or deploy, you must copy in the env files from the [ottehr-secrets](https://github.com/masslight/ottehr-secrets) repository. These should be copied into [`/config/.env/`](/config/.env) (e.g. dev: [`/config/.env/dev.json`](/config/.env/dev.json)).
 
 ## Run Locally
 

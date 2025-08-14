@@ -55,7 +55,7 @@ const clearTasks = async (config: any): Promise<void> => {
 const main = async (): Promise<void> => {
   const env = process.argv[2];
 
-  const secrets = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
+  const secrets = JSON.parse(fs.readFileSync(`../../config/.env/${env}.json`, 'utf8'));
   await clearTasks(secrets);
 };
 

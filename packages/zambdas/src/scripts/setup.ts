@@ -68,7 +68,7 @@ function createZambdaEnvFile(
     ENVIRONMENT: environment,
   };
 
-  const envFolderPath = 'packages/zambdas/.env';
+  const envFolderPath = 'config/.env';
   const envPath = path.join(envFolderPath, `${environment}.json`);
   const envTemplatePath = path.join(envFolderPath, 'local.template.json');
 

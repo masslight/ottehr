@@ -10,14 +10,16 @@
       "name": "Debug Telemed zambdas",
       "program": "${workspaceFolder}/packages/zambdas/src/local-server/index.ts",
       "cwd": "${workspaceFolder}/packages/zambdas",
-      "args": ["--env", ".env/local.json"],
+      "args": [
+        "--env",
+        "../../config/.env/local.json"
+      ],
       "runtimeExecutable": "tsx",
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
       "skipFiles": [
         // Node.js internal core modules
         "<node_internals>/**",
-
         // Ignore all dependencies (optional)
         "${workspaceFolder}/node_modules/**"
       ]

@@ -34,7 +34,7 @@ const setupSecrets = async (config: any): Promise<void> => {
 };
 
 const prepareSecretsFromSpecAndEnv = (env: string): Record<string, string> => {
-  const envFile = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
+  const envFile = JSON.parse(fs.readFileSync(`../../config/.env/${env}.json`, 'utf8'));
 
   const secrets: Record<string, string> = {};
   Object.entries(ottehrSpec.secrets).forEach(([_key, secret]) => {

@@ -31,7 +31,7 @@ const main = async (): Promise<void> => {
 
   let envConfig;
   try {
-    envConfig = JSON.parse(fs.readFileSync(`.env/${ENV}.json`, 'utf8'));
+    envConfig = JSON.parse(fs.readFileSync(`../../config/.env/${ENV}.json`, 'utf8'));
   } catch (error) {
     console.error(`Error parsing secrets for ENV '${ENV}'. Error: ${JSON.stringify(error)}`);
   }
