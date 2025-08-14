@@ -218,6 +218,7 @@ test.describe('Virtual visit. Check paperwork is prefilled for existing patient.
     await expect(locator.responsiblePartyAddress1).toHaveValue(filledPaperwork.responsiblePartyData!.address1);
     await expect(locator.responsiblePartyAddress2).toHaveValue(filledPaperwork.responsiblePartyData!.additionalAddress);
     await expect(locator.responsiblePartyNumber).toHaveValue(filledPaperwork.responsiblePartyData!.phone);
+    await expect(locator.responsiblePartyEmail).toHaveValue(filledPaperwork.responsiblePartyData!.email);
   });
   test('VVPP-8 Check Photo ID has prefilled images', async () => {
     await page.goto(`paperwork/${appointmentIds[1]}/photo-id`);
