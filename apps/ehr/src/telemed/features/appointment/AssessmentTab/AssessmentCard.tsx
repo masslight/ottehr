@@ -1,6 +1,7 @@
 import { Box, Stack, Typography } from '@mui/material';
 import React, { FC } from 'react';
 import { useFeatureFlags } from '../../../../features/css-module/context/featureFlags';
+import { useChartData } from '../../../../features/css-module/hooks/useChartData';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { AccordionCard, DoubleColumnContainer } from '../../../components';
 import { PageTitle } from '../../../components/PageTitle';
@@ -16,7 +17,14 @@ import {
 } from './components';
 
 export const AssessmentCard: FC = () => {
-  const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
+  const { encounter } = getSelectors(useAppointmentStore, ['encounter']);
+
+  const { chartData } = useChartData({
+    encounterId: encounter.id || '',
+    requestedFields: { cptCodes: {} },
+    replaceStoreValues: true,
+  });
+  // const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const emCode = chartData?.emCode;
 
