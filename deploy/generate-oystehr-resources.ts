@@ -10,16 +10,15 @@ const zambdasDirPath = path.resolve(__dirname, '../packages/zambdas');
 // args
 const args = process.argv.slice(2);
 if (args.length !== 3) {
-  console.error('Usage: tsx generate-oystehr-resources.ts <spec-file.json[,spec-file.json]> <var-file> <outputPath>');
+  console.error('Usage: tsx generate-oystehr-resources.ts <config-dir> <var-file> <output-path>');
   process.exit(1);
 }
 
 async function generate(): Promise<void> {
-    const [specFilesArg, varFile, outputPath] = args;
-    const specFiles = specFilesArg.split(',');
+  const [configDir, varFile, outputPath] = args;
 
-    if (!specFiles || specFiles.length === 0) {
-        throw new Error('No valid spec files provided.');
+    if (!configDir) {
+        throw new Error('Config directory is required.');
     }
 
     if (!varFile) {
@@ -33,8 +32,14 @@ async function generate(): Promise<void> {
     // Ensure output directory exists
     await fs.mkdir(outputPath, { recursive: true });
 
+    // Read all spec files from the config directory
+    const specFiles = await fs.readdir(configDir, { withFileTypes: true });
+    const jsonSpecFiles = specFiles
+        .filter((file) => file.isFile() && file.name.endsWith('.json'))
+        .map((file) => path.join(configDir, file.name));
+
     const specs = await Promise.all(
-        specFiles.map(async (file) => {
+        jsonSpecFiles.map(async (file) => {
             const content = await fs.readFile(file, 'utf-8');
             return { path: file, spec: JSON.parse(content) as unknown };
         })
