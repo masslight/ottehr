@@ -56,5 +56,5 @@
   "PROVIDER_ALLOWED_URL_2": "http://localhost:4002/dashboard",
   "PROVIDER_ALLOWED_URL_3": "https://localhost:4002",
   "PROVIDER_ALLOWED_URL_4": "https://localhost:4002/dashboard",
-  "fax-number": "+12023334444"
+  "fax-number": ""
 }
