@@ -71,15 +71,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const submitLabPromises = Object.entries(bundledOrdersByAccountNumber).map(async ([accountNumber, resources]) => {
         if (accountNumber.startsWith('psc-')) return { status: 'fulfilled', accountNumber };
         try {
+          const params = {
+            serviceRequest: resources.testDetails.map((test) => `ServiceRequest/${test.serviceRequestID}`),
+            accountNumber: accountNumber,
+            orderNumber: resources.orderNumber,
+          };
+          console.log('params being sent to oystehr submit lab', JSON.stringify(params));
           const res = await fetch(OYSTEHR_SUBMIT_LAB_API, {
             method: 'POST',
             headers: {
               Authorization: `Bearer ${m2mToken}`,
             },
-            body: JSON.stringify({
-              serviceRequest: resources.testDetails.map((test) => `ServiceRequest/${test.serviceRequestID}`),
-              accountNumber: accountNumber,
-            }),
+            body: JSON.stringify(params),
           });
 
           if (!res.ok) {
@@ -89,7 +92,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
           const result = await res.json();
           const eReq: DocumentReference | undefined = result?.eRequisitionDocumentReference;
-          return { status: 'fulfilled', accountNumber, result, eReqDocumentReference: eReq };
+          return { status: 'fulfilled', accountNumber, eReqDocumentReference: eReq };
         } catch (e) {
           return { status: 'rejected', accountNumber, reason: (e as Error).message };
         }
@@ -105,7 +108,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             console.log(
               `eReq generated for order ${resources.orderNumber} - docRef id: ${res.eReqDocumentReference.id}`
             );
-            successfulBundledOrders[res.accountNumber] = { ...resources, labGenerateEReq: res.eReqDocumentReference };
+            successfulBundledOrders[res.accountNumber] = { ...resources, labGeneratedEReq: res.eReqDocumentReference };
           } else {
             successfulBundledOrders[res.accountNumber] = { ...resources };
           }

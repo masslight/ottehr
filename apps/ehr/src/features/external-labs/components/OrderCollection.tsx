@@ -99,7 +99,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
     }
 
     setSubmitLoading(false);
-    console.log(`data at submit: ${JSON.stringify(sanitizedData)}`);
+    console.log(`data at mark as ready: ${JSON.stringify(sanitizedData)}`);
   };
 
   return (

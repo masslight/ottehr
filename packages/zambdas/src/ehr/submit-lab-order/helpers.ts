@@ -69,7 +69,7 @@ export type resourcesForOrderForm = {
   location?: Location;
   insuranceOrganization?: Organization;
   coverage?: Coverage;
-  labGenerateEReq?: DocumentReference; // will be assigned after submit to oystehr labs IF applicable (right now only for labcorp & quest)
+  labGeneratedEReq?: DocumentReference; // will be assigned after submit to oystehr labs IF applicable (right now only for labcorp & quest)
 };
 
 export type OrderResourcesByAccountNumber = {
@@ -413,9 +413,9 @@ export async function makeOrderFormsAndDocRefs(
     if (!encounterId) throw new Error(`Encounter id is missing, cannot create order form`);
 
     let pdfInfo: PdfInfo | undefined;
-    let labGenerateEReqUrl: string | undefined;
-    if (resources.labGenerateEReq) {
-      labGenerateEReqUrl = resources.labGenerateEReq.content[0].attachment.url || '';
+    let labGeneratedEReqUrl: string | undefined;
+    if (resources.labGeneratedEReq) {
+      labGeneratedEReqUrl = resources.labGeneratedEReq.content[0].attachment.url || '';
     } else {
       const orderFormDataConfig = getOrderFormDataConfig(accountNumber, resources, now, oystehr);
       pdfInfo = await createExternalLabsOrderFormPDF(orderFormDataConfig, patientId, secrets, token);
@@ -423,7 +423,7 @@ export async function makeOrderFormsAndDocRefs(
 
     return {
       pdfInfo,
-      labGenerateEReqUrl,
+      labGeneratedEReqUrl,
       patientId,
       encounterId,
       serviceRequestIds,
@@ -448,8 +448,8 @@ export async function makeOrderFormsAndDocRefs(
           })
         );
         acc.presignedOrderFormURLPromises.push(getPresignedURL(detail.pdfInfo.uploadURL, token));
-      } else if (detail.labGenerateEReqUrl) {
-        acc.presignedOrderFormURLPromises.push(getPresignedURL(detail.labGenerateEReqUrl, token));
+      } else if (detail.labGeneratedEReqUrl) {
+        acc.presignedOrderFormURLPromises.push(getPresignedURL(detail.labGeneratedEReqUrl, token));
       }
       return acc;
     },

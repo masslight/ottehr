@@ -176,8 +176,10 @@ const getResultDataConfig = (
       performingLabAddress,
       performingLabDirectorFullName,
     } = specificResources;
+    const orderNumber = getOrderNumber(serviceRequest);
+    if (!orderNumber) throw Error(`order number could not be parsed from the service request ${serviceRequest.id}`);
     const externalLabData: Omit<ExternalLabResultsData, keyof LabResultsData> = {
-      orderNumber: getOrderNumber(serviceRequest) || '',
+      orderNumber,
       accessionNumber: diagnosticReport.identifier?.find((item) => item.type?.coding?.[0].code === 'FILL')?.value || '',
       collectionDate,
       orderSubmitDate,

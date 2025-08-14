@@ -146,22 +146,20 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
       });
       console.log('orderPdfUrls', orderPdfUrls);
       console.log('failedOrdersByOrderNumber', failedOrdersByOrderNumber);
-      for (const pdfUrl of orderPdfUrls) {
-        await openPdf(pdfUrl);
-      }
+      await Promise.all(orderPdfUrls.map((pdfUrl) => openPdf(pdfUrl)));
+
       if (failedOrdersByOrderNumber) {
         setFailedOrderNumbers(failedOrdersByOrderNumber);
-        throw Error(`submits failed for the following orders: ${failedOrdersByOrderNumber}`);
+        setErrorDialogOpen(true);
+      } else {
+        setErrorDialogOpen(false);
+        await fetchLabOrders(searchBy);
       }
-      setErrorDialogOpen(false);
-      await fetchLabOrders(searchBy);
     } catch (e) {
       const sdkError = e as Oystehr.OystehrSdkError;
       console.log('error submitting lab', sdkError.code, sdkError.message);
       if (manualOrder) {
         setManualError(sdkError.message);
-      } else if (sdkError.message.includes('submits failed for the following orders:')) {
-        setErrorDialogOpen(true);
       } else {
         setError(sdkError.message);
       }
@@ -181,7 +179,7 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
         <Typography color="error">{`Error manually submitting: ${manualError}`}</Typography>
       ) : (
         <>
-          <Typography color="error">{`submits failed for the following orders: ${failedOrderNumbers}`}</Typography>
+          <Typography color="error">{`Submits failed for the following orders: ${failedOrderNumbers}`}</Typography>
           <Typography sx={{ marginTop: 1 }}>
             {`After clicking confirm you can no longer electronically submit these orders, please confirm this action`}
           </Typography>
@@ -202,7 +200,7 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
         </Typography>
         {onCreateOrder && (
           <Button variant="contained" onClick={() => onCreateOrder()} sx={{ mt: 2 }}>
-            Create New External Lab Order
+            Add New External Lab
           </Button>
         )}
       </Paper>
@@ -288,7 +286,7 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
         >
           <CheckCircleOutlineIcon sx={{ color: `${theme.palette.success.main}` }}></CheckCircleOutlineIcon>
           <Typography variant="button" sx={{ textTransform: 'none', color: `${theme.palette.success.dark}` }}>
-            Tests are ready to be sent. Please review then select submit.
+            Tests are ready to be sent. Please review then Submit.
           </Typography>
         </Box>
       )}
@@ -369,7 +367,7 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
               </Typography>
               {onCreateOrder && (
                 <Button variant="contained" onClick={() => onCreateOrder()} sx={{ mt: 2 }}>
-                  Create New External Lab Order
+                  Add New External Lab
                 </Button>
               )}
             </Box>

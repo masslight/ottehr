@@ -337,10 +337,12 @@ const handleSpecimenDateChangedEvent = async ({
   return updateTransactionRequest;
 };
 
-// saves sample collection dates
-// saves aoe question entry & marks QR as complete
-// update pre-submission task to complete and create provenance for who did that
-// makes specimen label
+/**
+ * saves sample collection dates
+ * saves aoe question entry & marks QR as complete
+ * update pre-submission task to complete and create provenance for who did that
+ *  makes specimen label
+ */
 const handleSaveCollectionData = async (
   oystehr: Oystehr,
   m2mToken: string,
@@ -366,6 +368,7 @@ const handleSaveCollectionData = async (
 
   const orderNumber = getOrderNumber(serviceRequest);
   console.log('orderNumber', orderNumber);
+  if (!orderNumber) throw Error(`order number could not be parsed from the service request ${serviceRequest.id}`);
 
   const requests: BatchInputRequest<Specimen | QuestionnaireResponse | Provenance | Task>[] = [];
 
@@ -410,7 +413,7 @@ const handleSaveCollectionData = async (
         patientLastName: getPatientLastName(patient) ?? '',
         patientDateOfBirth: patient.birthDate ? DateTime.fromISO(patient.birthDate) : undefined,
         sampleCollectionDate: mostRecentSampleCollectionDate,
-        orderNumber: orderNumber ?? '',
+        orderNumber: orderNumber,
         accountNumber: (labOrganization && getAccountNumberFromOrganization(labOrganization)) || '',
       },
     };

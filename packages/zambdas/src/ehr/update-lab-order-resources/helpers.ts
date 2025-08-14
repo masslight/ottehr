@@ -47,7 +47,7 @@ export const getSpecimenPatchAndMostRecentCollectionDate = (
 
 export const makeSpecimenPatchRequest = (
   specimen: Specimen,
-  date: DateTime | undefined, // todo SARAH do we need logic for removing?
+  date: DateTime | undefined,
   practitionerIdFromCurrentUser: string
 ): BatchInputPatchRequest<Specimen> => {
   const hasSpecimenCollection = specimen.collection;

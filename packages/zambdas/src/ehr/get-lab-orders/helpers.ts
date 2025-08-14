@@ -1540,7 +1540,6 @@ export const parseLabOrdersHistory = (
 ): LabOrderHistoryRow[] => {
   console.log('building order history for external lab service request', serviceRequest.id);
   const {
-    // taskPST,
     orderedFinalTasks,
     reflexFinalTasks,
     orderedCorrectedTasks,
