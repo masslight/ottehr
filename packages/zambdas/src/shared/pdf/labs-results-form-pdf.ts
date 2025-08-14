@@ -42,6 +42,7 @@ import {
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   OYSTEHR_OBR_NOTE_CODING_SYSTEM,
   OYSTEHR_OBS_CONTENT_TYPES,
+  PROJECT_NAME,
   quantityRangeFormat,
   Secrets,
   SupportedObsImgAttachmentTypes,
@@ -567,7 +568,7 @@ async function createLabsResultsFormPdfBytes(dataConfig: ResultDataConfig): Prom
   console.log(
     `Drawing location name. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
   );
-  pdfClient.drawText(`Ottehr${data.locationName || ''}`, textStyles.textBoldRight);
+  pdfClient.drawText(`${PROJECT_NAME ? PROJECT_NAME + ' ' : ''}${data.locationName || ''}`, textStyles.textBoldRight);
   pdfClient.newLine(STANDARD_NEW_LINE);
 
   const locationCityStateZip = `${data.locationCity?.toUpperCase() || ''}${data.locationCity ? ', ' : ''}${

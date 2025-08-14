@@ -1,15 +1,24 @@
 import { BatchInputPatchRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { Coverage, FhirResource, Location, Organization, Patient, Provenance, ServiceRequest } from 'fhir/r4b';
+import {
+  Bundle,
+  Coverage,
+  DocumentReference,
+  FhirResource,
+  Location,
+  Organization,
+  Patient,
+  Provenance,
+  ServiceRequest,
+  Task,
+} from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import {
   APIError,
   DYMO_30334_LABEL_CONFIG,
   EXTERNAL_LAB_ERROR,
-  FHIR_IDENTIFIER_NPI,
-  getFullestAvailableName,
   getPatchBinary,
   getPatientFirstName,
   getPatientLastName,
@@ -21,7 +30,6 @@ import {
   ORDER_NUMBER_LEN,
   ORDER_SUBMITTED_MESSAGE,
   OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
-  OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   SecretsKeys,
@@ -34,10 +42,13 @@ import {
   ZambdaInput,
 } from '../../shared';
 import { createExternalLabsLabelPDF, ExternalLabsLabelConfig } from '../../shared/pdf/external-labs-label-pdf';
-import { createExternalLabsOrderFormPDF } from '../../shared/pdf/external-labs-order-form-pdf';
-import { makeLabPdfDocumentReference } from '../../shared/pdf/labs-results-form-pdf';
 import { getExternalLabOrderResources } from '../shared/labs';
-import { AOEDisplayForOrderForm, createOrderNumber, populateQuestionnaireResponseItems } from './helpers';
+import {
+  AOEDisplayForOrderForm,
+  createOrderNumber,
+  handleOttehrOrderForm,
+  populateQuestionnaireResponseItems,
+} from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'submit-lab-order';
@@ -76,7 +87,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       practitioner: provider,
       questionnaireResponse,
       task,
-      appointment,
       encounter,
       schedule,
       organization: labOrganization,
@@ -94,16 +104,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const locationID = serviceRequest.locationReference?.[0].reference?.replace('Location/', '');
 
-    if (!appointment.id) {
-      throw EXTERNAL_LAB_ERROR('appointment id is undefined');
-    }
     if (!encounter.id) {
       throw EXTERNAL_LAB_ERROR('encounter id is undefined');
-    }
-    if (!serviceRequest.reasonCode) {
-      throw EXTERNAL_LAB_ERROR(
-        `Please ensure at least one diagnosis is recorded for this service request, ServiceRequest/${serviceRequest.id}, it should be recorded in serviceRequest.reasonCode`
-      );
     }
     if (!patient.id) {
       throw EXTERNAL_LAB_ERROR('patient id is undefined');
@@ -285,6 +287,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       });
     }
 
+    let eReqDocumentReference: DocumentReference | undefined;
     // submit to oystehr labs when NOT manual order
     if (!manualOrder) {
       console.log('calling oystehr submit lab');
@@ -298,11 +301,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           accountNumber: accountNumber,
         }),
       });
+      const submitLabRequestResponse = await submitLabRequest.json();
+      console.log('submitLabRequestResponse', submitLabRequestResponse);
 
       if (!submitLabRequest.ok) {
-        const submitLabRequestResponse = await submitLabRequest.json();
-        console.log('submitLabRequestResponse', submitLabRequestResponse);
         throw EXTERNAL_LAB_ERROR(submitLabRequestResponse.message || 'error submitting lab request to oystehr');
+      } else {
+        console.log('checking for eRequisitionDocumentReference');
+        if (submitLabRequestResponse?.eRequisitionDocumentReference) {
+          eReqDocumentReference = submitLabRequestResponse.eRequisitionDocumentReference;
+        }
       }
     }
 
@@ -352,7 +360,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     console.log('making fhir transaction requests');
-    await oystehr?.fhir.transaction({
+    const response = await oystehr?.fhir.transaction<ServiceRequest | Provenance | Task | Bundle>({
       requests: [
         getPatchBinary({
           resourceType: 'ServiceRequest',
@@ -395,22 +403,20 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       ],
     });
 
-    const serviceRequestTemp: ServiceRequest = await oystehr.fhir.get({
-      resourceType: 'ServiceRequest',
-      id: serviceRequestID,
+    let serviceRequestTemp: ServiceRequest | undefined;
+    response.entry?.forEach((bundleEntry) => {
+      console.log('bundleEntry', JSON.stringify(bundleEntry));
+      if (bundleEntry.resource?.resourceType === 'ServiceRequest') {
+        serviceRequestTemp = bundleEntry.resource;
+      }
     });
+    if (!serviceRequestTemp) throw new Error('Failed to get service request after update');
 
     const orderID = manualOrderId
       ? manualOrderId
       : serviceRequestTemp.identifier?.find((item) => item.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)?.value;
 
     console.log('orderID', serviceRequestID, orderID);
-
-    const orderCreateDate = serviceRequest.authoredOn
-      ? DateTime.fromISO(serviceRequest.authoredOn).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
-      : undefined;
-
-    const ORDER_ITEM_UNKNOWN = 'UNKNOWN';
 
     const mostRecentSampleCollectionDate =
       sampleCollectionDates.length > 0
@@ -419,80 +425,40 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           })
         : undefined;
 
-    // this is the same logic we use in oystehr to determine PV1-20
-    const coverageType = coverage?.type?.coding?.[0]?.code; // assumption: we'll use the first code in the list
-    const billClass = !coverage || coverageType === 'pay' ? 'Patient Bill (P)' : 'Third-Party Bill (T)';
-
-    console.log('creating external lab order form');
-    const orderFormPdfDetail = await createExternalLabsOrderFormPDF(
-      {
-        locationName: location?.name,
-        locationStreetAddress: location?.address?.line?.join(','),
-        locationCity: location?.address?.city,
-        locationState: location?.address?.state,
-        locationZip: location?.address?.postalCode,
-        locationPhone: location?.telecom?.find((t) => t.system === 'phone')?.value,
-        locationFax: location?.telecom?.find((t) => t.system === 'fax')?.value,
-        labOrganizationName: labOrganization?.name || ORDER_ITEM_UNKNOWN,
+    let orderFormUploadURL = '';
+    // if a eReq doc ref is returned then we should not create an ottehr order form
+    // but we should still create / return the label
+    if (eReqDocumentReference) {
+      console.log('eReqDocumentReference found so we will not create an ottehr order form');
+      orderFormUploadURL = eReqDocumentReference.content[0].attachment.url || '';
+    } else {
+      orderFormUploadURL = await handleOttehrOrderForm({
+        serviceRequest,
+        timezone,
+        coverage,
+        location,
+        labOrganization,
         accountNumber,
-        serviceRequestID: serviceRequest.id || ORDER_ITEM_UNKNOWN,
-        orderNumber: orderID || ORDER_ITEM_UNKNOWN,
-        providerName: getFullestAvailableName(provider) || ORDER_ITEM_UNKNOWN,
-        providerNPI: provider.identifier?.find((id) => id?.system === FHIR_IDENTIFIER_NPI)?.value,
-        patientFirstName: patient.name?.[0].given?.[0] || ORDER_ITEM_UNKNOWN,
-        patientMiddleName: patient.name?.[0].given?.[1],
-        patientLastName: patient.name?.[0].family || ORDER_ITEM_UNKNOWN,
-        patientSex: patient.gender || ORDER_ITEM_UNKNOWN,
-        patientDOB: patient.birthDate
-          ? DateTime.fromFormat(patient.birthDate, 'yyyy-MM-dd').toFormat('MM/dd/yyyy')
-          : ORDER_ITEM_UNKNOWN,
-        patientId: patient.id,
-        patientAddress: patient.address?.[0] ? oystehr.fhir.formatAddress(patient.address[0]) : ORDER_ITEM_UNKNOWN,
-        patientPhone: patient.telecom?.find((temp) => temp.system === 'phone')?.value || ORDER_ITEM_UNKNOWN,
-        todayDate: now.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT),
-        orderSubmitDate: now.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT),
-        orderCreateDateAuthoredOn: serviceRequest.authoredOn || '',
-        orderCreateDate: orderCreateDate || ORDER_ITEM_UNKNOWN,
-        sampleCollectionDate:
-          mostRecentSampleCollectionDate?.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT) || undefined,
-        billClass,
-        primaryInsuranceName: organization?.name,
-        primaryInsuranceAddress: organization?.address
-          ? oystehr.fhir.formatAddress(organization.address?.[0])
-          : undefined,
-        primaryInsuranceSubNum: coverage?.subscriberId,
-        insuredName: coveragePatient?.name ? oystehr.fhir.formatHumanName(coveragePatient.name[0]) : undefined,
-        insuredAddress: coveragePatient?.address ? oystehr.fhir.formatAddress(coveragePatient.address?.[0]) : undefined,
-        aoeAnswers: questionsAndAnswers,
-        orderName:
-          serviceRequest.code?.coding?.find((coding) => coding.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.display ||
-          ORDER_ITEM_UNKNOWN,
-        orderAssessments: serviceRequest.reasonCode?.map((code) => ({
-          code: code.coding?.[0].code || ORDER_ITEM_UNKNOWN,
-          name: code.text || ORDER_ITEM_UNKNOWN,
-        })),
-        orderPriority: serviceRequest.priority || ORDER_ITEM_UNKNOWN,
-        isManualOrder: manualOrder,
-        isPscOrder: isPSCOrder(serviceRequest),
-      },
-      patient.id,
-      secrets,
-      m2mToken
-    );
+        orderID,
+        provider,
+        patient,
+        oystehr,
+        now,
+        mostRecentSampleCollectionDate,
+        organization,
+        coveragePatient,
+        questionsAndAnswers,
+        manualOrder,
+        encounter,
+        secrets,
+        m2mToken,
+      });
+    }
 
-    console.log('making lab pdf document reference');
-    await makeLabPdfDocumentReference({
-      oystehr,
-      type: 'order',
-      pdfInfo: orderFormPdfDetail,
-      patientID: patient.id,
-      encounterID: encounter.id,
-      serviceRequestID: serviceRequest.id,
-    });
+    console.log('orderFormUploadURL', orderFormUploadURL);
+    const presignedOrderFormURL = await getPresignedURL(orderFormUploadURL, m2mToken);
 
-    const presignedOrderFormURL = await getPresignedURL(orderFormPdfDetail.uploadURL, m2mToken);
     let presignedLabelURL: string | undefined = undefined;
-
     if (!isPSCOrder(serviceRequest)) {
       const labelConfig: ExternalLabsLabelConfig = {
         labelConfig: DYMO_30334_LABEL_CONFIG,
