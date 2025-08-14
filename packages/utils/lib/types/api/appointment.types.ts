@@ -104,6 +104,24 @@ export interface UpdateAppointmentParameters {
   slot: Slot;
 }
 
+export interface CreateUploadAudioRecordingInput {
+  visitID: string;
+}
+
+export interface CreateUploadAudioRecordingOutput {
+  z3URL: string;
+  presignedUploadUrl: string;
+}
+
+export interface CreateResourcesFromAudioRecordingInput {
+  z3URL: string;
+  visitID: string;
+}
+
+export interface CreateResourcesFromAudioRecordingOutput {
+  presignedUploadUrl: string;
+}
+
 export interface UpdateAppointmentZambdaOutput {
   message: string;
   appointmentID?: string;
