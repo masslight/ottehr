@@ -9,6 +9,8 @@ import { OttehrInfraStack } from '../lib/ottehr-infra-stack';
 const app = new cdk.App();
 const projectConfig: any = config;
 const environment = projectConfig.environment;
+const stackSuffix = projectConfig.stack_suffix ? `-${projectConfig.stack_suffix}` : '';
+const awsProfile = projectConfig.aws_profile ?? 'ottehr';
 
 void (async () => {
   try {
@@ -20,14 +22,14 @@ void (async () => {
 })();
 
 async function setupDeploy(): Promise<void> {
-  const infra = new OttehrInfraStack(app, `ottehr-infra-stack-${environment}`);
-  new OttehrDataStack(app, `ottehr-data-stack-${environment}`, {
+  const infra = new OttehrInfraStack(app, `ottehr-infra-stack-${environment}${stackSuffix}`);
+  new OttehrDataStack(app, `ottehr-data-stack-${environment}${stackSuffix}`, {
     patientPortalBucket: infra.patientPortalBucket,
     ehrBucket: infra.ehrBucket,
   });
 }
 
 export async function getCloudFrontDistributions(): Promise<ListDistributionsCommandOutput> {
-  const cloudfrontClient = new CloudFrontClient({ region: 'us-east-1', credentials: fromIni({ profile: 'ottehr' }) });
+  const cloudfrontClient = new CloudFrontClient({ region: 'us-east-1', credentials: fromIni({ profile: awsProfile }) });
   return await cloudfrontClient.send(new ListDistributionsCommand({}));
 }
