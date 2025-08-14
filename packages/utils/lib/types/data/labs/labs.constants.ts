@@ -2,6 +2,9 @@
 import { Pagination } from '..';
 import { LabelConfig } from './labs.types';
 
+// for order form pdf (we might not want this idk)
+export const ORDER_ITEM_UNKNOWN = 'UNKNOWN';
+
 // recommended from Dorn as a good length (also matches the len currently used when oystehr sets the order number)
 export const ORDER_NUMBER_LEN = 20;
 
@@ -30,14 +33,6 @@ export const LAB_ORDER_DOC_REF_CODING_CODE = {
   system: 'http://loinc.org',
   code: '51991-8',
   display: 'Referral lab test panel',
-};
-
-const LAB_DOC_CATEGORY_CODING_SYSTEM = 'https://terminology.fhir.oystehr.com/CodeSystem/lab-documents';
-
-export const REQUISITION_DOC_CATEGORY_CODING = {
-  system: LAB_DOC_CATEGORY_CODING_SYSTEM,
-  code: 'lab-generated-requisition-document',
-  display: 'Lab Generated Requisition Document',
 };
 
 export const LAB_RESULT_DOC_REF_CODING_CODE = {
@@ -97,8 +92,14 @@ export const DYMO_30334_LABEL_CONFIG: LabelConfig = {
   printerDPI: DYMO_550_TURBO_DPI,
 };
 
-// for manual orders
-export const OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM = 'https://identifiers.ottehr.com/lab-order-placer-id';
+// to identify manual orders (orders we could not submit electronically for some reason)
+// mapped to SR.category.coding.system
+export const MANUAL_EXTERNAL_LAB_ORDER_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/manual-lab-order';
+export const MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING = {
+  system: MANUAL_EXTERNAL_LAB_ORDER_SYSTEM,
+  code: 'manual-lab-order',
+  display: 'manual-lab-order',
+};
 
 // These are oystehr dependent
 // meaning that there is logic in oystehr labs specifically looking for these systems
@@ -129,6 +130,7 @@ export const OYSTEHR_OBR_NOTE_CODING_SYSTEM = 'https://identifiers.fhir.oystehr.
 export const OYSTEHR_LAB_API_BASE = 'https://labs-api.zapehr.com/v1';
 
 export const OYSTEHR_LAB_ORDERABLE_ITEM_SEARCH_API = `${OYSTEHR_LAB_API_BASE}/orderableItem`;
+export const OYSTEHR_SUBMIT_LAB_API = `${OYSTEHR_LAB_API_BASE}/submit`;
 
 export const DEFAULT_LABS_ITEMS_PER_PAGE = 10;
 
@@ -145,15 +147,15 @@ export const PROVENANCE_ACTIVITY_CODES = {
   submit: 'SUBMIT',
   createOrder: 'CREATE ORDER',
   inputResults: 'INPUT RESULTS',
-  collectSpecimen: 'COLLECT SPECIMEN',
+  completePstTask: 'COMPLETE PST TASK',
 } as const;
 
 export const PROVENANCE_ACTIVITY_DISPLAY = {
   review: 'review',
   submit: 'submit',
   createOrder: 'create order',
-  collectSpecimen: 'collect sample',
   inputResults: 'input results',
+  completePstTask: 'complete pst task',
 } as const;
 
 export const PROVENANCE_ACTIVITY_CODING_ENTITY = {
@@ -177,9 +179,10 @@ export const PROVENANCE_ACTIVITY_CODING_ENTITY = {
     display: PROVENANCE_ACTIVITY_CODES.inputResults,
     system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
   },
-  collectSpecimen: {
-    code: PROVENANCE_ACTIVITY_CODES.collectSpecimen,
-    display: PROVENANCE_ACTIVITY_DISPLAY.collectSpecimen,
+  // specimen collection & aoe entry if applicable
+  completePstTask: {
+    code: PROVENANCE_ACTIVITY_CODES.completePstTask,
+    display: PROVENANCE_ACTIVITY_DISPLAY.completePstTask,
     system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
   },
 } as const;
