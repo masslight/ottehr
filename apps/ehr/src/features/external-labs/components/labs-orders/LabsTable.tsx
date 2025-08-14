@@ -253,7 +253,7 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
       case 'resultsReceived':
         return 'Results received';
       case 'accessionNumber':
-        return 'Accession #';
+        return 'Accession Number';
       case 'requisitionNumber':
         return 'Requisition Number';
       case 'status':
@@ -447,7 +447,11 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
           </LoadingButton>
         </Box>
       )}
-      {error && <Typography color="error">{error}</Typography>}
+      {error && (
+        <Typography sx={{ textAlign: 'right', mt: 1 }} color="error">
+          {error}
+        </Typography>
+      )}
       {failedOrderNumbers && (
         <CustomDialog
           open={errorDialogOpen}

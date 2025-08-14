@@ -36,7 +36,9 @@ export async function createExternalLabsOrderFormPDF(
   const bucketName = 'visit-notes';
   const fileName = `ExternalLabsOrderForm-${
     input.labOrganizationName ? getLabFileName(input.labOrganizationName) + '-' : ''
-  }-${DateTime.fromISO(input.dateIncludedInFileName).toFormat('yyyy-MM-dd')}-${input.orderPriority}.pdf`;
+  }-${DateTime.fromISO(input.dateIncludedInFileName).toFormat('yyyy-MM-dd')}-${input.orderNumber}-${
+    input.orderPriority
+  }.pdf`;
   console.log('Creating base file url');
   const baseFileUrl = makeZ3Url({ secrets, fileName, bucketName, patientID });
   console.log('Uploading file to bucket');
@@ -315,14 +317,14 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabOrderFormDat
 }
 
 export function getOrderFormDataConfig(
-  accountNumber: string,
+  orderNumber: string,
   resources: resourcesForOrderForm,
   now: DateTime<true>,
   oystehr: Oystehr
 ): ExternalLabOrderFormData {
   const {
     testDetails,
-    orderNumber,
+    accountNumber,
     labOrganization,
     provider,
     patient,

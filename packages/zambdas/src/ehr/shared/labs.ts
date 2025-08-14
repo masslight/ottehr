@@ -587,7 +587,7 @@ export const populateQuestionnaireResponseItems = async (
   m2mToken: string
 ): Promise<{
   questionnaireResponseItems: QuestionnaireResponseItem[];
-  questionsAndAnswersForFormDisplay: AOEDisplayForOrderForm[];
+  questionsAndAnswersForFormDisplay: AOEDisplayForOrderForm[]; // we may not need this anymore
 }> => {
   const questionnaireUrl = questionnaireResponse.questionnaire;
 

@@ -24,7 +24,7 @@ import {
   getBundledOrderResources,
   makeOrderFormsAndDocRefs,
   makeProvenanceResourceRequest,
-  OrderResourcesByAccountNumber,
+  OrderResourcesByOrderNumber,
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -52,7 +52,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const now = DateTime.now();
 
     console.log('getting resources needed for submit lab');
-    const bundledOrdersByAccountNumber = await getBundledOrderResources(
+    const bundledOrdersByOrderNumber = await getBundledOrderResources(
       oystehr,
       m2mToken,
       serviceRequestIDs,
@@ -60,21 +60,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     );
     console.log('successfully retrieved resources');
 
-    console.log('bundledOrdersByAccountNumber', JSON.stringify(bundledOrdersByAccountNumber));
-
     // submit to oystehr labs when NOT manual order
-    const successfulBundledOrders: OrderResourcesByAccountNumber = {};
-    const failedBundledOrders: OrderResourcesByAccountNumber = {};
+    const successfulBundledOrders: OrderResourcesByOrderNumber = {};
+    const failedBundledOrders: OrderResourcesByOrderNumber = {};
     if (!manualOrder) {
       console.log('calling oystehr submit lab');
 
-      const submitLabPromises = Object.entries(bundledOrdersByAccountNumber).map(async ([accountNumber, resources]) => {
-        if (accountNumber.startsWith('psc-')) return { status: 'fulfilled', accountNumber };
+      const submitLabPromises = Object.entries(bundledOrdersByOrderNumber).map(async ([orderNumber, resources]) => {
+        if (resources.isPscOrder) return { status: 'fulfilled', orderNumber, isPsc: true };
         try {
           const params = {
             serviceRequest: resources.testDetails.map((test) => `ServiceRequest/${test.serviceRequestID}`),
-            accountNumber: accountNumber,
-            orderNumber: resources.orderNumber,
+            accountNumber: resources.accountNumber,
+            orderNumber: orderNumber,
           };
           console.log('params being sent to oystehr submit lab', JSON.stringify(params));
           const res = await fetch(OYSTEHR_SUBMIT_LAB_API, {
@@ -87,40 +85,37 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
           if (!res.ok) {
             const body = await res.json();
-            throw new Error(`Error submitting for account number: ${accountNumber}. Error: ${body.message}`);
+            throw new Error(`Error submitting order number: ${orderNumber}. Error: ${body.message}`);
           }
 
           const result = await res.json();
           const eReq: DocumentReference | undefined = result?.eRequisitionDocumentReference;
-          return { status: 'fulfilled', accountNumber, eReqDocumentReference: eReq };
+          return { status: 'fulfilled', orderNumber, eReqDocumentReference: eReq };
         } catch (e) {
-          return { status: 'rejected', accountNumber, reason: (e as Error).message };
+          return { status: 'rejected', orderNumber, reason: (e as Error).message };
         }
       });
 
       const submitLabResults = await Promise.all(submitLabPromises);
-      console.log('submitLabResults', submitLabResults);
 
       for (const res of submitLabResults) {
         if (res.status === 'fulfilled') {
-          const resources = bundledOrdersByAccountNumber[res.accountNumber];
+          const resources = bundledOrdersByOrderNumber[res.orderNumber];
           if (res.eReqDocumentReference) {
-            console.log(
-              `eReq generated for order ${resources.orderNumber} - docRef id: ${res.eReqDocumentReference.id}`
-            );
-            successfulBundledOrders[res.accountNumber] = { ...resources, labGeneratedEReq: res.eReqDocumentReference };
+            console.log(`eReq generated for order ${res.orderNumber} - docRef id: ${res.eReqDocumentReference.id}`);
+            successfulBundledOrders[res.orderNumber] = { ...resources, labGeneratedEReq: res.eReqDocumentReference };
           } else {
-            successfulBundledOrders[res.accountNumber] = { ...resources };
+            successfulBundledOrders[res.orderNumber] = { ...resources };
           }
         } else if (res.status === 'rejected') {
           console.log('rejected result', res);
-          const resources = bundledOrdersByAccountNumber[res.accountNumber];
-          failedBundledOrders[res.accountNumber] = resources;
+          const resources = bundledOrdersByOrderNumber[res.orderNumber];
+          failedBundledOrders[res.orderNumber] = resources;
         }
       }
     } else {
-      Object.entries(bundledOrdersByAccountNumber).forEach(([accountNumber, resources]) => {
-        successfulBundledOrders[accountNumber] = resources;
+      Object.entries(bundledOrdersByOrderNumber).forEach(([orderNumber, resources]) => {
+        successfulBundledOrders[orderNumber] = resources;
       });
     }
 
@@ -173,7 +168,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const hasFailures = Object.keys(failedBundledOrders).length > 0;
     const failedOrdersByOrderNumber = hasFailures
-      ? Object.values(failedBundledOrders).map((resources) => resources.orderNumber)
+      ? Object.keys(failedBundledOrders).map((orderNumber) => orderNumber)
       : undefined;
 
     const responseBody: SubmitLabOrderOutput = { orderPdfUrls, failedOrdersByOrderNumber };

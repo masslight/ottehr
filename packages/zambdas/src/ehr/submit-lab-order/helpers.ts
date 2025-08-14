@@ -35,7 +35,6 @@ export const LABS_DATE_STRING_FORMAT = 'MM/dd/yyyy hh:mm a ZZZZ';
 
 type LabOrderResourcesExtended = LabOrderResources & {
   accountNumber: string;
-  orderNumber: string; // aka requisition number
   encounter: Encounter;
   mostRecentSampleCollectionDate?: DateTime<true>;
   timezone?: string;
@@ -60,7 +59,7 @@ export type resourcesForOrderForm = {
   isManualOrder: boolean;
   isPscOrder: boolean;
   testDetails: testDataForOrderForm[];
-  orderNumber: string;
+  accountNumber: string;
   labOrganization: Organization;
   provider: Practitioner;
   patient: Patient;
@@ -72,8 +71,8 @@ export type resourcesForOrderForm = {
   labGeneratedEReq?: DocumentReference; // will be assigned after submit to oystehr labs IF applicable (right now only for labcorp & quest)
 };
 
-export type OrderResourcesByAccountNumber = {
-  [accountNumber: string]: resourcesForOrderForm;
+export type OrderResourcesByOrderNumber = {
+  [orderNumber: string]: resourcesForOrderForm;
 };
 
 export async function getBundledOrderResources(
@@ -81,13 +80,16 @@ export async function getBundledOrderResources(
   m2mToken: string, // needed to get questionnaire via the qr.questionnaire url
   serviceRequestIDs: string[],
   isManualOrder: boolean
-): Promise<OrderResourcesByAccountNumber> {
+): Promise<OrderResourcesByOrderNumber> {
   const promises = serviceRequestIDs.map((serviceRequestID) =>
     getExternalLabOrderResources(oystehr, serviceRequestID).then((result) => ({ serviceRequestID, result }))
   );
-  const results = await Promise.all(promises);
+  const results = await Promise.all(promises).catch((e) => {
+    console.log('error getting getting external lab resources', e);
+    throw e;
+  });
 
-  const bundledOrders: { [accountNumber: string]: string[] } = {};
+  const bundledOrders: { [orderNumber: string]: string[] } = {};
   const resourcesByServiceRequest: { [serviceRequestID: string]: LabOrderResourcesExtended } = {};
 
   const locationPromises: Array<Promise<{ serviceRequestID: string; location?: Location }>> = [];
@@ -116,19 +118,18 @@ export async function getBundledOrderResources(
     const aoeAnswerPromise = makeQuestionnairePromise(serviceRequestID, questionnaireResponse, m2mToken);
     aoeAnswerPromises.push(aoeAnswerPromise);
 
-    const isPSC = isPSCOrder(result.serviceRequest);
-
-    const accountNumberForLab = `${isPSC ? `psc-` : ''}${getAccountNumberFromOrganization(result.labOrganization)}`;
-    if (!accountNumberForLab) throw Error(`Lab organization is missing account number ${result.labOrganization.id}`);
-    if (bundledOrders[accountNumberForLab]) {
-      bundledOrders[accountNumberForLab].push(serviceRequestID);
-    } else {
-      bundledOrders[accountNumberForLab] = [serviceRequestID];
-    }
-
-    const timezone = result.schedule ? getTimezone(result.schedule) : undefined;
     const orderNumber = getOrderNumber(result.serviceRequest);
     if (!orderNumber) throw Error(`ServiceRequest is missing an order number, ${result.serviceRequest}`);
+    if (bundledOrders[orderNumber]) {
+      bundledOrders[orderNumber].push(serviceRequestID);
+    } else {
+      bundledOrders[orderNumber] = [serviceRequestID];
+    }
+
+    const accountNumberForLab = getAccountNumberFromOrganization(result.labOrganization);
+    if (!accountNumberForLab) throw Error(`Lab organization is missing account number ${result.labOrganization.id}`);
+
+    const timezone = result.schedule ? getTimezone(result.schedule) : undefined;
 
     const sampleCollectionDate = getMostRecentCollectionDate(result.specimens)?.setZone(timezone);
     const sampleCollectionDateFormatted = sampleCollectionDate?.isValid ? sampleCollectionDate : undefined;
@@ -136,7 +137,6 @@ export async function getBundledOrderResources(
     resourcesByServiceRequest[serviceRequestID] = {
       ...result,
       accountNumber: accountNumberForLab,
-      orderNumber,
       mostRecentSampleCollectionDate: sampleCollectionDateFormatted,
       timezone,
     };
@@ -173,8 +173,8 @@ export async function getBundledOrderResources(
     };
   });
 
-  const bundledOrderResources: OrderResourcesByAccountNumber = {};
-  Object.entries(bundledOrders).forEach(([accountNumber, serviceRequestIDs]) => {
+  const bundledOrderResources: OrderResourcesByOrderNumber = {};
+  Object.entries(bundledOrders).forEach(([orderNumber, serviceRequestIDs]) => {
     serviceRequestIDs.forEach((srID) => {
       const allResources = resourcesByServiceRequest[srID];
       const serviceRequest = allResources.serviceRequest;
@@ -183,16 +183,16 @@ export async function getBundledOrderResources(
       const srTestDetail = getTestDataForOrderForm(serviceRequest, aoeAnswers, sampleCollectionDate);
       const isPscOrder = isPSCOrder(serviceRequest);
 
-      if (bundledOrderResources[accountNumber]) {
-        bundledOrderResources[accountNumber].testDetails.push(srTestDetail);
+      if (bundledOrderResources[orderNumber]) {
+        bundledOrderResources[orderNumber].testDetails.push(srTestDetail);
       } else {
         // oystehr labs will validate that all these resources match for each ServiceRequest submitted within
         // a bundled order so there is no need for us to do that validation here, we will just take the resources from the first ServiceRequest for that bundle
-        bundledOrderResources[accountNumber] = {
+        bundledOrderResources[orderNumber] = {
           isManualOrder,
           isPscOrder,
           testDetails: [srTestDetail],
-          orderNumber: allResources.orderNumber,
+          accountNumber: allResources.accountNumber,
           encounter: allResources.encounter,
           labOrganization: allResources.labOrganization,
           provider: allResources.practitioner,
@@ -293,34 +293,36 @@ function makeQuestionnairePromise(
     .then((questionnaire) => {
       const fhirQuestionnaire = questionnaire as Questionnaire;
       console.log('fhirQuestionnaire', fhirQuestionnaire);
-      const questionsAndAnswers = answers.map((qrItem) => {
-        const question = fhirQuestionnaire.item?.find((item) => item.linkId === qrItem.linkId);
+      const questionsAndAnswers = answers
+        .map((qrItem) => {
+          const question = fhirQuestionnaire.item?.find((item) => item.linkId === qrItem.linkId);
 
-        if (!question) throw Error(`question is not found on the questionnaire, link id: ${qrItem.linkId}`);
-        let answerDisplay: string | undefined;
+          if (!question) throw Error(`question is not found on the questionnaire, link id: ${qrItem.linkId}`);
+          let answerDisplay: string | undefined;
 
-        if (question.type === 'text' || question.type === 'choice') {
-          answerDisplay = qrItem.answer?.map((answerString) => answerString.valueString).join(', ');
-        }
-        if (question.type === 'boolean') {
-          answerDisplay = qrItem.answer?.[0].valueBoolean === false ? 'No' : 'Yes';
-        }
-        if (question.type === 'date') {
-          answerDisplay = qrItem.answer?.[0].valueDate;
-        }
-        if (question.type === 'decimal') {
-          answerDisplay = qrItem.answer?.[0].valueDecimal?.toString();
-        }
-        if (question.type === 'integer') {
-          answerDisplay = qrItem.answer?.[0].valueInteger?.toString();
-        }
+          if (question.type === 'text' || question.type === 'choice') {
+            answerDisplay = qrItem.answer?.map((answerString) => answerString.valueString).join(', ');
+          }
+          if (question.type === 'boolean') {
+            answerDisplay = qrItem.answer?.[0].valueBoolean === false ? 'No' : 'Yes';
+          }
+          if (question.type === 'date') {
+            answerDisplay = qrItem.answer?.[0].valueDate;
+          }
+          if (question.type === 'decimal') {
+            answerDisplay = qrItem.answer?.[0].valueDecimal?.toString();
+          }
+          if (question.type === 'integer') {
+            answerDisplay = qrItem.answer?.[0].valueInteger?.toString();
+          }
 
-        const questionDisplay = question.text;
-        if (!questionDisplay || !answerDisplay) {
-          throw Error(`question or answer is missing: ${questionDisplay} ${answerDisplay}`);
-        }
-        return { question: questionDisplay, answer: [answerDisplay] };
-      });
+          const questionDisplay = question.text;
+          if (!questionDisplay || !answerDisplay) {
+            return null;
+          }
+          return { question: questionDisplay, answer: [answerDisplay] };
+        })
+        .filter((item): item is { question: string; answer: string[] } => !!item);
 
       return { serviceRequestID, questionsAndAnswers };
     });
@@ -399,13 +401,14 @@ export function makeProvenanceResourceRequest(
 }
 
 export async function makeOrderFormsAndDocRefs(
-  input: OrderResourcesByAccountNumber,
+  input: OrderResourcesByOrderNumber,
   now: DateTime<true>,
   secrets: Secrets | null,
   token: string,
   oystehr: Oystehr
 ): Promise<string[]> {
-  const orderFormPromises = Object.entries(input).map(async ([accountNumber, resources]) => {
+  const orderFormPromises = Object.entries(input).map(async ([orderNumber, resources]) => {
+    console.log('making form order for', orderNumber);
     const patientId = resources.patient.id;
     const encounterId = resources.encounter.id;
     const serviceRequestIds = resources.testDetails.map((detail) => detail.serviceRequestID);
@@ -417,7 +420,7 @@ export async function makeOrderFormsAndDocRefs(
     if (resources.labGeneratedEReq) {
       labGeneratedEReqUrl = resources.labGeneratedEReq.content[0].attachment.url || '';
     } else {
-      const orderFormDataConfig = getOrderFormDataConfig(accountNumber, resources, now, oystehr);
+      const orderFormDataConfig = getOrderFormDataConfig(orderNumber, resources, now, oystehr);
       pdfInfo = await createExternalLabsOrderFormPDF(orderFormDataConfig, patientId, secrets, token);
     }
 
