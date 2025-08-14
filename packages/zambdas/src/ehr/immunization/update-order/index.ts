@@ -8,6 +8,7 @@ import {
   mapFhirToOrderStatus,
   mapOrderStatusToFhir,
   MEDICATION_ADMINISTRATION_REASON_CODE,
+  ottehrExtensionUrl,
   UpdateImmunizationOrderInput,
 } from 'utils';
 import {
@@ -25,6 +26,8 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'create-immunization-order';
 const MVX_CODE_SYSTEM_URL = 'http://hl7.org/fhir/sid/mvx';
 const CVX_CODE_SYSTEM_URL = 'http://hl7.org/fhir/sid/cvx';
+const VACCINE_ADMINISTRATION_CODES_EXTENSION_URL = ottehrExtensionUrl('vaccine-administration-codes');
+const VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL = ottehrExtensionUrl('vaccine-administration-vis_date');
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -91,26 +94,26 @@ async function updateImmunizationOrder(
       medication.extension = [];
     }
     medication.extension.push({
-      url: 'vaccine-administration-data', // todo
+      url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
       valueCodeableConcept: codeableConcept(administering.mvx, MVX_CODE_SYSTEM_URL),
     });
     medication.extension.push({
-      url: 'vaccine-administration-data', // todo
+      url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
       valueCodeableConcept: codeableConcept(administering.cvx, CVX_CODE_SYSTEM_URL),
     });
     medication.extension.push({
-      url: 'vaccine-administration-data', // todo
+      url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
       valueCodeableConcept: codeableConcept(administering.ndc, CODE_SYSTEM_NDC),
     });
     if (administering.cpt) {
       medication.extension.push({
-        url: 'vaccine-administration-data', // todo
+        url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
         valueCodeableConcept: codeableConcept(administering.cpt, CODE_SYSTEM_CPT),
       });
     }
     if (administering.visGivenDate) {
       medication.extension.push({
-        url: 'visGivenDate', // todo
+        url: VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL,
         valueDate: administering.visGivenDate,
       });
     }
