@@ -6,6 +6,7 @@ import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import {
   FHIR_RESOURCE_NOT_FOUND,
+  GENERIC_STRIPE_PAYMENT_ERROR,
   getSecret,
   getStripeCustomerIdFromAccount,
   INVALID_INPUT_ERROR,
@@ -14,6 +15,7 @@ import {
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   NOT_AUTHORIZED,
+  parseStripeError,
   PAYMENT_METHOD_EXTENSION_URL,
   PostPatientPaymentInput,
   Secrets,
@@ -118,7 +120,7 @@ const performEffect = async (
   const { encounterId, paymentDetails, organizationId, userProfile } = input;
   const { paymentMethod, amountInCents, description } = paymentDetails;
   const dateTimeIso = DateTime.now().toISO() || '';
-  let paymentIntent: Stripe.PaymentIntent | undefined;
+  let paymentIntent: Stripe.Response<Stripe.PaymentIntent> | undefined;
   console.log('dateTimeIso', dateTimeIso);
   const paymentNoticeInput: PaymentNoticeInput = {
     encounterId,
@@ -147,12 +149,14 @@ const performEffect = async (
         allow_redirects: 'never',
       },
     };
-    paymentIntent = await stripeClient.paymentIntents.create(paymentIntentInput);
-
-    if (paymentIntent.status !== 'succeeded') {
-      throw new Error(`The card payment was not successful. Try a different card`);
+    try {
+      paymentIntent = await stripeClient.paymentIntents.create(paymentIntentInput);
+    } catch (e) {
+      throw parseStripeError(e);
     }
-
+    if (paymentIntent.status !== 'succeeded') {
+      throw GENERIC_STRIPE_PAYMENT_ERROR;
+    }
     paymentNoticeInput.stripePaymentIntentId = paymentIntent.id;
 
     console.log('Payment Intent created:', JSON.stringify(paymentIntent, null, 2));
