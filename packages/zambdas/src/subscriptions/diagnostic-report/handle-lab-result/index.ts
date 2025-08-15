@@ -33,10 +33,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     const isUnsolicited = diagnosticReportIsUnsolicited(diagnosticReport);
-    console.log('isUnsolicited', isUnsolicited);
     const serviceRequestID = diagnosticReport?.basedOn
       ?.find((temp) => temp.reference?.startsWith('ServiceRequest/'))
       ?.reference?.split('/')[1];
+
+    console.log('isUnsolicited:', isUnsolicited);
+    console.log('diagnosticReport: ', diagnosticReport.id);
+    console.log('serviceRequestID:', serviceRequestID);
+
     if (!serviceRequestID && !isUnsolicited) {
       throw new Error('ServiceRequest id is not found');
     }
