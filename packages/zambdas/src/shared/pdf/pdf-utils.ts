@@ -2,6 +2,7 @@ import fontkit from '@pdf-lib/fontkit';
 import { DocumentReference } from 'fhir/r4b';
 import fs from 'fs';
 import { Color, PDFDocument, PDFFont, PDFImage, PDFPage, rgb, StandardFonts } from 'pdf-lib';
+import { SupportedObsImgAttachmentTypes } from 'utils';
 import { PDF_CLIENT_STYLES, STANDARD_FONT_SIZE, STANDARD_FONT_SPACING, Y_POS_GAP } from './pdf-consts';
 import { ImageStyle, LineStyle, PageStyles, PdfClient, PdfClientStyles, TextStyle } from './types';
 
@@ -99,7 +100,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     console.log('\nAdding new page');
     console.log(`currentPageIndex is ${currentPageIndex} of ${pages.length} pages`);
     let addedBrandNewPage = false;
-    // figure out if we just need to run on to a pre-exsiting page or truly add a new one
+    // figure out if we just need to run on to a pre-existing page or truly add a new one
     if (currentPageIndex !== undefined && currentPageIndex < pages.length - 1) {
       console.log('Current page is not the last page. Setting page to the next page');
       page = pages[currentPageIndex + 1];
@@ -271,7 +272,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       });
 
       // Move to the next line and reset x position
-      newLine(lineHeight + spacing);
+      newLine(lineHeight);
 
       // Recursively call the function with the remaining text
       drawTextSequential(remainingText, textStyle, bounds);
@@ -376,6 +377,49 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     return await pdfDoc.embedPng(new Uint8Array(file));
   };
 
+  const embedPdfFromBase64 = async (base64String: string): Promise<void> => {
+    console.log('decoding base64');
+    const byteArray = Uint8Array.from(atob(base64String), (c) => c.charCodeAt(0));
+    console.log('embedding PDF bytes');
+    const embeddedPages = await pdfDoc.embedPdf(byteArray);
+    for (const embeddedPage of embeddedPages) {
+      const page = pdfDoc.addPage([embeddedPage.width, embeddedPage.height]);
+      page.drawPage(embeddedPage, {
+        x: 0,
+        y: 0,
+        width: embeddedPage.width,
+        height: embeddedPage.height,
+      });
+    }
+  };
+
+  const embedImageFromBase64 = async (base64String: string, imgType: SupportedObsImgAttachmentTypes): Promise<void> => {
+    console.log('decoding base64');
+    const byteArray = Uint8Array.from(atob(base64String), (c) => c.charCodeAt(0));
+    console.log(`embedding ${imgType} IMG bytes`);
+    const image = imgType === 'PNG' ? await pdfDoc.embedPng(byteArray) : await pdfDoc.embedJpg(byteArray);
+    const page = pdfDoc.addPage();
+
+    const { width: pageWidth, height: pageHeight } = page.getSize();
+    const { width: imgWidth, height: imgHeight } = image;
+
+    const DEFAULT_MARGIN = 25;
+    const ITEM_WIDTH = pageWidth - DEFAULT_MARGIN * 2;
+    const IMAGE_MAX_HEIGHT = pageHeight - pageHeight * 0.25; // basically saying, never take up the whole page height wise
+    const scale = Math.max(image.width / ITEM_WIDTH, image.height / IMAGE_MAX_HEIGHT);
+    // if its larger, it will be scaled down else it will keep its original dimensions
+    const drawWidth = scale > 1 ? image.width / scale : image.width;
+    const drawHeight = scale > 1 ? image.height / scale : image.height;
+
+    console.log('drawing the image attachment on a new page', imgWidth, imgHeight);
+    page.drawImage(image, {
+      x: DEFAULT_MARGIN,
+      y: pageHeight - drawHeight - DEFAULT_MARGIN,
+      width: drawWidth,
+      height: drawHeight,
+    });
+  };
+
   const drawSeparatedLine = (lineStyle: LineStyle): void => {
     const startX = pageLeftBound + (lineStyle.margin?.left ?? 0);
     const endX = pageRightBound - (lineStyle.margin?.right ?? 0);
@@ -422,12 +466,12 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       }
     }
 
-    // now just write the columns, and make sure they don't bleed into other columns
+    // theres a bug here related to line break within earlier columns
     columns.forEach((col) => {
       console.log(`\n\n>>>Drawing column for ${JSON.stringify({ ...col, textStyle: undefined })}`);
       // if a new page got added on a previous column, we need the next column to go back to the previous page
       // continue writing, and if that column needs to run onto a new page, it needs to run onto the pre-existing new page
-      console.log(`Starting columb on page index ${startPageIndex}`);
+      console.log(`Starting column on page index ${startPageIndex}`);
       currentPageIndex = startPageIndex;
 
       console.log(`yPosStartOfColumn is ${yPosStartOfColumn}. Current yPos is ${currYPos}`);
@@ -459,6 +503,8 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     embedFont,
     embedStandardFont,
     embedImage,
+    embedPdfFromBase64,
+    embedImageFromBase64,
     drawSeparatedLine,
     getLeftBound,
     getRightBound,

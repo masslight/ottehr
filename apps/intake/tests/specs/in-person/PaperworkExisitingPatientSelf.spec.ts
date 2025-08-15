@@ -94,6 +94,7 @@ test.describe('Check paperwork is prefilled for existing patient. Payment - card
     await expect(locator.responsiblePartyNumber).toHaveValue(
       paperwork.formatPhoneNumber(process.env.PHONE_NUMBER || '')
     );
+    await expect(locator.responsiblePartyEmail).toHaveValue(bookingData.email);
   });
   test('IPPPS-2 Check Payment screen does not have preselected card option', async () => {
     await page.goto(`paperwork/${appointmentIds[1]}/payment-option`);

@@ -22,6 +22,7 @@ export enum Field {
   DEMO_VISIT_RESPONSIBLE_LAST_NAME,
   DEMO_VISIT_RESPONSIBLE_BIRTHDATE,
   DEMO_VISIT_RESPONSIBLE_PHONE,
+  DEMO_VISIT_RESPONSIBLE_EMAIL,
   DEMO_VISIT_PROVIDER_FIRST_NAME,
   DEMO_VISIT_PROVIDER_LAST_NAME,
   DEMO_VISIT_PRACTICE_NAME,
@@ -50,6 +51,7 @@ const FIELD_TO_TEST_ID = new Map<Field, string>()
   .set(Field.DEMO_VISIT_RESPONSIBLE_LAST_NAME, dataTestIds.responsiblePartyInformationContainer.lastName)
   .set(Field.DEMO_VISIT_RESPONSIBLE_BIRTHDATE, dataTestIds.responsiblePartyInformationContainer.dateOfBirthDropdown)
   .set(Field.DEMO_VISIT_RESPONSIBLE_PHONE, dataTestIds.responsiblePartyInformationContainer.phoneInput)
+  .set(Field.DEMO_VISIT_RESPONSIBLE_EMAIL, dataTestIds.responsiblePartyInformationContainer.emailInput)
   .set(Field.DEMO_VISIT_POINT_OF_DISCOVERY, dataTestIds.patientDetailsContainer.sendMarketingMessages)
   .set(Field.DEMO_VISIT_PREFERRED_LANGUAGE, dataTestIds.patientDetailsContainer.preferredLanguage)
   .set(Field.DEMO_VISIT_PROVIDER_FIRST_NAME, dataTestIds.primaryCarePhysicianContainer.firstName)
@@ -187,7 +189,7 @@ export class PatientInformationPage {
 
   async selectPatientBirthSex(birthSex: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.patientInformationContainer.patientBirthSex).click();
-    await this.#page.getByText(birthSex, { exact: true }).click();
+    await this.#page.locator('li').getByText(birthSex, { exact: true }).click();
   }
 
   async verifyPatientBirthSex(patientBirthSex: string): Promise<void> {
@@ -325,7 +327,7 @@ export class PatientInformationPage {
 
   async selectPatientEthnicity(patientEthnicity: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.patientDetailsContainer.patientsEthnicity).click();
-    await this.#page.getByText(patientEthnicity, { exact: true }).click();
+    await this.#page.locator('li').getByText(patientEthnicity, { exact: true }).click();
   }
 
   async verifyPatientEthnicity(patientEthnicity: string): Promise<void> {
@@ -334,9 +336,9 @@ export class PatientInformationPage {
     ).toHaveValue(patientEthnicity);
   }
 
-  async selectPatientRace(patientEthnicity: string): Promise<void> {
+  async selectPatientRace(patientRace: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.patientDetailsContainer.patientsRace).click();
-    await this.#page.getByText(patientEthnicity, { exact: true }).click();
+    await this.#page.locator('li').getByText(patientRace, { exact: true }).click();
   }
 
   async verifyPatientRace(patientRace: string): Promise<void> {
@@ -391,7 +393,7 @@ export class PatientInformationPage {
 
   async selectGenderIdentity(genderIdentity: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.patientDetailsContainer.genderIdentity).click();
-    await this.#page.getByText(genderIdentity, { exact: true }).click();
+    await this.#page.locator('li').getByText(genderIdentity, { exact: true }).click();
   }
 
   async verifyGenderIdentity(genderIdentity: string): Promise<void> {
@@ -432,7 +434,7 @@ export class PatientInformationPage {
 
   async selectRelationshipFromResponsibleContainer(relationship: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.relationshipDropdown).click();
-    await this.#page.getByText(relationship, { exact: true }).click();
+    await this.#page.locator('li').getByText(relationship, { exact: true }).click();
   }
 
   async verifyRelationshipFromResponsibleContainer(relationship: string): Promise<void> {
@@ -536,10 +538,24 @@ export class PatientInformationPage {
   }
 
   async clearPhoneFromResponsibleContainer(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.phoneInput).locator('input').click();
-    for (let i = 0; i <= 20; i++) {
-      await this.#page.keyboard.press('Backspace');
-    }
+    await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.phoneInput).locator('input').clear();
+  }
+
+  async enterEmailFromResponsibleContainer(email: string): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.responsiblePartyInformationContainer.emailInput)
+      .locator('input')
+      .fill(email);
+  }
+
+  async verifyEmailFromResponsibleContainer(email: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.emailInput).locator('input')
+    ).toHaveValue(email);
+  }
+
+  async clearEmailFromResponsibleContainer(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.emailInput).locator('input').clear();
   }
 
   async enterStreetLine1FromResponsibleContainer(line1: string): Promise<void> {
@@ -559,10 +575,7 @@ export class PatientInformationPage {
     await this.#page
       .getByTestId(dataTestIds.responsiblePartyInformationContainer.addressLine1)
       .locator('input')
-      .click();
-    for (let i = 0; i <= 20; i++) {
-      await this.#page.keyboard.press('Backspace');
-    }
+      .clear();
   }
 
   async enterResponsiblePartyCity(city: string): Promise<void> {

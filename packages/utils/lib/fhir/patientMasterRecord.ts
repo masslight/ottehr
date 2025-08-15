@@ -75,6 +75,7 @@ export const patientFieldPaths = {
   responsiblePartyGender: 'Patient/contact/0/gender',
   responsiblePartyBirthDate: 'Patient/contact/0/extension/0/valueString',
   responsiblePartyPhone: 'Patient/contact/0/telecom/0/value',
+  responsiblePartyEmail: 'Patient/contact/0/telecom/1/value',
   releaseOfInfo: `Patient/extension/${PATIENT_RELEASE_OF_INFO_URL}`,
   rxHistoryConsentStatus: `Patient/extension/${PATIENT_RX_HISTORY_CONSENT_STATUS_URL}`,
   active: 'Patient/active',
