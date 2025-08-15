@@ -577,6 +577,12 @@ export const diagnosticReportIsReflex = (dr: DiagnosticReport): boolean => {
   );
 };
 
+export const diagnosticReportIsUnsolicited = (dr: DiagnosticReport): boolean => {
+  return !!dr?.meta?.tag?.find(
+    (t) => t.system === LAB_DR_TYPE_TAG.system && t.display === LAB_DR_TYPE_TAG.display.unsolicited
+  );
+};
+
 export interface AOEDisplayForOrderForm {
   question: string;
   answer: any[];
