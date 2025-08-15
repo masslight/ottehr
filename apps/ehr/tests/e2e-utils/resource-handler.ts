@@ -128,7 +128,7 @@ export type CreateTestAppointmentInput = {
 };
 
 export class ResourceHandler {
-  apiClient!: Promise<Oystehr>;
+  #apiClient!: Promise<Oystehr>;
   #authToken!: Promise<string>;
   #resources!: CreateAppointmentResponse['resources'] & { relatedPerson: { id: string; resourceType: string } };
   #createAppointmentZambdaId: string;
@@ -156,7 +156,7 @@ export class ResourceHandler {
     this.#createAppointmentZambdaId = 'create-appointment';
     this.#authToken = getAuth0Token();
 
-    this.apiClient = this.#authToken.then((authToken) => {
+    this.#apiClient = this.#authToken.then((authToken) => {
       return new Oystehr({
         accessToken: authToken,
         fhirApiUrl: process.env.FHIR_API,
@@ -437,6 +437,10 @@ export class ResourceHandler {
     } catch (e) {
       console.error('❌ Failed to delete users: ', e);
     }
+  }
+
+  public get apiClient(): Promise<Oystehr> {
+    return this.#apiClient;
   }
 
   public get patient(): Patient {
