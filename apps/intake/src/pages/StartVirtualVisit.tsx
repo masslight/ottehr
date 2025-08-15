@@ -132,11 +132,6 @@ const StartVirtualVisit = (): JSX.Element => {
           getClosingTime(location.locationInformation.scheduleExtension!, tz, now);
         const isOpen = Boolean(openingTime && openingTime <= now && (!closingTime || closingTime > now));
 
-        if (location.locationInformation.name?.includes('Michigan')) {
-          console.log('location', location);
-          console.log('location.locationInformation', location.locationInformation);
-          console.log(openingTime, closingTime, isOpen);
-        }
         return {
           state: state,
           available: location?.available && openingTime && closingTime ? isOpen : false,
