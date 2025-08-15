@@ -7,6 +7,7 @@ import {
   debounce,
   Divider,
   FormControlLabel,
+  Skeleton,
   Switch,
   TextField,
   Typography,
@@ -251,9 +252,6 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
 const AddMedicalConditionField: FC = () => {
   const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);
   const { mutate: updateChartData, isPending: isUpdateLoading } = useSaveChartData();
-  const { error: icdSearchError } = useGetIcd10Search({ search: 'E11', sabs: 'ICD10CM' });
-
-  const nlmApiKeyMissing = (icdSearchError as any)?.code === APIErrorCode.MISSING_NLM_API_KEY_ERROR;
 
   const methods = useForm<{ value: IcdSearchResponse['codes'][number] | null }>({
     defaultValues: { value: null },
@@ -262,7 +260,13 @@ const AddMedicalConditionField: FC = () => {
 
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
-  const { isFetching: isSearching, data } = useGetIcd10Search({ search: debouncedSearchTerm, sabs: 'ICD10CM' });
+  const {
+    isFetching: isSearching,
+    data,
+    isLoading: isNlmLoading,
+    error: icdSearchError,
+  } = useGetIcd10Search({ search: debouncedSearchTerm, sabs: 'ICD10CM' });
+  const nlmApiKeyMissing = icdSearchError?.code === APIErrorCode.MISSING_NLM_API_KEY_ERROR;
   const icdSearchOptions = data?.codes || [];
 
   const debouncedHandleInputChange = useMemo(
@@ -324,6 +328,10 @@ const AddMedicalConditionField: FC = () => {
   const handleSetup = (): void => {
     window.open('https://docs.oystehr.com/ottehr/setup/terminology/', '_blank');
   };
+
+  if (isChartDataLoading || isNlmLoading) {
+    return <Skeleton variant="rectangular" width="100%" height={56} />;
+  }
 
   return (
     <Card
