@@ -83,6 +83,7 @@ async function createImmunizationOrder(
   await updateOrderDetails(medicationAdministration, input, oystehr);
   const createdMedicationAdministration = await oystehr.fhir.create(medicationAdministration);
   return {
+    message: 'Order was created',
     id: createdMedicationAdministration.id,
   };
 }

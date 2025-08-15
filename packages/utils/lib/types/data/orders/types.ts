@@ -127,28 +127,28 @@ export interface CreateUpdateImmunizationOrderInput extends ImmunizationOrderDet
   orderId?: string;
 }
 
+export interface ImmunizationEmergencyContact {
+  relationship: string;
+  fullName: string;
+  mobile: string;
+}
+
 export interface AdministerImmunizationOrderInput {
   orderId: string;
   orderDetails: ImmunizationOrderDetails;
-  administering: {
-    lot: string;
-    expDate: string;
-    mvx: string;
-    cvx: string;
-    cpt?: string;
-    ndc: string;
-    administeredDateTime: string;
-    visGivenDate?: string;
-  };
-  emergencyContact?: {
-    relationship?: string;
-    fullName?: string;
-    mobile?: string;
-  };
+  type: 'administered' | 'administered-partly' | 'administered-not';
+  reason?: string;
+  lot: string;
+  expDate: string;
+  mvx: string;
+  cvx: string;
+  cpt?: string;
+  ndc: string;
+  administeredDateTime: string;
+  visGivenDate?: string;
+  emergencyContact?: ImmunizationEmergencyContact;
 }
 
 export interface CancelImmunizationOrderInput {
   orderId: string;
-  status: 'administered-partly' | 'administered-not' | 'cancelled';
-  reason?: string;
 }

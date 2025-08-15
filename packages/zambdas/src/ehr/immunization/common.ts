@@ -12,7 +12,7 @@ import {
 } from 'utils';
 import { createMedicationCopy } from '../create-update-medication-order/helpers';
 
-const CONTAINED_MEDICATION_ID = 'medicationId';
+const CONTAINED_MEDICATION_ID = 'medication';
 
 export async function updateOrderDetails(
   medicationAdministration: MedicationAdministration,
@@ -26,7 +26,7 @@ export async function updateOrderDetails(
     id: medicationId,
   });
   const medicationLocalCopy = createMedicationCopy(medication, {});
-  medicationAdministration.medicationReference = { reference: `#${CONTAINED_MEDICATION_ID}` };
+  medicationAdministration.medicationReference = { reference: '#' + CONTAINED_MEDICATION_ID };
   medicationAdministration.contained = [
     {
       ...medicationLocalCopy,

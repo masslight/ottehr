@@ -1,14 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { MedicationAdministration } from 'fhir/r4b';
-import {
-  addOperation,
-  CancelImmunizationOrderInput,
-  mapFhirToOrderStatus,
-  mapOrderStatusToFhir,
-  MEDICATION_ADMINISTRATION_REASON_CODE,
-  replaceOperation,
-} from 'utils';
+import { CancelImmunizationOrderInput, mapFhirToOrderStatus, mapOrderStatusToFhir, replaceOperation } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -42,7 +35,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 async function cancelImmunizationOrder(oystehr: Oystehr, input: CancelImmunizationOrderInput): Promise<any> {
-  const { orderId, status, reason } = input;
+  const { orderId } = input;
   const medicationAdministration = await oystehr.fhir.get<MedicationAdministration>({
     resourceType: 'MedicationAdministration',
     id: orderId,
@@ -53,17 +46,7 @@ async function cancelImmunizationOrder(oystehr: Oystehr, input: CancelImmunizati
     throw new Error(`Can't cancel order in "${currentStatus}" status`);
   }
 
-  const patchOperations = [replaceOperation('/status', mapOrderStatusToFhir(status))];
-  if (reason) {
-    patchOperations.push(
-      addOperation('/note', [
-        {
-          authorString: MEDICATION_ADMINISTRATION_REASON_CODE,
-          text: reason,
-        },
-      ])
-    );
-  }
+  const patchOperations = [replaceOperation('/status', mapOrderStatusToFhir('cancelled'))];
 
   await oystehr.fhir.patch({
     resourceType: 'MedicationAdministration',
@@ -80,20 +63,14 @@ async function cancelImmunizationOrder(oystehr: Oystehr, input: CancelImmunizati
 export function validateRequestParameters(
   input: ZambdaInput
 ): CancelImmunizationOrderInput & Pick<ZambdaInput, 'secrets'> {
-  const { orderId, status, reason } = validateJsonBody(input);
+  const { orderId } = validateJsonBody(input);
 
-  const missingFields: string[] = [];
-  if (!orderId) missingFields.push('orderId');
-  if (!status) missingFields.push('status');
-  if (!reason && ['administered-partly', 'administered-not'].includes(status)) {
-    missingFields.push('reason');
+  if (!orderId) {
+    throw new Error(`Missing orderId field`);
   }
-  if (missingFields.length > 0) throw new Error(`Missing required fields [${missingFields.join(', ')}]`);
 
   return {
     orderId,
-    status,
-    reason,
     secrets: input.secrets,
   };
 }
