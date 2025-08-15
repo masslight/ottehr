@@ -233,7 +233,7 @@ async function getReceiptData(
 }
 
 function parsePaymentsList(
-  paymentNoticess: PaymentNotice[],
+  paymentNotices: PaymentNotice[],
   paymentIntents: Stripe.PaymentIntent[],
   customer: Stripe.Customer,
   paymentMethods: Stripe.PaymentMethod[],
@@ -243,7 +243,7 @@ function parsePaymentsList(
   const defaultPaymentMethod: Stripe.PaymentMethod = customer.invoice_settings
     ?.default_payment_method as Stripe.PaymentMethod;
 
-  const payments: PaymentData[] = paymentNoticess.map((paymentNotice) => {
+  const payments: PaymentData[] = paymentNotices.map((paymentNotice) => {
     const pnStripeId = paymentNotice.identifier?.find((id) => id.system === STRIPE_PAYMENT_ID_SYSTEM)?.value;
     const stripeIntent = paymentIntents.find((pi) => pi.id === pnStripeId);
     const stripeMethod = paymentMethods.find((pm) => pm.id === stripeIntent?.payment_method);
