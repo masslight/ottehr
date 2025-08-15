@@ -1,11 +1,24 @@
 import Oystehr from '@oystehr/sdk';
-import { Account, Appointment, FhirResource, List, Organization, Patient, PaymentNotice } from 'fhir/r4b';
+import { appointmentTypeLabels } from 'ehr-ui/src/types/types';
+import {
+  Account,
+  Appointment,
+  Encounter,
+  FhirResource,
+  List,
+  Location,
+  Organization,
+  Patient,
+  PaymentNotice,
+} from 'fhir/r4b';
 import fs from 'fs';
+import { capitalize } from 'lodash';
 import { DateTime } from 'luxon';
 import { PageSizes } from 'pdf-lib';
 import Stripe from 'stripe';
 import {
   CashOrCardPayment,
+  FhirAppointmentType,
   getFullName,
   getPatientAddress,
   getPhoneNumberForIndividual,
@@ -32,7 +45,7 @@ interface PaymentData {
   paymentDate?: string;
   last4?: string;
   brand?: string;
-  priority?: string;
+  isPrimary?: boolean;
 }
 
 interface PatientPaymentReceiptData {
@@ -43,8 +56,7 @@ interface PatientPaymentReceiptData {
     date: string;
     time: string;
     type: string;
-    // todo: what location is this?
-    location: string;
+    location?: string;
   };
   organization: {
     name: string;
@@ -53,7 +65,7 @@ interface PatientPaymentReceiptData {
     city: string;
     state: string;
     zip: string;
-    phone: string;
+    phone?: string;
   };
   patient: {
     id: string;
@@ -63,7 +75,7 @@ interface PatientPaymentReceiptData {
     city: string;
     state: string;
     zip: string;
-    phone: string;
+    phone?: string;
   };
 }
 
@@ -124,8 +136,9 @@ async function getReceiptData(
   const accountResources = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
   const account: Account | undefined = accountResources.account;
   const customerId = account ? getStripeCustomerIdFromAccount(account) : undefined;
+  if (!customerId) throw new Error('No stripe customer id found');
 
-  const [fhirBundle, listResourcesBundle, organization, paymentIntents, pms] = await Promise.all([
+  const [fhirBundle, listResourcesBundle, organization, paymentIntents, customer, paymentMethods] = await Promise.all([
     oystehr.fhir.search<FhirResource>({
       resourceType: 'Encounter',
       params: [
@@ -144,80 +157,123 @@ async function getReceiptData(
       query: `metadata['encounterId']:"${encounterId}" OR metadata['oystehr_encounter_id']:"${encounterId}"`,
       limit: 20, // default is 10
     }),
+    stripeClient.customers.retrieve(customerId, {
+      expand: ['invoice_settings.default_payment_method', 'sources'],
+    }),
     stripeClient.paymentMethods.list({
       customer: customerId,
       type: 'card',
     }),
   ]);
-  const stripePayments = paymentIntents.data;
-  if (lastOperationPaymentIntent) stripePayments.push(lastOperationPaymentIntent);
-  const paymentMethods = pms.data;
-
+  // find resources
   const resources = fhirBundle.unbundle();
-  const listResources = listResourcesBundle.unbundle();
+  const paymentNotices = resources.filter((r) => r.resourceType === 'PaymentNotice') as PaymentNotice[];
   const patient = resources.find((r) => r.resourceType === 'Patient') as Patient;
+  const appointment = resources.find((r) => r.resourceType === 'Appointment') as Appointment;
+  const encounter = resources.find((r) => r.resourceType === 'Encounter') as Encounter;
+  if (!organization || !patient || !appointment || !encounter)
+    throw new Error('One of the required resources is not found');
+
+  const locationId = removePrefix('Location/', encounter.location?.[0].location.reference ?? '');
+  const location: Location | undefined = locationId
+    ? await oystehr.fhir.get<Location>({ resourceType: 'Location', id: locationId })
+    : undefined;
+  const locationName = location?.name;
+
+  // parse data
+  if (customer.deleted) throw new Error('Customer is deleted');
+  const payments = parsePaymentsList(
+    paymentNotices,
+    paymentIntents.data,
+    customer,
+    paymentMethods.data,
+    lastOperationPaymentIntent
+  );
+
+  const listResources = listResourcesBundle.unbundle();
   const patientAddress = getPatientAddress(patient.address);
   const patientPhone = getPhoneNumberForIndividual(patient);
-  const appointment = resources.find((r) => r.resourceType === 'Appointment') as Appointment;
+  const orgPhone = (organization.telecom ?? []).find((cp) => {
+    return cp.system === 'phone' && cp.value;
+  })?.value;
   const visitDate = DateTime.fromISO(appointment.start ?? '');
-  const paymentNoticess = resources.filter((r) => r.resourceType === 'PaymentNotice') as PaymentNotice[];
-
-  // todo sort payments by date
-  const payments: PaymentData[] = paymentNoticess.map((paymentNotice) => {
-    const method = paymentNotice.extension?.find((ext) => ext.url === PAYMENT_METHOD_EXTENSION_URL)
-      ?.valueString as CashOrCardPayment['paymentMethod'];
-
-    const pnStripeId = paymentNotice.identifier?.find((id) => id.system === STRIPE_PAYMENT_ID_SYSTEM)?.value;
-    const paymentIntent = stripePayments.find((pi) => pi.id === pnStripeId);
-    const last4 = paymentMethods.find((pm) => pm.id === paymentIntent?.payment_method)?.card?.last4;
-    const brand = paymentMethods.find((pm) => pm.id === paymentIntent?.payment_method)?.card?.brand;
-    // todo: what date should i put here?
-    const paymentDate = DateTime.fromISO(paymentNotice?.created ?? '').toFormat('MM/dd/yyyy');
-
-    return {
-      amount: paymentNotice.amount.value ?? -1,
-      method: method,
-      paymentDate,
-      last4,
-      brand,
-    };
-  });
   const organizationAddress = organization.address?.[0];
-  if (!organization) throw new Error('Organization not found');
-  if (!patient) throw new Error('Patient not found');
-  if (!appointment) throw new Error('Appointment not found');
+  const appointmentType = (appointment?.appointmentType?.text as FhirAppointmentType) || '';
+  const visitType = appointmentTypeLabels[appointmentType];
+
   return {
-    // todo: get this date from last payment
-    receiptDate: DateTime.now().toFormat('MM/dd/yyyy'),
+    receiptDate: payments.at(-1)?.paymentDate ?? '??',
     payments,
     listResources,
     visitData: {
       date: visitDate.toFormat('MM/dd/yyyy'),
       time: visitDate.toFormat('hh:mm a'),
-      type: '???',
-      location: '???',
+      type: visitType,
+      location: locationName,
     },
     organization: {
-      name: organization?.name ?? '',
-      street: organizationAddress?.line?.[0] ?? '',
+      name: organization?.name ?? '??',
+      street: organizationAddress?.line?.[0] ?? '??',
       street2: organizationAddress?.line?.[1],
-      city: organizationAddress?.city ?? '',
-      state: organizationAddress?.state ?? '',
-      zip: organizationAddress?.postalCode ?? '',
-      // todo: where this phone number is coming from?
-      phone: '??',
+      city: organizationAddress?.city ?? '??',
+      state: organizationAddress?.state ?? '??',
+      zip: organizationAddress?.postalCode ?? '??',
+      phone: orgPhone,
     },
     patient: {
       id: patient.id!,
-      name: getFullName(patient) ?? '',
-      street: patientAddress.addressLine ?? '',
+      name: getFullName(patient) ?? '??',
+      street: patientAddress.addressLine ?? '??',
       street2: patientAddress.addressLine2,
-      city: patientAddress.city ?? '',
-      state: patientAddress.state ?? '',
-      zip: patientAddress.postalCode ?? '',
-      phone: patientPhone ?? '',
+      city: patientAddress.city ?? '??',
+      state: patientAddress.state ?? '??',
+      zip: patientAddress.postalCode ?? '??',
+      phone: patientPhone,
     },
   };
+}
+
+function parsePaymentsList(
+  paymentNoticess: PaymentNotice[],
+  paymentIntents: Stripe.PaymentIntent[],
+  customer: Stripe.Customer,
+  paymentMethods: Stripe.PaymentMethod[],
+  lastOperationPaymentIntent?: Stripe.PaymentIntent
+): PaymentData[] {
+  if (lastOperationPaymentIntent) paymentIntents.push(lastOperationPaymentIntent);
+  const defaultPaymentMethod: Stripe.PaymentMethod = customer.invoice_settings
+    ?.default_payment_method as Stripe.PaymentMethod;
+
+  const payments: PaymentData[] = paymentNoticess.map((paymentNotice) => {
+    const pnStripeId = paymentNotice.identifier?.find((id) => id.system === STRIPE_PAYMENT_ID_SYSTEM)?.value;
+    const stripeIntent = paymentIntents.find((pi) => pi.id === pnStripeId);
+    const stripeMethod = paymentMethods.find((pm) => pm.id === stripeIntent?.payment_method);
+
+    const amount = paymentNotice.amount.value;
+    const method = paymentNotice.extension?.find((ext) => ext.url === PAYMENT_METHOD_EXTENSION_URL)
+      ?.valueString as CashOrCardPayment['paymentMethod'];
+
+    if (!amount) throw new Error('No amount found');
+    return {
+      amount,
+      method,
+      // todo: what date should i put here?
+      paymentDate: paymentNotice?.created,
+      last4: stripeMethod?.card?.last4,
+      brand: stripeMethod?.card?.brand,
+      isPrimary: stripeMethod?.id === defaultPaymentMethod?.id,
+    };
+  });
+  // i do sorting before formatting date to MM/dd/yyyy to make it more precise
+  payments.sort((a, b) => {
+    const dateA = DateTime.fromISO(a.paymentDate ?? '');
+    const dateB = DateTime.fromISO(b.paymentDate ?? '');
+    return dateA.diff(dateB).milliseconds;
+  });
+  payments.forEach(
+    (payment) => (payment.paymentDate = DateTime.fromISO(payment.paymentDate ?? '').toFormat('MM/dd/yyyy'))
+  );
+  return payments;
 }
 
 async function createReceiptPdf(receiptData: PatientPaymentReceiptData): Promise<Uint8Array> {
@@ -304,7 +360,8 @@ async function createReceiptPdf(receiptData: PatientPaymentReceiptData): Promise
     pdfClient.drawTextSequential('Receipt date: ', { ...textStyles.text, font: RubikFontMedium, newLineAfter: false });
     pdfClient.drawTextSequential(`${receiptData.receiptDate}`, { ...textStyles.text, newLineAfter: false });
 
-    writeText(`${receiptData.visitData.location}`, { side: 'right' });
+    if (receiptData.visitData.location) writeText(`${receiptData.visitData.location}`, { side: 'right' });
+    else pdfClient.newLine(STANDARD_NEW_LINE);
   };
 
   const drawOrganizationAndPatientDetails = (): void => {
@@ -319,11 +376,9 @@ async function createReceiptPdf(receiptData: PatientPaymentReceiptData): Promise
 
     drawBlockHeader(receiptData.patient.name);
     writeText(`${receiptData.patient.street}`);
-    if (receiptData.patient.street2) {
-      writeText(`${receiptData.patient.street2}`);
-    }
+    if (receiptData.patient.street2) writeText(`${receiptData.patient.street2}`);
     writeText(`${receiptData.patient.city}, ${receiptData.patient.state} ${receiptData.patient.zip}`);
-    writeText(`${receiptData.patient.phone}`);
+    if (receiptData.patient.phone) writeText(`${receiptData.patient.phone}`);
 
     const afterFirstColumn = pdfClient.getY();
 
@@ -337,11 +392,9 @@ async function createReceiptPdf(receiptData: PatientPaymentReceiptData): Promise
 
     drawBlockHeader(receiptData.organization.name);
     writeText(`${receiptData.organization.street}`);
-    if (receiptData.organization.street2) {
-      writeText(`${receiptData.organization.street2}`);
-    }
+    if (receiptData.organization.street2) writeText(`${receiptData.organization.street2}`);
     writeText(`${receiptData.organization.city}, ${receiptData.organization.state} ${receiptData.organization.zip}`);
-    writeText(`${receiptData.organization.phone}`);
+    if (receiptData.organization.phone) writeText(`${receiptData.organization.phone}`);
 
     // Setting Y to the minimum so cursor will be at the bottom of the table
     if (afterFirstColumn < pdfClient.getY()) pdfClient.setY(afterFirstColumn);
@@ -361,9 +414,9 @@ async function createReceiptPdf(receiptData: PatientPaymentReceiptData): Promise
 
     // Payments list
     receiptData.payments.forEach((payment) => {
-      // todo find primary payment method
-      const paymentMethodText =
-        payment.method === 'card' ? `$XXXX-XXXX-XXXX-${payment.last4} (${payment.priority})` : payment.method;
+      let cardText = `Card ending ${payment.last4}`;
+      if (payment.isPrimary) cardText += ' (Primary)';
+      const paymentMethodText = payment.method === 'card' ? cardText : capitalize(payment.method);
       totalAmount += payment.amount;
 
       pdfClient.setRightBound(initialLeftBound + firstColumnWidth);
@@ -415,11 +468,12 @@ async function createReplaceReceiptOnZ3(
   const fileName = `${encounterId}.pdf`;
   console.log('Creating base file url');
   const baseFileUrl = makeZ3Url({ secrets, bucketName, patientID: patientId, fileName });
+  console.log('Base file url: ', baseFileUrl);
   console.log('Uploading file to bucket');
   await uploadPDF(pdfBytes, token, baseFileUrl).catch((error) => {
     throw new Error('failed uploading pdf to z3: ' + error.message);
   });
 
   savePdfLocally(pdfBytes);
-  return { title: 'fileName', uploadURL: 'baseFileUrl' };
+  return { title: fileName, uploadURL: baseFileUrl };
 }
