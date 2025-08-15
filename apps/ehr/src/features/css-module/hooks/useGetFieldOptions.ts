@@ -1,20 +1,14 @@
 import Oystehr from '@oystehr/sdk';
 import { Location } from 'fhir/r4b';
 import { useEffect, useState } from 'react';
-import { isLocationVirtual, MedicationApplianceRoutes, medicationApplianceRoutes, RoleType } from 'utils';
+import { ROUTE_OPTIONS, UNIT_OPTIONS } from 'src/shared/utils';
+import { isLocationVirtual, RoleType } from 'utils';
 import { getEmployees } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import useEvolveUser from '../../../hooks/useEvolveUser';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useAppointmentStore, useGetMedicationList } from '../../../telemed';
 import { Option } from '../components/medication-administration/medicationTypes';
-
-const getRoutesArray = (routes: MedicationApplianceRoutes): Option[] => {
-  return Object.entries(routes).map(([_, value]) => ({
-    value: value.code,
-    label: value.display,
-  })) as Option[];
-};
 
 export type OrderFieldsSelectsOptions = Record<
   'medicationId' | 'location' | 'route' | 'units' | 'associatedDx' | 'providerId',
@@ -152,20 +146,11 @@ export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
       status: isLocationLoading ? 'loading' : 'loaded',
     },
     route: {
-      options: getRoutesArray(medicationApplianceRoutes)?.sort((a, b) =>
-        a.label.toLowerCase().localeCompare(b.label.toLowerCase())
-      ),
+      options: ROUTE_OPTIONS,
       status: 'loaded',
     },
     units: {
-      options: [
-        { value: 'mg', label: 'mg' },
-        { value: 'ml', label: 'mL' },
-        { value: 'g', label: 'g' },
-        { value: 'cc', label: 'cc' },
-        { value: 'unit', label: 'unit' },
-        { value: 'application', label: 'application' },
-      ],
+      options: UNIT_OPTIONS,
       status: 'loaded',
     },
     associatedDx: {
