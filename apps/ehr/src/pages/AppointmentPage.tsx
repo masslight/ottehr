@@ -42,7 +42,7 @@ import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { generatePaperworkPdf } from 'src/api/api';
-import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
+import { isPaperworkPdfOutdated, useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import {
   CONSENT_CODE,
   FhirAppointmentType,
@@ -55,6 +55,7 @@ import {
   getVisitStatus,
   INSURANCE_CARD_CODE,
   isNonPaperworkQuestionnaireResponse,
+  PAPERWORK_PDF_ATTACHMENT_TITLE,
   PHOTO_ID_CARD_CODE,
   PRIVACY_POLICY_CODE,
   VisitStatusLabel,
@@ -176,7 +177,7 @@ type AppointmentBundleTypes =
 export default function AppointmentPage(): ReactElement {
   // variables
   const { id: appointmentID } = useParams();
-  const { oystehr } = useApiClients();
+  const { oystehr, oystehrZambda } = useApiClients();
   const { getAccessTokenSilently } = useAuth0();
   const theme = useTheme();
 
@@ -228,7 +229,7 @@ export default function AppointmentPage(): ReactElement {
   const [notesHistory, setNotesHistory] = useState<NoteHistory[] | undefined>(undefined);
   const user = useEvolveUser();
 
-  const { isLoadingDocuments, downloadDocument } = useGetPatientDocs(patient?.id ?? '');
+  const { documents, isLoadingDocuments, downloadDocument } = useGetPatientDocs(patient?.id ?? '');
 
   const { location, encounter, questionnaireResponse, relatedPerson } = useMemo(() => {
     const location = resourceBundle?.find(
@@ -1041,18 +1042,33 @@ export default function AppointmentPage(): ReactElement {
 
   const downloadPaperworkPdf = async (): Promise<void> => {
     setPaperworkPdfLoading(true);
-    if (!oystehr || !questionnaireResponse.id) {
+    const existingPaperworkPdfs = documents
+      ?.filter((doc) => doc.docName.toLowerCase().includes(PAPERWORK_PDF_ATTACHMENT_TITLE.toLowerCase()))
+      ?.sort((a, b) => {
+        const dateA = a.whenAddedDate ? new Date(a.whenAddedDate).getTime() : 0;
+        const dateB = b.whenAddedDate ? new Date(b.whenAddedDate).getTime() : 0;
+        return dateB - dateA;
+      });
+    const existingPaperworkPdf = existingPaperworkPdfs?.[0];
+
+    if (existingPaperworkPdf && !isPaperworkPdfOutdated(existingPaperworkPdf, questionnaireResponse)) {
+      await downloadDocument(existingPaperworkPdf.id);
+      setPaperworkPdfLoading(false);
+      return;
+    }
+    if (existingPaperworkPdf) {
+      await downloadDocument(existingPaperworkPdf.id);
+      setPaperworkPdfLoading(false);
+      return;
+    }
+    if (!oystehrZambda || !questionnaireResponse.id) {
       enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
       setPaperworkPdfLoading(false);
       return;
     }
     try {
-      const response = await generatePaperworkPdf(oystehr, {
+      const response = await generatePaperworkPdf(oystehrZambda, {
         questionnaireResponseId: questionnaireResponse.id,
-        documentReference: {
-          resourceType: 'DocumentReference',
-          status: 'current',
-        } as DocumentReference,
       });
       await downloadDocument(response.documentReference.split('/')[1]);
     } catch (error) {
