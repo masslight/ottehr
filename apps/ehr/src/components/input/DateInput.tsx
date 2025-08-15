@@ -20,7 +20,7 @@ export const DateInput: React.FC<Props> = ({ name, label, required }) => {
       control={control}
       rules={{ required: required ? REQUIRED_FIELD_ERROR_MESSAGE : false }}
       render={({ field, fieldState: { error } }) => (
-        <Box id="myid" sx={{ width: '100%' }}>
+        <Box sx={{ width: '100%' }}>
           <LocalizationProvider dateAdapter={AdapterLuxon}>
             <DatePicker
               sx={{ width: '100% ' }}

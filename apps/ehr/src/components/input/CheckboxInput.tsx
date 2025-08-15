@@ -19,7 +19,7 @@ export const CheckboxInput: React.FC<Props> = ({ name, label, required }) => {
       render={({ field, fieldState: { error } }) => (
         <Box sx={{ width: '100%' }}>
           <Stack direction="row" alignItems="center">
-            <Checkbox value={field.value} onChange={(data) => field.onChange(data)} />
+            <Checkbox checked={field.value} onChange={(event) => field.onChange(event.target.checked)} />
             <Typography>{label}</Typography>
           </Stack>
           {error && <FormHelperText error={true}>{error?.message}</FormHelperText>}

@@ -26,7 +26,7 @@ export const OrderDetailsSection: React.FC = () => {
         </Typography>
       </Grid>
       <Grid xs={6} item>
-        <MedicationSelectInput name="vaccineId" label="Vacine" required />
+        <MedicationSelectInput name="vaccineId" label="Vaccine" required />
       </Grid>
       <Grid xs={3} item>
         <TextInput name="dose" label="Dose" required />

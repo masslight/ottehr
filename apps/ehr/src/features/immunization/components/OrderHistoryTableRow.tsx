@@ -99,7 +99,7 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) =>
                 open={isDeleteDialogOpened}
                 handleClose={() => setIsDeleteDialogOpened(false)}
                 title="Delete vaccine order"
-                description={`Are you sure you want to delete the vacine order?`}
+                description={`Are you sure you want to delete the vaccine order?`}
                 closeButtonText="Cancel"
                 closeButton={false}
                 handleConfirm={handleConfirmDelete}
