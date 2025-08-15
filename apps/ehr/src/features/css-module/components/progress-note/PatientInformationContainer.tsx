@@ -13,7 +13,7 @@ export const PatientInformationContainer: FC = () => {
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
-  const name = getPatientName(patient?.name).firstMiddleLastName;
+  const name = getPatientName(patient?.name).fullDisplayName;
   const dob =
     patient?.birthDate && `${formatDateUsingSlashes(patient.birthDate)} (${calculatePatientAge(patient.birthDate)})`;
   const sex = patient?.gender && capitalize(patient.gender);
