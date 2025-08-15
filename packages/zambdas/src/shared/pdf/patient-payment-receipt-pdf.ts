@@ -32,11 +32,10 @@ import {
 import { makeReceiptPdfDocumentReference } from '../../ehr/change-telemed-appointment-status/helpers/helpers';
 import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
 import { createOystehrClient } from '../helpers';
-import { makeZ3Url } from '../presigned-file-urls';
 import { getStripeClient, STRIPE_PAYMENT_ID_SYSTEM } from '../stripeIntegration';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { STANDARD_NEW_LINE } from './pdf-consts';
-import { createPdfClient, PdfInfo, savePdfLocally, SEPARATED_LINE_STYLE as GREY_LINE_STYLE } from './pdf-utils';
+import { createPdfClient, PdfInfo, SEPARATED_LINE_STYLE as GREY_LINE_STYLE } from './pdf-utils';
 import { ImageStyle, PdfClientStyles, TextStyle } from './types';
 
 interface PaymentData {
@@ -467,13 +466,22 @@ async function createReplaceReceiptOnZ3(
   const bucketName = 'receipts';
   const fileName = `${encounterId}.pdf`;
   console.log('Creating base file url');
-  const baseFileUrl = makeZ3Url({ secrets, bucketName, patientID: patientId, fileName });
-  console.log('Base file url: ', baseFileUrl);
+  const baseFileUrl = makeReceiptZ3Url(secrets, bucketName, fileName, patientId);
   console.log('Uploading file to bucket');
   await uploadPDF(pdfBytes, token, baseFileUrl).catch((error) => {
     throw new Error('failed uploading pdf to z3: ' + error.message);
   });
 
-  savePdfLocally(pdfBytes);
+  // savePdfLocally(pdfBytes);
   return { title: fileName, uploadURL: baseFileUrl };
 }
+
+const makeReceiptZ3Url = (secrets: Secrets | null, bucketName: string, fileName: string, patientId: string): string => {
+  const projectId = getSecret(SecretsKeys.PROJECT_ID, secrets);
+  const fileURL = `${getSecret(
+    SecretsKeys.PROJECT_API,
+    secrets
+  )}/z3/${projectId}-${bucketName}/${patientId}/${fileName}`;
+  console.log('created z3 url: ', fileURL);
+  return fileURL;
+};
