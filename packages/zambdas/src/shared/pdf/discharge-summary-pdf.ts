@@ -494,14 +494,14 @@ async function createDischargeSummaryPdfBytes(data: DischargeSummaryData): Promi
     pdfClient.drawText('In-House Labs', textStyles.subHeader);
     if (data.inHouseLabs?.orders.length) {
       pdfClient.drawText('Orders:', textStyles.subHeader);
-      data.inHouseLabs?.orders.forEach((lab) => {
-        pdfClient.drawText(lab.testItemName, textStyles.regular);
+      data.inHouseLabs?.orders.forEach((order) => {
+        pdfClient.drawText(order.testItemName, textStyles.regular);
       });
     }
     if (data.inHouseLabs?.results.length) {
       pdfClient.drawText('Results:', textStyles.subHeader);
-      data.inHouseLabs?.results.forEach((lab) => {
-        pdfClient.drawText(lab.name, textStyles.regular);
+      data.inHouseLabs?.results.forEach((result) => {
+        pdfClient.drawText(result.name, textStyles.regular);
       });
     }
     pdfClient.drawSeparatedLine(separatedLineStyle);
@@ -511,14 +511,14 @@ async function createDischargeSummaryPdfBytes(data: DischargeSummaryData): Promi
     pdfClient.drawText('External Labs', textStyles.subHeader);
     if (data.externalLabs?.orders.length) {
       pdfClient.drawText('Orders:', textStyles.subHeader);
-      data.externalLabs?.orders.forEach((lab) => {
-        pdfClient.drawText(lab.testItemName, textStyles.regular);
+      data.externalLabs?.orders.forEach((order) => {
+        pdfClient.drawText(order.testItemName, textStyles.regular);
       });
     }
     if (data.externalLabs?.results.length) {
       pdfClient.drawText('Results:', textStyles.subHeader);
-      data.externalLabs?.results.forEach((lab) => {
-        pdfClient.drawText(lab.name, textStyles.regular);
+      data.externalLabs?.results.forEach((result) => {
+        pdfClient.drawText(result.name, textStyles.regular);
       });
     }
     pdfClient.drawSeparatedLine(separatedLineStyle);
@@ -527,9 +527,9 @@ async function createDischargeSummaryPdfBytes(data: DischargeSummaryData): Promi
   const drawRadiology = (): void => {
     pdfClient.drawText('Radiology', textStyles.subHeader);
 
-    data.radiology?.forEach((r) => {
-      pdfClient.drawText(r.name, textStyles.bold);
-      if (r.result) pdfClient.drawText(`Final Read: ${r.result}`, textStyles.regular);
+    data.radiology?.forEach((radiology) => {
+      pdfClient.drawText(radiology.name, textStyles.bold);
+      if (radiology.result) pdfClient.drawText(`Final Read: ${radiology.result}`, textStyles.regular);
     });
     pdfClient.drawSeparatedLine(separatedLineStyle);
   };
@@ -537,9 +537,9 @@ async function createDischargeSummaryPdfBytes(data: DischargeSummaryData): Promi
   const drawInHouseMedications = (): void => {
     pdfClient.drawText('In-house Medications', textStyles.subHeader);
 
-    data.inhouseMedications?.forEach((med) => {
-      pdfClient.drawText(`${med.name} - ${med.dose}`, textStyles.regular);
-      if (med.date) pdfClient.drawText(med.date, textStyles.regular);
+    data.inhouseMedications?.forEach((medication) => {
+      pdfClient.drawText(`${medication.name} - ${medication.dose}`, textStyles.regular);
+      if (medication.date) pdfClient.drawText(medication.date, textStyles.regular);
     });
     pdfClient.drawSeparatedLine(separatedLineStyle);
   };
@@ -574,8 +574,8 @@ async function createDischargeSummaryPdfBytes(data: DischargeSummaryData): Promi
 
   const drawInstructions = (): void => {
     pdfClient.drawText('Patient Instructions', textStyles.subHeader);
-    data.patientInstructions?.forEach((instr) => {
-      pdfClient.drawText(`- ${instr}`, textStyles.regular);
+    data.patientInstructions?.forEach((instruction) => {
+      pdfClient.drawText(`- ${instruction}`, textStyles.regular);
     });
     pdfClient.drawSeparatedLine(separatedLineStyle);
   };
