@@ -36,6 +36,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
+import { createPatientPaymentReceiptPdf } from '../../../shared/pdf/patient-payment-receipt-pdf';
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 
 const ZAMBDA_NAME = 'post-patient-payment';
@@ -94,9 +95,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       oystehrClient
     );
 
-    const notice = await performEffect(effectInput, oystehrClient, requiredSecrets);
+    const { notice, paymentIntent } = await performEffect(effectInput, oystehrClient, requiredSecrets);
+    const receiptPdfInfo = await createPatientPaymentReceiptPdf(
+      encounterId,
+      patientId,
+      secrets,
+      oystehrM2MClientToken,
+      paymentIntent
+    );
 
-    return lambdaResponse(200, { notice, patientId, encounterId });
+    return lambdaResponse(200, { notice, patientId, encounterId, receiptInfo: receiptPdfInfo });
   } catch (error: any) {
     console.error(error);
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
@@ -108,10 +116,11 @@ const performEffect = async (
   input: ComplexValidationOutput,
   oystehrClient: Oystehr,
   requiredSecrets: RequiredSecrets
-): Promise<PaymentNotice> => {
+): Promise<{ notice: PaymentNotice; paymentIntent?: Stripe.PaymentIntent }> => {
   const { encounterId, paymentDetails, organizationId, userProfile } = input;
   const { paymentMethod, amountInCents, description } = paymentDetails;
   const dateTimeIso = DateTime.now().toISO() || '';
+  let paymentIntent: Stripe.Response<Stripe.PaymentIntent> | undefined;
   console.log('dateTimeIso', dateTimeIso);
   const paymentNoticeInput: PaymentNoticeInput = {
     encounterId,
@@ -140,7 +149,6 @@ const performEffect = async (
         allow_redirects: 'never',
       },
     };
-    let paymentIntent: Stripe.Response<Stripe.PaymentIntent>;
     try {
       paymentIntent = await stripeClient.paymentIntents.create(paymentIntentInput);
     } catch (e) {
@@ -172,7 +180,8 @@ const performEffect = async (
 
   const noticeToWrite = makePaymentNotice(paymentNoticeInput);
 
-  return await oystehrClient.fhir.create<PaymentNotice>(noticeToWrite);
+  const paymentNotice = await oystehrClient.fhir.create<PaymentNotice>(noticeToWrite);
+  return { notice: paymentNotice, paymentIntent };
 };
 
 const validateRequestParameters = (input: ZambdaInput): PostPatientPaymentInput => {
