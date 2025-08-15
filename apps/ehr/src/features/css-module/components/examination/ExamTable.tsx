@@ -8,10 +8,17 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Typography,
   useTheme,
 } from '@mui/material';
 import { FC } from 'react';
-import { ControlledExamCheckbox, ExamCommentField } from 'src/telemed/features/appointment';
+import {
+  ControlledCheckboxSelect,
+  ControlledExamCheckbox,
+  ControlledExamCheckboxDropdown,
+  ExamCommentField,
+  ExamForm,
+} from 'src/telemed/features/appointment';
 import { ExamCardComponent, ExamItemConfig } from 'utils';
 
 type ExamTableProps = {
@@ -83,20 +90,106 @@ const ExamTableCellComponent: FC<{
   elements: Record<string, ExamCardComponent>;
   abnormal?: boolean;
 }> = ({ elements, abnormal }) => {
-  return (
-    <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-      {Object.keys(elements).map((component) =>
-        elements[component].type === 'checkbox' ? (
-          <ControlledExamCheckbox
-            key={component}
-            name={component}
-            label={elements[component].label}
-            abnormal={abnormal}
-          />
-        ) : elements[component].type === 'text' ? (
-          <ExamCommentField key={component} name={component} />
-        ) : null
-      )}
-    </Box>
-  );
+  const theme = useTheme();
+
+  const elementKeys = Object.keys(elements);
+
+  const renderElements = (): React.ReactNode[] => {
+    const result = [];
+    let i = 0;
+
+    while (i < elementKeys.length) {
+      const currentKey = elementKeys[i];
+      const currentElement = elements[currentKey];
+
+      if (currentElement.type === 'column') {
+        let columnCount = 1;
+        let j = i + 1;
+        while (j < elementKeys.length && elements[elementKeys[j]].type === 'column') {
+          columnCount++;
+          j++;
+        }
+
+        if (columnCount >= 2) {
+          const columnGroup = elementKeys.slice(i, i + columnCount);
+          result.push(
+            <Box key={`group-${i}`} sx={{ display: 'flex', gap: 2, mb: 1 }}>
+              {columnGroup.map((component) => {
+                const element = elements[component];
+                if (element.type === 'column' && 'components' in element) {
+                  return (
+                    <Box key={component} sx={{ flex: 1 }}>
+                      <Typography variant="subtitle2" fontSize={16} color={theme.palette.primary.dark}>
+                        {element.label}
+                      </Typography>
+                      <ExamTableCellComponent elements={element.components} abnormal={abnormal} />
+                    </Box>
+                  );
+                }
+                return null;
+              })}
+            </Box>
+          );
+          i = j;
+        } else {
+          result.push(renderSingleElement(currentKey, currentElement));
+          i++;
+        }
+      } else {
+        result.push(renderSingleElement(currentKey, currentElement));
+        i++;
+      }
+    }
+
+    return result;
+  };
+
+  const renderSingleElement = (key: string, element: ExamCardComponent): React.ReactNode => {
+    if (element.type === 'checkbox') {
+      return <ControlledExamCheckbox key={key} name={key} label={element.label} abnormal={abnormal} />;
+    } else if (element.type === 'text') {
+      return <ExamCommentField key={key} name={key} />;
+    } else if (element.type === 'column') {
+      if ('components' in element) {
+        return (
+          <Box key={key} sx={{ display: 'flex', flexDirection: 'column' }}>
+            <Typography variant="subtitle2" fontSize={16} color={theme.palette.primary.dark}>
+              {element.label}
+            </Typography>
+            <ExamTableCellComponent elements={element.components} abnormal={abnormal} />
+          </Box>
+        );
+      }
+    } else if (element.type === 'dropdown') {
+      return (
+        <ControlledExamCheckboxDropdown
+          key={key}
+          abnormal={abnormal}
+          checkboxLabel={element.label}
+          dropdownLabel={element.placeholder}
+          options={Object.keys('components' in element ? element.components : {}).map((option) => ({
+            label: 'components' in element ? element.components[option].label : '',
+            name: option,
+          }))}
+        />
+      );
+    } else if (element.type === 'multi-select') {
+      return (
+        <ControlledCheckboxSelect
+          key={key}
+          label={element.label}
+          options={Object.keys(element.options).map((option) => ({
+            label: element.options[option].label,
+            name: option,
+            description: element.options[option].description,
+          }))}
+        />
+      );
+    } else if (element.type === 'form') {
+      return <ExamForm key={key} form={element} abnormal={abnormal} />;
+    }
+    return null;
+  };
+
+  return <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>{renderElements()}</Box>;
 };

@@ -44,11 +44,63 @@ const ExamCardColumnComponentSchema: z.ZodType<any> = z.lazy(() =>
   })
 );
 
+// Schema for form field option
+const ExamCardFormFieldOptionSchema = z.object({
+  label: z.string().min(1, 'Label is required'),
+});
+
+// Schema for form field
+const ExamCardFormFieldSchema = z.object({
+  label: z.string().min(1, 'Label is required'),
+  type: z.union([z.literal('radio'), z.literal('dropdown'), z.literal('text')]),
+  enabledWhen: z
+    .object({
+      field: z.string().min(1, 'Field is required'),
+      value: z.string().min(1, 'Value is required'),
+    })
+    .optional(),
+  options: z.record(z.string(), ExamCardFormFieldOptionSchema).optional(),
+});
+
+// Schema for form element
+const ExamCardFormElementSchema = z.object({
+  defaultValue: z.boolean(),
+  type: z.literal('form-element'),
+  code: CodeableConceptSchema.optional(),
+  bodySite: CodeableConceptSchema.optional(),
+});
+
+// Schema for form component
+const ExamCardFormComponentSchema = z.object({
+  label: z.string().min(1, 'Label is required'),
+  type: z.literal('form'),
+  components: z.record(z.string(), ExamCardFormElementSchema),
+  fields: z.record(z.string(), ExamCardFormFieldSchema),
+});
+
+// Schema for multi-select option
+const ExamCardMultiSelectOptionSchema = z.object({
+  label: z.string().min(1, 'Label is required'),
+  defaultValue: z.boolean(),
+  description: z.string().optional(),
+  code: CodeableConceptSchema.optional(),
+  bodySite: CodeableConceptSchema.optional(),
+});
+
+// Schema for multi-select component
+const ExamCardMultiSelectComponentSchema = z.object({
+  label: z.string().min(1, 'Label is required'),
+  type: z.literal('multi-select'),
+  options: z.record(z.string(), ExamCardMultiSelectOptionSchema),
+});
+
 // Union schema for non-text components
 const ExamCardNonTextComponentSchema = z.union([
   ExamCardCheckboxComponentSchema,
   ExamCardDropdownComponentSchema,
   ExamCardColumnComponentSchema,
+  ExamCardFormComponentSchema,
+  ExamCardMultiSelectComponentSchema,
 ]);
 
 // Union schema for all component types

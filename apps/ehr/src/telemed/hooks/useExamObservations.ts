@@ -135,9 +135,7 @@ export function useExamObservations(param?: string | string[]): {
       {
         onSuccess: (data) => {
           const newState = data.chartData.examObservations?.filter(
-            (observation) =>
-              !observation.field.endsWith('-comment') ||
-              !prevValues[observation.field as ExamNames & InPersonExamNames]?.resourceId
+            (observation) => !observation.field.endsWith('-comment') || !prevValues[observation.field]?.resourceId
           );
           if (newState) {
             useExamObservationsStore.setState(arrayToObject(newState));
