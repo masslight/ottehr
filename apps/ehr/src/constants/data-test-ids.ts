@@ -155,6 +155,7 @@ export const dataTestIds = {
     dateOfBirthDropdown: 'responsible-party-information-container-date-of-birth-dropdown',
     birthSexDropdown: 'responsible-party-information-container-birth-sex-dropdown',
     phoneInput: 'responsible-party-information-container-phone-input',
+    emailInput: 'responsible-party-information-container-email-input',
     addressLine1: 'responsible-party-information-container-address',
     addressLine2: 'responsible-party-information-container-address-2',
     city: 'responsible-party-information-container-city',

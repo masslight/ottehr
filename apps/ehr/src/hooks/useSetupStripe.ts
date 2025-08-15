@@ -22,7 +22,7 @@ export const useSetupStripe = (
       }
 
       const result = await oystehrZambda.zambda.execute({
-        id: 'setup-payment-method',
+        id: 'payment-methods-setup',
         beneficiaryPatientId,
       });
       return chooseJson<string>(result);

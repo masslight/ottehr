@@ -1,6 +1,6 @@
 {
   "name": "ottehr",
-  "version": "1.16.0",
+  "version": "1.16.2",
   "private": true,
   "engines": {
     "node": ">=20.0.0",
@@ -62,7 +62,8 @@
   },
   "workspaces": [
     "packages/**/*",
-    "apps/*"
+    "apps/*",
+    "deploy"
   ],
   "dependencies": {
     "@auth0/auth0-react": "^2.2.4",
