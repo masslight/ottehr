@@ -1,6 +1,6 @@
 import cors from 'cors';
 import express, { NextFunction, Request, Response } from 'express';
-import ottehrSpec from '../../ottehr-spec.json';
+import ottehrSpec from '../../../../config/ottehr-spec.json';
 import { expressLambda } from './utils';
 
 const app = express();

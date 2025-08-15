@@ -7,6 +7,8 @@ export const GenericNoteList: React.FC<GenericNoteListProps> = ({
   apiConfig,
   locales,
   separateEncounterNotes = true,
+  addNoteButtonDataTestId,
+  noteLoadingIndicatorDataTestId,
 }) => {
   const { resources } = useAppointment();
   const encounterId = resources.encounter?.id;
@@ -22,6 +24,8 @@ export const GenericNoteList: React.FC<GenericNoteListProps> = ({
       currentEncounterId={encounterId}
       locales={locales}
       apiConfig={apiConfig}
+      addNoteButtonDataTestId={addNoteButtonDataTestId}
+      noteLoadingIndicatorDataTestId={noteLoadingIndicatorDataTestId}
     />
   );
 };

@@ -1,5 +1,6 @@
 import { MessagingGetMessagingConfigResponse, TransactionalSMSSendResponse } from '@oystehr/sdk';
-import { useMutation, UseMutationResult, useQuery, UseQueryResult } from 'react-query';
+import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
+import { useErrorQuery, useSuccessQuery } from 'utils';
 import { ConversationMessage, SMSRecipient } from 'utils';
 import { getConversation } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
@@ -8,31 +9,38 @@ import { MessageModel } from './ChatModal';
 export const useFetchChatMessagesQuery = (
   timezone: string,
   numbersToSendTo?: string[],
-  onSuccess?: (data: ConversationMessage[]) => void
-): UseQueryResult<ConversationMessage[], unknown> => {
+  onSuccess?: (data: ConversationMessage[] | null) => void
+): UseQueryResult<ConversationMessage[] | null, Error> => {
   const { oystehrZambda } = useApiClients();
-  return useQuery(
-    ['chat-messages', numbersToSendTo, timezone],
-    async () => {
-      return await getConversation(oystehrZambda!, { smsNumbers: numbersToSendTo!, timezone });
+
+  const queryResult = useQuery({
+    queryKey: ['chat-messages', numbersToSendTo, timezone],
+
+    queryFn: async () => {
+      const data = await getConversation(oystehrZambda!, { smsNumbers: numbersToSendTo!, timezone });
+      return data ? data : null;
     },
-    {
-      onSuccess,
-      enabled: Boolean(oystehrZambda && numbersToSendTo?.length && timezone),
-    }
-  );
+
+    enabled: Boolean(oystehrZambda && numbersToSendTo?.length && timezone),
+  });
+
+  useSuccessQuery(queryResult.data, onSuccess);
+
+  return queryResult;
 };
 
 export const useSendMessagesMutation = (
   recipients: SMSRecipient[],
   message: string,
   onSuccess: (data: MessageModel) => void,
-  onError: (error: any) => void
-): UseMutationResult<MessageModel, unknown, MessageModel> => {
+  onError: (error: Error) => void
+): UseMutationResult<MessageModel, Error, MessageModel> => {
   const { oystehr } = useApiClients();
-  return useMutation(
-    ['chat-messages'],
-    async (pendingMessage: MessageModel): Promise<MessageModel> => {
+
+  return useMutation({
+    mutationKey: ['chat-messages'],
+
+    mutationFn: async (pendingMessage: MessageModel): Promise<MessageModel> => {
       if (oystehr === undefined) {
         throw new Error(`Message send failed. OystehrUndefined`);
       }
@@ -68,28 +76,34 @@ export const useSendMessagesMutation = (
         }
       }
     },
-    { onSuccess, onError }
-  );
+
+    onSuccess,
+    onError,
+  });
 };
 
 export const useGetMessagingConfigQuery = (
-  onSuccess?: (data: MessagingGetMessagingConfigResponse) => void,
+  onSuccess?: (data: MessagingGetMessagingConfigResponse | null) => void,
   onError?: () => void
-): UseQueryResult<MessagingGetMessagingConfigResponse, unknown> => {
+): UseQueryResult<MessagingGetMessagingConfigResponse, Error> => {
   const { oystehr } = useApiClients();
-  return useQuery(
-    'messaging-config',
-    async () => {
+
+  const queryResult = useQuery({
+    queryKey: ['messaging-config'],
+
+    queryFn: async () => {
       if (!oystehr) {
         throw new Error('API client not available');
       }
-
       return await oystehr.messaging.getMessagingConfig();
     },
-    {
-      onSuccess,
-      onError,
-      enabled: !!oystehr,
-    }
-  );
+
+    enabled: !!oystehr,
+  });
+
+  useSuccessQuery(queryResult.data, onSuccess);
+
+  useErrorQuery(queryResult.error, onError);
+
+  return queryResult;
 };

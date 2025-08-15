@@ -51,10 +51,12 @@ export const ChangeStatusDropdown = ({
   appointmentID,
   onStatusChange,
   getAndSetResources,
+  dataTestId,
 }: {
   appointmentID?: string;
   onStatusChange: (status: VisitStatusWithoutUnknown) => void;
   getAndSetResources?: ({ logs, notes }: { logs?: boolean; notes?: boolean }) => Promise<void>;
+  dataTestId?: string;
 }): React.ReactElement => {
   const [statusLoading, setStatusLoading] = useState<boolean>(false);
   const [status, setStatus] = useState<VisitStatusWithoutUnknown | undefined>(undefined);
@@ -93,6 +95,10 @@ export const ChangeStatusDropdown = ({
   const hasDropdown = !nonDropdownStatuses.includes(status);
 
   const updateInPersonVisitStatus = async (event: SelectChangeEvent<VisitStatusLabel | unknown>): Promise<void> => {
+    if ((event.target.value as VisitStatusWithoutUnknown) === 'completed') {
+      alert('To mark a visit as completed, scroll to the bottom of the "Progress Note" and click "Review & Sign"');
+      return;
+    }
     setStatusLoading(true);
     try {
       await handleChangeInPersonVisitStatus(
@@ -121,7 +127,7 @@ export const ChangeStatusDropdown = ({
   };
 
   return (
-    <Grid item>
+    <Grid item data-testid={dataTestId}>
       <div id="user-set-appointment-status">
         <FormControl size="small">
           <StyledSelect

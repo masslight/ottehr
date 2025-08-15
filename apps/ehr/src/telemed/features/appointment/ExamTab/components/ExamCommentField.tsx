@@ -25,13 +25,13 @@ export const ExamCommentField = <T extends ExamCardsNames | InPersonExamCardsNam
       return;
     }
 
-    if (value) {
-      debounce(() => {
+    debounce(() => {
+      if (value) {
         update({ ...field, note: value });
-      });
-    } else {
-      deleteField(field);
-    }
+      } else {
+        deleteField(field);
+      }
+    });
   };
 
   const [value, setValue] = useState(field.note || '');

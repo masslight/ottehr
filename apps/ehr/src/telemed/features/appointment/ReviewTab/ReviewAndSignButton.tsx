@@ -31,9 +31,9 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     'chartData',
   ]);
   const apiClient = useOystehrAPIClient();
-  const { mutateAsync: changeTelemedAppointmentStatus, isLoading: isChangeLoading } =
+  const { mutateAsync: changeTelemedAppointmentStatus, isPending: isChangeLoading } =
     useChangeTelemedAppointmentStatusMutation();
-  const { mutateAsync: signAppointment, isLoading: isSignLoading } = useSignAppointmentMutation();
+  const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
   const [openTooltip, setOpenTooltip] = useState(false);
 
   const { refetch } = useAppointment(appointment?.id);

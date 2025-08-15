@@ -59,7 +59,7 @@ export const DiagnosesModal: FC = () => {
       <EditModal
         title="21. Diagnoses"
         onSave={(hideDialog) => handleSubmit((values) => onSave(values, hideDialog))()}
-        isSaveLoading={editClaim.isLoading}
+        isSaveLoading={editClaim.isPending}
         onShow={() => reset(getDefaultValues(claimData))}
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

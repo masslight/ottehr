@@ -1,23 +1,25 @@
 import { ErxGetConfigurationResponse } from '@oystehr/sdk';
-import { useQuery, UseQueryResult } from 'react-query';
+import { useQuery, UseQueryResult } from '@tanstack/react-query';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { useSuccessQuery } from 'utils';
 
 export const useGetErxConfigQuery = (
-  onSuccess?: (data: ErxGetConfigurationResponse) => void
+  onSuccess?: (data: ErxGetConfigurationResponse | null) => void
 ): UseQueryResult<ErxGetConfigurationResponse, unknown> => {
   const { oystehr } = useApiClients();
-  return useQuery(
-    'erx-config',
-    async () => {
+  const queryResult = useQuery({
+    queryKey: ['erx-config'],
+    queryFn: async () => {
       if (!oystehr) {
         throw new Error('API client not available');
       }
 
       return await oystehr.erx.getConfiguration();
     },
-    {
-      onSuccess,
-      enabled: !!oystehr,
-    }
-  );
+    enabled: !!oystehr,
+  });
+
+  useSuccessQuery(queryResult.data, onSuccess);
+
+  return queryResult;
 };
