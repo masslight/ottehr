@@ -22,7 +22,7 @@ export const useGetPaymentMethods = (
     queryFn: async () => {
       if (oystehrZambda) {
         const result = await oystehrZambda.zambda.execute({
-          id: 'get-payment-methods',
+          id: 'payment-methods-list',
           beneficiaryPatientId,
         });
         return chooseJson<PromiseReturnType<ReturnType<OystehrAPIClient['getPaymentMethods']>>>(result);
