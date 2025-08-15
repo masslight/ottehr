@@ -93,8 +93,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       oystehrClient
     );
 
-    const notice = await performEffect(effectInput, oystehrClient, requiredSecrets);
-    const receiptPdfInfo = await createPatientPaymentReceiptPdf(encounterId, patientId, secrets, oystehrM2MClientToken);
+    const { notice, paymentIntent } = await performEffect(effectInput, oystehrClient, requiredSecrets);
+    const receiptPdfInfo = await createPatientPaymentReceiptPdf(
+      encounterId,
+      patientId,
+      secrets,
+      oystehrM2MClientToken,
+      paymentIntent
+    );
 
     return lambdaResponse(200, { notice, patientId, encounterId, receiptInfo: receiptPdfInfo });
   } catch (error: any) {
@@ -108,10 +114,11 @@ const performEffect = async (
   input: ComplexValidationOutput,
   oystehrClient: Oystehr,
   requiredSecrets: RequiredSecrets
-): Promise<PaymentNotice> => {
+): Promise<{ notice: PaymentNotice; paymentIntent?: Stripe.PaymentIntent }> => {
   const { encounterId, paymentDetails, organizationId, userProfile } = input;
   const { paymentMethod, amountInCents, description } = paymentDetails;
   const dateTimeIso = DateTime.now().toISO() || '';
+  let paymentIntent: Stripe.PaymentIntent | undefined;
   console.log('dateTimeIso', dateTimeIso);
   const paymentNoticeInput: PaymentNoticeInput = {
     encounterId,
@@ -140,7 +147,7 @@ const performEffect = async (
         allow_redirects: 'never',
       },
     };
-    const paymentIntent = await stripeClient.paymentIntents.create(paymentIntentInput);
+    paymentIntent = await stripeClient.paymentIntents.create(paymentIntentInput);
 
     if (paymentIntent.status !== 'succeeded') {
       throw new Error(`The card payment was not successful. Try a different card`);
@@ -169,7 +176,8 @@ const performEffect = async (
 
   const noticeToWrite = makePaymentNotice(paymentNoticeInput);
 
-  return await oystehrClient.fhir.create<PaymentNotice>(noticeToWrite);
+  const paymentNotice = await oystehrClient.fhir.create<PaymentNotice>(noticeToWrite);
+  return { notice: paymentNotice, paymentIntent };
 };
 
 const validateRequestParameters = (input: ZambdaInput): PostPatientPaymentInput => {

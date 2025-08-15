@@ -23,7 +23,7 @@ import { makeZ3Url } from '../presigned-file-urls';
 import { getStripeClient, STRIPE_PAYMENT_ID_SYSTEM } from '../stripeIntegration';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { STANDARD_NEW_LINE } from './pdf-consts';
-import { createPdfClient, PdfInfo, SEPARATED_LINE_STYLE as GREY_LINE_STYLE } from './pdf-utils';
+import { createPdfClient, PdfInfo, savePdfLocally, SEPARATED_LINE_STYLE as GREY_LINE_STYLE } from './pdf-utils';
 import { ImageStyle, PdfClientStyles, TextStyle } from './types';
 
 interface PaymentData {
@@ -67,11 +67,14 @@ interface PatientPaymentReceiptData {
   };
 }
 
+// lastOperationPaymentIntent is used to fill Stripe data for last (card) payment
+// by default we fetch all Stripe processed payments and last one might be not there if it's a freshly created payment
 export async function createPatientPaymentReceiptPdf(
   encounterId: string,
   patientId: string,
   secrets: Secrets | null,
-  oystehrToken: string
+  oystehrToken: string,
+  lastOperationPaymentIntent?: Stripe.PaymentIntent
 ): Promise<PdfInfo> {
   const stripeClient = getStripeClient(secrets);
   const oystehr = createOystehrClient(oystehrToken, secrets);
@@ -79,7 +82,14 @@ export async function createPatientPaymentReceiptPdf(
   const billingOrganizationId = removePrefix('Organization/', billingOrganizationRef);
   if (!billingOrganizationId) throw new Error('No DEFAULT_BILLING_RESOURCE organization id found');
 
-  const receiptData = await getReceiptData(encounterId, patientId, billingOrganizationId, oystehr, stripeClient);
+  const receiptData = await getReceiptData(
+    encounterId,
+    patientId,
+    billingOrganizationId,
+    oystehr,
+    stripeClient,
+    lastOperationPaymentIntent
+  );
   console.log('Got receipt data: ', JSON.stringify(receiptData));
   console.log('Creating receipt pdf');
   const receiptPdf = await createReceiptPdf(receiptData);
@@ -108,7 +118,8 @@ async function getReceiptData(
   patientId: string,
   organizationId: string,
   oystehr: Oystehr,
-  stripeClient: Stripe
+  stripeClient: Stripe,
+  lastOperationPaymentIntent?: Stripe.PaymentIntent
 ): Promise<PatientPaymentReceiptData> {
   const accountResources = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
   const account: Account | undefined = accountResources.account;
@@ -139,6 +150,7 @@ async function getReceiptData(
     }),
   ]);
   const stripePayments = paymentIntents.data;
+  if (lastOperationPaymentIntent) stripePayments.push(lastOperationPaymentIntent);
   const paymentMethods = pms.data;
 
   const resources = fhirBundle.unbundle();
@@ -150,6 +162,7 @@ async function getReceiptData(
   const visitDate = DateTime.fromISO(appointment.start ?? '');
   const paymentNoticess = resources.filter((r) => r.resourceType === 'PaymentNotice') as PaymentNotice[];
 
+  // todo sort payments by date
   const payments: PaymentData[] = paymentNoticess.map((paymentNotice) => {
     const method = paymentNotice.extension?.find((ext) => ext.url === PAYMENT_METHOD_EXTENSION_URL)
       ?.valueString as CashOrCardPayment['paymentMethod'];
@@ -159,7 +172,6 @@ async function getReceiptData(
     const last4 = paymentMethods.find((pm) => pm.id === paymentIntent?.payment_method)?.card?.last4;
     const brand = paymentMethods.find((pm) => pm.id === paymentIntent?.payment_method)?.card?.brand;
     // todo: what date should i put here?
-    // todo sort payments by date
     const paymentDate = DateTime.fromISO(paymentNotice?.created ?? '').toFormat('MM/dd/yyyy');
 
     return {
@@ -408,6 +420,6 @@ async function createReplaceReceiptOnZ3(
     throw new Error('failed uploading pdf to z3: ' + error.message);
   });
 
-  // savePdfLocally(pdfBytes);
-  return { title: fileName, uploadURL: baseFileUrl };
+  savePdfLocally(pdfBytes);
+  return { title: 'fileName', uploadURL: 'baseFileUrl' };
 }
