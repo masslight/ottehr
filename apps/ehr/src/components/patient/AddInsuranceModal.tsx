@@ -77,7 +77,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
     reset,
     isSuccess,
   } = useUpdatePatientAccount(() => {
-    void queryClient.invalidateQueries({ queryKey: [['patient-coverages']] });
+    void queryClient.invalidateQueries({ queryKey: ['patient-coverages'] });
   });
 
   const onSubmit = (data: any): void => {
