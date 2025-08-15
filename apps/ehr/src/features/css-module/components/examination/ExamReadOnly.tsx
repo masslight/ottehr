@@ -1,8 +1,7 @@
 import { Box } from '@mui/material';
 import React, { FC } from 'react';
-import { IN_PERSON_EXAM_CARDS, inPersonExamObservationFieldsDetailsArray } from 'utils';
-import { AccordionCard, useInPersonExamObservationsStore } from '../../../../telemed';
-import { ExamReviewComment, ExamReviewGroup } from '../../../../telemed/features/appointment/ReviewTab';
+import { IN_PERSON_EXAM_CARDS } from 'utils';
+import { AccordionCard } from '../../../../telemed';
 
 export const ExamReadOnly: FC = () => {
   return (
@@ -22,20 +21,20 @@ export const ExamReadOnly: FC = () => {
 };
 
 export const ExamReadOnlyBlock: FC = () => {
-  const examObservations = useInPersonExamObservationsStore();
+  // const examObservations = useExamObservationsStore();
 
   return (
     <>
       {IN_PERSON_EXAM_CARDS.map((card) => (
         <React.Fragment key={card}>
-          <ExamReviewGroup
+          {/* <ExamReviewGroup
             label={`${String(card).charAt(0).toUpperCase() + String(card).slice(1)}:`}
             items={inPersonExamObservationFieldsDetailsArray
               .filter((details) => details.card === card)
               .filter((details) => examObservations[details.field].value)}
           />
 
-          <ExamReviewComment item={examObservations[`${card}-comment`]} />
+          <ExamReviewComment item={examObservations[`${card}-comment`]} /> */}
         </React.Fragment>
       ))}
     </>

@@ -1,24 +1,16 @@
-import { Box } from '@mui/material';
-import React, { FC } from 'react';
+import { Box, CircularProgress } from '@mui/material';
+import { FC } from 'react';
+import { ExamTable } from 'src/features/css-module/components/examination/ExamTable';
+import { useFeatureFlags } from 'src/features/css-module/context/featureFlags';
+import { useExamObservations } from 'src/telemed/hooks/useExamObservations';
+import { ExamDef } from 'utils';
 import { useGetAppointmentAccessibility } from '../../../hooks';
-import { AbdomenCard } from './AbdomenCard';
-import { BackCard } from './BackCard';
-import { ChestCard } from './ChestCard';
-import { EarsCard } from './EarsCard';
-import { EyesCard } from './EyesCard';
-import { GeneralCard } from './GeneralCard';
-import { HeadCard } from './HeadCard';
-import { MouthCard } from './MouthCard';
-import { MusculoskeletalCard } from './MusculoskeletalCard';
-import { NeckCard } from './NeckCard';
-import { NeurologicalCard } from './NeurologicalCard';
-import { NoseCard } from './NoseCard';
-import { PsychCard } from './PsychCard';
 import { ReadOnlyCard } from './ReadOnlyCard';
-import { SkinCard } from './SkinCard';
 
 export const ExamTab: FC = () => {
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const { css } = useFeatureFlags();
+  const { value: examObservations } = useExamObservations();
 
   return (
     <Box
@@ -28,26 +20,12 @@ export const ExamTab: FC = () => {
         gap: 1,
       }}
     >
-      {isReadOnly ? (
+      {examObservations.length === 0 ? (
+        <CircularProgress />
+      ) : isReadOnly ? (
         <ReadOnlyCard />
       ) : (
-        <>
-          {/*<VitalsCard />*/}
-          <GeneralCard />
-          <HeadCard />
-          <EyesCard />
-          <NoseCard />
-          <EarsCard />
-          <MouthCard />
-          <NeckCard />
-          <ChestCard />
-          <BackCard />
-          <SkinCard />
-          <AbdomenCard />
-          <MusculoskeletalCard />
-          <NeurologicalCard />
-          <PsychCard />
-        </>
+        <ExamTable examConfig={ExamDef()[css ? 'inPerson' : 'telemed'].default.components} />
       )}
     </Box>
   );

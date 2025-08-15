@@ -5,24 +5,15 @@ import {
   ChartDataResources,
   chunkThings,
   DispositionDTO,
-  examCardsMap,
-  ExamCardsNames,
-  examFieldsMap,
-  ExamFieldsNames,
   FHIR_APPOINTMENT_PREPROCESSED_TAG,
   getDefaultNote,
   getPatchBinary,
   getPatchOperationForNewMetaTag,
   getSecret,
-  inPersonExamCardsMap,
-  InPersonExamCardsNames,
-  inPersonExamFieldsMap,
-  InPersonExamFieldsNames,
   MDM_FIELD_DEFAULT_TEXT,
   OTTEHR_MODULE,
   Secrets,
   SecretsKeys,
-  SNOMEDCodeConceptInterface,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -117,29 +108,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const examObservations = createExamObservations(isInPersonAppointment);
 
     examObservations?.forEach((element) => {
-      const mappedSnomedField = isInPersonAppointment
-        ? inPersonExamFieldsMap[element.field as InPersonExamFieldsNames]
-        : examFieldsMap[element.field as ExamFieldsNames];
-      const mappedSnomedCard = isInPersonAppointment
-        ? inPersonExamCardsMap[element.field as InPersonExamCardsNames]
-        : examCardsMap[element.field as ExamCardsNames];
-      let snomedCode: SNOMEDCodeConceptInterface;
-
-      if (!mappedSnomedField && !mappedSnomedCard)
-        throw new Error('Provided "element.field" property is not recognized.');
-      if (mappedSnomedField && typeof element.value === 'boolean') {
-        snomedCode = mappedSnomedField;
-      } else if (mappedSnomedCard && element.note) {
-        element.value = undefined;
-        snomedCode = mappedSnomedCard;
-      } else {
-        throw new Error(
-          `Exam observation resource must contain string field: 'note', or boolean: 'value', depends on this resource type is exam-field or exam-card. Resource type determines by 'field' prop.`
-        );
-      }
-
+      const { code, bodySite, label, ...rest } = element;
       saveOrUpdateRequests.push(
-        saveResourceRequest(makeExamObservationResource(encounterId, patientId, element, snomedCode))
+        saveResourceRequest(
+          makeExamObservationResource(encounterId, patientId, rest, code ? { code, bodySite } : undefined, label)
+        )
       );
     });
 

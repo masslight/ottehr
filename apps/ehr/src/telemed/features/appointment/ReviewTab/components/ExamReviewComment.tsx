@@ -1,5 +1,5 @@
 import { Typography } from '@mui/material';
-import React, { FC } from 'react';
+import { FC } from 'react';
 import { ExamObservationDTO } from 'utils';
 
 type ExamReviewCommentProps = {

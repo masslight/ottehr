@@ -34,12 +34,7 @@ import {
   VitalTemperatureObservationMethod,
 } from './chart-data.constants';
 import { GetChartDataResponse } from './get-chart-data.types';
-import {
-  ExamCardsNames,
-  ExamFieldsNames,
-  InPersonExamCardsNames,
-  InPersonExamFieldsNames,
-} from './save-chart-data.types';
+import { ExamFieldsNames, InPersonExamFieldsNames } from './save-chart-data.types';
 
 export interface ChartDataFields {
   chiefComplaint?: FreeTextNoteDTO;
@@ -160,7 +155,7 @@ export const PATIENT_INSTRUCTIONS_TEMPLATE_CODE = 'patient-instruction-template'
 export const CSS_NOTE_ID = 'css-note';
 
 export interface ExamObservationDTO extends SaveableDTO {
-  field: ExamFieldsNames | ExamCardsNames | InPersonExamFieldsNames | InPersonExamCardsNames;
+  field: string;
   note?: string;
   value?: boolean;
 }
