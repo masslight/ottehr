@@ -394,11 +394,6 @@ export const FOLDERS_CONFIG: ListConfig[] = [
     documentTypeCode: RECEIPT_CODE,
   },
   {
-    title: 'receipts',
-    display: 'Receipts',
-    documentTypeCode: RECEIPT_CODE,
-  },
-  {
     title: 'exported-questionnaires',
     display: 'Paperwork',
     documentTypeCode: EXPORTED_QUESTIONNAIRE_CODE,
