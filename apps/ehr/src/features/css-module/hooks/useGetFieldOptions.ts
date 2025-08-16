@@ -10,10 +10,47 @@ import { useAppointmentStore, useGetMedicationList } from '../../../telemed';
 import { Option } from '../components/medication-administration/medicationTypes';
 
 const getRoutesArray = (routes: MedicationApplianceRoutes): Option[] => {
-  return Object.entries(routes).map(([_, value]) => ({
+  // Priority routes that should appear at the top
+  const priorityRouteCodes = [
+    '26643006', // Oral route
+    '37839007', // Sublingual route
+    '447694001', // Respiratory tract route (inhaled)
+    '47625008', // Intravenous route (IV)
+    '78421000', // Intramuscular route (IM)
+    '6064005', // Topical route
+    '10547007', // Otic route
+    '54485002', // Ophthalmic route
+  ];
+
+  const allRoutes = Object.entries(routes).map(([_, value]) => ({
     value: value.code,
     label: value.display,
   })) as Option[];
+
+  // Separate priority routes from other routes
+  const priorityRoutes = allRoutes.filter((route) => 
+    priorityRouteCodes.includes(route.value)
+  );
+
+  const otherRoutes = allRoutes.filter((route) => 
+    !priorityRouteCodes.includes(route.value)
+  ).sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
+
+  // Sort priority routes in the specified order
+  priorityRoutes.sort((a, b) => {
+    const aIndex = priorityRouteCodes.indexOf(a.value);
+    const bIndex = priorityRouteCodes.indexOf(b.value);
+    return aIndex - bIndex;
+  });
+
+  // Create the grouped options with "Popular" section header
+  const groupedOptions: Option[] = [
+    ...priorityRoutes,
+    { value: 'separator', label: '─────────── Other ──────────────' }, // Visual separator
+    ...otherRoutes,
+  ];
+
+  return groupedOptions;
 };
 
 export type OrderFieldsSelectsOptions = Record<
@@ -152,9 +189,7 @@ export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
       status: isLocationLoading ? 'loading' : 'loaded',
     },
     route: {
-      options: getRoutesArray(medicationApplianceRoutes)?.sort((a, b) =>
-        a.label.toLowerCase().localeCompare(b.label.toLowerCase())
-      ),
+      options: getRoutesArray(medicationApplianceRoutes),
       status: 'loaded',
     },
     units: {

@@ -35,6 +35,7 @@ export const getFieldType = (field: keyof MedicationData): InHouseMedicationFiel
   if (field === 'expDate') return 'month';
   if (field === 'effectiveDateTime') return 'datetime';
   if (field === 'medicationId') return 'autocomplete';
+  if (field === 'route') return 'autocomplete'; // Make route searchable
   if (medicationOrderFieldsWithOptions.includes(field)) return 'select';
   return 'text';
 };
