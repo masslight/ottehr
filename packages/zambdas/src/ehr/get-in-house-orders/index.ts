@@ -62,8 +62,8 @@ export const index = wrapHandler('get-in-house-orders', async (input: ZambdaInpu
       {
         searchBy: validatedParameters.searchBy,
       },
-      userToken,
-      m2mToken
+      m2mToken,
+      userToken
     );
 
     if (!serviceRequests.length) {

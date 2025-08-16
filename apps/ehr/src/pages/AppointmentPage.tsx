@@ -50,6 +50,7 @@ import {
   formatPhoneNumber,
   getFullName,
   getPatchOperationForNewMetaTag,
+  getPresignedURL,
   getUnconfirmedDOBForAppointment,
   getUnconfirmedDOBIdx,
   getVisitStatus,
@@ -94,7 +95,6 @@ import {
   sortLogs,
 } from '../helpers/activityLogsUtils';
 import { getPatchBinary } from '../helpers/fhir';
-import { getPresignedFileUrl } from '../helpers/files.helper';
 import { formatDateUsingSlashes, getTimezone } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser from '../hooks/useEvolveUser';
@@ -721,7 +721,7 @@ export default function AppointmentPage(): ReactElement {
               const z3Url = content.attachment.url;
 
               if (z3Url && title && Object.values<string>(DocumentType).includes(title)) {
-                const presignedUrl = await getPresignedFileUrl(z3Url, authToken);
+                const presignedUrl = await getPresignedURL(z3Url, authToken);
                 if (presignedUrl) {
                   allZ3Documents.push({
                     z3Url: z3Url,

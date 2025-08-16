@@ -13,6 +13,7 @@ import { ChiefComplaintCard } from '../../../telemed/features/appointment';
 import {
   AddendumCard,
   DischargeButton,
+  DischargeSummaryButton,
   MissingCard,
   ReviewAndSignButton,
   SendFaxButton,
@@ -32,7 +33,7 @@ interface PatientInfoProps {
 export const ProgressNote: React.FC<PatientInfoProps> = () => {
   const { id: appointmentID } = useParams();
   const {
-    resources: { appointment },
+    resources: { appointment, patient },
     isLoading,
     error,
   } = useAppointment(appointmentID);
@@ -75,7 +76,10 @@ export const ProgressNote: React.FC<PatientInfoProps> = () => {
 
       {!isReadOnly && (
         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-          <SendFaxButton appointment={appointmentResource} encounter={encounter} css={css} />
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <SendFaxButton appointment={appointmentResource} encounter={encounter} css={css} />
+            <DischargeSummaryButton appointmentId={appointmentID} patientId={patient?.id} />
+          </Box>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <DischargeButton />
             <ReviewAndSignButton />

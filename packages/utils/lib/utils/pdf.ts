@@ -1,4 +1,5 @@
 import { Patient } from 'fhir/r4b';
+import JSZip from 'jszip';
 import { DateTime } from 'luxon';
 import {
   PageSizes,
@@ -10,7 +11,7 @@ import {
   StandardFonts,
   translate,
 } from 'pdf-lib';
-// import fs from 'fs';
+import { getPresignedURL } from '../helpers';
 
 // Get the image's EXIF orientation
 // https://github.com/Hopding/pdf-lib/issues/1284
@@ -289,4 +290,60 @@ export async function uploadPDF(
     throw new Error(`Upload request was not OK: ${uploadRequest.statusText}`);
   }
   console.log('upload to z3 using presigned url succeeded');
+}
+
+async function uploadPDFWithAttachments(
+  pdfBytes: Uint8Array,
+  fileURL: string,
+  token: string,
+  attachmentUrls: string[],
+  patientId?: string
+): Promise<void> {
+  if (!patientId) {
+    throw new Error('patient ID is undefined!');
+  }
+
+  console.log(`Found ${attachmentUrls.length} attachments. Building ZIP…`);
+
+  const zip = new JSZip();
+  const fileName = fileURL.split('/').pop()?.split('.').slice(0, -1).join('.') || 'file';
+  zip.file(`${fileName}.pdf`, pdfBytes);
+
+  for (const url of attachmentUrls) {
+    try {
+      const presignedUrl = await getPresignedURL(url, token);
+
+      if (!presignedUrl) continue;
+
+      const res = await fetch(presignedUrl);
+      if (!res.ok) {
+        console.warn(`Skipping ${url}: ${res.status} ${res.statusText}`);
+        continue;
+      }
+      const data = new Uint8Array(await res.arrayBuffer());
+      const filename = url.split('/').pop() || `attachment`;
+      zip.file(`attachments/${filename}`, data);
+    } catch (err) {
+      console.warn(`Error fetching ${url}:`, err);
+    }
+  }
+
+  const zipBytes = await zip.generateAsync({ type: 'uint8array' });
+  console.log('ZIP built, uploading…');
+
+  return uploadPDF(zipBytes, fileURL, token, patientId);
+}
+
+export async function uploadDocument(
+  pdfBytes: Uint8Array,
+  fileURL: string,
+  token: string,
+  patientId?: string,
+  attachmentUrls?: string[]
+): Promise<void> {
+  if (attachmentUrls && attachmentUrls.length > 0) {
+    return uploadPDFWithAttachments(pdfBytes, fileURL, token, attachmentUrls, patientId);
+  } else {
+    return uploadPDF(pdfBytes, fileURL, token, patientId);
+  }
 }

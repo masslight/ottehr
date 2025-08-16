@@ -1,7 +1,18 @@
+import fs from 'node:fs';
 import fontkit from '@pdf-lib/fontkit';
 import { DocumentReference } from 'fhir/r4b';
-import fs from 'fs';
-import { Color, PDFDocument, PDFFont, PDFImage, PDFPage, rgb, StandardFonts } from 'pdf-lib';
+import {
+  Color,
+  PDFDocument,
+  PDFFont,
+  PDFImage,
+  PDFName,
+  PDFNumber,
+  PDFPage,
+  PDFString,
+  rgb,
+  StandardFonts,
+} from 'pdf-lib';
 import { SupportedObsImgAttachmentTypes } from 'utils';
 import { PDF_CLIENT_STYLES, STANDARD_FONT_SIZE, STANDARD_FONT_SPACING, Y_POS_GAP } from './pdf-consts';
 import { ImageStyle, LineStyle, PageStyles, PdfClient, PdfClientStyles, TextStyle } from './types';
@@ -488,6 +499,46 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     });
   };
 
+  const drawLink = (text: string, url: string, style: TextStyle): void => {
+    const { width, height } = getTextDimensions(text, style);
+    const x = currXPos;
+    const y = currYPos;
+
+    page.drawText(text, {
+      x,
+      y,
+      size: style.fontSize,
+      font: style.font,
+      color: style.color,
+    });
+
+    const linkAnnotation = pdfDoc.context.obj({
+      Type: PDFName.of('Annot'),
+      Subtype: PDFName.of('Link'),
+      Rect: pdfDoc.context.obj([PDFNumber.of(x), PDFNumber.of(y), PDFNumber.of(x + width), PDFNumber.of(y + height)]),
+      Border: pdfDoc.context.obj([PDFNumber.of(0), PDFNumber.of(0), PDFNumber.of(0)]),
+      A: pdfDoc.context.obj({
+        Type: PDFName.of('Action'),
+        S: PDFName.of('URI'),
+        URI: PDFString.of(url),
+      }),
+    });
+    const linkRef = pdfDoc.context.register(linkAnnotation);
+    const existingAnnots = page.node.Annots();
+
+    if (existingAnnots) {
+      existingAnnots.push(linkRef);
+    } else {
+      page.node.set(PDFName.of('Annots'), pdfDoc.context.obj([linkRef]));
+    }
+
+    currXPos += width;
+    if (style.newLineAfter) {
+      currYPos -= height + style.spacing;
+      currXPos = pageLeftBound;
+    }
+  };
+
   return {
     addNewPage,
     drawText,
@@ -516,6 +567,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     getCurrentPageIndex,
     setPageByIndex,
     getTotalPages,
+    drawLink,
   };
 }
 

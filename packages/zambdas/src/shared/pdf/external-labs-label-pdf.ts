@@ -4,6 +4,7 @@ import { DocumentReference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { StandardFonts } from 'pdf-lib';
 import {
+  BUCKET_NAMES,
   createFilesDocumentReferences,
   EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE,
   EXTERNAL_LAB_LABEL_PDF_BASE_NAME,
@@ -31,8 +32,6 @@ export interface ExternalLabsLabelConfig {
   labelConfig: LabelConfig;
   content: ExternalLabsLabelContent;
 }
-
-const UPLOAD_BUCKET_NAME = 'visit-notes';
 
 export const convertLabeConfigToPdfClientStyles = (labelConfig: LabelConfig): PdfClientStyles => {
   const inchesToPoints = (sizeInches: number): number => {
@@ -187,11 +186,11 @@ async function createExternalLabsLabelPDFHelper(
   const baseFileUrl = makeZ3Url({
     secrets,
     fileName,
-    bucketName: UPLOAD_BUCKET_NAME,
+    bucketName: BUCKET_NAMES.LABS,
     patientID: input.content.patientId,
   });
 
-  console.log('Uploading file to bucket, ', UPLOAD_BUCKET_NAME);
+  console.log('Uploading file to bucket, ', BUCKET_NAMES.LABS);
 
   try {
     const presignedUrl = await createPresignedUrl(token, baseFileUrl, 'upload');
@@ -250,6 +249,10 @@ export async function createExternalLabsLabelPDF(
   }
 
   const presignedURL = await getPresignedURL(pdfInfo.uploadURL, token);
+
+  if (!presignedURL) {
+    throw new Error('Failed to get presigned URL for External lab label PDF');
+  }
 
   return { docRef: docRefs[0], presignedURL };
 }

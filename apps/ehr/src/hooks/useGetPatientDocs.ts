@@ -5,8 +5,8 @@ import { DocumentReference, FhirResource, List, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { useCallback, useState } from 'react';
 import { useSuccessQuery } from 'utils';
-import { chooseJson } from 'utils';
-import { getPresignedFileUrl, parseFileExtension } from '../helpers/files.helper';
+import { chooseJson, getPresignedURL } from 'utils';
+import { parseFileExtension } from '../helpers/files.helper';
 import { useApiClients } from './useAppClients';
 
 const PATIENT_FOLDERS_CODE = 'patient-docs-folder';
@@ -159,7 +159,7 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
       }
 
       const urlSigningRequests = docAttachments.map(async (attachment) => {
-        const presignedUrl = await getPresignedFileUrl(attachment.z3Url, authToken);
+        const presignedUrl = await getPresignedURL(attachment.z3Url, authToken);
         return {
           attachment: attachment,
           presignedUrl: presignedUrl,

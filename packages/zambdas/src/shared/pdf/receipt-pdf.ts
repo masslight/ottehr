@@ -1,7 +1,7 @@
 import { Patient } from 'fhir/r4b';
 import fs from 'fs';
 import { PageSizes } from 'pdf-lib';
-import { Secrets } from 'utils';
+import { BUCKET_NAMES, Secrets } from 'utils';
 import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { createPdfClient, PdfInfo } from './pdf-utils';
@@ -105,7 +105,7 @@ export async function createReceiptPdf(
     throw new Error('failed creating pdfBytes: ' + error.message);
   });
 
-  const bucketName = 'receipts';
+  const bucketName = BUCKET_NAMES.RECEIPTS;
   const fileName = 'Receipt.pdf';
   const baseFileUrl = makeZ3Url({ secrets, fileName, bucketName, patientID: patient.id });
 
