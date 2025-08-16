@@ -166,11 +166,40 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
         autoComplete="off"
       >
         <MenuItem value="">Select {label}</MenuItem>
-        {options.map((option) => (
-          <MenuItem key={option.value} value={option.value}>
-            {option.label}
-          </MenuItem>
-        ))}
+        {options.map((option) => {
+          // Handle separator for grouped options
+          if (option.value === 'separator') {
+            return (
+              <MenuItem 
+                key={option.value} 
+                value={option.value}
+                disabled
+                sx={{
+                  '&.Mui-disabled': {
+                    opacity: 0.7,
+                    color: 'text.secondary',
+                    fontSize: '0.875rem',
+                    fontWeight: 'bold',
+                    textAlign: 'center',
+                    backgroundColor: 'action.hover',
+                    pointerEvents: 'none',
+                    '&:hover': {
+                      backgroundColor: 'action.hover',
+                    }
+                  }
+                }}
+              >
+                {option.label}
+              </MenuItem>
+            );
+          }
+          
+          return (
+            <MenuItem key={option.value} value={option.value}>
+              {option.label}
+            </MenuItem>
+          );
+        })}
       </Select>
     ) : (
       <Skeleton variant="rectangular" width="100%" height={56} />
