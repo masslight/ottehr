@@ -159,7 +159,13 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
               renderValue: () => renderValue,
             }
           : {})}
-        onChange={(e) => handleChange(e.target.value)}
+        onChange={(e) => {
+          // Prevent selecting separator
+          if (e.target.value === 'separator') {
+            return;
+          }
+          handleChange(e.target.value);
+        }}
         label={label}
         required={required}
         error={showError && required && !value}
