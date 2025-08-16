@@ -118,7 +118,43 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
         }
         value={currentValue}
         getOptionLabel={(option) => option.label}
-        onChange={(_e, val) => handleChange(val?.value)}
+        onChange={(_e, val) => {
+          // Prevent selecting separator
+          if (val?.value === 'separator') {
+            return;
+          }
+          handleChange(val?.value);
+        }}
+        getOptionDisabled={(option) => option.value === 'separator'} // Disable separator
+        renderOption={(props, option) => {
+          // Handle separator for grouped options
+          if (option.value === 'separator') {
+            return (
+              <li
+                {...props}
+                key={option.value}
+                style={{
+                  opacity: 0.7,
+                  color: 'rgb(117, 117, 117)', // text.secondary
+                  fontSize: '0.875rem',
+                  fontWeight: 'bold',
+                  textAlign: 'center',
+                  backgroundColor: 'rgba(0, 0, 0, 0.04)', // action.hover
+                  pointerEvents: 'none',
+                  cursor: 'default',
+                }}
+              >
+                {option.label}
+              </li>
+            );
+          }
+          
+          return (
+            <li {...props} key={option.value}>
+              {option.label}
+            </li>
+          );
+        }}
         renderInput={(params) => (
           <TextField
             {...params}
