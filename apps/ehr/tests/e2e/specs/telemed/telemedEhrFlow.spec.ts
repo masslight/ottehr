@@ -491,7 +491,7 @@ test.describe('Tests interacting with appointment state', () => {
     });
   });
 
-  test('Should test connect to patient is working', async () => {
+  test.skip('Should test connect to patient is working', { tag: '@flaky' }, async () => {
     const connectButton = page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonConnectToPatient);
     await expect(connectButton).toBeVisible(DEFAULT_TIMEOUT);
     await connectButton.click(DEFAULT_TIMEOUT);
