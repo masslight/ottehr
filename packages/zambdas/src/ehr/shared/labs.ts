@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputGetRequest, SearchParam } from '@oystehr/sdk';
+import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
 import {
   Account,
   ActivityDefinition,
@@ -12,24 +12,17 @@ import {
   Organization,
   Patient,
   Practitioner,
-  Questionnaire,
   QuestionnaireResponse,
-  QuestionnaireResponseItem,
-  QuestionnaireResponseItemAnswer,
   Schedule,
   ServiceRequest,
   Specimen,
   Task,
 } from 'fhir/r4b';
 import {
-  DynamicAOEInput,
   EncounterExternalLabResult,
   EncounterInHouseLabResult,
-  EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE,
-  externalLabOrderIsManual,
   ExternalLabOrderResult,
   ExternalLabOrderResultConfig,
-  getOrderNumber,
   getPresignedURL,
   getTimezone,
   IN_HOUSE_DIAGNOSTIC_REPORT_CATEGORY_CONFIG,
@@ -37,94 +30,37 @@ import {
   InHouseLabResult,
   LAB_DR_TYPE_TAG,
   LAB_ORDER_DOC_REF_CODING_CODE,
-  LAB_ORDER_TASK,
   LAB_RESULT_DOC_REF_CODING_CODE,
-  LabelPdf,
   LabOrderPDF,
   LabResultPDF,
   LabType,
   nameLabTest,
+  OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
+  OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
 } from 'utils';
 
 export type LabOrderResources = {
   serviceRequest: ServiceRequest;
   patient: Patient;
+  questionnaireResponse?: QuestionnaireResponse;
   practitioner: Practitioner;
-  preSubmissionTask: Task;
-  labOrganization: Organization;
-  encounter: Encounter;
-  diagnosticReports: DiagnosticReport[]; // only present if results have come in
-  observations: Observation[]; // only present if results have come in
-  specimens: Specimen[]; // not always required (psc)
-  questionnaireResponse?: QuestionnaireResponse; // not always required (psc)
+  task: Task;
+  organization: Organization | undefined;
+  diagnosticReports: DiagnosticReport[];
   schedule?: Schedule;
-};
-
-const makeSearchParams = (serviceRequestID: string): SearchParam[] => {
-  return [
-    {
-      name: '_id',
-      value: serviceRequestID,
-    },
-    {
-      name: '_revinclude',
-      value: 'Task:based-on',
-    },
-    {
-      name: '_include',
-      value: 'ServiceRequest:subject',
-    },
-    {
-      name: '_revinclude',
-      value: 'QuestionnaireResponse:based-on',
-    },
-    {
-      name: '_include',
-      value: 'ServiceRequest:requester',
-    },
-    {
-      name: '_include',
-      value: 'ServiceRequest:performer',
-    },
-    {
-      name: '_include',
-      value: 'ServiceRequest:encounter',
-    },
-    {
-      name: '_revinclude',
-      value: 'DiagnosticReport:based-on',
-    },
-    {
-      name: '_include:iterate',
-      value: 'Encounter:appointment',
-    },
-    {
-      name: '_include:iterate',
-      value: 'Appointment:slot',
-    },
-    {
-      name: '_include:iterate',
-      value: 'Slot:schedule',
-    },
-    {
-      name: '_include:iterate',
-      value: 'DiagnosticReport:result',
-    },
-    {
-      name: '_include',
-      value: 'ServiceRequest:specimen',
-    },
-  ];
+  appointment: Appointment;
+  encounter: Encounter;
+  observations: Observation[];
+  specimens: Specimen[];
 };
 
 export async function getExternalLabOrderResources(
   oystehr: Oystehr,
   serviceRequestID: string
 ): Promise<LabOrderResources> {
-  const searchParams = makeSearchParams(serviceRequestID);
-  const resourceSearch = (
+  const serviceRequestTemp = (
     await oystehr.fhir.search<
       | ServiceRequest
       | QuestionnaireResponse
@@ -140,76 +76,170 @@ export async function getExternalLabOrderResources(
       | Specimen
     >({
       resourceType: 'ServiceRequest',
-      params: searchParams,
+      params: [
+        {
+          name: '_id',
+          value: serviceRequestID,
+        },
+        {
+          name: '_revinclude',
+          value: 'Task:based-on',
+        },
+        {
+          name: '_include',
+          value: 'ServiceRequest:subject',
+        },
+        {
+          name: '_revinclude',
+          value: 'QuestionnaireResponse:based-on',
+        },
+        {
+          name: '_include',
+          value: 'ServiceRequest:requester',
+        },
+        {
+          name: '_include',
+          value: 'ServiceRequest:performer',
+        },
+        {
+          name: '_include',
+          value: 'ServiceRequest:encounter',
+        },
+        {
+          name: '_revinclude',
+          value: 'DiagnosticReport:based-on',
+        },
+        {
+          name: '_include:iterate',
+          value: 'Encounter:appointment',
+        },
+        {
+          name: '_include:iterate',
+          value: 'Appointment:slot',
+        },
+        {
+          name: '_include:iterate',
+          value: 'Slot:schedule',
+        },
+        {
+          name: '_include:iterate',
+          value: 'DiagnosticReport:result',
+        },
+        {
+          name: '_include',
+          value: 'ServiceRequest:specimen',
+        },
+      ],
     })
   )?.unbundle();
 
-  const serviceRequests: ServiceRequest[] = [];
-  const patients: Patient[] = [];
-  const practitioners: Practitioner[] = [];
-  const tasks: Task[] = [];
-  const organizations: Organization[] = [];
-  const encounters: Encounter[] = [];
-  const diagnosticReports: DiagnosticReport[] = [];
-  const observations: Observation[] = [];
-  const specimens: Specimen[] = [];
-  const questionnaireResponses: QuestionnaireResponse[] = [];
-  const schedules: Schedule[] = [];
+  const serviceRequestsTemp: ServiceRequest[] | undefined = serviceRequestTemp?.filter(
+    (resourceTemp): resourceTemp is ServiceRequest => resourceTemp.resourceType === 'ServiceRequest'
+  );
 
-  resourceSearch.forEach((resource) => {
-    if (resource.resourceType === 'ServiceRequest') serviceRequests.push(resource);
-    if (resource.resourceType === 'Patient') patients.push(resource);
-    if (resource.resourceType === 'Practitioner') practitioners.push(resource);
-    if (resource.resourceType === 'Organization') organizations.push(resource);
-    if (resource.resourceType === 'Encounter') encounters.push(resource);
-    if (resource.resourceType === 'Observation') observations.push(resource);
-    if (resource.resourceType === 'Specimen') specimens.push(resource);
-    if (resource.resourceType === 'QuestionnaireResponse') questionnaireResponses.push(resource);
-    if (resource.resourceType === 'Schedule') schedules.push(resource);
-    if (resource.resourceType === 'Task') {
-      const taskIsPst = !!resource.code?.coding?.find(
-        (c) => c.system === LAB_ORDER_TASK.system && c.code === LAB_ORDER_TASK.code.preSubmission
-      );
-      if (taskIsPst) tasks.push(resource);
-    }
-    if (resource.resourceType === 'DiagnosticReport') {
-      const isCorrectCategory = diagnosticReportIncludesCategory(
-        resource,
+  const patientsTemp: Patient[] | undefined = serviceRequestTemp?.filter(
+    (resourceTemp): resourceTemp is Patient => resourceTemp.resourceType === 'Patient'
+  );
+
+  const practitionersTemp: Practitioner[] | undefined = serviceRequestTemp?.filter(
+    (resourceTemp): resourceTemp is Practitioner => resourceTemp.resourceType === 'Practitioner'
+  );
+
+  const questionnaireResponsesTemp: QuestionnaireResponse[] | undefined = serviceRequestTemp?.filter(
+    (resourceTemp): resourceTemp is QuestionnaireResponse => resourceTemp.resourceType === 'QuestionnaireResponse'
+  );
+
+  const tasksTemp: Task[] | undefined = serviceRequestTemp?.filter(
+    (resourceTemp): resourceTemp is Task => resourceTemp.resourceType === 'Task'
+  );
+
+  const orgsTemp: Organization[] | undefined = serviceRequestTemp?.filter(
+    (resourceTemp): resourceTemp is Organization => resourceTemp.resourceType === 'Organization'
+  );
+
+  const diagnosticReportsTemp: DiagnosticReport[] | undefined = serviceRequestTemp?.filter(
+    (resourceTemp): resourceTemp is DiagnosticReport =>
+      resourceTemp.resourceType === 'DiagnosticReport' &&
+      diagnosticReportIncludesCategory(
+        resourceTemp,
         OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY.system,
         OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY.code
-      );
-      if (isCorrectCategory) diagnosticReports.push(resource);
-    }
-  });
+      )
+  );
 
-  if (serviceRequests?.length !== 1) throw new Error('service request is not found');
-  if (patients?.length !== 1) throw new Error('patient is not found');
-  if (practitioners?.length !== 1) throw new Error('practitioner is not found');
-  if (tasks?.length !== 1) throw new Error('task is not found');
-  if (organizations?.length !== 1) throw new Error('performing lab Org not found');
-  if (encounters?.length !== 1) throw new Error('encounter is not found');
+  const schedulesTemp: Schedule[] | undefined = serviceRequestTemp?.filter(
+    (resourceTemp): resourceTemp is Schedule => resourceTemp.resourceType === 'Schedule'
+  );
 
-  const serviceRequest = serviceRequests[0];
-  const patient = patients[0];
-  const practitioner = practitioners[0];
-  const preSubmissionTask = tasks[0];
-  const labOrganization = organizations[0];
-  const encounter = encounters[0];
-  const questionnaireResponse = questionnaireResponses?.[0];
-  const schedule = schedules?.[0];
+  const appointmentsTemp: Appointment[] | undefined = serviceRequestTemp?.filter(
+    (resourceTemp): resourceTemp is Appointment => resourceTemp.resourceType === 'Appointment'
+  );
+
+  const encountersTemp: Encounter[] | undefined = serviceRequestTemp?.filter(
+    (resourceTemp): resourceTemp is Encounter => resourceTemp.resourceType === 'Encounter'
+  );
+
+  const observationsTemp: Observation[] | undefined = serviceRequestTemp?.filter(
+    (resourceTemp): resourceTemp is Observation => resourceTemp.resourceType === 'Observation'
+  );
+
+  const specimens = serviceRequestTemp?.filter(
+    (resource): resource is Specimen => resource.resourceType === 'Specimen'
+  );
+
+  if (serviceRequestsTemp?.length !== 1) {
+    throw new Error('service request is not found');
+  }
+
+  if (patientsTemp?.length !== 1) {
+    throw new Error('patient is not found');
+  }
+
+  if (practitionersTemp?.length !== 1) {
+    throw new Error('practitioner is not found');
+  }
+
+  if (tasksTemp?.length !== 1) {
+    throw new Error('task is not found');
+  }
+
+  if (orgsTemp?.length !== 1) {
+    throw new Error('performing lab Org not found');
+  }
+
+  if (appointmentsTemp?.length !== 1) {
+    throw new Error('appointment is not found');
+  }
+
+  if (encountersTemp?.length !== 1) {
+    throw new Error('encounter is not found');
+  }
+
+  const serviceRequest = serviceRequestsTemp?.[0];
+  const patient = patientsTemp?.[0];
+  const practitioner = practitionersTemp?.[0];
+  const questionnaireResponse = questionnaireResponsesTemp?.[0];
+  const task = tasksTemp?.[0];
+  const organization = orgsTemp?.[0];
+  const diagnosticReports = diagnosticReportsTemp;
+  const schedule = schedulesTemp?.[0];
+  const appointment = appointmentsTemp?.[0];
+  const encounter = encountersTemp?.[0];
+  const observations = observationsTemp;
 
   return {
-    serviceRequest,
+    serviceRequest: serviceRequest,
     patient,
     practitioner,
-    preSubmissionTask,
-    labOrganization,
-    encounter,
+    questionnaireResponse: questionnaireResponse,
+    task,
+    organization,
     diagnosticReports,
+    schedule,
+    appointment,
+    encounter,
     observations,
     specimens,
-    questionnaireResponse,
-    schedule,
   };
 }
 
@@ -272,7 +302,7 @@ export const makeEncounterLabResults = async (
         };
         if (resource.status === 'active') {
           if (isExternalLabServiceRequest) {
-            const isManual = externalLabOrderIsManual(resource);
+            const isManual = resource.identifier?.some((id) => id.system === OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM);
             // theres no guarantee that will we get electronic results back for manual labs so we can't validate
             if (!isManual) activeExternalLabServiceRequests.push(resource);
           }
@@ -314,7 +344,9 @@ export const makeEncounterLabResults = async (
         if (relatedSRDetail.type === LabType.external) {
           const sr = relatedSRDetail.resource;
           const isReflex = diagnosticReportIsReflex(relatedDR);
-          const orderNumber = getOrderNumber(sr);
+          const orderNumber = sr.identifier?.find(
+            (id) => id.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM || id.system === OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM
+          )?.value;
           const activityDef = sr.contained?.find(
             (resource) => resource.resourceType === 'ActivityDefinition'
           ) as ActivityDefinition;
@@ -462,11 +494,7 @@ const getDocRefRelatedId = (
   return reference?.split('/')[1];
 };
 
-type FetchLabOrderPDFRes = {
-  resultPDFs: LabResultPDF[];
-  labelPDF: LabelPdf | undefined;
-  orderPDF: LabOrderPDF | undefined;
-};
+type FetchLabOrderPDFRes = { resultPDFs: LabResultPDF[]; orderPDF: LabOrderPDF | undefined };
 export const fetchLabOrderPDFsPresignedUrls = async (
   documentReferences: DocumentReference[],
   m2mToken: string
@@ -474,18 +502,13 @@ export const fetchLabOrderPDFsPresignedUrls = async (
   if (!documentReferences.length) {
     return;
   }
-  const pdfPromises: Promise<LabResultPDF | LabelPdf | LabOrderPDF | null>[] = [];
+  const pdfPromises: Promise<LabResultPDF | LabOrderPDF | null>[] = [];
 
   for (const docRef of documentReferences) {
     const diagnosticReportId = getDocRefRelatedId(docRef, 'DiagnosticReport');
     const serviceRequestId = getDocRefRelatedId(docRef, 'ServiceRequest');
     const isLabOrderDoc = docRef.type?.coding?.find(
       (code) => code.system === LAB_ORDER_DOC_REF_CODING_CODE.system && code.code === LAB_ORDER_DOC_REF_CODING_CODE.code
-    );
-    const isLabelDoc = docRef.type?.coding?.find(
-      (code) =>
-        code.system === EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE.system &&
-        code.code === EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE.code
     );
     const docRefId = docRef.id;
 
@@ -499,8 +522,6 @@ export const fetchLabOrderPDFsPresignedUrls = async (
                 return { presignedURL, diagnosticReportId } as LabResultPDF;
               } else if (serviceRequestId && isLabOrderDoc) {
                 return { presignedURL, serviceRequestId, docRefId } as LabOrderPDF;
-              } else if (serviceRequestId && isLabelDoc) {
-                return { presignedURL, documentReference: docRef } as LabelPdf;
               }
               return null;
             })
@@ -515,9 +536,9 @@ export const fetchLabOrderPDFsPresignedUrls = async (
 
   const pdfs = await Promise.allSettled(pdfPromises);
 
-  const { resultPDFs, labelPDF, orderPDF } = pdfs
+  const { resultPDFs, orderPDF } = pdfs
     .filter(
-      (result): result is PromiseFulfilledResult<LabResultPDF | LabelPdf | LabOrderPDF> =>
+      (result): result is PromiseFulfilledResult<LabResultPDF | LabOrderPDF> =>
         result.status === 'fulfilled' && result.value !== null
     )
     .reduce(
@@ -526,15 +547,13 @@ export const fetchLabOrderPDFsPresignedUrls = async (
           acc.resultPDFs.push(result.value);
         } else if ('serviceRequestId' in result.value) {
           acc.orderPDF = result.value;
-        } else if ('documentReference' in result.value) {
-          acc.labelPDF = result.value;
         }
         return acc;
       },
-      { resultPDFs: [], labelPDF: undefined, orderPDF: undefined }
+      { resultPDFs: [], orderPDF: undefined }
     );
 
-  return { resultPDFs, labelPDF, orderPDF };
+  return { resultPDFs, orderPDF };
 };
 
 export const parseAppointmentIdForServiceRequest = (
@@ -575,116 +594,4 @@ export const diagnosticReportIsReflex = (dr: DiagnosticReport): boolean => {
   return !!dr?.meta?.tag?.find(
     (t) => t.system === LAB_DR_TYPE_TAG.system && t.display === LAB_DR_TYPE_TAG.display.reflex
   );
-};
-
-export interface AOEDisplayForOrderForm {
-  question: string;
-  answer: any[];
-}
-export const populateQuestionnaireResponseItems = async (
-  questionnaireResponse: QuestionnaireResponse,
-  data: DynamicAOEInput,
-  m2mToken: string
-): Promise<{
-  questionnaireResponseItems: QuestionnaireResponseItem[];
-  questionsAndAnswersForFormDisplay: AOEDisplayForOrderForm[]; // we may not need this anymore
-}> => {
-  const questionnaireUrl = questionnaireResponse.questionnaire;
-
-  if (!questionnaireUrl) {
-    throw new Error('questionnaire is not found');
-  }
-
-  console.log(questionnaireUrl);
-
-  const questionnaireRequest = await fetch(questionnaireUrl, {
-    headers: {
-      Authorization: `Bearer ${m2mToken}`,
-    },
-  });
-
-  const questionnaire: Questionnaire = await questionnaireRequest.json();
-
-  if (!questionnaire.item) {
-    throw new Error('questionnaire item is not found');
-  }
-
-  const questionsAndAnswersForFormDisplay: AOEDisplayForOrderForm[] = [];
-
-  const questionnaireResponseItems: QuestionnaireResponseItem[] = Object.keys(data).map((questionResponse) => {
-    const question = questionnaire.item?.find((item) => item.linkId === questionResponse);
-    if (!question) {
-      throw new Error('question is not found');
-    }
-
-    let answer: QuestionnaireResponseItemAnswer[] | undefined = undefined;
-    let answerForDisplay = data[questionResponse] !== undefined ? data[questionResponse] : 'UNKNOWN';
-
-    const multiSelect = question.extension?.find(
-      (currentExtension) =>
-        currentExtension.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/data-type' &&
-        currentExtension.valueString === 'multi-select list'
-    );
-    if (question.type === 'text' || (question.type === 'choice' && !multiSelect)) {
-      answer = [
-        {
-          valueString: data[questionResponse],
-        },
-      ];
-    }
-    if (multiSelect) {
-      answer = data[questionResponse].map((item: string) => ({ valueString: item }));
-      answerForDisplay = data[questionResponse].join(', ');
-    }
-
-    if (question.type === 'boolean') {
-      answer = [
-        {
-          valueBoolean: data[questionResponse],
-        },
-      ];
-      answerForDisplay = answerForDisplay === true ? 'Yes' : answerForDisplay === false ? 'No' : answerForDisplay;
-    }
-
-    if (question.type === 'date') {
-      answer = [
-        {
-          valueDate: data[questionResponse],
-        },
-      ];
-    }
-
-    if (question.type === 'decimal') {
-      answer = [
-        {
-          valueDecimal: data[questionResponse],
-        },
-      ];
-    }
-
-    if (question.type === 'integer') {
-      answer = [
-        {
-          valueInteger: data[questionResponse],
-        },
-      ];
-    }
-
-    if (answer == undefined) {
-      throw new Error('answer is undefined');
-    }
-
-    if (answerForDisplay !== undefined && answerForDisplay !== '')
-      questionsAndAnswersForFormDisplay.push({
-        question: question.text || 'UNKNOWN',
-        answer: answerForDisplay,
-      });
-
-    return {
-      linkId: questionResponse,
-      answer: answer,
-    };
-  });
-
-  return { questionnaireResponseItems, questionsAndAnswersForFormDisplay };
 };

@@ -7,15 +7,7 @@ import ListViewContainer from '../../common/ListViewContainer';
 import { ButtonRounded } from '../../css-module/components/RoundedButton';
 import { LabsTable, LabsTableColumn } from '../components/labs-orders/LabsTable';
 
-const externalLabsColumns: LabsTableColumn[] = [
-  'testType',
-  'dx',
-  'ordered',
-  'status',
-  'requisitionNumber',
-  'detail',
-  'actions',
-];
+const externalLabsColumns: LabsTableColumn[] = ['testType', 'orderAdded', 'provider', 'dx', 'status', 'psc', 'actions'];
 
 export const ExternalLabOrdersListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -44,10 +36,9 @@ export const ExternalLabOrdersListPage: React.FC = () => {
               sx={{
                 py: 1,
                 px: 5,
-                textWrap: 'nowrap',
               }}
             >
-              + External Lab
+              Order
             </ButtonRounded>
           </Stack>
         </Box>
@@ -56,7 +47,6 @@ export const ExternalLabOrdersListPage: React.FC = () => {
           columns={externalLabsColumns}
           showFilters={false}
           allowDelete={true}
-          allowSubmit={true}
           onCreateOrder={handleCreateOrder}
         />
       </Box>
