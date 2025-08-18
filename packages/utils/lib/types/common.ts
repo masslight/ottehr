@@ -182,6 +182,7 @@ export interface ResponsiblePartyInfo {
   dateOfBirth: string;
   birthSex?: PersonSex;
   phoneNumber?: string;
+  email: string;
 }
 
 export interface PhotoIdCards {
@@ -707,6 +708,7 @@ export interface UpdateQuestionnaireResponseParams {
     };
     birthSex?: string;
     phoneNumber?: string;
+    email: string;
   };
   hipaaAcknowledgement?: boolean;
   consentToTreat?: boolean;

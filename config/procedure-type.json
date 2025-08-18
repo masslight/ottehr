@@ -1,0 +1,225 @@
+{
+  "schema-version": "2025-03-19",
+  "fhirResources": {
+    "value-set-procedure-type": {
+      "resourceType": "ValueSet",
+      "url": "https://fhir.ottehr.com/ValueSet/procedure-type",
+      "version": "1.0.0",
+      "name": "Procedures - Procedure type",
+      "status": "active",
+      "expansion": {
+        "timestamp": "2025-06-10T11:36:51.034Z",
+        "contains": [
+          {
+            "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+            "code": "laceration-repair",
+            "display": "Laceration Repair (Suturing/Stapling)"
+          },
+          {
+            "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+            "code": "wound-care",
+            "display": "Wound Care / Dressing Change"
+          },
+          {
+            "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+            "code": "splint-application",
+            "display": "Splint Application / Immobilization"
+          },
+          {
+            "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+            "code": "abscess-drainage",
+            "display": "Incision and Drainage (I&D) of Abscess"
+          },
+          {
+            "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+            "code": "elbow-reduction",
+            "display": "Reduction of Nursemaid’s Elbow"
+          },
+          {
+            "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+            "code": "burn-treatment",
+            "display": "Burn Treatment / Dressing"
+          },
+          {
+            "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+            "code": "foreign-body-removal",
+            "display": "Foreign Body Removal (Skin, Ear, Nose, Eye)"
+          },
+          {
+            "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+            "code": "nail-trephination",
+            "display": "Nail Trephination (Subungual Hematoma Drainage)",
+            "extension": [
+              {
+                "url": "https://fhir.ottehr.com/Extension/procedure-type-cpt",
+                "valueCodeableConcept": {
+                  "coding": [
+                    {
+                      "system": "http://www.ama-assn.org/go/cpt",
+                      "code": "11740",
+                      "display": "Evacuation of subungual hematoma"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+            "code": "tick-removal",
+            "display": "Tick or Insect Removal",
+            "extension": [
+              {
+                "url": "https://fhir.ottehr.com/Extension/procedure-type-cpt",
+                "valueCodeableConcept": {
+                  "coding": [
+                    {
+                      "system": "http://www.ama-assn.org/go/cpt",
+                      "code": "10120",
+                      "display": "Incision and removal of foreign body, subcutaneous tissues; simple"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+            "code": "staple-removal",
+            "display": "Staple or Suture Removal"
+          },
+          {
+            "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+            "code": "iv-catheter-placement",
+            "display": "Intravenous (IV) Catheter Placement"
+          },
+          {
+            "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+            "code": "iv-fluid-administration",
+            "display": "IV Fluid Administration"
+          },
+          {
+            "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+            "code": "im-medication-injection",
+            "display": "Intramuscular (IM) Medication Injection",
+            "extension": [
+              {
+                "url": "https://fhir.ottehr.com/Extension/procedure-type-cpt",
+                "valueCodeableConcept": {
+                  "coding": [
+                    {
+                      "system": "http://www.ama-assn.org/go/cpt",
+                      "code": "96372",
+                      "display": "Therapeutic, prophylactic, or diagnostic injection (specify substance or drug); subcutaneous or intramuscular"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+            "code": "nebulizer-treatment",
+            "display": "Nebulizer Treatment (e.g., Albuterol)",
+            "extension": [
+              {
+                "url": "https://fhir.ottehr.com/Extension/procedure-type-cpt",
+                "valueCodeableConcept": {
+                  "coding": [
+                    {
+                      "system": "http://www.ama-assn.org/go/cpt",
+                      "code": "94640",
+                      "display": "Pressurized or nonpressurized inhalation treatment for acute airway obstruction for therapeutic purposes and/or for diagnostic purposes such as sputum induction with an aerosol generator, nebulizer, metered dose inhaler or intermittent positive pressure breathing (IPPB) device"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+            "code": "oral-rehydration",
+            "display": "Oral Rehydration / Medication Administration (including challenge doses)"
+          },
+          {
+            "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+            "code": "wart-treatment",
+            "display": "Wart Treatment (Cryotherapy with Liquid Nitrogen",
+            "extension": [
+              {
+                "url": "https://fhir.ottehr.com/Extension/procedure-type-cpt",
+                "valueCodeableConcept": {
+                  "coding": [
+                    {
+                      "system": "http://www.ama-assn.org/go/cpt",
+                      "code": "17110",
+                      "display": "Destruction (eg, laser surgery, electrosurgery, cryosurgery, chemosurgery, surgical curettement), of benign lesions other than skin tags or cutaneous vascular proliferative lesions; up to 14 lesions"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+            "code": "urinary-catheterization",
+            "display": "Urinary Catheterization"
+          },
+          {
+            "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+            "code": "ear-lavage",
+            "display": "Ear Lavage / Cerumen Removal"
+          },
+          {
+            "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+            "code": "nasal-packing",
+            "display": "Nasal Packing (Epistaxis Control)",
+            "extension": [
+              {
+                "url": "https://fhir.ottehr.com/Extension/procedure-type-cpt",
+                "valueCodeableConcept": {
+                  "coding": [
+                    {
+                      "system": "http://www.ama-assn.org/go/cpt",
+                      "code": "30901",
+                      "display": "Control nasal hemorrhage, anterior, simple (limited cautery and/or packing) any method"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+            "code": "eye-irrigation",
+            "display": "Eye Irrigation or Eye Foreign Body Removal"
+          },
+          {
+            "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+            "code": "nasal-lavage",
+            "display": "Nasal Lavage (schnozzle)"
+          },
+          {
+            "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+            "code": "ekg",
+            "display": "EKG",
+            "extension": [
+              {
+                "url": "https://fhir.ottehr.com/Extension/procedure-type-cpt",
+                "valueCodeableConcept": {
+                  "coding": [
+                    {
+                      "system": "http://www.ama-assn.org/go/cpt",
+                      "code": "93000",
+                      "display": "Electrocardiogram, routine ECG with at least 12 leads; with interpretation and report"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

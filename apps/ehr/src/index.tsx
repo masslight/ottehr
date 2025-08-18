@@ -1,12 +1,16 @@
 import './index.css';
 import { Auth0Provider } from '@auth0/auth0-react';
 import { ErrorBoundary } from '@sentry/react';
+import { loadStripe } from '@stripe/stripe-js';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StrictMode } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
+
+// trying to speed up stripe loading by declaring this here so it's ready to go by the time it's needed
+export const stripePromise = loadStripe(import.meta.env.VITE_APP_STRIPE_KEY);
 
 export const AUTH0_REDIRECT_URI =
   import.meta.env.VITE_APP_OYSTEHR_APPLICATION_REDIRECT_URL_TELEMED &&

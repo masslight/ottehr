@@ -10,8 +10,10 @@ import {
   LabType,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   QuantityComponent,
+  SupportedObsImgAttachmentTypes,
   VitalsVisitNoteData,
 } from 'utils';
+import { testDataForOrderForm } from '../../ehr/submit-lab-order/helpers';
 import { Column } from './pdf-utils';
 
 export interface PageElementStyle {
@@ -82,6 +84,8 @@ export interface PdfClient {
   embedFont: (path: Buffer) => Promise<PDFFont>;
   embedStandardFont: (font: StandardFonts) => Promise<PDFFont>;
   embedImage: (file: Buffer) => Promise<PDFImage>;
+  embedPdfFromBase64: (base64String: string) => Promise<void>;
+  embedImageFromBase64: (base64String: string, imgType: SupportedObsImgAttachmentTypes) => Promise<void>;
   drawSeparatedLine: (lineStyle: LineStyle) => void;
   getLeftBound: () => number;
   getRightBound: () => number;
@@ -134,10 +138,8 @@ export interface LabsData {
   locationZip?: string;
   locationPhone?: string;
   locationFax?: string;
-  labOrganizationName: string; // this is only mapped for order pdf
   accountNumber: string;
-  serviceRequestID: string;
-  orderNumber: string; // this is only for external
+  orderNumber: string; // this is only for external labs
   providerName: string;
   providerNPI: string | undefined;
   patientFirstName: string;
@@ -150,21 +152,21 @@ export interface LabsData {
   patientPhone: string;
   todayDate: string;
   orderSubmitDate: string;
-  orderCreateDateAuthoredOn: string;
-  orderCreateDate: string;
-  sampleCollectionDate?: string;
-  billClass: string;
-  primaryInsuranceName?: string;
-  primaryInsuranceAddress?: string;
-  primaryInsuranceSubNum?: string;
-  insuredName?: string;
-  insuredAddress?: string;
-  aoeAnswers?: { question: string; answer: any }[]; // this is only for external
-  orderName?: string | undefined;
+  dateIncludedInFileName: string;
   orderAssessments: { code: string; name: string }[];
   orderPriority: string;
   isManualOrder: boolean;
   isPscOrder: boolean;
+}
+export interface ExternalLabOrderFormData extends Omit<LabsData, 'orderAssessments'> {
+  labOrganizationName: string;
+  billClass: string;
+  testDetails: testDataForOrderForm[];
+  insuredName?: string;
+  insuredAddress?: string;
+  primaryInsuranceName?: string;
+  primaryInsuranceAddress?: string;
+  primaryInsuranceSubNum?: string;
 }
 
 export interface ExternalLabResult {
@@ -175,6 +177,7 @@ export interface ExternalLabResult {
   resultValue: string;
   referenceRangeText?: string;
   resultNotes?: string[];
+  attachmentText?: string;
 }
 
 export interface InHouseLabResult {
@@ -195,7 +198,6 @@ export interface InHouseLabResultConfig {
 export interface LabResultsData
   extends Omit<
     LabsData,
-    | 'aoeAnswers'
     | 'orderNumber'
     | 'labOrganizationName'
     | 'orderSubmitDate'
@@ -211,6 +213,13 @@ export interface LabResultsData
   resultStatus: string;
   abnormalResult?: boolean;
 }
+
+// will be arrays of base64 encoded strings
+export interface ExternalLabResultAttachments {
+  pdfAttachments: string[];
+  pngAttachments: string[];
+  jpgAttachments: string[];
+}
 export interface ExternalLabResultsData extends LabResultsData {
   orderNumber: string;
   accessionNumber: string;
@@ -222,6 +231,7 @@ export interface ExternalLabResultsData extends LabResultsData {
   reviewingProvider: Practitioner | undefined;
   reviewDate: string | undefined;
   resultInterpretations: string[];
+  attachments: ExternalLabResultAttachments;
   externalLabResults: ExternalLabResult[];
   testItemCode: string;
   performingLabName: string;
@@ -233,6 +243,8 @@ export interface ExternalLabResultsData extends LabResultsData {
 export interface InHouseLabResultsData extends LabResultsData {
   inHouseLabResults: InHouseLabResultConfig[];
   timezone: string | undefined;
+  serviceRequestID: string;
+  orderCreateDate: string;
 }
 
 export type ResultDataConfig =
