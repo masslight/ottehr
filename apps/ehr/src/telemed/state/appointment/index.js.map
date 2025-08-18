@@ -1,0 +1,1 @@
+{"version":3,"file":"index.js","sourceRoot":"","sources":["index.ts"],"names":[],"mappings":";;;;;;;;;;;;;;;;AAAA,wDAAsC;AACtC,sDAAoC;AACpC,4DAA0C","sourcesContent":["export * from './appointment.queries';\nexport * from './appointment.store';\nexport * from './exam-observations.store';\n"]}

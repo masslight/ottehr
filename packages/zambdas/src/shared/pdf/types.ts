@@ -320,6 +320,15 @@ export interface VisitNoteData extends ExaminationBlockData {
     timeSpent?: string;
     documentedBy?: string;
   }[];
+  // TODO: Add radiology when the PDF generation supports it
+  // radiology?: {
+  //   studyType: string;
+  //   diagnosis: string;
+  //   clinicalHistory?: string;
+  //   preliminaryRead?: string;
+  //   finalRead?: string;
+  //   result?: string;
+  // }[];
   addendumNote?: string;
 }
 

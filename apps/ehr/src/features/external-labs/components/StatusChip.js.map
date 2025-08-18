@@ -1,0 +1,1 @@
+{"version":3,"file":"StatusChip.js","sourceRoot":"","sources":["StatusChip.tsx"],"names":[],"mappings":"","sourcesContent":["export type StatusString = 'pending' | 'assigned' | 'collected' | 'received' | 'reviewed';\n"]}

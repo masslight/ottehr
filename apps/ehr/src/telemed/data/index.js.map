@@ -1,0 +1,1 @@
+{"version":3,"file":"index.js","sourceRoot":"","sources":["index.ts"],"names":[],"mappings":";;;;;;;;;;;;;;;;AAAA,+CAA6B;AAC7B,0CAAwB","sourcesContent":["export * from './oystehrApi';\nexport * from './types';\n"]}

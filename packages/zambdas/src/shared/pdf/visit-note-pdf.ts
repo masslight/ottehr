@@ -684,6 +684,20 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     separateLine();
   }
 
+  // TODO: Add radiology data to PDF when radiology orders are available in the calling context
+  // if (data.radiology && data.radiology.length > 0) {
+  //   drawBlockHeader('Radiology');
+  //   data.radiology.forEach((radiologyOrder) => {
+  //     drawBlockHeader(radiologyOrder.studyType ?? '', textStyles.blockSubHeader);
+  //     regularText(radiologyOrder.diagnosis != null ? radiologyOrder.diagnosis : undefined);
+  //     regularText(radiologyOrder.clinicalHistory != null ? 'Clinical History: ' + radiologyOrder.clinicalHistory : undefined);
+  //     regularText(radiologyOrder.preliminaryRead != null ? 'Preliminary Read: ' + radiologyOrder.preliminaryRead : undefined);
+  //     regularText(radiologyOrder.finalRead != null ? 'Final Read: ' + radiologyOrder.finalRead : undefined);
+  //     regularText(radiologyOrder.result != null ? 'Result: ' + radiologyOrder.result : undefined);
+  //   });
+  //   separateLine();
+  // }
+
   if (data.prescriptions && data.prescriptions.length > 0) {
     drawBlockHeader('Prescriptions');
     data.prescriptions.forEach((prescription) => {

@@ -1,0 +1,1 @@
+{"version":3,"file":"TestErrorPage.js","sourceRoot":"","sources":["TestErrorPage.tsx"],"names":[],"mappings":";;;AAEO,IAAM,aAAa,GAAG;IAC3B,MAAM,IAAI,KAAK,CAAC,uBAAuB,CAAC,CAAC;AAC3C,CAAC,CAAC;AAFW,QAAA,aAAa,iBAExB","sourcesContent":["import { ReactElement } from 'react';\n\nexport const TestErrorPage = (): ReactElement => {\n  throw new Error('EHR app UI test error');\n};\n"]}

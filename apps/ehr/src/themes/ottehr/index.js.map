@@ -1,0 +1,1 @@
+{"version":3,"file":"index.js","sourceRoot":"","sources":["index.ts"],"names":[],"mappings":";;;;;;;;;;;;;;;;;AAIA,2CAAyB;AACzB,0CAAwB;AACxB,uDAAkE;AAAzD,qHAAA,OAAO,OAAqB","sourcesContent":["declare module '*.png';\ndeclare module '*.svg';\nexport {};\n\nexport * from './colors';\nexport * from './icons';\nexport { default as notificationSound } from './notification.ogg';\n"]}

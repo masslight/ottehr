@@ -1,0 +1,1 @@
+{"version":3,"file":"constants.js","sourceRoot":"","sources":["constants.ts"],"names":[],"mappings":";;;AAAa,QAAA,eAAe,GAAG,OAAO,CAAC,GAAG,CAAC,WAAW,CAAC;AAC1C,QAAA,iBAAiB,GAAG,OAAO,CAAC,GAAG,CAAC,QAAQ,CAAC","sourcesContent":["export const ENV_LOCATION_ID = process.env.LOCATION_ID;\nexport const ENV_LOCATION_NAME = process.env.LOCATION;\n"]}

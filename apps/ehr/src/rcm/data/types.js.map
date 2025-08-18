@@ -1,0 +1,1 @@
+{"version":3,"file":"types.js","sourceRoot":"","sources":["types.ts"],"names":[],"mappings":"","sourcesContent":["export type Get_Oystehr_RCM_API_Params = {\n  isAppLocal?: 'true' | 'false';\n  getClaimsZambdaID?: string;\n};\n"]}
