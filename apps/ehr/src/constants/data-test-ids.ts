@@ -177,18 +177,19 @@ export const dataTestIds = {
     proceedButton: 'dialog-proceed-button',
     title: 'dialog-title',
   },
-  statesPage: {
-    statesSearch: 'states-search',
-    stateValue: 'state-value',
-    operateInStateValue: 'operate-in-state-value',
-    stateRow: (stateValue: string) => `state-row-${stateValue}`,
+  virtualLocationsPage: {
+    locationsSearch: 'locations-search',
+    locationValue: 'location-value',
+    operateInLocationValue: 'operate-in-location-value',
+    locationRow: (locationId: string) => `location-row-${locationId}`,
   },
-  editState: {
+  editVirtualLocation: {
     saveChangesButton: 'save-changes-button',
     cancelButton: 'cancel-button',
-    operateInStateToggle: 'operate-in-state-toggle',
-    stateNameTitle: 'state-name-title',
-    stateNameField: 'state-name-field',
+    operateInLocationToggle: 'operate-in-location-toggle',
+    locationNameTitle: 'location-name-title',
+    locationNameField: 'location-name-field',
+    locationStateField: 'location-state-field',
   },
   patients: {
     searchByLastNameField: 'search-last-name-field',
