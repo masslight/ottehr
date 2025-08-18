@@ -43,10 +43,11 @@ const getRoutesArray = (routes: MedicationApplianceRoutes): Option[] => {
     return aIndex - bIndex;
   });
 
-  // Create the grouped options with "Popular" section header
+  // Create the grouped options with "Popular" and "Other" section headers
   const groupedOptions: Option[] = [
+    { value: 'popular-separator', label: 'Popular' }, // Popular section header
     ...priorityRoutes,
-    { value: 'separator', label: '─────────── Other ──────────────' }, // Visual separator
+    { value: 'other-separator', label: 'Other' }, // Other section header
     ...otherRoutes,
   ];
 

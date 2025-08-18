@@ -119,29 +119,30 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
         value={currentValue}
         getOptionLabel={(option) => option.label}
         onChange={(_e, val) => {
-          // Prevent selecting separator
-          if (val?.value === 'separator') {
+          // Prevent selecting separators
+          if (val?.value === 'popular-separator' || val?.value === 'other-separator') {
             return;
           }
           handleChange(val?.value);
         }}
-        getOptionDisabled={(option) => option.value === 'separator'} // Disable separator
+        getOptionDisabled={(option) => option.value === 'popular-separator' || option.value === 'other-separator'} // Disable separators
         renderOption={(props, option) => {
-          // Handle separator for grouped options
-          if (option.value === 'separator') {
+          // Handle separators for grouped options
+          if (option.value === 'popular-separator' || option.value === 'other-separator') {
             return (
               <li
                 {...props}
                 key={option.value}
                 style={{
-                  opacity: 0.7,
+                  opacity: 0.8,
                   color: 'rgb(117, 117, 117)', // text.secondary
                   fontSize: '0.875rem',
                   fontWeight: 'bold',
-                  textAlign: 'center',
+                  textAlign: 'left', // Left-aligned section headers
                   backgroundColor: 'rgba(0, 0, 0, 0.04)', // action.hover
                   pointerEvents: 'none',
                   cursor: 'default',
+                  paddingLeft: '16px',
                 }}
               >
                 {option.label}
@@ -150,7 +151,7 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
           }
           
           return (
-            <li {...props} key={option.value}>
+            <li {...props} key={option.value} style={{ paddingLeft: '32px' }}> {/* Indent selectable items */}
               {option.label}
             </li>
           );
@@ -196,8 +197,8 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
             }
           : {})}
         onChange={(e) => {
-          // Prevent selecting separator
-          if (e.target.value === 'separator') {
+          // Prevent selecting separators
+          if (e.target.value === 'popular-separator' || e.target.value === 'other-separator') {
             return;
           }
           handleChange(e.target.value);
@@ -209,8 +210,8 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
       >
         <MenuItem value="">Select {label}</MenuItem>
         {options.map((option) => {
-          // Handle separator for grouped options
-          if (option.value === 'separator') {
+          // Handle separators for grouped options
+          if (option.value === 'popular-separator' || option.value === 'other-separator') {
             return (
               <MenuItem 
                 key={option.value} 
@@ -218,13 +219,14 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
                 disabled
                 sx={{
                   '&.Mui-disabled': {
-                    opacity: 0.7,
+                    opacity: 0.8,
                     color: 'text.secondary',
                     fontSize: '0.875rem',
                     fontWeight: 'bold',
-                    textAlign: 'center',
+                    textAlign: 'left', // Left-aligned section headers
                     backgroundColor: 'action.hover',
                     pointerEvents: 'none',
+                    paddingLeft: '16px',
                     '&:hover': {
                       backgroundColor: 'action.hover',
                     }
@@ -237,7 +239,11 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
           }
           
           return (
-            <MenuItem key={option.value} value={option.value}>
+            <MenuItem 
+              key={option.value} 
+              value={option.value}
+              sx={{ paddingLeft: '32px' }} // Indent selectable items
+            >
               {option.label}
             </MenuItem>
           );
