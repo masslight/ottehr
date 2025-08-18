@@ -1,1 +1,0 @@
-{"version":3,"file":"index.js","sourceRoot":"","sources":["index.ts"],"names":[],"mappings":";;;;;;;;;;;;;;;;AAAA,yCAAuB;AACvB,kDAAgC","sourcesContent":["export * from './chat';\nexport * from './notifications';\n"]}
