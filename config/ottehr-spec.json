@@ -1061,7 +1061,13 @@
     "OTTEHR_ORGANIZATION": {
       "resourceType": "Organization",
       "active": true,
-      "name": "Example Organization"
+      "name": "Example Organization",
+      "telecom": [
+        {
+          "system": "phone",
+          "value": "#{var/fax-number}"
+        }
+      ]
     },
     "AUTOLAB_ORGANIZATION": {
       "resourceType": "Organization",
@@ -1110,280 +1116,6 @@
           }
         }
       ]
-    },
-    "DEFAULT_PRACTITIONER": {
-      "resourceType": "Practitioner",
-      "identifier": [
-        {
-          "system": "http://hl7.org/fhir/sid/us-npi",
-          "type": {
-            "coding": [
-              {
-                "code": "NPI",
-                "system": "http://terminology.hl7.org/CodeSystem/v2-0203"
-              }
-            ]
-          },
-          "value": "npi"
-        }
-      ],
-      "meta": {
-        "tag": [
-          {
-            "code": "ELIGIBILITY_PRACTITIONER_META_TAG_PREFIX_type"
-          }
-        ]
-      }
-    },
-    "MEDICATION_ACETAMINOPHEN_LIQUID": {
-      "resourceType": "Medication",
-      "identifier": [
-        {
-          "system": "virtual-medication-type",
-          "value": "virtual-medication-inventory"
-        },
-        {
-          "system": "virtual-medication-identifier-name-system",
-          "value": "Acetaminophen (Liquid)"
-        }
-      ],
-      "code": {
-        "coding": [
-          {
-            "system": "http://hl7.org/fhir/sid/ndc",
-            "code": "50580-170-01"
-          },
-          {
-            "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
-            "code": "23562"
-          }
-        ]
-      }
-    },
-    "MEDICATION_ACETAMINOPHEN_TABS": {
-      "resourceType": "Medication",
-      "identifier": [
-        {
-          "system": "virtual-medication-type",
-          "value": "virtual-medication-inventory"
-        },
-        {
-          "system": "virtual-medication-identifier-name-system",
-          "value": "Acetaminophen (Tabs)"
-        }
-      ],
-      "code": {
-        "coding": [
-          {
-            "system": "http://hl7.org/fhir/sid/ndc",
-            "code": "71399-8024-1"
-          },
-          {
-            "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
-            "code": "23170"
-          }
-        ]
-      }
-    },
-    "MEDICATION_ACETAMINOPHEN_80mg_SUPPOSITORY": {
-      "resourceType": "Medication",
-      "identifier": [
-        {
-          "system": "virtual-medication-type",
-          "value": "virtual-medication-inventory"
-        },
-        {
-          "system": "virtual-medication-identifier-name-system",
-          "value": "Acetaminophen (80mg Suppository)"
-        }
-      ],
-      "code": {
-        "coding": [
-          {
-            "system": "http://hl7.org/fhir/sid/ndc",
-            "code": "51672-2114-2"
-          },
-          {
-            "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
-            "code": "23565"
-          }
-        ]
-      }
-    },
-    "MEDICATION_ACETAMINOPHEN_325mg_SUPPOSITORY": {
-      "resourceType": "Medication",
-      "identifier": [
-        {
-          "system": "virtual-medication-type",
-          "value": "virtual-medication-inventory"
-        },
-        {
-          "system": "virtual-medication-identifier-name-system",
-          "value": "Acetaminophen (325mg Suppository)"
-        }
-      ],
-      "code": {
-        "coding": [
-          {
-            "system": "http://hl7.org/fhir/sid/ndc",
-            "code": "51672-2116-2"
-          },
-          {
-            "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
-            "code": "23564"
-          }
-        ]
-      }
-    },
-    "MEDICATION_ACETAMINOPHEN_120mg_SUPPOSITORY": {
-      "resourceType": "Medication",
-      "identifier": [
-        {
-          "system": "virtual-medication-type",
-          "value": "virtual-medication-inventory"
-        },
-        {
-          "system": "virtual-medication-identifier-name-system",
-          "value": "Acetaminophen (120mg Suppository)"
-        }
-      ],
-      "code": {
-        "coding": [
-          {
-            "system": "http://hl7.org/fhir/sid/ndc",
-            "code": "45802-732-30"
-          },
-          {
-            "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
-            "code": "21887"
-          }
-        ]
-      }
-    },
-    "MEDICATION_ACTIVATED_CHARCOAL": {
-      "resourceType": "Medication",
-      "identifier": [
-        {
-          "system": "virtual-medication-type",
-          "value": "virtual-medication-inventory"
-        },
-        {
-          "system": "virtual-medication-identifier-name-system",
-          "value": "Activated Charcoal"
-        }
-      ],
-      "code": {
-        "coding": [
-          {
-            "system": "http://hl7.org/fhir/sid/ndc",
-            "code": "66689-203-04"
-          },
-          {
-            "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
-            "code": "32034"
-          }
-        ]
-      }
-    },
-    "MEDICATION_ALBUTEROL": {
-      "resourceType": "Medication",
-      "identifier": [
-        {
-          "system": "virtual-medication-type",
-          "value": "virtual-medication-inventory"
-        },
-        {
-          "system": "virtual-medication-identifier-name-system",
-          "value": "Albuterol"
-        }
-      ],
-      "code": {
-        "coding": [
-          {
-            "system": "http://hl7.org/fhir/sid/ndc",
-            "code": "0487-9501-25"
-          },
-          {
-            "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
-            "code": "29518"
-          }
-        ]
-      }
-    },
-    "MEDICATION_VENTOLIN_HFA": {
-      "resourceType": "Medication",
-      "identifier": [
-        {
-          "system": "virtual-medication-type",
-          "value": "virtual-medication-inventory"
-        },
-        {
-          "system": "virtual-medication-identifier-name-system",
-          "value": "Ventolin HFA"
-        }
-      ],
-      "code": {
-        "coding": [
-          {
-            "system": "http://hl7.org/fhir/sid/ndc",
-            "code": "0173-0682-24"
-          },
-          {
-            "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
-            "code": "38526"
-          }
-        ]
-      }
-    },
-    "MEDICATION_AMOXICILLIN": {
-      "resourceType": "Medication",
-      "identifier": [
-        {
-          "system": "virtual-medication-type",
-          "value": "virtual-medication-inventory"
-        },
-        {
-          "system": "virtual-medication-identifier-name-system",
-          "value": "Amoxicillin"
-        }
-      ],
-      "code": {
-        "coding": [
-          {
-            "system": "http://hl7.org/fhir/sid/ndc",
-            "code": "0143-9887-01"
-          },
-          {
-            "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
-            "code": "34220"
-          }
-        ]
-      }
-    },
-    "MEDICATION_AMOXICILLIN_CLAVULANATE": {
-      "resourceType": "Medication",
-      "identifier": [
-        {
-          "system": "virtual-medication-type",
-          "value": "virtual-medication-inventory"
-        },
-        {
-          "system": "virtual-medication-identifier-name-system",
-          "value": "Amoxicillin Clavulanate"
-        }
-      ],
-      "code": {
-        "coding": [
-          {
-            "system": "http://hl7.org/fhir/sid/ndc",
-            "code": "65862-535-75"
-          },
-          {
-            "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
-            "code": "22329"
-          }
-        ]
-      }
     },
     "HANDLE_LAB_RESULT_SUBSCRIPTION": {
       "resourceType": "Subscription",
@@ -5637,8 +5369,8 @@
   },
   "m2ms": {
     "ZAMBDAS_ADMIN": {
-      "name": "Example M2M Client",
-      "description": "This M2M Client is used for initial Ottehr setup.",
+      "name": "Zambdas Admin",
+      "description": "This M2M Client is used inside Ottehr Zambdas",
       "accessPolicy": [
         {
           "resource": ["FHIR:*"],
@@ -5705,6 +5437,21 @@
           "action": ["RCM:CheckInsuranceEligibility"],
           "effect": "Allow",
           "resource": ["RCM:InsuranceEligibility"]
+        }
+      ]
+    },
+    "E2E_M2M_CLIENT": {
+      "name": "E2E Tests M2M Client",
+      "description": "This M2M Client is used to drive and clean up E2E tests",
+      "accessPolicy": [
+        {
+          "resource": [
+            "*"
+          ],
+          "action": [
+            "*"
+          ],
+          "effect": "Allow"
         }
       ]
     }
