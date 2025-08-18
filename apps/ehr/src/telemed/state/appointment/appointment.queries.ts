@@ -22,6 +22,7 @@ import {
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect } from 'react';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { useErrorQuery, useSuccessQuery } from 'utils';
 import {
   ChartDataFields,
@@ -31,6 +32,10 @@ import {
   GetCreateLabOrderResources,
   GetMedicationOrdersInput,
   GetMedicationOrdersResponse,
+  GetUnsolicitedResultsResourcesForIcon,
+  GetUnsolicitedResultsResourcesForTable,
+  GetUnsolicitedResultsResourcesInput,
+  GetUnsolicitedResultsResourcesOutput,
   IcdSearchRequestParams,
   IcdSearchResponse,
   InstructionType,
@@ -44,6 +49,7 @@ import {
   SaveChartDataRequest,
   SchoolWorkNoteExcuseDocFileDTO,
   TelemedAppointmentInformation,
+  UnsolicitedResultsRequestType,
   UpdateMedicationOrderInput,
 } from 'utils';
 import { APPOINTMENT_REFRESH_INTERVAL, CHAT_REFETCH_INTERVAL, QUERY_STALE_TIME } from '../../../constants';
@@ -575,6 +581,29 @@ export const useGetCreateExternalLabResources = ({
     staleTime: QUERY_STALE_TIME,
   });
 };
+
+export function useGetUnsolicitedResultsResources(input: {
+  requestType: UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_ICON;
+}): UseQueryResult<GetUnsolicitedResultsResourcesForIcon | undefined, Error>;
+export function useGetUnsolicitedResultsResources(input: {
+  requestType: UnsolicitedResultsRequestType.GET_ALL_TASKS;
+}): UseQueryResult<GetUnsolicitedResultsResourcesForTable | undefined, Error>;
+export function useGetUnsolicitedResultsResources({
+  requestType,
+}: GetUnsolicitedResultsResourcesInput): UseQueryResult<GetUnsolicitedResultsResourcesOutput | undefined, Error> {
+  const apiClient = useOystehrAPIClient();
+  return useQuery({
+    queryKey: ['get unsolicited results resources', requestType],
+
+    queryFn: async () => {
+      return apiClient?.getUnsolicitedResultsResources({ requestType });
+    },
+
+    enabled: Boolean(FEATURE_FLAGS.LAB_ORDERS_ENABLED && apiClient && requestType),
+    placeholderData: keepPreviousData,
+    staleTime: QUERY_STALE_TIME,
+  });
+}
 
 export const useGetIcd10Search = ({
   search,
