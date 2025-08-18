@@ -11,8 +11,13 @@ export const RadiologyContainer: FC = () => {
   const theme = useTheme();
 
   const { orders, loading } = usePatientRadiologyOrders({
-    encounterIds: encounter.id,
+    encounterIds: encounter?.id ? [encounter.id] : undefined,
   });
+
+  // Don't render anything if there are no orders and not loading
+  if (!loading && (!orders || orders.length === 0)) {
+    return null;
+  }
 
   const renderProperty = (label: string, value: string | undefined): ReactElement | undefined => {
     if (value == null || value === '') {
@@ -29,6 +34,10 @@ export const RadiologyContainer: FC = () => {
   };
 
   const renderRadiologyOrder = (order: GetRadiologyOrderListZambdaOrder): ReactElement => {
+    // Extract read information from history
+    const preliminaryRead = order.history?.find(h => h.status === 'preliminary');
+    const finalRead = order.history?.find(h => h.status === 'final');
+    
     return (
       <Stack key={order.serviceRequestId} spacing={1} sx={{ mb: 2 }}>
         <Typography sx={{ color: '#0F347C', fontWeight: '500' }}>
@@ -36,32 +45,12 @@ export const RadiologyContainer: FC = () => {
         </Typography>
         {renderProperty('Diagnosis', order.diagnosis)}
         {renderProperty('Clinical History', order.clinicalHistory)}
-        {order.history && order.history.length > 0 && (
-          <>
-            {order.history
-              .filter(h => h.status === 'preliminary')
-              .map((h, idx) => (
-                <Box key={`preliminary-${idx}`}>
-                  <Typography component="span" sx={{ fontWeight: '500' }}>
-                    Preliminary Read:
-                  </Typography>{' '}
-                  {order.result || 'See AdvaPACS'}
-                </Box>
-              ))}
-            {order.history
-              .filter(h => h.status === 'final')
-              .map((h, idx) => (
-                <Box key={`final-${idx}`}>
-                  <Typography component="span" sx={{ fontWeight: '500' }}>
-                    Final Read:
-                  </Typography>{' '}
-                  {order.result || 'See AdvaPACS'}
-                </Box>
-              ))}
-          </>
-        )}
+        
+        {preliminaryRead && renderProperty('Preliminary Read', order.result || 'See AdvaPACS')}
+        {finalRead && renderProperty('Final Read', order.result || 'See AdvaPACS')}
         {renderProperty('Result', order.result)}
-        {order.result && (
+        
+        {(order.result || preliminaryRead || finalRead) && (
           <Link
             href="#"
             sx={{

@@ -1,3 +1,7 @@
+# Build artifacts
+*.js
+*.js.map
+
 node_modules
 coverage
 .eslintcache
