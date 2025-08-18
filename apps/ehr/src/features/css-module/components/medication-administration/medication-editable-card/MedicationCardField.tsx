@@ -139,7 +139,6 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
                   fontSize: '0.875rem',
                   fontWeight: 'bold',
                   textAlign: 'left', // Left-aligned section headers
-                  backgroundColor: 'rgba(0, 0, 0, 0.04)', // action.hover
                   pointerEvents: 'none',
                   cursor: 'default',
                   paddingLeft: '16px',
@@ -224,12 +223,8 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
                     fontSize: '0.875rem',
                     fontWeight: 'bold',
                     textAlign: 'left', // Left-aligned section headers
-                    backgroundColor: 'action.hover',
                     pointerEvents: 'none',
                     paddingLeft: '16px',
-                    '&:hover': {
-                      backgroundColor: 'action.hover',
-                    }
                   }
                 }}
               >
