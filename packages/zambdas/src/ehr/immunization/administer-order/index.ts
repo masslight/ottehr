@@ -22,7 +22,6 @@ import {
   mapOrderStatusToFhir,
   MEDICATION_ADMINISTRATION_REASON_CODE,
   MEDICATION_DISPENSABLE_DRUG_ID,
-  ottehrExtensionUrl,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -33,16 +32,18 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
-import { updateOrderDetails } from '../common';
+import {
+  CONTAINED_EMERGENCY_CONTACT_ID,
+  CVX_CODE_SYSTEM_URL,
+  MVX_CODE_SYSTEM_URL,
+  updateOrderDetails,
+  VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
+  VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL,
+} from '../common';
 
 let m2mToken: string;
 
 const ZAMBDA_NAME = 'administer-immunization-order';
-const MVX_CODE_SYSTEM_URL = 'http://hl7.org/fhir/sid/mvx';
-const CVX_CODE_SYSTEM_URL = 'http://hl7.org/fhir/sid/cvx';
-const VACCINE_ADMINISTRATION_CODES_EXTENSION_URL = ottehrExtensionUrl('vaccine-administration-codes');
-const VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL = ottehrExtensionUrl('vaccine-administration-vis_date');
-const CONTAINED_EMERGENCY_CONTACT_ID = 'emergencyContact';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -76,9 +77,10 @@ async function administerImmunizationOrder(
   input: AdministerImmunizationOrderInput,
   userPractitioner: Practitioner
 ): Promise<any> {
+  const { orderId, type, reason, orderDetails, administrationDetails } = input;
   const medicationAdministration = await oystehr.fhir.get<MedicationAdministration>({
     resourceType: 'MedicationAdministration',
-    id: input.orderId,
+    id: orderId,
   });
 
   if (medicationAdministration.status !== 'in-progress') {
@@ -86,55 +88,55 @@ async function administerImmunizationOrder(
     throw new Error(`Can't administer order in "${currentStatus}" status`);
   }
 
-  await updateOrderDetails(medicationAdministration, input.orderDetails, oystehr);
+  await updateOrderDetails(medicationAdministration, orderDetails, oystehr);
 
-  medicationAdministration.status = mapOrderStatusToFhir(input.type);
+  medicationAdministration.status = mapOrderStatusToFhir(type);
 
-  if (input.reason) {
+  if (reason) {
     medicationAdministration.note = [
       {
         authorString: MEDICATION_ADMINISTRATION_REASON_CODE,
-        text: input.reason,
+        text: reason,
       },
     ];
   }
 
   const medication = medicationAdministration.contained?.[0] as Medication;
   medication.batch = {
-    lotNumber: input.lot,
-    expirationDate: input.expDate,
+    lotNumber: administrationDetails.lot,
+    expirationDate: administrationDetails.expDate,
   };
   if (!medication.extension) {
     medication.extension = [];
   }
   medication.extension.push({
     url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
-    valueCodeableConcept: codeableConcept(input.mvx, MVX_CODE_SYSTEM_URL),
+    valueCodeableConcept: codeableConcept(administrationDetails.mvx, MVX_CODE_SYSTEM_URL),
   });
   medication.extension.push({
     url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
-    valueCodeableConcept: codeableConcept(input.cvx, CVX_CODE_SYSTEM_URL),
+    valueCodeableConcept: codeableConcept(administrationDetails.cvx, CVX_CODE_SYSTEM_URL),
   });
   medication.extension.push({
     url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
-    valueCodeableConcept: codeableConcept(input.ndc, CODE_SYSTEM_NDC),
+    valueCodeableConcept: codeableConcept(administrationDetails.ndc, CODE_SYSTEM_NDC),
   });
-  if (input.cpt) {
+  if (administrationDetails.cpt) {
     medication.extension.push({
       url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
-      valueCodeableConcept: codeableConcept(input.cpt, CODE_SYSTEM_CPT),
+      valueCodeableConcept: codeableConcept(administrationDetails.cpt, CODE_SYSTEM_CPT),
     });
   }
-  if (input.visGivenDate) {
+  if (administrationDetails.visGivenDate) {
     medication.extension.push({
       url: VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL,
-      valueDate: input.visGivenDate,
+      valueDate: administrationDetails.visGivenDate,
     });
   }
 
-  if (input.emergencyContact) {
+  if (administrationDetails.emergencyContact) {
     medicationAdministration.contained?.push(
-      createEmergencyContactRelatedPerson(medicationAdministration.subject, input.emergencyContact)
+      createEmergencyContactRelatedPerson(medicationAdministration.subject, administrationDetails.emergencyContact)
     );
     medicationAdministration.supportingInformation = [
       {
@@ -155,7 +157,11 @@ async function administerImmunizationOrder(
     transactionRequests.push({
       method: 'POST',
       url: `/MedicationStatement`,
-      resource: createMedicationStatement(medicationAdministration, input.administeredDateTime, userPractitioner),
+      resource: createMedicationStatement(
+        medicationAdministration,
+        administrationDetails.administeredDateTime,
+        userPractitioner
+      ),
     });
   }
 
@@ -172,21 +178,7 @@ async function administerImmunizationOrder(
 export function validateRequestParameters(
   input: ZambdaInput
 ): AdministerImmunizationOrderInput & Pick<ZambdaInput, 'secrets'> {
-  const {
-    orderId,
-    orderDetails,
-    type,
-    reason,
-    lot,
-    expDate,
-    mvx,
-    cvx,
-    cpt,
-    ndc,
-    administeredDateTime,
-    visGivenDate,
-    emergencyContact,
-  } = validateJsonBody(input);
+  const { orderId, type, reason, orderDetails, administrationDetails } = validateJsonBody(input);
 
   const missingFields: string[] = [];
   if (!orderId) missingFields.push('orderId');
@@ -198,32 +190,24 @@ export function validateRequestParameters(
   if (!reason && ['administered-partly', 'administered-not'].includes(type)) {
     missingFields.push('reason');
   }
-  if (!lot) missingFields.push('lot');
-  if (!expDate) missingFields.push('expDate');
-  if (!mvx) missingFields.push('mvx');
-  if (!cvx) missingFields.push('cvx');
-  if (!ndc) missingFields.push('ndc');
-  if (!administeredDateTime) missingFields.push('administeredDateTime');
-  if (!visGivenDate && ['administered', 'administered-partly'].includes(type)) {
-    missingFields.push('visGivenDate');
+  if (!administrationDetails.lot) missingFields.push('administrationDetails.lot');
+  if (!administrationDetails.expDate) missingFields.push('administrationDetails.expDate');
+  if (!administrationDetails.mvx) missingFields.push('administrationDetails.mvx');
+  if (!administrationDetails.cvx) missingFields.push('administrationDetails.cvx');
+  if (!administrationDetails.ndc) missingFields.push('administrationDetails.ndc');
+  if (!administrationDetails.administeredDateTime) missingFields.push('administrationDetails.administeredDateTime');
+  if (!administrationDetails.visGivenDate && ['administered', 'administered-partly'].includes(type)) {
+    missingFields.push('administrationDetails.visGivenDate');
   }
 
   if (missingFields.length > 0) throw new Error(`Missing required fields [${missingFields.join(', ')}]`);
 
   return {
     orderId,
-    orderDetails,
     type,
     reason,
-    lot,
-    expDate,
-    mvx,
-    cvx,
-    cpt,
-    ndc,
-    administeredDateTime,
-    visGivenDate,
-    emergencyContact,
+    orderDetails,
+    administrationDetails,
     secrets: input.secrets,
   };
 }

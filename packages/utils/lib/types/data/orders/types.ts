@@ -122,9 +122,29 @@ export interface ImmunizationOrderDetails {
   instructions?: string;
 }
 
-export interface CreateUpdateImmunizationOrderInput extends ImmunizationOrderDetails {
-  encounterId: string;
+export interface ImmunizationOrderAdministrationDetails {
+  lot: string;
+  expDate: string;
+  mvx: string;
+  cvx: string;
+  cpt?: string;
+  ndc: string;
+  administeredDateTime: string;
+  visGivenDate?: string;
+  emergencyContact?: ImmunizationEmergencyContact;
+}
+
+export interface ImmunizationOrder {
+  orderId: string;
+  status: string;
+  reason?: string;
+  details: ImmunizationOrderDetails;
+  administrationDetails?: ImmunizationOrderAdministrationDetails;
+}
+
+export interface GetImmunizationOrdersInput {
   orderId?: string;
+  patientId?: string;
 }
 
 export interface ImmunizationEmergencyContact {
@@ -135,18 +155,10 @@ export interface ImmunizationEmergencyContact {
 
 export interface AdministerImmunizationOrderInput {
   orderId: string;
-  orderDetails: ImmunizationOrderDetails;
   type: 'administered' | 'administered-partly' | 'administered-not';
   reason?: string;
-  lot: string;
-  expDate: string;
-  mvx: string;
-  cvx: string;
-  cpt?: string;
-  ndc: string;
-  administeredDateTime: string;
-  visGivenDate?: string;
-  emergencyContact?: ImmunizationEmergencyContact;
+  orderDetails: ImmunizationOrderDetails;
+  administrationDetails: ImmunizationOrderAdministrationDetails;
 }
 
 export interface CancelImmunizationOrderInput {

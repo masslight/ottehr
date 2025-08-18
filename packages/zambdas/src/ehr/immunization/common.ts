@@ -6,13 +6,19 @@ import {
   MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
   MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM,
   MEDICATION_ADMINISTRATION_UNITS_SYSTEM,
+  ottehrExtensionUrl,
   PRACTITIONER_ORDERED_BY_MEDICATION_CODE,
   searchMedicationLocation,
   searchRouteByCode,
 } from 'utils';
 import { createMedicationCopy } from '../create-update-medication-order/helpers';
 
-const CONTAINED_MEDICATION_ID = 'medication';
+export const CONTAINED_MEDICATION_ID = 'medication';
+export const CONTAINED_EMERGENCY_CONTACT_ID = 'emergencyContact';
+export const MVX_CODE_SYSTEM_URL = 'http://hl7.org/fhir/sid/mvx';
+export const CVX_CODE_SYSTEM_URL = 'http://hl7.org/fhir/sid/cvx';
+export const VACCINE_ADMINISTRATION_CODES_EXTENSION_URL = ottehrExtensionUrl('vaccine-administration-codes');
+export const VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL = ottehrExtensionUrl('vaccine-administration-vis_date');
 
 export async function updateOrderDetails(
   medicationAdministration: MedicationAdministration,
