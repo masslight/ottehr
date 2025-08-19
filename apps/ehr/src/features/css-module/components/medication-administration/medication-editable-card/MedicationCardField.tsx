@@ -7,6 +7,7 @@ import {
   Select,
   Skeleton,
   TextField,
+  useTheme,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
@@ -64,6 +65,7 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
   selectsOptions = emptySelectsOptions,
   renderValue,
 }) => {
+  const theme = useTheme();
   const handleChange = (newValue: string | number | undefined): void => {
     onChange(field, newValue);
   };
@@ -135,7 +137,7 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
                 key={option.value}
                 style={{
                   opacity: 0.8,
-                  color: 'rgb(117, 117, 117)', // text.secondary
+                  color: theme.palette.text.secondary,
                   fontSize: '0.875rem',
                   fontWeight: 'bold',
                   textAlign: 'left', // Left-aligned section headers
