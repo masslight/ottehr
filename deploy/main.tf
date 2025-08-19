@@ -14,6 +14,7 @@ terraform {
 
 provider "oystehr" {
   project_id    = var.project_id
+  project_name  = var.project_name
   client_id     = var.client_id
   client_secret = var.client_secret
 }
