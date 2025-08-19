@@ -3,8 +3,7 @@ import { createResourcesFromAudioRecording, uploadAudioRecording } from 'src/api
 import { RoundedButton } from 'src/components/RoundedButton';
 import { useApiClients } from 'src/hooks/useAppClients';
 import WaveSurfer from 'wavesurfer.js';
-// @ts-expect-error types defined
-import RecordPlugin from 'wavesurfer.js/dist/plugins/record.esm.js';
+import RecordPlugin from 'wavesurfer.js/dist/plugins/record';
 
 interface RecordAudioButtonProps {
   visitID: string;
