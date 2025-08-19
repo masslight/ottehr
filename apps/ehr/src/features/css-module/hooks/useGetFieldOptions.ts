@@ -28,13 +28,11 @@ const getRoutesArray = (routes: MedicationApplianceRoutes): Option[] => {
   })) as Option[];
 
   // Separate priority routes from other routes
-  const priorityRoutes = allRoutes.filter((route) => 
-    priorityRouteCodes.includes(route.value)
-  );
+  const priorityRoutes = allRoutes.filter((route) => priorityRouteCodes.includes(route.value));
 
-  const otherRoutes = allRoutes.filter((route) => 
-    !priorityRouteCodes.includes(route.value)
-  ).sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
+  const otherRoutes = allRoutes
+    .filter((route) => !priorityRouteCodes.includes(route.value))
+    .sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
 
   // Sort priority routes in the specified order
   priorityRoutes.sort((a, b) => {

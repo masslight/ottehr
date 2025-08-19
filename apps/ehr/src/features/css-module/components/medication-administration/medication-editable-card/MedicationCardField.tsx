@@ -148,9 +148,11 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
               </li>
             );
           }
-          
+
           return (
-            <li {...props} key={option.value} style={{ paddingLeft: '32px' }}> {/* Indent selectable items */}
+            <li {...props} key={option.value} style={{ paddingLeft: '32px' }}>
+              {' '}
+              {/* Indent selectable items */}
               {option.label}
             </li>
           );
@@ -212,8 +214,8 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
           // Handle separators for grouped options
           if (option.value === 'popular-separator' || option.value === 'other-separator') {
             return (
-              <MenuItem 
-                key={option.value} 
+              <MenuItem
+                key={option.value}
                 value={option.value}
                 disabled
                 sx={{
@@ -225,17 +227,17 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
                     textAlign: 'left', // Left-aligned section headers
                     pointerEvents: 'none',
                     paddingLeft: '16px',
-                  }
+                  },
                 }}
               >
                 {option.label}
               </MenuItem>
             );
           }
-          
+
           return (
-            <MenuItem 
-              key={option.value} 
+            <MenuItem
+              key={option.value}
               value={option.value}
               sx={{ paddingLeft: '32px' }} // Indent selectable items
             >
