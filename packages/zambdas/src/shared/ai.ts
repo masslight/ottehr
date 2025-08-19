@@ -1,8 +1,18 @@
 import { ChatAnthropic } from '@langchain/anthropic';
 import { AIMessageChunk, BaseMessageLike, MessageContentComplex } from '@langchain/core/messages';
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
-import { Condition, Encounter, Observation } from 'fhir/r4b';
-import { AI_OBSERVATION_META_SYSTEM, AiObservationField, getSecret, Secrets, SecretsKeys } from 'utils';
+import { Condition, DocumentReference, Encounter, Observation } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import { uuid } from 'short-uuid';
+import {
+  AI_OBSERVATION_META_SYSTEM,
+  AiObservationField,
+  getSecret,
+  PUBLIC_EXTENSION_BASE_URL,
+  Secrets,
+  SecretsKeys,
+  VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE,
+} from 'utils';
 import { makeDiagnosisConditionResource, makeObservationResource } from './chart-data/index';
 import { assertDefined } from './helpers';
 import { parseCreatedResourcesBundle, saveResourceRequest } from './resources.helpers';
@@ -68,6 +78,10 @@ export async function createResourcesFromAiInterview(
   oystehr: Oystehr,
   encounterID: string,
   chatTranscript: string,
+  chatSummary: string,
+  z3URL: string | null,
+  mimeType: string,
+  providerUserProfile: string | null,
   secrets: Secrets | null
 ): Promise<string> {
   const aiResponseString = (
@@ -81,8 +95,21 @@ export async function createResourcesFromAiInterview(
   });
   const encounterId = assertDefined(encounter.id, 'encounter.id');
   const patientId = assertDefined(encounter.subject?.reference?.split('/')[1], 'patientId');
-  const requests: BatchInputPostRequest<Observation | Condition>[] = [];
-  requests.push(...createObservations(aiResponse, encounterId, patientId));
+  const requests: BatchInputPostRequest<DocumentReference | Observation | Condition>[] = [];
+  const documentReferenceCreateUrl = `urn:uuid:${uuid()}`;
+  requests.push(
+    createDocumentReference(
+      encounterID,
+      patientId,
+      providerUserProfile,
+      documentReferenceCreateUrl,
+      z3URL,
+      chatTranscript,
+      chatSummary,
+      mimeType
+    )
+  );
+  requests.push(...createObservations(aiResponse, documentReferenceCreateUrl, encounterId, patientId));
   requests.push(...createDiagnosis(aiResponse, encounterId, patientId));
   console.log('Transaction requests: ' + JSON.stringify(requests, null, 2));
   const transactionBundle = await oystehr.fhir.transaction({
@@ -95,8 +122,88 @@ export async function createResourcesFromAiInterview(
   return createdResources;
 }
 
+function createDocumentReference(
+  encounterID: string,
+  patientID: string,
+  providerUserProfile: string | null,
+  documentReferenceCreateUrl: string,
+  z3URL: string | null,
+  transcript: string,
+  summary: string,
+  mimeType: string
+): BatchInputPostRequest<DocumentReference> {
+  const documentReference: DocumentReference = {
+    resourceType: 'DocumentReference',
+    status: 'current',
+    type: {
+      coding: [VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE],
+    },
+    category: [
+      {
+        coding: [
+          {
+            system: 'http://loinc.org',
+            code: '34133-9',
+            display: 'Summarization of episode note',
+          },
+        ],
+      },
+    ],
+    subject: {
+      reference: `Patient/${patientID}`,
+    },
+    date: DateTime.now().toISO(),
+    content: [
+      ...(z3URL
+        ? [
+            {
+              attachment: {
+                contentType: mimeType,
+                url: z3URL,
+                title: 'Audio',
+              },
+            },
+          ]
+        : []),
+      {
+        attachment: {
+          contentType: 'text/plain',
+          title: 'Transcript',
+          data: btoa(transcript),
+        },
+      },
+      {
+        attachment: {
+          contentType: 'text/plain',
+          title: 'Summary',
+          data: btoa(summary),
+        },
+      },
+    ],
+    context: {
+      encounter: [
+        {
+          reference: `Encounter/${encounterID}`,
+        },
+      ],
+    },
+    extension: providerUserProfile
+      ? [
+          {
+            url: `${PUBLIC_EXTENSION_BASE_URL}/provider`,
+            valueReference: {
+              reference: providerUserProfile,
+            },
+          },
+        ]
+      : [],
+  };
+  return saveResourceRequest(documentReference, documentReferenceCreateUrl);
+}
+
 function createObservations(
   aiResponse: any,
+  documentReferenceCreateUrl: string,
   encounterId: string,
   patientId: string
 ): BatchInputPostRequest<Observation>[] {
@@ -108,6 +215,7 @@ function createObservations(
             encounterId,
             patientId,
             '',
+            documentReferenceCreateUrl,
             {
               field: field,
               value: aiResponse[key],

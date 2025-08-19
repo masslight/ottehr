@@ -18,9 +18,9 @@ export const MedicalConditionsPatientColumn: FC = () => {
   const medicalConditions = getQuestionnaireResponseByLinkId('medical-history', questionnaireResponse)?.answer?.[0]
     ?.valueArray;
 
-  const aiPastMedicalHistory = chartData?.observations?.find(
+  const aiPastMedicalHistory = chartData?.observations?.filter(
     (observation) => observation.field === AiObservationField.PastMedicalHistory
-  ) as ObservationTextFieldDTO;
+  ) as ObservationTextFieldDTO[];
 
   return (
     <Box
@@ -43,12 +43,12 @@ export const MedicalConditionsPatientColumn: FC = () => {
       ) : (
         <Typography color={theme.palette.text.secondary}>Patient has no medical conditions</Typography>
       )}
-      {aiPastMedicalHistory ? (
+      {aiPastMedicalHistory?.length > 0 && (
         <>
           <hr style={{ border: '0.5px solid #DFE5E9', margin: '0 -16px 0 -16px' }} />
-          <AiSuggestion title={'Past Medical History (PMH)'} content={aiPastMedicalHistory.value} />
+          <AiSuggestion title={'Past Medical History (PMH)'} chartData={chartData} content={aiPastMedicalHistory} />
         </>
-      ) : undefined}
+      )}
     </Box>
   );
 };

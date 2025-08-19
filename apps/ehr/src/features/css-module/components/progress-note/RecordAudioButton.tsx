@@ -4,6 +4,7 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import { useApiClients } from 'src/hooks/useAppClients';
 import WaveSurfer from 'wavesurfer.js';
 import RecordPlugin from 'wavesurfer.js/dist/plugins/record';
+import { useChartData } from '../../hooks/useChartData';
 
 interface RecordAudioButtonProps {
   visitID: string;
@@ -26,6 +27,16 @@ export function RecordAudioButton(props: RecordAudioButtonProps): ReactElement {
   const waveformRef = useRef<HTMLDivElement | null>(null);
   const wavesurferRef = useRef<WaveSurfer | null>(null);
   const recordPluginRef = useRef<ReturnType<typeof RecordPlugin.create> | null>(null);
+
+  const { refetch } = useChartData({
+    encounterId: visitID,
+    onSuccess: (_data) => {
+      console.log('Successfully load chart');
+    },
+    onError: (error) => {
+      console.error(error);
+    },
+  });
 
   useEffect(() => {
     if (!waveformRef.current) return;
@@ -50,7 +61,7 @@ export function RecordAudioButton(props: RecordAudioButtonProps): ReactElement {
 
     recordPlugin.on('record-end', async (blob: Blob) => {
       // const url = URL.createObjectURL(blob);
-      setRecordingStatus(RecordingStatus.STOPPED);
+      setRecordingStatus(RecordingStatus.NOT_STARTED);
       if (!oystehr) {
         console.error('Oystehr client is undefined');
         return;
@@ -66,6 +77,7 @@ export function RecordAudioButton(props: RecordAudioButtonProps): ReactElement {
       });
       console.log(uploadResponse);
       await createResourcesFromAudioRecording(oystehr, { visitID, z3URL });
+      await refetch();
     });
 
     return () => {
@@ -73,7 +85,7 @@ export function RecordAudioButton(props: RecordAudioButtonProps): ReactElement {
       wavesurferRef.current = null;
       recordPluginRef.current = null;
     };
-  }, [oystehr, visitID]);
+  }, [oystehr, refetch, visitID]);
 
   const startOrResumeRecording = async (): Promise<void> => {
     const plugin = recordPluginRef.current;
@@ -102,6 +114,20 @@ export function RecordAudioButton(props: RecordAudioButtonProps): ReactElement {
     recordPluginRef.current?.stopRecording();
   };
 
+  function getButtonLabel(status: RecordingStatus): string {
+    switch (status) {
+      case RecordingStatus.NOT_STARTED:
+        return 'Start';
+      case RecordingStatus.RECORDING:
+        return 'Pause';
+      case RecordingStatus.PAUSED:
+        return 'Continue';
+      default:
+        console.log(`Unknown recording status ${status}`);
+        throw new Error('Unknown recording status');
+    }
+  }
+
   return (
     <>
       {recordingStatus !== RecordingStatus.STOPPED && (
@@ -110,12 +136,7 @@ export function RecordAudioButton(props: RecordAudioButtonProps): ReactElement {
             variant="outlined"
             onClick={recordingStatus === RecordingStatus.RECORDING ? pauseRecording : startOrResumeRecording}
           >
-            {recordingStatus === RecordingStatus.NOT_STARTED
-              ? 'Start'
-              : recordingStatus === RecordingStatus.RECORDING
-              ? 'Pause'
-              : 'Continue'}{' '}
-            Recording
+            {getButtonLabel(recordingStatus)} Recording
           </RoundedButton>
 
           {(recordingStatus === RecordingStatus.PAUSED || recordingStatus === RecordingStatus.RECORDING) && (

@@ -1,14 +1,19 @@
 import { ottehrAiIcon } from '@ehrTheme/icons';
 import { Box, Typography } from '@mui/material';
 import React from 'react';
+import { getSource } from 'src/features/css-module/pages/OttehrAi';
+import { useApiClients } from 'src/hooks/useAppClients';
+import { GetChartDataResponse, ObservationTextFieldDTO } from 'utils';
 
 export interface AiSuggestionProps {
   title: string;
-  content: string;
+  chartData: GetChartDataResponse | undefined;
+  content: ObservationTextFieldDTO[];
   hideHeader?: boolean;
 }
 
-export default function AiSuggestion({ title, content, hideHeader }: AiSuggestionProps): React.ReactElement {
+export default function AiSuggestion({ title, chartData, content, hideHeader }: AiSuggestionProps): React.ReactElement {
+  const { oystehr } = useApiClients();
   return (
     <Box>
       {hideHeader !== true ? (
@@ -35,10 +40,23 @@ export default function AiSuggestion({ title, content, hideHeader }: AiSuggestio
           padding: '8px',
         }}
       >
-        <Typography variant="body1" style={{ fontWeight: 700, marginBottom: '8px' }}>
+        <Typography variant="body1" style={{ fontWeight: 700 }}>
           {title}
         </Typography>
-        <Typography variant="body1">{content}</Typography>
+        {content?.map((item) => {
+          const documentReference = chartData?.aiChat?.documents.find(
+            (document) => document.id === item.derivedFrom?.split('/')[1]
+          );
+          return (
+            <Box sx={{ paddingBottom: 5 }}>
+              <Typography variant="body2" style={{ fontWeight: 700 }}>
+                source:{' '}
+                {documentReference ? getSource(documentReference, oystehr, chartData?.aiChat?.providers) : 'unknown'}
+              </Typography>
+              <Typography variant="body1">{item.value}</Typography>
+            </Box>
+          );
+        })}
       </Box>
     </Box>
   );

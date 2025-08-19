@@ -200,6 +200,10 @@ export async function convertSearchResultsToResponse(
           observations: [],
           practitioners: [],
           aiPotentialDiagnosis: [],
+          aiChat: {
+            documents: [],
+            providers: [],
+          },
         }),
   };
   const resources = parseBundleResources(bundle);

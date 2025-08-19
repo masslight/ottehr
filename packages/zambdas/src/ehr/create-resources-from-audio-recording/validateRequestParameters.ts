@@ -6,6 +6,8 @@ export function validateRequestParameters(input: ZambdaInput): CreateResourcesFr
     throw new Error('No request body provided');
   }
 
+  const userToken = input.headers.Authorization.replace('Bearer ', '');
+
   const { visitID, z3URL } = JSON.parse(input.body);
 
   if (!visitID) {
@@ -17,6 +19,7 @@ export function validateRequestParameters(input: ZambdaInput): CreateResourcesFr
   }
 
   return {
+    userToken,
     visitID,
     z3URL,
     secrets: input.secrets,

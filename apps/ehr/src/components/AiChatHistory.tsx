@@ -1,12 +1,14 @@
 import { ottehrDarkBlue } from '@ehrTheme/icons';
 import { Avatar, Typography } from '@mui/material';
 import { Box } from '@mui/system';
-import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
+import { DocumentReference, Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import { FC, useEffect, useRef } from 'react';
+import { getContentOfDocumentReference } from 'src/helpers/documentReferences';
 
 const MESSAGES_CONTAINER_ID = 'messages-container';
 
 export interface AiChatHistoryProps {
+  documentReference?: DocumentReference;
   questionnaireResponse?: QuestionnaireResponse;
   unprocessedUserAnswer?: string;
   aiLoading?: boolean;
@@ -20,6 +22,7 @@ interface Message {
 }
 
 export const AiChatHistory: FC<AiChatHistoryProps> = ({
+  documentReference,
   questionnaireResponse,
   unprocessedUserAnswer,
   aiLoading,
@@ -47,6 +50,15 @@ export const AiChatHistory: FC<AiChatHistoryProps> = ({
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   });
+
+  if (documentReference) {
+    const contentTranscript = getContentOfDocumentReference(documentReference, 'Transcript');
+    return (
+      <Typography variant="body1" style={{ whiteSpace: 'pre-wrap' }}>
+        {contentTranscript || 'No transcript available'}
+      </Typography>
+    );
+  }
 
   return (
     <Box id={MESSAGES_CONTAINER_ID}>

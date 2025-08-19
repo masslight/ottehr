@@ -15,19 +15,23 @@ let m2mToken: string;
 
 const ZAMBDA_NAME = 'create-resources-from-audio-recording';
 
-const PROMPT = 'give a transcript of this file include only the transcript without other input';
-
+const TRANSCRIPT_PROMPT = 'give a transcript of this file include only the transcript without other input';
+const TRANSCRIPT_FILE_SUMMARY_PROMPT = 'give a summary of this text only the transcript without other input';
 export interface CreateResourcesFromAudioRecordingInputValidated extends CreateResourcesFromAudioRecordingInput {
+  userToken: string;
   secrets: Secrets | null;
 }
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
-    const { visitID, z3URL, secrets } = validatedParameters;
+    const { userToken, visitID, z3URL, secrets } = validatedParameters;
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
     const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
+
+    const oystehrCurrentUser = createOystehrClient(userToken, secrets);
+    const providerUserProfile = (await oystehrCurrentUser.user.me()).profile;
 
     // const presignedFileDownloadUrl = await createPresignedUrl(m2mToken, z3URL, 'download');
     const presignedFileDownloadUrl = await createPresignedUrl(m2mToken, z3URL, 'download');
@@ -35,16 +39,29 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const file = await fetch(presignedFileDownloadUrl);
     const fileBlob = await file.arrayBuffer();
     const fileBase64 = Buffer.from(fileBlob).toString('base64');
+    const mimeType = file.headers.get('Content-Type') || 'unknown';
     // const fileBase64 = btoa(String.fromCharCode(...new Uint8Array(fileBlob)));
 
-    console.log(PROMPT);
     const transcript = await invokeChatbotVertexAI(
-      [{ text: PROMPT }, { inlineData: { mimeType: 'audio/mpeg', data: fileBase64 } }],
+      [{ text: TRANSCRIPT_PROMPT }, { inlineData: { mimeType: mimeType, data: fileBase64 } }],
       secrets
     );
-    console.log(transcript);
 
-    const createdResources = await createResourcesFromAiInterview(oystehr, visitID, transcript, secrets);
+    const transcriptSummary = await invokeChatbotVertexAI(
+      [{ text: `${TRANSCRIPT_FILE_SUMMARY_PROMPT}\n${transcript}` }],
+      secrets
+    );
+
+    const createdResources = await createResourcesFromAiInterview(
+      oystehr,
+      visitID,
+      transcript,
+      transcriptSummary,
+      z3URL,
+      mimeType,
+      providerUserProfile,
+      secrets
+    );
 
     return {
       statusCode: 200,

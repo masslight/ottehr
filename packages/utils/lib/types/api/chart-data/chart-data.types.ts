@@ -67,7 +67,10 @@ export interface ChartDataFields {
   notes?: NoteDTO[];
   vitalsObservations?: VitalsObservationDTO[];
   birthHistory?: BirthHistoryDTO[];
-  aiChat?: QuestionnaireResponse;
+  aiChat?: {
+    documents: (DocumentReference | QuestionnaireResponse)[];
+    providers: Practitioner[];
+  };
   externalLabResults?: EncounterExternalLabResult;
   inHouseLabResults?: EncounterInHouseLabResult;
   procedures?: ProcedureDTO[];
@@ -94,6 +97,7 @@ export interface ChartDataWithResources {
 
 export interface SaveableDTO {
   resourceId?: string;
+  derivedFrom?: string;
 }
 
 export interface FreeTextNoteDTO extends SaveableDTO {

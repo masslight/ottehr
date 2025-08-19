@@ -83,6 +83,7 @@ import {
   SchoolWorkNoteExcuseDocFileDTO,
   SchoolWorkNoteType,
   SNOMEDCodeConceptInterface,
+  VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE,
 } from 'utils';
 import { removePrefix } from '../appointment/helpers';
 import { fillMeta } from '../helpers';
@@ -311,6 +312,7 @@ export function makeObservationResource(
   encounterId: string,
   patientId: string,
   practitionerId: string,
+  documentReferenceCreateUrl: string,
   data: ObservationDTO,
   metaSystem: string,
   patientDOB?: string,
@@ -326,6 +328,11 @@ export function makeObservationResource(
     effectiveDateTime: DateTime.utc().toISO()!,
     status: 'final',
     code: { text: data.field || 'unknown' },
+    derivedFrom: [
+      {
+        reference: documentReferenceCreateUrl,
+      },
+    ],
     meta: fillMeta(data.field, metaSystem),
   };
 
@@ -1015,6 +1022,7 @@ export function makeObservationDTO(observation: Observation): null | Observation
       field,
       value: observation.valueString,
       note: observation.note?.[0]?.text,
+      derivedFrom: observation.derivedFrom?.[0].reference,
     } as ObservationTextFieldDTO;
   }
 
@@ -1052,6 +1060,7 @@ const mapResourceToChartDataFields = (
   resource: FhirResource,
   encounterId: string
 ): { chartDataFields: ChartDataFields; resourceMapped: boolean } => {
+  console.log(resource);
   let resourceMapped = false;
   if (resource?.resourceType === 'Condition' && chartDataResourceHasMetaTagByCode(resource, 'medical-condition')) {
     data.conditions?.push(makeConditionDTO(resource));
@@ -1184,7 +1193,13 @@ const mapResourceToChartDataFields = (
     resource.resourceType === 'QuestionnaireResponse' &&
     resource.questionnaire === '#aiInterviewQuestionnaire'
   ) {
-    data.aiChat = resource;
+    data.aiChat?.documents.push(resource);
+    resourceMapped = true;
+  } else if (
+    resource.resourceType === 'DocumentReference' &&
+    resource.type?.coding?.[0].code === VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE.code
+  ) {
+    data.aiChat?.documents.push(resource);
     resourceMapped = true;
   }
   return {

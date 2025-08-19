@@ -316,7 +316,7 @@ export const Sidebar = (): JSX.Element => {
   const menuItems = generateMenuItems(
     Object.values(routesCSS)
       .filter((route) => !route.isSkippedInNavigation)
-      .filter((route) => route.path !== ROUTER_PATH.OTTEHR_AI || chartData?.aiChat != null)
+      .filter((route) => route.path !== ROUTER_PATH.OTTEHR_AI || chartData?.aiChat?.documents.length > 0)
   );
 
   return (
