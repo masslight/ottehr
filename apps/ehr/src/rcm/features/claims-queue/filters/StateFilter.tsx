@@ -1,7 +1,7 @@
 import { Autocomplete, TextField } from '@mui/material';
 import React, { FC } from 'react';
 import type { StateType } from 'utils';
-import { AllStatesToVirtualLocationsData, AllStatesValues, ClaimsQueueGetRequest } from 'utils';
+import { AllStatesToVirtualLocationLabels, AllStatesValues, ClaimsQueueGetRequest } from 'utils';
 
 type StateFilterProps = {
   value: ClaimsQueueGetRequest['state'];
@@ -12,7 +12,7 @@ const EMPTY_STATE = { label: 'All states', value: '' } as const;
 const stateOptions: (StateType | '')[] = [EMPTY_STATE.value, ...AllStatesValues];
 const stateOptionToLabel: {
   [value in StateType | '']: string;
-} = { ...AllStatesToVirtualLocationsData, [EMPTY_STATE.value]: EMPTY_STATE.label };
+} = { ...AllStatesToVirtualLocationLabels, [EMPTY_STATE.value]: EMPTY_STATE.label };
 
 export const StateFilter: FC<StateFilterProps> = (props) => {
   const { value, onChange } = props;

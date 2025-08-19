@@ -70,8 +70,8 @@ import {
   SaveFollowupEncounterZambdaInput,
   SaveFollowupEncounterZambdaOutput,
   ScheduleDTO,
-  SubmitLabOrderDTO,
   SubmitLabOrderInput,
+  SubmitLabOrderOutput,
   UnassignPractitionerZambdaInput,
   UnassignPractitionerZambdaOutput,
   UpdateLabOrderResourcesParameters,
@@ -146,7 +146,10 @@ if (!VITE_APP_IS_LOCAL) {
   throw new Error('VITE_APP_IS_LOCAL is not defined');
 }
 
-export const submitLabOrder = async (oystehr: Oystehr, parameters: SubmitLabOrderInput): Promise<SubmitLabOrderDTO> => {
+export const submitLabOrder = async (
+  oystehr: Oystehr,
+  parameters: SubmitLabOrderInput
+): Promise<SubmitLabOrderOutput> => {
   try {
     if (SUBMIT_LAB_ORDER_ZAMBDA_ID == null) {
       throw new Error('submit external lab order zambda environment variable could not be loaded');

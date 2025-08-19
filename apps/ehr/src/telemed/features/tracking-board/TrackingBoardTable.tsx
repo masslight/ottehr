@@ -50,8 +50,8 @@ const TRACKING_BOARD_COLUMNS_CONFIG: Record<string, TrackingBoardColumn> = {
     label: 'Patient & Reason',
   },
   LOCATION: {
-    id: 'state',
-    label: 'State',
+    id: 'location',
+    label: 'Location',
   },
   PROVIDER: {
     id: 'provider',

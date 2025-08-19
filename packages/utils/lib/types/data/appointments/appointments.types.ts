@@ -61,6 +61,7 @@ export type GetTelemedAppointmentsResponseEhr = AppointmentsResponse<TelemedAppo
 
 export interface AppointmentLocation {
   reference?: string;
+  name?: string;
   state?: string;
   resourceType: Location['resourceType'];
   id: string;

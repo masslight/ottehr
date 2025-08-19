@@ -3,7 +3,13 @@
   "version": "0.0.1",
   "description": "Scripts for generating HCL and interacting with Terraform",
   "scripts": {
-    "generate": "tsx generate-oystehr-resources.ts ../config ../packages/zambdas/.env/${ENV:-local}.json ./oystehr/"
+    "build": "tsc --noEmit",
+    "lint": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts --report-unused-disable-directives --max-warnings 0 .",
+    "generate": "tsx generate-oystehr-resources.ts ../config ../packages/zambdas/.env/${ENV:-local}.json ./oystehr/",
+    "apply-local": "ENV=local npm run generate && terraform workspace select local && terraform apply -parallelism=40 -var-file='local.tfvars'",
+    "apply-staging": "ENV=staging npm run generate && terraform workspace select staging && terraform apply -parallelism=40 -var-file='staging.tfvars'",
+    "apply-production": "ENV=production npm run generate && terraform workspace select production && terraform apply -parallelism=40 -var-file='production.tfvars'",
+    "terraform-setup": "terraform workspace new local && terraform workspace new staging && terraform workspace new production && terraform init && terraform workspace select local"
   },
   "devDependencies": {
     "@types/node": "^24.2.1"
