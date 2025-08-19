@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { Medication, MedicationAdministration } from 'fhir/r4b';
 import {
   getCoding,
-  ImmunizationOrderDetails,
+  InputOrderDetails,
   MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
   MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM,
   MEDICATION_ADMINISTRATION_UNITS_SYSTEM,
@@ -18,34 +18,37 @@ export const CONTAINED_EMERGENCY_CONTACT_ID = 'emergencyContact';
 export const MVX_CODE_SYSTEM_URL = 'http://hl7.org/fhir/sid/mvx';
 export const CVX_CODE_SYSTEM_URL = 'http://hl7.org/fhir/sid/cvx';
 export const VACCINE_ADMINISTRATION_CODES_EXTENSION_URL = ottehrExtensionUrl('vaccine-administration-codes');
-export const VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL = ottehrExtensionUrl('vaccine-administration-vis_date');
+export const VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL = ottehrExtensionUrl('vaccine-administration-vis-date');
+export const IMMUNIZATION_ORDER_CREATED_DATE_EXTENSION_URL = ottehrExtensionUrl('immunization-order-created-date');
 
 export async function updateOrderDetails(
   medicationAdministration: MedicationAdministration,
-  orderDetails: ImmunizationOrderDetails,
+  orderDetails: InputOrderDetails,
   oystehr: Oystehr
 ): Promise<void> {
-  const { medicationId, dose, units, orderedProviderId, route, location, instructions } = orderDetails;
+  const { medication: medicationData, dose, units, orderedProvider, route, location, instructions } = orderDetails;
 
-  const medication = await oystehr.fhir.get<Medication>({
-    resourceType: 'Medication',
-    id: medicationId,
-  });
-  const medicationLocalCopy = createMedicationCopy(medication, {});
-  medicationAdministration.medicationReference = { reference: '#' + CONTAINED_MEDICATION_ID };
-  medicationAdministration.contained = [
-    {
-      ...medicationLocalCopy,
-      id: CONTAINED_MEDICATION_ID,
-    },
-  ];
+  if (medicationData.id !== CONTAINED_MEDICATION_ID) {
+    const medication = await oystehr.fhir.get<Medication>({
+      resourceType: 'Medication',
+      id: medicationData.id,
+    });
+    const medicationLocalCopy = createMedicationCopy(medication, {});
+    medicationAdministration.medicationReference = { reference: '#' + CONTAINED_MEDICATION_ID };
+    medicationAdministration.contained = [
+      {
+        ...medicationLocalCopy,
+        id: CONTAINED_MEDICATION_ID,
+      },
+    ];
+  }
 
   const routeCoding = route ? searchRouteByCode(route) : undefined;
   const locationCoding = location ? searchMedicationLocation(location) : undefined;
   medicationAdministration.dosage = {
     dose: {
       unit: units,
-      value: dose,
+      value: parseFloat(dose),
       system: MEDICATION_ADMINISTRATION_UNITS_SYSTEM,
     },
     route: routeCoding
@@ -80,7 +83,10 @@ export async function updateOrderDetails(
         PRACTITIONER_ORDERED_BY_MEDICATION_CODE
     ),
     {
-      actor: { reference: `Practitioner/${orderedProviderId}` },
+      actor: {
+        reference: `Practitioner/${orderedProvider.id}`,
+        display: orderedProvider.name,
+      },
       function: {
         coding: [
           {
@@ -91,4 +97,22 @@ export async function updateOrderDetails(
       },
     },
   ];
+}
+
+export function validateOrderDetails(orderDetails: any): string[] {
+  const { medication, dose, units, orderedProvider } = orderDetails;
+  const missingFields: string[] = [];
+  if (!medication.id) missingFields.push('orderDetails.medication.id');
+  if (!medication.name) missingFields.push('orderDetails.medication.name');
+  if (!dose) missingFields.push('orderDetails.dose');
+  if (!units) missingFields.push('orderDetails.units');
+  if (!orderedProvider.id) missingFields.push('orderDetails.orderedProvider.id');
+  if (!orderedProvider.name) missingFields.push('orderDetails.orderedProvider.name');
+  return missingFields;
+}
+
+export function getContainedMedication(medicationAdministration: MedicationAdministration): Medication | undefined {
+  return medicationAdministration.contained?.find((resource) => resource.id === CONTAINED_MEDICATION_ID) as
+    | Medication
+    | undefined;
 }

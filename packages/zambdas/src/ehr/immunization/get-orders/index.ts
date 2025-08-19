@@ -1,15 +1,19 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Coding, Extension, Medication, MedicationAdministration, RelatedPerson } from 'fhir/r4b';
+import { Coding, Extension, MedicationAdministration, RelatedPerson } from 'fhir/r4b';
 import {
   CODE_SYSTEM_CPT,
   CODE_SYSTEM_NDC,
   getCoding,
   GetImmunizationOrdersInput,
+  getMedicationName,
   ImmunizationOrder,
   mapFhirToOrderStatus,
+  MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
   MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM,
   MEDICATION_APPLIANCE_LOCATION_SYSTEM,
+  PRACTITIONER_ADMINISTERED_MEDICATION_CODE,
+  PRACTITIONER_ORDERED_BY_MEDICATION_CODE,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -21,6 +25,8 @@ import {
 import {
   CONTAINED_EMERGENCY_CONTACT_ID,
   CVX_CODE_SYSTEM_URL,
+  getContainedMedication,
+  IMMUNIZATION_ORDER_CREATED_DATE_EXTENSION_URL,
   MVX_CODE_SYSTEM_URL,
   VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
   VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL,
@@ -95,7 +101,7 @@ function mapMedicationAdministrationToImmunizationOrder(
 ): ImmunizationOrder {
   const status = mapFhirToOrderStatus(medicationAdministration) ?? '';
   const isAdministered = ['administered', 'administered-partly', 'administered-not'].includes(status);
-  const medication = medicationAdministration.contained?.[0] as Medication;
+  const medication = getContainedMedication(medicationAdministration);
   const administrationCodesExtensions = (medicationAdministration.extension ?? []).filter(
     (extension) => extension.url === VACCINE_ADMINISTRATION_CODES_EXTENSION_URL
   );
@@ -107,35 +113,43 @@ function mapMedicationAdministrationToImmunizationOrder(
     status: status,
     reason: medicationAdministration.note?.[0].text,
     details: {
-      medicationId: '',
-      dose: medicationAdministration.dosage?.dose?.value ?? 0,
+      medication: {
+        id: medication?.id ?? '',
+        name: medication ? getMedicationName(medication) ?? '' : '',
+      },
+      dose: medicationAdministration.dosage?.dose?.value?.toString() ?? '',
       units: medicationAdministration.dosage?.dose?.unit ?? '',
-      orderedProviderId: '',
+      orderedProvider: getProvider(medicationAdministration, PRACTITIONER_ORDERED_BY_MEDICATION_CODE),
+      orderedDateTime:
+        getDateExtensionValue(medicationAdministration, IMMUNIZATION_ORDER_CREATED_DATE_EXTENSION_URL) ?? '',
       route: getCoding(medicationAdministration.dosage?.route, MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM)?.code,
       location: getCoding(medicationAdministration.dosage?.site, MEDICATION_APPLIANCE_LOCATION_SYSTEM)?.code,
       instructions: medicationAdministration.dosage?.text,
     },
-    administrationDetails: isAdministered
-      ? {
-          lot: medication.batch?.lotNumber ?? '',
-          expDate: medication.batch?.expirationDate ?? '',
-          mvx: findCoding(administrationCodesExtensions, MVX_CODE_SYSTEM_URL)?.code ?? '',
-          cvx: findCoding(administrationCodesExtensions, CVX_CODE_SYSTEM_URL)?.code ?? '',
-          cpt: findCoding(administrationCodesExtensions, CODE_SYSTEM_CPT)?.code,
-          ndc: findCoding(administrationCodesExtensions, CODE_SYSTEM_NDC)?.code ?? '',
-          administeredDateTime: '', // todo
-          visGivenDate: medicationAdministration.extension?.find(
-            (e) => e.url === VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL
-          )?.valueDate,
-          emergencyContact: emergencyContactReatedPerson
-            ? {
-                fullName: emergencyContactReatedPerson.name?.[0].text ?? '',
-                mobile: emergencyContactReatedPerson.telecom?.[0].value ?? '',
-                relationship: '', //todo
-              }
-            : undefined,
-        }
-      : undefined,
+    administrationDetails:
+      isAdministered && medication
+        ? {
+            lot: medication.batch?.lotNumber ?? '',
+            expDate: medication.batch?.expirationDate ?? '',
+            mvx: findCoding(administrationCodesExtensions, MVX_CODE_SYSTEM_URL)?.code ?? '',
+            cvx: findCoding(administrationCodesExtensions, CVX_CODE_SYSTEM_URL)?.code ?? '',
+            cpt: findCoding(administrationCodesExtensions, CODE_SYSTEM_CPT)?.code,
+            ndc: findCoding(administrationCodesExtensions, CODE_SYSTEM_NDC)?.code ?? '',
+            administeredProvider: getProvider(medicationAdministration, PRACTITIONER_ADMINISTERED_MEDICATION_CODE),
+            administeredDateTime: medicationAdministration.effectiveDateTime ?? '',
+            visGivenDate: getDateExtensionValue(
+              medicationAdministration,
+              VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL
+            ),
+            emergencyContact: emergencyContactReatedPerson
+              ? {
+                  fullName: emergencyContactReatedPerson.name?.[0].text ?? '',
+                  mobile: emergencyContactReatedPerson.telecom?.[0].value ?? '',
+                  relationship: '', //todo
+                }
+              : undefined,
+          }
+        : undefined,
   };
 }
 
@@ -147,4 +161,21 @@ function findCoding(extensions: Extension[], system: string): Coding | undefined
     }
   }
   return undefined;
+}
+
+function getProvider(medicationAdministration: MedicationAdministration, code: string): { id: string; name: string } {
+  const reference = medicationAdministration.performer?.find(
+    (performer) => getCoding(performer.function, MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM)?.code === code
+  )?.actor;
+  return {
+    id: reference?.id ?? '',
+    name: reference?.display ?? '',
+  };
+}
+
+function getDateExtensionValue(
+  medicationAdministration: MedicationAdministration,
+  extensionUrl: string
+): string | undefined {
+  return medicationAdministration.extension?.find((e) => e.url === extensionUrl)?.valueDate;
 }

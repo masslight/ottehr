@@ -20,8 +20,10 @@ import {
   ImmunizationEmergencyContact,
   mapFhirToOrderStatus,
   mapOrderStatusToFhir,
+  MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
   MEDICATION_ADMINISTRATION_REASON_CODE,
   MEDICATION_DISPENSABLE_DRUG_ID,
+  PRACTITIONER_ADMINISTERED_MEDICATION_CODE,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -35,10 +37,12 @@ import {
 import {
   CONTAINED_EMERGENCY_CONTACT_ID,
   CVX_CODE_SYSTEM_URL,
+  getContainedMedication,
   MVX_CODE_SYSTEM_URL,
   updateOrderDetails,
   VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
   VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL,
+  validateOrderDetails,
 } from '../common';
 
 let m2mToken: string;
@@ -101,38 +105,20 @@ async function administerImmunizationOrder(
     ];
   }
 
-  const medication = medicationAdministration.contained?.[0] as Medication;
-  medication.batch = {
-    lotNumber: administrationDetails.lot,
-    expirationDate: administrationDetails.expDate,
-  };
-  if (!medication.extension) {
-    medication.extension = [];
-  }
-  medication.extension.push({
-    url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
-    valueCodeableConcept: codeableConcept(administrationDetails.mvx, MVX_CODE_SYSTEM_URL),
+  medicationAdministration.performer?.push({
+    actor: {
+      reference: `Practitioner/${administrationDetails.administeredProvider.id}`,
+      display: administrationDetails.administeredProvider.name,
+    },
+    function: {
+      coding: [
+        {
+          system: MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
+          code: PRACTITIONER_ADMINISTERED_MEDICATION_CODE,
+        },
+      ],
+    },
   });
-  medication.extension.push({
-    url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
-    valueCodeableConcept: codeableConcept(administrationDetails.cvx, CVX_CODE_SYSTEM_URL),
-  });
-  medication.extension.push({
-    url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
-    valueCodeableConcept: codeableConcept(administrationDetails.ndc, CODE_SYSTEM_NDC),
-  });
-  if (administrationDetails.cpt) {
-    medication.extension.push({
-      url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
-      valueCodeableConcept: codeableConcept(administrationDetails.cpt, CODE_SYSTEM_CPT),
-    });
-  }
-  if (administrationDetails.visGivenDate) {
-    medication.extension.push({
-      url: VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL,
-      valueDate: administrationDetails.visGivenDate,
-    });
-  }
 
   if (administrationDetails.emergencyContact) {
     medicationAdministration.contained?.push(
@@ -143,6 +129,40 @@ async function administerImmunizationOrder(
         reference: '#' + CONTAINED_EMERGENCY_CONTACT_ID,
       },
     ];
+  }
+
+  const medication = getContainedMedication(medicationAdministration);
+  if (!medication) {
+    throw new Error('Contained Medication is missing');
+  }
+
+  medication.batch = {
+    lotNumber: administrationDetails.lot,
+    expirationDate: administrationDetails.expDate,
+  };
+  medication.extension?.push({
+    url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
+    valueCodeableConcept: codeableConcept(administrationDetails.mvx, MVX_CODE_SYSTEM_URL),
+  });
+  medication.extension?.push({
+    url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
+    valueCodeableConcept: codeableConcept(administrationDetails.cvx, CVX_CODE_SYSTEM_URL),
+  });
+  medication.extension?.push({
+    url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
+    valueCodeableConcept: codeableConcept(administrationDetails.ndc, CODE_SYSTEM_NDC),
+  });
+  if (administrationDetails.cpt) {
+    medication.extension?.push({
+      url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
+      valueCodeableConcept: codeableConcept(administrationDetails.cpt, CODE_SYSTEM_CPT),
+    });
+  }
+  if (administrationDetails.visGivenDate) {
+    medication.extension?.push({
+      url: VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL,
+      valueDate: administrationDetails.visGivenDate,
+    });
   }
 
   const transactionRequests: BatchInputRequest<FhirResource>[] = [
@@ -159,6 +179,7 @@ async function administerImmunizationOrder(
       url: `/MedicationStatement`,
       resource: createMedicationStatement(
         medicationAdministration,
+        medication,
         administrationDetails.administeredDateTime,
         userPractitioner
       ),
@@ -182,19 +203,22 @@ export function validateRequestParameters(
 
   const missingFields: string[] = [];
   if (!orderId) missingFields.push('orderId');
-  if (!orderDetails.medicationId) missingFields.push('orderDetails.medicationId');
-  if (!orderDetails.dose) missingFields.push('orderDetails.dose');
-  if (!orderDetails.units) missingFields.push('orderDetails.units');
-  if (!orderDetails.orderedProviderId) missingFields.push('orderDetails.orderedProviderId');
   if (!type) missingFields.push('type');
   if (!reason && ['administered-partly', 'administered-not'].includes(type)) {
     missingFields.push('reason');
   }
+
+  missingFields.push(...validateOrderDetails(orderDetails));
+
   if (!administrationDetails.lot) missingFields.push('administrationDetails.lot');
   if (!administrationDetails.expDate) missingFields.push('administrationDetails.expDate');
   if (!administrationDetails.mvx) missingFields.push('administrationDetails.mvx');
   if (!administrationDetails.cvx) missingFields.push('administrationDetails.cvx');
   if (!administrationDetails.ndc) missingFields.push('administrationDetails.ndc');
+  if (!administrationDetails.administeredProvider.id)
+    missingFields.push('administrationDetails.administeredProvider.id');
+  if (!administrationDetails.administeredProvider.name)
+    missingFields.push('administrationDetails.administeredProvider.name');
   if (!administrationDetails.administeredDateTime) missingFields.push('administrationDetails.administeredDateTime');
   if (!administrationDetails.visGivenDate && ['administered', 'administered-partly'].includes(type)) {
     missingFields.push('administrationDetails.visGivenDate');
@@ -214,12 +238,12 @@ export function validateRequestParameters(
 
 function createMedicationStatement(
   medicationAdministration: MedicationAdministration,
+  medication: Medication,
   administeredDateTime: string,
   userPractitioner: Practitioner
 ): MedicationStatement {
-  const medication = medicationAdministration.contained?.[0] as Medication;
   const drugIdCoding = medication.code?.coding?.find((code) => code.system === MEDICATION_DISPENSABLE_DRUG_ID);
-  if (!drugIdCoding) throw new Error(`Can't create MedicationStatement for order, Medication don't have drug id`);
+  if (!drugIdCoding) throw new Error(`Can't create MedicationStatement for order, Medication doesn't have drug id`);
   return {
     resourceType: 'MedicationStatement',
     status: 'active',
@@ -245,7 +269,7 @@ function createMedicationStatement(
       display: getFullName(userPractitioner),
     },
     effectiveDateTime: administeredDateTime,
-    meta: fillMeta('in-house-medication', 'in-house-medication'), //todo use different meta?
+    meta: fillMeta('immunization', 'immunization'),
   };
 }
 

@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, MedicationAdministration } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   createReference,
   CreateUpdateImmunizationOrderInput,
@@ -15,7 +16,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
-import { updateOrderDetails } from '../common';
+import { IMMUNIZATION_ORDER_CREATED_DATE_EXTENSION_URL, updateOrderDetails, validateOrderDetails } from '../common';
 
 let m2mToken: string;
 
@@ -54,9 +55,10 @@ async function createImmunizationOrder(
   input: CreateUpdateImmunizationOrderInput,
   userPractitionerId: string
 ): Promise<any> {
+  const { encounterId, orderDetails } = input;
   const encounter = await oystehr.fhir.get<Encounter>({
     resourceType: 'Encounter',
-    id: input.encounterId,
+    id: encounterId,
   });
   if (!encounter.subject) {
     throw new Error(`Encounter ${encounter.id} has no subject`);
@@ -79,8 +81,15 @@ async function createImmunizationOrder(
         },
       },
     ],
+    effectiveDateTime: DateTime.now().toISO(),
+    extension: [
+      {
+        url: IMMUNIZATION_ORDER_CREATED_DATE_EXTENSION_URL,
+        valueDate: DateTime.now().toISO(),
+      },
+    ],
   };
-  await updateOrderDetails(medicationAdministration, input, oystehr);
+  await updateOrderDetails(medicationAdministration, orderDetails, oystehr);
   const createdMedicationAdministration = await oystehr.fhir.create(medicationAdministration);
   return {
     message: 'Order was created',
@@ -89,11 +98,12 @@ async function createImmunizationOrder(
 }
 
 async function updateImmunizationOrder(oystehr: Oystehr, input: CreateUpdateImmunizationOrderInput): Promise<any> {
+  const { orderId, orderDetails } = input;
   const medicationAdministration = await oystehr.fhir.get<MedicationAdministration>({
     resourceType: 'MedicationAdministration',
-    id: input.orderId!,
+    id: orderId!,
   });
-  await updateOrderDetails(medicationAdministration, input, oystehr);
+  await updateOrderDetails(medicationAdministration, orderDetails, oystehr);
   await oystehr.fhir.update(medicationAdministration);
   return {
     id: medicationAdministration.id,
@@ -103,27 +113,17 @@ async function updateImmunizationOrder(oystehr: Oystehr, input: CreateUpdateImmu
 export function validateRequestParameters(
   input: ZambdaInput
 ): CreateUpdateImmunizationOrderInput & Pick<ZambdaInput, 'secrets'> {
-  const { encounterId, orderId, medicationId, dose, units, route, location, instructions, orderedProviderId } =
-    validateJsonBody(input);
+  const { orderId, encounterId, orderDetails } = validateJsonBody(input);
 
   const missingFields: string[] = [];
   if (!encounterId) missingFields.push('encounterId');
-  if (!medicationId) missingFields.push('medicationId');
-  if (!dose) missingFields.push('dose');
-  if (!units) missingFields.push('units');
-  if (!orderedProviderId) missingFields.push('orderedProviderId');
+  missingFields.push(...validateOrderDetails(orderDetails));
   if (missingFields.length > 0) throw new Error(`Missing required fields [${missingFields.join(', ')}]`);
 
   return {
-    encounterId,
     orderId,
-    medicationId,
-    dose,
-    units,
-    route,
-    location,
-    instructions,
-    orderedProviderId,
+    encounterId,
+    orderDetails,
     secrets: input.secrets,
   };
 }
