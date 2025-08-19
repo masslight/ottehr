@@ -5,7 +5,6 @@ export * from './helpers';
 export * from './i18nextCreator';
 export * from './in-house-labs';
 export * from './labs';
-export * from './locationState.helpers';
 export * from './operations';
 export * from './oystehrApi';
 export * from './paperwork';
