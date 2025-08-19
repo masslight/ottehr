@@ -9,7 +9,7 @@ type ExamReviewCommentProps = {
 export const ExamReviewComment: FC<ExamReviewCommentProps> = (props) => {
   const { item } = props;
 
-  if (!item.note) {
+  if (!item?.note) {
     return null;
   }
 

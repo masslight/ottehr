@@ -64,6 +64,7 @@ export const ControlledExamCheckboxDropdown: FC<ControlledExamCheckboxDropdownPr
         disabled={isLoading}
         options={options}
         value={selectedOption}
+        isOptionEqualToValue={(option, value) => option.name === value.name}
         onChange={(_e, newValue) => onOptionChange(newValue)}
         fullWidth
         renderInput={(params) => <TextField {...params} size="small" label={dropdownLabel} />}

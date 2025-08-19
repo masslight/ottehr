@@ -1752,241 +1752,241 @@ export const TelemedExamConfig: ExamItemConfig = {
               code: createCodingCode('297950053', 'Finding related to bruising (finding)'),
               bodySite: createCodingCode('297950053', 'Finding related to bruising (finding)'),
             },
-            'left-finger-index-abletobearweight': {
+            'left-finger-index-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981007', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981007', 'Weight-bearing (finding)'),
             },
-            'right-finger-index-abletobearweight': {
+            'right-finger-index-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981008', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981008', 'Weight-bearing (finding)'),
             },
-            'left-finger-middle-abletobearweight': {
+            'left-finger-middle-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981009', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981009', 'Weight-bearing (finding)'),
             },
-            'right-finger-middle-abletobearweight': {
+            'right-finger-middle-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981010', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981010', 'Weight-bearing (finding)'),
             },
-            'left-finger-ring-abletobearweight': {
+            'left-finger-ring-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981011', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981011', 'Weight-bearing (finding)'),
             },
-            'right-finger-ring-abletobearweight': {
+            'right-finger-ring-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981012', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981012', 'Weight-bearing (finding)'),
             },
-            'left-finger-little-abletobearweight': {
+            'left-finger-little-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981015', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981015', 'Weight-bearing (finding)'),
             },
-            'right-finger-little-abletobearweight': {
+            'right-finger-little-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981016', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981016', 'Weight-bearing (finding)'),
             },
-            'left-finger-thumb-abletobearweight': {
+            'left-finger-thumb-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981017', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981017', 'Weight-bearing (finding)'),
             },
-            'right-finger-thumb-abletobearweight': {
+            'right-finger-thumb-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981018', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981018', 'Weight-bearing (finding)'),
             },
-            'left-hand-abletobearweight': {
+            'left-hand-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981019', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981019', 'Weight-bearing (finding)'),
             },
-            'right-hand-abletobearweight': {
+            'right-hand-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981020', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981020', 'Weight-bearing (finding)'),
             },
-            'left-foot-abletobearweight': {
+            'left-foot-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981021', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981021', 'Weight-bearing (finding)'),
             },
-            'right-foot-abletobearweight': {
+            'right-foot-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981022', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981022', 'Weight-bearing (finding)'),
             },
-            'left-toe-great-abletobearweight': {
+            'left-toe-great-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981025', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981025', 'Weight-bearing (finding)'),
             },
-            'right-toe-great-abletobearweight': {
+            'right-toe-great-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981026', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981026', 'Weight-bearing (finding)'),
             },
-            'left-toe-second-abletobearweight': {
+            'left-toe-second-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981027', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981027', 'Weight-bearing (finding)'),
             },
-            'right-toe-second-abletobearweight': {
+            'right-toe-second-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981028', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981028', 'Weight-bearing (finding)'),
             },
-            'left-toe-third-abletobearweight': {
+            'left-toe-third-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981029', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981029', 'Weight-bearing (finding)'),
             },
-            'right-toe-third-abletobearweight': {
+            'right-toe-third-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981030', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981030', 'Weight-bearing (finding)'),
             },
-            'left-toe-fourth-abletobearweight': {
+            'left-toe-fourth-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981031', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981031', 'Weight-bearing (finding)'),
             },
-            'right-toe-fourth-abletobearweight': {
+            'right-toe-fourth-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981032', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981032', 'Weight-bearing (finding)'),
             },
-            'left-toe-fifth-abletobearweight': {
+            'left-toe-fifth-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981033', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981033', 'Weight-bearing (finding)'),
             },
-            'right-toe-fifth-abletobearweight': {
+            'right-toe-fifth-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981034', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981034', 'Weight-bearing (finding)'),
             },
-            'left-wrist-abletobearweight': {
+            'left-wrist-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981037', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981037', 'Weight-bearing (finding)'),
             },
-            'right-wrist-abletobearweight': {
+            'right-wrist-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981038', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981038', 'Weight-bearing (finding)'),
             },
-            'left-forearm-abletobearweight': {
+            'left-forearm-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981039', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981039', 'Weight-bearing (finding)'),
             },
-            'right-forearm-abletobearweight': {
+            'right-forearm-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981040', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981040', 'Weight-bearing (finding)'),
             },
-            'left-elbow-abletobearweight': {
+            'left-elbow-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981041', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981041', 'Weight-bearing (finding)'),
             },
-            'right-elbow-abletobearweight': {
+            'right-elbow-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981042', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981042', 'Weight-bearing (finding)'),
             },
-            'left-upperarm-abletobearweight': {
+            'left-upperarm-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981043', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981043', 'Weight-bearing (finding)'),
             },
-            'right-upperarm-abletobearweight': {
+            'right-upperarm-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981044', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981044', 'Weight-bearing (finding)'),
             },
-            'left-shoulder-abletobearweight': {
+            'left-shoulder-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981045', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981045', 'Weight-bearing (finding)'),
             },
-            'right-shoulder-abletobearweight': {
+            'right-shoulder-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981046', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981046', 'Weight-bearing (finding)'),
             },
-            'left-knee-abletobearweight': {
+            'left-knee-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981047', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981047', 'Weight-bearing (finding)'),
             },
-            'right-knee-abletobearweight': {
+            'right-knee-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981048', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981048', 'Weight-bearing (finding)'),
             },
-            'left-lowerleg-abletobearweight': {
+            'left-lowerleg-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981049', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981049', 'Weight-bearing (finding)'),
             },
-            'right-lowerleg-abletobearweight': {
+            'right-lowerleg-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981050', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981050', 'Weight-bearing (finding)'),
             },
-            'left-ankle-abletobearweight': {
+            'left-ankle-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981051', 'Weight-bearing (finding)'),
               bodySite: createCodingCode('249981051', 'Weight-bearing (finding)'),
             },
-            'right-ankle-abletobearweight': {
+            'right-ankle-ableToBearWeight': {
               defaultValue: false,
               type: 'form-element',
               code: createCodingCode('249981052', 'Weight-bearing (finding)'),
@@ -2325,7 +2325,7 @@ export const TelemedExamConfig: ExamItemConfig = {
                 swelling: { label: 'Swelling' },
                 deformity: { label: 'Deformity' },
                 bruising: { label: 'Bruising' },
-                abletobearweight: { label: 'Able to bear weight' },
+                ableToBearWeight: { label: 'Able to bear weight' },
                 decreasedrom: { label: 'Decreased ROM' },
               },
             },

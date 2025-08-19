@@ -8,6 +8,7 @@ import {
   ChartDataResources,
   createCodingCode,
   DispositionFollowUpType,
+  ExamObservationDTO,
   getPatchBinary,
   OTTEHR_MODULE,
   PATIENT_VITALS_META_SYSTEM,
@@ -46,7 +47,10 @@ import {
 } from '../../shared';
 import { PdfDocumentReferencePublishedStatuses } from '../../shared/pdf/pdf-utils';
 import { createSchoolWorkNotePDF } from '../../shared/pdf/school-work-note-pdf';
-import { createExamObservations } from '../../subscriptions/appointment/appointment-chart-data-prefilling/helpers';
+import {
+  createExamObservationComments,
+  createExamObservations,
+} from '../../subscriptions/appointment/appointment-chart-data-prefilling/helpers';
 import { deleteResourceRequest } from '../delete-chart-data/helpers';
 import {
   filterServiceRequestsFromFhir,
@@ -232,12 +236,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // convert ExamObservation[] to Observation(FHIR)[] and preserve FHIR resource IDs
     examObservations?.forEach((element) => {
       const examObservations = createExamObservations(isInPersonAppointment);
+      const examObservationComments = createExamObservationComments(isInPersonAppointment);
 
       const observation = examObservations.find((observation) => observation.field === element.field);
-      if (!observation) {
+      const comment = examObservationComments.find((comment) => comment.field === element.field);
+
+      if (!observation && !comment) {
         throw new Error(`Exam observation with field ${element.field} not found`);
       }
-      const { code, bodySite, label } = observation;
+      const { code, bodySite, label } = (observation || comment) as ExamObservationDTO & {
+        code?: CodeableConcept;
+        bodySite?: CodeableConcept;
+        label?: string;
+      };
 
       saveOrUpdateRequests.push(
         saveOrUpdateResourceRequest(

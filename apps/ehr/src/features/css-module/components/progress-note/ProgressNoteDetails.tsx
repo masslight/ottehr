@@ -1,7 +1,7 @@
 import { Stack, Typography } from '@mui/material';
 import { FC } from 'react';
 import { ProceduresContainer } from 'src/telemed/features/appointment/ReviewTab/components/ProceduresContainer';
-import { getProgressNoteChartDataRequestedFields, LabType, NOTE_TYPE } from 'utils';
+import { ExamDef, getProgressNoteChartDataRequestedFields, LabType, NOTE_TYPE } from 'utils';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { AccordionCard, SectionList, useAppointmentStore, usePatientInstructionsVisibility } from '../../../../telemed';
@@ -12,6 +12,7 @@ import {
   ChiefComplaintContainer,
   CPTCodesContainer,
   EMCodeContainer,
+  ExaminationContainer,
   LabResultsReviewContainer,
   MedicalConditionsContainer,
   MedicalDecisionMakingContainer,
@@ -24,7 +25,6 @@ import {
 } from '../../../../telemed/features/appointment/ReviewTab';
 import { useChartData } from '../../hooks/useChartData';
 import { useMedicationAPI } from '../../hooks/useMedicationOperations';
-import { ExamReadOnlyBlock } from '../examination/ExamReadOnly';
 import { HospitalizationContainer } from './HospitalizationContainer';
 import { InHouseMedicationsContainer } from './InHouseMedicationsContainer';
 import { PatientVitalsContainer } from './PatientVitalsContainer';
@@ -110,7 +110,7 @@ export const ProgressNoteDetails: FC = () => {
       <Typography variant="h5" color="primary.dark">
         Examination
       </Typography>
-      <ExamReadOnlyBlock />
+      <ExaminationContainer examConfig={ExamDef().inPerson.default.components} />
     </Stack>,
     <AllergiesContainer notes={allergyNotes} />,
     <MedicationsContainer notes={intakeMedicationNotes} />,

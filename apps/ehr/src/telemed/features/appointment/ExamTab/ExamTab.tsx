@@ -1,32 +1,35 @@
-import { Box, CircularProgress } from '@mui/material';
+import { CircularProgress, Stack } from '@mui/material';
 import { FC } from 'react';
-import { ExamTable } from 'src/features/css-module/components/examination/ExamTable';
 import { useFeatureFlags } from 'src/features/css-module/context/featureFlags';
 import { useExamObservations } from 'src/telemed/hooks/useExamObservations';
 import { ExamDef } from 'utils';
+import { AccordionCard } from '../../../components';
 import { useGetAppointmentAccessibility } from '../../../hooks';
-import { ReadOnlyCard } from './ReadOnlyCard';
+import { ExaminationContainer } from '../ReviewTab';
+import { ExamTable } from './components/ExamTable';
 
 export const ExamTab: FC = () => {
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const { css } = useFeatureFlags();
   const { value: examObservations } = useExamObservations();
 
+  const config = ExamDef()[css ? 'inPerson' : 'telemed'].default.components;
+
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 1,
-      }}
-    >
+    <Stack direction="column" gap={1}>
       {examObservations.length === 0 ? (
-        <CircularProgress />
+        <Stack direction="row" justifyContent="center">
+          <CircularProgress />
+        </Stack>
       ) : isReadOnly ? (
-        <ReadOnlyCard />
+        <AccordionCard>
+          <Stack p={2}>
+            <ExaminationContainer examConfig={config} />
+          </Stack>
+        </AccordionCard>
       ) : (
-        <ExamTable examConfig={ExamDef()[css ? 'inPerson' : 'telemed'].default.components} />
+        <ExamTable examConfig={config} />
       )}
-    </Box>
+    </Stack>
   );
 };

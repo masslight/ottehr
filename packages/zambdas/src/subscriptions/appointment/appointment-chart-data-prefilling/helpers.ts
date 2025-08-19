@@ -39,14 +39,12 @@ export function createExamObservations(isInPersonAppointment?: boolean): (ExamOb
     label: string;
   })[] = [];
 
-  // Helper function to recursively extract observations from components
   const extractObservationsFromComponents = (
     components: Record<string, ExamCardComponent>,
     section: 'normal' | 'abnormal' | 'comment'
   ): void => {
     Object.entries(components).forEach(([fieldName, component]) => {
       if (component.type === 'checkbox') {
-        // Checkbox component - direct observation
         observations.push({
           field: fieldName,
           value: component.defaultValue || false,
@@ -55,7 +53,6 @@ export function createExamObservations(isInPersonAppointment?: boolean): (ExamOb
           bodySite: component.bodySite,
         });
       } else if (component.type === 'dropdown') {
-        // Dropdown component - extract from nested options
         Object.entries(component.components).forEach(([optionName, option]: [string, any]) => {
           observations.push({
             field: optionName,
@@ -66,10 +63,8 @@ export function createExamObservations(isInPersonAppointment?: boolean): (ExamOb
           });
         });
       } else if (component.type === 'column') {
-        // Column component - recursive traversal
         extractObservationsFromComponents(component.components, section);
       } else if (component.type === 'form') {
-        // Form component - extract from form elements
         Object.entries(component.components).forEach(([elementName, element]: [string, any]) => {
           observations.push({
             field: elementName,
@@ -80,7 +75,6 @@ export function createExamObservations(isInPersonAppointment?: boolean): (ExamOb
           });
         });
       } else if (component.type === 'multi-select') {
-        // Multi-select component - extract from options
         Object.entries(component.options).forEach(([optionName, option]: [string, any]) => {
           observations.push({
             field: optionName,
@@ -91,18 +85,29 @@ export function createExamObservations(isInPersonAppointment?: boolean): (ExamOb
           });
         });
       }
-      // Note: text components don't have observations to extract
     });
   };
 
-  // Process each exam item
   Object.values(config).forEach((examItem) => {
-    // Process normal components
     extractObservationsFromComponents(examItem.components.normal, 'normal');
-    // Process abnormal components
     extractObservationsFromComponents(examItem.components.abnormal, 'abnormal');
-    // Note: comment components are text-only, no observations to extract
   });
 
   return observations;
 }
+
+export const createExamObservationComments = (
+  isInPersonAppointment?: boolean
+): (ObservationDTO & { label: string })[] => {
+  const config = ExamDef()[isInPersonAppointment ? 'inPerson' : 'telemed'].default.components;
+
+  const comments: (ObservationDTO & { label: string })[] = [];
+
+  Object.values(config).forEach((examItem) => {
+    Object.keys(examItem.components.comment).forEach((fieldName) => {
+      comments.push({ field: fieldName, label: examItem.components.comment[fieldName].label });
+    });
+  });
+
+  return comments;
+};

@@ -6,6 +6,7 @@ import { NursingOrderDetailsPage } from 'src/features/nursing-orders/pages/Nursi
 import { NursingOrdersPage } from 'src/features/nursing-orders/pages/NursingOrdersPage';
 import { FEATURE_FLAGS } from '../../../constants/feature-flags';
 import { AssessmentCard } from '../../../telemed/features/appointment/AssessmentTab';
+import { ExamTab } from '../../../telemed/features/appointment/ExamTab';
 import { CreateExternalLabOrder } from '../../external-labs/pages/CreateExternalLabOrder';
 import { ExternalLabOrdersListPage } from '../../external-labs/pages/ExternalLabOrdersListPage';
 import { OrderDetailsPage } from '../../external-labs/pages/OrderDetails';
@@ -15,7 +16,6 @@ import { RadiologyOrdersListPage } from '../../radiology/pages/RadiologyOrdersLi
 import { RouteCSS } from '../context/NavigationContext';
 import { Allergies } from '../pages/Allergies';
 import { ERXPage } from '../pages/ERXPage';
-import { Examination } from '../pages/Examination';
 import { Hospitalization } from '../pages/Hospitalization';
 import { InHouseMedication } from '../pages/InHouseMedication';
 import { InHouseOrderEdit } from '../pages/InHouseOrderEdit';
@@ -295,7 +295,7 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
   [ROUTER_PATH.EXAMINATION]: {
     path: ROUTER_PATH.EXAMINATION,
     modes: ['provider', 'readonly'],
-    element: <Examination />,
+    element: <ExamTab />,
     text: 'Exam',
     iconKey: 'Stethoscope',
   },

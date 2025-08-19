@@ -18,13 +18,9 @@ export const ExamCommentField = (props: ExamCommentFieldProps): ReactElement => 
   const onChange = (value: string): void => {
     value = value.trim();
 
-    if (!field.resourceId && !value) {
-      return;
-    }
-
     debounce(() => {
       if (value) {
-        update({ ...field, note: value });
+        update({ ...field, field: name, note: value });
       } else {
         deleteField(field);
       }
