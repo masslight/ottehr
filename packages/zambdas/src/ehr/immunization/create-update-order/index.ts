@@ -11,6 +11,7 @@ import {
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
+  fillMeta,
   getMyPractitionerId,
   validateJsonBody,
   wrapHandler,
@@ -88,6 +89,7 @@ async function createImmunizationOrder(
         valueDate: DateTime.now().toISO(),
       },
     ],
+    meta: fillMeta('immunization', 'immunization'),
   };
   await updateOrderDetails(medicationAdministration, orderDetails, oystehr);
   const createdMedicationAdministration = await oystehr.fhir.create(medicationAdministration);

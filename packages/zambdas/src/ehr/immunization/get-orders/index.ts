@@ -61,7 +61,12 @@ async function getImmunizationOrders(
   input: GetImmunizationOrdersInput
 ): Promise<ImmunizationOrder[]> {
   const { orderId, patientId } = input;
-  const params: SearchParam[] = [];
+  const params: SearchParam[] = [
+    {
+      name: '_tag',
+      value: 'immunization',
+    },
+  ];
   if (orderId) {
     params.push({
       name: '_id',
