@@ -1055,6 +1055,34 @@
       "runtime": "nodejs20.x",
       "src": "src/ehr/chart-data/vitals/get/index",
       "zip": ".dist/zips/get-vitals.zip"
+    },
+    "CREATE-UPDATE-IMMUNIZATION_ORDER": {
+      "name": "create-update-immunization-order",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/immunization/create-update-order/index",
+      "zip": ".dist/zips/create-update-immunization-order.zip"
+    },
+    "GET-IMMUNIZATION_ORDERS": {
+      "name": "get-immunization-orders",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/immunization/get-orders/index",
+      "zip": ".dist/zips/get-immunization-orders.zip"
+    },
+    "ADMINISTER-IMMUNIZATION_ORDER": {
+      "name": "administer-immunization-order",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/immunization/administer-order/index",
+      "zip": ".dist/zips/administer-immunization-order.zip"
+    },
+    "CANCEL-IMMUNIZATION_ORDER": {
+      "name": "cancel-immunization-order",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/immunization/cancel-order/index",
+      "zip": ".dist/zips/cancel-immunization-order.zip"
     }
   },
   "fhirResources": {
