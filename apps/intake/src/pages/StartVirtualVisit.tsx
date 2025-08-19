@@ -12,7 +12,6 @@ import {
   isApiError,
   isLocationOpen,
   ServiceMode,
-  stateCodeToFullName,
   TelemedLocation,
   TIMEZONES,
 } from 'utils';
@@ -25,7 +24,7 @@ import { BoldPurpleInputLabel } from '../components/form';
 import PageForm from '../components/PageForm';
 import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import { otherColors } from '../IntakeThemeProvider';
-import { useGetTelemedStates } from '../telemed/features/appointments';
+import { useGetTelemedLocations } from '../telemed/features/appointments';
 import { useOystehrAPIClient } from '../telemed/utils';
 
 const emptyArray: [] = [];
@@ -58,10 +57,10 @@ const StartVirtualVisit = (): JSX.Element => {
   const [errorDialogConfig, setErrorDialogConfig] = useState<ErrorDialogConfig | undefined>(undefined);
 
   const apiClient = useOystehrAPIClient({ tokenless: true });
-  const { data: locationsResponse } = useGetTelemedStates(apiClient, Boolean(apiClient));
+  const { data: locationsResponse } = useGetTelemedLocations(apiClient, Boolean(apiClient));
   const tokenlessZambdaClient = useUCZambdaClient({ tokenless: true });
 
-  const telemedStates = locationsResponse?.locations || emptyArray;
+  const telemedLocations = locationsResponse?.locations || emptyArray;
 
   console.log('locationsResponse', locationsResponse);
 
@@ -112,44 +111,41 @@ const StartVirtualVisit = (): JSX.Element => {
     }
   };
 
-  const sortedStates = useMemo(() => {
-    const allStates = new Set([...Object.keys(stateCodeToFullName), ...telemedStates.map((s) => s.state)]);
-
+  const sortedLocations = useMemo(() => {
     const getPriority = (state: { available: boolean; workingHours: null | string }): number => {
       if (state.available) return 0;
       if (state.workingHours) return 1;
       return 2;
     };
 
-    return [...allStates]
-      .map((stateCode) => {
-        const serverState = telemedStates.find((s) => s.state === stateCode);
-
-        const currentWorkingHours = currentWorkingHoursText(serverState);
+    return telemedLocations
+      .map((location) => {
+        const state = location.state;
+        const currentWorkingHours = currentWorkingHoursText(location);
         return {
-          state: stateCode,
+          state: state,
           available:
-            serverState?.available && serverState?.locationInformation?.scheduleExtension
+            location?.available && location?.locationInformation?.scheduleExtension
               ? isLocationOpen(
-                  serverState.locationInformation.scheduleExtension,
-                  serverState.locationInformation.timezone ?? TIMEZONES[0],
-                  DateTime.now().setZone(serverState.locationInformation.timezone ?? '')
+                  location.locationInformation.scheduleExtension,
+                  location.locationInformation.timezone ?? TIMEZONES[0],
+                  DateTime.now().setZone(location.locationInformation.timezone ?? '')
                 )
               : false,
-          workingHours: (Boolean(serverState?.available) && currentWorkingHours) || null,
-          fullName: stateCodeToFullName[stateCode] || stateCode,
-          scheduleId: serverState?.schedule.id || '',
-          schedule: serverState?.schedule,
-          locationInformation: serverState?.locationInformation,
+          workingHours: (Boolean(location?.available) && currentWorkingHours) || null,
+          fullName: location?.locationInformation?.name || state,
+          scheduleId: location?.schedule.id || '',
+          schedule: location?.schedule,
+          locationInformation: location?.locationInformation,
         };
       })
       .sort((a, b) => {
         const priorityDiff = getPriority(a) - getPriority(b);
         return priorityDiff !== 0 ? priorityDiff : a.fullName.localeCompare(b.fullName);
       });
-  }, [telemedStates]);
+  }, [telemedLocations]);
 
-  console.log('sortedStates, telemedStates', sortedStates?.length, telemedStates?.length);
+  console.log('sortedStates, telemedLocations', sortedLocations?.length, telemedLocations?.length);
 
   return (
     <PageContainer title="Request a Virtual Visit" imgAlt="Chat icon">
@@ -157,7 +153,7 @@ const StartVirtualVisit = (): JSX.Element => {
         We're pleased to offer this new technology for accessing care. You will need to enter your information just
         once. Next time you return, it will all be here for you!
       </Typography>
-      {!sortedStates?.length || !telemedStates?.length ? (
+      {!sortedLocations?.length || !telemedLocations?.length ? (
         <Skeleton
           sx={{
             borderRadius: 2,
@@ -169,12 +165,12 @@ const StartVirtualVisit = (): JSX.Element => {
         <>
           <Autocomplete
             id="states-autocomplete"
-            options={sortedStates}
+            options={sortedLocations}
             getOptionLabel={(option) => option.fullName || option.state || ''}
             onChange={(_e, newValue) =>
               newValue?.schedule ? handleStateChange(_e, newValue as TelemedLocation) : null
             }
-            value={sortedStates.find((state) => state.state === selectedLocation?.state) || null}
+            value={sortedLocations.find((state) => state.state === selectedLocation?.state) || null}
             isOptionEqualToValue={(option, value) => option.state === value.state}
             renderOption={(props, option) => {
               return (

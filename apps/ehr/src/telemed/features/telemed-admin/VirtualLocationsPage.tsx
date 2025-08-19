@@ -15,57 +15,41 @@ import {
   TextField,
   useTheme,
 } from '@mui/material';
+import { Location } from 'fhir/r4b';
 import React, { ReactElement } from 'react';
 import { Link } from 'react-router-dom';
-import { AllStates, AllStatesToNames, AllStatesToVirtualLocationsData, State, StateType } from 'utils';
-import { isLocationVirtual } from 'utils';
-import { STATES_URL } from '../../../App';
+import { VIRTUAL_LOCATIONS_URL } from '../../../App';
 import Loading from '../../../components/Loading';
 import { STATES_ROWS_PER_PAGE } from '../../../constants';
 import { dataTestIds } from '../../../constants/data-test-ids';
 import { BooleanStateChip } from '../..';
-import { useStatesQuery } from './telemed-admin.queries';
+import { useVirtualLocationsQuery } from './telemed-admin.queries';
 
-export default function StatesPage(): ReactElement {
+export default function VirtualLocationsPage(): ReactElement {
   const theme = useTheme();
   // set up the pagination states
   const [rowsPerPage, setRowsPerPage] = React.useState(STATES_ROWS_PER_PAGE);
   const [pageNumber, setPageNumber] = React.useState(0);
   const [searchText, setSearchText] = React.useState('');
 
-  const { data, isFetching } = useStatesQuery();
-  const stateLocations = React.useMemo(() => data || [], [data]);
-
-  // Filter the states based on the locations
-  const fhirLocationStates = React.useMemo(
-    () =>
-      stateLocations
-        ? AllStates.filter((state: State) =>
-            stateLocations.some((loc) => loc.address?.state === state.value && isLocationVirtual(loc))
-          )
-        : [],
-    [stateLocations]
-  );
+  const { data, isFetching } = useVirtualLocationsQuery();
+  const virtualLocations = React.useMemo(() => data || [], [data]);
 
   // Filter the states based on the search text
-  const filteredStates = React.useMemo(
+  const filteredLocations = React.useMemo(
     () =>
-      fhirLocationStates.filter((state: State) =>
-        `${state.label} - ${AllStatesToVirtualLocationsData[state.value as StateType]}`
-          .toLowerCase()
-          .includes(searchText.toLowerCase())
-      ),
-    [searchText, fhirLocationStates]
+      virtualLocations.filter((location: Location) => location.name?.toLowerCase().includes(searchText.toLowerCase())),
+    [searchText, virtualLocations]
   );
 
   // For pagination, only include the rows that are on the current page
-  const pageStates = React.useMemo(
+  const pageLocations = React.useMemo(
     () =>
-      filteredStates.slice(
+      filteredLocations.slice(
         pageNumber * rowsPerPage, // skip over the rows from previous pages
         (pageNumber + 1) * rowsPerPage // only show the rows from the current page
       ),
-    [pageNumber, filteredStates, rowsPerPage]
+    [pageNumber, filteredLocations, rowsPerPage]
   );
 
   // Handle pagination
@@ -102,7 +86,7 @@ export default function StatesPage(): ReactElement {
                   InputProps={{ endAdornment: <SearchIcon /> }}
                   sx={{ marginBottom: 2 }}
                   margin="dense"
-                  data-testid={dataTestIds.statesPage.statesSearch}
+                  data-testid={dataTestIds.virtualLocationsPage.locationsSearch}
                 />
               </Box>
             </Box>
@@ -114,28 +98,31 @@ export default function StatesPage(): ReactElement {
           {/* Label Row */}
           <TableHead>
             <TableRow>
-              <TableCell sx={{ fontWeight: 'bold', width: '50%' }}>State name</TableCell>
+              <TableCell sx={{ fontWeight: 'bold', width: '50%' }}>Location</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }} align="left">
-                Operate in state
+                Active
               </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {pageStates.map((state: State, idx: number) => {
-              const stateLocation = stateLocations.find((loc) => loc.address?.state === state.value);
-              const operatesInState = Boolean(stateLocation && stateLocation.status === 'active');
-              const operatesLabelText = operatesInState ? 'yes' : 'no';
+            {pageLocations.map((location: Location) => {
+              const operatesInLocation = Boolean(location && location.status === 'active');
+              const operatesLabelText = operatesInLocation ? 'yes' : 'no';
               return (
-                <TableRow key={idx} data-testid={dataTestIds.statesPage.stateRow(state.value)}>
-                  <TableCell data-testid={dataTestIds.statesPage.stateValue}>
+                <TableRow
+                  role="row"
+                  key={location.id}
+                  data-testid={dataTestIds.virtualLocationsPage.locationRow(location.id!)}
+                >
+                  <TableCell data-testid={dataTestIds.virtualLocationsPage.locationValue}>
                     <Link
-                      to={`${STATES_URL}/${state.value}`}
+                      to={`${VIRTUAL_LOCATIONS_URL}/${location.id}`}
                       style={{
                         display: 'contents',
                         color: theme.palette.primary.main,
                       }}
                     >
-                      {state.label} - {AllStatesToNames[state.value as StateType]}
+                      {location.name}
                     </Link>
                   </TableCell>
                   <TableCell
@@ -148,9 +135,9 @@ export default function StatesPage(): ReactElement {
                       <Skeleton width={35} height={20} />
                     ) : (
                       <BooleanStateChip
-                        dataTestId={dataTestIds.statesPage.operateInStateValue}
+                        dataTestId={dataTestIds.virtualLocationsPage.operateInLocationValue}
                         label={operatesLabelText}
-                        state={operatesInState}
+                        state={operatesInLocation}
                       />
                     )}
                   </TableCell>
@@ -164,7 +151,7 @@ export default function StatesPage(): ReactElement {
         <TablePagination
           rowsPerPageOptions={[10, 25, 50, 100]}
           component="div"
-          count={filteredStates.length}
+          count={filteredLocations.length}
           rowsPerPage={rowsPerPage}
           page={pageNumber}
           onPageChange={handleChangePage}

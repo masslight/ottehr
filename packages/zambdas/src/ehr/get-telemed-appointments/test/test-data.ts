@@ -9,7 +9,7 @@ import {
   Resource,
 } from 'fhir/r4b';
 import { TELEMED_VIDEO_ROOM_CODE, TelemedStatusHistoryElement } from 'utils';
-import { LocationIdToAbbreviationMap } from '../helpers/types';
+import { LocationIdToStateAbbreviationMap } from '../helpers/types';
 
 // VR - Video Room
 
@@ -163,10 +163,10 @@ export const completeEncounterMappedStatusHistory: TelemedStatusHistoryElement[]
   },
 ];
 
-export const testVirtualLocationsMap: LocationIdToAbbreviationMap = {
-  NY: newYorkLocation,
-  TX: txLocation,
-  LA: losAngelesLocation,
+export const testVirtualLocationsMap: LocationIdToStateAbbreviationMap = {
+  NY: [newYorkLocation],
+  TX: [txLocation],
+  LA: [losAngelesLocation],
 };
 
 export const myPractitionerLocations: Location[] = [losAngelesLocation, newYorkLocation];

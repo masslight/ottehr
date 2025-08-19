@@ -1,7 +1,7 @@
 import { Autocomplete, Chip, TextField } from '@mui/material';
 import { ReactElement } from 'react';
 import { useCallback, useEffect, useMemo } from 'react';
-import { AllStatesToVirtualLocationsData } from 'utils';
+import { AllStatesToVirtualLocationLabels } from 'utils';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useTrackingBoardStore } from '../../state';
 
@@ -40,7 +40,7 @@ export function StateSelect(): ReactElement {
   const isMyPatientsFilterActivated = alignment === 'my-patients';
   const possibleUsStates = isMyPatientsFilterActivated
     ? providerLicensedStates
-    : Object.keys(AllStatesToVirtualLocationsData);
+    : Object.keys(AllStatesToVirtualLocationLabels);
 
   useEffect(() => {
     if (!isMyPatientsFilterActivated) {
