@@ -1,5 +1,5 @@
 import { Encounter } from 'fhir/r4b';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import {
   EXAM_OBSERVATIONS_INITIAL,
   IN_PERSON_EXAM_OBSERVATIONS_INITIAL,
@@ -16,7 +16,9 @@ import {
 } from '../state/appointment/exam-cards.store';
 
 export const useResetAppointmentStore = (): void => {
-  useEffect(() => {
+  const didResetRef = useRef(false);
+
+  if (!didResetRef.current) {
     useAppointmentStore.setState({
       appointment: undefined,
       patient: undefined,
@@ -35,6 +37,10 @@ export const useResetAppointmentStore = (): void => {
     useExamCardsStore.setState(EXAM_CARDS_INITIAL);
     useInPersonExamCardsStore.setState(IN_PERSON_EXAM_CARDS_INITIAL);
 
+    didResetRef.current = true;
+  }
+
+  useEffect(() => {
     return () => useAppointmentStore.setState({ patientPhotoUrls: [] });
   }, []);
 };
