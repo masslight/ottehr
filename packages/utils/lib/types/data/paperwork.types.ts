@@ -1,5 +1,6 @@
-import { HealthcareService, Location, QuestionnaireResponse } from 'fhir/r4b';
+import { HealthcareService, List, Location, Patient, QuestionnaireResponse } from 'fhir/r4b';
 import { OptionConfig } from '../../helpers';
+import { Secrets } from '../../secrets';
 import { AvailableLocationInformation, FileURLs, FormItemType } from '../common';
 import { AppointmentSummary, IntakeQuestionnaireItem, PaperworkPatient } from './paperwork/paperwork.types';
 
@@ -109,4 +110,18 @@ export interface HealthcareServiceWithLocationContext {
   hs: HealthcareService;
   locations?: Location[];
   coverageArea?: Location[];
+}
+
+export interface PaperworkToPDFInput {
+  questionnaireResponseId: string;
+}
+
+export interface PaperworkToPDFInputValidated extends PaperworkToPDFInput {
+  secrets: Secrets | null;
+}
+
+export interface PaperworkPDFResourcePackage {
+  patient?: Patient;
+  questionnaireResponse?: QuestionnaireResponse;
+  listResources?: List[];
 }
