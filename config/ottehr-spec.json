@@ -117,9 +117,13 @@
       "name": "PROJECT_ID",
       "value": "#{var/PROJECT_ID}"
     },
-    "PROJECT_NAME": {
-      "name": "PROJECT_NAME",
-      "value": "#{var/PROJECT_NAME}"
+    "PROJECT_NAME_EHR": {
+      "name": "PROJECT_NAME_EHR",
+      "value": "#{var/PROJECT_NAME_EHR}"
+    },
+    "PROJECT_NAME_PATIENT_PORTAL": {
+      "name": "PROJECT_NAME_PATIENT_PORTAL",
+      "value": "#{var/PROJECT_NAME_PATIENT_PORTAL}"
     },
     "SENTRY_AUTH_TOKEN": {
       "name": "SENTRY_AUTH_TOKEN",
