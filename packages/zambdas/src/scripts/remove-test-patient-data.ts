@@ -124,9 +124,65 @@ const deleteTestPatientsData = async (config: any): Promise<void> => {
 //   }
 // }
 
+async function removePatientsWithoutAppointments(config: any): Promise<void> {
+  const env = config.env;
+
+  const oystehr = await createOystehrClientFromConfig(config);
+
+  let hasMorePatients = true;
+
+  while (hasMorePatients) {
+    const fhirSearchParams: FhirSearchParams<Patient | Appointment> = {
+      resourceType: 'Patient',
+      params: [
+        {
+          name: '_revinclude',
+          value: 'Appointment:patient',
+        },
+        {
+          name: '_count',
+          value: '100',
+        },
+      ],
+    };
+
+    const resources = (await oystehr.fhir.search<Patient | Appointment>(fhirSearchParams)).unbundle();
+    const patients = resources.filter((resource) => resource.resourceType === 'Patient') as Patient[];
+    console.log(patients);
+
+    if (patients.length === 0) {
+      hasMorePatients = false;
+      continue;
+    }
+
+    await Promise.all(
+      appointments.map(async (appt) => {
+        try {
+          const { stdout, stderr } = await exec(`tsx ./src/scripts/delete-patient-data.ts ${env} ${appt.id}`);
+
+          if (stdout) {
+            console.log('STDOUT:', stdout);
+            return true;
+          }
+
+          if (stderr) {
+            console.error('STDERR:', stderr);
+          }
+
+          return false;
+        } catch (error) {
+          console.error('Error:', error);
+          return false;
+        }
+      })
+    );
+  }
+}
+
 const main = async (): Promise<void> => {
   await performEffectWithEnvFile(deleteTestPatientsData);
   // await performEffectWithEnvFile(removeOldAppointments);
+  await performEffectWithEnvFile(removePatientsWithoutAppointments);
 };
 
 main().catch((error) => {
