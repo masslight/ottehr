@@ -2,6 +2,7 @@ import { FhirSearchParams } from '@oystehr/sdk';
 import { exec as execCb } from 'child_process';
 import { Appointment, Patient } from 'fhir/r4b';
 import { promisify } from 'util';
+import { deletePatientData } from './delete-patient-data';
 import { createOystehrClientFromConfig, performEffectWithEnvFile } from './helpers';
 
 const exec = promisify(execCb);
@@ -125,11 +126,10 @@ const deleteTestPatientsData = async (config: any): Promise<void> => {
 // }
 
 async function removePatientsWithoutAppointments(config: any): Promise<void> {
-  const env = config.env;
-
   const oystehr = await createOystehrClientFromConfig(config);
 
-  let hasMorePatients = true;
+  const hasMorePatients = true;
+  let offset = 0;
 
   while (hasMorePatients) {
     const fhirSearchParams: FhirSearchParams<Patient | Appointment> = {
@@ -143,39 +143,38 @@ async function removePatientsWithoutAppointments(config: any): Promise<void> {
           name: '_count',
           value: '100',
         },
+        {
+          name: '_offset',
+          value: offset,
+        },
       ],
     };
 
     const resources = (await oystehr.fhir.search<Patient | Appointment>(fhirSearchParams)).unbundle();
     const patients = resources.filter((resource) => resource.resourceType === 'Patient') as Patient[];
-    console.log(patients);
+    console.log('offset:', offset, 'patients found:', patients.length);
 
-    if (patients.length === 0) {
-      hasMorePatients = false;
-      continue;
-    }
+    let numDeletedPatients = 0;
 
+    console.group('deleting patients without appointments');
     await Promise.all(
       patients.map(async (patient) => {
         try {
-          const { stdout, stderr } = await exec(`tsx ./src/scripts/delete-patient-data.ts ${env} ${patient.id}`);
-
-          if (stdout) {
-            console.log('STDOUT:', stdout);
-            return true;
-          }
-
-          if (stderr) {
-            console.error('STDERR:', stderr);
-          }
-
-          return false;
+          // patient without id won't exist since we're fetching from fhir
+          if (!patient.id) return;
+          const hasDeletedPatient = await deletePatientData(oystehr, patient.id);
+          numDeletedPatients += hasDeletedPatient;
         } catch (error) {
           console.error('Error:', error);
-          return false;
         }
       })
     );
+    console.groupEnd();
+    console.debug('deleted patients without appointments');
+
+    offset += 100 - numDeletedPatients;
+
+    if (patients.length === 0) break;
   }
 }
 
