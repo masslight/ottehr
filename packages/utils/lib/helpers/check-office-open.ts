@@ -30,7 +30,6 @@ export function getOpeningTime(
       from: currentDate,
       scheduleOverrides: scheduleDef.scheduleOverrides,
     })?.overriddenDay ?? getHoursForDate(scheduleDef, currentDate);
-  console.log('currentHoursOfOperation', currentHoursOfOperation);
   if (!currentHoursOfOperation) {
     return undefined;
   }
