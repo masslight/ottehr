@@ -4,7 +4,8 @@
   "description": "Scripts for generating HCL and interacting with Terraform",
   "scripts": {
     "build": "tsc --noEmit",
-    "lint": "terraform fmt && NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts --report-unused-disable-directives --max-warnings 0 .",
+    "lint-terraform": "terraform fmt",
+    "lint": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts --report-unused-disable-directives --max-warnings 0 .",
     "generate": "tsx generate-oystehr-resources.ts ../config ../packages/zambdas/.env/${ENV:-local}.json ./oystehr/",
     "apply-local": "ENV=local npm run generate && terraform workspace select local && terraform apply -parallelism=40 -var-file='local.tfvars'",
     "apply-staging": "ENV=staging npm run generate && terraform workspace select staging && terraform apply -parallelism=40 -var-file='staging.tfvars'",
