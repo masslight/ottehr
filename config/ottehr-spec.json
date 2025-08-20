@@ -5334,7 +5334,7 @@
   },
   "apps": {
     "PATIENT_PORTAL": {
-      "name": "#{var/PROJECT_NAME} Patient Portal",
+      "name": "#{var/PROJECT_NAME_PATIENT_PORTAL}",
       "description": "Patient Portal application with sms authentication",
       "loginRedirectUri": "https://intake-local.ottehr.com/patients",
       "allowedCallbackUrls": [
@@ -5356,7 +5356,7 @@
       "logoUri": "#{var/PATIENT_APP_LOGO_URI}"
     },
     "OTTEHR_EHR": {
-      "name": "#{var/PROJECT_NAME} EHR",
+      "name": "#{var/PROJECT_NAME_EHR}",
       "description": "EHR application with email authentication",
       "loginRedirectUri": "https://ehr-local.ottehr.com/dashboard",
       "allowedCallbackUrls": [
