@@ -1,14 +1,20 @@
 import { Box, Stack, Typography } from '@mui/material';
 import React, { useLayoutEffect, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { STUB_IMMUNIZATION_ORDERS } from '../ImmunizationOrder';
+import { useParams, useSearchParams } from 'react-router-dom';
+import { useAppointment } from 'src/features/css-module/hooks/useAppointment';
+import { useGetImmunizationOrders } from '../useImmunizationOrders';
 import { VaccineDetailsCard } from './VaccineDetailsCard';
 
 export const VaccineDetailsCardList: React.FC = () => {
+  const { id: appointmentId } = useParams();
   const [searchParams] = useSearchParams();
   const scrollTo = searchParams.get('scrollTo');
 
-  const immunizationOrders = STUB_IMMUNIZATION_ORDERS;
+  const {
+    resources: { patient },
+  } = useAppointment(appointmentId);
+
+  const { immunizationOrders } = useGetImmunizationOrders({ patientId: patient?.id ?? '' });
 
   const pendingOrders = useMemo(() => {
     return immunizationOrders.filter((order) => order.status === 'pending');

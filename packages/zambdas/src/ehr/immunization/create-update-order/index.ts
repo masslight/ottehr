@@ -42,11 +42,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    console.log('Error: ', error);
-    console.log('Stringified error: ', JSON.stringify(error));
+    console.log('Error: ', JSON.stringify(error.message));
     return {
       statusCode: 500,
-      body: JSON.stringify({ message: `Error creating order: ${JSON.stringify(error)}` }),
+      body: JSON.stringify({ message: `Error creating order: ${JSON.stringify(error.message)}` }),
     };
   }
 });
@@ -56,7 +55,7 @@ async function createImmunizationOrder(
   input: CreateUpdateImmunizationOrderInput,
   userPractitionerId: string
 ): Promise<any> {
-  const { encounterId, orderDetails } = input;
+  const { encounterId, details } = input;
   const encounter = await oystehr.fhir.get<Encounter>({
     resourceType: 'Encounter',
     id: encounterId,
@@ -86,12 +85,13 @@ async function createImmunizationOrder(
     extension: [
       {
         url: IMMUNIZATION_ORDER_CREATED_DATE_EXTENSION_URL,
-        valueDate: DateTime.now().toISO(),
+        valueDate: DateTime.now().toISODate(),
       },
     ],
     meta: fillMeta('immunization', 'immunization'),
   };
-  await updateOrderDetails(medicationAdministration, orderDetails, oystehr);
+  await updateOrderDetails(medicationAdministration, details, oystehr);
+  console.log(JSON.stringify(medicationAdministration, null, 2));
   const createdMedicationAdministration = await oystehr.fhir.create(medicationAdministration);
   return {
     message: 'Order was created',
@@ -100,12 +100,12 @@ async function createImmunizationOrder(
 }
 
 async function updateImmunizationOrder(oystehr: Oystehr, input: CreateUpdateImmunizationOrderInput): Promise<any> {
-  const { orderId, orderDetails } = input;
+  const { orderId, details } = input;
   const medicationAdministration = await oystehr.fhir.get<MedicationAdministration>({
     resourceType: 'MedicationAdministration',
     id: orderId!,
   });
-  await updateOrderDetails(medicationAdministration, orderDetails, oystehr);
+  await updateOrderDetails(medicationAdministration, details, oystehr);
   await oystehr.fhir.update(medicationAdministration);
   return {
     id: medicationAdministration.id,
@@ -115,17 +115,17 @@ async function updateImmunizationOrder(oystehr: Oystehr, input: CreateUpdateImmu
 export function validateRequestParameters(
   input: ZambdaInput
 ): CreateUpdateImmunizationOrderInput & Pick<ZambdaInput, 'secrets'> {
-  const { orderId, encounterId, orderDetails } = validateJsonBody(input);
+  const { orderId, encounterId, details } = validateJsonBody(input);
 
   const missingFields: string[] = [];
   if (!encounterId) missingFields.push('encounterId');
-  missingFields.push(...validateOrderDetails(orderDetails));
+  missingFields.push(...validateOrderDetails(details));
   if (missingFields.length > 0) throw new Error(`Missing required fields [${missingFields.join(', ')}]`);
 
   return {
     orderId,
     encounterId,
-    orderDetails,
+    details,
     secrets: input.secrets,
   };
 }

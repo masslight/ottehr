@@ -12,8 +12,10 @@ import {
   Typography,
 } from '@mui/material';
 import React, { useMemo, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { useAppointment } from 'src/features/css-module/hooks/useAppointment';
 import { COLLAPSED_MEDS_COUNT } from 'src/features/css-module/hooks/useMedicationHistory';
-import { STUB_IMMUNIZATION_ORDERS } from '../ImmunizationOrder';
+import { useGetImmunizationOrders } from '../useImmunizationOrders';
 import { OrderHistoryTableRow } from './OrderHistoryTableRow';
 import { OrderHistoryTableSkeletonBody } from './OrderHistoryTableSkeletonBody';
 
@@ -23,17 +25,24 @@ interface Props {
 
 export const OrderHistoryTable: React.FC<Props> = ({ showActions }) => {
   const [seeMoreOpen, setSeeMoreOpen] = useState(false);
+  const { id: appointmentId } = useParams();
 
-  const isLoading = false;
-  const immunizationHistory = STUB_IMMUNIZATION_ORDERS;
+  const {
+    resources: { patient },
+    isLoading: patientIdLoading,
+  } = useAppointment(appointmentId);
+
+  const { immunizationOrders, isLoading: ordersLoading } = useGetImmunizationOrders({ patientId: patient?.id ?? '' });
+
+  const isLoading = patientIdLoading || ordersLoading;
 
   const orders = useMemo(() => {
     if (!seeMoreOpen) {
-      return immunizationHistory.slice(0, COLLAPSED_MEDS_COUNT);
+      return immunizationOrders.slice(0, COLLAPSED_MEDS_COUNT);
     } else {
-      return immunizationHistory;
+      return immunizationOrders;
     }
-  }, [seeMoreOpen, immunizationHistory]);
+  }, [seeMoreOpen, immunizationOrders]);
 
   const toggleShowMore = (): void => {
     setSeeMoreOpen((state) => !state);
@@ -62,12 +71,12 @@ export const OrderHistoryTable: React.FC<Props> = ({ showActions }) => {
             {orders.map((order) => (
               <OrderHistoryTableRow key={order.id} order={order} showActions={showActions} />
             ))}
-            {immunizationHistory.length > COLLAPSED_MEDS_COUNT && (
+            {immunizationOrders.length > COLLAPSED_MEDS_COUNT && (
               <Button onClick={toggleShowMore} startIcon={seeMoreOpen ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />}>
                 {getSeeMoreButtonLabel()}
               </Button>
             )}
-            {immunizationHistory.length === 0 && (
+            {immunizationOrders.length === 0 && (
               <Typography variant="body1" sx={{ opacity: 0.65 }}>
                 No items
               </Typography>

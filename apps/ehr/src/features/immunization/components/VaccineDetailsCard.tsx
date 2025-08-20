@@ -6,7 +6,7 @@ import { DateInput } from 'src/components/input/DateInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { TimeInput } from 'src/components/input/TimeInput';
 import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
-import { ImmunizationOrder } from '../ImmunizationOrder';
+import { ImmunizationOrder } from 'utils';
 import { OrderDetailsSection } from './OrderDetailsSection';
 
 interface Props {
@@ -17,7 +17,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
   const methods = useForm({
     defaultValues: {
       ...order,
-      visGiven: order.administeringData?.visGivenDate != null,
+      visGiven: order.administrationDetails?.visGivenDate != null,
     },
   });
   const theme = useTheme();

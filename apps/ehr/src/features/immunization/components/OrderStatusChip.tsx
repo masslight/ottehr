@@ -3,7 +3,7 @@ import { Box } from '@mui/system';
 import React from 'react';
 
 interface Props {
-  status: 'pending' | 'administered' | 'partly-administered' | 'not-administered' | 'cancelled';
+  status: string;
 }
 
 interface Colors {

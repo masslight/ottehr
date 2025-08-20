@@ -26,12 +26,12 @@ export async function updateOrderDetails(
   orderDetails: InputOrderDetails,
   oystehr: Oystehr
 ): Promise<void> {
-  const { medication: medicationData, dose, units, orderedProvider, route, location, instructions } = orderDetails;
+  const { medicationId, dose, units, orderedProviderId, route, location, instructions } = orderDetails;
 
-  if (medicationData.id !== CONTAINED_MEDICATION_ID) {
+  if (medicationId !== CONTAINED_MEDICATION_ID) {
     const medication = await oystehr.fhir.get<Medication>({
       resourceType: 'Medication',
-      id: medicationData.id,
+      id: medicationId,
     });
     const medicationLocalCopy = createMedicationCopy(medication, {});
     medicationAdministration.medicationReference = { reference: '#' + CONTAINED_MEDICATION_ID };
@@ -84,8 +84,8 @@ export async function updateOrderDetails(
     ),
     {
       actor: {
-        reference: `Practitioner/${orderedProvider.id}`,
-        display: orderedProvider.name,
+        reference: `Practitioner/${orderedProviderId}`,
+        display: orderedProviderId, // todo get name
       },
       function: {
         coding: [
@@ -100,14 +100,12 @@ export async function updateOrderDetails(
 }
 
 export function validateOrderDetails(orderDetails: any): string[] {
-  const { medication, dose, units, orderedProvider } = orderDetails;
+  const { medicationId, dose, units, orderedProviderId } = orderDetails;
   const missingFields: string[] = [];
-  if (!medication.id) missingFields.push('orderDetails.medication.id');
-  if (!medication.name) missingFields.push('orderDetails.medication.name');
+  if (!medicationId) missingFields.push('orderDetails.medicationId');
   if (!dose) missingFields.push('orderDetails.dose');
   if (!units) missingFields.push('orderDetails.units');
-  if (!orderedProvider.id) missingFields.push('orderDetails.orderedProvider.id');
-  if (!orderedProvider.name) missingFields.push('orderDetails.orderedProvider.name');
+  if (!orderedProviderId) missingFields.push('orderDetails.orderedProviderId');
   return missingFields;
 }
 

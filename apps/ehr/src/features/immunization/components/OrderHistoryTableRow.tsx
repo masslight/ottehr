@@ -8,7 +8,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { CustomDialog } from 'src/components/dialogs';
 import { getImmunizationOrderEditUrl, getImmunizationVaccineDetailsUrl } from 'src/features/css-module/routing/helpers';
 import { OrderStatusChip } from 'src/features/immunization/components/OrderStatusChip';
-import { ImmunizationOrder } from '../ImmunizationOrder';
+import { ImmunizationOrder } from 'utils';
 
 interface Props {
   order: ImmunizationOrder;
@@ -27,7 +27,7 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) =>
       enqueueSnackbar('navigation error', { variant: 'error' });
       return;
     }
-    navigate(getImmunizationOrderEditUrl(appointmentId, order.id));
+    navigate(getImmunizationOrderEditUrl(appointmentId, order.orderId));
   };
 
   const handleConfirmDelete = async (): Promise<void> => {
@@ -49,7 +49,7 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) =>
       return;
     }
     requestAnimationFrame(() => {
-      navigate(`${getImmunizationVaccineDetailsUrl(appointmentId!)}?scrollTo=${order.id}`);
+      navigate(`${getImmunizationVaccineDetailsUrl(appointmentId!)}?scrollTo=${order.orderId}`);
     });
   };
 
@@ -68,24 +68,24 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) =>
       }}
       onClick={handleRowClick}
     >
-      <TableCell>{order.vaccineName}</TableCell>
+      <TableCell>{order.details.medication.name}</TableCell>
       <TableCell>
-        {order.dose} {order.units} {order.route ? `/ ${order.route}` : null}
-        {grayText(order.instructions)}
+        {order.details.dose} {order.details.units} {order.details.route ? `/ ${order.details.route}` : null}
+        {grayText(order.details.instructions)}
       </TableCell>
       <TableCell>
-        {formatDateTime(order.orderedDateTime)}
-        {grayText(order.orderedBy.providerName)}
+        {formatDateTime(order.details.orderedDateTime)}
+        {grayText(order.details.orderedProvider.name)}
       </TableCell>
       <TableCell>
-        {formatDateTime(order.administeringData?.administeredDateTime)}
-        {grayText(order.administeringData?.providerName)}
+        {formatDateTime(order.administrationDetails?.administeredDateTime)}
+        {grayText(order.administrationDetails?.administeredProvider?.name)}
       </TableCell>
       <TableCell>
         <Stack direction="row" justifyContent="space-between">
           <Stack>
             <OrderStatusChip status={order.status} />
-            {order.statusReason}
+            {order.reason}
           </Stack>
           {showActions && order.status === 'pending' ? (
             <Stack direction="row" onClick={(e) => e.stopPropagation()}>

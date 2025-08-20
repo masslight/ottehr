@@ -2,25 +2,41 @@ import { Grid, Paper, Stack } from '@mui/material';
 import React, { useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
+import { createImmunizationOrder } from 'src/api/api';
 import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
 import { WarningBlock } from 'src/features/css-module/components/WarningBlock';
+import { useAppointment } from 'src/features/css-module/hooks/useAppointment';
 import { getImmunizationMARUrl } from 'src/features/css-module/routing/helpers';
+import { useApiClients } from 'src/hooks/useAppClients';
 import { AccordionCard } from 'src/telemed';
 import { PageHeader } from '../../css-module/components/medication-administration/PageHeader';
 import { OrderDetailsSection } from '../components/OrderDetailsSection';
 import { OrderHistoryTable } from '../components/OrderHistoryTable';
-import { STUB_IMMUNIZATION_ORDERS } from '../ImmunizationOrder';
+import { useGetImmunizationOrders } from '../useImmunizationOrders';
 
 export const ImmunizationOrderCreateEdit: React.FC = () => {
   const navigate = useNavigate();
   const { id: appointmentId, orderId } = useParams();
+  const {
+    resources: { patient, encounter },
+  } = useAppointment(appointmentId);
+  const { oystehrZambda } = useApiClients();
   const [isImmunizationHistoryCollapsed, setIsImmunizationHistoryCollapsed] = useState(false);
 
-  const onSubmit = (data: any): void => {
-    console.log(data);
+  const onSubmit = async (data: any): Promise<void> => {
+    if (!oystehrZambda) return;
+    await createImmunizationOrder(oystehrZambda, {
+      encounterId: encounter?.id ?? '',
+      details: data,
+    });
   };
 
-  const order = STUB_IMMUNIZATION_ORDERS.find((order) => order.id === orderId);
+  const { immunizationOrders } = useGetImmunizationOrders({
+    patientId: patient?.id ?? '',
+    orderId: orderId,
+  });
+
+  const order = immunizationOrders.find((order) => order.id === orderId);
   const methods = useForm({
     defaultValues: order,
   });
