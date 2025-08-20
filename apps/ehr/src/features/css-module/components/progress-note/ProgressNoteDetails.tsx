@@ -1,7 +1,7 @@
 import { Stack, Typography } from '@mui/material';
 import { FC } from 'react';
 import { ProceduresContainer } from 'src/telemed/features/appointment/ReviewTab/components/ProceduresContainer';
-import { ExamDef, getProgressNoteChartDataRequestedFields, LabType, NOTE_TYPE } from 'utils';
+import { examConfig, getProgressNoteChartDataRequestedFields, LabType, NOTE_TYPE } from 'utils';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { AccordionCard, SectionList, useAppointmentStore, usePatientInstructionsVisibility } from '../../../../telemed';
@@ -110,7 +110,7 @@ export const ProgressNoteDetails: FC = () => {
       <Typography variant="h5" color="primary.dark">
         Examination
       </Typography>
-      <ExaminationContainer examConfig={ExamDef().inPerson.default.components} />
+      <ExaminationContainer examConfig={examConfig.inPerson.default.components} />
     </Stack>,
     <AllergiesContainer notes={allergyNotes} />,
     <MedicationsContainer notes={intakeMedicationNotes} />,

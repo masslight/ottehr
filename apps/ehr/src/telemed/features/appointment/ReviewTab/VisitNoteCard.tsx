@@ -1,5 +1,5 @@
 import { FC } from 'react';
-import { ExamDef, getSpentTime } from 'utils';
+import { examConfig, getSpentTime } from 'utils';
 import { ADDITIONAL_QUESTIONS } from '../../../../constants';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { getSelectors } from '../../../../shared/store/getSelectors';
@@ -61,7 +61,7 @@ export const VisitNoteCard: FC = () => {
     <MedicalConditionsContainer />,
     <SurgicalHistoryContainer />,
     showAdditionalQuestions && <AdditionalQuestionsContainer />,
-    <ExaminationContainer examConfig={ExamDef().telemed.default.components} />,
+    <ExaminationContainer examConfig={examConfig.telemed.default.components} />,
     showAssessment && <AssessmentContainer />,
     showMedicalDecisionMaking && <MedicalDecisionMakingContainer />,
     showEmCode && <EMCodeContainer />,

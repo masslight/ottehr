@@ -1,10 +1,8 @@
-import { z } from 'zod';
-import { ExamConfigType } from './exam-config.types';
-import { ExamConfigTypeSchema, validateExamConfig } from './examination.schema';
+import { ExamSchema, validateExamConfig } from './examination.schema';
 import { InPersonExamConfig } from './in-person.config';
 import { TelemedExamConfig } from './telemed.config';
 
-const ExamConfig: ExamConfigType = {
+const ExamConfig = {
   telemed: {
     default: {
       components: TelemedExamConfig,
@@ -17,9 +15,7 @@ const ExamConfig: ExamConfigType = {
   },
 };
 
-export const DefaultExamConfig = Object.freeze(validateExamConfig(ExamConfig));
-
-export type ExamSchema = z.infer<typeof ExamConfigTypeSchema>;
+const DefaultExamConfig = Object.freeze(validateExamConfig(ExamConfig));
 
 export const ExamDef = (config?: unknown): ExamSchema => {
   if (config) {

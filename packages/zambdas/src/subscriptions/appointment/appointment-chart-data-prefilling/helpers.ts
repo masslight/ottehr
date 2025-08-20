@@ -3,7 +3,7 @@ import {
   AdditionalBooleanQuestionsFieldsNames,
   convertToBoolean,
   ExamCardComponent,
-  ExamDef,
+  examConfig,
   ExamObservationDTO,
   getQuestionnaireResponseByLinkId,
   ObservationDTO,
@@ -31,7 +31,7 @@ export function createExamObservations(isInPersonAppointment?: boolean): (ExamOb
   bodySite?: CodeableConcept;
   label?: string;
 })[] {
-  const config = ExamDef()[isInPersonAppointment ? 'inPerson' : 'telemed'].default.components;
+  const config = examConfig[isInPersonAppointment ? 'inPerson' : 'telemed'].default.components;
 
   const observations: (ExamObservationDTO & {
     code?: CodeableConcept;
@@ -99,7 +99,7 @@ export function createExamObservations(isInPersonAppointment?: boolean): (ExamOb
 export const createExamObservationComments = (
   isInPersonAppointment?: boolean
 ): (ObservationDTO & { label: string })[] => {
-  const config = ExamDef()[isInPersonAppointment ? 'inPerson' : 'telemed'].default.components;
+  const config = examConfig[isInPersonAppointment ? 'inPerson' : 'telemed'].default.components;
 
   const comments: (ObservationDTO & { label: string })[] = [];
 

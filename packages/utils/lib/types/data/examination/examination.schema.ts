@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import { CodeableConceptSchema } from '../../fhir';
-import { ExamSchema } from './examination';
 
 // Schema for checkbox component
 const ExamCardCheckboxComponentSchema = z.object({
@@ -106,6 +105,24 @@ const ExamCardNonTextComponentSchema = z.union([
 // Union schema for all component types
 const ExamCardComponentSchema = z.union([ExamCardNonTextComponentSchema, ExamCardTextComponentSchema]);
 
+// Type guard functions for better type narrowing
+export function isDropdownComponent(component: ExamCardComponent): component is ExamCardDropdownComponent {
+  return component.type === 'dropdown';
+}
+
+export function isMultiSelectComponent(component: ExamCardComponent): component is ExamCardMultiSelectComponent {
+  return component.type === 'multi-select';
+}
+
+export type ExamCardComponent = z.infer<typeof ExamCardComponentSchema>;
+
+// Create discriminated union types for better type narrowing
+export type ExamCardDropdownComponent = z.infer<typeof ExamCardDropdownComponentSchema>;
+export type ExamCardMultiSelectComponent = z.infer<typeof ExamCardMultiSelectComponentSchema>;
+export type ExamCardFormComponent = z.infer<typeof ExamCardFormComponentSchema>;
+export type ExamCardCheckboxComponent = z.infer<typeof ExamCardCheckboxComponentSchema>;
+export type ExamCardTextComponent = z.infer<typeof ExamCardTextComponentSchema>;
+
 // Schema for exam card
 const ExamCardSchema = z.object({
   label: z.string().min(1, 'Label is required'),
@@ -118,6 +135,8 @@ const ExamCardSchema = z.object({
 
 // Schema for exam item config
 const ExamItemConfigSchema = z.record(z.string(), ExamCardSchema);
+
+export type ExamItemConfig = z.infer<typeof ExamItemConfigSchema>;
 
 // Schema for exam config type
 const ExamConfigTypeSchema = z.object({
@@ -135,7 +154,7 @@ const ExamConfigTypeSchema = z.object({
   ),
 });
 
-export { ExamConfigTypeSchema };
+export type ExamSchema = z.infer<typeof ExamConfigTypeSchema>;
 
 export const validateExamConfig = (config: unknown): ExamSchema => {
   return ExamConfigTypeSchema.parse(config);

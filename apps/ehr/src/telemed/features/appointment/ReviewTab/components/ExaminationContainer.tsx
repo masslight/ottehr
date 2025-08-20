@@ -1,6 +1,6 @@
 import { Box } from '@mui/material';
 import { FC } from 'react';
-import { ExamCardComponent, ExamItemConfig } from 'utils';
+import { ExamCardComponent, ExamItemConfig, isDropdownComponent, isMultiSelectComponent } from 'utils';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { useExamObservationsStore } from '../../../../state';
 import { ExamReviewComment } from './ExamReviewComment';
@@ -52,17 +52,19 @@ export const ExaminationContainer: FC<ExaminationContainerProps> = (props) => {
         }
 
         case 'dropdown': {
-          Object.entries(component.components).forEach(([optionName, option]) => {
-            const observation = examObservations[optionName];
-            if (observation && typeof observation.value === 'boolean' && observation.value === true) {
-              const baseLabel = columnLabel ? `${columnLabel}: ${component.label}` : component.label;
-              items.push({
-                field: optionName,
-                label: `${baseLabel}: ${option.label}`,
-                abnormal: section === 'abnormal',
-              });
-            }
-          });
+          if (isDropdownComponent(component)) {
+            Object.entries(component.components).forEach(([optionName, option]) => {
+              const observation = examObservations[optionName];
+              if (observation && typeof observation.value === 'boolean' && observation.value === true) {
+                const baseLabel = columnLabel ? `${columnLabel}: ${component.label}` : component.label;
+                items.push({
+                  field: optionName,
+                  label: `${baseLabel}: ${option.label}`,
+                  abnormal: section === 'abnormal',
+                });
+              }
+            });
+          }
           break;
         }
 
@@ -85,17 +87,19 @@ export const ExaminationContainer: FC<ExaminationContainerProps> = (props) => {
         }
 
         case 'multi-select': {
-          Object.entries(component.options).forEach(([optionName, option]) => {
-            const observation = examObservations[optionName];
-            if (observation && typeof observation.value === 'boolean' && observation.value === true) {
-              const baseLabel = columnLabel ? `${columnLabel}: ${component.label}` : component.label;
-              items.push({
-                field: optionName,
-                label: `${baseLabel}: ${option.label}`,
-                abnormal: section === 'abnormal',
-              });
-            }
-          });
+          if (isMultiSelectComponent(component)) {
+            Object.entries(component.options).forEach(([optionName, option]) => {
+              const observation = examObservations[optionName];
+              if (observation && typeof observation.value === 'boolean' && observation.value === true) {
+                const baseLabel = columnLabel ? `${columnLabel}: ${component.label}` : component.label;
+                items.push({
+                  field: optionName,
+                  label: `${baseLabel}: ${option.label}`,
+                  abnormal: section === 'abnormal',
+                });
+              }
+            });
+          }
           break;
         }
 

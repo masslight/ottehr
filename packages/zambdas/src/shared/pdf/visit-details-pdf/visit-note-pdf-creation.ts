@@ -11,7 +11,7 @@ import {
   CustomOptionObservationHistoryObtainedFromDTO,
   dispositionCheckboxOptions,
   ExamCardComponent,
-  ExamDef,
+  examConfig,
   ExamObservationDTO,
   formatDateTimeToZone,
   getAdmitterPractitionerId,
@@ -25,6 +25,8 @@ import {
   HISTORY_OBTAINED_FROM_FIELD,
   HistorySourceKeys,
   historySourceLabels,
+  isDropdownComponent,
+  isMultiSelectComponent,
   mapDispositionTypeToLabel,
   mapEncounterStatusHistory,
   mapVitalsToDisplay,
@@ -446,10 +448,10 @@ function parseExamFieldsFromExamObservations(
   });
 
   // Get exam configuration based on whether it's in-person or telemed
-  const examConfig = ExamDef()[isInPersonAppointment ? 'inPerson' : 'telemed'].default.components;
+  const examConfigComponents = examConfig[isInPersonAppointment ? 'inPerson' : 'telemed'].default.components;
 
   // If no exam config or observations, return empty examination
-  if (!examConfig || !chartData.examObservations || chartData.examObservations.length === 0) {
+  if (!examConfigComponents || !chartData.examObservations || chartData.examObservations.length === 0) {
     return {
       examination: {},
     };
@@ -491,16 +493,18 @@ function parseExamFieldsFromExamObservations(
         }
 
         case 'dropdown': {
-          Object.entries(component.components).forEach(([optionName, option]) => {
-            const observation = examObservations[optionName];
-            if (observation && typeof observation.value === 'boolean' && observation.value === true) {
-              items.push({
-                field: optionName,
-                label: `${component.label}: ${option.label}`,
-                abnormal: section === 'abnormal',
-              });
-            }
-          });
+          if (isDropdownComponent(component)) {
+            Object.entries(component.components).forEach(([optionName, option]) => {
+              const observation = examObservations[optionName];
+              if (observation && typeof observation.value === 'boolean' && observation.value === true) {
+                items.push({
+                  field: optionName,
+                  label: `${component.label}: ${option.label}`,
+                  abnormal: section === 'abnormal',
+                });
+              }
+            });
+          }
           break;
         }
 
@@ -522,16 +526,18 @@ function parseExamFieldsFromExamObservations(
         }
 
         case 'multi-select': {
-          Object.entries(component.options).forEach(([optionName, option]) => {
-            const observation = examObservations[optionName];
-            if (observation && typeof observation.value === 'boolean' && observation.value === true) {
-              items.push({
-                field: optionName,
-                label: `${component.label}: ${option.label}`,
-                abnormal: section === 'abnormal',
-              });
-            }
-          });
+          if (isMultiSelectComponent(component)) {
+            Object.entries(component.options).forEach(([optionName, option]) => {
+              const observation = examObservations[optionName];
+              if (observation && typeof observation.value === 'boolean' && observation.value === true) {
+                items.push({
+                  field: optionName,
+                  label: `${component.label}: ${option.label}`,
+                  abnormal: section === 'abnormal',
+                });
+              }
+            });
+          }
           break;
         }
 
@@ -558,7 +564,7 @@ function parseExamFieldsFromExamObservations(
     { items: Array<{ field: string; label: string; abnormal: boolean }>; comment?: string }
   > = {};
 
-  Object.entries(examConfig).forEach(([sectionKey, section]) => {
+  Object.entries(examConfigComponents).forEach(([sectionKey, section]) => {
     const normalItems = extractObservationsFromComponents(section.components.normal, 'normal');
     const abnormalItems = extractObservationsFromComponents(section.components.abnormal, 'abnormal');
     const allItems = [...normalItems, ...abnormalItems];

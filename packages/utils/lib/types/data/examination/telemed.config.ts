@@ -1,7 +1,6 @@
 import { createCodingCode } from '../../api';
-import { ExamItemConfig } from './exam-config.types';
 
-export const TelemedExamConfig: ExamItemConfig = {
+export const TelemedExamConfig = {
   general: {
     label: 'General',
     components: {
