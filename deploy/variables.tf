@@ -4,12 +4,6 @@ variable "project_id" {
   nullable    = false
 }
 
-variable "project_name" {
-  description = "Oystehr project name"
-  type        = string
-  nullable    = false
-}
-
 variable "client_id" {
   description = "Oystehr client ID"
   type        = string
