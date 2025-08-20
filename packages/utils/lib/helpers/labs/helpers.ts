@@ -1,7 +1,8 @@
-import { Organization, ServiceRequest } from 'fhir/r4b';
+import { DiagnosticReport, Organization, ServiceRequest } from 'fhir/r4b';
 import {
   LAB_ACCOUNT_NUMBER_SYSTEM,
   MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING,
+  OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   PSC_HOLD_CONFIG,
 } from '../../types';
@@ -12,6 +13,20 @@ export const nameLabTest = (testName: string | undefined, labName: string | unde
   } else {
     return `${testName} / ${labName}`;
   }
+};
+
+export const getTestNameFromDR = (dr: DiagnosticReport): string | undefined => {
+  const testName =
+    dr.code.coding?.find((temp) => temp.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.display ||
+    dr.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.display;
+  return testName;
+};
+
+export const getTestItemCodeFromDR = (dr: DiagnosticReport): string | undefined => {
+  const testName =
+    dr.code.coding?.find((temp) => temp.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.code ||
+    dr.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.code;
+  return testName;
 };
 
 export const isPSCOrder = (serviceRequest: ServiceRequest): boolean => {
