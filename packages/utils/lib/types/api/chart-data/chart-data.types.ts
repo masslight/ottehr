@@ -34,7 +34,6 @@ import {
   VitalTemperatureObservationMethod,
 } from './chart-data.constants';
 import { GetChartDataResponse } from './get-chart-data.types';
-import { ExamFieldsNames, InPersonExamFieldsNames } from './save-chart-data.types';
 
 export interface ChartDataFields {
   chiefComplaint?: FreeTextNoteDTO;
@@ -383,100 +382,6 @@ export interface PdfBulletPointItem {
   text: string;
   subItems?: PdfBulletPointItem[];
 }
-
-export type ExamTabCardNames =
-  | 'vitals'
-  | 'general'
-  | 'head'
-  | 'eyes'
-  | 'nose'
-  | 'ears'
-  | 'mouth'
-  | 'neck'
-  | 'chest'
-  | 'back'
-  | 'skin'
-  | 'abdomen'
-  | 'musculoskeletal'
-  | 'neurological'
-  | 'psych';
-
-export type InPersonExamTabProviderCardNames =
-  | 'general'
-  | 'skin'
-  | 'hair'
-  | 'nails'
-  | 'head'
-  | 'eyes'
-  | 'ears'
-  | 'nose'
-  | 'mouth'
-  | 'teeth'
-  | 'pharynx'
-  | 'neck'
-  | 'heart'
-  | 'lungs'
-  | 'abdomen'
-  | 'back'
-  | 'rectal'
-  | 'extremities'
-  | 'musculoskeletal'
-  | 'neurologic'
-  | 'psychiatric';
-
-export const IN_PERSON_EXAM_CARDS: InPersonExamTabProviderCardNames[] = [
-  'general',
-  'skin',
-  'hair',
-  'nails',
-  'head',
-  'eyes',
-  'ears',
-  'nose',
-  'mouth',
-  'teeth',
-  'pharynx',
-  'neck',
-  'heart',
-  'lungs',
-  'abdomen',
-  'back',
-  'rectal',
-  'extremities',
-  'musculoskeletal',
-  'neurologic',
-  'psychiatric',
-];
-
-export type ExamTabProviderCardNames = Exclude<ExamTabCardNames, 'vitals'>;
-
-export type ExamTabGroupNames =
-  | 'normal'
-  | 'abnormal'
-  | 'rightEye'
-  | 'leftEye'
-  | 'rightEar'
-  | 'leftEar'
-  | 'form'
-  | 'dropdown';
-
-export type ExamObservationFieldItem = {
-  field: ExamFieldsNames;
-  defaultValue: boolean;
-  abnormal: boolean;
-  group: ExamTabGroupNames;
-  card: ExamTabProviderCardNames;
-  label: string;
-};
-
-export type InPersonExamObservationFieldItem = {
-  field: InPersonExamFieldsNames;
-  defaultValue: boolean;
-  abnormal: boolean;
-  group: ExamTabGroupNames;
-  card: InPersonExamTabProviderCardNames;
-  label: string;
-};
 
 const defaultNotes: Record<DispositionType, string> = {
   ip: 'Please proceed to the In Person Office as advised.',
