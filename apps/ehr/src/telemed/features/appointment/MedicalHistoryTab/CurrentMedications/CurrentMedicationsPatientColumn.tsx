@@ -43,9 +43,9 @@ export const CurrentMedicationsPatientColumn: FC = () => {
       ) : (
         <Typography color={theme.palette.text.secondary}>Patient has no current medications</Typography>
       )}
-      <hr style={{ border: '0.5px solid #DFE5E9', margin: '0 -16px 0 -16px' }} />
       {aiMedicationsHistory?.length > 0 && (
         <>
+          <hr style={{ border: '0.5px solid #DFE5E9', margin: '0 -16px 0 -16px' }} />
           <AiSuggestion title={'Medications'} chartData={chartData} content={aiMedicationsHistory} />
         </>
       )}

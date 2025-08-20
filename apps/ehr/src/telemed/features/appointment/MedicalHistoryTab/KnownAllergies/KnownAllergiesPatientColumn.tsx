@@ -63,9 +63,9 @@ export const KnownAllergiesPatientColumn: FC = () => {
     >
       {renderAllergies()}
 
-      <hr style={{ border: '0.5px solid #DFE5E9', margin: '0 -16px 0 -16px' }} />
       {aiAllergies?.length > 0 && (
         <>
+          <hr style={{ border: '0.5px solid #DFE5E9', margin: '0 -16px 0 -16px' }} />
           <AiSuggestion title={'Allergies'} chartData={chartData} content={aiAllergies} />
         </>
       )}

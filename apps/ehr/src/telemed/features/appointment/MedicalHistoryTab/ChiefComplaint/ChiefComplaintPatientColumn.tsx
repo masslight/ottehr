@@ -119,9 +119,9 @@ export const ChiefComplaintPatientColumn: FC = () => {
           )}
         </Box>
       )}
-      <hr style={{ border: '0.5px solid #DFE5E9', margin: '0 -16px 0 -16px' }} />
       {aiHistoryOfPresentIllness?.length > 0 && (
         <>
+          <hr style={{ border: '0.5px solid #DFE5E9', margin: '0 -16px 0 -16px' }} />
           <AiSuggestion
             title={'History of Present Illness (HPI)'}
             chartData={chartData}
