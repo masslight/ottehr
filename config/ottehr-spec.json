@@ -117,14 +117,6 @@
       "name": "PROJECT_ID",
       "value": "#{var/PROJECT_ID}"
     },
-    "EHR_APP_NAME": {
-      "name": "EHR_APP_NAME",
-      "value": "#{var/EHR_APP_NAME}"
-    },
-    "PATIENT_APP_NAME": {
-      "name": "PATIENT_APP_NAME",
-      "value": "#{var/PATIENT_APP_NAME}"
-    },
     "SENTRY_AUTH_TOKEN": {
       "name": "SENTRY_AUTH_TOKEN",
       "value": "#{var/SENTRY_AUTH_TOKEN}"
