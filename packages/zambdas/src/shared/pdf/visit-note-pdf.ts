@@ -167,9 +167,15 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     pdfClient.drawText(text, styles);
   };
 
-  const drawFieldLine = (fieldName: string, fieldValue: string): void => {
-    pdfClient.drawText(fieldName || '', textStyles.fieldHeader);
-    pdfClient.drawText(fieldValue || '', textStyles.fieldText);
+  const drawFieldLine = (name: string, value: string): void => {
+    const leftBound = pdfClient.getLeftBound();
+    const labelWidth = pdfClient.getTextDimensions(name || '', textStyles.fieldHeader).width + 10;
+
+    pdfClient.drawText(name || '', textStyles.fieldHeader);
+    pdfClient.setLeftBound(leftBound + labelWidth);
+
+    pdfClient.drawText(value || '', textStyles.fieldText);
+    pdfClient.setLeftBound(leftBound);
   };
 
   const separateLine = (): void => {
