@@ -156,9 +156,9 @@ async function removePatientsWithoutAppointments(config: any): Promise<void> {
     }
 
     await Promise.all(
-      appointments.map(async (appt) => {
+      patients.map(async (patient) => {
         try {
-          const { stdout, stderr } = await exec(`tsx ./src/scripts/delete-patient-data.ts ${env} ${appt.id}`);
+          const { stdout, stderr } = await exec(`tsx ./src/scripts/delete-patient-data.ts ${env} ${patient.id}`);
 
           if (stdout) {
             console.log('STDOUT:', stdout);
