@@ -5360,7 +5360,7 @@
       "logoUri": "#{var/PATIENT_APP_LOGO_URI}"
     },
     "OTTEHR_EHR": {
-      "name": "#{var/EHR_APP_NAME",
+      "name": "#{var/EHR_APP_NAME}",
       "description": "EHR application with email authentication",
       "loginRedirectUri": "https://ehr-local.ottehr.com/dashboard",
       "allowedCallbackUrls": [
