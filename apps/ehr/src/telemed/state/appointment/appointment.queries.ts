@@ -24,6 +24,7 @@ import { enqueueSnackbar } from 'notistack';
 import { useEffect } from 'react';
 import { useErrorQuery, useSuccessQuery } from 'utils';
 import {
+  APIError,
   ChartDataFields,
   ChartDataRequestedFields,
   createSmsModel,
@@ -580,7 +581,7 @@ export const useGetIcd10Search = ({
   search,
   sabs,
   radiologyOnly,
-}: IcdSearchRequestParams): UseQueryResult<IcdSearchResponse | undefined, Error> => {
+}: IcdSearchRequestParams): UseQueryResult<IcdSearchResponse | undefined, APIError> => {
   const apiClient = useOystehrAPIClient();
 
   const queryResult = useQuery({
