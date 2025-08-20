@@ -117,13 +117,13 @@
       "name": "PROJECT_ID",
       "value": "#{var/PROJECT_ID}"
     },
-    "PROJECT_NAME_EHR": {
-      "name": "PROJECT_NAME_EHR",
-      "value": "#{var/PROJECT_NAME_EHR}"
+    "EHR_APP_NAME": {
+      "name": "EHR_APP_NAME",
+      "value": "#{var/EHR_APP_NAME}"
     },
-    "PROJECT_NAME_PATIENT_PORTAL": {
-      "name": "PROJECT_NAME_PATIENT_PORTAL",
-      "value": "#{var/PROJECT_NAME_PATIENT_PORTAL}"
+    "PATIENT_APP_NAME": {
+      "name": "PATIENT_APP_NAME",
+      "value": "#{var/PATIENT_APP_NAME}"
     },
     "SENTRY_AUTH_TOKEN": {
       "name": "SENTRY_AUTH_TOKEN",
@@ -5338,7 +5338,7 @@
   },
   "apps": {
     "PATIENT_PORTAL": {
-      "name": "#{var/PROJECT_NAME_PATIENT_PORTAL}",
+      "name": "#{var/PATIENT_APP_NAME}",
       "description": "Patient Portal application with sms authentication",
       "loginRedirectUri": "https://intake-local.ottehr.com/patients",
       "allowedCallbackUrls": [
@@ -5360,7 +5360,7 @@
       "logoUri": "#{var/PATIENT_APP_LOGO_URI}"
     },
     "OTTEHR_EHR": {
-      "name": "#{var/PROJECT_NAME_EHR}",
+      "name": "#{var/EHR_APP_NAME",
       "description": "EHR application with email authentication",
       "loginRedirectUri": "https://ehr-local.ottehr.com/dashboard",
       "allowedCallbackUrls": [
