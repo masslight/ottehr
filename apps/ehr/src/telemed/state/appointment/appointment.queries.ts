@@ -710,7 +710,7 @@ export const useSyncERXPatient = ({
         try {
           await oystehr.erx.syncPatient({ patientId: patient.id! });
           console.log('Successfully synced erx patient');
-          return;
+          return true;
         } catch (err) {
           console.error('Error during syncing erx patient: ', err);
           throw err;
