@@ -59,4 +59,24 @@ describe('icd-10-search tests', () => {
     expect(j069?.display).toContain('Acute upper respiratory infection, unspecified');
     expect(j069?.code).toBe('J06.9');
   });
+
+  it('should handle seventh character codes correctly', async () => {
+    const results = await searchIcd10Codes('S82.821');
+
+    // S82.821 should NOT be returned (not billable by itself)
+    expect(results.some((code) => code.code === 'S82.821')).toBe(false);
+
+    // S82.821A (with seventh character) SHOULD be returned
+    expect(results.some((code) => code.code === 'S82.821A')).toBe(true);
+
+    // Should have multiple variants with different seventh characters
+    const s82821Codes = results.filter((code) => code.code.startsWith('S82.821'));
+    expect(s82821Codes.length).toBeGreaterThan(1);
+
+    // Check that all variants have seventh characters
+    s82821Codes.forEach((code) => {
+      expect(code.code.length).toBe(8); // S82.821 + one character = 8 total
+      expect(code.code.charAt(7)).toMatch(/[A-Z]/); // Seventh character should be a letter
+    });
+  });
 });
