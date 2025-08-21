@@ -1,9 +1,11 @@
 import { Encounter } from 'fhir/r4b';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useAppointmentStore, useExamObservationsStore, useVideoCallStore } from '../state';
 
 export const useResetAppointmentStore = (): void => {
-  useEffect(() => {
+  const didResetRef = useRef(false);
+
+  if (!didResetRef.current) {
     useAppointmentStore.setState({
       appointment: undefined,
       patient: undefined,
@@ -19,6 +21,10 @@ export const useResetAppointmentStore = (): void => {
     useExamObservationsStore.setState({});
     useVideoCallStore.setState({ meetingData: null });
 
+    didResetRef.current = true;
+  }
+
+  useEffect(() => {
     return () => useAppointmentStore.setState({ patientPhotoUrls: [] });
   }, []);
 };
