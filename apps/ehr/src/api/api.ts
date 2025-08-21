@@ -40,7 +40,6 @@ import {
   GetCreateInHouseLabOrderResourcesParameters,
   GetCreateInHouseLabOrderResourcesResponse,
   GetEmployeesResponse,
-  GetImmunizationOrdersInput,
   GetInHouseOrdersParameters,
   GetLabelPdfParameters,
   GetLabOrdersParameters,
@@ -56,9 +55,7 @@ import {
   GetVisitLabelInput,
   HandleInHouseLabResultsParameters,
   HandleInHouseLabResultsZambdaOutput,
-  ImmunizationOrder,
   InHouseGetOrdersResponseDTO,
-  InputOrderDetails,
   InviteParticipantRequestParameters,
   LabelPdf,
   ListScheduleOwnersParams,
@@ -966,55 +963,6 @@ export const generatePaperworkPdf = async (
     const response = await oystehr.zambda.execute({
       id: PAPERWORK_TO_PDF_ZAMBDA_ID,
       ...parameters,
-    });
-    return chooseJson(response);
-  } catch (error: unknown) {
-    console.log(error);
-    throw error;
-  }
-};
-
-export const getImmunizationOrders = async (
-  oystehr: Oystehr,
-  parameters: GetImmunizationOrdersInput
-): Promise<ImmunizationOrder[]> => {
-  try {
-    const searchBy = parameters.orderId || parameters.patientId;
-    if (!searchBy) {
-      throw new Error(`Missing one of the required parameters (orderId |  patientId): ${JSON.stringify(parameters)}`);
-    }
-    const response = await oystehr.zambda.execute({
-      id: 'get-immunization-orders',
-      ...parameters,
-    });
-    return chooseJson(response);
-  } catch (error: unknown) {
-    console.log(error);
-    throw error;
-  }
-};
-
-export const createImmunizationOrder = async (
-  oystehr: Oystehr,
-  parameters: { encounterId: string; details: InputOrderDetails }
-): Promise<any> => {
-  try {
-    const response = await oystehr.zambda.execute({
-      id: 'create-update-immunization-order',
-      ...parameters,
-    });
-    return chooseJson(response);
-  } catch (error: unknown) {
-    console.log(error);
-    throw error;
-  }
-};
-
-export const cancelImmunizationOrder = async (oystehr: Oystehr, orderId: string): Promise<any> => {
-  try {
-    const response = await oystehr.zambda.execute({
-      id: 'cancel-immunization-order',
-      orderId,
     });
     return chooseJson(response);
   } catch (error: unknown) {

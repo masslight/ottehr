@@ -5,11 +5,10 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { cancelImmunizationOrder } from 'src/api/api';
 import { CustomDialog } from 'src/components/dialogs';
+import { useCancelImmunizationOrder } from 'src/features/css-module/hooks/useImmunization';
 import { getImmunizationOrderEditUrl, getImmunizationVaccineDetailsUrl } from 'src/features/css-module/routing/helpers';
 import { OrderStatusChip } from 'src/features/immunization/components/OrderStatusChip';
-import { useApiClients } from 'src/hooks/useAppClients';
 import { ImmunizationOrder } from 'utils';
 
 interface Props {
@@ -19,11 +18,9 @@ interface Props {
 
 export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) => {
   const theme = useTheme();
-  const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
   const { id: appointmentId } = useParams();
   const [isDeleteDialogOpened, setIsDeleteDialogOpened] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
 
   const navigateToEditOrder = (): void => {
     if (!appointmentId) {
@@ -33,17 +30,19 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) =>
     navigate(getImmunizationOrderEditUrl(appointmentId, order.id));
   };
 
+  const { mutateAsync: cancelOrder, isPending: isDeleting } = useCancelImmunizationOrder();
+
   const handleConfirmDelete = async (): Promise<void> => {
-    if (!oystehrZambda) return;
-    setIsDeleting(true);
     try {
-      await cancelImmunizationOrder(oystehrZambda, order.id);
-      setIsDeleteDialogOpened(false);
+      await cancelOrder({
+        orderId: order.id,
+      });
     } catch (error) {
       console.error('Error deleting vaccine order:', error);
       enqueueSnackbar('An error occurred while deleting the vaccine order. Please try again.', { variant: 'error' });
+    } finally {
+      setIsDeleteDialogOpened(false);
     }
-    setIsDeleting(false);
   };
 
   const isPending = order.status === 'pending';

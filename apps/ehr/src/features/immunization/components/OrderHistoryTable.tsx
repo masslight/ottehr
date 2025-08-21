@@ -11,11 +11,11 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAppointment } from 'src/features/css-module/hooks/useAppointment';
 import { COLLAPSED_MEDS_COUNT } from 'src/features/css-module/hooks/useMedicationHistory';
-import { useGetImmunizationOrders } from '../useImmunizationOrders';
+import { useGetImmunizationOrders } from '../../css-module/hooks/useImmunization';
 import { OrderHistoryTableRow } from './OrderHistoryTableRow';
 import { OrderHistoryTableSkeletonBody } from './OrderHistoryTableSkeletonBody';
 
@@ -32,17 +32,13 @@ export const OrderHistoryTable: React.FC<Props> = ({ showActions }) => {
     isLoading: patientIdLoading,
   } = useAppointment(appointmentId);
 
-  const { immunizationOrders, isLoading: ordersLoading } = useGetImmunizationOrders({ patientId: patient?.id ?? '' });
+  const { data: loadedOrders, isLoading: ordersLoading } = useGetImmunizationOrders({
+    patientId: patient?.id,
+  });
 
+  const orders = loadedOrders ?? [];
+  const ordersToShow = seeMoreOpen ? orders : orders.slice(0, COLLAPSED_MEDS_COUNT);
   const isLoading = patientIdLoading || ordersLoading;
-
-  const orders = useMemo(() => {
-    if (!seeMoreOpen) {
-      return immunizationOrders.slice(0, COLLAPSED_MEDS_COUNT);
-    } else {
-      return immunizationOrders;
-    }
-  }, [seeMoreOpen, immunizationOrders]);
 
   const toggleShowMore = (): void => {
     setSeeMoreOpen((state) => !state);
@@ -68,15 +64,15 @@ export const OrderHistoryTable: React.FC<Props> = ({ showActions }) => {
           <OrderHistoryTableSkeletonBody />
         ) : (
           <TableBody>
-            {orders.map((order) => (
+            {ordersToShow.map((order) => (
               <OrderHistoryTableRow key={order.id} order={order} showActions={showActions} />
             ))}
-            {immunizationOrders.length > COLLAPSED_MEDS_COUNT && (
+            {orders.length > COLLAPSED_MEDS_COUNT && (
               <Button onClick={toggleShowMore} startIcon={seeMoreOpen ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />}>
                 {getSeeMoreButtonLabel()}
               </Button>
             )}
-            {immunizationOrders.length === 0 && (
+            {orders.length === 0 && (
               <Typography variant="body1" sx={{ opacity: 0.65 }}>
                 No items
               </Typography>

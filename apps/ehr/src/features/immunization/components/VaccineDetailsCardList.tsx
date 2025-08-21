@@ -2,7 +2,7 @@ import { Box, Stack, Typography } from '@mui/material';
 import React, { useLayoutEffect, useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useAppointment } from 'src/features/css-module/hooks/useAppointment';
-import { useGetImmunizationOrders } from '../useImmunizationOrders';
+import { useGetImmunizationOrders } from '../../css-module/hooks/useImmunization';
 import { VaccineDetailsCard } from './VaccineDetailsCard';
 
 export const VaccineDetailsCardList: React.FC = () => {
