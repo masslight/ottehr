@@ -358,6 +358,7 @@ export const dataTestIds = {
     reviewAndSignButton: 'review-and-sign-button',
     dischargeButton: 'discharge-button',
     sendFaxButton: 'send-fax-button',
+    dischargeSummaryButton: 'discharge-summary-button',
     missingCard: 'missing-card',
     missingCardText: 'missing-card-text',
     primaryDiagnosisLink: 'primary-diagnosis-link',
