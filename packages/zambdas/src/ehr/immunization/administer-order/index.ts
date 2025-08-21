@@ -81,7 +81,7 @@ async function administerImmunizationOrder(
   input: AdministerImmunizationOrderInput,
   userPractitioner: Practitioner
 ): Promise<any> {
-  const { orderId, type, reason, orderDetails, administrationDetails } = input;
+  const { orderId, type, reason, details, administrationDetails } = input;
   const medicationAdministration = await oystehr.fhir.get<MedicationAdministration>({
     resourceType: 'MedicationAdministration',
     id: orderId,
@@ -92,7 +92,7 @@ async function administerImmunizationOrder(
     throw new Error(`Can't administer order in "${currentStatus}" status`);
   }
 
-  await updateOrderDetails(medicationAdministration, orderDetails, oystehr);
+  await updateOrderDetails(medicationAdministration, details, oystehr);
 
   medicationAdministration.status = mapOrderStatusToFhir(type);
 
@@ -107,8 +107,8 @@ async function administerImmunizationOrder(
 
   medicationAdministration.performer?.push({
     actor: {
-      reference: `Practitioner/${administrationDetails.administeredProvider.id}`,
-      display: administrationDetails.administeredProvider.name,
+      reference: `Practitioner/${administrationDetails.administeredProviderId}`,
+      display: administrationDetails.administeredProviderId, // todo get name
     },
     function: {
       coding: [
@@ -199,7 +199,7 @@ async function administerImmunizationOrder(
 export function validateRequestParameters(
   input: ZambdaInput
 ): AdministerImmunizationOrderInput & Pick<ZambdaInput, 'secrets'> {
-  const { orderId, type, reason, orderDetails, administrationDetails } = validateJsonBody(input);
+  const { orderId, type, reason, details, administrationDetails } = validateJsonBody(input);
 
   const missingFields: string[] = [];
   if (!orderId) missingFields.push('orderId');
@@ -208,19 +208,17 @@ export function validateRequestParameters(
     missingFields.push('reason');
   }
 
-  missingFields.push(...validateOrderDetails(orderDetails));
+  missingFields.push(...validateOrderDetails(details));
 
-  if (!administrationDetails.lot) missingFields.push('administrationDetails.lot');
-  if (!administrationDetails.expDate) missingFields.push('administrationDetails.expDate');
-  if (!administrationDetails.mvx) missingFields.push('administrationDetails.mvx');
-  if (!administrationDetails.cvx) missingFields.push('administrationDetails.cvx');
-  if (!administrationDetails.ndc) missingFields.push('administrationDetails.ndc');
-  if (!administrationDetails.administeredProvider.id)
-    missingFields.push('administrationDetails.administeredProvider.id');
-  if (!administrationDetails.administeredProvider.name)
-    missingFields.push('administrationDetails.administeredProvider.name');
-  if (!administrationDetails.administeredDateTime) missingFields.push('administrationDetails.administeredDateTime');
-  if (!administrationDetails.visGivenDate && ['administered', 'administered-partly'].includes(type)) {
+  if (!administrationDetails?.lot) missingFields.push('administrationDetails.lot');
+  if (!administrationDetails?.expDate) missingFields.push('administrationDetails.expDate');
+  if (!administrationDetails?.mvx) missingFields.push('administrationDetails.mvx');
+  if (!administrationDetails?.cvx) missingFields.push('administrationDetails.cvx');
+  if (!administrationDetails?.ndc) missingFields.push('administrationDetails.ndc');
+  if (!administrationDetails?.administeredProviderId)
+    missingFields.push('administrationDetails.administeredProviderId');
+  if (!administrationDetails?.administeredDateTime) missingFields.push('administrationDetails.administeredDateTime');
+  if (!administrationDetails?.visGivenDate && ['administered', 'administered-partly'].includes(type)) {
     missingFields.push('administrationDetails.visGivenDate');
   }
 
@@ -230,7 +228,7 @@ export function validateRequestParameters(
     orderId,
     type,
     reason,
-    orderDetails,
+    details,
     administrationDetails,
     secrets: input.secrets,
   };

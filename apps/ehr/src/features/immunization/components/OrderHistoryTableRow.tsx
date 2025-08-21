@@ -27,7 +27,7 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) =>
       enqueueSnackbar('navigation error', { variant: 'error' });
       return;
     }
-    navigate(getImmunizationOrderEditUrl(appointmentId, order.orderId));
+    navigate(getImmunizationOrderEditUrl(appointmentId, order.id));
   };
 
   const handleConfirmDelete = async (): Promise<void> => {
@@ -49,7 +49,7 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) =>
       return;
     }
     requestAnimationFrame(() => {
-      navigate(`${getImmunizationVaccineDetailsUrl(appointmentId!)}?scrollTo=${order.orderId}`);
+      navigate(`${getImmunizationVaccineDetailsUrl(appointmentId!)}?scrollTo=${order.id}`);
     });
   };
 

@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { Medication, MedicationAdministration } from 'fhir/r4b';
 import {
   getCoding,
-  InputOrderDetails,
+  InputImmunizationOrderDetails,
   MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
   MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM,
   MEDICATION_ADMINISTRATION_UNITS_SYSTEM,
@@ -23,7 +23,7 @@ export const IMMUNIZATION_ORDER_CREATED_DATE_EXTENSION_URL = ottehrExtensionUrl(
 
 export async function updateOrderDetails(
   medicationAdministration: MedicationAdministration,
-  orderDetails: InputOrderDetails,
+  orderDetails: InputImmunizationOrderDetails,
   oystehr: Oystehr
 ): Promise<void> {
   const { medicationId, dose, units, orderedProviderId, route, location, instructions } = orderDetails;

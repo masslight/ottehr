@@ -38,14 +38,14 @@ export interface ImmunizationOrderAdministrationDetails {
 }
 
 export interface ImmunizationOrder {
-  orderId: string;
+  id: string;
   status: string;
   reason?: string;
   details: ImmunizationOrderDetails;
   administrationDetails?: ImmunizationOrderAdministrationDetails;
 }
 
-export interface InputOrderDetails
+export interface InputImmunizationOrderDetails
   extends Omit<ImmunizationOrderDetails, 'orderedDateTime' | 'medication' | 'orderedProvider'> {
   medicationId: string;
   orderedProviderId: string;
@@ -54,7 +54,7 @@ export interface InputOrderDetails
 export interface CreateUpdateImmunizationOrderInput {
   orderId?: string;
   encounterId: string;
-  details: InputOrderDetails;
+  details: InputImmunizationOrderDetails;
 }
 
 export interface GetImmunizationOrdersInput {
@@ -62,12 +62,17 @@ export interface GetImmunizationOrdersInput {
   patientId?: string;
 }
 
+export interface InputImmunizationOrderAdministrationDetails
+  extends Omit<ImmunizationOrderAdministrationDetails, 'administeredProvider'> {
+  administeredProviderId: string;
+}
+
 export interface AdministerImmunizationOrderInput {
   orderId: string;
   type: 'administered' | 'administered-partly' | 'administered-not';
   reason?: string;
-  orderDetails: ImmunizationOrderDetails;
-  administrationDetails: ImmunizationOrderAdministrationDetails;
+  details: InputImmunizationOrderDetails;
+  administrationDetails: InputImmunizationOrderAdministrationDetails;
 }
 
 export interface CancelImmunizationOrderInput {

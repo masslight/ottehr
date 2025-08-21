@@ -114,7 +114,7 @@ function mapMedicationAdministrationToImmunizationOrder(
     (resource) => resource.id === CONTAINED_EMERGENCY_CONTACT_ID
   ) as RelatedPerson;
   return {
-    orderId: medicationAdministration.id!,
+    id: medicationAdministration.id!,
     status: status,
     reason: medicationAdministration.note?.[0].text,
     details: {
