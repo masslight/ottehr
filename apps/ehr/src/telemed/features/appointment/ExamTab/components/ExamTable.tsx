@@ -12,6 +12,7 @@ import {
   useTheme,
 } from '@mui/material';
 import { FC } from 'react';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import {
   ControlledCheckboxSelect,
   ControlledExamCheckbox,
@@ -32,7 +33,12 @@ export const ExamTable: FC<ExamTableProps> = ({ examConfig }) => {
   const cards: (keyof typeof examConfig)[] = Object.keys(examConfig) as (keyof typeof examConfig)[];
 
   return (
-    <TableContainer component={Paper} elevation={0} sx={{ border }}>
+    <TableContainer
+      component={Paper}
+      elevation={0}
+      sx={{ border }}
+      data-testid={dataTestIds.telemedEhrFlow.examTabTable}
+    >
       <Table
         size="small"
         sx={{
