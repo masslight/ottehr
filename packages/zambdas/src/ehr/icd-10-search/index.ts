@@ -19,6 +19,12 @@ interface DiagNode {
   name: string[];
   desc: string[];
   diag?: DiagNode[];
+  sevenChrDef?: Array<{
+    extension: Array<{
+      $: { char: string };
+      _: string;
+    }>;
+  }>;
 }
 
 interface ParsedXmlData {
@@ -78,25 +84,51 @@ async function loadAndParseIcd10Data(): Promise<Icd10Code[]> {
 
   const codes: Icd10Code[] = [];
 
-  function extractCodesFromDiagNode(diagNode: DiagNode): void {
+  function extractCodesFromDiagNode(
+    diagNode: DiagNode,
+    parentSevenChrDef?: Array<{ char: string; desc: string }>
+  ): void {
     const code = diagNode.name?.[0];
     const desc = diagNode.desc?.[0];
 
+    // Check if this node has its own sevenChrDef
+    let currentSevenChrDef: Array<{ char: string; desc: string }> | undefined;
+    if (diagNode.sevenChrDef && diagNode.sevenChrDef[0]?.extension) {
+      currentSevenChrDef = diagNode.sevenChrDef[0].extension.map((ext) => ({
+        char: ext.$.char,
+        desc: ext._,
+      }));
+    }
+
+    // Use current sevenChrDef or inherit from parent
+    const activeSevenChrDef = currentSevenChrDef || parentSevenChrDef;
+
     if (code && desc) {
-      // Check if this is a leaf node (billable code)
+      // Check if this is a leaf node (no child diag nodes)
       const isLeafNode = !diagNode.diag || diagNode.diag.length === 0;
 
       if (isLeafNode) {
-        codes.push({
-          code: code.trim(),
-          display: desc.trim(),
-        });
+        if (activeSevenChrDef) {
+          // Generate billable codes with seventh characters
+          activeSevenChrDef.forEach((extension) => {
+            codes.push({
+              code: `${code.trim()}${extension.char}`,
+              display: `${desc.trim()}, ${extension.desc}`,
+            });
+          });
+        } else {
+          // No seventh character required, this is a billable code as-is
+          codes.push({
+            code: code.trim(),
+            display: desc.trim(),
+          });
+        }
       }
     }
 
-    // Recursively process child nodes
+    // Recursively process child nodes, passing down the sevenChrDef
     if (diagNode.diag && Array.isArray(diagNode.diag)) {
-      diagNode.diag.forEach((childDiag) => extractCodesFromDiagNode(childDiag));
+      diagNode.diag.forEach((childDiag) => extractCodesFromDiagNode(childDiag, activeSevenChrDef));
     }
   }
 
