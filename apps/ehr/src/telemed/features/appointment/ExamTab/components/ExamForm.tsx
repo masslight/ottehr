@@ -47,25 +47,33 @@ export const ExamForm: FC<ExamFormProps> = ({ form, abnormal = false }) => {
   const { control, handleSubmit, watch, reset } = methods;
 
   const onAdd = (data: FormValues): void => {
-    const fieldName = fieldNames
+    const { fieldNamesModified, notes } = fieldNames
       .filter(
         (fieldName) =>
           form.fields[fieldName].type !== 'text' &&
           (!form.fields[fieldName].enabledWhen || isFieldEnabled(form.fields[fieldName].enabledWhen!, watch))
       )
-      .map((fieldName) => data[fieldName])
-      .join('-');
+      .reduce(
+        (prev, curr) => {
+          const value = data[curr];
+          if (!value) {
+            return prev;
+          }
 
+          if (form.fields[curr].type === 'text') {
+            prev.notes.push(value);
+          } else {
+            prev.fieldNamesModified.push(value);
+          }
+          return prev;
+        },
+        { fieldNamesModified: [], notes: [] } as { fieldNamesModified: string[]; notes: string[] }
+      );
+
+    const fieldName = fieldNamesModified.join('-');
     const field = fields.find((field) => field.field === fieldName);
 
-    const note = fieldNames
-      .filter(
-        (fieldName) =>
-          form.fields[fieldName].type === 'text' &&
-          (!form.fields[fieldName].enabledWhen || isFieldEnabled(form.fields[fieldName].enabledWhen!, watch))
-      )
-      .map((fieldName) => data[fieldName])
-      .join(' | ');
+    const note = notes.join(' | ');
 
     if (field) {
       update({ ...field, value: true, note });
