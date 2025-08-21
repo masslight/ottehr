@@ -27,7 +27,7 @@ import { DiagnosisDTO } from 'utils/lib/types/api/chart-data';
 import { createInHouseLabOrder, getCreateInHouseLabOrderResources, getOrCreateVisitLabel } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { getSelectors } from '../../../shared/store/getSelectors';
-import { ActionsList, DeleteIconButton, useDebounce, useGetIcd10Search } from '../../../telemed';
+import { ActionsList, DeleteIconButton, useDebounce, useICD10SearchNew } from '../../../telemed';
 import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
 import { InHouseLabsNotesCard } from '../components/details/InHouseLabsNotesCard';
 import { InHouseLabsBreadcrumbs } from '../components/InHouseLabsBreadcrumbs';
@@ -84,7 +84,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
 
   // used to fetch dx icd10 codes
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-  const { isFetching: isSearching, data } = useGetIcd10Search({ search: debouncedSearchTerm, sabs: 'ICD10CM' });
+  const { isFetching: isSearching, data } = useICD10SearchNew({ search: debouncedSearchTerm });
   const icdSearchOptions = data?.codes || [];
   const { debounce } = useDebounce(800);
   const debouncedHandleInputChange = (data: string): void => {
