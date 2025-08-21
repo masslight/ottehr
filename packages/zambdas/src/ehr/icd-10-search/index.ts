@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import * as fs from 'fs';
-import { getSecret, SecretsKeys } from 'utils';
+import { getSecret, INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, SecretsKeys } from 'utils';
 import * as xml2js from 'xml2js';
 import { topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 
@@ -38,17 +38,17 @@ interface Icd10Code {
 
 function validateRequestParameters(input: ZambdaInput): Icd10SearchRequestParams {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
   const { search } = JSON.parse(input.body);
 
   if (!search || typeof search !== 'string') {
-    throw new Error('search parameter is required and must be a string');
+    throw INVALID_INPUT_ERROR('search parameter is required and must be a string');
   }
 
   if (search.trim().length === 0) {
-    throw new Error('search parameter cannot be empty');
+    throw INVALID_INPUT_ERROR('search parameter cannot be empty');
   }
 
   return {
@@ -118,7 +118,7 @@ async function loadAndParseIcd10Data(): Promise<Icd10Code[]> {
   return codes;
 }
 
-async function searchIcd10Codes(searchTerm: string): Promise<Icd10Code[]> {
+export async function searchIcd10Codes(searchTerm: string): Promise<Icd10Code[]> {
   const allCodes = await loadAndParseIcd10Data();
 
   if (!searchTerm || searchTerm.trim().length === 0) {
