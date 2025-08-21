@@ -30,7 +30,7 @@ import {
   useAppointmentStore,
   useDebounce,
   useGetCreateExternalLabResources,
-  useGetIcd10Search,
+  useICD10SearchNew,
   useSaveChartData,
 } from '../../../telemed';
 import { LabBreadcrumbs } from '../components/labs-orders/LabBreadcrumbs';
@@ -69,7 +69,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
 
   // used to fetch dx icd10 codes
   const [debouncedDxSearchTerm, setDebouncedDxSearchTerm] = useState('');
-  const { isFetching: isSearching, data } = useGetIcd10Search({ search: debouncedDxSearchTerm, sabs: 'ICD10CM' });
+  const { isFetching: isSearching, data } = useICD10SearchNew({ search: debouncedDxSearchTerm });
   const icdSearchOptions = data?.codes || [];
   const { debounce } = useDebounce(800);
   const debouncedHandleDxInputChange = (searchValue: string): void => {

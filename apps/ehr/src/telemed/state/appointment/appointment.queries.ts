@@ -22,7 +22,7 @@ import {
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect } from 'react';
-import { useErrorQuery, useSuccessQuery } from 'utils';
+import { Icd10SearchRequestParams, Icd10SearchResponse, useErrorQuery, useSuccessQuery } from 'utils';
 import {
   ChartDataFields,
   ChartDataRequestedFields,
@@ -46,6 +46,7 @@ import {
   TelemedAppointmentInformation,
   UpdateMedicationOrderInput,
 } from 'utils';
+import { icd10Search } from '../../../api/api';
 import { APPOINTMENT_REFRESH_INTERVAL, CHAT_REFETCH_INTERVAL, QUERY_STALE_TIME } from '../../../constants';
 import { useApiClients } from '../../../hooks/useAppClients';
 import useEvolveUser, { EvolveUser } from '../../../hooks/useEvolveUser';
@@ -591,6 +592,35 @@ export const useGetIcd10Search = ({
     },
 
     enabled: Boolean(apiClient && search),
+    placeholderData: keepPreviousData,
+    staleTime: QUERY_STALE_TIME,
+  });
+
+  useEffect(() => {
+    if (queryResult.error) {
+      enqueueSnackbar('An error occurred during the search. Please try again in a moment.', {
+        variant: 'error',
+      });
+    }
+  }, [queryResult.error]);
+
+  return queryResult;
+};
+
+export const useICD10SearchNew = ({
+  search,
+}: Icd10SearchRequestParams): UseQueryResult<Icd10SearchResponse | undefined, Error> => {
+  const { oystehrZambda } = useApiClients();
+
+  const queryResult = useQuery({
+    queryKey: ['icd-10-search', search],
+
+    queryFn: async () => {
+      if (!oystehrZambda) return undefined;
+      return icd10Search(oystehrZambda, { search });
+    },
+
+    enabled: Boolean(oystehrZambda && search),
     placeholderData: keepPreviousData,
     staleTime: QUERY_STALE_TIME,
   });
