@@ -200,7 +200,7 @@ function composeDataForPdf(
 
   // --- Vitals ---
   const vitals = additionalChartData?.vitalsObservations
-    ? mapVitalsToDisplay(additionalChartData.vitalsObservations, timezone)
+    ? mapVitalsToDisplay(additionalChartData.vitalsObservations, true, timezone)
     : undefined;
   const vitalsNotes = additionalChartData?.notes
     ?.filter((note) => note.type === NOTE_TYPE.VITALS)
@@ -367,7 +367,7 @@ function composeDataForPdf(
   };
 }
 
-function getPatientLastFirstName(patient: Patient): string | undefined {
+export function getPatientLastFirstName(patient: Patient): string | undefined {
   const name = patient.name;
   const firstName = name?.[0]?.given?.[0];
   const lastName = name?.[0]?.family;

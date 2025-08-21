@@ -3,6 +3,7 @@ import fs from 'fs';
 import { PageSizes } from 'pdf-lib';
 import {
   AdditionalBooleanQuestionsFieldsNames,
+  BUCKET_NAMES,
   followUpInOptions,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   NOTHING_TO_EAT_OR_DRINK_LABEL,
@@ -721,7 +722,7 @@ export async function createVisitNotePDF(
   });
 
   console.debug(`Created visit note pdf bytes`);
-  const bucketName = 'visit-notes';
+  const bucketName = BUCKET_NAMES.VISIT_NOTES;
   const fileName = 'VisitNote.pdf';
   console.log('Creating base file url');
   const baseFileUrl = makeZ3Url({ secrets, bucketName, patientID: patient.id, fileName });

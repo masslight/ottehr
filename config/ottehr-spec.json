@@ -1049,6 +1049,13 @@
       "src": "src/ehr/failing-endpoint/index",
       "zip": ".dist/zips/failing-endpoint.zip"
     },
+    "CREATE-DISCHARGE_SUMMARY": {
+      "name": "CREATE-DISCHARGE-SUMMARY",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/create-discharge-summary/index",
+      "zip": ".dist/zips/create-discharge-summary.zip"
+    },
     "GET-VITALS": {
       "name": "get-vitals",
       "type": "http_auth",
