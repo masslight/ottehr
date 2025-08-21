@@ -33,6 +33,7 @@ import {
   GetMedicationOrdersInput,
   GetMedicationOrdersResponse,
   GetUnsolicitedResultsResourcesForIcon,
+  GetUnsolicitedResultsResourcesForMatch,
   GetUnsolicitedResultsResourcesForTable,
   GetUnsolicitedResultsResourcesInput,
   GetUnsolicitedResultsResourcesOutput,
@@ -585,24 +586,48 @@ export const useGetCreateExternalLabResources = ({
 export function useGetUnsolicitedResultsResources(input: {
   requestType: UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_ICON;
 }): UseQueryResult<GetUnsolicitedResultsResourcesForIcon | undefined, Error>;
+
 export function useGetUnsolicitedResultsResources(input: {
   requestType: UnsolicitedResultsRequestType.GET_ALL_TASKS;
 }): UseQueryResult<GetUnsolicitedResultsResourcesForTable | undefined, Error>;
-export function useGetUnsolicitedResultsResources({
-  requestType,
-}: GetUnsolicitedResultsResourcesInput): UseQueryResult<GetUnsolicitedResultsResourcesOutput | undefined, Error> {
+
+export function useGetUnsolicitedResultsResources(input: {
+  requestType: UnsolicitedResultsRequestType.MATCH_UNSOLICITED_RESULTS;
+  diagnosticReportId: string;
+}): UseQueryResult<GetUnsolicitedResultsResourcesForMatch | undefined, Error>;
+
+export function useGetUnsolicitedResultsResources(
+  input: GetUnsolicitedResultsResourcesInput
+): UseQueryResult<GetUnsolicitedResultsResourcesOutput | undefined, Error> {
   const apiClient = useOystehrAPIClient();
-  return useQuery({
-    queryKey: ['get unsolicited results resources', requestType],
+  const { requestType } = input;
+
+  const diagnosticReportId =
+    requestType === UnsolicitedResultsRequestType.MATCH_UNSOLICITED_RESULTS ? input.diagnosticReportId : undefined;
+  const inputIsValid =
+    requestType !== UnsolicitedResultsRequestType.MATCH_UNSOLICITED_RESULTS || Boolean(diagnosticReportId);
+
+  const queryResult = useQuery({
+    queryKey: ['get unsolicited results resources', requestType, diagnosticReportId ?? null],
 
     queryFn: async () => {
-      return apiClient?.getUnsolicitedResultsResources({ requestType });
+      return apiClient?.getUnsolicitedResultsResources(input);
     },
 
-    enabled: Boolean(FEATURE_FLAGS.LAB_ORDERS_ENABLED && apiClient && requestType),
+    enabled: Boolean(apiClient && FEATURE_FLAGS.LAB_ORDERS_ENABLED && inputIsValid),
     placeholderData: keepPreviousData,
     staleTime: QUERY_STALE_TIME,
   });
+
+  useEffect(() => {
+    if (queryResult.error) {
+      enqueueSnackbar('An error occurred. Please try again in a moment', {
+        variant: 'error',
+      });
+    }
+  }, [queryResult.error]);
+
+  return queryResult;
 }
 
 export const useGetIcd10Search = ({

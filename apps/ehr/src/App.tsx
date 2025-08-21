@@ -17,6 +17,7 @@ import { ProtectedRoute } from './components/routing/ProtectedRoute';
 import { TestErrorPage } from './components/TestErrorPage';
 import { CustomThemeProvider } from './CustomThemeProvider';
 import { FeatureFlagsProvider } from './features/css-module/context/featureFlags';
+import { UnsolicitedResultsMatch } from './features/external-labs/components/unsolicited-results/UnsolicitedResultsMatch';
 import { UnsolicitedResultsInbox } from './features/external-labs/pages/UnsolicitedResultsInbox';
 import { useApiClients } from './hooks/useAppClients';
 import useEvolveUser from './hooks/useEvolveUser';
@@ -231,6 +232,7 @@ function App(): ReactElement {
                   <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
                   <Route path="/patients" element={<PatientsPage />} />
                   <Route path="/unsolicited-results" element={<UnsolicitedResultsInbox />} />
+                  <Route path="/match-unsolicited-result/:diagnosticReportId" element={<UnsolicitedResultsMatch />} />
 
                   <Route path="/rcm/claims" element={<Claims />} />
                   <Route path="/rcm/claims/:id" element={<Claim />} />

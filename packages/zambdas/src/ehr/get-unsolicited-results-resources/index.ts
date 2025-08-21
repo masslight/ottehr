@@ -1,5 +1,12 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getSecret, GetUnsolicitedResultsResourcesOutput, SecretsKeys, UnsolicitedResultsRequestType } from 'utils';
+import {
+  APIError,
+  getSecret,
+  GetUnsolicitedResultsResourcesOutput,
+  isApiError,
+  SecretsKeys,
+  UnsolicitedResultsRequestType,
+} from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -7,7 +14,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
-import { handleGetTasks, handleRequestForIcon } from './helpers';
+import { handleGetTasks, handleIconResourceRequest, handleUnsolicitedRequestMatch } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -31,12 +38,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     switch (requestType) {
       case UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_ICON: {
         console.log('handling unsolicited-results-icon request');
-        response = await handleRequestForIcon(oystehr);
+        response = await handleIconResourceRequest(oystehr);
         break;
       }
       case UnsolicitedResultsRequestType.GET_ALL_TASKS: {
         console.log('handling get-tasks request');
         response = await handleGetTasks(oystehr);
+        break;
+      }
+      case UnsolicitedResultsRequestType.MATCH_UNSOLICITED_RESULTS: {
+        console.log('handling match-unsolicited-result request');
+        response = await handleUnsolicitedRequestMatch(oystehr, validatedParameters.diagnosticReportId);
         break;
       }
       default: {
@@ -51,9 +63,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
     await topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
+    let body = JSON.stringify({ message: `Error getting unsolicited result resources: ${error}` });
+    if (isApiError(error)) {
+      const { code, message } = error as APIError;
+      body = JSON.stringify({ message, code });
+    }
     return {
       statusCode: 500,
-      body: JSON.stringify({ message: `Error getting unsolicited result resources: ${error}` }),
+      body,
     };
   }
 });

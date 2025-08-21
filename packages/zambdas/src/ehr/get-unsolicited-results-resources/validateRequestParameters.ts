@@ -9,15 +9,21 @@ export function validateRequestParameters(
     throw new Error('No request body provided');
   }
 
-  const { requestType } = JSON.parse(input.body);
+  const { requestType, diagnosticReportId } = JSON.parse(input.body);
 
   const validRequestTypes = Object.values(UnsolicitedResultsRequestType);
   if (!validRequestTypes.includes(requestType)) {
     throw new Error(`Invalid requestType: ${requestType}`);
   }
+  if (requestType === UnsolicitedResultsRequestType.MATCH_UNSOLICITED_RESULTS) {
+    if (!diagnosticReportId || typeof diagnosticReportId !== 'string') {
+      throw Error(`diagnosticReportId is an unexpected type: ${diagnosticReportId}`);
+    }
+  }
 
   return {
     requestType,
+    diagnosticReportId,
     secrets: input.secrets,
   };
 }
