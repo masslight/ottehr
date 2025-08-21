@@ -359,6 +359,13 @@
       "src": "src/ehr/icd-search/index",
       "zip": ".dist/zips/icd-search.zip"
     },
+    "ICD-10-SEARCH": {
+      "name": "icd-10-search",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/icd-10-search/index",
+      "zip": ".dist/zips/icd-10-search.zip"
+    },
     "GET-PATIENT-PROFILE-PHOTO-URL": {
       "name": "get-patient-profile-photo-url",
       "type": "http_auth",
@@ -1711,9 +1718,7 @@
       "name": [
         {
           "family": "Doe",
-          "given": [
-            "Jane"
-          ]
+          "given": ["Jane"]
         }
       ],
       "active": true,
@@ -3463,9 +3468,7 @@
       "name": [
         {
           "family": "Brown",
-          "given": [
-            "Kevin"
-          ]
+          "given": ["Kevin"]
         }
       ],
       "active": true,
@@ -5445,12 +5448,8 @@
       "description": "This M2M Client is used to drive and clean up E2E tests",
       "accessPolicy": [
         {
-          "resource": [
-            "*"
-          ],
-          "action": [
-            "*"
-          ],
+          "resource": ["*"],
+          "action": ["*"],
           "effect": "Allow"
         }
       ]
