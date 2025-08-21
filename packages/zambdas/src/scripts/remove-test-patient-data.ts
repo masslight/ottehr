@@ -8,6 +8,8 @@ import { createOystehrClientFromConfig, performEffectWithEnvFile } from './helpe
 
 const exec = promisify(execCb);
 
+const CUT_OFF_DAYS = 30;
+
 const deleteTestPatientsData = async (config: any): Promise<void> => {
   const env = config.env;
 
@@ -134,7 +136,7 @@ async function removePatientsWithoutRecentAppointments(config: any): Promise<voi
   let totalNumDeletedPatients = 0;
   let totalNumDeletedOtherResources = 0;
 
-  const thirtyDaysAgo = DateTime.now().minus({ days: 30 });
+  const cutOffDate = DateTime.now().minus({ days: CUT_OFF_DAYS });
 
   while (hasMorePatients) {
     const fhirSearchParams: FhirSearchParams<Patient> = {
@@ -167,7 +169,7 @@ async function removePatientsWithoutRecentAppointments(config: any): Promise<voi
 
     let numDeletedPatients = 0;
 
-    console.group('deleting patients without appointments in the last 30 days');
+    console.group('deleting patients without recent appointments');
     await Promise.all(
       patients.map(async (patient) => {
         try {
@@ -176,7 +178,7 @@ async function removePatientsWithoutRecentAppointments(config: any): Promise<voi
           const { patients: hasDeletedPatient, otherResources } = await deletePatientData(
             oystehr,
             patient.id,
-            thirtyDaysAgo
+            cutOffDate
           );
           numDeletedPatients += hasDeletedPatient;
           totalNumDeletedOtherResources += otherResources;
@@ -186,11 +188,7 @@ async function removePatientsWithoutRecentAppointments(config: any): Promise<voi
       })
     );
     console.groupEnd();
-    console.debug(
-      'deleting patients without appointments in the last 30 days completed, deleted',
-      numDeletedPatients,
-      'patients'
-    );
+    console.debug('deleting patients without recent appointments completed, deleted', numDeletedPatients, 'patients');
 
     offset += 100 - numDeletedPatients;
     totalNumDeletedPatients += numDeletedPatients;

@@ -10,9 +10,9 @@ const NEVER_DELETE_TYPES = NEVER_DELETE.filter((type) => type !== 'Person');
 export const deletePatientData = async (
   oystehr: Oystehr,
   patientId: string,
-  thirtyDaysAgo: DateTime
+  cutOffDate: DateTime
 ): Promise<{ patients: number; otherResources: number }> => {
-  const allResources = await getPatientAndResourcesById(oystehr, patientId, thirtyDaysAgo);
+  const allResources = await getPatientAndResourcesById(oystehr, patientId, cutOffDate);
   if (allResources.length === 0) {
     return { patients: 0, otherResources: 0 };
   }
@@ -59,7 +59,7 @@ const generateDeleteRequests = (allResources: FhirResource[]): BatchInputDeleteR
 const getPatientAndResourcesById = async (
   oystehr: Oystehr,
   patientId: string,
-  thirtyDaysAgo: DateTime
+  cutOffDate: DateTime
 ): Promise<FhirResource[]> => {
   const fhirSearchParams: FhirSearchParams<
     DocumentReference | Patient | RelatedPerson | Person | Appointment | Encounter
@@ -203,7 +203,7 @@ const getPatientAndResourcesById = async (
     .filter((time) => time !== undefined);
   const hasRecentAppointments = startTimes.some((startTime) => {
     const appointmentStart = DateTime.fromISO(startTime);
-    return appointmentStart >= thirtyDaysAgo;
+    return appointmentStart >= cutOffDate;
   });
   if (hasRecentAppointments) {
     console.log('Patient has recent appointments, skipping');
