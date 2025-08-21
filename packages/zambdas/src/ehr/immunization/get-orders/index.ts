@@ -173,7 +173,7 @@ function getProvider(medicationAdministration: MedicationAdministration, code: s
     (performer) => getCoding(performer.function, MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM)?.code === code
   )?.actor;
   return {
-    id: reference?.id ?? '',
+    id: reference?.reference?.split('/')[1] ?? '',
     name: reference?.display ?? '',
   };
 }

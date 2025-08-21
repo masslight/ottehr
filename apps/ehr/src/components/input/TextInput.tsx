@@ -17,7 +17,7 @@ export const TextInput: React.FC<Props> = ({ name, label, loading, required, mul
     <Controller
       name={name}
       control={control}
-      defaultValue={null}
+      defaultValue=""
       rules={{ required: required ? REQUIRED_FIELD_ERROR_MESSAGE : false }}
       render={({ field, fieldState: { error } }) => (
         <Box sx={{ width: '100%' }}>

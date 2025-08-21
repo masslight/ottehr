@@ -91,7 +91,6 @@ async function createImmunizationOrder(
     meta: fillMeta('immunization', 'immunization'),
   };
   await updateOrderDetails(medicationAdministration, details, oystehr);
-  console.log(JSON.stringify(medicationAdministration, null, 2));
   const createdMedicationAdministration = await oystehr.fhir.create(medicationAdministration);
   return {
     message: 'Order was created',

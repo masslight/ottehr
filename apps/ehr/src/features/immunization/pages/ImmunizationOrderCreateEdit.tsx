@@ -1,5 +1,5 @@
 import { Grid, Paper, Stack } from '@mui/material';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { createImmunizationOrder } from 'src/api/api';
@@ -27,7 +27,7 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
     if (!oystehrZambda) return;
     await createImmunizationOrder(oystehrZambda, {
       encounterId: encounter?.id ?? '',
-      details: data,
+      ...data,
     });
   };
 
@@ -36,10 +36,21 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
     orderId: orderId,
   });
 
-  const order = immunizationOrders.find((order) => order.id === orderId);
-  const methods = useForm({
-    defaultValues: order,
-  });
+  const methods = useForm();
+
+  useEffect(() => {
+    const order = immunizationOrders.find((order) => order.id === orderId);
+    if (order) {
+      methods.reset({
+        ...order,
+        details: {
+          ...order.details,
+          medicationId: order?.details?.medication?.id,
+          orderedProviderId: order?.details?.orderedProvider?.id,
+        },
+      });
+    }
+  }, [methods, immunizationOrders, orderId]);
 
   return (
     <FormProvider {...methods}>
