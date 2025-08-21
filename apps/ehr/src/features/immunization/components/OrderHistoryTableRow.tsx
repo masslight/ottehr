@@ -5,9 +5,11 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { cancelImmunizationOrder } from 'src/api/api';
 import { CustomDialog } from 'src/components/dialogs';
 import { getImmunizationOrderEditUrl, getImmunizationVaccineDetailsUrl } from 'src/features/css-module/routing/helpers';
 import { OrderStatusChip } from 'src/features/immunization/components/OrderStatusChip';
+import { useApiClients } from 'src/hooks/useAppClients';
 import { ImmunizationOrder } from 'utils';
 
 interface Props {
@@ -17,6 +19,7 @@ interface Props {
 
 export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) => {
   const theme = useTheme();
+  const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
   const { id: appointmentId } = useParams();
   const [isDeleteDialogOpened, setIsDeleteDialogOpened] = useState(false);
@@ -31,9 +34,10 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) =>
   };
 
   const handleConfirmDelete = async (): Promise<void> => {
+    if (!oystehrZambda) return;
     setIsDeleting(true);
     try {
-      // todo await deleteMedication(medication.id);
+      await cancelImmunizationOrder(oystehrZambda, order.id);
       setIsDeleteDialogOpened(false);
     } catch (error) {
       console.error('Error deleting vaccine order:', error);

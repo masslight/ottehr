@@ -1009,3 +1009,16 @@ export const createImmunizationOrder = async (
     throw error;
   }
 };
+
+export const cancelImmunizationOrder = async (oystehr: Oystehr, orderId: string): Promise<any> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'cancel-immunization-order',
+      orderId,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
