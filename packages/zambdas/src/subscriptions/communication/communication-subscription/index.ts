@@ -5,6 +5,7 @@ import {
   COMMUNICATION_ISSUE_REPORT_CODE,
   getFullestAvailableName,
   getSecret,
+  PROJECT_NAME,
   Secrets,
   SecretsKeys,
   SUPPORT_EMAIL,
@@ -173,7 +174,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         const bccEmail = getSecret(SecretsKeys.SENDGRID_ISSUE_REPORT_EMAIL_BCC, secrets)
           .split(',')
           .map((email) => email.trim());
-        const errorMessage = `Details: ${communication.payload?.[0].contentString} <br> Submitted By: ${submitterDetails} <br> Location: ${fhirLocation?.name} - ${fhirLocation?.address?.city}, ${fhirLocation?.address?.state} <br> Appointment Id: ${appointmentID} <br> Communication Fhir Resource: ${communication.id}`;
+        const errorMessage = `Project: ${PROJECT_NAME} <br> Details: ${communication.payload?.[0].contentString} <br> Submitted By: ${submitterDetails} <br> Location: ${fhirLocation?.name} - ${fhirLocation?.address?.city}, ${fhirLocation?.address?.state} <br> Appointment Id: ${appointmentID} <br> Communication Fhir Resource: ${communication.id}`;
 
         console.log(`Sending issue report email to ${toEmail} with template id ${templateID}`);
         try {

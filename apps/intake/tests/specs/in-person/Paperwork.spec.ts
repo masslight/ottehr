@@ -75,7 +75,6 @@ test.describe('Patient details screen - Check and fill all fields', () => {
   test.describe.configure({ mode: 'serial' });
   test('PPD-0 Open Patient details', async () => {
     await page.goto(`paperwork/${bookingData.bookingUUID}/patient-details`);
-    await page.waitForLoadState('networkidle');
     await paperwork.checkCorrectPageOpens('Patient details');
   });
   test('PPD-1 Check required fields', async () => {
@@ -99,7 +98,6 @@ test.describe('Primary Care Physician - Check and fill all fields', () => {
   test.describe.configure({ mode: 'serial' });
   test('PPCP-0 Open Primary Care Physician', async () => {
     await page.goto(`paperwork/${bookingData.bookingUUID}/primary-care-physician`);
-    await page.waitForLoadState('networkidle');
     await paperwork.checkCorrectPageOpens('Primary Care Physician');
   });
   test('PPCP-1 Primary Care Physician - Check patient name is displayed', async () => {
@@ -134,7 +132,6 @@ test.describe('Payment option - Check Self pay and insurance options', () => {
   test.describe.configure({ mode: 'serial' });
   test('PPO-1 Payment option - Check page opens', async () => {
     await page.goto(`paperwork/${bookingData.bookingUUID}/payment-option`);
-    await page.waitForLoadState('networkidle');
     await paperwork.checkCorrectPageOpens('How would you like to pay for your visit?');
   });
   test('PPO-2 Payment option - Check required fields', async () => {
@@ -164,7 +161,6 @@ test.describe('Primary Insurance', () => {
   test.describe.configure({ mode: 'serial' });
   test('Primary Insurance - Check insurance details opens', async () => {
     await page.goto(`paperwork/${bookingData.bookingUUID}/payment-option`);
-    await page.waitForLoadState('networkidle');
     await paperwork.checkCorrectPageOpens('How would you like to pay for your visit?');
     await paperwork.selectInsurancePayment();
     await expect(locator.insuranceHeading).toBeVisible();
@@ -227,7 +223,6 @@ test.describe('Primary Insurance', () => {
     await uploadPhoto.fillInsuranceFront();
     await uploadPhoto.fillInsuranceBack();
     await page.reload();
-    await page.waitForLoadState('networkidle');
     await paperwork.checkImagesIsSaved(locator.insuranceFrontImage);
     await paperwork.checkImagesIsSaved(locator.insuranceBackImage);
   });
@@ -256,7 +251,6 @@ test.describe('Secondary Insurance', () => {
   test.describe.configure({ mode: 'serial' });
   test('Secondary Insurance - Fill primary and Add secondary insurance', async () => {
     await page.goto(`paperwork/${bookingData.bookingUUID}/payment-option`);
-    await page.waitForLoadState('networkidle');
     await paperwork.checkCorrectPageOpens('How would you like to pay for your visit?');
     await paperwork.selectInsurancePayment();
     insuranceData = await paperwork.fillInsuranceAllFieldsWithoutCards();
@@ -334,7 +328,6 @@ test.describe('Secondary Insurance', () => {
     await uploadPhoto.fillSecondaryInsuranceFront();
     await uploadPhoto.fillSecondaryInsuranceBack();
     await page.reload();
-    await page.waitForLoadState('networkidle');
     await paperwork.checkImagesIsSaved(locator.secondaryInsuranceFrontImage);
     await paperwork.checkImagesIsSaved(locator.secondaryInsuranceBackImage);
   });
@@ -367,7 +360,10 @@ test.describe('Responsible party information - check and fill all fields', () =>
   test('PRPI-3 Check phone field validation', async () => {
     await paperwork.checkPhoneValidations(locator.responsiblePartyNumber);
   });
-  test('PRPI-4 Select self - check fields are prefilled with correct values', async () => {
+  test('PRPI-4 Check email field validation', async () => {
+    await paperwork.checkEmailValidations(locator.responsiblePartyEmail);
+  });
+  test('PRPI-5 Select self - check fields are prefilled with correct values', async () => {
     const dob = await commonLocatorsHelper.getMonthDay(bookingData.dobMonth, bookingData.dobDay);
     if (!dob) {
       throw new Error('DOB data is null');
@@ -380,19 +376,19 @@ test.describe('Responsible party information - check and fill all fields', () =>
       `${dob?.monthNumber}/${dob?.dayNumber}/${bookingData.dobYear}`
     );
   });
-  test('PRPI-5 Select self - check fields are disabled', async () => {
+  test('PRPI-6 Select self - check fields are disabled', async () => {
     await expect(locator.responsiblePartyFirstName.getAttribute('disabled')).not.toBeNull();
     await expect(locator.responsiblePartyLastName.getAttribute('disabled')).not.toBeNull();
     await expect(locator.responsiblePartyBirthSex.getAttribute('disabled')).not.toBeNull();
     await expect(locator.responsiblePartyDOBAnswer.getAttribute('disabled')).not.toBeNull();
   });
-  test('PRPI-6 Select not self - check fields are empty', async () => {
+  test('PRPI-7 Select not self - check fields are empty', async () => {
     await paperwork.fillResponsiblePartyNotSelfRelationship();
     await expect(locator.responsiblePartyFirstName).toHaveValue('');
     await expect(locator.responsiblePartyLastName).toHaveValue('');
     await expect(locator.responsiblePartyDOBAnswer).toHaveValue('');
   });
-  test('PRPI-7 Select future dob - check validation error', async () => {
+  test('PRPI-8 Select future dob - check validation error', async () => {
     await locator.responsiblePartyDOBAnswer.click();
     await locator.calendarArrowRight.click();
     await locator.calendarDay.click();
@@ -400,7 +396,7 @@ test.describe('Responsible party information - check and fill all fields', () =>
     await locator.clickContinueButton();
     await expect(locator.dateFutureError).toBeVisible();
   });
-  test('PRPI-8 Fill all fields and click [Continue]', async () => {
+  test('PRPI-9 Fill all fields and click [Continue]', async () => {
     await openResponsiblePartyPage();
     responsiblePartyData = await paperwork.fillResponsiblePartyDataNotSelf();
     await expect(locator.dateOlder18YearsError).not.toBeVisible();
@@ -408,7 +404,7 @@ test.describe('Responsible party information - check and fill all fields', () =>
     await locator.clickContinueButton();
     await paperwork.checkCorrectPageOpens('Photo ID');
   });
-  test('PRPI-9 Click on [Back] - all values are saved', async () => {
+  test('PRPI-10 Click on [Back] - all values are saved', async () => {
     await locator.clickBackButton();
     await expect(locator.responsiblePartyFirstName).toHaveValue(responsiblePartyData.firstName);
     await expect(locator.responsiblePartyLastName).toHaveValue(responsiblePartyData.lastName);
@@ -419,11 +415,12 @@ test.describe('Responsible party information - check and fill all fields', () =>
     await expect(locator.responsiblePartyCity).toHaveValue(responsiblePartyData.city);
     await expect(locator.responsiblePartyState).toHaveValue(responsiblePartyData.state);
     await expect(locator.responsiblePartyZip).toHaveValue(responsiblePartyData.zip);
+    await expect(locator.responsiblePartyNumber).toHaveValue(responsiblePartyData.phone);
+    await expect(locator.responsiblePartyEmail).toHaveValue(responsiblePartyData.email);
   });
 
   async function openResponsiblePartyPage(): Promise<void> {
     await page.goto(`paperwork/${bookingData.bookingUUID}/responsible-party`);
-    await page.waitForLoadState('networkidle');
     await paperwork.checkCorrectPageOpens('Responsible party information');
   }
 });
@@ -431,7 +428,6 @@ test.describe('Photo ID - Upload photo', () => {
   test.describe.configure({ mode: 'serial' });
   test('PPID-1 Open Photo ID', async () => {
     await page.goto(`paperwork/${bookingData.bookingUUID}/photo-id`);
-    await page.waitForLoadState('networkidle');
     await paperwork.checkCorrectPageOpens('Photo ID');
   });
   test('PPID-2 Photo ID - Check patient name is displayed', async () => {
@@ -464,7 +460,6 @@ test.describe('Consent forms - Check and fill all fields', () => {
   test.describe.configure({ mode: 'serial' });
   test('PCF-1 Open Consent forms', async () => {
     await page.goto(`paperwork/${bookingData.bookingUUID}/consent-forms`);
-    await page.waitForLoadState('networkidle');
     await paperwork.checkCorrectPageOpens('Complete consent forms');
   });
   test('PCF-2 Consent Forms - Check patient name is displayed', async () => {
