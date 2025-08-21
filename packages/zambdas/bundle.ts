@@ -98,7 +98,7 @@ const main = async (): Promise<void> => {
 
   const icd10SearchZambda = zambdas.filter((zambda) => zambda.name === 'icd-10-search');
   const icd10AssetDir = '.dist/icd-10-cm-tabular';
-  await build(icd10SearchZambda, ['icd-10-cm-tabular/*'], [icd10AssetDir], '.dist/icd-10-search');
+  await build(icd10SearchZambda, ['icd-10-cm-tabular/*'], [icd10AssetDir], '.dist/ehr/icd-10-search');
   const mostZambdas = zambdas.filter((zambda) => zambda.name !== 'icd-10-search');
   const assetsDir = '.dist/assets';
   await build(mostZambdas, ['assets/*'], [assetsDir], '.dist');
