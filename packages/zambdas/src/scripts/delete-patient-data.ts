@@ -1,62 +1,66 @@
 import Oystehr, { BatchInputDeleteRequest, FhirSearchParams } from '@oystehr/sdk';
 import { Appointment, DocumentReference, Encounter, FhirResource, Patient, Person, RelatedPerson } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import { chunkThings, getAllFhirSearchPages, NEVER_DELETE } from 'utils';
 
-export const deletePatientData = async (oystehr: Oystehr, patientId: string): Promise<number> => {
-  const allResources = await getPatientAndResourcesById(oystehr, patientId);
+const CHUNK_SIZE = 50;
+// in this script, deleting RelatedPersons is expected
+const NEVER_DELETE_TYPES = NEVER_DELETE.filter((type) => type !== 'Person');
+
+export const deletePatientData = async (
+  oystehr: Oystehr,
+  patientId: string,
+  thirtyDaysAgo: DateTime
+): Promise<{ patients: number; otherResources: number }> => {
+  const allResources = await getPatientAndResourcesById(oystehr, patientId, thirtyDaysAgo);
   if (allResources.length === 0) {
-    return 0;
+    return { patients: 0, otherResources: 0 };
   }
+
   const deleteRequests = generateDeleteRequests(allResources);
 
-  try {
-    console.log(
-      'Deleting resources:',
-      deleteRequests.map((request) => request.url.slice(1).replace('/', ': '))
-    );
-    await oystehr.fhir.batch({ requests: [...deleteRequests] });
-  } catch (e) {
-    console.log(`Error deleting resources: ${e}`, JSON.stringify(e));
-  } finally {
-    console.log(`Deleting resources complete`);
-  }
-  return deleteRequests.filter((request) => request.url.startsWith('/Patient')).length;
+  const patientDeleteCount = await Promise.all(
+    deleteRequests.map(async (requestGroup, i) => {
+      try {
+        console.log('Deleting resources chunk', i + 1, 'of', deleteRequests.length);
+        await oystehr.fhir.batch({ requests: [...requestGroup] });
+      } catch (e) {
+        console.log(`Error deleting resources: ${e}`, JSON.stringify(e));
+      } finally {
+        console.log('Deleting resources chunk', i + 1, 'of', deleteRequests.length, 'complete');
+      }
+      return requestGroup.filter((request) => request.url.startsWith('/Patient')).length;
+    })
+  );
+  const numDeletedPatients = patientDeleteCount.reduce((a, b) => a + b);
+
+  return { patients: numDeletedPatients, otherResources: deleteRequests.length - numDeletedPatients };
 };
 
-const generateDeleteRequests = (allResources: FhirResource[]): BatchInputDeleteRequest[] => {
-  const deleteRequests: BatchInputDeleteRequest[] = [];
+const generateDeleteRequests = (allResources: FhirResource[]): BatchInputDeleteRequest[][] => {
+  const deleteRequests: BatchInputDeleteRequest[] = allResources
+    .map((resource) => {
+      if (!resource.id || NEVER_DELETE_TYPES.includes(resource.resourceType)) {
+        console.log('excluding', `${resource.resourceType}/${resource.id}`);
+        return;
+      }
+      return { method: 'DELETE' as const, url: `/${resource.resourceType}/${resource.id}` };
+    })
+    .filter((request) => request !== undefined);
 
-  const patients = allResources.filter((resourceTemp) => resourceTemp.resourceType === 'Patient') as Patient[];
-  patients.forEach((patientTemp) => {
-    if (!patientTemp.id) {
-      return;
-    }
-    deleteRequests.push({ method: 'DELETE', url: `/Patient/${patientTemp.id}` });
-  });
-
-  const relatedPersons = allResources.filter(
-    (resourceTemp) => resourceTemp.resourceType === 'RelatedPerson'
-  ) as RelatedPerson[];
-  relatedPersons.forEach((relatedPersonTemp) => {
-    if (!relatedPersonTemp.id) {
-      return;
-    }
-    deleteRequests.push({ method: 'DELETE', url: `/RelatedPerson/${relatedPersonTemp.id}` });
-  });
-
-  const documentReferences = allResources.filter(
-    (resourceTemp) => resourceTemp.resourceType === 'DocumentReference'
-  ) as DocumentReference[];
-  documentReferences.forEach((documentReferenceTemp) => {
-    if (!documentReferenceTemp.id) {
-      return;
-    }
-    deleteRequests.push({ method: 'DELETE', url: `/DocumentReference/${documentReferenceTemp.id}` });
-  });
-
-  return deleteRequests;
+  const nonObservationDeleteRequests = deleteRequests.filter((request) => !request.url.startsWith('/Observation'));
+  const observationDeleteRequests = chunkThings(
+    deleteRequests.filter((request) => request.url.startsWith('/Observation')),
+    CHUNK_SIZE
+  );
+  return [nonObservationDeleteRequests, ...observationDeleteRequests];
 };
 
-const getPatientAndResourcesById = async (oystehr: Oystehr, patientId: string): Promise<FhirResource[]> => {
+const getPatientAndResourcesById = async (
+  oystehr: Oystehr,
+  patientId: string,
+  thirtyDaysAgo: DateTime
+): Promise<FhirResource[]> => {
   const fhirSearchParams: FhirSearchParams<
     DocumentReference | Patient | RelatedPerson | Person | Appointment | Encounter
   > = {
@@ -72,26 +76,137 @@ const getPatientAndResourcesById = async (oystehr: Oystehr, patientId: string): 
       },
       {
         name: '_revinclude:iterate',
-        value: 'Person:relatedperson',
-      },
-      // sanity checking these don't exist
-      {
-        name: '_revinclude:iterate',
         value: 'Appointment:patient',
       },
       {
         name: '_revinclude:iterate',
         value: 'Encounter:patient',
       },
+      {
+        name: '_revinclude:iterate',
+        value: 'Communication:patient',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'ClinicalImpression:patient',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'AuditEvent:patient',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'ServiceRequest:patient',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'DiagnosticReport:patient',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'Specimen:patient',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'Account:patient',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'Consent:patient',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'Coverage:patient',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'MedicationRequest:patient',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'Procedure:patient',
+      },
+      {
+        name: '_revinclude',
+        value: 'List:subject',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'Person:relatedperson',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'Encounter:appointment',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'QuestionnaireResponse:encounter',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'Observation:encounter',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'ServiceRequest:encounter',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'ClinicalImpression:encounter',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'Task:encounter',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'MedicationAdministration:context',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'MedicationStatement:part-of',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'Task:based-on',
+      },
+      {
+        name: '_revinclude',
+        value: 'Task:focus',
+      },
+      {
+        name: '_include',
+        value: 'ServiceRequest:specimen',
+      },
     ],
   };
 
-  const allResources = (await oystehr.fhir.search(fhirSearchParams)).unbundle();
+  let allResources: FhirResource[] = [];
+  try {
+    allResources = await getAllFhirSearchPages(fhirSearchParams, oystehr, 10);
+  } catch (error: unknown) {
+    console.log(`Error fetching resources: ${error}`, JSON.stringify(error));
+    return [];
+  }
 
-  // if an appointment or an encounter exists, we're not deleting this patient
+  // if there are no appointments or encounters, delete this patient
   if (
-    allResources.some((resource) => resource.resourceType === 'Appointment' || resource.resourceType === 'Encounter')
+    !allResources.some((resource) => resource.resourceType === 'Appointment' || resource.resourceType === 'Encounter')
   ) {
+    return allResources;
+  }
+
+  const appointments = allResources.filter((resource) => resource.resourceType === 'Appointment') as Appointment[];
+  // no start times = walk-ins so assume last updated date is walk-in time
+  const startTimes = appointments
+    .map((appointment) => appointment.start || appointment.meta?.lastUpdated)
+    .filter((time) => time !== undefined);
+  const hasRecentAppointments = startTimes.some((startTime) => {
+    const appointmentStart = DateTime.fromISO(startTime);
+    return appointmentStart >= thirtyDaysAgo;
+  });
+  if (hasRecentAppointments) {
+    console.log('Patient has recent appointments, skipping');
     return [];
   }
 

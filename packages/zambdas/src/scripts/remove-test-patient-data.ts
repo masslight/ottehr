@@ -1,6 +1,7 @@
 import { FhirSearchParams } from '@oystehr/sdk';
 import { exec as execCb } from 'child_process';
 import { Appointment, Patient } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { promisify } from 'util';
 import { deletePatientData } from './delete-patient-data';
 import { createOystehrClientFromConfig, performEffectWithEnvFile } from './helpers';
@@ -125,19 +126,23 @@ const deleteTestPatientsData = async (config: any): Promise<void> => {
 //   }
 // }
 
-async function removePatientsWithoutAppointments(config: any): Promise<void> {
+async function removePatientsWithoutRecentAppointments(config: any): Promise<void> {
   const oystehr = await createOystehrClientFromConfig(config);
 
   const hasMorePatients = true;
   let offset = 0;
+  let totalNumDeletedPatients = 0;
+  let totalNumDeletedOtherResources = 0;
+
+  const thirtyDaysAgo = DateTime.now().minus({ days: 30 });
 
   while (hasMorePatients) {
-    const fhirSearchParams: FhirSearchParams<Patient | Appointment> = {
+    const fhirSearchParams: FhirSearchParams<Patient> = {
       resourceType: 'Patient',
       params: [
         {
-          name: '_revinclude',
-          value: 'Appointment:patient',
+          name: '_sort',
+          value: '-_lastUpdated',
         },
         {
           name: '_count',
@@ -150,38 +155,57 @@ async function removePatientsWithoutAppointments(config: any): Promise<void> {
       ],
     };
 
-    const resources = (await oystehr.fhir.search<Patient | Appointment>(fhirSearchParams)).unbundle();
-    const patients = resources.filter((resource) => resource.resourceType === 'Patient') as Patient[];
+    let patients: Patient[] = [];
+    try {
+      patients = (await oystehr.fhir.search(fhirSearchParams)).unbundle();
+    } catch (error: unknown) {
+      console.log(`Error fetching patients: ${error}`, JSON.stringify(error));
+      console.log('ALERT:assuming token expiry, quitting script');
+      break;
+    }
     console.log('offset:', offset, 'patients found:', patients.length);
 
     let numDeletedPatients = 0;
 
-    console.group('deleting patients without appointments');
+    console.group('deleting patients without appointments in the last 30 days');
     await Promise.all(
       patients.map(async (patient) => {
         try {
           // patient without id won't exist since we're fetching from fhir
           if (!patient.id) return;
-          const hasDeletedPatient = await deletePatientData(oystehr, patient.id);
+          const { patients: hasDeletedPatient, otherResources } = await deletePatientData(
+            oystehr,
+            patient.id,
+            thirtyDaysAgo
+          );
           numDeletedPatients += hasDeletedPatient;
+          totalNumDeletedOtherResources += otherResources;
         } catch (error) {
           console.error('Error:', error);
         }
       })
     );
     console.groupEnd();
-    console.debug('deleted patients without appointments');
+    console.debug(
+      'deleting patients without appointments in the last 30 days completed, deleted',
+      numDeletedPatients,
+      'patients'
+    );
 
     offset += 100 - numDeletedPatients;
+    totalNumDeletedPatients += numDeletedPatients;
 
     if (patients.length === 0) break;
   }
+
+  console.log('deleted', totalNumDeletedPatients, 'patients, skipped', offset, 'patients');
+  console.log('deleted', totalNumDeletedOtherResources, 'other resources');
 }
 
 const main = async (): Promise<void> => {
   await performEffectWithEnvFile(deleteTestPatientsData);
   // await performEffectWithEnvFile(removeOldAppointments);
-  await performEffectWithEnvFile(removePatientsWithoutAppointments);
+  await performEffectWithEnvFile(removePatientsWithoutRecentAppointments);
 };
 
 main().catch((error) => {
