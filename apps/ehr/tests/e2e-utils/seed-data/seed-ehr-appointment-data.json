@@ -1677,8 +1677,8 @@
         "bodySite": {
           "coding": [
             {
-              "code": "302548004",
-              "display": "Entire head (body structure)"
+              "code": "17621005",
+              "display": "Normal (qualifier value)"
             }
           ]
         },
@@ -1817,8 +1817,8 @@
         "bodySite": {
           "coding": [
             {
-              "code": "39937001",
-              "display": "Skin structure (body structure)"
+              "code": "225544001",
+              "display": "Skin appearance normal (finding)"
             }
           ]
         },
@@ -2485,8 +2485,8 @@
         "bodySite": {
           "coding": [
             {
-              "code": "71616004",
-              "display": "Skeletal and/or smooth muscle structure (body structure)"
+              "code": "8117002",
+              "display": "Gait normal (finding)"
             }
           ]
         },
@@ -2592,8 +2592,8 @@
         "bodySite": {
           "coding": [
             {
-              "code": "302548004",
-              "display": "Entire head (body structure)"
+              "code": "1149217004",
+              "display": "No traumatic injury (situation)"
             }
           ]
         },
@@ -3392,8 +3392,8 @@
         "bodySite": {
           "coding": [
             {
-              "code": "818983003",
-              "display": "Structure of abdominopelvic cavity and/or content of abdominopelvic cavity and/or anterior abdominal wall (body structure)"
+              "code": "297125009",
+              "display": "Abdominal tenderness absent (situation)"
             }
           ]
         },
@@ -3631,8 +3631,8 @@
         "bodySite": {
           "coding": [
             {
-              "code": "45048000",
-              "display": "Neck structure (body structure)"
+              "code": "48162006",
+              "display": "Supple (qualifier value)"
             }
           ]
         },
@@ -4167,8 +4167,8 @@
         "bodySite": {
           "coding": [
             {
-              "code": "123851003",
-              "display": "Mouth region structure (body structure)"
+              "code": "276398005",
+              "display": "Moist oral mucosa (finding)"
             }
           ]
         },
