@@ -22,7 +22,7 @@ import { useChartData } from '../../../../../features/css-module/hooks/useChartD
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { DeleteIconButton } from '../../../../components';
 import { useGetAppointmentAccessibility } from '../../../../hooks';
-import { useAppointmentStore, useDeleteChartData, useGetIcd10Search, useSaveChartData } from '../../../../state';
+import { useAppointmentStore, useDeleteChartData, useICD10SearchNew, useSaveChartData } from '../../../../state';
 import { ProviderSideListSkeleton } from '../ProviderSideListSkeleton';
 
 export const MedicalConditionsProviderColumn: FC = () => {
@@ -251,7 +251,7 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
 const AddMedicalConditionField: FC = () => {
   const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);
   const { mutate: updateChartData, isPending: isUpdateLoading } = useSaveChartData();
-  const { error: icdSearchError } = useGetIcd10Search({ search: 'E11', sabs: 'ICD10CM' });
+  const { error: icdSearchError } = useICD10SearchNew({ search: 'E11' });
 
   const nlmApiKeyMissing = (icdSearchError as any)?.code === APIErrorCode.MISSING_NLM_API_KEY_ERROR;
 
@@ -262,7 +262,7 @@ const AddMedicalConditionField: FC = () => {
 
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
-  const { isFetching: isSearching, data } = useGetIcd10Search({ search: debouncedSearchTerm, sabs: 'ICD10CM' });
+  const { isFetching: isSearching, data } = useICD10SearchNew({ search: debouncedSearchTerm });
   const icdSearchOptions = data?.codes || [];
 
   const debouncedHandleInputChange = useMemo(
