@@ -68,11 +68,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    console.log('Error: ', error);
-    console.log('Stringified error: ', JSON.stringify(error));
+    console.log('Error: ', JSON.stringify(error.message));
     return {
       statusCode: 500,
-      body: JSON.stringify({ message: `Error updating order: ${JSON.stringify(error)}` }),
+      body: JSON.stringify({ message: `Error updating order: ${JSON.stringify(error.message)}` }),
     };
   }
 });
