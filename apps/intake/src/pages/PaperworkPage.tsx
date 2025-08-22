@@ -486,9 +486,11 @@ export const PaperworkPage: FC = () => {
   );
 
   return (
-    <PageContainer 
-      title={pageName ?? ''} 
-      patientFullName={pageName === 'Photo ID' && patientFullName ? `Adult Guardian for ${patientFullName}` : patientFullName}
+    <PageContainer
+      title={pageName ?? ''}
+      patientFullName={
+        pageName === 'Photo ID' && patientFullName ? `Adult Guardian for ${patientFullName}` : patientFullName
+      }
     >
       {empty ? (
         <Box sx={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
