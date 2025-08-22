@@ -29,6 +29,7 @@ export const deletePatientData = async (
       await new Promise((resolve) => setTimeout(resolve, 200));
     } catch (e: unknown) {
       console.log(`Error deleting resources: ${e}`, JSON.stringify(e));
+      console.log('patient id', patientId);
     } finally {
       console.log('Deleting resources chunk', i + 1, 'of', deleteRequests.length, 'complete');
     }
@@ -151,6 +152,7 @@ const getPatientAndResourcesById = async (
         name: '_revinclude:iterate',
         value: 'QuestionnaireResponse:encounter',
       },
+      // if lots of batch deletes fail, it's probably because of observations. comment this out if so.
       {
         name: '_revinclude:iterate',
         value: 'Observation:encounter',

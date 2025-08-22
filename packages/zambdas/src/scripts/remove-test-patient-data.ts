@@ -184,6 +184,7 @@ async function removePatientsWithoutRecentAppointments(config: any): Promise<voi
         totalNumDeletedOtherResources += otherResources;
       } catch (error: unknown) {
         console.error('Error:', error);
+        console.log('patient id', patient.id);
       }
     }
     console.groupEnd();
