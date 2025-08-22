@@ -170,23 +170,23 @@ async function removePatientsWithoutRecentAppointments(config: any): Promise<voi
     let numDeletedPatients = 0;
 
     console.group('deleting patients without recent appointments');
-    await Promise.all(
-      patients.map(async (patient) => {
-        try {
-          // patient without id won't exist since we're fetching from fhir
-          if (!patient.id) return;
-          const { patients: hasDeletedPatient, otherResources } = await deletePatientData(
-            oystehr,
-            patient.id,
-            cutOffDate
-          );
-          numDeletedPatients += hasDeletedPatient;
-          totalNumDeletedOtherResources += otherResources;
-        } catch (error: unknown) {
-          console.error('Error:', error);
-        }
-      })
-    );
+    patients.forEach(async (patient) => {
+      try {
+        // patient without id won't exist since we're fetching from fhir
+        if (!patient.id) return;
+        const { patients: hasDeletedPatient, otherResources } = await deletePatientData(
+          oystehr,
+          patient.id,
+          cutOffDate
+        );
+        numDeletedPatients += hasDeletedPatient;
+        totalNumDeletedOtherResources += otherResources;
+        // some batches can be huge, try and wait this out
+        await new Promise((resolve) => setTimeout(resolve, 200));
+      } catch (error: unknown) {
+        console.error('Error:', error);
+      }
+    });
     console.groupEnd();
     console.debug('deleting patients without recent appointments completed, deleted', numDeletedPatients, 'patients');
 

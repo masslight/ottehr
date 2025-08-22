@@ -19,28 +19,24 @@ export const deletePatientData = async (
 
   const deleteRequests = generateDeleteRequests(allResources);
 
-  const patientDeleteCount = await Promise.all(
-    deleteRequests.map(async (requestGroup, i) => {
-      try {
-        console.log('Deleting resources chunk', i + 1, 'of', deleteRequests.length);
-        await oystehr.fhir.batch({ requests: requestGroup });
-      } catch (e) {
-        console.log(`Error deleting resources: ${e}`, JSON.stringify(e));
-      } finally {
-        console.log('Deleting resources chunk', i + 1, 'of', deleteRequests.length, 'complete');
-      }
-      return requestGroup.filter((request) => request.url.startsWith('/Patient')).length;
-    })
-  );
-  const numDeletedPatients = sumArrayOfNumbers(patientDeleteCount);
+  let patientDeleteCount = 0;
+  deleteRequests.forEach(async (requestGroup, i) => {
+    try {
+      console.log('Deleting resources chunk', i + 1, 'of', deleteRequests.length);
+      await oystehr.fhir.batch({ requests: requestGroup });
+    } catch (e: unknown) {
+      console.log(`Error deleting resources: ${e}`, JSON.stringify(e));
+    } finally {
+      console.log('Deleting resources chunk', i + 1, 'of', deleteRequests.length, 'complete');
+    }
+    patientDeleteCount += requestGroup.filter((request) => request.url.startsWith('/Patient')).length;
+  });
 
   return {
-    patients: numDeletedPatients,
-    otherResources: sumArrayOfNumbers(deleteRequests.map((group) => group.length)) - numDeletedPatients,
+    patients: patientDeleteCount,
+    otherResources: deleteRequests.map((group) => group.length).reduce((acc, curr) => acc + curr) - patientDeleteCount,
   };
 };
-
-const sumArrayOfNumbers = (arr: number[]): number => arr.reduce((acc, curr) => acc + curr);
 
 const generateDeleteRequests = (allResources: FhirResource[]): BatchInputDeleteRequest[][] => {
   const deleteRequests: BatchInputDeleteRequest[] = allResources
@@ -53,12 +49,17 @@ const generateDeleteRequests = (allResources: FhirResource[]): BatchInputDeleteR
     })
     .filter((request) => request !== undefined);
 
-  const nonObservationDeleteRequests = deleteRequests.filter((request) => !request.url.startsWith('/Observation'));
+  const patientDeleteRequest = deleteRequests.filter((request) => request.url.startsWith('/Patient'));
+  const nonObservationDeleteRequests = chunkThings(
+    deleteRequests.filter((request) => !request.url.startsWith('/Observation') && !request.url.startsWith('/Patient')),
+    CHUNK_SIZE
+  );
   const observationDeleteRequests = chunkThings(
     deleteRequests.filter((request) => request.url.startsWith('/Observation')),
     CHUNK_SIZE
   );
-  return [nonObservationDeleteRequests, ...observationDeleteRequests];
+  // delete patient last in case of timeouts
+  return [...observationDeleteRequests, ...nonObservationDeleteRequests, patientDeleteRequest];
 };
 
 const getPatientAndResourcesById = async (
