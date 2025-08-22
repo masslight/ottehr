@@ -1,3 +1,4 @@
+import { LoadingButton } from '@mui/lab';
 import { Grid, Paper, Stack } from '@mui/material';
 import React, { useEffect, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
@@ -21,7 +22,7 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
   } = useAppointment(appointmentId);
   const [isImmunizationHistoryCollapsed, setIsImmunizationHistoryCollapsed] = useState(false);
 
-  const { mutateAsync: createUpdateOrder } = useCreateUpdateImmunizationOrder();
+  const { mutateAsync: createUpdateOrder, isPending: isOrderSaving } = useCreateUpdateImmunizationOrder();
 
   const onSubmit = async (data: any): Promise<void> => {
     const response = await createUpdateOrder({
@@ -32,7 +33,7 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
     navigate(getImmunizationOrderEditUrl(appointmentId!, response.orderId));
   };
 
-  const { data: ordersResponse } = useGetImmunizationOrders({
+  const { data: ordersResponse, isLoading: isOrderLoading } = useGetImmunizationOrders({
     orderId: orderId,
   });
 
@@ -78,9 +79,20 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
                   >
                     Cancel
                   </ButtonRounded>
-                  <ButtonRounded type="submit" variant="contained" color="primary" size="large">
+                  <LoadingButton
+                    type="submit"
+                    disabled={isOrderLoading}
+                    loading={isOrderSaving}
+                    variant="contained"
+                    color="primary"
+                    size="large"
+                    sx={{
+                      borderRadius: '20px',
+                      textTransform: 'none',
+                    }}
+                  >
                     {orderId ? 'Save changes' : 'Order Vaccine'}
-                  </ButtonRounded>
+                  </LoadingButton>
                 </Stack>
               </Grid>
             </Grid>
