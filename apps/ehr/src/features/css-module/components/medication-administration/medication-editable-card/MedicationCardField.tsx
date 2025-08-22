@@ -21,6 +21,9 @@ import { OrderFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
 import { MedicationFieldType } from './fieldsConfig';
 import { InHouseMedicationFieldType, medicationOrderFieldsWithOptions } from './utils';
 
+const POPULAR_SEPARATOR = 'popular-separator';
+const OTHER_SEPARATOR = 'other-separator';
+
 interface MedicationCardFieldProps {
   field: MedicationFieldType;
   label: string;
@@ -122,15 +125,15 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
         getOptionLabel={(option) => option.label}
         onChange={(_e, val) => {
           // Prevent selecting separators
-          if (val?.value === 'popular-separator' || val?.value === 'other-separator') {
+          if (val?.value === POPULAR_SEPARATOR || val?.value === OTHER_SEPARATOR) {
             return;
           }
           handleChange(val?.value);
         }}
-        getOptionDisabled={(option) => option.value === 'popular-separator' || option.value === 'other-separator'} // Disable separators
+        getOptionDisabled={(option) => option.value === POPULAR_SEPARATOR || option.value === OTHER_SEPARATOR} // Disable separators
         renderOption={(props, option) => {
           // Handle separators for grouped options
-          if (option.value === 'popular-separator' || option.value === 'other-separator') {
+          if (option.value === POPULAR_SEPARATOR || option.value === OTHER_SEPARATOR) {
             return (
               <li
                 {...props}
@@ -201,7 +204,7 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
           : {})}
         onChange={(e) => {
           // Prevent selecting separators
-          if (e.target.value === 'popular-separator' || e.target.value === 'other-separator') {
+          if (e.target.value === POPULAR_SEPARATOR || e.target.value === OTHER_SEPARATOR) {
             return;
           }
           handleChange(e.target.value);
@@ -214,7 +217,7 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
         <MenuItem value="">Select {label}</MenuItem>
         {options.map((option) => {
           // Handle separators for grouped options
-          if (option.value === 'popular-separator' || option.value === 'other-separator') {
+          if (option.value === POPULAR_SEPARATOR || option.value === OTHER_SEPARATOR) {
             return (
               <MenuItem
                 key={option.value}
