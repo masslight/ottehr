@@ -63,7 +63,6 @@ export interface OrderableItemLab {
 
 export enum ExternalLabsStatus {
   pending = 'pending',
-  ready = 'ready',
   sent = 'sent',
   prelim = 'prelim', // todo: this is not a status, need to refactor
   received = 'received',
@@ -76,7 +75,7 @@ export enum ExternalLabsStatus {
 }
 
 export type LabOrderUnreceivedHistoryRow = {
-  action: 'created' | 'performed' | 'ready' | 'ordered' | 'cancelled by lab';
+  action: 'created' | 'ordered' | 'performed' | 'cancelled by lab';
   performer: string;
   date: string;
 };
@@ -114,7 +113,6 @@ export type LabOrderListPageDTO = {
   testItem: string; // ServiceRequest.contained[0](ActivityDefinition).title
   fillerLab: string; // ServiceRequest.contained[0](ActivityDefinition).publisher
   orderAddedDate: string; // Task PST authoredOn
-  orderSubmittedDate: string | undefined; // Prov.recorded where activity.coding === PROVENANCE_ACTIVITY_CODING_ENTITY.submit
   orderingPhysician: string; // SR.requester name
   diagnosesDTO: DiagnosisDTO[]; // SR.reasonCode
   diagnoses: string; // SR.reasonCode joins
@@ -126,7 +124,6 @@ export type LabOrderListPageDTO = {
   lastResultReceivedDate: string; // the most recent Task RFRT.authoredOn
   accessionNumbers: string[]; // DiagnosticReport.identifier (identifier assigned to a sample when it arrives at a laboratory)
   encounterTimezone: string | undefined; // used to format dates correctly on the front end
-  orderNumber: string | undefined; // ServiceRequest.identifier.value (system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)
 };
 
 export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {
@@ -135,7 +132,6 @@ export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {
   resultsDetails: LabOrderResultDetails[];
   questionnaire: QuestionnaireData[];
   samples: sampleDTO[];
-  labelPdfUrl?: string; // will exist after test is marked ready
   orderPdfUrl?: string; // will exist after order is submitted
 };
 
@@ -181,13 +177,20 @@ export interface DynamicAOEInput {
 }
 
 export type SubmitLabOrderInput = {
-  serviceRequestIDs: string[];
+  serviceRequestID: string;
+  accountNumber: string;
   manualOrder: boolean;
+  data: DynamicAOEInput;
+  specimens?: {
+    [specimenId: string]: {
+      date: string;
+    };
+  };
 };
 
-export type SubmitLabOrderOutput = {
-  orderPdfUrls: string[];
-  failedOrdersByOrderNumber?: string[];
+export type SubmitLabOrderDTO = {
+  orderPdfUrl: string;
+  labelPdfUrl?: string;
 };
 
 export type CreateLabOrderParameters = {
@@ -217,7 +220,6 @@ export type PatientLabItem = {
 export const LAB_ORDER_UPDATE_RESOURCES_EVENTS = {
   reviewed: 'reviewed',
   specimenDateChanged: 'specimenDateChanged',
-  saveOrderCollectionData: 'saveOrderCollectionData',
 } as const;
 
 export type TaskReviewedParameters = {
@@ -232,22 +234,9 @@ export type SpecimenDateChangedParameters = {
   date: string;
 };
 
-export type SpecimenCollectionDateConfig = {
-  [specimenId: string]: {
-    date: string;
-  };
-};
-
-export type SaveOrderCollectionData = {
-  serviceRequestId: string;
-  data: DynamicAOEInput;
-  specimenCollectionDates?: SpecimenCollectionDateConfig;
-};
-
 export type UpdateLabOrderResourcesParameters =
   | (TaskReviewedParameters & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.reviewed })
-  | (SpecimenDateChangedParameters & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.specimenDateChanged })
-  | (SaveOrderCollectionData & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.saveOrderCollectionData });
+  | (SpecimenDateChangedParameters & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.specimenDateChanged });
 
 export type DeleteLabOrderZambdaInput = {
   serviceRequestId: string;

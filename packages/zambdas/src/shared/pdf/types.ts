@@ -16,7 +16,6 @@ import {
   SupportedObsImgAttachmentTypes,
   VitalsVisitNoteData,
 } from 'utils';
-import { testDataForOrderForm } from '../../ehr/submit-lab-order/helpers';
 import { Column } from './pdf-utils';
 
 export interface PageElementStyle {
@@ -142,8 +141,10 @@ export interface LabsData {
   locationZip?: string;
   locationPhone?: string;
   locationFax?: string;
+  labOrganizationName: string; // this is only mapped for order pdf
   accountNumber: string;
-  orderNumber: string; // this is only for external labs
+  serviceRequestID: string;
+  orderNumber: string; // this is only for external
   providerName: string;
   providerNPI: string | undefined;
   patientFirstName: string;
@@ -156,21 +157,21 @@ export interface LabsData {
   patientPhone: string;
   todayDate: string;
   orderSubmitDate: string;
-  dateIncludedInFileName: string;
+  orderCreateDateAuthoredOn: string;
+  orderCreateDate: string;
+  sampleCollectionDate?: string;
+  billClass: string;
+  primaryInsuranceName?: string;
+  primaryInsuranceAddress?: string;
+  primaryInsuranceSubNum?: string;
+  insuredName?: string;
+  insuredAddress?: string;
+  aoeAnswers?: { question: string; answer: any }[]; // this is only for external
+  orderName?: string | undefined;
   orderAssessments: { code: string; name: string }[];
   orderPriority: string;
   isManualOrder: boolean;
   isPscOrder: boolean;
-}
-export interface ExternalLabOrderFormData extends Omit<LabsData, 'orderAssessments'> {
-  labOrganizationName: string;
-  billClass: string;
-  testDetails: testDataForOrderForm[];
-  insuredName?: string;
-  insuredAddress?: string;
-  primaryInsuranceName?: string;
-  primaryInsuranceAddress?: string;
-  primaryInsuranceSubNum?: string;
 }
 
 export interface ExternalLabResult {
@@ -202,6 +203,7 @@ export interface InHouseLabResultConfig {
 export interface LabResultsData
   extends Omit<
     LabsData,
+    | 'aoeAnswers'
     | 'orderNumber'
     | 'labOrganizationName'
     | 'orderSubmitDate'
@@ -247,8 +249,6 @@ export interface ExternalLabResultsData extends LabResultsData {
 export interface InHouseLabResultsData extends LabResultsData {
   inHouseLabResults: InHouseLabResultConfig[];
   timezone: string | undefined;
-  serviceRequestID: string;
-  orderCreateDate: string;
 }
 
 export type ResultDataConfig =

@@ -283,7 +283,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       });
 
       // Move to the next line and reset x position
-      newLine(lineHeight);
+      newLine(lineHeight + spacing);
 
       // Recursively call the function with the remaining text
       drawTextSequential(remainingText, textStyle, bounds);
@@ -477,12 +477,12 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       }
     }
 
-    // theres a bug here related to line break within earlier columns
+    // now just write the columns, and make sure they don't bleed into other columns
     columns.forEach((col) => {
       console.log(`\n\n>>>Drawing column for ${JSON.stringify({ ...col, textStyle: undefined })}`);
       // if a new page got added on a previous column, we need the next column to go back to the previous page
       // continue writing, and if that column needs to run onto a new page, it needs to run onto the pre-existing new page
-      console.log(`Starting column on page index ${startPageIndex}`);
+      console.log(`Starting columb on page index ${startPageIndex}`);
       currentPageIndex = startPageIndex;
 
       console.log(`yPosStartOfColumn is ${yPosStartOfColumn}. Current yPos is ${currYPos}`);
