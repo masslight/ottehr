@@ -24,6 +24,7 @@ export const deletePatientData = async (
     try {
       console.log('Deleting resources chunk', i + 1, 'of', deleteRequests.length);
       await oystehr.fhir.batch({ requests: requestGroup });
+      await new Promise((resolve) => setTimeout(resolve, 200));
     } catch (e: unknown) {
       console.log(`Error deleting resources: ${e}`, JSON.stringify(e));
     } finally {

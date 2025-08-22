@@ -181,8 +181,6 @@ async function removePatientsWithoutRecentAppointments(config: any): Promise<voi
         );
         numDeletedPatients += hasDeletedPatient;
         totalNumDeletedOtherResources += otherResources;
-        // some batches can be huge, try and wait this out
-        await new Promise((resolve) => setTimeout(resolve, 200));
       } catch (error: unknown) {
         console.error('Error:', error);
       }
