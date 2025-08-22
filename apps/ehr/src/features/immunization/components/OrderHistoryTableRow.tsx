@@ -48,7 +48,7 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) =>
   const isPending = order.status === 'pending';
 
   const handleRowClick = (): void => {
-    if (!isPending) {
+    if (!isPending || !showActions) {
       return;
     }
     requestAnimationFrame(() => {
@@ -59,7 +59,7 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) =>
   return (
     <TableRow
       sx={{
-        ...(isPending
+        ...(isPending && showActions
           ? {
               '&:hover': {
                 backgroundColor: alpha(theme.palette.primary.main, 0.04),
