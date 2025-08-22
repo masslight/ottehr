@@ -34,14 +34,6 @@ export const ExternalLabsStatusPalette: {
       primary: '#616161',
     },
   },
-  ready: {
-    background: {
-      primary: '#C8E6C9',
-    },
-    color: {
-      primary: '#1B5E20',
-    },
-  },
   sent: {
     background: {
       primary: '#D1C4E9',
