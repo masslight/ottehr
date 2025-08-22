@@ -20,7 +20,9 @@ export const deletePatientData = async (
   const deleteRequests = generateDeleteRequests(allResources);
 
   let patientDeleteCount = 0;
-  deleteRequests.forEach(async (requestGroup, i) => {
+  // forEach doesn't respect await https://sentry.io/answers/are-there-any-issues-with-using-async-await-with-foreach-loops-in-javascript/
+  for (let i = 0; i < deleteRequests.length; i++) {
+    const requestGroup = deleteRequests[i];
     try {
       console.log('Deleting resources chunk', i + 1, 'of', deleteRequests.length);
       await oystehr.fhir.batch({ requests: requestGroup });
@@ -31,7 +33,7 @@ export const deletePatientData = async (
       console.log('Deleting resources chunk', i + 1, 'of', deleteRequests.length, 'complete');
     }
     patientDeleteCount += requestGroup.filter((request) => request.url.startsWith('/Patient')).length;
-  });
+  }
 
   return {
     patients: patientDeleteCount,

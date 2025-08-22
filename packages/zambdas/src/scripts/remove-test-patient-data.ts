@@ -170,7 +170,8 @@ async function removePatientsWithoutRecentAppointments(config: any): Promise<voi
     let numDeletedPatients = 0;
 
     console.group('deleting patients without recent appointments');
-    patients.forEach(async (patient) => {
+    // forEach doesn't respect await https://sentry.io/answers/are-there-any-issues-with-using-async-await-with-foreach-loops-in-javascript/
+    for (const patient of patients) {
       try {
         // patient without id won't exist since we're fetching from fhir
         if (!patient.id) return;
@@ -184,7 +185,7 @@ async function removePatientsWithoutRecentAppointments(config: any): Promise<voi
       } catch (error: unknown) {
         console.error('Error:', error);
       }
-    });
+    }
     console.groupEnd();
     console.debug('deleting patients without recent appointments completed, deleted', numDeletedPatients, 'patients');
 
