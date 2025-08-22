@@ -96,7 +96,7 @@ export const intakeFlowPageRoute = {
     getPage: () => <DevicesPage />,
   },
   DevicesDetails: {
-    path: '/devices/:deviceId',
+    path: '/devices',
     getPage: () => <DeviceDetailsView />,
   },
   WalkinLanding: {

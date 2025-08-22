@@ -47,6 +47,8 @@ const CREATE_APPOINTMENT_ZAMBDA_ID = 'create-appointment';
 const CANCEL_APPOINTMENT_ZAMBDA_ID = import.meta.env.VITE_APP_CANCEL_APPOINTMENT_ZAMBDA_ID;
 const UPDATE_APPOINTMENT_ZAMBDA_ID = 'update-appointment';
 const GET_PATIENTS_ZAMBDA_ID = 'get-patients';
+const GET_PATIENTS_DEVICES_ZAMBDA_ID = 'get-patients-devices';
+const GET_PATIENTS_DEVICES_VITALS_ZAMBDA_ID = 'get-device-vitals-patient';
 const GET_SCHEDULE_ZAMBDA_ID = 'get-schedule';
 const TELEMED_GET_APPOINTMENTS_ZAMBDA_ID = 'telemed-get-appointments';
 const GET_PAPERWORK_ZAMBDA_ID = 'get-paperwork';
@@ -153,6 +155,32 @@ class API {
       }
 
       const response = await zambdaClient.execute(GET_PATIENTS_ZAMBDA_ID);
+      const jsonToUse = chooseJson(response);
+      return jsonToUse;
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error);
+    }
+  }
+
+  async getPatientsDeviceVitals(zambdaClient: ZambdaClient, parameters: any): Promise<any> {
+    try {
+      if (GET_PATIENTS_DEVICES_VITALS_ZAMBDA_ID == null || REACT_APP_IS_LOCAL == null) {
+        throw new Error('get patients environment variable could not be loaded');
+      }
+      const response = await zambdaClient.execute(GET_PATIENTS_DEVICES_VITALS_ZAMBDA_ID, parameters);
+      const jsonToUse = chooseJson(response);
+      return jsonToUse;
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error);
+    }
+  }
+
+  async getPatientDevices(zambdaClient: ZambdaClient): Promise<any> {
+    try {
+      if (GET_PATIENTS_DEVICES_ZAMBDA_ID == null || REACT_APP_IS_LOCAL == null) {
+        throw new Error('get patients environment variable could not be loaded');
+      }
+      const response = await zambdaClient.execute(GET_PATIENTS_DEVICES_ZAMBDA_ID);
       const jsonToUse = chooseJson(response);
       return jsonToUse;
     } catch (error: unknown) {

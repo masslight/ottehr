@@ -60,7 +60,6 @@ export const DeviceAssignmentModal: FC<DeviceAssignmentModalProps> = ({
 
   const payload = {
     offset: 0,
-    count: 15, // I have set a default count, will update it later once I get the real mio devices
     missing: true,
   };
 

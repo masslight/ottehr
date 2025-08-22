@@ -181,14 +181,14 @@ const Homepage = (): JSX.Element => {
               subtitle="School/Work Notes and Prescriptions"
               dataTestId={dataTestIds.navigatePastVisitsButton}
             />
+            <HomepageOption
+              title="My Devices"
+              icon={<MedicalServicesOutlinedIcon />}
+              handleClick={handlePatientDevices}
+              dataTestId={dataTestIds.patientDeviceButton}
+            />
           </Box>
         )}
-        <HomepageOption
-          title="My Devices"
-          icon={<MedicalServicesOutlinedIcon />}
-          handleClick={handlePatientDevices}
-          dataTestId={dataTestIds.navigatePastVisitsButton}
-        />
         <HomepageOption
           title="Contact Support"
           icon={<LiveHelpOutlinedIcon />}

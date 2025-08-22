@@ -9,6 +9,15 @@ export interface Output {
   total: number;
 }
 
+export interface DeviceProperty {
+  type: {
+    text: string;
+  };
+  valueCode: {
+    text: string;
+  }[];
+}
+
 export interface Device {
   id: string;
   resourceType: string;
@@ -17,6 +26,8 @@ export interface Device {
   meta: Meta;
   patient?: Patient;
   manufacturer?: string;
+  distinctIdentifier: string;
+  property: DeviceProperty[];
 }
 
 export interface Identifier {
@@ -57,7 +68,10 @@ export interface DeviceResponse {
   manufacturer?: string;
   meta: {
     lastUpdated: string;
+    versionId?: string;
   };
+  distinctIdentifier: string;
+  property: DeviceProperty[];
 }
 
 export interface UnassinedDeviceResponse {
@@ -70,4 +84,6 @@ export interface DeviceColumns {
   name: string;
   manufacturer: string;
   lastUpdated: string;
+  distinctIdentifier: string;
+  property: DeviceProperty[];
 }

@@ -10,6 +10,7 @@ export const dataTestIds = {
   scheduleInPersonVisitButton: 'schedule-in-person-visit-button',
   firstAvailableTime: 'first-available-time',
   contactSupportButton: 'contact-support-button',
+  patientDeviceButton: 'patient-device-button',
   navigatePastVisitsButton: 'navigate-past-visits-button',
   patientNameReviewScreen: 'patient-name-review-screen',
   locationNameReviewScreen: 'location-name-review-screen',

@@ -28,9 +28,9 @@ export const index = wrapHandler('get-devices', async (input: ZambdaInput): Prom
     const locationsResults = await oystehr.fhir.search<any>({
       resourceType: 'Device',
       params: [
-        { name: '_offset', value: body.offset },
-        { name: '_count', value: body.count },
-        { name: '_total', value: 'accurate' },
+        ...(body.offset ? [{ name: '_offset', value: body.offset }] : []),
+        ...(body.count ? [{ name: '_count', value: body.count }] : []),
+        ...(body.total ? [{ name: '_total', value: 'accurate' }] : []),
         ...(body.patientId ? [{ name: 'patient', value: body.patientId }] : []),
         ...(Object.prototype.hasOwnProperty.call(body, 'missing')
           ? [{ name: 'patient:missing', value: body.missing }]

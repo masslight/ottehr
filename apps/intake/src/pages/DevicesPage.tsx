@@ -1,133 +1,103 @@
-import InfoIcon from '@mui/icons-material/Info';
 import MonitorHeartOutlinedIcon from '@mui/icons-material/MonitorHeartOutlined';
-import TimelineIcon from '@mui/icons-material/Timeline';
-import { Box, Paper, Tab, Tabs, Typography } from '@mui/material';
-import React, { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Box, Skeleton, Typography } from '@mui/material';
+import moment from 'moment';
+import { useState } from 'react';
+import { useQuery } from 'react-query';
+import { useNavigate } from 'react-router-dom';
+import ottehrApi from '../api/ottehrApi';
 import HomepageOption from '../components/HomepageOption';
+import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
+import { otherColors } from '../IntakeThemeProvider';
 import { CustomContainer } from '../telemed/features/common';
-
-interface DeviceReading {
-  type: string;
-  value: string;
-  date: string;
-}
 
 interface Device {
   id: string;
   name: string;
-  manufacturer: string;
-  model: string;
-  lastConnected: string;
-  readings: DeviceReading[];
 }
 
 const DevicesPage = (): JSX.Element => {
   const navigate = useNavigate();
-  const { deviceId } = useParams();
-  const [tabValue, setTabValue] = useState(0);
+  const [assignedDevices, setAssignedDevices] = useState<Device[]>([]);
+  const tokenfulZambdaClient = useUCZambdaClient({ tokenless: false });
 
-  // Sample data - replace with your API data
-  const devices: Device[] = [
+  const {
+    isLoading: devicesLoading,
+    isFetching: devicesFetching,
+    isRefetching: devicesRefetching,
+    error: devicesError,
+  } = useQuery(
+    ['get-devices', { zambdaClient: tokenfulZambdaClient }],
+    () => ottehrApi.getPatientDevices(tokenfulZambdaClient!),
     {
-      id: 'BG-12345',
-      name: 'Blood Glucose Meter',
-      manufacturer: 'Acme Medical',
-      model: 'GlucoCheck Pro',
-      lastConnected: '2023-06-15 10:30 AM',
-      readings: [
-        { type: 'Glucose Level', value: '98 mg/dL', date: '2023-06-15 10:28 AM' },
-        { type: 'Glucose Level', value: '102 mg/dL', date: '2023-06-14 08:15 PM' },
-      ],
-    },
-    {
-      id: 'WS-67890',
-      name: 'Weight Scale',
-      manufacturer: 'HealthTrack',
-      model: 'Balance+ 2023',
-      lastConnected: '2023-06-14 09:15 AM',
-      readings: [
-        { type: 'Weight', value: '72.5 kg', date: '2023-06-14 09:12 AM' },
-        { type: 'BMI', value: '23.1', date: '2023-06-14 09:12 AM' },
-      ],
-    },
-  ];
-
-  if (deviceId) {
-    const device = devices.find((d) => d.id === deviceId);
-    if (device) {
-      return (
-        <CustomContainer title="Device Details" description="" isFirstPage={false}>
-          <Box sx={{ width: '100%' }}>
-            <Typography variant="h5" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-              <MonitorHeartOutlinedIcon fontSize="large" color="primary" />
-              {device.name}
-            </Typography>
-
-            <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)}>
-              <Tab label="Device Info" icon={<InfoIcon />} />
-              <Tab label="Vitals" icon={<TimelineIcon />} />
-            </Tabs>
-
-            <Paper sx={{ p: 3, mt: 2 }}>
-              {tabValue === 0 && (
-                <Box>
-                  <Typography variant="h6" gutterBottom>
-                    Device Information
-                  </Typography>
-                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-                    <div>
-                      <Typography variant="subtitle2">Device ID</Typography>
-                      <Typography>{device.id}</Typography>
-                    </div>
-                    <div>
-                      <Typography variant="subtitle2">Manufacturer</Typography>
-                      <Typography>{device.manufacturer}</Typography>
-                    </div>
-                    <div>
-                      <Typography variant="subtitle2">Model</Typography>
-                      <Typography>{device.model}</Typography>
-                    </div>
-                    <div>
-                      <Typography variant="subtitle2">Last Connected</Typography>
-                      <Typography>{device.lastConnected}</Typography>
-                    </div>
-                  </Box>
-                </Box>
-              )}
-
-              {tabValue === 1 && (
-                <Box>
-                  <Typography variant="h6" gutterBottom>
-                    Recent Readings
-                  </Typography>
-                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-                    {device.readings.map((reading, index) => (
-                      <Paper key={index} sx={{ p: 2 }}>
-                        <Typography variant="subtitle2">{reading.type}</Typography>
-                        <Typography variant="h5">{reading.value}</Typography>
-                        <Typography variant="caption">{reading.date}</Typography>
-                      </Paper>
-                    ))}
-                  </Box>
-                </Box>
-              )}
-            </Paper>
-          </Box>
-        </CustomContainer>
-      );
+      onSuccess: (response) => {
+        if (response?.devices) {
+          const devices = response?.devices.map((device: any) => ({
+            id: device.id,
+            name: device.deviceName[0]?.name.split('-')[0]?.trim() || '-',
+            manufacturer: device.manufacturer || '-',
+            lastUpdated: moment(device.meta.lastUpdated).format('MM/DD/YYYY'),
+            versionId: device.meta.versionId,
+          }));
+          setAssignedDevices(devices);
+        }
+      },
+      onError: (error) => {
+        console.log('get devices error:', error);
+      },
+      enabled: Boolean(tokenfulZambdaClient),
     }
+  );
+
+  const handleDeviceClick = (device: any): void => {
+    console.log('Device clicked:', device);
+    navigate('/devices', { state: { device } });
+  };
+
+  if (devicesLoading || devicesFetching || devicesRefetching) {
+    return (
+      <CustomContainer title="My Devices" description="" isFirstPage={true}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {[1, 2, 3].map((i) => (
+            <Skeleton
+              key={i}
+              variant="rounded"
+              height={115}
+              sx={{
+                borderRadius: 2,
+                backgroundColor: otherColors.coachingVisit,
+              }}
+            />
+          ))}
+        </Box>
+      </CustomContainer>
+    );
+  }
+
+  if (devicesError) {
+    return (
+      <CustomContainer title="My Devices" description="" isFirstPage={true}>
+        <Typography color="error">Error loading devices. Please try again.</Typography>
+      </CustomContainer>
+    );
+  }
+
+  if (assignedDevices.length === 0) {
+    return (
+      <CustomContainer title="My Devices" description="" isFirstPage={true}>
+        <Typography color="error">No devices assigned.</Typography>
+      </CustomContainer>
+    );
   }
 
   return (
     <CustomContainer title="My Devices" description="" isFirstPage={true}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-        {devices.map((device) => (
+        {assignedDevices.map((device: Device) => (
           <HomepageOption
             key={device.id}
             title={device.name}
             icon={<MonitorHeartOutlinedIcon />}
-            handleClick={() => navigate(`/devices/${device.id}`)}
+            handleClick={() => handleDeviceClick(device)}
           />
         ))}
       </Box>

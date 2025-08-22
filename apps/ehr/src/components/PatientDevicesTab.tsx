@@ -4,14 +4,18 @@ import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-p
 import { FC, useCallback, useState } from 'react';
 import { useMutation, useQuery } from 'react-query';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getDevices, unassignDevices } from 'src/api/api';
+import { assignThreshold, getDevices, getVitals, unassignDevices } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { DeviceColumns, DeviceResponse, Output } from 'utils';
+import { DeviceColumns, DeviceProperty, DeviceResponse, Output } from 'utils';
 import { DeviceAssignmentModal } from '../components/DeviceAssignModal';
 import { RoundedButton } from './RoundedButton';
+import { ThresholdAssignModal } from './ThresholdAssignModal';
 
-export const PatientDevicesTab: FC<{ loading: boolean }> = ({ loading }) => {
+export const PatientDevicesTab: FC<{ loading?: boolean }> = ({ loading }) => {
   const [openModal, setOpenModal] = useState(false);
+  const [deviceId, setDeviceId] = useState<string>('');
+  const [deviceType, setDeviceType] = useState<string>('');
+  const [thresholdModal, setThresholdModal] = useState(false);
   const [assignedDevices, setAssignedDevices] = useState<DeviceColumns[]>([]);
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 5 });
   const [totalCount, setTotalCount] = useState(0);
@@ -34,9 +38,11 @@ export const PatientDevicesTab: FC<{ loading: boolean }> = ({ loading }) => {
         if (response?.devices) {
           const devices = response?.devices.map((device: DeviceResponse) => ({
             id: device.id,
-            name: device.deviceName[0]?.name || '-',
+            name: device.deviceName[0]?.name.split('-')[0]?.trim() || '-',
             manufacturer: device.manufacturer || '-',
             lastUpdated: device.meta.lastUpdated,
+            distinctIdentifier: device.distinctIdentifier || '-',
+            property: device.property || [],
           }));
           setAssignedDevices(devices);
           setTotalCount(response?.total || 0);
@@ -46,11 +52,35 @@ export const PatientDevicesTab: FC<{ loading: boolean }> = ({ loading }) => {
     }
   );
 
-  const handleViewHeartbeat = useCallback(
-    (deviceId: string): void => {
-      navigate(`/device/${deviceId}`);
+  const { mutateAsync: getVitalsMutation, isLoading: isFetchingVitals } = useMutation(
+    (params: { deviceId: string; patientId: string; page?: number; pageSize?: number }) =>
+      getVitals(params, oystehrZambda!),
+    {
+      onSuccess: (vitalsData) => {
+        console.log('Vitals fetched successfully:', vitalsData);
+      },
+      onError: (error: unknown) => {
+        console.error('Failed to fetch vitals:', error);
+      },
+    }
+  );
+
+  const handleDeviceVitals = useCallback(
+    async (deviceId: string, deviceType: string, thresholds: DeviceProperty[]): Promise<void> => {
+      if (!patientId) return;
+
+      try {
+        const vitalsData = await getVitalsMutation({ deviceId, patientId, page: 1, pageSize: 10 });
+        console.log('Ithe ahe issue ha check kr:', vitalsData);
+        navigate(`/device/${deviceId}`, {
+          state: { vitalsData, deviceType, thresholds },
+        });
+      } catch (error) {
+        console.error('Failed to fetch vitals before navigation:', error);
+        navigate(`/device/${deviceId}`);
+      }
     },
-    [navigate]
+    [navigate, patientId, getVitalsMutation]
   );
 
   const handlePaginationModelChange = useCallback((newPaginationModel: GridPaginationModel) => {
@@ -58,7 +88,7 @@ export const PatientDevicesTab: FC<{ loading: boolean }> = ({ loading }) => {
   }, []);
 
   const { mutateAsync: unassignDevice, isLoading: isUnassigning } = useMutation(
-    (deviceId: string) => unassignDevices({ deviceId }, oystehrZambda!),
+    (deviceId: string) => unassignDevices({ deviceId, patientId }, oystehrZambda!),
     {
       onSuccess: async () => {
         await refetch();
@@ -71,6 +101,58 @@ export const PatientDevicesTab: FC<{ loading: boolean }> = ({ loading }) => {
 
   const handleUnAssign = async (deviceId: string): Promise<void> => {
     await unassignDevice(deviceId);
+  };
+
+  const { mutateAsync: assignThresholdMutate, isLoading: isUpdatingThreshold } = useMutation(
+    (params: { deviceId: string; deviceType: string; thresholds: Record<string, number> }) =>
+      assignThreshold(
+        {
+          deviceId: params.deviceId,
+          patientId: patientId!,
+          deviceType: params.deviceType,
+          thresholds: params.thresholds,
+        },
+        oystehrZambda!
+      ),
+    {
+      onSuccess: async (): Promise<any> => {
+        console.log('Threshold updated successfully');
+        await refetch();
+      },
+      onError: (error: unknown) => {
+        console.error('Failed to update threshold:', error);
+      },
+    }
+  );
+
+  const handleSaveThreshold = async (thresholds: Record<string, string>): Promise<any> => {
+    if (!deviceId || !patientId) return;
+
+    try {
+      const thresholdValues: Record<string, number> = {};
+
+      if (deviceType === 'scale_gen2_measure') {
+        thresholdValues.weight = parseInt(thresholds.weight || '0');
+      } else if (deviceType === 'bgm_gen1_measure') {
+        thresholdValues.glucose = parseInt(thresholds.glucose || '0');
+      } else if (deviceType === 'bpm_gen2_measure') {
+        thresholdValues.systolic = parseInt(thresholds.systolic || '0');
+        thresholdValues.diastolic = parseInt(thresholds.diastolic || '0');
+      } else {
+        thresholdValues.default = parseInt(thresholds.default || '0');
+      }
+
+      await assignThresholdMutate({ deviceId, deviceType, thresholds: thresholdValues });
+    } catch (error) {
+      console.error('Failed to save thresholds:', error);
+      throw error;
+    }
+  };
+
+  const handleThreshold = async (deviceId: string, deviceType: string): Promise<void> => {
+    setThresholdModal(true);
+    setDeviceId(deviceId);
+    setDeviceType(deviceType);
   };
 
   const columns: GridColDef<DeviceColumns>[] = [
@@ -87,12 +169,6 @@ export const PatientDevicesTab: FC<{ loading: boolean }> = ({ loading }) => {
       sortable: false,
     },
     {
-      field: 'manufacturer',
-      headerName: 'Device Manufacturer',
-      width: 250,
-      sortable: false,
-    },
-    {
       field: 'lastUpdated',
       headerName: 'Last Updated',
       width: 200,
@@ -106,7 +182,7 @@ export const PatientDevicesTab: FC<{ loading: boolean }> = ({ loading }) => {
     {
       field: 'actions',
       headerName: 'Actions',
-      width: 350,
+      width: 500,
       sortable: false,
       renderCell: (params) => {
         return (
@@ -117,13 +193,25 @@ export const PatientDevicesTab: FC<{ loading: boolean }> = ({ loading }) => {
                   await handleUnAssign(params.row.id);
                 }}
                 disabled={isUnassigning}
-                variant="outlined"
               >
                 Unassign Device
               </RoundedButton>
             </div>
             <div>
-              <RoundedButton onClick={() => handleViewHeartbeat(params.row.id)}>View Vitals</RoundedButton>
+              <RoundedButton
+                onClick={() => handleThreshold(params.row.id, params.row.distinctIdentifier)}
+                disabled={isUpdatingThreshold}
+              >
+                Threshold Settings
+              </RoundedButton>
+            </div>
+            <div>
+              <RoundedButton
+                onClick={() => handleDeviceVitals(params.row.id, params.row.distinctIdentifier, params.row.property)}
+                disabled={isFetchingVitals}
+              >
+                {isFetchingVitals ? 'Loading...' : 'View Vitals'}
+              </RoundedButton>
             </div>
           </div>
         );
@@ -162,7 +250,7 @@ export const PatientDevicesTab: FC<{ loading: boolean }> = ({ loading }) => {
           },
         }}
         autoHeight
-        loading={loading || isFetching || isUnassigning}
+        loading={loading || isFetching || isUnassigning || isUpdatingThreshold || isFetchingVitals}
         pagination
         disableColumnMenu
         pageSizeOptions={[5]}
@@ -189,6 +277,15 @@ export const PatientDevicesTab: FC<{ loading: boolean }> = ({ loading }) => {
           onClose={() => setOpenModal(false)}
           patientId={patientId}
           refetchAssignedDevices={refetch}
+        />
+      )}
+      {deviceId && (
+        <ThresholdAssignModal
+          open={thresholdModal}
+          onClose={() => setThresholdModal(false)}
+          deviceId={deviceId}
+          deviceType={deviceType}
+          onSaveThreshold={handleSaveThreshold}
         />
       )}
     </Paper>

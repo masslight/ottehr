@@ -1007,3 +1007,29 @@ export const unassignDevices = async (params: object, oystehr: Oystehr): Promise
     throw error;
   }
 };
+
+export const assignThreshold = async (params: object, oystehr: Oystehr): Promise<GetDevicesResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'assign-threshold',
+      ...params,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.error('Error assigning threshold to devices:', error);
+    throw error;
+  }
+};
+
+export const getVitals = async (params: object, oystehr: Oystehr): Promise<GetDevicesResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'get-vitals',
+      ...params,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.error('Error fetching vitals for device:', error);
+    throw error;
+  }
+};

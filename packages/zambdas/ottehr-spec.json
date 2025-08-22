@@ -531,6 +531,34 @@
       "src": "src/patient/get-patients/index",
       "zip": ".dist/zips/get-patients.zip"
     },
+    "GET-PATIENTS-DEVICES": {
+      "name": "GET-PATIENTS-DEVICES",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/patient/get-patients-devices/index",
+      "zip": ".dist/zips/get-patients-devices.zip"
+    },
+    "ASSIGN-THRESHOLD": {
+      "name": "ASSIGN-THRESHOLD",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/assign-threshold/index",
+      "zip": ".dist/zips/assign-threshold.zip"
+    },
+    "GET-VITALS": {
+      "name": "GET-VITALS",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/get-vitals/index",
+      "zip": ".dist/zips/get-vitals.zip"
+    },
+    "GET-DEVICE-VITALS-PATIENT": {
+      "name": "GET-DEVICE-VITALS-PATIENT",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/patient/get-device-vitals-patient/index",
+      "zip": ".dist/zips/get-device-vitals-patient.zip"
+    },
     "GET-PAPERWORK": {
       "name": "GET-PAPERWORK",
       "type": "http_open",

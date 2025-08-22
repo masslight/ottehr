@@ -29,13 +29,86 @@ export const index = wrapHandler('unassign-devices', async (input: ZambdaInput):
     if (!currentDevice) {
       throw new Error(`Device with ID ${requestBody.deviceId} not found`);
     }
+    const patientId = requestBody.patientId;
+    if (!patientId) {
+      throw new Error('Patient ID not found in device record');
+    }
+
+    const observationResult = await oystehr.fhir.search({
+      resourceType: 'Observation',
+      params: [
+        { name: 'device', value: `Device/${requestBody.deviceId}` },
+        { name: 'patient', value: `Patient/${patientId}` },
+        { name: '_sort', value: '-date' },
+        { name: '_count', value: '1' },
+      ],
+    });
+
+    const observations = observationResult.unbundle()[0] as any;
+
+    if (!observations) {
+      throw new Error(`No observation found for device ${requestBody.deviceId} and patient ${patientId}`);
+    }
+
+    const filteredComponents = (observations.component || []).filter((component: any) => {
+      return ![
+        'weight_threshold',
+        'glucose_threshold',
+        'systolic_threshold',
+        'diastolic_threshold',
+        'threshold',
+      ].includes(component.code?.text);
+    });
+
+    const updatedObservation = {
+      ...observations,
+      component: filteredComponents,
+      meta: {
+        ...observations.meta,
+        lastUpdated: new Date().toISOString(),
+      },
+    };
+
+    console.log('Updated observation without threshold components:', JSON.stringify(updatedObservation, null, 2));
+
+    await oystehr.fhir.update(updatedObservation);
+
     const updatedPayload = { ...currentDevice };
     delete (updatedPayload as any).patient;
     const result = await oystehr.fhir.update({
       id: requestBody.deviceId,
       ...updatedPayload,
     });
+
+    const deviceTimePeriod = {
+      start: currentDevice.meta?.lastUpdated,
+      end: new Date().toISOString(),
+    };
+
+    const deviceUseStatement = {
+      status: 'completed' as any,
+      subject: {
+        type: 'Patient',
+        reference: `Patient/${patientId}`,
+      },
+      device: {
+        type: 'Device',
+        reference: `Device/${requestBody.deviceId}`,
+      },
+      timingPeriod: {
+        start: deviceTimePeriod.start,
+        end: deviceTimePeriod.end,
+      },
+      recordedOn: new Date().toISOString(),
+    };
+
+    await oystehr.fhir.create({
+      resourceType: 'DeviceUseStatement',
+      ...deviceUseStatement,
+    });
+
     updatedDevices.push(result);
+
     return lambdaResponse(200, {
       message: `Unassigned device successfully`,
       updatedDevices,
