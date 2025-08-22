@@ -92,7 +92,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                     alignItems: 'center',
                   }}
                 >
-                  <CheckboxInput name="visGiven" label="VIS was given to the patient" />
+                  <CheckboxInput name="visGiven" label="VIS was given to the patient*" required />
                 </Box>
               </Grid>
               <Grid xs={6} item>
@@ -109,13 +109,13 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                 </Typography>
               </Grid>
               <Grid xs={4} item>
-                <TextInput name="administrationDetails.emergencyContact.relationship" label="Relationship" />
+                <TextInput name="administrationDetails.emergencyContact.relationship" label="Relationship" required />
               </Grid>
               <Grid xs={4} item>
-                <TextInput name="administrationDetails.emergencyContact.fullName" label="Full name" />
+                <TextInput name="administrationDetails.emergencyContact.fullName" label="Full name" required />
               </Grid>
               <Grid xs={4} item>
-                <TextInput name="administrationDetails.emergencyContact.mobile" label="Mobile" />
+                <TextInput name="administrationDetails.emergencyContact.mobile" label="Mobile" required />
               </Grid>
               <Grid xs={12} item>
                 <Stack direction="row" justifyContent="end" alignItems="center">
