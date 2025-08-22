@@ -19,13 +19,18 @@ const zambdasList = (): ZambdaSpec[] => {
   });
 };
 
-const build = async (zambdas: ZambdaSpec[]): Promise<void> => {
+const build = async (
+  zambdas: ZambdaSpec[],
+  assetsFrom: string[],
+  assetsTo: string[],
+  outdir: string
+): Promise<void> => {
   const sources = zambdas.map((zambda) => `${zambda.src}.ts`);
   await esbuild
     .build({
       entryPoints: sources,
       bundle: true,
-      outdir: '.dist',
+      outdir,
       sourcemap: true,
       platform: 'node',
       external: ['@aws-sdk/*'],
@@ -34,8 +39,8 @@ const build = async (zambdas: ZambdaSpec[]): Promise<void> => {
         copy({
           resolveFrom: 'cwd',
           assets: {
-            from: ['assets/*'],
-            to: ['.dist/assets'],
+            from: assetsFrom,
+            to: assetsTo,
           },
         }),
         sentryEsbuildPlugin({
@@ -52,14 +57,19 @@ const build = async (zambdas: ZambdaSpec[]): Promise<void> => {
     });
 };
 
-const zipZambda = async (sourceFilePath: string, assetsDir: string, outPath: string): Promise<void> => {
+const zipZambda = async (
+  sourceFilePath: string,
+  assetsDir: string,
+  assetsPath: string,
+  outPath: string
+): Promise<void> => {
   const archive = archiver('zip', { zlib: { level: 9 } });
   const stream = fs.createWriteStream(outPath);
 
   return new Promise((resolve, reject) => {
     let result = archive;
     result = result.file(sourceFilePath, { name: 'index.js' });
-    result = result.directory(assetsDir, 'assets');
+    result = result.directory(assetsDir, assetsPath);
     result.on('error', (err) => reject(err)).pipe(stream);
 
     stream.on('close', () => resolve());
@@ -67,18 +77,16 @@ const zipZambda = async (sourceFilePath: string, assetsDir: string, outPath: str
   });
 };
 
-const zip = async (zambdas: ZambdaSpec[]): Promise<void> => {
+const zip = async (zambdas: ZambdaSpec[], assetsDir: string, assetsPath: string): Promise<void> => {
   const zipsDir = '.dist/zips';
   if (!fs.existsSync(zipsDir)) {
     fs.mkdirSync(zipsDir);
   }
 
-  const assetsDir = '.dist/assets';
-
   await Promise.all(
     zambdas.map((zambda) => {
       const sourceDir = `.dist/${zambda.src.substring('src/'.length)}.js`;
-      return zipZambda(sourceDir, assetsDir, zambda.zip);
+      return zipZambda(sourceDir, assetsDir, assetsPath, zambda.zip);
     })
   );
 };
@@ -87,12 +95,18 @@ const main = async (): Promise<void> => {
   console.log('Starting to bundle and zip Zambdas...');
   const zambdas = zambdasList();
   console.log('Bundling...');
-  console.time('Bundle time');
-  await build(zambdas);
+
+  const icd10SearchZambda = zambdas.filter((zambda) => zambda.name === 'icd-10-search');
+  const icd10AssetDir = '.dist/icd-10-cm-tabular';
+  await build(icd10SearchZambda, ['icd-10-cm-tabular/*'], [icd10AssetDir], '.dist/ehr/icd-10-search');
+  const mostZambdas = zambdas.filter((zambda) => zambda.name !== 'icd-10-search');
+  const assetsDir = '.dist/assets';
+  await build(mostZambdas, ['assets/*'], [assetsDir], '.dist');
   console.timeEnd('Bundle time');
   console.log('Zipping...');
   console.time('Zip time');
-  await zip(zambdas);
+  await zip(icd10SearchZambda, icd10AssetDir, 'icd-10-cm-tabular');
+  await zip(mostZambdas, assetsDir, 'assets');
   console.timeEnd('Zip time');
   console.log('Zambdas successfully bundled and zipped into .dist/zips');
 };

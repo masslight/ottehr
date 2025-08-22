@@ -51,10 +51,12 @@ export const ChangeStatusDropdown = ({
   appointmentID,
   onStatusChange,
   getAndSetResources,
+  dataTestId,
 }: {
   appointmentID?: string;
   onStatusChange: (status: VisitStatusWithoutUnknown) => void;
   getAndSetResources?: ({ logs, notes }: { logs?: boolean; notes?: boolean }) => Promise<void>;
+  dataTestId?: string;
 }): React.ReactElement => {
   const [statusLoading, setStatusLoading] = useState<boolean>(false);
   const [status, setStatus] = useState<VisitStatusWithoutUnknown | undefined>(undefined);
@@ -125,7 +127,7 @@ export const ChangeStatusDropdown = ({
   };
 
   return (
-    <Grid item>
+    <Grid item data-testid={dataTestId}>
       <div id="user-set-appointment-status">
         <FormControl size="small">
           <StyledSelect

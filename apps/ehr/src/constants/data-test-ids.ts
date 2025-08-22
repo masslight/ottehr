@@ -23,6 +23,7 @@ export const dataTestIds = {
     switchModeButton: (status: string) => `switch-status-to-${status}`,
     intakePractitionerInput: 'intake-practitioner-input',
     providerPractitionerInput: 'provider-practitioner-input',
+    changeStatusDropdown: 'change-status-dropdown-in-header',
   },
   dashboard: {
     appointmentsTable: (tab: 'prebooked' | 'in-office' | 'completed' | 'cancelled') => `appointments-table-${tab}`,
@@ -48,6 +49,7 @@ export const dataTestIds = {
   },
   appointmentPage: {
     patientFullName: 'patient-full-name',
+    changeStatusDropdown: 'change-status-dropdown-in-appointment-page',
   },
   addPatientPage: {
     locationHeader: 'location-header',
@@ -174,18 +176,19 @@ export const dataTestIds = {
     proceedButton: 'dialog-proceed-button',
     title: 'dialog-title',
   },
-  statesPage: {
-    statesSearch: 'states-search',
-    stateValue: 'state-value',
-    operateInStateValue: 'operate-in-state-value',
-    stateRow: (stateValue: string) => `state-row-${stateValue}`,
+  virtualLocationsPage: {
+    locationsSearch: 'locations-search',
+    locationValue: 'location-value',
+    operateInLocationValue: 'operate-in-location-value',
+    locationRow: (locationId: string) => `location-row-${locationId}`,
   },
-  editState: {
+  editVirtualLocation: {
     saveChangesButton: 'save-changes-button',
     cancelButton: 'cancel-button',
-    operateInStateToggle: 'operate-in-state-toggle',
-    stateNameTitle: 'state-name-title',
-    stateNameField: 'state-name-field',
+    operateInLocationToggle: 'operate-in-location-toggle',
+    locationNameTitle: 'location-name-title',
+    locationNameField: 'location-name-field',
+    locationStateField: 'location-state-field',
   },
   patients: {
     searchByLastNameField: 'search-last-name-field',
@@ -337,6 +340,8 @@ export const dataTestIds = {
     editPatientButtonSideBar: 'telemed-edit-patient-button-side-bar',
     chatModalDescription: 'telemed-chat-modal-description',
     telemedNewOrExistingPatient: 'telemed-new-or-existing-patient',
+    hpiSurgicalHistoryAddNoteButton: 'telemed-hpi-surgical-history-add-note-button',
+    hpiSurgicalHistoryNoteIsLoading: 'telemed-hpi-surgical-history-note-is-loading',
   },
   sideMenu: {
     completeIntakeButton: 'complete-intake-button',
@@ -364,6 +369,7 @@ export const dataTestIds = {
     emCodeDropdown: 'em-code-dropdown',
     medicalDecisionField: 'medical-decision-field',
     cptCodeField: 'cpt-code-field',
+    medicalDecisionLoading: 'medical-decision-loading',
   },
   diagnosisContainer: {
     diagnosisDropdown: 'diagnosis-dropdown',

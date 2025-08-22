@@ -1,5 +1,5 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
-import { useQueryClient } from 'react-query';
 import { GetChartDataResponse, NoteDTO } from 'utils';
 import useEvolveUser from '../../../../../hooks/useEvolveUser';
 import { useOystehrAPIClient } from '../../../../../telemed/hooks/useOystehrAPIClient';
@@ -50,7 +50,7 @@ export const useSaveNote: UseSaveNote = ({ encounterId, patientId, apiConfig }) 
             };
           }
           return oldData;
-        });
+        }) as GetChartDataResponse | undefined;
 
         if (result?.[apiConfig.fieldName] === undefined) {
           // refetch all if the cache didn't found

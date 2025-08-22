@@ -3,8 +3,14 @@ import { getNursingOrders, updateNursingOrder as updateNursingOrderApi } from 's
 import { GetNursingOrdersInput } from 'utils';
 import { useApiClients } from '../../../../hooks/useAppClients';
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useGetNursingOrders = ({ searchBy }: GetNursingOrdersInput) => {
+export const useGetNursingOrders = ({
+  searchBy,
+}: GetNursingOrdersInput): {
+  nursingOrders: any[];
+  loading: boolean;
+  error: Error | null;
+  fetchNursingOrders: () => Promise<void>;
+} => {
   const { oystehrZambda } = useApiClients();
   const [nursingOrders, setNursingOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,7 +76,11 @@ export const useUpdateNursingOrder = ({
 }: {
   serviceRequestId?: string;
   action: 'CANCEL ORDER' | 'COMPLETE ORDER';
-}): { loading: boolean; error: Error | null; updateNursingOrder: () => Promise<void> } => {
+}): {
+  loading: boolean;
+  error: Error | null;
+  updateNursingOrder: () => Promise<void>;
+} => {
   const { oystehrZambda } = useApiClients();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);

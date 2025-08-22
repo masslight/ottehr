@@ -109,6 +109,10 @@ const VideoChatPage: FC = () => {
   useJoinCall(
     apiClient,
     async (response) => {
+      if (!response) {
+        return;
+      }
+
       useVideoCallStore.setState({ meetingData: response });
 
       const meetingSessionConfiguration = new MeetingSessionConfiguration(response.Meeting, response.Attendee);
@@ -120,7 +124,7 @@ const VideoChatPage: FC = () => {
 
       await meetingManager.start();
     },
-    (error) => {
+    (error: any) => {
       if (error.code === APIErrorCode.CANNOT_JOIN_CALL_NOT_IN_PROGRESS) {
         useIntakeCommonStore.setState({ error: error.message });
         navigate(intakeFlowPageRoute.Homepage.path);
