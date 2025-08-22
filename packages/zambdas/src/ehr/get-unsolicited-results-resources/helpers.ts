@@ -77,8 +77,8 @@ export const handleUnsolicitedRequestMatch = async (
   }
   const resourceEntry = entries[0];
   console.log('formatting the resources for unsolicited result task detail page');
-  const labInfo = formatResourcesForURMatchTaskResponse(resourceEntry);
-  return { labInfo };
+  const response = formatResourcesForURMatchTaskResponse(resourceEntry);
+  return response;
 };
 
 export const handleGetPossibleRelatedRequestsToUnsolicitedResult = async (
@@ -237,19 +237,17 @@ const taskIsLabRelated = (code: string): boolean => {
   return relevantLabCodes.includes(code);
 };
 
-const formatResourcesForURMatchTaskResponse = (
-  resources: AllResources
-): GetUnsolicitedResultsResourcesForMatch['labInfo'] => {
-  const { diagnosticReport } = resources;
+const formatResourcesForURMatchTaskResponse = (resources: AllResources): GetUnsolicitedResultsResourcesForMatch => {
+  const { diagnosticReport, readyTasks } = resources;
 
   const { unsolicitedPatient, unsolicitedProvider } = getUnsolicitedResourcesFromDr(diagnosticReport);
-  // const task = readyTasks.find(
-  //   (task) =>
-  //     task.code?.coding?.find(
-  //       (c) => c.system === LAB_ORDER_TASK.system && c.code === LAB_ORDER_TASK.code.matchUnsolicitedResult
-  //     )
-  // );
-  // console.log('am i empty?', task?.id);
+  const task = readyTasks.find(
+    (task) =>
+      task.code?.coding?.find(
+        (c) => c.system === LAB_ORDER_TASK.system && c.code === LAB_ORDER_TASK.code.matchUnsolicitedResult
+      )
+  );
+  if (!task?.id) throw Error(`Could not parse match unsolicited result task id`);
 
   const patientName = unsolicitedPatient ? getFullestAvailableName(unsolicitedPatient, true) : undefined;
   const patientDOB = unsolicitedPatient?.birthDate;
@@ -264,7 +262,7 @@ const formatResourcesForURMatchTaskResponse = (
     test,
     resultsReceived,
   };
-  return labInfo;
+  return { labInfo, taskId: task.id };
 };
 
 const getUnsolicitedResourcesFromDr = (

@@ -28,7 +28,7 @@ import {
   SaveOrderCollectionData,
   Secrets,
   SecretsKeys,
-  UpdateLabOrderResourcesParameters,
+  UpdateLabOrderResourcesInput,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -57,7 +57,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log(`update-lab-order-resources started, input: ${JSON.stringify(input)}`);
 
   let secrets = input.secrets;
-  let validatedParameters: UpdateLabOrderResourcesParameters & { secrets: Secrets | null; userToken: string };
+  let validatedParameters: UpdateLabOrderResourcesInput & { secrets: Secrets | null; userToken: string };
 
   try {
     validatedParameters = validateRequestParameters(input);
@@ -141,6 +141,31 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           body: JSON.stringify({
             message: `Successfully updated saved order collection data`,
             presignedLabelURL,
+          }),
+        };
+      }
+
+      case 'cancelMatchUnsolicitedResultTask': {
+        const { taskId } = validatedParameters;
+        await oystehr.fhir.batch({
+          requests: [
+            getPatchBinary({
+              resourceType: 'Task',
+              resourceId: taskId,
+              patchOperations: [
+                {
+                  op: 'replace',
+                  path: '/status',
+                  value: 'cancelled',
+                },
+              ],
+            }),
+          ],
+        });
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            message: `Successfully cancelled match unsolicited result task with id ${taskId}`,
           }),
         };
       }

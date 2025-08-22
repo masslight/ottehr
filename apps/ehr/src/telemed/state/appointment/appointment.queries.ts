@@ -25,6 +25,7 @@ import { useEffect } from 'react';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { GetUnsolicitedResultsRelatedRequests, useErrorQuery, useSuccessQuery } from 'utils';
 import {
+  CancelMatchUnsolicitedResultTask,
   ChartDataFields,
   ChartDataRequestedFields,
   createSmsModel,
@@ -626,7 +627,7 @@ export function useGetUnsolicitedResultsResourcesForTable(
       return;
     },
 
-    enabled: Boolean(apiClient && FEATURE_FLAGS.LAB_ORDERS_ENABLED),
+    enabled: Boolean(apiClient),
     placeholderData: keepPreviousData,
     staleTime: QUERY_STALE_TIME,
   });
@@ -650,7 +651,7 @@ export function useGetUnsolicitedResultsResourcesForMatch(
       return;
     },
 
-    enabled: Boolean(apiClient && FEATURE_FLAGS.LAB_ORDERS_ENABLED && diagnosticReportId),
+    enabled: Boolean(apiClient && diagnosticReportId),
     placeholderData: keepPreviousData,
     staleTime: QUERY_STALE_TIME,
   });
@@ -674,9 +675,30 @@ export function useGetUnsolicitedResultsRelatedRequests(
       return;
     },
 
-    enabled: Boolean(apiClient && FEATURE_FLAGS.LAB_ORDERS_ENABLED && diagnosticReportId),
+    enabled: Boolean(apiClient && diagnosticReportId),
     placeholderData: keepPreviousData,
     staleTime: QUERY_STALE_TIME,
+  });
+}
+
+export function useCancelMatchUnsolicitedResultTask(): UseMutationResult<
+  void,
+  Error,
+  CancelMatchUnsolicitedResultTask
+> {
+  const apiClient = useOystehrAPIClient();
+
+  return useMutation({
+    mutationFn: async (input: CancelMatchUnsolicitedResultTask) => {
+      const { taskId, event } = input;
+      const data = await apiClient?.updateLabOrderResources({ taskId, event });
+
+      if (data && 'possibleRelatedSRsWithVisitDate' in data) {
+        return data;
+      }
+
+      return;
+    },
   });
 }
 

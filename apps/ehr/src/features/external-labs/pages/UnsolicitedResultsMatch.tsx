@@ -15,18 +15,22 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { enqueueSnackbar } from 'notistack';
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { SearchResultParsedPatient } from 'src/components/PatientsSearch/types';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import PageContainer from 'src/layout/PageContainer';
-import { useGetUnsolicitedResultsResourcesForMatch } from 'src/telemed';
-import { formatDateForLabs, UnsolicitedResultsRequestType } from 'utils';
-import { UnsolicitedPatientMatchSearchCard } from './UnsolicitedPatientMatchSearchCard';
-import { UnsolicitedVisitMatchCard } from './UnsolicitedVisitMatchCard';
+import { useCancelMatchUnsolicitedResultTask, useGetUnsolicitedResultsResourcesForMatch } from 'src/telemed';
+import { formatDateForLabs, LAB_ORDER_UPDATE_RESOURCES_EVENTS, UnsolicitedResultsRequestType } from 'utils';
+import { UnsolicitedPatientMatchSearchCard } from '../components/unsolicited-results/UnsolicitedPatientMatchSearchCard';
+import { UnsolicitedVisitMatchCard } from '../components/unsolicited-results/UnsolicitedVisitMatchCard';
 
 export const UnsolicitedResultsMatch: React.FC = () => {
   const { diagnosticReportId } = useParams();
+  const { mutate: cancelTask, isPending: isCancelling } = useCancelMatchUnsolicitedResultTask();
+  const navigate = useNavigate();
   const [selectedPatient, setSelectedPatient] = useState<SearchResultParsedPatient | undefined>();
   const [confirmedSelectedPatient, setConfirmedSelectedPatient] = useState<SearchResultParsedPatient | undefined>();
   const [srIdForConfirmedMatchedVisit, setSrIdForConfirmedMatchedVisit] = useState<string>('');
@@ -92,13 +96,36 @@ export const UnsolicitedResultsMatch: React.FC = () => {
     },
   ];
 
-  console.log('otherColors.infoBackground', otherColors.infoBackground);
   const handleConfirmPatientMatch = (confirmed: SearchResultParsedPatient | undefined): void => {
     setSelectedPatient(undefined);
     setConfirmedSelectedPatient(confirmed);
   };
 
   const readyToSubmit = !!confirmedSelectedPatient;
+
+  const handleReject = (): void => {
+    console.log('rejecting');
+    if (data?.taskId) {
+      cancelTask(
+        {
+          taskId: data.taskId,
+          event: LAB_ORDER_UPDATE_RESOURCES_EVENTS.cancelMatchUnsolicitedResultTask,
+        },
+        {
+          onSuccess: () => {
+            navigate('/unsolicited-results');
+          },
+          onError: (error) => {
+            console.error('Cancel task failed:', error);
+            enqueueSnackbar('An error occurred rejecting this task. Please try again.', { variant: 'error' });
+          },
+        }
+      );
+    } else {
+      console.log('data.task could not be parsed');
+      enqueueSnackbar('An error occurred rejecting this task. Please try again.', { variant: 'error' });
+    }
+  };
 
   return (
     <PageContainer>
@@ -199,12 +226,12 @@ export const UnsolicitedResultsMatch: React.FC = () => {
               <Stack>
                 <Grid container sx={{ justifyContent: 'end' }} gap={'12px'}>
                   <LoadingButton
+                    loading={isCancelling}
                     variant="outlined"
                     sx={{ borderRadius: '50px', textTransform: 'none', py: 1, px: 5, textWrap: 'nowrap' }}
                     color="error"
                     size={'medium'}
-                    onClick={() => console.log('hi')}
-                    // disabled={pendingLabs.length > 0}
+                    onClick={handleReject}
                   >
                     Reject
                   </LoadingButton>

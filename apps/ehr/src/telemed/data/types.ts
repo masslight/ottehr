@@ -24,6 +24,7 @@ export type GetOystehrTelemedAPIParams = {
   sendFaxZambdaID?: string;
   externalLabResourceSearchID?: string;
   getUnsolicitedResultsResourcesID?: string;
+  updateLabOrderResourcesID?: string;
 };
 
 export type { PromiseReturnType } from 'utils';
