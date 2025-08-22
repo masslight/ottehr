@@ -144,7 +144,7 @@ async function removePatientsWithoutRecentAppointments(config: any): Promise<voi
       params: [
         {
           name: '_sort',
-          value: '-_lastUpdated',
+          value: '_lastUpdated',
         },
         {
           name: '_count',
@@ -182,7 +182,7 @@ async function removePatientsWithoutRecentAppointments(config: any): Promise<voi
           );
           numDeletedPatients += hasDeletedPatient;
           totalNumDeletedOtherResources += otherResources;
-        } catch (error) {
+        } catch (error: unknown) {
           console.error('Error:', error);
         }
       })

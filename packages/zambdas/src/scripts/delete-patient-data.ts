@@ -23,7 +23,7 @@ export const deletePatientData = async (
     deleteRequests.map(async (requestGroup, i) => {
       try {
         console.log('Deleting resources chunk', i + 1, 'of', deleteRequests.length);
-        await oystehr.fhir.batch({ requests: [...requestGroup] });
+        await oystehr.fhir.batch({ requests: requestGroup });
       } catch (e) {
         console.log(`Error deleting resources: ${e}`, JSON.stringify(e));
       } finally {
@@ -32,10 +32,15 @@ export const deletePatientData = async (
       return requestGroup.filter((request) => request.url.startsWith('/Patient')).length;
     })
   );
-  const numDeletedPatients = patientDeleteCount.reduce((a, b) => a + b);
+  const numDeletedPatients = sumArrayOfNumbers(patientDeleteCount);
 
-  return { patients: numDeletedPatients, otherResources: deleteRequests.length - numDeletedPatients };
+  return {
+    patients: numDeletedPatients,
+    otherResources: sumArrayOfNumbers(deleteRequests.map((group) => group.length)) - numDeletedPatients,
+  };
 };
+
+const sumArrayOfNumbers = (arr: number[]): number => arr.reduce((acc, curr) => acc + curr);
 
 const generateDeleteRequests = (allResources: FhirResource[]): BatchInputDeleteRequest[][] => {
   const deleteRequests: BatchInputDeleteRequest[] = allResources
