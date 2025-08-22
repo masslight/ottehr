@@ -1,5 +1,5 @@
 import { Box, Stack, Typography } from '@mui/material';
-import React, { useLayoutEffect, useMemo } from 'react';
+import React, { useLayoutEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useAppointment } from 'src/features/css-module/hooks/useAppointment';
 import { useGetImmunizationOrders } from '../../css-module/hooks/useImmunization';
@@ -14,11 +14,11 @@ export const VaccineDetailsCardList: React.FC = () => {
     resources: { patient },
   } = useAppointment(appointmentId);
 
-  const { immunizationOrders } = useGetImmunizationOrders({ patientId: patient?.id ?? '' });
+  const { data: immunizationOrders } = useGetImmunizationOrders({
+    patientId: patient?.id,
+  });
 
-  const pendingOrders = useMemo(() => {
-    return immunizationOrders.filter((order) => order.status === 'pending');
-  }, [immunizationOrders]);
+  const pendingOrders = (immunizationOrders ?? []).filter((order) => order.status === 'pending');
 
   useLayoutEffect(() => {
     if (scrollTo && pendingOrders.length > 0) {

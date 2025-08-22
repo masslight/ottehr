@@ -5,7 +5,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
 import { WarningBlock } from 'src/features/css-module/components/WarningBlock';
 import { useAppointment } from 'src/features/css-module/hooks/useAppointment';
-import { getImmunizationMARUrl } from 'src/features/css-module/routing/helpers';
+import { getImmunizationMARUrl, getImmunizationOrderEditUrl } from 'src/features/css-module/routing/helpers';
 import { AccordionCard } from 'src/telemed';
 import { PageHeader } from '../../css-module/components/medication-administration/PageHeader';
 import { useCreateUpdateImmunizationOrder, useGetImmunizationOrders } from '../../css-module/hooks/useImmunization';
@@ -23,10 +23,12 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
   const { mutateAsync: createUpdateOrder } = useCreateUpdateImmunizationOrder();
 
   const onSubmit = async (data: any): Promise<void> => {
-    await createUpdateOrder({
+    const response = await createUpdateOrder({
       encounterId: encounter?.id ?? '',
+      orderId: orderId,
       ...data,
     });
+    navigate(getImmunizationOrderEditUrl(appointmentId!, response.id));
   };
 
   const { data: loadedOrders } = useGetImmunizationOrders({

@@ -11,7 +11,7 @@ import {
 const GET_IMMUNIZATION_ORDERS_KEY = 'get-immunization-orders';
 
 export const useCreateUpdateImmunizationOrder = (): UseMutationResult<
-  void,
+  any,
   Error,
   CreateUpdateImmunizationOrderInput
 > => {
@@ -21,8 +21,8 @@ export const useCreateUpdateImmunizationOrder = (): UseMutationResult<
     mutationFn: async (input: CreateUpdateImmunizationOrderInput) => {
       if (!oystehrZambda) throw new Error('oystehrZambda not defined');
       const response = await oystehrZambda.zambda.execute({
-        id: 'create-update-immunization-order',
         ...input,
+        id: 'create-update-immunization-order',
       });
       return chooseJson(response);
     },
@@ -63,8 +63,8 @@ export const useGetImmunizationOrders = (
     queryFn: async () => {
       if (!oystehrZambda) throw new Error('oystehrZambda not defined');
       const response = await oystehrZambda.zambda.execute({
-        id: 'get-immunization-orders',
         ...input,
+        id: 'get-immunization-orders',
       });
       return chooseJson(response);
     },
@@ -81,8 +81,8 @@ export const useCancelImmunizationOrder = (): UseMutationResult<void, Error, Can
     mutationFn: async (input: CancelImmunizationOrderInput) => {
       if (!oystehrZambda) throw new Error('oystehrZambda not defined');
       const response = await oystehrZambda.zambda.execute({
-        id: 'cancel-immunization-order',
         ...input,
+        id: 'cancel-immunization-order',
       });
       return chooseJson(response);
     },
