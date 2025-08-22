@@ -6,6 +6,7 @@ import { ButtonRounded } from 'src/features/css-module/components/RoundedButton'
 import { WarningBlock } from 'src/features/css-module/components/WarningBlock';
 import { useAppointment } from 'src/features/css-module/hooks/useAppointment';
 import { getImmunizationMARUrl, getImmunizationOrderEditUrl } from 'src/features/css-module/routing/helpers';
+import { cleanupProperties } from 'src/helpers/misc.helper';
 import { AccordionCard } from 'src/telemed';
 import { PageHeader } from '../../css-module/components/medication-administration/PageHeader';
 import { useCreateUpdateImmunizationOrder, useGetImmunizationOrders } from '../../css-module/hooks/useImmunization';
@@ -26,7 +27,7 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
     const response = await createUpdateOrder({
       encounterId: encounter?.id ?? '',
       orderId: orderId,
-      ...data,
+      ...(await cleanupProperties(data)),
     });
     navigate(getImmunizationOrderEditUrl(appointmentId!, response.orderId));
   };

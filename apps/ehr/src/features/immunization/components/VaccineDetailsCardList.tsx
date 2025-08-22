@@ -3,6 +3,7 @@ import React, { useLayoutEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useAppointment } from 'src/features/css-module/hooks/useAppointment';
 import { useGetImmunizationOrders } from '../../css-module/hooks/useImmunization';
+import { ordersRecentFirstComparator } from '../common';
 import { VaccineDetailsCard } from './VaccineDetailsCard';
 
 export const VaccineDetailsCardList: React.FC = () => {
@@ -18,7 +19,9 @@ export const VaccineDetailsCardList: React.FC = () => {
     patientId: patient?.id,
   });
 
-  const pendingOrders = (ordersResponse?.orders ?? []).filter((order) => order.status === 'pending');
+  const pendingOrders = (ordersResponse?.orders ?? [])
+    .sort(ordersRecentFirstComparator)
+    .filter((order) => order.status === 'pending');
 
   useLayoutEffect(() => {
     if (scrollTo && pendingOrders.length > 0) {

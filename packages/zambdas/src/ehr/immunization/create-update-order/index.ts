@@ -18,7 +18,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
-import { IMMUNIZATION_ORDER_CREATED_DATE_EXTENSION_URL, updateOrderDetails, validateOrderDetails } from '../common';
+import { IMMUNIZATION_ORDER_CREATED_DATETIME_EXTENSION_URL, updateOrderDetails, validateOrderDetails } from '../common';
 
 let m2mToken: string;
 
@@ -85,8 +85,8 @@ async function createImmunizationOrder(
     effectiveDateTime: DateTime.now().toISO(),
     extension: [
       {
-        url: IMMUNIZATION_ORDER_CREATED_DATE_EXTENSION_URL,
-        valueDate: DateTime.now().toISODate(),
+        url: IMMUNIZATION_ORDER_CREATED_DATETIME_EXTENSION_URL,
+        valueDateTime: DateTime.now().toISO(),
       },
     ],
     meta: fillMeta('immunization', 'immunization'),

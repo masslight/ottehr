@@ -27,7 +27,7 @@ import {
   CONTAINED_EMERGENCY_CONTACT_ID,
   CVX_CODE_SYSTEM_URL,
   getContainedMedication,
-  IMMUNIZATION_ORDER_CREATED_DATE_EXTENSION_URL,
+  IMMUNIZATION_ORDER_CREATED_DATETIME_EXTENSION_URL,
   MVX_CODE_SYSTEM_URL,
   VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
   VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL,
@@ -129,7 +129,8 @@ function mapMedicationAdministrationToImmunizationOrder(
       units: medicationAdministration.dosage?.dose?.unit ?? '',
       orderedProvider: getProvider(medicationAdministration, PRACTITIONER_ORDERED_BY_MEDICATION_CODE),
       orderedDateTime:
-        getDateExtensionValue(medicationAdministration, IMMUNIZATION_ORDER_CREATED_DATE_EXTENSION_URL) ?? '',
+        medicationAdministration.extension?.find((e) => e.url === IMMUNIZATION_ORDER_CREATED_DATETIME_EXTENSION_URL)
+          ?.valueDateTime ?? '',
       route: getCoding(medicationAdministration.dosage?.route, MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM)?.code,
       location: getCoding(medicationAdministration.dosage?.site, MEDICATION_APPLIANCE_LOCATION_SYSTEM)?.code,
       instructions: medicationAdministration.dosage?.text,
@@ -145,10 +146,9 @@ function mapMedicationAdministrationToImmunizationOrder(
             ndc: findCoding(administrationCodesExtensions, CODE_SYSTEM_NDC)?.code ?? '',
             administeredProvider: getProvider(medicationAdministration, PRACTITIONER_ADMINISTERED_MEDICATION_CODE),
             administeredDateTime: medicationAdministration.effectiveDateTime ?? '',
-            visGivenDate: getDateExtensionValue(
-              medicationAdministration,
-              VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL
-            ),
+            visGivenDate: medicationAdministration.extension?.find(
+              (e) => e.url === VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL
+            )?.valueDate,
             emergencyContact: emergencyContactReatedPerson
               ? {
                   fullName: emergencyContactReatedPerson.name?.[0].text ?? '',
@@ -179,11 +179,4 @@ function getProvider(medicationAdministration: MedicationAdministration, code: s
     id: reference?.reference?.split('/')[1] ?? '',
     name: reference?.display ?? '',
   };
-}
-
-function getDateExtensionValue(
-  medicationAdministration: MedicationAdministration,
-  extensionUrl: string
-): string | undefined {
-  return medicationAdministration.extension?.find((e) => e.url === extensionUrl)?.valueDate;
 }

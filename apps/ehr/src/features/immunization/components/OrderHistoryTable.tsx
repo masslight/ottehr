@@ -16,6 +16,7 @@ import { useParams } from 'react-router-dom';
 import { useAppointment } from 'src/features/css-module/hooks/useAppointment';
 import { COLLAPSED_MEDS_COUNT } from 'src/features/css-module/hooks/useMedicationHistory';
 import { useGetImmunizationOrders } from '../../css-module/hooks/useImmunization';
+import { ordersRecentFirstComparator } from '../common';
 import { OrderHistoryTableRow } from './OrderHistoryTableRow';
 import { OrderHistoryTableSkeletonBody } from './OrderHistoryTableSkeletonBody';
 
@@ -36,7 +37,7 @@ export const OrderHistoryTable: React.FC<Props> = ({ showActions }) => {
     patientId: patient?.id,
   });
 
-  const orders = ordersResponse?.orders ?? [];
+  const orders = (ordersResponse?.orders ?? []).sort(ordersRecentFirstComparator);
   const ordersToShow = seeMoreOpen ? orders : orders.slice(0, COLLAPSED_MEDS_COUNT);
   const isLoading = patientIdLoading || ordersLoading;
 
