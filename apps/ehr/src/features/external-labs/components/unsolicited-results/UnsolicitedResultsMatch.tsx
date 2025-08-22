@@ -1,4 +1,6 @@
+import { otherColors } from '@ehrTheme/colors';
 import ClearIcon from '@mui/icons-material/Clear';
+import InfoIcon from '@mui/icons-material/InfoOutlined';
 import { LoadingButton } from '@mui/lab';
 import {
   Box,
@@ -28,7 +30,7 @@ export const UnsolicitedResultsMatch: React.FC = () => {
   const [selectedPatient, setSelectedPatient] = useState<SearchResultParsedPatient | undefined>();
   const [confirmedSelectedPatient, setConfirmedSelectedPatient] = useState<SearchResultParsedPatient | undefined>();
   const [srIdForConfirmedMatchedVisit, setSrIdForConfirmedMatchedVisit] = useState<string>('');
-  const PAGE_TITLE = 'Match Unsolicited Result';
+  const PAGE_TITLE = 'Match Unsolicited Test Results';
 
   if (!diagnosticReportId) {
     throw new Error('diagnosticReportId is required');
@@ -80,16 +82,17 @@ export const UnsolicitedResultsMatch: React.FC = () => {
       fieldName: 'Test',
       value: data?.labInfo?.test,
     },
+    // {
+    //   fieldName: 'Lab',
+    //   value: undefined, // todo sarah we dont have access to this yet, need change from oystehr
+    // },
     {
-      fieldName: 'Source',
-      value: undefined, // we dont have access to this yet, need change from oystehr
-    },
-    {
-      fieldName: 'Results received',
+      fieldName: 'Received',
       value: formatDateForLabs(data?.labInfo?.resultsReceived, undefined),
     },
   ];
 
+  console.log('otherColors.infoBackground', otherColors.infoBackground);
   const handleConfirmPatientMatch = (confirmed: SearchResultParsedPatient | undefined): void => {
     setSelectedPatient(undefined);
     setConfirmedSelectedPatient(confirmed);
@@ -170,6 +173,29 @@ export const UnsolicitedResultsMatch: React.FC = () => {
                   />
                 )}
               </Stack>
+              {confirmedSelectedPatient?.id && (
+                <Stack>
+                  <Box
+                    sx={{
+                      width: '100%',
+                      height: '48px',
+                      background: `${otherColors.infoBackground}`,
+                      display: 'flex',
+                      justifyContent: 'left',
+                      alignItems: 'center',
+                      borderRadius: '4px',
+                      py: '6px',
+                      px: '16px',
+                    }}
+                    gap="12px"
+                  >
+                    <InfoIcon sx={{ color: 'info.main' }}></InfoIcon>
+                    <Typography variant="button" sx={{ textTransform: 'none', color: 'primary.dark' }}>
+                      Please notify provider to review the unsolicited test result.
+                    </Typography>
+                  </Box>
+                </Stack>
+              )}
               <Stack>
                 <Grid container sx={{ justifyContent: 'end' }} gap={'12px'}>
                   <LoadingButton
