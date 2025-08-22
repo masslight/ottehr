@@ -28,17 +28,17 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
       orderId: orderId,
       ...data,
     });
-    navigate(getImmunizationOrderEditUrl(appointmentId!, response.id));
+    navigate(getImmunizationOrderEditUrl(appointmentId!, response.orderId));
   };
 
-  const { data: loadedOrders } = useGetImmunizationOrders({
+  const { data: ordersResponse } = useGetImmunizationOrders({
     orderId: orderId,
   });
 
   const methods = useForm();
 
   useEffect(() => {
-    const order = loadedOrders?.find((order) => order.id === orderId);
+    const order = ordersResponse?.orders?.find((order) => order.id === orderId);
     if (order) {
       methods.reset({
         ...order,
@@ -49,7 +49,7 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
         },
       });
     }
-  }, [methods, loadedOrders, orderId]);
+  }, [methods, ordersResponse, orderId]);
 
   return (
     <FormProvider {...methods}>

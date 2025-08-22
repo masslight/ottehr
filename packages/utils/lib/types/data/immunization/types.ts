@@ -51,30 +51,33 @@ export interface InputImmunizationOrderDetails
   orderedProviderId: string;
 }
 
-export interface CreateUpdateImmunizationOrderInput {
+export interface CreateUpdateImmunizationOrderRequest {
   orderId?: string;
   encounterId: string;
   details: InputImmunizationOrderDetails;
 }
 
-export interface GetImmunizationOrdersInput {
+export interface CreateUpdateImmunizationOrderResponse {
+  orderId: string;
+}
+
+export interface GetImmunizationOrdersRequest {
   orderId?: string;
   patientId?: string;
 }
 
-export interface InputImmunizationOrderAdministrationDetails
-  extends Omit<ImmunizationOrderAdministrationDetails, 'administeredProvider'> {
-  administeredProviderId: string;
+export interface GetImmunizationOrdersResponse {
+  orders: ImmunizationOrder[];
 }
 
-export interface AdministerImmunizationOrderInput {
+export interface AdministerImmunizationOrderRequest {
   orderId: string;
   type: 'administered' | 'administered-partly' | 'administered-not';
   reason?: string;
   details: InputImmunizationOrderDetails;
-  administrationDetails: InputImmunizationOrderAdministrationDetails;
+  administrationDetails: Omit<ImmunizationOrderAdministrationDetails, 'administeredProvider'>;
 }
 
-export interface CancelImmunizationOrderInput {
+export interface CancelImmunizationOrderRequest {
   orderId: string;
 }

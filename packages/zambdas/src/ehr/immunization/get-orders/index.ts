@@ -5,7 +5,8 @@ import {
   CODE_SYSTEM_CPT,
   CODE_SYSTEM_NDC,
   getCoding,
-  GetImmunizationOrdersInput,
+  GetImmunizationOrdersRequest,
+  GetImmunizationOrdersResponse,
   getMedicationName,
   ImmunizationOrder,
   mapFhirToOrderStatus,
@@ -58,8 +59,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 async function getImmunizationOrders(
   oystehr: Oystehr,
-  input: GetImmunizationOrdersInput
-): Promise<ImmunizationOrder[]> {
+  input: GetImmunizationOrdersRequest
+): Promise<GetImmunizationOrdersResponse> {
   const { orderId, patientId } = input;
   const params: SearchParam[] = [
     {
@@ -79,19 +80,21 @@ async function getImmunizationOrders(
       value: 'Patient/' + patientId,
     });
   }
-  return (
-    await oystehr.fhir.search<MedicationAdministration>({
-      resourceType: 'MedicationAdministration',
-      params,
-    })
-  )
-    .unbundle()
-    .map(mapMedicationAdministrationToImmunizationOrder);
+  return {
+    orders: (
+      await oystehr.fhir.search<MedicationAdministration>({
+        resourceType: 'MedicationAdministration',
+        params,
+      })
+    )
+      .unbundle()
+      .map(mapMedicationAdministrationToImmunizationOrder),
+  };
 }
 
 export function validateRequestParameters(
   input: ZambdaInput
-): GetImmunizationOrdersInput & Pick<ZambdaInput, 'secrets'> {
+): GetImmunizationOrdersRequest & Pick<ZambdaInput, 'secrets'> {
   const { orderId, patientId } = validateJsonBody(input);
 
   return {

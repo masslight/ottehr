@@ -10,11 +10,12 @@ import {
   RelatedPerson,
 } from 'fhir/r4b';
 import {
-  AdministerImmunizationOrderInput,
+  AdministerImmunizationOrderRequest,
   CODE_SYSTEM_CPT,
   CODE_SYSTEM_NDC,
   codeableConcept,
   createReference,
+  CreateUpdateImmunizationOrderResponse,
   getFullName,
   getMedicationName,
   ImmunizationEmergencyContact,
@@ -78,9 +79,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 async function administerImmunizationOrder(
   oystehr: Oystehr,
-  input: AdministerImmunizationOrderInput,
+  input: AdministerImmunizationOrderRequest,
   userPractitioner: Practitioner
-): Promise<any> {
+): Promise<CreateUpdateImmunizationOrderResponse> {
   const { orderId, type, reason, details, administrationDetails } = input;
   const medicationAdministration = await oystehr.fhir.get<MedicationAdministration>({
     resourceType: 'MedicationAdministration',
@@ -107,8 +108,8 @@ async function administerImmunizationOrder(
 
   medicationAdministration.performer?.push({
     actor: {
-      reference: `Practitioner/${administrationDetails.administeredProviderId}`,
-      display: administrationDetails.administeredProviderId, // todo get name
+      reference: `Practitioner/${userPractitioner.id}`,
+      display: getFullName(userPractitioner),
     },
     function: {
       coding: [
@@ -191,14 +192,13 @@ async function administerImmunizationOrder(
   console.log('Transaction result: ', JSON.stringify(transactionResult));
 
   return {
-    message: 'Order was administered',
-    id: medicationAdministration.id,
+    orderId: medicationAdministration.id!,
   };
 }
 
 export function validateRequestParameters(
   input: ZambdaInput
-): AdministerImmunizationOrderInput & Pick<ZambdaInput, 'secrets'> {
+): AdministerImmunizationOrderRequest & Pick<ZambdaInput, 'secrets'> {
   const { orderId, type, reason, details, administrationDetails } = validateJsonBody(input);
 
   const missingFields: string[] = [];
@@ -215,8 +215,6 @@ export function validateRequestParameters(
   if (!administrationDetails?.mvx) missingFields.push('administrationDetails.mvx');
   if (!administrationDetails?.cvx) missingFields.push('administrationDetails.cvx');
   if (!administrationDetails?.ndc) missingFields.push('administrationDetails.ndc');
-  if (!administrationDetails?.administeredProviderId)
-    missingFields.push('administrationDetails.administeredProviderId');
   if (!administrationDetails?.administeredDateTime) missingFields.push('administrationDetails.administeredDateTime');
   if (!administrationDetails?.visGivenDate && ['administered', 'administered-partly'].includes(type)) {
     missingFields.push('administrationDetails.visGivenDate');
@@ -291,6 +289,6 @@ function createEmergencyContactRelatedPerson(
         value: emergencyContact.mobile,
       },
     ],
-    relationship: [{}], //todo
+    //relationship: [{}], //todo
   };
 }

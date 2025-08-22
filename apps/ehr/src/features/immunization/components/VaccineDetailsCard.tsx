@@ -6,6 +6,8 @@ import { DateInput } from 'src/components/input/DateInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { TimeInput } from 'src/components/input/TimeInput';
 import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
+import { useAdministerImmunizationOrder } from 'src/features/css-module/hooks/useImmunization';
+import { cleanupProperties } from 'src/helpers/misc.helper';
 import { ImmunizationOrder } from 'utils';
 import { OrderDetailsSection } from './OrderDetailsSection';
 
@@ -27,8 +29,14 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
   });
   const theme = useTheme();
 
-  const onSubmit = (data: any): void => {
-    console.log(data);
+  const { mutateAsync: administerOrder } = useAdministerImmunizationOrder();
+
+  const onSubmit = async (data: any): Promise<void> => {
+    await administerOrder({
+      orderId: order.id,
+      type: 'administered',
+      ...(await cleanupProperties(data)),
+    });
   };
 
   return (
@@ -51,28 +59,28 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                 </Typography>
               </Grid>
               <Grid xs={3} item>
-                <TextInput name="administeringData.lot" label="LOT number" required />
+                <TextInput name="administrationDetails.lot" label="LOT number" required />
               </Grid>
               <Grid xs={3} item>
-                <DateInput name="administeringData.expDate" label="Exp. Date" required />
+                <DateInput name="administrationDetails.expDate" label="Exp. Date" required />
               </Grid>
               <Grid xs={3} item>
-                <TextInput name="administeringData.mvx" label="MVX code" required />
+                <TextInput name="administrationDetails.mvx" label="MVX code" required />
               </Grid>
               <Grid xs={3} item>
-                <TextInput name="administeringData.cvx" label="CVX code" required />
+                <TextInput name="administrationDetails.cvx" label="CVX code" required />
               </Grid>
               <Grid xs={3} item>
-                <TextInput name="administeringData.cpt" label="CPT code" />
+                <TextInput name="administrationDetails.cpt" label="CPT code" />
               </Grid>
               <Grid xs={3} item>
-                <TextInput name="administeringData.ndc" label="NDC code" required />
+                <TextInput name="administrationDetails.ndc" label="NDC code" required />
               </Grid>
               <Grid xs={3} item>
-                <DateInput name="administeringData.administeredDateTime" label="Administered date" required />
+                <DateInput name="administrationDetails.administeredDateTime" label="Administered date" required />
               </Grid>
               <Grid xs={3} item>
-                <TimeInput name="administeringData.administeredDateTime" label="Administered time" required />
+                <TimeInput name="administrationDetails.administeredDateTime" label="Administered time" required />
               </Grid>
               <Grid xs={6} item>
                 <Box
@@ -88,7 +96,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                 </Box>
               </Grid>
               <Grid xs={6} item>
-                <DateInput name="administeringData.visGivenDate" label="VIS given date" required />
+                <DateInput name="administrationDetails.visGivenDate" label="VIS given date" required />
               </Grid>
               <Grid xs={12} item>
                 <Typography
@@ -101,13 +109,13 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                 </Typography>
               </Grid>
               <Grid xs={4} item>
-                <TextInput name="emergencyContact.relationship" label="Relationship" />
+                <TextInput name="administrationDetails.emergencyContact.relationship" label="Relationship" />
               </Grid>
               <Grid xs={4} item>
-                <TextInput name="emergencyContact.fullName" label="Full name" />
+                <TextInput name="administrationDetails.emergencyContact.fullName" label="Full name" />
               </Grid>
               <Grid xs={4} item>
-                <TextInput name="emergencyContact.mobile" label="Mobile" />
+                <TextInput name="administrationDetails.emergencyContact.mobile" label="Mobile" />
               </Grid>
               <Grid xs={12} item>
                 <Stack direction="row" justifyContent="end" alignItems="center">

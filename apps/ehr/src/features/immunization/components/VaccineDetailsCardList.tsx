@@ -14,11 +14,11 @@ export const VaccineDetailsCardList: React.FC = () => {
     resources: { patient },
   } = useAppointment(appointmentId);
 
-  const { data: immunizationOrders } = useGetImmunizationOrders({
+  const { data: ordersResponse } = useGetImmunizationOrders({
     patientId: patient?.id,
   });
 
-  const pendingOrders = (immunizationOrders ?? []).filter((order) => order.status === 'pending');
+  const pendingOrders = (ordersResponse?.orders ?? []).filter((order) => order.status === 'pending');
 
   useLayoutEffect(() => {
     if (scrollTo && pendingOrders.length > 0) {

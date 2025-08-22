@@ -1,24 +1,26 @@
 import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
-  CancelImmunizationOrderInput,
+  AdministerImmunizationOrderRequest,
+  CancelImmunizationOrderRequest,
   chooseJson,
-  CreateUpdateImmunizationOrderInput,
-  GetImmunizationOrdersInput,
-  ImmunizationOrder,
+  CreateUpdateImmunizationOrderRequest,
+  CreateUpdateImmunizationOrderResponse,
+  GetImmunizationOrdersRequest,
+  GetImmunizationOrdersResponse,
 } from 'utils';
 
 const GET_IMMUNIZATION_ORDERS_KEY = 'get-immunization-orders';
 
 export const useCreateUpdateImmunizationOrder = (): UseMutationResult<
-  any,
+  CreateUpdateImmunizationOrderResponse,
   Error,
-  CreateUpdateImmunizationOrderInput
+  CreateUpdateImmunizationOrderRequest
 > => {
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: CreateUpdateImmunizationOrderInput) => {
+    mutationFn: async (input: CreateUpdateImmunizationOrderRequest) => {
       if (!oystehrZambda) throw new Error('oystehrZambda not defined');
       const response = await oystehrZambda.zambda.execute({
         ...input,
@@ -35,15 +37,21 @@ export const useCreateUpdateImmunizationOrder = (): UseMutationResult<
   });
 };
 
-/*export const useAdministerImmunizationOrder = (): UseMutationResult<void, Error, AdministerImmunizationOrderInput> => {
+export const useAdministerImmunizationOrder = (): UseMutationResult<
+  CreateUpdateImmunizationOrderResponse,
+  Error,
+  AdministerImmunizationOrderRequest
+> => {
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: AdministerImmunizationOrderInput) => {
+    mutationFn: async (input: AdministerImmunizationOrderRequest) => {
       if (!oystehrZambda) throw new Error('oystehrZambda not defined');
-      return createImmunizationOrder(oystehrZambda, {
+      const response = await oystehrZambda.zambda.execute({
         ...input,
+        id: 'administer-immunization-order',
       });
+      return chooseJson(response);
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({
@@ -52,11 +60,11 @@ export const useCreateUpdateImmunizationOrder = (): UseMutationResult<
       });
     },
   });
-};*/
+};
 
 export const useGetImmunizationOrders = (
-  input: GetImmunizationOrdersInput
-): UseQueryResult<ImmunizationOrder[], Error> => {
+  input: GetImmunizationOrdersRequest
+): UseQueryResult<GetImmunizationOrdersResponse, Error> => {
   const { oystehrZambda } = useApiClients();
   return useQuery({
     queryKey: [GET_IMMUNIZATION_ORDERS_KEY, input],
@@ -74,11 +82,11 @@ export const useGetImmunizationOrders = (
   });
 };
 
-export const useCancelImmunizationOrder = (): UseMutationResult<void, Error, CancelImmunizationOrderInput> => {
+export const useCancelImmunizationOrder = (): UseMutationResult<void, Error, CancelImmunizationOrderRequest> => {
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: CancelImmunizationOrderInput) => {
+    mutationFn: async (input: CancelImmunizationOrderRequest) => {
       if (!oystehrZambda) throw new Error('oystehrZambda not defined');
       const response = await oystehrZambda.zambda.execute({
         ...input,

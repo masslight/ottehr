@@ -32,11 +32,11 @@ export const OrderHistoryTable: React.FC<Props> = ({ showActions }) => {
     isLoading: patientIdLoading,
   } = useAppointment(appointmentId);
 
-  const { data: loadedOrders, isLoading: ordersLoading } = useGetImmunizationOrders({
+  const { data: ordersResponse, isLoading: ordersLoading } = useGetImmunizationOrders({
     patientId: patient?.id,
   });
 
-  const orders = loadedOrders ?? [];
+  const orders = ordersResponse?.orders ?? [];
   const ordersToShow = seeMoreOpen ? orders : orders.slice(0, COLLAPSED_MEDS_COUNT);
   const isLoading = patientIdLoading || ordersLoading;
 

@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { MedicationAdministration } from 'fhir/r4b';
-import { CancelImmunizationOrderInput, mapFhirToOrderStatus, mapOrderStatusToFhir, replaceOperation } from 'utils';
+import { CancelImmunizationOrderRequest, mapFhirToOrderStatus, mapOrderStatusToFhir, replaceOperation } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -19,10 +19,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const validatedParameters = validateRequestParameters(input);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
     const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
-    const response = await cancelImmunizationOrder(oystehr, validatedParameters);
+    await cancelImmunizationOrder(oystehr, validatedParameters);
     return {
       statusCode: 200,
-      body: JSON.stringify(response),
+      body: '',
     };
   } catch (error: any) {
     console.log('Error: ', error);
@@ -34,7 +34,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 });
 
-async function cancelImmunizationOrder(oystehr: Oystehr, input: CancelImmunizationOrderInput): Promise<any> {
+async function cancelImmunizationOrder(oystehr: Oystehr, input: CancelImmunizationOrderRequest): Promise<void> {
   const { orderId } = input;
   const medicationAdministration = await oystehr.fhir.get<MedicationAdministration>({
     resourceType: 'MedicationAdministration',
@@ -53,16 +53,11 @@ async function cancelImmunizationOrder(oystehr: Oystehr, input: CancelImmunizati
     id: orderId,
     operations: patchOperations,
   });
-
-  return {
-    message: 'Order was cancelled',
-    id: orderId,
-  };
 }
 
 export function validateRequestParameters(
   input: ZambdaInput
-): CancelImmunizationOrderInput & Pick<ZambdaInput, 'secrets'> {
+): CancelImmunizationOrderRequest & Pick<ZambdaInput, 'secrets'> {
   const { orderId } = validateJsonBody(input);
 
   if (!orderId) {

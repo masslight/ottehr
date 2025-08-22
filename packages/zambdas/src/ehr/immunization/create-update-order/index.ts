@@ -4,7 +4,8 @@ import { Encounter, MedicationAdministration } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   createReference,
-  CreateUpdateImmunizationOrderInput,
+  CreateUpdateImmunizationOrderRequest,
+  CreateUpdateImmunizationOrderResponse,
   MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
   PRACTITIONER_ORDERED_MEDICATION_CODE,
 } from 'utils';
@@ -52,9 +53,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 async function createImmunizationOrder(
   oystehr: Oystehr,
-  input: CreateUpdateImmunizationOrderInput,
+  input: CreateUpdateImmunizationOrderRequest,
   userPractitionerId: string
-): Promise<any> {
+): Promise<CreateUpdateImmunizationOrderResponse> {
   const { encounterId, details } = input;
   const encounter = await oystehr.fhir.get<Encounter>({
     resourceType: 'Encounter',
@@ -93,12 +94,14 @@ async function createImmunizationOrder(
   await updateOrderDetails(medicationAdministration, details, oystehr);
   const createdMedicationAdministration = await oystehr.fhir.create(medicationAdministration);
   return {
-    message: 'Order was created',
-    id: createdMedicationAdministration.id,
+    orderId: createdMedicationAdministration.id!,
   };
 }
 
-async function updateImmunizationOrder(oystehr: Oystehr, input: CreateUpdateImmunizationOrderInput): Promise<any> {
+async function updateImmunizationOrder(
+  oystehr: Oystehr,
+  input: CreateUpdateImmunizationOrderRequest
+): Promise<CreateUpdateImmunizationOrderResponse> {
   const { orderId, details } = input;
   const medicationAdministration = await oystehr.fhir.get<MedicationAdministration>({
     resourceType: 'MedicationAdministration',
@@ -107,13 +110,13 @@ async function updateImmunizationOrder(oystehr: Oystehr, input: CreateUpdateImmu
   await updateOrderDetails(medicationAdministration, details, oystehr);
   await oystehr.fhir.update(medicationAdministration);
   return {
-    id: medicationAdministration.id,
+    orderId: medicationAdministration.id!,
   };
 }
 
 export function validateRequestParameters(
   input: ZambdaInput
-): CreateUpdateImmunizationOrderInput & Pick<ZambdaInput, 'secrets'> {
+): CreateUpdateImmunizationOrderRequest & Pick<ZambdaInput, 'secrets'> {
   const { orderId, encounterId, details } = validateJsonBody(input);
 
   const missingFields: string[] = [];
