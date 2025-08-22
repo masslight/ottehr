@@ -82,7 +82,6 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({
   const transformVitalsToRows = (): any => {
     if (!vitalsData?.vitals) return [];
 
-    console.log('This is my vitals data:', vitalsData.vitals);
     const rowData: Record<string, string | number> = { id: 1 };
 
     vitalsData.vitals.forEach((vital) => {
@@ -147,6 +146,8 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({
 
     vitalsData.vitals.forEach((vital) => {
       const fieldName = vital.code.text.trim();
+
+      if (fieldName.toLowerCase().includes('threshold')) return;
 
       if (!columns.find((col) => col.field === fieldName)) {
         columns.push({
