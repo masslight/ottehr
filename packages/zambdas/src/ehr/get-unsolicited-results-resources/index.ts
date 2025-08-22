@@ -14,7 +14,12 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
-import { handleGetTasks, handleIconResourceRequest, handleUnsolicitedRequestMatch } from './helpers';
+import {
+  handleGetPossibleRelatedRequestsToUnsolicitedResult,
+  handleGetTasks,
+  handleIconResourceRequest,
+  handleUnsolicitedRequestMatch,
+} from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -41,14 +46,23 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         response = await handleIconResourceRequest(oystehr);
         break;
       }
-      case UnsolicitedResultsRequestType.GET_ALL_TASKS: {
-        console.log('handling get-tasks request');
+      case UnsolicitedResultsRequestType.GET_TABLE_ROWS: {
+        console.log('handling get-table-rows request');
         response = await handleGetTasks(oystehr);
         break;
       }
       case UnsolicitedResultsRequestType.MATCH_UNSOLICITED_RESULTS: {
         console.log('handling match-unsolicited-result request');
         response = await handleUnsolicitedRequestMatch(oystehr, validatedParameters.diagnosticReportId);
+        break;
+      }
+      case UnsolicitedResultsRequestType.GET_UR_RELATED_REQUESTS: {
+        console.log('handling get-ur-related-requests request');
+        response = await handleGetPossibleRelatedRequestsToUnsolicitedResult(
+          oystehr,
+          validatedParameters.diagnosticReportId,
+          validatedParameters.patientId
+        );
         break;
       }
       default: {

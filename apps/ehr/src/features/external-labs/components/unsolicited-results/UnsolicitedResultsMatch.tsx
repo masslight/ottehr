@@ -1,18 +1,33 @@
 import ClearIcon from '@mui/icons-material/Clear';
-import { Box, CircularProgress, IconButton, Paper, Stack, TextField, Typography } from '@mui/material';
+import { LoadingButton } from '@mui/lab';
+import {
+  Box,
+  CircularProgress,
+  FormControlLabel,
+  Grid,
+  IconButton,
+  Paper,
+  Radio,
+  RadioGroup,
+  Stack,
+  TextField,
+  Typography,
+} from '@mui/material';
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { SearchResultParsedPatient } from 'src/components/PatientsSearch/types';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import PageContainer from 'src/layout/PageContainer';
-import { useGetUnsolicitedResultsResources } from 'src/telemed';
+import { useGetUnsolicitedResultsResourcesForMatch } from 'src/telemed';
 import { formatDateForLabs, UnsolicitedResultsRequestType } from 'utils';
 import { UnsolicitedPatientMatchSearchCard } from './UnsolicitedPatientMatchSearchCard';
+import { UnsolicitedVisitMatchCard } from './UnsolicitedVisitMatchCard';
 
 export const UnsolicitedResultsMatch: React.FC = () => {
   const { diagnosticReportId } = useParams();
   const [selectedPatient, setSelectedPatient] = useState<SearchResultParsedPatient | undefined>();
   const [confirmedSelectedPatient, setConfirmedSelectedPatient] = useState<SearchResultParsedPatient | undefined>();
+  const [srIdForConfirmedMatchedVisit, setSrIdForConfirmedMatchedVisit] = useState<string>('');
   const PAGE_TITLE = 'Match Unsolicited Result';
 
   if (!diagnosticReportId) {
@@ -23,7 +38,7 @@ export const UnsolicitedResultsMatch: React.FC = () => {
     data,
     isLoading,
     error: resourceSearchError,
-  } = useGetUnsolicitedResultsResources({
+  } = useGetUnsolicitedResultsResourcesForMatch({
     requestType: UnsolicitedResultsRequestType.MATCH_UNSOLICITED_RESULTS,
     diagnosticReportId,
   });
@@ -80,6 +95,8 @@ export const UnsolicitedResultsMatch: React.FC = () => {
     setConfirmedSelectedPatient(confirmed);
   };
 
+  const readyToSubmit = !!confirmedSelectedPatient;
+
   return (
     <PageContainer>
       <DetailPageContainer>
@@ -130,6 +147,52 @@ export const UnsolicitedResultsMatch: React.FC = () => {
                     handleConfirmPatientMatch={handleConfirmPatientMatch}
                   ></UnsolicitedPatientMatchSearchCard>
                 )}
+              </Stack>
+              <Stack spacing={'8px'}>
+                <Typography variant="body1" sx={{ fontWeight: 500, color: 'primary.dark' }}>
+                  Match to visit:
+                </Typography>
+                {!confirmedSelectedPatient?.id ? (
+                  <RadioGroup value={''}>
+                    <FormControlLabel
+                      key={`visit-date-radio-none-val-locked`}
+                      value=""
+                      control={<Radio disabled />}
+                      label="none"
+                    />
+                  </RadioGroup>
+                ) : (
+                  <UnsolicitedVisitMatchCard
+                    diagnosticReportId={diagnosticReportId}
+                    patientId={confirmedSelectedPatient.id}
+                    srIdForConfirmedMatchedVisit={srIdForConfirmedMatchedVisit}
+                    setSrIdForConfirmedMatchedVisit={setSrIdForConfirmedMatchedVisit}
+                  />
+                )}
+              </Stack>
+              <Stack>
+                <Grid container sx={{ justifyContent: 'end' }} gap={'12px'}>
+                  <LoadingButton
+                    variant="outlined"
+                    sx={{ borderRadius: '50px', textTransform: 'none', py: 1, px: 5, textWrap: 'nowrap' }}
+                    color="error"
+                    size={'medium'}
+                    onClick={() => console.log('hi')}
+                    // disabled={pendingLabs.length > 0}
+                  >
+                    Reject
+                  </LoadingButton>
+                  <LoadingButton
+                    variant="contained"
+                    sx={{ borderRadius: '50px', textTransform: 'none', py: 1, px: 5, textWrap: 'nowrap' }}
+                    color="primary"
+                    size={'medium'}
+                    onClick={() => console.log('hi')}
+                    disabled={!readyToSubmit}
+                  >
+                    Submit
+                  </LoadingButton>
+                </Grid>
               </Stack>
             </Stack>
           )}

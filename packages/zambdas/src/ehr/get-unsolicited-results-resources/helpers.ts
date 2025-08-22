@@ -1,5 +1,14 @@
 import Oystehr, { BatchInputGetRequest, Bundle } from '@oystehr/sdk';
-import { DiagnosticReport, FhirResource, Patient, Practitioner, Task } from 'fhir/r4b';
+import {
+  Appointment,
+  DiagnosticReport,
+  Encounter,
+  FhirResource,
+  Patient,
+  Practitioner,
+  ServiceRequest,
+  Task,
+} from 'fhir/r4b';
 import {
   DR_UNSOLICITED_PATIENT_REF,
   DR_UNSOLICITED_PRACTITIONER_REF,
@@ -10,6 +19,7 @@ import {
   GetUnsolicitedResultsResourcesForMatch,
   GetUnsolicitedResultsResourcesForTable,
   LAB_ORDER_TASK,
+  RelatedRequestsToUnsolicitedResultOutput,
   UnsolicitedResultTaskRowDTO,
   UR_TASK_ACTION,
 } from 'utils';
@@ -48,7 +58,7 @@ export const handleGetTasks = async (oystehr: Oystehr): Promise<GetUnsolicitedRe
   console.log('formatting the resources for response');
   const rows = formatResourcesForTaskTableResponse(groupedResources);
   console.log('returning formatted rows', rows.length);
-  return { unsolicitedResultTasks: rows };
+  return { unsolicitedResultRows: rows };
 };
 
 export const handleUnsolicitedRequestMatch = async (
@@ -60,7 +70,7 @@ export const handleUnsolicitedRequestMatch = async (
     '_include=DiagnosticReport:subject',
   ]);
   console.log('grouping the resources returned by diagnostic report', resources.length);
-  const groupedResources = groupResourcesByDr(resources);
+  const groupedResources = groupResourcesByDr([...resources]);
   const entries = Object.values(groupedResources);
   if (entries.length > 1) {
     throw Error('More than one diagnostic report found for this unsolicited result task detail page');
@@ -69,6 +79,27 @@ export const handleUnsolicitedRequestMatch = async (
   console.log('formatting the resources for unsolicited result task detail page');
   const labInfo = formatResourcesForURMatchTaskResponse(resourceEntry);
   return { labInfo };
+};
+
+export const handleGetPossibleRelatedRequestsToUnsolicitedResult = async (
+  oystehr: Oystehr,
+  diagnosticReportId: string,
+  patientId: string
+): Promise<RelatedRequestsToUnsolicitedResultOutput> => {
+  const diagnosticReport = await oystehr.fhir.get<DiagnosticReport>({
+    resourceType: 'DiagnosticReport',
+    id: diagnosticReportId,
+  });
+  if (!diagnosticReport) throw Error(`could not find diagnostic report with id ${diagnosticReportId}`);
+
+  // if patient id is passed as a param that means the user has matched a patient for the unsolicited result and we now have enough info
+  // to determine if the result can be matched to an existing SR
+  const possibleRelatedSRsWithVisitDate = patientId
+    ? await getEncountersPossiblyRelatedToUnsolicitedResult(patientId, diagnosticReport, oystehr)
+    : undefined;
+
+  console.log('response for unsolicited results related requests successfully formatted');
+  return { possibleRelatedSRsWithVisitDate };
 };
 
 type AllResources = {
@@ -255,4 +286,113 @@ const getUnsolicitedResourcesFromDr = (
     unsolicitedProvider = containedProvider as Practitioner;
   }
   return { unsolicitedPatient, unsolicitedProvider };
+};
+
+// get all encounters with an active service request with the same test code
+const getEncountersPossiblyRelatedToUnsolicitedResult = async (
+  patientId: string,
+  dr: DiagnosticReport,
+  oystehr: Oystehr
+): Promise<
+  | {
+      serviceRequestId: string;
+      visitDate: string;
+    }[]
+  | undefined
+> => {
+  const testItemCode = getTestItemCodeFromDR(dr);
+  if (!testItemCode) return;
+  console.log('searching for encounters, service requests and appointments with patientId', patientId);
+  const resourceSearch = (
+    await oystehr.fhir.search<Encounter | ServiceRequest | Appointment>({
+      resourceType: 'ServiceRequest',
+      params: [
+        {
+          name: 'subject',
+          value: `Patient/${patientId}`,
+        },
+        {
+          name: 'code',
+          value: testItemCode,
+        },
+        // todo sarah trying to limit the number of returns by only grabbing tests without results but what about reflex?
+        // is it fine we cannot link those? they wont return from this logic anyway since the test code will be different
+        {
+          name: 'status',
+          value: 'active',
+        },
+        {
+          name: '_include',
+          value: 'ServiceRequest:encounter',
+        },
+        {
+          name: '_include:iterate',
+          value: 'Encounter:appointment',
+        },
+      ],
+    })
+  ).unbundle();
+  const serviceRequests: ServiceRequest[] = [];
+  const encounterIdToAppointmentIdMap: Record<string, string> = {};
+  const appointmentIdToVisitDateMap: Record<string, string> = {};
+
+  console.log('resources return, formatting response');
+  resourceSearch.forEach((resource) => {
+    if (resource.resourceType === 'ServiceRequest') serviceRequests.push(resource);
+    if (resource.resourceType === 'Encounter') {
+      const encounterId = resource.id;
+      const appointmentId = resource.appointment?.[0].reference?.replace('Appointment/', '');
+      if (encounterId && appointmentId) {
+        encounterIdToAppointmentIdMap[encounterId] = appointmentId;
+      }
+    }
+    if (resource.resourceType === 'Appointment') {
+      const appointmentId = resource.id;
+      const visitDate = resource.start;
+      if (appointmentId && visitDate) appointmentIdToVisitDateMap[appointmentId] = visitDate;
+    }
+  });
+
+  // if any encounter has more than one service request with the same code, don't include (should really never happen)
+  // for mvp its to hard to match since we are only using the encounter date
+  const uniqueEncounterIds = new Set();
+  serviceRequests.forEach((sr) => {
+    const encounterId = sr.encounter?.reference?.replace('Encounter/', '');
+    if (encounterId) {
+      if (!uniqueEncounterIds.has(encounterId)) {
+        uniqueEncounterIds.add(encounterId);
+      } else {
+        uniqueEncounterIds.delete(encounterId);
+      }
+    }
+  });
+
+  console.log('grouping visits dates with service request ids');
+  const serviceRequestIdToVisitDateMap: Record<string, string> = {};
+  serviceRequests.forEach((sr) => {
+    const srId = sr.id;
+    if (srId) {
+      const encounterId = sr.encounter?.reference?.replace('Encounter/', '');
+      if (encounterId) {
+        if (uniqueEncounterIds.has(encounterId)) {
+          const relatedAppointmentId = encounterIdToAppointmentIdMap[encounterId];
+          if (relatedAppointmentId) {
+            const visitDate = appointmentIdToVisitDateMap[relatedAppointmentId];
+            if (visitDate) {
+              serviceRequestIdToVisitDateMap[srId] = visitDate;
+            }
+          }
+        }
+      }
+    }
+  });
+
+  console.log('formatting into array');
+  const serviceRequestsWithVisitDates = Object.entries(serviceRequestIdToVisitDateMap).map(([srId, visitDate]) => {
+    return { serviceRequestId: srId, visitDate };
+  });
+
+  console.log(`${serviceRequestsWithVisitDates.length} service requests with dates to be returned`);
+  if (serviceRequestsWithVisitDates.length) return serviceRequestsWithVisitDates;
+  return;
 };

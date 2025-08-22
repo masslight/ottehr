@@ -9,21 +9,32 @@ export function validateRequestParameters(
     throw new Error('No request body provided');
   }
 
-  const { requestType, diagnosticReportId } = JSON.parse(input.body);
+  const { requestType, diagnosticReportId, patientId } = JSON.parse(input.body);
 
   const validRequestTypes = Object.values(UnsolicitedResultsRequestType);
   if (!validRequestTypes.includes(requestType)) {
     throw new Error(`Invalid requestType: ${requestType}`);
   }
-  if (requestType === UnsolicitedResultsRequestType.MATCH_UNSOLICITED_RESULTS) {
+
+  if (
+    requestType === UnsolicitedResultsRequestType.MATCH_UNSOLICITED_RESULTS ||
+    requestType === UnsolicitedResultsRequestType.GET_UR_RELATED_REQUESTS
+  ) {
     if (!diagnosticReportId || typeof diagnosticReportId !== 'string') {
       throw Error(`diagnosticReportId is an unexpected type: ${diagnosticReportId}`);
+    }
+  }
+
+  if (requestType === UnsolicitedResultsRequestType.GET_UR_RELATED_REQUESTS) {
+    if (!patientId || typeof patientId !== 'string') {
+      throw Error(`patientId is an unexpected type: ${patientId}`);
     }
   }
 
   return {
     requestType,
     diagnosticReportId,
+    patientId,
     secrets: input.secrets,
   };
 }

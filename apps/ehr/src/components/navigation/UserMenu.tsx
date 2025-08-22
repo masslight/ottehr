@@ -19,8 +19,8 @@ import { getPractitionerMissingFields } from 'src/shared/utils';
 import {
   useCheckPractitionerEnrollment,
   useConnectPractitionerToERX,
+  useDisplayUnsolicitedResultsIcon,
   useEnrollPractitionerToERX,
-  useGetUnsolicitedResultsResources,
 } from 'src/telemed';
 import { getFullestAvailableName, PROJECT_NAME, RoleType, UnsolicitedResultsRequestType } from 'utils';
 import { dataTestIds } from '../../constants/data-test-ids';
@@ -66,7 +66,7 @@ export const UserMenu: FC = () => {
   const name = user?.profileResource && (getFullestAvailableName(user.profileResource, true) ?? `${PROJECT_NAME} Team`);
   const suffix = user?.profileResource?.name?.[0]?.suffix?.[0];
 
-  const { data } = useGetUnsolicitedResultsResources({
+  const { data } = useDisplayUnsolicitedResultsIcon({
     requestType: UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_ICON,
   });
   const displayUnsolicitedResultsIcon = data?.tasksAreReady;

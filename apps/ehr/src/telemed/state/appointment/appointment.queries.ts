@@ -23,7 +23,7 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect } from 'react';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
-import { useErrorQuery, useSuccessQuery } from 'utils';
+import { GetUnsolicitedResultsRelatedRequests, useErrorQuery, useSuccessQuery } from 'utils';
 import {
   ChartDataFields,
   ChartDataRequestedFields,
@@ -33,10 +33,11 @@ import {
   GetMedicationOrdersInput,
   GetMedicationOrdersResponse,
   GetUnsolicitedResultsResourcesForIcon,
+  GetUnsolicitedResultsResourcesForIconInput,
   GetUnsolicitedResultsResourcesForMatch,
+  GetUnsolicitedResultsResourcesForMatchInput,
   GetUnsolicitedResultsResourcesForTable,
-  GetUnsolicitedResultsResourcesInput,
-  GetUnsolicitedResultsResourcesOutput,
+  GetUnsolicitedResultsResourcesForTableInput,
   IcdSearchRequestParams,
   IcdSearchResponse,
   InstructionType,
@@ -46,11 +47,11 @@ import {
   MeetingData,
   RefreshableAppointmentData,
   relatedPersonAndCommunicationMaps,
+  RelatedRequestsToUnsolicitedResultOutput,
   ReviewAndSignData,
   SaveChartDataRequest,
   SchoolWorkNoteExcuseDocFileDTO,
   TelemedAppointmentInformation,
-  UnsolicitedResultsRequestType,
   UpdateMedicationOrderInput,
 } from 'utils';
 import { APPOINTMENT_REFRESH_INTERVAL, CHAT_REFETCH_INTERVAL, QUERY_STALE_TIME } from '../../../constants';
@@ -583,51 +584,100 @@ export const useGetCreateExternalLabResources = ({
   });
 };
 
-export function useGetUnsolicitedResultsResources(input: {
-  requestType: UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_ICON;
-}): UseQueryResult<GetUnsolicitedResultsResourcesForIcon | undefined, Error>;
-
-export function useGetUnsolicitedResultsResources(input: {
-  requestType: UnsolicitedResultsRequestType.GET_ALL_TASKS;
-}): UseQueryResult<GetUnsolicitedResultsResourcesForTable | undefined, Error>;
-
-export function useGetUnsolicitedResultsResources(input: {
-  requestType: UnsolicitedResultsRequestType.MATCH_UNSOLICITED_RESULTS;
-  diagnosticReportId: string;
-}): UseQueryResult<GetUnsolicitedResultsResourcesForMatch | undefined, Error>;
-
-export function useGetUnsolicitedResultsResources(
-  input: GetUnsolicitedResultsResourcesInput
-): UseQueryResult<GetUnsolicitedResultsResourcesOutput | undefined, Error> {
+export function useDisplayUnsolicitedResultsIcon(
+  input: GetUnsolicitedResultsResourcesForIconInput
+): UseQueryResult<GetUnsolicitedResultsResourcesForIcon | undefined, Error> {
+  console.log('useDisplayUnsolicitedResultsIcon');
   const apiClient = useOystehrAPIClient();
   const { requestType } = input;
 
-  const diagnosticReportId =
-    requestType === UnsolicitedResultsRequestType.MATCH_UNSOLICITED_RESULTS ? input.diagnosticReportId : undefined;
-  const inputIsValid =
-    requestType !== UnsolicitedResultsRequestType.MATCH_UNSOLICITED_RESULTS || Boolean(diagnosticReportId);
-
-  const queryResult = useQuery({
-    queryKey: ['get unsolicited results resources', requestType, diagnosticReportId ?? null],
+  return useQuery({
+    queryKey: ['get unsolicited results resources', requestType],
 
     queryFn: async () => {
-      return apiClient?.getUnsolicitedResultsResources(input);
+      const data = await apiClient?.getUnsolicitedResultsResources(input);
+      if (data && 'tasksAreReady' in data) {
+        return data;
+      }
+      return;
     },
 
-    enabled: Boolean(apiClient && FEATURE_FLAGS.LAB_ORDERS_ENABLED && inputIsValid),
+    enabled: Boolean(apiClient && FEATURE_FLAGS.LAB_ORDERS_ENABLED),
     placeholderData: keepPreviousData,
     staleTime: QUERY_STALE_TIME,
   });
+}
 
-  useEffect(() => {
-    if (queryResult.error) {
-      enqueueSnackbar('An error occurred. Please try again in a moment', {
-        variant: 'error',
-      });
-    }
-  }, [queryResult.error]);
+export function useGetUnsolicitedResultsResourcesForTable(
+  input: GetUnsolicitedResultsResourcesForTableInput
+): UseQueryResult<GetUnsolicitedResultsResourcesForTable | undefined, Error> {
+  console.log('useGetUnsolicitedResultsResourcesForTable');
+  const apiClient = useOystehrAPIClient();
+  const { requestType } = input;
 
-  return queryResult;
+  return useQuery({
+    queryKey: ['get unsolicited results resources', requestType],
+
+    queryFn: async () => {
+      const data = await apiClient?.getUnsolicitedResultsResources(input);
+      if (data && 'unsolicitedResultRows' in data) {
+        return data;
+      }
+      return;
+    },
+
+    enabled: Boolean(apiClient && FEATURE_FLAGS.LAB_ORDERS_ENABLED),
+    placeholderData: keepPreviousData,
+    staleTime: QUERY_STALE_TIME,
+  });
+}
+
+export function useGetUnsolicitedResultsResourcesForMatch(
+  input: GetUnsolicitedResultsResourcesForMatchInput
+): UseQueryResult<GetUnsolicitedResultsResourcesForMatch | undefined, Error> {
+  console.log('useGetUnsolicitedResultsResourcesForMatch');
+  const apiClient = useOystehrAPIClient();
+  const { requestType, diagnosticReportId } = input;
+
+  return useQuery({
+    queryKey: ['get unsolicited results resources', requestType, diagnosticReportId],
+
+    queryFn: async () => {
+      const data = await apiClient?.getUnsolicitedResultsResources({ requestType, diagnosticReportId });
+      if (data && 'labInfo' in data) {
+        return data;
+      }
+      return;
+    },
+
+    enabled: Boolean(apiClient && FEATURE_FLAGS.LAB_ORDERS_ENABLED && diagnosticReportId),
+    placeholderData: keepPreviousData,
+    staleTime: QUERY_STALE_TIME,
+  });
+}
+
+export function useGetUnsolicitedResultsRelatedRequests(
+  input: GetUnsolicitedResultsRelatedRequests
+): UseQueryResult<RelatedRequestsToUnsolicitedResultOutput | undefined, Error> {
+  console.log('useGetUnsolicitedResultsRelatedRequests');
+  const apiClient = useOystehrAPIClient();
+  const { requestType, diagnosticReportId, patientId } = input;
+
+  return useQuery({
+    queryKey: ['get unsolicited results resources', requestType, diagnosticReportId, patientId],
+
+    queryFn: async () => {
+      const data = await apiClient?.getUnsolicitedResultsResources({ requestType, diagnosticReportId, patientId });
+      if (data && 'possibleRelatedSRsWithVisitDate' in data) {
+        return data;
+      }
+      return;
+    },
+
+    enabled: Boolean(apiClient && FEATURE_FLAGS.LAB_ORDERS_ENABLED && diagnosticReportId),
+    placeholderData: keepPreviousData,
+    staleTime: QUERY_STALE_TIME,
+  });
 }
 
 export const useGetIcd10Search = ({
