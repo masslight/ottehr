@@ -48,17 +48,6 @@ export const LabsTableRow = ({
         return <Box>{formatDateForLabs(labOrderData.orderAddedDate, labOrderData.encounterTimezone)}</Box>;
       case 'provider':
         return labOrderData.orderingPhysician || '';
-      case 'ordered':
-        return (
-          <Box>
-            <Box>{formatDateForLabs(labOrderData.orderAddedDate, labOrderData.encounterTimezone)}</Box>
-            <Box>
-              <Typography variant="body2" color="text.secondary">
-                by {labOrderData.orderingPhysician || ''}
-              </Typography>
-            </Box>
-          </Box>
-        );
       case 'dx': {
         const firstDx = labOrderData.diagnosesDTO[0]?.display || '';
         const firstDxCode = labOrderData.diagnosesDTO[0]?.code || '';
@@ -80,14 +69,12 @@ export const LabsTableRow = ({
         return <Box>{formatDateForLabs(labOrderData.lastResultReceivedDate, labOrderData.encounterTimezone)}</Box>;
       case 'accessionNumber':
         return labOrderData.accessionNumbers.join(', ');
-      case 'requisitionNumber':
-        return labOrderData.orderNumber;
       case 'status':
         return <LabsOrderStatusChip status={labOrderData.orderStatus} />;
-      case 'detail':
+      case 'psc':
         return labOrderData.isPSC ? PSC_LOCALE : '';
       case 'actions':
-        if (allowDelete && (labOrderData.orderStatus === 'pending' || labOrderData.orderStatus === 'ready')) {
+        if (allowDelete && labOrderData.orderStatus === 'pending') {
           return (
             <Button
               onClick={handleDeleteClick}

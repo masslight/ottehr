@@ -57,6 +57,8 @@ import {
   GetVisitLabelInput,
   HandleInHouseLabResultsParameters,
   HandleInHouseLabResultsZambdaOutput,
+  Icd10SearchRequestParams,
+  Icd10SearchResponse,
   InHouseGetOrdersResponseDTO,
   InviteParticipantRequestParameters,
   LabelPdf,
@@ -68,8 +70,8 @@ import {
   SaveFollowupEncounterZambdaInput,
   SaveFollowupEncounterZambdaOutput,
   ScheduleDTO,
+  SubmitLabOrderDTO,
   SubmitLabOrderInput,
-  SubmitLabOrderOutput,
   UnassignPractitionerZambdaInput,
   UnassignPractitionerZambdaOutput,
   UpdateLabOrderResourcesParameters,
@@ -143,10 +145,7 @@ if (!VITE_APP_IS_LOCAL) {
   throw new Error('VITE_APP_IS_LOCAL is not defined');
 }
 
-export const submitLabOrder = async (
-  oystehr: Oystehr,
-  parameters: SubmitLabOrderInput
-): Promise<SubmitLabOrderOutput> => {
+export const submitLabOrder = async (oystehr: Oystehr, parameters: SubmitLabOrderInput): Promise<SubmitLabOrderDTO> => {
   try {
     if (SUBMIT_LAB_ORDER_ZAMBDA_ID == null) {
       throw new Error('submit external lab order zambda environment variable could not be loaded');
@@ -981,6 +980,22 @@ export const generatePaperworkPdf = async (
   try {
     const response = await oystehr.zambda.execute({
       id: PAPERWORK_TO_PDF_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const icd10Search = async (
+  oystehr: Oystehr,
+  parameters: Icd10SearchRequestParams
+): Promise<Icd10SearchResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'icd-10-search',
       ...parameters,
     });
     return chooseJson(response);
