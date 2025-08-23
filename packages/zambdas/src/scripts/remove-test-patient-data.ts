@@ -9,6 +9,7 @@ import { createOystehrClientFromConfig, performEffectWithEnvFile } from './helpe
 const exec = promisify(execCb);
 
 const CUT_OFF_DAYS = 30;
+const RECENT_APT_PATIENTS_PER_RUN = 100;
 
 const deleteTestPatientsData = async (config: any): Promise<void> => {
   const env = config.env;
@@ -148,7 +149,7 @@ async function removePatientsWithoutRecentAppointments(config: any): Promise<voi
         },
         {
           name: '_count',
-          value: '100',
+          value: `${RECENT_APT_PATIENTS_PER_RUN}`,
         },
         {
           name: '_offset',
@@ -190,7 +191,7 @@ async function removePatientsWithoutRecentAppointments(config: any): Promise<voi
     console.groupEnd();
     console.debug('deleting patients without recent appointments completed, deleted', numDeletedPatients, 'patients');
 
-    offset += 100 - numDeletedPatients;
+    offset += RECENT_APT_PATIENTS_PER_RUN - numDeletedPatients;
     totalNumDeletedPatients += numDeletedPatients;
 
     if (patients.length === 0) break;
