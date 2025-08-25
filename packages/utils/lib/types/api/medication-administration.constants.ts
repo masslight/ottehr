@@ -30,3 +30,6 @@ export const IN_HOUSE_CONTAINED_MEDICATION_ID = 'medicationId';
 export const INTERACTION_OVERRIDE_REASON_CODE_SYSTEM = ottehrCodeSystemUrl('interaction-override-reason');
 export const ISSUE_TYPE_CODE_SYSTEM = ottehrCodeSystemUrl('issue-type');
 export const INTERACTIONS_UNAVAILABLE = 'interactions-unavailable';
+export const VACCINE_ADMINISTRATION_EMERGENCY_CONTACT_RELATIONSHIP_CODE_SYSTEM = ottehrCodeSystemUrl(
+  'vaccine-administration-emergency-contact-relationship'
+);

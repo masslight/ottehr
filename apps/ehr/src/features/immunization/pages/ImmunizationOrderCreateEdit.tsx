@@ -1,29 +1,57 @@
+import { LoadingButton } from '@mui/lab';
 import { Grid, Paper, Stack } from '@mui/material';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
 import { WarningBlock } from 'src/features/css-module/components/WarningBlock';
-import { getImmunizationMARUrl } from 'src/features/css-module/routing/helpers';
+import { useAppointment } from 'src/features/css-module/hooks/useAppointment';
+import { getImmunizationMARUrl, getImmunizationOrderEditUrl } from 'src/features/css-module/routing/helpers';
+import { cleanupProperties } from 'src/helpers/misc.helper';
 import { AccordionCard } from 'src/telemed';
 import { PageHeader } from '../../css-module/components/medication-administration/PageHeader';
+import { useCreateUpdateImmunizationOrder, useGetImmunizationOrders } from '../../css-module/hooks/useImmunization';
 import { OrderDetailsSection } from '../components/OrderDetailsSection';
 import { OrderHistoryTable } from '../components/OrderHistoryTable';
-import { STUB_IMMUNIZATION_ORDERS } from '../ImmunizationOrder';
 
 export const ImmunizationOrderCreateEdit: React.FC = () => {
   const navigate = useNavigate();
   const { id: appointmentId, orderId } = useParams();
+  const {
+    resources: { encounter },
+  } = useAppointment(appointmentId);
   const [isImmunizationHistoryCollapsed, setIsImmunizationHistoryCollapsed] = useState(false);
 
-  const onSubmit = (data: any): void => {
-    console.log(data);
+  const { mutateAsync: createUpdateOrder, isPending: isOrderSaving } = useCreateUpdateImmunizationOrder();
+
+  const onSubmit = async (data: any): Promise<void> => {
+    const response = await createUpdateOrder({
+      encounterId: encounter?.id ?? '',
+      orderId: orderId,
+      ...(await cleanupProperties(data)),
+    });
+    navigate(getImmunizationOrderEditUrl(appointmentId!, response.orderId));
   };
 
-  const order = STUB_IMMUNIZATION_ORDERS.find((order) => order.id === orderId);
-  const methods = useForm({
-    defaultValues: order,
+  const { data: ordersResponse, isLoading: isOrderLoading } = useGetImmunizationOrders({
+    orderId: orderId,
   });
+
+  const methods = useForm();
+
+  useEffect(() => {
+    const order = ordersResponse?.orders?.find((order) => order.id === orderId);
+    if (order) {
+      methods.reset({
+        ...order,
+        details: {
+          ...order.details,
+          medicationId: order?.details?.medication?.id,
+          orderedProviderId: order?.details?.orderedProvider?.id,
+        },
+      });
+    }
+  }, [methods, ordersResponse, orderId]);
 
   return (
     <FormProvider {...methods}>
@@ -51,9 +79,20 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
                   >
                     Cancel
                   </ButtonRounded>
-                  <ButtonRounded type="submit" variant="contained" color="primary" size="large">
+                  <LoadingButton
+                    type="submit"
+                    disabled={isOrderLoading}
+                    loading={isOrderSaving}
+                    variant="contained"
+                    color="primary"
+                    size="large"
+                    sx={{
+                      borderRadius: '20px',
+                      textTransform: 'none',
+                    }}
+                  >
                     {orderId ? 'Save changes' : 'Order Vaccine'}
-                  </ButtonRounded>
+                  </LoadingButton>
                 </Stack>
               </Grid>
             </Grid>
