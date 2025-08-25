@@ -43,6 +43,7 @@ export interface EditableNotesListProps extends CustomizableNotesConfig {
   locales: NoteLocales;
   apiConfig: NoteApiConfig;
   encounterId: string;
+  appointmentId: string;
   patientId: string;
   addNoteButtonDataTestId?: string;
   noteLoadingIndicatorDataTestId?: string;

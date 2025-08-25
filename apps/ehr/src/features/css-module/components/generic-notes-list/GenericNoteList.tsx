@@ -12,14 +12,16 @@ export const GenericNoteList: React.FC<GenericNoteListProps> = ({
 }) => {
   const { resources } = useAppointmentData();
   const encounterId = resources.encounter?.id;
+  const appointmentId = resources.appointment?.id;
   const patientId = resources.patient?.id;
 
-  if (!encounterId || !patientId) return <CSSLoader />;
+  if (!encounterId || !patientId || !appointmentId) return <CSSLoader />;
 
   return (
     <EditableNotesList
       separateEncounterNotes={separateEncounterNotes}
       encounterId={encounterId}
+      appointmentId={appointmentId}
       patientId={patientId}
       currentEncounterId={encounterId}
       locales={locales}
