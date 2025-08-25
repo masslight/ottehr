@@ -1,6 +1,7 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Box, Button, Paper, Skeleton, Stack, Typography } from '@mui/material';
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
+import moment from 'moment-timezone';
 import React, { useState } from 'react';
 import { useQuery } from 'react-query';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -67,6 +68,46 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({ thresholds = []
     { keepPreviousData: true }
   );
 
+  const vitalNameMap: Record<string, string> = {
+    data_type: 'Data Type',
+    imei: 'IMEI',
+    sn: 'Serial Number',
+    iccid: 'ICCID',
+    uid: 'User Id',
+    sys: 'Systolic',
+    dia: 'Diastolic',
+    pul: 'Pulse',
+    inh: 'Irregular Heartbeat',
+    hand: 'Hand Tremor',
+    wet: 'Weight Stable Time',
+    wt: 'Weight',
+    tri: 'Three measure flag',
+    sig: 'Signal',
+    data: 'Blood Glucose',
+    bat: 'Battery',
+    ts: 'Timestamp',
+    upload_time: 'Upload Time',
+    tz: 'Time Zone',
+  };
+
+  const normalizeTz = (tz: string): string => {
+    if (tz.startsWith('UTC')) {
+      return tz.replace('UTC', 'Etc/GMT');
+    }
+    return tz;
+  };
+
+  function formatTimestamp(ts: string | number, tz: string): string {
+    if (!ts || !tz) return '-';
+    try {
+      const parsedTs = Number(ts);
+      if (isNaN(parsedTs)) return '-';
+      return moment.unix(parsedTs).tz(normalizeTz(tz)).format('MM/DD/YYYY hh:mm:ss A');
+    } catch {
+      return '-';
+    }
+  }
+
   const getThresholdValues = (): Record<string, number> => {
     const thresholdValues: Record<string, number> = {};
 
@@ -126,6 +167,10 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({ thresholds = []
         }
       });
 
+      rowData['iccid'] = obs.components.find((c) => c.code.text === 'iccid')?.valueString ?? '-';
+      rowData['ts'] = obs.components.find((c) => c.code.text === 'ts')?.valueInteger ?? '-';
+      rowData['tz'] = obs.components.find((c) => c.code.text === 'tz')?.valueString ?? 'UTC';
+
       return rowData;
     });
   };
@@ -141,22 +186,22 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({ thresholds = []
 
     switch (deviceType) {
       case 'scale_gen2_measure':
-        if (fieldNameLower.includes('weight') && thresholdValues.weight !== undefined) {
+        if (fieldNameLower.includes('wt') && thresholdValues.weight !== undefined) {
           return value > thresholdValues.weight;
         }
         break;
 
       case 'bgm_gen1_measure':
-        if (fieldNameLower.includes('glucose') && thresholdValues.glucose !== undefined) {
+        if (fieldNameLower.includes('data') && thresholdValues.glucose !== undefined) {
           return value > thresholdValues.glucose;
         }
         break;
 
       case 'bpm_gen2_measure':
-        if (fieldNameLower.includes('systolic') && thresholdValues.systolic !== undefined) {
+        if (fieldNameLower.includes('sys') && thresholdValues.systolic !== undefined) {
           return value > thresholdValues.systolic;
         }
-        if (fieldNameLower.includes('diastolic') && thresholdValues.diastolic !== undefined) {
+        if (fieldNameLower.includes('dia') && thresholdValues.diastolic !== undefined) {
           return value > thresholdValues.diastolic;
         }
         break;
@@ -177,15 +222,22 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({ thresholds = []
     if (!allVitals.length) return [];
     const columns: GridColDef[] = [];
 
+    columns.push({
+      field: 'iccid',
+      headerName: vitalNameMap['iccid'],
+      width: 180,
+    });
+
     allVitals.forEach((vital) => {
       const fieldName = vital.code.text.trim();
 
-      if (fieldName.toLowerCase().includes('threshold')) return;
+      // if (fieldName.toLowerCase().includes('threshold')) return;
+      if (fieldName === 'iccid' || fieldName === 'ts' || fieldName === 'tz') return;
 
       if (!columns.find((col) => col.field === fieldName)) {
         columns.push({
           field: fieldName,
-          headerName: fieldName,
+          headerName: vitalNameMap[fieldName] || fieldName,
           width: 150,
           renderCell: (params) => {
             const value = params.value;
@@ -217,6 +269,17 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({ thresholds = []
           },
         });
       }
+    });
+
+    columns.push({
+      field: 'formattedTime',
+      headerName: 'Date/Time',
+      width: 200,
+      valueGetter: (params) => {
+        const ts = params.row['ts'];
+        const tz = params.row['tz'];
+        return ts && tz ? formatTimestamp(ts, tz) : '-';
+      },
     });
 
     return columns;

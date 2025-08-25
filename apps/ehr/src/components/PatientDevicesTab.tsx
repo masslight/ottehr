@@ -43,6 +43,7 @@ export const PatientDevicesTab: FC<{ loading?: boolean }> = ({ loading }) => {
             lastUpdated: device.meta.lastUpdated,
             distinctIdentifier: device.distinctIdentifier || '-',
             property: device.property || [],
+            deviceType: device.distinctIdentifier || [],
           }));
           setAssignedDevices(devices);
           setTotalCount(response?.total || 0);
@@ -140,18 +141,31 @@ export const PatientDevicesTab: FC<{ loading?: boolean }> = ({ loading }) => {
     setDeviceType(deviceType);
   };
 
+  const deviceTypeMap: Record<string, string> = {
+    bpm_gen2_measure: 'Blood Pressure Monitor',
+    bgm_gen1_measure: 'Blood Glucose Monitor',
+    scale_gen2_measure: 'Weight Scale',
+  };
+
   const columns: GridColDef<DeviceColumns>[] = [
     {
       field: 'id',
       headerName: 'Device ID',
-      width: 350,
+      width: 300,
       sortable: false,
     },
     {
       field: 'name',
       headerName: 'Device Name',
-      width: 350,
+      width: 150,
       sortable: false,
+    },
+    {
+      field: 'deviceType',
+      headerName: 'Device Type',
+      width: 250,
+      sortable: false,
+      valueGetter: (params) => deviceTypeMap[params.row.distinctIdentifier] || params.row.distinctIdentifier,
     },
     {
       field: 'lastUpdated',

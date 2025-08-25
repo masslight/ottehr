@@ -1,5 +1,6 @@
 import { Typography } from '@mui/material';
 import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
+import moment from 'moment-timezone';
 import React, { useState } from 'react';
 
 interface VitalsData {
@@ -39,39 +40,96 @@ export const PatientDeviceVitalsTable: React.FC<DeviceVitalsProps> = ({ vitalsDa
     return [rowData];
   };
 
-  const rows = transformVitalsToRows();
+  const vitalNameMap: Record<string, string> = {
+    data_type: 'Data Type',
+    imei: 'IMEI',
+    sn: 'Serial Number',
+    iccid: 'ICCID',
+    uid: 'User Id',
+    sys: 'Systolic',
+    dia: 'Diastolic',
+    pul: 'Pulse',
+    inh: 'Irregular Heartbeat',
+    hand: 'Hand Tremor',
+    wet: 'Weight Stable Time',
+    wt: 'Weight',
+    tri: 'Three measure flag',
+    sig: 'Signal',
+    data: 'Blood Glucose',
+    bat: 'Battery',
+    ts: 'Date/Time',
+    upload_time: 'Upload Time',
+    tz: 'Time Zone',
+  };
+
+  function formatTimestamp(ts: string | number, tz: string): string {
+    if (!ts || !tz) return '-';
+    try {
+      const parsedTs = Number(ts);
+      if (isNaN(parsedTs)) return '-';
+      return moment.unix(parsedTs).tz(tz).format('MM/DD/YYYY hh:mm:ss A');
+    } catch {
+      return '-';
+    }
+  }
 
   const generateColumns = (): GridColDef[] => {
     if (!vitalsData?.vitals) return [];
     const columns: GridColDef[] = [];
+
+    columns.push({
+      field: 'iccid',
+      headerName: vitalNameMap['iccid'],
+      width: 180,
+    });
+
     vitalsData.vitals.forEach((vital) => {
       const fieldName = vital.code.text;
-      if (fieldName.toLowerCase().includes('threshold')) {
-        return;
-      }
+
+      if (fieldName.toLowerCase().includes('threshold')) return;
+      if (fieldName === 'iccid' || fieldName === 'ts' || fieldName === 'tz') return;
+
       if (!columns.find((col) => col.field === fieldName)) {
         columns.push({
           field: fieldName,
-          headerName: fieldName
-            .split('_')
-            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' '),
-          width: 150,
+          headerName:
+            vitalNameMap[fieldName] ||
+            fieldName
+              .split('_')
+              .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+              .join(' ') ||
+            '-',
+          width: 180,
           valueFormatter: (params) => {
             const value = params.value;
-            if (fieldName === 'Battery') {
-              return `${value}%`;
+
+            if (fieldName === 'bat' || fieldName === 'Battery') {
+              return value !== undefined ? `${value}%` : '-';
             }
-            return value?.toString() || '';
+            if (value === true) return 'Yes';
+            if (value === false) return 'No';
+            return value?.toString() || '-';
           },
         });
       }
+    });
+
+    columns.push({
+      field: 'formattedTime',
+      headerName: 'Date/Time',
+      width: 200,
+      valueGetter: (params) => {
+        const ts = params.row['ts'];
+        const tz = params.row['tz'];
+        return ts && tz ? formatTimestamp(ts, tz) : '-';
+      },
     });
 
     return columns;
   };
 
   const columns = generateColumns();
+  const rows = transformVitalsToRows();
 
   return (
     <>
