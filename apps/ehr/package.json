@@ -80,7 +80,8 @@
     "tsconfig": "*",
     "ui-components": "*",
     "utils": "*",
-    "uuid": "^11.0.3"
+    "uuid": "^11.0.3",
+    "wavesurfer.js": "^7.10.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",

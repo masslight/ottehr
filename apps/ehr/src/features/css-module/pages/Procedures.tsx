@@ -4,10 +4,17 @@ import { Box, Stack } from '@mui/system';
 import { DateTime } from 'luxon';
 import { ReactElement, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import AiSuggestion from 'src/components/AiSuggestion';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { AccordionCard, useAppointmentStore, useGetAppointmentAccessibility } from 'src/telemed';
 import { PageTitle } from 'src/telemed/components/PageTitle';
-import { getSelectors, getVisitStatus, TelemedAppointmentStatusEnum } from 'utils';
+import {
+  AiObservationField,
+  getSelectors,
+  getVisitStatus,
+  ObservationTextFieldDTO,
+  TelemedAppointmentStatusEnum,
+} from 'utils';
 import { CSSLoader } from '../components/CSSLoader';
 import { useFeatureFlags } from '../context/featureFlags';
 import { ROUTER_PATH } from '../routing/routesCSS';
@@ -21,6 +28,11 @@ export default function Procedures(): ReactElement {
     'appointment',
     'encounter',
   ]);
+
+  const aiProcedures = chartData?.observations?.filter(
+    (observation) => observation.field === AiObservationField.Procedures
+  ) as ObservationTextFieldDTO[];
+
   const inPersonStatus = useMemo(() => appointment && getVisitStatus(appointment, encounter), [appointment, encounter]);
   const appointmentAccessibility = useGetAppointmentAccessibility();
   const { css } = useFeatureFlags();
@@ -39,7 +51,7 @@ export default function Procedures(): ReactElement {
   };
   if (isChartDataLoading) return <CSSLoader />;
   return (
-    <>
+    <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
         <PageTitle label="Procedures" showIntakeNotesButton={false} />
         <RoundedButton variant="contained" onClick={onNewProcedureClick} startIcon={<AddIcon />} disabled={isReadOnly}>
@@ -115,6 +127,12 @@ export default function Procedures(): ReactElement {
           </TableBody>
         </Table>
       </AccordionCard>
-    </>
+      {aiProcedures?.length > 0 && (
+        <>
+          <hr style={{ border: '0.5px solid #DFE5E9', margin: '0 -16px 0 -16px' }} />
+          <AiSuggestion title={'Procedures'} chartData={chartData} content={aiProcedures} />
+        </>
+      )}
+    </Box>
   );
 }
