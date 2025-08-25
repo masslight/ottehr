@@ -16,30 +16,6 @@ import {
 } from './extractors';
 import { VisitDataAndMappedData, VisitMappedData } from './types';
 
-// export const getVisitMappedData = ({
-//   patient,
-//   questionnaireResponse,
-//   resources,
-// }: AppointmentStore): Partial<VisitMappedData> => {
-//   const patientName = getPatientName(patient?.name);
-
-//   return {
-//     patientName:
-//       patientName?.lastFirstMiddleName || patientName?.lastFirstName || patientName?.lastName || patientName?.firstName,
-//     patientAvatarPhotoUrl: patient?.photo?.at(0)?.url,
-//     patientConditionalPhotosUrls: extractUrlsFromAppointmentData(resources, PATIENT_PHOTO_CODE),
-//     schoolWorkNoteUrls: extractUrlsFromAppointmentData(resources, SCHOOL_WORK_NOTE_TEMPLATE_CODE),
-//     pronouns: getPronouns(getQuestionnaireResponseValues(questionnaireResponse)),
-//     gender: patient?.gender ? Gender[patient.gender as keyof typeof Gender] : undefined,
-//     preferredLanguage: getQuestionnaireResponseByLinkId('preferred-language', questionnaireResponse)?.answer?.[0]
-//       ?.valueString,
-//     DOB: formatDOB(patient?.birthDate),
-//     allergies: getAllergies(questionnaireResponse),
-//     hospitalizations: getHospitalizations(questionnaireResponse),
-//     weight: getWeight(getPatientValues(patient)),
-//   };
-// };
-
 export const getVisitMappedData = (resourceBundle: FhirResource[]): Partial<VisitMappedData> => {
   const { patient, questionnaireResponse } = getResources(resourceBundle);
   const patientName = getPatientName(patient?.name);
@@ -95,29 +71,3 @@ export const parseBundle = (resourceBundle: FhirResource[]): VisitDataAndMappedD
     },
   };
 };
-
-// export const parseBundle = (resources: AppointmentStore): VisitDataAndMappedData => {
-//   const appointment = getAppointmentValues(resources.appointment);
-//   const patient = getPatientValues(resources.patient);
-//   const location = getLocationValues(resources.location);
-//   const locationVirtual = getLocationValues(resources.locationVirtual);
-//   const encounter = getEncounterValues(resources.encounter);
-//   const questionnaire = getQuestionnaireResponseValues(resources.questionnaireResponse);
-//   const patientInfoWithFallback = getPatientInfoWithFallback(patient, questionnaire);
-//   const parsedAppointmentData = getVisitMappedData(resources);
-
-//   return {
-//     resources: {
-//       appointment,
-//       location,
-//       locationVirtual,
-//       encounter,
-//       questionnaire,
-//       patient,
-//     },
-//     mappedData: {
-//       ...patientInfoWithFallback,
-//       ...parsedAppointmentData,
-//     },
-//   };
-// };
