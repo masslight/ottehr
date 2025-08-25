@@ -593,7 +593,6 @@ export const useGetCreateExternalLabResources = ({
 export function useDisplayUnsolicitedResultsIcon(
   input: GetUnsolicitedResultsResourcesForIconInput
 ): UseQueryResult<GetUnsolicitedResultsResourcesForIcon | undefined, Error> {
-  console.log('useDisplayUnsolicitedResultsIcon');
   const apiClient = useOystehrAPIClient();
   const { requestType } = input;
 
@@ -616,7 +615,6 @@ export function useDisplayUnsolicitedResultsIcon(
 export function useGetUnsolicitedResultsResourcesForTable(
   input: GetUnsolicitedResultsResourcesForTableInput
 ): UseQueryResult<GetUnsolicitedResultsResourcesForTable | undefined, Error> {
-  console.log('useGetUnsolicitedResultsResourcesForTable');
   const apiClient = useOystehrAPIClient();
   const { requestType } = input;
 
@@ -638,7 +636,6 @@ export function useGetUnsolicitedResultsResourcesForTable(
 export function useGetUnsolicitedResultsResourcesForMatch(
   input: GetUnsolicitedResultsResourcesForMatchInput
 ): UseQueryResult<GetUnsolicitedResultsResourcesForMatch | undefined, Error> {
-  console.log('useGetUnsolicitedResultsResourcesForMatch');
   const apiClient = useOystehrAPIClient();
   const { requestType, diagnosticReportId } = input;
 
@@ -662,7 +659,6 @@ export function useGetUnsolicitedResultsResourcesForMatch(
 export function useGetUnsolicitedResultsRelatedRequests(
   input: GetUnsolicitedResultsRelatedRequests
 ): UseQueryResult<RelatedRequestsToUnsolicitedResultOutput | undefined, Error> {
-  console.log('useGetUnsolicitedResultsRelatedRequests');
   const apiClient = useOystehrAPIClient();
   const { requestType, diagnosticReportId, patientId } = input;
 

@@ -110,7 +110,6 @@ export const UnsolicitedResultsMatch: React.FC = () => {
   const readyToSubmit = !!confirmedSelectedPatient;
 
   const handleReject = (): void => {
-    console.log('rejecting');
     if (data?.taskId) {
       cancelTask(
         {
