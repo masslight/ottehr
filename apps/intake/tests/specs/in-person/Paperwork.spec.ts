@@ -431,7 +431,7 @@ test.describe('Photo ID - Upload photo', () => {
     await paperwork.checkCorrectPageOpens('Photo ID');
   });
   test('PPID-2 Photo ID - Check patient name is displayed', async () => {
-    await paperwork.checkPatientNameIsDisplayed(bookingData.firstName, bookingData.lastName);
+    await paperwork.checkPatientNameIsDisplayed(bookingData.firstName, bookingData.lastName, true);
   });
   test('PPID-3 Upload and Clear images', async () => {
     const uploadedFrontPhoto = await uploadPhoto.fillPhotoFrontID();

@@ -3851,7 +3851,7 @@
         "item": [
           {
             "linkId": "photo-id-page-caption",
-            "text": "Please upload a picture of your Photo ID, Drivers License or Passport. ",
+            "text": "Please upload a Photo ID, Driver's License, or Passport for an adult, either yourself or the parent/guardian when accompanying a child. ",
             "type": "display",
             "extension": [
               {
