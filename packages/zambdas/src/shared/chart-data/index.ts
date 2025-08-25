@@ -49,8 +49,6 @@ import {
   DispositionType,
   ERX_MEDICATION_META_TAG_CODE,
   EXAM_OBSERVATION_META_SYSTEM,
-  ExamCardsNames,
-  ExamFieldsNames,
   ExamObservationDTO,
   FHIR_EXTENSION,
   fillVitalObservationAttributes,
@@ -430,7 +428,8 @@ export function makeExamObservationResource(
   encounterId: string,
   patientId: string,
   data: ExamObservationDTO,
-  snomedCodes: SNOMEDCodeConceptInterface
+  snomedCodes?: SNOMEDCodeConceptInterface,
+  label?: string
 ): Observation {
   return {
     resourceType: 'Observation',
@@ -440,8 +439,8 @@ export function makeExamObservationResource(
     status: 'final',
     valueBoolean: typeof data.value === 'boolean' ? Boolean(data.value) : undefined,
     note: data.note ? [{ text: data.note }] : undefined,
-    bodySite: snomedCodes.bodySite,
-    code: snomedCodes.code,
+    bodySite: snomedCodes?.bodySite,
+    code: snomedCodes?.code || { text: label || 'unknown' },
     meta: fillMeta(data.field, EXAM_OBSERVATION_META_SYSTEM),
   };
 }
@@ -449,8 +448,8 @@ export function makeExamObservationResource(
 export function makeExamObservationDTO(observation: Observation): ExamObservationDTO {
   return {
     resourceId: observation.id,
-    field: observation.meta?.tag?.[0].code as ExamFieldsNames | ExamCardsNames,
-    note: observation.note?.[0].text,
+    field: observation.meta?.tag?.[0]?.code || 'unknown',
+    note: observation.note?.[0]?.text,
     value: observation.valueBoolean,
   };
 }

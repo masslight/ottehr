@@ -8,20 +8,12 @@ import {
   ChartDataResources,
   createCodingCode,
   DispositionFollowUpType,
-  examCardsMap,
-  ExamCardsNames,
-  examFieldsMap,
-  ExamFieldsNames,
+  ExamObservationDTO,
   getPatchBinary,
-  inPersonExamCardsMap,
-  InPersonExamCardsNames,
-  inPersonExamFieldsMap,
-  InPersonExamFieldsNames,
   OTTEHR_MODULE,
   PATIENT_VITALS_META_SYSTEM,
   SCHOOL_WORK_NOTE,
   Secrets,
-  SNOMEDCodeConceptInterface,
   userMe,
 } from 'utils';
 import {
@@ -55,6 +47,10 @@ import {
 } from '../../shared';
 import { PdfDocumentReferencePublishedStatuses } from '../../shared/pdf/pdf-utils';
 import { createSchoolWorkNotePDF } from '../../shared/pdf/school-work-note-pdf';
+import {
+  createExamObservationComments,
+  createExamObservations,
+} from '../../subscriptions/appointment/appointment-chart-data-prefilling/helpers';
 import { deleteResourceRequest } from '../delete-chart-data/helpers';
 import {
   filterServiceRequestsFromFhir,
@@ -239,29 +235,25 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     // convert ExamObservation[] to Observation(FHIR)[] and preserve FHIR resource IDs
     examObservations?.forEach((element) => {
-      const mappedSnomedField = isInPersonAppointment
-        ? inPersonExamFieldsMap[element.field as InPersonExamFieldsNames]
-        : examFieldsMap[element.field as ExamFieldsNames];
-      const mappedSnomedCard = isInPersonAppointment
-        ? inPersonExamCardsMap[element.field as InPersonExamCardsNames]
-        : examCardsMap[element.field as ExamCardsNames];
-      let snomedCode: SNOMEDCodeConceptInterface;
+      const examObservations = createExamObservations(isInPersonAppointment);
+      const examObservationComments = createExamObservationComments(isInPersonAppointment);
 
-      if (!mappedSnomedField && !mappedSnomedCard)
-        throw new Error('Provided "element.field" property is not recognized.');
-      if (mappedSnomedField && typeof element.value === 'boolean') {
-        snomedCode = mappedSnomedField;
-      } else if (mappedSnomedCard && element.note) {
-        element.value = undefined;
-        snomedCode = mappedSnomedCard;
-      } else {
-        throw new Error(
-          `Exam observation resource must contain string field: 'note', or boolean: 'value', depends on this resource type is exam-field or exam-card. Resource type determines by 'field' prop.`
-        );
+      const observation = examObservations.find((observation) => observation.field === element.field);
+      const comment = examObservationComments.find((comment) => comment.field === element.field);
+
+      if (!observation && !comment) {
+        throw new Error(`Exam observation with field ${element.field} not found`);
       }
+      const { code, bodySite, label } = (observation || comment) as ExamObservationDTO & {
+        code?: CodeableConcept;
+        bodySite?: CodeableConcept;
+        label?: string;
+      };
 
       saveOrUpdateRequests.push(
-        saveOrUpdateResourceRequest(makeExamObservationResource(encounterId, patient.id!, element, snomedCode))
+        saveOrUpdateResourceRequest(
+          makeExamObservationResource(encounterId, patient.id!, element, code ? { code, bodySite } : undefined, label)
+        )
       );
     });
 

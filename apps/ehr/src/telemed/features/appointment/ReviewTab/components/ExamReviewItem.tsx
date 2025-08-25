@@ -4,27 +4,14 @@ import React, { FC } from 'react';
 type ExamReviewItemProps = {
   label: string;
   abnormal: boolean;
-} & (
-  | {
-      radio?: never;
-      value?: never;
-    }
-  | {
-      radio: boolean;
-      value: boolean;
-    }
-);
+};
 
 export const ExamReviewItem: FC<ExamReviewItemProps> = (props) => {
-  const { label, abnormal, radio, value } = props;
+  const { label, abnormal } = props;
 
   const theme = useTheme();
 
-  return radio ? (
-    <Typography fontWeight={abnormal === value ? 700 : undefined}>
-      {label} - {value ? 'Yes' : 'No'}
-    </Typography>
-  ) : (
+  return (
     <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
       <Box
         component="span"

@@ -1,54 +1,35 @@
-import { Box } from '@mui/material';
-import React, { FC } from 'react';
+import { CircularProgress, Stack } from '@mui/material';
+import { FC } from 'react';
+import { useFeatureFlags } from 'src/features/css-module/context/featureFlags';
+import { useExamObservations } from 'src/telemed/hooks/useExamObservations';
+import { examConfig } from 'utils';
+import { AccordionCard } from '../../../components';
 import { useGetAppointmentAccessibility } from '../../../hooks';
-import { AbdomenCard } from './AbdomenCard';
-import { BackCard } from './BackCard';
-import { ChestCard } from './ChestCard';
-import { EarsCard } from './EarsCard';
-import { EyesCard } from './EyesCard';
-import { GeneralCard } from './GeneralCard';
-import { HeadCard } from './HeadCard';
-import { MouthCard } from './MouthCard';
-import { MusculoskeletalCard } from './MusculoskeletalCard';
-import { NeckCard } from './NeckCard';
-import { NeurologicalCard } from './NeurologicalCard';
-import { NoseCard } from './NoseCard';
-import { PsychCard } from './PsychCard';
-import { ReadOnlyCard } from './ReadOnlyCard';
-import { SkinCard } from './SkinCard';
+import { ExaminationContainer } from '../ReviewTab';
+import { ExamTable } from './components/ExamTable';
 
 export const ExamTab: FC = () => {
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const { css } = useFeatureFlags();
+  const { value: examObservations } = useExamObservations();
+
+  const config = examConfig[css ? 'inPerson' : 'telemed'].default.components;
 
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 1,
-      }}
-    >
-      {isReadOnly ? (
-        <ReadOnlyCard />
+    <Stack direction="column" gap={1}>
+      {examObservations.length === 0 ? (
+        <Stack direction="row" justifyContent="center">
+          <CircularProgress />
+        </Stack>
+      ) : isReadOnly ? (
+        <AccordionCard>
+          <Stack p={2}>
+            <ExaminationContainer examConfig={config} />
+          </Stack>
+        </AccordionCard>
       ) : (
-        <>
-          {/*<VitalsCard />*/}
-          <GeneralCard />
-          <HeadCard />
-          <EyesCard />
-          <NoseCard />
-          <EarsCard />
-          <MouthCard />
-          <NeckCard />
-          <ChestCard />
-          <BackCard />
-          <SkinCard />
-          <AbdomenCard />
-          <MusculoskeletalCard />
-          <NeurologicalCard />
-          <PsychCard />
-        </>
+        <ExamTable examConfig={config} />
       )}
-    </Box>
+    </Stack>
   );
 };

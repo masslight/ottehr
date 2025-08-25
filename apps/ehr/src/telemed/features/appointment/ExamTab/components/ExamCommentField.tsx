@@ -1,17 +1,14 @@
 import { Box, CircularProgress, TextField } from '@mui/material';
 import { ReactElement, useEffect, useState } from 'react';
-import { ExamCardsNames, InPersonExamCardsNames } from 'utils';
 import { useDebounce } from '../../../../hooks';
 import { useExamObservations } from '../../../../hooks/useExamObservations';
 
-type ExamCommentFieldProps<T extends ExamCardsNames | InPersonExamCardsNames = ExamCardsNames> = {
-  name: T;
+type ExamCommentFieldProps = {
+  name: string;
   dataTestId?: string;
 };
 
-export const ExamCommentField = <T extends ExamCardsNames | InPersonExamCardsNames = ExamCardsNames>(
-  props: ExamCommentFieldProps<T>
-): ReactElement => {
+export const ExamCommentField = (props: ExamCommentFieldProps): ReactElement => {
   const { name, dataTestId } = props;
 
   const { value: field, update, delete: deleteField, isLoading } = useExamObservations(name);
@@ -21,39 +18,33 @@ export const ExamCommentField = <T extends ExamCardsNames | InPersonExamCardsNam
   const onChange = (value: string): void => {
     value = value.trim();
 
-    if (!field.resourceId && !value) {
-      return;
-    }
-
     debounce(() => {
       if (value) {
-        update({ ...field, note: value });
+        update({ ...field, field: name, note: value });
       } else {
         deleteField(field);
       }
     });
   };
 
-  const [value, setValue] = useState(field.note || '');
+  const [value, setValue] = useState(field?.note || '');
 
   useEffect(() => {
-    if (field.note?.trim() !== value.trim()) {
+    if (field?.note?.trim() !== value.trim()) {
       // update UI value only if it's different from the field value
-      setValue(field.note || '');
+      setValue(field?.note || '');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [field.note]);
+  }, [field?.note]);
 
   return (
     <TextField
       value={value}
       onChange={(e) => {
-        console.log('e.target.value', e.target.value);
         setValue(e.target.value);
         onChange(e.target.value);
       }}
       size="small"
-      label="Provider comment"
       data-testid={dataTestId}
       fullWidth
       InputProps={{

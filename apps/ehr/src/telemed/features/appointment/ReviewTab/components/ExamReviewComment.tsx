@@ -1,5 +1,5 @@
 import { Typography } from '@mui/material';
-import React, { FC } from 'react';
+import { FC } from 'react';
 import { ExamObservationDTO } from 'utils';
 
 type ExamReviewCommentProps = {
@@ -9,7 +9,7 @@ type ExamReviewCommentProps = {
 export const ExamReviewComment: FC<ExamReviewCommentProps> = (props) => {
   const { item } = props;
 
-  if (!item.note) {
+  if (!item?.note) {
     return null;
   }
 

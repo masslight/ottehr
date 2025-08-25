@@ -1,11 +1,10 @@
 import { FC } from 'react';
-import { ExamCardsNames, ExamFieldsNames } from 'utils';
 import { useExamObservations } from '../../../../hooks/useExamObservations';
 import { StatelessExamCheckbox } from './StatelessExamCheckbox';
 
 type ControlledExamCheckboxProps = {
   label: string;
-  name: ExamFieldsNames | ExamCardsNames;
+  name: string;
   abnormal?: boolean;
 };
 
