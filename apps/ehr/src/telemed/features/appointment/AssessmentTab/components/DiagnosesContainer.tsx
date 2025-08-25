@@ -11,7 +11,7 @@ import { useFeatureFlags } from '../../../../../features/css-module/context/feat
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { ActionsList, DeleteIconButton } from '../../../../components';
 import { useGetAppointmentAccessibility } from '../../../../hooks';
-import { useAppointmentStore, useDeleteChartData, useGetIcd10Search, useSaveChartData } from '../../../../state';
+import { useAppointmentStore, useDeleteChartData, useICD10SearchNew, useSaveChartData } from '../../../../state';
 import { AssessmentTitle } from './AssessmentTitle';
 import { DiagnosesField } from './DiagnosesField';
 
@@ -20,7 +20,7 @@ export const DiagnosesContainer: FC = () => {
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
   const { mutateAsync: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
-  const { error: icdSearchError } = useGetIcd10Search({ search: 'E11', sabs: 'ICD10CM' });
+  const { error: icdSearchError } = useICD10SearchNew({ search: 'E11' });
 
   const nlmApiKeyMissing = (icdSearchError as any)?.code === APIErrorCode.MISSING_NLM_API_KEY_ERROR;
 

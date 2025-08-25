@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment } from 'fhir/r4b';
 import {
   APPOINTMENT_NOT_FOUND_ERROR,
+  BUCKET_NAMES,
   getAppointmentResourceById,
   getSecret,
   INSURANCE_CARD_BACK_2_ID,
@@ -13,7 +14,6 @@ import {
   PHOTO_ID_BACK_ID,
   PHOTO_ID_FRONT_ID,
   PresignUploadUrlResponse,
-  SCHOOL_WORK_NOTE,
   SCHOOL_WORK_NOTE_SCHOOL_ID,
   SCHOOL_WORK_NOTE_WORK_ID,
   Secrets,
@@ -71,23 +71,23 @@ const makePresignedFileURL = async (
 
   let bucketName = '';
   if (fileType === PHOTO_ID_FRONT_ID) {
-    bucketName = 'photo-id-cards';
+    bucketName = BUCKET_NAMES.PHOTO_ID_CARDS;
   } else if (fileType === PHOTO_ID_BACK_ID) {
-    bucketName = 'photo-id-cards';
+    bucketName = BUCKET_NAMES.PHOTO_ID_CARDS;
   } else if (fileType === INSURANCE_CARD_FRONT_ID) {
-    bucketName = 'insurance-cards';
+    bucketName = BUCKET_NAMES.INSURANCE_CARDS;
   } else if (fileType === INSURANCE_CARD_BACK_ID) {
-    bucketName = 'insurance-cards';
+    bucketName = BUCKET_NAMES.INSURANCE_CARDS;
   } else if (fileType === INSURANCE_CARD_FRONT_2_ID) {
-    bucketName = 'insurance-cards';
+    bucketName = BUCKET_NAMES.INSURANCE_CARDS;
   } else if (fileType === INSURANCE_CARD_BACK_2_ID) {
-    bucketName = 'insurance-cards';
+    bucketName = BUCKET_NAMES.INSURANCE_CARDS;
   } else if (fileType === SCHOOL_WORK_NOTE_SCHOOL_ID) {
-    bucketName = `${SCHOOL_WORK_NOTE}-templates`;
+    bucketName = BUCKET_NAMES.SCHOOL_WORK_NOTE_TEMPLATES;
   } else if (fileType === SCHOOL_WORK_NOTE_WORK_ID) {
-    bucketName = `${SCHOOL_WORK_NOTE}-templates`;
+    bucketName = BUCKET_NAMES.SCHOOL_WORK_NOTE_TEMPLATES;
   } else if ((fileType as string).startsWith(PATIENT_PHOTO_ID_PREFIX)) {
-    bucketName = `${PATIENT_PHOTO_ID_PREFIX}s`;
+    bucketName = BUCKET_NAMES.PATIENT_PHOTOS;
   } else {
     throw Error('Unknown bucket');
   }

@@ -5,6 +5,9 @@ import {
   AdditionalBooleanQuestionsFieldsNames,
   ExamObservationFieldItem,
   ExamTabCardNames,
+  ExternalLabOrderResult,
+  Gender,
+  InHouseLabResult as IInHouseLabResult,
   InPersonExamObservationFieldItem,
   InPersonExamTabProviderCardNames,
   LabType,
@@ -13,7 +16,6 @@ import {
   SupportedObsImgAttachmentTypes,
   VitalsVisitNoteData,
 } from 'utils';
-import { testDataForOrderForm } from '../../ehr/submit-lab-order/helpers';
 import { Column } from './pdf-utils';
 
 export interface PageElementStyle {
@@ -97,6 +99,7 @@ export interface PdfClient {
   getCurrentPageIndex: () => number;
   setPageByIndex: (pageIndex: number) => void;
   getTotalPages: () => number;
+  drawLink: (text: string, url: string, textStyle: TextStyle) => void;
 }
 
 export type TelemedExamBlockData = {
@@ -138,8 +141,10 @@ export interface LabsData {
   locationZip?: string;
   locationPhone?: string;
   locationFax?: string;
+  labOrganizationName: string; // this is only mapped for order pdf
   accountNumber: string;
-  orderNumber: string; // this is only for external labs
+  serviceRequestID: string;
+  orderNumber: string; // this is only for external
   providerName: string;
   providerNPI: string | undefined;
   patientFirstName: string;
@@ -152,21 +157,21 @@ export interface LabsData {
   patientPhone: string;
   todayDate: string;
   orderSubmitDate: string;
-  dateIncludedInFileName: string;
+  orderCreateDateAuthoredOn: string;
+  orderCreateDate: string;
+  sampleCollectionDate?: string;
+  billClass: string;
+  primaryInsuranceName?: string;
+  primaryInsuranceAddress?: string;
+  primaryInsuranceSubNum?: string;
+  insuredName?: string;
+  insuredAddress?: string;
+  aoeAnswers?: { question: string; answer: any }[]; // this is only for external
+  orderName?: string | undefined;
   orderAssessments: { code: string; name: string }[];
   orderPriority: string;
   isManualOrder: boolean;
   isPscOrder: boolean;
-}
-export interface ExternalLabOrderFormData extends Omit<LabsData, 'orderAssessments'> {
-  labOrganizationName: string;
-  billClass: string;
-  testDetails: testDataForOrderForm[];
-  insuredName?: string;
-  insuredAddress?: string;
-  primaryInsuranceName?: string;
-  primaryInsuranceAddress?: string;
-  primaryInsuranceSubNum?: string;
 }
 
 export interface ExternalLabResult {
@@ -198,6 +203,7 @@ export interface InHouseLabResultConfig {
 export interface LabResultsData
   extends Omit<
     LabsData,
+    | 'aoeAnswers'
     | 'orderNumber'
     | 'labOrganizationName'
     | 'orderSubmitDate'
@@ -243,8 +249,6 @@ export interface ExternalLabResultsData extends LabResultsData {
 export interface InHouseLabResultsData extends LabResultsData {
   inHouseLabResults: InHouseLabResultConfig[];
   timezone: string | undefined;
-  serviceRequestID: string;
-  orderCreateDate: string;
 }
 
 export type ResultDataConfig =
@@ -349,6 +353,82 @@ export interface ReceiptData {
   amount: string;
   date: string;
 }
+
+export interface Medication {
+  name: string;
+  dose?: string;
+  date?: string;
+}
+
+export interface PrescribedMedication {
+  name?: string;
+  instructions?: string;
+  date?: string;
+}
+
+export interface LabOrder {
+  serviceRequestId: string;
+  testItemName: string;
+}
+
+export type DischargeSummaryData = {
+  patient: {
+    fullName: string;
+    dob: string;
+    sex: Gender;
+    id: string;
+    phone?: string;
+  };
+  visit: {
+    type: string;
+    time: string;
+    date: string;
+    location?: string;
+    reasonForVisit: string;
+  };
+  vitals: {
+    temp?: string;
+    hr?: string;
+    rr?: string;
+    bp?: string;
+    oxygenSat?: string;
+    weight?: string;
+    height?: string;
+    vision?: string;
+  };
+  currentMedications?: string[];
+  currentMedicationsNotes?: string[];
+  allergies?: string[];
+  allergiesNotes?: string[];
+  inHouseLabs?: { orders: LabOrder[]; results: IInHouseLabResult[] };
+  externalLabs?: { orders: LabOrder[]; results: ExternalLabOrderResult[] };
+  radiology?: {
+    name: string;
+    result?: string;
+  }[];
+  inhouseMedications?: Medication[];
+  erxMedications?: PrescribedMedication[];
+  diagnoses?: {
+    primary: string[];
+    secondary: string[];
+  };
+  patientInstructions?: string[];
+  educationDocuments?: { title: string; fileName: string }[];
+  disposition: {
+    label: string;
+    instruction: string;
+  };
+  physician: {
+    name: string;
+  };
+  dischargeDateTime?: string;
+  workSchoolExcuse?: {
+    note: string;
+    fileName: string;
+  }[];
+  documentsAttached?: boolean;
+  attachmentUrls?: string[];
+};
 
 export interface GetPaymentDataResponse {
   chargeUuid: string;

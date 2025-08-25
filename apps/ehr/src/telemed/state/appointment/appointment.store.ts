@@ -44,9 +44,14 @@ const APPOINTMENT_INITIAL: AppointmentState = {
 export const useAppointmentStore = create<AppointmentState & AppointmentStoreActions>()((set) => ({
   ...APPOINTMENT_INITIAL,
   setPartialChartData: (data) => {
-    set((state) => ({
-      chartData: { ...state.chartData, patientId: state.chartData?.patientId || '', ...data },
-    }));
+    // Promise.resolve() is temporary solution to fix https://github.com/masslight/ottehr/issues/3644.
+    // The issue occurs due to concurrency with state synchronizations.
+    // Will be fixed during store migration.
+    void Promise.resolve().then(() => {
+      set((state) => ({
+        chartData: { ...state.chartData, patientId: state.chartData?.patientId || '', ...data },
+      }));
+    });
   },
   updateObservation: (newObservation: ObservationDTO) =>
     set((state) => {
