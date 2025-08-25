@@ -23,8 +23,8 @@ const writeInfraSpec = (): void => {
     templates,
   };
   const stringifiedConfig = JSON.stringify(tfModel, null, 2);
-  fs.mkdirSync('.ottehr_config/iac-inputs', { recursive: true });
-  fs.writeFileSync('.ottehr_config/iac-inputs/sendgrid.json', stringifiedConfig, 'utf8');
+  fs.mkdirSync('../../config/sendgrid', { recursive: true });
+  fs.writeFileSync('../../config/sendgrid/sendgrid.json', stringifiedConfig, 'utf8');
 };
 
 writeInfraSpec();
