@@ -24,6 +24,7 @@ import {
   getPatientLastName,
   getSecret,
   isPSCOrder,
+  LAB_ORDER_UPDATE_RESOURCES_EVENTS,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   SaveOrderCollectionData,
   Secrets,
@@ -43,6 +44,7 @@ import { createExternalLabResultPDF } from '../../shared/pdf/labs-results-form-p
 import { getExternalLabOrderResources } from '../shared/labs';
 import {
   getSpecimenPatchAndMostRecentCollectionDate,
+  handleMatchUnsolicitedRequest,
   makePstCompletePatchRequests,
   makeQrPatchRequest,
   makeSpecimenPatchRequest,
@@ -145,7 +147,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         };
       }
 
-      case 'cancelMatchUnsolicitedResultTask': {
+      case LAB_ORDER_UPDATE_RESOURCES_EVENTS.cancelMatchUnsolicitedResultTask: {
+        console.log('handling cancel task to match unsolicited result');
         const { taskId } = validatedParameters;
         await oystehr.fhir.batch({
           requests: [
@@ -166,6 +169,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           statusCode: 200,
           body: JSON.stringify({
             message: `Successfully cancelled match unsolicited result task with id ${taskId}`,
+          }),
+        };
+      }
+
+      case LAB_ORDER_UPDATE_RESOURCES_EVENTS.matchUnsolicitedResult: {
+        const { taskId, diagnosticReportId, srToMatchId, patientToMatchId } = validatedParameters;
+        console.log('handling match unsolicited result');
+        await handleMatchUnsolicitedRequest({ oystehr, taskId, diagnosticReportId, srToMatchId, patientToMatchId });
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            message: `Successfully matched unsolicited result`,
           }),
         };
       }

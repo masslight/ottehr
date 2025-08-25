@@ -23,7 +23,12 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect } from 'react';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
-import { GetUnsolicitedResultsRelatedRequests, useErrorQuery, useSuccessQuery } from 'utils';
+import {
+  FinalizeUnsolicitedResultMatch,
+  GetUnsolicitedResultsRelatedRequests,
+  useErrorQuery,
+  useSuccessQuery,
+} from 'utils';
 import {
   CancelMatchUnsolicitedResultTask,
   ChartDataFields,
@@ -604,8 +609,7 @@ export function useDisplayUnsolicitedResultsIcon(
     },
 
     enabled: Boolean(apiClient && FEATURE_FLAGS.LAB_ORDERS_ENABLED),
-    placeholderData: keepPreviousData,
-    staleTime: QUERY_STALE_TIME,
+    staleTime: 1000 * 15, // 15 seconds
   });
 }
 
@@ -628,8 +632,6 @@ export function useGetUnsolicitedResultsResourcesForTable(
     },
 
     enabled: Boolean(apiClient),
-    placeholderData: keepPreviousData,
-    staleTime: QUERY_STALE_TIME,
   });
 }
 
@@ -692,6 +694,22 @@ export function useCancelMatchUnsolicitedResultTask(): UseMutationResult<
     mutationFn: async (input: CancelMatchUnsolicitedResultTask) => {
       const { taskId, event } = input;
       const data = await apiClient?.updateLabOrderResources({ taskId, event });
+
+      if (data && 'possibleRelatedSRsWithVisitDate' in data) {
+        return data;
+      }
+
+      return;
+    },
+  });
+}
+
+export function useFinalizeUnsolicitedResultMatch(): UseMutationResult<void, Error, FinalizeUnsolicitedResultMatch> {
+  const apiClient = useOystehrAPIClient();
+
+  return useMutation({
+    mutationFn: async (input: FinalizeUnsolicitedResultMatch) => {
+      const data = await apiClient?.updateLabOrderResources(input);
 
       if (data && 'possibleRelatedSRsWithVisitDate' in data) {
         return data;

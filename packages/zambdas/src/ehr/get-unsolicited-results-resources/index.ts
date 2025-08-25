@@ -38,7 +38,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
 
-    let response: GetUnsolicitedResultsResourcesOutput | undefined;
+    let response: GetUnsolicitedResultsResourcesOutput | null;
 
     switch (requestType) {
       case UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_ICON: {

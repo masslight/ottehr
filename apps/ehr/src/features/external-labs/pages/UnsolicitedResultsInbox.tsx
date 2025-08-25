@@ -31,8 +31,8 @@ export const UnsolicitedResultsInbox: React.FC = () => {
                 sx={{ fontWeight: 500 }}
               >{`Tasks - ${unsolicitedTaskRows.length}`}</Typography>
             </Box>
-            {unsolicitedTaskRows.map((task) => (
-              <UnsolicitedResultsTaskCard task={task} />
+            {unsolicitedTaskRows.map((task, idx) => (
+              <UnsolicitedResultsTaskCard key={`task-card-${idx}-${task.diagnosticReportId}`} task={task} />
             ))}
           </Stack>
         )}

@@ -22,7 +22,11 @@ import { useNavigate } from 'react-router-dom';
 import { SearchResultParsedPatient } from 'src/components/PatientsSearch/types';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import PageContainer from 'src/layout/PageContainer';
-import { useCancelMatchUnsolicitedResultTask, useGetUnsolicitedResultsResourcesForMatch } from 'src/telemed';
+import {
+  useCancelMatchUnsolicitedResultTask,
+  useFinalizeUnsolicitedResultMatch,
+  useGetUnsolicitedResultsResourcesForMatch,
+} from 'src/telemed';
 import { formatDateForLabs, LAB_ORDER_UPDATE_RESOURCES_EVENTS, UnsolicitedResultsRequestType } from 'utils';
 import { UnsolicitedPatientMatchSearchCard } from '../components/unsolicited-results/UnsolicitedPatientMatchSearchCard';
 import { UnsolicitedVisitMatchCard } from '../components/unsolicited-results/UnsolicitedVisitMatchCard';
@@ -30,6 +34,7 @@ import { UnsolicitedVisitMatchCard } from '../components/unsolicited-results/Uns
 export const UnsolicitedResultsMatch: React.FC = () => {
   const { diagnosticReportId } = useParams();
   const { mutate: cancelTask, isPending: isCancelling } = useCancelMatchUnsolicitedResultTask();
+  const { mutate: matchResult, isPending: isMatching } = useFinalizeUnsolicitedResultMatch();
   const navigate = useNavigate();
   const [selectedPatient, setSelectedPatient] = useState<SearchResultParsedPatient | undefined>();
   const [confirmedSelectedPatient, setConfirmedSelectedPatient] = useState<SearchResultParsedPatient | undefined>();
@@ -127,6 +132,31 @@ export const UnsolicitedResultsMatch: React.FC = () => {
     }
   };
 
+  const handleMatch = (): void => {
+    if (data?.taskId && confirmedSelectedPatient) {
+      matchResult(
+        {
+          event: LAB_ORDER_UPDATE_RESOURCES_EVENTS.matchUnsolicitedResult,
+          taskId: data.taskId,
+          diagnosticReportId,
+          patientToMatchId: confirmedSelectedPatient.id,
+          srToMatchId: srIdForConfirmedMatchedVisit,
+        },
+        {
+          onSuccess: () => {
+            navigate('/unsolicited-results');
+          },
+          onError: (error) => {
+            console.error('Cancel task failed:', error);
+            enqueueSnackbar('An error occurred rejecting this task. Please try again.', { variant: 'error' });
+          },
+        }
+      );
+    } else {
+      console.log('data.task or confirmedSelectedPatient could not be parsed');
+      enqueueSnackbar('An error occurred rejecting this task. Please try again.', { variant: 'error' });
+    }
+  };
   return (
     <PageContainer>
       <DetailPageContainer>
@@ -236,11 +266,12 @@ export const UnsolicitedResultsMatch: React.FC = () => {
                     Reject
                   </LoadingButton>
                   <LoadingButton
+                    loading={isMatching}
                     variant="contained"
                     sx={{ borderRadius: '50px', textTransform: 'none', py: 1, px: 5, textWrap: 'nowrap' }}
                     color="primary"
                     size={'medium'}
-                    onClick={() => console.log('hi')}
+                    onClick={handleMatch}
                     disabled={!readyToSubmit}
                   >
                     Submit

@@ -96,7 +96,7 @@ export const handleGetPossibleRelatedRequestsToUnsolicitedResult = async (
   // to determine if the result can be matched to an existing SR
   const possibleRelatedSRsWithVisitDate = patientId
     ? await getEncountersPossiblyRelatedToUnsolicitedResult(patientId, diagnosticReport, oystehr)
-    : undefined;
+    : null;
 
   console.log('response for unsolicited results related requests successfully formatted');
   return { possibleRelatedSRsWithVisitDate };
@@ -296,10 +296,11 @@ const getEncountersPossiblyRelatedToUnsolicitedResult = async (
       serviceRequestId: string;
       visitDate: string;
     }[]
-  | undefined
+  | null
 > => {
   const testItemCode = getTestItemCodeFromDR(dr);
-  if (!testItemCode) return;
+  console.log('testItemCode parsed from unsolicited result dr:', testItemCode);
+  if (!testItemCode) return null;
   console.log('searching for encounters, service requests and appointments with patientId', patientId);
   const resourceSearch = (
     await oystehr.fhir.search<Encounter | ServiceRequest | Appointment>({
@@ -392,5 +393,5 @@ const getEncountersPossiblyRelatedToUnsolicitedResult = async (
 
   console.log(`${serviceRequestsWithVisitDates.length} service requests with dates to be returned`);
   if (serviceRequestsWithVisitDates.length) return serviceRequestsWithVisitDates;
-  return;
+  return null;
 };

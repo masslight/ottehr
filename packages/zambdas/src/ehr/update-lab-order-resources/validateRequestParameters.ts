@@ -108,6 +108,17 @@ export function validateRequestParameters(
       secrets,
       userToken,
     };
+  } else if (params.event === LAB_ORDER_UPDATE_RESOURCES_EVENTS.matchUnsolicitedResult) {
+    const { event, taskId, diagnosticReportId, patientToMatchId, srToMatchId } = params;
+    return {
+      event,
+      taskId,
+      diagnosticReportId,
+      patientToMatchId,
+      srToMatchId,
+      secrets,
+      userToken,
+    };
   }
 
   throw Error('event is not supported');

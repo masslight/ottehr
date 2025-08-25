@@ -219,6 +219,7 @@ export const LAB_ORDER_UPDATE_RESOURCES_EVENTS = {
   specimenDateChanged: 'specimenDateChanged',
   saveOrderCollectionData: 'saveOrderCollectionData',
   cancelMatchUnsolicitedResultTask: 'cancelMatchUnsolicitedResultTask',
+  matchUnsolicitedResult: 'matchUnsolicitedResult',
 } as const;
 
 export type TaskReviewedParameters = {
@@ -246,15 +247,24 @@ export type SaveOrderCollectionData = {
 };
 
 export type CancelMatchUnsolicitedResultTask = {
-  taskId: string;
   event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.cancelMatchUnsolicitedResultTask;
+  taskId: string;
+};
+
+export type FinalizeUnsolicitedResultMatch = {
+  event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.matchUnsolicitedResult;
+  taskId: string;
+  diagnosticReportId: string;
+  patientToMatchId: string;
+  srToMatchId?: string;
 };
 
 export type UpdateLabOrderResourcesInput =
   | (TaskReviewedParameters & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.reviewed })
   | (SpecimenDateChangedParameters & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.specimenDateChanged })
   | (SaveOrderCollectionData & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.saveOrderCollectionData })
-  | CancelMatchUnsolicitedResultTask;
+  | CancelMatchUnsolicitedResultTask
+  | FinalizeUnsolicitedResultMatch;
 
 export type DeleteLabOrderZambdaInput = {
   serviceRequestId: string;
@@ -351,10 +361,12 @@ export type GetUnsolicitedResultsResourcesForMatch = {
   taskId: string;
 };
 export type RelatedRequestsToUnsolicitedResultOutput = {
-  possibleRelatedSRsWithVisitDate?: {
-    serviceRequestId: string;
-    visitDate: string;
-  }[];
+  possibleRelatedSRsWithVisitDate:
+    | {
+        serviceRequestId: string;
+        visitDate: string;
+      }[]
+    | null;
 };
 
 export type GetUnsolicitedResultsResourcesOutput =
