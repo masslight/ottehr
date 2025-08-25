@@ -96,6 +96,7 @@ test.describe('Check paperwork is prefilled for existing patient. Payment - insu
   });
   test('IPPP-5 Check Primary insurance has prefilled values', async () => {
     await page.goto(`paperwork/${appointmentIds[1]}/payment-option`);
+    await page.waitForLoadState('networkidle');
     await locator.insuranceOption.click();
     await expect(locator.insuranceHeading).toBeVisible();
     await test.step('Primary Insurance cards are prefilled', async () => {
@@ -148,6 +149,7 @@ test.describe('Check paperwork is prefilled for existing patient. Payment - insu
   // TODO: Need to remove skip when https://github.com/masslight/ottehr/issues/1938 is fixed
   test.skip('IPPP-6 Check Secondary insurance has prefilled values', async () => {
     await page.goto(`paperwork/${appointmentIds[1]}/payment-option`);
+    await page.waitForLoadState('networkidle');
     await expect(locator.insuranceHeading).toBeVisible();
     await locator.addSecondaryInsurance.click();
     await test.step('Secondary Insurance cards are prefilled', async () => {
