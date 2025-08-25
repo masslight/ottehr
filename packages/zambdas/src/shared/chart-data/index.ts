@@ -1530,5 +1530,5 @@ function getMedicationDosage(medication: MedicationStatement): string | undefine
   if (!doseQuantity?.value || !doseQuantity?.unit) {
     return undefined;
   }
-  return `${doseQuantity.value}${doseQuantity.unit}`;
+  return `${doseQuantity.value} ${doseQuantity.unit}`;
 }

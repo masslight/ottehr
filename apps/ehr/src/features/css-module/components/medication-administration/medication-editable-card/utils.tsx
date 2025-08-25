@@ -155,7 +155,7 @@ export const getConfirmSaveModalConfigs = ({
         <strong>Patient:</strong> {patientName}
       </Typography>
       <Typography>
-        <strong>Medication:</strong> {medicationName} / {updateRequestInputRef.current?.orderData?.dose}
+        <strong>Medication:</strong> {medicationName} / {updateRequestInputRef.current?.orderData?.dose}{' '}
         {updateRequestInputRef.current?.orderData?.units} / {routeName}
       </Typography>
       <Typography>
