@@ -42,9 +42,10 @@ export function RecordAudioButton(props: RecordAudioButtonProps): ReactElement {
     if (!waveformRef.current) return;
 
     const recordPlugin = RecordPlugin.create({
-      scrollingWaveform: false,
-      continuousWaveform: true,
-      continuousWaveformDuration: 10,
+      scrollingWaveform: true,
+      scrollingWaveformWindow: 10,
+      // continuousWaveform: true,
+      // continuousWaveformDuration: 10,
       renderRecordedAudio: false,
     });
 

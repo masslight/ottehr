@@ -24,6 +24,9 @@ const AI_OBSERVATION_FIELDS = [
   [AiObservationField.SocialHistory, 'Social history'],
   [AiObservationField.FamilyHistory, 'Family history'],
   [AiObservationField.HospitalizationsHistory, 'Hospitalization'],
+  [AiObservationField.Labs, 'Labs'],
+  [AiObservationField.eRX, 'eRX'],
+  [AiObservationField.Procedures, 'Procedures'],
 ];
 
 interface OttehrAiProps {

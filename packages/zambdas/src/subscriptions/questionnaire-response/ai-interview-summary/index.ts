@@ -25,7 +25,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const chatTranscript = createChatTranscript(questionnaireResponse);
     const oystehr = await createOystehr(secrets);
     const encounterID = questionnaireResponse.encounter?.reference?.split('/')[1] ?? '';
-    const createdResources = await createResourcesFromAiInterview(oystehr, encounterID, chatTranscript, secrets);
+    const createdResources = await createResourcesFromAiInterview(
+      oystehr,
+      encounterID,
+      chatTranscript,
+      null,
+      null,
+      null,
+      null,
+      secrets
+    );
 
     return {
       statusCode: 200,

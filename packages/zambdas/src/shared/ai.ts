@@ -20,12 +20,13 @@ import { parseCreatedResourcesBundle, saveResourceRequest } from './resources.he
 let chatbot: ChatAnthropic;
 // let chatbotVertexAI: ChatVertexAI;
 
-const PROMPT = `I'll give you a transcript of a chat between a healthcare provider and a patient. 
-Please generate history of present illness, past medical history, past surgical history, medications history, 
-allergies, social history, family history, hospitalizations history and potential diagnoses with ICD-10 codes for the patient. 
+function getPrompt(fields: string): string {
+  return `I'll give you a transcript of a chat between a healthcare provider and a patient. 
+Please generate ${fields} with ICD-10 codes for the patient. 
 Please present a response in JSON format. Don't add markdown. Use property names in camel case. For ICD-10 codes use "icd10" property.  
 Use a single string property in JSON for each section except potential diagnoses. 
 The transcript: `;
+}
 
 const AI_RESPONSE_KEY_TO_FIELD = {
   historyOfPresentIllness: AiObservationField.HistoryOfPresentIllness,
@@ -36,6 +37,9 @@ const AI_RESPONSE_KEY_TO_FIELD = {
   socialHistory: AiObservationField.SocialHistory,
   familyHistory: AiObservationField.FamilyHistory,
   hospitalizationsHistory: AiObservationField.HospitalizationsHistory,
+  labs: AiObservationField.Labs,
+  erx: AiObservationField.eRX,
+  procedures: AiObservationField.Procedures,
 };
 
 export async function invokeChatbotVertexAI(input: MessageContentComplex[], secrets: Secrets | null): Promise<string> {
@@ -78,14 +82,20 @@ export async function createResourcesFromAiInterview(
   oystehr: Oystehr,
   encounterID: string,
   chatTranscript: string,
-  chatSummary: string,
+  chatSummary: string | null,
   z3URL: string | null,
   mimeType: string,
   providerUserProfile: string | null,
   secrets: Secrets | null
 ): Promise<string> {
+  let fields =
+    'history of present illness, past medical history, past surgical history, medications history, allergies, social history, family history, hospitalizations history and potential diagnoses';
+  // if there is a summary, it is a recording
+  if (chatSummary) {
+    fields = 'labs, erx, procedures, ' + fields;
+  }
   const aiResponseString = (
-    await invokeChatbot([{ role: 'user', content: PROMPT + '\n' + chatTranscript }], secrets)
+    await invokeChatbot([{ role: 'user', content: getPrompt(fields) + '\n' + chatTranscript }], secrets)
   ).content.toString();
   console.log(`AI response: "${aiResponseString}"`);
   const aiResponse = JSON.parse(aiResponseString);
@@ -129,7 +139,7 @@ function createDocumentReference(
   documentReferenceCreateUrl: string,
   z3URL: string | null,
   transcript: string,
-  summary: string,
+  summary: string | null,
   mimeType: string
 ): BatchInputPostRequest<DocumentReference> {
   const documentReference: DocumentReference = {
@@ -172,13 +182,17 @@ function createDocumentReference(
           data: btoa(transcript),
         },
       },
-      {
-        attachment: {
-          contentType: 'text/plain',
-          title: 'Summary',
-          data: btoa(summary),
-        },
-      },
+      ...(summary
+        ? [
+            {
+              attachment: {
+                contentType: 'text/plain',
+                title: 'Summary',
+                data: btoa(summary),
+              },
+            },
+          ]
+        : []),
     ],
     context: {
       encounter: [
