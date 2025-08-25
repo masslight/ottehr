@@ -2,6 +2,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { createOystehrClient, getAuth0Token, lambdaResponse, wrapHandler, ZambdaInput } from '../../shared';
 
 let oystehrToken: string;
+
 export const index = wrapHandler('get-vitals', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     let requestBody;
@@ -15,7 +16,7 @@ export const index = wrapHandler('get-vitals', async (input: ZambdaInput): Promi
       throw new Error('Invalid request body format');
     }
 
-    const { deviceId, patientId } = requestBody;
+    const { deviceId, patientId, page = 1, pageSize = 5 } = requestBody;
 
     if (!deviceId || !patientId) {
       throw new Error('Missing required parameters: deviceId, patientId');
@@ -27,30 +28,40 @@ export const index = wrapHandler('get-vitals', async (input: ZambdaInput): Promi
     }
     const oystehr = createOystehrClient(oystehrToken, secrets);
 
+    const offset = (page - 1) * pageSize;
+
     const searchResult = await oystehr.fhir.search({
       resourceType: 'Observation',
       params: [
         { name: 'device', value: `Device/${deviceId}` },
         { name: 'patient', value: `Patient/${patientId}` },
         { name: '_sort', value: '-date' },
-        { name: '_count', value: '100' },
+        { name: '_count', value: String(pageSize) },
+        { name: '_getpagesoffset', value: String(offset) },
       ],
     });
 
-    const observations = searchResult.unbundle()[0] as any;
+    const observations = searchResult.unbundle() as any[];
     console.log('Observations:', JSON.stringify(observations, null, 2));
 
-    if (!observations) {
+    if (!observations || observations.length === 0) {
       throw new Error(`No observation found for device ${deviceId} and patient ${patientId}`);
     }
 
-    console.log('Observations of components:', JSON.stringify(observations, null, 2));
-    console.log('Observations of vitals:', JSON.stringify(observations.component, null, 2));
+    const formatted = observations.map((obs) => ({
+      id: obs.id,
+      code: obs.code?.text ?? null,
+      status: obs.status,
+      effectiveDateTime: obs.effectiveDateTime ?? obs.meta?.lastUpdated,
+      components: obs.component ?? [],
+    }));
+
+    console.log('Formatted observations:', JSON.stringify(formatted, null, 2));
 
     return lambdaResponse(200, {
       message: `Successfully retrieved vital details`,
-      vitals: observations.component,
-      total: Number(observations.component.length),
+      observations: formatted,
+      total: Number(searchResult.total ?? formatted.length),
     });
   } catch (error: any) {
     console.error('Error:', error);

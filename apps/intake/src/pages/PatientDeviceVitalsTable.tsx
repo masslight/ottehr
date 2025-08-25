@@ -1,6 +1,6 @@
 import { Typography } from '@mui/material';
-import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
-import React from 'react';
+import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
+import React, { useState } from 'react';
 
 interface VitalsData {
   message: string;
@@ -23,6 +23,10 @@ interface DeviceVitalsProps {
 }
 
 export const PatientDeviceVitalsTable: React.FC<DeviceVitalsProps> = ({ vitalsData, loading }) => {
+  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
+    page: 0,
+    pageSize: 5,
+  });
   const transformVitalsToRows = (): any => {
     if (!vitalsData?.vitals) return [];
     const rowData: Record<string, string | number> = { id: 1 };
@@ -76,7 +80,9 @@ export const PatientDeviceVitalsTable: React.FC<DeviceVitalsProps> = ({ vitalsDa
           rows={rows}
           columns={columns}
           autoHeight
-          hideFooter
+          pagination
+          paginationModel={paginationModel}
+          onPaginationModelChange={setPaginationModel}
           disableColumnMenu
           disableRowSelectionOnClick
           sx={{

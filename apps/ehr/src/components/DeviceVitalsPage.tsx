@@ -1,25 +1,29 @@
 import { ReactElement } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
 import { DeviceVitalsTable } from './DeviceVitalsTable';
 
 interface VitalsData {
   message: string;
-  vitals: Array<{
-    valueString?: string;
-    valueInteger?: number;
-    code: {
-      text: string;
-    };
+  observations: Array<{
+    id: string;
+    code: string;
+    status: string;
+    effectiveDateTime?: string;
+    components: Array<{
+      code: { text: string };
+      valueString?: string;
+      valueInteger?: number;
+    }>;
   }>;
   total: number;
 }
 
 export const DeviceVitalsPage = (): ReactElement => {
   const location = useLocation();
+  const { deviceId } = useParams<{ deviceId: string | undefined }>();
   const vitalsData = location.state?.vitalsData as VitalsData | undefined;
   const deviceType = location.state?.deviceType as string;
   const thresholds = location.state?.thresholds || [];
-  const deviceId = location.pathname.split('/').pop() || '';
 
   return (
     <div>

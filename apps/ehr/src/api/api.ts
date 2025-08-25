@@ -79,6 +79,7 @@ import {
   UpdateUserParams,
   UpdateUserZambdaOutput,
   UploadPatientProfilePhotoInput,
+  VitalsData,
 } from 'utils';
 
 export interface PatchOperation {
@@ -1021,7 +1022,7 @@ export const assignThreshold = async (params: object, oystehr: Oystehr): Promise
   }
 };
 
-export const getVitals = async (params: object, oystehr: Oystehr): Promise<GetDevicesResponse> => {
+export const getVitals = async (params: object, oystehr: Oystehr): Promise<VitalsData> => {
   try {
     const response = await oystehr.zambda.execute({
       id: 'get-vitals',

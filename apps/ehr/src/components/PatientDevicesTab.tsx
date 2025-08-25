@@ -72,8 +72,8 @@ export const PatientDevicesTab: FC<{ loading?: boolean }> = ({ loading }) => {
       try {
         const vitalsData = await getVitalsMutation({ deviceId, patientId, page: 1, pageSize: 10 });
         console.log('Ithe ahe issue ha check kr:', vitalsData);
-        navigate(`/device/${deviceId}`, {
-          state: { vitalsData, deviceType, thresholds },
+        navigate(`/patient/${patientId}/device/${deviceId}`, {
+          state: { deviceType, thresholds },
         });
       } catch (error) {
         console.error('Failed to fetch vitals before navigation:', error);
@@ -210,7 +210,7 @@ export const PatientDevicesTab: FC<{ loading?: boolean }> = ({ loading }) => {
                 onClick={() => handleDeviceVitals(params.row.id, params.row.distinctIdentifier, params.row.property)}
                 disabled={isFetchingVitals}
               >
-                {isFetchingVitals ? 'Loading...' : 'View Vitals'}
+                View Vitals
               </RoundedButton>
             </div>
           </div>

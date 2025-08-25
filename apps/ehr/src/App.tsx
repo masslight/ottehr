@@ -231,7 +231,7 @@ function App(): ReactElement {
                   <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
                   <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
                   <Route path="/patients" element={<PatientsPage />} />
-                  <Route path="/device/:id" element={<DeviceVitalsPage />} />
+                  <Route path="/patient/:patientId/device/:deviceId" element={<DeviceVitalsPage />} />
 
                   <Route path="/rcm/claims" element={<Claims />} />
                   <Route path="/rcm/claims/:id" element={<Claim />} />

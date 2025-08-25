@@ -40,3 +40,4 @@ export * from './unassign-practitioner';
 export * from './update-user';
 export * from './user.types';
 export * from './get-devices';
+export * from './get-vitals';
