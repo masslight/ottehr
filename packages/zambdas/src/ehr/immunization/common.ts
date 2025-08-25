@@ -1,7 +1,8 @@
 import Oystehr from '@oystehr/sdk';
-import { Medication, MedicationAdministration } from 'fhir/r4b';
+import { Medication, MedicationAdministration, Practitioner } from 'fhir/r4b';
 import {
   getCoding,
+  getFullName,
   InputImmunizationOrderDetails,
   MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
   MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM,
@@ -78,6 +79,11 @@ export async function updateOrderDetails(
     text: instructions,
   };
 
+  const orderedProvider = await oystehr.fhir.get<Practitioner>({
+    resourceType: 'Practitioner',
+    id: orderedProviderId,
+  });
+
   medicationAdministration.performer = [
     ...(medicationAdministration.performer ?? []).filter(
       (performer) =>
@@ -87,7 +93,7 @@ export async function updateOrderDetails(
     {
       actor: {
         reference: `Practitioner/${orderedProviderId}`,
-        display: orderedProviderId, // todo get name
+        display: getFullName(orderedProvider),
       },
       function: {
         coding: [
