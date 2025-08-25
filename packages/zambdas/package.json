@@ -10,6 +10,7 @@
     "remove-insurances-and-payer-orgs": "tsx src/scripts/remove-insurances-and-payer-orgs.ts",
     "fix-duplicate-payers": "tsx src/scripts/fix-duplicate-payers.ts",
     "fix-payer-ids-in-orgs": "tsx src/scripts/fix-payer-ids-in-orgs.ts",
+    "report-daily-payments": "tsx src/scripts/report-daily-payments.ts",
     "update-insurances-and-payer-orgs": "tsx src/scripts/update-insurances-and-payer-orgs.ts",
     "update-insurances-and-payer-orgs-debug": "node --inspect --import tsx src/scripts/update-insurances-and-payer-orgs.ts",
     "recreate-in-house-medications-list": "tsx src/scripts/recreate-in-house-medications-list.ts $npm_config_env",
