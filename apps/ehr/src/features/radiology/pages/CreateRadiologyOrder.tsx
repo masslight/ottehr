@@ -20,7 +20,13 @@ import { CPTCodeDTO, DiagnosisDTO } from 'utils';
 import { createRadiologyOrder } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { getSelectors } from '../../../shared/store/getSelectors';
-import { useAppointmentStore, useDebounce, useGetIcd10Search, useSaveChartData } from '../../../telemed';
+import {
+  useAppointmentStore,
+  useDebounce,
+  useGetIcd10Search,
+  useICD10SearchNew,
+  useSaveChartData,
+} from '../../../telemed';
 import { WithRadiologyBreadcrumbs } from '../components/RadiologyBreadcrumbs';
 
 interface CreateRadiologyOrdersProps {
@@ -78,9 +84,8 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
 
   // used to fetch dx icd10 codes
   const [dxDebouncedSearchTerm, setDxDebouncedSearchTerm] = useState('');
-  const { isFetching: isSearchingDx, data: dxData } = useGetIcd10Search({
+  const { isFetching: isSearchingDx, data: dxData } = useICD10SearchNew({
     search: dxDebouncedSearchTerm,
-    sabs: 'ICD10CM',
   });
   const icdSearchOptions = dxDebouncedSearchTerm === '' && diagnosis ? diagnosis : dxData?.codes || [];
   const { debounce: debounceDx } = useDebounce(800);

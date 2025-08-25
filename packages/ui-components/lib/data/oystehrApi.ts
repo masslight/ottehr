@@ -154,7 +154,7 @@ export const getOystehrAPI = (
     getPatientsZambdaID,
     getPaymentMethodsZambdaID,
     getPresignedFileURLZambdaID,
-    getTelemedStatesZambdaID,
+    getTelemedLocationsZambdaID: getTelemedStatesZambdaID,
     getWaitStatusZambdaID,
     joinCallZambdaID,
     setDefaultPaymentMethodZambdaID,

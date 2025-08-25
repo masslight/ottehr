@@ -4,7 +4,7 @@ import { FieldError } from 'react-hook-form';
 import { IcdSearchResponse } from 'utils';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { useDebounce } from '../../../../hooks';
-import { useGetIcd10Search } from '../../../../state';
+import { useICD10SearchNew } from '../../../../state';
 
 type DiagnosesFieldProps = {
   onChange: (data: IcdSearchResponse['codes'][number]) => void;
@@ -20,7 +20,7 @@ export const DiagnosesField: FC<DiagnosesFieldProps> = (props) => {
   const { onChange, disabled, disableForPrimary, value, label, placeholder, error } = props;
 
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-  const { isFetching: isSearching, data } = useGetIcd10Search({ search: debouncedSearchTerm, sabs: 'ICD10CM' });
+  const { isFetching: isSearching, data } = useICD10SearchNew({ search: debouncedSearchTerm });
   const icdSearchOptions = data?.codes || [];
 
   const { debounce } = useDebounce(800);

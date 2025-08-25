@@ -76,7 +76,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       serviceRequest,
       encounter,
       patient,
-      inputRequestTask,
+      inputResultTask,
       specimen,
       activityDefinition,
       currentUserPractitioner,
@@ -91,7 +91,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const requests = makeResultEntryRequests(
       serviceRequest,
-      inputRequestTask,
+      inputResultTask,
       specimen,
       activityDefinition,
       resultsEntryData,
@@ -186,7 +186,7 @@ const getInHouseLabResultResources = async (
   serviceRequest: ServiceRequest;
   encounter: Encounter;
   patient: Patient;
-  inputRequestTask: Task;
+  inputResultTask: Task;
   specimen: Specimen;
   activityDefinition: ActivityDefinition;
   currentUserPractitioner: Practitioner;
@@ -253,7 +253,7 @@ const getInHouseLabResultResources = async (
 
   const serviceRequests: ServiceRequest[] = [];
   const patients: Patient[] = [];
-  const inputRequestTasks: Task[] = []; // IRT tasks
+  const inputResultTasks: Task[] = []; // IRT tasks
   const specimens: Specimen[] = [];
   const encounters: Encounter[] = [];
   const schedules: Schedule[] = [];
@@ -268,10 +268,9 @@ const getInHouseLabResultResources = async (
     if (resource.resourceType === 'Location') locations.push(resource);
     if (
       resource.resourceType === 'Task' &&
-      resource.status === 'ready' &&
       resource.code?.coding?.some((c) => c.code === IN_HOUSE_LAB_TASK.code.inputResultsTask)
     ) {
-      inputRequestTasks.push(resource);
+      inputResultTasks.push(resource);
     }
   });
 
@@ -282,9 +281,20 @@ const getInHouseLabResultResources = async (
   if (encounters.length !== 1) throw new Error('Only one encounter should be returned');
   if (specimens.length !== 1)
     throw new Error(`Only one specimen should be returned - specimen ids: ${specimens.map((s) => s.id)}`);
-  if (inputRequestTasks.length !== 1) {
-    console.log('inputRequestTasks', inputRequestTasks);
-    throw new Error(`Only one ready IRT task should exist for ServiceRequest/${serviceRequestId}`);
+
+  console.log('These are the inputResultTasks', JSON.stringify(inputResultTasks));
+  if (inputResultTasks.length !== 1) {
+    console.log('inputResultTasks', inputResultTasks);
+    throw new Error(`Found multiple IRT tasks for ServiceRequest/${serviceRequestId}. Expected one`);
+  }
+
+  const inputResultTask = inputResultTasks[0];
+
+  if (inputResultTask.status === 'completed') {
+    throw new Error('Result has already been entered. Refresh the page to continue.');
+  }
+  if (inputResultTask.status !== 'ready') {
+    throw new Error(`One ready IRT task should exist for ServiceRequest/${serviceRequestId}`);
   }
 
   const serviceRequestsRelatedViaRepeat =
@@ -332,7 +342,7 @@ const getInHouseLabResultResources = async (
     serviceRequest,
     encounter,
     patient,
-    inputRequestTask: inputRequestTasks[0],
+    inputResultTask,
     specimen: specimens[0],
     activityDefinition: activityDefinitions[0],
     currentUserPractitioner,
