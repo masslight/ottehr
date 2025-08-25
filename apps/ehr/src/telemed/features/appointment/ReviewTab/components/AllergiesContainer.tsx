@@ -2,12 +2,11 @@ import { Box, Typography, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { NoteDTO } from 'utils';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../../state';
+import { useChartData } from '../../../../state';
 import { AssessmentTitle } from '../../AssessmentTab/components/AssessmentTitle';
 
 export const AllergiesContainer: FC<{ notes?: NoteDTO[] }> = ({ notes }) => {
-  const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
+  const { chartData } = useChartData();
   const theme = useTheme();
 
   const allergies = chartData?.allergies?.filter((allergy) => allergy.current === true);

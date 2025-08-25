@@ -13,9 +13,8 @@ import {
 import { Patient } from 'fhir/r4b';
 import { ReactElement, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useEditPatientNameMutation } from '../../../hooks';
-import { useAppointmentStore } from '../../../state';
+import { useAppointmentData } from '../../../state';
 
 interface EditPatientNameDialogProps {
   modalOpen: boolean;
@@ -31,7 +30,7 @@ interface FormInputs {
 export const EditPatientNameDialog = ({ modalOpen, onClose }: EditPatientNameDialogProps): ReactElement => {
   const { register, handleSubmit, formState, setValue } = useForm<FormInputs>();
   const [error, setError] = useState(false);
-  const { patient } = getSelectors(useAppointmentStore, ['patient']);
+  const { patient, appointmentSetState } = useAppointmentData();
 
   useEffect(() => {
     setValue('firstName', patient?.name?.[0]?.given?.[0]);
@@ -66,7 +65,7 @@ export const EditPatientNameDialog = ({ modalOpen, onClose }: EditPatientNameDia
         { patientData: patientData },
         {
           onSuccess: (updatedData) => {
-            useAppointmentStore.setState({
+            appointmentSetState({
               patient: { ...updatedData },
             });
             onClose();

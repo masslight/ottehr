@@ -4,15 +4,14 @@ import { FC, useState } from 'react';
 import { TooltipWrapper } from 'src/components/WithTooltip';
 import { CPT_TOOLTIP_PROPS } from 'src/components/WithTooltip';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { ActionsList, DeleteIconButton } from '../../../../components';
 import { useDebounce, useGetAppointmentAccessibility } from '../../../../hooks';
-import { useAppointmentStore, useDeleteChartData, useGetIcd10Search, useSaveChartData } from '../../../../state';
+import { useChartData, useDeleteChartData, useGetIcd10Search, useSaveChartData } from '../../../../state';
 import { AssessmentTitle } from './AssessmentTitle';
 import { CPTCodeOption, emCodeOptions } from './EMCodeField';
 
 export const BillingCodesContainer: FC = () => {
-  const { chartData, setPartialChartData } = getSelectors(useAppointmentStore, ['chartData', 'setPartialChartData']);
+  const { chartData, setPartialChartData } = useChartData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const cptCodes = chartData?.cptCodes || [];
   const emCode = chartData?.emCode;

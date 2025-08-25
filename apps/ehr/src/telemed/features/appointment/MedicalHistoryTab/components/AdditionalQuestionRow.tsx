@@ -4,8 +4,7 @@ import { FC, useEffect } from 'react';
 import { AdditionalBooleanQuestionsFieldsNames, convertToBoolean, ObservationBooleanFieldDTO } from 'utils';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { setNavigationDisable } from '../../../../../features/css-module/context/NavigationContext';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
-import { useAppointmentStore, useSaveChartData } from '../../../../state';
+import { useChartData, useSaveChartData } from '../../../../state';
 
 export const AdditionalQuestionEdit = ({
   label,
@@ -18,8 +17,7 @@ export const AdditionalQuestionEdit = ({
   value?: boolean;
   isChartDataLoading?: boolean;
 }): JSX.Element => {
-  const { chartData, updateObservation } = getSelectors(useAppointmentStore, ['chartData', 'updateObservation']);
-
+  const { chartData, updateObservation } = useChartData();
   const { mutate, isPending: isLoading } = useSaveChartData();
   const normalizedValue = value !== undefined ? String(value) : '';
 

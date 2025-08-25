@@ -3,33 +3,26 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
 import { SCHOOL_WORK_NOTE } from 'utils';
 import { getStringAnswer } from '../../../../features/css-module/parser';
-import { getSelectors } from '../../../../shared/store/getSelectors';
 import { AccordionCard, DoubleColumnContainer } from '../../../components';
 import {
   useExcusePresignedFiles,
   useGetAppointmentAccessibility,
   usePatientProvidedExcusePresignedFiles,
 } from '../../../hooks';
-import { useAppointmentStore, useDeleteChartData, useSaveChartData } from '../../../state';
+import { useAppointmentData, useChartData, useDeleteChartData, useSaveChartData } from '../../../state';
 import { ExcuseCard, ExcuseLink, GenerateExcuseDialog } from './components';
 
 export const SchoolWorkExcuseCard: FC = () => {
   const [collapsed, setCollapsed] = useState(false);
-
   const [generateWorkTemplateOpen, setGenerateWorkTemplateOpen] = useState(false);
   const [generateWorkFreeOpen, setGenerateWorkFreeOpen] = useState(false);
   const [generateSchoolTemplateOpen, setGenerateSchoolTemplateOpen] = useState(false);
   const [generateSchoolFreeOpen, setGenerateSchoolFreeOpen] = useState(false);
-
   const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
   const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
   const isLoading = isSaveLoading || isDeleteLoading;
-
-  const { chartData, questionnaireResponse, setPartialChartData } = getSelectors(useAppointmentStore, [
-    'chartData',
-    'questionnaireResponse',
-    'setPartialChartData',
-  ]);
+  const { questionnaireResponse } = useAppointmentData();
+  const { chartData, setPartialChartData } = useChartData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const presignedFiles = useExcusePresignedFiles(chartData?.schoolWorkNotes);
   const { patientSchoolPresignedUrl, patientWorkPresignedUrl } = usePatientProvidedExcusePresignedFiles();

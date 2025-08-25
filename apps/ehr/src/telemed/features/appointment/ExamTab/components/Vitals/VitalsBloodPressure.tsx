@@ -2,9 +2,8 @@ import { Box, Typography } from '@mui/material';
 import { FC, useCallback, useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { getQuestionnaireResponseByLinkId } from 'utils';
-import { getSelectors } from '../../../../../../shared/store/getSelectors';
 import { useDebounce } from '../../../../../hooks';
-import { useAppointmentStore, useUpdatePaperwork } from '../../../../../state';
+import { useAppointmentData, useUpdatePaperwork } from '../../../../../state';
 import { updateQuestionnaireResponse } from '../../../../../utils';
 import { NumberInput } from '../NumberInput';
 
@@ -14,11 +13,8 @@ type VitalsBloodPressureProps = {
 
 export const VitalsBloodPressure: FC<VitalsBloodPressureProps> = (props) => {
   const { validate } = props;
-
-  const { appointment, questionnaireResponse } = getSelectors(useAppointmentStore, [
-    'appointment',
-    'questionnaireResponse',
-  ]);
+  const { appointmentSetState } = useAppointmentData();
+  const { appointment, questionnaireResponse } = useAppointmentData();
   const defaultValue = getQuestionnaireResponseByLinkId('vitals-bp', questionnaireResponse)?.answer?.[0]?.valueString;
   const { control, handleSubmit, watch, setValue, getValues } = useForm<{
     'vitals-bp': string;
@@ -43,13 +39,19 @@ export const VitalsBloodPressure: FC<VitalsBloodPressureProps> = (props) => {
           },
           {
             onSuccess: () => {
-              updateQuestionnaireResponse(questionnaireResponse, 'vitals-bp', value['vitals-bp'] || 'N/A');
+              const updatedQuestionnaireResponse = updateQuestionnaireResponse(
+                questionnaireResponse,
+                'vitals-bp',
+                value['vitals-bp'] || 'N/A'
+              );
+              if (!updatedQuestionnaireResponse) return;
+              appointmentSetState(updatedQuestionnaireResponse);
             },
           }
         );
       });
     },
-    [debounce, mutate, appointment, questionnaireResponse]
+    [debounce, mutate, appointment, questionnaireResponse, appointmentSetState]
   );
 
   useEffect(() => {

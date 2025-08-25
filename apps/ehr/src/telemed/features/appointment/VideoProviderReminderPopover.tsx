@@ -2,19 +2,18 @@ import { Box, Typography } from '@mui/material';
 import { FC } from 'react';
 import { getQuestionnaireResponseByLinkId } from 'utils';
 import useEvolveUser from '../../../hooks/useEvolveUser';
-import { getSelectors } from '../../../shared/store/getSelectors';
 import { ReminderIcon } from '../../assets';
 import { InnerStatePopover } from '../../components';
 import { useGetAppointmentAccessibility } from '../../hooks';
-import { useAppointmentStore } from '../../state';
+import { useAppointmentData } from '../../state';
 
 export const VideoProviderReminderPopover: FC = () => {
   const { licensedPractitionerStates: availableStates } = useGetAppointmentAccessibility();
-  const { questionnaireResponse } = getSelectors(useAppointmentStore, ['questionnaireResponse']);
+  const { questionnaireResponse } = useAppointmentData();
   const user = useEvolveUser();
-
   const providerName = user?.userName || '___';
   const states = availableStates && availableStates.length > 0 ? availableStates.join(', ') : '___';
+
   const address =
     getQuestionnaireResponseByLinkId('patient-street-address', questionnaireResponse)?.answer?.[0]?.valueString ||
     '___';

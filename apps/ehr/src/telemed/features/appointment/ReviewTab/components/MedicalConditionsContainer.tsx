@@ -2,14 +2,12 @@ import { Box, Typography, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { NoteDTO } from 'utils';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../../state';
+import { useChartData } from '../../../../state';
 import { AssessmentTitle } from '../../AssessmentTab/components/AssessmentTitle';
 
 export const MedicalConditionsContainer: FC<{ notes?: NoteDTO[] }> = ({ notes }) => {
-  const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
+  const { chartData } = useChartData();
   const theme = useTheme();
-
   const conditions = chartData?.conditions?.filter((condition) => condition.current === true);
 
   return (

@@ -34,7 +34,8 @@ import {
   AccordionCard,
   ActionsList,
   DeleteIconButton,
-  useAppointmentStore,
+  useAppointmentData,
+  useChartData,
   useDebounce,
   useDeleteChartData,
   useGetAppointmentAccessibility,
@@ -49,7 +50,6 @@ import {
   COMPLICATIONS_VALUE_SET_URL,
   CPTCodeDTO,
   DiagnosisDTO,
-  getSelectors,
   getVisitStatus,
   IcdSearchResponse,
   MEDICATIONS_USED_VALUE_SET_URL,
@@ -125,21 +125,19 @@ export default function ProceduresNew(): ReactElement {
   const { id: appointmentId, procedureId } = useParams();
   const { oystehr } = useApiClients();
   const { data: selectOptions, isLoading: isSelectOptionsLoading } = useSelectOptions(oystehr);
-  const { chartData, setPartialChartData, appointment, encounter } = getSelectors(useAppointmentStore, [
-    'chartData',
-    'setPartialChartData',
-    'appointment',
-    'encounter',
-  ]);
+  const { appointment, encounter } = useAppointmentData();
+  const { chartData, setPartialChartData } = useChartData();
   const inPersonStatus = useMemo(() => appointment && getVisitStatus(appointment, encounter), [appointment, encounter]);
   const appointmentAccessibility = useGetAppointmentAccessibility();
   const { css } = useFeatureFlags();
+
   const isReadOnly = useMemo(() => {
     if (css) {
       return inPersonStatus === 'completed';
     }
     return appointmentAccessibility.status === TelemedAppointmentStatusEnum.complete;
   }, [css, inPersonStatus, appointmentAccessibility.status]);
+
   const chartCptCodes = chartData?.cptCodes || [];
   const chartDiagnoses = chartData?.diagnosis || [];
   const chartProcedures = chartData?.procedures || [];

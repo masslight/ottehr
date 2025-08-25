@@ -2,19 +2,19 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { GetChartDataResponse, NoteDTO } from 'utils';
 import useEvolveUser from '../../../../../hooks/useEvolveUser';
+import { useChartData } from '../../../../../telemed';
 import { useOystehrAPIClient } from '../../../../../telemed/hooks/useOystehrAPIClient';
-import { useChartData } from '../../../hooks/useChartData';
 import { UseSaveNote } from '../types';
 import { useChartDataCacheKey } from './useChartDataCacheKey';
 
-export const useSaveNote: UseSaveNote = ({ encounterId, patientId, apiConfig }) => {
+export const useSaveNote: UseSaveNote = ({ encounterId, appointmentId, patientId, apiConfig }) => {
   const apiClient = useOystehrAPIClient();
   const user = useEvolveUser();
   const queryClient = useQueryClient();
   const cacheKey = useChartDataCacheKey(apiConfig.fieldName, apiConfig.searchParams);
 
-  const { refetch } = useChartData({
-    encounterId,
+  const { chartDataRefetch: refetch } = useChartData({
+    appointmentId,
     requestedFields: { [apiConfig.fieldName]: apiConfig.searchParams },
   });
 

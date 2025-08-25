@@ -8,12 +8,12 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { mapStatusToTelemed, TelemedAppointmentStatusEnum } from 'utils';
 import { dataTestIds } from '../../../constants/data-test-ids';
 import useEvolveUser from '../../../hooks/useEvolveUser';
-import { getSelectors } from '../../../shared/store/getSelectors';
 import { ConfirmationDialog } from '../../components';
 import { useGetAppointmentAccessibility } from '../../hooks';
 import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
 import {
-  useAppointmentStore,
+  TELEMED_APPOINTMENT_QUERY_KEY,
+  useAppointmentData,
   useChangeTelemedAppointmentStatusMutation,
   useGetMeetingData,
   useInitTelemedSessionMutation,
@@ -37,11 +37,7 @@ const FooterButton = styled(LoadingButton)(({ theme }) => ({
 }));
 
 export const AppointmentFooterButton: FC = () => {
-  const { encounter, appointment, isAppointmentLoading } = getSelectors(useAppointmentStore, [
-    'encounter',
-    'appointment',
-    'isAppointmentLoading',
-  ]);
+  const { encounter, appointment, isAppointmentLoading, appointmentSetState } = useAppointmentData();
   const user = useEvolveUser();
   const { getAccessTokenSilently } = useAuth0();
   const navigate = useNavigate();
@@ -100,7 +96,7 @@ export const AppointmentFooterButton: FC = () => {
       {}
     );
 
-    await queryClient.invalidateQueries({ queryKey: ['telemed-appointment'] });
+    await queryClient.invalidateQueries({ queryKey: [TELEMED_APPOINTMENT_QUERY_KEY] });
   };
 
   const onConnect = useCallback((): void => {
@@ -117,7 +113,7 @@ export const AppointmentFooterButton: FC = () => {
             useVideoCallStore.setState({
               meetingData: response.meetingData,
             });
-            useAppointmentStore.setState({
+            appointmentSetState({
               encounter: {
                 ...encounter,
                 status: 'in-progress',
@@ -133,7 +129,16 @@ export const AppointmentFooterButton: FC = () => {
         }
       );
     }
-  }, [apiClient, appointment?.id, appointment?.status, encounter, getMeetingData, initTelemedSession, user]);
+  }, [
+    apiClient,
+    appointment?.id,
+    appointment?.status,
+    encounter,
+    getMeetingData,
+    initTelemedSession,
+    user,
+    appointmentSetState,
+  ]);
 
   useEffect(() => {
     if (

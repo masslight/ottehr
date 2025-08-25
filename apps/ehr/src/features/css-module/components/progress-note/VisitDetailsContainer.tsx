@@ -6,28 +6,25 @@ import {
   getAttendingPractitionerId,
   getProviderNameWithProfession,
   getQuestionnaireResponseByLinkId,
-  getSelectors,
 } from 'utils';
 import { formatDateUsingSlashes } from '../../../../helpers/formatDateTime';
-import { ActionsList, useAppointmentStore } from '../../../../telemed';
+import { ActionsList, useAppointmentData, useChartData } from '../../../../telemed';
 import { VisitNoteItem } from '../../../../telemed/features/appointment/ReviewTab';
-import { useChartData } from '../../hooks/useChartData';
 import { ButtonRounded } from '../RoundedButton';
 
 export const VisitDetailsContainer: FC = () => {
   const navigate = useNavigate();
-
-  const { appointment, location, questionnaireResponse, encounter, chartData, setPartialChartData } = getSelectors(
-    useAppointmentStore,
-    ['appointment', 'location', 'questionnaireResponse', 'encounter', 'chartData', 'setPartialChartData']
-  );
+  const { appointment, location, questionnaireResponse, encounter } = useAppointmentData();
+  const { chartData, setPartialChartData } = useChartData();
 
   useChartData({
-    encounterId: encounter.id || '',
     requestedFields: {
       practitioners: {},
     },
     onSuccess: (data) => {
+      if (!data) {
+        return;
+      }
       setPartialChartData({
         practitioners: data.practitioners,
       });

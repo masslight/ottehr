@@ -3,15 +3,14 @@ import { Box, Checkbox, darken, FormControlLabel, Typography } from '@mui/materi
 import { DateTime, Duration } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useEffect, useState } from 'react';
-import { getSelectors } from '../../../shared/store/getSelectors';
 import { InnerStatePopover } from '../../components';
-import { useAppointmentStore, useSaveChartData } from '../../state';
+import { useAppointmentData, useChartData, useSaveChartData } from '../../state';
 import { formatVideoTimerTime } from '../../utils';
 
 export const VideoTimer: FC = () => {
-  const { encounter } = getSelectors(useAppointmentStore, ['encounter']);
+  const { encounter } = useAppointmentData();
   const [difference, setDifference] = useState<Duration>();
-  const { chartData, setPartialChartData } = getSelectors(useAppointmentStore, ['chartData', 'setPartialChartData']);
+  const { chartData, setPartialChartData } = useChartData();
   const { mutate, isPending: isLoading } = useSaveChartData();
 
   const addToVisitNote = chartData?.addToVisitNote?.value || false;

@@ -7,9 +7,8 @@ import { FC, useMemo, useState } from 'react';
 import { getPresignedURL, getQuestionnaireResponseByLinkId, INSURANCE_CARD_CODE, PHOTO_ID_CARD_CODE } from 'utils';
 import DownloadImagesButton from '../../../../components/DownloadImagesButton';
 import ImageCarousel, { ImageCarouselObject } from '../../../../components/ImageCarousel';
-import { getSelectors } from '../../../../shared/store/getSelectors';
 import { DocumentInfo, DocumentType } from '../../../../types/types';
-import { useAppointmentStore, useGetDocumentReferences } from '../../../state';
+import { useAppointmentData, useGetDocumentReferences } from '../../../state';
 function compareCards(
   cardBackType: DocumentType.PhotoIdBack | DocumentType.InsuranceBack | DocumentType.InsuranceBackSecondary
 ) {
@@ -23,19 +22,15 @@ function compareCards(
 
 export const InsuranceCardAndPhotoContainer: FC = () => {
   const { getAccessTokenSilently } = useAuth0();
-  const { patient, appointment, questionnaireResponse } = getSelectors(useAppointmentStore, [
-    'patient',
-    'appointment',
-    'questionnaireResponse',
-  ]);
-
+  const { patient, appointment, questionnaireResponse } = useAppointmentData();
   const appointmentId = appointment?.id;
+
   const paymentOption = getQuestionnaireResponseByLinkId('payment-option', questionnaireResponse)?.answer?.[0]
     ?.valueString;
+
   const selfPay = paymentOption === 'I will pay without insurance';
   const [photoZoom, setPhotoZoom] = useState<boolean>(false);
   const [zoomedIdx, setZoomedIdx] = useState<number>(0);
-
   const [sections, setSections] = useState<{ title: string; cards: DocumentInfo[]; downloadLabel: string }[]>([]);
   const [fetchCompleted, setFetchCompleted] = useState<boolean>(false);
 

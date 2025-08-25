@@ -2,14 +2,15 @@ import { Box, Button, Stack } from '@mui/material';
 import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageTitle } from 'src/telemed/components/PageTitle';
-import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
+import { useAppointmentData } from '../../../telemed/state/appointment/appointment.store';
 import { RadiologyTable, RadiologyTableColumn } from '../components/RadiologyTable';
 
 const radiologyColumns: RadiologyTableColumn[] = ['studyType', 'dx', 'ordered', 'stat', 'status', 'actions'];
 
 export const RadiologyOrdersListPage: React.FC = () => {
   const navigate = useNavigate();
-  const encounterId = useAppointmentStore((state) => state.encounter?.id);
+  const { encounter } = useAppointmentData();
+  const encounterId = encounter?.id;
 
   const handleCreateOrder = useCallback((): void => {
     navigate('create');

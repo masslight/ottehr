@@ -15,7 +15,6 @@ import {
 import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useState } from 'react';
 import {
-  ADDITIONAL_QUESTIONS_META_SYSTEM,
   HISTORY_OBTAINED_FROM_FIELD,
   HistorySourceKeys,
   historySourceLabels,
@@ -30,44 +29,27 @@ import {
   recentVisitLabels,
   SEEN_IN_LAST_THREE_YEARS_FIELD,
 } from 'utils';
-import { getSelectors } from '../../../../shared/store/getSelectors';
-import { useAppointmentStore, useDebounce, useDeleteChartData } from '../../../../telemed';
+import { useAppointmentData, useDebounce, useDeleteChartData } from '../../../../telemed';
+import { useChartData } from '../../../../telemed';
 import { useOystehrAPIClient } from '../../../../telemed/hooks/useOystehrAPIClient';
 import { useNavigationContext } from '../../context/NavigationContext';
-import { useChartData } from '../../hooks/useChartData';
 
 const AskThePatientComponent = (): React.ReactElement => {
   const apiClient = useOystehrAPIClient();
   const theme = useTheme();
-  const { chartData, updateObservation, encounter } = getSelectors(useAppointmentStore, [
-    'chartData',
-    'updateObservation',
-    'encounter',
-  ]);
-  const { refetch: refetchChartData, isLoading: isChartDataLoading } = useChartData({
-    encounterId: encounter?.id || '',
-    requestedFields: {
-      observations: {
-        _tag: ADDITIONAL_QUESTIONS_META_SYSTEM,
-        _search_by: 'encounter',
-      },
-    },
-    enabled: false,
-  });
+  const { encounter } = useAppointmentData();
+  const { chartDataRefetch, isChartDataLoading, chartData, updateObservation } = useChartData();
   const { mutate: deleteChartData } = useDeleteChartData();
   const { debounce } = useDebounce(1000);
-
   const [recentVisitKey, setRecentVisitKey] = useState<RecentVisitKeys | ''>('');
   const [patientVaccinationKey, setPatientVaccinationKey] = useState<PatientVaccinationKeys | null>(null);
   const [vaccinationNotes, setVaccinationNotes] = useState<string>('');
   const [historySourceKey, setHistorySourceKey] = useState<HistorySourceKeys | ''>('');
   const [otherReason, setOtherReason] = useState<string>('');
-
   const [historySourceUpdating, setHistorySourceUpdating] = useState(false);
   const [patientVaccinationUpdating, setPatientVaccinationUpdating] = useState(false);
   const [vaccinationNotesUpdating, setVaccinationNotesUpdating] = useState(false);
   const [recentVisitUpdating, setRecentVisitUpdating] = useState(false);
-
   const { setNavigationDisable } = useNavigationContext();
 
   setNavigationDisable({ isAskPatientFieldsUpdating: recentVisitUpdating || historySourceUpdating });
@@ -248,7 +230,7 @@ const AskThePatientComponent = (): React.ReactElement => {
           { observations: [currentHistoryObtainedFromObs] },
           {
             onSuccess: async () => {
-              await refetchChartData();
+              await chartDataRefetch();
               setHistorySourceUpdating(false);
             },
             onError: () => {

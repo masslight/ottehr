@@ -1,8 +1,6 @@
 import { Stack, Typography } from '@mui/material';
 import React from 'react';
-import { useParams } from 'react-router-dom';
-import { getSelectors } from '../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../telemed';
+import { useAppointmentData, useChartData } from 'src/telemed';
 import { PageTitle } from '../../../telemed/components/PageTitle';
 import {
   KnownAllergiesPatientColumn,
@@ -13,26 +11,23 @@ import { AllergiesNotes } from '../components/allergies/AllergiesNotes';
 import { CSSLoader } from '../components/CSSLoader';
 import { InfoAlert } from '../components/InfoAlert';
 import { useNavigationContext } from '../context/NavigationContext';
-import { useAppointment } from '../hooks/useAppointment';
-
 interface AllergiesProps {
   appointmentID?: string;
 }
 
 export const Allergies: React.FC<AllergiesProps> = () => {
-  const { id: appointmentID } = useParams();
   const {
+    isAppointmentLoading,
     resources: { appointment },
-    isLoading,
-    error,
-  } = useAppointment(appointmentID);
+    appointmentError,
+  } = useAppointmentData();
 
-  const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);
-
+  const { isChartDataLoading, chartDataError } = useChartData();
   const { interactionMode } = useNavigationContext();
+  const error = chartDataError || appointmentError;
 
-  if (isLoading || isChartDataLoading) return <CSSLoader />;
-  if (error) return <Typography>Error: {error.message}</Typography>;
+  if (isAppointmentLoading || isChartDataLoading) return <CSSLoader />;
+  if (error?.message) return <Typography>Error: {error.message}</Typography>;
   if (!appointment) return <Typography>No data available</Typography>;
 
   return (

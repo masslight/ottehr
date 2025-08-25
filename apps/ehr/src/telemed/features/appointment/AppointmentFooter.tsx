@@ -1,20 +1,18 @@
 import { AppBar, Box, Typography, useTheme } from '@mui/material';
 import { FC, useState } from 'react';
-import { mapEncounterStatusHistory, TelemedAppointmentStatusEnum } from 'utils';
+import { getSelectors, mapEncounterStatusHistory, TelemedAppointmentStatusEnum } from 'utils';
 import { dataTestIds } from '../../../constants/data-test-ids';
-import { getSelectors } from '../../../shared/store/getSelectors';
 import InviteParticipant from '../../components/InviteParticipant';
 import { useGetAppointmentAccessibility } from '../../hooks';
-import { useAppointmentStore, useVideoCallStore } from '../../state';
+import { useAppointmentData, useVideoCallStore } from '../../state';
 import { getAppointmentWaitingTime } from '../../utils';
 import { AppointmentFooterButton } from './AppointmentFooterButton';
 
 export const AppointmentFooter: FC = () => {
   const theme = useTheme();
   const [isInviteParticipantOpen, setIsInviteParticipantOpen] = useState(false);
-
   const appointmentAccessibility = useGetAppointmentAccessibility();
-  const { appointment, encounter } = getSelectors(useAppointmentStore, ['appointment', 'encounter']);
+  const { appointment, encounter } = useAppointmentData();
   const { meetingData } = getSelectors(useVideoCallStore, ['meetingData']);
 
   const statuses =

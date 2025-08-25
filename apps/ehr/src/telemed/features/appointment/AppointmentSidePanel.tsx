@@ -36,11 +36,15 @@ import { dataTestIds } from '../../../constants/data-test-ids';
 import ChatModal from '../../../features/chat/ChatModal';
 import { addSpacesAfterCommas } from '../../../helpers/formatString';
 import { adjustTopForBannerHeight } from '../../../helpers/misc.helper';
-import { getSelectors } from '../../../shared/store/getSelectors';
 import CancelVisitDialog from '../../components/CancelVisitDialog';
 import InviteParticipant from '../../components/InviteParticipant';
 import { useGetAppointmentAccessibility } from '../../hooks';
-import { useAppointmentStore, useGetTelemedAppointmentWithSMSModel } from '../../state';
+import {
+  useAppointmentData,
+  useAppTelemedLocalStore,
+  useChartData,
+  useGetTelemedAppointmentWithSMSModel,
+} from '../../state';
 import { getAppointmentStatusChip, getPatientName, quickTexts } from '../../utils';
 import { PastVisits } from './PastVisits';
 
@@ -55,48 +59,32 @@ export const AppointmentSidePanel: FC = () => {
   const theme = useTheme();
   const navigate = useNavigate();
 
-  const {
-    appointment,
-    encounter,
-    patient,
-    location,
-    locationVirtual,
-    questionnaireResponse,
-    isChartDataLoading,
-    chartData,
-  } = getSelectors(useAppointmentStore, [
-    'isChartDataLoading',
-    'appointment',
-    'patient',
-    'encounter',
-    'location',
-    'locationVirtual',
-    'questionnaireResponse',
-    'chartData',
-  ]);
+  const { appointment, encounter, patient, location, locationVirtual, questionnaireResponse } = useAppointmentData();
 
+  const { isChartDataLoading, chartData } = useChartData();
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [chatModalOpen, setChatModalOpen] = useState<boolean>(false);
   const [isInviteParticipantOpen, setIsInviteParticipantOpen] = useState(false);
-
   const { allergies } = chartData || {};
-
   const formattedReasonForVisit = appointment?.description && addSpacesAfterCommas(appointment.description);
 
   const preferredLanguage = getQuestionnaireResponseByLinkId('preferred-language', questionnaireResponse)?.answer?.[0]
     ?.valueString;
+
   const relayPhone = getQuestionnaireResponseByLinkId('relay-phone', questionnaireResponse)?.answer?.[0]?.valueString;
+
   const number =
     getQuestionnaireResponseByLinkId('patient-number', questionnaireResponse)?.answer?.[0]?.valueString ||
     getQuestionnaireResponseByLinkId('guardian-number', questionnaireResponse)?.answer?.[0]?.valueString;
+
   const address = getQuestionnaireResponseByLinkId('patient-street-address', questionnaireResponse)?.answer?.[0]
     ?.valueString;
+
   const addressLine2 = getQuestionnaireResponseByLinkId('patient-street-address-2', questionnaireResponse)?.answer?.[0];
 
   const appointmentAccessibility = useGetAppointmentAccessibility();
   const isReadOnly = appointmentAccessibility.isAppointmentReadOnly;
-
   const { data: erxConfigData } = useGetErxConfigQuery();
 
   const isCancellableStatus =
@@ -313,7 +301,7 @@ export const AppointmentSidePanel: FC = () => {
                   borderRadius: 10,
                 }}
                 startIcon={<MedicationOutlinedIcon />}
-                onClick={() => useAppointmentStore.setState({ currentTab: TelemedAppointmentVisitTabs.plan })}
+                onClick={() => useAppTelemedLocalStore.setState({ currentTab: TelemedAppointmentVisitTabs.plan })}
                 disabled={appointmentAccessibility.isAppointmentReadOnly || !erxConfigData?.configured}
               >
                 RX

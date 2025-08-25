@@ -1,14 +1,13 @@
 import { Alert, Box } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
-import { useChartData } from 'src/features/css-module/hooks/useChartData';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { getPractitionerMissingFields } from 'src/shared/utils';
+import { useChartData } from 'src/telemed';
 import { VitalFieldNames } from 'utils';
 import { createVitalsSearchConfig } from 'utils/lib/helpers/visit-note/create-vitals-search-config.helper';
-import { getSelectors } from '../../../shared/store/getSelectors';
 import {
-  useAppointmentStore,
+  useAppointmentData,
   useCheckPractitionerEnrollment,
   useConnectPractitionerToERX,
   useEnrollPractitionerToERX,
@@ -27,7 +26,7 @@ export const ERX: FC<{
   onStatusChanged: (status: ERXStatus) => void;
   showDefaultAlert: boolean;
 }> = ({ onStatusChanged, showDefaultAlert }) => {
-  const { patient, encounter } = getSelectors(useAppointmentStore, ['patient', 'encounter']);
+  const { patient, encounter } = useAppointmentData();
   const phoneNumber = patient?.telecom?.find((telecom) => telecom.system === 'phone')?.value;
   const user = useEvolveUser();
   const practitioner = user?.profileResource;
@@ -51,7 +50,6 @@ export const ERX: FC<{
     isLoading: isHeightLoading,
     isFetched: isHeightFetched,
   } = useChartData({
-    encounterId: encounter.id!,
     requestedFields: { [heightSearchConfig.fieldName]: heightSearchConfig.searchParams },
     enabled: Boolean(encounter?.id),
   });
@@ -61,7 +59,6 @@ export const ERX: FC<{
     isLoading: isWeightLoading,
     isFetched: isWeightFetched,
   } = useChartData({
-    encounterId: encounter.id!,
     requestedFields: { [weightSearchConfig.fieldName]: weightSearchConfig.searchParams },
     enabled: Boolean(encounter?.id),
   });

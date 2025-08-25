@@ -2,19 +2,16 @@ import CheckIcon from '@mui/icons-material/Check';
 import { Box, Skeleton } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useMemo, useState } from 'react';
-import { useAppointment } from 'src/features/css-module/hooks/useAppointment';
 import { handleChangeInPersonVisitStatus } from 'src/helpers/inPersonVisitStatusUtils';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
+import { useAppointmentData } from 'src/telemed';
 import { getVisitStatus } from 'utils';
 import { RoundedButton } from '../../../../components/RoundedButton';
 import { dataTestIds } from '../../../../constants/data-test-ids';
-import { getSelectors } from '../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../state';
 
 export const DischargeButton: FC = () => {
-  const { appointment, encounter } = getSelectors(useAppointmentStore, ['appointment', 'encounter']);
-  const { refetch } = useAppointment(appointment?.id);
+  const { appointment, encounter, appointmentRefetch } = useAppointmentData();
   const { oystehrZambda } = useApiClients();
   const user = useEvolveUser();
   const [statusLoading, setStatusLoading] = useState<boolean>(false);
@@ -37,9 +34,7 @@ export const DischargeButton: FC = () => {
 
     try {
       await handleChangeInPersonVisitStatus({ encounterId, user, updatedStatus: 'discharged' }, oystehrZambda);
-
-      await refetch();
-
+      await appointmentRefetch();
       enqueueSnackbar('Patient discharged successfully', { variant: 'success' });
     } catch (error) {
       console.error(error);

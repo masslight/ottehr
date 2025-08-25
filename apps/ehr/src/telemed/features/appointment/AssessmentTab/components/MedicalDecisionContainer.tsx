@@ -1,17 +1,13 @@
 import { Box, CircularProgress, Typography } from '@mui/material';
 import { FC, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useGetAppointmentAccessibility } from '../../../../hooks';
-import { useAppointmentStore } from '../../../../state';
+import { useChartData } from '../../../../state';
 import { AssessmentTitle } from './AssessmentTitle';
 import { MedicalDecisionField } from './MedicalDecisionField';
 
 export const MedicalDecisionContainer: FC = () => {
-  const { chartData, isChartDataLoading: isLoading } = getSelectors(useAppointmentStore, [
-    'chartData',
-    'isChartDataLoading',
-  ]);
+  const { chartData, isChartDataLoading } = useChartData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const mdm = chartData?.medicalDecision?.text;
   const [isUpdating, setIsUpdating] = useState(false);
@@ -20,7 +16,7 @@ export const MedicalDecisionContainer: FC = () => {
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
       <Box sx={{ display: 'flex', gap: 1 }}>
         <AssessmentTitle>Medical Decision Making</AssessmentTitle>
-        {(isUpdating || isLoading) && (
+        {(isUpdating || isChartDataLoading) && (
           <CircularProgress data-testid={dataTestIds.assessmentCard.medicalDecisionLoading} size={16} />
         )}
       </Box>
@@ -31,7 +27,7 @@ export const MedicalDecisionContainer: FC = () => {
           <Typography color="secondary.light">Not provided</Typography>
         )
       ) : (
-        <MedicalDecisionField loading={isLoading} setIsUpdating={setIsUpdating} />
+        <MedicalDecisionField loading={isChartDataLoading} setIsUpdating={setIsUpdating} />
       )}
     </Box>
   );

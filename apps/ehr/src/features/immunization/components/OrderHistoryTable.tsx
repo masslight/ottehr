@@ -13,8 +13,8 @@ import {
 } from '@mui/material';
 import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { useAppointment } from 'src/features/css-module/hooks/useAppointment';
 import { COLLAPSED_MEDS_COUNT } from 'src/features/css-module/hooks/useMedicationHistory';
+import { useAppointmentData } from 'src/telemed';
 import { useGetImmunizationOrders } from '../../css-module/hooks/useImmunization';
 import { ordersRecentFirstComparator } from '../common';
 import { OrderHistoryTableRow } from './OrderHistoryTableRow';
@@ -31,7 +31,7 @@ export const OrderHistoryTable: React.FC<Props> = ({ showActions }) => {
   const {
     resources: { patient },
     isLoading: patientIdLoading,
-  } = useAppointment(appointmentId);
+  } = useAppointmentData(appointmentId);
 
   const { data: ordersResponse, isLoading: ordersLoading } = useGetImmunizationOrders({
     patientId: patient?.id,

@@ -1,12 +1,10 @@
 import { Box, Typography } from '@mui/material';
 import { FC } from 'react';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../../state';
+import { useChartData } from '../../../../state';
 
 export const ReviewOfSystemsContainer: FC = () => {
-  const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
-
+  const { chartData } = useChartData();
   const ros = chartData?.ros?.text;
 
   return (

@@ -6,15 +6,14 @@ import { getVisitStatus, PRACTITIONER_CODINGS, TelemedAppointmentStatusEnum } fr
 import { RoundedButton } from '../../../../components/RoundedButton';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { useFeatureFlags } from '../../../../features/css-module/context/featureFlags';
-import { useAppointment } from '../../../../features/css-module/hooks/useAppointment';
 import { usePractitionerActions } from '../../../../features/css-module/hooks/usePractitioner';
-import { getSelectors } from '../../../../shared/store/getSelectors';
 import { ConfirmationDialog } from '../../../components';
 import { useGetAppointmentAccessibility } from '../../../hooks';
 import { useOystehrAPIClient } from '../../../hooks/useOystehrAPIClient';
 import {
-  useAppointmentStore,
+  useAppointmentData,
   useChangeTelemedAppointmentStatusMutation,
+  useChartData,
   useSignAppointmentMutation,
 } from '../../../state';
 import { getPatientName } from '../../../utils';
@@ -24,19 +23,17 @@ type ReviewAndSignButtonProps = {
 };
 
 export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) => {
-  const { patient, appointment, encounter, chartData } = getSelectors(useAppointmentStore, [
-    'patient',
-    'appointment',
-    'encounter',
-    'chartData',
-  ]);
+  const { patient, appointment, encounter, appointmentRefetch, appointmentSetState } = useAppointmentData();
+
+  const { chartData } = useChartData();
   const apiClient = useOystehrAPIClient();
+
   const { mutateAsync: changeTelemedAppointmentStatus, isPending: isChangeLoading } =
     useChangeTelemedAppointmentStatusMutation();
+
   const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
   const [openTooltip, setOpenTooltip] = useState(false);
 
-  const { refetch } = useAppointment(appointment?.id);
   const { css } = useFeatureFlags();
   const appointmentAccessibility = useGetAppointmentAccessibility();
 
@@ -125,7 +122,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
           appointmentId: appointment.id,
           timezone: tz,
         });
-        await refetch();
+        await appointmentRefetch();
       } catch (error: any) {
         console.log(error.message);
       }
@@ -135,7 +132,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
         appointmentId: appointment.id,
         newStatus: TelemedAppointmentStatusEnum.complete,
       });
-      useAppointmentStore.setState({
+      appointmentSetState({
         encounter: { ...encounter, status: 'finished' },
         appointment: { ...appointment, status: 'fulfilled' },
       });

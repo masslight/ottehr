@@ -1,14 +1,12 @@
 import { Box, CircularProgress, TextField } from '@mui/material';
 import { FC, useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { getSelectors } from '../../../../shared/store/getSelectors';
 import { AccordionCard } from '../../../components';
 import { useDebounceNotesField } from '../../../hooks';
-import { useAppointmentStore } from '../../../state';
+import { useChartData } from '../../../state';
 
 export const AddendumCard: FC = () => {
-  const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
-
+  const { chartData } = useChartData();
   const addendumNote = chartData?.addendumNote?.text;
 
   const methods = useForm({

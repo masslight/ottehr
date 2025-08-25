@@ -1,9 +1,7 @@
 import { Stack, Typography } from '@mui/material';
 import React from 'react';
-import { useParams } from 'react-router-dom';
+import { useAppointmentData, useChartData } from 'src/telemed';
 import { dataTestIds } from '../../../constants/data-test-ids';
-import { getSelectors } from '../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../telemed';
 import { PageTitle } from '../../../telemed/components/PageTitle';
 import { MedicalHistoryDoubleCard } from '../../../telemed/features/appointment';
 import { CSSLoader } from '../components/CSSLoader';
@@ -12,27 +10,24 @@ import { HospitalizationNotes } from '../components/hospitalization/Hospitalizat
 import { HospitalizationPatientComponent } from '../components/hospitalization/HospitalizationPatientComponent';
 import { InfoAlert } from '../components/InfoAlert';
 import { useNavigationContext } from '../context/NavigationContext';
-import { useAppointment } from '../hooks/useAppointment';
-
 interface HospitalizationProps {
   appointmentID?: string;
 }
 
 export const Hospitalization: React.FC<HospitalizationProps> = () => {
-  const { id: appointmentID } = useParams();
-
   const {
     resources: { appointment },
-    isLoading,
-    error,
-  } = useAppointment(appointmentID);
+    isAppointmentLoading,
+    appointmentError,
+  } = useAppointmentData();
 
-  const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);
-
+  const { isChartDataLoading, chartDataError } = useChartData();
+  const error = chartDataError || appointmentError;
+  const isLoading = isAppointmentLoading || isChartDataLoading;
   const { interactionMode } = useNavigationContext();
 
-  if (isLoading || isChartDataLoading) return <CSSLoader />;
-  if (error) return <Typography>Error: {error.message}</Typography>;
+  if (isLoading) return <CSSLoader />;
+  if (error?.message) return <Typography>Error: {error.message}</Typography>;
   if (!appointment) return <Typography>No data available</Typography>;
 
   return (

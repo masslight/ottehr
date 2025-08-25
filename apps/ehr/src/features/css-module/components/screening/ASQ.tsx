@@ -2,8 +2,7 @@ import { Alert, FormControl, Grid, MenuItem, Paper, Select, Typography, useTheme
 import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ASQ_FIELD, ASQKeys, asqLabels, ASQObservationDTO, ObservationDTO } from 'utils';
-import { getSelectors } from '../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../../telemed';
+import { useAppointmentData, useChartData } from '../../../../telemed';
 import { useOystehrAPIClient } from '../../../../telemed/hooks/useOystehrAPIClient';
 import { CSSModal } from '../CSSModal';
 
@@ -14,13 +13,8 @@ const isASQObservationDTO = (obs: ObservationDTO): obs is ASQObservationDTO => {
 export const ASQ: React.FC = () => {
   const theme = useTheme();
   const apiClient = useOystehrAPIClient();
-  const { chartData, updateObservation, encounter, isChartDataLoading } = getSelectors(useAppointmentStore, [
-    'chartData',
-    'updateObservation',
-    'encounter',
-    'isChartDataLoading',
-  ]);
-
+  const { encounter } = useAppointmentData();
+  const { chartData, updateObservation, isLoading: isChartDataLoading } = useChartData();
   const [asqValue, setAsqValue] = useState<ASQKeys | ''>('');
   const [isUpdating, setIsUpdating] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);

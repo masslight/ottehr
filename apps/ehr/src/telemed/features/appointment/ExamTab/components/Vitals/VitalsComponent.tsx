@@ -1,9 +1,8 @@
 import { FC, useCallback, useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { getQuestionnaireResponseByLinkId } from 'utils';
-import { getSelectors } from '../../../../../../shared/store/getSelectors';
 import { useDebounce } from '../../../../../hooks';
-import { useAppointmentStore, useUpdatePaperwork } from '../../../../../state';
+import { useAppointmentData, useUpdatePaperwork } from '../../../../../state';
 import { updateQuestionnaireResponse } from '../../../../../utils';
 import { NumberInput } from '../NumberInput';
 
@@ -15,11 +14,7 @@ type VitalsComponentProps = {
 
 export const VitalsComponent: FC<VitalsComponentProps> = (props) => {
   const { name, label, validate } = props;
-
-  const { appointment, questionnaireResponse } = getSelectors(useAppointmentStore, [
-    'appointment',
-    'questionnaireResponse',
-  ]);
+  const { appointment, questionnaireResponse, appointmentSetState } = useAppointmentData();
   const defaultValue = getQuestionnaireResponseByLinkId(name, questionnaireResponse)?.answer?.[0]?.valueString;
   const { control, handleSubmit, watch } = useForm<{
     [name: string]: string;
@@ -43,13 +38,19 @@ export const VitalsComponent: FC<VitalsComponentProps> = (props) => {
           },
           {
             onSuccess: () => {
-              updateQuestionnaireResponse(questionnaireResponse, name, value[name] || 'N/A');
+              const updatedQuestionnaireResponse = updateQuestionnaireResponse(
+                questionnaireResponse,
+                name,
+                value[name] || 'N/A'
+              );
+              if (!updatedQuestionnaireResponse) return;
+              appointmentSetState(updatedQuestionnaireResponse);
             },
           }
         );
       });
     },
-    [questionnaireResponse, debounce, mutate, appointment, name]
+    [questionnaireResponse, debounce, mutate, appointment, name, appointmentSetState]
   );
 
   useEffect(() => {

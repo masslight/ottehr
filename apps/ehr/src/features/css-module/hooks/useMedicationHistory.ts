@@ -1,8 +1,6 @@
 import { QueryObserverResult } from '@tanstack/react-query';
 import { ChartDataFieldsKeys, GetChartDataResponse, MedicationDTO, removePrefix, SearchParams } from 'utils';
-import { getSelectors } from '../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../telemed';
-import { useChartData } from './useChartData';
+import { useChartData } from '../../../telemed';
 
 export type MedicationHistoryField = Extract<ChartDataFieldsKeys, 'medications' | 'inhouseMedications'>;
 
@@ -40,8 +38,6 @@ export const useMedicationHistory = ({
   medicationHistory: MedicationWithTypeDTO[];
   refetchHistory: () => Promise<QueryObserverResult<GetChartDataResponse, unknown>>;
 } => {
-  const { encounter } = getSelectors(useAppointmentStore, ['encounter']);
-
   const requestedFields = chartDataFields.reduce(
     (acc, field) => {
       acc[field] = {
@@ -57,11 +53,9 @@ export const useMedicationHistory = ({
   const {
     isLoading,
     chartData: historyData,
-    refetch: refetchHistory,
+    chartDataRefetch: refetchHistory,
   } = useChartData({
-    encounterId: encounter.id || '',
     requestedFields,
-    enabled: !!encounter.id,
   });
 
   /**

@@ -1,17 +1,14 @@
 import { Box, Typography } from '@mui/material';
 import { FC } from 'react';
-import { getSelectors } from '../../../../shared/store/getSelectors';
 import { AccordionCard } from '../../../components';
 import { useExamCardCollapsed } from '../../../hooks/useExamCardCollapsed';
-import { useAppointmentStore } from '../../../state';
+import { useAppointmentData } from '../../../state';
 import { getValidationValuesByDOB, isEmptyValidation, isNumberValidation } from '../../../utils';
 import { VitalsBloodPressure, VitalsComponent, VitalsTemperature } from './components';
 
 export const VitalsCard: FC = () => {
   const [isCollapsed, onSwitch] = useExamCardCollapsed('vitals');
-
-  const { patient } = getSelectors(useAppointmentStore, ['patient']);
-
+  const { patient } = useAppointmentData();
   const validationValues = getValidationValuesByDOB(patient!.birthDate!);
 
   return (

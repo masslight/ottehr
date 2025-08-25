@@ -1,11 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
-import {
-  ExtendedMedicationDataForResponse,
-  GetMedicationOrdersInput,
-  getSelectors,
-  UpdateMedicationOrderInput,
-} from 'utils';
-import { useAppointmentStore, useCreateUpdateMedicationOrder, useGetMedicationOrders } from '../../../telemed';
+import { ExtendedMedicationDataForResponse, GetMedicationOrdersInput, UpdateMedicationOrderInput } from 'utils';
+import { useAppointmentData, useCreateUpdateMedicationOrder, useGetMedicationOrders } from '../../../telemed';
 
 interface MedicationAPI {
   medications: ExtendedMedicationDataForResponse[];
@@ -18,12 +13,10 @@ interface MedicationAPI {
 const emptyArray: ExtendedMedicationDataForResponse[] = [];
 
 export const useMedicationAPI = (): MedicationAPI => {
-  const { encounter } = getSelectors(useAppointmentStore, ['encounter']);
+  const { encounter } = useAppointmentData();
   const queryClient = useQueryClient();
   const { mutateAsync: createUpdateMedicationOrder } = useCreateUpdateMedicationOrder();
-
   const searchBy: GetMedicationOrdersInput['searchBy'] = { field: 'encounterId', value: encounter.id || '' };
-
   const { data: medications, isLoading } = useGetMedicationOrders(searchBy);
 
   const invalidateCache = async (): Promise<void> => {

@@ -17,12 +17,14 @@ export const EditableNotesList: React.FC<EditableNotesListProps> = ({
   locales,
   apiConfig,
   encounterId,
+  appointmentId,
   patientId,
   separateEncounterNotes,
   addNoteButtonDataTestId,
   noteLoadingIndicatorDataTestId,
 }) => {
   const { entities, isLoading, handleSave, handleEdit, handleDelete } = useNoteHandlers({
+    appointmentId,
     encounterId,
     patientId,
     apiConfig: apiConfig,

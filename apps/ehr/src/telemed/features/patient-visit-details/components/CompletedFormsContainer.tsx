@@ -10,8 +10,7 @@ import {
   getQuestionnaireResponseByLinkId,
   mdyStringFromISOString,
 } from 'utils';
-import { getSelectors } from '../../../../shared/store/getSelectors';
-import { useAppointmentStore, useGetDocumentReferences } from '../../../state';
+import { useAppointmentData, useGetDocumentReferences } from '../../../state';
 import { InformationCard } from './InformationCard';
 const PdfButton = ({ pdfUrl }: { pdfUrl?: string }): ReactElement => {
   return (
@@ -36,21 +35,15 @@ const PdfButton = ({ pdfUrl }: { pdfUrl?: string }): ReactElement => {
 
 export const CompletedFormsContainer: FC = () => {
   const { getAccessTokenSilently } = useAuth0();
-  const { patient, appointment, questionnaireResponse } = getSelectors(useAppointmentStore, [
-    'patient',
-    'appointment',
-    'questionnaireResponse',
-  ]);
-
+  const { patient, appointment, questionnaireResponse } = useAppointmentData();
   const [consentPdfUrl, setConsentPdfUrl] = useState<string | undefined>();
   const [hipaaPdfUrl, setHipaaPdfUrl] = useState<string | undefined>();
 
   useGetDocumentReferences({ appointmentId: appointment?.id, patientId: patient?.id }, async (data) => {
     const authToken = await getAccessTokenSilently();
-
     const documentReferenceResources: DocumentReference[] = [];
-
     const bundleEntries = data.entry;
+
     bundleEntries?.forEach((bundleEntry: BundleEntry) => {
       const bundleResource = bundleEntry.resource as Bundle;
       bundleResource.entry?.forEach((entry) => {

@@ -1,8 +1,6 @@
 import { Stack, Typography } from '@mui/material';
 import React from 'react';
-import { useParams } from 'react-router-dom';
-import { getSelectors } from '../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../telemed';
+import { useAppointmentData, useChartData } from 'src/telemed';
 import { PageTitle } from '../../../telemed/components/PageTitle';
 import {
   MedicalHistoryDoubleCard,
@@ -13,23 +11,20 @@ import { CSSLoader } from '../components/CSSLoader';
 import { InfoAlert } from '../components/InfoAlert';
 import { SurgicalHistoryNotes } from '../components/surgical-history/SurgicalHistoryNotes';
 import { useNavigationContext } from '../context/NavigationContext';
-import { useAppointment } from '../hooks/useAppointment';
-
 interface SurgicalHistoryProps {
   appointmentID?: string;
 }
 
 export const SurgicalHistory: React.FC<SurgicalHistoryProps> = () => {
-  const { id: appointmentID } = useParams();
-
   const {
     resources: { appointment },
-    isLoading,
-    error,
-  } = useAppointment(appointmentID);
+    isAppointmentLoading,
+    appointmentError,
+  } = useAppointmentData();
 
-  const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);
-
+  const { isChartDataLoading, chartDataError } = useChartData();
+  const isLoading = isAppointmentLoading || isChartDataLoading;
+  const error = chartDataError || appointmentError;
   const { interactionMode } = useNavigationContext();
 
   if (isLoading || isChartDataLoading) return <CSSLoader />;

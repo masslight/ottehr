@@ -2,13 +2,12 @@ import { otherColors } from '@ehrTheme/colors';
 import { ottehrAiIcon } from '@ehrTheme/icons';
 import CloseIcon from '@mui/icons-material/Close';
 import { Box, IconButton, Typography, useTheme } from '@mui/material';
-import React, { FC, useState } from 'react';
-import { getSelectors } from '../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../state';
+import { FC, useState } from 'react';
+import { useChartData } from 'src/telemed/state';
 
 export const AiPotentialDiagnosesCard: FC = () => {
   const theme = useTheme();
-  const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
+  const { chartData } = useChartData();
   const [visible, setVisible] = useState<boolean>(true);
   const aiPotentialDiagnoses = chartData?.aiPotentialDiagnosis ?? [];
 

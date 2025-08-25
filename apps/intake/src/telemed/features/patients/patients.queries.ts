@@ -17,6 +17,7 @@ export const useGetPatients = (
       throw new Error('api client not defined');
     },
 
+    // todo: why is this disabled?
     enabled: false,
   });
 

@@ -1,12 +1,11 @@
 import { TabContext, TabPanel } from '@mui/lab';
 import { FC, useRef } from 'react';
 import { NavigationProvider } from 'src/features/css-module/context/NavigationContext';
+import { useChartData } from 'src/telemed';
 import { TelemedAppointmentVisitTabs } from 'utils';
-import { useChartData } from '../../../features/css-module/hooks/useChartData';
 import { OttehrAi } from '../../../features/css-module/pages/OttehrAi';
-import { getSelectors } from '../../../shared/store/getSelectors';
 import { useExamObservations } from '../../hooks/useExamObservations';
-import { useAppointmentStore } from '../../state';
+import { useAppTelemedLocalStore } from '../../state';
 import { AssessmentTab } from './AssessmentTab';
 import { ExamTab } from './ExamTab';
 import { MedicalHistoryTab } from './MedicalHistoryTab';
@@ -16,17 +15,14 @@ import { VitalsTab } from './VitalsTab';
 
 export const AppointmentTabs: FC = () => {
   const isInitialLoad = useRef(true);
-  const { currentTab, encounter, chartData } = getSelectors(useAppointmentStore, [
-    'currentTab',
-    'encounter',
-    'chartData',
-  ]);
+  const currentTab = useAppTelemedLocalStore((state) => state.currentTab);
+  const { chartData, chartDataSetState } = useChartData();
   const { update } = useExamObservations();
 
   useChartData({
-    encounterId: encounter.id!,
     onSuccess: (data) => {
-      useAppointmentStore.setState({ chartData: { ...chartData, ...data } });
+      if (!data) return;
+      chartDataSetState((prev) => ({ chartData: { ...prev.chartData, ...data } }));
       update(data.examObservations, true);
       isInitialLoad.current = false;
     },

@@ -2,13 +2,11 @@ import { Box, CircularProgress, Skeleton, TextField, Typography } from '@mui/mat
 import { FC, useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useDebounceNotesField, useGetAppointmentAccessibility } from '../../../../hooks';
-import { useAppointmentStore } from '../../../../state';
+import { useChartData } from '../../../../state';
 
 export const ProceduresNoteField: FC = () => {
-  const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
-
+  const { chartData } = useChartData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const methods = useForm({

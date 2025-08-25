@@ -3,18 +3,13 @@ import { FC, ReactElement } from 'react';
 import { AiObservationField, getQuestionnaireResponseByLinkId, ObservationTextFieldDTO } from 'utils';
 import AiSuggestion from '../../../../../components/AiSuggestion';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../../state';
+import { useAppointmentData, useChartData } from '../../../../state';
 import { PatientSideListSkeleton } from '../PatientSideListSkeleton';
 
 export const KnownAllergiesPatientColumn: FC = () => {
   const theme = useTheme();
-
-  const { questionnaireResponse, isAppointmentLoading, chartData } = getSelectors(useAppointmentStore, [
-    'questionnaireResponse',
-    'isAppointmentLoading',
-    'chartData',
-  ]);
+  const { questionnaireResponse, isAppointmentLoading } = useAppointmentData();
+  const { chartData } = useChartData();
 
   const knownAllergies = getQuestionnaireResponseByLinkId(
     'allergies',

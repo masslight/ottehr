@@ -9,14 +9,11 @@ import {
   Appointment,
   Bundle,
   Coding,
-  DocumentReference,
   Encounter,
   FhirResource,
   InsurancePlan,
-  Location,
   Medication,
   Patient,
-  QuestionnaireResponse,
   RelatedPerson,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -24,8 +21,6 @@ import { enqueueSnackbar } from 'notistack';
 import { useEffect } from 'react';
 import { Icd10SearchRequestParams, Icd10SearchResponse, useErrorQuery, useSuccessQuery } from 'utils';
 import {
-  ChartDataFields,
-  ChartDataRequestedFields,
   createSmsModel,
   filterResources,
   GetCreateLabOrderResources,
@@ -38,24 +33,19 @@ import {
   LabOrderResourcesRes,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   MeetingData,
-  RefreshableAppointmentData,
   relatedPersonAndCommunicationMaps,
   ReviewAndSignData,
-  SaveChartDataRequest,
-  SchoolWorkNoteExcuseDocFileDTO,
   TelemedAppointmentInformation,
   UpdateMedicationOrderInput,
 } from 'utils';
 import { icd10Search } from '../../../api/api';
-import { APPOINTMENT_REFRESH_INTERVAL, CHAT_REFETCH_INTERVAL, QUERY_STALE_TIME } from '../../../constants';
+import { CHAT_REFETCH_INTERVAL, QUERY_STALE_TIME } from '../../../constants';
 import { useApiClients } from '../../../hooks/useAppClients';
-import useEvolveUser, { EvolveUser } from '../../../hooks/useEvolveUser';
-import { getSelectors } from '../../../shared/store/getSelectors';
+import useEvolveUser from '../../../hooks/useEvolveUser';
 import { OystehrTelemedAPIClient, PromiseReturnType } from '../../data';
-import { useGetAppointmentAccessibility } from '../../hooks';
 import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
-import { createRefreshableAppointmentData, extractReviewAndSignAppointmentData } from '../../utils';
-import { useAppointmentStore } from './appointment.store';
+import { extractReviewAndSignAppointmentData } from '../../utils';
+import { useAppointmentData } from './appointment.store';
 
 export const useGetReviewAndSignData = (
   {
@@ -99,145 +89,6 @@ export const useGetReviewAndSignData = (
   });
 
   return queryResult;
-};
-
-export const useRefreshableAppointmentData = (
-  {
-    appointmentId,
-    isEnabled,
-  }: {
-    appointmentId: string | undefined;
-    isEnabled: boolean;
-  },
-  onSuccess: (data: RefreshableAppointmentData) => void
-): UseQueryResult<VisitResources[], unknown> => {
-  return useGetTelemedAppointmentPeriodicRefresh(
-    {
-      appointmentId: appointmentId,
-      isEnabled: isEnabled,
-      refreshIntervalMs: APPOINTMENT_REFRESH_INTERVAL,
-    },
-    (originalData) => {
-      if (!originalData || !onSuccess) {
-        return;
-      }
-      const refreshedData = createRefreshableAppointmentData(originalData);
-      onSuccess(refreshedData);
-    }
-  );
-};
-
-export const useGetTelemedAppointmentPeriodicRefresh = (
-  {
-    appointmentId,
-    isEnabled,
-    refreshIntervalMs,
-  }: {
-    appointmentId: string | undefined;
-    isEnabled: boolean;
-    refreshIntervalMs: number | undefined;
-  },
-  onSuccess: (data: VisitResources[] | null) => void
-): UseQueryResult<VisitResources[], unknown> => {
-  const { oystehr } = useApiClients();
-  const refetchOptions = refreshIntervalMs ? { refetchInterval: refreshIntervalMs } : {};
-
-  const queryResult = useQuery({
-    queryKey: ['telemed-appointment-periodic-refresh', appointmentId],
-
-    queryFn: async () => {
-      if (oystehr && appointmentId) {
-        return (
-          await oystehr.fhir.search<VisitResources>({
-            resourceType: 'Appointment',
-            params: [
-              { name: '_id', value: appointmentId },
-              { name: '_revinclude', value: 'DocumentReference:related' },
-            ],
-          })
-        ).unbundle();
-      }
-      throw new Error('fhir client not defined or appointmentId not provided');
-    },
-
-    ...refetchOptions,
-    enabled: isEnabled && Boolean(appointmentId) && Boolean(oystehr),
-  });
-
-  useSuccessQuery(queryResult.data, onSuccess);
-
-  return queryResult;
-};
-
-export type VisitResources = Appointment | DocumentReference | Encounter | Location | Patient | QuestionnaireResponse;
-
-export const useGetAppointment = (
-  {
-    appointmentId,
-  }: {
-    appointmentId: string | undefined;
-  },
-  onSuccess?: (data: VisitResources[] | null) => void
-): UseQueryResult<VisitResources[], unknown> => {
-  const { oystehr } = useApiClients();
-
-  const query = useQuery({
-    queryKey: ['telemed-appointment', appointmentId],
-
-    queryFn: async () => {
-      if (oystehr && appointmentId) {
-        return (
-          await oystehr.fhir.search<VisitResources>({
-            resourceType: 'Appointment',
-            params: [
-              { name: '_id', value: appointmentId },
-              {
-                name: '_include',
-                value: 'Appointment:patient',
-              },
-              {
-                name: '_include',
-                value: 'Appointment:location',
-              },
-              {
-                name: '_include:iterate',
-                value: 'Encounter:participant:Practitioner',
-              },
-              {
-                name: '_revinclude:iterate',
-                value: 'Encounter:appointment',
-              },
-              {
-                name: '_revinclude:iterate',
-                value: 'QuestionnaireResponse:encounter',
-              },
-              { name: '_revinclude', value: 'DocumentReference:related' },
-            ],
-          })
-        )
-          .unbundle()
-          .filter(
-            (resource) =>
-              resource.resourceType !== 'QuestionnaireResponse' ||
-              resource.questionnaire?.includes('https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson') ||
-              resource.questionnaire?.includes('https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual')
-          );
-      }
-      throw new Error('fhir client not defined or appointmentId not provided');
-    },
-
-    enabled: Boolean(oystehr) && Boolean(appointmentId),
-  });
-
-  const { isFetching } = query;
-
-  useSuccessQuery(query.data, onSuccess);
-
-  useEffect(() => {
-    useAppointmentStore.setState({ isAppointmentLoading: isFetching });
-  }, [isFetching]);
-
-  return query;
 };
 
 export const useGetDocumentReferences = (
@@ -336,16 +187,17 @@ export const useGetMeetingData = (
   onSuccess: (data: MeetingData | null) => void,
   onError: (error: Error) => void
 ): UseQueryResult<MeetingData, Error> => {
+  const { encounter } = useAppointmentData();
+
   const queryResult = useQuery({
     queryKey: ['meeting-data'],
 
     queryFn: async () => {
-      const appointment = useAppointmentStore.getState();
       const token = await getAccessTokenSilently();
 
-      if (appointment.encounter.id && token) {
+      if (encounter?.id && token) {
         const videoTokenResp = await fetch(
-          `${import.meta.env.VITE_APP_PROJECT_API_URL}/telemed/v2/meeting/${appointment.encounter.id}/join`,
+          `${import.meta.env.VITE_APP_PROJECT_API_URL}/telemed/v2/meeting/${encounter.id}/join`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -363,6 +215,7 @@ export const useGetMeetingData = (
       throw new Error('token or encounterId not provided');
     },
 
+    // todo: why is this disabled?
     enabled: false,
   });
 
@@ -371,128 +224,6 @@ export const useGetMeetingData = (
   useErrorQuery(queryResult.error, onError);
 
   return queryResult;
-};
-
-export const CHART_DATA_QUERY_KEY_BASE = 'telemed-get-chart-data';
-
-export type ChartDataCacheKey = [
-  typeof CHART_DATA_QUERY_KEY_BASE,
-  OystehrTelemedAPIClient | undefined | null,
-  string | undefined,
-  EvolveUser | undefined,
-  boolean,
-  boolean,
-  { [key: string]: any } | undefined,
-];
-
-export const useGetChartData = (
-  {
-    apiClient,
-    encounterId,
-    requestedFields,
-    enabled,
-    refetchInterval,
-  }: {
-    apiClient: OystehrTelemedAPIClient | null;
-    encounterId?: string;
-    requestedFields?: ChartDataRequestedFields;
-    enabled?: boolean;
-    refetchInterval?: number;
-  },
-  onSuccess: (data: PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getChartData']>> | null) => void,
-  onError?: (error: any) => void
-  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-) => {
-  const user = useEvolveUser();
-  const { isAppointmentLoading } = getSelectors(useAppointmentStore, ['isAppointmentLoading']);
-  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-
-  const key: ChartDataCacheKey = [
-    CHART_DATA_QUERY_KEY_BASE,
-    apiClient,
-    encounterId,
-    user,
-    isReadOnly,
-    isAppointmentLoading,
-    requestedFields,
-  ];
-
-  const query = useQuery({
-    queryKey: key,
-
-    queryFn: () => {
-      if (apiClient && encounterId) {
-        return apiClient.getChartData({
-          encounterId,
-          requestedFields,
-        });
-      }
-      throw new Error('api client not defined or encounterId not provided');
-    },
-
-    enabled: !!apiClient && !!encounterId && !!user && !isAppointmentLoading && enabled,
-    staleTime: 0,
-    refetchInterval: refetchInterval || false,
-  });
-
-  useSuccessQuery(query.data, onSuccess);
-
-  useErrorQuery(query.error, onError);
-
-  return {
-    ...query,
-    queryKey: key,
-  };
-};
-
-export const useSaveChartData = (): UseMutationResult<
-  PromiseReturnType<ReturnType<OystehrTelemedAPIClient['saveChartData']>>,
-  Error,
-  Omit<SaveChartDataRequest, 'encounterId'>
-> => {
-  const apiClient = useOystehrAPIClient();
-  const { encounter } = getSelectors(useAppointmentStore, ['encounter']);
-  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-
-  return useMutation({
-    mutationFn: (chartDataFields: Omit<SaveChartDataRequest, 'encounterId'>) => {
-      // disabled saving chart data in read only mode except addendum note
-      if (isReadOnly && Object.keys(chartDataFields).some((key) => (key as keyof ChartDataFields) !== 'addendumNote')) {
-        throw new Error('update disabled in read only mode');
-      }
-
-      if (apiClient && encounter.id) {
-        return apiClient.saveChartData({
-          encounterId: encounter.id,
-          ...chartDataFields,
-        });
-      }
-      throw new Error('api client not defined or encounterId not provided');
-    },
-    retry: 2,
-  });
-};
-
-export const useDeleteChartData = (): UseMutationResult<
-  PromiseReturnType<ReturnType<OystehrTelemedAPIClient['deleteChartData']>>,
-  Error,
-  ChartDataFields & { schoolWorkNotes?: SchoolWorkNoteExcuseDocFileDTO[] }
-> => {
-  const apiClient = useOystehrAPIClient();
-  const { encounter } = useAppointmentStore.getState();
-
-  return useMutation({
-    mutationFn: (chartDataFields: ChartDataFields & { schoolWorkNotes?: SchoolWorkNoteExcuseDocFileDTO[] }) => {
-      if (apiClient && encounter.id) {
-        return apiClient.deleteChartData({
-          encounterId: encounter.id,
-          ...chartDataFields,
-        });
-      }
-      throw new Error('api client not defined or encounterId not provided');
-    },
-    retry: 2,
-  });
 };
 
 export type ExtractObjectType<T> = T extends (infer U)[] ? U : never;

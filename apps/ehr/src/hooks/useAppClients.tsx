@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { useEffect } from 'react';
+import { getSelectors } from 'utils';
 import { create } from 'zustand';
 import { useAuthToken } from './useAuthToken';
 
@@ -15,7 +16,8 @@ const useApiClientsStore = create<ApiClientsState>()(() => ({
 
 export function useApiClients(): ApiClientsState {
   const token = useAuthToken();
-  const { oystehr, oystehrZambda } = useApiClientsStore((state) => state);
+  const { oystehr, oystehrZambda } = getSelectors(useApiClientsStore, ['oystehr', 'oystehrZambda']);
+
   useEffect(() => {
     if (!oystehr || oystehr.config.accessToken !== token) {
       useApiClientsStore.setState({

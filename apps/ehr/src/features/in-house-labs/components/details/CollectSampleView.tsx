@@ -28,8 +28,7 @@ import {
   PageName,
 } from 'utils';
 import { useApiClients } from '../../../../hooks/useAppClients';
-import { getSelectors } from '../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../../telemed/state/appointment/appointment.store';
+import { useAppointmentData } from '../../../../telemed/state/appointment/appointment.store';
 import { InHouseLabsDetailsCard } from './InHouseLabsDetailsCard';
 
 interface CollectSampleViewProps {
@@ -49,21 +48,16 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
   const [showSampleCollection, setShowSampleCollection] = useState(true);
   const [sourceType, setSourceType] = useState('');
   const [collectedById, setCollectedById] = useState('');
-
   const initialDateTime = DateTime.now().setZone(testDetails.timezone);
   const [date, setDate] = useState<DateTime>(initialDateTime);
   const timeValue = date.toFormat('HH:mm');
-
   const [showDetails, setShowDetails] = useState(false);
   const [labelButtonLoading, setLabelButtonLoading] = useState(false);
   const [error, setError] = useState('');
-
   const theme = useTheme();
   const { oystehrZambda } = useApiClients();
-  const { encounter } = getSelectors(useAppointmentStore, ['encounter']);
-
+  const { encounter } = useAppointmentData();
   const currentUser = useEvolveUser();
-
   const [loading, setLoading] = useState(false);
 
   // set default collected by to current user if no choice made

@@ -1,8 +1,7 @@
 import { FC, useState } from 'react';
 import { useFeatureFlags } from '../../../../../features/css-module/context/featureFlags';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useGetAppointmentAccessibility } from '../../../../hooks';
-import { useAppointmentStore } from '../../../../state';
+import { useChartData } from '../../../../state';
 import { MedicalHistoryDoubleCard } from '../MedicalHistoryDoubleCard';
 import { ChiefComplaintPatientColumn } from './ChiefComplaintPatientColumn';
 import {
@@ -13,7 +12,7 @@ import {
 
 export const ChiefComplaintCard: FC = () => {
   const [isHPICollapsed, setIsHPICollapsed] = useState(false);
-  const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);
+  const { isLoading: isChartDataLoading } = useChartData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const { css } = useFeatureFlags();
 

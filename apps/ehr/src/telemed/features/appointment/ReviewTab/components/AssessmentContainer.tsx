@@ -1,11 +1,10 @@
 import { Box, Typography } from '@mui/material';
 import { FC } from 'react';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../../state';
+import { useChartData } from '../../../../state';
 import { AssessmentTitle } from '../../AssessmentTab';
 
 export const AssessmentContainer: FC = () => {
-  const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
+  const { chartData } = useChartData();
 
   const diagnoses = chartData?.diagnosis;
   const primaryDiagnosis = diagnoses?.find((item) => item.isPrimary);

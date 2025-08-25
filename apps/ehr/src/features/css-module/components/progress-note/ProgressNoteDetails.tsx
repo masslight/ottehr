@@ -3,8 +3,8 @@ import { FC } from 'react';
 import { ProceduresContainer } from 'src/telemed/features/appointment/ReviewTab/components/ProceduresContainer';
 import { getProgressNoteChartDataRequestedFields, LabType, NOTE_TYPE } from 'utils';
 import { dataTestIds } from '../../../../constants/data-test-ids';
-import { getSelectors } from '../../../../shared/store/getSelectors';
-import { AccordionCard, SectionList, useAppointmentStore, usePatientInstructionsVisibility } from '../../../../telemed';
+import { AccordionCard, SectionList, useAppointmentData, usePatientInstructionsVisibility } from '../../../../telemed';
+import { useChartData } from '../../../../telemed';
 import {
   AdditionalQuestionsContainer,
   AllergiesContainer,
@@ -22,7 +22,6 @@ import {
   ReviewOfSystemsContainer,
   SurgicalHistoryContainer,
 } from '../../../../telemed/features/appointment/ReviewTab';
-import { useChartData } from '../../hooks/useChartData';
 import { useMedicationAPI } from '../../hooks/useMedicationOperations';
 import { ExamReadOnlyBlock } from '../examination/ExamReadOnly';
 import { HospitalizationContainer } from './HospitalizationContainer';
@@ -30,14 +29,10 @@ import { InHouseMedicationsContainer } from './InHouseMedicationsContainer';
 import { PatientVitalsContainer } from './PatientVitalsContainer';
 
 export const ProgressNoteDetails: FC = () => {
-  const { chartData, encounter, setPartialChartData } = getSelectors(useAppointmentStore, [
-    'chartData',
-    'encounter',
-    'setPartialChartData',
-  ]);
+  const { encounter } = useAppointmentData();
+  const { chartData } = useChartData();
 
-  const { chartData: additionalChartData } = useChartData({
-    encounterId: encounter.id || '',
+  const { setPartialChartData } = useChartData({
     requestedFields: getProgressNoteChartDataRequestedFields(),
     onSuccess: (data) => {
       setPartialChartData({
@@ -51,17 +46,17 @@ export const ProgressNoteDetails: FC = () => {
       });
     },
   });
+
   const { medications: inHouseMedicationsWithCanceled } = useMedicationAPI();
   const inHouseMedications = inHouseMedicationsWithCanceled.filter((medication) => medication.status !== 'cancelled');
-
-  const screeningNotes = additionalChartData?.notes?.filter((note) => note.type === NOTE_TYPE.SCREENING);
-  const vitalsNotes = additionalChartData?.notes?.filter((note) => note.type === NOTE_TYPE.VITALS);
-  const allergyNotes = additionalChartData?.notes?.filter((note) => note.type === NOTE_TYPE.ALLERGY);
-  const intakeMedicationNotes = additionalChartData?.notes?.filter((note) => note.type === NOTE_TYPE.INTAKE_MEDICATION);
-  const hospitalizationNotes = additionalChartData?.notes?.filter((note) => note.type === NOTE_TYPE.HOSPITALIZATION);
-  const medicalConditionNotes = additionalChartData?.notes?.filter((note) => note.type === NOTE_TYPE.MEDICAL_CONDITION);
-  const surgicalHistoryNotes = additionalChartData?.notes?.filter((note) => note.type === NOTE_TYPE.SURGICAL_HISTORY);
-  const inHouseMedicationNotes = additionalChartData?.notes?.filter((note) => note.type === NOTE_TYPE.MEDICATION);
+  const screeningNotes = chartData?.notes?.filter((note) => note.type === NOTE_TYPE.SCREENING);
+  const vitalsNotes = chartData?.notes?.filter((note) => note.type === NOTE_TYPE.VITALS);
+  const allergyNotes = chartData?.notes?.filter((note) => note.type === NOTE_TYPE.ALLERGY);
+  const intakeMedicationNotes = chartData?.notes?.filter((note) => note.type === NOTE_TYPE.INTAKE_MEDICATION);
+  const hospitalizationNotes = chartData?.notes?.filter((note) => note.type === NOTE_TYPE.HOSPITALIZATION);
+  const medicalConditionNotes = chartData?.notes?.filter((note) => note.type === NOTE_TYPE.MEDICAL_CONDITION);
+  const surgicalHistoryNotes = chartData?.notes?.filter((note) => note.type === NOTE_TYPE.SURGICAL_HISTORY);
+  const inHouseMedicationNotes = chartData?.notes?.filter((note) => note.type === NOTE_TYPE.MEDICATION);
 
   const chiefComplaint = chartData?.chiefComplaint?.text;
   const ros = chartData?.ros?.text;

@@ -17,31 +17,24 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useMemo, useState } from 'react';
 import { BirthHistoryDTO } from 'utils';
-import { getSelectors } from '../../../../shared/store/getSelectors';
-import {
-  AccordionCard,
-  useAppointmentStore,
-  useGetAppointmentAccessibility,
-  useSaveChartData,
-} from '../../../../telemed';
-import { useAppointment } from '../../hooks/useAppointment';
-import { useChartData } from '../../hooks/useChartData';
+import { AccordionCard, useGetAppointmentAccessibility, useSaveChartData } from '../../../../telemed';
+import { useAppointmentData, useChartData } from '../../../../telemed';
 
 type BirthHistoryProps = {
   appointmentID?: string;
 };
 
 export const BirthHistory: FC<BirthHistoryProps> = ({ appointmentID }) => {
-  const { mappedData } = useAppointment(appointmentID);
+  const { mappedData } = useAppointmentData(appointmentID);
+  const { chartData, chartDataSetState } = useChartData();
 
   const [isCollapsed, setIsCollapsed] = useState(
     -DateTime.fromFormat(mappedData.DOB || '', 'yyyy-dd-MM').diff(DateTime.now(), 'days').days > 90
   );
-  const { encounter, chartData } = getSelectors(useAppointmentStore, ['encounter', 'chartData']);
+
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const { isLoading: isChartDataLoading } = useChartData({
-    encounterId: encounter.id || '',
     requestedFields: {
       birthHistory: {
         _search_by: 'patient',
@@ -49,14 +42,17 @@ export const BirthHistory: FC<BirthHistoryProps> = ({ appointmentID }) => {
       },
     },
     onSuccess: (data) => {
-      useAppointmentStore.setState((prevState) => ({
-        ...prevState,
-        chartData: {
-          ...prevState.chartData,
-          patientId: prevState.chartData?.patientId || '',
-          birthHistory: data.birthHistory,
-        },
-      }));
+      chartDataSetState(
+        (prevState) =>
+          ({
+            ...prevState,
+            chartData: {
+              ...prevState.chartData,
+              patientId: (prevState as any).chartData?.patientId || '',
+              birthHistory: data!.birthHistory,
+            },
+          }) as any
+      );
     },
   });
 
@@ -179,13 +175,15 @@ const showErrorSnackbar = (field: BirthHistoryDTO['field']): void => {
   });
 };
 
-const setUpdatedField = (updated?: BirthHistoryDTO): void => {
+const setUpdatedField = (appointmentStore: any, updated?: BirthHistoryDTO): void => {
   if (updated) {
-    useAppointmentStore.setState((prevState) => ({
+    appointmentStore.setState((prevState: any) => ({
       chartData: {
         ...prevState.chartData!,
-        birthHistory: prevState.chartData?.birthHistory?.find((item) => item.resourceId === updated.resourceId)
-          ? prevState.chartData?.birthHistory?.map((item) => (item.resourceId === updated.resourceId ? updated : item))
+        birthHistory: prevState.chartData?.birthHistory?.find((item: any) => item.resourceId === updated.resourceId)
+          ? prevState.chartData?.birthHistory?.map((item: any) =>
+              item.resourceId === updated.resourceId ? updated : item
+            )
           : [...(prevState.chartData?.birthHistory || []), updated],
       },
     }));
@@ -207,6 +205,7 @@ type NumberDebounceFieldProps = {
 
 const NumberDebounceField: FC<NumberDebounceFieldProps> = (props) => {
   const { field, disabled, fieldName, label, convertProps } = props;
+  const appointmentStore = useAppointmentData();
 
   const [value, setValue] = useState<string>(typeof field?.value === 'number' ? field.value.toString() : '');
   const { mutate: updateChartData, isPending: isUpdateLoading } = useSaveChartData();
@@ -223,7 +222,7 @@ const NumberDebounceField: FC<NumberDebounceFieldProps> = (props) => {
           {
             onSuccess: (data) => {
               const updated = data.chartData.birthHistory?.[0];
-              setUpdatedField(updated);
+              setUpdatedField(appointmentStore, updated);
             },
             onError: () => {
               showErrorSnackbar(fieldName);
@@ -231,7 +230,7 @@ const NumberDebounceField: FC<NumberDebounceFieldProps> = (props) => {
           }
         );
       }, 1500),
-    [field, fieldName, updateChartData]
+    [field, fieldName, updateChartData, appointmentStore]
   );
 
   return (
@@ -287,7 +286,7 @@ type CheckboxWithNotesFieldProps = {
 
 const CheckboxWithNotesField: FC<CheckboxWithNotesFieldProps> = (props) => {
   const { fieldName, field, disabled, label } = props;
-
+  const appointmentStore = useAppointmentData();
   const [value, setValue] = useState(field?.note || '');
   const { mutate: updateChartData, isPending: isUpdateLoading } = useSaveChartData();
 
@@ -302,7 +301,7 @@ const CheckboxWithNotesField: FC<CheckboxWithNotesFieldProps> = (props) => {
         onSuccess: (data) => {
           const updated = data.chartData.birthHistory?.[0];
           setValue('');
-          setUpdatedField(updated);
+          setUpdatedField(appointmentStore, updated);
         },
         onError: () => {
           showErrorSnackbar(fieldName);
@@ -321,7 +320,7 @@ const CheckboxWithNotesField: FC<CheckboxWithNotesFieldProps> = (props) => {
           {
             onSuccess: (data) => {
               const updated = data.chartData.birthHistory?.[0];
-              setUpdatedField(updated);
+              setUpdatedField(appointmentStore, updated);
             },
             onError: () => {
               showErrorSnackbar(fieldName);
@@ -329,7 +328,7 @@ const CheckboxWithNotesField: FC<CheckboxWithNotesFieldProps> = (props) => {
           }
         );
       }, 1500),
-    [field, fieldName, updateChartData]
+    [field, fieldName, updateChartData, appointmentStore]
   );
 
   return (

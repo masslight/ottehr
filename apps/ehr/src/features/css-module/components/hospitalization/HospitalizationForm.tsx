@@ -4,11 +4,10 @@ import { FC, useCallback, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { HospitalizationDTO } from 'utils';
-import { getSelectors } from '../../../../shared/store/getSelectors';
 import {
   ActionsList,
   DeleteIconButton,
-  useAppointmentStore,
+  useChartData,
   useChartDataArrayValue,
   useGetAppointmentAccessibility,
 } from '../../../../telemed';
@@ -143,7 +142,7 @@ export const HospitalizationForm: FC = () => {
       otherHospitalizationName: '',
     },
   });
-  const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);
+  const { isLoading: isChartDataLoading } = useChartData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const { control, reset, handleSubmit } = methods;

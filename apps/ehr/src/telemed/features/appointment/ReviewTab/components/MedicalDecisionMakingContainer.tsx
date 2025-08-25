@@ -1,11 +1,9 @@
 import { Box, Typography } from '@mui/material';
 import { FC } from 'react';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../../state';
+import { useChartData } from '../../../../state';
 
 export const MedicalDecisionMakingContainer: FC = () => {
-  const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
-
+  const { chartData } = useChartData();
   const medicalDecision = chartData?.medicalDecision?.text;
 
   return (
