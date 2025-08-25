@@ -17,6 +17,7 @@ export const PSC_HOLD_CONFIG = {
 export const LAB_ORDER_TASK = {
   system: 'external-lab-task',
   code: {
+    matchUnsolicitedResult: 'MURT',
     preSubmission: 'PST',
     reviewPreliminaryResult: 'RPRT',
     reviewFinalResult: 'RFRT',
@@ -53,6 +54,7 @@ export const LAB_DR_TYPE_TAG = {
   system: 'result-type',
   display: {
     reflex: 'reflex',
+    unsolicited: 'unsolicited',
   },
 };
 
