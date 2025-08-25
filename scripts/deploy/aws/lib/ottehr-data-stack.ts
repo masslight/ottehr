@@ -21,11 +21,16 @@ export class OttehrDataStack extends cdk.Stack {
   }
 }
 
-function uploadWebsiteAssets(scope: Construct, website: 'intake' | 'ehr', bucket: s3.Bucket, distribution: cloudfront.Distribution): void {
+function uploadWebsiteAssets(
+  scope: Construct,
+  website: 'intake' | 'ehr',
+  bucket: s3.Bucket,
+  distribution: cloudfront.Distribution
+): void {
   new s3deploy.BucketDeployment(scope, `upload-${website}-to-s3-bucket`, {
     destinationBucket: bucket,
     sources: [s3deploy.Source.asset(`../../../apps/${website}/build`)],
     memoryLimit: 2048,
-    distribution
+    distribution,
   });
 }
