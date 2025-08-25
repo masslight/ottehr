@@ -5,7 +5,6 @@ import { DocumentReference, Practitioner, QuestionnaireResponse } from 'fhir/r4b
 import { DateTime } from 'luxon';
 import React from 'react';
 import { useParams } from 'react-router-dom';
-import { getContentOfDocumentReference } from 'src/helpers/documentReferences';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { AiObservationField, ObservationTextFieldDTO, PUBLIC_EXTENSION_BASE_URL } from 'utils';
 import { AiChatHistory } from '../../../components/AiChatHistory';
@@ -49,9 +48,7 @@ export function getSource(
     providerName = provider?.name?.[0] ? oystehr?.fhir.formatHumanName(provider.name?.[0]) : 'Unknown';
     date = DateTime.fromISO(source?.date || '').toFormat(DATE_TIME_FORMAT);
   }
-  return source?.resourceType === 'DocumentReference'
-    ? `Audio recording of visit by ${providerName || 'Unknown'} on ${date}`
-    : `AI Chat`;
+  return source?.resourceType === 'DocumentReference' ? `${providerName || 'Unknown'} ${date}` : `AI Chat`;
 }
 
 export const OttehrAi: React.FC<OttehrAiProps> = () => {
@@ -103,11 +100,11 @@ export const OttehrAi: React.FC<OttehrAiProps> = () => {
                     <img src={ottehrAiIcon} style={{ width: '30px', marginRight: '8px' }} />
                     <Typography variant="body1" style={{ fontWeight: 700, fontSize: '14px' }}>
                       {aiChat?.resourceType === 'DocumentReference'
-                        ? 'TRANSCRIPT AND SUMMARY OF VISIT BY OYSTEHR AI'
+                        ? 'TRANSCRIPT OF VISIT BY OYSTEHR AI'
                         : 'CHAT WITH OYSTEHR AI'}
                     </Typography>
                     <Typography variant="body2" style={{ fontWeight: 700, fontSize: '14px', marginLeft: '8px' }}>
-                      Source: {getSource(aiChat, oystehr, providers)}
+                      {getSource(aiChat, oystehr, providers)}
                     </Typography>
                   </Box>
                   <Box sx={{ marginLeft: '50px' }}>
@@ -119,18 +116,6 @@ export const OttehrAi: React.FC<OttehrAiProps> = () => {
                     ) : (
                       <AiChatHistory questionnaireResponse={aiChat} />
                     )}
-
-                    {aiChat?.resourceType === 'DocumentReference' && (
-                      <>
-                        <Typography variant="subtitle2" style={{ fontWeight: 700, fontSize: '14px' }}>
-                          SUMMARY
-                        </Typography>
-                        <Typography variant="body1">
-                          {getContentOfDocumentReference(aiChat, 'Summary') || 'No summary available'}
-                        </Typography>
-                      </>
-                    )}
-                    {/* <AiChatHistory questionnaireResponse={aiChat} /> */}
                   </Box>
                 </>
               );

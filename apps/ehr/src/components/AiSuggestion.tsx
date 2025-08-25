@@ -40,8 +40,9 @@ export default function AiSuggestion({ title, chartData, content, hideHeader }: 
         return (
           <Box sx={{ paddingBottom: 5 }}>
             <Typography variant="body2" style={{ fontWeight: 700 }}>
-              source:{' '}
-              {documentReference ? getSource(documentReference, oystehr, chartData?.aiChat?.providers) : 'unknown'}
+              {documentReference
+                ? getSource(documentReference, oystehr, chartData?.aiChat?.providers)
+                : 'source is unknown'}
             </Typography>
             <Typography variant="body1">{item.value}</Typography>
           </Box>
