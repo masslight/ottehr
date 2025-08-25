@@ -3,9 +3,8 @@ import { FC, useCallback, useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { convertTemperature } from 'utils';
 import { getQuestionnaireResponseByLinkId } from 'utils';
-import { getSelectors } from '../../../../../../shared/store/getSelectors';
 import { useDebounce } from '../../../../../hooks';
-import { useAppointmentStore, useUpdatePaperwork } from '../../../../../state';
+import { useAppointmentData, useUpdatePaperwork } from '../../../../../state';
 import { updateQuestionnaireResponse } from '../../../../../utils';
 import { NumberInput } from '../NumberInput';
 
@@ -15,11 +14,7 @@ type VitalsTemperatureProps = {
 
 export const VitalsTemperature: FC<VitalsTemperatureProps> = (props) => {
   const { validate } = props;
-
-  const { appointment, questionnaireResponse } = getSelectors(useAppointmentStore, [
-    'appointment',
-    'questionnaireResponse',
-  ]);
+  const { appointment, questionnaireResponse, appointmentSetState } = useAppointmentData();
   const defaultValue = getQuestionnaireResponseByLinkId('vitals-temperature', questionnaireResponse)?.answer?.[0]
     .valueString;
   const { control, handleSubmit, watch, setValue, getValues } = useForm<{
@@ -45,17 +40,19 @@ export const VitalsTemperature: FC<VitalsTemperatureProps> = (props) => {
           },
           {
             onSuccess: () => {
-              updateQuestionnaireResponse(
+              const updatedQuestionnaireResponse = updateQuestionnaireResponse(
                 questionnaireResponse,
                 'vitals-temperature',
                 value['vitals-temperature'] || 'N/A'
               );
+              if (!updatedQuestionnaireResponse) return;
+              appointmentSetState(updatedQuestionnaireResponse);
             },
           }
         );
       });
     },
-    [debounce, mutate, appointment, questionnaireResponse]
+    [debounce, mutate, appointment, questionnaireResponse, appointmentSetState]
   );
 
   useEffect(() => {

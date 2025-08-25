@@ -6,8 +6,7 @@ import { isLocationVirtual, RoleType } from 'utils';
 import { getEmployees } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import useEvolveUser from '../../../hooks/useEvolveUser';
-import { getSelectors } from '../../../shared/store/getSelectors';
-import { useAppointmentStore, useGetMedicationList } from '../../../telemed';
+import { useAppointmentData, useChartData, useGetMedicationList } from '../../../telemed';
 import { Option } from '../components/medication-administration/medicationTypes';
 
 export type OrderFieldsSelectsOptions = Record<
@@ -26,15 +25,9 @@ export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
   const [isProvidersLoading, setIsProvidersLoading] = useState(true);
   const { oystehrZambda } = useApiClients();
   const currentUser = useEvolveUser();
-
-  const { chartData, isChartDataLoading, encounter } = getSelectors(useAppointmentStore, [
-    'chartData',
-    'isChartDataLoading',
-    'encounter',
-  ]);
-
+  const { encounter } = useAppointmentData();
+  const { chartData, isChartDataLoading } = useChartData();
   const encounterId = encounter?.id;
-
   const diagnosis = chartData?.diagnosis;
 
   const diagnosisSelectOptions: Option[] =
@@ -42,7 +35,9 @@ export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
       value: item.resourceId || '',
       label: `${item.code} - ${item.display}`,
     })) || [];
+
   const primaryDiagnosis = diagnosis?.find((item) => item.isPrimary);
+
   const diagnosisDefaultOption = primaryDiagnosis && {
     value: primaryDiagnosis.resourceId || '',
     label: `${primaryDiagnosis.code} - ${primaryDiagnosis.display}`,

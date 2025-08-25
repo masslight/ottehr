@@ -1,4 +1,4 @@
-import { useAppointment } from '../../hooks/useAppointment';
+import { useAppointmentData } from 'src/telemed';
 import { CSSLoader } from '../CSSLoader';
 import { EditableNotesList } from './components/EditableNotesList';
 import { GenericNoteListProps } from './types';
@@ -10,7 +10,7 @@ export const GenericNoteList: React.FC<GenericNoteListProps> = ({
   addNoteButtonDataTestId,
   noteLoadingIndicatorDataTestId,
 }) => {
-  const { resources } = useAppointment();
+  const { resources } = useAppointmentData();
   const encounterId = resources.encounter?.id;
   const patientId = resources.patient?.id;
 

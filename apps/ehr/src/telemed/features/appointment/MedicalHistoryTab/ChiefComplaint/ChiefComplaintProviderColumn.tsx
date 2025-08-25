@@ -2,12 +2,11 @@ import { Box, CircularProgress, FormControlLabel, Skeleton, Switch, TextField, T
 import { FC, useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useDebounceNotesField } from '../../../../hooks';
-import { useAppointmentStore } from '../../../../state';
+import { useChartData } from '../../../../state';
 
 export const ChiefComplaintProviderColumn: FC = () => {
-  const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
+  const { chartData } = useChartData();
   const methods = useForm({
     defaultValues: {
       chiefComplaint: chartData?.chiefComplaint?.text || '',
@@ -97,8 +96,7 @@ export const ChiefComplaintProviderColumn: FC = () => {
 };
 
 export const ChiefComplaintProviderColumnReadOnly: FC = () => {
-  const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
-
+  const { chartData } = useChartData();
   const chiefComplaint = chartData?.chiefComplaint?.text;
   const ros = chartData?.ros?.text;
 

@@ -1,9 +1,7 @@
-import { Encounter } from 'fhir/r4b';
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import {
   EXAM_OBSERVATIONS_INITIAL,
   IN_PERSON_EXAM_OBSERVATIONS_INITIAL,
-  useAppointmentStore,
   useExamObservationsStore,
   useInPersonExamObservationsStore,
   useVideoCallStore,
@@ -19,18 +17,6 @@ export const useResetAppointmentStore = (): void => {
   const didResetRef = useRef(false);
 
   if (!didResetRef.current) {
-    useAppointmentStore.setState({
-      appointment: undefined,
-      patient: undefined,
-      location: undefined,
-      locationVirtual: undefined,
-      encounter: {} as Encounter,
-      questionnaireResponse: undefined,
-      patientPhotoUrls: [],
-      schoolWorkNoteUrls: [],
-      chartData: undefined,
-      currentTab: 'hpi',
-    });
     useExamObservationsStore.setState(EXAM_OBSERVATIONS_INITIAL);
     useInPersonExamObservationsStore.setState(IN_PERSON_EXAM_OBSERVATIONS_INITIAL);
     useVideoCallStore.setState({ meetingData: null });
@@ -39,8 +25,4 @@ export const useResetAppointmentStore = (): void => {
 
     didResetRef.current = true;
   }
-
-  useEffect(() => {
-    return () => useAppointmentStore.setState({ patientPhotoUrls: [] });
-  }, []);
 };

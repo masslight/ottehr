@@ -26,9 +26,8 @@ import { getAttendingPractitionerId, isApiError, TestItem } from 'utils';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data';
 import { createInHouseLabOrder, getCreateInHouseLabOrderResources, getOrCreateVisitLabel } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
-import { getSelectors } from '../../../shared/store/getSelectors';
 import { ActionsList, DeleteIconButton, useDebounce, useICD10SearchNew } from '../../../telemed';
-import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
+import { useAppointmentData, useChartData } from '../../../telemed/state/appointment/appointment.store';
 import { InHouseLabsNotesCard } from '../components/details/InHouseLabsNotesCard';
 import { InHouseLabsBreadcrumbs } from '../components/InHouseLabsBreadcrumbs';
 
@@ -51,13 +50,8 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
     diagnoses?: DiagnosisDTO[];
   };
 
-  const { chartData, encounter, appointment, setPartialChartData } = getSelectors(useAppointmentStore, [
-    'chartData',
-    'encounter',
-    'appointment',
-    'setPartialChartData',
-  ]);
-
+  const { encounter, appointment } = useAppointmentData();
+  const { chartData, setPartialChartData } = useChartData();
   const { diagnosis = [] } = chartData || {};
   const didPrimaryDiagnosisInit = useRef(false);
 

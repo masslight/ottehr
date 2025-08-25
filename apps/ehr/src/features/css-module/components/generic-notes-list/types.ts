@@ -60,6 +60,7 @@ export interface EditableNote extends NoteDTO {
 }
 
 export type UseNoteHandlers = (props: {
+  appointmentId: string;
   encounterId: string;
   patientId: string;
   apiConfig: NoteApiConfig;
@@ -73,18 +74,19 @@ export type UseNoteHandlers = (props: {
 };
 
 export type UseSaveNote = (props: {
+  appointmentId: string;
   encounterId: string;
   patientId: string;
   apiConfig: NoteApiConfig;
 }) => (text: string) => Promise<void>;
 
 export type UseDeleteNote = (props: {
-  encounterId: string;
+  appointmentId: string;
   apiConfig: NoteApiConfig;
   locales: NoteLocales;
 }) => (entity: EditableNote) => Promise<void>;
 
 export type UseEditNote = (props: {
-  encounterId: string;
+  appointmentId: string;
   apiConfig: NoteApiConfig;
 }) => (entity: EditableNote, newText: string) => Promise<void>;
