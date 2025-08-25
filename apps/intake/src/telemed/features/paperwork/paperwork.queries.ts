@@ -130,7 +130,7 @@ export const useSetupPaymentMethod = (
   const apiClient = useOystehrAPIClient();
 
   const queryResult = useQuery({
-    queryKey: ['setup-payment-method', beneficiaryPatientId],
+    queryKey: ['payment-methods-setup', beneficiaryPatientId],
 
     queryFn: () => {
       if (apiClient && beneficiaryPatientId) {

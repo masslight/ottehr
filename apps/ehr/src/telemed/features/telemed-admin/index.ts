@@ -1,4 +1,4 @@
 export * from './EditInsurance';
-export * from './EditState';
+export * from './EditVirtualLocationPage';
 export * from './Insurance';
-export * from './States';
+export * from './VirtualLocationsPage';
