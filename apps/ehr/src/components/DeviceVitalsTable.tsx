@@ -99,7 +99,6 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({ thresholds = []
   };
 
   const thresholdValues = getThresholdValues();
-  console.log('Extracted threshold values:', thresholdValues);
 
   const allVitals =
     vitalsData?.observations?.flatMap((obs) =>
@@ -139,7 +138,6 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({ thresholds = []
     }
 
     const fieldNameLower = fieldName.trim().toLowerCase();
-    console.log(`Checking field: ${fieldNameLower}, value: ${value}, thresholdValues:`, thresholdValues);
 
     switch (deviceType) {
       case 'scale_gen2_measure':
@@ -225,12 +223,7 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({ thresholds = []
   };
 
   const columns = generateColumns();
-  console.log('Generated columns:', columns);
-
   const rows = transformVitalsToRows();
-  console.log('Transformed rows:', rows);
-
-  console.log('deviceID:', deviceId);
 
   return (
     <Paper sx={{ padding: 10, width: '100%', marginInline: 'auto' }} component={Stack} spacing={2}>

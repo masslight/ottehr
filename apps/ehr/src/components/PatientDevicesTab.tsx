@@ -4,7 +4,7 @@ import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-p
 import { FC, useCallback, useState } from 'react';
 import { useMutation, useQuery } from 'react-query';
 import { useNavigate, useParams } from 'react-router-dom';
-import { assignThreshold, getDevices, getVitals, unassignDevices } from 'src/api/api';
+import { assignThreshold, getDevices, unassignDevices } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { DeviceColumns, DeviceProperty, DeviceResponse, Output } from 'utils';
 import { DeviceAssignmentModal } from '../components/DeviceAssignModal';
@@ -52,26 +52,11 @@ export const PatientDevicesTab: FC<{ loading?: boolean }> = ({ loading }) => {
     }
   );
 
-  const { mutateAsync: getVitalsMutation, isLoading: isFetchingVitals } = useMutation(
-    (params: { deviceId: string; patientId: string; page?: number; pageSize?: number }) =>
-      getVitals(params, oystehrZambda!),
-    {
-      onSuccess: (vitalsData) => {
-        console.log('Vitals fetched successfully:', vitalsData);
-      },
-      onError: (error: unknown) => {
-        console.error('Failed to fetch vitals:', error);
-      },
-    }
-  );
-
   const handleDeviceVitals = useCallback(
     async (deviceId: string, deviceType: string, thresholds: DeviceProperty[]): Promise<void> => {
       if (!patientId) return;
 
       try {
-        const vitalsData = await getVitalsMutation({ deviceId, patientId, page: 1, pageSize: 10 });
-        console.log('Ithe ahe issue ha check kr:', vitalsData);
         navigate(`/patient/${patientId}/device/${deviceId}`, {
           state: { deviceType, thresholds },
         });
@@ -80,7 +65,7 @@ export const PatientDevicesTab: FC<{ loading?: boolean }> = ({ loading }) => {
         navigate(`/device/${deviceId}`);
       }
     },
-    [navigate, patientId, getVitalsMutation]
+    [navigate, patientId]
   );
 
   const handlePaginationModelChange = useCallback((newPaginationModel: GridPaginationModel) => {
@@ -208,7 +193,6 @@ export const PatientDevicesTab: FC<{ loading?: boolean }> = ({ loading }) => {
             <div>
               <RoundedButton
                 onClick={() => handleDeviceVitals(params.row.id, params.row.distinctIdentifier, params.row.property)}
-                disabled={isFetchingVitals}
               >
                 View Vitals
               </RoundedButton>
@@ -250,7 +234,7 @@ export const PatientDevicesTab: FC<{ loading?: boolean }> = ({ loading }) => {
           },
         }}
         autoHeight
-        loading={loading || isFetching || isUnassigning || isUpdatingThreshold || isFetchingVitals}
+        loading={loading || isFetching || isUnassigning || isUpdatingThreshold}
         pagination
         disableColumnMenu
         pageSizeOptions={[5]}

@@ -36,8 +36,9 @@ export const index = wrapHandler('get-vitals', async (input: ZambdaInput): Promi
         { name: 'device', value: `Device/${deviceId}` },
         { name: 'patient', value: `Patient/${patientId}` },
         { name: '_sort', value: '-date' },
+        { name: '_total', value: 'accurate' },
         { name: '_count', value: String(pageSize) },
-        { name: '_getpagesoffset', value: String(offset) },
+        { name: '_offset', value: String(offset) },
       ],
     });
 
@@ -61,7 +62,7 @@ export const index = wrapHandler('get-vitals', async (input: ZambdaInput): Promi
     return lambdaResponse(200, {
       message: `Successfully retrieved vital details`,
       observations: formatted,
-      total: Number(searchResult.total ?? formatted.length),
+      total: Number(searchResult.total),
     });
   } catch (error: any) {
     console.error('Error:', error);
