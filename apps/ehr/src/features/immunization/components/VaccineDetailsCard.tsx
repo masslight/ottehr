@@ -3,17 +3,23 @@ import React from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { CheckboxInput } from 'src/components/input/CheckboxInput';
 import { DateInput } from 'src/components/input/DateInput';
+import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { TimeInput } from 'src/components/input/TimeInput';
 import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
 import { useAdministerImmunizationOrder } from 'src/features/css-module/hooks/useImmunization';
 import { cleanupProperties } from 'src/helpers/misc.helper';
-import { ImmunizationOrder } from 'utils';
+import { EMERGENCY_CONTACT_RELATIONSHIPS, ImmunizationOrder } from 'utils';
 import { OrderDetailsSection } from './OrderDetailsSection';
 
 interface Props {
   order: ImmunizationOrder;
 }
+
+const RELATIONSHIP_OPTIONS = Object.entries(EMERGENCY_CONTACT_RELATIONSHIPS).map(([_, value]) => ({
+  value: value.code,
+  label: value.display,
+}));
 
 export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
   const methods = useForm({
@@ -109,7 +115,12 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                 </Typography>
               </Grid>
               <Grid xs={4} item>
-                <TextInput name="administrationDetails.emergencyContact.relationship" label="Relationship" required />
+                <SelectInput
+                  name="administrationDetails.emergencyContact.relationship"
+                  label="Relationship"
+                  options={RELATIONSHIP_OPTIONS}
+                  required
+                />
               </Grid>
               <Grid xs={4} item>
                 <TextInput name="administrationDetails.emergencyContact.fullName" label="Full name" required />

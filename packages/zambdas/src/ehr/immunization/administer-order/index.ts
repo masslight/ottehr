@@ -16,6 +16,7 @@ import {
   codeableConcept,
   createReference,
   CreateUpdateImmunizationOrderResponse,
+  EMERGENCY_CONTACT_RELATIONSHIPS,
   getFullName,
   getMedicationName,
   ImmunizationEmergencyContact,
@@ -272,6 +273,9 @@ function createEmergencyContactRelatedPerson(
   patientReference: Reference,
   emergencyContact: ImmunizationEmergencyContact
 ): RelatedPerson {
+  const relationshipCoding = EMERGENCY_CONTACT_RELATIONSHIPS.find(
+    (relationship) => relationship.code === emergencyContact.relationship
+  );
   return {
     resourceType: 'RelatedPerson',
     id: CONTAINED_EMERGENCY_CONTACT_ID,
@@ -288,6 +292,18 @@ function createEmergencyContactRelatedPerson(
         value: emergencyContact.mobile,
       },
     ],
-    //relationship: [{}], //todo
+    relationship: relationshipCoding
+      ? [
+          {
+            coding: [
+              {
+                system: relationshipCoding.system,
+                code: relationshipCoding.code,
+                display: relationshipCoding.display,
+              },
+            ],
+          },
+        ]
+      : undefined,
   };
 }
