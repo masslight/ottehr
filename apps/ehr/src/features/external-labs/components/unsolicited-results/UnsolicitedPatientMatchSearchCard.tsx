@@ -24,7 +24,7 @@ export const UnsolicitedPatientMatchSearchCard: FC<UnsolicitedPatientMatchSearch
   const handlePatientSearch = (e: React.FormEvent<HTMLFormElement>): void => {
     e.preventDefault();
     setSelectedPatient(undefined);
-    search({ pagination: { offset: 0 } });
+    search({ pagination: { pageSize: 5, offset: 0 } });
   };
 
   return (
