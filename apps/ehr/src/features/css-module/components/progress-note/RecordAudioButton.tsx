@@ -1,3 +1,4 @@
+import { Typography } from '@mui/material';
 import { ReactElement, useEffect, useRef, useState } from 'react';
 import { createResourcesFromAudioRecording, uploadAudioRecording } from 'src/api/api';
 import { RoundedButton } from 'src/components/RoundedButton';
@@ -20,6 +21,7 @@ enum RecordingStatus {
 export function RecordAudioButton(props: RecordAudioButtonProps): ReactElement {
   const { visitID } = props;
   const [recordingStatus, setRecordingStatus] = useState<RecordingStatus>(RecordingStatus.NOT_STARTED);
+  const [loading, setLoading] = useState<boolean>(false);
   // const [recording, setIsRecording] = useState(false);
   // const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const { oystehrZambda: oystehr } = useApiClients();
@@ -63,6 +65,7 @@ export function RecordAudioButton(props: RecordAudioButtonProps): ReactElement {
     recordPlugin.on('record-end', async (blob: Blob) => {
       // const url = URL.createObjectURL(blob);
       setRecordingStatus(RecordingStatus.NOT_STARTED);
+      setLoading(true);
       if (!oystehr) {
         console.error('Oystehr client is undefined');
         return;
@@ -79,6 +82,7 @@ export function RecordAudioButton(props: RecordAudioButtonProps): ReactElement {
       console.log(uploadResponse);
       await createResourcesFromAudioRecording(oystehr, { visitID, z3URL });
       await refetch();
+      setLoading(false);
     });
 
     return () => {
@@ -127,6 +131,10 @@ export function RecordAudioButton(props: RecordAudioButtonProps): ReactElement {
         console.log(`Unknown recording status ${status}`);
         throw new Error('Unknown recording status');
     }
+  }
+
+  if (loading) {
+    return <Typography variant="body1">Loading...</Typography>;
   }
 
   return (

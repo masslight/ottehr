@@ -16,7 +16,6 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'create-resources-from-audio-recording';
 
 const TRANSCRIPT_PROMPT = 'give a transcript of this file include only the transcript without other input';
-const TRANSCRIPT_FILE_SUMMARY_PROMPT = 'give a summary of this text only the transcript without other input';
 export interface CreateResourcesFromAudioRecordingInputValidated extends CreateResourcesFromAudioRecordingInput {
   userToken: string;
   secrets: Secrets | null;
@@ -47,16 +46,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       secrets
     );
 
-    const transcriptSummary = await invokeChatbotVertexAI(
-      [{ text: `${TRANSCRIPT_FILE_SUMMARY_PROMPT}\n${transcript}` }],
-      secrets
-    );
-
     const createdResources = await createResourcesFromAiInterview(
       oystehr,
       visitID,
       transcript,
-      transcriptSummary,
       z3URL,
       mimeType,
       providerUserProfile,

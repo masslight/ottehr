@@ -82,16 +82,15 @@ export async function createResourcesFromAiInterview(
   oystehr: Oystehr,
   encounterID: string,
   chatTranscript: string,
-  chatSummary: string | null,
   z3URL: string | null,
-  mimeType: string,
+  mimeType: string | null,
   providerUserProfile: string | null,
   secrets: Secrets | null
 ): Promise<string> {
   let fields =
     'history of present illness, past medical history, past surgical history, medications history, allergies, social history, family history, hospitalizations history and potential diagnoses';
-  // if there is a summary, it is a recording
-  if (chatSummary) {
+  // if there is a provider user profile, it is a recording
+  if (providerUserProfile) {
     fields = 'labs, erx, procedures, ' + fields;
   }
   const aiResponseString = (
@@ -115,7 +114,6 @@ export async function createResourcesFromAiInterview(
       documentReferenceCreateUrl,
       z3URL,
       chatTranscript,
-      chatSummary,
       mimeType
     )
   );
@@ -139,8 +137,7 @@ function createDocumentReference(
   documentReferenceCreateUrl: string,
   z3URL: string | null,
   transcript: string,
-  summary: string | null,
-  mimeType: string
+  mimeType: string | null
 ): BatchInputPostRequest<DocumentReference> {
   const documentReference: DocumentReference = {
     resourceType: 'DocumentReference',
@@ -164,7 +161,7 @@ function createDocumentReference(
     },
     date: DateTime.now().toISO(),
     content: [
-      ...(z3URL
+      ...(mimeType && z3URL
         ? [
             {
               attachment: {
@@ -182,17 +179,6 @@ function createDocumentReference(
           data: btoa(transcript),
         },
       },
-      ...(summary
-        ? [
-            {
-              attachment: {
-                contentType: 'text/plain',
-                title: 'Summary',
-                data: btoa(summary),
-              },
-            },
-          ]
-        : []),
     ],
     context: {
       encounter: [
