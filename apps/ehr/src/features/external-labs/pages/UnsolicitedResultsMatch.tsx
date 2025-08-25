@@ -4,6 +4,7 @@ import InfoIcon from '@mui/icons-material/InfoOutlined';
 import { LoadingButton } from '@mui/lab';
 import {
   Box,
+  Button,
   CircularProgress,
   FormControlLabel,
   Grid,
@@ -258,7 +259,14 @@ export const UnsolicitedResultsMatch: React.FC = () => {
                   <LoadingButton
                     loading={isCancelling}
                     variant="outlined"
-                    sx={{ borderRadius: '50px', textTransform: 'none', py: 1, px: 5, textWrap: 'nowrap' }}
+                    sx={{
+                      borderRadius: '50px',
+                      textTransform: 'none',
+                      py: 1,
+                      px: 5,
+                      textWrap: 'nowrap',
+                      fontSize: '15px',
+                    }}
                     color="error"
                     size={'medium'}
                     onClick={handleReject}
@@ -281,6 +289,13 @@ export const UnsolicitedResultsMatch: React.FC = () => {
             </Stack>
           )}
         </Paper>
+        <Button
+          onClick={() => navigate(-1)}
+          variant="outlined"
+          sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 500, fontSize: '15px', width: '100px' }}
+        >
+          Back
+        </Button>
       </DetailPageContainer>
     </PageContainer>
   );

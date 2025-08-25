@@ -71,10 +71,15 @@ export const handleUnsolicitedRequestMatch = async (
   ]);
   console.log('grouping the resources returned by diagnostic report', resources.length);
   const groupedResources = groupResourcesByDr([...resources]);
+
   const entries = Object.values(groupedResources);
-  if (entries.length > 1) {
+  const entriesMade = entries.length;
+  if (entriesMade > 1) {
     throw Error('More than one diagnostic report found for this unsolicited result task detail page');
+  } else if (entriesMade === 0) {
+    throw Error('No diagnostic report found for this unsolicited result task detail page');
   }
+
   const resourceEntry = entries[0];
   console.log('formatting the resources for unsolicited result task detail page');
   const response = formatResourcesForURMatchTaskResponse(resourceEntry);
