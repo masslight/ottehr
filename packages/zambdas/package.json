@@ -40,7 +40,8 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:integration:ci": "start-server-and-test 'ENV=local tsx src/local-server/index.ts -- env=.env/local.json' 3000 test:integration",
     "mock-reflex-test": "tsx src/scripts/reflex-test-helper.ts",
-    "make-in-house-test-items": "tsx src/scripts/load-in-house-labs-tests.ts"
+    "make-in-house-test-items": "tsx src/scripts/load-in-house-labs-tests.ts",
+    "remove-payor-orgs": "tsx src/scripts/remove-payor-orgs.ts"
   },
   "engines": {
     "node": ">=20.0.0",

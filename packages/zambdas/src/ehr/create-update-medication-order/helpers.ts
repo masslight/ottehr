@@ -19,7 +19,10 @@ export function getPerformerId(medicationAdministration: MedicationAdministratio
   return medicationAdministration.performer?.find((perf) => perf.actor.reference)?.actor.reference;
 }
 
-export function createMedicationCopy(inventoryMedication: Medication, orderData: MedicationData): Medication {
+export function createMedicationCopy(
+  inventoryMedication: Medication,
+  orderData: { lotNumber?: string; expDate?: string; manufacturer?: string }
+): Medication {
   const resourceCopy = { ...inventoryMedication };
   delete resourceCopy.id;
   delete resourceCopy.meta;

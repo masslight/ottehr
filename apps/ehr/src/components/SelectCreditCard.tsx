@@ -10,7 +10,6 @@ import {
 } from '@mui/material';
 import { Box } from '@mui/system';
 import { Elements } from '@stripe/react-stripe-js';
-import { loadStripe } from '@stripe/stripe-js/dist';
 import { Patient } from 'fhir/r4b';
 import { FC, useState } from 'react';
 import { useGetPaymentMethods } from 'src/hooks/useGetPaymentMethods';
@@ -18,6 +17,7 @@ import { useSetDefaultPaymentMethod } from 'src/hooks/useSetDefaultPaymentMethod
 import { useSetupStripe } from 'src/hooks/useSetupStripe';
 import { AddCreditCardForm } from 'ui-components';
 import { CreditCardInfo } from 'utils';
+import { stripePromise } from '../index';
 
 interface CreditCardContentProps {
   patient: Patient;
@@ -25,8 +25,6 @@ interface CreditCardContentProps {
   handleCardSelected: (newVal: string | undefined) => void;
   error?: string;
 }
-
-let stripePromise = loadStripe(import.meta.env.VITE_APP_STRIPE_KEY);
 
 const labelForCard = (card: CreditCardInfo): string => {
   return `XXXX - XXXX - XXXX - ${card.lastFour}${card.default ? ' (Primary)' : ''}`;
@@ -101,7 +99,6 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
       await refetchPaymentMethods();
     }
     handleCardSelected(id);
-    stripePromise = loadStripe(import.meta.env.VITE_APP_STRIPE_KEY);
   };
 
   if (initializing) {
