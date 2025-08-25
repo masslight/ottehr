@@ -5,6 +5,7 @@ import {
   Appointment,
   Bundle,
   BundleEntry,
+  Coding,
   DiagnosticReport,
   DocumentReference,
   Encounter,
@@ -29,11 +30,14 @@ import {
   DEFAULT_LABS_ITEMS_PER_PAGE,
   DiagnosisDTO,
   EMPTY_PAGINATION,
+  externalLabOrderIsManual,
   ExternalLabsStatus,
+  getAccountNumberFromOrganization,
   getFullestAvailableName,
+  getOrderNumber,
   isPositiveNumberOrZero,
-  LAB_ACCOUNT_NUMBER_SYSTEM,
   LAB_ORDER_TASK,
+  LabelPdf,
   LabOrderDetailedPageDTO,
   LabOrderDTO,
   LabOrderHistoryRow,
@@ -41,8 +45,8 @@ import {
   LabOrderPDF,
   LabOrderResultDetails,
   LabOrdersSearchBy,
+  LabOrderUnreceivedHistoryRow,
   LabResultPDF,
-  OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   Pagination,
   PatientLabItem,
@@ -83,6 +87,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
   organizations: Organization[],
   questionnaires: QuestionnaireData[],
   resultPDFs: LabResultPDF[],
+  labelPDF: LabelPdf | undefined,
   orderPDF: LabOrderPDF | undefined,
   specimens: Specimen[],
   appointmentScheduleMap: Record<string, Schedule>,
@@ -116,6 +121,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
           organizations,
           questionnaires,
           resultPDFs,
+          labelPDF,
           orderPDF,
           specimens,
           appointmentScheduleMap,
@@ -142,6 +148,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   organizations,
   questionnaires,
   resultPDFs,
+  labelPDF,
   orderPDF,
   specimens,
   appointmentScheduleMap,
@@ -159,6 +166,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   organizations: Organization[];
   questionnaires: QuestionnaireData[];
   resultPDFs: LabResultPDF[];
+  labelPDF: LabelPdf | undefined;
   orderPDF: LabOrderPDF | undefined;
   specimens: Specimen[];
   appointmentScheduleMap: Record<string, Schedule>;
@@ -184,6 +192,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
     accessionNumbers: parseAccessionNumbers(serviceRequest, results),
     lastResultReceivedDate: parseLabOrderLastResultReceivedDate(serviceRequest, results, tasks, cache),
     orderAddedDate: parseLabOrderAddedDate(serviceRequest, tasks, results, cache),
+    orderSubmittedDate: parseLabOrderSubmittedDate(provenances),
     orderStatus: orderStatus,
     visitDate: parseVisitDate(appointment),
     isPSC: parseIsPSC(serviceRequest),
@@ -192,6 +201,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
     orderingPhysician: parsePractitionerNameFromServiceRequest(serviceRequest, practitioners),
     diagnoses: parseDx(serviceRequest),
     encounterTimezone: parseTimezoneForAppointmentSchedule(appointment, appointmentScheduleMap),
+    orderNumber: getOrderNumber(serviceRequest),
   };
 
   if (searchBy.searchBy.field === 'serviceRequestId') {
@@ -220,6 +230,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
       ),
       questionnaire: questionnaires,
       samples: parseSamples(serviceRequest, specimens),
+      labelPdfUrl: labelPDF?.presignedURL,
       orderPdfUrl: orderPDF?.presignedURL,
     };
 
@@ -442,6 +453,7 @@ export const getLabResources = async (
   organizations: Organization[];
   questionnaires: QuestionnaireData[];
   resultPDFs: LabResultPDF[];
+  labelPDF: LabelPdf | undefined;
   orderPDF: LabOrderPDF | undefined;
   specimens: Specimen[];
   patientLabItems: PatientLabItem[];
@@ -523,11 +535,13 @@ export const getLabResources = async (
   const allPractitioners = [...practitioners, ...serviceRequestPractitioners];
 
   let resultPDFs: LabResultPDF[] = [];
+  let labelPDF: LabelPdf | undefined;
   let orderPDF: LabOrderPDF | undefined;
   if (isDetailPageRequest) {
     const pdfs = await fetchLabOrderPDFsPresignedUrls(documentReferences, m2mToken);
     if (pdfs) {
       resultPDFs = pdfs.resultPDFs;
+      labelPDF = pdfs.labelPDF;
       orderPDF = pdfs.orderPDF;
     }
   }
@@ -547,6 +561,7 @@ export const getLabResources = async (
     organizations,
     questionnaires,
     resultPDFs,
+    labelPDF,
     orderPDF,
     specimens,
     pagination,
@@ -1086,6 +1101,10 @@ export const parseLabOrderStatus = (
     return ExternalLabsStatus.pending;
   }
 
+  if (hasCompletedPSTTask && serviceRequest.status === 'draft') {
+    return ExternalLabsStatus.ready;
+  }
+
   // 'sent': If Task(PST).status == completed, SR.status == active, and there is no DR for the ordered test code
   const sentStatusConditions = {
     hasCompletedPSTTask,
@@ -1095,7 +1114,7 @@ export const parseLabOrderStatus = (
   };
 
   if (hasAllConditions(sentStatusConditions)) {
-    const manualOrder = serviceRequest.identifier?.some((id) => id.system === OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM);
+    const manualOrder = externalLabOrderIsManual(serviceRequest);
     if (manualOrder) {
       return ExternalLabsStatus['sent manually'];
     } else {
@@ -1456,6 +1475,19 @@ export const parseLabOrderAddedDate = (
   return taskPST?.authoredOn || '';
 };
 
+const parseLabOrderSubmittedDate = (provenances: Provenance[]): string | undefined => {
+  const submittedProvenance = provenances.find(
+    (prov) =>
+      prov.activity?.coding?.find(
+        (c) =>
+          c.system === PROVENANCE_ACTIVITY_CODING_ENTITY.submit.system &&
+          c.code === PROVENANCE_ACTIVITY_CODING_ENTITY.submit.code
+      )
+  );
+  console.log('submittedProvenance', submittedProvenance);
+  return submittedProvenance?.recorded;
+};
+
 export const parseLabOrderLastResultReceivedDate = (
   serviceRequest: ServiceRequest,
   results: DiagnosticReport[],
@@ -1508,7 +1540,6 @@ export const parseLabOrdersHistory = (
 ): LabOrderHistoryRow[] => {
   console.log('building order history for external lab service request', serviceRequest.id);
   const {
-    taskPST,
     orderedFinalTasks,
     reflexFinalTasks,
     orderedCorrectedTasks,
@@ -1536,20 +1567,31 @@ export const parseLabOrdersHistory = (
 
   if (orderStatus === ExternalLabsStatus.pending) return history;
 
-  history.push(...parseSubmittedHistory(taskPST, practitioners, provenances));
+  history.push(
+    ...parseProvenancesForHistory(
+      'ready',
+      PROVENANCE_ACTIVITY_CODING_ENTITY.completePstTask,
+      practitioners,
+      provenances
+    )
+  );
+
+  history.push(
+    ...parseProvenancesForHistory('ordered', PROVENANCE_ACTIVITY_CODING_ENTITY.submit, practitioners, provenances)
+  );
 
   const isPSC = parseIsPSC(serviceRequest);
   const pushPerformedHistory = (specimen: Specimen): void => {
     history.push({
       action: 'performed',
-      performer: isPSC ? '' : parsePerformed(specimen, practitioners),
-      date: isPSC ? '-' : parsePerformedDate(specimen),
+      performer: parsePerformed(specimen, practitioners),
+      date: parsePerformedDate(specimen),
     });
   };
 
-  // only push performed to order history if this is a psc order or there is a specimen to parse data from
+  // only push performed to order history if this is not a psc order or there is a specimen to parse data from
   // not having a specimen for a non psc order is probably an edge case but was causing issues for AutoLab
-  if (isPSC || specimens[0]) {
+  if (!isPSC || specimens[0]) {
     pushPerformedHistory(specimens[0]);
   }
 
@@ -1598,10 +1640,7 @@ export const parseAccountNumber = (serviceRequest: ServiceRequest, organizations
       const matchingOrg = organizations.find((org) => org.id === organizationId);
 
       if (matchingOrg) {
-        const accountNumber = matchingOrg.identifier?.find(
-          (identifier) => identifier.system === LAB_ACCOUNT_NUMBER_SYSTEM
-        )?.value;
-
+        const accountNumber = getAccountNumberFromOrganization(matchingOrg);
         return accountNumber || NOT_FOUND;
       }
     }
@@ -1610,28 +1649,27 @@ export const parseAccountNumber = (serviceRequest: ServiceRequest, organizations
   return NOT_FOUND;
 };
 
-export const parseSubmittedHistory = (
-  task: Task | null,
+export const parseProvenancesForHistory = (
+  historyAction: LabOrderUnreceivedHistoryRow['action'],
+  activityCoding: Coding,
   practitioners: Practitioner[],
   provenances: Provenance[]
 ): LabOrderHistoryRow[] => {
-  const pstTaskProvenance = provenances.find(
+  const relatedProvenance = provenances.find(
     (provenance) =>
       provenance.activity?.coding?.some(
-        (code) =>
-          code.code === PROVENANCE_ACTIVITY_CODING_ENTITY.submit.code &&
-          code.system === PROVENANCE_ACTIVITY_CODING_ENTITY.submit.system
+        (code) => code.code === activityCoding.code && code.system === activityCoding.system
       )
   );
-  if (!pstTaskProvenance || !task) return [];
-  const submittedBy = parseReviewerNameFromProvenance(pstTaskProvenance, practitioners);
-  const submitDate = pstTaskProvenance.recorded;
-  const submittedHistory: LabOrderHistoryRow = {
-    action: 'ordered',
-    performer: submittedBy,
-    date: submitDate,
+  if (!relatedProvenance) return [];
+  const pstTaskCompletedBy = parseReviewerNameFromProvenance(relatedProvenance, practitioners);
+  const date = relatedProvenance.recorded;
+  const historyRow: LabOrderHistoryRow = {
+    action: historyAction,
+    performer: pstTaskCompletedBy,
+    date,
   };
-  return [submittedHistory];
+  return [historyRow];
 };
 
 export const parseTaskReceivedAndReviewedAndCorrectedHistory = (

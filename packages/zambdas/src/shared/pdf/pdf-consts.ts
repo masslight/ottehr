@@ -4,6 +4,7 @@ import { ImageStyle, PdfClientStyles } from './types';
 export const Y_POS_GAP = 30;
 
 export const STANDARD_FONT_SIZE = 12;
+export const SUB_HEADER_FONT_SIZE = 14;
 export const STANDARD_FONT_SPACING = 12;
 export const STANDARD_NEW_LINE = 17;
 

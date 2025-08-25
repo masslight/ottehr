@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import {
@@ -8,6 +8,7 @@ import {
   FhirResource,
   Observation,
   Provenance,
+  QuestionnaireResponse,
   Reference,
   ServiceRequest,
   Specimen,
@@ -15,9 +16,16 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  DYMO_30334_LABEL_CONFIG,
+  getAccountNumberFromOrganization,
+  getOrderNumber,
   getPatchBinary,
+  getPatientFirstName,
+  getPatientLastName,
   getSecret,
+  isPSCOrder,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
+  SaveOrderCollectionData,
   Secrets,
   SecretsKeys,
   UpdateLabOrderResourcesParameters,
@@ -30,7 +38,15 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
+import { createExternalLabsLabelPDF, ExternalLabsLabelConfig } from '../../shared/pdf/external-labs-label-pdf';
 import { createExternalLabResultPDF } from '../../shared/pdf/labs-results-form-pdf';
+import { getExternalLabOrderResources } from '../shared/labs';
+import {
+  getSpecimenPatchAndMostRecentCollectionDate,
+  makePstCompletePatchRequests,
+  makeQrPatchRequest,
+  makeSpecimenPatchRequest,
+} from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'update-lab-order-resources';
@@ -102,6 +118,29 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           body: JSON.stringify({
             message: `Successfully updated Specimen/${specimenId}. Date set to '${date}'.`,
             transaction: updateTransactionRequest,
+          }),
+        };
+      }
+
+      case 'saveOrderCollectionData': {
+        const { serviceRequestId, data, specimenCollectionDates } = validatedParameters;
+        const { presignedLabelURL } = await handleSaveCollectionData(
+          oystehr,
+          m2mToken,
+          secrets,
+          practitionerIdFromCurrentUser,
+          {
+            serviceRequestId,
+            data,
+            specimenCollectionDates,
+          }
+        );
+
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            message: `Successfully updated saved order collection data`,
+            presignedLabelURL,
           }),
         };
       }
@@ -285,46 +324,108 @@ const handleSpecimenDateChangedEvent = async ({
     throw new Error(`Specimen/${specimenId} not found in ServiceRequest/${serviceRequestId}`);
   }
 
-  const hasSpecimenCollection = specimen.collection;
-  const hasSpecimenDateTime = specimen.collection?.collectedDateTime;
-  const hasSpecimenCollector = specimen.collection?.collector;
-  const specimenCollector = { reference: `Practitioner/${practitionerIdFromCurrentUser}` };
-
-  const operations: Operation[] = [];
-
-  if (hasSpecimenCollection) {
-    operations.push(
-      {
-        op: hasSpecimenCollector ? 'replace' : 'add',
-        path: '/collection/collector',
-        value: specimenCollector,
-      },
-      {
-        op: hasSpecimenDateTime ? 'replace' : 'add',
-        path: '/collection/collectedDateTime',
-        value: date,
-      }
-    );
-  } else {
-    operations.push({
-      path: '/collection',
-      op: 'add',
-      value: {
-        collectedDateTime: date,
-        collector: specimenCollector,
-      },
-    });
-  }
-
-  const specimenPatchRequest: BatchInputPatchRequest<Specimen> = {
-    method: 'PATCH',
-    url: `Specimen/${specimen.id}`,
-    operations: operations,
-  };
+  const specimenPatchRequest = makeSpecimenPatchRequest(
+    specimen,
+    DateTime.fromISO(date),
+    practitionerIdFromCurrentUser
+  );
 
   const updateTransactionRequest = await oystehr.fhir.transaction<Specimen>({
     requests: [specimenPatchRequest],
   });
 
   return updateTransactionRequest;
+};
+
+/**
+ * saves sample collection dates
+ * saves aoe question entry & marks QR as complete
+ * update pre-submission task to complete and create provenance for who did that
+ *  makes specimen label
+ */
+const handleSaveCollectionData = async (
+  oystehr: Oystehr,
+  m2mToken: string,
+  secrets: Secrets | null,
+  practitionerIdFromCurrentUser: string,
+  input: SaveOrderCollectionData
+): Promise<{ presignedLabelURL: string | undefined }> => {
+  console.log('double check input', JSON.stringify(input));
+  const { serviceRequestId, data, specimenCollectionDates } = input;
+  const now = DateTime.now();
+
+  console.log('getting resources needed for saving collection data');
+  const {
+    serviceRequest,
+    patient,
+    questionnaireResponse,
+    preSubmissionTask: pstTask,
+    encounter,
+    labOrganization,
+    specimens: specimenResources,
+  } = await getExternalLabOrderResources(oystehr, serviceRequestId);
+  console.log('resources retrieved');
+
+  const orderNumber = getOrderNumber(serviceRequest);
+  console.log('orderNumber', orderNumber);
+  if (!orderNumber) throw Error(`order number could not be parsed from the service request ${serviceRequest.id}`);
+
+  const requests: BatchInputRequest<Specimen | QuestionnaireResponse | Provenance | Task>[] = [];
+
+  // if there are specimen dates passed update those specimens collection dateTimes
+  let mostRecentSampleCollectionDate: undefined | DateTime; // needed for label
+  console.log('specimenResources', JSON.stringify(specimenResources));
+  console.log('specimenCollectionDates', JSON.stringify(specimenCollectionDates));
+  if (specimenResources.length > 0 && specimenCollectionDates) {
+    const { specimenPatchRequests, mostRecentCollectionDate } = getSpecimenPatchAndMostRecentCollectionDate(
+      specimenResources,
+      specimenCollectionDates,
+      practitionerIdFromCurrentUser
+    );
+    requests.push(...specimenPatchRequests);
+    mostRecentSampleCollectionDate = mostRecentCollectionDate;
+  }
+
+  // if aoe answers (data) are passed, patch the QR & make QR completed
+  // not every order will have an AOE
+  if (questionnaireResponse !== undefined && questionnaireResponse.id) {
+    const qrPatchRequest = await makeQrPatchRequest(questionnaireResponse, data, m2mToken);
+    requests.push(qrPatchRequest);
+  }
+
+  let presignedLabelURL: string | undefined = undefined;
+  // update pst task to complete, add agent and relevant history (provenance created)
+  // and create provenance with activity PROVENANCE_ACTIVITY_CODING_ENTITY.completePstTask
+  const pstCompletedRequests = makePstCompletePatchRequests(
+    pstTask,
+    serviceRequest,
+    practitionerIdFromCurrentUser,
+    now
+  );
+  requests.push(...pstCompletedRequests);
+  // make specimen label
+  if (!isPSCOrder(serviceRequest)) {
+    const labelConfig: ExternalLabsLabelConfig = {
+      labelConfig: DYMO_30334_LABEL_CONFIG,
+      content: {
+        patientId: patient.id!,
+        patientFirstName: getPatientFirstName(patient) ?? '',
+        patientLastName: getPatientLastName(patient) ?? '',
+        patientDateOfBirth: patient.birthDate ? DateTime.fromISO(patient.birthDate) : undefined,
+        sampleCollectionDate: mostRecentSampleCollectionDate,
+        orderNumber: orderNumber,
+        accountNumber: (labOrganization && getAccountNumberFromOrganization(labOrganization)) || '',
+      },
+    };
+
+    console.log('creating labs order label and getting url');
+    presignedLabelURL = (
+      await createExternalLabsLabelPDF(labelConfig, encounter.id!, serviceRequest.id!, secrets, m2mToken, oystehr)
+    ).presignedURL;
+  }
+
+  console.log('making fhir requests');
+  await oystehr.fhir.transaction({ requests });
+
+  return { presignedLabelURL };
 };

@@ -74,6 +74,32 @@ export function validateRequestParameters(
       secrets,
       userToken,
     };
+  } else if (params.event === 'saveOrderCollectionData') {
+    const { serviceRequestId, data, specimenCollectionDates, event } = params;
+
+    if (typeof serviceRequestId !== 'string') {
+      throw Error(`Invalid parameter type: serviceRequestId must be a string, received: ${typeof serviceRequestId}`);
+    }
+
+    if (!data || !Object.keys(data).every((key) => typeof key === 'string')) {
+      throw Error(`Missing data param or data key is an invalid type`);
+    }
+
+    if (
+      specimenCollectionDates &&
+      !Object.values(specimenCollectionDates).every((specimen) => typeof specimen.date === 'string')
+    ) {
+      throw Error(`Invalid parameter: specimenCollectionDates.date must be a string`);
+    }
+
+    return {
+      serviceRequestId,
+      data,
+      specimenCollectionDates,
+      event,
+      secrets,
+      userToken,
+    };
   }
 
   throw Error('event is not supported');

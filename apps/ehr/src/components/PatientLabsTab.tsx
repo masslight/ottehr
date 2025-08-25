@@ -15,7 +15,7 @@ const patientLabOrdersColumns: LabsTableColumn[] = [
   'resultsReceived',
   'accessionNumber',
   'status',
-  'psc',
+  'detail',
 ];
 
 export const PatientLabsTab = ({ patientId }: PatientLabsTabProps): ReactElement => {
