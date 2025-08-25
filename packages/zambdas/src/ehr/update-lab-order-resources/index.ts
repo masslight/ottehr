@@ -24,11 +24,12 @@ import {
   getPatientLastName,
   getSecret,
   isPSCOrder,
+  LAB_ORDER_UPDATE_RESOURCES_EVENTS,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   SaveOrderCollectionData,
   Secrets,
   SecretsKeys,
-  UpdateLabOrderResourcesParameters,
+  UpdateLabOrderResourcesInput,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -43,6 +44,7 @@ import { createExternalLabResultPDF } from '../../shared/pdf/labs-results-form-p
 import { getExternalLabOrderResources } from '../shared/labs';
 import {
   getSpecimenPatchAndMostRecentCollectionDate,
+  handleMatchUnsolicitedRequest,
   makePstCompletePatchRequests,
   makeQrPatchRequest,
   makeSpecimenPatchRequest,
@@ -57,7 +59,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log(`update-lab-order-resources started, input: ${JSON.stringify(input)}`);
 
   let secrets = input.secrets;
-  let validatedParameters: UpdateLabOrderResourcesParameters & { secrets: Secrets | null; userToken: string };
+  let validatedParameters: UpdateLabOrderResourcesInput & { secrets: Secrets | null; userToken: string };
 
   try {
     validatedParameters = validateRequestParameters(input);
@@ -141,6 +143,44 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           body: JSON.stringify({
             message: `Successfully updated saved order collection data`,
             presignedLabelURL,
+          }),
+        };
+      }
+
+      case LAB_ORDER_UPDATE_RESOURCES_EVENTS.cancelMatchUnsolicitedResultTask: {
+        console.log('handling cancel task to match unsolicited result');
+        const { taskId } = validatedParameters;
+        await oystehr.fhir.batch({
+          requests: [
+            getPatchBinary({
+              resourceType: 'Task',
+              resourceId: taskId,
+              patchOperations: [
+                {
+                  op: 'replace',
+                  path: '/status',
+                  value: 'cancelled',
+                },
+              ],
+            }),
+          ],
+        });
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            message: `Successfully cancelled match unsolicited result task with id ${taskId}`,
+          }),
+        };
+      }
+
+      case LAB_ORDER_UPDATE_RESOURCES_EVENTS.matchUnsolicitedResult: {
+        const { taskId, diagnosticReportId, srToMatchId, patientToMatchId } = validatedParameters;
+        console.log('handling match unsolicited result');
+        await handleMatchUnsolicitedRequest({ oystehr, taskId, diagnosticReportId, srToMatchId, patientToMatchId });
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            message: `Successfully matched unsolicited result`,
           }),
         };
       }

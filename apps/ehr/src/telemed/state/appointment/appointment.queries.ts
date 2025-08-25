@@ -23,8 +23,14 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect } from 'react';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
-import { useErrorQuery, useSuccessQuery } from 'utils';
 import {
+  FinalizeUnsolicitedResultMatch,
+  GetUnsolicitedResultsRelatedRequests,
+  useErrorQuery,
+  useSuccessQuery,
+} from 'utils';
+import {
+  CancelMatchUnsolicitedResultTask,
   ChartDataFields,
   ChartDataRequestedFields,
   createSmsModel,
@@ -33,9 +39,11 @@ import {
   GetMedicationOrdersInput,
   GetMedicationOrdersResponse,
   GetUnsolicitedResultsResourcesForIcon,
+  GetUnsolicitedResultsResourcesForIconInput,
+  GetUnsolicitedResultsResourcesForMatch,
+  GetUnsolicitedResultsResourcesForMatchInput,
   GetUnsolicitedResultsResourcesForTable,
-  GetUnsolicitedResultsResourcesInput,
-  GetUnsolicitedResultsResourcesOutput,
+  GetUnsolicitedResultsResourcesForTableInput,
   IcdSearchRequestParams,
   IcdSearchResponse,
   InstructionType,
@@ -45,11 +53,11 @@ import {
   MeetingData,
   RefreshableAppointmentData,
   relatedPersonAndCommunicationMaps,
+  RelatedRequestsToUnsolicitedResultOutput,
   ReviewAndSignData,
   SaveChartDataRequest,
   SchoolWorkNoteExcuseDocFileDTO,
   TelemedAppointmentInformation,
-  UnsolicitedResultsRequestType,
   UpdateMedicationOrderInput,
 } from 'utils';
 import { APPOINTMENT_REFRESH_INTERVAL, CHAT_REFETCH_INTERVAL, QUERY_STALE_TIME } from '../../../constants';
@@ -582,26 +590,129 @@ export const useGetCreateExternalLabResources = ({
   });
 };
 
-export function useGetUnsolicitedResultsResources(input: {
-  requestType: UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_ICON;
-}): UseQueryResult<GetUnsolicitedResultsResourcesForIcon | undefined, Error>;
-export function useGetUnsolicitedResultsResources(input: {
-  requestType: UnsolicitedResultsRequestType.GET_ALL_TASKS;
-}): UseQueryResult<GetUnsolicitedResultsResourcesForTable | undefined, Error>;
-export function useGetUnsolicitedResultsResources({
-  requestType,
-}: GetUnsolicitedResultsResourcesInput): UseQueryResult<GetUnsolicitedResultsResourcesOutput | undefined, Error> {
+export function useDisplayUnsolicitedResultsIcon(
+  input: GetUnsolicitedResultsResourcesForIconInput
+): UseQueryResult<GetUnsolicitedResultsResourcesForIcon | undefined, Error> {
   const apiClient = useOystehrAPIClient();
+  const { requestType } = input;
+
   return useQuery({
     queryKey: ['get unsolicited results resources', requestType],
 
     queryFn: async () => {
-      return apiClient?.getUnsolicitedResultsResources({ requestType });
+      const data = await apiClient?.getUnsolicitedResultsResources(input);
+      if (data && 'tasksAreReady' in data) {
+        return data;
+      }
+      return;
     },
 
-    enabled: Boolean(FEATURE_FLAGS.LAB_ORDERS_ENABLED && apiClient && requestType),
+    enabled: Boolean(apiClient && FEATURE_FLAGS.LAB_ORDERS_ENABLED),
+    staleTime: 1000 * 15, // 15 seconds
+  });
+}
+
+export function useGetUnsolicitedResultsResourcesForTable(
+  input: GetUnsolicitedResultsResourcesForTableInput
+): UseQueryResult<GetUnsolicitedResultsResourcesForTable | undefined, Error> {
+  const apiClient = useOystehrAPIClient();
+  const { requestType } = input;
+
+  return useQuery({
+    queryKey: ['get unsolicited results resources', requestType],
+
+    queryFn: async () => {
+      const data = await apiClient?.getUnsolicitedResultsResources(input);
+      if (data && 'unsolicitedResultRows' in data) {
+        return data;
+      }
+      return;
+    },
+
+    enabled: Boolean(apiClient),
+  });
+}
+
+export function useGetUnsolicitedResultsResourcesForMatch(
+  input: GetUnsolicitedResultsResourcesForMatchInput
+): UseQueryResult<GetUnsolicitedResultsResourcesForMatch | undefined, Error> {
+  const apiClient = useOystehrAPIClient();
+  const { requestType, diagnosticReportId } = input;
+
+  return useQuery({
+    queryKey: ['get unsolicited results resources', requestType, diagnosticReportId],
+
+    queryFn: async () => {
+      const data = await apiClient?.getUnsolicitedResultsResources({ requestType, diagnosticReportId });
+      if (data && 'labInfo' in data) {
+        return data;
+      }
+      return;
+    },
+
+    enabled: Boolean(apiClient && diagnosticReportId),
     placeholderData: keepPreviousData,
     staleTime: QUERY_STALE_TIME,
+  });
+}
+
+export function useGetUnsolicitedResultsRelatedRequests(
+  input: GetUnsolicitedResultsRelatedRequests
+): UseQueryResult<RelatedRequestsToUnsolicitedResultOutput | undefined, Error> {
+  const apiClient = useOystehrAPIClient();
+  const { requestType, diagnosticReportId, patientId } = input;
+
+  return useQuery({
+    queryKey: ['get unsolicited results resources', requestType, diagnosticReportId, patientId],
+
+    queryFn: async () => {
+      const data = await apiClient?.getUnsolicitedResultsResources({ requestType, diagnosticReportId, patientId });
+      if (data && 'possibleRelatedSRsWithVisitDate' in data) {
+        return data;
+      }
+      return;
+    },
+
+    enabled: Boolean(apiClient && diagnosticReportId),
+    placeholderData: keepPreviousData,
+    staleTime: QUERY_STALE_TIME,
+  });
+}
+
+export function useCancelMatchUnsolicitedResultTask(): UseMutationResult<
+  void,
+  Error,
+  CancelMatchUnsolicitedResultTask
+> {
+  const apiClient = useOystehrAPIClient();
+
+  return useMutation({
+    mutationFn: async (input: CancelMatchUnsolicitedResultTask) => {
+      const { taskId, event } = input;
+      const data = await apiClient?.updateLabOrderResources({ taskId, event });
+
+      if (data && 'possibleRelatedSRsWithVisitDate' in data) {
+        return data;
+      }
+
+      return;
+    },
+  });
+}
+
+export function useFinalizeUnsolicitedResultMatch(): UseMutationResult<void, Error, FinalizeUnsolicitedResultMatch> {
+  const apiClient = useOystehrAPIClient();
+
+  return useMutation({
+    mutationFn: async (input: FinalizeUnsolicitedResultMatch) => {
+      const data = await apiClient?.updateLabOrderResources(input);
+
+      if (data && 'possibleRelatedSRsWithVisitDate' in data) {
+        return data;
+      }
+
+      return;
+    },
   });
 }
 

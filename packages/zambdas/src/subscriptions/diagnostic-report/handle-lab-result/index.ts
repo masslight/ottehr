@@ -33,11 +33,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     const isUnsolicited = diagnosticReportIsUnsolicited(diagnosticReport);
+    const isUnsolicitedAndUnmatched = isUnsolicited && !diagnosticReport.subject?.reference?.startsWith('Patient/');
+
     const serviceRequestID = diagnosticReport?.basedOn
       ?.find((temp) => temp.reference?.startsWith('ServiceRequest/'))
       ?.reference?.split('/')[1];
 
     console.log('isUnsolicited:', isUnsolicited);
+    console.log('isUnsolicitedAndUnmatched:', isUnsolicitedAndUnmatched);
     console.log('diagnosticReport: ', diagnosticReport.id);
     console.log('serviceRequestID:', serviceRequestID);
 
@@ -88,7 +91,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         },
       ],
       status: getStatusForNewTask(diagnosticReport.status),
-      code: getCodeForNewTask(diagnosticReport),
+      code: getCodeForNewTask(diagnosticReport, isUnsolicitedAndUnmatched),
     };
 
     requests.push({
@@ -112,10 +115,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     });
 
     // unsolicited result pdfs will be created after matching to a patient
-    if (!isUnsolicited && serviceRequestID) {
+    if (!isUnsolicitedAndUnmatched && serviceRequestID) {
       await createExternalLabResultPDF(oystehr, serviceRequestID, diagnosticReport, false, secrets, oystehrToken);
     } else {
-      console.log('skipping pdf creation: ', isUnsolicited, serviceRequestID);
+      console.log('skipping pdf creation: ', isUnsolicited, isUnsolicitedAndUnmatched, serviceRequestID);
     }
 
     return {

@@ -138,7 +138,6 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
     },
     refetchInterval: 10000,
     onSuccess: (data) => {
-      console.log('data', data);
       const prescribedMedications = data.prescribedMedications;
 
       setPartialChartData({

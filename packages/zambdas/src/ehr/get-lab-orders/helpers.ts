@@ -1194,7 +1194,7 @@ export const parseLabOrderStatus = (
   }
 
   console.log(
-    `Error: unknown status for ServiceRequest/${serviceRequest.id}. Here are the conditions for determining the status, all conditions must be true for picking the corresponding status:`,
+    `Alert: unknown status for ServiceRequest/${serviceRequest.id}. Here are the conditions for determining the status, all conditions must be true for picking the corresponding status:`,
     JSON.stringify(
       {
         pendingStatusConditions,
