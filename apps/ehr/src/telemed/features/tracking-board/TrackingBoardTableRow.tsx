@@ -219,7 +219,7 @@ export function TrackingBoardTableRow({ appointment, showProvider, next }: Appoi
         </Typography>
       </TableCell>
       <TableCell sx={{ verticalAlign: 'middle', cursor: 'pointer' }} onClick={goToAppointment}>
-        <Typography sx={{ fontSize: '16px' }}>{appointment.locationVirtual.state}</Typography>
+        <Typography sx={{ fontSize: '16px' }}>{appointment.locationVirtual.name}</Typography>
       </TableCell>
       {showProvider && (
         <TableCell sx={{ verticalAlign: 'middle' }}>

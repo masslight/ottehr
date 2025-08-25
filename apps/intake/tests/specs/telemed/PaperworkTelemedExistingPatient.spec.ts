@@ -102,7 +102,6 @@ test.describe('Virtual visit. Check paperwork is prefilled for existing patient.
   });
   test('VVPP-5 Check Primary insurance has prefilled values', async () => {
     await page.goto(`paperwork/${appointmentIds[1]}/payment-option`);
-    await page.waitForLoadState('networkidle');
     await locator.insuranceOption.click();
     await expect(locator.insuranceHeading).toBeVisible();
     await test.step('Primary Insurance cards are prefilled', async () => {
@@ -155,7 +154,6 @@ test.describe('Virtual visit. Check paperwork is prefilled for existing patient.
   // TODO: Need to remove skip when https://github.com/masslight/ottehr/issues/1938 is fixed
   test.skip('VVPP-6 Check Secondary insurance has prefilled values', async () => {
     await page.goto(`paperwork/${appointmentIds[1]}/payment-option`);
-    await page.waitForLoadState('networkidle');
     await locator.insuranceOption.click();
     await expect(locator.insuranceHeading).toBeVisible();
     await locator.addSecondaryInsurance.click();
@@ -266,7 +264,7 @@ test.describe('Virtual visit. Check paperwork is prefilled for existing patient.
   });
   test('VVPP-15 Check Photo condition is not prefilled', async () => {
     await page.goto(`paperwork/${appointmentIds[1]}/patient-condition`);
-    await page.waitForLoadState('networkidle');
+    await paperwork.checkCorrectPageOpens('Patient condition');
     await expect(filledPaperwork.uploadedPhotoCondition).toBeHidden();
   });
 });

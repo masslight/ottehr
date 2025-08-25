@@ -4,8 +4,7 @@ import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import { Box, Button, Card, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import React, { FC, useEffect, useState } from 'react';
-import { ClaimsQueueItemStatus } from 'utils';
-import { getPresignedFileUrl } from '../../../helpers/files.helper';
+import { ClaimsQueueItemStatus, getPresignedURL } from 'utils';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useClaimStore } from '../../state';
 import { ClaimStatusChip } from '../claims-queue';
@@ -33,7 +32,7 @@ export const ClaimHeader: FC = () => {
 
         const z3Url = visitNoteDocument?.content?.[0]?.attachment.url;
         if (z3Url) {
-          const presignedUrl = await getPresignedFileUrl(z3Url, authToken);
+          const presignedUrl = await getPresignedURL(z3Url, authToken);
           setVisitNotePresignedURL(presignedUrl);
         }
       } catch {

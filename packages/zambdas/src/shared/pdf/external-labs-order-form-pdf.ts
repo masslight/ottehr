@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { min } from 'lodash';
 import { DateTime } from 'luxon';
-import { FHIR_IDENTIFIER_NPI, getFullestAvailableName, ORDER_ITEM_UNKNOWN, Secrets } from 'utils';
+import { BUCKET_NAMES, FHIR_IDENTIFIER_NPI, getFullestAvailableName, ORDER_ITEM_UNKNOWN, Secrets } from 'utils';
 import { LABS_DATE_STRING_FORMAT, resourcesForOrderForm } from '../../ehr/submit-lab-order/helpers';
 import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
@@ -33,7 +33,7 @@ export async function createExternalLabsOrderFormPDF(
   });
 
   console.debug(`Created external labs order form pdf bytes`);
-  const bucketName = 'visit-notes';
+  const bucketName = BUCKET_NAMES.LABS;
   const fileName = `ExternalLabsOrderForm-${
     input.labOrganizationName ? getLabFileName(input.labOrganizationName) + '-' : ''
   }-${DateTime.fromISO(input.dateIncludedInFileName).toFormat('yyyy-MM-dd')}-${input.orderNumber}-${

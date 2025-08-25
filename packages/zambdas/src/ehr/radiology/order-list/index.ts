@@ -93,64 +93,51 @@ const performEffect = async (
     pageIndex = 0,
   } = validatedInput.body;
 
+  const searchParams = {
+    patientId,
+    encounterIds,
+    serviceRequestId,
+    itemsPerPage,
+    pageIndex,
+  };
+
+  return await getRadiologyOrders(oystehr, searchParams);
+};
+
+export const getRadiologyOrders = async (
+  oystehr: Oystehr,
+  {
+    encounterIds,
+    patientId,
+    serviceRequestId,
+    itemsPerPage = 100,
+    pageIndex = 0,
+  }: {
+    encounterIds?: string[];
+    patientId?: string;
+    serviceRequestId?: string;
+    itemsPerPage?: number;
+    pageIndex?: number;
+  }
+): Promise<GetRadiologyOrderListZambdaOutput> => {
   const searchParams = [
-    {
-      name: '_total',
-      value: 'accurate',
-    },
-    {
-      name: '_offset',
-      value: `${pageIndex * itemsPerPage}`,
-    },
-    {
-      name: '_count',
-      value: `${itemsPerPage}`,
-    },
-    {
-      name: '_sort',
-      value: '-_lastUpdated',
-    },
-    {
-      name: '_revinclude',
-      value: 'Task:based-on',
-    },
-    {
-      name: '_revinclude',
-      value: 'DiagnosticReport:based-on',
-    },
-    {
-      name: '_include',
-      value: 'ServiceRequest:requester',
-    },
-    {
-      name: '_include',
-      value: 'ServiceRequest:encounter',
-    },
-    {
-      name: '_include',
-      value: 'ServiceRequest:encounter',
-    },
-    {
-      name: '_tag',
-      value: `${ORDER_TYPE_CODE_SYSTEM}|radiology`,
-    },
-    {
-      name: 'status:not',
-      value: 'revoked',
-    },
+    { name: '_total', value: 'accurate' },
+    { name: '_offset', value: `${pageIndex * itemsPerPage}` },
+    { name: '_count', value: `${itemsPerPage}` },
+    { name: '_sort', value: '-_lastUpdated' },
+    { name: '_revinclude', value: 'Task:based-on' },
+    { name: '_revinclude', value: 'DiagnosticReport:based-on' },
+    { name: '_include', value: 'ServiceRequest:requester' },
+    { name: '_include', value: 'ServiceRequest:encounter' },
+    { name: '_tag', value: `${ORDER_TYPE_CODE_SYSTEM}|radiology` },
+    { name: 'status:not', value: 'revoked' },
   ];
 
   if (patientId) {
-    searchParams.push({
-      name: 'subject',
-      value: `Patient/${patientId}`,
-    });
+    searchParams.push({ name: 'subject', value: `Patient/${patientId}` });
   } else if (serviceRequestId) {
-    searchParams.push({
-      name: '_id',
-      value: serviceRequestId,
-    });
-  } else if (encounterIds) {
+    searchParams.push({ name: '_id', value: serviceRequestId });
+  } else if (encounterIds?.length) {
     searchParams.push({
       name: 'encounter',
       value: encounterIds.map((id) => `Encounter/${id}`).join(','),
@@ -166,10 +153,9 @@ const performEffect = async (
 
   console.log('searchResponse', JSON.stringify(searchResponse, null, 2));
 
-  const resources =
-    searchResponse.entry
-      ?.map((entry) => entry.resource)
-      .filter((res): res is ServiceRequest | Task | Practitioner | DiagnosticReport | Encounter => Boolean(res)) || [];
+  const resources = (searchResponse.entry || [])
+    .map((entry) => entry.resource)
+    .filter((res): res is ServiceRequest | Task | Practitioner | DiagnosticReport | Encounter => Boolean(res));
 
   const { serviceRequests, tasks, diagnosticReports, practitioners, encounters } = extractResources(resources);
 

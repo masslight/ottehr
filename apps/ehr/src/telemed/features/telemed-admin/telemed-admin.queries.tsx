@@ -10,11 +10,11 @@ import {
 import { useApiClients } from '../../../hooks/useAppClients';
 import { InsuranceData } from './EditInsurance';
 
-export const useStatesQuery = (): UseQueryResult<Location[], Error> => {
+export const useVirtualLocationsQuery = (): UseQueryResult<Location[], Error> => {
   const { oystehr } = useApiClients();
 
   return useQuery({
-    queryKey: ['state-locations'],
+    queryKey: ['virtual-locations'],
 
     queryFn: async () => {
       const resources = await oystehr!.fhir.search<Location>({
@@ -27,7 +27,14 @@ export const useStatesQuery = (): UseQueryResult<Location[], Error> => {
         ],
       });
 
-      return resources.unbundle().filter(isLocationVirtual);
+      return resources
+        .unbundle()
+        .filter(isLocationVirtual)
+        .sort((a, b) => {
+          const stateA = a.address?.state || '';
+          const stateB = b.address?.state || '';
+          return stateA.localeCompare(stateB);
+        });
     },
 
     enabled: !!oystehr,
