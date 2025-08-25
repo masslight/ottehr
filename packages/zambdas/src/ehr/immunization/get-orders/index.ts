@@ -15,6 +15,7 @@ import {
   MEDICATION_APPLIANCE_LOCATION_SYSTEM,
   PRACTITIONER_ADMINISTERED_MEDICATION_CODE,
   PRACTITIONER_ORDERED_BY_MEDICATION_CODE,
+  VACCINE_ADMINISTRATION_EMERGENCY_CONTACT_RELATIONSHIP_CODE_SYSTEM,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -152,7 +153,11 @@ function mapMedicationAdministrationToImmunizationOrder(
               ? {
                   fullName: emergencyContactReatedPerson.name?.[0].text ?? '',
                   mobile: emergencyContactReatedPerson.telecom?.[0].value ?? '',
-                  relationship: '', //todo
+                  relationship:
+                    getCoding(
+                      emergencyContactReatedPerson.relationship,
+                      VACCINE_ADMINISTRATION_EMERGENCY_CONTACT_RELATIONSHIP_CODE_SYSTEM
+                    )?.code ?? '',
                 }
               : undefined,
           }
