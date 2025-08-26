@@ -7,11 +7,6 @@ import { DateInput } from 'src/components/input/DateInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { TimeInput } from 'src/components/input/TimeInput';
-import { CSSModal } from 'src/features/css-module/components/CSSModal';
-import {
-  ReasonListCodes,
-  reasonListValues,
-} from 'src/features/css-module/components/medication-administration/medicationTypes';
 import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
 import { useAppointment } from 'src/features/css-module/hooks/useAppointment';
 import { useAdministerImmunizationOrder } from 'src/features/css-module/hooks/useImmunization';
@@ -19,6 +14,8 @@ import { cleanupProperties } from 'src/helpers/misc.helper';
 import { ROUTE_OPTIONS, UNIT_OPTIONS } from 'src/shared/utils';
 import { useGetMedicationList } from 'src/telemed';
 import { EMERGENCY_CONTACT_RELATIONSHIPS, ImmunizationOrder, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { ADMINISTERED, AdministrationType, NOT_ADMINISTERED, PARTLY_ADMINISTERED } from '../common';
+import { AdministrationConfirmationDialog } from './AdministrationConfirmationDialog';
 import { OrderDetailsSection } from './OrderDetailsSection';
 
 interface Props {
@@ -29,26 +26,6 @@ const RELATIONSHIP_OPTIONS = Object.entries(EMERGENCY_CONTACT_RELATIONSHIPS).map
   value: value.code,
   label: value.display,
 }));
-
-interface AdministrationType {
-  type: string;
-  label: string;
-}
-
-const ADMINISTERED: AdministrationType = {
-  type: 'administered',
-  label: 'Administered',
-};
-
-const NOT_ADMINISTERED: AdministrationType = {
-  type: 'administered-not',
-  label: 'Not Administered',
-};
-
-const PARTLY_ADMINISTERED: AdministrationType = {
-  type: 'administered-partly',
-  label: 'Partly Administered',
-};
 
 export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
   const methods = useForm({
@@ -64,7 +41,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
     },
   });
   const theme = useTheme();
-  const [showAdministrationReasonDialog, setShowAdministrationReasonDialog] = useState<boolean>(false);
+  const [showAdministrationConfirmationDialog, setShowAdministrationConfirmationDialog] = useState<boolean>(false);
   const administrationTypeRef = useRef<AdministrationType>(ADMINISTERED);
 
   const { id: appointmentId } = useParams();
@@ -87,7 +64,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
   const onAdministrationActionClick = async (administrationType: AdministrationType): Promise<void> => {
     administrationTypeRef.current = administrationType;
     if (await methods.trigger()) {
-      setShowAdministrationReasonDialog(true);
+      setShowAdministrationConfirmationDialog(true);
     }
   };
 
@@ -97,9 +74,6 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
     }
     return true;
   };
-
-  const reason = methods.watch('reason');
-  const otherReason = methods.watch('otherReason');
 
   return (
     <FormProvider {...methods}>
@@ -239,61 +213,18 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
             </Grid>
           </Paper>
         </Stack>
-        <CSSModal
-          color="primary.main"
-          icon={null}
-          showEntityPreview={false}
-          open={showAdministrationReasonDialog}
+        <AdministrationConfirmationDialog
+          administrationType={administrationTypeRef.current}
+          patientName={mappedData.patientName}
+          medicationName={medications?.[methods.getValues('details.medicationId')]}
+          dose={methods.getValues('details.dose')}
+          unit={UNIT_OPTIONS.find((unit) => unit.value === methods.getValues('details.units'))?.label}
+          route={ROUTE_OPTIONS.find((route) => route.value === methods.getValues('details.route'))?.label}
+          open={showAdministrationConfirmationDialog}
           handleClose={() => {
-            setShowAdministrationReasonDialog(false);
+            setShowAdministrationConfirmationDialog(false);
           }}
-          handleConfirm={() => methods.handleSubmit(onSubmit)()}
-          disabled={
-            administrationTypeRef.current !== ADMINISTERED &&
-            (!reason || (reason === ReasonListCodes.OTHER && !otherReason))
-          }
-          description={''}
-          title={'Order ' + administrationTypeRef.current.label}
-          confirmText={'Mark as ' + administrationTypeRef.current.label}
-          closeButtonText="Cancel"
-          ContentComponent={() => {
-            return (
-              <Box display="flex" flexDirection="column" gap={1}>
-                <Typography>
-                  <strong>Patient:</strong> {mappedData.patientName}
-                </Typography>
-                <Typography>
-                  <strong>Vaccine:</strong> {medications?.[methods.getValues('details.medicationId')]} /{' '}
-                  {methods.getValues('details.dose')}
-                  {UNIT_OPTIONS.find((unit) => unit.value === methods.getValues('details.units'))?.label} /{' '}
-                  {ROUTE_OPTIONS.find((route) => route.value === methods.getValues('details.route'))?.label}
-                </Typography>
-                <Typography>
-                  Please confirm that you want to mark this immunization order as{' '}
-                  {<strong>{administrationTypeRef.current.label}</strong>}
-                  {administrationTypeRef.current.type !== 'administered' ? ' and select the reason.' : '.'}
-                </Typography>
-                {administrationTypeRef.current.type !== 'administered' ? (
-                  <Stack spacing={2} sx={{ mt: 2 }}>
-                    <SelectInput
-                      name="reason"
-                      label="Reason"
-                      options={Object.entries(reasonListValues).map(([value, label]) => {
-                        return {
-                          value,
-                          label,
-                        };
-                      })}
-                      required
-                    />
-                    {reason === ReasonListCodes.OTHER && (
-                      <TextInput name="otherReason" label="Specify reason" required />
-                    )}
-                  </Stack>
-                ) : null}
-              </Box>
-            ) as JSX.Element;
-          }}
+          handleConfirm={methods.handleSubmit(onSubmit)}
         />
       </form>
     </FormProvider>
