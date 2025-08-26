@@ -1,6 +1,7 @@
+import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { Operation } from 'fast-json-patch';
-import { Communication, Encounter, Extension } from 'fhir/r4b';
-import { useMutation, UseMutationResult, useQuery } from 'react-query';
+import { Communication, Encounter, Extension, FhirResource } from 'fhir/r4b';
+import { useSuccessQuery } from 'utils';
 import {
   AppointmentProviderNotificationTypes,
   getPatchBinary,
@@ -19,13 +20,15 @@ export type ProviderNotification = {
   communication: Communication;
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useGetProviderNotifications = (onSuccess?: (data: ProviderNotification[]) => void) => {
+export const useGetProviderNotifications = (
+  onSuccess?: (data: ProviderNotification[] | null) => void
+): UseQueryResult<ProviderNotification[], Error> => {
   const { oystehr } = useApiClients();
   const user = useEvolveUser();
-  return useQuery(
-    ['provider-notifications'],
-    async () => {
+  const queryResult = useQuery({
+    queryKey: ['provider-notifications'],
+
+    queryFn: async (): Promise<ProviderNotification[]> => {
       const notificationResources = (
         await oystehr?.fhir.search({
           resourceType: 'Communication',
@@ -57,10 +60,10 @@ export const useGetProviderNotifications = (onSuccess?: (data: ProviderNotificat
         })
       )?.unbundle();
       const communicationResources = notificationResources?.filter(
-        (resourceTemp) => resourceTemp.resourceType === 'Communication'
+        (resourceTemp: unknown) => (resourceTemp as FhirResource).resourceType === 'Communication'
       ) as Communication[];
       const encounterResources = notificationResources?.filter(
-        (resourceTemp) => resourceTemp.resourceType === 'Encounter'
+        (resourceTemp: unknown) => (resourceTemp as FhirResource).resourceType === 'Encounter'
       ) as Encounter[];
 
       return communicationResources.map((communicationResource) => {
@@ -76,8 +79,15 @@ export const useGetProviderNotifications = (onSuccess?: (data: ProviderNotificat
         return notification;
       });
     },
-    { enabled: !!(oystehr && user?.profile), refetchInterval: 10000, refetchIntervalInBackground: true, onSuccess }
-  );
+
+    enabled: !!(oystehr && user?.profile),
+    refetchInterval: 10000,
+    refetchIntervalInBackground: true,
+  });
+
+  useSuccessQuery(queryResult.data, onSuccess);
+
+  return queryResult;
 };
 
 interface UpdateProviderNotificationsParams {
@@ -87,16 +97,13 @@ interface UpdateProviderNotificationsParams {
 
 export const useUpdateProviderNotificationSettingsMutation = (
   onSuccess: (params: UpdateProviderNotificationsParams) => void
-): UseMutationResult<
-  { method: ProviderNotificationMethod; enabled: boolean },
-  unknown,
-  UpdateProviderNotificationsParams
-> => {
+): UseMutationResult<UpdateProviderNotificationsParams, Error, UpdateProviderNotificationsParams> => {
   const user = useEvolveUser();
   const { oystehr } = useApiClients();
-  return useMutation(
-    ['provider-notifications'],
-    async ({ method, enabled }: UpdateProviderNotificationsParams) => {
+  return useMutation({
+    mutationKey: ['provider-notifications'],
+
+    mutationFn: async ({ method, enabled }: UpdateProviderNotificationsParams) => {
       if (!user?.profileResource) throw new Error('User practitioner profile not defined');
 
       const notificationsExtIndex = (user.profileResource.extension || [])?.findIndex(
@@ -142,16 +149,19 @@ export const useUpdateProviderNotificationSettingsMutation = (
       });
       return { method, enabled };
     },
-    { onSuccess }
-  );
+
+    onSuccess,
+  });
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useUpdateProviderNotificationsMutation = (onSuccess?: () => void) => {
+export const useUpdateProviderNotificationsMutation = (
+  onSuccess?: () => void
+): UseMutationResult<void, Error, { ids: NonNullable<Communication['id']>[]; status: Communication['status'] }> => {
   const { oystehr } = useApiClients();
-  return useMutation(
-    ['provider-notifications'],
-    async (params: { ids: NonNullable<Communication['id']>[]; status: Communication['status'] }) => {
+  return useMutation({
+    mutationKey: ['provider-notifications'],
+
+    mutationFn: async (params: { ids: NonNullable<Communication['id']>[]; status: Communication['status'] }) => {
       const { ids, status } = params;
       const patchOp: Operation = {
         op: 'replace',
@@ -167,6 +177,7 @@ export const useUpdateProviderNotificationsMutation = (onSuccess?: () => void) =
         ],
       });
     },
-    { onSuccess }
-  );
+
+    onSuccess,
+  });
 };

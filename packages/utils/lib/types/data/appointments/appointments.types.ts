@@ -11,7 +11,12 @@ import {
   RelatedPerson,
 } from 'fhir/r4b';
 import { OTTEHR_MODULE } from '../../../fhir/moduleIdentification';
-import { TelemedAppointmentStatusEnum, TelemedCallStatuses, TelemedStatusHistoryElement } from '../../../main';
+import {
+  FhirAppointmentType,
+  TelemedAppointmentStatusEnum,
+  TelemedCallStatuses,
+  TelemedStatusHistoryElement,
+} from '../../../main';
 import {
   AppointmentMessaging,
   AppointmentType,
@@ -61,6 +66,7 @@ export type GetTelemedAppointmentsResponseEhr = AppointmentsResponse<TelemedAppo
 
 export interface AppointmentLocation {
   reference?: string;
+  name?: string;
   state?: string;
   resourceType: Location['resourceType'];
   id: string;
@@ -131,6 +137,12 @@ export interface GetAppointmentsRequest {
 export const appointmentTypeMap: Record<string, string> = {
   [OTTEHR_MODULE.IP]: 'In-Person',
   [OTTEHR_MODULE.TM]: 'Telemedicine',
+};
+
+export const appointmentTypeLabels: { [type in FhirAppointmentType]: string } = {
+  prebook: 'Pre-booked',
+  walkin: 'Walk-In',
+  posttelemed: 'Post Telemed',
 };
 
 export type PatientFilterType = 'my-patients' | 'all-patients';

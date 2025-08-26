@@ -48,6 +48,7 @@ interface ResponsibleParty {
   address1: string;
   additionalAddress: string;
   phone: string;
+  email: string;
   city: string;
   state: string;
   zip: string;

@@ -15,7 +15,9 @@ import {
 import { Stack } from '@mui/system';
 import { Practitioner } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import { FC, useState } from 'react';
+import { FC, useMemo, useState } from 'react';
+import { CompleteConfiguration } from 'src/components/CompleteConfiguration';
+import { useGetErxConfigQuery } from 'src/telemed/hooks/useGetErxConfig';
 import { ERX_MEDICATION_META_TAG_CODE, formatDateToMDYWithTime, RoleType } from 'utils';
 import { RoundedButton } from '../../../../components/RoundedButton';
 import { useChartData } from '../../../../features/css-module/hooks/useChartData';
@@ -124,6 +126,8 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
     'chartData',
     'patient',
   ]);
+
+  const appointmentStart = useMemo(() => formatDateToMDYWithTime(appointment?.start), [appointment?.start]);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const { isLoading, isFetching, refetch } = useChartData({
@@ -164,6 +168,8 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
   const { oystehr } = useApiClients();
   const user = useEvolveUser();
 
+  const { data: erxConfigData, isLoading: isErxConfigLoading } = useGetErxConfigQuery();
+
   const cancelPrescription = async (medRequestId: string, patientId: string): Promise<void> => {
     if (!oystehr) {
       enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
@@ -189,9 +195,9 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
     setOpenTooltip(true);
   };
 
-  // const handleSetup = (): void => {
-  //   window.open('https://docs.oystehr.com/ottehr/setup/prescriptions/', '_blank');
-  // };
+  const handleSetup = (): void => {
+    window.open('https://docs.oystehr.com/ottehr/setup/prescriptions/', '_blank');
+  };
 
   const onNewOrderClick = async (): Promise<void> => {
     // await oystehr?.erx.unenrollPractitioner({ practitionerId: user!.profileResource!.id! });
@@ -226,7 +232,12 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
                 </RoundedButton>
               ) : (
                 <RoundedButton
-                  disabled={isReadOnly || erxStatus === ERXStatus.LOADING || !user?.hasRole([RoleType.Provider])}
+                  disabled={
+                    isReadOnly ||
+                    erxStatus === ERXStatus.LOADING ||
+                    !user?.hasRole([RoleType.Provider]) ||
+                    !erxConfigData?.configured
+                  }
                   variant="contained"
                   onClick={() => onNewOrderClick()}
                   startIcon={erxStatus === ERXStatus.LOADING ? <CircularProgress size={16} /> : <AddIcon />}
@@ -237,7 +248,7 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
             </Stack>
           </Tooltip>
         </Stack>
-        {/* {!erxEnvVariable && <CompleteConfiguration handleSetup={handleSetup} />} */}
+        {!erxConfigData?.configured && !isErxConfigLoading && <CompleteConfiguration handleSetup={handleSetup} />}
         {isERXOpen && (
           <ERX
             onStatusChanged={(status) => {
@@ -274,56 +285,57 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {chartData.prescribedMedications.map((row) => (
-                  <TableRow key={row.resourceId}>
-                    <TableCell>{row.name}</TableCell>
-                    <TableCell>{row.instructions}</TableCell>
-                    {/*<TableCell>Dx</TableCell>*/}
-                    <TableCell>
-                      {formatDateToMDYWithTime(appointment?.start)
-                        ?.split(' at ')
-                        ?.map((item) => (
-                          <Typography variant="body2" key={item}>
-                            {item}
-                          </Typography>
-                        ))}
-                    </TableCell>
-                    <TableCell>
-                      {getPractitionerName(
-                        chartData.practitioners?.find((practitioner) => practitioner.id === row.provider)
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {formatDateToMDYWithTime(row.added)
-                        ?.split(' at ')
-                        ?.map((item) => (
-                          <Typography variant="body2" key={item}>
-                            {item}
-                          </Typography>
-                        ))}
-                    </TableCell>
-                    {/*<TableCell>Pharmacy</TableCell>*/}
-                    <TableCell>{getAppointmentStatusChip(row.status, medicationStatusMapper)}</TableCell>
-                    {!isReadOnly && patient?.id && (
+                {chartData.prescribedMedications.map((row) => {
+                  const rowAdded = formatDateToMDYWithTime(row?.added);
+                  return (
+                    <TableRow key={row.resourceId}>
+                      <TableCell>{row.name}</TableCell>
+                      <TableCell>{row.instructions}</TableCell>
+                      {/*<TableCell>Dx</TableCell>*/}
                       <TableCell>
-                        <LoadingButton
-                          loading={cancellationLoading.includes(row.resourceId!)}
-                          variant="text"
-                          color="error"
-                          onClick={() => cancelPrescription(row.resourceId!, patient.id!)}
-                          disabled={
-                            row.status === 'loading' ||
-                            row.status === 'completed' ||
-                            row.status === 'cancelled' ||
-                            cancellationLoading.includes(row.resourceId!)
-                          }
-                        >
-                          Cancel
-                        </LoadingButton>
+                        {appointmentStart && (
+                          <>
+                            <Typography variant="body2">{appointmentStart.date}</Typography>
+                            <Typography variant="body2">{appointmentStart.time}</Typography>
+                          </>
+                        )}
                       </TableCell>
-                    )}
-                  </TableRow>
-                ))}
+                      <TableCell>
+                        {getPractitionerName(
+                          chartData.practitioners?.find((practitioner) => practitioner.id === row.provider)
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {rowAdded && (
+                          <>
+                            <Typography variant="body2">{rowAdded.date}</Typography>
+                            <Typography variant="body2">{rowAdded.time}</Typography>
+                          </>
+                        )}
+                      </TableCell>
+                      {/*<TableCell>Pharmacy</TableCell>*/}
+                      <TableCell>{getAppointmentStatusChip(row.status, medicationStatusMapper)}</TableCell>
+                      {!isReadOnly && patient?.id && (
+                        <TableCell>
+                          <LoadingButton
+                            loading={cancellationLoading.includes(row.resourceId!)}
+                            variant="text"
+                            color="error"
+                            onClick={() => cancelPrescription(row.resourceId!, patient.id!)}
+                            disabled={
+                              row.status === 'loading' ||
+                              row.status === 'completed' ||
+                              row.status === 'cancelled' ||
+                              cancellationLoading.includes(row.resourceId!)
+                            }
+                          >
+                            Cancel
+                          </LoadingButton>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </TableContainer>

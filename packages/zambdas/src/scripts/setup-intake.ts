@@ -119,7 +119,7 @@ async function createApplication(oystehr: Oystehr, applicationName: string): Pro
           'Zambda:Function:video-chat-invites-list',
           'Zambda:Function:get-eligibility',
           'Zambda:Function:get-answer-options',
-          'Zambda:Function:get-telemed-states',
+          'Zambda:Function:get-telemed-locations',
           'Zambda:Function:get-wait-status',
           'Zambda:Function:get-past-visits',
           'Zambda:Function:join-call',

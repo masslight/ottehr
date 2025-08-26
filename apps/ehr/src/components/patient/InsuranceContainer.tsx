@@ -1,8 +1,8 @@
 import { LoadingButton } from '@mui/lab';
 import { Autocomplete, Box, Checkbox, FormControlLabel, TextField, Typography, useTheme } from '@mui/material';
+import { useMutation } from '@tanstack/react-query';
 import { FC, ReactElement, useEffect, useMemo, useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { useMutation } from 'react-query';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
   chooseJson,
@@ -160,28 +160,30 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
 
   const { oystehrZambda } = useApiClients();
 
-  const recheckEligibility = useMutation(async () => {
-    // todo: show an alert when form has unsaved changes?
-    const coverageToCheck = insurancePriority?.toLowerCase();
-    try {
-      return oystehrZambda?.zambda
-        .execute({
-          id: 'get-eligibility',
-          patientId,
-          coverageToCheck: coverageToCheck,
-        })
-        .then((res) => {
-          console.log('eligibility check result');
-          const json = chooseJson(res);
-          if (coverageToCheck === 'secondary') {
-            return mapEligibilityCheckResultToSimpleStatus(json.secondary);
-          } else {
-            return mapEligibilityCheckResultToSimpleStatus(json.primary);
-          }
-        });
-    } catch (error: any) {
-      throw new Error(error.message);
-    }
+  const recheckEligibility = useMutation({
+    mutationFn: async () => {
+      // todo: show an alert when form has unsaved changes?
+      const coverageToCheck = insurancePriority?.toLowerCase();
+      try {
+        return oystehrZambda?.zambda
+          .execute({
+            id: 'get-eligibility',
+            patientId,
+            coverageToCheck: coverageToCheck,
+          })
+          .then((res) => {
+            console.log('eligibility check result');
+            const json = chooseJson(res);
+            if (coverageToCheck === 'secondary') {
+              return mapEligibilityCheckResultToSimpleStatus(json.secondary);
+            } else {
+              return mapEligibilityCheckResultToSimpleStatus(json.primary);
+            }
+          });
+      } catch (error: any) {
+        throw new Error(error.message);
+      }
+    },
   });
 
   const handleRecheckEligibility = async (): Promise<void> => {
@@ -205,7 +207,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
         status={eligibilityStatus?.status ?? 'UNKNOWN'}
         lastRefreshISO={eligibilityStatus?.dateISO ?? ''}
         styleMap={STATUS_TO_STYLE_MAP}
-        isRefreshing={recheckEligibility.isLoading}
+        isRefreshing={recheckEligibility.isPending}
         handleRefresh={handleRecheckEligibility}
       />
     );

@@ -23,11 +23,11 @@ import {
   Tooltip,
   useTheme,
 } from '@mui/material';
+import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
 import { default as React, ReactElement, useCallback, useMemo, useState } from 'react';
-import { useQuery } from 'react-query';
 import { Link } from 'react-router-dom';
-import { AllStates, EmployeeDetails, RoleType, State } from 'utils';
+import { AllStates, EmployeeDetails, GetEmployeesResponse, RoleType, State, useSuccessQuery } from 'utils';
 import { getEmployees } from '../api/api';
 import Loading from '../components/Loading';
 import { EMPLOYEE_ROWS_PER_PAGE, PROVIDER_ROWS_PER_PAGE } from '../constants';
@@ -76,6 +76,8 @@ export default function EmployeesPage(): ReactElement {
     setPageTab(newValue);
   }, []);
 
+  const emptyEmployeeList: EmployeeDetails[] = [];
+
   const handlePageStateChange = useCallback(
     (tab: PageTab, newPageState: Partial<(typeof pageStates)[PageTab.providers]>) => {
       setPageStates((prev) => ({
@@ -89,16 +91,18 @@ export default function EmployeesPage(): ReactElement {
     []
   );
 
-  const { isFetching } = useQuery(
-    ['get-employees', { oystehrZambda }],
-    () => (oystehrZambda ? getEmployees(oystehrZambda) : null),
-    {
-      onSuccess: (response) => {
-        setEmployees(response?.employees ?? []);
-      },
-      enabled: !!oystehrZambda,
-    }
-  );
+  const queryResult = useQuery({
+    queryKey: ['get-employees'],
+    queryFn: () => (oystehrZambda ? getEmployees(oystehrZambda) : Promise.resolve(null)),
+
+    enabled: !!oystehrZambda,
+  });
+
+  useSuccessQuery(queryResult.data, (data: GetEmployeesResponse | null) => {
+    setEmployees(data?.employees ?? emptyEmployeeList);
+  });
+
+  const { isFetching } = queryResult;
 
   return (
     <PageContainer>

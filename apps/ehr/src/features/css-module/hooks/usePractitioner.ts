@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
+import { useMutation } from '@tanstack/react-query';
 import { Coding, Encounter } from 'fhir/r4b';
-import { useMutation } from 'react-query';
 import { assignPractitioner, unassignPractitioner } from 'src/api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { useAppointment } from './useAppointment';
@@ -15,17 +15,19 @@ export const usePractitionerActions = (
     encounter?.appointment?.[0]?.reference?.replace('Appointment/', '')
   );
 
-  const mutation = useMutation(async (practitionerId: string) => {
-    try {
-      await updateAssignment(oystehrZambda, encounter, practitionerId, action, practitionerType);
-      await refetchAppointment();
-    } catch (error: any) {
-      throw new Error(error.message);
-    }
+  const mutation = useMutation({
+    mutationFn: async (practitionerId: string) => {
+      try {
+        await updateAssignment(oystehrZambda, encounter, practitionerId, action, practitionerType);
+        await refetchAppointment();
+      } catch (error: any) {
+        throw new Error(error.message);
+      }
+    },
   });
 
   return {
-    isEncounterUpdatePending: mutation.isLoading,
+    isEncounterUpdatePending: mutation.isPending,
     handleUpdatePractitioner: mutation.mutateAsync,
   };
 };

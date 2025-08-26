@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Location } from 'fhir/r4b';
 import { useEffect, useState } from 'react';
+import { UNIT_OPTIONS } from 'src/shared/utils';
 import { isLocationVirtual, MedicationApplianceRoutes, medicationApplianceRoutes, RoleType } from 'utils';
 import { getEmployees } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
@@ -192,14 +193,7 @@ export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
       status: 'loaded',
     },
     units: {
-      options: [
-        { value: 'mg', label: 'mg' },
-        { value: 'ml', label: 'mL' },
-        { value: 'g', label: 'g' },
-        { value: 'cc', label: 'cc' },
-        { value: 'unit', label: 'unit' },
-        { value: 'application', label: 'application' },
-      ],
+      options: UNIT_OPTIONS,
       status: 'loaded',
     },
     associatedDx: {

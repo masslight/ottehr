@@ -20,10 +20,10 @@ export abstract class BaseAssessmentPage {
 
   async expectMdmField(options?: { text?: string }): Promise<void> {
     const { text } = options ?? {};
-    const mdmField = await this.#page.getByTestId(dataTestIds.assessmentCard.medicalDecisionField);
-    await expect(await mdmField.locator('textarea:visible')).toBeVisible(DEFAULT_TIMEOUT);
+    const mdmField = this.#page.getByTestId(dataTestIds.assessmentCard.medicalDecisionField);
+    await expect(mdmField.locator('textarea:visible')).toBeVisible(DEFAULT_TIMEOUT);
     if (text) {
-      await expect(await mdmField.locator('textarea:visible')).toHaveText(text);
+      await expect(mdmField.locator('textarea:visible')).toHaveText(text);
     }
   }
 

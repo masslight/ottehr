@@ -12,7 +12,7 @@ export const VideoTimer: FC = () => {
   const { encounter } = getSelectors(useAppointmentStore, ['encounter']);
   const [difference, setDifference] = useState<Duration>();
   const { chartData, setPartialChartData } = getSelectors(useAppointmentStore, ['chartData', 'setPartialChartData']);
-  const { mutate, isLoading } = useSaveChartData();
+  const { mutate, isPending: isLoading } = useSaveChartData();
 
   const addToVisitNote = chartData?.addToVisitNote?.value || false;
 

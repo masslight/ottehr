@@ -22,6 +22,9 @@ export const useUploadPhotosStore = create<{
 
 export const UploadPhotosListItemButton: FC<UploadPhotosListItemButtonProps> = ({ onClick, hideText, noDivider }) => {
   const { isLoading, isFetching } = useGetPaperwork((data) => {
+    if (!data) {
+      return;
+    }
     const attachment = data?.questionnaireResponse?.item
       ?.find((item) => item.linkId === 'patient-condition-page')
       ?.item?.find((item) => item.linkId === 'patient-photos')?.answer?.[0]?.valueAttachment;

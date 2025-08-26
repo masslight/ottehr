@@ -53,7 +53,7 @@ const GeneralInfoCard: React.FC = (): JSX.Element => {
 
   const [isVerifiedNameAndDob, setVerifiedNameAndDob] = useState<boolean>(false);
 
-  const { mutateAsync: updateVerificationStatusAsync, isLoading: isUpdatingVerificationStatus } = useSaveChartData();
+  const { mutateAsync: updateVerificationStatusAsync, isPending: isUpdatingVerificationStatus } = useSaveChartData();
 
   const isCheckboxDisabled = isLoadingChartData || chartData === undefined || isUpdatingVerificationStatus;
 
