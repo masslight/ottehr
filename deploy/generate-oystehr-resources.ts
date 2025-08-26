@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { BRANDING_CONFIG, SENDGRID_CONFIG } from 'utils';
 
 const validSchemas: { [key: string]: (spec: any, vars: any, outputPath: string) => Promise<void> } = {
   '2025-03-19': generate20250319,
@@ -8,14 +9,54 @@ const validSchemas: { [key: string]: (spec: any, vars: any, outputPath: string) 
 const zambdasDirPath = path.resolve(__dirname, '../packages/zambdas');
 
 // args
-const args = process.argv.slice(2);
-if (args.length !== 3) {
-  console.error('Usage: tsx generate-oystehr-resources.ts <config-dir> <var-file> <output-path>');
-  process.exit(1);
+
+async function generate(input: GenerateResourcesArgs): Promise<void> {
+  const { configDir, env, outputPath } = input;
+  await generateSendgridResources({ configDir, env });
+  const varFile = `../packages/zambdas/.env/${env}.json`;
+  await generateOystehrResources({ configDir: `${configDir}/oystehr`, varFile, outputPath });
+}
+interface GenerateSendgridResources {
+  configDir: string;
+  env: string;
 }
 
-async function generate(): Promise<void> {
-  const [configDir, varFile, outputPath] = args;
+async function generateSendgridResources(input: GenerateSendgridResources): Promise<void> {
+  const { configDir, env } = input;
+  const templates = Object.values(SENDGRID_CONFIG.templates || {})
+    .filter(Boolean)
+    .reduce(
+      (acc, entry) => {
+        if (entry && entry.templateName) {
+          const { templateName, ...rest } = entry;
+          const keyName = `${templateName}-${env}`;
+          acc[keyName] = rest;
+        }
+        return acc;
+      },
+      {} as Record<string, any>
+    );
+  let { projectName } = BRANDING_CONFIG;
+  if (!projectName) {
+    throw new Error('Project name is not defined');
+  }
+  projectName += `-${env}`;
+  const tfModel = {
+    projectName,
+    templates,
+  };
+  const stringifiedConfig = JSON.stringify(tfModel, null, 2);
+  await fs.mkdir(`${configDir}/sendgrid`, { recursive: true });
+  await fs.writeFile(`${configDir}/sendgrid/sendgrid.json`, stringifiedConfig, 'utf8');
+}
+
+interface GenerateFhirResourcesArgs {
+  configDir: string;
+  varFile: string;
+  outputPath: string;
+}
+async function generateOystehrResources(input: GenerateFhirResourcesArgs): Promise<void> {
+  const { configDir, varFile, outputPath } = input;
 
   if (!configDir) {
     throw new Error('Config directory is required.');
@@ -317,7 +358,39 @@ function isObject(spec: any): spec is { [key: string]: unknown } {
   return spec && typeof spec === 'object' && !Array.isArray(spec);
 }
 
-generate()
+interface GenerateResourcesArgs {
+  configDir: string;
+  env: string;
+  outputPath: string;
+}
+
+const validateInput = (): GenerateResourcesArgs => {
+  const args = process.argv.slice(2);
+  if (args.length !== 3) {
+    throw new Error('Usage: tsx generate-oystehr-resources.ts <config-dir> <env> <output-path>');
+  }
+
+  const [configDir, env, outputPath] = args;
+
+  console.log('env', env);
+
+  if (!configDir) {
+    throw new Error('Config directory is required.');
+  }
+
+  if (!env) {
+    throw new Error('Environment is required.');
+  }
+
+  if (!outputPath) {
+    throw new Error('Output path is required.');
+  }
+
+  return { configDir, env, outputPath };
+};
+
+const validatedArgs = validateInput();
+generate(validatedArgs)
   .then(() => {
     console.log('Done!');
   })

@@ -6,3 +6,10 @@ terraform {
     }
   }
 }
+
+resource "oystehr_secret" "sendgrid_template_ids" {
+  for_each = var.sendgrid_template_ids
+
+  name  = each.key
+  value = each.value
+}

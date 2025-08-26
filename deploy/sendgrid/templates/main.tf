@@ -34,7 +34,14 @@ resource "sendgrid_template_version" "test_template_version" {
   name         = local.templates[each.key].templateVersionName
 }
 
-# resource "oystehr_secret" "secrets" {
+output "template_ids" {
+  description = "The IDs of all created sendgrid templates mapped from secret name."
+  value = {
+    for k, v in sendgrid_template.named_template : local.templates[k].templateIdSecretName => v.id
+  }
+}
+
+# output "oystehr_secret" "secrets" {
 #   for_each = sendgrid_template.named_template
 #
 #   name  = local.templates[each.key].templateIdSecretName

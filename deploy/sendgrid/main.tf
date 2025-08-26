@@ -25,6 +25,7 @@ resource "null_resource" "validate_project_name" {
 
 resource "sendgrid_api_key" "template_api_key" {
   name  = local.project_name
+  
 }
 
 module "templates" {
@@ -34,7 +35,10 @@ module "templates" {
   project_name = local.project_name
 }
 
-
+output "template_ids" {
+  description = "The IDs of all created sendgrid templates mapped from secret name."
+  value = module.templates.template_ids
+}
 
 # resource "oystehr_secret" "api_key_secret" {
 #   name  = "SG_SEND_EMAIL_API_KEY"
