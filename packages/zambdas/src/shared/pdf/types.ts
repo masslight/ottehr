@@ -3,19 +3,16 @@ import { DateTime } from 'luxon';
 import { Color, PDFFont, PDFImage, StandardFonts } from 'pdf-lib';
 import {
   AdditionalBooleanQuestionsFieldsNames,
-  ExamObservationFieldItem,
-  ExamTabCardNames,
   ExternalLabOrderResult,
   Gender,
   InHouseLabResult as IInHouseLabResult,
-  InPersonExamObservationFieldItem,
-  InPersonExamTabProviderCardNames,
   LabType,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   QuantityComponent,
   SupportedObsImgAttachmentTypes,
   VitalsVisitNoteData,
 } from 'utils';
+import { testDataForOrderForm } from '../../ehr/submit-lab-order/helpers';
 import { Column } from './pdf-utils';
 
 export interface PageElementStyle {
@@ -102,33 +99,17 @@ export interface PdfClient {
   drawLink: (text: string, url: string, textStyle: TextStyle) => void;
 }
 
-export type TelemedExamBlockData = {
-  [group in Exclude<ExamTabCardNames, 'vitals'>]: {
-    items?: ExamObservationFieldItem[];
-    extraItems?: string[];
-    leftItems?: ExamObservationFieldItem[];
-    rightItems?: ExamObservationFieldItem[];
-    comment?: string;
+export interface PdfExaminationBlockData {
+  examination: {
+    [group: string]: {
+      items?: Array<{
+        field: string;
+        label: string;
+        abnormal: boolean;
+      }>;
+      comment?: string;
+    };
   };
-} & {
-  vitals: {
-    temp: string;
-    pulseOx: string;
-    hr: string;
-    rr: string;
-    bp: string;
-  };
-};
-
-export type InPersonExamBlockData = {
-  [group in InPersonExamTabProviderCardNames]: {
-    items?: InPersonExamObservationFieldItem[];
-    comment?: string;
-  };
-};
-
-export interface ExaminationBlockData {
-  examination: TelemedExamBlockData | InPersonExamBlockData;
 }
 
 // todo might make sense to have a separate interface for the order pdf base
@@ -141,10 +122,8 @@ export interface LabsData {
   locationZip?: string;
   locationPhone?: string;
   locationFax?: string;
-  labOrganizationName: string; // this is only mapped for order pdf
   accountNumber: string;
-  serviceRequestID: string;
-  orderNumber: string; // this is only for external
+  orderNumber: string; // this is only for external labs
   providerName: string;
   providerNPI: string | undefined;
   patientFirstName: string;
@@ -157,21 +136,21 @@ export interface LabsData {
   patientPhone: string;
   todayDate: string;
   orderSubmitDate: string;
-  orderCreateDateAuthoredOn: string;
-  orderCreateDate: string;
-  sampleCollectionDate?: string;
-  billClass: string;
-  primaryInsuranceName?: string;
-  primaryInsuranceAddress?: string;
-  primaryInsuranceSubNum?: string;
-  insuredName?: string;
-  insuredAddress?: string;
-  aoeAnswers?: { question: string; answer: any }[]; // this is only for external
-  orderName?: string | undefined;
+  dateIncludedInFileName: string;
   orderAssessments: { code: string; name: string }[];
   orderPriority: string;
   isManualOrder: boolean;
   isPscOrder: boolean;
+}
+export interface ExternalLabOrderFormData extends Omit<LabsData, 'orderAssessments'> {
+  labOrganizationName: string;
+  billClass: string;
+  testDetails: testDataForOrderForm[];
+  insuredName?: string;
+  insuredAddress?: string;
+  primaryInsuranceName?: string;
+  primaryInsuranceAddress?: string;
+  primaryInsuranceSubNum?: string;
 }
 
 export interface ExternalLabResult {
@@ -203,7 +182,6 @@ export interface InHouseLabResultConfig {
 export interface LabResultsData
   extends Omit<
     LabsData,
-    | 'aoeAnswers'
     | 'orderNumber'
     | 'labOrganizationName'
     | 'orderSubmitDate'
@@ -249,13 +227,15 @@ export interface ExternalLabResultsData extends LabResultsData {
 export interface InHouseLabResultsData extends LabResultsData {
   inHouseLabResults: InHouseLabResultConfig[];
   timezone: string | undefined;
+  serviceRequestID: string;
+  orderCreateDate: string;
 }
 
 export type ResultDataConfig =
   | { type: LabType.external; data: ExternalLabResultsData }
   | { type: LabType.inHouse; data: InHouseLabResultsData };
 
-export interface VisitNoteData extends ExaminationBlockData {
+export interface VisitNoteData extends PdfExaminationBlockData {
   patientName: string;
   patientDOB: string;
   personAccompanying: string;
