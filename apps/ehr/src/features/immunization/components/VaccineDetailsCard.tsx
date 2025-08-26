@@ -3,27 +3,46 @@ import React from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { CheckboxInput } from 'src/components/input/CheckboxInput';
 import { DateInput } from 'src/components/input/DateInput';
+import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { TimeInput } from 'src/components/input/TimeInput';
 import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
-import { ImmunizationOrder } from '../ImmunizationOrder';
+import { useAdministerImmunizationOrder } from 'src/features/css-module/hooks/useImmunization';
+import { cleanupProperties } from 'src/helpers/misc.helper';
+import { EMERGENCY_CONTACT_RELATIONSHIPS, ImmunizationOrder } from 'utils';
 import { OrderDetailsSection } from './OrderDetailsSection';
 
 interface Props {
   order: ImmunizationOrder;
 }
 
+const RELATIONSHIP_OPTIONS = Object.entries(EMERGENCY_CONTACT_RELATIONSHIPS).map(([_, value]) => ({
+  value: value.code,
+  label: value.display,
+}));
+
 export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
   const methods = useForm({
     defaultValues: {
       ...order,
-      visGiven: order.administeringData?.visGivenDate != null,
+      details: {
+        ...order.details,
+        medicationId: order?.details?.medication?.id,
+        orderedProviderId: order?.details?.orderedProvider?.id,
+      },
+      visGiven: order.administrationDetails?.visGivenDate != null,
     },
   });
   const theme = useTheme();
 
-  const onSubmit = (data: any): void => {
-    console.log(data);
+  const { mutateAsync: administerOrder } = useAdministerImmunizationOrder();
+
+  const onSubmit = async (data: any): Promise<void> => {
+    await administerOrder({
+      orderId: order.id,
+      type: 'administered',
+      ...(await cleanupProperties(data)),
+    });
   };
 
   return (
@@ -46,28 +65,28 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                 </Typography>
               </Grid>
               <Grid xs={3} item>
-                <TextInput name="administeringData.lot" label="LOT number" required />
+                <TextInput name="administrationDetails.lot" label="LOT number" required />
               </Grid>
               <Grid xs={3} item>
-                <DateInput name="administeringData.expDate" label="Exp. Date" required />
+                <DateInput name="administrationDetails.expDate" label="Exp. Date" required />
               </Grid>
               <Grid xs={3} item>
-                <TextInput name="administeringData.mvx" label="MVX code" required />
+                <TextInput name="administrationDetails.mvx" label="MVX code" required />
               </Grid>
               <Grid xs={3} item>
-                <TextInput name="administeringData.cvx" label="CVX code" required />
+                <TextInput name="administrationDetails.cvx" label="CVX code" required />
               </Grid>
               <Grid xs={3} item>
-                <TextInput name="administeringData.cpt" label="CPT code" />
+                <TextInput name="administrationDetails.cpt" label="CPT code" />
               </Grid>
               <Grid xs={3} item>
-                <TextInput name="administeringData.ndc" label="NDC code" required />
+                <TextInput name="administrationDetails.ndc" label="NDC code" required />
               </Grid>
               <Grid xs={3} item>
-                <DateInput name="administeringData.administeredDateTime" label="Administered date" required />
+                <DateInput name="administrationDetails.administeredDateTime" label="Administered date" required />
               </Grid>
               <Grid xs={3} item>
-                <TimeInput name="administeringData.administeredDateTime" label="Administered time" required />
+                <TimeInput name="administrationDetails.administeredDateTime" label="Administered time" required />
               </Grid>
               <Grid xs={6} item>
                 <Box
@@ -79,11 +98,11 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                     alignItems: 'center',
                   }}
                 >
-                  <CheckboxInput name="visGiven" label="VIS was given to the patient" />
+                  <CheckboxInput name="visGiven" label="VIS was given to the patient*" required />
                 </Box>
               </Grid>
               <Grid xs={6} item>
-                <DateInput name="administeringData.visGivenDate" label="VIS given date" required />
+                <DateInput name="administrationDetails.visGivenDate" label="VIS given date" required />
               </Grid>
               <Grid xs={12} item>
                 <Typography
@@ -96,13 +115,18 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                 </Typography>
               </Grid>
               <Grid xs={4} item>
-                <TextInput name="emergencyContact.relationship" label="Relationship" />
+                <SelectInput
+                  name="administrationDetails.emergencyContact.relationship"
+                  label="Relationship"
+                  options={RELATIONSHIP_OPTIONS}
+                  required
+                />
               </Grid>
               <Grid xs={4} item>
-                <TextInput name="emergencyContact.fullName" label="Full name" />
+                <TextInput name="administrationDetails.emergencyContact.fullName" label="Full name" required />
               </Grid>
               <Grid xs={4} item>
-                <TextInput name="emergencyContact.mobile" label="Mobile" />
+                <TextInput name="administrationDetails.emergencyContact.mobile" label="Mobile" required />
               </Grid>
               <Grid xs={12} item>
                 <Stack direction="row" justifyContent="end" alignItems="center">

@@ -232,7 +232,12 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
                 </RoundedButton>
               ) : (
                 <RoundedButton
-                  disabled={isReadOnly || erxStatus === ERXStatus.LOADING || !user?.hasRole([RoleType.Provider])}
+                  disabled={
+                    isReadOnly ||
+                    erxStatus === ERXStatus.LOADING ||
+                    !user?.hasRole([RoleType.Provider]) ||
+                    !erxConfigData?.configured
+                  }
                   variant="contained"
                   onClick={() => onNewOrderClick()}
                   startIcon={erxStatus === ERXStatus.LOADING ? <CircularProgress size={16} /> : <AddIcon />}

@@ -73,7 +73,6 @@ export const ERX: FC<{
   const isVitalsLoading = isHeightLoading || isWeightLoading;
   const isVitalsFetched = isHeightFetched && isWeightFetched;
 
-  console.log(isVitalsLoading, hasVitals, practitionerMissingFields);
   // Step 2: Check practitioner enrollment
   const {
     data: practitionerEnrollmentStatus,
@@ -94,6 +93,7 @@ export const ERX: FC<{
     patient: patient!,
     enabled: Boolean(practitionerEnrollmentStatus?.confirmed && hasVitals),
     onError: (error) => {
+      console.log(error);
       let errorMsg = 'Something went wrong while trying to sync patient to eRx';
 
       if (error.status === 400) {
