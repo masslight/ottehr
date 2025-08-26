@@ -5,7 +5,10 @@ import { DateTime } from 'luxon';
 import { getSecret, LAB_ORDER_TASK, Secrets, SecretsKeys } from 'utils';
 import { diagnosticReportIsUnsolicited } from '../../../ehr/shared/labs';
 import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
-import { createExternalLabResultPDF } from '../../../shared/pdf/labs-results-form-pdf';
+import {
+  createExternalLabResultPDF,
+  createExternalLabUnsolicitedResultPDF,
+} from '../../../shared/pdf/labs-results-form-pdf';
 import { getCodeForNewTask, getStatusForNewTask } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -117,6 +120,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // unsolicited result pdfs will be created after matching to a patient
     if (!isUnsolicitedAndUnmatched && serviceRequestID) {
       await createExternalLabResultPDF(oystehr, serviceRequestID, diagnosticReport, false, secrets, oystehrToken);
+    } else if (!isUnsolicitedAndUnmatched) {
+      if (!diagnosticReport.id) throw Error('unable to parse id from diagnostic report');
+      await createExternalLabUnsolicitedResultPDF(oystehr, diagnosticReport.id, false, secrets, oystehrToken);
     } else {
       console.log('skipping pdf creation: ', isUnsolicited, isUnsolicitedAndUnmatched, serviceRequestID);
     }

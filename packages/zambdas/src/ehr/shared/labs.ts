@@ -62,7 +62,82 @@ export type LabOrderResources = {
   schedule?: Schedule;
 };
 
-const makeSearchParams = (serviceRequestID: string): SearchParam[] => {
+export type UnsolicitedLabResultResources = {
+  patient: Patient;
+  labOrganization: Organization;
+  diagnosticReport: DiagnosticReport;
+  observations: Observation[];
+};
+
+const makeSearchParamsBasedOnDiagnosticReport = (diagnosticReportID: string): SearchParam[] => {
+  return [
+    {
+      name: '_id',
+      value: diagnosticReportID,
+    },
+    {
+      name: '_include',
+      value: 'DiagnosticReport:subject', // patient
+    },
+    {
+      name: '_include',
+      value: 'DiagnosticReport:performer', // lab org
+    },
+    {
+      name: '_include:iterate',
+      value: 'DiagnosticReport:result', // observations
+    },
+  ];
+};
+
+export async function getExternalLabOrderResourcesViaDiagnosticReport(
+  oystehr: Oystehr,
+  diagnosticReportID: string
+): Promise<UnsolicitedLabResultResources> {
+  const searchParams = makeSearchParamsBasedOnDiagnosticReport(diagnosticReportID);
+  const resourceSearch = (
+    await oystehr.fhir.search<Patient | Organization | DiagnosticReport | Observation>({
+      resourceType: 'DiagnosticReport',
+      params: searchParams,
+    })
+  )?.unbundle();
+
+  const patients: Patient[] = [];
+  const organizations: Organization[] = [];
+  const diagnosticReports: DiagnosticReport[] = [];
+  const observations: Observation[] = [];
+
+  resourceSearch.forEach((resource) => {
+    if (resource.resourceType === 'Patient') patients.push(resource);
+    if (resource.resourceType === 'Organization') organizations.push(resource);
+    if (resource.resourceType === 'Observation') observations.push(resource);
+    if (resource.resourceType === 'DiagnosticReport') {
+      const isCorrectCategory = diagnosticReportIncludesCategory(
+        resource,
+        OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY.system,
+        OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY.code
+      );
+      if (isCorrectCategory) diagnosticReports.push(resource);
+    }
+  });
+
+  if (patients?.length !== 1) throw new Error('patient is not found');
+  if (organizations?.length !== 1) throw new Error('performing lab Org not found');
+  if (diagnosticReports?.length !== 1) throw new Error('encounter is not found');
+
+  const patient = patients[0];
+  const labOrganization = organizations[0];
+  const diagnosticReport = diagnosticReports[0];
+
+  return {
+    patient,
+    labOrganization,
+    diagnosticReport,
+    observations,
+  };
+}
+
+const makeSearchParamsBasedOnServiceRequest = (serviceRequestID: string): SearchParam[] => {
   return [
     {
       name: '_id',
@@ -119,11 +194,11 @@ const makeSearchParams = (serviceRequestID: string): SearchParam[] => {
   ];
 };
 
-export async function getExternalLabOrderResources(
+export async function getExternalLabOrderResourcesViaServiceRequest(
   oystehr: Oystehr,
   serviceRequestID: string
 ): Promise<LabOrderResources> {
-  const searchParams = makeSearchParams(serviceRequestID);
+  const searchParams = makeSearchParamsBasedOnServiceRequest(serviceRequestID);
   const resourceSearch = (
     await oystehr.fhir.search<
       | ServiceRequest

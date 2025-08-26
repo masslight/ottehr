@@ -41,7 +41,7 @@ import {
 } from '../../shared';
 import { createExternalLabsLabelPDF, ExternalLabsLabelConfig } from '../../shared/pdf/external-labs-label-pdf';
 import { createExternalLabResultPDF } from '../../shared/pdf/labs-results-form-pdf';
-import { getExternalLabOrderResources } from '../shared/labs';
+import { getExternalLabOrderResourcesViaServiceRequest } from '../shared/labs';
 import {
   getSpecimenPatchAndMostRecentCollectionDate,
   handleMatchUnsolicitedRequest,
@@ -403,7 +403,7 @@ const handleSaveCollectionData = async (
     encounter,
     labOrganization,
     specimens: specimenResources,
-  } = await getExternalLabOrderResources(oystehr, serviceRequestId);
+  } = await getExternalLabOrderResourcesViaServiceRequest(oystehr, serviceRequestId);
   console.log('resources retrieved');
 
   const orderNumber = getOrderNumber(serviceRequest);

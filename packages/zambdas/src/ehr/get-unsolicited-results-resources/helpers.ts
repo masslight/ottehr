@@ -210,7 +210,7 @@ const getURActionTextAndUrl = (
 ): { actionText: UR_TASK_ACTION; actionUrl: string } => {
   switch (code) {
     case LAB_ORDER_TASK.code.matchUnsolicitedResult: {
-      return { actionText: 'Match', actionUrl: `/match-unsolicited-result/${diagnosticReport.id}` };
+      return { actionText: 'Match', actionUrl: `/unsolicited-results/${diagnosticReport.id}/match` };
     }
     case LAB_ORDER_TASK.code.reviewCancelledResult:
     case LAB_ORDER_TASK.code.reviewCorrectedResult:

@@ -232,7 +232,9 @@ function App(): ReactElement {
                   <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
                   <Route path="/patients" element={<PatientsPage />} />
                   <Route path="/unsolicited-results" element={<UnsolicitedResultsInbox />} />
-                  <Route path="/match-unsolicited-result/:diagnosticReportId" element={<UnsolicitedResultsMatch />} />
+                  <Route path="/unsolicited-results/:diagnosticReportId/match" element={<UnsolicitedResultsMatch />} />
+                  {/* todo sarah update element */}
+                  <Route path="/unsolicited-results/:diagnosticReportId/review" element={<UnsolicitedResultsMatch />} />
 
                   <Route path="/rcm/claims" element={<Claims />} />
                   <Route path="/rcm/claims/:id" element={<Claim />} />

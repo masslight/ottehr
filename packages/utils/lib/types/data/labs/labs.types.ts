@@ -172,6 +172,7 @@ export type LabOrdersPaginationOptions = {
 export enum LabType {
   external = 'external',
   inHouse = 'in-house',
+  unsolicited = 'unsolicited', // external but has less fhir resources available since it did not originate from ottehr
 }
 
 export type GetLabOrdersParameters = LabOrdersSearchBy & LabOrdersSearchFilters & LabOrdersPaginationOptions;

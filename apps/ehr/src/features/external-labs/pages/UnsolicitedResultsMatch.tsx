@@ -157,6 +157,7 @@ export const UnsolicitedResultsMatch: React.FC = () => {
       enqueueSnackbar('An error occurred rejecting this task. Please try again.', { variant: 'error' });
     }
   };
+
   return (
     <PageContainer>
       <DetailPageContainer>
