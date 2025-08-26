@@ -1,4 +1,5 @@
-import { Box, CircularProgress, TextField } from '@mui/material';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import { Box, CircularProgress, TextField, Typography, useTheme } from '@mui/material';
 import { FC, useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { getSelectors } from '../../../../shared/store/getSelectors';
@@ -10,6 +11,8 @@ export const AddendumCard: FC = () => {
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
 
   const addendumNote = chartData?.addendumNote?.text;
+
+  const theme = useTheme();
 
   const methods = useForm({
     defaultValues: {
@@ -30,6 +33,23 @@ export const AddendumCard: FC = () => {
   return (
     <AccordionCard label="Addendum">
       <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'start' }}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+            p: 2,
+            borderRadius: 1,
+            bgcolor: theme.palette.info.light,
+            width: 'fit-content',
+          }}
+        >
+          <InfoOutlinedIcon color="info" fontSize="small" />
+          <Typography variant="body2" color={theme.palette.info.dark}>
+            When adding an addendum to this Progress note, please enter your name and date/time
+          </Typography>
+        </Box>
+
         <Controller
           name="addendumNote"
           control={control}
@@ -41,7 +61,7 @@ export const AddendumCard: FC = () => {
                 onValueChange(e.target.value);
               }}
               size="small"
-              label="Note"
+              label="Notes"
               fullWidth
               multiline
               InputProps={{
