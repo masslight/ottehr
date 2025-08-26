@@ -16,15 +16,15 @@ import {
 } from 'utils';
 import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../../components/form';
 import {
+  FormFields as AllFormFields,
   INSURANCE_COVERAGE_OPTIONS,
   InsurancePriorityOptions,
+  PatientAddressFields,
   PatientIdentifyingFields,
   RELATIONSHIP_TO_INSURED_OPTIONS,
   SEX_OPTIONS,
   STATE_OPTIONS,
 } from '../../constants';
-import { PatientAddressFields } from '../../constants';
-import { FormFields as AllFormFields } from '../../constants';
 import { dataTestIds } from '../../constants/data-test-ids';
 import { usePatientStore } from '../../state/patient.store';
 import { Row, Section } from '../layout';
@@ -255,6 +255,50 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
             validate: (value) => insurancePlans.some((option) => `Organization/${option.id}` === value?.reference),
+          }}
+          render={({ field: { value }, fieldState: { error } }) => {
+            const isLoading = insurancePlans.length === 0;
+
+            const selectedOption = insurancePlans.find((option) => `Organization/${option.id}` === value?.reference);
+            return (
+              <Autocomplete
+                options={insurancePlans}
+                loading={isLoading}
+                loadingText={'Loading...'}
+                value={selectedOption ?? ({} as InsurancePlanDTO)}
+                isOptionEqualToValue={(option, value) => {
+                  return option?.id === value?.id;
+                }}
+                getOptionLabel={(option) => option.name || ''}
+                onChange={(_, newValue) => {
+                  if (newValue) {
+                    setValue(
+                      FormFields.insuranceCarrier.key,
+                      { reference: `Organization/${newValue.id}`, display: newValue.name },
+                      { shouldDirty: true }
+                    );
+                  } else {
+                    setValue(FormFields.insuranceCarrier.key, null);
+                  }
+                }}
+                disableClearable
+                fullWidth
+                renderInput={(params) => (
+                  <TextField {...params} variant="standard" error={!!error} required helperText={error?.message} />
+                )}
+              />
+            );
+          }}
+        />
+      </Row>
+      <Row label="Insurance Type" required dataTestId={dataTestIds.insuranceContainer.insuranceCarrier}>
+        <Controller
+          name={FormFields.insuranceType.key}
+          control={control}
+          rules={{
+            required: REQUIRED_FIELD_ERROR_MESSAGE,
+            // todo this
+            // validate: (value) => insurancePlans.some((option) => `Organization/${option.id}` === value?.reference),
           }}
           render={({ field: { value }, fieldState: { error } }) => {
             const isLoading = insurancePlans.length === 0;
