@@ -1,7 +1,9 @@
 import { useRef } from 'react';
 import {
+  APP_TELEMED_LOCAL_INITIAL,
   EXAM_OBSERVATIONS_INITIAL,
   IN_PERSON_EXAM_OBSERVATIONS_INITIAL,
+  useAppTelemedLocalStore,
   useExamObservationsStore,
   useInPersonExamObservationsStore,
   useVideoCallStore,
@@ -22,6 +24,7 @@ export const useResetAppointmentStore = (): void => {
     useVideoCallStore.setState({ meetingData: null });
     useExamCardsStore.setState(EXAM_CARDS_INITIAL);
     useInPersonExamCardsStore.setState(IN_PERSON_EXAM_CARDS_INITIAL);
+    useAppTelemedLocalStore.setState(APP_TELEMED_LOCAL_INITIAL);
 
     didResetRef.current = true;
   }

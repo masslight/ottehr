@@ -128,7 +128,7 @@ const APPOINTMENT_INITIAL: AppointmentTelemedState & AppointmentRawResourcesStat
   isAppointmentLoading: true, // todo: remove duplication
 };
 
-const APP_TELEMED_LOCAL_INITIAL = {
+export const APP_TELEMED_LOCAL_INITIAL = {
   currentTab: 'hpi',
 };
 
@@ -144,42 +144,9 @@ export const useAppointmentData = (
   AppointmentStateUpdater &
   ReactQueryState => {
   const { id: appointmentIdFromUrl } = useParams();
-  const queryClient = useQueryClient();
   const appointmentId = appointmentIdFromProps || appointmentIdFromUrl;
-  const storeKey = useMemo(() => [TELEMED_APPOINTMENT_QUERY_KEY, appointmentId], [appointmentId]);
-
-  // Subscribe to changes in the cache through a separate useQuery
-  const { data: optimisticAppointmentData } = useQuery({
-    queryKey: storeKey,
-    queryFn: () => null, // do not execute request, only read cache
-    enabled: false,
-    initialData: undefined,
-  });
-
-  const {
-    data: currentState,
-    isLoading,
-    isFetching,
-    refetch,
-    error,
-    isPending,
-  } = useGetAppointment({ appointmentId }, (data) => {
-    // Initialize cache only if it doesn't exist
-    const existingCache = queryClient.getQueryData(storeKey);
-    if (!existingCache && data) {
-      queryClient.setQueryData(storeKey, data);
-    }
-  });
-
-  // Use data from the optimistic cache or fallback to data from API
-  const appointmentState = useMemo(() => {
-    if (optimisticAppointmentData) {
-      return optimisticAppointmentData as AppointmentTelemedState &
-        AppointmentRawResourcesState &
-        InPersonAppointmentState;
-    }
-    return currentState || APPOINTMENT_INITIAL;
-  }, [optimisticAppointmentData, currentState]);
+  const queryClient = useQueryClient();
+  const { data: currentState, isLoading, isFetching, refetch, error, isPending } = useGetAppointment({ appointmentId });
 
   const setState = useCallback(
     (
@@ -190,31 +157,31 @@ export const useAppointmentData = (
           ) => Partial<AppointmentTelemedState & AppointmentRawResourcesState & InPersonAppointmentState>)
     ) => {
       queryClient.setQueryData(
-        storeKey,
-        (prevData: (AppointmentTelemedState & AppointmentRawResourcesState & InPersonAppointmentState) | null) => {
-          const currentState = prevData || appointmentState || APPOINTMENT_INITIAL;
+        [TELEMED_APPOINTMENT_QUERY_KEY, appointmentId],
+        (prevData: (AppointmentTelemedState & AppointmentRawResourcesState & InPersonAppointmentState) | undefined) => {
+          const currentData = prevData || currentState || APPOINTMENT_INITIAL;
+
           if (typeof updater === 'function') {
-            const updates = updater(currentState);
-            return { ...currentState, ...updates };
+            const updates = updater(currentData);
+            return { ...currentData, ...updates };
           }
-          return { ...currentState, ...updater };
+
+          return { ...currentData, ...updater };
         }
       );
 
-      // Force invalidate the query to update the UI
       void queryClient.invalidateQueries({
         queryKey: [TELEMED_APPOINTMENT_QUERY_KEY, appointmentId],
         exact: false,
-        refetchType: 'none', // do not make a new request, only update the UI
+        refetchType: 'none',
       });
     },
-    [queryClient, storeKey, appointmentState, appointmentId]
+    [queryClient, appointmentId, currentState]
   );
 
-  // todo: remove duplicates and update api usage
   const fullState = useMemo(
     () => ({
-      ...appointmentState,
+      ...(currentState || APPOINTMENT_INITIAL),
       isAppointmentLoading: isLoading,
       appointmentRefetch: refetch,
       appointmentSetState: setState,
@@ -225,7 +192,7 @@ export const useAppointmentData = (
       isLoading,
       refetch,
     }),
-    [appointmentState, isLoading, setState, refetch, error, isFetching, isPending]
+    [currentState, isLoading, setState, refetch, error, isFetching, isPending]
   );
 
   return fullState;
