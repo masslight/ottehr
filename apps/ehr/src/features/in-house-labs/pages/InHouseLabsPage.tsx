@@ -3,6 +3,7 @@ import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ListViewContainer from 'src/features/common/ListViewContainer';
 import { getInHouseLabOrderCreateUrl } from 'src/features/css-module/routing/helpers';
+import { dataTestIds } from '../../../constants/data-test-ids';
 import { PageTitle } from '../../../telemed/components/PageTitle';
 import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
 import { ButtonRounded } from '../../css-module/components/RoundedButton';
@@ -38,9 +39,14 @@ export const InHouseLabsPage: React.FC = () => {
     <ListViewContainer>
       <>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-          <PageTitle label="In-House Labs" showIntakeNotesButton={false} />
+          <PageTitle
+            dataTestId={dataTestIds.inHouseLabsPage.title}
+            label="In-House Labs"
+            showIntakeNotesButton={false}
+          />
           <Stack direction="row" spacing={2} alignItems="center">
             <ButtonRounded
+              data-testid={dataTestIds.inHouseLabsPage.orderButton}
               variant="contained"
               color="primary"
               size={'medium'}

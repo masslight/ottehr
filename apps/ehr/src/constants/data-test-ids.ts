@@ -437,4 +437,19 @@ export const dataTestIds = {
     additionalInformation: 'add-insurance-dialog-additional-information',
     addInsuranceButton: 'add-insurance-dialog-add-insurance-button',
   },
+  inHouseLabsPage: {
+    title: 'in-house-labs-title',
+    orderButton: 'order-button',
+    deleteButton: 'delete-button',
+  },
+  orderInHouseLabPage: {
+    title: 'order-in-house-labs-title',
+    orderInHouseLabButton: 'order-in-house-lab-button',
+    orderAndPrintLabelButton: 'order-and-print-label-button',
+    testTypeField: 'test-type',
+    CPTCodeField: 'cpt-code',
+    diagnosis: 'diagnosis',
+    additionalDx: 'additionalDx',
+    notes: 'in-house-labs-notes',
+  },
 };
