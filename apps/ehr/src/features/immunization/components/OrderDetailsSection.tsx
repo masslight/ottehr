@@ -24,7 +24,7 @@ export const OrderDetailsSection: React.FC = () => {
         <MedicationSelectInput name="details.medicationId" label="Vaccine" required />
       </Grid>
       <Grid xs={3} item>
-        <TextInput name="details.dose" label="Dose" required />
+        <TextInput name="details.dose" label="Dose" type="number" required />
       </Grid>
       <Grid xs={3} item>
         <SelectInput name="details.units" label="Units" options={UNIT_OPTIONS} required />

@@ -6,13 +6,14 @@ import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 type Props = {
   name: string;
   label: string;
+  type?: string;
   loading?: boolean;
   required?: boolean;
   multiline?: boolean;
   validate?: (value: string) => boolean | string;
 };
 
-export const TextInput: React.FC<Props> = ({ name, label, loading, required, multiline, validate }) => {
+export const TextInput: React.FC<Props> = ({ name, label, type, loading, required, multiline, validate }) => {
   const { control } = useFormContext();
   return !loading ? (
     <Controller
@@ -26,6 +27,7 @@ export const TextInput: React.FC<Props> = ({ name, label, loading, required, mul
             value={field.value}
             label={label + (required ? '*' : '')}
             placeholder={`Select ${label}`}
+            type={type ?? 'text'}
             error={error != null}
             onChange={(data) => field.onChange(data)}
             multiline={multiline}
