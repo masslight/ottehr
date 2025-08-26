@@ -1,9 +1,12 @@
 import { ReactElement } from 'react';
-import { useLocation, useParams } from 'react-router-dom';
 import { DeviceVitalsTable } from './DeviceVitalsTable';
 
 interface VitalsData {
-  message: string;
+  patientId: string;
+  deviceId: string;
+  deviceType: string;
+  thresholds: [];
+  onBack: () => void;
   observations: Array<{
     id: string;
     code: string;
@@ -18,21 +21,21 @@ interface VitalsData {
   total: number;
 }
 
-export const DeviceVitalsPage = (): ReactElement => {
-  const location = useLocation();
-  const { deviceId } = useParams<{ deviceId: string | undefined }>();
-  const vitalsData = location.state?.vitalsData as VitalsData | undefined;
-  const deviceType = location.state?.deviceType as string;
-  const thresholds = location.state?.thresholds || [];
+export const DeviceVitalsPage = ({ patientId, deviceId, deviceType, thresholds, onBack }: VitalsData): ReactElement => {
+  // const location = useLocation();
+  // const { deviceId } = useParams<{ deviceId: string | undefined }>();
+  // const deviceType = location.state?.deviceType as string;
+  // const thresholds = location.state?.thresholds || [];
 
   return (
     <div>
       <DeviceVitalsTable
-        vitalsData={vitalsData}
+        patientId={patientId}
+        onBack={onBack}
         deviceId={deviceId}
         deviceType={deviceType}
         thresholds={thresholds}
-        loading={!vitalsData}
+        loading={!deviceId || !patientId}
       />
     </div>
   );

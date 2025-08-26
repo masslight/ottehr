@@ -4,7 +4,7 @@ import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import moment from 'moment-timezone';
 import React, { useState } from 'react';
 import { useQuery } from 'react-query';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { getVitals } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import CustomBreadcrumbs from './CustomBreadcrumbs';
@@ -36,21 +36,29 @@ interface Threshold {
 
 interface DeviceVitalsProps {
   vitalsData?: VitalsData;
-  deviceId: string | undefined;
+  deviceId: string;
+  patientId: string;
   loading?: boolean;
   firstName?: string;
   lastName?: string;
   thresholds?: Threshold[];
   deviceType?: string;
+  onBack?: () => void;
 }
 
-export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({ thresholds = [], deviceType = '' }) => {
+export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({
+  thresholds = [],
+  deviceType = '',
+  patientId,
+  deviceId,
+  onBack,
+}) => {
   const [paginationModel, setPaginationModel] = useState({
     pageSize: 5,
     page: 0,
   });
   const navigate = useNavigate();
-  const { patientId, deviceId } = useParams<{ patientId: string; deviceId: string | undefined }>();
+  // const { patientId, deviceId } = useParams<{ patientId: string; deviceId: string | undefined }>();
   const { oystehrZambda } = useApiClients();
 
   const { data: vitalsData, isLoading } = useQuery(
@@ -231,7 +239,7 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({ thresholds = []
     allVitals.forEach((vital) => {
       const fieldName = vital.code.text.trim();
 
-      // if (fieldName.toLowerCase().includes('threshold')) return;
+      if (fieldName.toLowerCase().includes('threshold')) return;
       if (fieldName === 'iccid' || fieldName === 'ts' || fieldName === 'tz') return;
 
       if (!columns.find((col) => col.field === fieldName)) {
@@ -289,10 +297,10 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({ thresholds = []
   const rows = transformVitalsToRows();
 
   return (
-    <Paper sx={{ padding: 10, width: '100%', marginInline: 'auto' }} component={Stack} spacing={2}>
+    <Paper sx={{ padding: 3 }} component={Stack} spacing={2}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'start', gap: 5 }}>
-          <Typography variant="h3" color="primary.dark" sx={{ flexGrow: 1 }}>
+          <Typography variant="h4" color="primary.dark" sx={{ flexGrow: 1 }}>
             Device Vitals
           </Typography>
           <CustomBreadcrumbs
@@ -318,12 +326,7 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({ thresholds = []
             ]}
           />
         </Box>
-        <Button
-          variant="outlined"
-          startIcon={<ArrowBackIcon />}
-          onClick={() => navigate(-1)}
-          sx={{ marginBottom: '10' }}
-        >
+        <Button variant="outlined" startIcon={<ArrowBackIcon />} onClick={onBack} sx={{ marginBottom: '10' }}>
           Back
         </Button>
       </Box>

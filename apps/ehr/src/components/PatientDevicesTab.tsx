@@ -3,7 +3,7 @@ import { Box, Paper, Stack, Typography } from '@mui/material';
 import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
 import { FC, useCallback, useState } from 'react';
 import { useMutation, useQuery } from 'react-query';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { assignThreshold, getDevices, unassignDevices } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { DeviceColumns, DeviceProperty, DeviceResponse, Output } from 'utils';
@@ -11,15 +11,17 @@ import { DeviceAssignmentModal } from '../components/DeviceAssignModal';
 import { RoundedButton } from './RoundedButton';
 import { ThresholdAssignModal } from './ThresholdAssignModal';
 
-export const PatientDevicesTab: FC<{ loading?: boolean }> = ({ loading }) => {
+export const PatientDevicesTab: FC<{
+  loading?: boolean;
+  onViewVitals?: (id: string, type: string, thresholds: any) => void;
+}> = ({ loading, onViewVitals }) => {
   const [openModal, setOpenModal] = useState(false);
-  const [deviceId, setDeviceId] = useState<string>('');
-  const [deviceType, setDeviceType] = useState<string>('');
+  const [deviceId, _setDeviceId] = useState<string>('');
+  const [deviceType, _setDeviceType] = useState<string>('');
   const [thresholdModal, setThresholdModal] = useState(false);
   const [assignedDevices, setAssignedDevices] = useState<DeviceColumns[]>([]);
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 5 });
   const [totalCount, setTotalCount] = useState(0);
-  const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
 
   const { id: patientId } = useParams<{ id: string }>();
@@ -54,19 +56,12 @@ export const PatientDevicesTab: FC<{ loading?: boolean }> = ({ loading }) => {
   );
 
   const handleDeviceVitals = useCallback(
-    async (deviceId: string, deviceType: string, thresholds: DeviceProperty[]): Promise<void> => {
-      if (!patientId) return;
-
-      try {
-        navigate(`/patient/${patientId}/device/${deviceId}`, {
-          state: { deviceType, thresholds },
-        });
-      } catch (error) {
-        console.error('Failed to fetch vitals before navigation:', error);
-        navigate(`/device/${deviceId}`);
+    async (deviceId: string, deviceType: string, thresholds: DeviceProperty[]) => {
+      if (onViewVitals) {
+        onViewVitals(deviceId, deviceType, thresholds);
       }
     },
-    [navigate, patientId]
+    [onViewVitals]
   );
 
   const handlePaginationModelChange = useCallback((newPaginationModel: GridPaginationModel) => {
@@ -135,12 +130,6 @@ export const PatientDevicesTab: FC<{ loading?: boolean }> = ({ loading }) => {
     }
   };
 
-  const handleThreshold = async (deviceId: string, deviceType: string): Promise<void> => {
-    setThresholdModal(true);
-    setDeviceId(deviceId);
-    setDeviceType(deviceType);
-  };
-
   const deviceTypeMap: Record<string, string> = {
     bpm_gen2_measure: 'Blood Pressure Monitor',
     bgm_gen1_measure: 'Blood Glucose Monitor',
@@ -151,13 +140,13 @@ export const PatientDevicesTab: FC<{ loading?: boolean }> = ({ loading }) => {
     {
       field: 'id',
       headerName: 'Device ID',
-      width: 300,
+      width: 350,
       sortable: false,
     },
     {
       field: 'name',
       headerName: 'Device Name',
-      width: 150,
+      width: 350,
       sortable: false,
     },
     {
@@ -181,7 +170,7 @@ export const PatientDevicesTab: FC<{ loading?: boolean }> = ({ loading }) => {
     {
       field: 'actions',
       headerName: 'Actions',
-      width: 500,
+      width: 300,
       sortable: false,
       renderCell: (params) => {
         return (
@@ -194,14 +183,6 @@ export const PatientDevicesTab: FC<{ loading?: boolean }> = ({ loading }) => {
                 disabled={isUnassigning}
               >
                 Unassign Device
-              </RoundedButton>
-            </div>
-            <div>
-              <RoundedButton
-                onClick={() => handleThreshold(params.row.id, params.row.distinctIdentifier)}
-                disabled={isUpdatingThreshold}
-              >
-                Threshold Settings
               </RoundedButton>
             </div>
             <div>

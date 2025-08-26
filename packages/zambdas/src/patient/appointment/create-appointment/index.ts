@@ -8,6 +8,7 @@ import {
   Encounter,
   Extension,
   List,
+  Observation,
   Patient,
   Questionnaire,
   QuestionnaireResponse,
@@ -37,6 +38,7 @@ import {
   getTaskResource,
   isValidUUID,
   makePrepopulatedItemsForPatient,
+  ObservationComponent,
   OTTEHR_MODULE,
   PATIENT_BILLING_ACCOUNT_TYPE,
   PatientInfo,
@@ -171,6 +173,86 @@ export const index = wrapHandler('create-appointment', async (input: ZambdaInput
   }
 });
 
+export function createCombinedBaselineObservation(
+  patientId: string,
+  systolic?: number,
+  diastolic?: number,
+  weight?: number,
+  glucose?: number
+): Observation {
+  const components: ObservationComponent[] = [];
+
+  if (systolic) {
+    components.push({
+      code: {
+        text: 'Systolic',
+      },
+      valueString: systolic.toString(),
+    });
+  }
+
+  if (diastolic) {
+    components.push({
+      code: {
+        text: 'Diastolic',
+      },
+      valueString: diastolic.toString(),
+    });
+  }
+
+  if (weight) {
+    components.push({
+      code: {
+        text: 'Weight',
+      },
+      valueString: weight.toString(),
+    });
+  }
+
+  if (glucose) {
+    components.push({
+      code: {
+        text: 'Glucose',
+      },
+      valueString: glucose.toString(),
+    });
+  }
+
+  const observation: Observation = {
+    resourceType: 'Observation',
+    status: 'final',
+    category: [
+      {
+        coding: [
+          {
+            system: 'http://terminology.hl7.org/CodeSystem/observation-category',
+            code: 'vital-signs',
+            display: 'Vital Signs',
+          },
+        ],
+        text: 'Vital Signs',
+      },
+    ],
+    code: {
+      coding: [
+        {
+          system: 'http://loinc.org',
+          code: '85354-9',
+          display: 'Blood pressure, weight and glucose panel',
+        },
+      ],
+      text: 'Baseline Measurements Panel',
+    },
+    subject: {
+      reference: `Patient/${patientId}`,
+    },
+    effectiveDateTime: new Date().toISOString(),
+    component: components,
+  };
+
+  return observation;
+}
+
 export async function createAppointment(
   input: CreateAppointmentInput,
   oystehr: Oystehr
@@ -187,6 +269,8 @@ export async function createAppointment(
     questionnaireCanonical: questionnaireUrl,
     appointmentMetadata,
   } = input;
+
+  const { systolic, diastolic, glucose, weight } = patient;
 
   const { verifiedPhoneNumber, listRequests, createPatientRequest, updatePatientRequest, isEHRUser, maybeFhirPatient } =
     await generatePatientRelatedRequests(user, patient, oystehr);
@@ -282,6 +366,23 @@ export async function createAppointment(
 
   if (encounter.id === undefined) {
     throw new Error('Encounter resource does not have an ID');
+  }
+
+  // Create combined observation for baseline measurements if any exist
+  // Create combined observation for baseline measurements if any exist
+  let baselineObservation: Observation | null = null;
+
+  // Check if any measurement has a value
+  const hasMeasurements = [systolic, diastolic, weight, glucose].some(
+    (value) => value !== undefined && value !== null && value !== 0
+  );
+
+  if (hasMeasurements) {
+    baselineObservation = createCombinedBaselineObservation(fhirPatient.id, systolic, diastolic, weight, glucose);
+
+    if (baselineObservation) {
+      baselineObservation = await oystehr.fhir.create(baselineObservation);
+    }
   }
 
   console.log('success, here is the id: ', appointment.id);
