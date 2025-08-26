@@ -22,6 +22,7 @@ export enum APIErrorCode {
   FHIR_RESOURCE_NOT_FOUND = 4017,
   SCHEDULE_OWNER_NOT_FOUND = 4018,
   SLOT_UNAVAILABLE = 4019,
+  USER_ALREADY_EXISTS = 4020,
   // 41xx
   QUESTIONNAIRE_RESPONSE_INVALID = 4100,
   QUESTIONNAIRE_NOT_FOUND_FOR_QR = 4101,
@@ -46,6 +47,10 @@ export enum APIErrorCode {
   MISSING_NLM_API_KEY_ERROR = 4401,
   IN_HOUSE_LAB_GENERAL = 4402,
 
+  // 45xx
+  STRIPE_PAYMENT_ERROR_GENERIC = 4500,
+  STRIPE_PAYMENT_ERROR_SPECIFIC = 45001,
+
   // 50xx
   MISCONFIGURED_ENVIRONMENT = 5000,
 }
@@ -53,6 +58,7 @@ export enum APIErrorCode {
 export interface APIError {
   code?: APIErrorCode;
   message: string;
+  statusCode?: number;
 }
 
 export const isApiError = (errorObject: unknown | undefined): boolean => {
@@ -329,7 +335,53 @@ export const SLOT_UNAVAILABLE_ERROR = {
   message: 'The requested slot is unavailable',
 };
 
+export const USER_ALREADY_EXISTS_ERROR = {
+  code: APIErrorCode.USER_ALREADY_EXISTS,
+  message: 'User is already a member of the project',
+};
+
 export const APPOINTMENT_ALREADY_EXISTS_ERROR = {
   code: APIErrorCode.APPOINTMENT_ALREADY_EXISTS,
   message: 'An appointment can not be created because the slot provided is already attached to an Appointment resource',
+};
+
+export const GENERIC_STRIPE_PAYMENT_ERROR = {
+  code: APIErrorCode.STRIPE_PAYMENT_ERROR_GENERIC,
+  message: 'The card payment was not successful. Try a different card',
+};
+
+export const SPECIFIC_STRIPE_PAYMENT_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.STRIPE_PAYMENT_ERROR_SPECIFIC,
+    message,
+  };
+};
+
+export const parseStripeError = (stripeError: any): APIError => {
+  if (stripeError?.type === 'StripeCardError' && stripeError?.decline_code) {
+    const { decline_code } = stripeError;
+    if (decline_code === 'withdrawal_count_limit_exceeded' || decline_code === 'insufficient_funds') {
+      return SPECIFIC_STRIPE_PAYMENT_ERROR('Insufficient funds. Please try different card.');
+    }
+    if (decline_code === 'invalid_number') {
+      return SPECIFIC_STRIPE_PAYMENT_ERROR('The card number provided is invalid.');
+    }
+
+    if (decline_code === 'invalid_expiry_year') {
+      return SPECIFIC_STRIPE_PAYMENT_ERROR('The expiration year provided is invalid.');
+    }
+    if (decline_code === 'invalid_expiry_month') {
+      return SPECIFIC_STRIPE_PAYMENT_ERROR('The expiration month provided is invalid.');
+    }
+    if (decline_code === 'incorrect_zip') {
+      return SPECIFIC_STRIPE_PAYMENT_ERROR('The ZIP code provided is incorrect.');
+    }
+    if (decline_code === 'incorrect_cvc') {
+      return SPECIFIC_STRIPE_PAYMENT_ERROR('The CVC provided is incorrect.');
+    }
+    if (decline_code === 'expired_card') {
+      return SPECIFIC_STRIPE_PAYMENT_ERROR('The card has expired. Please use a different card.');
+    }
+  }
+  return GENERIC_STRIPE_PAYMENT_ERROR;
 };

@@ -22,7 +22,7 @@ import { useChartData } from '../../../../../features/css-module/hooks/useChartD
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { DeleteIconButton } from '../../../../components';
 import { useGetAppointmentAccessibility } from '../../../../hooks';
-import { useAppointmentStore, useDeleteChartData, useGetIcd10Search, useSaveChartData } from '../../../../state';
+import { useAppointmentStore, useDeleteChartData, useICD10SearchNew, useSaveChartData } from '../../../../state';
 import { ProviderSideListSkeleton } from '../ProviderSideListSkeleton';
 
 export const MedicalConditionsProviderColumn: FC = () => {
@@ -106,8 +106,8 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
   const featureFlags = useFeatureFlags();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
-  const { mutate: updateChartData, isLoading: isUpdateLoading } = useSaveChartData();
-  const { mutate: deleteChartData, isLoading: isDeleteLoading } = useDeleteChartData();
+  const { mutate: updateChartData, isPending: isUpdateLoading } = useSaveChartData();
+  const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
   const isLoading = isUpdateLoading || isDeleteLoading;
   const isLoadingOrAwaiting = isLoading || !areNotesEqual;
   const isAlreadySaved = !!value.resourceId;
@@ -250,10 +250,10 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
 
 const AddMedicalConditionField: FC = () => {
   const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);
-  const { mutate: updateChartData, isLoading: isUpdateLoading } = useSaveChartData();
-  const { error: icdSearchError } = useGetIcd10Search({ search: 'E11', sabs: 'ICD10CM' });
+  const { mutate: updateChartData, isPending: isUpdateLoading } = useSaveChartData();
+  const { error: icdSearchError } = useICD10SearchNew({ search: 'E11' });
 
-  const nlmApiKeyMissing = icdSearchError?.code === APIErrorCode.MISSING_NLM_API_KEY_ERROR;
+  const nlmApiKeyMissing = (icdSearchError as any)?.code === APIErrorCode.MISSING_NLM_API_KEY_ERROR;
 
   const methods = useForm<{ value: IcdSearchResponse['codes'][number] | null }>({
     defaultValues: { value: null },
@@ -262,7 +262,7 @@ const AddMedicalConditionField: FC = () => {
 
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
-  const { isFetching: isSearching, data } = useGetIcd10Search({ search: debouncedSearchTerm, sabs: 'ICD10CM' });
+  const { isFetching: isSearching, data } = useICD10SearchNew({ search: debouncedSearchTerm });
   const icdSearchOptions = data?.codes || [];
 
   const debouncedHandleInputChange = useMemo(

@@ -93,6 +93,7 @@ export const AppointmentPage: FC = () => {
       appointmentId: id,
     },
     (data) => {
+      if (!data) return;
       const questionnaireResponse = data?.find(
         (resource: FhirResource) => resource.resourceType === 'QuestionnaireResponse'
       ) as QuestionnaireResponse;
@@ -125,7 +126,7 @@ export const AppointmentPage: FC = () => {
         reviewAndSignData: extractReviewAndSignAppointmentData(data),
       });
 
-      const relayPhone = getQuestionnaireResponseByLinkId('relay-phone', questionnaireResponse)?.answer.find(Boolean)
+      const relayPhone = getQuestionnaireResponseByLinkId('relay-phone', questionnaireResponse)?.answer?.find(Boolean)
         ?.valueString;
       if (relayPhone?.toLowerCase() === 'yes') {
         setShouldHearingRelayPopupBeOpened(true);

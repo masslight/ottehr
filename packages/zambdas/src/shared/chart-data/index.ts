@@ -18,7 +18,6 @@ import {
   MedicationStatement,
   Meta,
   Observation,
-  Practitioner,
   Procedure,
   Reference,
   Resource,
@@ -50,8 +49,6 @@ import {
   DispositionType,
   ERX_MEDICATION_META_TAG_CODE,
   EXAM_OBSERVATION_META_SYSTEM,
-  ExamCardsNames,
-  ExamFieldsNames,
   ExamObservationDTO,
   FHIR_EXTENSION,
   fillVitalObservationAttributes,
@@ -215,7 +212,7 @@ export function makeAllergyDTO(allergy: AllergyIntolerance): AllergyDTO {
 export function makeMedicationResource(
   encounterId: string,
   patientId: string,
-  practitioner: Practitioner,
+  practitionerId: string,
   data: MedicationDTO,
   fieldName: ProviderChartDataFieldsNames
 ): MedicationStatement {
@@ -228,7 +225,7 @@ export function makeMedicationResource(
     status: data.status,
     dosage: [{ text: data.intakeInfo.dose, asNeededBoolean: data.type === 'as-needed' }],
     effectiveDateTime: data.intakeInfo.date,
-    informationSource: { reference: `Practitioner/${practitioner.id}` },
+    informationSource: { reference: `Practitioner/${practitionerId}` },
     meta: getMetaWFieldName(fieldName),
     medicationCodeableConcept: {
       coding: [
@@ -247,7 +244,12 @@ export function makeMedicationDTO(medication: MedicationStatement): MedicationDT
     resourceId: medication.id,
     id: medication.medicationCodeableConcept?.coding?.[0].code || '',
     name: medication.medicationCodeableConcept?.coding?.[0].display || '',
-    type: medication.dosage?.[0].asNeededBoolean ? 'as-needed' : 'scheduled',
+    type:
+      medication.meta?.tag?.[0].code === 'prescribed-medication'
+        ? 'prescribed-medication'
+        : medication.dosage?.[0].asNeededBoolean
+        ? 'as-needed'
+        : 'scheduled',
     intakeInfo: {
       dose: getMedicationDosage(medication),
       date: medication.effectiveDateTime,
@@ -426,7 +428,8 @@ export function makeExamObservationResource(
   encounterId: string,
   patientId: string,
   data: ExamObservationDTO,
-  snomedCodes: SNOMEDCodeConceptInterface
+  snomedCodes?: SNOMEDCodeConceptInterface,
+  label?: string
 ): Observation {
   return {
     resourceType: 'Observation',
@@ -436,8 +439,8 @@ export function makeExamObservationResource(
     status: 'final',
     valueBoolean: typeof data.value === 'boolean' ? Boolean(data.value) : undefined,
     note: data.note ? [{ text: data.note }] : undefined,
-    bodySite: snomedCodes.bodySite,
-    code: snomedCodes.code,
+    bodySite: snomedCodes?.bodySite,
+    code: snomedCodes?.code || { text: label || 'unknown' },
     meta: fillMeta(data.field, EXAM_OBSERVATION_META_SYSTEM),
   };
 }
@@ -445,8 +448,8 @@ export function makeExamObservationResource(
 export function makeExamObservationDTO(observation: Observation): ExamObservationDTO {
   return {
     resourceId: observation.id,
-    field: observation.meta?.tag?.[0].code as ExamFieldsNames | ExamCardsNames,
-    note: observation.note?.[0].text,
+    field: observation.meta?.tag?.[0]?.code || 'unknown',
+    note: observation.note?.[0]?.text,
     value: observation.valueBoolean,
   };
 }
@@ -1074,7 +1077,8 @@ const mapResourceToChartDataFields = (
     resourceMapped = true;
   } else if (
     resource?.resourceType === 'MedicationStatement' &&
-    chartDataResourceHasMetaTagByCode(resource, 'current-medication')
+    (chartDataResourceHasMetaTagByCode(resource, 'current-medication') ||
+      chartDataResourceHasMetaTagByCode(resource, 'prescribed-medication'))
   ) {
     data.medications?.push(makeMedicationDTO(resource));
     resourceMapped = true;

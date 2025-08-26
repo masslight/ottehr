@@ -56,8 +56,6 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
   };
 
   const handleCollectSampleSubmit = async (updatedData: MarkAsCollectedData): Promise<void> => {
-    setLoadingState(LoadingState.loading);
-    let loadingError = false;
     try {
       if (!oystehrZambda || !encounter.id || !serviceRequestID) {
         return;
@@ -69,13 +67,7 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
       });
     } catch (error) {
       console.error('Error submitting test details:', error);
-      loadingError = true;
-    } finally {
-      if (loadingError) {
-        setLoadingState(LoadingState.loadedWithError);
-      } else {
-        setLoadingState(LoadingState.initial);
-      }
+      throw error;
     }
   };
 
@@ -111,7 +103,12 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
           switch (testDetails.status) {
             case 'ORDERED':
               return (
-                <CollectSampleView testDetails={testDetails} onBack={handleBack} onSubmit={handleCollectSampleSubmit} />
+                <CollectSampleView
+                  testDetails={testDetails}
+                  onBack={handleBack}
+                  onSubmit={handleCollectSampleSubmit}
+                  setLoadingState={setLoadingState}
+                />
               );
             case 'COLLECTED':
               return (

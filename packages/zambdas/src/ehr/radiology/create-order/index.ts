@@ -11,6 +11,7 @@ import {
   RoleType,
   Secrets,
   SecretsKeys,
+  userMe,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, fillMeta, wrapHandler, ZambdaInput } from '../../../shared';
 import {
@@ -105,8 +106,7 @@ const accessCheck = async (callerUser: User): Promise<void> => {
 };
 
 const getCallerUserWithAccessToken = async (token: string, secrets: Secrets): Promise<User> => {
-  const oystehr = createOystehrClient(token, secrets);
-  return await oystehr.user.me();
+  return userMe(token, secrets);
 };
 
 const performEffect = async (

@@ -1,6 +1,7 @@
+import { QueryObserverResult, RefetchOptions } from '@tanstack/react-query';
 import { Appointment, Bundle, Encounter, FhirResource, Location, Patient, QuestionnaireResponse } from 'fhir/r4b';
-import { useEffect } from 'react';
-import { QueryObserverResult, RefetchOptions, RefetchQueryFilters } from 'react-query';
+import { useEffect, useMemo } from 'react';
+import { useSuccessQuery } from 'utils';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useAppointmentStore, useGetAppointment } from '../../../telemed';
 import { getResources } from '../parser/extractors';
@@ -35,9 +36,7 @@ export const useAppointment = (
   visitState: VisitState;
   error: any;
   isLoading: boolean;
-  refetch: <TPageData>(
-    options?: (RefetchOptions & RefetchQueryFilters<TPageData>) | undefined
-  ) => Promise<QueryObserverResult<FhirResource[], unknown>>;
+  refetch: (options?: RefetchOptions | undefined) => Promise<QueryObserverResult<FhirResource[], unknown>>;
 } => {
   const { resources, mappedData } = useMappedVisitDataStore();
 
@@ -52,9 +51,15 @@ export const useAppointment = (
 
   const { location, locationVirtual, patient, encounter, questionnaireResponse, appointment } = visitData;
 
-  const { isLoading, error, refetch } = useGetAppointment({ appointmentId }, (data) => {
-    const bundleResources = getResources(data);
-    const parsedResources = parseBundle(data);
+  const { isLoading, error, refetch, data } = useGetAppointment({ appointmentId });
+
+  useSuccessQuery(data, (appointmentData) => {
+    if (!appointmentData) {
+      return;
+    }
+
+    const bundleResources = getResources(appointmentData);
+    const parsedResources = parseBundle(appointmentData);
 
     // init telemed store for compatibility
     useAppointmentStore.setState({
@@ -73,6 +78,18 @@ export const useAppointment = (
     });
   });
 
+  const stableVisitState = useMemo(
+    () => ({
+      appointment,
+      patient,
+      location,
+      locationVirtual,
+      encounter,
+      questionnaireResponse,
+    }),
+    [appointment, patient, location, locationVirtual, encounter, questionnaireResponse]
+  );
+
   // update parsed appointment store on telemed data change
   useEffect(() => {
     const visitResources = Object.values([
@@ -87,10 +104,10 @@ export const useAppointment = (
     useMappedVisitDataStore.setState(parsedResources);
   }, [appointment, patient, location, locationVirtual, encounter, questionnaireResponse]);
 
-  if (!visitData.encounter) {
+  if (!stableVisitState.encounter) {
     console.warn('Encounter is not available in the visit data. Ensure the appointment ID is provided.');
     return emptyResult;
   }
 
-  return { resources, mappedData, visitState: visitData, error, isLoading, refetch };
+  return { resources, mappedData, visitState: stableVisitState, error, isLoading, refetch };
 };

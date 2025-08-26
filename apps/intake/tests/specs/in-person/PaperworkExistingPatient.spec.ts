@@ -96,7 +96,6 @@ test.describe('Check paperwork is prefilled for existing patient. Payment - insu
   });
   test('IPPP-5 Check Primary insurance has prefilled values', async () => {
     await page.goto(`paperwork/${appointmentIds[1]}/payment-option`);
-    await page.waitForLoadState('networkidle');
     await locator.insuranceOption.click();
     await expect(locator.insuranceHeading).toBeVisible();
     await test.step('Primary Insurance cards are prefilled', async () => {
@@ -149,7 +148,6 @@ test.describe('Check paperwork is prefilled for existing patient. Payment - insu
   // TODO: Need to remove skip when https://github.com/masslight/ottehr/issues/1938 is fixed
   test.skip('IPPP-6 Check Secondary insurance has prefilled values', async () => {
     await page.goto(`paperwork/${appointmentIds[1]}/payment-option`);
-    await page.waitForLoadState('networkidle');
     await expect(locator.insuranceHeading).toBeVisible();
     await locator.addSecondaryInsurance.click();
     await test.step('Secondary Insurance cards are prefilled', async () => {
@@ -211,6 +209,7 @@ test.describe('Check paperwork is prefilled for existing patient. Payment - insu
     await expect(locator.responsiblePartyAddress1).toHaveValue(filledPaperwork.responsiblePartyData!.address1);
     await expect(locator.responsiblePartyAddress2).toHaveValue(filledPaperwork.responsiblePartyData!.additionalAddress);
     await expect(locator.responsiblePartyNumber).toHaveValue(filledPaperwork.responsiblePartyData!.phone);
+    await expect(locator.responsiblePartyEmail).toHaveValue(filledPaperwork.responsiblePartyData!.email);
   });
   test('IPPP-8 Check Photo ID has prefilled images', async () => {
     await page.goto(`paperwork/${appointmentIds[1]}/photo-id`);

@@ -73,7 +73,6 @@ export const ERX: FC<{
   const isVitalsLoading = isHeightLoading || isWeightLoading;
   const isVitalsFetched = isHeightFetched && isWeightFetched;
 
-  console.log(isVitalsLoading, hasVitals, practitionerMissingFields);
   // Step 2: Check practitioner enrollment
   const {
     data: practitionerEnrollmentStatus,
@@ -94,6 +93,7 @@ export const ERX: FC<{
     patient: patient!,
     enabled: Boolean(practitionerEnrollmentStatus?.confirmed && hasVitals),
     onError: (error) => {
+      console.log(error);
       let errorMsg = 'Something went wrong while trying to sync patient to eRx';
 
       if (error.status === 400) {
@@ -114,7 +114,7 @@ export const ERX: FC<{
   // Step 4: Handle practitioner enrollment
   const {
     mutateAsync: enrollPractitioner,
-    isLoading: isEnrollingPractitioner,
+    isPending: isEnrollingPractitioner,
     isError: isEnrollPractitionerError,
     isSuccess: isEnrollPractitionerSuccess,
   } = useEnrollPractitionerToERX({
@@ -139,14 +139,14 @@ export const ERX: FC<{
   // Step 5: Connect practitioner
   const {
     data: ssoLink,
-    isLoading: isConnectingPractitioner,
+    isPending: isConnectingPractitioner,
     mutateAsync: connectPractitioner,
     isSuccess: isPractitionerConnected,
   } = useConnectPractitionerToERX({ patientId: patient?.id, encounterId: encounter.id });
 
   const {
     data: ssoLinkForEnrollment,
-    isLoading: isConnectingPractitionerForConfirmation,
+    isPending: isConnectingPractitionerForConfirmation,
     mutateAsync: connectPractitionerForConfirmation,
     isSuccess: isPractitionerConnectedForConfirmation,
   } = useConnectPractitionerToERX({});

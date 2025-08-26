@@ -182,6 +182,7 @@ export interface ResponsiblePartyInfo {
   dateOfBirth: string;
   birthSex?: PersonSex;
   phoneNumber?: string;
+  email: string;
 }
 
 export interface PhotoIdCards {
@@ -361,109 +362,64 @@ export type StateType = (typeof AllStates extends readonly (infer TElementType)[
 
 export interface VirtualLocationBody {
   name: string;
-  code?: string;
+  state: StateType;
 }
 
-export const AllStatesToVirtualLocationsData: {
-  [value in StateType]: VirtualLocationBody;
+export const AllStatesToVirtualLocationLabels: {
+  [value in StateType]: string;
 } = {
-  AL: { name: 'Telemed Alabama' },
-  AK: {
-    name: 'Telemed Alaska',
-    code: 'AKTELE',
-  },
-  AZ: { name: 'Telemed Arizona' },
-  AR: { name: 'Telemed Arkansas' },
-  CA: {
-    name: 'Telemed California',
-    code: 'CATELE',
-  },
-  CO: { name: 'Telemed Colorado' },
-  CT: {
-    name: 'Telemed Connecticut',
-    code: 'CTTELE',
-  },
-  DE: {
-    name: 'Telemed Delaware',
-    code: 'DETELE',
-  },
-  DC: { name: 'Telemed District of Columbia' },
-  FL: {
-    name: 'Telemed Florida',
-    code: 'FLTELE',
-  },
-  GA: { name: 'Telemed Georgia' },
-  HI: { name: 'Telemed Hawaii' },
-  ID: { name: 'Telemed Idaho' },
-  IL: {
-    name: 'Telemed Illinois',
-    code: 'ILTELE',
-  },
-  IN: { name: 'Telemed Indiana' },
-  IA: { name: 'Telemed Iowa' },
-  KS: { name: 'Telemed Kansas' },
-  KY: { name: 'Telemed Kentucky' },
-  LA: { name: 'Telemed Louisiana' },
-  ME: { name: 'Telemed Maine' },
-  MD: {
-    name: 'Telemed Maryland',
-    code: 'MDTELE',
-  },
-  MA: {
-    name: 'Telemed Massachusetts',
-    code: 'MATELE',
-  },
-  MI: { name: 'Telemed Michigan' },
-  MN: { name: 'Telemed Minnesota' },
-  MS: { name: 'Telemed Mississippi' },
-  MO: { name: 'Telemed Missouri' },
-  MT: { name: 'Telemed Montana' },
-  NE: { name: 'Telemed Nebraska' },
-  NV: { name: 'Telemed Nevada' },
-  NH: { name: 'Telemed New Hampshire' },
-  NJ: {
-    name: 'Telemed New Jersey',
-    code: 'NJTELE',
-  },
-  NM: { name: 'Telemed New Mexico' },
-  NY: {
-    name: 'Telemed New York',
-    code: 'NYTELE',
-  },
-  NC: {
-    name: 'Telemed North Carolina',
-    code: 'NCTELE',
-  },
-  ND: { name: 'Telemed North Dakota' },
-  OH: { name: 'Telemed Ohio' },
-  OK: { name: 'Telemed Oklahoma' },
-  OR: { name: 'Telemed Oregon' },
-  PA: {
-    name: 'Telemed Pennsylvania',
-    code: 'PATELE',
-  },
-  RI: { name: 'Telemed Rhode Island' },
-  SC: { name: 'Telemed South Carolina' },
-  SD: { name: 'Telemed South Dakota' },
-  TN: {
-    name: 'Telemed Tennessee',
-    code: 'TNTELE',
-  },
-  TX: {
-    name: 'Telemed Texas',
-    code: 'TXTELE',
-  },
-  UT: { name: 'Telemed Utah' },
-  VT: { name: 'Telemed Vermont' },
-  VI: { name: 'Telemed Virgin Islands' },
-  VA: {
-    name: 'Telemed Virginia',
-    code: 'VATELE',
-  },
-  WA: { name: 'Telemed Washington' },
-  WV: { name: 'Telemed West Virginia' },
-  WI: { name: 'Telemed Wisconsin' },
-  WY: { name: 'Telemed Wyoming' },
+  AL: 'Telemed Alabama',
+  AK: 'Telemed Alaska',
+  AZ: 'Telemed Arizona',
+  AR: 'Telemed Arkansas',
+  CA: 'Telemed California',
+  CO: 'Telemed Colorado',
+  CT: 'Telemed Connecticut',
+  DE: 'Telemed Delaware',
+  DC: 'Telemed District of Columbia',
+  FL: 'Telemed Florida',
+  GA: 'Telemed Georgia',
+  HI: 'Telemed Hawaii',
+  ID: 'Telemed Idaho',
+  IL: 'Telemed Illinois',
+  IN: 'Telemed Indiana',
+  IA: 'Telemed Iowa',
+  KS: 'Telemed Kansas',
+  KY: 'Telemed Kentucky',
+  LA: 'Telemed Louisiana',
+  ME: 'Telemed Maine',
+  MD: 'Telemed Maryland',
+  MA: 'Telemed Massachusetts',
+  MI: 'Telemed Michigan',
+  MN: 'Telemed Minnesota',
+  MS: 'Telemed Mississippi',
+  MO: 'Telemed Missouri',
+  MT: 'Telemed Montana',
+  NE: 'Telemed Nebraska',
+  NV: 'Telemed Nevada',
+  NH: 'Telemed New Hampshire',
+  NJ: 'Telemed New Jersey',
+  NM: 'Telemed New Mexico',
+  NY: 'Telemed New York',
+  NC: 'Telemed North Carolina',
+  ND: 'Telemed North Dakota',
+  OH: 'Telemed Ohio',
+  OK: 'Telemed Oklahoma',
+  OR: 'Telemed Oregon',
+  PA: 'Telemed Pennsylvania',
+  RI: 'Telemed Rhode Island',
+  SC: 'Telemed South Carolina',
+  SD: 'Telemed South Dakota',
+  TN: 'Telemed Tennessee',
+  TX: 'Telemed Texas',
+  UT: 'Telemed Utah',
+  VT: 'Telemed Vermont',
+  VI: 'Telemed Virgin Islands',
+  VA: 'Telemed Virginia',
+  WA: 'Telemed Washington',
+  WV: 'Telemed West Virginia',
+  WI: 'Telemed Wisconsin',
+  WY: 'Telemed Wyoming',
 };
 
 export enum FhirAppointmentType {
@@ -707,6 +663,7 @@ export interface UpdateQuestionnaireResponseParams {
     };
     birthSex?: string;
     phoneNumber?: string;
+    email: string;
   };
   hipaaAcknowledgement?: boolean;
   consentToTreat?: boolean;

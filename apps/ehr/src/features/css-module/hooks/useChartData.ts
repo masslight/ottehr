@@ -1,5 +1,4 @@
-import { useEffect } from 'react';
-import { QueryKey, QueryObserverResult } from 'react-query';
+import { QueryKey, QueryObserverResult } from '@tanstack/react-query';
 import { ChartDataRequestedFields, GetChartDataResponse } from 'utils';
 import { useAppointmentStore, useGetChartData } from '../../../telemed';
 import { useExamObservations } from '../../../telemed/hooks/useExamObservations';
@@ -47,18 +46,23 @@ export const useChartData = ({
   } = useGetChartData(
     { apiClient, encounterId, requestedFields, enabled, refetchInterval },
     (data) => {
+      if (!data) {
+        return;
+      }
+
       onSuccess?.(data);
+
       if (replaceStoreValues) {
         Object.keys(requestedFields || {}).forEach((field) => {
           setPartialChartData({ [field]: data[field as keyof GetChartDataResponse] });
         });
       }
 
-      if (!requestedFields) {
-        useAppointmentStore.setState({
-          isChartDataLoading: false,
-        });
-      }
+      // if (!requestedFields) {
+      //   useAppointmentStore.setState({
+      //     isChartDataLoading: false,
+      //   });
+      // }
 
       // not set state for custom fields request, because data will be incomplete
       if (requestedFields) return;
@@ -69,22 +73,22 @@ export const useChartData = ({
       }
     },
     (error) => {
-      if (!requestedFields) {
-        useAppointmentStore.setState({
-          isChartDataLoading: false,
-        });
-      }
+      // if (!requestedFields) {
+      //   useAppointmentStore.setState({
+      //     isChartDataLoading: false,
+      //   });
+      // }
       onError?.(error);
     }
   );
 
-  useEffect(() => {
-    if (!requestedFields && enabled) {
-      useAppointmentStore.setState({
-        isChartDataLoading: isFetching,
-      });
-    }
-  }, [chartData, isFetching, requestedFields, enabled]);
-
-  return { refetch, chartData, isLoading, error: chartDataError, queryKey, isFetching, isFetched };
+  return {
+    refetch,
+    chartData,
+    isLoading,
+    error: chartDataError,
+    queryKey,
+    isFetching,
+    isFetched,
+  };
 };
