@@ -39,7 +39,7 @@ import {
   ClinicalImpressionDTO,
   CommunicationDTO,
   CPTCodeDTO,
-  createCodingCode,
+  createCodeableConcept,
   createFilesDocumentReferences,
   CSS_NOTE_ID,
   DiagnosisDTO,
@@ -404,7 +404,7 @@ export function makeHospitalizationResource(
     resourceType: 'EpisodeOfCare',
     status: 'finished',
     patient: { reference: `Patient/${patientId}` },
-    type: [createCodingCode(data.code, data.display)],
+    type: [createCodeableConcept(undefined, data.display)],
     meta: getMetaWFieldName(fieldName),
   };
   return result;
@@ -1281,22 +1281,40 @@ export const createDispositionServiceRequest = ({
   patientId: string;
 }): BatchInputPutRequest<ServiceRequest> | BatchInputPostRequest<ServiceRequest> => {
   let orderDetail: CodeableConcept[] | undefined = undefined;
-  let dispositionFollowUpCode: CodeableConcept = createCodingCode('185389009', 'Follow-up visit (procedure)');
+  let dispositionFollowUpCode: CodeableConcept = createCodeableConcept(
+    [
+      {
+        system: 'http://snomed.info/sct',
+        code: '185389009',
+        display: 'Follow-up visit (procedure)',
+      },
+    ],
+    'Follow-up visit (procedure)'
+  );
 
   if (disposition.type === 'ip-lab') {
-    dispositionFollowUpCode = createCodingCode('15220000', 'Laboratory test (procedure)');
+    dispositionFollowUpCode = createCodeableConcept(
+      [
+        {
+          system: 'http://snomed.info/sct',
+          code: '15220000',
+          display: 'Laboratory test (procedure)',
+        },
+      ],
+      'Laboratory test (procedure)'
+    );
     orderDetail = [];
     disposition?.labService?.forEach?.((service) => {
-      orderDetail?.push?.(createCodingCode(service, undefined, 'lab-service'));
+      orderDetail?.push?.(createCodeableConcept(undefined, `lab-service ${service}`));
     });
     disposition?.virusTest?.forEach?.((test) => {
-      orderDetail?.push?.(createCodingCode(test, undefined, 'virus-test'));
+      orderDetail?.push?.(createCodeableConcept(undefined, `virus-test ${test}`));
     });
   }
 
   if (disposition.type === 'another' && disposition.reason) {
     orderDetail = [];
-    orderDetail?.push?.(createCodingCode(disposition.reason, undefined, 'reason-for-transfer'));
+    orderDetail?.push?.(createCodeableConcept(undefined, `reason-for-transfer ${disposition.reason}`));
   }
 
   const followUpDaysInMinutes = typeof disposition.followUpIn === 'number' ? disposition.followUpIn * 1440 : undefined;
@@ -1316,12 +1334,36 @@ export const createDispositionServiceRequest = ({
 };
 
 export const followUpToPerformerMap: { [field in DispositionFollowUpType]: CodeableConcept | undefined } = {
-  dentistry: createCodingCode('106289002', 'Dentist', 'http://snomed.info/sct'),
-  ent: createCodingCode('309372007', 'Ear, nose and throat surgeon', 'http://snomed.info/sct'),
-  ophthalmology: createCodingCode('422234006', 'Ophthalmologist (occupation)', 'http://snomed.info/sct'),
-  orthopedics: createCodingCode('59169001', 'Orthopedic technician', 'http://snomed.info/sct'),
-  'lurie-ct': createCodingCode('lurie-ct', undefined, 'lurie-ct'),
-  other: createCodingCode('other', 'other'),
+  dentistry: createCodeableConcept([
+    {
+      code: '106289002',
+      display: 'Dentist',
+      system: 'http://snomed.info/sct',
+    },
+  ]),
+  ent: createCodeableConcept([
+    {
+      code: '309372007',
+      display: 'Ear, nose and throat surgeon',
+      system: 'http://snomed.info/sct',
+    },
+  ]),
+  ophthalmology: createCodeableConcept([
+    {
+      code: '422234006',
+      display: 'Ophthalmologist (occupation)',
+      system: 'http://snomed.info/sct',
+    },
+  ]),
+  orthopedics: createCodeableConcept([
+    {
+      code: '59169001',
+      display: 'Orthopedic technician',
+      system: 'http://snomed.info/sct',
+    },
+  ]),
+  'lurie-ct': createCodeableConcept(undefined, 'lurie-ct'),
+  other: createCodeableConcept(undefined, 'other'),
 };
 
 export function makeProceduresDTOFromFhirResources(
