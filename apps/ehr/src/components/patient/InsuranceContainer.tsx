@@ -19,6 +19,7 @@ import {
   FormFields as AllFormFields,
   INSURANCE_COVERAGE_OPTIONS,
   InsurancePriorityOptions,
+  InsuranceTypes,
   PatientAddressFields,
   PatientIdentifyingFields,
   RELATIONSHIP_TO_INSURED_OPTIONS,
@@ -297,32 +298,27 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
           control={control}
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
-            // todo this
-            // validate: (value) => insurancePlans.some((option) => `Organization/${option.id}` === value?.reference),
+            validate: (value) =>
+              InsuranceTypes.some((option) => {
+                console.log(`option ${JSON.stringify(option)}, value ${JSON.stringify(value)}`);
+                return option.code === value;
+              }),
           }}
           render={({ field: { value }, fieldState: { error } }) => {
-            const isLoading = insurancePlans.length === 0;
-
-            const selectedOption = insurancePlans.find((option) => `Organization/${option.id}` === value?.reference);
+            const selectedOption = InsuranceTypes.find((option) => option.code === value?.code);
             return (
               <Autocomplete
-                options={insurancePlans}
-                loading={isLoading}
-                loadingText={'Loading...'}
-                value={selectedOption ?? ({} as InsurancePlanDTO)}
+                options={InsuranceTypes}
+                value={selectedOption}
                 isOptionEqualToValue={(option, value) => {
-                  return option?.id === value?.id;
+                  return option?.code === value?.code;
                 }}
-                getOptionLabel={(option) => option.name || ''}
+                getOptionLabel={(option) => `${option.code} - ${option.label}` || ''}
                 onChange={(_, newValue) => {
                   if (newValue) {
-                    setValue(
-                      FormFields.insuranceCarrier.key,
-                      { reference: `Organization/${newValue.id}`, display: newValue.name },
-                      { shouldDirty: true }
-                    );
+                    setValue(FormFields.insuranceType.key, newValue.code, { shouldDirty: true });
                   } else {
-                    setValue(FormFields.insuranceCarrier.key, null);
+                    setValue(FormFields.insuranceType.key, null);
                   }
                 }}
                 disableClearable

@@ -613,7 +613,7 @@ export const FormFields = {
     {
       insurancePriority: { key: 'insurance-priority-2', type: 'String' },
       insuranceCarrier: { key: 'insurance-carrier-2', type: 'Reference' },
-      insuranceType: { key: 'insurance-type', type: 'String' },
+      insuranceType: { key: 'insurance-type-2', type: 'String' },
       memberId: { key: 'insurance-member-id-2', type: 'String' },
       firstName: { key: 'policy-holder-first-name-2', type: 'String' },
       middleName: { key: 'policy-holder-middle-name-2', type: 'String' },
@@ -653,6 +653,33 @@ export const FormFields = {
     zip: { key: 'responsible-party-zip', type: 'String', label: 'Zip' },
   },
 };
+
+export const InsuranceTypes = [
+  { code: '9', label: 'Self Pay' },
+  { code: '11', label: 'Other Non-Federal Programs' },
+  { code: '12', label: 'PPO' },
+  { code: '13', label: 'POS' },
+  { code: '14', label: 'EPO' },
+  { code: '15', label: 'Indemnity Insurance' },
+  { code: '16', label: 'HMO Medicare Risk' },
+  { code: '17', label: 'DMO' },
+  { code: 'AM', label: 'Auto' },
+  { code: 'BL', label: 'BlueCross BlueShield' },
+  { code: 'CH', label: 'Champus' },
+  { code: 'CI', label: 'Commercial Insurance Co' },
+  { code: 'DS', label: 'Disability' },
+  { code: 'FI', label: 'Federal Employees' },
+  { code: 'HM', label: 'HMO' },
+  { code: 'LM', label: 'Liability' },
+  { code: 'MA', label: 'Medicare Part A' },
+  { code: 'MB', label: 'Medicare Part B' },
+  { code: 'MC', label: 'Medicaid' },
+  { code: 'OF', label: 'Other Federal Program' },
+  { code: 'TV', label: 'Title V' },
+  { code: 'VA', label: 'Veterans Affairs Plan' },
+  { code: 'WC', label: 'Workers Comp Health Claim' },
+  { code: 'ZZ', label: 'Mutually Defined' },
+];
 
 export const PatientIdentifyingFields = [
   FormFields.patientSummary.firstName.key,
