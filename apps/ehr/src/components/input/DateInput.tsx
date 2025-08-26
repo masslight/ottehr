@@ -34,7 +34,7 @@ export const DateInput: React.FC<Props> = ({ name, label, required, validate }) 
                 },
               }}
               value={field.value ? DateTime.fromISO(field.value) : null}
-              onChange={(val) => field.onChange(val ? val.toISO() : null)}
+              onChange={(val) => field.onChange(val ? val.toISODate() : null)}
             />
           </LocalizationProvider>
           {error && <FormHelperText error={true}>{error?.message}</FormHelperText>}

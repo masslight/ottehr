@@ -20,11 +20,11 @@ const STATUS_TO_BG_COLOR: Record<string, Colors> = {
     bg: '#C8E6C9',
     text: '#1B5E20',
   },
-  'partly-administered': {
+  'administered-partly': {
     bg: '#B2EBF2',
     text: '#006064',
   },
-  'not-administered': {
+  'administered-not': {
     bg: '#FECDD2',
     text: '#B71C1C',
   },

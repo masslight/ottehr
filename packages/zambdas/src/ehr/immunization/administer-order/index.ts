@@ -215,9 +215,20 @@ export function validateRequestParameters(
   if (!administrationDetails?.mvx) missingFields.push('administrationDetails.mvx');
   if (!administrationDetails?.cvx) missingFields.push('administrationDetails.cvx');
   if (!administrationDetails?.ndc) missingFields.push('administrationDetails.ndc');
-  if (!administrationDetails?.administeredDateTime) missingFields.push('administrationDetails.administeredDateTime');
-  if (!administrationDetails?.visGivenDate && ['administered', 'administered-partly'].includes(type)) {
-    missingFields.push('administrationDetails.visGivenDate');
+  if (['administered', 'administered-partly'].includes(type)) {
+    if (!administrationDetails?.administeredDateTime) missingFields.push('administrationDetails.administeredDateTime');
+    if (!administrationDetails?.visGivenDate) {
+      missingFields.push('administrationDetails.visGivenDate');
+    }
+    if (!administrationDetails?.emergencyContact?.relationship) {
+      missingFields.push('administrationDetails.emergencyContact.relationship');
+    }
+    if (!administrationDetails?.emergencyContact?.fullName) {
+      missingFields.push('administrationDetails.emergencyContact.fullName');
+    }
+    if (!administrationDetails?.emergencyContact?.mobile) {
+      missingFields.push('administrationDetails.emergencyContact.mobile');
+    }
   }
 
   if (missingFields.length > 0) throw new Error(`Missing required fields [${missingFields.join(', ')}]`);

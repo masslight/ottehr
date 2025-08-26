@@ -74,9 +74,12 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
   const { mutateAsync: administerOrder } = useAdministerImmunizationOrder();
 
   const onSubmit = async (data: any): Promise<void> => {
+    if (data.otherReason) {
+      data.reason = data.otherReason;
+    }
     await administerOrder({
       orderId: order.id,
-      type: 'administered',
+      type: administrationTypeRef.current.type,
       ...(await cleanupProperties(data)),
     });
   };
