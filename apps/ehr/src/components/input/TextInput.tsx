@@ -9,16 +9,17 @@ type Props = {
   loading?: boolean;
   required?: boolean;
   multiline?: boolean;
+  validate?: (value: string) => boolean | string;
 };
 
-export const TextInput: React.FC<Props> = ({ name, label, loading, required, multiline }) => {
+export const TextInput: React.FC<Props> = ({ name, label, loading, required, multiline, validate }) => {
   const { control } = useFormContext();
   return !loading ? (
     <Controller
       name={name}
       control={control}
       defaultValue=""
-      rules={{ required: required ? REQUIRED_FIELD_ERROR_MESSAGE : false }}
+      rules={{ required: required ? REQUIRED_FIELD_ERROR_MESSAGE : required, validate: validate }}
       render={({ field, fieldState: { error } }) => (
         <Box sx={{ width: '100%' }}>
           <TextField

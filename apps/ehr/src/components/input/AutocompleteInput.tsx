@@ -9,16 +9,25 @@ type Props = {
   options: Option[] | undefined;
   loading?: boolean;
   required?: boolean;
+  validate?: (value: string | undefined) => boolean | string;
   selectOnly?: boolean;
 };
 
-export const AutocompleteInput: React.FC<Props> = ({ name, label, options, loading, required, selectOnly }) => {
+export const AutocompleteInput: React.FC<Props> = ({
+  name,
+  label,
+  options,
+  loading,
+  required,
+  validate,
+  selectOnly,
+}) => {
   const { control } = useFormContext();
   return !loading ? (
     <Controller
       name={name}
       control={control}
-      rules={{ required: required ? REQUIRED_FIELD_ERROR_MESSAGE : false }}
+      rules={{ required: required ? REQUIRED_FIELD_ERROR_MESSAGE : false, validate: validate }}
       render={({ field, fieldState: { error } }) => (
         <Box sx={{ width: '100%' }}>
           <Autocomplete

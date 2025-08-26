@@ -1,15 +1,24 @@
 import { Box, Grid, Paper, Stack, Typography, useTheme } from '@mui/material';
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
+import { useParams } from 'react-router-dom';
 import { CheckboxInput } from 'src/components/input/CheckboxInput';
 import { DateInput } from 'src/components/input/DateInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { TimeInput } from 'src/components/input/TimeInput';
+import { CSSModal } from 'src/features/css-module/components/CSSModal';
+import {
+  ReasonListCodes,
+  reasonListValues,
+} from 'src/features/css-module/components/medication-administration/medicationTypes';
 import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
+import { useAppointment } from 'src/features/css-module/hooks/useAppointment';
 import { useAdministerImmunizationOrder } from 'src/features/css-module/hooks/useImmunization';
 import { cleanupProperties } from 'src/helpers/misc.helper';
-import { EMERGENCY_CONTACT_RELATIONSHIPS, ImmunizationOrder } from 'utils';
+import { ROUTE_OPTIONS, UNIT_OPTIONS } from 'src/shared/utils';
+import { useGetMedicationList } from 'src/telemed';
+import { EMERGENCY_CONTACT_RELATIONSHIPS, ImmunizationOrder, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { OrderDetailsSection } from './OrderDetailsSection';
 
 interface Props {
@@ -21,6 +30,26 @@ const RELATIONSHIP_OPTIONS = Object.entries(EMERGENCY_CONTACT_RELATIONSHIPS).map
   label: value.display,
 }));
 
+interface AdministrationType {
+  type: string;
+  label: string;
+}
+
+const ADMINISTERED: AdministrationType = {
+  type: 'administered',
+  label: 'Administered',
+};
+
+const NOT_ADMINISTERED: AdministrationType = {
+  type: 'administered-not',
+  label: 'Not Administered',
+};
+
+const PARTLY_ADMINISTERED: AdministrationType = {
+  type: 'administered-partly',
+  label: 'Partly Administered',
+};
+
 export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
   const methods = useForm({
     defaultValues: {
@@ -31,9 +60,16 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
         orderedProviderId: order?.details?.orderedProvider?.id,
       },
       visGiven: order.administrationDetails?.visGivenDate != null,
+      otherReason: '',
     },
   });
   const theme = useTheme();
+  const [showAdministrationReasonDialog, setShowAdministrationReasonDialog] = useState<boolean>(false);
+  const administrationTypeRef = useRef<AdministrationType>(ADMINISTERED);
+
+  const { id: appointmentId } = useParams();
+  const { mappedData } = useAppointment(appointmentId);
+  const { data: medications } = useGetMedicationList();
 
   const { mutateAsync: administerOrder } = useAdministerImmunizationOrder();
 
@@ -44,6 +80,23 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
       ...(await cleanupProperties(data)),
     });
   };
+
+  const onAdministrationActionClick = async (administrationType: AdministrationType): Promise<void> => {
+    administrationTypeRef.current = administrationType;
+    if (await methods.trigger()) {
+      setShowAdministrationReasonDialog(true);
+    }
+  };
+
+  const requiredForAdministration = (value: string | undefined): boolean | string => {
+    if (administrationTypeRef.current !== NOT_ADMINISTERED && (!value || value.length === 0)) {
+      return REQUIRED_FIELD_ERROR_MESSAGE;
+    }
+    return true;
+  };
+
+  const reason = methods.watch('reason');
+  const otherReason = methods.watch('otherReason');
 
   return (
     <FormProvider {...methods}>
@@ -83,10 +136,18 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                 <TextInput name="administrationDetails.ndc" label="NDC code" required />
               </Grid>
               <Grid xs={3} item>
-                <DateInput name="administrationDetails.administeredDateTime" label="Administered date" required />
+                <DateInput
+                  name="administrationDetails.administeredDateTime"
+                  label="Administered date"
+                  validate={requiredForAdministration}
+                />
               </Grid>
               <Grid xs={3} item>
-                <TimeInput name="administrationDetails.administeredDateTime" label="Administered time" required />
+                <TimeInput
+                  name="administrationDetails.administeredDateTime"
+                  label="Administered time"
+                  validate={requiredForAdministration}
+                />
               </Grid>
               <Grid xs={6} item>
                 <Box
@@ -98,11 +159,19 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                     alignItems: 'center',
                   }}
                 >
-                  <CheckboxInput name="visGiven" label="VIS was given to the patient*" required />
+                  <CheckboxInput
+                    name="visGiven"
+                    label="VIS was given to the patient*"
+                    validate={requiredForAdministration}
+                  />
                 </Box>
               </Grid>
               <Grid xs={6} item>
-                <DateInput name="administrationDetails.visGivenDate" label="VIS given date" required />
+                <DateInput
+                  name="administrationDetails.visGivenDate"
+                  label="VIS given date"
+                  validate={requiredForAdministration}
+                />
               </Grid>
               <Grid xs={12} item>
                 <Typography
@@ -119,24 +188,48 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                   name="administrationDetails.emergencyContact.relationship"
                   label="Relationship"
                   options={RELATIONSHIP_OPTIONS}
-                  required
+                  validate={requiredForAdministration}
                 />
               </Grid>
               <Grid xs={4} item>
-                <TextInput name="administrationDetails.emergencyContact.fullName" label="Full name" required />
+                <TextInput
+                  name="administrationDetails.emergencyContact.fullName"
+                  label="Full name"
+                  validate={requiredForAdministration}
+                />
               </Grid>
               <Grid xs={4} item>
-                <TextInput name="administrationDetails.emergencyContact.mobile" label="Mobile" required />
+                <TextInput
+                  name="administrationDetails.emergencyContact.mobile"
+                  label="Mobile"
+                  validate={requiredForAdministration}
+                />
               </Grid>
               <Grid xs={12} item>
                 <Stack direction="row" justifyContent="end" alignItems="center">
-                  <ButtonRounded variant="outlined" color="primary" size="large">
+                  <ButtonRounded
+                    variant="outlined"
+                    color="primary"
+                    size="large"
+                    onClick={async () => onAdministrationActionClick(NOT_ADMINISTERED)}
+                  >
                     Not Administered
                   </ButtonRounded>
-                  <ButtonRounded variant="outlined" color="primary" size="large">
+                  <ButtonRounded
+                    variant="outlined"
+                    color="primary"
+                    size="large"
+                    onClick={async () => onAdministrationActionClick(PARTLY_ADMINISTERED)}
+                  >
                     Partly Administered
                   </ButtonRounded>
-                  <ButtonRounded type="submit" variant="contained" color="primary" size="large">
+                  <ButtonRounded
+                    type="submit"
+                    variant="contained"
+                    color="primary"
+                    size="large"
+                    onClick={async () => onAdministrationActionClick(ADMINISTERED)}
+                  >
                     Administered
                   </ButtonRounded>
                 </Stack>
@@ -144,6 +237,59 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
             </Grid>
           </Paper>
         </Stack>
+        <CSSModal
+          color="primary.main"
+          icon={null}
+          showEntityPreview={false}
+          open={showAdministrationReasonDialog}
+          handleClose={() => {
+            setShowAdministrationReasonDialog(false);
+          }}
+          handleConfirm={() => methods.handleSubmit(onSubmit)()}
+          disabled={!reason || (reason === ReasonListCodes.OTHER && !otherReason)}
+          description={''}
+          title={'Order ' + administrationTypeRef.current.label}
+          confirmText={'Mark as ' + administrationTypeRef.current.label}
+          closeButtonText="Cancel"
+          ContentComponent={() => {
+            return (
+              <Box display="flex" flexDirection="column" gap={1}>
+                <Typography>
+                  <strong>Patient:</strong> {mappedData.patientName}
+                </Typography>
+                <Typography>
+                  <strong>Vaccine:</strong> {medications?.[methods.getValues('details.medicationId')]} /{' '}
+                  {methods.getValues('details.dose')}
+                  {UNIT_OPTIONS.find((unit) => unit.value === methods.getValues('details.units'))?.label} /{' '}
+                  {ROUTE_OPTIONS.find((route) => route.value === methods.getValues('details.route'))?.label}
+                </Typography>
+                <Typography>
+                  Please confirm that you want to mark this immunization order as{' '}
+                  {<strong>{administrationTypeRef.current.label}</strong>}
+                  {administrationTypeRef.current.type !== 'administered' ? ' and select the reason.' : '.'}
+                </Typography>
+                {administrationTypeRef.current.type !== 'administered' ? (
+                  <Stack spacing={2} sx={{ mt: 2 }}>
+                    <SelectInput
+                      name="reason"
+                      label="Reason"
+                      options={Object.entries(reasonListValues).map(([value, label]) => {
+                        return {
+                          value,
+                          label,
+                        };
+                      })}
+                      required
+                    />
+                    {reason === ReasonListCodes.OTHER && (
+                      <TextInput name="otherReason" label="Specify reason" required />
+                    )}
+                  </Stack>
+                ) : null}
+              </Box>
+            ) as JSX.Element;
+          }}
+        />
       </form>
     </FormProvider>
   );
