@@ -164,7 +164,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                 >
                   <CheckboxInput
                     name="visGiven"
-                    label="VIS was given to the patient*"
+                    label="VIS was given to the patient"
                     validate={requiredForAdministration}
                   />
                 </Box>
@@ -227,7 +227,6 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                     Partly Administered
                   </ButtonRounded>
                   <ButtonRounded
-                    type="submit"
                     variant="contained"
                     color="primary"
                     size="large"
@@ -249,7 +248,10 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
             setShowAdministrationReasonDialog(false);
           }}
           handleConfirm={() => methods.handleSubmit(onSubmit)()}
-          disabled={!reason || (reason === ReasonListCodes.OTHER && !otherReason)}
+          disabled={
+            administrationTypeRef.current !== ADMINISTERED &&
+            (!reason || (reason === ReasonListCodes.OTHER && !otherReason))
+          }
           description={''}
           title={'Order ' + administrationTypeRef.current.label}
           confirmText={'Mark as ' + administrationTypeRef.current.label}
