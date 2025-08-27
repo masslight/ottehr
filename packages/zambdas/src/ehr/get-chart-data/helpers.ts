@@ -146,7 +146,7 @@ export function createFindResourceRequestById(
   };
 }
 
-export function parseBundleResources(bundle: Bundle<FhirResource>): FhirResource[] {
+function parseBundleResources(bundle: Bundle<FhirResource>): FhirResource[] {
   if (bundle.resourceType !== 'Bundle' || bundle.entry === undefined) {
     console.error('Search response appears malformed: ', JSON.stringify(bundle));
     throw new Error('Could not parse search response for chart data');

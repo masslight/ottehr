@@ -49,13 +49,12 @@ export const UnsolicitedPatientSearchResults: FC<UnsolicitedPatientSearchResults
     void search({ sort: { field, order }, pagination: { offset: 0 } });
   };
 
-  const selectButtonText = `Select${
-    selectedPatient
-      ? ` ${selectedPatient.name},                  ${
-          selectedPatient.birthDate ? DateTime.fromISO(selectedPatient.birthDate).toFormat('MM/dd/yyyy') : ''
-        }`
-      : ''
-  }`;
+  const name = selectedPatient?.name ?? '';
+  const birthDate = selectedPatient?.birthDate
+    ? DateTime.fromISO(selectedPatient.birthDate).toFormat('MM/dd/yyyy')
+    : '';
+
+  const selectButtonText = selectedPatient ? `Select ${name}, ${birthDate}` : 'Select';
 
   if (!searchResult.patients.length) {
     return <></>;

@@ -23,7 +23,7 @@ import {
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
-const ZAMBDA_NAME = 'get unsolicited results resources';
+const ZAMBDA_NAME = 'get-unsolicited-results-resources';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {

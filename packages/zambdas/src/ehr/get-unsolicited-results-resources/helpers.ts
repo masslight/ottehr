@@ -1,9 +1,10 @@
-import Oystehr, { BatchInputGetRequest, Bundle } from '@oystehr/sdk';
+import Oystehr, { SearchParam } from '@oystehr/sdk';
 import {
   Appointment,
   DiagnosticReport,
   Encounter,
   FhirResource,
+  Organization,
   Patient,
   Practitioner,
   ServiceRequest,
@@ -19,29 +20,35 @@ import {
   GetUnsolicitedResultsResourcesForMatch,
   GetUnsolicitedResultsResourcesForTable,
   LAB_ORDER_TASK,
+  OYSTEHR_LAB_GUID_SYSTEM,
   RelatedRequestsToUnsolicitedResultOutput,
   UnsolicitedResultTaskRowDTO,
   UR_TASK_ACTION,
 } from 'utils';
-import { parseBundleResources } from '../get-chart-data/helpers';
 
-const getUnsolicitedDRandRelatedResources = async (
+export const getUnsolicitedDRandRelatedResources = async (
   oystehr: Oystehr,
-  additionalQueryParams?: string[]
+  additionalQueryParams?: SearchParam[]
 ): Promise<FhirResource[]> => {
-  const getUnsolicitedDRsAndRelatedResources: BatchInputGetRequest = {
-    method: 'GET',
-    url: `/DiagnosticReport?_tag=unsolicited&_has:Task:based-on:status=ready&_revinclude=Task:based-on${
-      additionalQueryParams ? additionalQueryParams.map((param) => `&${param}`).join('') : ''
-    }`,
-  };
+  const additionalParams = additionalQueryParams ? additionalQueryParams : [];
 
-  console.log('making transaction request for unsolicited results tasks and drs');
-  const bundle: Bundle<FhirResource> = await oystehr.fhir.transaction({
-    requests: [getUnsolicitedDRsAndRelatedResources],
-  });
-  const resources = parseBundleResources(bundle);
-  return resources;
+  console.log('making search request for unsolicited results tasks and drs');
+  const resourceSearch = (
+    await oystehr.fhir.search<FhirResource>({
+      resourceType: 'DiagnosticReport',
+      params: [
+        {
+          name: '_tag',
+          value: 'unsolicited',
+        },
+        { name: '_has:Task:based-on:status', value: 'ready' },
+        { name: '_revinclude', value: 'Task:based-on' },
+        ...additionalParams,
+      ],
+    })
+  ).unbundle();
+
+  return resourceSearch;
 };
 
 export const handleIconResourceRequest = async (oystehr: Oystehr): Promise<GetUnsolicitedResultsResourcesForIcon> => {
@@ -52,7 +59,10 @@ export const handleIconResourceRequest = async (oystehr: Oystehr): Promise<GetUn
 };
 
 export const handleGetTasks = async (oystehr: Oystehr): Promise<GetUnsolicitedResultsResourcesForTable> => {
-  const resources = await getUnsolicitedDRandRelatedResources(oystehr, ['_include=DiagnosticReport:subject']);
+  const resources = await getUnsolicitedDRandRelatedResources(oystehr, [
+    { name: '_include', value: 'DiagnosticReport:subject' },
+    { name: '_include', value: 'DiagnosticReport:performer' },
+  ]);
   console.log('grouping the resources returned by diagnostic report', resources.length);
   const groupedResources = groupResourcesByDr(resources);
   console.log('formatting the resources for response');
@@ -66,8 +76,8 @@ export const handleUnsolicitedRequestMatch = async (
   diagnosticReportId: string
 ): Promise<GetUnsolicitedResultsResourcesForMatch> => {
   const resources = await getUnsolicitedDRandRelatedResources(oystehr, [
-    `_id=${diagnosticReportId}`,
-    '_include=DiagnosticReport:subject',
+    { name: '_id', value: diagnosticReportId },
+    { name: '_include', value: 'DiagnosticReport:subject' },
   ]);
   console.log('grouping the resources returned by diagnostic report', resources.length);
   const groupedResources = groupResourcesByDr([...resources]);
@@ -111,6 +121,7 @@ type AllResources = {
   diagnosticReport: DiagnosticReport;
   readyTasks: Task[];
   patient?: Patient;
+  labOrg?: Organization;
 };
 type ResourcesByDr = {
   [diagnosticReportId: string]: AllResources;
@@ -118,13 +129,13 @@ type ResourcesByDr = {
 
 const groupResourcesByDr = (resources: FhirResource[]): ResourcesByDr => {
   const drMap: ResourcesByDr = {};
-  const diagnosticReports: DiagnosticReport[] = [];
   const readyTasks: Task[] = [];
   const patients: Patient[] = [];
   const patientRefToRelatedDrMap: Record<string, string> = {};
+  const orgRefToRelatedDrMap: Record<string, string> = {};
+  const labOrganizations: Organization[] = [];
   resources.forEach((resource) => {
     if (resource.resourceType === 'DiagnosticReport') {
-      diagnosticReports.push(resource);
       if (resource.id) {
         drMap[resource.id] = { diagnosticReport: resource, readyTasks: [] };
         const isPatientSubject = resource.subject?.reference?.startsWith('Patient/');
@@ -132,7 +143,13 @@ const groupResourcesByDr = (resources: FhirResource[]): ResourcesByDr => {
           const patientRef = resource.subject?.reference;
           if (patientRef) patientRefToRelatedDrMap[patientRef] = resource.id;
         }
+        const orgPerformer = resource.performer?.find((p) => p.reference?.startsWith('Organization/'))?.reference;
+        if (orgPerformer) orgRefToRelatedDrMap[orgPerformer] = resource.id;
       }
+    }
+    if (resource.resourceType === 'Organization') {
+      const isLabOrg = !!resource.identifier?.some((id) => id.system === OYSTEHR_LAB_GUID_SYSTEM);
+      if (isLabOrg) labOrganizations.push(resource);
     }
     if (resource.resourceType === 'Task' && resource.status === 'ready') readyTasks.push(resource);
     if (resource.resourceType === 'Patient') patients.push(resource);
@@ -151,6 +168,11 @@ const groupResourcesByDr = (resources: FhirResource[]): ResourcesByDr => {
     const drId = patientRefToRelatedDrMap[patientRef];
     drMap[drId].patient = patient;
   });
+  labOrganizations.forEach((labOrg) => {
+    const labOrgRef = `Organization/${labOrg.id}`;
+    const drId = orgRefToRelatedDrMap[labOrgRef];
+    drMap[drId].labOrg = labOrg;
+  });
   return drMap;
 };
 
@@ -160,8 +182,8 @@ const formatResourcesForTaskTableResponse = (resources: ResourcesByDr): Unsolici
     relatedResources.readyTasks.forEach((task) => {
       const taskCode = task.code?.coding?.find((c) => c.system === LAB_ORDER_TASK.system)?.code;
       if (taskCode && taskIsLabRelated(taskCode)) {
-        const { diagnosticReport, patient } = relatedResources;
-        const taskRowDescription = getURDescriptionText(taskCode, diagnosticReport, patient);
+        const { diagnosticReport, patient, labOrg } = relatedResources;
+        const taskRowDescription = getURDescriptionText(taskCode, diagnosticReport, patient, labOrg);
         const { actionText, actionUrl } = getURActionTextAndUrl(taskCode, diagnosticReport);
 
         const row: UnsolicitedResultTaskRowDTO = {
@@ -179,10 +201,16 @@ const formatResourcesForTaskTableResponse = (resources: ResourcesByDr): Unsolici
   return rows;
 };
 
-const getURDescriptionText = (code: string, diagnosticReport: DiagnosticReport, patient?: Patient): string => {
-  // todo sarah lab name should be included in the task row instruction
-  // currently this is blocked by some oystehr dev to be able to grab the lab off of DR
-  const testDescription = getTestNameFromDr(diagnosticReport);
+const getURDescriptionText = (
+  code: string,
+  diagnosticReport: DiagnosticReport,
+  patient?: Patient,
+  labOrg?: Organization
+): string => {
+  const testName = getTestNameFromDR(diagnosticReport);
+  const testItemCode = getTestItemCodeFromDR(diagnosticReport);
+  const testDescription = testName || testItemCode || 'missing test name';
+  const labName = labOrg?.name || 'Source lab not specified';
 
   // only matched results will have patient linked
   const patientName = patient ? getFullestAvailableName(patient, true) : undefined;
@@ -195,11 +223,13 @@ const getURDescriptionText = (code: string, diagnosticReport: DiagnosticReport, 
     case LAB_ORDER_TASK.code.reviewCorrectedResult:
     case LAB_ORDER_TASK.code.reviewFinalResult:
     case LAB_ORDER_TASK.code.reviewPreliminaryResult: {
-      if (!patientName) throw Error('Cannot parse patient name for a matched unsolicited result');
-      return `Review and accept/decline unsolicited results for "${testDescription}" for ${patientName}`;
+      if (!patientName) {
+        throw Error(`Cannot parse patient name for this matched unsolicited result ${diagnosticReport.id}`);
+      }
+      return `Review unsolicited test results for "${testDescription} / ${labName}" for ${patientName}`;
     }
     default: {
-      throw Error('Task code passed does not match expected input');
+      throw Error(`Task code passed to getURDescriptionText does not match expected input: ${code}`);
     }
   }
 };
@@ -219,7 +249,7 @@ const getURActionTextAndUrl = (
       return { actionText: 'Go to Lab Results', actionUrl: '/visits' }; // todo temp until results screen ticket is done
     }
     default: {
-      throw Error('Task code passed does not match expected input');
+      throw Error(`Task code passed to getURActionText does not match expected input: ${code}`);
     }
   }
 };

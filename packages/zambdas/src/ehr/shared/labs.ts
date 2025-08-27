@@ -484,6 +484,12 @@ const getLabOrderResultPDFConfig = async (
     const z3Url = content.attachment.url;
     if (z3Url) {
       const url = await getPresignedURL(z3Url, m2mToken);
+
+      if (!url) {
+        console.warn(`Skipped lab result because presigned URL could not be fetched for ${z3Url}`);
+        continue;
+      }
+
       if (resultDetails.type === LabType.external) {
         const labResult: ExternalLabOrderResultConfig = {
           name: formattedName,
