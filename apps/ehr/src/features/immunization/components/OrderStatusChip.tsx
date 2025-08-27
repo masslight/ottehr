@@ -34,6 +34,14 @@ const STATUS_TO_BG_COLOR: Record<string, Colors> = {
   },
 };
 
+const STATUS_TO_LABEL: Record<string, string> = {
+  pending: 'PENDING',
+  administered: 'ADMINISTERED',
+  'administered-partly': 'PARTLY-ADMINISTERED',
+  'administered-not': 'NOT-ADMINISTERED',
+  cancelled: 'CANCELLED',
+};
+
 export const OrderStatusChip: React.FC<Props> = ({ status }) => {
   const colors = STATUS_TO_BG_COLOR[status];
   return (
@@ -48,8 +56,8 @@ export const OrderStatusChip: React.FC<Props> = ({ status }) => {
       display="flex"
       alignItems="center"
     >
-      <Typography variant="body2" display="inline" style={{ textTransform: 'uppercase', color: colors.text }}>
-        <span style={{ fontWeight: '500' }}>{status}</span>
+      <Typography variant="body2" display="inline" style={{ color: colors.text }}>
+        <span style={{ fontWeight: '500' }}>{STATUS_TO_LABEL[status]}</span>
       </Typography>
     </Box>
   );
