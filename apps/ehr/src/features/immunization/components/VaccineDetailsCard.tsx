@@ -8,11 +8,10 @@ import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { TimeInput } from 'src/components/input/TimeInput';
 import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
-import { useAppointment } from 'src/features/css-module/hooks/useAppointment';
 import { useAdministerImmunizationOrder } from 'src/features/css-module/hooks/useImmunization';
 import { cleanupProperties } from 'src/helpers/misc.helper';
 import { ROUTE_OPTIONS, UNIT_OPTIONS } from 'src/shared/utils';
-import { useGetMedicationList } from 'src/telemed';
+import { useAppointmentData, useGetMedicationList } from 'src/telemed';
 import { EMERGENCY_CONTACT_RELATIONSHIPS, ImmunizationOrder, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { ADMINISTERED, AdministrationType, NOT_ADMINISTERED, PARTLY_ADMINISTERED } from '../common';
 import { AdministrationConfirmationDialog } from './AdministrationConfirmationDialog';
@@ -45,7 +44,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
   const administrationTypeRef = useRef<AdministrationType>(ADMINISTERED);
 
   const { id: appointmentId } = useParams();
-  const { mappedData } = useAppointment(appointmentId);
+  const { mappedData } = useAppointmentData(appointmentId);
   const { data: medications } = useGetMedicationList();
 
   const { mutateAsync: administerOrder } = useAdministerImmunizationOrder();
