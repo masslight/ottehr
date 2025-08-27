@@ -1,7 +1,6 @@
 import React from 'react';
 import { CSS_NOTE_ID, NOTE_TYPE, PRIVATE_EXTENSION_BASE_URL } from 'utils';
-import { useGetChartData } from '../../../telemed';
-import { useOystehrAPIClient } from '../../../telemed/hooks/useOystehrAPIClient';
+import { useChartData } from '../../../telemed';
 import { useInternalNotesModal } from '../hooks/useInternalNotes';
 import { ButtonRounded } from './RoundedButton';
 
@@ -14,30 +13,21 @@ const icon = (
   </svg>
 );
 
-const noop = (): void => {
-  return;
-};
-
-export const InternalNotes = ({ encounterId }: { encounterId: string }): React.ReactElement => {
-  const apiClient = useOystehrAPIClient();
+export const InternalNotes = (): React.ReactElement => {
   const { isOpen, openModal, InternalNotesModal, closeModal } = useInternalNotesModal();
-  const { data } = useGetChartData(
-    {
-      apiClient,
-      encounterId,
-      requestedFields: {
-        notes: {
-          _search_by: 'encounter',
-          _sort: '-_lastUpdated',
-          _count: 1000,
-          _tag: `${PRIVATE_EXTENSION_BASE_URL}/${NOTE_TYPE.INTERNAL}|${CSS_NOTE_ID}`,
-        },
+
+  const { chartData } = useChartData({
+    requestedFields: {
+      notes: {
+        _search_by: 'encounter',
+        _sort: '-_lastUpdated',
+        _count: 1000,
+        _tag: `${PRIVATE_EXTENSION_BASE_URL}/${NOTE_TYPE.INTERNAL}|${CSS_NOTE_ID}`,
       },
     },
-    noop
-  );
+  });
 
-  const notesCount = data?.notes?.length ?? 0;
+  const notesCount = chartData?.notes?.length ?? 0;
 
   return (
     <>

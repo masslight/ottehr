@@ -1,21 +1,21 @@
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { capitalize, IconButton, Stack, Typography } from '@mui/material';
-import React, { FC, useState } from 'react';
-import { calculatePatientAge, getPatientAddress, getSelectors, standardizePhoneNumber } from 'utils';
+import { FC, useState } from 'react';
+import { calculatePatientAge, getPatientAddress, standardizePhoneNumber } from 'utils';
 import { EditPatientDialog } from '../../../../components/dialogs';
 import { formatDateUsingSlashes } from '../../../../helpers/formatDateTime';
-import { ActionsList, useAppointmentStore } from '../../../../telemed';
+import { ActionsList, useAppointmentData } from '../../../../telemed';
 import { VisitNoteItem } from '../../../../telemed/features/appointment/ReviewTab';
 import { getPatientName } from '../../../../telemed/utils';
 
 export const PatientInformationContainer: FC = () => {
-  const { patient } = getSelectors(useAppointmentStore, ['patient']);
-
+  const { patient } = useAppointmentData();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-
   const name = getPatientName(patient?.name).firstMiddleLastName;
+
   const dob =
     patient?.birthDate && `${formatDateUsingSlashes(patient.birthDate)} (${calculatePatientAge(patient.birthDate)})`;
+
   const sex = patient?.gender && capitalize(patient.gender);
   const phone = standardizePhoneNumber(patient?.telecom?.find((obj) => obj.system === 'phone')?.value);
   const address = getPatientAddress(patient?.address).zipStateCityLine;

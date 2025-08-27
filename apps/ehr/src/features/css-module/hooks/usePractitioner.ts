@@ -2,16 +2,15 @@ import Oystehr from '@oystehr/sdk';
 import { useMutation } from '@tanstack/react-query';
 import { Coding, Encounter } from 'fhir/r4b';
 import { assignPractitioner, unassignPractitioner } from 'src/api/api';
+import { useAppointmentData } from 'src/telemed';
 import { useApiClients } from '../../../hooks/useAppClients';
-import { useAppointment } from './useAppointment';
-
 export const usePractitionerActions = (
   encounter: Encounter | undefined,
   action: 'start' | 'end',
   practitionerType: Coding[]
 ): { isEncounterUpdatePending: boolean; handleUpdatePractitioner: (practitionerId: string) => Promise<void> } => {
   const { oystehrZambda } = useApiClients();
-  const { refetch: refetchAppointment } = useAppointment(
+  const { appointmentRefetch: refetchAppointment } = useAppointmentData(
     encounter?.appointment?.[0]?.reference?.replace('Appointment/', '')
   );
 

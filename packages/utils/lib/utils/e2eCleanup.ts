@@ -33,7 +33,7 @@ export const cleanAppointmentGraph = async (tag: Coding, oystehr: Oystehr): Prom
 };
 
 // these things are important environment infra rather than ephemeral test data, so leave them alone
-const NEVER_DELETE = [
+export const NEVER_DELETE = [
   'Person',
   'Location',
   'Schedule',

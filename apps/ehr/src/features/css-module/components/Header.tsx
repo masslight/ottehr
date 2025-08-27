@@ -17,10 +17,8 @@ import {
 import { getEmployees } from '../../../api/api';
 import { dataTestIds } from '../../../constants/data-test-ids';
 import { useApiClients } from '../../../hooks/useAppClients';
-import { getSelectors } from '../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../telemed';
+import { useAppointmentData, useChartData } from '../../../telemed';
 import { useNavigationContext } from '../context/NavigationContext';
-import { useAppointment } from '../hooks/useAppointment';
 import { usePractitionerActions } from '../hooks/usePractitioner';
 import { ChangeStatusDropdown } from './ChangeStatusDropdown';
 import { InternalNotes } from './InternalNotes';
@@ -68,14 +66,16 @@ const format = (
 export const Header = (): JSX.Element => {
   const { id: appointmentID } = useParams();
   const navigate = useNavigate();
+
   const {
     resources: { appointment, patient },
     mappedData,
-    visitState: telemedData,
-    refetch,
-  } = useAppointment(appointmentID);
-  const { encounter } = telemedData;
-  const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
+    visitState,
+    appointmentRefetch,
+  } = useAppointmentData();
+
+  const { chartData } = useChartData();
+  const { encounter } = visitState;
   const encounterId = encounter?.id;
   const assignedIntakePerformerId = encounter ? getAdmitterPractitionerId(encounter) : undefined;
   const assignedProviderId = encounter ? getAttendingPractitionerId(encounter) : undefined;
@@ -154,7 +154,7 @@ export const Header = (): JSX.Element => {
     try {
       if (!appointmentID) return;
       await handleUpdatePractitionerForIntake(practitionerId);
-      await refetch();
+      await appointmentRefetch();
     } catch (error: any) {
       console.log(error.message);
       enqueueSnackbar(`An error occurred trying to update the intake assignment. Please try again.`, {
@@ -167,7 +167,7 @@ export const Header = (): JSX.Element => {
     try {
       if (!appointmentID) return;
       await handleUpdatePractitionerForProvider(practitionerId);
-      await refetch();
+      await appointmentRefetch();
     } catch (error: any) {
       console.log(error.message);
       enqueueSnackbar(`An error occurred trying to update the provider assignment. Please try again.`, {
@@ -318,7 +318,7 @@ export const Header = (): JSX.Element => {
                   handleSwitchMode={handleSwitchMode}
                   nextMode={nextMode}
                 />
-                {encounterId ? <InternalNotes encounterId={encounterId} /> : null}
+                {encounterId ? <InternalNotes /> : null}
               </Grid>
             </Grid>
           </Grid>

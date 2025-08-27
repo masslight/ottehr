@@ -283,7 +283,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       });
 
       // Move to the next line and reset x position
-      newLine(lineHeight + spacing);
+      newLine(lineHeight);
 
       // Recursively call the function with the remaining text
       drawTextSequential(remainingText, textStyle, bounds);
@@ -391,8 +391,19 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
   const embedPdfFromBase64 = async (base64String: string): Promise<void> => {
     console.log('decoding base64');
     const byteArray = Uint8Array.from(atob(base64String), (c) => c.charCodeAt(0));
+
+    console.log('getting total page count');
+    const sourcePdf = await PDFDocument.load(byteArray);
+    const totalPages = sourcePdf.getPageCount();
+    console.log(`will embed ${totalPages} pages`);
+
     console.log('embedding PDF bytes');
-    const embeddedPages = await pdfDoc.embedPdf(byteArray);
+    const embeddedPages = await pdfDoc.embedPdf(
+      byteArray,
+      Array.from({ length: totalPages }, (_, i) => i)
+    );
+
+    console.log('adding embedded pages');
     for (const embeddedPage of embeddedPages) {
       const page = pdfDoc.addPage([embeddedPage.width, embeddedPage.height]);
       page.drawPage(embeddedPage, {
@@ -402,6 +413,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
         height: embeddedPage.height,
       });
     }
+    console.log('done handling pdf attachment within pdf');
   };
 
   const embedImageFromBase64 = async (base64String: string, imgType: SupportedObsImgAttachmentTypes): Promise<void> => {
@@ -477,12 +489,12 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       }
     }
 
-    // now just write the columns, and make sure they don't bleed into other columns
+    // theres a bug here related to line break within earlier columns
     columns.forEach((col) => {
       console.log(`\n\n>>>Drawing column for ${JSON.stringify({ ...col, textStyle: undefined })}`);
       // if a new page got added on a previous column, we need the next column to go back to the previous page
       // continue writing, and if that column needs to run onto a new page, it needs to run onto the pre-existing new page
-      console.log(`Starting columb on page index ${startPageIndex}`);
+      console.log(`Starting column on page index ${startPageIndex}`);
       currentPageIndex = startPageIndex;
 
       console.log(`yPosStartOfColumn is ${yPosStartOfColumn}. Current yPos is ${currYPos}`);
