@@ -1305,16 +1305,37 @@ export const createDispositionServiceRequest = ({
     );
     orderDetail = [];
     disposition?.labService?.forEach?.((service) => {
-      orderDetail?.push?.(createCodeableConcept(undefined, `lab-service ${service}`));
+      orderDetail?.push?.(
+        createCodeableConcept([
+          {
+            code: service,
+            system: 'lab-service', // TODO phony Coding system
+          },
+        ])
+      );
     });
     disposition?.virusTest?.forEach?.((test) => {
-      orderDetail?.push?.(createCodeableConcept(undefined, `virus-test ${test}`));
+      orderDetail?.push?.(
+        createCodeableConcept([
+          {
+            code: test,
+            system: 'virus-test', // TODO phony Coding system
+          },
+        ])
+      );
     });
   }
 
   if (disposition.type === 'another' && disposition.reason) {
     orderDetail = [];
-    orderDetail?.push?.(createCodeableConcept(undefined, `reason-for-transfer ${disposition.reason}`));
+    orderDetail?.push?.(
+      createCodeableConcept([
+        {
+          code: disposition.reason,
+          system: 'reason-for-transfer', // TODO phony Coding system
+        },
+      ])
+    );
   }
 
   const followUpDaysInMinutes = typeof disposition.followUpIn === 'number' ? disposition.followUpIn * 1440 : undefined;
