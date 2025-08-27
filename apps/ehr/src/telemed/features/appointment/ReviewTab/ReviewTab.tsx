@@ -39,7 +39,7 @@ export const ReviewTab: FC = () => {
     enabled: isInitialLoad.current,
   });
 
-  const { refetch: refetchReviewAndSingData } = useGetReviewAndSignData(
+  const { refetch: refetchReviewAndSignData } = useGetReviewAndSignData(
     {
       appointmentId: appointment?.id,
       runImmediately: false,
@@ -50,8 +50,8 @@ export const ReviewTab: FC = () => {
   );
 
   const onAppointmentSigned = useCallback(async (): Promise<void> => {
-    await refetchReviewAndSingData();
-  }, [refetchReviewAndSingData]);
+    await refetchReviewAndSignData();
+  }, [refetchReviewAndSignData]);
 
   if (isChartDataLoading || isFetching) {
     return (

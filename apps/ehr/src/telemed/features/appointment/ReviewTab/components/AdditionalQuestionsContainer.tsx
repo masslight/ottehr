@@ -55,7 +55,10 @@ export const AdditionalQuestionsContainer: FC<AdditionalQuestionsContainerProps>
         );
 
         return value && value.length > 0 ? (
-          <Box data-testid={dataTestIds.telemedEhrFlow.reviewTabAdditionalQuestion(question.field)}>
+          <Box
+            key={question.field}
+            data-testid={dataTestIds.telemedEhrFlow.reviewTabAdditionalQuestion(question.field)}
+          >
             <Typography key={index}>{`${question.label} - ${value}`}</Typography>
           </Box>
         ) : null;

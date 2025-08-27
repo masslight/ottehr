@@ -10,8 +10,8 @@ import { useApiClients } from '../../../hooks/useAppClients';
 import useEvolveUser from '../../../hooks/useEvolveUser';
 import { useAppointment } from '../hooks/useAppointment';
 
-const StyledSelect = styled(Select)<{ hasDropdown?: string; arrowColor: string }>(
-  ({ hasDropdown: hasDropdown, arrowColor: arrowColor }) => ({
+const StyledSelect = styled(Select)<{ hasdropdown?: string; arrowcolor: string }>(
+  ({ hasdropdown: hasDropdown, arrowcolor: arrowColor }) => ({
     height: '32px',
     borderRadius: '4px',
     paddingLeft: '12px',
@@ -134,8 +134,8 @@ export const ChangeStatusDropdown = ({
             data-testid={dataTestIds.cssHeader.appointmentStatus}
             id="appointment-status"
             value={status}
-            {...(hasDropdown ? { hasDropdown: 'true' } : {})}
-            arrowColor={CHIP_STATUS_MAP[status].color.primary}
+            {...(hasDropdown ? { hasdropdown: 'true' } : {})}
+            arrowcolor={CHIP_STATUS_MAP[status].color.primary}
             onChange={updateInPersonVisitStatus}
             sx={{
               border: `1px solid ${CHIP_STATUS_MAP[status].color.primary}`,
