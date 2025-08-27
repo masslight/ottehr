@@ -17,8 +17,13 @@ import React, { useEffect } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { InsurancePlanDTO, isPostalCodeValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
-import { RELATIONSHIP_TO_INSURED_OPTIONS, SEX_OPTIONS, STATE_OPTIONS } from '../../constants';
-import { FormFields as AllFormFields } from '../../constants';
+import {
+  FormFields as AllFormFields,
+  InsurancePlanTypes,
+  RELATIONSHIP_TO_INSURED_OPTIONS,
+  SEX_OPTIONS,
+  STATE_OPTIONS,
+} from '../../constants';
 import { structureQuestionnaireResponse } from '../../helpers/qr-structure';
 import { useUpdatePatientAccount } from '../../hooks/useGetPatient';
 import { usePatientStore } from '../../state/patient.store';
@@ -394,7 +399,48 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
                 />
               </LabeledField>
             </Grid>
-            <Grid item xs={9} data-testid={dataTestIds.addInsuranceDialog.additionalInformation}>
+            <Grid item xs={4}>
+              <LabeledField label="Insurance type" required error={!!errors[FormFields.insurancePlanType.key]}>
+                <Controller
+                  name={FormFields.insurancePlanType.key}
+                  control={control}
+                  rules={{
+                    required: REQUIRED_FIELD_ERROR_MESSAGE,
+                    validate: (value) => InsurancePlanTypes.some((option) => option.candidCode === value),
+                  }}
+                  render={({ field: { value }, fieldState: { error } }) => {
+                    const selectedOption = InsurancePlanTypes.find((option) => option.candidCode === value?.candidCode);
+                    return (
+                      <Autocomplete
+                        options={InsurancePlanTypes}
+                        value={selectedOption}
+                        isOptionEqualToValue={(option, value) => option?.candidCode === value?.candidCode}
+                        getOptionLabel={(option) => `${option.candidCode} - ${option.label}` || ''}
+                        onChange={(_, newValue) => {
+                          if (newValue) {
+                            setValue(FormFields.insurancePlanType.key, newValue.candidCode, { shouldDirty: true });
+                          } else {
+                            setValue(FormFields.insurancePlanType.key, null);
+                          }
+                        }}
+                        disableClearable
+                        fullWidth
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            variant="outlined"
+                            error={!!error}
+                            required
+                            helperText={error?.message}
+                          />
+                        )}
+                      />
+                    );
+                  }}
+                />
+              </LabeledField>
+            </Grid>
+            <Grid item xs={5} data-testid={dataTestIds.addInsuranceDialog.additionalInformation}>
               <LabeledField label="Additional insurance information">
                 <FormTextField
                   variant="outlined"

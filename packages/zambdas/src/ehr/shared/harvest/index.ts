@@ -1395,6 +1395,7 @@ export const getCoverageResources = (input: GetCoveragesInput): GetCoverageResou
   let firstInsuranceDetails: InsuranceDetails | undefined;
   let secondPolicyHolder = getSecondaryPolicyHolderFromAnswers(questionnaireResponse.item ?? []);
   let secondInsuranceDetails = getInsuranceDetailsFromAnswers(flattenedPaperwork, organizationResources, '-2');
+  console.log('is secondary only', isSecondaryOnly);
   if (!isSecondaryOnly) {
     firstPolicyHolder = getPrimaryPolicyHolderFromAnswers(questionnaireResponse.item ?? []);
     firstInsuranceDetails = getInsuranceDetailsFromAnswers(flattenedPaperwork, organizationResources);
@@ -1404,6 +1405,8 @@ export const getCoverageResources = (input: GetCoveragesInput): GetCoverageResou
       secondInsuranceDetails ?? getInsuranceDetailsFromAnswers(flattenedPaperwork, organizationResources);
   }
 
+  console.log('First insurance details', JSON.stringify(firstInsuranceDetails));
+  console.log('Second insurance details', JSON.stringify(secondInsuranceDetails));
   const firstInsurance =
     firstPolicyHolder && firstInsuranceDetails
       ? { policyHolder: firstPolicyHolder, ...firstInsuranceDetails }
@@ -1747,8 +1750,10 @@ function getInsuranceDetailsFromAnswers(
   const org = organizations.find((org) => `${org.resourceType}/${org.id}` === insuranceOrgReference.reference);
   if (!org) return undefined;
 
-  const type = answers.find((item) => item.linkId === `insurance-plan-type${suffix}`)?.answer?.[0]?.valueCoding
-    ?.code as InsurancePlanTypeCode;
+  console.log('org', org);
+
+  const type = answers.find((item) => item.linkId === `insurance-plan-type${suffix}`)?.answer?.[0]
+    ?.valueString as InsurancePlanTypeCode;
   if (!type) return undefined;
 
   const additionalInformation = answers.find((item) => item.linkId === `insurance-additional-information${suffix}`)
@@ -1769,7 +1774,7 @@ interface CreateCoverageResourceInput {
 }
 const createCoverageResource = (input: CreateCoverageResourceInput): Coverage => {
   const { patientId, insurance } = input;
-  const { org, policyHolder, additionalInformation } = insurance;
+  const { org, policyHolder, additionalInformation, type } = insurance;
   const memberId = policyHolder.memberId;
 
   const payerId = getPayerId(org);
@@ -1809,9 +1814,10 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
   } else {
     contained = [containedPolicyHolder];
   }
-  const coverageTypeCoding = InsurancePlanTypes.find((planType) => planType.candidCode === insurance.type)
-    ?.coverageCoding;
+  const coverageTypeCoding = InsurancePlanTypes.find((planType) => planType.candidCode === type)?.coverageCoding;
+  console.log('coverageTypeCoding', coverageTypeCoding);
   if (!coverageTypeCoding) throw new Error("Can't find coverage type coding from candid code");
+  console.log('Coverage type coding:', coverageTypeCoding);
 
   const coverage: Coverage = {
     contained,
