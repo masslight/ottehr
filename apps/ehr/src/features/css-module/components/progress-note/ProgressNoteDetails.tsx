@@ -1,10 +1,30 @@
-import { Stack, Typography } from '@mui/material';
+import { otherColors } from '@ehrTheme/colors';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import { Box, Divider, Stack, Typography } from '@mui/material';
+import { DateTime } from 'luxon';
 import { FC } from 'react';
+import { RoundedButton } from 'src/components/RoundedButton';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { ProceduresContainer } from 'src/telemed/features/appointment/ReviewTab/components/ProceduresContainer';
-import { getProgressNoteChartDataRequestedFields, LabType, NOTE_TYPE } from 'utils';
+import { useOystehrAPIClient } from 'src/telemed/hooks/useOystehrAPIClient';
+import {
+  getProgressNoteChartDataRequestedFields,
+  getVisitStatus,
+  LabType,
+  NOTE_TYPE,
+  TelemedAppointmentStatusEnum,
+} from 'utils';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { getSelectors } from '../../../../shared/store/getSelectors';
-import { AccordionCard, SectionList, useAppointmentStore, usePatientInstructionsVisibility } from '../../../../telemed';
+import {
+  AccordionCard,
+  ConfirmationDialog,
+  SectionList,
+  useAppointmentStore,
+  useChangeTelemedAppointmentStatusMutation,
+  usePatientInstructionsVisibility,
+  useSignAppointmentMutation,
+} from '../../../../telemed';
 import {
   AdditionalQuestionsContainer,
   AllergiesContainer,
@@ -22,6 +42,8 @@ import {
   ReviewOfSystemsContainer,
   SurgicalHistoryContainer,
 } from '../../../../telemed/features/appointment/ReviewTab';
+import { useFeatureFlags } from '../../context/featureFlags';
+import { useAppointment } from '../../hooks/useAppointment';
 import { useChartData } from '../../hooks/useChartData';
 import { useMedicationAPI } from '../../hooks/useMedicationOperations';
 import { ExamReadOnlyBlock } from '../examination/ExamReadOnly';
@@ -30,12 +52,19 @@ import { InHouseMedicationsContainer } from './InHouseMedicationsContainer';
 import { PatientVitalsContainer } from './PatientVitalsContainer';
 
 export const ProgressNoteDetails: FC = () => {
-  const { chartData, encounter, setPartialChartData } = getSelectors(useAppointmentStore, [
+  const { appointment, chartData, encounter, setPartialChartData } = getSelectors(useAppointmentStore, [
+    'appointment',
     'chartData',
     'encounter',
     'setPartialChartData',
   ]);
-
+  const apiClient = useOystehrAPIClient();
+  const { css } = useFeatureFlags();
+  const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
+  const { mutateAsync: changeTelemedAppointmentStatus, isPending: isChangeLoading } =
+    useChangeTelemedAppointmentStatusMutation();
+  const { refetch } = useAppointment(appointment?.id);
+  const isLoading = isChangeLoading || isSignLoading;
   const { chartData: additionalChartData } = useChartData({
     encounterId: encounter.id || '',
     requestedFields: getProgressNoteChartDataRequestedFields(),
@@ -101,6 +130,24 @@ export const ProgressNoteDetails: FC = () => {
   const showVitalsObservations =
     !!(vitalsObservations && vitalsObservations.length > 0) || !!(vitalsNotes && vitalsNotes.length > 0);
 
+  let isAwaitingSupervisorApproval = false;
+  if (appointment) {
+    isAwaitingSupervisorApproval =
+      getVisitStatus(appointment, encounter, FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED) ===
+      'awaiting supervisor approval';
+  }
+
+  const medicalHistorySections = [
+    <AllergiesContainer notes={allergyNotes} />,
+    <MedicationsContainer notes={intakeMedicationNotes} />,
+    <MedicalConditionsContainer notes={medicalConditionNotes} />,
+    <SurgicalHistoryContainer notes={surgicalHistoryNotes} />,
+    <HospitalizationContainer notes={hospitalizationNotes} />,
+    showInHouseMedications && (
+      <InHouseMedicationsContainer medications={inHouseMedications} notes={inHouseMedicationNotes} />
+    ),
+  ].filter(Boolean);
+
   const sections = [
     showChiefComplaint && <ChiefComplaintContainer />,
     showReviewOfSystems && <ReviewOfSystemsContainer />,
@@ -112,14 +159,7 @@ export const ProgressNoteDetails: FC = () => {
       </Typography>
       <ExamReadOnlyBlock />
     </Stack>,
-    <AllergiesContainer notes={allergyNotes} />,
-    <MedicationsContainer notes={intakeMedicationNotes} />,
-    <MedicalConditionsContainer notes={medicalConditionNotes} />,
-    <SurgicalHistoryContainer notes={surgicalHistoryNotes} />,
-    <HospitalizationContainer notes={hospitalizationNotes} />,
-    showInHouseMedications && (
-      <InHouseMedicationsContainer medications={inHouseMedications} notes={inHouseMedicationNotes} />
-    ),
+    ...(!isAwaitingSupervisorApproval ? medicalHistorySections : []),
     showAssessment && <AssessmentContainer />,
     showMedicalDecisionMaking && <MedicalDecisionMakingContainer />,
     showEmCode && <EMCodeContainer />,
@@ -142,8 +182,96 @@ export const ProgressNoteDetails: FC = () => {
     <PrivacyPolicyAcknowledgement />,
   ].filter(Boolean);
 
+  const handleApprove = async (): Promise<void> => {
+    if (!apiClient || !appointment?.id) {
+      throw new Error('api client not defined or appointmentId not provided');
+    }
+
+    if (css) {
+      try {
+        const tz = DateTime.now().zoneName;
+        await signAppointment({
+          apiClient,
+          appointmentId: appointment.id,
+          timezone: tz,
+          supervisorApprovalEnabled: FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED,
+        });
+        await refetch();
+      } catch (error: any) {
+        console.log(error.message);
+      }
+    } else {
+      await changeTelemedAppointmentStatus({
+        apiClient,
+        appointmentId: appointment.id,
+        newStatus: TelemedAppointmentStatusEnum.complete,
+        supervisorApprovalEnabled: FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED,
+      });
+      useAppointmentStore.setState({
+        encounter: { ...encounter, status: 'finished' },
+        appointment: { ...appointment, status: 'fulfilled' },
+      });
+    }
+  };
+
   return (
-    <AccordionCard label="Objective" dataTestId={dataTestIds.progressNotePage.visitNoteCard}>
+    <AccordionCard label="Visit Note" dataTestId={dataTestIds.progressNotePage.visitNoteCard}>
+      {FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED && isAwaitingSupervisorApproval && (
+        <>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 1,
+              mt: 1.5,
+              mx: 2,
+              mb: 1,
+              p: 2,
+              border: 1,
+              borderColor: otherColors.warningBorder,
+              borderRadius: 2,
+            }}
+          >
+            <Box
+              sx={{
+                display: 'flex',
+                width: 'fit-content',
+                marginTop: 1,
+                px: 2,
+                py: 1,
+                borderRadius: 0.5,
+                gap: 1.5,
+                alignItems: 'center',
+                bgcolor: otherColors.lightErrorBg,
+              }}
+            >
+              <ErrorOutlineIcon sx={{ color: otherColors.warningIcon }} />
+              <Typography color={otherColors.warningText} fontWeight={600}>
+                Medical History should be confirmed by the provider
+              </Typography>
+              <ConfirmationDialog
+                title="Supervisor Approval"
+                description={'Are you sure you want to approve this visit? Claim will be sent to RCM.'}
+                response={handleApprove}
+                actionButtons={{
+                  back: { text: 'Cancel' },
+                  proceed: { text: 'Approve', loading: isLoading },
+                  reverse: true,
+                }}
+              >
+                {(showDialog) => (
+                  <RoundedButton variant="contained" size="small" onClick={showDialog}>
+                    Confirm
+                  </RoundedButton>
+                )}
+              </ConfirmationDialog>
+            </Box>
+
+            <SectionList sections={medicalHistorySections} />
+          </Box>
+          <Divider />
+        </>
+      )}
       <SectionList sections={sections} sx={{ p: 2 }} />
     </AccordionCard>
   );

@@ -80,6 +80,7 @@ export const otherColors = {
     'linear-gradient(0deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.9)), linear-gradient(0deg, #ED6C02, #ED6C02)',
   warningIcon: '#ED6C02',
   warningText: '#5F2B00',
+  warningBorder: '#EF9A9A',
   infoAlert: '#e3f2fd',
   sidebarItemHover: '#F6F9FF',
   lightErrorBg: '#FBEAEA',

@@ -1,5 +1,6 @@
 import { progressNoteIcon, startIntakeIcon } from '@ehrTheme/icons';
 import ChatOutlineIcon from '@mui/icons-material/ChatOutlined';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import LogoutIcon from '@mui/icons-material/Logout';
 import MedicalInformationIcon from '@mui/icons-material/MedicalInformationOutlined';
@@ -22,19 +23,23 @@ import {
   useTheme,
 } from '@mui/material';
 import { Operation } from 'fast-json-patch';
-import { Appointment } from 'fhir/r4b';
+import { Appointment, Location, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import { otherColors } from 'src/themes/ottehr/colors';
 import {
   formatMinutes,
   getDurationOfStatus,
   getPatchBinary,
+  getPractitionerNPIIdentifier,
+  getPractitionerQualificationByLocation,
   getVisitTotalTime,
   InPersonAppointmentInformation,
+  mdyStringFromISOString,
   OrdersForTrackingBoardRow,
   PROJECT_NAME,
   ROOM_EXTENSION_URL,
@@ -181,6 +186,14 @@ export const CHIP_STATUS_MAP: {
       primary: '#546E7A',
     },
   },
+  'awaiting supervisor approval': {
+    background: {
+      primary: '#FFFFFF',
+    },
+    color: {
+      primary: '#546E7A',
+    },
+  },
   cancelled: {
     background: {
       primary: '#FECDD2',
@@ -224,6 +237,20 @@ const longWaitTimeFlag = (appointment: InPersonAppointmentInformation, statusTim
   }
   return false;
 };
+
+function canApprove(practitioner: Practitioner, location: Location, attenderQualification?: string): boolean {
+  if (attenderQualification && ['MD', 'OD'].includes(attenderQualification)) return false;
+  if (!practitioner) return false;
+
+  const qualification = getPractitionerQualificationByLocation(practitioner, location);
+
+  const isPhysician = qualification && ['MD', 'OD'].includes(qualification);
+
+  if (!isPhysician) return false;
+
+  const npiIdentifier = getPractitionerNPIIdentifier(practitioner);
+  return Boolean(npiIdentifier?.value);
+}
 
 export default function AppointmentTableRow({
   appointment,
@@ -655,6 +682,39 @@ export default function AppointmentTableRow({
     return undefined;
   };
 
+  const renderSupervisorApproval = (): ReactElement | undefined => {
+    if (
+      appointment.status === 'awaiting supervisor approval' &&
+      canApprove(user.profileResource!, location!, appointment.attenderQualification)
+    ) {
+      return (
+        <GoToButton
+          text="Approve"
+          loading={progressNoteButtonLoading}
+          onClick={handleProgressNoteButton}
+          dataTestId={dataTestIds.dashboard.approveButton}
+        >
+          <CheckCircleOutlineIcon />
+        </GoToButton>
+      );
+    } else if (appointment.status === 'completed' && appointment.approvalDate) {
+      return (
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            color: theme.palette.text.secondary,
+          }}
+        >
+          <Typography align="center">Approved</Typography>
+          <Typography align="center">{mdyStringFromISOString(appointment.approvalDate)}</Typography>
+        </Box>
+      );
+    }
+    return undefined;
+  };
+
   const handleDischargeButton = async (): Promise<void> => {
     setDischargeButtonLoading(true);
     try {
@@ -923,7 +983,7 @@ export default function AppointmentTableRow({
                     height: '20px',
                     width: '20px',
                   }}
-                ></ChatOutlineIcon>
+                />
               </Badge>
             ) : (
               <ChatOutlineIcon
@@ -932,7 +992,7 @@ export default function AppointmentTableRow({
                   height: '20px',
                   width: '20px',
                 }}
-              ></ChatOutlineIcon>
+              />
             )}
           </IconButton>
         )}
@@ -949,6 +1009,7 @@ export default function AppointmentTableRow({
           {renderStartIntakeButton()}
           {renderProgressNoteButton()}
           {renderDischargeButton()}
+          {FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED && renderSupervisorApproval()}
         </Stack>
       </TableCell>
       {actionButtons && (

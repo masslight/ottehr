@@ -1,8 +1,18 @@
 import CheckIcon from '@mui/icons-material/Check';
-import { Box, Tooltip, Typography } from '@mui/material';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import { Box, Checkbox, DialogContentText, FormControlLabel, Stack, Tooltip, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
-import { FC, useMemo, useState } from 'react';
-import { getVisitStatus, PRACTITIONER_CODINGS, TelemedAppointmentStatusEnum } from 'utils';
+import { FC, useCallback, useMemo, useState } from 'react';
+import { pendingSupervisorApproval } from 'src/api/api';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
+import { useApiClients } from 'src/hooks/useAppClients';
+import useEvolveUser from 'src/hooks/useEvolveUser';
+import {
+  getPractitionerQualificationByLocation,
+  getVisitStatus,
+  PRACTITIONER_CODINGS,
+  TelemedAppointmentStatusEnum,
+} from 'utils';
 import { RoundedButton } from '../../../../components/RoundedButton';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { useFeatureFlags } from '../../../../features/css-module/context/featureFlags';
@@ -24,18 +34,25 @@ type ReviewAndSignButtonProps = {
 };
 
 export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) => {
-  const { patient, appointment, encounter, chartData } = getSelectors(useAppointmentStore, [
+  const { patient, appointment, encounter, chartData, location } = getSelectors(useAppointmentStore, [
     'patient',
     'appointment',
     'encounter',
     'chartData',
+    'location',
   ]);
   const apiClient = useOystehrAPIClient();
+  const practitioner = useEvolveUser()?.profileResource;
   const { mutateAsync: changeTelemedAppointmentStatus, isPending: isChangeLoading } =
     useChangeTelemedAppointmentStatusMutation();
   const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
   const [openTooltip, setOpenTooltip] = useState(false);
+  const [requireSupervisorApproval, setRequireSupervisorApproval] = useState(false);
 
+  const { updateVisitStatusToAwaitSupervisorApproval } = usePendingSupervisorApproval({
+    encounterId: encounter.id!,
+    practitionerId: practitioner?.id ?? '',
+  });
   const { refetch } = useAppointment(appointment?.id);
   const { css } = useFeatureFlags();
   const appointmentAccessibility = useGetAppointmentAccessibility();
@@ -117,34 +134,48 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
       throw new Error('api client not defined or appointmentId not provided');
     }
 
-    if (css) {
-      try {
-        const tz = DateTime.now().zoneName;
-        await signAppointment({
+    if (FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED && requireSupervisorApproval) {
+      await updateVisitStatusToAwaitSupervisorApproval();
+    } else {
+      if (css) {
+        try {
+          const tz = DateTime.now().zoneName;
+          await signAppointment({
+            apiClient,
+            appointmentId: appointment.id,
+            timezone: tz,
+            supervisorApprovalEnabled: FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED,
+          });
+          await refetch();
+        } catch (error: any) {
+          console.log(error.message);
+        }
+      } else {
+        await changeTelemedAppointmentStatus({
           apiClient,
           appointmentId: appointment.id,
-          timezone: tz,
+          newStatus: TelemedAppointmentStatusEnum.complete,
         });
-        await refetch();
-      } catch (error: any) {
-        console.log(error.message);
+        useAppointmentStore.setState({
+          encounter: { ...encounter, status: 'finished' },
+          appointment: { ...appointment, status: 'fulfilled' },
+        });
       }
-    } else {
-      await changeTelemedAppointmentStatus({
-        apiClient,
-        appointmentId: appointment.id,
-        newStatus: TelemedAppointmentStatusEnum.complete,
-      });
-      useAppointmentStore.setState({
-        encounter: { ...encounter, status: 'finished' },
-        appointment: { ...appointment, status: 'fulfilled' },
-      });
     }
 
     if (onSigned) {
       onSigned();
     }
   };
+
+  const showSupervisorCheckbox = useMemo(() => {
+    if (!location || !practitioner) return false;
+
+    const qualification = getPractitionerQualificationByLocation(practitioner, location);
+    const isPhysician = qualification && ['MD', 'OD'].includes(qualification);
+
+    return !isPhysician;
+  }, [practitioner, location]);
 
   return (
     <Box sx={{ display: 'flex', justifyContent: 'end' }}>
@@ -159,13 +190,40 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
       >
         <Box>
           <ConfirmationDialog
-            title={`Review & Sign ${patientName}`}
-            description="Are you sure you have reviewed the patient chart, performed the examination, defined the diagnoses, medical decision making and E&M code and are ready to sign this patient."
+            title={`Review and Sign ${patientName}`}
+            description={
+              <Stack spacing={2}>
+                <DialogContentText>
+                  Are you sure you have reviewed the patient chart, performed the examination, defined the diagnoses,
+                  medical decision making and E&M code and are ready to sign this patient.
+                </DialogContentText>
+
+                {FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED && showSupervisorCheckbox && (
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={requireSupervisorApproval}
+                        onChange={(e) => setRequireSupervisorApproval(e.target.checked)}
+                      />
+                    }
+                    label={
+                      <Box display="flex" alignItems="center" gap={0.5}>
+                        Require Supervisor approval
+                        <Tooltip
+                          placement="top"
+                          title="When this option is ON, the button 'Approve' becomes available for Supervisor on the complete visits on Discharged tab of the Tracking Board. Once approved, the claim will be submitted to RCM."
+                        >
+                          <InfoOutlinedIcon fontSize="small" color="action" />
+                        </Tooltip>
+                      </Box>
+                    }
+                  />
+                )}
+              </Stack>
+            }
             response={handleSign}
             actionButtons={{
-              proceed: {
-                text: 'Sign',
-              },
+              proceed: { text: 'Sign' },
               back: { text: 'Cancel' },
             }}
           >
@@ -186,4 +244,60 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
       </Tooltip>
     </Box>
   );
+};
+
+export const usePendingSupervisorApproval = ({
+  encounterId,
+  practitionerId,
+}: {
+  encounterId: string;
+  practitionerId: string;
+}): {
+  loading: boolean;
+  error: Error | null;
+  updateVisitStatusToAwaitSupervisorApproval: () => Promise<void>;
+} => {
+  const { oystehrZambda } = useApiClients();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  const updateVisitStatusToAwaitSupervisorApproval = useCallback(async (): Promise<void> => {
+    if (!oystehrZambda) {
+      console.error('oystehrZambda is not defined');
+      return;
+    }
+
+    if (!encounterId) {
+      console.error('encounterId is undefined — skipping update.');
+      return;
+    }
+
+    if (!practitionerId) {
+      console.error('practitionerId is undefined — skipping update.');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      try {
+        await pendingSupervisorApproval(oystehrZambda, { encounterId, practitionerId });
+      } catch (err) {
+        console.error('Error updating nursing order:', err);
+        setError(err instanceof Error ? err : new Error('Unknown error occurred'));
+      }
+    } catch (error) {
+      console.error('error with setting pending supervisor approval:', error);
+      setError(error instanceof Error ? error : new Error('Unknown error occurred'));
+    } finally {
+      setLoading(false);
+    }
+  }, [oystehrZambda, encounterId, practitionerId]);
+
+  return {
+    loading,
+    error,
+    updateVisitStatusToAwaitSupervisorApproval,
+  };
 };
