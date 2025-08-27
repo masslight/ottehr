@@ -93,7 +93,7 @@ export const UnsolicitedResultsMatch: React.FC = () => {
       value: data?.labInfo?.test,
     },
     {
-      fieldName: 'Lab',
+      fieldName: 'Performing Lab',
       value: data?.labInfo?.labName,
     },
     {
