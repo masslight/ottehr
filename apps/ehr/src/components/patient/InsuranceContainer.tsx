@@ -18,8 +18,8 @@ import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../../
 import {
   FormFields as AllFormFields,
   INSURANCE_COVERAGE_OPTIONS,
+  InsurancePlanTypes,
   InsurancePriorityOptions,
-  InsuranceTypes,
   PatientAddressFields,
   PatientIdentifyingFields,
   RELATIONSHIP_TO_INSURED_OPTIONS,
@@ -292,33 +292,27 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
           }}
         />
       </Row>
-      <Row label="Insurance Type" required dataTestId={dataTestIds.insuranceContainer.insuranceCarrier}>
+      <Row label="Insurance Type" required dataTestId={dataTestIds.insuranceContainer.insurancePlanType}>
         <Controller
-          name={FormFields.insuranceType.key}
+          name={FormFields.insurancePlanType.key}
           control={control}
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
-            validate: (value) =>
-              InsuranceTypes.some((option) => {
-                console.log(`option ${JSON.stringify(option)}, value ${JSON.stringify(value)}`);
-                return option.code === value;
-              }),
+            validate: (value) => InsurancePlanTypes.some((option) => option.code === value),
           }}
           render={({ field: { value }, fieldState: { error } }) => {
-            const selectedOption = InsuranceTypes.find((option) => option.code === value?.code);
+            const selectedOption = InsurancePlanTypes.find((option) => option.code === value?.code);
             return (
               <Autocomplete
-                options={InsuranceTypes}
+                options={InsurancePlanTypes}
                 value={selectedOption}
-                isOptionEqualToValue={(option, value) => {
-                  return option?.code === value?.code;
-                }}
+                isOptionEqualToValue={(option, value) => option?.code === value?.code}
                 getOptionLabel={(option) => `${option.code} - ${option.label}` || ''}
                 onChange={(_, newValue) => {
                   if (newValue) {
-                    setValue(FormFields.insuranceType.key, newValue.code, { shouldDirty: true });
+                    setValue(FormFields.insurancePlanType.key, newValue.code, { shouldDirty: true });
                   } else {
-                    setValue(FormFields.insuranceType.key, null);
+                    setValue(FormFields.insurancePlanType.key, null);
                   }
                 }}
                 disableClearable

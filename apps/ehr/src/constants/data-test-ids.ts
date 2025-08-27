@@ -129,6 +129,7 @@ export const dataTestIds = {
   insuranceContainer: {
     type: 'insurance-type',
     insuranceCarrier: 'insurance-carrier',
+    insurancePlanType: 'insurance-plan-type',
     memberId: 'insurance-member-id',
     showMoreButton: 'insurance-show-more-button',
     hideButton: 'insurance-hide-button',

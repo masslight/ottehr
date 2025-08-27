@@ -594,7 +594,7 @@ export const FormFields = {
     {
       insurancePriority: { key: 'insurance-priority', type: 'String' },
       insuranceCarrier: { key: 'insurance-carrier', type: 'Reference' },
-      insuranceType: { key: 'insurance-type', type: 'String' },
+      insurancePlanType: { key: 'insurance-plan-type', type: 'String' },
       memberId: { key: 'insurance-member-id', type: 'String' },
       firstName: { key: 'policy-holder-first-name', type: 'String' },
       middleName: { key: 'policy-holder-middle-name', type: 'String' },
@@ -613,7 +613,7 @@ export const FormFields = {
     {
       insurancePriority: { key: 'insurance-priority-2', type: 'String' },
       insuranceCarrier: { key: 'insurance-carrier-2', type: 'Reference' },
-      insuranceType: { key: 'insurance-type-2', type: 'String' },
+      insurancePlanType: { key: 'insurance-plan-type-2', type: 'String' },
       memberId: { key: 'insurance-member-id-2', type: 'String' },
       firstName: { key: 'policy-holder-first-name-2', type: 'String' },
       middleName: { key: 'policy-holder-middle-name-2', type: 'String' },
@@ -654,7 +654,7 @@ export const FormFields = {
   },
 };
 
-export const InsuranceTypes = [
+export const InsurancePlanTypes = [
   { code: '9', label: 'Self Pay' },
   { code: '11', label: 'Other Non-Federal Programs' },
   { code: '12', label: 'PPO' },
