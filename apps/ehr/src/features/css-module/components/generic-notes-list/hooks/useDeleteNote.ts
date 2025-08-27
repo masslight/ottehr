@@ -2,16 +2,15 @@ import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { useCallback } from 'react';
 import { ChartDataFields, GetChartDataResponse } from 'utils';
-import { useDeleteChartData } from '../../../../../telemed';
-import { useChartData } from '../../../hooks/useChartData';
+import { useChartData, useDeleteChartData } from '../../../../../telemed';
 import { EditableNote, UseDeleteNote } from '../types';
 import { useChartDataCacheKey } from './useChartDataCacheKey';
 
-export const useDeleteNote: UseDeleteNote = ({ encounterId, apiConfig, locales }) => {
+export const useDeleteNote: UseDeleteNote = ({ appointmentId, apiConfig, locales }) => {
   const queryClient = useQueryClient();
   const { mutate: deleteChartData } = useDeleteChartData();
-  const { refetch } = useChartData({
-    encounterId,
+  const { chartDataRefetch: refetch } = useChartData({
+    appointmentId,
     requestedFields: { [apiConfig.fieldName]: apiConfig.searchParams },
   });
   const cacheKey = useChartDataCacheKey(apiConfig.fieldName, apiConfig.searchParams);
@@ -44,7 +43,7 @@ export const useDeleteNote: UseDeleteNote = ({ encounterId, apiConfig, locales }
               reject(error);
             }
           },
-          onError: (error) => {
+          onError: (error: any) => {
             console.error(error);
             enqueueSnackbar(locales.getErrorMessage('deletion', locales.entityLabel), { variant: 'error' });
             reject(error);

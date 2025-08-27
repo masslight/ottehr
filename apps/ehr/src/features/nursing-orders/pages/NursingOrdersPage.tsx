@@ -3,7 +3,7 @@ import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getNursingOrderCreateUrl } from 'src/features/css-module/routing/helpers';
 import { PageTitle } from '../../../telemed/components/PageTitle';
-import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
+import { useAppointmentData } from '../../../telemed/state/appointment/appointment.store';
 import { ButtonRounded } from '../../css-module/components/RoundedButton';
 import { NursingOrdersTable, NursingOrdersTableColumn } from '../components/orders/NursingOrdersTable';
 
@@ -11,8 +11,9 @@ const nursingOrdersColumns: NursingOrdersTableColumn[] = ['order', 'orderAdded',
 
 export const NursingOrdersPage: React.FC = () => {
   const navigate = useNavigate();
-  const appointmentId = useAppointmentStore((state) => state.appointment?.id);
-  const encounterId = useAppointmentStore((state) => state.encounter?.id);
+  const { appointment, encounter } = useAppointmentData();
+  const appointmentId = appointment?.id;
+  const encounterId = encounter?.id;
 
   const handleCreateOrder = useCallback((): void => {
     if (!appointmentId) {
