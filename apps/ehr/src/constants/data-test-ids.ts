@@ -28,6 +28,7 @@ export const dataTestIds = {
   dashboard: {
     appointmentsTable: (tab: 'prebooked' | 'in-office' | 'completed' | 'cancelled') => `appointments-table-${tab}`,
     addPatientButton: 'add-patient-button',
+    approveButton: 'approve-button',
     intakeButton: `intake-button`,
     visitDetailsButton: `visit-details-button`,
     progressNoteButton: `progress-note-button`,

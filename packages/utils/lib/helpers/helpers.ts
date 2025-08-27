@@ -2,15 +2,29 @@ import Oystehr, { OystehrConfig } from '@oystehr/sdk';
 import {
   Appointment,
   Extension,
+  Location,
   Organization,
   PaymentNotice,
+  Practitioner,
   QuestionnaireResponseItemAnswer,
   Resource,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { FHIR_IDENTIFIER_SYSTEM, OTTEHR_MODULE, PAYMENT_METHOD_EXTENSION_URL, SLUG_SYSTEM } from '../fhir';
-import { CashPaymentDTO, PatchPaperworkParameters, ScheduleOwnerFhirResource } from '../types';
+import {
+  allLicensesForPractitioner,
+  FHIR_IDENTIFIER_SYSTEM,
+  OTTEHR_MODULE,
+  PAYMENT_METHOD_EXTENSION_URL,
+  SLUG_SYSTEM,
+} from '../fhir';
+import {
+  CashPaymentDTO,
+  PatchPaperworkParameters,
+  PractitionerQualificationCode,
+  ScheduleOwnerFhirResource,
+} from '../types';
 import { phoneRegex, zipRegex } from '../validation';
+import { AllStatesToNames } from './states';
 
 export function createOystehrClient(token: string, fhirAPI: string, projectAPI: string): Oystehr {
   const FHIR_API = fhirAPI.replace(/\/r4/g, '');
@@ -1190,4 +1204,16 @@ export const getPayerId = (org: Organization | undefined): string | undefined =>
       identifier.type?.coding?.some((coding) => coding.system === FHIR_IDENTIFIER_SYSTEM && coding.code === 'XX')
   )?.value;
   return payerId;
+};
+
+export const getPractitionerQualificationByLocation = (
+  practitioner: Practitioner,
+  location: Location
+): PractitionerQualificationCode | undefined => {
+  const existedLicenses = allLicensesForPractitioner(practitioner);
+  const qualification = existedLicenses.find(
+    (license) => license.active && AllStatesToNames[license.state] === location.name
+  )?.code;
+
+  return qualification;
 };
