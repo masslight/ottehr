@@ -3,13 +3,9 @@ import { DateTime } from 'luxon';
 import { Color, PDFFont, PDFImage, StandardFonts } from 'pdf-lib';
 import {
   AdditionalBooleanQuestionsFieldsNames,
-  ExamObservationFieldItem,
-  ExamTabCardNames,
   ExternalLabOrderResult,
   Gender,
   InHouseLabResult as IInHouseLabResult,
-  InPersonExamObservationFieldItem,
-  InPersonExamTabProviderCardNames,
   LabType,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   QuantityComponent,
@@ -103,33 +99,17 @@ export interface PdfClient {
   drawLink: (text: string, url: string, textStyle: TextStyle) => void;
 }
 
-export type TelemedExamBlockData = {
-  [group in Exclude<ExamTabCardNames, 'vitals'>]: {
-    items?: ExamObservationFieldItem[];
-    extraItems?: string[];
-    leftItems?: ExamObservationFieldItem[];
-    rightItems?: ExamObservationFieldItem[];
-    comment?: string;
+export interface PdfExaminationBlockData {
+  examination: {
+    [group: string]: {
+      items?: Array<{
+        field: string;
+        label: string;
+        abnormal: boolean;
+      }>;
+      comment?: string;
+    };
   };
-} & {
-  vitals: {
-    temp: string;
-    pulseOx: string;
-    hr: string;
-    rr: string;
-    bp: string;
-  };
-};
-
-export type InPersonExamBlockData = {
-  [group in InPersonExamTabProviderCardNames]: {
-    items?: InPersonExamObservationFieldItem[];
-    comment?: string;
-  };
-};
-
-export interface ExaminationBlockData {
-  examination: TelemedExamBlockData | InPersonExamBlockData;
 }
 
 // todo might make sense to have a separate interface for the order pdf base
@@ -261,7 +241,7 @@ export type ResultDataConfig =
   | { type: LabType.inHouse; data: InHouseLabResultsData }
   | { type: LabType.unsolicited; data: UnsolicitedExternalLabResultsData };
 
-export interface VisitNoteData extends ExaminationBlockData {
+export interface VisitNoteData extends PdfExaminationBlockData {
   patientName: string;
   patientDOB: string;
   personAccompanying: string;

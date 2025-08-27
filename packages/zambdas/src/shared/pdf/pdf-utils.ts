@@ -391,8 +391,19 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
   const embedPdfFromBase64 = async (base64String: string): Promise<void> => {
     console.log('decoding base64');
     const byteArray = Uint8Array.from(atob(base64String), (c) => c.charCodeAt(0));
+
+    console.log('getting total page count');
+    const sourcePdf = await PDFDocument.load(byteArray);
+    const totalPages = sourcePdf.getPageCount();
+    console.log(`will embed ${totalPages} pages`);
+
     console.log('embedding PDF bytes');
-    const embeddedPages = await pdfDoc.embedPdf(byteArray);
+    const embeddedPages = await pdfDoc.embedPdf(
+      byteArray,
+      Array.from({ length: totalPages }, (_, i) => i)
+    );
+
+    console.log('adding embedded pages');
     for (const embeddedPage of embeddedPages) {
       const page = pdfDoc.addPage([embeddedPage.width, embeddedPage.height]);
       page.drawPage(embeddedPage, {
@@ -402,6 +413,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
         height: embeddedPage.height,
       });
     }
+    console.log('done handling pdf attachment within pdf');
   };
 
   const embedImageFromBase64 = async (base64String: string, imgType: SupportedObsImgAttachmentTypes): Promise<void> => {

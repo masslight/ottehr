@@ -1,10 +1,9 @@
 import { FC } from 'react';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
-import { useAppointmentStore } from 'src/telemed';
-import { getSelectors } from 'utils';
+import { useAppointmentData } from 'src/telemed';
 
 export const BreadCrumbs: FC = () => {
-  const { appointment } = getSelectors(useAppointmentStore, ['appointment']);
+  const { appointment } = useAppointmentData();
 
   return (
     <CustomBreadcrumbs

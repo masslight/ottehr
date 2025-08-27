@@ -1,6 +1,5 @@
 import { Stack, Typography } from '@mui/material';
 import { FC } from 'react';
-import { useParams } from 'react-router-dom';
 import { CSSLoader } from 'src/features/css-module/components/CSSLoader';
 import VitalsNotesCard from 'src/features/css-module/components/patient-info/VitalsNotesCard';
 import VitalsBloodPressureCard from 'src/features/css-module/components/vitals/blood-pressure/VitalsBloodPressureCard';
@@ -15,21 +14,15 @@ import VitalsTemperaturesCard from 'src/features/css-module/components/vitals/te
 import VitalsVisionCard from 'src/features/css-module/components/vitals/vision/VitalsVisionCard';
 import VitalsWeightsCard from 'src/features/css-module/components/vitals/weights/VitalsWeightsCard';
 import { useNavigationContext } from 'src/features/css-module/context/NavigationContext';
-import { useAppointment } from 'src/features/css-module/hooks/useAppointment';
+import { useAppointmentData, useChartData } from 'src/telemed';
 import { PageTitle } from 'src/telemed/components/PageTitle';
-import { useAppointmentStore } from 'src/telemed/state';
-import { getSelectors, VitalFieldNames, VitalsObservationDTO } from 'utils';
+import { VitalFieldNames, VitalsObservationDTO } from 'utils';
 
 export const VitalsTab: FC = () => {
-  const { id: appointmentID } = useParams();
-  const {
-    resources: { appointment, encounter },
-    isLoading,
-    error,
-  } = useAppointment(appointmentID);
-
-  const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);
-
+  const { appointment, encounter, isAppointmentLoading, appointmentError } = useAppointmentData();
+  const { isChartDataLoading, chartDataError } = useChartData();
+  const error = appointmentError || chartDataError;
+  const isLoading = isAppointmentLoading || isChartDataLoading;
   const { interactionMode } = useNavigationContext();
 
   // todo: this duplicates the functionality of PatientVitals page and could be refactored to use a shared component

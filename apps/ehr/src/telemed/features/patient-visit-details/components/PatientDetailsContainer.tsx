@@ -1,17 +1,19 @@
 import { FC } from 'react';
 import { getQuestionnaireResponseByLinkId } from 'utils';
-import { getSelectors } from '../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../state';
+import { useAppointmentData } from '../../../state';
 import { InformationCard } from './InformationCard';
 
 export const PatientDetailsContainer: FC = () => {
-  const { patient, questionnaireResponse } = getSelectors(useAppointmentStore, ['patient', 'questionnaireResponse']);
+  const { patient, questionnaireResponse } = useAppointmentData();
 
   const ethnicity = getQuestionnaireResponseByLinkId('patient-ethnicity', questionnaireResponse)?.answer?.[0]
     ?.valueString;
+
   const race = getQuestionnaireResponseByLinkId('patient-race', questionnaireResponse)?.answer?.[0]?.valueString;
+
   const pronouns = getQuestionnaireResponseByLinkId('patient-pronouns', questionnaireResponse)?.answer?.[0]
     ?.valueString;
+
   const pcpNumber = getQuestionnaireResponseByLinkId('pcp-number', questionnaireResponse)?.answer?.[0]?.valueString;
   const pcpAddress = getQuestionnaireResponseByLinkId('pcp-address', questionnaireResponse)?.answer?.[0]?.valueString;
   const pcpPractice = getQuestionnaireResponseByLinkId('pcp-practice', questionnaireResponse)?.answer?.[0]?.valueString;
@@ -22,8 +24,10 @@ export const PatientDetailsContainer: FC = () => {
   const howDidYouHearAboutUs = patient?.extension?.find(
     (e) => e.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/point-of-discovery'
   )?.valueString;
+
   const preferredLanguage = getQuestionnaireResponseByLinkId('preferred-language', questionnaireResponse)?.answer?.[0]
     ?.valueString;
+
   const requireRelayService = getQuestionnaireResponseByLinkId('relay-phone', questionnaireResponse)?.answer?.[0]
     ?.valueString;
 

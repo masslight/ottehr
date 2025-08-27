@@ -5,10 +5,9 @@ import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
 import { WarningBlock } from 'src/features/css-module/components/WarningBlock';
-import { useAppointment } from 'src/features/css-module/hooks/useAppointment';
 import { getImmunizationMARUrl, getImmunizationOrderEditUrl } from 'src/features/css-module/routing/helpers';
 import { cleanupProperties } from 'src/helpers/misc.helper';
-import { AccordionCard } from 'src/telemed';
+import { AccordionCard, useAppointmentData } from 'src/telemed';
 import { PageHeader } from '../../css-module/components/medication-administration/PageHeader';
 import { useCreateUpdateImmunizationOrder, useGetImmunizationOrders } from '../../css-module/hooks/useImmunization';
 import { OrderDetailsSection } from '../components/OrderDetailsSection';
@@ -17,11 +16,12 @@ import { OrderHistoryTable } from '../components/OrderHistoryTable';
 export const ImmunizationOrderCreateEdit: React.FC = () => {
   const navigate = useNavigate();
   const { id: appointmentId, orderId } = useParams();
+
   const {
     resources: { encounter },
-  } = useAppointment(appointmentId);
-  const [isImmunizationHistoryCollapsed, setIsImmunizationHistoryCollapsed] = useState(false);
+  } = useAppointmentData(appointmentId);
 
+  const [isImmunizationHistoryCollapsed, setIsImmunizationHistoryCollapsed] = useState(false);
   const { mutateAsync: createUpdateOrder, isPending: isOrderSaving } = useCreateUpdateImmunizationOrder();
 
   const onSubmit = async (data: any): Promise<void> => {

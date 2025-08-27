@@ -17,16 +17,15 @@ import { Practitioner } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useMemo, useState } from 'react';
 import { CompleteConfiguration } from 'src/components/CompleteConfiguration';
+import { useChartData } from 'src/telemed';
 import { useGetErxConfigQuery } from 'src/telemed/hooks/useGetErxConfig';
 import { ERX_MEDICATION_META_TAG_CODE, formatDateToMDYWithTime, RoleType } from 'utils';
 import { RoundedButton } from '../../../../components/RoundedButton';
-import { useChartData } from '../../../../features/css-module/hooks/useChartData';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import useEvolveUser from '../../../../hooks/useEvolveUser';
-import { getSelectors } from '../../../../shared/store/getSelectors';
 import { PageTitle } from '../../../components/PageTitle';
 import { useGetAppointmentAccessibility } from '../../../hooks';
-import { useAppointmentStore } from '../../../state';
+import { useAppointmentData } from '../../../state';
 import { getAppointmentStatusChip } from '../../../utils';
 import { ERX, ERXStatus } from '../ERX';
 
@@ -119,19 +118,12 @@ interface ERxContainerProps {
 }
 
 export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
-  const { encounter, appointment, setPartialChartData, chartData, patient } = getSelectors(useAppointmentStore, [
-    'encounter',
-    'appointment',
-    'setPartialChartData',
-    'chartData',
-    'patient',
-  ]);
-
+  const { appointment, patient } = useAppointmentData();
   const appointmentStart = useMemo(() => formatDateToMDYWithTime(appointment?.start), [appointment?.start]);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const { chartData } = useChartData();
 
-  const { isLoading, isFetching, refetch } = useChartData({
-    encounterId: encounter.id || '',
+  const { isLoading, isFetching, refetch, setPartialChartData } = useChartData({
     requestedFields: {
       prescribedMedications: {
         _include: 'MedicationRequest:requester',
@@ -140,11 +132,12 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
     },
     refetchInterval: 10000,
     onSuccess: (data) => {
-      const prescribedMedications = data.prescribedMedications;
+      console.log('data', data);
+      const prescribedMedications = data?.prescribedMedications;
 
       setPartialChartData({
         prescribedMedications,
-        practitioners: (data.practitioners || []).reduce(
+        practitioners: (data?.practitioners || []).reduce(
           (prev, curr) => {
             const index = prev.findIndex((practitioner) => practitioner.id === curr.id);
             if (index === -1) {
@@ -166,7 +159,6 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
   const [cancellationLoading, setCancellationLoading] = useState<string[]>([]);
   const { oystehr } = useApiClients();
   const user = useEvolveUser();
-
   const { data: erxConfigData, isLoading: isErxConfigLoading } = useGetErxConfigQuery();
 
   const cancelPrescription = async (medRequestId: string, patientId: string): Promise<void> => {

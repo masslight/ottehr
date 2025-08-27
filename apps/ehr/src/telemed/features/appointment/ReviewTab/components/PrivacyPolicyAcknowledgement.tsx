@@ -1,11 +1,10 @@
 import { Typography } from '@mui/material';
 import { FC, useMemo } from 'react';
 import { formatDateToMDYWithTime } from 'utils';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../../state';
+import { useAppointmentData } from '../../../../state';
 
 export const PrivacyPolicyAcknowledgement: FC = () => {
-  const { appointment } = getSelectors(useAppointmentStore, ['appointment']);
+  const { appointment } = useAppointmentData();
   const appointmentStart = useMemo(() => formatDateToMDYWithTime(appointment?.start), [appointment?.start]);
 
   return (

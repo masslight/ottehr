@@ -57,7 +57,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         response = await handleUnsolicitedRequestMatch(oystehr, validatedParameters.diagnosticReportId);
         break;
       }
-      case UnsolicitedResultsRequestType.GET_UR_RELATED_REQUESTS: {
+      case UnsolicitedResultsRequestType.GET_UNSOLICITED_RESULTS_RELATED_REQUESTS: {
         console.log('handling get-ur-related-requests request');
         response = await handleGetPossibleRelatedRequestsToUnsolicitedResult(
           oystehr,

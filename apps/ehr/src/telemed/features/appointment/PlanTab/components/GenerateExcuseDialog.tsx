@@ -4,8 +4,7 @@ import { FC } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { getAllPractitionerCredentials, getQuestionnaireResponseByLinkId, PATIENT_SUPPORT_PHONE_NUMBER } from 'utils';
 import useEvolveUser from '../../../../../hooks/useEvolveUser';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
-import { useAppointmentStore, useSaveChartData } from '../../../../state';
+import { useAppointmentData, useChartData, useSaveChartData } from '../../../../state';
 import {
   ExcuseFormValues,
   getDefaultExcuseFormValues,
@@ -28,17 +27,11 @@ type GenerateExcuseDialogExtendedProps = {
 
 export const GenerateExcuseDialog: FC<GenerateExcuseDialogExtendedProps> = (props) => {
   const { open, onClose, type, generate } = props;
-
   const fields = mapExcuseTypeToFields[type];
   const isSchool = ['schoolTemplate', 'schoolFree'].includes(type);
   const isTemplate = ['schoolTemplate', 'workTemplate'].includes(type);
-
-  const { patient, chartData, setPartialChartData, questionnaireResponse } = getSelectors(useAppointmentStore, [
-    'patient',
-    'chartData',
-    'setPartialChartData',
-    'questionnaireResponse',
-  ]);
+  const { patient, questionnaireResponse } = useAppointmentData();
+  const { setPartialChartData, chartData } = useChartData();
   const user = useEvolveUser();
 
   const responsibleParty = {
