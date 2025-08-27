@@ -15,7 +15,7 @@ import {
 import { Stack } from '@mui/system';
 import { Practitioner } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import { FC, useState } from 'react';
+import { FC, useMemo, useState } from 'react';
 import { CompleteConfiguration } from 'src/components/CompleteConfiguration';
 import { useGetErxConfigQuery } from 'src/telemed/hooks/useGetErxConfig';
 import { ERX_MEDICATION_META_TAG_CODE, formatDateToMDYWithTime, RoleType } from 'utils';
@@ -126,6 +126,8 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
     'chartData',
     'patient',
   ]);
+
+  const appointmentStart = useMemo(() => formatDateToMDYWithTime(appointment?.start), [appointment?.start]);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const { isLoading, isFetching, refetch } = useChartData({
@@ -278,56 +280,57 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {chartData.prescribedMedications.map((row) => (
-                  <TableRow key={row.resourceId}>
-                    <TableCell>{row.name}</TableCell>
-                    <TableCell>{row.instructions}</TableCell>
-                    {/*<TableCell>Dx</TableCell>*/}
-                    <TableCell>
-                      {formatDateToMDYWithTime(appointment?.start)
-                        ?.split(' at ')
-                        ?.map((item) => (
-                          <Typography variant="body2" key={item}>
-                            {item}
-                          </Typography>
-                        ))}
-                    </TableCell>
-                    <TableCell>
-                      {getPractitionerName(
-                        chartData.practitioners?.find((practitioner) => practitioner.id === row.provider)
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {formatDateToMDYWithTime(row.added)
-                        ?.split(' at ')
-                        ?.map((item) => (
-                          <Typography variant="body2" key={item}>
-                            {item}
-                          </Typography>
-                        ))}
-                    </TableCell>
-                    {/*<TableCell>Pharmacy</TableCell>*/}
-                    <TableCell>{getAppointmentStatusChip(row.status, medicationStatusMapper)}</TableCell>
-                    {!isReadOnly && patient?.id && (
+                {chartData.prescribedMedications.map((row) => {
+                  const rowAdded = formatDateToMDYWithTime(row?.added);
+                  return (
+                    <TableRow key={row.resourceId}>
+                      <TableCell>{row.name}</TableCell>
+                      <TableCell>{row.instructions}</TableCell>
+                      {/*<TableCell>Dx</TableCell>*/}
                       <TableCell>
-                        <LoadingButton
-                          loading={cancellationLoading.includes(row.resourceId!)}
-                          variant="text"
-                          color="error"
-                          onClick={() => cancelPrescription(row.resourceId!, patient.id!)}
-                          disabled={
-                            row.status === 'loading' ||
-                            row.status === 'completed' ||
-                            row.status === 'cancelled' ||
-                            cancellationLoading.includes(row.resourceId!)
-                          }
-                        >
-                          Cancel
-                        </LoadingButton>
+                        {appointmentStart && (
+                          <>
+                            <Typography variant="body2">{appointmentStart.date}</Typography>
+                            <Typography variant="body2">{appointmentStart.time}</Typography>
+                          </>
+                        )}
                       </TableCell>
-                    )}
-                  </TableRow>
-                ))}
+                      <TableCell>
+                        {getPractitionerName(
+                          chartData.practitioners?.find((practitioner) => practitioner.id === row.provider)
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {rowAdded && (
+                          <>
+                            <Typography variant="body2">{rowAdded.date}</Typography>
+                            <Typography variant="body2">{rowAdded.time}</Typography>
+                          </>
+                        )}
+                      </TableCell>
+                      {/*<TableCell>Pharmacy</TableCell>*/}
+                      <TableCell>{getAppointmentStatusChip(row.status, medicationStatusMapper)}</TableCell>
+                      {!isReadOnly && patient?.id && (
+                        <TableCell>
+                          <LoadingButton
+                            loading={cancellationLoading.includes(row.resourceId!)}
+                            variant="text"
+                            color="error"
+                            onClick={() => cancelPrescription(row.resourceId!, patient.id!)}
+                            disabled={
+                              row.status === 'loading' ||
+                              row.status === 'completed' ||
+                              row.status === 'cancelled' ||
+                              cancellationLoading.includes(row.resourceId!)
+                            }
+                          >
+                            Cancel
+                          </LoadingButton>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </TableContainer>
