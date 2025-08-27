@@ -147,8 +147,8 @@ export const UnsolicitedResultsMatch: React.FC = () => {
             navigate('/unsolicited-results');
           },
           onError: (error) => {
-            console.error('Cancel task failed:', error);
-            enqueueSnackbar('An error occurred rejecting this task. Please try again.', { variant: 'error' });
+            console.error('Matching unsolicited result failed:', error);
+            enqueueSnackbar('An error occurred matching this result. Please try again.', { variant: 'error' });
           },
         }
       );
