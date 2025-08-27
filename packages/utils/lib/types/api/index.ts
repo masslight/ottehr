@@ -17,6 +17,7 @@ export * from './get-conversation.types';
 export * from './get-patient-profile-photo-url.types';
 export * from './get-presigned-file-url';
 export * from './get-user.types';
+export * from './icd-10-search';
 export * from './icd-search';
 export * from './init-telemed-session';
 export * from './insurances.constants';

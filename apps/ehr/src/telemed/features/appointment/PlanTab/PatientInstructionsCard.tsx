@@ -2,31 +2,25 @@ import AddIcon from '@mui/icons-material/Add';
 import DoneIcon from '@mui/icons-material/Done';
 import { Box, TextField, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import React, { FC, useState } from 'react';
+import { FC, useState } from 'react';
 import { CommunicationDTO, PROJECT_NAME } from 'utils';
 import { RoundedButton } from '../../../../components/RoundedButton';
-import { getSelectors } from '../../../../shared/store/getSelectors';
 import { AccordionCard, ActionsList, DeleteIconButton } from '../../../components';
 import { useGetAppointmentAccessibility } from '../../../hooks';
-import { useAppointmentStore, useDeleteChartData, useSaveChartData, useSavePatientInstruction } from '../../../state';
+import { useChartData, useDeleteChartData, useSaveChartData, useSavePatientInstruction } from '../../../state';
 import { PatientInstructionsTemplatesDialog } from './components';
 
 export const PatientInstructionsCard: FC = () => {
   const [collapsed, setCollapsed] = useState(false);
-
   const [myTemplatesOpen, setMyTemplatesOpen] = useState(false);
   const [defaultTemplatesOpen, setDefaultTemplatesOpen] = useState(false);
-
   const [instruction, setInstruction] = useState('');
-
   const { mutate: savePatientInstruction, isPending: isSavePatientInstructionLoading } = useSavePatientInstruction();
   const { mutate: saveChartData, isPending: isSaveChartDataLoading } = useSaveChartData();
   const { mutate: deleteChartData } = useDeleteChartData();
-
   const isLoading = isSavePatientInstructionLoading || isSaveChartDataLoading;
-
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-  const { chartData, setPartialChartData } = getSelectors(useAppointmentStore, ['chartData', 'setPartialChartData']);
+  const { chartData, setPartialChartData } = useChartData();
   const instructions = chartData?.instructions || [];
 
   const onAddAndSave = (): void => {

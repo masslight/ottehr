@@ -1,18 +1,27 @@
 import { Box, Stack, Typography } from '@mui/material';
-import React, { useLayoutEffect, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { STUB_IMMUNIZATION_ORDERS } from '../ImmunizationOrder';
+import React, { useLayoutEffect } from 'react';
+import { useParams, useSearchParams } from 'react-router-dom';
+import { useAppointmentData } from 'src/telemed';
+import { useGetImmunizationOrders } from '../../css-module/hooks/useImmunization';
+import { ordersRecentFirstComparator } from '../common';
 import { VaccineDetailsCard } from './VaccineDetailsCard';
 
 export const VaccineDetailsCardList: React.FC = () => {
+  const { id: appointmentId } = useParams();
   const [searchParams] = useSearchParams();
   const scrollTo = searchParams.get('scrollTo');
 
-  const immunizationOrders = STUB_IMMUNIZATION_ORDERS;
+  const {
+    resources: { patient },
+  } = useAppointmentData(appointmentId);
 
-  const pendingOrders = useMemo(() => {
-    return immunizationOrders.filter((order) => order.status === 'pending');
-  }, [immunizationOrders]);
+  const { data: ordersResponse } = useGetImmunizationOrders({
+    patientId: patient?.id,
+  });
+
+  const pendingOrders = (ordersResponse?.orders ?? [])
+    .sort(ordersRecentFirstComparator)
+    .filter((order) => order.status === 'pending');
 
   useLayoutEffect(() => {
     if (scrollTo && pendingOrders.length > 0) {

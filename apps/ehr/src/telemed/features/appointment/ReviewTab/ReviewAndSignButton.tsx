@@ -16,15 +16,14 @@ import {
 import { RoundedButton } from '../../../../components/RoundedButton';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { useFeatureFlags } from '../../../../features/css-module/context/featureFlags';
-import { useAppointment } from '../../../../features/css-module/hooks/useAppointment';
 import { usePractitionerActions } from '../../../../features/css-module/hooks/usePractitioner';
-import { getSelectors } from '../../../../shared/store/getSelectors';
 import { ConfirmationDialog } from '../../../components';
 import { useGetAppointmentAccessibility } from '../../../hooks';
 import { useOystehrAPIClient } from '../../../hooks/useOystehrAPIClient';
 import {
-  useAppointmentStore,
+  useAppointmentData,
   useChangeTelemedAppointmentStatusMutation,
+  useChartData,
   useSignAppointmentMutation,
 } from '../../../state';
 import { getPatientName } from '../../../utils';
@@ -45,6 +44,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   const practitioner = useEvolveUser()?.profileResource;
   const { mutateAsync: changeTelemedAppointmentStatus, isPending: isChangeLoading } =
     useChangeTelemedAppointmentStatusMutation();
+
   const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
   const [openTooltip, setOpenTooltip] = useState(false);
   const [requireSupervisorApproval, setRequireSupervisorApproval] = useState(false);

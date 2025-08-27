@@ -4,12 +4,7 @@ import { MedicationSelectInput } from 'src/components/input/MedicationSelectInpu
 import { ProviderSelectInput } from 'src/components/input/ProviderSelectInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
-import { ROUTE_OPTIONS, UNIT_OPTIONS } from 'src/shared/utils';
-
-const LOCATION_OPTIONS = [
-  { value: 'location-a', label: 'Location A' },
-  { value: 'location-b', label: 'Location B' },
-];
+import { LOCATION_OPTIONS, ROUTE_OPTIONS, UNIT_OPTIONS } from 'src/shared/utils';
 
 export const OrderDetailsSection: React.FC = () => {
   const theme = useTheme();
@@ -26,25 +21,25 @@ export const OrderDetailsSection: React.FC = () => {
         </Typography>
       </Grid>
       <Grid xs={6} item>
-        <MedicationSelectInput name="vaccineId" label="Vaccine" required />
+        <MedicationSelectInput name="details.medicationId" label="Vaccine" required />
       </Grid>
       <Grid xs={3} item>
-        <TextInput name="dose" label="Dose" required />
+        <TextInput name="details.dose" label="Dose" required />
       </Grid>
       <Grid xs={3} item>
-        <SelectInput name="units" label="Units" options={UNIT_OPTIONS} required />
+        <SelectInput name="details.units" label="Units" options={UNIT_OPTIONS} required />
       </Grid>
       <Grid xs={6} item>
-        <SelectInput name="route" label="Route" options={ROUTE_OPTIONS} />
+        <SelectInput name="details.route" label="Route" options={ROUTE_OPTIONS} />
       </Grid>
       <Grid xs={6} item>
-        <SelectInput name="location" label="Location" options={LOCATION_OPTIONS} />
+        <SelectInput name="details.location" label="Location" options={LOCATION_OPTIONS} />
       </Grid>
       <Grid xs={12} item>
-        <TextInput name="instructions" label="Instructions" multiline />
+        <TextInput name="details.instructions" label="Instructions" multiline />
       </Grid>
       <Grid xs={6} item>
-        <ProviderSelectInput name="orderedBy.providerId" label="Ordered by" required />
+        <ProviderSelectInput name="details.orderedProviderId" label="Ordered by" required />
       </Grid>
     </Grid>
   );

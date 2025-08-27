@@ -9,15 +9,13 @@ import {
 } from 'utils';
 import { followUpInOptions } from 'utils';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { SectionList } from '../../../../components';
 import { useExcusePresignedFiles, usePatientInstructionsVisibility } from '../../../../hooks';
-import { useAppointmentStore } from '../../../../state';
+import { useChartData } from '../../../../state';
 import { AssessmentTitle } from '../../AssessmentTab';
 
 export const PatientInstructionsContainer: FC = () => {
-  const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
-
+  const { chartData } = useChartData();
   const instructions = chartData?.instructions;
   const disposition = chartData?.disposition;
   const schoolWorkExcuses = useExcusePresignedFiles(chartData?.schoolWorkNotes);
