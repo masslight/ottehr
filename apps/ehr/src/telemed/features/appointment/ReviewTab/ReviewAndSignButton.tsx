@@ -33,27 +33,24 @@ type ReviewAndSignButtonProps = {
 };
 
 export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) => {
-  const { patient, appointment, encounter, chartData, location } = getSelectors(useAppointmentStore, [
-    'patient',
-    'appointment',
-    'encounter',
-    'chartData',
-    'location',
-  ]);
+  const { patient, appointment, encounter, appointmentRefetch, appointmentSetState, location } = useAppointmentData();
+
+  const { chartData } = useChartData();
   const apiClient = useOystehrAPIClient();
   const practitioner = useEvolveUser()?.profileResource;
+
   const { mutateAsync: changeTelemedAppointmentStatus, isPending: isChangeLoading } =
     useChangeTelemedAppointmentStatusMutation();
 
   const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
   const [openTooltip, setOpenTooltip] = useState(false);
+
   const [requireSupervisorApproval, setRequireSupervisorApproval] = useState(false);
 
   const { updateVisitStatusToAwaitSupervisorApproval } = usePendingSupervisorApproval({
     encounterId: encounter.id!,
     practitionerId: practitioner?.id ?? '',
   });
-  const { refetch } = useAppointment(appointment?.id);
   const { css } = useFeatureFlags();
   const appointmentAccessibility = useGetAppointmentAccessibility();
 
@@ -134,6 +131,30 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
       throw new Error('api client not defined or appointmentId not provided');
     }
 
+    // if (css) {
+    //   try {
+    //     const tz = DateTime.now().zoneName;
+    //     await signAppointment({
+    //       apiClient,
+    //       appointmentId: appointment.id,
+    //       timezone: tz,
+    //     });
+    //     await appointmentRefetch();
+    //   } catch (error: any) {
+    //     console.log(error.message);
+    //   }
+    // } else {
+    //   await changeTelemedAppointmentStatus({
+    //     apiClient,
+    //     appointmentId: appointment.id,
+    //     newStatus: TelemedAppointmentStatusEnum.complete,
+    //   });
+    //   appointmentSetState({
+    //     encounter: { ...encounter, status: 'finished' },
+    //     appointment: { ...appointment, status: 'fulfilled' },
+    //   });
+    // }
+
     if (FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED && requireSupervisorApproval) {
       await updateVisitStatusToAwaitSupervisorApproval();
     } else {
@@ -146,7 +167,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
             timezone: tz,
             supervisorApprovalEnabled: FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED,
           });
-          await refetch();
+          await appointmentRefetch();
         } catch (error: any) {
           console.log(error.message);
         }
@@ -156,7 +177,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
           appointmentId: appointment.id,
           newStatus: TelemedAppointmentStatusEnum.complete,
         });
-        useAppointmentStore.setState({
+        appointmentSetState({
           encounter: { ...encounter, status: 'finished' },
           appointment: { ...appointment, status: 'fulfilled' },
         });

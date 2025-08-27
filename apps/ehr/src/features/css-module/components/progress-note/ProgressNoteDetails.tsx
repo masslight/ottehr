@@ -8,6 +8,7 @@ import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { ProceduresContainer } from 'src/telemed/features/appointment/ReviewTab/components/ProceduresContainer';
 import { useOystehrAPIClient } from 'src/telemed/hooks/useOystehrAPIClient';
 import {
+  examConfig,
   getProgressNoteChartDataRequestedFields,
   getVisitStatus,
   LabType,
@@ -15,16 +16,16 @@ import {
   TelemedAppointmentStatusEnum,
 } from 'utils';
 import { dataTestIds } from '../../../../constants/data-test-ids';
-import { getSelectors } from '../../../../shared/store/getSelectors';
 import {
   AccordionCard,
   ConfirmationDialog,
   SectionList,
-  useAppointmentStore,
+  useAppointmentData,
   useChangeTelemedAppointmentStatusMutation,
   usePatientInstructionsVisibility,
   useSignAppointmentMutation,
 } from '../../../../telemed';
+import { useChartData } from '../../../../telemed';
 import {
   AdditionalQuestionsContainer,
   AllergiesContainer,
@@ -44,29 +45,23 @@ import {
   SurgicalHistoryContainer,
 } from '../../../../telemed/features/appointment/ReviewTab';
 import { useFeatureFlags } from '../../context/featureFlags';
-import { useAppointment } from '../../hooks/useAppointment';
-import { useChartData } from '../../hooks/useChartData';
 import { useMedicationAPI } from '../../hooks/useMedicationOperations';
 import { HospitalizationContainer } from './HospitalizationContainer';
 import { InHouseMedicationsContainer } from './InHouseMedicationsContainer';
 import { PatientVitalsContainer } from './PatientVitalsContainer';
 
 export const ProgressNoteDetails: FC = () => {
-  const { appointment, chartData, encounter, setPartialChartData } = getSelectors(useAppointmentStore, [
-    'appointment',
-    'chartData',
-    'encounter',
-    'setPartialChartData',
-  ]);
+  const { appointment, encounter, appointmentRefetch: refetch, appointmentSetState } = useAppointmentData();
   const apiClient = useOystehrAPIClient();
   const { css } = useFeatureFlags();
   const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
   const { mutateAsync: changeTelemedAppointmentStatus, isPending: isChangeLoading } =
     useChangeTelemedAppointmentStatusMutation();
-  const { refetch } = useAppointment(appointment?.id);
   const isLoading = isChangeLoading || isSignLoading;
-  const { chartData: additionalChartData } = useChartData({
-    encounterId: encounter.id || '',
+
+  const { chartData } = useChartData();
+
+  const { setPartialChartData } = useChartData({
     requestedFields: getProgressNoteChartDataRequestedFields(),
     onSuccess: (data) => {
       setPartialChartData({
@@ -206,7 +201,7 @@ export const ProgressNoteDetails: FC = () => {
         appointmentId: appointment.id,
         newStatus: TelemedAppointmentStatusEnum.complete,
       });
-      useAppointmentStore.setState({
+      appointmentSetState({
         encounter: { ...encounter, status: 'finished' },
         appointment: { ...appointment, status: 'fulfilled' },
       });
