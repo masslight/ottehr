@@ -158,6 +158,7 @@ export type UnsolicitedLabDetailedPageDTO = Omit<
   | 'orderPdfUrl'
 > & {
   isUnsolicited: true;
+  patientId: string;
 };
 
 export type LabOrderDTO<SearchBy extends LabOrdersSearchBy> = SearchBy extends {
@@ -240,7 +241,7 @@ export const LAB_ORDER_UPDATE_RESOURCES_EVENTS = {
   reviewed: 'reviewed',
   specimenDateChanged: 'specimenDateChanged',
   saveOrderCollectionData: 'saveOrderCollectionData',
-  cancelMatchUnsolicitedResultTask: 'cancelMatchUnsolicitedResultTask',
+  cancelUnsolicitedResultTask: 'cancelUnsolicitedResultTask', // match or review tasks
   matchUnsolicitedResult: 'matchUnsolicitedResult',
 } as const;
 
@@ -269,7 +270,7 @@ export type SaveOrderCollectionData = {
 };
 
 export type CancelMatchUnsolicitedResultTask = {
-  event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.cancelMatchUnsolicitedResultTask;
+  event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.cancelUnsolicitedResultTask;
   taskId: string;
 };
 
@@ -381,6 +382,7 @@ export type GetUnsolicitedResultsResourcesForMatch = {
     patientDOB?: string;
     provider?: string;
     test?: string;
+    labName?: string;
     resultsReceived?: string;
   };
   taskId: string;

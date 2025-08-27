@@ -62,10 +62,12 @@ export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails, loading 
           labStatus={resultDetails.labStatus}
           onMarkAsReviewed={onMarkAsReviewed}
           loading={loading}
+          taskId={resultDetails.taskId}
         />
       )}
 
-      {resultDetails.resultType === 'preliminary' && (
+      {/* todo will configure this for unsolicited results post mvp */}
+      {!isUnsolicitedPage && resultDetails.resultType === 'preliminary' && (
         <PrelimCardView
           resultPdfUrl={resultDetails.resultPdfUrl}
           receivedDate={resultDetails.receivedDate}

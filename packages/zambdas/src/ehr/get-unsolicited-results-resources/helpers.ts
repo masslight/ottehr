@@ -69,8 +69,8 @@ export const handleGetTasks = async (oystehr: Oystehr): Promise<GetUnsolicitedRe
   const resources = await getUnsolicitedDRandRelatedResources(oystehr, [
     { name: '_has:Task:based-on:status', value: 'ready' },
     { name: '_revinclude', value: 'Task:based-on' },
-    { name: '_include', value: 'DiagnosticReport:subject' },
-    { name: '_include', value: 'DiagnosticReport:performer' },
+    { name: '_include', value: 'DiagnosticReport:subject' }, // patient
+    { name: '_include', value: 'DiagnosticReport:performer' }, // lab org
   ]);
   console.log('grouping the resources returned by diagnostic report', resources.length);
   const groupedResources = groupResourcesByDr(resources);
@@ -88,7 +88,8 @@ export const handleUnsolicitedRequestMatch = async (
     { name: '_has:Task:based-on:status', value: 'ready' },
     { name: '_revinclude', value: 'Task:based-on' },
     { name: '_id', value: diagnosticReportId },
-    { name: '_include', value: 'DiagnosticReport:subject' },
+    { name: '_include', value: 'DiagnosticReport:subject' }, // patient
+    { name: '_include', value: 'DiagnosticReport:performer' }, // lab org
   ]);
   console.log('grouping the resources returned by diagnostic report', resources.length);
   const groupedResources = groupResourcesByDr([...resources]);
@@ -200,6 +201,15 @@ const groupResourcesByDr = (resources: FhirResource[]): ResourcesByDr => {
 
     if (relatedDrId) {
       drMap[relatedDrId].readyTasks.push(task);
+    }
+  });
+  completedTasks.forEach((task) => {
+    const relatedDrId = task.basedOn
+      ?.find((ref) => ref.reference?.startsWith('DiagnosticReport'))
+      ?.reference?.replace('DiagnosticReport/', '');
+
+    if (relatedDrId) {
+      drMap[relatedDrId].completedTasks.push(task);
     }
   });
   patients.forEach((patient) => {
@@ -321,7 +331,7 @@ const taskIsLabRelated = (code: string): boolean => {
 };
 
 const formatResourcesForURMatchTaskResponse = (resources: AllResources): GetUnsolicitedResultsResourcesForMatch => {
-  const { diagnosticReport, readyTasks } = resources;
+  const { diagnosticReport, readyTasks, labOrg } = resources;
 
   const { unsolicitedPatient, unsolicitedProvider } = getUnsolicitedResourcesFromDr(diagnosticReport);
   const task = readyTasks.find(
@@ -336,6 +346,7 @@ const formatResourcesForURMatchTaskResponse = (resources: AllResources): GetUnso
   const patientDOB = unsolicitedPatient?.birthDate;
   const providerName = unsolicitedProvider ? getFullestAvailableName(unsolicitedProvider, true) : undefined;
   const test = getTestNameFromDr(diagnosticReport);
+  const labName = labOrg?.name;
   const resultsReceived = diagnosticReport.effectiveDateTime;
 
   const labInfo: GetUnsolicitedResultsResourcesForMatch['labInfo'] = {
@@ -343,6 +354,7 @@ const formatResourcesForURMatchTaskResponse = (resources: AllResources): GetUnso
     patientDOB,
     provider: providerName,
     test,
+    labName,
     resultsReceived,
   };
   return { labInfo, taskId: task.id };
@@ -397,8 +409,6 @@ const getEncountersPossiblyRelatedToUnsolicitedResult = async (
           name: 'code',
           value: testItemCode,
         },
-        // todo sarah trying to limit the number of returns by only grabbing tests without results but what about reflex?
-        // is it fine we cannot link those? they wont return from this logic anyway since the test code will be different
         {
           name: 'status',
           value: 'active',
@@ -483,7 +493,7 @@ const formatResourcesIntoLabOrderDTO = async (
   resources: AllResources,
   token: string
 ): Promise<UnsolicitedLabDetailedPageDTO> => {
-  const { diagnosticReport, readyTasks, completedTasks, labOrg, documentReference } = resources;
+  const { diagnosticReport, readyTasks, completedTasks, labOrg, documentReference, patient } = resources;
   const readyTask = readyTasks[0]; // im not sure there would ever be a scenario where there is more than one ready task per DR
   const completedTask = completedTasks[0];
 
@@ -511,6 +521,7 @@ const formatResourcesIntoLabOrderDTO = async (
     questionnaire: [], // will always be empty but is easier for the front end to consume an empty array
     samples: [], // will always be empty but is easier for the front end to consume an empty array
     isUnsolicited: true,
+    patientId: patient?.id || '',
   };
 
   return dto;

@@ -204,7 +204,7 @@ export const handleMatchUnsolicitedRequest = async ({
     url: `Task/${taskId}`,
     operations: [{ op: 'replace', path: '/status', value: 'completed' }],
   };
-  const linkPatientToDrRequest: BatchInputPatchRequest<DiagnosticReport> = {
+  const diagnosticReportPatchRequest: BatchInputPatchRequest<DiagnosticReport> = {
     method: 'PATCH',
     url: `DiagnosticReport/${diagnosticReportId}`,
     operations: [
@@ -218,7 +218,7 @@ export const handleMatchUnsolicitedRequest = async ({
       return ext.url !== OYSTEHR_UNSOLICITED_RESULT_ORDERING_PROVIDER_SYSTEM;
     });
     console.log('updatedExtension', updatedExtension);
-    linkPatientToDrRequest.operations.push({
+    diagnosticReportPatchRequest.operations.push({
       op: 'replace',
       path: '/extension',
       value: updatedExtension,
@@ -229,7 +229,7 @@ export const handleMatchUnsolicitedRequest = async ({
   if (srToMatchId) {
     console.log('srToMatchId passed: ', srToMatchId);
     const hasBasedOn = !!diagnosticReportResource.basedOn;
-    linkPatientToDrRequest.operations.push({
+    diagnosticReportPatchRequest.operations.push({
       op: hasBasedOn ? 'replace' : 'add',
       path: '/basedOn',
       value: [
@@ -249,7 +249,7 @@ export const handleMatchUnsolicitedRequest = async ({
     }
   }
 
-  const requests = [linkPatientToDrRequest, markTaskAsCompleteRequest, ...serviceRequestPatch];
+  const requests = [diagnosticReportPatchRequest, markTaskAsCompleteRequest, ...serviceRequestPatch];
   console.log('making fhir requests, total requests to make: ', requests.length);
   await oystehr.fhir.transaction({ requests });
 };

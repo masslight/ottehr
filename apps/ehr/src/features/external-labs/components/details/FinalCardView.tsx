@@ -41,7 +41,7 @@ export const FinalCardView: FC<FinalCardViewProps> = ({
       cancelTask(
         {
           taskId: taskId,
-          event: LAB_ORDER_UPDATE_RESOURCES_EVENTS.cancelMatchUnsolicitedResultTask, // todo maybe update
+          event: LAB_ORDER_UPDATE_RESOURCES_EVENTS.cancelUnsolicitedResultTask,
         },
         {
           onSuccess: () => {
@@ -140,20 +140,18 @@ export const FinalCardView: FC<FinalCardViewProps> = ({
               </LoadingButton>
             )}
 
-            {isMarkAsReviewedButtonVisible ? (
-              <LoadingButton
-                loading={loading}
-                variant="contained"
-                onClick={onMarkAsReviewed}
-                sx={{
-                  borderRadius: '50px',
-                  textTransform: 'none',
-                }}
-                color="primary"
-              >
-                {isUnsolicited ? 'Mark as Reviewed & Accept' : 'Mark as Reviewed'}
-              </LoadingButton>
-            ) : null}
+            <LoadingButton
+              loading={loading}
+              variant="contained"
+              onClick={onMarkAsReviewed}
+              sx={{
+                borderRadius: '50px',
+                textTransform: 'none',
+              }}
+              color="primary"
+            >
+              {isUnsolicited ? 'Mark as Reviewed & Accept' : 'Mark as Reviewed'}
+            </LoadingButton>
           </Box>
         </>
       ) : null}

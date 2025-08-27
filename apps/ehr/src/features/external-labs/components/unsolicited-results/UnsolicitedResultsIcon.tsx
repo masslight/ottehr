@@ -1,4 +1,4 @@
-import MailOutlineIcon from '@mui/icons-material/MailOutline';
+import BiotechOutlinedIcon from '@mui/icons-material/BiotechOutlined';
 import { Badge } from '@mui/material';
 import { useTheme } from '@mui/system';
 import { FC, useEffect } from 'react';
@@ -41,7 +41,7 @@ export const UnsolicitedResultsIcon: FC = () => {
           navigate('/unsolicited-results');
         }}
       >
-        <MailOutlineIcon sx={{ color: theme.palette.primary.main }} />
+        <BiotechOutlinedIcon sx={{ color: theme.palette.primary.main }} />
       </IconButtonContained>
     </GenericToolTip>
   );

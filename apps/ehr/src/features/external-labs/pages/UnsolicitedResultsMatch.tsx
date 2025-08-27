@@ -92,10 +92,10 @@ export const UnsolicitedResultsMatch: React.FC = () => {
       fieldName: 'Test',
       value: data?.labInfo?.test,
     },
-    // {
-    //   fieldName: 'Lab',
-    //   value: undefined, // todo sarah we dont have access to this yet, need change from oystehr
-    // },
+    {
+      fieldName: 'Lab',
+      value: data?.labInfo?.labName,
+    },
     {
       fieldName: 'Received',
       value: formatDateForLabs(data?.labInfo?.resultsReceived, undefined),
@@ -114,7 +114,7 @@ export const UnsolicitedResultsMatch: React.FC = () => {
       cancelTask(
         {
           taskId: data.taskId,
-          event: LAB_ORDER_UPDATE_RESOURCES_EVENTS.cancelMatchUnsolicitedResultTask,
+          event: LAB_ORDER_UPDATE_RESOURCES_EVENTS.cancelUnsolicitedResultTask,
         },
         {
           onSuccess: () => {
