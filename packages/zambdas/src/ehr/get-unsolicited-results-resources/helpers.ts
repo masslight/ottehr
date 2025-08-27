@@ -1,5 +1,5 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
-import { DiagnosticReport, FhirResource, Patient, Task } from 'fhir/r4b';
+import { DiagnosticReport, FhirResource, Organization, Patient, Task } from 'fhir/r4b';
 import {
   getFullestAvailableName,
   getTestItemCodeFromDR,
@@ -7,6 +7,7 @@ import {
   GetUnsolicitedResultsResourcesForIcon,
   GetUnsolicitedResultsResourcesForTable,
   LAB_ORDER_TASK,
+  OYSTEHR_LAB_GUID_SYSTEM,
   UnsolicitedResultTaskRowDTO,
   UR_TASK_ACTION,
 } from 'utils';
@@ -46,6 +47,7 @@ export const handleRequestForIcon = async (oystehr: Oystehr): Promise<GetUnsolic
 export const handleGetTasks = async (oystehr: Oystehr): Promise<GetUnsolicitedResultsResourcesForTable> => {
   const resources = await getUnsolicitedDRandRelatedResources(oystehr, [
     { name: '_include', value: 'DiagnosticReport:subject' },
+    { name: '_include', value: 'DiagnosticReport:performer' },
   ]);
   console.log('grouping the resources returned by diagnostic report', resources.length);
   const groupedResources = groupReadyTasksByDr(resources);
@@ -60,18 +62,19 @@ type ReadyTasksByDr = {
     diagnosticReport: DiagnosticReport;
     readyTasks: Task[];
     patient?: Patient;
+    labOrg?: Organization;
   };
 };
 
 const groupReadyTasksByDr = (resources: FhirResource[]): ReadyTasksByDr => {
   const drMap: ReadyTasksByDr = {};
-  const diagnosticReports: DiagnosticReport[] = [];
   const readyTasks: Task[] = [];
   const patients: Patient[] = [];
   const patientRefToRelatedDrMap: Record<string, string> = {};
+  const orgRefToRelatedDrMap: Record<string, string> = {};
+  const labOrganizations: Organization[] = [];
   resources.forEach((resource) => {
     if (resource.resourceType === 'DiagnosticReport') {
-      diagnosticReports.push(resource);
       if (resource.id) {
         drMap[resource.id] = { diagnosticReport: resource, readyTasks: [] };
         const isPatientSubject = resource.subject?.reference?.startsWith('Patient/');
@@ -79,7 +82,13 @@ const groupReadyTasksByDr = (resources: FhirResource[]): ReadyTasksByDr => {
           const patientRef = resource.subject?.reference;
           if (patientRef) patientRefToRelatedDrMap[patientRef] = resource.id;
         }
+        const orgPerformer = resource.performer?.find((p) => p.reference?.startsWith('Organization/'))?.reference;
+        if (orgPerformer) orgRefToRelatedDrMap[orgPerformer] = resource.id;
       }
+    }
+    if (resource.resourceType === 'Organization') {
+      const isLabOrg = !!resource.identifier?.some((id) => id.system === OYSTEHR_LAB_GUID_SYSTEM);
+      if (isLabOrg) labOrganizations.push(resource);
     }
     if (resource.resourceType === 'Task' && resource.status === 'ready') readyTasks.push(resource);
     if (resource.resourceType === 'Patient') patients.push(resource);
@@ -98,6 +107,11 @@ const groupReadyTasksByDr = (resources: FhirResource[]): ReadyTasksByDr => {
     const drId = patientRefToRelatedDrMap[patientRef];
     drMap[drId].patient = patient;
   });
+  labOrganizations.forEach((labOrg) => {
+    const labOrgRef = `Organization/${labOrg.id}`;
+    const drId = orgRefToRelatedDrMap[labOrgRef];
+    drMap[drId].labOrg = labOrg;
+  });
   return drMap;
 };
 
@@ -107,8 +121,8 @@ const formatResourcesForResponse = (readyTasksByDr: ReadyTasksByDr): Unsolicited
     relatedResources.readyTasks.forEach((task) => {
       const taskCode = task.code?.coding?.find((c) => c.system === LAB_ORDER_TASK.system)?.code;
       if (taskCode && taskIsLabRelated(taskCode)) {
-        const { diagnosticReport, patient } = relatedResources;
-        const taskRowDescription = getURDescriptionText(taskCode, diagnosticReport, patient);
+        const { diagnosticReport, patient, labOrg } = relatedResources;
+        const taskRowDescription = getURDescriptionText(taskCode, diagnosticReport, patient, labOrg);
         const actionText = getURActionText(taskCode);
 
         const row: UnsolicitedResultTaskRowDTO = {
@@ -125,12 +139,16 @@ const formatResourcesForResponse = (readyTasksByDr: ReadyTasksByDr): Unsolicited
   return rows;
 };
 
-const getURDescriptionText = (code: string, diagnosticReport: DiagnosticReport, patient?: Patient): string => {
-  // todo sarah lab name should be included in the task row instruction
-  // currently this is blocked by some oystehr dev to be able to grab the lab off of DR
+const getURDescriptionText = (
+  code: string,
+  diagnosticReport: DiagnosticReport,
+  patient?: Patient,
+  labOrg?: Organization
+): string => {
   const testName = getTestNameFromDR(diagnosticReport);
   const testItemCode = getTestItemCodeFromDR(diagnosticReport);
-  const testDescription = testName || testItemCode || '';
+  const testDescription = testName || testItemCode || 'missing test name';
+  const labName = labOrg?.name || 'Source lab not specified';
 
   // only matched results will have patient linked
   const patientName = patient ? getFullestAvailableName(patient, true) : undefined;
@@ -143,11 +161,13 @@ const getURDescriptionText = (code: string, diagnosticReport: DiagnosticReport, 
     case LAB_ORDER_TASK.code.reviewCorrectedResult:
     case LAB_ORDER_TASK.code.reviewFinalResult:
     case LAB_ORDER_TASK.code.reviewPreliminaryResult: {
-      if (!patientName) throw Error('Cannot parse patient name for a matched unsolicited result');
-      return `Review and accept/decline unsolicited results for "${testDescription}" for ${patientName}`;
+      if (!patientName) {
+        throw Error(`Cannot parse patient name for this matched unsolicited result ${diagnosticReport.id}`);
+      }
+      return `Review unsolicited test results for "${testDescription} / ${labName}" for ${patientName}`;
     }
     default: {
-      throw Error('Task code passed does not match expected input');
+      throw Error(`Task code passed to getURDescriptionText does not match expected input: ${code}`);
     }
   }
 };
@@ -164,7 +184,7 @@ const getURActionText = (code: string): UR_TASK_ACTION => {
       return 'Go to Lab Results';
     }
     default: {
-      throw Error('Task code passed does not match expected input');
+      throw Error(`Task code passed to getURActionText does not match expected input: ${code}`);
     }
   }
 };
