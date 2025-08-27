@@ -14,18 +14,18 @@ import {
 } from '@mui/material';
 import { ErxSearchAllergensResponse } from '@oystehr/sdk';
 import { enqueueSnackbar } from 'notistack';
-import React, { FC, useMemo, useState } from 'react';
+import { FC, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { AllergyDTO } from 'utils';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { useFeatureFlags } from '../../../../../features/css-module/context/featureFlags';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { DeleteIconButton } from '../../../../components';
 import { useGetAppointmentAccessibility } from '../../../../hooks';
 import {
+  ChartDataState,
   ExtractObjectType,
-  useAppointmentStore,
+  useChartData,
   useDeleteChartData,
   useGetAllergiesSearch,
   useSaveChartData,
@@ -33,10 +33,9 @@ import {
 import { ProviderSideListSkeleton } from '../ProviderSideListSkeleton';
 
 export const KnownAllergiesProviderColumn: FC = () => {
-  const { chartData, isChartDataLoading } = getSelectors(useAppointmentStore, ['chartData', 'isChartDataLoading']);
+  const { chartData, isLoading: isChartDataLoading } = useChartData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const featureFlags = useFeatureFlags();
-
   const allergies = chartData?.allergies || [];
   const length = allergies.length;
 
@@ -67,9 +66,13 @@ export const KnownAllergiesProviderColumn: FC = () => {
   );
 };
 
-const setUpdatedAllergy = (updatedAllergy?: AllergyDTO): void => {
+const setUpdatedAllergy = (
+  chartDataSetState: (updater: Partial<ChartDataState> | ((state: ChartDataState) => Partial<ChartDataState>)) => void,
+  updatedAllergy?: AllergyDTO
+): void => {
   if (updatedAllergy) {
-    useAppointmentStore.setState((prevState) => ({
+    // todo: check is valid
+    chartDataSetState((prevState) => ({
       chartData: {
         ...prevState.chartData!,
         allergies: prevState.chartData?.allergies?.map((allergy) =>
@@ -83,10 +86,9 @@ const setUpdatedAllergy = (updatedAllergy?: AllergyDTO): void => {
 const AllergyListItem: FC<{ value: AllergyDTO; index: number; length: number }> = ({ value, index, length }) => {
   const [note, setNote] = useState(value.note || '');
   const areNotesEqual = note.trim() === (value.note || '');
-
   const featureFlags = useFeatureFlags();
+  const { chartDataSetState } = useChartData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-
   const { mutate: updateChartData, isPending: isUpdateLoading } = useSaveChartData();
   const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
   const isLoading = isUpdateLoading || isDeleteLoading;
@@ -103,7 +105,7 @@ const AllergyListItem: FC<{ value: AllergyDTO; index: number; length: number }> 
           {
             onSuccess: (data) => {
               const updatedAllergy = data.chartData.allergies?.[0];
-              setUpdatedAllergy(updatedAllergy);
+              setUpdatedAllergy(chartDataSetState, updatedAllergy);
             },
             onError: () => {
               enqueueSnackbar('An error has occurred while updating allergy note. Please try again.', {
@@ -128,7 +130,7 @@ const AllergyListItem: FC<{ value: AllergyDTO; index: number; length: number }> 
             setNote('');
           }
           const updatedAllergy = data.chartData.allergies?.[0];
-          setUpdatedAllergy(updatedAllergy);
+          setUpdatedAllergy(chartDataSetState, updatedAllergy);
         },
         onError: () => {
           enqueueSnackbar('An error has occurred while updating allergy status. Please try again.', {
@@ -146,7 +148,7 @@ const AllergyListItem: FC<{ value: AllergyDTO; index: number; length: number }> 
       },
       {
         onSuccess: () => {
-          useAppointmentStore.setState((prevState) => ({
+          chartDataSetState((prevState) => ({
             chartData: {
               ...prevState.chartData!,
               allergies: prevState.chartData?.allergies?.filter((allergy) => allergy.resourceId !== value.resourceId),
@@ -228,18 +230,18 @@ const AllergyListItem: FC<{ value: AllergyDTO; index: number; length: number }> 
 };
 
 const AddAllergyField: FC = () => {
-  const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);
+  const { isChartDataLoading, chartDataSetState } = useChartData();
   const { mutate: updateChartData, isPending: isUpdateLoading } = useSaveChartData();
 
   const methods = useForm<{ value: ExtractObjectType<ErxSearchAllergensResponse> | null; otherAllergyName: string }>({
     defaultValues: { value: null, otherAllergyName: '' },
   });
-  const { control, reset, handleSubmit } = methods;
 
+  const { control, reset, handleSubmit } = methods;
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [isOtherOptionSelected, setIsOtherOptionSelected] = useState(false);
-
   const { isFetching: isSearching, data } = useGetAllergiesSearch(debouncedSearchTerm);
+
   const allergiesSearchOptions = useMemo(() => {
     if (!data || isSearching) return [];
 
@@ -268,14 +270,19 @@ const AddAllergyField: FC = () => {
     []
   );
 
-  const handleSelectOption = (data: ExtractObjectType<ErxSearchAllergensResponse> | null): void => {
+  const handleSelectOption = (
+    chartDataSetState: (
+      updater: Partial<ChartDataState> | ((state: ChartDataState) => Partial<ChartDataState>)
+    ) => void,
+    data: ExtractObjectType<ErxSearchAllergensResponse> | null
+  ): void => {
     if (data) {
       const newValue = {
         name: data.name,
         id: data.id?.toString(),
         current: true,
       };
-      useAppointmentStore.setState((prevState) => ({
+      chartDataSetState((prevState) => ({
         chartData: {
           ...prevState.chartData!,
           allergies: [...(prevState.chartData?.allergies || []), newValue],
@@ -290,7 +297,7 @@ const AddAllergyField: FC = () => {
           onSuccess: (data) => {
             const updatedAllergy = data.chartData.allergies?.[0];
             if (updatedAllergy) {
-              useAppointmentStore.setState((prevState) => ({
+              chartDataSetState((prevState) => ({
                 chartData: {
                   ...prevState.chartData!,
                   allergies: prevState.chartData?.allergies?.map((allergy) =>
@@ -301,7 +308,7 @@ const AddAllergyField: FC = () => {
             }
           },
           onError: () => {
-            useAppointmentStore.setState((prevState) => ({
+            chartDataSetState((prevState) => ({
               chartData: {
                 ...prevState.chartData!,
                 allergies: prevState.chartData?.allergies?.filter((allergy) => allergy.resourceId),
@@ -321,7 +328,7 @@ const AddAllergyField: FC = () => {
     otherAllergyName: string;
   }): void => {
     if (data.value) {
-      handleSelectOption({
+      handleSelectOption(chartDataSetState, {
         ...data.value,
         name: 'Other' + (data.otherAllergyName ? ` (${data.otherAllergyName})` : ''),
       });
@@ -354,7 +361,7 @@ const AddAllergyField: FC = () => {
                   setIsOtherOptionSelected(true);
                 } else {
                   setIsOtherOptionSelected(false);
-                  handleSelectOption(data);
+                  handleSelectOption(chartDataSetState, data);
                 }
               }}
               getOptionLabel={(option) => (typeof option === 'string' ? option : option.name || '')}

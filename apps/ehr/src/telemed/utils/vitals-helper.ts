@@ -1,41 +1,41 @@
 import { QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { useAppointmentStore } from '../state';
 
 export const updateQuestionnaireResponse = (
   questionnaireResponse: QuestionnaireResponse | undefined,
   name: string,
   value: string
-): void => {
+): { questionnaireResponse: QuestionnaireResponse } | undefined => {
   if (questionnaireResponse) {
     if (questionnaireResponse.item?.find((item) => item.linkId === name)) {
-      useAppointmentStore.setState({
+      return {
         questionnaireResponse: {
           ...questionnaireResponse,
           item: questionnaireResponse?.item?.map((item) =>
             item.linkId === name ? { ...item, answer: [{ valueString: value }] } : item
           ),
         },
-      });
+      };
     } else {
       const newItem = { linkId: name, answer: [{ valueString: value }] };
       if (!questionnaireResponse.item) {
-        useAppointmentStore.setState({
+        return {
           questionnaireResponse: {
             ...questionnaireResponse,
             item: [newItem],
           },
-        });
+        };
       } else {
-        useAppointmentStore.setState({
+        return {
           questionnaireResponse: {
             ...questionnaireResponse,
             item: [...questionnaireResponse.item, newItem],
           },
-        });
+        };
       }
     }
   }
+  return undefined;
 };
 
 export const isNumberValidation = (value: string): string | undefined => {
