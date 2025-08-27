@@ -149,9 +149,13 @@ async function generate20250319(
     resource: { oystehr_fhir_resource: {} },
   };
   for (const [resourceKey, resource] of Object.entries(resources.fhirResources)) {
+    const resourceData = structuredClone(resource);
+    const managedFields = resourceData.managedFields ?? undefined;
+    delete resourceData.managedFields;
     fhirResources.resource.oystehr_fhir_resource[resourceKey] = {
       type: getValue(resource.resourceType, vars, resources),
-      data: JSON.parse(getValue(JSON.stringify(resource), vars, resources)),
+      data: JSON.parse(getValue(JSON.stringify(resourceData), vars, resources)),
+      managed_fields: managedFields,
     };
   }
   await fs.writeFile(fhirOutFile, JSON.stringify(fhirResources, null, 2));

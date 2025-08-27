@@ -9,8 +9,17 @@ const projectConfig: any = config;
 const environment = projectConfig.environment;
 const projectId = projectConfig.project_id;
 const accessToken = projectConfig.access_token;
+const awsProfile = projectConfig.aws_profile ?? 'ottehr';
+
+const args = process.argv.slice(2);
+const noUpdateEnvFilesArg = args.includes('--no-update-env-files');
+const noUpdateAppsArg = args.includes('--no-update-apps');
 
 void (async () => {
+  if (noUpdateEnvFilesArg && noUpdateAppsArg) {
+    console.error('Nothing to do, exiting');
+    process.exit(0);
+  }
   try {
     const distributions = await getCloudFrontDistributions();
     const patientPortalDistribution = distributions.DistributionList?.Items?.find(
@@ -26,8 +35,12 @@ void (async () => {
         accessToken,
         projectId,
       });
-      await updateEnvFiles(environment, patientPortalUrl, ehrUrl);
-      await updateOystehr(oystehr, patientPortalUrl, ehrUrl);
+      if (!noUpdateEnvFilesArg) {
+        await updateEnvFiles(environment, patientPortalUrl, ehrUrl);
+      }
+      if (!noUpdateAppsArg) {
+        await updateOystehr(oystehr, patientPortalUrl, ehrUrl);
+      }
     }
   } catch (error) {
     console.error('Deployment failed:', error);
@@ -36,6 +49,21 @@ void (async () => {
 })();
 
 export async function getCloudFrontDistributions(): Promise<ListDistributionsCommandOutput> {
-  const cloudfrontClient = new CloudFrontClient({ region: 'us-east-1', credentials: fromIni({ profile: 'ottehr' }) });
+  const cloudfrontClient = new CloudFrontClient({ region: 'us-east-1', credentials: getCredentials(awsProfile) });
   return await cloudfrontClient.send(new ListDistributionsCommand({}));
+}
+
+function getCredentials(profile: string): any {
+  if (process.env.CI) {
+    console.warn('Running in CI, using default credentials');
+    return undefined; // Use default credentials in CI
+  }
+  let ini;
+  try {
+    ini = fromIni({ profile });
+  } catch (error) {
+    console.error(`Error loading AWS profile "${profile}":`, error);
+    process.exit(1);
+  }
+  return ini;
 }
