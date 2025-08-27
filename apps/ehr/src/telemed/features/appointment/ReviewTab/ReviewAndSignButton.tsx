@@ -133,18 +133,14 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
       await updateVisitStatusToAwaitSupervisorApproval();
     } else {
       if (css) {
-        try {
-          const tz = DateTime.now().zoneName;
-          await signAppointment({
-            apiClient,
-            appointmentId: appointment.id,
-            timezone: tz,
-            supervisorApprovalEnabled: FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED,
-          });
-          await appointmentRefetch();
-        } catch (error: any) {
-          console.log(error.message);
-        }
+        const tz = DateTime.now().zoneName;
+        await signAppointment({
+          apiClient,
+          appointmentId: appointment.id,
+          timezone: tz,
+          supervisorApprovalEnabled: FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED,
+        });
+        await appointmentRefetch();
       } else {
         await changeTelemedAppointmentStatus({
           apiClient,
@@ -218,14 +214,14 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
             }
             response={handleSign}
             actionButtons={{
-              proceed: { text: 'Sign' },
+              proceed: { text: 'Sign', loading: isLoading },
               back: { text: 'Cancel' },
+              reverse: true,
             }}
           >
             {(showDialog) => (
               <RoundedButton
                 disabled={errorMessage.length > 0 || isLoading || completed || inPersonStatus === 'provider'}
-                loading={isLoading}
                 variant="contained"
                 onClick={showDialog}
                 startIcon={completed ? <CheckIcon color="inherit" /> : undefined}

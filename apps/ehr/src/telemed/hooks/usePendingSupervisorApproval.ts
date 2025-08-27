@@ -14,7 +14,7 @@ export const usePendingSupervisorApproval = ({
   updateVisitStatusToAwaitSupervisorApproval: () => Promise<void>;
 } => {
   const { oystehrZambda } = useApiClients();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
   const updateVisitStatusToAwaitSupervisorApproval = useCallback(async (): Promise<void> => {

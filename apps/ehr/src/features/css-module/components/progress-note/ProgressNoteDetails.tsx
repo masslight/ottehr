@@ -51,7 +51,7 @@ import { InHouseMedicationsContainer } from './InHouseMedicationsContainer';
 import { PatientVitalsContainer } from './PatientVitalsContainer';
 
 export const ProgressNoteDetails: FC = () => {
-  const { appointment, encounter, appointmentRefetch: refetch, appointmentSetState } = useAppointmentData();
+  const { appointment, encounter, appointmentRefetch, appointmentSetState } = useAppointmentData();
   const apiClient = useOystehrAPIClient();
   const { css } = useFeatureFlags();
   const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
@@ -183,18 +183,14 @@ export const ProgressNoteDetails: FC = () => {
     }
 
     if (css) {
-      try {
-        const tz = DateTime.now().zoneName;
-        await signAppointment({
-          apiClient,
-          appointmentId: appointment.id,
-          timezone: tz,
-          supervisorApprovalEnabled: FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED,
-        });
-        await refetch();
-      } catch (error: any) {
-        console.log(error.message);
-      }
+      const tz = DateTime.now().zoneName;
+      await signAppointment({
+        apiClient,
+        appointmentId: appointment.id + 'a',
+        timezone: tz,
+        supervisorApprovalEnabled: FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED,
+      });
+      await appointmentRefetch();
     } else {
       await changeTelemedAppointmentStatus({
         apiClient,
