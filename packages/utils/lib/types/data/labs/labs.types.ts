@@ -294,14 +294,15 @@ export enum UnsolicitedResultsRequestType {
 // planning to add diagnostic id as input as well
 export type GetUnsolicitedResultsResourcesInput =
   | { requestType: UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_ICON }
-  | { requestType: UnsolicitedResultsRequestType.GET_ALL_TASKS };
+  | { requestType: UnsolicitedResultsRequestType.GET_ALL_TASKS; itemsPerPage?: number; pageIndex?: number };
 
-type unsolicitedResultTaskRowDTO = {
+export const UR_TASK_ACTION_TEXT = ['Match', 'Go to Lab Results'] as const;
+export type UR_TASK_ACTION = (typeof UR_TASK_ACTION_TEXT)[number];
+
+export type UnsolicitedResultTaskRowDTO = {
   diagnosticReportId: string;
-  taskType:
-    | UnsolicitedResultsRequestType.MATCH_UNSOLICITED_RESULTS
-    | UnsolicitedResultsRequestType.UNSOLICITED_RESULT_DETAIL;
-  taskRowInstruction: string;
+  actionText: UR_TASK_ACTION;
+  taskRowDescription: string;
   resultsReceivedDateTime: string;
 };
 
@@ -309,7 +310,7 @@ export type GetUnsolicitedResultsResourcesForIcon = {
   tasksAreReady: boolean;
 };
 export type GetUnsolicitedResultsResourcesForTable = {
-  unsolicitedResultTasks: unsolicitedResultTaskRowDTO[];
+  unsolicitedResultTasks: UnsolicitedResultTaskRowDTO[];
 };
 export type GetUnsolicitedResultsResourcesOutput =
   | GetUnsolicitedResultsResourcesForIcon

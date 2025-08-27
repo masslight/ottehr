@@ -7,7 +7,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
-import { handleRequestForIcon } from './helpers';
+import { handleGetTasks, handleRequestForIcon } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -32,6 +32,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       case UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_ICON: {
         console.log('handling unsolicited-results-icon request');
         response = await handleRequestForIcon(oystehr);
+        break;
+      }
+      case UnsolicitedResultsRequestType.GET_ALL_TASKS: {
+        console.log('handling get-tasks request');
+        response = await handleGetTasks(oystehr);
         break;
       }
       default: {
