@@ -5,6 +5,7 @@ import Oystehr, {
   BatchInputRequest,
 } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
+import { InsurancePlanTypeCode, InsurancePlanTypes } from 'ehr-ui/src/constants';
 import { Operation, RemoveOperation } from 'fast-json-patch';
 import {
   Account,
@@ -76,7 +77,6 @@ import {
   INSURANCE_CARD_CODE,
   INSURANCE_CARD_FRONT_2_ID,
   INSURANCE_CARD_FRONT_ID,
-  INSURANCE_COVERAGE_CODING,
   IntakeQuestionnaireItem,
   isoStringFromDateComponents,
   isValidUUID,
@@ -1732,6 +1732,7 @@ export function extractAccountGuarantor(items: QuestionnaireResponseItem[]): Res
 interface InsuranceDetails {
   org: Organization;
   additionalInformation?: string;
+  type: InsurancePlanTypeCode;
 }
 function getInsuranceDetailsFromAnswers(
   answers: QuestionnaireResponseItem[],
@@ -1746,10 +1747,14 @@ function getInsuranceDetailsFromAnswers(
   const org = organizations.find((org) => `${org.resourceType}/${org.id}` === insuranceOrgReference.reference);
   if (!org) return undefined;
 
+  const type = answers.find((item) => item.linkId === `insurance-plan-type${suffix}`)?.answer?.[0]?.valueCoding
+    ?.code as InsurancePlanTypeCode;
+  if (!type) return undefined;
+
   const additionalInformation = answers.find((item) => item.linkId === `insurance-additional-information${suffix}`)
     ?.answer?.[0]?.valueString;
 
-  return { org, additionalInformation };
+  return { org, additionalInformation, type };
 }
 
 interface CreateCoverageResourceInput {
@@ -1759,6 +1764,7 @@ interface CreateCoverageResourceInput {
     org: Organization;
     policyHolder: PolicyHolder;
     additionalInformation?: string;
+    type: InsurancePlanTypeCode;
   };
 }
 const createCoverageResource = (input: CreateCoverageResourceInput): Coverage => {
@@ -1803,6 +1809,9 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
   } else {
     contained = [containedPolicyHolder];
   }
+  const coverageTypeCoding = InsurancePlanTypes.find((planType) => planType.candidCode === insurance.type)
+    ?.coverageCoding;
+  if (!coverageTypeCoding) throw new Error("Can't find coverage type coding from candid code");
 
   const coverage: Coverage = {
     contained,
@@ -1818,7 +1827,7 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
       reference: `Patient/${patientId}`,
     },
     type: {
-      coding: [INSURANCE_COVERAGE_CODING],
+      coding: [coverageTypeCoding],
     },
     payor: [{ reference: `Organization/${org.id}` }],
     subscriberId: policyHolder.memberId,

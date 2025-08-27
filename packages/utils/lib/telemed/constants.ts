@@ -19,6 +19,7 @@ export const SELF_PAY_CODING = {
   code: 'pay',
 };
 
+export const INSURANCE_COVERAGE_TYPE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v3-ActCode';
 export const INSURANCE_COVERAGE_CODING = {
   system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
   code: 'HIP',

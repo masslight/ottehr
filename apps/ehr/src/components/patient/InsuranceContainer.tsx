@@ -298,19 +298,19 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
           control={control}
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
-            validate: (value) => InsurancePlanTypes.some((option) => option.code === value),
+            validate: (value) => InsurancePlanTypes.some((option) => option.candidCode === value),
           }}
           render={({ field: { value }, fieldState: { error } }) => {
-            const selectedOption = InsurancePlanTypes.find((option) => option.code === value?.code);
+            const selectedOption = InsurancePlanTypes.find((option) => option.candidCode === value?.code);
             return (
               <Autocomplete
                 options={InsurancePlanTypes}
                 value={selectedOption}
-                isOptionEqualToValue={(option, value) => option?.code === value?.code}
-                getOptionLabel={(option) => `${option.code} - ${option.label}` || ''}
+                isOptionEqualToValue={(option, value) => option?.candidCode === value?.candidCode}
+                getOptionLabel={(option) => `${option.candidCode} - ${option.label}` || ''}
                 onChange={(_, newValue) => {
                   if (newValue) {
-                    setValue(FormFields.insurancePlanType.key, newValue.code, { shouldDirty: true });
+                    setValue(FormFields.insurancePlanType.key, newValue.candidCode, { shouldDirty: true });
                   } else {
                     setValue(FormFields.insurancePlanType.key, null);
                   }
