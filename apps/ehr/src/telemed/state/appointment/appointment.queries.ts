@@ -19,6 +19,7 @@ import {
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect } from 'react';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { Icd10SearchRequestParams, Icd10SearchResponse, useErrorQuery, useSuccessQuery } from 'utils';
 import {
   createSmsModel,
@@ -26,6 +27,10 @@ import {
   GetCreateLabOrderResources,
   GetMedicationOrdersInput,
   GetMedicationOrdersResponse,
+  GetUnsolicitedResultsResourcesForIcon,
+  GetUnsolicitedResultsResourcesForTable,
+  GetUnsolicitedResultsResourcesInput,
+  GetUnsolicitedResultsResourcesOutput,
   IcdSearchRequestParams,
   IcdSearchResponse,
   InstructionType,
@@ -36,6 +41,7 @@ import {
   relatedPersonAndCommunicationMaps,
   ReviewAndSignData,
   TelemedAppointmentInformation,
+  UnsolicitedResultsRequestType,
   UpdateMedicationOrderInput,
 } from 'utils';
 import { icd10Search } from '../../../api/api';
@@ -307,6 +313,29 @@ export const useGetCreateExternalLabResources = ({
     staleTime: QUERY_STALE_TIME,
   });
 };
+
+export function useGetUnsolicitedResultsResources(input: {
+  requestType: UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_ICON;
+}): UseQueryResult<GetUnsolicitedResultsResourcesForIcon | undefined, Error>;
+export function useGetUnsolicitedResultsResources(input: {
+  requestType: UnsolicitedResultsRequestType.GET_ALL_TASKS;
+}): UseQueryResult<GetUnsolicitedResultsResourcesForTable | undefined, Error>;
+export function useGetUnsolicitedResultsResources({
+  requestType,
+}: GetUnsolicitedResultsResourcesInput): UseQueryResult<GetUnsolicitedResultsResourcesOutput | undefined, Error> {
+  const apiClient = useOystehrAPIClient();
+  return useQuery({
+    queryKey: ['get unsolicited results resources', requestType],
+
+    queryFn: async () => {
+      return apiClient?.getUnsolicitedResultsResources({ requestType });
+    },
+
+    enabled: Boolean(FEATURE_FLAGS.LAB_ORDERS_ENABLED && apiClient && requestType),
+    placeholderData: keepPreviousData,
+    staleTime: QUERY_STALE_TIME,
+  });
+}
 
 export const useGetIcd10Search = ({
   search,
