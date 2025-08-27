@@ -1099,6 +1099,14 @@ export const mapBirthSexToGender = (
   return 'unknown';
 };
 
+export const genderMap = {
+  male: 'Male',
+  female: 'Female',
+  other: 'Intersex',
+} as const;
+
+export type Gender = (typeof genderMap)[keyof typeof genderMap];
+
 export const getMemberIdFromCoverage = (coverage: Coverage): string | undefined => {
   return coverage.identifier?.find((ident) => {
     return ident.type?.coding?.some(

@@ -244,8 +244,8 @@ export const getInHouseResources = async (
   oystehr: Oystehr,
   params: GetZambdaInHouseOrdersParams,
   searchBy: InHouseOrdersSearchBy,
-  userToken: string,
-  m2mToken: string
+  m2mToken: string,
+  userToken?: string
 ): Promise<{
   serviceRequests: ServiceRequest[];
   tasks: Task[];

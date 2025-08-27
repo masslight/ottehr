@@ -9,6 +9,7 @@ export const RoundedButton = styled(
     <LoadingButton
       variant="outlined"
       size="large"
+      loadingPosition="start"
       {...props}
       {...(props.to ? { component: Link, to: props.to, target: props.target } : {})}
     />

@@ -26,6 +26,8 @@ import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import {
   FinalizeUnsolicitedResultMatch,
   GetUnsolicitedResultsRelatedRequests,
+  Icd10SearchRequestParams,
+  Icd10SearchResponse,
   useErrorQuery,
   useSuccessQuery,
 } from 'utils';
@@ -60,6 +62,7 @@ import {
   TelemedAppointmentInformation,
   UpdateMedicationOrderInput,
 } from 'utils';
+import { icd10Search } from '../../../api/api';
 import { APPOINTMENT_REFRESH_INTERVAL, CHAT_REFETCH_INTERVAL, QUERY_STALE_TIME } from '../../../constants';
 import { useApiClients } from '../../../hooks/useAppClients';
 import useEvolveUser, { EvolveUser } from '../../../hooks/useEvolveUser';
@@ -746,6 +749,35 @@ export const useGetIcd10Search = ({
   return queryResult;
 };
 
+export const useICD10SearchNew = ({
+  search,
+}: Icd10SearchRequestParams): UseQueryResult<Icd10SearchResponse | undefined, Error> => {
+  const { oystehrZambda } = useApiClients();
+
+  const queryResult = useQuery({
+    queryKey: ['icd-10-search', search],
+
+    queryFn: async () => {
+      if (!oystehrZambda) return undefined;
+      return icd10Search(oystehrZambda, { search });
+    },
+
+    enabled: Boolean(oystehrZambda && search),
+    placeholderData: keepPreviousData,
+    staleTime: QUERY_STALE_TIME,
+  });
+
+  useEffect(() => {
+    if (queryResult.error) {
+      enqueueSnackbar('An error occurred during the search. Please try again in a moment.', {
+        variant: 'error',
+      });
+    }
+  }, [queryResult.error]);
+
+  return queryResult;
+};
+
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useUpdatePaperwork = () => {
   const { oystehrZambda } = useApiClients();
@@ -850,7 +882,7 @@ export const useSyncERXPatient = ({
         try {
           await oystehr.erx.syncPatient({ patientId: patient.id! });
           console.log('Successfully synced erx patient');
-          return;
+          return true;
         } catch (err) {
           console.error('Error during syncing erx patient: ', err);
           throw err;

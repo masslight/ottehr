@@ -11,4 +11,4 @@ export interface AppointmentPackage {
   practitioner?: Practitioner;
 }
 
-export type LocationIdToAbbreviationMap = { [stateAbbreviation: string]: Location };
+export type LocationIdToStateAbbreviationMap = { [stateAbbreviation: string]: Location[] };
