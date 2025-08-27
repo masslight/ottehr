@@ -2,7 +2,7 @@ import { Box, Stack } from '@mui/material';
 import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageTitle } from '../../../telemed/components/PageTitle';
-import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
+import { useAppointmentData } from '../../../telemed/state/appointment/appointment.store';
 import ListViewContainer from '../../common/ListViewContainer';
 import { ButtonRounded } from '../../css-module/components/RoundedButton';
 import { LabsTable, LabsTableColumn } from '../components/labs-orders/LabsTable';
@@ -19,7 +19,8 @@ const externalLabsColumns: LabsTableColumn[] = [
 
 export const ExternalLabOrdersListPage: React.FC = () => {
   const navigate = useNavigate();
-  const encounterId = useAppointmentStore((state) => state.encounter?.id);
+  const { encounter } = useAppointmentData();
+  const encounterId = encounter?.id;
 
   const handleCreateOrder = useCallback((): void => {
     navigate(`create`);

@@ -1,16 +1,12 @@
 import React, { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useLocation, useMatch, useNavigate, useParams } from 'react-router-dom';
-import { getSelectors } from '../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../telemed';
+import { useAppointmentData, useChartData } from 'src/telemed';
 import { CSSModal } from '../components/CSSModal';
 import { sidebarMenuIcons } from '../components/Sidebar';
-import { useAppointment } from '../hooks/useAppointment';
 import { ROUTER_PATH, routesCSS } from '../routing/routesCSS';
 
 export type InteractionMode = 'intake' | 'provider' | 'readonly';
-
 export type CSSValidator = () => React.ReactElement | string;
-
 export type CSSValidators = Record<string, CSSValidator>;
 
 export interface RouteCSS {
@@ -53,29 +49,22 @@ export let setNavigationDisable: NavigationContextType['setNavigationDisable'] =
 
 export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { id: appointmentIdFromUrl } = useParams();
-
   const navigate = useNavigate();
   const location = useLocation();
-
   const nextPageValidatorsRef = useRef<CSSValidators>({});
   const previousPageValidatorsRef = useRef<CSSValidators>({});
-
   const [isNavigationHidden, setIsNavigationHidden] = useState(false);
-
   const [isModeInitialized, setIsModeInitialized] = useState(false);
 
   // todo: calc actual initial InteractionMode value; in that case check "Intake Notes" button (or any other usages) in the Telemed works correctly
   const [interactionMode, _setInteractionMode] = useState<InteractionMode>('intake');
 
   const [modalContent, setModalContent] = useState<ReturnType<CSSValidator>>();
-
   const [isModalOpen, setIsModalOpen] = useState(false);
-
   const [_disabledNavigationState, _setDisabledNavigationState] = useState<Record<string, boolean>>({});
-
-  const { isLoading, visitState } = useAppointment(appointmentIdFromUrl);
+  const { isAppointmentLoading, visitState } = useAppointmentData();
   const { encounter } = visitState;
-  const { chartData, isChartDataLoading } = getSelectors(useAppointmentStore, ['chartData', 'isChartDataLoading']);
+  const { chartData, isChartDataLoading } = useChartData();
 
   const setInteractionMode = useCallback(
     (mode: InteractionMode, shouldNavigate: boolean): void => {
@@ -180,7 +169,8 @@ export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children
   };
 
   const availableRoutes = Object.values(routesCSS).filter(
-    (route) => !isLoading && isModeInitialized && route.modes.includes(interactionMode)
+    (route) =>
+      !isAppointmentLoading && !isChartDataLoading && isModeInitialized && route.modes.includes(interactionMode)
   );
   const availableRoutesForBottomNavigation = availableRoutes.filter((route) => !route.isSkippedInNavigation);
 
@@ -282,7 +272,7 @@ export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children
         setIsNavigationHidden,
         isNavigationHidden,
         interactionMode,
-        isLoading: isLoading || !isModeInitialized,
+        isLoading: isAppointmentLoading || isChartDataLoading || !isModeInitialized,
         setInteractionMode,
         availableRoutes,
         isFirstPage,

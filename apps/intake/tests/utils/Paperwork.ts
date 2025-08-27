@@ -447,8 +447,12 @@ export class Paperwork {
     const formattedPhoneNumber = this.formatPhoneNumber(mobile);
     await expect(this.locator.patientNumber).toHaveValue(formattedPhoneNumber);
   }
-  async checkPatientNameIsDisplayed(firstName: string, lastName: string): Promise<void> {
-    await expect(this.page.getByText(`${firstName} ${lastName}`)).toBeVisible();
+  async checkPatientNameIsDisplayed(firstName: string, lastName: string, isPhotoIdPage?: boolean): Promise<void> {
+    if (isPhotoIdPage) {
+      await expect(this.page.getByText(`Adult Guardian for ${firstName} ${lastName}`)).toBeVisible();
+    } else {
+      await expect(this.page.getByText(`${firstName} ${lastName}`)).toBeVisible();
+    }
   }
   async checkCorrectPageOpens(pageTitle: string): Promise<void> {
     await expect(this.locator.flowHeading).toBeVisible({ timeout: 5000 });

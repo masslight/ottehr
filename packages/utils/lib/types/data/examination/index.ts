@@ -1,0 +1,1 @@
+export * from './examination.schema';
