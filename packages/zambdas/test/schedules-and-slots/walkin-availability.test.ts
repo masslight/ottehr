@@ -53,7 +53,7 @@ describe('walkin availability tests', () => {
         dayOfWeek: timeNow.toLocaleString({ weekday: 'long' }).toLowerCase(),
         open: 8,
         close: 18,
-        workingDay: false,
+        workingDay: true,
       },
     ]);
 
@@ -80,7 +80,7 @@ describe('walkin availability tests', () => {
         dayOfWeek: timeNow.toLocaleString({ weekday: 'long' }).toLowerCase(),
         open: 8,
         close: 18,
-        workingDay: false,
+        workingDay: true,
       },
     ]);
     const bufferedSchedule = applyBuffersToScheduleExtension(adjustedScheduleJSON, {
@@ -113,7 +113,7 @@ describe('walkin availability tests', () => {
         dayOfWeek: timeNow.toLocaleString({ weekday: 'long' }).toLowerCase(),
         open: 8,
         close: 18,
-        workingDay: false,
+        workingDay: true,
       },
     ]);
     const bufferedSchedule = applyBuffersToScheduleExtension(adjustedScheduleJSON, {
@@ -144,7 +144,7 @@ describe('walkin availability tests', () => {
         dayOfWeek: timeNow.toLocaleString({ weekday: 'long' }).toLowerCase(),
         open: 8,
         close: 18,
-        workingDay: false,
+        workingDay: true,
       },
     ]);
 
@@ -185,7 +185,7 @@ describe('walkin availability tests', () => {
         dayOfWeek: timeNow.toLocaleString({ weekday: 'long' }).toLowerCase(),
         open: 8,
         close: 18,
-        workingDay: false,
+        workingDay: true,
       },
     ]);
 
