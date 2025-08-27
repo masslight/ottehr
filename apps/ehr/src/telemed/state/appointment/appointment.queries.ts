@@ -307,13 +307,18 @@ export const useGetAllergiesSearch = (
 export const useGetCreateExternalLabResources = ({
   patientId,
   search,
-}: GetCreateLabOrderResources): UseQueryResult<LabOrderResourcesRes | undefined, Error> => {
+}: GetCreateLabOrderResources): UseQueryResult<LabOrderResourcesRes | null, Error> => {
   const apiClient = useOystehrAPIClient();
   return useQuery({
     queryKey: ['external lab resource search', patientId, search],
 
     queryFn: async () => {
-      return apiClient?.getCreateExternalLabResources({ patientId, search });
+      const res = await apiClient?.getCreateExternalLabResources({ patientId, search });
+      if (res) {
+        return res;
+      } else {
+        return null;
+      }
     },
 
     enabled: Boolean(apiClient && (patientId || search)),
@@ -324,7 +329,7 @@ export const useGetCreateExternalLabResources = ({
 
 export function useDisplayUnsolicitedResultsIcon(
   input: GetUnsolicitedResultsResourcesForIconInput
-): UseQueryResult<GetUnsolicitedResultsResourcesForIcon | undefined, Error> {
+): UseQueryResult<GetUnsolicitedResultsResourcesForIcon | null, Error> {
   const apiClient = useOystehrAPIClient();
   const { requestType } = input;
 
@@ -336,7 +341,7 @@ export function useDisplayUnsolicitedResultsIcon(
       if (data && 'tasksAreReady' in data) {
         return data;
       }
-      return;
+      return null;
     },
 
     enabled: Boolean(apiClient && FEATURE_FLAGS.LAB_ORDERS_ENABLED),
@@ -346,7 +351,7 @@ export function useDisplayUnsolicitedResultsIcon(
 
 export function useGetUnsolicitedResultsResourcesForTable(
   input: GetUnsolicitedResultsResourcesForTableInput
-): UseQueryResult<GetUnsolicitedResultsResourcesForTable | undefined, Error> {
+): UseQueryResult<GetUnsolicitedResultsResourcesForTable | null, Error> {
   const apiClient = useOystehrAPIClient();
   const { requestType } = input;
 
@@ -358,7 +363,7 @@ export function useGetUnsolicitedResultsResourcesForTable(
       if (data && 'unsolicitedResultRows' in data) {
         return data;
       }
-      return;
+      return null;
     },
 
     enabled: Boolean(apiClient),
@@ -367,7 +372,7 @@ export function useGetUnsolicitedResultsResourcesForTable(
 
 export function useGetUnsolicitedResultsResourcesForMatch(
   input: GetUnsolicitedResultsResourcesForMatchInput
-): UseQueryResult<GetUnsolicitedResultsResourcesForMatch | undefined, Error> {
+): UseQueryResult<GetUnsolicitedResultsResourcesForMatch | null, Error> {
   const apiClient = useOystehrAPIClient();
   const { requestType, diagnosticReportId } = input;
 
@@ -379,7 +384,7 @@ export function useGetUnsolicitedResultsResourcesForMatch(
       if (data && 'labInfo' in data) {
         return data;
       }
-      return;
+      return null;
     },
 
     enabled: Boolean(apiClient && diagnosticReportId),
@@ -390,7 +395,7 @@ export function useGetUnsolicitedResultsResourcesForMatch(
 
 export function useGetUnsolicitedResultsRelatedRequests(
   input: GetUnsolicitedResultsRelatedRequests
-): UseQueryResult<RelatedRequestsToUnsolicitedResultOutput | undefined, Error> {
+): UseQueryResult<RelatedRequestsToUnsolicitedResultOutput | null, Error> {
   const apiClient = useOystehrAPIClient();
   const { requestType, diagnosticReportId, patientId } = input;
 
@@ -402,7 +407,7 @@ export function useGetUnsolicitedResultsRelatedRequests(
       if (data && 'possibleRelatedSRsWithVisitDate' in data) {
         return data;
       }
-      return;
+      return null;
     },
 
     enabled: Boolean(apiClient && diagnosticReportId),
