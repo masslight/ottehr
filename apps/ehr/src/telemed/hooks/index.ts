@@ -8,3 +8,4 @@ export * from './useTrackingBoardTableButtonType';
 export * from './usePatientInstructionsVisibility';
 export * from './useEditPatientNameMutation';
 export * from './useEditPatientBirthDateMutation';
+export * from './usePendingSupervisorApproval';
