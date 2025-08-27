@@ -9,6 +9,7 @@ import {
   CoverageCheckWithDetails,
   EligibilityCheckSimpleStatus,
   InsurancePlanDTO,
+  InsurancePlanTypes,
   isPostalCodeValid,
   mapEligibilityCheckResultToSimpleStatus,
   PatientPaymentBenefit,
@@ -18,7 +19,6 @@ import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../../
 import {
   FormFields as AllFormFields,
   INSURANCE_COVERAGE_OPTIONS,
-  InsurancePlanTypes,
   InsurancePriorityOptions,
   PatientAddressFields,
   PatientIdentifyingFields,
@@ -301,7 +301,9 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
             validate: (value) => InsurancePlanTypes.some((option) => option.candidCode === value),
           }}
           render={({ field: { value }, fieldState: { error } }) => {
-            const selectedOption = InsurancePlanTypes.find((option) => option.candidCode === value?.code);
+            console.log('value incoming', value);
+            const selectedOption = InsurancePlanTypes.find((option) => option.candidCode === `${value}`);
+            console.log('selectedOption', selectedOption);
             return (
               <Autocomplete
                 options={InsurancePlanTypes}

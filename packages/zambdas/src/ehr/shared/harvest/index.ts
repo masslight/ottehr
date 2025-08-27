@@ -5,7 +5,6 @@ import Oystehr, {
   BatchInputRequest,
 } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
-import { InsurancePlanTypeCode, InsurancePlanTypes } from 'ehr-ui/src/constants';
 import { Operation, RemoveOperation } from 'fast-json-patch';
 import {
   Account,
@@ -77,6 +76,8 @@ import {
   INSURANCE_CARD_CODE,
   INSURANCE_CARD_FRONT_2_ID,
   INSURANCE_CARD_FRONT_ID,
+  InsurancePlanTypeCode,
+  InsurancePlanTypes,
   IntakeQuestionnaireItem,
   isoStringFromDateComponents,
   isValidUUID,

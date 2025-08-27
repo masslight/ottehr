@@ -97,6 +97,8 @@ const makePrepopulatedCoveragesFormDefaults = ({
     coverageChecks: [],
   });
 
+  console.log('form defaults', JSON.stringify(makeFormDefaults(prepopulatedItems)));
+
   return makeFormDefaults(prepopulatedItems);
 };
 

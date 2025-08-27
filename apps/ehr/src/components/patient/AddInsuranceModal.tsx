@@ -16,10 +16,9 @@ import { Questionnaire } from 'fhir/r4b';
 import React, { useEffect } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { InsurancePlanDTO, isPostalCodeValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { InsurancePlanDTO, InsurancePlanTypes, isPostalCodeValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import {
   FormFields as AllFormFields,
-  InsurancePlanTypes,
   RELATIONSHIP_TO_INSURED_OPTIONS,
   SEX_OPTIONS,
   STATE_OPTIONS,

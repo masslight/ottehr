@@ -20,6 +20,7 @@ import {
   getMiddleName,
   getNameSuffix,
   getPronounsFromExtension,
+  InsurancePlanTypes,
   PRIVATE_EXTENSION_BASE_URL,
 } from '../../fhir';
 import {
@@ -648,6 +649,9 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
   let primaryMemberId = '';
   let secondaryMemberId = '';
 
+  let primaryPlanType: string | undefined;
+  let secondaryPlanType: string | undefined;
+
   if (primary) {
     const payerId = primary.class?.[0].value;
     const org = insuranceOrgs.find((tempOrg) => getPayerId(tempOrg) === payerId);
@@ -681,6 +685,17 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
       secondary.identifier?.find(
         (i) => i.type?.coding?.[0]?.code === 'MB' && i.assigner?.reference === secondary.payor[0]?.reference
       )?.value ?? '';
+  }
+
+  if (primary) {
+    const coverageTypeCode = primary.type?.coding?.[0]?.code;
+    const matchedPlanType = InsurancePlanTypes.find((planType) => planType.coverageCoding?.code === coverageTypeCode);
+    primaryPlanType = matchedPlanType?.candidCode;
+  }
+  if (secondary) {
+    const coverageTypeCode = secondary.type?.coding?.[0]?.code;
+    const matchedPlanType = InsurancePlanTypes.find((planType) => planType.coverageCoding?.code === coverageTypeCode);
+    secondaryPlanType = matchedPlanType?.candidCode;
   }
 
   const primarySubscriberDoB = primarySubscriber?.birthDate ?? '';
@@ -761,6 +776,13 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
       }
       if (linkId === 'insurance-carrier-2' && secondaryInsurancePlanReference) {
         answer = makeAnswer(secondaryInsurancePlanReference, 'Reference');
+      }
+      if (linkId === 'insurance-plan-type' && primaryPlanType) {
+        answer = makeAnswer(primaryPlanType);
+        console.log('answer', JSON.stringify(answer));
+      }
+      if (linkId === 'insurance-plan-type-2' && secondaryPlanType) {
+        answer = makeAnswer(secondaryPlanType);
       }
       if (linkId === 'insurance-member-id' && primaryMemberId) {
         answer = makeAnswer(primaryMemberId);
