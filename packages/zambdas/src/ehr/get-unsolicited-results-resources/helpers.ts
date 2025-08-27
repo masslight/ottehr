@@ -1,22 +1,25 @@
-import Oystehr, { BatchInputGetRequest, Bundle } from '@oystehr/sdk';
-import { FhirResource } from 'fhir/r4b';
+import Oystehr from '@oystehr/sdk';
 import { GetUnsolicitedResultsResourcesForIcon } from 'utils';
-import { parseBundleResources } from '../get-chart-data/helpers';
 
 export const handleRequestForIcon = async (oystehr: Oystehr): Promise<GetUnsolicitedResultsResourcesForIcon> => {
-  const getUnsolicitedDRsWithTasks: BatchInputGetRequest = {
-    method: 'GET',
-    url: `/DiagnosticReport?_tag=unsolicited&_has:Task:based-on:status=ready&_revinclude=Task:based-on`,
-  };
+  console.log('making search request for unsolicited results tasks and drs');
+  const resourceSearch = (
+    await oystehr.fhir.search({
+      resourceType: 'DiagnosticReport',
+      params: [
+        {
+          name: '_tag',
+          value: 'unsolicited',
+        },
+        { name: '_has:Task:based-on:status', value: 'ready' },
+        { name: '_revinclude', value: 'Task:based-on' },
+      ],
+    })
+  ).unbundle();
 
-  console.log('making transaction request for unsolicited results tasks and drs');
-  const bundle: Bundle<FhirResource> = await oystehr.fhir.transaction({
-    requests: [getUnsolicitedDRsWithTasks],
-  });
-  const resources = parseBundleResources(bundle);
-  console.log('resources.length', resources.length);
+  console.log('resourceSearch.length', resourceSearch.length);
 
   return {
-    tasksAreReady: resources.length > 0,
+    tasksAreReady: resourceSearch.length > 0,
   };
 };
