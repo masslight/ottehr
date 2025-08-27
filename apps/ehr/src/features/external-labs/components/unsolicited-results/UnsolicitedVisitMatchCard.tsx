@@ -22,7 +22,7 @@ export const UnsolicitedVisitMatchCard: FC<UnsolicitedVisitMatchCardProps> = ({
     error: resourceSearchError,
     isLoading,
   } = useGetUnsolicitedResultsRelatedRequests({
-    requestType: UnsolicitedResultsRequestType.GET_UR_RELATED_REQUESTS,
+    requestType: UnsolicitedResultsRequestType.GET_UNSOLICITED_RESULTS_RELATED_REQUESTS,
     diagnosticReportId,
     patientId,
   });

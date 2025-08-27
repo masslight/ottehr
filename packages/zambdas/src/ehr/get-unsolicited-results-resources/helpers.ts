@@ -349,8 +349,6 @@ const getEncountersPossiblyRelatedToUnsolicitedResult = async (
           name: 'code',
           value: testItemCode,
         },
-        // todo sarah trying to limit the number of returns by only grabbing tests without results but what about reflex?
-        // is it fine we cannot link those? they wont return from this logic anyway since the test code will be different
         {
           name: 'status',
           value: 'active',

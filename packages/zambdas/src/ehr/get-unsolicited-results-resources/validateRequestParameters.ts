@@ -18,14 +18,14 @@ export function validateRequestParameters(
 
   if (
     requestType === UnsolicitedResultsRequestType.MATCH_UNSOLICITED_RESULTS ||
-    requestType === UnsolicitedResultsRequestType.GET_UR_RELATED_REQUESTS
+    requestType === UnsolicitedResultsRequestType.GET_UNSOLICITED_RESULTS_RELATED_REQUESTS
   ) {
     if (!diagnosticReportId || typeof diagnosticReportId !== 'string') {
       throw Error(`diagnosticReportId is an unexpected type: ${diagnosticReportId}`);
     }
   }
 
-  if (requestType === UnsolicitedResultsRequestType.GET_UR_RELATED_REQUESTS) {
+  if (requestType === UnsolicitedResultsRequestType.GET_UNSOLICITED_RESULTS_RELATED_REQUESTS) {
     if (!patientId || typeof patientId !== 'string') {
       throw Error(`patientId is an unexpected type: ${patientId}`);
     }

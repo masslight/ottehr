@@ -305,7 +305,7 @@ export enum UnsolicitedResultsRequestType {
   UNSOLICITED_RESULTS_ICON = 'unsolicited-results-icon',
   GET_TABLE_ROWS = 'get-table-rows',
   MATCH_UNSOLICITED_RESULTS = 'match-unsolicited-result',
-  GET_UR_RELATED_REQUESTS = 'get-ur-related-requests',
+  GET_UNSOLICITED_RESULTS_RELATED_REQUESTS = 'get-unsolicited-results-related-requests',
   UNSOLICITED_RESULT_DETAIL = 'unsolicited-result-detail',
 }
 
@@ -322,7 +322,7 @@ export type GetUnsolicitedResultsResourcesForMatchInput = {
   diagnosticReportId: string;
 };
 export type GetUnsolicitedResultsRelatedRequests = {
-  requestType: UnsolicitedResultsRequestType.GET_UR_RELATED_REQUESTS;
+  requestType: UnsolicitedResultsRequestType.GET_UNSOLICITED_RESULTS_RELATED_REQUESTS;
   diagnosticReportId: string;
   patientId: string;
 };
