@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputGetRequest, Bundle } from '@oystehr/sdk';
+import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { DiagnosticReport, FhirResource, Patient, Task } from 'fhir/r4b';
 import {
   getFullestAvailableName,
@@ -10,25 +10,30 @@ import {
   UnsolicitedResultTaskRowDTO,
   UR_TASK_ACTION,
 } from 'utils';
-import { parseBundleResources } from '../get-chart-data/helpers';
 
-const getUnsolicitedDRandRelatedResources = async (
+export const getUnsolicitedDRandRelatedResources = async (
   oystehr: Oystehr,
-  additionalQueryParams?: string[]
+  additionalQueryParams?: SearchParam[]
 ): Promise<FhirResource[]> => {
-  const getUnsolicitedDRsWithTasks: BatchInputGetRequest = {
-    method: 'GET',
-    url: `/DiagnosticReport?_tag=unsolicited&_has:Task:based-on:status=ready&_revinclude=Task:based-on${
-      additionalQueryParams ? additionalQueryParams.map((param) => `&${param}`) : ''
-    }`,
-  };
+  const additionalParams = additionalQueryParams ? additionalQueryParams : [];
 
-  console.log('making transaction request for unsolicited results tasks and drs');
-  const bundle: Bundle<FhirResource> = await oystehr.fhir.transaction({
-    requests: [getUnsolicitedDRsWithTasks],
-  });
-  const resources = parseBundleResources(bundle);
-  return resources;
+  console.log('making search request for unsolicited results tasks and drs');
+  const resourceSearch = (
+    await oystehr.fhir.search<FhirResource>({
+      resourceType: 'DiagnosticReport',
+      params: [
+        {
+          name: '_tag',
+          value: 'unsolicited',
+        },
+        { name: '_has:Task:based-on:status', value: 'ready' },
+        { name: '_revinclude', value: 'Task:based-on' },
+        ...additionalParams,
+      ],
+    })
+  ).unbundle();
+
+  return resourceSearch;
 };
 
 export const handleRequestForIcon = async (oystehr: Oystehr): Promise<GetUnsolicitedResultsResourcesForIcon> => {
@@ -39,7 +44,9 @@ export const handleRequestForIcon = async (oystehr: Oystehr): Promise<GetUnsolic
 };
 
 export const handleGetTasks = async (oystehr: Oystehr): Promise<GetUnsolicitedResultsResourcesForTable> => {
-  const resources = await getUnsolicitedDRandRelatedResources(oystehr, ['_include=DiagnosticReport:subject']);
+  const resources = await getUnsolicitedDRandRelatedResources(oystehr, [
+    { name: '_include', value: 'DiagnosticReport:subject' },
+  ]);
   console.log('grouping the resources returned by diagnostic report', resources.length);
   const groupedResources = groupReadyTasksByDr(resources);
   console.log('formatting the resources for response');
