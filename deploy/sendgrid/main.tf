@@ -4,14 +4,12 @@ terraform {
       source  = "arslanbekov/sendgrid"
       version = "~> 2.0"
     }
-  # oystehr = {
-  #   source = "registry.terraform.io/masslight/oystehr"
-  # }
   }
 }
 
 locals {
   project_name = lookup(jsondecode(file(var.sendgrid_templates_file_path)), "projectName", null)
+  templates = tomap(lookup(jsondecode(file(var.sendgrid_templates_file_path)), "templates", {}))
 }
 
 resource "null_resource" "validate_project_name" {
@@ -20,27 +18,35 @@ resource "null_resource" "validate_project_name" {
       condition     = local.project_name != null
       error_message = "Invalid or missing project name in spec."
     }
+    precondition {
+      condition     = length(local.templates) > 0
+      error_message = "Templates in spec cannot be empty."
+    }
   }
 }
 
 resource "sendgrid_api_key" "template_api_key" {
   name  = local.project_name
-  
 }
 
-module "templates" {
-  source = "./templates"
-  templates_file = file(var.sendgrid_templates_file_path)
-  sg_api_key = sendgrid_api_key.template_api_key.api_key
-  project_name = local.project_name
+resource "sendgrid_template" "named_template" {
+  for_each = local.templates
+  name     = "${each.key}(${local.project_name})"
+  generation = "dynamic"
+}
+
+resource "sendgrid_template_version" "test_template_version" {
+  for_each = sendgrid_template.named_template
+  template_id  = each.value.id
+  active       = local.templates[each.key].active ? 1 : 0
+  subject      = local.templates[each.key].subject
+  html_content = file(local.templates[each.key].htmlFilePath)
+  name         = local.templates[each.key].templateVersionName
 }
 
 output "template_ids" {
   description = "The IDs of all created sendgrid templates mapped from secret name."
-  value = module.templates.template_ids
+  value = {
+    for k, v in sendgrid_template.named_template : local.templates[k].templateIdSecretName => v.id
+  }
 }
-
-# resource "oystehr_secret" "api_key_secret" {
-#   name  = "SG_SEND_EMAIL_API_KEY"
-#   value = sendgrid_api_key.api_key.id
-# }

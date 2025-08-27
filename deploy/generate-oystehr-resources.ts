@@ -29,7 +29,7 @@ async function generateSendgridResources(input: GenerateSendgridResources): Prom
       (acc, entry) => {
         if (entry && entry.templateName) {
           const { templateName, ...rest } = entry;
-          const keyName = `${templateName}-${env}`;
+          const keyName = `${templateName}`;
           acc[keyName] = rest;
         }
         return acc;

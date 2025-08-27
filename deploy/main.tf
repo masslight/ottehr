@@ -27,13 +27,14 @@ module "sendgrid" {
   }
 }
 
-/*
-this isn't needed but is useful for debugging
+
+// this isn't needed but is useful for debugging
 output "sendgrid_template_ids" {
   description = "The IDs of all created sendgrid templates mapped from secret name."
   value = module.sendgrid.template_ids
 }
-*/
+
+/*
 provider "oystehr" {
   project_id    = var.project_id
   client_id     = var.client_id
@@ -47,3 +48,4 @@ module "oystehr" {
   }
   sendgrid_template_ids = module.sendgrid.template_ids
 }
+*/

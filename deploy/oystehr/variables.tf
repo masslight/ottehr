@@ -12,5 +12,5 @@ variable "sendgrid_template_ids" {
     SENDGRID_TELEMED_INVITATION_TEMPLATE_ID    = string
   })
   nullable    = false
-  sensitive   = true
+  sensitive   = false
 }
