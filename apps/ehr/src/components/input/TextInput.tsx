@@ -2,11 +2,12 @@ import { Box, FormHelperText, Skeleton, TextField } from '@mui/material';
 import React from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import InputMask from '../InputMask';
 
 type Props = {
   name: string;
   label: string;
-  type?: string;
+  type?: 'text' | 'number' | 'phone';
   loading?: boolean;
   required?: boolean;
   multiline?: boolean;
@@ -27,13 +28,21 @@ export const TextInput: React.FC<Props> = ({ name, label, type, loading, require
             value={field.value}
             label={label + (required ? '*' : '')}
             placeholder={`Select ${label}`}
-            type={type ?? 'text'}
+            type={type != 'phone' ? type : 'text'}
             error={error != null}
             onChange={(data) => field.onChange(data)}
             multiline={multiline}
             autoComplete="off"
             variant="outlined"
             size="small"
+            inputProps={type === 'phone' ? { mask: '(000) 000-0000' } : undefined}
+            InputProps={
+              type === 'phone'
+                ? {
+                    inputComponent: InputMask as any,
+                  }
+                : undefined
+            }
             fullWidth
           />
           {error && <FormHelperText error={true}>{error?.message}</FormHelperText>}

@@ -179,6 +179,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                 <TextInput
                   name="administrationDetails.emergencyContact.mobile"
                   label="Mobile"
+                  type="phone"
                   validate={requiredForAdministration}
                 />
               </Grid>
