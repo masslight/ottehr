@@ -11,7 +11,7 @@ import {
 } from 'utils';
 import { joinLocationsIdsForFhirSearch } from './helpers';
 import { mapStatesToLocationIds, mapTelemedStatusToEncounterAndAppointment } from './mappers';
-import { LocationIdToAbbreviationMap } from './types';
+import { LocationIdToStateAbbreviationMap } from './types';
 
 export const getAllResourcesFromFhir = async (
   oystehr: Oystehr,
@@ -118,7 +118,7 @@ export const getPractitionerLicensesLocationsAbbreviations = async (oystehr: Oys
 const locationIdsForAppointmentsSearch = async (
   usStatesFilter: string[] | undefined,
   patientFilter: PatientFilterType,
-  virtualLocationsMap: LocationIdToAbbreviationMap,
+  virtualLocationsMap: LocationIdToStateAbbreviationMap,
   oystehr: Oystehr
 ): Promise<string[] | undefined> => {
   // Little explanation what patientFilter = 'my-patients' means:
@@ -182,7 +182,7 @@ export const getAllPartiallyPreFilteredFhirResources = async (
   oystehrM2m: Oystehr,
   oystehrCurrentUser: Oystehr,
   params: GetTelemedAppointmentsInput,
-  virtualLocationsMap: LocationIdToAbbreviationMap
+  virtualLocationsMap: LocationIdToStateAbbreviationMap
 ): Promise<Resource[] | undefined> => {
   const { dateFilter, usStatesFilter, statusesFilter, patientFilter } = params;
   let allResources: Resource[] = [];
@@ -213,7 +213,7 @@ export const getAllPartiallyPreFilteredFhirResources = async (
   return allResources;
 };
 
-export const getAllVirtualLocationsMap = async (oystehr: Oystehr): Promise<LocationIdToAbbreviationMap> => {
+export const getAllVirtualLocationsMap = async (oystehr: Oystehr): Promise<LocationIdToStateAbbreviationMap> => {
   // todo: add meta filter to search virtual only
   const resources = (
     await oystehr.fhir.search({
@@ -221,7 +221,7 @@ export const getAllVirtualLocationsMap = async (oystehr: Oystehr): Promise<Locat
     })
   ).unbundle();
 
-  const virtualLocationsMap: LocationIdToAbbreviationMap = {};
+  const virtualLocationsMap: LocationIdToStateAbbreviationMap = {};
   const locationsByState: Record<string, Location[]> = {};
 
   resources.forEach((resource) => {
@@ -235,9 +235,13 @@ export const getAllVirtualLocationsMap = async (oystehr: Oystehr): Promise<Locat
           locationsByState[state] = [];
         }
 
+        if (!virtualLocationsMap[state]) {
+          virtualLocationsMap[state] = [];
+        }
+
         locationsByState[state].push(location);
 
-        virtualLocationsMap[state] = location;
+        virtualLocationsMap[state].push(location);
       }
     }
   });

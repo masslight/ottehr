@@ -1,5 +1,6 @@
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Button,
@@ -14,11 +15,18 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
+import Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
 import { useEffect, useState } from 'react';
 import { getOrCreateVisitLabel } from 'src/api/api';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { getFormattedDiagnoses, InHouseOrderDetailPageItemDTO, MarkAsCollectedData, PageName } from 'utils';
+import {
+  getFormattedDiagnoses,
+  InHouseOrderDetailPageItemDTO,
+  LoadingState,
+  MarkAsCollectedData,
+  PageName,
+} from 'utils';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../telemed/state/appointment/appointment.store';
@@ -27,10 +35,17 @@ import { InHouseLabsDetailsCard } from './InHouseLabsDetailsCard';
 interface CollectSampleViewProps {
   testDetails: InHouseOrderDetailPageItemDTO;
   onBack: () => void;
-  onSubmit: (data: MarkAsCollectedData) => void;
+  onSubmit: (data: MarkAsCollectedData) => Promise<void>;
+  setLoadingState: (loadingState: LoadingState) => void;
 }
 
-export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetails, onBack, onSubmit }) => {
+export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
+  testDetails,
+  onBack,
+  onSubmit,
+  setLoadingState,
+}) => {
+  console.log('Props', testDetails);
   const [showSampleCollection, setShowSampleCollection] = useState(true);
   const [sourceType, setSourceType] = useState('');
   const [collectedById, setCollectedById] = useState('');
@@ -48,6 +63,8 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
   const { encounter } = getSelectors(useAppointmentStore, ['encounter']);
 
   const currentUser = useEvolveUser();
+
+  const [loading, setLoading] = useState(false);
 
   // set default collected by to current user if no choice made
   useEffect(() => {
@@ -69,19 +86,29 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
     setShowSampleCollection(!showSampleCollection);
   };
 
-  const handleMarkAsCollected = (): void => {
+  const handleMarkAsCollected = async (): Promise<void> => {
+    setLoading(true);
+    setError('');
     const isoDate = date.toISO();
     if (!isoDate) {
       setError('Issue parsing date');
       return;
     }
-    onSubmit({
-      specimen: {
-        source: sourceType,
-        collectedBy: { id: collectedById, name: providers.find((p) => p.id === collectedById)?.name || '' },
-        collectionDate: isoDate,
-      },
-    });
+    try {
+      await onSubmit({
+        specimen: {
+          source: sourceType,
+          collectedBy: { id: collectedById, name: providers.find((p) => p.id === collectedById)?.name || '' },
+          collectionDate: isoDate,
+        },
+      });
+      setLoadingState(LoadingState.initial);
+    } catch (error) {
+      const sdkError = error as Oystehr.OystehrSdkError;
+      setError(sdkError.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleReprintLabel = async (): Promise<void> => {
@@ -415,7 +442,8 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
                 Re-Print Label
               </Button>
 
-              <Button
+              <LoadingButton
+                loading={loading}
                 variant="contained"
                 onClick={handleMarkAsCollected}
                 disabled={!sourceType || !collectedById || !date.isValid}
@@ -439,7 +467,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
                 }}
               >
                 Mark as Collected
-              </Button>
+              </LoadingButton>
             </Stack>
 
             {!!error && (

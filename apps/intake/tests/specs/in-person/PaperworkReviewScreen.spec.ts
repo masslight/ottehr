@@ -95,7 +95,6 @@ test.describe('Paperwork.Review and Submit - Check values', () => {
   test.describe.configure({ mode: 'serial' });
   test('PRS-5 Open review page', async () => {
     await page.goto(`paperwork/${bookingData.bookingUUID}/review`);
-    await page.waitForLoadState('networkidle');
     await paperwork.checkCorrectPageOpens('Review and submit');
   });
   test('PRS-6 Check patient name', async () => {
@@ -121,7 +120,6 @@ test.describe('Paperwork.Review and Submit - Check edit icons', () => {
   test.describe.configure({ mode: 'serial' });
   test('PRS-11 Open review page', async () => {
     await page.goto(`paperwork/${bookingData.bookingUUID}/review`);
-    await page.waitForLoadState('networkidle');
     await paperwork.checkCorrectPageOpens('Review and submit');
   });
   test('PRS-12 Edit opens contact information', async () => {

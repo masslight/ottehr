@@ -21,6 +21,7 @@ import {
 import { DateTime } from 'luxon';
 import { Color } from 'pdf-lib';
 import {
+  BUCKET_NAMES,
   compareDates,
   convertActivityDefinitionToTestItem,
   createFilesDocumentReferences,
@@ -466,7 +467,7 @@ export async function createInHouseLabResultPDF(
   patient: Patient,
   location: Location | undefined,
   schedule: Schedule,
-  attendingPractitioner: Practitioner,
+  _attendingPractitioner: Practitioner,
   attendingPractitionerName: string | undefined,
   inputRequestTask: Task,
   observations: Observation[],
@@ -1026,7 +1027,7 @@ async function createLabsResultsFormPDF(
   });
 
   console.debug(`Created external labs order form pdf bytes`);
-  const bucketName = 'visit-notes';
+  const bucketName = BUCKET_NAMES.LABS;
   let fileName = undefined;
   const { type, data } = dataConfig;
   if (type === 'external') {

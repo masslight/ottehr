@@ -86,7 +86,6 @@ test.describe('Patient details screen - Check and fill all fields', () => {
   test.describe.configure({ mode: 'serial' });
   test('PPD-0 Open Patient details', async () => {
     await page.goto(`paperwork/${bookingData.bookingUUID}/patient-details`);
-    await page.waitForLoadState('networkidle');
     await paperwork.checkCorrectPageOpens('Patient details');
   });
   test('PPD-1 Check required fields', async () => {
@@ -117,7 +116,6 @@ test.describe('Primary Care Physician - Check and fill all fields', () => {
   test.describe.configure({ mode: 'serial' });
   test('PPCP-0 Open Primary Care Physician', async () => {
     await page.goto(`paperwork/${bookingData.bookingUUID}/primary-care-physician`);
-    await page.waitForLoadState('networkidle');
     await paperwork.checkCorrectPageOpens('Primary Care Physician');
   });
   test('PPCP-1 Primary Care Physician - Check patient name is displayed', async () => {
@@ -155,7 +153,6 @@ test.describe('Current medications', () => {
   test.describe.configure({ mode: 'serial' });
   test('PCM-1 Current medications - Check page opens', async () => {
     await page.goto(`paperwork/${bookingData.bookingUUID}/current-medications`);
-    await page.waitForLoadState('networkidle');
     await paperwork.checkCorrectPageOpens('Current medications');
   });
   test('PCM-2 Current medications - Check required fields', async () => {
@@ -199,7 +196,6 @@ test.describe('Current allergies', () => {
   test.describe.configure({ mode: 'serial' });
   test('PCA-1 Current allergies - Check page opens', async () => {
     await page.goto(`paperwork/${bookingData.bookingUUID}/allergies`);
-    await page.waitForLoadState('networkidle');
     await paperwork.checkCorrectPageOpens('Current allergies');
   });
   test('PCA-2 Current allergies - Check required fields', async () => {
@@ -244,7 +240,6 @@ test.describe('Medical history', () => {
   test.describe.configure({ mode: 'serial' });
   test('PMH-1 Medical history - Check page opens', async () => {
     await page.goto(`paperwork/${bookingData.bookingUUID}/medical-history`);
-    await page.waitForLoadState('networkidle');
     await paperwork.checkCorrectPageOpens('Medical history');
   });
   test('PMH-2 Medical history - Check required fields', async () => {
@@ -288,7 +283,6 @@ test.describe('Surgical history', () => {
   test.describe.configure({ mode: 'serial' });
   test('PSH-1 Surgical history - Check page opens', async () => {
     await page.goto(`paperwork/${bookingData.bookingUUID}/surgical-history`);
-    await page.waitForLoadState('networkidle');
     await paperwork.checkCorrectPageOpens('Surgical history');
   });
   test('PSH-2 Surgical history - Check required fields', async () => {
@@ -332,7 +326,6 @@ test.describe('Additional questions', () => {
   test.describe.configure({ mode: 'serial' });
   test('PAQ-1 Additional questions - Check page opens', async () => {
     await page.goto(`paperwork/${bookingData.bookingUUID}/additional`);
-    await page.waitForLoadState('networkidle');
     await paperwork.checkCorrectPageOpens('Additional questions');
   });
   test('PAQ-2 Click on [Continue] with empty fields - How would you like to pay for your visit? opens', async () => {
@@ -361,7 +354,6 @@ test.describe('Payment option - Check Self pay and insurance options', () => {
   test.describe.configure({ mode: 'serial' });
   test('PPO-1 Payment option - Check page opens', async () => {
     await page.goto(`paperwork/${bookingData.bookingUUID}/payment-option`);
-    await page.waitForLoadState('networkidle');
     await paperwork.checkCorrectPageOpens('How would you like to pay for your visit?');
   });
   test('PPO-2 Payment option - Check required fields', async () => {
@@ -394,7 +386,6 @@ test.describe('Primary Insurance', () => {
   test.describe.configure({ mode: 'serial' });
   test('Primary Insurance - Check insurance details opens', async () => {
     await page.goto(`paperwork/${bookingData.bookingUUID}/payment-option`);
-    await page.waitForLoadState('networkidle');
     await paperwork.checkCorrectPageOpens('How would you like to pay for your visit?');
     await paperwork.selectInsurancePayment();
     await expect(locator.insuranceHeading).toBeVisible();
@@ -457,7 +448,6 @@ test.describe('Primary Insurance', () => {
     await uploadDocs.fillInsuranceFront();
     await uploadDocs.fillInsuranceBack();
     await page.reload();
-    await page.waitForLoadState('networkidle');
     await paperwork.checkImagesIsSaved(locator.insuranceFrontImage);
     await paperwork.checkImagesIsSaved(locator.insuranceBackImage);
   });
@@ -486,7 +476,6 @@ test.describe('Secondary Insurance', () => {
   test.describe.configure({ mode: 'serial' });
   test('Secondary Insurance - Fill primary and Add secondary insurance', async () => {
     await page.goto(`paperwork/${bookingData.bookingUUID}/payment-option`);
-    await page.waitForLoadState('networkidle');
     await paperwork.checkCorrectPageOpens('How would you like to pay for your visit?');
     await paperwork.selectInsurancePayment();
     insuranceData = await paperwork.fillInsuranceAllFieldsWithoutCards();
@@ -564,7 +553,6 @@ test.describe('Secondary Insurance', () => {
     await uploadDocs.fillSecondaryInsuranceFront();
     await uploadDocs.fillSecondaryInsuranceBack();
     await page.reload();
-    await page.waitForLoadState('networkidle');
     await paperwork.checkImagesIsSaved(locator.secondaryInsuranceFrontImage);
     await paperwork.checkImagesIsSaved(locator.secondaryInsuranceBackImage);
   });
@@ -658,7 +646,6 @@ test.describe('Responsible party information - check and fill all fields', () =>
 
   async function openResponsiblePartyPage(): Promise<void> {
     await page.goto(`paperwork/${bookingData.bookingUUID}/responsible-party`);
-    await page.waitForLoadState('networkidle');
     await paperwork.checkCorrectPageOpens('Responsible party information');
   }
 });
@@ -666,7 +653,6 @@ test.describe('Photo ID - Upload photo', () => {
   test.describe.configure({ mode: 'serial' });
   test('PPID-1 Open Photo ID', async () => {
     await page.goto(`paperwork/${bookingData.bookingUUID}/photo-id`);
-    await page.waitForLoadState('networkidle');
     await paperwork.checkCorrectPageOpens('Photo ID');
   });
   test('PPID-2 Photo ID - Check patient name is displayed', async () => {
@@ -702,7 +688,6 @@ test.describe('Patient condition', () => {
   test.describe.configure({ mode: 'serial' });
   test('PPC-1 Open Patient condition', async () => {
     await page.goto(`paperwork/${bookingData.bookingUUID}/patient-condition`);
-    await page.waitForLoadState('networkidle');
     await paperwork.checkCorrectPageOpens('Patient condition');
   });
   test('PPC-2 Patient condition - Check patient name is displayed', async () => {
@@ -734,7 +719,6 @@ test.describe('School/work notes', () => {
   let uploadedWorkTemplate: UploadedFile | null = null;
   test('PSWN-1 Open School/work note', async () => {
     await page.goto(`paperwork/${bookingData.bookingUUID}/school-work-note`);
-    await page.waitForLoadState('networkidle');
     await paperwork.checkCorrectPageOpens('Do you need a school or work note?');
   });
   test('PSWN-2 School/work note - Check patient name is displayed', async () => {
@@ -855,7 +839,6 @@ test.describe('Consent forms - Check and fill all fields', () => {
   test.describe.configure({ mode: 'serial' });
   test('PCF-1 Open Consent forms', async () => {
     await page.goto(`paperwork/${bookingData.bookingUUID}/consent-forms`);
-    await page.waitForLoadState('networkidle');
     await paperwork.checkCorrectPageOpens('Complete consent forms');
   });
   test('PCF-2 Consent Forms - Check patient name is displayed', async () => {
@@ -902,7 +885,6 @@ test.describe('Invite participant', () => {
   test.describe.configure({ mode: 'serial' });
   test('PIP-1 Open invite screen', async () => {
     await page.goto(`paperwork/${bookingData.bookingUUID}/invite-participant`);
-    await page.waitForLoadState('networkidle');
     await paperwork.checkCorrectPageOpens('Would you like someone to join this call?');
   });
   test('PIP-2 Invite participant - Check patient name is displayed', async () => {

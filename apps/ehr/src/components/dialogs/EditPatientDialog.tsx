@@ -20,7 +20,7 @@ import { DateTime } from 'luxon';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { PatternFormat } from 'react-number-format';
-import { AllStatesToVirtualLocationsData, standardizePhoneNumber } from 'utils';
+import { AllStatesToVirtualLocationLabels, standardizePhoneNumber } from 'utils';
 import { EMAIL_REGEX, ZIP_REGEX } from '../../constants';
 import { getSelectors } from '../../shared/store/getSelectors';
 import { useAppointmentStore, useEditPatientInformationMutation } from '../../telemed/state';
@@ -170,7 +170,7 @@ const EditPatientDialog = ({ modalOpen, onClose }: EditPatientDialogProps): Reac
 
   const [isSavingData, setSavingData] = useState<boolean>(false);
 
-  const possibleUsStates = Object.keys(AllStatesToVirtualLocationsData);
+  const possibleUsStates = Object.keys(AllStatesToVirtualLocationLabels);
   const statesDropdownOptions: string[] = [...possibleUsStates.map((usState) => usState)];
 
   const phoneNumberErrorMessage = 'Phone number must be 10 digits in the format (xxx) xxx-xxxx';
