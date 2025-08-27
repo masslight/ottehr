@@ -49,40 +49,38 @@ export const AdministrationConfirmationDialog: React.FC<Props> = ({
       title={'Order ' + administrationType.label}
       confirmText={'Mark as ' + administrationType.label}
       closeButtonText="Cancel"
-      ContentComponent={() => {
-        return (
-          <Box display="flex" flexDirection="column" gap={1}>
-            <Typography>
-              <strong>Patient:</strong> {patientName}
-            </Typography>
-            <Typography>
-              <strong>Vaccine:</strong> {medicationName} / {dose}
-              {unit} / {route}
-            </Typography>
-            <Typography>
-              Please confirm that you want to mark this immunization order as{' '}
-              {<strong>{administrationType.label}</strong>}
-              {administrationType.type !== 'administered' ? ' and select the reason.' : '.'}
-            </Typography>
-            {administrationType.type !== 'administered' ? (
-              <Stack spacing={2} sx={{ mt: 2 }}>
-                <SelectInput
-                  name="reason"
-                  label="Reason"
-                  options={Object.entries(reasonListValues).map(([value, label]) => {
-                    return {
-                      value,
-                      label,
-                    };
-                  })}
-                  required
-                />
-                {reason === ReasonListCodes.OTHER && <TextInput name="otherReason" label="Specify reason" required />}
-              </Stack>
-            ) : null}
-          </Box>
-        ) as JSX.Element;
-      }}
+      ContentComponent={
+        <Box display="flex" flexDirection="column" gap={1}>
+          <Typography>
+            <strong>Patient:</strong> {patientName}
+          </Typography>
+          <Typography>
+            <strong>Vaccine:</strong> {medicationName} / {dose}
+            {unit} / {route}
+          </Typography>
+          <Typography>
+            Please confirm that you want to mark this immunization order as{' '}
+            {<strong>{administrationType.label}</strong>}
+            {administrationType.type !== 'administered' ? ' and select the reason.' : '.'}
+          </Typography>
+          {administrationType.type !== 'administered' ? (
+            <Stack spacing={2} sx={{ mt: 2 }}>
+              <SelectInput
+                name="reason"
+                label="Reason"
+                options={Object.entries(reasonListValues).map(([value, label]) => {
+                  return {
+                    value,
+                    label,
+                  };
+                })}
+                required
+              />
+              {reason === ReasonListCodes.OTHER && <TextInput name="otherReason" label="Specify reason" required />}
+            </Stack>
+          ) : null}
+        </Box>
+      }
     />
   );
 };

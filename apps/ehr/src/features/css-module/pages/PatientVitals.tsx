@@ -165,7 +165,7 @@ const AbnormalVitalsModal: React.FC<AbnormalVitalsModalProps> = ({ abnormalVital
     <ConfirmationModal
       title="Abnormal Vital Value"
       description="You have entered an abnormal value. Please verify:"
-      ContentComponent={() => (
+      ContentComponent={
         <Stack spacing={1}>
           {temperature && temperature.length > 0 && (
             <>
@@ -228,7 +228,7 @@ const AbnormalVitalsModal: React.FC<AbnormalVitalsModalProps> = ({ abnormalVital
             </>
           )}
         </Stack>
-      )}
+      }
       confirmText="Back"
       closeButtonText="Continue"
     />

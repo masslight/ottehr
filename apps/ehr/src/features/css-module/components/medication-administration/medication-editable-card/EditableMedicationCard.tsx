@@ -1,5 +1,5 @@
 import { Medication } from 'fhir/r4b';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { MedicationWithTypeDTO, useMedicationHistory } from 'src/features/css-module/hooks/useMedicationHistory';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -481,6 +481,7 @@ export const EditableMedicationCard: React.FC<{
           handleConfirm={handleConfirmSave}
           description={''}
           {...confirmationModalConfig}
+          ContentComponent={confirmationModalConfig.ContentComponent?.({}) as ReactElement}
         />
       ) : null}
       <ConfirmationModalForLeavePage />
