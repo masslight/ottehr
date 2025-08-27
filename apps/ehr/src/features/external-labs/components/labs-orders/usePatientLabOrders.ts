@@ -43,7 +43,7 @@ interface UsePatientLabOrdersResult<SearchBy extends LabOrdersSearchBy> {
     testItemName: string;
   }) => void;
   DeleteOrderDialog: ReactElement | null;
-  markTaskAsReviewed: (parameters: TaskReviewedParameters & { appointmentId: string }) => Promise<void>;
+  markTaskAsReviewed: (parameters: TaskReviewedParameters & { appointmentId?: string }) => Promise<void>;
   saveSpecimenDate: (parameters: SpecimenDateChangedParameters) => Promise<void>;
   patientLabItems: PatientLabItem[];
 }
@@ -234,7 +234,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
       serviceRequestId,
       diagnosticReportId,
       appointmentId,
-    }: TaskReviewedParameters & { appointmentId: string }): Promise<void> => {
+    }: TaskReviewedParameters & { appointmentId?: string }): Promise<void> => {
       if (!oystehrZambda) {
         console.error('oystehrZambda is not defined');
         return;
@@ -244,7 +244,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
 
       await updateLabOrderResources(oystehrZambda, { taskId, serviceRequestId, diagnosticReportId, event: 'reviewed' });
       setSearchParams({ pageNumber: 1 });
-      navigate(getExternalLabOrdersUrl(appointmentId));
+      if (appointmentId) navigate(getExternalLabOrdersUrl(appointmentId));
     },
     [oystehrZambda, setSearchParams, navigate]
   );

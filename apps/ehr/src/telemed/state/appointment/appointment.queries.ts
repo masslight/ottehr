@@ -26,6 +26,8 @@ import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import {
   FinalizeUnsolicitedResultMatch,
   GetUnsolicitedResultsRelatedRequests,
+  GetUnsolicitedResultsResourcesForReview,
+  GetUnsolicitedResultsReviewResourcesOutput,
   Icd10SearchRequestParams,
   Icd10SearchResponse,
   useErrorQuery,
@@ -671,6 +673,29 @@ export function useGetUnsolicitedResultsRelatedRequests(
     queryFn: async () => {
       const data = await apiClient?.getUnsolicitedResultsResources({ requestType, diagnosticReportId, patientId });
       if (data && 'possibleRelatedSRsWithVisitDate' in data) {
+        return data;
+      }
+      return;
+    },
+
+    enabled: Boolean(apiClient && diagnosticReportId),
+    placeholderData: keepPreviousData,
+    staleTime: QUERY_STALE_TIME,
+  });
+}
+
+export function useGetUnsolicitedResultsResourcesForReview(
+  input: GetUnsolicitedResultsResourcesForReview
+): UseQueryResult<GetUnsolicitedResultsReviewResourcesOutput | undefined, Error> {
+  const apiClient = useOystehrAPIClient();
+  const { requestType, diagnosticReportId } = input;
+
+  return useQuery({
+    queryKey: ['get unsolicited results resources', requestType, diagnosticReportId],
+
+    queryFn: async () => {
+      const data = await apiClient?.getUnsolicitedResultsResources({ requestType, diagnosticReportId });
+      if (data && 'labOrder' in data) {
         return data;
       }
       return;
