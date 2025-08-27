@@ -230,4 +230,44 @@ describe('walkin availability tests', () => {
     walkinOpen = isWalkinOpen(alreadyClosedSchedule, timezone, timeNow);
     expect(walkinOpen).toBe(false);
   });
+  it('should make walkin unavailable if workingDay = false where it otherwise would be available', () => {
+    // buffers control the start and end periods where prebook slots can be created, but should not affect
+    // walkin availability.
+    const timeNow = startOfDayWithTimezone().plus({ hours: 8, minutes: 0, seconds: 0 });
+    const adjustedScheduleJSON = adjustHoursOfOperation(DEFAULT_SCHEDULE_JSON, [
+      {
+        dayOfWeek: timeNow.toLocaleString({ weekday: 'long' }).toLowerCase(),
+        open: 8,
+        close: 18,
+        workingDay: true,
+      },
+    ]);
+    const schedule = makeSchedule({ scheduleObject: adjustedScheduleJSON });
+    expect(schedule).toBeDefined();
+
+    const scheduleExtension = getScheduleExtension(schedule);
+    expect(scheduleExtension).toBeDefined();
+    assert(scheduleExtension);
+
+    const timezone = getTimezone(schedule);
+    expect(timezone).toBeDefined();
+
+    let walkinOpen = isWalkinOpen(scheduleExtension, timezone, timeNow);
+    expect(walkinOpen).toBe(true);
+
+    const nonWorkingDayScheduleJSON = adjustHoursOfOperation(DEFAULT_SCHEDULE_JSON, [
+      {
+        dayOfWeek: timeNow.toLocaleString({ weekday: 'long' }).toLowerCase(),
+        open: 8,
+        close: 18,
+        workingDay: false,
+      },
+    ]);
+    const schedule2 = makeSchedule({ scheduleObject: nonWorkingDayScheduleJSON });
+    const scheduleExtension2 = getScheduleExtension(schedule2);
+    expect(scheduleExtension2).toBeDefined();
+    assert(scheduleExtension2);
+    walkinOpen = isWalkinOpen(scheduleExtension2, timezone, timeNow);
+    expect(walkinOpen).toBe(false);
+  });
 });
