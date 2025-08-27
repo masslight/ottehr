@@ -1,6 +1,5 @@
 import { NOTHING_TO_EAT_OR_DRINK_FIELD } from 'utils';
-import { getSelectors } from '../../shared/store/getSelectors';
-import { useAppointmentStore } from '../state';
+import { useChartData } from '../state';
 import { useExcusePresignedFiles } from '.';
 
 export const usePatientInstructionsVisibility = (): {
@@ -10,19 +9,19 @@ export const usePatientInstructionsVisibility = (): {
   showSchoolWorkExcuse: boolean;
   showPatientInstructions: boolean;
 } => {
-  const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
-
+  const { chartData } = useChartData();
   const instructions = chartData?.instructions;
   const disposition = chartData?.disposition;
   const schoolWorkExcuses = useExcusePresignedFiles(chartData?.schoolWorkNotes);
-
   const showInstructions = !!(instructions && instructions.length > 0);
+
   const showDischargeInstructions = !!(
     (disposition?.note && disposition?.note.length > 0) ||
     disposition?.[NOTHING_TO_EAT_OR_DRINK_FIELD] ||
     (disposition?.labService && disposition.labService.length > 0) ||
     (disposition?.virusTest && disposition.virusTest.length > 0)
   );
+
   const showFollowUp = !!(disposition?.followUp && disposition.followUp.length > 0);
   const showSchoolWorkExcuse = !!(schoolWorkExcuses.length > 0);
 

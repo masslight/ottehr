@@ -1,10 +1,10 @@
 terraform {
-   /* backend "s3" {
-    bucket = "YOUR_TF_BUCKET_NAME"
-    region = "us-east-1"
-    profile = "hosted_ottehr"
-    key = "terraform.tfstate"
-  } */
+  /*backend "s3" {
+    bucket  = "YOUR_TF_BUCKET_NAME"
+    region  = "us-east-1"
+    profile = "YOUR_AWS_PROFILE_NAME"
+    key     = "terraform.tfstate"
+  }*/
   required_providers {
     sendgrid = {
       source  = "arslanbekov/sendgrid"

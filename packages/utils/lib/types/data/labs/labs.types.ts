@@ -283,3 +283,35 @@ export type LabResultPDF = {
   presignedURL: string;
   diagnosticReportId: string;
 };
+
+export enum UnsolicitedResultsRequestType {
+  UNSOLICITED_RESULTS_ICON = 'unsolicited-results-icon',
+  GET_ALL_TASKS = 'get-tasks',
+  MATCH_UNSOLICITED_RESULTS = 'match-unsolicited-result',
+  UNSOLICITED_RESULT_DETAIL = 'unsolicited-result-detail',
+}
+
+// planning to add diagnostic id as input as well
+export type GetUnsolicitedResultsResourcesInput =
+  | { requestType: UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_ICON }
+  | { requestType: UnsolicitedResultsRequestType.GET_ALL_TASKS; itemsPerPage?: number; pageIndex?: number };
+
+export const UR_TASK_ACTION_TEXT = ['Match', 'Go to Lab Results'] as const;
+export type UR_TASK_ACTION = (typeof UR_TASK_ACTION_TEXT)[number];
+
+export type UnsolicitedResultTaskRowDTO = {
+  diagnosticReportId: string;
+  actionText: UR_TASK_ACTION;
+  taskRowDescription: string;
+  resultsReceivedDateTime: string;
+};
+
+export type GetUnsolicitedResultsResourcesForIcon = {
+  tasksAreReady: boolean;
+};
+export type GetUnsolicitedResultsResourcesForTable = {
+  unsolicitedResultTasks: UnsolicitedResultTaskRowDTO[];
+};
+export type GetUnsolicitedResultsResourcesOutput =
+  | GetUnsolicitedResultsResourcesForIcon
+  | GetUnsolicitedResultsResourcesForTable;

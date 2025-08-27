@@ -21,9 +21,8 @@ import { Controller, useForm } from 'react-hook-form';
 import { useMedicationHistory } from 'src/features/css-module/hooks/useMedicationHistory';
 import { MedicationDTO } from 'utils';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useChartDataArrayValue, useGetAppointmentAccessibility } from '../../../../hooks';
-import { ExtractObjectType, useAppointmentStore, useGetMedicationsSearch } from '../../../../state';
+import { ExtractObjectType, useChartData, useGetMedicationsSearch } from '../../../../state';
 import { ProviderSideListSkeleton } from '../ProviderSideListSkeleton';
 import { CurrentMedicationGroup } from './CurrentMedicationGroup';
 
@@ -38,7 +37,7 @@ export const CurrentMedicationsProviderColumn: FC = () => {
   const methods = useForm<CurrentMedicationsProviderColumnForm>({
     defaultValues: { medication: null, dose: null, date: null, type: 'scheduled' },
   });
-  const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);
+  const { isLoading: isChartDataLoading } = useChartData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const { control, reset, handleSubmit } = methods;

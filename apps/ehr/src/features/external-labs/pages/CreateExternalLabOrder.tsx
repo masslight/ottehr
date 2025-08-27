@@ -23,11 +23,11 @@ import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import { DiagnosisDTO, getAttendingPractitionerId, OrderableItemSearchResult, PSC_HOLD_LOCALE } from 'utils';
 import { createExternalLabOrder } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
-import { getSelectors } from '../../../shared/store/getSelectors';
 import {
   ActionsList,
   DeleteIconButton,
-  useAppointmentStore,
+  useAppointmentData,
+  useChartData,
   useDebounce,
   useGetCreateExternalLabResources,
   useICD10SearchNew,
@@ -47,22 +47,13 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   const navigate = useNavigate();
   const [error, setError] = useState<string[] | undefined>(undefined);
   const [submitting, setSubmitting] = useState<boolean>(false);
-
   const { mutate: saveChartData } = useSaveChartData();
-  const { chartData, encounter, appointment, patient, setPartialChartData } = getSelectors(useAppointmentStore, [
-    'chartData',
-    'encounter',
-    'appointment',
-    'patient',
-    'setPartialChartData',
-  ]);
-
+  const { encounter, appointment, patient } = useAppointmentData();
+  const { chartData, setPartialChartData } = useChartData();
   const { diagnosis } = chartData || {};
   const primaryDiagnosis = diagnosis?.find((d) => d.isPrimary);
-
   const attendingPractitionerId = getAttendingPractitionerId(encounter);
   const patientId = patient?.id || '';
-
   const [orderDx, setOrderDx] = useState<DiagnosisDTO[]>(primaryDiagnosis ? [primaryDiagnosis] : []);
   const [selectedLab, setSelectedLab] = useState<OrderableItemSearchResult | null>(null);
   const [psc, setPsc] = useState<boolean>(false);

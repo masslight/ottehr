@@ -576,12 +576,12 @@ const performComplexValidation = async (
       if (primary?.status === InsuranceEligibilityCheckStatus.eligibilityNotChecked) {
         title = 'Coverage could not be verified';
         message =
-          'System not responding; unable to verify eligibility. Proceed to the next screen to continue as self-pay.';
+          'System not responding; unable to verify eligibility. Please see the front desk when you arrive to get help with your insurance information.';
       }
       if (primary?.status === InsuranceEligibilityCheckStatus.eligibilityNotConfirmed) {
         title = 'Coverage not found';
         message =
-          'We were unable to verify insurance eligibility. Please select "Try again" to confirm the information was entered correctly or continue as self-pay';
+          'We were unable to verify insurance eligibility. Please select "Try again" to confirm the information was entered correctly or see the front desk when you arrive to get help with your insurance information.';
         attemptCureAction = 'Try again';
       }
       return {

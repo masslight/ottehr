@@ -6,21 +6,13 @@ import {
   getQuestionnaireResponseByLinkId,
   mapEncounterStatusHistory,
 } from 'utils';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
-import { useAppointmentStore, useGetInsurancePlan } from '../../../../state';
+import { useAppointmentData, useGetInsurancePlan } from '../../../../state';
 import { PatientInfoConfirmedCheckbox } from './PatientInfoConfirmedCheckbox';
 import { VisitNoteItem } from './VisitNoteItem';
 
 export const VisitDetailsContainer: FC = () => {
   const { appointment, practitioner, locationVirtual, encounter, questionnaireResponse, reviewAndSignData } =
-    getSelectors(useAppointmentStore, [
-      'appointment',
-      'practitioner',
-      'locationVirtual',
-      'encounter',
-      'questionnaireResponse',
-      'reviewAndSignData',
-    ]);
+    useAppointmentData();
 
   const state = locationVirtual?.address?.state;
   const provider = practitioner ? getProviderNameWithProfession(practitioner) : '';
@@ -35,6 +27,7 @@ export const VisitDetailsContainer: FC = () => {
         : undefined,
     [encounter.statusHistory, appointment?.status]
   );
+
   const dateOfService = formatDateTimeToLocalTimezone(statuses?.find((item) => item.status === 'on-video')?.start);
   const signedOnDate = formatDateTimeToLocalTimezone(reviewAndSignData?.signedOnDate);
 
