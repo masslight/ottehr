@@ -30,7 +30,7 @@ export const palette = {
   info: {
     main: '#0288D1',
     light: '#E6F3FE',
-    dark: '#013654',
+    dark: '#01579B',
     contrast: '#FFFFFF',
   },
   success: {
