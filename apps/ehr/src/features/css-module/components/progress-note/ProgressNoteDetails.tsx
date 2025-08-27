@@ -205,7 +205,6 @@ export const ProgressNoteDetails: FC = () => {
         apiClient,
         appointmentId: appointment.id,
         newStatus: TelemedAppointmentStatusEnum.complete,
-        supervisorApprovalEnabled: FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED,
       });
       useAppointmentStore.setState({
         encounter: { ...encounter, status: 'finished' },
