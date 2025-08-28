@@ -91,7 +91,7 @@ export const VitalsTemperature: FC<VitalsTemperatureProps> = (props) => {
           />
         )}
       />
-      <Typography>/</Typography>
+      <Typography>=</Typography>
       <NumberInput
         label="Temp, F"
         value={f}

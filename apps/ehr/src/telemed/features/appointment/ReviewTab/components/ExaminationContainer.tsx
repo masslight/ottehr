@@ -42,7 +42,7 @@ export const ExaminationContainer: FC<ExaminationContainerProps> = (props) => {
   // const vitalsTempC =
   //   getQuestionnaireResponseByLinkId('vitals-temperature', questionnaireResponse)?.answer?.[0]?.valueString || 'N/A';
   // const vitalsTempF = convertTemperature(vitalsTempC, 'fahrenheit');
-  // const vitalsTemp = vitalsTempC === 'N/A' ? 'N/A' : `${vitalsTempC}°C / ${vitalsTempF}°F`;
+  // const vitalsTemp = vitalsTempC === 'N/A' ? 'N/A' : `${vitalsTempC}°C = ${vitalsTempF}°F`;
   // const vitalsPulse =
   //   getQuestionnaireResponseByLinkId('vitals-pulse', questionnaireResponse)?.answer?.[0]?.valueString || 'N/A';
   // const vitalsHR =
