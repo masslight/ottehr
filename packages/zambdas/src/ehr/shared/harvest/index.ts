@@ -82,7 +82,7 @@ import {
   isValidUUID,
   LanguageOption,
   mapBirthSexToGender,
-  mapCandidTypeToCoverageTypeCoding,
+  mapCandidCodeToCoverageTypeCoding,
   OrderedCoverages,
   OrderedCoveragesWithSubscribers,
   OTTEHR_MODULE,
@@ -1811,7 +1811,7 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
   } else {
     contained = [containedPolicyHolder];
   }
-  const coverageTypeCoding = mapCandidTypeToCoverageTypeCoding(type);
+  const coverageTypeCoding = mapCandidCodeToCoverageTypeCoding(type);
   if (!coverageTypeCoding) throw new Error("Can't find coverage type coding from candid code");
 
   const coverage: Coverage = {

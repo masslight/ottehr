@@ -1213,6 +1213,6 @@ export const getCandidPlanTypeCodeFromCoverage = (coverage: Coverage): NetworkTy
   return InsurancePlanTypes.find((planType) => planType.coverageCoding?.code === coverageTypeCode)?.candidCode;
 };
 
-export const mapCandidTypeToCoverageTypeCoding = (candidCode: NetworkType): Coding | undefined => {
-  return InsurancePlanTypes.find((planType) => planType.candidCode === candidCode)?.coverageCoding;
+export const mapCandidCodeToCoverageTypeCoding = (code: NetworkType): Coding | undefined => {
+  return InsurancePlanTypes.find((planType) => planType.candidCode === code)?.coverageCoding;
 };
