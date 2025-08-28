@@ -63,8 +63,8 @@ export function mapOrderStatusToFhir(status: MedicationOrderStatusesType): Medic
   }
 }
 
-export function getMedicationName(medication: Medication): string | undefined {
-  return medication.identifier?.find((idn) => idn.system === MEDICATION_IDENTIFIER_NAME_SYSTEM)?.value;
+export function getMedicationName(medication: Medication | undefined): string | undefined {
+  return medication?.identifier?.find((idn) => idn.system === MEDICATION_IDENTIFIER_NAME_SYSTEM)?.value;
 }
 
 export function getMedicationTypeCode(medication: Medication): string | undefined {
