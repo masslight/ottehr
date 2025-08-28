@@ -85,8 +85,8 @@ export const FinalCardView: FC<FinalCardViewProps> = ({
             >
               <InfoIcon sx={{ color: 'info.main' }}></InfoIcon>
               <Typography variant="button" sx={{ textTransform: 'none', color: 'primary.dark' }}>
-                This is unsolicited results from an outside source. Please review it, contact the patient, and accept
-                the result to the Patient Record or reject it if not valid.
+                This are unsolicited results from an outside source. Please review them, contact the patient, and accept
+                the results to the Patient Record or reject them if they are not valid.
               </Typography>
             </Box>
           </Stack>

@@ -40,7 +40,7 @@ export const UnsolicitedResultsReview: React.FC = () => {
           event: 'reviewed',
         });
         const patientId = data?.labOrder.patientId;
-        navigate(`/patient/${patientId}`); // todo sarah somehow this needs to select the lab tab
+        navigate(`/patient/${patientId}`); // todo somehow this needs to select the lab tab
       } catch (e) {
         console.log('error: ', e);
       } finally {
