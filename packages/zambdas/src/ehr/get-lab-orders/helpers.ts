@@ -220,7 +220,6 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
     orderStatus: orderStatus,
     visitDate: parseVisitDate(appointment),
     isPSC: parseIsPSC(serviceRequest),
-    reflexResultsCount: parseReflexTestsCount(serviceRequest, results),
     diagnosesDTO: parseDiagnoses(serviceRequest),
     orderingPhysician: parsePractitionerNameFromServiceRequest(serviceRequest, practitioners),
     diagnoses: parseDx(serviceRequest),
@@ -1386,16 +1385,6 @@ export const parseIsPSC = (serviceRequest: ServiceRequest): boolean => {
     (detail) =>
       detail.coding?.some((coding) => coding.system === PSC_HOLD_CONFIG.system && coding.code === PSC_HOLD_CONFIG.code)
   );
-};
-
-export const parseReflexTestsCount = (
-  serviceRequest: ServiceRequest,
-  results: DiagnosticReport[],
-  cache?: Cache
-): number => {
-  const { reflexFinalAndCorrectedResults, reflexPrelimResults } =
-    cache?.parsedResults || parseResults(serviceRequest, results);
-  return (reflexFinalAndCorrectedResults.length || 0) + (reflexPrelimResults.length || 0);
 };
 
 export const parsePerformed = (specimen: Specimen, practitioners: Practitioner[]): string => {

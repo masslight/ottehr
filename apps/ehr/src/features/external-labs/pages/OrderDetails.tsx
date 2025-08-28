@@ -38,7 +38,7 @@ export const OrderDetailsPage: React.FC = () => {
     return null;
   }
 
-  const pageName = `${labOrder.testItem}${labOrder.reflexResultsCount > 0 ? ' + Reflex' : ''}`;
+  const pageName = labOrder.testItem;
 
   if (status === 'pending' || status === 'ready' || status?.includes('sent')) {
     return (

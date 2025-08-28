@@ -121,8 +121,6 @@ export type LabOrderListPageDTO = {
   diagnoses: string; // SR.reasonCode joins
   orderStatus: ExternalLabsStatus; // Derived from SR, Tasks and DiagnosticReports based on the mapping table
   isPSC: boolean; // Derived from SR.orderDetail
-  // todo sarah should probably kill this
-  reflexResultsCount: number; // Number of DiagnosticReports with the same SR identifier but different test codes
   appointmentId: string;
   visitDate: string; // based on appointment
   lastResultReceivedDate: string; // the most recent Task RFRT.authoredOn
@@ -149,7 +147,6 @@ export type DiagnosticReportLabDetailPageDTO = Omit<
   | 'orderingPhysician'
   | 'diagnosesDTO'
   | 'diagnoses'
-  | 'reflexResultsCount'
   | 'appointmentId'
   | 'visitDate'
   | 'encounterTimezone'
