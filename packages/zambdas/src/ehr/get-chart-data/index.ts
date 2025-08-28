@@ -251,6 +251,7 @@ export async function getChartData(
   console.timeLog('check', 'before resources fetch');
   console.log('Starting a transaction to retrieve chart data...');
   let result: Bundle<FhirResource> | undefined;
+  console.log(chartDataRequests);
   try {
     result = await oystehr.fhir.batch<FhirResource>({
       requests: chartDataRequests,

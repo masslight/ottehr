@@ -8,20 +8,21 @@ export function validateRequestParameters(input: ZambdaInput): CreateResourcesFr
 
   const userToken = input.headers.Authorization.replace('Bearer ', '');
 
-  const { visitID, z3URL } = JSON.parse(input.body);
-
-  if (!visitID) {
-    throw new Error('visitID is required');
-  }
+  const { visitID, duration, z3URL } = JSON.parse(input.body);
 
   if (!z3URL) {
     throw new Error('z3URL is required');
   }
 
+  if (!visitID) {
+    throw new Error('visitID is required');
+  }
+
   return {
     userToken,
-    visitID,
+    duration,
     z3URL,
+    visitID,
     secrets: input.secrets,
   };
 }

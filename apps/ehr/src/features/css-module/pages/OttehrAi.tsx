@@ -46,9 +46,13 @@ export function getSource(
       ?.valueReference?.reference?.split('/')?.[1];
     const provider = providers?.find((providerTemp) => providerID === providerTemp.id);
     providerName = provider?.name?.[0] ? oystehr?.fhir.formatHumanName(provider.name?.[0]) : 'Unknown';
-    date = DateTime.fromISO(source?.date || '').toFormat(DATE_TIME_FORMAT);
+    date = DateTime.fromISO(source?.date || '');
   }
-  return source?.resourceType === 'DocumentReference' ? `${providerName || 'Unknown'} ${date}` : `AI Chat`;
+  return source?.resourceType === 'DocumentReference' ? getSourceFormat(providerName, date) : `AI Chat`;
+}
+
+export function getSourceFormat(providerName: string | undefined, date: DateTime | undefined): string {
+  return `${providerName || 'Unknown'} ${date?.toFormat(DATE_TIME_FORMAT)}`;
 }
 
 export const OttehrAi: React.FC<OttehrAiProps> = () => {

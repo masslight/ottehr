@@ -41,6 +41,11 @@ import {
   InPersonExamFieldsNames,
 } from './save-chart-data.types';
 
+export interface AIChatDetails {
+  documents: (DocumentReference | QuestionnaireResponse)[];
+  providers: Practitioner[];
+}
+
 export interface ChartDataFields {
   chiefComplaint?: FreeTextNoteDTO;
   ros?: FreeTextNoteDTO;
@@ -67,10 +72,7 @@ export interface ChartDataFields {
   notes?: NoteDTO[];
   vitalsObservations?: VitalsObservationDTO[];
   birthHistory?: BirthHistoryDTO[];
-  aiChat?: {
-    documents: (DocumentReference | QuestionnaireResponse)[];
-    providers: Practitioner[];
-  };
+  aiChat?: AIChatDetails;
   externalLabResults?: EncounterExternalLabResult;
   inHouseLabResults?: EncounterInHouseLabResult;
   procedures?: ProcedureDTO[];

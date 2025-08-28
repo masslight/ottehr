@@ -121,6 +121,7 @@ export interface CreateUploadAudioRecordingOutput {
 
 export interface CreateResourcesFromAudioRecordingInput {
   z3URL: string;
+  duration?: number;
   visitID: string;
 }
 

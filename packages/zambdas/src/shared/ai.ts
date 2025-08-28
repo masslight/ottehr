@@ -7,6 +7,7 @@ import { uuid } from 'short-uuid';
 import {
   AI_OBSERVATION_META_SYSTEM,
   AiObservationField,
+  getFormatDuration,
   getSecret,
   PUBLIC_EXTENSION_BASE_URL,
   Secrets,
@@ -83,6 +84,7 @@ export async function createResourcesFromAiInterview(
   encounterID: string,
   chatTranscript: string,
   z3URL: string | null,
+  duration: number | undefined,
   mimeType: string | null,
   providerUserProfile: string | null,
   secrets: Secrets | null
@@ -114,6 +116,7 @@ export async function createResourcesFromAiInterview(
       documentReferenceCreateUrl,
       z3URL,
       chatTranscript,
+      duration,
       mimeType
     )
   );
@@ -137,6 +140,7 @@ function createDocumentReference(
   documentReferenceCreateUrl: string,
   z3URL: string | null,
   transcript: string,
+  duration: number | undefined,
   mimeType: string | null
 ): BatchInputPostRequest<DocumentReference> {
   const documentReference: DocumentReference = {
@@ -167,7 +171,7 @@ function createDocumentReference(
               attachment: {
                 contentType: mimeType,
                 url: z3URL,
-                title: 'Audio',
+                title: `Audio recording (${duration ? getFormatDuration(duration) : 'unknown'})`,
               },
             },
           ]

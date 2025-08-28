@@ -30,6 +30,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       encounterID,
       chatTranscript,
       null,
+      undefined,
       null,
       null,
       secrets

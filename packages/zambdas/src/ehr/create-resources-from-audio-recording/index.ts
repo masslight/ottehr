@@ -25,7 +25,7 @@ export interface CreateResourcesFromAudioRecordingInputValidated extends CreateR
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
-    const { userToken, visitID, z3URL, secrets } = validatedParameters;
+    const { userToken, z3URL, duration, visitID, secrets } = validatedParameters;
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
     const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
@@ -52,6 +52,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       visitID,
       transcript,
       z3URL,
+      duration,
       mimeType,
       providerUserProfile,
       secrets

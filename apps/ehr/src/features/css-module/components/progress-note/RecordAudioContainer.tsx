@@ -1,14 +1,22 @@
-import { Typography } from '@mui/material';
+import { Close, Pause, PlayArrow, Stop } from '@mui/icons-material';
+import { Grid, IconButton, Typography } from '@mui/material';
+import { DateTime } from 'luxon';
 import { ReactElement, useEffect, useRef, useState } from 'react';
 import { createResourcesFromAudioRecording, uploadAudioRecording } from 'src/api/api';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { useApiClients } from 'src/hooks/useAppClients';
+import useEvolveUser from 'src/hooks/useEvolveUser';
+import { AIChatDetails, getFormatDuration } from 'utils';
 import WaveSurfer from 'wavesurfer.js';
 import RecordPlugin from 'wavesurfer.js/dist/plugins/record';
 import { useChartData } from '../../hooks/useChartData';
+import { getSource, getSourceFormat } from '../../pages/OttehrAi';
+import { RecordedAudio } from './RecordedAudio';
 
-interface RecordAudioButtonProps {
+interface RecordAudioContainerProps {
   visitID: string;
+  aiChat: AIChatDetails | undefined;
+  setRecordingAnchorElement: (value: React.SetStateAction<HTMLButtonElement | null>) => void;
 }
 
 enum RecordingStatus {
@@ -18,13 +26,18 @@ enum RecordingStatus {
   STOPPED = 'STOPPED',
 }
 
-export function RecordAudioButton(props: RecordAudioButtonProps): ReactElement {
-  const { visitID } = props;
+export function RecordAudioContainer(props: RecordAudioContainerProps): ReactElement {
+  const { visitID, aiChat, setRecordingAnchorElement } = props;
   const [recordingStatus, setRecordingStatus] = useState<RecordingStatus>(RecordingStatus.NOT_STARTED);
   const [loading, setLoading] = useState<boolean>(false);
+  const [duration, setDuration] = useState<number>(0);
   // const [recording, setIsRecording] = useState(false);
   // const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const { oystehrZambda: oystehr } = useApiClients();
+  const evolveUser = useEvolveUser();
+  const providerName = evolveUser?.profileResource?.name?.[0]
+    ? oystehr?.fhir.formatHumanName(evolveUser.profileResource.name?.[0])
+    : 'Unknown';
 
   const waveformRef = useRef<HTMLDivElement | null>(null);
   const wavesurferRef = useRef<WaveSurfer | null>(null);
@@ -42,18 +55,19 @@ export function RecordAudioButton(props: RecordAudioButtonProps): ReactElement {
 
   useEffect(() => {
     if (!waveformRef.current) return;
+    console.log(10);
 
     const recordPlugin = RecordPlugin.create({
       scrollingWaveform: true,
       scrollingWaveformWindow: 10,
       // continuousWaveform: true,
-      // continuousWaveformDuration: 10,
+      // continuousWaveformDuration: 0,
       renderRecordedAudio: false,
     });
 
     const ws = WaveSurfer.create({
       container: waveformRef.current,
-      waveColor: '#ddd',
+      waveColor: '#29B6F6',
       progressColor: '#2196f3',
       height: 80,
       plugins: [recordPlugin],
@@ -61,6 +75,10 @@ export function RecordAudioButton(props: RecordAudioButtonProps): ReactElement {
 
     wavesurferRef.current = ws;
     recordPluginRef.current = recordPlugin;
+
+    recordPlugin.on('record-progress', async (durationTemp: number) => {
+      setDuration(durationTemp);
+    });
 
     recordPlugin.on('record-end', async (blob: Blob) => {
       // const url = URL.createObjectURL(blob);
@@ -80,15 +98,20 @@ export function RecordAudioButton(props: RecordAudioButtonProps): ReactElement {
         body: file,
       });
       console.log(uploadResponse);
-      await createResourcesFromAudioRecording(oystehr, { visitID, z3URL });
+      await createResourcesFromAudioRecording(oystehr, {
+        visitID,
+        duration: recordPluginRef.current?.getDuration(),
+        z3URL,
+      });
       await refetch();
+      setDuration(0);
       setLoading(false);
     });
 
     return () => {
+      console.log(5);
       ws.destroy();
-      wavesurferRef.current = null;
-      recordPluginRef.current = null;
+      recordPlugin.destroy();
     };
   }, [oystehr, refetch, visitID]);
 
@@ -122,7 +145,7 @@ export function RecordAudioButton(props: RecordAudioButtonProps): ReactElement {
   function getButtonLabel(status: RecordingStatus): string {
     switch (status) {
       case RecordingStatus.NOT_STARTED:
-        return 'Start';
+        return 'Start Recording';
       case RecordingStatus.RECORDING:
         return 'Pause';
       case RecordingStatus.PAUSED:
@@ -133,31 +156,88 @@ export function RecordAudioButton(props: RecordAudioButtonProps): ReactElement {
     }
   }
 
-  if (loading) {
-    return <Typography variant="body1">Loading...</Typography>;
-  }
+  // if (loading) {
+  //   return <Typography variant="body1">Loading...</Typography>;
+  // }
 
   return (
-    <>
+    <Grid container style={{ padding: 25, width: '400px', alignItems: 'center' }}>
+      <Grid item xs={8}>
+        <Typography variant="h5" color="primary.dark">
+          Ambient Scribe
+        </Typography>
+      </Grid>
+      <Grid item xs={4}>
+        <IconButton aria-label="Close" onClick={() => setRecordingAnchorElement(null)} sx={{ float: 'right' }}>
+          <Close />
+        </IconButton>
+      </Grid>
+      {recordingStatus === RecordingStatus.NOT_STARTED && (
+        <>
+          {aiChat?.documents
+            .filter((item) => item.resourceType === 'DocumentReference')
+            .sort((a, b) => {
+              if (a.date && b.date) {
+                return new Date(a.date).getTime() - new Date(b.date).getTime();
+              }
+              return 0;
+            })
+            .map((item) => {
+              const audioDuration = item.content
+                .find((item) => item.attachment.title?.startsWith('Audio recording'))
+                ?.attachment.title?.replace('Audio recording ', '')
+                .replace(/[^:0-9]/g, '');
+              const audioSource = getSource(item, oystehr, aiChat.providers);
+              return <RecordedAudio duration={audioDuration} status="ready" source={audioSource} />;
+            })}
+          {loading && (
+            <RecordedAudio
+              duration={getFormatDuration(duration)}
+              status="loading"
+              source={getSourceFormat(providerName, DateTime.now())}
+            />
+          )}
+          <Grid item xs={12}>
+            <Typography variant="body1" sx={{ marginBottom: 2 }}>
+              The scribe records audio and summarizes the visit.
+            </Typography>
+          </Grid>
+        </>
+      )}
+
       {recordingStatus !== RecordingStatus.STOPPED && (
         <>
+          <Grid item xs={2} sx={{ ...(recordingStatus === RecordingStatus.NOT_STARTED && { display: 'none' }) }}>
+            <Typography sx={{ fontWeight: 'bold' }}>{getFormatDuration(duration)}</Typography>
+          </Grid>
+          <Grid item xs={10}>
+            <div
+              ref={waveformRef}
+              style={{ width: '100%', ...(recordingStatus === RecordingStatus.NOT_STARTED && { display: 'none' }) }}
+            />
+          </Grid>
+          {/* <Grid item xs={4}> */}
           <RoundedButton
-            variant="outlined"
+            variant="contained"
+            startIcon={recordingStatus === RecordingStatus.RECORDING ? <Pause /> : <PlayArrow />}
             onClick={recordingStatus === RecordingStatus.RECORDING ? pauseRecording : startOrResumeRecording}
           >
-            {getButtonLabel(recordingStatus)} Recording
+            {getButtonLabel(recordingStatus)}
           </RoundedButton>
-
+          {/* </Grid> */}
+          {/* <Grid item xs={5}> */}
           {(recordingStatus === RecordingStatus.PAUSED || recordingStatus === RecordingStatus.RECORDING) && (
-            <RoundedButton variant="outlined" onClick={endRecording} color="error">
-              End Recording
+            <RoundedButton
+              variant="contained"
+              startIcon={<Stop />}
+              onClick={endRecording}
+              color="error"
+              sx={{ marginLeft: 1 }}
+            >
+              End
             </RoundedButton>
           )}
-
-          <div
-            ref={waveformRef}
-            style={{ width: '100%', display: recordingStatus === RecordingStatus.NOT_STARTED ? 'none' : 'block' }}
-          />
+          {/* </Grid> */}
         </>
       )}
 
@@ -168,6 +248,6 @@ export function RecordAudioButton(props: RecordAudioButtonProps): ReactElement {
                     style={{ width: "100%", marginTop: 8 }}
                 />
             )} */}
-    </>
+    </Grid>
   );
 }
