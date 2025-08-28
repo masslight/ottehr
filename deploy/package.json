@@ -1,6 +1,6 @@
 {
   "name": "deploy",
-  "version": "1.16.6",
+  "version": "1.16.7",
   "description": "Scripts for generating HCL and interacting with Terraform",
   "scripts": {
     "build": "tsc --noEmit",
@@ -10,7 +10,8 @@
     "apply-local": "ENV=local npm run generate && terraform workspace select local && terraform apply -parallelism=40 -var-file='local.tfvars'",
     "apply-staging": "ENV=staging npm run generate && terraform workspace select staging && terraform apply -parallelism=40 -var-file='staging.tfvars'",
     "apply-production": "ENV=production npm run generate && terraform workspace select production && terraform apply -parallelism=40 -var-file='production.tfvars'",
-    "terraform-setup": "terraform workspace new local && terraform workspace new staging && terraform workspace new production && terraform init && terraform workspace select local"
+    "terraform-init": "terraform init --backend-config=./backend.config",
+    "terraform-setup": "npm run terraform-init && terraform workspace new local && terraform workspace new staging && terraform workspace new production && terraform workspace select local"
   },
   "devDependencies": {
     "@types/node": "^24.2.1"

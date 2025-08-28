@@ -1,4 +1,4 @@
-import { Box, CircularProgress, TextField } from '@mui/material';
+import { Alert, Box, CircularProgress, TextField, useTheme } from '@mui/material';
 import { FC, useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { AccordionCard } from '../../../components';
@@ -8,6 +8,8 @@ import { useChartData } from '../../../state';
 export const AddendumCard: FC = () => {
   const { chartData } = useChartData();
   const addendumNote = chartData?.addendumNote?.text;
+
+  const theme = useTheme();
 
   const methods = useForm({
     defaultValues: {
@@ -28,6 +30,10 @@ export const AddendumCard: FC = () => {
   return (
     <AccordionCard label="Addendum">
       <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'start' }}>
+        <Alert severity="info" sx={{ bgcolor: theme.palette.info.light, color: theme.palette.info.dark }}>
+          When adding an addendum to this Progress note, please enter your name and date/time
+        </Alert>
+
         <Controller
           name="addendumNote"
           control={control}
@@ -39,7 +45,7 @@ export const AddendumCard: FC = () => {
                 onValueChange(e.target.value);
               }}
               size="small"
-              label="Note"
+              label="Notes"
               fullWidth
               multiline
               InputProps={{

@@ -3,6 +3,7 @@ import { ottehrCodeSystemUrl } from '../../fhir/helpers';
 // todo review all this systems and codes
 export const MEDICATION_TYPE_SYSTEM = 'virtual-medication-type';
 export const INVENTORY_MEDICATION_TYPE_CODE = 'virtual-medication-inventory';
+export const INVENTORY_VACCINE_TYPE_CODE = 'virtual-vaccine-inventory';
 
 export const MEDICATION_IDENTIFIER_NAME_SYSTEM = 'virtual-medication-identifier-name-system';
 

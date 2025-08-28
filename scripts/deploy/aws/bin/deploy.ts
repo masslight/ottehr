@@ -1,5 +1,7 @@
 #!/usr/bin/env node
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { CloudFrontClient, ListDistributionsCommand, ListDistributionsCommandOutput } from '@aws-sdk/client-cloudfront';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { fromIni } from '@aws-sdk/credential-providers';
 import * as cdk from 'aws-cdk-lib';
 import config from '../../deploy-config.json';
@@ -10,7 +12,6 @@ const app = new cdk.App();
 const projectConfig: any = config;
 const environment = projectConfig.environment;
 const stackPrefix = projectConfig.stack_prefix ?? 'ottehr';
-const awsProfile = projectConfig.aws_profile ?? 'ottehr';
 
 void (async () => {
   try {
@@ -29,9 +30,4 @@ async function setupDeploy(): Promise<void> {
     patientPortalDistribution: infra.patientPortalDistribution,
     ehrDistribution: infra.ehrDistribution,
   });
-}
-
-export async function getCloudFrontDistributions(): Promise<ListDistributionsCommandOutput> {
-  const cloudfrontClient = new CloudFrontClient({ region: 'us-east-1', credentials: fromIni({ profile: awsProfile }) });
-  return await cloudfrontClient.send(new ListDistributionsCommand({}));
 }
