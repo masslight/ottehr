@@ -2,7 +2,7 @@
 import ReportGmailerrorredIcon from '@mui/icons-material/ReportGmailerrorred';
 import { capitalize, useTheme } from '@mui/material';
 import { FC, useMemo, useState } from 'react';
-import { getQuestionnaireResponseByLinkId, getUnconfirmedDOBForAppointment, getWeightForPatient, mdyStringFromISOString } from 'utils';
+import { getUnconfirmedDOBForAppointment, getWeightForPatient, mdyStringFromISOString } from 'utils';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { PencilIconButton } from '../../../components';
 import { useAppointmentStore } from '../../../state';
@@ -12,7 +12,7 @@ import { InformationCard } from './InformationCard';
 export const AboutPatientContainer: FC = () => {
   const theme = useTheme();
 
-  const { patient, appointment, questionnaireResponse } = getSelectors(useAppointmentStore, ['patient', 'appointment', 'questionnaireResponse']);
+  const { patient, appointment } = getSelectors(useAppointmentStore, ['patient', 'appointment']);
 
   const [updateDOBModalOpen, setUpdateDOBModalOpen] = useState<boolean>(false);
   const closePatientDOBModal = (): void => setUpdateDOBModalOpen(false);
@@ -23,9 +23,6 @@ export const AboutPatientContainer: FC = () => {
     const complaints = (appointment?.description ?? '').split(',');
     return complaints.map((complaint) => complaint.trim()).join(', ');
   }, [appointment?.description]);
-
-  const authorizedNonLegalGuardians = getQuestionnaireResponseByLinkId('authorized-non-legal-guardians', questionnaireResponse)
-    ?.answer?.[0]?.valueString;
 
   return (
     <>
@@ -47,7 +44,6 @@ export const AboutPatientContainer: FC = () => {
           { label: "Patient's sex", value: capitalize(patient?.gender || '') },
           { label: 'Reason for visit', value: reasonForVisit },
           { label: 'Patient weight (lbs)', value: weight },
-          { label: 'Authorized non-legal guardian(s)', value: authorizedNonLegalGuardians },
         ]}
       />
       <EditPatientBirthDateDialog modalOpen={updateDOBModalOpen} onClose={closePatientDOBModal} />
