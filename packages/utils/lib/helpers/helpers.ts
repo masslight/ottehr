@@ -1217,3 +1217,7 @@ export const getPractitionerQualificationByLocation = (
 
   return qualification;
 };
+
+export function isPhysicianQualification(qualification?: string): boolean {
+  return qualification != null && ['MD', 'OD'].includes(qualification);
+}

@@ -8,6 +8,7 @@ import useEvolveUser from 'src/hooks/useEvolveUser';
 import {
   getPractitionerQualificationByLocation,
   getVisitStatus,
+  isPhysicianQualification,
   PRACTITIONER_CODINGS,
   TelemedAppointmentStatusEnum,
 } from 'utils';
@@ -163,7 +164,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     if (!location || !practitioner) return false;
 
     const qualification = getPractitionerQualificationByLocation(practitioner, location);
-    const isPhysician = qualification && ['MD', 'OD'].includes(qualification);
+    const isPhysician = isPhysicianQualification(qualification);
 
     return !isPhysician;
   }, [practitioner, location]);

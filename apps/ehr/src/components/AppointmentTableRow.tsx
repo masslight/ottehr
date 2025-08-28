@@ -39,6 +39,7 @@ import {
   getPractitionerQualificationByLocation,
   getVisitTotalTime,
   InPersonAppointmentInformation,
+  isPhysicianQualification,
   mdyStringFromISOString,
   OrdersForTrackingBoardRow,
   PROJECT_NAME,
@@ -237,10 +238,6 @@ const longWaitTimeFlag = (appointment: InPersonAppointmentInformation, statusTim
   }
   return false;
 };
-
-function isPhysicianQualification(qualification?: string): boolean {
-  return qualification != null && ['MD', 'OD'].includes(qualification);
-}
 
 function canApprove(practitioner: Practitioner, location: Location, attenderQualification?: string): boolean {
   if (!practitioner) return false;
