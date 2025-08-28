@@ -44,7 +44,11 @@ import {
   createExternalLabResultPDF,
   createExternalLabResultPDFBasedOnDr,
 } from '../../shared/pdf/labs-results-form-pdf';
-import { diagnosticReportIsUnsolicited, getExternalLabOrderResourcesViaServiceRequest } from '../shared/labs';
+import {
+  diagnosticReportIsReflex,
+  diagnosticReportIsUnsolicited,
+  getExternalLabOrderResourcesViaServiceRequest,
+} from '../shared/labs';
 import {
   getSpecimenPatchAndMostRecentCollectionDate,
   handleMatchUnsolicitedRequest,
@@ -241,10 +245,12 @@ const handleReviewedEvent = async ({
   ) as DiagnosticReport;
   const isUnsolicited = diagnosticReportIsUnsolicited(diagnosticReport);
   console.log('handleReviewedEvent isUnsolicited', isUnsolicited);
+  const isReflex = diagnosticReportIsReflex(diagnosticReport);
+  console.log('handleReviewedEvent isReflex', isReflex);
 
   const task = resources.find((r: any) => r.resourceType === 'Task' && r.id === taskId) as Task;
 
-  if (!serviceRequest && !isUnsolicited) {
+  if (!serviceRequest && !isUnsolicited && !isReflex) {
     throw new Error(`ServiceRequest/${serviceRequestId} not found for diagnostic report, ${diagnosticReportId}`);
   }
 
@@ -339,12 +345,15 @@ const handleReviewedEvent = async ({
     requests,
   });
 
-  if (isUnsolicited) {
+  if (isUnsolicited || isReflex) {
     console.log('creating pdf for unsolicited result:', diagnosticReportId);
-    await createExternalLabResultPDFBasedOnDr(oystehr, 'unsolicited', diagnosticReportId, true, secrets, m2mToken);
+    const type = isUnsolicited ? 'unsolicited' : 'reflex';
+    await createExternalLabResultPDFBasedOnDr(oystehr, type, diagnosticReportId, true, secrets, m2mToken);
   } else if (serviceRequestId) {
     console.log('creating pdf for solicited result:', diagnosticReportId);
     await createExternalLabResultPDF(oystehr, serviceRequestId, diagnosticReport, true, secrets, m2mToken);
+  } else {
+    console.log('skipping review pdf re-generation');
   }
 
   return updateTransactionRequest;

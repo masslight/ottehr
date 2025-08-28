@@ -11,6 +11,7 @@ import { usePatientLabOrders } from '../components/labs-orders/usePatientLabOrde
 
 export const OrderDetailsPage: React.FC = () => {
   const urlParams = useParams();
+  const id = urlParams.id as string;
   const serviceRequestId = urlParams.serviceRequestID as string;
   const diagnosticReportId = urlParams.diagnosticReportId as string;
 
@@ -32,7 +33,13 @@ export const OrderDetailsPage: React.FC = () => {
   }
 
   if (isReflexLab && reflexResults.length) {
-    return <ReflexResultDetails reflexResult={reflexResults[0]}></ReflexResultDetails>;
+    return (
+      <ReflexResultDetails
+        reflexResult={reflexResults[0]}
+        loadingOrders={loading}
+        appointmentId={id}
+      ></ReflexResultDetails>
+    );
   } else if (!labOrder) {
     console.error('No external lab order found');
     return null;

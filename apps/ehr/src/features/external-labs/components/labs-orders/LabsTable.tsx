@@ -134,9 +134,7 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
   };
 
   const onRowClickForReflex = (result: ReflexLabDTO): void => {
-    console.log('appointmentId', id);
     if (!id) return;
-    console.log(getReflexExternalLabEditUrl(id, result.resultsDetails?.[0].diagnosticReportId));
     // todo future resultsDetails maybe does not need to be an array anymore
     navigateTo(getReflexExternalLabEditUrl(id, result.resultsDetails?.[0].diagnosticReportId));
   };
