@@ -89,8 +89,8 @@ export function getPractitionerIdThatOrderedMedication(
   medicationAdministration: MedicationAdministration
 ): string | undefined {
   return medicationAdministration.performer
-    ?.find(
-      (performer) => performer.function?.coding?.find((coding) => coding.code === PRACTITIONER_ORDERED_MEDICATION_CODE)
+    ?.find((performer) =>
+      performer.function?.coding?.find((coding) => coding.code === PRACTITIONER_ORDERED_MEDICATION_CODE)
     )
     ?.actor.reference?.replace('Practitioner/', '');
 }
@@ -123,9 +123,8 @@ export function getProviderIdAndDateMedicationWasAdministered(medicationAdminist
       timeAdministered?: string;
     }
   | undefined {
-  const administeredPerformer = medicationAdministration.performer?.find(
-    (performer) =>
-      performer.function?.coding?.find((coding) => coding.code === PRACTITIONER_ADMINISTERED_MEDICATION_CODE)
+  const administeredPerformer = medicationAdministration.performer?.find((performer) =>
+    performer.function?.coding?.find((coding) => coding.code === PRACTITIONER_ADMINISTERED_MEDICATION_CODE)
   );
 
   const administeredProviderId = administeredPerformer?.actor.reference?.replace('Practitioner/', '');
@@ -147,8 +146,8 @@ export function getProviderIdAndDateMedicationWasAdministered(medicationAdminist
 
 export function getCreatedTheOrderProviderId(medicationAdministration: MedicationAdministration): string | undefined {
   return medicationAdministration.performer
-    ?.find(
-      (performer) => performer.function?.coding?.find((coding) => coding.code === PRACTITIONER_ORDERED_MEDICATION_CODE)
+    ?.find((performer) =>
+      performer.function?.coding?.find((coding) => coding.code === PRACTITIONER_ORDERED_MEDICATION_CODE)
     )
     ?.actor.reference?.replace('Practitioner/', '');
 }
@@ -159,9 +158,8 @@ export function getCreatedTheOrderProviderId(medicationAdministration: Medicatio
 export function getAllOrderedByProviderIds(medicationAdministration: MedicationAdministration): string[] {
   return (
     (medicationAdministration.performer
-      ?.filter(
-        (performer) =>
-          performer.function?.coding?.find((coding) => coding.code === PRACTITIONER_ORDERED_BY_MEDICATION_CODE)
+      ?.filter((performer) =>
+        performer.function?.coding?.find((coding) => coding.code === PRACTITIONER_ORDERED_BY_MEDICATION_CODE)
       )
       ?.map((performer) => performer.actor.reference?.replace('Practitioner/', ''))
       ?.filter((id) => id !== undefined) as string[]) || []

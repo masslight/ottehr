@@ -1185,9 +1185,8 @@ export const checkResourceHasSlug = (resource: ScheduleOwnerFhirResource, slug: 
 };
 
 export const getPayerId = (org: Organization | undefined): string | undefined => {
-  const payerId = org?.identifier?.find(
-    (identifier) =>
-      identifier.type?.coding?.some((coding) => coding.system === FHIR_IDENTIFIER_SYSTEM && coding.code === 'XX')
+  const payerId = org?.identifier?.find((identifier) =>
+    identifier.type?.coding?.some((coding) => coding.system === FHIR_IDENTIFIER_SYSTEM && coding.code === 'XX')
   )?.value;
   return payerId;
 };

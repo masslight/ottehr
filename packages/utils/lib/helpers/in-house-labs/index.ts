@@ -307,8 +307,8 @@ const getResult = (
     const entryValue = observation?.valueQuantity?.value;
     if (entryValue !== undefined) entry = entryValue.toString();
   }
-  const interpretationCoding = observation.interpretation?.find(
-    (i) => i?.coding?.find((c) => c.system === OBSERVATION_INTERPRETATION_SYSTEM)
+  const interpretationCoding = observation.interpretation?.find((i) =>
+    i?.coding?.find((c) => c.system === OBSERVATION_INTERPRETATION_SYSTEM)
   )?.coding;
   let interpretationCode: ObservationCode | undefined;
   if (interpretationCoding) {

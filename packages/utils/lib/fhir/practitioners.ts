@@ -60,15 +60,13 @@ export function makeQualificationForPractitioner(license: PractitionerLicense): 
 
 export function getAttendingPractitionerId(encounter: Encounter): string | undefined {
   const practitionerId = encounter.participant
-    ?.find(
-      (participant) =>
-        participant.type?.find(
-          (type) =>
-            type.coding?.some(
-              (c) =>
-                c.system === PRACTITIONER_CODINGS.Attender[0].system && c.code === PRACTITIONER_CODINGS.Attender[0].code
-            )
+    ?.find((participant) =>
+      participant.type?.find((type) =>
+        type.coding?.some(
+          (c) =>
+            c.system === PRACTITIONER_CODINGS.Attender[0].system && c.code === PRACTITIONER_CODINGS.Attender[0].code
         )
+      )
     )
     ?.individual?.reference?.replace('Practitioner/', '');
 
@@ -77,15 +75,13 @@ export function getAttendingPractitionerId(encounter: Encounter): string | undef
 
 export function getAdmitterPractitionerId(encounter: Encounter): string | undefined {
   const practitionerId = encounter.participant
-    ?.find(
-      (participant) =>
-        participant.type?.find(
-          (type) =>
-            type.coding?.some(
-              (c) =>
-                c.system === PRACTITIONER_CODINGS.Admitter[0].system && c.code === PRACTITIONER_CODINGS.Admitter[0].code
-            )
+    ?.find((participant) =>
+      participant.type?.find((type) =>
+        type.coding?.some(
+          (c) =>
+            c.system === PRACTITIONER_CODINGS.Admitter[0].system && c.code === PRACTITIONER_CODINGS.Admitter[0].code
         )
+      )
     )
     ?.individual?.reference?.replace('Practitioner/', '');
 
