@@ -379,8 +379,8 @@ async function candidCreateEncounterRequest(
           quantity: Decimal('1'),
           units: ServiceLineUnits.Un,
           diagnosisPointers: [primaryDiagnosisIndex],
-          dateOfService: assertDefined(
-            DateTime.fromISO(assertDefined(procedure.meta?.lastUpdated, 'Procedure date')).toISODate(),
+          dateOfService: dateOfServiceString || assertDefined(
+            DateTime.fromISO(assertDefined(input.appointment.start, 'Appointment start')).toISODate(),
             'Service line date'
           ),
         },
@@ -1165,8 +1165,20 @@ async function candidCreateEncounterFromAppointmentRequest(
     throw new Error(`Candid appointment ID is not defined for appointment ${appointment.id}`);
   }
 
+  // Use appointment start time for date of service instead of signed date
+  const appointmentStart = appointment.start;
+  let dateOfServiceString: string | undefined;
+
+  if (appointmentStart) {
+    const dateOfService = DateTime.fromISO(appointmentStart);
+    if (dateOfService.isValid) {
+      dateOfServiceString = dateOfService.toISODate();
+    }
+  }
+
   return {
     externalId: EncounterExternalId(assertDefined(encounter.id, 'Encounter.id')),
+    dateOfService: dateOfServiceString,
     preEncounterPatientId: PreEncounterPatientId(candidPatient.id),
     preEncounterAppointmentIds: [PreEncounterAppointmentId(candidAppointmentId)],
     benefitsAssignedToProvider: true,
@@ -1218,8 +1230,8 @@ async function candidCreateEncounterFromAppointmentRequest(
           quantity: Decimal('1'),
           units: ServiceLineUnits.Un,
           diagnosisPointers: [primaryDiagnosisIndex],
-          dateOfService: assertDefined(
-            DateTime.fromISO(assertDefined(procedure.meta?.lastUpdated, 'Procedure date')).toISODate(),
+          dateOfService: dateOfServiceString || assertDefined(
+            DateTime.fromISO(assertDefined(appointment.start, 'Appointment start')).toISODate(),
             'Service line date'
           ),
         },
