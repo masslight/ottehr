@@ -127,7 +127,7 @@ export async function getExternalLabOrderResourcesViaDiagnosticReport(
 
   if (patients?.length !== 1) throw new Error('patient is not found');
   if (organizations?.length !== 1) throw new Error('performing lab Org not found');
-  if (diagnosticReports?.length !== 1) throw new Error('encounter is not found');
+  if (diagnosticReports?.length !== 1) throw new Error('diagnosticReport is not found');
 
   const patient = patients[0];
   const labOrganization = organizations[0];

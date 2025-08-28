@@ -3,6 +3,7 @@ import { getRandomValues, randomUUID } from 'crypto';
 import { DiagnosticReport, Observation, Organization } from 'fhir/r4b';
 import fs from 'fs';
 import { DateTime } from 'luxon';
+import { OYSTEHR_UNSOLICITED_RESULT_ORDERING_PROVIDER_SYSTEM } from 'utils';
 import { createOystehrClient, getAuth0Token } from '../shared';
 
 type PatientDetails = {
@@ -173,7 +174,7 @@ const createUnsolicitedResultDr = ({
         ],
       },
       {
-        url: 'https://extensions.fhir.oystehr.com/unsolicited-result-ordering-provider-reference',
+        url: OYSTEHR_UNSOLICITED_RESULT_ORDERING_PROVIDER_SYSTEM,
         valueReference: {
           reference: '#unsolicitedResultPractitionerId',
         },
