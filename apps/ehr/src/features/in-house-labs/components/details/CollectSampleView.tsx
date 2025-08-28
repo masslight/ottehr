@@ -19,6 +19,7 @@ import Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
 import { useEffect, useState } from 'react';
 import { getOrCreateVisitLabel } from 'src/api/api';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import {
   getFormattedDiagnoses,
@@ -179,6 +180,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
           <Box sx={{ p: 3 }}>
             <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
               <Typography
+                data-testid={dataTestIds.collectSamplePage.testName}
                 variant="h5"
                 sx={{
                   fontSize: '1.5rem',
@@ -189,6 +191,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
                 {testDetails.testItemName}
               </Typography>
               <Box
+                data-testid={dataTestIds.collectSamplePage.status}
                 sx={{
                   bgcolor: '#E8EAED',
                   color: '#5F6368',
@@ -227,6 +230,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
                   <Grid container spacing={2} sx={{ padding: '4px 0 20px 0' }}>
                     <Grid item xs={12}>
                       <TextField
+                        data-testid={dataTestIds.collectSamplePage.source}
                         fullWidth
                         label="Source"
                         value={sourceType}
@@ -270,6 +274,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
 
                     <Grid item xs={12}>
                       <TextField
+                        data-testid={dataTestIds.collectSamplePage.collectedBy}
                         fullWidth
                         select
                         label="Collected by"
@@ -323,6 +328,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
 
                     <Grid item xs={6}>
                       <TextField
+                        data-testid={dataTestIds.collectSamplePage.collectionDate}
                         fullWidth
                         label="Collection date"
                         type="date"
@@ -369,6 +375,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
                     <Grid item xs={6}>
                       <FormControl fullWidth>
                         <TextField
+                          data-testid={dataTestIds.collectSamplePage.collectionTime}
                           label="Collection time"
                           type="time"
                           value={timeValue}
@@ -443,6 +450,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
               </Button>
 
               <LoadingButton
+                data-testid={dataTestIds.collectSamplePage.markCollectedButton}
                 loading={loading}
                 variant="contained"
                 onClick={handleMarkAsCollected}

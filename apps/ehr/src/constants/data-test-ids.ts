@@ -452,4 +452,20 @@ export const dataTestIds = {
     additionalDx: 'additionalDx',
     notes: 'in-house-labs-notes',
   },
+  collectSamplePage: {
+    testName: 'test-name',
+    status: 'order-status',
+    source: 'source',
+    collectedBy: 'collected-by',
+    collectionDate: 'collection-date',
+    collectionTime: 'collection-time',
+    markCollectedButton: 'mark-collected-button',
+  },
+  performTestPage: {
+    title: 'page-title',
+    testName: 'test-name',
+    status: 'order-status',
+    testResult: (result: 'detected' | 'not-detected') => `test-result-${result}`,
+    submitButton: 'submit-button',
+  },
 };
