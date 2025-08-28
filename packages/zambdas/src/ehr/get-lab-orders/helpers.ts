@@ -35,6 +35,7 @@ import {
   getAccountNumberFromOrganization,
   getFullestAvailableName,
   getOrderNumber,
+  getOrderNumberFromDr,
   isPositiveNumberOrZero,
   LAB_ORDER_TASK,
   LabelPdf,
@@ -48,6 +49,7 @@ import {
   LabOrderUnreceivedHistoryRow,
   LabResultPDF,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
+  OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   Pagination,
   PatientLabItem,
   PROVENANCE_ACTIVITY_CODES,
@@ -55,11 +57,18 @@ import {
   PROVENANCE_ACTIVITY_TYPE_SYSTEM,
   PSC_HOLD_CONFIG,
   QuestionnaireData,
+  ReflexLabDTO,
   RELATED_SPECIMEN_DEFINITION_SYSTEM,
   sampleDTO,
   SPECIMEN_CODING_CONFIG,
 } from 'utils';
 import { sendErrors } from '../../shared';
+import {
+  formatResourcesIntoDiagnosticReportLabDTO,
+  groupResourcesByDr,
+  parseAccessionNumberFromDr,
+  ResourcesByDr,
+} from '../shared/labs';
 import {
   diagnosticReportIsReflex,
   fetchLabOrderPDFsPresignedUrls,
@@ -136,6 +145,23 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
   return result;
 };
 
+export const mapReflexResourcesToDrLabDTO = async (
+  resources: ResourcesByDr,
+  token: string
+): Promise<ReflexLabDTO[]> => {
+  const DTOs: ReflexLabDTO[] = [];
+  const resourcesByDr = Object.values(resources);
+  for (const drResources of resourcesByDr) {
+    const diagnosticReportLabDetailDTO = await formatResourcesIntoDiagnosticReportLabDTO(drResources, token);
+    const orderNumber = getOrderNumberFromDr(drResources.diagnosticReport) || '';
+    if (diagnosticReportLabDetailDTO) {
+      const reflexLabDetailDTO: ReflexLabDTO = { ...diagnosticReportLabDetailDTO, isReflex: true, orderNumber };
+      DTOs.push(reflexLabDetailDTO);
+    }
+  }
+  return DTOs;
+};
+
 export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   searchBy,
   serviceRequest,
@@ -196,7 +222,6 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
     orderStatus: orderStatus,
     visitDate: parseVisitDate(appointment),
     isPSC: parseIsPSC(serviceRequest),
-    reflexResultsCount: parseReflexTestsCount(serviceRequest, results),
     diagnosesDTO: parseDiagnoses(serviceRequest),
     orderingPhysician: parsePractitionerNameFromServiceRequest(serviceRequest, practitioners),
     diagnoses: parseDx(serviceRequest),
@@ -443,6 +468,7 @@ export const getLabResources = async (
   serviceRequests: ServiceRequest[];
   tasks: Task[];
   diagnosticReports: DiagnosticReport[];
+  reflexDRsAndRelatedResources: ResourcesByDr | undefined;
   practitioners: Practitioner[];
   pagination: Pagination;
   encounters: Encounter[];
@@ -524,14 +550,17 @@ export const getLabResources = async (
   const isDetailPageRequest = searchBy.searchBy.field === 'serviceRequestId';
   console.log('isDetailPageRequest', isDetailPageRequest);
 
-  const [serviceRequestPractitioners, finalAndPrelimAndCorrectedTasks, questionnaires] = await Promise.all([
-    fetchPractitionersForServiceRequests(oystehr, serviceRequests),
-    fetchFinalAndPrelimAndCorrectedTasks(oystehr, diagnosticReports),
-    executeByCondition(isDetailPageRequest, () =>
-      fetchQuestionnaireForServiceRequests(m2mToken, serviceRequests, questionnaireResponses)
-    ),
-  ]);
+  const [serviceRequestPractitioners, finalAndPrelimAndCorrectedTasks, reflexDRsAndRelatedResources, questionnaires] =
+    await Promise.all([
+      fetchPractitionersForServiceRequests(oystehr, serviceRequests),
+      fetchFinalAndPrelimAndCorrectedTasks(oystehr, diagnosticReports),
+      checkForReflexDiagnosticReports(oystehr, serviceRequests),
+      executeByCondition(isDetailPageRequest, () =>
+        fetchQuestionnaireForServiceRequests(m2mToken, serviceRequests, questionnaireResponses)
+      ),
+    ]);
 
+  console.log('reflexDRsAndRelatedResources', JSON.stringify(reflexDRsAndRelatedResources));
   const allPractitioners = [...practitioners, ...serviceRequestPractitioners];
 
   let resultPDFs: LabResultPDF[] = [];
@@ -552,6 +581,7 @@ export const getLabResources = async (
     serviceRequests,
     tasks: [...preSubmissionTasks, ...finalAndPrelimAndCorrectedTasks],
     diagnosticReports,
+    reflexDRsAndRelatedResources,
     practitioners: allPractitioners,
     encounters,
     locations,
@@ -843,6 +873,54 @@ export const extractLabResources = (
     appointments,
     appointmentScheduleMap,
   };
+};
+
+export const checkForReflexDiagnosticReports = async (
+  oystehr: Oystehr,
+  serviceRequests: ServiceRequest[]
+): Promise<ResourcesByDr | undefined> => {
+  if (!serviceRequests.length) return;
+
+  const orderNumbersWithSystem = serviceRequests
+    .map((sr) => {
+      const orderNumber = getOrderNumber(sr);
+      if (orderNumber) {
+        return `${OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM}|${orderNumber}`;
+      } else {
+        return;
+      }
+    })
+    .filter((value): value is string => value !== undefined);
+
+  if (orderNumbersWithSystem.length === 0) return; // this really should not happen, all SRs should have an orderNumber
+
+  try {
+    const resourceSearch = (
+      await oystehr.fhir.search<DiagnosticReport | Task | DocumentReference>({
+        resourceType: 'DiagnosticReport',
+        params: [
+          {
+            name: 'identifier',
+            value: orderNumbersWithSystem.join(','),
+          },
+          { name: '_revinclude', value: 'Task:based-on' }, // review task
+          { name: '_revinclude:iterate', value: 'DocumentReference:related' }, // result pdf
+          { name: '_include', value: 'DiagnosticReport:performer' }, // lab org
+        ],
+      })
+    ).unbundle();
+    if (resourceSearch.length) {
+      return groupResourcesByDr(resourceSearch);
+    } else {
+      return;
+    }
+  } catch (error) {
+    console.error(
+      `Failed to fetch DiagnosticReports with identifier search param: ${orderNumbersWithSystem.join(',')}`,
+      JSON.stringify(error, null, 2)
+    );
+    return;
+  }
 };
 
 export const fetchPractitionersForServiceRequests = async (
@@ -1311,16 +1389,6 @@ export const parseIsPSC = (serviceRequest: ServiceRequest): boolean => {
   );
 };
 
-export const parseReflexTestsCount = (
-  serviceRequest: ServiceRequest,
-  results: DiagnosticReport[],
-  cache?: Cache
-): number => {
-  const { reflexFinalAndCorrectedResults, reflexPrelimResults } =
-    cache?.parsedResults || parseResults(serviceRequest, results);
-  return (reflexFinalAndCorrectedResults.length || 0) + (reflexPrelimResults.length || 0);
-};
-
 export const parsePerformed = (specimen: Specimen, practitioners: Practitioner[]): string => {
   console.log('parsing performed by for specimen', specimen.id);
   const NOT_FOUND = '';
@@ -1433,30 +1501,11 @@ export const parseAccessionNumbers = (
     ...orderedCancelledResults,
     ...reflexCancelledResults,
   ]
-    .map((result) => parseAccessionNumber([result]))
+    .map((result) => parseAccessionNumberFromDr(result))
     .filter(Boolean)
     .filter((value, index, self) => self.indexOf(value) === index); // Remove duplicates
 
   return accessionNumbers;
-};
-
-export const parseAccessionNumber = (results: DiagnosticReport[]): string => {
-  const NOT_FOUND = '';
-
-  if (results.length > 0) {
-    const result = results[0];
-    if (result.identifier) {
-      const accessionIdentifier = result.identifier.find(
-        (identifier) => identifier.type?.coding?.some((coding) => coding.code === 'FILL') && identifier.use === 'usual'
-      );
-
-      if (accessionIdentifier?.value) {
-        return accessionIdentifier.value;
-      }
-    }
-  }
-
-  return NOT_FOUND;
 };
 
 export const parseLabOrderAddedDate = (

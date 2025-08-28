@@ -1,13 +1,13 @@
 import { Button, Typography } from '@mui/material';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LabOrderDetailedPageDTO, TaskReviewedParameters, UnsolicitedLabDetailedPageDTO } from 'utils';
+import { LabOrderDetailedPageDTO, ReflexLabDTO, TaskReviewedParameters, UnsolicitedLabDTO } from 'utils';
 import { CSSPageTitle } from '../../../../telemed/components/PageTitle';
 import { OrderCollection } from '../OrderCollection';
 import { ResultItem } from './ResultItem';
 
 export const DetailsWithResults: React.FC<{
-  labOrder: LabOrderDetailedPageDTO | UnsolicitedLabDetailedPageDTO;
+  labOrder: LabOrderDetailedPageDTO | UnsolicitedLabDTO | ReflexLabDTO;
   markTaskAsReviewed: (parameters: TaskReviewedParameters & { appointmentId?: string }) => Promise<void>;
   loading: boolean;
 }> = ({ labOrder, markTaskAsReviewed, loading }) => {
@@ -18,9 +18,10 @@ export const DetailsWithResults: React.FC<{
   };
 
   const isUnsolicitedPage = 'isUnsolicited' in labOrder;
+  const isReflexPage = 'isReflex' in labOrder;
 
   let serviceRequestId: string | undefined, appointmentId: string | undefined;
-  if (!isUnsolicitedPage) {
+  if (!isUnsolicitedPage && !isReflexPage) {
     serviceRequestId = labOrder.serviceRequestId;
     appointmentId = labOrder.appointmentId;
   }
@@ -29,7 +30,7 @@ export const DetailsWithResults: React.FC<{
     <>
       <CSSPageTitle>{labOrder.testItem}</CSSPageTitle>
 
-      {!isUnsolicitedPage && (
+      {!isUnsolicitedPage && !isReflexPage && (
         <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
           {labOrder.diagnoses}
         </Typography>
@@ -52,7 +53,7 @@ export const DetailsWithResults: React.FC<{
         />
       ))}
 
-      {!isUnsolicitedPage && (
+      {!isUnsolicitedPage && !isReflexPage && (
         <OrderCollection showActionButtons={false} showOrderInfo={false} isAOECollapsed={true} labOrder={labOrder} />
       )}
 

@@ -1,12 +1,12 @@
 import { Box, Typography, useTheme } from '@mui/material';
 import { ReactElement } from 'react';
-import { LabOrderDetailedPageDTO, LabOrderResultDetails, PSC_LOCALE, UnsolicitedLabDetailedPageDTO } from 'utils';
+import { LabOrderDetailedPageDTO, LabOrderResultDetails, PSC_LOCALE, ReflexLabDTO, UnsolicitedLabDTO } from 'utils';
 import { LabsOrderStatusChip } from '../ExternalLabsStatusChip';
 import { FinalCardView } from './FinalCardView';
 import { PrelimCardView } from './PrelimCardView';
 
 interface ResultItemProps {
-  labOrder: LabOrderDetailedPageDTO | UnsolicitedLabDetailedPageDTO;
+  labOrder: LabOrderDetailedPageDTO | UnsolicitedLabDTO | ReflexLabDTO;
   onMarkAsReviewed: () => void;
   resultDetails: LabOrderResultDetails;
   loading: boolean;
@@ -16,9 +16,10 @@ export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails, loading 
   const theme = useTheme();
 
   const isUnsolicitedPage = 'isUnsolicited' in labOrder;
+  const isReflexPage = 'isReflex' in labOrder;
 
   let timezone: string | undefined;
-  if (!isUnsolicitedPage) {
+  if (!isUnsolicitedPage && !isReflexPage) {
     timezone = labOrder.encounterTimezone;
   }
 

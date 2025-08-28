@@ -221,10 +221,6 @@ const createUnsolicitedResultDr = ({
     performer: [
       {
         reference: `Organization/${labOrgId}`,
-        identifier: {
-          system: 'https://identifiers.fhir.oystehr.com/lab-guid',
-          value: AUTO_LAB_GUID,
-        },
       },
     ],
     contained: [
