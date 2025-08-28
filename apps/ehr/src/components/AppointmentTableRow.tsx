@@ -663,6 +663,7 @@ export default function AppointmentTableRow({
     if (
       appointment.status === 'ready for provider' ||
       appointment.status === 'provider' ||
+      appointment.status === 'awaiting supervisor approval' ||
       appointment.status === 'completed' ||
       appointment.status === 'discharged'
     ) {
