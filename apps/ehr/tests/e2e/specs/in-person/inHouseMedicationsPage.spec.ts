@@ -151,7 +151,7 @@ test('Edit order page is opened after clicking on pencil icon for order in "pend
   });
 
   await test.step('Update fields to empty values and click on [Save] - Validation errors appears', async () => {
-    await editOrderPage.editMedicationCard.selectMedication('Select Medication');
+    await editOrderPage.editMedicationCard.clearMedication();
     await editOrderPage.editMedicationCard.selectAssociatedDx('Select Associated Dx');
     await editOrderPage.editMedicationCard.clearDose();
     await editOrderPage.editMedicationCard.selectUnits('Select Units');
