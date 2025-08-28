@@ -8,7 +8,7 @@ export class DocumentProcedurePage {
     this.#page = page;
   }
 
-  async setCheckboxOn(): Promise<void> {
+  async checkConsentForProcedure(): Promise<void> {
     await this.#page
       .getByTestId(dataTestIds.documentProcedurePage.consentForProcedure)
       .locator('input')
@@ -203,7 +203,7 @@ export class DocumentProcedurePage {
     ).toBeVisible();
   }
 
-  async clickSaveChangesButton(): Promise<void> {
+  async clickSaveButton(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.documentProcedurePage.saveButton).click();
   }
 }

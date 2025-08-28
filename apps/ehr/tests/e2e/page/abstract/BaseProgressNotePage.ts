@@ -32,5 +32,14 @@ export abstract class BaseProgressNotePage {
     await this.#page.getByTestId(dataTestIds.dialog.proceedButton).click();
   }
 
+  async verifyProcedure(procedureType: string, procedureDetails: string[]): Promise<void> {
+    const matcher = expect(
+      this.#page.getByTestId(dataTestIds.progressNotePage.procedureItem).filter({ hasText: procedureType })
+    );
+    for (const procedureDetail of procedureDetails) {
+      await matcher.toContainText(procedureDetail);
+    }
+  }
+
   abstract expectLoaded(): Promise<void>;
 }

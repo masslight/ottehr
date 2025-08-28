@@ -2,7 +2,10 @@ import { Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { CssHeader } from 'tests/e2e/page/CssHeader';
 import { openDocumentProcedurePage } from 'tests/e2e/page/DocumentProcedurePage';
-import { InPersonProgressNotePage } from 'tests/e2e/page/in-person/InPersonProgressNotePage';
+import {
+  InPersonProgressNotePage,
+  openInPersonProgressNotePage,
+} from 'tests/e2e/page/in-person/InPersonProgressNotePage';
 import { expectProceduresPage } from 'tests/e2e/page/ProceduresPage';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
 
@@ -13,7 +16,7 @@ const X_RAY_CPT_NAME = 'X-ray of collar bone';
 const B12_DIAGNOSIS_CODE = 'D51.0';
 const B12_DIAGNOSIS_NAME = 'Vitamin B12 deficiency anemia due to intrinsic factor deficiency';
 const HEALTH_CARE_STUFF = 'Healthcare staff';
-const ANAESTHESIA = 'Topical';
+const TOPICAL = 'Topical';
 const ARM = 'Arm';
 const LEFT = 'Left';
 const STERILE = 'Sterile';
@@ -45,12 +48,12 @@ test.describe('Document Procedures Page mutating tests', () => {
     page,
   }) => {
     const documentProcedurePage = await openDocumentProcedurePage(resourceHandler.appointment.id!, page);
-    await documentProcedurePage.setCheckboxOn();
+    await documentProcedurePage.checkConsentForProcedure();
     await documentProcedurePage.selectProcedureType(WOUND_CARE_PROCEDURE_TYPE);
     await documentProcedurePage.selectCptCode(X_RAY_CPT_CODE);
     await documentProcedurePage.selectDiagnosis(B12_DIAGNOSIS_CODE);
     await documentProcedurePage.selectPerformedBy(HEALTH_CARE_STUFF);
-    await documentProcedurePage.selectAnaesthesia(ANAESTHESIA);
+    await documentProcedurePage.selectAnaesthesia(TOPICAL);
     await documentProcedurePage.selectSite(ARM);
     await documentProcedurePage.selectSideOfBody(LEFT);
     await documentProcedurePage.selectTechnique(STERILE);
@@ -62,12 +65,41 @@ test.describe('Document Procedures Page mutating tests', () => {
     await documentProcedurePage.selectPostProcedureInstructions(RETURN_IF_WORSENING);
     await documentProcedurePage.selectTimeSpent(LESS_5_MIN);
     await documentProcedurePage.selectDocumentedBy(PROVIDER);
+    await documentProcedurePage.clickSaveButton();
 
-    await documentProcedurePage.verifyProcedureType(WOUND_CARE_PROCEDURE_TYPE);
+    const proceduresPage = await expectProceduresPage(page);
+    const procedureRow = proceduresPage.getProcedureRow(WOUND_CARE_PROCEDURE_TYPE);
+    await procedureRow.verifyProcedureCptCode(X_RAY_CPT_CODE + '-' + X_RAY_CPT_NAME);
+    await procedureRow.verifyProcedureType(WOUND_CARE_PROCEDURE_TYPE);
+    await procedureRow.verifyProcedureDiagnosis(B12_DIAGNOSIS_CODE + '-' + B12_DIAGNOSIS_NAME);
+    await procedureRow.verifyProcedureDocumentedBy(PROVIDER);
+
+    const progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
+    await progressNotePage.verifyProcedure(WOUND_CARE_PROCEDURE_TYPE, [
+      'CPT: ' + X_RAY_CPT_CODE + ' ' + X_RAY_CPT_NAME,
+      'Dx: ' + B12_DIAGNOSIS_CODE + ' ' + B12_DIAGNOSIS_NAME,
+      'Performed by: ' + HEALTH_CARE_STUFF,
+      'Anaesthesia / medication used: ' + TOPICAL,
+      'Site/location: ' + ARM,
+      'Side of body: ' + LEFT,
+      'Technique: ' + STERILE,
+      'Instruments / supplies used: ' + SPLINT,
+      'Procedure details: ' + PROCEDURE_DETAILS,
+      'Specimen sent: ' + YES,
+      'Complications: ' + BLEEDING,
+      'Patient response: ' + STABLE,
+      'Post-procedure instructions: ' + RETURN_IF_WORSENING,
+      'Time spent: ' + LESS_5_MIN,
+      'Documented by: ' + PROVIDER,
+    ]);
+
+    // todo open procedure page
+
+    /*await documentProcedurePage.verifyProcedureType(WOUND_CARE_PROCEDURE_TYPE);
     await documentProcedurePage.verifyCptCode(X_RAY_CPT_CODE + ' ' + X_RAY_CPT_NAME);
     await documentProcedurePage.verifyDiagnosis(B12_DIAGNOSIS_NAME + ' ' + B12_DIAGNOSIS_CODE);
     await documentProcedurePage.verifyPerformedBy(HEALTH_CARE_STUFF);
-    await documentProcedurePage.verifyAnaesthesia(ANAESTHESIA);
+    await documentProcedurePage.verifyAnaesthesia(TOPICAL);
     await documentProcedurePage.verifySite(ARM);
     await documentProcedurePage.verifySideOfBody(LEFT);
     await documentProcedurePage.verifyTechnique(STERILE);
@@ -78,15 +110,13 @@ test.describe('Document Procedures Page mutating tests', () => {
     await documentProcedurePage.verifyPatientResponse(STABLE);
     await documentProcedurePage.verifyPostProcedureInstructions(RETURN_IF_WORSENING);
     await documentProcedurePage.verifyTimeSpent(LESS_5_MIN);
-    await documentProcedurePage.verifyDocumentedBy(PROVIDER);
+    await documentProcedurePage.verifyDocumentedBy(PROVIDER);*/
 
-    await documentProcedurePage.clickSaveChangesButton();
-    const proceduresPage = await expectProceduresPage(page);
-    const procedureRow = proceduresPage.getProcedureRow(WOUND_CARE_PROCEDURE_TYPE);
-    await procedureRow.verifyProcedureCptCode(X_RAY_CPT_CODE + '-' + X_RAY_CPT_NAME);
-    await procedureRow.verifyProcedureType(WOUND_CARE_PROCEDURE_TYPE);
-    await procedureRow.verifyProcedureDiagnosis(B12_DIAGNOSIS_CODE + '-' + B12_DIAGNOSIS_NAME);
-    await procedureRow.verifyProcedureDocumentedBy(PROVIDER);
+    // todo edit procedure and save
+
+    // todo verify progress note
+    // todo open procedure page
+    // todo verify procedure edited
   });
 
   async function setupPractitioners(page: Page): Promise<void> {

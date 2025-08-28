@@ -366,6 +366,7 @@ export const dataTestIds = {
     medicalDecisionLink: 'medical-decision-link',
     emCodeLink: 'em-code-link',
     visitNoteCard: 'visit-note-card',
+    procedureItem: 'procedure-item',
   },
   assessmentCard: {
     emCodeDropdown: 'em-code-dropdown',
