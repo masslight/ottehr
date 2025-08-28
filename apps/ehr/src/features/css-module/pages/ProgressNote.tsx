@@ -8,7 +8,7 @@ import {
   useGetAppointmentAccessibility,
 } from '../../../telemed';
 import { PageTitle } from '../../../telemed/components/PageTitle';
-import { ChiefComplaintCard } from '../../../telemed/features/appointment';
+import { ApplyTemplate, ChiefComplaintCard } from '../../../telemed/features/appointment';
 import {
   AddendumCard,
   DischargeButton,
@@ -63,6 +63,10 @@ export const ProgressNote: React.FC<PatientInfoProps> = () => {
 
       <AccordionCard label="Intake Notes">
         <IntakeNotes />
+      </AccordionCard>
+
+      <AccordionCard label="Apply Template">
+        <ApplyTemplate />
       </AccordionCard>
 
       <ChiefComplaintCard />
