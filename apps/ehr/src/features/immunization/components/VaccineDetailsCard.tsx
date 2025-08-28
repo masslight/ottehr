@@ -1,6 +1,7 @@
 import { Box, Grid, Paper, Stack, Typography, useTheme } from '@mui/material';
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
+import { useParams } from 'react-router-dom';
 import { CheckboxInput } from 'src/components/input/CheckboxInput';
 import { DateInput } from 'src/components/input/DateInput';
 import { SelectInput } from 'src/components/input/SelectInput';
@@ -9,7 +10,11 @@ import { TimeInput } from 'src/components/input/TimeInput';
 import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
 import { useAdministerImmunizationOrder } from 'src/features/css-module/hooks/useImmunization';
 import { cleanupProperties } from 'src/helpers/misc.helper';
-import { EMERGENCY_CONTACT_RELATIONSHIPS, ImmunizationOrder } from 'utils';
+import { ROUTE_OPTIONS, UNIT_OPTIONS } from 'src/shared/utils';
+import { useAppointmentData, useGetMedicationList } from 'src/telemed';
+import { EMERGENCY_CONTACT_RELATIONSHIPS, ImmunizationOrder, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { ADMINISTERED, AdministrationType, NOT_ADMINISTERED, PARTLY_ADMINISTERED } from '../common';
+import { AdministrationConfirmationDialog } from './AdministrationConfirmationDialog';
 import { OrderDetailsSection } from './OrderDetailsSection';
 
 interface Props {
@@ -31,18 +36,42 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
         orderedProviderId: order?.details?.orderedProvider?.id,
       },
       visGiven: order.administrationDetails?.visGivenDate != null,
+      otherReason: '',
     },
   });
   const theme = useTheme();
+  const [showAdministrationConfirmationDialog, setShowAdministrationConfirmationDialog] = useState<boolean>(false);
+  const administrationTypeRef = useRef<AdministrationType>(ADMINISTERED);
+
+  const { id: appointmentId } = useParams();
+  const { mappedData } = useAppointmentData(appointmentId);
+  const { data: medications } = useGetMedicationList();
 
   const { mutateAsync: administerOrder } = useAdministerImmunizationOrder();
 
   const onSubmit = async (data: any): Promise<void> => {
+    if (data.otherReason) {
+      data.reason = data.otherReason;
+    }
     await administerOrder({
       orderId: order.id,
-      type: 'administered',
+      type: administrationTypeRef.current.type,
       ...(await cleanupProperties(data)),
     });
+  };
+
+  const onAdministrationActionClick = async (administrationType: AdministrationType): Promise<void> => {
+    administrationTypeRef.current = administrationType;
+    if (await methods.trigger()) {
+      setShowAdministrationConfirmationDialog(true);
+    }
+  };
+
+  const requiredForAdministration = (value: string | undefined): boolean | string => {
+    if (administrationTypeRef.current !== NOT_ADMINISTERED && (!value || value.length === 0)) {
+      return REQUIRED_FIELD_ERROR_MESSAGE;
+    }
+    return true;
   };
 
   return (
@@ -83,10 +112,18 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                 <TextInput name="administrationDetails.ndc" label="NDC code" required />
               </Grid>
               <Grid xs={3} item>
-                <DateInput name="administrationDetails.administeredDateTime" label="Administered date" required />
+                <DateInput
+                  name="administrationDetails.administeredDateTime"
+                  label="Administered date"
+                  validate={requiredForAdministration}
+                />
               </Grid>
               <Grid xs={3} item>
-                <TimeInput name="administrationDetails.administeredDateTime" label="Administered time" required />
+                <TimeInput
+                  name="administrationDetails.administeredDateTime"
+                  label="Administered time"
+                  validate={requiredForAdministration}
+                />
               </Grid>
               <Grid xs={6} item>
                 <Box
@@ -98,11 +135,19 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                     alignItems: 'center',
                   }}
                 >
-                  <CheckboxInput name="visGiven" label="VIS was given to the patient*" required />
+                  <CheckboxInput
+                    name="visGiven"
+                    label="VIS was given to the patient"
+                    validate={requiredForAdministration}
+                  />
                 </Box>
               </Grid>
               <Grid xs={6} item>
-                <DateInput name="administrationDetails.visGivenDate" label="VIS given date" required />
+                <DateInput
+                  name="administrationDetails.visGivenDate"
+                  label="VIS given date"
+                  validate={requiredForAdministration}
+                />
               </Grid>
               <Grid xs={12} item>
                 <Typography
@@ -119,24 +164,48 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                   name="administrationDetails.emergencyContact.relationship"
                   label="Relationship"
                   options={RELATIONSHIP_OPTIONS}
-                  required
+                  validate={requiredForAdministration}
                 />
               </Grid>
               <Grid xs={4} item>
-                <TextInput name="administrationDetails.emergencyContact.fullName" label="Full name" required />
+                <TextInput
+                  name="administrationDetails.emergencyContact.fullName"
+                  label="Full name"
+                  validate={requiredForAdministration}
+                />
               </Grid>
               <Grid xs={4} item>
-                <TextInput name="administrationDetails.emergencyContact.mobile" label="Mobile" required />
+                <TextInput
+                  name="administrationDetails.emergencyContact.mobile"
+                  label="Mobile"
+                  type="phone"
+                  validate={requiredForAdministration}
+                />
               </Grid>
               <Grid xs={12} item>
                 <Stack direction="row" justifyContent="end" alignItems="center">
-                  <ButtonRounded variant="outlined" color="primary" size="large">
+                  <ButtonRounded
+                    variant="outlined"
+                    color="primary"
+                    size="large"
+                    onClick={async () => onAdministrationActionClick(NOT_ADMINISTERED)}
+                  >
                     Not Administered
                   </ButtonRounded>
-                  <ButtonRounded variant="outlined" color="primary" size="large">
+                  <ButtonRounded
+                    variant="outlined"
+                    color="primary"
+                    size="large"
+                    onClick={async () => onAdministrationActionClick(PARTLY_ADMINISTERED)}
+                  >
                     Partly Administered
                   </ButtonRounded>
-                  <ButtonRounded type="submit" variant="contained" color="primary" size="large">
+                  <ButtonRounded
+                    variant="contained"
+                    color="primary"
+                    size="large"
+                    onClick={async () => onAdministrationActionClick(ADMINISTERED)}
+                  >
                     Administered
                   </ButtonRounded>
                 </Stack>
@@ -144,6 +213,19 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
             </Grid>
           </Paper>
         </Stack>
+        <AdministrationConfirmationDialog
+          administrationType={administrationTypeRef.current}
+          patientName={mappedData.patientName}
+          medicationName={medications?.[methods.getValues('details.medicationId')]}
+          dose={methods.getValues('details.dose')}
+          unit={UNIT_OPTIONS.find((unit) => unit.value === methods.getValues('details.units'))?.label}
+          route={ROUTE_OPTIONS.find((route) => route.value === methods.getValues('details.route'))?.label}
+          open={showAdministrationConfirmationDialog}
+          handleClose={() => {
+            setShowAdministrationConfirmationDialog(false);
+          }}
+          handleConfirm={methods.handleSubmit(onSubmit)}
+        />
       </form>
     </FormProvider>
   );
