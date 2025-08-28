@@ -154,8 +154,10 @@ export const mapReflexResourcesToDrLabDTO = async (
   for (const drResources of resourcesByDr) {
     const diagnosticReportLabDetailDTO = await formatResourcesIntoDiagnosticReportLabDTO(drResources, token);
     const orderNumber = getOrderNumberFromDr(drResources.diagnosticReport) || '';
-    const reflexLabDetailDTO: ReflexLabDTO = { ...diagnosticReportLabDetailDTO, isReflex: true, orderNumber };
-    DTOs.push(reflexLabDetailDTO);
+    if (diagnosticReportLabDetailDTO) {
+      const reflexLabDetailDTO: ReflexLabDTO = { ...diagnosticReportLabDetailDTO, isReflex: true, orderNumber };
+      DTOs.push(reflexLabDetailDTO);
+    }
   }
   return DTOs;
 };

@@ -873,14 +873,14 @@ export const groupResourcesByDr = (resources: FhirResource[]): ResourcesByDr => 
 export const formatResourcesIntoDiagnosticReportLabDTO = async (
   resources: AllResources,
   token: string
-): Promise<DiagnosticReportLabDetailPageDTO> => {
+): Promise<DiagnosticReportLabDetailPageDTO | undefined> => {
   const { diagnosticReport, readyTasks, completedTasks, labOrg, documentReference } = resources;
   const readyTask = readyTasks[0]; // im not sure there would ever be a scenario where there is more than one ready task per DR
   const completedTask = completedTasks[0];
 
   if (!readyTask && !completedTask) {
-    // todo sarah i dunno if this should be an error or fail silently
-    throw Error(`No tasks found for diagnostic report: ${diagnosticReport.id}`);
+    console.log(`No tasks found for diagnostic report: ${diagnosticReport.id}`);
+    return;
   }
 
   const task = readyTask || completedTask;
