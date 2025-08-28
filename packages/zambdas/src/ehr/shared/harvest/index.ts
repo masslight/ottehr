@@ -72,6 +72,7 @@ import {
   getPhoneNumberForIndividual,
   getSecret,
   getStripeCustomerIdFromAccount,
+  INSURANCE_CANDID_PLAN_TYPE_CODES,
   INSURANCE_CARD_BACK_2_ID,
   INSURANCE_CARD_BACK_ID,
   INSURANCE_CARD_CODE,
@@ -1748,9 +1749,10 @@ function getInsuranceDetailsFromAnswers(
   const org = organizations.find((org) => `${org.resourceType}/${org.id}` === insuranceOrgReference.reference);
   if (!org) return undefined;
 
-  const type = answers.find((item) => item.linkId === `insurance-plan-type${suffix}`)?.answer?.[0]
-    ?.valueString as NetworkType;
-  if (!type) return undefined;
+  const candidCodes = INSURANCE_CANDID_PLAN_TYPE_CODES as string[];
+  const qType = answers.find((item) => item.linkId === `insurance-plan-type${suffix}`)?.answer?.[0]?.valueString;
+  if (!qType || !candidCodes.includes(qType)) return undefined;
+  const type = qType as NetworkType;
 
   const additionalInformation = answers.find((item) => item.linkId === `insurance-additional-information${suffix}`)
     ?.answer?.[0]?.valueString;

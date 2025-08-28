@@ -13,6 +13,7 @@ import {
 import { DateTime } from 'luxon';
 import {
   FHIR_IDENTIFIER_SYSTEM,
+  INSURANCE_COVERAGE_TYPE_SYSTEMS,
   InsurancePlanTypes,
   OTTEHR_MODULE,
   PAYMENT_METHOD_EXTENSION_URL,
@@ -1202,13 +1203,8 @@ export const getPayerId = (org: Organization | undefined): string | undefined =>
 };
 
 export const getCandidPlanTypeCodeFromCoverage = (coverage: Coverage): NetworkType | undefined => {
-  const allSystemsToSearchFor: string[] = [];
-  InsurancePlanTypes.forEach((planType) => {
-    const currentSystem = planType.coverageCoding?.system;
-    if (currentSystem && !allSystemsToSearchFor.includes(currentSystem)) allSystemsToSearchFor.push(currentSystem);
-  });
   const coverageTypeCode = coverage.type?.coding?.find(
-    (coding) => coding.system && allSystemsToSearchFor.includes(coding.system)
+    (coding) => coding.system && INSURANCE_COVERAGE_TYPE_SYSTEMS.includes(coding.system)
   )?.code;
   return InsurancePlanTypes.find((planType) => planType.coverageCoding?.code === coverageTypeCode)?.candidCode;
 };
