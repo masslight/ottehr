@@ -7,6 +7,7 @@ import {
   DynamicAOEInput,
   EXTERNAL_LAB_ERROR,
   getPatchBinary,
+  OYSTEHR_UNSOLICITED_RESULT_ORDERING_PROVIDER_SYSTEM,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   SpecimenCollectionDateConfig,
 } from 'utils';
@@ -171,6 +172,14 @@ export const makePstCompletePatchRequests = (
   return requests;
 };
 
+/**
+ * Marks the unsolicited result task as complete.
+ * Links the patient to the diagnostic report.
+ *
+ * If a service request ID is provided:
+ * - Links the service request to the diagnostic report.
+ * - If the diagnostic report status is 'final', updates the service request status to 'completed'.
+ */
 export const handleMatchUnsolicitedRequest = async ({
   oystehr,
   taskId,
@@ -195,20 +204,32 @@ export const handleMatchUnsolicitedRequest = async ({
     url: `Task/${taskId}`,
     operations: [{ op: 'replace', path: '/status', value: 'completed' }],
   };
-  const linkPatientToDrRequest: BatchInputPatchRequest<DiagnosticReport> = {
+  const diagnosticReportPatchRequest: BatchInputPatchRequest<DiagnosticReport> = {
     method: 'PATCH',
     url: `DiagnosticReport/${diagnosticReportId}`,
     operations: [
       { op: 'replace', path: '/subject', value: { reference: `Patient/${patientToMatchId}` } },
-      { op: 'remove', path: '/performer' }, // todo when we link providers this will become replace
       { op: 'remove', path: '/contained' },
     ],
   };
+
+  if (diagnosticReportResource.extension) {
+    const updatedExtension = diagnosticReportResource.extension.filter((ext) => {
+      return ext.url !== OYSTEHR_UNSOLICITED_RESULT_ORDERING_PROVIDER_SYSTEM;
+    });
+    console.log('updatedExtension', updatedExtension);
+    diagnosticReportPatchRequest.operations.push({
+      op: 'replace',
+      path: '/extension',
+      value: updatedExtension,
+    });
+  }
+
   const serviceRequestPatch: BatchInputPatchRequest<ServiceRequest>[] = [];
   if (srToMatchId) {
     console.log('srToMatchId passed: ', srToMatchId);
     const hasBasedOn = !!diagnosticReportResource.basedOn;
-    linkPatientToDrRequest.operations.push({
+    diagnosticReportPatchRequest.operations.push({
       op: hasBasedOn ? 'replace' : 'add',
       path: '/basedOn',
       value: [
@@ -228,7 +249,7 @@ export const handleMatchUnsolicitedRequest = async ({
     }
   }
 
-  const requests = [linkPatientToDrRequest, markTaskAsCompleteRequest, ...serviceRequestPatch];
+  const requests = [diagnosticReportPatchRequest, markTaskAsCompleteRequest, ...serviceRequestPatch];
   console.log('making fhir requests, total requests to make: ', requests.length);
   await oystehr.fhir.transaction({ requests });
 };

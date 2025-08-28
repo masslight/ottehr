@@ -15,6 +15,7 @@ import {
   ZambdaInput,
 } from '../../shared';
 import {
+  handleFormatLabDTOForUnsolicitedResultReview,
   handleGetPossibleRelatedRequestsToUnsolicitedResult,
   handleGetTasks,
   handleIconResourceRequest,
@@ -62,6 +63,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           oystehr,
           validatedParameters.diagnosticReportId,
           validatedParameters.patientId
+        );
+        break;
+      }
+      case UnsolicitedResultsRequestType.UNSOLICITED_RESULT_DETAIL: {
+        console.log('handling unsolicited-result-detail request');
+        response = await handleFormatLabDTOForUnsolicitedResultReview(
+          oystehr,
+          validatedParameters.diagnosticReportId,
+          m2mToken
         );
         break;
       }

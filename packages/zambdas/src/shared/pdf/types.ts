@@ -224,6 +224,11 @@ export interface ExternalLabResultsData extends LabResultsData {
   performingLabPhone?: string;
   performingLabDirectorFullName?: string;
 }
+
+export type UnsolicitedExternalLabResultsData = Omit<
+  ExternalLabResultsData,
+  'orderNumber' | 'orderSubmitDate' | 'collectionDate'
+>;
 export interface InHouseLabResultsData extends LabResultsData {
   inHouseLabResults: InHouseLabResultConfig[];
   timezone: string | undefined;
@@ -233,7 +238,8 @@ export interface InHouseLabResultsData extends LabResultsData {
 
 export type ResultDataConfig =
   | { type: LabType.external; data: ExternalLabResultsData }
-  | { type: LabType.inHouse; data: InHouseLabResultsData };
+  | { type: LabType.inHouse; data: InHouseLabResultsData }
+  | { type: LabType.unsolicited; data: UnsolicitedExternalLabResultsData };
 
 export interface VisitNoteData extends PdfExaminationBlockData {
   patientName: string;
