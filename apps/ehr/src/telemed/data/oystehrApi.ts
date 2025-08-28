@@ -41,6 +41,7 @@ import {
   SyncUserResponse,
   UnassignPractitionerZambdaInput,
   UnassignPractitionerZambdaOutput,
+  UpdateLabOrderResourcesInput,
   UpdateMedicationOrderInput,
   UpdatePatientAccountInput,
   UpdatePatientAccountResponse,
@@ -73,6 +74,7 @@ enum ZambdaNames {
   'send fax' = 'send fax',
   'external lab resource search' = 'external lab resource search',
   'get unsolicited results resources' = 'get unsolicited results resources',
+  'update lab order resources' = 'update lab order resources',
 }
 
 const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
@@ -100,6 +102,7 @@ const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
   'send fax': false,
   'external lab resource search': false,
   'get unsolicited results resources': false,
+  'update lab order resources': false,
 };
 
 export type OystehrTelemedAPIClient = ReturnType<typeof getOystehrTelemedAPI>;
@@ -133,6 +136,7 @@ export const getOystehrTelemedAPI = (
   sendFax: typeof sendFax;
   getCreateExternalLabResources: typeof getCreateExternalLabResources;
   getUnsolicitedResultsResources: typeof getUnsolicitedResultsResources;
+  updateLabOrderResources: typeof updateLabOrderResources;
 } => {
   const {
     getTelemedAppointmentsZambdaID,
@@ -159,6 +163,7 @@ export const getOystehrTelemedAPI = (
     sendFaxZambdaID,
     externalLabResourceSearchID,
     getUnsolicitedResultsResourcesID,
+    updateLabOrderResourcesID,
   } = params;
 
   const zambdasToIdsMap: Record<keyof typeof ZambdaNames, string | undefined> = {
@@ -186,6 +191,7 @@ export const getOystehrTelemedAPI = (
     'send fax': sendFaxZambdaID,
     'external lab resource search': externalLabResourceSearchID,
     'get unsolicited results resources': getUnsolicitedResultsResourcesID,
+    'update lab order resources': updateLabOrderResourcesID,
   };
   const isAppLocalProvided = params.isAppLocal != null;
 
@@ -330,6 +336,10 @@ export const getOystehrTelemedAPI = (
     return await makeZapRequest('get unsolicited results resources', parameters);
   };
 
+  const updateLabOrderResources = async (parameters: UpdateLabOrderResourcesInput): Promise<void> => {
+    return await makeZapRequest('update lab order resources', parameters);
+  };
+
   return {
     getTelemedAppointments,
     initTelemedSession,
@@ -356,5 +366,6 @@ export const getOystehrTelemedAPI = (
     sendFax,
     getCreateExternalLabResources,
     getUnsolicitedResultsResources,
+    updateLabOrderResources,
   };
 };

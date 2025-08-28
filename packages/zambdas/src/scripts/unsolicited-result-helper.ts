@@ -2,6 +2,7 @@ import { BatchInputPostRequest } from '@oystehr/sdk';
 import { getRandomValues, randomUUID } from 'crypto';
 import { DiagnosticReport, Observation } from 'fhir/r4b';
 import fs from 'fs';
+import { DateTime } from 'luxon';
 import { createOystehrClient, getAuth0Token } from '../shared';
 
 type PatientDetails = {
@@ -172,7 +173,7 @@ const createUnsolicitedResultDr = ({
         },
       ],
     },
-    effectiveDateTime: '2025-08-15T14:20:50.000Z',
+    effectiveDateTime: DateTime.now().toISO(),
     meta: {
       tag: [
         {

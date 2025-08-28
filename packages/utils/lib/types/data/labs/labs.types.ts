@@ -218,6 +218,8 @@ export const LAB_ORDER_UPDATE_RESOURCES_EVENTS = {
   reviewed: 'reviewed',
   specimenDateChanged: 'specimenDateChanged',
   saveOrderCollectionData: 'saveOrderCollectionData',
+  cancelMatchUnsolicitedResultTask: 'cancelMatchUnsolicitedResultTask',
+  matchUnsolicitedResult: 'matchUnsolicitedResult',
 } as const;
 
 export type TaskReviewedParameters = {
@@ -244,10 +246,25 @@ export type SaveOrderCollectionData = {
   specimenCollectionDates?: SpecimenCollectionDateConfig;
 };
 
-export type UpdateLabOrderResourcesParameters =
+export type CancelMatchUnsolicitedResultTask = {
+  event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.cancelMatchUnsolicitedResultTask;
+  taskId: string;
+};
+
+export type FinalizeUnsolicitedResultMatch = {
+  event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.matchUnsolicitedResult;
+  taskId: string;
+  diagnosticReportId: string;
+  patientToMatchId: string;
+  srToMatchId?: string;
+};
+
+export type UpdateLabOrderResourcesInput =
   | (TaskReviewedParameters & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.reviewed })
   | (SpecimenDateChangedParameters & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.specimenDateChanged })
-  | (SaveOrderCollectionData & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.saveOrderCollectionData });
+  | (SaveOrderCollectionData & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.saveOrderCollectionData })
+  | CancelMatchUnsolicitedResultTask
+  | FinalizeUnsolicitedResultMatch;
 
 export type DeleteLabOrderZambdaInput = {
   serviceRequestId: string;
@@ -286,15 +303,35 @@ export type LabResultPDF = {
 
 export enum UnsolicitedResultsRequestType {
   UNSOLICITED_RESULTS_ICON = 'unsolicited-results-icon',
-  GET_ALL_TASKS = 'get-tasks',
+  GET_TABLE_ROWS = 'get-table-rows',
   MATCH_UNSOLICITED_RESULTS = 'match-unsolicited-result',
+  GET_UNSOLICITED_RESULTS_RELATED_REQUESTS = 'get-unsolicited-results-related-requests',
   UNSOLICITED_RESULT_DETAIL = 'unsolicited-result-detail',
 }
 
-// planning to add diagnostic id as input as well
+export type GetUnsolicitedResultsResourcesForIconInput = {
+  requestType: UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_ICON;
+};
+
+export type GetUnsolicitedResultsResourcesForTableInput = {
+  requestType: UnsolicitedResultsRequestType.GET_TABLE_ROWS;
+};
+
+export type GetUnsolicitedResultsResourcesForMatchInput = {
+  requestType: UnsolicitedResultsRequestType.MATCH_UNSOLICITED_RESULTS;
+  diagnosticReportId: string;
+};
+export type GetUnsolicitedResultsRelatedRequests = {
+  requestType: UnsolicitedResultsRequestType.GET_UNSOLICITED_RESULTS_RELATED_REQUESTS;
+  diagnosticReportId: string;
+  patientId: string;
+};
+
 export type GetUnsolicitedResultsResourcesInput =
-  | { requestType: UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_ICON }
-  | { requestType: UnsolicitedResultsRequestType.GET_ALL_TASKS; itemsPerPage?: number; pageIndex?: number };
+  | GetUnsolicitedResultsResourcesForIconInput
+  | GetUnsolicitedResultsResourcesForTableInput
+  | GetUnsolicitedResultsResourcesForMatchInput
+  | GetUnsolicitedResultsRelatedRequests;
 
 export const UR_TASK_ACTION_TEXT = ['Match', 'Go to Lab Results'] as const;
 export type UR_TASK_ACTION = (typeof UR_TASK_ACTION_TEXT)[number];
@@ -302,6 +339,7 @@ export type UR_TASK_ACTION = (typeof UR_TASK_ACTION_TEXT)[number];
 export type UnsolicitedResultTaskRowDTO = {
   diagnosticReportId: string;
   actionText: UR_TASK_ACTION;
+  actionUrl: string;
   taskRowDescription: string;
   resultsReceivedDateTime: string;
 };
@@ -310,8 +348,29 @@ export type GetUnsolicitedResultsResourcesForIcon = {
   tasksAreReady: boolean;
 };
 export type GetUnsolicitedResultsResourcesForTable = {
-  unsolicitedResultTasks: UnsolicitedResultTaskRowDTO[];
+  unsolicitedResultRows: UnsolicitedResultTaskRowDTO[];
 };
+export type GetUnsolicitedResultsResourcesForMatch = {
+  labInfo: {
+    patientName?: string;
+    patientDOB?: string;
+    provider?: string;
+    test?: string;
+    resultsReceived?: string;
+  };
+  taskId: string;
+};
+export type RelatedRequestsToUnsolicitedResultOutput = {
+  possibleRelatedSRsWithVisitDate:
+    | {
+        serviceRequestId: string;
+        visitDate: string;
+      }[]
+    | null;
+};
+
 export type GetUnsolicitedResultsResourcesOutput =
   | GetUnsolicitedResultsResourcesForIcon
-  | GetUnsolicitedResultsResourcesForTable;
+  | GetUnsolicitedResultsResourcesForTable
+  | GetUnsolicitedResultsResourcesForMatch
+  | RelatedRequestsToUnsolicitedResultOutput;
