@@ -238,18 +238,19 @@ const longWaitTimeFlag = (appointment: InPersonAppointmentInformation, statusTim
   return false;
 };
 
+function isPhysicianQualification(qualification?: string): boolean {
+  return qualification != null && ['MD', 'OD'].includes(qualification);
+}
+
 function canApprove(practitioner: Practitioner, location: Location, attenderQualification?: string): boolean {
-  if (attenderQualification && ['MD', 'OD'].includes(attenderQualification)) return false;
   if (!practitioner) return false;
 
+  const isAttenderPhysician = isPhysicianQualification(attenderQualification);
   const qualification = getPractitionerQualificationByLocation(practitioner, location);
-
-  const isPhysician = qualification && ['MD', 'OD'].includes(qualification);
-
-  if (!isPhysician) return false;
-
+  const isPractitionerPhysician = isPhysicianQualification(qualification);
   const npiIdentifier = getPractitionerNPIIdentifier(practitioner);
-  return Boolean(npiIdentifier?.value);
+
+  return !isAttenderPhysician && isPractitionerPhysician && Boolean(npiIdentifier?.value);
 }
 
 export default function AppointmentTableRow({
