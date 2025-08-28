@@ -6,7 +6,7 @@ import {
   addEmptyArrOperation,
   ADDITIONAL_QUESTIONS_META_SYSTEM,
   ChartDataResources,
-  createCodingCode,
+  createCodeableConcept,
   DispositionFollowUpType,
   ExamObservationDTO,
   getPatchBinary,
@@ -301,11 +301,29 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       updateEncounterOperations.push(updateEncounterDischargeDisposition(encounter, disposition));
 
       // creating sub followUps for disposition
-      const subFollowUpCode: CodeableConcept = createCodingCode('185389009', 'Follow-up visit (procedure)');
+      const subFollowUpCode: CodeableConcept = createCodeableConcept(
+        [
+          {
+            code: '185389009',
+            display: 'Follow-up visit (procedure)',
+            system: 'http://snomed.info/sct',
+          },
+        ],
+        'Follow-up visit (procedure)'
+      );
       const subFollowUpMetaTag = 'sub-follow-up';
       disposition.followUp?.forEach((followUp) => {
         const followUpPerformer = followUpToPerformerMap[followUp.type];
-        const lurieCtOrderDetail = createCodingCode('77477000', 'Computed tomography (procedure)');
+        const lurieCtOrderDetail = createCodeableConcept(
+          [
+            {
+              code: '77477000',
+              display: 'Computed tomography (procedure)',
+              system: 'http://snomed.info/sct',
+            },
+          ],
+          'Computed tomography (procedure)'
+        );
         const existedSubFollowUpId = filterServiceRequestsFromFhir(
           allResources,
           subFollowUpMetaTag,
