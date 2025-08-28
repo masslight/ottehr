@@ -1,1131 +1,603 @@
-import { createCodeableConcept } from '../../api';
-
 export const InPersonExamConfig = {
   general: {
-    label: 'General',
+    label: 'General Appearance',
     components: {
       normal: {
-        'well-appearing': {
-          label: 'Well appearing',
+        alert: {
+          label: 'Alert',
           defaultValue: true,
           type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Well appearing'),
         },
-        'well-nourished': {
-          label: 'Well nourished',
+        active: { label: 'Active', defaultValue: true, type: 'checkbox' },
+        'in-no-acute-distress': { label: 'In no acute distress', defaultValue: true, type: 'checkbox' },
+        'well-hydrated': {
+          label: 'Well-hydrated',
           defaultValue: true,
           type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Well nourished'),
-        },
-        'in-no-distress': {
-          label: 'In no distress',
-          defaultValue: true,
-          type: 'checkbox',
-          code: createCodeableConcept(
-            [
-              {
-                system: 'http://snomed.info/sct',
-                code: '69328002',
-                display: 'Distress (finding)',
-              },
-            ],
-            'Distress (finding)'
-          ),
-        },
-        'oriented-general': {
-          label: 'Oriented x 3',
-          defaultValue: true,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Oriented x 3'),
-        },
-        'general-normal-mood-and-affect': {
-          label: 'Normal mood and affect',
-          defaultValue: true,
-          type: 'checkbox',
-          code: createCodeableConcept(
-            [
-              {
-                system: 'http://snomed.info/sct',
-                code: '134417007',
-                display: 'Level of mood - normal (finding)',
-              },
-            ],
-            'Level of mood - normal (finding)'
-          ),
-        },
-        'ambulating-without-difficulty': {
-          label: 'Ambulating without difficulty',
-          defaultValue: true,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Ambulating without difficulty'),
         },
       },
       abnormal: {
-        'abnormal-general': {
-          label: 'Abnormal',
-          defaultValue: false,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Abnormal'),
-        },
+        dehydrated: { label: 'Dehydrated', defaultValue: false, type: 'checkbox' },
+        listless: { label: 'Listless', defaultValue: false, type: 'checkbox' },
       },
-      comment: {
-        'general-comment': {
-          label: 'General comment',
-          type: 'text',
-          code: createCodeableConcept(
-            [
-              {
-                system: 'http://snomed.info/sct',
-                code: '38266002',
-                display: 'Entire body as a whole (body structure)',
-              },
-            ],
-            'Entire body as a whole (body structure)'
-          ),
-        },
-      },
-    },
-  },
-  skin: {
-    label: 'Skin',
-    components: {
-      normal: {
-        'good-turgor': {
-          label: 'Good turgor',
-          defaultValue: true,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Good turgor'),
-        },
-        'no-rash-unusual-bruising-or-prominent-lesions': {
-          label: 'No rash, unusual bruising or prominent lesions',
-          defaultValue: true,
-          type: 'checkbox',
-          code: createCodeableConcept(
-            [
-              {
-                system: 'http://snomed.info/sct',
-                code: '225544001',
-                display: 'Skin appearance normal (finding)',
-              },
-            ],
-            'Skin appearance normal (finding)'
-          ),
-          bodySite: createCodeableConcept(
-            [
-              {
-                system: 'http://snomed.info/sct',
-                code: '225544001',
-                display: 'Skin appearance normal (finding)',
-              },
-            ],
-            'Skin appearance normal (finding)'
-          ),
-        },
-      },
-      abnormal: {
-        'abnormal-skin': {
-          label: 'Abnormal',
-          defaultValue: false,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Abnormal'),
-        },
-      },
-      comment: {
-        'skin-comment': {
-          label: 'Skin comment',
-          type: 'text',
-          code: createCodeableConcept(
-            [
-              {
-                system: 'http://snomed.info/sct',
-                code: '106076001',
-                display: 'Skin finding (finding)',
-              },
-            ],
-            'Skin finding (finding)'
-          ),
-        },
-      },
-    },
-  },
-  hair: {
-    label: 'Hair',
-    components: {
-      normal: {
-        'normal-texture-and-distribution': {
-          label: 'Normal texture and distribution',
-          defaultValue: true,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Normal texture and distribution'),
-        },
-      },
-      abnormal: {
-        'abnormal-hair': {
-          label: 'Abnormal',
-          defaultValue: false,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Abnormal'),
-        },
-      },
-      comment: {
-        'hair-comment': {
-          label: 'Hair comment',
-          type: 'text',
-          code: createCodeableConcept(undefined, 'Hair comment'),
-        },
-      },
-    },
-  },
-  nails: {
-    label: 'Nails',
-    components: {
-      normal: {
-        'normal-color-no-deformities': {
-          label: 'Normal color, no deformities',
-          defaultValue: true,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Normal color, no deformities'),
-        },
-      },
-      abnormal: {
-        'abnormal-nails': {
-          label: 'Abnormal',
-          defaultValue: false,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Abnormal'),
-        },
-      },
-      comment: {
-        'nails-comment': {
-          label: 'Nails comment',
-          type: 'text',
-          code: createCodeableConcept(undefined, 'Nails comment'),
-        },
-      },
+      comment: { 'general-comment': { label: 'General comment', type: 'text' } },
     },
   },
   head: {
     label: 'Head',
     components: {
       normal: {
-        normocephalic: {
-          label: 'Normocephalic',
-          defaultValue: true,
-          type: 'checkbox',
-          code: createCodeableConcept(
-            [
-              {
-                system: 'http://snomed.info/sct',
-                code: '17621005',
-                display: 'Normal (qualifier value)',
-              },
-            ],
-            'Normal (qualifier value)'
-          ),
-          bodySite: createCodeableConcept(
-            [
-              {
-                system: 'http://snomed.info/sct',
-                code: '17621005',
-                display: 'Normal (qualifier value)',
-              },
-            ],
-            'Normal (qualifier value)'
-          ),
-        },
+        normocephalic: { label: 'Normocephalic', defaultValue: true, type: 'checkbox' },
         atraumatic: {
           label: 'Atraumatic',
           defaultValue: true,
           type: 'checkbox',
-          code: createCodeableConcept(
-            [
-              {
-                system: 'http://snomed.info/sct',
-                code: '1149217004',
-                display: 'No traumatic injury (situation)',
-              },
-            ],
-            'No traumatic injury (situation)'
-          ),
-          bodySite: createCodeableConcept(
-            [
-              {
-                system: 'http://snomed.info/sct',
-                code: '1149217004',
-                display: 'No traumatic injury (situation)',
-              },
-            ],
-            'No traumatic injury (situation)'
-          ),
-        },
-        'no-visible-or-palpable-masses-depressions-or-scaring': {
-          label: 'No visible or palpable masses, depressions, or scaring',
-          defaultValue: true,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'No visible or palpable masses, depressions, or scaring'),
         },
       },
-      abnormal: {
-        'abnormal-head': {
-          label: 'Abnormal',
-          defaultValue: false,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Abnormal'),
-        },
-      },
-      comment: {
-        'head-comment': {
-          label: 'Head comment',
-          type: 'text',
-          code: createCodeableConcept(
-            [
-              {
-                system: 'http://snomed.info/sct',
-                code: '298364001',
-                display: 'Finding of head region (finding)',
-              },
-            ],
-            'Finding of head region (finding)'
-          ),
-        },
-      },
+      abnormal: { 'scalp-laceration': { label: 'Scalp laceration', defaultValue: false, type: 'checkbox' } },
+      comment: { 'head-comment': { label: 'Head comment', type: 'text' } },
     },
   },
   eyes: {
     label: 'Eyes',
     components: {
       normal: {
-        'visual-acuity-intact': {
-          label: 'Visual acuity intact',
+        'right-eye-conjunctiva-non-injected-no-discharge': {
+          label: 'Right eye - conjunctiva non-injected, no discharge',
           defaultValue: true,
           type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Eyes'),
         },
-        'conjunctiva-clear': {
-          label: 'Conjunctiva clear',
+        'left-eye-conjunctiva-non-injected-no-discharge': {
+          label: 'Left eye - conjunctiva non-injected, no discharge',
           defaultValue: true,
           type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Conjunctiva clear'),
         },
-        'sclera-non-icteric': {
-          label: 'Sclera non-icteric',
-          defaultValue: true,
+        'lids-and-lashes-normal': { label: 'Lids and lashes normal', defaultValue: true, type: 'checkbox' },
+        'pupils-equal-round-reactive-to-light-and-accommodation': {
+          label: 'Pupils equal, round, reactive to light and accommodation',
+          defaultValue: false,
           type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Sclera non-icteric'),
         },
-        'eom-intact': {
-          label: 'EOM intact',
-          defaultValue: true,
+        'extra-ocular-movements-intact': {
+          label: 'Extra-ocular movements intact',
+          defaultValue: false,
           type: 'checkbox',
-          code: createCodeableConcept(undefined, 'EOM intact'),
-        },
-        perrl: {
-          label: 'PERRL',
-          defaultValue: true,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'PERRL'),
-        },
-        'fundi-have-normal-optic-discs-and-vessels': {
-          label: 'Fundi have normal optic discs and vessels',
-          defaultValue: true,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Fundi have normal optic discs and vessels'),
-        },
-        'no-exudates-or-hemorrhages': {
-          label: 'No exudates or hemorrhages',
-          defaultValue: true,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'No exudates or hemorrhages'),
         },
       },
       abnormal: {
-        'abnormal-eyes': {
-          label: 'Abnormal',
-          defaultValue: false,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Abnormal'),
+        'right-eye': {
+          label: 'Right eye',
+          type: 'column',
+          components: {
+            'right-eye-conjunctival-injection': {
+              label: 'Conjunctival injection',
+              defaultValue: false,
+              type: 'checkbox',
+            },
+            'right-eye-discharge-present': { label: 'Discharge present', defaultValue: false, type: 'checkbox' },
+            'right-eye-tender-erythematous-nodule-on-eyelid-margin': {
+              label: 'Tender, erythematous nodule on eyelid margin',
+              defaultValue: false,
+              type: 'checkbox',
+            },
+          },
+        },
+        'left-eye': {
+          label: 'Left eye',
+          type: 'column',
+          components: {
+            'left-eye-conjunctival-injection': {
+              label: 'Conjunctival injection',
+              defaultValue: false,
+              type: 'checkbox',
+            },
+            'left-eye-discharge-present': { label: 'Discharge present', defaultValue: false, type: 'checkbox' },
+            'left-eye-tender-erythematous-nodule-on-eyelid-margin': {
+              label: 'Tender, erythematous nodule on eyelid margin',
+              defaultValue: false,
+              type: 'checkbox',
+            },
+          },
         },
       },
-      comment: {
-        'eyes-comment': {
-          label: 'Eyes comment',
-          type: 'text',
-          code: createCodeableConcept(
-            [
-              {
-                system: 'http://snomed.info/sct',
-                code: '118235002',
-                display: 'Eye / vision finding (finding)',
-              },
-            ],
-            'Eye / vision finding (finding)'
-          ),
-        },
-      },
+      comment: { 'eyes-comment': { label: 'Eyes comment', type: 'text' } },
     },
   },
   ears: {
     label: 'Ears',
     components: {
       normal: {
-        'eacs-clear': {
-          label: 'EACs clear',
+        'right-tm-pearly-with-good-light-reflex-preserved-landmarks': {
+          label: 'Right TM pearly with good light reflex, preserved landmarks',
           defaultValue: true,
           type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Ears'),
         },
-        'tms-translucent-mobile': {
-          label: 'TMs translucent & mobile',
+        'left-tm-pearly-with-good-light-reflex-preserved-landmarks': {
+          label: 'Left TM pearly with good light reflex, preserved landmarks',
           defaultValue: true,
           type: 'checkbox',
-          code: createCodeableConcept(undefined, 'TMs translucent & mobile'),
         },
-        'ossicles-nl-appearance': {
-          label: 'Ossicles nl appearance',
-          defaultValue: true,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Ossicles nl appearance'),
-        },
-        'hearing-intact': {
-          label: 'Hearing intact',
-          defaultValue: true,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Hearing intact'),
-        },
+        'no-effusion': { label: 'No effusion', defaultValue: true, type: 'checkbox' },
+        'normal-canals': { label: 'Normal canals', defaultValue: true, type: 'checkbox' },
+        'normal-external-ear': { label: 'Normal external ear', defaultValue: true, type: 'checkbox' },
+        'tms-with-no-hemotympanum': { label: 'TMs with no hemotympanum', defaultValue: false, type: 'checkbox' },
       },
       abnormal: {
-        'abnormal-ears': {
-          label: 'Abnormal',
-          defaultValue: false,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Abnormal'),
+        'right-ear': {
+          label: 'Right ear',
+          type: 'column',
+          components: {
+            'right-ear-tm-bulging-erythematous': {
+              label: 'TM bulging, erythematous',
+              defaultValue: false,
+              type: 'checkbox',
+            },
+            'right-ear-tm-with-fluid': { label: 'TM with fluid', defaultValue: false, type: 'checkbox' },
+            'right-ear-canal-impacted-cerumen': {
+              label: 'Canal impacted cerumen',
+              defaultValue: false,
+              type: 'checkbox',
+            },
+            'right-ear-canal-with-debris-and-inflamed': {
+              label: 'Canal with debris and inflamed',
+              defaultValue: false,
+              type: 'checkbox',
+            },
+            'right-ear-tragus-tender': { label: 'Tragus tender', defaultValue: false, type: 'checkbox' },
+          },
+        },
+        'left-ear': {
+          label: 'Left ear',
+          type: 'column',
+          components: {
+            'left-ear-tm-bulging-erythematous': {
+              label: 'TM bulging, erythematous',
+              defaultValue: false,
+              type: 'checkbox',
+            },
+            'left-ear-tm-with-fluid': { label: 'TM with fluid', defaultValue: false, type: 'checkbox' },
+            'left-ear-canal-impacted-cerumen': {
+              label: 'Canal impacted cerumen',
+              defaultValue: false,
+              type: 'checkbox',
+            },
+            'left-ear-canal-with-debris-and-inflamed': {
+              label: 'Canal with debris and inflamed',
+              defaultValue: false,
+              type: 'checkbox',
+            },
+            'left-ear-tragus-tender': { label: 'Tragus tender', defaultValue: false, type: 'checkbox' },
+          },
         },
       },
-      comment: {
-        'ears-comment': {
-          label: 'Ears comment',
-          type: 'text',
-          code: createCodeableConcept(
-            [
-              {
-                system: 'http://snomed.info/sct',
-                code: '247234006',
-                display: 'Ear finding (finding)',
-              },
-            ],
-            'Ear finding (finding)'
-          ),
-        },
-      },
+      comment: { 'ears-comment': { label: 'Ears comment', type: 'text' } },
     },
   },
   nose: {
     label: 'Nose',
     components: {
-      normal: {
-        'no-external-lesions': {
-          label: 'No external lesions',
-          defaultValue: true,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Nose'),
-        },
-        'nose-mucosa-non-inflamed': {
-          label: 'Mucosa non-inflamed',
-          defaultValue: true,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Mucosa non-inflamed'),
-        },
-        'septum-and-turbinates-normal': {
-          label: 'Septum and turbinates normal',
-          defaultValue: true,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Septum and turbinates normal'),
-        },
-      },
-      abnormal: {
-        'abnormal-nose': {
-          label: 'Abnormal',
-          defaultValue: false,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Abnormal'),
-        },
-      },
-      comment: {
-        'nose-comment': {
-          label: 'Nose comment',
-          type: 'text',
-          code: createCodeableConcept(
-            [
-              {
-                system: 'http://snomed.info/sct',
-                code: '118237005',
-                display: 'Nose finding (finding)',
-              },
-            ],
-            'Nose finding (finding)'
-          ),
-        },
-      },
+      normal: { 'nasal-mucosa-normal': { label: 'Nasal mucosa normal', defaultValue: true, type: 'checkbox' } },
+      abnormal: { 'congestion-rhinorrhea': { label: 'Congestion, rhinorrhea', defaultValue: false, type: 'checkbox' } },
+      comment: { 'nose-comment': { label: 'Nose comment', type: 'text' } },
     },
   },
-  mouth: {
-    label: 'Mouth',
+  oral: {
+    label: 'Oral Cavity',
     components: {
       normal: {
-        'mucous-membranes-moist': {
-          label: 'Mucous membranes moist',
+        'moist-mucous-membranes': { label: 'Moist mucous membranes', defaultValue: true, type: 'checkbox' },
+        'oropharynx-clear-with-no-erythema-lesions-or-exudate': {
+          label: 'Oropharynx clear with no erythema, lesions, or exudate',
           defaultValue: true,
           type: 'checkbox',
-          code: createCodeableConcept(
-            [
-              {
-                system: 'http://snomed.info/sct',
-                code: '276398005',
-                display: 'Moist oral mucosa (finding)',
-              },
-            ],
-            'Moist oral mucosa (finding)'
-          ),
-          bodySite: createCodeableConcept(
-            [
-              {
-                system: 'http://snomed.info/sct',
-                code: '276398005',
-                display: 'Moist oral mucosa (finding)',
-              },
-            ],
-            'Moist oral mucosa (finding)'
-          ),
         },
-        'no-mucosal-lesions': {
-          label: 'No mucosal lesions',
+        'uvula-midline': {
+          label: 'Uvula midline',
           defaultValue: true,
           type: 'checkbox',
-          code: createCodeableConcept(undefined, 'No mucosal lesions'),
         },
+        'normal-dentition': { label: 'Normal dentition', defaultValue: false, type: 'checkbox' },
+        'tongue-midline': { label: 'Tongue midline', defaultValue: false, type: 'checkbox' },
       },
       abnormal: {
-        'abnormal-mouth': {
-          label: 'Abnormal',
+        'erythematous-pharynx': { label: 'Erythematous pharynx', defaultValue: false, type: 'checkbox' },
+        'tonsillar-exudate': { label: 'Tonsillar exudate', defaultValue: false, type: 'checkbox' },
+        'poor-dentition': { label: 'Poor dentition', defaultValue: false, type: 'checkbox' },
+        'dry-mucous-membranes': {
+          label: 'Dry mucous membranes',
           defaultValue: false,
           type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Abnormal'),
         },
-      },
-      comment: {
-        'mouth-comment': {
-          label: 'Mouth comment',
-          type: 'text',
-          code: createCodeableConcept(
-            [
-              {
-                system: 'http://snomed.info/sct',
-                code: '423066003',
-                display: 'Finding of mouth region (finding)',
-              },
-            ],
-            'Finding of mouth region (finding)'
-          ),
-        },
-      },
-    },
-  },
-  teeth: {
-    label: 'Teeth',
-    components: {
-      normal: {
-        'no-obvious-caries-or-periodontal-disease': {
-          label: 'No obvious caries or periodontal disease',
-          defaultValue: true,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Teeth'),
-        },
-        'no-gingival-inflammation-or-significant-resorption': {
-          label: 'No gingival inflammation or significant resorption',
-          defaultValue: true,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'No gingival inflammation or significant resorption'),
-        },
-      },
-      abnormal: {
-        'abnormal-teeth': {
-          label: 'Abnormal',
+        'vesicles-or-shallow-ulcers-on-the-palate-posterior-oropharynx': {
+          label: 'Vesicles or shallow ulcers on the palate/ posterior oropharynx',
           defaultValue: false,
           type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Abnormal'),
         },
       },
-      comment: {
-        'teeth-comment': {
-          label: 'Teeth comment',
-          type: 'text',
-          code: createCodeableConcept(undefined, 'Teeth comment'),
-        },
-      },
-    },
-  },
-  pharynx: {
-    label: 'Pharynx',
-    components: {
-      normal: {
-        'pharynx-mucosa-non-inflamed': {
-          label: 'Mucosa non-inflamed',
-          defaultValue: true,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Pharynx'),
-        },
-        'no-tonsillar-hypertrophy-or-exudate': {
-          label: 'No tonsillar hypertrophy or exudate',
-          defaultValue: true,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'No tonsillar hypertrophy or exudate'),
-        },
-      },
-      abnormal: {
-        'abnormal-pharynx': {
-          label: 'Abnormal',
-          defaultValue: false,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Abnormal'),
-        },
-      },
-      comment: {
-        'pharynx-comment': {
-          label: 'Pharynx comment',
-          type: 'text',
-          code: createCodeableConcept(undefined, 'Pharynx comment'),
-        },
-      },
+      comment: { 'oral-comment': { label: 'Oral comment', type: 'text' } },
     },
   },
   neck: {
-    label: 'Neck',
+    label: 'Neck, Thyroid',
     components: {
       normal: {
-        supple: {
-          label: 'Supple',
-          defaultValue: true,
+        'normal-appearance-of-neck': { label: 'Normal appearance of neck', defaultValue: true, type: 'checkbox' },
+        'normal-range-of-motion': { label: 'Normal range of motion', defaultValue: true, type: 'checkbox' },
+      },
+      abnormal: {
+        'limited-range-of-motion-when-turning-left': {
+          label: 'Limited range of motion when turning left',
+          defaultValue: false,
           type: 'checkbox',
-          code: createCodeableConcept(
-            [
-              {
-                system: 'http://snomed.info/sct',
-                code: '48162006',
-                display: 'Supple (qualifier value)',
-              },
-            ],
-            'Supple (qualifier value)'
-          ),
-          bodySite: createCodeableConcept(
-            [
-              {
-                system: 'http://snomed.info/sct',
-                code: '48162006',
-                display: 'Supple (qualifier value)',
-              },
-            ],
-            'Supple (qualifier value)'
-          ),
         },
-        'without-lesions-bruits-or-adenopathy': {
-          label: 'Without lesions, bruits, or adenopathy',
-          defaultValue: true,
+        'limited-range-of-motion-when-turning-right': {
+          label: 'Limited range of motion when turning right',
+          defaultValue: false,
           type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Without lesions, bruits, or adenopathy'),
         },
-        'thyroid-non-enlarged-and-non-tender': {
-          label: 'Thyroid non-enlarged and non-tender',
+      },
+      comment: { 'neck-comment': { label: 'Neck comment', type: 'text' } },
+    },
+  },
+  lymph: {
+    label: 'Lymph Nodes',
+    components: {
+      normal: {
+        'no-generalized-lymphadenopathy': {
+          label: 'No generalized lymphadenopathy',
           defaultValue: true,
           type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Thyroid non-enlarged and non-tender'),
         },
       },
       abnormal: {
-        'abnormal-neck': {
-          label: 'Abnormal',
+        'right-cervical-node-easily-mobile-non-tender-not-erythematous': {
+          label: 'Right cervical node, easily mobile, non-tender, not erythematous',
           defaultValue: false,
           type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Abnormal'),
+        },
+        'left-cervical-node-easily-mobile-non-tender-not-erythematous': {
+          label: 'Left cervical node, easily mobile, non-tender, not erythematous',
+          defaultValue: false,
+          type: 'checkbox',
         },
       },
-      comment: {
-        'neck-comment': {
-          label: 'Neck comment',
-          type: 'text',
-          code: createCodeableConcept(
-            [
-              {
-                system: 'http://snomed.info/sct',
-                code: '298378000',
-                display: 'Finding of neck region (finding)',
-              },
-            ],
-            'Finding of neck region (finding)'
-          ),
+      comment: { 'lymph-comment': { label: 'Lymph comment', type: 'text' } },
+    },
+  },
+  skin: {
+    label: 'Skin, Hair, Nails',
+    components: {
+      normal: {
+        'no-rash': { label: 'No rash', defaultValue: true, type: 'checkbox' },
+        'warm-and-dry': { label: 'Warm and dry', defaultValue: true, type: 'checkbox' },
+      },
+      abnormal: {
+        rash: {
+          label: 'Rash',
+          type: 'multi-select',
+          options: {
+            'cw-viral-exam': {
+              label: 'C/w viral exam',
+              defaultValue: false,
+              description: 'erythematous, macular rash over trunk>extremities',
+            },
+            'cw-insect-bites': {
+              label: 'C/w insect bites',
+              defaultValue: false,
+              description: 'erythematous-based papules/plaques with central punctate marks',
+            },
+            'cw-urticaria': {
+              label: 'C/w urticaria',
+              defaultValue: false,
+              description: 'discrete, papular islands with surrounding erythema',
+            },
+            'cw-coxsackievirus': {
+              label: 'C/w Coxsackievirus',
+              defaultValue: false,
+              description: '2-3 mm erythematous papules worse on hands and feet, including palms and soles',
+            },
+            'cw-irritant-diaper-rash': {
+              label: 'C/w irritant diaper rash',
+              defaultValue: false,
+              description:
+                'erythematous macular rash in diaper area that spares creases with no satellite lesions, erythematous, confluent papules in',
+            },
+            'cw-ringworm': {
+              label: 'C/w ringworm',
+              defaultValue: false,
+              description: 'erythematous patch with serpiginous, raised border and central scale',
+            },
+            'cw-impetigo': {
+              label: 'C/w impetigo',
+              defaultValue: false,
+              description: 'erythematous-based, honey-crusted, non-tender lesions',
+            },
+            'cw-fifths-disease': {
+              label: "C/w Fifth's disease",
+              defaultValue: false,
+              description: 'diffuse, erythematous, maculopapular rash and erythematous cheeks sparing nasolabial folds',
+            },
+            'cw-atopic-dermatitis': {
+              label: 'C/w atopic dermatitis',
+              defaultValue: false,
+              description: 'dry, scaly patches of skin with underlying erythema',
+            },
+            'cw-paronychia': {
+              label: 'C/w paronychia',
+              defaultValue: false,
+              description: 'tender erythema along edge of nail with no lymphatic streaking',
+            },
+            'cw-poison-ivy-contact-dermatitis': {
+              label: 'C/w poison ivy contact dermatitis',
+              defaultValue: false,
+              description: 'linear patches and clusters of erythematous-based vesicles, some dry, no burrows',
+            },
+            'cw-tinea-capitis': {
+              label: 'C/w tinea capitis',
+              defaultValue: false,
+              description: 'flat area of broken hair shafts and overlying scale',
+            },
+            'cw-pityriasis-rosea': {
+              label: 'C/w pityriasis rosea',
+              defaultValue: false,
+              description: '1-2 cm oval, erythematous, scaly papules with long axis along truncal dermatomal lines',
+            },
+            'cw-lyme-ecm': {
+              label: 'C/w Lyme ECM',
+              defaultValue: false,
+              description: 'macular, blanching erythema in target shape',
+            },
+          },
         },
       },
+      comment: { 'skin-comment': { label: 'Skin comment', type: 'text' } },
     },
   },
   heart: {
     label: 'Heart',
     components: {
       normal: {
-        'no-cardiomegaly-or-thrills': {
-          label: 'No cardiomegaly or thrills',
+        'regular-rate-and-rhythm-with-no-murmur': {
+          label: 'Regular rate and rhythm with no murmur',
           defaultValue: true,
           type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Heart'),
         },
-        'regular-rate-and-rhythm': {
-          label: 'Regular rate and rhythm',
+        'extremities-are-warm-and-well-perfused': {
+          label: 'Extremities are warm and well perfused',
           defaultValue: true,
           type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Regular rate and rhythm'),
-        },
-        'no-murmur-or-gallop': {
-          label: 'No murmur or gallop',
-          defaultValue: true,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'No murmur or gallop'),
         },
       },
       abnormal: {
-        'abnormal-heart': {
-          label: 'Abnormal',
+        'holosystolic-murmur-best-at-lusb': {
+          label: 'I-II/VI holosystolic murmur best at LUSB',
           defaultValue: false,
           type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Abnormal'),
         },
+        tachycardia: { label: 'Tachycardia', defaultValue: false, type: 'checkbox' },
       },
-      comment: {
-        'heart-comment': {
-          label: 'Heart comment',
-          type: 'text',
-          code: createCodeableConcept(undefined, 'Heart comment'),
-        },
-      },
+      comment: { 'heart-comment': { label: 'Heart comment', type: 'text' } },
     },
   },
   lungs: {
-    label: 'Lungs',
+    label: 'Lungs, Chest Wall',
     components: {
       normal: {
-        'clear-to-auscultation-and-percussion': {
-          label: 'Clear to auscultation and percussion',
+        'good-air-movement-throughout-lung-fields': {
+          label: 'Good air movement throughout lung fields',
           defaultValue: true,
           type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Lungs'),
         },
-        'pulmonary-effort-is-normal': {
-          label: 'Pulmonary effort is normal',
+        'no-signs-of-respiratory-distress': {
+          label: 'No signs of respiratory distress',
           defaultValue: true,
           type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Pulmonary effort is normal'),
         },
-        'no-respiratory-distress': {
-          label: 'No respiratory distress',
+        'chest-is-clear-to-auscultation-bilaterally': {
+          label: 'Chest is clear to auscultation bilaterally',
           defaultValue: true,
           type: 'checkbox',
-          code: createCodeableConcept(undefined, 'No respiratory distress'),
         },
-        'there-are-no-wheezing': {
-          label: 'There are no wheezing',
-          defaultValue: true,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'There are no wheezing'),
-        },
-        'there-are-no-rales': {
-          label: 'There are no rales',
-          defaultValue: true,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'There are no rales'),
-        },
+        'no-chest-wall-tenderness': { label: 'No chest wall tenderness', defaultValue: true, type: 'checkbox' },
       },
       abnormal: {
-        'abnormal-lungs': {
-          label: 'Abnormal',
-          defaultValue: false,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Abnormal'),
+        wheezing: {
+          label: 'Wheezing',
+          type: 'multi-select',
+          options: {
+            'wheezing-left-upper': { label: 'Left upper', defaultValue: false },
+            'wheezing-left-lower': { label: 'Left lower', defaultValue: false },
+            'wheezing-right-upper': { label: 'Right upper', defaultValue: false },
+            'wheezing-right-middle': { label: 'Right middle', defaultValue: false },
+            'wheezing-right-lower': { label: 'Right lower', defaultValue: false },
+          },
         },
-      },
-      comment: {
-        'lungs-comment': {
-          label: 'Lungs comment',
-          type: 'text',
-          code: createCodeableConcept(undefined, 'Lungs comment'),
+        crackles: {
+          label: 'Crackles',
+          type: 'multi-select',
+          options: {
+            'crackles-left-upper': { label: 'Left upper', defaultValue: false },
+            'crackles-left-lower': { label: 'Left lower', defaultValue: false },
+            'crackles-right-upper': { label: 'Right upper', defaultValue: false },
+            'crackles-right-middle': { label: 'Right middle', defaultValue: false },
+            'crackles-right-lower': { label: 'Right lower', defaultValue: false },
+          },
         },
+        'breath-sounds': {
+          label: 'Decreased breath sounds',
+          type: 'multi-select',
+          options: {
+            'breath-sounds-left-upper': { label: 'Left upper', defaultValue: false },
+            'breath-sounds-left-lower': { label: 'Left lower', defaultValue: false },
+            'breath-sounds-right-upper': { label: 'Right upper', defaultValue: false },
+            'breath-sounds-right-middle': { label: 'Right middle', defaultValue: false },
+            'breath-sounds-right-lower': { label: 'Right lower', defaultValue: false },
+          },
+        },
+        retractions: {
+          label: 'Retractions',
+          type: 'multi-select',
+          options: {
+            subcostal: { label: 'Subcostal', defaultValue: false },
+            suprasternal: { label: 'Suprasternal', defaultValue: false },
+            intercostal: { label: 'Intercostal', defaultValue: false },
+          },
+        },
+        tachypnea: { label: 'Tachypnea', defaultValue: false, type: 'checkbox' },
+        stridor: { label: 'Stridor', defaultValue: false, type: 'checkbox' },
+        'chest-wall-tenderness': { label: 'Chest wall tenderness', defaultValue: false, type: 'checkbox' },
       },
+      comment: { 'lungs-comment': { label: 'Lungs comment', type: 'text' } },
     },
   },
   abdomen: {
     label: 'Abdomen',
     components: {
       normal: {
-        'no-bloating': {
-          label: 'No bloating',
-          defaultValue: true,
+        soft: { label: 'Soft', defaultValue: true, type: 'checkbox' },
+        nondistended: { label: 'Nondistended', defaultValue: true, type: 'checkbox' },
+        nontender: { label: 'Nontender', defaultValue: true, type: 'checkbox' },
+        'no-cva-tenderness': { label: 'No CVA tenderness', defaultValue: false, type: 'checkbox' },
+        'no-hepatosplenomegaly': { label: 'No hepatosplenomegaly', defaultValue: false, type: 'checkbox' },
+        'hops-with-no-pain': {
+          label:
+            'Hops with no pain; negative Rovsing’s, psoas, and obturator signs; no rebound tenderness; no guarding',
+          defaultValue: false,
           type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Abdomen'),
-        },
-        'bowel-sounds-normal': {
-          label: 'Bowel sounds normal',
-          defaultValue: true,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Bowel sounds normal'),
-        },
-        'no-tenderness-organomegaly-masses-or-hernia': {
-          label: 'No tenderness, organomegaly, masses, or hernia',
-          defaultValue: true,
-          type: 'checkbox',
-          code: createCodeableConcept(
-            [
-              {
-                system: 'http://snomed.info/sct',
-                code: '297125009',
-                display: 'Abdominal tenderness absent (situation)',
-              },
-            ],
-            'Abdominal tenderness absent (situation)'
-          ),
-          bodySite: createCodeableConcept(
-            [
-              {
-                system: 'http://snomed.info/sct',
-                code: '297125009',
-                display: 'Abdominal tenderness absent (situation)',
-              },
-            ],
-            'Abdominal tenderness absent (situation)'
-          ),
         },
       },
       abnormal: {
-        'abnormal-abdomen': {
-          label: 'Abnormal',
-          defaultValue: false,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Abnormal'),
+        tender: {
+          label: 'Tender',
+          type: 'multi-select',
+          options: {
+            diffusely: { label: 'Diffusely', defaultValue: false },
+            ruq: { label: 'RUQ', defaultValue: false },
+            rlq: { label: 'RLQ', defaultValue: false },
+            luq: { label: 'LUQ', defaultValue: false },
+            lll: { label: 'LLL', defaultValue: false },
+          },
         },
+        hepatomegaly: { label: 'Hepatomegaly', defaultValue: false, type: 'checkbox' },
+        splenomegaly: { label: 'Splenomegaly', defaultValue: false, type: 'checkbox' },
+        'pain-with-hopping': { label: 'Pain with hopping', defaultValue: false, type: 'checkbox' },
+        rebound: { label: 'Rebound', defaultValue: false, type: 'checkbox' },
+        guarding: { label: 'Guarding', defaultValue: false, type: 'checkbox' },
       },
-      comment: {
-        'abdomen-comment': {
-          label: 'Abdomen comment',
-          type: 'text',
-          code: createCodeableConcept(
-            [
-              {
-                system: 'http://snomed.info/sct',
-                code: '609624008',
-                display: 'Finding of abdomen (finding)',
-              },
-            ],
-            'Finding of abdomen (finding)'
-          ),
-        },
-      },
-    },
-  },
-  back: {
-    label: 'Back',
-    components: {
-      normal: {
-        'spine-normal-without-deformity-or-tenderness': {
-          label: 'Spine normal without deformity or tenderness',
-          defaultValue: true,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Back'),
-        },
-        'no-cva-tenderness': {
-          label: 'No CVA tenderness',
-          defaultValue: true,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'No CVA tenderness'),
-        },
-      },
-      abnormal: {
-        'abnormal-back': {
-          label: 'Abnormal',
-          defaultValue: false,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Abnormal'),
-        },
-      },
-      comment: {
-        'back-comment': {
-          label: 'Back comment',
-          type: 'text',
-          code: createCodeableConcept(
-            [
-              {
-                system: 'http://snomed.info/sct',
-                code: '414252009',
-                display: 'Finding of back (finding)',
-              },
-            ],
-            'Finding of back (finding)'
-          ),
-        },
-      },
-    },
-  },
-  rectal: {
-    label: 'Rectal',
-    components: {
-      normal: {
-        'normal-sphincter-tone': {
-          label: 'Normal sphincter tone',
-          defaultValue: true,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Rectal'),
-        },
-        'no-hemorrhoids-or-masses-palpable': {
-          label: 'No hemorrhoids or masses palpable',
-          defaultValue: true,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'No hemorrhoids or masses palpable'),
-        },
-      },
-      abnormal: {
-        'abnormal-rectal': {
-          label: 'Abnormal',
-          defaultValue: false,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Abnormal'),
-        },
-      },
-      comment: {
-        'rectal-comment': {
-          label: 'Rectal comment',
-          type: 'text',
-          code: createCodeableConcept(undefined, 'Rectal comment'),
-        },
-      },
+      comment: { 'abdomen-comment': { label: 'Abdomen comment', type: 'text' } },
     },
   },
   extremities: {
     label: 'Extremities',
     components: {
       normal: {
-        'no-amputations-or-deformities-cyanosis-edema-or-varicosities': {
-          label: 'No amputations or deformities, cyanosis, edema or varicosities',
+        'moves-all-extremities-symmetrically': {
+          label: 'Moves all extremities symmetrically',
           defaultValue: true,
           type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Extremities'),
         },
-        'peripheral-pulses-intact': {
-          label: 'Peripheral pulses intact',
+        'no-obvious-injury-or-swelling': {
+          label: 'No obvious injury or swelling',
           defaultValue: true,
           type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Peripheral pulses intact'),
         },
       },
       abnormal: {
-        'abnormal-extremities': {
-          label: 'Abnormal',
+        'swelling-tenderness-decreased-rom': {
+          label: 'Swelling, tenderness, decreased ROM',
           defaultValue: false,
           type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Abnormal'),
         },
-      },
-      comment: {
-        'extremities-comment': {
-          label: 'Extremities comment',
-          type: 'text',
-          code: createCodeableConcept(
-            [
-              {
-                system: 'http://snomed.info/sct',
-                code: '106028002',
-                display: 'Musculoskeletal finding (finding)',
-              },
-            ],
-            'Musculoskeletal finding (finding)'
-          ),
-        },
-      },
-    },
-  },
-  musculoskeletal: {
-    label: 'Musculoskeletal',
-    components: {
-      normal: {
-        'normal-gait-and-station': {
-          label: 'Normal gait and station',
-          defaultValue: true,
-          type: 'checkbox',
-          code: createCodeableConcept(
-            [
-              {
-                system: 'http://snomed.info/sct',
-                code: '8117002',
-                display: 'Gait normal (finding)',
-              },
-            ],
-            'Gait normal (finding)'
-          ),
-          bodySite: createCodeableConcept(
-            [
-              {
-                system: 'http://snomed.info/sct',
-                code: '8117002',
-                display: 'Gait normal (finding)',
-              },
-            ],
-            'Gait normal (finding)'
-          ),
-        },
-        'no-misalignment': {
-          label:
-            'No misalignment, asymmetry, crepitation, defects, tenderness, masses, effusions, decreased range of motion, instability, atrophy or abnormal strength or tone in the head, neck, spine, ribs, pelvis or extremities.',
-          defaultValue: true,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Normal gait and station'),
-        },
-      },
-      abnormal: {
-        'abnormal-musculoskeletal': {
-          label: 'Abnormal',
+        'limping-refusal-to-bear-weight': {
+          label: 'Limping, refusal to bear weight',
           defaultValue: false,
           type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Abnormal'),
         },
+        'point-tenderness-over-bone': { label: 'Point tenderness over bone', defaultValue: false, type: 'checkbox' },
       },
-      comment: {
-        'musculoskeletal-comment': {
-          label: 'Musculoskeletal comment',
-          type: 'text',
-          code: createCodeableConcept(undefined, 'Musculoskeletal comment'),
-        },
-      },
+      comment: { 'extremities-comment': { label: 'Extremities comment', type: 'text' } },
     },
   },
   neurologic: {
     label: 'Neurologic',
     components: {
       normal: {
-        'mental-status:-the-patient-is-alert': {
-          label: 'Mental Status: The patient is alert',
+        'normal-mental-status': {
+          label: 'Normal mental status',
           defaultValue: true,
           type: 'checkbox',
-          code: createCodeableConcept(
-            [
-              {
-                system: 'http://snomed.info/sct',
-                code: '17326005',
-                display: 'Well in self (finding)',
-              },
-            ],
-            'Well in self (finding)'
-          ),
         },
-        'cn-2-12-normal': {
-          label: 'CN 2-12 normal',
-          defaultValue: true,
+        'normal-tone': { label: 'Normal tone', defaultValue: true, type: 'checkbox' },
+        'oriented-x-3': { label: 'Oriented x 3', defaultValue: false, type: 'checkbox' },
+        'normal-reflexes': { label: 'Normal reflexes', defaultValue: false, type: 'checkbox' },
+        'cranial-nerves-ii-xii-grossly-intact': {
+          label: 'Cranial nerves II-XII grossly intact',
+          defaultValue: false,
           type: 'checkbox',
-          code: createCodeableConcept(undefined, 'CN 2-12 normal'),
         },
-        'sensation-to-pain-touch-and-proprioception-normal': {
-          label: 'Sensation to pain, touch, and proprioception normal',
-          defaultValue: true,
+        'normal-sensation': { label: 'Normal sensation', defaultValue: false, type: 'checkbox' },
+        'normal-strength': { label: 'Normal strength', defaultValue: false, type: 'checkbox' },
+        'follows-verbal-commands-appropriately': {
+          label: 'Follows verbal commands appropriately',
+          defaultValue: false,
           type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Sensation to pain, touch, and proprioception normal'),
-        },
-        'dtrs-normal-in-upper-and-lower-extremities': {
-          label: 'DTRs normal in upper and lower extremities',
-          defaultValue: true,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'DTRs normal in upper and lower extremities'),
-        },
-        'no-pathologic-reflexes': {
-          label: 'No pathologic reflexes',
-          defaultValue: true,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'No pathologic reflexes'),
         },
       },
       abnormal: {
-        'abnormal-neurologic': {
-          label: 'Abnormal',
-          defaultValue: false,
-          type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Abnormal'),
-        },
+        confused: { label: 'Confused', defaultValue: false, type: 'checkbox' },
+        'unsteady-gait': { label: 'Unsteady gait', defaultValue: false, type: 'checkbox' },
       },
-      comment: {
-        'neurologic-comment': {
-          label: 'Neurologic comment',
-          type: 'text',
-          code: createCodeableConcept(
-            [
-              {
-                system: 'http://snomed.info/sct',
-                code: '102957003',
-                display: 'Neurological finding (finding)',
-              },
-            ],
-            'Neurological finding (finding)'
-          ),
-        },
-      },
+      comment: { 'neurologic-comment': { label: 'Neurologic comment', type: 'text' } },
     },
   },
   psychiatric: {
     label: 'Psychiatric',
     components: {
       normal: {
-        'oriented-psychiatric': {
-          label: 'Oriented X3',
-          defaultValue: true,
+        'denies-suicidal-homicidal-ideation': {
+          label: 'Denies suicidal / homicidal ideation',
+          defaultValue: false,
           type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Psychiatric'),
         },
-        'intact-recent-and-remote-memory-judgment-and-insight': {
-          label: 'Intact recent and remote memory, judgment and insight',
-          defaultValue: true,
+        'denies-hallucinations': { label: 'Denies hallucinations', defaultValue: false, type: 'checkbox' },
+      },
+      abnormal: {
+        'suicidal-ideation': { label: 'Suicidal ideation', defaultValue: false, type: 'checkbox' },
+        'poor-judgement': { label: 'Poor judgement', defaultValue: false, type: 'checkbox' },
+      },
+      comment: { 'psychiatric-comment': { label: 'Psychiatric comment', type: 'text' } },
+    },
+  },
+  rectal: {
+    label: 'GU, Rectal',
+    components: {
+      normal: {
+        'normal-external-genital-exam': {
+          label: 'Normal external genital exam, no lesions / redness / discharge',
+          defaultValue: false,
           type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Intact recent and remote memory, judgment and insight'),
         },
-        'psychiatric-normal-mood-and-affect': {
-          label: 'Normal mood and affect',
-          defaultValue: true,
+        'normal-external-rectal-exam': { label: 'Normal external rectal exam', defaultValue: false, type: 'checkbox' },
+        'normal-testicular-exam': {
+          label: 'Normal testicular exam, no tenderness, no erythema, creamsteric reflexes present',
+          defaultValue: false,
           type: 'checkbox',
-          code: createCodeableConcept(
-            [
-              {
-                system: 'http://snomed.info/sct',
-                code: '134417007',
-                display: 'Level of mood - normal (finding)',
-              },
-            ],
-            'Level of mood - normal (finding)'
-          ),
         },
       },
       abnormal: {
-        'abnormal-psychiatric': {
-          label: 'Abnormal',
+        'scrotal-edema-swelling': { label: 'Scrotal edema / swelling', defaultValue: false, type: 'checkbox' },
+        'right-side-absent-cremasteric-reflex': {
+          label: 'Right side - absent cremasteric reflex',
           defaultValue: false,
           type: 'checkbox',
-          code: createCodeableConcept(undefined, 'Abnormal'),
+        },
+        'left-side-absent-cremasteric-reflex': {
+          label: 'Left side - absent cremasteric reflex',
+          defaultValue: false,
+          type: 'checkbox',
         },
       },
-      comment: {
-        'psychiatric-comment': {
-          label: 'Psychiatric comment',
-          type: 'text',
-          code: createCodeableConcept(
-            [
-              {
-                system: 'http://snomed.info/sct',
-                code: '116367006',
-                display: 'Psychological finding (finding)',
-              },
-            ],
-            'Psychological finding (finding)'
-          ),
-        },
-      },
+      comment: { 'rectal-comment': { label: 'Rectal comment', type: 'text' } },
     },
   },
 };
