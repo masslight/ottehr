@@ -9,6 +9,7 @@ import {
   CoverageCheckWithDetails,
   EligibilityCheckSimpleStatus,
   InsurancePlanDTO,
+  InsurancePlanType,
   InsurancePlanTypes,
   isPostalCodeValid,
   mapEligibilityCheckResultToSimpleStatus,
@@ -301,13 +302,11 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
             validate: (value) => InsurancePlanTypes.some((option) => option.candidCode === value),
           }}
           render={({ field: { value }, fieldState: { error } }) => {
-            console.log('value incoming', value);
             const selectedOption = InsurancePlanTypes.find((option) => option.candidCode === `${value}`);
-            console.log('selectedOption', selectedOption);
             return (
               <Autocomplete
                 options={InsurancePlanTypes}
-                value={selectedOption}
+                value={selectedOption ?? ({} as InsurancePlanType)}
                 isOptionEqualToValue={(option, value) => option?.candidCode === value?.candidCode}
                 getOptionLabel={(option) => `${option.candidCode} - ${option.label}` || ''}
                 onChange={(_, newValue) => {

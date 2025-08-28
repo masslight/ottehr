@@ -16,7 +16,13 @@ import { Questionnaire } from 'fhir/r4b';
 import React, { useEffect } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { InsurancePlanDTO, InsurancePlanTypes, isPostalCodeValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import {
+  InsurancePlanDTO,
+  InsurancePlanType,
+  InsurancePlanTypes,
+  isPostalCodeValid,
+  REQUIRED_FIELD_ERROR_MESSAGE,
+} from 'utils';
 import {
   FormFields as AllFormFields,
   RELATIONSHIP_TO_INSURED_OPTIONS,
@@ -408,11 +414,11 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
                     validate: (value) => InsurancePlanTypes.some((option) => option.candidCode === value),
                   }}
                   render={({ field: { value }, fieldState: { error } }) => {
-                    const selectedOption = InsurancePlanTypes.find((option) => option.candidCode === value?.candidCode);
+                    const selectedOption = InsurancePlanTypes.find((option) => option.candidCode === value);
                     return (
                       <Autocomplete
                         options={InsurancePlanTypes}
-                        value={selectedOption}
+                        value={selectedOption ?? ({} as InsurancePlanType)}
                         isOptionEqualToValue={(option, value) => option?.candidCode === value?.candidCode}
                         getOptionLabel={(option) => `${option.candidCode} - ${option.label}` || ''}
                         onChange={(_, newValue) => {

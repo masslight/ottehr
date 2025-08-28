@@ -28,7 +28,13 @@ export type InsurancePlanTypeCode =
   | 'WC'
   | 'ZZ';
 
-export const InsurancePlanTypes: { candidCode: InsurancePlanTypeCode; label: string; coverageCoding?: Coding }[] = [
+export interface InsurancePlanType {
+  candidCode: InsurancePlanTypeCode;
+  label: string;
+  coverageCoding?: Coding;
+}
+
+export const InsurancePlanTypes: InsurancePlanType[] = [
   {
     candidCode: '9',
     label: 'Self Pay',
