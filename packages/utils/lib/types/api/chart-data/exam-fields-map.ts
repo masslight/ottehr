@@ -413,6 +413,10 @@ export const examFieldsMap: { [field in ExamFieldsNames]: SNOMEDCodeConceptInter
   'no-conversational-dyspnea': {
     code: createCodingCode('161938003', 'No breathlessness (situation)'),
   },
+  'no-chest-wall-tenderness': {
+    code: createCodingCode('297125009', 'Tenderness absent (situation)'),
+    bodySite: createCodingCode('78904004', 'Chest wall structure (body structure)'),
+  },
   // >> GROUP = abnormal
   tachypnea: {
     code: createCodingCode('271823003', 'Tachypnea (finding)'),

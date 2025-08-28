@@ -612,6 +612,14 @@ export const ExamObservationFieldsDetails: {
     card: 'chest',
     label: 'No conversational dyspnea',
   },
+  'no-chest-wall-tenderness': {
+    field: 'no-chest-wall-tenderness',
+    defaultValue: false,
+    abnormal: false,
+    group: 'normal',
+    card: 'chest',
+    label: 'No chest wall tenderness',
+  },
   // >> GROUP = abnormal
   tachypnea: {
     field: 'tachypnea',

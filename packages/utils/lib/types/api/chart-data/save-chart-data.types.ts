@@ -139,6 +139,7 @@ export type ExamFieldsNames =
   | 'no-tachypnea'
   | 'no-retractions'
   | 'no-conversational-dyspnea'
+  | 'no-chest-wall-tenderness'
   // >> GROUP = abnormal
   | 'tachypnea'
   | 'suprasternal-retractions'
