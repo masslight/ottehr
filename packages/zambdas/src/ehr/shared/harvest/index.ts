@@ -1810,8 +1810,7 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
   } else {
     contained = [containedPolicyHolder];
   }
-  const coverageTypeCoding = mapCandidCodeToCoverageTypeCoding(type);
-  if (!coverageTypeCoding) throw new Error("Can't find coverage type coding from candid code");
+  if (!coverageTypeCoding) throw new Error(`Can't find coverage type coding from candid code: ${type}`);
 
   const coverage: Coverage = {
     contained,
