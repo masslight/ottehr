@@ -56,7 +56,7 @@ export const index = wrapHandler('assign-threshold', async (input: ZambdaInput):
     const updatedProperties = [...filteredProperties];
 
     switch (deviceType) {
-      case 'scale_gen2_measure':
+      case 'WS':
         if (thresholds.weight !== undefined) {
           updatedProperties.push({
             type: {
@@ -71,7 +71,7 @@ export const index = wrapHandler('assign-threshold', async (input: ZambdaInput):
         }
         break;
 
-      case 'bgm_gen1_measure':
+      case 'BG':
         if (thresholds.glucose !== undefined) {
           updatedProperties.push({
             type: {
@@ -86,7 +86,7 @@ export const index = wrapHandler('assign-threshold', async (input: ZambdaInput):
         }
         break;
 
-      case 'bpm_gen2_measure':
+      case 'BP':
         if (thresholds.systolic !== undefined) {
           updatedProperties.push({
             type: {

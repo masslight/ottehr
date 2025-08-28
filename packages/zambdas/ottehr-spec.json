@@ -188,6 +188,10 @@
     "ADVAPACS_VIEWER_USERNAME": {
       "name": "ADVAPACS_VIEWER_USERNAME",
       "value": "#var/ADVAPACS_VIEWER_USERNAME"
+    },
+    "MIO_API_KEY": {
+      "name": "MIO_API_KEY",
+      "value": "#var/MIO_API_KEY"
     }
   },
   "zambdas": {
@@ -739,6 +743,13 @@
       "schedule": {
         "expression": "cron(0,15,30,45 * * * ? *)"
       }
+    },
+    "GET-MIO-DEVICES": {
+      "name": "GET-MIO-DEVICES",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/get-mio-devices/index",
+      "zip": ".dist/zips/get-mio-devices.zip"
     },
     "COMMUNICATION-SUBSCRIPTION": {
       "name": "COMMUNICATION-SUBSCRIPTION",

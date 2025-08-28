@@ -33,7 +33,7 @@ const DevicesPage = (): JSX.Element => {
         if (response?.devices) {
           const devices = response?.devices.map((device: any) => ({
             id: device.id,
-            name: device.deviceName[0]?.name.split('-')[0]?.trim() || '-',
+            name: device?.identifier?.[0]?.value || '-',
             manufacturer: device.manufacturer || '-',
             lastUpdated: moment(device.meta.lastUpdated).format('MM/DD/YYYY'),
             versionId: device.meta.versionId,

@@ -17,6 +17,7 @@ export const PatientDevicesTab: FC<{
 }> = ({ loading, onViewVitals }) => {
   const [openModal, setOpenModal] = useState(false);
   const [deviceId, _setDeviceId] = useState<string>('');
+  const [selectUnassignDevice, setSelectUnassignDevice] = useState<string>('');
   const [deviceType, _setDeviceType] = useState<string>('');
   const [thresholdModal, setThresholdModal] = useState(false);
   const [assignedDevices, setAssignedDevices] = useState<DeviceColumns[]>([]);
@@ -40,7 +41,7 @@ export const PatientDevicesTab: FC<{
         if (response?.devices) {
           const devices = response?.devices.map((device: DeviceResponse) => ({
             id: device.id,
-            name: device.deviceName[0]?.name.split('-')[0]?.trim() || '-',
+            name: device?.identifier?.[0]?.value || '-',
             manufacturer: device.manufacturer || '-',
             lastUpdated: device.meta.lastUpdated,
             distinctIdentifier: device.distinctIdentifier || '-',
@@ -72,9 +73,11 @@ export const PatientDevicesTab: FC<{
     (deviceId: string) => unassignDevices({ deviceId, patientId }, oystehrZambda!),
     {
       onSuccess: async () => {
+        setSelectUnassignDevice('');
         await refetch();
       },
       onError: (error: unknown) => {
+        setSelectUnassignDevice('');
         console.error('Failed to unassign devices:', error);
       },
     }
@@ -112,11 +115,11 @@ export const PatientDevicesTab: FC<{
     try {
       const thresholdValues: Record<string, number> = {};
 
-      if (deviceType === 'scale_gen2_measure') {
+      if (deviceType === 'WS') {
         thresholdValues.weight = parseInt(thresholds.weight || '0');
-      } else if (deviceType === 'bgm_gen1_measure') {
+      } else if (deviceType === 'BG') {
         thresholdValues.glucose = parseInt(thresholds.glucose || '0');
-      } else if (deviceType === 'bpm_gen2_measure') {
+      } else if (deviceType === 'BP') {
         thresholdValues.systolic = parseInt(thresholds.systolic || '0');
         thresholdValues.diastolic = parseInt(thresholds.diastolic || '0');
       } else {
@@ -131,9 +134,9 @@ export const PatientDevicesTab: FC<{
   };
 
   const deviceTypeMap: Record<string, string> = {
-    bpm_gen2_measure: 'Blood Pressure Monitor',
-    bgm_gen1_measure: 'Blood Glucose Monitor',
-    scale_gen2_measure: 'Weight Scale',
+    BP: 'Blood Pressure Monitor',
+    BG: 'Blood Glucose Monitor',
+    WS: 'Weight Scale',
   };
 
   const columns: GridColDef<DeviceColumns>[] = [
@@ -145,7 +148,7 @@ export const PatientDevicesTab: FC<{
     },
     {
       field: 'name',
-      headerName: 'Device Name',
+      headerName: 'Device IMEI',
       width: 350,
       sortable: false,
     },
@@ -154,7 +157,7 @@ export const PatientDevicesTab: FC<{
       headerName: 'Device Type',
       width: 250,
       sortable: false,
-      valueGetter: (params) => deviceTypeMap[params.row.distinctIdentifier] || params.row.distinctIdentifier,
+      valueGetter: (params) => deviceTypeMap[params.row.distinctIdentifier] || (params.row?.distinctIdentifier ?? '-'),
     },
     {
       field: 'lastUpdated',
@@ -178,9 +181,10 @@ export const PatientDevicesTab: FC<{
             <div>
               <RoundedButton
                 onClick={async () => {
+                  setSelectUnassignDevice(params.row.id);
                   await handleUnAssign(params.row.id);
                 }}
-                disabled={isUnassigning}
+                disabled={isUnassigning && selectUnassignDevice == params.row.id}
               >
                 Unassign Device
               </RoundedButton>

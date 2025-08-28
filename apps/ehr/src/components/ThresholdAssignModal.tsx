@@ -61,7 +61,7 @@ export const ThresholdAssignModal: FC<ThresholdAssignModalProps> = ({
     fields: { id: string; label: string; placeholder: string }[];
   } = (): { title: string; fields: { id: string; label: string; placeholder: string }[] } => {
     switch (deviceType) {
-      case 'scale_gen2_measure':
+      case 'WS':
         return {
           title: 'Weight Threshold',
           fields: [
@@ -72,7 +72,7 @@ export const ThresholdAssignModal: FC<ThresholdAssignModalProps> = ({
             },
           ],
         };
-      case 'bgm_gen1_measure':
+      case 'BG':
         return {
           title: 'Blood Glucose Threshold',
           fields: [
@@ -83,7 +83,7 @@ export const ThresholdAssignModal: FC<ThresholdAssignModalProps> = ({
             },
           ],
         };
-      case 'bpm_gen2_measure':
+      case 'BP':
         return {
           title: 'Blood Pressure Thresholds',
           fields: [

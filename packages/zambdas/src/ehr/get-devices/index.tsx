@@ -37,12 +37,11 @@ export const index = wrapHandler('get-devices', async (input: ZambdaInput): Prom
           : []),
       ],
     });
-    console.log('Total : ', locationsResults.total);
 
     const response: Output = {
       message: `Successfully retrieved devices details`,
-      devices: locationsResults.unbundle(),
       total: Number(locationsResults.total),
+      devices: locationsResults.unbundle(),
     };
 
     return lambdaResponse(200, response);

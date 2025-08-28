@@ -27,7 +27,6 @@ export const index = wrapHandler('get-vitals', async (input: ZambdaInput): Promi
       oystehrToken = await getAuth0Token(secrets);
     }
     const oystehr = createOystehrClient(oystehrToken, secrets);
-
     const offset = (page - 1) * pageSize;
 
     const searchResult = await oystehr.fhir.search({
@@ -35,6 +34,7 @@ export const index = wrapHandler('get-vitals', async (input: ZambdaInput): Promi
       params: [
         { name: 'device', value: `Device/${deviceId}` },
         { name: 'patient', value: `Patient/${patientId}` },
+        { name: 'category', value: `vital-signs` },
         { name: '_sort', value: '-date' },
         { name: '_total', value: 'accurate' },
         { name: '_count', value: String(pageSize) },
@@ -43,12 +43,6 @@ export const index = wrapHandler('get-vitals', async (input: ZambdaInput): Promi
     });
 
     const observations = searchResult.unbundle() as any[];
-    console.log('Observations:', JSON.stringify(observations, null, 2));
-
-    if (!observations || observations.length === 0) {
-      throw new Error(`No observation found for device ${deviceId} and patient ${patientId}`);
-    }
-
     const formatted = observations.map((obs) => ({
       id: obs.id,
       code: obs.code?.text ?? null,
@@ -57,10 +51,8 @@ export const index = wrapHandler('get-vitals', async (input: ZambdaInput): Promi
       components: obs.component ?? [],
     }));
 
-    console.log('Formatted observations:', JSON.stringify(formatted, null, 2));
-
     return lambdaResponse(200, {
-      message: `Successfully retrieved vital details`,
+      message: `Successfully retrieved vitals`,
       observations: formatted,
       total: Number(searchResult.total),
     });

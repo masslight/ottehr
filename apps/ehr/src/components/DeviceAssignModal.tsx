@@ -70,7 +70,7 @@ export const DeviceAssignmentModal: FC<DeviceAssignmentModalProps> = ({
       onSuccess: (response: Output) => {
         if (response?.devices) {
           const options = response.devices.map((device: Device) => ({
-            label: device.deviceName[0]?.name || 'Unknown Device',
+            label: device.identifier?.[0]?.value || 'Unknown Device',
             value: device.id,
           }));
           setDeviceOptions(options);

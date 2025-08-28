@@ -64,6 +64,7 @@ export interface Patient {
 
 export interface DeviceResponse {
   id: string;
+  identifier: any;
   deviceName: { name: string }[];
   manufacturer?: string;
   meta: {

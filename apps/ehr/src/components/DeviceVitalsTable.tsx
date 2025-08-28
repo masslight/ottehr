@@ -193,19 +193,19 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({
     const fieldNameLower = fieldName.trim().toLowerCase();
 
     switch (deviceType) {
-      case 'scale_gen2_measure':
+      case 'WS':
         if (fieldNameLower.includes('wt') && thresholdValues.weight !== undefined) {
           return value > thresholdValues.weight;
         }
         break;
 
-      case 'bgm_gen1_measure':
+      case 'BG':
         if (fieldNameLower.includes('data') && thresholdValues.glucose !== undefined) {
           return value > thresholdValues.glucose;
         }
         break;
 
-      case 'bpm_gen2_measure':
+      case 'BP':
         if (fieldNameLower.includes('sys') && thresholdValues.systolic !== undefined) {
           return value > thresholdValues.systolic;
         }

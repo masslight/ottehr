@@ -34,7 +34,7 @@ export const index = wrapHandler('get-patients-devices', async (input: ZambdaInp
       resourceType: 'Device',
       params: [{ name: 'patient', value: patientID }],
     });
-    console.log('Total : ', locationsResults.total);
+
     const response = {
       message: `Successfully retrieved devices details`,
       devices: locationsResults.unbundle(),

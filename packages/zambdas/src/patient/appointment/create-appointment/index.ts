@@ -226,11 +226,11 @@ export function createCombinedBaselineObservation(
         coding: [
           {
             system: 'http://terminology.hl7.org/CodeSystem/observation-category',
-            code: 'vital-signs',
-            display: 'Vital Signs',
+            code: 'survey',
+            display: 'Survey',
           },
         ],
-        text: 'Vital Signs',
+        text: 'Survey',
       },
     ],
     code: {
