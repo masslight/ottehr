@@ -360,7 +360,10 @@ test.describe('Responsible party information - check and fill all fields', () =>
   test('PRPI-3 Check phone field validation', async () => {
     await paperwork.checkPhoneValidations(locator.responsiblePartyNumber);
   });
-  test('PRPI-4 Select self - check fields are prefilled with correct values', async () => {
+  test('PRPI-4 Check email field validation', async () => {
+    await paperwork.checkEmailValidations(locator.responsiblePartyEmail);
+  });
+  test('PRPI-5 Select self - check fields are prefilled with correct values', async () => {
     const dob = await commonLocatorsHelper.getMonthDay(bookingData.dobMonth, bookingData.dobDay);
     if (!dob) {
       throw new Error('DOB data is null');
@@ -373,19 +376,19 @@ test.describe('Responsible party information - check and fill all fields', () =>
       `${dob?.monthNumber}/${dob?.dayNumber}/${bookingData.dobYear}`
     );
   });
-  test('PRPI-5 Select self - check fields are disabled', async () => {
+  test('PRPI-6 Select self - check fields are disabled', async () => {
     await expect(locator.responsiblePartyFirstName.getAttribute('disabled')).not.toBeNull();
     await expect(locator.responsiblePartyLastName.getAttribute('disabled')).not.toBeNull();
     await expect(locator.responsiblePartyBirthSex.getAttribute('disabled')).not.toBeNull();
     await expect(locator.responsiblePartyDOBAnswer.getAttribute('disabled')).not.toBeNull();
   });
-  test('PRPI-6 Select not self - check fields are empty', async () => {
+  test('PRPI-7 Select not self - check fields are empty', async () => {
     await paperwork.fillResponsiblePartyNotSelfRelationship();
     await expect(locator.responsiblePartyFirstName).toHaveValue('');
     await expect(locator.responsiblePartyLastName).toHaveValue('');
     await expect(locator.responsiblePartyDOBAnswer).toHaveValue('');
   });
-  test('PRPI-7 Select future dob - check validation error', async () => {
+  test('PRPI-8 Select future dob - check validation error', async () => {
     await locator.responsiblePartyDOBAnswer.click();
     await locator.calendarArrowRight.click();
     await locator.calendarDay.click();
@@ -393,7 +396,7 @@ test.describe('Responsible party information - check and fill all fields', () =>
     await locator.clickContinueButton();
     await expect(locator.dateFutureError).toBeVisible();
   });
-  test('PRPI-8 Fill all fields and click [Continue]', async () => {
+  test('PRPI-9 Fill all fields and click [Continue]', async () => {
     await openResponsiblePartyPage();
     responsiblePartyData = await paperwork.fillResponsiblePartyDataNotSelf();
     await expect(locator.dateOlder18YearsError).not.toBeVisible();
@@ -401,7 +404,7 @@ test.describe('Responsible party information - check and fill all fields', () =>
     await locator.clickContinueButton();
     await paperwork.checkCorrectPageOpens('Photo ID');
   });
-  test('PRPI-9 Click on [Back] - all values are saved', async () => {
+  test('PRPI-10 Click on [Back] - all values are saved', async () => {
     await locator.clickBackButton();
     await expect(locator.responsiblePartyFirstName).toHaveValue(responsiblePartyData.firstName);
     await expect(locator.responsiblePartyLastName).toHaveValue(responsiblePartyData.lastName);
@@ -412,6 +415,8 @@ test.describe('Responsible party information - check and fill all fields', () =>
     await expect(locator.responsiblePartyCity).toHaveValue(responsiblePartyData.city);
     await expect(locator.responsiblePartyState).toHaveValue(responsiblePartyData.state);
     await expect(locator.responsiblePartyZip).toHaveValue(responsiblePartyData.zip);
+    await expect(locator.responsiblePartyNumber).toHaveValue(responsiblePartyData.phone);
+    await expect(locator.responsiblePartyEmail).toHaveValue(responsiblePartyData.email);
   });
 
   async function openResponsiblePartyPage(): Promise<void> {
@@ -426,7 +431,7 @@ test.describe('Photo ID - Upload photo', () => {
     await paperwork.checkCorrectPageOpens('Photo ID');
   });
   test('PPID-2 Photo ID - Check patient name is displayed', async () => {
-    await paperwork.checkPatientNameIsDisplayed(bookingData.firstName, bookingData.lastName);
+    await paperwork.checkPatientNameIsDisplayed(bookingData.firstName, bookingData.lastName, true);
   });
   test('PPID-3 Upload and Clear images', async () => {
     const uploadedFrontPhoto = await uploadPhoto.fillPhotoFrontID();

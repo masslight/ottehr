@@ -1,3 +1,4 @@
+import { Immunization } from 'src/features/immunization/pages/Immunization';
 import { InHouseLabOrderCreatePage } from 'src/features/in-house-labs/pages/InHouseLabOrderCreatePage';
 import { InHouseLabTestDetailsPage } from 'src/features/in-house-labs/pages/InHouseLabOrderDetailsPage';
 import { InHouseLabsPage } from 'src/features/in-house-labs/pages/InHouseLabsPage';
@@ -6,16 +7,17 @@ import { NursingOrderDetailsPage } from 'src/features/nursing-orders/pages/Nursi
 import { NursingOrdersPage } from 'src/features/nursing-orders/pages/NursingOrdersPage';
 import { FEATURE_FLAGS } from '../../../constants/feature-flags';
 import { AssessmentCard } from '../../../telemed/features/appointment/AssessmentTab';
+import { ExamTab } from '../../../telemed/features/appointment/ExamTab';
 import { CreateExternalLabOrder } from '../../external-labs/pages/CreateExternalLabOrder';
 import { ExternalLabOrdersListPage } from '../../external-labs/pages/ExternalLabOrdersListPage';
 import { OrderDetailsPage } from '../../external-labs/pages/OrderDetails';
+import { ImmunizationOrderCreateEdit } from '../../immunization/pages/ImmunizationOrderCreateEdit';
 import { CreateRadiologyOrder } from '../../radiology/pages/CreateRadiologyOrder';
 import { RadiologyOrderDetailsPage } from '../../radiology/pages/RadiologyOrderDetails';
 import { RadiologyOrdersListPage } from '../../radiology/pages/RadiologyOrdersListPage';
 import { RouteCSS } from '../context/NavigationContext';
 import { Allergies } from '../pages/Allergies';
 import { ERXPage } from '../pages/ERXPage';
-import { Examination } from '../pages/Examination';
 import { Hospitalization } from '../pages/Hospitalization';
 import { InHouseMedication } from '../pages/InHouseMedication';
 import { InHouseOrderEdit } from '../pages/InHouseOrderEdit';
@@ -70,6 +72,10 @@ export enum ROUTER_PATH {
   NURSING_ORDERS = 'nursing-orders',
   NURSING_ORDER_CREATE = 'nursing-orders/create',
   NURSING_ORDER_DETAILS = 'nursing-orders/:serviceRequestID/order-details',
+
+  IMMUNIZATION = 'immunization/:tabName',
+  IMMUNIZATION_ORDER_CREATE = 'immunization/order',
+  IMMUNIZATION_ORDER_EDIT = 'immunization/order/:orderId',
 }
 
 export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
@@ -169,6 +175,31 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
     element: <InHouseOrderEdit />,
     text: 'In-house Medications',
     iconKey: 'Med. Administration',
+  },
+  [ROUTER_PATH.IMMUNIZATION]: {
+    path: ROUTER_PATH.IMMUNIZATION,
+    sidebarPath: 'immunization/mar',
+    activeCheckPath: 'immunization',
+    modes: ['provider'],
+    element: <Immunization />,
+    text: 'Immunization',
+    iconKey: 'Immunization',
+  },
+  [ROUTER_PATH.IMMUNIZATION_ORDER_CREATE]: {
+    path: ROUTER_PATH.IMMUNIZATION_ORDER_CREATE,
+    modes: ['provider'],
+    isSkippedInNavigation: true,
+    element: <ImmunizationOrderCreateEdit />,
+    text: 'Immunization',
+    iconKey: 'Immunization',
+  },
+  [ROUTER_PATH.IMMUNIZATION_ORDER_EDIT]: {
+    path: ROUTER_PATH.IMMUNIZATION_ORDER_EDIT,
+    modes: ['provider'],
+    isSkippedInNavigation: true,
+    element: <ImmunizationOrderCreateEdit />,
+    text: 'Immunization',
+    iconKey: 'Immunization',
   },
   [ROUTER_PATH.EXTERNAL_LAB_ORDER]: {
     path: ROUTER_PATH.EXTERNAL_LAB_ORDER,
@@ -295,7 +326,7 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
   [ROUTER_PATH.EXAMINATION]: {
     path: ROUTER_PATH.EXAMINATION,
     modes: ['provider', 'readonly'],
-    element: <Examination />,
+    element: <ExamTab />,
     text: 'Exam',
     iconKey: 'Stethoscope',
   },

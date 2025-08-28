@@ -12,6 +12,7 @@ import {
   Patient,
   Practitioner,
   Provenance,
+  Reference,
   Schedule,
   ServiceRequest,
   Specimen,
@@ -20,11 +21,13 @@ import {
 import { DateTime } from 'luxon';
 import { Color } from 'pdf-lib';
 import {
+  BUCKET_NAMES,
   compareDates,
   convertActivityDefinitionToTestItem,
   createFilesDocumentReferences,
   EXTERNAL_LAB_RESULT_PDF_BASE_NAME,
   getFullestAvailableName,
+  getOrderNumber,
   getTimezone,
   IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
   IN_HOUSE_LAB_RESULT_PDF_BASE_NAME,
@@ -35,10 +38,8 @@ import {
   LAB_RESULT_DOC_REF_CODING_CODE,
   LabType,
   ObsContentType,
-  OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   OYSTEHR_EXTERNAL_LABS_ATTACHMENT_EXT_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
-  OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   OYSTEHR_OBR_NOTE_CODING_SYSTEM,
   OYSTEHR_OBS_CONTENT_TYPES,
   PROJECT_NAME,
@@ -49,7 +50,7 @@ import {
 } from 'utils';
 import { fetchResultResourcesForRepeatServiceRequest } from '../../ehr/shared/in-house-labs';
 import { getExternalLabOrderResources } from '../../ehr/shared/labs';
-import { LABS_DATE_STRING_FORMAT } from '../../ehr/submit-lab-order';
+import { LABS_DATE_STRING_FORMAT } from '../../ehr/submit-lab-order/helpers';
 import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { ICON_STYLE, STANDARD_FONT_SIZE, STANDARD_NEW_LINE } from './pdf-consts';
@@ -118,10 +119,6 @@ const getResultDataConfig = (
     commonResourceConfig;
   const { type, specificResources } = specificResourceConfig;
 
-  const orderCreateDate = serviceRequest.authoredOn
-    ? DateTime.fromISO(serviceRequest.authoredOn).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
-    : undefined;
-
   const baseData: LabResultsData = {
     locationName: location?.name,
     locationStreetAddress: location?.address?.line?.join(','),
@@ -130,7 +127,6 @@ const getResultDataConfig = (
     locationZip: location?.address?.postalCode,
     locationPhone: location?.telecom?.find((t) => t.system === 'phone')?.value,
     locationFax: location?.telecom?.find((t) => t.system === 'fax')?.value,
-    serviceRequestID: serviceRequest.id || '',
     providerName: providerName || '',
     patientFirstName: patient.name?.[0].given?.[0] || '',
     patientMiddleName: patient.name?.[0].given?.[1],
@@ -140,8 +136,7 @@ const getResultDataConfig = (
     patientId: patient.id || '',
     patientPhone: patient.telecom?.find((telecomTemp) => telecomTemp.system === 'phone')?.value || '',
     todayDate: now.setZone().toFormat(LABS_DATE_STRING_FORMAT),
-    orderCreateDateAuthoredOn: serviceRequest.authoredOn || '',
-    orderCreateDate: orderCreateDate || '',
+    dateIncludedInFileName: serviceRequest.authoredOn || '',
     orderPriority: serviceRequest.priority || '',
     testName: testName || '',
     orderAssessments:
@@ -155,9 +150,14 @@ const getResultDataConfig = (
 
   if (type === LabType.inHouse) {
     const { inHouseLabResults } = specificResources;
+    const orderCreateDate = serviceRequest.authoredOn
+      ? DateTime.fromISO(serviceRequest.authoredOn).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
+      : '';
     const inHouseData: Omit<InHouseLabResultsData, keyof LabResultsData> = {
       inHouseLabResults,
       timezone,
+      serviceRequestID: serviceRequest.id || '',
+      orderCreateDate,
     };
     const data: InHouseLabResultsData = { ...baseData, ...inHouseData };
     config = { type: LabType.inHouse, data };
@@ -178,12 +178,10 @@ const getResultDataConfig = (
       performingLabAddress,
       performingLabDirectorFullName,
     } = specificResources;
+    const orderNumber = getOrderNumber(serviceRequest);
+    if (!orderNumber) throw Error(`order number could not be parsed from the service request ${serviceRequest.id}`);
     const externalLabData: Omit<ExternalLabResultsData, keyof LabResultsData> = {
-      orderNumber:
-        serviceRequest.identifier?.find(
-          (item) =>
-            item.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM || item.system === OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM
-        )?.value || '',
+      orderNumber,
       accessionNumber: diagnosticReport.identifier?.find((item) => item.type?.coding?.[0].code === 'FILL')?.value || '',
       collectionDate,
       orderSubmitDate,
@@ -283,11 +281,10 @@ export async function createExternalLabResultPDF(
     serviceRequest,
     patient,
     practitioner: provider,
-    task: pstTask,
-    appointment,
+    preSubmissionTask: pstTask,
     encounter,
     schedule,
-    organization,
+    labOrganization,
     observations,
     specimens,
   } = await getExternalLabOrderResources(oystehr, serviceRequestID);
@@ -306,7 +303,6 @@ export async function createExternalLabResultPDF(
     timezone = getTimezone(schedule);
   }
 
-  if (!appointment.id) throw new Error('appointment id is undefined');
   if (!encounter.id) throw new Error('encounter id is undefined');
   if (!patient.id) throw new Error('patient.id is undefined');
   if (!diagnosticReport.id) throw new Error('diagnosticReport id is undefined');
@@ -426,7 +422,7 @@ export async function createExternalLabResultPDF(
     type: LabType.external,
     specificResources: {
       externalLabResults,
-      organization,
+      organization: labOrganization,
       collectionDate,
       orderSubmitDate: orderSubmitDate.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT),
       reviewed,
@@ -434,8 +430,8 @@ export async function createExternalLabResultPDF(
       reviewDate: reviewDate?.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT),
       resultsReceivedDate,
       resultInterpretations: resultInterpretationDisplays,
-      performingLabAddress: formatPerformingLabAddress(organization),
-      performingLabDirectorFullName: formatPerformingLabDirectorName(organization),
+      performingLabAddress: formatPerformingLabAddress(labOrganization),
+      performingLabDirectorFullName: formatPerformingLabDirectorName(labOrganization),
       attachments: obsAttachments,
     },
   };
@@ -457,6 +453,7 @@ export async function createExternalLabResultPDF(
     pdfInfo: pdfDetail,
     patientID: patient.id,
     encounterID: encounter.id,
+    related: makeRelatedForLabsPDFDocRef({ diagnosticReportId: diagnosticReport.id }),
     diagnosticReportID: diagnosticReport.id,
     reviewed,
     listResources: [],
@@ -470,7 +467,7 @@ export async function createInHouseLabResultPDF(
   patient: Patient,
   location: Location | undefined,
   schedule: Schedule,
-  attendingPractitioner: Practitioner,
+  _attendingPractitioner: Practitioner,
   attendingPractitionerName: string | undefined,
   inputRequestTask: Task,
   observations: Observation[],
@@ -539,6 +536,7 @@ export async function createInHouseLabResultPDF(
     pdfInfo: pdfDetail,
     patientID: patient.id,
     encounterID: encounter.id,
+    related: makeRelatedForLabsPDFDocRef({ diagnosticReportId: diagnosticReport.id || '' }),
     diagnosticReportID: diagnosticReport.id,
     reviewed: false,
     listResources: [], // this needs to be passed so the helper returns docRefs
@@ -1029,18 +1027,18 @@ async function createLabsResultsFormPDF(
   });
 
   console.debug(`Created external labs order form pdf bytes`);
-  const bucketName = 'visit-notes';
+  const bucketName = BUCKET_NAMES.LABS;
   let fileName = undefined;
   const { type, data } = dataConfig;
   if (type === 'external') {
     fileName = `${EXTERNAL_LAB_RESULT_PDF_BASE_NAME}-${getLabFileName(dataConfig.data.testName)}-${DateTime.fromISO(
-      dataConfig.data.orderCreateDateAuthoredOn
+      dataConfig.data.dateIncludedInFileName
     ).toFormat('yyyy-MM-dd')}-${data.resultStatus}-${
       data.resultStatus === 'preliminary' ? '' : data.reviewed ? 'reviewed' : 'unreviewed'
     }.pdf`;
   } else if (type === 'in-house') {
     fileName = `${IN_HOUSE_LAB_RESULT_PDF_BASE_NAME}-${getLabFileName(dataConfig.data.testName)}-${DateTime.fromISO(
-      dataConfig.data.orderCreateDateAuthoredOn
+      dataConfig.data.dateIncludedInFileName
     ).toFormat('yyyy-MM-dd')}-${dataConfig.data.resultStatus}.pdf`;
   } else {
     throw new Error(`lab type is unexpected ${type}`);
@@ -1061,8 +1059,8 @@ export async function makeLabPdfDocumentReference({
   pdfInfo,
   patientID,
   encounterID,
+  related,
   listResources,
-  serviceRequestID,
   diagnosticReportID,
   reviewed,
 }: {
@@ -1071,8 +1069,8 @@ export async function makeLabPdfDocumentReference({
   pdfInfo: PdfInfo;
   patientID: string;
   encounterID: string;
+  related: Reference[];
   listResources?: List[] | undefined;
-  serviceRequestID?: string;
   diagnosticReportID?: string;
   reviewed?: boolean;
 }): Promise<DocumentReference> {
@@ -1105,12 +1103,7 @@ export async function makeLabPdfDocumentReference({
         reference: `Patient/${patientID}`,
       },
       context: {
-        related: [
-          {
-            reference:
-              type === 'order' ? `ServiceRequest/${serviceRequestID}` : `DiagnosticReport/${diagnosticReportID}`,
-          },
-        ],
+        related,
         encounter: [{ reference: `Encounter/${encounterID}` }],
       },
     },
@@ -1123,6 +1116,21 @@ export async function makeLabPdfDocumentReference({
   });
   return docRefs[0];
 }
+
+type LabDocRelatedReferenceInput = { serviceRequestIds: string[] } | { diagnosticReportId: string };
+export const makeRelatedForLabsPDFDocRef = (input: LabDocRelatedReferenceInput): Reference[] => {
+  if ('serviceRequestIds' in input) {
+    return input.serviceRequestIds.map((id) => ({
+      reference: `ServiceRequest/${id}`,
+    }));
+  } else {
+    return [
+      {
+        reference: `DiagnosticReport/${input.diagnosticReportId}`,
+      },
+    ];
+  }
+};
 
 const getFormattedInHouseLabResults = async (
   oystehr: Oystehr,

@@ -6,15 +6,15 @@ import React, { FC } from 'react';
 import { sidebarMenuIcons } from 'src/features/css-module/components/Sidebar';
 import { TelemedAppointmentVisitTabs } from 'utils';
 import { dataTestIds } from '../../../constants/data-test-ids';
-import { getSelectors } from '../../../shared/store/getSelectors';
 import { ContractEditIcon, DiagnosisIcon, PatientListIcon, StethoscopeIcon } from '../../assets';
-import { useAppointmentStore } from '../../state';
+import { useAppTelemedLocalStore, useChartData } from '../../state';
 
 export const AppointmentTabsHeader: FC = () => {
-  const { currentTab, chartData } = getSelectors(useAppointmentStore, ['currentTab', 'chartData']);
+  const currentTab = useAppTelemedLocalStore((state) => state.currentTab);
+  const { chartData } = useChartData();
 
   const handleTabChange = (_event: React.SyntheticEvent, newTabName: string): void => {
-    useAppointmentStore.setState({ currentTab: newTabName });
+    useAppTelemedLocalStore.setState({ currentTab: newTabName });
   };
 
   return (

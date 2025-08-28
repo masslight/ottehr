@@ -3,7 +3,7 @@ import archiver from 'archiver';
 import * as esbuild from 'esbuild';
 import { copy } from 'esbuild-plugin-copy';
 import fs from 'fs';
-import ottehrSpec from './ottehr-spec.json';
+import ottehrSpec from '../../config/ottehr-spec.json';
 
 interface ZambdaSpec {
   name: string;

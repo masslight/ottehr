@@ -15,18 +15,17 @@ import {
 import { Stack } from '@mui/system';
 import { Practitioner } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import { FC, useState } from 'react';
+import { FC, useMemo, useState } from 'react';
 import { CompleteConfiguration } from 'src/components/CompleteConfiguration';
+import { useChartData } from 'src/telemed';
 import { useGetErxConfigQuery } from 'src/telemed/hooks/useGetErxConfig';
 import { ERX_MEDICATION_META_TAG_CODE, formatDateToMDYWithTime, RoleType } from 'utils';
 import { RoundedButton } from '../../../../components/RoundedButton';
-import { useChartData } from '../../../../features/css-module/hooks/useChartData';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import useEvolveUser from '../../../../hooks/useEvolveUser';
-import { getSelectors } from '../../../../shared/store/getSelectors';
 import { PageTitle } from '../../../components/PageTitle';
 import { useGetAppointmentAccessibility } from '../../../hooks';
-import { useAppointmentStore } from '../../../state';
+import { useAppointmentData } from '../../../state';
 import { getAppointmentStatusChip } from '../../../utils';
 import { ERX, ERXStatus } from '../ERX';
 
@@ -119,17 +118,12 @@ interface ERxContainerProps {
 }
 
 export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
-  const { encounter, appointment, setPartialChartData, chartData, patient } = getSelectors(useAppointmentStore, [
-    'encounter',
-    'appointment',
-    'setPartialChartData',
-    'chartData',
-    'patient',
-  ]);
+  const { appointment, patient } = useAppointmentData();
+  const appointmentStart = useMemo(() => formatDateToMDYWithTime(appointment?.start), [appointment?.start]);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const { chartData } = useChartData();
 
-  const { isLoading, isFetching, refetch } = useChartData({
-    encounterId: encounter.id || '',
+  const { isLoading, isFetching, refetch, setPartialChartData } = useChartData({
     requestedFields: {
       prescribedMedications: {
         _include: 'MedicationRequest:requester',
@@ -139,11 +133,11 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
     refetchInterval: 10000,
     onSuccess: (data) => {
       console.log('data', data);
-      const prescribedMedications = data.prescribedMedications;
+      const prescribedMedications = data?.prescribedMedications;
 
       setPartialChartData({
         prescribedMedications,
-        practitioners: (data.practitioners || []).reduce(
+        practitioners: (data?.practitioners || []).reduce(
           (prev, curr) => {
             const index = prev.findIndex((practitioner) => practitioner.id === curr.id);
             if (index === -1) {
@@ -165,7 +159,6 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
   const [cancellationLoading, setCancellationLoading] = useState<string[]>([]);
   const { oystehr } = useApiClients();
   const user = useEvolveUser();
-
   const { data: erxConfigData, isLoading: isErxConfigLoading } = useGetErxConfigQuery();
 
   const cancelPrescription = async (medRequestId: string, patientId: string): Promise<void> => {
@@ -230,7 +223,12 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
                 </RoundedButton>
               ) : (
                 <RoundedButton
-                  disabled={isReadOnly || erxStatus === ERXStatus.LOADING || !user?.hasRole([RoleType.Provider])}
+                  disabled={
+                    isReadOnly ||
+                    erxStatus === ERXStatus.LOADING ||
+                    !user?.hasRole([RoleType.Provider]) ||
+                    !erxConfigData?.configured
+                  }
                   variant="contained"
                   onClick={() => onNewOrderClick()}
                   startIcon={erxStatus === ERXStatus.LOADING ? <CircularProgress size={16} /> : <AddIcon />}
@@ -278,56 +276,57 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {chartData.prescribedMedications.map((row) => (
-                  <TableRow key={row.resourceId}>
-                    <TableCell>{row.name}</TableCell>
-                    <TableCell>{row.instructions}</TableCell>
-                    {/*<TableCell>Dx</TableCell>*/}
-                    <TableCell>
-                      {formatDateToMDYWithTime(appointment?.start)
-                        ?.split(' at ')
-                        ?.map((item) => (
-                          <Typography variant="body2" key={item}>
-                            {item}
-                          </Typography>
-                        ))}
-                    </TableCell>
-                    <TableCell>
-                      {getPractitionerName(
-                        chartData.practitioners?.find((practitioner) => practitioner.id === row.provider)
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {formatDateToMDYWithTime(row.added)
-                        ?.split(' at ')
-                        ?.map((item) => (
-                          <Typography variant="body2" key={item}>
-                            {item}
-                          </Typography>
-                        ))}
-                    </TableCell>
-                    {/*<TableCell>Pharmacy</TableCell>*/}
-                    <TableCell>{getAppointmentStatusChip(row.status, medicationStatusMapper)}</TableCell>
-                    {!isReadOnly && patient?.id && (
+                {chartData.prescribedMedications.map((row) => {
+                  const rowAdded = formatDateToMDYWithTime(row?.added);
+                  return (
+                    <TableRow key={row.resourceId}>
+                      <TableCell>{row.name}</TableCell>
+                      <TableCell>{row.instructions}</TableCell>
+                      {/*<TableCell>Dx</TableCell>*/}
                       <TableCell>
-                        <LoadingButton
-                          loading={cancellationLoading.includes(row.resourceId!)}
-                          variant="text"
-                          color="error"
-                          onClick={() => cancelPrescription(row.resourceId!, patient.id!)}
-                          disabled={
-                            row.status === 'loading' ||
-                            row.status === 'completed' ||
-                            row.status === 'cancelled' ||
-                            cancellationLoading.includes(row.resourceId!)
-                          }
-                        >
-                          Cancel
-                        </LoadingButton>
+                        {appointmentStart && (
+                          <>
+                            <Typography variant="body2">{appointmentStart.date}</Typography>
+                            <Typography variant="body2">{appointmentStart.time}</Typography>
+                          </>
+                        )}
                       </TableCell>
-                    )}
-                  </TableRow>
-                ))}
+                      <TableCell>
+                        {getPractitionerName(
+                          chartData.practitioners?.find((practitioner) => practitioner.id === row.provider)
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {rowAdded && (
+                          <>
+                            <Typography variant="body2">{rowAdded.date}</Typography>
+                            <Typography variant="body2">{rowAdded.time}</Typography>
+                          </>
+                        )}
+                      </TableCell>
+                      {/*<TableCell>Pharmacy</TableCell>*/}
+                      <TableCell>{getAppointmentStatusChip(row.status, medicationStatusMapper)}</TableCell>
+                      {!isReadOnly && patient?.id && (
+                        <TableCell>
+                          <LoadingButton
+                            loading={cancellationLoading.includes(row.resourceId!)}
+                            variant="text"
+                            color="error"
+                            onClick={() => cancelPrescription(row.resourceId!, patient.id!)}
+                            disabled={
+                              row.status === 'loading' ||
+                              row.status === 'completed' ||
+                              row.status === 'cancelled' ||
+                              cancellationLoading.includes(row.resourceId!)
+                            }
+                          >
+                            Cancel
+                          </LoadingButton>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </TableContainer>

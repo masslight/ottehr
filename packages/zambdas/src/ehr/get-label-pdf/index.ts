@@ -50,10 +50,15 @@ export const index = wrapHandler('get-label-pdf', async (input: ZambdaInput): Pr
         if (!url) {
           throw new Error('No url found matching an application/pdf');
         }
+        const presignedURL = await getPresignedURL(url, m2mToken);
+
+        if (!presignedURL) {
+          throw new Error(`Failed to get presigned URL for ${url}`);
+        }
 
         return {
           documentReference: labelDocRef,
-          presignedURL: await getPresignedURL(url, m2mToken),
+          presignedURL,
         };
       })
     ).then((results) => {

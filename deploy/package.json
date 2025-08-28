@@ -1,9 +1,17 @@
 {
   "name": "deploy",
-  "version": "0.0.1",
+  "version": "1.16.7",
   "description": "Scripts for generating HCL and interacting with Terraform",
   "scripts": {
-    "generate": "tsx generate-oystehr-resources.ts ../packages/zambdas/ottehr-spec.json,../packages/zambdas/ottehr-spec-payers.json,../packages/zambdas/ottehr-spec-ehr-insurance-update-questionnaire.json,../packages/zambdas/ottehr-spec-procedure-patient-responses.json,../packages/zambdas/ottehr-spec-in-house-lab-activity-definitions.json,../packages/zambdas/ottehr-spec-procedure-post-instructions.json,../packages/zambdas/ottehr-spec-in-person-intake-questionnaire.json,../packages/zambdas/ottehr-spec-procedure-supplies.json,../packages/zambdas/ottehr-spec-procedure-techniques.json,../packages/zambdas/ottehr-spec-procedure-body-sides.json,../packages/zambdas/ottehr-spec-procedure-time-spent.json,../packages/zambdas/ottehr-spec-procedure-body-sites.json,../packages/zambdas/ottehr-spec-procedure-type.json,../packages/zambdas/ottehr-spec-procedure-complications.json,../packages/zambdas/ottehr-spec-virtual-intake-questionnaire.json,../packages/zambdas/ottehr-spec-procedure-medications-used.json ../packages/zambdas/.env/local.json ./oystehr/"
+    "build": "tsc --noEmit",
+    "lint-terraform": "terraform fmt",
+    "lint": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts --report-unused-disable-directives --max-warnings 0 .",
+    "generate": "tsx generate-oystehr-resources.ts ../config ../packages/zambdas/.env/${ENV:-local}.json ./oystehr/",
+    "apply-local": "ENV=local npm run generate && terraform workspace select local && terraform apply -parallelism=40 -var-file='local.tfvars'",
+    "apply-staging": "ENV=staging npm run generate && terraform workspace select staging && terraform apply -parallelism=40 -var-file='staging.tfvars'",
+    "apply-production": "ENV=production npm run generate && terraform workspace select production && terraform apply -parallelism=40 -var-file='production.tfvars'",
+    "terraform-init": "terraform init --backend-config=./backend.config",
+    "terraform-setup": "npm run terraform-init && terraform workspace new local && terraform workspace new staging && terraform workspace new production && terraform workspace select local"
   },
   "devDependencies": {
     "@types/node": "^24.2.1"

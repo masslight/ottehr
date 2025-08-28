@@ -1,11 +1,10 @@
 import { Box, Stack, Typography } from '@mui/material';
 import React from 'react';
-import { useParams } from 'react-router-dom';
-import { getSelectors } from '../../../shared/store/getSelectors';
 import {
   AccordionCard,
   DoubleColumnContainer,
-  useAppointmentStore,
+  useAppointmentData,
+  useChartData,
   useGetAppointmentAccessibility,
 } from '../../../telemed';
 import { PageTitle } from '../../../telemed/components/PageTitle';
@@ -13,6 +12,7 @@ import { ChiefComplaintCard } from '../../../telemed/features/appointment';
 import {
   AddendumCard,
   DischargeButton,
+  DischargeSummaryButton,
   MissingCard,
   ReviewAndSignButton,
   SendFaxButton,
@@ -22,7 +22,6 @@ import { PatientInformationContainer } from '../components/progress-note/Patient
 import { ProgressNoteDetails } from '../components/progress-note/ProgressNoteDetails';
 import { VisitDetailsContainer } from '../components/progress-note/VisitDetailsContainer';
 import { useFeatureFlags } from '../context/featureFlags';
-import { useAppointment } from '../hooks/useAppointment';
 import { IntakeNotes } from '../hooks/useIntakeNotes';
 
 interface PatientInfoProps {
@@ -30,18 +29,17 @@ interface PatientInfoProps {
 }
 
 export const ProgressNote: React.FC<PatientInfoProps> = () => {
-  const { id: appointmentID } = useParams();
-  const {
-    resources: { appointment },
-    isLoading,
-    error,
-  } = useAppointment(appointmentID);
-
   const {
     appointment: appointmentResource,
     encounter,
-    isChartDataLoading,
-  } = getSelectors(useAppointmentStore, ['appointment', 'encounter', 'isChartDataLoading']);
+    resources: { appointment, patient },
+    isAppointmentLoading,
+    appointmentError,
+  } = useAppointmentData();
+
+  const { isChartDataLoading, chartDataError } = useChartData();
+  const isLoading = isAppointmentLoading || isChartDataLoading;
+  const error = chartDataError || appointmentError;
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const { css } = useFeatureFlags();
 
@@ -75,7 +73,10 @@ export const ProgressNote: React.FC<PatientInfoProps> = () => {
 
       {!isReadOnly && (
         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-          <SendFaxButton appointment={appointmentResource} encounter={encounter} css={css} />
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <SendFaxButton appointment={appointmentResource} encounter={encounter} css={css} />
+            <DischargeSummaryButton appointmentId={appointment?.id} patientId={patient?.id} />
+          </Box>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <DischargeButton />
             <ReviewAndSignButton />

@@ -12,6 +12,7 @@ export const DetailsWithResults: React.FC<{
   loading: boolean;
 }> = ({ labOrder, markTaskAsReviewed, loading }) => {
   const navigate = useNavigate();
+  console.log('labOrder', labOrder);
 
   const handleBack = (): void => {
     navigate(-1);

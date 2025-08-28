@@ -1,13 +1,12 @@
 import { NoteDTO } from 'utils';
-import { useChartData } from '../../../hooks/useChartData';
+import { useChartData } from '../../../../../telemed';
 import { EditableNote, UseNoteHandlers } from '../types';
 import { useDeleteNote } from './useDeleteNote';
 import { useEditNote } from './useEditNote';
 import { useSaveNote } from './useSaveNote';
 
-export const useNoteHandlers: UseNoteHandlers = ({ encounterId, patientId, apiConfig, locales }) => {
+export const useNoteHandlers: UseNoteHandlers = ({ encounterId, appointmentId, patientId, apiConfig, locales }) => {
   const { chartData, isLoading } = useChartData({
-    encounterId,
     requestedFields: { [apiConfig.fieldName]: apiConfig.searchParams },
   });
 
@@ -22,9 +21,9 @@ export const useNoteHandlers: UseNoteHandlers = ({ encounterId, patientId, apiCo
     type: note.type,
   })) as EditableNote[];
 
-  const handleSave = useSaveNote({ encounterId, patientId, apiConfig });
-  const handleEdit = useEditNote({ encounterId, apiConfig });
-  const handleDelete = useDeleteNote({ encounterId, apiConfig, locales });
+  const handleSave = useSaveNote({ encounterId, appointmentId, patientId, apiConfig });
+  const handleEdit = useEditNote({ appointmentId, apiConfig });
+  const handleDelete = useDeleteNote({ appointmentId, apiConfig, locales });
 
   return {
     entities,

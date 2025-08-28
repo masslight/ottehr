@@ -3,10 +3,9 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { DiagnosticReport, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getSecret, LAB_ORDER_TASK, Secrets, SecretsKeys } from 'utils';
-import { getAuth0Token, topLevelCatch, wrapHandler } from '../../../shared';
-import { createOystehrClient } from '../../../shared/helpers';
+import { diagnosticReportIsUnsolicited } from '../../../ehr/shared/labs';
+import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { createExternalLabResultPDF } from '../../../shared/pdf/labs-results-form-pdf';
-import { ZambdaInput } from '../../../shared/types';
 import { getCodeForNewTask, getStatusForNewTask } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -33,10 +32,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       console.log('already have token');
     }
 
+    const isUnsolicited = diagnosticReportIsUnsolicited(diagnosticReport);
+    const isUnsolicitedAndUnmatched = isUnsolicited && !diagnosticReport.subject?.reference?.startsWith('Patient/');
+
     const serviceRequestID = diagnosticReport?.basedOn
       ?.find((temp) => temp.reference?.startsWith('ServiceRequest/'))
       ?.reference?.split('/')[1];
-    if (!serviceRequestID) {
+
+    console.log('isUnsolicited:', isUnsolicited);
+    console.log('isUnsolicitedAndUnmatched:', isUnsolicitedAndUnmatched);
+    console.log('diagnosticReport: ', diagnosticReport.id);
+    console.log('serviceRequestID:', serviceRequestID);
+
+    if (!serviceRequestID && !isUnsolicited) {
       throw new Error('ServiceRequest id is not found');
     }
 
@@ -83,7 +91,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         },
       ],
       status: getStatusForNewTask(diagnosticReport.status),
-      code: getCodeForNewTask(diagnosticReport.status),
+      code: getCodeForNewTask(diagnosticReport, isUnsolicitedAndUnmatched),
     };
 
     requests.push({
@@ -106,7 +114,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       else if (ent.response?.outcome?.id === 'created' && ent.resource) response.createdTasks.push(ent.resource);
     });
 
-    await createExternalLabResultPDF(oystehr, serviceRequestID, diagnosticReport, false, secrets, oystehrToken);
+    // unsolicited result pdfs will be created after matching to a patient
+    if (!isUnsolicitedAndUnmatched && serviceRequestID) {
+      await createExternalLabResultPDF(oystehr, serviceRequestID, diagnosticReport, false, secrets, oystehrToken);
+    } else {
+      console.log('skipping pdf creation: ', isUnsolicited, isUnsolicitedAndUnmatched, serviceRequestID);
+    }
 
     return {
       statusCode: 200,

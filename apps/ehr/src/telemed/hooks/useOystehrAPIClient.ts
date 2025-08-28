@@ -32,6 +32,8 @@ export const useOystehrAPIClient = (): ReturnType<typeof getOystehrTelemedAPI> |
           removePatientCoverageZambdaID: 'remove-patient-coverage',
           sendFaxZambdaID: 'send-fax',
           externalLabResourceSearchID: 'get-create-lab-order-resources',
+          getUnsolicitedResultsResourcesID: 'get-unsolicited-results-resources',
+          updateLabOrderResourcesID: 'update-lab-order-resources',
         },
         oystehrZambda
       );
