@@ -846,7 +846,7 @@ async function createLabsResultsFormPdfBytes(dataConfig: ResultDataConfig): Prom
     pdfBytes = await createExternalLabsResultsFormPdfBytes(pdfClient, textStyles, data);
   } else if (type === LabType.unsolicited || type === LabType.reflex) {
     console.log('Getting pdf bytes for unsolicited external lab results');
-    pdfBytes = await createDiagnosticReportExternalLabsResultsFormPdfBytes(type, pdfClient, textStyles, data);
+    pdfBytes = await createDiagnosticReportExternalLabsResultsFormPdfBytes(pdfClient, textStyles, data);
   } else if (type === LabType.inHouse) {
     console.log('Getting pdf bytes for in house lab results');
     pdfBytes = await createInHouseLabsResultsFormPdfBytes(pdfClient, textStyles, data);
@@ -856,7 +856,6 @@ async function createLabsResultsFormPdfBytes(dataConfig: ResultDataConfig): Prom
 }
 
 async function createDiagnosticReportExternalLabsResultsFormPdfBytes(
-  type: LabType.unsolicited | LabType.reflex,
   pdfClient: PdfClient,
   textStyles: LabsPDFTextStyleConfig,
   data: UnsolicitedExternalLabResultsData | ReflexExternalLabResultsData
