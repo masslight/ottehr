@@ -278,7 +278,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
                 />
               </LabeledField>
             </Grid>
-            {/*this one to keep 2 and 3 columns empty*/}
+            {/* Empty grid item to maintain proper column alignment after adding the insurance type field */}
             <Grid item xs={6}></Grid>
             <Grid item xs={3} data-testid={dataTestIds.addInsuranceDialog.policyHoldersFirstName}>
               <LabeledField label="Policy holder's first name" required error={!!errors[FormFields.firstName.key]}>
