@@ -1,42 +1,17 @@
+import { NetworkType } from 'candidhealth/api/resources/preEncounter/resources/coverages/resources/v1';
 import { Coding } from 'fhir/r4b';
 
 export const INSURANCE_COVERAGE_TYPE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v3-ActCode';
 
-export type InsurancePlanTypeCode =
-  | '9'
-  | '11'
-  | '12'
-  | '13'
-  | '14'
-  | '15'
-  | '16'
-  | '17'
-  | 'AM'
-  | 'BL'
-  | 'CH'
-  | 'CI'
-  | 'DS'
-  | 'FI'
-  | 'HM'
-  | 'LM'
-  | 'MA'
-  | 'MB'
-  | 'MC'
-  | 'OF'
-  | 'TV'
-  | 'VA'
-  | 'WC'
-  | 'ZZ';
-
 export interface InsurancePlanType {
-  candidCode: InsurancePlanTypeCode;
+  candidCode: NetworkType;
   label: string;
   coverageCoding?: Coding;
 }
 
 export const InsurancePlanTypes: InsurancePlanType[] = [
   {
-    candidCode: '9',
+    candidCode: '09',
     label: 'Self Pay',
     coverageCoding: {
       system: 'http://terminology.hl7.org/CodeSystem/coverage-selfpay',

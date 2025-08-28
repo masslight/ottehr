@@ -4,6 +4,7 @@ import Oystehr, {
   BatchInputPutRequest,
   BatchInputRequest,
 } from '@oystehr/sdk';
+import { NetworkType } from 'candidhealth/api/resources/preEncounter/resources/coverages/resources/v1';
 import { randomUUID } from 'crypto';
 import { Operation, RemoveOperation } from 'fast-json-patch';
 import {
@@ -76,13 +77,12 @@ import {
   INSURANCE_CARD_CODE,
   INSURANCE_CARD_FRONT_2_ID,
   INSURANCE_CARD_FRONT_ID,
-  InsurancePlanTypeCode,
-  InsurancePlanTypes,
   IntakeQuestionnaireItem,
   isoStringFromDateComponents,
   isValidUUID,
   LanguageOption,
   mapBirthSexToGender,
+  mapCandidTypeToCoverageTypeCoding,
   OrderedCoverages,
   OrderedCoveragesWithSubscribers,
   OTTEHR_MODULE,
@@ -1406,8 +1406,6 @@ export const getCoverageResources = (input: GetCoveragesInput): GetCoverageResou
       secondInsuranceDetails ?? getInsuranceDetailsFromAnswers(flattenedPaperwork, organizationResources);
   }
 
-  console.log('First insurance details', JSON.stringify(firstInsuranceDetails));
-  console.log('Second insurance details', JSON.stringify(secondInsuranceDetails));
   const firstInsurance =
     firstPolicyHolder && firstInsuranceDetails
       ? { policyHolder: firstPolicyHolder, ...firstInsuranceDetails }
@@ -1736,7 +1734,7 @@ export function extractAccountGuarantor(items: QuestionnaireResponseItem[]): Res
 interface InsuranceDetails {
   org: Organization;
   additionalInformation?: string;
-  type: InsurancePlanTypeCode;
+  type: NetworkType;
 }
 function getInsuranceDetailsFromAnswers(
   answers: QuestionnaireResponseItem[],
@@ -1751,10 +1749,8 @@ function getInsuranceDetailsFromAnswers(
   const org = organizations.find((org) => `${org.resourceType}/${org.id}` === insuranceOrgReference.reference);
   if (!org) return undefined;
 
-  console.log('org', org);
-
   const type = answers.find((item) => item.linkId === `insurance-plan-type${suffix}`)?.answer?.[0]
-    ?.valueString as InsurancePlanTypeCode;
+    ?.valueString as NetworkType;
   if (!type) return undefined;
 
   const additionalInformation = answers.find((item) => item.linkId === `insurance-additional-information${suffix}`)
@@ -1770,7 +1766,7 @@ interface CreateCoverageResourceInput {
     org: Organization;
     policyHolder: PolicyHolder;
     additionalInformation?: string;
-    type: InsurancePlanTypeCode;
+    type: NetworkType;
   };
 }
 const createCoverageResource = (input: CreateCoverageResourceInput): Coverage => {
@@ -1815,10 +1811,8 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
   } else {
     contained = [containedPolicyHolder];
   }
-  const coverageTypeCoding = InsurancePlanTypes.find((planType) => planType.candidCode === type)?.coverageCoding;
-  console.log('coverageTypeCoding', coverageTypeCoding);
+  const coverageTypeCoding = mapCandidTypeToCoverageTypeCoding(type);
   if (!coverageTypeCoding) throw new Error("Can't find coverage type coding from candid code");
-  console.log('Coverage type coding:', coverageTypeCoding);
 
   const coverage: Coverage = {
     contained,

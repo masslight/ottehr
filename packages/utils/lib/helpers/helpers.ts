@@ -1,6 +1,9 @@
 import Oystehr, { OystehrConfig } from '@oystehr/sdk';
+import { NetworkType } from 'candidhealth/api/resources/preEncounter/resources/coverages/resources/v1';
 import {
   Appointment,
+  Coding,
+  Coverage,
   Extension,
   Organization,
   PaymentNotice,
@@ -8,7 +11,13 @@ import {
   Resource,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { FHIR_IDENTIFIER_SYSTEM, OTTEHR_MODULE, PAYMENT_METHOD_EXTENSION_URL, SLUG_SYSTEM } from '../fhir';
+import {
+  FHIR_IDENTIFIER_SYSTEM,
+  InsurancePlanTypes,
+  OTTEHR_MODULE,
+  PAYMENT_METHOD_EXTENSION_URL,
+  SLUG_SYSTEM,
+} from '../fhir';
 import { CashPaymentDTO, PatchPaperworkParameters, ScheduleOwnerFhirResource } from '../types';
 import { phoneRegex, zipRegex } from '../validation';
 
@@ -1190,4 +1199,20 @@ export const getPayerId = (org: Organization | undefined): string | undefined =>
       identifier.type?.coding?.some((coding) => coding.system === FHIR_IDENTIFIER_SYSTEM && coding.code === 'XX')
   )?.value;
   return payerId;
+};
+
+export const getCandidPlanTypeCodeFromCoverage = (coverage: Coverage): NetworkType | undefined => {
+  const allSystemsToSearchFor: string[] = [];
+  InsurancePlanTypes.forEach((planType) => {
+    const currentSystem = planType.coverageCoding?.system;
+    if (currentSystem && !allSystemsToSearchFor.includes(currentSystem)) allSystemsToSearchFor.push(currentSystem);
+  });
+  const coverageTypeCode = coverage.type?.coding?.find(
+    (coding) => coding.system && allSystemsToSearchFor.includes(coding.system)
+  )?.code;
+  return InsurancePlanTypes.find((planType) => planType.coverageCoding?.code === coverageTypeCode)?.candidCode;
+};
+
+export const mapCandidTypeToCoverageTypeCoding = (candidCode: NetworkType): Coding | undefined => {
+  return InsurancePlanTypes.find((planType) => planType.candidCode === candidCode)?.coverageCoding;
 };
