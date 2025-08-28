@@ -1,11 +1,15 @@
+import { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { CodeableConcept, Coding, Encounter, Provenance } from 'fhir/r4b';
+import { Operation } from 'fast-json-patch';
+import { Encounter, FhirResource, Provenance } from 'fhir/r4b';
 import {
   createExtensionValue,
   findExtensionIndex,
+  getPatchBinary,
   getSecret,
   PendingSupervisorApprovalInputValidated,
   SecretsKeys,
+  visitStatusToFhirEncounterStatusMap,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -14,6 +18,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
+import { createProvenanceForEncounter } from '../../shared/createProvenanceForEncounter';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -53,14 +58,51 @@ export const index = wrapHandler(
         })
       ).unbundle()[0];
 
-      await oystehr.fhir.update<Encounter>({
-        ...getUpdatedEncounter(encounter),
+      const encounterStatus = visitStatusToFhirEncounterStatusMap['completed'];
+
+      const encounterPatchOps: Operation[] = [
+        {
+          op: 'replace',
+          path: '/status',
+          value: encounterStatus,
+        },
+      ];
+
+      const awaitingSupervisorApprovalExtension = createExtensionValue(
+        'awaiting-supervisor-approval',
+        true,
+        'valueBoolean'
+      );
+      const existingExtensionIndex = findExtensionIndex(encounter.extension ?? [], 'awaiting-supervisor-approval');
+
+      if (existingExtensionIndex >= 0) {
+        encounterPatchOps.push({
+          op: 'replace',
+          path: `/extension/${existingExtensionIndex}`,
+          value: awaitingSupervisorApprovalExtension,
+        });
+      } else {
+        encounterPatchOps.push({
+          op: 'add',
+          path: encounter.extension ? '/extension/-' : '/extension',
+          value: encounter.extension ? awaitingSupervisorApprovalExtension : [awaitingSupervisorApprovalExtension],
+        });
+      }
+
+      const encounterPatch = getPatchBinary({
         resourceType: 'Encounter',
-        id: encounter.id,
+        resourceId: encounter.id!,
+        patchOperations: encounterPatchOps,
       });
 
-      await oystehr.fhir.create<Provenance>({
-        ...createProvenanceForEncounter(encounterId, practitionerId, 'author'),
+      const provenanceCreate: BatchInputRequest<Provenance> = {
+        method: 'POST',
+        url: '/Provenance',
+        resource: createProvenanceForEncounter(encounter.id!, practitionerId, 'author'),
+      };
+
+      await oystehr.fhir.transaction({
+        requests: [encounterPatch, provenanceCreate] as BatchInputRequest<FhirResource>[],
       });
 
       console.log(`Updated encounter: ${encounter.id}.`);
@@ -82,63 +124,3 @@ export const index = wrapHandler(
     }
   }
 );
-
-const getUpdatedEncounter = (encounter: Encounter): Encounter => {
-  const awaitingSupervisorApprovalExtension = createExtensionValue(
-    'awaiting-supervisor-approval',
-    true,
-    'valueBoolean'
-  );
-
-  const updatedEncounter: Encounter = structuredClone(encounter);
-
-  if (!updatedEncounter.extension) {
-    updatedEncounter.extension = [];
-  }
-  const existingExtensionIndex = findExtensionIndex(updatedEncounter.extension, 'awaiting-supervisor-approval');
-
-  if (existingExtensionIndex >= 0) {
-    updatedEncounter.extension[existingExtensionIndex] = awaitingSupervisorApprovalExtension;
-  } else {
-    updatedEncounter.extension.push(awaitingSupervisorApprovalExtension);
-  }
-
-  updatedEncounter.status = 'finished';
-
-  return updatedEncounter;
-};
-
-export function createProvenanceForEncounter(
-  encounterId: string,
-  practitionerId: string,
-  role: 'author' | 'verifier',
-  recorded: string = new Date().toISOString()
-): Provenance {
-  const roleCoding: Coding = {
-    system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
-    code: role,
-    display: role === 'author' ? 'Author' : 'Verifier',
-  };
-
-  const roleConcept: CodeableConcept = {
-    coding: [roleCoding],
-  };
-
-  return {
-    resourceType: 'Provenance',
-    target: [
-      {
-        reference: `Encounter/${encounterId}`,
-      },
-    ],
-    recorded,
-    agent: [
-      {
-        role: [roleConcept],
-        who: {
-          reference: `Practitioner/${practitionerId}`,
-        },
-      },
-    ],
-  };
-}

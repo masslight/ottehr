@@ -1,8 +1,8 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { Provenance } from 'fhir/r4b';
+import { FhirResource, Provenance } from 'fhir/r4b';
 import {
   extractExtensionValue,
   findExtensionIndex,
@@ -20,6 +20,7 @@ import {
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createEncounterFromAppointment } from '../../shared/candid';
+import { createProvenanceForEncounter } from '../../shared/createProvenanceForEncounter';
 import { createPublishExcuseNotesOps } from '../../shared/createPublishExcuseNotesOps';
 import { createOystehrClient } from '../../shared/helpers';
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
@@ -28,7 +29,6 @@ import { FullAppointmentResourcePackage } from '../../shared/pdf/visit-details-p
 import { composeAndCreateVisitNotePdf } from '../../shared/pdf/visit-details-pdf/visit-note-pdf-creation';
 import { getChartData } from '../get-chart-data';
 import { getMedicationOrders } from '../get-medication-orders';
-import { createProvenanceForEncounter } from '../pending-supervisor-approval';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -214,6 +214,8 @@ const changeStatusToCompleted = async (
   );
   encounterPatchOps.push(encounterStatusHistoryUpdate);
 
+  let provenanceCreate: BatchInputRequest<Provenance> | undefined;
+
   if (supervisorApprovalEnabled) {
     const extensionIndex = findExtensionIndex(
       resourcesToUpdate.encounter.extension || [],
@@ -228,10 +230,15 @@ const changeStatusToCompleted = async (
           path: `/extension/${extensionIndex}/valueBoolean`,
           value: false,
         });
-
-        await oystehr.fhir.create<Provenance>({
-          ...createProvenanceForEncounter(resourcesToUpdate.encounter.id, user.profile.split('/')[1], 'verifier'),
-        });
+        provenanceCreate = {
+          method: 'POST',
+          url: '/Provenance',
+          resource: createProvenanceForEncounter(
+            resourcesToUpdate.encounter.id,
+            user.profile.split('/')[1],
+            'verifier'
+          ),
+        };
       }
     }
   }
@@ -250,6 +257,11 @@ const changeStatusToCompleted = async (
   });
 
   await oystehr.fhir.transaction({
-    requests: [appointmentPatch, encounterPatch, ...documentPatch],
+    requests: [
+      appointmentPatch,
+      encounterPatch,
+      ...(provenanceCreate ? [provenanceCreate] : []),
+      ...documentPatch,
+    ] as BatchInputRequest<FhirResource>[],
   });
 };
