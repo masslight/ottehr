@@ -27,6 +27,10 @@ export const LAB_ORDER_TASK = {
 } as const;
 export type LabOrderTaskCode = (typeof LAB_ORDER_TASK.code)[keyof typeof LAB_ORDER_TASK.code];
 
+// should match oystehr
+export const DR_UNSOLICITED_PATIENT_REF = 'unsolicitedResultPatientId';
+export const DR_UNSOLICITED_PRACTITIONER_REF = 'unsolicitedResultPractitionerId';
+
 export const PSC_HOLD_LOCALE = 'PSC Hold';
 export const PSC_LOCALE = 'PSC';
 

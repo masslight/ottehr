@@ -1,17 +1,12 @@
 import { Grid, Typography } from '@mui/material';
 import { FC, useMemo, useState } from 'react';
 import { getFullName, mdyStringFromISOString } from 'utils';
-import { getSelectors } from '../../../../shared/store/getSelectors';
 import { PencilIconButton } from '../../../components/PencilIconButton';
-import { useAppointmentStore } from '../../../state';
+import { useAppointmentData } from '../../../state';
 import { EditPatientNameDialog } from './EditPatientNameDialog';
 
 export const TitleRow: FC = () => {
-  const { patient, appointment, locationVirtual } = getSelectors(useAppointmentStore, [
-    'patient',
-    'appointment',
-    'locationVirtual',
-  ]);
+  const { patient, appointment, locationVirtual } = useAppointmentData();
 
   const fullName = useMemo(() => {
     if (patient) {
@@ -21,12 +16,13 @@ export const TitleRow: FC = () => {
   }, [patient]);
 
   const visitStarted = appointment?.start && mdyStringFromISOString(appointment?.start);
+
   const office =
     locationVirtual?.address?.state &&
     locationVirtual?.name &&
     `${locationVirtual?.name}, ${locationVirtual?.address?.state.toUpperCase()}`;
-  const [updateNameModalOpen, setUpdateNameModalOpen] = useState<boolean>(false);
 
+  const [updateNameModalOpen, setUpdateNameModalOpen] = useState<boolean>(false);
   const closePatientNameModal = (): void => setUpdateNameModalOpen(false);
 
   return (

@@ -2,8 +2,7 @@ import { Autocomplete, TextField } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC } from 'react';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
-import { useAppointmentStore, useDeleteChartData, useSaveChartData } from '../../../../state';
+import { useChartData, useDeleteChartData, useSaveChartData } from '../../../../state';
 
 export type CPTCodeOption = {
   code: string;
@@ -11,9 +10,8 @@ export type CPTCodeOption = {
 };
 
 export const EMCodeField: FC = () => {
-  const { chartData, setPartialChartData } = getSelectors(useAppointmentStore, ['chartData', 'setPartialChartData']);
+  const { chartData, setPartialChartData } = useChartData();
   const emCode = chartData?.emCode;
-
   const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
   const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
 

@@ -311,6 +311,7 @@ export const makeEncounterLabResults = async (
         ?.reference;
       if (serviceRequestRef) {
         const relatedSRDetail = serviceRequestMap[serviceRequestRef];
+        if (!relatedSRDetail) continue;
         if (relatedSRDetail.type === LabType.external) {
           const sr = relatedSRDetail.resource;
           const isReflex = diagnosticReportIsReflex(relatedDR);

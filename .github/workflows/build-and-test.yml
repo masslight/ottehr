@@ -37,6 +37,8 @@ jobs:
         node-version:
           - "20"
           - "22"
+    env:
+      SECRETS_REPOSITORY: ${{ vars.SECRETS_REPOSITORY }} # Secrets repository for configuration files
     steps:
       - name: Install SSH Client
         uses: webfactory/ssh-agent@v0.7.0
@@ -61,7 +63,7 @@ jobs:
       - name: Check out secrets repo
         uses: actions/checkout@v4
         with:
-          repository: masslight/ottehr-secrets
+          repository: ${{ env.SECRETS_REPOSITORY }}
           ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
           path: 'secrets'
 

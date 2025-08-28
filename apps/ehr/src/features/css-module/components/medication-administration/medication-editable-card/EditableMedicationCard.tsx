@@ -1,8 +1,9 @@
 import { Medication } from 'fhir/r4b';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { MedicationWithTypeDTO, useMedicationHistory } from 'src/features/css-module/hooks/useMedicationHistory';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { useAppointmentData } from 'src/telemed';
 import { ERX, ERXStatus } from 'src/telemed/features/appointment/ERX';
 import {
   ExtendedMedicationDataForResponse,
@@ -14,7 +15,6 @@ import {
   MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM,
   UpdateMedicationOrderInput,
 } from 'utils';
-import { useAppointment } from '../../../hooks/useAppointment';
 import { OrderFieldsSelectsOptions, useFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
 import { useMedicationManagement } from '../../../hooks/useMedicationManagement';
 import { useReactNavigationBlocker } from '../../../hooks/useReactNavigationBlocker';
@@ -61,8 +61,8 @@ export const EditableMedicationCard: React.FC<{
   const [isConfirmSaveModalOpen, setIsConfirmSaveModalOpen] = useState(false);
   const confirmedMedicationUpdateRequestRef = useRef<Partial<UpdateMedicationOrderInput>>({});
   const [confirmationModalConfig, setConfirmationModalConfig] = useState<ConfirmSaveModalConfig | null>(null);
-  const { mappedData, resources } = useAppointment(appointmentId);
   const [isReasonSelected, setIsReasonSelected] = useState(true);
+  const { mappedData, resources } = useAppointmentData();
   const selectsOptions = useFieldsSelectsOptions();
   const [erxStatus, setERXStatus] = useState(ERXStatus.LOADING);
   const [interactionsCheckState, setInteractionsCheckState] = useState<InteractionsCheckState>({ status: 'done' });
@@ -481,6 +481,7 @@ export const EditableMedicationCard: React.FC<{
           handleConfirm={handleConfirmSave}
           description={''}
           {...confirmationModalConfig}
+          ContentComponent={confirmationModalConfig.ContentComponent?.({}) as ReactElement}
         />
       ) : null}
       <ConfirmationModalForLeavePage />

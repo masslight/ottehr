@@ -3,11 +3,11 @@ import { FC } from 'react';
 import { getSpentTime } from 'utils';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { useFeatureFlags } from '../../../../../features/css-module/context/featureFlags';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../../state';
+import { useAppointmentData, useChartData } from '../../../../state';
 
 export const ChiefComplaintContainer: FC = () => {
-  const { chartData, encounter } = getSelectors(useAppointmentStore, ['chartData', 'encounter']);
+  const { encounter } = useAppointmentData();
+  const { chartData } = useChartData();
   const { css } = useFeatureFlags();
 
   const chiefComplaint = chartData?.chiefComplaint?.text;

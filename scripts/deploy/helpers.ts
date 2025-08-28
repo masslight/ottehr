@@ -6,6 +6,7 @@ const projectConfig: any = config;
 const environment = projectConfig.environment;
 
 export async function updateOystehr(oystehr: Oystehr, patientPortalUrl: string, ehrUrl: string): Promise<void> {
+  console.log('Updating Oystehr applications');
   const applications = await oystehr.application.list();
   const envPatientPortalFile = fs.readFileSync(`${__dirname}/../../apps/intake/env/.env.${environment}`, 'utf8');
   const applicationPatientPortalClientID = envPatientPortalFile
@@ -47,7 +48,7 @@ export async function updateOystehr(oystehr: Oystehr, patientPortalUrl: string, 
 }
 
 export async function updateEnvFiles(environment: string, patientPortalUrl: string, ehrUrl: string): Promise<void> {
-  console.log(__dirname);
+  console.log('Updating website env files');
   let patientPortalEnvFile = fs.readFileSync(`${__dirname}/../../apps/intake/env/.env.${environment}`, 'utf8');
   patientPortalEnvFile = patientPortalEnvFile.replace(/paperwork\//g, '');
   patientPortalEnvFile = patientPortalEnvFile.replace(

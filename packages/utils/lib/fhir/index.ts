@@ -8,7 +8,6 @@ export * from './patient';
 export * from './helpers';
 export * from './chat';
 export * from './disposition';
-export * from './exam-observations';
 export * from './convertFhirNameToDisplayName';
 export * from './list';
 export * from './location';

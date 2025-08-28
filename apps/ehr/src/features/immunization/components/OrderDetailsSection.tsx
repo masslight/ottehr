@@ -1,13 +1,21 @@
 import { Grid, Typography, useTheme } from '@mui/material';
 import React from 'react';
-import { MedicationSelectInput } from 'src/components/input/MedicationSelectInput';
+import { AutocompleteInput } from 'src/components/input/AutocompleteInput';
 import { ProviderSelectInput } from 'src/components/input/ProviderSelectInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
+import { useGetVaccines } from 'src/features/css-module/hooks/useImmunization';
 import { LOCATION_OPTIONS, ROUTE_OPTIONS, UNIT_OPTIONS } from 'src/shared/utils';
 
 export const OrderDetailsSection: React.FC = () => {
   const theme = useTheme();
+  const { data: vaccines, isLoading } = useGetVaccines();
+  const vaccineOptions = vaccines?.map((vaccine) => {
+    return {
+      value: vaccine.id,
+      label: vaccine.name,
+    };
+  });
   return (
     <Grid container spacing={2}>
       <Grid xs={12} item>
@@ -21,10 +29,16 @@ export const OrderDetailsSection: React.FC = () => {
         </Typography>
       </Grid>
       <Grid xs={6} item>
-        <MedicationSelectInput name="details.medicationId" label="Vaccine" required />
+        <AutocompleteInput
+          name="details.medicationId"
+          label="Vaccine"
+          options={vaccineOptions}
+          loading={isLoading}
+          required
+        />
       </Grid>
       <Grid xs={3} item>
-        <TextInput name="details.dose" label="Dose" required />
+        <TextInput name="details.dose" label="Dose" type="number" required />
       </Grid>
       <Grid xs={3} item>
         <SelectInput name="details.units" label="Units" options={UNIT_OPTIONS} required />
