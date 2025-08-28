@@ -121,6 +121,7 @@ export type LabOrderListPageDTO = {
   diagnoses: string; // SR.reasonCode joins
   orderStatus: ExternalLabsStatus; // Derived from SR, Tasks and DiagnosticReports based on the mapping table
   isPSC: boolean; // Derived from SR.orderDetail
+  // todo sarah should probably kill this
   reflexResultsCount: number; // Number of DiagnosticReports with the same SR identifier but different test codes
   appointmentId: string;
   visitDate: string; // based on appointment
@@ -140,7 +141,7 @@ export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {
   orderPdfUrl?: string; // will exist after order is submitted
 };
 
-export type UnsolicitedLabDetailedPageDTO = Omit<
+export type DiagnosticReportLabDetailPageDTO = Omit<
   LabOrderDetailedPageDTO,
   | 'serviceRequestId'
   | 'orderAddedDate'
@@ -156,13 +157,20 @@ export type UnsolicitedLabDetailedPageDTO = Omit<
   | 'accountNumber'
   | 'labelPdfUrl'
   | 'orderPdfUrl'
-> & {
+>;
+
+export type ReflexLabDTO = DiagnosticReportLabDetailPageDTO & {
+  isReflex: true;
+  orderNumber: string;
+};
+
+export type UnsolicitedLabDTO = DiagnosticReportLabDetailPageDTO & {
   isUnsolicited: true;
   patientId: string;
 };
 
 export type LabOrderDTO<SearchBy extends LabOrdersSearchBy> = SearchBy extends {
-  searchBy: { field: 'serviceRequestId' };
+  searchBy: { field: 'serviceRequestId' | 'diagnosticReportId' };
 }
   ? LabOrderDetailedPageDTO
   : LabOrderListPageDTO;
@@ -171,6 +179,7 @@ export type PaginatedResponse<RequestParameters extends GetLabOrdersParameters =
   data: LabOrderDTO<RequestParameters>[];
   pagination: Pagination;
   patientLabItems?: PatientLabItem[];
+  reflexResults: ReflexLabDTO[];
 };
 
 export type LabOrdersSearchBy = {
@@ -178,7 +187,8 @@ export type LabOrdersSearchBy = {
     | { field: 'encounterId'; value: string }
     | { field: 'encounterIds'; value: string[] }
     | { field: 'patientId'; value: string }
-    | { field: 'serviceRequestId'; value: string };
+    | { field: 'serviceRequestId'; value: string }
+    | { field: 'diagnosticReportId'; value: string };
 };
 
 export type LabOrdersSearchFilters = {
@@ -195,6 +205,7 @@ export enum LabType {
   external = 'external',
   inHouse = 'in-house',
   unsolicited = 'unsolicited', // external but has less fhir resources available since it did not originate from ottehr
+  reflex = 'reflex', // external but has less fhir resources available since it did not originate from ottehr
 }
 
 export type GetLabOrdersParameters = LabOrdersSearchBy & LabOrdersSearchFilters & LabOrdersPaginationOptions;
@@ -397,7 +408,7 @@ export type RelatedRequestsToUnsolicitedResultOutput = {
 };
 
 export type GetUnsolicitedResultsReviewResourcesOutput = {
-  labOrder: UnsolicitedLabDetailedPageDTO;
+  labOrder: UnsolicitedLabDTO;
 };
 
 export type GetUnsolicitedResultsResourcesOutput =

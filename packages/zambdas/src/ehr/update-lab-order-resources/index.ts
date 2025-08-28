@@ -42,7 +42,7 @@ import {
 import { createExternalLabsLabelPDF, ExternalLabsLabelConfig } from '../../shared/pdf/external-labs-label-pdf';
 import {
   createExternalLabResultPDF,
-  createExternalLabUnsolicitedResultPDF,
+  createExternalLabResultPDFBasedOnDr,
 } from '../../shared/pdf/labs-results-form-pdf';
 import { diagnosticReportIsUnsolicited, getExternalLabOrderResourcesViaServiceRequest } from '../shared/labs';
 import {
@@ -341,7 +341,7 @@ const handleReviewedEvent = async ({
 
   if (isUnsolicited) {
     console.log('creating pdf for unsolicited result:', diagnosticReportId);
-    await createExternalLabUnsolicitedResultPDF(oystehr, diagnosticReportId, true, secrets, m2mToken);
+    await createExternalLabResultPDFBasedOnDr(oystehr, 'unsolicited', diagnosticReportId, true, secrets, m2mToken);
   } else if (serviceRequestId) {
     console.log('creating pdf for solicited result:', diagnosticReportId);
     await createExternalLabResultPDF(oystehr, serviceRequestId, diagnosticReport, true, secrets, m2mToken);

@@ -1,8 +1,10 @@
 import React from 'react';
 import { useParams } from 'react-router-dom';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
+import { LabOrdersSearchBy } from 'utils';
 import { DetailsWithoutResults } from '../components/details/DetailsWithoutResults';
 import { DetailsWithResults } from '../components/details/DetailsWithResults';
+import { ReflexResultDetails } from '../components/details/ReflexResultDetails';
 import { LabBreadcrumbs } from '../components/labs-orders/LabBreadcrumbs';
 import { LabOrderLoading } from '../components/labs-orders/LabOrderLoading';
 import { usePatientLabOrders } from '../components/labs-orders/usePatientLabOrders';
@@ -10,10 +12,15 @@ import { usePatientLabOrders } from '../components/labs-orders/usePatientLabOrde
 export const OrderDetailsPage: React.FC = () => {
   const urlParams = useParams();
   const serviceRequestId = urlParams.serviceRequestID as string;
+  const diagnosticReportId = urlParams.diagnosticReportId as string;
 
-  const { labOrders, loading, markTaskAsReviewed } = usePatientLabOrders({
-    searchBy: { field: 'serviceRequestId', value: serviceRequestId },
-  });
+  const isReflexLab = !!diagnosticReportId;
+
+  const searchBy: LabOrdersSearchBy['searchBy'] = isReflexLab
+    ? { field: 'diagnosticReportId', value: diagnosticReportId }
+    : { field: 'serviceRequestId', value: serviceRequestId };
+
+  const { labOrders, reflexResults, loading, markTaskAsReviewed } = usePatientLabOrders({ searchBy });
 
   // todo: validate response on the get-lab-orders zambda and use labOrder[0]
   const labOrder = labOrders.find((order) => order.serviceRequestId === serviceRequestId);
@@ -24,7 +31,9 @@ export const OrderDetailsPage: React.FC = () => {
     return <LabOrderLoading />;
   }
 
-  if (!labOrder) {
+  if (isReflexLab && reflexResults.length) {
+    return <ReflexResultDetails reflexResult={reflexResults[0]}></ReflexResultDetails>;
+  } else if (!labOrder) {
     console.error('No external lab order found');
     return null;
   }

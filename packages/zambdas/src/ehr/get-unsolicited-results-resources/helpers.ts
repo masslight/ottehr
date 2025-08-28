@@ -2,35 +2,35 @@ import Oystehr, { SearchParam } from '@oystehr/sdk';
 import {
   Appointment,
   DiagnosticReport,
-  DocumentReference,
   Encounter,
   FhirResource,
   Organization,
   Patient,
   Practitioner,
   ServiceRequest,
-  Task,
 } from 'fhir/r4b';
 import {
+  DiagnosticReportLabDetailPageDTO,
   DR_UNSOLICITED_PATIENT_REF,
   DR_UNSOLICITED_PRACTITIONER_REF,
   getFullestAvailableName,
-  getTestItemCodeFromDR,
-  getTestNameFromDR,
   GetUnsolicitedResultsResourcesForIcon,
   GetUnsolicitedResultsResourcesForMatch,
   GetUnsolicitedResultsResourcesForTable,
   GetUnsolicitedResultsReviewResourcesOutput,
   LAB_ORDER_TASK,
-  LabOrderResultDetails,
-  OYSTEHR_LAB_GUID_SYSTEM,
   RelatedRequestsToUnsolicitedResultOutput,
-  UnsolicitedLabDetailedPageDTO,
+  UnsolicitedLabDTO,
   UnsolicitedResultTaskRowDTO,
   UR_TASK_ACTION,
 } from 'utils';
-import { parseAccessionNumber, parseLabOrderStatusWithSpecificTask } from '../get-lab-orders/helpers';
-import { fetchLabOrderPDFsPresignedUrls } from '../shared/labs';
+import {
+  AllResources,
+  formatResourcesIntoDiagnosticReportLabDTO,
+  getTestNameOrCodeFromDr,
+  groupResourcesByDr,
+  ResourcesByDr,
+} from '../shared/labs';
 
 export const getUnsolicitedDRandRelatedResources = async (
   oystehr: Oystehr,
@@ -135,103 +135,20 @@ export const handleFormatLabDTOForUnsolicitedResultReview = async (
     { name: '_id', value: diagnosticReportId },
     { name: '_include', value: 'DiagnosticReport:subject' }, // patient
     { name: '_revinclude:iterate', value: 'DocumentReference:related' }, // result pdf
+    { name: '_include', value: 'DiagnosticReport:performer' }, // lab org
   ]);
   console.log('grouping the resources returned by diagnostic report', resources.length);
   const groupedResources = groupResourcesByDr([...resources]);
   const resourcesForDr = groupedResources[diagnosticReportId];
 
   if (!resourcesForDr) throw Error(`Could not get resourcesForDr for diagnosticReport: ${diagnosticReportId}`);
-  const labDetailDTO: UnsolicitedLabDetailedPageDTO = await formatResourcesIntoLabOrderDTO(resourcesForDr, token);
+  const diagnosticReportLabDetailDTO = await formatResourcesIntoDiagnosticReportLabDTO(resourcesForDr, token);
+  const unsolicitedLabDTO = formatResourcesIntoUnsolicitedLabDTO(
+    diagnosticReportLabDetailDTO,
+    resourcesForDr.patient?.id || ''
+  );
 
-  return { labOrder: labDetailDTO };
-};
-
-type AllResources = {
-  diagnosticReport: DiagnosticReport;
-  readyTasks: Task[];
-  completedTasks: Task[];
-  patient?: Patient;
-  labOrg?: Organization;
-  documentReference?: DocumentReference;
-};
-type ResourcesByDr = {
-  [diagnosticReportId: string]: AllResources;
-};
-
-const groupResourcesByDr = (resources: FhirResource[]): ResourcesByDr => {
-  const drMap: ResourcesByDr = {};
-  const readyTasks: Task[] = [];
-  const completedTasks: Task[] = [];
-  const patients: Patient[] = [];
-  const patientRefToRelatedDrMap: Record<string, string> = {};
-  const orgRefToRelatedDrMap: Record<string, string> = {};
-  const labOrganizations: Organization[] = [];
-  const currentDocRefs: DocumentReference[] = [];
-  resources.forEach((resource) => {
-    if (resource.resourceType === 'DiagnosticReport') {
-      if (resource.id) {
-        drMap[resource.id] = { diagnosticReport: resource, readyTasks: [], completedTasks: [] };
-        const isPatientSubject = resource.subject?.reference?.startsWith('Patient/');
-        if (isPatientSubject) {
-          const patientRef = resource.subject?.reference;
-          if (patientRef) patientRefToRelatedDrMap[patientRef] = resource.id;
-        }
-        const orgPerformer = resource.performer?.find((p) => p.reference?.startsWith('Organization/'))?.reference;
-        if (orgPerformer) orgRefToRelatedDrMap[orgPerformer] = resource.id;
-      }
-    }
-    if (resource.resourceType === 'Organization') {
-      const isLabOrg = !!resource.identifier?.some((id) => id.system === OYSTEHR_LAB_GUID_SYSTEM);
-      if (isLabOrg) labOrganizations.push(resource);
-    }
-    if (resource.resourceType === 'Task') {
-      if (resource.status === 'ready') {
-        readyTasks.push(resource);
-      } else if (resource.status === 'completed') {
-        completedTasks.push(resource);
-      }
-    }
-    if (resource.resourceType === 'DocumentReference' && resource.status === 'current') currentDocRefs.push(resource);
-    if (resource.resourceType === 'Patient') patients.push(resource);
-  });
-  readyTasks.forEach((task) => {
-    const relatedDrId = task.basedOn
-      ?.find((ref) => ref.reference?.startsWith('DiagnosticReport'))
-      ?.reference?.replace('DiagnosticReport/', '');
-
-    if (relatedDrId) {
-      drMap[relatedDrId].readyTasks.push(task);
-    }
-  });
-  completedTasks.forEach((task) => {
-    const relatedDrId = task.basedOn
-      ?.find((ref) => ref.reference?.startsWith('DiagnosticReport'))
-      ?.reference?.replace('DiagnosticReport/', '');
-
-    if (relatedDrId) {
-      drMap[relatedDrId].completedTasks.push(task);
-    }
-  });
-  patients.forEach((patient) => {
-    const patientRef = `Patient/${patient.id}`;
-    const drId = patientRefToRelatedDrMap[patientRef];
-    drMap[drId].patient = patient;
-  });
-  labOrganizations.forEach((labOrg) => {
-    const labOrgRef = `Organization/${labOrg.id}`;
-    const drId = orgRefToRelatedDrMap[labOrgRef];
-    drMap[drId].labOrg = labOrg;
-  });
-  currentDocRefs.forEach((docRef) => {
-    const relatedDrId = docRef.context?.related
-      ?.find((ref) => ref.reference?.startsWith('DiagnosticReport/'))
-      ?.reference?.replace('DiagnosticReport/', '');
-    console.log('check me!!', relatedDrId);
-    if (relatedDrId) {
-      drMap[relatedDrId].documentReference = docRef;
-    }
-  });
-  return drMap;
+  return { labOrder: unsolicitedLabDTO };
 };
 
 const formatResourcesForTaskTableResponse = (resources: ResourcesByDr): UnsolicitedResultTaskRowDTO[] => {
@@ -265,9 +182,7 @@ const getURDescriptionText = (
   patient?: Patient,
   labOrg?: Organization
 ): string => {
-  const testName = getTestNameFromDR(diagnosticReport);
-  const testItemCode = getTestItemCodeFromDR(diagnosticReport);
-  const testDescription = testName || testItemCode || 'missing test name';
+  const testDescription = getTestNameOrCodeFromDr(diagnosticReport);
   const labName = labOrg?.name || 'Source lab not specified';
 
   // only matched results will have patient linked
@@ -312,13 +227,6 @@ const getURActionTextAndUrl = (
   }
 };
 
-const getTestNameFromDr = (dr: DiagnosticReport): string => {
-  const testName = getTestNameFromDR(dr);
-  const testItemCode = getTestItemCodeFromDR(dr);
-  const testDescription = testName || testItemCode || '';
-  return testDescription;
-};
-
 const taskIsLabRelated = (code: string): boolean => {
   const relevantLabCodes: string[] = [
     LAB_ORDER_TASK.code.matchUnsolicitedResult,
@@ -345,7 +253,7 @@ const formatResourcesForURMatchTaskResponse = (resources: AllResources): GetUnso
   const patientName = unsolicitedPatient ? getFullestAvailableName(unsolicitedPatient, true) : undefined;
   const patientDOB = unsolicitedPatient?.birthDate;
   const providerName = unsolicitedProvider ? getFullestAvailableName(unsolicitedProvider, true) : undefined;
-  const test = getTestNameFromDr(diagnosticReport);
+  const test = getTestNameOrCodeFromDr(diagnosticReport);
   const labName = labOrg?.name;
   const resultsReceived = diagnosticReport.effectiveDateTime;
 
@@ -393,7 +301,7 @@ const getEncountersPossiblyRelatedToUnsolicitedResult = async (
     }[]
   | null
 > => {
-  const testItemCode = getTestItemCodeFromDR(dr);
+  const testItemCode = getTestNameOrCodeFromDr(dr);
   console.log('testItemCode parsed from unsolicited result dr:', testItemCode);
   if (!testItemCode) return null;
   console.log('searching for encounters, service requests and appointments with patientId', patientId);
@@ -489,87 +397,9 @@ const getEncountersPossiblyRelatedToUnsolicitedResult = async (
   return null;
 };
 
-const formatResourcesIntoLabOrderDTO = async (
-  resources: AllResources,
-  token: string
-): Promise<UnsolicitedLabDetailedPageDTO> => {
-  const { diagnosticReport, readyTasks, completedTasks, labOrg, documentReference, patient } = resources;
-  const readyTask = readyTasks[0]; // im not sure there would ever be a scenario where there is more than one ready task per DR
-  const completedTask = completedTasks[0];
-
-  if (!readyTask && !completedTask) {
-    throw Error(`No tasks found for diagnostic report: ${diagnosticReport.id}`);
-  }
-
-  const task = readyTask || completedTask;
-
-  // const history: LabOrderHistoryRow[] = [parseTaskReceivedAndReviewedAndCorrectedHistory(task, )]
-
-  console.log('forming result detail');
-  const detail = await getResultDetailsForUnsolicitedResult(diagnosticReport, task, documentReference, token);
-
-  console.log('formatting dto');
-  const dto: UnsolicitedLabDetailedPageDTO = {
-    testItem: getTestNameFromDr(diagnosticReport),
-    fillerLab: labOrg?.name || '',
-    orderStatus: parseLabOrderStatusWithSpecificTask(diagnosticReport, task, undefined, null),
-    isPSC: false,
-    lastResultReceivedDate: diagnosticReport.effectiveDateTime || '',
-    accessionNumbers: [parseAccessionNumber([diagnosticReport])],
-    history: [], // todo post mvp
-    resultsDetails: [detail],
-    questionnaire: [], // will always be empty but is easier for the front end to consume an empty array
-    samples: [], // will always be empty but is easier for the front end to consume an empty array
-    isUnsolicited: true,
-    patientId: patient?.id || '',
-  };
-
-  return dto;
-};
-
-const getResultDetailsForUnsolicitedResult = async (
-  diagnosticReport: DiagnosticReport,
-  task: Task,
-  documentReference: DocumentReference | undefined,
-  token: string
-): Promise<LabOrderResultDetails> => {
-  const resultType: LabOrderResultDetails['resultType'] = (() => {
-    switch (diagnosticReport.status) {
-      case 'final':
-        return 'final';
-      case 'preliminary':
-        return 'preliminary';
-      case 'cancelled':
-        return 'cancelled';
-      default:
-        throw Error(`Error parsing result type for diagnostic report: ${diagnosticReport.id}`);
-    }
-  })();
-
-  const resultPdfUrl = documentReference ? await getResultPDFUrl(documentReference, token) : '';
-
-  const resultDetail: LabOrderResultDetails = {
-    testItem: getTestNameFromDr(diagnosticReport),
-    testType: 'unsolicited',
-    resultType,
-    labStatus: parseLabOrderStatusWithSpecificTask(diagnosticReport, task, undefined, null),
-    receivedDate: diagnosticReport.effectiveDateTime || '',
-    reviewedDate: '', // todo future, this only gets passed for prelim
-    resultPdfUrl,
-    diagnosticReportId: diagnosticReport.id || '',
-    taskId: task.id || '',
-  };
-
-  return resultDetail;
-};
-
-const getResultPDFUrl = async (docRef: DocumentReference, m2mToken: string): Promise<string> => {
-  const pdfs = await fetchLabOrderPDFsPresignedUrls([docRef], m2mToken);
-  const resultPDFs = pdfs?.resultPDFs;
-  if (resultPDFs?.length !== 1) {
-    console.log('Unexpected number of resultPDFs returned: ', resultPDFs?.length);
-    return '';
-  }
-  const pdfUrl = resultPDFs[0].presignedURL;
-  return pdfUrl;
+const formatResourcesIntoUnsolicitedLabDTO = (
+  diagnosticReportLabDTO: DiagnosticReportLabDetailPageDTO,
+  patientId: string
+): UnsolicitedLabDTO => {
+  return { ...diagnosticReportLabDTO, isUnsolicited: true, patientId };
 };
