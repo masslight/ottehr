@@ -1,36 +1,24 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import {
-  FhirResource,
-  Medication,
-  MedicationAdministration,
-  MedicationStatement,
-  Practitioner,
-  Reference,
-  RelatedPerson,
-} from 'fhir/r4b';
+import { FhirResource, MedicationAdministration, Practitioner, Reference, RelatedPerson } from 'fhir/r4b';
 import {
   AdministerImmunizationOrderRequest,
   CODE_SYSTEM_CPT,
   CODE_SYSTEM_NDC,
   codeableConcept,
-  createReference,
   CreateUpdateImmunizationOrderResponse,
   EMERGENCY_CONTACT_RELATIONSHIPS,
   getFullName,
-  getMedicationName,
   ImmunizationEmergencyContact,
   mapFhirToOrderStatus,
   mapOrderStatusToFhir,
   MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
   MEDICATION_ADMINISTRATION_REASON_CODE,
-  MEDICATION_DISPENSABLE_DRUG_ID,
   PRACTITIONER_ADMINISTERED_MEDICATION_CODE,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
-  fillMeta,
   getMyPractitionerId,
   validateJsonBody,
   wrapHandler,
@@ -174,19 +162,6 @@ async function administerImmunizationOrder(
     },
   ];
 
-  if (['administered', 'administered-partly'].includes(input.type)) {
-    transactionRequests.push({
-      method: 'POST',
-      url: `/MedicationStatement`,
-      resource: createMedicationStatement(
-        medicationAdministration,
-        medication,
-        administrationDetails.administeredDateTime,
-        userPractitioner
-      ),
-    });
-  }
-
   console.log('Transaction requests: ', JSON.stringify(transactionRequests));
   const transactionResult = await oystehr.fhir.transaction({ requests: transactionRequests });
   console.log('Transaction result: ', JSON.stringify(transactionResult));
@@ -240,43 +215,6 @@ export function validateRequestParameters(
     details,
     administrationDetails,
     secrets: input.secrets,
-  };
-}
-
-function createMedicationStatement(
-  medicationAdministration: MedicationAdministration,
-  medication: Medication,
-  administeredDateTime: string,
-  userPractitioner: Practitioner
-): MedicationStatement {
-  const drugIdCoding = medication.code?.coding?.find((code) => code.system === MEDICATION_DISPENSABLE_DRUG_ID);
-  if (!drugIdCoding) throw new Error(`Can't create MedicationStatement for order, Medication doesn't have drug id`);
-  return {
-    resourceType: 'MedicationStatement',
-    status: 'active',
-    partOf: [createReference(medicationAdministration)],
-    medicationCodeableConcept: {
-      coding: [{ ...drugIdCoding, display: getMedicationName(medication) }],
-    },
-    dosage: [
-      {
-        text: medicationAdministration.dosage?.text,
-        doseAndRate: [
-          {
-            doseQuantity: medicationAdministration.dosage?.dose,
-          },
-        ],
-        route: medicationAdministration.dosage?.route,
-        site: medicationAdministration.dosage?.site,
-      },
-    ],
-    subject: medicationAdministration.subject,
-    informationSource: {
-      ...createReference(userPractitioner),
-      display: getFullName(userPractitioner),
-    },
-    effectiveDateTime: administeredDateTime,
-    meta: fillMeta('immunization', 'immunization'),
   };
 }
 
