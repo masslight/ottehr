@@ -308,7 +308,9 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
                 options={InsurancePlanTypes}
                 value={selectedOption ?? ({} as InsurancePlanType)}
                 isOptionEqualToValue={(option, value) => option?.candidCode === value?.candidCode}
-                getOptionLabel={(option) => `${option.candidCode} - ${option.label}` || ''}
+                getOptionLabel={(option) =>
+                  option.candidCode || option.label ? `${option.candidCode} - ${option.label}` : ''
+                }
                 onChange={(_, newValue) => {
                   if (newValue) {
                     setValue(FormFields.insurancePlanType.key, newValue.candidCode, { shouldDirty: true });

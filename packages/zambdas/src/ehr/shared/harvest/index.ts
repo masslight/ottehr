@@ -1396,7 +1396,6 @@ export const getCoverageResources = (input: GetCoveragesInput): GetCoverageResou
   let firstInsuranceDetails: InsuranceDetails | undefined;
   let secondPolicyHolder = getSecondaryPolicyHolderFromAnswers(questionnaireResponse.item ?? []);
   let secondInsuranceDetails = getInsuranceDetailsFromAnswers(flattenedPaperwork, organizationResources, '-2');
-  console.log('is secondary only', isSecondaryOnly);
   if (!isSecondaryOnly) {
     firstPolicyHolder = getPrimaryPolicyHolderFromAnswers(questionnaireResponse.item ?? []);
     firstInsuranceDetails = getInsuranceDetailsFromAnswers(flattenedPaperwork, organizationResources);

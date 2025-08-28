@@ -59,6 +59,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
     defaultValues: {
       [FormFields.insurancePriority.key]: priorityOptions[0]?.value || 'Primary',
       [FormFields.insuranceCarrier.key]: null,
+      [FormFields.insurancePlanType.key]: null,
       [FormFields.memberId.key]: '',
       [FormFields.firstName.key]: '',
       [FormFields.middleName.key]: '',
@@ -237,7 +238,9 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
                         options={InsurancePlanTypes}
                         value={selectedOption ?? ({} as InsurancePlanType)}
                         isOptionEqualToValue={(option, value) => option?.candidCode === value?.candidCode}
-                        getOptionLabel={(option) => `${option.candidCode} - ${option.label}` || ''}
+                        getOptionLabel={(option) =>
+                          option.candidCode || option.label ? `${option.candidCode} - ${option.label}` : ''
+                        }
                         onChange={(_, newValue) => {
                           if (newValue) {
                             setValue(FormFields.insurancePlanType.key, newValue.candidCode, { shouldDirty: true });

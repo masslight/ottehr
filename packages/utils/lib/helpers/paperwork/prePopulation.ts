@@ -20,7 +20,6 @@ import {
   getMiddleName,
   getNameSuffix,
   getPronounsFromExtension,
-  InsurancePlanTypes,
   PRIVATE_EXTENSION_BASE_URL,
 } from '../../fhir';
 import {
@@ -31,7 +30,7 @@ import {
   PatientAccountResponse,
   PRACTICE_NAME_URL,
 } from '../../types';
-import { formatPhoneNumberDisplay, getPayerId } from '../helpers';
+import { formatPhoneNumberDisplay, getCandidPlanTypeCodeFromCoverage, getPayerId } from '../helpers';
 
 // used when patient books an appointment and some of the inputs come from the create-appointment params
 interface PrePopulationInput {
@@ -688,14 +687,10 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
   }
 
   if (primary) {
-    const coverageTypeCode = primary.type?.coding?.[0]?.code;
-    const matchedPlanType = InsurancePlanTypes.find((planType) => planType.coverageCoding?.code === coverageTypeCode);
-    primaryPlanType = matchedPlanType?.candidCode;
+    primaryPlanType = getCandidPlanTypeCodeFromCoverage(primary);
   }
   if (secondary) {
-    const coverageTypeCode = secondary.type?.coding?.[0]?.code;
-    const matchedPlanType = InsurancePlanTypes.find((planType) => planType.coverageCoding?.code === coverageTypeCode);
-    secondaryPlanType = matchedPlanType?.candidCode;
+    secondaryPlanType = getCandidPlanTypeCodeFromCoverage(secondary);
   }
 
   const primarySubscriberDoB = primarySubscriber?.birthDate ?? '';
@@ -779,7 +774,6 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
       }
       if (linkId === 'insurance-plan-type' && primaryPlanType) {
         answer = makeAnswer(primaryPlanType);
-        console.log('answer', JSON.stringify(answer));
       }
       if (linkId === 'insurance-plan-type-2' && secondaryPlanType) {
         answer = makeAnswer(secondaryPlanType);
