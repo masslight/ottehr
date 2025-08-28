@@ -4,3 +4,4 @@
 *.tfstate
 *.tfstate.backup
 oystehr/*.tf.json
+backend.config

@@ -214,7 +214,9 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
         error={showError && required && !value}
         autoComplete="off"
       >
-        <MenuItem value="">Select {label}</MenuItem>
+        <MenuItem data-testid={dataTestIds.orderMedicationPage.inputField(field)} value="">
+          Select {label}
+        </MenuItem>
         {options.map((option) => {
           // Handle separators for grouped options
           if (option.value === POPULAR_SEPARATOR || option.value === OTHER_SEPARATOR) {
