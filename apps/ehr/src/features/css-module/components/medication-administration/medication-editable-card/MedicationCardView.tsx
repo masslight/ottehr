@@ -251,8 +251,8 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
                   interactionsMessage.style === 'warning'
                     ? otherColors.lightErrorBg
                     : interactionsMessage.style === 'success'
-                    ? otherColors.lightGreen
-                    : 'none',
+                      ? otherColors.lightGreen
+                      : 'none',
                 padding: '16px',
                 borderRadius: '4px',
                 width: '100%',
@@ -276,8 +276,8 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
                     interactionsMessage.style === 'warning'
                       ? otherColors.lightErrorText
                       : interactionsMessage.style === 'success'
-                      ? otherColors.darkGreenText
-                      : '#000',
+                        ? otherColors.darkGreenText
+                        : '#000',
                   marginLeft: '12px',
                 }}
                 display="inline"

@@ -36,7 +36,9 @@ export const SurgicalHistoryContainer: FC<{ notes?: NoteDTO[] }> = ({ notes }) =
         <>
           <AssessmentTitle>Surgical history notes</AssessmentTitle>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {notes?.map((note) => <Typography key={note.resourceId}>{note.text}</Typography>)}
+            {notes?.map((note) => (
+              <Typography key={note.resourceId}>{note.text}</Typography>
+            ))}
           </Box>
         </>
       )}

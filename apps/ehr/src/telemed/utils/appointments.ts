@@ -31,6 +31,44 @@ export enum UnsignedFor {
 
 export const compareLuxonDates = (a: DateTime, b: DateTime): number => a.toMillis() - b.toMillis();
 
+const getTelemedArrivalTime = (encounter: Encounter): number => {
+  const history = encounter.statusHistory ?? [];
+  const arrived = history.find((h) => h.status === 'arrived');
+  if (!arrived || !arrived.period?.start) {
+    return Infinity;
+  }
+  return Date.parse(arrived.period.start);
+};
+
+const compareCompleteTabAppointments = (
+  appointmentA: TelemedAppointmentInformation,
+  appointmentB: TelemedAppointmentInformation
+): number => {
+  // Extract appointment type information
+  const app1Type = appointmentA.appointmentType || 'walk-in';
+  const app2Type = appointmentB.appointmentType || 'walk-in';
+
+  // Prioritize pre-booked over walk-in appointments
+  const visit1IsPre = app1Type === 'pre-booked' ? 0 : 1;
+  const visit2IsPre = app2Type === 'pre-booked' ? 0 : 1;
+
+  if (visit1IsPre !== visit2IsPre) {
+    return visit1IsPre - visit2IsPre;
+  }
+
+  // For pre-booked appointments: sort by start time (most recent first)
+  if (visit1IsPre === 0) {
+    const app1Start = Date.parse(appointmentA.start ?? '');
+    const app2Start = Date.parse(appointmentB.start ?? '');
+    return app2Start - app1Start; // Most recent first
+  }
+
+  // For walk-in appointments: sort by arrival time (earliest first)
+  const app1Arrived = getTelemedArrivalTime(appointmentA.encounter);
+  const app2Arrived = getTelemedArrivalTime(appointmentB.encounter);
+  return app1Arrived - app2Arrived; // Earliest first
+};
+
 export const getAppointmentUnsignedLengthTime = (history: TelemedStatusHistoryElement[]): number => {
   const lastHistoryRecord = history.at(-1);
   const currentTimeISO = new Date().toISOString();
@@ -44,13 +82,17 @@ export const getAppointmentUnsignedLengthTime = (history: TelemedStatusHistoryEl
 export const compareAppointments = (
   isNotSignedTab: boolean,
   appointmentA: TelemedAppointmentInformation,
-  appointmentB: TelemedAppointmentInformation
+  appointmentB: TelemedAppointmentInformation,
+  tab?: ApptTelemedTab
 ): number => {
   if (isNotSignedTab) {
     return (
       getAppointmentUnsignedLengthTime(appointmentB.telemedStatusHistory) -
       getAppointmentUnsignedLengthTime(appointmentA.telemedStatusHistory)
     );
+  } else if (tab === ApptTelemedTab.complete) {
+    // For complete tab (discharged patients), use similar logic to checkedOutSorter
+    return compareCompleteTabAppointments(appointmentA, appointmentB);
   } else {
     return compareLuxonDates(DateTime.fromISO(appointmentA.start!), DateTime.fromISO(appointmentB.start!));
   }

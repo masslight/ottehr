@@ -83,8 +83,9 @@ export default function PatientFollowupForm({
   const [message, setMessage] = useState<string>(followupDetails?.message || '');
 
   useEffect(() => {
-    const locationSlug = selectedLocation?.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)
-      ?.value;
+    const locationSlug = selectedLocation?.identifier?.find(
+      (identifierTemp) => identifierTemp.system === SLUG_SYSTEM
+    )?.value;
     const locationState = selectedLocation?.address?.state;
     if (!locationSlug || !locationState) {
       console.log(

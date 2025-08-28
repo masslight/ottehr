@@ -117,8 +117,8 @@ export const ClaimsQueueColumns: Record<string, GridColDef<ClaimsQueueItem, any,
             {employee.firstName && employee.lastName
               ? [employee.lastName, employee.firstName].join(', ')
               : employee.name
-              ? employee.name
-              : '-'}
+                ? employee.name
+                : '-'}
           </Typography>
         );
       }

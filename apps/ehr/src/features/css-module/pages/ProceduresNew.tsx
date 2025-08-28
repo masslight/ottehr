@@ -766,8 +766,9 @@ function getProcedureTypes(valueSets: ValueSet[] | undefined): ProcedureType[] {
       if (name == null) {
         return [];
       }
-      const cptCodeableConcept = item.extension?.find((extension) => extension.url === PROCEDURE_TYPE_CPT_EXTENSION_URL)
-        ?.valueCodeableConcept;
+      const cptCodeableConcept = item.extension?.find(
+        (extension) => extension.url === PROCEDURE_TYPE_CPT_EXTENSION_URL
+      )?.valueCodeableConcept;
       const cptCode = cptCodeableConcept?.coding?.[0].code;
       const cptDisplay = cptCodeableConcept?.coding?.[0].display;
       const cpt = cptCode != null && cptDisplay != null ? { code: cptCode, display: cptDisplay } : undefined;
