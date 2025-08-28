@@ -1404,6 +1404,7 @@ export default function AppointmentPage(): ReactElement {
                         }),
                     "Patient's sex": patient?.gender ? capitalize(patient?.gender) : '',
                     'Reason for visit': reasonForVisit,
+                    'Authorized non-legal guardian(s)': getAnswerStringFor('authorized-non-legal-guardians', flattenedItems),
                   }}
                   icon={{
                     "Patient's date of birth (Unmatched)": <PriorityIconWithBorder fill={theme.palette.warning.main} />,
