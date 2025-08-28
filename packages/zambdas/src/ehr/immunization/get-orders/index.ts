@@ -29,6 +29,7 @@ import {
   CVX_CODE_SYSTEM_URL,
   getContainedMedication,
   IMMUNIZATION_ORDER_CREATED_DATETIME_EXTENSION_URL,
+  IMMUNIZATION_ORDER_MEDICATION_ID_EXTENSION_URL,
   MVX_CODE_SYSTEM_URL,
   VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
   VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL,
@@ -122,8 +123,10 @@ function mapMedicationAdministrationToImmunizationOrder(
     reason: medicationAdministration.note?.[0].text,
     details: {
       medication: {
-        id: medication?.id ?? '',
-        name: medication ? getMedicationName(medication) ?? '' : '',
+        id:
+          medication?.extension?.find((e) => e.url === IMMUNIZATION_ORDER_MEDICATION_ID_EXTENSION_URL)?.valueString ??
+          '',
+        name: getMedicationName(medication) ?? '',
       },
       dose: medicationAdministration.dosage?.dose?.value?.toString() ?? '',
       units: medicationAdministration.dosage?.dose?.unit ?? '',

@@ -29,7 +29,7 @@ export const palette = {
   },
   info: {
     main: '#0288D1',
-    light: '#03A9F4',
+    light: '#E6F3FE',
     dark: '#01579B',
     contrast: '#FFFFFF',
   },

@@ -18,7 +18,7 @@ export function cleanupProperties(object: any): any | undefined {
         if (property.length > 0) {
           result[propertyName] = property;
         }
-      } else {
+      } else if (property) {
         result[propertyName] = property;
       }
     }

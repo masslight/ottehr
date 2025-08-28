@@ -14,9 +14,15 @@ import {
 import { enqueueSnackbar } from 'notistack';
 import { FC, MouseEvent, useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { UnsolicitedResultsIcon } from 'src/features/external-labs/components/unsolicited-results/UnsolicitedResultsIcon';
 import { getPractitionerMissingFields } from 'src/shared/utils';
-import { useCheckPractitionerEnrollment, useConnectPractitionerToERX, useEnrollPractitionerToERX } from 'src/telemed';
-import { getFullestAvailableName, PROJECT_NAME, RoleType } from 'utils';
+import {
+  useCheckPractitionerEnrollment,
+  useConnectPractitionerToERX,
+  useEnrollPractitionerToERX,
+  useGetUnsolicitedResultsResources,
+} from 'src/telemed';
+import { getFullestAvailableName, PROJECT_NAME, RoleType, UnsolicitedResultsRequestType } from 'utils';
 import { dataTestIds } from '../../constants/data-test-ids';
 import { ProviderNotifications } from '../../features';
 import useEvolveUser from '../../hooks/useEvolveUser';
@@ -60,8 +66,14 @@ export const UserMenu: FC = () => {
   const name = user?.profileResource && (getFullestAvailableName(user.profileResource, true) ?? `${PROJECT_NAME} Team`);
   const suffix = user?.profileResource?.name?.[0]?.suffix?.[0];
 
+  const { data } = useGetUnsolicitedResultsResources({
+    requestType: UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_ICON,
+  });
+  const displayUnsolicitedResultsIcon = data?.tasksAreReady;
+
   return (
     <>
+      {displayUnsolicitedResultsIcon && <UnsolicitedResultsIcon />}
       {userIsProvider && <ProviderNotifications />}
       <ListItem disablePadding sx={{ width: 'fit-content' }}>
         <ListItemButton onClick={(event: MouseEvent<HTMLElement>) => setAnchorElement(event.currentTarget)}>
