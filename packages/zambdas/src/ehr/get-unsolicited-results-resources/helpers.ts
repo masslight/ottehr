@@ -143,6 +143,9 @@ export const handleFormatLabDTOForUnsolicitedResultReview = async (
 
   if (!resourcesForDr) throw Error(`Could not get resourcesForDr for diagnosticReport: ${diagnosticReportId}`);
   const diagnosticReportLabDetailDTO = await formatResourcesIntoDiagnosticReportLabDTO(resourcesForDr, token);
+  if (!diagnosticReportLabDetailDTO) {
+    throw Error(`no diagnosticReportLabDetailDTO for unsolicited result ${diagnosticReportId}`);
+  }
   const unsolicitedLabDTO = formatResourcesIntoUnsolicitedLabDTO(
     diagnosticReportLabDetailDTO,
     resourcesForDr.patient?.id || ''
