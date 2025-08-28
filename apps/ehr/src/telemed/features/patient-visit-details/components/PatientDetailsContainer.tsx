@@ -26,8 +26,6 @@ export const PatientDetailsContainer: FC = () => {
     ?.valueString;
   const requireRelayService = getQuestionnaireResponseByLinkId('relay-phone', questionnaireResponse)?.answer?.[0]
     ?.valueString;
-  const authorizedNonLegalGuardians = getQuestionnaireResponseByLinkId('authorized-non-legal-guardians', questionnaireResponse)?.answer?.[0]
-    ?.valueString;
 
   return (
     <InformationCard
@@ -44,10 +42,6 @@ export const PatientDetailsContainer: FC = () => {
         {
           label: 'Preferred pronouns',
           value: pronouns,
-        },
-        {
-          label: 'Authorized non-legal guardian(s)',
-          value: authorizedNonLegalGuardians,
         },
         {
           label: 'PCP first and last name',
