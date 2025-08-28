@@ -249,8 +249,8 @@ export default function AppointmentPage(): ReactElement {
       (resource: FhirResource) => resource.resourceType === 'RelatedPerson'
     ) as unknown as RelatedPerson;
     if (fhirRelatedPerson) {
-      const isUserRelatedPerson = fhirRelatedPerson.relationship?.find((relationship) =>
-        relationship.coding?.find((code) => code.code === 'user-relatedperson')
+      const isUserRelatedPerson = fhirRelatedPerson.relationship?.find(
+        (relationship) => relationship.coding?.find((code) => code.code === 'user-relatedperson')
       );
       if (isUserRelatedPerson) {
         relatedPerson = fhirRelatedPerson;
@@ -1511,8 +1511,8 @@ export default function AppointmentPage(): ReactElement {
                     [hipaaPatientDetailsKey]: imagesLoading
                       ? 'Loading...'
                       : getAnswerBooleanFor('hipaa-acknowledgement', flattenedItems)
-                        ? 'Signed'
-                        : 'Not signed',
+                      ? 'Signed'
+                      : 'Not signed',
                     ...signedConsentForm,
                     Signature: getAnswerStringFor('signature', flattenedItems),
                     'Full name': getAnswerStringFor('full-name', flattenedItems),

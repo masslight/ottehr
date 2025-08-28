@@ -97,10 +97,11 @@ function GroupPageContent(): ReactElement {
     });
     setSelectedLocations(selectedLocationsTemp);
 
-    const selectedPractitionerRolesTemp = practitionerRolesTemp?.filter((practitionerRoleTemp) =>
-      practitionerRoleTemp.healthcareService?.some(
-        (healthcareServiceTemp) => healthcareServiceTemp.reference === `HealthcareService/${groupTemp.id}`
-      )
+    const selectedPractitionerRolesTemp = practitionerRolesTemp?.filter(
+      (practitionerRoleTemp) =>
+        practitionerRoleTemp.healthcareService?.some(
+          (healthcareServiceTemp) => healthcareServiceTemp.reference === `HealthcareService/${groupTemp.id}`
+        )
     );
     const selectedPractitionersTemp = practitionersTemp.filter((practitionerTemp) =>
       selectedPractitionerRolesTemp.some(
@@ -177,7 +178,7 @@ function GroupPageContent(): ReactElement {
           })) ?? [],
       });
 
-      const currentSlug = group ? (getSlugForBookableResource(group) ?? '') : '';
+      const currentSlug = group ? getSlugForBookableResource(group) ?? '' : '';
       if (group && slug !== currentSlug) {
         const newIdentifierList = group.identifier?.filter((identifier) => identifier.system !== SLUG_SYSTEM) || [];
         if (slug) {

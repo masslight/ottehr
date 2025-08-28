@@ -30,9 +30,7 @@ export const MedicationsContainer: FC<{ notes?: NoteDTO[] }> = ({ notes }) => {
         <>
           <AssessmentTitle>Medications notes</AssessmentTitle>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {notes?.map((note) => (
-              <Typography key={note.resourceId}>{note.text}</Typography>
-            ))}
+            {notes?.map((note) => <Typography key={note.resourceId}>{note.text}</Typography>)}
           </Box>
         </>
       )}

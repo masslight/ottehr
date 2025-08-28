@@ -125,12 +125,13 @@ const observationTests = (e2eResources: Resource[], integrationResources: Resour
     const e2eObservationTypeTag = e2eObservation.meta?.tag?.find(
       (tag) => tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field'
     );
-    const integrationObservation = integrationCleaned.find((integrationObservation) =>
-      integrationObservation.meta?.tag?.find(
-        (tag) =>
-          tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field' &&
-          tag.code === e2eObservationTypeTag!.code
-      )
+    const integrationObservation = integrationCleaned.find(
+      (integrationObservation) =>
+        integrationObservation.meta?.tag?.find(
+          (tag) =>
+            tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field' &&
+            tag.code === e2eObservationTypeTag!.code
+        )
     );
 
     checkKeysAndValuesBothWays(e2eObservation, integrationObservation, `${e2eObservationTypeTag!.code} Observation`);
@@ -223,10 +224,11 @@ const documentReferenceTests = (e2eResources: Resource[], integrationResources: 
   e2eCleaned.forEach((e2eDocRef) => {
     const e2eDocTypeLoincCoding = e2eDocRef.type?.coding?.find((coding) => coding.system === 'http://loinc.org');
 
-    const integrationDocRef = integrationCleaned.find((integrationDocRef) =>
-      integrationDocRef.type?.coding?.find(
-        (coding) => coding.system === 'http://loinc.org' && coding.code === e2eDocTypeLoincCoding!.code
-      )
+    const integrationDocRef = integrationCleaned.find(
+      (integrationDocRef) =>
+        integrationDocRef.type?.coding?.find(
+          (coding) => coding.system === 'http://loinc.org' && coding.code === e2eDocTypeLoincCoding!.code
+        )
     );
 
     checkKeysAndValuesBothWays(e2eDocRef, integrationDocRef, `${e2eDocTypeLoincCoding!.code} DocumentReference`);

@@ -143,15 +143,18 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
 
       setPartialChartData({
         prescribedMedications,
-        practitioners: (data.practitioners || []).reduce((prev, curr) => {
-          const index = prev.findIndex((practitioner) => practitioner.id === curr.id);
-          if (index === -1) {
-            prev.push(curr);
-          } else {
-            prev[index] = curr;
-          }
-          return prev;
-        }, chartData?.practitioners || []),
+        practitioners: (data.practitioners || []).reduce(
+          (prev, curr) => {
+            const index = prev.findIndex((practitioner) => practitioner.id === curr.id);
+            if (index === -1) {
+              prev.push(curr);
+            } else {
+              prev[index] = curr;
+            }
+            return prev;
+          },
+          chartData?.practitioners || []
+        ),
       });
     },
   });

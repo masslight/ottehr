@@ -137,9 +137,8 @@ export default function AddPatient(): JSX.Element {
         setLoadingSlotState({ status: 'loaded', input: `${params.slug}` });
       }
     };
-    const locationSlug = selectedLocation?.identifier?.find(
-      (identifierTemp) => identifierTemp.system === SLUG_SYSTEM
-    )?.value;
+    const locationSlug = selectedLocation?.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)
+      ?.value;
     if (!locationSlug) {
       // console.log('show some toast: location is missing slug', selectedLocation, locationSlug);
       return;
@@ -189,8 +188,9 @@ export default function AddPatient(): JSX.Element {
           if (selectedPatientEmailUser !== 'Parent/Guardian') {
             selectedPatientEmail = selectedPatient.telecom?.find((telecom) => telecom.system === 'email')?.value;
           } else if (selectedPatientEmailUser === 'Parent/Guardian') {
-            const guardianContact = selectedPatient.contact?.find((contact) =>
-              contact.relationship?.find((relationship) => relationship?.coding?.[0].code === 'Parent/Guardian')
+            const guardianContact = selectedPatient.contact?.find(
+              (contact) =>
+                contact.relationship?.find((relationship) => relationship?.coding?.[0].code === 'Parent/Guardian')
             );
             selectedPatientEmail = guardianContact?.telecom?.find((telecom) => telecom.system === 'email')?.value;
           }

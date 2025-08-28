@@ -43,23 +43,25 @@ export const getVitalDTOCriticalityFromObservation = (observation: Observation):
 
   const mergeInterpretations = (interpretations: CodeableConcept[]): VitalAlertCriticality | undefined => {
     if (
-      interpretations.some((item) =>
-        item.coding?.some(
-          (code) =>
-            code.code === FHIRObservationInterpretation.CriticalLow ||
-            code.code === FHIRObservationInterpretation.CriticalHigh
-        )
+      interpretations.some(
+        (item) =>
+          item.coding?.some(
+            (code) =>
+              code.code === FHIRObservationInterpretation.CriticalLow ||
+              code.code === FHIRObservationInterpretation.CriticalHigh
+          )
       )
     ) {
       return VitalAlertCriticality.Critical;
     }
     if (
-      interpretations.some((item) =>
-        item.coding?.some(
-          (code) =>
-            code.code === FHIRObservationInterpretation.AbnormalLow ||
-            code.code === FHIRObservationInterpretation.AbnormalHigh
-        )
+      interpretations.some(
+        (item) =>
+          item.coding?.some(
+            (code) =>
+              code.code === FHIRObservationInterpretation.AbnormalLow ||
+              code.code === FHIRObservationInterpretation.AbnormalHigh
+          )
       )
     ) {
       return VitalAlertCriticality.Abnormal;

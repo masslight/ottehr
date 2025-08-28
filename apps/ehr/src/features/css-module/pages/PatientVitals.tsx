@@ -171,9 +171,7 @@ const AbnormalVitalsModal: React.FC<AbnormalVitalsModalProps> = ({ abnormalVital
             <>
               <AssessmentTitle>Temperature</AssessmentTitle>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                {temperature?.map((item) => (
-                  <VitalHistoryElement key={item.resourceId} historyEntry={{ ...item }} />
-                ))}
+                {temperature?.map((item) => <VitalHistoryElement key={item.resourceId} historyEntry={{ ...item }} />)}
               </Box>
             </>
           )}
@@ -181,9 +179,7 @@ const AbnormalVitalsModal: React.FC<AbnormalVitalsModalProps> = ({ abnormalVital
             <>
               <AssessmentTitle>Heartbeat</AssessmentTitle>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                {heartbeat?.map((item) => (
-                  <VitalHistoryElement key={item.resourceId} historyEntry={{ ...item }} />
-                ))}
+                {heartbeat?.map((item) => <VitalHistoryElement key={item.resourceId} historyEntry={{ ...item }} />)}
               </Box>
             </>
           )}
@@ -201,9 +197,7 @@ const AbnormalVitalsModal: React.FC<AbnormalVitalsModalProps> = ({ abnormalVital
             <>
               <AssessmentTitle>Blood Pressure</AssessmentTitle>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                {bloodPressure?.map((item) => (
-                  <VitalHistoryElement key={item.resourceId} historyEntry={{ ...item }} />
-                ))}
+                {bloodPressure?.map((item) => <VitalHistoryElement key={item.resourceId} historyEntry={{ ...item }} />)}
               </Box>
             </>
           )}
@@ -221,9 +215,7 @@ const AbnormalVitalsModal: React.FC<AbnormalVitalsModalProps> = ({ abnormalVital
             <>
               <AssessmentTitle>Weight</AssessmentTitle>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                {weight?.map((item) => (
-                  <VitalHistoryElement key={item.resourceId} historyEntry={{ ...item }} />
-                ))}
+                {weight?.map((item) => <VitalHistoryElement key={item.resourceId} historyEntry={{ ...item }} />)}
               </Box>
             </>
           )}
@@ -231,9 +223,7 @@ const AbnormalVitalsModal: React.FC<AbnormalVitalsModalProps> = ({ abnormalVital
             <>
               <AssessmentTitle>Height</AssessmentTitle>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                {height?.map((item) => (
-                  <VitalHistoryElement key={item.resourceId} historyEntry={{ ...item }} />
-                ))}
+                {height?.map((item) => <VitalHistoryElement key={item.resourceId} historyEntry={{ ...item }} />)}
               </Box>
             </>
           )}

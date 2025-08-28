@@ -71,11 +71,15 @@ export default function useEvolveUser(): EvolveUser | undefined {
   const { isPending: isPractitionerLastLoginBeingUpdated, mutateAsync: mutatePractitionerAsync } =
     useUpdatePractitioner();
 
-  useSuccessQuery(profile, () => {
-    if (user?.profile && !profile) {
-      void refetchProfile();
-    }
-  }, [profile, user?.profile, refetchProfile]);
+  useSuccessQuery(
+    profile,
+    () => {
+      if (user?.profile && !profile) {
+        void refetchProfile();
+      }
+    },
+    [profile, user?.profile, refetchProfile]
+  );
 
   useEffect(() => {
     if (user && oystehr && profile && !isPractitionerLastLoginBeingUpdated && !_practitionerLoginUpdateStarted) {

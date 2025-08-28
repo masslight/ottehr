@@ -316,22 +316,22 @@ const processPaperwork = async (
     paperworkPatches = paperworkAnswers
       ? await paperworkAnswers({ patientInfo, appointmentId: appointmentId!, authToken, zambdaUrl, projectId })
       : serviceMode === ServiceMode.virtual
-        ? telemedWalkinAnswers
-        : [
-            getContactInformationAnswers({
-              firstName: patientInfo.firstName,
-              lastName: patientInfo.lastName,
-              ...(birthDate ? { birthDate } : {}),
-              email: patientInfo.email,
-              phoneNumber: patientInfo.phoneNumber,
-              birthSex: patientInfo.sex,
-            }),
-            getPatientDetailsStepAnswers({}),
-            getPrimaryCarePhysicianStepAnswers({}),
-            getPaymentOptionSelfPayAnswers(),
-            getResponsiblePartyStepAnswers({}),
-            getConsentStepAnswers({}),
-          ];
+      ? telemedWalkinAnswers
+      : [
+          getContactInformationAnswers({
+            firstName: patientInfo.firstName,
+            lastName: patientInfo.lastName,
+            ...(birthDate ? { birthDate } : {}),
+            email: patientInfo.email,
+            phoneNumber: patientInfo.phoneNumber,
+            birthSex: patientInfo.sex,
+          }),
+          getPatientDetailsStepAnswers({}),
+          getPrimaryCarePhysicianStepAnswers({}),
+          getPaymentOptionSelfPayAnswers(),
+          getResponsiblePartyStepAnswers({}),
+          getConsentStepAnswers({}),
+        ];
 
     // Execute the paperwork patches
     await makeSequentialPaperworkPatches(questionnaireResponseId, paperworkPatches, zambdaUrl, authToken, projectId);

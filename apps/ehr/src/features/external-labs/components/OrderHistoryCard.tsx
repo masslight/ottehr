@@ -45,8 +45,8 @@ export const OrderHistoryCard: React.FC<OrderHistoryProps> = ({
                   {row.action === 'performed' && isPSCPerformed
                     ? PSC_HOLD_LOCALE
                     : row.performer
-                      ? `by ${row.performer}`
-                      : ''}
+                    ? `by ${row.performer}`
+                    : ''}
                 </TableCell>
                 <TableCell>{formatDateForLabs(row.date, timezone)}</TableCell>
               </TableRow>
