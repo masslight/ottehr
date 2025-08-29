@@ -74,12 +74,16 @@ export function validateRequestParameters(input: ZambdaInput): GetAppointmentsZa
     throw new Error('Either "locationID" or "providerIDs" or "groupIDs" is required');
   }
 
+  const supervisorApprovalEnabled =
+    typeof body.supervisorApprovalEnabled === 'boolean' ? body.supervisorApprovalEnabled : false;
+
   return {
     searchDate,
     locationID,
     providerIDs,
     groupIDs,
     visitType,
+    supervisorApprovalEnabled,
     secrets: input.secrets,
   };
 }

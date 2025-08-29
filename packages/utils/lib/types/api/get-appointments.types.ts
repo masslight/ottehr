@@ -6,6 +6,7 @@ export interface GetAppointmentsZambdaInput {
   providerIDs?: string[];
   groupIDs?: string[];
   visitType: string[];
+  supervisorApprovalEnabled?: boolean;
 }
 
 export interface GetAppointmentsZambdaOutput {

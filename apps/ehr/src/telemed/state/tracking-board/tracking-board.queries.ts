@@ -116,12 +116,14 @@ export const useSignAppointmentMutation = () =>
       apiClient,
       appointmentId,
       timezone,
+      supervisorApprovalEnabled,
     }: {
       apiClient: OystehrTelemedAPIClient;
     } & Omit<SignAppointmentInput, 'secrets'>) => {
       return apiClient.signAppointment({
         appointmentId,
         timezone,
+        supervisorApprovalEnabled,
       });
     },
   });

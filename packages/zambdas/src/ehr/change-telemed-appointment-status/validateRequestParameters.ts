@@ -1,5 +1,15 @@
-import { ChangeTelemedAppointmentStatusInput, getSecret, SecretsKeys, TelemedCallStatusesArr } from 'utils';
+import {
+  ChangeTelemedAppointmentStatusInput,
+  getSecret,
+  SecretsKeys,
+  TelemedAppointmentStatus,
+  TelemedCallStatusesArr,
+} from 'utils';
 import { ZambdaInput } from '../../shared/types';
+
+function isTelemedAppointmentStatus(value: unknown): value is TelemedAppointmentStatus {
+  return typeof value === 'string' && TelemedCallStatusesArr.includes(value as TelemedAppointmentStatus);
+}
 
 export function validateRequestParameters(
   input: ZambdaInput
@@ -10,17 +20,29 @@ export function validateRequestParameters(
     throw new Error('No request body provided');
   }
 
-  const { appointmentId, newStatus } = JSON.parse(input.body);
+  let parsedBody: unknown;
+  try {
+    parsedBody = JSON.parse(input.body);
+  } catch {
+    throw new Error('Invalid JSON in request body');
+  }
 
-  if (appointmentId === undefined) {
+  if (!parsedBody || typeof parsedBody !== 'object') {
+    throw new Error('Request body must be a valid JSON object');
+  }
+
+  const body = parsedBody as Record<string, unknown>;
+
+  const { appointmentId, newStatus } = body;
+
+  if (typeof appointmentId !== 'string') {
     throw new Error('These fields are required: "appointmentId".');
   }
-  if (newStatus === undefined) {
+  if (typeof newStatus !== 'string') {
     throw new Error('These fields are required: "newStatus".');
   }
 
-  // is it a good way to validate if string fit in typescript type??
-  if (!TelemedCallStatusesArr.includes(newStatus)) {
+  if (!isTelemedAppointmentStatus(newStatus)) {
     throw new Error('"newStatus" field value is not TelemedCallStatuses type.');
   }
 

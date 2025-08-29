@@ -10,9 +10,11 @@ import {
   QuestionnaireResponse,
   RelatedPerson,
 } from 'fhir/r4b';
+import { z } from 'zod';
 import { OTTEHR_MODULE } from '../../../fhir/moduleIdentification';
 import {
   FhirAppointmentType,
+  Secrets,
   TelemedAppointmentStatusEnum,
   TelemedCallStatuses,
   TelemedStatusHistoryElement,
@@ -21,6 +23,7 @@ import {
   AppointmentMessaging,
   AppointmentType,
   FhirAppointmentStatus,
+  PractitionerQualificationCode,
   VisitStatusHistoryEntry,
   VisitStatusLabel,
 } from '../../api';
@@ -117,6 +120,8 @@ export interface InPersonAppointmentInformation
   };
   participants: AppointmentParticipants;
   provider?: string;
+  attenderQualification?: PractitionerQualificationCode;
+  approvalDate?: string;
   group?: string;
   room?: string;
   needsDOBConfirmation?: boolean;
@@ -185,3 +190,16 @@ export type AppointmentRelatedResources =
   | Practitioner
   | RelatedPerson
   | HealthcareService;
+
+export const PendingSupervisorApprovalInputSchema = z.object({
+  encounterId: z.string().uuid(),
+  practitionerId: z.string().uuid(),
+});
+
+export type PendingSupervisorApprovalInput = z.infer<typeof PendingSupervisorApprovalInputSchema>;
+
+export const PendingSupervisorApprovalInputValidatedSchema = PendingSupervisorApprovalInputSchema.extend({
+  secrets: z.custom<Secrets>().nullable(),
+});
+
+export type PendingSupervisorApprovalInputValidated = z.infer<typeof PendingSupervisorApprovalInputValidatedSchema>;

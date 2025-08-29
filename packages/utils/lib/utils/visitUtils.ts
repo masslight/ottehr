@@ -38,7 +38,11 @@ export const formatMinutes = (minutes: number): string => {
   return minutes.toLocaleString('en', { maximumFractionDigits: 0 });
 };
 
-export const getVisitStatus = (appointment: Appointment, encounter: Encounter): VisitStatusLabel => {
+export const getVisitStatus = (
+  appointment: Appointment,
+  encounter: Encounter,
+  supervisorApprovalEnabled = false
+): VisitStatusLabel => {
   const admitterParticipant = encounter.participant?.find(
     (p) => p?.type?.find((t) => t?.coding?.find((coding) => coding.code === 'ADM'))
   );
@@ -69,6 +73,14 @@ export const getVisitStatus = (appointment: Appointment, encounter: Encounter): 
   } else if (appointment.status === 'noshow') {
     return 'no show';
   } else if (encounter.status === 'finished') {
+    const awaitingSupervisorApproval = encounter.extension?.some(
+      (extension) => extension.url === 'awaiting-supervisor-approval' && extension.valueBoolean === true
+    );
+
+    if (supervisorApprovalEnabled && awaitingSupervisorApproval) {
+      return 'awaiting supervisor approval';
+    }
+
     return 'completed';
   }
 
