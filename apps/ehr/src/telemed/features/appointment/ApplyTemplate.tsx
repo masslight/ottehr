@@ -15,6 +15,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
+import { enqueueSnackbar } from 'notistack';
 import React, { useState } from 'react';
 import { ExamType } from 'utils';
 import { applyTemplate } from '../../../api/api';
@@ -73,10 +74,11 @@ export const ApplyTemplate: React.FC = () => {
           templateName: pendingTemplate,
           examType: ExamType.IN_PERSON,
         });
+        enqueueSnackbar('Template applied successfully!', { variant: 'success' });
       } catch (error) {
         console.log('error', JSON.stringify(error));
-        // const errorMessage = ['There was an error completing the order'];
-        // setError(errorMessage);
+        const errorMessage = error instanceof Error ? error.message : 'An error occurred while applying the template';
+        enqueueSnackbar(errorMessage, { variant: 'error' });
       } finally {
         setIsApplyingTemplate(false);
       }
