@@ -41,6 +41,10 @@ export function validateRequestParameters(
 
   validateInteractions(interactions);
 
+  if (orderData.expDate) {
+    orderData.expDate = orderData.expDate.split('T')[0];
+  }
+
   console.groupEnd();
   console.debug('validateRequestParameters success');
 

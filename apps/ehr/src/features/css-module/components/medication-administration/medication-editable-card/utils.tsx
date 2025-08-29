@@ -28,11 +28,11 @@ export const medicationOrderFieldsWithOptions: Partial<keyof ExtendedMedicationD
 
 export type MedicationOrderFieldWithOptionsType = (typeof medicationOrderFieldsWithOptions)[number];
 
-export type InHouseMedicationFieldType = 'text' | 'number' | 'select' | 'datetime' | 'month' | 'autocomplete';
+export type InHouseMedicationFieldType = 'text' | 'number' | 'select' | 'datetime' | 'date' | 'autocomplete';
 
 export const getFieldType = (field: keyof MedicationData): InHouseMedicationFieldType => {
   if (field === 'dose') return 'number';
-  if (field === 'expDate') return 'month';
+  if (field === 'expDate') return 'date';
   if (field === 'effectiveDateTime') return 'datetime';
   if (field === 'medicationId') return 'autocomplete';
   if (field === 'route') return 'autocomplete'; // Make route searchable
