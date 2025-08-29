@@ -167,7 +167,6 @@ const makeCreateRequests = (
     return createResourcesRequests;
   }
 
-  // Create new resources based on the template
   for (const resource of templateList.entry) {
     // grab contained resource from resource.id in entry
     const containedResource = templateList.contained?.find((r) => r.id === resource.item.reference?.replace('#', ''));
@@ -195,7 +194,38 @@ const makeCreateRequests = (
       continue;
     }
 
+    // TODO write the encounter.diagnosis PATCH
     // Add the encounter reference to the resource and prepare it for creation
+    // I think we should make an Encounter stub in the template List that has the Encounter.diagnosis written including
+    // the `rank` value which we use to indicate 'primary' diagnosis.
+
+    // let encounterDiagnosisPatch: BatchInputPatchRequest<Encounter>;
+    // if (encounter.diagnosis) {
+    //   // Create new resources based on the template
+    //   encounterDiagnosisPatch = {
+    //     method: 'PATCH',
+    //     url: `Encounter/${encounter.id}`,
+    //     operations: [
+    //       {
+    //         op: 'replace',
+    //         path: '/diagnosis',
+    //         value: {},
+    //       },
+    //     ],
+    //   };
+    // } else {
+    //   encounterDiagnosisPatch = {
+    //     method: 'PATCH',
+    //     url: `Encounter/${encounter.id}`,
+    //     operations: [
+    //       {
+    //         op: 'add',
+    //         path: '/diagnosis',
+    //         value: {},
+    //       },
+    //     ],
+    //   };
+    // }
 
     createResourcesRequests.push({
       method: 'POST',
