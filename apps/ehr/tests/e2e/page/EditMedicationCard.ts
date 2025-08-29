@@ -43,6 +43,11 @@ export class EditMedicationCard {
     await this.#page.getByText(medication, { exact: true }).click();
   }
 
+  async clearMedication(): Promise<void> {
+    const dataTestId = this.getDataTestId(Field.MEDICATION);
+    await this.#page.getByTestId(dataTestId).locator('input').fill('');
+  }
+
   async verifyMedication(medication: string): Promise<void> {
     const dataTestId = this.getDataTestId(Field.MEDICATION);
     await expect(this.#page.getByTestId(dataTestId).locator('input')).toHaveValue(medication);

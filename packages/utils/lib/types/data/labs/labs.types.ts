@@ -92,7 +92,7 @@ export type LabOrderHistoryRow = LabOrderUnreceivedHistoryRow | LabOrderReceived
 
 export type LabOrderResultDetails = {
   testItem: string;
-  testType: 'reflex' | 'ordered';
+  testType: 'reflex' | 'ordered' | 'unsolicited';
   resultType: 'final' | 'preliminary' | 'cancelled';
   labStatus: ExternalLabsStatus;
   diagnosticReportId: string;
@@ -109,6 +109,7 @@ export type QuestionnaireData = {
   serviceRequestId: string;
 };
 
+// todo maybe to improve - why do we have diagnosesDTO & diagnoses
 export type LabOrderListPageDTO = {
   serviceRequestId: string; // ServiceRequest.id
   testItem: string; // ServiceRequest.contained[0](ActivityDefinition).title
@@ -120,7 +121,6 @@ export type LabOrderListPageDTO = {
   diagnoses: string; // SR.reasonCode joins
   orderStatus: ExternalLabsStatus; // Derived from SR, Tasks and DiagnosticReports based on the mapping table
   isPSC: boolean; // Derived from SR.orderDetail
-  reflexResultsCount: number; // Number of DiagnosticReports with the same SR identifier but different test codes
   appointmentId: string;
   visitDate: string; // based on appointment
   lastResultReceivedDate: string; // the most recent Task RFRT.authoredOn
@@ -139,8 +139,35 @@ export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {
   orderPdfUrl?: string; // will exist after order is submitted
 };
 
+export type DiagnosticReportLabDetailPageDTO = Omit<
+  LabOrderDetailedPageDTO,
+  | 'serviceRequestId'
+  | 'orderAddedDate'
+  | 'orderSubmittedDate'
+  | 'orderingPhysician'
+  | 'diagnosesDTO'
+  | 'diagnoses'
+  | 'appointmentId'
+  | 'visitDate'
+  | 'encounterTimezone'
+  | 'orderNumber'
+  | 'accountNumber'
+  | 'labelPdfUrl'
+  | 'orderPdfUrl'
+>;
+
+export type ReflexLabDTO = DiagnosticReportLabDetailPageDTO & {
+  isReflex: true;
+  orderNumber: string;
+};
+
+export type UnsolicitedLabDTO = DiagnosticReportLabDetailPageDTO & {
+  isUnsolicited: true;
+  patientId: string;
+};
+
 export type LabOrderDTO<SearchBy extends LabOrdersSearchBy> = SearchBy extends {
-  searchBy: { field: 'serviceRequestId' };
+  searchBy: { field: 'serviceRequestId' | 'diagnosticReportId' };
 }
   ? LabOrderDetailedPageDTO
   : LabOrderListPageDTO;
@@ -149,6 +176,7 @@ export type PaginatedResponse<RequestParameters extends GetLabOrdersParameters =
   data: LabOrderDTO<RequestParameters>[];
   pagination: Pagination;
   patientLabItems?: PatientLabItem[];
+  reflexResults: ReflexLabDTO[];
 };
 
 export type LabOrdersSearchBy = {
@@ -156,7 +184,8 @@ export type LabOrdersSearchBy = {
     | { field: 'encounterId'; value: string }
     | { field: 'encounterIds'; value: string[] }
     | { field: 'patientId'; value: string }
-    | { field: 'serviceRequestId'; value: string };
+    | { field: 'serviceRequestId'; value: string }
+    | { field: 'diagnosticReportId'; value: string };
 };
 
 export type LabOrdersSearchFilters = {
@@ -172,6 +201,8 @@ export type LabOrdersPaginationOptions = {
 export enum LabType {
   external = 'external',
   inHouse = 'in-house',
+  unsolicited = 'unsolicited', // external but has less fhir resources available since it did not originate from ottehr
+  reflex = 'reflex', // external but has less fhir resources available since it did not originate from ottehr
 }
 
 export type GetLabOrdersParameters = LabOrdersSearchBy & LabOrdersSearchFilters & LabOrdersPaginationOptions;
@@ -218,10 +249,12 @@ export const LAB_ORDER_UPDATE_RESOURCES_EVENTS = {
   reviewed: 'reviewed',
   specimenDateChanged: 'specimenDateChanged',
   saveOrderCollectionData: 'saveOrderCollectionData',
+  cancelUnsolicitedResultTask: 'cancelUnsolicitedResultTask', // match or review tasks
+  matchUnsolicitedResult: 'matchUnsolicitedResult',
 } as const;
 
 export type TaskReviewedParameters = {
-  serviceRequestId: string;
+  serviceRequestId: string | undefined; // will be undefined for unsolicited results
   taskId: string;
   diagnosticReportId: string;
 };
@@ -244,10 +277,25 @@ export type SaveOrderCollectionData = {
   specimenCollectionDates?: SpecimenCollectionDateConfig;
 };
 
-export type UpdateLabOrderResourcesParameters =
+export type CancelMatchUnsolicitedResultTask = {
+  event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.cancelUnsolicitedResultTask;
+  taskId: string;
+};
+
+export type FinalizeUnsolicitedResultMatch = {
+  event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.matchUnsolicitedResult;
+  taskId: string;
+  diagnosticReportId: string;
+  patientToMatchId: string;
+  srToMatchId?: string;
+};
+
+export type UpdateLabOrderResourcesInput =
   | (TaskReviewedParameters & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.reviewed })
   | (SpecimenDateChangedParameters & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.specimenDateChanged })
-  | (SaveOrderCollectionData & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.saveOrderCollectionData });
+  | (SaveOrderCollectionData & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.saveOrderCollectionData })
+  | CancelMatchUnsolicitedResultTask
+  | FinalizeUnsolicitedResultMatch;
 
 export type DeleteLabOrderZambdaInput = {
   serviceRequestId: string;
@@ -286,15 +334,38 @@ export type LabResultPDF = {
 
 export enum UnsolicitedResultsRequestType {
   UNSOLICITED_RESULTS_ICON = 'unsolicited-results-icon',
-  GET_ALL_TASKS = 'get-tasks',
+  GET_TABLE_ROWS = 'get-table-rows',
   MATCH_UNSOLICITED_RESULTS = 'match-unsolicited-result',
+  GET_UNSOLICITED_RESULTS_RELATED_REQUESTS = 'get-unsolicited-results-related-requests',
   UNSOLICITED_RESULT_DETAIL = 'unsolicited-result-detail',
 }
 
-// planning to add diagnostic id as input as well
+export type GetUnsolicitedResultsResourcesForIconInput = {
+  requestType: UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_ICON;
+};
+export type GetUnsolicitedResultsResourcesForTableInput = {
+  requestType: UnsolicitedResultsRequestType.GET_TABLE_ROWS;
+};
+export type GetUnsolicitedResultsResourcesForMatchInput = {
+  requestType: UnsolicitedResultsRequestType.MATCH_UNSOLICITED_RESULTS;
+  diagnosticReportId: string;
+};
+export type GetUnsolicitedResultsRelatedRequests = {
+  requestType: UnsolicitedResultsRequestType.GET_UNSOLICITED_RESULTS_RELATED_REQUESTS;
+  diagnosticReportId: string;
+  patientId: string;
+};
+export type GetUnsolicitedResultsResourcesForReview = {
+  requestType: UnsolicitedResultsRequestType.UNSOLICITED_RESULT_DETAIL;
+  diagnosticReportId: string;
+};
+
 export type GetUnsolicitedResultsResourcesInput =
-  | { requestType: UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_ICON }
-  | { requestType: UnsolicitedResultsRequestType.GET_ALL_TASKS; itemsPerPage?: number; pageIndex?: number };
+  | GetUnsolicitedResultsResourcesForIconInput
+  | GetUnsolicitedResultsResourcesForTableInput
+  | GetUnsolicitedResultsResourcesForMatchInput
+  | GetUnsolicitedResultsRelatedRequests
+  | GetUnsolicitedResultsResourcesForReview;
 
 export const UR_TASK_ACTION_TEXT = ['Match', 'Go to Lab Results'] as const;
 export type UR_TASK_ACTION = (typeof UR_TASK_ACTION_TEXT)[number];
@@ -302,6 +373,7 @@ export type UR_TASK_ACTION = (typeof UR_TASK_ACTION_TEXT)[number];
 export type UnsolicitedResultTaskRowDTO = {
   diagnosticReportId: string;
   actionText: UR_TASK_ACTION;
+  actionUrl: string;
   taskRowDescription: string;
   resultsReceivedDateTime: string;
 };
@@ -310,8 +382,35 @@ export type GetUnsolicitedResultsResourcesForIcon = {
   tasksAreReady: boolean;
 };
 export type GetUnsolicitedResultsResourcesForTable = {
-  unsolicitedResultTasks: UnsolicitedResultTaskRowDTO[];
+  unsolicitedResultRows: UnsolicitedResultTaskRowDTO[];
 };
+export type GetUnsolicitedResultsResourcesForMatch = {
+  labInfo: {
+    patientName?: string;
+    patientDOB?: string;
+    provider?: string;
+    test?: string;
+    labName?: string;
+    resultsReceived?: string;
+  };
+  taskId: string;
+};
+export type RelatedRequestsToUnsolicitedResultOutput = {
+  possibleRelatedSRsWithVisitDate:
+    | {
+        serviceRequestId: string;
+        visitDate: string;
+      }[]
+    | null;
+};
+
+export type GetUnsolicitedResultsReviewResourcesOutput = {
+  labOrder: UnsolicitedLabDTO;
+};
+
 export type GetUnsolicitedResultsResourcesOutput =
   | GetUnsolicitedResultsResourcesForIcon
-  | GetUnsolicitedResultsResourcesForTable;
+  | GetUnsolicitedResultsResourcesForTable
+  | GetUnsolicitedResultsResourcesForMatch
+  | RelatedRequestsToUnsolicitedResultOutput
+  | GetUnsolicitedResultsReviewResourcesOutput;

@@ -27,6 +27,10 @@ export const LAB_ORDER_TASK = {
 } as const;
 export type LabOrderTaskCode = (typeof LAB_ORDER_TASK.code)[keyof typeof LAB_ORDER_TASK.code];
 
+// should match oystehr
+export const DR_UNSOLICITED_PATIENT_REF = 'unsolicitedResultPatientId';
+export const DR_UNSOLICITED_PRACTITIONER_REF = 'unsolicitedResultPractitionerId';
+
 export const PSC_HOLD_LOCALE = 'PSC Hold';
 export const PSC_LOCALE = 'PSC';
 
@@ -113,6 +117,8 @@ export const OYSTEHR_LAB_GUID_SYSTEM = 'https://identifiers.fhir.oystehr.com/lab
 export const OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM = 'https://identifiers.fhir.oystehr.com/lab-order-placer-id';
 export const OYSTEHR_EXTERNAL_LABS_ATTACHMENT_EXT_SYSTEM =
   'https://extensions.fhir.oystehr.com/observation-value-attachment-pre-release';
+export const OYSTEHR_UNSOLICITED_RESULT_ORDERING_PROVIDER_SYSTEM =
+  'https://extensions.fhir.oystehr.com/unsolicited-result-ordering-provider-reference';
 
 export const OYSTEHR_OBS_CONTENT_TYPES = {
   pdf: 'AP',

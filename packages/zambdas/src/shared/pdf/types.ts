@@ -211,7 +211,7 @@ export interface ExternalLabResultsData extends LabResultsData {
   collectionDate: string;
   resultPhase: string;
   resultsReceivedDate: string;
-  reviewed?: boolean;
+  reviewed?: boolean; // todo why is this possibly undefined ??
   reviewingProvider: Practitioner | undefined;
   reviewDate: string | undefined;
   resultInterpretations: string[];
@@ -224,6 +224,13 @@ export interface ExternalLabResultsData extends LabResultsData {
   performingLabPhone?: string;
   performingLabDirectorFullName?: string;
 }
+
+export type ReflexExternalLabResultsData = Omit<ExternalLabResultsData, 'orderSubmitDate' | 'collectionDate'>;
+
+export type UnsolicitedExternalLabResultsData = Omit<
+  ExternalLabResultsData,
+  'orderNumber' | 'orderSubmitDate' | 'collectionDate'
+>;
 export interface InHouseLabResultsData extends LabResultsData {
   inHouseLabResults: InHouseLabResultConfig[];
   timezone: string | undefined;
@@ -233,7 +240,9 @@ export interface InHouseLabResultsData extends LabResultsData {
 
 export type ResultDataConfig =
   | { type: LabType.external; data: ExternalLabResultsData }
-  | { type: LabType.inHouse; data: InHouseLabResultsData };
+  | { type: LabType.inHouse; data: InHouseLabResultsData }
+  | { type: LabType.unsolicited; data: UnsolicitedExternalLabResultsData }
+  | { type: LabType.reflex; data: ReflexExternalLabResultsData };
 
 export interface VisitNoteData extends PdfExaminationBlockData {
   patientName: string;
