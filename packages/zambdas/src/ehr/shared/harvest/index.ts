@@ -78,12 +78,13 @@ import {
   INSURANCE_CARD_CODE,
   INSURANCE_CARD_FRONT_2_ID,
   INSURANCE_CARD_FRONT_ID,
+  INSURANCE_COVERAGE_TYPE_CANDID_SYSTEM,
+  InsurancePlanTypes,
   IntakeQuestionnaireItem,
   isoStringFromDateComponents,
   isValidUUID,
   LanguageOption,
   mapBirthSexToGender,
-  mapCandidCodeToCoverageTypeCoding,
   OrderedCoverages,
   OrderedCoveragesWithSubscribers,
   OTTEHR_MODULE,
@@ -1749,9 +1750,8 @@ function getInsuranceDetailsFromAnswers(
   const org = organizations.find((org) => `${org.resourceType}/${org.id}` === insuranceOrgReference.reference);
   if (!org) return undefined;
 
-  const candidCodes = INSURANCE_CANDID_PLAN_TYPE_CODES as string[];
   const qType = answers.find((item) => item.linkId === `insurance-plan-type${suffix}`)?.answer?.[0]?.valueString;
-  if (!qType || !candidCodes.includes(qType)) return undefined;
+  if (!qType || !INSURANCE_CANDID_PLAN_TYPE_CODES.includes(qType)) return undefined;
   const type = qType as NetworkType;
 
   const additionalInformation = answers.find((item) => item.linkId === `insurance-additional-information${suffix}`)
@@ -1812,7 +1812,7 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
   } else {
     contained = [containedPolicyHolder];
   }
-  if (!coverageTypeCoding) throw new Error(`Can't find coverage type coding from candid code: ${type}`);
+  const coverageTypeCoding = InsurancePlanTypes.find((planType) => planType.candidCode === type)?.coverageCoding;
 
   const coverage: Coverage = {
     contained,
@@ -1828,7 +1828,12 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
       reference: `Patient/${patientId}`,
     },
     type: {
-      coding: [coverageTypeCoding],
+      coding: [
+        {
+          system: INSURANCE_COVERAGE_TYPE_CANDID_SYSTEM,
+          code: type,
+        },
+      ],
     },
     payor: [{ reference: `Organization/${org.id}` }],
     subscriberId: policyHolder.memberId,
@@ -1848,6 +1853,7 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
       },
     ],
   };
+  if (coverageTypeCoding) coverage.type?.coding?.push(coverageTypeCoding);
 
   if (additionalInformation) {
     coverage.extension = [

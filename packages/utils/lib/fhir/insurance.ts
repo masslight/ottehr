@@ -1,7 +1,7 @@
 import { NetworkType } from 'candidhealth/api/resources/preEncounter/resources/coverages/resources/v1';
 import { Coding } from 'fhir/r4b';
 
-export const INSURANCE_COVERAGE_TYPE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v3-ActCode';
+export const INSURANCE_COVERAGE_TYPE_CANDID_SYSTEM = 'https://fhir.zapehr.com/r4/CodeSystem/CoverageTypeCandidCode';
 
 export interface InsurancePlanType {
   candidCode: NetworkType;
@@ -22,7 +22,7 @@ export const InsurancePlanTypes: InsurancePlanType[] = [
     candidCode: '11',
     label: 'Other Non-Federal Programs',
     coverageCoding: {
-      system: INSURANCE_COVERAGE_TYPE_SYSTEM,
+      system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
       code: 'PUBLICPOL',
     },
   },
@@ -30,7 +30,7 @@ export const InsurancePlanTypes: InsurancePlanType[] = [
     candidCode: '12',
     label: 'PPO',
     coverageCoding: {
-      system: INSURANCE_COVERAGE_TYPE_SYSTEM,
+      system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
       code: 'PPO',
     },
   },
@@ -38,7 +38,7 @@ export const InsurancePlanTypes: InsurancePlanType[] = [
     candidCode: '13',
     label: 'POS',
     coverageCoding: {
-      system: INSURANCE_COVERAGE_TYPE_SYSTEM,
+      system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
       code: 'POS',
     },
   },
@@ -82,20 +82,19 @@ export const InsurancePlanTypes: InsurancePlanType[] = [
     candidCode: 'AM',
     label: 'Auto',
     coverageCoding: {
-      system: INSURANCE_COVERAGE_TYPE_SYSTEM,
+      system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
       code: 'AUTOPOL',
     },
   },
   {
     candidCode: 'BL',
     label: 'BlueCross BlueShield',
-    // todo
   },
   {
     candidCode: 'CH',
     label: 'Champus',
     coverageCoding: {
-      system: INSURANCE_COVERAGE_TYPE_SYSTEM,
+      system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
       code: 'PUBLICPOL',
       display: 'public healthcare',
     },
@@ -104,7 +103,7 @@ export const InsurancePlanTypes: InsurancePlanType[] = [
     candidCode: 'CI',
     label: 'Commercial Insurance Co',
     coverageCoding: {
-      system: INSURANCE_COVERAGE_TYPE_SYSTEM,
+      system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
       code: 'COMM',
       display: 'Commercial',
     },
@@ -113,7 +112,7 @@ export const InsurancePlanTypes: InsurancePlanType[] = [
     candidCode: 'DS',
     label: 'Disability',
     coverageCoding: {
-      system: INSURANCE_COVERAGE_TYPE_SYSTEM,
+      system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
       code: 'DIS',
     },
   },
@@ -130,7 +129,7 @@ export const InsurancePlanTypes: InsurancePlanType[] = [
     candidCode: 'HM',
     label: 'HMO',
     coverageCoding: {
-      system: INSURANCE_COVERAGE_TYPE_SYSTEM,
+      system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
       code: 'HMO',
     },
   },
@@ -146,7 +145,11 @@ export const InsurancePlanTypes: InsurancePlanType[] = [
   {
     candidCode: 'MA',
     label: 'Medicare Part A',
-    coverageCoding: { system: 'urn:oid:2.16.840.1.113883.15.5', code: 'MA', display: 'Medicare Part A' },
+    coverageCoding: {
+      system: 'http://hl7.org/fhir/us/directory-attestation/CodeSystem/InsuranceProductTypeCS',
+      code: 'media',
+      display: 'Medicare Part A',
+    },
   },
   {
     candidCode: 'MB',
@@ -160,21 +163,14 @@ export const InsurancePlanTypes: InsurancePlanType[] = [
   {
     candidCode: 'MC',
     label: 'Medicaid',
-    coverageCoding: {
-      system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
-      code: 'MEDICARE',
-      display: 'medicare health insurance card',
-    },
   },
   {
     candidCode: 'OF',
     label: 'Other Federal Program',
-    // todo
   },
   {
     candidCode: 'TV',
     label: 'Title V',
-    // todo
   },
   {
     candidCode: 'VA',
@@ -189,18 +185,14 @@ export const InsurancePlanTypes: InsurancePlanType[] = [
     candidCode: 'WC',
     label: 'Workers Comp Health Claim',
     coverageCoding: {
-      system: INSURANCE_COVERAGE_TYPE_SYSTEM,
+      system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
       code: 'WCBPOL',
     },
   },
   {
     candidCode: 'ZZ',
     label: 'Mutually Defined',
-    coverageCoding: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'OT', display: 'Other' },
   },
 ];
 
-export const INSURANCE_CANDID_PLAN_TYPE_CODES = InsurancePlanTypes.map((planType) => planType.candidCode);
-export const INSURANCE_COVERAGE_TYPE_SYSTEMS = InsurancePlanTypes.map(
-  (planType) => planType.coverageCoding?.system
-).filter((s) => s !== undefined);
+export const INSURANCE_CANDID_PLAN_TYPE_CODES = InsurancePlanTypes.map((planType) => planType.candidCode) as string[];
