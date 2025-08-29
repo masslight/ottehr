@@ -1,3 +1,4 @@
+import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Button,
@@ -36,6 +37,7 @@ export const ApplyTemplate: React.FC = () => {
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   const [dialogOpen, setDialogOpen] = useState<boolean>(false);
   const [pendingTemplate, setPendingTemplate] = useState<string>('');
+  const [isApplyingTemplate, setIsApplyingTemplate] = useState<boolean>(false);
   const theme = useTheme();
   const { oystehrZambda } = useApiClients();
   const { encounter } = useAppointmentData();
@@ -64,6 +66,7 @@ export const ApplyTemplate: React.FC = () => {
 
   const handleApplyTemplate = async (): Promise<void> => {
     if (oystehrZambda && encounter.id) {
+      setIsApplyingTemplate(true);
       try {
         await applyTemplate(oystehrZambda, {
           encounterId: encounter.id,
@@ -74,6 +77,8 @@ export const ApplyTemplate: React.FC = () => {
         console.log('error', JSON.stringify(error));
         // const errorMessage = ['There was an error completing the order'];
         // setError(errorMessage);
+      } finally {
+        setIsApplyingTemplate(false);
       }
     }
     setSelectedTemplate(pendingTemplate);
@@ -96,9 +101,6 @@ export const ApplyTemplate: React.FC = () => {
           label="Select Template"
           onChange={handleTemplateChange}
         >
-          <MenuItem value="">
-            <em>None</em>
-          </MenuItem>
           {templateOptions.map((option) => (
             <MenuItem key={option.value} value={option.value}>
               {option.label}
@@ -140,12 +142,24 @@ export const ApplyTemplate: React.FC = () => {
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'space-between', px: 3 }}>
-          <Button variant="outlined" onClick={handleDialogClose} size="medium" sx={buttonSx}>
+          <Button
+            variant="outlined"
+            onClick={handleDialogClose}
+            size="medium"
+            sx={buttonSx}
+            disabled={isApplyingTemplate}
+          >
             Cancel
           </Button>
-          <Button variant="contained" onClick={handleApplyTemplate} size="medium" sx={buttonSx}>
+          <LoadingButton
+            variant="contained"
+            onClick={handleApplyTemplate}
+            size="medium"
+            sx={buttonSx}
+            loading={isApplyingTemplate}
+          >
             Apply Template
-          </Button>
+          </LoadingButton>
         </DialogActions>
       </Dialog>
     </Box>
