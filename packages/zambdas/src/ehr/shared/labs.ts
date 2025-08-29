@@ -27,7 +27,6 @@ import {
   EncounterExternalLabResult,
   EncounterInHouseLabResult,
   EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE,
-  EXTERNAL_LAB_RESULT_PDF_BASE_NAME,
   externalLabOrderIsManual,
   ExternalLabOrderResult,
   ExternalLabOrderResultConfig,
@@ -658,6 +657,12 @@ export const parseTimezoneForAppointmentSchedule = (
   return timezone;
 };
 
+export const documentReferenceIsLabs = (docRef: DocumentReference): boolean => {
+  return !!docRef.type?.coding?.some(
+    (c) => c.system === LAB_RESULT_DOC_REF_CODING_CODE.system && c.code === LAB_RESULT_DOC_REF_CODING_CODE.code
+  );
+};
+
 export const diagnosticReportIsReflex = (dr: DiagnosticReport): boolean => {
   return !!dr?.meta?.tag?.find(
     (t) => t.system === LAB_DR_TYPE_TAG.system && t.display === LAB_DR_TYPE_TAG.display.reflex
@@ -829,9 +834,7 @@ export const groupResourcesByDr = (resources: FhirResource[]): ResourcesByDr => 
       }
     }
     if (resource.resourceType === 'DocumentReference' && resource.status === 'current') {
-      const isResultPdfDocRef = resource.content.some(
-        (content) => content.attachment.url?.includes(EXTERNAL_LAB_RESULT_PDF_BASE_NAME)
-      );
+      const isResultPdfDocRef = documentReferenceIsLabs(resource);
       if (isResultPdfDocRef) {
         currentResultPDFDocRefs.push(resource);
       }
