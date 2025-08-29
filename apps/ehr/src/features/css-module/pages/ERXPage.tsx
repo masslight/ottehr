@@ -1,4 +1,4 @@
-import { Stack, Typography } from '@mui/material';
+import { Paper, Stack, Typography } from '@mui/material';
 import React from 'react';
 import { useParams } from 'react-router-dom';
 import AiSuggestion from 'src/components/AiSuggestion';
@@ -36,10 +36,9 @@ export const ERXPage: React.FC<ERXProps> = () => {
     <Stack spacing={1} sx={{ flex: '1 0 auto' }}>
       <ERxContainer />
       {aiERX?.length > 0 && (
-        <>
-          <hr style={{ border: '0.5px solid #DFE5E9', margin: '0 -16px 0 -16px' }} />
+        <Paper sx={{ padding: 2, marginBottom: 2 }}>
           <AiSuggestion title={'eRX'} chartData={chartData} content={aiERX} />
-        </>
+        </Paper>
       )}
     </Stack>
   );

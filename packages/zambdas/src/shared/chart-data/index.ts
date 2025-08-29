@@ -312,7 +312,7 @@ export function makeObservationResource(
   encounterId: string,
   patientId: string,
   practitionerId: string,
-  documentReferenceCreateUrl: string,
+  documentReferenceCreateUrl: string | undefined,
   data: ObservationDTO,
   metaSystem: string,
   patientDOB?: string,
@@ -328,11 +328,15 @@ export function makeObservationResource(
     effectiveDateTime: DateTime.utc().toISO()!,
     status: 'final',
     code: { text: data.field || 'unknown' },
-    derivedFrom: [
-      {
-        reference: documentReferenceCreateUrl,
-      },
-    ],
+    ...(documentReferenceCreateUrl
+      ? {
+          derivedFrom: [
+            {
+              reference: documentReferenceCreateUrl,
+            },
+          ],
+        }
+      : {}),
     meta: fillMeta(data.field, metaSystem),
   };
 
@@ -1188,12 +1192,6 @@ const mapResourceToChartDataFields = (
   ) {
     const resourceDto = makeObservationDTO(resource);
     if (resourceDto) data.observations?.push(resourceDto);
-    resourceMapped = true;
-  } else if (
-    resource.resourceType === 'QuestionnaireResponse' &&
-    resource.questionnaire === '#aiInterviewQuestionnaire'
-  ) {
-    data.aiChat?.documents.push(resource);
     resourceMapped = true;
   } else if (
     resource.resourceType === 'DocumentReference' &&

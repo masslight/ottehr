@@ -10,7 +10,6 @@ import {
   Observation,
   Practitioner,
   Procedure,
-  QuestionnaireResponse,
   Reference,
   Resource,
   ServiceRequest,
@@ -42,7 +41,7 @@ import {
 } from './save-chart-data.types';
 
 export interface AIChatDetails {
-  documents: (DocumentReference | QuestionnaireResponse)[];
+  documents: DocumentReference[];
   providers: Practitioner[];
 }
 

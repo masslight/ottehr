@@ -199,20 +199,20 @@ export async function getChartData(
 
   if (requestedFields == null) {
     // AI chat
-    chartDataRequests.push(
-      createFindResourceRequest(
-        patient,
-        encounter,
-        'QuestionnaireResponse',
-        {
-          questionnaire: {
-            type: 'string',
-            value: '#aiInterviewQuestionnaire',
-          },
-        },
-        'encounter'
-      )
-    );
+    // chartDataRequests.push(
+    //   createFindResourceRequest(
+    //     patient,
+    //     encounter,
+    //     'QuestionnaireResponse',
+    //     {
+    //       questionnaire: {
+    //         type: 'string',
+    //         value: '#aiInterviewQuestionnaire',
+    //       },
+    //     },
+    //     'encounter'
+    //   )
+    // );
     chartDataRequests.push(
       createFindResourceRequest(
         patient,

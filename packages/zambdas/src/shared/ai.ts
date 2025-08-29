@@ -160,6 +160,7 @@ function createDocumentReference(
         ],
       },
     ],
+    description: z3URL ? 'Summary of visit from audio recording' : 'Summary of visit from chat',
     subject: {
       reference: `Patient/${patientID}`,
     },

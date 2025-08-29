@@ -55,7 +55,6 @@ export function RecordAudioContainer(props: RecordAudioContainerProps): ReactEle
 
   useEffect(() => {
     if (!waveformRef.current) return;
-    console.log(10);
 
     const recordPlugin = RecordPlugin.create({
       scrollingWaveform: true,

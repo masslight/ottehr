@@ -1,7 +1,7 @@
 import { ottehrAiIcon } from '@ehrTheme/icons';
-import { Box, Stack, Typography } from '@mui/material';
+import { Box, Container, Stack, Typography } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
-import { DocumentReference, Practitioner, QuestionnaireResponse } from 'fhir/r4b';
+import { DocumentReference, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import React from 'react';
 import { useParams } from 'react-router-dom';
@@ -14,41 +14,52 @@ import { AccordionCard, useAppointmentStore } from '../../../telemed';
 import { CSSLoader } from '../components/CSSLoader';
 import { useAppointment } from '../hooks/useAppointment';
 
-const AI_OBSERVATION_FIELDS = [
-  [AiObservationField.HistoryOfPresentIllness, 'History of Present Illness (HPI)'],
-  [AiObservationField.PastMedicalHistory, 'Past Medical History (PMH)'],
-  [AiObservationField.PastSurgicalHistory, 'Past Surgical History (PSH)'],
-  [AiObservationField.MedicationsHistory, 'Medications'],
-  [AiObservationField.Allergies, 'Allergies'],
-  [AiObservationField.SocialHistory, 'Social history'],
-  [AiObservationField.FamilyHistory, 'Family history'],
-  [AiObservationField.HospitalizationsHistory, 'Hospitalization'],
-  [AiObservationField.Labs, 'Labs'],
-  [AiObservationField.eRX, 'eRX'],
-  [AiObservationField.Procedures, 'Procedures'],
-];
+const AI_OBSERVATION_FIELDS = {
+  [AiObservationField.HistoryOfPresentIllness]: 'History of Present Illness (HPI)',
+  [AiObservationField.PastMedicalHistory]: 'Past Medical History (PMH)',
+  [AiObservationField.PastSurgicalHistory]: 'Past Surgical History (PSH)',
+  [AiObservationField.MedicationsHistory]: 'Medications',
+  [AiObservationField.Allergies]: 'Allergies',
+  [AiObservationField.SocialHistory]: 'Social history',
+  [AiObservationField.FamilyHistory]: 'Family history',
+  [AiObservationField.HospitalizationsHistory]: 'Hospitalization',
+  [AiObservationField.Labs]: 'Labs',
+  [AiObservationField.eRX]: 'eRX',
+  [AiObservationField.Procedures]: 'Procedures',
+};
 
 interface OttehrAiProps {
   appointmentId?: string;
 }
 const DATE_TIME_FORMAT = 'MM/dd/yyyy hh:mm a';
 
+function getDocumentReferenceSource(documentReference: DocumentReference): 'audio' | 'chat' | undefined {
+  if (documentReference.description === 'Summary of visit from audio recording') {
+    return 'audio';
+  } else if (documentReference.description === 'Summary of visit from chat') {
+    return 'chat';
+  }
+  return undefined;
+}
+
 export function getSource(
-  source: DocumentReference | QuestionnaireResponse,
+  documentReference: DocumentReference,
   oystehr: Oystehr | undefined,
   providers: Practitioner[] | undefined
 ): string {
-  let providerName = undefined;
-  let date = undefined;
-  if (source?.resourceType === 'DocumentReference') {
-    const providerID = source.extension
+  let source = undefined;
+  const date = DateTime.fromISO(documentReference?.date || '');
+  const documentReferenceSource = getDocumentReferenceSource(documentReference);
+  if (documentReferenceSource === 'audio') {
+    const providerID = documentReference?.extension
       ?.find((extension) => extension.url === `${PUBLIC_EXTENSION_BASE_URL}/provider`)
       ?.valueReference?.reference?.split('/')?.[1];
     const provider = providers?.find((providerTemp) => providerID === providerTemp.id);
-    providerName = provider?.name?.[0] ? oystehr?.fhir.formatHumanName(provider.name?.[0]) : 'Unknown';
-    date = DateTime.fromISO(source?.date || '');
+    source = provider?.name?.[0] ? oystehr?.fhir.formatHumanName(provider.name?.[0]) : 'Unknown';
+  } else if (documentReferenceSource === 'chat') {
+    source = 'AI Chat';
   }
-  return source?.resourceType === 'DocumentReference' ? getSourceFormat(providerName, date) : `AI Chat`;
+  return getSourceFormat(source, date);
 }
 
 export function getSourceFormat(providerName: string | undefined, date: DateTime | undefined): string {
@@ -103,7 +114,7 @@ export const OttehrAi: React.FC<OttehrAiProps> = () => {
                   >
                     <img src={ottehrAiIcon} style={{ width: '30px', marginRight: '8px' }} />
                     <Typography variant="body1" style={{ fontWeight: 700, fontSize: '14px' }}>
-                      {aiChat?.resourceType === 'DocumentReference'
+                      {getDocumentReferenceSource(aiChat) === 'audio'
                         ? 'TRANSCRIPT OF VISIT BY OYSTEHR AI'
                         : 'CHAT WITH OYSTEHR AI'}
                     </Typography>
@@ -115,11 +126,7 @@ export const OttehrAi: React.FC<OttehrAiProps> = () => {
                     <Typography variant="subtitle2" style={{ fontWeight: 700, fontSize: '14px' }}>
                       TRANSCRIPT
                     </Typography>
-                    {aiChat?.resourceType === 'DocumentReference' ? (
-                      <AiChatHistory documentReference={aiChat} />
-                    ) : (
-                      <AiChatHistory questionnaireResponse={aiChat} />
-                    )}
+                    <AiChatHistory documentReference={aiChat} />
                   </Box>
                 </>
               );
@@ -139,7 +146,36 @@ export const OttehrAi: React.FC<OttehrAiProps> = () => {
                 OYSTEHR AI SUGGESTIONS
               </Typography>
             </Box>
-            {Object.entries(observations)?.map(([observationDocumentRefence, observationItems]) => {
+            {Object.entries(AI_OBSERVATION_FIELDS).map(([observationField, title]) => {
+              const observationsForField = chartData?.observations?.filter(
+                (observation) => observation.field === observationField
+              );
+              return (
+                <Container
+                  style={{
+                    background: '#E1F5FECC',
+                    borderRadius: '8px',
+                    padding: '4px 8px 4px 8px',
+                    marginBottom: '5px',
+                  }}
+                >
+                  <Typography variant="body1" style={{ fontWeight: 700 }}>
+                    {title}
+                  </Typography>
+                  {observationsForField?.map((observation) => (
+                    <AiSuggestion
+                      key={observation.resourceId}
+                      title={title || 'Unknown'}
+                      // source={documentReference ? getSource(documentReference) : 'unknown'}
+                      chartData={chartData}
+                      content={[observation as ObservationTextFieldDTO]}
+                      hideHeader={true}
+                    />
+                  ))}
+                </Container>
+              );
+            })}
+            {/* {Object.entries(observations)?.map(([observationDocumentRefence, observationItems]) => {
               // let date = undefined;
               // if (aiChat?.resourceType === 'DocumentReference') {
               //   date = DateTime.fromISO(aiChat?.date ?? '').toFormat('MM/dd/yyyy hh:mm a');
@@ -178,11 +214,11 @@ export const OttehrAi: React.FC<OttehrAiProps> = () => {
                   </Box>
                 </>
               );
-            })}
+            })} */}
             {aiPotentialDiagnoses.length > 0 ? (
               <Box
                 style={{
-                  background: '#FFF9EF',
+                  background: '#E1F5FECC',
                   borderRadius: '8px',
                   padding: '8px',
                 }}

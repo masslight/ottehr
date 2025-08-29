@@ -1,4 +1,4 @@
-import { Box, Stack } from '@mui/material';
+import { Box, Paper, Stack } from '@mui/material';
 import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AiSuggestion from 'src/components/AiSuggestion';
@@ -58,6 +58,12 @@ export const ExternalLabOrdersListPage: React.FC = () => {
             </ButtonRounded>
           </Stack>
         </Box>
+        {aiExternalLabs?.length > 0 && (
+          <Paper sx={{ padding: 2, marginBottom: 2 }}>
+            {/* <hr style={{ border: '0.5px solid #DFE5E9', margin: '0 -16px 0 -16px' }} /> */}
+            <AiSuggestion title={'Labs'} chartData={chartData} content={aiExternalLabs} />
+          </Paper>
+        )}
         <LabsTable
           searchBy={{ searchBy: { field: 'encounterId', value: encounterId } }}
           columns={externalLabsColumns}
@@ -66,12 +72,6 @@ export const ExternalLabOrdersListPage: React.FC = () => {
           allowSubmit={true}
           onCreateOrder={handleCreateOrder}
         />
-        {aiExternalLabs?.length > 0 && (
-          <>
-            <hr style={{ border: '0.5px solid #DFE5E9', margin: '0 -16px 0 -16px' }} />
-            <AiSuggestion title={'Labs'} chartData={chartData} content={aiExternalLabs} />
-          </>
-        )}
       </Box>
     </ListViewContainer>
   );

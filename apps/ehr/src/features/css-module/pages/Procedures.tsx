@@ -1,5 +1,5 @@
 import AddIcon from '@mui/icons-material/Add';
-import { Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
+import { Paper, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
 import { Box, Stack } from '@mui/system';
 import { DateTime } from 'luxon';
 import { ReactElement, useMemo } from 'react';
@@ -58,6 +58,11 @@ export default function Procedures(): ReactElement {
           Procedure
         </RoundedButton>
       </Box>
+      {aiProcedures?.length > 0 && (
+        <Paper sx={{ padding: 2, marginBottom: 2 }}>
+          <AiSuggestion title={'Procedures'} chartData={chartData} content={aiProcedures} />
+        </Paper>
+      )}
       <AccordionCard>
         <Table sx={{ width: '100%' }}>
           <TableHead>
@@ -127,12 +132,6 @@ export default function Procedures(): ReactElement {
           </TableBody>
         </Table>
       </AccordionCard>
-      {aiProcedures?.length > 0 && (
-        <>
-          <hr style={{ border: '0.5px solid #DFE5E9', margin: '0 -16px 0 -16px' }} />
-          <AiSuggestion title={'Procedures'} chartData={chartData} content={aiProcedures} />
-        </>
-      )}
     </Box>
   );
 }
