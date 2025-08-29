@@ -6,9 +6,14 @@ import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { CustomDialog } from 'src/components/dialogs';
+import {
+  ReasonListCodes,
+  reasonListValues,
+} from 'src/features/css-module/components/medication-administration/medicationTypes';
+import { useCancelImmunizationOrder } from 'src/features/css-module/hooks/useImmunization';
 import { getImmunizationOrderEditUrl, getImmunizationVaccineDetailsUrl } from 'src/features/css-module/routing/helpers';
 import { OrderStatusChip } from 'src/features/immunization/components/OrderStatusChip';
-import { ImmunizationOrder } from '../ImmunizationOrder';
+import { ImmunizationOrder } from 'utils';
 
 interface Props {
   order: ImmunizationOrder;
@@ -20,7 +25,6 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) =>
   const navigate = useNavigate();
   const { id: appointmentId } = useParams();
   const [isDeleteDialogOpened, setIsDeleteDialogOpened] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
 
   const navigateToEditOrder = (): void => {
     if (!appointmentId) {
@@ -30,22 +34,25 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) =>
     navigate(getImmunizationOrderEditUrl(appointmentId, order.id));
   };
 
+  const { mutateAsync: cancelOrder, isPending: isDeleting } = useCancelImmunizationOrder();
+
   const handleConfirmDelete = async (): Promise<void> => {
-    setIsDeleting(true);
     try {
-      // todo await deleteMedication(medication.id);
-      setIsDeleteDialogOpened(false);
+      await cancelOrder({
+        orderId: order.id,
+      });
     } catch (error) {
       console.error('Error deleting vaccine order:', error);
       enqueueSnackbar('An error occurred while deleting the vaccine order. Please try again.', { variant: 'error' });
+    } finally {
+      setIsDeleteDialogOpened(false);
     }
-    setIsDeleting(false);
   };
 
   const isPending = order.status === 'pending';
 
   const handleRowClick = (): void => {
-    if (!isPending) {
+    if (!isPending || !showActions) {
       return;
     }
     requestAnimationFrame(() => {
@@ -56,7 +63,7 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) =>
   return (
     <TableRow
       sx={{
-        ...(isPending
+        ...(isPending && showActions
           ? {
               '&:hover': {
                 backgroundColor: alpha(theme.palette.primary.main, 0.04),
@@ -68,24 +75,24 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) =>
       }}
       onClick={handleRowClick}
     >
-      <TableCell>{order.vaccineName}</TableCell>
+      <TableCell>{order.details.medication.name}</TableCell>
       <TableCell>
-        {order.dose} {order.units} {order.route ? `/ ${order.route}` : null}
-        {grayText(order.instructions)}
+        {order.details.dose} {order.details.units} {order.details.route ? `/ ${order.details.route}` : null}
+        {grayText(order.details.instructions)}
       </TableCell>
       <TableCell>
-        {formatDateTime(order.orderedDateTime)}
-        {grayText(order.orderedBy.providerName)}
+        {formatDateTime(order.details.orderedDateTime)}
+        {grayText(order.details.orderedProvider.name)}
       </TableCell>
       <TableCell>
-        {formatDateTime(order.administeringData?.administeredDateTime)}
-        {grayText(order.administeringData?.providerName)}
+        {formatDateTime(order.administrationDetails?.administeredDateTime)}
+        {grayText(order.administrationDetails?.administeredProvider?.name)}
       </TableCell>
       <TableCell>
         <Stack direction="row" justifyContent="space-between">
           <Stack>
             <OrderStatusChip status={order.status} />
-            {order.statusReason}
+            {reasonListValues[order.reason as ReasonListCodes] ?? order.reason}
           </Stack>
           {showActions && order.status === 'pending' ? (
             <Stack direction="row" onClick={(e) => e.stopPropagation()}>

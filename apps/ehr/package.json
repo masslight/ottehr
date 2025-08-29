@@ -1,6 +1,6 @@
 {
   "name": "ehr-ui",
-  "version": "1.15.6",
+  "version": "1.16.7",
   "private": true,
   "type": "module",
   "engines": {
@@ -21,6 +21,7 @@
   },
   "scripts": {
     "start": "vite --mode default",
+    "start:iac": "vite --mode default",
     "preview": "vite preview --port 4002",
     "lint": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts,.tsx,.js,.jsx --report-unused-disable-directives --max-warnings 0 .",
     "lint:fix": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts,.tsx,.js,.jsx --report-unused-disable-directives --max-warnings 0 --fix .",
@@ -58,6 +59,7 @@
     "@stripe/react-stripe-js": "^3.0.0",
     "@stripe/stripe-js": "^3.5.0",
     "@twilio/conversations": "^2.4.1",
+    "@types/wavesurfer.js": "^6.0.12",
     "amazon-chime-sdk-component-library-react": "^3.10.0",
     "amazon-chime-sdk-js": "^3.20.0",
     "chart.js": "^4.4.1",

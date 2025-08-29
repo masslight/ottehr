@@ -7,6 +7,7 @@ import { NursingOrderDetailsPage } from 'src/features/nursing-orders/pages/Nursi
 import { NursingOrdersPage } from 'src/features/nursing-orders/pages/NursingOrdersPage';
 import { FEATURE_FLAGS } from '../../../constants/feature-flags';
 import { AssessmentCard } from '../../../telemed/features/appointment/AssessmentTab';
+import { ExamTab } from '../../../telemed/features/appointment/ExamTab';
 import { CreateExternalLabOrder } from '../../external-labs/pages/CreateExternalLabOrder';
 import { ExternalLabOrdersListPage } from '../../external-labs/pages/ExternalLabOrdersListPage';
 import { OrderDetailsPage } from '../../external-labs/pages/OrderDetails';
@@ -17,7 +18,6 @@ import { RadiologyOrdersListPage } from '../../radiology/pages/RadiologyOrdersLi
 import { RouteCSS } from '../context/NavigationContext';
 import { Allergies } from '../pages/Allergies';
 import { ERXPage } from '../pages/ERXPage';
-import { Examination } from '../pages/Examination';
 import { Hospitalization } from '../pages/Hospitalization';
 import { InHouseMedication } from '../pages/InHouseMedication';
 import { InHouseOrderEdit } from '../pages/InHouseOrderEdit';
@@ -56,6 +56,7 @@ export enum ROUTER_PATH {
   EXTERNAL_LAB_ORDER = 'external-lab-orders',
   EXTERNAL_LAB_ORDER_CREATE = `external-lab-orders/create`,
   EXTERNAL_LAB_ORDER_DETAILS = `external-lab-orders/:serviceRequestID/order-details`,
+  EXTERNAL_LAB_ORDER_REFLEX_DETAILS = `external-lab-orders/reflex/:diagnosticReportId/order-details`,
 
   RADIOLOGY_ORDER = 'radiology',
   RADIOLOGY_ORDER_CREATE = `radiology/create`,
@@ -181,7 +182,6 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
     sidebarPath: 'immunization/mar',
     activeCheckPath: 'immunization',
     modes: ['provider'],
-    isSkippedInNavigation: true,
     element: <Immunization />,
     text: 'Immunization',
     iconKey: 'Immunization',
@@ -219,6 +219,14 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
   },
   [ROUTER_PATH.EXTERNAL_LAB_ORDER_DETAILS]: {
     path: ROUTER_PATH.EXTERNAL_LAB_ORDER_DETAILS,
+    modes: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? ['provider', 'readonly'] : [],
+    isSkippedInNavigation: true,
+    element: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? <OrderDetailsPage /> : null,
+    text: 'Order Details',
+    iconKey: 'External Labs',
+  },
+  [ROUTER_PATH.EXTERNAL_LAB_ORDER_REFLEX_DETAILS]: {
+    path: ROUTER_PATH.EXTERNAL_LAB_ORDER_REFLEX_DETAILS,
     modes: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? ['provider', 'readonly'] : [],
     isSkippedInNavigation: true,
     element: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? <OrderDetailsPage /> : null,
@@ -327,7 +335,7 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
   [ROUTER_PATH.EXAMINATION]: {
     path: ROUTER_PATH.EXAMINATION,
     modes: ['provider', 'readonly'],
-    element: <Examination />,
+    element: <ExamTab />,
     text: 'Exam',
     iconKey: 'Stethoscope',
   },

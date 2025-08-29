@@ -6,9 +6,8 @@ import { DateTime } from 'luxon';
 import { ReactElement, useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import DateSearch from '../../../../components/DateSearch';
-import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useEditPatientBirthDateMutation } from '../../../hooks';
-import { useAppointmentStore } from '../../../state';
+import { useAppointmentData } from '../../../state';
 
 interface EditPatientBirthDateDialogProps {
   modalOpen: boolean;
@@ -30,7 +29,7 @@ export const EditPatientBirthDateDialog = ({ modalOpen, onClose }: EditPatientBi
     getValues,
   } = useForm<FormInputs>();
   const [error, setError] = useState(false);
-  const { patient } = getSelectors(useAppointmentStore, ['patient']);
+  const { patient, appointmentSetState } = useAppointmentData();
 
   useEffect(() => {
     setValue('dateOfBirth', patient?.birthDate ? DateTime.fromISO(patient?.birthDate) : null);
@@ -55,7 +54,7 @@ export const EditPatientBirthDateDialog = ({ modalOpen, onClose }: EditPatientBi
         { patientData: patientData },
         {
           onSuccess: (updatedData) => {
-            useAppointmentStore.setState({
+            appointmentSetState({
               patient: { ...updatedData },
             });
             onClose();

@@ -1,35 +1,31 @@
 import { Paper, Stack, Typography } from '@mui/material';
 import React from 'react';
-import { useParams } from 'react-router-dom';
 import AiSuggestion from 'src/components/AiSuggestion';
+import { useAppointmentData, useChartData } from 'src/telemed';
 import { AiObservationField, ObservationTextFieldDTO } from 'utils';
-import { getSelectors } from '../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../telemed';
 import { ERxContainer } from '../../../telemed/features/appointment/PlanTab';
 import { CSSLoader } from '../components/CSSLoader';
-import { useAppointment } from '../hooks/useAppointment';
-
 interface ERXProps {
   appointmentID?: string;
 }
 
 export const ERXPage: React.FC<ERXProps> = () => {
-  const { id: appointmentID } = useParams();
-
   const {
     resources: { appointment },
-    isLoading,
-    error,
-  } = useAppointment(appointmentID);
+    isAppointmentLoading,
+    appointmentError,
+  } = useAppointmentData();
 
-  const { isChartDataLoading, chartData } = getSelectors(useAppointmentStore, ['isChartDataLoading', 'chartData']);
+  const { chartData, isChartDataLoading, chartDataError } = useChartData();
+  const error = chartDataError || appointmentError;
+  const isLoading = isAppointmentLoading || isChartDataLoading;
 
   const aiERX = chartData?.observations?.filter(
     (observation) => observation.field === AiObservationField.eRX
   ) as ObservationTextFieldDTO[];
 
   if (isLoading || isChartDataLoading) return <CSSLoader />;
-  if (error) return <Typography>Error: {error.message}</Typography>;
+  if (error?.message) return <Typography>Error: {error.message}</Typography>;
   if (!appointment) return <Typography>No data available</Typography>;
 
   return (

@@ -2,9 +2,9 @@ import { Box, Paper, Stack } from '@mui/material';
 import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AiSuggestion from 'src/components/AiSuggestion';
-import { AiObservationField, getSelectors, ObservationTextFieldDTO } from 'utils';
+import { AiObservationField, ObservationTextFieldDTO } from 'utils';
 import { PageTitle } from '../../../telemed/components/PageTitle';
-import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
+import { useAppointmentData, useChartData } from '../../../telemed/state/appointment/appointment.store';
 import ListViewContainer from '../../common/ListViewContainer';
 import { ButtonRounded } from '../../css-module/components/RoundedButton';
 import { LabsTable, LabsTableColumn } from '../components/labs-orders/LabsTable';
@@ -21,8 +21,9 @@ const externalLabsColumns: LabsTableColumn[] = [
 
 export const ExternalLabOrdersListPage: React.FC = () => {
   const navigate = useNavigate();
-  const encounterId = useAppointmentStore((state) => state.encounter?.id);
-  const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
+  const { encounter } = useAppointmentData();
+  const encounterId = encounter?.id;
+  const { chartData } = useChartData();
 
   const handleCreateOrder = useCallback((): void => {
     navigate(`create`);

@@ -3,7 +3,7 @@ import { Box } from '@mui/system';
 import React from 'react';
 
 interface Props {
-  status: 'pending' | 'administered' | 'partly-administered' | 'not-administered' | 'cancelled';
+  status: string;
 }
 
 interface Colors {
@@ -20,11 +20,11 @@ const STATUS_TO_BG_COLOR: Record<string, Colors> = {
     bg: '#C8E6C9',
     text: '#1B5E20',
   },
-  'partly-administered': {
+  'administered-partly': {
     bg: '#B2EBF2',
     text: '#006064',
   },
-  'not-administered': {
+  'administered-not': {
     bg: '#FECDD2',
     text: '#B71C1C',
   },
@@ -32,6 +32,14 @@ const STATUS_TO_BG_COLOR: Record<string, Colors> = {
     bg: '#FFF',
     text: '#616161',
   },
+};
+
+const STATUS_TO_LABEL: Record<string, string> = {
+  pending: 'PENDING',
+  administered: 'ADMINISTERED',
+  'administered-partly': 'PARTLY-ADMINISTERED',
+  'administered-not': 'NOT-ADMINISTERED',
+  cancelled: 'CANCELLED',
 };
 
 export const OrderStatusChip: React.FC<Props> = ({ status }) => {
@@ -43,13 +51,13 @@ export const OrderStatusChip: React.FC<Props> = ({ status }) => {
         padding: '0px 8px 0px 8px',
         borderRadius: '4px',
         height: '20px',
-        borderColor: status === 'cancelled' ? '#BFC2C6' : 'none',
+        border: status === 'cancelled' ? '1px solid #BFC2C6' : 'none',
       }}
       display="flex"
       alignItems="center"
     >
-      <Typography variant="body2" display="inline" style={{ textTransform: 'uppercase', color: colors.text }}>
-        <span style={{ fontWeight: '500' }}>{status}</span>
+      <Typography variant="body2" display="inline" style={{ color: colors.text }}>
+        <span style={{ fontWeight: '500' }}>{STATUS_TO_LABEL[status]}</span>
       </Typography>
     </Box>
   );

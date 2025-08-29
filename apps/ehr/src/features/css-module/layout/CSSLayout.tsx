@@ -2,15 +2,14 @@ import { Mic } from '@mui/icons-material';
 import { Container, Fab, Paper } from '@mui/material';
 import React, { useRef } from 'react';
 import { Outlet } from 'react-router-dom';
+import { useResetAppointmentStore } from 'src/telemed/hooks/useResetAppointmentStore';
 import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils';
-import { useResetAppointmentStore } from '../../../telemed';
-import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
+import { useAppointmentData, useChartData } from '../../../telemed/state/appointment/appointment.store';
 import { CommonLayoutBreadcrumbs } from '../components/breadcrumbs/CommonLayoutBreadcrumbs';
 import { Header } from '../components/Header';
 import { InfoAlert } from '../components/InfoAlert';
 import { RecordAudioContainer } from '../components/progress-note/RecordAudioContainer';
 import { Sidebar } from '../components/Sidebar';
-import { useChartData } from '../hooks/useChartData';
 import { BottomNavigation } from './BottomNavigation';
 
 const layoutStyle: React.CSSProperties = {
@@ -35,18 +34,19 @@ const contentWrapperStyle: React.CSSProperties = {
 };
 
 export const CSSLayout: React.FC = () => {
-  const { encounter, chartData } = useAppointmentStore();
+  const { encounter } = useAppointmentData();
   const isInitialLoad = useRef(true);
   const [recordingAnchorElemement, setRecordingAnchorElement] = React.useState<HTMLButtonElement | null>(null);
   const recordingElementID = 'recording-element';
   const recordingOpen = Boolean(recordingAnchorElemement);
 
   useResetAppointmentStore();
+  const { chartData, chartDataSetState } = useChartData();
 
   useChartData({
-    encounterId: encounter.id!,
     onSuccess: (data) => {
-      useAppointmentStore.setState({ chartData: { ...chartData, ...data } });
+      if (!data) return;
+      chartDataSetState({ chartData: { ...chartData, ...data } });
       isInitialLoad.current = false;
     },
     onError: (error) => {
@@ -57,7 +57,6 @@ export const CSSLayout: React.FC = () => {
   });
 
   const assignedIntakePerformerId = getAdmitterPractitionerId(encounter);
-
   const assignedProviderId = getAttendingPractitionerId(encounter);
 
   return (

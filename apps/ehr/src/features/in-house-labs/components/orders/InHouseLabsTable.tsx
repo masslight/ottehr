@@ -28,7 +28,7 @@ import { getCreateInHouseLabOrderResources } from 'src/api/api';
 import { DropdownPlaceholder } from 'src/features/common/DropdownPlaceholder';
 import { getInHouseLabOrderDetailsUrl } from 'src/features/css-module/routing/helpers';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { InHouseOrderListPageItemDTO, TestItem } from 'utils';
+import { InHouseOrderListPageItemDTO, InHouseOrdersSearchBy, TestItem } from 'utils';
 import { LabOrdersSearchBy } from 'utils/lib/types/data/labs';
 import { InHouseLabsTableRow } from './InHouseLabsTableRow';
 import { useInHouseLabOrders } from './useInHouseLabOrders';
@@ -73,7 +73,7 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
     error,
     showDeleteLabOrderDialog,
     DeleteOrderDialog,
-  } = useInHouseLabOrders(searchBy);
+  } = useInHouseLabOrders(searchBy as InHouseOrdersSearchBy);
 
   const [testTypeQuery, setTestTypeQuery] = useState<string>('');
   const [tempDateFilter, setTempDateFilter] = useState<DateTime | null>(visitDateFilter);

@@ -2,17 +2,16 @@ import { Box, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { FC } from 'react';
 import { getQuestionnaireResponseByLinkId } from 'utils';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../../state';
+import { useAppointmentData } from '../../../../state';
 import { getPatientName } from '../../../../utils';
 import { VisitNoteItem } from './VisitNoteItem';
 
 export const PatientInformationContainer: FC = () => {
-  const { patient, questionnaireResponse } = getSelectors(useAppointmentStore, ['patient', 'questionnaireResponse']);
-
+  const { patient, questionnaireResponse } = useAppointmentData();
   const patientName = getPatientName(patient?.name).lastFirstMiddleName;
   const dob = patient?.birthDate && DateTime.fromFormat(patient.birthDate, 'yyyy-MM-dd').toFormat('MM/dd/yyyy');
   const phone = getQuestionnaireResponseByLinkId('guardian-number', questionnaireResponse)?.answer?.[0]?.valueString;
+
   const accompanyingPerson = {
     firstName: getQuestionnaireResponseByLinkId('person-accompanying-minor-first-name', questionnaireResponse)
       ?.answer?.[0]?.valueString,

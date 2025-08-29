@@ -7,13 +7,13 @@ import { generatePath, useNavigate } from 'react-router-dom';
 import {
   APIError,
   CreateSlotParams,
+  getClosingTime,
   getHoursOfOperationForToday,
+  getOpeningTime,
   getTimezone,
   isApiError,
-  isLocationOpen,
   ServiceMode,
   TelemedLocation,
-  TIMEZONES,
 } from 'utils';
 import ottehrApi from '../api/ottehrApi';
 import { bookingBasePath, intakeFlowPageRoute } from '../App';
@@ -64,7 +64,7 @@ const StartVirtualVisit = (): JSX.Element => {
 
   console.log('locationsResponse', locationsResponse);
 
-  const handleStateChange = (_e: any, newValue: TelemedLocation | null): void => {
+  const handleLocationChange = (_e: any, newValue: TelemedLocation | null): void => {
     setSelectedLocation(newValue);
   };
 
@@ -112,26 +112,29 @@ const StartVirtualVisit = (): JSX.Element => {
   };
 
   const sortedLocations = useMemo(() => {
-    const getPriority = (state: { available: boolean; workingHours: null | string }): number => {
-      if (state.available) return 0;
-      if (state.workingHours) return 1;
+    const getPriority = (location: { available: boolean; workingHours: null | string }): number => {
+      if (location.available) return 0;
+      if (location.workingHours) return 1;
       return 2;
     };
 
     return telemedLocations
       .map((location) => {
+        const tz = getTimezone(location.schedule);
+        const now = DateTime.now().setZone(tz);
         const state = location.state;
         const currentWorkingHours = currentWorkingHoursText(location);
+        const openingTime =
+          location.locationInformation.scheduleExtension &&
+          getOpeningTime(location.locationInformation.scheduleExtension!, tz, now);
+        const closingTime =
+          location.locationInformation.scheduleExtension &&
+          getClosingTime(location.locationInformation.scheduleExtension!, tz, now);
+        const isOpen = Boolean(openingTime && openingTime <= now && (!closingTime || closingTime > now));
+
         return {
           state: state,
-          available:
-            location?.available && location?.locationInformation?.scheduleExtension
-              ? isLocationOpen(
-                  location.locationInformation.scheduleExtension,
-                  location.locationInformation.timezone ?? TIMEZONES[0],
-                  DateTime.now().setZone(location.locationInformation.timezone ?? '')
-                )
-              : false,
+          available: location?.available && openingTime && closingTime ? isOpen : false,
           workingHours: (Boolean(location?.available) && currentWorkingHours) || null,
           fullName: location?.locationInformation?.name || state,
           scheduleId: location?.schedule.id || '',
@@ -144,8 +147,6 @@ const StartVirtualVisit = (): JSX.Element => {
         return priorityDiff !== 0 ? priorityDiff : a.fullName.localeCompare(b.fullName);
       });
   }, [telemedLocations]);
-
-  console.log('sortedStates, telemedLocations', sortedLocations?.length, telemedLocations?.length);
 
   return (
     <PageContainer title="Request a Virtual Visit" imgAlt="Chat icon">
@@ -168,13 +169,17 @@ const StartVirtualVisit = (): JSX.Element => {
             options={sortedLocations}
             getOptionLabel={(option) => option.fullName || option.state || ''}
             onChange={(_e, newValue) =>
-              newValue?.schedule ? handleStateChange(_e, newValue as TelemedLocation) : null
+              newValue?.schedule ? handleLocationChange(_e, newValue as TelemedLocation) : null
             }
-            value={sortedLocations.find((state) => state.state === selectedLocation?.state) || null}
-            isOptionEqualToValue={(option, value) => option.state === value.state}
+            value={
+              sortedLocations.find(
+                (location) => location.locationInformation.id === selectedLocation?.locationInformation.id
+              ) || null
+            }
+            isOptionEqualToValue={(option, value) => option.locationInformation.id === value.locationInformation.id}
             renderOption={(props, option) => {
               return (
-                <li {...props}>
+                <li {...props} key={option.locationInformation.id}>
                   <Box>
                     <Typography sx={{ pt: 1 }} variant="body2">
                       {option.fullName}
@@ -198,7 +203,7 @@ const StartVirtualVisit = (): JSX.Element => {
             renderInput={(params) => (
               <>
                 <BoldPurpleInputLabel required shrink sx={{ whiteSpace: 'pre-wrap', mt: 3 }}>
-                  Current location (State)
+                  Visit location
                 </BoldPurpleInputLabel>
                 <TextField
                   {...params}
