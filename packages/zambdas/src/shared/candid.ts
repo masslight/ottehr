@@ -313,9 +313,9 @@ async function candidCreateEncounterRequest(
     }
   }
 
+  // Note: dateOfService field must not be provided as service line date of service is already sent
   return {
     externalId: EncounterExternalId(assertDefined(encounter.id, 'Encounter.id')),
-    // dateOfService: dateOfServiceString, // Field must not be provided if service line date of service is sent
     billableStatus: BillableStatusType.Billable,
     responsibleParty: insuranceResources != null ? ResponsiblePartyType.InsurancePay : ResponsiblePartyType.SelfPay,
     benefitsAssignedToProvider: true,
@@ -1178,9 +1178,9 @@ async function candidCreateEncounterFromAppointmentRequest(
     }
   }
 
+  // Note: dateOfService field must not be provided as service line date of service is already sent
   return {
     externalId: EncounterExternalId(assertDefined(encounter.id, 'Encounter.id')),
-    // dateOfService: dateOfServiceString, // Field must not be provided if service line date of service is sent
     preEncounterPatientId: PreEncounterPatientId(candidPatient.id),
     preEncounterAppointmentIds: [PreEncounterAppointmentId(candidAppointmentId)],
     benefitsAssignedToProvider: true,
