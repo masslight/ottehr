@@ -20,7 +20,12 @@ const zambdasList = (): ZambdaSpec[] => {
   });
 };
 
-const build = async (zambdas: ZambdaSpec[], assetsFrom: string[], assetsTo: string[], outdir: string): Promise<void> => {
+const build = async (
+  zambdas: ZambdaSpec[],
+  assetsFrom: string[],
+  assetsTo: string[],
+  outdir: string
+): Promise<void> => {
   const sources = zambdas.map((zambda) => `${zambda.src}.ts`);
   await esbuild
     .build({
@@ -86,7 +91,12 @@ const injectSourceMaps = async (): Promise<void> => {
   await $(shellConfig)`sentry-cli releases finalize ${releaseName}`;
 };
 
-const zipZambda = async (sourceFilePath: string, assetsDir: string, assetsPath: string, outPath: string): Promise<void> => {
+const zipZambda = async (
+  sourceFilePath: string,
+  assetsDir: string,
+  assetsPath: string,
+  outPath: string
+): Promise<void> => {
   const archive = archiver('zip', { zlib: { level: 9 } });
   const stream = fs.createWriteStream(outPath);
 
@@ -139,10 +149,6 @@ const main = async (): Promise<void> => {
   await zip(mostZambdas, assetsDir, 'assets');
   console.timeEnd('Zip time');
   console.log('Zambdas successfully bundled and zipped into .dist/zips');
-  // debugging
-  await $({
-    stdio: 'inherit',
-  })`md5sum .dist/zips/walkin-check-availability.zip .dist/patient/walkin/check-availability/index.js .dist/patient/walkin/check-availability/index.js.map`;
 };
 
 main().catch((error) => {
