@@ -13,7 +13,7 @@ import {
   TelemedAppointmentStatusEnum,
   TelemedStatusHistoryElement,
 } from 'utils';
-import { VisitResources } from '../state';
+import { AppointmentResources } from '../state';
 import { diffInMinutes } from './diffInMinutes';
 
 export const ApptTabToStatus: Record<ApptTelemedTab, TelemedAppointmentStatus[]> = {
@@ -159,12 +159,12 @@ export const updateEncounterStatusHistory = (
   return history;
 };
 
-export const createRefreshableAppointmentData = (originalData: VisitResources[]): RefreshableAppointmentData => {
+export const createRefreshableAppointmentData = (originalData: AppointmentResources[]): RefreshableAppointmentData => {
   const photoUrls = extractPhotoUrlsFromAppointmentData(originalData);
   return { patientConditionPhotoUrls: photoUrls };
 };
 
-export const extractPhotoUrlsFromAppointmentData = (appointment: VisitResources[]): string[] => {
+export const extractPhotoUrlsFromAppointmentData = (appointment: AppointmentResources[]): string[] => {
   return (
     (appointment
       ?.filter(
@@ -178,7 +178,7 @@ export const extractPhotoUrlsFromAppointmentData = (appointment: VisitResources[
   );
 };
 
-export const extractReviewAndSignAppointmentData = (data: VisitResources[]): ReviewAndSignData | undefined => {
+export const extractReviewAndSignAppointmentData = (data: AppointmentResources[]): ReviewAndSignData | undefined => {
   const appointment = data?.find(
     (resource: FhirResource) => resource.resourceType === 'Appointment'
   ) as unknown as Appointment;

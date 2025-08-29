@@ -5,15 +5,14 @@ import { TelemedAppointmentVisitTabs } from 'utils';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { useFeatureFlags } from '../../../../features/css-module/context/featureFlags';
 import { getAssessmentUrl } from '../../../../features/css-module/routing/helpers';
-import { getSelectors } from '../../../../shared/store/getSelectors';
 import { AccordionCard } from '../../../components';
-import { useAppointmentStore } from '../../../state';
+import { useAppointmentData, useAppTelemedLocalStore, useChartData } from '../../../state';
 
 export const MissingCard: FC = () => {
-  const { chartData, appointment } = getSelectors(useAppointmentStore, ['chartData', 'appointment']);
+  const { appointment } = useAppointmentData();
+  const { chartData } = useChartData();
   const { css } = useFeatureFlags();
   const navigate = useNavigate();
-
   const primaryDiagnosis = (chartData?.diagnosis || []).find((item) => item.isPrimary);
   const medicalDecision = chartData?.medicalDecision?.text;
   const emCode = chartData?.emCode;
@@ -28,7 +27,7 @@ export const MissingCard: FC = () => {
         navigate(getAssessmentUrl(appointment?.id || ''));
       });
     } else {
-      useAppointmentStore.setState({ currentTab: TelemedAppointmentVisitTabs.assessment });
+      useAppTelemedLocalStore.setState({ currentTab: TelemedAppointmentVisitTabs.assessment });
     }
   };
 

@@ -1,41 +1,26 @@
 import { Box, Typography } from '@mui/material';
-import React, { FC } from 'react';
-import { ExamObservationFieldItem, InPersonExamObservationFieldItem } from 'utils';
+import { FC } from 'react';
 import { AssessmentTitle } from '../../AssessmentTab';
 import { ExamReviewItem } from './ExamReviewItem';
 
 type ExamReviewGroupProps = {
   label: string;
-  extraItems?: { label: string; abnormal: boolean }[];
-} & (
-  | { items: ((ExamObservationFieldItem | InPersonExamObservationFieldItem) & { value?: never })[]; radio?: never }
-  | { items: ((ExamObservationFieldItem | InPersonExamObservationFieldItem) & { value: boolean })[]; radio: boolean }
-);
+  items: { field: string; label: string; abnormal: boolean }[];
+};
 
 export const ExamReviewGroup: FC<ExamReviewGroupProps> = (props) => {
-  const { label, items, extraItems, radio = false } = props;
+  const { label, items } = props;
 
   return (
     <Box sx={{ display: 'flex', gap: 2 }}>
       <AssessmentTitle>{label}</AssessmentTitle>
-      {items.length === 0 && (!extraItems || extraItems.length === 0) ? (
+      {items.length === 0 ? (
         <Typography color="secondary.light">No data</Typography>
       ) : (
         <Box sx={{ display: 'flex', columnGap: 4, rowGap: 0.5, flexWrap: 'wrap' }}>
           {items.map((details) => (
-            <ExamReviewItem
-              key={details.field}
-              label={details.label}
-              abnormal={details.abnormal}
-              radio={radio}
-              value={!!details.value}
-            />
+            <ExamReviewItem key={details.field} label={details.label} abnormal={details.abnormal} />
           ))}
-          {extraItems &&
-            extraItems.length > 0 &&
-            extraItems.map((details) => (
-              <ExamReviewItem key={details.label} label={details.label} abnormal={details.abnormal} />
-            ))}
         </Box>
       )}
     </Box>

@@ -1,10 +1,10 @@
 import { DateTime } from 'luxon';
-import { LAB_ORDER_UPDATE_RESOURCES_EVENTS, Secrets, UpdateLabOrderResourcesParameters } from 'utils';
+import { LAB_ORDER_UPDATE_RESOURCES_EVENTS, Secrets, UpdateLabOrderResourcesInput } from 'utils';
 import { ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(
   input: ZambdaInput
-): UpdateLabOrderResourcesParameters & { secrets: Secrets | null; userToken: string } {
+): UpdateLabOrderResourcesInput & { secrets: Secrets | null; userToken: string } {
   if (!input.body) {
     throw new Error('No request body provided');
   }
@@ -12,7 +12,7 @@ export function validateRequestParameters(
   const userToken = input.headers.Authorization.replace('Bearer ', '');
   const secrets = input.secrets;
 
-  let params: UpdateLabOrderResourcesParameters;
+  let params: UpdateLabOrderResourcesInput;
 
   try {
     params = JSON.parse(input.body);
@@ -35,9 +35,10 @@ export function validateRequestParameters(
       throw Error('Invalid parameter type: taskId must be a string');
     }
 
-    if (typeof serviceRequestId !== 'string') {
-      throw Error('Invalid parameter type: serviceRequestId must be a string');
-    }
+    // todo it would be nice to have better typing such that is knows serviceRequestId will be undefined if this review is for an unsolicited result
+    // if (typeof serviceRequestId !== 'string') {
+    //   throw Error('Invalid parameter type: serviceRequestId must be a string');
+    // }
 
     if (typeof diagnosticReportId !== 'string') {
       throw Error('Invalid parameter type: diagnosticReportId must be a string');
@@ -97,6 +98,25 @@ export function validateRequestParameters(
       data,
       specimenCollectionDates,
       event,
+      secrets,
+      userToken,
+    };
+  } else if (params.event === LAB_ORDER_UPDATE_RESOURCES_EVENTS.cancelUnsolicitedResultTask) {
+    const { taskId, event } = params;
+    return {
+      taskId,
+      event,
+      secrets,
+      userToken,
+    };
+  } else if (params.event === LAB_ORDER_UPDATE_RESOURCES_EVENTS.matchUnsolicitedResult) {
+    const { event, taskId, diagnosticReportId, patientToMatchId, srToMatchId } = params;
+    return {
+      event,
+      taskId,
+      diagnosticReportId,
+      patientToMatchId,
+      srToMatchId,
       secrets,
       userToken,
     };

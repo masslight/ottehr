@@ -14,4 +14,5 @@ variable "client_secret" {
   description = "Oystehr client secret"
   type        = string
   nullable    = false
+  sensitive   = true
 }

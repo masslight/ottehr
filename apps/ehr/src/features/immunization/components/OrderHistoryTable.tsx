@@ -11,9 +11,12 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { COLLAPSED_MEDS_COUNT } from 'src/features/css-module/hooks/useMedicationHistory';
-import { STUB_IMMUNIZATION_ORDERS } from '../ImmunizationOrder';
+import { useAppointmentData } from 'src/telemed';
+import { useGetImmunizationOrders } from '../../css-module/hooks/useImmunization';
+import { ordersRecentFirstComparator } from '../common';
 import { OrderHistoryTableRow } from './OrderHistoryTableRow';
 import { OrderHistoryTableSkeletonBody } from './OrderHistoryTableSkeletonBody';
 
@@ -23,17 +26,20 @@ interface Props {
 
 export const OrderHistoryTable: React.FC<Props> = ({ showActions }) => {
   const [seeMoreOpen, setSeeMoreOpen] = useState(false);
+  const { id: appointmentId } = useParams();
 
-  const isLoading = false;
-  const immunizationHistory = STUB_IMMUNIZATION_ORDERS;
+  const {
+    resources: { patient },
+    isLoading: patientIdLoading,
+  } = useAppointmentData(appointmentId);
 
-  const orders = useMemo(() => {
-    if (!seeMoreOpen) {
-      return immunizationHistory.slice(0, COLLAPSED_MEDS_COUNT);
-    } else {
-      return immunizationHistory;
-    }
-  }, [seeMoreOpen, immunizationHistory]);
+  const { data: ordersResponse, isLoading: ordersLoading } = useGetImmunizationOrders({
+    patientId: patient?.id,
+  });
+
+  const orders = (ordersResponse?.orders ?? []).sort(ordersRecentFirstComparator);
+  const ordersToShow = seeMoreOpen ? orders : orders.slice(0, COLLAPSED_MEDS_COUNT);
+  const isLoading = patientIdLoading || ordersLoading;
 
   const toggleShowMore = (): void => {
     setSeeMoreOpen((state) => !state);
@@ -59,15 +65,15 @@ export const OrderHistoryTable: React.FC<Props> = ({ showActions }) => {
           <OrderHistoryTableSkeletonBody />
         ) : (
           <TableBody>
-            {orders.map((order) => (
+            {ordersToShow.map((order) => (
               <OrderHistoryTableRow key={order.id} order={order} showActions={showActions} />
             ))}
-            {immunizationHistory.length > COLLAPSED_MEDS_COUNT && (
+            {orders.length > COLLAPSED_MEDS_COUNT && (
               <Button onClick={toggleShowMore} startIcon={seeMoreOpen ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />}>
                 {getSeeMoreButtonLabel()}
               </Button>
             )}
-            {immunizationHistory.length === 0 && (
+            {orders.length === 0 && (
               <Typography variant="body1" sx={{ opacity: 0.65 }}>
                 No items
               </Typography>

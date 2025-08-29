@@ -1,7 +1,7 @@
 import WarningIcon from '@mui/icons-material/Warning';
 import { Box, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import React, { useState } from 'react';
+import React, { ReactElement, useState } from 'react';
 import { CustomDialog, CustomDialogProps } from '../../../components/dialogs/CustomDialog';
 import { dataTestIds } from '../../../constants/data-test-ids';
 
@@ -13,7 +13,7 @@ type CSSModalProps<Entity = undefined> = {
   showEntityPreview?: boolean;
   getEntityPreviewText?: (entity: Entity) => string;
   color?: string;
-  ContentComponent?: React.FC;
+  ContentComponent?: ReactElement;
   description?: React.ReactNode;
   disabled?: boolean;
 };
@@ -34,7 +34,7 @@ export function CSSModal<T = undefined>({
   confirmText,
   error,
   color = 'error.main',
-  ContentComponent = React.Fragment,
+  ContentComponent,
   disabled,
 }: CSSModalProps<T> & Omit<CustomDialogProps, 'handleConfirm' | 'confirmLoading'>): React.ReactElement {
   const [isPerformingAction, setIsPerformingAction] = useState(false);
@@ -71,7 +71,7 @@ export function CSSModal<T = undefined>({
           </Typography>
         </Box>
       )}
-      <ContentComponent />
+      {ContentComponent}
     </>
   );
 

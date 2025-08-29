@@ -1,9 +1,7 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { useEffect, useState } from 'react';
-import { SCHOOL_WORK_NOTE } from 'utils';
-import { getPresignedFileUrl } from '../../helpers/files.helper';
-import { getSelectors } from '../../shared/store/getSelectors';
-import { useAppointmentStore } from '../state';
+import { getPresignedURL, SCHOOL_WORK_NOTE } from 'utils';
+import { useAppointmentData } from '../state';
 
 export const usePatientProvidedExcusePresignedFiles = (): {
   patientSchoolPresignedUrl: string | undefined;
@@ -12,22 +10,23 @@ export const usePatientProvidedExcusePresignedFiles = (): {
   const { getAccessTokenSilently } = useAuth0();
   const [patientSchoolPresignedUrl, setPatientSchoolPresignedUrl] = useState<string | undefined>(undefined);
   const [patientWorkPresignedUrl, setPatientWorkPresignedUrl] = useState<string | undefined>(undefined);
-
-  const { schoolWorkNoteUrls } = getSelectors(useAppointmentStore, ['schoolWorkNoteUrls']);
+  const { schoolWorkNoteUrls } = useAppointmentData();
 
   useEffect(() => {
     async function getPresignedTemplateUrls(): Promise<void> {
       try {
         const authToken = await getAccessTokenSilently();
-
         const schoolZ3Url = schoolWorkNoteUrls.find((name) => name.includes(`${SCHOOL_WORK_NOTE}-template-school`));
+
         if (schoolZ3Url) {
-          const schoolPresignedUrl = await getPresignedFileUrl(schoolZ3Url, authToken);
+          const schoolPresignedUrl = await getPresignedURL(schoolZ3Url, authToken);
           setPatientSchoolPresignedUrl(schoolPresignedUrl);
         }
+
         const workZ3Url = schoolWorkNoteUrls.find((name) => name.includes(`${SCHOOL_WORK_NOTE}-template-work`));
+
         if (workZ3Url) {
-          const workPresignedUrl = await getPresignedFileUrl(workZ3Url, authToken);
+          const workPresignedUrl = await getPresignedURL(workZ3Url, authToken);
           setPatientWorkPresignedUrl(workPresignedUrl);
         }
       } catch {

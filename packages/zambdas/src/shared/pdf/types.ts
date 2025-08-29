@@ -3,10 +3,9 @@ import { DateTime } from 'luxon';
 import { Color, PDFFont, PDFImage, StandardFonts } from 'pdf-lib';
 import {
   AdditionalBooleanQuestionsFieldsNames,
-  ExamObservationFieldItem,
-  ExamTabCardNames,
-  InPersonExamObservationFieldItem,
-  InPersonExamTabProviderCardNames,
+  ExternalLabOrderResult,
+  Gender,
+  InHouseLabResult as IInHouseLabResult,
   LabType,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   QuantityComponent,
@@ -97,35 +96,20 @@ export interface PdfClient {
   getCurrentPageIndex: () => number;
   setPageByIndex: (pageIndex: number) => void;
   getTotalPages: () => number;
+  drawLink: (text: string, url: string, textStyle: TextStyle) => void;
 }
 
-export type TelemedExamBlockData = {
-  [group in Exclude<ExamTabCardNames, 'vitals'>]: {
-    items?: ExamObservationFieldItem[];
-    extraItems?: string[];
-    leftItems?: ExamObservationFieldItem[];
-    rightItems?: ExamObservationFieldItem[];
-    comment?: string;
+export interface PdfExaminationBlockData {
+  examination: {
+    [group: string]: {
+      items?: Array<{
+        field: string;
+        label: string;
+        abnormal: boolean;
+      }>;
+      comment?: string;
+    };
   };
-} & {
-  vitals: {
-    temp: string;
-    pulseOx: string;
-    hr: string;
-    rr: string;
-    bp: string;
-  };
-};
-
-export type InPersonExamBlockData = {
-  [group in InPersonExamTabProviderCardNames]: {
-    items?: InPersonExamObservationFieldItem[];
-    comment?: string;
-  };
-};
-
-export interface ExaminationBlockData {
-  examination: TelemedExamBlockData | InPersonExamBlockData;
 }
 
 // todo might make sense to have a separate interface for the order pdf base
@@ -227,7 +211,7 @@ export interface ExternalLabResultsData extends LabResultsData {
   collectionDate: string;
   resultPhase: string;
   resultsReceivedDate: string;
-  reviewed?: boolean;
+  reviewed?: boolean; // todo why is this possibly undefined ??
   reviewingProvider: Practitioner | undefined;
   reviewDate: string | undefined;
   resultInterpretations: string[];
@@ -240,6 +224,13 @@ export interface ExternalLabResultsData extends LabResultsData {
   performingLabPhone?: string;
   performingLabDirectorFullName?: string;
 }
+
+export type ReflexExternalLabResultsData = Omit<ExternalLabResultsData, 'orderSubmitDate' | 'collectionDate'>;
+
+export type UnsolicitedExternalLabResultsData = Omit<
+  ExternalLabResultsData,
+  'orderNumber' | 'orderSubmitDate' | 'collectionDate'
+>;
 export interface InHouseLabResultsData extends LabResultsData {
   inHouseLabResults: InHouseLabResultConfig[];
   timezone: string | undefined;
@@ -249,9 +240,11 @@ export interface InHouseLabResultsData extends LabResultsData {
 
 export type ResultDataConfig =
   | { type: LabType.external; data: ExternalLabResultsData }
-  | { type: LabType.inHouse; data: InHouseLabResultsData };
+  | { type: LabType.inHouse; data: InHouseLabResultsData }
+  | { type: LabType.unsolicited; data: UnsolicitedExternalLabResultsData }
+  | { type: LabType.reflex; data: ReflexExternalLabResultsData };
 
-export interface VisitNoteData extends ExaminationBlockData {
+export interface VisitNoteData extends PdfExaminationBlockData {
   patientName: string;
   patientDOB: string;
   personAccompanying: string;
@@ -349,6 +342,82 @@ export interface ReceiptData {
   amount: string;
   date: string;
 }
+
+export interface Medication {
+  name: string;
+  dose?: string;
+  date?: string;
+}
+
+export interface PrescribedMedication {
+  name?: string;
+  instructions?: string;
+  date?: string;
+}
+
+export interface LabOrder {
+  serviceRequestId: string;
+  testItemName: string;
+}
+
+export type DischargeSummaryData = {
+  patient: {
+    fullName: string;
+    dob: string;
+    sex: Gender;
+    id: string;
+    phone?: string;
+  };
+  visit: {
+    type: string;
+    time: string;
+    date: string;
+    location?: string;
+    reasonForVisit: string;
+  };
+  vitals: {
+    temp?: string;
+    hr?: string;
+    rr?: string;
+    bp?: string;
+    oxygenSat?: string;
+    weight?: string;
+    height?: string;
+    vision?: string;
+  };
+  currentMedications?: string[];
+  currentMedicationsNotes?: string[];
+  allergies?: string[];
+  allergiesNotes?: string[];
+  inHouseLabs?: { orders: LabOrder[]; results: IInHouseLabResult[] };
+  externalLabs?: { orders: LabOrder[]; results: ExternalLabOrderResult[] };
+  radiology?: {
+    name: string;
+    result?: string;
+  }[];
+  inhouseMedications?: Medication[];
+  erxMedications?: PrescribedMedication[];
+  diagnoses?: {
+    primary: string[];
+    secondary: string[];
+  };
+  patientInstructions?: string[];
+  educationDocuments?: { title: string; fileName: string }[];
+  disposition: {
+    label: string;
+    instruction: string;
+  };
+  physician: {
+    name: string;
+  };
+  dischargeDateTime?: string;
+  workSchoolExcuse?: {
+    note: string;
+    fileName: string;
+  }[];
+  documentsAttached?: boolean;
+  attachmentUrls?: string[];
+};
 
 export interface GetPaymentDataResponse {
   chargeUuid: string;

@@ -5,10 +5,9 @@ import { Controller, useForm } from 'react-hook-form';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { CPTCodeDTO } from 'utils';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { ActionsList, DeleteIconButton } from '../../../../components';
 import { useChartDataArrayValue } from '../../../../hooks';
-import { useAppointmentStore } from '../../../../state';
+import { useChartData } from '../../../../state';
 import { ProviderSideListSkeleton } from '../ProviderSideListSkeleton';
 
 const surgicalHistoryOptions: CPTCodeDTO[] = [
@@ -55,7 +54,7 @@ export const ProceduresForm: FC = () => {
       otherProcedureName: '',
     },
   });
-  const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);
+  const { isChartDataLoading } = useChartData();
   const [isOtherOptionSelected, setIsOtherOptionSelected] = useState(false);
 
   const { control, reset, handleSubmit } = methods;
