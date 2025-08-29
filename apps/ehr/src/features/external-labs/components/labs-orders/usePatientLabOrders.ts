@@ -11,6 +11,7 @@ import {
   LabOrdersSearchBy,
   PaginatedResponse,
   PatientLabItem,
+  ReflexLabDTO,
   SpecimenDateChangedParameters,
   TaskReviewedParameters,
   tryFormatDateToISO,
@@ -21,6 +22,7 @@ import { useDeleteCommonLabOrderDialog } from '../../../common/useDeleteCommonLa
 
 interface UsePatientLabOrdersResult<SearchBy extends LabOrdersSearchBy> {
   labOrders: LabOrderDTO<SearchBy>[];
+  reflexResults: ReflexLabDTO[];
   loading: boolean;
   error: Error | null;
   totalPages: number;
@@ -43,7 +45,7 @@ interface UsePatientLabOrdersResult<SearchBy extends LabOrdersSearchBy> {
     testItemName: string;
   }) => void;
   DeleteOrderDialog: ReactElement | null;
-  markTaskAsReviewed: (parameters: TaskReviewedParameters & { appointmentId: string }) => Promise<void>;
+  markTaskAsReviewed: (parameters: TaskReviewedParameters & { appointmentId?: string }) => Promise<void>;
   saveSpecimenDate: (parameters: SpecimenDateChangedParameters) => Promise<void>;
   patientLabItems: PatientLabItem[];
 }
@@ -54,6 +56,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
   const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
   const [labOrders, setLabOrders] = useState<LabOrderDTO<SearchBy>[]>([]);
+  const [reflexResults, setReflexResults] = useState<ReflexLabDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [totalPages, setTotalPages] = useState(1);
@@ -122,6 +125,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
             data: [],
             pagination: EMPTY_PAGINATION,
             patientLabItems: [],
+            reflexResults: [],
           };
           console.error('Error fetching external lab orders:', err);
           setError(err instanceof Error ? err : new Error('Unknown error occurred'));
@@ -130,6 +134,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
         if (response?.data) {
           setLabOrders(response.data as LabOrderDTO<SearchBy>[]);
           setPatientLabItems(response.patientLabItems || []);
+          setReflexResults(response.reflexResults as ReflexLabDTO[]);
 
           if (response.pagination) {
             setTotalPages(response.pagination.totalPages || 1);
@@ -140,6 +145,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
           }
         } else {
           setLabOrders([]);
+          setReflexResults([]);
           setPatientLabItems([]);
           setTotalPages(1);
           setShowPagination(false);
@@ -234,7 +240,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
       serviceRequestId,
       diagnosticReportId,
       appointmentId,
-    }: TaskReviewedParameters & { appointmentId: string }): Promise<void> => {
+    }: TaskReviewedParameters & { appointmentId?: string }): Promise<void> => {
       if (!oystehrZambda) {
         console.error('oystehrZambda is not defined');
         return;
@@ -244,7 +250,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
 
       await updateLabOrderResources(oystehrZambda, { taskId, serviceRequestId, diagnosticReportId, event: 'reviewed' });
       setSearchParams({ pageNumber: 1 });
-      navigate(getExternalLabOrdersUrl(appointmentId));
+      if (appointmentId) navigate(getExternalLabOrdersUrl(appointmentId));
     },
     [oystehrZambda, setSearchParams, navigate]
   );
@@ -276,6 +282,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
 
   return {
     labOrders,
+    reflexResults,
     loading,
     error,
     totalPages,

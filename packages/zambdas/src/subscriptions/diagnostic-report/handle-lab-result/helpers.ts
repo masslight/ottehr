@@ -14,8 +14,8 @@ const STATUS_CODE_MAP: Record<AcceptedResultsStatus, LabOrderTaskCode> = {
   cancelled: LAB_ORDER_TASK.code.reviewCancelledResult,
 };
 
-export const getCodeForNewTask = (dr: DiagnosticReport, isUnsolicitedAndUnmatched: boolean): Task['code'] => {
-  if (isUnsolicitedAndUnmatched) {
+export const getCodeForNewTask = (dr: DiagnosticReport, isUnsolicited: boolean, matched: boolean): Task['code'] => {
+  if (isUnsolicited && !matched) {
     return labOrderTaskCoding(LAB_ORDER_TASK.code.matchUnsolicitedResult);
   } else {
     return getReviewResultCodeForNewTask(dr.status);

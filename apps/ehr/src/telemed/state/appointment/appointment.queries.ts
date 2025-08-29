@@ -33,8 +33,10 @@ import {
   GetUnsolicitedResultsResourcesForIconInput,
   GetUnsolicitedResultsResourcesForMatch,
   GetUnsolicitedResultsResourcesForMatchInput,
+  GetUnsolicitedResultsResourcesForReview,
   GetUnsolicitedResultsResourcesForTable,
   GetUnsolicitedResultsResourcesForTableInput,
+  GetUnsolicitedResultsReviewResourcesOutput,
   Icd10SearchRequestParams,
   Icd10SearchResponse,
   IcdSearchRequestParams,
@@ -405,6 +407,29 @@ export function useGetUnsolicitedResultsRelatedRequests(
     queryFn: async () => {
       const data = await apiClient?.getUnsolicitedResultsResources({ requestType, diagnosticReportId, patientId });
       if (data && 'possibleRelatedSRsWithVisitDate' in data) {
+        return data;
+      }
+      return null;
+    },
+
+    enabled: Boolean(apiClient && diagnosticReportId),
+    placeholderData: keepPreviousData,
+    staleTime: QUERY_STALE_TIME,
+  });
+}
+
+export function useGetUnsolicitedResultsResourcesForReview(
+  input: GetUnsolicitedResultsResourcesForReview
+): UseQueryResult<GetUnsolicitedResultsReviewResourcesOutput | null, Error> {
+  const apiClient = useOystehrAPIClient();
+  const { requestType, diagnosticReportId } = input;
+
+  return useQuery({
+    queryKey: ['get unsolicited results resources', requestType, diagnosticReportId],
+
+    queryFn: async () => {
+      const data = await apiClient?.getUnsolicitedResultsResources({ requestType, diagnosticReportId });
+      if (data && 'labOrder' in data) {
         return data;
       }
       return null;
