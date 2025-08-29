@@ -13,7 +13,7 @@ import { ThresholdAssignModal } from './ThresholdAssignModal';
 
 export const PatientDevicesTab: FC<{
   loading?: boolean;
-  onViewVitals?: (id: string, type: string, thresholds: any) => void;
+  onViewVitals?: (id: string, type: string, thresholds: any, name: string) => void;
 }> = ({ loading, onViewVitals }) => {
   const [openModal, setOpenModal] = useState(false);
   const [deviceId, _setDeviceId] = useState<string>('');
@@ -57,9 +57,9 @@ export const PatientDevicesTab: FC<{
   );
 
   const handleDeviceVitals = useCallback(
-    async (deviceId: string, deviceType: string, thresholds: DeviceProperty[]) => {
+    async (deviceId: string, deviceType: string, thresholds: DeviceProperty[], name: string) => {
       if (onViewVitals) {
-        onViewVitals(deviceId, deviceType, thresholds);
+        onViewVitals(deviceId, deviceType, thresholds, name);
       }
     },
     [onViewVitals]
@@ -180,6 +180,21 @@ export const PatientDevicesTab: FC<{
           <div style={{ display: 'flex', width: '100%', gap: '8px' }}>
             <div>
               <RoundedButton
+                onClick={() => {
+                  console.log(params);
+                  void handleDeviceVitals(
+                    params.row.id,
+                    params.row.distinctIdentifier,
+                    params.row.property,
+                    params.row.name
+                  );
+                }}
+              >
+                View Vitals
+              </RoundedButton>
+            </div>
+            <div>
+              <RoundedButton
                 onClick={async () => {
                   setSelectUnassignDevice(params.row.id);
                   await handleUnAssign(params.row.id);
@@ -187,13 +202,6 @@ export const PatientDevicesTab: FC<{
                 disabled={isUnassigning && selectUnassignDevice == params.row.id}
               >
                 Unassign Device
-              </RoundedButton>
-            </div>
-            <div>
-              <RoundedButton
-                onClick={() => handleDeviceVitals(params.row.id, params.row.distinctIdentifier, params.row.property)}
-              >
-                View Vitals
               </RoundedButton>
             </div>
           </div>

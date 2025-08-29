@@ -185,6 +185,7 @@ const Homepage = (): JSX.Element => {
               title="My Devices"
               icon={<MedicalServicesOutlinedIcon />}
               handleClick={handlePatientDevices}
+              subtitle="Assigned Devices & Vitals"
               dataTestId={dataTestIds.patientDeviceButton}
             />
           </Box>

@@ -43,17 +43,10 @@ export const index = wrapHandler('get-vitals', async (input: ZambdaInput): Promi
     });
 
     const observations = searchResult.unbundle() as any[];
-    const formatted = observations.map((obs) => ({
-      id: obs.id,
-      code: obs.code?.text ?? null,
-      status: obs.status,
-      effectiveDateTime: obs.effectiveDateTime ?? obs.meta?.lastUpdated,
-      components: obs.component ?? [],
-    }));
 
     return lambdaResponse(200, {
       message: `Successfully retrieved vitals`,
-      observations: formatted,
+      observations: observations,
       total: Number(searchResult.total),
     });
   } catch (error: any) {

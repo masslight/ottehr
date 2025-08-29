@@ -27,6 +27,7 @@ export default function PatientPage(): JSX.Element {
     id: string;
     deviceType: string;
     thresholds: any;
+    name: string;
   } | null>(null);
   const { appointments, loading, patient } = useGetPatient(id);
 
@@ -39,6 +40,8 @@ export default function PatientPage(): JSX.Element {
   }, [patient]);
 
   const latestAppointment = appointments?.[0];
+
+  console.log('selectedDevice', selectedDevice);
 
   return (
     <>
@@ -195,13 +198,14 @@ export default function PatientPage(): JSX.Element {
                     deviceId={selectedDevice.id}
                     deviceType={selectedDevice.deviceType}
                     thresholds={selectedDevice.thresholds}
+                    name={selectedDevice.name}
                     onBack={() => setSelectedDevice(null)}
                   />
                 ) : (
                   <PatientDevicesTab
                     loading={loading}
-                    onViewVitals={(deviceId: string, deviceType: string, thresholds: any) =>
-                      setSelectedDevice({ id: deviceId, deviceType, thresholds })
+                    onViewVitals={(deviceId: string, deviceType: string, thresholds: any, name: string) =>
+                      setSelectedDevice({ id: deviceId, deviceType, thresholds, name })
                     }
                   />
                 )}

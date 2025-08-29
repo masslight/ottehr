@@ -112,21 +112,6 @@ export const index = wrapHandler('assign-threshold', async (input: ZambdaInput):
           });
         }
         break;
-
-      default:
-        if (thresholds.default !== undefined) {
-          updatedProperties.push({
-            type: {
-              text: 'threshold',
-            },
-            valueCode: [
-              {
-                text: thresholds.default.toString(),
-              },
-            ],
-          });
-        }
-        break;
     }
 
     const updatedDevice = {

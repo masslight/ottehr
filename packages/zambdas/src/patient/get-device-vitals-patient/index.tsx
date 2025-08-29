@@ -17,43 +17,41 @@ export const index = wrapHandler(
         throw new Error('Invalid request body format');
       }
 
-      const { deviceId } = requestBody;
+      const { deviceId, page = 1, pageSize = 5 } = requestBody;
 
       if (!deviceId) {
         throw new Error('Missing required parameters: deviceId');
       }
 
       const secrets = input.secrets;
+      const user = await getUser(input.headers.Authorization.replace('Bearer ', ''), secrets);
+      const patientId = user.profile.split('/')[1];
+
       if (!oystehrToken) {
         oystehrToken = await getAuth0Token(secrets);
       }
       const oystehr = createOystehrClient(oystehrToken, secrets);
-      const user = await getUser(input.headers.Authorization.replace('Bearer ', ''), secrets);
-      const patientId = user.profile.split('/')[1];
+      const offset = (page - 1) * pageSize;
 
       const searchResult = await oystehr.fhir.search({
         resourceType: 'Observation',
         params: [
           { name: 'device', value: `Device/${deviceId}` },
           { name: 'patient', value: `Patient/${patientId}` },
+          { name: 'category', value: `vital-signs` },
           { name: '_sort', value: '-date' },
-          { name: '_count', value: '1' },
+          { name: '_total', value: 'accurate' },
+          { name: '_count', value: String(pageSize) },
+          { name: '_offset', value: String(offset) },
         ],
       });
 
-      const observations = searchResult.unbundle()[0] as any;
-
-      if (!observations) {
-        throw new Error(`No observation found for device ${deviceId} and patient ${patientId}`);
-      }
-
-      console.log('Observations of components:', JSON.stringify(observations, null, 2));
-      console.log('Observations of vitals:', JSON.stringify(observations.component, null, 2));
+      const observations = searchResult.unbundle() as any[];
 
       return lambdaResponse(200, {
-        message: `Successfully retrieved vital details`,
-        vitals: observations.component,
-        total: Number(observations.component.length),
+        message: `Successfully retrieved vitals`,
+        observations: observations,
+        total: Number(searchResult.total),
       });
     } catch (error: any) {
       console.error('Error:', error);

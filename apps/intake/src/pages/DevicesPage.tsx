@@ -37,6 +37,12 @@ const DevicesPage = (): JSX.Element => {
             manufacturer: device.manufacturer || '-',
             lastUpdated: moment(device.meta.lastUpdated).format('MM/DD/YYYY'),
             versionId: device.meta.versionId,
+            distinctIdentifier: device?.distinctIdentifier,
+            serialNumber: device?.serialNumber,
+            modelNumber: device?.modelNumber,
+            hardwareVersion: device?.version?.find((x: any) => x?.type?.text == 'hardwareVersion')?.value,
+            modemVersion: device?.version?.find((x: any) => x?.type?.text == 'modemVersion')?.value,
+            firmwareVersion: device?.version?.find((x: any) => x?.type?.text == 'firmwareVersion')?.value,
           }));
           setAssignedDevices(devices);
         }

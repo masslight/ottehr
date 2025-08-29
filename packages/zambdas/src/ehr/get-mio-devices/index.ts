@@ -128,10 +128,10 @@ async function fetchMioDeviceById(apiKey: string, deviceId: string | null = null
   return data;
 }
 
-async function isDeviceExists(oystehr: Oystehr, iccid: string): Promise<boolean> {
+async function isDeviceExists(oystehr: Oystehr, imei: string): Promise<boolean> {
   const searchResults: any = await oystehr.fhir.search<any>({
     resourceType: 'Device',
-    params: [{ name: 'identifier', value: iccid }],
+    params: [{ name: 'identifier', value: imei }],
   });
   return searchResults.total > 0;
 }

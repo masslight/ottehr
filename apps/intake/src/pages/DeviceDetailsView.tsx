@@ -3,10 +3,7 @@ import MedicalServicesOutlinedIcon from '@mui/icons-material/MedicalServicesOutl
 import TimelineIcon from '@mui/icons-material/Timeline';
 import { Box, Divider, Paper, Tab, Tabs, Typography } from '@mui/material';
 import { useState } from 'react';
-import { useQuery } from 'react-query';
-import { useLocation, useParams } from 'react-router-dom';
-import { ottehrApi } from 'src/api';
-import { useUCZambdaClient } from 'src/hooks/useUCZambdaClient';
+import { useLocation } from 'react-router-dom';
 import { CustomContainer } from '../telemed/features/common';
 import { PatientDeviceVitalsTable } from './PatientDeviceVitalsTable';
 
@@ -17,58 +14,39 @@ interface Device {
   manufacturer?: string;
   versionId: string;
   lastUpdated: string;
-}
-
-interface VitalsData {
-  message: string;
-  vitals: Array<{
-    valueString?: string;
-    valueInteger?: number;
-    code: {
-      text: string;
-    };
-  }>;
-  total: number;
+  distinctIdentifier: string;
+  serialNumber: string;
+  modelNumber: string;
+  hardwareVersion: string;
+  modemVersion: string;
+  firmwareVersion: string;
 }
 
 const DeviceDetailsView = (): JSX.Element => {
-  const { deviceId } = useParams<{ deviceId: string }>();
   const location = useLocation();
   const [tabValue, setTabValue] = useState(0);
-  const [vitalsData, setVitalsData] = useState<VitalsData | null>(null);
-  const tokenfulZambdaClient = useUCZambdaClient({ tokenless: false });
 
   const device: Device = location.state?.device || {
-    id: deviceId || '',
+    id: '',
     resourceType: 'Device',
-    name: 'Unknown Model',
+    name: 'Unknown Device',
     versionId: '',
     lastUpdated: '',
-    manufacturer: 'Unknown Company',
+    manufacturer: '',
+    distinctIdentifier: '',
+    serialNumber: '',
+    modelNumber: '',
+    hardwareVersion: '',
+    modemVersion: '',
+    firmwareVersion: '',
   };
-
-  console.log('Im here');
-  const payload = {
-    deviceId: device.id,
-  };
-
-  const { isLoading: isVitalsLoading, error: vitalsError } = useQuery(
-    ['getPatientsDeviceVitals', { zambdaClient: tokenfulZambdaClient }],
-    () => (tokenfulZambdaClient ? ottehrApi.getPatientsDeviceVitals(tokenfulZambdaClient, payload) : null),
-    {
-      onSuccess: (data: VitalsData | null) => {
-        if (data) {
-          setVitalsData(data);
-        }
-      },
-      onError: (error: unknown) => {
-        console.error('Failed to fetch device vitals:', error);
-      },
-      enabled: Boolean(tokenfulZambdaClient),
-    }
-  );
 
   const deviceName = device?.name || 'Unknown Device';
+  const deviceTypeMap: Record<string, string> = {
+    BP: 'Blood Pressure Monitor',
+    BG: 'Blood Glucose Monitor',
+    WS: 'Weight Scale',
+  };
 
   return (
     <CustomContainer title="Device Details" description="" isFirstPage={false}>
@@ -90,39 +68,48 @@ const DeviceDetailsView = (): JSX.Element => {
         <Paper sx={{ p: 3, mt: 2 }}>
           {tabValue === 0 && (
             <Box>
-              <Typography variant="h6" gutterBottom>
-                Device Specifications
-              </Typography>
               <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3 }}>
                 <Box>
-                  <Typography variant="subtitle2">Manufacturer</Typography>
-                  <Typography>{device.manufacturer || 'Unknown Company'}</Typography>
+                  <Typography variant="subtitle2">Device Type</Typography>
+                  <Typography>
+                    {device?.distinctIdentifier
+                      ? deviceTypeMap[device?.distinctIdentifier] || (device?.distinctIdentifier ?? '-')
+                      : '-'}
+                  </Typography>
                 </Box>
                 <Box>
-                  <Typography variant="subtitle2">Version ID</Typography>
-                  <Typography>{device.versionId || 'Unknown VersionId'}</Typography>
+                  <Typography variant="subtitle2">Serial Number</Typography>
+                  <Typography>{device?.serialNumber ?? '-'}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="subtitle2">Model Number</Typography>
+                  <Typography>{device?.modelNumber ?? '-'}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="subtitle2">Manufacturer</Typography>
+                  <Typography>{device.manufacturer || '-'}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="subtitle2">Hardware Version</Typography>
+                  <Typography>{device.hardwareVersion || ''}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="subtitle2">Firmware Version</Typography>
+                  <Typography>{device.firmwareVersion || ''}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="subtitle2">Modem Version</Typography>
+                  <Typography>{device.modemVersion || ''}</Typography>
                 </Box>
                 <Box>
                   <Typography variant="subtitle2">Last Updated</Typography>
-                  <Typography>{device.lastUpdated || '15/08/2025'}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="subtitle2">Resource Type</Typography>
-                  <Typography>{device.resourceType || 'Device'}</Typography>
+                  <Typography>{device.lastUpdated || '-'}</Typography>
                 </Box>
               </Box>
             </Box>
           )}
           {tabValue === 1 && (
-            <>
-              {isVitalsLoading && <Typography variant="body1">Loading vitals data...</Typography>}
-              {vitalsData && (
-                <PatientDeviceVitalsTable vitalsData={vitalsData} deviceId={deviceId || ''} loading={isVitalsLoading} />
-              )}
-              {!isVitalsLoading && !vitalsData && !vitalsError && (
-                <Typography variant="body1">No vitals data available</Typography>
-              )}
-            </>
+            <PatientDeviceVitalsTable deviceType={device?.distinctIdentifier} deviceId={device.id || ''} />
           )}
         </Paper>
       </Box>
