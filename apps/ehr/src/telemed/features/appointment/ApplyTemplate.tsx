@@ -16,53 +16,32 @@ import {
   useTheme,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { ExamType } from 'utils';
-import { applyTemplate, listTemplates } from '../../../api/api';
+import { applyTemplate } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { useAppointmentData } from '../..';
-
-interface TemplateOption {
-  value: string;
-  label: string;
-}
+import { useListTemplates } from '../../state/useListTemplates';
 
 export const ApplyTemplate: React.FC = () => {
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   const [dialogOpen, setDialogOpen] = useState<boolean>(false);
   const [pendingTemplate, setPendingTemplate] = useState<string>('');
   const [isApplyingTemplate, setIsApplyingTemplate] = useState<boolean>(false);
-  const [templates, setTemplates] = useState<TemplateOption[]>([]);
-  const [isLoadingTemplates, setIsLoadingTemplates] = useState<boolean>(false);
   const theme = useTheme();
   const { oystehrZambda } = useApiClients();
   const { encounter } = useAppointmentData();
 
-  // Load templates on component mount
-  useEffect(() => {
-    const loadTemplates = async (): Promise<void> => {
-      if (!oystehrZambda) return;
+  // Load templates using custom react-query hook
+  const { templates, isLoading: isLoadingTemplates, error: templatesError } = useListTemplates(ExamType.IN_PERSON);
 
-      setIsLoadingTemplates(true);
-      try {
-        const result = await listTemplates(oystehrZambda, {
-          examType: ExamType.IN_PERSON,
-        });
-        const templateOptions = result.templates.map((template) => ({
-          value: template,
-          label: template,
-        }));
-        setTemplates(templateOptions);
-      } catch (error) {
-        console.error('Error loading templates:', error);
-        enqueueSnackbar('Failed to load templates', { variant: 'error' });
-      } finally {
-        setIsLoadingTemplates(false);
-      }
-    };
-
-    void loadTemplates();
-  }, [oystehrZambda]);
+  // Show error toast when template loading fails
+  React.useEffect(() => {
+    if (templatesError) {
+      console.error('Error loading templates:', templatesError);
+      enqueueSnackbar('Failed to load templates', { variant: 'error' });
+    }
+  }, [templatesError]);
 
   const buttonSx = {
     fontWeight: 500,
