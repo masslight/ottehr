@@ -3,6 +3,7 @@ import { Account, CodeableConcept, HealthcareService, Identifier, Location, Prac
 import {
   AppointmentType,
   CONSENT_CODE,
+  DISCHARGE_SUMMARY_CODE,
   EXPORTED_QUESTIONNAIRE_CODE,
   EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE,
   INSURANCE_CARD_CODE,
@@ -332,6 +333,22 @@ export const ScheduleStrategyCoding = {
   },
 };
 
+export const BUCKET_NAMES = {
+  VISIT_NOTES: 'visit-notes',
+  CONSENT_FORMS: 'consent-forms',
+  PRIVACY_POLICY: 'privacy-policy',
+  INSURANCE_CARDS: 'insurance-cards',
+  PHOTO_ID_CARDS: 'photo-id-cards',
+  PATIENT_PHOTOS: 'patient-photos',
+  SCHOOL_WORK_NOTES: 'school-work-notes',
+  SCHOOL_WORK_NOTE_TEMPLATES: 'school-work-note-templates',
+  LABS: 'labs',
+  RECEIPTS: 'receipts',
+  PAPERWORK: 'exported-questionnaires',
+  DISCHARGE_SUMMARIES: 'discharge-summaries',
+} as const;
+
+export type BucketName = (typeof BUCKET_NAMES)[keyof typeof BUCKET_NAMES];
 export interface ListConfig {
   title: string;
   display: string;
@@ -340,47 +357,47 @@ export interface ListConfig {
 
 export const FOLDERS_CONFIG: ListConfig[] = [
   {
-    title: 'visit-notes',
+    title: BUCKET_NAMES.VISIT_NOTES,
     display: 'Visit Notes',
     documentTypeCode: VISIT_NOTE_SUMMARY_CODE,
   },
   {
-    title: 'consent-forms',
+    title: BUCKET_NAMES.CONSENT_FORMS,
     display: 'Consent Forms',
     documentTypeCode: CONSENT_CODE,
   },
   {
-    title: 'privacy-policy',
+    title: BUCKET_NAMES.PRIVACY_POLICY,
     display: 'Privacy Policy',
     documentTypeCode: PRIVACY_POLICY_CODE,
   },
   {
-    title: 'insurance-cards',
+    title: BUCKET_NAMES.INSURANCE_CARDS,
     display: 'Insurance Cards',
     documentTypeCode: INSURANCE_CARD_CODE,
   },
   {
-    title: 'photo-id-cards',
+    title: BUCKET_NAMES.PHOTO_ID_CARDS,
     display: 'Photo ID',
     documentTypeCode: PHOTO_ID_CARD_CODE,
   },
   {
-    title: 'patient-photos',
+    title: BUCKET_NAMES.PATIENT_PHOTOS,
     display: 'Photos',
     documentTypeCode: PATIENT_PHOTO_CODE,
   },
   {
-    title: 'school-work-notes',
+    title: BUCKET_NAMES.SCHOOL_WORK_NOTES,
     display: 'School/Work Notes',
     documentTypeCode: SCHOOL_WORK_NOTE_CODE,
   },
   {
-    title: 'school-work-note-templates',
+    title: BUCKET_NAMES.SCHOOL_WORK_NOTE_TEMPLATES,
     display: 'School/Work Note templates',
     documentTypeCode: SCHOOL_WORK_NOTE_TEMPLATE_CODE,
   },
   {
-    title: 'labs',
+    title: BUCKET_NAMES.LABS,
     display: 'Labs',
     documentTypeCode: [
       LAB_ORDER_DOC_REF_CODING_CODE.code,
@@ -389,14 +406,19 @@ export const FOLDERS_CONFIG: ListConfig[] = [
     ],
   },
   {
-    title: 'receipts',
+    title: BUCKET_NAMES.RECEIPTS,
     display: 'Receipts',
     documentTypeCode: RECEIPT_CODE,
   },
   {
-    title: 'exported-questionnaires',
+    title: BUCKET_NAMES.PAPERWORK,
     display: 'Paperwork',
     documentTypeCode: EXPORTED_QUESTIONNAIRE_CODE,
+  },
+  {
+    title: BUCKET_NAMES.DISCHARGE_SUMMARIES,
+    display: 'Discharge Summary',
+    documentTypeCode: DISCHARGE_SUMMARY_CODE,
   },
 ];
 

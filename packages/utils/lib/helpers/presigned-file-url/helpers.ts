@@ -3,15 +3,20 @@ import { DiagnosticReport, DocumentReference } from 'fhir/r4b';
 
 export async function getPresignedURL(url: string, oystehrToken: string): Promise<string> {
   console.log('getting presigned url');
-  const presignedURLRequest = await fetch(url, {
+
+  const presignedURLResponse = await fetch(url, {
     method: 'POST',
     headers: {
-      authorization: `Bearer ${oystehrToken}`,
+      Authorization: `Bearer ${oystehrToken}`,
     },
     body: JSON.stringify({ action: 'download' }),
   });
-  const presignedURLResponse = await presignedURLRequest.json();
-  const presignedUrl = presignedURLResponse.signedUrl;
+
+  if (!presignedURLResponse.ok) {
+    throw new Error(`Failed to fetch presigned URL for ${url}`);
+  }
+
+  const { signedUrl: presignedUrl } = await presignedURLResponse.json();
   return presignedUrl;
 }
 

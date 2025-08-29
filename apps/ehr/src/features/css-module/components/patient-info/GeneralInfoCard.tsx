@@ -3,11 +3,8 @@ import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ChartDataRequestedFields } from 'utils';
 import { dataTestIds } from '../../../../constants/data-test-ids';
-import { useSaveChartData } from '../../../../telemed';
-import { useAppointment } from '../../hooks/useAppointment';
-import { useChartData } from '../../hooks/useChartData';
+import { useAppointmentData, useChartData, useSaveChartData } from '../../../../telemed';
 import { ProfileAvatar } from '../ProfileAvatar';
 
 const getPatientDisplayedName = (patient: Patient | undefined): string => {
@@ -33,15 +30,12 @@ const getPatientDisplayedName = (patient: Patient | undefined): string => {
 
 const GeneralInfoCard: React.FC = (): JSX.Element => {
   const theme = useTheme();
-
-  const { visitState: telemedData, resources, mappedData } = useAppointment();
+  const { visitState: telemedData, mappedData } = useAppointmentData();
   const { patient: patientData } = telemedData;
 
-  const encounterId = resources.encounter!.id!;
-
-  const fieldName = 'patientInfoConfirmed';
-  const requestedFields: ChartDataRequestedFields = { [fieldName]: {} };
-  const { chartData, isLoading: isLoadingChartData } = useChartData({ encounterId, requestedFields });
+  const { chartData, isLoading: isLoadingChartData } = useChartData({
+    requestedFields: { patientInfoConfirmed: {} },
+  });
 
   useEffect(() => {
     if (!chartData) {
@@ -52,9 +46,7 @@ const GeneralInfoCard: React.FC = (): JSX.Element => {
   }, [chartData]);
 
   const [isVerifiedNameAndDob, setVerifiedNameAndDob] = useState<boolean>(false);
-
   const { mutateAsync: updateVerificationStatusAsync, isPending: isUpdatingVerificationStatus } = useSaveChartData();
-
   const isCheckboxDisabled = isLoadingChartData || chartData === undefined || isUpdatingVerificationStatus;
 
   const handlePatientInfoVerified = useCallback(

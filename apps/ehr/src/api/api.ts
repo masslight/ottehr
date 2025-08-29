@@ -17,6 +17,8 @@ import {
   CollectInHouseLabSpecimenZambdaOutput,
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
+  CreateDischargeSummaryInput,
+  CreateDischargeSummaryResponse,
   CreateInHouseLabOrderParameters,
   CreateInHouseLabOrderResponse,
   CreateLabOrderParameters,
@@ -59,6 +61,8 @@ import {
   GetVisitLabelInput,
   HandleInHouseLabResultsParameters,
   HandleInHouseLabResultsZambdaOutput,
+  Icd10SearchRequestParams,
+  Icd10SearchResponse,
   InHouseGetOrdersResponseDTO,
   InviteParticipantRequestParameters,
   LabelPdf,
@@ -74,7 +78,7 @@ import {
   SubmitLabOrderOutput,
   UnassignPractitionerZambdaInput,
   UnassignPractitionerZambdaOutput,
-  UpdateLabOrderResourcesParameters,
+  UpdateLabOrderResourcesInput,
   UpdateNursingOrderInput,
   UpdateScheduleParams,
   UpdateUserParams,
@@ -132,6 +136,7 @@ const GET_LABEL_PDF_ZAMBDA_ID = 'get-label-pdf';
 const UPLOAD_AUDIO_RECORDING_ZAMBDA_ID = 'upload-audio-recording';
 const CREATE_RESOURCES_FROM_AUDIO_RECORDING_ZAMBDA_ID = 'create-resources-from-audio-recording';
 const GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID = 'get-or-create-visit-label-pdf';
+const CREATE_DISCHARGE_SUMMARY = 'create-discharge-summary';
 const PAPERWORK_TO_PDF_ZAMBDA_ID = 'paperwork-to-pdf';
 
 export const getUser = async (token: string): Promise<User> => {
@@ -740,7 +745,7 @@ export const deleteLabOrder = async (
 
 export const updateLabOrderResources = async (
   oystehr: Oystehr,
-  parameters: UpdateLabOrderResourcesParameters
+  parameters: UpdateLabOrderResourcesInput
 ): Promise<any> => {
   try {
     if (UPDATE_LAB_ORDER_RESOURCES_ZAMBDA_ID == null) {
@@ -1001,6 +1006,22 @@ export const updateNursingOrder = async (oystehr: Oystehr, parameters: UpdateNur
   }
 };
 
+export const createDischargeSummary = async (
+  oystehr: Oystehr,
+  parameters: CreateDischargeSummaryInput
+): Promise<CreateDischargeSummaryResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: CREATE_DISCHARGE_SUMMARY,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
 export const generatePaperworkPdf = async (
   oystehr: Oystehr,
   parameters: { questionnaireResponseId: string; documentReference: DocumentReference }
@@ -1008,6 +1029,22 @@ export const generatePaperworkPdf = async (
   try {
     const response = await oystehr.zambda.execute({
       id: PAPERWORK_TO_PDF_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const icd10Search = async (
+  oystehr: Oystehr,
+  parameters: Icd10SearchRequestParams
+): Promise<Icd10SearchResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'icd-10-search',
       ...parameters,
     });
     return chooseJson(response);

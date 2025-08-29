@@ -1,11 +1,10 @@
 import { Box, Typography } from '@mui/material';
 import { FC } from 'react';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../../state';
+import { useChartData } from '../../../../state';
 import { PrescribedMedicationReviewItem } from './PrescribedMedicationReviewItem';
 
 export const PrescribedMedicationsContainer: FC = () => {
-  const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
+  const { chartData } = useChartData();
 
   const prescriptions = chartData?.prescribedMedications;
 

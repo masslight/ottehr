@@ -1,7 +1,6 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { useEffect, useState } from 'react';
-import { SchoolWorkNoteExcuseDocFileDTO } from 'utils';
-import { getPresignedFileUrl } from '../../helpers/files.helper';
+import { getPresignedURL, SchoolWorkNoteExcuseDocFileDTO } from 'utils';
 
 type SchoolWorkNoteExcuseDocFilePresigned = SchoolWorkNoteExcuseDocFileDTO & { presignedUrl?: string };
 
@@ -21,7 +20,7 @@ export const useExcusePresignedFiles = (
       const urls = [];
 
       for (const item of schoolWorkNotes) {
-        const presignedUrl = await getPresignedFileUrl(item.url!, authToken);
+        const presignedUrl = await getPresignedURL(item.url!, authToken);
         urls.push({ ...item, presignedUrl });
       }
 

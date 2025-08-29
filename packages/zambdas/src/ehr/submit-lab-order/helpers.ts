@@ -29,7 +29,11 @@ import {
 import { createExternalLabsOrderFormPDF, getOrderFormDataConfig } from '../../shared/pdf/external-labs-order-form-pdf';
 import { makeLabPdfDocumentReference, makeRelatedForLabsPDFDocRef } from '../../shared/pdf/labs-results-form-pdf';
 import { PdfInfo } from '../../shared/pdf/pdf-utils';
-import { AOEDisplayForOrderForm, getExternalLabOrderResources, LabOrderResources } from '../shared/labs';
+import {
+  AOEDisplayForOrderForm,
+  getExternalLabOrderResourcesViaServiceRequest,
+  LabOrderResources,
+} from '../shared/labs';
 
 export const LABS_DATE_STRING_FORMAT = 'MM/dd/yyyy hh:mm a ZZZZ';
 
@@ -82,7 +86,10 @@ export async function getBundledOrderResources(
   isManualOrder: boolean
 ): Promise<OrderResourcesByOrderNumber> {
   const promises = serviceRequestIDs.map((serviceRequestID) =>
-    getExternalLabOrderResources(oystehr, serviceRequestID).then((result) => ({ serviceRequestID, result }))
+    getExternalLabOrderResourcesViaServiceRequest(oystehr, serviceRequestID).then((result) => ({
+      serviceRequestID,
+      result,
+    }))
   );
   const results = await Promise.all(promises).catch((e) => {
     console.log('error getting getting external lab resources', e);

@@ -1,4 +1,4 @@
-import { medicationApplianceRoutes } from 'utils';
+import { medicationApplianceLocations, medicationApplianceRoutes } from 'utils';
 
 export const UNIT_OPTIONS = [
   { value: 'mg', label: 'mg' },
@@ -10,6 +10,13 @@ export const UNIT_OPTIONS = [
 ];
 
 export const ROUTE_OPTIONS = Object.entries(medicationApplianceRoutes)
+  .map(([_, value]) => ({
+    value: value.code,
+    label: value.display ?? '',
+  }))
+  ?.sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
+
+export const LOCATION_OPTIONS = Object.entries(medicationApplianceLocations)
   .map(([_, value]) => ({
     value: value.code,
     label: value.display ?? '',

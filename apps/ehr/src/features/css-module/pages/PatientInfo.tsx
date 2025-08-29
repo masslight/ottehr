@@ -1,9 +1,7 @@
 import { Stack, Typography } from '@mui/material';
 import React from 'react';
-import { useParams } from 'react-router-dom';
+import { useAppointmentData, useChartData } from 'src/telemed';
 import { VitalFieldNames, VitalsObservationDTO } from 'utils';
-import { getSelectors } from '../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../telemed';
 import { PageTitle } from '../../../telemed/components/PageTitle';
 import { CSSLoader } from '../components/CSSLoader';
 import GeneralInfoCard from '../components/patient-info/GeneralInfoCard';
@@ -12,21 +10,20 @@ import { useDeleteVitals } from '../components/vitals/hooks/useDeleteVitals';
 import { useGetVitals } from '../components/vitals/hooks/useGetVitals';
 import { useSaveVitals } from '../components/vitals/hooks/useSaveVitals';
 import VitalsWeightsCard from '../components/vitals/weights/VitalsWeightsCard';
-import { useAppointment } from '../hooks/useAppointment';
-
 interface PatientInfoProps {
   appointmentID?: string;
 }
 
 export const PatientInfo: React.FC<PatientInfoProps> = () => {
-  const { id: appointmentID } = useParams();
   const {
     resources: { appointment, encounter },
-    isLoading,
-    error,
-  } = useAppointment(appointmentID);
+    isAppointmentLoading,
+    appointmentError,
+  } = useAppointmentData();
 
-  const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);
+  const { isChartDataLoading, chartDataError } = useChartData();
+  const isLoading = isAppointmentLoading || isChartDataLoading;
+  const error = chartDataError || appointmentError;
 
   // todo: create a component so that this logic can be shared across this and PatientVitals page and anywhere else that needs this same functionality
   const saveVitals = useSaveVitals({

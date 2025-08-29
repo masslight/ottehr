@@ -18,30 +18,33 @@ import { CompleteConfiguration } from 'src/components/CompleteConfiguration';
 import { APIErrorCode, IcdSearchResponse, MedicalConditionDTO } from 'utils';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { useFeatureFlags } from '../../../../../features/css-module/context/featureFlags';
-import { useChartData } from '../../../../../features/css-module/hooks/useChartData';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { DeleteIconButton } from '../../../../components';
 import { useGetAppointmentAccessibility } from '../../../../hooks';
-import { useAppointmentStore, useDeleteChartData, useGetIcd10Search, useSaveChartData } from '../../../../state';
+import {
+  ChartDataState,
+  useChartData,
+  useDeleteChartData,
+  useICD10SearchNew,
+  useSaveChartData,
+} from '../../../../state';
 import { ProviderSideListSkeleton } from '../ProviderSideListSkeleton';
 
 export const MedicalConditionsProviderColumn: FC = () => {
-  const { encounter, chartData } = getSelectors(useAppointmentStore, ['encounter', 'chartData']);
+  const { chartData, chartDataSetState } = useChartData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const featureFlags = useFeatureFlags();
 
   const { isLoading: isChartDataLoading } = useChartData({
-    encounterId: encounter.id || '',
     requestedFields: {
       conditions: {},
     },
     onSuccess: (data) => {
-      useAppointmentStore.setState((prevState) => ({
+      chartDataSetState((prevState) => ({
         ...prevState,
         chartData: {
-          ...prevState.chartData,
-          patientId: prevState.chartData?.patientId || '',
-          conditions: data.conditions,
+          ...prevState?.chartData,
+          patientId: prevState?.chartData?.patientId || '',
+          conditions: data?.conditions,
         },
       }));
     },
@@ -82,9 +85,12 @@ export const MedicalConditionsProviderColumn: FC = () => {
   );
 };
 
-const setUpdatedCondition = (updatedCondition?: MedicalConditionDTO): void => {
+const setUpdatedCondition = (
+  chartDataSetState: (updater: Partial<ChartDataState> | ((state: ChartDataState) => Partial<ChartDataState>)) => void,
+  updatedCondition?: MedicalConditionDTO
+): void => {
   if (updatedCondition) {
-    useAppointmentStore.setState((prevState) => ({
+    chartDataSetState((prevState) => ({
       chartData: {
         ...prevState.chartData!,
         conditions: prevState.chartData?.conditions?.map((condition) =>
@@ -102,15 +108,14 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
 }) => {
   const [note, setNote] = useState(value.note || '');
   const areNotesEqual = note.trim() === (value.note || '');
-
   const featureFlags = useFeatureFlags();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-
   const { mutate: updateChartData, isPending: isUpdateLoading } = useSaveChartData();
   const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
   const isLoading = isUpdateLoading || isDeleteLoading;
   const isLoadingOrAwaiting = isLoading || !areNotesEqual;
   const isAlreadySaved = !!value.resourceId;
+  const { chartDataSetState } = useChartData();
 
   const updateNote = useMemo(
     () =>
@@ -122,7 +127,7 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
           {
             onSuccess: (data) => {
               const updatedCondition = data.chartData.conditions?.[0];
-              setUpdatedCondition(updatedCondition);
+              setUpdatedCondition(chartDataSetState, updatedCondition);
             },
             onError: () => {
               enqueueSnackbar('An error has occurred while updating medical condition note. Please try again.', {
@@ -147,7 +152,7 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
             setNote('');
           }
           const updatedCondition = data.chartData.conditions?.[0];
-          setUpdatedCondition(updatedCondition);
+          setUpdatedCondition(chartDataSetState, updatedCondition);
         },
         onError: () => {
           enqueueSnackbar('An error has occurred while updating medical condition status. Please try again.', {
@@ -165,7 +170,7 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
       },
       {
         onSuccess: () => {
-          useAppointmentStore.setState((prevState) => ({
+          chartDataSetState((prevState) => ({
             chartData: {
               ...prevState.chartData!,
               conditions: prevState.chartData?.conditions?.filter(
@@ -249,9 +254,9 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
 };
 
 const AddMedicalConditionField: FC = () => {
-  const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);
+  const { isChartDataLoading, chartDataSetState } = useChartData();
   const { mutate: updateChartData, isPending: isUpdateLoading } = useSaveChartData();
-  const { error: icdSearchError } = useGetIcd10Search({ search: 'E11', sabs: 'ICD10CM' });
+  const { error: icdSearchError } = useICD10SearchNew({ search: 'E11' });
 
   const nlmApiKeyMissing = (icdSearchError as any)?.code === APIErrorCode.MISSING_NLM_API_KEY_ERROR;
 
@@ -262,7 +267,7 @@ const AddMedicalConditionField: FC = () => {
 
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
-  const { isFetching: isSearching, data } = useGetIcd10Search({ search: debouncedSearchTerm, sabs: 'ICD10CM' });
+  const { isFetching: isSearching, data } = useICD10SearchNew({ search: debouncedSearchTerm });
   const icdSearchOptions = data?.codes || [];
 
   const debouncedHandleInputChange = useMemo(
@@ -281,7 +286,7 @@ const AddMedicalConditionField: FC = () => {
         display: data.display,
         current: true,
       };
-      useAppointmentStore.setState((prevState) => ({
+      chartDataSetState((prevState) => ({
         chartData: {
           ...prevState.chartData!,
           conditions: [...(prevState.chartData?.conditions || []), newValue],
@@ -295,7 +300,7 @@ const AddMedicalConditionField: FC = () => {
           onSuccess: (data) => {
             const updatedCondition = data.chartData.conditions?.[0];
             if (updatedCondition) {
-              useAppointmentStore.setState((prevState) => ({
+              chartDataSetState((prevState) => ({
                 chartData: {
                   ...prevState.chartData!,
                   conditions: prevState.chartData?.conditions?.map((conditions) =>
@@ -306,7 +311,7 @@ const AddMedicalConditionField: FC = () => {
             }
           },
           onError: () => {
-            useAppointmentStore.setState((prevState) => ({
+            chartDataSetState((prevState) => ({
               chartData: {
                 ...prevState.chartData!,
                 conditions: prevState.chartData?.conditions?.filter((condition) => condition.resourceId),
