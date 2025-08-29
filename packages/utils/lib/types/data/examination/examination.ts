@@ -15,6 +15,11 @@ const ExamConfig = {
   },
 };
 
+export enum ExamType {
+  TELEMED = 'telemed',
+  IN_PERSON = 'inPerson',
+}
+
 const DefaultExamConfig = Object.freeze(validateExamConfig(ExamConfig));
 
 export const ExamDef = (config?: unknown): ExamSchema => {
