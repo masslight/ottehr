@@ -2,6 +2,8 @@ import Oystehr, { User } from '@oystehr/sdk';
 import { DocumentReference, Schedule, Slot } from 'fhir/r4b';
 import {
   apiErrorToThrow,
+  ApplyTemplateZambdaInput,
+  ApplyTemplateZambdaOutput,
   AssignPractitionerInput,
   AssignPractitionerResponse,
   CancelAppointmentZambdaInput,
@@ -999,6 +1001,22 @@ export const icd10Search = async (
   try {
     const response = await oystehr.zambda.execute({
       id: 'icd-10-search',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const applyTemplate = async (
+  oystehr: Oystehr,
+  parameters: ApplyTemplateZambdaInput
+): Promise<ApplyTemplateZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'apply-template',
       ...parameters,
     });
     return chooseJson(response);

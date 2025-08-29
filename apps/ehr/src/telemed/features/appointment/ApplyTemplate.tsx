@@ -15,6 +15,10 @@ import {
   useTheme,
 } from '@mui/material';
 import React, { useState } from 'react';
+import { ExamType } from 'utils';
+import { applyTemplate } from '../../../api/api';
+import { useApiClients } from '../../../hooks/useAppClients';
+import { useAppointmentData } from '../..';
 
 interface TemplateOption {
   value: string;
@@ -23,8 +27,8 @@ interface TemplateOption {
 
 const templateOptions: TemplateOption[] = [
   {
-    value: 'otitis-media',
-    label: 'Otitis Media',
+    value: 'Otitis Media Left and Conjunctivitis Left',
+    label: 'Otitis Media Left and Conjunctivitis Left',
   },
 ];
 
@@ -33,6 +37,8 @@ export const ApplyTemplate: React.FC = () => {
   const [dialogOpen, setDialogOpen] = useState<boolean>(false);
   const [pendingTemplate, setPendingTemplate] = useState<string>('');
   const theme = useTheme();
+  const { oystehrZambda } = useApiClients();
+  const { encounter } = useAppointmentData();
 
   const buttonSx = {
     fontWeight: 500,
@@ -56,11 +62,23 @@ export const ApplyTemplate: React.FC = () => {
     setPendingTemplate('');
   };
 
-  const handleApplyTemplate = (): void => {
+  const handleApplyTemplate = async (): Promise<void> => {
+    if (oystehrZambda && encounter.id) {
+      try {
+        await applyTemplate(oystehrZambda, {
+          encounterId: encounter.id,
+          templateName: pendingTemplate,
+          examType: ExamType.IN_PERSON,
+        });
+      } catch (error) {
+        console.log('error', JSON.stringify(error));
+        // const errorMessage = ['There was an error completing the order'];
+        // setError(errorMessage);
+      }
+    }
     setSelectedTemplate(pendingTemplate);
     setDialogOpen(false);
     setPendingTemplate('');
-    // TODO: Add actual template application logic here
   };
 
   const getTemplateName = (value: string): string => {
