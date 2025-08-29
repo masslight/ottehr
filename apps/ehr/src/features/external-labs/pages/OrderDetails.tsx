@@ -22,6 +22,7 @@ export const OrderDetailsPage: React.FC = () => {
     : { field: 'serviceRequestId', value: serviceRequestId };
 
   const { labOrders, reflexResults, loading, markTaskAsReviewed } = usePatientLabOrders({ searchBy });
+  console.log('reflexResults', reflexResults);
 
   // todo: validate response on the get-lab-orders zambda and use labOrder[0]
   const labOrder = labOrders.find((order) => order.serviceRequestId === serviceRequestId);
@@ -33,13 +34,21 @@ export const OrderDetailsPage: React.FC = () => {
   }
 
   if (isReflexLab && reflexResults.length) {
-    return (
-      <ReflexResultDetails
-        reflexResult={reflexResults[0]}
-        loadingOrders={loading}
-        appointmentId={id}
-      ></ReflexResultDetails>
+    const matchingResult = reflexResults.find((result) =>
+      result.resultsDetails.find((detail) => detail.diagnosticReportId === diagnosticReportId)
     );
+    if (matchingResult) {
+      return (
+        <ReflexResultDetails
+          reflexResult={matchingResult}
+          loadingOrders={loading}
+          appointmentId={id}
+        ></ReflexResultDetails>
+      );
+    } else {
+      console.error('Could not match to result result');
+      return null;
+    }
   } else if (!labOrder) {
     console.error('No external lab order found');
     return null;
