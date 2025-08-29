@@ -302,7 +302,11 @@ describe('Harvest Module', () => {
         type: {
           coding: [
             {
-              code: 'HIP',
+              code: '12',
+              system: 'https://fhir.ottehr.com/CodeSystem/candid-plan-type',
+            },
+            {
+              code: 'PPO',
               system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
             },
           ],
