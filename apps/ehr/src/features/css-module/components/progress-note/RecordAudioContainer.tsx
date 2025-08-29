@@ -6,10 +6,10 @@ import { createResourcesFromAudioRecording, uploadAudioRecording } from 'src/api
 import { RoundedButton } from 'src/components/RoundedButton';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
+import { useChartData } from 'src/telemed';
 import { AIChatDetails, getFormatDuration } from 'utils';
 import WaveSurfer from 'wavesurfer.js';
 import RecordPlugin from 'wavesurfer.js/dist/plugins/record';
-import { useChartData } from '../../hooks/useChartData';
 import { getSource, getSourceFormat } from '../../pages/OttehrAi';
 import { RecordedAudio } from './RecordedAudio';
 
@@ -42,16 +42,7 @@ export function RecordAudioContainer(props: RecordAudioContainerProps): ReactEle
   const waveformRef = useRef<HTMLDivElement | null>(null);
   const wavesurferRef = useRef<WaveSurfer | null>(null);
   const recordPluginRef = useRef<ReturnType<typeof RecordPlugin.create> | null>(null);
-
-  const { refetch } = useChartData({
-    encounterId: visitID,
-    onSuccess: (_data) => {
-      console.log('Successfully load chart');
-    },
-    onError: (error) => {
-      console.error(error);
-    },
-  });
+  const { refetch } = useChartData();
 
   useEffect(() => {
     if (!waveformRef.current) return;
