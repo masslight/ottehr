@@ -408,6 +408,7 @@ export const dataTestIds = {
     id: 'add-insurance-dialog',
     type: 'add-insurance-dialog-type',
     insuranceCarrier: 'add-insurance-dialog-carrier',
+    planType: 'add-insurance-dialog-plan-type',
     memberId: 'add-insurance-dialog-member-id',
     policyHoldersFirstName: 'add-insurance-dialog-policy-holders-first-name',
     policyHoldersLastName: 'add-insurance-dialog-policy-holders-last-name',

@@ -257,6 +257,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
                             error={!!error}
                             required
                             helperText={error?.message}
+                            data-testid={dataTestIds.addInsuranceDialog.planType}
                           />
                         )}
                       />
