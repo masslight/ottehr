@@ -657,6 +657,12 @@ export const parseTimezoneForAppointmentSchedule = (
   return timezone;
 };
 
+export const documentReferenceIsLabs = (docRef: DocumentReference): boolean => {
+  return !!docRef.type?.coding?.some(
+    (c) => c.system === LAB_RESULT_DOC_REF_CODING_CODE.system && c.code === LAB_RESULT_DOC_REF_CODING_CODE.code
+  );
+};
+
 export const diagnosticReportIsReflex = (dr: DiagnosticReport): boolean => {
   return !!dr?.meta?.tag?.find(
     (t) => t.system === LAB_DR_TYPE_TAG.system && t.display === LAB_DR_TYPE_TAG.display.reflex
@@ -788,7 +794,7 @@ export type AllResources = {
   completedTasks: Task[];
   patient?: Patient;
   labOrg?: Organization;
-  documentReference?: DocumentReference;
+  resultPdfDocumentReference?: DocumentReference;
 };
 export type ResourcesByDr = {
   [diagnosticReportId: string]: AllResources;
@@ -802,7 +808,7 @@ export const groupResourcesByDr = (resources: FhirResource[]): ResourcesByDr => 
   const patientRefToRelatedDrMap: Record<string, string> = {};
   const orgRefToRelatedDrMap: Record<string, string> = {};
   const labOrganizations: Organization[] = [];
-  const currentDocRefs: DocumentReference[] = [];
+  const currentResultPDFDocRefs: DocumentReference[] = [];
   resources.forEach((resource) => {
     if (resource.resourceType === 'DiagnosticReport') {
       if (resource.id) {
@@ -827,7 +833,12 @@ export const groupResourcesByDr = (resources: FhirResource[]): ResourcesByDr => 
         completedTasks.push(resource);
       }
     }
-    if (resource.resourceType === 'DocumentReference' && resource.status === 'current') currentDocRefs.push(resource);
+    if (resource.resourceType === 'DocumentReference' && resource.status === 'current') {
+      const isResultPdfDocRef = documentReferenceIsLabs(resource);
+      if (isResultPdfDocRef) {
+        currentResultPDFDocRefs.push(resource);
+      }
+    }
     if (resource.resourceType === 'Patient') patients.push(resource);
   });
   readyTasks.forEach((task) => {
@@ -858,13 +869,12 @@ export const groupResourcesByDr = (resources: FhirResource[]): ResourcesByDr => 
     const drId = orgRefToRelatedDrMap[labOrgRef];
     drMap[drId].labOrg = labOrg;
   });
-  currentDocRefs.forEach((docRef) => {
+  currentResultPDFDocRefs.forEach((docRef) => {
     const relatedDrId = docRef.context?.related
       ?.find((ref) => ref.reference?.startsWith('DiagnosticReport/'))
       ?.reference?.replace('DiagnosticReport/', '');
-    console.log('check me!!', relatedDrId);
     if (relatedDrId) {
-      drMap[relatedDrId].documentReference = docRef;
+      drMap[relatedDrId].resultPdfDocumentReference = docRef;
     }
   });
   return drMap;
@@ -874,7 +884,7 @@ export const formatResourcesIntoDiagnosticReportLabDTO = async (
   resources: AllResources,
   token: string
 ): Promise<DiagnosticReportLabDetailPageDTO | undefined> => {
-  const { diagnosticReport, readyTasks, completedTasks, labOrg, documentReference } = resources;
+  const { diagnosticReport, readyTasks, completedTasks, labOrg, resultPdfDocumentReference } = resources;
   const readyTask = readyTasks[0]; // im not sure there would ever be a scenario where there is more than one ready task per DR
   const completedTask = completedTasks[0];
 
@@ -888,7 +898,7 @@ export const formatResourcesIntoDiagnosticReportLabDTO = async (
   // const history: LabOrderHistoryRow[] = [parseTaskReceivedAndReviewedAndCorrectedHistory(task, )]
 
   console.log('forming result detail');
-  const detail = await getResultDetailsBasedOnDr(diagnosticReport, task, documentReference, token);
+  const detail = await getResultDetailsBasedOnDr(diagnosticReport, task, resultPdfDocumentReference, token);
 
   console.log('formatting dto');
   const dto: DiagnosticReportLabDetailPageDTO = {

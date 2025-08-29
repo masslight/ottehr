@@ -227,8 +227,8 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                       <MenuItem value="" disabled>
                         <Typography sx={{ color: '#9E9E9E' }}>Add a Dx to Order</Typography>
                       </MenuItem>
-                      {diagnosis?.map((d) => (
-                        <MenuItem id={d.resourceId} key={d.resourceId} value={d.code}>
+                      {diagnosis?.map((d, idx) => (
+                        <MenuItem id={d.resourceId} key={`${idx}-dx-${d.resourceId}`} value={d.code}>
                           {d.code} {d.display}
                         </MenuItem>
                       ))}
