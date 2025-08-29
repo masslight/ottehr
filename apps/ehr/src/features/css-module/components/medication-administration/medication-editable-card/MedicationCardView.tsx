@@ -20,7 +20,7 @@ import { getInHouseMedicationMARUrl } from '../../../routing/helpers';
 import { CSSLoader } from '../../CSSLoader';
 import { ButtonRounded } from '../../RoundedButton';
 import { MedicationStatusChip } from '../statuses/MedicationStatusChip';
-import { getFieldLabel, MedicationFieldType, MedicationOrderType } from './fieldsConfig';
+import { getFieldLabel, MedicationFieldType, MedicationOrderType, XsVariants } from './fieldsConfig';
 import { MedicationCardField } from './MedicationCardField';
 import { InHouseMedicationFieldType } from './utils';
 
@@ -37,7 +37,7 @@ type MedicationCardViewProps = {
     Record<
       keyof MedicationData,
       {
-        xs: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
+        xs: XsVariants;
         isRequired: boolean;
       }
     >

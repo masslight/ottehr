@@ -11,6 +11,7 @@ import {
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DateTime } from 'luxon';
@@ -102,6 +103,38 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
             },
           }}
           format="yyyy-MM-dd HH:mm a"
+        />
+      </LocalizationProvider>
+    );
+  }
+
+  if (field === 'expDate') {
+    const dateTimeValue = value ? DateTime.fromISO(value as string) : null;
+
+    return (
+      <LocalizationProvider dateAdapter={AdapterLuxon}>
+        <DatePicker
+          data-testid={dataTestIds.orderMedicationPage.inputField(field)}
+          label={label}
+          value={dateTimeValue}
+          onChange={(newValue) => {
+            if (!newValue) return;
+            const isoString = newValue.toISO();
+            if (isoString) {
+              handleChange(isoString);
+            }
+          }}
+          disabled={!isEditable}
+          slotProps={{
+            textField: {
+              fullWidth: true,
+              variant: 'outlined',
+              required: required,
+              error: showError && required && !value,
+              helperText: showError && required && !value ? REQUIRED_FIELD_ERROR_MESSAGE : '',
+            },
+          }}
+          format="yyyy-MM-dd"
         />
       </LocalizationProvider>
     );
@@ -287,7 +320,7 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
       {...(type === 'number' ? { inputProps: { min: 0 } } : {})}
       multiline={isInstruction}
       rows={isInstruction ? 3 : undefined}
-      InputLabelProps={type === 'datetime' || type === 'month' || isInstruction ? { shrink: true } : undefined}
+      InputLabelProps={type === 'datetime' || isInstruction ? { shrink: true } : undefined}
       required={required}
       error={showError && required && !value}
       helperText={showError && required && !value ? REQUIRED_FIELD_ERROR_MESSAGE : ''}
