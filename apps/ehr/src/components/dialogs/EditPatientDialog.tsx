@@ -20,10 +20,9 @@ import { DateTime } from 'luxon';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { PatternFormat } from 'react-number-format';
-import { AllStatesToVirtualLocationsData } from 'utils';
+import { AllStatesToVirtualLocationLabels, standardizePhoneNumber } from 'utils';
 import { EMAIL_REGEX, ZIP_REGEX } from '../../constants';
-import { getSelectors } from '../../shared/store/getSelectors';
-import { useAppointmentStore, useEditPatientInformationMutation } from '../../telemed/state';
+import { useAppointmentData, useEditPatientInformationMutation } from '../../telemed/state';
 import DateSearch from '../DateSearch';
 import { RoundedButton } from '../RoundedButton';
 
@@ -166,20 +165,16 @@ const EditPatientDialog = ({ modalOpen, onClose }: EditPatientDialogProps): Reac
     getValues,
   } = useForm<FormInputs>();
   const [error, setError] = useState(false);
-  const { patient } = getSelectors(useAppointmentStore, ['patient']);
-
+  const { patient, appointmentSetState: setState } = useAppointmentData();
   const [isSavingData, setSavingData] = useState<boolean>(false);
-
-  const possibleUsStates = Object.keys(AllStatesToVirtualLocationsData);
+  const possibleUsStates = Object.keys(AllStatesToVirtualLocationLabels);
   const statesDropdownOptions: string[] = [...possibleUsStates.map((usState) => usState)];
-
   const phoneNumberErrorMessage = 'Phone number must be 10 digits in the format (xxx) xxx-xxxx';
   const emailErrorMessage = 'Email is not valid';
   const zipCodeErrorMessage = 'ZIP Code must be 5 numbers';
 
   useEffect(() => {
     setValue('dateOfBirth', patient?.birthDate ? DateTime.fromISO(patient?.birthDate) : null);
-
     const nameEntryOfficial = patient?.name?.find((nameEntry) => nameEntry.use === 'official');
     const nameEntryNickname = patient?.name?.find((nameEntry) => nameEntry.use === 'nickname');
     setValue('firstName', nameEntryOfficial?.given?.[0]);
@@ -189,10 +184,11 @@ const EditPatientDialog = ({ modalOpen, onClose }: EditPatientDialogProps): Reac
     // setValue('suffix', nameEntry?.suffix?.[0]);
 
     const telecomEntry = patient?.telecom || [];
-
     const phoneNumbers = telecomEntry.filter((element) => element?.system?.toLowerCase() === 'phone');
-    const masterPrimaryPhone = phoneNumbers.find((element) => element.rank === 1)?.value ?? phoneNumbers?.[0]?.value;
-    const masterSecondaryPhone = phoneNumbers.find((element) => element.rank === 2)?.value;
+    const masterPrimaryPhone = standardizePhoneNumber(
+      phoneNumbers.find((element) => element.rank === 1)?.value ?? phoneNumbers?.[0]?.value
+    );
+    const masterSecondaryPhone = standardizePhoneNumber(phoneNumbers.find((element) => element.rank === 2)?.value);
     setValue('primaryPhoneNumber', masterPrimaryPhone);
     setValue('secondaryPhoneNumber', masterSecondaryPhone);
 
@@ -235,7 +231,7 @@ const EditPatientDialog = ({ modalOpen, onClose }: EditPatientDialogProps): Reac
         // Updates Patient's master record
         await editPatient.mutateAsync({ originalPatientData: patient, updatedPatientData: patchedPatientData });
 
-        useAppointmentStore.setState({
+        setState({
           patient: { ...patchedPatientData },
         });
 
@@ -247,7 +243,7 @@ const EditPatientDialog = ({ modalOpen, onClose }: EditPatientDialogProps): Reac
         setSavingData(false);
       }
     },
-    [patient, editPatient, onClose]
+    [patient, editPatient, onClose, setState]
   );
 
   return (

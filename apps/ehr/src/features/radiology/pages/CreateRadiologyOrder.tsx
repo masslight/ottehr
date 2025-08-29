@@ -19,8 +19,14 @@ import { getRadiologyUrl } from 'src/features/css-module/routing/helpers';
 import { CPTCodeDTO, DiagnosisDTO } from 'utils';
 import { createRadiologyOrder } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
-import { getSelectors } from '../../../shared/store/getSelectors';
-import { useAppointmentStore, useDebounce, useGetIcd10Search, useSaveChartData } from '../../../telemed';
+import {
+  useAppointmentData,
+  useChartData,
+  useDebounce,
+  useGetIcd10Search,
+  useICD10SearchNew,
+  useSaveChartData,
+} from '../../../telemed';
 import { WithRadiologyBreadcrumbs } from '../components/RadiologyBreadcrumbs';
 
 interface CreateRadiologyOrdersProps {
@@ -59,18 +65,11 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
   const navigate = useNavigate();
   const [error, setError] = useState<string[] | undefined>(undefined);
   const [submitting, setSubmitting] = useState<boolean>(false);
-
   const { mutate: saveChartData } = useSaveChartData();
-  const { chartData, encounter, appointment, setPartialChartData } = getSelectors(useAppointmentStore, [
-    'chartData',
-    'encounter',
-    'appointment',
-    'setPartialChartData',
-  ]);
-
+  const { encounter, appointment } = useAppointmentData();
+  const { chartData, setPartialChartData } = useChartData();
   const { diagnosis } = chartData || {};
   const primaryDiagnosis = diagnosis?.find((d) => d.isPrimary);
-
   const [orderDx, setOrderDx] = useState<DiagnosisDTO | undefined>(primaryDiagnosis ? primaryDiagnosis : undefined);
   const [orderCpt, setOrderCpt] = useState<CPTCodeDTO | undefined>();
   const [stat, setStat] = useState<boolean>(false);
@@ -78,9 +77,8 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
 
   // used to fetch dx icd10 codes
   const [dxDebouncedSearchTerm, setDxDebouncedSearchTerm] = useState('');
-  const { isFetching: isSearchingDx, data: dxData } = useGetIcd10Search({
+  const { isFetching: isSearchingDx, data: dxData } = useICD10SearchNew({
     search: dxDebouncedSearchTerm,
-    sabs: 'ICD10CM',
   });
   const icdSearchOptions = dxDebouncedSearchTerm === '' && diagnosis ? diagnosis : dxData?.codes || [];
   const { debounce: debounceDx } = useDebounce(800);

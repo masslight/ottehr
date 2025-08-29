@@ -1,7 +1,6 @@
 import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
 import { OystehrAPIClient } from 'ui-components';
-import { useSuccessQuery } from 'utils';
 import {
   BookableItemListResponse,
   GetBookableItemListParams,
@@ -10,6 +9,7 @@ import {
   GetTelemedLocationsResponse,
   PatientInfo,
   PromiseReturnType,
+  useSuccessQuery,
 } from 'utils';
 
 export const useCreateAppointmentMutation = (): UseMutationResult<
@@ -144,13 +144,13 @@ export const useGetVisitDetails = (
   return queryResult;
 };
 
-export const useGetTelemedStates = (
+export const useGetTelemedLocations = (
   apiClient: OystehrAPIClient | null,
   enabled = true,
   onSuccess?: (data: GetTelemedLocationsResponse | null) => void
 ): UseQueryResult<GetTelemedLocationsResponse, Error> => {
   const queryResult = useQuery({
-    queryKey: ['telemed-states'],
+    queryKey: ['telemed-locations'],
 
     queryFn: () => {
       if (!apiClient) {

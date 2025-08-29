@@ -4,7 +4,7 @@ env:
   NODE_VERSION: 20
   TOKEN_VALIDITY_THRESHOLD_MINUTES: 60
   TEST_RESULTS_CACHE_RETENTION_DAYS: 30
-  SECRETS_REPO: masslight/ottehr-secrets
+  SECRETS_REPOSITORY: ${{ vars.SECRETS_REPOSITORY }} # Secrets repository for configuration files
   USER_JSON_CACHE_KEY: intake-playwright-user-${{ github.event.inputs.environment || 'local' }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.run_number }}
   USER_JSON_CACHE_RESTORE_KEYS: intake-playwright-user-${{ github.event.inputs.environment || 'local' }}-
   PLAYWRIGHT_CACHE_PATH: ~/.cache/ms-playwright
@@ -190,7 +190,7 @@ jobs:
       - name: Check out secrets repo
         uses: actions/checkout@v4
         with:
-          repository: ${{ env.SECRETS_REPO }}
+          repository: ${{ env.SECRETS_REPOSITORY }}
           ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
           path: 'secrets'
 
@@ -321,7 +321,7 @@ jobs:
       - name: Check out secrets repo
         uses: actions/checkout@v4
         with:
-          repository: ${{ env.SECRETS_REPO }}
+          repository: ${{ env.SECRETS_REPOSITORY }}
           ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
           path: 'secrets'
 

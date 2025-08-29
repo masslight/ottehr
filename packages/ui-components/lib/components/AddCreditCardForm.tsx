@@ -38,7 +38,6 @@ export const AddCreditCardForm: FC<CreditCardFormProps> = (props) => {
         selectPaymentMethod(setupIntent.payment_method);
       }
       card.clear();
-      e.clear();
     } else {
       console.error('Error confirming card setup:', error);
       if (error.message) {

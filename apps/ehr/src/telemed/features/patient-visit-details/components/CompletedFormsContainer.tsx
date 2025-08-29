@@ -3,10 +3,14 @@ import { otherColors } from '@ehrTheme/colors';
 import { Button } from '@mui/material';
 import { Bundle, BundleEntry, DocumentReference } from 'fhir/r4b';
 import { FC, ReactElement, useState } from 'react';
-import { CONSENT_CODE, getIpAddress, getQuestionnaireResponseByLinkId, mdyStringFromISOString } from 'utils';
-import { getPresignedFileUrl } from '../../../../helpers/files.helper';
-import { getSelectors } from '../../../../shared/store/getSelectors';
-import { useAppointmentStore, useGetDocumentReferences } from '../../../state';
+import {
+  CONSENT_CODE,
+  getIpAddress,
+  getPresignedURL,
+  getQuestionnaireResponseByLinkId,
+  mdyStringFromISOString,
+} from 'utils';
+import { useAppointmentData, useGetDocumentReferences } from '../../../state';
 import { InformationCard } from './InformationCard';
 const PdfButton = ({ pdfUrl }: { pdfUrl?: string }): ReactElement => {
   return (
@@ -31,21 +35,15 @@ const PdfButton = ({ pdfUrl }: { pdfUrl?: string }): ReactElement => {
 
 export const CompletedFormsContainer: FC = () => {
   const { getAccessTokenSilently } = useAuth0();
-  const { patient, appointment, questionnaireResponse } = getSelectors(useAppointmentStore, [
-    'patient',
-    'appointment',
-    'questionnaireResponse',
-  ]);
-
+  const { patient, appointment, questionnaireResponse } = useAppointmentData();
   const [consentPdfUrl, setConsentPdfUrl] = useState<string | undefined>();
   const [hipaaPdfUrl, setHipaaPdfUrl] = useState<string | undefined>();
 
   useGetDocumentReferences({ appointmentId: appointment?.id, patientId: patient?.id }, async (data) => {
     const authToken = await getAccessTokenSilently();
-
     const documentReferenceResources: DocumentReference[] = [];
-
     const bundleEntries = data.entry;
+
     bundleEntries?.forEach((bundleEntry: BundleEntry) => {
       const bundleResource = bundleEntry.resource as Bundle;
       bundleResource.entry?.forEach((entry) => {
@@ -63,7 +61,7 @@ export const CompletedFormsContainer: FC = () => {
         for (const content of docRef.content) {
           const title = content.attachment.title;
           const z3Url = content.attachment.url;
-          const presignedUrl = z3Url && (await getPresignedFileUrl(z3Url, authToken));
+          const presignedUrl = z3Url && (await getPresignedURL(z3Url, authToken));
 
           if (title === 'Consent forms') {
             setConsentPdfUrl(presignedUrl);

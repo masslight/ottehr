@@ -1,5 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { EMPTY_PAGINATION, getSecret, SecretsKeys } from 'utils';
+import { EMPTY_PAGINATION, getSecret, ReflexLabDTO, SecretsKeys } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -7,7 +7,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
-import { getLabResources, mapResourcesToLabOrderDTOs } from './helpers';
+import { getLabResources, mapReflexResourcesToDrLabDTO, mapResourcesToLabOrderDTOs } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -27,6 +27,7 @@ export const index = wrapHandler('get-lab-orders', async (input: ZambdaInput): P
       serviceRequests,
       tasks,
       diagnosticReports,
+      reflexDRsAndRelatedResources,
       practitioners,
       pagination,
       encounters,
@@ -36,6 +37,7 @@ export const index = wrapHandler('get-lab-orders', async (input: ZambdaInput): P
       organizations,
       questionnaires,
       resultPDFs,
+      labelPDF,
       orderPDF,
       specimens,
       patientLabItems,
@@ -69,16 +71,24 @@ export const index = wrapHandler('get-lab-orders', async (input: ZambdaInput): P
       organizations,
       questionnaires,
       resultPDFs,
+      labelPDF,
       orderPDF,
       specimens,
       appointmentScheduleMap,
       ENVIRONMENT
     );
 
+    let reflexLabDTOs: ReflexLabDTO[] = [];
+    if (reflexDRsAndRelatedResources) {
+      reflexLabDTOs = await mapReflexResourcesToDrLabDTO(reflexDRsAndRelatedResources, m2mToken);
+    }
+    console.log('reflexLabDTOs', JSON.stringify(reflexLabDTOs));
+
     return {
       statusCode: 200,
       body: JSON.stringify({
         data: labOrders,
+        reflexResults: reflexLabDTOs,
         pagination,
         ...(patientLabItems && { patientLabItems }),
       }),

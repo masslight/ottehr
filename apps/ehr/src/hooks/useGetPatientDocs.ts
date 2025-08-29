@@ -5,14 +5,13 @@ import { DocumentReference, FhirResource, List, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { useCallback, useState } from 'react';
 import { useSuccessQuery } from 'utils';
-import { chooseJson } from 'utils';
-import { getPresignedFileUrl, parseFileExtension } from '../helpers/files.helper';
+import { chooseJson, getPresignedURL } from 'utils';
+import { parseFileExtension } from '../helpers/files.helper';
 import { useApiClients } from './useAppClients';
 
 const PATIENT_FOLDERS_CODE = 'patient-docs-folder';
 
-const CREATE_PATIENT_UPLOAD_DOCUMENT_URL_ZAMBDA_ID = import.meta.env
-  .VITE_APP_CREATE_PATIENT_UPLOAD_DOCUMENT_URL_ZAMBDA_ID;
+const CREATE_PATIENT_UPLOAD_DOCUMENT_URL_ZAMBDA_ID = 'create-upload-document-url';
 
 export type PatientDocumentsFolder = {
   id: string;
@@ -160,7 +159,7 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
       }
 
       const urlSigningRequests = docAttachments.map(async (attachment) => {
-        const presignedUrl = await getPresignedFileUrl(attachment.z3Url, authToken);
+        const presignedUrl = await getPresignedURL(attachment.z3Url, authToken);
         return {
           attachment: attachment,
           presignedUrl: presignedUrl,
@@ -438,10 +437,6 @@ const usePatientDocsActions = ({ patientId }: { patientId: string }): UsePatient
       console.log(params);
       const { docFile, ...restParams } = params;
       try {
-        if (!CREATE_PATIENT_UPLOAD_DOCUMENT_URL_ZAMBDA_ID) {
-          throw new Error('Could not find environment variable VITE_APP_CREATE_PATIENT_UPLOAD_DOCUMENT_URL_ZAMBDA_ID');
-        }
-
         if (!oystehrZambda) {
           throw new Error('Could not initialize oystehrZambda client.');
         }

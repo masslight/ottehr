@@ -744,6 +744,44 @@
         "resourceType": "List",
         "status": "current",
         "mode": "working",
+        "title": "discharge-summaries",
+        "code": {
+          "coding": [
+            {
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions",
+              "code": "patient-docs-folder",
+              "display": "Discharge Summary"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "identifier": [
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "UDI",
+                  "display": "Universal Device Identifier"
+                }
+              ]
+            },
+            "value": "discharge-summaries"
+          }
+        ]
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/List"
+      },
+      "resource": {
+        "resourceType": "List",
+        "status": "current",
+        "mode": "working",
         "title": "visit-notes",
         "code": {
           "coding": [
@@ -1278,7 +1316,7 @@
                   }
                 ]
               },
-               {
+              {
                 "linkId": "responsible-party-email",
                 "answer": [
                   {
@@ -1639,8 +1677,8 @@
         "bodySite": {
           "coding": [
             {
-              "code": "302548004",
-              "display": "Entire head (body structure)"
+              "code": "17621005",
+              "display": "Normal (qualifier value)"
             }
           ]
         },
@@ -1779,8 +1817,8 @@
         "bodySite": {
           "coding": [
             {
-              "code": "39937001",
-              "display": "Skin structure (body structure)"
+              "code": "225544001",
+              "display": "Skin appearance normal (finding)"
             }
           ]
         },
@@ -2447,8 +2485,8 @@
         "bodySite": {
           "coding": [
             {
-              "code": "71616004",
-              "display": "Skeletal and/or smooth muscle structure (body structure)"
+              "code": "8117002",
+              "display": "Gait normal (finding)"
             }
           ]
         },
@@ -2554,8 +2592,8 @@
         "bodySite": {
           "coding": [
             {
-              "code": "302548004",
-              "display": "Entire head (body structure)"
+              "code": "1149217004",
+              "display": "No traumatic injury (situation)"
             }
           ]
         },
@@ -3354,8 +3392,8 @@
         "bodySite": {
           "coding": [
             {
-              "code": "818983003",
-              "display": "Structure of abdominopelvic cavity and/or content of abdominopelvic cavity and/or anterior abdominal wall (body structure)"
+              "code": "297125009",
+              "display": "Abdominal tenderness absent (situation)"
             }
           ]
         },
@@ -3593,8 +3631,8 @@
         "bodySite": {
           "coding": [
             {
-              "code": "45048000",
-              "display": "Neck structure (body structure)"
+              "code": "48162006",
+              "display": "Supple (qualifier value)"
             }
           ]
         },
@@ -4129,8 +4167,8 @@
         "bodySite": {
           "coding": [
             {
-              "code": "123851003",
-              "display": "Mouth region structure (body structure)"
+              "code": "276398005",
+              "display": "Moist oral mucosa (finding)"
             }
           ]
         },

@@ -17,6 +17,9 @@ import { ProtectedRoute } from './components/routing/ProtectedRoute';
 import { TestErrorPage } from './components/TestErrorPage';
 import { CustomThemeProvider } from './CustomThemeProvider';
 import { FeatureFlagsProvider } from './features/css-module/context/featureFlags';
+import { UnsolicitedResultsInbox } from './features/external-labs/pages/UnsolicitedResultsInbox';
+import { UnsolicitedResultsMatch } from './features/external-labs/pages/UnsolicitedResultsMatch';
+import { UnsolicitedResultsReview } from './features/external-labs/pages/UnsolicitedResultsReview';
 import { useApiClients } from './hooks/useAppClients';
 import useEvolveUser from './hooks/useEvolveUser';
 import AddEmployeePage from './pages/AddEmployeePage';
@@ -39,7 +42,7 @@ import { TelemedAdminPage } from './pages/TelemedAdminPage';
 import { Claim, Claims } from './rcm';
 import { useNavStore } from './state/nav.store';
 import EditInsurance from './telemed/features/telemed-admin/EditInsurance';
-import EditStatePage from './telemed/features/telemed-admin/EditState';
+import EditVirtualLocationPage from './telemed/features/telemed-admin/EditVirtualLocationPage';
 import { PatientVisitDetails } from './telemed/pages/PatientVisitDetailsPage';
 
 const { VITE_APP_SENTRY_DSN, VITE_APP_SENTRY_ENV } = import.meta.env;
@@ -62,7 +65,7 @@ const TelemedAppointmentPageLazy = lazy(async () => {
 });
 
 export const INSURANCES_URL = '/telemed-admin/insurances';
-export const STATES_URL = '/telemed-admin/states';
+export const VIRTUAL_LOCATIONS_URL = '/telemed-admin/virtual-locations';
 
 const MUI_X_LICENSE_KEY = import.meta.env.VITE_APP_MUI_X_LICENSE_KEY;
 if (MUI_X_LICENSE_KEY != null) {
@@ -191,8 +194,8 @@ function App(): ReactElement {
                   <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
                   <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
                   <Route path="/telemed-admin" element={<Navigate to={INSURANCES_URL} />} />
-                  <Route path={`${STATES_URL}`} element={<TelemedAdminPage />} />
-                  <Route path={`${STATES_URL}/:state`} element={<EditStatePage />} />
+                  <Route path={`${VIRTUAL_LOCATIONS_URL}`} element={<TelemedAdminPage />} />
+                  <Route path={`${VIRTUAL_LOCATIONS_URL}/:id`} element={<EditVirtualLocationPage />} />
                   <Route path={INSURANCES_URL} element={<TelemedAdminPage />} />
                   <Route path={`${INSURANCES_URL}/:insurance`} element={<EditInsurance />} />
                   {/** telemed */}
@@ -224,11 +227,19 @@ function App(): ReactElement {
                   <Route path="/visit/:id" element={<AppointmentPage />} />
                   <Route path="/patient/:id" element={<PatientPage />} />
                   <Route path="/patient/:id/info" element={<PatientInformationPage />} />
+
                   <Route path="/patient/:id/details" element={<PatientVisitDetails />} />
+
                   <Route path="/patient/:id/docs" element={<PatientDocumentsExplorerPage />} />
                   <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
                   <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
                   <Route path="/patients" element={<PatientsPage />} />
+                  <Route path="/unsolicited-results" element={<UnsolicitedResultsInbox />} />
+                  <Route path="/unsolicited-results/:diagnosticReportId/match" element={<UnsolicitedResultsMatch />} />
+                  <Route
+                    path="/unsolicited-results/:diagnosticReportId/review"
+                    element={<UnsolicitedResultsReview />}
+                  />
 
                   <Route path="/rcm/claims" element={<Claims />} />
                   <Route path="/rcm/claims/:id" element={<Claim />} />

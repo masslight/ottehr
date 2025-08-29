@@ -1,37 +1,25 @@
-import { LoadingButton } from '@mui/lab';
-import { Box, Grid, Paper, Stack, TextField, Typography, useTheme } from '@mui/material';
+import { Grid, Paper, Stack, TextField, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
-import React, { useCallback, useEffect, useState } from 'react';
-import { useApiClients } from 'src/hooks/useAppClients';
-import { APIError, EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE, sampleDTO } from 'utils';
-import { getLabelPdf } from '../../../api/api';
+import React, { useEffect, useState } from 'react';
+import { sampleDTO } from 'utils';
 import { AccordionCard } from '../../../telemed/components/AccordionCard';
 import { BoldedTitleText } from './BoldedTitleText';
-import { openPdf } from './OrderCollection';
 
 interface SampleCollectionInstructionsCardProps {
   sample: sampleDTO;
-  serviceRequestId: string;
   timezone?: string;
   setSpecimenData: (specimenId: string, date: string) => void;
-  printLabelVisible: boolean;
   isDateEditable: boolean;
 }
 
 export const SampleCollectionInstructionsCard: React.FC<SampleCollectionInstructionsCardProps> = ({
   sample,
-  serviceRequestId,
   timezone,
   setSpecimenData,
-  printLabelVisible,
   isDateEditable,
 }) => {
   const { specimen, definition } = sample;
   const [collapsed, setCollapsed] = useState(false);
-  const [labelLoading, setLabelLoading] = useState(false);
-  const [error, setError] = useState<string[]>();
-  const { oystehrZambda: oystehr } = useApiClients();
-  const theme = useTheme();
 
   const [date, setDate] = useState(() =>
     specimen.collectionDate
@@ -56,30 +44,6 @@ export const SampleCollectionInstructionsCard: React.FC<SampleCollectionInstruct
       return updated.isValid ? updated : prev;
     });
   };
-
-  const printLabel = useCallback(async () => {
-    if (!oystehr) return setError(['Oystehr client is undefined']);
-
-    setLabelLoading(true);
-    try {
-      const labelPdfs = await getLabelPdf(oystehr, {
-        contextRelatedReference: { reference: `ServiceRequest/${serviceRequestId}` },
-        searchParams: [
-          { name: 'status', value: 'current' },
-          { name: 'type', value: EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE.code },
-        ],
-      });
-
-      if (labelPdfs?.length !== 1) throw new Error('Unexpected number of label pdfs');
-
-      await openPdf(labelPdfs[0].presignedURL);
-    } catch (error) {
-      const apiError = error as APIError;
-      setError([`Unable to load label pdf. Error: ${apiError.message}`]);
-    } finally {
-      setLabelLoading(false);
-    }
-  }, [oystehr, serviceRequestId]);
 
   return (
     <AccordionCard
@@ -125,29 +89,6 @@ export const SampleCollectionInstructionsCard: React.FC<SampleCollectionInstruct
             />
           </Grid>
         </Grid>
-
-        {printLabelVisible && (
-          <LoadingButton
-            variant="outlined"
-            type="button"
-            sx={{ width: 170, borderRadius: '50px', textTransform: 'none', mt: 3 }}
-            onClick={printLabel}
-            loading={labelLoading}
-          >
-            Print label
-          </LoadingButton>
-        )}
-        {error && error.length > 0 && (
-          <Box sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-            {error.map((msg, idx) => (
-              <Box sx={{ textAlign: 'left', paddingTop: 1 }} key={idx}>
-                <Typography sx={{ color: theme.palette.error.main }} key={`errorMsg-${idx}`}>
-                  {typeof msg === 'string' ? msg : JSON.stringify(msg, null, 2)}
-                </Typography>
-              </Box>
-            ))}
-          </Box>
-        )}
       </Paper>
     </AccordionCard>
   );
