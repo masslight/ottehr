@@ -1,7 +1,7 @@
 import Oystehr, { BatchInputGetRequest, Bundle } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { FhirResource, Resource } from 'fhir/r4b';
-import { ChartDataFields, ChartDataRequestedFields, GetChartDataResponse } from 'utils';
+import { FhirResource, Practitioner, Resource } from 'fhir/r4b';
+import { ChartDataFields, ChartDataRequestedFields, GetChartDataResponse, PUBLIC_EXTENSION_BASE_URL } from 'utils';
 import { checkOrCreateM2MClientToken, getPatientEncounter, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { configLabRequestsForGetChartData } from '../shared/labs';
@@ -199,22 +199,36 @@ export async function getChartData(
 
   if (requestedFields == null) {
     // AI chat
+    // chartDataRequests.push(
+    //   createFindResourceRequest(
+    //     patient,
+    //     encounter,
+    //     'QuestionnaireResponse',
+    //     {
+    //       questionnaire: {
+    //         type: 'string',
+    //         value: '#aiInterviewQuestionnaire',
+    //       },
+    //     },
+    //     'encounter'
+    //   )
+    // );
     chartDataRequests.push(
       createFindResourceRequest(
         patient,
         encounter,
-        'QuestionnaireResponse',
-        {
-          questionnaire: {
-            type: 'string',
-            value: '#aiInterviewQuestionnaire',
-          },
-        },
+        'DocumentReference',
+        // {
+        //   type: {
+        //     type: 'string',
+        //     value: '#aiInterviewQuestionnaire',
+        //   },
+        // },
+        {},
         'encounter'
       )
     );
   }
-
   // Practitioners
   if (requestedFields?.practitioners) {
     encounter?.participant?.forEach((participant) => {
@@ -237,6 +251,7 @@ export async function getChartData(
   console.timeLog('check', 'before resources fetch');
   console.log('Starting a transaction to retrieve chart data...');
   let result: Bundle<FhirResource> | undefined;
+  console.log(chartDataRequests);
   try {
     result = await oystehr.fhir.batch<FhirResource>({
       requests: chartDataRequests,
@@ -249,6 +264,7 @@ export async function getChartData(
   // console.debug('result JSON\n\n==============\n\n', JSON.stringify(result));
 
   console.timeLog('check', 'after fetch, before converting chart data to response');
+
   const chartDataResult = await convertSearchResultsToResponse(
     result,
     m2mToken,
@@ -257,6 +273,32 @@ export async function getChartData(
     requestedFields ? (Object.keys(requestedFields) as (keyof ChartDataFields)[]) : undefined
   );
   console.timeLog('check', 'after converting to response');
+  if (chartDataResult.chartData.aiChat) {
+    const practitionerIDs = chartDataResult.chartData.aiChat.documents
+      .filter((document) => document.resourceType === 'DocumentReference')
+      .map(
+        (document) =>
+          document.extension
+            ?.find((extension) => extension.url === `${PUBLIC_EXTENSION_BASE_URL}/provider`)
+            ?.valueReference?.reference?.split('/')[1]
+      )
+      .filter((practitionerID) => practitionerID != null);
+    if (practitionerIDs.length > 0) {
+      console.log('Getting Practitioners');
+      const practitioners = (
+        await oystehr.fhir.search<Practitioner>({
+          resourceType: 'Practitioner',
+          params: [
+            {
+              name: '_id',
+              value: practitionerIDs.join(','),
+            },
+          ],
+        })
+      ).unbundle();
+      chartDataResult.chartData.aiChat.providers = practitioners;
+    }
+  }
   console.timeEnd('check');
 
   return {

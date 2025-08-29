@@ -274,4 +274,7 @@ export enum AiObservationField {
   FamilyHistory = 'ai-family-history',
   HospitalizationsHistory = 'ai-hospitalizations-history',
   Allergies = 'ai-allergies',
+  Labs = 'ai-labs',
+  eRX = 'ai-erx',
+  Procedures = 'ai-procedures',
 }

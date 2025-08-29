@@ -78,6 +78,15 @@ export function getParticipantIdFromAppointment(
     ?.actor?.reference?.replace(`${participant}/`, '');
 }
 
+export function getFormatDuration(duration: number): string {
+  const seconds = duration / 1000;
+  return `${Math.floor(seconds / 60)
+    .toString()
+    .padStart(2, '0')}:${Math.floor(seconds % 60)
+    .toString()
+    .padStart(2, '0')}`;
+}
+
 /*
 export function getAppointmentConfirmationMessage(
   appointmentID: string,

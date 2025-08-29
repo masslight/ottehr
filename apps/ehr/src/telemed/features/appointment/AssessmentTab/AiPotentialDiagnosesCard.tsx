@@ -53,7 +53,7 @@ export const AiPotentialDiagnosesCard: FC = () => {
       </Box>
       <Box
         style={{
-          background: '#FFF9EF',
+          background: '#E1F5FECC',
           borderRadius: '8px',
           padding: '8px',
         }}

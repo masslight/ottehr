@@ -1,8 +1,10 @@
-import { Box, Stack } from '@mui/material';
+import { Box, Paper, Stack } from '@mui/material';
 import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import AiSuggestion from 'src/components/AiSuggestion';
+import { AiObservationField, ObservationTextFieldDTO } from 'utils';
 import { PageTitle } from '../../../telemed/components/PageTitle';
-import { useAppointmentData } from '../../../telemed/state/appointment/appointment.store';
+import { useAppointmentData, useChartData } from '../../../telemed/state/appointment/appointment.store';
 import ListViewContainer from '../../common/ListViewContainer';
 import { ButtonRounded } from '../../css-module/components/RoundedButton';
 import { LabsTable, LabsTableColumn } from '../components/labs-orders/LabsTable';
@@ -21,10 +23,15 @@ export const ExternalLabOrdersListPage: React.FC = () => {
   const navigate = useNavigate();
   const { encounter } = useAppointmentData();
   const encounterId = encounter?.id;
+  const { chartData } = useChartData();
 
   const handleCreateOrder = useCallback((): void => {
     navigate(`create`);
   }, [navigate]);
+
+  const aiExternalLabs = chartData?.observations?.filter(
+    (observation) => observation.field === AiObservationField.Labs
+  ) as ObservationTextFieldDTO[];
 
   if (!encounterId) {
     console.error('No encounter ID found');
@@ -52,6 +59,12 @@ export const ExternalLabOrdersListPage: React.FC = () => {
             </ButtonRounded>
           </Stack>
         </Box>
+        {aiExternalLabs?.length > 0 && (
+          <Paper sx={{ padding: 2, marginBottom: 2 }}>
+            {/* <hr style={{ border: '0.5px solid #DFE5E9', margin: '0 -16px 0 -16px' }} /> */}
+            <AiSuggestion title={'Labs'} chartData={chartData} content={aiExternalLabs} />
+          </Paper>
+        )}
         <LabsTable
           searchBy={{ searchBy: { field: 'encounterId', value: encounterId } }}
           columns={externalLabsColumns}
