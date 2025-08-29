@@ -315,7 +315,7 @@ async function candidCreateEncounterRequest(
 
   return {
     externalId: EncounterExternalId(assertDefined(encounter.id, 'Encounter.id')),
-    dateOfService: dateOfServiceString,
+    // dateOfService: dateOfServiceString, // Field must not be provided if service line date of service is sent
     billableStatus: BillableStatusType.Billable,
     responsibleParty: insuranceResources != null ? ResponsiblePartyType.InsurancePay : ResponsiblePartyType.SelfPay,
     benefitsAssignedToProvider: true,
@@ -379,10 +379,12 @@ async function candidCreateEncounterRequest(
           quantity: Decimal('1'),
           units: ServiceLineUnits.Un,
           diagnosisPointers: [primaryDiagnosisIndex],
-          dateOfService: dateOfServiceString || assertDefined(
-            DateTime.fromISO(assertDefined(input.appointment.start, 'Appointment start')).toISODate(),
-            'Service line date'
-          ),
+          dateOfService:
+            dateOfServiceString ||
+            assertDefined(
+              DateTime.fromISO(assertDefined(input.appointment.start, 'Appointment start')).toISODate(),
+              'Service line date'
+            ),
         },
       ];
     }),
@@ -1178,7 +1180,7 @@ async function candidCreateEncounterFromAppointmentRequest(
 
   return {
     externalId: EncounterExternalId(assertDefined(encounter.id, 'Encounter.id')),
-    dateOfService: dateOfServiceString,
+    // dateOfService: dateOfServiceString, // Field must not be provided if service line date of service is sent
     preEncounterPatientId: PreEncounterPatientId(candidPatient.id),
     preEncounterAppointmentIds: [PreEncounterAppointmentId(candidAppointmentId)],
     benefitsAssignedToProvider: true,
@@ -1230,10 +1232,12 @@ async function candidCreateEncounterFromAppointmentRequest(
           quantity: Decimal('1'),
           units: ServiceLineUnits.Un,
           diagnosisPointers: [primaryDiagnosisIndex],
-          dateOfService: dateOfServiceString || assertDefined(
-            DateTime.fromISO(assertDefined(appointment.start, 'Appointment start')).toISODate(),
-            'Service line date'
-          ),
+          dateOfService:
+            dateOfServiceString ||
+            assertDefined(
+              DateTime.fromISO(assertDefined(appointment.start, 'Appointment start')).toISODate(),
+              'Service line date'
+            ),
         },
       ];
     }),
