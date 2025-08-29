@@ -17,6 +17,8 @@ import { dataTestIds } from '../../../src/constants/data-test-ids';
 import {
   PATIENT_INSURANCE_MEMBER_ID,
   PATIENT_INSURANCE_MEMBER_ID_2,
+  PATIENT_INSURANCE_PLAN_TYPE,
+  PATIENT_INSURANCE_PLAN_TYPE_2,
   PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS,
   PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS_ADDITIONAL_LINE,
   PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS_AS_PATIENT,
@@ -74,7 +76,9 @@ const NEW_PATIENT_INSURANCE_POLICY_HOLDER_ZIP = '78956';
 const NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO = 'testing';
 const NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO_2 = 'testing2';
 const NEW_PATIENT_INSURANCE_CARRIER = '6 Degrees Health Incorporated';
+const NEW_PATIENT_INSURANCE_PLAN_TYPE = '11 - Other Non-Federal Programs';
 const NEW_PATIENT_INSURANCE_CARRIER_2 = 'AAA - Minnesota/Iowa';
+const NEW_PATIENT_INSURANCE_PLAN_TYPE_2 = '14 - EPO';
 
 test.describe('Insurance Information Section non-mutating tests', () => {
   let resourceHandler: ResourceHandler;
@@ -243,6 +247,7 @@ test.describe('Insurance Information Section mutating tests', () => {
     const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
     await primaryInsuranceCard.clickShowMoreButton();
     await primaryInsuranceCard.selectInsuranceCarrier(NEW_PATIENT_INSURANCE_CARRIER);
+    await primaryInsuranceCard.enterPlanType(NEW_PATIENT_INSURANCE_PLAN_TYPE);
     await primaryInsuranceCard.enterMemberId(NEW_PATIENT_INSURANCE_MEMBER_ID);
     await primaryInsuranceCard.enterPolicyHolderFirstName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_FIRST_NAME);
     await primaryInsuranceCard.enterPolicyHolderMiddleName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_MIDDLE_NAME);
@@ -264,6 +269,7 @@ test.describe('Insurance Information Section mutating tests', () => {
     const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
     await secondaryInsuranceCard.clickShowMoreButton();
     await secondaryInsuranceCard.selectInsuranceCarrier(NEW_PATIENT_INSURANCE_CARRIER_2);
+    await secondaryInsuranceCard.enterPlanType(NEW_PATIENT_INSURANCE_PLAN_TYPE_2);
     await secondaryInsuranceCard.enterMemberId(NEW_PATIENT_INSURANCE_MEMBER_ID_2);
     await secondaryInsuranceCard.enterPolicyHolderFirstName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_FIRST_NAME);
     await secondaryInsuranceCard.enterPolicyHolderMiddleName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_MIDDLE_NAME);
@@ -294,6 +300,7 @@ test.describe('Insurance Information Section mutating tests', () => {
     await secondaryInsuranceCard.clickShowMoreButton();
 
     await primaryInsuranceCard.verifyInsuranceCarrier(NEW_PATIENT_INSURANCE_CARRIER);
+    await primaryInsuranceCard.verifyPlanType(NEW_PATIENT_INSURANCE_PLAN_TYPE);
     await primaryInsuranceCard.verifyMemberId(NEW_PATIENT_INSURANCE_MEMBER_ID);
     await primaryInsuranceCard.verifyPolicyHoldersFirstName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_FIRST_NAME);
     await primaryInsuranceCard.verifyPolicyHoldersMiddleName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_MIDDLE_NAME);
@@ -313,6 +320,7 @@ test.describe('Insurance Information Section mutating tests', () => {
     );
 
     await secondaryInsuranceCard.verifyInsuranceCarrier(NEW_PATIENT_INSURANCE_CARRIER_2);
+    await secondaryInsuranceCard.verifyPlanType(NEW_PATIENT_INSURANCE_PLAN_TYPE_2);
     await secondaryInsuranceCard.verifyMemberId(NEW_PATIENT_INSURANCE_MEMBER_ID_2);
     await secondaryInsuranceCard.verifyPolicyHoldersFirstName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_FIRST_NAME);
     await secondaryInsuranceCard.verifyPolicyHoldersMiddleName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_MIDDLE_NAME);
@@ -341,6 +349,8 @@ test.describe('Insurance Information Section mutating tests', () => {
 
     const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
     const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
+    await primaryInsuranceCard.enterPlanType(PATIENT_INSURANCE_PLAN_TYPE);
+    await secondaryInsuranceCard.enterPlanType(PATIENT_INSURANCE_PLAN_TYPE_2);
 
     await primaryInsuranceCard.clickShowMoreButton();
     await secondaryInsuranceCard.clickShowMoreButton();
@@ -421,6 +431,7 @@ async function createResourceHandler(): Promise<[ResourceHandler, string, string
       getPatientDetailsStepAnswers({}),
       getPaymentOptionInsuranceAnswers({
         insuranceCarrier: insuranceCarrier1!,
+        insurancePlanType: PATIENT_INSURANCE_PLAN_TYPE,
         insuranceMemberId: PATIENT_INSURANCE_MEMBER_ID,
         insurancePolicyHolderFirstName: PATIENT_INSURANCE_POLICY_HOLDER_FIRST_NAME,
         insurancePolicyHolderLastName: PATIENT_INSURANCE_POLICY_HOLDER_LAST_NAME,
@@ -435,6 +446,7 @@ async function createResourceHandler(): Promise<[ResourceHandler, string, string
         insurancePolicyHolderZip: PATIENT_INSURANCE_POLICY_HOLDER_ZIP,
         insurancePolicyHolderRelationshipToInsured: PATIENT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED,
         insuranceCarrier2: insuranceCarrier2!,
+        insurancePlanType2: PATIENT_INSURANCE_PLAN_TYPE_2,
         insuranceMemberId2: PATIENT_INSURANCE_MEMBER_ID_2,
         insurancePolicyHolderFirstName2: PATIENT_INSURANCE_POLICY_HOLDER_2_FIRST_NAME,
         insurancePolicyHolderLastName2: PATIENT_INSURANCE_POLICY_HOLDER_2_LAST_NAME,

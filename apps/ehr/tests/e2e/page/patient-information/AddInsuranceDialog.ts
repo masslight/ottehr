@@ -18,6 +18,11 @@ export class AddInsuranceDialog {
     await this.#container.page().locator(`li:text("${insuranceCarrier}")`).click();
   }
 
+  async selectPlanType(planType: string): Promise<void> {
+    await this.#container.getByTestId(dataTestIds.addInsuranceDialog.planType).click();
+    await this.#container.page().locator(`li:text("${planType}")`).click();
+  }
+
   async enterMemberId(memberId: string): Promise<void> {
     await this.#container.getByTestId(dataTestIds.addInsuranceDialog.memberId).locator('input').fill(memberId);
   }

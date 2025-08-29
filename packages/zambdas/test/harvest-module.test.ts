@@ -242,8 +242,12 @@ describe('Harvest Module', () => {
         type: {
           coding: [
             {
-              code: 'HIP',
-              system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
+              code: '09',
+              system: 'https://fhir.ottehr.com/CodeSystem/candid-plan-type',
+            },
+            {
+              code: 'pay',
+              system: 'http://terminology.hl7.org/CodeSystem/coverage-selfpay',
             },
           ],
         },
@@ -298,7 +302,11 @@ describe('Harvest Module', () => {
         type: {
           coding: [
             {
-              code: 'HIP',
+              code: '12',
+              system: 'https://fhir.ottehr.com/CodeSystem/candid-plan-type',
+            },
+            {
+              code: 'PPO',
               system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
             },
           ],
@@ -483,8 +491,12 @@ describe('Harvest Module', () => {
       type: {
         coding: [
           {
-            code: 'HIP',
-            system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
+            code: '09',
+            system: 'https://fhir.ottehr.com/CodeSystem/candid-plan-type',
+          },
+          {
+            code: 'pay',
+            system: 'http://terminology.hl7.org/CodeSystem/coverage-selfpay',
           },
         ],
       },
@@ -573,7 +585,11 @@ describe('Harvest Module', () => {
       type: {
         coding: [
           {
-            code: 'HIP',
+            code: '12',
+            system: 'https://fhir.ottehr.com/CodeSystem/candid-plan-type',
+          },
+          {
+            code: 'PPO',
             system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
           },
         ],
@@ -2028,8 +2044,12 @@ describe('Harvest Module', () => {
         type: {
           coding: [
             {
-              code: 'HIP',
-              system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
+              code: '09',
+              system: 'https://fhir.ottehr.com/CodeSystem/candid-plan-type',
+            },
+            {
+              code: 'pay',
+              system: 'http://terminology.hl7.org/CodeSystem/coverage-selfpay',
             },
           ],
         },
@@ -2155,8 +2175,12 @@ describe('Harvest Module', () => {
         type: {
           coding: [
             {
-              code: 'HIP',
-              system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
+              code: '09',
+              system: 'https://fhir.ottehr.com/CodeSystem/candid-plan-type',
+            },
+            {
+              code: 'pay',
+              system: 'http://terminology.hl7.org/CodeSystem/coverage-selfpay',
             },
           ],
         },
@@ -2267,8 +2291,12 @@ describe('Harvest Module', () => {
         type: {
           coding: [
             {
-              code: 'HIP',
-              system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
+              code: '09',
+              system: 'https://fhir.ottehr.com/CodeSystem/candid-plan-type',
+            },
+            {
+              code: 'pay',
+              system: 'http://terminology.hl7.org/CodeSystem/coverage-selfpay',
             },
           ],
         },
@@ -2389,7 +2417,11 @@ describe('Harvest Module', () => {
       type: {
         coding: [
           {
-            code: 'HIP',
+            code: '12',
+            system: 'https://fhir.ottehr.com/CodeSystem/candid-plan-type',
+          },
+          {
+            code: 'PPO',
             system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
           },
         ],
@@ -2844,6 +2876,10 @@ const questionnaireResponse1: QuestionnaireResponse = {
           ],
         },
         {
+          linkId: 'insurance-plan-type',
+          answer: [{ valueString: '09' }],
+        },
+        {
           linkId: 'insurance-member-id',
           answer: [
             {
@@ -3007,6 +3043,10 @@ const questionnaireResponse1: QuestionnaireResponse = {
                   },
                 },
               ],
+            },
+            {
+              linkId: 'insurance-plan-type-2',
+              answer: [{ valueString: '12' }],
             },
             {
               linkId: 'insurance-member-id-2',
@@ -3625,9 +3665,12 @@ const bundle1Coverage: Coverage = {
   type: {
     coding: [
       {
-        system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
-        code: 'HIP',
-        display: 'health insurance plan policy',
+        code: '09',
+        system: 'https://fhir.ottehr.com/CodeSystem/candid-plan-type',
+      },
+      {
+        code: 'pay',
+        system: 'http://terminology.hl7.org/CodeSystem/coverage-selfpay',
       },
     ],
   },

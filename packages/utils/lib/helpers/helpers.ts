@@ -1,6 +1,8 @@
 import Oystehr, { OystehrConfig } from '@oystehr/sdk';
+import { NetworkType } from 'candidhealth/api/resources/preEncounter/resources/coverages/resources/v1';
 import {
   Appointment,
+  Coverage,
   Extension,
   Organization,
   PaymentNotice,
@@ -8,7 +10,14 @@ import {
   Resource,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { FHIR_IDENTIFIER_SYSTEM, OTTEHR_MODULE, PAYMENT_METHOD_EXTENSION_URL, SLUG_SYSTEM } from '../fhir';
+import {
+  CANDID_PLAN_TYPE_SYSTEM,
+  FHIR_IDENTIFIER_SYSTEM,
+  INSURANCE_CANDID_PLAN_TYPE_CODES,
+  OTTEHR_MODULE,
+  PAYMENT_METHOD_EXTENSION_URL,
+  SLUG_SYSTEM,
+} from '../fhir';
 import { CashPaymentDTO, PatchPaperworkParameters, ScheduleOwnerFhirResource } from '../types';
 import { phoneRegex, zipRegex } from '../validation';
 
@@ -582,6 +591,8 @@ export function getPaymentOptionSelfPayAnswers(): PatchPaperworkParameters['answ
 
 export function getPaymentOptionInsuranceAnswers({
   insuranceCarrier,
+  insurancePlanType,
+  insurancePlanType2,
   insuranceMemberId,
   insurancePolicyHolderFirstName,
   insurancePolicyHolderLastName,
@@ -611,6 +622,7 @@ export function getPaymentOptionInsuranceAnswers({
   insurancePolicyHolderRelationshipToInsured2,
 }: {
   insuranceCarrier: QuestionnaireResponseItemAnswer;
+  insurancePlanType: string;
   insuranceMemberId: string;
   insurancePolicyHolderFirstName: string;
   insurancePolicyHolderLastName: string;
@@ -637,6 +649,7 @@ export function getPaymentOptionInsuranceAnswers({
   insurancePolicyHolderZip2: string;
   insurancePolicyHolderRelationshipToInsured2: string;
   insuranceCarrier2: QuestionnaireResponseItemAnswer;
+  insurancePlanType2: string;
   insuranceMemberId2: string;
 }): PatchPaperworkParameters['answers'] {
   return {
@@ -647,6 +660,14 @@ export function getPaymentOptionInsuranceAnswers({
           {
             linkId: 'insurance-carrier-2',
             answer: [insuranceCarrier2],
+          },
+          {
+            linkId: 'insurance-plan-type-2',
+            answer: [
+              {
+                valueString: insurancePlanType2,
+              },
+            ],
           },
           {
             linkId: 'insurance-member-id-2',
@@ -876,6 +897,14 @@ export function getPaymentOptionInsuranceAnswers({
       {
         linkId: 'insurance-carrier',
         answer: [insuranceCarrier],
+      },
+      {
+        linkId: 'insurance-plan-type',
+        answer: [
+          {
+            valueString: insurancePlanType,
+          },
+        ],
       },
       {
         linkId: 'payment-option',
@@ -1190,4 +1219,14 @@ export const getPayerId = (org: Organization | undefined): string | undefined =>
       identifier.type?.coding?.some((coding) => coding.system === FHIR_IDENTIFIER_SYSTEM && coding.code === 'XX')
   )?.value;
   return payerId;
+};
+
+export const getCandidPlanTypeCodeFromCoverage = (coverage: Coverage): NetworkType | undefined => {
+  const coverageCandidTypeCode = coverage.type?.coding?.find(
+    (coding) => coding.system && coding.system === CANDID_PLAN_TYPE_SYSTEM
+  )?.code;
+  if (!coverageCandidTypeCode || !INSURANCE_CANDID_PLAN_TYPE_CODES.includes(coverageCandidTypeCode)) {
+    return undefined;
+  }
+  return coverageCandidTypeCode as NetworkType;
 };

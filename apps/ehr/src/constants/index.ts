@@ -594,6 +594,7 @@ export const FormFields = {
     {
       insurancePriority: { key: 'insurance-priority', type: 'String' },
       insuranceCarrier: { key: 'insurance-carrier', type: 'Reference' },
+      insurancePlanType: { key: 'insurance-plan-type', type: 'String' },
       memberId: { key: 'insurance-member-id', type: 'String' },
       firstName: { key: 'policy-holder-first-name', type: 'String' },
       middleName: { key: 'policy-holder-middle-name', type: 'String' },
@@ -612,6 +613,7 @@ export const FormFields = {
     {
       insurancePriority: { key: 'insurance-priority-2', type: 'String' },
       insuranceCarrier: { key: 'insurance-carrier-2', type: 'Reference' },
+      insurancePlanType: { key: 'insurance-plan-type-2', type: 'String' },
       memberId: { key: 'insurance-member-id-2', type: 'String' },
       firstName: { key: 'policy-holder-first-name-2', type: 'String' },
       middleName: { key: 'policy-holder-middle-name-2', type: 'String' },
