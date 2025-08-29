@@ -100,10 +100,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       throw Error(`Expected 1 collection task, found ${tasksCSTResources.length}`);
     }
 
+    console.log('These are the tasksCSTResources', JSON.stringify(tasksCSTResources));
     const collectionTask = tasksCSTResources[0];
 
     if (!collectionTask.id) {
       throw Error('Collection task has no ID');
+    }
+
+    if (collectionTask.status === 'completed') {
+      console.error('Detected completed CST task');
+      throw Error('Collection task has already been completed. Refresh the page before continuing.');
     }
 
     const specimenFullUrl = `urn:uuid:${randomUUID()}`;

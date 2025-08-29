@@ -1,8 +1,6 @@
 import { Stack, Typography } from '@mui/material';
 import { FC } from 'react';
-import { useParams } from 'react-router-dom';
-import { getSelectors } from '../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../telemed';
+import { useAppointmentData, useChartData } from 'src/telemed';
 import { PageTitle } from '../../../telemed/components/PageTitle';
 import {
   DispositionCard,
@@ -10,24 +8,23 @@ import {
   SchoolWorkExcuseCard,
 } from '../../../telemed/features/appointment/PlanTab';
 import { CSSLoader } from '../components/CSSLoader';
-import { useAppointment } from '../hooks/useAppointment';
-
 interface PlanProps {
   appointmentID?: string;
 }
 
 export const Plan: FC<PlanProps> = () => {
-  const { id: appointmentID } = useParams();
   const {
     resources: { appointment },
-    isLoading,
-    error,
-  } = useAppointment(appointmentID);
+    isAppointmentLoading,
+    appointmentError,
+  } = useAppointmentData();
 
-  const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);
+  const { isChartDataLoading, chartDataError } = useChartData();
+  const isLoading = isAppointmentLoading || isChartDataLoading;
+  const error = chartDataError || appointmentError;
 
   if (isLoading || isChartDataLoading) return <CSSLoader />;
-  if (error) return <Typography>Error: {error.message}</Typography>;
+  if (error?.message) return <Typography>Error: {error.message}</Typography>;
   if (!appointment) return <Typography>No data available</Typography>;
 
   return (

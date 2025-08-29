@@ -2,15 +2,13 @@ import { FC, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { getFullName } from 'utils';
 import CustomBreadcrumbs from '../../../../components/CustomBreadcrumbs';
-import { getSelectors } from '../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../state';
+import { useAppointmentData } from '../../../state';
 
 export const BreadCrumbs: FC = () => {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const appointmentId = queryParams.get('appointment') || undefined;
-
-  const { patient } = getSelectors(useAppointmentStore, ['patient']);
+  const { patient } = useAppointmentData();
   const fullName = useMemo(() => {
     if (patient) {
       return getFullName(patient);

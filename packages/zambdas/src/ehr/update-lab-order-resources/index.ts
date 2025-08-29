@@ -24,11 +24,12 @@ import {
   getPatientLastName,
   getSecret,
   isPSCOrder,
+  LAB_ORDER_UPDATE_RESOURCES_EVENTS,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   SaveOrderCollectionData,
   Secrets,
   SecretsKeys,
-  UpdateLabOrderResourcesParameters,
+  UpdateLabOrderResourcesInput,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -39,10 +40,18 @@ import {
   ZambdaInput,
 } from '../../shared';
 import { createExternalLabsLabelPDF, ExternalLabsLabelConfig } from '../../shared/pdf/external-labs-label-pdf';
-import { createExternalLabResultPDF } from '../../shared/pdf/labs-results-form-pdf';
-import { getExternalLabOrderResources } from '../shared/labs';
+import {
+  createExternalLabResultPDF,
+  createExternalLabResultPDFBasedOnDr,
+} from '../../shared/pdf/labs-results-form-pdf';
+import {
+  diagnosticReportIsReflex,
+  diagnosticReportIsUnsolicited,
+  getExternalLabOrderResourcesViaServiceRequest,
+} from '../shared/labs';
 import {
   getSpecimenPatchAndMostRecentCollectionDate,
+  handleMatchUnsolicitedRequest,
   makePstCompletePatchRequests,
   makeQrPatchRequest,
   makeSpecimenPatchRequest,
@@ -57,7 +66,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.log(`update-lab-order-resources started, input: ${JSON.stringify(input)}`);
 
   let secrets = input.secrets;
-  let validatedParameters: UpdateLabOrderResourcesParameters & { secrets: Secrets | null; userToken: string };
+  let validatedParameters: UpdateLabOrderResourcesInput & { secrets: Secrets | null; userToken: string };
 
   try {
     validatedParameters = validateRequestParameters(input);
@@ -144,6 +153,44 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           }),
         };
       }
+
+      case LAB_ORDER_UPDATE_RESOURCES_EVENTS.cancelUnsolicitedResultTask: {
+        console.log('handling cancel task to match unsolicited result');
+        const { taskId } = validatedParameters;
+        await oystehr.fhir.batch({
+          requests: [
+            getPatchBinary({
+              resourceType: 'Task',
+              resourceId: taskId,
+              patchOperations: [
+                {
+                  op: 'replace',
+                  path: '/status',
+                  value: 'cancelled',
+                },
+              ],
+            }),
+          ],
+        });
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            message: `Successfully cancelled match unsolicited result task with id ${taskId}`,
+          }),
+        };
+      }
+
+      case LAB_ORDER_UPDATE_RESOURCES_EVENTS.matchUnsolicitedResult: {
+        const { taskId, diagnosticReportId, srToMatchId, patientToMatchId } = validatedParameters;
+        console.log('handling match unsolicited result');
+        await handleMatchUnsolicitedRequest({ oystehr, taskId, diagnosticReportId, srToMatchId, patientToMatchId });
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            message: `Successfully matched unsolicited result`,
+          }),
+        };
+      }
     }
   } catch (error: any) {
     console.error('Error updating external lab order resource:', error);
@@ -169,7 +216,7 @@ const handleReviewedEvent = async ({
   oystehr: Oystehr;
   practitionerIdFromCurrentUser: string;
   taskId: string;
-  serviceRequestId: string;
+  serviceRequestId: string | undefined;
   diagnosticReportId: string;
   secrets: Secrets | null;
 }): Promise<Bundle<FhirResource>> => {
@@ -185,18 +232,26 @@ const handleReviewedEvent = async ({
     })
   ).unbundle();
 
-  const serviceRequest = resources.find(
+  let serviceRequest: ServiceRequest | undefined;
+  const maybeServiceRequest = resources.find(
     (r: any) => r.resourceType === 'ServiceRequest' && r.id === serviceRequestId
-  ) as ServiceRequest;
+  );
+  if (maybeServiceRequest) {
+    serviceRequest = maybeServiceRequest as ServiceRequest;
+  }
 
   const diagnosticReport = resources.find(
     (r: any) => r.resourceType === 'DiagnosticReport' && r.id === diagnosticReportId
   ) as DiagnosticReport;
+  const isUnsolicited = diagnosticReportIsUnsolicited(diagnosticReport);
+  console.log('handleReviewedEvent isUnsolicited', isUnsolicited);
+  const isReflex = diagnosticReportIsReflex(diagnosticReport);
+  console.log('handleReviewedEvent isReflex', isReflex);
 
   const task = resources.find((r: any) => r.resourceType === 'Task' && r.id === taskId) as Task;
 
-  if (!serviceRequest) {
-    throw new Error(`ServiceRequest/${serviceRequestId} not found`);
+  if (!serviceRequest && !isUnsolicited && !isReflex) {
+    throw new Error(`ServiceRequest/${serviceRequestId} not found for diagnostic report, ${diagnosticReportId}`);
   }
 
   if (!diagnosticReport) {
@@ -213,20 +268,24 @@ const handleReviewedEvent = async ({
     throw new Error(`Observation Id not found in DiagnosticReport/${diagnosticReportId}`);
   }
 
-  const locationReference = serviceRequest.locationReference?.[0];
+  const locationReference = serviceRequest?.locationReference?.[0];
 
   const tempProvenanceUuid = `urn:uuid:${crypto.randomUUID()}`;
+
+  const target: Reference[] = [
+    { reference: `DiagnosticReport/${diagnosticReport.id}` },
+    { reference: `Observation/${observationId}` },
+  ];
+  if (serviceRequest) {
+    target.push({ reference: `ServiceRequest/${serviceRequest.id}` });
+  }
 
   const provenanceRequest: BatchInputPostRequest<Provenance> = {
     method: 'POST',
     url: '/Provenance',
     resource: {
       resourceType: 'Provenance',
-      target: [
-        { reference: `ServiceRequest/${serviceRequest.id}` },
-        { reference: `DiagnosticReport/${diagnosticReport.id}` },
-        { reference: `Observation/${observationId}` },
-      ],
+      target,
       recorded: DateTime.now().toUTC().toISO(),
       location: locationReference as Reference, // TODO: should we throw error if locationReference is not present?
       agent: [
@@ -286,7 +345,16 @@ const handleReviewedEvent = async ({
     requests,
   });
 
-  await createExternalLabResultPDF(oystehr, serviceRequestId, diagnosticReport, true, secrets, m2mToken);
+  if (isUnsolicited || isReflex) {
+    console.log('creating pdf for unsolicited result:', diagnosticReportId);
+    const type = isUnsolicited ? 'unsolicited' : 'reflex';
+    await createExternalLabResultPDFBasedOnDr(oystehr, type, diagnosticReportId, true, secrets, m2mToken);
+  } else if (serviceRequestId) {
+    console.log('creating pdf for solicited result:', diagnosticReportId);
+    await createExternalLabResultPDF(oystehr, serviceRequestId, diagnosticReport, true, secrets, m2mToken);
+  } else {
+    console.log('skipping review pdf re-generation');
+  }
 
   return updateTransactionRequest;
 };
@@ -363,7 +431,7 @@ const handleSaveCollectionData = async (
     encounter,
     labOrganization,
     specimens: specimenResources,
-  } = await getExternalLabOrderResources(oystehr, serviceRequestId);
+  } = await getExternalLabOrderResourcesViaServiceRequest(oystehr, serviceRequestId);
   console.log('resources retrieved');
 
   const orderNumber = getOrderNumber(serviceRequest);
