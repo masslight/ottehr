@@ -16,9 +16,9 @@ import {
   useTheme,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ExamType } from 'utils';
-import { applyTemplate } from '../../../api/api';
+import { applyTemplate, listTemplates } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { useAppointmentData } from '../..';
 
@@ -27,21 +27,42 @@ interface TemplateOption {
   label: string;
 }
 
-const templateOptions: TemplateOption[] = [
-  {
-    value: 'Otitis Media Left and Conjunctivitis Left',
-    label: 'Otitis Media Left and Conjunctivitis Left',
-  },
-];
-
 export const ApplyTemplate: React.FC = () => {
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   const [dialogOpen, setDialogOpen] = useState<boolean>(false);
   const [pendingTemplate, setPendingTemplate] = useState<string>('');
   const [isApplyingTemplate, setIsApplyingTemplate] = useState<boolean>(false);
+  const [templates, setTemplates] = useState<TemplateOption[]>([]);
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState<boolean>(false);
   const theme = useTheme();
   const { oystehrZambda } = useApiClients();
   const { encounter } = useAppointmentData();
+
+  // Load templates on component mount
+  useEffect(() => {
+    const loadTemplates = async (): Promise<void> => {
+      if (!oystehrZambda) return;
+
+      setIsLoadingTemplates(true);
+      try {
+        const result = await listTemplates(oystehrZambda, {
+          examType: ExamType.IN_PERSON,
+        });
+        const templateOptions = result.templates.map((template) => ({
+          value: template,
+          label: template,
+        }));
+        setTemplates(templateOptions);
+      } catch (error) {
+        console.error('Error loading templates:', error);
+        enqueueSnackbar('Failed to load templates', { variant: 'error' });
+      } finally {
+        setIsLoadingTemplates(false);
+      }
+    };
+
+    void loadTemplates();
+  }, [oystehrZambda]);
 
   const buttonSx = {
     fontWeight: 500,
@@ -89,7 +110,7 @@ export const ApplyTemplate: React.FC = () => {
   };
 
   const getTemplateName = (value: string): string => {
-    return templateOptions.find((option) => option.value === value)?.label || '';
+    return templates.find((option) => option.value === value)?.label || '';
   };
 
   return (
@@ -102,12 +123,17 @@ export const ApplyTemplate: React.FC = () => {
           value={selectedTemplate}
           label="Select Template"
           onChange={handleTemplateChange}
+          disabled={isLoadingTemplates}
         >
-          {templateOptions.map((option) => (
-            <MenuItem key={option.value} value={option.value}>
-              {option.label}
-            </MenuItem>
-          ))}
+          {isLoadingTemplates ? (
+            <MenuItem disabled>Loading templates...</MenuItem>
+          ) : (
+            templates.map((option) => (
+              <MenuItem key={option.value} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))
+          )}
         </Select>
       </FormControl>
 

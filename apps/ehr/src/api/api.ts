@@ -66,6 +66,8 @@ import {
   LabelPdf,
   ListScheduleOwnersParams,
   ListScheduleOwnersResponse,
+  ListTemplatesZambdaInput,
+  ListTemplatesZambdaOutput,
   PaginatedResponse,
   RadiologyLaunchViewerZambdaInput,
   RadiologyLaunchViewerZambdaOutput,
@@ -1001,6 +1003,22 @@ export const icd10Search = async (
   try {
     const response = await oystehr.zambda.execute({
       id: 'icd-10-search',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const listTemplates = async (
+  oystehr: Oystehr,
+  parameters: ListTemplatesZambdaInput
+): Promise<ListTemplatesZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'list-templates',
       ...parameters,
     });
     return chooseJson(response);

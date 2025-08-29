@@ -4,6 +4,7 @@ import { ClinicalImpression, Communication, Condition, Encounter, List, Observat
 import { ApplyTemplateZambdaInput, getSecret, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
+import { GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM } from '../../shared/templates';
 import { validateRequestParameters } from './validateRequestParameters';
 
 interface ComplexValidationOutput {
@@ -23,7 +24,7 @@ export const index = wrapHandler('apply-template', async (input: ZambdaInput): P
     const oystehr = createOystehrClient(m2mToken, secrets);
 
     const { templateList, encounter } = await complexValidation(validatedInput, oystehr);
-    await performEffect(validatedInput, templateList, encounter);
+    await performEffect(validatedInput, templateList, encounter, oystehr);
     return {
       statusCode: 200,
       body: JSON.stringify({}),
@@ -52,10 +53,7 @@ const complexValidation = async (
   ).unbundle();
 
   const globalTemplatesList = lists.filter(
-    (list) =>
-      list.meta?.tag?.some(
-        (tag) => tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/global-template-list'
-      )
+    (list) => list.meta?.tag?.some((tag) => tag.system === GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM)
   );
   if (!globalTemplatesList) {
     // By searching on the template name, and not finding the global templates List on revinclude
@@ -83,11 +81,10 @@ const complexValidation = async (
 const performEffect = async (
   validatedInput: ApplyTemplateZambdaInput & Pick<ZambdaInput, 'secrets'>,
   templateList: List,
-  encounter: Encounter
+  encounter: Encounter,
+  oystehr: Oystehr
 ): Promise<void> => {
-  const { encounterId, secrets } = validatedInput;
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createOystehrClient(m2mToken, secrets);
+  const { encounterId } = validatedInput;
 
   // Make 1 transaction to delete old resources exam resources that are being replaced and write the new ones
   const deleteRequests = await makeDeleteRequests(oystehr, encounterId);
