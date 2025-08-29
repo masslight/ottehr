@@ -11,9 +11,9 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  CANDID_PLAN_TYPE_SYSTEM,
   FHIR_IDENTIFIER_SYSTEM,
   INSURANCE_CANDID_PLAN_TYPE_CODES,
-  INSURANCE_COVERAGE_TYPE_CANDID_SYSTEM,
   OTTEHR_MODULE,
   PAYMENT_METHOD_EXTENSION_URL,
   SLUG_SYSTEM,
@@ -1203,7 +1203,7 @@ export const getPayerId = (org: Organization | undefined): string | undefined =>
 
 export const getCandidPlanTypeCodeFromCoverage = (coverage: Coverage): NetworkType | undefined => {
   const coverageCandidTypeCode = coverage.type?.coding?.find(
-    (coding) => coding.system && coding.system === INSURANCE_COVERAGE_TYPE_CANDID_SYSTEM
+    (coding) => coding.system && coding.system === CANDID_PLAN_TYPE_SYSTEM
   )?.code;
   if (!coverageCandidTypeCode || !INSURANCE_CANDID_PLAN_TYPE_CODES.includes(coverageCandidTypeCode)) {
     return undefined;

@@ -35,6 +35,7 @@ import _ from 'lodash';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import {
+  CANDID_PLAN_TYPE_SYSTEM,
   CONSENT_CODE,
   ConsentSigner,
   consolidateOperations,
@@ -78,7 +79,6 @@ import {
   INSURANCE_CARD_CODE,
   INSURANCE_CARD_FRONT_2_ID,
   INSURANCE_CARD_FRONT_ID,
-  INSURANCE_COVERAGE_TYPE_CANDID_SYSTEM,
   InsurancePlanTypes,
   IntakeQuestionnaireItem,
   isoStringFromDateComponents,
@@ -1830,7 +1830,7 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
     type: {
       coding: [
         {
-          system: INSURANCE_COVERAGE_TYPE_CANDID_SYSTEM,
+          system: CANDID_PLAN_TYPE_SYSTEM,
           code: type,
         },
       ],

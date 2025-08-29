@@ -2844,6 +2844,10 @@ const questionnaireResponse1: QuestionnaireResponse = {
           ],
         },
         {
+          linkId: 'insurance-plan-type',
+          answer: [{ valueString: '09' }],
+        },
+        {
           linkId: 'insurance-member-id',
           answer: [
             {
@@ -3007,6 +3011,10 @@ const questionnaireResponse1: QuestionnaireResponse = {
                   },
                 },
               ],
+            },
+            {
+              linkId: 'insurance-plan-type-2',
+              answer: [{ valueString: '12' }],
             },
             {
               linkId: 'insurance-member-id-2',
