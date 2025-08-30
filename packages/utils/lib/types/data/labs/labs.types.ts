@@ -334,38 +334,38 @@ export type LabResultPDF = {
 
 export enum UnsolicitedResultsRequestType {
   UNSOLICITED_RESULTS_ICON = 'unsolicited-results-icon',
-  GET_TABLE_ROWS = 'get-table-rows',
+  GET_UNSOLICITED_RESULTS_TASKS = 'get-unsolicited-results-tasks',
   MATCH_UNSOLICITED_RESULTS = 'match-unsolicited-result',
   GET_UNSOLICITED_RESULTS_RELATED_REQUESTS = 'get-unsolicited-results-related-requests',
-  UNSOLICITED_RESULT_DETAIL = 'unsolicited-result-detail',
+  UNSOLICITED_RESULTS_DETAIL = 'unsolicited-results-detail',
 }
 
-export type GetUnsolicitedResultsResourcesForIconInput = {
+export type GetUnsolicitedResultsIconStatusInput = {
   requestType: UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_ICON;
 };
-export type GetUnsolicitedResultsResourcesForTableInput = {
-  requestType: UnsolicitedResultsRequestType.GET_TABLE_ROWS;
+export type GetUnsolicitedResultsTasksInput = {
+  requestType: UnsolicitedResultsRequestType.GET_UNSOLICITED_RESULTS_TASKS;
 };
-export type GetUnsolicitedResultsResourcesForMatchInput = {
+export type GetUnsolicitedResultsMatchDataInput = {
   requestType: UnsolicitedResultsRequestType.MATCH_UNSOLICITED_RESULTS;
   diagnosticReportId: string;
 };
-export type GetUnsolicitedResultsRelatedRequests = {
+export type GetUnsolicitedResultsRelatedRequestsInput = {
   requestType: UnsolicitedResultsRequestType.GET_UNSOLICITED_RESULTS_RELATED_REQUESTS;
   diagnosticReportId: string;
   patientId: string;
 };
-export type GetUnsolicitedResultsResourcesForReview = {
-  requestType: UnsolicitedResultsRequestType.UNSOLICITED_RESULT_DETAIL;
+export type GetUnsolicitedResultsDetailInput = {
+  requestType: UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_DETAIL;
   diagnosticReportId: string;
 };
 
 export type GetUnsolicitedResultsResourcesInput =
-  | GetUnsolicitedResultsResourcesForIconInput
-  | GetUnsolicitedResultsResourcesForTableInput
-  | GetUnsolicitedResultsResourcesForMatchInput
-  | GetUnsolicitedResultsRelatedRequests
-  | GetUnsolicitedResultsResourcesForReview;
+  | GetUnsolicitedResultsIconStatusInput
+  | GetUnsolicitedResultsTasksInput
+  | GetUnsolicitedResultsMatchDataInput
+  | GetUnsolicitedResultsRelatedRequestsInput
+  | GetUnsolicitedResultsDetailInput;
 
 export const UR_TASK_ACTION_TEXT = ['Match', 'Go to Lab Results'] as const;
 export type UR_TASK_ACTION = (typeof UR_TASK_ACTION_TEXT)[number];
@@ -378,14 +378,14 @@ export type UnsolicitedResultTaskRowDTO = {
   resultsReceivedDateTime: string;
 };
 
-export type GetUnsolicitedResultsResourcesForIcon = {
+export type GetUnsolicitedResultsIconStatusOutput = {
   tasksAreReady: boolean;
 };
-export type GetUnsolicitedResultsResourcesForTable = {
-  unsolicitedResultRows: UnsolicitedResultTaskRowDTO[];
+export type GetUnsolicitedResultsTasksOutput = {
+  unsolicitedResultsTasks: UnsolicitedResultTaskRowDTO[];
 };
-export type GetUnsolicitedResultsResourcesForMatch = {
-  labInfo: {
+export type GetUnsolicitedResultsMatchDataOutput = {
+  unsolicitedLabInfo: {
     patientName?: string;
     patientDOB?: string;
     provider?: string;
@@ -395,7 +395,7 @@ export type GetUnsolicitedResultsResourcesForMatch = {
   };
   taskId: string;
 };
-export type RelatedRequestsToUnsolicitedResultOutput = {
+export type GetUnsolicitedResultsRelatedRequestsOutput = {
   possibleRelatedSRsWithVisitDate:
     | {
         serviceRequestId: string;
@@ -404,13 +404,13 @@ export type RelatedRequestsToUnsolicitedResultOutput = {
     | null;
 };
 
-export type GetUnsolicitedResultsReviewResourcesOutput = {
-  labOrder: UnsolicitedLabDTO;
+export type GetUnsolicitedResultsDetailOutput = {
+  unsolicitedLabDTO: UnsolicitedLabDTO;
 };
 
 export type GetUnsolicitedResultsResourcesOutput =
-  | GetUnsolicitedResultsResourcesForIcon
-  | GetUnsolicitedResultsResourcesForTable
-  | GetUnsolicitedResultsResourcesForMatch
-  | RelatedRequestsToUnsolicitedResultOutput
-  | GetUnsolicitedResultsReviewResourcesOutput;
+  | GetUnsolicitedResultsIconStatusOutput
+  | GetUnsolicitedResultsTasksOutput
+  | GetUnsolicitedResultsMatchDataOutput
+  | GetUnsolicitedResultsRelatedRequestsOutput
+  | GetUnsolicitedResultsDetailOutput;

@@ -14,12 +14,12 @@ import {
   DR_UNSOLICITED_PATIENT_REF,
   DR_UNSOLICITED_PRACTITIONER_REF,
   getFullestAvailableName,
-  GetUnsolicitedResultsResourcesForIcon,
-  GetUnsolicitedResultsResourcesForMatch,
-  GetUnsolicitedResultsResourcesForTable,
-  GetUnsolicitedResultsReviewResourcesOutput,
+  GetUnsolicitedResultsDetailOutput,
+  GetUnsolicitedResultsIconStatusOutput,
+  GetUnsolicitedResultsMatchDataOutput,
+  GetUnsolicitedResultsRelatedRequestsOutput,
+  GetUnsolicitedResultsTasksOutput,
   LAB_ORDER_TASK,
-  RelatedRequestsToUnsolicitedResultOutput,
   UnsolicitedLabDTO,
   UnsolicitedResultTaskRowDTO,
   UR_TASK_ACTION,
@@ -55,7 +55,7 @@ export const getUnsolicitedDRandRelatedResources = async (
   return resourceSearch;
 };
 
-export const handleIconResourceRequest = async (oystehr: Oystehr): Promise<GetUnsolicitedResultsResourcesForIcon> => {
+export const handleIconResourceRequest = async (oystehr: Oystehr): Promise<GetUnsolicitedResultsIconStatusOutput> => {
   const resources = await getUnsolicitedDRandRelatedResources(oystehr, [
     { name: '_has:Task:based-on:status', value: 'ready' },
     { name: '_revinclude', value: 'Task:based-on' },
@@ -65,7 +65,7 @@ export const handleIconResourceRequest = async (oystehr: Oystehr): Promise<GetUn
   };
 };
 
-export const handleGetTasks = async (oystehr: Oystehr): Promise<GetUnsolicitedResultsResourcesForTable> => {
+export const handleGetTasks = async (oystehr: Oystehr): Promise<GetUnsolicitedResultsTasksOutput> => {
   const resources = await getUnsolicitedDRandRelatedResources(oystehr, [
     { name: '_has:Task:based-on:status', value: 'ready' },
     { name: '_revinclude', value: 'Task:based-on' },
@@ -77,13 +77,13 @@ export const handleGetTasks = async (oystehr: Oystehr): Promise<GetUnsolicitedRe
   console.log('formatting the resources for response');
   const rows = formatResourcesForTaskTableResponse(groupedResources);
   console.log('returning formatted rows', rows.length);
-  return { unsolicitedResultRows: rows };
+  return { unsolicitedResultsTasks: rows };
 };
 
 export const handleUnsolicitedRequestMatch = async (
   oystehr: Oystehr,
   diagnosticReportId: string
-): Promise<GetUnsolicitedResultsResourcesForMatch> => {
+): Promise<GetUnsolicitedResultsMatchDataOutput> => {
   const resources = await getUnsolicitedDRandRelatedResources(oystehr, [
     { name: '_has:Task:based-on:status', value: 'ready' },
     { name: '_revinclude', value: 'Task:based-on' },
@@ -108,7 +108,7 @@ export const handleGetPossibleRelatedRequestsToUnsolicitedResult = async (
   oystehr: Oystehr,
   diagnosticReportId: string,
   patientId: string
-): Promise<RelatedRequestsToUnsolicitedResultOutput> => {
+): Promise<GetUnsolicitedResultsRelatedRequestsOutput> => {
   const diagnosticReport = await oystehr.fhir.get<DiagnosticReport>({
     resourceType: 'DiagnosticReport',
     id: diagnosticReportId,
@@ -129,7 +129,7 @@ export const handleFormatLabDTOForUnsolicitedResultReview = async (
   oystehr: Oystehr,
   diagnosticReportId: string,
   token: string
-): Promise<GetUnsolicitedResultsReviewResourcesOutput> => {
+): Promise<GetUnsolicitedResultsDetailOutput> => {
   const resources = await getUnsolicitedDRandRelatedResources(oystehr, [
     { name: '_revinclude', value: 'Task:based-on' }, // review task
     { name: '_id', value: diagnosticReportId },
@@ -151,7 +151,7 @@ export const handleFormatLabDTOForUnsolicitedResultReview = async (
     resourcesForDr.patient?.id || ''
   );
 
-  return { labOrder: unsolicitedLabDTO };
+  return { unsolicitedLabDTO };
 };
 
 const formatResourcesForTaskTableResponse = (resources: ResourcesByDr): UnsolicitedResultTaskRowDTO[] => {
@@ -241,7 +241,7 @@ const taskIsLabRelated = (code: string): boolean => {
   return relevantLabCodes.includes(code);
 };
 
-const formatResourcesForURMatchTaskResponse = (resources: AllResources): GetUnsolicitedResultsResourcesForMatch => {
+const formatResourcesForURMatchTaskResponse = (resources: AllResources): GetUnsolicitedResultsMatchDataOutput => {
   const { diagnosticReport, readyTasks, labOrg } = resources;
 
   const { unsolicitedPatient, unsolicitedProvider } = getUnsolicitedResourcesFromDr(diagnosticReport);
@@ -260,7 +260,7 @@ const formatResourcesForURMatchTaskResponse = (resources: AllResources): GetUnso
   const labName = labOrg?.name;
   const resultsReceived = diagnosticReport.effectiveDateTime;
 
-  const labInfo: GetUnsolicitedResultsResourcesForMatch['labInfo'] = {
+  const unsolicitedLabInfo: GetUnsolicitedResultsMatchDataOutput['unsolicitedLabInfo'] = {
     patientName,
     patientDOB,
     provider: providerName,
@@ -268,7 +268,7 @@ const formatResourcesForURMatchTaskResponse = (resources: AllResources): GetUnso
     labName,
     resultsReceived,
   };
-  return { labInfo, taskId: task.id };
+  return { unsolicitedLabInfo, taskId: task.id };
 };
 
 const getUnsolicitedResourcesFromDr = (
