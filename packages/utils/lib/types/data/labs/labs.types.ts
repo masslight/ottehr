@@ -139,6 +139,16 @@ export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {
   orderPdfUrl?: string; // will exist after order is submitted
 };
 
+export type UnsolicitedLabListPageDTO = {
+  isUnsolicited: true;
+  diagnosticReportId: string;
+  testItem: string;
+  fillerLab: string;
+  orderStatus: ExternalLabsStatus;
+  lastResultReceivedDate: string;
+  accessionNumbers: string[]; // DiagnosticReport.identifier (identifier assigned to a sample when it arrives at a laboratory)
+};
+
 export type DiagnosticReportLabDetailPageDTO = Omit<
   LabOrderDetailedPageDTO,
   | 'serviceRequestId'
@@ -338,6 +348,7 @@ export enum UnsolicitedResultsRequestType {
   MATCH_UNSOLICITED_RESULTS = 'match-unsolicited-result',
   GET_UNSOLICITED_RESULTS_RELATED_REQUESTS = 'get-unsolicited-results-related-requests',
   UNSOLICITED_RESULTS_DETAIL = 'unsolicited-results-detail',
+  UNSOLICITED_RESULTS_PATIENT_LIST = 'unsolicited-results-patient-list',
 }
 
 export type GetUnsolicitedResultsIconStatusInput = {
@@ -359,13 +370,18 @@ export type GetUnsolicitedResultsDetailInput = {
   requestType: UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_DETAIL;
   diagnosticReportId: string;
 };
+export type GetUnsolicitedResultsPatientListInput = {
+  requestType: UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_PATIENT_LIST;
+  patientId: string;
+};
 
 export type GetUnsolicitedResultsResourcesInput =
   | GetUnsolicitedResultsIconStatusInput
   | GetUnsolicitedResultsTasksInput
   | GetUnsolicitedResultsMatchDataInput
   | GetUnsolicitedResultsRelatedRequestsInput
-  | GetUnsolicitedResultsDetailInput;
+  | GetUnsolicitedResultsDetailInput
+  | GetUnsolicitedResultsPatientListInput;
 
 export const UR_TASK_ACTION_TEXT = ['Match', 'Go to Lab Results'] as const;
 export type UR_TASK_ACTION = (typeof UR_TASK_ACTION_TEXT)[number];
@@ -403,9 +419,11 @@ export type GetUnsolicitedResultsRelatedRequestsOutput = {
       }[]
     | null;
 };
-
 export type GetUnsolicitedResultsDetailOutput = {
   unsolicitedLabDTO: UnsolicitedLabDTO;
+};
+export type GetUnsolicitedResultsPatientListOutput = {
+  unsolicitedLabListDTOs: UnsolicitedLabListPageDTO[];
 };
 
 export type GetUnsolicitedResultsResourcesOutput =
@@ -413,4 +431,5 @@ export type GetUnsolicitedResultsResourcesOutput =
   | GetUnsolicitedResultsTasksOutput
   | GetUnsolicitedResultsMatchDataOutput
   | GetUnsolicitedResultsRelatedRequestsOutput
-  | GetUnsolicitedResultsDetailOutput;
+  | GetUnsolicitedResultsDetailOutput
+  | GetUnsolicitedResultsPatientListOutput;

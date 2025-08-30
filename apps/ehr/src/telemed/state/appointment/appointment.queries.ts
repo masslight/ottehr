@@ -34,6 +34,8 @@ import {
   GetUnsolicitedResultsIconStatusOutput,
   GetUnsolicitedResultsMatchDataInput,
   GetUnsolicitedResultsMatchDataOutput,
+  GetUnsolicitedResultsPatientListInput,
+  GetUnsolicitedResultsPatientListOutput,
   GetUnsolicitedResultsRelatedRequestsInput,
   GetUnsolicitedResultsRelatedRequestsOutput,
   GetUnsolicitedResultsTasksInput,
@@ -436,6 +438,29 @@ export function useGetUnsolicitedResultsDetail(
     },
 
     enabled: Boolean(apiClient && diagnosticReportId),
+    placeholderData: keepPreviousData,
+    staleTime: QUERY_STALE_TIME,
+  });
+}
+
+export function useGetUnsolicitedResultsForPatientList(
+  input: GetUnsolicitedResultsPatientListInput
+): UseQueryResult<GetUnsolicitedResultsPatientListOutput | null, Error> {
+  const apiClient = useOystehrAPIClient();
+  const { requestType, patientId } = input;
+
+  return useQuery({
+    queryKey: ['get unsolicited results resources', requestType, patientId],
+
+    queryFn: async () => {
+      const data = await apiClient?.getUnsolicitedResultsResources({ requestType, patientId });
+      if (data && 'unsolicitedLabListDTOs' in data) {
+        return data;
+      }
+      return null;
+    },
+
+    enabled: Boolean(apiClient && patientId),
     placeholderData: keepPreviousData,
     staleTime: QUERY_STALE_TIME,
   });
