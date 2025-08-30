@@ -235,10 +235,25 @@ export type GetCreateLabOrderResources = {
   search?: string;
 };
 
+export type ModifiedOrderingLocation = {
+  name: string;
+  id: string;
+  enabledLabs: {
+    accountNumber: string;
+    labOrgRef: string;
+  }[];
+};
+
+export type ExternalLabOrderingLocations = {
+  orderingLocations: ModifiedOrderingLocation[];
+  orderingLocationIds: string[];
+  // orderingLocationIdToLocationMap: Map<string, Location>;
+};
+
 export type LabOrderResourcesRes = {
   coverageName?: string;
   labs: OrderableItemSearchResult[];
-};
+} & ExternalLabOrderingLocations;
 
 export type PatientLabItem = {
   code: string; // ActivityDefinition.code.coding[0].code

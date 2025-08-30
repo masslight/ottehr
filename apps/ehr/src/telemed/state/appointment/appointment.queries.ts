@@ -315,6 +315,7 @@ export const useGetCreateExternalLabResources = ({
     queryKey: ['external lab resource search', patientId, search],
 
     queryFn: async () => {
+      console.log('Running useGetCreateExternalLabResources query'); // ✅ add this
       const res = await apiClient?.getCreateExternalLabResources({ patientId, search });
       if (res) {
         return res;

@@ -17,7 +17,7 @@ import {
 } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import { enqueueSnackbar } from 'notistack';
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import { DiagnosisDTO, getAttendingPractitionerId, OrderableItemSearchResult, PSC_HOLD_LOCALE } from 'utils';
@@ -48,7 +48,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   const [error, setError] = useState<string[] | undefined>(undefined);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const { mutate: saveChartData } = useSaveChartData();
-  const { encounter, appointment, patient } = useAppointmentData();
+  const { encounter, appointment, patient, location: apptLocation } = useAppointmentData();
   const { chartData, setPartialChartData } = useChartData();
   const { diagnosis } = chartData || {};
   const primaryDiagnosis = diagnosis?.find((d) => d.isPrimary);
@@ -57,6 +57,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   const [orderDx, setOrderDx] = useState<DiagnosisDTO[]>(primaryDiagnosis ? [primaryDiagnosis] : []);
   const [selectedLab, setSelectedLab] = useState<OrderableItemSearchResult | null>(null);
   const [psc, setPsc] = useState<boolean>(false);
+  const [selectedOfficeId, setSelectedOfficeId] = useState<string>('');
 
   // used to fetch dx icd10 codes
   const [debouncedDxSearchTerm, setDebouncedDxSearchTerm] = useState('');
@@ -77,7 +78,88 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   } = useGetCreateExternalLabResources({
     patientId,
   });
+
   const coverageName = createExternalLabResources?.coverageName;
+
+  const orderingLocations = createExternalLabResources?.orderingLocations ?? [];
+  const orderingLocationIdsStable = (createExternalLabResources?.orderingLocationIds ?? []).join(',');
+  // const orderingLocationIdToLocationMap = new Map(orderingLocations.map((loc) => [loc.id, loc]));
+
+  const orderingLocationIdToLocationMap = useMemo(
+    () => new Map(orderingLocations.map((loc) => [loc.id, loc])),
+    // [orderingLocationIds.join(',')] this threw a warning about the wrong dependency
+    // [orderingLocations]
+    [orderingLocationIdsStable] // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
+  useEffect(() => {
+    if (!apptLocation?.id) return;
+
+    if (orderingLocationIdToLocationMap.has(apptLocation.id) && !selectedOfficeId) {
+      setSelectedOfficeId(apptLocation.id);
+      console.log('we did the state set');
+    }
+  }, [apptLocation?.id, selectedOfficeId, orderingLocationIdToLocationMap]);
+
+  // const orderingLocationIdToLocationMapRef = useRef<Map<string, ModifiedOrderingLocation> | null>(null);
+
+  // if (!orderingLocationIdToLocationMapRef.current && orderingLocations.length) {
+  //   orderingLocationIdToLocationMapRef.current = new Map(orderingLocations.map((loc) => [loc.id, loc]));
+  // }
+
+  // const orderingLocationIdToLocationMap = orderingLocationIdToLocationMapRef.current!;
+
+  // useEffect(() => {
+  //   if (!orderingLocationIdToLocationMap) return; // guard
+
+  //   // only set the selected office if we have an appointment location
+  //   // and it exists in the map, and the state hasn't already been set
+  //   if (apptLocation?.id && orderingLocationIdToLocationMap.has(apptLocation.id) && selectedOfficeId === '') {
+  //     setSelectedOfficeId(apptLocation.id);
+  //     console.log('we did the state set');
+  //   }
+  // }, [apptLocation?.id, selectedOfficeId, orderingLocationIdToLocationMap]);
+
+  ///////////////////
+  // // we need to make sure that these values are populated before we do anything with them, like use them in <Select>
+  // const { orderingLocations, orderingLocationIds } = useMemo(() => {
+  //   if (!createExternalLabResources) {
+  //     return {
+  //       orderingLocations: [] as ModifiedOrderingLocation[],
+  //       orderingLocationIds: [] as string[],
+  //     };
+  //   }
+
+  //   return {
+  //     orderingLocations: createExternalLabResources.orderingLocations,
+  //     orderingLocationIds: createExternalLabResources.orderingLocationIds,
+  //   };
+  // }, [
+  //   // needed a stable comparison point, and the array itself is not a stable reference. This isn't the most watertight but better than infinite renders
+  //   createExternalLabResources?.orderingLocationIds.length,
+  // ]);
+
+  // const orderingLocationIdsStable = useMemo(
+  //   () => orderingLocationIds.join(','), // stable string
+  //   [orderingLocationIds]
+  // );
+
+  // // this map could get expensive if there are many locations we are processing
+  // const orderingLocationIdToLocationMapStable = useMemo(
+  //   () => new Map(orderingLocations.map((loc) => [loc.id, loc])),
+  //   [orderingLocationIdsStable] // stable: only rebuild when locations actually change. this was orderingLocations before ATHENA TODO REMOVE
+  // );
+
+  // useEffect(() => {
+  //   if (
+  //     apptLocation?.id &&
+  //     orderingLocationIdToLocationMapStable.has(apptLocation.id) &&
+  //     selectedOfficeId !== apptLocation.id
+  //   ) {
+  //     setSelectedOfficeId(apptLocation.id);
+  //     console.log('we did the state set');
+  //   }
+  // }, [apptLocation?.id, orderingLocationIdToLocationMapStable, selectedOfficeId]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
@@ -186,6 +268,59 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
           <form onSubmit={handleSubmit}>
             <Paper sx={{ p: 3 }}>
               <Grid container sx={{ width: '100%' }} spacing={1} rowSpacing={2}>
+                <Grid item xs={12}>
+                  <Typography
+                    variant="h6"
+                    sx={{ fontWeight: '600px', color: theme.palette.primary.dark, marginBottom: '8px' }}
+                  >
+                    Ordering Office
+                  </Typography>
+                  <Grid item xs={12}>
+                    <FormControl fullWidth required>
+                      <InputLabel id="select-office-label" shrink>
+                        Office
+                      </InputLabel>
+                      <Select
+                        notched
+                        fullWidth
+                        id="select-office"
+                        label="office"
+                        onChange={(e) => {
+                          // ATHENA TODO: should error if there is no selection
+                          console.log('Selected office value', e.target.value);
+                          setSelectedOfficeId(e.target.value);
+                          if (!e.target.value)
+                            enqueueSnackbar('Must select an ordering office', {
+                              variant: 'error',
+                            });
+                          // future TODO: should clear out the selected lab only if the selected lab isn't from the same labguid as what the location supports
+                          setSelectedLab(null);
+                        }}
+                        displayEmpty
+                        value={selectedOfficeId ?? ''}
+                        // value={''}
+                        sx={{
+                          '& .MuiInputLabel-root': {
+                            top: -8,
+                          },
+                        }}
+                        size="small"
+                      >
+                        <MenuItem value="" disabled>
+                          <Typography sx={{ color: '#9E9E9E' }}>Select an Ordering Office</Typography>
+                        </MenuItem>
+                        {/* ATHENA TODO: need a list of locations with lab accounts on them here */}
+                        {orderingLocations.map((loc) =>
+                          loc.id ? (
+                            <MenuItem id={loc.id} key={loc.id} value={loc.id}>
+                              {loc.name}
+                            </MenuItem>
+                          ) : null
+                        )}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                </Grid>
                 <Grid item xs={12}>
                   <Typography variant="h6" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
                     Dx
@@ -309,6 +444,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                   >
                     Lab
                   </Typography>
+                  {/* ATHENA TODO: need to figure out where this is getting its lab guids for the search */}
                   <LabsAutocomplete selectedLab={selectedLab} setSelectedLab={setSelectedLab}></LabsAutocomplete>
                 </Grid>
                 <Grid item xs={12}>
