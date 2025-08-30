@@ -78,6 +78,7 @@ export const index = wrapHandler('get-lab-orders', async (input: ZambdaInput): P
       ENVIRONMENT
     );
 
+    // todo future can probably refactor to do less data massaging for when this is being called from the table view
     let reflexLabDTOs: ReflexLabDTO[] = [];
     if (reflexDRsAndRelatedResources) {
       reflexLabDTOs = await mapReflexResourcesToDrLabDTO(reflexDRsAndRelatedResources, m2mToken);

@@ -40,6 +40,7 @@ import { getExternalLabOrderEditUrl, getReflexExternalLabEditUrl } from '../../.
 import { LabsAutocompleteForPatient } from '../LabsAutocompleteForPatient';
 import { LabOrderLoading } from './LabOrderLoading';
 import { LabsTableRow } from './LabsTableRow';
+import { UnsolicitedLabsTable } from './UnsolicitedLabsTable';
 import { usePatientLabOrders } from './usePatientLabOrders';
 
 export type LabsTableColumn =
@@ -490,6 +491,14 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
           title="Manually submitting lab order"
           description={manualSubmitDialogDescription}
           closeButtonText="Cancel"
+        />
+      )}
+      {id && (
+        <UnsolicitedLabsTable
+          patientId={id}
+          columns={columns}
+          getColumnHeader={getColumnHeader}
+          getColumnWidth={getColumnWidth}
         />
       )}
     </>
