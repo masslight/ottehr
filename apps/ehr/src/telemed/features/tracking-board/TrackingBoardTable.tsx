@@ -190,7 +190,7 @@ export function TrackingBoardTable({ tab }: AppointmentTableProps): ReactElement
                   </TableRow>
                   {!groupCollapse[state] &&
                     groupsSortedByState[state]
-                      .sort((a, b) => compareAppointments(tab === ApptTelemedTab['not-signed'], a, b))
+                      .sort((a, b) => compareAppointments(tab === ApptTelemedTab['not-signed'], a, b, tab))
                       .map((appointment) => (
                         <TrackingBoardTableRow
                           key={appointment.id}
