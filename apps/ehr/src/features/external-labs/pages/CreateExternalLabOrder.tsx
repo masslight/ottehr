@@ -128,10 +128,13 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
 
   useEffect(() => {
     if (!apptLocation && !selectedOfficeId) {
-      setError(['Please select an ordering office to continue.']);
+      setError(['Please select an ordering office to continue']);
       setIsOrderingDisabled(true);
-    } else if (selectedOfficeId && !orderingLocationIdToLocationAndLabGuidsMap.has(selectedOfficeId)) {
-      setError(['Selected office is not configured to order labs. Please select a new office.']);
+    } else if (
+      apptLocation &&
+      (!selectedOfficeId || !orderingLocationIdToLocationAndLabGuidsMap.has(selectedOfficeId))
+    ) {
+      setError(['Office is not configured to order labs. Please select another office']);
       setIsOrderingDisabled(true);
     } else {
       setError(undefined);
@@ -139,70 +142,14 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
     }
   }, [apptLocation, selectedOfficeId, orderingLocationIdToLocationAndLabGuidsMap]);
 
-  // const orderingLocationIdToLocationMapRef = useRef<Map<string, ModifiedOrderingLocation> | null>(null);
-
-  // if (!orderingLocationIdToLocationMapRef.current && orderingLocations.length) {
-  //   orderingLocationIdToLocationMapRef.current = new Map(orderingLocations.map((loc) => [loc.id, loc]));
-  // }
-
-  // const orderingLocationIdToLocationMap = orderingLocationIdToLocationMapRef.current!;
-
-  // useEffect(() => {
-  //   if (!orderingLocationIdToLocationMap) return; // guard
-
-  //   // only set the selected office if we have an appointment location
-  //   // and it exists in the map, and the state hasn't already been set
-  //   if (apptLocation?.id && orderingLocationIdToLocationMap.has(apptLocation.id) && selectedOfficeId === '') {
-  //     setSelectedOfficeId(apptLocation.id);
-  //     console.log('we did the state set');
-  //   }
-  // }, [apptLocation?.id, selectedOfficeId, orderingLocationIdToLocationMap]);
-
-  ///////////////////
-  // // we need to make sure that these values are populated before we do anything with them, like use them in <Select>
-  // const { orderingLocations, orderingLocationIds } = useMemo(() => {
-  //   if (!createExternalLabResources) {
-  //     return {
-  //       orderingLocations: [] as ModifiedOrderingLocation[],
-  //       orderingLocationIds: [] as string[],
-  //     };
-  //   }
-
-  //   return {
-  //     orderingLocations: createExternalLabResources.orderingLocations,
-  //     orderingLocationIds: createExternalLabResources.orderingLocationIds,
-  //   };
-  // }, [
-  //   // needed a stable comparison point, and the array itself is not a stable reference. This isn't the most watertight but better than infinite renders
-  //   createExternalLabResources?.orderingLocationIds.length,
-  // ]);
-
-  // const orderingLocationIdsStable = useMemo(
-  //   () => orderingLocationIds.join(','), // stable string
-  //   [orderingLocationIds]
-  // );
-
-  // // this map could get expensive if there are many locations we are processing
-  // const orderingLocationIdToLocationMapStable = useMemo(
-  //   () => new Map(orderingLocations.map((loc) => [loc.id, loc])),
-  //   [orderingLocationIdsStable] // stable: only rebuild when locations actually change. this was orderingLocations before ATHENA TODO REMOVE
-  // );
-
-  // useEffect(() => {
-  //   if (
-  //     apptLocation?.id &&
-  //     orderingLocationIdToLocationMapStable.has(apptLocation.id) &&
-  //     selectedOfficeId !== apptLocation.id
-  //   ) {
-  //     setSelectedOfficeId(apptLocation.id);
-  //     console.log('we did the state set');
-  //   }
-  // }, [apptLocation?.id, orderingLocationIdToLocationMapStable, selectedOfficeId]);
-
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     setSubmitting(true);
-    const paramsSatisfied = orderDx.length && selectedLab;
+    const paramsSatisfied =
+      orderDx.length &&
+      selectedLab &&
+      selectedOfficeId &&
+      orderingLocationIdToLocationAndLabGuidsMap.has(selectedOfficeId);
     if (oystehrZambda && paramsSatisfied) {
       try {
         await addAdditionalDxToEncounter();
@@ -211,6 +158,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
           encounter,
           orderableItem: selectedLab,
           psc,
+          orderingLocation: orderingLocationIdToLocationAndLabGuidsMap.get(selectedOfficeId)!.location,
         });
         navigate(`/in-person/${appointment?.id}/external-lab-orders`);
       } catch (e) {
@@ -224,6 +172,8 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
       if (!orderDx.length) errorMessage.push('Please enter at least one dx');
       if (!selectedLab) errorMessage.push('Please select a lab to order');
       if (!attendingPractitionerId) errorMessage.push('No attending practitioner has been assigned to this encounter');
+      if (!(selectedOfficeId && orderingLocationIdToLocationAndLabGuidsMap.has(selectedOfficeId)))
+        errorMessage.push('No office selected, or office is not configured to order labs');
       if (errorMessage.length === 0) errorMessage.push('There was an error creating this external lab order');
       setError(errorMessage);
     }

@@ -226,6 +226,7 @@ export type CreateLabOrderParameters = {
   encounter: Encounter;
   orderableItem: OrderableItemSearchResult;
   psc: boolean;
+  orderingLocation: ModifiedOrderingLocation;
 };
 
 export type CreateLabOrderZambdaOutput = Record<string, never>;
