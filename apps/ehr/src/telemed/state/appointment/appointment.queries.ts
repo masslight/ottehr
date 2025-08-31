@@ -309,14 +309,18 @@ export const useGetAllergiesSearch = (
 export const useGetCreateExternalLabResources = ({
   patientId,
   search,
+  labOrgIdsString,
 }: GetCreateLabOrderResources): UseQueryResult<LabOrderResourcesRes | null, Error> => {
   const apiClient = useOystehrAPIClient();
   return useQuery({
-    queryKey: ['external lab resource search', patientId, search],
+    queryKey: ['external lab resource search', patientId, search, labOrgIdsString],
 
     queryFn: async () => {
-      console.log('Running useGetCreateExternalLabResources query'); // ✅ add this
-      const res = await apiClient?.getCreateExternalLabResources({ patientId, search });
+      console.log(
+        'Running useGetCreateExternalLabResources query. QueryKey is',
+        JSON.stringify(['external lab resource search', patientId, search, labOrgIdsString])
+      ); // ✅ add this
+      const res = await apiClient?.getCreateExternalLabResources({ patientId, search, labOrgIdsString });
       if (res) {
         return res;
       } else {

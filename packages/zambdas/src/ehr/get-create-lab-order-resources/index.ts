@@ -31,7 +31,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
-    const { patientId, search: testItemSearch, secrets } = validatedParameters;
+    const { patientId, search: testItemSearch, secrets, labOrgIdsString } = validatedParameters;
     console.log('search passed', testItemSearch);
     console.groupEnd();
     console.debug('validateRequestParameters success');
@@ -42,7 +42,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const { accounts, coverages, labOrgsGUIDs, orderingLocationDetails } = await getResources(
       oystehr,
       patientId,
-      testItemSearch
+      testItemSearch,
+      labOrgIdsString
     );
 
     let coverageName: string | undefined;
@@ -83,7 +84,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 const getResources = async (
   oystehr: Oystehr,
   patientId?: string,
-  testItemSearch?: string
+  testItemSearch?: string,
+  labOrgIdsString?: string
 ): Promise<{
   accounts: Account[];
   coverages: Coverage[];
@@ -108,8 +110,11 @@ const getResources = async (
     // ATHENA TODO: might be able to pass a labGuid array into this testItemSearch so we get the actual Orgs we want based on the selected ordering location
     const organizationSearchRequest: BatchInputRequest<Organization> = {
       method: 'GET',
-      url: `/Organization?type=${LAB_ORG_TYPE_CODING.system}|${LAB_ORG_TYPE_CODING.code}`,
+      url: `/Organization?type=${LAB_ORG_TYPE_CODING.system}|${LAB_ORG_TYPE_CODING.code}${
+        labOrgIdsString ? `&_id=${labOrgIdsString}` : ''
+      }`,
     };
+    console.log('ATHENA THIS IS THE organizationSearchRequest', organizationSearchRequest);
     requests.push(organizationSearchRequest);
   }
 

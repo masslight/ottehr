@@ -20,7 +20,13 @@ import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
-import { DiagnosisDTO, getAttendingPractitionerId, OrderableItemSearchResult, PSC_HOLD_LOCALE } from 'utils';
+import {
+  DiagnosisDTO,
+  getAttendingPractitionerId,
+  ModifiedOrderingLocation,
+  OrderableItemSearchResult,
+  PSC_HOLD_LOCALE,
+} from 'utils';
 import { createExternalLabOrder } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import {
@@ -41,6 +47,11 @@ interface CreateExternalLabOrdersProps {
   appointmentID?: string;
 }
 
+type LocationMapValue = {
+  location: ModifiedOrderingLocation;
+  labOrgIds: string;
+};
+
 export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = () => {
   const theme = useTheme();
   const { oystehrZambda } = useApiClients();
@@ -58,6 +69,8 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   const [selectedLab, setSelectedLab] = useState<OrderableItemSearchResult | null>(null);
   const [psc, setPsc] = useState<boolean>(false);
   const [selectedOfficeId, setSelectedOfficeId] = useState<string>('');
+  const [labOrgIdsForSelectedOffice, setLabOrgIdsForSelectedOffice] = useState<string>('');
+  const [isOrderingDisabled, setIsOrderingDisabled] = useState<boolean>(false);
 
   // used to fetch dx icd10 codes
   const [debouncedDxSearchTerm, setDebouncedDxSearchTerm] = useState('');
@@ -83,23 +96,48 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
 
   const orderingLocations = createExternalLabResources?.orderingLocations ?? [];
   const orderingLocationIdsStable = (createExternalLabResources?.orderingLocationIds ?? []).join(',');
-  // const orderingLocationIdToLocationMap = new Map(orderingLocations.map((loc) => [loc.id, loc]));
 
-  const orderingLocationIdToLocationMap = useMemo(
-    () => new Map(orderingLocations.map((loc) => [loc.id, loc])),
-    // [orderingLocationIds.join(',')] this threw a warning about the wrong dependency
-    // [orderingLocations]
+  const orderingLocationIdToLocationAndLabGuidsMap = useMemo(
+    () =>
+      new Map<string, LocationMapValue>(
+        orderingLocations.map((loc) => [
+          loc.id,
+          {
+            location: loc,
+            labOrgIds: loc.enabledLabs.map((lab) => lab.labOrgRef.replace('Organization/', '')).join(','),
+          },
+        ])
+      ),
     [orderingLocationIdsStable] // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   useEffect(() => {
     if (!apptLocation?.id) return;
 
-    if (orderingLocationIdToLocationMap.has(apptLocation.id) && !selectedOfficeId) {
+    if (orderingLocationIdToLocationAndLabGuidsMap.has(apptLocation.id) && !selectedOfficeId) {
       setSelectedOfficeId(apptLocation.id);
       console.log('we did the state set');
     }
-  }, [apptLocation?.id, selectedOfficeId, orderingLocationIdToLocationMap]);
+  }, [apptLocation?.id, selectedOfficeId, orderingLocationIdToLocationAndLabGuidsMap]);
+
+  useEffect(() => {
+    const labOrgIds = orderingLocationIdToLocationAndLabGuidsMap.get(selectedOfficeId)?.labOrgIds ?? '';
+    console.log(`lab org ids for selectedOfficeId ${selectedOfficeId}`, labOrgIds);
+    setLabOrgIdsForSelectedOffice(labOrgIds);
+  }, [selectedOfficeId, orderingLocationIdToLocationAndLabGuidsMap]);
+
+  useEffect(() => {
+    if (!apptLocation && !selectedOfficeId) {
+      setError(['Please select an ordering office to continue.']);
+      setIsOrderingDisabled(true);
+    } else if (selectedOfficeId && !orderingLocationIdToLocationAndLabGuidsMap.has(selectedOfficeId)) {
+      setError(['Selected office is not configured to order labs. Please select a new office.']);
+      setIsOrderingDisabled(true);
+    } else {
+      setError(undefined);
+      setIsOrderingDisabled(false);
+    }
+  }, [apptLocation, selectedOfficeId, orderingLocationIdToLocationAndLabGuidsMap]);
 
   // const orderingLocationIdToLocationMapRef = useRef<Map<string, ModifiedOrderingLocation> | null>(null);
 
@@ -286,7 +324,6 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                         id="select-office"
                         label="office"
                         onChange={(e) => {
-                          // ATHENA TODO: should error if there is no selection
                           console.log('Selected office value', e.target.value);
                           setSelectedOfficeId(e.target.value);
                           if (!e.target.value)
@@ -298,7 +335,6 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                         }}
                         displayEmpty
                         value={selectedOfficeId ?? ''}
-                        // value={''}
                         sx={{
                           '& .MuiInputLabel-root': {
                             top: -8,
@@ -309,7 +345,6 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                         <MenuItem value="" disabled>
                           <Typography sx={{ color: '#9E9E9E' }}>Select an Ordering Office</Typography>
                         </MenuItem>
-                        {/* ATHENA TODO: need a list of locations with lab accounts on them here */}
                         {orderingLocations.map((loc) =>
                           loc.id ? (
                             <MenuItem id={loc.id} key={loc.id} value={loc.id}>
@@ -444,8 +479,11 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                   >
                     Lab
                   </Typography>
-                  {/* ATHENA TODO: need to figure out where this is getting its lab guids for the search */}
-                  <LabsAutocomplete selectedLab={selectedLab} setSelectedLab={setSelectedLab}></LabsAutocomplete>
+                  <LabsAutocomplete
+                    labOrgIdsString={labOrgIdsForSelectedOffice}
+                    selectedLab={selectedLab}
+                    setSelectedLab={setSelectedLab}
+                  ></LabsAutocomplete>
                 </Grid>
                 <Grid item xs={12}>
                   <FormControlLabel
@@ -467,6 +505,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                 </Grid>
                 <Grid item xs={6} display="flex" justifyContent="flex-end">
                   <LoadingButton
+                    disabled={isOrderingDisabled}
                     loading={submitting}
                     type="submit"
                     variant="contained"
@@ -475,7 +514,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                     Order
                   </LoadingButton>
                 </Grid>
-                {error &&
+                {Array.isArray(error) &&
                   error.length > 0 &&
                   error.map((msg, idx) => (
                     <Grid item xs={12} sx={{ textAlign: 'right', paddingTop: 1 }} key={idx}>

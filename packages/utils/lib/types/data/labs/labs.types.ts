@@ -233,6 +233,8 @@ export type CreateLabOrderZambdaOutput = Record<string, never>;
 export type GetCreateLabOrderResources = {
   patientId?: string;
   search?: string;
+  selectedOfficeId?: string;
+  labOrgIdsString?: string;
 };
 
 export type ModifiedOrderingLocation = {
