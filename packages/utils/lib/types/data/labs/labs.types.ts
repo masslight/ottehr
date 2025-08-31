@@ -250,7 +250,6 @@ export type ModifiedOrderingLocation = {
 export type ExternalLabOrderingLocations = {
   orderingLocations: ModifiedOrderingLocation[];
   orderingLocationIds: string[];
-  // orderingLocationIdToLocationMap: Map<string, Location>;
 };
 
 export type LabOrderResourcesRes = {

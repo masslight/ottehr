@@ -107,19 +107,15 @@ const getResources = async (
   }
 
   if (testItemSearch) {
-    // ATHENA TODO: might be able to pass a labGuid array into this testItemSearch so we get the actual Orgs we want based on the selected ordering location
     const organizationSearchRequest: BatchInputRequest<Organization> = {
       method: 'GET',
       url: `/Organization?type=${LAB_ORG_TYPE_CODING.system}|${LAB_ORG_TYPE_CODING.code}${
         labOrgIdsString ? `&_id=${labOrgIdsString}` : ''
       }`,
     };
-    console.log('ATHENA THIS IS THE organizationSearchRequest', organizationSearchRequest);
     requests.push(organizationSearchRequest);
   }
 
-  // ATHENA TODO this maybe should go in testItemSearch. idk what that is, but I bet we could make it more specific if I could tell where tf anything got called from
-  console.log('ATHENA WE ARE ABOUT TO MAKE THE LOCATIONS REQUEST');
   const orderingLocationsRequest: BatchInputRequest<Location> = {
     method: 'GET',
     url: `/Location?status=active&identifier=${LAB_ACCOUNT_NUMBER_SYSTEM}|`,
@@ -137,7 +133,6 @@ const getResources = async (
   const labOrgsGUIDs: string[] = [];
   const orderingLocations: ModifiedOrderingLocation[] = [];
   const orderingLocationIds: string[] = [];
-  // const orderingLocationIdToLocationMap = new Map<string, Location>();
 
   resources.forEach((resource) => {
     if (resource.resourceType === 'Organization') {
@@ -149,7 +144,6 @@ const getResources = async (
     if (resource.resourceType === 'Coverage') coverages.push(resource as Coverage);
     if (resource.resourceType === 'Account') accounts.push(resource as Account);
     if (resource.resourceType === 'Location') {
-      console.log('>>> ATHENA WE FOUND A LOCATION');
       const loc = resource as Location;
       if (loc.id && loc.identifier && loc.name && !loc.extension?.some((ext) => ext.valueCoding?.code === 'vi')) {
         orderingLocations.push({
@@ -164,7 +158,6 @@ const getResources = async (
               };
             }),
         });
-        // orderingLocationIdToLocationMap.set(loc.id, loc);
         orderingLocationIds.push(loc.id);
       }
     }
