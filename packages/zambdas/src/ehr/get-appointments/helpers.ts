@@ -3,9 +3,11 @@ import { Appointment, Encounter, Extension, FhirResource, HealthcareService, Loc
 import { DateTime } from 'luxon';
 import {
   AppointmentParticipants,
+  getPractitionerQualificationByLocation,
   OTTEHR_MODULE,
   ParticipantInfo,
   PRACTITIONER_CODINGS,
+  PractitionerQualificationCode,
   ScheduleStrategy,
   scheduleStrategyForHealthcareService,
 } from 'utils';
@@ -43,6 +45,32 @@ export const parseEncounterParticipants = (
   });
 
   return participants;
+};
+
+export const parseAttenderQualification = (
+  encounter: Encounter,
+  location: Location,
+  participantIdToResourceMap: Record<string, Practitioner>
+): PractitionerQualificationCode | undefined => {
+  if (!encounter.participant) return;
+
+  for (const participant of encounter.participant) {
+    if (!participant.individual?.reference || !participant.type?.[0]?.coding?.[0]?.code) {
+      continue;
+    }
+
+    const practitioner = participantIdToResourceMap[participant.individual.reference];
+    if (!practitioner) continue;
+
+    const participantType = participant.type[0].coding[0].code;
+    if (participantType === PRACTITIONER_CODINGS.Attender[0].code) {
+      const qualification = getPractitionerQualificationByLocation(practitioner, location);
+
+      return qualification;
+    }
+  }
+
+  return;
 };
 
 export const mergeResources = <T extends FhirResource>(resources: T[]): T[] => {
