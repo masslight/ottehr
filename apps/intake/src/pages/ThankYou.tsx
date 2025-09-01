@@ -1,18 +1,7 @@
 import { EditCalendarOutlined, EventBusyOutlined } from '@mui/icons-material';
 import CreateOutlinedIcon from '@mui/icons-material/CreateOutlined';
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
-import { LoadingButton } from '@mui/lab';
-import {
-  Box,
-  Button,
-  Checkbox,
-  CircularProgress,
-  Divider,
-  Grid,
-  Modal,
-  Typography,
-  useMediaQuery,
-} from '@mui/material';
+import { Box, Button, CircularProgress, Divider, Grid, Typography, useMediaQuery } from '@mui/material';
 import { ottehrLightBlue } from '@theme/icons';
 import { ottehrAiLogo } from '@theme/index';
 import { ContactPoint } from 'fhir/r4b';
@@ -34,7 +23,6 @@ import {
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import ottehrApi from '../api/ottehrApi';
-import api from '../api/ottehrApi';
 import { intakeFlowPageRoute, visitBasePath } from '../App';
 import { PageContainer } from '../components';
 import { dataTestIds } from '../helpers/data-test-ids';
@@ -45,20 +33,6 @@ import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import { otherColors } from '../IntakeThemeProvider';
 import i18n from '../lib/i18n';
 import { breakpoints } from '../providers';
-
-const MODAL_STYLE = {
-  position: 'absolute' as const,
-  top: '50%',
-  left: '50%',
-  transform: 'translate(-50%, -50%)',
-  width: '80%',
-  maxWidth: '450px',
-  border: 'none',
-  bgcolor: 'background.paper',
-  boxShadow: 24,
-  p: 4,
-  borderRadius: '8px',
-};
 
 type AppointmentState = { appointmentData: Partial<AppointmentData> };
 
@@ -137,9 +111,6 @@ const ThankYou = (): JSX.Element => {
   const [notFound, setNotFound] = useState<boolean>(false);
   const [paperworkCompleted, setPaperworkCompleted] = useState<boolean>(false);
   const [checkedIn, setCheckedIn] = useState<boolean>(false);
-  const [aiChatConsentModalOpen, setAiChatConsentModalOpen] = useState<boolean>(false);
-  const [aiChatStartButtonEnabled, setAiChatStartButtonEnabled] = useState<boolean>(false);
-  const [aiChatStartButtonLoading, setAiChatStartButtonLoading] = useState<boolean>(false);
   const outletContext = useVisitStore();
   const navigate = useNavigate();
   const { id: appointmentId } = useParams();
@@ -298,7 +269,9 @@ const ThankYou = (): JSX.Element => {
                 type="button"
                 variant="contained"
                 style={{ backgroundColor: '#F57C00' }}
-                onClick={() => setAiChatConsentModalOpen(true)}
+                onClick={() =>
+                  navigate(intakeFlowPageRoute.AIInterviewStartPage.path.replace(':id', appointmentId ?? ''))
+                }
               >
                 Start Chatting
               </Button>
@@ -314,20 +287,6 @@ const ThankYou = (): JSX.Element => {
     console.log('rendering outlet...', pathname, visitBasePath, loading);
     return <Outlet context={{ ...outletContext }} />;
   }
-
-  const saveAiChatConsentAndStartChat = async (): Promise<void> => {
-    if (tokenlessZambdaClient == null || appointmentID == null) return;
-    setAiChatStartButtonLoading(true);
-    setAiChatStartButtonEnabled(false);
-    await api.aIInterviewPersistConsent(
-      {
-        appointmentId: appointmentID,
-      },
-      tokenlessZambdaClient
-    );
-    setAiChatConsentModalOpen(false);
-    navigate(intakeFlowPageRoute.AIInterview.path.replace(':id', appointmentID));
-  };
 
   return (
     <PageContainer
@@ -440,55 +399,6 @@ const ThankYou = (): JSX.Element => {
               )}
             </>
           )}
-          <Modal
-            open={aiChatConsentModalOpen}
-            onClose={() => {
-              setAiChatConsentModalOpen(false);
-              setAiChatStartButtonEnabled(false);
-              setAiChatStartButtonLoading(false);
-            }}
-          >
-            <Box sx={MODAL_STYLE}>
-              <Typography variant={'h2'} color="primary.main" style={{ marginBottom: '16px' }}>
-                Medical History Chatbot
-              </Typography>
-              <Typography color="text.primary" style={{ marginBottom: '8px' }}>
-                Our AI medical assistant will ask about your symptoms and medical history. Your information is
-                completely private, accessible only by your doctor, and the interview helps your doctor better prepare
-                for your visit.
-              </Typography>
-              <Typography color="text.primary">
-                You can pause the interview, and then complete later. Once interview is completed, you cannot start a
-                new interview.
-              </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', margin: '16px 0 16px 0' }}>
-                <Checkbox color="secondary" onChange={(e) => setAiChatStartButtonEnabled(e.target.checked)} />
-                <Typography color="text.primary">I consent</Typography>
-              </Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Button
-                  variant="outlined"
-                  color="secondary"
-                  onClick={() => {
-                    setAiChatConsentModalOpen(false);
-                    setAiChatStartButtonEnabled(false);
-                    setAiChatStartButtonLoading(false);
-                  }}
-                >
-                  Cancel
-                </Button>
-                <LoadingButton
-                  loading={aiChatStartButtonLoading}
-                  variant="contained"
-                  color="secondary"
-                  disabled={!aiChatStartButtonEnabled}
-                  onClick={saveAiChatConsentAndStartChat}
-                >
-                  Start chat
-                </LoadingButton>
-              </Box>
-            </Box>
-          </Modal>
         </>
       )) || <CircularProgress />}
     </PageContainer>
