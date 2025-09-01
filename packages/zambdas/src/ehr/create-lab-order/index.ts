@@ -498,11 +498,6 @@ const getAdditionalResources = async (
     if (resource.resourceType === 'Account' && resource.status === 'active') accountSearchResults.push(resource);
     if (resource.resourceType === 'Location') {
       if (
-        !resource.extension?.some(
-          (ext) =>
-            ext.valueCoding?.code === 'vi' &&
-            ext.valueCoding?.system === 'http://terminology.hl7.org/CodeSystem/location-physical-type'
-        ) &&
         resource.identifier?.some(
           (id) => id.system === LAB_ACCOUNT_NUMBER_SYSTEM && id.value && id.assigner && id.assigner?.reference
         )
