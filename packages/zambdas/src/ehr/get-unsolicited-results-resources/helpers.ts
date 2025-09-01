@@ -10,35 +10,40 @@ import {
   ServiceRequest,
 } from 'fhir/r4b';
 import {
+  compareDates,
   DiagnosticReportLabDetailPageDTO,
   DR_UNSOLICITED_PATIENT_REF,
   DR_UNSOLICITED_PRACTITIONER_REF,
   getFullestAvailableName,
-  GetUnsolicitedResultsResourcesForIcon,
-  GetUnsolicitedResultsResourcesForMatch,
-  GetUnsolicitedResultsResourcesForTable,
-  GetUnsolicitedResultsReviewResourcesOutput,
+  GetUnsolicitedResultsDetailOutput,
+  GetUnsolicitedResultsIconStatusOutput,
+  GetUnsolicitedResultsMatchDataOutput,
+  GetUnsolicitedResultsPatientListOutput,
+  GetUnsolicitedResultsRelatedRequestsOutput,
+  GetUnsolicitedResultsTasksOutput,
   LAB_ORDER_TASK,
-  RelatedRequestsToUnsolicitedResultOutput,
   UnsolicitedLabDTO,
+  UnsolicitedLabListPageDTO,
   UnsolicitedResultTaskRowDTO,
   UR_TASK_ACTION,
 } from 'utils';
+import { parseLabOrderStatusWithSpecificTask } from '../get-lab-orders/helpers';
 import {
   AllResources,
   formatResourcesIntoDiagnosticReportLabDTO,
   getTestNameOrCodeFromDr,
   groupResourcesByDr,
+  parseAccessionNumberFromDr,
   ResourcesByDr,
 } from '../shared/labs';
 
-export const getUnsolicitedDRandRelatedResources = async (
+export const getUnsolicitedResultResourcesResourcesByDR = async (
   oystehr: Oystehr,
   additionalQueryParams?: SearchParam[]
 ): Promise<FhirResource[]> => {
   const additionalParams = additionalQueryParams ? additionalQueryParams : [];
 
-  console.log('making search request for unsolicited results tasks and drs');
+  console.log('executing resource search request for unsolicited results by diagnostic report');
   const resourceSearch = (
     await oystehr.fhir.search<FhirResource>({
       resourceType: 'DiagnosticReport',
@@ -55,8 +60,8 @@ export const getUnsolicitedDRandRelatedResources = async (
   return resourceSearch;
 };
 
-export const handleIconResourceRequest = async (oystehr: Oystehr): Promise<GetUnsolicitedResultsResourcesForIcon> => {
-  const resources = await getUnsolicitedDRandRelatedResources(oystehr, [
+export const handleIconResourceRequest = async (oystehr: Oystehr): Promise<GetUnsolicitedResultsIconStatusOutput> => {
+  const resources = await getUnsolicitedResultResourcesResourcesByDR(oystehr, [
     { name: '_has:Task:based-on:status', value: 'ready' },
     { name: '_revinclude', value: 'Task:based-on' },
   ]);
@@ -65,8 +70,8 @@ export const handleIconResourceRequest = async (oystehr: Oystehr): Promise<GetUn
   };
 };
 
-export const handleGetTasks = async (oystehr: Oystehr): Promise<GetUnsolicitedResultsResourcesForTable> => {
-  const resources = await getUnsolicitedDRandRelatedResources(oystehr, [
+export const handleGetTasks = async (oystehr: Oystehr): Promise<GetUnsolicitedResultsTasksOutput> => {
+  const resources = await getUnsolicitedResultResourcesResourcesByDR(oystehr, [
     { name: '_has:Task:based-on:status', value: 'ready' },
     { name: '_revinclude', value: 'Task:based-on' },
     { name: '_include', value: 'DiagnosticReport:subject' }, // patient
@@ -77,14 +82,14 @@ export const handleGetTasks = async (oystehr: Oystehr): Promise<GetUnsolicitedRe
   console.log('formatting the resources for response');
   const rows = formatResourcesForTaskTableResponse(groupedResources);
   console.log('returning formatted rows', rows.length);
-  return { unsolicitedResultRows: rows };
+  return { unsolicitedResultsTasks: rows };
 };
 
 export const handleUnsolicitedRequestMatch = async (
   oystehr: Oystehr,
   diagnosticReportId: string
-): Promise<GetUnsolicitedResultsResourcesForMatch> => {
-  const resources = await getUnsolicitedDRandRelatedResources(oystehr, [
+): Promise<GetUnsolicitedResultsMatchDataOutput> => {
+  const resources = await getUnsolicitedResultResourcesResourcesByDR(oystehr, [
     { name: '_has:Task:based-on:status', value: 'ready' },
     { name: '_revinclude', value: 'Task:based-on' },
     { name: '_id', value: diagnosticReportId },
@@ -92,7 +97,7 @@ export const handleUnsolicitedRequestMatch = async (
     { name: '_include', value: 'DiagnosticReport:performer' }, // lab org
   ]);
   console.log('grouping the resources returned by diagnostic report', resources.length);
-  const groupedResources = groupResourcesByDr([...resources]);
+  const groupedResources = groupResourcesByDr(resources);
   const resourcesForDr = groupedResources[diagnosticReportId];
 
   if (!resourcesForDr) {
@@ -108,7 +113,7 @@ export const handleGetPossibleRelatedRequestsToUnsolicitedResult = async (
   oystehr: Oystehr,
   diagnosticReportId: string,
   patientId: string
-): Promise<RelatedRequestsToUnsolicitedResultOutput> => {
+): Promise<GetUnsolicitedResultsRelatedRequestsOutput> => {
   const diagnosticReport = await oystehr.fhir.get<DiagnosticReport>({
     resourceType: 'DiagnosticReport',
     id: diagnosticReportId,
@@ -125,12 +130,12 @@ export const handleGetPossibleRelatedRequestsToUnsolicitedResult = async (
   return { possibleRelatedSRsWithVisitDate };
 };
 
-export const handleFormatLabDTOForUnsolicitedResultReview = async (
+export const handleUnsolicitedResultDetailRequest = async (
   oystehr: Oystehr,
   diagnosticReportId: string,
   token: string
-): Promise<GetUnsolicitedResultsReviewResourcesOutput> => {
-  const resources = await getUnsolicitedDRandRelatedResources(oystehr, [
+): Promise<GetUnsolicitedResultsDetailOutput> => {
+  const resources = await getUnsolicitedResultResourcesResourcesByDR(oystehr, [
     { name: '_revinclude', value: 'Task:based-on' }, // review task
     { name: '_id', value: diagnosticReportId },
     { name: '_include', value: 'DiagnosticReport:subject' }, // patient
@@ -138,7 +143,7 @@ export const handleFormatLabDTOForUnsolicitedResultReview = async (
     { name: '_include', value: 'DiagnosticReport:performer' }, // lab org
   ]);
   console.log('grouping the resources returned by diagnostic report', resources.length);
-  const groupedResources = groupResourcesByDr([...resources]);
+  const groupedResources = groupResourcesByDr(resources);
   const resourcesForDr = groupedResources[diagnosticReportId];
 
   if (!resourcesForDr) throw Error(`Could not get resourcesForDr for diagnosticReport: ${diagnosticReportId}`);
@@ -151,7 +156,26 @@ export const handleFormatLabDTOForUnsolicitedResultReview = async (
     resourcesForDr.patient?.id || ''
   );
 
-  return { labOrder: unsolicitedLabDTO };
+  return { unsolicitedLabDTO };
+};
+
+export const handleUnsolicitedResultPatientListRequest = async (
+  oystehr: Oystehr,
+  patientId: string
+): Promise<GetUnsolicitedResultsPatientListOutput> => {
+  const resources = await getUnsolicitedResultResourcesResourcesByDR(oystehr, [
+    { name: 'subject', value: `Patient/${patientId}` },
+    { name: '_revinclude', value: 'Task:based-on' }, // review task
+    { name: '_include', value: 'DiagnosticReport:performer' }, // lab org
+  ]);
+  console.log('grouping the resources returned by diagnostic report', resources.length);
+  const groupedResources = groupResourcesByDr(resources);
+  const unsolicitedLabListDTOs = formateResourcesIntoUnsolicitedLabListPageDTO(groupedResources);
+  const sortedLabs = unsolicitedLabListDTOs.sort((a, b) =>
+    compareDates(a.lastResultReceivedDate, b.lastResultReceivedDate)
+  );
+
+  return { unsolicitedLabListDTOs: sortedLabs };
 };
 
 const formatResourcesForTaskTableResponse = (resources: ResourcesByDr): UnsolicitedResultTaskRowDTO[] => {
@@ -241,7 +265,7 @@ const taskIsLabRelated = (code: string): boolean => {
   return relevantLabCodes.includes(code);
 };
 
-const formatResourcesForURMatchTaskResponse = (resources: AllResources): GetUnsolicitedResultsResourcesForMatch => {
+const formatResourcesForURMatchTaskResponse = (resources: AllResources): GetUnsolicitedResultsMatchDataOutput => {
   const { diagnosticReport, readyTasks, labOrg } = resources;
 
   const { unsolicitedPatient, unsolicitedProvider } = getUnsolicitedResourcesFromDr(diagnosticReport);
@@ -260,7 +284,7 @@ const formatResourcesForURMatchTaskResponse = (resources: AllResources): GetUnso
   const labName = labOrg?.name;
   const resultsReceived = diagnosticReport.effectiveDateTime;
 
-  const labInfo: GetUnsolicitedResultsResourcesForMatch['labInfo'] = {
+  const unsolicitedLabInfo: GetUnsolicitedResultsMatchDataOutput['unsolicitedLabInfo'] = {
     patientName,
     patientDOB,
     provider: providerName,
@@ -268,7 +292,7 @@ const formatResourcesForURMatchTaskResponse = (resources: AllResources): GetUnso
     labName,
     resultsReceived,
   };
-  return { labInfo, taskId: task.id };
+  return { unsolicitedLabInfo, taskId: task.id };
 };
 
 const getUnsolicitedResourcesFromDr = (
@@ -405,4 +429,27 @@ const formatResourcesIntoUnsolicitedLabDTO = (
   patientId: string
 ): UnsolicitedLabDTO => {
   return { ...diagnosticReportLabDTO, isUnsolicited: true, patientId };
+};
+
+const formateResourcesIntoUnsolicitedLabListPageDTO = (resourcesByDr: ResourcesByDr): UnsolicitedLabListPageDTO[] => {
+  console.log('passed in: ', JSON.stringify(resourcesByDr));
+  const listDTOs: UnsolicitedLabListPageDTO[] = [];
+
+  Object.values(resourcesByDr).forEach((resources) => {
+    const { diagnosticReport, labOrg, completedTasks, readyTasks } = resources;
+    const task = readyTasks[0] || completedTasks[0];
+    const dto: UnsolicitedLabListPageDTO = {
+      isUnsolicited: true,
+      diagnosticReportId: diagnosticReport.id || '',
+      testItem: getTestNameOrCodeFromDr(diagnosticReport),
+      fillerLab: labOrg?.name || '',
+      orderStatus: parseLabOrderStatusWithSpecificTask(diagnosticReport, task, undefined, null),
+      lastResultReceivedDate: diagnosticReport.effectiveDateTime || '',
+      accessionNumbers: [parseAccessionNumberFromDr(diagnosticReport)],
+    };
+    console.log('dto to pass', JSON.stringify(dto));
+    listDTOs.push(dto);
+  });
+  console.log('list len to return', listDTOs.length);
+  return listDTOs;
 };

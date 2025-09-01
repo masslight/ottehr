@@ -1,7 +1,6 @@
 import { GetUnsolicitedResultsResourcesInput, Secrets, UnsolicitedResultsRequestType } from 'utils';
 import { ZambdaInput } from '../../shared';
 
-// todo sarah do real validation here lol
 export function validateRequestParameters(
   input: ZambdaInput
 ): GetUnsolicitedResultsResourcesInput & { secrets: Secrets | null } {
@@ -18,14 +17,18 @@ export function validateRequestParameters(
 
   if (
     requestType === UnsolicitedResultsRequestType.MATCH_UNSOLICITED_RESULTS ||
-    requestType === UnsolicitedResultsRequestType.GET_UNSOLICITED_RESULTS_RELATED_REQUESTS
+    requestType === UnsolicitedResultsRequestType.GET_UNSOLICITED_RESULTS_RELATED_REQUESTS ||
+    requestType === UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_DETAIL
   ) {
     if (!diagnosticReportId || typeof diagnosticReportId !== 'string') {
       throw Error(`diagnosticReportId is an unexpected type: ${diagnosticReportId}`);
     }
   }
 
-  if (requestType === UnsolicitedResultsRequestType.GET_UNSOLICITED_RESULTS_RELATED_REQUESTS) {
+  if (
+    requestType === UnsolicitedResultsRequestType.GET_UNSOLICITED_RESULTS_RELATED_REQUESTS ||
+    UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_PATIENT_LIST
+  ) {
     if (!patientId || typeof patientId !== 'string') {
       throw Error(`patientId is an unexpected type: ${patientId}`);
     }

@@ -1301,8 +1301,23 @@ export const parseLabOrderStatusWithSpecificTask = (
     task.code?.coding?.some((c) => c.code === LAB_ORDER_TASK.code.reviewCancelledResult)
   )
     return ExternalLabsStatus['cancelled by lab'];
-  if (result.status === 'final' && task.status === 'completed') return ExternalLabsStatus.reviewed;
-  if (result.status === 'final' && task.status === 'ready') return ExternalLabsStatus.received;
+
+  const taskIsMatchUnsolicitedResult = task.code?.coding?.some(
+    (c) => c.system === LAB_ORDER_TASK.system && c.code === LAB_ORDER_TASK.code.matchUnsolicitedResult
+  );
+
+  if (result.status === 'final') {
+    if (task.status === 'completed') {
+      if (taskIsMatchUnsolicitedResult) {
+        return ExternalLabsStatus.received;
+      } else {
+        return ExternalLabsStatus.reviewed;
+      }
+    } else if (task.status === 'ready') {
+      return ExternalLabsStatus.received;
+    }
+  }
+
   if (result.status === 'corrected' && task.status === 'ready') return ExternalLabsStatus.corrected;
   if ((result.status === 'final' || result.status == 'corrected') && task.status === 'completed')
     return ExternalLabsStatus.reviewed;
