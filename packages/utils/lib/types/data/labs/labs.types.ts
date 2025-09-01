@@ -236,6 +236,7 @@ export type CreateLabOrderParameters = {
   encounter: Encounter;
   orderableItem: OrderableItemSearchResult;
   psc: boolean;
+  orderingLocation: ModifiedOrderingLocation;
 };
 
 export type CreateLabOrderZambdaOutput = Record<string, never>;
@@ -243,12 +244,28 @@ export type CreateLabOrderZambdaOutput = Record<string, never>;
 export type GetCreateLabOrderResources = {
   patientId?: string;
   search?: string;
+  selectedOfficeId?: string;
+  labOrgIdsString?: string;
+};
+
+export type ModifiedOrderingLocation = {
+  name: string;
+  id: string;
+  enabledLabs: {
+    accountNumber: string;
+    labOrgRef: string;
+  }[];
+};
+
+export type ExternalLabOrderingLocations = {
+  orderingLocations: ModifiedOrderingLocation[];
+  orderingLocationIds: string[];
 };
 
 export type LabOrderResourcesRes = {
   coverageName?: string;
   labs: OrderableItemSearchResult[];
-};
+} & ExternalLabOrderingLocations;
 
 export type PatientLabItem = {
   code: string; // ActivityDefinition.code.coding[0].code
