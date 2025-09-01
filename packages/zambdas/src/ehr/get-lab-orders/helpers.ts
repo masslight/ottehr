@@ -146,14 +146,14 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
 };
 
 export const mapReflexResourcesToDrLabDTO = async (
-  resources: ResourcesByDr,
+  resourcesByDr: ResourcesByDr,
   token: string
 ): Promise<ReflexLabDTO[]> => {
   const DTOs: ReflexLabDTO[] = [];
-  const resourcesByDr = Object.values(resources);
-  for (const drResources of resourcesByDr) {
-    const diagnosticReportLabDetailDTO = await formatResourcesIntoDiagnosticReportLabDTO(drResources, token);
-    const orderNumber = getOrderNumberFromDr(drResources.diagnosticReport) || '';
+  const resourcesForDiagnosticReport = Object.values(resourcesByDr);
+  for (const resources of resourcesForDiagnosticReport) {
+    const diagnosticReportLabDetailDTO = await formatResourcesIntoDiagnosticReportLabDTO(resources, token);
+    const orderNumber = getOrderNumberFromDr(resources.diagnosticReport) || '';
     if (diagnosticReportLabDetailDTO) {
       const reflexLabDetailDTO: ReflexLabDTO = { ...diagnosticReportLabDetailDTO, isReflex: true, orderNumber };
       DTOs.push(reflexLabDetailDTO);
@@ -560,7 +560,6 @@ export const getLabResources = async (
       ),
     ]);
 
-  console.log('reflexDRsAndRelatedResources', JSON.stringify(reflexDRsAndRelatedResources));
   const allPractitioners = [...practitioners, ...serviceRequestPractitioners];
 
   let resultPDFs: LabResultPDF[] = [];

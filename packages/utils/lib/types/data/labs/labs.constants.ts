@@ -194,3 +194,22 @@ export const PROVENANCE_ACTIVITY_CODING_ENTITY = {
     system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
   },
 } as const;
+
+const LAB_DOC_REF_TAG_SYSTEM = 'lab-doc-type';
+export const LAB_DOC_REF_TAG_hl7_TRANSMISSION = {
+  system: LAB_DOC_REF_TAG_SYSTEM,
+  code: 'original-hl7-transmission',
+  display: 'Original HL7 Transmission',
+};
+
+export const PERFORMING_SITE_INFO_EXTENSION_URLS = {
+  parentExtUrl: 'https://extensions.fhir.oystehr.com/obx-performing-site-info',
+  name: 'name',
+  address: 'address',
+  phone: 'phone',
+};
+
+export const PERFORMING_PHYSICIAN_EXTENSION_URLS = {
+  parentExtUrl: 'https://extensions.fhir.oystehr.com/obx-performing-physician-info',
+  name: 'name',
+};

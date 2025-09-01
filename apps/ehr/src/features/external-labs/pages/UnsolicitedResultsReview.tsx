@@ -17,7 +17,6 @@ export const UnsolicitedResultsReview: React.FC = () => {
   const [markingAsReviewed, setMarkingAsReviewed] = useState<boolean>(false);
 
   const diagnosticReportId = urlParams.diagnosticReportId as string;
-  console.log('diagnosticReportId', diagnosticReportId);
 
   const {
     data,
