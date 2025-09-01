@@ -49,6 +49,15 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
       const oystehr = createOystehrClient(oystehrToken, secrets);
       const fhirDevice = await fetchFHIRDevice(oystehr, imei);
       if (fhirDevice) {
+        // Bind Device Type if not exists
+        if (!['WS', 'BP', 'BG'].includes(String(fhirDevice.distinctIdentifier))) {
+          await oystehr.fhir.update({
+            id: fhirDevice.id,
+            ...fhirDevice,
+            distinctIdentifier: isWS ? 'WS' : isBP ? 'BP' : isBG ? 'BG' : '',
+          });
+        }
+
         const patient = fhirDevice?.patient?.reference || null;
         const patientBaseline = patient ? await fetchPatientBaseline(oystehr, patient) : null;
         let baseLineComponent = [];
@@ -121,7 +130,6 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
         };
         console.log('payload:', JSON.stringify(payload, null, 4));
 
-        // await createPatientBaseline(oystehr);
         await oystehr.fhir.create<any>(payload);
 
         return lambdaResponse(200, {
