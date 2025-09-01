@@ -30,7 +30,7 @@ export const index = wrapHandler('get-devices', async (input: ZambdaInput): Prom
       params: [
         ...(body.offset ? [{ name: '_offset', value: body.offset }] : []),
         ...(body.count ? [{ name: '_count', value: body.count }] : []),
-        ...(body.total ? [{ name: '_total', value: 'accurate' }] : []),
+        ...(body.offset || body.count ? [{ name: '_total', value: 'accurate' }] : []),
         ...(body.patientId ? [{ name: 'patient', value: body.patientId }] : []),
         ...(Object.prototype.hasOwnProperty.call(body, 'missing')
           ? [{ name: 'patient:missing', value: body.missing }]
