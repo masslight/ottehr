@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { List, Patient } from 'fhir/r4b';
+import { BundleEntry, Encounter, List, Patient } from 'fhir/r4b';
 import { v4 as uuidV4 } from 'uuid';
 import { getAuth0Token } from '../shared';
 import { fhirApiUrlFromAuth0Audience, performEffectWithEnvFile } from './helpers';
@@ -68,6 +68,8 @@ async function createGlobalTemplateFromAppointment(config: any): Promise<void> {
     },
   });
 
+  const oldIdToNewIdMap = new Map<string, string>();
+
   // let counter = 0;
   let observationCounter = 0;
   for (const entry of appointmentBundle.entry) {
@@ -77,7 +79,7 @@ async function createGlobalTemplateFromAppointment(config: any): Promise<void> {
     if (entry.resource.resourceType === 'Appointment') continue;
     // Skip the Encounter that was just used to fetch through to the resources we want.
     if (entry.resource.resourceType === 'Encounter') continue;
-    if (entry.resource.resourceType === 'Observation' && observationCounter > 10) continue;
+    if (entry.resource.resourceType === 'Observation' && observationCounter > 10) continue; // TODO temporary
     const anonymizedResource: any = entry.resource; // We use any so we can scrub relevant fields from various types of resources.
     delete anonymizedResource.meta?.versionId;
     delete anonymizedResource.meta?.lastUpdated;
@@ -88,7 +90,9 @@ async function createGlobalTemplateFromAppointment(config: any): Promise<void> {
       reference: `#${stubPatient.id}`,
     };
 
-    anonymizedResource.id = uuidV4();
+    const newId = uuidV4();
+    oldIdToNewIdMap.set(entry.resource.id!, newId);
+    anonymizedResource.id = newId;
     // if (counter < 90) {
     listToCreate.contained!.push(anonymizedResource);
 
@@ -101,6 +105,43 @@ async function createGlobalTemplateFromAppointment(config: any): Promise<void> {
     // counter++;
     if (entry.resource.resourceType === 'Observation') observationCounter++; //TODO temp
   }
+
+  const oldEncounter = appointmentBundle.entry.find(
+    (entry) => entry.resource?.resourceType === 'Encounter'
+  ) as BundleEntry<Encounter>;
+  if (!oldEncounter) {
+    throw new Error('Unexpectedly found no Encounter when preparing template');
+  }
+  // Write stub encounter with ICD-10 code Conditions leveraging oldIdToNewIdMap
+  const stubEncounter: Encounter = {
+    resourceType: 'Encounter',
+    id: uuidV4(),
+    status: 'unknown', // Stub will be replaced when template is applied.
+    class: {
+      system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', // Stub will be replaced when template is applied.
+      code: 'AMB',
+      display: 'Ambulatory',
+    },
+    diagnosis: oldEncounter.resource?.diagnosis?.map((diagnosis) => {
+      if (!diagnosis.condition?.reference) {
+        throw new Error('Unexpectedly found no condition reference in diagnosis');
+      }
+      // We keep this information when the template is applied. This is why we make the encounter stub.
+      return {
+        ...diagnosis,
+        condition: {
+          reference: `Condition/${oldIdToNewIdMap.get(diagnosis.condition?.reference?.split('/')[1])}`,
+        },
+      };
+    }),
+  };
+  listToCreate.contained!.push(stubEncounter);
+  listToCreate.entry!.push({
+    item: {
+      reference: `#${stubEncounter.id}`,
+    },
+  });
+
   // else {
   //   console.log('skipped an entry because over limit');
   // }
