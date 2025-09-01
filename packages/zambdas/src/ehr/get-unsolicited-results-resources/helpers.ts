@@ -10,6 +10,7 @@ import {
   ServiceRequest,
 } from 'fhir/r4b';
 import {
+  compareDates,
   DiagnosticReportLabDetailPageDTO,
   DR_UNSOLICITED_PATIENT_REF,
   DR_UNSOLICITED_PRACTITIONER_REF,
@@ -170,8 +171,11 @@ export const handleUnsolicitedResultPatientListRequest = async (
   console.log('grouping the resources returned by diagnostic report', resources.length);
   const groupedResources = groupResourcesByDr(resources);
   const unsolicitedLabListDTOs = formateResourcesIntoUnsolicitedLabListPageDTO(groupedResources);
+  const sortedLabs = unsolicitedLabListDTOs.sort((a, b) =>
+    compareDates(a.lastResultReceivedDate, b.lastResultReceivedDate)
+  );
 
-  return { unsolicitedLabListDTOs };
+  return { unsolicitedLabListDTOs: sortedLabs };
 };
 
 const formatResourcesForTaskTableResponse = (resources: ResourcesByDr): UnsolicitedResultTaskRowDTO[] => {
