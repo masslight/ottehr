@@ -1,6 +1,7 @@
 import CloseIcon from '@mui/icons-material/Close';
 import LiveHelpOutlinedIcon from '@mui/icons-material/LiveHelpOutlined';
 import LocalHospitalOutlinedIcon from '@mui/icons-material/LocalHospitalOutlined';
+import MedicalServicesOutlinedIcon from '@mui/icons-material/MedicalServicesOutlined'; // For
 import VideoCameraFrontOutlinedIcon from '@mui/icons-material/VideoCameraFrontOutlined';
 import { Box, Button, Skeleton, Typography } from '@mui/material';
 import { pastVisits } from '@theme/icons';
@@ -74,6 +75,10 @@ const Homepage = (): JSX.Element => {
   const handlePastVisits = (): void => {
     // was telemedSelectPatient
     navigate(intakeFlowPageRoute.MyPatients.path);
+  };
+
+  const handlePatientDevices = (): void => {
+    navigate(intakeFlowPageRoute.Devices.path);
   };
 
   const handleContactSupport = (): void => {
@@ -176,9 +181,15 @@ const Homepage = (): JSX.Element => {
               subtitle="School/Work Notes and Prescriptions"
               dataTestId={dataTestIds.navigatePastVisitsButton}
             />
+            <HomepageOption
+              title="My Devices"
+              icon={<MedicalServicesOutlinedIcon />}
+              handleClick={handlePatientDevices}
+              subtitle="Assigned Devices & Vitals"
+              dataTestId={dataTestIds.patientDeviceButton}
+            />
           </Box>
         )}
-
         <HomepageOption
           title="Contact Support"
           icon={<LiveHelpOutlinedIcon />}

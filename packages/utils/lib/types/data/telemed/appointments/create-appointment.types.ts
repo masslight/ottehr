@@ -47,6 +47,9 @@ export type PatientInfo = PatientBaseInfo & {
   }[];
   address?: Address[];
   tags?: Meta['tag'];
+  systolic?: number;
+  diastolic?: number;
+  glucose?: number;
 };
 
 export interface PatientInfoInProgress extends Omit<PatientInfo, 'patientDateOfBirth'> {

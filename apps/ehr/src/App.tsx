@@ -190,6 +190,7 @@ function App(): ReactElement {
                   <Route path="/patient/:id/docs" element={<PatientDocumentsExplorerPage />} />
                   <Route path="/patient/:id/followup/add" element={<AddPatientFollowup />} />
                   <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
+
                   <Route path="/telemed-admin" element={<Navigate to={INSURANCES_URL} />} />
                   <Route path={`${STATES_URL}`} element={<TelemedAdminPage />} />
                   <Route path={`${STATES_URL}/:state`} element={<EditStatePage />} />

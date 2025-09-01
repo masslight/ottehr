@@ -84,6 +84,10 @@ export default function AddPatient(): JSX.Element {
   );
   const [firstName, setFirstName] = useState<string>('');
   const [lastName, setLastName] = useState<string>('');
+  const [systolic, setSystolic] = useState<string>('');
+  const [diastolic, setDiastolic] = useState<string>('');
+  const [weight, setWeight] = useState<string>('');
+  const [glucose, setGlucose] = useState<string>('');
   const [birthDate, setBirthDate] = useState<DateTime | null>(null);
   const [sex, setSex] = useState<PersonSex | ''>('');
   const [mobilePhone, setMobilePhone] = useState<string>('');
@@ -110,6 +114,17 @@ export default function AddPatient(): JSX.Element {
     prefillForSelected: false,
     forcePatientSearch: true,
   });
+  const [measurementErrors, setMeasurementErrors] = useState<{
+    systolic: { error: boolean; message: string };
+    diastolic: { error: boolean; message: string };
+    weight: { error: boolean; message: string };
+    glucose: { error: boolean; message: string };
+  }>({
+    systolic: { error: false, message: '' },
+    diastolic: { error: false, message: '' },
+    weight: { error: false, message: '' },
+    glucose: { error: false, message: '' },
+  });
 
   // console.log('slot', slot);
 
@@ -123,6 +138,15 @@ export default function AddPatient(): JSX.Element {
   const handleAdditionalReasonForVisitChange = (newValue: string): void => {
     setValidReasonForVisit(newValue.length <= MAXIMUM_CHARACTER_LIMIT);
     setReasonForVisitAdditional(newValue);
+  };
+
+  type Metric = 'Systolic' | 'Diastolic' | 'Glucose' | 'Weight';
+
+  const VALIDATION_RULES: Record<Metric, { min: number; max: number; message: string }> = {
+    Systolic: { min: 70, max: 250, message: 'Systolic must be between 70–250 mmHg' },
+    Diastolic: { min: 40, max: 150, message: 'Diastolic must be between 40–150 mmHg' },
+    Glucose: { min: 50, max: 500, message: 'Glucose must be between 50–500 mg/dL' },
+    Weight: { min: 30, max: 600, message: 'Weight must be between 30–600 lbs' },
   };
 
   useEffect(() => {
@@ -153,6 +177,37 @@ export default function AddPatient(): JSX.Element {
     void fetchLocationWithSlotData({ slug: locationSlug, scheduleType: ScheduleType.location }, oystehrZambda);
   }, [selectedLocation, loadingSlotState, oystehrZambda]);
 
+  const validateMeasurement = (value: string, metric: Metric): { error: boolean; message: string } => {
+    if (value === '') {
+      return { error: false, message: '' };
+    }
+
+    const numericValue = Number(value);
+    if (isNaN(numericValue)) {
+      return { error: true, message: 'Please enter a valid number' };
+    }
+
+    const rule = VALIDATION_RULES[metric];
+    if (numericValue < rule.min || numericValue > rule.max) {
+      return { error: true, message: rule.message };
+    }
+
+    return { error: false, message: '' };
+  };
+
+  const validateAllMeasurements = (): boolean => {
+    const newErrors = {
+      systolic: validateMeasurement(systolic, 'Systolic'),
+      diastolic: validateMeasurement(diastolic, 'Diastolic'),
+      weight: validateMeasurement(weight, 'Weight'),
+      glucose: validateMeasurement(glucose, 'Glucose'),
+    };
+
+    setMeasurementErrors(newErrors);
+
+    return !Object.values(newErrors).some((error) => error.error);
+  };
+
   // handle functions
   const handleFormSubmit = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
@@ -162,6 +217,11 @@ export default function AddPatient(): JSX.Element {
       return;
     } else {
       setErrors({});
+    }
+
+    if (!validateAllMeasurements()) {
+      enqueueSnackbar('Please check the measurement errors before submitting', { variant: 'error' });
+      return;
     }
 
     if ((visitType === VisitType.PreBook || visitType === VisitType.PostTelemed) && slot === undefined) {
@@ -247,6 +307,10 @@ export default function AddPatient(): JSX.Element {
           sex: (selectedPatient?.gender as PersonSex) || sex || undefined,
           phoneNumber: mobilePhone,
           email: emailToUse,
+          systolic: Number(systolic),
+          diastolic: Number(diastolic),
+          glucose: Number(glucose),
+          weight: Number(weight),
           reasonForVisit: reasonForVisit,
           reasonAdditional: reasonForVisitAdditional !== '' ? reasonForVisitAdditional : undefined,
         },
@@ -588,6 +652,129 @@ export default function AddPatient(): JSX.Element {
                             </FormControl>
                           </Grid>
                         </Grid>
+                      </Box>
+
+                      <Box>
+                        <Typography variant="h4" color="primary.dark" sx={{ marginTop: 4 }}>
+                          Baseline information
+                        </Typography>
+
+                        <Box marginTop={2}>
+                          <Grid container direction="row" justifyContent="space-between">
+                            <Grid item xs={5.85}>
+                              <TextField
+                                data-testid={dataTestIds.addPatientPage.systolicInput}
+                                label="Systolic"
+                                variant="outlined"
+                                required
+                                fullWidth
+                                type="number"
+                                value={systolic}
+                                error={measurementErrors.systolic.error}
+                                helperText={measurementErrors.systolic.message}
+                                onChange={(event) => {
+                                  const value = event.target.value;
+                                  setSystolic(value);
+                                  setMeasurementErrors((prev) => ({
+                                    ...prev,
+                                    systolic: validateMeasurement(value, 'Systolic'),
+                                  }));
+                                }}
+                                onBlur={() => {
+                                  setMeasurementErrors((prev) => ({
+                                    ...prev,
+                                    systolic: validateMeasurement(systolic, 'Systolic'),
+                                  }));
+                                }}
+                              ></TextField>
+                            </Grid>
+                            <Grid item xs={5.85}>
+                              <TextField
+                                data-testid={dataTestIds.addPatientPage.diastolicInput}
+                                label="Diastolic"
+                                variant="outlined"
+                                required
+                                fullWidth
+                                type="number"
+                                value={diastolic}
+                                error={measurementErrors.diastolic.error}
+                                helperText={measurementErrors.diastolic.message}
+                                onChange={(event) => {
+                                  const value = event.target.value;
+                                  setDiastolic(value);
+                                  setMeasurementErrors((prev) => ({
+                                    ...prev,
+                                    diastolic: validateMeasurement(value, 'Diastolic'),
+                                  }));
+                                }}
+                                onBlur={() => {
+                                  setMeasurementErrors((prev) => ({
+                                    ...prev,
+                                    diastolic: validateMeasurement(diastolic, 'Diastolic'),
+                                  }));
+                                }}
+                              ></TextField>
+                            </Grid>
+                          </Grid>
+                        </Box>
+                        <Box marginTop={2}>
+                          <Grid container direction="row" justifyContent="space-between">
+                            <Grid item xs={5.85}>
+                              <TextField
+                                data-testid={dataTestIds.addPatientPage.weightInput}
+                                label="Weight (in pounds)"
+                                variant="outlined"
+                                required
+                                type="number"
+                                fullWidth
+                                value={weight}
+                                error={measurementErrors.weight.error}
+                                helperText={measurementErrors.weight.message}
+                                onChange={(event) => {
+                                  const value = event.target.value;
+                                  setWeight(value);
+                                  setMeasurementErrors((prev) => ({
+                                    ...prev,
+                                    weight: validateMeasurement(value, 'Weight'),
+                                  }));
+                                }}
+                                onBlur={() => {
+                                  setMeasurementErrors((prev) => ({
+                                    ...prev,
+                                    weight: validateMeasurement(weight, 'Weight'),
+                                  }));
+                                }}
+                              ></TextField>
+                            </Grid>
+                            <Grid item xs={5.85}>
+                              <TextField
+                                data-testid={dataTestIds.addPatientPage.glucoseInput}
+                                label="Glucose"
+                                variant="outlined"
+                                required
+                                type="number"
+                                fullWidth
+                                value={glucose}
+                                error={measurementErrors.glucose.error}
+                                helperText={measurementErrors.glucose.message}
+                                onChange={(event) => {
+                                  const value = event.target.value;
+                                  setGlucose(value);
+                                  setMeasurementErrors((prev) => ({
+                                    ...prev,
+                                    glucose: validateMeasurement(value, 'Glucose'),
+                                  }));
+                                }}
+                                onBlur={() => {
+                                  setMeasurementErrors((prev) => ({
+                                    ...prev,
+                                    glucose: validateMeasurement(glucose, 'Glucose'),
+                                  }));
+                                }}
+                              ></TextField>
+                            </Grid>
+                          </Grid>
+                        </Box>
                       </Box>
                     </Box>
                   )}

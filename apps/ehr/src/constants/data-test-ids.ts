@@ -67,6 +67,10 @@ export const dataTestIds = {
     prefilledPatientBirthday: 'prefilled-patient-birthday',
     prefilledPatientBirthSex: 'prefilled-patient-birth-sex',
     prefilledPatientEmail: 'prefilled-patient-email',
+    systolicInput: 'systolic-input',
+    diastolicInput: 'diastolic-input',
+    glucoseInput: 'glucose-input',
+    weightInput: 'weight-input',
   },
   pagination: {
     paginationContainer: 'pagination-container',

@@ -17,6 +17,8 @@ import CancellationReason from './pages/CancellationReason';
 import CheckIn from './pages/CheckIn';
 import WelcomeBack from './pages/ChoosePatient';
 import ConfirmDateOfBirth from './pages/ConfirmDateOfBirth';
+import DeviceDetailsView from './pages/DeviceDetailsView';
+import DevicesPage from './pages/DevicesPage';
 import Homepage from './pages/Homepage';
 import MyPatients from './pages/MyPatients';
 import { PaperworkHome, PaperworkPage } from './pages/PaperworkPage';
@@ -88,6 +90,14 @@ export const intakeFlowPageRoute = {
   Welcome: {
     path: '/welcome',
     getPage: () => <Welcome />,
+  },
+  Devices: {
+    path: '/devices-page',
+    getPage: () => <DevicesPage />,
+  },
+  DevicesDetails: {
+    path: '/devices',
+    getPage: () => <DeviceDetailsView />,
   },
   WalkinLanding: {
     path: '/walkin/schedule/:id',
@@ -420,6 +430,11 @@ function App(): JSX.Element {
               <Route
                 path={intakeFlowPageRoute.TestErrorPage.path}
                 element={intakeFlowPageRoute.TestErrorPage.getPage()}
+              />
+              <Route path={intakeFlowPageRoute.Devices.path} element={intakeFlowPageRoute.Devices.getPage()} />
+              <Route
+                path={intakeFlowPageRoute.DevicesDetails.path}
+                element={intakeFlowPageRoute.DevicesDetails.getPage()}
               />
               <Route path="*" element={<Navigate to={intakeFlowPageRoute.Welcome.path} />} />
             </Routes>

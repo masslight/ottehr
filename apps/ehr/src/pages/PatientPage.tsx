@@ -2,8 +2,11 @@ import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Paper, Skeleton, Stack, Tab, Typography } from '@mui/material';
 import { useMemo, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
+import { DeviceVitalsPage } from 'src/components/DeviceVitalsPage';
+import { PatientDevicesTab } from 'src/components/PatientDevicesTab';
 import { PatientInHouseLabsTab } from 'src/components/PatientInHouseLabsTab';
 import { PatientRadiologyTab } from 'src/components/PatientRadiologyTab';
+import { ThresholdsTable } from 'src/components/ThresholdGrid';
 import { getFirstName, getLastName, ServiceMode } from 'utils';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { Contacts, FullNameDisplay, IdentifiersRow, PatientAvatar, Summary } from '../components/patient';
@@ -20,7 +23,12 @@ export default function PatientPage(): JSX.Element {
   const { id } = useParams();
   const location = useLocation();
   const [tab, setTab] = useState(location.state?.defaultTab || 'encounters');
-
+  const [selectedDevice, setSelectedDevice] = useState<{
+    id: string;
+    deviceType: string;
+    thresholds: any;
+    name: string;
+  } | null>(null);
   const { appointments, loading, patient } = useGetPatient(id);
 
   const { firstName, lastName } = useMemo(() => {
@@ -33,10 +41,12 @@ export default function PatientPage(): JSX.Element {
 
   const latestAppointment = appointments?.[0];
 
+  console.log('selectedDevice', selectedDevice);
+
   return (
     <>
       <PageContainer tabTitle="Patient Information">
-        <Stack spacing={2}>
+        <Stack spacing={4}>
           <CustomBreadcrumbs
             chain={[
               { link: '/patients', children: 'Patients' },
@@ -81,26 +91,23 @@ export default function PatientPage(): JSX.Element {
                 >
                   See All Patient Info
                 </RoundedButton>
+                <RoundedButton to={`/patient/${id}/docs`}>Review Docs</RoundedButton>
+                {latestAppointment && (
+                  <RoundedButton
+                    target="_blank"
+                    to={
+                      latestAppointment.serviceMode === ServiceMode.virtual
+                        ? `/telemed/appointments/${latestAppointment.id}?tab=sign`
+                        : `/in-person/${latestAppointment.id}/progress-note`
+                    }
+                  >
+                    Recent Progress Note
+                  </RoundedButton>
+                )}
               </Box>
             </Box>
-
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              {latestAppointment && (
-                <RoundedButton
-                  target="_blank"
-                  sx={{ width: '100%' }}
-                  to={
-                    latestAppointment.serviceMode === ServiceMode.virtual
-                      ? `/telemed/appointments/${latestAppointment.id}?tab=sign`
-                      : `/in-person/${latestAppointment.id}/progress-note`
-                  }
-                >
-                  Recent Progress Note
-                </RoundedButton>
-              )}
-              <RoundedButton sx={{ width: '100%' }} to={`/patient/${id}/docs`}>
-                Review Docs
-              </RoundedButton>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <ThresholdsTable />
             </Box>
           </Paper>
 
@@ -151,6 +158,14 @@ export default function PatientPage(): JSX.Element {
                     }
                   />
                 )}
+                {FEATURE_FLAGS.DEVICES_ENABLED && (
+                  <Tab
+                    value="devices"
+                    label={
+                      <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>Devices</Typography>
+                    }
+                  />
+                )}
               </TabList>
             </Box>
 
@@ -173,6 +188,27 @@ export default function PatientPage(): JSX.Element {
             {FEATURE_FLAGS.RADIOLOGY_ENABLED && (
               <TabPanel value="radiology" sx={{ p: 0 }}>
                 <PatientRadiologyTab patientId={id || ''} />
+              </TabPanel>
+            )}
+            {FEATURE_FLAGS.DEVICES_ENABLED && (
+              <TabPanel value="devices" sx={{ p: 0 }}>
+                {selectedDevice ? (
+                  <DeviceVitalsPage
+                    patientId={id!}
+                    deviceId={selectedDevice.id}
+                    deviceType={selectedDevice.deviceType}
+                    thresholds={selectedDevice.thresholds}
+                    name={selectedDevice.name}
+                    onBack={() => setSelectedDevice(null)}
+                  />
+                ) : (
+                  <PatientDevicesTab
+                    loading={loading}
+                    onViewVitals={(deviceId: string, deviceType: string, thresholds: any, name: string) =>
+                      setSelectedDevice({ id: deviceId, deviceType, thresholds, name })
+                    }
+                  />
+                )}
               </TabPanel>
             )}
           </TabContext>

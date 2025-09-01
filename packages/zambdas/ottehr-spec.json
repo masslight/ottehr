@@ -188,6 +188,10 @@
     "ADVAPACS_VIEWER_USERNAME": {
       "name": "ADVAPACS_VIEWER_USERNAME",
       "value": "#var/ADVAPACS_VIEWER_USERNAME"
+    },
+    "MIO_API_KEY": {
+      "name": "MIO_API_KEY",
+      "value": "#var/MIO_API_KEY"
     }
   },
   "zambdas": {
@@ -344,6 +348,27 @@
       "runtime": "nodejs20.x",
       "src": "src/ehr/get-employees/index",
       "zip": ".dist/zips/get-employees.zip"
+    },
+    "GET-DEVICES": {
+      "name": "GET-DEVICES",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/get-devices/index",
+      "zip": ".dist/zips/get-devices.zip"
+    },
+    "ASSIGN-DEVICES": {
+      "name": "ASSIGN-DEVICES",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/assign-devices/index",
+      "zip": ".dist/zips/assign-devices.zip"
+    },
+    "UNASSIGN-DEVICES": {
+      "name": "UNASSIGN-DEVICES",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/unassign-devices/index",
+      "zip": ".dist/zips/unassign-devices.zip"
     },
     "SYNC-USER": {
       "name": "SYNC-USER",
@@ -509,6 +534,41 @@
       "runtime": "nodejs20.x",
       "src": "src/patient/get-patients/index",
       "zip": ".dist/zips/get-patients.zip"
+    },
+    "GET-PATIENTS-DEVICES": {
+      "name": "GET-PATIENTS-DEVICES",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/patient/get-patients-devices/index",
+      "zip": ".dist/zips/get-patients-devices.zip"
+    },
+    "GET-VITALS": {
+      "name": "GET-VITALS",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/get-vitals/index",
+      "zip": ".dist/zips/get-vitals.zip"
+    },
+    "GET-PATIENT-BASELINES": {
+      "name": "GET-PATIENT-BASELINES",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/get-patient-baselines/index",
+      "zip": ".dist/zips/get-patient-baselines.zip"
+    },
+    "UPDATE-PATIENT-BASELINES": {
+      "name": "UPDATE-PATIENT-BASELINES",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/update-patient-baselines/index",
+      "zip": ".dist/zips/update-patient-baselines.zip"
+    },
+    "GET-DEVICE-VITALS-PATIENT": {
+      "name": "GET-DEVICE-VITALS-PATIENT",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/patient/get-device-vitals-patient/index",
+      "zip": ".dist/zips/get-device-vitals-patient.zip"
     },
     "GET-PAPERWORK": {
       "name": "GET-PAPERWORK",
@@ -690,6 +750,23 @@
       "schedule": {
         "expression": "cron(0,15,30,45 * * * ? *)"
       }
+    },
+    "GET-MIO-DEVICES": {
+      "name": "GET-MIO-DEVICES",
+      "type": "cron",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/get-mio-devices/index",
+      "zip": ".dist/zips/get-mio-devices.zip",
+      "schedule": {
+        "expression": "cron(0 * * * ? *)"
+      }
+    },
+    "MIO-VITALS": {
+      "name": "MIO-VITALS",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/mio-vitals/index",
+      "zip": ".dist/zips/mio-vitals.zip"
     },
     "COMMUNICATION-SUBSCRIPTION": {
       "name": "COMMUNICATION-SUBSCRIPTION",
@@ -1059,7 +1136,10 @@
         "patient": "patient-id",
         "title": "My Questions"
       },
-      "managedFields": ["name", "title"]
+      "managedFields": [
+        "name",
+        "title"
+      ]
     }
   },
   "apps": {
@@ -1082,7 +1162,9 @@
           "effect": "Allow"
         }
       ],
-      "roles": ["#ref/EHR_SUPER_ADMIN"]
+      "roles": [
+        "#ref/EHR_SUPER_ADMIN"
+      ]
     }
   },
   "roles": {
