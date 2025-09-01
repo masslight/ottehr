@@ -1,7 +1,8 @@
-import Oystehr, { BatchInputDeleteRequest, BatchInputPostRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputDeleteRequest, BatchInputJSONPatchRequest, BatchInputPostRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ClinicalImpression, Communication, Condition, Encounter, List, Observation } from 'fhir/r4b';
 import { ApplyTemplateZambdaInput, getSecret, SecretsKeys } from 'utils';
+import { v4 as uuidV4 } from 'uuid';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM } from '../../shared/templates';
@@ -158,14 +159,27 @@ const makeDeleteResourceRequest = (resourceType: string, id: string): BatchInput
 const makeCreateRequests = (
   encounter: Encounter,
   templateList: List
-): BatchInputPostRequest<Observation | ClinicalImpression | Condition | Communication>[] => {
-  const createResourcesRequests: BatchInputPostRequest<Observation | ClinicalImpression | Condition | Communication>[] =
-    [];
+): Array<
+  BatchInputPostRequest<Observation | ClinicalImpression | Condition | Communication> | BatchInputJSONPatchRequest
+> => {
+  const createResourcesRequests: Array<
+    BatchInputPostRequest<Observation | ClinicalImpression | Condition | Communication> | BatchInputJSONPatchRequest
+  > = [];
 
   if (templateList.entry === undefined || templateList.entry.length === 0) {
     console.log('Template has no entries, it will not create anything.');
     return createResourcesRequests;
   }
+
+  const encounterDiagnoses = encounter.diagnosis ?? [];
+  // If there's a 'rank' on the diagnosis, remove it. We use rank: 1 to indicate the 'primary diagnosis'.
+  encounterDiagnoses.forEach((d) => {
+    if (d.rank) {
+      delete d.rank;
+    }
+  });
+
+  const templateEncounterDiagnoses = templateList.contained?.find((r) => r.resourceType === 'Encounter')?.diagnosis;
 
   for (const resource of templateList.entry) {
     // grab contained resource from resource.id in entry
@@ -176,6 +190,8 @@ const makeCreateRequests = (
     }
 
     const resourceToCreate = { ...containedResource };
+
+    const fullUrl = `urn:uuid:${uuidV4()}`;
 
     delete resourceToCreate.id;
     delete resourceToCreate.meta?.versionId;
@@ -194,44 +210,47 @@ const makeCreateRequests = (
       continue;
     }
 
-    // TODO write the encounter.diagnosis PATCH
-    // Add the encounter reference to the resource and prepare it for creation
-    // I think we should make an Encounter stub in the template List that has the Encounter.diagnosis written including
-    // the `rank` value which we use to indicate 'primary' diagnosis.
-
-    // let encounterDiagnosisPatch: BatchInputPatchRequest<Encounter>;
-    // if (encounter.diagnosis) {
-    //   // Create new resources based on the template
-    //   encounterDiagnosisPatch = {
-    //     method: 'PATCH',
-    //     url: `Encounter/${encounter.id}`,
-    //     operations: [
-    //       {
-    //         op: 'replace',
-    //         path: '/diagnosis',
-    //         value: {},
-    //       },
-    //     ],
-    //   };
-    // } else {
-    //   encounterDiagnosisPatch = {
-    //     method: 'PATCH',
-    //     url: `Encounter/${encounter.id}`,
-    //     operations: [
-    //       {
-    //         op: 'add',
-    //         path: '/diagnosis',
-    //         value: {},
-    //       },
-    //     ],
-    //   };
-    // }
+    // For Condition resources that are ICD-10 codes, we need to update the Encounter.diagnosis references
+    if (
+      resourceToCreate.resourceType === 'Condition' &&
+      resourceToCreate.code?.coding?.find((c) => c.system === 'http://hl7.org/fhir/sid/icd-10')
+    ) {
+      const diagnosisToAdd = templateEncounterDiagnoses?.find((d) => {
+        console.log('alex ', d.condition.reference?.split('/')[1], containedResource.id, ')');
+        return d.condition.reference?.split('/')[1] === containedResource.id;
+      });
+      encounterDiagnoses.push({
+        ...diagnosisToAdd, // This pulls in the `rank: 1` if present.
+        condition: { reference: fullUrl },
+      });
+    }
 
     createResourcesRequests.push({
       method: 'POST',
       url: `${resourceToCreate.resourceType}`,
       resource: resourceToCreate,
+      fullUrl,
     });
+  }
+
+  // TODO write the encounter.diagnosis PATCH
+  // Add the encounter reference to the resource and prepare it for creation
+  // I think we should make an Encounter stub in the template List that has the Encounter.diagnosis written including
+  // the `rank` value which we use to indicate 'primary' diagnosis.
+
+  if (encounterDiagnoses.length > 0) {
+    const encounterDiagnosisPatch: BatchInputJSONPatchRequest = {
+      method: 'PATCH',
+      url: `Encounter/${encounter.id}`,
+      operations: [
+        {
+          op: encounter.diagnosis ? 'replace' : 'add',
+          path: '/diagnosis',
+          value: encounterDiagnoses,
+        },
+      ],
+    };
+    createResourcesRequests.push(encounterDiagnosisPatch);
   }
 
   return createResourcesRequests;
