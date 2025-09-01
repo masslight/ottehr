@@ -4,12 +4,11 @@ import Oystehr from '@oystehr/sdk';
 import { DocumentReference, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import React from 'react';
-import { useApiClients } from 'src/hooks/useAppClients';
 import { AccordionCard, useAppointmentData, useChartData } from 'src/telemed';
 import { AiObservationField, ObservationTextFieldDTO, PUBLIC_EXTENSION_BASE_URL } from 'utils';
-import { AiChatHistory } from '../../../components/AiChatHistory';
 import AiSuggestion from '../../../components/AiSuggestion';
 import { CSSLoader } from '../components/CSSLoader';
+import { PlayRecord } from '../components/progress-note/PlayRecord';
 
 const AI_OBSERVATION_FIELDS = {
   [AiObservationField.HistoryOfPresentIllness]: 'History of Present Illness (HPI)',
@@ -30,7 +29,7 @@ interface OttehrAiProps {
 }
 const DATE_TIME_FORMAT = 'MM/dd/yyyy hh:mm a';
 
-function getDocumentReferenceSource(documentReference: DocumentReference): 'audio' | 'chat' | undefined {
+export function getDocumentReferenceSource(documentReference: DocumentReference): 'audio' | 'chat' | undefined {
   if (documentReference.description === 'Summary of visit from audio recording') {
     return 'audio';
   } else if (documentReference.description === 'Summary of visit from chat') {
@@ -64,7 +63,6 @@ export function getSourceFormat(providerName: string | undefined, date: DateTime
 }
 
 export const OttehrAi: React.FC<OttehrAiProps> = () => {
-  const { oystehr } = useApiClients();
   const {
     resources: { appointment },
     isAppointmentLoading,
@@ -82,7 +80,6 @@ export const OttehrAi: React.FC<OttehrAiProps> = () => {
   const aiPotentialDiagnoses = chartData?.aiPotentialDiagnosis ?? [];
 
   const observations: { [key: string]: ObservationTextFieldDTO[] } = {};
-  const providers = chartData?.aiChat?.providers;
   chartData?.observations?.forEach((observation) => {
     observation = observation as ObservationTextFieldDTO;
     if (!observation.derivedFrom) {
@@ -101,33 +98,7 @@ export const OttehrAi: React.FC<OttehrAiProps> = () => {
         <AccordionCard>
           <Box style={{ padding: '16px', height: '350px', overflowY: 'auto' }}>
             {chartData?.aiChat?.documents.map((aiChat) => {
-              return (
-                <>
-                  <Box
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      paddingBottom: '8px',
-                    }}
-                  >
-                    <img src={ottehrAiIcon} style={{ width: '30px', marginRight: '8px' }} />
-                    <Typography variant="body1" style={{ fontWeight: 700, fontSize: '14px' }}>
-                      {getDocumentReferenceSource(aiChat) === 'audio'
-                        ? 'TRANSCRIPT OF VISIT BY OYSTEHR AI'
-                        : 'CHAT WITH OYSTEHR AI'}
-                    </Typography>
-                    <Typography variant="body2" style={{ fontWeight: 700, fontSize: '14px', marginLeft: '8px' }}>
-                      {getSource(aiChat, oystehr, providers)}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ marginLeft: '50px' }}>
-                    <Typography variant="subtitle2" style={{ fontWeight: 700, fontSize: '14px' }}>
-                      TRANSCRIPT
-                    </Typography>
-                    <AiChatHistory documentReference={aiChat} />
-                  </Box>
-                </>
-              );
+              return <PlayRecord documentReference={aiChat} providers={chartData?.aiChat?.providers} />;
             })}
           </Box>
         </AccordionCard>
