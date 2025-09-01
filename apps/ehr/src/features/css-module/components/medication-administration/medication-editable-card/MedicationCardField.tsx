@@ -109,10 +109,11 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
 
   if (type === 'autocomplete') {
     const options = selectsOptions[field as keyof OrderFieldsSelectsOptions].options;
-    const foundOption =
-      options.find((option) => option.value === value) ?? options.find((option) => option.value === '');
+    const foundOption = options.find((option) => option.value === value);
     const isOptionsLoaded = selectsOptions[field as keyof OrderFieldsSelectsOptions].status === 'loaded';
-    const currentValue = renderValue ? { value: IN_HOUSE_CONTAINED_MEDICATION_ID, label: renderValue } : foundOption;
+    const currentValue = renderValue
+      ? { value: IN_HOUSE_CONTAINED_MEDICATION_ID, label: renderValue }
+      : foundOption || null;
 
     const autocomplete = isOptionsLoaded ? (
       <Autocomplete
@@ -128,7 +129,8 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
           if (val?.value === POPULAR_SEPARATOR || val?.value === OTHER_SEPARATOR) {
             return;
           }
-          handleChange(val?.value);
+          // Handle clearing the field - set to empty string when val is null
+          handleChange(val?.value ?? '');
         }}
         getOptionDisabled={(option) => option.value === POPULAR_SEPARATOR || option.value === OTHER_SEPARATOR} // Disable separators
         renderOption={(props, option) => {

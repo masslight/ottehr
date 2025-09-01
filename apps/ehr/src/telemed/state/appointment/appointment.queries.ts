@@ -20,17 +20,25 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect } from 'react';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
-import { Icd10SearchRequestParams, Icd10SearchResponse, useErrorQuery, useSuccessQuery } from 'utils';
 import {
+  CancelMatchUnsolicitedResultTask,
   createSmsModel,
   filterResources,
+  FinalizeUnsolicitedResultMatch,
   GetCreateLabOrderResources,
   GetMedicationOrdersInput,
   GetMedicationOrdersResponse,
+  GetUnsolicitedResultsRelatedRequests,
   GetUnsolicitedResultsResourcesForIcon,
+  GetUnsolicitedResultsResourcesForIconInput,
+  GetUnsolicitedResultsResourcesForMatch,
+  GetUnsolicitedResultsResourcesForMatchInput,
+  GetUnsolicitedResultsResourcesForReview,
   GetUnsolicitedResultsResourcesForTable,
-  GetUnsolicitedResultsResourcesInput,
-  GetUnsolicitedResultsResourcesOutput,
+  GetUnsolicitedResultsResourcesForTableInput,
+  GetUnsolicitedResultsReviewResourcesOutput,
+  Icd10SearchRequestParams,
+  Icd10SearchResponse,
   IcdSearchRequestParams,
   IcdSearchResponse,
   InstructionType,
@@ -39,10 +47,12 @@ import {
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   MeetingData,
   relatedPersonAndCommunicationMaps,
+  RelatedRequestsToUnsolicitedResultOutput,
   ReviewAndSignData,
   TelemedAppointmentInformation,
-  UnsolicitedResultsRequestType,
   UpdateMedicationOrderInput,
+  useErrorQuery,
+  useSuccessQuery,
 } from 'utils';
 import { icd10Search } from '../../../api/api';
 import { CHAT_REFETCH_INTERVAL, QUERY_STALE_TIME } from '../../../constants';
@@ -299,13 +309,18 @@ export const useGetAllergiesSearch = (
 export const useGetCreateExternalLabResources = ({
   patientId,
   search,
-}: GetCreateLabOrderResources): UseQueryResult<LabOrderResourcesRes | undefined, Error> => {
+}: GetCreateLabOrderResources): UseQueryResult<LabOrderResourcesRes | null, Error> => {
   const apiClient = useOystehrAPIClient();
   return useQuery({
     queryKey: ['external lab resource search', patientId, search],
 
     queryFn: async () => {
-      return apiClient?.getCreateExternalLabResources({ patientId, search });
+      const res = await apiClient?.getCreateExternalLabResources({ patientId, search });
+      if (res) {
+        return res;
+      } else {
+        return null;
+      }
     },
 
     enabled: Boolean(apiClient && (patientId || search)),
@@ -314,26 +329,152 @@ export const useGetCreateExternalLabResources = ({
   });
 };
 
-export function useGetUnsolicitedResultsResources(input: {
-  requestType: UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_ICON;
-}): UseQueryResult<GetUnsolicitedResultsResourcesForIcon | undefined, Error>;
-export function useGetUnsolicitedResultsResources(input: {
-  requestType: UnsolicitedResultsRequestType.GET_ALL_TASKS;
-}): UseQueryResult<GetUnsolicitedResultsResourcesForTable | undefined, Error>;
-export function useGetUnsolicitedResultsResources({
-  requestType,
-}: GetUnsolicitedResultsResourcesInput): UseQueryResult<GetUnsolicitedResultsResourcesOutput | undefined, Error> {
+export function useDisplayUnsolicitedResultsIcon(
+  input: GetUnsolicitedResultsResourcesForIconInput
+): UseQueryResult<GetUnsolicitedResultsResourcesForIcon | null, Error> {
   const apiClient = useOystehrAPIClient();
+  const { requestType } = input;
+
   return useQuery({
     queryKey: ['get unsolicited results resources', requestType],
 
     queryFn: async () => {
-      return apiClient?.getUnsolicitedResultsResources({ requestType });
+      const data = await apiClient?.getUnsolicitedResultsResources(input);
+      if (data && 'tasksAreReady' in data) {
+        return data;
+      }
+      return null;
     },
 
-    enabled: Boolean(FEATURE_FLAGS.LAB_ORDERS_ENABLED && apiClient && requestType),
+    enabled: Boolean(apiClient && FEATURE_FLAGS.LAB_ORDERS_ENABLED),
+    staleTime: 1000 * 15, // 15 seconds
+  });
+}
+
+export function useGetUnsolicitedResultsResourcesForTable(
+  input: GetUnsolicitedResultsResourcesForTableInput
+): UseQueryResult<GetUnsolicitedResultsResourcesForTable | null, Error> {
+  const apiClient = useOystehrAPIClient();
+  const { requestType } = input;
+
+  return useQuery({
+    queryKey: ['get unsolicited results resources', requestType],
+
+    queryFn: async () => {
+      const data = await apiClient?.getUnsolicitedResultsResources(input);
+      if (data && 'unsolicitedResultRows' in data) {
+        return data;
+      }
+      return null;
+    },
+
+    enabled: Boolean(apiClient),
+  });
+}
+
+export function useGetUnsolicitedResultsResourcesForMatch(
+  input: GetUnsolicitedResultsResourcesForMatchInput
+): UseQueryResult<GetUnsolicitedResultsResourcesForMatch | null, Error> {
+  const apiClient = useOystehrAPIClient();
+  const { requestType, diagnosticReportId } = input;
+
+  return useQuery({
+    queryKey: ['get unsolicited results resources', requestType, diagnosticReportId],
+
+    queryFn: async () => {
+      const data = await apiClient?.getUnsolicitedResultsResources({ requestType, diagnosticReportId });
+      if (data && 'labInfo' in data) {
+        return data;
+      }
+      return null;
+    },
+
+    enabled: Boolean(apiClient && diagnosticReportId),
     placeholderData: keepPreviousData,
     staleTime: QUERY_STALE_TIME,
+  });
+}
+
+export function useGetUnsolicitedResultsRelatedRequests(
+  input: GetUnsolicitedResultsRelatedRequests
+): UseQueryResult<RelatedRequestsToUnsolicitedResultOutput | null, Error> {
+  const apiClient = useOystehrAPIClient();
+  const { requestType, diagnosticReportId, patientId } = input;
+
+  return useQuery({
+    queryKey: ['get unsolicited results resources', requestType, diagnosticReportId, patientId],
+
+    queryFn: async () => {
+      const data = await apiClient?.getUnsolicitedResultsResources({ requestType, diagnosticReportId, patientId });
+      if (data && 'possibleRelatedSRsWithVisitDate' in data) {
+        return data;
+      }
+      return null;
+    },
+
+    enabled: Boolean(apiClient && diagnosticReportId),
+    placeholderData: keepPreviousData,
+    staleTime: QUERY_STALE_TIME,
+  });
+}
+
+export function useGetUnsolicitedResultsResourcesForReview(
+  input: GetUnsolicitedResultsResourcesForReview
+): UseQueryResult<GetUnsolicitedResultsReviewResourcesOutput | null, Error> {
+  const apiClient = useOystehrAPIClient();
+  const { requestType, diagnosticReportId } = input;
+
+  return useQuery({
+    queryKey: ['get unsolicited results resources', requestType, diagnosticReportId],
+
+    queryFn: async () => {
+      const data = await apiClient?.getUnsolicitedResultsResources({ requestType, diagnosticReportId });
+      if (data && 'labOrder' in data) {
+        return data;
+      }
+      return null;
+    },
+
+    enabled: Boolean(apiClient && diagnosticReportId),
+    placeholderData: keepPreviousData,
+    staleTime: QUERY_STALE_TIME,
+  });
+}
+
+export function useCancelMatchUnsolicitedResultTask(): UseMutationResult<
+  void,
+  Error,
+  CancelMatchUnsolicitedResultTask
+> {
+  const apiClient = useOystehrAPIClient();
+
+  return useMutation({
+    mutationFn: async (input: CancelMatchUnsolicitedResultTask) => {
+      const { taskId, event } = input;
+      const data = await apiClient?.updateLabOrderResources({ taskId, event });
+
+      if (data && 'possibleRelatedSRsWithVisitDate' in data) {
+        return data;
+      }
+
+      return;
+    },
+  });
+}
+
+export function useFinalizeUnsolicitedResultMatch(): UseMutationResult<void, Error, FinalizeUnsolicitedResultMatch> {
+  const apiClient = useOystehrAPIClient();
+
+  return useMutation({
+    mutationFn: async (input: FinalizeUnsolicitedResultMatch) => {
+      const data = await apiClient?.updateLabOrderResources(input);
+
+      if (data && 'possibleRelatedSRsWithVisitDate' in data) {
+        return data;
+      }
+
+      return;
+    },
   });
 }
 
