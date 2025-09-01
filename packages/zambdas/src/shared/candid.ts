@@ -59,6 +59,7 @@ import { DateTime } from 'luxon';
 import {
   FHIR_IDENTIFIER_NPI,
   getAttendingPractitionerId,
+  getCandidPlanTypeCodeFromCoverage,
   getOptionalSecret,
   getPayerId,
   getSecret,
@@ -1002,6 +1003,7 @@ const buildCandidCoverageCreateInput = (
       memberId: assertDefined(coverage.subscriberId, 'Member ID'),
       payerName: assertDefined(insuranceOrg.name, 'Payor name'),
       payerId: PayerId(assertDefined(getPayerId(insuranceOrg), 'Payor id')),
+      planType: getCandidPlanTypeCodeFromCoverage(coverage),
     },
   };
 };

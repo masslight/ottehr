@@ -15,6 +15,8 @@ import {
 import { ENV_LOCATION_NAME } from '../../../e2e-utils/resource/constants';
 import {
   PATIENT_INSURANCE_MEMBER_ID,
+  PATIENT_INSURANCE_PLAN_TYPE,
+  PATIENT_INSURANCE_PLAN_TYPE_2,
   PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS,
   PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS_ADDITIONAL_LINE,
   PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS_AS_PATIENT,
@@ -120,6 +122,7 @@ test.describe('Book appointment filling insurances information on payment option
       getPatientDetailsStepAnswers({}),
       getPaymentOptionInsuranceAnswers({
         insuranceCarrier: insuranceCarrier1!,
+        insurancePlanType: PATIENT_INSURANCE_PLAN_TYPE,
         insuranceMemberId: PATIENT_INSURANCE_MEMBER_ID,
         insurancePolicyHolderFirstName: PATIENT_INSURANCE_POLICY_HOLDER_FIRST_NAME,
         insurancePolicyHolderLastName: PATIENT_INSURANCE_POLICY_HOLDER_LAST_NAME,
@@ -134,6 +137,7 @@ test.describe('Book appointment filling insurances information on payment option
         insurancePolicyHolderZip: PATIENT_INSURANCE_POLICY_HOLDER_ZIP,
         insurancePolicyHolderRelationshipToInsured: PATIENT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED,
         insuranceCarrier2: insuranceCarrier2!,
+        insurancePlanType2: PATIENT_INSURANCE_PLAN_TYPE_2,
         insuranceMemberId2: PATIENT_INSURANCE_MEMBER_ID,
         insurancePolicyHolderFirstName2: PATIENT_INSURANCE_POLICY_HOLDER_2_FIRST_NAME,
         insurancePolicyHolderLastName2: PATIENT_INSURANCE_POLICY_HOLDER_2_LAST_NAME,
