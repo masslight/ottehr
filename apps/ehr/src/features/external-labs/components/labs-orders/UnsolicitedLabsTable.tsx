@@ -94,7 +94,6 @@ export const UnsolicitedLabsTable: FC<UnsolicitedLabsTableProps> = ({
                   onRowClick={() => onRowClick(lab)}
                   columns={columns}
                   allowDelete={false}
-                  onDeleteOrder={() => console.log('cannot delete this!')}
                 />
               ))}
             </TableBody>

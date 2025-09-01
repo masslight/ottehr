@@ -105,6 +105,8 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
   const [manualError, setManualError] = useState<string | undefined>();
   const [failedOrderNumbers, setFailedOrderNumbers] = useState<string[] | undefined>();
 
+  const isPatientRecord = searchBy.searchBy.field === 'patientId';
+
   const { pendingLabs, readyLabs } = labOrders.reduce(
     (acc: { pendingLabs: LabOrderDTO<SearchBy>[]; readyLabs: LabOrderDTO<SearchBy>[] }, lab) => {
       if (lab.orderStatus === 'pending') acc.pendingLabs.push(lab);
@@ -334,7 +336,7 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
             <LocalizationProvider dateAdapter={AdapterLuxon}>
               <Grid container spacing={2} sx={{ mb: 2, mt: 1 }}>
                 <Grid item xs={4}>
-                  {searchBy.searchBy.field === 'patientId' ? (
+                  {isPatientRecord ? (
                     <LabsAutocompleteForPatient
                       patientLabItems={patientLabItems}
                       selectedLabItem={selectedOrderedItem}
@@ -493,7 +495,7 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
           closeButtonText="Cancel"
         />
       )}
-      {id && (
+      {id && isPatientRecord && (
         <UnsolicitedLabsTable
           patientId={id}
           columns={columns}
