@@ -1,6 +1,6 @@
 import { Box, Stack, Typography } from '@mui/material';
 import React, { useMemo } from 'react';
-import { useParams } from 'react-router-dom';
+import { useAppointmentData, useChartData } from 'src/telemed';
 import { AssessmentTitle } from 'src/telemed/features/appointment/AssessmentTab';
 import { GetVitalsResponseData, VitalFieldNames, VitalsObservationDTO } from 'utils';
 import { PageTitle } from '../../../telemed/components/PageTitle';
@@ -19,7 +19,6 @@ import VitalsTemperaturesCard from '../components/vitals/temperature/VitalsTempe
 import VitalsVisionCard from '../components/vitals/vision/VitalsVisionCard';
 import VitalsWeightsCard from '../components/vitals/weights/VitalsWeightsCard';
 import { useNavigationContext } from '../context/NavigationContext';
-import { useAppointment } from '../hooks/useAppointment';
 import { useReactNavigationBlocker } from '../hooks/useReactNavigationBlocker';
 
 interface PatientVitalsProps {
@@ -27,12 +26,15 @@ interface PatientVitalsProps {
 }
 
 export const PatientVitals: React.FC<PatientVitalsProps> = () => {
-  const { id: appointmentID } = useParams();
   const {
     resources: { appointment, encounter },
-    isLoading,
-    error,
-  } = useAppointment(appointmentID);
+    isAppointmentLoading,
+    appointmentError,
+  } = useAppointmentData();
+
+  const { isChartDataLoading, chartDataError } = useChartData();
+  const isLoading = isAppointmentLoading || isChartDataLoading;
+  const error = chartDataError || appointmentError;
 
   const saveVitals = useSaveVitals({
     encounterId: encounter?.id ?? '',
@@ -165,7 +167,7 @@ const AbnormalVitalsModal: React.FC<AbnormalVitalsModalProps> = ({ abnormalVital
     <ConfirmationModal
       title="Abnormal Vital Value"
       description="You have entered an abnormal value. Please verify:"
-      ContentComponent={() => (
+      ContentComponent={
         <Stack spacing={1}>
           {temperature && temperature.length > 0 && (
             <>
@@ -228,7 +230,7 @@ const AbnormalVitalsModal: React.FC<AbnormalVitalsModalProps> = ({ abnormalVital
             </>
           )}
         </Stack>
-      )}
+      }
       confirmText="Back"
       closeButtonText="Continue"
     />

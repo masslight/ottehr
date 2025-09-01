@@ -30,8 +30,10 @@ export function getOpeningTime(
       from: currentDate,
       scheduleOverrides: scheduleDef.scheduleOverrides,
     })?.overriddenDay ?? getHoursForDate(scheduleDef, currentDate);
-  console.log('currentHoursOfOperation', currentHoursOfOperation);
   if (!currentHoursOfOperation) {
+    return undefined;
+  }
+  if (!currentHoursOfOperation.workingDay) {
     return undefined;
   }
   const dt = DateTime.now().setZone(timezone).startOf('day').plus({ hours: currentHoursOfOperation.open });
@@ -57,6 +59,9 @@ export function getClosingTime(
     })?.overriddenDay ?? getHoursForDate(scheduleDef, currentDate);
 
   if (!currentHoursOfOperation) {
+    return undefined;
+  }
+  if (!currentHoursOfOperation.workingDay) {
     return undefined;
   }
   const dt = DateTime.now().setZone(timezone).startOf('day').plus({ hours: currentHoursOfOperation.close });

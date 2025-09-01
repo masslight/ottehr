@@ -1,23 +1,16 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { Box, Skeleton, Typography, useTheme } from '@mui/material';
 import { FC, useEffect, useState } from 'react';
-import { AiObservationField, ObservationTextFieldDTO } from 'utils';
+import { AiObservationField, getPresignedURL, ObservationTextFieldDTO } from 'utils';
 import AiSuggestion from '../../../../../components/AiSuggestion';
 import ImageCarousel, { ImageCarouselObject } from '../../../../../components/ImageCarousel';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
-import { getPresignedFileUrl } from '../../../../../helpers/files.helper';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../../state';
+import { useAppointmentData, useChartData } from '../../../../state';
 
 export const ChiefComplaintPatientColumn: FC = () => {
   const theme = useTheme();
-  const { isAppointmentLoading, patientPhotoUrls, appointment, chartData } = getSelectors(useAppointmentStore, [
-    'isAppointmentLoading',
-    'patientPhotoUrls',
-    'appointment',
-    'chartData',
-  ]);
-
+  const { isAppointmentLoading, patientPhotoUrls, appointment } = useAppointmentData();
+  const { chartData } = useChartData();
   const [signedPhotoUrls, setSignedPhotoUrls] = useState<string[]>([]);
   const [photoUrlsLoading, setPhotoUrlsLoading] = useState<boolean>(false);
   const { getAccessTokenSilently } = useAuth0();
@@ -35,7 +28,7 @@ export const ChiefComplaintPatientColumn: FC = () => {
         const authToken = await getAccessTokenSilently();
         const requests: Promise<string | undefined>[] = [];
         patientPhotoUrls.forEach((url) => {
-          requests.push(getPresignedFileUrl(url, authToken));
+          requests.push(getPresignedURL(url, authToken));
         });
         const signedUrls = await Promise.all(requests);
         setSignedPhotoUrls(signedUrls.filter(Boolean) as string[]);

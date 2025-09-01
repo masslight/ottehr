@@ -1,7 +1,6 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
 import { OystehrAPIClient } from 'ui-components';
-import { useSuccessQuery } from 'utils';
-import { chooseJson, PromiseReturnType } from 'utils';
+import { chooseJson, PromiseReturnType, useSuccessQuery } from 'utils';
 import { useApiClients } from './useAppClients';
 
 interface GetPaymentMethodsParams {
@@ -17,12 +16,12 @@ export const useGetPaymentMethods = (
   const { oystehrZambda } = useApiClients();
 
   const queryResult = useQuery({
-    queryKey: ['get-payment-methods', beneficiaryPatientId],
+    queryKey: ['payment-methods-list', beneficiaryPatientId],
 
     queryFn: async () => {
       if (oystehrZambda) {
         const result = await oystehrZambda.zambda.execute({
-          id: 'get-payment-methods',
+          id: 'payment-methods-list',
           beneficiaryPatientId,
         });
         return chooseJson<PromiseReturnType<ReturnType<OystehrAPIClient['getPaymentMethods']>>>(result);

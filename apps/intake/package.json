@@ -1,12 +1,15 @@
 {
   "name": "intake-ui",
-  "version": "1.15.4",
+  "version": "1.16.7",
   "private": true,
   "type": "module",
   "scripts": {
     "start": "vite --mode ${ENV:-default}",
     "start:local": "ENV=default npm run start",
     "start:demo": "ENV=demo npm run start",
+    "start:iac": "vite --mode ${ENV:-default}",
+    "start:local:iac": "ENV=default npm run start:iac",
+    "start:demo:iac": "ENV=demo npm run start:iac",
     "build": "tsc && vite build --mode default",
     "build:env": "ENV=$npm_config_env ROBOTS_FILE=lowers npm run build-skeleton",
     "build:development": "ENV=development ROBOTS_FILE=lowers npm run build-skeleton",

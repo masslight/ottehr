@@ -1,11 +1,10 @@
 import { Box, Stack, Typography } from '@mui/material';
-import React, { FC } from 'react';
+import { FC } from 'react';
 import { useFeatureFlags } from '../../../../features/css-module/context/featureFlags';
-import { getSelectors } from '../../../../shared/store/getSelectors';
 import { AccordionCard, DoubleColumnContainer } from '../../../components';
 import { PageTitle } from '../../../components/PageTitle';
 import { useGetAppointmentAccessibility } from '../../../hooks';
-import { useAppointmentStore } from '../../../state';
+import { useChartData } from '../../../state';
 import { AiPotentialDiagnosesCard } from './AiPotentialDiagnosesCard';
 import {
   AssessmentTitle,
@@ -16,10 +15,13 @@ import {
 } from './components';
 
 export const AssessmentCard: FC = () => {
-  const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
+  const { chartData } = useChartData({
+    requestedFields: { cptCodes: {} },
+    replaceStoreValues: true,
+  });
+
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const emCode = chartData?.emCode;
-
   const { css } = useFeatureFlags();
 
   return (

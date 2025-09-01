@@ -10,7 +10,7 @@ export const useSetupStripe = (
   const { oystehrZambda } = useApiClients();
 
   const queryResult = useQuery({
-    queryKey: ['setup-payment-method', beneficiaryPatientId],
+    queryKey: ['payment-methods-setup', beneficiaryPatientId],
 
     queryFn: async (): Promise<string> => {
       if (!oystehrZambda) {
@@ -22,7 +22,7 @@ export const useSetupStripe = (
       }
 
       const result = await oystehrZambda.zambda.execute({
-        id: 'setup-payment-method',
+        id: 'payment-methods-setup',
         beneficiaryPatientId,
       });
       return chooseJson<string>(result);
