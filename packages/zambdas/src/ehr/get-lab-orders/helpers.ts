@@ -146,14 +146,14 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
 };
 
 export const mapReflexResourcesToDrLabDTO = async (
-  resources: ResourcesByDr,
+  resourcesByDr: ResourcesByDr,
   token: string
 ): Promise<ReflexLabDTO[]> => {
   const DTOs: ReflexLabDTO[] = [];
-  const resourcesByDr = Object.values(resources);
-  for (const drResources of resourcesByDr) {
-    const diagnosticReportLabDetailDTO = await formatResourcesIntoDiagnosticReportLabDTO(drResources, token);
-    const orderNumber = getOrderNumberFromDr(drResources.diagnosticReport) || '';
+  const resourcesForDiagnosticReport = Object.values(resourcesByDr);
+  for (const resources of resourcesForDiagnosticReport) {
+    const diagnosticReportLabDetailDTO = await formatResourcesIntoDiagnosticReportLabDTO(resources, token);
+    const orderNumber = getOrderNumberFromDr(resources.diagnosticReport) || '';
     if (diagnosticReportLabDetailDTO) {
       const reflexLabDetailDTO: ReflexLabDTO = { ...diagnosticReportLabDetailDTO, isReflex: true, orderNumber };
       DTOs.push(reflexLabDetailDTO);
@@ -560,7 +560,6 @@ export const getLabResources = async (
       ),
     ]);
 
-  console.log('reflexDRsAndRelatedResources', JSON.stringify(reflexDRsAndRelatedResources));
   const allPractitioners = [...practitioners, ...serviceRequestPractitioners];
 
   let resultPDFs: LabResultPDF[] = [];
@@ -1302,8 +1301,23 @@ export const parseLabOrderStatusWithSpecificTask = (
     task.code?.coding?.some((c) => c.code === LAB_ORDER_TASK.code.reviewCancelledResult)
   )
     return ExternalLabsStatus['cancelled by lab'];
-  if (result.status === 'final' && task.status === 'completed') return ExternalLabsStatus.reviewed;
-  if (result.status === 'final' && task.status === 'ready') return ExternalLabsStatus.received;
+
+  const taskIsMatchUnsolicitedResult = task.code?.coding?.some(
+    (c) => c.system === LAB_ORDER_TASK.system && c.code === LAB_ORDER_TASK.code.matchUnsolicitedResult
+  );
+
+  if (result.status === 'final') {
+    if (task.status === 'completed') {
+      if (taskIsMatchUnsolicitedResult) {
+        return ExternalLabsStatus.received;
+      } else {
+        return ExternalLabsStatus.reviewed;
+      }
+    } else if (task.status === 'ready') {
+      return ExternalLabsStatus.received;
+    }
+  }
+
   if (result.status === 'corrected' && task.status === 'ready') return ExternalLabsStatus.corrected;
   if ((result.status === 'final' || result.status == 'corrected') && task.status === 'completed')
     return ExternalLabsStatus.reviewed;

@@ -1093,7 +1093,7 @@ export default function AppointmentPage(): ReactElement {
                   ]}
                 />
               </Grid>
-              <Grid container xs={6} justifyContent="flex-end">
+              <Grid item container xs={6} justifyContent="flex-end">
                 <LoadingButton
                   variant="outlined"
                   sx={{

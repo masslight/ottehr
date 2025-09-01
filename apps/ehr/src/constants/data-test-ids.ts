@@ -25,6 +25,7 @@ export const dataTestIds = {
   dashboard: {
     appointmentsTable: (tab: 'prebooked' | 'in-office' | 'completed' | 'cancelled') => `appointments-table-${tab}`,
     addPatientButton: 'add-patient-button',
+    approveButton: 'approve-button',
     intakeButton: `intake-button`,
     visitDetailsButton: `visit-details-button`,
     progressNoteButton: `progress-note-button`,
@@ -126,6 +127,7 @@ export const dataTestIds = {
   insuranceContainer: {
     type: 'insurance-type',
     insuranceCarrier: 'insurance-carrier',
+    insurancePlanType: 'insurance-plan-type',
     memberId: 'insurance-member-id',
     showMoreButton: 'insurance-show-more-button',
     hideButton: 'insurance-hide-button',
@@ -407,6 +409,7 @@ export const dataTestIds = {
     id: 'add-insurance-dialog',
     type: 'add-insurance-dialog-type',
     insuranceCarrier: 'add-insurance-dialog-carrier',
+    planType: 'add-insurance-dialog-plan-type',
     memberId: 'add-insurance-dialog-member-id',
     policyHoldersFirstName: 'add-insurance-dialog-policy-holders-first-name',
     policyHoldersLastName: 'add-insurance-dialog-policy-holders-last-name',
