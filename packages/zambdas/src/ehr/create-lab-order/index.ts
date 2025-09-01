@@ -33,6 +33,7 @@ import {
   isPSCOrder,
   LAB_ACCOUNT_NUMBER_SYSTEM,
   LAB_ORDER_TASK,
+  LAB_ORG_TYPE_CODING,
   ModifiedOrderingLocation,
   ORDER_NUMBER_LEN,
   OrderableItemSearchResult,
@@ -462,7 +463,7 @@ const getAdditionalResources = async (
   const labGuid = orderableItem.lab.labGuid;
   const labOrganizationSearchRequest: BatchInputRequest<Organization> = {
     method: 'GET',
-    url: `/Organization?identifier=${labGuid}`,
+    url: `/Organization?type=${LAB_ORG_TYPE_CODING.system}|${LAB_ORG_TYPE_CODING.code}&identifier=${OYSTEHR_LAB_GUID_SYSTEM}|${labGuid}`,
   };
   const encounterResourceSearch: BatchInputRequest<Patient | Coverage | Account> = {
     method: 'GET',
@@ -471,7 +472,7 @@ const getAdditionalResources = async (
 
   const orderingLocationSearch: BatchInputRequest<Location> = {
     method: 'GET',
-    url: `/Location?_id=${modifiedOrderingLocation.id}`,
+    url: `/Location?status=active&_id=${modifiedOrderingLocation.id}`,
   };
 
   console.log('searching for lab org, encounter, and ordering location resources');
@@ -495,7 +496,19 @@ const getAdditionalResources = async (
     if (resource.resourceType === 'Coverage' && resource.status === 'active') coverageSearchResults.push(resource);
     if (resource.resourceType === 'Patient') patientId = resource.id;
     if (resource.resourceType === 'Account' && resource.status === 'active') accountSearchResults.push(resource);
-    if (resource.resourceType === 'Location') orderingLocation = resource;
+    if (resource.resourceType === 'Location') {
+      if (
+        !resource.extension?.some(
+          (ext) =>
+            ext.valueCoding?.code === 'vi' &&
+            ext.valueCoding?.system === 'http://terminology.hl7.org/CodeSystem/location-physical-type'
+        ) &&
+        resource.identifier?.some(
+          (id) => id.system === LAB_ACCOUNT_NUMBER_SYSTEM && id.value && id.assigner && id.assigner?.reference
+        )
+      )
+        orderingLocation = resource;
+    }
 
     // only requests to the same lab that have not yet been submitted will be bundled
     if (

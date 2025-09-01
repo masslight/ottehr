@@ -62,7 +62,14 @@ async function main(): Promise<void> {
 
   const locations = locationsResponse
     .unbundle()
-    .filter((loc) => !loc.extension?.some((ext) => ext.valueCoding?.code === 'vi'));
+    .filter(
+      (loc) =>
+        !loc.extension?.some(
+          (ext) =>
+            ext.valueCoding?.code === 'vi' &&
+            ext.valueCoding?.system === 'http://terminology.hl7.org/CodeSystem/location-physical-type'
+        )
+    );
   const labOrgs = labOrgsResponse.unbundle();
   console.log(`This is returned locations: ${JSON.stringify(locations)}`);
   console.log(`This is returned labOrgs: ${JSON.stringify(labOrgs)}`);

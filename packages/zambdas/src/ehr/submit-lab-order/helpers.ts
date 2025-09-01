@@ -161,7 +161,12 @@ export async function getBundledOrderResources(
     throw EXTERNAL_LAB_ERROR('No locations found for bundle');
   }
   const firstLocation = locationResults[0].location;
-  if (!firstLocation || !locationResults.every((locRes) => locRes.location?.id === firstLocation?.id)) {
+  if (
+    !firstLocation ||
+    !locationResults.every(
+      (locRes) => locRes.location?.id === firstLocation?.id && locRes.location?.status === 'active'
+    )
+  ) {
     throw EXTERNAL_LAB_ERROR(`All tests must be ordered from the same Location/${firstLocation?.id}`);
   }
 

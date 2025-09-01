@@ -145,7 +145,16 @@ const getResources = async (
     if (resource.resourceType === 'Account') accounts.push(resource as Account);
     if (resource.resourceType === 'Location') {
       const loc = resource as Location;
-      if (loc.id && loc.identifier && loc.name && !loc.extension?.some((ext) => ext.valueCoding?.code === 'vi')) {
+      if (
+        loc.id &&
+        loc.identifier &&
+        loc.name &&
+        !loc.extension?.some(
+          (ext) =>
+            ext.valueCoding?.code === 'vi' &&
+            ext.valueCoding?.system === 'http://terminology.hl7.org/CodeSystem/location-physical-type'
+        )
+      ) {
         orderingLocations.push({
           name: loc.name,
           id: loc.id,
