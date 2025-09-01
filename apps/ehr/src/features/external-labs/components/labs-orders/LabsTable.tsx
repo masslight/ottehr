@@ -24,12 +24,19 @@ import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
 import { ReactElement, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { submitLabOrder } from 'src/api/api';
 import { CustomDialog } from 'src/components/dialogs';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { LabOrderDTO, LabOrderListPageDTO, LabOrdersSearchBy, openPdf, OrderableItemSearchResult } from 'utils';
-import { getExternalLabOrderEditUrl } from '../../../css-module/routing/helpers';
+import {
+  LabOrderDTO,
+  LabOrderListPageDTO,
+  LabOrdersSearchBy,
+  openPdf,
+  OrderableItemSearchResult,
+  ReflexLabDTO,
+} from 'utils';
+import { getExternalLabOrderEditUrl, getReflexExternalLabEditUrl } from '../../../css-module/routing/helpers';
 import { LabsAutocompleteForPatient } from '../LabsAutocompleteForPatient';
 import { LabOrderLoading } from './LabOrderLoading';
 import { LabsTableRow } from './LabsTableRow';
@@ -68,12 +75,14 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
   titleText,
   onCreateOrder,
 }: LabsTableProps<SearchBy>): ReactElement => {
+  const { id } = useParams();
   const navigateTo = useNavigate();
   const theme = useTheme();
   const { oystehrZambda: oystehr } = useApiClients();
 
   const {
     labOrders,
+    reflexResults,
     loading,
     totalPages,
     page,
@@ -122,6 +131,12 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
 
   const onRowClick = (labOrderData: LabOrderListPageDTO): void => {
     navigateTo(getExternalLabOrderEditUrl(labOrderData.appointmentId, labOrderData.serviceRequestId));
+  };
+
+  const onRowClickForReflex = (result: ReflexLabDTO): void => {
+    if (!id) return;
+    // todo future resultsDetails maybe does not need to be an array anymore
+    navigateTo(getReflexExternalLabEditUrl(id, result.resultsDetails?.[0].diagnosticReportId));
   };
 
   const handleOrderableItemCodeChange = (value: OrderableItemSearchResult | null): void => {
@@ -403,6 +418,16 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
                         })
                       }
                       onRowClick={() => onRowClick(order)}
+                      columns={columns}
+                      allowDelete={allowDelete}
+                    />
+                  ))}
+                  {reflexResults.map((result, idx) => (
+                    <LabsTableRow
+                      key={`${idx}-reflex-${result.resultsDetails?.[0].diagnosticReportId}`}
+                      labOrderData={result}
+                      onDeleteOrder={() => console.log('you cannot delete a reflex result')} // todo later, make this better
+                      onRowClick={() => onRowClickForReflex(result)}
                       columns={columns}
                       allowDelete={allowDelete}
                     />

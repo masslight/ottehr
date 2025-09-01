@@ -73,3 +73,35 @@ export async function updateEnvFiles(environment: string, patientPortalUrl: stri
   fs.writeFileSync(`${__dirname}/../../apps/intake/env/.env.${environment}`, patientPortalEnvFile);
   fs.writeFileSync(`${__dirname}/../../apps/ehr/env/.env.${environment}`, ehrEnvFile);
 }
+
+export async function getM2MClientAccessToken(clientId: string, clientSecret: string): Promise<string> {
+  if (!clientId) {
+    throw new Error('Missing client_id');
+  }
+  if (!clientSecret) {
+    throw new Error('Missing client_secret');
+  }
+  try {
+    console.log('Fetching auth0 token...');
+    const response = await fetch('https://auth.zapehr.com/oauth/token', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        grant_type: 'client_credentials',
+        client_id: clientId,
+        client_secret: clientSecret,
+        audience: 'https://api.zapehr.com',
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    console.log('Got auth0 token');
+    return (await response.json()).access_token;
+  } catch (error: any) {
+    console.error('❌ Failed to get auth0 token', error);
+    throw new Error(error.message);
+  }
+}

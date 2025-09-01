@@ -19,6 +19,7 @@ import { CustomThemeProvider } from './CustomThemeProvider';
 import { FeatureFlagsProvider } from './features/css-module/context/featureFlags';
 import { UnsolicitedResultsInbox } from './features/external-labs/pages/UnsolicitedResultsInbox';
 import { UnsolicitedResultsMatch } from './features/external-labs/pages/UnsolicitedResultsMatch';
+import { UnsolicitedResultsReview } from './features/external-labs/pages/UnsolicitedResultsReview';
 import { useApiClients } from './hooks/useAppClients';
 import useEvolveUser from './hooks/useEvolveUser';
 import AddEmployeePage from './pages/AddEmployeePage';
@@ -234,7 +235,11 @@ function App(): ReactElement {
                   <Route path="/patient/:id/followup/:encounterId" element={<PatientFollowup />} />
                   <Route path="/patients" element={<PatientsPage />} />
                   <Route path="/unsolicited-results" element={<UnsolicitedResultsInbox />} />
-                  <Route path="/match-unsolicited-result/:diagnosticReportId" element={<UnsolicitedResultsMatch />} />
+                  <Route path="/unsolicited-results/:diagnosticReportId/match" element={<UnsolicitedResultsMatch />} />
+                  <Route
+                    path="/unsolicited-results/:diagnosticReportId/review"
+                    element={<UnsolicitedResultsReview />}
+                  />
 
                   <Route path="/rcm/claims" element={<Claims />} />
                   <Route path="/rcm/claims/:id" element={<Claim />} />

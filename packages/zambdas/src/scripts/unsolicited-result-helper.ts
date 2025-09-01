@@ -1,8 +1,9 @@
 import { BatchInputPostRequest } from '@oystehr/sdk';
 import { getRandomValues, randomUUID } from 'crypto';
-import { DiagnosticReport, Observation } from 'fhir/r4b';
+import { DiagnosticReport, Observation, Organization } from 'fhir/r4b';
 import fs from 'fs';
 import { DateTime } from 'luxon';
+import { OYSTEHR_UNSOLICITED_RESULT_ORDERING_PROVIDER_SYSTEM } from 'utils';
 import { createOystehrClient, getAuth0Token } from '../shared';
 
 type PatientDetails = {
@@ -24,6 +25,8 @@ const EXAMPLE_ENVS = ['local', 'development', 'dev', 'testing', 'staging'];
 const PATIENT: PatientDetails = { first: 'PatientFirstName', last: 'PatientLastName', dob: '2001-01-01' };
 const PRACTITIONER: PractitionerDetails = { first: 'PractitionerFirstName', last: 'PractitionerLastName' };
 const TEST: TestDetails = { code: '57021-8', display: 'CBC W Auto Differential panel in Blood' };
+
+const AUTO_LAB_GUID = '790b282d-77e9-4697-9f59-0cef8238033a';
 
 const main = async (): Promise<void> => {
   if (process.argv.length !== 3) {
@@ -47,6 +50,26 @@ const main = async (): Promise<void> => {
   }
   const oystehr = createOystehrClient(token, envConfig);
 
+  const autoLabOrgSearch = (
+    await oystehr.fhir.search<Organization>({
+      resourceType: 'Organization',
+      params: [
+        {
+          name: 'identifier',
+          value: AUTO_LAB_GUID,
+        },
+      ],
+    })
+  ).unbundle();
+
+  const autoLabOrg = autoLabOrgSearch[0];
+  const autoLabOrgId = autoLabOrg?.id;
+
+  if (!autoLabOrgId) {
+    console.log('could not find lab org for auto lab, searching with lab guid', AUTO_LAB_GUID);
+    process.exit(1);
+  }
+
   const obs = createObs();
   const obsFullUrl = `urn:uuid:${randomUUID()}`;
   const dr = createUnsolicitedResultDr({
@@ -55,6 +78,7 @@ const main = async (): Promise<void> => {
     patient: PATIENT,
     practitioner: PRACTITIONER,
     test: TEST,
+    labOrgId: autoLabOrgId,
   });
 
   const requests: BatchInputPostRequest<Observation | DiagnosticReport>[] = [
@@ -117,12 +141,14 @@ const createUnsolicitedResultDr = ({
   patient,
   practitioner,
   test,
+  labOrgId,
 }: {
   fillerId: string;
   obsFullUrl: string;
   patient: PatientDetails;
   practitioner: PractitionerDetails;
   test: TestDetails;
+  labOrgId: string;
 }): DiagnosticReport => {
   const dr: DiagnosticReport = {
     resourceType: 'DiagnosticReport',
@@ -146,6 +172,12 @@ const createUnsolicitedResultDr = ({
             },
           },
         ],
+      },
+      {
+        url: OYSTEHR_UNSOLICITED_RESULT_ORDERING_PROVIDER_SYSTEM,
+        valueReference: {
+          reference: '#unsolicitedResultPractitionerId',
+        },
       },
     ],
     identifier: [
@@ -188,7 +220,7 @@ const createUnsolicitedResultDr = ({
     },
     performer: [
       {
-        reference: '#unsolicitedResultPractitionerId',
+        reference: `Organization/${labOrgId}`,
       },
     ],
     contained: [
