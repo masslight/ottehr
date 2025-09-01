@@ -327,7 +327,7 @@ export const PatientDeviceVitalsTable: React.FC<DeviceVitalsProps> = ({ deviceTy
       columns = [
         {
           field: 'wt',
-          headerName: 'Weight',
+          headerName: 'Weight(in pounds)',
           width: 180,
           sortable: false,
           renderCell: (params) => {

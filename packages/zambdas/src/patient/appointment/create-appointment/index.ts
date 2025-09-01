@@ -368,8 +368,6 @@ export async function createAppointment(
     throw new Error('Encounter resource does not have an ID');
   }
 
-  // Create combined observation for baseline measurements if any exist
-  // Create combined observation for baseline measurements if any exist
   let baselineObservation: Observation | null = null;
 
   // Check if any measurement has a value
@@ -377,11 +375,74 @@ export async function createAppointment(
     (value) => value !== undefined && value !== null && value !== 0
   );
 
-  if (hasMeasurements) {
-    baselineObservation = createCombinedBaselineObservation(fhirPatient.id, systolic, diastolic, weight, glucose);
+  const observationResult = await oystehr.fhir.search({
+    resourceType: 'Observation',
+    params: [
+      { name: 'patient', value: `Patient/${fhirPatient.id}` },
+      { name: '_sort', value: '-date' },
+      { name: '_count', value: '1' },
+    ],
+  });
 
-    if (baselineObservation) {
-      baselineObservation = await oystehr.fhir.create(baselineObservation);
+  const observations = observationResult.unbundle()[0] as any;
+
+  if (observations) {
+    const components: ObservationComponent[] = [];
+
+    if (systolic) {
+      components.push({
+        code: {
+          text: 'Systolic',
+        },
+        valueString: systolic.toString(),
+      });
+    }
+
+    if (diastolic) {
+      components.push({
+        code: {
+          text: 'Diastolic',
+        },
+        valueString: diastolic.toString(),
+      });
+    }
+
+    if (weight) {
+      components.push({
+        code: {
+          text: 'Weight',
+        },
+        valueString: weight.toString(),
+      });
+    }
+
+    if (glucose) {
+      components.push({
+        code: {
+          text: 'Glucose',
+        },
+        valueString: glucose.toString(),
+      });
+    }
+    const updatedObservation = {
+      ...observations,
+      components,
+      meta: {
+        ...observations.meta,
+        lastUpdated: new Date().toISOString(),
+      },
+    };
+
+    console.log('Updated observation without threshold components:', JSON.stringify(updatedObservation, null, 2));
+
+    await oystehr.fhir.update(updatedObservation);
+  } else {
+    if (hasMeasurements) {
+      baselineObservation = createCombinedBaselineObservation(fhirPatient.id, systolic, diastolic, weight, glucose);
+
+      if (baselineObservation) {
+        baselineObservation = await oystehr.fhir.create(baselineObservation);
+      }
     }
   }
 

@@ -542,19 +542,26 @@
       "src": "src/patient/get-patients-devices/index",
       "zip": ".dist/zips/get-patients-devices.zip"
     },
-    "ASSIGN-THRESHOLD": {
-      "name": "ASSIGN-THRESHOLD",
-      "type": "http_auth",
-      "runtime": "nodejs20.x",
-      "src": "src/ehr/assign-threshold/index",
-      "zip": ".dist/zips/assign-threshold.zip"
-    },
     "GET-VITALS": {
       "name": "GET-VITALS",
       "type": "http_auth",
       "runtime": "nodejs20.x",
       "src": "src/ehr/get-vitals/index",
       "zip": ".dist/zips/get-vitals.zip"
+    },
+    "GET-PATIENT-BASELINES": {
+      "name": "GET-PATIENT-BASELINES",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/get-patient-baselines/index",
+      "zip": ".dist/zips/get-patient-baselines.zip"
+    },
+    "UPDATE-PATIENT-BASELINES": {
+      "name": "UPDATE-PATIENT-BASELINES",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/update-patient-baselines/index",
+      "zip": ".dist/zips/update-patient-baselines.zip"
     },
     "GET-DEVICE-VITALS-PATIENT": {
       "name": "GET-DEVICE-VITALS-PATIENT",
@@ -746,10 +753,13 @@
     },
     "GET-MIO-DEVICES": {
       "name": "GET-MIO-DEVICES",
-      "type": "http_auth",
+      "type": "cron",
       "runtime": "nodejs20.x",
       "src": "src/ehr/get-mio-devices/index",
-      "zip": ".dist/zips/get-mio-devices.zip"
+      "zip": ".dist/zips/get-mio-devices.zip",
+      "schedule": {
+        "expression": "cron(0 * * * ? *)"
+      }
     },
     "MIO-VITALS": {
       "name": "MIO-VITALS",

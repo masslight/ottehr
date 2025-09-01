@@ -4,22 +4,18 @@ import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-p
 import { FC, useCallback, useState } from 'react';
 import { useMutation, useQuery } from 'react-query';
 import { useParams } from 'react-router-dom';
-import { assignThreshold, getDevices, unassignDevices } from 'src/api/api';
+import { getDevices, unassignDevices } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { DeviceColumns, DeviceProperty, DeviceResponse, Output } from 'utils';
 import { DeviceAssignmentModal } from '../components/DeviceAssignModal';
 import { RoundedButton } from './RoundedButton';
-import { ThresholdAssignModal } from './ThresholdAssignModal';
 
 export const PatientDevicesTab: FC<{
   loading?: boolean;
   onViewVitals?: (id: string, type: string, thresholds: any, name: string) => void;
 }> = ({ loading, onViewVitals }) => {
   const [openModal, setOpenModal] = useState(false);
-  const [deviceId, _setDeviceId] = useState<string>('');
   const [selectUnassignDevice, setSelectUnassignDevice] = useState<string>('');
-  const [deviceType, _setDeviceType] = useState<string>('');
-  const [thresholdModal, setThresholdModal] = useState(false);
   const [assignedDevices, setAssignedDevices] = useState<DeviceColumns[]>([]);
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 5 });
   const [totalCount, setTotalCount] = useState(0);
@@ -85,52 +81,6 @@ export const PatientDevicesTab: FC<{
 
   const handleUnAssign = async (deviceId: string): Promise<void> => {
     await unassignDevice(deviceId);
-  };
-
-  const { mutateAsync: assignThresholdMutate, isLoading: isUpdatingThreshold } = useMutation(
-    (params: { deviceId: string; deviceType: string; thresholds: Record<string, number> }) =>
-      assignThreshold(
-        {
-          deviceId: params.deviceId,
-          patientId: patientId!,
-          deviceType: params.deviceType,
-          thresholds: params.thresholds,
-        },
-        oystehrZambda!
-      ),
-    {
-      onSuccess: async (): Promise<any> => {
-        console.log('Threshold updated successfully');
-        await refetch();
-      },
-      onError: (error: unknown) => {
-        console.error('Failed to update threshold:', error);
-      },
-    }
-  );
-
-  const handleSaveThreshold = async (thresholds: Record<string, string>): Promise<any> => {
-    if (!deviceId || !patientId) return;
-
-    try {
-      const thresholdValues: Record<string, number> = {};
-
-      if (deviceType === 'WS') {
-        thresholdValues.weight = parseInt(thresholds.weight || '0');
-      } else if (deviceType === 'BG') {
-        thresholdValues.glucose = parseInt(thresholds.glucose || '0');
-      } else if (deviceType === 'BP') {
-        thresholdValues.systolic = parseInt(thresholds.systolic || '0');
-        thresholdValues.diastolic = parseInt(thresholds.diastolic || '0');
-      } else {
-        thresholdValues.default = parseInt(thresholds.default || '0');
-      }
-
-      await assignThresholdMutate({ deviceId, deviceType, thresholds: thresholdValues });
-    } catch (error) {
-      console.error('Failed to save thresholds:', error);
-      throw error;
-    }
   };
 
   const deviceTypeMap: Record<string, string> = {
@@ -241,7 +191,7 @@ export const PatientDevicesTab: FC<{
           },
         }}
         autoHeight
-        loading={loading || isFetching || isUnassigning || isUpdatingThreshold}
+        loading={loading || isFetching || isUnassigning}
         pagination
         disableColumnMenu
         pageSizeOptions={[5]}
@@ -268,15 +218,6 @@ export const PatientDevicesTab: FC<{
           onClose={() => setOpenModal(false)}
           patientId={patientId}
           refetchAssignedDevices={refetch}
-        />
-      )}
-      {deviceId && (
-        <ThresholdAssignModal
-          open={thresholdModal}
-          onClose={() => setThresholdModal(false)}
-          deviceId={deviceId}
-          deviceType={deviceType}
-          onSaveThreshold={handleSaveThreshold}
         />
       )}
     </Paper>

@@ -362,7 +362,7 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({ name, deviceTyp
       columns = [
         {
           field: 'wt',
-          headerName: 'Weight',
+          headerName: 'Weight (in pounds)',
           width: 180,
           sortable: false,
           renderCell: (params) => {

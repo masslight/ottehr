@@ -129,6 +129,12 @@ const UPDATE_NURSING_ORDER = 'update-nursing-order';
 const GET_LABEL_PDF_ZAMBDA_ID = import.meta.env.VITE_APP_GET_LABEL_PDF_ZAMBDA_ID;
 const GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID = import.meta.env.VITE_APP_GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID;
 const PAPERWORK_TO_PDF_ZAMBDA_ID = 'paperwork-to-pdf';
+const GET_DEVICES_ZAMBDA_ID = 'get-devices';
+const ASSIGN_DEVICES_ZAMBDA_ID = 'assign-devices';
+const UNASSIGN_DEVICES_ZAMBDA_ID = 'unassign-devices';
+const GET_VITALS_ZAMBDA_ID = 'get-vitals';
+const GET_PATIENT_BASELINES_ZAMBDA_ID = 'get-patient-baselines';
+const UPDATE_PATIENT_BASELINES_ZAMBDA_ID = 'update-patient-baselines';
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -973,7 +979,7 @@ export const generatePaperworkPdf = async (
 export const getDevices = async (params: object, oystehr: Oystehr): Promise<GetDevicesResponse> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: 'get-devices',
+      id: GET_DEVICES_ZAMBDA_ID,
       ...params,
     });
     return chooseJson(response);
@@ -986,7 +992,7 @@ export const getDevices = async (params: object, oystehr: Oystehr): Promise<GetD
 export const assignDevices = async (params: object, oystehr: Oystehr): Promise<GetDevicesResponse> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: 'assign-devices',
+      id: ASSIGN_DEVICES_ZAMBDA_ID,
       ...params,
     });
     return chooseJson(response);
@@ -999,7 +1005,7 @@ export const assignDevices = async (params: object, oystehr: Oystehr): Promise<G
 export const unassignDevices = async (params: object, oystehr: Oystehr): Promise<GetDevicesResponse> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: 'unassign-devices',
+      id: UNASSIGN_DEVICES_ZAMBDA_ID,
       ...params,
     });
     return chooseJson(response);
@@ -1009,23 +1015,36 @@ export const unassignDevices = async (params: object, oystehr: Oystehr): Promise
   }
 };
 
-export const assignThreshold = async (params: object, oystehr: Oystehr): Promise<GetDevicesResponse> => {
+export const getVitals = async (params: object, oystehr: Oystehr): Promise<VitalsData> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: 'assign-threshold',
+      id: GET_VITALS_ZAMBDA_ID,
       ...params,
     });
     return chooseJson(response);
   } catch (error: unknown) {
-    console.error('Error assigning threshold to devices:', error);
+    console.error('Error fetching vitals for device:', error);
     throw error;
   }
 };
 
-export const getVitals = async (params: object, oystehr: Oystehr): Promise<VitalsData> => {
+export const getPatientBaselines = async (params: object, oystehr: Oystehr): Promise<VitalsData> => {
   try {
     const response = await oystehr.zambda.execute({
-      id: 'get-vitals',
+      id: GET_PATIENT_BASELINES_ZAMBDA_ID,
+      ...params,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.error('Error fetching vitals for device:', error);
+    throw error;
+  }
+};
+
+export const updatePatientBaselines = async (params: object, oystehr: Oystehr): Promise<any> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: UPDATE_PATIENT_BASELINES_ZAMBDA_ID,
       ...params,
     });
     return chooseJson(response);
