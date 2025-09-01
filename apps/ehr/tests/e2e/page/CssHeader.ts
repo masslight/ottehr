@@ -33,8 +33,8 @@ export class CssHeader {
 
   async selectProviderPractitioner(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.cssHeader.providerPractitionerInput).click();
-    await this.#page.getByRole('option').first().waitFor();
-    await this.#page.getByRole('option').first().click();
+    await this.#page.getByText('Demo User').waitFor();
+    await this.#page.getByText('Demo User').click();
     await expect(
       this.#page.getByTestId(dataTestIds.cssHeader.providerPractitionerInput).locator('input')
     ).toBeEnabled();

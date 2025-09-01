@@ -145,8 +145,7 @@ test.describe('Check paperwork is prefilled for existing patient. Payment - insu
       );
     });
   });
-  // TODO: Need to remove skip when https://github.com/masslight/ottehr/issues/1938 is fixed
-  test.skip('IPPP-6 Check Secondary insurance has prefilled values', async () => {
+  test('IPPP-6 Check Secondary insurance has prefilled values', async () => {
     await page.goto(`paperwork/${appointmentIds[1]}/payment-option`);
     await expect(locator.insuranceHeading).toBeVisible();
     await locator.addSecondaryInsurance.click();

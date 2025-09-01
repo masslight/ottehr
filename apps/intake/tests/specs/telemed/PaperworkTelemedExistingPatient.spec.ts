@@ -151,8 +151,7 @@ test.describe('Virtual visit. Check paperwork is prefilled for existing patient.
       );
     });
   });
-  // TODO: Need to remove skip when https://github.com/masslight/ottehr/issues/1938 is fixed
-  test.skip('VVPP-6 Check Secondary insurance has prefilled values', async () => {
+  test('VVPP-6 Check Secondary insurance has prefilled values', async () => {
     await page.goto(`paperwork/${appointmentIds[1]}/payment-option`);
     await locator.insuranceOption.click();
     await expect(locator.insuranceHeading).toBeVisible();
