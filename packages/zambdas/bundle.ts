@@ -1,8 +1,10 @@
-import { sentryEsbuildPlugin } from '@sentry/esbuild-plugin';
+// import { sentryEsbuildPlugin } from '@sentry/esbuild-plugin';
 import archiver from 'archiver';
 import * as esbuild from 'esbuild';
 import { copy } from 'esbuild-plugin-copy';
 import fs from 'fs';
+import pLimit from 'p-limit';
+import path from 'path';
 import ottehrSpec from './ottehr-spec.json';
 
 interface ZambdaSpec {
@@ -20,36 +22,42 @@ const zambdasList = (): ZambdaSpec[] => {
 };
 
 const build = async (zambdas: ZambdaSpec[]): Promise<void> => {
-  const sources = zambdas.map((zambda) => `${zambda.src}.ts`);
-  await esbuild
-    .build({
-      entryPoints: sources,
-      bundle: true,
-      outdir: '.dist',
-      sourcemap: true,
-      platform: 'node',
-      external: ['@aws-sdk/*'],
-      treeShaking: true,
-      plugins: [
-        copy({
-          resolveFrom: 'cwd',
-          assets: {
-            from: ['assets/*'],
-            to: ['.dist/assets'],
-          },
-        }),
-        sentryEsbuildPlugin({
-          authToken: process.env.SENTRY_AUTH_TOKEN,
-          org: 'zapehr',
-          project: 'ottehr-lambda',
-          // debug: true,
-        }),
-      ],
-    })
-    .catch((error) => {
-      console.log(error);
-      process.exit(1);
-    });
+  console.log(`Let's start creating build for ${zambdas.length} zambdas`);
+  for (const zambda of zambdas) {
+    const entry = `${zambda.src}.ts`;
+    const outputFile = `.dist/${zambda.src.replace(/^src\//, '')}.js`;
+    const outdir = path.dirname(outputFile);
+    console.log(`${entry} -> ${outdir}`);
+    await esbuild
+      .build({
+        entryPoints: [entry],
+        bundle: true,
+        outfile: outputFile,
+        sourcemap: true,
+        platform: 'node',
+        external: ['@aws-sdk/*'],
+        treeShaking: true,
+        plugins: [
+          copy({
+            resolveFrom: 'cwd',
+            assets: {
+              from: ['assets/*'],
+              to: ['.dist/assets'],
+            },
+          }),
+          // sentryEsbuildPlugin({
+          //   authToken: process.env.SENTRY_AUTH_TOKEN,
+          //   org: 'zapehr',
+          //   project: 'ottehr-lambda',
+          //   debug: true,
+          // }),
+        ],
+      })
+      .catch((error) => {
+        console.log(error);
+        process.exit(1);
+      });
+  }
 };
 
 const zipZambda = async (sourceFilePath: string, assetsDir: string, outPath: string): Promise<void> => {
@@ -74,11 +82,14 @@ const zip = async (zambdas: ZambdaSpec[]): Promise<void> => {
   }
 
   const assetsDir = '.dist/assets';
+  const limit = pLimit(5); // Only 5 at a time
 
   await Promise.all(
     zambdas.map((zambda) => {
-      const sourceDir = `.dist/${zambda.src.substring('src/'.length)}.js`;
-      return zipZambda(sourceDir, assetsDir, zambda.zip);
+      void limit(() => {
+        const sourceDir = `.dist/${zambda.src.substring('src/'.length)}.js`;
+        return zipZambda(sourceDir, assetsDir, zambda.zip);
+      });
     })
   );
 };
