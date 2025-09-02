@@ -25,6 +25,7 @@ import { FullAppointmentResourcePackage } from '../../shared/pdf/visit-details-p
 import { composeAndCreateVisitNotePdf } from '../../shared/pdf/visit-details-pdf/visit-note-pdf-creation';
 import { getChartData } from '../get-chart-data';
 import { getMedicationOrders } from '../get-medication-orders';
+import { getImmunizationOrders } from '../immunization/get-orders';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -122,11 +123,16 @@ export const performEffect = async (
     (promise) => promise.response
   );
   const medicationOrders = (await medicationOrdersPromise).orders;
+  const immunizationOrders = (
+    await getImmunizationOrders(oystehr, {
+      encounterId: visitResources.encounter.id!,
+    })
+  ).orders;
 
   console.log('Chart data received');
   try {
     const pdfInfo = await composeAndCreateVisitNotePdf(
-      { chartData, additionalChartData, medicationOrders },
+      { chartData, additionalChartData, medicationOrders, immunizationOrders },
       visitResources,
       secrets,
       m2mToken
