@@ -38,6 +38,7 @@ export type FhirAppointmentStatus = Appointment['status'];
 export const Visit_Status_Array = [
   'pending',
   'arrived',
+  'awaiting supervisor approval',
   'ready',
   'intake',
   'ready for provider',
@@ -56,6 +57,7 @@ export type VisitStatusHistoryLabel = Exclude<VisitStatusWithoutUnknown, 'ready'
 export const visitStatusToFhirAppointmentStatusMap: Record<VisitStatusWithoutUnknown, FhirAppointmentStatus> = {
   pending: 'booked',
   arrived: 'arrived',
+  'awaiting supervisor approval': 'fulfilled',
   ready: 'checked-in',
   intake: 'checked-in',
   'ready for provider': 'fulfilled',
@@ -76,6 +78,7 @@ export const visitStatusToFhirEncounterStatusMap: Record<VisitStatusWithoutUnkno
   discharged: 'in-progress',
   cancelled: 'cancelled',
   'no show': 'cancelled',
+  'awaiting supervisor approval': 'finished',
   completed: 'finished',
 };
 

@@ -6,8 +6,10 @@ import {
   DocumentReference,
   Encounter,
   HealthcareService,
+  Location,
   Patient,
   Practitioner,
+  Provenance,
   QuestionnaireResponse,
   QuestionnaireResponseItem,
   RelatedPerson,
@@ -54,12 +56,14 @@ import {
   makeEncounterSearchParams,
   makeResourceCacheKey,
   mergeResources,
+  parseAttenderQualification,
   parseEncounterParticipants,
   timezoneMap,
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface GetAppointmentsZambdaInputValidated extends GetAppointmentsZambdaInput {
+  supervisorApprovalEnabled: boolean;
   secrets: Secrets | null;
 }
 
@@ -77,7 +81,8 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     // We should use the appointment's timezone to request the correct appointments.
     // The approach: use date without timezone from client and convert it to Zulu (UTC)
     // with the appointment's timezone.
-    const { visitType, searchDate, locationID, providerIDs, groupIDs, secrets } = validatedParameters;
+    const { visitType, searchDate, locationID, providerIDs, groupIDs, supervisorApprovalEnabled, secrets } =
+      validatedParameters;
 
     console.groupEnd();
     console.debug('validateRequestParameters success');
@@ -205,20 +210,11 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
       };
     }
 
-    // array of patient ids to get related documents
-    const patientIds: string[] = [];
-    appointmentResources.forEach((resource) => {
-      if (resource.resourceType === 'Appointment') {
-        const appointment = resource as Appointment;
-        const patientId = appointment.participant
-          .find((appt) => appt.actor?.reference?.startsWith('Patient/'))
-          ?.actor?.reference?.replace('Patient/', '');
-        if (patientId) patientIds.push(`Patient/${patientId}`);
-      }
-    });
-
     console.time('parse_search_results');
     // const persons = getPersonsFromResourceList(searchResultsForSelectedDate);
+
+    const patientIds: string[] = [];
+    const practitionerIds: string[] = [];
     const patientToRPMap: Record<string, RelatedPerson[]> = getRelatedPersonsFromResourceList(appointmentResources);
 
     const allAppointments: Appointment[] = [];
@@ -231,16 +227,18 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     const phoneNumberToRpMap: Record<string, string[]> = {};
     const rpIdToResourceMap: Record<string, RelatedPerson> = {};
     const practitionerIdToResourceMap: Record<string, Practitioner> = {};
-    const participantIdToResourceMap: Record<string, Practitioner> = {};
     const healthcareServiceIdToResourceMap: Record<string, HealthcareService> = {};
-    appointmentResources.forEach((resource) => {
-      if (resource.resourceType === 'Practitioner' && resource.id) {
-        participantIdToResourceMap[`Practitioner/${resource.id}`] = resource as Practitioner;
-      }
-    });
+
+    const location = appointmentResources.find(({ resourceType }) => resourceType === 'Location') as Location;
     appointmentResources.forEach((resource) => {
       if (resource.resourceType === 'Appointment') {
         allAppointments.push(resource as Appointment);
+
+        const appointment = resource as Appointment;
+        const patientId = appointment.participant
+          .find((appt) => appt.actor?.reference?.startsWith('Patient/'))
+          ?.actor?.reference?.replace('Patient/', '');
+        if (patientId) patientIds.push(`Patient/${patientId}`);
       } else if (resource.resourceType === 'Patient' && resource.id) {
         patientIdMap[resource.id] = resource as Patient;
       } else if (resource.resourceType === 'Encounter') {
@@ -249,6 +247,14 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
         if (apptRef) {
           apptRefToEncounterMap[apptRef] = asEnc;
         }
+
+        (asEnc.participant ?? []).forEach((p) => {
+          const ref = p.individual?.reference;
+          if (ref?.startsWith('Practitioner/')) {
+            const id = ref.split('/')[1];
+            if (id) practitionerIds.push(id);
+          }
+        });
       } else if (resource.resourceType === 'QuestionnaireResponse') {
         const encRef = (resource as QuestionnaireResponse).encounter?.reference;
         const patientRef = (resource as QuestionnaireResponse).subject?.reference;
@@ -281,40 +287,79 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
         healthcareServiceIdToResourceMap[`HealthcareService/${resource.id}`] = resource as HealthcareService;
       }
     });
+
     console.timeEnd('parse_search_results');
 
-    console.time('get_all_doc_refs + get_all_communications');
-    const docRefPromise = oystehr?.fhir.search<DocumentReference>({
-      resourceType: 'DocumentReference',
-      params: [
-        { name: 'status', value: 'current' },
-        { name: 'type', value: `${INSURANCE_CARD_CODE},${PHOTO_ID_CARD_CODE}` },
-        { name: 'related', value: patientIds.join(',') },
-      ],
-    });
+    console.time('get_all_doc_refs + get_all_communications + practitioners + signatures');
+    const docRefPromise =
+      patientIds.length > 0
+        ? oystehr?.fhir.search<DocumentReference>({
+            resourceType: 'DocumentReference',
+            params: [
+              { name: 'status', value: 'current' },
+              { name: 'type', value: `${INSURANCE_CARD_CODE},${PHOTO_ID_CARD_CODE}` },
+              { name: 'related', value: patientIds.join(',') },
+            ],
+          })
+        : Promise.resolve(undefined);
     const uniqueNumbers = Array.from(rpPhoneNumbers);
 
     let allDocRefs: DocumentReference[] | undefined = undefined;
     let communications: (Communication | RelatedPerson)[] | undefined = undefined;
+    let encounterSignatures: Provenance[] | undefined = undefined;
 
-    if (uniqueNumbers?.length > 0) {
-      const communicationsPromise = oystehr.fhir.search<Communication | RelatedPerson>({
-        resourceType: 'Communication',
+    const communicationsPromise =
+      uniqueNumbers.length > 0
+        ? oystehr.fhir.search<Communication | RelatedPerson>({
+            resourceType: 'Communication',
+            params: [
+              { name: 'medium', value: `${ZAP_SMS_MEDIUM_CODE}` },
+              { name: 'sender:RelatedPerson.telecom', value: uniqueNumbers.join(',') },
+              { name: '_include', value: 'Communication:sender' },
+            ],
+          })
+        : Promise.resolve(undefined);
+
+    const participantsPromise =
+      practitionerIds.length > 0
+        ? oystehr.fhir.search<Practitioner>({
+            resourceType: 'Practitioner',
+            params: [{ name: '_id', value: practitionerIds.join(',') }],
+          })
+        : Promise.resolve(undefined);
+
+    const encounterIds = Object.values(apptRefToEncounterMap)
+      .filter(Boolean)
+      .map((enc) => enc.id)
+      .filter(isTruthy);
+
+    const provenancePromises = encounterIds.map((encId) =>
+      oystehr.fhir.search<Provenance>({
+        resourceType: 'Provenance',
         params: [
-          { name: 'medium', value: `${ZAP_SMS_MEDIUM_CODE}` },
-          { name: 'sender:RelatedPerson.telecom', value: uniqueNumbers.join(',') },
-          { name: '_include', value: 'Communication:sender' },
+          { name: 'target', value: `Encounter/${encId}` },
+          { name: 'agent-role', value: 'verifier' },
         ],
-      });
-      const [docRefBundle, communicationBundle] = await Promise.all([docRefPromise, communicationsPromise]);
-      allDocRefs = docRefBundle.unbundle();
-      communications = communicationBundle.unbundle();
-    } else {
-      const docRefBundle = await docRefPromise;
-      allDocRefs = docRefBundle.unbundle();
-    }
+      })
+    );
 
-    console.timeEnd('get_all_doc_refs + get_all_communications');
+    const [docRefBundle, communicationBundle, participantsBundle, ...encounterSignaturesBundle] = await Promise.all([
+      docRefPromise,
+      communicationsPromise,
+      participantsPromise,
+      ...provenancePromises,
+    ]);
+
+    allDocRefs = docRefBundle?.unbundle() ?? [];
+    communications = communicationBundle?.unbundle();
+    const practitioners = participantsBundle?.unbundle() as Practitioner[];
+    practitioners?.forEach((pr) => {
+      practitionerIdToResourceMap[`Practitioner/${pr.id}`] = pr;
+    });
+
+    encounterSignatures = encounterSignaturesBundle.flatMap((bundle) => bundle?.unbundle() ?? []);
+
+    console.timeEnd('get_all_doc_refs + get_all_communications + practitioners + signatures');
 
     // because the related person tied to the user's account has been excluded from the graph of persons
     // connected to patient resources, while the Zap sms creates communications with sender reference based on
@@ -378,10 +423,12 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
         patientIdMap,
         rpToCommMap,
         practitionerIdToResourceMap,
-        participantIdToResourceMap,
         healthcareServiceIdToResourceMap,
         next: false,
         group: undefined,
+        supervisorApprovalEnabled,
+        encounterSignatures,
+        location,
       };
 
       preBooked = appointmentQueues.prebooked
@@ -478,6 +525,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
 
 interface AppointmentInformationInputs {
   appointment: Appointment;
+  location: Location;
   patientIdMap: Record<string, Patient>;
   apptRefToEncounterMap: Record<string, Encounter>;
   encounterRefToQRMap: Record<string, QuestionnaireResponse>;
@@ -485,11 +533,12 @@ interface AppointmentInformationInputs {
   patientToRPMap: Record<string, RelatedPerson[]>;
   rpToCommMap: Record<string, Communication[]>;
   practitionerIdToResourceMap: Record<string, Practitioner>;
-  participantIdToResourceMap: Record<string, Practitioner>;
   healthcareServiceIdToResourceMap: Record<string, HealthcareService>;
   allDocRefs: DocumentReference[];
   next: boolean;
   group: HealthcareService | undefined;
+  supervisorApprovalEnabled: boolean;
+  encounterSignatures: Provenance[];
 }
 
 const makeAppointmentInformation = (
@@ -498,16 +547,18 @@ const makeAppointmentInformation = (
 ): InPersonAppointmentInformation | undefined => {
   const {
     appointment,
+    location,
     patientIdMap,
     apptRefToEncounterMap,
     encounterRefToQRMap,
     allDocRefs,
     rpToCommMap,
     practitionerIdToResourceMap,
-    participantIdToResourceMap,
     next,
     patientToRPMap,
     group,
+    supervisorApprovalEnabled,
+    encounterSignatures,
   } = input;
 
   const patientRef = appointment.participant.find((appt) => appt.actor?.reference?.startsWith('Patient/'))?.actor
@@ -579,7 +630,7 @@ const makeAppointmentInformation = (
   const idCard = docRefComplete('Photo ID cards', 'photo-id-front');
   const insuranceCard = docRefComplete('Insurance cards', 'insurance-card-front');
   const cancellationReason = appointment.cancelationReason?.coding?.[0].code;
-  const status = getVisitStatus(appointment, encounter);
+  const status = getVisitStatus(appointment, encounter, supervisorApprovalEnabled);
 
   const unconfirmedDOB = getUnconfirmedDOBForAppointment(appointment);
 
@@ -608,8 +659,12 @@ const makeAppointmentInformation = (
   // if the QR has been updated at least once, this tag will not be present
   const paperworkHasBeenSubmitted = !!questionnaireResponse?.authored;
 
-  const participants = parseEncounterParticipants(encounter, participantIdToResourceMap);
-
+  const participants = parseEncounterParticipants(encounter, practitionerIdToResourceMap);
+  const attenderQualification = parseAttenderQualification(encounter, location, practitionerIdToResourceMap);
+  const signature = encounterSignatures.find((provenance) =>
+    provenance.target.find((ref) => ref.reference === `Encounter/${encounter.id}`)
+  );
+  const approvalDate = signature?.recorded;
   const timezoneResourceId = getTimezoneResourceIdFromAppointment(appointment);
   const appointmentTimezone = timezoneResourceId && timezoneMap.get(timezoneResourceId);
 
@@ -635,9 +690,11 @@ const makeAppointmentInformation = (
     unconfirmedDOB: unconfirmedDOB ?? '',
     appointmentType: appointmentTypeForAppointment(appointment),
     appointmentStatus: appointment.status,
-    status: status,
+    status,
     cancellationReason: cancellationReason,
     provider: provider,
+    attenderQualification,
+    approvalDate,
     group: group ? group.name : undefined,
     room: room,
     paperwork: {
