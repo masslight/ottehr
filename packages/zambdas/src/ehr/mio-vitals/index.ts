@@ -15,16 +15,10 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
     const secrets = input.secrets;
     let requestBody;
     console.group('validateRequestParameters');
-    if (input.headers?.['access-key'] != 'mio-to-ottehr') {
-      console.debug('Unauthorized Request');
-      return lambdaResponse(401, {
-        message: 'Unauthorized Request',
-      });
-    }
     try {
       requestBody = JSON.parse(input.body as string);
     } catch (error) {
-      console.debug('Unauthorized Request');
+      console.error(error);
       return lambdaResponse(500, {
         message: 'Invalid request',
       });
