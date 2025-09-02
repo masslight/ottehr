@@ -410,7 +410,7 @@ const PatientInformationPage: FC = () => {
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <BreadCrumbs patient={patient} />
               <Typography variant="h3" color="primary.main">
-                Patient Information
+                Patient Profile
               </Typography>
               <WarningBanner
                 otherPatientsWithSameName={otherPatientsWithSameName}

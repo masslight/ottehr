@@ -207,7 +207,7 @@ const PatientDocumentsExplorerPage: FC = () => {
               },
               {
                 link: '#',
-                children: `Patient Information`,
+                children: `Patient Profile`,
               },
             ]}
           />

@@ -35,7 +35,7 @@ export default function PatientPage(): JSX.Element {
 
   return (
     <>
-      <PageContainer tabTitle="Patient Information">
+      <PageContainer tabTitle="Patient Profile">
         <Stack spacing={2}>
           <CustomBreadcrumbs
             chain={[
@@ -54,7 +54,7 @@ export default function PatientPage(): JSX.Element {
             ]}
           />
           <Typography variant="subtitle1" color="primary.main">
-            Patient Record
+            Visit History
           </Typography>
 
           <Paper
@@ -79,7 +79,7 @@ export default function PatientPage(): JSX.Element {
                   to={`/patient/${id}/info`}
                   data-testid={dataTestIds.patientRecordPage.seeAllPatientInfoButton}
                 >
-                  See All Patient Info
+                  View Patient Profile
                 </RoundedButton>
               </Box>
             </Box>
