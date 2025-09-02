@@ -1,10 +1,21 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { List } from 'fhir/r4b';
-import { getSecret, ListTemplatesZambdaInput, ListTemplatesZambdaOutput, SecretsKeys } from 'utils';
+import {
+  examConfig,
+  ExamType,
+  getSecret,
+  ListTemplatesZambdaInput,
+  ListTemplatesZambdaOutput,
+  SecretsKeys,
+} from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
-import { GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM } from '../../shared/templates';
+import {
+  GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
+  GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM,
+  GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM,
+} from '../../shared/templates';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -31,10 +42,10 @@ export const index = wrapHandler('list-templates', async (input: ZambdaInput): P
 });
 
 const performEffect = async (
-  _validatedInput: ListTemplatesZambdaInput,
+  validatedInput: ListTemplatesZambdaInput,
   oystehr: Oystehr
 ): Promise<ListTemplatesZambdaOutput> => {
-  // const { examType } = validatedInput; TODO
+  const { examType } = validatedInput;
 
   const listSearchResult = (
     await oystehr.fhir.search<List>({
@@ -51,11 +62,25 @@ const performEffect = async (
   }
 
   // Filter out the global templates holder List
-  const templates = listSearchResult.filter(
+  let filteredTemplates = listSearchResult.filter(
     (template) => !template.meta?.tag?.some((tag) => tag.system === GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM)
   );
 
-  const templateTitles = templates
+  // Filter out the templates which are not for the requested examType and the latest version
+  filteredTemplates = filteredTemplates.filter((template) => {
+    if (examType === ExamType.IN_PERSON) {
+      return template.code?.coding?.some(
+        (c) => c.system === GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM && c.version === examConfig.inPerson.default.version
+      );
+    } else if (examType === ExamType.TELEMED) {
+      return template.code?.coding?.some(
+        (c) => c.system === GLOBAL_TEMPLATE_TELEMED_CODE_SYSTEM && c.version === examConfig.telemed.default.version
+      );
+    }
+    return false;
+  });
+
+  const templateTitles = filteredTemplates
     .map((template) => {
       return template.title;
     })

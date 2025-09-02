@@ -1,7 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { BundleEntry, Encounter, List, Patient } from 'fhir/r4b';
+import { examConfig } from 'utils';
 import { v4 as uuidV4 } from 'uuid';
 import { getAuth0Token } from '../shared';
+import { GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM } from '../shared/templates';
 import { fhirApiUrlFromAuth0Audience, performEffectWithEnvFile } from './helpers';
 
 const getOystehr = async (config: any): Promise<Oystehr> => {
@@ -44,6 +46,16 @@ async function createGlobalTemplateFromAppointment(config: any): Promise<void> {
   // Build List Resource with contained resources
   const listToCreate: List = {
     resourceType: 'List',
+    code: {
+      coding: [
+        {
+          system: GLOBAL_TEMPLATE_IN_PERSON_CODE_SYSTEM,
+          code: `default`,
+          version: examConfig.inPerson.default.version,
+          display: 'Global Template In-Person',
+        },
+      ],
+    },
     status: 'current',
     mode: 'working',
     title: 'Otitis Media Left and Conjunctivitis Left',
