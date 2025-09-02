@@ -3,7 +3,6 @@ import archiver from 'archiver';
 import * as esbuild from 'esbuild';
 import { copy } from 'esbuild-plugin-copy';
 import fs from 'fs';
-import pLimit from 'p-limit';
 import path from 'path';
 import ottehrSpec from './ottehr-spec.json';
 
@@ -82,14 +81,11 @@ const zip = async (zambdas: ZambdaSpec[]): Promise<void> => {
   }
 
   const assetsDir = '.dist/assets';
-  const limit = pLimit(5); // Only 5 at a time
 
   await Promise.all(
     zambdas.map((zambda) => {
-      void limit(() => {
-        const sourceDir = `.dist/${zambda.src.substring('src/'.length)}.js`;
-        return zipZambda(sourceDir, assetsDir, zambda.zip);
-      });
+      const sourceDir = `.dist/${zambda.src.substring('src/'.length)}.js`;
+      return zipZambda(sourceDir, assetsDir, zambda.zip);
     })
   );
 };
