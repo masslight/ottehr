@@ -423,6 +423,14 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     separateLine();
   }
 
+  if (data.immunizationOrders && data.immunizationOrders.length > 0) {
+    drawBlockHeader('Immunization');
+    data.immunizationOrders.forEach((record) => {
+      regularText(record);
+    });
+    separateLine();
+  }
+
   if (
     Object.values(data.additionalQuestions).some((value) => value !== '') ||
     data.screening?.seenInLastThreeYears ||
