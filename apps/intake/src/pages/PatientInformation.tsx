@@ -205,6 +205,14 @@ const PatientInformation = (): JSX.Element => {
           }),
           required: true,
         },
+        {
+          type: 'Text',
+          name: 'authorizedNonLegalGuardians',
+          label: 'Full name(s) of authorized non-legal guardian(s)',
+          defaultValue: patientInfo?.authorizedNonLegalGuardians,
+          multiline: true,
+          maxRows: 2,
+        },
       ];
     } else {
       return [
@@ -313,6 +321,14 @@ const PatientInformation = (): JSX.Element => {
             totalCharacters: REASON_ADDITIONAL_MAX_CHAR,
             displayCharCount: REASON_ADDITIONAL_DISPLAY_CHAR,
           },
+        },
+        {
+          type: 'Text',
+          name: 'authorizedNonLegalGuardians',
+          label: 'Full name(s) of authorized non-legal guardian(s)',
+          defaultValue: patientInfo?.authorizedNonLegalGuardians,
+          multiline: true,
+          maxRows: 2,
         },
       ];
     }

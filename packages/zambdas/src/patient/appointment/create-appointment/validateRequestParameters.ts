@@ -127,6 +127,10 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
     throw INVALID_INPUT_ERROR('"appointmentMetadata" must be an object');
   }
 
+  if (patient.authorizedNonLegalGuardians != null && typeof patient.authorizedNonLegalGuardians !== 'string') {
+    throw INVALID_INPUT_ERROR('if specified, "patient.authorizedNonLegalGuardians" must be a string');
+  }
+
   return {
     slotId,
     user,
