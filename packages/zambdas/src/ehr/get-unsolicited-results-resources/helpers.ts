@@ -438,7 +438,36 @@ const formateResourcesIntoUnsolicitedLabListPageDTO = (resourcesByDr: ResourcesB
 
   Object.values(resourcesByDr).forEach((resources) => {
     const { diagnosticReport, labOrg, completedTasks, readyTasks } = resources;
-    const task = readyTasks[0] || completedTasks[0];
+
+    // todo this logic is used in two places, we should consolidate into helper
+    const matchTask = [...readyTasks, ...completedTasks].find(
+      (task) =>
+        task.code?.coding?.some(
+          (c) => c.system === LAB_ORDER_TASK.system && c.code === LAB_ORDER_TASK.code.matchUnsolicitedResult
+        )
+    );
+    const reviewTask = [...readyTasks, ...completedTasks].find(
+      (task) =>
+        task.code?.coding?.some(
+          (c) =>
+            c.system === LAB_ORDER_TASK.system &&
+            (c.code === LAB_ORDER_TASK.code.reviewFinalResult ||
+              c.code === LAB_ORDER_TASK.code.reviewPreliminaryResult ||
+              c.code === LAB_ORDER_TASK.code.reviewCorrectedResult ||
+              c.code === LAB_ORDER_TASK.code.reviewCancelledResult)
+        )
+    );
+
+    // console.log('check matchTask', JSON.stringify(matchTask));
+    // console.log('check reviewTask', JSON.stringify(reviewTask));
+    const task = reviewTask || matchTask;
+    if (!task) {
+      console.log(`No tasks found for diagnostic report: ${diagnosticReport.id}`);
+      return;
+    } else {
+      console.log('task id being passed to formateResourcesIntoUnsolicitedLabListPageDTO:', task.id);
+    }
+
     const dto: UnsolicitedLabListPageDTO = {
       isUnsolicited: true,
       diagnosticReportId: diagnosticReport.id || '',
