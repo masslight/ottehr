@@ -1735,7 +1735,7 @@ export function extractAccountGuarantor(items: QuestionnaireResponseItem[]): Res
 interface InsuranceDetails {
   org: Organization;
   additionalInformation?: string;
-  type: NetworkType;
+  type?: NetworkType;
 }
 function getInsuranceDetailsFromAnswers(
   answers: QuestionnaireResponseItem[],
@@ -1751,8 +1751,10 @@ function getInsuranceDetailsFromAnswers(
   if (!org) return undefined;
 
   const qType = answers.find((item) => item.linkId === `insurance-plan-type${suffix}`)?.answer?.[0]?.valueString;
-  if (!qType || !INSURANCE_CANDID_PLAN_TYPE_CODES.includes(qType)) return undefined;
-  const type = qType as NetworkType;
+  let type: NetworkType | undefined = undefined;
+  if (!qType || !INSURANCE_CANDID_PLAN_TYPE_CODES.includes(qType)) {
+    type = qType as NetworkType;
+  }
 
   const additionalInformation = answers.find((item) => item.linkId === `insurance-additional-information${suffix}`)
     ?.answer?.[0]?.valueString;
@@ -1767,7 +1769,7 @@ interface CreateCoverageResourceInput {
     org: Organization;
     policyHolder: PolicyHolder;
     additionalInformation?: string;
-    type: NetworkType;
+    type?: NetworkType;
   };
 }
 const createCoverageResource = (input: CreateCoverageResourceInput): Coverage => {
@@ -1812,7 +1814,6 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
   } else {
     contained = [containedPolicyHolder];
   }
-  const coverageTypeCoding = InsurancePlanTypes.find((planType) => planType.candidCode === type)?.coverageCoding;
 
   const coverage: Coverage = {
     contained,
@@ -1827,14 +1828,16 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
       type: 'Patient',
       reference: `Patient/${patientId}`,
     },
-    type: {
-      coding: [
-        {
-          system: CANDID_PLAN_TYPE_SYSTEM,
-          code: type,
-        },
-      ],
-    },
+    ...(type && {
+      type: {
+        coding: [
+          {
+            system: CANDID_PLAN_TYPE_SYSTEM,
+            code: type,
+          },
+        ],
+      },
+    }),
     payor: [{ reference: `Organization/${org.id}` }],
     subscriberId: policyHolder.memberId,
     relationship: getPolicyHolderRelationshipCodeableConcept(policyHolder.relationship),
@@ -1853,6 +1856,7 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
       },
     ],
   };
+  const coverageTypeCoding = InsurancePlanTypes.find((planType) => planType.candidCode === type)?.coverageCoding;
   if (coverageTypeCoding) coverage.type?.coding?.push(coverageTypeCoding);
 
   if (additionalInformation) {
