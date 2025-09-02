@@ -805,8 +805,8 @@ export const groupResourcesByDr = (resources: FhirResource[]): ResourcesByDr => 
   const readyTasks: Task[] = [];
   const completedTasks: Task[] = [];
   const patients: Patient[] = [];
-  const patientRefToRelatedDrMap: Record<string, string> = {};
-  const orgRefToRelatedDrMap: Record<string, string> = {};
+  const patientRefToRelatedDrMap: Record<string, string[]> = {};
+  const orgRefToRelatedDrMap: Record<string, string[]> = {};
   const labOrganizations: Organization[] = [];
   const currentResultPDFDocRefs: DocumentReference[] = [];
   resources.forEach((resource) => {
@@ -816,10 +816,22 @@ export const groupResourcesByDr = (resources: FhirResource[]): ResourcesByDr => 
         const isPatientSubject = resource.subject?.reference?.startsWith('Patient/');
         if (isPatientSubject) {
           const patientRef = resource.subject?.reference;
-          if (patientRef) patientRefToRelatedDrMap[patientRef] = resource.id;
+          if (patientRef) {
+            if (patientRefToRelatedDrMap[patientRef]) {
+              patientRefToRelatedDrMap[patientRef].push(resource.id);
+            } else {
+              patientRefToRelatedDrMap[patientRef] = [resource.id];
+            }
+          }
         }
         const orgPerformer = resource.performer?.find((p) => p.reference?.startsWith('Organization/'))?.reference;
-        if (orgPerformer) orgRefToRelatedDrMap[orgPerformer] = resource.id;
+        if (orgPerformer) {
+          if (orgRefToRelatedDrMap[orgPerformer]) {
+            orgRefToRelatedDrMap[orgPerformer].push(resource.id);
+          } else {
+            orgRefToRelatedDrMap[orgPerformer] = [resource.id];
+          }
+        }
       }
     }
     if (resource.resourceType === 'Organization') {
@@ -861,13 +873,17 @@ export const groupResourcesByDr = (resources: FhirResource[]): ResourcesByDr => 
   });
   patients.forEach((patient) => {
     const patientRef = `Patient/${patient.id}`;
-    const drId = patientRefToRelatedDrMap[patientRef];
-    drMap[drId].patient = patient;
+    const drIds = patientRefToRelatedDrMap[patientRef];
+    drIds.forEach((drId) => {
+      drMap[drId].patient = patient;
+    });
   });
   labOrganizations.forEach((labOrg) => {
     const labOrgRef = `Organization/${labOrg.id}`;
-    const drId = orgRefToRelatedDrMap[labOrgRef];
-    drMap[drId].labOrg = labOrg;
+    const drIds = orgRefToRelatedDrMap[labOrgRef];
+    drIds.forEach((drId) => {
+      drMap[drId].labOrg = labOrg;
+    });
   });
   currentResultPDFDocRefs.forEach((docRef) => {
     const relatedDrId = docRef.context?.related
