@@ -31,6 +31,7 @@ import { parseLabOrderStatusWithSpecificTask } from '../get-lab-orders/helpers';
 import {
   AllResources,
   formatResourcesIntoDiagnosticReportLabDTO,
+  getTestItemCodeFromDr,
   getTestNameOrCodeFromDr,
   groupResourcesByDr,
   parseAccessionNumberFromDr,
@@ -328,7 +329,7 @@ const getEncountersPossiblyRelatedToUnsolicitedResult = async (
     }[]
   | null
 > => {
-  const testItemCode = getTestNameOrCodeFromDr(dr);
+  const testItemCode = getTestItemCodeFromDr(dr);
   console.log('testItemCode parsed from unsolicited result dr:', testItemCode);
   if (!testItemCode) return null;
   console.log('searching for encounters, service requests and appointments with patientId', patientId);
