@@ -48,7 +48,6 @@ export function ThresholdsTable(): ReactElement {
         if (response) {
           const component = response.observations[0].component;
           console.log('component');
-
           const mappedRows: ThresholdRow[] = [
             {
               metric: 'Systolic',
