@@ -379,6 +379,7 @@ export async function createAppointment(
     resourceType: 'Observation',
     params: [
       { name: 'patient', value: `Patient/${fhirPatient.id}` },
+      { name: 'category', value: 'survey' },
       { name: '_sort', value: '-date' },
       { name: '_count', value: '1' },
     ],
@@ -392,36 +393,60 @@ export async function createAppointment(
     if (systolic) {
       components.push({
         code: {
-          text: 'Systolic',
+          text: 'systolic-threshold',
         },
         valueString: systolic.toString(),
+      });
+      components.push({
+        code: {
+          text: 'systolic-variance',
+        },
+        valueString: '0',
       });
     }
 
     if (diastolic) {
       components.push({
         code: {
-          text: 'Diastolic',
+          text: 'diastolic-threshold',
         },
         valueString: diastolic.toString(),
+      });
+      components.push({
+        code: {
+          text: 'diastolic-variance',
+        },
+        valueString: '0',
       });
     }
 
     if (weight) {
       components.push({
         code: {
-          text: 'Weight',
+          text: 'weight-threshold',
         },
         valueString: weight.toString(),
+      });
+      components.push({
+        code: {
+          text: 'weight-variance',
+        },
+        valueString: '0',
       });
     }
 
     if (glucose) {
       components.push({
         code: {
-          text: 'Glucose',
+          text: 'glucose-threshold',
         },
         valueString: glucose.toString(),
+      });
+      components.push({
+        code: {
+          text: 'glucose-variance',
+        },
+        valueString: '0',
       });
     }
     const updatedObservation = {

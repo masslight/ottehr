@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { createOystehrClient, getAuth0Token, lambdaResponse, wrapHandler, ZambdaInput } from '../../shared';
 
@@ -38,6 +39,7 @@ export const index = wrapHandler(
         params: [
           { name: 'patient', value: `Patient/${patientId}` },
           { name: '_sort', value: '-date' },
+          { name: 'category', value: 'survey' },
           { name: '_count', value: '1' },
         ],
       });
@@ -45,27 +47,31 @@ export const index = wrapHandler(
       const observations = observationResult.unbundle()[0] as any;
 
       if (!observations) {
-        throw new Error(`No observation found for device ${requestBody.deviceId} and patient ${patientId}`);
+        const createObservation = await createPatientBaseline(oystehr, patientId, component);
+        return lambdaResponse(200, {
+          message: `Successfully created baselines`,
+          observations: createObservation,
+          total: 1,
+        });
+      } else {
+        const updatedObservation = {
+          ...observations,
+          component,
+          meta: {
+            ...observations.meta,
+            lastUpdated: new Date().toISOString(),
+          },
+        };
+
+        console.log('Updated observation without threshold components:', JSON.stringify(updatedObservation, null, 2));
+
+        await oystehr.fhir.update(updatedObservation);
+        return lambdaResponse(200, {
+          message: `Successfully updated baselines`,
+          observations: updatedObservation,
+          total: 1,
+        });
       }
-
-      const updatedObservation = {
-        ...observations,
-        component,
-        meta: {
-          ...observations.meta,
-          lastUpdated: new Date().toISOString(),
-        },
-      };
-
-      console.log('Updated observation without threshold components:', JSON.stringify(updatedObservation, null, 2));
-
-      await oystehr.fhir.update(updatedObservation);
-
-      return lambdaResponse(200, {
-        message: `Successfully updated baselines`,
-        observations: updatedObservation,
-        total: 1,
-      });
     } catch (error: any) {
       console.error('Error:', error);
       return lambdaResponse(500, {
@@ -75,3 +81,29 @@ export const index = wrapHandler(
     }
   }
 );
+
+async function createPatientBaseline(oystehr: Oystehr, patientId: string, component: any): Promise<any> {
+  return await oystehr.fhir.create<any>({
+    resourceType: 'Observation',
+    status: 'final',
+    subject: {
+      type: 'Patient',
+      reference: `Patient/${patientId}`,
+    },
+    code: {
+      text: 'Threshold Details',
+    },
+    component: component,
+    category: [
+      {
+        coding: [
+          {
+            system: 'http://terminology.hl7.org/CodeSystem/observation-category',
+            code: 'survey',
+            display: 'Survey',
+          },
+        ],
+      },
+    ],
+  });
+}
