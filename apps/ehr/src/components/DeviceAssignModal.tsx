@@ -51,20 +51,26 @@ export const DeviceAssignmentModal: FC<DeviceAssignmentModalProps> = ({
   const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
   const [deviceOptions, setDeviceOptions] = useState<DeviceOption[]>([]);
   const { oystehrZambda } = useApiClients();
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
 
   useEffect(() => {
     if (!open) {
       setSelectedDevices([]);
+      setDeviceOptions([]);
+      setOffset(0);
+      setHasMore(true);
     }
   }, [open]);
 
   const payload = {
-    offset: 0,
+    count: 10,
+    offset: offset,
     missing: true,
   };
 
   const { isFetching: isFetchingDevices } = useQuery(
-    ['get-unassigned-devices', { oystehrZambda }],
+    ['get-unassigned-devices', offset, { oystehrZambda }],
     () => (oystehrZambda ? getDevices(payload, oystehrZambda) : null),
     {
       onSuccess: (response: Output) => {
@@ -73,7 +79,8 @@ export const DeviceAssignmentModal: FC<DeviceAssignmentModalProps> = ({
             label: device.identifier?.[0]?.value || 'Unknown Device',
             value: device.id,
           }));
-          setDeviceOptions(options);
+          setDeviceOptions([...deviceOptions, ...options]);
+          setHasMore(response.devices.length === 10);
         }
       },
       enabled: !!oystehrZambda && open,
@@ -125,7 +132,7 @@ export const DeviceAssignmentModal: FC<DeviceAssignmentModalProps> = ({
           <Autocomplete
             multiple
             disableCloseOnSelect
-            disabled={isFetchingDevices || isAssigning}
+            disabled={isAssigning}
             options={deviceOptions}
             value={deviceOptions.filter((option) => selectedDevices.includes(option.value))}
             onChange={handleDeviceChange}
@@ -157,15 +164,23 @@ export const DeviceAssignmentModal: FC<DeviceAssignmentModalProps> = ({
                 placeholder="Select Devices"
                 InputProps={{
                   ...params.InputProps,
-                  endAdornment: (
-                    <>
-                      {isFetchingDevices ? <CircularProgress color="inherit" size={20} /> : null}
-                      {params.InputProps.endAdornment}
-                    </>
-                  ),
+                  endAdornment: <>{params.InputProps.endAdornment}</>,
                 }}
               />
             )}
+            ListboxProps={{
+              onScroll: (event: React.UIEvent<HTMLUListElement>) => {
+                const listboxNode = event.currentTarget;
+
+                if (
+                  hasMore &&
+                  !isFetchingDevices &&
+                  listboxNode.scrollTop + listboxNode.clientHeight >= listboxNode.scrollHeight - 100
+                ) {
+                  setOffset((prev) => prev + 10); // Load next page
+                }
+              },
+            }}
           />
         </FormControl>
 
