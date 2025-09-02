@@ -763,7 +763,7 @@
     },
     "MIO-VITALS": {
       "name": "MIO-VITALS",
-      "type": "http_auth",
+      "type": "http_open",
       "runtime": "nodejs20.x",
       "src": "src/ehr/mio-vitals/index",
       "zip": ".dist/zips/mio-vitals.zip"
