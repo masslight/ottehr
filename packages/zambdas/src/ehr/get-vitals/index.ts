@@ -35,7 +35,7 @@ export const index = wrapHandler('get-vitals', async (input: ZambdaInput): Promi
         { name: 'device', value: `Device/${deviceId}` },
         { name: 'patient', value: `Patient/${patientId}` },
         { name: 'category', value: `vital-signs` },
-        { name: '_sort', value: '-date' },
+        { name: '_sort', value: '-_lastUpdated' },
         { name: '_total', value: 'accurate' },
         { name: '_count', value: String(pageSize) },
         { name: '_offset', value: String(offset) },
