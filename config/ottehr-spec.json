@@ -253,6 +253,13 @@
       "src": "src/ehr/sign-appointment/index",
       "zip": ".dist/zips/sign-appointment.zip"
     },
+    "PENDING-SUPERVISOR-APPROVAL": {
+      "name": "pending-supervisor-approval",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/pending-supervisor-approval/index",
+      "zip": ".dist/zips/pending-supervisor-approval.zip"
+    },
     "GET-CHART-DATA": {
       "name": "get-chart-data",
       "type": "http_auth",
@@ -1056,7 +1063,7 @@
       "zip": ".dist/zips/failing-endpoint.zip"
     },
     "CREATE-DISCHARGE_SUMMARY": {
-      "name": "CREATE-DISCHARGE-SUMMARY",
+      "name": "create-discharge-summary",
       "type": "http_auth",
       "runtime": "nodejs20.x",
       "src": "src/ehr/create-discharge-summary/index",
@@ -5460,7 +5467,8 @@
             "Z3:#{var/PROJECT_ID}-receipts/*",
             "Z3:#{var/PROJECT_ID}-school-work-notes/*",
             "Z3:#{var/PROJECT_ID}-privacy-policy/*",
-            "Z3:#{var/PROJECT_ID}-exported-questionnaires/*"
+            "Z3:#{var/PROJECT_ID}-exported-questionnaires/*",
+            "Z3:#{var/PROJECT_ID}-discharge-summaries/*"
           ],
           "action": ["Z3:PutObject", "Z3:GetObject"],
           "effect": "Allow"
@@ -5995,7 +6003,10 @@
       "name": "#{var/PROJECT_ID}-receipts"
     },
     "PAPERWORK": {
-      "name": "#{var/PROJECT_ID}-paperwork"
+      "name": "#{var/PROJECT_ID}-exported-questionnaires"
+    },
+    "DISCHARGE_SUMMARIES": {
+      "name": "#{var/PROJECT_ID}-discharge-summaries"
     }
   },
   "labRoutes": {

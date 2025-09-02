@@ -9,5 +9,5 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": [".", ".eslintrc.cjs"]
+  "include": [".", ".eslintrc.cjs", ".ottehr_config/**/*"]
 }

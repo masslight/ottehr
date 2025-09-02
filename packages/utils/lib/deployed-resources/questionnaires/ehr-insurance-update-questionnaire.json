@@ -590,6 +590,38 @@
             ]
           },
           {
+            "linkId": "insurance-plan-type",
+            "text": "Insurance type",
+            "type": "string",
+            "required": true,
+            "answerOption": [
+              { "valueString": "09" },
+              { "valueString": "11" },
+              { "valueString": "12" },
+              { "valueString": "13" },
+              { "valueString": "14" },
+              { "valueString": "15" },
+              { "valueString": "16" },
+              { "valueString": "17" },
+              { "valueString": "AM" },
+              { "valueString": "BL" },
+              { "valueString": "CH" },
+              { "valueString": "CI" },
+              { "valueString": "DS" },
+              { "valueString": "FI" },
+              { "valueString": "HM" },
+              { "valueString": "LM" },
+              { "valueString": "MA" },
+              { "valueString": "MB" },
+              { "valueString": "MC" },
+              { "valueString": "OF" },
+              { "valueString": "TV" },
+              { "valueString": "VA" },
+              { "valueString": "WC" },
+              { "valueString": "ZZ" }
+            ]
+          },
+          {
             "linkId": "insurance-member-id",
             "text": "Member ID",
             "type": "string",
@@ -924,6 +956,38 @@
                   }
                 ]
               }
+            ]
+          },
+          {
+            "linkId": "insurance-plan-type-2",
+            "text": "Insurance type",
+            "type": "string",
+            "required": true,
+            "answerOption": [
+              { "valueString": "09" },
+              { "valueString": "11" },
+              { "valueString": "12" },
+              { "valueString": "13" },
+              { "valueString": "14" },
+              { "valueString": "15" },
+              { "valueString": "16" },
+              { "valueString": "17" },
+              { "valueString": "AM" },
+              { "valueString": "BL" },
+              { "valueString": "CH" },
+              { "valueString": "CI" },
+              { "valueString": "DS" },
+              { "valueString": "FI" },
+              { "valueString": "HM" },
+              { "valueString": "LM" },
+              { "valueString": "MA" },
+              { "valueString": "MB" },
+              { "valueString": "MC" },
+              { "valueString": "OF" },
+              { "valueString": "TV" },
+              { "valueString": "VA" },
+              { "valueString": "WC" },
+              { "valueString": "ZZ" }
             ]
           },
           {
