@@ -38,7 +38,13 @@ export const OrderDetailsSection: React.FC = () => {
         />
       </Grid>
       <Grid xs={3} item>
-        <TextInput name="details.dose" label="Dose" type="number" required />
+        <TextInput
+          name="details.dose"
+          label="Dose"
+          type="number"
+          validate={(value: string) => (!(parseInt(value) > 0) ? 'Dose must be positive' : true)}
+          required
+        />
       </Grid>
       <Grid xs={3} item>
         <SelectInput name="details.units" label="Units" options={UNIT_OPTIONS} required />
