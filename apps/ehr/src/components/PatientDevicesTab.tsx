@@ -1,5 +1,5 @@
 import AddIcon from '@mui/icons-material/Add';
-import { Box, Paper, Stack, Typography } from '@mui/material';
+import { Box, Button, Modal, Paper, Stack, Typography } from '@mui/material';
 import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
 import { FC, useCallback, useState } from 'react';
 import { useMutation, useQuery } from 'react-query';
@@ -20,6 +20,12 @@ export const PatientDevicesTab: FC<{
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 5 });
   const [totalCount, setTotalCount] = useState(0);
   const { oystehrZambda } = useApiClients();
+
+  const [confirmationModal, setConfirmationModal] = useState({
+    open: false,
+    deviceId: '',
+    deviceName: '',
+  });
 
   const { id: patientId } = useParams<{ id: string }>();
 
@@ -79,8 +85,34 @@ export const PatientDevicesTab: FC<{
     }
   );
 
-  const handleUnAssign = async (deviceId: string): Promise<void> => {
+  const handleUnAssign = async (deviceId: string): Promise<any> => {
     await unassignDevice(deviceId);
+  };
+
+  const handleUnassignClick = (deviceId: string, deviceName: string): void => {
+    setConfirmationModal({
+      open: true,
+      deviceId,
+      deviceName,
+    });
+  };
+
+  const handleConfirmUnassign = async (): Promise<any> => {
+    setSelectUnassignDevice(confirmationModal.deviceId);
+    await handleUnAssign(confirmationModal.deviceId);
+    setConfirmationModal({
+      open: false,
+      deviceId: '',
+      deviceName: '',
+    });
+  };
+
+  const handleCloseConfirmation = (): any => {
+    setConfirmationModal({
+      open: false,
+      deviceId: '',
+      deviceName: '',
+    });
   };
 
   const deviceTypeMap: Record<string, string> = {
@@ -145,13 +177,10 @@ export const PatientDevicesTab: FC<{
             </div>
             <div>
               <RoundedButton
-                onClick={async () => {
-                  setSelectUnassignDevice(params.row.id);
-                  await handleUnAssign(params.row.id);
-                }}
-                disabled={isUnassigning && selectUnassignDevice == params.row.id}
+                onClick={() => handleUnassignClick(params.row.id, params.row.name)}
+                disabled={isUnassigning && selectUnassignDevice === params.row.id}
               >
-                Unassign Device
+                {isUnassigning && selectUnassignDevice === params.row.id ? 'Unassigning...' : 'Unassign Device'}
               </RoundedButton>
             </div>
           </div>
@@ -159,6 +188,59 @@ export const PatientDevicesTab: FC<{
       },
     },
   ];
+
+  const ConfirmationModal: FC<{
+    open: boolean;
+    onClose: () => void;
+    onConfirm: () => void;
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    loading?: boolean;
+  }> = ({
+    open,
+    onClose,
+    onConfirm,
+    title,
+    message,
+    confirmText = 'Confirm',
+    cancelText = 'Cancel',
+    loading = false,
+  }) => {
+    return (
+      <Modal open={open} onClose={onClose}>
+        <Box
+          sx={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: 550,
+            bgcolor: 'background.paper',
+            boxShadow: 24,
+            p: 4,
+            borderRadius: 2,
+          }}
+        >
+          <Typography variant="h6" component="h2" gutterBottom>
+            {title}
+          </Typography>
+          <Typography variant="body1" sx={{ mb: 3 }}>
+            {message}
+          </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+            <Button onClick={onClose} disabled={loading}>
+              {cancelText}
+            </Button>
+            <Button onClick={onConfirm} variant="contained" color="primary" disabled={loading}>
+              {loading ? 'Loading...' : confirmText}
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
+    );
+  };
 
   return (
     <Paper sx={{ padding: 3 }} component={Stack} spacing={2}>
@@ -220,6 +302,16 @@ export const PatientDevicesTab: FC<{
           refetchAssignedDevices={refetch}
         />
       )}
+
+      <ConfirmationModal
+        open={confirmationModal.open}
+        onClose={handleCloseConfirmation}
+        onConfirm={handleConfirmUnassign}
+        title="Unassign Device"
+        message={`Are you sure you want to unassign device "${confirmationModal.deviceName}"?`}
+        confirmText="Unassign"
+        loading={isUnassigning && selectUnassignDevice === confirmationModal.deviceId}
+      />
     </Paper>
   );
 };
