@@ -901,15 +901,34 @@ export const formatResourcesIntoDiagnosticReportLabDTO = async (
   token: string
 ): Promise<DiagnosticReportLabDetailPageDTO | undefined> => {
   const { diagnosticReport, readyTasks, completedTasks, labOrg, resultPdfDocumentReference } = resources;
-  const readyTask = readyTasks[0]; // im not sure there would ever be a scenario where there is more than one ready task per DR
-  const completedTask = completedTasks[0];
+  const matchTask = [...readyTasks, ...completedTasks].find(
+    (task) =>
+      task.code?.coding?.some(
+        (c) => c.system === LAB_ORDER_TASK.system && c.code === LAB_ORDER_TASK.code.matchUnsolicitedResult
+      )
+  );
+  const reviewTask = [...readyTasks, ...completedTasks].find(
+    (task) =>
+      task.code?.coding?.some(
+        (c) =>
+          c.system === LAB_ORDER_TASK.system &&
+          (c.code === LAB_ORDER_TASK.code.reviewFinalResult ||
+            c.code === LAB_ORDER_TASK.code.reviewPreliminaryResult ||
+            c.code === LAB_ORDER_TASK.code.reviewCorrectedResult ||
+            c.code === LAB_ORDER_TASK.code.reviewCancelledResult)
+      )
+  );
 
-  if (!readyTask && !completedTask) {
+  // console.log('check matchTask', JSON.stringify(matchTask));
+  // console.log('check reviewTask', JSON.stringify(reviewTask));
+  const task = reviewTask || matchTask;
+
+  if (!task) {
     console.log(`No tasks found for diagnostic report: ${diagnosticReport.id}`);
     return;
+  } else {
+    console.log('task id being passed to parseLabOrderStatusWithSpecificTask:', task.id);
   }
-
-  const task = readyTask || completedTask;
 
   // const history: LabOrderHistoryRow[] = [parseTaskReceivedAndReviewedAndCorrectedHistory(task, )]
 
