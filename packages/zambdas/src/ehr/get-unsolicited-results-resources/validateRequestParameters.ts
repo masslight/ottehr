@@ -27,7 +27,7 @@ export function validateRequestParameters(
 
   if (
     requestType === UnsolicitedResultsRequestType.GET_UNSOLICITED_RESULTS_RELATED_REQUESTS ||
-    UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_PATIENT_LIST
+    requestType === UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_PATIENT_LIST
   ) {
     if (!patientId || typeof patientId !== 'string') {
       throw Error(`patientId is an unexpected type: ${patientId}`);
