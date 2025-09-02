@@ -1753,7 +1753,7 @@ function getInsuranceDetailsFromAnswers(
 
   const qType = answers.find((item) => item.linkId === `insurance-plan-type${suffix}`)?.answer?.[0]?.valueString;
   let typeCode: NetworkType | undefined = undefined;
-  if (!qType || !INSURANCE_CANDID_PLAN_TYPE_CODES.includes(qType)) {
+  if (qType && INSURANCE_CANDID_PLAN_TYPE_CODES.includes(qType)) {
     typeCode = qType as NetworkType;
   }
 
