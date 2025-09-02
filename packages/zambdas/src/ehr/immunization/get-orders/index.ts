@@ -58,7 +58,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 });
 
-async function getImmunizationOrders(
+export async function getImmunizationOrders(
   oystehr: Oystehr,
   input: GetImmunizationOrdersRequest
 ): Promise<GetImmunizationOrdersResponse> {
