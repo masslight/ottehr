@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { DateTime } from 'luxon';
 import {
+  BUCKET_NAMES,
   createFilesDocumentReferences,
   EXPORTED_QUESTIONNAIRE_CODE,
   getPaperworkResources,
@@ -31,7 +32,6 @@ import { createDocument } from './document';
 import { generatePdf } from './draw';
 
 const ZAMBDA_NAME = 'paperwork-to-pdf';
-const BUCKET_PAPERWORK_PDF = 'exported-questionnaires';
 
 let oystehrToken: string;
 
@@ -58,11 +58,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const baseFileUrl = makeZ3Url({
       secrets,
       fileName,
-      bucketName: BUCKET_PAPERWORK_PDF,
+      bucketName: BUCKET_NAMES.PAPERWORK,
       patientID: document.patientInfo.id,
     });
 
-    console.log('Uploading file to bucket, ', BUCKET_PAPERWORK_PDF);
+    console.log('Uploading file to bucket, ', BUCKET_NAMES.PAPERWORK);
 
     let presignedUrl;
     try {

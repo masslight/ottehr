@@ -17,6 +17,8 @@ import {
   CollectInHouseLabSpecimenZambdaOutput,
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
+  CreateDischargeSummaryInput,
+  CreateDischargeSummaryResponse,
   CreateInHouseLabOrderParameters,
   CreateInHouseLabOrderResponse,
   CreateLabOrderParameters,
@@ -55,6 +57,8 @@ import {
   GetVisitLabelInput,
   HandleInHouseLabResultsParameters,
   HandleInHouseLabResultsZambdaOutput,
+  Icd10SearchRequestParams,
+  Icd10SearchResponse,
   InHouseGetOrdersResponseDTO,
   InviteParticipantRequestParameters,
   LabelPdf,
@@ -67,11 +71,11 @@ import {
   SaveFollowupEncounterZambdaInput,
   SaveFollowupEncounterZambdaOutput,
   ScheduleDTO,
-  SubmitLabOrderDTO,
   SubmitLabOrderInput,
+  SubmitLabOrderOutput,
   UnassignPractitionerZambdaInput,
   UnassignPractitionerZambdaOutput,
-  UpdateLabOrderResourcesParameters,
+  UpdateLabOrderResourcesInput,
   UpdateNursingOrderInput,
   UpdateScheduleParams,
   UpdateUserParams,
@@ -127,6 +131,7 @@ const CREATE_NURSING_ORDER_ZAMBDA_ID = 'create-nursing-order';
 const UPDATE_NURSING_ORDER = 'update-nursing-order';
 const GET_LABEL_PDF_ZAMBDA_ID = 'get-label-pdf';
 const GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID = 'get-or-create-visit-label-pdf';
+const CREATE_DISCHARGE_SUMMARY = 'create-discharge-summary';
 const PAPERWORK_TO_PDF_ZAMBDA_ID = 'paperwork-to-pdf';
 
 export const getUser = async (token: string): Promise<User> => {
@@ -141,7 +146,10 @@ if (!VITE_APP_IS_LOCAL) {
   throw new Error('VITE_APP_IS_LOCAL is not defined');
 }
 
-export const submitLabOrder = async (oystehr: Oystehr, parameters: SubmitLabOrderInput): Promise<SubmitLabOrderDTO> => {
+export const submitLabOrder = async (
+  oystehr: Oystehr,
+  parameters: SubmitLabOrderInput
+): Promise<SubmitLabOrderOutput> => {
   try {
     if (SUBMIT_LAB_ORDER_ZAMBDA_ID == null) {
       throw new Error('submit external lab order zambda environment variable could not be loaded');
@@ -692,7 +700,7 @@ export const deleteLabOrder = async (
 
 export const updateLabOrderResources = async (
   oystehr: Oystehr,
-  parameters: UpdateLabOrderResourcesParameters
+  parameters: UpdateLabOrderResourcesInput
 ): Promise<any> => {
   try {
     if (UPDATE_LAB_ORDER_RESOURCES_ZAMBDA_ID == null) {
@@ -953,6 +961,22 @@ export const updateNursingOrder = async (oystehr: Oystehr, parameters: UpdateNur
   }
 };
 
+export const createDischargeSummary = async (
+  oystehr: Oystehr,
+  parameters: CreateDischargeSummaryInput
+): Promise<CreateDischargeSummaryResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: CREATE_DISCHARGE_SUMMARY,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
 export const generatePaperworkPdf = async (
   oystehr: Oystehr,
   parameters: PaperworkToPDFInput
@@ -960,6 +984,22 @@ export const generatePaperworkPdf = async (
   try {
     const response = await oystehr.zambda.execute({
       id: PAPERWORK_TO_PDF_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const icd10Search = async (
+  oystehr: Oystehr,
+  parameters: Icd10SearchRequestParams
+): Promise<Icd10SearchResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'icd-10-search',
       ...parameters,
     });
     return chooseJson(response);

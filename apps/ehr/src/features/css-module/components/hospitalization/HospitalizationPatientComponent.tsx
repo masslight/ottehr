@@ -2,17 +2,13 @@ import { Box, Divider, Typography, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { AiObservationField, ObservationTextFieldDTO } from 'utils';
 import AiSuggestion from '../../../../components/AiSuggestion';
-import { getSelectors } from '../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../../telemed';
+import { useAppointmentData, useChartData } from '../../../../telemed';
 import { PatientSideListSkeleton } from '../../../../telemed/features/appointment';
-import { useAppointment } from '../../hooks/useAppointment';
 
 export const HospitalizationPatientComponent: FC = () => {
   const theme = useTheme();
-
-  const { isAppointmentLoading, chartData } = getSelectors(useAppointmentStore, ['isAppointmentLoading', 'chartData']);
-  const { mappedData: questionnaire } = useAppointment();
-
+  const { isAppointmentLoading, mappedData: questionnaire } = useAppointmentData();
+  const { chartData } = useChartData();
   const hospitalizations = questionnaire.hospitalizations;
 
   const aiHospitalization = chartData?.observations?.find(

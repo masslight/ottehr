@@ -2,13 +2,12 @@ import { Box, Divider, Skeleton, TextField } from '@mui/material';
 import React, { FC } from 'react';
 import { ObservationBooleanFieldDTO } from 'utils';
 import { ADDITIONAL_QUESTIONS } from '../../../../../constants';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useGetAppointmentAccessibility } from '../../../../hooks';
-import { useAppointmentStore } from '../../../../state';
+import { useChartData } from '../../../../state';
 import { AdditionalQuestionEdit, AdditionalQuestionView } from '../components';
 
 export const AdditionalQuestionsProviderColumn: FC = () => {
-  const { chartData, isChartDataLoading } = getSelectors(useAppointmentStore, ['chartData', 'isChartDataLoading']);
+  const { chartData, isChartDataLoading } = useChartData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   return (

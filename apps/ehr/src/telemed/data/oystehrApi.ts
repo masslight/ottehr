@@ -20,6 +20,8 @@ import {
   GetPatientAccountZambdaInput,
   GetPatientInstructionsInput,
   GetTelemedAppointmentsResponseEhr,
+  GetUnsolicitedResultsResourcesInput,
+  GetUnsolicitedResultsResourcesOutput,
   IcdSearchRequestParams,
   IcdSearchResponse,
   InitTelemedSessionRequestParams,
@@ -39,6 +41,7 @@ import {
   SyncUserResponse,
   UnassignPractitionerZambdaInput,
   UnassignPractitionerZambdaOutput,
+  UpdateLabOrderResourcesInput,
   UpdateMedicationOrderInput,
   UpdatePatientAccountInput,
   UpdatePatientAccountResponse,
@@ -70,6 +73,8 @@ enum ZambdaNames {
   'remove patient coverage' = 'remove patient coverage',
   'send fax' = 'send fax',
   'external lab resource search' = 'external lab resource search',
+  'get unsolicited results resources' = 'get unsolicited results resources',
+  'update lab order resources' = 'update lab order resources',
 }
 
 const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
@@ -96,6 +101,8 @@ const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
   'remove patient coverage': false,
   'send fax': false,
   'external lab resource search': false,
+  'get unsolicited results resources': false,
+  'update lab order resources': false,
 };
 
 export type OystehrTelemedAPIClient = ReturnType<typeof getOystehrTelemedAPI>;
@@ -128,6 +135,8 @@ export const getOystehrTelemedAPI = (
   removePatientCoverage: typeof removePatientCoverage;
   sendFax: typeof sendFax;
   getCreateExternalLabResources: typeof getCreateExternalLabResources;
+  getUnsolicitedResultsResources: typeof getUnsolicitedResultsResources;
+  updateLabOrderResources: typeof updateLabOrderResources;
 } => {
   const {
     getTelemedAppointmentsZambdaID,
@@ -153,6 +162,8 @@ export const getOystehrTelemedAPI = (
     removePatientCoverageZambdaID,
     sendFaxZambdaID,
     externalLabResourceSearchID,
+    getUnsolicitedResultsResourcesID,
+    updateLabOrderResourcesID,
   } = params;
 
   const zambdasToIdsMap: Record<keyof typeof ZambdaNames, string | undefined> = {
@@ -179,6 +190,8 @@ export const getOystehrTelemedAPI = (
     'remove patient coverage': removePatientCoverageZambdaID,
     'send fax': sendFaxZambdaID,
     'external lab resource search': externalLabResourceSearchID,
+    'get unsolicited results resources': getUnsolicitedResultsResourcesID,
+    'update lab order resources': updateLabOrderResourcesID,
   };
   const isAppLocalProvided = params.isAppLocal != null;
 
@@ -317,6 +330,16 @@ export const getOystehrTelemedAPI = (
     return await makeZapRequest('external lab resource search', parameters);
   };
 
+  const getUnsolicitedResultsResources = async (
+    parameters: GetUnsolicitedResultsResourcesInput
+  ): Promise<GetUnsolicitedResultsResourcesOutput> => {
+    return await makeZapRequest('get unsolicited results resources', parameters);
+  };
+
+  const updateLabOrderResources = async (parameters: UpdateLabOrderResourcesInput): Promise<void> => {
+    return await makeZapRequest('update lab order resources', parameters);
+  };
+
   return {
     getTelemedAppointments,
     initTelemedSession,
@@ -342,5 +365,7 @@ export const getOystehrTelemedAPI = (
     removePatientCoverage,
     sendFax,
     getCreateExternalLabResources,
+    getUnsolicitedResultsResources,
+    updateLabOrderResources,
   };
 };

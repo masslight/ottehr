@@ -20,6 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: testing
+    env:
+      SECRETS_REPOSITORY: ${{ vars.SECRETS_REPOSITORY }} # Secrets repository for configuration files
     steps:
       - uses: actions/checkout@v4
         with:
@@ -77,7 +79,7 @@ jobs:
       - name: Check out secrets repo
         uses: actions/checkout@v4
         with:
-          repository: masslight/ottehr-secrets
+          repository: ${{ env.SECRETS_REPOSITORY }}
           ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
           path: 'secrets'
 

@@ -14,6 +14,7 @@ import {
 import { enqueueSnackbar } from 'notistack';
 import { FC, MouseEvent, useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { UnsolicitedResultsIcon } from 'src/features/external-labs/components/unsolicited-results/UnsolicitedResultsIcon';
 import { getPractitionerMissingFields } from 'src/shared/utils';
 import { useCheckPractitionerEnrollment, useConnectPractitionerToERX, useEnrollPractitionerToERX } from 'src/telemed';
 import { getFullestAvailableName, PROJECT_NAME, RoleType } from 'utils';
@@ -62,6 +63,7 @@ export const UserMenu: FC = () => {
 
   return (
     <>
+      <UnsolicitedResultsIcon />
       {userIsProvider && <ProviderNotifications />}
       <ListItem disablePadding sx={{ width: 'fit-content' }}>
         <ListItemButton onClick={(event: MouseEvent<HTMLElement>) => setAnchorElement(event.currentTarget)}>

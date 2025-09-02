@@ -1,11 +1,10 @@
 import { FC } from 'react';
-import { getSpentTime } from 'utils';
+import { examConfig, getSpentTime } from 'utils';
 import { ADDITIONAL_QUESTIONS } from '../../../../constants';
 import { dataTestIds } from '../../../../constants/data-test-ids';
-import { getSelectors } from '../../../../shared/store/getSelectors';
 import { AccordionCard, SectionList } from '../../../components';
 import { usePatientInstructionsVisibility } from '../../../hooks';
-import { useAppointmentStore } from '../../../state';
+import { useAppointmentData, useChartData } from '../../../state';
 import {
   AdditionalQuestionsContainer,
   AllergiesContainer,
@@ -27,8 +26,8 @@ import {
 } from './components';
 
 export const VisitNoteCard: FC = () => {
-  const { encounter, chartData } = getSelectors(useAppointmentStore, ['encounter', 'chartData']);
-
+  const { encounter } = useAppointmentData();
+  const { chartData } = useChartData();
   const chiefComplaint = chartData?.chiefComplaint?.text;
   const spentTime = getSpentTime(encounter.statusHistory);
   const ros = chartData?.ros?.text;
@@ -37,13 +36,14 @@ export const VisitNoteCard: FC = () => {
   const emCode = chartData?.emCode;
   const cptCodes = chartData?.cptCodes;
   const prescriptions = chartData?.prescribedMedications;
-
   const showChiefComplaint = !!((chiefComplaint && chiefComplaint.length > 0) || (spentTime && spentTime.length > 0));
   const showReviewOfSystems = !!(ros && ros.length > 0);
+
   const showAdditionalQuestions = ADDITIONAL_QUESTIONS.some((question) => {
     const value = chartData?.observations?.find((observation) => observation.field === question.field)?.value;
     return value === true || value === false;
   });
+
   const showAssessment = !!(diagnoses && diagnoses.length > 0);
   const showMedicalDecisionMaking = !!(medicalDecision && medicalDecision.length > 0);
   const showEmCode = !!emCode;
@@ -61,7 +61,7 @@ export const VisitNoteCard: FC = () => {
     <MedicalConditionsContainer />,
     <SurgicalHistoryContainer />,
     showAdditionalQuestions && <AdditionalQuestionsContainer />,
-    <ExaminationContainer />,
+    <ExaminationContainer examConfig={examConfig.telemed.default.components} />,
     showAssessment && <AssessmentContainer />,
     showMedicalDecisionMaking && <MedicalDecisionMakingContainer />,
     showEmCode && <EMCodeContainer />,

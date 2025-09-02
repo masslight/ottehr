@@ -1,11 +1,9 @@
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { Avatar, Box, IconButton, useTheme } from '@mui/material';
 import React, { FC, useEffect, useState } from 'react';
+import { useAppointmentData } from 'src/telemed';
 import { EditPatientDialog } from '../../../components/dialogs';
 import ProfilePhotoImagePicker from '../../../components/ProfilePhotoImagePicker';
-import { getSelectors } from '../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../telemed';
-import { useAppointment } from '../hooks/useAppointment';
 import { useGetSignedPatientProfilePhotoUrlQuery } from '../queries/css.queries';
 
 type ProfileAvatarProps = {
@@ -19,14 +17,11 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
   embracingSquareSize,
   hasEditableInfo,
 }): JSX.Element => {
-  const { mappedData } = useAppointment(appointmentID);
-
+  const { mappedData } = useAppointmentData(appointmentID);
   const theme = useTheme();
-
   const [isProfileImagePickerOpen, setProfileImagePickerOpen] = useState<boolean>(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState<boolean>(false);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | undefined>(undefined);
-
   const patientPhoto = mappedData?.patientAvatarPhotoUrl;
 
   useEffect(() => {
@@ -97,8 +92,7 @@ type ProfilePhotoImagePickerForCSSProps = {
 
 const ProfilePhotoImagePickerForCSS: FC<ProfilePhotoImagePickerForCSSProps> = (props) => {
   const { open, setOpen } = props;
-
-  const { patient } = getSelectors(useAppointmentStore, ['patient']);
+  const { patient, appointmentSetState } = useAppointmentData();
 
   return (
     <ProfilePhotoImagePicker
@@ -106,7 +100,7 @@ const ProfilePhotoImagePickerForCSS: FC<ProfilePhotoImagePickerForCSSProps> = (p
       setOpen={setOpen}
       patient={patient}
       onUpdate={(patientData) =>
-        useAppointmentStore.setState({
+        appointmentSetState({
           patient: { ...patientData },
         })
       }

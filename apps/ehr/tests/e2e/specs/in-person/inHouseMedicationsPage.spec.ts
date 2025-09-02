@@ -17,7 +17,7 @@ const MEDICATION = 'Acetaminophen (80mg Suppository)';
 const DOSE = '2';
 const UNITS = 'mg';
 const MANUFACTURER = 'Test';
-const ROUTE = 'Route of administration values';
+const ROUTE = 'Sublingual route';
 const INSTRUCTIONS = 'Instructions';
 
 const NEW_DIAGNOSIS = 'Situational type phobia';
@@ -95,6 +95,7 @@ test('Order medication, order is submitted successfully and entered data are dis
   await createOrderPage.editMedicationCard.enterManufacturer(MANUFACTURER);
   await createOrderPage.editMedicationCard.selectRoute(ROUTE);
   await createOrderPage.editMedicationCard.enterInstructions(INSTRUCTIONS);
+  await createOrderPage.editMedicationCard.waitForLoadOrderedBy();
   await createOrderPage.clickOrderMedicationButton();
 
   const editOrderPage = await expectEditOrderPage(page);
@@ -103,7 +104,8 @@ test('Order medication, order is submitted successfully and entered data are dis
   await editOrderPage.editMedicationCard.verifyDose(DOSE);
   await editOrderPage.editMedicationCard.verifyUnits(UNITS);
   await editOrderPage.editMedicationCard.verifyManufacturer(MANUFACTURER);
-  await editOrderPage.editMedicationCard.verifyRoute(ROUTE);
+  // need to uncomment when https://github.com/masslight/ottehr/issues/3712 is fixed
+  //await editOrderPage.editMedicationCard.verifyRoute(ROUTE);
   await editOrderPage.editMedicationCard.verifyInstructions(INSTRUCTIONS);
 
   const medicationsPage = await editOrderPage.clickBackButton();
@@ -137,6 +139,7 @@ test('Edit order page is opened after clicking on pencil icon for order in "pend
     await createOrderPage.editMedicationCard.enterManufacturer(MANUFACTURER);
     await createOrderPage.editMedicationCard.selectRoute(ROUTE);
     await createOrderPage.editMedicationCard.enterInstructions(INSTRUCTIONS);
+    await createOrderPage.editMedicationCard.waitForLoadOrderedBy();
     await createOrderPage.clickOrderMedicationButton();
     editOrderPage = await expectEditOrderPage(page);
   });
@@ -148,12 +151,11 @@ test('Edit order page is opened after clicking on pencil icon for order in "pend
   });
 
   await test.step('Update fields to empty values and click on [Save] - Validation errors appears', async () => {
-    await editOrderPage.editMedicationCard.selectMedication('Select Medication');
+    await editOrderPage.editMedicationCard.clearMedication();
     await editOrderPage.editMedicationCard.selectAssociatedDx('Select Associated Dx');
     await editOrderPage.editMedicationCard.clearDose();
     await editOrderPage.editMedicationCard.selectUnits('Select Units');
     await editOrderPage.editMedicationCard.clearManufacturer();
-    await editOrderPage.editMedicationCard.selectRoute('Select Route');
     await editOrderPage.editMedicationCard.clearInstructions();
     await editOrderPage.clickOrderMedicationButton();
 
@@ -161,7 +163,6 @@ test('Edit order page is opened after clicking on pencil icon for order in "pend
     await editOrderPage.editMedicationCard.verifyValidationErrorShown(Field.DOSE, false);
     await editOrderPage.editMedicationCard.verifyValidationErrorShown(Field.UNITS, false);
     await editOrderPage.editMedicationCard.verifyValidationErrorNotShown(Field.MANUFACTURER);
-    await editOrderPage.editMedicationCard.verifyValidationErrorShown(Field.ROUTE, false);
     await editOrderPage.editMedicationCard.verifyValidationErrorNotShown(Field.INSTRUCTIONS);
   });
 

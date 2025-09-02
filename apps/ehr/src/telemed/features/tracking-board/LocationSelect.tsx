@@ -2,7 +2,6 @@ import { Autocomplete, Chip, TextField } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import { Location } from 'fhir/r4b';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
-import { isLocationVirtual } from 'utils';
 import { dataTestIds } from '../../../constants/data-test-ids';
 import { sortLocationsByLabel } from '../../../helpers';
 import { useApiClients } from '../../../hooks/useAppClients';
@@ -35,13 +34,12 @@ export function LocationsSelect(): ReactElement {
       setLoadingState(LoadingState.loading);
 
       try {
-        let locationsResults = (
+        const locationsResults = (
           await oystehr.fhir.search<Location>({
             resourceType: 'Location',
             params: [{ name: '_count', value: '1000' }],
           })
         ).unbundle();
-        locationsResults = locationsResults.filter((loc) => !isLocationVirtual(loc));
         setLocations(locationsResults);
       } catch (e) {
         console.error('error loading locations', e);
