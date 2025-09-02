@@ -48,7 +48,7 @@ popd
 # bootstrap if necessary
 if $first_setup; then
     pushd scripts/deploy/aws
-    npx cdk bootstrap
+    npx cdk bootstrap --profile="${profile}"
     popd
 fi
 
