@@ -44,6 +44,12 @@ resource "sendgrid_template_version" "test_template_version" {
   name         = local.templates[each.key].templateVersionName
 }
 
+output "sendgrid_api_key" {
+  description = "The sendgrid api key resource."
+  value       = sendgrid_api_key.template_api_key
+  sensitive   = true
+}
+
 output "template_ids" {
   description = "The IDs of all created sendgrid templates mapped from secret name."
   value = {
