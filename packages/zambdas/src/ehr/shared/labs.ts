@@ -805,8 +805,8 @@ export const groupResourcesByDr = (resources: FhirResource[]): ResourcesByDr => 
   const readyTasks: Task[] = [];
   const completedTasks: Task[] = [];
   const patients: Patient[] = [];
-  const patientRefToRelatedDrMap: Record<string, string> = {};
-  const orgRefToRelatedDrMap: Record<string, string> = {};
+  const patientRefToRelatedDrMap: Record<string, string[]> = {};
+  const orgRefToRelatedDrMap: Record<string, string[]> = {};
   const labOrganizations: Organization[] = [];
   const currentResultPDFDocRefs: DocumentReference[] = [];
   resources.forEach((resource) => {
@@ -816,10 +816,22 @@ export const groupResourcesByDr = (resources: FhirResource[]): ResourcesByDr => 
         const isPatientSubject = resource.subject?.reference?.startsWith('Patient/');
         if (isPatientSubject) {
           const patientRef = resource.subject?.reference;
-          if (patientRef) patientRefToRelatedDrMap[patientRef] = resource.id;
+          if (patientRef) {
+            if (patientRefToRelatedDrMap[patientRef]) {
+              patientRefToRelatedDrMap[patientRef].push(resource.id);
+            } else {
+              patientRefToRelatedDrMap[patientRef] = [resource.id];
+            }
+          }
         }
         const orgPerformer = resource.performer?.find((p) => p.reference?.startsWith('Organization/'))?.reference;
-        if (orgPerformer) orgRefToRelatedDrMap[orgPerformer] = resource.id;
+        if (orgPerformer) {
+          if (orgRefToRelatedDrMap[orgPerformer]) {
+            orgRefToRelatedDrMap[orgPerformer].push(resource.id);
+          } else {
+            orgRefToRelatedDrMap[orgPerformer] = [resource.id];
+          }
+        }
       }
     }
     if (resource.resourceType === 'Organization') {
@@ -861,13 +873,17 @@ export const groupResourcesByDr = (resources: FhirResource[]): ResourcesByDr => 
   });
   patients.forEach((patient) => {
     const patientRef = `Patient/${patient.id}`;
-    const drId = patientRefToRelatedDrMap[patientRef];
-    drMap[drId].patient = patient;
+    const drIds = patientRefToRelatedDrMap[patientRef];
+    drIds.forEach((drId) => {
+      drMap[drId].patient = patient;
+    });
   });
   labOrganizations.forEach((labOrg) => {
     const labOrgRef = `Organization/${labOrg.id}`;
-    const drId = orgRefToRelatedDrMap[labOrgRef];
-    drMap[drId].labOrg = labOrg;
+    const drIds = orgRefToRelatedDrMap[labOrgRef];
+    drIds.forEach((drId) => {
+      drMap[drId].labOrg = labOrg;
+    });
   });
   currentResultPDFDocRefs.forEach((docRef) => {
     const relatedDrId = docRef.context?.related
@@ -885,15 +901,34 @@ export const formatResourcesIntoDiagnosticReportLabDTO = async (
   token: string
 ): Promise<DiagnosticReportLabDetailPageDTO | undefined> => {
   const { diagnosticReport, readyTasks, completedTasks, labOrg, resultPdfDocumentReference } = resources;
-  const readyTask = readyTasks[0]; // im not sure there would ever be a scenario where there is more than one ready task per DR
-  const completedTask = completedTasks[0];
+  const matchTask = [...readyTasks, ...completedTasks].find(
+    (task) =>
+      task.code?.coding?.some(
+        (c) => c.system === LAB_ORDER_TASK.system && c.code === LAB_ORDER_TASK.code.matchUnsolicitedResult
+      )
+  );
+  const reviewTask = [...readyTasks, ...completedTasks].find(
+    (task) =>
+      task.code?.coding?.some(
+        (c) =>
+          c.system === LAB_ORDER_TASK.system &&
+          (c.code === LAB_ORDER_TASK.code.reviewFinalResult ||
+            c.code === LAB_ORDER_TASK.code.reviewPreliminaryResult ||
+            c.code === LAB_ORDER_TASK.code.reviewCorrectedResult ||
+            c.code === LAB_ORDER_TASK.code.reviewCancelledResult)
+      )
+  );
 
-  if (!readyTask && !completedTask) {
+  // console.log('check matchTask', JSON.stringify(matchTask));
+  // console.log('check reviewTask', JSON.stringify(reviewTask));
+  const task = reviewTask || matchTask;
+
+  if (!task) {
     console.log(`No tasks found for diagnostic report: ${diagnosticReport.id}`);
     return;
+  } else {
+    console.log('task id being passed to parseLabOrderStatusWithSpecificTask:', task.id);
   }
-
-  const task = readyTask || completedTask;
 
   // const history: LabOrderHistoryRow[] = [parseTaskReceivedAndReviewedAndCorrectedHistory(task, )]
 
