@@ -34,7 +34,7 @@ export function ThresholdsTable(): ReactElement {
     { metric: 'Weight (in pounds)', baseline: '', variance: '' },
   ]);
 
-  const [touched, setTouched] = useState<Record<number, boolean>>({});
+  const [touched, setTouched] = useState<Record<number, { baseline: boolean; variance: boolean }>>({});
   const { oystehrZambda } = useApiClients();
   const { id: patientId } = useParams<{ id: string }>();
 
@@ -48,7 +48,6 @@ export function ThresholdsTable(): ReactElement {
         if (response) {
           const component = response.observations[0].component;
           console.log('component');
-
           const mappedRows: ThresholdRow[] = [
             {
               metric: 'Systolic',
@@ -103,23 +102,32 @@ export function ThresholdsTable(): ReactElement {
     setRows((prev) => prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)));
   };
 
-  const handleBlur = (index: number): void => {
-    setTouched((prev) => ({ ...prev, [index]: true }));
+  const handleBlur = (index: number, field: 'baseline' | 'variance'): void => {
+    setTouched((prev) => ({
+      ...prev,
+      [index]: {
+        ...prev[index],
+        [field]: true,
+      },
+    }));
 
-    const hasAnyError = rows.some((row) => {
-      const rules = VALIDATION_RULES[row.metric];
+    const allFieldsValid = rows.every((row) => {
       const baselineNum = parseFloat(row.baseline);
+      const varianceNum = parseFloat(row.variance);
+      const rules = VALIDATION_RULES[row.metric];
 
-      return row.baseline === '' || isNaN(baselineNum) || baselineNum < rules.min || baselineNum > rules.max;
+      const isBaselineValid =
+        row.baseline !== '' && !isNaN(baselineNum) && baselineNum >= rules.min && baselineNum <= rules.max;
+
+      const isVarianceValid = row.variance !== '' && !isNaN(varianceNum) && varianceNum >= 0 && varianceNum <= 100;
+
+      return isBaselineValid && isVarianceValid;
     });
 
-    if (hasAnyError) {
-      console.warn('Validation failed: one or more rows are invalid.');
-      return;
+    if (allFieldsValid) {
+      const componentArray = buildComponentArray(rows);
+      updateMutation.mutate(componentArray);
     }
-
-    const componentArray = buildComponentArray(rows);
-    updateMutation.mutate(componentArray);
   };
 
   const VALIDATION_RULES: Record<Metric, { min: number; max: number; message: string }> = {
@@ -187,14 +195,21 @@ export function ThresholdsTable(): ReactElement {
             <TableBody>
               {rows.map((row, index): JSX.Element => {
                 const baselineNum = parseFloat(row.baseline);
+                const varianceNum = parseFloat(row.variance);
                 const rules = VALIDATION_RULES[row.metric];
-                const hasError =
-                  touched[index] &&
+
+                const hasBaselineError =
+                  touched[index]?.baseline &&
                   (row.baseline === '' || isNaN(baselineNum) || baselineNum < rules.min || baselineNum > rules.max);
+
+                const hasVarianceError =
+                  touched[index]?.variance &&
+                  (row.variance === '' || isNaN(varianceNum) || varianceNum < 0 || varianceNum > 100);
 
                 return (
                   <TableRow key={row.metric}>
                     <TableCell sx={{ py: 0.7, px: 2 }}>{row.metric}</TableCell>
+
                     <TableCell sx={{ py: 0.7, px: 2 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center' }}>
                         <TextField
@@ -202,11 +217,11 @@ export function ThresholdsTable(): ReactElement {
                           size="small"
                           placeholder={`Enter ${row.metric} baseline`}
                           value={row.baseline}
-                          error={hasError}
+                          error={hasBaselineError}
                           onChange={(e) => handleChange(index, 'baseline', e.target.value)}
-                          onBlur={() => handleBlur(index)}
+                          onBlur={() => handleBlur(index, 'baseline')}
                         />
-                        {hasError && (
+                        {hasBaselineError && (
                           <Tooltip title={row.baseline === '' ? 'Baseline value is required' : rules.message}>
                             <ErrorOutlineIcon color="error" fontSize="small" style={{ marginLeft: 6 }} />
                           </Tooltip>
@@ -215,20 +230,33 @@ export function ThresholdsTable(): ReactElement {
                     </TableCell>
 
                     <TableCell sx={{ py: 0.7, px: 2 }}>
-                      <TextField
-                        type="number"
-                        size="small"
-                        inputProps={{ min: 0, max: 100 }}
-                        placeholder="Variance"
-                        value={row.variance}
-                        sx={{ minWidth: 120 }}
-                        onChange={(e) => {
-                          const newValue = e.target.value;
-                          if (newValue === '' || (/^\d+$/.test(newValue) && +newValue >= 0 && +newValue <= 100)) {
-                            handleChange(index, 'variance', newValue);
-                          }
-                        }}
-                      />
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <TextField
+                          type="number"
+                          size="small"
+                          inputProps={{ min: 0, max: 100 }}
+                          placeholder="Variance"
+                          value={row.variance}
+                          sx={{ minWidth: 120 }}
+                          error={hasVarianceError}
+                          onChange={(e) => {
+                            const newValue = e.target.value;
+                            if (newValue === '' || (/^\d+$/.test(newValue) && +newValue >= 0 && +newValue <= 100)) {
+                              handleChange(index, 'variance', newValue);
+                            }
+                          }}
+                          onBlur={() => handleBlur(index, 'variance')}
+                        />
+                        {hasVarianceError && (
+                          <Tooltip
+                            title={
+                              row.variance === '' ? 'Variance value is required' : 'Variance must be between 0–100%'
+                            }
+                          >
+                            <ErrorOutlineIcon color="error" fontSize="small" style={{ marginLeft: 6 }} />
+                          </Tooltip>
+                        )}
+                      </Box>
                     </TableCell>
 
                     <TableCell sx={{ py: 0.7, px: 2, minWidth: 120 }}>{getRange(row.baseline, row.variance)}</TableCell>
