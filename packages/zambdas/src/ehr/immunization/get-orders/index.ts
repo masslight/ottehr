@@ -62,7 +62,7 @@ async function getImmunizationOrders(
   oystehr: Oystehr,
   input: GetImmunizationOrdersRequest
 ): Promise<GetImmunizationOrdersResponse> {
-  const { orderId, patientId } = input;
+  const { orderId, patientId, encounterId } = input;
   const params: SearchParam[] = [
     {
       name: '_tag',
@@ -81,6 +81,12 @@ async function getImmunizationOrders(
       value: 'Patient/' + patientId,
     });
   }
+  if (encounterId) {
+    params.push({
+      name: 'context',
+      value: 'Encounter/' + encounterId,
+    });
+  }
   return {
     orders: (
       await oystehr.fhir.search<MedicationAdministration>({
@@ -96,11 +102,16 @@ async function getImmunizationOrders(
 export function validateRequestParameters(
   input: ZambdaInput
 ): GetImmunizationOrdersRequest & Pick<ZambdaInput, 'secrets'> {
-  const { orderId, patientId } = validateJsonBody(input);
+  const { orderId, patientId, encounterId } = validateJsonBody(input);
+
+  if (!orderId && !patientId && !encounterId) {
+    throw new Error(`orderId or patientId or encounterId must be provided`);
+  }
 
   return {
     orderId,
     patientId,
+    encounterId,
     secrets: input.secrets,
   };
 }

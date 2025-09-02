@@ -1,5 +1,6 @@
 import { Stack, Typography } from '@mui/material';
 import { FC } from 'react';
+import { ImmunizationContainer } from 'src/telemed/features/appointment/ReviewTab/components/ImmunizationContainer';
 import { ProceduresContainer } from 'src/telemed/features/appointment/ReviewTab/components/ProceduresContainer';
 import { examConfig, getProgressNoteChartDataRequestedFields, LabType, NOTE_TYPE } from 'utils';
 import { dataTestIds } from '../../../../constants/data-test-ids';
@@ -23,6 +24,7 @@ import {
   ReviewOfSystemsContainer,
   SurgicalHistoryContainer,
 } from '../../../../telemed/features/appointment/ReviewTab';
+import { useGetImmunizationOrders } from '../../hooks/useImmunization';
 import { useMedicationAPI } from '../../hooks/useMedicationOperations';
 import { HospitalizationContainer } from './HospitalizationContainer';
 import { InHouseMedicationsContainer } from './InHouseMedicationsContainer';
@@ -49,6 +51,12 @@ export const ProgressNoteDetails: FC = () => {
 
   const { medications: inHouseMedicationsWithCanceled } = useMedicationAPI();
   const inHouseMedications = inHouseMedicationsWithCanceled.filter((medication) => medication.status !== 'cancelled');
+  const { data: immunizationOrdersResponse } = useGetImmunizationOrders({
+    encounterId: encounter.id,
+  });
+  const immunizationOrders = (immunizationOrdersResponse?.orders ?? []).filter((order) =>
+    ['administered', 'administered-partly'].includes(order.status)
+  );
   const screeningNotes = chartData?.notes?.filter((note) => note.type === NOTE_TYPE.SCREENING);
   const vitalsNotes = chartData?.notes?.filter((note) => note.type === NOTE_TYPE.VITALS);
   const allergyNotes = chartData?.notes?.filter((note) => note.type === NOTE_TYPE.ALLERGY);
@@ -92,6 +100,7 @@ export const ProgressNoteDetails: FC = () => {
   const showInHouseMedications =
     !!(inHouseMedications && inHouseMedications.length > 0) ||
     !!(inHouseMedicationNotes && inHouseMedicationNotes.length > 0);
+  const showImmunization = immunizationOrders.length > 0;
 
   const showVitalsObservations =
     !!(vitalsObservations && vitalsObservations.length > 0) || !!(vitalsNotes && vitalsNotes.length > 0);
@@ -115,6 +124,7 @@ export const ProgressNoteDetails: FC = () => {
     showInHouseMedications && (
       <InHouseMedicationsContainer medications={inHouseMedications} notes={inHouseMedicationNotes} />
     ),
+    showImmunization && <ImmunizationContainer orders={immunizationOrders} />,
     showAssessment && <AssessmentContainer />,
     showMedicalDecisionMaking && <MedicalDecisionMakingContainer />,
     showEmCode && <EMCodeContainer />,
