@@ -8,10 +8,10 @@ import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { TimeInput } from 'src/components/input/TimeInput';
 import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
-import { useAdministerImmunizationOrder } from 'src/features/css-module/hooks/useImmunization';
+import { useAdministerImmunizationOrder, useGetVaccines } from 'src/features/css-module/hooks/useImmunization';
 import { cleanupProperties } from 'src/helpers/misc.helper';
 import { ROUTE_OPTIONS, UNIT_OPTIONS } from 'src/shared/utils';
-import { useAppointmentData, useGetMedicationList } from 'src/telemed';
+import { useAppointmentData } from 'src/telemed';
 import { EMERGENCY_CONTACT_RELATIONSHIPS, ImmunizationOrder, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { ADMINISTERED, AdministrationType, NOT_ADMINISTERED, PARTLY_ADMINISTERED } from '../common';
 import { AdministrationConfirmationDialog } from './AdministrationConfirmationDialog';
@@ -45,7 +45,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
 
   const { id: appointmentId } = useParams();
   const { mappedData } = useAppointmentData(appointmentId);
-  const { data: medications } = useGetMedicationList();
+  const { data: vaccines } = useGetVaccines();
 
   const { mutateAsync: administerOrder } = useAdministerImmunizationOrder();
 
@@ -216,7 +216,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
         <AdministrationConfirmationDialog
           administrationType={administrationTypeRef.current}
           patientName={mappedData.patientName}
-          medicationName={medications?.[methods.getValues('details.medicationId')]}
+          medicationName={vaccines?.find((vaccine) => vaccine.id === methods.getValues('details.medicationId'))?.name}
           dose={methods.getValues('details.dose')}
           unit={UNIT_OPTIONS.find((unit) => unit.value === methods.getValues('details.units'))?.label}
           route={ROUTE_OPTIONS.find((route) => route.value === methods.getValues('details.route'))?.label}
