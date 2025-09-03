@@ -24,6 +24,7 @@ jobs:
         ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
           sudo su
           cd /opt/ottehr
+          git pull
           ./scripts/deploy/aws/rebuild.sh
           sudo systemctl restart nginx
         EOF
