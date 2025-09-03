@@ -3,6 +3,7 @@ import { Grid, Paper, Stack } from '@mui/material';
 import React, { useEffect, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
+import { BaseBreadcrumbs } from 'src/components/BaseBreadcrumbs';
 import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
 import { WarningBlock } from 'src/features/css-module/components/WarningBlock';
 import { getImmunizationMARUrl, getImmunizationOrderEditUrl } from 'src/features/css-module/routing/helpers';
@@ -74,6 +75,10 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
     <FormProvider {...methods}>
       <form onSubmit={methods.handleSubmit(onSubmit)}>
         <Stack spacing={2}>
+          <BaseBreadcrumbs
+            sectionName={orderId ? 'Edit Vaccine Order' : 'Order Vaccine'}
+            baseCrumb={{ label: 'Immunization', path: getImmunizationMARUrl(appointmentId ?? '') }}
+          />
           <PageHeader title={orderId ? 'Edit Vaccine Order' : 'Order Vaccine'} variant="h3" component="h1" />
           <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
             <Grid container spacing={2}>
