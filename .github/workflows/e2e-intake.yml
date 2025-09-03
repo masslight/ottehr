@@ -90,59 +90,7 @@ jobs:
           echo "File size: $(wc -c < "${{ env.USER_JSON_PATH }}")"
           echo "=================================="
           
-          if node -e '
-          const fs = require("fs");
-          try {
-            const data = JSON.parse(fs.readFileSync("${{ env.USER_JSON_PATH }}", "utf8"));
-            
-            console.log("Origins count:", data.origins?.length || 0);
-            
-            const origin = data.origins?.find(o => 
-              o.localStorage?.some(item => 
-                item.name?.includes("@@auth0spajs@@") && 
-                !item.name?.includes("@@user@@") &&
-                item.value?.includes("expiresAt")
-              )
-            );
-
-            if (!origin) {
-              console.error("ERROR: No origin with Auth0 token found");
-              process.exit(1);
-            }
-            
-            console.log("Found origin with Auth0 token");
-            
-            const authItem = origin.localStorage?.find(item => 
-              item.name?.includes("@@auth0spajs@@") && 
-              !item.name?.includes("@@user@@") &&
-              item.value?.includes("expiresAt")
-            );
-          
-            if (!authItem) {
-              console.error("ERROR: No Auth0 token found");
-              process.exit(1);
-            }
-          
-            console.log("Found Auth0 token item");
-            
-            const tokenData = JSON.parse(authItem.value);
-            const expiresAt = tokenData.expiresAt * 1000;
-            const timeLeft = (expiresAt - Date.now()) / (1000 * 60);
-          
-            console.log(`Time left: ${timeLeft.toFixed(1)} minutes`);
-          
-            if (timeLeft > ${{ env.TOKEN_VALIDITY_THRESHOLD_MINUTES }}) {
-              console.log("Token valid, skip login");
-              process.exit(0);
-            } else {
-              console.log("Token expires soon, need fresh login");
-              process.exit(1);
-            }
-          } catch (e) {
-            console.error("Token check failed:", e.message);
-            process.exit(1);
-          }
-          '; then
+          if npm run intake:e2e:validate-user; then
             NEEDS_LOGIN="false"
             echo "Token is valid, skipping login"
           else
