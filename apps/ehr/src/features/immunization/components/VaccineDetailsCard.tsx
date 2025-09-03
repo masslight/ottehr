@@ -16,6 +16,7 @@ import { EMERGENCY_CONTACT_RELATIONSHIPS, ImmunizationOrder, REQUIRED_FIELD_ERRO
 import { ADMINISTERED, AdministrationType, NOT_ADMINISTERED, PARTLY_ADMINISTERED } from '../common';
 import { AdministrationConfirmationDialog } from './AdministrationConfirmationDialog';
 import { OrderDetailsSection } from './OrderDetailsSection';
+import { OrderStatusChip } from './OrderStatusChip';
 
 interface Props {
   order: ImmunizationOrder;
@@ -183,31 +184,34 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                 />
               </Grid>
               <Grid xs={12} item>
-                <Stack direction="row" justifyContent="end" alignItems="center">
-                  <ButtonRounded
-                    variant="outlined"
-                    color="primary"
-                    size="large"
-                    onClick={async () => onAdministrationActionClick(NOT_ADMINISTERED)}
-                  >
-                    Not Administered
-                  </ButtonRounded>
-                  <ButtonRounded
-                    variant="outlined"
-                    color="primary"
-                    size="large"
-                    onClick={async () => onAdministrationActionClick(PARTLY_ADMINISTERED)}
-                  >
-                    Partly Administered
-                  </ButtonRounded>
-                  <ButtonRounded
-                    variant="contained"
-                    color="primary"
-                    size="large"
-                    onClick={async () => onAdministrationActionClick(ADMINISTERED)}
-                  >
-                    Administered
-                  </ButtonRounded>
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <OrderStatusChip status={order.status} />
+                  <Stack direction="row">
+                    <ButtonRounded
+                      variant="outlined"
+                      color="primary"
+                      size="large"
+                      onClick={async () => onAdministrationActionClick(NOT_ADMINISTERED)}
+                    >
+                      Not Administered
+                    </ButtonRounded>
+                    <ButtonRounded
+                      variant="outlined"
+                      color="primary"
+                      size="large"
+                      onClick={async () => onAdministrationActionClick(PARTLY_ADMINISTERED)}
+                    >
+                      Partly Administered
+                    </ButtonRounded>
+                    <ButtonRounded
+                      variant="contained"
+                      color="primary"
+                      size="large"
+                      onClick={async () => onAdministrationActionClick(ADMINISTERED)}
+                    >
+                      Administered
+                    </ButtonRounded>
+                  </Stack>
                 </Stack>
               </Grid>
             </Grid>
