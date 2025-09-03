@@ -7,6 +7,7 @@ import { CheckboxInput } from 'src/components/input/CheckboxInput';
 import { DateInput } from 'src/components/input/DateInput';
 import { PhoneInput } from 'src/components/input/PhoneInput';
 import { SelectInput } from 'src/components/input/SelectInput';
+import { SingleCptCodeInput } from 'src/components/input/SingleCptInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { TimeInput } from 'src/components/input/TimeInput';
 import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
@@ -113,7 +114,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                 <TextInput name="administrationDetails.cvx" label="CVX code" required />
               </Grid>
               <Grid xs={3} item>
-                <TextInput name="administrationDetails.cpt" label="CPT code" />
+                <SingleCptCodeInput name="administrationDetails.cpt" label="CPT code" />
               </Grid>
               <Grid xs={3} item>
                 <TextInput name="administrationDetails.ndc" label="NDC code" required />
