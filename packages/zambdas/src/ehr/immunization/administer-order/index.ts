@@ -97,6 +97,7 @@ async function administerImmunizationOrder(
   await updateOrderDetails(medicationAdministration, details, oystehr);
 
   medicationAdministration.status = mapOrderStatusToFhir(type);
+  medicationAdministration.effectiveDateTime = administrationDetails.administeredDateTime;
 
   if (reason) {
     medicationAdministration.note = [
