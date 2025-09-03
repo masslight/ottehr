@@ -52,7 +52,6 @@ import {
   deduplicateIdentifiers,
   deduplicateObjectsByStrictKeyValEquality,
   deduplicateUnbundledResources,
-  DEFAULT_CANDID_PLAN_TYPE_CODE,
   extractResourceTypeAndPath,
   FHIR_BASE_URL,
   FHIR_EXTENSION,
@@ -1815,7 +1814,6 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
   } else {
     contained = [containedPolicyHolder];
   }
-  const candidTypeCode = typeCode ?? DEFAULT_CANDID_PLAN_TYPE_CODE;
 
   const coverage: Coverage = {
     contained,
@@ -1830,14 +1828,7 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
       type: 'Patient',
       reference: `Patient/${patientId}`,
     },
-    type: {
-      coding: [
-        {
-          system: CANDID_PLAN_TYPE_SYSTEM,
-          code: candidTypeCode,
-        },
-      ],
-    },
+    type: typeCode ? { coding: [{ system: CANDID_PLAN_TYPE_SYSTEM, code: typeCode }] } : undefined,
     payor: [{ reference: `Organization/${org.id}` }],
     subscriberId: policyHolder.memberId,
     relationship: getPolicyHolderRelationshipCodeableConcept(policyHolder.relationship),
@@ -1856,8 +1847,7 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
       },
     ],
   };
-  const coverageTypeCoding = InsurancePlanTypes.find((planType) => planType.candidCode === candidTypeCode)
-    ?.coverageCoding;
+  const coverageTypeCoding = InsurancePlanTypes.find((planType) => planType.candidCode === typeCode)?.coverageCoding;
   if (coverageTypeCoding) coverage.type?.coding?.push(coverageTypeCoding);
 
   if (additionalInformation) {

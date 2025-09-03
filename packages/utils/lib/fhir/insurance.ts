@@ -2,7 +2,6 @@ import { NetworkType } from 'candidhealth/api/resources/preEncounter/resources/c
 import { Coding } from 'fhir/r4b';
 
 export const CANDID_PLAN_TYPE_SYSTEM = 'https://fhir.ottehr.com/CodeSystem/candid-plan-type';
-export const DEFAULT_CANDID_PLAN_TYPE_CODE: NetworkType = 'CI';
 
 export interface InsurancePlanType {
   candidCode: NetworkType;
