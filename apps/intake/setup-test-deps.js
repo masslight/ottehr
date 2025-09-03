@@ -4,7 +4,7 @@ import setup from '../../scripts/setup/setup.utils.mjs';
 import { validateE2EIntakeUser } from './validate-e2e-intake-user.js';
 
 const isCI = Boolean(process.env.CI);
-const playwrightUserFile = 'apps/intake/playwright/user.json';
+const playwrightUserFile = './playwright/user.json';
 const playwrightUserFileCode = JSON.stringify({ cookies: [], origins: [] }, null, 2);
 
 // copy secrets only on local machine; GitHub workflow handles it on its own
