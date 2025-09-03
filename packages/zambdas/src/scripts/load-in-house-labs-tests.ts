@@ -1,4 +1,5 @@
 import { BatchInputRequest } from '@oystehr/sdk';
+import { Command } from 'commander';
 import {
   ActivityDefinition,
   CodeableConcept,
@@ -22,9 +23,7 @@ import {
   REPEATABLE_TEXT_EXTENSION_CONFIG,
 } from 'utils';
 import { createOystehrClient, getAuth0Token } from '../shared';
-
-const VALID_ENVS = ['local', 'development', 'dev', 'testing', 'staging', 'demo', 'production', 'etc'];
-const USAGE_STR = `Usage: npm run make-in-house-test-items [${VALID_ENVS.join(' | ')}]\n`;
+import { testItems as baseTestItems } from './data/base-in-house-lab-seed-data';
 
 const AD_CANONICAL_URL_BASE = 'https://ottehr.com/FHIR/InHouseLab/ActivityDefinition';
 
@@ -266,21 +265,63 @@ const getUrlAndVersion = (
   return { url, version: updatedVersion.toString() };
 };
 
+const DATA_KEYS = ['base', 'nightwatch'] as const;
+
+type DataKey = (typeof DATA_KEYS)[number];
+
+const SEED_DATA_MAP: Record<DataKey, TestItem[]> = {
+  base: baseTestItems,
+  nightwatch: baseTestItems,
+};
+
+const WRITE_MODES = ['api', 'json'] as const;
+type WriteMode = (typeof WRITE_MODES)[number];
+
 async function main(): Promise<void> {
-  if (process.argv.length !== 3) {
-    console.error(`exiting, incorrect number of arguments passed\n`);
-    console.log(USAGE_STR);
-    process.exit(1);
-  }
+  // if (process.argv.length !== 3) {
+  //   console.error(`exiting, incorrect number of arguments passed\n`);
+  //   console.log(USAGE_STR);
+  //   process.exit(1);
+  // }
 
-  let ENV = process.argv[2].toLowerCase();
+  // let ENV = process.argv[2].toLowerCase();
+  // ENV = ENV === 'dev' ? 'development' : ENV;
+
+  // if (!ENV) {
+  //   console.error(`exiting, ENV variable must be populated`);
+  //   console.log(USAGE_STR);
+  //   process.exit(2);
+  // }
+
+  // let envConfig: any | undefined = undefined;
+
+  const program = new Command();
+
+  program
+    .requiredOption('-k, --key <key>', 'Which data set to use', (val) => {
+      if (!(DATA_KEYS as readonly string[]).includes(val)) {
+        throw new Error(`Key must be one of: ${DATA_KEYS.join('|')}`);
+      }
+      return val as DataKey;
+    })
+    .requiredOption('-e, --env <env>', 'Environment name')
+    .requiredOption('-m, --mode <mode>', 'Write mode', (val) => {
+      if (!(WRITE_MODES as readonly string[]).includes(val)) {
+        throw new Error(`Write mode must be one of: ${DATA_KEYS.join('|')}`);
+      }
+      return val as WriteMode;
+    });
+
+  program.parse(process.argv);
+
+  const options = program.opts<{
+    key: DataKey;
+    env: string;
+    mode: WriteMode;
+  }>();
+
+  let ENV = options.env.toLowerCase();
   ENV = ENV === 'dev' ? 'development' : ENV;
-
-  if (!ENV) {
-    console.error(`exiting, ENV variable must be populated`);
-    console.log(USAGE_STR);
-    process.exit(2);
-  }
 
   let envConfig: any | undefined = undefined;
 
@@ -290,6 +331,12 @@ async function main(): Promise<void> {
     console.error(`Unable to read env file. Error: ${JSON.stringify(e)}`);
     process.exit(3);
   }
+
+  console.log(`this is options.key ${options.key}`);
+  const testItems = SEED_DATA_MAP[options.key as DataKey];
+  console.log(`This is testItems`, JSON.stringify(testItems));
+
+  const writeMode = options.mode as WriteMode;
 
   const token = await getAuth0Token(envConfig);
 
@@ -398,21 +445,34 @@ async function main(): Promise<void> {
 
   console.log('ActivityDefinitions: ', JSON.stringify(activityDefinitions, undefined, 2));
 
-  activityDefinitions.map((activityDefinition) => {
-    requests.push({
-      method: 'POST',
-      url: '/ActivityDefinition',
-      resource: activityDefinition,
+  if (writeMode === 'api') {
+    console.log('write mode is api, preparing fhir requests');
+    activityDefinitions.map((activityDefinition) => {
+      requests.push({
+        method: 'POST',
+        url: '/ActivityDefinition',
+        resource: activityDefinition,
+      });
     });
-  });
 
-  try {
-    const oystehrResponse = await oystehrClient.fhir.transaction<ActivityDefinition>({ requests });
-    console.log(JSON.stringify(oystehrResponse));
-  } catch (error) {
-    console.error(error);
-    throw error;
+    try {
+      const oystehrResponse = await oystehrClient.fhir.transaction<ActivityDefinition>({ requests });
+      console.log(JSON.stringify(oystehrResponse));
+    } catch (error) {
+      console.error(error);
+      throw error;
+    }
+    process.exit(1);
+  } else if (writeMode === 'json') {
+    console.log('write mode is json, preparing json output');
+    fs.writeFileSync(
+      'src/scripts/data/inhouse-labs-ad.json',
+      JSON.stringify(activityDefinitions, undefined, 2),
+      'utf8'
+    );
+    process.exit(1);
   }
+  console.error(`write mode not recognized: ${writeMode}`);
 }
 
 main().catch((error) => {
@@ -458,7 +518,7 @@ interface QuantityComponent extends BaseComponent {
 }
 
 type TestItemComponent = CodeableConceptComponent | QuantityComponent;
-interface TestItem {
+export interface TestItem {
   name: string;
   methods: TestItemMethods;
   method: string;
@@ -469,654 +529,3 @@ interface TestItem {
   components: TestItemComponent[];
   note?: string;
 }
-
-// seed data
-const testItems: TestItem[] = [
-  {
-    name: 'Rapid Strep A',
-    methods: {
-      manual: { device: 'Strip Test (reagent strip)' },
-    },
-    method: 'Manual',
-    device: 'Strip Test (reagent strip)',
-    cptCode: ['87880'],
-    loincCode: ['78012-2'],
-    repeatTest: false,
-    components: [
-      {
-        componentName: 'Rapid Strep A',
-        loincCode: ['78012-2'],
-        dataType: 'CodeableConcept' as const,
-        valueSet: [
-          { code: 'Detected', display: 'Detected' },
-          { code: 'Not detected', display: 'Not detected' },
-        ],
-        abnormalValues: [{ code: 'Detected', display: 'Detected' }],
-        display: {
-          type: 'Radio',
-          nullOption: true,
-        },
-      },
-    ],
-  },
-  {
-    name: 'Rapid Influenza A',
-    methods: {
-      manual: { device: 'Strip Test (reagent strip)' },
-      analyzer: { device: 'Sofia' },
-    },
-    method: 'Manual or Analyzer',
-    device: 'Strip Test (reagent strip) or Sofia (analyzer)',
-    cptCode: ['87804'],
-    loincCode: ['80382-5'],
-    repeatTest: false,
-    components: [
-      {
-        componentName: 'Rapid Influenza A',
-        loincCode: ['80382-5'],
-        dataType: 'CodeableConcept' as const,
-        valueSet: [
-          { code: 'Detected', display: 'Detected' },
-          { code: 'Not detected', display: 'Not detected' },
-        ],
-        abnormalValues: [{ code: 'Detected', display: 'Detected' }],
-        display: {
-          type: 'Radio',
-          nullOption: true,
-        },
-      },
-    ],
-  },
-  {
-    name: 'Rapid Influenza B',
-    methods: {
-      manual: { device: 'Strip Test (reagent strip)' },
-      analyzer: { device: 'Sofia' },
-    },
-    method: 'Manual or Analyzer',
-    device: 'Strip Test (reagent strip) or Sofia (analyzer)',
-    cptCode: ['87804'],
-    loincCode: ['80381-7'],
-    repeatTest: false,
-    components: [
-      {
-        componentName: 'Rapid Influenza B',
-        loincCode: ['80381-7'],
-        dataType: 'CodeableConcept' as const,
-        valueSet: [
-          { code: 'Detected', display: 'Detected' },
-          { code: 'Not detected', display: 'Not detected' },
-        ],
-        abnormalValues: [{ code: 'Detected', display: 'Detected' }],
-        display: {
-          type: 'Radio',
-          nullOption: true,
-        },
-      },
-    ],
-  },
-  {
-    name: 'Rapid RSV',
-    methods: {
-      manual: { device: 'Strip Test (reagent strip)' },
-      analyzer: { device: 'Sofia' },
-    },
-    method: 'Manual or Analyzer',
-    device: 'Strip Test (reagent strip) or Sofia (analyzer)',
-    cptCode: ['87807'],
-    loincCode: ['72885-7'],
-    repeatTest: false,
-    components: [
-      {
-        componentName: 'Rapid RSV',
-        loincCode: ['72885-7'],
-        dataType: 'CodeableConcept' as const,
-        valueSet: [
-          { code: 'Detected', display: 'Detected' },
-          { code: 'Not detected', display: 'Not detected' },
-        ],
-        abnormalValues: [{ code: 'Detected', display: 'Detected' }],
-        display: {
-          type: 'Radio',
-          nullOption: true,
-        },
-      },
-    ],
-  },
-  {
-    name: 'Rapid COVID-19 Antigen',
-    methods: {
-      manual: { device: 'Strip Test (reagent strip)' },
-      analyzer: { device: 'Sofia' },
-    },
-    method: 'Manual or Analyzer',
-    device: 'Strip Test (reagent strip) or Sofia (analyzer)',
-    cptCode: ['87426'],
-    loincCode: ['94558-4'],
-    repeatTest: false,
-    components: [
-      {
-        componentName: 'Rapid COVID-19 Antigen',
-        loincCode: ['94558-4'],
-        dataType: 'CodeableConcept' as const,
-        valueSet: [
-          { code: 'Detected', display: 'Detected' },
-          { code: 'Not detected', display: 'Not detected' },
-        ],
-        abnormalValues: [{ code: 'Detected', display: 'Detected' }],
-        display: {
-          type: 'Radio',
-          nullOption: true,
-        },
-      },
-    ],
-  },
-  {
-    name: 'Flu-Vid',
-    methods: {
-      analyzer: { device: 'Sofia' },
-    },
-    method: 'Analyzer',
-    device: 'Sofia',
-    cptCode: ['87428'],
-    loincCode: ['80382-5', '94558-4'],
-    repeatTest: false,
-    components: [
-      {
-        componentName: 'Flu-Vid',
-        loincCode: ['80382-5', '94558-4'],
-        dataType: 'CodeableConcept' as const,
-        valueSet: [
-          { code: 'Detected', display: 'Detected' },
-          { code: 'Not detected', display: 'Not detected' },
-        ],
-        abnormalValues: [{ code: 'Detected', display: 'Detected' }],
-        display: {
-          type: 'Radio',
-          nullOption: true,
-        },
-      },
-    ],
-  },
-  {
-    name: 'Stool Guaiac',
-    methods: {
-      manual: { device: 'None' },
-    },
-    method: 'Manual',
-    device: '',
-    cptCode: ['82270'],
-    loincCode: ['50196-5'],
-    repeatTest: true,
-    components: [
-      {
-        componentName: 'Stool Guaiac',
-        loincCode: ['50196-5'],
-        dataType: 'CodeableConcept' as const,
-        valueSet: [
-          { code: 'Detected', display: 'Detected' },
-          { code: 'Not detected', display: 'Not detected' },
-        ],
-        abnormalValues: [{ code: 'Detected', display: 'Detected' }],
-        display: {
-          type: 'Radio',
-          nullOption: true,
-        },
-      },
-    ],
-  },
-  {
-    name: 'Monospot test',
-    methods: {
-      manual: { device: 'Test well / tube' },
-    },
-    method: 'Manual',
-    device: 'Test well / tube',
-    cptCode: ['86308'],
-    loincCode: ['31418-7'],
-    repeatTest: false,
-    components: [
-      {
-        componentName: 'Monospot test',
-        loincCode: ['31418-7'],
-        dataType: 'CodeableConcept' as const,
-        valueSet: [
-          { code: 'Detected', display: 'Detected' },
-          { code: 'Not detected', display: 'Not detected' },
-        ],
-        abnormalValues: [{ code: 'Detected', display: 'Detected' }],
-        display: {
-          type: 'Radio',
-          nullOption: true,
-        },
-      },
-    ],
-  },
-  {
-    name: 'Glucose Finger/Heel Stick',
-    methods: {
-      manual: { device: 'Stick & glucometer' },
-    },
-    method: 'Manual with stick & glucometer',
-    device: 'Glucometer brand unknown',
-    cptCode: ['82962'],
-    loincCode: ['32016-8'],
-    repeatTest: true,
-    components: [
-      {
-        componentName: 'Glucose',
-        loincCode: ['32016-8'],
-        dataType: 'Quantity' as const,
-        normalRange: {
-          low: 70,
-          high: 140,
-          unit: 'mg/dL',
-        },
-        display: {
-          type: 'Numeric',
-          nullOption: false,
-        },
-      },
-    ],
-  },
-  {
-    name: 'Urinalysis (UA)',
-    methods: {
-      analyzer: { device: 'Clinitek / Multitsix' },
-    },
-    method: 'Clinitek/ Multitsix',
-    device: 'Clinitek',
-    cptCode: ['81003'],
-    loincCode: ['24356-8'],
-    repeatTest: true,
-    components: [
-      {
-        componentName: 'Glucose',
-        loincCode: ['2350-7'],
-        dataType: 'CodeableConcept' as const,
-        valueSet: [
-          { code: 'Not detected', display: 'Not detected' },
-          { code: 'Trace', display: 'Trace' },
-          { code: '1+', display: '1+' },
-          { code: '2+', display: '2+' },
-          { code: '3+', display: '3+' },
-          { code: '4+', display: '4+' },
-        ],
-        abnormalValues: [
-          { code: 'Trace', display: 'Trace' },
-          { code: '1+', display: '1+' },
-          { code: '2+', display: '2+' },
-          { code: '3+', display: '3+' },
-          { code: '4+', display: '4+' },
-        ],
-        unit: 'mg/dL',
-        // currently quantitativeReference is not being mapped into the fhir resource
-        // in the future, if we want we could map into the valueSet like "1+ 100 mg/dL" but not needed at the moment
-        quantitativeReference: {
-          Trace: '<100 mg/dL',
-          '1+': '100 mg/dL',
-          '2+': '250 mg/dL',
-          '3+': '500 mg/dL',
-          '4+': '≥1000 mg/dL',
-        },
-        display: {
-          type: 'Select',
-          nullOption: false,
-        },
-      },
-      {
-        componentName: 'Bilirubin',
-        loincCode: ['1977-8'],
-        dataType: 'CodeableConcept' as const,
-        valueSet: [
-          { code: 'Negative', display: 'Negative' },
-          { code: 'Small (+)', display: 'Small (+)' },
-          { code: 'Moderate (++)', display: 'Moderate (++)' },
-          { code: 'Large (+++)', display: 'Large (+++)' },
-        ],
-        abnormalValues: [
-          { code: 'Small (+)', display: 'Small (+)' },
-          { code: 'Moderate (++)', display: 'Moderate (++)' },
-          { code: 'Large (+++)', display: 'Large (+++)' },
-        ],
-        quantitativeReference: {
-          '1+': 'small',
-          '2+': 'moderate',
-          '3+': 'large',
-        },
-        display: {
-          type: 'Select',
-          nullOption: false,
-        },
-      },
-      {
-        componentName: 'Ketone',
-        loincCode: ['49779-2'],
-        dataType: 'CodeableConcept' as const,
-        valueSet: [
-          { code: 'Negative', display: 'Negative' },
-          { code: '5 mg/dL (trace)', display: '5 mg/dL (trace)' },
-          { code: '15 mg/dL (small)', display: '15 mg/dL (small)' },
-          { code: '40 mg/dL (moderate)', display: '40 mg/dL (moderate)' },
-          { code: '80-160 mg/dL (large)', display: '80-160 mg/dL (large)' },
-        ],
-        abnormalValues: [
-          { code: '5 mg/dL (trace)', display: '5 mg/dL (trace)' },
-          { code: '15 mg/dL (small)', display: '15 mg/dL (small)' },
-          { code: '40 mg/dL (moderate)', display: '40 mg/dL (moderate)' },
-          { code: '80-160 mg/dL (large)', display: '80-160 mg/dL (large)' },
-        ],
-        unit: 'mg/dL',
-        quantitativeReference: {
-          Trace: '5 mg/dL',
-          Small: '15 mg/dL',
-          Moderate: '40 mg/dL',
-          Large: '80-160 mg/dL',
-        },
-        display: {
-          type: 'Select',
-          nullOption: false,
-        },
-      },
-      {
-        componentName: 'Specific gravity',
-        loincCode: ['2965-2'],
-        dataType: 'Quantity' as const,
-        normalRange: {
-          low: 1.005,
-          high: 1.03,
-          unit: '', // specific gravity has no unit
-          precision: 3,
-        },
-        display: {
-          type: 'Numeric',
-          nullOption: false,
-        },
-      },
-      {
-        componentName: 'Blood',
-        loincCode: ['105906-2'],
-        dataType: 'CodeableConcept' as const,
-        valueSet: [
-          { code: 'Not detected', display: 'Not detected' },
-          { code: 'Trace', display: 'Trace' },
-          { code: 'Small', display: 'Small' },
-          { code: 'Moderate', display: 'Moderate' },
-          { code: 'Large', display: 'Large' },
-        ],
-        abnormalValues: [
-          { code: 'Trace', display: 'Trace' },
-          { code: 'Small', display: 'Small' },
-          { code: 'Moderate', display: 'Moderate' },
-          { code: 'Large', display: 'Large' },
-        ],
-        display: {
-          type: 'Select',
-          nullOption: false,
-        },
-      },
-      {
-        componentName: 'pH',
-        loincCode: ['2756-5'],
-        dataType: 'Quantity' as const,
-        normalRange: {
-          low: 5.0,
-          high: 8.0,
-          unit: '', // ph has no unit
-          precision: 1,
-        },
-        display: {
-          type: 'Numeric',
-          nullOption: false,
-        },
-      },
-      {
-        componentName: 'Protein',
-        loincCode: ['2888-6'],
-        dataType: 'CodeableConcept' as const,
-        valueSet: [
-          { code: 'Not detected', display: 'Not detected' },
-          { code: 'Trace', display: 'Trace' },
-          { code: '1+', display: '1+' },
-          { code: '2+', display: '2+' },
-          { code: '3+', display: '3+' },
-          { code: '4+', display: '4+' },
-        ],
-        abnormalValues: [
-          { code: 'Trace', display: 'Trace' },
-          { code: '1+', display: '1+' },
-          { code: '2+', display: '2+' },
-          { code: '3+', display: '3+' },
-          { code: '4+', display: '4+' },
-        ],
-        unit: 'mg/dL',
-        quantitativeReference: {
-          Trace: '10 mg/dL',
-          '1+': '30 mg/dL',
-          '2+': '100 mg/dL',
-          '3+': '300 mg/dL',
-          '4+': '≥2000 mg/dL',
-        },
-        display: {
-          type: 'Select',
-          nullOption: false,
-        },
-      },
-      {
-        componentName: 'Urobilinogen',
-        loincCode: ['32727-0'],
-        dataType: 'Quantity' as const,
-        normalRange: {
-          low: 0.2,
-          high: 1.0,
-          unit: 'EU/dL',
-          precision: 1,
-        },
-        display: {
-          type: 'Numeric',
-          nullOption: false,
-        },
-      },
-      {
-        componentName: 'Nitrite',
-        loincCode: ['32710-6'],
-        dataType: 'CodeableConcept' as const,
-        valueSet: [
-          { code: 'Not detected', display: 'Not detected' },
-          { code: 'Detected', display: 'Detected' },
-        ],
-        abnormalValues: [{ code: 'Detected', display: 'Detected' }],
-        display: {
-          type: 'Select',
-          nullOption: false,
-        },
-      },
-      {
-        componentName: 'Leukocytes',
-        loincCode: ['105105-1'],
-        dataType: 'CodeableConcept' as const,
-        valueSet: [
-          { code: 'Not detected', display: 'Not detected' },
-          { code: 'Trace', display: 'Trace' },
-          { code: 'Small', display: 'Small' },
-          { code: 'Moderate', display: 'Moderate' },
-          { code: 'Large', display: 'Large' },
-        ],
-        abnormalValues: [
-          { code: 'Trace', display: 'Trace' },
-          { code: 'Small', display: 'Small' },
-          { code: 'Moderate', display: 'Moderate' },
-          { code: 'Large', display: 'Large' },
-        ],
-        display: {
-          type: 'Select',
-          nullOption: false,
-        },
-      },
-    ],
-  },
-  {
-    name: 'Urine Pregnancy Test (HCG)',
-    methods: {
-      manual: { device: 'Strip/stick' },
-    },
-    method: 'Manual/Strip',
-    device: 'Strip/stick',
-    cptCode: ['81025'],
-    loincCode: ['2106-3'],
-    repeatTest: false,
-    components: [
-      {
-        componentName: 'Urine Pregnancy Test (HCG)',
-        loincCode: ['2106-3'],
-        dataType: 'CodeableConcept' as const,
-        valueSet: [
-          { code: 'Detected', display: 'Detected' },
-          { code: 'Not detected', display: 'Not detected' },
-        ],
-        abnormalValues: [], // empty array, because both results are normal in the context of the test
-        display: {
-          type: 'Radio',
-          nullOption: true,
-        },
-      },
-    ],
-  },
-  {
-    name: 'ID Now Strep',
-    methods: {
-      analyzer: { device: 'Abbott ID NOW' },
-    },
-    method: 'Abbott ID Now',
-    device: 'Abbott ID Now',
-    cptCode: ['87651'],
-    loincCode: ['104724-0'],
-    repeatTest: false,
-    components: [
-      {
-        componentName: 'ID Now Strep',
-        loincCode: ['104724-0'],
-        dataType: 'CodeableConcept' as const,
-        valueSet: [
-          { code: 'Detected', display: 'Detected' },
-          { code: 'Not detected', display: 'Not detected' },
-        ],
-        abnormalValues: [{ code: 'Detected', display: 'Detected' }],
-        display: {
-          type: 'Radio',
-          nullOption: true,
-        },
-      },
-    ],
-  },
-  {
-    name: 'Flu A',
-    methods: {
-      analyzer: { device: 'Abbott ID NOW' },
-    },
-    method: 'Abbott ID Now',
-    device: 'Abbott ID Now',
-    cptCode: ['87501'],
-    loincCode: ['104730-7'],
-    repeatTest: false,
-    note: 'Same CPT as Flu B, same test sample/test as B, but separate result',
-    components: [
-      {
-        componentName: 'Flu A',
-        loincCode: ['104730-7'],
-        dataType: 'CodeableConcept' as const,
-        valueSet: [
-          { code: 'Detected', display: 'Detected' },
-          { code: 'Not detected', display: 'Not detected' },
-        ],
-        abnormalValues: [{ code: 'Detected', display: 'Detected' }],
-        display: {
-          type: 'Radio',
-          nullOption: true,
-        },
-      },
-    ],
-  },
-  {
-    name: 'Flu B',
-    methods: {
-      analyzer: { device: 'Abbott ID NOW' },
-    },
-    method: 'Abbott ID Now',
-    device: 'Abbott ID Now',
-    cptCode: ['87501'],
-    loincCode: ['106618-2'],
-    repeatTest: false,
-    note: 'Same CPT as Flu A, same test sample/test as A, but separate result',
-    components: [
-      {
-        componentName: 'Flu B',
-        loincCode: ['106618-2'],
-        dataType: 'CodeableConcept' as const,
-        valueSet: [
-          { code: 'Detected', display: 'Detected' },
-          { code: 'Not detected', display: 'Not detected' },
-        ],
-        abnormalValues: [{ code: 'Detected', display: 'Detected' }],
-        display: {
-          type: 'Radio',
-          nullOption: true,
-        },
-      },
-    ],
-  },
-  {
-    name: 'RSV',
-    methods: {
-      analyzer: { device: 'Abbott ID NOW' },
-    },
-    method: 'Abbott ID Now',
-    device: 'Abbott ID Now',
-    cptCode: ['87634'],
-    loincCode: ['33045-6', '31949-1'],
-    repeatTest: false,
-    components: [
-      {
-        componentName: 'RSV',
-        loincCode: ['33045-6', '31949-1'],
-        dataType: 'CodeableConcept' as const,
-        valueSet: [
-          { code: 'Detected', display: 'Detected' },
-          { code: 'Not detected', display: 'Not detected' },
-        ],
-        abnormalValues: [{ code: 'Detected', display: 'Detected' }],
-        display: {
-          type: 'Radio',
-          nullOption: true,
-        },
-      },
-    ],
-  },
-  {
-    name: 'COVID-19 Antigen',
-    methods: {
-      analyzer: { device: 'Abbott ID NOW' },
-    },
-    method: 'Abbott ID Now',
-    device: 'Abbott ID Now',
-    cptCode: ['87635'],
-    loincCode: ['96119-3'],
-    repeatTest: false,
-    components: [
-      {
-        componentName: 'COVID-19 Antigen',
-        loincCode: ['96119-3'],
-        dataType: 'CodeableConcept' as const,
-        valueSet: [
-          { code: 'Detected', display: 'Detected' },
-          { code: 'Not detected', display: 'Not detected' },
-        ],
-        abnormalValues: [{ code: 'Detected', display: 'Detected' }],
-        display: {
-          type: 'Radio',
-          nullOption: true,
-        },
-      },
-    ],
-  },
-];
