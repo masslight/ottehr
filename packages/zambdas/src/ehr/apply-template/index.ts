@@ -1,7 +1,7 @@
 import Oystehr, { BatchInputDeleteRequest, BatchInputJSONPatchRequest, BatchInputPostRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ClinicalImpression, Communication, Condition, Encounter, List, Observation } from 'fhir/r4b';
-import { ApplyTemplateZambdaInput, getSecret, SecretsKeys } from 'utils';
+import { ApplyTemplateZambdaInput, chunkThings, getSecret, SecretsKeys } from 'utils';
 import { v4 as uuidV4 } from 'uuid';
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
@@ -89,17 +89,52 @@ const performEffect = async (
 
   // Make 1 transaction to delete old resources exam resources that are being replaced and write the new ones
   const deleteRequests = await makeDeleteRequests(oystehr, encounterId);
+
+  const deleteBatches = chunkThings(deleteRequests, 5).map((chunk) =>
+    oystehr.fhir.batch({
+      requests: chunk,
+    })
+  );
+
   const createRequests = makeCreateRequests(encounter, templateList);
 
-  console.log('alex prepared requests ', JSON.stringify([...deleteRequests, ...createRequests]));
-
-  // Hot take don't actually delete any DX if there was one present, simply add and make them remove others themselves?
-
-  const transactionBundle = await oystehr.fhir.transaction({
-    requests: [...deleteRequests, ...createRequests],
+  const miniTransactionRequests = createRequests.filter((request) => {
+    if (request.method === 'POST') {
+      return (
+        request.resource.resourceType === 'ClinicalImpression' ||
+        request.resource.resourceType === 'Condition' ||
+        request.resource.resourceType === 'Communication'
+      );
+    } else if (request.method === 'PATCH') {
+      return true;
+    }
+    return false;
   });
 
-  console.log('Transaction Bundle:', transactionBundle);
+  const observationRequests = createRequests.filter(
+    (request) => request.method === 'POST' && request.resource.resourceType === 'Observation'
+  );
+
+  const createObservationBatches = chunkThings(observationRequests, 5).map((chunk) =>
+    oystehr.fhir.batch({
+      requests: chunk,
+    })
+  );
+
+  const miniTransactionPromise = oystehr.fhir.transaction({
+    requests: miniTransactionRequests,
+  });
+
+  const bundles = await Promise.all([...deleteBatches, ...createObservationBatches, miniTransactionPromise]);
+
+  console.log('Outcome bundles, ', JSON.stringify(bundles));
+
+  // TODO when we can do it all in one transaction, then do it all in one transaction.
+  // const transactionBundle = await oystehr.fhir.transaction({
+  //   requests: [...deleteRequests, ...createRequests],
+  // });
+
+  // console.log('Transaction Bundle:', transactionBundle);
 };
 
 const makeDeleteRequests = async (oystehr: Oystehr, encounterId: string): Promise<BatchInputDeleteRequest[]> => {

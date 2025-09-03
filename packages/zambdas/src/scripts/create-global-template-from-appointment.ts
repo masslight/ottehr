@@ -83,7 +83,7 @@ async function createGlobalTemplateFromAppointment(config: any): Promise<void> {
   const oldIdToNewIdMap = new Map<string, string>();
 
   // let counter = 0;
-  let observationCounter = 0;
+  // let observationCounter = 0;
   for (const entry of appointmentBundle.entry) {
     // We need to push each resource into `contained` and also put a reference to the contained resource in `entry`
     if (!entry.resource) continue;
@@ -91,7 +91,7 @@ async function createGlobalTemplateFromAppointment(config: any): Promise<void> {
     if (entry.resource.resourceType === 'Appointment') continue;
     // Skip the Encounter that was just used to fetch through to the resources we want.
     if (entry.resource.resourceType === 'Encounter') continue;
-    if (entry.resource.resourceType === 'Observation' && observationCounter > 10) continue; // TODO temporary
+    // if (entry.resource.resourceType === 'Observation' && observationCounter > 10) continue; // TODO temporary
     const anonymizedResource: any = entry.resource; // We use any so we can scrub relevant fields from various types of resources.
     delete anonymizedResource.meta?.versionId;
     delete anonymizedResource.meta?.lastUpdated;
@@ -115,7 +115,7 @@ async function createGlobalTemplateFromAppointment(config: any): Promise<void> {
     });
 
     // counter++;
-    if (entry.resource.resourceType === 'Observation') observationCounter++; //TODO temp
+    // if (entry.resource.resourceType === 'Observation') observationCounter++; //TODO temp
   }
 
   const oldEncounter = appointmentBundle.entry.find(
