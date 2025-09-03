@@ -7,7 +7,9 @@ import { ButtonRounded } from 'src/features/css-module/components/RoundedButton'
 import { WarningBlock } from 'src/features/css-module/components/WarningBlock';
 import { getImmunizationMARUrl, getImmunizationOrderEditUrl } from 'src/features/css-module/routing/helpers';
 import { cleanupProperties } from 'src/helpers/misc.helper';
+import useEvolveUser from 'src/hooks/useEvolveUser';
 import { AccordionCard, useAppointmentData } from 'src/telemed';
+import { RoleType } from 'utils';
 import { PageHeader } from '../../css-module/components/medication-administration/PageHeader';
 import { useCreateUpdateImmunizationOrder, useGetImmunizationOrders } from '../../css-module/hooks/useImmunization';
 import { OrderDetailsSection } from '../components/OrderDetailsSection';
@@ -52,6 +54,21 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
       });
     }
   }, [methods, ordersResponse, orderId]);
+
+  const currentUser = useEvolveUser();
+  const currentUserProviderId = currentUser?.profile?.split('/')[1];
+  const currentUserHasProviderRole = currentUser?.hasRole?.([RoleType.Provider]);
+  const defaultProviderId = currentUserHasProviderRole ? currentUserProviderId : undefined;
+
+  useEffect(() => {
+    if (!orderId) {
+      methods.reset({
+        details: {
+          orderedProviderId: defaultProviderId,
+        },
+      });
+    }
+  }, [methods, defaultProviderId, orderId]);
 
   return (
     <FormProvider {...methods}>
