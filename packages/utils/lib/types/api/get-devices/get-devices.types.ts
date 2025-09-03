@@ -24,6 +24,8 @@ export interface Device {
   identifier: Identifier[];
   deviceName: DeviceName[];
   meta: Meta;
+  serialNumber: string;
+  modelNumber: string;
   patient?: Patient;
   manufacturer?: string;
   distinctIdentifier: string;
@@ -64,6 +66,8 @@ export interface Patient {
 
 export interface DeviceResponse {
   id: string;
+  serialNumber: string;
+  modelNumber: string;
   identifier: any;
   deviceName: { name: string }[];
   manufacturer?: string;
@@ -83,6 +87,8 @@ export interface UnassinedDeviceResponse {
 export interface DeviceColumns {
   id: string;
   name: string;
+  serialNumber: string;
+  modelNumber: string;
   manufacturer: string;
   lastUpdated: string;
   distinctIdentifier: string;
