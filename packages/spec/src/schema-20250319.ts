@@ -2,6 +2,20 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { Schema, SpecFile } from './schema';
 
+export const VAR_REGEX = /#\{var\/([^}]+)\}/g;
+export const REF_REGEX = /#\{ref\/([^}/]+)\/([^}/]+)\/([^}]+)\}/g;
+
+export type Spec20250319 = {
+  apps: { [key: string]: any };
+  buckets: { [key: string]: any };
+  fhirResources: { [key: string]: any };
+  labRoutes: { [key: string]: any };
+  m2ms: { [key: string]: any };
+  roles: { [key: string]: any };
+  secrets: { [key: string]: any };
+  zambdas: { [key: string]: any };
+};
+
 export class Schema20250319 implements Schema<Spec20250319> {
   private specFiles: SpecFile[];
   private vars: { [key: string]: any };
@@ -203,14 +217,9 @@ export class Schema20250319 implements Schema<Spec20250319> {
     if (typeof value !== 'string') {
       return value;
     }
-    const varReplacedValue = value.replace(/#\{var\/([^}]+)\}/g, (match: string, varName: string) => {
-      if (Object.prototype.hasOwnProperty.call(this.vars, varName)) {
-        return this.vars[varName];
-      }
-      return match;
-    });
+    const varReplacedValue = this.replaceVariableWithValue(value);
     const refReplacedValue = varReplacedValue.replace(
-      /#\{ref\/([^}/]+)\/([^}/]+)\/([^}]+)\}/g,
+      REF_REGEX,
       (match: string, resourceType: string, resourceName: string, fieldName: string) => {
         const tfRef = this.getTerraformResourceReference(spec, resourceType as keyof Spec20250319, resourceName, fieldName);
         if (tfRef) {
@@ -220,6 +229,15 @@ export class Schema20250319 implements Schema<Spec20250319> {
       }
     );
     return refReplacedValue;
+  }
+
+  replaceVariableWithValue(value: string): string {
+    return value.replace(VAR_REGEX, (match: string, varName: string) => {
+      if (Object.prototype.hasOwnProperty.call(this.vars, varName)) {
+        return this.vars[varName];
+      }
+      return match;
+    });
   }
 
   getTerraformResourceReference(spec: Spec20250319, resourceType: keyof Spec20250319, resourceName: string, fieldName: string): string | null {
@@ -266,14 +284,3 @@ export class Schema20250319 implements Schema<Spec20250319> {
     return spec && typeof spec === 'object' && !Array.isArray(spec);
   }
 }
-
-type Spec20250319 = {
-  apps: { [key: string]: any };
-  buckets: { [key: string]: any };
-  fhirResources: { [key: string]: any };
-  labRoutes: { [key: string]: any };
-  m2ms: { [key: string]: any };
-  roles: { [key: string]: any };
-  secrets: { [key: string]: any };
-  zambdas: { [key: string]: any };
-};
