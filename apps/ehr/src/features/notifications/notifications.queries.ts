@@ -43,6 +43,7 @@ export const useGetProviderNotifications = (onSuccess?: (data: ProviderNotificat
               value: `${PROVIDER_NOTIFICATION_TYPE_SYSTEM}|${[
                 AppointmentProviderNotificationTypes.patient_waiting,
                 AppointmentProviderNotificationTypes.unsigned_charts,
+                AppointmentProviderNotificationTypes.device_vital_alert,
               ].join(',')}`,
             },
             {
