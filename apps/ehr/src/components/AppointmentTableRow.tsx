@@ -42,6 +42,7 @@ import {
   isPhysicianQualification,
   mdyStringFromISOString,
   OrdersForTrackingBoardRow,
+  PractitionerQualificationCode,
   PROJECT_NAME,
   ROOM_EXTENSION_URL,
   VisitStatusLabel,
@@ -239,7 +240,11 @@ const longWaitTimeFlag = (appointment: InPersonAppointmentInformation, statusTim
   return false;
 };
 
-function canApprove(practitioner: Practitioner, location: Location, attenderQualification?: string): boolean {
+function canApprove(
+  practitioner: Practitioner,
+  location: Location,
+  attenderQualification?: PractitionerQualificationCode
+): boolean {
   if (!practitioner) return false;
 
   const isAttenderPhysician = isPhysicianQualification(attenderQualification);
