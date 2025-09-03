@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import moment from 'moment';
+import { getSecret, SecretsKeys } from 'utils';
 import { createOystehrClient, getAuth0Token, lambdaResponse, wrapHandler, ZambdaInput } from '../../shared';
 
 // For local development it makes it easier to track performance
@@ -39,8 +40,20 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
       } else {
         console.log('already have token');
       }
-
+      const PROJECT_ID = getSecret(SecretsKeys.PROJECT_ID, secrets);
+      // const SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID = getSecret(
+      //   SecretsKeys.VIRTUAL_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID,
+      //   secrets
+      // );
       const oystehr = createOystehrClient(oystehrToken, secrets);
+      const roles = (await oystehr.role.list()).filter((x: any) => ['Administrator', 'Staff'].includes(x.name));
+      let usersList: any[] = [];
+      for (const role of roles) {
+        const users = await fetchUsers(oystehrToken, PROJECT_ID, role.id);
+        usersList = [...usersList, ...users.data];
+      }
+      usersList = getUniqueById(usersList);
+
       const fhirDevice = await fetchFHIRDevice(oystehr, imei);
       if (fhirDevice) {
         // Bind Device Type if not exists
@@ -122,9 +135,74 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
           effectiveDateTime: tsUTC,
           issued: uploadTimeUTC,
         };
-        console.log('payload:', JSON.stringify(payload, null, 4));
-
         await oystehr.fhir.create<any>(payload);
+
+        let isExceeding = false;
+        let message = '';
+        if (isWS) {
+          const weightThreshold = getCmpVal(payload, 'weight-threshold');
+          const weightVariance = getCmpVal(payload, 'weight-variance');
+          let weight = getCmpVal(payload, 'wt');
+          weight = weight ? weight * 0.00220462 : null;
+          if (weightThreshold && weightVariance && weight) {
+            const range = getRange(weightThreshold, weightVariance);
+            isExceeding = range.length == 2 ? !(weight >= range[0] && weight <= range[1]) : false;
+            if (isExceeding) {
+              message = 'ok';
+            }
+          }
+        }
+        if (isBG) {
+          const glucoseThreshold = getCmpVal(payload, 'glucose-threshold');
+          const glucoseVariance = getCmpVal(payload, 'glucose-variance');
+          const glucose = getCmpVal(payload, 'data');
+          if (glucoseThreshold && glucoseVariance && glucose) {
+            const range = getRange(glucoseThreshold, glucoseVariance);
+            isExceeding = range.length == 2 ? !(glucose >= range[0] && glucose <= range[1]) : false;
+            if (isExceeding) {
+              message = 'ok';
+            }
+          }
+        }
+        if (isBP) {
+          const systolicThreshold = getCmpVal(payload, 'systolic-threshold');
+          const systolicVariance = getCmpVal(payload, 'systolic-variance');
+          const systolic = getCmpVal(payload, 'sys');
+          if (systolicThreshold && systolicVariance && systolic) {
+            const range = getRange(systolicThreshold, systolicVariance);
+            isExceeding = range.length == 2 ? !(systolic >= range[0] && systolic <= range[1]) : false;
+            if (isExceeding) {
+              message = 'ok';
+            }
+          }
+
+          if (isExceeding == false) {
+            const diastolicThreshold = getCmpVal(payload, 'diastolic-threshold');
+            const diastolicVariance = getCmpVal(payload, 'diastolic-variance');
+            const diastolic = getCmpVal(payload, 'dia');
+            if (diastolicThreshold && diastolicVariance && diastolic) {
+              const range = getRange(diastolicThreshold, diastolicVariance);
+              isExceeding = range.length == 2 ? !(diastolic >= range[0] && diastolic <= range[1]) : false;
+              if (isExceeding) {
+                message = 'ok';
+              }
+            }
+          }
+        }
+
+        if (isExceeding && message?.length > 0) {
+          for (const user of usersList) {
+            // if (user.email) {
+            //   const subject = `${PROJECT_NAME} Telemedicine`;
+            //   const templateId = SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID;
+            //   const templateInformation = {};
+            //   await sendEmail(user.email, templateId, subject, templateInformation, secrets);
+            // }
+            if (user.profile) {
+              console.log(user.profile, message);
+            }
+          }
+        }
 
         return lambdaResponse(200, {
           message: 'Ok',
@@ -140,7 +218,7 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
       });
     }
   } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
+    console.error(error);
     return lambdaResponse(500, error.message);
   }
 });
@@ -175,3 +253,46 @@ function getOffsetFromTZ(tz: string): string {
   }
   return '+00:00';
 }
+
+async function fetchUsers(token: string, projectId: string, roleId: string): Promise<any> {
+  const mioRes = await fetch(`https://project-api.zapehr.com/v1/user/v2/list?roleId=${roleId}&limit=1000`, {
+    method: 'GET',
+    headers: {
+      authorization: `Bearer ${token}`,
+      'x-oystehr-project-id': projectId,
+    },
+  });
+
+  if (!mioRes.ok) {
+    throw new Error(`Failed to fetch users by role: ${mioRes.statusText}`);
+  }
+
+  const data: any = await mioRes.json();
+  return data;
+}
+
+function getUniqueById(array: any): any {
+  const seen = new Set();
+  return array.filter((item: any) => {
+    if (seen.has(item.profile)) {
+      return false;
+    }
+    seen.add(item.profile);
+    return true;
+  });
+}
+
+const getCmpVal = (row: any, field: string): any => {
+  return row?.component?.find((x: any) => x.code.text == field)?.valueString ?? null;
+};
+
+const getRange = (baselineStr: string, varianceStr: string): any[] => {
+  const baseline = parseFloat(baselineStr);
+  const variance = parseFloat(varianceStr);
+  if (isNaN(baseline) || isNaN(variance)) return [];
+
+  const delta = (baseline * variance) / 100;
+  const min = baseline - delta;
+  const max = baseline + delta;
+  return [min, max];
+};
