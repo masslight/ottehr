@@ -1,4 +1,5 @@
 import { Box, Grid, Paper, Stack, Typography, useTheme } from '@mui/material';
+import { DateTime } from 'luxon';
 import React, { useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useParams } from 'react-router-dom';
@@ -35,6 +36,10 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
         ...order.details,
         medicationId: order?.details?.medication?.id,
         orderedProviderId: order?.details?.orderedProvider?.id,
+      },
+      administrationDetails: {
+        ...order.administrationDetails,
+        administeredDateTime: DateTime.now().toISO(),
       },
       visGiven: order.administrationDetails?.visGivenDate != null,
       otherReason: '',
