@@ -34,7 +34,6 @@
     "intake:e2e:staging:ui": "ENV=staging tsx scripts/run-e2e.ts --app=intake --ui",
     "intake:e2e:staging:login": "ENV=staging tsx scripts/run-e2e.ts --app=intake --login-only",
     "intake:e2e:staging:specs": "ENV=staging tsx scripts/run-e2e.ts --app=intake --specs-only",
-    "intake:e2e:validate-user": "node apps/intake/validate-e2e-intake-user.mjs",
     "intake:build": "turbo build --filter=intake-ui",
     "intake:lint": "turbo lint --filter=intake-ui...",
     "intake:start:ui": "turbo start --filter=intake-ui",
