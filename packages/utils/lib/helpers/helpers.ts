@@ -1242,8 +1242,8 @@ export const getPractitionerQualificationByLocation = (
   return qualification;
 };
 
-export function isPhysicianQualification(qualification?: string): boolean {
-  return qualification != null && ['MD', 'OD'].includes(qualification);
+export function isPhysicianQualification(qualification?: PractitionerQualificationCode): boolean {
+  return qualification != null && ['MD', 'DO'].includes(qualification);
 }
 
 export const getCandidPlanTypeCodeFromCoverage = (coverage: Coverage): NetworkType | undefined => {
