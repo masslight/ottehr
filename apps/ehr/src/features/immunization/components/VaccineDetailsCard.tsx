@@ -5,6 +5,7 @@ import { FormProvider, useForm } from 'react-hook-form';
 import { useParams } from 'react-router-dom';
 import { CheckboxInput } from 'src/components/input/CheckboxInput';
 import { DateInput } from 'src/components/input/DateInput';
+import { PhoneInput } from 'src/components/input/PhoneInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { TimeInput } from 'src/components/input/TimeInput';
@@ -181,10 +182,9 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                 />
               </Grid>
               <Grid xs={4} item>
-                <TextInput
+                <PhoneInput
                   name="administrationDetails.emergencyContact.mobile"
                   label="Mobile"
-                  type="phone"
                   validate={requiredForAdministration}
                 />
               </Grid>
