@@ -271,6 +271,7 @@ export interface VisitNoteData extends PdfExaminationBlockData {
   surgicalHistoryNotes?: string[];
   inHouseMedications?: string[];
   inHouseMedicationsNotes?: string[];
+  immunizationOrders?: string[];
   additionalQuestions: Record<AdditionalBooleanQuestionsFieldsNames, string>;
   screening?: {
     seenInLastThreeYears?: string;

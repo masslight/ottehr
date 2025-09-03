@@ -103,7 +103,7 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
             onSwitch={() => setIsImmunizationHistoryCollapsed((prev) => !prev)}
             withBorder={false}
           >
-            <OrderHistoryTable showActions={false} />
+            <OrderHistoryTable showActions={false} administeredOnly />
           </AccordionCard>
         </Stack>
       </form>
