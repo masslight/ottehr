@@ -44,8 +44,8 @@ try {
   console.error('Failed to validate user:', error);
 }
 
-// Create the playwright/user.json file if it doesn't exist
-if (!fs.existsSync(playwrightUserFile) || !isUserValid) {
+// Create a blank playwright/user.json file if it doesn't exist or the login is expired
+if (!isUserValid) {
   const playwrightDir = path.dirname(playwrightUserFile);
   if (!fs.existsSync(playwrightDir)) {
     fs.mkdirSync(playwrightDir, { recursive: true });
