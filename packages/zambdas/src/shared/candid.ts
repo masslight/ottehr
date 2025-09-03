@@ -57,6 +57,7 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  createReference,
   FHIR_IDENTIFIER_NPI,
   getAttendingPractitionerId,
   getCandidPlanTypeCodeFromCoverage,
@@ -916,12 +917,18 @@ const createCandidCoverages = async (
   if (coverages === undefined || coverages.primary === undefined) {
     return candidCoverages;
   }
+  const primaryInsuranceOrg = insuranceOrgs.find(
+    (org) => createReference(org).reference === coverages.primary?.payor?.[0].reference
+  );
+  const secondaryInsuranceOrg = insuranceOrgs.find(
+    (org) => createReference(org).reference === coverages.secondary?.payor?.[0].reference
+  );
 
-  if (coverages.primary && coverages.primarySubscriber && insuranceOrgs[0]) {
+  if (coverages.primary && coverages.primarySubscriber && primaryInsuranceOrg) {
     const candidCoverage = buildCandidCoverageCreateInput(
       coverages.primary,
       coverages.primarySubscriber,
-      insuranceOrgs[0],
+      primaryInsuranceOrg,
       candidPatient
     );
     const response = await candidApiClient.preEncounter.coverages.v1.create(candidCoverage);
@@ -931,11 +938,11 @@ const createCandidCoverages = async (
     candidCoverages.push(response.body);
   }
 
-  if (coverages.secondary && coverages.secondarySubscriber && insuranceOrgs[1]) {
+  if (coverages.secondary && coverages.secondarySubscriber && secondaryInsuranceOrg) {
     const candidCoverage = buildCandidCoverageCreateInput(
       coverages.secondary,
       coverages.secondarySubscriber,
-      insuranceOrgs[1],
+      secondaryInsuranceOrg,
       candidPatient
     );
     const response = await candidApiClient.preEncounter.coverages.v1.create(candidCoverage);
