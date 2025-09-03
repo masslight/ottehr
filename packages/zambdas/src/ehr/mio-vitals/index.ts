@@ -1,7 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { DateTime } from 'luxon';
 import moment from 'moment';
-import { createOystehrClient, getAuth0Token, lambdaResponse, wrapHandler, ZambdaInput } from '../../shared';
+import { AppointmentProviderNotificationTypes, getSecret, PROVIDER_NOTIFICATION_TYPE_SYSTEM, SecretsKeys } from 'utils';
+import { createOystehrClient, getAuth0Token, lambdaResponse, sendEmail, wrapHandler, ZambdaInput } from '../../shared';
 
 // For local development it makes it easier to track performance
 if (process.env.IS_OFFLINE === 'true') {
@@ -39,8 +41,21 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
       } else {
         console.log('already have token');
       }
-
+      const PROJECT_ID = getSecret(SecretsKeys.PROJECT_ID, secrets);
+      const PATIENT_VITAL_ERROR_TEMPLATE_EMAIL_TEMPLATE_ID = getSecret(
+        SecretsKeys.PATIENT_VITAL_ERROR_TEMPLATE_EMAIL_TEMPLATE_ID,
+        secrets
+      );
+      console.log('PATIENT_VITAL_ERROR_TEMPLATE_EMAIL_TEMPLATE_ID : ', PATIENT_VITAL_ERROR_TEMPLATE_EMAIL_TEMPLATE_ID);
       const oystehr = createOystehrClient(oystehrToken, secrets);
+      const roles = (await oystehr.role.list()).filter((x: any) => ['Administrator', 'Staff'].includes(x.name));
+      let usersList: any[] = [];
+      for (const role of roles) {
+        const users = await fetchUsers(oystehrToken, PROJECT_ID, role.id);
+        usersList = [...usersList, ...users.data];
+      }
+      usersList = getUniqueById(usersList);
+
       const fhirDevice = await fetchFHIRDevice(oystehr, imei);
       if (fhirDevice) {
         // Bind Device Type if not exists
@@ -52,8 +67,9 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
           });
         }
 
-        const patient = fhirDevice?.patient?.reference || null;
-        const patientBaseline = patient ? await fetchPatientBaseline(oystehr, patient) : null;
+        const patientId = fhirDevice?.patient?.reference || null;
+        const patient = patientId ? await fetchFHIRPatient(oystehr, patientId) : null;
+        const patientBaseline = patientId ? await fetchPatientBaseline(oystehr, patientId) : null;
         let baseLineComponent = [];
         let componentNames: string[] = [];
         const upload_time = requestBody.upload_time || requestBody.uptime;
@@ -97,10 +113,10 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
           code: {
             text: 'Vital Details',
           },
-          ...(patient && {
+          ...(patientId && {
             subject: {
               type: 'Patient',
-              reference: patient,
+              reference: patientId,
             },
           }),
           device: {
@@ -122,9 +138,168 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
           effectiveDateTime: tsUTC,
           issued: uploadTimeUTC,
         };
-        console.log('payload:', JSON.stringify(payload, null, 4));
+        const vital = await oystehr.fhir.create<any>(payload);
+        console.log('vital created : ', vital);
 
-        await oystehr.fhir.create<any>(payload);
+        const patientName = patient
+          ? [patient.name?.[0]?.family, patient.name?.[0]?.given?.[0]].filter(Boolean).join(' ')
+          : '';
+        const deviceName = fhirDevice?.identifier?.[0]?.value ?? fhirDevice.id;
+        let isExceeding = false;
+        let message = '';
+        const templateInformation = {
+          patientName: patientName,
+          imei: deviceName,
+          deviceType: isWS ? 'Weight Scale' : isBP ? 'Blood Pressure Monitor' : isBG ? 'Blood Glucose Monitor' : '',
+          systolicDisplay: 'none',
+          systolicRange: '',
+          systolic: '',
+          diastolicDisplay: 'none',
+          diastolicRange: '',
+          diastolic: '',
+          weightDisplay: 'none',
+          weightRange: '',
+          weight: '',
+          glucoseDisplay: 'none',
+          glucoseRange: '',
+          glucose: '',
+        };
+        if (isWS) {
+          const weightThreshold = getCmpVal(payload, 'weight-threshold');
+          const weightVariance = getCmpVal(payload, 'weight-variance');
+          let weight = getCmpVal(payload, 'wt');
+          weight = weight ? weight * 0.00220462 : null;
+          if (weightThreshold && weightVariance && weight) {
+            const range = getRange(weightThreshold, weightVariance);
+            isExceeding = range.length == 2 ? !(weight >= range[0] && weight <= range[1]) : false;
+            if (isExceeding) {
+              templateInformation.weightDisplay = 'block';
+              templateInformation.weightRange = `${range[0]} – ${range[1]}`;
+              templateInformation.weight = weight.toFixed(2);
+              message = `A new weight measurement ${templateInformation.weight} lbs has been recorded for ${patientName}, which is outside the baseline range of ${templateInformation.weightRange} for the ${deviceName} device`;
+            }
+          }
+        }
+        if (isBG) {
+          const glucoseThreshold = getCmpVal(payload, 'glucose-threshold');
+          const glucoseVariance = getCmpVal(payload, 'glucose-variance');
+          const glucose = getCmpVal(payload, 'data');
+          if (glucoseThreshold && glucoseVariance && glucose) {
+            const range = getRange(glucoseThreshold, glucoseVariance);
+            isExceeding = range.length == 2 ? !(glucose >= range[0] && glucose <= range[1]) : false;
+            if (isExceeding) {
+              templateInformation.glucoseDisplay = 'block';
+              templateInformation.glucoseRange = `${range[0]} – ${range[1]}`;
+              templateInformation.glucose = glucose;
+              message = `A new glucose measurement ${templateInformation.glucose} mg/dL has been recorded for ${patientName}, which is outside the baseline range of ${templateInformation.glucoseRange} for the ${deviceName} device`;
+            }
+          }
+        }
+        if (isBP) {
+          const systolicThreshold = getCmpVal(payload, 'systolic-threshold');
+          const systolicVariance = getCmpVal(payload, 'systolic-variance');
+          const systolic = getCmpVal(payload, 'sys');
+          let systolicRange = [];
+          if (systolicThreshold && systolicVariance && systolic) {
+            systolicRange = getRange(systolicThreshold, systolicVariance);
+            isExceeding =
+              systolicRange.length == 2 ? !(systolic >= systolicRange[0] && systolic <= systolicRange[1]) : false;
+            if (isExceeding) {
+              templateInformation.systolicDisplay = 'block';
+              templateInformation.systolicRange = `${systolicRange[0]} – ${systolicRange[1]}`;
+              templateInformation.systolic = systolic;
+              message = `A new systolic ${templateInformation.systolic} mmHg has been recorded for ${patientName}, which is outside the baseline range of ${templateInformation.systolicRange} for the ${deviceName} device`;
+            }
+          }
+
+          const diastolicThreshold = getCmpVal(payload, 'diastolic-threshold');
+          const diastolicVariance = getCmpVal(payload, 'diastolic-variance');
+          const diastolic = getCmpVal(payload, 'dia');
+          if (diastolicThreshold && diastolicVariance && diastolic) {
+            const diastolicRange = getRange(diastolicThreshold, diastolicVariance);
+            isExceeding =
+              diastolicRange.length == 2 ? !(diastolic >= diastolicRange[0] && diastolic <= diastolicRange[1]) : false;
+            if (isExceeding) {
+              templateInformation.diastolicDisplay = 'block';
+              templateInformation.diastolicRange = `${diastolicRange[0]} – ${diastolicRange[1]}`;
+              templateInformation.diastolic = diastolic;
+              if (message.length > 0) {
+                message = `A new ${templateInformation.systolic}/${templateInformation.diastolic} mmHg out of range (Normal: ${templateInformation.systolicRange}/${templateInformation.diastolicRange}) for the ${deviceName} device`;
+              } else {
+                message = `A new diastolic ${templateInformation.diastolic} mmHg has been recorded for ${patientName}, which is outside the baseline range of ${templateInformation.diastolicRange} for the ${deviceName} device`;
+              }
+            }
+          }
+        }
+
+        if (isExceeding && message?.length > 0) {
+          const communicationAPICalls: any[] = [];
+          const emailCalls: any[] = [];
+          let topicText = '';
+          if (isWS) topicText = `Weight Baseline Alert for ${patientName}`;
+          if (isBG) topicText = `Glucose Baseline Alert for ${patientName}`;
+          if (isBP) topicText = `Blood Pressure Baseline Alert for ${patientName}`;
+
+          for (const user of usersList) {
+            if (user.email) {
+              emailCalls.push(
+                sendEmail(
+                  user.email,
+                  PATIENT_VITAL_ERROR_TEMPLATE_EMAIL_TEMPLATE_ID,
+                  topicText,
+                  templateInformation,
+                  secrets
+                )
+              );
+            }
+            if (user.profile) {
+              const payloadForCommunication = {
+                resourceType: 'Communication',
+                priority: 'asap',
+                recipient: [
+                  {
+                    type: 'Practitioner',
+                    reference: `${user.profile}`,
+                  },
+                ],
+                status: 'completed',
+                topic: {
+                  text: topicText,
+                },
+                payload: [
+                  {
+                    contentString: message,
+                  },
+                ],
+                meta: {
+                  lastUpdated: uploadTimeUTC,
+                },
+                sender: {
+                  type: 'Device',
+                  reference: `Device/${fhirDevice.id}`,
+                },
+                category: [
+                  {
+                    coding: [
+                      {
+                        system: PROVIDER_NOTIFICATION_TYPE_SYSTEM,
+                        code: AppointmentProviderNotificationTypes.device_vital_alert,
+                      },
+                    ],
+                  },
+                ],
+                sent: DateTime.utc().toISO()!,
+              };
+              communicationAPICalls.push(oystehr.fhir.create<any>(payloadForCommunication));
+            }
+          }
+
+          console.log('emailCalls : ', emailCalls.length > 0 ? await Promise.allSettled(emailCalls) : []);
+          console.log(
+            'communicationAPICalls : ',
+            communicationAPICalls.length > 0 ? await Promise.allSettled(communicationAPICalls) : []
+          );
+        }
 
         return lambdaResponse(200, {
           message: 'Ok',
@@ -140,7 +315,7 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
       });
     }
   } catch (error: any) {
-    console.log('Error: ', JSON.stringify(error.message));
+    console.error(error);
     return lambdaResponse(500, error.message);
   }
 });
@@ -152,6 +327,15 @@ async function fetchFHIRDevice(oystehr: Oystehr, iccid: string): Promise<any> {
   });
   const devices = searchResults.unbundle();
   return devices.length > 0 ? devices[0] : null;
+}
+
+async function fetchFHIRPatient(oystehr: Oystehr, patientId: string): Promise<any> {
+  const searchResults: any = await oystehr.fhir.search<any>({
+    resourceType: 'Patient',
+    params: [{ name: '_id', value: patientId.replace('Patient/', '') }],
+  });
+  const patients = searchResults.unbundle();
+  return patients.length > 0 ? patients[0] : null;
 }
 
 async function fetchPatientBaseline(oystehr: Oystehr, patientId: string): Promise<any> {
@@ -175,3 +359,46 @@ function getOffsetFromTZ(tz: string): string {
   }
   return '+00:00';
 }
+
+async function fetchUsers(token: string, projectId: string, roleId: string): Promise<any> {
+  const mioRes = await fetch(`https://project-api.zapehr.com/v1/user/v2/list?roleId=${roleId}&limit=1000`, {
+    method: 'GET',
+    headers: {
+      authorization: `Bearer ${token}`,
+      'x-oystehr-project-id': projectId,
+    },
+  });
+
+  if (!mioRes.ok) {
+    throw new Error(`Failed to fetch users by role: ${mioRes.statusText}`);
+  }
+
+  const data: any = await mioRes.json();
+  return data;
+}
+
+function getUniqueById(array: any): any {
+  const seen = new Set();
+  return array.filter((item: any) => {
+    if (seen.has(item.profile)) {
+      return false;
+    }
+    seen.add(item.profile);
+    return true;
+  });
+}
+
+const getCmpVal = (row: any, field: string): any => {
+  return row?.component?.find((x: any) => x.code.text == field)?.valueString ?? null;
+};
+
+const getRange = (baselineStr: string, varianceStr: string): any[] => {
+  const baseline = parseFloat(baselineStr);
+  const variance = parseFloat(varianceStr);
+  if (isNaN(baseline) || isNaN(variance)) return [];
+
+  const delta = (baseline * variance) / 100;
+  const min = baseline - delta;
+  const max = baseline + delta;
+  return [min, max];
+};

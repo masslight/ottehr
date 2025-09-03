@@ -121,7 +121,7 @@ export const ProviderNotifications: FC = memo(() => {
           'aria-labelledby': 'notifications-button',
         }}
       >
-        <Box sx={{ p: 3 }}>
+        <Box sx={{ p: 3, width: '100%', maxWidth: '550px' }}>
           <Typography sx={{ fontWeight: 'bold' }} variant="h5" color="primary.dark">
             Notifications
           </Typography>
@@ -173,7 +173,7 @@ const MenuItem = ({ onClick, title, subtitle }: MenuItemProps): JSX.Element => {
       onClick={onClick}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'start', textTransform: 'none' }}>
-        <Typography variant="body1" color={titleColor}>
+        <Typography align="left" variant="body1" color={titleColor}>
           {title}
         </Typography>
         {subtitle && (

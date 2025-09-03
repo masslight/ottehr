@@ -321,4 +321,5 @@ export const PROVIDER_NOTIFICATION_TYPE_SYSTEM = `${FHIR_BASE_URL}/r4/provider-n
 export enum AppointmentProviderNotificationTypes {
   patient_waiting = 'patient-waiting',
   unsigned_charts = 'unsigned-charts',
+  device_vital_alert = 'device-vital-alert',
 }
