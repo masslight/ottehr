@@ -111,8 +111,6 @@ export function ThresholdsTable(): ReactElement {
     },
   });
 
-  const { isLoading: isUpdating } = updateMutation;
-
   const buildComponentArray = (rows: ThresholdRow[]): any[] => {
     return [
       { code: { text: 'systolic-threshold' }, valueString: rows[0].baseline },
@@ -179,7 +177,7 @@ export function ThresholdsTable(): ReactElement {
   return (
     <>
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-        {isFetching || isUpdating ? (
+        {isFetching ? (
           <TableContainer component={Paper} sx={{ border: 'none', boxShadow: 'none' }}>
             <Table>
               <TableHead>

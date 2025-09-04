@@ -48,7 +48,7 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
       );
       console.log('PATIENT_VITAL_ERROR_TEMPLATE_EMAIL_TEMPLATE_ID : ', PATIENT_VITAL_ERROR_TEMPLATE_EMAIL_TEMPLATE_ID);
       const oystehr = createOystehrClient(oystehrToken, secrets);
-      const roles = (await oystehr.role.list()).filter((x: any) => ['Administrator', 'Staff'].includes(x.name));
+      const roles = (await oystehr.role.list()).filter((x: any) => ['Provider'].includes(x.name));
       let usersList: any[] = [];
       for (const role of roles) {
         const users = await fetchUsers(oystehrToken, PROJECT_ID, role.id);
@@ -284,7 +284,7 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
                       {
                         system: PROVIDER_NOTIFICATION_TYPE_SYSTEM,
                         code: AppointmentProviderNotificationTypes.device_vital_alert,
-                        version: patientId,
+                        version: patientId.replace('Patient/', ''),
                       },
                     ],
                   },
