@@ -24,6 +24,7 @@ import {
 } from 'utils';
 import { createOystehrClient, getAuth0Token } from '../shared';
 import { testItems as baseTestItems } from './data/base-in-house-lab-seed-data';
+import { testItems as nwTestItems } from './data/nightwatch-in-house-lab-seed-data';
 
 const AD_CANONICAL_URL_BASE = 'https://ottehr.com/FHIR/InHouseLab/ActivityDefinition';
 
@@ -271,30 +272,13 @@ type DataKey = (typeof DATA_KEYS)[number];
 
 const SEED_DATA_MAP: Record<DataKey, TestItem[]> = {
   base: baseTestItems,
-  nightwatch: baseTestItems,
+  nightwatch: nwTestItems,
 };
 
 const WRITE_MODES = ['api', 'json'] as const;
 type WriteMode = (typeof WRITE_MODES)[number];
 
 async function main(): Promise<void> {
-  // if (process.argv.length !== 3) {
-  //   console.error(`exiting, incorrect number of arguments passed\n`);
-  //   console.log(USAGE_STR);
-  //   process.exit(1);
-  // }
-
-  // let ENV = process.argv[2].toLowerCase();
-  // ENV = ENV === 'dev' ? 'development' : ENV;
-
-  // if (!ENV) {
-  //   console.error(`exiting, ENV variable must be populated`);
-  //   console.log(USAGE_STR);
-  //   process.exit(2);
-  // }
-
-  // let envConfig: any | undefined = undefined;
-
   const program = new Command();
 
   program
