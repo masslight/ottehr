@@ -3,12 +3,12 @@ import CreateOutlinedIcon from '@mui/icons-material/CreateOutlined';
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import { Box, Button, CircularProgress, Divider, Grid, Typography, useMediaQuery } from '@mui/material';
 import { ottehrLightBlue } from '@theme/icons';
-import { ottehrAiLogo } from '@theme/index';
 import { ContactPoint } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { FC, ReactElement, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, Outlet, useLocation, useNavigate, useOutletContext, useParams } from 'react-router-dom';
+import { Link, Outlet, useLocation, useOutletContext, useParams } from 'react-router-dom';
+import { AiChatBanner } from 'src/components/AiChatBanner';
 import {
   APIError,
   APPOINTMENT_NOT_FOUND_ERROR,
@@ -112,7 +112,6 @@ const ThankYou = (): JSX.Element => {
   const [paperworkCompleted, setPaperworkCompleted] = useState<boolean>(false);
   const [checkedIn, setCheckedIn] = useState<boolean>(false);
   const outletContext = useVisitStore();
-  const navigate = useNavigate();
   const { id: appointmentId } = useParams();
   const { pathname } = useLocation();
   const { t } = useTranslation();
@@ -254,35 +253,6 @@ const ThankYou = (): JSX.Element => {
     );
   };
 
-  const aiChatBanner = (): ReactElement => {
-    const bannerEnabled = import.meta.env.VITE_APP_AI_INTERVIEW_BANNER_ENABLED === 'true';
-    return (
-      <>
-        {bannerEnabled && (
-          <Box style={{ background: '#FFF3E0', borderRadius: '8px', padding: '24px', display: 'flex' }}>
-            <Box style={{ fontWeight: 600, fontSize: '18px' }}>
-              <Typography variant="subtitle1" color="text.primary" style={{ paddingBottom: '16px', fontSize: '18px' }}>
-                Save time and help us prepare for your visit. Our medical chatbot will ask you a few questions and
-                securely present the information to your doctor before you arrive.
-              </Typography>
-              <Button
-                type="button"
-                variant="contained"
-                style={{ backgroundColor: '#F57C00' }}
-                onClick={() =>
-                  navigate(intakeFlowPageRoute.AIInterviewStartPage.path.replace(':id', appointmentId ?? ''))
-                }
-              >
-                Start Chatting
-              </Button>
-            </Box>
-            <img src={ottehrAiLogo} style={{ width: '80px', marginLeft: '8px' }} />
-          </Box>
-        )}
-      </>
-    );
-  };
-
   if (shouldRenderOutlet) {
     console.log('rendering outlet...', pathname, visitBasePath, loading);
     return <Outlet context={{ ...outletContext }} />;
@@ -368,7 +338,7 @@ const ThankYou = (): JSX.Element => {
                 <PhoneNumberMessage locationTelecom={selectedLocation?.telecom} />
               </Typography>
               {paperworkCompleted && buttons(2)}
-              {paperworkCompleted && aiChatBanner()}
+              {paperworkCompleted && <AiChatBanner appointmentId={appointmentId ?? ''} />}
             </>
           ) : (
             <>
