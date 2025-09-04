@@ -529,12 +529,14 @@ export const useChartData = ({
 
       onSuccess?.(data);
 
-      // Initialize cache only if it doesn't exist
       const existingCache = queryClient.getQueryData<ChartDataState>(commonChartDataKey);
+      const isExistingCacheContainsCommonData = existingCache && Object.keys(existingCache.chartData || {}).length > 10;
+      const isDataContainsCommonChartData = Object.keys(data).length > 10;
 
-      if (!existingCache) {
+      if (!isExistingCacheContainsCommonData && isDataContainsCommonChartData) {
+        // initialize common cache
         queryClient.setQueryData(commonChartDataKey, {
-          chartData: data,
+          chartData: { ...data, ...existingCache?.chartData },
           isChartDataLoading: false,
         });
       }
