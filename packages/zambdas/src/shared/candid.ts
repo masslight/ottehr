@@ -110,6 +110,7 @@ interface InsuranceResources {
 
 interface CreateEncounterInput {
   appointment: Appointment;
+  location: Location | undefined;
   encounter: Encounter;
   patient: Patient;
   practitioner: Practitioner;
@@ -210,7 +211,7 @@ const createCandidCreateEncounterInput = async (
     throw new Error(`Encounter id is not defined for encounter ${encounterId} in createCandidCreateEncounterInput`);
   }
 
-  const { appointment } = await fetchFHIRPatientAndAppointmentFromEncounter(encounter.id, oystehr);
+  const { appointment, location } = await fetchFHIRPatientAndAppointmentFromEncounter(encounter.id, oystehr);
 
   const practitionerId = getAttendingPractitionerId(encounter);
   let practitioner: Practitioner | null = null;
@@ -223,6 +224,7 @@ const createCandidCreateEncounterInput = async (
 
   return {
     appointment: appointment,
+    location,
     encounter: encounter,
     patient: assertDefined(visitResources.patient, `Patient on encounter ${encounterId}`),
     practitioner: assertDefined(practitioner, `Practitioner on encounter ${encounterId}`),
@@ -278,7 +280,7 @@ async function candidCreateEncounterRequest(
   input: CreateEncounterInput,
   apiClient: CandidApiClient
 ): Promise<EncounterCreate> {
-  const { encounter, patient, practitioner, diagnoses, procedures, insuranceResources } = input;
+  const { encounter, patient, practitioner, diagnoses, procedures, insuranceResources, location } = input;
   const patientName = assertDefined(patient.name?.[0], 'Patient name');
   const patientAddress = assertDefined(patient.address?.[0], 'Patient address');
   const practitionerNpi = assertDefined(getNpi(practitioner.identifier), 'Practitioner NPI');
@@ -356,7 +358,7 @@ async function candidCreateEncounterRequest(
       npi: assertDefined(getNpi(practitioner.identifier), 'Practitioner NPI'),
     },
     serviceFacility: {
-      organizationName: assertDefined(SERVICE_FACILITY_LOCATION.name, 'Service facility name'),
+      organizationName: location?.description ?? assertDefined(SERVICE_FACILITY_LOCATION.name, 'Service facility name'),
       address: {
         address1: assertDefined(serviceFacilityAddress.line?.[0], 'Service facility address line'),
         city: assertDefined(serviceFacilityAddress.city, 'Service facility city'),
@@ -1042,9 +1044,9 @@ function convertCoverageRelationshipToCandidRelationship(relationship: string): 
 const fetchFHIRPatientAndAppointmentFromEncounter = async (
   encounterId: string,
   oystehr: Oystehr
-): Promise<{ patient: Patient; appointment: Appointment }> => {
+): Promise<{ patient: Patient; appointment: Appointment; location: Location | undefined }> => {
   const searchBundleResponse = (
-    await oystehr.fhir.search<Encounter | Patient | Appointment>({
+    await oystehr.fhir.search<Encounter | Patient | Appointment | Location>({
       resourceType: 'Encounter',
       params: [
         {
@@ -1058,6 +1060,10 @@ const fetchFHIRPatientAndAppointmentFromEncounter = async (
         {
           name: '_include',
           value: 'Encounter:appointment',
+        },
+        {
+          name: '_include:iterate',
+          value: 'Appointment:location',
         },
       ],
     })
@@ -1075,9 +1081,14 @@ const fetchFHIRPatientAndAppointmentFromEncounter = async (
     throw new Error(`Appointment not found for encounter ID: ${encounterId}`);
   }
 
+  const location = searchBundleResponse.find((resource) => resource.resourceType === 'Location') as
+    | Location
+    | undefined;
+
   return {
     patient,
     appointment,
+    location,
   };
 };
 
@@ -1132,7 +1143,7 @@ async function candidCreateEncounterFromAppointmentRequest(
   input: CreateEncounterInput,
   apiClient: CandidApiClient
 ): Promise<EncounterCreateFromPreEncounter> {
-  const { appointment, encounter, patient, practitioner, diagnoses, procedures, insuranceResources } = input;
+  const { appointment, encounter, patient, practitioner, diagnoses, procedures, insuranceResources, location } = input;
   const practitionerNpi = assertDefined(getNpi(practitioner.identifier), 'Practitioner NPI');
   const practitionerName = assertDefined(practitioner.name?.[0], 'Practitioner name');
   const billingProviderData = insuranceResources
@@ -1202,7 +1213,7 @@ async function candidCreateEncounterFromAppointmentRequest(
       npi: assertDefined(getNpi(practitioner.identifier), 'Practitioner NPI'),
     },
     serviceFacility: {
-      organizationName: assertDefined(SERVICE_FACILITY_LOCATION.name, 'Service facility name'),
+      organizationName: location?.description ?? assertDefined(SERVICE_FACILITY_LOCATION.name, 'Service facility name'),
       address: {
         address1: assertDefined(serviceFacilityAddress.line?.[0], 'Service facility address line'),
         city: assertDefined(serviceFacilityAddress.city, 'Service facility city'),
