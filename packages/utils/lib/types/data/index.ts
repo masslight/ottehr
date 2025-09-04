@@ -12,3 +12,6 @@ export * from './paperwork.types';
 export * from './payment';
 export * from './telemed';
 export * from './vitals';
+export * from './examination';
+export * from './immunization';
+export * from './screening-questions';

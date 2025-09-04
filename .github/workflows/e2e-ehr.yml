@@ -3,7 +3,7 @@ name: EHR E2E Tests
 env:
   NODE_VERSION: 20
   TEST_RESULTS_CACHE_RETENTION_DAYS: 30
-  SECRETS_REPO: masslight/ottehr-secrets
+  SECRETS_REPOSITORY: ${{ vars.SECRETS_REPOSITORY }} # Secrets repository for configuration files
   PLAYWRIGHT_CACHE_PATH: ~/.cache/ms-playwright
 
 on:
@@ -89,7 +89,7 @@ jobs:
       - name: Check out secrets repo
         uses: actions/checkout@v4
         with:
-          repository: ${{ env.SECRETS_REPO }}
+          repository: ${{ env.SECRETS_REPOSITORY }}
           ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
           path: 'secrets'
 

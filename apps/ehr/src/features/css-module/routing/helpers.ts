@@ -26,6 +26,10 @@ export const getExternalLabOrderEditUrl = (appointmentId: string, orderId: strin
   return `/in-person/${appointmentId}/external-lab-orders/${orderId}/order-details`;
 };
 
+export const getReflexExternalLabEditUrl = (appointmentId: string, diagnosticReportId: string): string => {
+  return `/in-person/${appointmentId}/external-lab-orders/reflex/${diagnosticReportId}/order-details`;
+};
+
 export const getRadiologyUrl = (appointmentId: string): string => {
   return `/in-person/${appointmentId}/radiology`;
 };
@@ -56,4 +60,16 @@ export const getNursingOrderCreateUrl = (appointmentId: string): string => {
 
 export const getNursingOrderDetailsUrl = (appointmentId: string, serviceRequestId: string): string => {
   return `/in-person/${appointmentId}/nursing-orders/${serviceRequestId}/order-details`;
+};
+
+export const getImmunizationMARUrl = (appointmentId: string): string => {
+  return `/in-person/${appointmentId}/immunization/mar`;
+};
+
+export const getImmunizationVaccineDetailsUrl = (appointmentId: string): string => {
+  return `/in-person/${appointmentId}/immunization/vaccine-details`;
+};
+
+export const getImmunizationOrderEditUrl = (appointmentId: string, orderId: string): string => {
+  return `/in-person/${appointmentId}/immunization/order/${orderId}`;
 };

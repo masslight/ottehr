@@ -1,7 +1,6 @@
 import { Box, CircularProgress } from '@mui/material';
 import { FC } from 'react';
-import { getSelectors } from '../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../state';
+import { useChartData } from '../../../state';
 import { DispositionCard } from './DispositionCard';
 import { ERxCard } from './ERxCard';
 import { HealthwiseDocumentsCard } from './HealthwiseDocumentsCard';
@@ -9,7 +8,7 @@ import { PatientInstructionsCard } from './PatientInstructionsCard';
 import { SchoolWorkExcuseCard } from './SchoolWorkExcuseCard';
 
 export const PlanTab: FC = () => {
-  const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);
+  const { isChartDataLoading } = useChartData();
 
   if (isChartDataLoading) {
     return (

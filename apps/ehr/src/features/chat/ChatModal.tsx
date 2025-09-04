@@ -336,7 +336,6 @@ const ChatModal = memo(
                 id="patient-message"
                 label="Message to the patient"
                 value={messageText}
-                onPaste={(e) => e.preventDefault()}
                 disabled={pendingMessageSend !== undefined}
                 autoComplete="off"
                 onChange={(event: ChangeEvent<HTMLInputElement>) => setMessageText(event.target.value)}

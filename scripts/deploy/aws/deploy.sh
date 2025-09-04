@@ -2,6 +2,8 @@
 
 set -eo pipefail
 
+aws_profile=$(grep '"aws_profile"' "$(dirname "$0")/../deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/' || echo 'ottehr')
+profile="${aws_profile:-ottehr}"
 project_id=$(grep '"project_id"' "$(dirname "$0")/../deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
 access_token=$(grep '"access_token"' "$(dirname "$0")/../deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
 provider_email=$(grep '"provider_email"' "$(dirname "$0")/../deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
@@ -46,13 +48,13 @@ popd
 # bootstrap if necessary
 if $first_setup; then
     pushd scripts/deploy/aws
-    npx cdk bootstrap
+    npx cdk bootstrap --profile="${profile}"
     popd
 fi
 
 # first deploy creates infra
 pushd scripts/deploy/aws
-npx cdk deploy --require-approval=never "ottehr-infra-stack-${environment}"
+npx cdk deploy --require-approval=never --profile="${profile}" "ottehr-infra-stack-${environment}"
 # update env files
 npx ts-node ./bin/update-config.ts
 popd
@@ -67,5 +69,5 @@ popd
 
 # second cdk deploy uploads compiled apps
 pushd scripts/deploy/aws
-npx cdk deploy --require-approval=never "ottehr-data-stack-${environment}"
+npx cdk deploy --require-approval=never --profile="${profile}" "ottehr-data-stack-${environment}"
 popd

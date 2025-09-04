@@ -13,3 +13,4 @@ export * from './rcm';
 export * from './states';
 export * from './visit-note';
 export * from './vitals';
+export * from './medications';

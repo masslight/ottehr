@@ -594,6 +594,7 @@ export const FormFields = {
     {
       insurancePriority: { key: 'insurance-priority', type: 'String' },
       insuranceCarrier: { key: 'insurance-carrier', type: 'Reference' },
+      insurancePlanType: { key: 'insurance-plan-type', type: 'String' },
       memberId: { key: 'insurance-member-id', type: 'String' },
       firstName: { key: 'policy-holder-first-name', type: 'String' },
       middleName: { key: 'policy-holder-middle-name', type: 'String' },
@@ -612,6 +613,7 @@ export const FormFields = {
     {
       insurancePriority: { key: 'insurance-priority-2', type: 'String' },
       insuranceCarrier: { key: 'insurance-carrier-2', type: 'Reference' },
+      insurancePlanType: { key: 'insurance-plan-type-2', type: 'String' },
       memberId: { key: 'insurance-member-id-2', type: 'String' },
       firstName: { key: 'policy-holder-first-name-2', type: 'String' },
       middleName: { key: 'policy-holder-middle-name-2', type: 'String' },
@@ -643,6 +645,7 @@ export const FormFields = {
     birthDate: { key: 'responsible-party-date-of-birth', type: 'String', label: 'Date of birth' },
     birthSex: { key: 'responsible-party-birth-sex', type: 'String', label: 'Birth sex' },
     phone: { key: 'responsible-party-number', type: 'String', label: 'Phone' },
+    email: { key: 'responsible-party-email', type: 'String', label: 'Email' },
     addressLine1: { key: 'responsible-party-address', type: 'String', label: 'Street Address' },
     addressLine2: { key: 'responsible-party-address-2', type: 'String', label: 'Address line 2' },
     city: { key: 'responsible-party-city', type: 'String', label: 'City' },

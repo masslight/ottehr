@@ -3,10 +3,11 @@ import { Practitioner } from 'fhir/r4b';
 import { SECRETS } from '../data/secrets';
 
 export const ensureM2MPractitionerProfile = async (token: string): Promise<void> => {
-  const { FHIR_API, PROJECT_ID } = SECRETS;
+  const { FHIR_API, PROJECT_ID, PROJECT_API } = SECRETS;
   const projectApiClient = new Oystehr({
     accessToken: token,
     fhirApiUrl: FHIR_API,
+    projectApiUrl: PROJECT_API,
     projectId: PROJECT_ID,
   });
 
@@ -23,7 +24,7 @@ export const ensureM2MPractitionerProfile = async (token: string): Promise<void>
   if (m2mProfileType && m2mProfileType === 'Practitioner' && m2mProfileId) {
     try {
       await projectApiClient.fhir.get<Practitioner>({
-        id: m2mResource.id,
+        id: m2mProfileId,
         resourceType: 'Practitioner',
       });
     } catch {
