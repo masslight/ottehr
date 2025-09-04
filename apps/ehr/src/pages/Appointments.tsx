@@ -576,7 +576,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
               setEditingComment={setEditingComment}
             />
           </Box>
-          <CreateDemoVisits />
+          {FEATURE_FLAGS.DEMO_VISITS_ENABLED && <CreateDemoVisits />}
         </>
       </PageContainer>
     </form>

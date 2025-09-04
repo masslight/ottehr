@@ -20,17 +20,20 @@ import { SingleInputDateRangeField } from '@mui/x-date-pickers-pro';
 import { DateRangePicker } from '@mui/x-date-pickers-pro/DateRangePicker';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useAppointmentData, useChartData, useDebounce, useDeleteChartData } from 'src/telemed';
 import { useOystehrAPIClient } from 'src/telemed/hooks/useOystehrAPIClient';
 import {
   ADDITIONAL_QUESTIONS_META_SYSTEM,
+  ChartDataFields,
   Field,
   getFhirValueOrFallback,
+  getFieldById,
+  getNoteFieldById,
+  ObservationDTO,
   patientScreeningQuestionsConfig,
 } from 'utils';
-import { useNavigationContext } from '../../context/NavigationContext';
 import { useScreeningQuestionsHandler } from './useScreeningQuestionsHandler';
 
 const CustomCalendarActionBar = ({
@@ -57,13 +60,8 @@ const AskThePatient = (): React.ReactElement => {
   const theme = useTheme();
   const apiClient = useOystehrAPIClient();
   const { encounter } = useAppointmentData();
-  const { chartData, updateObservation, refetch: refetchChartData, setPartialChartData } = useChartData();
+  const { chartData, updateObservation, chartDataSetState } = useChartData();
   const [fieldLoadingState, setFieldLoadingState] = useState<Record<string, boolean>>({});
-
-  const refetchAndUpdateChartData = useCallback(async () => {
-    const { data } = await refetchChartData();
-    setPartialChartData({ observations: data?.observations || [] });
-  }, [refetchChartData, setPartialChartData]);
 
   const { isLoading: isChartDataLoading } = useChartData({
     requestedFields: {
@@ -75,30 +73,200 @@ const AskThePatient = (): React.ReactElement => {
     enabled: false,
   });
 
-  const { mutateAsync: deleteChartData } = useDeleteChartData();
+  const { mutateAsync: _deleteChartData } = useDeleteChartData();
   const { debounce } = useDebounce(1000);
-  const { setNavigationDisable } = useNavigationContext();
   const [tempDateRanges, setTempDateRanges] = useState<Record<string, [DateTime | null, DateTime | null]>>({});
   const [calendarOpen, setCalendarOpen] = useState<Record<string, boolean>>({});
   const [originalDateRanges, setOriginalDateRanges] = useState<Record<string, [DateTime | null, DateTime | null]>>({});
 
-  const { handleFieldChange, initialValues } = useScreeningQuestionsHandler({
-    chartData,
-    updateObservation,
-    encounterId: encounter?.id || '',
-    apiClient,
-    refetchChartData: refetchAndUpdateChartData,
-    deleteChartData,
-    debounce,
-    setNavigationDisable,
-    setFieldLoadingState,
-  });
-
   // Watch all fields values
   const watchedValues = watch();
 
+  const getFieldDisplayName = useCallback((fieldId: string): string => {
+    const field = getFieldById(fieldId);
+
+    if (field) {
+      return field.question;
+    }
+
+    const noteFieldInfo = getNoteFieldById(fieldId);
+
+    if (noteFieldInfo) {
+      return noteFieldInfo.noteField.label || noteFieldInfo.field.question;
+    }
+
+    return fieldId;
+  }, []);
+
+  const setLoading = useCallback(
+    (fieldId: string, isLoading: boolean): void => {
+      setFieldLoadingState((prev) => ({
+        ...prev,
+        [fieldId]: isLoading,
+      }));
+    },
+    [setFieldLoadingState]
+  );
+
+  const getObservation = useCallback(
+    (fhirField: string): ObservationDTO | undefined => {
+      return chartData?.observations?.find((obs: ObservationDTO) => obs.field === fhirField);
+    },
+    [chartData]
+  );
+
+  // returns observation with values from form
+  const getUiData = useCallback(
+    (fhirField: string): ObservationDTO | undefined => {
+      const baseObservation = getObservation(fhirField);
+      const field = patientScreeningQuestionsConfig.fields.find((f) => f.fhirField === fhirField);
+
+      if (!baseObservation) return undefined;
+
+      if (!field || !watchedValues) return baseObservation;
+
+      const updatedObservation = { ...baseObservation };
+
+      if (field.id in watchedValues) {
+        updatedObservation.value = getFhirValueOrFallback(field, watchedValues[field.id]);
+      }
+
+      if (field.noteField && field.noteField.id in watchedValues) {
+        const noteValue = watchedValues[field.noteField.id] as string;
+        (updatedObservation as ObservationDTO & { note?: string }).note = noteValue || undefined;
+      }
+
+      return updatedObservation;
+    },
+    [getObservation, watchedValues]
+  );
+
+  const saveObservation = useCallback(
+    async (observation: ObservationDTO, fieldId: string): Promise<void> => {
+      setLoading(fieldId, true);
+      const originalObservation = getObservation(observation.field);
+
+      try {
+        const result = await apiClient?.saveChartData?.({
+          encounterId: encounter.id || '',
+          observations: [observation],
+        });
+
+        if (result?.chartData?.observations?.[0]) {
+          updateObservation(result.chartData.observations[0]);
+        }
+      } catch (error) {
+        if (originalObservation) {
+          updateObservation(originalObservation);
+        }
+
+        console.error('Error saving observation:', error);
+        const fieldDisplayName = getFieldDisplayName(fieldId);
+
+        enqueueSnackbar(
+          `An error occurred while saving the answer for question: "${fieldDisplayName}". Please try again.`,
+          {
+            variant: 'error',
+          }
+        );
+      } finally {
+        setLoading(fieldId, false);
+      }
+    },
+    [setLoading, getObservation, apiClient, encounter.id, updateObservation, getFieldDisplayName]
+  );
+
+  const deleteChartData = useCallback(
+    async (
+      chartDataFields: ChartDataFields,
+      options?: {
+        onSuccess?: () => void | Promise<void>;
+        onError?: (error: any) => void;
+      }
+    ) => {
+      try {
+        await _deleteChartData(chartDataFields);
+
+        const observationsToDelete = chartDataFields.observations || [];
+        const fieldsToRemove = observationsToDelete.map((obs) => obs.field);
+
+        chartDataSetState((state) => {
+          if (!state.chartData?.observations) return state;
+
+          const updatedObservations = state.chartData.observations.filter(
+            (observation) => !fieldsToRemove.includes(observation.field)
+          );
+
+          return {
+            ...state,
+            chartData: {
+              ...state.chartData,
+              observations: updatedObservations,
+            },
+          };
+        });
+
+        if (options?.onSuccess) {
+          await options.onSuccess();
+        }
+      } catch (error) {
+        console.error('Failed to delete chart data:', error);
+
+        if (options?.onError) {
+          options.onError(error);
+        }
+
+        throw error;
+      }
+    },
+    [_deleteChartData, chartDataSetState]
+  );
+
+  const deleteObservation = useCallback(
+    async (observation: ObservationDTO, fieldId: string): Promise<void> => {
+      setLoading(fieldId, true);
+
+      const originalObservation = getObservation(observation.field);
+
+      await deleteChartData(
+        { observations: [observation] },
+        {
+          onSuccess: async () => {
+            setLoading(fieldId, false);
+          },
+          onError: () => {
+            if (originalObservation) {
+              updateObservation(originalObservation);
+            }
+            setLoading(fieldId, false);
+          },
+        }
+      );
+    },
+    [deleteChartData, getObservation, setLoading, updateObservation]
+  );
+
+  const { handleFieldChange, initialValues } = useScreeningQuestionsHandler({
+    chartData,
+    debounce,
+    currentFormValues: watchedValues,
+    deleteObservation,
+    saveObservation,
+    getUiData,
+  });
+
+  const isInitialized = useRef(false);
+
   // Set initial values
   React.useEffect(() => {
+    if (isInitialized.current) {
+      return;
+    }
+
+    if (!initialValues || Object.keys(initialValues).length === 0) {
+      return;
+    }
+
     Object.entries(initialValues).forEach(([fieldId, value]) => {
       const fieldConfig = patientScreeningQuestionsConfig.fields.find((f) => f.id === fieldId);
 
@@ -120,6 +288,8 @@ const AskThePatient = (): React.ReactElement => {
         setValue(fieldId, value);
       }
     });
+
+    isInitialized.current = true;
   }, [initialValues, setValue]);
 
   // Function to check visibility of conditional note field based on configuration
@@ -327,6 +497,7 @@ const AskThePatient = (): React.ReactElement => {
 
                     const handleClear = (): void => {
                       const existingObservation = chartData?.observations?.find((obs) => obs.field === field.fhirField);
+                      console.log(111111111, existingObservation?.resourceId);
                       if (existingObservation?.resourceId) {
                         const clearedValue: [DateTime | null, DateTime | null] = [null, null];
                         formField.onChange(clearedValue);

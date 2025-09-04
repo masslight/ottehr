@@ -448,16 +448,14 @@ export function makeHospitalizationResource(
 }
 
 export function makeHospitalizationDTO(resource: EpisodeOfCare): HospitalizationDTO | undefined {
-  const coding = resource.type;
-  if (coding) {
-    if (coding[0].coding?.[0]?.code && coding[0].coding?.[0]?.display) {
-      return {
-        resourceId: resource.id,
-        code: coding[0].coding?.[0]?.code,
-        display: coding[0].coding?.[0]?.display,
-      };
-    }
+  const code = resource.meta?.tag?.[0]?.code;
+  const display = resource.type?.[0]?.text;
+  const resourceId = resource.id;
+
+  if (resourceId && code && display) {
+    return { resourceId, code, display };
   }
+
   return undefined;
 }
 

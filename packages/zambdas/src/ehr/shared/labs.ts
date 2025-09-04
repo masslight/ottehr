@@ -1021,7 +1021,8 @@ export const parseAccessionNumberFromDr = (result: DiagnosticReport): string => 
 export const getTestNameFromDr = (dr: DiagnosticReport): string | undefined => {
   const testName =
     dr.code.coding?.find((temp) => temp.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.display ||
-    dr.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.display;
+    dr.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.display ||
+    dr.code.coding?.find((temp) => temp.system === '(HL7_V2)')?.display;
   return testName;
 };
 

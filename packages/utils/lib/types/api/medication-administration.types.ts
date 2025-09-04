@@ -1156,6 +1156,11 @@ export interface EmergencyContactRelationship {
 
 export const EMERGENCY_CONTACT_RELATIONSHIPS: EmergencyContactRelationship[] = [
   {
+    code: 'parent',
+    system: VACCINE_ADMINISTRATION_EMERGENCY_CONTACT_RELATIONSHIP_CODE_SYSTEM,
+    display: 'Parent',
+  },
+  {
     code: 'legal-guardian',
     system: VACCINE_ADMINISTRATION_EMERGENCY_CONTACT_RELATIONSHIP_CODE_SYSTEM,
     display: 'Legal Guardian',
