@@ -221,7 +221,12 @@ export class Schema20250319 implements Schema<Spec20250319> {
     const refReplacedValue = varReplacedValue.replace(
       REF_REGEX,
       (match: string, resourceType: string, resourceName: string, fieldName: string) => {
-        const tfRef = this.getTerraformResourceReference(spec, resourceType as keyof Spec20250319, resourceName, fieldName);
+        const tfRef = this.getTerraformResourceReference(
+          spec,
+          resourceType as keyof Spec20250319,
+          resourceName,
+          fieldName
+        );
         if (tfRef) {
           return `\${${tfRef}}`;
         }
@@ -240,11 +245,13 @@ export class Schema20250319 implements Schema<Spec20250319> {
     });
   }
 
-  getTerraformResourceReference(spec: Spec20250319, resourceType: keyof Spec20250319, resourceName: string, fieldName: string): string | null {
-    if (
-      this.isResourceType(resourceType) &&
-      Object.prototype.hasOwnProperty.call(spec[resourceType], resourceName)
-    ) {
+  getTerraformResourceReference(
+    spec: Spec20250319,
+    resourceType: keyof Spec20250319,
+    resourceName: string,
+    fieldName: string
+  ): string | null {
+    if (this.isResourceType(resourceType) && Object.prototype.hasOwnProperty.call(spec[resourceType], resourceName)) {
       const oystehrResource = this.oystehrResourceFromResourceType(resourceType);
       return `${oystehrResource}.${resourceName}.${fieldName}`;
     }

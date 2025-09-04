@@ -74,44 +74,55 @@ const schema = new Schema20250319(
 );
 
 async function populateSecrets(): Promise<void> {
+  await Promise.all(
+    Object.entries(ottehrSpec.secrets).map(async ([_key, secret]): Promise<void> => {
+      secrets[secret.name] = await replaceSecretValue(secret, schema, useIac);
+    })
+  );
+}
+
+export async function replaceSecretValue(
+  secret: { name: string; value: string; legacyValue?: string },
+  schema: Schema20250319,
+  useIac?: string
+): Promise<string> {
   const { $ } = await import('execa');
-  Object.entries(ottehrSpec.secrets).forEach(async ([_key, secret]): Promise<void> => {
-    secrets[secret.name] = schema.replaceVariableWithValue(secret.value);
-    const refMatches = [...secrets[secret.name].matchAll(REF_REGEX)];
-    if (refMatches.length) {
-      if (useIac !== 'true') {
-        console.log(`Warning: not using IaC but reference found in secret ${secret.name}`);
-        if ('legacyValue' in secret && secret.legacyValue != null) {
-          const legacyValue = secret.legacyValue as string;
-          console.log(`Using legacy value for secret ${secret.name}: ${legacyValue}`);
-          secrets[secret.name] = schema.replaceVariableWithValue(legacyValue);
-        } else {
-          console.log(`Warning: no legacy value found for secret ${secret.name}`);
-        }
-        return;
+  let result = schema.replaceVariableWithValue(secret.value);
+  const refMatches = [...result.matchAll(REF_REGEX)];
+  if (refMatches.length) {
+    if (useIac !== 'true') {
+      console.log(`Warning: not using IaC but reference found in secret ${secret.name}`);
+      if ('legacyValue' in secret && secret.legacyValue != null) {
+        const legacyValue = secret.legacyValue as string;
+        console.log(`Using legacy value for secret ${secret.name}: ${legacyValue}`);
+        result = schema.replaceVariableWithValue(legacyValue);
+      } else {
+        console.log(`Warning: no legacy value found for secret ${secret.name}`);
       }
-      for (const match of refMatches) {
-        const [fullMatch, resourceType, resourceName, fieldName] = match;
-        const tfRef = schema.getTerraformResourceReference(
-          ottehrSpec,
-          resourceType as keyof Spec20250319,
-          resourceName,
-          fieldName
-        );
-        if (tfRef) {
-          const tfConsoleRead = await $`echo 'nonsensitive(${tfRef})' | terraform -chdir=${resolve(
-            __dirname,
-            '../../../../deploy'
-          )} console`;
-          const tfValue = tfConsoleRead.stdout;
-          // console value will either be the actual value or 'tostring(null)'
-          if (tfValue !== 'tostring(null)') {
-            secrets[secret.name] = secrets[secret.name].replace(fullMatch, tfValue.slice(1, -1));
-          }
+      return result;
+    }
+    for (const match of refMatches) {
+      const [fullMatch, resourceType, resourceName, fieldName] = match;
+      const tfRef = schema.getTerraformResourceReference(
+        ottehrSpec,
+        resourceType as keyof Spec20250319,
+        resourceName,
+        fieldName
+      );
+      if (tfRef) {
+        const tfConsoleRead = await $`echo 'nonsensitive(${tfRef})' | terraform -chdir=${resolve(
+          __dirname,
+          '../../../../deploy'
+        )} console`;
+        const tfValue = tfConsoleRead.stdout;
+        // console value will either be the actual value or 'tostring(null)'
+        if (tfValue !== 'tostring(null)') {
+          result = result.replace(fullMatch, tfValue.slice(1, -1));
         }
       }
     }
-  });
+  }
+  return result;
 }
 
 const singleValueHeaders = (input: IncomingHttpHeaders): APIGatewayProxyEventHeaders => {

@@ -1,11 +1,9 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { Schema20250319 } from '../packages/spec/src/schema-20250319';
 import { SpecFile } from '../packages/spec/src/schema';
+import { Schema20250319 } from '../packages/spec/src/schema-20250319';
 
-const validSchemas = [
-  '2025-03-19'
-];
+const validSchemas = ['2025-03-19'];
 
 const zambdasDirPath = path.resolve(__dirname, '../packages/zambdas');
 
@@ -51,11 +49,7 @@ async function generate(): Promise<void> {
     throw new Error('One or more spec files are not valid JSON maps.');
   }
   const schemaVersion = isObject(specs[0].spec) && specs[0].spec['schema-version'];
-  if (
-    !schemaVersion ||
-    !(typeof schemaVersion === 'string') ||
-    !validSchemas.includes(schemaVersion)
-  ) {
+  if (!schemaVersion || !(typeof schemaVersion === 'string') || !validSchemas.includes(schemaVersion)) {
     throw new Error(`Invalid or missing schema version: ${schemaVersion}`);
   }
   if (!specs.every((spec) => isObject(spec.spec) && spec.spec['schema-version'] === schemaVersion)) {
