@@ -35,6 +35,7 @@ interface DeviceAssignmentModalProps {
   onClose: () => void;
   patientId: string;
   refetchAssignedDevices: () => void;
+  onAssignmentResult?: (success: boolean, message?: string) => void;
 }
 
 interface DeviceOption {
@@ -47,6 +48,7 @@ export const DeviceAssignmentModal: FC<DeviceAssignmentModalProps> = ({
   onClose,
   patientId,
   refetchAssignedDevices,
+  onAssignmentResult,
 }) => {
   const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
   const [deviceOptions, setDeviceOptions] = useState<DeviceOption[]>([]);
@@ -97,11 +99,15 @@ export const DeviceAssignmentModal: FC<DeviceAssignmentModalProps> = ({
         oystehrZambda!
       ),
     {
-      onSuccess: () => {
+      onSuccess: (response: any) => {
+        const message = response?.message || 'Devices assigned successfully';
+        onAssignmentResult?.(true, message);
         refetchAssignedDevices();
         onClose();
       },
-      onError: (error: unknown) => {
+      onError: (error: any) => {
+        const message = error?.error || 'Failed to assign devices';
+        onAssignmentResult?.(false, message);
         console.error('Failed to assign devices:', error);
       },
     }

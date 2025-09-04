@@ -15,10 +15,13 @@ import { useProviderNotificationsStore } from './notifications.store';
 
 type ProviderNotificationDisplay = {
   id: string;
+  title: string;
   message: string;
   isUnread: boolean;
   link?: string;
   sent: string;
+  type: 'appointment' | 'device-vital-alert';
+  patientId?: string;
 };
 
 export const ProviderNotifications: FC = memo(() => {
@@ -42,16 +45,49 @@ export const ProviderNotifications: FC = memo(() => {
   const notifications: ProviderNotificationDisplay[] = useMemo(() => {
     return (
       notificationsData?.map<ProviderNotificationDisplay>((notification) => {
-        // if isUnread play sound
-        // notificationAudio.play().catch((error) => console.log(error));
+        const deviceVitalAlertCategory = notification.communication.category?.find(
+          (category) =>
+            category.coding?.find(
+              (coding) =>
+                coding.system === 'https://fhir.ottehr.com/r4/provider-notifications-type' &&
+                coding.code === 'device-vital-alert'
+            )
+        );
+
+        let patientId: string | undefined;
+        let type: 'appointment' | 'device-vital-alert' = 'appointment';
+        let link: string | undefined;
+        let title: string;
+        let message: string;
+
+        if (deviceVitalAlertCategory) {
+          const deviceVitalAlertCoding = deviceVitalAlertCategory.coding?.find(
+            (coding) =>
+              coding.system === 'https://fhir.ottehr.com/r4/provider-notifications-type' &&
+              coding.code === 'device-vital-alert'
+          );
+          patientId = deviceVitalAlertCoding?.version;
+          type = 'device-vital-alert';
+          link = patientId ? `/patient/${patientId}` : undefined;
+          title = notification.communication.topic?.text || 'Device Alert';
+          message = notification.communication.payload?.[0]?.contentString || '';
+        } else {
+          link = notification.appointmentID ? `/telemed/appointments/${notification.appointmentID}` : undefined;
+          title = notification.communication.payload?.[0]?.contentString || '';
+          message = '';
+        }
+
         return {
           id: notification.communication.id!,
+          title,
+          message,
           isUnread: notification.communication.status === 'in-progress',
-          message: notification.communication.payload?.[0]?.contentString || '',
           sent: notification.communication.sent
             ? DateTime.fromISO(notification.communication.sent).toRelative()!
             : 'N/A',
-          link: notification.appointmentID ? `/telemed/appointments/${notification.appointmentID}` : undefined,
+          link,
+          type,
+          patientId,
         };
       }) || []
     ).sort((a, b) => (a.sent && b.sent && DateTime.fromISO(a.sent) > DateTime.fromISO(b.sent) ? -1 : 0));
@@ -71,6 +107,14 @@ export const ProviderNotifications: FC = memo(() => {
         ids: notifications.filter((notification) => notification.isUnread).map((notification) => notification.id),
         status: 'completed',
       });
+    }
+  };
+
+  const handleNotificationClick = (notification: ProviderNotificationDisplay): void => {
+    if (notification.link) {
+      navigate(notification.link);
+      setNotificationsOpen(false);
+      setNotificationsElement(undefined);
     }
   };
 
@@ -119,9 +163,13 @@ export const ProviderNotifications: FC = memo(() => {
         }}
         MenuListProps={{
           'aria-labelledby': 'notifications-button',
+          sx: {
+            maxHeight: '400px',
+            overflow: 'hidden',
+          },
         }}
       >
-        <Box sx={{ p: 3, width: '100%', maxWidth: '550px' }}>
+        <Box sx={{ p: 3, width: '100%', maxWidth: '400px', maxHeight: '300px', overflow: 'auto' }}>
           <Typography sx={{ fontWeight: 'bold' }} variant="h5" color="primary.dark">
             Notifications
           </Typography>
@@ -129,12 +177,10 @@ export const ProviderNotifications: FC = memo(() => {
             ? notifications.map((notification) => (
                 <MenuItem
                   cursor={notification.link ? 'pointer' : 'default'}
-                  title={notification.message}
-                  subtitle={notification.sent}
+                  title={notification.title}
+                  subtitle={notification.type === 'device-vital-alert' ? notification.message : notification.sent}
                   key={`notification-link-${notification.id}`}
-                  onClick={() => {
-                    notification.link ? navigate(notification.link) : undefined;
-                  }}
+                  onClick={() => handleNotificationClick(notification)}
                 />
               ))
             : 'Loading...'}
@@ -177,7 +223,7 @@ const MenuItem = ({ onClick, title, subtitle }: MenuItemProps): JSX.Element => {
           {title}
         </Typography>
         {subtitle && (
-          <Typography variant="caption" sx={{ mt: 1 }} color={alpha(titleColor, 0.5)}>
+          <Typography variant="caption" sx={{ mt: 1, textAlign: 'start' }} color={alpha(titleColor, 0.5)}>
             {subtitle}
           </Typography>
         )}

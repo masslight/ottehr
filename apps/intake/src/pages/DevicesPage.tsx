@@ -40,9 +40,9 @@ const DevicesPage = (): JSX.Element => {
             distinctIdentifier: device?.distinctIdentifier,
             serialNumber: device?.serialNumber,
             modelNumber: device?.modelNumber,
-            hardwareVersion: device?.version?.find((x: any) => x?.type?.text == 'hardwareVersion')?.value,
-            modemVersion: device?.version?.find((x: any) => x?.type?.text == 'modemVersion')?.value,
-            firmwareVersion: device?.version?.find((x: any) => x?.type?.text == 'firmwareVersion')?.value,
+            hardwareVersion: device?.version?.find((x: any) => x?.type?.text == 'hardwareVersion')?.value || '-',
+            modemVersion: device?.version?.find((x: any) => x?.type?.text == 'modemVersion')?.value || '-',
+            firmwareVersion: device?.version?.find((x: any) => x?.type?.text == 'firmwareVersion')?.value || '-',
           }));
           setAssignedDevices(devices);
         }

@@ -1,8 +1,11 @@
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import {
+  Alert,
+  AlertColor,
   Box,
   Paper,
   Skeleton,
+  Snackbar,
   Table,
   TableBody,
   TableCell,
@@ -12,7 +15,7 @@ import {
   TextField,
   Tooltip,
 } from '@mui/material';
-import { ReactElement, useState } from 'react';
+import { ReactElement, useCallback, useState } from 'react';
 import { useMutation, useQuery } from 'react-query';
 import { useParams } from 'react-router-dom';
 import { getPatientBaselines, updatePatientBaselines } from 'src/api/api';
@@ -37,6 +40,19 @@ export function ThresholdsTable(): ReactElement {
   const [touched, setTouched] = useState<Record<number, { baseline: boolean; variance: boolean }>>({});
   const { oystehrZambda } = useApiClients();
   const { id: patientId } = useParams<{ id: string }>();
+  const [toastOpen, setToastOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastSeverity, setToastSeverity] = useState<AlertColor>('info');
+
+  const showToast = useCallback((message: string, severity: AlertColor = 'info') => {
+    setToastMessage(message);
+    setToastSeverity(severity);
+    setToastOpen(true);
+  }, []);
+
+  const handleCloseToast = useCallback(() => {
+    setToastOpen(false);
+  }, []);
 
   const { isFetching } = useQuery(
     ['get-patient-baselines', { oystehrZambda, patientId }],
@@ -83,7 +99,19 @@ export function ThresholdsTable(): ReactElement {
     return updatePatientBaselines({ patientId, component: components }, oystehrZambda!) as any;
   };
 
-  const updateMutation = useMutation<unknown, Error, BaselineComponent[]>(updateBaselineFn);
+  const updateMutation = useMutation<unknown, Error, BaselineComponent[]>(updateBaselineFn, {
+    onSuccess: (response: any) => {
+      const message = response?.message || 'Thresholds updated successfully';
+      showToast(message, 'success');
+    },
+    onError: (error: any) => {
+      const message = error?.error || 'Failed to update thresholds';
+      showToast(message, 'error');
+      console.error('Failed to update thresholds:', error);
+    },
+  });
+
+  const { isLoading: isUpdating } = updateMutation;
 
   const buildComponentArray = (rows: ThresholdRow[]): any[] => {
     return [
@@ -149,124 +177,138 @@ export function ThresholdsTable(): ReactElement {
   };
 
   return (
-    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-      {isFetching ? (
-        <TableContainer component={Paper} sx={{ border: 'none', boxShadow: 'none' }}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Metric</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Baseline</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Variance (%)</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 7 }}>Range</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {[1, 2, 3, 4].map((i) => (
-                <TableRow key={i}>
-                  <TableCell sx={{ py: 0.7, px: 2 }}>
-                    <Skeleton width={120} />
-                  </TableCell>
-                  <TableCell sx={{ py: 0.7, px: 2 }}>
-                    <Skeleton width={100} height={40} />
-                  </TableCell>
-                  <TableCell sx={{ py: 0.7, px: 2 }}>
-                    <Skeleton width={100} height={40} />
-                  </TableCell>
-                  <TableCell sx={{ py: 0.7, px: 2 }}>
-                    <Skeleton width={140} />
-                  </TableCell>
+    <>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+        {isFetching || isUpdating ? (
+          <TableContainer component={Paper} sx={{ border: 'none', boxShadow: 'none' }}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Metric</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Baseline</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Variance (%)</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 7 }}>Range</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      ) : (
-        <TableContainer component={Paper} sx={{ border: 'none', boxShadow: 'none' }}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Metric</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Baseline</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Variance (%)</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 7 }}>Range</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {rows.map((row, index): JSX.Element => {
-                const baselineNum = parseFloat(row.baseline);
-                const varianceNum = parseFloat(row.variance);
-                const rules = VALIDATION_RULES[row.metric];
-
-                const hasBaselineError =
-                  touched[index]?.baseline &&
-                  (row.baseline === '' || isNaN(baselineNum) || baselineNum < rules.min || baselineNum > rules.max);
-
-                const hasVarianceError =
-                  touched[index]?.variance &&
-                  (row.variance === '' || isNaN(varianceNum) || varianceNum < 0 || varianceNum > 100);
-
-                return (
-                  <TableRow key={row.metric}>
-                    <TableCell sx={{ py: 0.7, px: 2 }}>{row.metric}</TableCell>
-
+              </TableHead>
+              <TableBody>
+                {[1, 2, 3, 4].map((i) => (
+                  <TableRow key={i}>
                     <TableCell sx={{ py: 0.7, px: 2 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <TextField
-                          type="number"
-                          size="small"
-                          placeholder={`Enter ${row.metric} baseline`}
-                          value={row.baseline}
-                          error={hasBaselineError}
-                          onChange={(e) => handleChange(index, 'baseline', e.target.value)}
-                          onBlur={() => handleBlur(index, 'baseline')}
-                        />
-                        {hasBaselineError && (
-                          <Tooltip title={row.baseline === '' ? 'Baseline value is required' : rules.message}>
-                            <ErrorOutlineIcon color="error" fontSize="small" style={{ marginLeft: 6 }} />
-                          </Tooltip>
-                        )}
-                      </Box>
+                      <Skeleton width={120} />
                     </TableCell>
-
                     <TableCell sx={{ py: 0.7, px: 2 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <TextField
-                          type="number"
-                          size="small"
-                          inputProps={{ min: 0, max: 100 }}
-                          placeholder="Variance"
-                          value={row.variance}
-                          sx={{ minWidth: 120 }}
-                          error={hasVarianceError}
-                          onChange={(e) => {
-                            const newValue = e.target.value;
-                            if (newValue === '' || (/^\d+$/.test(newValue) && +newValue >= 0 && +newValue <= 100)) {
-                              handleChange(index, 'variance', newValue);
-                            }
-                          }}
-                          onBlur={() => handleBlur(index, 'variance')}
-                        />
-                        {hasVarianceError && (
-                          <Tooltip
-                            title={
-                              row.variance === '' ? 'Variance value is required' : 'Variance must be between 0–100%'
-                            }
-                          >
-                            <ErrorOutlineIcon color="error" fontSize="small" style={{ marginLeft: 6 }} />
-                          </Tooltip>
-                        )}
-                      </Box>
+                      <Skeleton width={100} height={40} />
                     </TableCell>
-
-                    <TableCell sx={{ py: 0.7, px: 2, minWidth: 120 }}>{getRange(row.baseline, row.variance)}</TableCell>
+                    <TableCell sx={{ py: 0.7, px: 2 }}>
+                      <Skeleton width={100} height={40} />
+                    </TableCell>
+                    <TableCell sx={{ py: 0.7, px: 2 }}>
+                      <Skeleton width={140} />
+                    </TableCell>
                   </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
-    </Box>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        ) : (
+          <TableContainer component={Paper} sx={{ border: 'none', boxShadow: 'none' }}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Metric</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Baseline</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Variance (%)</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 7 }}>Range</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {rows.map((row, index): JSX.Element => {
+                  const baselineNum = parseFloat(row.baseline);
+                  const varianceNum = parseFloat(row.variance);
+                  const rules = VALIDATION_RULES[row.metric];
+
+                  const hasBaselineError =
+                    touched[index]?.baseline &&
+                    (row.baseline === '' || isNaN(baselineNum) || baselineNum < rules.min || baselineNum > rules.max);
+
+                  const hasVarianceError =
+                    touched[index]?.variance &&
+                    (row.variance === '' || isNaN(varianceNum) || varianceNum < 0 || varianceNum > 100);
+
+                  return (
+                    <TableRow key={row.metric}>
+                      <TableCell sx={{ py: 0.7, px: 2 }}>{row.metric}</TableCell>
+
+                      <TableCell sx={{ py: 0.7, px: 2 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <TextField
+                            type="number"
+                            size="small"
+                            placeholder={`Enter ${row.metric} baseline`}
+                            value={row.baseline}
+                            error={hasBaselineError}
+                            onChange={(e) => handleChange(index, 'baseline', e.target.value)}
+                            onBlur={() => handleBlur(index, 'baseline')}
+                          />
+                          {hasBaselineError && (
+                            <Tooltip title={row.baseline === '' ? 'Baseline value is required' : rules.message}>
+                              <ErrorOutlineIcon color="error" fontSize="small" style={{ marginLeft: 6 }} />
+                            </Tooltip>
+                          )}
+                        </Box>
+                      </TableCell>
+
+                      <TableCell sx={{ py: 0.7, px: 2 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <TextField
+                            type="number"
+                            size="small"
+                            inputProps={{ min: 0, max: 100 }}
+                            placeholder="Variance"
+                            value={row.variance}
+                            sx={{ minWidth: 120 }}
+                            error={hasVarianceError}
+                            onChange={(e) => {
+                              const newValue = e.target.value;
+                              if (newValue === '' || (/^\d+$/.test(newValue) && +newValue >= 0 && +newValue <= 100)) {
+                                handleChange(index, 'variance', newValue);
+                              }
+                            }}
+                            onBlur={() => handleBlur(index, 'variance')}
+                          />
+                          {hasVarianceError && (
+                            <Tooltip
+                              title={
+                                row.variance === '' ? 'Variance value is required' : 'Variance must be between 0–100%'
+                              }
+                            >
+                              <ErrorOutlineIcon color="error" fontSize="small" style={{ marginLeft: 6 }} />
+                            </Tooltip>
+                          )}
+                        </Box>
+                      </TableCell>
+
+                      <TableCell sx={{ py: 0.7, px: 2, minWidth: 120 }}>
+                        {getRange(row.baseline, row.variance)}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </Box>
+      <Snackbar
+        open={toastOpen}
+        autoHideDuration={6000}
+        onClose={handleCloseToast}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert onClose={handleCloseToast} severity={toastSeverity} sx={{ width: '100%' }}>
+          {toastMessage}
+        </Alert>
+      </Snackbar>
+    </>
   );
 }

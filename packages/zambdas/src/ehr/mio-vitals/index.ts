@@ -284,6 +284,7 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
                       {
                         system: PROVIDER_NOTIFICATION_TYPE_SYSTEM,
                         code: AppointmentProviderNotificationTypes.device_vital_alert,
+                        version: patientId,
                       },
                     ],
                   },

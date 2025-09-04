@@ -70,7 +70,9 @@ export default function PatientPage(): JSX.Element {
           <Paper
             sx={{
               display: 'flex',
-              alignItems: 'center',
+              flexDirection: { xs: 'column', md: 'row' },
+              alignItems: { xs: 'stretch', md: 'center' },
+              flexWrap: 'wrap',
               gap: 3,
               mt: 2,
               p: 3,
@@ -84,7 +86,7 @@ export default function PatientPage(): JSX.Element {
               <Summary patient={patient} loading={loading} />
               <Contacts patient={patient} loading={loading} />
 
-              <Box sx={{ display: 'flex', gap: 1 }}>
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                 <RoundedButton
                   to={`/patient/${id}/info`}
                   data-testid={dataTestIds.patientRecordPage.seeAllPatientInfoButton}
@@ -106,7 +108,8 @@ export default function PatientPage(): JSX.Element {
                 )}
               </Box>
             </Box>
-            <Box sx={{ display: 'flex', gap: 1 }}>
+
+            <Box sx={{ flex: { xs: '1 1 100%', md: '0 0 auto' } }}>
               <ThresholdsTable />
             </Box>
           </Paper>
