@@ -43,7 +43,7 @@ export const index = wrapHandler('assign-devices', async (input: ZambdaInput): P
       updatedDevices.push(result);
     }
     return lambdaResponse(200, {
-      message: `Assigned ${requestBody.deviceIds.length} devices`,
+      message: `Successfully assigned ${requestBody.deviceIds.length} devices`,
       updatedDevices,
     });
   } catch (error: any) {

@@ -44,7 +44,7 @@ export const index = wrapHandler('unassign-devices', async (input: ZambdaInput):
     updatedDevices.push(result);
 
     return lambdaResponse(200, {
-      message: `Unassigned device successfully`,
+      message: `Successfully unassigned device`,
       updatedDevices,
     });
   } catch (error: any) {
