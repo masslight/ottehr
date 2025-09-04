@@ -164,6 +164,15 @@ export const ProgressNoteDetails: FC = () => {
       </Typography>
       <ExaminationContainer examConfig={examConfig.inPerson.default.components} />
     </Stack>,
+    <AllergiesContainer notes={allergyNotes} />,
+    <MedicationsContainer notes={intakeMedicationNotes} />,
+    <MedicalConditionsContainer notes={medicalConditionNotes} />,
+    <SurgicalHistoryContainer notes={surgicalHistoryNotes} />,
+    <HospitalizationContainer notes={hospitalizationNotes} />,
+    showInHouseMedications && (
+      <InHouseMedicationsContainer medications={inHouseMedications} notes={inHouseMedicationNotes} />
+    ),
+    showImmunization && <ImmunizationContainer orders={immunizationOrders} />,
     ...(!isAwaitingSupervisorApproval ? medicalHistorySections : []),
     showAssessment && <AssessmentContainer />,
     showMedicalDecisionMaking && <MedicalDecisionMakingContainer />,
