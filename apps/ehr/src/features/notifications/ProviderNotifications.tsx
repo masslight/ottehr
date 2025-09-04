@@ -68,7 +68,7 @@ export const ProviderNotifications: FC = memo(() => {
           );
           patientId = deviceVitalAlertCoding?.version;
           type = 'device-vital-alert';
-          link = patientId ? `/patient/${patientId}` : undefined;
+          link = patientId ? `/patient/${patientId.replace('Patient/', '')}` : undefined;
           title = notification.communication.topic?.text || 'Device Alert';
           message = notification.communication.payload?.[0]?.contentString || '';
         } else {
