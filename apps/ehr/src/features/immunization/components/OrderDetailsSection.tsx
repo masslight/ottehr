@@ -42,7 +42,7 @@ export const OrderDetailsSection: React.FC = () => {
           name="details.dose"
           label="Dose"
           type="number"
-          validate={(value: string) => (!(parseInt(value) > 0) ? 'Dose must be positive' : true)}
+          validate={(value: string) => (!(parseFloat(value) > 0) ? 'Dose must be positive' : true)}
           required
         />
       </Grid>
