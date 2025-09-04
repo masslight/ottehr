@@ -162,6 +162,10 @@ export interface ExternalLabResult {
   referenceRangeText?: string;
   resultNotes?: string[];
   attachmentText?: string;
+  performingLabName?: string;
+  performingLabAddress?: string;
+  performingLabPhone?: string;
+  performingLabDirectorFullName?: string;
 }
 
 export interface InHouseLabResult {
@@ -218,11 +222,6 @@ export interface ExternalLabResultsData extends LabResultsData {
   attachments: ExternalLabResultAttachments;
   externalLabResults: ExternalLabResult[];
   testItemCode: string;
-  performingLabName: string;
-  performingLabAddress?: string;
-  performingLabDirector?: string;
-  performingLabPhone?: string;
-  performingLabDirectorFullName?: string;
 }
 
 export type ReflexExternalLabResultsData = Omit<ExternalLabResultsData, 'orderSubmitDate' | 'collectionDate'>;
@@ -272,6 +271,7 @@ export interface VisitNoteData extends PdfExaminationBlockData {
   surgicalHistoryNotes?: string[];
   inHouseMedications?: string[];
   inHouseMedicationsNotes?: string[];
+  immunizationOrders?: string[];
   additionalQuestions: Record<AdditionalBooleanQuestionsFieldsNames, string>;
   screening?: {
     seenInLastThreeYears?: string;

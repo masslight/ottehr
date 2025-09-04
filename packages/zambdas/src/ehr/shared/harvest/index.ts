@@ -4,6 +4,7 @@ import Oystehr, {
   BatchInputPutRequest,
   BatchInputRequest,
 } from '@oystehr/sdk';
+import { NetworkType } from 'candidhealth/api/resources/preEncounter/resources/coverages/resources/v1';
 import { randomUUID } from 'crypto';
 import { Operation, RemoveOperation } from 'fast-json-patch';
 import {
@@ -34,6 +35,7 @@ import _ from 'lodash';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import {
+  CANDID_PLAN_TYPE_SYSTEM,
   CONSENT_CODE,
   ConsentSigner,
   consolidateOperations,
@@ -71,12 +73,13 @@ import {
   getPhoneNumberForIndividual,
   getSecret,
   getStripeCustomerIdFromAccount,
+  INSURANCE_CANDID_PLAN_TYPE_CODES,
   INSURANCE_CARD_BACK_2_ID,
   INSURANCE_CARD_BACK_ID,
   INSURANCE_CARD_CODE,
   INSURANCE_CARD_FRONT_2_ID,
   INSURANCE_CARD_FRONT_ID,
-  INSURANCE_COVERAGE_CODING,
+  InsurancePlanTypes,
   IntakeQuestionnaireItem,
   isoStringFromDateComponents,
   isValidUUID,
@@ -1732,6 +1735,7 @@ export function extractAccountGuarantor(items: QuestionnaireResponseItem[]): Res
 interface InsuranceDetails {
   org: Organization;
   additionalInformation?: string;
+  type: NetworkType;
 }
 function getInsuranceDetailsFromAnswers(
   answers: QuestionnaireResponseItem[],
@@ -1746,10 +1750,14 @@ function getInsuranceDetailsFromAnswers(
   const org = organizations.find((org) => `${org.resourceType}/${org.id}` === insuranceOrgReference.reference);
   if (!org) return undefined;
 
+  const qType = answers.find((item) => item.linkId === `insurance-plan-type${suffix}`)?.answer?.[0]?.valueString;
+  if (!qType || !INSURANCE_CANDID_PLAN_TYPE_CODES.includes(qType)) return undefined;
+  const type = qType as NetworkType;
+
   const additionalInformation = answers.find((item) => item.linkId === `insurance-additional-information${suffix}`)
     ?.answer?.[0]?.valueString;
 
-  return { org, additionalInformation };
+  return { org, additionalInformation, type };
 }
 
 interface CreateCoverageResourceInput {
@@ -1759,11 +1767,12 @@ interface CreateCoverageResourceInput {
     org: Organization;
     policyHolder: PolicyHolder;
     additionalInformation?: string;
+    type: NetworkType;
   };
 }
 const createCoverageResource = (input: CreateCoverageResourceInput): Coverage => {
   const { patientId, insurance } = input;
-  const { org, policyHolder, additionalInformation } = insurance;
+  const { org, policyHolder, additionalInformation, type } = insurance;
   const memberId = policyHolder.memberId;
 
   const payerId = getPayerId(org);
@@ -1803,6 +1812,7 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
   } else {
     contained = [containedPolicyHolder];
   }
+  const coverageTypeCoding = InsurancePlanTypes.find((planType) => planType.candidCode === type)?.coverageCoding;
 
   const coverage: Coverage = {
     contained,
@@ -1818,7 +1828,12 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
       reference: `Patient/${patientId}`,
     },
     type: {
-      coding: [INSURANCE_COVERAGE_CODING],
+      coding: [
+        {
+          system: CANDID_PLAN_TYPE_SYSTEM,
+          code: type,
+        },
+      ],
     },
     payor: [{ reference: `Organization/${org.id}` }],
     subscriberId: policyHolder.memberId,
@@ -1838,6 +1853,7 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
       },
     ],
   };
+  if (coverageTypeCoding) coverage.type?.coding?.push(coverageTypeCoding);
 
   if (additionalInformation) {
     coverage.extension = [

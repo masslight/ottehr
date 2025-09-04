@@ -25,6 +25,7 @@ import {
   HISTORY_OBTAINED_FROM_FIELD,
   HistorySourceKeys,
   historySourceLabels,
+  ImmunizationOrder,
   isDropdownComponent,
   isMultiSelectComponent,
   mapDispositionTypeToLabel,
@@ -37,6 +38,8 @@ import {
   ObservationSeenInLastThreeYearsDTO,
   OTTEHR_MODULE,
   recentVisitLabels,
+  searchMedicationLocation,
+  searchRouteByCode,
   Secrets,
   SEEN_IN_LAST_THREE_YEARS_FIELD,
   Timezone,
@@ -50,6 +53,7 @@ type AllChartData = {
   chartData: GetChartDataResponse;
   additionalChartData?: GetChartDataResponse;
   medicationOrders?: GetMedicationOrdersResponse['orders'];
+  immunizationOrders?: ImmunizationOrder[];
 };
 
 export async function composeAndCreateVisitNotePdf(
@@ -73,7 +77,7 @@ function composeDataForPdf(
   appointmentPackage: FullAppointmentResourcePackage,
   isInPersonAppointment: boolean
 ): VisitNoteData {
-  const { chartData, additionalChartData, medicationOrders } = allChartData;
+  const { chartData, additionalChartData, medicationOrders, immunizationOrders } = allChartData;
 
   const { patient, encounter, appointment, location, questionnaireResponse, practitioners, timezone } =
     appointmentPackage;
@@ -157,6 +161,11 @@ function composeDataForPdf(
   const inHouseMedicationsNotes = additionalChartData?.notes
     ?.filter((note) => note.type === NOTE_TYPE.MEDICATION)
     ?.map((note) => note.text);
+
+  // --- Immunization orders ---
+  const immunizationOrdersToRender = (immunizationOrders ?? [])
+    .filter((order) => ['administered', 'administered-partly'].includes(order.status))
+    .map(immunizationOrderToString);
 
   // --- Addition questions ---
   const additionalQuestions = Object.values(AdditionalBooleanQuestionsFieldsNames).reduce(
@@ -329,6 +338,7 @@ function composeDataForPdf(
     surgicalHistoryNotes,
     inHouseMedications,
     inHouseMedicationsNotes,
+    immunizationOrders: immunizationOrdersToRender,
     additionalQuestions,
     screening: {
       seenInLastThreeYears,
@@ -586,4 +596,13 @@ function parseExamFieldsFromExamObservations(
   return {
     examination: examinationData,
   };
+}
+
+function immunizationOrderToString(order: ImmunizationOrder): string {
+  const route = searchRouteByCode(order.details.route)?.display ?? '';
+  const location = searchMedicationLocation(order.details.location)?.display ?? '';
+  const administratedDateTime = order.administrationDetails?.administeredDateTime
+    ? DateTime.fromISO(order.administrationDetails?.administeredDateTime)?.toFormat('MM/dd/yyyy HH:mm a')
+    : '';
+  return `${order.details.medication.name} - ${order.details.dose} ${order.details.units} / ${route} - ${location}\n${administratedDateTime}`;
 }
