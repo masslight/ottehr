@@ -28,7 +28,6 @@ import {
   ScheduleOwnerFhirResource,
 } from '../types';
 import { phoneRegex, zipRegex } from '../validation';
-import { AllStatesToNames } from './states';
 
 export function createOystehrClient(token: string, fhirAPI: string, projectAPI: string): Oystehr {
   const FHIR_API = fhirAPI.replace(/\/r4/g, '');
@@ -1235,9 +1234,8 @@ export const getPractitionerQualificationByLocation = (
   location: Location
 ): PractitionerQualificationCode | undefined => {
   const existedLicenses = allLicensesForPractitioner(practitioner);
-  const qualification = existedLicenses.find(
-    (license) => license.active && AllStatesToNames[license.state] === location.name
-  )?.code;
+  const qualification = existedLicenses.find((license) => license.active && license.state === location.address?.state)
+    ?.code;
 
   return qualification;
 };
