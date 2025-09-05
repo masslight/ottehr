@@ -4,7 +4,7 @@ import { useFeatureFlags } from '../../../../features/css-module/context/feature
 import { AccordionCard, DoubleColumnContainer } from '../../../components';
 import { PageTitle } from '../../../components/PageTitle';
 import { useGetAppointmentAccessibility } from '../../../hooks';
-import { useChartData } from '../../../state';
+import { useChartFields } from '../../../state';
 import { AiPotentialDiagnosesCard } from './AiPotentialDiagnosesCard';
 import {
   AssessmentTitle,
@@ -15,13 +15,12 @@ import {
 } from './components';
 
 export const AssessmentCard: FC = () => {
-  const { chartData } = useChartData({
-    requestedFields: { cptCodes: {} },
-    replaceStoreValues: true,
+  const { data: chartFields } = useChartFields({
+    requestedFields: { cptCodes: {}, emCode: {} },
   });
 
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-  const emCode = chartData?.emCode;
+  const emCode = chartFields?.emCode;
   const { css } = useFeatureFlags();
 
   return (

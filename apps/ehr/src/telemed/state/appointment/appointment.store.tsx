@@ -17,13 +17,14 @@ import useEvolveUser from 'src/hooks/useEvolveUser';
 import { OystehrTelemedAPIClient } from 'src/telemed/data';
 import { extractPhotoUrlsFromAppointmentData, extractReviewAndSignAppointmentData } from 'src/telemed/utils';
 import {
-  ChartDataFields,
+  AllChartValues,
   ChartDataRequestedFields,
   GetChartDataResponse,
   isLocationVirtual,
   ObservationDTO,
   PromiseReturnType,
   RefreshableAppointmentData,
+  RequestedFields,
   ReviewAndSignData,
   SaveChartDataRequest,
   SCHOOL_WORK_NOTE_CODE,
@@ -92,8 +93,10 @@ type ReactQueryState = {
   isPending: boolean;
 };
 
+type ChartDataResponse = Omit<GetChartDataResponse, RequestedFields>;
+
 export type ChartDataState = {
-  chartData: GetChartDataResponse | undefined;
+  chartData: ChartDataResponse | undefined;
 
   // todo: remove duplication
   isChartDataLoading: boolean;
@@ -426,7 +429,7 @@ export const useSaveChartData = (): UseMutationResult<
   return useMutation({
     mutationFn: (chartDataFields: Omit<SaveChartDataRequest, 'encounterId'>) => {
       // disabled saving chart data in read only mode except addendum note
-      if (isReadOnly && Object.keys(chartDataFields).some((key) => (key as keyof ChartDataFields) !== 'addendumNote')) {
+      if (isReadOnly && Object.keys(chartDataFields).some((key) => (key as keyof AllChartValues) !== 'addendumNote')) {
         throw new Error('update disabled in read only mode');
       }
 
@@ -445,13 +448,13 @@ export const useSaveChartData = (): UseMutationResult<
 export const useDeleteChartData = (): UseMutationResult<
   PromiseReturnType<ReturnType<OystehrTelemedAPIClient['deleteChartData']>>,
   Error,
-  ChartDataFields & { schoolWorkNotes?: SchoolWorkNoteExcuseDocFileDTO[] }
+  AllChartValues & { schoolWorkNotes?: SchoolWorkNoteExcuseDocFileDTO[] }
 > => {
   const apiClient = useOystehrAPIClient();
   const { encounter } = useAppointmentData();
 
   return useMutation({
-    mutationFn: (chartDataFields: ChartDataFields & { schoolWorkNotes?: SchoolWorkNoteExcuseDocFileDTO[] }) => {
+    mutationFn: (chartDataFields: AllChartValues & { schoolWorkNotes?: SchoolWorkNoteExcuseDocFileDTO[] }) => {
       if (apiClient && encounter.id) {
         return apiClient.deleteChartData({
           encounterId: encounter.id,
@@ -466,24 +469,20 @@ export const useDeleteChartData = (): UseMutationResult<
 
 export const useChartData = ({
   appointmentId,
-  requestedFields,
   shouldUpdateExams,
   onSuccess,
   onError,
   enabled = true,
-  replaceStoreValues = false,
   refetchInterval,
 }: {
   appointmentId?: string;
-  requestedFields?: ChartDataRequestedFields;
-  shouldUpdateExams?: boolean;
-  onSuccess?: (data: PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getChartData']>> | null) => void;
+  onSuccess?: (data: ChartDataResponse | null) => void;
   onError?: (error: any) => void;
   enabled?: boolean;
-  replaceStoreValues?: boolean;
+  shouldUpdateExams?: boolean; // todo: migrate this to the separate hook
   refetchInterval?: number;
 } = {}): {
-  refetch: () => Promise<QueryObserverResult<GetChartDataResponse, unknown>>;
+  refetch: () => Promise<QueryObserverResult<ChartDataResponse, unknown>>;
   isLoading: boolean;
   isFetching: boolean;
   error: any;
@@ -498,18 +497,6 @@ export const useChartData = ({
   const { encounter } = useAppointmentData(appointmentId || appointmentIdFromUrl);
   const encounterId = encounter?.id;
   const queryClient = useQueryClient();
-  const requestedFieldsJSON = requestedFields ? JSON.stringify(requestedFields) : undefined;
-
-  // This key is for caching all chart data (without requestedFields specific for updating the whole cache)
-  const commonChartDataKey = useMemo(() => [CHART_DATA_QUERY_KEY_BASE, encounterId], [encounterId]);
-
-  // Subscribe to changes in the cache through a separate useQuery
-  const { data: sharedChartData } = useQuery({
-    queryKey: commonChartDataKey,
-    queryFn: () => null, // do not execute request, only read cache
-    enabled: false,
-    initialData: undefined,
-  });
 
   const {
     error: chartDataError,
@@ -521,36 +508,13 @@ export const useChartData = ({
     isFetched,
     isPending,
   } = useGetChartData(
-    { apiClient, encounterId, requestedFields, enabled, refetchInterval },
+    { apiClient, encounterId, enabled, refetchInterval },
     (data) => {
       if (!data) {
         return;
       }
 
       onSuccess?.(data);
-
-      const existingCache = queryClient.getQueryData<ChartDataState>(commonChartDataKey);
-      const isExistingCacheContainsCommonData = existingCache && Object.keys(existingCache.chartData || {}).length > 10;
-      const isDataContainsCommonChartData = Object.keys(data).length > 10;
-
-      if (!isExistingCacheContainsCommonData && isDataContainsCommonChartData) {
-        // initialize common cache
-        queryClient.setQueryData(commonChartDataKey, {
-          chartData: { ...data, ...existingCache?.chartData },
-          isChartDataLoading: false,
-        });
-      }
-
-      if (replaceStoreValues) {
-        Object.keys(requestedFields || {}).forEach((field) => {
-          setPartialChartData({ [field]: data[field as keyof GetChartDataResponse] });
-        });
-      }
-
-      // not set state for custom fields request, because data will be incomplete
-      if (requestedFields) return;
-
-      // should be updated only from root (useAppointment hook)
       if (shouldUpdateExams) {
         updateExamObservations(data.examObservations, true);
       }
@@ -560,45 +524,30 @@ export const useChartData = ({
     }
   );
 
-  // Use data from the optimistic cache or fallback to data from API
-  const currentChartDataState = useMemo((): ChartDataState => {
-    if (sharedChartData && !requestedFieldsJSON) {
-      return sharedChartData as ChartDataState;
-    }
-    return {
-      chartData: chartDataResponse || undefined,
-      isChartDataLoading: isLoading,
-    };
-  }, [sharedChartData, chartDataResponse, isLoading, requestedFieldsJSON]);
-
   const setQueryCache = useCallback(
     (updater: Partial<ChartDataState> | ((state: ChartDataState) => Partial<ChartDataState>)) => {
-      queryClient.setQueryData(commonChartDataKey, (prevData: ChartDataState | null) => {
-        const currentState = prevData || {
-          chartData: chartDataResponse || undefined,
+      queryClient.setQueryData(queryKey, (prevData: ChartDataResponse | null) => {
+        const currentState = {
+          chartData: prevData || chartDataResponse || undefined,
           isChartDataLoading: isLoading,
         };
 
-        if (typeof updater === 'function') {
-          const updates = updater(currentState);
-          return { ...currentState, ...updates };
-        } else {
-          return { ...currentState, ...updater };
-        }
+        const newData = typeof updater === 'function' ? updater(currentState) : updater;
+        return newData.chartData || prevData;
       });
 
       // Force invalidate all related queries to update the UI
       void queryClient.invalidateQueries({
         queryKey: [CHART_DATA_QUERY_KEY_BASE, encounterId],
         exact: false,
-        refetchType: 'none', // do not make a new request, only update the UI
+        refetchType: 'active',
       });
     },
-    [queryClient, commonChartDataKey, chartDataResponse, isLoading, encounterId]
+    [queryClient, queryKey, chartDataResponse, isLoading, encounterId]
   );
 
   const setPartialChartData = useCallback(
-    (data: Partial<GetChartDataResponse>) => {
+    (data: Partial<ChartDataResponse>) => {
       setQueryCache((state) => ({
         chartData: { ...state.chartData, patientId: state.chartData?.patientId || '', ...data },
       }));
@@ -616,10 +565,12 @@ export const useChartData = ({
           (observation) => observation.field === newObservation.field
         );
 
-        const updatedObservation = { ...updatedObservations[existingObservationIndex] };
-
         if (existingObservationIndex !== -1 && 'value' in newObservation) {
-          if (!('note' in newObservation) && 'note' in updatedObservation) delete updatedObservation.note;
+          const updatedObservation = { ...updatedObservations[existingObservationIndex] };
+
+          if (!('note' in newObservation) && 'note' in updatedObservation) {
+            delete updatedObservation.note;
+          }
 
           updatedObservations[existingObservationIndex] = {
             ...updatedObservation,
@@ -641,11 +592,10 @@ export const useChartData = ({
     [setQueryCache]
   );
 
-  // todo: remove duplicates and update api usage
   return {
     refetch,
     chartDataRefetch: refetch,
-    chartData: currentChartDataState.chartData,
+    chartData: chartDataResponse || undefined,
     isLoading,
     isChartDataLoading: isLoading,
     error: chartDataError,
@@ -698,7 +648,7 @@ export const useGetChartData = (
       throw new Error('api client not defined or encounterId not provided');
     },
 
-    enabled: !!apiClient && !!encounterId && !!user && enabled, // && !isAppointmentLoading ,
+    enabled: !!apiClient && !!encounterId && !!user && enabled,
     staleTime: 0,
     refetchInterval: refetchInterval || false,
   });

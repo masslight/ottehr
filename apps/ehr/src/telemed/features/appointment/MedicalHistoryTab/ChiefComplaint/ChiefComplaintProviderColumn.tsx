@@ -3,26 +3,34 @@ import { FC, useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { useDebounceNotesField } from '../../../../hooks';
-import { useChartData } from '../../../../state';
+import { useChartFields } from '../../../../state';
 
 export const ChiefComplaintProviderColumn: FC = () => {
-  const { chartData } = useChartData();
+  const { data: chartDataFields } = useChartFields({
+    requestedFields: {
+      chiefComplaint: {
+        _tag: 'chief-complaint',
+      },
+      ros: { _tag: 'ros' },
+    },
+  });
+
   const methods = useForm({
     defaultValues: {
-      chiefComplaint: chartData?.chiefComplaint?.text || '',
-      ros: chartData?.ros?.text || '',
+      chiefComplaint: chartDataFields?.chiefComplaint?.text || '',
+      ros: chartDataFields?.ros?.text || '',
     },
   });
 
   useEffect(() => {
-    if (!methods.getValues('chiefComplaint') && chartData?.chiefComplaint?.text) {
-      methods.setValue('chiefComplaint', chartData.chiefComplaint.text);
+    if (!methods.getValues('chiefComplaint') && chartDataFields?.chiefComplaint?.text) {
+      methods.setValue('chiefComplaint', chartDataFields.chiefComplaint.text);
     }
 
-    if (!methods.getValues('ros') && chartData?.ros?.text) {
-      methods.setValue('ros', chartData.ros.text);
+    if (!methods.getValues('ros') && chartDataFields?.ros?.text) {
+      methods.setValue('ros', chartDataFields.ros.text);
     }
-  }, [chartData?.chiefComplaint?.text, chartData?.ros?.text, methods]);
+  }, [chartDataFields?.chiefComplaint?.text, chartDataFields?.ros?.text, methods]);
 
   const { control } = methods;
 
@@ -96,9 +104,15 @@ export const ChiefComplaintProviderColumn: FC = () => {
 };
 
 export const ChiefComplaintProviderColumnReadOnly: FC = () => {
-  const { chartData } = useChartData();
-  const chiefComplaint = chartData?.chiefComplaint?.text;
-  const ros = chartData?.ros?.text;
+  const { data: chartFields } = useChartFields({
+    requestedFields: {
+      chiefComplaint: { _tag: 'chief-complaint' },
+      ros: { _tag: 'ros' },
+    },
+  });
+
+  const chiefComplaint = chartFields?.chiefComplaint?.text;
+  const ros = chartFields?.ros?.text;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>

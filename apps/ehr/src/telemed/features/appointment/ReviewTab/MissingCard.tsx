@@ -6,16 +6,26 @@ import { dataTestIds } from '../../../../constants/data-test-ids';
 import { useFeatureFlags } from '../../../../features/css-module/context/featureFlags';
 import { getAssessmentUrl } from '../../../../features/css-module/routing/helpers';
 import { AccordionCard } from '../../../components';
-import { useAppointmentData, useAppTelemedLocalStore, useChartData } from '../../../state';
+import { useAppointmentData, useAppTelemedLocalStore, useChartData, useChartFields } from '../../../state';
 
 export const MissingCard: FC = () => {
   const { appointment } = useAppointmentData();
   const { chartData } = useChartData();
+
+  const { data: chartFields } = useChartFields({
+    requestedFields: {
+      medicalDecision: {
+        _tag: 'medical-decision',
+      },
+      emCode: {},
+    },
+  });
+
   const { css } = useFeatureFlags();
   const navigate = useNavigate();
   const primaryDiagnosis = (chartData?.diagnosis || []).find((item) => item.isPrimary);
-  const medicalDecision = chartData?.medicalDecision?.text;
-  const emCode = chartData?.emCode;
+  const medicalDecision = chartFields?.medicalDecision?.text;
+  const emCode = chartFields?.emCode;
 
   if (primaryDiagnosis && medicalDecision && emCode) {
     return null;

@@ -6,15 +6,15 @@ import { CPT_TOOLTIP_PROPS } from 'src/components/WithTooltip';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { ActionsList, DeleteIconButton } from '../../../../components';
 import { useDebounce, useGetAppointmentAccessibility } from '../../../../hooks';
-import { useChartData, useDeleteChartData, useGetIcd10Search, useSaveChartData } from '../../../../state';
+import { useChartFields, useDeleteChartData, useGetIcd10Search, useSaveChartData } from '../../../../state';
 import { AssessmentTitle } from './AssessmentTitle';
 import { CPTCodeOption, emCodeOptions } from './EMCodeField';
 
 export const BillingCodesContainer: FC = () => {
-  const { chartData, setPartialChartData } = useChartData();
+  const { data: chartFields, setQueryCache } = useChartFields({ requestedFields: { cptCodes: {}, emCode: {} } });
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-  const cptCodes = chartData?.cptCodes || [];
-  const emCode = chartData?.emCode;
+  const cptCodes = chartFields?.cptCodes || [];
+  const emCode = chartFields?.emCode;
 
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const { isFetching: isSearching, data } = useGetIcd10Search({ search: debouncedSearchTerm, sabs: 'CPT' });
@@ -51,20 +51,20 @@ export const BillingCodesContainer: FC = () => {
         onSuccess: (data) => {
           const cptCode = data.chartData?.cptCodes?.[0];
           if (cptCode) {
-            setPartialChartData({
+            setQueryCache({
               cptCodes: [...cptCodes, cptCode],
             });
           }
         },
         onError: () => {
           enqueueSnackbar('An error has occurred while adding CPT code. Please try again.', { variant: 'error' });
-          setPartialChartData({
+          setQueryCache({
             cptCodes: cptCodes,
           });
         },
       }
     );
-    setPartialChartData({ cptCodes: [...cptCodes, value] });
+    setQueryCache({ cptCodes: [...cptCodes, value] });
   };
 
   const onDelete = (resourceId: string): void => {
@@ -78,7 +78,7 @@ export const BillingCodesContainer: FC = () => {
       {
         onSuccess: () => {
           localCodes = localCodes.filter((item) => item.resourceId !== resourceId);
-          setPartialChartData({ cptCodes: localCodes });
+          setQueryCache({ cptCodes: localCodes });
         },
         onError: () => {
           enqueueSnackbar('An error has occurred while deleting CPT code. Please try again.', { variant: 'error' });
@@ -99,19 +99,19 @@ export const BillingCodesContainer: FC = () => {
             console.log(data);
 
             if (saved) {
-              setPartialChartData({ emCode: saved });
+              setQueryCache({ emCode: saved });
             }
           },
           onError: () => {
             enqueueSnackbar('An error has occurred while saving E&M code. Please try again.', { variant: 'error' });
-            setPartialChartData({ emCode: prevValue });
+            setQueryCache({ emCode: prevValue });
           },
         }
       );
-      setPartialChartData({ emCode: value });
+      setQueryCache({ emCode: value });
     } else {
       deleteEMChartData({ emCode });
-      setPartialChartData({ emCode: undefined });
+      setQueryCache({ emCode: undefined });
     }
   };
 

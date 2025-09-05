@@ -2,7 +2,6 @@ import { BatchInputGetRequest } from '@oystehr/sdk';
 import { Bundle, Encounter, FhirResource, Patient, Resource } from 'fhir/r4b';
 import {
   addSearchParams,
-  ChartDataFields,
   ChartDataRequestedFields,
   ChartDataWithResources,
   GetChartDataResponse,
@@ -178,7 +177,7 @@ export async function convertSearchResultsToResponse(
   m2mToken: string,
   patientId: string,
   encounterId: string,
-  fields?: (keyof ChartDataFields)[]
+  fields?: (keyof ChartDataRequestedFields)[]
 ): Promise<ChartDataWithResources> {
   let getChartDataResponse: GetChartDataResponse = {
     patientId,

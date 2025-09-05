@@ -4,7 +4,7 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { useCallback, useEffect, useState } from 'react';
 import { dataTestIds } from '../../../../constants/data-test-ids';
-import { useAppointmentData, useChartData, useSaveChartData } from '../../../../telemed';
+import { useAppointmentData, useChartFields, useSaveChartData } from '../../../../telemed';
 import { ProfileAvatar } from '../ProfileAvatar';
 
 const getPatientDisplayedName = (patient: Patient | undefined): string => {
@@ -33,7 +33,7 @@ const GeneralInfoCard: React.FC = (): JSX.Element => {
   const { visitState: telemedData, mappedData } = useAppointmentData();
   const { patient: patientData } = telemedData;
 
-  const { chartData, isLoading: isLoadingChartData } = useChartData({
+  const { data: chartData, isLoading: isLoadingChartData } = useChartFields({
     requestedFields: { patientInfoConfirmed: {} },
   });
 

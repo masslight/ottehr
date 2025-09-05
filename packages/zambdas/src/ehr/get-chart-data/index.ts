@@ -1,7 +1,7 @@
 import Oystehr, { BatchInputGetRequest, Bundle } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { FhirResource, Resource } from 'fhir/r4b';
-import { ChartDataFields, ChartDataRequestedFields, GetChartDataResponse } from 'utils';
+import { ChartDataRequestedFields, GetChartDataResponse } from 'utils';
 import { checkOrCreateM2MClientToken, getPatientEncounter, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { configLabRequestsForGetChartData } from '../shared/labs';
@@ -78,7 +78,7 @@ export async function getChartData(
     resourceType: SupportedResourceType;
     defaultSearchBy?: 'encounter' | 'patient';
   }): void {
-    const fieldOptions = requestedFields?.[field];
+    const fieldOptions = requestedFields?.[field as keyof ChartDataRequestedFields];
     const defaultSearchParams = defaultChartDataFieldsSearchParams[field];
 
     if (!requestedFields || fieldOptions) {
@@ -230,7 +230,9 @@ export async function getChartData(
     chartDataRequests.push(...labRequests);
   }
 
-  if ((!requestedFields || requestedFields.procedures) && encounter.id) {
+  // old code (but we don't have 'procedures' in requestedFields fields currently):
+  // if ((!requestedFields || requestedFields.procedures) && encounter.id) {
+  if (!requestedFields && encounter.id) {
     chartDataRequests.push(configProceduresRequestsForGetChartData(encounter.id));
   }
 
@@ -254,7 +256,7 @@ export async function getChartData(
     m2mToken,
     patient.id!,
     encounterId,
-    requestedFields ? (Object.keys(requestedFields) as (keyof ChartDataFields)[]) : undefined
+    requestedFields ? (Object.keys(requestedFields) as (keyof ChartDataRequestedFields)[]) : undefined
   );
   console.timeLog('check', 'after converting to response');
   console.timeEnd('check');

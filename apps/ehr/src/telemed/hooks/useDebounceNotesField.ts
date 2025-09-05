@@ -1,10 +1,10 @@
 import { enqueueSnackbar } from 'notistack';
 import { useRef } from 'react';
-import { ChartDataFields } from 'utils';
-import { useChartData, useDeleteChartData, useSaveChartData } from '../state';
+import { AllChartValues, ChartDataRequestedFields } from 'utils';
+import { useChartFields, useDeleteChartData, useSaveChartData } from '../state';
 
 type ChartDataTextValueType = Pick<
-  ChartDataFields,
+  AllChartValues,
   'chiefComplaint' | 'ros' | 'surgicalHistoryNote' | 'medicalDecision' | 'addendumNote'
 >;
 
@@ -25,27 +25,26 @@ const mapValueToLabel: Record<keyof ChartDataTextValueType, string> = {
 };
 
 const requestedFieldsOptions: Partial<Record<keyof ChartDataTextValueType, { _tag?: string }>> = {
-  chiefComplaint: { _tag: 'chief-complaint' },
-  ros: { _tag: 'ros' },
+  chiefComplaint: { _tag: 'chief-complaint' }, // todo: check if it can retrieve from useChartData
+  ros: { _tag: 'ros' }, // todo: check if it can retrieve from useChartData
   surgicalHistoryNote: { _tag: 'surgical-history-note' },
   medicalDecision: { _tag: 'medical-decision' },
   addendumNote: {},
 };
 
-export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
+export const useDebounceNotesField = <T extends keyof ChartDataRequestedFields>(
   name: T
 ): { onValueChange: (text: string) => void; isLoading: boolean; isChartDataLoading: boolean } => {
-  const { chartData, setPartialChartData } = useChartData();
   const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
   const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
 
-  const { isLoading: isChartDataLoading } = useChartData({
+  const {
+    isLoading: isChartDataLoading,
+    data: chartFields,
+    setQueryCache,
+  } = useChartFields({
     requestedFields: {
-      [name]: requestedFieldsOptions[name],
-    },
-    onSuccess: (data) => {
-      if (!data) return;
-      setPartialChartData({ [name]: data[name] });
+      [name]: requestedFieldsOptions[name as keyof ChartDataTextValueType],
     },
   });
 
@@ -61,28 +60,38 @@ export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
       text = text.trim();
       const variables = {
         [name]: {
-          resourceId: chartData?.[name]?.resourceId,
-          [nameToTypeEnum[name]]: text,
+          resourceId: (chartFields?.[name] as any)?.resourceId,
+          [nameToTypeEnum[name as keyof ChartDataTextValueType]]: text,
         },
       };
       if (text) {
         saveChartData(variables, {
           onSuccess: (data) => {
-            setPartialChartData({ [name]: data.chartData[name] });
+            setQueryCache({ [name]: data.chartData[name] });
           },
           onError: () => {
-            enqueueSnackbar(`${mapValueToLabel[name]} field was not saved. Please change it's value to try again.`, {
-              variant: 'error',
-            });
+            enqueueSnackbar(
+              `${
+                mapValueToLabel[name as keyof ChartDataTextValueType]
+              } field was not saved. Please change it's value to try again.`,
+              {
+                variant: 'error',
+              }
+            );
           },
         });
       } else {
-        setPartialChartData({ [name]: undefined });
+        setQueryCache({ [name]: undefined });
         deleteChartData(variables, {
           onError: () => {
-            enqueueSnackbar(`${mapValueToLabel[name]} field was not saved. Please change it's value to try again.`, {
-              variant: 'error',
-            });
+            enqueueSnackbar(
+              `${
+                mapValueToLabel[name as keyof ChartDataTextValueType]
+              } field was not saved. Please change it's value to try again.`,
+              {
+                variant: 'error',
+              }
+            );
           },
         });
       }

@@ -1,8 +1,8 @@
 import { QueryObserverResult } from '@tanstack/react-query';
-import { ChartDataFieldsKeys, GetChartDataResponse, MedicationDTO, removePrefix, SearchParams } from 'utils';
+import { AllChartValuesKeys, GetChartDataResponse, MedicationDTO, removePrefix, SearchParams } from 'utils';
 import { useChartData } from '../../../telemed';
 
-export type MedicationHistoryField = Extract<ChartDataFieldsKeys, 'medications' | 'inhouseMedications'>;
+export type MedicationHistoryField = Extract<AllChartValuesKeys, 'medications' | 'inhouseMedications'>;
 
 export const MEDICATION_HISTORY_FIELDS: MedicationHistoryField[] = ['medications', 'inhouseMedications'];
 export const PATIENT_MEDS_COUNT_TO_LOAD = 100;

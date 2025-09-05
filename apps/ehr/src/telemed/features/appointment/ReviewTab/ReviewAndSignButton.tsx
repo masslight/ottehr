@@ -23,6 +23,7 @@ import {
   useAppointmentData,
   useChangeTelemedAppointmentStatusMutation,
   useChartData,
+  useChartFields,
   useSignAppointmentMutation,
 } from '../../../state';
 import { getPatientName } from '../../../utils';
@@ -33,8 +34,18 @@ type ReviewAndSignButtonProps = {
 
 export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) => {
   const { patient, appointment, encounter, appointmentRefetch, appointmentSetState, location } = useAppointmentData();
-
   const { chartData } = useChartData();
+
+  const { data: chartFields } = useChartFields({
+    requestedFields: {
+      medicalDecision: {
+        _tag: 'medical-decision',
+      },
+      emCode: {},
+      inHouseLabResults: {},
+    },
+  });
+
   const apiClient = useOystehrAPIClient();
   const practitioner = useEvolveUser()?.profileResource;
 
@@ -54,10 +65,10 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   const appointmentAccessibility = useGetAppointmentAccessibility();
 
   const primaryDiagnosis = (chartData?.diagnosis || []).find((item) => item.isPrimary);
-  const medicalDecision = chartData?.medicalDecision?.text;
-  const emCode = chartData?.emCode;
+  const medicalDecision = chartFields?.medicalDecision?.text;
+  const emCode = chartFields?.emCode;
   const patientInfoConfirmed = chartData?.patientInfoConfirmed?.value;
-  const inHouseLabResultsPending = chartData?.inHouseLabResults?.resultsPending;
+  const inHouseLabResultsPending = chartFields?.inHouseLabResults?.resultsPending;
 
   const patientName = getPatientName(patient?.name).firstLastName;
 

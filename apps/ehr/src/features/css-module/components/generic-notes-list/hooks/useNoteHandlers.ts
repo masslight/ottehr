@@ -1,12 +1,12 @@
 import { NoteDTO } from 'utils';
-import { useChartData } from '../../../../../telemed';
+import { useChartFields } from '../../../../../telemed';
 import { EditableNote, UseNoteHandlers } from '../types';
 import { useDeleteNote } from './useDeleteNote';
 import { useEditNote } from './useEditNote';
 import { useSaveNote } from './useSaveNote';
 
 export const useNoteHandlers: UseNoteHandlers = ({ encounterId, appointmentId, patientId, apiConfig, locales }) => {
-  const { chartData, isLoading } = useChartData({
+  const { data: chartData, isLoading } = useChartFields({
     requestedFields: { [apiConfig.fieldName]: apiConfig.searchParams },
   });
 

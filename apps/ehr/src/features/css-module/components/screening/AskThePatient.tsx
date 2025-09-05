@@ -25,8 +25,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { useAppointmentData, useChartData, useDebounce, useDeleteChartData } from 'src/telemed';
 import { useOystehrAPIClient } from 'src/telemed/hooks/useOystehrAPIClient';
 import {
-  ADDITIONAL_QUESTIONS_META_SYSTEM,
-  ChartDataFields,
+  AllChartValues,
   Field,
   getFhirValueOrFallback,
   getFieldById,
@@ -60,19 +59,8 @@ const AskThePatient = (): React.ReactElement => {
   const theme = useTheme();
   const apiClient = useOystehrAPIClient();
   const { encounter } = useAppointmentData();
-  const { chartData, updateObservation, chartDataSetState } = useChartData();
+  const { chartData, updateObservation, chartDataSetState, isChartDataLoading } = useChartData();
   const [fieldLoadingState, setFieldLoadingState] = useState<Record<string, boolean>>({});
-
-  const { isLoading: isChartDataLoading } = useChartData({
-    requestedFields: {
-      observations: {
-        _tag: ADDITIONAL_QUESTIONS_META_SYSTEM,
-        _search_by: 'encounter',
-      },
-    },
-    enabled: false,
-  });
-
   const { mutateAsync: _deleteChartData } = useDeleteChartData();
   const { debounce } = useDebounce(1000);
   const [tempDateRanges, setTempDateRanges] = useState<Record<string, [DateTime | null, DateTime | null]>>({});
@@ -178,7 +166,7 @@ const AskThePatient = (): React.ReactElement => {
 
   const deleteChartData = useCallback(
     async (
-      chartDataFields: ChartDataFields,
+      chartDataFields: AllChartValues,
       options?: {
         onSuccess?: () => void | Promise<void>;
         onError?: (error: any) => void;

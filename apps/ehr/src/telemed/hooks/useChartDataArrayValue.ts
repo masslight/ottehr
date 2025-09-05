@@ -1,7 +1,6 @@
-import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { GetChartDataResponse, SaveableDTO, SearchParams } from 'utils';
-import { useChartData, useDeleteChartData, useSaveChartData } from '../state';
+import { useChartData, useChartFields, useDeleteChartData, useSaveChartData } from '../state';
 
 type ChartDataArrayValueType = Pick<
   GetChartDataResponse,
@@ -34,19 +33,17 @@ export const useChartDataArrayValue = <
 } => {
   const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
   const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
-  const { setPartialChartData, chartData } = useChartData();
+  const { chartData, refetch } = useChartData();
 
   const {
     isLoading: isChartDataLoading,
-    chartData: currentFieldData,
-    queryKey,
-  } = useChartData({
+    data: currentFieldData,
+    setQueryCache,
+  } = useChartFields({
     requestedFields: { [name]: customParams || {} },
     enabled: !!customParams,
-    replaceStoreValues: true,
   });
 
-  const queryClient = useQueryClient();
   const values = (customParams ? currentFieldData?.[name] || [] : chartData?.[name] || []) as K;
 
   const onSubmit = (data: ElementType<K>): Promise<boolean> => {
@@ -56,15 +53,14 @@ export const useChartDataArrayValue = <
           [name]: [data],
         },
         {
-          onSuccess: (data) => {
-            setPartialChartData({
-              [name]: [...values, ...(data.chartData[name] as K)],
-            });
-
-            queryClient.setQueryData<typeof currentFieldData>(queryKey, (oldData) => ({
-              ...oldData!,
-              [name]: [...values, ...(data.chartData[name] as K)],
-            }));
+          onSuccess: async (data) => {
+            if (customParams) {
+              setQueryCache({
+                [name]: [...(currentFieldData?.[name] || []), ...(data.chartData[name] as K)],
+              });
+            } else {
+              await refetch();
+            }
 
             resolve(true);
           },
@@ -89,14 +85,16 @@ export const useChartDataArrayValue = <
         [name]: newState,
       },
       {
-        onSuccess: (_data) => {
-          setPartialChartData({
-            [name]: (values as K & SaveableDTO[]).filter((value) => value.resourceId !== resourceId),
-          });
-          queryClient.setQueryData<typeof currentFieldData>(queryKey, (oldData) => ({
-            ...oldData!,
-            [name]: (values as K & SaveableDTO[]).filter((value) => value.resourceId !== resourceId),
-          }));
+        onSuccess: async (_data) => {
+          if (customParams) {
+            setQueryCache({
+              [name]: ((currentFieldData?.[name] || []) as unknown as K & SaveableDTO[]).filter(
+                (value) => value.resourceId !== resourceId
+              ),
+            });
+          } else {
+            await refetch();
+          }
           onRemoveCallback?.();
         },
         onError: () => {
