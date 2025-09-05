@@ -5854,7 +5854,8 @@
             "FHIR:List",
             "FHIR:Schedule",
             "FHIR:ValueSet",
-            "FHIR:Medication"
+            "FHIR:Medication",
+            "FHIR:MedicationRequest"
           ],
           "action": ["FHIR:Search", "FHIR:Read"],
           "effect": "Allow"
