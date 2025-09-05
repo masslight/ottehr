@@ -65,6 +65,7 @@ import {
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   NOTHING_TO_EAT_OR_DRINK_ID,
   ObservationBooleanFieldDTO,
+  ObservationDateRangeFieldDTO,
   ObservationDTO,
   ObservationTextFieldDTO,
   PATIENT_VITALS_META_SYSTEM,
@@ -339,7 +340,7 @@ export function makeObservationResource(
   };
 
   const fieldName = data.field;
-  console.log(`makeObservationResource() fieldName=[${fieldName}]`);
+  console.log(`makeObservationResource() fieldName=[${fieldName}] data=[${JSON.stringify(data)}]`);
 
   if (isVitalObservation(data)) {
     let interpretation: Observation['interpretation'];
@@ -375,6 +376,18 @@ export function makeObservationResource(
     }
   }
 
+  if (isObservationDateRangeFieldDTO(data)) {
+    delete base.effectiveDateTime;
+    const [start, end] = data.value;
+    return {
+      ...base,
+      effectivePeriod: {
+        start,
+        end,
+      },
+    };
+  }
+
   throw new Error('Invalid ObservationDTO type');
 }
 
@@ -384,6 +397,30 @@ function isObservationBooleanFieldDTO(data: ObservationDTO): data is Observation
 
 function isObservationTextFieldDTO(data: ObservationDTO): data is ObservationTextFieldDTO {
   return typeof (data as ObservationTextFieldDTO).value === 'string';
+}
+
+function isObservationDateRangeFieldDTO(data: ObservationDTO): data is ObservationDateRangeFieldDTO {
+  if (!Array.isArray(data.value) || data.value.length !== 2) {
+    return false;
+  }
+
+  if (typeof data.value[0] !== 'string' || typeof data.value[1] !== 'string') {
+    return false;
+  }
+
+  const startDate = DateTime.fromISO(data.value[0]);
+  const endDate = DateTime.fromISO(data.value[1]);
+
+  if (!startDate.isValid || !endDate.isValid) {
+    return false;
+  }
+
+  if (startDate > endDate) {
+    console.log('startDate should be less than endDate');
+    return false;
+  }
+
+  return true;
 }
 
 export function makeFreeTextNoteDTO(resource: Procedure | Observation | Condition): FreeTextNoteDTO {
@@ -422,16 +459,14 @@ export function makeHospitalizationResource(
 }
 
 export function makeHospitalizationDTO(resource: EpisodeOfCare): HospitalizationDTO | undefined {
-  const coding = resource.type;
-  if (coding) {
-    if (coding[0].coding?.[0]?.code && coding[0].coding?.[0]?.display) {
-      return {
-        resourceId: resource.id,
-        code: coding[0].coding?.[0]?.code,
-        display: coding[0].coding?.[0]?.display,
-      };
-    }
+  const code = resource.meta?.tag?.[0]?.code;
+  const display = resource.type?.[0]?.text;
+  const resourceId = resource.id;
+
+  if (resourceId && code && display) {
+    return { resourceId, code, display };
   }
+
   return undefined;
 }
 
@@ -1027,6 +1062,12 @@ export function makeObservationDTO(observation: Observation): null | Observation
       note: observation.note?.[0]?.text,
       derivedFrom: observation.derivedFrom?.[0].reference,
     } as ObservationTextFieldDTO;
+  } else if (observation.effectivePeriod?.start && observation.effectivePeriod?.end) {
+    return {
+      resourceId: observation.id,
+      field,
+      value: [observation.effectivePeriod.start, observation.effectivePeriod.end],
+    } as ObservationDateRangeFieldDTO;
   }
 
   console.error(`Invalid Observation field type: "${field}" ${JSON.stringify(observation)}`);
@@ -1605,5 +1646,5 @@ function getMedicationDosage(medication: MedicationStatement): string | undefine
   if (!doseQuantity?.value || !doseQuantity?.unit) {
     return undefined;
   }
-  return `${doseQuantity.value}${doseQuantity.unit}`;
+  return `${doseQuantity.value} ${doseQuantity.unit}`;
 }

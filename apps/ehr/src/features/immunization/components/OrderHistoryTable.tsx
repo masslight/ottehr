@@ -22,9 +22,10 @@ import { OrderHistoryTableSkeletonBody } from './OrderHistoryTableSkeletonBody';
 
 interface Props {
   showActions: boolean;
+  administeredOnly?: boolean;
 }
 
-export const OrderHistoryTable: React.FC<Props> = ({ showActions }) => {
+export const OrderHistoryTable: React.FC<Props> = ({ showActions, administeredOnly }) => {
   const [seeMoreOpen, setSeeMoreOpen] = useState(false);
   const { id: appointmentId } = useParams();
 
@@ -37,7 +38,9 @@ export const OrderHistoryTable: React.FC<Props> = ({ showActions }) => {
     patientId: patient?.id,
   });
 
-  const orders = (ordersResponse?.orders ?? []).sort(ordersRecentFirstComparator);
+  const orders = (ordersResponse?.orders ?? [])
+    .sort(ordersRecentFirstComparator)
+    .filter((order) => (administeredOnly ? ['administered', 'administered-partly'].includes(order.status) : true));
   const ordersToShow = seeMoreOpen ? orders : orders.slice(0, COLLAPSED_MEDS_COUNT);
   const isLoading = patientIdLoading || ordersLoading;
 

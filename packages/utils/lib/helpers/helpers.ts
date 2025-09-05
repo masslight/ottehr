@@ -1,16 +1,34 @@
 import Oystehr, { OystehrConfig } from '@oystehr/sdk';
+import { NetworkType } from 'candidhealth/api/resources/preEncounter/resources/coverages/resources/v1';
 import {
   Appointment,
+  Coverage,
   Extension,
+  Location,
   Organization,
   PaymentNotice,
+  Practitioner,
   QuestionnaireResponseItemAnswer,
   Resource,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { FHIR_IDENTIFIER_SYSTEM, OTTEHR_MODULE, PAYMENT_METHOD_EXTENSION_URL, SLUG_SYSTEM } from '../fhir';
-import { CashPaymentDTO, PatchPaperworkParameters, ScheduleOwnerFhirResource } from '../types';
+import {
+  allLicensesForPractitioner,
+  CANDID_PLAN_TYPE_SYSTEM,
+  FHIR_IDENTIFIER_SYSTEM,
+  INSURANCE_CANDID_PLAN_TYPE_CODES,
+  OTTEHR_MODULE,
+  PAYMENT_METHOD_EXTENSION_URL,
+  SLUG_SYSTEM,
+} from '../fhir';
+import {
+  CashPaymentDTO,
+  PatchPaperworkParameters,
+  PractitionerQualificationCode,
+  ScheduleOwnerFhirResource,
+} from '../types';
 import { phoneRegex, zipRegex } from '../validation';
+import { AllStatesToNames } from './states';
 
 export function createOystehrClient(token: string, fhirAPI: string, projectAPI: string): Oystehr {
   const FHIR_API = fhirAPI.replace(/\/r4/g, '');
@@ -591,6 +609,8 @@ export function getPaymentOptionSelfPayAnswers(): PatchPaperworkParameters['answ
 
 export function getPaymentOptionInsuranceAnswers({
   insuranceCarrier,
+  insurancePlanType,
+  insurancePlanType2,
   insuranceMemberId,
   insurancePolicyHolderFirstName,
   insurancePolicyHolderLastName,
@@ -620,6 +640,7 @@ export function getPaymentOptionInsuranceAnswers({
   insurancePolicyHolderRelationshipToInsured2,
 }: {
   insuranceCarrier: QuestionnaireResponseItemAnswer;
+  insurancePlanType: string;
   insuranceMemberId: string;
   insurancePolicyHolderFirstName: string;
   insurancePolicyHolderLastName: string;
@@ -646,6 +667,7 @@ export function getPaymentOptionInsuranceAnswers({
   insurancePolicyHolderZip2: string;
   insurancePolicyHolderRelationshipToInsured2: string;
   insuranceCarrier2: QuestionnaireResponseItemAnswer;
+  insurancePlanType2: string;
   insuranceMemberId2: string;
 }): PatchPaperworkParameters['answers'] {
   return {
@@ -656,6 +678,14 @@ export function getPaymentOptionInsuranceAnswers({
           {
             linkId: 'insurance-carrier-2',
             answer: [insuranceCarrier2],
+          },
+          {
+            linkId: 'insurance-plan-type-2',
+            answer: [
+              {
+                valueString: insurancePlanType2,
+              },
+            ],
           },
           {
             linkId: 'insurance-member-id-2',
@@ -885,6 +915,14 @@ export function getPaymentOptionInsuranceAnswers({
       {
         linkId: 'insurance-carrier',
         answer: [insuranceCarrier],
+      },
+      {
+        linkId: 'insurance-plan-type',
+        answer: [
+          {
+            valueString: insurancePlanType,
+          },
+        ],
       },
       {
         linkId: 'payment-option',
@@ -1199,4 +1237,30 @@ export const getPayerId = (org: Organization | undefined): string | undefined =>
       identifier.type?.coding?.some((coding) => coding.system === FHIR_IDENTIFIER_SYSTEM && coding.code === 'XX')
   )?.value;
   return payerId;
+};
+
+export const getPractitionerQualificationByLocation = (
+  practitioner: Practitioner,
+  location: Location
+): PractitionerQualificationCode | undefined => {
+  const existedLicenses = allLicensesForPractitioner(practitioner);
+  const qualification = existedLicenses.find(
+    (license) => license.active && AllStatesToNames[license.state] === location.name
+  )?.code;
+
+  return qualification;
+};
+
+export function isPhysicianQualification(qualification?: PractitionerQualificationCode): boolean {
+  return qualification != null && ['MD', 'DO'].includes(qualification);
+}
+
+export const getCandidPlanTypeCodeFromCoverage = (coverage: Coverage): NetworkType | undefined => {
+  const coverageCandidTypeCode = coverage.type?.coding?.find(
+    (coding) => coding.system && coding.system === CANDID_PLAN_TYPE_SYSTEM
+  )?.code;
+  if (!coverageCandidTypeCode || !INSURANCE_CANDID_PLAN_TYPE_CODES.includes(coverageCandidTypeCode)) {
+    return undefined;
+  }
+  return coverageCandidTypeCode as NetworkType;
 };

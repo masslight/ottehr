@@ -12,15 +12,7 @@
           "system": "virtual-medication-identifier-name-system",
           "value": "Tdap (Tetanus, Diphtheria, Pertussis)"
         }
-      ],
-      "code": {
-        "coding": [
-          {
-            "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
-            "code": "00000"
-          }
-        ]
-      }
+      ]
     },
     "VACCINE_DTAP": {
       "resourceType": "Medication",
@@ -33,15 +25,7 @@
           "system": "virtual-medication-identifier-name-system",
           "value": "Dtap (Diptheria, Tetanus, Pertussis)"
         }
-      ],
-      "code": {
-        "coding": [
-          {
-            "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
-            "code": "00000"
-          }
-        ]
-      }
+      ]
     },
     "VACCINE_TD": {
       "resourceType": "Medication",
@@ -54,15 +38,7 @@
           "system": "virtual-medication-identifier-name-system",
           "value": "Td (Tetanus, Diphtheria)"
         }
-      ],
-      "code": {
-        "coding": [
-          {
-            "system": "https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id",
-            "code": "00000"
-          }
-        ]
-      }
+      ]
     }
   }
 }
