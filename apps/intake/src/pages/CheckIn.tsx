@@ -6,6 +6,7 @@ import { t } from 'i18next';
 import { DateTime } from 'luxon';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { AiChatBanner } from 'src/components/AiChatBanner';
 import { APIError, APPOINTMENT_NOT_FOUND_ERROR, CheckInZambdaOutput, DATETIME_FULL_NO_YEAR, VisitType } from 'utils';
 import ottehrApi from '../api/ottehrApi';
 import { PageContainer } from '../components';
@@ -191,16 +192,17 @@ const CheckIn = (): JSX.Element => {
                 {checkIn.location.name}
               </Typography>
             </Box>
+            <Grid container marginTop={1}>
+              {showRegisterAnotherPatient && (
+                <Grid item xs={12} md={6} textAlign={{ xs: 'center', md: 'start' }} justifyContent="start">
+                  <Link to={'/home'} className="register-button">
+                    <Button variant="outlined">{t('appointments.registerAnother')}</Button>
+                  </Link>
+                </Grid>
+              )}
+            </Grid>
+            <AiChatBanner appointmentId={appointmentID ?? ''} />
           </Box>
-          <Grid container marginTop={2}>
-            {showRegisterAnotherPatient && (
-              <Grid item xs={12} md={6} textAlign={{ xs: 'center', md: 'start' }} justifyContent="start">
-                <Link to={'/home'} className="register-button">
-                  <Button variant="outlined">{t('appointments.registerAnother')}</Button>
-                </Link>
-              </Grid>
-            )}
-          </Grid>
         </>
       )}
     </PageContainer>
