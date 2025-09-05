@@ -41,7 +41,7 @@ export const CSSLayout: React.FC = () => {
   const recordingOpen = Boolean(recordingAnchorElemement);
 
   useResetAppointmentStore();
-  useChartData({ enabled: isInitialLoad.current, shouldUpdateExams: true });
+  const { chartData } = useChartData({ enabled: isInitialLoad.current, shouldUpdateExams: true });
   const assignedIntakePerformerId = getAdmitterPractitionerId(encounter);
   const assignedProviderId = getAttendingPractitionerId(encounter);
 
