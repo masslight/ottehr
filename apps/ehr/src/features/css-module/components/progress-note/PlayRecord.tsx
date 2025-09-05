@@ -25,7 +25,7 @@ export function PlayRecord(props: PlayRecordProps): ReactElement {
     const url = documentReference.content.find((contentTemp) => contentTemp.attachment.url !== undefined)?.attachment
       .url;
     if (!url) {
-      throw new Error(`No URL found for DocumntRefernce ${documentReference.id}`);
+      throw new Error(`No URL found for DocumentReference ${documentReference.id}`);
     }
     const accessToken = await getAccessTokenSilently();
     const presignedURL = await getPresignedURL(url, accessToken);
@@ -46,18 +46,22 @@ export function PlayRecord(props: PlayRecordProps): ReactElement {
             ? 'TRANSCRIPT OF VISIT BY OYSTEHR AI'
             : 'CHAT WITH OYSTEHR AI'}
         </Typography>
-        {recordURL ? (
-          <audio controls src={recordURL} autoPlay />
-        ) : (
-          <Button
-            variant="outlined"
-            startIcon={<PlayArrow />}
-            size="small"
-            onClick={() => downloadAudio(documentReference)}
-            style={{ marginLeft: 8 }}
-          >
-            Play
-          </Button>
+        {getDocumentReferenceSource(documentReference) === 'audio' && (
+          <>
+            {recordURL ? (
+              <audio controls src={recordURL} autoPlay />
+            ) : (
+              <Button
+                variant="outlined"
+                startIcon={<PlayArrow />}
+                size="small"
+                onClick={() => downloadAudio(documentReference)}
+                style={{ marginLeft: 8 }}
+              >
+                Play
+              </Button>
+            )}
+          </>
         )}
         <Typography variant="body2" style={{ color: theme.palette.secondary.light, marginLeft: 8 }}>
           {getSource(documentReference, oystehr, providers)}
