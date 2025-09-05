@@ -595,14 +595,31 @@ const AskThePatient = (): React.ReactElement => {
               >
                 {field.question}
               </Typography>
-
-              <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  gap: 2,
+                  alignItems: 'flex-start',
+                  '@media (max-width: 1650px)': {
+                    flexDirection: 'column',
+                    alignItems: 'stretch',
+                  },
+                }}
+              >
                 <Controller
                   name={field.id}
                   control={control}
                   defaultValue=""
                   render={({ field: formField }) => (
-                    <FormControl fullWidth sx={{ maxWidth: '450px' }}>
+                    <FormControl
+                      fullWidth
+                      sx={{
+                        maxWidth: '450px',
+                        '@media (max-width: 1650px)': {
+                          maxWidth: 'none',
+                        },
+                      }}
+                    >
                       <Select
                         {...formField}
                         displayEmpty
@@ -627,7 +644,6 @@ const AskThePatient = (): React.ReactElement => {
                     </FormControl>
                   )}
                 />
-
                 {field.noteField && getIsNoteFieldVisible(field) && (
                   <Controller
                     name={field.noteField.id}
@@ -639,7 +655,12 @@ const AskThePatient = (): React.ReactElement => {
                         label={field.noteField!.label}
                         placeholder={field.noteField!.placeholder}
                         variant="outlined"
-                        sx={{ maxWidth: '300px' }}
+                        sx={{
+                          maxWidth: '300px',
+                          '@media (max-width: 1650px)': {
+                            maxWidth: 'none',
+                          },
+                        }}
                         disabled={isFieldDisabled}
                         onChange={(e) => {
                           noteFormField.onChange(e);
