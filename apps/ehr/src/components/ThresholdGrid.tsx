@@ -216,7 +216,7 @@ export function ThresholdsTable(): ReactElement {
                   <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Metric</TableCell>
                   <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Baseline</TableCell>
                   <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Variance (%)</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 7 }}>Range</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Range</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>

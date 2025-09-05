@@ -3,6 +3,7 @@ import { Box, Paper, Skeleton, Stack, Tab, Typography } from '@mui/material';
 import { useMemo, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import { DeviceVitalsPage } from 'src/components/DeviceVitalsPage';
+import TimerComponent from 'src/components/patient/TimerComponent';
 import { PatientDevicesTab } from 'src/components/PatientDevicesTab';
 import { PatientInHouseLabsTab } from 'src/components/PatientInHouseLabsTab';
 import { PatientRadiologyTab } from 'src/components/PatientRadiologyTab';
@@ -47,22 +48,39 @@ export default function PatientPage(): JSX.Element {
     <>
       <PageContainer tabTitle="Patient Information">
         <Stack spacing={4}>
-          <CustomBreadcrumbs
-            chain={[
-              { link: '/patients', children: 'Patients' },
-              {
-                link: '#',
-                children: loading ? (
-                  <Skeleton width={150} />
-                ) : (
-                  <>
-                    <Typography component="span" sx={{ fontWeight: 500 }}>{`${lastName}, `}</Typography>
-                    <Typography component="span">{`${firstName}`}</Typography>
-                  </>
-                ),
-              },
-            ]}
-          />
+          <Paper
+            sx={{
+              p: 'none',
+              m: 'none',
+              flexWrap: 'wrap',
+              flexDirection: { xs: 'column', md: 'row' },
+              display: 'flex',
+              alignItems: { xs: 'stretch', md: 'center' },
+              border: 'none',
+              boxShadow: 'none',
+              backgroundColor: 'transparent',
+              justifyContent: 'space-between',
+            }}
+          >
+            <CustomBreadcrumbs
+              chain={[
+                { link: '/patients', children: 'Patients' },
+                {
+                  link: '#',
+                  children: loading ? (
+                    <Skeleton width={150} />
+                  ) : (
+                    <>
+                      <Typography component="span" sx={{ fontWeight: 500 }}>{`${lastName}, `}</Typography>
+                      <Typography component="span">{`${firstName}`}</Typography>
+                    </>
+                  ),
+                },
+              ]}
+            />
+
+            <TimerComponent />
+          </Paper>
           <Typography variant="subtitle1" color="primary.main">
             Patient Record
           </Typography>
@@ -74,7 +92,6 @@ export default function PatientPage(): JSX.Element {
               alignItems: { xs: 'stretch', md: 'center' },
               flexWrap: 'wrap',
               gap: 3,
-              mt: 2,
               p: 3,
             }}
           >
