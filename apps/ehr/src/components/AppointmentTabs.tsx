@@ -136,7 +136,7 @@ export default function AppointmentTabs({
             />
             <Tab
               data-testid={dataTestIds.dashboard.cancelledTab}
-              label="Cancelled"
+              label={`Cancelled${cancelledAppointments ? ` – ${cancelledAppointments?.length}` : ''}`}
               value={ApptTab.cancelled}
               sx={{ textTransform: 'none', fontWeight: 500 }}
             />
