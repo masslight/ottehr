@@ -107,6 +107,31 @@ export interface UpdateAppointmentParameters {
   slot: Slot;
 }
 
+export const VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE = {
+  system: 'http://loinc.org',
+  code: '11488-4',
+  display: 'Consult note',
+};
+
+export interface CreateUploadAudioRecordingInput {
+  visitID: string;
+}
+
+export interface CreateUploadAudioRecordingOutput {
+  z3URL: string;
+  presignedUploadUrl: string;
+}
+
+export interface CreateResourcesFromAudioRecordingInput {
+  z3URL: string;
+  duration?: number;
+  visitID: string;
+}
+
+export interface CreateResourcesFromAudioRecordingOutput {
+  presignedUploadUrl: string;
+}
+
 export interface UpdateAppointmentZambdaOutput {
   message: string;
   appointmentID?: string;

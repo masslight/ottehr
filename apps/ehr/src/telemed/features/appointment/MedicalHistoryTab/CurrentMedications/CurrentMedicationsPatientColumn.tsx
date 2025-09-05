@@ -14,9 +14,9 @@ export const CurrentMedicationsPatientColumn: FC = () => {
   const currentMedications = getQuestionnaireResponseByLinkId('current-medications', questionnaireResponse)?.answer?.[0]
     .valueArray;
 
-  const aiMedicationsHistory = chartData?.observations?.find(
+  const aiMedicationsHistory = chartData?.observations?.filter(
     (observation) => observation.field === AiObservationField.MedicationsHistory
-  ) as ObservationTextFieldDTO;
+  ) as ObservationTextFieldDTO[];
 
   return (
     <Box
@@ -39,12 +39,12 @@ export const CurrentMedicationsPatientColumn: FC = () => {
       ) : (
         <Typography color={theme.palette.text.secondary}>Patient has no current medications</Typography>
       )}
-      {aiMedicationsHistory ? (
+      {aiMedicationsHistory?.length > 0 && (
         <>
           <hr style={{ border: '0.5px solid #DFE5E9', margin: '0 -16px 0 -16px' }} />
-          <AiSuggestion title={'Medications'} content={aiMedicationsHistory.value} />
+          <AiSuggestion title={'Medications'} chartData={chartData} content={aiMedicationsHistory} />
         </>
-      ) : undefined}
+      )}
     </Box>
   );
 };

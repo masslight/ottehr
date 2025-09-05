@@ -1,3 +1,5 @@
+import { Mic } from '@mui/icons-material';
+import { Container, Fab, Paper } from '@mui/material';
 import React, { useRef } from 'react';
 import { Outlet } from 'react-router-dom';
 import { useResetAppointmentStore } from 'src/telemed/hooks/useResetAppointmentStore';
@@ -6,6 +8,7 @@ import { useAppointmentData, useChartData } from '../../../telemed/state/appoint
 import { CommonLayoutBreadcrumbs } from '../components/breadcrumbs/CommonLayoutBreadcrumbs';
 import { Header } from '../components/Header';
 import { InfoAlert } from '../components/InfoAlert';
+import { RecordAudioContainer } from '../components/progress-note/RecordAudioContainer';
 import { Sidebar } from '../components/Sidebar';
 import { BottomNavigation } from './BottomNavigation';
 
@@ -33,8 +36,12 @@ const contentWrapperStyle: React.CSSProperties = {
 export const CSSLayout: React.FC = () => {
   const { encounter } = useAppointmentData();
   const isInitialLoad = useRef(true);
+  const [recordingAnchorElemement, setRecordingAnchorElement] = React.useState<HTMLButtonElement | null>(null);
+  const recordingElementID = 'recording-element';
+  const recordingOpen = Boolean(recordingAnchorElemement);
+
   useResetAppointmentStore();
-  useChartData({ enabled: isInitialLoad.current, shouldUpdateExams: true });
+  const { chartData } = useChartData({ enabled: isInitialLoad.current, shouldUpdateExams: true });
   const assignedIntakePerformerId = getAdmitterPractitionerId(encounter);
   const assignedProviderId = getAttendingPractitionerId(encounter);
 
@@ -44,6 +51,37 @@ export const CSSLayout: React.FC = () => {
       <div style={mainBlocksStyle}>
         <Sidebar />
         <div style={contentWrapperStyle}>
+          <Container>
+            <Fab
+              color="primary"
+              aria-label=""
+              aria-describedby={recordingElementID}
+              sx={{ position: 'fixed', right: 8, bottom: 8 }}
+              onClick={(event) =>
+                recordingOpen ? setRecordingAnchorElement(null) : setRecordingAnchorElement(event.currentTarget)
+              }
+            >
+              <Mic />
+            </Fab>
+            {encounter.id && (
+              <Paper
+                sx={{
+                  position: 'fixed',
+                  right: '15px',
+                  bottom: '75px',
+                  zIndex: '10',
+                  ...(!recordingOpen && { display: 'none' }),
+                }}
+              >
+                <RecordAudioContainer
+                  visitID={encounter.id}
+                  aiChat={chartData?.aiChat}
+                  setRecordingAnchorElement={setRecordingAnchorElement}
+                />
+              </Paper>
+            )}
+          </Container>
+          {/* </Popover> */}
           <div
             style={{
               flex: 1,

@@ -44,9 +44,9 @@ export const ChiefComplaintPatientColumn: FC = () => {
     }
   }, [getAccessTokenSilently, patientPhotoUrls]);
 
-  const aiHistoryOfPresentIllness = chartData?.observations?.find(
+  const aiHistoryOfPresentIllness = chartData?.observations?.filter(
     (observation) => observation.field === AiObservationField.HistoryOfPresentIllness
-  ) as ObservationTextFieldDTO;
+  ) as ObservationTextFieldDTO[];
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -112,12 +112,16 @@ export const ChiefComplaintPatientColumn: FC = () => {
           )}
         </Box>
       )}
-      {aiHistoryOfPresentIllness ? (
+      {aiHistoryOfPresentIllness?.length > 0 && (
         <>
           <hr style={{ border: '0.5px solid #DFE5E9', margin: '0 -16px 0 -16px' }} />
-          <AiSuggestion title={'History of Present Illness (HPI)'} content={aiHistoryOfPresentIllness.value} />
+          <AiSuggestion
+            title={'History of Present Illness (HPI)'}
+            chartData={chartData}
+            content={aiHistoryOfPresentIllness}
+          />
         </>
-      ) : undefined}
+      )}
     </Box>
   );
 };
