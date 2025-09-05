@@ -23,6 +23,9 @@ export const ResponsibleInformationContainer: FC = () => {
   const phone = getQuestionnaireResponseByLinkId('responsible-party-number', questionnaireResponse)?.answer?.[0]
     ?.valueString;
 
+  const email = getQuestionnaireResponseByLinkId('responsible-party-email', questionnaireResponse)?.answer?.[0]
+    ?.valueString;
+
   return (
     <InformationCard
       title="Responsible party information"
@@ -46,6 +49,10 @@ export const ResponsibleInformationContainer: FC = () => {
         {
           label: 'Phone',
           value: phone,
+        },
+        {
+          label: 'Email',
+          value: email,
         },
       ]}
     />
