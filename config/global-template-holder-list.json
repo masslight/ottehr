@@ -11,6 +11,26 @@
           "item": {
             "reference": "List/#{ref/fhirResources/OTITIS_MEDIA_LEFT_AND_CONJUNCTIVITIS_LEFT/id}"
           }
+        },
+        {
+          "item": {
+            "reference": "List/#{ref/fhirResources/VIRAL_ILLNESS_WITH_FEVER/id}"
+          }
+        },
+        {
+          "item": {
+            "reference": "List/#{ref/fhirResources/GASTROENTERITIS/id}"
+          }
+        },
+        {
+          "item": {
+            "reference": "List/#{ref/fhirResources/SINUSITIS/id}"
+          }
+        },
+        {
+          "item": {
+            "reference": "List/#{ref/fhirResources/LACERATION_SCALP/id}"
+          }
         }
       ],
       "meta": {
