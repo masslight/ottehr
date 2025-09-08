@@ -141,8 +141,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     if (emailAddress) {
       const emailClient = getEmailClient(secrets);
       await emailClient.sendVideoChatInvitationEmail(emailAddress, {
-        inviteUrl: inviteUrl,
-        patientName: patientChosenName,
+        'join-visit-url': inviteUrl,
+        'patient-name': patientChosenName,
       });
     }
 

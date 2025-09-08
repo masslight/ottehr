@@ -109,7 +109,7 @@ export async function sendInPersonMessages({
     console.log('email undefined');
   }
   const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
-  const messageAll = `Your check-in time for ${firstName} at ${getNameForOwner(
+  const messageAll = `Thanks for choosing ${PROJECT_NAME}! Your check-in time for ${firstName} at ${getNameForOwner(
     scheduleResource
   )} is ${startTime}. Please save time at check-in by completing your pre-visit paperwork`;
   const message =
@@ -117,7 +117,7 @@ export async function sendInPersonMessages({
       ? `${messageAll}: ${WEBSITE_URL}/paperwork/${appointmentID}`
       : `You're confirmed! ${messageAll}, or modify/cancel your visit: ${WEBSITE_URL}/visit/${appointmentID}`;
   // cSpell:disable-next spanish
-  const messageAllSpanish = `¡Gracias por elegir ${PROJECT_NAME} In Person! Su hora de registro para ${firstName} en ${scheduleResource.name} es el día ${startTime}. Nuestra nueva tecnología requiere que los pacientes nuevos Y los recurrentes completen los formularios y se aseguren de que los registros estén actualizados. Para expediar el proceso, antes de su llegada por favor llene el papeleo`;
+  const messageAllSpanish = `¡Gracias por elegir ${PROJECT_NAME}! Su hora de registro para ${firstName} en ${scheduleResource.name} es el día ${startTime}. Nuestra nueva tecnología requiere que los pacientes nuevos Y los recurrentes completen los formularios y se aseguren de que los registros estén actualizados. Para expediar el proceso, antes de su llegada por favor llene el papeleo`;
   const messageSpanish =
     appointmentType === 'walkin' || appointmentType === 'posttelemed'
       ? `${messageAllSpanish}: ${WEBSITE_URL}/paperwork/${appointmentID}`
@@ -159,6 +159,8 @@ export async function sendInPersonMessages({
   }
 }
 
+const defaultBCCLowersEmail = 'support@ottehr.com';
+const defaultLowersFromEmail = 'ottehr-support@masslight.com'; // todo: change to support@ottehr.com when doing so does not land things in spam folder
 class EmailClient {
   private config: SendgridConfig;
   private secrets: Secrets | null;
@@ -166,11 +168,11 @@ class EmailClient {
   constructor(config: SendgridConfig, secrets: Secrets | null) {
     this.config = config;
     this.secrets = secrets;
-    const SENDGRID_API_KEY = getSecret(SecretsKeys.SENDGRID_API_KEY, secrets);
-    if (!SENDGRID_API_KEY) {
-      throw new Error('SendGrid API key is not set in secrets');
+    const SENDGRID_SEND_EMAIL_API_KEY = getSecret(SecretsKeys.SENDGRID_SEND_EMAIL_API_KEY, secrets);
+    if (!SENDGRID_SEND_EMAIL_API_KEY) {
+      throw new Error('SendGrid Send Email API key is not set in secrets');
     }
-    sendgrid.setApiKey(SENDGRID_API_KEY);
+    sendgrid.setApiKey(SENDGRID_SEND_EMAIL_API_KEY);
   }
 
   private async sendEmail<T extends EmailTemplate>(
@@ -178,12 +180,14 @@ class EmailClient {
     template: T,
     templateData: DynamicTemplateDataRecord<T>
   ): Promise<void> {
-    const defaultBCCAndLowersEmail = 'ottehr-support@masslight.com';
     const { templateIdSecretName } = template;
-    const SENDGRID_EMAIL_BCC = [defaultBCCAndLowersEmail];
+    let SENDGRID_EMAIL_BCC = [defaultBCCLowersEmail];
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, this.secrets);
     const environmentSubjectPrepend = ENVIRONMENT === 'production' ? '' : `[${ENVIRONMENT}] `;
     const templateId = getSecret(templateIdSecretName, this.secrets);
+    if (ENVIRONMENT === 'local') {
+      SENDGRID_EMAIL_BCC = [];
+    }
 
     const { email: baseEmail, projectName } = BRANDING_CONFIG;
 
@@ -201,8 +205,8 @@ class EmailClient {
       supportPhoneNumber = locationSupportPhoneNumberMap[(templateData as any).location] || defaultSupportPhoneNumber;
     }
 
-    const fromEmail = ENVIRONMENT === 'production' ? sender : defaultBCCAndLowersEmail;
-    const replyTo = ENVIRONMENT === 'production' ? configReplyTo : defaultBCCAndLowersEmail;
+    const fromEmail = ENVIRONMENT === 'production' ? sender : defaultLowersFromEmail;
+    const replyTo = ENVIRONMENT === 'production' ? configReplyTo : defaultLowersFromEmail;
 
     const email = {
       ...emailRest,
@@ -215,7 +219,7 @@ class EmailClient {
         email: fromEmail,
         name: projectName,
       },
-      bcc: SENDGRID_EMAIL_BCC,
+      bcc: SENDGRID_EMAIL_BCC.filter((item): item is string => !to.includes(item)),
       replyTo,
       templateId,
       dynamic_template_data: {
@@ -233,6 +237,7 @@ class EmailClient {
 
     if (!featureFlag || template.disabled) {
       console.log('Email sending is disabled');
+      console.log(`featureFlag: ${featureFlag}, template.disabled: ${template.disabled}`);
       console.log('Email input being swallowed: ', JSON.stringify(emailConfiguration, null, 2));
       return;
     } else {
@@ -256,8 +261,8 @@ class EmailClient {
   async sendErrorEmail(to: string | string[], templateData: ErrorReportTemplateData): Promise<void> {
     const recipients = typeof to === 'string' ? [to] : [...to];
 
-    if (!recipients.includes('ottehr-support@masslight.com')) {
-      recipients.push('ottehr-support@masslight.com');
+    if (!recipients.includes(defaultBCCLowersEmail)) {
+      recipients.push(defaultBCCLowersEmail);
     }
 
     await this.sendEmail(recipients, this.config.templates.errorReport, templateData);

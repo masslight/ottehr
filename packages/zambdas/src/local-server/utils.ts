@@ -4,7 +4,7 @@ import { readFileSync } from 'fs';
 import { IncomingHttpHeaders } from 'http2';
 import _ from 'lodash';
 import { resolve } from 'path';
-import ottehrSpec from '../../../../config/ottehr-spec.json';
+import ottehrSpec from '../../../../config/oystehr/ottehr-spec.json';
 import { ZambdaInput } from '../shared';
 
 export const expressLambda = async (
