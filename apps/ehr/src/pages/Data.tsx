@@ -206,6 +206,7 @@ export default function Data(): React.ReactElement {
         const statusesCount: { [status in VisitStatusHistoryLabel]: VisitStatusMetrics } = {
           pending: { numAppointments: 0, averageTime: 0 },
           arrived: { numAppointments: 0, averageTime: 0 },
+          'awaiting supervisor approval': { numAppointments: 0, averageTime: 0 },
           intake: { numAppointments: 0, averageTime: 0 },
           'ready for provider': { numAppointments: 0, averageTime: 0 },
           provider: { numAppointments: 0, averageTime: 0 },

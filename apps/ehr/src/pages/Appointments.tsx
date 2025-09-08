@@ -8,6 +8,7 @@ import { DateTime } from 'luxon';
 import React, { ReactElement, useEffect, useMemo, useState } from 'react';
 import { usePageVisibility } from 'react-page-visibility';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { usePatientLabOrders } from 'src/features/external-labs/components/labs-orders/usePatientLabOrders';
 import { useInHouseLabOrders } from 'src/features/in-house-labs/components/orders/useInHouseLabOrders';
 import { useGetNursingOrders } from 'src/features/nursing-orders/components/orders/useNursingOrders';
@@ -287,6 +288,7 @@ export default function Appointments(): ReactElement {
           visitType: visitType,
           providerIDs: providers,
           groupIDs: groups,
+          supervisorApprovalEnabled: FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED,
         });
 
         debounce(() => {
@@ -574,7 +576,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
               setEditingComment={setEditingComment}
             />
           </Box>
-          <CreateDemoVisits />
+          {FEATURE_FLAGS.DEMO_VISITS_ENABLED && <CreateDemoVisits />}
         </>
       </PageContainer>
     </form>

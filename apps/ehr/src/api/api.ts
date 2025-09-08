@@ -69,6 +69,7 @@ import {
   ListTemplatesZambdaInput,
   ListTemplatesZambdaOutput,
   PaginatedResponse,
+  PendingSupervisorApprovalInput,
   RadiologyLaunchViewerZambdaInput,
   RadiologyLaunchViewerZambdaOutput,
   SaveFollowupEncounterZambdaInput,
@@ -136,6 +137,7 @@ const GET_LABEL_PDF_ZAMBDA_ID = 'get-label-pdf';
 const GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID = 'get-or-create-visit-label-pdf';
 const CREATE_DISCHARGE_SUMMARY = 'create-discharge-summary';
 const PAPERWORK_TO_PDF_ZAMBDA_ID = 'paperwork-to-pdf';
+const PENDING_SUPERVISOR_APPROVAL_ZAMBDA_ID = 'pending-supervisor-approval';
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -1035,6 +1037,22 @@ export const applyTemplate = async (
   try {
     const response = await oystehr.zambda.execute({
       id: 'apply-template',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const pendingSupervisorApproval = async (
+  oystehr: Oystehr,
+  parameters: PendingSupervisorApprovalInput
+): Promise<any> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: PENDING_SUPERVISOR_APPROVAL_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);

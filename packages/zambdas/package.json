@@ -1,6 +1,6 @@
 {
   "name": "zambdas",
-  "version": "1.15.6",
+  "version": "1.16.7",
   "private": true,
   "scripts": {
     "start": "ENV=${ENV:-local} npm run setup-deployed-resources ${ENV:-local} && tsx watch --include './src/**/*' src/local-server/index.ts -- env=.env/${ENV:-local}.json",
@@ -46,7 +46,8 @@
     "mock-reflex-test": "tsx src/scripts/reflex-test-helper.ts",
     "mock-unsolicited-result": "tsx src/scripts/unsolicited-result-helper.ts",
     "make-in-house-test-items": "tsx src/scripts/load-in-house-labs-tests.ts",
-    "remove-payor-orgs": "tsx src/scripts/remove-payor-orgs.ts"
+    "remove-payor-orgs": "tsx src/scripts/remove-payor-orgs.ts",
+    "update-locations-for-lab-accounts": "tsx src/scripts/update-locations-for-lab-accounts.ts"
   },
   "engines": {
     "node": ">=20.0.0",
@@ -77,6 +78,7 @@
     "cors": "^2.8.5",
     "esbuild": "^0.25.1",
     "esbuild-plugin-copy": "^2.1.1",
+    "execa": "^9.6.0",
     "express": "^4.21.2",
     "glob": "^11.0.1",
     "lodash": "^4.17.21",

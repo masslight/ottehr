@@ -141,14 +141,6 @@
       "name": "TELEMED_CLIENT_SECRET",
       "value": "#{var/TELEMED_CLIENT_SECRET}"
     },
-    "IN_PERSON_PREVISIT_QUESTIONNAIRE": {
-      "name": "IN_PERSON_PREVISIT_QUESTIONNAIRE",
-      "value": "#{var/IN_PERSON_PREVISIT_QUESTIONNAIRE}"
-    },
-    "VIRTUAL_PREVISIT_QUESTIONNAIRE": {
-      "name": "VIRTUAL_PREVISIT_QUESTIONNAIRE",
-      "value": "#{var/VIRTUAL_PREVISIT_QUESTIONNAIRE}"
-    },
     "CANDID_CLIENT_ID": {
       "name": "CANDID_CLIENT_ID",
       "value": "#{var/CANDID_CLIENT_ID}"
@@ -260,6 +252,13 @@
       "runtime": "nodejs20.x",
       "src": "src/ehr/sign-appointment/index",
       "zip": ".dist/zips/sign-appointment.zip"
+    },
+    "PENDING-SUPERVISOR-APPROVAL": {
+      "name": "pending-supervisor-approval",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/pending-supervisor-approval/index",
+      "zip": ".dist/zips/pending-supervisor-approval.zip"
     },
     "GET-CHART-DATA": {
       "name": "get-chart-data",
@@ -1064,7 +1063,7 @@
       "zip": ".dist/zips/failing-endpoint.zip"
     },
     "CREATE-DISCHARGE_SUMMARY": {
-      "name": "CREATE-DISCHARGE-SUMMARY",
+      "name": "create-discharge-summary",
       "type": "http_auth",
       "runtime": "nodejs20.x",
       "src": "src/ehr/create-discharge-summary/index",
@@ -1124,10 +1123,10 @@
     "OTTEHR_ORGANIZATION": {
       "resourceType": "Organization",
       "active": true,
-      "name": "Example Organization",
+      "name": "#{var/project-name} Organization",
       "telecom": [
         {
-          "system": "phone",
+          "system": "fax",
           "value": "#{var/fax-number}"
         }
       ]
@@ -5482,7 +5481,8 @@
             "Z3:#{var/PROJECT_ID}-receipts/*",
             "Z3:#{var/PROJECT_ID}-school-work-notes/*",
             "Z3:#{var/PROJECT_ID}-privacy-policy/*",
-            "Z3:#{var/PROJECT_ID}-exported-questionnaires/*"
+            "Z3:#{var/PROJECT_ID}-exported-questionnaires/*",
+            "Z3:#{var/PROJECT_ID}-discharge-summaries/*"
           ],
           "action": ["Z3:PutObject", "Z3:GetObject"],
           "effect": "Allow"
@@ -5864,7 +5864,8 @@
             "FHIR:List",
             "FHIR:Schedule",
             "FHIR:ValueSet",
-            "FHIR:Medication"
+            "FHIR:Medication",
+            "FHIR:MedicationRequest"
           ],
           "action": ["FHIR:Search", "FHIR:Read"],
           "effect": "Allow"
@@ -6013,7 +6014,10 @@
       "name": "#{var/PROJECT_ID}-receipts"
     },
     "PAPERWORK": {
-      "name": "#{var/PROJECT_ID}-paperwork"
+      "name": "#{var/PROJECT_ID}-exported-questionnaires"
+    },
+    "DISCHARGE_SUMMARIES": {
+      "name": "#{var/PROJECT_ID}-discharge-summaries"
     }
   },
   "labRoutes": {

@@ -38,6 +38,7 @@ import {
 } from '../../../shared';
 import {
   CONTAINED_EMERGENCY_CONTACT_ID,
+  CONTAINED_MEDICATION_ID,
   CVX_CODE_SYSTEM_URL,
   getContainedMedication,
   MVX_CODE_SYSTEM_URL,
@@ -96,6 +97,7 @@ async function administerImmunizationOrder(
   await updateOrderDetails(medicationAdministration, details, oystehr);
 
   medicationAdministration.status = mapOrderStatusToFhir(type);
+  medicationAdministration.effectiveDateTime = administrationDetails.administeredDateTime;
 
   if (reason) {
     medicationAdministration.note = [
@@ -250,14 +252,16 @@ function createMedicationStatement(
   userPractitioner: Practitioner
 ): MedicationStatement {
   const drugIdCoding = medication.code?.coding?.find((code) => code.system === MEDICATION_DISPENSABLE_DRUG_ID);
-  if (!drugIdCoding) throw new Error(`Can't create MedicationStatement for order, Medication doesn't have drug id`);
   return {
     resourceType: 'MedicationStatement',
     status: 'active',
     partOf: [createReference(medicationAdministration)],
-    medicationCodeableConcept: {
-      coding: [{ ...drugIdCoding, display: getMedicationName(medication) }],
-    },
+    medicationReference: drugIdCoding ? undefined : { reference: '#' + CONTAINED_MEDICATION_ID },
+    medicationCodeableConcept: drugIdCoding
+      ? {
+          coding: [{ ...drugIdCoding, display: getMedicationName(medication) }],
+        }
+      : undefined,
     dosage: [
       {
         text: medicationAdministration.dosage?.text,
@@ -277,6 +281,7 @@ function createMedicationStatement(
     },
     effectiveDateTime: administeredDateTime,
     meta: fillMeta('immunization', 'immunization'),
+    contained: drugIdCoding ? undefined : [medication],
   };
 }
 

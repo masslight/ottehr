@@ -92,6 +92,7 @@ async function createM2M(
               `Z3:${projectId}-school-work-notes/*`,
               `Z3:${projectId}-privacy-policy/*`,
               `Z3:${projectId}-exported-questionnaires/*`,
+              `Z3:${projectId}-discharge-summaries/*`,
             ],
             action: ['Z3:PutObject', 'Z3:GetObject'],
             effect: 'Allow',
@@ -128,7 +129,7 @@ async function runCLI(): Promise<void> {
   let userInput: { accessToken: string; projectId: string; providerEmail: string };
   try {
     userInput = await getUserInput();
-  } catch (err) {
+  } catch {
     console.error('Setup canceled');
     process.exit(1);
   }

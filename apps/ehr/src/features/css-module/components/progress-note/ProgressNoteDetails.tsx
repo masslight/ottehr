@@ -1,9 +1,31 @@
-import { Stack, Typography } from '@mui/material';
+import { otherColors } from '@ehrTheme/colors';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import { Box, Divider, Stack, Typography } from '@mui/material';
+import { DateTime } from 'luxon';
 import { FC } from 'react';
+import { RoundedButton } from 'src/components/RoundedButton';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
+import { ImmunizationContainer } from 'src/telemed/features/appointment/ReviewTab/components/ImmunizationContainer';
 import { ProceduresContainer } from 'src/telemed/features/appointment/ReviewTab/components/ProceduresContainer';
-import { examConfig, getProgressNoteChartDataRequestedFields, LabType, NOTE_TYPE } from 'utils';
+import { useOystehrAPIClient } from 'src/telemed/hooks/useOystehrAPIClient';
+import {
+  examConfig,
+  getProgressNoteChartDataRequestedFields,
+  getVisitStatus,
+  LabType,
+  NOTE_TYPE,
+  TelemedAppointmentStatusEnum,
+} from 'utils';
 import { dataTestIds } from '../../../../constants/data-test-ids';
-import { AccordionCard, SectionList, useAppointmentData, usePatientInstructionsVisibility } from '../../../../telemed';
+import {
+  AccordionCard,
+  ConfirmationDialog,
+  SectionList,
+  useAppointmentData,
+  useChangeTelemedAppointmentStatusMutation,
+  usePatientInstructionsVisibility,
+  useSignAppointmentMutation,
+} from '../../../../telemed';
 import { useChartData } from '../../../../telemed';
 import {
   AdditionalQuestionsContainer,
@@ -23,13 +45,22 @@ import {
   ReviewOfSystemsContainer,
   SurgicalHistoryContainer,
 } from '../../../../telemed/features/appointment/ReviewTab';
+import { useFeatureFlags } from '../../context/featureFlags';
+import { useGetImmunizationOrders } from '../../hooks/useImmunization';
 import { useMedicationAPI } from '../../hooks/useMedicationOperations';
 import { HospitalizationContainer } from './HospitalizationContainer';
 import { InHouseMedicationsContainer } from './InHouseMedicationsContainer';
 import { PatientVitalsContainer } from './PatientVitalsContainer';
 
 export const ProgressNoteDetails: FC = () => {
-  const { encounter } = useAppointmentData();
+  const { appointment, encounter, appointmentRefetch, appointmentSetState } = useAppointmentData();
+  const apiClient = useOystehrAPIClient();
+  const { css } = useFeatureFlags();
+  const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
+  const { mutateAsync: changeTelemedAppointmentStatus, isPending: isChangeLoading } =
+    useChangeTelemedAppointmentStatusMutation();
+  const isLoading = isChangeLoading || isSignLoading;
+
   const { chartData } = useChartData();
 
   const { setPartialChartData } = useChartData({
@@ -49,6 +80,12 @@ export const ProgressNoteDetails: FC = () => {
 
   const { medications: inHouseMedicationsWithCanceled } = useMedicationAPI();
   const inHouseMedications = inHouseMedicationsWithCanceled.filter((medication) => medication.status !== 'cancelled');
+  const { data: immunizationOrdersResponse } = useGetImmunizationOrders({
+    encounterId: encounter.id,
+  });
+  const immunizationOrders = (immunizationOrdersResponse?.orders ?? []).filter((order) =>
+    ['administered', 'administered-partly'].includes(order.status)
+  );
   const screeningNotes = chartData?.notes?.filter((note) => note.type === NOTE_TYPE.SCREENING);
   const vitalsNotes = chartData?.notes?.filter((note) => note.type === NOTE_TYPE.VITALS);
   const allergyNotes = chartData?.notes?.filter((note) => note.type === NOTE_TYPE.ALLERGY);
@@ -92,9 +129,29 @@ export const ProgressNoteDetails: FC = () => {
   const showInHouseMedications =
     !!(inHouseMedications && inHouseMedications.length > 0) ||
     !!(inHouseMedicationNotes && inHouseMedicationNotes.length > 0);
+  const showImmunization = immunizationOrders.length > 0;
 
   const showVitalsObservations =
     !!(vitalsObservations && vitalsObservations.length > 0) || !!(vitalsNotes && vitalsNotes.length > 0);
+
+  let isAwaitingSupervisorApproval = false;
+  if (appointment) {
+    isAwaitingSupervisorApproval =
+      getVisitStatus(appointment, encounter, FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED) ===
+      'awaiting supervisor approval';
+  }
+
+  const medicalHistorySections = [
+    <AllergiesContainer notes={allergyNotes} />,
+    <MedicationsContainer notes={intakeMedicationNotes} />,
+    <MedicalConditionsContainer notes={medicalConditionNotes} />,
+    <SurgicalHistoryContainer notes={surgicalHistoryNotes} />,
+    <HospitalizationContainer notes={hospitalizationNotes} />,
+    showInHouseMedications && (
+      <InHouseMedicationsContainer medications={inHouseMedications} notes={inHouseMedicationNotes} />
+    ),
+    showImmunization && <ImmunizationContainer orders={immunizationOrders} />,
+  ].filter(Boolean);
 
   const sections = [
     showChiefComplaint && <ChiefComplaintContainer />,
@@ -115,6 +172,8 @@ export const ProgressNoteDetails: FC = () => {
     showInHouseMedications && (
       <InHouseMedicationsContainer medications={inHouseMedications} notes={inHouseMedicationNotes} />
     ),
+    showImmunization && <ImmunizationContainer orders={immunizationOrders} />,
+    ...(!isAwaitingSupervisorApproval ? medicalHistorySections : []),
     showAssessment && <AssessmentContainer />,
     showMedicalDecisionMaking && <MedicalDecisionMakingContainer />,
     showEmCode && <EMCodeContainer />,
@@ -137,8 +196,91 @@ export const ProgressNoteDetails: FC = () => {
     <PrivacyPolicyAcknowledgement />,
   ].filter(Boolean);
 
+  const handleApprove = async (): Promise<void> => {
+    if (!apiClient || !appointment?.id) {
+      throw new Error('api client not defined or appointmentId not provided');
+    }
+
+    if (css) {
+      const tz = DateTime.now().zoneName;
+      await signAppointment({
+        apiClient,
+        appointmentId: appointment.id + 'a',
+        timezone: tz,
+        supervisorApprovalEnabled: FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED,
+      });
+      await appointmentRefetch();
+    } else {
+      await changeTelemedAppointmentStatus({
+        apiClient,
+        appointmentId: appointment.id,
+        newStatus: TelemedAppointmentStatusEnum.complete,
+      });
+      appointmentSetState({
+        encounter: { ...encounter, status: 'finished' },
+        appointment: { ...appointment, status: 'fulfilled' },
+      });
+    }
+  };
+
   return (
-    <AccordionCard label="Objective" dataTestId={dataTestIds.progressNotePage.visitNoteCard}>
+    <AccordionCard label="Visit Note" dataTestId={dataTestIds.progressNotePage.visitNoteCard}>
+      {FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED && isAwaitingSupervisorApproval && (
+        <>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 1,
+              mt: 1.5,
+              mx: 2,
+              mb: 1,
+              p: 2,
+              border: 1,
+              borderColor: otherColors.warningBorder,
+              borderRadius: 2,
+            }}
+          >
+            <Box
+              sx={{
+                display: 'flex',
+                width: 'fit-content',
+                marginTop: 1,
+                px: 2,
+                py: 1,
+                borderRadius: 0.5,
+                gap: 1.5,
+                alignItems: 'center',
+                bgcolor: otherColors.lightErrorBg,
+              }}
+            >
+              <ErrorOutlineIcon sx={{ color: otherColors.warningIcon }} />
+              <Typography color={otherColors.warningText} fontWeight={600}>
+                Medical History should be confirmed by the provider
+              </Typography>
+              <ConfirmationDialog
+                title="Supervisor Approval"
+                description={'Are you sure you want to approve this visit? Claim will be sent to RCM.'}
+                response={handleApprove}
+                actionButtons={{
+                  back: { text: 'Cancel' },
+                  proceed: { text: 'Approve', loading: isLoading },
+                  reverse: true,
+                }}
+              >
+                {(showDialog) => (
+                  <RoundedButton variant="contained" size="small" onClick={showDialog}>
+                    Confirm
+                  </RoundedButton>
+                )}
+              </ConfirmationDialog>
+            </Box>
+
+            <SectionList sections={medicalHistorySections} />
+          </Box>
+          <Divider />
+        </>
+      )}
       <SectionList sections={sections} sx={{ p: 2 }} />
     </AccordionCard>
   );

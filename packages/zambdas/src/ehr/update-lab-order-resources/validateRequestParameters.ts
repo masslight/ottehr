@@ -35,9 +35,10 @@ export function validateRequestParameters(
       throw Error('Invalid parameter type: taskId must be a string');
     }
 
-    if (typeof serviceRequestId !== 'string') {
-      throw Error('Invalid parameter type: serviceRequestId must be a string');
-    }
+    // todo it would be nice to have better typing such that is knows serviceRequestId will be undefined if this review is for an unsolicited result
+    // if (typeof serviceRequestId !== 'string') {
+    //   throw Error('Invalid parameter type: serviceRequestId must be a string');
+    // }
 
     if (typeof diagnosticReportId !== 'string') {
       throw Error('Invalid parameter type: diagnosticReportId must be a string');
@@ -100,7 +101,7 @@ export function validateRequestParameters(
       secrets,
       userToken,
     };
-  } else if (params.event === LAB_ORDER_UPDATE_RESOURCES_EVENTS.cancelMatchUnsolicitedResultTask) {
+  } else if (params.event === LAB_ORDER_UPDATE_RESOURCES_EVENTS.cancelUnsolicitedResultTask) {
     const { taskId, event } = params;
     return {
       taskId,

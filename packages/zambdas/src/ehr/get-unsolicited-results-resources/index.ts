@@ -19,6 +19,8 @@ import {
   handleGetTasks,
   handleIconResourceRequest,
   handleUnsolicitedRequestMatch,
+  handleUnsolicitedResultDetailRequest,
+  handleUnsolicitedResultPatientListRequest,
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -46,8 +48,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         response = await handleIconResourceRequest(oystehr);
         break;
       }
-      case UnsolicitedResultsRequestType.GET_TABLE_ROWS: {
-        console.log('handling get-table-rows request');
+      case UnsolicitedResultsRequestType.GET_UNSOLICITED_RESULTS_TASKS: {
+        console.log('handling get-unsolicited-results-tasks request');
         response = await handleGetTasks(oystehr);
         break;
       }
@@ -57,12 +59,26 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         break;
       }
       case UnsolicitedResultsRequestType.GET_UNSOLICITED_RESULTS_RELATED_REQUESTS: {
-        console.log('handling get-ur-related-requests request');
+        console.log('handling get-unsolicited-result-related-requests request');
         response = await handleGetPossibleRelatedRequestsToUnsolicitedResult(
           oystehr,
           validatedParameters.diagnosticReportId,
           validatedParameters.patientId
         );
+        break;
+      }
+      case UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_DETAIL: {
+        console.log('handling unsolicited-results-detail request');
+        response = await handleUnsolicitedResultDetailRequest(
+          oystehr,
+          validatedParameters.diagnosticReportId,
+          m2mToken
+        );
+        break;
+      }
+      case UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_PATIENT_LIST: {
+        console.log('handling unsolicited-results-patient-list request');
+        response = await handleUnsolicitedResultPatientListRequest(oystehr, validatedParameters.patientId);
         break;
       }
       default: {

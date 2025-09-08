@@ -162,6 +162,10 @@ export interface ExternalLabResult {
   referenceRangeText?: string;
   resultNotes?: string[];
   attachmentText?: string;
+  performingLabName?: string;
+  performingLabAddress?: string;
+  performingLabPhone?: string;
+  performingLabDirectorFullName?: string;
 }
 
 export interface InHouseLabResult {
@@ -211,19 +215,21 @@ export interface ExternalLabResultsData extends LabResultsData {
   collectionDate: string;
   resultPhase: string;
   resultsReceivedDate: string;
-  reviewed?: boolean;
+  reviewed?: boolean; // todo why is this possibly undefined ??
   reviewingProvider: Practitioner | undefined;
   reviewDate: string | undefined;
   resultInterpretations: string[];
   attachments: ExternalLabResultAttachments;
   externalLabResults: ExternalLabResult[];
   testItemCode: string;
-  performingLabName: string;
-  performingLabAddress?: string;
-  performingLabDirector?: string;
-  performingLabPhone?: string;
-  performingLabDirectorFullName?: string;
 }
+
+export type ReflexExternalLabResultsData = Omit<ExternalLabResultsData, 'orderSubmitDate' | 'collectionDate'>;
+
+export type UnsolicitedExternalLabResultsData = Omit<
+  ExternalLabResultsData,
+  'orderNumber' | 'orderSubmitDate' | 'collectionDate'
+>;
 export interface InHouseLabResultsData extends LabResultsData {
   inHouseLabResults: InHouseLabResultConfig[];
   timezone: string | undefined;
@@ -233,7 +239,9 @@ export interface InHouseLabResultsData extends LabResultsData {
 
 export type ResultDataConfig =
   | { type: LabType.external; data: ExternalLabResultsData }
-  | { type: LabType.inHouse; data: InHouseLabResultsData };
+  | { type: LabType.inHouse; data: InHouseLabResultsData }
+  | { type: LabType.unsolicited; data: UnsolicitedExternalLabResultsData }
+  | { type: LabType.reflex; data: ReflexExternalLabResultsData };
 
 export interface VisitNoteData extends PdfExaminationBlockData {
   patientName: string;
@@ -263,6 +271,7 @@ export interface VisitNoteData extends PdfExaminationBlockData {
   surgicalHistoryNotes?: string[];
   inHouseMedications?: string[];
   inHouseMedicationsNotes?: string[];
+  immunizationOrders?: string[];
   additionalQuestions: Record<AdditionalBooleanQuestionsFieldsNames, string>;
   screening?: {
     seenInLastThreeYears?: string;

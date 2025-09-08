@@ -26,7 +26,7 @@ import PageContainer from 'src/layout/PageContainer';
 import {
   useCancelMatchUnsolicitedResultTask,
   useFinalizeUnsolicitedResultMatch,
-  useGetUnsolicitedResultsResourcesForMatch,
+  useGetUnsolicitedResultsMatchData,
 } from 'src/telemed';
 import { formatDateForLabs, LAB_ORDER_UPDATE_RESOURCES_EVENTS, UnsolicitedResultsRequestType } from 'utils';
 import { UnsolicitedPatientMatchSearchCard } from '../components/unsolicited-results/UnsolicitedPatientMatchSearchCard';
@@ -50,7 +50,7 @@ export const UnsolicitedResultsMatch: React.FC = () => {
     data,
     isLoading,
     error: resourceSearchError,
-  } = useGetUnsolicitedResultsResourcesForMatch({
+  } = useGetUnsolicitedResultsMatchData({
     requestType: UnsolicitedResultsRequestType.MATCH_UNSOLICITED_RESULTS,
     diagnosticReportId,
   });
@@ -78,27 +78,27 @@ export const UnsolicitedResultsMatch: React.FC = () => {
   const labProvidedInfo = [
     {
       fieldName: 'Patient name',
-      value: data?.labInfo?.patientName,
+      value: data?.unsolicitedLabInfo?.patientName,
     },
     {
       fieldName: 'Patient DOB',
-      value: data?.labInfo?.patientDOB,
+      value: data?.unsolicitedLabInfo?.patientDOB,
     },
     {
       fieldName: 'Provider',
-      value: data?.labInfo?.provider,
+      value: data?.unsolicitedLabInfo?.provider,
     },
     {
       fieldName: 'Test',
-      value: data?.labInfo?.test,
+      value: data?.unsolicitedLabInfo?.test,
     },
-    // {
-    //   fieldName: 'Lab',
-    //   value: undefined, // todo sarah we dont have access to this yet, need change from oystehr
-    // },
+    {
+      fieldName: 'Performing Lab',
+      value: data?.unsolicitedLabInfo?.labName,
+    },
     {
       fieldName: 'Received',
-      value: formatDateForLabs(data?.labInfo?.resultsReceived, undefined),
+      value: formatDateForLabs(data?.unsolicitedLabInfo?.resultsReceived, undefined),
     },
   ];
 
@@ -114,7 +114,7 @@ export const UnsolicitedResultsMatch: React.FC = () => {
       cancelTask(
         {
           taskId: data.taskId,
-          event: LAB_ORDER_UPDATE_RESOURCES_EVENTS.cancelMatchUnsolicitedResultTask,
+          event: LAB_ORDER_UPDATE_RESOURCES_EVENTS.cancelUnsolicitedResultTask,
         },
         {
           onSuccess: () => {
@@ -157,6 +157,7 @@ export const UnsolicitedResultsMatch: React.FC = () => {
       enqueueSnackbar('An error occurred rejecting this task. Please try again.', { variant: 'error' });
     }
   };
+
   return (
     <PageContainer>
       <DetailPageContainer>

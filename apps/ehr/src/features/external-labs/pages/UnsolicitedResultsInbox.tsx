@@ -1,6 +1,6 @@
 import { Box, CircularProgress, Stack, Typography } from '@mui/material';
 import PageContainer from 'src/layout/PageContainer';
-import { useGetUnsolicitedResultsResourcesForTable } from 'src/telemed';
+import { useGetUnsolicitedResultsTasks } from 'src/telemed';
 import { UnsolicitedResultsRequestType } from 'utils';
 import { UnsolicitedResultsTaskCard } from '../components/unsolicited-results/UnsolicitedResultsTaskCard';
 
@@ -8,10 +8,10 @@ import { UnsolicitedResultsTaskCard } from '../components/unsolicited-results/Un
 // we needed a quick fix solution for unsolicited results hence this page was born
 // hopefully a lot of this code can be reused for the tasks board as the ui is identical
 export const UnsolicitedResultsInbox: React.FC = () => {
-  const { data, isLoading } = useGetUnsolicitedResultsResourcesForTable({
-    requestType: UnsolicitedResultsRequestType.GET_TABLE_ROWS,
+  const { data, isLoading } = useGetUnsolicitedResultsTasks({
+    requestType: UnsolicitedResultsRequestType.GET_UNSOLICITED_RESULTS_TASKS,
   });
-  const unsolicitedTaskRows = data?.unsolicitedResultRows || [];
+  const unsolicitedTaskRows = data?.unsolicitedResultsTasks || [];
 
   return (
     <PageContainer>

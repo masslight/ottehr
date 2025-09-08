@@ -4,6 +4,7 @@ import Oystehr, {
   BatchInputPutRequest,
   BatchInputRequest,
 } from '@oystehr/sdk';
+import { NetworkType } from 'candidhealth/api/resources/preEncounter/resources/coverages/resources/v1';
 import { randomUUID } from 'crypto';
 import { Operation, RemoveOperation } from 'fast-json-patch';
 import {
@@ -34,6 +35,7 @@ import _ from 'lodash';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import {
+  CANDID_PLAN_TYPE_SYSTEM,
   CONSENT_CODE,
   ConsentSigner,
   consolidateOperations,
@@ -71,12 +73,13 @@ import {
   getPhoneNumberForIndividual,
   getSecret,
   getStripeCustomerIdFromAccount,
+  INSURANCE_CANDID_PLAN_TYPE_CODES,
   INSURANCE_CARD_BACK_2_ID,
   INSURANCE_CARD_BACK_ID,
   INSURANCE_CARD_CODE,
   INSURANCE_CARD_FRONT_2_ID,
   INSURANCE_CARD_FRONT_ID,
-  INSURANCE_COVERAGE_CODING,
+  InsurancePlanTypes,
   IntakeQuestionnaireItem,
   isoStringFromDateComponents,
   isValidUUID,
@@ -1732,6 +1735,7 @@ export function extractAccountGuarantor(items: QuestionnaireResponseItem[]): Res
 interface InsuranceDetails {
   org: Organization;
   additionalInformation?: string;
+  typeCode?: NetworkType;
 }
 function getInsuranceDetailsFromAnswers(
   answers: QuestionnaireResponseItem[],
@@ -1746,10 +1750,16 @@ function getInsuranceDetailsFromAnswers(
   const org = organizations.find((org) => `${org.resourceType}/${org.id}` === insuranceOrgReference.reference);
   if (!org) return undefined;
 
+  const qType = answers.find((item) => item.linkId === `insurance-plan-type${suffix}`)?.answer?.[0]?.valueString;
+  let typeCode: NetworkType | undefined = undefined;
+  if (qType && INSURANCE_CANDID_PLAN_TYPE_CODES.includes(qType)) {
+    typeCode = qType as NetworkType;
+  }
+
   const additionalInformation = answers.find((item) => item.linkId === `insurance-additional-information${suffix}`)
     ?.answer?.[0]?.valueString;
 
-  return { org, additionalInformation };
+  return { org, additionalInformation, typeCode };
 }
 
 interface CreateCoverageResourceInput {
@@ -1759,11 +1769,12 @@ interface CreateCoverageResourceInput {
     org: Organization;
     policyHolder: PolicyHolder;
     additionalInformation?: string;
+    typeCode?: NetworkType;
   };
 }
 const createCoverageResource = (input: CreateCoverageResourceInput): Coverage => {
   const { patientId, insurance } = input;
-  const { org, policyHolder, additionalInformation } = insurance;
+  const { org, policyHolder, additionalInformation, typeCode } = insurance;
   const memberId = policyHolder.memberId;
 
   const payerId = getPayerId(org);
@@ -1817,9 +1828,7 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
       type: 'Patient',
       reference: `Patient/${patientId}`,
     },
-    type: {
-      coding: [INSURANCE_COVERAGE_CODING],
-    },
+    type: typeCode ? { coding: [{ system: CANDID_PLAN_TYPE_SYSTEM, code: typeCode }] } : undefined,
     payor: [{ reference: `Organization/${org.id}` }],
     subscriberId: policyHolder.memberId,
     relationship: getPolicyHolderRelationshipCodeableConcept(policyHolder.relationship),
@@ -1838,6 +1847,8 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
       },
     ],
   };
+  const coverageTypeCoding = InsurancePlanTypes.find((planType) => planType.candidCode === typeCode)?.coverageCoding;
+  if (coverageTypeCoding) coverage.type?.coding?.push(coverageTypeCoding);
 
   if (additionalInformation) {
     coverage.extension = [
