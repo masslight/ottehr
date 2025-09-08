@@ -1,5 +1,6 @@
 import { expect, Locator, Page } from '@playwright/test';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { DocumentProcedurePage, expectDocumentProcedurePage } from './DocumentProcedurePage';
 
 export class ProceduresPage {
   #page: Page;
@@ -44,10 +45,20 @@ export class ProcedureRow {
       procedureDocumentedBy
     );
   }
+
+  async click(): Promise<DocumentProcedurePage> {
+    await this.#container.getByTestId(dataTestIds.proceduresPage.cptCode).click();
+    return expectDocumentProcedurePage(this.#container.page());
+  }
 }
 
 export async function expectProceduresPage(page: Page): Promise<ProceduresPage> {
   await page.waitForURL(new RegExp('/in-person/.*/procedures'));
   await expect(page.getByTestId(dataTestIds.proceduresPage.title)).toBeVisible();
   return new ProceduresPage(page);
+}
+
+export async function openProceduresPage(appointmentId: string, page: Page): Promise<ProceduresPage> {
+  await page.goto(`/in-person/${appointmentId}/procedures`);
+  return expectProceduresPage(page);
 }

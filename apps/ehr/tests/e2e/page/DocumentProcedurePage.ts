@@ -15,6 +15,19 @@ export class DocumentProcedurePage {
       .setChecked(true);
   }
 
+  async uncheckConsentForProcedure(): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.documentProcedurePage.consentForProcedure)
+      .locator('input')
+      .setChecked(false);
+  }
+
+  async verifyConsentForProcedureChecked(checked: boolean): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.documentProcedurePage.consentForProcedure).locator('input')
+    ).toBeChecked({ checked });
+  }
+
   async selectProcedureType(type: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.documentProcedurePage.procedureType).click();
     await this.#page.getByText(type, { exact: true }).click();
@@ -209,7 +222,7 @@ export class DocumentProcedurePage {
 }
 
 export async function expectDocumentProcedurePage(page: Page): Promise<DocumentProcedurePage> {
-  await page.waitForURL(new RegExp('/in-person/.*/procedures/new'));
+  await page.waitForURL(new RegExp('/in-person/.*/procedures/*'));
   await expect(page.getByTestId(dataTestIds.documentProcedurePage.title)).toBeVisible();
   return new DocumentProcedurePage(page);
 }
