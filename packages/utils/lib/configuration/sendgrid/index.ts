@@ -105,11 +105,14 @@ const SENDGRID_DEFAULTS = Object.freeze({
       dynamicTemplateData: ['patient-name', 'join-visit-url'],
     },
   },
+  featureFlag: false as boolean,
 } as const);
 
-const overrides: any = OVERRIDES || {};
+type SendgridDefaults = typeof SENDGRID_DEFAULTS;
 
-const mergedSendgridConfig = _.merge({ ...SENDGRID_DEFAULTS }, [{ ...overrides }]);
+const overrides: Partial<SendgridDefaults> = OVERRIDES || {};
+
+const mergedSendgridConfig = _.merge({ ...SENDGRID_DEFAULTS }, { ...overrides });
 // console.log('Merged SendGrid config:', mergedSendgridConfig);
 
 const TemplateVersionSchema = z.object({
