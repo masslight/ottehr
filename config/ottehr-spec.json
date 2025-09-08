@@ -1112,7 +1112,7 @@
       "name": "#{var/project-name} Organization",
       "telecom": [
         {
-          "system": "phone",
+          "system": "fax",
           "value": "#{var/fax-number}"
         }
       ]
