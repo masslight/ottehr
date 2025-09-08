@@ -34,7 +34,10 @@ export const DischargeSummaryButton: FC<DischargeSummaryButtonProps> = ({ appoin
       const documentId = response?.documentId;
 
       if (documentId) {
-        await downloadDocument(documentId);
+        const ids = Array.isArray(documentId) ? documentId : [documentId];
+        for (const id of ids) {
+          await downloadDocument(id);
+        }
       } else {
         enqueueSnackbar(
           'Discharge summary created, but document is not accessible right now. You can find it later in the Patient Record > Review Docs.',

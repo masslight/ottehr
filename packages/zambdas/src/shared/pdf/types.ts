@@ -416,7 +416,7 @@ export type DischargeSummaryData = {
     fileName: string;
   }[];
   documentsAttached?: boolean;
-  attachmentUrls?: string[];
+  attachmentDocRefs?: string[];
 };
 
 export interface GetPaymentDataResponse {

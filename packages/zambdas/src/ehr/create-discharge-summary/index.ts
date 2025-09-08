@@ -137,7 +137,7 @@ export const performEffect = async (
   const additionalChartData = additionalChartDataResult.response;
 
   console.log('Chart data received');
-  const pdfInfo = await composeAndCreateDischargeSummaryPdf(
+  const { pdfInfo, attached } = await composeAndCreateDischargeSummaryPdf(
     { chartData, additionalChartData, radiologyData, externalLabsData, inHouseOrdersData },
     visitResources,
     secrets,
@@ -153,9 +153,11 @@ export const performEffect = async (
     encounter.id!,
     listResources
   );
+  const dischargeSummaryDocumentId = documentReference.id ?? '';
 
   return {
     message: 'Discharge Summary created.',
-    documentId: documentReference.id ?? '',
+    documentId:
+      attached && attached.length > 0 ? [...attached, dischargeSummaryDocumentId] : dischargeSummaryDocumentId,
   };
 };

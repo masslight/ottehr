@@ -41,7 +41,7 @@ import {
   QuestionnaireData,
   Secrets,
   standardizePhoneNumber,
-  uploadDocument,
+  uploadPDF,
 } from 'utils';
 import { findActivityDefinitionForServiceRequest } from '../../ehr/get-in-house-orders/helpers';
 import { parseLabInfo } from '../../ehr/get-lab-orders/helpers';
@@ -111,7 +111,7 @@ export async function composeAndCreateDischargeSummaryPdf(
   appointmentPackage: FullAppointmentResourcePackage,
   secrets: Secrets | null,
   token: string
-): Promise<PdfInfo> {
+): Promise<{ pdfInfo: PdfInfo; attached?: string[] }> {
   if (!appointmentPackage.patient?.id) {
     throw new Error('Patient information is missing from the appointment package.');
   }
@@ -120,7 +120,8 @@ export async function composeAndCreateDischargeSummaryPdf(
   const data = composeDataForDischargeSummaryPdf(allChartData, appointmentPackage);
 
   console.log('Start creating pdf');
-  return await createDischargeSummaryPDF(data, appointmentPackage.patient.id, secrets, token);
+  const pdfInfo = await createDischargeSummaryPDF(data, appointmentPackage.patient.id, secrets, token);
+  return { pdfInfo, attached: data.attachmentDocRefs };
 }
 
 const parseParticipantInfo = (practitioner: Practitioner): ParticipantInfo => ({
@@ -137,7 +138,7 @@ function composeDataForDischargeSummaryPdf(
   const { patient, encounter, appointment, location, practitioners, timezone } = appointmentPackage;
   if (!patient) throw new Error('No patient found for this encounter');
 
-  const attachmentUrls: string[] = [];
+  const attachmentDocRefs: string[] = [];
 
   // --- Patient information ---
   const fullName = getPatientLastFirstName(patient) ?? '';
@@ -238,7 +239,7 @@ function composeDataForDischargeSummaryPdf(
   // --- Work-school excuse ---
   const workSchoolExcuse: { note: string; fileName: string }[] = [];
   chartData.schoolWorkNotes?.forEach((ws) => {
-    if (ws.url) attachmentUrls.push(ws.url);
+    if (ws.id) attachmentDocRefs.push(ws.id);
     const fileName = ws.url?.split('/').at(-1);
     if (ws.type === 'school')
       workSchoolExcuse.push({ note: 'There was a school note generated', fileName: fileName ?? '' });
@@ -308,7 +309,7 @@ function composeDataForDischargeSummaryPdf(
     dischargeDateTime,
     workSchoolExcuse,
     documentsAttached: true,
-    attachmentUrls,
+    attachmentDocRefs,
   };
 }
 
@@ -667,13 +668,13 @@ async function createDischargeSummaryPDF(
   console.debug(`Created discharge summary pdf bytes`);
   const bucketName = BUCKET_NAMES.DISCHARGE_SUMMARIES;
 
-  const hasAttachments = Array.isArray(data.attachmentUrls) && data.attachmentUrls.length > 0;
+  const hasAttachments = Array.isArray(data.attachmentDocRefs) && data.attachmentDocRefs.length > 0;
 
   const fileName = hasAttachments ? 'DischargeSummary.zip' : 'DischargeSummary.pdf';
   console.log('Creating base file url');
   const baseFileUrl = makeZ3Url({ secrets, bucketName, patientID, fileName });
   console.log('Uploading file to bucket');
-  await uploadDocument(pdfBytes, baseFileUrl, token, patientID, data.attachmentUrls).catch((error) => {
+  await uploadPDF(pdfBytes, baseFileUrl, token, patientID).catch((error) => {
     throw new Error('failed uploading pdf to z3: ' + error.message);
   });
 
