@@ -1,5 +1,6 @@
 import { Box, Stack, Typography } from '@mui/material';
 import React from 'react';
+import { FEATURE_FLAGS } from '../../../constants/feature-flags';
 import {
   AccordionCard,
   DoubleColumnContainer,
@@ -65,9 +66,11 @@ export const ProgressNote: React.FC<PatientInfoProps> = () => {
         <IntakeNotes />
       </AccordionCard>
 
-      <AccordionCard label="Apply Template">
-        <ApplyTemplate />
-      </AccordionCard>
+      {FEATURE_FLAGS.GLOBAL_TEMPLATES_ENABLED && (
+        <AccordionCard label="Apply Template">
+          <ApplyTemplate />
+        </AccordionCard>
+      )}
 
       <ChiefComplaintCard />
 
