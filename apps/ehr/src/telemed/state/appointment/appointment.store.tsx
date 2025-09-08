@@ -529,6 +529,8 @@ export const useChartData = ({
 
       onSuccess?.(data);
 
+      console.log('alex2 ', data);
+
       const existingCache = queryClient.getQueryData<ChartDataState>(commonChartDataKey);
       const isExistingCacheContainsCommonData = existingCache && Object.keys(existingCache.chartData || {}).length > 10;
       const isDataContainsCommonChartData = Object.keys(data).length > 10;

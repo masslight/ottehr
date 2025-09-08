@@ -31,6 +31,7 @@ export const ApplyTemplate: React.FC = () => {
   const theme = useTheme();
   const { oystehrZambda } = useApiClients();
   const { encounter } = useAppointmentData();
+  // const queryClient = useQueryClient();
 
   // Load templates using custom react-query hook
   const { templates, isLoading: isLoadingTemplates, error: templatesError } = useListTemplates(ExamType.IN_PERSON);
@@ -74,6 +75,10 @@ export const ApplyTemplate: React.FC = () => {
           templateName: pendingTemplate,
           examType: ExamType.IN_PERSON,
         });
+        // TODO this should reload the data we need
+        // await queryClient.invalidateQueries({ queryKey: [CHART_DATA_QUERY_KEY_BASE, encounter.id] });
+        // Reload the page
+        window.location.reload();
         enqueueSnackbar('Template applied successfully!', { variant: 'success' });
       } catch (error) {
         console.log('error', JSON.stringify(error));
