@@ -190,14 +190,8 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
             return response.blob();
           })
           .then((blob) => {
-            const fileBlob = window.URL.createObjectURL(new Blob([blob]));
-            const link = document.createElement('a');
-            link.href = fileBlob;
-            link.download = fileToD.fileName;
-            link.style.display = 'none';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            const fileBlob = window.URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
+            window.open(fileBlob, '_blank');
           })
           .catch((error) => {
             console.log(error);
