@@ -2,13 +2,13 @@ import { otherColors } from '@ehrTheme/colors';
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import { Box, Button, TableCell, TableRow, Tooltip, Typography, useTheme } from '@mui/material';
 import { ReactElement } from 'react';
-import { formatDateForLabs, LabOrderListPageDTO, PSC_LOCALE } from 'utils';
+import { formatDateForLabs, LabOrderListPageDTO, PSC_LOCALE, ReflexLabDTO, UnsolicitedLabListPageDTO } from 'utils';
 import { LabsOrderStatusChip } from '../ExternalLabsStatusChip';
 import { LabsTableColumn } from './LabsTable';
 
 interface LabsTableRowProps {
   columns: LabsTableColumn[];
-  labOrderData: LabOrderListPageDTO;
+  labOrderData: LabOrderListPageDTO | ReflexLabDTO | UnsolicitedLabListPageDTO;
   onDeleteOrder?: () => void;
   allowDelete?: boolean;
   onRowClick?: () => void;
@@ -29,42 +29,75 @@ export const LabsTableRow = ({
     }
   };
 
-  const renderCellContent = (column: LabsTableColumn): React.ReactNode => {
+  const renderCellContentForLabWithoutSR = (
+    column: LabsTableColumn,
+    lab: ReflexLabDTO | UnsolicitedLabListPageDTO
+  ): React.ReactNode => {
     switch (column) {
       case 'testType':
         return (
           <Box>
-            <Box sx={{ fontWeight: 'bold' }}>{labOrderData.testItem}</Box>
-            {(labOrderData.reflexResultsCount || 0) > 0 && (
-              <Box sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
-                + {labOrderData.reflexResultsCount} Reflex results
-              </Box>
-            )}
+            <Box sx={{ fontWeight: 'bold' }}>{lab.testItem}</Box>
           </Box>
         );
       case 'visit':
-        return <Box>{formatDateForLabs(labOrderData.visitDate, labOrderData.encounterTimezone)}</Box>;
+        return '';
       case 'orderAdded':
-        return <Box>{formatDateForLabs(labOrderData.orderAddedDate, labOrderData.encounterTimezone)}</Box>;
+        return '';
       case 'provider':
-        return labOrderData.orderingPhysician || '';
+        return '';
+      case 'ordered':
+        return '';
+      case 'dx':
+        return '';
+      case 'resultsReceived':
+        return <Box>{formatDateForLabs(lab.lastResultReceivedDate, undefined)}</Box>;
+      case 'accessionNumber':
+        return lab.accessionNumbers.join(', ');
+      case 'requisitionNumber':
+        return 'orderNumber' in lab ? lab.orderNumber : '';
+      case 'status':
+        return <LabsOrderStatusChip status={lab.orderStatus} />;
+      case 'detail':
+        return 'isReflex' in lab ? 'RFX' : 'UNS';
+      case 'actions':
+        return null;
+      default:
+        return null;
+    }
+  };
+
+  const renderCellContentForOrderedLab = (column: LabsTableColumn, lab: LabOrderListPageDTO): React.ReactNode => {
+    switch (column) {
+      case 'testType':
+        return (
+          <Box>
+            <Box sx={{ fontWeight: 'bold' }}>{lab.testItem}</Box>
+          </Box>
+        );
+      case 'visit':
+        return <Box>{formatDateForLabs(lab.visitDate, lab.encounterTimezone)}</Box>;
+      case 'orderAdded':
+        return <Box>{formatDateForLabs(lab.orderAddedDate, lab.encounterTimezone)}</Box>;
+      case 'provider':
+        return lab.orderingPhysician || '';
       case 'ordered':
         return (
           <Box>
-            <Box>{formatDateForLabs(labOrderData.orderAddedDate, labOrderData.encounterTimezone)}</Box>
+            <Box>{formatDateForLabs(lab.orderAddedDate, lab.encounterTimezone)}</Box>
             <Box>
               <Typography variant="body2" color="text.secondary">
-                by {labOrderData.orderingPhysician || ''}
+                by {lab.orderingPhysician || ''}
               </Typography>
             </Box>
           </Box>
         );
       case 'dx': {
-        const firstDx = labOrderData.diagnosesDTO[0]?.display || '';
-        const firstDxCode = labOrderData.diagnosesDTO[0]?.code || '';
+        const firstDx = lab.diagnosesDTO[0]?.display || '';
+        const firstDxCode = lab.diagnosesDTO[0]?.code || '';
         const firstDxText = `${firstDxCode} ${firstDx}`;
-        const fullDxText = labOrderData.diagnosesDTO.map((dx) => `${dx.code} ${dx.display}`).join('; ');
-        const dxCount = labOrderData.diagnosesDTO.length;
+        const fullDxText = lab.diagnosesDTO.map((dx) => `${dx.code} ${dx.display}`).join('; ');
+        const dxCount = lab.diagnosesDTO.length;
         if (dxCount > 1) {
           return (
             <Tooltip title={fullDxText} arrow placement="top">
@@ -77,17 +110,17 @@ export const LabsTableRow = ({
         return <Typography variant="body2">{firstDxText}</Typography>;
       }
       case 'resultsReceived':
-        return <Box>{formatDateForLabs(labOrderData.lastResultReceivedDate, labOrderData.encounterTimezone)}</Box>;
+        return <Box>{formatDateForLabs(lab.lastResultReceivedDate, lab.encounterTimezone)}</Box>;
       case 'accessionNumber':
-        return labOrderData.accessionNumbers.join(', ');
+        return lab.accessionNumbers.join(', ');
       case 'requisitionNumber':
-        return labOrderData.orderNumber;
+        return lab.orderNumber;
       case 'status':
-        return <LabsOrderStatusChip status={labOrderData.orderStatus} />;
+        return <LabsOrderStatusChip status={lab.orderStatus} />;
       case 'detail':
-        return labOrderData.isPSC ? PSC_LOCALE : '';
+        return lab.isPSC ? PSC_LOCALE : '';
       case 'actions':
-        if (allowDelete && (labOrderData.orderStatus === 'pending' || labOrderData.orderStatus === 'ready')) {
+        if (allowDelete && (lab.orderStatus === 'pending' || lab.orderStatus === 'ready')) {
           return (
             <Button
               onClick={handleDeleteClick}
@@ -107,6 +140,8 @@ export const LabsTableRow = ({
     }
   };
 
+  const isLabWithoutSR = 'isReflex' in labOrderData || 'isUnsolicited' in labOrderData;
+
   return (
     <TableRow
       sx={{
@@ -115,9 +150,13 @@ export const LabsTableRow = ({
       }}
       onClick={onRowClick}
     >
-      {columns.map((column) => (
-        <TableCell key={column}>{renderCellContent(column)}</TableCell>
-      ))}
+      {columns.map((column) =>
+        isLabWithoutSR ? (
+          <TableCell key={column}>{renderCellContentForLabWithoutSR(column, labOrderData)}</TableCell>
+        ) : (
+          <TableCell key={column}>{renderCellContentForOrderedLab(column, labOrderData)}</TableCell>
+        )
+      )}
     </TableRow>
   );
 };

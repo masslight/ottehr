@@ -28,5 +28,7 @@ packages/ui-components/dist/*
 .idea
 
 **/vite.config.ts.timestamp-*.mjs
-**/ottehr-secrets/
+**/nightwatch-secrets/
 config/sendgrid/*
+
+terraform.json

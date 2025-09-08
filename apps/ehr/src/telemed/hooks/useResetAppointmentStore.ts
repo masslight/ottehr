@@ -10,7 +10,7 @@ export const useResetAppointmentStore = (): void => {
   const didResetRef = useRef(false);
 
   if (!didResetRef.current) {
-    useExamObservationsStore.setState({});
+    useExamObservationsStore.setState({}, true);
     useVideoCallStore.setState({ meetingData: null });
     useAppTelemedLocalStore.setState(APP_TELEMED_LOCAL_INITIAL);
 

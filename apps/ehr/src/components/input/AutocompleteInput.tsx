@@ -9,16 +9,32 @@ type Props = {
   options: Option[] | undefined;
   loading?: boolean;
   required?: boolean;
+  validate?: (value: string | undefined) => boolean | string;
   selectOnly?: boolean;
+  onInputTextChanged?: (text: string) => void;
+  noOptionsText?: string;
 };
 
-export const AutocompleteInput: React.FC<Props> = ({ name, label, options, loading, required, selectOnly }) => {
+export const AutocompleteInput: React.FC<Props> = ({
+  name,
+  label,
+  options,
+  loading,
+  required,
+  validate,
+  selectOnly,
+  onInputTextChanged,
+  noOptionsText,
+}) => {
   const { control } = useFormContext();
-  return !loading ? (
+  if (loading && !options) {
+    return <Skeleton variant="rectangular" width="100%" height={40} />;
+  }
+  return (
     <Controller
       name={name}
       control={control}
-      rules={{ required: required ? REQUIRED_FIELD_ERROR_MESSAGE : false }}
+      rules={{ required: required ? REQUIRED_FIELD_ERROR_MESSAGE : false, validate: validate }}
       render={({ field, fieldState: { error } }) => (
         <Box sx={{ width: '100%' }}>
           <Autocomplete
@@ -28,6 +44,7 @@ export const AutocompleteInput: React.FC<Props> = ({ name, label, options, loadi
                 : null
             }
             options={options ?? []}
+            noOptionsText={noOptionsText}
             getOptionLabel={(option) => option.label}
             onChange={(_e, option: any) => field.onChange(option?.value ?? null)}
             renderInput={(params) => (
@@ -38,15 +55,15 @@ export const AutocompleteInput: React.FC<Props> = ({ name, label, options, loadi
                 inputProps={{ ...params.inputProps, readOnly: selectOnly }}
                 error={error != null}
                 size="small"
+                onChange={onInputTextChanged ? (e) => onInputTextChanged(e.target.value) : undefined}
               />
             )}
+            loading={loading}
             fullWidth
           />
           {error && <FormHelperText error={true}>{error?.message}</FormHelperText>}
         </Box>
       )}
     />
-  ) : (
-    <Skeleton variant="rectangular" width="100%" height={40} />
   );
 };

@@ -16,11 +16,11 @@ import {
 import { DateTime } from 'luxon';
 import {
   EXTERNAL_LAB_ERROR,
-  getAccountNumberFromOrganization,
   getOrderNumber,
   getPresignedURL,
   getTimezone,
   isPSCOrder,
+  LAB_ACCOUNT_NUMBER_SYSTEM,
   ORDER_ITEM_UNKNOWN,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
@@ -29,7 +29,11 @@ import {
 import { createExternalLabsOrderFormPDF, getOrderFormDataConfig } from '../../shared/pdf/external-labs-order-form-pdf';
 import { makeLabPdfDocumentReference, makeRelatedForLabsPDFDocRef } from '../../shared/pdf/labs-results-form-pdf';
 import { PdfInfo } from '../../shared/pdf/pdf-utils';
-import { AOEDisplayForOrderForm, getExternalLabOrderResources, LabOrderResources } from '../shared/labs';
+import {
+  AOEDisplayForOrderForm,
+  getExternalLabOrderResourcesViaServiceRequest,
+  LabOrderResources,
+} from '../shared/labs';
 
 export const LABS_DATE_STRING_FORMAT = 'MM/dd/yyyy hh:mm a ZZZZ';
 
@@ -38,7 +42,7 @@ type LabOrderResourcesExtended = LabOrderResources & {
   encounter: Encounter;
   mostRecentSampleCollectionDate?: DateTime<true>;
   timezone?: string;
-  location?: Location;
+  location: Location;
   coverage?: Coverage;
   insuranceOrganization?: Organization;
   questionsAndAnswers?: AOEDisplayForOrderForm[];
@@ -82,7 +86,10 @@ export async function getBundledOrderResources(
   isManualOrder: boolean
 ): Promise<OrderResourcesByOrderNumber> {
   const promises = serviceRequestIDs.map((serviceRequestID) =>
-    getExternalLabOrderResources(oystehr, serviceRequestID).then((result) => ({ serviceRequestID, result }))
+    getExternalLabOrderResourcesViaServiceRequest(oystehr, serviceRequestID).then((result) => ({
+      serviceRequestID,
+      result,
+    }))
   );
   const results = await Promise.all(promises).catch((e) => {
     console.log('error getting getting external lab resources', e);
@@ -90,7 +97,11 @@ export async function getBundledOrderResources(
   });
 
   const bundledOrders: { [orderNumber: string]: string[] } = {};
-  const resourcesByServiceRequest: { [serviceRequestID: string]: LabOrderResourcesExtended } = {};
+  const resourcesByServiceRequest: {
+    [serviceRequestID: string]:
+      | Omit<LabOrderResourcesExtended, 'accountNumber' | 'location'>
+      | LabOrderResourcesExtended;
+  } = {};
 
   const locationPromises: Array<Promise<{ serviceRequestID: string; location?: Location }>> = [];
   const insurancePromises: Array<
@@ -126,9 +137,6 @@ export async function getBundledOrderResources(
       bundledOrders[orderNumber] = [serviceRequestID];
     }
 
-    const accountNumberForLab = getAccountNumberFromOrganization(result.labOrganization);
-    if (!accountNumberForLab) throw Error(`Lab organization is missing account number ${result.labOrganization.id}`);
-
     const timezone = result.schedule ? getTimezone(result.schedule) : undefined;
 
     const sampleCollectionDate = getMostRecentCollectionDate(result.specimens)?.setZone(timezone);
@@ -136,7 +144,6 @@ export async function getBundledOrderResources(
 
     resourcesByServiceRequest[serviceRequestID] = {
       ...result,
-      accountNumber: accountNumberForLab,
       mostRecentSampleCollectionDate: sampleCollectionDateFormatted,
       timezone,
     };
@@ -148,12 +155,47 @@ export async function getBundledOrderResources(
     Promise.all(aoeAnswerPromises),
   ]);
 
+  // Oystehr requires that all the locations be the same. We don't enforce that on the FE yet, so throwing a check here
+  // future todo: enforce on FE that all tests in a bundle be ordered from same location
+  if (!locationResults.length) {
+    throw EXTERNAL_LAB_ERROR('No locations found for bundle');
+  }
+  const firstLocation = locationResults[0].location;
+  if (
+    !firstLocation ||
+    !locationResults.every(
+      (locRes) => locRes.location?.id === firstLocation?.id && locRes.location?.status === 'active'
+    )
+  ) {
+    throw EXTERNAL_LAB_ERROR(`All tests must be ordered from the same Location/${firstLocation?.id}`);
+  }
+
+  const accountNumberByOrgRef = new Map<string, string>(
+    firstLocation?.identifier
+      ?.filter((id) => id.system === LAB_ACCOUNT_NUMBER_SYSTEM && id.value && id.assigner && id.assigner.reference)
+      .map((id) => [id.assigner!.reference!, id.value!])
+  );
+
   locationResults.forEach(({ serviceRequestID, location }) => {
+    if (!location) {
+      throw EXTERNAL_LAB_ERROR(`ServiceRequest/${serviceRequestID} must have a Location defined`);
+    }
     const labOrderResourcesForSubmit = resourcesByServiceRequest[serviceRequestID];
-    resourcesByServiceRequest[serviceRequestID] = {
+    const accountNumber = accountNumberByOrgRef.get(`Organization/${labOrderResourcesForSubmit.labOrganization.id}`);
+    if (!accountNumber) {
+      throw EXTERNAL_LAB_ERROR(
+        `No account number found for ${labOrderResourcesForSubmit.labOrganization.name} for ${location?.name} office`
+      );
+    }
+
+    // doing this so the type check keeps us honest on location and accountNumber
+    const resourcesWithLocationAndAccountNumber: LabOrderResourcesExtended = {
       ...labOrderResourcesForSubmit,
       location,
+      accountNumber,
     };
+
+    resourcesByServiceRequest[serviceRequestID] = resourcesWithLocationAndAccountNumber;
   });
 
   insuranceResults.forEach(({ serviceRequestID, coverage, insuranceOrganization }) => {
@@ -182,6 +224,16 @@ export async function getBundledOrderResources(
       const aoeAnswers = allResources.questionsAndAnswers;
       const srTestDetail = getTestDataForOrderForm(serviceRequest, aoeAnswers, sampleCollectionDate);
       const isPscOrder = isPSCOrder(serviceRequest);
+
+      function isLabOrderResourcesExtended(
+        resources: LabOrderResourcesExtended | Omit<LabOrderResourcesExtended, 'location' | 'accountNumber'>
+      ): resources is LabOrderResourcesExtended {
+        return 'accountNumber' in resources && 'location' in resources;
+      }
+
+      if (!isLabOrderResourcesExtended(allResources)) {
+        throw EXTERNAL_LAB_ERROR('resources do not contain location and/or account number');
+      }
 
       if (bundledOrderResources[orderNumber]) {
         bundledOrderResources[orderNumber].testDetails.push(srTestDetail);

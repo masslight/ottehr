@@ -65,6 +65,7 @@ import {
   ListScheduleOwnersParams,
   ListScheduleOwnersResponse,
   PaginatedResponse,
+  PendingSupervisorApprovalInput,
   RadiologyLaunchViewerZambdaInput,
   RadiologyLaunchViewerZambdaOutput,
   SaveFollowupEncounterZambdaInput,
@@ -74,7 +75,7 @@ import {
   SubmitLabOrderOutput,
   UnassignPractitionerZambdaInput,
   UnassignPractitionerZambdaOutput,
-  UpdateLabOrderResourcesParameters,
+  UpdateLabOrderResourcesInput,
   UpdateNursingOrderInput,
   UpdateScheduleParams,
   UpdateUserParams,
@@ -132,6 +133,7 @@ const GET_LABEL_PDF_ZAMBDA_ID = 'get-label-pdf';
 const GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID = 'get-or-create-visit-label-pdf';
 const CREATE_DISCHARGE_SUMMARY = 'create-discharge-summary';
 const PAPERWORK_TO_PDF_ZAMBDA_ID = 'paperwork-to-pdf';
+const PENDING_SUPERVISOR_APPROVAL_ZAMBDA_ID = 'pending-supervisor-approval';
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -699,7 +701,7 @@ export const deleteLabOrder = async (
 
 export const updateLabOrderResources = async (
   oystehr: Oystehr,
-  parameters: UpdateLabOrderResourcesParameters
+  parameters: UpdateLabOrderResourcesInput
 ): Promise<any> => {
   try {
     if (UPDATE_LAB_ORDER_RESOURCES_ZAMBDA_ID == null) {
@@ -999,6 +1001,22 @@ export const icd10Search = async (
   try {
     const response = await oystehr.zambda.execute({
       id: 'icd-10-search',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const pendingSupervisorApproval = async (
+  oystehr: Oystehr,
+  parameters: PendingSupervisorApprovalInput
+): Promise<any> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: PENDING_SUPERVISOR_APPROVAL_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);

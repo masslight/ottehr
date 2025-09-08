@@ -1,12 +1,13 @@
-import { BatchInputPatchRequest, BatchInputRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputPatchRequest, BatchInputRequest } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
-import { Provenance, QuestionnaireResponse, ServiceRequest, Specimen, Task } from 'fhir/r4b';
+import { DiagnosticReport, Provenance, QuestionnaireResponse, ServiceRequest, Specimen, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import {
   DynamicAOEInput,
   EXTERNAL_LAB_ERROR,
   getPatchBinary,
+  OYSTEHR_UNSOLICITED_RESULT_ORDERING_PROVIDER_SYSTEM,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   SpecimenCollectionDateConfig,
 } from 'utils';
@@ -169,4 +170,77 @@ export const makePstCompletePatchRequests = (
   ];
 
   return requests;
+};
+
+/**
+ * Marks the unsolicited result task as complete.
+ * Links the patient to the diagnostic report.
+ *
+ * If a service request ID is provided:
+ * - Links the service request to the diagnostic report.
+ * - If the diagnostic report status is 'final', updates the service request status to 'completed'.
+ */
+export const handleMatchUnsolicitedRequest = async ({
+  oystehr,
+  taskId,
+  diagnosticReportId,
+  patientToMatchId,
+  srToMatchId,
+}: {
+  oystehr: Oystehr;
+  taskId: string;
+  diagnosticReportId: string;
+  patientToMatchId: string;
+  srToMatchId?: string;
+}): Promise<void> => {
+  console.log('getting the diagnostic report', diagnosticReportId);
+  const diagnosticReportResource = await oystehr.fhir.get<DiagnosticReport>({
+    resourceType: 'DiagnosticReport',
+    id: diagnosticReportId,
+  });
+  console.log('formatting fhir patch requests to handle matching unsolicited results');
+  const markTaskAsCompleteRequest: BatchInputPatchRequest<Task> = {
+    method: 'PATCH',
+    url: `Task/${taskId}`,
+    operations: [{ op: 'replace', path: '/status', value: 'completed' }],
+  };
+
+  const updatedDiagnosticReport: DiagnosticReport = { ...diagnosticReportResource };
+  updatedDiagnosticReport.subject = { reference: `Patient/${patientToMatchId}` };
+  delete updatedDiagnosticReport.contained;
+  if (updatedDiagnosticReport.extension) {
+    updatedDiagnosticReport.extension = updatedDiagnosticReport.extension.filter((ext) => {
+      return ext.url !== OYSTEHR_UNSOLICITED_RESULT_ORDERING_PROVIDER_SYSTEM;
+    });
+  }
+
+  const serviceRequestPatch: BatchInputPatchRequest<ServiceRequest>[] = [];
+  if (srToMatchId) {
+    console.log('srToMatchId passed: ', srToMatchId);
+    if (updatedDiagnosticReport.basedOn) {
+      updatedDiagnosticReport.basedOn.push({ reference: `ServiceRequest/${srToMatchId}` });
+    } else {
+      updatedDiagnosticReport.basedOn = [{ reference: `ServiceRequest/${srToMatchId}` }];
+    }
+
+    // this write normally happens on the oystehr side but since the result came in as unsolicited it would not have happened there
+    if (updatedDiagnosticReport.status === 'final') {
+      console.log('dr status is final so patching sr status to completed');
+      serviceRequestPatch.push({
+        method: 'PATCH',
+        url: `ServiceRequest/${srToMatchId}`,
+        operations: [{ op: 'replace', path: '/status', value: 'completed' }],
+      });
+    }
+  }
+
+  const diagnosticReportPutRequest: BatchInputRequest<DiagnosticReport> = {
+    method: 'PUT',
+    url: `DiagnosticReport/${diagnosticReportResource.id}`,
+    resource: updatedDiagnosticReport,
+  };
+
+  const requests = [diagnosticReportPutRequest, markTaskAsCompleteRequest, ...serviceRequestPatch];
+  console.log('making fhir requests, total requests to make: ', requests.length);
+  await oystehr.fhir.transaction<DiagnosticReport | Task | ServiceRequest>({ requests });
 };

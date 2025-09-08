@@ -10,15 +10,16 @@ type Props = {
   name: string;
   label: string;
   required?: boolean;
+  validate?: (value: string | undefined) => boolean | string;
 };
 
-export const DateInput: React.FC<Props> = ({ name, label, required }) => {
+export const DateInput: React.FC<Props> = ({ name, label, required, validate }) => {
   const { control } = useFormContext();
   return (
     <Controller
       name={name}
       control={control}
-      rules={{ required: required ? REQUIRED_FIELD_ERROR_MESSAGE : false }}
+      rules={{ required: required ? REQUIRED_FIELD_ERROR_MESSAGE : false, validate: validate }}
       render={({ field, fieldState: { error } }) => (
         <Box sx={{ width: '100%' }}>
           <LocalizationProvider dateAdapter={AdapterLuxon}>
@@ -33,7 +34,7 @@ export const DateInput: React.FC<Props> = ({ name, label, required }) => {
                 },
               }}
               value={field.value ? DateTime.fromISO(field.value) : null}
-              onChange={(val) => field.onChange(val ? val.toISO() : null)}
+              onChange={(val) => field.onChange(val ? val.toISODate() : null)}
             />
           </LocalizationProvider>
           {error && <FormHelperText error={true}>{error?.message}</FormHelperText>}

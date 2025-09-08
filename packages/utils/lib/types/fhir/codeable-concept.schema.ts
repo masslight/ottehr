@@ -8,4 +8,5 @@ const CodingSchema = z.object({
 
 export const CodeableConceptSchema = z.object({
   coding: z.array(CodingSchema).optional(),
+  text: z.string().optional(),
 });

@@ -1457,3 +1457,6 @@ export const getAddressStringForScheduleResource = (
   }
   return address;
 };
+export function getExtension(resource: DomainResource, url: string): Extension | undefined {
+  return resource.extension?.find((extension) => extension.url === url);
+}

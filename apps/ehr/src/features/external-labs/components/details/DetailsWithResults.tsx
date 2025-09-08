@@ -1,30 +1,40 @@
 import { Button, Typography } from '@mui/material';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LabOrderDetailedPageDTO, TaskReviewedParameters } from 'utils';
+import { LabOrderDetailedPageDTO, ReflexLabDTO, TaskReviewedParameters, UnsolicitedLabDTO } from 'utils';
 import { CSSPageTitle } from '../../../../telemed/components/PageTitle';
 import { OrderCollection } from '../OrderCollection';
 import { ResultItem } from './ResultItem';
 
 export const DetailsWithResults: React.FC<{
-  labOrder: LabOrderDetailedPageDTO;
-  markTaskAsReviewed: (parameters: TaskReviewedParameters & { appointmentId: string }) => Promise<void>;
+  labOrder: LabOrderDetailedPageDTO | UnsolicitedLabDTO | ReflexLabDTO;
+  markTaskAsReviewed: (parameters: TaskReviewedParameters & { appointmentId?: string }) => Promise<void>;
   loading: boolean;
 }> = ({ labOrder, markTaskAsReviewed, loading }) => {
   const navigate = useNavigate();
-  console.log('labOrder', labOrder);
 
   const handleBack = (): void => {
     navigate(-1);
   };
 
+  const isUnsolicitedPage = 'isUnsolicited' in labOrder;
+  const isReflexPage = 'isReflex' in labOrder;
+
+  let serviceRequestId: string | undefined, appointmentId: string | undefined;
+  if (!isUnsolicitedPage && !isReflexPage) {
+    serviceRequestId = labOrder.serviceRequestId;
+    appointmentId = labOrder.appointmentId;
+  }
+
   return (
     <>
       <CSSPageTitle>{labOrder.testItem}</CSSPageTitle>
 
-      <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
-        {labOrder.diagnoses}
-      </Typography>
+      {!isUnsolicitedPage && !isReflexPage && (
+        <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
+          {labOrder.diagnoses}
+        </Typography>
+      )}
 
       {labOrder.resultsDetails.map((result, idx) => (
         <ResultItem
@@ -32,9 +42,9 @@ export const DetailsWithResults: React.FC<{
           onMarkAsReviewed={() =>
             markTaskAsReviewed({
               taskId: result.taskId,
-              serviceRequestId: labOrder.serviceRequestId,
+              serviceRequestId: serviceRequestId,
               diagnosticReportId: result.diagnosticReportId,
-              appointmentId: labOrder.appointmentId,
+              appointmentId: appointmentId,
             })
           }
           resultDetails={result}
@@ -43,7 +53,9 @@ export const DetailsWithResults: React.FC<{
         />
       ))}
 
-      <OrderCollection showActionButtons={false} showOrderInfo={false} isAOECollapsed={true} labOrder={labOrder} />
+      {!isUnsolicitedPage && !isReflexPage && (
+        <OrderCollection showActionButtons={false} showOrderInfo={false} isAOECollapsed={true} labOrder={labOrder} />
+      )}
 
       <Button
         variant="outlined"
