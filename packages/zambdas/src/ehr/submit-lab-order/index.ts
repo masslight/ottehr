@@ -83,9 +83,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             body: JSON.stringify(params),
           });
 
+          // commenting this out for now
           if (!res.ok) {
-            const body = await res.json();
-            throw new Error(`Error submitting order number: ${orderNumber}. Error: ${body.message}`);
+            const _body = await res.json(); // ATHENA TODO un _ this
+            console.error('There was an error submitting, but we are ignoring it');
+            // throw new Error(`Error submitting order number: ${orderNumber}. Error: ${body.message}`);
           }
 
           const result = await res.json();
@@ -105,6 +107,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             console.log(`eReq generated for order ${res.orderNumber} - docRef id: ${res.eReqDocumentReference.id}`);
             successfulBundledOrders[res.orderNumber] = { ...resources, labGeneratedEReq: res.eReqDocumentReference };
           } else {
+            // ATHENA TODO REMOVE THIS
+            resources.accountNumber = 'ottehr-demo-autolab-account-number';
+            console.log('this is account number after reset', resources.accountNumber);
             successfulBundledOrders[res.orderNumber] = { ...resources };
           }
         } else if (res.status === 'rejected') {

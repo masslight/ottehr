@@ -192,6 +192,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     startingXPos: number,
     bounds?: { leftBound: number; rightBound: number }
   ): { endXPos: number; endYPos: number } => {
+    console.log('In drawStartXPosSpecifiedText');
     const { font, fontSize, spacing } = textStyle;
     const leftBound = bounds?.leftBound !== undefined ? bounds.leftBound : pageLeftBound;
     const rightBound = bounds?.rightBound !== undefined ? bounds.rightBound : pageRightBound;
@@ -203,7 +204,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       currXPos = leftBound;
     } else currXPos = startingXPos;
 
-    console.log(`Drawing at xPos: ${currXPos}`);
+    console.log(`Drawing at xPos: ${currXPos}. String to draw is ${text}`);
     drawTextSequential(text, textStyle, { leftBound: currXPos, rightBound: pageRightBound });
 
     if (textStyle.newLineAfter) {
@@ -212,6 +213,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       currXPos = leftBound;
     }
 
+    console.log('Done in drawStartXPosSpecifiedText');
     return { endXPos: currXPos, endYPos: currYPos };
   };
 
@@ -220,12 +222,19 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     textStyle: Exclude<TextStyle, 'side'>,
     bounds?: { leftBound: number; rightBound: number }
   ): void => {
+    console.log('\nin drawTextSequential');
     const { font, fontSize, color, spacing } = textStyle;
     const { width: lineWidth, height: lineHeight } = getTextDimensions(text, textStyle);
     const leftBound = bounds?.leftBound !== undefined ? bounds.leftBound : pageLeftBound;
     const rightBound = bounds?.rightBound !== undefined ? bounds.rightBound : pageRightBound;
 
     if (bounds?.leftBound !== undefined) currXPos = leftBound;
+    console.log(`Text is ${text}\n
+      lineWidth is ${lineWidth}\n
+      lineHeight is ${lineHeight}\n
+      currXpos is ${currXPos}\n
+      leftBound is ${leftBound}\n
+      rightBound is ${rightBound}\n`);
 
     // Add a new page if there's no space on the current page
     if (currYPos - lineHeight < (pageStyles.pageMargins.bottom ?? 0)) {
@@ -235,10 +244,17 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
 
     // Calculate available space on the current line
     const availableWidth = rightBound - currXPos;
+    console.log(`AvailableWidth is ${availableWidth}`);
 
     // If the text fits within the current line, draw it directly
     if (lineWidth < rightBound - leftBound) {
-      if (lineWidth > availableWidth) newLine(lineHeight + spacing);
+      console.log('lineWdith of text fits between left and right bounds');
+      if (lineWidth > availableWidth) {
+        console.log(
+          `lineWidth ${lineWidth} is greater than available width ${availableWidth}. Adding newline and drawing.`
+        );
+        newLine(lineHeight + spacing);
+      }
       page.drawText(text, {
         font: font,
         size: fontSize,
@@ -254,6 +270,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
         currXPos = leftBound;
       }
     } else {
+      console.log('text will not fit between left and right bounds. Need to split text');
       // If the text is too wide, find the part that fits
       let fittingText = '';
       let remainingText = text;
@@ -263,6 +280,8 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       const words = remainingText.split(' ');
       const widthOfSpaceChar = getTextDimensions(' ', textStyle).width;
 
+      // if there are more than one word, we can write each word until we run out of space
+      // what happens if even after splitting, word[0] is too long? Do you recurse forever? need to stop that
       for (let i = 0; i < words.length; i++) {
         const { width: charWidth } = getTextDimensions(words[i], textStyle);
         if (currentWidth + charWidth + widthOfSpaceChar > availableWidth) {
@@ -272,6 +291,8 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
         }
         currentWidth += charWidth + widthOfSpaceChar;
       }
+
+      // else it is one big word with no spaces to break on. We need to split by character instead and just write as many characters as we can.
 
       // Draw the fitting part on the current line
       page.drawText(fittingText, {
@@ -286,6 +307,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       newLine(lineHeight);
 
       // Recursively call the function with the remaining text
+      console.log('recursively calling drawTextSequential');
       drawTextSequential(remainingText, textStyle, bounds);
     }
   };
