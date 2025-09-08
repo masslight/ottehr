@@ -1,7 +1,5 @@
 # Sendgrid Terraform Module
 
-Terraform module that parses the file written to packages/utils/.ottehr_config/iac-inputs/sendgrid.json and uses it to provision the templates/template versions defined there in Sendgrid, and then saves the template ids of the created templates to Oystehr secrets.
+Terraform module that parses the file written to config/sendgrid/sendgrid.json and uses it to provision the templates/template versions defined there in Sendgrid (as well as API key for sending emails using those templates) and then outputs the ids of the created resources so they can be ingested in the Oystehr module and written to secrets. 
 
-The parsed file is written based on the default configuration and overrides defined in the utils package and must be updated by running the write-infra-spec script in the utils folder. 
-
-TODO: that script should be automatically run as part of the deploy pipeline
+The parsed file is written based on the default configuration and overrides defined in the utils package and is regenerated from that source each time the generate script in the deploy package is run. 

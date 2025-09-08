@@ -27,6 +27,10 @@ resource "null_resource" "validate_project_name" {
 
 resource "sendgrid_api_key" "template_api_key" {
   name  = local.project_name
+  scopes = [
+    "mail.send",
+    "templates.read",
+  ]
 }
 
 resource "sendgrid_template" "named_template" {
@@ -46,7 +50,7 @@ resource "sendgrid_template_version" "test_template_version" {
 
 output "sendgrid_api_key" {
   description = "The sendgrid api key resource."
-  value       = sendgrid_api_key.template_api_key
+  value       = sendgrid_api_key.template_api_key.api_key
   sensitive   = true
 }
 

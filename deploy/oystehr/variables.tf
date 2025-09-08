@@ -14,3 +14,10 @@ variable "sendgrid_template_ids" {
   nullable    = false
   sensitive   = false
 }
+
+variable "sendgrid_send_email_api_key" {
+  description = "api key used to send emails via sendgrid"
+  type        = string
+  nullable    = false
+  sensitive   = true
+}
