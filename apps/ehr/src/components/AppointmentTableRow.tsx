@@ -584,7 +584,7 @@ export default function AppointmentTableRow({
         spanish: `${PROJECT_NAME} espera que se sienta mejor. Llámenos si tiene alguna pregunta al ${officePhoneNumber}.`,
       },
       {
-        english: `Please complete a brief AI chat session for to help your provider prepare for your visit: ${VITE_APP_PATIENT_APP_URL}/visit/${appointment.id}/ai-interview-start`,
+        english: `Please complete a brief AI chat session for ${appointment.patient.firstName} to help your provider prepare for your visit: ${VITE_APP_PATIENT_APP_URL}/visit/${appointment.id}/ai-interview-start`,
         spanish: undefined,
       },
     ];
