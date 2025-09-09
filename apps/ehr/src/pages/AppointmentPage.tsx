@@ -27,6 +27,7 @@ import {
   Appointment,
   Bundle,
   BundleEntry,
+  Coverage,
   DocumentReference,
   Encounter,
   FhirResource,
@@ -173,7 +174,8 @@ type AppointmentBundleTypes =
   | Encounter
   | QuestionnaireResponse
   | Flag
-  | RelatedPerson;
+  | RelatedPerson
+  | Coverage;
 
 export default function AppointmentPage(): ReactElement {
   // variables
@@ -198,6 +200,7 @@ export default function AppointmentPage(): ReactElement {
   const [toastType, setToastType] = React.useState<AlertColor | undefined>(undefined);
   const [snackbarOpen, setSnackbarOpen] = React.useState<boolean>(false);
   const [paperworkPdfLoading, setPaperworkPdfLoading] = React.useState<boolean>(false);
+  const [activePatientCoverages, setActivePatientCoverages] = useState<Coverage[] | undefined>(undefined);
 
   // Update date of birth modal variables
   const [confirmDOBModalOpen, setConfirmDOBModalOpen] = useState<boolean>(false);
@@ -325,6 +328,10 @@ export default function AppointmentPage(): ReactElement {
           {
             name: '_revinclude:iterate',
             value: 'RelatedPerson:patient',
+          },
+          {
+            name: '_revinclude:iterate',
+            value: 'Coverage:patient',
           },
         ],
       })
@@ -605,6 +612,10 @@ export default function AppointmentPage(): ReactElement {
             resource.meta?.tag?.find((tag) => tag.code === 'paperwork-in-progress')
         ) as Flag | undefined
       );
+      const activeCoverages = resourceBundle?.filter(
+        (res) => res.resourceType === 'Coverage' && (res as Coverage).status === 'active'
+      ) as Coverage[];
+      setActivePatientCoverages(activeCoverages);
     }
 
     // call the functions
@@ -1483,7 +1494,12 @@ export default function AppointmentPage(): ReactElement {
               <Grid item xs={12} sm={6} paddingLeft={{ xs: 0, sm: 2 }}>
                 {/* credit cards and copay */}
                 {appointmentID && patient && (
-                  <PatientPaymentList patient={patient} loading={loading} encounterId={encounter.id ?? ''} />
+                  <PatientPaymentList
+                    patient={patient}
+                    loading={loading}
+                    encounterId={encounter.id ?? ''}
+                    coverages={activePatientCoverages}
+                  />
                 )}
                 {/* Insurance information */}
                 {!selfPay && (
