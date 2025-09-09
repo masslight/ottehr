@@ -45,7 +45,7 @@ const WOUND_CARE = 'Wound Care';
 const LESS_5_MIN = '< 5 min';
 const MORE_30_MIN = '> 30 min';
 const PROVIDER = 'Provider';
-const HEALTHCARE_STAFF = 'healthcare_staff';
+const HEALTHCARE_STAFF = 'Healthcare staff';
 
 test.describe('Document Procedures Page mutating tests', () => {
   test.beforeEach(async ({ page }) => {
@@ -156,12 +156,21 @@ test.describe('Document Procedures Page mutating tests', () => {
     await procedureRow.verifyProcedureCptCode(INJECTION_CPT_CODE + '-' + INJECTION_CPT_NAME);
     await procedureRow.verifyProcedureType(SPLINT_APPLICATION_PROCEDURE_TYPE);
     await procedureRow.verifyProcedureDiagnosis(FEVER_DIAGNOSIS_CODE + '-' + FEVER_DIAGNOSIS_NAME);
+    await procedureRow.verifyProcedureDiagnosis(B12_DIAGNOSIS_CODE + '-' + B12_DIAGNOSIS_NAME);
     await procedureRow.verifyProcedureDocumentedBy(HEALTHCARE_STAFF);
 
     progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
     await progressNotePage.verifyProcedure(SPLINT_APPLICATION_PROCEDURE_TYPE, [
       'CPT: ' + INJECTION_CPT_CODE + ' ' + INJECTION_CPT_NAME,
-      'Dx: ' + FEVER_DIAGNOSIS_CODE + ' ' + FEVER_DIAGNOSIS_NAME,
+      'Dx: ' +
+        B12_DIAGNOSIS_CODE +
+        ' ' +
+        B12_DIAGNOSIS_NAME +
+        ';' +
+        ' ' +
+        FEVER_DIAGNOSIS_CODE +
+        ' ' +
+        FEVER_DIAGNOSIS_NAME,
       'Performed by: ' + BOTH,
       'Anaesthesia / medication used: ' + LOCAL,
       'Site/location: ' + FACE,
@@ -178,11 +187,13 @@ test.describe('Document Procedures Page mutating tests', () => {
     ]);
 
     proceduresPage = await openProceduresPage(resourceHandler.appointment.id!, page);
-    procedureRow = proceduresPage.getProcedureRow(WOUND_CARE_PROCEDURE_TYPE);
+    procedureRow = proceduresPage.getProcedureRow(SPLINT_APPLICATION_PROCEDURE_TYPE);
     documentProcedurePage = await procedureRow.click();
+    await documentProcedurePage.verifyConsentForProcedureChecked(false);
     await documentProcedurePage.verifyProcedureType(SPLINT_APPLICATION_PROCEDURE_TYPE);
-    await documentProcedurePage.verifyCptCode(INJECTION_CPT_CODE);
-    await documentProcedurePage.verifyDiagnosis(FEVER_DIAGNOSIS_CODE);
+    await documentProcedurePage.verifyCptCode(INJECTION_CPT_CODE + ' ' + INJECTION_CPT_NAME);
+    await documentProcedurePage.verifyDiagnosis(FEVER_DIAGNOSIS_NAME + ' ' + FEVER_DIAGNOSIS_CODE);
+    await documentProcedurePage.verifyDiagnosis(B12_DIAGNOSIS_NAME + ' ' + B12_DIAGNOSIS_CODE);
     await documentProcedurePage.verifyPerformedBy(BOTH);
     await documentProcedurePage.verifyAnaesthesia(LOCAL);
     await documentProcedurePage.verifySite(FACE);
@@ -196,9 +207,6 @@ test.describe('Document Procedures Page mutating tests', () => {
     await documentProcedurePage.verifyPostProcedureInstructions(WOUND_CARE);
     await documentProcedurePage.verifyTimeSpent(MORE_30_MIN);
     await documentProcedurePage.verifyDocumentedBy(HEALTHCARE_STAFF);
-
-    // todo open procedure page
-    // todo verify procedure edited
   });
 
   async function setupPractitioners(page: Page): Promise<void> {

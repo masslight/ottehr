@@ -54,7 +54,9 @@ export class DocumentProcedurePage {
   }
 
   async verifyDiagnosis(diagnosis: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.documentProcedurePage.diagnosis)).toHaveText(diagnosis);
+    await expect(
+      this.#page.getByTestId(dataTestIds.documentProcedurePage.diagnosis).filter({ hasText: diagnosis })
+    ).toBeVisible();
   }
 
   async selectPerformedBy(performedBy: string): Promise<void> {

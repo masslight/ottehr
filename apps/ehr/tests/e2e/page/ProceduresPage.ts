@@ -37,7 +37,9 @@ export class ProcedureRow {
   }
 
   async verifyProcedureDiagnosis(procedureDiagnosis: string): Promise<void> {
-    await expect(this.#container.getByTestId(dataTestIds.proceduresPage.diagnosis)).toHaveText(procedureDiagnosis);
+    await expect(
+      this.#container.getByTestId(dataTestIds.proceduresPage.diagnosis).filter({ hasText: procedureDiagnosis })
+    ).toBeVisible();
   }
 
   async verifyProcedureDocumentedBy(procedureDocumentedBy: string): Promise<void> {
