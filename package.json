@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "turbo build lint",
-    "version": "npm version $npm_package_version --workspaces && git add **/package.json",
+    "version": "npm version $npm_package_version --workspaces && git add package.json '**/package.json'",
     "lint": "npm run lint:eslint",
     "lint:eslint": "turbo lint",
     "lint:eslint:fix": "turbo lint:fix",
