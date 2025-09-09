@@ -59,7 +59,8 @@
     "integration:zambdas": "npm run build && ENV=local && cd packages/zambdas && DEBUG=start-server-and-test && npm run test:integration:ci",
     "test": "turbo test",
     "prepare": "husky",
-    "spellcheck": "cspell ."
+    "spellcheck": "cspell .",
+    "merge-payer-addresses": "tsx scripts/merge-payer-addresses.ts config/payers.json scripts/data/payers-addresses.csv config/payers-with-addresses.json scripts/data/payers-addresses-unmatched.csv"
   },
   "workspaces": [
     "packages/**/*",
