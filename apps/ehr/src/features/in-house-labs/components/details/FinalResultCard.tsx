@@ -1,6 +1,7 @@
 import { Box, Paper, Typography } from '@mui/material';
 import React, { useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { formatDateForLabs, InHouseOrderDetailPageItemDTO, PageName, ResultEntryInput } from 'utils';
 import { InHouseLabsStatusChip } from '../InHouseLabsStatusChip';
 import { InHouseLabsDetailsCard } from './InHouseLabsDetailsCard';
@@ -33,7 +34,7 @@ export const FinalResultCard: React.FC<FinalResultCardProps> = ({ testDetails })
           <Typography variant="h5" color="primary.dark" fontWeight="bold">
             {testDetails.testItemName}
           </Typography>
-          <Box display="flex" alignItems="center" gap="8px">
+          <Box data-testid={dataTestIds.finalResultPage.dateAndStatus} display="flex" alignItems="center" gap="8px">
             <Typography variant="body2">
               {formatDateForLabs(testDetails.orderAddedDate, testDetails.timezone)}
             </Typography>

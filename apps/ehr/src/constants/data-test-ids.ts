@@ -366,6 +366,7 @@ export const dataTestIds = {
     medicalDecisionLink: 'medical-decision-link',
     emCodeLink: 'em-code-link',
     visitNoteCard: 'visit-note-card',
+    labsTitle: (labType: string) => `title-${labType.toLowerCase().replace(/\s+/g, '-')}`,
   },
   assessmentCard: {
     emCodeDropdown: 'em-code-dropdown',
@@ -465,7 +466,13 @@ export const dataTestIds = {
     title: 'page-title',
     testName: 'test-name',
     status: 'order-status',
-    testResult: (result: 'detected' | 'not-detected') => `test-result-${result}`,
+    testResult: (result: string) => `test-result-${result.toLowerCase().replace(/\s+/g, '-')}`,
     submitButton: 'submit-button',
+  },
+  finalResultPage: {
+    testName: 'test-name',
+    dateAndStatus: 'order-date-status',
+    resultsPDF: 'results-pdf',
+    diagnose: 'diagnose',
   },
 };

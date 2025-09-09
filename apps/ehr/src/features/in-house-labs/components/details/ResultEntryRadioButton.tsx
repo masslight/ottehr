@@ -2,6 +2,7 @@ import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import { Box, Checkbox, FormControlLabel, Grid, Radio, RadioGroup, SxProps, Theme, Typography } from '@mui/material';
 import { Controller, useFormContext } from 'react-hook-form';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { CodeableConceptComponent } from 'utils';
 
 interface ResultEntryRadioButtonProps {
@@ -157,6 +158,7 @@ export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({ 
               {testItemComponent.valueSet.map((valueCode) => (
                 <Grid item xs={6} key={valueCode.code}>
                   <FormControlLabel
+                    data-testid={dataTestIds.performTestPage.testResult(valueCode.code)}
                     value={valueCode.code}
                     control={<Radio sx={radioStylingColor(valueCode.code, field.value)} disabled={!!disabled} />}
                     label={

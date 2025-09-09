@@ -1,6 +1,8 @@
 import { Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { CssHeader } from 'tests/e2e/page/CssHeader';
+import { FinalResultPage } from 'tests/e2e/page/FinalResultPage';
+import { openInPersonProgressNotePage } from 'tests/e2e/page/in-person/InPersonProgressNotePage';
 import { PerformTestPage } from 'tests/e2e/page/PerformTestPage';
 import { SideMenu } from 'tests/e2e/page/SideMenu';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
@@ -14,8 +16,11 @@ const TEST_TYPE = 'Flu A';
 const CPT_CODE = '87501';
 const DIAGNOSIS = 'Situs inversus';
 const SOURCE = 'Nasopharyngeal swab';
-const STATUS_ORDERED = 'Ordered';
-const STATUS_COLLECTED = 'Collected';
+const STATUS_ORDERED = 'ORDERED';
+const STATUS_COLLECTED = 'COLLECTED';
+const STATUS_FINAL = 'FINAL';
+const TEST_RESULT_DETECTED = 'Detected';
+const SECTION_TITLE = 'In-House Labs';
 
 test.beforeEach(async () => {
   if (process.env.INTEGRATION_TEST === 'true') {
@@ -49,6 +54,16 @@ test('Order In-house Lab', async ({ page }) => {
   await performTestPage.verifyPerformTestPageOpened();
   await performTestPage.verifyStatus(STATUS_COLLECTED);
   await performTestPage.verifySubmitButtonDisabled();
+  await performTestPage.selectTestResult(TEST_RESULT_DETECTED);
+  await performTestPage.verifySubmitButtonEnabled();
+  await performTestPage.submitAndWaitForResults();
+  const finalResultPage = new FinalResultPage(page);
+  await finalResultPage.verifyStatus(STATUS_FINAL);
+  await finalResultPage.verifyTestResult(TEST_RESULT_DETECTED);
+  await finalResultPage.verifyResultsPDFButtonEnabled();
+  await finalResultPage.verifyResultsPdfOpensInNewTab();
+  const progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
+  await progressNotePage.verifyInHouseLabs(SECTION_TITLE, TEST_TYPE);
 });
 
 async function prepareAndOpenInHouseLabsPage(page: Page): Promise<OrderInHouseLabPage> {

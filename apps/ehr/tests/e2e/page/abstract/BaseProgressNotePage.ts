@@ -31,6 +31,9 @@ export abstract class BaseProgressNotePage {
   async clickSignButton(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.dialog.proceedButton).click();
   }
-
+  async verifyInHouseLabs(sectionTitle: string, testName: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.progressNotePage.labsTitle(sectionTitle))).toBeVisible();
+    await expect(this.#page.getByTestId(dataTestIds.progressNotePage.labsTitle(sectionTitle))).toContainText(testName);
+  }
   abstract expectLoaded(): Promise<void>;
 }
