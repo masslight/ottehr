@@ -169,7 +169,7 @@ class EmailClient {
     this.config = config;
     this.secrets = secrets;
     const SENDGRID_SEND_EMAIL_API_KEY = getSecret(SecretsKeys.SENDGRID_SEND_EMAIL_API_KEY, secrets);
-    if (!SENDGRID_SEND_EMAIL_API_KEY) {
+    if (!SENDGRID_SEND_EMAIL_API_KEY && this.config.featureFlag) {
       throw new Error('SendGrid Send Email API key is not set in secrets');
     }
     sendgrid.setApiKey(SENDGRID_SEND_EMAIL_API_KEY);
