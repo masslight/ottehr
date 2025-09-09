@@ -1109,10 +1109,10 @@
     "OTTEHR_ORGANIZATION": {
       "resourceType": "Organization",
       "active": true,
-      "name": "Example Organization",
+      "name": "#{var/project-name} Organization",
       "telecom": [
         {
-          "system": "phone",
+          "system": "fax",
           "value": "#{var/fax-number}"
         }
       ]
