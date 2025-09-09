@@ -85,13 +85,21 @@ export async function sendInPersonMessages({
     const readableTime = startTime.toFormat(DATETIME_FULL_NO_YEAR);
 
     // todo handle these when scheduleResource is a healthcare service or a practitioner
-    const address = getAddressStringForScheduleResource(scheduleResource);
+    let address = getAddressStringForScheduleResource(scheduleResource);
     if (!address) {
-      throw new Error('Address is required to send reminder email');
+      if (emailClient.getFeatureFlag()) {
+        throw new Error('Address is required to send reminder email');
+      } else {
+        address = '123 Main St, Anytown, USA'; // placeholder address for local dev when email sending is disabled
+      }
     }
-    const location = getNameFromScheduleResource(scheduleResource);
+    let location = getNameFromScheduleResource(scheduleResource);
     if (!location) {
-      throw new Error('Location is required to send reminder email');
+      if (emailClient.getFeatureFlag()) {
+        throw new Error('Location is required to send reminder email');
+      } else {
+        location = 'Test Location'; // placeholder location for local dev when email sending is disabled
+      }
     }
 
     const rescheduleUrl = `${WEBSITE_URL}/visit/${appointmentID}/reschedule`;
@@ -271,6 +279,10 @@ class EmailClient {
       console.error(`${errorMessage}: ${error}`);
       void sendErrors(errorMessage, ENVIRONMENT);
     }
+  }
+
+  getFeatureFlag(): boolean {
+    return this.config.featureFlag;
   }
 
   async sendErrorEmail(to: string | string[], templateData: ErrorReportTemplateData): Promise<void> {

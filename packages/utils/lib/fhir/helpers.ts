@@ -1455,6 +1455,7 @@ export const getAddressStringForScheduleResource = (
   } else if (scheduleResource.resourceType === 'Practitioner') {
     address = getAddressString(scheduleResource.address?.[0]);
   }
+  console.log('getAddressStringForScheduleResource', scheduleResource.resourceType, address);
   return address;
 };
 export function getExtension(resource: DomainResource, url: string): Extension | undefined {
