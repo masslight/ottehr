@@ -139,6 +139,16 @@ export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {
   orderPdfUrl?: string; // will exist after order is submitted
 };
 
+export type UnsolicitedLabListPageDTO = {
+  isUnsolicited: true;
+  diagnosticReportId: string;
+  testItem: string;
+  fillerLab: string;
+  orderStatus: ExternalLabsStatus;
+  lastResultReceivedDate: string;
+  accessionNumbers: string[]; // DiagnosticReport.identifier (identifier assigned to a sample when it arrives at a laboratory)
+};
+
 export type DiagnosticReportLabDetailPageDTO = Omit<
   LabOrderDetailedPageDTO,
   | 'serviceRequestId'
@@ -226,6 +236,7 @@ export type CreateLabOrderParameters = {
   encounter: Encounter;
   orderableItem: OrderableItemSearchResult;
   psc: boolean;
+  orderingLocation: ModifiedOrderingLocation;
 };
 
 export type CreateLabOrderZambdaOutput = Record<string, never>;
@@ -233,12 +244,28 @@ export type CreateLabOrderZambdaOutput = Record<string, never>;
 export type GetCreateLabOrderResources = {
   patientId?: string;
   search?: string;
+  selectedOfficeId?: string;
+  labOrgIdsString?: string;
+};
+
+export type ModifiedOrderingLocation = {
+  name: string;
+  id: string;
+  enabledLabs: {
+    accountNumber: string;
+    labOrgRef: string;
+  }[];
+};
+
+export type ExternalLabOrderingLocations = {
+  orderingLocations: ModifiedOrderingLocation[];
+  orderingLocationIds: string[];
 };
 
 export type LabOrderResourcesRes = {
   coverageName?: string;
   labs: OrderableItemSearchResult[];
-};
+} & ExternalLabOrderingLocations;
 
 export type PatientLabItem = {
   code: string; // ActivityDefinition.code.coding[0].code
@@ -334,38 +361,44 @@ export type LabResultPDF = {
 
 export enum UnsolicitedResultsRequestType {
   UNSOLICITED_RESULTS_ICON = 'unsolicited-results-icon',
-  GET_TABLE_ROWS = 'get-table-rows',
+  GET_UNSOLICITED_RESULTS_TASKS = 'get-unsolicited-results-tasks',
   MATCH_UNSOLICITED_RESULTS = 'match-unsolicited-result',
   GET_UNSOLICITED_RESULTS_RELATED_REQUESTS = 'get-unsolicited-results-related-requests',
-  UNSOLICITED_RESULT_DETAIL = 'unsolicited-result-detail',
+  UNSOLICITED_RESULTS_DETAIL = 'unsolicited-results-detail',
+  UNSOLICITED_RESULTS_PATIENT_LIST = 'unsolicited-results-patient-list',
 }
 
-export type GetUnsolicitedResultsResourcesForIconInput = {
+export type GetUnsolicitedResultsIconStatusInput = {
   requestType: UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_ICON;
 };
-export type GetUnsolicitedResultsResourcesForTableInput = {
-  requestType: UnsolicitedResultsRequestType.GET_TABLE_ROWS;
+export type GetUnsolicitedResultsTasksInput = {
+  requestType: UnsolicitedResultsRequestType.GET_UNSOLICITED_RESULTS_TASKS;
 };
-export type GetUnsolicitedResultsResourcesForMatchInput = {
+export type GetUnsolicitedResultsMatchDataInput = {
   requestType: UnsolicitedResultsRequestType.MATCH_UNSOLICITED_RESULTS;
   diagnosticReportId: string;
 };
-export type GetUnsolicitedResultsRelatedRequests = {
+export type GetUnsolicitedResultsRelatedRequestsInput = {
   requestType: UnsolicitedResultsRequestType.GET_UNSOLICITED_RESULTS_RELATED_REQUESTS;
   diagnosticReportId: string;
   patientId: string;
 };
-export type GetUnsolicitedResultsResourcesForReview = {
-  requestType: UnsolicitedResultsRequestType.UNSOLICITED_RESULT_DETAIL;
+export type GetUnsolicitedResultsDetailInput = {
+  requestType: UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_DETAIL;
   diagnosticReportId: string;
+};
+export type GetUnsolicitedResultsPatientListInput = {
+  requestType: UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_PATIENT_LIST;
+  patientId: string;
 };
 
 export type GetUnsolicitedResultsResourcesInput =
-  | GetUnsolicitedResultsResourcesForIconInput
-  | GetUnsolicitedResultsResourcesForTableInput
-  | GetUnsolicitedResultsResourcesForMatchInput
-  | GetUnsolicitedResultsRelatedRequests
-  | GetUnsolicitedResultsResourcesForReview;
+  | GetUnsolicitedResultsIconStatusInput
+  | GetUnsolicitedResultsTasksInput
+  | GetUnsolicitedResultsMatchDataInput
+  | GetUnsolicitedResultsRelatedRequestsInput
+  | GetUnsolicitedResultsDetailInput
+  | GetUnsolicitedResultsPatientListInput;
 
 export const UR_TASK_ACTION_TEXT = ['Match', 'Go to Lab Results'] as const;
 export type UR_TASK_ACTION = (typeof UR_TASK_ACTION_TEXT)[number];
@@ -378,14 +411,14 @@ export type UnsolicitedResultTaskRowDTO = {
   resultsReceivedDateTime: string;
 };
 
-export type GetUnsolicitedResultsResourcesForIcon = {
+export type GetUnsolicitedResultsIconStatusOutput = {
   tasksAreReady: boolean;
 };
-export type GetUnsolicitedResultsResourcesForTable = {
-  unsolicitedResultRows: UnsolicitedResultTaskRowDTO[];
+export type GetUnsolicitedResultsTasksOutput = {
+  unsolicitedResultsTasks: UnsolicitedResultTaskRowDTO[];
 };
-export type GetUnsolicitedResultsResourcesForMatch = {
-  labInfo: {
+export type GetUnsolicitedResultsMatchDataOutput = {
+  unsolicitedLabInfo: {
     patientName?: string;
     patientDOB?: string;
     provider?: string;
@@ -395,7 +428,7 @@ export type GetUnsolicitedResultsResourcesForMatch = {
   };
   taskId: string;
 };
-export type RelatedRequestsToUnsolicitedResultOutput = {
+export type GetUnsolicitedResultsRelatedRequestsOutput = {
   possibleRelatedSRsWithVisitDate:
     | {
         serviceRequestId: string;
@@ -403,14 +436,17 @@ export type RelatedRequestsToUnsolicitedResultOutput = {
       }[]
     | null;
 };
-
-export type GetUnsolicitedResultsReviewResourcesOutput = {
-  labOrder: UnsolicitedLabDTO;
+export type GetUnsolicitedResultsDetailOutput = {
+  unsolicitedLabDTO: UnsolicitedLabDTO;
+};
+export type GetUnsolicitedResultsPatientListOutput = {
+  unsolicitedLabListDTOs: UnsolicitedLabListPageDTO[];
 };
 
 export type GetUnsolicitedResultsResourcesOutput =
-  | GetUnsolicitedResultsResourcesForIcon
-  | GetUnsolicitedResultsResourcesForTable
-  | GetUnsolicitedResultsResourcesForMatch
-  | RelatedRequestsToUnsolicitedResultOutput
-  | GetUnsolicitedResultsReviewResourcesOutput;
+  | GetUnsolicitedResultsIconStatusOutput
+  | GetUnsolicitedResultsTasksOutput
+  | GetUnsolicitedResultsMatchDataOutput
+  | GetUnsolicitedResultsRelatedRequestsOutput
+  | GetUnsolicitedResultsDetailOutput
+  | GetUnsolicitedResultsPatientListOutput;

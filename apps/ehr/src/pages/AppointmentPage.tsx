@@ -1104,7 +1104,7 @@ export default function AppointmentPage(): ReactElement {
                   ]}
                 />
               </Grid>
-              <Grid container xs={6} justifyContent="flex-end">
+              <Grid item container xs={6} justifyContent="flex-end">
                 <LoadingButton
                   variant="outlined"
                   sx={{
@@ -1510,6 +1510,7 @@ export default function AppointmentPage(): ReactElement {
                     ),
                     'Birth sex': getAnswerStringFor('responsible-party-birth-sex', flattenedItems),
                     Phone: formatPhoneNumber(getAnswerStringFor('responsible-party-number', flattenedItems) || ''),
+                    Email: getAnswerStringFor('responsible-party-email', flattenedItems) || '',
                   }}
                 />
 

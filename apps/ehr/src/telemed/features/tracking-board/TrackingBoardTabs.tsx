@@ -5,6 +5,7 @@ import { ApptTelemedTab } from 'utils';
 import CreateDemoVisits from '../../../components/CreateDemoVisits';
 import Loading from '../../../components/Loading';
 import { dataTestIds } from '../../../constants/data-test-ids';
+import { FEATURE_FLAGS } from '../../../constants/feature-flags';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
 import { useGetTelemedAppointments, useTrackingBoardStore } from '../../state';
@@ -94,7 +95,7 @@ export function TrackingBoardTabs(): ReactElement {
             <TrackingBoardTable tab={value} />
           </TabPanel>
         </Paper>
-        <CreateDemoVisits />
+        {FEATURE_FLAGS.DEMO_VISITS_ENABLED && <CreateDemoVisits />}
       </TabContext>
     </Box>
   );

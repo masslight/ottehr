@@ -137,7 +137,7 @@ async function updateOrder(
   } else if (existingMedicationCopy) {
     console.log('Updating existing copy for order');
     // during copy process we also update lotNumber, expDate etc.
-    newMedicationCopy = createMedicationCopy(existingMedicationCopy, orderData);
+    newMedicationCopy = createMedicationCopy(existingMedicationCopy, orderData, newStatus);
   }
 
   const transactionRequests: BatchInputRequest<FhirResource>[] = [];

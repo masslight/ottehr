@@ -132,8 +132,9 @@ const main = async (): Promise<void> => {
 
   const reflexDR: DiagnosticReport = { ...drToDuplicate, code: REFLEX_TEST_CODE };
   reflexDR.meta = {};
-  reflexDR.meta.tag = [{ system: LAB_DR_TYPE_TAG.system, display: LAB_DR_TYPE_TAG.display.reflex }];
-  reflexDR.result = resultRefsForReflexTest;
+  reflexDR.meta.tag = [
+    { system: LAB_DR_TYPE_TAG.system, code: LAB_DR_TYPE_TAG.code.reflex, display: LAB_DR_TYPE_TAG.display.reflex },
+  ];
   reflexDR.result = resultRefsForReflexTest;
 
   // override existing filler id value
