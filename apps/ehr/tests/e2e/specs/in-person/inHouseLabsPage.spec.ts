@@ -35,7 +35,9 @@ test.afterEach(async () => {
   await resourceHandler.cleanupResources();
 });
 
-test('Order In-house Lab', async ({ page }) => {
+test('IHL-1 In-house labs. Happy Path - Order In-house Lab, Collect Sample, Perform test, Final view, Progress Note ', async ({
+  page,
+}) => {
   const orderInHouseLabPage = await prepareAndOpenInHouseLabsPage(page);
   await orderInHouseLabPage.verifyOrderAndPrintLabeButtonDisabled();
   await orderInHouseLabPage.verifyOrderInHouseLabButtonDisabled();
