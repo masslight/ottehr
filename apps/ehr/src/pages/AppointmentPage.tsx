@@ -1050,11 +1050,15 @@ export default function AppointmentPage(): ReactElement {
         return dateB - dateA;
       });
     const existingPaperworkPdf = existingPaperworkPdfs?.[0];
-
-    if (existingPaperworkPdf && !isPaperworkPdfOutdated(existingPaperworkPdf, questionnaireResponse)) {
-      await downloadDocument(existingPaperworkPdf.id);
+    try {
+      if (existingPaperworkPdf && !isPaperworkPdfOutdated(existingPaperworkPdf, questionnaireResponse)) {
+        await downloadDocument(existingPaperworkPdf.id);
+        return;
+      }
+    } catch (error) {
+      console.warn('Paperwork PDF check failed, regenerating...', error);
+    } finally {
       setPaperworkPdfLoading(false);
-      return;
     }
 
     if (!oystehrZambda || !questionnaireResponse.id) {

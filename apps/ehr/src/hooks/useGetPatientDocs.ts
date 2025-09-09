@@ -529,7 +529,7 @@ export const isPaperworkPdfOutdated = (
   questionnaireResponse: QuestionnaireResponse
 ): boolean => {
   if (!pdf?.whenAddedDate || !questionnaireResponse.meta?.lastUpdated) {
-    return false;
+    throw new Error('Invalid data: missing pdf.whenAddedDate or questionnaireResponse.meta.lastUpdated');
   }
   return new Date(pdf.whenAddedDate) >= new Date(questionnaireResponse.meta.lastUpdated);
 };
