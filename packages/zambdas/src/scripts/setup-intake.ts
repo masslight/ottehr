@@ -2,7 +2,7 @@ import Oystehr, { AccessPolicy, Application } from '@oystehr/sdk';
 import { FhirResource, Location, Organization } from 'fhir/r4b';
 import fs from 'fs';
 import path from 'path';
-import { SCHEDULE_EXTENSION_URL, TIMEZONE_EXTENSION_URL } from 'utils';
+import { PROJECT_NAME, SCHEDULE_EXTENSION_URL, TIMEZONE_EXTENSION_URL } from 'utils';
 import { checkLocations } from './setup-default-locations';
 
 export const defaultLocation: Location = {
@@ -131,18 +131,6 @@ async function createApplication(oystehr: Oystehr, applicationName: string): Pro
           'Zambda:Function:ai-interview-start',
           'Zambda:Function:ai-interview-handle-answer',
           'Zambda:Function:ai-interview-persist-consent',
-          'Zambda:Function:get-lab-orders',
-          'Zambda:Function:submit-lab-order',
-          'Zambda:Function:update-lab-order-resources',
-          'Zambda:Function:get-create-in-house-lab-order-resources',
-          'Zambda:Function:create-in-house-lab-order',
-          'Zambda:Function:collect-in-house-lab-specimen',
-          'Zambda:Function:handle-in-house-lab-results',
-          'Zambda:Function:get-in-house-orders',
-          'Zambda:Function:delete-in-house-lab-order',
-          'Zambda:Function:get-nursing-orders',
-          'Zambda:Function:create-nursing-order',
-          'Zambda:Function:update-nursing-order',
         ],
         action: ['Zambda:InvokeFunction'],
         effect: 'Allow',
@@ -294,7 +282,7 @@ const createOrganization = async (oystehr: Oystehr): Promise<Organization> => {
   const organization: FhirResource = {
     resourceType: 'Organization',
     active: true,
-    name: 'Example Organization',
+    name: `${PROJECT_NAME} Organization`,
   };
 
   return await oystehr.fhir.create(organization);

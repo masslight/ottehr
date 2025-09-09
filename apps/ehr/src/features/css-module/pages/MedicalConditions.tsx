@@ -1,8 +1,6 @@
 import { Stack, Typography } from '@mui/material';
 import { FC } from 'react';
-import { useParams } from 'react-router-dom';
-import { getSelectors } from '../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../telemed';
+import { useAppointmentData, useChartData } from 'src/telemed';
 import { PageTitle } from '../../../telemed/components/PageTitle';
 import {
   MedicalConditionsPatientColumn,
@@ -13,26 +11,24 @@ import { CSSLoader } from '../components/CSSLoader';
 import { InfoAlert } from '../components/InfoAlert';
 import { MedicalConditionsNotes } from '../components/medical-conditions/MedicalConditionsNotes';
 import { useNavigationContext } from '../context/NavigationContext';
-import { useAppointment } from '../hooks/useAppointment';
-
 interface MedicalConditionsProps {
   appointmentID?: string;
 }
 
 export const MedicalConditions: FC<MedicalConditionsProps> = () => {
-  const { id: appointmentID } = useParams();
   const {
     resources: { appointment },
-    isLoading,
-    error,
-  } = useAppointment(appointmentID);
+    isAppointmentLoading,
+    appointmentError,
+  } = useAppointmentData();
 
-  const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);
-
+  const { isChartDataLoading, chartDataError } = useChartData();
+  const isLoading = isAppointmentLoading || isChartDataLoading;
+  const error = chartDataError || appointmentError;
   const { interactionMode } = useNavigationContext();
 
-  if (isLoading || isChartDataLoading) return <CSSLoader />;
-  if (error) return <Typography>Error: {error.message}</Typography>;
+  if (isLoading) return <CSSLoader />;
+  if (error?.message) return <Typography>Error: {error.message}</Typography>;
   if (!appointment) return <Typography>No data available</Typography>;
 
   return (

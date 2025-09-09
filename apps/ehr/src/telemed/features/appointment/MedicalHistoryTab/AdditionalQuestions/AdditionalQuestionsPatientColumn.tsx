@@ -2,15 +2,11 @@ import { Box, Divider } from '@mui/material';
 import React, { FC } from 'react';
 import { convertToBoolean, getQuestionnaireResponseByLinkId } from 'utils';
 import { ADDITIONAL_QUESTIONS } from '../../../../../constants';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../../state';
+import { useAppointmentData } from '../../../../state';
 import { AdditionalQuestionView } from '../components';
 
 export const AdditionalQuestionsPatientColumn: FC = () => {
-  const { questionnaireResponse, isAppointmentLoading } = getSelectors(useAppointmentStore, [
-    'questionnaireResponse',
-    'isAppointmentLoading',
-  ]);
+  const { questionnaireResponse, isAppointmentLoading } = useAppointmentData();
 
   return (
     <Box

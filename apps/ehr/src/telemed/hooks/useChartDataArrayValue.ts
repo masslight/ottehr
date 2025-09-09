@@ -1,9 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { GetChartDataResponse, SaveableDTO, SearchParams } from 'utils';
-import { useChartData } from '../../features/css-module/hooks/useChartData';
-import { getSelectors } from '../../shared/store/getSelectors';
-import { useAppointmentStore, useDeleteChartData, useSaveChartData } from '../state';
+import { useChartData, useDeleteChartData, useSaveChartData } from '../state';
 
 type ChartDataArrayValueType = Pick<
   GetChartDataResponse,
@@ -36,23 +34,19 @@ export const useChartDataArrayValue = <
 } => {
   const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
   const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
-  const { chartData, setPartialChartData, encounter } = getSelectors(useAppointmentStore, [
-    'chartData',
-    'setPartialChartData',
-    'encounter',
-  ]);
+  const { setPartialChartData, chartData } = useChartData();
+
   const {
     isLoading: isChartDataLoading,
     chartData: currentFieldData,
     queryKey,
   } = useChartData({
-    encounterId: encounter.id || '',
     requestedFields: { [name]: customParams || {} },
     enabled: !!customParams,
     replaceStoreValues: true,
   });
-  const queryClient = useQueryClient();
 
+  const queryClient = useQueryClient();
   const values = (customParams ? currentFieldData?.[name] || [] : chartData?.[name] || []) as K;
 
   const onSubmit = (data: ElementType<K>): Promise<boolean> => {
@@ -66,10 +60,12 @@ export const useChartDataArrayValue = <
             setPartialChartData({
               [name]: [...values, ...(data.chartData[name] as K)],
             });
+
             queryClient.setQueryData<typeof currentFieldData>(queryKey, (oldData) => ({
               ...oldData!,
               [name]: [...values, ...(data.chartData[name] as K)],
             }));
+
             resolve(true);
           },
           onError: (error) => {

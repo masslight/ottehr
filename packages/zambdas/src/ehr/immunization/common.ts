@@ -23,6 +23,7 @@ export const VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL = ottehrExtensionUrl(
 export const IMMUNIZATION_ORDER_CREATED_DATETIME_EXTENSION_URL = ottehrExtensionUrl(
   'immunization-order-created-date-time'
 );
+export const IMMUNIZATION_ORDER_MEDICATION_ID_EXTENSION_URL = ottehrExtensionUrl('immunization-order-medication-id');
 
 export async function updateOrderDetails(
   medicationAdministration: MedicationAdministration,
@@ -37,6 +38,13 @@ export async function updateOrderDetails(
       id: medicationId,
     });
     const medicationLocalCopy = createMedicationCopy(medication, {});
+    if (medicationLocalCopy.extension == null) {
+      medicationLocalCopy.extension = [];
+    }
+    medicationLocalCopy.extension.push({
+      url: IMMUNIZATION_ORDER_MEDICATION_ID_EXTENSION_URL,
+      valueString: medicationId,
+    });
     medicationAdministration.medicationReference = { reference: '#' + CONTAINED_MEDICATION_ID };
     medicationAdministration.contained = [
       {

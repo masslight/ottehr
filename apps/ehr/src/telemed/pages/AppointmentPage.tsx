@@ -1,28 +1,15 @@
 import { Box } from '@mui/material';
 import { GlobalStyles, lightTheme, MeetingProvider } from 'amazon-chime-sdk-component-library-react';
-import {
-  Appointment,
-  DocumentReference,
-  Encounter,
-  FhirResource,
-  Location,
-  Patient,
-  Practitioner,
-  QuestionnaireResponse,
-} from 'fhir/r4b';
 import { FC, useEffect, useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { ThemeProvider } from 'styled-components';
 import {
   getQuestionnaireResponseByLinkId,
-  isLocationVirtual,
+  getSelectors,
   mapStatusToTelemed,
   RefreshableAppointmentData,
-  SCHOOL_WORK_NOTE_CODE,
-  SCHOOL_WORK_NOTE_TEMPLATE_CODE,
   TelemedAppointmentStatusEnum,
 } from 'utils';
-import { getSelectors } from '../../shared/store/getSelectors';
 import HearingRelayPopup from '../components/HearingRelayPopup';
 import PreferredLanguagePopup from '../components/PreferredLanguagePopup';
 import {
@@ -32,21 +19,52 @@ import {
   AppointmentTabs,
   VideoChatContainer,
 } from '../features/appointment';
-import { useResetAppointmentStore } from '../hooks';
-import { useAppointmentStore, useGetAppointment, useRefreshableAppointmentData, useVideoCallStore } from '../state';
-import { arraysEqual, extractPhotoUrlsFromAppointmentData, extractReviewAndSignAppointmentData } from '../utils';
+import { useResetAppointmentStore } from '../hooks/useResetAppointmentStore';
+import {
+  useAppointmentData,
+  useAppTelemedLocalStore,
+  useRefreshableAppointmentData,
+  useVideoCallStore,
+} from '../state';
+import { arraysEqual } from '../utils';
 
 export const AppointmentPage: FC = () => {
   const { id } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
+  const tab = searchParams.get('tab');
+  useResetAppointmentStore();
+
+  useEffect(() => {
+    if (tab) {
+      useAppTelemedLocalStore.setState({ currentTab: tab });
+      searchParams.delete('tab');
+      setSearchParams(searchParams);
+    }
+  }, [tab, searchParams, setSearchParams]);
 
   const { meetingData } = getSelectors(useVideoCallStore, ['meetingData']);
 
-  const {
-    appointment,
-    encounter,
-    patientPhotoUrls: currentPatientPhotosUrls,
-  } = getSelectors(useAppointmentStore, ['appointment', 'encounter', 'patientPhotoUrls']);
+  const { appointment, encounter, patientPhotoUrls, appointmentSetState, questionnaireResponse } = useAppointmentData();
+
+  useEffect(() => {
+    if (!questionnaireResponse) return;
+
+    const relayPhone = getQuestionnaireResponseByLinkId('relay-phone', questionnaireResponse)?.answer?.find(Boolean)
+      ?.valueString;
+
+    if (relayPhone?.toLowerCase() === 'yes') {
+      setShouldHearingRelayPopupBeOpened(true);
+    }
+
+    const preferredLanguage = getQuestionnaireResponseByLinkId('preferred-language', questionnaireResponse)?.answer?.[0]
+      ?.valueString;
+
+    setPreferredLanguage(preferredLanguage);
+
+    if (preferredLanguage && preferredLanguage !== 'English') {
+      setShouldPreferredLanguagePopupBeOpened(true);
+    }
+  }, [questionnaireResponse]);
 
   const [wasHearingRelayPopupOpen, setWasHearingRelayPopupOpen] = useState(false);
   const [shouldHearingRelayPopupBeOpened, setShouldHearingRelayPopupBeOpened] = useState(false);
@@ -54,6 +72,7 @@ export const AppointmentPage: FC = () => {
   const [shouldPreferredLanguagePopupBeOpened, setShouldPreferredLanguagePopupBeOpened] = useState(false);
   const [preferredLanguage, setPreferredLanguage] = useState<string | undefined>(undefined);
   const isPreferredLanguagePopupOpen = shouldPreferredLanguagePopupBeOpened && !wasPreferredLanguagePopupOpen;
+
   const isHearingRelayPopupOpen =
     shouldHearingRelayPopupBeOpened && !wasHearingRelayPopupOpen && !isPreferredLanguagePopupOpen;
 
@@ -81,75 +100,12 @@ export const AppointmentPage: FC = () => {
     },
     (refreshedData: RefreshableAppointmentData) => {
       const updatedPatientConditionPhotoUrs = refreshedData.patientConditionPhotoUrls;
-      const hasPhotosUpdates = !arraysEqual(currentPatientPhotosUrls, updatedPatientConditionPhotoUrs);
+      const hasPhotosUpdates = !arraysEqual(patientPhotoUrls, updatedPatientConditionPhotoUrs);
       if (hasPhotosUpdates) {
-        useAppointmentStore.setState({ patientPhotoUrls: updatedPatientConditionPhotoUrs });
+        appointmentSetState({ patientPhotoUrls: updatedPatientConditionPhotoUrs });
       }
     }
   );
-
-  useGetAppointment(
-    {
-      appointmentId: id,
-    },
-    (data) => {
-      if (!data) return;
-      const questionnaireResponse = data?.find(
-        (resource: FhirResource) => resource.resourceType === 'QuestionnaireResponse'
-      ) as QuestionnaireResponse;
-      useAppointmentStore.setState({
-        appointment: data?.find((resource: FhirResource) => resource.resourceType === 'Appointment') as Appointment,
-        patient: data?.find((resource: FhirResource) => resource.resourceType === 'Patient') as Patient,
-        location: (data?.filter((resource: FhirResource) => resource.resourceType === 'Location') as Location[]).find(
-          (location) => !isLocationVirtual(location)
-        ),
-        locationVirtual: (
-          data?.filter((resource: FhirResource) => resource.resourceType === 'Location') as Location[]
-        ).find(isLocationVirtual),
-        practitioner: data?.find(
-          (resource: FhirResource) => resource.resourceType === 'Practitioner'
-        ) as unknown as Practitioner,
-        encounter: data?.find((resource: FhirResource) => resource.resourceType === 'Encounter') as Encounter,
-        questionnaireResponse,
-        patientPhotoUrls: extractPhotoUrlsFromAppointmentData(data),
-        schoolWorkNoteUrls:
-          (data
-            ?.filter(
-              (resource: FhirResource) =>
-                resource.resourceType === 'DocumentReference' &&
-                resource.status === 'current' &&
-                (resource.type?.coding?.[0].code === SCHOOL_WORK_NOTE_CODE ||
-                  resource.type?.coding?.[0].code === SCHOOL_WORK_NOTE_TEMPLATE_CODE)
-            )
-            .flatMap((docRef: FhirResource) => (docRef as DocumentReference).content.map((cnt) => cnt.attachment.url))
-            .filter(Boolean) as string[]) || [],
-        reviewAndSignData: extractReviewAndSignAppointmentData(data),
-      });
-
-      const relayPhone = getQuestionnaireResponseByLinkId('relay-phone', questionnaireResponse)?.answer?.find(Boolean)
-        ?.valueString;
-      if (relayPhone?.toLowerCase() === 'yes') {
-        setShouldHearingRelayPopupBeOpened(true);
-      }
-      const preferredLanguage = getQuestionnaireResponseByLinkId('preferred-language', questionnaireResponse)
-        ?.answer?.[0]?.valueString;
-      setPreferredLanguage(preferredLanguage);
-      if (preferredLanguage && preferredLanguage !== 'English') {
-        setShouldPreferredLanguagePopupBeOpened(true);
-      }
-    }
-  );
-
-  useResetAppointmentStore();
-
-  const [tab] = useState(searchParams.get('tab'));
-  useEffect(() => {
-    if (tab) {
-      useAppointmentStore.setState({ currentTab: tab });
-      searchParams.delete('tab');
-      setSearchParams(searchParams);
-    }
-  }, [searchParams, setSearchParams, tab]);
 
   return (
     <Box

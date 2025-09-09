@@ -1,7 +1,6 @@
 import { FC, useMemo } from 'react';
 import { BaseBreadcrumbs } from 'src/components/BaseBreadcrumbs';
-import { getSelectors } from '../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../../telemed';
+import { useAppointmentData } from '../../../../telemed';
 
 interface LabBreadcrumbsProps {
   sectionName: string;
@@ -9,7 +8,7 @@ interface LabBreadcrumbsProps {
 }
 
 export const LabBreadcrumbs: FC<LabBreadcrumbsProps> = ({ sectionName, children }) => {
-  const { appointment } = getSelectors(useAppointmentStore, ['appointment']);
+  const { appointment } = useAppointmentData();
 
   const baseCrumb = useMemo(
     () => ({

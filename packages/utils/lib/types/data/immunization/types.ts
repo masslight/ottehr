@@ -64,6 +64,7 @@ export interface CreateUpdateImmunizationOrderResponse {
 export interface GetImmunizationOrdersRequest {
   orderId?: string;
   patientId?: string;
+  encounterId?: string;
 }
 
 export interface GetImmunizationOrdersResponse {

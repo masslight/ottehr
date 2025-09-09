@@ -29,6 +29,7 @@ import {
   CVX_CODE_SYSTEM_URL,
   getContainedMedication,
   IMMUNIZATION_ORDER_CREATED_DATETIME_EXTENSION_URL,
+  IMMUNIZATION_ORDER_MEDICATION_ID_EXTENSION_URL,
   MVX_CODE_SYSTEM_URL,
   VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
   VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL,
@@ -57,11 +58,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 });
 
-async function getImmunizationOrders(
+export async function getImmunizationOrders(
   oystehr: Oystehr,
   input: GetImmunizationOrdersRequest
 ): Promise<GetImmunizationOrdersResponse> {
-  const { orderId, patientId } = input;
+  const { orderId, patientId, encounterId } = input;
   const params: SearchParam[] = [
     {
       name: '_tag',
@@ -80,6 +81,12 @@ async function getImmunizationOrders(
       value: 'Patient/' + patientId,
     });
   }
+  if (encounterId) {
+    params.push({
+      name: 'context',
+      value: 'Encounter/' + encounterId,
+    });
+  }
   return {
     orders: (
       await oystehr.fhir.search<MedicationAdministration>({
@@ -95,11 +102,16 @@ async function getImmunizationOrders(
 export function validateRequestParameters(
   input: ZambdaInput
 ): GetImmunizationOrdersRequest & Pick<ZambdaInput, 'secrets'> {
-  const { orderId, patientId } = validateJsonBody(input);
+  const { orderId, patientId, encounterId } = validateJsonBody(input);
+
+  if (!orderId && !patientId && !encounterId) {
+    throw new Error(`orderId or patientId or encounterId must be provided`);
+  }
 
   return {
     orderId,
     patientId,
+    encounterId,
     secrets: input.secrets,
   };
 }
@@ -122,8 +134,10 @@ function mapMedicationAdministrationToImmunizationOrder(
     reason: medicationAdministration.note?.[0].text,
     details: {
       medication: {
-        id: medication?.id ?? '',
-        name: medication ? getMedicationName(medication) ?? '' : '',
+        id:
+          medication?.extension?.find((e) => e.url === IMMUNIZATION_ORDER_MEDICATION_ID_EXTENSION_URL)?.valueString ??
+          '',
+        name: getMedicationName(medication) ?? '',
       },
       dose: medicationAdministration.dosage?.dose?.value?.toString() ?? '',
       units: medicationAdministration.dosage?.dose?.unit ?? '',

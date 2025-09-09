@@ -15,17 +15,12 @@ import {
   Resource,
   ServiceRequest,
 } from 'fhir/r4b';
+import { ObservationDTO } from 'utils';
 import { EncounterExternalLabResult, EncounterInHouseLabResult } from '../lab';
 import {
   AiObservationField,
   ASQ_FIELD,
   ASQKeys,
-  HISTORY_OBTAINED_FROM_FIELD,
-  HistorySourceKeys,
-  PATIENT_VACCINATION_STATUS,
-  PatientVaccinationKeys,
-  RecentVisitKeys,
-  SEEN_IN_LAST_THREE_YEARS_FIELD,
   VitalAlertCriticality,
   VitalBloodPressureObservationMethod,
   VitalFieldNames,
@@ -34,12 +29,6 @@ import {
   VitalTemperatureObservationMethod,
 } from './chart-data.constants';
 import { GetChartDataResponse } from './get-chart-data.types';
-import {
-  ExamCardsNames,
-  ExamFieldsNames,
-  InPersonExamCardsNames,
-  InPersonExamFieldsNames,
-} from './save-chart-data.types';
 
 export interface ChartDataFields {
   chiefComplaint?: FreeTextNoteDTO;
@@ -145,22 +134,17 @@ export interface AllergyDTO extends SaveableDTO {
 }
 
 export const EXAM_OBSERVATION_META_SYSTEM = 'exam-observation-field';
-
 export const ADDITIONAL_QUESTIONS_META_SYSTEM = 'additional-questions-field';
 export const AI_OBSERVATION_META_SYSTEM = 'ai-observation';
-
 export const PATIENT_VITALS_META_SYSTEM = 'patient-vitals-field';
-
 export const NOTHING_TO_EAT_OR_DRINK_ID = 'nothing-to-eat-or-drink'; // fhir url
 export const NOTHING_TO_EAT_OR_DRINK_FIELD = 'nothingToEatOrDrink'; // backend/frontend - disposition field & form field
 export const NOTHING_TO_EAT_OR_DRINK_LABEL = 'Nothing to eat or drink until evaluated in the Emergency Department.'; // frontend form label
-
 export const PATIENT_INSTRUCTIONS_TEMPLATE_CODE = 'patient-instruction-template';
-
 export const CSS_NOTE_ID = 'css-note';
 
 export interface ExamObservationDTO extends SaveableDTO {
-  field: ExamFieldsNames | ExamCardsNames | InPersonExamFieldsNames | InPersonExamCardsNames;
+  field: string;
   note?: string;
   value?: boolean;
 }
@@ -232,44 +216,10 @@ export type VitalsObservationDTO =
   | VitalsHeightObservationDTO
   | VitalsVisionObservationDTO;
 
-export type ObservationDTO = ObservationTextFieldDTO | ObservationBooleanFieldDTO | VitalsObservationDTO;
-
 export interface ObservationBooleanFieldDTO extends SaveableDTO {
   field: string;
   value?: boolean;
 }
-
-export type ObservationTextFieldDTO =
-  | ObservationHistoryObtainedFromDTO
-  | ObservationSeenInLastThreeYearsDTO
-  | ASQObservationDTO
-  | PatientVaccinationDTO;
-
-export type ObservationHistoryObtainedFromDTO =
-  | CustomOptionObservationHistoryObtainedFromDTO
-  | ListOptionObservationHistoryObtainedFromDTO;
-
-export type CustomOptionObservationHistoryObtainedFromDTO = {
-  field: typeof HISTORY_OBTAINED_FROM_FIELD;
-  value: HistorySourceKeys.NotObtainedOther;
-  note: string;
-} & SaveableDTO;
-
-export type ListOptionObservationHistoryObtainedFromDTO = {
-  field: typeof HISTORY_OBTAINED_FROM_FIELD;
-  value: Exclude<HistorySourceKeys, HistorySourceKeys.NotObtainedOther>;
-} & SaveableDTO;
-
-export type ObservationSeenInLastThreeYearsDTO = {
-  field: typeof SEEN_IN_LAST_THREE_YEARS_FIELD;
-  value: RecentVisitKeys;
-} & SaveableDTO;
-
-export type PatientVaccinationDTO = {
-  field: typeof PATIENT_VACCINATION_STATUS;
-  value: PatientVaccinationKeys;
-  note?: string;
-} & SaveableDTO;
 
 export type ASQObservationDTO = {
   field: typeof ASQ_FIELD;
@@ -388,100 +338,6 @@ export interface PdfBulletPointItem {
   text: string;
   subItems?: PdfBulletPointItem[];
 }
-
-export type ExamTabCardNames =
-  | 'vitals'
-  | 'general'
-  | 'head'
-  | 'eyes'
-  | 'nose'
-  | 'ears'
-  | 'mouth'
-  | 'neck'
-  | 'chest'
-  | 'back'
-  | 'skin'
-  | 'abdomen'
-  | 'musculoskeletal'
-  | 'neurological'
-  | 'psych';
-
-export type InPersonExamTabProviderCardNames =
-  | 'general'
-  | 'skin'
-  | 'hair'
-  | 'nails'
-  | 'head'
-  | 'eyes'
-  | 'ears'
-  | 'nose'
-  | 'mouth'
-  | 'teeth'
-  | 'pharynx'
-  | 'neck'
-  | 'heart'
-  | 'lungs'
-  | 'abdomen'
-  | 'back'
-  | 'rectal'
-  | 'extremities'
-  | 'musculoskeletal'
-  | 'neurologic'
-  | 'psychiatric';
-
-export const IN_PERSON_EXAM_CARDS: InPersonExamTabProviderCardNames[] = [
-  'general',
-  'skin',
-  'hair',
-  'nails',
-  'head',
-  'eyes',
-  'ears',
-  'nose',
-  'mouth',
-  'teeth',
-  'pharynx',
-  'neck',
-  'heart',
-  'lungs',
-  'abdomen',
-  'back',
-  'rectal',
-  'extremities',
-  'musculoskeletal',
-  'neurologic',
-  'psychiatric',
-];
-
-export type ExamTabProviderCardNames = Exclude<ExamTabCardNames, 'vitals'>;
-
-export type ExamTabGroupNames =
-  | 'normal'
-  | 'abnormal'
-  | 'rightEye'
-  | 'leftEye'
-  | 'rightEar'
-  | 'leftEar'
-  | 'form'
-  | 'dropdown';
-
-export type ExamObservationFieldItem = {
-  field: ExamFieldsNames;
-  defaultValue: boolean;
-  abnormal: boolean;
-  group: ExamTabGroupNames;
-  card: ExamTabProviderCardNames;
-  label: string;
-};
-
-export type InPersonExamObservationFieldItem = {
-  field: InPersonExamFieldsNames;
-  defaultValue: boolean;
-  abnormal: boolean;
-  group: ExamTabGroupNames;
-  card: InPersonExamTabProviderCardNames;
-  label: string;
-};
 
 const defaultNotes: Record<DispositionType, string> = {
   ip: 'Please proceed to the In Person Office as advised.',

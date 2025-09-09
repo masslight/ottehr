@@ -1,8 +1,7 @@
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Typography } from '@mui/material';
-import React, { ReactElement } from 'react';
+import { ReactElement } from 'react';
 import { getQuestionnaireResponseByLinkId } from 'utils';
-import { getSelectors } from '../../shared/store/getSelectors';
-import { useAppointmentStore } from '../state';
+import { useAppointmentData } from '../state';
 
 interface HearingRelayPopupProps {
   onClose: () => void;
@@ -10,7 +9,7 @@ interface HearingRelayPopupProps {
 }
 
 const HearingRelayPopup = ({ onClose, isOpen }: HearingRelayPopupProps): ReactElement => {
-  const { questionnaireResponse } = getSelectors(useAppointmentStore, ['questionnaireResponse']);
+  const { questionnaireResponse } = useAppointmentData();
 
   const patientPhoneNumber =
     getQuestionnaireResponseByLinkId('patient-number', questionnaireResponse)?.answer?.[0]?.valueString ||

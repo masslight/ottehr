@@ -6,16 +6,13 @@ import {
   ASQKeys,
   asqLabels,
   convertBooleanToString,
-  convertTemperature,
   CPTCodeDTO,
   createMedicationString,
   CustomOptionObservationHistoryObtainedFromDTO,
   dispositionCheckboxOptions,
-  ExamCardsNames,
-  ExamFieldsNames,
+  ExamCardComponent,
+  examConfig,
   ExamObservationDTO,
-  ExamObservationFieldItem,
-  examObservationFieldsDetailsArray,
   formatDateTimeToZone,
   getAdmitterPractitionerId,
   getAttendingPractitionerId,
@@ -28,11 +25,9 @@ import {
   HISTORY_OBTAINED_FROM_FIELD,
   HistorySourceKeys,
   historySourceLabels,
-  IN_PERSON_EXAM_CARDS,
-  InPersonExamCardsNames,
-  InPersonExamFieldsNames,
-  inPersonExamObservationFieldsDetailsArray,
-  InPersonExamTabProviderCardNames,
+  ImmunizationOrder,
+  isDropdownComponent,
+  isMultiSelectComponent,
   mapDispositionTypeToLabel,
   mapEncounterStatusHistory,
   mapVitalsToDisplay,
@@ -42,15 +37,15 @@ import {
   ObservationHistoryObtainedFromDTO,
   ObservationSeenInLastThreeYearsDTO,
   OTTEHR_MODULE,
-  parseMusculoskeletalFieldToName,
-  rashesOptions,
   recentVisitLabels,
+  searchMedicationLocation,
+  searchRouteByCode,
   Secrets,
   SEEN_IN_LAST_THREE_YEARS_FIELD,
   Timezone,
 } from 'utils';
 import { PdfInfo } from '../pdf-utils';
-import { InPersonExamBlockData, TelemedExamBlockData, VisitNoteData } from '../types';
+import { PdfExaminationBlockData, VisitNoteData } from '../types';
 import { createVisitNotePDF } from '../visit-note-pdf';
 import { FullAppointmentResourcePackage } from './types';
 
@@ -58,6 +53,7 @@ type AllChartData = {
   chartData: GetChartDataResponse;
   additionalChartData?: GetChartDataResponse;
   medicationOrders?: GetMedicationOrdersResponse['orders'];
+  immunizationOrders?: ImmunizationOrder[];
 };
 
 export async function composeAndCreateVisitNotePdf(
@@ -81,7 +77,7 @@ function composeDataForPdf(
   appointmentPackage: FullAppointmentResourcePackage,
   isInPersonAppointment: boolean
 ): VisitNoteData {
-  const { chartData, additionalChartData, medicationOrders } = allChartData;
+  const { chartData, additionalChartData, medicationOrders, immunizationOrders } = allChartData;
 
   const { patient, encounter, appointment, location, questionnaireResponse, practitioners, timezone } =
     appointmentPackage;
@@ -166,6 +162,11 @@ function composeDataForPdf(
     ?.filter((note) => note.type === NOTE_TYPE.MEDICATION)
     ?.map((note) => note.text);
 
+  // --- Immunization orders ---
+  const immunizationOrdersToRender = (immunizationOrders ?? [])
+    .filter((order) => ['administered', 'administered-partly'].includes(order.status))
+    .map(immunizationOrderToString);
+
   // --- Addition questions ---
   const additionalQuestions = Object.values(AdditionalBooleanQuestionsFieldsNames).reduce(
     (acc, field) => {
@@ -220,9 +221,7 @@ function composeDataForPdf(
     ?.map((note) => note.text);
 
   // --- Examination ---
-  const examination = isInPersonAppointment
-    ? parseInPersonExamFieldsFromExamObservations(chartData)
-    : parseExamFieldsFromExamObservations(chartData, questionnaireResponse);
+  const examination = parseExamFieldsFromExamObservations(chartData, isInPersonAppointment);
 
   // --- Assessment ---
   const diagnoses = chartData?.diagnosis || [];
@@ -339,6 +338,7 @@ function composeDataForPdf(
     surgicalHistoryNotes,
     inHouseMedications,
     inHouseMedicationsNotes,
+    immunizationOrders: immunizationOrdersToRender,
     additionalQuestions,
     screening: {
       seenInLastThreeYears,
@@ -446,168 +446,163 @@ function mapMedicalConditions(chartData: GetChartDataResponse): string[] {
 
 function parseExamFieldsFromExamObservations(
   chartData: GetChartDataResponse,
-  questionnaireResponse: QuestionnaireResponse | undefined
-): { examination: TelemedExamBlockData } {
+  isInPersonAppointment: boolean
+): {
+  examination: PdfExaminationBlockData['examination'];
+} {
   const examObservations: {
-    [field in ExamFieldsNames | ExamCardsNames | InPersonExamCardsNames | InPersonExamFieldsNames]?: ExamObservationDTO;
+    [field: string]: ExamObservationDTO;
   } = {};
   chartData.examObservations?.forEach((exam) => {
     examObservations[exam.field] = exam;
   });
 
-  const generalItems: ExamObservationFieldItem[] = [];
-  const headItems: ExamObservationFieldItem[] = [];
-  const eyesItems: ExamObservationFieldItem[] = [];
-  const rightEyeItems: ExamObservationFieldItem[] = [];
-  const leftEyeItems: ExamObservationFieldItem[] = [];
-  const noseItems: ExamObservationFieldItem[] = [];
-  const rightEarItems: ExamObservationFieldItem[] = [];
-  const leftEarItems: ExamObservationFieldItem[] = [];
-  const mouthItems: ExamObservationFieldItem[] = [];
-  const neckItems: ExamObservationFieldItem[] = [];
-  const chestItems: ExamObservationFieldItem[] = [];
-  const abdomenItems: ExamObservationFieldItem[] = [];
-  const backItems: ExamObservationFieldItem[] = [];
-  const skinItems: ExamObservationFieldItem[] = [];
-  const skinExtraItems: string[] = [];
-  const musculoskeletalItems: ExamObservationFieldItem[] = [];
-  const musculoskeletalExtraItems: string[] = [];
-  const neurologicalItems: ExamObservationFieldItem[] = [];
-  const psychItems: ExamObservationFieldItem[] = [];
-  examObservationFieldsDetailsArray.forEach((details) => {
-    if (details.group === 'rightEye')
-      rightEyeItems.push({ ...details, abnormal: examObservations[details.field]?.value ?? false });
-    if (details.group === 'leftEye')
-      leftEyeItems.push({ ...details, abnormal: examObservations[details.field]?.value ?? false });
-    if (details.group === 'rightEar')
-      rightEarItems.push({ ...details, abnormal: examObservations[details.field]?.value ?? false });
-    if (details.group === 'leftEar')
-      leftEarItems.push({ ...details, abnormal: examObservations[details.field]?.value ?? false });
+  // Get exam configuration based on whether it's in-person or telemed
+  const examConfigComponents = examConfig[isInPersonAppointment ? 'inPerson' : 'telemed'].default.components;
 
-    if (!examObservations[details.field]?.value) return;
-    if (details.card === 'general' && ['normal', 'abnormal'].includes(details.group)) generalItems.push(details);
-    if (details.card === 'general' && details.group === 'dropdown')
-      generalItems.push({ ...details, label: `${details.label} distress` });
-    if (details.card === 'head') headItems.push(details);
-    if (details.card === 'eyes' && ['normal', 'abnormal'].includes(details.group)) eyesItems.push(details);
-    if (details.card === 'nose') noseItems.push(details);
-    if (details.card === 'mouth') mouthItems.push(details);
-    if (details.card === 'neck') neckItems.push(details);
-    if (details.card === 'chest') chestItems.push(details);
-    if (details.card === 'abdomen') {
-      abdomenItems.push(details.group === 'dropdown' ? { ...details, label: `Tender ${details.label}` } : details);
-    }
-    if (details.card === 'back') backItems.push(details);
-    if (details.card === 'skin' && ['normal', 'abnormal'].includes(details.group)) skinItems.push(details);
-    if (details.card === 'musculoskeletal' && ['normal', 'abnormal'].includes(details.group))
-      musculoskeletalItems.push(details);
-    if (details.card === 'neurological') neurologicalItems.push(details);
-    if (details.card === 'psych') psychItems.push(details);
-    if (details.card === 'skin' && details.group === 'form') {
-      if (!skinItems.find((item) => item.label === 'Rashes')) {
-        skinItems.push({ label: 'Rashes', abnormal: true } as ExamObservationFieldItem);
+  // If no exam config or observations, return empty examination
+  if (!examConfigComponents || !chartData.examObservations || chartData.examObservations.length === 0) {
+    return {
+      examination: {},
+    };
+  }
+
+  const formatElementName = (elementName: string): string => {
+    return elementName
+      .split('-')
+      .map((word) => {
+        return word
+          .replace(/([A-Z])/g, ' $1')
+          .toLowerCase()
+          .replace(/^./, (str) => str.toUpperCase())
+          .trim();
+      })
+      .join(' | ');
+  };
+
+  const extractObservationsFromComponents = (
+    components: Record<string, ExamCardComponent>,
+    section: 'normal' | 'abnormal'
+  ): Array<{ field: string; label: string; abnormal: boolean }> => {
+    const items: Array<{ field: string; label: string; abnormal: boolean }> = [];
+
+    Object.entries(components).forEach(([fieldName, component]) => {
+      if (component.type === 'text') return;
+
+      switch (component.type) {
+        case 'checkbox': {
+          const observation = examObservations[fieldName];
+          if (observation && typeof observation.value === 'boolean' && observation.value === true) {
+            items.push({
+              field: fieldName,
+              label: component.label,
+              abnormal: section === 'abnormal',
+            });
+          }
+          break;
+        }
+
+        case 'dropdown': {
+          if (isDropdownComponent(component)) {
+            Object.entries(component.components).forEach(([optionName, option]) => {
+              const observation = examObservations[optionName];
+              if (observation && typeof observation.value === 'boolean' && observation.value === true) {
+                items.push({
+                  field: optionName,
+                  label: `${component.label}: ${option.label}`,
+                  abnormal: section === 'abnormal',
+                });
+              }
+            });
+          }
+          break;
+        }
+
+        case 'form': {
+          Object.entries(component.components).forEach(([elementName]) => {
+            const observation = examObservations[elementName];
+            if (observation && typeof observation.value === 'boolean' && observation.value === true) {
+              const formattedElementName = formatElementName(elementName);
+              const note = observation.note ? ` | ${observation.note}` : '';
+
+              items.push({
+                field: elementName,
+                label: `${component.label}: ${formattedElementName}${note}`,
+                abnormal: section === 'abnormal',
+              });
+            }
+          });
+          break;
+        }
+
+        case 'multi-select': {
+          if (isMultiSelectComponent(component)) {
+            Object.entries(component.options).forEach(([optionName, option]) => {
+              const observation = examObservations[optionName];
+              if (observation && typeof observation.value === 'boolean' && observation.value === true) {
+                items.push({
+                  field: optionName,
+                  label: `${component.label}: ${option.label}`,
+                  abnormal: section === 'abnormal',
+                });
+              }
+            });
+          }
+          break;
+        }
+
+        case 'column': {
+          const nestedItems = extractObservationsFromComponents(component.components, section);
+          const itemsWithColumnLabel = nestedItems.map((item) => ({
+            ...item,
+            label: `${component.label}: ${item.label}`,
+          }));
+          items.push(...itemsWithColumnLabel);
+          break;
+        }
+
+        default:
+          break;
       }
+    });
 
-      const resultArr: string[] = [];
+    return items;
+  };
 
-      resultArr.push(rashesOptions[details.field as keyof typeof rashesOptions]);
-      const note = examObservations[details.field]?.note;
-      if (note) resultArr.push(note);
+  const examinationData: Record<
+    string,
+    { items: Array<{ field: string; label: string; abnormal: boolean }>; comment?: string }
+  > = {};
 
-      skinExtraItems.push(resultArr.join(' | '));
-    }
-    if (details.card === 'musculoskeletal' && details.group === 'form') {
-      musculoskeletalExtraItems.push(parseMusculoskeletalFieldToName(details.field));
-    }
+  Object.entries(examConfigComponents).forEach(([sectionKey, section]) => {
+    const normalItems = extractObservationsFromComponents(section.components.normal, 'normal');
+    const abnormalItems = extractObservationsFromComponents(section.components.abnormal, 'abnormal');
+    const allItems = [...normalItems, ...abnormalItems];
+
+    let comment: string | undefined;
+    Object.keys(section.components.comment).forEach((commentKey) => {
+      const observation = examObservations[commentKey];
+      if (observation?.note) {
+        comment = observation.note;
+      }
+    });
+
+    examinationData[sectionKey] = {
+      items: allItems,
+      comment,
+    };
   });
-  if (musculoskeletalExtraItems.length > 0)
-    musculoskeletalItems.push({ label: 'Abnormal', abnormal: true } as ExamObservationFieldItem);
-
-  const vitalsTempC = getQuestionnaireResponseByLinkId('vitals-temperature', questionnaireResponse)?.answer?.[0]
-    ?.valueString;
-  const vitalsTempF = vitalsTempC ? convertTemperature(vitalsTempC, 'fahrenheit') : 'N/A';
-  const vitalsPulse =
-    getQuestionnaireResponseByLinkId('vitals-pulse', questionnaireResponse)?.answer?.[0]?.valueString || 'N/A';
-  const vitalsHR =
-    getQuestionnaireResponseByLinkId('vitals-hr', questionnaireResponse)?.answer?.[0]?.valueString || 'N/A';
-  const vitalsRR =
-    getQuestionnaireResponseByLinkId('vitals-rr', questionnaireResponse)?.answer?.[0]?.valueString || 'N/A';
-  const vitalsBP =
-    getQuestionnaireResponseByLinkId('vitals-bp', questionnaireResponse)?.answer?.[0]?.valueString || 'N/A';
-
-  const generalProviderComment = examObservations['general-comment']?.note;
-  const headProviderComment = examObservations['head-comment']?.note;
-  // ???? why do we have eyes items but not in the design
-  const eyesProviderComment = examObservations['eyes-comment']?.note;
-  const noseProviderComment = examObservations['nose-comment']?.note;
-  const earsPractitionerComment = examObservations['ears-comment']?.note;
-  const mouthProviderComment = examObservations['mouth-comment']?.note;
-  const neckProviderComment = examObservations['neck-comment']?.note;
-  const chestProviderComment = examObservations['chest-comment']?.note;
-  const abdomenProviderComment = examObservations['abdomen-comment']?.note;
-  const backProviderComment = examObservations['back-comment']?.note;
-  const skinProviderComment = examObservations['skin-comment']?.note;
-  const musculoskeletalProviderComment = examObservations['extremities-musculoskeletal-comment']?.note;
-  const neurologicalProviderComment = examObservations['neurological-comment']?.note;
-  const psychProviderComment = examObservations['psych-comment']?.note;
 
   return {
-    examination: {
-      vitals: {
-        temp: vitalsTempF,
-        pulseOx: vitalsPulse,
-        hr: vitalsHR,
-        rr: vitalsRR,
-        bp: vitalsBP,
-      },
-      general: { items: generalItems, comment: generalProviderComment },
-      head: { items: headItems, comment: headProviderComment },
-      eyes: { items: eyesItems, rightItems: rightEyeItems, leftItems: leftEyeItems, comment: eyesProviderComment },
-      nose: { items: noseItems, comment: noseProviderComment },
-      ears: { rightItems: rightEarItems, leftItems: leftEarItems, comment: earsPractitionerComment },
-      mouth: { items: mouthItems, comment: mouthProviderComment },
-      neck: { items: neckItems, comment: neckProviderComment },
-      chest: { items: chestItems, comment: chestProviderComment },
-      back: { items: backItems, comment: backProviderComment },
-      skin: { items: skinItems, extraItems: skinExtraItems, comment: skinProviderComment },
-      abdomen: { items: abdomenItems, comment: abdomenProviderComment },
-      musculoskeletal: {
-        items: musculoskeletalItems,
-        extraItems: musculoskeletalExtraItems,
-        comment: musculoskeletalProviderComment,
-      },
-      neurological: { items: neurologicalItems, comment: neurologicalProviderComment },
-      psych: { items: psychItems, comment: psychProviderComment },
-    },
+    examination: examinationData,
   };
 }
 
-function parseInPersonExamFieldsFromExamObservations(chartData: GetChartDataResponse): {
-  examination: InPersonExamBlockData;
-} {
-  const examObservations: {
-    [field in ExamFieldsNames | ExamCardsNames | InPersonExamCardsNames | InPersonExamFieldsNames]?: ExamObservationDTO;
-  } = {};
-  chartData.examObservations?.forEach((exam) => {
-    examObservations[exam.field] = exam;
-  });
-
-  const allExams = IN_PERSON_EXAM_CARDS.reduce((prev, curr) => {
-    prev[curr] = { items: [] };
-    return prev;
-  }, {} as InPersonExamBlockData);
-
-  inPersonExamObservationFieldsDetailsArray.forEach((details) => {
-    if (!examObservations[details.field]?.value) return;
-
-    allExams[details.card as InPersonExamTabProviderCardNames].items?.push(details);
-  });
-
-  IN_PERSON_EXAM_CARDS.forEach((card) => {
-    allExams[card].comment = examObservations[`${card}-comment`]?.note;
-  });
-
-  return {
-    examination: allExams,
-  };
+function immunizationOrderToString(order: ImmunizationOrder): string {
+  const route = searchRouteByCode(order.details.route)?.display ?? '';
+  const location = searchMedicationLocation(order.details.location)?.display ?? '';
+  const administratedDateTime = order.administrationDetails?.administeredDateTime
+    ? DateTime.fromISO(order.administrationDetails?.administeredDateTime)?.toFormat('MM/dd/yyyy HH:mm a')
+    : '';
+  return `${order.details.medication.name} - ${order.details.dose} ${order.details.units} / ${route} - ${location}\n${administratedDateTime}`;
 }

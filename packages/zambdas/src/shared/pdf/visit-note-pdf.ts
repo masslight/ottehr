@@ -4,10 +4,7 @@ import { PageSizes } from 'pdf-lib';
 import {
   AdditionalBooleanQuestionsFieldsNames,
   BUCKET_NAMES,
-  ExamObservationFieldItem,
   followUpInOptions,
-  IN_PERSON_EXAM_CARDS,
-  InPersonExamObservationFieldItem,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   NOTHING_TO_EAT_OR_DRINK_LABEL,
   Secrets,
@@ -17,16 +14,7 @@ import {
 import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { createPdfClient, PdfInfo, rgbNormalized } from './pdf-utils';
-import {
-  ImageStyle,
-  InPersonExamBlockData,
-  LineStyle,
-  PageStyles,
-  PdfClientStyles,
-  TelemedExamBlockData,
-  TextStyle,
-  VisitNoteData,
-} from './types';
+import { ImageStyle, LineStyle, PageStyles, PdfClientStyles, TextStyle, VisitNoteData } from './types';
 
 async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointment: boolean): Promise<Uint8Array> {
   const pdfClientStyles: PdfClientStyles = {
@@ -168,9 +156,15 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     pdfClient.drawText(text, styles);
   };
 
-  const drawFieldLine = (fieldName: string, fieldValue: string): void => {
-    pdfClient.drawText(fieldName || '', textStyles.fieldHeader);
-    pdfClient.drawText(fieldValue || '', textStyles.fieldText);
+  const drawFieldLine = (name: string, value: string): void => {
+    const leftBound = pdfClient.getLeftBound();
+    const labelWidth = pdfClient.getTextDimensions(name || '', textStyles.fieldHeader).width + 10;
+
+    pdfClient.drawText(name || '', textStyles.fieldHeader);
+    pdfClient.setLeftBound(leftBound + labelWidth);
+
+    pdfClient.drawText(value || '', textStyles.fieldText);
+    pdfClient.setLeftBound(leftBound);
   };
 
   const separateLine = (): void => {
@@ -184,7 +178,7 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
 
   const drawExaminationCard = (
     cardHeader: string,
-    cardContent?: (ExamObservationFieldItem | InPersonExamObservationFieldItem)[],
+    cardContent?: Array<{ label: string; abnormal: boolean; field: string }>,
     extraItems?: string[],
     cardComment?: string
   ): void => {
@@ -236,24 +230,6 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
       pdfClient.drawText(item, textStyles.regularText);
       if (index + 1 < extraItems.length) pdfClient.drawSeparatedLine(examExtraItemsSeparatedLineStyle);
     });
-  };
-
-  const drawExaminationYesNoItems = (cardHeader: string, cardContent: ExamObservationFieldItem[]): void => {
-    pdfClient.drawTextSequential(cardHeader, textStyles.examCardHeader);
-    const headerDims = pdfClient.getTextDimensions(cardHeader, textStyles.examCardHeader);
-    pdfClient.setLeftBound(pdfClient.getLeftBound() + headerDims.width);
-    cardContent.forEach((item) => {
-      const itemText = `${item.label} ${item.abnormal ? ' -  Yes   ' : ' - No   '}`;
-      if (item.label === 'Normal') {
-        if (item.abnormal) pdfClient.drawTextSequential(itemText, textStyles.examRegularField);
-        else pdfClient.drawTextSequential(itemText, textStyles.examBoldField);
-      } else {
-        if (item.abnormal) pdfClient.drawTextSequential(itemText, textStyles.examBoldField);
-        else pdfClient.drawTextSequential(itemText, textStyles.examRegularField);
-      }
-    });
-    pdfClient.setLeftBound(pdfClient.getLeftBound() - headerDims.width);
-    pdfClient.newLine(pdfClient.getTextDimensions('a', textStyles.examRegularField).height + 2);
   };
 
   // This is headline of each line
@@ -453,6 +429,14 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     separateLine();
   }
 
+  if (data.immunizationOrders && data.immunizationOrders.length > 0) {
+    drawBlockHeader('Immunization');
+    data.immunizationOrders.forEach((record) => {
+      regularText(record);
+    });
+    separateLine();
+  }
+
   if (
     Object.values(data.additionalQuestions).some((value) => value !== '') ||
     data.screening?.seenInLastThreeYears ||
@@ -545,67 +529,20 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
 
   drawBlockHeader('Examination');
 
-  if (isInPersonAppointment) {
-    const examination = data.examination as InPersonExamBlockData;
+  // Process examination data using the new structure
+  const examination = data.examination;
 
-    IN_PERSON_EXAM_CARDS.forEach((card) => {
-      drawExaminationCard(
-        `${String(card).charAt(0).toUpperCase() + String(card).slice(1)}:   `,
-        examination[card].items,
-        undefined,
-        examination[card].comment
-      );
+  if (examination && Object.keys(examination).length > 0) {
+    Object.entries(examination).forEach(([sectionKey, section]) => {
+      if (section.items && section.items.length > 0) {
+        const sectionLabel = sectionKey.charAt(0).toUpperCase() + sectionKey.slice(1);
+        drawExaminationCard(`${sectionLabel}:   `, section.items, undefined, section.comment);
+      } else if (section.comment) {
+        // If there are no items but there's a comment, still show the section
+        const sectionLabel = sectionKey.charAt(0).toUpperCase() + sectionKey.slice(1);
+        drawExaminationCard(`${sectionLabel}:   `, [], undefined, section.comment);
+      }
     });
-  } else {
-    const examination = data.examination as TelemedExamBlockData;
-
-    const headerDims = pdfClient.getTextDimensions('Vitals (patient provided): ', textStyles.examCardHeader);
-    pdfClient.drawTextSequential('Vitals (patient provided): ', textStyles.examCardHeader);
-    pdfClient.setLeftBound(pdfClient.getLeftBound() + headerDims.width);
-    pdfClient.drawTextSequential('     Temp: ', textStyles.examBoldField);
-    pdfClient.drawTextSequential(examination.vitals.temp, textStyles.examRegularField);
-    pdfClient.drawTextSequential('     PulseOx: ', textStyles.examBoldField);
-    pdfClient.drawTextSequential(examination.vitals.pulseOx, textStyles.examRegularField);
-    pdfClient.drawTextSequential('     HR: ', textStyles.examBoldField);
-    pdfClient.drawTextSequential(examination.vitals.hr, textStyles.examRegularField);
-    pdfClient.newLine(pdfClient.getTextDimensions('a', textStyles.examRegularField).height);
-    pdfClient.drawTextSequential('     RR: ', textStyles.examBoldField);
-    pdfClient.drawTextSequential(examination.vitals.rr, textStyles.examRegularField);
-    pdfClient.drawTextSequential('     BP: ', textStyles.examBoldField);
-    pdfClient.drawTextSequential(examination.vitals.bp, textStyles.examRegularField);
-    pdfClient.setLeftBound(pdfClient.getLeftBound() - headerDims.width);
-    // +16 we add as margin between two exam cards
-    pdfClient.newLine(pdfClient.getTextDimensions('a', textStyles.examRegularField).height + 16);
-
-    drawExaminationCard('General:   ', examination.general.items, undefined, examination.general.comment);
-    drawExaminationCard('Head:   ', examination.head.items, undefined, examination.head.comment);
-    drawExaminationCard('Eyes:   ', examination.eyes.items, undefined);
-    drawExaminationYesNoItems('Right eye:   ', examination.eyes.rightItems!);
-    drawExaminationYesNoItems('Left eye:   ', examination.eyes.leftItems!);
-    drawExamProviderComment(examination.eyes.comment);
-    drawExaminationCard('Nose:   ', examination.nose.items, undefined, examination.nose.comment);
-    drawExaminationYesNoItems('Right ear:   ', examination.ears.rightItems!);
-    drawExaminationYesNoItems('Left ear:   ', examination.ears.leftItems!);
-    drawExamProviderComment(examination.ears.comment);
-    drawExaminationCard('Mouth:   ', examination.mouth.items, undefined, examination.mouth.comment);
-    drawExaminationCard('Neck:   ', examination.neck.items, undefined, examination.neck.comment);
-    drawExaminationCard('Chest:   ', examination.chest.items, undefined, examination.chest.comment);
-    drawExaminationCard('Back:   ', examination.back.items, undefined, examination.back.comment);
-    drawExaminationCard('Skin:   ', examination.skin.items, examination.skin.extraItems, examination.skin.comment);
-    drawExaminationCard('Abdomen:   ', examination.abdomen.items, undefined, examination.abdomen.comment);
-    drawExaminationCard(
-      'Extremities/Musculoskeletal:   ',
-      examination.musculoskeletal.items,
-      examination.musculoskeletal.extraItems,
-      examination.musculoskeletal.comment
-    );
-    drawExaminationCard(
-      'Neurological:   ',
-      examination.neurological.items,
-      undefined,
-      examination.neurological.comment
-    );
-    drawExaminationCard('Psych:   ', examination.psych.items, undefined, examination.psych.comment);
   }
   separateLine();
 

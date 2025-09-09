@@ -1,46 +1,19 @@
-import { Encounter } from 'fhir/r4b';
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import {
-  EXAM_OBSERVATIONS_INITIAL,
-  IN_PERSON_EXAM_OBSERVATIONS_INITIAL,
-  useAppointmentStore,
+  APP_TELEMED_LOCAL_INITIAL,
+  useAppTelemedLocalStore,
   useExamObservationsStore,
-  useInPersonExamObservationsStore,
   useVideoCallStore,
 } from '../state';
-import {
-  EXAM_CARDS_INITIAL,
-  IN_PERSON_EXAM_CARDS_INITIAL,
-  useExamCardsStore,
-  useInPersonExamCardsStore,
-} from '../state/appointment/exam-cards.store';
 
 export const useResetAppointmentStore = (): void => {
   const didResetRef = useRef(false);
 
   if (!didResetRef.current) {
-    useAppointmentStore.setState({
-      appointment: undefined,
-      patient: undefined,
-      location: undefined,
-      locationVirtual: undefined,
-      encounter: {} as Encounter,
-      questionnaireResponse: undefined,
-      patientPhotoUrls: [],
-      schoolWorkNoteUrls: [],
-      chartData: undefined,
-      currentTab: 'hpi',
-    });
-    useExamObservationsStore.setState(EXAM_OBSERVATIONS_INITIAL);
-    useInPersonExamObservationsStore.setState(IN_PERSON_EXAM_OBSERVATIONS_INITIAL);
+    useExamObservationsStore.setState({}, true);
     useVideoCallStore.setState({ meetingData: null });
-    useExamCardsStore.setState(EXAM_CARDS_INITIAL);
-    useInPersonExamCardsStore.setState(IN_PERSON_EXAM_CARDS_INITIAL);
+    useAppTelemedLocalStore.setState(APP_TELEMED_LOCAL_INITIAL);
 
     didResetRef.current = true;
   }
-
-  useEffect(() => {
-    return () => useAppointmentStore.setState({ patientPhotoUrls: [] });
-  }, []);
 };

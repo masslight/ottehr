@@ -13,7 +13,7 @@ type Props = {
 export const ProviderSelectInput: React.FC<Props> = ({ name, label, required }) => {
   const { oystehrZambda } = useApiClients();
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [options, setOptions] = useState<Option[]>([]);
+  const [options, setOptions] = useState<Option[] | undefined>(undefined);
   useEffect(() => {
     if (!oystehrZambda) {
       return;

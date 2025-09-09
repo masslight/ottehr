@@ -2,11 +2,10 @@ import { Box, Stack, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
 import { FC, ReactElement } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../../state';
+import { useChartData } from '../../../../state';
 
 export const ProceduresContainer: FC = () => {
-  const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
+  const { chartData } = useChartData();
   const theme = useTheme();
   const procedures = chartData?.procedures;
 
