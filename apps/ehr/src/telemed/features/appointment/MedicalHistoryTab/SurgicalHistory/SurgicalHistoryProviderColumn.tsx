@@ -2,20 +2,16 @@ import { Box, Typography } from '@mui/material';
 import { FC } from 'react';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { useFeatureFlags } from '../../../../../features/css-module/context/featureFlags';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { ActionsList } from '../../../../components';
 import { useGetAppointmentAccessibility } from '../../../../hooks';
-import { useAppointmentStore } from '../../../../state';
+import { useChartData } from '../../../../state';
 import { ProceduresForm } from './ProceduresForm';
 import { ProceduresNoteField, ProceduresNoteFieldSkeleton } from './ProceduresNoteField';
 
 export const SurgicalHistoryProviderColumn: FC = () => {
-  const { isChartDataLoading, chartData } = getSelectors(useAppointmentStore, ['isChartDataLoading', 'chartData']);
-
+  const { chartData, isLoading: isChartDataLoading } = useChartData();
   const procedures = chartData?.surgicalHistory || [];
-
   const cssColumnFeatureFlag = useFeatureFlags();
-
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   return (

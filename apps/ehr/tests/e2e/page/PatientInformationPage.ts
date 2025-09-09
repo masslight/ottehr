@@ -869,6 +869,12 @@ export class InsuranceCard {
     ).toHaveValue(insuranceCarrier);
   }
 
+  async verifyPlanType(planType: string): Promise<void> {
+    await expect(
+      this.#container.getByTestId(dataTestIds.insuranceContainer.insurancePlanType).locator('input')
+    ).toHaveValue(planType);
+  }
+
   async verifyMemberId(memberId: string): Promise<void> {
     await expect(this.#container.getByTestId(dataTestIds.insuranceContainer.memberId).locator('input')).toHaveValue(
       memberId
@@ -1067,6 +1073,11 @@ export class InsuranceCard {
   async selectInsuranceCarrier(insuranceCarrier: string): Promise<void> {
     await this.#container.getByTestId(dataTestIds.insuranceContainer.insuranceCarrier).click();
     await this.#container.page().locator(`li:text("${insuranceCarrier}")`).click();
+  }
+
+  async enterPlanType(planType: string): Promise<void> {
+    await this.#container.getByTestId(dataTestIds.insuranceContainer.insurancePlanType).click();
+    await this.#container.page().locator(`li:text("${planType}")`).click();
   }
 
   async enterMemberId(memberId: string): Promise<void> {

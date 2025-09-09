@@ -35,7 +35,9 @@ import {
   getAccountNumberFromOrganization,
   getFullestAvailableName,
   getOrderNumber,
+  getOrderNumberFromDr,
   isPositiveNumberOrZero,
+  LAB_DR_TYPE_TAG,
   LAB_ORDER_TASK,
   LabelPdf,
   LabOrderDetailedPageDTO,
@@ -48,6 +50,7 @@ import {
   LabOrderUnreceivedHistoryRow,
   LabResultPDF,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
+  OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   Pagination,
   PatientLabItem,
   PROVENANCE_ACTIVITY_CODES,
@@ -55,11 +58,18 @@ import {
   PROVENANCE_ACTIVITY_TYPE_SYSTEM,
   PSC_HOLD_CONFIG,
   QuestionnaireData,
+  ReflexLabDTO,
   RELATED_SPECIMEN_DEFINITION_SYSTEM,
   sampleDTO,
   SPECIMEN_CODING_CONFIG,
 } from 'utils';
 import { sendErrors } from '../../shared';
+import {
+  formatResourcesIntoDiagnosticReportLabDTO,
+  groupResourcesByDr,
+  parseAccessionNumberFromDr,
+  ResourcesByDr,
+} from '../shared/labs';
 import {
   diagnosticReportIsReflex,
   fetchLabOrderPDFsPresignedUrls,
@@ -136,6 +146,23 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
   return result;
 };
 
+export const mapReflexResourcesToDrLabDTO = async (
+  resourcesByDr: ResourcesByDr,
+  token: string
+): Promise<ReflexLabDTO[]> => {
+  const DTOs: ReflexLabDTO[] = [];
+  const resourcesForDiagnosticReport = Object.values(resourcesByDr);
+  for (const resources of resourcesForDiagnosticReport) {
+    const diagnosticReportLabDetailDTO = await formatResourcesIntoDiagnosticReportLabDTO(resources, token);
+    const orderNumber = getOrderNumberFromDr(resources.diagnosticReport) || '';
+    if (diagnosticReportLabDetailDTO) {
+      const reflexLabDetailDTO: ReflexLabDTO = { ...diagnosticReportLabDetailDTO, isReflex: true, orderNumber };
+      DTOs.push(reflexLabDetailDTO);
+    }
+  }
+  return DTOs;
+};
+
 export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   searchBy,
   serviceRequest,
@@ -196,7 +223,6 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
     orderStatus: orderStatus,
     visitDate: parseVisitDate(appointment),
     isPSC: parseIsPSC(serviceRequest),
-    reflexResultsCount: parseReflexTestsCount(serviceRequest, results),
     diagnosesDTO: parseDiagnoses(serviceRequest),
     orderingPhysician: parsePractitionerNameFromServiceRequest(serviceRequest, practitioners),
     diagnoses: parseDx(serviceRequest),
@@ -443,6 +469,7 @@ export const getLabResources = async (
   serviceRequests: ServiceRequest[];
   tasks: Task[];
   diagnosticReports: DiagnosticReport[];
+  reflexDRsAndRelatedResources: ResourcesByDr | undefined;
   practitioners: Practitioner[];
   pagination: Pagination;
   encounters: Encounter[];
@@ -524,13 +551,15 @@ export const getLabResources = async (
   const isDetailPageRequest = searchBy.searchBy.field === 'serviceRequestId';
   console.log('isDetailPageRequest', isDetailPageRequest);
 
-  const [serviceRequestPractitioners, finalAndPrelimAndCorrectedTasks, questionnaires] = await Promise.all([
-    fetchPractitionersForServiceRequests(oystehr, serviceRequests),
-    fetchFinalAndPrelimAndCorrectedTasks(oystehr, diagnosticReports),
-    executeByCondition(isDetailPageRequest, () =>
-      fetchQuestionnaireForServiceRequests(m2mToken, serviceRequests, questionnaireResponses)
-    ),
-  ]);
+  const [serviceRequestPractitioners, finalAndPrelimAndCorrectedTasks, reflexDRsAndRelatedResources, questionnaires] =
+    await Promise.all([
+      fetchPractitionersForServiceRequests(oystehr, serviceRequests),
+      fetchFinalAndPrelimAndCorrectedTasks(oystehr, diagnosticReports),
+      checkForReflexDiagnosticReports(oystehr, serviceRequests),
+      executeByCondition(isDetailPageRequest, () =>
+        fetchQuestionnaireForServiceRequests(m2mToken, serviceRequests, questionnaireResponses)
+      ),
+    ]);
 
   const allPractitioners = [...practitioners, ...serviceRequestPractitioners];
 
@@ -552,6 +581,7 @@ export const getLabResources = async (
     serviceRequests,
     tasks: [...preSubmissionTasks, ...finalAndPrelimAndCorrectedTasks],
     diagnosticReports,
+    reflexDRsAndRelatedResources,
     practitioners: allPractitioners,
     encounters,
     locations,
@@ -843,6 +873,55 @@ export const extractLabResources = (
     appointments,
     appointmentScheduleMap,
   };
+};
+
+export const checkForReflexDiagnosticReports = async (
+  oystehr: Oystehr,
+  serviceRequests: ServiceRequest[]
+): Promise<ResourcesByDr | undefined> => {
+  if (!serviceRequests.length) return;
+
+  const orderNumbersWithSystem = serviceRequests
+    .map((sr) => {
+      const orderNumber = getOrderNumber(sr);
+      if (orderNumber) {
+        return `${OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM}|${orderNumber}`;
+      } else {
+        return;
+      }
+    })
+    .filter((value): value is string => value !== undefined);
+
+  if (orderNumbersWithSystem.length === 0) return; // this really should not happen, all SRs should have an orderNumber
+
+  try {
+    const resourceSearch = (
+      await oystehr.fhir.search<DiagnosticReport | Task | DocumentReference>({
+        resourceType: 'DiagnosticReport',
+        params: [
+          {
+            name: 'identifier',
+            value: orderNumbersWithSystem.join(','),
+          },
+          { name: '_tag', value: `${LAB_DR_TYPE_TAG.system}|${LAB_DR_TYPE_TAG.code.reflex}` }, // only grab those tagged with reflex
+          { name: '_revinclude', value: 'Task:based-on' }, // review task
+          { name: '_revinclude:iterate', value: 'DocumentReference:related' }, // result pdf
+          { name: '_include', value: 'DiagnosticReport:performer' }, // lab org
+        ],
+      })
+    ).unbundle();
+    if (resourceSearch.length) {
+      return groupResourcesByDr(resourceSearch);
+    } else {
+      return;
+    }
+  } catch (error) {
+    console.error(
+      `Failed to fetch DiagnosticReports with identifier search param: ${orderNumbersWithSystem.join(',')}`,
+      JSON.stringify(error, null, 2)
+    );
+    return;
+  }
 };
 
 export const fetchPractitionersForServiceRequests = async (
@@ -1194,7 +1273,7 @@ export const parseLabOrderStatus = (
   }
 
   console.log(
-    `Error: unknown status for ServiceRequest/${serviceRequest.id}. Here are the conditions for determining the status, all conditions must be true for picking the corresponding status:`,
+    `Alert: unknown status for ServiceRequest/${serviceRequest.id}. Here are the conditions for determining the status, all conditions must be true for picking the corresponding status:`,
     JSON.stringify(
       {
         pendingStatusConditions,
@@ -1213,10 +1292,10 @@ export const parseLabOrderStatus = (
 };
 
 // can we use this in place of parseLabOrderStatus? i dont understand why that one is so much more complicated
-const parseLabOrderStatusWithSpecificTask = (
+export const parseLabOrderStatusWithSpecificTask = (
   result: DiagnosticReport,
   task: Task,
-  serviceRequest: ServiceRequest,
+  serviceRequest: ServiceRequest | undefined, // will be undefined for unsolicited results only
   PSTTask: Task | null
 ): ExternalLabsStatus => {
   if (
@@ -1224,13 +1303,29 @@ const parseLabOrderStatusWithSpecificTask = (
     task.code?.coding?.some((c) => c.code === LAB_ORDER_TASK.code.reviewCancelledResult)
   )
     return ExternalLabsStatus['cancelled by lab'];
-  if (result.status === 'final' && task.status === 'ready') return ExternalLabsStatus.received;
+
+  const taskIsMatchUnsolicitedResult = task.code?.coding?.some(
+    (c) => c.system === LAB_ORDER_TASK.system && c.code === LAB_ORDER_TASK.code.matchUnsolicitedResult
+  );
+
+  if (result.status === 'final') {
+    if (task.status === 'completed') {
+      if (taskIsMatchUnsolicitedResult) {
+        return ExternalLabsStatus.received;
+      } else {
+        return ExternalLabsStatus.reviewed;
+      }
+    } else if (task.status === 'ready') {
+      return ExternalLabsStatus.received;
+    }
+  }
+
   if (result.status === 'corrected' && task.status === 'ready') return ExternalLabsStatus.corrected;
   if ((result.status === 'final' || result.status == 'corrected') && task.status === 'completed')
     return ExternalLabsStatus.reviewed;
   if (result.status === 'preliminary') return ExternalLabsStatus.prelim;
-  if (serviceRequest.status === 'draft' && PSTTask?.status === 'ready') return ExternalLabsStatus.pending;
-  if (serviceRequest.status === 'active' && PSTTask?.status === 'completed') return ExternalLabsStatus.sent;
+  if (serviceRequest?.status === 'draft' && PSTTask?.status === 'ready') return ExternalLabsStatus.pending;
+  if (serviceRequest?.status === 'active' && PSTTask?.status === 'completed') return ExternalLabsStatus.sent;
   return ExternalLabsStatus.unknown;
 };
 
@@ -1308,16 +1403,6 @@ export const parseIsPSC = (serviceRequest: ServiceRequest): boolean => {
     (detail) =>
       detail.coding?.some((coding) => coding.system === PSC_HOLD_CONFIG.system && coding.code === PSC_HOLD_CONFIG.code)
   );
-};
-
-export const parseReflexTestsCount = (
-  serviceRequest: ServiceRequest,
-  results: DiagnosticReport[],
-  cache?: Cache
-): number => {
-  const { reflexFinalAndCorrectedResults, reflexPrelimResults } =
-    cache?.parsedResults || parseResults(serviceRequest, results);
-  return (reflexFinalAndCorrectedResults.length || 0) + (reflexPrelimResults.length || 0);
 };
 
 export const parsePerformed = (specimen: Specimen, practitioners: Practitioner[]): string => {
@@ -1432,30 +1517,11 @@ export const parseAccessionNumbers = (
     ...orderedCancelledResults,
     ...reflexCancelledResults,
   ]
-    .map((result) => parseAccessionNumber([result]))
+    .map((result) => parseAccessionNumberFromDr(result))
     .filter(Boolean)
     .filter((value, index, self) => self.indexOf(value) === index); // Remove duplicates
 
   return accessionNumbers;
-};
-
-export const parseAccessionNumber = (results: DiagnosticReport[]): string => {
-  const NOT_FOUND = '';
-
-  if (results.length > 0) {
-    const result = results[0];
-    if (result.identifier) {
-      const accessionIdentifier = result.identifier.find(
-        (identifier) => identifier.type?.coding?.some((coding) => coding.code === 'FILL') && identifier.use === 'usual'
-      );
-
-      if (accessionIdentifier?.value) {
-        return accessionIdentifier.value;
-      }
-    }
-  }
-
-  return NOT_FOUND;
 };
 
 export const parseLabOrderAddedDate = (

@@ -8,11 +8,10 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { handleChangeInPersonVisitStatus } from 'src/helpers/inPersonVisitStatusUtils';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { getAdmitterPractitionerId, getSelectors, getVisitStatus, PRACTITIONER_CODINGS } from 'utils';
+import { getAdmitterPractitionerId, getVisitStatus, PRACTITIONER_CODINGS } from 'utils';
 import { dataTestIds } from '../../../constants/data-test-ids';
-import { useAppointmentStore } from '../../../telemed';
+import { useAppointmentData, useChartData } from '../../../telemed';
 import { RouteCSS, useNavigationContext } from '../context/NavigationContext';
-import { useAppointment } from '../hooks/useAppointment';
 import { usePractitionerActions } from '../hooks/usePractitioner';
 import { ROUTER_PATH, routesCSS } from '../routing/routesCSS';
 import { CompleteIntakeButton } from './CompleteIntakeButton';
@@ -212,7 +211,7 @@ const DrawerHeader = styled('div')(({ theme }) => ({
   justifyContent: 'flex-end',
 }));
 
-const StyledButton = styled(Button)<{ isActive: string }>(({ theme, isActive }) => ({
+const StyledButton = styled(Button)<{ isactive: string }>(({ theme, isactive: isActive }) => ({
   display: 'flex',
   width: '100%',
   height: '42px',
@@ -255,21 +254,24 @@ export const Sidebar = (): JSX.Element => {
   const user = useEvolveUser();
   const { interactionMode } = useNavigationContext();
   const { id: appointmentID } = useParams();
-  const { visitState: telemedData, refetch } = useAppointment(appointmentID);
-  const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
-  const { appointment, encounter } = telemedData;
+  const { visitState, appointmentRefetch } = useAppointmentData();
+  const { chartData } = useChartData();
+  const { appointment, encounter } = visitState;
   const status = appointment && encounter ? getVisitStatus(appointment, encounter) : undefined;
+
   const { isEncounterUpdatePending, handleUpdatePractitioner } = usePractitionerActions(
     encounter,
     'end',
     PRACTITIONER_CODINGS.Admitter
   );
+
   const assignedIntakePerformerId = encounter ? getAdmitterPractitionerId(encounter) : undefined;
 
   const handleCompleteIntake = async (): Promise<void> => {
     try {
       if (assignedIntakePerformerId) {
         await handleUpdatePractitioner(assignedIntakePerformerId);
+
         await handleChangeInPersonVisitStatus(
           {
             encounterId: encounter!.id!,
@@ -279,7 +281,7 @@ export const Sidebar = (): JSX.Element => {
           oystehrZambda
         );
 
-        await refetch();
+        await appointmentRefetch();
       } else {
         enqueueSnackbar('Please select intake practitioner first', { variant: 'error' });
       }
@@ -365,7 +367,7 @@ export const Sidebar = (): JSX.Element => {
           const comparedPath = item?.activeCheckPath || item.to;
           return (
             <StyledButton
-              isActive={location.pathname.includes(comparedPath).toString()}
+              isactive={location.pathname.includes(comparedPath).toString()}
               key={item.text}
               onClick={() => {
                 requestAnimationFrame(() => {

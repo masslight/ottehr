@@ -1,17 +1,20 @@
 import Oystehr from '@oystehr/sdk';
 import config from '../deploy-config.json';
-import { updateEnvFiles, updateOystehr } from '../helpers';
+import { getM2MClientAccessToken, updateEnvFiles, updateOystehr } from '../helpers';
 
 const projectConfig: any = config;
 const environment = projectConfig.environment;
 const intakeDomain = projectConfig.intake_domain;
 const ehrDomain = projectConfig.ehr_domain;
 const projectId = projectConfig.project_id;
-const accessToken = projectConfig.access_token;
+const accessTokenFromConfig = projectConfig.access_token;
+const clientId = projectConfig.client_id;
+const clientSecret = projectConfig.client_secret;
 
 async function deploy(): Promise<void> {
   const intake = `https://${intakeDomain}`;
   const ehr = `https://${ehrDomain}`;
+  const accessToken = accessTokenFromConfig ?? (await getM2MClientAccessToken(clientId, clientSecret));
   const oystehr = new Oystehr({
     accessToken,
     projectId,

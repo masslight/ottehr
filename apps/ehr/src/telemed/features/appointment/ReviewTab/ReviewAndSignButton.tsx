@@ -1,20 +1,28 @@
 import CheckIcon from '@mui/icons-material/Check';
-import { Box, Tooltip, Typography } from '@mui/material';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import { Box, Checkbox, DialogContentText, FormControlLabel, Stack, Tooltip, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { FC, useMemo, useState } from 'react';
-import { getVisitStatus, PRACTITIONER_CODINGS, TelemedAppointmentStatusEnum } from 'utils';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
+import useEvolveUser from 'src/hooks/useEvolveUser';
+import {
+  getPractitionerQualificationByLocation,
+  getVisitStatus,
+  isPhysicianQualification,
+  PRACTITIONER_CODINGS,
+  TelemedAppointmentStatusEnum,
+} from 'utils';
 import { RoundedButton } from '../../../../components/RoundedButton';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { useFeatureFlags } from '../../../../features/css-module/context/featureFlags';
-import { useAppointment } from '../../../../features/css-module/hooks/useAppointment';
 import { usePractitionerActions } from '../../../../features/css-module/hooks/usePractitioner';
-import { getSelectors } from '../../../../shared/store/getSelectors';
 import { ConfirmationDialog } from '../../../components';
-import { useGetAppointmentAccessibility } from '../../../hooks';
+import { useGetAppointmentAccessibility, usePendingSupervisorApproval } from '../../../hooks';
 import { useOystehrAPIClient } from '../../../hooks/useOystehrAPIClient';
 import {
-  useAppointmentStore,
+  useAppointmentData,
   useChangeTelemedAppointmentStatusMutation,
+  useChartData,
   useSignAppointmentMutation,
 } from '../../../state';
 import { getPatientName } from '../../../utils';
@@ -24,19 +32,24 @@ type ReviewAndSignButtonProps = {
 };
 
 export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) => {
-  const { patient, appointment, encounter, chartData } = getSelectors(useAppointmentStore, [
-    'patient',
-    'appointment',
-    'encounter',
-    'chartData',
-  ]);
+  const { patient, appointment, encounter, appointmentRefetch, appointmentSetState, location } = useAppointmentData();
+
+  const { chartData } = useChartData();
   const apiClient = useOystehrAPIClient();
+  const practitioner = useEvolveUser()?.profileResource;
+
   const { mutateAsync: changeTelemedAppointmentStatus, isPending: isChangeLoading } =
     useChangeTelemedAppointmentStatusMutation();
+
   const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
   const [openTooltip, setOpenTooltip] = useState(false);
 
-  const { refetch } = useAppointment(appointment?.id);
+  const [requireSupervisorApproval, setRequireSupervisorApproval] = useState(false);
+
+  const { updateVisitStatusToAwaitSupervisorApproval } = usePendingSupervisorApproval({
+    encounterId: encounter.id!,
+    practitionerId: practitioner?.id ?? '',
+  });
   const { css } = useFeatureFlags();
   const appointmentAccessibility = useGetAppointmentAccessibility();
 
@@ -117,34 +130,44 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
       throw new Error('api client not defined or appointmentId not provided');
     }
 
-    if (css) {
-      try {
+    if (FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED && requireSupervisorApproval) {
+      await updateVisitStatusToAwaitSupervisorApproval();
+    } else {
+      if (css) {
         const tz = DateTime.now().zoneName;
         await signAppointment({
           apiClient,
           appointmentId: appointment.id,
           timezone: tz,
+          supervisorApprovalEnabled: FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED,
         });
-        await refetch();
-      } catch (error: any) {
-        console.log(error.message);
+        await appointmentRefetch();
+      } else {
+        await changeTelemedAppointmentStatus({
+          apiClient,
+          appointmentId: appointment.id,
+          newStatus: TelemedAppointmentStatusEnum.complete,
+        });
+        appointmentSetState({
+          encounter: { ...encounter, status: 'finished' },
+          appointment: { ...appointment, status: 'fulfilled' },
+        });
       }
-    } else {
-      await changeTelemedAppointmentStatus({
-        apiClient,
-        appointmentId: appointment.id,
-        newStatus: TelemedAppointmentStatusEnum.complete,
-      });
-      useAppointmentStore.setState({
-        encounter: { ...encounter, status: 'finished' },
-        appointment: { ...appointment, status: 'fulfilled' },
-      });
     }
 
     if (onSigned) {
       onSigned();
     }
   };
+
+  const showSupervisorCheckbox = useMemo(() => {
+    if (!location || !practitioner) return false;
+
+    const qualification = getPractitionerQualificationByLocation(practitioner, location);
+    const isPhysician = isPhysicianQualification(qualification);
+
+    return !isPhysician;
+  }, [practitioner, location]);
 
   return (
     <Box sx={{ display: 'flex', justifyContent: 'end' }}>
@@ -159,20 +182,47 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
       >
         <Box>
           <ConfirmationDialog
-            title={`Review & Sign ${patientName}`}
-            description="Are you sure you have reviewed the patient chart, performed the examination, defined the diagnoses, medical decision making and E&M code and are ready to sign this patient."
+            title={`Review and Sign ${patientName}`}
+            description={
+              <Stack spacing={2}>
+                <DialogContentText>
+                  Are you sure you have reviewed the patient chart, performed the examination, defined the diagnoses,
+                  medical decision making and E&M code and are ready to sign this patient.
+                </DialogContentText>
+
+                {FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED && showSupervisorCheckbox && (
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={requireSupervisorApproval}
+                        onChange={(e) => setRequireSupervisorApproval(e.target.checked)}
+                      />
+                    }
+                    label={
+                      <Box display="flex" alignItems="center" gap={0.5}>
+                        Require Supervisor approval
+                        <Tooltip
+                          placement="top"
+                          title="When this option is ON, the button 'Approve' becomes available for Supervisor on the complete visits on Discharged tab of the Tracking Board. Once approved, the claim will be submitted to RCM."
+                        >
+                          <InfoOutlinedIcon fontSize="small" color="action" />
+                        </Tooltip>
+                      </Box>
+                    }
+                  />
+                )}
+              </Stack>
+            }
             response={handleSign}
             actionButtons={{
-              proceed: {
-                text: 'Sign',
-              },
+              proceed: { text: 'Sign', loading: isLoading },
               back: { text: 'Cancel' },
+              reverse: true,
             }}
           >
             {(showDialog) => (
               <RoundedButton
                 disabled={errorMessage.length > 0 || isLoading || completed || inPersonStatus === 'provider'}
-                loading={isLoading}
                 variant="contained"
                 onClick={showDialog}
                 startIcon={completed ? <CheckIcon color="inherit" /> : undefined}

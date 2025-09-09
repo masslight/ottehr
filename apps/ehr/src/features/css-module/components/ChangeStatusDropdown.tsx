@@ -2,16 +2,16 @@ import { CircularProgress, FormControl, Grid, MenuItem, Select, SelectChangeEven
 import { styled } from '@mui/system';
 import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useState } from 'react';
+import { useAppointmentData } from 'src/telemed';
 import { getVisitStatus, Visit_Status_Array, VisitStatusLabel, VisitStatusWithoutUnknown } from 'utils';
 import { CHIP_STATUS_MAP } from '../../../components/AppointmentTableRow';
 import { dataTestIds } from '../../../constants/data-test-ids';
 import { handleChangeInPersonVisitStatus } from '../../../helpers/inPersonVisitStatusUtils';
 import { useApiClients } from '../../../hooks/useAppClients';
 import useEvolveUser from '../../../hooks/useEvolveUser';
-import { useAppointment } from '../hooks/useAppointment';
 
-const StyledSelect = styled(Select)<{ hasDropdown?: string; arrowColor: string }>(
-  ({ hasDropdown: hasDropdown, arrowColor: arrowColor }) => ({
+const StyledSelect = styled(Select)<{ hasdropdown?: string; arrowcolor: string }>(
+  ({ hasdropdown: hasDropdown, arrowcolor: arrowColor }) => ({
     height: '32px',
     borderRadius: '4px',
     paddingLeft: '12px',
@@ -62,7 +62,7 @@ export const ChangeStatusDropdown = ({
   const [status, setStatus] = useState<VisitStatusWithoutUnknown | undefined>(undefined);
   const { oystehrZambda } = useApiClients();
   const user = useEvolveUser();
-  const { visitState: telemedData, refetch } = useAppointment(appointmentID);
+  const { visitState: telemedData, appointmentRefetch } = useAppointmentData(appointmentID);
   const { appointment, encounter } = telemedData;
 
   useEffect(() => {
@@ -109,7 +109,7 @@ export const ChangeStatusDropdown = ({
         },
         oystehrZambda
       );
-      await refetch();
+      await appointmentRefetch();
       if (getAndSetResources) {
         await getAndSetResources({ logs: true }).catch((error: any) => {
           console.log('error getting activity logs after status dropdown update', error);
@@ -134,8 +134,8 @@ export const ChangeStatusDropdown = ({
             data-testid={dataTestIds.cssHeader.appointmentStatus}
             id="appointment-status"
             value={status}
-            {...(hasDropdown ? { hasDropdown: 'true' } : {})}
-            arrowColor={CHIP_STATUS_MAP[status].color.primary}
+            {...(hasDropdown ? { hasdropdown: 'true' } : {})}
+            arrowcolor={CHIP_STATUS_MAP[status].color.primary}
             onChange={updateInPersonVisitStatus}
             sx={{
               border: `1px solid ${CHIP_STATUS_MAP[status].color.primary}`,

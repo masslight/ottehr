@@ -26,11 +26,9 @@ import {
 } from 'utils';
 import { RoundedButton } from '../../../../components/RoundedButton';
 import { dataTestIds } from '../../../../constants/data-test-ids';
-import { useChartData } from '../../../../features/css-module/hooks/useChartData';
-import { getSelectors } from '../../../../shared/store/getSelectors';
 import { AccordionCard, ContainedPrimaryToggleButton, UppercaseCaptionTypography } from '../../../components';
 import { useDebounce, useGetAppointmentAccessibility } from '../../../hooks';
-import { useAppointmentStore, useSaveChartData } from '../../../state';
+import { useChartData, useSaveChartData } from '../../../state';
 import {
   DEFAULT_DISPOSITION_VALUES,
   dispositionFieldsPerType,
@@ -47,7 +45,6 @@ import { useDispositionMultipleNotes } from './useDispositionMultipleNotes';
 const ERROR_TEXT = 'Disposition data update was unsuccessful, please change some disposition field data to try again.';
 
 export const DispositionCard: FC = () => {
-  const { encounter, setPartialChartData } = getSelectors(useAppointmentStore, ['encounter', 'setPartialChartData']);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const isResetting = useRef(false);
   const latestRequestId = useRef(0);
@@ -55,6 +52,7 @@ export const DispositionCard: FC = () => {
   const methods = useForm<DispositionFormValues>({
     defaultValues: DEFAULT_DISPOSITION_VALUES,
   });
+
   const {
     control,
     handleSubmit,
@@ -65,8 +63,9 @@ export const DispositionCard: FC = () => {
     formState: { isDirty },
   } = methods;
 
-  const { chartData, isFetching: isChartDataLoading } = useChartData({
-    encounterId: encounter.id || '',
+  const { setPartialChartData, chartData } = useChartData();
+
+  const { isFetching: isChartDataLoading } = useChartData({
     requestedFields: { disposition: {} },
     onSuccess: (data) => {
       setPartialChartData({ disposition: data?.disposition });

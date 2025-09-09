@@ -43,6 +43,11 @@ export class EditMedicationCard {
     await this.#page.getByText(medication, { exact: true }).click();
   }
 
+  async clearMedication(): Promise<void> {
+    const dataTestId = this.getDataTestId(Field.MEDICATION);
+    await this.#page.getByTestId(dataTestId).locator('input').fill('');
+  }
+
   async verifyMedication(medication: string): Promise<void> {
     const dataTestId = this.getDataTestId(Field.MEDICATION);
     await expect(this.#page.getByTestId(dataTestId).locator('input')).toHaveValue(medication);
@@ -71,6 +76,13 @@ export class EditMedicationCard {
   async verifyAssociatedDx(diagnosis: string): Promise<void> {
     const dataTestId = this.getDataTestId(Field.ASSOCIATED_DX);
     await expect(this.#page.getByTestId(dataTestId).locator('div:text("' + diagnosis + '")')).toBeVisible();
+  }
+
+  async waitForLoadOrderedBy(): Promise<void> {
+    const dataTestId = this.getDataTestId(Field.ORDERED_BY);
+    await this.#page.locator(`[data-testid="${dataTestId}"] [role="combobox"][tabindex="0"]`).waitFor({
+      timeout: 30000,
+    });
   }
 
   async verifyDiagnosisNotAllowed(diagnosis: string): Promise<void> {
@@ -128,7 +140,8 @@ export class EditMedicationCard {
 
   async verifyRoute(route: string): Promise<void> {
     const dataTestId = this.getDataTestId(Field.ROUTE);
-    await expect(this.#page.getByTestId(dataTestId).locator('div:text("' + route + '")')).toBeVisible();
+    const input = this.#page.getByTestId(dataTestId).locator('div:text("' + route + '")');
+    await expect(input).toBeVisible();
   }
 
   async enterInstructions(instructions: string): Promise<void> {

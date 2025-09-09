@@ -6,10 +6,14 @@ import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { CustomDialog } from 'src/components/dialogs';
+import {
+  ReasonListCodes,
+  reasonListValues,
+} from 'src/features/css-module/components/medication-administration/medicationTypes';
 import { useCancelImmunizationOrder } from 'src/features/css-module/hooks/useImmunization';
 import { getImmunizationOrderEditUrl, getImmunizationVaccineDetailsUrl } from 'src/features/css-module/routing/helpers';
 import { OrderStatusChip } from 'src/features/immunization/components/OrderStatusChip';
-import { ImmunizationOrder } from 'utils';
+import { ImmunizationOrder, searchRouteByCode } from 'utils';
 
 interface Props {
   order: ImmunizationOrder;
@@ -73,7 +77,8 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) =>
     >
       <TableCell>{order.details.medication.name}</TableCell>
       <TableCell>
-        {order.details.dose} {order.details.units} {order.details.route ? `/ ${order.details.route}` : null}
+        {order.details.dose} {order.details.units}{' '}
+        {order.details.route ? `/ ${searchRouteByCode(order.details.route)?.display}` : null}
         {grayText(order.details.instructions)}
       </TableCell>
       <TableCell>
@@ -88,7 +93,7 @@ export const OrderHistoryTableRow: React.FC<Props> = ({ order, showActions }) =>
         <Stack direction="row" justifyContent="space-between">
           <Stack>
             <OrderStatusChip status={order.status} />
-            {order.reason}
+            {reasonListValues[order.reason as ReasonListCodes] ?? order.reason}
           </Stack>
           {showActions && order.status === 'pending' ? (
             <Stack direction="row" onClick={(e) => e.stopPropagation()}>

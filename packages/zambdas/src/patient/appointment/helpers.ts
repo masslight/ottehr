@@ -3,44 +3,52 @@ import { Coding, DocumentReference, Extension, Practitioner, Questionnaire } fro
 import {
   CanonicalUrl,
   getCanonicalQuestionnaire,
-  getSecret,
   OtherParticipantsExtension,
   PatientAccountResponse,
   Secrets,
-  SecretsKeys,
   ServiceMode,
   TELEMED_VIDEO_ROOM_CODE,
 } from 'utils';
+import ehrInsuranceUpdateQuestionnaireJson from 'utils/lib/deployed-resources/questionnaires/ehr-insurance-update-questionnaire.json';
+import inPersonIntakeQuestionnaireJson from 'utils/lib/deployed-resources/questionnaires/in-person-intake-questionnaire.json';
+import virtualIntakeQuestionnaireJson from 'utils/lib/deployed-resources/questionnaires/virtual-intake-questionnaire.json';
 import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
-
 export const getCurrentQuestionnaireForServiceType = async (
   serviceMode: ServiceMode,
   secrets: Secrets | null,
   oystehrClient: Oystehr
 ): Promise<Questionnaire> => {
-  const canonical = getCanonicalUrlForPrevisitQuestionnaire(serviceMode, secrets);
+  const canonical = getCanonicalUrlForPrevisitQuestionnaire(serviceMode);
   return getCanonicalQuestionnaire(canonical, oystehrClient);
 };
 
-export const getCanonicalUrlForPrevisitQuestionnaire = (
-  serviceMode: ServiceMode,
-  secrets: Secrets | null
-): CanonicalUrl => {
-  let secretKey = '';
+export const getCanonicalUrlForPrevisitQuestionnaire = (serviceMode: ServiceMode): CanonicalUrl => {
+  let url = '';
+  let version = '';
   if (serviceMode === 'in-person') {
-    secretKey = SecretsKeys.IN_PERSON_PREVISIT_QUESTIONNAIRE;
+    url = inPersonIntakeQuestionnaireJson.resource.url;
+    version = inPersonIntakeQuestionnaireJson.resource.version;
   } else if (serviceMode === 'virtual') {
-    secretKey = SecretsKeys.VIRTUAL_PREVISIT_QUESTIONNAIRE;
+    url = virtualIntakeQuestionnaireJson.resource.url;
+    version = virtualIntakeQuestionnaireJson.resource.version;
   }
-  const questionnaireCanonURL = getSecret(secretKey, secrets);
-  // todo: move this into some kind of util function
-  const [questionnaireURL, questionnaireVersion] = questionnaireCanonURL.split('|');
-  if (!questionnaireURL || !questionnaireVersion) {
-    throw new Error('Questionnaire url secret missing or malformed');
+  if (!url || !version) {
+    throw new Error('Questionnaire url missing or malformed');
   }
   return {
-    url: questionnaireURL,
-    version: questionnaireVersion,
+    url,
+    version,
+  };
+};
+
+export const getCanonicalUrlForInsuranceUpdateQuestionnaire = (): CanonicalUrl => {
+  const { url, version } = ehrInsuranceUpdateQuestionnaireJson.resource;
+  if (!url || !version) {
+    throw new Error('Questionnaire url missing or malformed');
+  }
+  return {
+    url,
+    version,
   };
 };
 

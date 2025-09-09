@@ -26,6 +26,10 @@ export const getExternalLabOrderEditUrl = (appointmentId: string, orderId: strin
   return `/in-person/${appointmentId}/external-lab-orders/${orderId}/order-details`;
 };
 
+export const getReflexExternalLabEditUrl = (appointmentId: string, diagnosticReportId: string): string => {
+  return `/in-person/${appointmentId}/external-lab-orders/reflex/${diagnosticReportId}/order-details`;
+};
+
 export const getRadiologyUrl = (appointmentId: string): string => {
   return `/in-person/${appointmentId}/radiology`;
 };

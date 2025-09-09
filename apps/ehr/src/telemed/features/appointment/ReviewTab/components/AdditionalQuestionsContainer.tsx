@@ -19,8 +19,7 @@ import {
 } from 'utils';
 import { ADDITIONAL_QUESTIONS } from '../../../../../constants';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../../state';
+import { useChartData } from '../../../../state';
 import { AssessmentTitle } from '../../AssessmentTab';
 
 type AdditionalQuestionsContainerProps = {
@@ -28,7 +27,7 @@ type AdditionalQuestionsContainerProps = {
 };
 
 export const AdditionalQuestionsContainer: FC<AdditionalQuestionsContainerProps> = ({ notes }) => {
-  const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
+  const { chartData } = useChartData();
 
   const seenInLastThreeYearsObs = chartData?.observations?.find(
     (obs) => obs.field === SEEN_IN_LAST_THREE_YEARS_FIELD
@@ -55,7 +54,10 @@ export const AdditionalQuestionsContainer: FC<AdditionalQuestionsContainerProps>
         );
 
         return value && value.length > 0 ? (
-          <Box data-testid={dataTestIds.telemedEhrFlow.reviewTabAdditionalQuestion(question.field)}>
+          <Box
+            key={question.field}
+            data-testid={dataTestIds.telemedEhrFlow.reviewTabAdditionalQuestion(question.field)}
+          >
             <Typography key={index}>{`${question.label} - ${value}`}</Typography>
           </Box>
         ) : null;

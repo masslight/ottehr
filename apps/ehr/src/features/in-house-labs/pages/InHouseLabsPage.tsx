@@ -5,7 +5,7 @@ import ListViewContainer from 'src/features/common/ListViewContainer';
 import { getInHouseLabOrderCreateUrl } from 'src/features/css-module/routing/helpers';
 import { dataTestIds } from '../../../constants/data-test-ids';
 import { PageTitle } from '../../../telemed/components/PageTitle';
-import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
+import { useAppointmentData } from '../../../telemed/state/appointment/appointment.store';
 import { ButtonRounded } from '../../css-module/components/RoundedButton';
 import { InHouseLabsTable, InHouseLabsTableColumn } from '../components/orders/InHouseLabsTable';
 
@@ -13,8 +13,9 @@ const inHouseLabsColumns: InHouseLabsTableColumn[] = ['testType', 'orderAdded', 
 
 export const InHouseLabsPage: React.FC = () => {
   const navigate = useNavigate();
-  const appointmentId = useAppointmentStore((state) => state.appointment?.id);
-  const encounterId = useAppointmentStore((state) => state.encounter?.id);
+  const { appointment, encounter } = useAppointmentData();
+  const appointmentId = appointment?.id;
+  const encounterId = encounter?.id;
 
   const handleCreateOrder = useCallback((): void => {
     if (!appointmentId) {

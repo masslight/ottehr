@@ -658,7 +658,8 @@ test.describe('Photo ID - Upload photo', () => {
   test('PPID-2 Photo ID - Check patient name is displayed', async () => {
     await paperwork.checkPatientNameIsDisplayed(
       bookingData.patientBasicInfo.firstName,
-      bookingData.patientBasicInfo.lastName
+      bookingData.patientBasicInfo.lastName,
+      true
     );
   });
   test('PPID-3 Upload and Clear images', async () => {

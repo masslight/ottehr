@@ -1,14 +1,56 @@
 import Oystehr from '@oystehr/sdk';
 import { Location } from 'fhir/r4b';
 import { useEffect, useState } from 'react';
-import { ROUTE_OPTIONS, UNIT_OPTIONS } from 'src/shared/utils';
-import { isLocationVirtual, RoleType } from 'utils';
+import { UNIT_OPTIONS } from 'src/shared/utils';
+import { isLocationVirtual, MedicationApplianceRoutes, medicationApplianceRoutes, RoleType } from 'utils';
 import { getEmployees } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import useEvolveUser from '../../../hooks/useEvolveUser';
-import { getSelectors } from '../../../shared/store/getSelectors';
-import { useAppointmentStore, useGetMedicationList } from '../../../telemed';
+import { useAppointmentData, useChartData, useGetMedicationList } from '../../../telemed';
 import { Option } from '../components/medication-administration/medicationTypes';
+
+const getRoutesArray = (routes: MedicationApplianceRoutes): Option[] => {
+  // Priority routes that should appear at the top
+  const priorityRouteCodes = [
+    '26643006', // Oral route
+    '37839007', // Sublingual route
+    '447694001', // Respiratory tract route (inhaled)
+    '47625008', // Intravenous route (IV)
+    '78421000', // Intramuscular route (IM)
+    '6064005', // Topical route
+    '10547007', // Otic route
+    '54485002', // Ophthalmic route
+  ];
+
+  const allRoutes = Object.entries(routes).map(([_, value]) => ({
+    value: value.code,
+    label: value.display,
+  })) as Option[];
+
+  // Separate priority routes from other routes
+  const priorityRoutes = allRoutes.filter((route) => priorityRouteCodes.includes(route.value));
+
+  const otherRoutes = allRoutes
+    .filter((route) => !priorityRouteCodes.includes(route.value))
+    .sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
+
+  // Sort priority routes in the specified order
+  priorityRoutes.sort((a, b) => {
+    const aIndex = priorityRouteCodes.indexOf(a.value);
+    const bIndex = priorityRouteCodes.indexOf(b.value);
+    return aIndex - bIndex;
+  });
+
+  // Create the grouped options with "Popular" and "Other" section headers
+  const groupedOptions: Option[] = [
+    { value: 'popular-separator', label: 'Popular' }, // Popular section header
+    ...priorityRoutes,
+    { value: 'other-separator', label: 'Other' }, // Other section header
+    ...otherRoutes,
+  ];
+
+  return groupedOptions;
+};
 
 export type OrderFieldsSelectsOptions = Record<
   'medicationId' | 'location' | 'route' | 'units' | 'associatedDx' | 'providerId',
@@ -26,15 +68,9 @@ export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
   const [isProvidersLoading, setIsProvidersLoading] = useState(true);
   const { oystehrZambda } = useApiClients();
   const currentUser = useEvolveUser();
-
-  const { chartData, isChartDataLoading, encounter } = getSelectors(useAppointmentStore, [
-    'chartData',
-    'isChartDataLoading',
-    'encounter',
-  ]);
-
+  const { encounter } = useAppointmentData();
+  const { chartData, isChartDataLoading } = useChartData();
   const encounterId = encounter?.id;
-
   const diagnosis = chartData?.diagnosis;
 
   const diagnosisSelectOptions: Option[] =
@@ -42,7 +78,9 @@ export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
       value: item.resourceId || '',
       label: `${item.code} - ${item.display}`,
     })) || [];
+
   const primaryDiagnosis = diagnosis?.find((item) => item.isPrimary);
+
   const diagnosisDefaultOption = primaryDiagnosis && {
     value: primaryDiagnosis.resourceId || '',
     label: `${primaryDiagnosis.code} - ${primaryDiagnosis.display}`,
@@ -126,7 +164,6 @@ export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
       label: value,
     }))
     .sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
-  medicationListOptions.unshift({ value: '', label: 'Select Medication' });
 
   // Determine default provider (current user for Provider role)
   const currentUserProviderId = currentUser?.profile?.replace('Practitioner/', '');
@@ -146,7 +183,7 @@ export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
       status: isLocationLoading ? 'loading' : 'loaded',
     },
     route: {
-      options: ROUTE_OPTIONS,
+      options: getRoutesArray(medicationApplianceRoutes),
       status: 'loaded',
     },
     units: {

@@ -3,12 +3,14 @@ import { Grid, Paper, Stack } from '@mui/material';
 import React, { useEffect, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
+import { BaseBreadcrumbs } from 'src/components/BaseBreadcrumbs';
 import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
 import { WarningBlock } from 'src/features/css-module/components/WarningBlock';
-import { useAppointment } from 'src/features/css-module/hooks/useAppointment';
 import { getImmunizationMARUrl, getImmunizationOrderEditUrl } from 'src/features/css-module/routing/helpers';
 import { cleanupProperties } from 'src/helpers/misc.helper';
-import { AccordionCard } from 'src/telemed';
+import useEvolveUser from 'src/hooks/useEvolveUser';
+import { AccordionCard, useAppointmentData } from 'src/telemed';
+import { RoleType } from 'utils';
 import { PageHeader } from '../../css-module/components/medication-administration/PageHeader';
 import { useCreateUpdateImmunizationOrder, useGetImmunizationOrders } from '../../css-module/hooks/useImmunization';
 import { OrderDetailsSection } from '../components/OrderDetailsSection';
@@ -17,11 +19,12 @@ import { OrderHistoryTable } from '../components/OrderHistoryTable';
 export const ImmunizationOrderCreateEdit: React.FC = () => {
   const navigate = useNavigate();
   const { id: appointmentId, orderId } = useParams();
+
   const {
     resources: { encounter },
-  } = useAppointment(appointmentId);
-  const [isImmunizationHistoryCollapsed, setIsImmunizationHistoryCollapsed] = useState(false);
+  } = useAppointmentData(appointmentId);
 
+  const [isImmunizationHistoryCollapsed, setIsImmunizationHistoryCollapsed] = useState(false);
   const { mutateAsync: createUpdateOrder, isPending: isOrderSaving } = useCreateUpdateImmunizationOrder();
 
   const onSubmit = async (data: any): Promise<void> => {
@@ -53,10 +56,29 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
     }
   }, [methods, ordersResponse, orderId]);
 
+  const currentUser = useEvolveUser();
+  const currentUserProviderId = currentUser?.profile?.split('/')[1];
+  const currentUserHasProviderRole = currentUser?.hasRole?.([RoleType.Provider]);
+  const defaultProviderId = currentUserHasProviderRole ? currentUserProviderId : undefined;
+
+  useEffect(() => {
+    if (!orderId) {
+      methods.reset({
+        details: {
+          orderedProviderId: defaultProviderId,
+        },
+      });
+    }
+  }, [methods, defaultProviderId, orderId]);
+
   return (
     <FormProvider {...methods}>
       <form onSubmit={methods.handleSubmit(onSubmit)}>
         <Stack spacing={2}>
+          <BaseBreadcrumbs
+            sectionName={orderId ? 'Edit Vaccine Order' : 'Order Vaccine'}
+            baseCrumb={{ label: 'Immunization', path: getImmunizationMARUrl(appointmentId ?? '') }}
+          />
           <PageHeader title={orderId ? 'Edit Vaccine Order' : 'Order Vaccine'} variant="h3" component="h1" />
           <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
             <Grid container spacing={2}>
@@ -103,7 +125,7 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
             onSwitch={() => setIsImmunizationHistoryCollapsed((prev) => !prev)}
             withBorder={false}
           >
-            <OrderHistoryTable showActions={false} />
+            <OrderHistoryTable showActions={false} administeredOnly />
           </AccordionCard>
         </Stack>
       </form>

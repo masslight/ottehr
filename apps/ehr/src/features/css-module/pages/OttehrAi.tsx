@@ -1,15 +1,11 @@
 import { ottehrAiIcon } from '@ehrTheme/icons';
 import { Box, Stack, Typography } from '@mui/material';
 import React from 'react';
-import { useParams } from 'react-router-dom';
+import { AccordionCard, useAppointmentData, useChartData } from 'src/telemed';
 import { AiObservationField, ObservationTextFieldDTO } from 'utils';
 import { AiChatHistory } from '../../../components/AiChatHistory';
 import AiSuggestion from '../../../components/AiSuggestion';
-import { getSelectors } from '../../../shared/store/getSelectors';
-import { AccordionCard, useAppointmentStore } from '../../../telemed';
 import { CSSLoader } from '../components/CSSLoader';
-import { useAppointment } from '../hooks/useAppointment';
-
 const AI_OBSERVATION_FIELDS = [
   [AiObservationField.HistoryOfPresentIllness, 'History of Present Illness (HPI)'],
   [AiObservationField.PastMedicalHistory, 'Past Medical History (PMH)'],
@@ -26,17 +22,18 @@ interface OttehrAiProps {
 }
 
 export const OttehrAi: React.FC<OttehrAiProps> = () => {
-  const { id: appointmentId } = useParams();
   const {
     resources: { appointment },
-    isLoading,
-    error,
-  } = useAppointment(appointmentId);
+    isAppointmentLoading,
+    appointmentError,
+  } = useAppointmentData();
 
-  const { chartData, isChartDataLoading } = getSelectors(useAppointmentStore, ['chartData', 'isChartDataLoading']);
+  const { isChartDataLoading, chartDataError, chartData } = useChartData();
+  const isLoading = isAppointmentLoading || isChartDataLoading;
+  const error = chartDataError || appointmentError;
 
   if (isLoading || isChartDataLoading) return <CSSLoader />;
-  if (error) return <Typography>Error: {error.message}</Typography>;
+  if (error?.message) return <Typography>Error: {error.message}</Typography>;
   if (!appointment) return <Typography>No data available</Typography>;
 
   const aiPotentialDiagnoses = chartData?.aiPotentialDiagnosis ?? [];

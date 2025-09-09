@@ -6,6 +6,6 @@ export * from './usePatientProvidedExcusePresignedFiles';
 export * from './useGetAppointmentAccessibility';
 export * from './useTrackingBoardTableButtonType';
 export * from './usePatientInstructionsVisibility';
-export * from './useResetAppointmentStore';
 export * from './useEditPatientNameMutation';
 export * from './useEditPatientBirthDateMutation';
+export * from './usePendingSupervisorApproval';

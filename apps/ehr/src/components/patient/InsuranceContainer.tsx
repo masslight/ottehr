@@ -9,6 +9,8 @@ import {
   CoverageCheckWithDetails,
   EligibilityCheckSimpleStatus,
   InsurancePlanDTO,
+  InsurancePlanType,
+  InsurancePlanTypes,
   isPostalCodeValid,
   mapEligibilityCheckResultToSimpleStatus,
   PatientPaymentBenefit,
@@ -16,15 +18,15 @@ import {
 } from 'utils';
 import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../../components/form';
 import {
+  FormFields as AllFormFields,
   INSURANCE_COVERAGE_OPTIONS,
   InsurancePriorityOptions,
+  PatientAddressFields,
   PatientIdentifyingFields,
   RELATIONSHIP_TO_INSURED_OPTIONS,
   SEX_OPTIONS,
   STATE_OPTIONS,
 } from '../../constants';
-import { PatientAddressFields } from '../../constants';
-import { FormFields as AllFormFields } from '../../constants';
 import { dataTestIds } from '../../constants/data-test-ids';
 import { usePatientStore } from '../../state/patient.store';
 import { Row, Section } from '../layout';
@@ -279,6 +281,41 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
                     );
                   } else {
                     setValue(FormFields.insuranceCarrier.key, null);
+                  }
+                }}
+                disableClearable
+                fullWidth
+                renderInput={(params) => (
+                  <TextField {...params} variant="standard" error={!!error} required helperText={error?.message} />
+                )}
+              />
+            );
+          }}
+        />
+      </Row>
+      <Row label="Insurance Type" required dataTestId={dataTestIds.insuranceContainer.insurancePlanType}>
+        <Controller
+          name={FormFields.insurancePlanType.key}
+          control={control}
+          rules={{
+            required: REQUIRED_FIELD_ERROR_MESSAGE,
+            validate: (value) => InsurancePlanTypes.some((option) => option.candidCode === value),
+          }}
+          render={({ field: { value }, fieldState: { error } }) => {
+            const selectedOption = InsurancePlanTypes.find((option) => option.candidCode === `${value}`);
+            return (
+              <Autocomplete
+                options={InsurancePlanTypes}
+                value={selectedOption ?? ({} as InsurancePlanType)}
+                isOptionEqualToValue={(option, value) => option?.candidCode === value?.candidCode}
+                getOptionLabel={(option) =>
+                  option.candidCode || option.label ? `${option.candidCode} - ${option.label}` : ''
+                }
+                onChange={(_, newValue) => {
+                  if (newValue) {
+                    setValue(FormFields.insurancePlanType.key, newValue.candidCode, { shouldDirty: true });
+                  } else {
+                    setValue(FormFields.insurancePlanType.key, null);
                   }
                 }}
                 disableClearable
