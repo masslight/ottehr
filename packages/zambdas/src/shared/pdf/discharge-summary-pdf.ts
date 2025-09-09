@@ -225,7 +225,7 @@ function composeDataForDischargeSummaryPdf(
   });
 
   // --- General patient education documents ---
-  const educationDocuments: { title: string; fileName: string }[] = [];
+  const educationDocuments: { title: string }[] = [];
 
   // --- Discharge instructions ---
   const disposition = additionalChartData?.disposition;
@@ -237,13 +237,12 @@ function composeDataForDischargeSummaryPdf(
   }
 
   // --- Work-school excuse ---
-  const workSchoolExcuse: { note: string; fileName: string }[] = [];
+  const workSchoolExcuse: { note: string }[] = [];
   chartData.schoolWorkNotes?.forEach((ws) => {
     if (ws.id) attachmentDocRefs.push(ws.id);
-    const fileName = ws.url?.split('/').at(-1);
-    if (ws.type === 'school')
-      workSchoolExcuse.push({ note: 'There was a school note generated', fileName: fileName ?? '' });
-    else workSchoolExcuse.push({ note: 'There was a work note generated', fileName: fileName ?? '' });
+
+    if (ws.type === 'school') workSchoolExcuse.push({ note: 'There was a school note generated' });
+    else workSchoolExcuse.push({ note: 'There was a work note generated' });
   });
 
   // --- Physician information ---
@@ -587,10 +586,6 @@ async function createDischargeSummaryPdfBytes(data: DischargeSummaryData): Promi
       pdfClient.drawText(doc.title, textStyles.regular);
     });
     pdfClient.drawText('Documents attached', textStyles.attachmentTitle);
-    data.educationDocuments?.forEach((doc) => {
-      const path = `attachments/${doc.fileName}`;
-      pdfClient.drawLink(`- ${doc.fileName}`, path, textStyles.regular);
-    });
     pdfClient.drawSeparatedLine(separatedLineStyle);
   };
 
@@ -608,10 +603,6 @@ async function createDischargeSummaryPdfBytes(data: DischargeSummaryData): Promi
     });
 
     pdfClient.drawText('Documents attached', textStyles.attachmentTitle);
-    data.workSchoolExcuse?.forEach((doc) => {
-      const path = `attachments/${doc.fileName}`;
-      pdfClient.drawLink(`- ${doc.fileName}`, path, textStyles.regular);
-    });
     pdfClient.drawSeparatedLine(separatedLineStyle);
   };
 
@@ -668,9 +659,7 @@ async function createDischargeSummaryPDF(
   console.debug(`Created discharge summary pdf bytes`);
   const bucketName = BUCKET_NAMES.DISCHARGE_SUMMARIES;
 
-  const hasAttachments = Array.isArray(data.attachmentDocRefs) && data.attachmentDocRefs.length > 0;
-
-  const fileName = hasAttachments ? 'DischargeSummary.zip' : 'DischargeSummary.pdf';
+  const fileName = 'DischargeSummary.pdf';
   console.log('Creating base file url');
   const baseFileUrl = makeZ3Url({ secrets, bucketName, patientID, fileName });
   console.log('Uploading file to bucket');

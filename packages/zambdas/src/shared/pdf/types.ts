@@ -402,7 +402,7 @@ export type DischargeSummaryData = {
     secondary: string[];
   };
   patientInstructions?: string[];
-  educationDocuments?: { title: string; fileName: string }[];
+  educationDocuments?: { title: string }[];
   disposition: {
     label: string;
     instruction: string;
@@ -411,10 +411,7 @@ export type DischargeSummaryData = {
     name: string;
   };
   dischargeDateTime?: string;
-  workSchoolExcuse?: {
-    note: string;
-    fileName: string;
-  }[];
+  workSchoolExcuse?: { note: string }[];
   documentsAttached?: boolean;
   attachmentDocRefs?: string[];
 };

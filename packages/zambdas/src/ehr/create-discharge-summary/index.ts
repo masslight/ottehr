@@ -151,13 +151,13 @@ export const performEffect = async (
     patient.id,
     appointmentId,
     encounter.id!,
-    listResources
+    listResources,
+    attached
   );
   const dischargeSummaryDocumentId = documentReference.id ?? '';
 
   return {
     message: 'Discharge Summary created.',
-    documentId:
-      attached && attached.length > 0 ? [...attached, dischargeSummaryDocumentId] : dischargeSummaryDocumentId,
+    documentId: dischargeSummaryDocumentId,
   };
 };
