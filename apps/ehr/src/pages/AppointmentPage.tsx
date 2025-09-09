@@ -1056,11 +1056,7 @@ export default function AppointmentPage(): ReactElement {
       setPaperworkPdfLoading(false);
       return;
     }
-    if (existingPaperworkPdf) {
-      await downloadDocument(existingPaperworkPdf.id);
-      setPaperworkPdfLoading(false);
-      return;
-    }
+
     if (!oystehrZambda || !questionnaireResponse.id) {
       enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
       setPaperworkPdfLoading(false);
