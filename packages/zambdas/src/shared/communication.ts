@@ -168,10 +168,15 @@ class EmailClient {
   constructor(config: SendgridConfig, secrets: Secrets | null) {
     this.config = config;
     this.secrets = secrets;
-    const SENDGRID_SEND_EMAIL_API_KEY = getSecret(SecretsKeys.SENDGRID_SEND_EMAIL_API_KEY, secrets);
-    if (!SENDGRID_SEND_EMAIL_API_KEY && this.config.featureFlag) {
-      console.log('Galileo galileo', this.config.featureFlag);
-      throw new Error('SendGrid Send Email API key is not set in secrets');
+    let SENDGRID_SEND_EMAIL_API_KEY = '';
+    try {
+      SENDGRID_SEND_EMAIL_API_KEY = getSecret(SecretsKeys.SENDGRID_SEND_EMAIL_API_KEY, secrets);
+    } catch {
+      if (!this.config.featureFlag) {
+        console.log(`${SENDGRID_SEND_EMAIL_API_KEY} not found but email sending is disabled, continuing`);
+      } else {
+        throw new Error('SendGrid Send Email API key is not set in secrets');
+      }
     }
     sendgrid.setApiKey(SENDGRID_SEND_EMAIL_API_KEY);
   }
