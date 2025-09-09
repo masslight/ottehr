@@ -37,6 +37,7 @@ export function ThresholdsTable(): ReactElement {
     { metric: 'Weight (in pounds)', baseline: '', variance: '' },
   ]);
 
+  const [originalRows, setOriginalRows] = useState<ThresholdRow[]>([]);
   const [touched, setTouched] = useState<Record<number, { baseline: boolean; variance: boolean }>>({});
   const { oystehrZambda } = useApiClients();
   const { id: patientId } = useParams<{ id: string }>();
@@ -88,6 +89,7 @@ export function ThresholdsTable(): ReactElement {
           ];
 
           setRows(mappedRows);
+          setOriginalRows(mappedRows);
         }
       },
     }
@@ -103,6 +105,8 @@ export function ThresholdsTable(): ReactElement {
     onSuccess: (response: any) => {
       const message = response?.message || 'Thresholds updated successfully';
       showToast(message, 'success');
+      // Update original rows after successful update
+      setOriginalRows(rows);
     },
     onError: (error: any) => {
       const message = error?.error || 'Failed to update thresholds';
@@ -136,6 +140,14 @@ export function ThresholdsTable(): ReactElement {
         [field]: true,
       },
     }));
+
+    const hasChanges = rows.some(
+      (row, i) => row.baseline !== originalRows[i]?.baseline || row.variance !== originalRows[i]?.variance
+    );
+
+    if (!hasChanges) {
+      return;
+    }
 
     const allFieldsValid = rows.every((row) => {
       const baselineNum = parseFloat(row.baseline);
@@ -242,8 +254,10 @@ export function ThresholdsTable(): ReactElement {
                           <TextField
                             type="number"
                             size="small"
-                            placeholder={`Enter ${row.metric} baseline`}
+                            sx={{ maxWidth: 180 }}
+                            placeholder={`${row.metric}`}
                             value={row.baseline}
+                            inputProps={{ min: 0 }}
                             error={hasBaselineError}
                             onChange={(e) => handleChange(index, 'baseline', e.target.value)}
                             onBlur={() => handleBlur(index, 'baseline')}

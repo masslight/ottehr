@@ -3,7 +3,6 @@ import { Box, Paper, Skeleton, Stack, Tab, Typography } from '@mui/material';
 import { useMemo, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import { DeviceVitalsPage } from 'src/components/DeviceVitalsPage';
-import TimerComponent from 'src/components/patient/TimerComponent';
 import { PatientDevicesTab } from 'src/components/PatientDevicesTab';
 import { PatientInHouseLabsTab } from 'src/components/PatientInHouseLabsTab';
 import { PatientRadiologyTab } from 'src/components/PatientRadiologyTab';
@@ -78,8 +77,6 @@ export default function PatientPage(): JSX.Element {
                 },
               ]}
             />
-
-            <TimerComponent />
           </Paper>
           <Typography variant="subtitle1" color="primary.main">
             Patient Record

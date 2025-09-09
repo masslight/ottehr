@@ -135,6 +135,8 @@ const UNASSIGN_DEVICES_ZAMBDA_ID = 'unassign-devices';
 const GET_VITALS_ZAMBDA_ID = 'get-vitals';
 const GET_PATIENT_BASELINES_ZAMBDA_ID = 'get-patient-baselines';
 const UPDATE_PATIENT_BASELINES_ZAMBDA_ID = 'update-patient-baselines';
+const GET_CREATE_TIMER_ZAMBDA_ID = 'get-create-timer';
+const UPDATE_TIMER_ZAMBDA_ID = 'update-timer';
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -1036,7 +1038,7 @@ export const getPatientBaselines = async (params: object, oystehr: Oystehr): Pro
     });
     return chooseJson(response);
   } catch (error: unknown) {
-    console.error('Error fetching vitals for device:', error);
+    console.error('Error fetching baselines for device:', error);
     throw error;
   }
 };
@@ -1049,7 +1051,32 @@ export const updatePatientBaselines = async (params: object, oystehr: Oystehr): 
     });
     return chooseJson(response);
   } catch (error: unknown) {
-    console.error('Error fetching vitals for device:', error);
+    console.error('Error updating baselines for device:', error);
+    throw error;
+  }
+};
+
+export const getCreateTimer = async (params: object, oystehr: Oystehr): Promise<any> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: GET_CREATE_TIMER_ZAMBDA_ID,
+      ...params,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.error('Error fetching timer:', error);
+    throw error;
+  }
+};
+export const updateTimer = async (params: object, oystehr: Oystehr): Promise<any> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: UPDATE_TIMER_ZAMBDA_ID,
+      ...params,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.error('Error updating timer:', error);
     throw error;
   }
 };

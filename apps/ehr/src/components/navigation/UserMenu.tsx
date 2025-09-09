@@ -13,18 +13,24 @@ import {
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC, MouseEvent, useCallback, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { getPractitionerMissingFields } from 'src/shared/utils';
 import { useCheckPractitionerEnrollment, useConnectPractitionerToERX, useEnrollPractitionerToERX } from 'src/telemed';
 import { getFullestAvailableName, PROJECT_NAME, RoleType } from 'utils';
 import { dataTestIds } from '../../constants/data-test-ids';
 import { ProviderNotifications } from '../../features';
 import useEvolveUser from '../../hooks/useEvolveUser';
+import TimerComponent from '../patient/TimerComponent';
 
 export const UserMenu: FC = () => {
   const [anchorElement, setAnchorElement] = useState<HTMLElement | null>(null);
   const user = useEvolveUser();
   const userIsProvider = user?.hasRole([RoleType.Provider]);
+  const location = useLocation();
+  const isOnPatientPage = useMemo(() => {
+    const patientPageRegex = /\/patient\/[^/]+/;
+    return patientPageRegex.test(location.pathname);
+  }, [location.pathname]);
 
   const practitioner = user?.profileResource;
 
@@ -62,6 +68,7 @@ export const UserMenu: FC = () => {
 
   return (
     <>
+      {userIsProvider && isOnPatientPage && <TimerComponent />}
       {userIsProvider && <ProviderNotifications />}
       <ListItem disablePadding sx={{ width: 'fit-content' }}>
         <ListItemButton onClick={(event: MouseEvent<HTMLElement>) => setAnchorElement(event.currentTarget)}>

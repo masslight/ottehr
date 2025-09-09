@@ -1,0 +1,241 @@
+import { APIGatewayProxyResult } from 'aws-lambda';
+import { Encounter } from 'fhir/r4b';
+import moment from 'moment';
+import { createOystehrClient, getAuth0Token, getUser, lambdaResponse, wrapHandler, ZambdaInput } from '../../shared';
+
+let oystehrToken: string;
+
+export const index = wrapHandler('update-timer', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  try {
+    let requestBody;
+    try {
+      requestBody = typeof input.body === 'string' ? JSON.parse(input.body) : input.body;
+      if (requestBody.body) {
+        requestBody = typeof requestBody.body === 'string' ? JSON.parse(requestBody.body) : requestBody.body;
+      }
+    } catch (e) {
+      console.error('Failed to parse body:', e);
+      throw new Error('Invalid request body format');
+    }
+
+    const { patientId, updateType } = requestBody;
+
+    if (!patientId || !updateType) {
+      throw new Error('Missing required parameters: deviceId, updateType');
+    }
+
+    const secrets = input.secrets;
+    if (!oystehrToken) {
+      oystehrToken = await getAuth0Token(secrets);
+    }
+    const oystehr = createOystehrClient(oystehrToken, secrets);
+    const userToken = input.headers.Authorization?.replace('Bearer ', '');
+    const user = userToken && (await getUser(userToken, input.secrets));
+
+    const encounterResults = (
+      await oystehr.fhir.search<Encounter>({
+        resourceType: 'Encounter',
+        params: [
+          {
+            name: 'subject',
+            value: `Patient/${patientId}`,
+          },
+          {
+            name: 'status',
+            value: 'in-progress',
+          },
+          {
+            name: 'participant',
+            value: `${user.profile}`,
+          },
+          {
+            name: 'class',
+            value: 'OBSENC',
+          },
+          {
+            name: '_sort',
+            value: '-date',
+          },
+          {
+            name: '_total',
+            value: 'accurate',
+          },
+          {
+            name: '_count',
+            value: '1',
+          },
+        ],
+      })
+    ).unbundle();
+    console.log('encounterResults :', encounterResults);
+
+    if (updateType === 'pause') {
+      const updatedEncounterPause = {
+        ...encounterResults[0],
+        statusHistory: [
+          ...(encounterResults[0]?.statusHistory || []),
+          {
+            status: 'onleave',
+            period: {
+              start: new Date().toISOString(),
+            },
+          },
+        ],
+        meta: {
+          ...encounterResults[0]?.meta,
+          lastUpdated: new Date().toISOString(),
+        },
+      };
+      console.log('Updated encounter for pause:', JSON.stringify(updatedEncounterPause, null, 2));
+      const encounter = await oystehr.fhir.update<any>(updatedEncounterPause);
+      return lambdaResponse(200, {
+        message: `Successfully paused timer value`,
+        encounterResults: encounter,
+      });
+    } else if (updateType === 'resume') {
+      const updatedEncounterResume = {
+        ...encounterResults[0],
+        statusHistory: [
+          ...(encounterResults[0]?.statusHistory || []),
+          {
+            status: 'in-progress',
+            period: {
+              start: new Date().toISOString(),
+            },
+          },
+        ],
+        meta: {
+          ...encounterResults[0]?.meta,
+          lastUpdated: new Date().toISOString(),
+        },
+      };
+      console.log('Updated encounter for resume:', JSON.stringify(updatedEncounterResume, null, 2));
+      const encounter = await oystehr.fhir.update<any>(updatedEncounterResume);
+      return lambdaResponse(200, {
+        message: `Successfully resumed timer value`,
+        encounterResults: encounter,
+      });
+    } else if (updateType === 'stop') {
+      const statusHistory = encounterResults[0]?.statusHistory || [];
+
+      const finalStatusHistory = [...statusHistory];
+      if (finalStatusHistory.length % 2 !== 0) {
+        finalStatusHistory.push({
+          status: 'onleave',
+          period: {
+            start: new Date().toISOString(),
+          },
+        });
+      } else {
+        finalStatusHistory.push({
+          status: 'onleave',
+          period: {
+            start: new Date().toISOString(),
+          },
+        });
+      }
+
+      let totalTimeMs = 0;
+
+      for (let i = 0; i < finalStatusHistory.length; i += 2) {
+        if (i + 1 < finalStatusHistory.length) {
+          const inProgressEntry = finalStatusHistory[i];
+          const onleaveEntry = finalStatusHistory[i + 1];
+
+          if (inProgressEntry.status === 'in-progress' && onleaveEntry.status === 'onleave') {
+            const startTime = moment(inProgressEntry.period.start);
+            const endTime = moment(onleaveEntry.period.start);
+
+            if (startTime.isValid() && endTime.isValid()) {
+              totalTimeMs += endTime.diff(startTime);
+            }
+          }
+        }
+      }
+
+      const totalTimeSeconds = Math.floor(totalTimeMs / 1000);
+
+      const userReference = user.profile;
+      const updatedParticipants = (encounterResults[0]?.participant || []).map((participant: any) => {
+        if (participant.individual?.reference === userReference) {
+          const startTime = moment(participant.period.start);
+          const endTime = startTime.clone().add(totalTimeMs, 'milliseconds');
+
+          return {
+            ...participant,
+            period: {
+              ...participant.period,
+              end: endTime.format('YYYY-MM-DDTHH:mm:ss.SSS[+00:00]'),
+            },
+          };
+        }
+        return participant;
+      });
+
+      const encounterStartTime =
+        finalStatusHistory.length > 0 && finalStatusHistory[0].status === 'in-progress'
+          ? finalStatusHistory[0].period.start
+          : encounterResults[0]?.period?.start || new Date().toISOString();
+
+      const encounterStartMoment = moment(encounterStartTime);
+      const encounterEndTime = encounterStartMoment
+        .clone()
+        .add(totalTimeMs, 'milliseconds')
+        .format('YYYY-MM-DDTHH:mm:ss.SSS[+00:00]');
+
+      const existingIdentifiers = encounterResults[0]?.identifier || [];
+      const totalTimeIdentifier = {
+        system: 'total-time',
+        value: totalTimeSeconds.toString(),
+      };
+
+      const updatedIdentifiers = existingIdentifiers.filter((id: any) => id.system !== 'total-time');
+      updatedIdentifiers.push(totalTimeIdentifier);
+
+      const updatedEncounterStop = {
+        ...encounterResults[0],
+        status: 'finished',
+        statusHistory: finalStatusHistory,
+        participant: updatedParticipants,
+        period: {
+          start: encounterStartTime,
+          end: encounterEndTime,
+        },
+        identifier: updatedIdentifiers,
+        meta: {
+          ...encounterResults[0]?.meta,
+          lastUpdated: new Date().toISOString(),
+        },
+      };
+
+      console.log('Updated encounter for stop:', JSON.stringify(updatedEncounterStop, null, 2));
+      console.log(`Total time calculated: ${totalTimeSeconds} seconds`);
+
+      const encounter = await oystehr.fhir.update<any>(updatedEncounterStop);
+      return lambdaResponse(200, {
+        message: `Successfully stopped timer value with total time: ${totalTimeSeconds} seconds`,
+        totalTime: totalTimeSeconds,
+        encounterResults: encounter,
+      });
+    } else if (updateType === 'discard') {
+      console.log('Discarded encounter for:', JSON.stringify(encounterResults[0].id, null, 2));
+      const encounter = await oystehr.fhir.delete<any>({ resourceType: 'Encounter', id: encounterResults[0].id || '' });
+      return lambdaResponse(200, {
+        message: `Successfully discarded timer value for encounter ${encounterResults[0].id}`,
+        id: encounterResults[0].id,
+        encounterResults: encounter,
+      });
+    } else {
+      return lambdaResponse(200, {
+        message: `Successfully retrieved without stopping timer value`,
+        encounterResults: encounterResults[0],
+      });
+    }
+  } catch (error: any) {
+    console.error('Error:', error);
+    return lambdaResponse(500, {
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+    });
+  }
+});

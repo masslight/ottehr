@@ -1,7 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter } from 'fhir/r4b';
-import moment from 'moment';
-import { createOystehrClient, getAuth0Token, lambdaResponse, wrapHandler, ZambdaInput } from '../../shared';
+import { createOystehrClient, getAuth0Token, getUser, lambdaResponse, wrapHandler, ZambdaInput } from '../../shared';
 
 let oystehrToken: string;
 
@@ -21,7 +20,7 @@ export const index = wrapHandler('get-create-timer', async (input: ZambdaInput):
     const { patientId } = requestBody;
 
     if (!patientId) {
-      throw new Error('Missing required parameters: deviceId, patientId');
+      throw new Error('Missing required parameters: patientId');
     }
 
     const secrets = input.secrets;
@@ -29,11 +28,8 @@ export const index = wrapHandler('get-create-timer', async (input: ZambdaInput):
       oystehrToken = await getAuth0Token(secrets);
     }
     const oystehr = createOystehrClient(oystehrToken, secrets);
-    const user = await oystehr.user.me();
-    const ts = requestBody.ts;
-    const tz = requestBody.tz ?? 'UTC+0';
-    const offset = getOffsetFromTZ(tz);
-    const tsUTC = moment.unix(ts).utcOffset(offset).utc().format('YYYY-MM-DDTHH:mm:ss.SSS[+00:00]');
+    const userToken = input.headers.Authorization?.replace('Bearer ', '');
+    const user = userToken && (await getUser(userToken, input.secrets));
 
     const encounterResults = (
       await oystehr.fhir.search<Encounter>({
@@ -51,11 +47,28 @@ export const index = wrapHandler('get-create-timer', async (input: ZambdaInput):
             name: 'participant',
             value: `${user.profile}`,
           },
+          {
+            name: 'class',
+            value: 'OBSENC',
+          },
+          {
+            name: '_sort',
+            value: '-date',
+          },
+          {
+            name: '_total',
+            value: 'accurate',
+          },
+          {
+            name: '_count',
+            value: '1',
+          },
         ],
       })
     ).unbundle();
+    console.log('encounterResults :', encounterResults);
 
-    if (!encounterResults) {
+    if (!encounterResults || encounterResults.length === 0) {
       const createEncounter = {
         resourceType: 'Encounter',
         status: 'in-progress',
@@ -74,18 +87,18 @@ export const index = wrapHandler('get-create-timer', async (input: ZambdaInput):
               reference: `${user.profile}`,
             },
             period: {
-              start: tsUTC,
+              start: new Date().toISOString(),
             },
           },
         ],
         period: {
-          start: tsUTC,
+          start: new Date().toISOString(),
         },
         statusHistory: [
           {
             status: 'in-progress',
             period: {
-              start: tsUTC,
+              start: new Date().toISOString(),
             },
           },
         ],
@@ -109,13 +122,3 @@ export const index = wrapHandler('get-create-timer', async (input: ZambdaInput):
     });
   }
 });
-
-function getOffsetFromTZ(tz: string): string {
-  const match = tz.match(/UTC([+-]\d+)/);
-  if (match) {
-    const hours = parseInt(match[1], 10);
-    const offset = hours >= 0 ? `+${String(hours).padStart(2, '0')}:00` : `${String(hours).padStart(3, '0')}:00`;
-    return offset;
-  }
-  return '+00:00';
-}
