@@ -170,6 +170,7 @@ class EmailClient {
     this.secrets = secrets;
     const SENDGRID_SEND_EMAIL_API_KEY = getSecret(SecretsKeys.SENDGRID_SEND_EMAIL_API_KEY, secrets);
     if (!SENDGRID_SEND_EMAIL_API_KEY && this.config.featureFlag) {
+      console.log('Galileo galileo', this.config.featureFlag);
       throw new Error('SendGrid Send Email API key is not set in secrets');
     }
     sendgrid.setApiKey(SENDGRID_SEND_EMAIL_API_KEY);
@@ -184,7 +185,16 @@ class EmailClient {
     let SENDGRID_EMAIL_BCC = [defaultBCCLowersEmail];
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, this.secrets);
     const environmentSubjectPrepend = ENVIRONMENT === 'production' ? '' : `[${ENVIRONMENT}] `;
-    const templateId = getSecret(templateIdSecretName, this.secrets);
+    let templateId = '';
+    try {
+      templateId = getSecret(templateIdSecretName, this.secrets);
+    } catch (error) {
+      if (!this.config.featureFlag || template.disabled) {
+        console.log(`${templateIdSecretName} not found but email sending is disabled, continuing`);
+      } else {
+        throw error;
+      }
+    }
     if (ENVIRONMENT === 'local') {
       SENDGRID_EMAIL_BCC = [];
     }
