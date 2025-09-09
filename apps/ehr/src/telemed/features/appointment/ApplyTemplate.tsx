@@ -15,12 +15,13 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
+import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import React, { useState } from 'react';
 import { ExamType } from 'utils';
 import { applyTemplate } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
-import { useAppointmentData } from '../..';
+import { CHART_DATA_QUERY_KEY_BASE, useAppointmentData } from '../..';
 import { useListTemplates } from '../../state/useListTemplates';
 
 export const ApplyTemplate: React.FC = () => {
@@ -31,7 +32,7 @@ export const ApplyTemplate: React.FC = () => {
   const theme = useTheme();
   const { oystehrZambda } = useApiClients();
   const { encounter } = useAppointmentData();
-  // const queryClient = useQueryClient();
+  const queryClient = useQueryClient();
 
   // Load templates using custom react-query hook
   const { templates, isLoading: isLoadingTemplates, error: templatesError } = useListTemplates(ExamType.IN_PERSON);
@@ -75,10 +76,9 @@ export const ApplyTemplate: React.FC = () => {
           templateName: pendingTemplate,
           examType: ExamType.IN_PERSON,
         });
-        // TODO this should reload the data we need
-        // await queryClient.invalidateQueries({ queryKey: [CHART_DATA_QUERY_KEY_BASE, encounter.id] });
-        // Reload the page
-        window.location.reload();
+
+        // TODO: use window.location.reload() if there are issues with queryClient.invalidateQueries
+        await queryClient.invalidateQueries({ queryKey: [CHART_DATA_QUERY_KEY_BASE, encounter.id] });
         enqueueSnackbar('Template applied successfully!', { variant: 'success' });
       } catch (error) {
         console.log('error', JSON.stringify(error));
