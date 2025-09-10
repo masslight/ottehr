@@ -12,8 +12,10 @@ import {
   DATETIME_FULL_NO_YEAR,
   FHIR_ZAPEHR_URL,
   formatPhoneNumberDisplay,
+  getAddressStringForScheduleResource,
   getAppointmentMetaTagOpForStatusUpdate,
   getAppointmentResourceById,
+  getNameFromScheduleResource,
   getPatchBinary,
   getPatientContactEmail,
   getPatientFirstName,
@@ -40,14 +42,14 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
-import { sendInPersonCancellationEmail } from '../../../shared/communication';
+import { getEmailClient } from '../../../shared/communication';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface CancelAppointmentZambdaInputValidated extends CancelAppointmentZambdaInput {
   secrets: Secrets | null;
 }
 interface CancellationDetails {
-  startTime: string;
+  startTime: DateTime;
   email: string | undefined;
   patient: Patient;
   visitType: string;
@@ -202,7 +204,7 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
       patient,
     } = validateBundleAndExtractAppointment(transactionBundle);
 
-    const { startTime, email, visitType } = await getCancellationDetails(appointmentUpdated, patient, scheduleResource);
+    const { startTime, email } = await getCancellationDetails(appointmentUpdated, patient, scheduleResource);
     console.groupEnd();
     console.debug('gettingEmailProps success');
 
@@ -213,14 +215,27 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
       if (email) {
         console.group('sendCancellationEmail');
         try {
-          await sendInPersonCancellationEmail({
-            email,
-            startTime,
-            secrets,
-            scheduleResource,
-            visitType,
-            language,
-          });
+          const emailClient = getEmailClient(secrets);
+          const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
+          const readableTime = startTime.toFormat(DATETIME_FULL_NO_YEAR);
+
+          const address = getAddressStringForScheduleResource(scheduleResource);
+          if (!address) {
+            throw new Error('Address is required to send reminder email');
+          }
+          const location = getNameFromScheduleResource(scheduleResource);
+          if (!location) {
+            throw new Error('Location is required to send reminder email');
+          }
+
+          const templateData = {
+            time: readableTime,
+            location,
+            address,
+            'address-url': `https://www.google.com/maps/search/?api=1&query=${encodeURI(address || '')}`,
+            'book-again-url': `${WEBSITE_URL}/home`,
+          };
+          await emailClient.sendInPersonCancelationEmail(email, templateData);
         } catch (error: any) {
           console.error('error sending cancellation email', error);
         }
@@ -306,7 +321,7 @@ const getCancellationDetails = async (
     const visitType = appointment.appointmentType?.text ?? 'Unknown';
 
     return {
-      startTime: DateTime.fromISO(appointment.start).setZone(timezone).toFormat(DATETIME_FULL_NO_YEAR),
+      startTime: DateTime.fromISO(appointment.start).setZone(timezone),
       email,
       patient,
       visitType,

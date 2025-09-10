@@ -1,5 +1,5 @@
 import Oystehr, { User } from '@oystehr/sdk';
-import { DocumentReference, Schedule, Slot } from 'fhir/r4b';
+import { Schedule, Slot } from 'fhir/r4b';
 import {
   apiErrorToThrow,
   ApplyTemplateZambdaInput,
@@ -69,6 +69,7 @@ import {
   ListTemplatesZambdaInput,
   ListTemplatesZambdaOutput,
   PaginatedResponse,
+  PaperworkToPDFInput,
   PendingSupervisorApprovalInput,
   RadiologyLaunchViewerZambdaInput,
   RadiologyLaunchViewerZambdaOutput,
@@ -984,7 +985,7 @@ export const createDischargeSummary = async (
 
 export const generatePaperworkPdf = async (
   oystehr: Oystehr,
-  parameters: { questionnaireResponseId: string; documentReference: DocumentReference }
+  parameters: PaperworkToPDFInput
 ): Promise<{ documentReference: string }> => {
   try {
     const response = await oystehr.zambda.execute({

@@ -4,7 +4,7 @@ import * as esbuild from 'esbuild';
 import { copy } from 'esbuild-plugin-copy';
 import { type Options } from 'execa';
 import fs from 'fs';
-import ottehrSpec from '../../config/ottehr-spec.json';
+import ottehrSpec from '../../config/oystehr/ottehr-spec.json';
 
 interface ZambdaSpec {
   name: string;
