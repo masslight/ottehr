@@ -201,7 +201,6 @@ export const performEffect = async (
         if (!prettyStartTime) missingData.push('appointment time');
         if (!visitNoteUrl) missingData.push('visit note URL');
         if (missingData.length === 0 && location && visitNoteUrl && patientEmail) {
-          // send virtual visit email if visit is virtual?
           // note: it's assumed that location is the schedule owner here, which is incorrect for Provider schedules
           const templateData: InPersonCompletionTemplateData = {
             location: getNameForOwner(location),
