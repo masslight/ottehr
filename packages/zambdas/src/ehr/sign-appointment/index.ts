@@ -1,8 +1,11 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
+import { FhirResource, Provenance } from 'fhir/r4b';
 import {
+  extractExtensionValue,
+  findExtensionIndex,
   getAppointmentMetaTagOpForStatusUpdate,
   getEncounterStatusHistoryUpdateOp,
   getPatchBinary,
@@ -17,6 +20,7 @@ import {
 } from 'utils';
 import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
 import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createEncounterFromAppointment } from '../../shared/candid';
+import { createProvenanceForEncounter } from '../../shared/createProvenanceForEncounter';
 import { createPublishExcuseNotesOps } from '../../shared/createPublishExcuseNotesOps';
 import { createOystehrClient } from '../../shared/helpers';
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
@@ -25,6 +29,7 @@ import { FullAppointmentResourcePackage } from '../../shared/pdf/visit-details-p
 import { composeAndCreateVisitNotePdf } from '../../shared/pdf/visit-details-pdf/visit-note-pdf-creation';
 import { getChartData } from '../get-chart-data';
 import { getMedicationOrders } from '../get-medication-orders';
+import { getImmunizationOrders } from '../immunization/get-orders';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -61,7 +66,7 @@ export const performEffect = async (
   oystehrCurrentUser: Oystehr,
   params: SignAppointmentInput
 ): Promise<SignAppointmentResponse> => {
-  const { appointmentId, timezone, secrets } = params;
+  const { appointmentId, timezone, secrets, supervisorApprovalEnabled } = params;
 
   const visitResources = await getAppointmentAndRelatedResources(oystehr, appointmentId, true);
   if (!visitResources) {
@@ -98,7 +103,13 @@ export const performEffect = async (
   console.log(`appointment and encounter statuses: ${appointment.status}, ${encounter.status}`);
   const currentStatus = getVisitStatus(appointment, encounter);
   if (currentStatus) {
-    await changeStatusToCompleted(oystehr, oystehrCurrentUser, visitResources, candidEncounterId);
+    await changeStatusToCompleted(
+      oystehr,
+      oystehrCurrentUser,
+      visitResources,
+      candidEncounterId,
+      supervisorApprovalEnabled
+    );
   }
   console.debug(`Status has been changed.`);
 
@@ -122,11 +133,16 @@ export const performEffect = async (
     (promise) => promise.response
   );
   const medicationOrders = (await medicationOrdersPromise).orders;
+  const immunizationOrders = (
+    await getImmunizationOrders(oystehr, {
+      encounterId: visitResources.encounter.id!,
+    })
+  ).orders;
 
   console.log('Chart data received');
   try {
     const pdfInfo = await composeAndCreateVisitNotePdf(
-      { chartData, additionalChartData, medicationOrders },
+      { chartData, additionalChartData, medicationOrders, immunizationOrders },
       visitResources,
       secrets,
       m2mToken
@@ -153,7 +169,8 @@ const changeStatusToCompleted = async (
   oystehr: Oystehr,
   oystehrCurrentUser: Oystehr,
   resourcesToUpdate: FullAppointmentResourcePackage,
-  candidEncounterId: string | undefined
+  candidEncounterId: string | undefined,
+  supervisorApprovalEnabled?: boolean
 ): Promise<void> => {
   if (!resourcesToUpdate.appointment || !resourcesToUpdate.appointment.id) {
     throw new Error('Appointment is not defined');
@@ -203,6 +220,35 @@ const changeStatusToCompleted = async (
   );
   encounterPatchOps.push(encounterStatusHistoryUpdate);
 
+  let provenanceCreate: BatchInputRequest<Provenance> | undefined;
+
+  if (supervisorApprovalEnabled) {
+    const extensionIndex = findExtensionIndex(
+      resourcesToUpdate.encounter.extension || [],
+      'awaiting-supervisor-approval'
+    );
+
+    if (extensionIndex != null && extensionIndex >= 0) {
+      const awaitingSupervisorApproval = extractExtensionValue(resourcesToUpdate.encounter.extension?.[extensionIndex]);
+      if (awaitingSupervisorApproval) {
+        encounterPatchOps.push({
+          op: 'replace',
+          path: `/extension/${extensionIndex}/valueBoolean`,
+          value: false,
+        });
+        provenanceCreate = {
+          method: 'POST',
+          url: '/Provenance',
+          resource: createProvenanceForEncounter(
+            resourcesToUpdate.encounter.id,
+            user.profile.split('/')[1],
+            'verifier'
+          ),
+        };
+      }
+    }
+  }
+
   const documentPatch = createPublishExcuseNotesOps(resourcesToUpdate?.documentReferences ?? []);
 
   const appointmentPatch = getPatchBinary({
@@ -217,6 +263,11 @@ const changeStatusToCompleted = async (
   });
 
   await oystehr.fhir.transaction({
-    requests: [appointmentPatch, encounterPatch, ...documentPatch],
+    requests: [
+      appointmentPatch,
+      encounterPatch,
+      ...(provenanceCreate ? [provenanceCreate] : []),
+      ...documentPatch,
+    ] as BatchInputRequest<FhirResource>[],
   });
 };

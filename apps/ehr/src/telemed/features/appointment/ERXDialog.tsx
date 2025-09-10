@@ -2,14 +2,15 @@ import { Box } from '@mui/material';
 import { ReactElement, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { FHIR_EXTENSION } from 'utils';
-import { getSelectors } from '../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../state';
+import { useAppointmentData } from '../../state';
 
 export const ERXDialog = ({ ssoLink }: { ssoLink: string }): ReactElement => {
-  const { patient } = getSelectors(useAppointmentStore, ['patient']);
+  const { patient } = useAppointmentData();
+
   let weight: number | undefined = Number.parseFloat(
     patient?.extension?.find((ext) => ext.url === FHIR_EXTENSION.Patient.weight.url)?.valueString ?? ''
   );
+
   if (isNaN(weight)) {
     weight = undefined;
   }

@@ -2,6 +2,7 @@ import Oystehr, { BatchInputPostRequest, FhirSearchParams, SearchParam } from '@
 import { Operation } from 'fast-json-patch';
 import {
   Account,
+  Address,
   Appointment,
   Bundle,
   CodeableConcept,
@@ -53,6 +54,7 @@ import {
   PractitionerLicense,
   PractitionerQualificationCode,
   PROJECT_WEBSITE,
+  ScheduleOwnerFhirResource,
   ServiceMode,
   VisitType,
 } from '../types';
@@ -1099,6 +1101,14 @@ export const mapBirthSexToGender = (
   return 'unknown';
 };
 
+export const genderMap = {
+  male: 'Male',
+  female: 'Female',
+  other: 'Intersex',
+} as const;
+
+export type Gender = (typeof genderMap)[keyof typeof genderMap];
+
 export const getMemberIdFromCoverage = (coverage: Coverage): string | undefined => {
   return coverage.identifier?.find((ident) => {
     return ident.type?.coding?.some(
@@ -1400,4 +1410,54 @@ export function getCoding(
     }
   }
   return undefined;
+}
+
+export const getAddressString = (addressResource: Address | undefined): string => {
+  if (!addressResource) {
+    return '';
+  }
+  const { line, city, state, postalCode } = addressResource;
+
+  let address = '';
+  if (line?.[0]) {
+    address += line?.[0];
+    if (line?.[1]) {
+      address += `, ${line?.[1]}`;
+    }
+  }
+  if (city) {
+    if (address.length > 0) {
+      address += ', ';
+    }
+    address += city;
+  }
+  if (state) {
+    if (address.length > 0) {
+      address += ', ';
+    }
+    address += state;
+  }
+  if (postalCode) {
+    if (address.length > 0) {
+      address += ' ';
+    }
+    address += postalCode;
+  }
+  return address;
+};
+
+export const getAddressStringForScheduleResource = (
+  scheduleResource: ScheduleOwnerFhirResource
+): string | undefined => {
+  let address: string | undefined;
+  if (scheduleResource.resourceType === 'Location') {
+    address = getAddressString(scheduleResource.address);
+  } else if (scheduleResource.resourceType === 'Practitioner') {
+    address = getAddressString(scheduleResource.address?.[0]);
+  }
+  console.log('getAddressStringForScheduleResource', scheduleResource.resourceType, address);
+  return address;
+};
+export function getExtension(resource: DomainResource, url: string): Extension | undefined {
+  return resource.extension?.find((extension) => extension.url === url);
 }

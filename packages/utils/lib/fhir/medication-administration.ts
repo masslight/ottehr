@@ -63,8 +63,8 @@ export function mapOrderStatusToFhir(status: MedicationOrderStatusesType): Medic
   }
 }
 
-export function getMedicationName(medication: Medication): string | undefined {
-  return medication.identifier?.find((idn) => idn.system === MEDICATION_IDENTIFIER_NAME_SYSTEM)?.value;
+export function getMedicationName(medication: Medication | undefined): string | undefined {
+  return medication?.identifier?.find((idn) => idn.system === MEDICATION_IDENTIFIER_NAME_SYSTEM)?.value;
 }
 
 export function getMedicationTypeCode(medication: Medication): string | undefined {
@@ -177,12 +177,12 @@ export function getCurrentOrderedByProviderId(medicationAdministration: Medicati
 }
 
 export const searchRouteByCode = (
-  code: keyof typeof medicationApplianceRoutes
+  code: keyof typeof medicationApplianceRoutes | undefined
 ): MedicationApplianceRoute | undefined => {
   return Object.values(medicationApplianceRoutes).find((route) => route.code === code);
 };
 
-export function searchMedicationLocation(code: string): MedicationApplianceLocation | undefined {
+export function searchMedicationLocation(code: string | undefined): MedicationApplianceLocation | undefined {
   return medicationApplianceLocations.find((location) => location.code === code);
 }
 

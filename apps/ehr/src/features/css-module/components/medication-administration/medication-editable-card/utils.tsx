@@ -28,11 +28,11 @@ export const medicationOrderFieldsWithOptions: Partial<keyof ExtendedMedicationD
 
 export type MedicationOrderFieldWithOptionsType = (typeof medicationOrderFieldsWithOptions)[number];
 
-export type InHouseMedicationFieldType = 'text' | 'number' | 'select' | 'datetime' | 'month' | 'autocomplete';
+export type InHouseMedicationFieldType = 'text' | 'number' | 'select' | 'datetime' | 'date' | 'autocomplete';
 
 export const getFieldType = (field: keyof MedicationData): InHouseMedicationFieldType => {
   if (field === 'dose') return 'number';
-  if (field === 'expDate') return 'month';
+  if (field === 'expDate') return 'date';
   if (field === 'effectiveDateTime') return 'datetime';
   if (field === 'medicationId') return 'autocomplete';
   if (medicationOrderFieldsWithOptions.includes(field)) return 'select';
@@ -155,7 +155,7 @@ export const getConfirmSaveModalConfigs = ({
         <strong>Patient:</strong> {patientName}
       </Typography>
       <Typography>
-        <strong>Medication:</strong> {medicationName} / {updateRequestInputRef.current?.orderData?.dose}
+        <strong>Medication:</strong> {medicationName} / {updateRequestInputRef.current?.orderData?.dose}{' '}
         {updateRequestInputRef.current?.orderData?.units} / {routeName}
       </Typography>
       <Typography>

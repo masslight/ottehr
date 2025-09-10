@@ -1,11 +1,14 @@
 {
   "name": "zambdas",
-  "version": "1.15.6",
+  "version": "1.17.3",
   "private": true,
   "scripts": {
     "start": "ENV=${ENV:-local} npm run setup-deployed-resources ${ENV:-local} && tsx watch --include './src/**/*' src/local-server/index.ts -- env=.env/${ENV:-local}.json",
     "start:local": "ENV=local npm run start",
     "start:demo": "ENV=demo npm run start",
+    "start:iac": "tsx watch --include './src/**/*' src/local-server/index.ts -- env=.env/${ENV:-local}.json",
+    "start:local:iac": "ENV=local npm run start:iac",
+    "start:demo:iac": "ENV=demo npm run start:iac",
     "cancel-telemed-appointments": "tsx src/scripts/cancel-telemed-appointments.ts",
     "remove-insurances-and-payer-orgs": "tsx src/scripts/remove-insurances-and-payer-orgs.ts",
     "fix-duplicate-payers": "tsx src/scripts/fix-duplicate-payers.ts",
@@ -14,6 +17,7 @@
     "update-insurances-and-payer-orgs-debug": "node --inspect --import tsx src/scripts/update-insurances-and-payer-orgs.ts",
     "recreate-in-house-medications-list": "tsx src/scripts/recreate-in-house-medications-list.ts $npm_config_env",
     "delete-in-house-medications-list": "tsx src/scripts/delete-in-house-medications-list.ts $npm_config_env",
+    "recreate-vaccines-list": "tsx src/scripts/recreate-vaccines-list.ts $npm_config_env",
     "log-in-house-medications-list": "tsx src/scripts/log-in-house-medications-list.ts $npm_config_env",
     "setup-document-explorer": "tsx src/scripts/setup-document-explorer.ts $npm_config_env",
     "remove-test-patient-data": "tsx src/scripts/remove-test-patient-data.ts local",
@@ -40,7 +44,11 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:integration:ci": "start-server-and-test 'ENV=local tsx src/local-server/index.ts -- env=.env/local.json' 3000 test:integration",
     "mock-reflex-test": "tsx src/scripts/reflex-test-helper.ts",
-    "make-in-house-test-items": "tsx src/scripts/load-in-house-labs-tests.ts"
+    "mock-unsolicited-result": "tsx src/scripts/unsolicited-result-helper.ts",
+    "make-in-house-test-items": "tsx src/scripts/load-in-house-labs-tests.ts",
+    "test-emails": "tsx src/scripts/test-emails.ts local",
+    "remove-payor-orgs": "tsx src/scripts/remove-payor-orgs.ts",
+    "update-locations-for-lab-accounts": "tsx src/scripts/update-locations-for-lab-accounts.ts"
   },
   "engines": {
     "node": ">=20.0.0",
@@ -71,6 +79,7 @@
     "cors": "^2.8.5",
     "esbuild": "^0.25.1",
     "esbuild-plugin-copy": "^2.1.1",
+    "execa": "^9.6.0",
     "express": "^4.21.2",
     "glob": "^11.0.1",
     "lodash": "^4.17.21",

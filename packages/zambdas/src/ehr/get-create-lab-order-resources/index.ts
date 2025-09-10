@@ -1,15 +1,18 @@
 import Oystehr, { BatchInputRequest, Bundle } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Account, Coverage, Organization } from 'fhir/r4b';
+import { Account, Coverage, Location, Organization } from 'fhir/r4b';
 import {
   APIError,
   CODE_SYSTEM_COVERAGE_CLASS,
   EXTERNAL_LAB_ERROR,
+  ExternalLabOrderingLocations,
   flattenBundleResources,
   getSecret,
   isApiError,
+  LAB_ACCOUNT_NUMBER_SYSTEM,
   LAB_ORG_TYPE_CODING,
   LabOrderResourcesRes,
+  ModifiedOrderingLocation,
   OrderableItemSearchResult,
   OYSTEHR_LAB_GUID_SYSTEM,
   OYSTEHR_LAB_ORDERABLE_ITEM_SEARCH_API,
@@ -28,15 +31,20 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
-    const { patientId, search: labSearch, secrets } = validatedParameters;
-    console.log('search passed', labSearch);
+    const { patientId, search: testItemSearch, secrets, labOrgIdsString } = validatedParameters;
+    console.log('search passed', testItemSearch);
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const { accounts, coverages, labOrgsGUIDs } = await getResources(oystehr, patientId, labSearch);
+    const { accounts, coverages, labOrgsGUIDs, orderingLocationDetails } = await getResources(
+      oystehr,
+      patientId,
+      testItemSearch,
+      labOrgIdsString
+    );
 
     let coverageName: string | undefined;
     if (patientId) {
@@ -44,13 +52,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     let labs: OrderableItemSearchResult[] = [];
-    if (labSearch) {
-      labs = await getLabs(labOrgsGUIDs, labSearch, m2mToken);
+    if (testItemSearch) {
+      labs = await getLabs(labOrgsGUIDs, testItemSearch, m2mToken);
     }
 
     const response: LabOrderResourcesRes = {
       coverageName,
       labs,
+      ...orderingLocationDetails,
     };
 
     return {
@@ -75,9 +84,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 const getResources = async (
   oystehr: Oystehr,
   patientId?: string,
-  labSearch?: string
-): Promise<{ accounts: Account[]; coverages: Coverage[]; labOrgsGUIDs: string[] }> => {
-  const requests: BatchInputRequest<Coverage | Account | Organization>[] = [];
+  testItemSearch?: string,
+  labOrgIdsString?: string
+): Promise<{
+  accounts: Account[];
+  coverages: Coverage[];
+  labOrgsGUIDs: string[];
+  orderingLocationDetails: ExternalLabOrderingLocations;
+}> => {
+  const requests: BatchInputRequest<Coverage | Account | Organization | Location>[] = [];
 
   if (patientId) {
     const coverageSearchRequest: BatchInputRequest<Coverage> = {
@@ -91,23 +106,33 @@ const getResources = async (
     requests.push(coverageSearchRequest, accountSearchRequest);
   }
 
-  if (labSearch) {
+  if (testItemSearch) {
     const organizationSearchRequest: BatchInputRequest<Organization> = {
       method: 'GET',
-      url: `/Organization?type=${LAB_ORG_TYPE_CODING.system}|${LAB_ORG_TYPE_CODING.code}`,
+      url: `/Organization?type=${LAB_ORG_TYPE_CODING.system}|${LAB_ORG_TYPE_CODING.code}${
+        labOrgIdsString ? `&_id=${labOrgIdsString}` : ''
+      }`,
     };
     requests.push(organizationSearchRequest);
   }
 
-  const searchResults: Bundle<Coverage | Account | Organization> = await oystehr.fhir.batch({
+  const orderingLocationsRequest: BatchInputRequest<Location> = {
+    method: 'GET',
+    url: `/Location?status=active&identifier=${LAB_ACCOUNT_NUMBER_SYSTEM}|`,
+  };
+  requests.push(orderingLocationsRequest);
+
+  const searchResults: Bundle<Coverage | Account | Organization | Location> = await oystehr.fhir.batch({
     requests,
   });
-  const resources = flattenBundleResources<Coverage | Account | Organization>(searchResults);
+  const resources = flattenBundleResources<Coverage | Account | Organization | Location>(searchResults);
 
   const coverages: Coverage[] = [];
   const accounts: Account[] = [];
   const organizations: Organization[] = [];
   const labOrgsGUIDs: string[] = [];
+  const orderingLocations: ModifiedOrderingLocation[] = [];
+  const orderingLocationIds: string[] = [];
 
   resources.forEach((resource) => {
     if (resource.resourceType === 'Organization') {
@@ -118,9 +143,41 @@ const getResources = async (
     }
     if (resource.resourceType === 'Coverage') coverages.push(resource as Coverage);
     if (resource.resourceType === 'Account') accounts.push(resource as Account);
+    if (resource.resourceType === 'Location') {
+      const loc = resource as Location;
+      if (
+        loc.id &&
+        loc.identifier &&
+        loc.name &&
+        !loc.extension?.some(
+          (ext) =>
+            ext.valueCoding?.code === 'vi' &&
+            ext.valueCoding?.system === 'http://terminology.hl7.org/CodeSystem/location-physical-type'
+        )
+      ) {
+        orderingLocations.push({
+          name: loc.name,
+          id: loc.id,
+          enabledLabs: loc.identifier
+            .filter((id) => id.system === LAB_ACCOUNT_NUMBER_SYSTEM && id.value && id.assigner && id.assigner.reference)
+            .map((id) => {
+              return {
+                accountNumber: id.value!,
+                labOrgRef: id.assigner!.reference!,
+              };
+            }),
+        });
+        orderingLocationIds.push(loc.id);
+      }
+    }
   });
 
-  return { coverages, accounts, labOrgsGUIDs };
+  return {
+    coverages,
+    accounts,
+    labOrgsGUIDs,
+    orderingLocationDetails: { orderingLocationIds, orderingLocations },
+  };
 };
 
 const getLabs = async (

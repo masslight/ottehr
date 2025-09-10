@@ -10,10 +10,9 @@ import { FC, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { TelemedAppointmentStatusEnum } from 'utils';
 import { dataTestIds } from '../../../constants/data-test-ids';
-import { getSelectors } from '../../../shared/store/getSelectors';
 import { ConfirmationDialog, IconButtonContained } from '../../components';
 import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
-import { useAppointmentStore, useChangeTelemedAppointmentStatusMutation, useVideoCallStore } from '../../state';
+import { useAppointmentData, useChangeTelemedAppointmentStatusMutation, useVideoCallStore } from '../../state';
 import { updateEncounterStatusHistory } from '../../utils';
 import { CallSettings } from './CallSettings';
 
@@ -22,7 +21,7 @@ export const VideoControls: FC = () => {
 
   const apiClient = useOystehrAPIClient();
   const { mutateAsync, isPending: isLoading } = useChangeTelemedAppointmentStatusMutation();
-  const { encounter } = getSelectors(useAppointmentStore, ['encounter']);
+  const { encounter, appointmentSetState } = useAppointmentData();
 
   const { id: appointmentId } = useParams();
 
@@ -55,7 +54,7 @@ export const VideoControls: FC = () => {
           console.error(error);
         }
       );
-      useAppointmentStore.setState({
+      appointmentSetState({
         encounter: {
           ...encounter,
           status: 'finished',

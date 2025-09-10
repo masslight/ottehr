@@ -10,7 +10,6 @@ import {
   StandardFonts,
   translate,
 } from 'pdf-lib';
-// import fs from 'fs';
 
 // Get the image's EXIF orientation
 // https://github.com/Hopding/pdf-lib/issues/1284

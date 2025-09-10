@@ -1,0 +1,223 @@
+name: IaC - Deploy Services
+run-name: Use IaC to Deploy ${{ github.ref_name }} to ${{ inputs.environment }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment name'
+        required: true
+        type: choice
+        options:
+          - local
+          - staging
+          - production
+      incrementVersion:
+        description: 'Bump Version?'
+        type: boolean
+        required: false
+      versionType:
+        description: 'Version to bump (major.minor.patch)'
+        type: choice
+        default: 'patch'
+        options:
+          - patch
+          - minor
+          - major
+      confirmProduction:
+        description: 'If you are 100% sure you want to deploy to production, type: Yes'
+        required: false
+
+jobs:
+  deploy:
+    env:
+      NODE_VERSION: '20'
+      NODE_OPTIONS: '--max_old_space_size=4096'
+      ENVIRONMENT: ${{ github.event.inputs.environment }}
+      # Override these values, or populate vars and secrets
+      AWS_DEPLOY_ROLE: ${{ vars.AWS_DEPLOY_ROLE }} # AWS IAM role for deployment
+      SECRETS_REPOSITORY: ${{ vars.SECRETS_REPOSITORY }} # Secrets repository for configuration files
+      GITHUB_APP_ID: ${{ secrets.OTTEHR_GITHUB_APP_ID }} # Ottehr GitHub App ID
+      GITHUB_APP_PRIVATE_KEY: ${{ secrets.OTTEHR_GITHUB_APP_PRIVATE_KEY }} # Ottehr GitHub App Private Key
+
+    runs-on: ubuntu-latest-16-cores
+    timeout-minutes: 15
+
+    permissions:
+      id-token: write # Required for OIDC
+      contents: write # Required for version bumping
+      pull-requests: write # Required for version bumping
+      issues: write # Required for version bumping
+
+    steps:
+      - name: Log Input
+        run: >
+          echo "Environment: ${{ env.ENVIRONMENT }}" &&
+          echo "Branch: ${{ github.ref }}" &&
+          echo "Increment Version: ${{ github.event.inputs.incrementVersion == 'true' && github.event.inputs.versionType || 'no' }}" &&
+          echo "Confirm Production: ${{ github.event.inputs.confirmProduction }}"
+
+      - name: Install SSH Client
+        uses: webfactory/ssh-agent@836c84ec59a0e7bc0eabc79988384eb567561ee2 # v0.7.0
+        with:
+          ssh-private-key: |
+            ${{ secrets.DEPLOY_OTTEHR_KEY }}
+
+      - uses: actions/create-github-app-token@21cfef2b496dd8ef5b904c159339626a10ad380e # v1.11.6
+        id: app-token
+        with:
+          app-id: ${{ env.GITHUB_APP_ID }}
+          private-key: ${{ env.GITHUB_APP_PRIVATE_KEY }}
+
+      - name: If environment is production, ensure keys are coming in through input parameters.
+        if: ${{ env.ENVIRONMENT == 'production' && !(github.event.inputs.confirmProduction == 'Yes') }}
+        run: echo 'Please confirm you want to deploy to production.' && exit 1
+
+      - uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3 (3.6.0)
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: true
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@7c12f8017d5436eb855f1ed4399f037a36fbd9e8 # v2 (v2.5.2)
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          
+      - name: HashiCorp - Setup Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3 (v3.1.2)
+        with:
+          terraform_version: '1.12.2'
+
+      - name: TruffleHog -- Check for secrets committed to the repository
+        uses: trufflesecurity/trufflehog@1aa1871f9ae24a8c8a3a48a9345514acf42beb39 # v3.82.13
+        with:
+          extra_args: --only-verified
+
+      - name: Increase version if input dictates.
+        if: ${{ github.event.inputs.incrementVersion == 'true' }}
+        run: >
+          git config --local user.email "tech-support@ottehr.com";
+          git config --local user.name "GitHub Action Bump Version";
+          cd ${{ github.workspace }} && npm version ${{ github.event.inputs.versionType }}
+
+      - name: Commit files with new version
+        if: ${{ github.event.inputs.incrementVersion == 'true' }}
+        uses: ad-m/github-push-action@d91a481090679876dfc4178fef17f286781251df # v0.8.0
+        with:
+          github_token: ${{ steps.app-token.outputs.token }}
+          branch: ${{ github.ref }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check out secrets repo to grab the env file.
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3 (3.6.0)
+        with:
+          repository: ${{ env.SECRETS_REPOSITORY }}
+          ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
+          path: 'secrets'
+
+      - name: Move .env config file into zambdas dir.
+        run: mkdir -p packages/zambdas/.env; cp secrets/zambdas/* packages/zambdas/.env; cp secrets/zambdas/.env.sentry-build-plugin packages/zambdas
+
+      - name: Move app config files into app dirs.
+        run: |
+          mkdir -p apps/intake/env; cp secrets/intake/app/.env.${{ env.ENVIRONMENT }} apps/intake/env
+          mkdir -p apps/ehr/env; cp secrets/ehr/app/.env.${{ env.ENVIRONMENT }} apps/ehr/env
+
+      - name: Move aws-cdk-deploy-config into scripted deploy dir.
+        run: mkdir -p scripts/deploy; cp secrets/aws-cdk-deploy-config/deploy-config.${{ env.ENVIRONMENT }}.json scripts/deploy/deploy-config.json
+
+      - name: Move terraform var file and backend file into terraform deploy dir.
+        run: |
+          mkdir -p deploy
+          cp secrets/terraform/${{ env.ENVIRONMENT }}.tfvars deploy
+          cp secrets/terraform/backend.config deploy
+
+      - name: Configure AWS Credentials
+        id: configure-aws-credentials
+        uses: aws-actions/configure-aws-credentials@50ac8dd1e1b10d09dac7b8727528b91bed831ac0 # v3 (v3.0.2)
+        with:
+          role-to-assume: ${{ env.AWS_DEPLOY_ROLE }}
+          aws-region: us-east-1
+          output-credentials: true
+          
+      - name: Configure AWS CLI
+        run: |
+          aws_profile=$(grep '"aws_profile"' "scripts/deploy/deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
+          profile="${aws_profile:-ottehr}"
+          echo "Using AWS profile: ${profile}"
+          aws configure --profile "${profile}" set aws_access_key_id ${{ steps.configure-aws-credentials.outputs.aws-access-key-id }}
+          aws configure --profile "${profile}" set aws_secret_access_key ${{ steps.configure-aws-credentials.outputs.aws-secret-access-key }}
+          aws configure --profile "${profile}" set aws_session_token ${{ steps.configure-aws-credentials.outputs.aws-session-token }}
+          aws configure --profile "${profile}" set region us-east-1
+
+      # Build once first because CDK checks for everything before deciding which stacks to deploy
+      - name: Build Intake
+        working-directory: apps/intake
+        run: npm run build:env --env=${{ env.ENVIRONMENT }}
+
+      - name: Build EHR
+        working-directory: apps/ehr
+        run: npm run build:env --env=${{ env.ENVIRONMENT }}
+
+      - name: Deploy Cloud Infrastructure Using Legacy Scripted Deploy
+        working-directory: scripts/deploy/aws
+        run: |
+          aws_profile=$(grep '"aws_profile"' "../deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
+          profile="${aws_profile:-ottehr}"
+          echo "Using AWS profile: ${profile}"
+          stack_prefix=$(grep '"stack_prefix"' "../deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
+          prefix="${stack_prefix:-ottehr}"
+          echo "Using stack prefix: ${prefix}"
+          npx cdk bootstrap --ci
+          npx cdk deploy --require-approval=never --profile "${profile}" "${prefix}-infra-stack-${{ env.ENVIRONMENT }}"
+          npx ts-node ./bin/update-config.ts --no-update-apps
+
+      - name: Build Intake
+        working-directory: apps/intake
+        run: npm run build:env --env=${{ env.ENVIRONMENT}}
+
+      - name: Build EHR
+        working-directory: apps/ehr
+        run: npm run build:env --env=${{ env.ENVIRONMENT }}
+
+      - name: Deploy Websites Using Legacy Scripted Deploy
+        working-directory: scripts/deploy/aws
+        run: |
+          aws_profile=$(grep '"aws_profile"' "../deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
+          profile="${aws_profile:-ottehr}"
+          echo "Using AWS profile: ${profile}"
+          stack_prefix=$(grep '"stack_prefix"' "../deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
+          prefix="${stack_prefix:-ottehr}"
+          echo "Using stack prefix: ${prefix}"
+          npx cdk deploy --require-approval=never --profile "${profile}" "${prefix}-data-stack-${{ env.ENVIRONMENT }}"
+
+      - name: Bundle Zambdas
+        working-directory: packages/zambdas
+        run: npm run bundle
+
+      - name: Deploy Ottehr Resources Using Terraform
+        working-directory: deploy
+        run: |
+          terraform init --backend-config=./backend.config -input=false
+          npm run apply-${{ env.ENVIRONMENT}} -- --auto-approve
+
+      - name: Notify Slack
+        if: always()
+        uses: edge/simple-slack-notify@d841831738af1d83ecc27186e722322145c21488 # v1.1.2
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          BRANCH: ${{ github.ref }}
+          PACKAGE_VERSION: ${{ steps.package-version.outputs.current-version }}
+        with:
+          channel: '#ottehr-notifications'
+          status: ${{ job.status }}
+          success_text: '${env.GITHUB_WORKFLOW} (${env.GITHUB_RUN_NUMBER}) build completed successfully'
+          failure_text: '${env.GITHUB_WORKFLOW} (${env.GITHUB_RUN_NUMBER}) build failed'
+          cancelled_text: '${env.GITHUB_WORKFLOW} (${env.GITHUB_RUN_NUMBER}) build was cancelled'
+          fields: |
+            [{ "title": "Action URL", "value": "${env.GITHUB_SERVER_URL}/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}"},
+            { "title": "Branch", "value": "${env.BRANCH}", "short": true },
+            { "title": "Environment", "value": "${env.ENVIRONMENT}", "short": true },
+            { "title": "Version", "value": "${env.PACKAGE_VERSION}", "short": true }]

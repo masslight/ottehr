@@ -29,4 +29,6 @@ packages/ui-components/dist/*
 
 **/vite.config.ts.timestamp-*.mjs
 **/ottehr-secrets/
-packages/utils/.ottehr_config/*
+config/sendgrid/*
+
+terraform.json

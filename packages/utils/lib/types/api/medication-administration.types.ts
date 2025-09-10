@@ -1,6 +1,9 @@
 import { MedicationAdministration, MedicationRequest, MedicationStatement, Patient, Practitioner } from 'fhir/r4b';
 import { z } from 'zod';
-import { MEDICATION_APPLIANCE_LOCATION_SYSTEM } from './medication-administration.constants';
+import {
+  MEDICATION_APPLIANCE_LOCATION_SYSTEM,
+  VACCINE_ADMINISTRATION_EMERGENCY_CONTACT_RELATIONSHIP_CODE_SYSTEM,
+} from './medication-administration.constants';
 
 export enum MedicationOrderStatuses {
   'pending' = 'pending',
@@ -247,25 +250,25 @@ export const medicationApplianceLocations: MedicationApplianceLocation[] = [
     display: 'Other (qualifier value)',
   },
   {
-    name: 'Volume divided, R and L vastus lateralis',
+    name: 'Volume divided - Left vastus lateralis',
     code: '1217007000',
     system: MEDICATION_APPLIANCE_LOCATION_SYSTEM,
     display: 'Structure of left vastus lateralis muscle (body structure)',
   },
   {
-    name: 'Volume divided, R and L vastus lateralis',
+    name: 'Volume divided - Right vastus lateralis',
     code: '1217006009',
     system: MEDICATION_APPLIANCE_LOCATION_SYSTEM,
     display: 'Structure of right vastus lateralis muscle (body structure)',
   },
   {
-    name: 'Volume divided, R and L deltoid',
+    name: 'Volume divided - Right deltoid',
     code: '16217661000119109',
     system: MEDICATION_APPLIANCE_LOCATION_SYSTEM,
     display: 'Structure of right deltoid muscle (body structure)',
   },
   {
-    name: 'Volume divided, R and L deltoid',
+    name: 'Volume divided - Left deltoid',
     code: '16217701000119102',
     system: MEDICATION_APPLIANCE_LOCATION_SYSTEM,
     display: 'Structure of left deltoid muscle (body structure)',
@@ -1144,3 +1147,72 @@ export const medicationApplianceRoutes: MedicationApplianceRoutes = {
     display: 'Sublabial use',
   },
 } as const;
+
+export interface EmergencyContactRelationship {
+  code: string;
+  system: string;
+  display: string;
+}
+
+export const EMERGENCY_CONTACT_RELATIONSHIPS: EmergencyContactRelationship[] = [
+  {
+    code: 'parent',
+    system: VACCINE_ADMINISTRATION_EMERGENCY_CONTACT_RELATIONSHIP_CODE_SYSTEM,
+    display: 'Parent',
+  },
+  {
+    code: 'legal-guardian',
+    system: VACCINE_ADMINISTRATION_EMERGENCY_CONTACT_RELATIONSHIP_CODE_SYSTEM,
+    display: 'Legal Guardian',
+  },
+  {
+    code: 'spouse-partner',
+    system: VACCINE_ADMINISTRATION_EMERGENCY_CONTACT_RELATIONSHIP_CODE_SYSTEM,
+    display: 'Spouse/Partner',
+  },
+  {
+    code: 'child-adult',
+    system: VACCINE_ADMINISTRATION_EMERGENCY_CONTACT_RELATIONSHIP_CODE_SYSTEM,
+    display: 'Child (Adult)',
+  },
+  {
+    code: 'sibling',
+    system: VACCINE_ADMINISTRATION_EMERGENCY_CONTACT_RELATIONSHIP_CODE_SYSTEM,
+    display: 'Sibling',
+  },
+  {
+    code: 'grandparent',
+    system: VACCINE_ADMINISTRATION_EMERGENCY_CONTACT_RELATIONSHIP_CODE_SYSTEM,
+    display: 'Grandparent',
+  },
+  {
+    code: 'other-family-member',
+    system: VACCINE_ADMINISTRATION_EMERGENCY_CONTACT_RELATIONSHIP_CODE_SYSTEM,
+    display: 'Other Family Member',
+  },
+  {
+    code: 'friend',
+    system: VACCINE_ADMINISTRATION_EMERGENCY_CONTACT_RELATIONSHIP_CODE_SYSTEM,
+    display: 'Friend',
+  },
+  {
+    code: 'caregiver',
+    system: VACCINE_ADMINISTRATION_EMERGENCY_CONTACT_RELATIONSHIP_CODE_SYSTEM,
+    display: 'Caregiver',
+  },
+  {
+    code: 'power-of-attorney',
+    system: VACCINE_ADMINISTRATION_EMERGENCY_CONTACT_RELATIONSHIP_CODE_SYSTEM,
+    display: 'Power of Attorney',
+  },
+  {
+    code: 'healthcare-proxy',
+    system: VACCINE_ADMINISTRATION_EMERGENCY_CONTACT_RELATIONSHIP_CODE_SYSTEM,
+    display: 'Healthcare Proxy',
+  },
+  {
+    code: 'other',
+    system: VACCINE_ADMINISTRATION_EMERGENCY_CONTACT_RELATIONSHIP_CODE_SYSTEM,
+    display: 'Other',
+  },
+];

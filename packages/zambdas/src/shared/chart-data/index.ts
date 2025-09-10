@@ -39,7 +39,7 @@ import {
   ClinicalImpressionDTO,
   CommunicationDTO,
   CPTCodeDTO,
-  createCodingCode,
+  createCodeableConcept,
   createFilesDocumentReferences,
   CSS_NOTE_ID,
   DiagnosisDTO,
@@ -49,8 +49,6 @@ import {
   DispositionType,
   ERX_MEDICATION_META_TAG_CODE,
   EXAM_OBSERVATION_META_SYSTEM,
-  ExamCardsNames,
-  ExamFieldsNames,
   ExamObservationDTO,
   FHIR_EXTENSION,
   fillVitalObservationAttributes,
@@ -67,6 +65,7 @@ import {
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   NOTHING_TO_EAT_OR_DRINK_ID,
   ObservationBooleanFieldDTO,
+  ObservationDateRangeFieldDTO,
   ObservationDTO,
   ObservationTextFieldDTO,
   PATIENT_VITALS_META_SYSTEM,
@@ -330,7 +329,7 @@ export function makeObservationResource(
   };
 
   const fieldName = data.field;
-  console.log(`makeObservationResource() fieldName=[${fieldName}]`);
+  console.log(`makeObservationResource() fieldName=[${fieldName}] data=[${JSON.stringify(data)}]`);
 
   if (isVitalObservation(data)) {
     let interpretation: Observation['interpretation'];
@@ -366,6 +365,18 @@ export function makeObservationResource(
     }
   }
 
+  if (isObservationDateRangeFieldDTO(data)) {
+    delete base.effectiveDateTime;
+    const [start, end] = data.value;
+    return {
+      ...base,
+      effectivePeriod: {
+        start,
+        end,
+      },
+    };
+  }
+
   throw new Error('Invalid ObservationDTO type');
 }
 
@@ -375,6 +386,30 @@ function isObservationBooleanFieldDTO(data: ObservationDTO): data is Observation
 
 function isObservationTextFieldDTO(data: ObservationDTO): data is ObservationTextFieldDTO {
   return typeof (data as ObservationTextFieldDTO).value === 'string';
+}
+
+function isObservationDateRangeFieldDTO(data: ObservationDTO): data is ObservationDateRangeFieldDTO {
+  if (!Array.isArray(data.value) || data.value.length !== 2) {
+    return false;
+  }
+
+  if (typeof data.value[0] !== 'string' || typeof data.value[1] !== 'string') {
+    return false;
+  }
+
+  const startDate = DateTime.fromISO(data.value[0]);
+  const endDate = DateTime.fromISO(data.value[1]);
+
+  if (!startDate.isValid || !endDate.isValid) {
+    return false;
+  }
+
+  if (startDate > endDate) {
+    console.log('startDate should be less than endDate');
+    return false;
+  }
+
+  return true;
 }
 
 export function makeFreeTextNoteDTO(resource: Procedure | Observation | Condition): FreeTextNoteDTO {
@@ -406,23 +441,21 @@ export function makeHospitalizationResource(
     resourceType: 'EpisodeOfCare',
     status: 'finished',
     patient: { reference: `Patient/${patientId}` },
-    type: [createCodingCode(data.code, data.display)],
+    type: [createCodeableConcept(undefined, data.display)],
     meta: getMetaWFieldName(fieldName),
   };
   return result;
 }
 
 export function makeHospitalizationDTO(resource: EpisodeOfCare): HospitalizationDTO | undefined {
-  const coding = resource.type;
-  if (coding) {
-    if (coding[0].coding?.[0]?.code && coding[0].coding?.[0]?.display) {
-      return {
-        resourceId: resource.id,
-        code: coding[0].coding?.[0]?.code,
-        display: coding[0].coding?.[0]?.display,
-      };
-    }
+  const code = resource.meta?.tag?.[0]?.code;
+  const display = resource.type?.[0]?.text;
+  const resourceId = resource.id;
+
+  if (resourceId && code && display) {
+    return { resourceId, code, display };
   }
+
   return undefined;
 }
 
@@ -430,7 +463,8 @@ export function makeExamObservationResource(
   encounterId: string,
   patientId: string,
   data: ExamObservationDTO,
-  snomedCodes: SNOMEDCodeConceptInterface
+  snomedCodes?: SNOMEDCodeConceptInterface,
+  label?: string
 ): Observation {
   return {
     resourceType: 'Observation',
@@ -440,8 +474,8 @@ export function makeExamObservationResource(
     status: 'final',
     valueBoolean: typeof data.value === 'boolean' ? Boolean(data.value) : undefined,
     note: data.note ? [{ text: data.note }] : undefined,
-    bodySite: snomedCodes.bodySite,
-    code: snomedCodes.code,
+    bodySite: snomedCodes?.bodySite,
+    code: snomedCodes?.code || { text: label || 'unknown' },
     meta: fillMeta(data.field, EXAM_OBSERVATION_META_SYSTEM),
   };
 }
@@ -449,8 +483,8 @@ export function makeExamObservationResource(
 export function makeExamObservationDTO(observation: Observation): ExamObservationDTO {
   return {
     resourceId: observation.id,
-    field: observation.meta?.tag?.[0].code as ExamFieldsNames | ExamCardsNames,
-    note: observation.note?.[0].text,
+    field: observation.meta?.tag?.[0]?.code || 'unknown',
+    note: observation.note?.[0]?.text,
     value: observation.valueBoolean,
   };
 }
@@ -1016,6 +1050,12 @@ export function makeObservationDTO(observation: Observation): null | Observation
       value: observation.valueString,
       note: observation.note?.[0]?.text,
     } as ObservationTextFieldDTO;
+  } else if (observation.effectivePeriod?.start && observation.effectivePeriod?.end) {
+    return {
+      resourceId: observation.id,
+      field,
+      value: [observation.effectivePeriod.start, observation.effectivePeriod.end],
+    } as ObservationDateRangeFieldDTO;
   }
 
   console.error(`Invalid Observation field type: "${field}" ${JSON.stringify(observation)}`);
@@ -1282,22 +1322,61 @@ export const createDispositionServiceRequest = ({
   patientId: string;
 }): BatchInputPutRequest<ServiceRequest> | BatchInputPostRequest<ServiceRequest> => {
   let orderDetail: CodeableConcept[] | undefined = undefined;
-  let dispositionFollowUpCode: CodeableConcept = createCodingCode('185389009', 'Follow-up visit (procedure)');
+  let dispositionFollowUpCode: CodeableConcept = createCodeableConcept(
+    [
+      {
+        system: 'http://snomed.info/sct',
+        code: '185389009',
+        display: 'Follow-up visit (procedure)',
+      },
+    ],
+    'Follow-up visit (procedure)'
+  );
 
   if (disposition.type === 'ip-lab') {
-    dispositionFollowUpCode = createCodingCode('15220000', 'Laboratory test (procedure)');
+    dispositionFollowUpCode = createCodeableConcept(
+      [
+        {
+          system: 'http://snomed.info/sct',
+          code: '15220000',
+          display: 'Laboratory test (procedure)',
+        },
+      ],
+      'Laboratory test (procedure)'
+    );
     orderDetail = [];
     disposition?.labService?.forEach?.((service) => {
-      orderDetail?.push?.(createCodingCode(service, undefined, 'lab-service'));
+      orderDetail?.push?.(
+        createCodeableConcept([
+          {
+            code: service,
+            system: 'lab-service', // TODO phony Coding system
+          },
+        ])
+      );
     });
     disposition?.virusTest?.forEach?.((test) => {
-      orderDetail?.push?.(createCodingCode(test, undefined, 'virus-test'));
+      orderDetail?.push?.(
+        createCodeableConcept([
+          {
+            code: test,
+            system: 'virus-test', // TODO phony Coding system
+          },
+        ])
+      );
     });
   }
 
   if (disposition.type === 'another' && disposition.reason) {
     orderDetail = [];
-    orderDetail?.push?.(createCodingCode(disposition.reason, undefined, 'reason-for-transfer'));
+    orderDetail?.push?.(
+      createCodeableConcept([
+        {
+          code: disposition.reason,
+          system: 'reason-for-transfer', // TODO phony Coding system
+        },
+      ])
+    );
   }
 
   const followUpDaysInMinutes = typeof disposition.followUpIn === 'number' ? disposition.followUpIn * 1440 : undefined;
@@ -1317,12 +1396,36 @@ export const createDispositionServiceRequest = ({
 };
 
 export const followUpToPerformerMap: { [field in DispositionFollowUpType]: CodeableConcept | undefined } = {
-  dentistry: createCodingCode('106289002', 'Dentist', 'http://snomed.info/sct'),
-  ent: createCodingCode('309372007', 'Ear, nose and throat surgeon', 'http://snomed.info/sct'),
-  ophthalmology: createCodingCode('422234006', 'Ophthalmologist (occupation)', 'http://snomed.info/sct'),
-  orthopedics: createCodingCode('59169001', 'Orthopedic technician', 'http://snomed.info/sct'),
-  'lurie-ct': createCodingCode('lurie-ct', undefined, 'lurie-ct'),
-  other: createCodingCode('other', 'other'),
+  dentistry: createCodeableConcept([
+    {
+      code: '106289002',
+      display: 'Dentist',
+      system: 'http://snomed.info/sct',
+    },
+  ]),
+  ent: createCodeableConcept([
+    {
+      code: '309372007',
+      display: 'Ear, nose and throat surgeon',
+      system: 'http://snomed.info/sct',
+    },
+  ]),
+  ophthalmology: createCodeableConcept([
+    {
+      code: '422234006',
+      display: 'Ophthalmologist (occupation)',
+      system: 'http://snomed.info/sct',
+    },
+  ]),
+  orthopedics: createCodeableConcept([
+    {
+      code: '59169001',
+      display: 'Orthopedic technician',
+      system: 'http://snomed.info/sct',
+    },
+  ]),
+  'lurie-ct': createCodeableConcept(undefined, 'lurie-ct'),
+  other: createCodeableConcept(undefined, 'other'),
 };
 
 export function makeProceduresDTOFromFhirResources(
@@ -1530,5 +1633,5 @@ function getMedicationDosage(medication: MedicationStatement): string | undefine
   if (!doseQuantity?.value || !doseQuantity?.unit) {
     return undefined;
   }
-  return `${doseQuantity.value}${doseQuantity.unit}`;
+  return `${doseQuantity.value} ${doseQuantity.unit}`;
 }

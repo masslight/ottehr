@@ -1,5 +1,6 @@
 import { progressNoteIcon, startIntakeIcon } from '@ehrTheme/icons';
 import ChatOutlineIcon from '@mui/icons-material/ChatOutlined';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import LogoutIcon from '@mui/icons-material/Logout';
 import MedicalInformationIcon from '@mui/icons-material/MedicalInformationOutlined';
@@ -22,20 +23,26 @@ import {
   useTheme,
 } from '@mui/material';
 import { Operation } from 'fast-json-patch';
-import { Appointment } from 'fhir/r4b';
+import { Appointment, Location, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import { otherColors } from 'src/themes/ottehr/colors';
 import {
   formatMinutes,
   getDurationOfStatus,
   getPatchBinary,
+  getPractitionerNPIIdentifier,
+  getPractitionerQualificationByLocation,
   getVisitTotalTime,
   InPersonAppointmentInformation,
+  isPhysicianQualification,
+  mdyStringFromISOString,
   OrdersForTrackingBoardRow,
+  PractitionerQualificationCode,
   PROJECT_NAME,
   ROOM_EXTENSION_URL,
   VisitStatusLabel,
@@ -181,6 +188,14 @@ export const CHIP_STATUS_MAP: {
       primary: '#546E7A',
     },
   },
+  'awaiting supervisor approval': {
+    background: {
+      primary: '#FFFFFF',
+    },
+    color: {
+      primary: '#546E7A',
+    },
+  },
   cancelled: {
     background: {
       primary: '#FECDD2',
@@ -224,6 +239,21 @@ const longWaitTimeFlag = (appointment: InPersonAppointmentInformation, statusTim
   }
   return false;
 };
+
+function canApprove(
+  practitioner: Practitioner,
+  location: Location,
+  attenderQualification?: PractitionerQualificationCode
+): boolean {
+  if (!practitioner) return false;
+
+  const isAttenderPhysician = isPhysicianQualification(attenderQualification);
+  const qualification = getPractitionerQualificationByLocation(practitioner, location);
+  const isPractitionerPhysician = isPhysicianQualification(qualification);
+  const npiIdentifier = getPractitionerNPIIdentifier(practitioner);
+
+  return !isAttenderPhysician && isPractitionerPhysician && Boolean(npiIdentifier?.value);
+}
 
 export default function AppointmentTableRow({
   appointment,
@@ -523,7 +553,7 @@ export default function AppointmentTableRow({
     </>
   );
 
-  const quickTexts: { [key in LANGUAGES]: string }[] = useMemo(() => {
+  const quickTexts: { [key in LANGUAGES]: string | undefined }[] = useMemo(() => {
     return [
       // todo need to make url dynamic or pull from location
       {
@@ -557,6 +587,10 @@ export default function AppointmentTableRow({
         english: `${PROJECT_NAME} hopes you are feeling better. Please call us with any questions at ${officePhoneNumber}.`,
         // cSpell:disable-next Spanish
         spanish: `${PROJECT_NAME} espera que se sienta mejor. Llámenos si tiene alguna pregunta al ${officePhoneNumber}.`,
+      },
+      {
+        english: `Please complete a brief AI chat session for ${appointment.patient.firstName} to help your provider prepare for your visit: ${VITE_APP_PATIENT_APP_URL}/visit/${appointment.id}/ai-interview-start`,
+        spanish: undefined,
       },
     ];
   }, [appointment.id, appointment.patient.firstName, officePhoneNumber]);
@@ -638,6 +672,7 @@ export default function AppointmentTableRow({
     if (
       appointment.status === 'ready for provider' ||
       appointment.status === 'provider' ||
+      appointment.status === 'awaiting supervisor approval' ||
       appointment.status === 'completed' ||
       appointment.status === 'discharged'
     ) {
@@ -650,6 +685,39 @@ export default function AppointmentTableRow({
         >
           <img src={progressNoteIcon} />
         </GoToButton>
+      );
+    }
+    return undefined;
+  };
+
+  const renderSupervisorApproval = (): ReactElement | undefined => {
+    if (
+      appointment.status === 'awaiting supervisor approval' &&
+      canApprove(user.profileResource!, location!, appointment.attenderQualification)
+    ) {
+      return (
+        <GoToButton
+          text="Approve"
+          loading={progressNoteButtonLoading}
+          onClick={handleProgressNoteButton}
+          dataTestId={dataTestIds.dashboard.approveButton}
+        >
+          <CheckCircleOutlineIcon />
+        </GoToButton>
+      );
+    } else if (appointment.status === 'completed' && appointment.approvalDate) {
+      return (
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            color: theme.palette.text.secondary,
+          }}
+        >
+          <Typography align="center">Approved</Typography>
+          <Typography align="center">{mdyStringFromISOString(appointment.approvalDate)}</Typography>
+        </Box>
       );
     }
     return undefined;
@@ -923,7 +991,7 @@ export default function AppointmentTableRow({
                     height: '20px',
                     width: '20px',
                   }}
-                ></ChatOutlineIcon>
+                />
               </Badge>
             ) : (
               <ChatOutlineIcon
@@ -932,7 +1000,7 @@ export default function AppointmentTableRow({
                   height: '20px',
                   width: '20px',
                 }}
-              ></ChatOutlineIcon>
+              />
             )}
           </IconButton>
         )}
@@ -949,6 +1017,7 @@ export default function AppointmentTableRow({
           {renderStartIntakeButton()}
           {renderProgressNoteButton()}
           {renderDischargeButton()}
+          {FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED && renderSupervisorApproval()}
         </Stack>
       </TableCell>
       {actionButtons && (

@@ -1,6 +1,6 @@
 {
   "name": "ottehr",
-  "version": "1.15.28",
+  "version": "1.17.3",
   "private": true,
   "engines": {
     "node": ">=20.0.0",
@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "turbo build lint",
-    "version": "npm version $npm_package_version --workspaces && git add **/package.json",
+    "version": "npm version $npm_package_version --workspaces && git add package.json '**/package.json'",
     "lint": "npm run lint:eslint",
     "lint:eslint": "turbo lint",
     "lint:eslint:fix": "turbo lint:fix",
@@ -55,14 +55,17 @@
     "ehr:start:ui": "turbo start --filter=ehr-ui",
     "zambdas:start": "turbo start --filter=zambdas",
     "apps:start": "turbo start --filter=intake-ui --filter=ehr-ui --filter=zambdas",
+    "apps:start:iac": "npm run apply-local --workspace deploy && turbo start:iac --filter=intake-ui --filter=ehr-ui --filter=zambdas",
     "integration:zambdas": "npm run build && ENV=local && cd packages/zambdas && DEBUG=start-server-and-test && npm run test:integration:ci",
     "test": "turbo test",
     "prepare": "husky",
-    "spellcheck": "cspell ."
+    "spellcheck": "cspell .",
+    "merge-payer-addresses": "tsx scripts/merge-payer-addresses.ts config/payers.json scripts/data/payers-addresses.csv config/payers-with-addresses.json scripts/data/payers-addresses-unmatched.csv"
   },
   "workspaces": [
     "packages/**/*",
-    "apps/*"
+    "apps/*",
+    "deploy"
   ],
   "dependencies": {
     "@auth0/auth0-react": "^2.2.4",

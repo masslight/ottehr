@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { DomainResource, Encounter, Patient, Practitioner } from 'fhir/r4b';
 import { CreateRadiologyZambdaOrderInput, CreateRadiologyZambdaOrderOutput, RoleType } from 'utils';
 import { inject } from 'vitest';
+import { AUTH0_CLIENT_TESTS, AUTH0_SECRET_TESTS } from '../../.env/local.json';
 import { getAuth0Token } from '../../src/shared';
 import { SECRETS } from '../data/secrets';
 
@@ -13,11 +14,11 @@ describe('radiology integration tests', () => {
   const resourcesToCleanup: DomainResource[] = [];
 
   beforeAll(async () => {
-    const { AUTH0_ENDPOINT, AUTH0_CLIENT, AUTH0_SECRET, AUTH0_AUDIENCE, FHIR_API, PROJECT_ID } = SECRETS;
+    const { AUTH0_ENDPOINT, AUTH0_AUDIENCE, FHIR_API, PROJECT_ID } = SECRETS;
     token = await getAuth0Token({
       AUTH0_ENDPOINT: AUTH0_ENDPOINT,
-      AUTH0_CLIENT: AUTH0_CLIENT,
-      AUTH0_SECRET: AUTH0_SECRET,
+      AUTH0_CLIENT: AUTH0_CLIENT_TESTS,
+      AUTH0_SECRET: AUTH0_SECRET_TESTS,
       AUTH0_AUDIENCE: AUTH0_AUDIENCE,
     });
 

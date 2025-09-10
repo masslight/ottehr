@@ -1,15 +1,9 @@
 import { BatchInputGetRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Bundle, Communication, Group, Location, Practitioner } from 'fhir/r4b';
-import {
-  COMMUNICATION_ISSUE_REPORT_CODE,
-  getFullestAvailableName,
-  getSecret,
-  Secrets,
-  SecretsKeys,
-  SUPPORT_EMAIL,
-} from 'utils';
-import { getAuth0Token, sendgridEmail, sendSlackNotification, topLevelCatch, wrapHandler } from '../../../shared';
+import { DateTime } from 'luxon';
+import { COMMUNICATION_ISSUE_REPORT_CODE, getFullestAvailableName, getSecret, Secrets, SecretsKeys } from 'utils';
+import { getAuth0Token, getEmailClient, sendSlackNotification, topLevelCatch, wrapHandler } from '../../../shared';
 import { createOystehrClient } from '../../../shared/helpers';
 import { ZambdaInput } from '../../../shared/types';
 import { bundleResourcesConfig, codingContainedInList, getEmailsFromGroup } from './helpers';
@@ -165,33 +159,20 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         const practitionersEmails = await getEmailsFromGroup(fhirGroup, oystehr);
         console.log('practitionersEmails', practitionersEmails);
 
-        const fromEmail = SUPPORT_EMAIL;
-        const toEmail = [fromEmail];
+        const toEmail = [];
         if (practitionersEmails) {
           toEmail.push(...practitionersEmails);
         }
-        const bccEmail = getSecret(SecretsKeys.SENDGRID_ISSUE_REPORT_EMAIL_BCC, secrets)
-          .split(',')
-          .map((email) => email.trim());
         const errorMessage = `Details: ${communication.payload?.[0].contentString} <br> Submitted By: ${submitterDetails} <br> Location: ${fhirLocation?.name} - ${fhirLocation?.address?.city}, ${fhirLocation?.address?.state} <br> Appointment Id: ${appointmentID} <br> Communication Fhir Resource: ${communication.id}`;
 
         console.log(`Sending issue report email to ${toEmail} with template id ${templateID}`);
         try {
-          const sendResult = await sendgridEmail(
-            secrets,
-            templateID,
-            toEmail,
-            fromEmail,
-            ENVIRONMENT,
-            errorMessage,
-            bccEmail
-          );
-          if (sendResult)
-            console.log(
-              `Details of successful sendgrid send: statusCode, ${sendResult[0].statusCode}. body, ${JSON.stringify(
-                sendResult[0].body
-              )}`
-            );
+          const emailClient = getEmailClient(secrets);
+          await emailClient.sendErrorEmail(toEmail, {
+            environment: ENVIRONMENT,
+            'error-message': errorMessage,
+            timestamp: DateTime.now().setZone('UTC').toFormat("EEEE, MMMM d, yyyy 'at' h:mm a ZZZZ"),
+          });
           communicationStatusToUpdate = 'completed';
         } catch (error) {
           console.error(`Error sending email to ${toEmail}: ${JSON.stringify(error)}`);

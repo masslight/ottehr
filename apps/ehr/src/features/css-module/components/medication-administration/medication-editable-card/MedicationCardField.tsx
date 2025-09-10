@@ -7,9 +7,11 @@ import {
   Select,
   Skeleton,
   TextField,
+  useTheme,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DateTime } from 'luxon';
@@ -19,6 +21,9 @@ import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { OrderFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
 import { MedicationFieldType } from './fieldsConfig';
 import { InHouseMedicationFieldType, medicationOrderFieldsWithOptions } from './utils';
+
+const POPULAR_SEPARATOR = 'popular-separator';
+const OTHER_SEPARATOR = 'other-separator';
 
 interface MedicationCardFieldProps {
   field: MedicationFieldType;
@@ -64,6 +69,7 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
   selectsOptions = emptySelectsOptions,
   renderValue,
 }) => {
+  const theme = useTheme();
   const handleChange = (newValue: string | number | undefined): void => {
     onChange(field, newValue);
   };
@@ -102,12 +108,45 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
     );
   }
 
+  if (field === 'expDate') {
+    const dateTimeValue = value ? DateTime.fromISO(value as string) : null;
+
+    return (
+      <LocalizationProvider dateAdapter={AdapterLuxon}>
+        <DatePicker
+          data-testid={dataTestIds.orderMedicationPage.inputField(field)}
+          label={label}
+          value={dateTimeValue}
+          onChange={(newValue) => {
+            if (!newValue) return;
+            const isoString = newValue.toISO();
+            if (isoString) {
+              handleChange(isoString);
+            }
+          }}
+          disabled={!isEditable}
+          slotProps={{
+            textField: {
+              fullWidth: true,
+              variant: 'outlined',
+              required: required,
+              error: showError && required && !value,
+              helperText: showError && required && !value ? REQUIRED_FIELD_ERROR_MESSAGE : '',
+            },
+          }}
+          format="yyyy-MM-dd"
+        />
+      </LocalizationProvider>
+    );
+  }
+
   if (type === 'autocomplete') {
     const options = selectsOptions[field as keyof OrderFieldsSelectsOptions].options;
-    const foundOption =
-      options.find((option) => option.value === value) ?? options.find((option) => option.value === '');
+    const foundOption = options.find((option) => option.value === value);
     const isOptionsLoaded = selectsOptions[field as keyof OrderFieldsSelectsOptions].status === 'loaded';
-    const currentValue = renderValue ? { value: IN_HOUSE_CONTAINED_MEDICATION_ID, label: renderValue } : foundOption;
+    const currentValue = renderValue
+      ? { value: IN_HOUSE_CONTAINED_MEDICATION_ID, label: renderValue }
+      : foundOption || null;
 
     const autocomplete = isOptionsLoaded ? (
       <Autocomplete
@@ -118,7 +157,46 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
         }
         value={currentValue}
         getOptionLabel={(option) => option.label}
-        onChange={(_e, val) => handleChange(val?.value)}
+        onChange={(_e, val) => {
+          // Prevent selecting separators
+          if (val?.value === POPULAR_SEPARATOR || val?.value === OTHER_SEPARATOR) {
+            return;
+          }
+          // Handle clearing the field - set to empty string when val is null
+          handleChange(val?.value ?? '');
+        }}
+        getOptionDisabled={(option) => option.value === POPULAR_SEPARATOR || option.value === OTHER_SEPARATOR} // Disable separators
+        renderOption={(props, option) => {
+          // Handle separators for grouped options
+          if (option.value === POPULAR_SEPARATOR || option.value === OTHER_SEPARATOR) {
+            return (
+              <li
+                {...props}
+                key={option.value}
+                style={{
+                  opacity: 0.8,
+                  color: theme.palette.text.secondary,
+                  fontSize: '0.875rem',
+                  fontWeight: 'bold',
+                  textAlign: 'left', // Left-aligned section headers
+                  pointerEvents: 'none',
+                  cursor: 'default',
+                  paddingLeft: '16px',
+                }}
+              >
+                {option.label}
+              </li>
+            );
+          }
+
+          return (
+            <li {...props} key={option.value} style={{ paddingLeft: '32px' }}>
+              {' '}
+              {/* Indent selectable items */}
+              {option.label}
+            </li>
+          );
+        }}
         renderInput={(params) => (
           <TextField
             {...params}
@@ -159,18 +237,56 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
               renderValue: () => renderValue,
             }
           : {})}
-        onChange={(e) => handleChange(e.target.value)}
+        onChange={(e) => {
+          // Prevent selecting separators
+          if (e.target.value === POPULAR_SEPARATOR || e.target.value === OTHER_SEPARATOR) {
+            return;
+          }
+          handleChange(e.target.value);
+        }}
         label={label}
         required={required}
         error={showError && required && !value}
         autoComplete="off"
       >
-        <MenuItem value="">Select {label}</MenuItem>
-        {options.map((option) => (
-          <MenuItem key={option.value} value={option.value}>
-            {option.label}
-          </MenuItem>
-        ))}
+        <MenuItem data-testid={dataTestIds.orderMedicationPage.inputField(field)} value="">
+          Select {label}
+        </MenuItem>
+        {options.map((option) => {
+          // Handle separators for grouped options
+          if (option.value === POPULAR_SEPARATOR || option.value === OTHER_SEPARATOR) {
+            return (
+              <MenuItem
+                key={option.value}
+                value={option.value}
+                disabled
+                sx={{
+                  '&.Mui-disabled': {
+                    opacity: 0.8,
+                    color: 'text.secondary',
+                    fontSize: '0.875rem',
+                    fontWeight: 'bold',
+                    textAlign: 'left', // Left-aligned section headers
+                    pointerEvents: 'none',
+                    paddingLeft: '16px',
+                  },
+                }}
+              >
+                {option.label}
+              </MenuItem>
+            );
+          }
+
+          return (
+            <MenuItem
+              key={option.value}
+              value={option.value}
+              sx={{ paddingLeft: '32px' }} // Indent selectable items
+            >
+              {option.label}
+            </MenuItem>
+          );
+        })}
       </Select>
     ) : (
       <Skeleton variant="rectangular" width="100%" height={56} />
@@ -204,7 +320,7 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
       {...(type === 'number' ? { inputProps: { min: 0 } } : {})}
       multiline={isInstruction}
       rows={isInstruction ? 3 : undefined}
-      InputLabelProps={type === 'datetime' || type === 'month' || isInstruction ? { shrink: true } : undefined}
+      InputLabelProps={type === 'datetime' || isInstruction ? { shrink: true } : undefined}
       required={required}
       error={showError && required && !value}
       helperText={showError && required && !value ? REQUIRED_FIELD_ERROR_MESSAGE : ''}

@@ -8,10 +8,10 @@ import {
   List,
   Location,
   Observation,
-  Organization,
   Patient,
   Practitioner,
   Provenance,
+  Reference,
   Schedule,
   ServiceRequest,
   Specimen,
@@ -20,11 +20,14 @@ import {
 import { DateTime } from 'luxon';
 import { Color } from 'pdf-lib';
 import {
+  BUCKET_NAMES,
   compareDates,
   convertActivityDefinitionToTestItem,
   createFilesDocumentReferences,
   EXTERNAL_LAB_RESULT_PDF_BASE_NAME,
   getFullestAvailableName,
+  getOrderNumber,
+  getOrderNumberFromDr,
   getTimezone,
   IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
   IN_HOUSE_LAB_RESULT_PDF_BASE_NAME,
@@ -35,12 +38,12 @@ import {
   LAB_RESULT_DOC_REF_CODING_CODE,
   LabType,
   ObsContentType,
-  OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   OYSTEHR_EXTERNAL_LABS_ATTACHMENT_EXT_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
-  OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   OYSTEHR_OBR_NOTE_CODING_SYSTEM,
   OYSTEHR_OBS_CONTENT_TYPES,
+  PERFORMING_PHYSICIAN_EXTENSION_URLS,
+  PERFORMING_SITE_INFO_EXTENSION_URLS,
   PROJECT_NAME,
   quantityRangeFormat,
   Secrets,
@@ -48,8 +51,11 @@ import {
   TestItemComponent,
 } from 'utils';
 import { fetchResultResourcesForRepeatServiceRequest } from '../../ehr/shared/in-house-labs';
-import { getExternalLabOrderResources } from '../../ehr/shared/labs';
-import { LABS_DATE_STRING_FORMAT } from '../../ehr/submit-lab-order';
+import {
+  getExternalLabOrderResourcesViaDiagnosticReport,
+  getExternalLabOrderResourcesViaServiceRequest,
+} from '../../ehr/shared/labs';
+import { LABS_DATE_STRING_FORMAT } from '../../ehr/submit-lab-order/helpers';
 import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { ICON_STYLE, STANDARD_FONT_SIZE, STANDARD_NEW_LINE } from './pdf-consts';
@@ -73,7 +79,9 @@ import {
   InHouseLabResultsData,
   LabResultsData,
   PdfClient,
+  ReflexExternalLabResultsData,
   ResultDataConfig,
+  UnsolicitedExternalLabResultsData,
 } from './types';
 
 interface CommonDataConfigResources {
@@ -86,25 +94,117 @@ interface CommonDataConfigResources {
   testName: string | undefined;
 }
 
+type ExternalLabSpecificResources = {
+  externalLabResults: ExternalLabResult[];
+  collectionDate: string;
+  orderSubmitDate: string;
+  reviewed: boolean;
+  reviewingProvider: Practitioner | undefined;
+  reviewDate: string | undefined;
+  resultsReceivedDate: string;
+  resultInterpretations: string[];
+  attachments: ExternalLabResultAttachments;
+};
+
 type LabTypeSpecificResources =
   | {
       type: LabType.external;
-      specificResources: {
-        externalLabResults: ExternalLabResult[];
-        organization: Organization | undefined;
-        collectionDate: string;
-        orderSubmitDate: string;
-        reviewed: boolean;
-        reviewingProvider: Practitioner | undefined;
-        reviewDate: string | undefined;
-        resultsReceivedDate: string;
-        resultInterpretations: string[];
-        attachments: ExternalLabResultAttachments;
-        performingLabDirectorFullName?: string;
-        performingLabAddress?: string;
-      };
+      specificResources: ExternalLabSpecificResources;
     }
-  | { type: LabType.inHouse; specificResources: { inHouseLabResults: InHouseLabResultConfig[] } };
+  | { type: LabType.inHouse; specificResources: { inHouseLabResults: InHouseLabResultConfig[] } }
+  | {
+      type: LabType.unsolicited | LabType.reflex;
+      specificResources: Omit<ExternalLabSpecificResources, 'collectionDate' | 'orderSubmitDate'> & {
+        testName: string | undefined;
+        patient: Patient;
+        diagnosticReport: DiagnosticReport;
+      };
+    };
+
+const getResultDataConfigForDrResources = (
+  specificResourceConfig: Extract<LabTypeSpecificResources, { type: LabType.unsolicited | LabType.reflex }>,
+  type: LabType
+): ResultDataConfig => {
+  console.log('configuring diagnostic report result data to create pdf');
+  const now = DateTime.now();
+
+  const { specificResources } = specificResourceConfig;
+
+  console.log('configuring data for drawing pdf');
+
+  const {
+    testName,
+    diagnosticReport,
+    patient,
+    externalLabResults,
+    reviewed,
+    reviewingProvider,
+    reviewDate,
+    resultsReceivedDate,
+    resultInterpretations,
+    attachments,
+  } = specificResources;
+
+  const baseData: LabResultsData = {
+    locationName: undefined,
+    locationStreetAddress: undefined,
+    locationCity: undefined,
+    locationState: undefined,
+    locationZip: undefined,
+    locationPhone: undefined,
+    locationFax: undefined,
+    providerName: '',
+    patientFirstName: patient.name?.[0].given?.[0] || '',
+    patientMiddleName: patient.name?.[0].given?.[1],
+    patientLastName: patient.name?.[0].family || '',
+    patientSex: patient.gender || '',
+    patientDOB: patient.birthDate ? DateTime.fromFormat(patient.birthDate, 'yyyy-MM-dd').toFormat('MM/dd/yyyy') : '',
+    patientId: patient.id || '',
+    patientPhone: patient.telecom?.find((telecomTemp) => telecomTemp.system === 'phone')?.value || '',
+    todayDate: now.setZone().toFormat(LABS_DATE_STRING_FORMAT),
+    dateIncludedInFileName: diagnosticReport.effectiveDateTime || '',
+    orderPriority: '',
+    testName: testName || '',
+    orderAssessments: [],
+    resultStatus: diagnosticReport.status.toUpperCase(),
+    isPscOrder: false,
+  };
+
+  const unsolicitedResultData: Omit<UnsolicitedExternalLabResultsData, keyof LabResultsData> = {
+    accessionNumber: diagnosticReport.identifier?.find((item) => item.type?.coding?.[0].code === 'FILL')?.value || '',
+    resultPhase: diagnosticReport.status.charAt(0).toUpperCase() || '',
+    reviewed,
+    reviewingProvider,
+    reviewDate,
+    resultInterpretations,
+    attachments,
+    externalLabResults,
+    testItemCode:
+      diagnosticReport.code.coding?.find((temp) => temp.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.code ||
+      diagnosticReport.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.code ||
+      '',
+    resultsReceivedDate,
+  };
+
+  if (type === LabType.reflex) {
+    console.log('reflex result pdf to be made');
+    const orderNumber = getOrderNumberFromDr(diagnosticReport) || '';
+    const reflexResultData: Omit<ReflexExternalLabResultsData, keyof LabResultsData> = {
+      ...unsolicitedResultData,
+      orderNumber,
+    };
+    const data = { ...baseData, ...reflexResultData };
+    const config: ResultDataConfig = { type, data };
+    return config;
+  } else if (type === LabType.unsolicited) {
+    console.log('unsolicited result pdf to be made');
+    const data: UnsolicitedExternalLabResultsData = { ...baseData, ...unsolicitedResultData };
+    const config: ResultDataConfig = { type, data };
+    return config;
+  }
+
+  throw Error(`an unexpected type was passed: ${type}`);
+};
 
 const getResultDataConfig = (
   commonResourceConfig: CommonDataConfigResources,
@@ -118,10 +218,6 @@ const getResultDataConfig = (
     commonResourceConfig;
   const { type, specificResources } = specificResourceConfig;
 
-  const orderCreateDate = serviceRequest.authoredOn
-    ? DateTime.fromISO(serviceRequest.authoredOn).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
-    : undefined;
-
   const baseData: LabResultsData = {
     locationName: location?.name,
     locationStreetAddress: location?.address?.line?.join(','),
@@ -130,7 +226,6 @@ const getResultDataConfig = (
     locationZip: location?.address?.postalCode,
     locationPhone: location?.telecom?.find((t) => t.system === 'phone')?.value,
     locationFax: location?.telecom?.find((t) => t.system === 'fax')?.value,
-    serviceRequestID: serviceRequest.id || '',
     providerName: providerName || '',
     patientFirstName: patient.name?.[0].given?.[0] || '',
     patientMiddleName: patient.name?.[0].given?.[1],
@@ -140,8 +235,7 @@ const getResultDataConfig = (
     patientId: patient.id || '',
     patientPhone: patient.telecom?.find((telecomTemp) => telecomTemp.system === 'phone')?.value || '',
     todayDate: now.setZone().toFormat(LABS_DATE_STRING_FORMAT),
-    orderCreateDateAuthoredOn: serviceRequest.authoredOn || '',
-    orderCreateDate: orderCreateDate || '',
+    dateIncludedInFileName: serviceRequest.authoredOn || '',
     orderPriority: serviceRequest.priority || '',
     testName: testName || '',
     orderAssessments:
@@ -155,9 +249,14 @@ const getResultDataConfig = (
 
   if (type === LabType.inHouse) {
     const { inHouseLabResults } = specificResources;
+    const orderCreateDate = serviceRequest.authoredOn
+      ? DateTime.fromISO(serviceRequest.authoredOn).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
+      : '';
     const inHouseData: Omit<InHouseLabResultsData, keyof LabResultsData> = {
       inHouseLabResults,
       timezone,
+      serviceRequestID: serviceRequest.id || '',
+      orderCreateDate,
     };
     const data: InHouseLabResultsData = { ...baseData, ...inHouseData };
     config = { type: LabType.inHouse, data };
@@ -166,7 +265,6 @@ const getResultDataConfig = (
   if (type === LabType.external) {
     const {
       externalLabResults,
-      organization,
       collectionDate,
       orderSubmitDate,
       reviewed,
@@ -175,15 +273,11 @@ const getResultDataConfig = (
       resultsReceivedDate,
       resultInterpretations,
       attachments,
-      performingLabAddress,
-      performingLabDirectorFullName,
     } = specificResources;
+    const orderNumber = getOrderNumber(serviceRequest);
+    if (!orderNumber) throw Error(`order number could not be parsed from the service request ${serviceRequest.id}`);
     const externalLabData: Omit<ExternalLabResultsData, keyof LabResultsData> = {
-      orderNumber:
-        serviceRequest.identifier?.find(
-          (item) =>
-            item.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM || item.system === OTTEHR_LAB_ORDER_PLACER_ID_SYSTEM
-        )?.value || '',
+      orderNumber,
       accessionNumber: diagnosticReport.identifier?.find((item) => item.type?.coding?.[0].code === 'FILL')?.value || '',
       collectionDate,
       orderSubmitDate,
@@ -198,13 +292,6 @@ const getResultDataConfig = (
         diagnosticReport.code.coding?.find((temp) => temp.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.code ||
         diagnosticReport.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.code ||
         '',
-      performingLabName: organization?.name || '',
-      performingLabAddress,
-      performingLabPhone: organization?.contact
-        ?.find((temp) => temp.purpose?.coding?.find((purposeTemp) => purposeTemp.code === 'lab_director'))
-        ?.telecom?.find((temp) => temp.system === 'phone')?.value,
-      // abnormalResult: true,
-      performingLabDirectorFullName,
       resultsReceivedDate,
     };
     const data: ExternalLabResultsData = { ...baseData, ...externalLabData };
@@ -271,6 +358,62 @@ const getTaskCompletedByAndWhen = async (
   };
 };
 
+export async function createExternalLabResultPDFBasedOnDr(
+  oystehr: Oystehr,
+  type: 'reflex' | 'unsolicited',
+  diagnosticReportID: string,
+  reviewed: boolean,
+  secrets: Secrets | null,
+  token: string
+): Promise<void> {
+  const { patient, diagnosticReport, observations } = await getExternalLabOrderResourcesViaDiagnosticReport(
+    oystehr,
+    diagnosticReportID
+  );
+
+  if (!patient.id) throw new Error('patient.id is undefined');
+
+  const {
+    reviewingProvider,
+    reviewDate,
+    externalLabResults,
+    resultsReceivedDate,
+    resultInterpretationDisplays,
+    obsAttachments,
+  } = await getResultsDetailsForPDF(oystehr, diagnosticReport, observations);
+
+  const externalSpecificResources: LabTypeSpecificResources = {
+    type: type === 'reflex' ? LabType.reflex : LabType.unsolicited,
+    specificResources: {
+      testName: diagnosticReport.code.coding?.[0].display,
+      patient,
+      diagnosticReport,
+      externalLabResults,
+      reviewed,
+      reviewingProvider,
+      reviewDate: reviewDate?.toFormat(LABS_DATE_STRING_FORMAT),
+      resultsReceivedDate,
+      resultInterpretations: resultInterpretationDisplays,
+      attachments: obsAttachments,
+    },
+  };
+
+  const dataConfig = getResultDataConfigForDrResources(externalSpecificResources, LabType[type]);
+  const pdfDetail = await createLabsResultsFormPDF(dataConfig, patient.id, secrets, token);
+
+  await makeLabPdfDocumentReference({
+    oystehr,
+    type,
+    pdfInfo: pdfDetail,
+    patientID: patient.id,
+    encounterID: undefined,
+    related: makeRelatedForLabsPDFDocRef({ diagnosticReportId: diagnosticReportID }),
+    diagnosticReportID,
+    reviewed,
+    listResources: [],
+  });
+}
+
 export async function createExternalLabResultPDF(
   oystehr: Oystehr,
   serviceRequestID: string,
@@ -283,14 +426,13 @@ export async function createExternalLabResultPDF(
     serviceRequest,
     patient,
     practitioner: provider,
-    task: pstTask,
-    appointment,
+    preSubmissionTask: pstTask,
     encounter,
     schedule,
-    organization,
+    // labOrganization,
     observations,
     specimens,
-  } = await getExternalLabOrderResources(oystehr, serviceRequestID);
+  } = await getExternalLabOrderResourcesViaServiceRequest(oystehr, serviceRequestID);
 
   const locationID = serviceRequest.locationReference?.[0].reference?.replace('Location/', '');
 
@@ -306,103 +448,20 @@ export async function createExternalLabResultPDF(
     timezone = getTimezone(schedule);
   }
 
-  if (!appointment.id) throw new Error('appointment id is undefined');
   if (!encounter.id) throw new Error('encounter id is undefined');
   if (!patient.id) throw new Error('patient.id is undefined');
   if (!diagnosticReport.id) throw new Error('diagnosticReport id is undefined');
 
   const { reviewDate: orderSubmitDate } = await getTaskCompletedByAndWhen(oystehr, pstTask);
 
-  const taskSearchForFinalOrCorrected = (
-    await oystehr.fhir.search<Task>({
-      resourceType: 'Task',
-      params: [
-        {
-          name: 'based-on',
-          value: `DiagnosticReport/${diagnosticReport.id}`,
-        },
-        {
-          name: 'status',
-          value: 'completed,ready',
-        },
-        {
-          name: 'code',
-          value: `${LAB_ORDER_TASK.code.reviewFinalResult},${LAB_ORDER_TASK.code.reviewCorrectedResult}`,
-        },
-      ],
-    })
-  )?.unbundle();
-
-  const { completedFinalOrCorrected, readyFinalOrCorrected } = taskSearchForFinalOrCorrected.reduce(
-    (acc: { completedFinalOrCorrected: Task[]; readyFinalOrCorrected: Task[] }, task) => {
-      if (task.status === 'completed') acc.completedFinalOrCorrected.push(task);
-      if (task.status === 'ready') acc.readyFinalOrCorrected.push(task);
-      return acc;
-    },
-    { completedFinalOrCorrected: [], readyFinalOrCorrected: [] }
-  );
-
-  const sortedCompletedFinalOrCorrected = completedFinalOrCorrected?.sort((a, b) =>
-    compareDates(a.authoredOn, b.authoredOn)
-  );
-
-  const latestReviewTask = sortedCompletedFinalOrCorrected[0];
-  console.log(`>>> in labs-results-form-pdf, this is the latestReviewTask`, latestReviewTask?.id);
-
-  let reviewDate: DateTime | undefined = undefined,
-    reviewingProvider = undefined,
-    resultsReceivedDate = '';
-
-  if (latestReviewTask) {
-    resultsReceivedDate = latestReviewTask?.authoredOn
-      ? DateTime.fromISO(latestReviewTask.authoredOn).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
-      : '';
-    if (latestReviewTask.status === 'completed') {
-      ({ reviewingProvider, reviewDate } = await getTaskCompletedByAndWhen(oystehr, latestReviewTask));
-    }
-  }
-  if (!resultsReceivedDate && !latestReviewTask) {
-    console.log('no completed final or corrected tasks, checking ready tasks to parse a results received date');
-    const sortedReadyFinalOrCorrected = readyFinalOrCorrected?.sort((a, b) => compareDates(a.authoredOn, b.authoredOn));
-    const readyReviewTask = sortedReadyFinalOrCorrected[0];
-    if (readyReviewTask && readyReviewTask?.authoredOn) {
-      console.log('readyReviewTask: ', readyReviewTask.id);
-      resultsReceivedDate = DateTime.fromISO(readyReviewTask.authoredOn)
-        .setZone(timezone)
-        .toFormat(LABS_DATE_STRING_FORMAT);
-    }
-  }
-
-  const resultInterpretationDisplays: string[] = [];
-  const externalLabResults: ExternalLabResult[] = [];
-  const obsAttachments: ExternalLabResultAttachments = {
-    pdfAttachments: [],
-    pngAttachments: [],
-    jpgAttachments: [],
-  };
-  observations
-    .filter(
-      (observation) =>
-        diagnosticReport.result?.some((resultTemp) => resultTemp.reference?.split('/')[1] === observation.id)
-    )
-    .sort((a, b) => {
-      // obr notes should be sorted at the top of the observations list
-      const aIsObrNote = a.code.coding?.some((c) => c.system === OYSTEHR_OBR_NOTE_CODING_SYSTEM);
-      const bIsObrNote = b.code.coding?.some((c) => c.system === OYSTEHR_OBR_NOTE_CODING_SYSTEM);
-
-      if (!aIsObrNote && bIsObrNote) return 1; // a comes before b
-      if (aIsObrNote && !bIsObrNote) return -1; // a comes after b
-      return 0; // no change
-    })
-    .forEach((observation) => {
-      const { labResult, interpretationDisplay, base64PdfAttachment, base64PngAttachment, base64JpgAttachment } =
-        parseObservationForPDF(observation);
-      externalLabResults.push(labResult);
-      if (interpretationDisplay) resultInterpretationDisplays.push(interpretationDisplay);
-      if (base64PdfAttachment) obsAttachments.pdfAttachments.push(base64PdfAttachment);
-      if (base64PngAttachment) obsAttachments.pngAttachments.push(base64PngAttachment);
-      if (base64JpgAttachment) obsAttachments.jpgAttachments.push(base64JpgAttachment);
-    });
+  const {
+    reviewingProvider,
+    reviewDate,
+    externalLabResults,
+    resultsReceivedDate,
+    resultInterpretationDisplays,
+    obsAttachments,
+  } = await getResultsDetailsForPDF(oystehr, diagnosticReport, observations);
 
   const sortedSpecimens = specimens?.sort((a, b) =>
     compareDates(a.collection?.collectedDateTime, b.collection?.collectedDateTime)
@@ -426,7 +485,6 @@ export async function createExternalLabResultPDF(
     type: LabType.external,
     specificResources: {
       externalLabResults,
-      organization,
       collectionDate,
       orderSubmitDate: orderSubmitDate.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT),
       reviewed,
@@ -434,8 +492,6 @@ export async function createExternalLabResultPDF(
       reviewDate: reviewDate?.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT),
       resultsReceivedDate,
       resultInterpretations: resultInterpretationDisplays,
-      performingLabAddress: formatPerformingLabAddress(organization),
-      performingLabDirectorFullName: formatPerformingLabDirectorName(organization),
       attachments: obsAttachments,
     },
   };
@@ -457,6 +513,7 @@ export async function createExternalLabResultPDF(
     pdfInfo: pdfDetail,
     patientID: patient.id,
     encounterID: encounter.id,
+    related: makeRelatedForLabsPDFDocRef({ diagnosticReportId: diagnosticReport.id }),
     diagnosticReportID: diagnosticReport.id,
     reviewed,
     listResources: [],
@@ -470,7 +527,7 @@ export async function createInHouseLabResultPDF(
   patient: Patient,
   location: Location | undefined,
   schedule: Schedule,
-  attendingPractitioner: Practitioner,
+  _attendingPractitioner: Practitioner,
   attendingPractitionerName: string | undefined,
   inputRequestTask: Task,
   observations: Observation[],
@@ -539,10 +596,125 @@ export async function createInHouseLabResultPDF(
     pdfInfo: pdfDetail,
     patientID: patient.id,
     encounterID: encounter.id,
+    related: makeRelatedForLabsPDFDocRef({ diagnosticReportId: diagnosticReport.id || '' }),
     diagnosticReportID: diagnosticReport.id,
     reviewed: false,
     listResources: [], // this needs to be passed so the helper returns docRefs
   });
+}
+
+async function getResultsDetailsForPDF(
+  oystehr: Oystehr,
+  diagnosticReport: DiagnosticReport,
+  observations: Observation[]
+): Promise<{
+  reviewingProvider: Practitioner | undefined;
+  reviewDate: DateTime | undefined;
+  resultsReceivedDate: string;
+  externalLabResults: ExternalLabResult[];
+  resultInterpretationDisplays: string[];
+  obsAttachments: ExternalLabResultAttachments;
+}> {
+  // todo i am pretty sure we can get these resources from an earlier call and just pass them in
+  // this function is also called for pdf creation with service requests (existing logic)
+  // so i will leave the refactor for later atm
+  const taskSearchForFinalOrCorrected = (
+    await oystehr.fhir.search<Task>({
+      resourceType: 'Task',
+      params: [
+        {
+          name: 'based-on',
+          value: `DiagnosticReport/${diagnosticReport.id}`,
+        },
+        {
+          name: 'status',
+          value: 'completed,ready',
+        },
+        {
+          name: 'code',
+          value: `${LAB_ORDER_TASK.code.reviewFinalResult},${LAB_ORDER_TASK.code.reviewCorrectedResult}`,
+        },
+      ],
+    })
+  )?.unbundle();
+
+  const { completedFinalOrCorrected, readyFinalOrCorrected } = taskSearchForFinalOrCorrected.reduce(
+    (acc: { completedFinalOrCorrected: Task[]; readyFinalOrCorrected: Task[] }, task) => {
+      if (task.status === 'completed') acc.completedFinalOrCorrected.push(task);
+      if (task.status === 'ready') acc.readyFinalOrCorrected.push(task);
+      return acc;
+    },
+    { completedFinalOrCorrected: [], readyFinalOrCorrected: [] }
+  );
+
+  const sortedCompletedFinalOrCorrected = completedFinalOrCorrected?.sort((a, b) =>
+    compareDates(a.authoredOn, b.authoredOn)
+  );
+
+  const latestReviewTask = sortedCompletedFinalOrCorrected[0];
+  console.log(`>>> in labs-results-form-pdf, this is the latestReviewTask`, latestReviewTask?.id);
+
+  let reviewDate: DateTime | undefined = undefined,
+    reviewingProvider = undefined,
+    resultsReceivedDate = '';
+
+  if (latestReviewTask) {
+    resultsReceivedDate = latestReviewTask?.authoredOn
+      ? DateTime.fromISO(latestReviewTask.authoredOn).toFormat(LABS_DATE_STRING_FORMAT)
+      : '';
+    if (latestReviewTask.status === 'completed') {
+      ({ reviewingProvider, reviewDate } = await getTaskCompletedByAndWhen(oystehr, latestReviewTask));
+    }
+  }
+  if (!resultsReceivedDate && !latestReviewTask) {
+    console.log('no completed final or corrected tasks, checking ready tasks to parse a results received date');
+    const sortedReadyFinalOrCorrected = readyFinalOrCorrected?.sort((a, b) => compareDates(a.authoredOn, b.authoredOn));
+    const readyReviewTask = sortedReadyFinalOrCorrected[0];
+    if (readyReviewTask && readyReviewTask?.authoredOn) {
+      console.log('readyReviewTask: ', readyReviewTask.id);
+      resultsReceivedDate = DateTime.fromISO(readyReviewTask.authoredOn).toFormat(LABS_DATE_STRING_FORMAT);
+    }
+  }
+
+  const resultInterpretationDisplays: string[] = [];
+  const externalLabResults: ExternalLabResult[] = [];
+  const obsAttachments: ExternalLabResultAttachments = {
+    pdfAttachments: [],
+    pngAttachments: [],
+    jpgAttachments: [],
+  };
+  observations
+    .filter(
+      (observation) =>
+        diagnosticReport.result?.some((resultTemp) => resultTemp.reference?.split('/')[1] === observation.id)
+    )
+    .sort((a, b) => {
+      // obr notes should be sorted at the top of the observations list
+      const aIsObrNote = a.code.coding?.some((c) => c.system === OYSTEHR_OBR_NOTE_CODING_SYSTEM);
+      const bIsObrNote = b.code.coding?.some((c) => c.system === OYSTEHR_OBR_NOTE_CODING_SYSTEM);
+
+      if (!aIsObrNote && bIsObrNote) return 1; // a comes before b
+      if (aIsObrNote && !bIsObrNote) return -1; // a comes after b
+      return 0; // no change
+    })
+    .forEach((observation) => {
+      const { labResult, interpretationDisplay, base64PdfAttachment, base64PngAttachment, base64JpgAttachment } =
+        parseObservationForPDF(observation, oystehr);
+      externalLabResults.push(labResult);
+      if (interpretationDisplay) resultInterpretationDisplays.push(interpretationDisplay);
+      if (base64PdfAttachment) obsAttachments.pdfAttachments.push(base64PdfAttachment);
+      if (base64PngAttachment) obsAttachments.pngAttachments.push(base64PngAttachment);
+      if (base64JpgAttachment) obsAttachments.jpgAttachments.push(base64JpgAttachment);
+    });
+
+  return {
+    reviewingProvider,
+    reviewDate,
+    resultsReceivedDate,
+    externalLabResults,
+    resultInterpretationDisplays,
+    obsAttachments,
+  };
 }
 
 async function createLabsResultsFormPdfBytes(dataConfig: ResultDataConfig): Promise<Uint8Array> {
@@ -647,12 +819,135 @@ async function createLabsResultsFormPdfBytes(dataConfig: ResultDataConfig): Prom
   if (type === LabType.external) {
     console.log('Getting pdf bytes for external lab results');
     pdfBytes = await createExternalLabsResultsFormPdfBytes(pdfClient, textStyles, data);
+  } else if (type === LabType.unsolicited || type === LabType.reflex) {
+    console.log('Getting pdf bytes for unsolicited external lab results');
+    pdfBytes = await createDiagnosticReportExternalLabsResultsFormPdfBytes(pdfClient, textStyles, data);
   } else if (type === LabType.inHouse) {
     console.log('Getting pdf bytes for in house lab results');
     pdfBytes = await createInHouseLabsResultsFormPdfBytes(pdfClient, textStyles, data);
   }
   if (!pdfBytes) throw new Error('pdfBytes could not be drawn');
   return pdfBytes;
+}
+
+async function createDiagnosticReportExternalLabsResultsFormPdfBytes(
+  pdfClient: PdfClient,
+  textStyles: LabsPDFTextStyleConfig,
+  data: UnsolicitedExternalLabResultsData | ReflexExternalLabResultsData
+): Promise<Uint8Array> {
+  // Order details
+  console.log(
+    `Drawing accession. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
+  pdfClient = drawFieldLine(pdfClient, textStyles, 'Accession ID:', data.accessionNumber);
+  pdfClient.newLine(STANDARD_NEW_LINE);
+
+  // we may map physician info in the future
+  // console.log(
+  //   `Drawing requesting physician. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  // );
+  // pdfClient = drawFieldLine(pdfClient, textStyles, 'Requesting Physician:', data.providerName);
+  // pdfClient.newLine(STANDARD_NEW_LINE);
+
+  // console.log(
+  //   `Drawing ordering physician. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  // );
+  // pdfClient = drawFieldLine(pdfClient, textStyles, 'Ordering Physician:', data.providerName);
+  // pdfClient.newLine(STANDARD_NEW_LINE);
+
+  // will only have for reflex
+  if ('orderNumber' in data) {
+    console.log(
+      `Drawing order num. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+    );
+    pdfClient = drawFieldLine(pdfClient, textStyles, 'Order Number:', data.orderNumber);
+    pdfClient.newLine(STANDARD_NEW_LINE);
+  }
+
+  console.log(
+    `Drawing results date. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
+  pdfClient = drawFieldLine(pdfClient, textStyles, 'Results Date:', data.resultsReceivedDate);
+  pdfClient.newLine(STANDARD_FONT_SIZE);
+  pdfClient.newLine(STANDARD_FONT_SIZE);
+
+  pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
+
+  pdfClient.newLine(30);
+  pdfClient.drawText(data.testName.toUpperCase(), textStyles.header);
+
+  pdfClient.newLine(STANDARD_NEW_LINE);
+  pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
+
+  console.log(
+    `Drawing four column text header. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
+  pdfClient = drawFourColumnText(
+    pdfClient,
+    textStyles,
+    { name: '', startXPos: 0 },
+    { name: 'NAME', startXPos: 70 },
+    { name: 'VALUE', startXPos: 340 },
+    { name: 'LAB', startXPos: 490 }
+  );
+  pdfClient.newLine(STANDARD_NEW_LINE);
+  pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
+  pdfClient.newLine(STANDARD_NEW_LINE);
+
+  console.log(
+    `Drawing four column text content. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
+  pdfClient = drawFourColumnText(
+    pdfClient,
+    textStyles,
+    { name: data.resultPhase, startXPos: 0 },
+    { name: data.testName.toUpperCase(), startXPos: 70 },
+    { name: getResultValueToDisplay(data.resultInterpretations), startXPos: 340 },
+    { name: data.testItemCode, startXPos: 490 },
+    getResultRowDisplayColor(data.resultInterpretations)
+  );
+  pdfClient.newLine(STANDARD_NEW_LINE);
+
+  console.log(
+    `Drawing results. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
+  for (const labResult of data.externalLabResults) {
+    writeResultDetailLinesInPdf(pdfClient, labResult, textStyles);
+  }
+
+  pdfClient.newLine(STANDARD_NEW_LINE);
+  pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
+  pdfClient.newLine(STANDARD_NEW_LINE);
+
+  // Reviewed by
+  if (data.reviewed) {
+    console.log(
+      `Drawing reviewed by. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+    );
+    pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
+    pdfClient.newLine(STANDARD_NEW_LINE);
+    const name = data.reviewingProvider ? getFullestAvailableName(data.reviewingProvider) : '';
+    pdfClient = drawFieldLine(pdfClient, textStyles, `Reviewed: ${data.reviewDate} by`, name || '');
+  }
+
+  const { pdfAttachments, pngAttachments, jpgAttachments } = data.attachments;
+  if (pdfAttachments.length > 0) {
+    for (const attachmentString of pdfAttachments) {
+      await pdfClient.embedPdfFromBase64(attachmentString);
+    }
+  }
+  if (pngAttachments.length > 0) {
+    for (const pngAttachmentString of pngAttachments) {
+      await pdfClient.embedImageFromBase64(pngAttachmentString, 'PNG');
+    }
+  }
+  if (jpgAttachments.length > 0) {
+    for (const jpgAttachmentString of jpgAttachments) {
+      await pdfClient.embedImageFromBase64(jpgAttachmentString, 'JPG');
+    }
+  }
+
+  return await pdfClient.save();
 }
 
 async function createExternalLabsResultsFormPdfBytes(
@@ -760,100 +1055,12 @@ async function createExternalLabsResultsFormPdfBytes(
     `Drawing results. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
   );
   for (const labResult of data.externalLabResults) {
-    pdfClient.newLine(14);
-    pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
-    pdfClient.newLine(5);
-
-    if (labResult.attachmentText) {
-      pdfClient.drawText(labResult.attachmentText, textStyles.text);
-      pdfClient.newLine(STANDARD_NEW_LINE);
-    }
-
-    let codeText: string | undefined;
-    if (labResult.resultCode) {
-      codeText = `Code: ${labResult.resultCode}`;
-    }
-    if (labResult.resultCodeDisplay) {
-      codeText += ` (${labResult.resultCodeDisplay})`;
-    }
-    if (codeText) {
-      pdfClient.drawText(codeText, textStyles.text);
-      pdfClient.newLine(STANDARD_NEW_LINE);
-    }
-
-    if (labResult.resultInterpretation && labResult.resultInterpretationDisplay) {
-      const fontStyleTemp = {
-        ...textStyles.text,
-        color: getResultRowDisplayColor([labResult.resultInterpretationDisplay]),
-      };
-      pdfClient.drawText(
-        `Interpretation: ${labResult.resultInterpretation} (${labResult.resultInterpretationDisplay})`,
-        fontStyleTemp
-      );
-      pdfClient.newLine(STANDARD_NEW_LINE);
-    }
-
-    if (labResult.resultValue) {
-      pdfClient.drawText(`Value: ${labResult.resultValue}`, textStyles.text);
-      pdfClient.newLine(STANDARD_NEW_LINE);
-    }
-
-    if (labResult.referenceRangeText) {
-      pdfClient.drawText(`Reference range: ${labResult.referenceRangeText}`, textStyles.text);
-      pdfClient.newLine(STANDARD_NEW_LINE);
-    }
-
-    // add any notes included for the observation
-    if (labResult.resultNotes?.length) {
-      console.log(
-        `Drawing observation notes. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
-      );
-      pdfClient.drawText('Notes:', textStyles.textBold);
-      pdfClient.newLine(STANDARD_NEW_LINE);
-
-      labResult.resultNotes?.forEach((note) => {
-        const noteLines = note.split('\n');
-
-        noteLines.forEach((noteLine) => {
-          if (noteLine === '') pdfClient.newLine(STANDARD_NEW_LINE);
-          else {
-            // adding a little bit of a left indent for notes
-            pdfClient.drawTextSequential(noteLine, textStyles.text, {
-              leftBound: 50,
-              rightBound: pdfClient.getRightBound(),
-            });
-            pdfClient.newLine(STANDARD_NEW_LINE);
-          }
-        });
-      });
-    }
+    writeResultDetailLinesInPdf(pdfClient, labResult, textStyles);
   }
 
   pdfClient.newLine(STANDARD_NEW_LINE);
   pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
   pdfClient.newLine(STANDARD_NEW_LINE);
-
-  // Performing lab details
-  console.log(
-    `Drawing performing lab details. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
-  );
-  pdfClient.drawText(`PERFORMING LAB: ${data.performingLabName}`, textStyles.textRight);
-  if (data.performingLabAddress) {
-    pdfClient.newLine(STANDARD_NEW_LINE);
-    pdfClient.drawText(data.performingLabAddress, textStyles.textRight);
-  }
-  pdfClient.newLine(STANDARD_NEW_LINE);
-
-  if (data.performingLabDirectorFullName && data.performingLabPhone) {
-    pdfClient.drawText(`${data.performingLabDirectorFullName}, ${data.performingLabPhone}`, textStyles.textRight);
-    pdfClient.newLine(STANDARD_NEW_LINE);
-  } else if (data.performingLabDirectorFullName) {
-    pdfClient.drawText(data.performingLabDirectorFullName, textStyles.textRight);
-    pdfClient.newLine(STANDARD_NEW_LINE);
-  } else if (data.performingLabPhone) {
-    pdfClient.drawText(data.performingLabPhone, textStyles.textRight);
-    pdfClient.newLine(STANDARD_NEW_LINE);
-  }
 
   // Reviewed by
   if (data.reviewed) {
@@ -1029,18 +1236,20 @@ async function createLabsResultsFormPDF(
   });
 
   console.debug(`Created external labs order form pdf bytes`);
-  const bucketName = 'visit-notes';
+  const bucketName = BUCKET_NAMES.LABS;
   let fileName = undefined;
   const { type, data } = dataConfig;
-  if (type === 'external') {
-    fileName = `${EXTERNAL_LAB_RESULT_PDF_BASE_NAME}-${getLabFileName(dataConfig.data.testName)}-${DateTime.fromISO(
-      dataConfig.data.orderCreateDateAuthoredOn
-    ).toFormat('yyyy-MM-dd')}-${data.resultStatus}-${
-      data.resultStatus === 'preliminary' ? '' : data.reviewed ? 'reviewed' : 'unreviewed'
-    }.pdf`;
+  if (type === 'external' || type === 'unsolicited' || type === 'reflex') {
+    fileName = generateLabResultFileName(
+      type,
+      dataConfig.data.testName,
+      dataConfig.data.dateIncludedInFileName,
+      data.resultStatus,
+      !!data.reviewed
+    );
   } else if (type === 'in-house') {
     fileName = `${IN_HOUSE_LAB_RESULT_PDF_BASE_NAME}-${getLabFileName(dataConfig.data.testName)}-${DateTime.fromISO(
-      dataConfig.data.orderCreateDateAuthoredOn
+      dataConfig.data.dateIncludedInFileName
     ).toFormat('yyyy-MM-dd')}-${dataConfig.data.resultStatus}.pdf`;
   } else {
     throw new Error(`lab type is unexpected ${type}`);
@@ -1055,29 +1264,62 @@ async function createLabsResultsFormPDF(
   return { title: fileName, uploadURL: baseFileUrl };
 }
 
+function generateLabResultFileName(
+  type: string,
+  testName: string,
+  dateIncludedInFileName: string,
+  resultStatus: string,
+  reviewed: boolean
+): string {
+  const typeForUrl = (() => {
+    switch (type) {
+      case 'unsolicited':
+        return 'Unsolicited-';
+      case 'reflex':
+        return 'Reflex-';
+      default:
+        return '';
+    }
+  })();
+  const formattedTestName = testName ? `-${getLabFileName(testName)}` : '';
+  const formattedDate = dateIncludedInFileName
+    ? `-${DateTime.fromISO(dateIncludedInFileName).toFormat('yyyy-MM-dd')}`
+    : '';
+  const reviewStatus = (() => {
+    if (resultStatus === 'preliminary') return '';
+    return reviewed ? '-reviewed' : '-unreviewed';
+  })();
+
+  return `${typeForUrl}${EXTERNAL_LAB_RESULT_PDF_BASE_NAME}${formattedTestName}${formattedDate}-${resultStatus}${reviewStatus}.pdf`;
+}
+
 export async function makeLabPdfDocumentReference({
   oystehr,
   type,
   pdfInfo,
   patientID,
   encounterID,
+  related,
   listResources,
-  serviceRequestID,
   diagnosticReportID,
   reviewed,
 }: {
   oystehr: Oystehr;
-  type: 'order' | 'results';
+  type: 'order' | 'results' | 'unsolicited' | 'reflex';
   pdfInfo: PdfInfo;
   patientID: string;
-  encounterID: string;
+  encounterID: string | undefined; // will be undefined for unsolicited results;
+  related: Reference[];
   listResources?: List[] | undefined;
-  serviceRequestID?: string;
   diagnosticReportID?: string;
   reviewed?: boolean;
 }): Promise<DocumentReference> {
+  if (type !== 'unsolicited' && type !== 'reflex' && !encounterID) {
+    throw Error('encounterID is required for solicited results and order document references');
+  }
+
   let docType;
-  if (type === 'results') {
+  if (type === 'results' || type === 'unsolicited' || type === 'reflex') {
     docType = {
       coding: [LAB_RESULT_DOC_REF_CODING_CODE],
       text: 'Lab result document',
@@ -1092,6 +1334,14 @@ export async function makeLabPdfDocumentReference({
   }
   // this function is also called for creating order pdfs which will not have a DR
   const searchParams = diagnosticReportID ? [{ name: 'related', value: `DiagnosticReport/${diagnosticReportID}` }] : [];
+
+  const docRefContext: DocumentReference['context'] = {
+    related,
+  };
+  if (encounterID) {
+    docRefContext.encounter = [{ reference: `Encounter/${encounterID}` }];
+  }
+
   const { docRefs } = await createFilesDocumentReferences({
     files: [
       {
@@ -1104,15 +1354,7 @@ export async function makeLabPdfDocumentReference({
       subject: {
         reference: `Patient/${patientID}`,
       },
-      context: {
-        related: [
-          {
-            reference:
-              type === 'order' ? `ServiceRequest/${serviceRequestID}` : `DiagnosticReport/${diagnosticReportID}`,
-          },
-        ],
-        encounter: [{ reference: `Encounter/${encounterID}` }],
-      },
+      context: docRefContext,
     },
     docStatus: !reviewed ? 'preliminary' : 'final',
     dateCreated: DateTime.now().setZone('UTC').toISO() ?? '',
@@ -1123,6 +1365,21 @@ export async function makeLabPdfDocumentReference({
   });
   return docRefs[0];
 }
+
+type LabDocRelatedReferenceInput = { serviceRequestIds: string[] } | { diagnosticReportId: string };
+export const makeRelatedForLabsPDFDocRef = (input: LabDocRelatedReferenceInput): Reference[] => {
+  if ('serviceRequestIds' in input) {
+    return input.serviceRequestIds.map((id) => ({
+      reference: `ServiceRequest/${id}`,
+    }));
+  } else {
+    return [
+      {
+        reference: `DiagnosticReport/${input.diagnosticReportId}`,
+      },
+    ];
+  }
+};
 
 const getFormattedInHouseLabResults = async (
   oystehr: Oystehr,
@@ -1209,33 +1466,9 @@ const getAdditionalResultsForRepeats = async (
   return configs;
 };
 
-const formatPerformingLabAddress = (org: Organization | undefined): string | undefined => {
-  if (!org?.address?.[0]) return;
-  const address = org.address?.[0];
-  const streetAddress = address.line?.join(', ');
-  const { city, state, postalCode } = address;
-  if (!streetAddress && !city && !state && !postalCode) return;
-  let formattedAddress = `${streetAddress}`;
-  if (city) formattedAddress += `, ${city}`;
-  if (state) formattedAddress += `, ${state}`;
-  if (postalCode) formattedAddress += ` ${postalCode}`;
-  console.log('formattedAddress', formattedAddress);
-  return formattedAddress;
-};
-
-const formatPerformingLabDirectorName = (org: Organization | undefined): string => {
-  if (!org) return ''; // this would be very strange to happen
-  const labDirectorName = org?.contact?.find(
-    (temp) => temp.purpose?.coding?.find((purposeTemp) => purposeTemp.code === 'lab_director')
-  )?.name;
-  if (!labDirectorName) return '';
-  let formattedName = labDirectorName.given?.join(',');
-  if (formattedName && labDirectorName?.family) formattedName += ` ${labDirectorName?.family}`;
-  return formattedName || '';
-};
-
 const parseObservationForPDF = (
-  observation: Observation
+  observation: Observation,
+  oystehr: Oystehr
 ): {
   labResult: ExternalLabResult;
   interpretationDisplay: string | undefined;
@@ -1302,9 +1535,52 @@ const parseObservationForPDF = (
     resultValue: value || '',
     referenceRangeText,
     resultNotes: observation.note?.map((note) => note.text),
+    performingLabName: getPerformingLabNameFromObs(observation),
+    performingLabAddress: getPerformingLabAddressFromObs(observation, oystehr),
+    performingLabPhone: getPerformingLabPhoneFromObs(observation),
+    performingLabDirectorFullName: getPerformingLabDirectorNameFromObs(observation, oystehr),
   };
 
   return { labResult, interpretationDisplay };
+};
+
+const getPerformingLabNameFromObs = (obs: Observation): string | undefined => {
+  const siteExt = obs.extension?.find((ext) => ext.url === PERFORMING_SITE_INFO_EXTENSION_URLS.parentExtUrl);
+  if (siteExt) {
+    const name = siteExt.extension?.find((ext) => ext.url === PERFORMING_SITE_INFO_EXTENSION_URLS.name)?.valueString;
+    return name;
+  }
+  return;
+};
+
+const getPerformingLabAddressFromObs = (obs: Observation, oystehr: Oystehr): string | undefined => {
+  const siteExt = obs.extension?.find((ext) => ext.url === PERFORMING_SITE_INFO_EXTENSION_URLS.parentExtUrl);
+  if (siteExt) {
+    const address = siteExt.extension?.find((ext) => ext.url === PERFORMING_SITE_INFO_EXTENSION_URLS.address)
+      ?.valueAddress;
+    if (address) return oystehr.fhir.formatAddress(address);
+  }
+  return;
+};
+
+const getPerformingLabPhoneFromObs = (obs: Observation): string | undefined => {
+  const siteExt = obs.extension?.find((ext) => ext.url === PERFORMING_SITE_INFO_EXTENSION_URLS.parentExtUrl);
+  if (siteExt) {
+    const phone = siteExt.extension?.find((ext) => ext.url === PERFORMING_SITE_INFO_EXTENSION_URLS.phone)
+      ?.valueContactPoint?.value;
+    return phone;
+  }
+  return;
+};
+
+const getPerformingLabDirectorNameFromObs = (obs: Observation, oystehr: Oystehr): string | undefined => {
+  const labDirectorExt = obs.extension?.find((ext) => ext.url === PERFORMING_PHYSICIAN_EXTENSION_URLS.parentExtUrl);
+  if (labDirectorExt) {
+    const humanName = labDirectorExt.extension?.find((ext) => ext.url === PERFORMING_SITE_INFO_EXTENSION_URLS.name)
+      ?.valueHumanName;
+    if (humanName) return oystehr.fhir.formatHumanName(humanName);
+  }
+  return;
 };
 
 const checkObsForAttachment = (
@@ -1332,4 +1608,109 @@ const checkObsForAttachment = (
     }
   }
   return;
+};
+
+const writeResultDetailLinesInPdf = (
+  pdfClient: PdfClient,
+  labResult: ExternalLabResult,
+  textStyles: LabsPDFTextStyleConfig
+): void => {
+  pdfClient.newLine(14);
+  pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
+  pdfClient.newLine(5);
+
+  if (labResult.attachmentText) {
+    pdfClient.drawText(labResult.attachmentText, textStyles.text);
+    pdfClient.newLine(STANDARD_NEW_LINE);
+  }
+
+  let codeText: string | undefined;
+  if (labResult.resultCode) {
+    codeText = `Code: ${labResult.resultCode}`;
+  }
+  if (labResult.resultCodeDisplay) {
+    codeText += ` (${labResult.resultCodeDisplay})`;
+  }
+  if (codeText) {
+    pdfClient.drawText(codeText, textStyles.text);
+    pdfClient.newLine(STANDARD_NEW_LINE);
+  }
+
+  if (labResult.resultInterpretation && labResult.resultInterpretationDisplay) {
+    const fontStyleTemp = {
+      ...textStyles.text,
+      color: getResultRowDisplayColor([labResult.resultInterpretationDisplay]),
+    };
+    pdfClient.drawText(
+      `Interpretation: ${labResult.resultInterpretation} (${labResult.resultInterpretationDisplay})`,
+      fontStyleTemp
+    );
+    pdfClient.newLine(STANDARD_NEW_LINE);
+  }
+
+  if (labResult.resultValue) {
+    pdfClient.drawText(`Value: ${labResult.resultValue}`, textStyles.text);
+    pdfClient.newLine(STANDARD_NEW_LINE);
+  }
+
+  if (labResult.referenceRangeText) {
+    pdfClient.drawText(`Reference range: ${labResult.referenceRangeText}`, textStyles.text);
+    pdfClient.newLine(STANDARD_NEW_LINE);
+  }
+
+  // add any notes included for the observation
+  if (labResult.resultNotes?.length) {
+    console.log(
+      `Drawing observation notes. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+    );
+    pdfClient.drawText('Notes:', textStyles.textBold);
+    pdfClient.newLine(STANDARD_NEW_LINE);
+
+    labResult.resultNotes?.forEach((note) => {
+      const noteLines = note.split('\n');
+
+      noteLines.forEach((noteLine) => {
+        if (noteLine === '') pdfClient.newLine(STANDARD_NEW_LINE);
+        else {
+          // adding a little bit of a left indent for notes
+          pdfClient.drawTextSequential(noteLine, textStyles.text, {
+            leftBound: 50,
+            rightBound: pdfClient.getRightBound(),
+          });
+          pdfClient.newLine(STANDARD_NEW_LINE);
+        }
+      });
+    });
+  }
+
+  let performingLabString: string | undefined;
+  if (labResult.performingLabName && labResult.performingLabAddress) {
+    performingLabString = `${labResult.performingLabName} ${labResult.performingLabAddress}`;
+  } else if (labResult.performingLabName) {
+    performingLabString = labResult.performingLabName;
+  } else if (labResult.performingLabAddress) {
+    performingLabString = labResult.performingLabAddress;
+  }
+
+  let labDirector: string | undefined;
+  if (labResult.performingLabDirectorFullName && labResult.performingLabPhone) {
+    labDirector = `${labResult.performingLabDirectorFullName}, ${labResult.performingLabPhone}`;
+  } else if (labResult.performingLabDirectorFullName) {
+    labDirector = labResult.performingLabDirectorFullName;
+  } else if (labResult.performingLabPhone) {
+    labDirector = labResult.performingLabPhone;
+  }
+
+  console.log(
+    `Drawing performing lab details. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
+  if (performingLabString) {
+    pdfClient.newLine(6);
+    pdfClient.drawText(`PERFORMING SITE: ${performingLabString}`, { ...textStyles.text, fontSize: 10 });
+  }
+  if (labDirector) {
+    pdfClient.newLine(STANDARD_NEW_LINE);
+    pdfClient.drawText(`LAB DIRECTOR: ${labDirector}`, { ...textStyles.text, fontSize: 10 });
+  }
+  pdfClient.newLine(STANDARD_NEW_LINE);
 };

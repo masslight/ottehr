@@ -3,18 +3,14 @@ import React, { FC } from 'react';
 import { AiObservationField, getQuestionnaireResponseByLinkId, ObservationTextFieldDTO } from 'utils';
 import AiSuggestion from '../../../../../components/AiSuggestion';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../../state';
+import { useAppointmentData, useChartData } from '../../../../state';
 import { PatientSideListSkeleton } from '../PatientSideListSkeleton';
 
 export const MedicalConditionsPatientColumn: FC = () => {
   const theme = useTheme();
+  const { questionnaireResponse, isAppointmentLoading } = useAppointmentData();
+  const { chartData } = useChartData();
 
-  const { questionnaireResponse, isAppointmentLoading, chartData } = getSelectors(useAppointmentStore, [
-    'questionnaireResponse',
-    'isAppointmentLoading',
-    'chartData',
-  ]);
   const medicalConditions = getQuestionnaireResponseByLinkId('medical-history', questionnaireResponse)?.answer?.[0]
     ?.valueArray;
 

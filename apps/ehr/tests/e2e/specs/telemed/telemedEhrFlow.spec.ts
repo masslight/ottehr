@@ -39,7 +39,7 @@ const DEFAULT_TIMEOUT = { timeout: 15000 };
 async function getTestUserQualificationStates(resourceHandler: ResourceHandler): Promise<string[]> {
   const testsUser = await resourceHandler.getTestsUserAndPractitioner();
 
-  const telemedLocations = await getTelemedLocations(resourceHandler.apiClient);
+  const telemedLocations = await getTelemedLocations(await resourceHandler.apiClient);
   if (!telemedLocations) {
     throw new Error('No Telemed locations available');
   }
@@ -83,7 +83,7 @@ test.describe('Tests checking data without mutating state', () => {
     const testsUserStates = await getTestUserQualificationStates(myPatientsTabAppointmentResources);
     testsUserQualificationState = testsUserStates[0];
     randomState = await getTestStateThatNotQualificationsStatesList(
-      myPatientsTabAppointmentResources.apiClient,
+      await myPatientsTabAppointmentResources.apiClient,
       testsUserStates
     );
 
