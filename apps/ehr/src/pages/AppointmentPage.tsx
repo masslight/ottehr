@@ -1053,12 +1053,11 @@ export default function AppointmentPage(): ReactElement {
     try {
       if (existingPaperworkPdf && !isPaperworkPdfOutdated(existingPaperworkPdf, questionnaireResponse)) {
         await downloadDocument(existingPaperworkPdf.id);
+        setPaperworkPdfLoading(false);
         return;
       }
     } catch (error) {
       console.warn('Paperwork PDF check failed, regenerating...', error);
-    } finally {
-      setPaperworkPdfLoading(false);
     }
 
     if (!oystehrZambda || !questionnaireResponse.id) {
