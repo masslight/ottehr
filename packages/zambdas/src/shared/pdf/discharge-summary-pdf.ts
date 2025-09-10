@@ -22,6 +22,7 @@ import {
   convertActivityDefinitionToTestItem,
   CPTCodeDTO,
   FhirAppointmentType,
+  followUpInOptions,
   formatDateToMDYWithTime,
   formatDOB,
   genderMap,
@@ -231,9 +232,14 @@ function composeDataForDischargeSummaryPdf(
   const disposition = additionalChartData?.disposition;
   let label = '';
   let instruction = '';
+  let followUpIn: string | undefined;
+  let reason: string | undefined;
   if (disposition?.type) {
     label = mapDispositionTypeToLabel[disposition.type];
     instruction = disposition.note || getDefaultNote(disposition.type);
+    reason = disposition.reason;
+
+    followUpIn = followUpInOptions.find((opt) => opt.value === disposition.followUpIn)?.label;
   }
 
   // --- Work-school excuse ---
@@ -304,6 +310,8 @@ function composeDataForDischargeSummaryPdf(
     disposition: {
       label,
       instruction,
+      reason,
+      followUpIn,
     },
     physician: {
       name: `${physicianFirstName} ${physicianLastName}`,
@@ -593,9 +601,12 @@ async function createDischargeSummaryPdfBytes(data: DischargeSummaryData): Promi
   };
 
   const drawDisposition = (): void => {
-    pdfClient.drawText('Disposition', textStyles.subHeader);
-
+    pdfClient.drawText(`Disposition - ${data.disposition.label}`, textStyles.subHeader);
     pdfClient.drawText(data.disposition.instruction, textStyles.regular);
+    if (data.disposition.reason)
+      pdfClient.drawText(`Reason for transfer: ${data.disposition.reason}`, textStyles.regular);
+    if (data.disposition.followUpIn)
+      pdfClient.drawText(`Follow-up visit in ${data.disposition.followUpIn}`, textStyles.regular);
     pdfClient.drawSeparatedLine(separatedLineStyle);
   };
 
