@@ -1,7 +1,7 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { SearchParam } from '@oystehr/sdk';
 import { useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
-import { DocumentReference, FhirResource, List, Reference } from 'fhir/r4b';
+import { DocumentReference, FhirResource, List, QuestionnaireResponse, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { useCallback, useState } from 'react';
 import { useSuccessQuery } from 'utils';
@@ -522,4 +522,14 @@ const createDocumentInfo = (documentReference: DocumentReference): PatientDocume
     attachments: extractDocumentAttachments(documentReference),
     encounterId: documentReference.context?.encounter?.[0]?.reference?.split('/')?.[1],
   };
+};
+
+export const isPaperworkPdfOutdated = (
+  pdf: PatientDocumentInfo,
+  questionnaireResponse: QuestionnaireResponse
+): boolean => {
+  if (!pdf?.whenAddedDate || !questionnaireResponse.meta?.lastUpdated) {
+    throw new Error('Invalid data: missing pdf.whenAddedDate or questionnaireResponse.meta.lastUpdated');
+  }
+  return new Date(pdf.whenAddedDate) >= new Date(questionnaireResponse.meta.lastUpdated);
 };
