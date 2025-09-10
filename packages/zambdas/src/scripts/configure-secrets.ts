@@ -39,15 +39,17 @@ const prepareSecretsFromSpecAndEnv = async (env: string): Promise<Record<string,
   const envFile = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
 
   const schema = new Schema20250319(
-    [{ path: '../../../../config/ottehr-spec.json', spec: ottehrSpec }],
+    [{ path: '../../../../config/oystehr/ottehr-spec.json', spec: ottehrSpec }],
     envFile,
     '',
     ''
   );
   const secrets: Record<string, string> = {};
-  Object.entries(ottehrSpec.secrets).forEach(async ([_key, secret]) => {
-    secrets[secret.name] = await replaceSecretValue(secret, schema);
-  });
+  await Promise.all(
+    Object.entries(ottehrSpec.secrets).map(async ([_key, secret]) => {
+      secrets[secret.name] = await replaceSecretValue(secret, schema);
+    })
+  );
 
   return secrets;
 };
