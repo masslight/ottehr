@@ -102,10 +102,14 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                 </Typography>
               </Grid>
               <Grid xs={3} item>
-                <TextInput name="administrationDetails.lot" label="LOT number" required />
+                <TextInput name="administrationDetails.lot" label="LOT number" validate={requiredForAdministration} />
               </Grid>
               <Grid xs={3} item>
-                <DateInput name="administrationDetails.expDate" label="Exp. Date" required />
+                <DateInput
+                  name="administrationDetails.expDate"
+                  label="Exp. Date"
+                  validate={requiredForAdministration}
+                />
               </Grid>
               <Grid xs={3} item>
                 <TextInput name="administrationDetails.mvx" label="MVX code" required />
