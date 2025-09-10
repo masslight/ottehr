@@ -384,3 +384,32 @@ export async function sendSmsForPatient(
   const recipient = `RelatedPerson/${relatedPerson.id}`;
   await sendSms(message, recipient, oystehr, ENVIRONMENT);
 }
+
+export const makeCancelVisitUrl = (appointmentId: string, secrets: Secrets | null): string => {
+  const baseUrl = getSecret(SecretsKeys.WEBSITE_URL, secrets);
+  return `${baseUrl}/visit/${appointmentId}/cancel`;
+};
+
+export const makePaperworkUrl = (appointmentId: string, secrets: Secrets | null): string => {
+  const baseUrl = getSecret(SecretsKeys.WEBSITE_URL, secrets);
+  return `${baseUrl}/visit/${appointmentId}/paperwork`;
+};
+
+export const makeJoinVisitUrl = (appointmentId: string, secrets: Secrets | null): string => {
+  const baseUrl = getSecret(SecretsKeys.WEBSITE_URL, secrets);
+  return `${baseUrl}/visit/${appointmentId}/join`;
+};
+
+export const makeBookAgainUrl = (appointmentId: string, secrets: Secrets | null): string => {
+  const baseUrl = getSecret(SecretsKeys.WEBSITE_URL, secrets);
+  return `${baseUrl}/visit/${appointmentId}/book-again`;
+};
+
+export const makeModifyVisitUrl = (appointmentId: string, secrets: Secrets | null): string => {
+  const baseUrl = getSecret(SecretsKeys.WEBSITE_URL, secrets);
+  return `${baseUrl}/visit/${appointmentId}/reschedule`;
+};
+
+export const makeAddressUrl = (address: string): string => {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURI(address)}`;
+};
