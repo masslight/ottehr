@@ -17,6 +17,7 @@ import {
   flattenIntakeQuestionnaireItems,
   getRelatedPersonForPatient,
   getSecret,
+  getStripeCustomerIdFromAccount,
   IntakeQuestionnaireItem,
   SecretsKeys,
 } from 'utils';
@@ -167,7 +168,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     // refetch the patient account resources
     const { account: updatedAccount, guarantorResource: updatedGuarantorResource } =
       await getAccountAndCoverageResourcesForPatient(patientResource.id, oystehr);
-    if (updatedAccount && updatedGuarantorResource) {
+    if (updatedAccount && updatedGuarantorResource && getStripeCustomerIdFromAccount(updatedAccount)) {
       console.time('updating stripe customer');
       const stripeClient = getStripeClient(secrets);
       await updateStripeCustomer({
@@ -177,7 +178,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
       });
       console.timeEnd('updating stripe customer');
     } else {
-      console.log('account or guarantor resource missing, skipping stripe customer update');
+      console.log('Stripe customer id, account or guarantor resource missing, skipping stripe customer update');
     }
   } catch (error: unknown) {
     tasksFailed.push('update stripe customer');
