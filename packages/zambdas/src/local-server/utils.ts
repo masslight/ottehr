@@ -51,29 +51,30 @@ function parseArgs(args: string[]): Record<string, string> {
   );
 }
 
-const cliParams = parseArgs(process.argv.slice(2));
-const pathToEnvFile = cliParams['env'];
-const useIac = cliParams['iac'];
-
-console.log('pathToEnvFile', pathToEnvFile);
-console.log('useIac', useIac);
-
-// Setup env vars for express
-// env file path to be specified from the root of the zambdas package.
-const configString = readFileSync(resolve(__dirname, `../../${pathToEnvFile}`), {
-  encoding: 'utf8',
-});
-const envFileContents = configString.length > 2 ? JSON.parse(configString) : null;
-
 const secrets: Record<string, string> = {};
-const schema = new Schema20250319(
-  [{ path: '../../../../config/ottehr-spec.json', spec: ottehrSpec }],
-  envFileContents,
-  '',
-  ''
-);
 
 async function populateSecrets(): Promise<void> {
+  const cliParams = parseArgs(process.argv.slice(2));
+  const pathToEnvFile = cliParams['env'];
+  const useIac = cliParams['iac'];
+
+  console.log('pathToEnvFile', pathToEnvFile);
+  console.log('useIac', useIac);
+
+  // Setup env vars for express
+  // env file path to be specified from the root of the zambdas package.
+  const configString = readFileSync(resolve(__dirname, `../../${pathToEnvFile}`), {
+    encoding: 'utf8',
+  });
+  const envFileContents = configString.length > 2 ? JSON.parse(configString) : null;
+
+  const schema = new Schema20250319(
+    [{ path: '../../../../config/oystehr/ottehr-spec.json', spec: ottehrSpec }],
+    envFileContents,
+    '',
+    ''
+  );
+
   const takenFromSpec = new Set<string>();
   await Promise.all(
     Object.entries(ottehrSpec.secrets).map(async ([_key, secret]): Promise<void> => {
@@ -164,9 +165,9 @@ const singleValueHeaders = (input: IncomingHttpHeaders): APIGatewayProxyEventHea
 async function buildLambdaInput(req: Request): Promise<ZambdaInput> {
   console.log('build lambda body,', JSON.stringify(req.body));
   if (!Object.keys(secrets).length) {
-    console.log('populating secrets');
+    console.log('Populating secrets');
     await populateSecrets();
-    console.log('populated secrets', JSON.stringify(secrets));
+    console.log('Populated secrets' /*, JSON.stringify(secrets)*/);
   }
   return {
     body: !_.isEmpty(req.body) ? req.body : null,
