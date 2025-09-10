@@ -406,6 +406,8 @@ export type DischargeSummaryData = {
   disposition: {
     label: string;
     instruction: string;
+    reason?: string;
+    followUpIn?: string;
   };
   physician: {
     name: string;
