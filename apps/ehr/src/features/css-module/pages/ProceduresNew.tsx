@@ -396,9 +396,11 @@ export default function ProceduresNew(): ReactElement {
                         (state.diagnoses = state.diagnoses?.filter((diagnosis) => diagnosis.code != value.code))
                     )
                   }
+                  dataTestId={dataTestIds.documentProcedurePage.diagnosisDeleteButton}
                 />
               ) : undefined
             }
+            itemDataTestId={dataTestIds.documentProcedurePage.diagnosisItem}
             divider
           />
         </Box>

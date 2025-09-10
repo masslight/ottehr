@@ -1,51 +1,81 @@
 import { Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { CssHeader } from 'tests/e2e/page/CssHeader';
-import { openDocumentProcedurePage } from 'tests/e2e/page/DocumentProcedurePage';
+import { DocumentProcedurePage, openDocumentProcedurePage } from 'tests/e2e/page/DocumentProcedurePage';
 import {
   InPersonProgressNotePage,
   openInPersonProgressNotePage,
 } from 'tests/e2e/page/in-person/InPersonProgressNotePage';
-import { expectProceduresPage, openProceduresPage } from 'tests/e2e/page/ProceduresPage';
+import { openProceduresPage, ProcedureRow } from 'tests/e2e/page/ProceduresPage';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
 
+interface ProcedureInfo {
+  consentChecked: boolean;
+  procedureType: string;
+  cptCode: string;
+  cptName: string;
+  diagnosisCode: string;
+  diagnosisName: string;
+  performedBy: string;
+  anaesthesia: string;
+  bodySite: string;
+  bodySide: string;
+  technique: string;
+  instruments: string;
+  details: string;
+  specimentSent: string;
+  complication: string;
+  patinentResponse: string;
+  instructions: string;
+  timeSpent: string;
+  documentedBy: string;
+}
+
+const PROCEDURE_A: ProcedureInfo = {
+  consentChecked: true,
+  procedureType: 'Wound Care / Dressing Change',
+  cptCode: '73000',
+  cptName: 'X-ray of collar bone',
+  diagnosisCode: 'D51.0',
+  diagnosisName: 'Vitamin B12 deficiency anemia due to intrinsic factor deficiency',
+  performedBy: 'Healthcare staff',
+  anaesthesia: 'Topical',
+  bodySite: 'Arm',
+  bodySide: 'Left',
+  technique: 'Sterile',
+  instruments: 'Splint',
+  details: 'test details a',
+  specimentSent: 'Yes',
+  complication: 'Bleeding',
+  patinentResponse: 'Stable',
+  instructions: 'Return if worsening',
+  timeSpent: '< 5 min',
+  documentedBy: 'Provider',
+};
+
+const PROCEDURE_B: ProcedureInfo = {
+  consentChecked: false,
+  procedureType: 'Splint Application / Immobilization',
+  cptCode: '11900',
+  cptName: 'Injection into skin growth, 1-7 growths',
+  diagnosisCode: 'R50.9',
+  diagnosisName: 'Fever, unspecified',
+  performedBy: 'Both',
+  anaesthesia: 'Local',
+  bodySite: 'Face',
+  bodySide: 'Not Applicable',
+  technique: 'Clean',
+  instruments: 'Speculum',
+  details: 'test details b',
+  specimentSent: 'No',
+  complication: 'Allergic Reaction',
+  patinentResponse: 'Improved',
+  instructions: 'Wound Care',
+  timeSpent: '> 30 min',
+  documentedBy: 'Healthcare staff',
+};
+
 const resourceHandler = new ResourceHandler(`documentProceduresPage-mutating-${DateTime.now().toMillis()}`);
-const WOUND_CARE_PROCEDURE_TYPE = 'Wound Care / Dressing Change';
-const SPLINT_APPLICATION_PROCEDURE_TYPE = 'Splint Application / Immobilization';
-const X_RAY_CPT_CODE = '73000';
-const INJECTION_CPT_CODE = '11900';
-const X_RAY_CPT_NAME = 'X-ray of collar bone';
-const INJECTION_CPT_NAME = 'Injection into skin growth, 1-7 growths';
-const B12_DIAGNOSIS_CODE = 'D51.0';
-const FEVER_DIAGNOSIS_CODE = 'R50.9';
-const B12_DIAGNOSIS_NAME = 'Vitamin B12 deficiency anemia due to intrinsic factor deficiency';
-const FEVER_DIAGNOSIS_NAME = 'Fever, unspecified';
-const HEALTH_CARE_STUFF = 'Healthcare staff';
-const BOTH = 'Both';
-const TOPICAL = 'Topical';
-const LOCAL = 'Local';
-const ARM = 'Arm';
-const FACE = 'Face';
-const LEFT = 'Left';
-const NOT_APPLICABLE = 'Not Applicable';
-const STERILE = 'Sterile';
-const CLEAN = 'Clean';
-const SPLINT = 'Splint';
-const SPECULUM = 'Speculum';
-const PROCEDURE_DETAILS = 'test details';
-const PROCEDURE_DETAILS_2 = 'test details_edited';
-const YES = 'Yes';
-const NO = 'No';
-const BLEEDING = 'Bleeding';
-const ALLERGIC_REACTION = 'Allergic Reaction';
-const STABLE = 'Stable';
-const IMPROVED = 'Improved';
-const RETURN_IF_WORSENING = 'Return if worsening';
-const WOUND_CARE = 'Wound Care';
-const LESS_5_MIN = '< 5 min';
-const MORE_30_MIN = '> 30 min';
-const PROVIDER = 'Provider';
-const HEALTHCARE_STAFF = 'Healthcare staff';
 
 test.describe('Document Procedures Page mutating tests', () => {
   test.beforeEach(async ({ page }) => {
@@ -66,147 +96,32 @@ test.describe('Document Procedures Page mutating tests', () => {
     page,
   }) => {
     let documentProcedurePage = await openDocumentProcedurePage(resourceHandler.appointment.id!, page);
-    await documentProcedurePage.checkConsentForProcedure();
-    await documentProcedurePage.selectProcedureType(WOUND_CARE_PROCEDURE_TYPE);
-    await documentProcedurePage.selectCptCode(X_RAY_CPT_CODE);
-    await documentProcedurePage.selectDiagnosis(B12_DIAGNOSIS_CODE);
-    await documentProcedurePage.selectPerformedBy(HEALTH_CARE_STUFF);
-    await documentProcedurePage.selectAnaesthesia(TOPICAL);
-    await documentProcedurePage.selectSite(ARM);
-    await documentProcedurePage.selectSideOfBody(LEFT);
-    await documentProcedurePage.selectTechnique(STERILE);
-    await documentProcedurePage.selectInstruments(SPLINT);
-    await documentProcedurePage.enterProcedureDetails(PROCEDURE_DETAILS);
-    await documentProcedurePage.selectSpecimenSent(YES);
-    await documentProcedurePage.selectComplications(BLEEDING);
-    await documentProcedurePage.selectPatientResponse(STABLE);
-    await documentProcedurePage.selectPostProcedureInstructions(RETURN_IF_WORSENING);
-    await documentProcedurePage.selectTimeSpent(LESS_5_MIN);
-    await documentProcedurePage.selectDocumentedBy(PROVIDER);
-    await documentProcedurePage.clickSaveButton();
-
-    let proceduresPage = await expectProceduresPage(page);
-    let procedureRow = proceduresPage.getProcedureRow(WOUND_CARE_PROCEDURE_TYPE);
-    await procedureRow.verifyProcedureCptCode(X_RAY_CPT_CODE + '-' + X_RAY_CPT_NAME);
-    await procedureRow.verifyProcedureType(WOUND_CARE_PROCEDURE_TYPE);
-    await procedureRow.verifyProcedureDiagnosis(B12_DIAGNOSIS_CODE + '-' + B12_DIAGNOSIS_NAME);
-    await procedureRow.verifyProcedureDocumentedBy(PROVIDER);
+    await enterProcedureInfo(PROCEDURE_A, documentProcedurePage);
+    let proceduresPage = await documentProcedurePage.clickSaveButton();
+    let procedureRow = proceduresPage.getProcedureRow(PROCEDURE_A.procedureType);
+    await verifyProcedureRow(PROCEDURE_A, procedureRow);
 
     let progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
-    await progressNotePage.verifyProcedure(WOUND_CARE_PROCEDURE_TYPE, [
-      'CPT: ' + X_RAY_CPT_CODE + ' ' + X_RAY_CPT_NAME,
-      'Dx: ' + B12_DIAGNOSIS_CODE + ' ' + B12_DIAGNOSIS_NAME,
-      'Performed by: ' + HEALTH_CARE_STUFF,
-      'Anaesthesia / medication used: ' + TOPICAL,
-      'Site/location: ' + ARM,
-      'Side of body: ' + LEFT,
-      'Technique: ' + STERILE,
-      'Instruments / supplies used: ' + SPLINT,
-      'Procedure details: ' + PROCEDURE_DETAILS,
-      'Specimen sent: ' + YES,
-      'Complications: ' + BLEEDING,
-      'Patient response: ' + STABLE,
-      'Post-procedure instructions: ' + RETURN_IF_WORSENING,
-      'Time spent: ' + LESS_5_MIN,
-      'Documented by: ' + PROVIDER,
-    ]);
+    await progressNotePage.verifyProcedure(PROCEDURE_A.procedureType, progressNoteProcedureDetails(PROCEDURE_A));
 
     proceduresPage = await openProceduresPage(resourceHandler.appointment.id!, page);
-    procedureRow = proceduresPage.getProcedureRow(WOUND_CARE_PROCEDURE_TYPE);
+    procedureRow = proceduresPage.getProcedureRow(PROCEDURE_A.procedureType);
     documentProcedurePage = await procedureRow.click();
-    await documentProcedurePage.verifyConsentForProcedureChecked(true);
-    await documentProcedurePage.verifyProcedureType(WOUND_CARE_PROCEDURE_TYPE);
-    await documentProcedurePage.verifyCptCode(X_RAY_CPT_CODE + ' ' + X_RAY_CPT_NAME);
-    await documentProcedurePage.verifyDiagnosis(B12_DIAGNOSIS_NAME + ' ' + B12_DIAGNOSIS_CODE);
-    await documentProcedurePage.verifyPerformedBy(HEALTH_CARE_STUFF);
-    await documentProcedurePage.verifyAnaesthesia(TOPICAL);
-    await documentProcedurePage.verifySite(ARM);
-    await documentProcedurePage.verifySideOfBody(LEFT);
-    await documentProcedurePage.verifyTechnique(STERILE);
-    await documentProcedurePage.verifyInstruments(SPLINT);
-    await documentProcedurePage.verifyProcedureDetails(PROCEDURE_DETAILS);
-    await documentProcedurePage.verifySpecimenSent(YES);
-    await documentProcedurePage.verifyComplications(BLEEDING);
-    await documentProcedurePage.verifyPatientResponse(STABLE);
-    await documentProcedurePage.verifyPostProcedureInstructions(RETURN_IF_WORSENING);
-    await documentProcedurePage.verifyTimeSpent(LESS_5_MIN);
-    await documentProcedurePage.verifyDocumentedBy(PROVIDER);
+    await verifyProcedureInfo(PROCEDURE_A, documentProcedurePage);
+    await enterProcedureInfo(PROCEDURE_B, documentProcedurePage);
+    await documentProcedurePage.deleteDiagnosis(PROCEDURE_A.diagnosisName + ' ' + PROCEDURE_A.diagnosisCode);
+    proceduresPage = await documentProcedurePage.clickSaveButton();
 
-    await documentProcedurePage.uncheckConsentForProcedure();
-    await documentProcedurePage.selectProcedureType(SPLINT_APPLICATION_PROCEDURE_TYPE);
-    await documentProcedurePage.selectCptCode(INJECTION_CPT_CODE);
-    await documentProcedurePage.selectDiagnosis(FEVER_DIAGNOSIS_CODE);
-    await documentProcedurePage.selectPerformedBy(BOTH);
-    await documentProcedurePage.selectAnaesthesia(LOCAL);
-    await documentProcedurePage.selectSite(FACE);
-    await documentProcedurePage.selectSideOfBody(NOT_APPLICABLE);
-    await documentProcedurePage.selectTechnique(CLEAN);
-    await documentProcedurePage.selectInstruments(SPECULUM);
-    await documentProcedurePage.enterProcedureDetails(PROCEDURE_DETAILS_2);
-    await documentProcedurePage.selectSpecimenSent(NO);
-    await documentProcedurePage.selectComplications(ALLERGIC_REACTION);
-    await documentProcedurePage.selectPatientResponse(IMPROVED);
-    await documentProcedurePage.selectPostProcedureInstructions(WOUND_CARE);
-    await documentProcedurePage.selectTimeSpent(MORE_30_MIN);
-    await documentProcedurePage.selectDocumentedBy(HEALTHCARE_STAFF);
-    await documentProcedurePage.clickSaveButton();
-
-    proceduresPage = await expectProceduresPage(page);
-    procedureRow = proceduresPage.getProcedureRow(SPLINT_APPLICATION_PROCEDURE_TYPE);
-    await procedureRow.verifyProcedureCptCode(INJECTION_CPT_CODE + '-' + INJECTION_CPT_NAME);
-    await procedureRow.verifyProcedureType(SPLINT_APPLICATION_PROCEDURE_TYPE);
-    await procedureRow.verifyProcedureDiagnosis(FEVER_DIAGNOSIS_CODE + '-' + FEVER_DIAGNOSIS_NAME);
-    await procedureRow.verifyProcedureDiagnosis(B12_DIAGNOSIS_CODE + '-' + B12_DIAGNOSIS_NAME);
-    await procedureRow.verifyProcedureDocumentedBy(HEALTHCARE_STAFF);
+    procedureRow = proceduresPage.getProcedureRow(PROCEDURE_B.procedureType);
+    await verifyProcedureRow(PROCEDURE_B, procedureRow);
 
     progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
-    await progressNotePage.verifyProcedure(SPLINT_APPLICATION_PROCEDURE_TYPE, [
-      'CPT: ' + INJECTION_CPT_CODE + ' ' + INJECTION_CPT_NAME,
-      'Dx: ' +
-        B12_DIAGNOSIS_CODE +
-        ' ' +
-        B12_DIAGNOSIS_NAME +
-        ';' +
-        ' ' +
-        FEVER_DIAGNOSIS_CODE +
-        ' ' +
-        FEVER_DIAGNOSIS_NAME,
-      'Performed by: ' + BOTH,
-      'Anaesthesia / medication used: ' + LOCAL,
-      'Site/location: ' + FACE,
-      'Side of body: ' + NOT_APPLICABLE,
-      'Technique: ' + CLEAN,
-      'Instruments / supplies used: ' + SPECULUM,
-      'Procedure details: ' + PROCEDURE_DETAILS_2,
-      'Specimen sent: ' + NO,
-      'Complications: ' + ALLERGIC_REACTION,
-      'Patient response: ' + IMPROVED,
-      'Post-procedure instructions: ' + WOUND_CARE,
-      'Time spent: ' + MORE_30_MIN,
-      'Documented by: ' + HEALTHCARE_STAFF,
-    ]);
+    await progressNotePage.verifyProcedure(PROCEDURE_B.procedureType, progressNoteProcedureDetails(PROCEDURE_B));
 
     proceduresPage = await openProceduresPage(resourceHandler.appointment.id!, page);
-    procedureRow = proceduresPage.getProcedureRow(SPLINT_APPLICATION_PROCEDURE_TYPE);
+    procedureRow = proceduresPage.getProcedureRow(PROCEDURE_B.procedureType);
     documentProcedurePage = await procedureRow.click();
-    await documentProcedurePage.verifyConsentForProcedureChecked(false);
-    await documentProcedurePage.verifyProcedureType(SPLINT_APPLICATION_PROCEDURE_TYPE);
-    await documentProcedurePage.verifyCptCode(INJECTION_CPT_CODE + ' ' + INJECTION_CPT_NAME);
-    await documentProcedurePage.verifyDiagnosis(FEVER_DIAGNOSIS_NAME + ' ' + FEVER_DIAGNOSIS_CODE);
-    await documentProcedurePage.verifyDiagnosis(B12_DIAGNOSIS_NAME + ' ' + B12_DIAGNOSIS_CODE);
-    await documentProcedurePage.verifyPerformedBy(BOTH);
-    await documentProcedurePage.verifyAnaesthesia(LOCAL);
-    await documentProcedurePage.verifySite(FACE);
-    await documentProcedurePage.verifySideOfBody(NOT_APPLICABLE);
-    await documentProcedurePage.verifyTechnique(CLEAN);
-    await documentProcedurePage.verifyInstruments(SPECULUM);
-    await documentProcedurePage.verifyProcedureDetails(PROCEDURE_DETAILS_2);
-    await documentProcedurePage.verifySpecimenSent(NO);
-    await documentProcedurePage.verifyComplications(ALLERGIC_REACTION);
-    await documentProcedurePage.verifyPatientResponse(IMPROVED);
-    await documentProcedurePage.verifyPostProcedureInstructions(WOUND_CARE);
-    await documentProcedurePage.verifyTimeSpent(MORE_30_MIN);
-    await documentProcedurePage.verifyDocumentedBy(HEALTHCARE_STAFF);
+    await verifyProcedureInfo(PROCEDURE_B, documentProcedurePage);
   });
 
   async function setupPractitioners(page: Page): Promise<void> {
@@ -218,5 +133,78 @@ test.describe('Document Procedures Page mutating tests', () => {
     await cssHeader.selectProviderPractitioner();
     await cssHeader.clickSwitchModeButton('provider');
     await progressNotePage.expectLoaded();
+  }
+
+  async function enterProcedureInfo(
+    procedureInfo: ProcedureInfo,
+    documentProcedurePage: DocumentProcedurePage
+  ): Promise<void> {
+    await documentProcedurePage.setConsentForProcedureChecked(procedureInfo.consentChecked);
+    await documentProcedurePage.selectProcedureType(procedureInfo.procedureType);
+    await documentProcedurePage.selectCptCode(procedureInfo.cptCode);
+    await documentProcedurePage.selectDiagnosis(procedureInfo.diagnosisCode);
+    await documentProcedurePage.selectPerformedBy(procedureInfo.performedBy);
+    await documentProcedurePage.selectAnaesthesia(procedureInfo.anaesthesia);
+    await documentProcedurePage.selectSite(procedureInfo.bodySite);
+    await documentProcedurePage.selectSideOfBody(procedureInfo.bodySide);
+    await documentProcedurePage.selectTechnique(procedureInfo.technique);
+    await documentProcedurePage.selectInstruments(procedureInfo.instruments);
+    await documentProcedurePage.enterProcedureDetails(procedureInfo.details);
+    await documentProcedurePage.selectSpecimenSent(procedureInfo.specimentSent);
+    await documentProcedurePage.selectComplications(procedureInfo.complication);
+    await documentProcedurePage.selectPatientResponse(procedureInfo.patinentResponse);
+    await documentProcedurePage.selectPostProcedureInstructions(procedureInfo.instructions);
+    await documentProcedurePage.selectTimeSpent(procedureInfo.timeSpent);
+    await documentProcedurePage.selectDocumentedBy(procedureInfo.documentedBy);
+  }
+
+  async function verifyProcedureInfo(
+    procedureInfo: ProcedureInfo,
+    documentProcedurePage: DocumentProcedurePage
+  ): Promise<void> {
+    await documentProcedurePage.verifyConsentForProcedureChecked(procedureInfo.consentChecked);
+    await documentProcedurePage.verifyProcedureType(procedureInfo.procedureType);
+    await documentProcedurePage.verifyCptCode(procedureInfo.cptCode + ' ' + procedureInfo.cptName);
+    await documentProcedurePage.verifyDiagnosis(procedureInfo.diagnosisName + ' ' + procedureInfo.diagnosisCode);
+    await documentProcedurePage.verifyPerformedBy(procedureInfo.performedBy);
+    await documentProcedurePage.verifyAnaesthesia(procedureInfo.anaesthesia);
+    await documentProcedurePage.verifySite(procedureInfo.bodySite);
+    await documentProcedurePage.verifySideOfBody(procedureInfo.bodySide);
+    await documentProcedurePage.verifyTechnique(procedureInfo.technique);
+    await documentProcedurePage.verifyInstruments(procedureInfo.instruments);
+    await documentProcedurePage.verifyProcedureDetails(procedureInfo.details);
+    await documentProcedurePage.verifySpecimenSent(procedureInfo.specimentSent);
+    await documentProcedurePage.verifyComplications(procedureInfo.complication);
+    await documentProcedurePage.verifyPatientResponse(procedureInfo.patinentResponse);
+    await documentProcedurePage.verifyPostProcedureInstructions(procedureInfo.instructions);
+    await documentProcedurePage.verifyTimeSpent(procedureInfo.timeSpent);
+    await documentProcedurePage.verifyDocumentedBy(procedureInfo.documentedBy);
+  }
+
+  async function verifyProcedureRow(procedureInfo: ProcedureInfo, procedureRow: ProcedureRow): Promise<void> {
+    await procedureRow.verifyProcedureCptCode(procedureInfo.cptCode + '-' + procedureInfo.cptName);
+    await procedureRow.verifyProcedureType(procedureInfo.procedureType);
+    await procedureRow.verifyProcedureDiagnosis(procedureInfo.diagnosisCode + '-' + procedureInfo.diagnosisName);
+    await procedureRow.verifyProcedureDocumentedBy(procedureInfo.documentedBy);
+  }
+
+  function progressNoteProcedureDetails(procedureInfo: ProcedureInfo): string[] {
+    return [
+      'CPT: ' + procedureInfo.cptCode + ' ' + procedureInfo.cptName,
+      'Dx: ' + procedureInfo.diagnosisCode + ' ' + procedureInfo.diagnosisName,
+      'Performed by: ' + procedureInfo.performedBy,
+      'Anaesthesia / medication used: ' + procedureInfo.anaesthesia,
+      'Site/location: ' + procedureInfo.bodySite,
+      'Side of body: ' + procedureInfo.bodySide,
+      'Technique: ' + procedureInfo.technique,
+      'Instruments / supplies used: ' + procedureInfo.instruments,
+      'Procedure details: ' + procedureInfo.details,
+      'Specimen sent: ' + procedureInfo.specimentSent,
+      'Complications: ' + procedureInfo.complication,
+      'Patient response: ' + procedureInfo.patinentResponse,
+      'Post-procedure instructions: ' + procedureInfo.instructions,
+      'Time spent: ' + procedureInfo.timeSpent,
+      'Documented by: ' + procedureInfo.documentedBy,
+    ];
   }
 });

@@ -433,6 +433,8 @@ export const dataTestIds = {
     cptCodeInput: 'cpt-code-input',
     cptCode: 'cpt-code',
     diagnosis: 'diagnosis',
+    diagnosisItem: 'diagnosis-item',
+    diagnosisDeleteButton: 'diagnosis-delete-button',
     performedBy: 'performed-by',
     anaesthesia: 'anaesthesia',
     site: 'site',

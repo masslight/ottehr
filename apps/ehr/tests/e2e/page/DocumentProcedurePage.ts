@@ -1,5 +1,6 @@
 import { expect, Page } from '@playwright/test';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { expectProceduresPage, ProceduresPage } from './ProceduresPage';
 
 export class DocumentProcedurePage {
   #page: Page;
@@ -8,18 +9,11 @@ export class DocumentProcedurePage {
     this.#page = page;
   }
 
-  async checkConsentForProcedure(): Promise<void> {
+  async setConsentForProcedureChecked(checked: boolean): Promise<void> {
     await this.#page
       .getByTestId(dataTestIds.documentProcedurePage.consentForProcedure)
       .locator('input')
-      .setChecked(true);
-  }
-
-  async uncheckConsentForProcedure(): Promise<void> {
-    await this.#page
-      .getByTestId(dataTestIds.documentProcedurePage.consentForProcedure)
-      .locator('input')
-      .setChecked(false);
+      .setChecked(checked);
   }
 
   async verifyConsentForProcedureChecked(checked: boolean): Promise<void> {
@@ -51,6 +45,14 @@ export class DocumentProcedurePage {
   async selectDiagnosis(diagnosis: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.diagnosisContainer.diagnosisDropdown).locator('input').fill(diagnosis);
     await this.#page.locator('li').getByText(diagnosis, { exact: false }).click();
+  }
+
+  async deleteDiagnosis(diagnosis: string): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.documentProcedurePage.diagnosisItem)
+      .filter({ hasText: diagnosis })
+      .getByTestId(dataTestIds.documentProcedurePage.diagnosisDeleteButton)
+      .click();
   }
 
   async verifyDiagnosis(diagnosis: string): Promise<void> {
@@ -218,8 +220,9 @@ export class DocumentProcedurePage {
     ).toBeVisible();
   }
 
-  async clickSaveButton(): Promise<void> {
+  async clickSaveButton(): Promise<ProceduresPage> {
     await this.#page.getByTestId(dataTestIds.documentProcedurePage.saveButton).click();
+    return await expectProceduresPage(this.#page);
   }
 }
 
