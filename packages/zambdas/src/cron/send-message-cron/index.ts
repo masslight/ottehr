@@ -168,23 +168,16 @@ export const index = wrapHandler('send-message-cron', async (input: ZambdaInput)
         let locationName = '';
         let prettyStartTime = '';
 
-        if (schedule) {
+        if (schedule && fhirAppointment.start) {
           const tz = getTimezone(schedule);
-          prettyStartTime = DateTime.fromISO(fhirAppointment.start || '')
-            .setZone(tz)
-            .toFormat(DATETIME_FULL_NO_YEAR);
+          prettyStartTime = DateTime.fromISO(fhirAppointment.start).setZone(tz).toFormat(DATETIME_FULL_NO_YEAR);
         }
 
         if (location) {
           locationName = getNameForOwner(location);
           address = getAddressStringForScheduleResource(location) || '';
         }
-        if (fhirAppointment.start) {
-          const timezone = location?.extension?.find(
-            (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
-          )?.valueString;
-          prettyStartTime = DateTime.fromISO(fhirAppointment.start).setZone(timezone).toFormat(DATETIME_FULL_NO_YEAR);
-        }
+
         const missingData: string[] = [];
         if (!patientEmail) missingData.push('patient email');
         if (!fhirAppointment.id) missingData.push('appointment ID');
