@@ -428,7 +428,7 @@ export const dataTestIds = {
   },
   documentProcedurePage: {
     title: 'document-procedure-title',
-    consentForProcedure: 'consent-fot-procedure-checkbox',
+    consentForProcedure: 'consent-for-procedure-checkbox',
     procedureType: 'procedure-type',
     cptCodeInput: 'cpt-code-input',
     cptCode: 'cpt-code',
