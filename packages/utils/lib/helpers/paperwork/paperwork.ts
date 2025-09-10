@@ -1,13 +1,17 @@
 import Oystehr from '@oystehr/sdk';
 import {
+  DocumentReference,
   Extension,
   FhirResource,
+  List,
+  Patient,
   Questionnaire,
   QuestionnaireItem,
   QuestionnaireItemAnswerOption,
   QuestionnaireResponse,
   QuestionnaireResponseItem,
   QuestionnaireResponseItemAnswer,
+  Resource,
   ValueSet,
 } from 'fhir/r4b';
 import _ from 'lodash';
@@ -21,6 +25,7 @@ import {
   FormSelectionElementList,
   InputWidthOption,
   IntakeQuestionnaireItem,
+  PaperworkPDFResourcePackage,
   Question,
   QuestionnaireItemConditionDefinition,
   QuestionnaireItemExtension,
@@ -656,3 +661,45 @@ export function isNonPaperworkQuestionnaireResponse<T extends FhirResource>(reso
     !resource.questionnaire?.includes('https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual')
   );
 }
+
+export const getPaperworkResources = async (
+  oystehr: Oystehr,
+  QuestionnaireResponseId: string
+): Promise<PaperworkPDFResourcePackage | undefined> => {
+  const items: Array<Patient | QuestionnaireResponse | DocumentReference | List> = (
+    await oystehr.fhir.search<Patient | QuestionnaireResponse | DocumentReference | List>({
+      resourceType: 'QuestionnaireResponse',
+      params: [
+        {
+          name: '_id',
+          value: QuestionnaireResponseId,
+        },
+        {
+          name: '_include',
+          value: 'QuestionnaireResponse:subject',
+        },
+        {
+          name: '_revinclude:iterate',
+          value: 'List:patient',
+        },
+      ],
+    })
+  ).unbundle();
+
+  const questionnaireResponse: QuestionnaireResponse | undefined = items?.find(
+    (item: Resource) => item.resourceType === 'QuestionnaireResponse'
+  ) as QuestionnaireResponse;
+  if (!questionnaireResponse) return undefined;
+
+  const patient: Patient | undefined = items.find((item: Resource) => {
+    return item.resourceType === 'Patient';
+  }) as Patient;
+
+  const listResources = items.filter((item) => item.resourceType === 'List') as List[];
+
+  return {
+    questionnaireResponse,
+    patient,
+    listResources,
+  };
+};

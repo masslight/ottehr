@@ -1,6 +1,6 @@
 import { patientScreeningQuestionsConfig } from '../../../main';
 import { HistorySourceKeys, historySourceLabels, RecentVisitKeys, recentVisitLabels } from './constants';
-import { Field, NoteField } from './types';
+import { Field, NoteField, ObservationDTO } from './types';
 
 export function getHistorySourceLabel(key: HistorySourceKeys): string {
   return historySourceLabels[key];
@@ -10,9 +10,9 @@ export function getRecentVisitLabel(key: RecentVisitKeys): string {
   return recentVisitLabels[key];
 }
 
-export const getFhirValueOrFallback = (field: Field, uiValue: string): string => {
+export const getFhirValueOrFallback = (field: Field, uiValue: string): ObservationDTO['value'] => {
   const option = field.options?.find((opt) => opt.value === uiValue);
-  return option?.fhirValue || uiValue;
+  return (option?.fhirValue || uiValue) as ObservationDTO['value'];
 };
 
 export const getUiValueOrFallback = (field: Field, fhirValue: string): string => {

@@ -4,7 +4,7 @@ import { readFileSync } from 'fs';
 import { IncomingHttpHeaders } from 'http2';
 import _ from 'lodash';
 import { resolve } from 'path';
-import ottehrSpec from '../../../../config/ottehr-spec.json';
+import ottehrSpec from '../../../../config/oystehr/ottehr-spec.json';
 import { REF_REGEX, Schema20250319, Spec20250319 } from '../../../spec/src/schema-20250319';
 import { ZambdaInput } from '../shared';
 
@@ -74,11 +74,38 @@ const schema = new Schema20250319(
 );
 
 async function populateSecrets(): Promise<void> {
+  const takenFromSpec = new Set<string>();
   await Promise.all(
     Object.entries(ottehrSpec.secrets).map(async ([_key, secret]): Promise<void> => {
       secrets[secret.name] = await replaceSecretValue(secret, schema, useIac);
+      takenFromSpec.add(secret.name);
     })
   );
+
+  // TODO: improve the injection of these secrets.
+  // This adds any additional secrets that are in the env file but not in the oystehr spec, as long
+  // as they are among the known sendgrid secrets generated via terraform.
+  // this is a fast and dirty solution that is good enough for right now. it requires the sg secret keys and values
+  // to be manually copied into the secrets repo (what a pain!). A better solution would be to fetch all the secrets written to Oystehr dynamically
+  // and inject them here, which would more closely resemble the behavior of a deployed system and provider one source of truth for
+  // all secrets implied by the source code at any given time.
+  const sgSecretKeys = new Set([
+    'SENDGRID_ERROR_REPORT_TEMPLATE_ID',
+    'SENDGRID_IN_PERSON_CANCELATION_TEMPLATE_ID',
+    'SENDGRID_IN_PERSON_CONFIRMATION_TEMPLATE_ID',
+    'SENDGRID_IN_PERSON_COMPLETION_TEMPLATE_ID',
+    'SENDGRID_IN_PERSON_REMINDER_TEMPLATE_ID',
+    'SENDGRID_TELEMED_CANCELATION_TEMPLATE_ID',
+    'SENDGRID_TELEMED_CONFIRMATION_TEMPLATE_ID',
+    'SENDGRID_TELEMED_COMPLETION_TEMPLATE_ID',
+    'SENDGRID_TELEMED_INVITATION_TEMPLATE_ID',
+    'SENDGRID_SEND_EMAIL_API_KEY',
+  ]);
+  Object.entries(envFileContents).forEach(([key, value]) => {
+    if (!takenFromSpec.has(key) && sgSecretKeys.has(key) && typeof value === 'string') {
+      secrets[key] = value;
+    }
+  });
 }
 
 export async function replaceSecretValue(
