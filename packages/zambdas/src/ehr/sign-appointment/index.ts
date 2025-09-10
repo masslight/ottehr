@@ -234,7 +234,7 @@ export const performEffect = async (
       }
     }
   } catch (error: any) {
-    console.error('Error sending in-person completion email:', error);
+    console.error('Error sending completion email:', error);
   }
 
   return {
