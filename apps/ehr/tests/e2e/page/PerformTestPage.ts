@@ -28,12 +28,7 @@ export class PerformTestPage {
   async selectTestResult(result: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.performTestPage.testResult(result)).click();
   }
-  async submitAndWaitForResults(): Promise<void> {
-    await Promise.all([
-      this.#page.waitForResponse(
-        (resp) => resp.url().includes('/zambda/handle-in-house-lab-results/execute') && resp.status() === 200
-      ),
-      this.#page.getByTestId(dataTestIds.performTestPage.submitButton).click(),
-    ]);
+  async submitOrderResult(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.performTestPage.submitButton).click();
   }
 }

@@ -16,13 +16,15 @@ const TEST_TYPE = 'Flu A';
 const CPT_CODE = '87501';
 const DIAGNOSIS = 'Situs inversus';
 const SOURCE = 'Nasopharyngeal swab';
-const STATUS_ORDERED = 'ORDERED';
-const STATUS_COLLECTED = 'COLLECTED';
-const STATUS_FINAL = 'FINAL';
 const TEST_RESULT_DETECTED = 'Detected';
 const SECTION_TITLE = 'In-House Labs';
+const STATUS = {
+  ORDERED: 'ORDERED',
+  COLLECTED: 'COLLECTED',
+  FINAL: 'FINAL',
+};
 
-test.beforeEach(async () => {
+test.beforeAll(async () => {
   if (process.env.INTEGRATION_TEST === 'true') {
     await resourceHandler.setResourcesFast();
   } else {
@@ -31,41 +33,53 @@ test.beforeEach(async () => {
   }
 });
 
-test.afterEach(async () => {
+test.afterAll(async () => {
   await resourceHandler.cleanupResources();
 });
 
-test('IHL-1 In-house labs. Happy Path - Order In-house Lab, Collect Sample, Perform test, Final view, Progress Note ', async ({
-  page,
-}) => {
-  const orderInHouseLabPage = await prepareAndOpenInHouseLabsPage(page);
-  await orderInHouseLabPage.verifyOrderAndPrintLabeButtonDisabled();
-  await orderInHouseLabPage.verifyOrderInHouseLabButtonDisabled();
-  await orderInHouseLabPage.selectTestType(TEST_TYPE);
-  await orderInHouseLabPage.verifyCPTCode(CPT_CODE);
-  await orderInHouseLabPage.verifyOrderInHouseLabButtonEnabled();
-  await orderInHouseLabPage.verifyOrderAndPrintLabelButtonEnabled();
-  await orderInHouseLabPage.clickOrderInHouseLabButton();
-  const orderDetailsPage = await expectOrderDetailsPage(page);
-  await orderDetailsPage.collectSamplePage.verifyTestName(TEST_TYPE);
-  await orderDetailsPage.collectSamplePage.verifyMarkAsCollectedButtonDisabled();
-  await orderDetailsPage.collectSamplePage.verifyStatus(STATUS_ORDERED);
-  await orderDetailsPage.collectSamplePage.fillSource(SOURCE);
-  await orderDetailsPage.collectSamplePage.clickMarkAsCollected();
-  const performTestPage = new PerformTestPage(page);
-  await performTestPage.verifyPerformTestPageOpened();
-  await performTestPage.verifyStatus(STATUS_COLLECTED);
-  await performTestPage.verifySubmitButtonDisabled();
-  await performTestPage.selectTestResult(TEST_RESULT_DETECTED);
-  await performTestPage.verifySubmitButtonEnabled();
-  await performTestPage.submitAndWaitForResults();
-  const finalResultPage = new FinalResultPage(page);
-  await finalResultPage.verifyStatus(STATUS_FINAL);
-  await finalResultPage.verifyTestResult(TEST_RESULT_DETECTED);
-  await finalResultPage.verifyResultsPDFButtonEnabled();
-  await finalResultPage.verifyResultsPdfOpensInNewTab();
-  const progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
-  await progressNotePage.verifyInHouseLabs(SECTION_TITLE, TEST_TYPE);
+test('IHL-1 In-house labs. Happy Path', async ({ page }) => {
+  await test.step('IHL-1.1 Open In-house Labs and place order', async () => {
+    const orderInHouseLabPage = await prepareAndOpenInHouseLabsPage(page);
+    await orderInHouseLabPage.verifyOrderAndPrintLabeButtonDisabled();
+    await orderInHouseLabPage.verifyOrderInHouseLabButtonDisabled();
+    await orderInHouseLabPage.selectTestType(TEST_TYPE);
+    await orderInHouseLabPage.verifyCPTCode(CPT_CODE);
+    await orderInHouseLabPage.verifyOrderInHouseLabButtonEnabled();
+    await orderInHouseLabPage.verifyOrderAndPrintLabelButtonEnabled();
+    await orderInHouseLabPage.clickOrderInHouseLabButton();
+  });
+
+  await test.step('IHL-1.2 Collect sample', async () => {
+    const orderDetailsPage = await expectOrderDetailsPage(page);
+    await orderDetailsPage.collectSamplePage.verifyTestName(TEST_TYPE);
+    await orderDetailsPage.collectSamplePage.verifyMarkAsCollectedButtonDisabled();
+    await orderDetailsPage.collectSamplePage.verifyStatus(STATUS.ORDERED);
+    await orderDetailsPage.collectSamplePage.fillSource(SOURCE);
+    await orderDetailsPage.collectSamplePage.clickMarkAsCollected();
+  });
+
+  await test.step('IHL-1.3 Perform test and submit result', async () => {
+    const performTestPage = new PerformTestPage(page);
+    await performTestPage.verifyPerformTestPageOpened();
+    await performTestPage.verifyStatus(STATUS.COLLECTED);
+    await performTestPage.verifySubmitButtonDisabled();
+    await performTestPage.selectTestResult(TEST_RESULT_DETECTED);
+    await performTestPage.verifySubmitButtonEnabled();
+    await performTestPage.submitOrderResult();
+  });
+
+  await test.step('IHL-1.4 Verify final result & PDF', async () => {
+    const finalResultPage = new FinalResultPage(page);
+    await finalResultPage.verifyStatus(STATUS.FINAL);
+    await finalResultPage.verifyTestResult(TEST_RESULT_DETECTED);
+    await finalResultPage.verifyResultsPDFButtonEnabled();
+    await finalResultPage.verifyResultsPdfOpensInNewTab();
+  });
+
+  await test.step('IHL-1.5 Verify Progress Note shows IHL entry', async () => {
+    const progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
+    await progressNotePage.verifyInHouseLabs(SECTION_TITLE, TEST_TYPE);
+  });
 });
 
 async function prepareAndOpenInHouseLabsPage(page: Page): Promise<OrderInHouseLabPage> {

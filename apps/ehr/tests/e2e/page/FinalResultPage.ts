@@ -9,6 +9,7 @@ export class FinalResultPage {
   }
 
   async verifyStatus(status: string): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.finalResultPage.dateAndStatus).waitFor();
     await expect(this.#page.getByTestId(dataTestIds.finalResultPage.dateAndStatus)).toContainText(status);
   }
   async verifyResultsPDFButtonEnabled(): Promise<void> {
