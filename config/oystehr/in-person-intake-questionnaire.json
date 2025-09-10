@@ -657,6 +657,52 @@
           ]
         },
         {
+          "linkId": "preferred-pharmacy-page",
+          "text": "Preferred pharmacy",
+          "type": "group",
+          "enableWhen": [
+            {
+              "question": "contact-information-page.patient-street-address-2",
+              "operator": "!=",
+              "answerString": "conditional-filter-test-1234"
+            }
+          ],
+          "item": [
+            {
+              "linkId": "preferred-pharmacy-name",
+              "text": "Pharmacy name",
+              "type": "string",
+              "required": false,
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+                  "valueString": "m"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
+                  "valueString": "section-preferred-pharmacy shipping name"
+                }
+              ]
+            },
+            {
+              "linkId": "preferred-pharmacy-address",
+              "text": "Pharmacy address",
+              "type": "string",
+              "required": false,
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/placeholder",
+                  "valueString": "Street address, City, State, ZIP"
+                },
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/autocomplete",
+                  "valueString": "section-preferred-pharmacy shipping address"
+                }
+              ]
+            }
+          ]
+        },
+        {
           "linkId": "payment-option-page",
           "text": "How would you like to pay for your visit?",
           "extension": [
