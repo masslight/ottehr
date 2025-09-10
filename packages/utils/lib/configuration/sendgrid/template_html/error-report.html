@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <meta name="supported-color-schemes" content="light" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300..900&display=swap" rel="stylesheet" />
+    <title>{{branding.projectName}} Error</title>
+  </head>
+  <body
+    style="
+      font-family: 'Rubik', sans-serif;
+      font-size: 16px;
+      line-height: 1.4;
+      text-align: center;
+      color: #000000;
+      background-color: #ffffff;
+      width: 100%;
+      max-width: 600px;
+      padding: 40px 10px;
+      margin: 8px auto;
+    "
+  >
+    <table cellpadding="0" cellspacing="0" width="100%" style="padding-bottom: 40px">
+      {{#if branding.email.logoURL}}
+      <tr>
+        <td style="padding-bottom: 40px">
+          <img alt="{{branding.projectName}} logo" width="211px" src="{{branding.email.logoURL}}" />
+        </td>
+      </tr>
+      {{/if}}
+      <tr>
+        <td style="padding-bottom: 40px">
+          <h1 style="font-size: 24px; font-weight: 600; color: #c62828; margin: 0">
+            ⚠️ An error occurred in {{environment}}
+          </h1>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding-bottom: 40px">
+          <p style="color: #000000de; margin: 0">{{{error-message}}}</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding-bottom: 40px">
+          <hr style="height: 1px; border-width: 0px; background-color: #dfe5e9; margin: 0" />
+        </td>
+      </tr>
+      <tr>
+        <td style="color: #212130">
+          <table cellpadding="0" cellspacing="0" width="100%">
+            <tr>
+              <td style="padding-bottom: 24px">
+                <p style="margin: 0">{{timestamp}}</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

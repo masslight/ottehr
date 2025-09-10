@@ -1,15 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, HealthcareService, Location, Patient, Practitioner, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  DATETIME_FULL_NO_YEAR,
-  getPatientContactEmail,
-  getPatientFirstName,
-  getSecret,
-  SecretsKeys,
-  TaskStatus,
-  VisitType,
-} from 'utils';
+import { getPatientContactEmail, getPatientFirstName, getSecret, SecretsKeys, TaskStatus, VisitType } from 'utils';
 import {
   createOystehrClient,
   getAuth0Token,
@@ -134,18 +126,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     if (fhirAppointment.id && startTime.isValid) {
       try {
-        await sendInPersonMessages(
-          getPatientContactEmail(fhirPatient),
-          getPatientFirstName(fhirPatient),
-          `RelatedPerson/${fhirRelatedPerson?.id}`,
-          startTime.setZone(timezone).toFormat(DATETIME_FULL_NO_YEAR),
+        await sendInPersonMessages({
+          email: getPatientContactEmail(fhirPatient),
+          firstName: getPatientFirstName(fhirPatient),
+          messageRecipient: `RelatedPerson/${fhirRelatedPerson?.id}`,
+          startTime: startTime.setZone(timezone),
           secrets,
-          fhirSchedule,
-          fhirAppointment.id,
-          visitType,
-          'en', // todo: pass this in from somewhere
-          oystehrToken
-        );
+          scheduleResource: fhirSchedule,
+          appointmentID: fhirAppointment.id,
+          appointmentType: fhirAppointment.appointmentType?.text || '',
+          language: 'en', // todo: pass this in from somewhere
+          token: oystehrToken,
+        });
         console.log('messages sent successfully');
         taskStatusToUpdate = 'completed';
         statusReasonToUpdate = 'messages sent successfully';

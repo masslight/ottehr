@@ -150,6 +150,7 @@ export const ProgressNoteDetails: FC = () => {
     showInHouseMedications && (
       <InHouseMedicationsContainer medications={inHouseMedications} notes={inHouseMedicationNotes} />
     ),
+    showImmunization && <ImmunizationContainer orders={immunizationOrders} />,
   ].filter(Boolean);
 
   const sections = [

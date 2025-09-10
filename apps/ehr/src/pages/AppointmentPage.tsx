@@ -1499,6 +1499,7 @@ export default function AppointmentPage(): ReactElement {
                     ),
                     'Birth sex': getAnswerStringFor('responsible-party-birth-sex', flattenedItems),
                     Phone: formatPhoneNumber(getAnswerStringFor('responsible-party-number', flattenedItems) || ''),
+                    Email: getAnswerStringFor('responsible-party-email', flattenedItems) || '',
                   }}
                 />
 
