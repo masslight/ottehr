@@ -108,6 +108,7 @@ test.describe('Virtual visit. Check paperwork is prefilled for existing patient.
     await page.goto(`paperwork/${appointmentIds[1]}/payment-option`);
     await expect(locator.selfPayOption).not.toBeChecked();
   });
+  // TODO: Need to remove skip when https://github.com/masslight/ottehr/issues/1988 is fixed
   test.skip('VVPPS-3 Check Card payment has prefilled and preselected card', async () => {
     await page.goto(`paperwork/${appointmentIds[1]}/card-payment`);
     const lastFour = CARD_NUMBER.slice(-4);

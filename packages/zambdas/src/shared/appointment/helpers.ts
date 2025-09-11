@@ -222,6 +222,21 @@ export function creatingPatientUpdateRequest(
     // Do not update weight last updated date
   }
 
+  if (patient.authorizedNonLegalGuardians) {
+    const extensionValue = {
+      url: FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url,
+      valueString: String(patient.authorizedNonLegalGuardians),
+    };
+    const authorizedNonLegalGuardiansIndex = patientExtension.findIndex(
+      (ext) => ext.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url
+    );
+    if (authorizedNonLegalGuardiansIndex >= 0) {
+      patientExtension[authorizedNonLegalGuardiansIndex] = extensionValue;
+    } else {
+      patientExtension.push(extensionValue);
+    }
+  }
+
   console.log('patient extension', patientExtension);
 
   patientPatchOperations.push({
@@ -433,6 +448,16 @@ export function creatingPatientCreateRequest(
 
   if (patient.address) {
     patientResource.address = patient.address;
+  }
+
+  if (patient.authorizedNonLegalGuardians) {
+    if (!patientResource.extension) {
+      patientResource.extension = [];
+    }
+    patientResource.extension.push({
+      url: FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url,
+      valueString: String(patient.authorizedNonLegalGuardians),
+    });
   }
 
   console.log('creating patient request for new patient resource');

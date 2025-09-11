@@ -11,7 +11,8 @@ export async function makeDischargeSummaryPdfDocumentReference(
   patientId: string,
   appointmentId: string,
   encounterId: string,
-  listResources: List[]
+  listResources: List[],
+  attached?: string[]
 ): Promise<DocumentReference> {
   const { docRefs } = await createFilesDocumentReferences({
     files: [
@@ -38,6 +39,7 @@ export async function makeDischargeSummaryPdfDocumentReference(
           {
             reference: `Appointment/${appointmentId}`,
           },
+          ...(attached?.map((id) => ({ reference: `DocumentReference/${id}` })) ?? []),
         ],
         encounter: [{ reference: `Encounter/${encounterId}` }],
       },
