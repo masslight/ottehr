@@ -13,6 +13,7 @@ type Props = {
   validate?: (value: string) => boolean | string;
   inputProps?: InputBaseComponentProps;
   InputProps?: InputProps;
+  dataTestId?: string;
 };
 
 export const TextInput: React.FC<Props> = ({
@@ -25,6 +26,7 @@ export const TextInput: React.FC<Props> = ({
   validate,
   inputProps,
   InputProps,
+  dataTestId,
 }) => {
   const { control } = useFormContext();
   return !loading ? (
@@ -52,6 +54,7 @@ export const TextInput: React.FC<Props> = ({
             inputProps={inputProps}
             InputProps={InputProps}
             fullWidth
+            data-testid={dataTestId}
           />
           {error && <FormHelperText error={true}>{error?.message}</FormHelperText>}
         </Box>

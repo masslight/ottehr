@@ -13,6 +13,7 @@ type Props = {
   selectOnly?: boolean;
   onInputTextChanged?: (text: string) => void;
   noOptionsText?: string;
+  dataTestId?: string;
 };
 
 export const AutocompleteInput: React.FC<Props> = ({
@@ -25,6 +26,7 @@ export const AutocompleteInput: React.FC<Props> = ({
   selectOnly,
   onInputTextChanged,
   noOptionsText,
+  dataTestId,
 }) => {
   const { control } = useFormContext();
   if (loading && !options) {
@@ -56,6 +58,7 @@ export const AutocompleteInput: React.FC<Props> = ({
                 error={error != null}
                 size="small"
                 onChange={onInputTextChanged ? (e) => onInputTextChanged(e.target.value) : undefined}
+                data-testid={dataTestId}
               />
             )}
             loading={loading}

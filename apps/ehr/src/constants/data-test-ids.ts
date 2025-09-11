@@ -425,4 +425,16 @@ export const dataTestIds = {
     additionalInformation: 'add-insurance-dialog-additional-information',
     addInsuranceButton: 'add-insurance-dialog-add-insurance-button',
   },
+
+  orderVaccinePage: {
+    title: 'order-vaccine-title',
+    vaccine: 'vaccine',
+    dose: 'dose',
+    units: 'units',
+    route: 'route',
+    location: 'location',
+    instructions: 'instructions',
+    orderedBy: 'ordered-by',
+    orderVaccineButton: 'order-vaccine-button',
+  },
 };
