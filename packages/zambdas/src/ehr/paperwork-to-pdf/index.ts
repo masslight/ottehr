@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { DocumentReference, List, QuestionnaireResponse } from 'fhir/r4b';
+import { Appointment, DocumentReference, List, Location, QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   addOperation,
@@ -48,12 +48,33 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const { questionnaireResponseId, documentReference: documentReferenceBase, secrets } = validateInput(input);
     const oystehr = await createOystehr(secrets);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-    const questionnaireResponse = await oystehr.fhir.get<QuestionnaireResponse>({
-      resourceType: 'QuestionnaireResponse',
-      id: questionnaireResponseId,
-    });
+    const resources: Array<QuestionnaireResponse | Appointment | Location> = (
+      await oystehr.fhir.search<QuestionnaireResponse | Appointment | Location>({
+        resourceType: 'QuestionnaireResponse',
+        params: [
+          { name: '_id', value: questionnaireResponseId },
+          {
+            name: '_include',
+            value: 'QuestionnaireResponse:encounter',
+          },
+          {
+            name: '_include:iterate',
+            value: 'Encounter:appointment',
+          },
+          {
+            name: '_include',
+            value: 'Appointment:location',
+          },
+        ],
+      })
+    ).unbundle();
 
-    const document = await createDocument(questionnaireResponse, oystehr);
+    const questionnaireResponse = resources.find((resource) => resource.resourceType === 'QuestionnaireResponse');
+    if (!questionnaireResponse) throw new Error('QuestionnaireResponse not found');
+    const appointment = resources.find((resource) => resource.resourceType === 'Appointment');
+    if (!appointment) throw new Error('Appointment not found');
+    const location = resources.find((resource) => resource.resourceType === 'Location');
+    const document = await createDocument(questionnaireResponse, appointment, oystehr, location);
     const pdfDocument = await generatePdf(document);
 
     const timestamp = DateTime.now().toUTC().toFormat('yyyy-MM-dd-x');
