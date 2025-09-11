@@ -3055,10 +3055,12 @@ export const updateStripeCustomer = async (input: UpdateStripeCustomerInput): Pr
   const stripeCustomerId = getStripeCustomerIdFromAccount(account);
   const email = getEmailForIndividual(guarantorResource);
   const name = getFullName(guarantorResource);
+  const phone = getPhoneNumberForIndividual(guarantorResource);
   if (stripeCustomerId) {
     await input.stripeClient.customers.update(stripeCustomerId, {
       email,
       name,
+      phone,
     });
   } else {
     throw STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR;
