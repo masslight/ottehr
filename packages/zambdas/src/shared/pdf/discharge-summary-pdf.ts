@@ -21,6 +21,7 @@ import {
   BUCKET_NAMES,
   convertActivityDefinitionToTestItem,
   CPTCodeDTO,
+  ExtendedMedicationDataForResponse,
   FhirAppointmentType,
   followUpInOptions,
   formatDateToMDYWithTime,
@@ -93,6 +94,7 @@ type AllChartData = {
     currentPractitioner?: Practitioner;
     appointmentScheduleMap: Record<string, Schedule>;
   };
+  medicationOrders?: ExtendedMedicationDataForResponse[];
 };
 
 function mapResourceByNameField(data: { name?: string }[] | CPTCodeDTO[]): string[] {
@@ -134,7 +136,8 @@ function composeDataForDischargeSummaryPdf(
   allChartData: AllChartData,
   appointmentPackage: FullAppointmentResourcePackage
 ): DischargeSummaryData {
-  const { chartData, additionalChartData, radiologyData, externalLabsData, inHouseOrdersData } = allChartData;
+  const { chartData, additionalChartData, radiologyData, externalLabsData, inHouseOrdersData, medicationOrders } =
+    allChartData;
 
   const { patient, encounter, appointment, location, practitioners, timezone } = appointmentPackage;
   if (!patient) throw new Error('No patient found for this encounter');
@@ -202,9 +205,7 @@ function composeDataForDischargeSummaryPdf(
   }));
 
   // --- In-House Medications ---
-  const inhouseMedications = additionalChartData?.inhouseMedications
-    ? mapMedicationsToDisplay(additionalChartData.inhouseMedications, timezone)
-    : [];
+  const inhouseMedications = medicationOrders ? mapMedicationsToDisplay(medicationOrders, timezone) : [];
 
   // --- eRx ---
   const erxMedications = additionalChartData?.prescribedMedications
@@ -549,7 +550,12 @@ async function createDischargeSummaryPdfBytes(data: DischargeSummaryData): Promi
     pdfClient.drawText('In-house Medications', textStyles.subHeader);
 
     data.inhouseMedications?.forEach((medication) => {
-      pdfClient.drawText(`${medication.name} - ${medication.dose}`, textStyles.regular);
+      pdfClient.drawText(
+        `${medication.name}${medication.dose ? ' - ' + medication.dose : ''}${
+          medication.route ? ' / ' + medication.route : ''
+        }`,
+        textStyles.bold
+      );
       if (medication.date) pdfClient.drawText(medication.date, textStyles.regular);
     });
     pdfClient.drawSeparatedLine(separatedLineStyle);
