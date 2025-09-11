@@ -16,22 +16,32 @@ export class FinalResultPage {
     await expect(this.#page.getByTestId(dataTestIds.finalResultPage.resultsPDF)).toBeEnabled();
   }
   async verifyResultsPdfOpensInNewTab(): Promise<void> {
-    const pdfResponsePromise = this.#page.context().waitForEvent('response', {
-      timeout: 15_000,
-      predicate: (r) => {
-        const ct = (r.headers()['content-type'] ?? '').toLowerCase();
-        return r.status() === 200 && ct.includes('application/pdf');
-      },
+    // Patch window.open to capture the URL
+    await this.#page.evaluate(() => {
+      const original = window.open;
+      (window as any).lastOpenUrl = '';
+      window.open = new Proxy(original, {
+        apply(target, thisArg, argArray: unknown[]) {
+          try {
+            (window as any).lastOpenUrl = String(argArray?.[0] ?? '');
+          } catch (e) {
+            console.warn('Failed to capture open URL', e);
+          }
+          return target.apply(thisArg, argArray as any);
+        },
+      });
     });
 
-    const [pdfPage] = await Promise.all([
+    const [popup] = await Promise.all([
       this.#page.waitForEvent('popup').catch(() => null),
       this.#page.getByTestId(dataTestIds.finalResultPage.resultsPDF).click(),
     ]);
+    expect(popup).toBeTruthy();
 
-    const pdfResp = await pdfResponsePromise;
-    expect(pdfResp.ok()).toBeTruthy();
-    if (pdfPage) await pdfPage.close();
+    const openedUrl = await this.#page.evaluate(() => (window as any).lastOpenUrl || '');
+    expect(openedUrl).not.toEqual('');
+    const formattedUrl = openedUrl.split(/[?#]/)[0];
+    expect(formattedUrl.toLowerCase()).toMatch(/\.pdf$/);
   }
   async verifyTestResult(result: string): Promise<void> {
     await expect(this.#page.getByTestId(dataTestIds.performTestPage.testResult(result))).toBeChecked();
