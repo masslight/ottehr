@@ -17,7 +17,6 @@ import {
   flattenIntakeQuestionnaireItems,
   getRelatedPersonForPatient,
   getSecret,
-  getStripeCustomerIdFromAccount,
   IntakeQuestionnaireItem,
   SecretsKeys,
 } from 'utils';
@@ -168,7 +167,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     // refetch the patient account resources
     const { account: updatedAccount, guarantorResource: updatedGuarantorResource } =
       await getAccountAndCoverageResourcesForPatient(patientResource.id, oystehr);
-    if (updatedAccount && updatedGuarantorResource && getStripeCustomerIdFromAccount(updatedAccount)) {
+    if (updatedAccount && updatedGuarantorResource) {
       console.time('updating stripe customer');
       const stripeClient = getStripeClient(secrets);
       await updateStripeCustomer({
