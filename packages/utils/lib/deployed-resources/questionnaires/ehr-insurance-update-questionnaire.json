@@ -593,7 +593,7 @@
             "linkId": "insurance-plan-type",
             "text": "Insurance type",
             "type": "string",
-            "required": true,
+            "required": false,
             "answerOption": [
               { "valueString": "09" },
               { "valueString": "11" },
@@ -962,7 +962,7 @@
             "linkId": "insurance-plan-type-2",
             "text": "Insurance type",
             "type": "string",
-            "required": true,
+            "required": false,
             "answerOption": [
               { "valueString": "09" },
               { "valueString": "11" },
