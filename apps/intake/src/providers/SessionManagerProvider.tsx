@@ -1,13 +1,6 @@
 import { useAuth0 } from '@auth0/auth0-react';
-import { createContext, ReactNode, useCallback, useContext, useState } from 'react';
-
-export interface SessionManagerContextType {
-  isOpen: boolean;
-  endSession: () => void;
-  openSessionExpiredDialog: () => void;
-}
-
-const SessionManagerContext = createContext<SessionManagerContextType | undefined>(undefined);
+import { ReactNode, useCallback, useState } from 'react';
+import { SessionManagerContext } from 'src/contexts/SessionManagerContext';
 
 export function SessionManagerProvider({ children }: { children: ReactNode }): JSX.Element {
   const [isOpen, setIsOpen] = useState(false);
@@ -30,12 +23,4 @@ export function SessionManagerProvider({ children }: { children: ReactNode }): J
   };
 
   return <SessionManagerContext.Provider value={value}>{children}</SessionManagerContext.Provider>;
-}
-
-export function useSessionManager(): SessionManagerContextType {
-  const context = useContext(SessionManagerContext);
-  if (context === undefined) {
-    throw new Error('useSessionManager must be used within a SessionManagerProvider');
-  }
-  return context;
 }

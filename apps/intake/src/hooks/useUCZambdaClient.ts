@@ -2,7 +2,7 @@ import { useAuth0 } from '@auth0/auth0-react';
 import { decodeJwt } from 'jose';
 import { useCallback, useMemo } from 'react';
 import { chooseJson } from 'utils';
-import { useSessionManager } from './useSessionManager';
+import { useSessionManager } from '../contexts/SessionManagerContext';
 
 export interface ZambdaClient {
   execute: (id: string, body?: any) => Promise<any>;

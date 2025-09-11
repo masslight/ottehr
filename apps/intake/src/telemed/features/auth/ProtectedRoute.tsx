@@ -2,7 +2,7 @@ import { useAuth0 } from '@auth0/auth0-react';
 import { FC } from 'react';
 import { Outlet } from 'react-router-dom';
 import SessionExpiredDialog from 'src/components/SessionExpiredDialog';
-import { useSessionManager } from 'src/hooks/useSessionManager';
+import { useSessionManager } from 'src/contexts/SessionManagerContext';
 
 export const ProtectedRoute: FC<{
   loadingFallback: JSX.Element;
