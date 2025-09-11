@@ -77,6 +77,7 @@ export function useUCZambdaClient({ tokenless }: { tokenless: boolean }): Zambda
         if (!isValid) {
           console.error('Session is invalid or expired, logging user out.');
           openSessionExpiredDialog();
+          throw new Error('Session is invalid or expired');
         }
       } else {
         throw new Error('User is not authenticated');
@@ -132,7 +133,12 @@ export function useUCZambdaClient({ tokenless }: { tokenless: boolean }): Zambda
 }
 
 const checkTokenIsValid = (token: string): boolean => {
-  const decoded = decodeJwt(token);
+  let decoded: { exp?: number };
+  try {
+    decoded = decodeJwt(token);
+  } catch {
+    return false;
+  }
   if (!decoded || !decoded.exp) return false;
 
   const now = Math.floor(Date.now() / 1000);
