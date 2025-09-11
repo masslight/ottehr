@@ -307,29 +307,30 @@ export const Header = (): JSX.Element => {
           </Grid>
           <Grid item xs={12} sx={{ mt: -2 }}>
             <Grid container alignItems="center" spacing={2}>
-              <Grid item>
+              <Grid item alignSelf={'flex-start'} sx={{ mt: 0.5 }}>
                 <ProfileAvatar appointmentID={appointmentID} />
               </Grid>
               <Grid item xs>
                 <PatientInfoWrapper>
-                  <PatientName
-                    data-testid={dataTestIds.cssHeader.patientName}
-                    onClick={() => navigate(`/patient/${userId}`)}
-                  >
-                    {patientName}
-                  </PatientName>
-                  <PrintVisitLabelButton encounterId={encounterId} />
-                  <PatientMetadata sx={{ fontWeight: 500 }}>{dob}</PatientMetadata> |
-                  <PatientMetadata
-                    noWrap
-                    sx={{ fontWeight: chartData?.allergies?.length ? 700 : 400, maxWidth: '250px' }}
-                  >
+                  <Grid>
+                    <PatientInfoWrapper>
+                      <PatientName
+                        data-testid={dataTestIds.cssHeader.patientName}
+                        onClick={() => navigate(`/patient/${userId}`)}
+                      >
+                        {patientName}
+                      </PatientName>
+                      <PrintVisitLabelButton encounterId={encounterId} />
+                      <PatientMetadata sx={{ fontWeight: 500 }}>{dob}</PatientMetadata> |
+                    </PatientInfoWrapper>
+                    <PatientInfoWrapper>
+                      <PatientMetadata>{pronouns}</PatientMetadata> | <PatientMetadata>{gender}</PatientMetadata> |
+                      <PatientMetadata>{language}</PatientMetadata> |<PatientMetadata>{reasonForVisit}</PatientMetadata>
+                    </PatientInfoWrapper>
+                  </Grid>
+                  <PatientMetadata sx={{ fontWeight: chartData?.allergies?.length ? 700 : 400, maxWidth: '250px' }}>
                     {allergies}
                   </PatientMetadata>
-                </PatientInfoWrapper>
-                <PatientInfoWrapper>
-                  <PatientMetadata>{pronouns}</PatientMetadata> | <PatientMetadata>{gender}</PatientMetadata> |
-                  <PatientMetadata>{language}</PatientMetadata> |<PatientMetadata>{reasonForVisit}</PatientMetadata>
                 </PatientInfoWrapper>
               </Grid>
               <Grid
@@ -340,6 +341,8 @@ export const Header = (): JSX.Element => {
                     flexDirection: 'column',
                     gap: 0.5,
                   },
+                  alignSelf: 'flex-start',
+                  mt: 0.5,
                 }}
               >
                 <SwitchIntakeModeButton
