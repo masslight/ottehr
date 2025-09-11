@@ -4,6 +4,7 @@ export * from './AppointmentSidePanel';
 export * from './AppointmentTabsHeader';
 export * from './AppointmentTabs';
 export * from './AppointmentHeader';
+export * from './ApplyTemplate';
 export * from './VideoRoom';
 export * from './VideoChatLayout';
 export * from './VideoControls';

@@ -529,18 +529,6 @@ export const useChartData = ({
 
       onSuccess?.(data);
 
-      const existingCache = queryClient.getQueryData<ChartDataState>(commonChartDataKey);
-      const isExistingCacheContainsCommonData = existingCache && Object.keys(existingCache.chartData || {}).length > 10;
-      const isDataContainsCommonChartData = Object.keys(data).length > 10;
-
-      if (!isExistingCacheContainsCommonData && isDataContainsCommonChartData) {
-        // initialize common cache
-        queryClient.setQueryData(commonChartDataKey, {
-          chartData: { ...data, ...existingCache?.chartData },
-          isChartDataLoading: false,
-        });
-      }
-
       if (replaceStoreValues) {
         Object.keys(requestedFields || {}).forEach((field) => {
           setPartialChartData({ [field]: data[field as keyof GetChartDataResponse] });
@@ -678,6 +666,7 @@ export const useGetChartData = (
   onError?: (error: any) => void
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
+  const queryClient = useQueryClient();
   const user = useEvolveUser();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
@@ -688,12 +677,38 @@ export const useGetChartData = (
   const query = useQuery({
     queryKey: key,
 
-    queryFn: () => {
+    queryFn: async () => {
       if (apiClient && encounterId) {
-        return apiClient.getChartData({
+        const data = await apiClient.getChartData({
           encounterId,
           requestedFields,
         });
+
+        const commonChartDataKey = [CHART_DATA_QUERY_KEY_BASE, encounterId];
+        const existingCache = queryClient.getQueryData<ChartDataState>(commonChartDataKey);
+        const isDataContainsCommonChartData = !requestedFields || Object.keys(data).length === 0;
+
+        const isCacheEmptyOrInvalidated =
+          !existingCache?.chartData ||
+          Object.keys(existingCache.chartData).length === 0 ||
+          queryClient.getQueryState(commonChartDataKey)?.isInvalidated;
+
+        if (isDataContainsCommonChartData && isCacheEmptyOrInvalidated) {
+          const prevPractitioners = existingCache?.chartData?.practitioners || [];
+          const newPractitioners = data?.practitioners || [];
+
+          // todo: temporary fix to prevent data loss
+          const updatedPractitioners =
+            newPractitioners.length === 0 && prevPractitioners.length > 0 ? prevPractitioners : newPractitioners;
+
+          // initialize common cache
+          queryClient.setQueryData(commonChartDataKey, {
+            chartData: { ...existingCache?.chartData, ...data, practitioners: updatedPractitioners },
+            isChartDataLoading: false,
+          });
+        }
+
+        return data;
       }
       throw new Error('api client not defined or encounterId not provided');
     },
