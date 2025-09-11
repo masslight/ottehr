@@ -1,5 +1,5 @@
 import { useAuth0 } from '@auth0/auth0-react';
-import { decodeJwt } from 'jose';
+import { decodeJwt, JWTPayload } from 'jose';
 import { useCallback, useMemo } from 'react';
 import { chooseJson } from 'utils';
 import { useSessionManager } from '../contexts/SessionManagerContext';
@@ -133,7 +133,7 @@ export function useUCZambdaClient({ tokenless }: { tokenless: boolean }): Zambda
 }
 
 const checkTokenIsValid = (token: string): boolean => {
-  let decoded: { exp?: number };
+  let decoded: JWTPayload | undefined;
   try {
     decoded = decodeJwt(token);
   } catch {
