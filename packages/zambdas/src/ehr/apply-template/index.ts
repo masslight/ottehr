@@ -224,7 +224,7 @@ const makeCreateRequests = (
       resourceToCreate.subject = encounter.subject;
       resourceToCreate.encounter = { reference: `Encounter/${encounter.id}` };
     } else {
-      // Skip any other resource types
+      // Skip any other resource types, we don't support doing anything with them in terms of applying templates yet.
       continue;
     }
 
@@ -251,11 +251,7 @@ const makeCreateRequests = (
     });
   }
 
-  // TODO write the encounter.diagnosis PATCH
-  // Add the encounter reference to the resource and prepare it for creation
-  // I think we should make an Encounter stub in the template List that has the Encounter.diagnosis written including
-  // the `rank` value which we use to indicate 'primary' diagnosis.
-
+  // Patch the encounter.diagnoses with our new diagnosis references.
   if (encounterDiagnoses.length > 0) {
     const encounterDiagnosisPatch: BatchInputJSONPatchRequest = {
       method: 'PATCH',

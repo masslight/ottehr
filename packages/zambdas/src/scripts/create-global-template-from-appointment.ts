@@ -15,14 +15,12 @@ const getOystehr = async (config: any): Promise<Oystehr> => {
   });
 };
 
-// ottehr-staging
 const APPOINTMENT_ID = '9eb49356-0f04-48e8-b070-d48f13ed7f9e';
 
 async function createGlobalTemplateFromAppointment(config: any): Promise<void> {
   const oystehr = await getOystehr(config);
 
   // Get appointment bundle
-
   const appointmentBundle = await oystehr.fhir.search({
     resourceType: 'Appointment',
     params: [
