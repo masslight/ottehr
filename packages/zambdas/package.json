@@ -6,7 +6,7 @@
     "start": "ENV=${ENV:-local} npm run setup-deployed-resources ${ENV:-local} && tsx watch --include './src/**/*' src/local-server/index.ts -- env=.env/${ENV:-local}.json",
     "start:local": "ENV=local npm run start",
     "start:demo": "ENV=demo npm run start",
-    "start:iac": "tsx watch --include './src/**/*' src/local-server/index.ts -- env=.env/${ENV:-local}.json",
+    "start:iac": "tsx watch --include './src/**/*' src/local-server/index.ts -- env=.env/${ENV:-local}.json iac=true",
     "start:local:iac": "ENV=local npm run start:iac",
     "start:demo:iac": "ENV=demo npm run start:iac",
     "cancel-telemed-appointments": "tsx src/scripts/cancel-telemed-appointments.ts",
