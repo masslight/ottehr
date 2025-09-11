@@ -9,7 +9,7 @@ export const ProtectedRoute: FC<{
   errorFallback: JSX.Element;
 }> = ({ loadingFallback, errorFallback }) => {
   const { isAuthenticated, isLoading, error, loginWithRedirect } = useAuth0();
-  const { isOpen, endSession } = useSessionManager();
+  const { isOpen } = useSessionManager();
 
   if (error) {
     return errorFallback;
@@ -35,7 +35,7 @@ export const ProtectedRoute: FC<{
   }
 
   if (isOpen) {
-    return <SessionExpiredDialog modalOpen={isOpen} onEnd={endSession} />;
+    return <SessionExpiredDialog modalOpen={isOpen} />;
   }
 
   // console.log('user is authenticated, rendering Outlet');

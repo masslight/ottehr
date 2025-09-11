@@ -2,7 +2,6 @@ import { createContext, useContext } from 'react';
 
 export interface SessionManagerContextType {
   isOpen: boolean;
-  endSession: () => void;
   openSessionExpiredDialog: () => void;
 }
 

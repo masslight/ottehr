@@ -1,13 +1,20 @@
+import { useAuth0 } from '@auth0/auth0-react';
 import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, useTheme } from '@mui/material';
-import { ReactElement } from 'react';
+import { ReactElement, useCallback } from 'react';
 
 interface SessionExpiredDialogProps {
   modalOpen: boolean;
-  onEnd: () => void;
 }
 
-export default function SessionExpiredDialog({ modalOpen, onEnd }: SessionExpiredDialogProps): ReactElement {
+export default function SessionExpiredDialog({ modalOpen }: SessionExpiredDialogProps): ReactElement {
   const theme = useTheme();
+  const { logout } = useAuth0();
+
+  const endSession = useCallback(() => {
+    void logout({
+      logoutParams: { returnTo: import.meta.env.VITE_APP_OYSTEHR_APPLICATION_REDIRECT_URL, federated: true },
+    });
+  }, [logout]);
 
   const buttonSx = {
     fontWeight: 500,
@@ -18,7 +25,7 @@ export default function SessionExpiredDialog({ modalOpen, onEnd }: SessionExpire
   return (
     <Dialog
       open={modalOpen}
-      onClose={onEnd}
+      onClose={endSession}
       disableScrollLock
       sx={{
         '.MuiPaper-root': {
@@ -35,7 +42,7 @@ export default function SessionExpiredDialog({ modalOpen, onEnd }: SessionExpire
         </DialogContentText>
       </DialogContent>
       <DialogActions>
-        <Button variant="contained" onClick={onEnd} size="medium" color="error" sx={buttonSx}>
+        <Button variant="contained" onClick={endSession} size="medium" color="error" sx={buttonSx}>
           Log out now
         </Button>
       </DialogActions>
