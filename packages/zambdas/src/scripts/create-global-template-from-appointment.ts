@@ -16,7 +16,7 @@ const getOystehr = async (config: any): Promise<Oystehr> => {
 };
 
 // ottehr-staging
-const APPOINTMENT_ID = '68853b31-0e6a-4b87-98cb-0bd080b9887c';
+const APPOINTMENT_ID = '9eb49356-0f04-48e8-b070-d48f13ed7f9e';
 
 async function createGlobalTemplateFromAppointment(config: any): Promise<void> {
   const oystehr = await getOystehr(config);
@@ -81,6 +81,23 @@ async function createGlobalTemplateFromAppointment(config: any): Promise<void> {
   });
 
   const oldIdToNewIdMap = new Map<string, string>();
+
+  // Sort and take most only the most recent resource matching tags for resources subject to the bug that leads to multiple resources with the same meta tag.
+  // Sort by lastUpdated
+  appointmentBundle.entry.sort((a, b) => {
+    if (!a.resource || !b.resource) return 0;
+    if (!a.resource.meta?.lastUpdated || !b.resource.meta?.lastUpdated) return 0;
+    return a.resource.meta.lastUpdated > b.resource.meta.lastUpdated ? 1 : -1;
+  });
+  // Remove all but the first entry resource with matching meta.tags on system + code
+  const seenTags = new Set<string>();
+  appointmentBundle.entry = appointmentBundle.entry.filter((entry) => {
+    const tags = entry.resource?.meta?.tag?.map((tag) => `${tag.system}|${tag.code}`);
+    if (!tags) return true;
+    const isDuplicate = tags.some((tag) => seenTags.has(tag!));
+    if (!isDuplicate) tags.forEach((tag) => seenTags.add(tag!));
+    return !isDuplicate;
+  });
 
   // let counter = 0;
   // let observationCounter = 0;
@@ -154,25 +171,12 @@ async function createGlobalTemplateFromAppointment(config: any): Promise<void> {
     },
   });
 
-  // else {
-  //   console.log('skipped an entry because over limit');
-  // }
-  // }
-
   console.log(JSON.stringify(listToCreate, null, 2));
 
-  // Create List
+  // Create List -- TODO we could create the list and update the global templates list holder to have a reference?
   // console.time('create list');
   // const createdList = await oystehr.fhir.create(listToCreate);
   // console.timeEnd('create list');
-
-  // // Print List without id, meta.version, meta.lastUpdated
-  // const anonymizedCreatedList = { ...createdList };
-  // delete anonymizedCreatedList.id;
-  // delete anonymizedCreatedList.meta?.versionId;
-  // delete anonymizedCreatedList.meta?.lastUpdated;
-
-  // console.log(JSON.stringify(anonymizedCreatedList, null, 2));
 }
 
 const main = async (): Promise<void> => {

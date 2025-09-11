@@ -89,7 +89,6 @@ const performEffect = async (
 
   // Make 1 transaction to delete old resources exam resources that are being replaced and write the new ones
   const deleteRequests = await makeDeleteRequests(oystehr, encounterId);
-
   const deleteBatches = chunkThings(deleteRequests, 5).map((chunk) =>
     oystehr.fhir.batch({
       requests: chunk,
@@ -153,34 +152,18 @@ const makeDeleteRequests = async (oystehr: Oystehr, encounterId: string): Promis
     })
   ).unbundle();
 
-  const examResourcesToDelete = encounterBundle.filter(
+  const resourcesToDelete = encounterBundle.filter(
     (resource) =>
       resource.meta?.tag?.some(
-        (tag) => tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field'
+        (tag) =>
+          tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field' ||
+          tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/medical-decision' ||
+          tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/patient-instruction' ||
+          tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/chief-complaint'
       )
   );
   deleteResourcesRequests.push(
-    ...examResourcesToDelete.map((resource) => makeDeleteResourceRequest(resource.resourceType, resource.id!)) // we just fetched these so they definitely have id
-  );
-
-  const clinicalImpressionsToDelete = encounterBundle.filter(
-    (resource) =>
-      resource.meta?.tag?.some(
-        (tag) => tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/medical-decision'
-      )
-  );
-  deleteResourcesRequests.push(
-    ...clinicalImpressionsToDelete.map((resource) => makeDeleteResourceRequest(resource.resourceType, resource.id!))
-  );
-
-  const communicationsToDelete = encounterBundle.filter(
-    (resource) =>
-      resource.meta?.tag?.some(
-        (tag) => tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/patient-instruction'
-      )
-  );
-  deleteResourcesRequests.push(
-    ...communicationsToDelete.map((resource) => makeDeleteResourceRequest(resource.resourceType, resource.id!))
+    ...resourcesToDelete.map((resource) => makeDeleteResourceRequest(resource.resourceType, resource.id!)) // we just fetched these so they definitely have id
   );
 
   return deleteResourcesRequests;
