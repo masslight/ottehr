@@ -53,6 +53,8 @@ const performEffect = async (
       params: [
         { name: '_tag', value: `${GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM}|` },
         { name: '_include', value: 'List:item' },
+        // Beware, this may tip over the 6MB limit on lambda response payload if you have a lot of templates.
+        // Then paginate the results if necessary
       ],
     })
   ).unbundle();
