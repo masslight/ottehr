@@ -80,7 +80,7 @@ const ChatModal = memo(
     currentLocation?: LocationWithWalkinSchedule;
     onClose: () => void;
     onMarkAllRead: () => void;
-    quickTexts: { [key in LANGUAGES]: string }[] | string[];
+    quickTexts: { [key in LANGUAGES]: string | undefined }[] | string[];
   }): ReactElement => {
     const theme = useTheme();
     const { oystehr } = useApiClients();
@@ -218,7 +218,7 @@ const ChatModal = memo(
       onClose();
     };
 
-    const hasQuickTextTranslations = (quickTexts: any): quickTexts is { [key in LANGUAGES]: string }[] => {
+    const hasQuickTextTranslations = (quickTexts: any): quickTexts is { [key in LANGUAGES]: string | undefined }[] => {
       return typeof quickTexts[0] === 'object';
     };
 
@@ -336,7 +336,6 @@ const ChatModal = memo(
                 id="patient-message"
                 label="Message to the patient"
                 value={messageText}
-                onPaste={(e) => e.preventDefault()}
                 disabled={pendingMessageSend !== undefined}
                 autoComplete="off"
                 onChange={(event: ChangeEvent<HTMLInputElement>) => setMessageText(event.target.value)}
@@ -442,7 +441,7 @@ const ChatModal = memo(
                               backgroundColor: 'rgba(77, 21, 183, 0.04)',
                               cursor: 'pointer',
                             }}
-                            onClick={() => selectQuickText(text[language])}
+                            onClick={() => selectQuickText(text[language] ?? '')}
                           >
                             <Typography variant="body1">{text[language]}</Typography>
                           </ListItem>

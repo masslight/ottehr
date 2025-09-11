@@ -108,7 +108,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             successfulBundledOrders[res.orderNumber] = { ...resources };
           }
         } else if (res.status === 'rejected') {
-          console.log('rejected result', res);
+          console.error('rejected result', res);
           const resources = bundledOrdersByOrderNumber[res.orderNumber];
           failedBundledOrders[res.orderNumber] = resources;
         }

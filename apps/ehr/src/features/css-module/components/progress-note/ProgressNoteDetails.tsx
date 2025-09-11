@@ -5,6 +5,7 @@ import { DateTime } from 'luxon';
 import { FC } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
+import { ImmunizationContainer } from 'src/telemed/features/appointment/ReviewTab/components/ImmunizationContainer';
 import { ProceduresContainer } from 'src/telemed/features/appointment/ReviewTab/components/ProceduresContainer';
 import { useOystehrAPIClient } from 'src/telemed/hooks/useOystehrAPIClient';
 import {
@@ -45,6 +46,7 @@ import {
   SurgicalHistoryContainer,
 } from '../../../../telemed/features/appointment/ReviewTab';
 import { useFeatureFlags } from '../../context/featureFlags';
+import { useGetImmunizationOrders } from '../../hooks/useImmunization';
 import { useMedicationAPI } from '../../hooks/useMedicationOperations';
 import { HospitalizationContainer } from './HospitalizationContainer';
 import { InHouseMedicationsContainer } from './InHouseMedicationsContainer';
@@ -78,6 +80,12 @@ export const ProgressNoteDetails: FC = () => {
 
   const { medications: inHouseMedicationsWithCanceled } = useMedicationAPI();
   const inHouseMedications = inHouseMedicationsWithCanceled.filter((medication) => medication.status !== 'cancelled');
+  const { data: immunizationOrdersResponse } = useGetImmunizationOrders({
+    encounterId: encounter.id,
+  });
+  const immunizationOrders = (immunizationOrdersResponse?.orders ?? []).filter((order) =>
+    ['administered', 'administered-partly'].includes(order.status)
+  );
   const screeningNotes = chartData?.notes?.filter((note) => note.type === NOTE_TYPE.SCREENING);
   const vitalsNotes = chartData?.notes?.filter((note) => note.type === NOTE_TYPE.VITALS);
   const allergyNotes = chartData?.notes?.filter((note) => note.type === NOTE_TYPE.ALLERGY);
@@ -121,6 +129,7 @@ export const ProgressNoteDetails: FC = () => {
   const showInHouseMedications =
     !!(inHouseMedications && inHouseMedications.length > 0) ||
     !!(inHouseMedicationNotes && inHouseMedicationNotes.length > 0);
+  const showImmunization = immunizationOrders.length > 0;
 
   const showVitalsObservations =
     !!(vitalsObservations && vitalsObservations.length > 0) || !!(vitalsNotes && vitalsNotes.length > 0);
@@ -141,6 +150,7 @@ export const ProgressNoteDetails: FC = () => {
     showInHouseMedications && (
       <InHouseMedicationsContainer medications={inHouseMedications} notes={inHouseMedicationNotes} />
     ),
+    showImmunization && <ImmunizationContainer orders={immunizationOrders} />,
   ].filter(Boolean);
 
   const sections = [
@@ -154,6 +164,15 @@ export const ProgressNoteDetails: FC = () => {
       </Typography>
       <ExaminationContainer examConfig={examConfig.inPerson.default.components} />
     </Stack>,
+    <AllergiesContainer notes={allergyNotes} />,
+    <MedicationsContainer notes={intakeMedicationNotes} />,
+    <MedicalConditionsContainer notes={medicalConditionNotes} />,
+    <SurgicalHistoryContainer notes={surgicalHistoryNotes} />,
+    <HospitalizationContainer notes={hospitalizationNotes} />,
+    showInHouseMedications && (
+      <InHouseMedicationsContainer medications={inHouseMedications} notes={inHouseMedicationNotes} />
+    ),
+    showImmunization && <ImmunizationContainer orders={immunizationOrders} />,
     ...(!isAwaitingSupervisorApproval ? medicalHistorySections : []),
     showAssessment && <AssessmentContainer />,
     showMedicalDecisionMaking && <MedicalDecisionMakingContainer />,

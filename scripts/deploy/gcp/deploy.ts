@@ -14,7 +14,7 @@ const clientSecret = projectConfig.client_secret;
 async function deploy(): Promise<void> {
   const intake = `https://${intakeDomain}`;
   const ehr = `https://${ehrDomain}`;
-  const accessToken = accessTokenFromConfig ?? await getM2MClientAccessToken(clientId, clientSecret);
+  const accessToken = accessTokenFromConfig ?? (await getM2MClientAccessToken(clientId, clientSecret));
   const oystehr = new Oystehr({
     accessToken,
     projectId,

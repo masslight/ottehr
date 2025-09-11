@@ -6,6 +6,7 @@ import {
   getResourcesFromBatchInlineRequests,
   INVENTORY_MEDICATION_TYPE_CODE,
   MedicationData,
+  MedicationOrderStatuses,
   OrderPackage,
   removePrefix,
   searchMedicationLocation,
@@ -21,7 +22,8 @@ export function getPerformerId(medicationAdministration: MedicationAdministratio
 
 export function createMedicationCopy(
   inventoryMedication: Medication,
-  orderData: { lotNumber?: string; expDate?: string; manufacturer?: string }
+  orderData: { lotNumber?: string; expDate?: string; manufacturer?: string },
+  newStatus?: string
 ): Medication {
   const resourceCopy = { ...inventoryMedication };
   delete resourceCopy.id;
@@ -30,7 +32,7 @@ export function createMedicationCopy(
   const typeIdentifierArrId =
     resourceCopy.identifier?.findIndex((idn) => idn.value === INVENTORY_MEDICATION_TYPE_CODE) ?? -1;
   if (typeIdentifierArrId >= 0) resourceCopy.identifier?.splice(typeIdentifierArrId, 1);
-  if (orderData.lotNumber || orderData.expDate) {
+  if (newStatus !== MedicationOrderStatuses['administered-not'] && (orderData.lotNumber || orderData.expDate)) {
     resourceCopy.batch = {
       lotNumber: orderData.lotNumber,
       expirationDate: orderData.expDate,

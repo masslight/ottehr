@@ -1,6 +1,9 @@
 {
   "extends": "tsconfig/react.json",
   "compilerOptions": {
+    "target": "esnext",
+    "lib": ["esnext.array", "dom", "es2022"],
+    "module": "ESNext",
     "moduleResolution": "node",
     "sourceMap": true,
     "inlineSources": true,

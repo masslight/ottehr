@@ -16,6 +16,7 @@ import {
   allLicensesForPractitioner,
   CANDID_PLAN_TYPE_SYSTEM,
   FHIR_IDENTIFIER_SYSTEM,
+  getFullName,
   INSURANCE_CANDID_PLAN_TYPE_CODES,
   OTTEHR_MODULE,
   PAYMENT_METHOD_EXTENSION_URL,
@@ -28,7 +29,6 @@ import {
   ScheduleOwnerFhirResource,
 } from '../types';
 import { phoneRegex, zipRegex } from '../validation';
-import { AllStatesToNames } from './states';
 
 export function createOystehrClient(token: string, fhirAPI: string, projectAPI: string): Oystehr {
   const FHIR_API = fhirAPI.replace(/\/r4/g, '');
@@ -1230,20 +1230,31 @@ export const getPayerId = (org: Organization | undefined): string | undefined =>
   return payerId;
 };
 
+export const getNameFromScheduleResource = (scheduleResource: ScheduleOwnerFhirResource): string | undefined => {
+  let location: string | undefined;
+  if (scheduleResource.resourceType === 'Location') {
+    location = scheduleResource.name;
+  } else if (scheduleResource.resourceType === 'Practitioner') {
+    location = getFullName(scheduleResource);
+  } else {
+    location = scheduleResource.name;
+  }
+  return location;
+};
+
 export const getPractitionerQualificationByLocation = (
   practitioner: Practitioner,
   location: Location
 ): PractitionerQualificationCode | undefined => {
   const existedLicenses = allLicensesForPractitioner(practitioner);
-  const qualification = existedLicenses.find(
-    (license) => license.active && AllStatesToNames[license.state] === location.name
-  )?.code;
+  const qualification = existedLicenses.find((license) => license.active && license.state === location.address?.state)
+    ?.code;
 
   return qualification;
 };
 
-export function isPhysicianQualification(qualification?: string): boolean {
-  return qualification != null && ['MD', 'OD'].includes(qualification);
+export function isPhysicianQualification(qualification?: PractitionerQualificationCode): boolean {
+  return qualification != null && ['MD', 'DO'].includes(qualification);
 }
 
 export const getCandidPlanTypeCodeFromCoverage = (coverage: Coverage): NetworkType | undefined => {
