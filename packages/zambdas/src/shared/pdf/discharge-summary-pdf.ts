@@ -21,7 +21,9 @@ import {
   BUCKET_NAMES,
   convertActivityDefinitionToTestItem,
   CPTCodeDTO,
+  ExtendedMedicationDataForResponse,
   FhirAppointmentType,
+  followUpInOptions,
   formatDateToMDYWithTime,
   formatDOB,
   genderMap,
@@ -92,6 +94,7 @@ type AllChartData = {
     currentPractitioner?: Practitioner;
     appointmentScheduleMap: Record<string, Schedule>;
   };
+  medicationOrders?: ExtendedMedicationDataForResponse[];
 };
 
 function mapResourceByNameField(data: { name?: string }[] | CPTCodeDTO[]): string[] {
@@ -133,7 +136,8 @@ function composeDataForDischargeSummaryPdf(
   allChartData: AllChartData,
   appointmentPackage: FullAppointmentResourcePackage
 ): DischargeSummaryData {
-  const { chartData, additionalChartData, radiologyData, externalLabsData, inHouseOrdersData } = allChartData;
+  const { chartData, additionalChartData, radiologyData, externalLabsData, inHouseOrdersData, medicationOrders } =
+    allChartData;
 
   const { patient, encounter, appointment, location, practitioners, timezone } = appointmentPackage;
   if (!patient) throw new Error('No patient found for this encounter');
@@ -201,9 +205,7 @@ function composeDataForDischargeSummaryPdf(
   }));
 
   // --- In-House Medications ---
-  const inhouseMedications = additionalChartData?.inhouseMedications
-    ? mapMedicationsToDisplay(additionalChartData.inhouseMedications, timezone)
-    : [];
+  const inhouseMedications = medicationOrders ? mapMedicationsToDisplay(medicationOrders, timezone) : [];
 
   // --- eRx ---
   const erxMedications = additionalChartData?.prescribedMedications
@@ -231,9 +233,14 @@ function composeDataForDischargeSummaryPdf(
   const disposition = additionalChartData?.disposition;
   let label = '';
   let instruction = '';
+  let followUpIn: string | undefined;
+  let reason: string | undefined;
   if (disposition?.type) {
     label = mapDispositionTypeToLabel[disposition.type];
     instruction = disposition.note || getDefaultNote(disposition.type);
+    reason = disposition.reason;
+
+    followUpIn = followUpInOptions.find((opt) => opt.value === disposition.followUpIn)?.label;
   }
 
   // --- Work-school excuse ---
@@ -304,6 +311,8 @@ function composeDataForDischargeSummaryPdf(
     disposition: {
       label,
       instruction,
+      reason,
+      followUpIn,
     },
     physician: {
       name: `${physicianFirstName} ${physicianLastName}`,
@@ -541,7 +550,12 @@ async function createDischargeSummaryPdfBytes(data: DischargeSummaryData): Promi
     pdfClient.drawText('In-house Medications', textStyles.subHeader);
 
     data.inhouseMedications?.forEach((medication) => {
-      pdfClient.drawText(`${medication.name} - ${medication.dose}`, textStyles.regular);
+      pdfClient.drawText(
+        `${medication.name}${medication.dose ? ' - ' + medication.dose : ''}${
+          medication.route ? ' / ' + medication.route : ''
+        }`,
+        textStyles.bold
+      );
       if (medication.date) pdfClient.drawText(medication.date, textStyles.regular);
     });
     pdfClient.drawSeparatedLine(separatedLineStyle);
@@ -593,9 +607,12 @@ async function createDischargeSummaryPdfBytes(data: DischargeSummaryData): Promi
   };
 
   const drawDisposition = (): void => {
-    pdfClient.drawText('Disposition', textStyles.subHeader);
-
+    pdfClient.drawText(`Disposition - ${data.disposition.label}`, textStyles.subHeader);
     pdfClient.drawText(data.disposition.instruction, textStyles.regular);
+    if (data.disposition.reason)
+      pdfClient.drawText(`Reason for transfer: ${data.disposition.reason}`, textStyles.regular);
+    if (data.disposition.followUpIn)
+      pdfClient.drawText(`Follow-up visit in ${data.disposition.followUpIn}`, textStyles.regular);
     pdfClient.drawSeparatedLine(separatedLineStyle);
   };
 

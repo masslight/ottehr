@@ -346,6 +346,7 @@ export interface ReceiptData {
 export interface Medication {
   name: string;
   dose?: string;
+  route?: string;
   date?: string;
 }
 
@@ -406,6 +407,8 @@ export type DischargeSummaryData = {
   disposition: {
     label: string;
     instruction: string;
+    reason?: string;
+    followUpIn?: string;
   };
   physician: {
     name: string;

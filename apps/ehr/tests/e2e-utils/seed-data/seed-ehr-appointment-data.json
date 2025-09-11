@@ -3362,7 +3362,7 @@
           "reference": "urn:uuid:92d1f0fa-fec8-4b28-a3d3-7409aaf1e2ba"
         },
         "status": "final",
-        "valueBoolean": true,
+        "valueBoolean": false,
         "code": {
           "text": "No chest wall tenderness"
         },
