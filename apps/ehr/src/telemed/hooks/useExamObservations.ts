@@ -1,5 +1,5 @@
 import { enqueueSnackbar } from 'notistack';
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { ExamObservationDTO } from 'utils';
 import { useDeleteChartData, useExamObservationsStore, useSaveChartData } from '../state';
 
@@ -35,6 +35,7 @@ export function useExamObservations(): {
   update: Update;
   delete: Delete;
   isLoading: boolean;
+  hasPendingApiRequests: boolean;
 };
 
 /**
@@ -50,6 +51,7 @@ export function useExamObservations(param: string): {
   update: Update;
   delete: Delete;
   isLoading: boolean;
+  hasPendingApiRequests: boolean;
 };
 
 /**
@@ -65,6 +67,7 @@ export function useExamObservations(param: string[]): {
   update: Update;
   delete: Delete;
   isLoading: boolean;
+  hasPendingApiRequests: boolean;
 };
 
 export function useExamObservations(param?: string | string[]): {
@@ -72,10 +75,13 @@ export function useExamObservations(param?: string | string[]): {
   update: Update;
   delete: Delete;
   isLoading: boolean;
+  hasPendingApiRequests: boolean; // we can use it later to prevent navigation if there are pending api requests
 } {
   const state = useExamObservationsStore();
   const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
   const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
+  const hasPendingApiRequestsRef = useRef(false);
+  const updateTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   const getPrevStateAndValues = useCallback(
     (
@@ -105,19 +111,48 @@ export function useExamObservations(param?: string | string[]): {
     []
   );
 
-  const update: Update = (param, noFetch) => {
-    if (!param) {
+  const update: Update = (options, noFetch) => {
+    if (!options) {
       return;
     }
 
-    const { prevValues } = getPrevStateAndValues(param);
+    // used to fix creation of duplicates for note fields, caused by debounced calls without resourceId
+    const isNoteUpdate = Object.prototype.hasOwnProperty.call(options, 'note');
+
+    if (isNoteUpdate) {
+      const shouldAwaitResourceId =
+        !(options as ExamObservationDTO).resourceId &&
+        useExamObservationsStore.getState()[(options as ExamObservationDTO).field]?.resourceId;
+
+      if (hasPendingApiRequestsRef.current || shouldAwaitResourceId) {
+        clearTimeout(updateTimeoutRef.current);
+
+        // delay next update until we have resourceId from the first update
+        updateTimeoutRef.current = setTimeout(() => {
+          const resourceId = useExamObservationsStore.getState()[(options as ExamObservationDTO).field]?.resourceId;
+          update(
+            {
+              ...options,
+              resourceId,
+            } as ExamObservationDTO,
+            noFetch
+          );
+        }, 1000);
+
+        return;
+      }
+
+      hasPendingApiRequestsRef.current = true;
+    }
+
+    const { prevValues } = getPrevStateAndValues(options);
 
     useExamObservationsStore.setState(
-      Array.isArray(param)
-        ? arrayToObject(param)
-        : Object.prototype.hasOwnProperty.call(param, 'field')
-        ? { [(param as ExamObservationDTO).field]: param as ExamObservationDTO }
-        : (param as ExamRecord)
+      Array.isArray(options)
+        ? arrayToObject(options)
+        : Object.prototype.hasOwnProperty.call(options, 'field')
+        ? { [(options as ExamObservationDTO).field]: options as ExamObservationDTO }
+        : (options as ExamRecord)
     );
 
     if (noFetch) {
@@ -126,24 +161,33 @@ export function useExamObservations(param?: string | string[]): {
 
     saveChartData(
       {
-        examObservations: Array.isArray(param)
-          ? param
-          : Object.prototype.hasOwnProperty.call(param, 'field')
-          ? [param as ExamObservationDTO]
-          : objectToArray(param as ExamRecord),
+        examObservations: Array.isArray(options)
+          ? options
+          : Object.prototype.hasOwnProperty.call(options, 'field')
+          ? [options as ExamObservationDTO]
+          : objectToArray(options as ExamRecord),
       },
       {
         onSuccess: (data) => {
           const newState = data.chartData.examObservations?.filter(
             (observation) => !observation.field.endsWith('-comment') || !prevValues[observation.field]?.resourceId
           );
+
           if (newState) {
             useExamObservationsStore.setState(arrayToObject(newState));
+          }
+
+          if (isNoteUpdate) {
+            hasPendingApiRequestsRef.current = false;
           }
         },
         onError: () => {
           enqueueSnackbar('An error has occurred while saving exam data. Please try again.', { variant: 'error' });
           useExamObservationsStore.setState(prevValues);
+
+          if (isNoteUpdate) {
+            hasPendingApiRequestsRef.current = false;
+          }
         },
       }
     );
@@ -216,5 +260,6 @@ export function useExamObservations(param?: string | string[]): {
     update,
     delete: deleteExamObservations,
     isLoading: isDeleteLoading || isSaveLoading,
+    hasPendingApiRequests: hasPendingApiRequestsRef.current,
   };
 }
