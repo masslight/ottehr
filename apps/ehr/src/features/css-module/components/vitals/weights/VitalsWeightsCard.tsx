@@ -3,7 +3,7 @@ import { enqueueSnackbar } from 'notistack';
 import React, { JSX, useCallback, useMemo, useState } from 'react';
 import { kgToLbs, textToWeightNumber, VitalFieldNames, VitalsWeightObservationDTO } from 'utils';
 import { RoundedButton } from '../../../../../components/RoundedButton';
-import { AccordionCard, DoubleColumnContainer } from '../../../../../telemed';
+import { AccordionCard, DoubleColumnContainer, useGetAppointmentAccessibility } from '../../../../../telemed';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
 import VitalHistoryElement from '../components/VitalsHistoryEntry';
 import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
@@ -17,6 +17,7 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
   historicalObs,
 }): JSX.Element => {
   const [weightValueText, setWeightValueText] = useState('');
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
   const handleSectionCollapse = useCallback(() => {
@@ -51,6 +52,25 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
     }
   };
 
+  const renderRightColumn = (): JSX.Element => {
+    return (
+      <VitalsHistoryContainer
+        historicalObs={historicalObs}
+        currentEncounterObs={currentObs}
+        isLoading={false}
+        historyElementCreator={(historyEntry) => {
+          const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
+          return (
+            <VitalHistoryElement
+              historyEntry={historyEntry}
+              onDelete={isCurrent && !isReadOnly ? handleDeleteVital : undefined}
+            />
+          );
+        }}
+      />
+    );
+  };
+
   return (
     <Box sx={{ mt: 3 }}>
       <AccordionCard
@@ -58,100 +78,89 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
         collapsed={isCollapsed}
         onSwitch={handleSectionCollapse}
       >
-        <DoubleColumnContainer
-          divider
-          leftColumn={
-            <Grid
-              container
-              sx={{
-                height: 'auto',
-                width: 'auto',
-                backgroundColor: '#F7F8F9',
-                borderRadius: 2,
-                my: 2,
-                mx: 2,
-                py: 2,
-                px: 2,
-              }}
-            >
-              {/* Weight Input Field column */}
-              <Grid item xs={12} sm={6} md={6} lg={6} order={{ xs: 1, sm: 1, md: 1 }}>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'row',
-                  }}
-                >
-                  <VitalsTextInputFiled
-                    label="Weight (kg)"
-                    value={weightValueText}
-                    disabled={isSaving}
-                    isInputError={false}
-                    onChange={(e) => setWeightValueText(e.target.value)}
-                  />
-                  <Typography fontSize={25} sx={{ ml: 1 }}>
-                    /
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="Weight (lbs)"
-                    sx={{
-                      '& fieldset': { border: 'none' },
-                      maxWidth: '110px',
-                    }}
-                    disabled
-                    InputLabelProps={{ shrink: true }}
-                    value={enteredWeightInLb ?? ''}
-                  />
-                </Box>
-              </Grid>
-
-              {/* Add Button column */}
+        {isReadOnly ? (
+          renderRightColumn()
+        ) : (
+          <DoubleColumnContainer
+            divider
+            leftColumn={
               <Grid
-                item
                 container
-                xs={12}
-                sm={4}
-                md={4}
-                lg={4}
-                order={{ xs: 2, sm: 2, md: 2, lg: 3 }}
-                style={{ alignSelf: 'center' }}
+                sx={{
+                  height: 'auto',
+                  width: 'auto',
+                  backgroundColor: '#F7F8F9',
+                  borderRadius: 2,
+                  my: 2,
+                  mx: 2,
+                  py: 2,
+                  px: 2,
+                }}
               >
-                <RoundedButton
-                  size="small"
-                  disabled={!weightValueText}
-                  loading={isSaving}
-                  onClick={() => handleSaveWeightObservation(weightValueText)}
-                  color="primary"
-                  sx={{
-                    height: '40px',
-                    px: 2,
-                    ml: 1,
-                  }}
+                {/* Weight Input Field column */}
+                <Grid item xs={12} sm={6} md={6} lg={6} order={{ xs: 1, sm: 1, md: 1 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexDirection: 'row',
+                    }}
+                  >
+                    <VitalsTextInputFiled
+                      label="Weight (kg)"
+                      value={weightValueText}
+                      disabled={isSaving}
+                      isInputError={false}
+                      onChange={(e) => setWeightValueText(e.target.value)}
+                    />
+                    <Typography fontSize={25} sx={{ ml: 1 }}>
+                      /
+                    </Typography>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Weight (lbs)"
+                      sx={{
+                        '& fieldset': { border: 'none' },
+                        maxWidth: '110px',
+                      }}
+                      disabled
+                      InputLabelProps={{ shrink: true }}
+                      value={enteredWeightInLb ?? ''}
+                    />
+                  </Box>
+                </Grid>
+
+                {/* Add Button column */}
+                <Grid
+                  item
+                  container
+                  xs={12}
+                  sm={4}
+                  md={4}
+                  lg={4}
+                  order={{ xs: 2, sm: 2, md: 2, lg: 3 }}
+                  style={{ alignSelf: 'center' }}
                 >
-                  Add
-                </RoundedButton>
+                  <RoundedButton
+                    size="small"
+                    disabled={!weightValueText}
+                    loading={isSaving}
+                    onClick={() => handleSaveWeightObservation(weightValueText)}
+                    color="primary"
+                    sx={{
+                      height: '40px',
+                      px: 2,
+                      ml: 1,
+                    }}
+                  >
+                    Add
+                  </RoundedButton>
+                </Grid>
               </Grid>
-            </Grid>
-          }
-          rightColumn={
-            <VitalsHistoryContainer
-              historicalObs={historicalObs}
-              currentEncounterObs={currentObs}
-              isLoading={false}
-              historyElementCreator={(historyEntry) => {
-                const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
-                return (
-                  <VitalHistoryElement
-                    historyEntry={historyEntry}
-                    onDelete={isCurrent ? handleDeleteVital : undefined}
-                  />
-                );
-              }}
-            />
-          }
-        />
+            }
+            rightColumn={renderRightColumn()}
+          />
+        )}
       </AccordionCard>
     </Box>
   );

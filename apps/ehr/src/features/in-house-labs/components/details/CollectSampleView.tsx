@@ -20,6 +20,7 @@ import { DateTime } from 'luxon';
 import { useEffect, useState } from 'react';
 import { getOrCreateVisitLabel } from 'src/api/api';
 import useEvolveUser from 'src/hooks/useEvolveUser';
+import { useGetAppointmentAccessibility } from 'src/telemed';
 import {
   getFormattedDiagnoses,
   InHouseOrderDetailPageItemDTO,
@@ -59,6 +60,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
   const { encounter } = useAppointmentData();
   const currentUser = useEvolveUser();
   const [loading, setLoading] = useState(false);
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   // set default collected by to current user if no choice made
   useEffect(() => {
@@ -440,7 +442,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({
                 loading={loading}
                 variant="contained"
                 onClick={handleMarkAsCollected}
-                disabled={!sourceType || !collectedById || !date.isValid}
+                disabled={!sourceType || !collectedById || !date.isValid || isReadOnly}
                 sx={{
                   borderRadius: '20px',
                   px: 3,

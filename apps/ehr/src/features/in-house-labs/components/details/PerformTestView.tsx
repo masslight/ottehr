@@ -6,6 +6,7 @@ import { FormProvider, SubmitHandler, useForm } from 'react-hook-form';
 import { useParams } from 'react-router-dom';
 import { handleInHouseLabResults } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { useGetAppointmentAccessibility } from 'src/telemed';
 import { getFormattedDiagnoses, InHouseOrderDetailPageItemDTO, LoadingState, PageName, ResultEntryInput } from 'utils';
 import { InHouseLabsDetailsCard } from './InHouseLabsDetailsCard';
 import { ResultEntryRadioButton } from './ResultEntryRadioButton';
@@ -25,6 +26,7 @@ export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, s
     formState: { isValid },
   } = methods;
   const { oystehrZambda: oystehr } = useApiClients();
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const [showDetails, setShowDetails] = useState(false);
   // const [notes, setNotes] = useState(testDetails.notes || '');
@@ -116,7 +118,7 @@ export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, s
               variant="contained"
               color="primary"
               loading={submittingResults}
-              disabled={!isValid}
+              disabled={!isValid || isReadOnly}
               type="submit"
               sx={{ borderRadius: '50px', px: 4 }}
             >

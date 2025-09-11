@@ -23,10 +23,10 @@ export default function Procedures(): ReactElement {
 
   const isReadOnly = useMemo(() => {
     if (css) {
-      return inPersonStatus === 'completed';
+      return inPersonStatus === 'completed' || appointmentAccessibility.isAppointmentReadOnly;
     }
     return appointmentAccessibility.status === TelemedAppointmentStatusEnum.complete;
-  }, [css, inPersonStatus, appointmentAccessibility.status]);
+  }, [css, inPersonStatus, appointmentAccessibility.status, appointmentAccessibility.isAppointmentReadOnly]);
 
   const onNewProcedureClick = (): void => {
     navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES_NEW}`);
