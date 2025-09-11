@@ -8,6 +8,7 @@ import { setupSentry } from 'utils';
 import { ScrollToTop } from './components/ScrollToTop';
 import { TestErrorPage } from './components/TestErrorPage';
 import { MixpanelContextProps, setupMixpanel } from './configurations';
+import { SessionManagerProvider } from './hooks/useSessionManager';
 import { IntakeThemeProvider } from './IntakeThemeProvider';
 import { BookingHome, GetReadyForVisit, NewUser, Reschedule, Version } from './pages';
 import AIInterview from './pages/AIInterview';
@@ -278,152 +279,159 @@ function App(): JSX.Element {
           <script>{`function gtag(){};`}</script>
         </Helmet>
         <IntakeThemeProvider>
-          <Router>
-            <ScrollToTop />
-            <ErrorAlert />
-            <IOSMessagesHandler />
-            <Routes>
-              {/*<Route path="/" element={<UserFlowRoot />} />*/}
-              <Route path={intakeFlowPageRoute.Homepage.path} element={intakeFlowPageRoute.Homepage.getPage()} />
-              <Route path={'/version'} element={<Version />} />;
-              <Route path={intakeFlowPageRoute.AuthPage.path} element={intakeFlowPageRoute.AuthPage.getPage()} />;
-              <Route path={intakeFlowPageRoute.Welcome.path} element={intakeFlowPageRoute.Welcome.getPage()} />
-              <Route
-                path={intakeFlowPageRoute.InvitedVideoCall.path}
-                element={intakeFlowPageRoute.InvitedVideoCall.getPage()}
-              />
-              <Route
-                path={intakeFlowPageRoute.InvitedCallEnded.path}
-                element={intakeFlowPageRoute.InvitedCallEnded.getPage()}
-              />
-              <Route
-                path={intakeFlowPageRoute.InvitedWaitingRoom.path}
-                element={intakeFlowPageRoute.InvitedWaitingRoom.getPage()}
-              />
-              <Route
-                path={intakeFlowPageRoute.PrebookVisit.path}
-                element={intakeFlowPageRoute.PrebookVisit.getPage()}
-              />
-              <Route
-                path={intakeFlowPageRoute.WalkinLanding.path}
-                element={intakeFlowPageRoute.WalkinLanding.getPage()}
-              />
-              <Route
-                path={intakeFlowPageRoute.WalkinLandingByLocationName.path}
-                element={intakeFlowPageRoute.WalkinLandingByLocationName.getPage()}
-              />
-              <Route
-                path={intakeFlowPageRoute.PrebookVisitDynamic.path}
-                element={intakeFlowPageRoute.PrebookVisitDynamic.getPage()}
-              />
-              <Route
-                path={intakeFlowPageRoute.StartVirtualVisit.path}
-                element={intakeFlowPageRoute.StartVirtualVisit.getPage()}
-              />
-              <Route
-                element={<ProtectedRoute loadingFallback={<LoadingScreen />} errorFallback={<ErrorFallbackScreen />} />}
-              >
-                <Route path={intakeFlowPageRoute.MyPatients.path} element={intakeFlowPageRoute.MyPatients.getPage()}>
-                  <Route
-                    path={intakeFlowPageRoute.PastVisits.path}
-                    element={intakeFlowPageRoute.PastVisits.getPage()}
-                  />
-                  <Route
-                    path={intakeFlowPageRoute.VisitDetails.path}
-                    element={intakeFlowPageRoute.VisitDetails.getPage()}
-                  />
-                </Route>
+          <SessionManagerProvider>
+            <Router>
+              <ScrollToTop />
+              <ErrorAlert />
+              <IOSMessagesHandler />
+              <Routes>
+                {/*<Route path="/" element={<UserFlowRoot />} />*/}
+                <Route path={intakeFlowPageRoute.Homepage.path} element={intakeFlowPageRoute.Homepage.getPage()} />
+                <Route path={'/version'} element={<Version />} />;
+                <Route path={intakeFlowPageRoute.AuthPage.path} element={intakeFlowPageRoute.AuthPage.getPage()} />;
+                <Route path={intakeFlowPageRoute.Welcome.path} element={intakeFlowPageRoute.Welcome.getPage()} />
                 <Route
-                  path={intakeFlowPageRoute.WaitingRoom.path}
-                  element={intakeFlowPageRoute.WaitingRoom.getPage()}
+                  path={intakeFlowPageRoute.InvitedVideoCall.path}
+                  element={intakeFlowPageRoute.InvitedVideoCall.getPage()}
                 />
                 <Route
-                  path={intakeFlowPageRoute.TelemedGetReadyForVisit.path}
-                  element={intakeFlowPageRoute.TelemedGetReadyForVisit.getPage()}
-                />
-                <Route path={intakeFlowPageRoute.VideoCall.path} element={intakeFlowPageRoute.VideoCall.getPage()} />
-                <Route path={intakeFlowPageRoute.CallEnded.path} element={intakeFlowPageRoute.CallEnded.getPage()} />
-                <Route path={intakeFlowPageRoute.BookingHome.path} element={intakeFlowPageRoute.BookingHome.getPage()}>
-                  <Route
-                    path={intakeFlowPageRoute.ChoosePatient.path}
-                    element={intakeFlowPageRoute.ChoosePatient.getPage()}
-                  />
-                  <Route
-                    path={intakeFlowPageRoute.GetReadyForVisit.path}
-                    element={intakeFlowPageRoute.GetReadyForVisit.getPage()}
-                  />
-                  <Route path={intakeFlowPageRoute.NewUser.path} element={intakeFlowPageRoute.NewUser.getPage()} />
-                  <Route
-                    path={intakeFlowPageRoute.PatientInformation.path}
-                    element={intakeFlowPageRoute.PatientInformation.getPage()}
-                  />
-                  <Route
-                    path={intakeFlowPageRoute.ConfirmDateOfBirth.path}
-                    element={intakeFlowPageRoute.ConfirmDateOfBirth.getPage()}
-                  />
-                  <Route path={intakeFlowPageRoute.Review.path} element={intakeFlowPageRoute.Review.getPage()} />
-                </Route>
-                <Route
-                  path={intakeFlowPageRoute.Appointments.path}
-                  element={intakeFlowPageRoute.Appointments.getPage()}
+                  path={intakeFlowPageRoute.InvitedCallEnded.path}
+                  element={intakeFlowPageRoute.InvitedCallEnded.getPage()}
                 />
                 <Route
-                  path={intakeFlowPageRoute.PaperworkHomeRoute.path}
-                  element={intakeFlowPageRoute.PaperworkHomeRoute.getPage()}
+                  path={intakeFlowPageRoute.InvitedWaitingRoom.path}
+                  element={intakeFlowPageRoute.InvitedWaitingRoom.getPage()}
+                />
+                <Route
+                  path={intakeFlowPageRoute.PrebookVisit.path}
+                  element={intakeFlowPageRoute.PrebookVisit.getPage()}
+                />
+                <Route
+                  path={intakeFlowPageRoute.WalkinLanding.path}
+                  element={intakeFlowPageRoute.WalkinLanding.getPage()}
+                />
+                <Route
+                  path={intakeFlowPageRoute.WalkinLandingByLocationName.path}
+                  element={intakeFlowPageRoute.WalkinLandingByLocationName.getPage()}
+                />
+                <Route
+                  path={intakeFlowPageRoute.PrebookVisitDynamic.path}
+                  element={intakeFlowPageRoute.PrebookVisitDynamic.getPage()}
+                />
+                <Route
+                  path={intakeFlowPageRoute.StartVirtualVisit.path}
+                  element={intakeFlowPageRoute.StartVirtualVisit.getPage()}
+                />
+                <Route
+                  element={
+                    <ProtectedRoute loadingFallback={<LoadingScreen />} errorFallback={<ErrorFallbackScreen />} />
+                  }
                 >
+                  <Route path={intakeFlowPageRoute.MyPatients.path} element={intakeFlowPageRoute.MyPatients.getPage()}>
+                    <Route
+                      path={intakeFlowPageRoute.PastVisits.path}
+                      element={intakeFlowPageRoute.PastVisits.getPage()}
+                    />
+                    <Route
+                      path={intakeFlowPageRoute.VisitDetails.path}
+                      element={intakeFlowPageRoute.VisitDetails.getPage()}
+                    />
+                  </Route>
                   <Route
-                    path={intakeFlowPageRoute.PaperworkInformation.path}
-                    element={intakeFlowPageRoute.PaperworkInformation.getPage()}
+                    path={intakeFlowPageRoute.WaitingRoom.path}
+                    element={intakeFlowPageRoute.WaitingRoom.getPage()}
                   />
                   <Route
-                    path={intakeFlowPageRoute.ReviewPaperwork.path}
-                    element={intakeFlowPageRoute.ReviewPaperwork.getPage()}
+                    path={intakeFlowPageRoute.TelemedGetReadyForVisit.path}
+                    element={intakeFlowPageRoute.TelemedGetReadyForVisit.getPage()}
+                  />
+                  <Route path={intakeFlowPageRoute.VideoCall.path} element={intakeFlowPageRoute.VideoCall.getPage()} />
+                  <Route path={intakeFlowPageRoute.CallEnded.path} element={intakeFlowPageRoute.CallEnded.getPage()} />
+                  <Route
+                    path={intakeFlowPageRoute.BookingHome.path}
+                    element={intakeFlowPageRoute.BookingHome.getPage()}
+                  >
+                    <Route
+                      path={intakeFlowPageRoute.ChoosePatient.path}
+                      element={intakeFlowPageRoute.ChoosePatient.getPage()}
+                    />
+                    <Route
+                      path={intakeFlowPageRoute.GetReadyForVisit.path}
+                      element={intakeFlowPageRoute.GetReadyForVisit.getPage()}
+                    />
+                    <Route path={intakeFlowPageRoute.NewUser.path} element={intakeFlowPageRoute.NewUser.getPage()} />
+                    <Route
+                      path={intakeFlowPageRoute.PatientInformation.path}
+                      element={intakeFlowPageRoute.PatientInformation.getPage()}
+                    />
+                    <Route
+                      path={intakeFlowPageRoute.ConfirmDateOfBirth.path}
+                      element={intakeFlowPageRoute.ConfirmDateOfBirth.getPage()}
+                    />
+                    <Route path={intakeFlowPageRoute.Review.path} element={intakeFlowPageRoute.Review.getPage()} />
+                  </Route>
+                  <Route
+                    path={intakeFlowPageRoute.Appointments.path}
+                    element={intakeFlowPageRoute.Appointments.getPage()}
+                  />
+                  <Route
+                    path={intakeFlowPageRoute.PaperworkHomeRoute.path}
+                    element={intakeFlowPageRoute.PaperworkHomeRoute.getPage()}
+                  >
+                    <Route
+                      path={intakeFlowPageRoute.PaperworkInformation.path}
+                      element={intakeFlowPageRoute.PaperworkInformation.getPage()}
+                    />
+                    <Route
+                      path={intakeFlowPageRoute.ReviewPaperwork.path}
+                      element={intakeFlowPageRoute.ReviewPaperwork.getPage()}
+                    />
+                  </Route>
+                  <Route path={intakeFlowPageRoute.ThankYou.path} element={intakeFlowPageRoute.ThankYou.getPage()}>
+                    <Route path={intakeFlowPageRoute.CheckIn.path} element={intakeFlowPageRoute.CheckIn.getPage()} />
+                    <Route
+                      path={intakeFlowPageRoute.Reschedule.path}
+                      element={intakeFlowPageRoute.Reschedule.getPage()}
+                    />
+                    <Route
+                      path={intakeFlowPageRoute.CancellationReason.path}
+                      element={intakeFlowPageRoute.CancellationReason.getPage()}
+                    />
+                    <Route
+                      path={intakeFlowPageRoute.CancellationConfirmation.path}
+                      element={intakeFlowPageRoute.CancellationConfirmation.getPage()}
+                    />
+                    <Route
+                      path={intakeFlowPageRoute.AIInterview.path}
+                      element={intakeFlowPageRoute.AIInterview.getPage()}
+                    />
+                  </Route>
+                  {/* TODO: make IOS routes be under protected route but without custom container */}
+                  <Route
+                    path={intakeFlowPageRoute.IOSPatientPhotosEdit.path}
+                    element={intakeFlowPageRoute.IOSPatientPhotosEdit.getPage()}
+                  />
+                  <Route
+                    path={intakeFlowPageRoute.IOSPatientManageParticipants.path}
+                    element={intakeFlowPageRoute.IOSPatientManageParticipants.getPage()}
+                  />
+                  <Route
+                    path={intakeFlowPageRoute.IOSVideoCallMenu.path}
+                    element={intakeFlowPageRoute.IOSVideoCallMenu.getPage()}
+                  />
+                  <Route
+                    path={intakeFlowPageRoute.IOSCallEnded.path}
+                    element={intakeFlowPageRoute.IOSCallEnded.getPage()}
                   />
                 </Route>
-                <Route path={intakeFlowPageRoute.ThankYou.path} element={intakeFlowPageRoute.ThankYou.getPage()}>
-                  <Route path={intakeFlowPageRoute.CheckIn.path} element={intakeFlowPageRoute.CheckIn.getPage()} />
-                  <Route
-                    path={intakeFlowPageRoute.Reschedule.path}
-                    element={intakeFlowPageRoute.Reschedule.getPage()}
-                  />
-                  <Route
-                    path={intakeFlowPageRoute.CancellationReason.path}
-                    element={intakeFlowPageRoute.CancellationReason.getPage()}
-                  />
-                  <Route
-                    path={intakeFlowPageRoute.CancellationConfirmation.path}
-                    element={intakeFlowPageRoute.CancellationConfirmation.getPage()}
-                  />
-                  <Route
-                    path={intakeFlowPageRoute.AIInterview.path}
-                    element={intakeFlowPageRoute.AIInterview.getPage()}
-                  />
-                </Route>
-                {/* TODO: make IOS routes be under protected route but without custom container */}
                 <Route
-                  path={intakeFlowPageRoute.IOSPatientPhotosEdit.path}
-                  element={intakeFlowPageRoute.IOSPatientPhotosEdit.getPage()}
+                  path={intakeFlowPageRoute.TestErrorPage.path}
+                  element={intakeFlowPageRoute.TestErrorPage.getPage()}
                 />
-                <Route
-                  path={intakeFlowPageRoute.IOSPatientManageParticipants.path}
-                  element={intakeFlowPageRoute.IOSPatientManageParticipants.getPage()}
-                />
-                <Route
-                  path={intakeFlowPageRoute.IOSVideoCallMenu.path}
-                  element={intakeFlowPageRoute.IOSVideoCallMenu.getPage()}
-                />
-                <Route
-                  path={intakeFlowPageRoute.IOSCallEnded.path}
-                  element={intakeFlowPageRoute.IOSCallEnded.getPage()}
-                />
-              </Route>
-              <Route
-                path={intakeFlowPageRoute.TestErrorPage.path}
-                element={intakeFlowPageRoute.TestErrorPage.getPage()}
-              />
-              <Route path="*" element={<Navigate to={intakeFlowPageRoute.Welcome.path} />} />
-            </Routes>
-          </Router>
+                <Route path="*" element={<Navigate to={intakeFlowPageRoute.Welcome.path} />} />
+              </Routes>
+            </Router>
+          </SessionManagerProvider>
         </IntakeThemeProvider>
       </HelmetProvider>
     </QueryClientProvider>

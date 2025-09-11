@@ -1,7 +1,9 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { decodeJwt } from 'jose';
 import { useCallback, useMemo } from 'react';
-import { chooseJson, PROJECT_WEBSITE } from 'utils';
+import { chooseJson } from 'utils';
+import { useSessionManager } from './useSessionManager';
+
 export interface ZambdaClient {
   execute: (id: string, body?: any) => Promise<any>;
   executePublic: (id: string, body?: any) => Promise<any>;
@@ -15,7 +17,8 @@ const baseHeaders = {
 };
 
 export function useUCZambdaClient({ tokenless }: { tokenless: boolean }): ZambdaClient | null {
-  const { isAuthenticated, getAccessTokenSilently, logout } = useAuth0();
+  const { isAuthenticated, getAccessTokenSilently } = useAuth0();
+  const { openSessionExpiredDialog } = useSessionManager();
 
   const executePublic = useCallback(
     async (id: string, body?: any): Promise<any> => {
@@ -73,7 +76,7 @@ export function useUCZambdaClient({ tokenless }: { tokenless: boolean }): Zambda
         const isValid = checkTokenIsValid(token);
         if (!isValid) {
           console.error('Session is invalid or expired, logging user out.');
-          await logout({ logoutParams: { returnTo: PROJECT_WEBSITE } });
+          openSessionExpiredDialog();
         }
       } else {
         throw new Error('User is not authenticated');
@@ -106,7 +109,7 @@ export function useUCZambdaClient({ tokenless }: { tokenless: boolean }): Zambda
         throw chooseJson(e);
       }
     },
-    [getAccessTokenSilently, isAuthenticated, logout]
+    [getAccessTokenSilently, isAuthenticated, openSessionExpiredDialog]
   );
 
   const client = useMemo(() => {
