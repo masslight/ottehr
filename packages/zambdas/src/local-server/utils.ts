@@ -1,4 +1,5 @@
 import { APIGatewayProxyEventHeaders, APIGatewayProxyResult, Callback, Context, Handler } from 'aws-lambda';
+import { Options } from 'execa';
 import { Request, Response } from 'express';
 import { readFileSync } from 'fs';
 import { IncomingHttpHeaders } from 'http2';
@@ -118,6 +119,7 @@ export async function replaceSecretValue(
   let result = schema.replaceVariableWithValue(secret.value);
   const refMatches = [...result.matchAll(REF_REGEX)];
   if (refMatches.length) {
+    console.log(`Found ${refMatches.length} terraform references in secret ${secret.name}`);
     if (useIac !== 'true') {
       console.log(`Warning: not using IaC but reference found in secret ${secret.name}`);
       if ('legacyValue' in secret && secret.legacyValue != null) {
@@ -138,13 +140,17 @@ export async function replaceSecretValue(
         fieldName
       );
       if (tfRef) {
-        const tfConsoleRead = await $`echo 'nonsensitive(${tfRef})' | terraform -chdir=${resolve(
-          __dirname,
-          '../../../../deploy'
-        )} console`;
+        console.log(`Resolving terraform reference for ${fullMatch}: ${tfRef}`);
+        const tfOutputName = schema.getTerraformResourceOutputName(fullMatch, 'oystehr');
+        const opts: Options = {
+          cwd: resolve(__dirname, '../../../../deploy'),
+          input: `nonsensitive(${tfOutputName})`,
+        };
+        const tfConsoleRead = await $(opts)`terraform console`;
+        console.log(`Terraform console read for ${fullMatch}: ${tfConsoleRead.stdout}`);
         const tfValue = tfConsoleRead.stdout;
         // console value will either be the actual value or 'tostring(null)'
-        if (tfValue !== 'tostring(null)') {
+        if (tfValue && typeof tfValue === 'string' && tfValue !== 'tostring(null)') {
           result = result.replace(fullMatch, tfValue.slice(1, -1));
         }
       }

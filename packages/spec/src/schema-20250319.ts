@@ -86,6 +86,27 @@ export class Schema20250319 implements Schema<Spec20250319> {
       resources.zambdas = { ...resources.zambdas, ...(spec.zambdas as object) };
     }
 
+    const outputsOutFile = path.join(this.outputPath, 'outputs.tf.json');
+    const outputDirectives: { output: { [key: string]: { value: any } } } = { output: {} };
+    const refMatches = [...JSON.stringify(resources).matchAll(REF_REGEX)];
+    console.log(`Found ${refMatches.length} references in specs.`);
+    for (const [fullMatch, resourceType, resourceName, fieldName] of refMatches) {
+      const tfRef = this.getTerraformResourceReference(
+        resources,
+        resourceType as keyof Spec20250319,
+        resourceName,
+        fieldName
+      );
+      if (tfRef) {
+        console.log(`Reference ${fullMatch} resolved to ${tfRef}`);
+        const tfOutputName = this.getTerraformResourceOutputName(fullMatch);
+        outputDirectives.output[tfOutputName] = { value: `\${${tfRef}}` };
+      } else {
+        console.log('Warning: could not resolve reference', fullMatch);
+      }
+    }
+    await fs.writeFile(outputsOutFile, JSON.stringify(outputDirectives, null, 2));
+
     // Write out resources
     const appOutFile = path.join(this.outputPath, 'apps.tf.json');
     const appResources: { resource: { oystehr_application: { [key: string]: any } } } = {
@@ -285,6 +306,10 @@ export class Schema20250319 implements Schema<Spec20250319> {
     return ['apps', 'buckets', 'fhirResources', 'labRoutes', 'm2ms', 'roles', 'secrets', 'zambdas'].includes(
       resourceType
     );
+  }
+
+  getTerraformResourceOutputName(fullMatch: string, module?: string): string {
+    return `${module ? `module.${module}.` : ''}${fullMatch.replace(/\//g, '_').slice(2, -1)}`;
   }
 
   isObject(spec: any): spec is { [key: string]: unknown } {
