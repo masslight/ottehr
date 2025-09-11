@@ -1,15 +1,12 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { FC } from 'react';
 import { Outlet } from 'react-router-dom';
-import SessionExpiredDialog from 'src/components/SessionExpiredDialog';
-import { useSessionManager } from 'src/contexts/SessionManagerContext';
 
 export const ProtectedRoute: FC<{
   loadingFallback: JSX.Element;
   errorFallback: JSX.Element;
 }> = ({ loadingFallback, errorFallback }) => {
   const { isAuthenticated, isLoading, error, loginWithRedirect } = useAuth0();
-  const { isOpen } = useSessionManager();
 
   if (error) {
     return errorFallback;
@@ -33,11 +30,6 @@ export const ProtectedRoute: FC<{
     });
     return loadingFallback;
   }
-
-  if (isOpen) {
-    return <SessionExpiredDialog modalOpen={isOpen} />;
-  }
-
   // console.log('user is authenticated, rendering Outlet');
   localStorage.removeItem('redirectDestination');
   return <Outlet />;

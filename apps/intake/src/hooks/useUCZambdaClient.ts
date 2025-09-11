@@ -2,7 +2,6 @@ import { useAuth0 } from '@auth0/auth0-react';
 import { decodeJwt, JWTPayload } from 'jose';
 import { useCallback, useMemo } from 'react';
 import { chooseJson } from 'utils';
-import { useSessionManager } from '../contexts/SessionManagerContext';
 
 export interface ZambdaClient {
   execute: (id: string, body?: any) => Promise<any>;
@@ -17,8 +16,7 @@ const baseHeaders = {
 };
 
 export function useUCZambdaClient({ tokenless }: { tokenless: boolean }): ZambdaClient | null {
-  const { isAuthenticated, getAccessTokenSilently } = useAuth0();
-  const { openSessionExpiredDialog } = useSessionManager();
+  const { isAuthenticated, getAccessTokenSilently, logout } = useAuth0();
 
   const executePublic = useCallback(
     async (id: string, body?: any): Promise<any> => {
@@ -76,7 +74,9 @@ export function useUCZambdaClient({ tokenless }: { tokenless: boolean }): Zambda
         const isValid = checkTokenIsValid(token);
         if (!isValid) {
           console.error('Session is invalid or expired, logging user out.');
-          openSessionExpiredDialog();
+          void logout({
+            logoutParams: { returnTo: import.meta.env.VITE_APP_OYSTEHR_APPLICATION_REDIRECT_URL, federated: true },
+          });
           throw new Error('Session is invalid or expired');
         }
       } else {
@@ -110,7 +110,7 @@ export function useUCZambdaClient({ tokenless }: { tokenless: boolean }): Zambda
         throw chooseJson(e);
       }
     },
-    [getAccessTokenSilently, isAuthenticated, openSessionExpiredDialog]
+    [getAccessTokenSilently, isAuthenticated, logout]
   );
 
   const client = useMemo(() => {
