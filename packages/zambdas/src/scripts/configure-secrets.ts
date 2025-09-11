@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import fs from 'fs';
-import ottehrSpec from '../../../../config/ottehr-spec.json';
+import ottehrSpec from '../../../../config/oystehr/ottehr-spec.json';
 import { getAuth0Token } from '../shared/';
 import { projectApiUrlFromAuth0Audience } from './helpers';
 

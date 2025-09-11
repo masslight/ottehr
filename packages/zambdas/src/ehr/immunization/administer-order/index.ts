@@ -139,10 +139,12 @@ async function administerImmunizationOrder(
     throw new Error('Contained Medication is missing');
   }
 
-  medication.batch = {
-    lotNumber: administrationDetails.lot,
-    expirationDate: administrationDetails.expDate,
-  };
+  if (administrationDetails.lot || administrationDetails.expDate) {
+    medication.batch = {
+      lotNumber: administrationDetails.lot,
+      expirationDate: administrationDetails.expDate,
+    };
+  }
   medication.extension?.push({
     url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
     valueCodeableConcept: codeableConcept(administrationDetails.mvx, MVX_CODE_SYSTEM_URL),
@@ -212,12 +214,12 @@ export function validateRequestParameters(
 
   missingFields.push(...validateOrderDetails(details));
 
-  if (!administrationDetails?.lot) missingFields.push('administrationDetails.lot');
-  if (!administrationDetails?.expDate) missingFields.push('administrationDetails.expDate');
   if (!administrationDetails?.mvx) missingFields.push('administrationDetails.mvx');
   if (!administrationDetails?.cvx) missingFields.push('administrationDetails.cvx');
   if (!administrationDetails?.ndc) missingFields.push('administrationDetails.ndc');
   if (['administered', 'administered-partly'].includes(type)) {
+    if (!administrationDetails?.lot) missingFields.push('administrationDetails.lot');
+    if (!administrationDetails?.expDate) missingFields.push('administrationDetails.expDate');
     if (!administrationDetails?.administeredDateTime) missingFields.push('administrationDetails.administeredDateTime');
     if (!administrationDetails?.visGivenDate) {
       missingFields.push('administrationDetails.visGivenDate');
