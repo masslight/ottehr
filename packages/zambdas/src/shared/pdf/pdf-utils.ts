@@ -244,10 +244,11 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
 
     // Calculate available space on the current line
     const availableWidth = rightBound - currXPos;
-    console.log(`AvailableWidth is ${availableWidth}`);
+    const totalWidth = rightBound - leftBound;
+    console.log(`AvailableWidth is ${availableWidth}. Total width is ${totalWidth}`);
 
     // If the text fits within the current line, draw it directly
-    if (lineWidth < rightBound - leftBound) {
+    if (lineWidth < totalWidth) {
       console.log('lineWdith of text fits between left and right bounds');
       if (lineWidth > availableWidth) {
         console.log(
@@ -276,23 +277,41 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       let remainingText = text;
       let currentWidth = 0;
 
+      // APPROACH 1: Split on spaces
       // we need to determine what fits based on word breaks to avoid cutting words off with linebreaks
       const words = remainingText.split(' ');
       const widthOfSpaceChar = getTextDimensions(' ', textStyle).width;
-
-      // if there are more than one word, we can write each word until we run out of space
-      // what happens if even after splitting, word[0] is too long? Do you recurse forever? need to stop that
-      for (let i = 0; i < words.length; i++) {
-        const { width: charWidth } = getTextDimensions(words[i], textStyle);
-        if (currentWidth + charWidth + widthOfSpaceChar > availableWidth) {
-          fittingText = words.slice(0, i).join(' ');
-          remainingText = words.slice(i, undefined).join(' ');
-          break;
+      const { width: firstWordWidth } = getTextDimensions(words[0], textStyle);
+      // if the first word in words is itself bigger than the total width (rightBound - leftBound), then we need a different approach
+      // it's ok just to check the first word, because if subsequent words are too long, we recurse anyway
+      console.log(`words[0] is ${words[0]}. firstWordWidth is ${firstWordWidth}`);
+      if (firstWordWidth < totalWidth) {
+        // if there are more than one word, we can write each word until we run out of space
+        // what happens if even after splitting, word[0] is too long? Do you recurse forever? need to stop that
+        console.log('Splitting by words');
+        for (let i = 0; i < words.length; i++) {
+          const { width: wordWidth } = getTextDimensions(words[i], textStyle);
+          if (currentWidth + wordWidth + widthOfSpaceChar > availableWidth) {
+            fittingText = words.slice(0, i).join(' ');
+            remainingText = words.slice(i, undefined).join(' ');
+            break;
+          }
+          currentWidth += wordWidth + widthOfSpaceChar;
         }
-        currentWidth += charWidth + widthOfSpaceChar;
+      } else {
+        // else it is one big word we can't split with spaces. We need to split by character instead and just write as many characters as we can.
+        console.log('Splitting by characters');
+        const characters = remainingText.split('');
+        for (let i = 0; i < characters.length; i++) {
+          const { width: charWidth } = getTextDimensions(characters[i], textStyle);
+          if (currentWidth + charWidth > availableWidth) {
+            fittingText = characters.slice(0, i).join('');
+            remainingText = characters.slice(i, undefined).join('');
+            break;
+          }
+          currentWidth += charWidth;
+        }
       }
-
-      // else it is one big word with no spaces to break on. We need to split by character instead and just write as many characters as we can.
 
       // Draw the fitting part on the current line
       page.drawText(fittingText, {
