@@ -346,6 +346,7 @@ export interface ReceiptData {
 export interface Medication {
   name: string;
   dose?: string;
+  route?: string;
   date?: string;
 }
 
