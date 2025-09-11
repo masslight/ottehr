@@ -8,6 +8,7 @@ import {
   DocumentReference,
   Encounter,
   FhirResource,
+  Location,
   Observation,
   Organization,
   Patient,
@@ -64,6 +65,7 @@ export type LabOrderResources = {
   specimens: Specimen[]; // not always required (psc)
   questionnaireResponse?: QuestionnaireResponse; // not always required (psc)
   schedule?: Schedule;
+  location?: Location;
 };
 
 type DrLabResultResources = {
@@ -277,6 +279,36 @@ export async function getExternalLabOrderResourcesViaServiceRequest(
   const questionnaireResponse = questionnaireResponses?.[0];
   const schedule = schedules?.[0];
 
+  const getLocation = async (): Promise<Location | undefined> => {
+    if (serviceRequest.locationReference?.length !== 1) {
+      console.error(
+        `ServiceRequest/${serviceRequestID} must have a single ordering Location reference. Multiple found`
+      );
+      return;
+    }
+
+    // Note: we can't error here for backwards compatibility
+    const orderingLocationId = serviceRequest.locationReference[0].reference?.replace('Location/', '');
+    if (!orderingLocationId) {
+      console.error(`ServiceRequest/${serviceRequestID} must have an ordering locationReference. None found`);
+      return;
+    }
+
+    const orderingLocation = (
+      await oystehr.fhir.search<Location>({
+        resourceType: 'Location',
+        params: [{ name: '_id', value: orderingLocationId }],
+      })
+    ).unbundle();
+
+    if (orderingLocation.length !== 1) {
+      console.error(`Location/${orderingLocationId} for ServiceRequest/${serviceRequestID} not found`);
+      return;
+    }
+
+    return orderingLocation[0];
+  };
+
   return {
     serviceRequest,
     patient,
@@ -289,6 +321,7 @@ export async function getExternalLabOrderResourcesViaServiceRequest(
     specimens,
     questionnaireResponse,
     schedule,
+    location: await getLocation(),
   };
 }
 
