@@ -229,7 +229,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     const rightBound = bounds?.rightBound !== undefined ? bounds.rightBound : pageRightBound;
 
     if (bounds?.leftBound !== undefined) currXPos = leftBound;
-    console.log(`Text is ${text}\n
+    console.log(`Text is '${text}'\n
       lineWidth is ${lineWidth}\n
       lineHeight is ${lineHeight}\n
       currXpos is ${currXPos}\n
@@ -278,39 +278,34 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       let currentWidth = 0;
 
       // APPROACH 1: Split on spaces
-      // we need to determine what fits based on word breaks to avoid cutting words off with linebreaks
+      // determine what fits based on word breaks to avoid cutting words off with linebreaks
       const words = remainingText.split(' ');
-      const widthOfSpaceChar = getTextDimensions(' ', textStyle).width;
       const { width: firstWordWidth } = getTextDimensions(words[0], textStyle);
-      // if the first word in words is itself bigger than the total width (rightBound - leftBound), then we need a different approach
+      let splitMethodIsWords = true;
+
+      let elements = words;
+      let separator = ' ';
+      let widthOfSeparator = getTextDimensions(separator, textStyle).width;
+
+      // APPROACH 2: if the first word is itself bigger than the total width (rightBound - leftBound), then we need a different approach
       // it's ok just to check the first word, because if subsequent words are too long, we recurse anyway
       console.log(`words[0] is ${words[0]}. firstWordWidth is ${firstWordWidth}`);
-      if (firstWordWidth < totalWidth) {
-        // if there are more than one word, we can write each word until we run out of space
-        // what happens if even after splitting, word[0] is too long? Do you recurse forever? need to stop that
-        console.log('Splitting by words');
-        for (let i = 0; i < words.length; i++) {
-          const { width: wordWidth } = getTextDimensions(words[i], textStyle);
-          if (currentWidth + wordWidth + widthOfSpaceChar > availableWidth) {
-            fittingText = words.slice(0, i).join(' ');
-            remainingText = words.slice(i, undefined).join(' ');
-            break;
-          }
-          currentWidth += wordWidth + widthOfSpaceChar;
+      if (firstWordWidth + widthOfSeparator > totalWidth) {
+        splitMethodIsWords = false;
+        elements = remainingText.split('');
+        separator = '';
+        widthOfSeparator = 0;
+      }
+
+      console.log(`Splitting method is ${splitMethodIsWords ? 'words' : 'characters'}`);
+      for (let i = 0; i < elements.length; i++) {
+        const { width: elementWidth } = getTextDimensions(elements[i], textStyle);
+        if (currentWidth + elementWidth + widthOfSeparator > availableWidth) {
+          fittingText = elements.slice(0, i).join(separator);
+          remainingText = elements.slice(i, undefined).join(separator);
+          break;
         }
-      } else {
-        // else it is one big word we can't split with spaces. We need to split by character instead and just write as many characters as we can.
-        console.log('Splitting by characters');
-        const characters = remainingText.split('');
-        for (let i = 0; i < characters.length; i++) {
-          const { width: charWidth } = getTextDimensions(characters[i], textStyle);
-          if (currentWidth + charWidth > availableWidth) {
-            fittingText = characters.slice(0, i).join('');
-            remainingText = characters.slice(i, undefined).join('');
-            break;
-          }
-          currentWidth += charWidth;
-        }
+        currentWidth += elementWidth + widthOfSeparator;
       }
 
       // Draw the fitting part on the current line
