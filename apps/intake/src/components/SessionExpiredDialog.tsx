@@ -38,12 +38,12 @@ export default function SessionExpiredDialog({ modalOpen }: SessionExpiredDialog
       </DialogTitle>
       <DialogContent>
         <DialogContentText sx={{ color: theme.palette.text.primary }}>
-          Your session has expired and we encountered a problem refreshing it. Please log in again.
+          Your session has expired. You will need to log in again.
         </DialogContentText>
       </DialogContent>
       <DialogActions>
         <Button variant="contained" onClick={endSession} size="medium" color="error" sx={buttonSx}>
-          Log out now
+          Log back in
         </Button>
       </DialogActions>
     </Dialog>
