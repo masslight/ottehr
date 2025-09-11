@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import setup from '../../scripts/setup/setup.utils.mjs';
+import { validateE2EIntakeUser } from './validate-e2e-intake-user.js';
 
 const isCI = Boolean(process.env.CI);
 const playwrightUserFile = './playwright/user.json';
@@ -35,8 +36,16 @@ if (!isCI) {
   })();
 }
 
-// Create the playwright/user.json file if it doesn't exist
-if (!fs.existsSync(playwrightUserFile)) {
+let isUserValid = false;
+try {
+  validateE2EIntakeUser(playwrightUserFile);
+  isUserValid = true;
+} catch (error) {
+  console.error('Failed to validate user:', error);
+}
+
+// Create a blank playwright/user.json file if it doesn't exist or the login is expired
+if (!isUserValid) {
   const playwrightDir = path.dirname(playwrightUserFile);
   if (!fs.existsSync(playwrightDir)) {
     fs.mkdirSync(playwrightDir, { recursive: true });

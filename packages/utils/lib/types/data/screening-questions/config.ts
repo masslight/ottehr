@@ -1,0 +1,100 @@
+import {
+  HISTORY_OBTAINED_FROM_FIELD,
+  HistorySourceKeys,
+  PATIENT_VACCINATION_STATUS,
+  PatientVaccinationKeys,
+  RecentVisitKeys,
+  SEEN_IN_LAST_THREE_YEARS_FIELD,
+} from './constants';
+import { ScreeningQuestionsConfig } from './types';
+
+export const baseScreeningQuestionsConfig: ScreeningQuestionsConfig = {
+  title: 'ASK THE PATIENT',
+  fields: [
+    {
+      id: 'office_visit',
+      type: 'radio',
+      question: 'Has the patient been seen in one of our offices / telemed in last 3 years?',
+      fhirField: SEEN_IN_LAST_THREE_YEARS_FIELD,
+      options: [
+        { value: 'yes', label: 'Yes', fhirValue: RecentVisitKeys.Yes },
+        { value: 'no', label: 'No', fhirValue: RecentVisitKeys.No },
+        { value: 'na', label: 'N/A', fhirValue: RecentVisitKeys.NotApplicable },
+        { value: 'prefer_not_answer', label: 'Prefer not to answer', fhirValue: RecentVisitKeys.PreferNotToAnswer },
+      ],
+    },
+    {
+      id: 'vaccinations',
+      type: 'radio',
+      question: 'Has the patient received vaccinations?',
+      required: true,
+      fhirField: PATIENT_VACCINATION_STATUS,
+      options: [
+        { value: 'up_to_date', label: 'Yes, up to date', fhirValue: PatientVaccinationKeys.yes },
+        { value: 'partially', label: 'Partially vaccinated', fhirValue: PatientVaccinationKeys.partially },
+        { value: 'no_vaccinations', label: 'No vaccinations', fhirValue: PatientVaccinationKeys.no },
+      ],
+      noteField: {
+        id: 'vaccination_notes',
+        label: 'Vaccination notes',
+        type: 'textarea',
+        fhirField: PATIENT_VACCINATION_STATUS,
+      },
+    },
+    {
+      id: 'history_source',
+      type: 'select',
+      question: 'History obtained from',
+      fhirField: HISTORY_OBTAINED_FROM_FIELD,
+      canDelete: true,
+      conditionalSave: {
+        waitForNote: HistorySourceKeys.NotObtainedOther,
+      },
+      options: [
+        { value: 'aunt', label: 'Aunt', fhirValue: HistorySourceKeys.Aunt },
+        { value: 'babysitter', label: 'Babysitter', fhirValue: HistorySourceKeys.Babysitter },
+        { value: 'brother', label: 'Brother', fhirValue: HistorySourceKeys.Brother },
+        { value: 'bystander', label: 'Bystander', fhirValue: HistorySourceKeys.Bystander },
+        { value: 'caretaker', label: 'Caretaker', fhirValue: HistorySourceKeys.Caretaker },
+        { value: 'cousin', label: 'Cousin', fhirValue: HistorySourceKeys.Cousin },
+        { value: 'emt_worker', label: 'EMT Worker', fhirValue: HistorySourceKeys.EMTWorker },
+        { value: 'father', label: 'Father', fhirValue: HistorySourceKeys.Father },
+        { value: 'friend', label: 'Friend', fhirValue: HistorySourceKeys.Friend },
+        { value: 'grandfather', label: 'Grandfather', fhirValue: HistorySourceKeys.Grandfather },
+        { value: 'grandmother', label: 'Grandmother', fhirValue: HistorySourceKeys.Grandmother },
+        { value: 'guardian', label: 'Guardian', fhirValue: HistorySourceKeys.Guardian },
+        {
+          value: 'not_obtained_emergency',
+          label: 'History not obtained due to emergency situation',
+          fhirValue: HistorySourceKeys.NotObtainedEmergency,
+        },
+        { value: 'husband', label: 'Husband', fhirValue: HistorySourceKeys.Husband },
+        { value: 'mother', label: 'Mother', fhirValue: HistorySourceKeys.Mother },
+        { value: 'nanny', label: 'Nanny', fhirValue: HistorySourceKeys.Nanny },
+        { value: 'neighbor', label: 'Neighbor', fhirValue: HistorySourceKeys.Neighbor },
+        { value: 'patient_self', label: 'Patient self-reported', fhirValue: HistorySourceKeys.PatientSelf },
+        { value: 'police_officer', label: 'Police Officer', fhirValue: HistorySourceKeys.PoliceOfficer },
+        { value: 'school_nurse', label: 'School Nurse', fhirValue: HistorySourceKeys.SchoolNurse },
+        { value: 'significant_other', label: 'Significant Other', fhirValue: HistorySourceKeys.SignificantOther },
+        { value: 'sister', label: 'Sister', fhirValue: HistorySourceKeys.Sister },
+        { value: 'social_worker', label: 'Social Worker', fhirValue: HistorySourceKeys.SocialWorker },
+        { value: 'step_parent', label: 'Step-parent', fhirValue: HistorySourceKeys.StepParent },
+        { value: 'uncle', label: 'Uncle', fhirValue: HistorySourceKeys.Uncle },
+        { value: 'wife', label: 'Wife', fhirValue: HistorySourceKeys.Wife },
+        {
+          value: 'not_due_developmental',
+          label: 'Not due to developmental stage. Due to other reason',
+          fhirValue: HistorySourceKeys.NotObtainedOther,
+        },
+      ],
+      noteField: {
+        id: 'history_reason',
+        label: 'Please specify reason*',
+        type: 'textarea',
+        placeholder: 'Please specify reason*',
+        fhirField: HISTORY_OBTAINED_FROM_FIELD,
+        conditionalValue: HistorySourceKeys.NotObtainedOther, // Shows only when "other" is selected
+      },
+    },
+  ],
+};

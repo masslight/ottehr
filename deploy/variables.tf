@@ -16,3 +16,10 @@ variable "client_secret" {
   nullable    = false
   sensitive   = true
 }
+
+variable "sendgrid_api_key" {
+  description = "SendGrid API key"
+  type        = string
+  nullable    = false
+  sensitive   = true
+}

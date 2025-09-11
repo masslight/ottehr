@@ -7,7 +7,6 @@ import {
   CANT_UPDATE_CANCELED_APT_ERROR,
   CANT_UPDATE_CHECKED_IN_APT_ERROR,
   checkValidBookingTime,
-  DATETIME_FULL_NO_YEAR,
   getAvailableSlotsForSchedules,
   getPatientContactEmail,
   getPatientFirstName,
@@ -208,18 +207,18 @@ export const index = wrapHandler('update-appointment', async (input: ZambdaInput
       )?.valueString;
       const smsNumber = getSMSNumberForIndividual(relatedPerson);
       if (smsNumber) {
-        await sendInPersonMessages(
-          getPatientContactEmail(fhirPatient), // todo use the right email
-          getPatientFirstName(fhirPatient),
-          `RelatedPerson/${relatedPerson.id}`,
-          DateTime.fromISO(startTime).setZone(timezone).toFormat(DATETIME_FULL_NO_YEAR),
+        await sendInPersonMessages({
+          email: getPatientContactEmail(fhirPatient), // todo use the right email
+          firstName: getPatientFirstName(fhirPatient),
+          messageRecipient: `RelatedPerson/${relatedPerson.id}`,
+          startTime: DateTime.fromISO(startTime).setZone(timezone),
           secrets,
-          scheduleOwner,
+          scheduleResource: scheduleOwner,
           appointmentID,
-          fhirAppointment.appointmentType?.text || '',
+          appointmentType: fhirAppointment.appointmentType?.text || '',
           language,
-          oystehrToken
-        );
+          token: oystehrToken,
+        });
       } else {
         console.log(`missing sms number for related person with id ${relatedPerson.id}`);
       }

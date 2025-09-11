@@ -49,11 +49,11 @@ export const mapVitalsToDisplay = (
         break;
       case VitalFieldNames.VitalWeight:
         parsed = observation as VitalsWeightObservationDTO;
-        text = `${parsed.value} kg / ${kgToLbs(parsed.value)} lbs`;
+        text = `${parsed.value} kg = ${kgToLbs(parsed.value)} lbs`;
         break;
       case VitalFieldNames.VitalHeight:
         parsed = observation as VitalsHeightObservationDTO;
-        text = `${parsed.value} cm / ${cmToInches(parsed.value)} inch`;
+        text = `${parsed.value} cm = ${cmToInches(parsed.value)} inch`;
         break;
       case VitalFieldNames.VitalVision:
         parsed = observation as VitalsVisionObservationDTO;

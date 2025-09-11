@@ -6,11 +6,12 @@ import { nameLabTest, OrderableItemSearchResult } from 'utils';
 
 type LabsAutocompleteProps = {
   selectedLab: OrderableItemSearchResult | null;
+  labOrgIdsString: string;
   setSelectedLab: (value: OrderableItemSearchResult | null) => void;
 };
 
 export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
-  const { selectedLab, setSelectedLab } = props;
+  const { selectedLab, setSelectedLab, labOrgIdsString } = props;
   const [debouncedLabSearchTerm, setDebouncedLabSearchTerm] = useState<string | undefined>(undefined);
 
   const {
@@ -20,6 +21,7 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
     error: resourceFetchError,
   } = useGetCreateExternalLabResources({
     search: debouncedLabSearchTerm,
+    labOrgIdsString,
   });
 
   const labs = data?.labs || [];

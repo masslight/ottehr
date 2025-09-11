@@ -1,0 +1,47 @@
+{
+  "schema-version": "2025-03-19",
+  "fhirResources": {
+    "value-set-procedure-medications-used": {
+      "resourceType": "ValueSet",
+      "url": "https://fhir.ottehr.com/ValueSet/procedure-medications-used",
+      "version": "1.0.0",
+      "name": "Procedures - Medication used",
+      "status": "active",
+      "expansion": {
+        "timestamp": "2025-06-10T11:36:51.034Z",
+        "contains": [
+          {
+            "system": "https://fhir.ottehr.com/CodeSystem/procedure-medications-used",
+            "code": "none",
+            "display": "None"
+          },
+          {
+            "system": "https://fhir.ottehr.com/CodeSystem/procedure-medications-used",
+            "code": "topical",
+            "display": "Topical"
+          },
+          {
+            "system": "https://fhir.ottehr.com/CodeSystem/procedure-medications-used",
+            "code": "local",
+            "display": "Local"
+          },
+          {
+            "system": "https://fhir.ottehr.com/CodeSystem/procedure-medications-used",
+            "code": "oral",
+            "display": "Oral"
+          },
+          {
+            "system": "https://fhir.ottehr.com/CodeSystem/procedure-medications-used",
+            "code": "iv",
+            "display": "IV"
+          },
+          {
+            "system": "https://fhir.ottehr.com/CodeSystem/procedure-medications-used",
+            "code": "im",
+            "display": "IM"
+          }
+        ]
+      }
+    }
+  }
+}

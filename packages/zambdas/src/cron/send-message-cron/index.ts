@@ -1,10 +1,27 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Encounter, Location, Patient, QuestionnaireResponse } from 'fhir/r4b';
+import { Appointment, Encounter, Location, Patient, QuestionnaireResponse, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { DATETIME_FULL_NO_YEAR, getSecret, isNonPaperworkQuestionnaireResponse, SecretsKeys } from 'utils';
+import {
+  DATETIME_FULL_NO_YEAR,
+  getAddressStringForScheduleResource,
+  getPatientContactEmail,
+  getSecret,
+  getTimezone,
+  InPersonReminderTemplateData,
+  isNonPaperworkQuestionnaireResponse,
+  SecretsKeys,
+} from 'utils';
+import { getNameForOwner } from '../../ehr/schedules/shared';
 import { createOystehrClient, getAuth0Token, sendErrors, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
-import { getMessageRecipientForAppointment } from '../../shared/communication';
+import {
+  getEmailClient,
+  getMessageRecipientForAppointment,
+  makeAddressUrl,
+  makeCancelVisitUrl,
+  makeModifyVisitUrl,
+  makePaperworkUrl,
+} from '../../shared/communication';
 
 let oystehrToken: string;
 
@@ -24,31 +41,41 @@ export const index = wrapHandler('send-message-cron', async (input: ZambdaInput)
         .toISO()} and the related patients and location resources`
     );
     const allResources = (
-      await oystehr.fhir.search<Appointment | Encounter | Location | Patient | QuestionnaireResponse>({
-        resourceType: 'Appointment',
-        params: [
-          { name: 'status', value: 'booked' },
-          { name: 'date', value: `ge${startTime.toISO()}` },
-          { name: 'date', value: `lt${startTime.plus({ minute: 45 }).toISO()}` },
-          { name: '_sort', value: 'date' },
-          {
-            name: '_include',
-            value: 'Appointment:location',
-          },
-          {
-            name: '_include',
-            value: 'Appointment:patient',
-          },
-          {
-            name: '_revinclude',
-            value: 'Encounter:appointment',
-          },
-          {
-            name: '_revinclude:iterate',
-            value: 'QuestionnaireResponse:encounter',
-          },
-        ],
-      })
+      await oystehr.fhir.search<Appointment | Encounter | Location | Patient | QuestionnaireResponse | Slot | Schedule>(
+        {
+          resourceType: 'Appointment',
+          params: [
+            { name: 'status', value: 'booked' },
+            { name: 'date', value: `ge${startTime.toISO()}` },
+            { name: 'date', value: `lt${startTime.plus({ minute: 45 }).toISO()}` },
+            { name: '_sort', value: 'date' },
+            {
+              name: '_include',
+              value: 'Appointment:location',
+            },
+            {
+              name: '_include',
+              value: 'Appointment:patient',
+            },
+            {
+              name: '_include',
+              value: 'Appointment:slot',
+            },
+            {
+              name: '_revinclude',
+              value: 'Encounter:appointment',
+            },
+            {
+              name: '_revinclude:iterate',
+              value: 'QuestionnaireResponse:encounter',
+            },
+            {
+              name: '_include:iterate',
+              value: 'Slot:schedule',
+            },
+          ],
+        }
+      )
     )
       .unbundle()
       .filter((resource) => isNonPaperworkQuestionnaireResponse(resource) === false);
@@ -127,10 +154,51 @@ export const index = wrapHandler('send-message-cron', async (input: ZambdaInput)
           .find((participantTemp) => participantTemp.actor?.reference?.startsWith('Patient/'))
           ?.actor?.reference?.split('/')[1];
         const fhirPatient = allResources.find((resourceTemp) => resourceTemp.id === patientID) as Patient;
+        const patientEmail = getPatientContactEmail(fhirPatient);
+
         const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
         const message = `To prevent delays, please complete your paperwork prior to arrival. For ${fhirPatient.name?.[0].given?.[0]}, click here: ${WEBSITE_URL}/paperwork/${fhirAppointment?.id}`;
         const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
         await sendAutomatedText(fhirAppointment, oystehr, ENVIRONMENT, message);
+
+        const location: Location | undefined = allResources.find((res) => res.resourceType === 'Location');
+        const schedule: Schedule | undefined = allResources.find((res) => res.resourceType === 'Schedule');
+
+        let address = '';
+        let locationName = '';
+        let prettyStartTime = '';
+
+        if (schedule && fhirAppointment.start) {
+          const tz = getTimezone(schedule);
+          prettyStartTime = DateTime.fromISO(fhirAppointment.start).setZone(tz).toFormat(DATETIME_FULL_NO_YEAR);
+        }
+
+        if (location) {
+          locationName = getNameForOwner(location);
+          address = getAddressStringForScheduleResource(location) || '';
+        }
+
+        const missingData: string[] = [];
+        if (!patientEmail) missingData.push('patient email');
+        if (!fhirAppointment.id) missingData.push('appointment ID');
+        if (!locationName) missingData.push('location name');
+        if (!address) missingData.push('address');
+        if (!prettyStartTime) missingData.push('appointment time');
+        if (missingData.length === 0 && patientEmail && fhirAppointment.id) {
+          const templateData: InPersonReminderTemplateData = {
+            location: locationName,
+            time: prettyStartTime,
+            'address-url': makeAddressUrl(address),
+            'modify-visit-url': makeModifyVisitUrl(fhirAppointment.id, secrets),
+            'cancel-visit-url': makeCancelVisitUrl(fhirAppointment.id, secrets),
+            'paperwork-url': makePaperworkUrl(fhirAppointment.id, secrets),
+            address,
+          };
+          const emailClient = getEmailClient(secrets);
+          await emailClient.sendInPersonReminderEmail(patientEmail, templateData);
+        } else {
+          console.log(`not sending email, missing data: ${missingData.join(', ')}`);
+        }
       }
     });
 

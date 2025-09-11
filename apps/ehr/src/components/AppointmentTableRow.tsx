@@ -42,6 +42,7 @@ import {
   isPhysicianQualification,
   mdyStringFromISOString,
   OrdersForTrackingBoardRow,
+  PractitionerQualificationCode,
   PROJECT_NAME,
   ROOM_EXTENSION_URL,
   VisitStatusLabel,
@@ -239,7 +240,11 @@ const longWaitTimeFlag = (appointment: InPersonAppointmentInformation, statusTim
   return false;
 };
 
-function canApprove(practitioner: Practitioner, location: Location, attenderQualification?: string): boolean {
+function canApprove(
+  practitioner: Practitioner,
+  location: Location,
+  attenderQualification?: PractitionerQualificationCode
+): boolean {
   if (!practitioner) return false;
 
   const isAttenderPhysician = isPhysicianQualification(attenderQualification);
@@ -548,7 +553,7 @@ export default function AppointmentTableRow({
     </>
   );
 
-  const quickTexts: { [key in LANGUAGES]: string }[] = useMemo(() => {
+  const quickTexts: { [key in LANGUAGES]: string | undefined }[] = useMemo(() => {
     return [
       // todo need to make url dynamic or pull from location
       {
@@ -582,6 +587,10 @@ export default function AppointmentTableRow({
         english: `${PROJECT_NAME} hopes you are feeling better. Please call us with any questions at ${officePhoneNumber}.`,
         // cSpell:disable-next Spanish
         spanish: `${PROJECT_NAME} espera que se sienta mejor. Llámenos si tiene alguna pregunta al ${officePhoneNumber}.`,
+      },
+      {
+        english: `Please complete a brief AI chat session for ${appointment.patient.firstName} to help your provider prepare for your visit: ${VITE_APP_PATIENT_APP_URL}/visit/${appointment.id}/ai-interview-start`,
+        spanish: undefined,
       },
     ];
   }, [appointment.id, appointment.patient.firstName, officePhoneNumber]);

@@ -51,7 +51,7 @@ const VitalsTemperaturesCard: React.FC<VitalsTemperatureCardProps> = ({
   }, [temperatureValueText]);
 
   const handleSaveTemperatureObservation = async (temperatureValueText: string): Promise<void> => {
-    console.log(`handleSaveTemperatureObservation() value=[${temperatureValueText}]`);
+    // console.log(`handleSaveTemperatureObservation() value=[${temperatureValueText}]`);
 
     const temperatureValueNumber = textToTemperatureNumber(temperatureValueText);
     if (!temperatureValueNumber) return;
@@ -159,7 +159,7 @@ const VitalsTemperaturesCard: React.FC<VitalsTemperatureCardProps> = ({
                   />
 
                   <Typography fontSize={25} sx={{ ml: 1 }}>
-                    /
+                    =
                   </Typography>
                   <TextField
                     fullWidth

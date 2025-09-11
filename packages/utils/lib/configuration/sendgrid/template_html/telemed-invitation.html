@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <meta name="supported-color-schemes" content="light" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300..900&display=swap" rel="stylesheet" />
+    <title>{{branding.projectName}} Telemed Invitation</title>
+  </head>
+  <body
+    style="
+      font-family: 'Rubik', sans-serif;
+      font-size: 16px;
+      line-height: 1.4;
+      text-align: center;
+      color: #000000;
+      background-color: #ffffff;
+      width: 100%;
+      max-width: 600px;
+      padding: 40px 10px;
+      margin: 8px auto;
+    "
+  >
+    <table cellpadding="0" cellspacing="0" width="100%" style="padding-bottom: 40px">
+      {{#if branding.email.logoURL}}
+      <tr>
+        <td style="padding-bottom: 40px">
+          <img alt="{{branding.projectName}} logo" width="211px" src="{{branding.email.logoURL}}" />
+        </td>
+      </tr>
+      {{/if}}
+      <tr>
+        <td style="padding-bottom: 40px">
+          <h1
+            style="
+                        font-size: 24px;
+                        font-weight: 600;
+                        color: {{branding.email.palette.headerText}};
+                        margin: 0;
+                    "
+          >
+            You've been invited to join the virtual visit with {{patient-name}} at {{branding.projectName}}!
+          </h1>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding-bottom: 40px">
+          <table cellpadding="0" cellspacing="0" width="100%">
+            <tr>
+              <td style="padding-bottom: 16px">
+                <p style="color: {{branding.email.palette.bodyText}}; margin: 0;">
+                  The visit will start automatically when the provider starts the video.
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a
+                  href="{{join-visit-url}}"
+                  style="
+                    display: inline-block;
+                    font-size: 15px;
+                    font-weight: 500;
+                    color: #ffffff;
+                    background-color: #295f75;
+                    border-radius: 100px;
+                    padding: 8px 22px;
+                    text-decoration: none;
+                  "
+                  >Join the visit</a
+                >
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding-bottom: 40px">
+          <hr style="height: 1px; border-width: 0px; background-color: #dfe5e9; margin: 0" />
+        </td>
+      </tr>
+      <tr>
+        <td style="color: {{branding.email.palette.footerText}};">
+          <table cellpadding="0" cellspacing="0" width="100%">
+            <tr>
+              <td style="padding-bottom: 8px">
+                <p style="margin: 0">
+                  Thank you for choosing {{branding.projectName}}. We look forward to partnering with you and your
+                  family.
+                </p>
+              </td>
+            </tr>
+            {{#if branding.email.supportPhoneNumber}}
+            <tr>
+              <td style="padding-bottom: 24px">
+                <p style="margin: 0">
+                  For questions or feedback, please contact {{branding.email.supportPhoneNumber}}.
+                </p>
+              </td>
+            </tr>
+            {{/if}}
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

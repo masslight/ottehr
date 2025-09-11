@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <meta name="supported-color-schemes" content="light" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300..900&display=swap" rel="stylesheet" />
+    <title>{{branding.projectName}} In-Person Confirmation</title>
+  </head>
+  <body
+    style="
+      font-family: 'Rubik', sans-serif;
+      font-size: 16px;
+      line-height: 1.4;
+      text-align: center;
+      color: #000000;
+      background-color: #ffffff;
+      width: 100%;
+      max-width: 600px;
+      padding: 40px 10px;
+      margin: 8px auto;
+    "
+  >
+    <table cellpadding="0" cellspacing="0" width="100%" style="padding-bottom: 40px">
+      {{#if branding.email.logoURL}}
+      <tr>
+        <td style="padding-bottom: 40px">
+          <img alt="{{branding.projectName}} logo" width="211px" src="{{branding.email.logoURL}}" />
+        </td>
+      </tr>
+      {{/if}}
+      <tr>
+        <td style="padding-bottom: 40px">
+          <h1
+            style="
+                    font-size: 24px;
+                    font-weight: 600;
+                    color: {{branding.email.palette.headerText}};
+                    margin: 0;
+                "
+          >
+            You're confirmed!<br />Thank you for choosing {{branding.projectName}}!
+          </h1>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding-bottom: 40px">
+          <table cellpadding="0" cellspacing="0" width="100%">
+            <tr>
+              <td style="padding-bottom: 8px">
+                <p style="color: {{branding.email.palette.bodyText}}; margin: 0;">In Person Visit</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding-bottom: 8px">
+                <time
+                  datetime="{{time}}"
+                  style="
+                                    font-size: 18px;
+                                    font-weight: 600;
+                                    color: {{branding.email.palette.headerText}};
+                                    margin: 0;
+                                "
+                  >{{{time}}}</time>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding-bottom: 8px">
+                <p style="color: {{branding.email.palette.bodyText}}; margin: 0;">{{location}}</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding-bottom: 8px">
+                <a href="{{{address-url}}}" style="color: {{branding.email.palette.bodyText}}; margin: 0;">
+                  {{{address}}}
+                </a>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <table align="center" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td>
+                      <a
+                        href="{{modify-visit-url}}"
+                        style="font-size: 15px; font-weight: 500; color: #295f75; text-decoration: underline"
+                        >Modify visit</a
+                      >
+                    </td>
+                    <td width="24px"></td>
+                    <td>
+                      <a
+                        href="{{cancel-visit-url}}"
+                        style="font-size: 15px; font-weight: 500; color: #d32f2f; text-decoration: underline"
+                        >Cancel visit</a
+                      >
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding-bottom: 40px">
+          <table cellpadding="0" cellspacing="0" width="100%">
+            <tr>
+              <td style="padding-bottom: 8px">
+                <p style="color: {{branding.email.palette.bodyText}}; margin: 0;">
+                  Please complete the following paperwork prior to your visit.
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a
+                  href="{{paperwork-url}}"
+                  style="color: #295f75; font-size: 15px; font-weight: 500; text-decoration: underline"
+                  >Fill in paperwork</a
+                >
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding-bottom: 40px">
+          <hr style="height: 1px; border-width: 0px; background-color: #dfe5e9; margin: 0" />
+        </td>
+      </tr>
+      <tr>
+        <td style="color: {{branding.email.palette.footerText}};">
+          <table cellpadding="0" cellspacing="0" width="100%">
+            <tr>
+              <td style="padding-bottom: 8px">
+                <p style="margin: 0">
+                  Thank you for choosing {{branding.projectName}}. We look forward to partnering with you and your
+                  family.
+                </p>
+              </td>
+            </tr>
+            {{#if branding.email.supportPhoneNumber}}
+            <tr>
+              <td style="padding-bottom: 24px">
+                <p style="margin: 0">
+                  For questions or feedback, please contact {{branding.email.supportPhoneNumber}}.
+                </p>
+              </td>
+            </tr>
+            {{/if}}
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

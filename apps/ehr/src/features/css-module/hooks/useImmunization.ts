@@ -85,7 +85,7 @@ export const useGetImmunizationOrders = (
       });
       return chooseJson(response);
     },
-    enabled: oystehrZambda && Boolean(input.orderId || input.patientId),
+    enabled: oystehrZambda && Boolean(input.orderId || input.patientId || input.encounterId),
     retry: 2,
     staleTime: 5 * 60 * 1000,
   });

@@ -353,7 +353,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     allDocRefs = docRefBundle?.unbundle() ?? [];
     communications = communicationBundle?.unbundle();
     const practitioners = participantsBundle?.unbundle() as Practitioner[];
-    practitioners.forEach((pr) => {
+    practitioners?.forEach((pr) => {
       practitionerIdToResourceMap[`Practitioner/${pr.id}`] = pr;
     });
 

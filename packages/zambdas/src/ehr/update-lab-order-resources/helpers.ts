@@ -204,42 +204,27 @@ export const handleMatchUnsolicitedRequest = async ({
     url: `Task/${taskId}`,
     operations: [{ op: 'replace', path: '/status', value: 'completed' }],
   };
-  const diagnosticReportPatchRequest: BatchInputPatchRequest<DiagnosticReport> = {
-    method: 'PATCH',
-    url: `DiagnosticReport/${diagnosticReportId}`,
-    operations: [
-      { op: 'replace', path: '/subject', value: { reference: `Patient/${patientToMatchId}` } },
-      { op: 'remove', path: '/contained' },
-    ],
-  };
 
-  if (diagnosticReportResource.extension) {
-    const updatedExtension = diagnosticReportResource.extension.filter((ext) => {
+  const updatedDiagnosticReport: DiagnosticReport = { ...diagnosticReportResource };
+  updatedDiagnosticReport.subject = { reference: `Patient/${patientToMatchId}` };
+  delete updatedDiagnosticReport.contained;
+  if (updatedDiagnosticReport.extension) {
+    updatedDiagnosticReport.extension = updatedDiagnosticReport.extension.filter((ext) => {
       return ext.url !== OYSTEHR_UNSOLICITED_RESULT_ORDERING_PROVIDER_SYSTEM;
-    });
-    console.log('updatedExtension', updatedExtension);
-    diagnosticReportPatchRequest.operations.push({
-      op: 'replace',
-      path: '/extension',
-      value: updatedExtension,
     });
   }
 
   const serviceRequestPatch: BatchInputPatchRequest<ServiceRequest>[] = [];
   if (srToMatchId) {
     console.log('srToMatchId passed: ', srToMatchId);
-    const hasBasedOn = !!diagnosticReportResource.basedOn;
-    diagnosticReportPatchRequest.operations.push({
-      op: hasBasedOn ? 'replace' : 'add',
-      path: '/basedOn',
-      value: [
-        {
-          reference: `ServiceRequest/${srToMatchId}`,
-        },
-      ],
-    });
+    if (updatedDiagnosticReport.basedOn) {
+      updatedDiagnosticReport.basedOn.push({ reference: `ServiceRequest/${srToMatchId}` });
+    } else {
+      updatedDiagnosticReport.basedOn = [{ reference: `ServiceRequest/${srToMatchId}` }];
+    }
+
     // this write normally happens on the oystehr side but since the result came in as unsolicited it would not have happened there
-    if (diagnosticReportResource.status === 'final') {
+    if (updatedDiagnosticReport.status === 'final') {
       console.log('dr status is final so patching sr status to completed');
       serviceRequestPatch.push({
         method: 'PATCH',
@@ -249,7 +234,13 @@ export const handleMatchUnsolicitedRequest = async ({
     }
   }
 
-  const requests = [diagnosticReportPatchRequest, markTaskAsCompleteRequest, ...serviceRequestPatch];
+  const diagnosticReportPutRequest: BatchInputRequest<DiagnosticReport> = {
+    method: 'PUT',
+    url: `DiagnosticReport/${diagnosticReportResource.id}`,
+    resource: updatedDiagnosticReport,
+  };
+
+  const requests = [diagnosticReportPutRequest, markTaskAsCompleteRequest, ...serviceRequestPatch];
   console.log('making fhir requests, total requests to make: ', requests.length);
-  await oystehr.fhir.transaction({ requests });
+  await oystehr.fhir.transaction<DiagnosticReport | Task | ServiceRequest>({ requests });
 };

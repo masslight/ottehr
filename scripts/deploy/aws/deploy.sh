@@ -2,7 +2,7 @@
 
 set -eo pipefail
 
-aws_profile=$(grep '"aws_profile"' "$(dirname "$0")/../deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
+aws_profile=$(grep '"aws_profile"' "$(dirname "$0")/../deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/' || echo 'ottehr')
 profile="${aws_profile:-ottehr}"
 project_id=$(grep '"project_id"' "$(dirname "$0")/../deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
 access_token=$(grep '"access_token"' "$(dirname "$0")/../deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
@@ -48,7 +48,7 @@ popd
 # bootstrap if necessary
 if $first_setup; then
     pushd scripts/deploy/aws
-    npx cdk bootstrap
+    npx cdk bootstrap --profile="${profile}"
     popd
 fi
 

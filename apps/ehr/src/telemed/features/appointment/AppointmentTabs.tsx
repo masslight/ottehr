@@ -16,13 +16,11 @@ import { VitalsTab } from './VitalsTab';
 export const AppointmentTabs: FC = () => {
   const isInitialLoad = useRef(true);
   const currentTab = useAppTelemedLocalStore((state) => state.currentTab);
-  const { chartData, chartDataSetState } = useChartData();
   const { update } = useExamObservations();
 
-  useChartData({
+  const { chartData } = useChartData({
     onSuccess: (data) => {
       if (!data) return;
-      chartDataSetState((prev) => ({ chartData: { ...prev.chartData, ...data } }));
       update(data.examObservations, true);
       isInitialLoad.current = false;
     },

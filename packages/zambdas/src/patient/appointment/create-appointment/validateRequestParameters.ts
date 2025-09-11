@@ -8,7 +8,6 @@ import {
   CHARACTER_LIMIT_EXCEEDED_ERROR,
   CreateAppointmentInputParams,
   FHIR_RESOURCE_NOT_FOUND,
-  getSecret,
   getServiceModeFromScheduleOwner,
   getServiceModeFromSlot,
   getSlotIsPostTelemed,
@@ -22,7 +21,6 @@ import {
   REASON_MAXIMUM_CHAR_LIMIT,
   ScheduleOwnerFhirResource,
   Secrets,
-  SecretsKeys,
   ServiceMode,
   VisitType,
 } from 'utils';
@@ -31,7 +29,6 @@ import { getCanonicalUrlForPrevisitQuestionnaire } from '../helpers';
 
 export type CreateAppointmentBasicInput = CreateAppointmentInputParams & {
   secrets: Secrets | null;
-  currentCanonicalQuestionnaireUrl: string;
   user: User;
   isEHRUser: boolean;
   locationState?: string;
@@ -41,11 +38,6 @@ export type CreateAppointmentBasicInput = CreateAppointmentInputParams & {
 export function validateCreateAppointmentParams(input: ZambdaInput, user: User): CreateAppointmentBasicInput {
   if (!input.body) {
     throw new Error('No request body provided');
-  }
-  const { secrets } = input;
-  const currentCanonicalQuestionnaireUrl = getSecret(SecretsKeys.IN_PERSON_PREVISIT_QUESTIONNAIRE, secrets);
-  if (currentCanonicalQuestionnaireUrl === '') {
-    throw new Error(`Missing secret with name ${SecretsKeys.IN_PERSON_PREVISIT_QUESTIONNAIRE}`);
   }
   const isEHRUser = checkIsEHRUser(user);
 
@@ -143,7 +135,6 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
     secrets: input.secrets,
     language,
     unconfirmedDateOfBirth,
-    currentCanonicalQuestionnaireUrl,
     locationState,
     appointmentMetadata,
   };
@@ -232,7 +223,7 @@ export const createAppointmentComplexValidation = async (
     throw new Error('Service mode not found');
   }
 
-  const questionnaireCanonical = getCanonicalUrlForPrevisitQuestionnaire(serviceMode, input.secrets);
+  const questionnaireCanonical = getCanonicalUrlForPrevisitQuestionnaire(serviceMode);
 
   let visitType = getSlotIsPostTelemed(slot) ? VisitType.PostTelemed : VisitType.PreBook;
   if (getSlotIsWalkin(slot)) {

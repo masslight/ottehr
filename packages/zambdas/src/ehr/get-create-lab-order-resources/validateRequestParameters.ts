@@ -6,7 +6,7 @@ export function validateRequestParameters(input: ZambdaInput): GetCreateLabOrder
     throw new Error('No request body provided');
   }
 
-  const { patientId, search } = JSON.parse(input.body);
+  const { patientId, search, labOrgIdsString } = JSON.parse(input.body);
 
   if (!patientId && !search) {
     throw new Error('patientId or a search value must be passed as a parameter');
@@ -15,6 +15,7 @@ export function validateRequestParameters(input: ZambdaInput): GetCreateLabOrder
   return {
     patientId,
     search,
+    labOrgIdsString,
     secrets: input.secrets,
   };
 }

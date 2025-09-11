@@ -19,6 +19,6 @@ export const ROUTE_OPTIONS = Object.entries(medicationApplianceRoutes)
 export const LOCATION_OPTIONS = Object.entries(medicationApplianceLocations)
   .map(([_, value]) => ({
     value: value.code,
-    label: value.display ?? '',
+    label: value.name ?? '',
   }))
   ?.sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));

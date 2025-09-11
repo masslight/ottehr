@@ -1,8 +1,7 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { BatchInputGetRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { Appointment, Encounter } from 'fhir/r4b';
+import { Appointment, Encounter, Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   APPOINTMENT_NOT_FOUND_ERROR,
@@ -12,20 +11,23 @@ import {
   createOystehrClient,
   FHIR_ZAPEHR_URL,
   getAppointmentResourceById,
+  getLocationIdFromAppointment,
+  getLocationResource,
   getPatchBinary,
   getPatientContactEmail,
   getRelatedPersonForPatient,
   getSecret,
   Secrets,
   SecretsKeys,
+  TelemedCancelationTemplateData,
 } from 'utils';
 import {
   AuditableZambdaEndpoints,
   checkOrCreateM2MClientToken,
   createAuditEvent,
+  getEmailClient,
   getVideoEncounterForAppointment,
   sendSms,
-  sendVirtualCancellationEmail,
   validateBundleAndExtractAppointment,
   wrapHandler,
   ZambdaInput,
@@ -152,7 +154,7 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
   }
   const transactionBundle = await oystehr.fhir.transaction<Appointment | Encounter>({ requests: requests });
   console.log('getting appointment from transaction bundle');
-  const { appointment, scheduleResource, patient } = validateBundleAndExtractAppointment(transactionBundle);
+  const { appointment, patient } = validateBundleAndExtractAppointment(transactionBundle);
 
   console.groupEnd();
   console.debug('gettingEmailProps success');
@@ -175,13 +177,21 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
   const response: CancelTelemedAppointmentZambdaOutput = {};
 
   console.group('sendCancellationEmail');
+  const locationId = getLocationIdFromAppointment(appointment);
+  let location: Location | undefined;
+  if (locationId) location = await getLocationResource(locationId, oystehr);
+  const locationName = location?.name as string;
   try {
     const email = getPatientContactEmail(patient);
     if (email) {
-      await sendVirtualCancellationEmail({
-        toAddress: email,
-        secrets,
-      });
+      const emailClient = getEmailClient(secrets);
+      const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
+
+      const templateData: TelemedCancelationTemplateData = {
+        'book-again-url': `${WEBSITE_URL}/welcome`,
+        location: locationName!,
+      };
+      await emailClient.sendVirtualCancelationEmail(email, templateData);
     } else {
       throw Error('no email found');
     }

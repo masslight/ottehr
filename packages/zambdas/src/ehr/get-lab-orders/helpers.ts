@@ -37,6 +37,7 @@ import {
   getOrderNumber,
   getOrderNumberFromDr,
   isPositiveNumberOrZero,
+  LAB_DR_TYPE_TAG,
   LAB_ORDER_TASK,
   LabelPdf,
   LabOrderDetailedPageDTO,
@@ -902,6 +903,7 @@ export const checkForReflexDiagnosticReports = async (
             name: 'identifier',
             value: orderNumbersWithSystem.join(','),
           },
+          { name: '_tag', value: `${LAB_DR_TYPE_TAG.system}|${LAB_DR_TYPE_TAG.code.reflex}` }, // only grab those tagged with reflex
           { name: '_revinclude', value: 'Task:based-on' }, // review task
           { name: '_revinclude:iterate', value: 'DocumentReference:related' }, // result pdf
           { name: '_include', value: 'DiagnosticReport:performer' }, // lab org

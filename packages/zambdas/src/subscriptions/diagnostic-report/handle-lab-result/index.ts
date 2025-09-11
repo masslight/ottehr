@@ -100,6 +100,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       code: getCodeForNewTask(diagnosticReport, isUnsolicited, isUnsolicitedAndMatched),
     };
 
+    console.log('creating a new task with code: ', JSON.stringify(newTask.code));
+
     requests.push({
       method: 'POST',
       url: '/Task',

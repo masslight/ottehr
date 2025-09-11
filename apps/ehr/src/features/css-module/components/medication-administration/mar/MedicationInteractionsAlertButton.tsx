@@ -13,20 +13,29 @@ interface Props {
 
 export const MedicationInteractionsAlertButton: React.FC<Props> = ({ medication }) => {
   const [showInteractionAlerts, setShowInteractionAlerts] = useState(false);
-
+  const hasInteractionItems =
+    medication.interactions &&
+    (medication.interactions.allergyInteractions.length > 0 || medication.interactions.drugInteractions.length > 0);
+  const interactionsCheckFailed = !medication.interactions;
   return (
     <Box onClick={(e) => e.stopPropagation()}>
-      {medication.interactions &&
-      (medication.interactions.allergyInteractions.length > 0 ||
-        medication.interactions.drugInteractions.length > 0) ? (
+      {hasInteractionItems || interactionsCheckFailed ? (
         <GenericToolTip
           title={
-            'Interactions: ' + interactionsSummary(medication.interactions) + '. Click on alert icon to see details'
+            medication.interactions
+              ? 'Interactions: ' + interactionsSummary(medication.interactions) + '. Click on alert icon to see details'
+              : 'Drug-to-Drug and Drug-Allergy interaction check failed. Please review manually.'
           }
           customWidth="500px"
           placement="top"
         >
-          <IconButton onClick={() => setShowInteractionAlerts(true)}>
+          <IconButton
+            onClick={() => {
+              if (hasInteractionItems) {
+                setShowInteractionAlerts(true);
+              }
+            }}
+          >
             <PriorityHighOutlinedIcon
               style={{
                 width: '15px',

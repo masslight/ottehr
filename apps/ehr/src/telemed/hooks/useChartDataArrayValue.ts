@@ -34,10 +34,9 @@ export const useChartDataArrayValue = <
 } => {
   const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
   const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
+  const { setPartialChartData, chartData } = useChartData();
 
   const {
-    chartData,
-    setPartialChartData,
     isLoading: isChartDataLoading,
     chartData: currentFieldData,
     queryKey,
@@ -61,11 +60,12 @@ export const useChartDataArrayValue = <
             setPartialChartData({
               [name]: [...values, ...(data.chartData[name] as K)],
             });
-            // todo: use chartDataSetState or setPartialChartData instead of queryClient
+
             queryClient.setQueryData<typeof currentFieldData>(queryKey, (oldData) => ({
               ...oldData!,
               [name]: [...values, ...(data.chartData[name] as K)],
             }));
+
             resolve(true);
           },
           onError: (error) => {

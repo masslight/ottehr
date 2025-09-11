@@ -31,7 +31,10 @@ import {
   getSecret,
   isApiError,
   isPSCOrder,
+  LAB_ACCOUNT_NUMBER_SYSTEM,
   LAB_ORDER_TASK,
+  LAB_ORG_TYPE_CODING,
+  ModifiedOrderingLocation,
   ORDER_NUMBER_LEN,
   OrderableItemSearchResult,
   OrderableItemSpecimen,
@@ -56,7 +59,14 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
-    const { dx, encounter, orderableItem, psc, secrets } = validatedParameters;
+    const {
+      dx,
+      encounter,
+      orderableItem,
+      psc,
+      secrets,
+      orderingLocation: modifiedOrderingLocation,
+    } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
@@ -84,12 +94,10 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
     }
 
     console.log('encounter id', encounter.id);
-    const { labOrganization, coverage, location, patientId, existingOrderNumber } = await getAdditionalResources(
-      orderableItem,
-      encounter,
-      psc,
-      oystehr
-    );
+    const { labOrganization, coverage, patientId, existingOrderNumber, orderingLocation } =
+      await getAdditionalResources(orderableItem, encounter, psc, oystehr, modifiedOrderingLocation);
+
+    validateLabOrgAndOrderingLocationAndGetAccountNumber(labOrganization, orderingLocation);
 
     const requests: BatchInputRequest<FhirResource>[] = [];
     const serviceRequestFullUrl = `urn:uuid:${randomUUID()}`;
@@ -172,14 +180,13 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
         },
       ],
     };
-    if (location) {
-      serviceRequestConfig.locationReference = [
-        {
-          type: 'Location',
-          reference: `Location/${location.id}`,
-        },
-      ];
-    }
+    serviceRequestConfig.locationReference = [
+      {
+        type: 'Location',
+        reference: `Location/${orderingLocation.id}`,
+      },
+    ];
+
     if (coverage) {
       serviceRequestConfig.insurance = [
         {
@@ -231,11 +238,10 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
         ],
       },
     };
-    if (location) {
-      preSubmissionTaskConfig.location = {
-        reference: `Location/${location.id}`,
-      };
-    }
+
+    preSubmissionTaskConfig.location = {
+      reference: `Location/${orderingLocation.id}`,
+    };
 
     const aoeQRConfig = formatAoeQR(serviceRequestFullUrl, encounter.id || '', orderableItem);
     if (aoeQRConfig) {
@@ -258,7 +264,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
     const provenanceFullUrl = `urn:uuid:${randomUUID()}`;
     const provenanceConfig = getProvenanceConfig(
       serviceRequestFullUrl,
-      location?.id,
+      orderingLocation.id,
       curUserPractitionerId,
       attendingPractitionerId
     );
@@ -444,28 +450,34 @@ const getAdditionalResources = async (
   orderableItem: OrderableItemSearchResult,
   encounter: Encounter,
   psc: boolean,
-  oystehr: Oystehr
+  oystehr: Oystehr,
+  modifiedOrderingLocation: ModifiedOrderingLocation
 ): Promise<{
   labOrganization: Organization;
   patientId: string;
   coverage?: Coverage;
-  location?: Location;
   existingOrderNumber?: string;
+  orderingLocation: Location;
 }> => {
   const labName = orderableItem.lab.labName;
   const labGuid = orderableItem.lab.labGuid;
   const labOrganizationSearchRequest: BatchInputRequest<Organization> = {
     method: 'GET',
-    url: `/Organization?identifier=${labGuid}`,
+    url: `/Organization?type=${LAB_ORG_TYPE_CODING.system}|${LAB_ORG_TYPE_CODING.code}&identifier=${OYSTEHR_LAB_GUID_SYSTEM}|${labGuid}`,
   };
-  const encounterResourceSearch: BatchInputRequest<Patient | Location | Coverage | Account> = {
+  const encounterResourceSearch: BatchInputRequest<Patient | Coverage | Account> = {
     method: 'GET',
-    url: `/Encounter?_id=${encounter.id}&_include=Encounter:patient&_include=Encounter:location&_revinclude:iterate=Coverage:patient&_revinclude:iterate=Account:patient&_revinclude:iterate=ServiceRequest:encounter`,
+    url: `/Encounter?_id=${encounter.id}&_include=Encounter:patient&_revinclude:iterate=Coverage:patient&_revinclude:iterate=Account:patient&_revinclude:iterate=ServiceRequest:encounter`,
   };
 
-  console.log('searching for lab org and encounter resources');
+  const orderingLocationSearch: BatchInputRequest<Location> = {
+    method: 'GET',
+    url: `/Location?status=active&_id=${modifiedOrderingLocation.id}`,
+  };
+
+  console.log('searching for lab org, encounter, and ordering location resources');
   const searchResults: Bundle<FhirResource> = await oystehr.fhir.batch({
-    requests: [labOrganizationSearchRequest, encounterResourceSearch],
+    requests: [labOrganizationSearchRequest, encounterResourceSearch, orderingLocationSearch],
   });
 
   const labOrganizationSearchResults: Organization[] = [];
@@ -473,9 +485,9 @@ const getAdditionalResources = async (
   const accountSearchResults: Account[] = [];
   const serviceRequestsForBundle: ServiceRequest[] = [];
   let patientId: string | undefined;
-  let location: Location | undefined;
+  let orderingLocation: Location | undefined = undefined;
 
-  const resources = flattenBundleResources<Organization | Coverage | Patient | Location | Account | ServiceRequest>(
+  const resources = flattenBundleResources<Organization | Coverage | Patient | Account | ServiceRequest | Location>(
     searchResults
   );
 
@@ -483,8 +495,15 @@ const getAdditionalResources = async (
     if (resource.resourceType === 'Organization') labOrganizationSearchResults.push(resource);
     if (resource.resourceType === 'Coverage' && resource.status === 'active') coverageSearchResults.push(resource);
     if (resource.resourceType === 'Patient') patientId = resource.id;
-    if (resource.resourceType === 'Location') location = resource;
     if (resource.resourceType === 'Account' && resource.status === 'active') accountSearchResults.push(resource);
+    if (resource.resourceType === 'Location') {
+      if (
+        resource.identifier?.some(
+          (id) => id.system === LAB_ACCOUNT_NUMBER_SYSTEM && id.value && id.assigner && id.assigner?.reference
+        )
+      )
+        orderingLocation = resource;
+    }
 
     // only requests to the same lab that have not yet been submitted will be bundled
     if (
@@ -532,12 +551,15 @@ const getAdditionalResources = async (
     existingOrderNumber = getOrderNumber(serviceRequestsForBundle[0]);
   }
 
+  if (!orderingLocation) {
+    throw EXTERNAL_LAB_ERROR(`No location found matching selected office Location id ${modifiedOrderingLocation.id}`);
+  }
   return {
     labOrganization,
     patientId,
     coverage: patientPrimaryInsurance,
-    location,
     existingOrderNumber,
+    orderingLocation,
   };
 };
 
@@ -627,4 +649,40 @@ function createOrderNumber(length: number): string {
     result += chars[number % chars.length];
   });
   return result;
+}
+
+/**
+ * Ensures the ordering location is configured to order labs from the Lab Organization determined from the orderable item.
+ * If yes, grabs the order location's account number for that Lab Org. Errors otherwise.
+ * @param labOrganization
+ * @param orderingLocation
+ */
+function validateLabOrgAndOrderingLocationAndGetAccountNumber(
+  labOrganization: Organization,
+  orderingLocation: Location
+): string {
+  console.log('These are the Location identifiers', JSON.stringify(orderingLocation.identifier));
+  const orderingLocationLabInfo = orderingLocation.identifier?.find(
+    (id) => id.system === LAB_ACCOUNT_NUMBER_SYSTEM && id.assigner?.reference === `Organization/${labOrganization.id}`
+  );
+
+  if (!orderingLocationLabInfo) {
+    console.error(
+      `Ordering Location/${orderingLocation.id} is not configured to order labs from Oragnization/${labOrganization.id}`
+    );
+    throw EXTERNAL_LAB_ERROR(
+      `The '${orderingLocation.name}' location is not configured to order labs from ${labOrganization.name}`
+    );
+  }
+
+  if (!orderingLocationLabInfo.value) {
+    console.error(
+      `Ordering Location/${orderingLocation.id} missing account number for Oragnization/${labOrganization.id}`
+    );
+    throw EXTERNAL_LAB_ERROR(
+      `No account number found for ${labOrganization.name} for the ${orderingLocation.name} location`
+    );
+  }
+
+  return orderingLocationLabInfo.value;
 }

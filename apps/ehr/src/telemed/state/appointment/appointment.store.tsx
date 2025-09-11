@@ -324,7 +324,7 @@ const useGetAppointment = (
       throw new Error('fhir client not defined or appointmentId not provided');
     },
     enabled: Boolean(oystehr) && Boolean(appointmentId),
-    staleTime: 0,
+    staleTime: 5_000, // fast fix for the https://github.com/masslight/ottehr/issues/3776; It might be related to rerenders triggering refetching and React Query getting stuck in an infinite loading loop
   });
 
   const data = query.data;
@@ -529,12 +529,14 @@ export const useChartData = ({
 
       onSuccess?.(data);
 
-      // Initialize cache only if it doesn't exist
       const existingCache = queryClient.getQueryData<ChartDataState>(commonChartDataKey);
+      const isExistingCacheContainsCommonData = existingCache && Object.keys(existingCache.chartData || {}).length > 10;
+      const isDataContainsCommonChartData = Object.keys(data).length > 10;
 
-      if (!existingCache) {
+      if (!isExistingCacheContainsCommonData && isDataContainsCommonChartData) {
+        // initialize common cache
         queryClient.setQueryData(commonChartDataKey, {
-          chartData: data,
+          chartData: { ...data, ...existingCache?.chartData },
           isChartDataLoading: false,
         });
       }

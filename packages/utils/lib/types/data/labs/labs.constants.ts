@@ -56,6 +56,10 @@ export const EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE = {
 
 export const LAB_DR_TYPE_TAG = {
   system: 'result-type',
+  code: {
+    reflex: 'reflex',
+    unsolicited: 'unsolicited',
+  },
   display: {
     reflex: 'reflex',
     unsolicited: 'unsolicited',

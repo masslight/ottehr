@@ -19,6 +19,7 @@ import { Attachment, Patient } from 'fhir/r4b';
 import React, { ChangeEvent, FC, ReactElement, useCallback, useState } from 'react';
 import Cropper from 'react-easy-crop';
 import { Area, Point } from 'react-easy-crop';
+import { useAppointmentData } from 'src/telemed/state/appointment/appointment.store';
 import { uploadPatientProfilePhoto } from '../api/api';
 import {
   useEditPatientProfilePhotoMutation,
@@ -60,6 +61,7 @@ const VisuallyHiddenInput = styled('input')({
 
 const ProfilePhotoImagePicker: FC<ProfilePhotoImageProps> = ({ open, setOpen, patient, onUpdate }) => {
   const { oystehrZambda } = useApiClients();
+  const { appointmentRefetch } = useAppointmentData();
 
   const [photoProcessingState, setPhotoProcessingState] = useState<PhotoProcessingState | undefined>(undefined);
   const [currentProfileImage, setCurrentProfileImage] = useState<ProfileImageItem | undefined>(undefined);
@@ -77,6 +79,7 @@ const ProfilePhotoImagePicker: FC<ProfilePhotoImageProps> = ({ open, setOpen, pa
   const hasAttachedPhoto = !!currentProfileImage;
 
   const patientPhotoUrlUnsigned = patient?.photo?.at(0)?.url;
+
   const { isFetching: isPhotoLoading } = useGetSignedPatientProfilePhotoUrlQuery(
     patientPhotoUrlUnsigned,
     (profilePhotoResponse) => {
@@ -125,12 +128,13 @@ const ProfilePhotoImagePicker: FC<ProfilePhotoImageProps> = ({ open, setOpen, pa
         });
 
         onUpdate?.(patientData);
+        appointmentRefetch();
       } catch (error) {
         setSavingError(true);
         console.error('Error while updating Patient fhir resource: ', error);
       }
     },
-    [editPatientProfilePhotoMutation, onUpdate, patient]
+    [editPatientProfilePhotoMutation, onUpdate, patient, appointmentRefetch]
   );
 
   const clearPickedPhotoState = (): void => {

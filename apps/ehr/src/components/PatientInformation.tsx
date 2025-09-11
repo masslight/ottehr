@@ -41,6 +41,7 @@ const CopyFields = [
   "Policy holder's date of birth",
   'Full name',
   'Date of birth',
+  'Email',
 ];
 
 export default function PatientInformation({

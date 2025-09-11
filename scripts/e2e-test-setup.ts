@@ -1,7 +1,7 @@
 import { input, password } from '@inquirer/prompts';
 import Oystehr, { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
 import dotenv from 'dotenv';
-import { FhirResource, Location, Practitioner, Schedule } from 'fhir/r4b';
+import { FhirResource, HealthcareService, Location, Practitioner, Schedule } from 'fhir/r4b';
 import fs from 'fs';
 import {
   allLicensesForPractitioner,
@@ -116,7 +116,9 @@ async function getLocationsForTesting(
     ],
   });
 
-  const defaultGroupRelatedResourcesResponse = await oystehr.fhir.search<Location | Practitioner | Schedule>({
+  const defaultGroupRelatedResourcesResponse = await oystehr.fhir.search<
+    HealthcareService | Location | Practitioner | Schedule
+  >({
     resourceType: 'HealthcareService',
     params: [
       {

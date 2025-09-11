@@ -140,8 +140,8 @@ export class EditMedicationCard {
 
   async verifyRoute(route: string): Promise<void> {
     const dataTestId = this.getDataTestId(Field.ROUTE);
-    const input = this.#page.getByTestId(dataTestId).locator('input:not([aria-hidden="true"]):visible');
-    await expect(input).toHaveValue(route);
+    const input = this.#page.getByTestId(dataTestId).locator('div:text("' + route + '")');
+    await expect(input).toBeVisible();
   }
 
   async enterInstructions(instructions: string): Promise<void> {

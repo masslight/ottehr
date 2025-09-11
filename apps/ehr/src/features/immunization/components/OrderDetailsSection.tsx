@@ -38,16 +38,22 @@ export const OrderDetailsSection: React.FC = () => {
         />
       </Grid>
       <Grid xs={3} item>
-        <TextInput name="details.dose" label="Dose" type="number" required />
+        <TextInput
+          name="details.dose"
+          label="Dose"
+          type="number"
+          validate={(value: string) => (!(parseFloat(value) > 0) ? 'Dose must be positive' : true)}
+          required
+        />
       </Grid>
       <Grid xs={3} item>
         <SelectInput name="details.units" label="Units" options={UNIT_OPTIONS} required />
       </Grid>
       <Grid xs={6} item>
-        <SelectInput name="details.route" label="Route" options={ROUTE_OPTIONS} />
+        <AutocompleteInput name="details.route" label="Route" options={ROUTE_OPTIONS} />
       </Grid>
       <Grid xs={6} item>
-        <SelectInput name="details.location" label="Location" options={LOCATION_OPTIONS} />
+        <AutocompleteInput name="details.location" label="Location" options={LOCATION_OPTIONS} />
       </Grid>
       <Grid xs={12} item>
         <TextInput name="details.instructions" label="Instructions" multiline />

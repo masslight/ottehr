@@ -90,7 +90,7 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
                     onChange={(e) => setWeightValueText(e.target.value)}
                   />
                   <Typography fontSize={25} sx={{ ml: 1 }}>
-                    /
+                    =
                   </Typography>
                   <TextField
                     fullWidth

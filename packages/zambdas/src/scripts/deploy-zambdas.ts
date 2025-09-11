@@ -2,7 +2,7 @@ import Oystehr, { BatchInputDeleteRequest, BatchInputPostRequest, ZambdaCreatePa
 import { Subscription } from 'fhir/r4b';
 import fs from 'fs';
 import { SubscriptionZambdaDetails } from 'utils';
-import ottehrSpec from '../../../../config/ottehr-spec.json';
+import ottehrSpec from '../../../../config/oystehr/ottehr-spec.json';
 import { getAuth0Token } from '../shared';
 
 interface DeployZambda {

@@ -33,7 +33,7 @@ void (async () => {
     if (patientPortalDistribution && ehrDistribution) {
       const patientPortalUrl = `https://${patientPortalDistribution.DomainName}`;
       const ehrUrl = `https://${ehrDistribution.DomainName}`;
-      const accessToken = accessTokenFromConfig ?? await getM2MClientAccessToken(clientId, clientSecret);
+      const accessToken = accessTokenFromConfig ?? (await getM2MClientAccessToken(clientId, clientSecret));
       const oystehr = new Oystehr({
         accessToken,
         projectId,
