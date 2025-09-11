@@ -1,7 +1,11 @@
 import { Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { CssHeader } from 'tests/e2e/page/CssHeader';
-import { DocumentProcedurePage, openDocumentProcedurePage } from 'tests/e2e/page/DocumentProcedurePage';
+import {
+  DocumentProcedurePage,
+  expectDocumentProcedurePage,
+  openDocumentProcedurePage,
+} from 'tests/e2e/page/DocumentProcedurePage';
 import {
   InPersonProgressNotePage,
   openInPersonProgressNotePage,
@@ -92,36 +96,46 @@ test.describe('Document Procedures Page mutating tests', () => {
     await resourceHandler.cleanupResources();
   });
 
-  test('Fill and save all values on Document Procedures Page, values are saved and updated successfully- Happy path', async ({
-    page,
-  }) => {
-    let documentProcedurePage = await openDocumentProcedurePage(resourceHandler.appointment.id!, page);
-    await enterProcedureInfo(PROCEDURE_A, documentProcedurePage);
-    let proceduresPage = await documentProcedurePage.clickSaveButton();
-    let procedureRow = proceduresPage.getProcedureRow(PROCEDURE_A.procedureType);
-    await verifyProcedureRow(PROCEDURE_A, procedureRow);
+  test('Procedures happy path', async ({ page }) => {
+    await test.step('Create a procedure', async () => {
+      const documentProcedurePage = await openDocumentProcedurePage(resourceHandler.appointment.id!, page);
+      await enterProcedureInfo(PROCEDURE_A, documentProcedurePage);
+      const proceduresPage = await documentProcedurePage.clickSaveButton();
+      const procedureRow = proceduresPage.getProcedureRow(PROCEDURE_A.procedureType);
+      await verifyProcedureRow(PROCEDURE_A, procedureRow);
+    });
 
-    let progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
-    await progressNotePage.verifyProcedure(PROCEDURE_A.procedureType, progressNoteProcedureDetails(PROCEDURE_A));
+    await test.step('Verify prodecure details on progress note', async () => {
+      const progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
+      await progressNotePage.verifyProcedure(PROCEDURE_A.procedureType, progressNoteProcedureDetails(PROCEDURE_A));
+    });
 
-    proceduresPage = await openProceduresPage(resourceHandler.appointment.id!, page);
-    procedureRow = proceduresPage.getProcedureRow(PROCEDURE_A.procedureType);
-    documentProcedurePage = await procedureRow.click();
-    await verifyProcedureInfo(PROCEDURE_A, documentProcedurePage);
-    await enterProcedureInfo(PROCEDURE_B, documentProcedurePage);
-    await documentProcedurePage.deleteDiagnosis(PROCEDURE_A.diagnosisName + ' ' + PROCEDURE_A.diagnosisCode);
-    proceduresPage = await documentProcedurePage.clickSaveButton();
+    await test.step('Verify prodecure details on procedure details page', async () => {
+      const proceduresPage = await openProceduresPage(resourceHandler.appointment.id!, page);
+      const documentProcedurePage = await proceduresPage.getProcedureRow(PROCEDURE_A.procedureType).click();
+      await verifyProcedureInfo(PROCEDURE_A, documentProcedurePage);
+    });
 
-    procedureRow = proceduresPage.getProcedureRow(PROCEDURE_B.procedureType);
-    await verifyProcedureRow(PROCEDURE_B, procedureRow);
+    await test.step('Edit the procedure', async () => {
+      const documentProcedurePage = await expectDocumentProcedurePage(page);
+      await enterProcedureInfo(PROCEDURE_B, documentProcedurePage);
+      await documentProcedurePage.deleteDiagnosis(PROCEDURE_A.diagnosisName + ' ' + PROCEDURE_A.diagnosisCode);
+      const proceduresPage = await documentProcedurePage.clickSaveButton();
+      const procedureRow = proceduresPage.getProcedureRow(PROCEDURE_B.procedureType);
+      await verifyProcedureRow(PROCEDURE_B, procedureRow);
+    });
 
-    progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
-    await progressNotePage.verifyProcedure(PROCEDURE_B.procedureType, progressNoteProcedureDetails(PROCEDURE_B));
+    await test.step('Verify edited prodecure details on progress note', async () => {
+      const progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
+      await progressNotePage.verifyProcedure(PROCEDURE_B.procedureType, progressNoteProcedureDetails(PROCEDURE_B));
+    });
 
-    proceduresPage = await openProceduresPage(resourceHandler.appointment.id!, page);
-    procedureRow = proceduresPage.getProcedureRow(PROCEDURE_B.procedureType);
-    documentProcedurePage = await procedureRow.click();
-    await verifyProcedureInfo(PROCEDURE_B, documentProcedurePage);
+    await test.step('Verify edited prodecure details on procedure details page', async () => {
+      const proceduresPage = await openProceduresPage(resourceHandler.appointment.id!, page);
+      const procedureRow = proceduresPage.getProcedureRow(PROCEDURE_B.procedureType);
+      const documentProcedurePage = await procedureRow.click();
+      await verifyProcedureInfo(PROCEDURE_B, documentProcedurePage);
+    });
   });
 
   async function setupPractitioners(page: Page): Promise<void> {

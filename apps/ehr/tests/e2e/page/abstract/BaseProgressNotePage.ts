@@ -40,6 +40,7 @@ export abstract class BaseProgressNotePage {
       await matcher.toContainText(procedureDetail);
     }
   }
+
   async verifyInHouseLabs(sectionTitle: string, testName: string): Promise<void> {
     await expect(this.#page.getByTestId(dataTestIds.progressNotePage.labsTitle(sectionTitle))).toBeVisible();
     await expect(this.#page.getByTestId(dataTestIds.progressNotePage.labsTitle(sectionTitle))).toContainText(testName);
