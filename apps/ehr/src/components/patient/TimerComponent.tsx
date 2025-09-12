@@ -60,15 +60,12 @@ export const TimerComponent: React.FC = () => {
       return false;
     }
 
-    // Sort by start time to get chronological order
     const sortedHistory = [...encounter.statusHistory].sort(
       (a, b) => new Date(a.period.start).getTime() - new Date(b.period.start).getTime()
     );
 
-    // Get the last status event
     const lastStatus = sortedHistory[sortedHistory.length - 1];
 
-    // If the last status is 'onleave', the timer is paused
     return lastStatus?.status === 'onleave';
   };
 
@@ -86,11 +83,8 @@ export const TimerComponent: React.FC = () => {
           if (encounter) {
             setCurrentEncounter(encounter);
             const totalTime = extractTotalTimeFromResponse(encounter);
-
-            // Determine if timer is paused by checking the last statusHistory entry
             const isPausedFromHistory = isEncounterPaused(encounter);
 
-            // Always prioritize the API state over localStorage for running encounters
             setTime(totalTime);
             if (encounter.status === 'in-progress') {
               setIsRunning(true);
@@ -132,29 +126,24 @@ export const TimerComponent: React.FC = () => {
         return parseInt(totalTimeIdentifier.value, 10) || 0;
       }
 
-      // If we have statusHistory, calculate time based on active periods
       if (data?.statusHistory && Array.isArray(data.statusHistory)) {
         let totalSeconds = 0;
         let lastStartTime: Date | null = null;
 
-        // Sort statusHistory by period start time
         const sortedHistory = [...data.statusHistory].sort(
           (a, b) => new Date(a.period.start).getTime() - new Date(b.period.start).getTime()
         );
 
         for (const statusEvent of sortedHistory) {
           if (statusEvent.status === 'in-progress' && !lastStartTime) {
-            // Start of an active period
             lastStartTime = new Date(statusEvent.period.start);
           } else if ((statusEvent.status === 'onleave' || statusEvent.status === 'finished') && lastStartTime) {
-            // End of an active period - calculate the duration
             const endTime = new Date(statusEvent.period.start);
             totalSeconds += Math.floor((endTime.getTime() - lastStartTime.getTime()) / 1000);
             lastStartTime = null;
           }
         }
 
-        // If there's an ongoing active period (no end time yet)
         if (lastStartTime && data.status === 'in-progress') {
           totalSeconds += Math.floor((Date.now() - lastStartTime.getTime()) / 1000);
         }
@@ -162,15 +151,12 @@ export const TimerComponent: React.FC = () => {
         return Math.max(0, totalSeconds);
       }
 
-      // Fallback to simple period calculation if no statusHistory
       if (data?.period?.start) {
         const startTime = new Date(data.period.start).getTime();
-        // If encounter is paused, don't count current time - use the start time only
         if (data.status === 'onhold' || data.status === 'finished') {
           const endTime = data.period.end ? new Date(data.period.end).getTime() : startTime;
           return Math.floor((endTime - startTime) / 1000);
         } else {
-          // If still running, count up to current time
           const currentTime = Date.now();
           return Math.floor((currentTime - startTime) / 1000);
         }
@@ -220,16 +206,32 @@ export const TimerComponent: React.FC = () => {
   }, [isRunning, isPaused]);
 
   useEffect(() => {
-    const handleBeforeUnload = (): void => {
-      localStorage.setItem('timerState', JSON.stringify({ time, isRunning, isPaused }));
+    const handleBeforeUnload = (e: BeforeUnloadEvent): void => {
+      if (isRunning || time > 0) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+
+    const handlePageHide = (): any => {
+      if (isRunning || time > 0) {
+        updateTimerMutation.mutate('discard');
+        localStorage.removeItem('timerState');
+        setIsRunning(false);
+        setIsPaused(false);
+        setCurrentEncounter(null);
+        setTime(0);
+      }
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handlePageHide);
 
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handlePageHide);
     };
-  }, [time, isRunning, isPaused]);
+  }, [isRunning, time, updateTimerMutation]);
 
   const formatTime = useCallback((totalSeconds: number): string => {
     const hours = Math.floor(totalSeconds / 3600);
@@ -345,13 +347,23 @@ export const TimerComponent: React.FC = () => {
           ) : (
             <>
               <Tooltip title={isPaused ? 'Resume timer' : 'Pause timer'}>
-                <IconButton color="primary" size="large" sx={{ border: '1px solid' }} onClick={handlePauseResume}>
+                <IconButton
+                  color="primary"
+                  size="large"
+                  sx={{ border: '1px solid', padding: '6px' }}
+                  onClick={handlePauseResume}
+                >
                   {isPaused ? <PlayArrow /> : <Pause />}
                 </IconButton>
               </Tooltip>
 
               <Tooltip title="Stop timer">
-                <IconButton sx={{ border: '1px solid' }} color="error" size="large" onClick={handleStop}>
+                <IconButton
+                  sx={{ border: '1px solid', padding: '6px' }}
+                  color="error"
+                  size="large"
+                  onClick={handleStop}
+                >
                   <Stop />
                 </IconButton>
               </Tooltip>

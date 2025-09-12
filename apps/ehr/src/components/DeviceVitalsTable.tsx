@@ -4,10 +4,8 @@ import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import moment from 'moment-timezone';
 import React, { useState } from 'react';
 import { useQuery } from 'react-query';
-import { useNavigate } from 'react-router-dom';
 import { getVitals } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
-import CustomBreadcrumbs from './CustomBreadcrumbs';
 
 interface VitalsData {
   message: string;
@@ -34,12 +32,13 @@ interface Threshold {
   }>;
 }
 
-interface DeviceVitalsProps {
+export interface DeviceVitalsProps {
   vitalsData?: VitalsData;
   deviceId: string;
   name: string;
   patientId: string;
   loading?: boolean;
+  isModal?: boolean;
   firstName?: string;
   lastName?: string;
   thresholds?: Threshold[];
@@ -47,13 +46,19 @@ interface DeviceVitalsProps {
   onBack?: () => void;
 }
 
-export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({ name, deviceType, patientId, deviceId, onBack }) => {
+export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({
+  name,
+  isModal,
+  deviceType,
+  patientId,
+  deviceId,
+  onBack,
+}) => {
   console.log(deviceType);
   const [paginationModel, setPaginationModel] = useState({
     pageSize: 5,
     page: 0,
   });
-  const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
 
   const { data: vitalsData, isLoading } = useQuery(
@@ -493,38 +498,37 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({ name, deviceTyp
 
   return (
     <Paper sx={{ padding: 3 }} component={Stack} spacing={2}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'start', gap: 5 }}>
-          <Typography variant="h4" color="primary.dark" sx={{ flexGrow: 1 }}>
-            Device Vitals
-          </Typography>
+      {!isModal && (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'start', gap: 5 }}>
+            <Typography variant="h4" color="primary.dark" sx={{ flexGrow: 1 }}>
+              Device Vitals
+            </Typography>
+          </Box>
+          <Button variant="outlined" startIcon={<ArrowBackIcon />} onClick={onBack} sx={{ marginBottom: '10' }}>
+            Back
+          </Button>
         </Box>
-        <Button variant="outlined" startIcon={<ArrowBackIcon />} onClick={onBack} sx={{ marginBottom: '10' }}>
-          Back
-        </Button>
+      )}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Typography
+          component="span"
+          sx={{ cursor: 'pointer', color: 'primary.dark', fontWeight: 600 }}
+          onClick={onBack}
+        >
+          Devices
+        </Typography>
+        <Typography component="span" color="text.secondary">
+          /
+        </Typography>
+        {isLoading ? (
+          <Skeleton width={150} />
+        ) : (
+          <Typography component="span" sx={{ fontWeight: 500 }}>
+            {name ?? '-'}
+          </Typography>
+        )}
       </Box>
-      <CustomBreadcrumbs
-        chain={[
-          {
-            link: '#',
-            children: (
-              <span onClick={() => navigate(-1)} style={{ cursor: 'pointer' }}>
-                Devices
-              </span>
-            ),
-          },
-          {
-            link: '#',
-            children: isLoading ? (
-              <Skeleton width={150} />
-            ) : (
-              <Typography component="span" sx={{ fontWeight: 500 }}>
-                {name ?? '-'}
-              </Typography>
-            ),
-          },
-        ]}
-      />
 
       {rows.length > 0 && columns.length > 0 ? (
         <DataGridPro

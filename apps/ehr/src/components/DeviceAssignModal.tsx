@@ -191,15 +191,15 @@ export const DeviceAssignmentModal: FC<DeviceAssignmentModalProps> = ({
         </FormControl>
 
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-          <Button variant="outlined" onClick={onClose} disabled={isAssigning}>
-            Cancel
-          </Button>
           <Button variant="contained" onClick={handleAssign} disabled={selectedDevices.length === 0 || isAssigning}>
             {isAssigning ? (
               <CircularProgress size={24} color="inherit" />
             ) : (
               `Assign Devices (${selectedDevices.length})`
             )}
+          </Button>
+          <Button variant="outlined" onClick={onClose} disabled={isAssigning}>
+            Cancel
           </Button>
         </Box>
       </Box>

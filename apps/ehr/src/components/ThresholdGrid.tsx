@@ -1,4 +1,5 @@
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import {
   Alert,
   AlertColor,
@@ -15,11 +16,13 @@ import {
   TextField,
   Tooltip,
 } from '@mui/material';
+import { IconButton } from '@mui/material';
 import { ReactElement, useCallback, useState } from 'react';
 import { useMutation, useQuery } from 'react-query';
 import { useParams } from 'react-router-dom';
-import { getPatientBaselines, updatePatientBaselines } from 'src/api/api';
+import { getDevices, getPatientBaselines, updatePatientBaselines } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { DeviceVitalsModal } from './DeviceVitalsModal';
 
 type Metric = 'Systolic' | 'Diastolic' | 'Glucose' | 'Weight (in pounds)';
 
@@ -44,6 +47,73 @@ export function ThresholdsTable(): ReactElement {
   const [toastOpen, setToastOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastSeverity, setToastSeverity] = useState<AlertColor>('info');
+  const [devicesForModal, setDevicesForModal] = useState<any[]>([]);
+  const [_assignedDevices, setAssignedDevices] = useState<any[]>([]);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedDeviceType, setSelectedDeviceType] = useState<string | null>(null);
+
+  const metricToDeviceType: Record<Metric, string> = {
+    Systolic: 'BP',
+    Diastolic: 'BP',
+    Glucose: 'BG',
+    'Weight (in pounds)': 'WS',
+  };
+
+  const payload = {
+    offset: 0,
+    count: 500,
+    patientId: patientId ? `Patient/${patientId}` : undefined,
+  };
+
+  const { refetch: refetchDevices } = useQuery(
+    ['get-devices', { patientId, oystehrZambda }],
+    () => (oystehrZambda ? getDevices(payload, oystehrZambda) : null),
+    {
+      enabled: false,
+      onSuccess: (response: any) => {
+        if (response?.devices) {
+          const devices = response.devices.map((device: any) => ({
+            id: device.id,
+            name: device?.identifier?.[0]?.value || '-',
+            distinctIdentifier: device.distinctIdentifier || '-',
+            deviceType: device.distinctIdentifier || '',
+          }));
+          setAssignedDevices(devices);
+        } else {
+          setAssignedDevices([]);
+        }
+      },
+    }
+  );
+
+  const handleViewVitals = async (event: React.MouseEvent<HTMLElement>, row: ThresholdRow): Promise<void> => {
+    const deviceType = metricToDeviceType[row.metric];
+    setSelectedDeviceType(deviceType);
+    const response = await refetchDevices();
+
+    if (response.data?.devices) {
+      const devices = response.data.devices.map((device: any) => ({
+        id: device.id,
+        name: device?.identifier?.[0]?.value || '-',
+        manufacturer: device.manufacturer || '-',
+        lastUpdated: device?.meta?.lastUpdated || '-',
+        serialNumber: device?.serialNumber || '-',
+        modelNumber: device?.modelNumber || '-',
+        distinctIdentifier: device.distinctIdentifier || '-',
+        property: device.property || [],
+        deviceType: device.distinctIdentifier || '',
+      }));
+
+      const filteredDevices = devices.filter((d: any) => d.deviceType === deviceType);
+      setDevicesForModal(filteredDevices);
+
+      if (filteredDevices.length > 0) {
+        setModalOpen(true);
+      } else {
+        showToast(`No ${deviceType} devices found for this patient`, 'warning');
+      }
+    }
+  };
 
   const showToast = useCallback((message: string, severity: AlertColor = 'info') => {
     setToastMessage(message);
@@ -105,7 +175,6 @@ export function ThresholdsTable(): ReactElement {
     onSuccess: (response: any) => {
       const message = response?.message || 'Thresholds updated successfully';
       showToast(message, 'success');
-      // Update original rows after successful update
       setOriginalRows(rows);
     },
     onError: (error: any) => {
@@ -194,6 +263,7 @@ export function ThresholdsTable(): ReactElement {
             <Table>
               <TableHead>
                 <TableRow>
+                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>View Vitals</TableCell>
                   <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Metric</TableCell>
                   <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Baseline</TableCell>
                   <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Variance (%)</TableCell>
@@ -203,6 +273,9 @@ export function ThresholdsTable(): ReactElement {
               <TableBody>
                 {[1, 2, 3, 4].map((i) => (
                   <TableRow key={i}>
+                    <TableCell sx={{ py: 0.7, px: 2 }}>
+                      <Skeleton width={10} />
+                    </TableCell>
                     <TableCell sx={{ py: 0.7, px: 2 }}>
                       <Skeleton width={120} />
                     </TableCell>
@@ -225,6 +298,7 @@ export function ThresholdsTable(): ReactElement {
             <Table>
               <TableHead>
                 <TableRow>
+                  <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>View Vitals</TableCell>
                   <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Metric</TableCell>
                   <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Baseline</TableCell>
                   <TableCell sx={{ fontWeight: 'bold', py: 0.7, px: 2 }}>Variance (%)</TableCell>
@@ -247,6 +321,12 @@ export function ThresholdsTable(): ReactElement {
 
                   return (
                     <TableRow key={row.metric}>
+                      <TableCell sx={{ py: 0.7, px: 2 }}>
+                        <IconButton onClick={(e) => handleViewVitals(e, row)}>
+                          <VisibilityIcon fontSize="small" sx={{ color: 'primary.main' }} />
+                        </IconButton>
+                      </TableCell>
+
                       <TableCell sx={{ py: 0.7, px: 2 }}>{row.metric}</TableCell>
 
                       <TableCell sx={{ py: 0.7, px: 2 }}>
@@ -311,6 +391,15 @@ export function ThresholdsTable(): ReactElement {
           </TableContainer>
         )}
       </Box>
+
+      <DeviceVitalsModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        devices={devicesForModal}
+        deviceType={selectedDeviceType || ''}
+        patientId={patientId || ''}
+      />
+
       <Snackbar
         open={toastOpen}
         autoHideDuration={6000}

@@ -44,11 +44,11 @@ export const ConfirmationModal: FC<ConfirmationModalProps> = ({
           {message}
         </Typography>
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-          <Button onClick={onClose} disabled={loading}>
-            {cancelText}
-          </Button>
           <Button onClick={onConfirm} variant="contained" color="primary" disabled={loading}>
             {loading ? 'Loading...' : confirmText}
+          </Button>
+          <Button onClick={onClose} disabled={loading}>
+            {cancelText}
           </Button>
         </Box>
       </Box>

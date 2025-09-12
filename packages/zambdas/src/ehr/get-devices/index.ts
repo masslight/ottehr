@@ -32,6 +32,7 @@ export const index = wrapHandler('get-devices', async (input: ZambdaInput): Prom
         ...(body.count ? [{ name: '_count', value: body.count }] : []),
         ...(body.offset || body.count ? [{ name: '_total', value: 'accurate' }] : []),
         ...(body.patientId ? [{ name: 'patient', value: body.patientId }] : []),
+        ...(body.deviceId ? [{ name: '_id', value: body.deviceId }] : []),
         ...(Object.prototype.hasOwnProperty.call(body, 'missing')
           ? [{ name: 'patient:missing', value: body.missing }]
           : []),

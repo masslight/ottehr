@@ -1,6 +1,13 @@
 import { useContext, useEffect } from 'react';
 import { UNSAFE_NavigationContext } from 'react-router-dom';
 
+// Helper to normalize React Router's "To" into a string path
+const toPath = (to: any): string => {
+  if (typeof to === 'string') return to;
+  if (typeof to?.pathname === 'string') return to.pathname;
+  return '';
+};
+
 export function useBlocker(blocker: (tx: any) => void, when = true): void {
   const navigator = useContext(UNSAFE_NavigationContext).navigator;
 
@@ -12,11 +19,21 @@ export function useBlocker(blocker: (tx: any) => void, when = true): void {
     const go = navigator.go;
 
     navigator.push = (...args: Parameters<typeof push>) => {
-      blocker({ retry: () => push(...args) });
+      const nextUrl = toPath(args[0]);
+      if (nextUrl.includes('/patient/')) {
+        push(...args);
+      } else {
+        blocker({ retry: () => push(...args), location: { pathname: nextUrl } });
+      }
     };
 
     navigator.replace = (...args: Parameters<typeof replace>) => {
-      blocker({ retry: () => replace(...args) });
+      const nextUrl = toPath(args[0]);
+      if (nextUrl.includes('/patient/')) {
+        replace(...args);
+      } else {
+        blocker({ retry: () => replace(...args), location: { pathname: nextUrl } });
+      }
     };
 
     navigator.go = (delta: number) => {
@@ -33,13 +50,13 @@ export function useBlocker(blocker: (tx: any) => void, when = true): void {
     };
 
     const handleBeforeUnload = (e: BeforeUnloadEvent): void => {
+      const navEntries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
+      const navType = navEntries.length > 0 ? navEntries[0].type : 'navigate';
+
+      if (navType === 'reload') {
+        return;
+      }
       e.preventDefault();
-      blocker({
-        retry: () => {
-          window.removeEventListener('beforeunload', handleBeforeUnload);
-          window.close();
-        },
-      });
       e.returnValue = '';
     };
 
@@ -54,7 +71,6 @@ export function useBlocker(blocker: (tx: any) => void, when = true): void {
       }
     };
 
-    history.pushState(null, '', window.location.href);
     window.addEventListener('popstate', handlePopState);
     window.addEventListener('beforeunload', handleBeforeUnload);
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -63,8 +79,8 @@ export function useBlocker(blocker: (tx: any) => void, when = true): void {
       navigator.push = push;
       navigator.replace = replace;
       navigator.go = go;
-      window.removeEventListener('popstate', handlePopState);
       window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('popstate', handlePopState);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [navigator, blocker, when]);

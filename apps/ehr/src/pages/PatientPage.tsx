@@ -1,7 +1,7 @@
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Paper, Skeleton, Stack, Tab, Typography } from '@mui/material';
-import { useMemo, useState } from 'react';
-import { useLocation, useParams } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { DeviceVitalsPage } from 'src/components/DeviceVitalsPage';
 import { PatientDevicesTab } from 'src/components/PatientDevicesTab';
 import { PatientInHouseLabsTab } from 'src/components/PatientInHouseLabsTab';
@@ -22,6 +22,7 @@ import PageContainer from '../layout/PageContainer';
 export default function PatientPage(): JSX.Element {
   const { id } = useParams();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const [tab, setTab] = useState(location.state?.defaultTab || 'encounters');
   const [selectedDevice, setSelectedDevice] = useState<{
     id: string;
@@ -42,6 +43,23 @@ export default function PatientPage(): JSX.Element {
   const latestAppointment = appointments?.[0];
 
   console.log('selectedDevice', selectedDevice);
+
+  useEffect(() => {
+    const deviceId = searchParams.get('deviceId');
+    if (deviceId) {
+      setTab('devices');
+      if (location.state?.selectedDevice) {
+        setSelectedDevice(location.state.selectedDevice);
+      } else {
+        setSelectedDevice({
+          id: deviceId,
+          deviceType: '',
+          thresholds: [],
+          name: '-',
+        });
+      }
+    }
+  }, [searchParams, location.state]);
 
   return (
     <>
