@@ -153,7 +153,7 @@ function composeDataForDischargeSummaryPdf(
 
   // --- Visit information ---
   const { type } = getAppointmentType(appointment);
-  const { date = '', time = '' } = formatDateToMDYWithTime(appointment?.start) ?? {};
+  const { date = '', time = '' } = formatDateToMDYWithTime(appointment?.start, timezone ?? 'America/New_York') ?? {};
   const locationName = location?.name ?? '';
   const reasonForVisit = appointment?.description ?? '';
 
@@ -256,7 +256,8 @@ function composeDataForDischargeSummaryPdf(
   const { firstName: physicianFirstName, lastName: physicianLastName } = attenderPractitioner
     ? parseParticipantInfo(attenderPractitioner)
     : {};
-  const { date: dischargedDate, time: dischargeTime } = formatDateToMDYWithTime(attenderParticipant?.period?.end) ?? {};
+  const { date: dischargedDate, time: dischargeTime } =
+    formatDateToMDYWithTime(attenderParticipant?.period?.end, timezone ?? 'America/New_York') ?? {};
   const dischargeDateTime = dischargedDate && dischargeTime ? `${dischargedDate} at ${dischargeTime}` : undefined;
 
   return {

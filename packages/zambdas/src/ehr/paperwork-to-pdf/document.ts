@@ -9,7 +9,7 @@ import {
   QuestionnaireResponseItem,
   QuestionnaireResponseItemAnswer,
 } from 'fhir/r4b';
-import { formatDateToMDYWithTime, getAppointmentType, getCanonicalQuestionnaire } from 'utils';
+import { formatDateToMDYWithTime, getAppointmentType, getCanonicalQuestionnaire, getTimezone, TIMEZONES } from 'utils';
 import { assertDefined } from '../../shared/helpers';
 
 export interface Document {
@@ -73,7 +73,8 @@ export async function createDocument(
   });
 
   const { type } = getAppointmentType(appointment);
-  const { date = '', time = '' } = formatDateToMDYWithTime(appointment?.start) ?? {};
+  const timezone = location ? getTimezone(location) : TIMEZONES[0];
+  const { date = '', time = '' } = formatDateToMDYWithTime(appointment?.start, timezone ?? 'America/New_York') ?? {};
   const locationName = location?.name ?? '';
 
   return {
