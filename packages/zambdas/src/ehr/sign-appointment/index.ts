@@ -98,19 +98,32 @@ export const performEffect = async (
   }
 
   let candidEncounterId: string | undefined;
-  try {
-    console.log('[CLAIM SUBMISSION] Attempting to create encounter in candid...');
-    candidEncounterId = await createEncounterFromAppointment(visitResources, secrets, oystehr);
-  } catch (error) {
-    console.error(`Error creating Candid encounter: ${error}, stringified error: ${JSON.stringify(error)}`);
-    captureException(error, {
-      tags: {
-        appointmentId,
-        encounterId: encounter.id,
-      },
-    });
+
+  // Check if candid encounter ID already exists in encounter identifier
+  const existingCandidEncounterId = encounter.identifier?.find(
+    (identifier) => identifier.system === CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM
+  )?.value;
+
+  if (existingCandidEncounterId) {
+    console.log(
+      `[CLAIM SUBMISSION] Candid encounter already exists with ID ${existingCandidEncounterId}, skipping creation`
+    );
+    candidEncounterId = existingCandidEncounterId;
+  } else {
+    try {
+      console.log('[CLAIM SUBMISSION] Attempting to create encounter in candid...');
+      candidEncounterId = await createEncounterFromAppointment(visitResources, secrets, oystehr);
+    } catch (error) {
+      console.error(`Error creating Candid encounter: ${error}, stringified error: ${JSON.stringify(error)}`);
+      captureException(error, {
+        tags: {
+          appointmentId,
+          encounterId: encounter.id,
+        },
+      });
+    }
+    console.log(`[CLAIM SUBMISSION] Candid encounter created with ID ${candidEncounterId}`);
   }
-  console.log(`[CLAIM SUBMISSION] Candid encounter created with ID ${candidEncounterId}`);
 
   console.log(`appointment and encounter statuses: ${appointment.status}, ${encounter.status}`);
   const currentStatus = getVisitStatus(appointment, encounter);
