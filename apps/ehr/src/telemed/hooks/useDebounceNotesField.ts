@@ -1,6 +1,6 @@
 import { enqueueSnackbar } from 'notistack';
 import { useRef } from 'react';
-import { ChartDataFields } from 'utils';
+import { ChartDataFields, GetChartDataResponse } from 'utils';
 import { useChartData, useDeleteChartData, useSaveChartData } from '../state';
 
 type ChartDataTextValueType = Pick<
@@ -34,7 +34,12 @@ const requestedFieldsOptions: Partial<Record<keyof ChartDataTextValueType, { _ta
 
 export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
   name: T
-): { onValueChange: (text: string) => void; isLoading: boolean; isChartDataLoading: boolean } => {
+): {
+  onValueChange: (text: string) => void;
+  isLoading: boolean;
+  isChartDataLoading: boolean;
+  hasPendingApiRequests: boolean; // we can use it later to prevent navigation if there are pending api requests
+} => {
   const { chartData, setPartialChartData } = useChartData();
   const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
   const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
@@ -49,45 +54,92 @@ export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
     },
   });
 
-  const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const isLoading = isSaveLoading || isDeleteLoading;
 
+  // timer for debounce user type
+  const inputDebounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // timer for debounce api calls
+  const apiDebounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // flag to track if there are any api requests in progress
+  const hasPendingApiRequestsRef = useRef(false);
+
+  // actual value from server
+  const latestValueFromServerRef = useRef<GetChartDataResponse[T] | undefined>();
+
+  // actual value from user, the latest text typed into the input
+  const latestValueFromUserRef = useRef<string>('');
+
   const onValueChange = (text: string): void => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = undefined;
+    latestValueFromUserRef.current = text.trim();
+
+    if (inputDebounceRef.current) {
+      clearTimeout(inputDebounceRef.current);
     }
-    timeoutRef.current = setTimeout(() => {
-      text = text.trim();
+
+    inputDebounceRef.current = setTimeout(() => {
+      if (hasPendingApiRequestsRef.current) {
+        clearTimeout(apiDebounceRef.current);
+
+        apiDebounceRef.current = setTimeout(() => {
+          onValueChange(latestValueFromUserRef.current);
+        }, 500);
+
+        // need to handle current api call first
+        return;
+      }
+
+      hasPendingApiRequestsRef.current = true;
+
       const variables = {
         [name]: {
-          resourceId: chartData?.[name]?.resourceId,
-          [nameToTypeEnum[name]]: text,
+          resourceId: chartData?.[name]?.resourceId || latestValueFromServerRef.current?.resourceId,
+          [nameToTypeEnum[name]]: latestValueFromUserRef.current,
         },
       };
-      if (text) {
+
+      if (latestValueFromUserRef.current) {
         saveChartData(variables, {
           onSuccess: (data) => {
-            setPartialChartData({ [name]: data.chartData[name] });
+            const valueToSave = data.chartData[name];
+
+            // skip ui update if value was changed, we need to set only actual value
+            if (latestValueFromUserRef.current === valueToSave?.[nameToTypeEnum[name]]) {
+              setPartialChartData({ [name]: valueToSave });
+            }
+
+            hasPendingApiRequestsRef.current = false;
+            latestValueFromServerRef.current = valueToSave;
           },
           onError: () => {
             enqueueSnackbar(`${mapValueToLabel[name]} field was not saved. Please change it's value to try again.`, {
               variant: 'error',
             });
+            hasPendingApiRequestsRef.current = false;
           },
         });
       } else {
-        setPartialChartData({ [name]: undefined });
         deleteChartData(variables, {
+          onSuccess: () => {
+            // skip ui update if value was changed, we need to set only actual value
+            if (latestValueFromUserRef.current === '') {
+              setPartialChartData({ [name]: undefined });
+            }
+
+            hasPendingApiRequestsRef.current = false;
+            latestValueFromServerRef.current = undefined;
+          },
           onError: () => {
             enqueueSnackbar(`${mapValueToLabel[name]} field was not saved. Please change it's value to try again.`, {
               variant: 'error',
             });
+            hasPendingApiRequestsRef.current = false;
           },
         });
       }
-    }, 700);
+    }, 500);
   };
 
-  return { onValueChange, isLoading, isChartDataLoading };
+  return { onValueChange, isLoading, isChartDataLoading, hasPendingApiRequests: hasPendingApiRequestsRef.current };
 };
