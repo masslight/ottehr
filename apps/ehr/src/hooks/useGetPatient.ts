@@ -31,7 +31,7 @@ import {
   ServiceMode,
   useSuccessQuery,
 } from 'utils';
-import ehrInsuranceUpdateFormJson from 'utils/lib/deployed-resources/questionnaires/ehr-insurance-update-questionnaire.json';
+import ehrInsuranceUpdateFormJson from '../../../../config/oystehr/ehr-insurance-update-questionnaire.json';
 import { getTimezone } from '../helpers/formatDateTime';
 import { getPatientNameSearchParams } from '../helpers/patientSearch';
 import { OystehrTelemedAPIClient } from '../telemed/data';
@@ -394,7 +394,7 @@ export const useGetPatientDetailsUpdateForm = (
 ): UseQueryResult<Questionnaire, Error> => {
   const { oystehr } = useApiClients();
 
-  const { url, version } = ehrInsuranceUpdateFormJson.resource;
+  const { url, version } = ehrInsuranceUpdateFormJson.fhirResources['questionnaire-ehr-insurance-update'];
 
   const queryResult = useQuery({
     queryKey: ['patient-update-form'],
@@ -426,7 +426,8 @@ export const useGetPatientDetailsUpdateForm = (
       }
     },
 
-    enabled: Boolean(oystehr) && Boolean(ehrInsuranceUpdateFormJson.resource),
+    enabled:
+      Boolean(oystehr) && Boolean(ehrInsuranceUpdateFormJson.fhirResources['questionnaire-ehr-insurance-update']),
   });
 
   useSuccessQuery(queryResult.data, onSuccess);
