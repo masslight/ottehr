@@ -17,14 +17,18 @@ export const getPatientName = (
   const middleName = name?.[0]?.given?.[1];
   const preferredName = name?.[1]?.given?.[0];
 
-  const isFullName = !!firstName && !!lastName;
+  const isFullName = Boolean(firstName && lastName);
 
   const firstLastName = isFullName ? `${firstName} ${lastName}` : undefined;
   const lastFirstName = isFullName ? `${lastName}, ${firstName}` : undefined;
 
-  const lastFirstMiddleName = [lastName, firstName, middleName].filter((x) => !!x).join(', ') || undefined;
+  const lastFirstMiddle = [lastName, firstName, middleName].filter(Boolean).join(', ') || undefined;
+  const legalBase = lastFirstMiddle ?? lastFirstName ?? lastName ?? firstName;
 
-  const fullDisplayName = preferredName ? `${lastFirstMiddleName} (${preferredName})` : lastFirstMiddleName;
+  const fullDisplayName =
+    preferredName && legalBase && preferredName !== firstName
+      ? `${legalBase} (${preferredName})`
+      : legalBase ?? preferredName ?? undefined;
 
   return {
     firstName,
