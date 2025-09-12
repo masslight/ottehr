@@ -3,7 +3,10 @@ import {
   Box,
   Button,
   capitalize,
+  FormControlLabel,
   Paper,
+  Radio,
+  RadioGroup,
   Skeleton,
   Snackbar,
   Table,
@@ -14,12 +17,22 @@ import {
   useTheme,
 } from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
-import { Patient } from 'fhir/r4b';
+import { Coverage, Encounter, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { Fragment, ReactElement, useState } from 'react';
+import { Fragment, ReactElement, useEffect, useState } from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { useGetEncounter } from 'src/hooks/useEncounter';
 import { useGetPatientPaymentsList } from 'src/hooks/useGetPatientPaymentsList';
-import { APIError, CashOrCardPayment, isApiError, PatientPaymentDTO, PostPatientPaymentInput } from 'utils';
+import {
+  APIError,
+  CashOrCardPayment,
+  getPaymentVariantFromEncounter,
+  isApiError,
+  PatientPaymentDTO,
+  PaymentVariant,
+  PostPatientPaymentInput,
+  updateEncounterPaymentVariantExtension,
+} from 'utils';
 import PaymentDialog from './dialogs/PaymentDialog';
 import { RefreshableStatusChip } from './RefreshableStatusWidget';
 
@@ -27,6 +40,7 @@ export interface PaymentListProps {
   patient: Patient;
   encounterId: string;
   loading?: boolean;
+  coverages?: Coverage[];
 }
 
 const idForPaymentDTO = (payment: PatientPaymentDTO): string => {
@@ -37,9 +51,31 @@ const idForPaymentDTO = (payment: PatientPaymentDTO): string => {
   }
 };
 
-export default function PatientPaymentList({ loading, patient, encounterId }: PaymentListProps): ReactElement {
+export default function PatientPaymentList({
+  loading,
+  patient,
+  encounterId,
+  coverages,
+}: PaymentListProps): ReactElement {
+  const { oystehr } = useApiClients();
   const theme = useTheme();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const {
+    data: encounter,
+    refetch: refetchEncounter,
+    isRefetching: isEncounterRefetching,
+  } = useGetEncounter({ encounterId });
+  const [paymentVariant, setPaymentVariant] = useState<PaymentVariant>(
+    coverages && coverages?.length > 0 ? PaymentVariant.insurance : PaymentVariant.selfPay
+  );
+
+  useEffect(() => {
+    if (encounter) {
+      console.log('Encounter changed: ', JSON.stringify(encounter));
+      const variant = encounter && getPaymentVariantFromEncounter(encounter);
+      if (variant) setPaymentVariant(variant);
+    }
+  }, [encounter]);
 
   const {
     data: paymentData,
@@ -51,8 +87,6 @@ export default function PatientPaymentList({ loading, patient, encounterId }: Pa
     disabled: !encounterId || !patient.id,
   });
   const payments = paymentData?.payments ?? []; // Replace with actual payments when available
-
-  const { oystehrZambda: oystehr } = useApiClients();
 
   const getLabelForPayment = (payment: PatientPaymentDTO): string | ReactElement => {
     if (payment.paymentMethod === 'card') {
@@ -102,6 +136,17 @@ export default function PatientPaymentList({ loading, patient, encounterId }: Pa
     retry: 0,
   });
 
+  const updateEncounter = useMutation({
+    mutationFn: async (input: Encounter) => {
+      if (oystehr && input && input.id) {
+        return oystehr.fhir.update(input).then(async () => {
+          await refetchEncounter();
+        });
+      }
+    },
+    retry: 0,
+  });
+
   const errorMessage = (() => {
     const networkError = createNewPayment.error;
     if (networkError) {
@@ -120,6 +165,38 @@ export default function PatientPaymentList({ loading, patient, encounterId }: Pa
         padding: 3,
       }}
     >
+      <Typography variant="h4" color="primary.dark">
+        How would patient like to pay for the visit?
+      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+        <Typography>Select option</Typography>
+        <RadioGroup
+          row
+          name="options"
+          value={paymentVariant}
+          onChange={async (e) => {
+            if (encounter) {
+              updateEncounter.mutate(
+                updateEncounterPaymentVariantExtension(encounter, e.target.value as PaymentVariant)
+              );
+              await refetchEncounter();
+            }
+          }}
+        >
+          <FormControlLabel
+            disabled={updateEncounter.isPending || isEncounterRefetching}
+            value={PaymentVariant.insurance}
+            control={<Radio />}
+            label="Insurance"
+          />
+          <FormControlLabel
+            disabled={updateEncounter.isPending || isEncounterRefetching}
+            value={PaymentVariant.selfPay}
+            control={<Radio />}
+            label="Self pay"
+          />
+        </RadioGroup>
+      </Box>
       <Typography variant="h4" color="primary.dark">
         Patient Payments
       </Typography>
