@@ -46,10 +46,11 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
 
   const [requireSupervisorApproval, setRequireSupervisorApproval] = useState(false);
 
-  const { updateVisitStatusToAwaitSupervisorApproval } = usePendingSupervisorApproval({
-    encounterId: encounter.id!,
-    practitionerId: practitioner?.id ?? '',
-  });
+  const { updateVisitStatusToAwaitSupervisorApproval, loading: isPendingSupervisorApproval } =
+    usePendingSupervisorApproval({
+      encounterId: encounter.id!,
+      practitionerId: practitioner?.id ?? '',
+    });
   const { css } = useFeatureFlags();
   const appointmentAccessibility = useGetAppointmentAccessibility();
 
@@ -63,7 +64,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
 
   const { isEncounterUpdatePending } = usePractitionerActions(encounter, 'end', PRACTITIONER_CODINGS.Attender);
 
-  const isLoading = isChangeLoading || isSignLoading || isEncounterUpdatePending;
+  const isLoading = isChangeLoading || isSignLoading || isEncounterUpdatePending || isPendingSupervisorApproval;
   const inPersonStatus = useMemo(() => appointment && getVisitStatus(appointment, encounter), [appointment, encounter]);
 
   const completed = useMemo(() => {
