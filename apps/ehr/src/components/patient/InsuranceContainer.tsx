@@ -293,13 +293,12 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
           }}
         />
       </Row>
-      <Row label="Insurance Type" required dataTestId={dataTestIds.insuranceContainer.insurancePlanType}>
+      <Row label="Insurance Type" dataTestId={dataTestIds.insuranceContainer.insurancePlanType}>
         <Controller
           name={FormFields.insurancePlanType.key}
           control={control}
           rules={{
-            required: REQUIRED_FIELD_ERROR_MESSAGE,
-            validate: (value) => InsurancePlanTypes.some((option) => option.candidCode === value),
+            validate: (value) => !value || InsurancePlanTypes.some((option) => option.candidCode === value),
           }}
           render={({ field: { value }, fieldState: { error } }) => {
             const selectedOption = InsurancePlanTypes.find((option) => option.candidCode === `${value}`);
@@ -315,13 +314,12 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
                   if (newValue) {
                     setValue(FormFields.insurancePlanType.key, newValue.candidCode, { shouldDirty: true });
                   } else {
-                    setValue(FormFields.insurancePlanType.key, null);
+                    setValue(FormFields.insurancePlanType.key, null, { shouldDirty: true });
                   }
                 }}
-                disableClearable
                 fullWidth
                 renderInput={(params) => (
-                  <TextField {...params} variant="standard" error={!!error} required helperText={error?.message} />
+                  <TextField {...params} variant="standard" error={!!error} helperText={error?.message} />
                 )}
               />
             );

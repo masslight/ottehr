@@ -223,13 +223,12 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
               </LabeledField>
             </Grid>
             <Grid item xs={3}>
-              <LabeledField label="Insurance type" required error={!!errors[FormFields.insurancePlanType.key]}>
+              <LabeledField label="Insurance type" error={!!errors[FormFields.insurancePlanType.key]}>
                 <Controller
                   name={FormFields.insurancePlanType.key}
                   control={control}
                   rules={{
-                    required: REQUIRED_FIELD_ERROR_MESSAGE,
-                    validate: (value) => InsurancePlanTypes.some((option) => option.candidCode === value),
+                    validate: (value) => !value || InsurancePlanTypes.some((option) => option.candidCode === value),
                   }}
                   render={({ field: { value }, fieldState: { error } }) => {
                     const selectedOption = InsurancePlanTypes.find((option) => option.candidCode === value);
@@ -248,14 +247,12 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
                             setValue(FormFields.insurancePlanType.key, null);
                           }
                         }}
-                        disableClearable
                         fullWidth
                         renderInput={(params) => (
                           <TextField
                             {...params}
                             variant="outlined"
                             error={!!error}
-                            required
                             helperText={error?.message}
                             data-testid={dataTestIds.addInsuranceDialog.planType}
                           />
