@@ -13,7 +13,7 @@ export const BreadCrumbs: FC<{ patient: Patient | undefined }> = ({ patient }) =
       },
       {
         link: '#',
-        children: 'Patient Information',
+        children: 'Patient Profile',
       },
     ]}
   />

@@ -184,7 +184,7 @@ const VitalsTemperaturesCard: React.FC<VitalsTemperatureCardProps> = ({
                     />
 
                     <Typography fontSize={25} sx={{ ml: 1 }}>
-                      /
+                      =
                     </Typography>
                     <TextField
                       fullWidth

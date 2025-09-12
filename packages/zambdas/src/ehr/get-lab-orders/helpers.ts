@@ -32,7 +32,7 @@ import {
   EMPTY_PAGINATION,
   externalLabOrderIsManual,
   ExternalLabsStatus,
-  getAccountNumberFromOrganization,
+  getAccountNumberFromLocationAndOrganization,
   getFullestAvailableName,
   getOrderNumber,
   getOrderNumberFromDr,
@@ -170,6 +170,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   results,
   appointments,
   encounters,
+  locations,
   practitioners,
   provenances,
   organizations,
@@ -244,7 +245,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
         specimens,
         cache
       ),
-      accountNumber: parseAccountNumber(serviceRequest, organizations),
+      accountNumber: parseAccountNumber(serviceRequest, organizations, locations),
       resultsDetails: parseLResultsDetails(
         serviceRequest,
         results,
@@ -1693,26 +1694,56 @@ export const parseLabOrdersHistory = (
   return history.sort((a, b) => compareDates(b.date, a.date));
 };
 
-export const parseAccountNumber = (serviceRequest: ServiceRequest, organizations: Organization[]): string => {
+export const parseAccountNumber = (
+  serviceRequest: ServiceRequest,
+  organizations: Organization[],
+  locations: Location[]
+): string => {
   const NOT_FOUND = '';
 
   if (!serviceRequest.performer || !serviceRequest.performer.length) {
+    console.warn(`Could not determine account number because ServiceRequest/${serviceRequest.id} has no performer`);
     return NOT_FOUND;
   }
 
+  if (
+    !serviceRequest.locationReference ||
+    serviceRequest.locationReference.length !== 1 ||
+    !serviceRequest.locationReference[0].reference
+  ) {
+    console.warn(
+      `Could not determine account number because ServiceRequest/${serviceRequest.id} has no locationReference, or too many`
+    );
+    return NOT_FOUND;
+  }
+
+  let srPerformer: Organization | undefined;
   for (const performer of serviceRequest.performer) {
     if (performer.reference && performer.reference.includes('Organization/')) {
       const organizationId = performer.reference.split('Organization/')[1];
       const matchingOrg = organizations.find((org) => org.id === organizationId);
 
       if (matchingOrg) {
-        const accountNumber = getAccountNumberFromOrganization(matchingOrg);
-        return accountNumber || NOT_FOUND;
+        srPerformer = matchingOrg;
+        break;
       }
     }
   }
 
-  return NOT_FOUND;
+  if (!srPerformer) {
+    console.warn(`No macthing performer found for ServiceRequest/${serviceRequest.id}`);
+    return NOT_FOUND;
+  }
+
+  const srLocationRef = serviceRequest.locationReference![0].reference;
+  const orderingLocation = locations.find((location) => `Location/${location.id}` === srLocationRef);
+
+  if (!orderingLocation) {
+    console.warn(`No location found matching SR locationReference Location/${srLocationRef}`);
+    return NOT_FOUND;
+  }
+
+  return getAccountNumberFromLocationAndOrganization(orderingLocation, srPerformer) ?? NOT_FOUND;
 };
 
 export const parseProvenancesForHistory = (

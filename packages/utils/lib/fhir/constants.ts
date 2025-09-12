@@ -73,6 +73,9 @@ export const FHIR_EXTENSION = {
     weightLastUpdated: {
       url: `${PRIVATE_EXTENSION_BASE_URL}/weight-last-updated`,
     },
+    authorizedNonLegalGuardians: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/authorized-non-legal-guardians`,
+    },
   },
   Paperwork: {
     formListValues: {

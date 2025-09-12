@@ -1110,6 +1110,20 @@
       "runtime": "nodejs20.x",
       "src": "src/ehr/immunization/cancel-order/index",
       "zip": ".dist/zips/cancel-immunization-order.zip"
+    },
+    "APPLY-TEMPLATE": {
+      "name": "apply-template",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/apply-template/index",
+      "zip": ".dist/zips/apply-template.zip"
+    },
+    "LIST-TEMPLATES": {
+      "name": "list-templates",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/list-templates/index",
+      "zip": ".dist/zips/list-templates.zip"
     }
   },
   "fhirResources": {
@@ -5497,12 +5511,8 @@
       "description": "This M2M Client is used to drive and clean up E2E tests",
       "accessPolicy": [
         {
-          "resource": [
-            "*"
-          ],
-          "action": [
-            "*"
-          ],
+          "resource": ["*"],
+          "action": ["*"],
           "effect": "Allow"
         }
       ]
