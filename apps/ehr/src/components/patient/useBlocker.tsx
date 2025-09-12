@@ -50,12 +50,6 @@ export function useBlocker(blocker: (tx: any) => void, when = true): void {
     };
 
     const handleBeforeUnload = (e: BeforeUnloadEvent): void => {
-      const navEntries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
-      const navType = navEntries.length > 0 ? navEntries[0].type : 'navigate';
-
-      if (navType === 'reload') {
-        return;
-      }
       e.preventDefault();
       e.returnValue = '';
     };
