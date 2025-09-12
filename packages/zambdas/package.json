@@ -11,6 +11,7 @@
     "start:demo:iac": "ENV=demo npm run start:iac",
     "cancel-telemed-appointments": "tsx src/scripts/cancel-telemed-appointments.ts",
     "remove-insurances-and-payer-orgs": "tsx src/scripts/remove-insurances-and-payer-orgs.ts",
+    "report-daily-payments": "tsx src/scripts/report-daily-payments.ts",
     "fix-duplicate-payers": "tsx src/scripts/fix-duplicate-payers.ts",
     "fix-payer-ids-in-orgs": "tsx src/scripts/fix-payer-ids-in-orgs.ts",
     "update-insurances-and-payer-orgs": "tsx src/scripts/update-insurances-and-payer-orgs.ts",
