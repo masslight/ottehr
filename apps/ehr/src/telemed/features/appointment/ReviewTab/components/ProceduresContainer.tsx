@@ -1,6 +1,7 @@
 import { Box, Stack, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
 import { FC, ReactElement } from 'react';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { useChartData } from '../../../../state';
 
 export const ProceduresContainer: FC = () => {
@@ -29,7 +30,7 @@ export const ProceduresContainer: FC = () => {
       </Typography>
       {procedures?.length ? (
         procedures.map((procedure) => (
-          <Stack key={procedure.resourceId}>
+          <Stack key={procedure.resourceId} data-testid={dataTestIds.progressNotePage.procedureItem}>
             <Typography sx={{ color: '#0F347C', fontWeight: '500' }}>{procedure.procedureType}</Typography>
             {renderProperty(
               'CPT',

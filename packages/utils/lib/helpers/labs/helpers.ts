@@ -1,4 +1,4 @@
-import { DiagnosticReport, Organization, ServiceRequest } from 'fhir/r4b';
+import { DiagnosticReport, Location, Organization, ServiceRequest } from 'fhir/r4b';
 import {
   LAB_ACCOUNT_NUMBER_SYSTEM,
   MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING,
@@ -50,8 +50,25 @@ export function getOrderNumberFromDr(dr: DiagnosticReport): string | undefined {
   return dr.identifier?.find((id) => id.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)?.value;
 }
 
-export function getAccountNumberFromOrganization(org: Organization): string | undefined {
-  return org.identifier?.find((identifier) => identifier.system === LAB_ACCOUNT_NUMBER_SYSTEM)?.value;
+export function getAccountNumberFromLocationAndOrganization(location: Location, org: Organization): string | undefined {
+  console.log(`Getting account number from location and org. Location/${location.id} and Organization/${org.id}`);
+  const accountNumberFromLocation = location.identifier?.find(
+    (id) => id.system === LAB_ACCOUNT_NUMBER_SYSTEM && id.assigner?.reference === `Organization/${org.id}` && id.value
+  )?.value;
+  if (accountNumberFromLocation) {
+    console.log(`Found account number from location. Account number is ${accountNumberFromLocation}`);
+    return accountNumberFromLocation;
+  }
+
+  console.warn(
+    `Could not find account number on Location/${location.id} matching assigner Organization/${org.id}. Trying to find acct number from org.`
+  );
+  // this is mostly for legacy orders before we switched to account numbers living on SR.location for multi-office ordering
+
+  const accountNumberFromOrg = org.identifier?.find((identifier) => identifier.system === LAB_ACCOUNT_NUMBER_SYSTEM)
+    ?.value;
+  console.log(`Account number from org is ${accountNumberFromOrg}`);
+  return accountNumberFromOrg;
 }
 
 export async function openPdf(url: string): Promise<void> {

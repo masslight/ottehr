@@ -5,6 +5,7 @@ import { DateTime } from 'luxon';
 import { ReactElement, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { AccordionCard, useAppointmentData, useChartData, useGetAppointmentAccessibility } from 'src/telemed';
 import { PageTitle } from 'src/telemed/components/PageTitle';
 import { getVisitStatus, TelemedAppointmentStatusEnum } from 'utils';
@@ -38,7 +39,7 @@ export default function Procedures(): ReactElement {
   return (
     <>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <PageTitle label="Procedures" showIntakeNotesButton={false} />
+        <PageTitle label="Procedures" showIntakeNotesButton={false} dataTestId={dataTestIds.proceduresPage.title} />
         <RoundedButton variant="contained" onClick={onNewProcedureClick} startIcon={<AddIcon />} disabled={isReadOnly}>
           Procedure
         </RoundedButton>
@@ -67,24 +68,38 @@ export default function Procedures(): ReactElement {
                   sx={{ '&:last-child td': { borderBottom: 0 }, cursor: 'pointer' }}
                   onClick={() => onProcedureClick(procedure.resourceId)}
                   key={procedure.resourceId}
+                  data-testid={dataTestIds.proceduresPage.procedureRow}
                 >
                   <TableCell>
                     <Stack>
                       {procedure.cptCodes?.map((cptCode) => {
                         return (
-                          <Typography sx={{ fontSize: '14px' }} key={cptCode.code}>
+                          <Typography
+                            sx={{ fontSize: '14px' }}
+                            key={cptCode.code}
+                            data-testid={dataTestIds.proceduresPage.cptCode}
+                          >
                             {cptCode.code}-{cptCode.display}
                           </Typography>
                         );
                       })}
-                      <Typography sx={{ fontSize: '14px', color: '#00000099' }}>{procedure.procedureType}</Typography>
+                      <Typography
+                        sx={{ fontSize: '14px', color: '#00000099' }}
+                        data-testid={dataTestIds.proceduresPage.procedureType}
+                      >
+                        {procedure.procedureType}
+                      </Typography>
                     </Stack>
                   </TableCell>
                   <TableCell>
                     <Stack>
                       {procedure.diagnoses?.map((diagnosis) => {
                         return (
-                          <Typography sx={{ fontSize: '14px' }} key={diagnosis.code}>
+                          <Typography
+                            sx={{ fontSize: '14px' }}
+                            key={diagnosis.code}
+                            data-testid={dataTestIds.proceduresPage.diagnosis}
+                          >
                             {diagnosis.code}-{diagnosis.display}
                           </Typography>
                         );
@@ -96,7 +111,12 @@ export default function Procedures(): ReactElement {
                       <Typography sx={{ fontSize: '14px' }}>
                         {documentedDateTime != null ? documentedDateTime.toFormat('MM/dd/yyyy HH:mm a') : undefined}
                       </Typography>
-                      <Typography sx={{ fontSize: '14px', color: '#00000099' }}>{procedure.documentedBy}</Typography>
+                      <Typography
+                        sx={{ fontSize: '14px', color: '#00000099' }}
+                        data-testid={dataTestIds.proceduresPage.documentedBy}
+                      >
+                        {procedure.documentedBy}
+                      </Typography>
                     </Stack>
                   </TableCell>
                 </TableRow>
