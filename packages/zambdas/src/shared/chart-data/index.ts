@@ -1104,7 +1104,6 @@ const mapResourceToChartDataFields = (
   resource: FhirResource,
   encounterId: string
 ): { chartDataFields: ChartDataFields; resourceMapped: boolean } => {
-  console.log(resource);
   let resourceMapped = false;
   if (resource?.resourceType === 'Condition' && chartDataResourceHasMetaTagByCode(resource, 'medical-condition')) {
     data.conditions?.push(makeConditionDTO(resource));

@@ -31,8 +31,6 @@ export function RecordAudioContainer(props: RecordAudioContainerProps): ReactEle
   const [recordingStatus, setRecordingStatus] = useState<RecordingStatus>(RecordingStatus.NOT_STARTED);
   const [loading, setLoading] = useState<boolean>(false);
   const [duration, setDuration] = useState<number>(0);
-  // const [recording, setIsRecording] = useState(false);
-  // const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const { oystehrZambda: oystehr } = useApiClients();
   const evolveUser = useEvolveUser();
   const providerName = evolveUser?.profileResource?.name?.[0]
@@ -99,7 +97,6 @@ export function RecordAudioContainer(props: RecordAudioContainerProps): ReactEle
     });
 
     return () => {
-      console.log(5);
       ws.destroy();
       recordPlugin.destroy();
     };

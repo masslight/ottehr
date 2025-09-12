@@ -33,14 +33,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const oystehrCurrentUser = createOystehrClient(userToken, secrets);
     const providerUserProfile = (await oystehrCurrentUser.user.me()).profile;
 
-    // const presignedFileDownloadUrl = await createPresignedUrl(m2mToken, z3URL, 'download');
     const presignedFileDownloadUrl = await createPresignedUrl(m2mToken, z3URL, 'download');
     console.log(presignedFileDownloadUrl);
     const file = await fetch(presignedFileDownloadUrl);
     const fileBlob = await file.arrayBuffer();
     const fileBase64 = Buffer.from(fileBlob).toString('base64');
     const mimeType = file.headers.get('Content-Type') || 'unknown';
-    // const fileBase64 = btoa(String.fromCharCode(...new Uint8Array(fileBlob)));
 
     const transcript = await invokeChatbotVertexAI(
       [{ text: TRANSCRIPT_PROMPT }, { inlineData: { mimeType: mimeType, data: fileBase64 } }],
@@ -64,7 +62,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('create-upload-document-url', error, ENVIRONMENT);
+    await topLevelCatch('create-resources-from-audio-recording', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify({ message: `Error creating resources from recording, ${JSON.stringify(error)}` }),
