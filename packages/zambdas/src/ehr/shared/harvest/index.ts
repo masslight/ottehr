@@ -1437,7 +1437,6 @@ export const getCoverageResources = (input: GetCoveragesInput): GetCoverageResou
     });
     newCoverages.primary = primaryCoverage;
   }
-  console.log('newCoverage primary', JSON.stringify(newCoverages.primary));
 
   if (secondaryInsurance) {
     const secondaryCoverage = createCoverageResource({
@@ -1760,7 +1759,6 @@ function getInsuranceDetailsFromAnswers(
   const additionalInformation = answers.find((item) => item.linkId === `insurance-additional-information${suffix}`)
     ?.answer?.[0]?.valueString;
 
-  console.log('typeCode', typeCode);
   return { org, additionalInformation, typeCode };
 }
 
@@ -1817,9 +1815,6 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
     contained = [containedPolicyHolder];
   }
 
-  console.log(
-    `thing: ${JSON.stringify(typeCode ? { coding: [{ system: CANDID_PLAN_TYPE_SYSTEM, code: typeCode }] } : undefined)}`
-  );
   const coverage: Coverage = {
     contained,
     id: `urn:uuid:${randomUUID()}`,
@@ -1852,7 +1847,6 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
       },
     ],
   };
-  console.log('coverage', JSON.stringify(coverage));
   const coverageTypeCoding = InsurancePlanTypes.find((planType) => planType.candidCode === typeCode)?.coverageCoding;
   if (coverageTypeCoding) coverage.type?.coding?.push(coverageTypeCoding);
 
@@ -2033,8 +2027,6 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
       ],
     });
   });
-  console.log('suggestedNewCoverageObject', JSON.stringify(suggestedNewCoverageObject, null, 2));
-  console.log('coverageUpdates', JSON.stringify(coverageUpdates, null, 2));
   Object.entries(coverageUpdates).forEach(([coverageId, operations]) => {
     if (operations.length) {
       patch.push({
@@ -2632,6 +2624,12 @@ const patchOpsForCoverage = (input: GetCoveragePatchOpsInput): Operation[] => {
     const sourceValue = (source as any)[key];
     const targetValue = (target as any)[key];
     if (key === 'contained' && sourceValue === undefined && targetValue !== undefined) {
+      ops.push({
+        op: 'remove',
+        path: `/${key}`,
+      });
+    }
+    if (key === 'type' && sourceValue === undefined && targetValue !== undefined) {
       ops.push({
         op: 'remove',
         path: `/${key}`,
