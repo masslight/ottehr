@@ -16,17 +16,15 @@ import {
   Task,
 } from 'fhir/r4b';
 import {
-  appointmentTypeLabels,
-  appointmentTypeMap,
   BUCKET_NAMES,
   convertActivityDefinitionToTestItem,
   CPTCodeDTO,
   ExtendedMedicationDataForResponse,
-  FhirAppointmentType,
   followUpInOptions,
   formatDateToMDYWithTime,
   formatDOB,
   genderMap,
+  getAppointmentType,
   GetChartDataResponse,
   getDefaultNote,
   GetRadiologyOrderListZambdaOutput,
@@ -154,11 +152,7 @@ function composeDataForDischargeSummaryPdf(
   );
 
   // --- Visit information ---
-  const appointmentTypeTag = appointment.meta?.tag?.find((tag) => tag.code && tag.code in appointmentTypeMap);
-  const subType =
-    appointment.appointmentType?.text && appointmentTypeLabels[appointment.appointmentType.text as FhirAppointmentType];
-  const baseType = appointmentTypeTag?.code ? appointmentTypeMap[appointmentTypeTag.code] : 'Unknown';
-  const type = subType ? `${baseType} ${subType}` : baseType;
+  const { type } = getAppointmentType(appointment);
   const { date = '', time = '' } = formatDateToMDYWithTime(appointment?.start) ?? {};
   const locationName = location?.name ?? '';
   const reasonForVisit = appointment?.description ?? '';

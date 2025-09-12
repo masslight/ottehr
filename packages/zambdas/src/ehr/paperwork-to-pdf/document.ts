@@ -9,13 +9,7 @@ import {
   QuestionnaireResponseItem,
   QuestionnaireResponseItemAnswer,
 } from 'fhir/r4b';
-import {
-  appointmentTypeLabels,
-  appointmentTypeMap,
-  FhirAppointmentType,
-  formatDateToMDYWithTime,
-  getCanonicalQuestionnaire,
-} from 'utils';
+import { formatDateToMDYWithTime, getAppointmentType, getCanonicalQuestionnaire } from 'utils';
 import { assertDefined } from '../../shared/helpers';
 
 export interface Document {
@@ -78,11 +72,7 @@ export async function createDocument(
     id: subjectId,
   });
 
-  const appointmentTypeTag = appointment.meta?.tag?.find((tag) => tag.code && tag.code in appointmentTypeMap);
-  const subType =
-    appointment.appointmentType?.text && appointmentTypeLabels[appointment.appointmentType.text as FhirAppointmentType];
-  const baseType = appointmentTypeTag?.code ? appointmentTypeMap[appointmentTypeTag.code] : 'Unknown';
-  const type = subType ? `${baseType} ${subType}` : baseType;
+  const { type } = getAppointmentType(appointment);
   const { date = '', time = '' } = formatDateToMDYWithTime(appointment?.start) ?? {};
   const locationName = location?.name ?? '';
 
