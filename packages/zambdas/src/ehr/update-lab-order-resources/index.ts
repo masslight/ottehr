@@ -17,7 +17,7 @@ import {
 import { DateTime } from 'luxon';
 import {
   DYMO_30334_LABEL_CONFIG,
-  getAccountNumberFromOrganization,
+  getAccountNumberFromLocationAndOrganization,
   getOrderNumber,
   getPatchBinary,
   getPatientFirstName,
@@ -431,6 +431,7 @@ const handleSaveCollectionData = async (
     encounter,
     labOrganization,
     specimens: specimenResources,
+    location,
   } = await getExternalLabOrderResourcesViaServiceRequest(oystehr, serviceRequestId);
   console.log('resources retrieved');
 
@@ -482,7 +483,8 @@ const handleSaveCollectionData = async (
         patientDateOfBirth: patient.birthDate ? DateTime.fromISO(patient.birthDate) : undefined,
         sampleCollectionDate: mostRecentSampleCollectionDate,
         orderNumber: orderNumber,
-        accountNumber: (labOrganization && getAccountNumberFromOrganization(labOrganization)) || '',
+        accountNumber:
+          (labOrganization && location && getAccountNumberFromLocationAndOrganization(location, labOrganization)) || '',
       },
     };
 

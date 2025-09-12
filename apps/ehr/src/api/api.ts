@@ -1,7 +1,9 @@
 import Oystehr, { User } from '@oystehr/sdk';
-import { DocumentReference, Schedule, Slot } from 'fhir/r4b';
+import { Schedule, Slot } from 'fhir/r4b';
 import {
   apiErrorToThrow,
+  ApplyTemplateZambdaInput,
+  ApplyTemplateZambdaOutput,
   AssignPractitionerInput,
   AssignPractitionerResponse,
   CancelAppointmentZambdaInput,
@@ -68,7 +70,10 @@ import {
   LabelPdf,
   ListScheduleOwnersParams,
   ListScheduleOwnersResponse,
+  ListTemplatesZambdaInput,
+  ListTemplatesZambdaOutput,
   PaginatedResponse,
+  PaperworkToPDFInput,
   PendingSupervisorApprovalInput,
   RadiologyLaunchViewerZambdaInput,
   RadiologyLaunchViewerZambdaOutput,
@@ -1026,7 +1031,7 @@ export const createDischargeSummary = async (
 
 export const generatePaperworkPdf = async (
   oystehr: Oystehr,
-  parameters: { questionnaireResponseId: string; documentReference: DocumentReference }
+  parameters: PaperworkToPDFInput
 ): Promise<{ documentReference: string }> => {
   try {
     const response = await oystehr.zambda.execute({
@@ -1047,6 +1052,38 @@ export const icd10Search = async (
   try {
     const response = await oystehr.zambda.execute({
       id: 'icd-10-search',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const listTemplates = async (
+  oystehr: Oystehr,
+  parameters: ListTemplatesZambdaInput
+): Promise<ListTemplatesZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'list-templates',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const applyTemplate = async (
+  oystehr: Oystehr,
+  parameters: ApplyTemplateZambdaInput
+): Promise<ApplyTemplateZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'apply-template',
       ...parameters,
     });
     return chooseJson(response);

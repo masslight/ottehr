@@ -30,3 +30,11 @@ export async function expectInPersonProgressNotePage(page: Page): Promise<InPers
   await page.waitForURL(new RegExp('/in-person/.*/progress-note'));
   return new InPersonProgressNotePage(page);
 }
+
+export async function openInPersonProgressNotePage(
+  appointmentId: string,
+  page: Page
+): Promise<InPersonProgressNotePage> {
+  await page.goto(`/in-person/${appointmentId}/progress-note`);
+  return expectInPersonProgressNotePage(page);
+}

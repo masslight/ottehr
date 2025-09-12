@@ -1,0 +1,46 @@
+{
+  "schema-version": "2025-03-19",
+  "fhirResources": {
+    "GlobalTemplatesHolderList": {
+      "resourceType": "List",
+      "status": "current",
+      "mode": "working",
+      "title": "Global Templates Holder List",
+      "entry": [
+        {
+          "item": {
+            "reference": "List/#{ref/fhirResources/OTITIS_MEDIA_LEFT_AND_CONJUNCTIVITIS_LEFT/id}"
+          }
+        },
+        {
+          "item": {
+            "reference": "List/#{ref/fhirResources/VIRAL_ILLNESS_WITH_FEVER/id}"
+          }
+        },
+        {
+          "item": {
+            "reference": "List/#{ref/fhirResources/GASTROENTERITIS/id}"
+          }
+        },
+        {
+          "item": {
+            "reference": "List/#{ref/fhirResources/SINUSITIS/id}"
+          }
+        },
+        {
+          "item": {
+            "reference": "List/#{ref/fhirResources/LACERATION_SCALP/id}"
+          }
+        }
+      ],
+      "meta": {
+        "tag": [
+          {
+            "code": "global-templates",
+            "system": "https://fhir.zapehr.com/r4/StructureDefinitions/global-template-list"
+          }
+        ]
+      }
+    }
+  }
+}

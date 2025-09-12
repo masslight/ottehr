@@ -1,6 +1,6 @@
 import { Mic } from '@mui/icons-material';
 import { Container, Fab, Paper } from '@mui/material';
-import React, { useRef } from 'react';
+import React from 'react';
 import { Outlet } from 'react-router-dom';
 import { useResetAppointmentStore } from 'src/telemed/hooks/useResetAppointmentStore';
 import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils';
@@ -35,13 +35,12 @@ const contentWrapperStyle: React.CSSProperties = {
 
 export const CSSLayout: React.FC = () => {
   const { encounter } = useAppointmentData();
-  const isInitialLoad = useRef(true);
   const [recordingAnchorElemement, setRecordingAnchorElement] = React.useState<HTMLButtonElement | null>(null);
   const recordingElementID = 'recording-element';
   const recordingOpen = Boolean(recordingAnchorElemement);
 
   useResetAppointmentStore();
-  const { chartData } = useChartData({ enabled: isInitialLoad.current, shouldUpdateExams: true });
+  const { chartData } = useChartData({ shouldUpdateExams: true });
   const assignedIntakePerformerId = getAdmitterPractitionerId(encounter);
   const assignedProviderId = getAttendingPractitionerId(encounter);
 

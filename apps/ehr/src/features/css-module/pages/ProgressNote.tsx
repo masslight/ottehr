@@ -1,5 +1,6 @@
 import { Box, Stack, Typography } from '@mui/material';
 import React from 'react';
+import { FEATURE_FLAGS } from '../../../constants/feature-flags';
 import {
   AccordionCard,
   DoubleColumnContainer,
@@ -8,7 +9,7 @@ import {
   useGetAppointmentAccessibility,
 } from '../../../telemed';
 import { PageTitle } from '../../../telemed/components/PageTitle';
-import { ChiefComplaintCard } from '../../../telemed/features/appointment';
+import { ApplyTemplate, ChiefComplaintCard } from '../../../telemed/features/appointment';
 import {
   AddendumCard,
   DischargeButton,
@@ -64,6 +65,12 @@ export const ProgressNote: React.FC<PatientInfoProps> = () => {
       <AccordionCard label="Intake Notes">
         <IntakeNotes />
       </AccordionCard>
+
+      {FEATURE_FLAGS.GLOBAL_TEMPLATES_ENABLED && (
+        <AccordionCard label="Apply Template">
+          <ApplyTemplate />
+        </AccordionCard>
+      )}
 
       <ChiefComplaintCard />
 

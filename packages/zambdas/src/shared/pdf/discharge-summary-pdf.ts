@@ -21,7 +21,9 @@ import {
   BUCKET_NAMES,
   convertActivityDefinitionToTestItem,
   CPTCodeDTO,
+  ExtendedMedicationDataForResponse,
   FhirAppointmentType,
+  followUpInOptions,
   formatDateToMDYWithTime,
   formatDOB,
   genderMap,
@@ -41,7 +43,7 @@ import {
   QuestionnaireData,
   Secrets,
   standardizePhoneNumber,
-  uploadDocument,
+  uploadPDF,
 } from 'utils';
 import { findActivityDefinitionForServiceRequest } from '../../ehr/get-in-house-orders/helpers';
 import { parseLabInfo } from '../../ehr/get-lab-orders/helpers';
@@ -92,6 +94,7 @@ type AllChartData = {
     currentPractitioner?: Practitioner;
     appointmentScheduleMap: Record<string, Schedule>;
   };
+  medicationOrders?: ExtendedMedicationDataForResponse[];
 };
 
 function mapResourceByNameField(data: { name?: string }[] | CPTCodeDTO[]): string[] {
@@ -111,7 +114,7 @@ export async function composeAndCreateDischargeSummaryPdf(
   appointmentPackage: FullAppointmentResourcePackage,
   secrets: Secrets | null,
   token: string
-): Promise<PdfInfo> {
+): Promise<{ pdfInfo: PdfInfo; attached?: string[] }> {
   if (!appointmentPackage.patient?.id) {
     throw new Error('Patient information is missing from the appointment package.');
   }
@@ -120,7 +123,8 @@ export async function composeAndCreateDischargeSummaryPdf(
   const data = composeDataForDischargeSummaryPdf(allChartData, appointmentPackage);
 
   console.log('Start creating pdf');
-  return await createDischargeSummaryPDF(data, appointmentPackage.patient.id, secrets, token);
+  const pdfInfo = await createDischargeSummaryPDF(data, appointmentPackage.patient.id, secrets, token);
+  return { pdfInfo, attached: data.attachmentDocRefs };
 }
 
 const parseParticipantInfo = (practitioner: Practitioner): ParticipantInfo => ({
@@ -132,12 +136,13 @@ function composeDataForDischargeSummaryPdf(
   allChartData: AllChartData,
   appointmentPackage: FullAppointmentResourcePackage
 ): DischargeSummaryData {
-  const { chartData, additionalChartData, radiologyData, externalLabsData, inHouseOrdersData } = allChartData;
+  const { chartData, additionalChartData, radiologyData, externalLabsData, inHouseOrdersData, medicationOrders } =
+    allChartData;
 
   const { patient, encounter, appointment, location, practitioners, timezone } = appointmentPackage;
   if (!patient) throw new Error('No patient found for this encounter');
 
-  const attachmentUrls: string[] = [];
+  const attachmentDocRefs: string[] = [];
 
   // --- Patient information ---
   const fullName = getPatientLastFirstName(patient) ?? '';
@@ -200,9 +205,7 @@ function composeDataForDischargeSummaryPdf(
   }));
 
   // --- In-House Medications ---
-  const inhouseMedications = additionalChartData?.inhouseMedications
-    ? mapMedicationsToDisplay(additionalChartData.inhouseMedications, timezone)
-    : [];
+  const inhouseMedications = medicationOrders ? mapMedicationsToDisplay(medicationOrders, timezone) : [];
 
   // --- eRx ---
   const erxMedications = additionalChartData?.prescribedMedications
@@ -224,34 +227,41 @@ function composeDataForDischargeSummaryPdf(
   });
 
   // --- General patient education documents ---
-  const educationDocuments: { title: string; fileName: string }[] = [];
+  const educationDocuments: { title: string }[] = [];
 
   // --- Discharge instructions ---
   const disposition = additionalChartData?.disposition;
   let label = '';
   let instruction = '';
+  let followUpIn: string | undefined;
+  let reason: string | undefined;
   if (disposition?.type) {
     label = mapDispositionTypeToLabel[disposition.type];
     instruction = disposition.note || getDefaultNote(disposition.type);
+    reason = disposition.reason;
+
+    followUpIn = followUpInOptions.find((opt) => opt.value === disposition.followUpIn)?.label;
   }
 
   // --- Work-school excuse ---
-  const workSchoolExcuse: { note: string; fileName: string }[] = [];
+  const workSchoolExcuse: { note: string }[] = [];
   chartData.schoolWorkNotes?.forEach((ws) => {
-    if (ws.url) attachmentUrls.push(ws.url);
-    const fileName = ws.url?.split('/').at(-1);
-    if (ws.type === 'school')
-      workSchoolExcuse.push({ note: 'There was a school note generated', fileName: fileName ?? '' });
-    else workSchoolExcuse.push({ note: 'There was a work note generated', fileName: fileName ?? '' });
+    if (ws.id) attachmentDocRefs.push(ws.id);
+
+    if (ws.type === 'school') workSchoolExcuse.push({ note: 'There was a school note generated' });
+    else workSchoolExcuse.push({ note: 'There was a work note generated' });
   });
 
   // --- Physician information ---
-  const { firstName: physicianFirstName, lastName: physicianLastName } = practitioners?.[0]
-    ? parseParticipantInfo(practitioners[0])
-    : {};
   const attenderParticipant = encounter.participant?.find(
     (p) => p?.type?.find((t) => t?.coding?.find((coding) => coding.code === 'ATND'))
   );
+  const attenderPractitionerId = attenderParticipant?.individual?.reference?.split('/').at(-1);
+  const attenderPractitioner = practitioners?.find((practitioner) => practitioner.id === attenderPractitionerId);
+
+  const { firstName: physicianFirstName, lastName: physicianLastName } = attenderPractitioner
+    ? parseParticipantInfo(attenderPractitioner)
+    : {};
   const { date: dischargedDate, time: dischargeTime } = formatDateToMDYWithTime(attenderParticipant?.period?.end) ?? {};
   const dischargeDateTime = dischargedDate && dischargeTime ? `${dischargedDate} at ${dischargeTime}` : undefined;
 
@@ -301,6 +311,8 @@ function composeDataForDischargeSummaryPdf(
     disposition: {
       label,
       instruction,
+      reason,
+      followUpIn,
     },
     physician: {
       name: `${physicianFirstName} ${physicianLastName}`,
@@ -308,7 +320,7 @@ function composeDataForDischargeSummaryPdf(
     dischargeDateTime,
     workSchoolExcuse,
     documentsAttached: true,
-    attachmentUrls,
+    attachmentDocRefs,
   };
 }
 
@@ -538,7 +550,12 @@ async function createDischargeSummaryPdfBytes(data: DischargeSummaryData): Promi
     pdfClient.drawText('In-house Medications', textStyles.subHeader);
 
     data.inhouseMedications?.forEach((medication) => {
-      pdfClient.drawText(`${medication.name} - ${medication.dose}`, textStyles.regular);
+      pdfClient.drawText(
+        `${medication.name}${medication.dose ? ' - ' + medication.dose : ''}${
+          medication.route ? ' / ' + medication.route : ''
+        }`,
+        textStyles.bold
+      );
       if (medication.date) pdfClient.drawText(medication.date, textStyles.regular);
     });
     pdfClient.drawSeparatedLine(separatedLineStyle);
@@ -586,17 +603,16 @@ async function createDischargeSummaryPdfBytes(data: DischargeSummaryData): Promi
       pdfClient.drawText(doc.title, textStyles.regular);
     });
     pdfClient.drawText('Documents attached', textStyles.attachmentTitle);
-    data.educationDocuments?.forEach((doc) => {
-      const path = `attachments/${doc.fileName}`;
-      pdfClient.drawLink(`- ${doc.fileName}`, path, textStyles.regular);
-    });
     pdfClient.drawSeparatedLine(separatedLineStyle);
   };
 
   const drawDisposition = (): void => {
-    pdfClient.drawText('Disposition', textStyles.subHeader);
-
+    pdfClient.drawText(`Disposition - ${data.disposition.label}`, textStyles.subHeader);
     pdfClient.drawText(data.disposition.instruction, textStyles.regular);
+    if (data.disposition.reason)
+      pdfClient.drawText(`Reason for transfer: ${data.disposition.reason}`, textStyles.regular);
+    if (data.disposition.followUpIn)
+      pdfClient.drawText(`Follow-up visit in ${data.disposition.followUpIn}`, textStyles.regular);
     pdfClient.drawSeparatedLine(separatedLineStyle);
   };
 
@@ -607,10 +623,6 @@ async function createDischargeSummaryPdfBytes(data: DischargeSummaryData): Promi
     });
 
     pdfClient.drawText('Documents attached', textStyles.attachmentTitle);
-    data.workSchoolExcuse?.forEach((doc) => {
-      const path = `attachments/${doc.fileName}`;
-      pdfClient.drawLink(`- ${doc.fileName}`, path, textStyles.regular);
-    });
     pdfClient.drawSeparatedLine(separatedLineStyle);
   };
 
@@ -667,13 +679,11 @@ async function createDischargeSummaryPDF(
   console.debug(`Created discharge summary pdf bytes`);
   const bucketName = BUCKET_NAMES.DISCHARGE_SUMMARIES;
 
-  const hasAttachments = Array.isArray(data.attachmentUrls) && data.attachmentUrls.length > 0;
-
-  const fileName = hasAttachments ? 'DischargeSummary.zip' : 'DischargeSummary.pdf';
+  const fileName = 'DischargeSummary.pdf';
   console.log('Creating base file url');
   const baseFileUrl = makeZ3Url({ secrets, bucketName, patientID, fileName });
   console.log('Uploading file to bucket');
-  await uploadDocument(pdfBytes, baseFileUrl, token, patientID, data.attachmentUrls).catch((error) => {
+  await uploadPDF(pdfBytes, baseFileUrl, token, patientID).catch((error) => {
     throw new Error('failed uploading pdf to z3: ' + error.message);
   });
 
