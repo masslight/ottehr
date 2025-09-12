@@ -82,6 +82,7 @@ import {
   SchoolWorkNoteExcuseDocFileDTO,
   SchoolWorkNoteType,
   SNOMEDCodeConceptInterface,
+  VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE,
 } from 'utils';
 import { removePrefix } from '../appointment/helpers';
 import { fillMeta } from '../helpers';
@@ -310,6 +311,7 @@ export function makeObservationResource(
   encounterId: string,
   patientId: string,
   practitionerId: string,
+  documentReferenceCreateUrl: string | undefined,
   data: ObservationDTO,
   metaSystem: string,
   patientDOB?: string,
@@ -325,6 +327,15 @@ export function makeObservationResource(
     effectiveDateTime: DateTime.utc().toISO()!,
     status: 'final',
     code: { text: data.field || 'unknown' },
+    ...(documentReferenceCreateUrl
+      ? {
+          derivedFrom: [
+            {
+              reference: documentReferenceCreateUrl,
+            },
+          ],
+        }
+      : {}),
     meta: fillMeta(data.field, metaSystem),
   };
 
@@ -1049,6 +1060,7 @@ export function makeObservationDTO(observation: Observation): null | Observation
       field,
       value: observation.valueString,
       note: observation.note?.[0]?.text,
+      derivedFrom: observation.derivedFrom?.[0].reference,
     } as ObservationTextFieldDTO;
   } else if (observation.effectivePeriod?.start && observation.effectivePeriod?.end) {
     return {
@@ -1238,13 +1250,10 @@ const mapResourceToChartDataFields = (
     if (resourceDto) data.observations?.push(resourceDto);
     resourceMapped = true;
   } else if (
-    resource.resourceType === 'QuestionnaireResponse' &&
-    resource.questionnaire === '#aiInterviewQuestionnaire'
+    resource.resourceType === 'DocumentReference' &&
+    resource.type?.coding?.[0].code === VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE.code
   ) {
-    if (data.aiChat) {
-      console.log('chart-data duplication warning: ai chat already exists');
-    }
-    data.aiChat = resource;
+    data.aiChat?.documents.push(resource);
     resourceMapped = true;
   }
   return {
