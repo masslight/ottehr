@@ -18,10 +18,19 @@ export const index = wrapHandler('update-timer', async (input: ZambdaInput): Pro
       throw new Error('Invalid request body format');
     }
 
-    const { patientId, updateType } = requestBody;
+    const { patientId, updateType, serviceType, interactiveCommunication, notes } = requestBody;
 
     if (!patientId || !updateType) {
       throw new Error('Missing required parameters: deviceId, updateType');
+    }
+    if (!serviceType) {
+      throw new Error('Missing required parameters: serviceType');
+    }
+    if (!interactiveCommunication) {
+      throw new Error('Missing required parameters: interactiveCommunication');
+    }
+    if (!notes) {
+      throw new Error('Missing required parameters: notes');
     }
 
     const secrets = input.secrets;
@@ -184,13 +193,40 @@ export const index = wrapHandler('update-timer', async (input: ZambdaInput): Pro
         .format('YYYY-MM-DDTHH:mm:ss.SSS[+00:00]');
 
       const existingIdentifiers = encounterResults[0]?.identifier || [];
-      const totalTimeIdentifier = {
+
+      const updatedIdentifiers = existingIdentifiers.filter(
+        (id: any) =>
+          id.system !== 'total-time' &&
+          id.system !== 'service-type' &&
+          id.system !== 'interactive-communication' &&
+          id.system !== 'notes'
+      );
+
+      updatedIdentifiers.push({
         system: 'total-time',
         value: totalTimeSeconds.toString(),
-      };
+      });
 
-      const updatedIdentifiers = existingIdentifiers.filter((id: any) => id.system !== 'total-time');
-      updatedIdentifiers.push(totalTimeIdentifier);
+      if (serviceType) {
+        updatedIdentifiers.push({
+          system: 'service-type',
+          value: serviceType.toString(),
+        });
+      }
+
+      if (interactiveCommunication !== undefined) {
+        updatedIdentifiers.push({
+          system: 'interactive-communication',
+          value: interactiveCommunication.toString(),
+        });
+      }
+
+      if (notes) {
+        updatedIdentifiers.push({
+          system: 'notes',
+          value: notes,
+        });
+      }
 
       const updatedEncounterStop = {
         ...encounterResults[0],
@@ -210,11 +246,17 @@ export const index = wrapHandler('update-timer', async (input: ZambdaInput): Pro
 
       console.log('Updated encounter for stop:', JSON.stringify(updatedEncounterStop, null, 2));
       console.log(`Total time calculated: ${totalTimeSeconds} seconds`);
+      console.log(`Service type: ${serviceType}`);
+      console.log(`Interactive communication: ${interactiveCommunication}`);
+      console.log(`Notes: ${notes}`);
 
       const encounter = await oystehr.fhir.update<any>(updatedEncounterStop);
       return lambdaResponse(200, {
         message: `Successfully stopped timer value with total time: ${totalTimeSeconds} seconds`,
         totalTime: totalTimeSeconds,
+        serviceType: serviceType,
+        interactiveCommunication: interactiveCommunication,
+        notes: notes,
         encounterResults: encounter,
       });
     } else if (updateType === 'discard') {

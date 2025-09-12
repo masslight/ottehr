@@ -1,21 +1,11 @@
 import { Pause, PlayArrow, Stop } from '@mui/icons-material';
-import {
-  Box,
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  IconButton,
-  Paper,
-  Skeleton,
-  Tooltip,
-  Typography,
-} from '@mui/material';
-import React, { useCallback, useEffect, useState } from 'react';
+import { Box, IconButton, Paper, Skeleton, Tooltip, Typography } from '@mui/material';
+import React, { ReactElement, useCallback, useEffect, useState } from 'react';
 import { useMutation, useQuery } from 'react-query';
 import { useParams } from 'react-router-dom';
 import { getCreateTimer, updateTimer } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { LogTimerModal } from './LogTimerModal';
 import { useBlocker } from './useBlocker';
 
 export const TimerComponent: React.FC = () => {
@@ -23,11 +13,15 @@ export const TimerComponent: React.FC = () => {
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const { oystehrZambda } = useApiClients();
-  const [showStopConfirm, setShowStopConfirm] = useState<boolean>(false);
-  const [showLeaveConfirm, setShowLeaveConfirm] = useState<boolean>(false);
   const [nextLocation, setNextLocation] = useState<any>(null);
   const [_currentEncounter, setCurrentEncounter] = useState<any>(null);
-
+  const [showConfirmModal, setShowConfirmModal] = useState<boolean>(false);
+  const [modalConfig, setModalConfig] = useState<{
+    type: 'stop' | 'leave';
+    message: ReactElement;
+    onConfirm: (data: any) => void;
+    onCancel: () => void;
+  } | null>(null);
   const { id: patientId } = useParams<{ id: string }>();
 
   const payload = {
@@ -35,12 +29,20 @@ export const TimerComponent: React.FC = () => {
   };
 
   const updateTimerMutation = useMutation(
-    (updateType: 'pause' | 'resume' | 'stop' | 'discard') => {
+    (params: {
+      updateType: 'pause' | 'resume' | 'stop' | 'discard';
+      serviceType?: string;
+      interactiveCommunication?: boolean;
+      notes?: string;
+    }) => {
       if (!oystehrZambda) throw new Error('No zambda client');
       return updateTimer(
         {
           patientId,
-          updateType,
+          updateType: params.updateType,
+          serviceType: params.serviceType,
+          interactiveCommunication: params.interactiveCommunication,
+          notes: params.notes,
         },
         oystehrZambda
       );
@@ -115,8 +117,6 @@ export const TimerComponent: React.FC = () => {
       enabled: !!oystehrZambda && !!patientId,
     }
   );
-
-  const cancelStop = (): void => setShowStopConfirm(false);
 
   const extractTotalTimeFromResponse = (data: any): number => {
     try {
@@ -212,10 +212,9 @@ export const TimerComponent: React.FC = () => {
         e.returnValue = '';
       }
     };
-
-    const handlePageHide = (): any => {
+    const handlePageHide = (): void => {
       if (isRunning || time > 0) {
-        updateTimerMutation.mutate('discard');
+        updateTimerMutation.mutate({ updateType: 'discard' });
         localStorage.removeItem('timerState');
         setIsRunning(false);
         setIsPaused(false);
@@ -223,10 +222,8 @@ export const TimerComponent: React.FC = () => {
         setTime(0);
       }
     };
-
     window.addEventListener('beforeunload', handleBeforeUnload);
     window.addEventListener('pagehide', handlePageHide);
-
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('pagehide', handlePageHide);
@@ -243,28 +240,39 @@ export const TimerComponent: React.FC = () => {
 
   useBlocker((tx: any): void => {
     if (isRunning || time > 0) {
-      setShowLeaveConfirm(true);
-      setNextLocation(tx);
+      showLeaveConfirmModal(tx);
     } else {
       tx.retry();
     }
   }, true);
 
-  const handleLeaveConfirmClose = (shouldSave: boolean): void => {
-    setShowLeaveConfirm(false);
+  const handleLeaveConfirmClose = (
+    shouldSave: boolean,
+    formData?: {
+      serviceType: string;
+      interactiveCommunication: boolean;
+      notes: string;
+    }
+  ): void => {
+    setShowConfirmModal(false);
 
     if (nextLocation) {
-      if (shouldSave) {
+      if (shouldSave && formData) {
         setIsRunning(false);
         setIsPaused(false);
-        updateTimerMutation.mutate('stop');
+        updateTimerMutation.mutate({
+          updateType: 'stop',
+          serviceType: formData.serviceType,
+          interactiveCommunication: formData.interactiveCommunication,
+          notes: formData.notes,
+        });
         localStorage.removeItem('timerState');
         setCurrentEncounter(null);
         setTime(0);
       } else {
         setIsRunning(false);
         setIsPaused(false);
-        updateTimerMutation.mutate('discard');
+        updateTimerMutation.mutate({ updateType: 'discard' });
         localStorage.removeItem('timerState');
         setCurrentEncounter(null);
         setTime(0);
@@ -276,10 +284,10 @@ export const TimerComponent: React.FC = () => {
   const handlePauseResume = (): void => {
     if (isPaused) {
       setIsPaused(false);
-      updateTimerMutation.mutate('resume');
+      updateTimerMutation.mutate({ updateType: 'resume' });
     } else {
       setIsPaused(true);
-      updateTimerMutation.mutate('pause');
+      updateTimerMutation.mutate({ updateType: 'pause' });
     }
   };
 
@@ -290,26 +298,59 @@ export const TimerComponent: React.FC = () => {
     void refetch();
   };
 
-  const handleStop = (): void => setShowStopConfirm(true);
-
-  const confirmStop = (): void => {
-    setIsRunning(false);
-    setIsPaused(false);
-    setTime(0);
-    setShowStopConfirm(false);
-    localStorage.removeItem('timerState');
-    setCurrentEncounter(null);
-    updateTimerMutation.mutate('stop');
+  const handleStop = (): void => {
+    setModalConfig({
+      type: 'stop',
+      message: (
+        <>
+          Do you want to log the tracked time for this patient?
+          <br />
+          Click <b>Yes</b> to save the time, or <b>No</b> to discard it.
+        </>
+      ),
+      onConfirm: (data) => confirmStop(data),
+      onCancel: cancelStop,
+    });
+    setShowConfirmModal(true);
   };
 
-  const discardStop = (): void => {
+  const confirmStop = (formData: { serviceType: string; interactiveCommunication: boolean; notes: string }): void => {
     setIsRunning(false);
     setIsPaused(false);
     setTime(0);
-    setShowStopConfirm(false);
+    setShowConfirmModal(false);
     localStorage.removeItem('timerState');
     setCurrentEncounter(null);
-    updateTimerMutation.mutate('discard');
+    updateTimerMutation.mutate({
+      updateType: 'stop',
+      serviceType: formData.serviceType,
+      interactiveCommunication: formData.interactiveCommunication,
+      notes: formData.notes,
+    });
+  };
+  const showLeaveConfirmModal = (tx: any): void => {
+    setNextLocation(tx);
+    setModalConfig({
+      type: 'leave',
+      message: (
+        <>
+          You have an active timer. Click <b>Yes</b> to save the time, or <b>No</b> to discard it.
+        </>
+      ),
+      onConfirm: (data) => handleLeaveConfirmClose(true, data),
+      onCancel: () => handleLeaveConfirmClose(false),
+    });
+    setShowConfirmModal(true);
+  };
+
+  const cancelStop = (): void => {
+    setIsRunning(false);
+    setIsPaused(false);
+    setTime(0);
+    setShowConfirmModal(false);
+    localStorage.removeItem('timerState');
+    setCurrentEncounter(null);
+    updateTimerMutation.mutate({ updateType: 'discard' });
   };
 
   if (isLoading) {
@@ -371,47 +412,18 @@ export const TimerComponent: React.FC = () => {
           )}
         </Box>
       </Box>
-      <Dialog open={showStopConfirm} onClose={cancelStop} maxWidth="xs" fullWidth>
-        <DialogContent>
-          <Typography sx={{ pl: 1 }}>
-            Do you want to log the tracked time for this patient?
-            <br />
-            Click <b>Yes</b> to save the time, or <b>No</b> to discard it.
-          </Typography>
-        </DialogContent>
-
-        <DialogActions
-          sx={{
-            display: 'flex',
-            justifyContent: 'end',
-            pr: 3,
-          }}
-        >
-          <Button onClick={confirmStop} color="primary" variant="contained">
-            Yes
-          </Button>
-          <Button onClick={discardStop}>No</Button>
-        </DialogActions>
-      </Dialog>
-      <Dialog open={showLeaveConfirm} onClose={() => setShowLeaveConfirm(false)} maxWidth="xs" fullWidth>
-        <DialogContent>
-          <Typography sx={{ pl: 1 }}>
-            You have an active timer. Click <b>Yes</b> to save the time, or <b>No</b> to discard it.
-          </Typography>
-        </DialogContent>
-        <DialogActions
-          sx={{
-            display: 'flex',
-            justifyContent: 'end',
-            pr: 3,
-          }}
-        >
-          <Button onClick={() => handleLeaveConfirmClose(true)} color="primary" variant="contained">
-            Yes
-          </Button>
-          <Button onClick={() => handleLeaveConfirmClose(false)}>No</Button>
-        </DialogActions>
-      </Dialog>
+      {modalConfig && (
+        <LogTimerModal
+          open={showConfirmModal}
+          onClose={() => setShowConfirmModal(false)}
+          onConfirm={modalConfig.onConfirm}
+          onCancel={modalConfig.onCancel}
+          message={modalConfig.message}
+          confirmText="Yes"
+          cancelText="No"
+          confirmColor={'primary'}
+        />
+      )}
     </Paper>
   );
 };

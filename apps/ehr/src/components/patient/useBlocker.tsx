@@ -65,6 +65,7 @@ export function useBlocker(blocker: (tx: any) => void, when = true): void {
       }
     };
 
+    history.pushState(null, '', window.location.href);
     window.addEventListener('popstate', handlePopState);
     window.addEventListener('beforeunload', handleBeforeUnload);
     document.addEventListener('visibilitychange', handleVisibilityChange);
