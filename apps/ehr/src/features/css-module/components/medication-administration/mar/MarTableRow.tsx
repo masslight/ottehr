@@ -5,6 +5,7 @@ import useTouchRipple from '@mui/material/useTouchRipple';
 import { DateTime } from 'luxon';
 import React, { useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useGetAppointmentAccessibility } from 'src/telemed';
 import { ExtendedMedicationDataForResponse, searchRouteByCode } from 'utils';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { getInHouseMedicationDetailsUrl } from '../../../routing/helpers';
@@ -31,6 +32,7 @@ export const MarTableRow: React.FC<MarTableRowProps> = ({ medication, columnStyl
   const { id: appointmentId } = useParams();
   const rippleRef = React.useRef(null);
   const theme = useTheme();
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const { getRippleHandlers } = useTouchRipple({
     disabled: false,
@@ -123,7 +125,7 @@ export const MarTableRow: React.FC<MarTableRowProps> = ({ medication, columnStyl
       <TableCell data-testid={dataTestIds.inHouseMedicationsPage.marTableStatusCell} sx={columnStyles.status}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <MedicationStatusChip medication={medication} />
-          <MedicationActions medication={medication} />
+          {!isReadOnly && <MedicationActions medication={medication} />}
         </Box>
       </TableCell>
       <StyledTouchRipple ref={rippleRef} center={false} />

@@ -4,6 +4,7 @@ export * from './AddendumCard';
 export * from './VisitNoteCard';
 export * from './ReviewAndSignButton';
 export * from './SendFaxButton';
+export * from './UnlockAppointmentButton';
 export * from './DischargeSummaryButton';
 export * from './components';
 export * from './DischargeButton';

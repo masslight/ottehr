@@ -12,6 +12,7 @@ interface NursingOrdersTableRowProps {
   nursingOrderData: NursingOrder;
   refetchOrders: () => void;
   onRowClick?: () => void;
+  allowDelete?: boolean;
 }
 
 export const NursingOrdersTableRow = ({
@@ -19,6 +20,7 @@ export const NursingOrdersTableRow = ({
   columns,
   refetchOrders,
   onRowClick,
+  allowDelete,
 }: NursingOrdersTableRowProps): ReactElement => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -64,7 +66,7 @@ export const NursingOrdersTableRow = ({
         return (
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             {nursingOrderData.status && <NursingOrdersStatusChip status={nursingOrderData.status} />}
-            {nursingOrderData.status === 'pending' && (
+            {nursingOrderData.status === 'pending' && allowDelete && (
               <IconButton
                 onClick={async (event) => {
                   event.stopPropagation();

@@ -253,6 +253,13 @@
       "src": "src/ehr/sign-appointment/index",
       "zip": ".dist/zips/sign-appointment.zip"
     },
+    "UNLOCK-APPOINTMENT": {
+      "name": "unlock-appointment",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/unlock-appointment/index",
+      "zip": ".dist/zips/unlock-appointment.zip"
+    },
     "PENDING-SUPERVISOR-APPROVAL": {
       "name": "pending-supervisor-approval",
       "type": "http_auth",

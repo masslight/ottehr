@@ -2,7 +2,7 @@ import { Alert, FormControl, Grid, MenuItem, Paper, Select, Typography, useTheme
 import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ASQ_FIELD, ASQKeys, asqLabels, ASQObservationDTO, ObservationDTO } from 'utils';
-import { useAppointmentData, useChartData } from '../../../../telemed';
+import { useAppointmentData, useChartData, useGetAppointmentAccessibility } from '../../../../telemed';
 import { useOystehrAPIClient } from '../../../../telemed/hooks/useOystehrAPIClient';
 import { CSSModal } from '../CSSModal';
 
@@ -19,6 +19,7 @@ export const ASQ: React.FC = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [tempAsqValue, setTempAsqValue] = useState<ASQKeys | ''>('');
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   // used for highlight select in the UI
   const [asqError, setAsqError] = useState<string>('');
@@ -108,7 +109,7 @@ export const ASQ: React.FC = () => {
                 setAsqError('');
               }}
               displayEmpty
-              disabled={isUpdating || isChartDataLoading}
+              disabled={isUpdating || isChartDataLoading || isReadOnly}
               renderValue={(selected) => (selected ? asqLabels[selected] : 'Select an option')}
               error={!!asqError}
             >

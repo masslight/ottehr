@@ -1,6 +1,7 @@
 import { Box, FormControl, Grid, InputLabel, MenuItem, Select, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { ChangeEvent, JSX, useCallback, useState } from 'react';
+import { useGetAppointmentAccessibility } from 'src/telemed';
 import {
   toVitalBloodPressureObservationMethod,
   VitalBloodPressureObservationMethod,
@@ -25,6 +26,7 @@ const VitalsBloodPressureCard: React.FC<VitalsBloodPressureCardProps> = ({
 }): JSX.Element => {
   const [systolicValueText, setSystolicValueText] = useState('');
   const [diastolicValueText, setDiastolicValueText] = useState('');
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   // the method how this Blood pressure observation has been acquired
   const [observationQualifier, setObservationsQualifier] = useState<string>('');
@@ -136,6 +138,25 @@ const VitalsBloodPressureCard: React.FC<VitalsBloodPressureCardProps> = ({
     );
   };
 
+  const renderRightColumn = (): JSX.Element => {
+    return (
+      <VitalsHistoryContainer
+        currentEncounterObs={currentObs}
+        historicalObs={historicalObs}
+        isLoading={false}
+        historyElementCreator={(historyEntry) => {
+          const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
+          return (
+            <VitalHistoryElement
+              historyEntry={historyEntry}
+              onDelete={isCurrent && !isReadOnly ? handleDeleteVital : undefined}
+            />
+          );
+        }}
+      />
+    );
+  };
+
   return (
     <Box sx={{ mt: 3 }}>
       <AccordionCard
@@ -143,116 +164,105 @@ const VitalsBloodPressureCard: React.FC<VitalsBloodPressureCardProps> = ({
         collapsed={isCollapsed}
         onSwitch={handleSectionCollapse}
       >
-        <DoubleColumnContainer
-          divider
-          leftColumn={
-            <Grid
-              container
-              sx={{
-                height: 'auto',
-                width: 'auto',
-                backgroundColor: '#F7F8F9',
-                borderRadius: 2,
-                my: 2,
-                mx: 2,
-                py: 2,
-                px: 2,
-              }}
-            >
-              {/* Systolic / Diastolic pressure Input Field column */}
-              <Grid item xs={12} sm={6} md={6} lg={6} order={{ xs: 1, sm: 1, md: 1 }}>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'row',
-                  }}
-                >
-                  <VitalsTextInputFiled
-                    label="Systolic"
-                    value={systolicValueText}
-                    disabled={isSaving}
-                    isInputError={isSystolicValidationError}
-                    onChange={handleSystolicTextInputChange}
-                  />
-                  <Typography fontSize={25} sx={{ ml: 1 }}>
-                    /
-                  </Typography>
-                  <VitalsTextInputFiled
-                    label="Diastolic"
-                    value={diastolicValueText}
-                    disabled={isSaving}
-                    isInputError={isDiastolicValidationError}
-                    onChange={handleDiastolicTextInputChange}
-                    sx={{ ml: 1 }}
-                  />
-                </Box>
-              </Grid>
-
-              {/* Qualifier/method dropdown column */}
+        {isReadOnly ? (
+          renderRightColumn()
+        ) : (
+          <DoubleColumnContainer
+            divider
+            leftColumn={
               <Grid
-                item
-                xs={12}
-                sm={3}
-                md={3}
-                lg={3}
-                order={{ xs: 2, sm: 2, md: 2, lg: 2 }}
-                sx={{ mt: isLargeScreen ? 0 : 0 }}
+                container
+                sx={{
+                  height: 'auto',
+                  width: 'auto',
+                  backgroundColor: '#F7F8F9',
+                  borderRadius: 2,
+                  my: 2,
+                  mx: 2,
+                  py: 2,
+                  px: 2,
+                }}
               >
-                <Box
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'row',
-                    ml: 1,
-                  }}
-                >
-                  {renderBloodPressureQualifierDropdown()}
-                </Box>
-              </Grid>
+                {/* Systolic / Diastolic pressure Input Field column */}
+                <Grid item xs={12} sm={6} md={6} lg={6} order={{ xs: 1, sm: 1, md: 1 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexDirection: 'row',
+                    }}
+                  >
+                    <VitalsTextInputFiled
+                      label="Systolic"
+                      value={systolicValueText}
+                      disabled={isSaving}
+                      isInputError={isSystolicValidationError}
+                      onChange={handleSystolicTextInputChange}
+                    />
+                    <Typography fontSize={25} sx={{ ml: 1 }}>
+                      /
+                    </Typography>
+                    <VitalsTextInputFiled
+                      label="Diastolic"
+                      value={diastolicValueText}
+                      disabled={isSaving}
+                      isInputError={isDiastolicValidationError}
+                      onChange={handleDiastolicTextInputChange}
+                      sx={{ ml: 1 }}
+                    />
+                  </Box>
+                </Grid>
 
-              {/* Add Button column */}
-              <Grid
-                item
-                xs={12}
-                sm={3}
-                md={3}
-                lg={3}
-                order={{ xs: 3, sm: 3, md: 3, lg: 3 }}
-                sx={{ mt: isLargeScreen ? 0 : 0 }}
-              >
-                <RoundedButton
-                  size="small"
-                  disabled={isDisabledAddButton}
-                  loading={isSaving}
-                  onClick={() => handleSavePressureObservation(systolicValueText, diastolicValueText)}
-                  color="primary"
-                  sx={{
-                    height: '40px',
-                    px: 2,
-                    ml: 1,
-                  }}
+                {/* Qualifier/method dropdown column */}
+                <Grid
+                  item
+                  xs={12}
+                  sm={3}
+                  md={3}
+                  lg={3}
+                  order={{ xs: 2, sm: 2, md: 2, lg: 2 }}
+                  sx={{ mt: isLargeScreen ? 0 : 0 }}
                 >
-                  Add
-                </RoundedButton>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexDirection: 'row',
+                      ml: 1,
+                    }}
+                  >
+                    {renderBloodPressureQualifierDropdown()}
+                  </Box>
+                </Grid>
+
+                {/* Add Button column */}
+                <Grid
+                  item
+                  xs={12}
+                  sm={3}
+                  md={3}
+                  lg={3}
+                  order={{ xs: 3, sm: 3, md: 3, lg: 3 }}
+                  sx={{ mt: isLargeScreen ? 0 : 0 }}
+                >
+                  <RoundedButton
+                    size="small"
+                    disabled={isDisabledAddButton}
+                    loading={isSaving}
+                    onClick={() => handleSavePressureObservation(systolicValueText, diastolicValueText)}
+                    color="primary"
+                    sx={{
+                      height: '40px',
+                      px: 2,
+                      ml: 1,
+                    }}
+                  >
+                    Add
+                  </RoundedButton>
+                </Grid>
               </Grid>
-            </Grid>
-          }
-          rightColumn={
-            <VitalsHistoryContainer
-              currentEncounterObs={currentObs}
-              historicalObs={historicalObs}
-              isLoading={false}
-              historyElementCreator={(historyEntry) => {
-                const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
-                return (
-                  <VitalHistoryElement
-                    historyEntry={historyEntry}
-                    onDelete={isCurrent ? handleDeleteVital : undefined}
-                  />
-                );
-              }}
-            />
-          }
-        />
+            }
+            rightColumn={renderRightColumn()}
+          />
+        )}
       </AccordionCard>
     </Box>
   );

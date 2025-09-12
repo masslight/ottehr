@@ -141,14 +141,46 @@ export async function getPresignedURLs(
 
   const presignedUrlObj: FileURLs = {};
 
+  // Group documents by type (excluding school-work-note) and find latest version
+  const documentsByType: { [type: string]: DocumentReference[] } = {};
+
+  documentReferenceResources.forEach((resource) => {
+    const type = getDocumentType(resource);
+    if (!type || type === 'school-work-note') return;
+
+    if (!documentsByType[type]) {
+      documentsByType[type] = [];
+    }
+    documentsByType[type].push(resource);
+  });
+
+  // For each type, find the document with the latest meta.lastUpdated time
+  const latestDocumentsByType: { [type: string]: DocumentReference } = {};
+
+  Object.entries(documentsByType).forEach(([type, documents]) => {
+    const latestDocument = documents.reduce((latest, current) => {
+      const latestTime = latest.meta?.lastUpdated ? new Date(latest.meta.lastUpdated).getTime() : 0;
+      const currentTime = current.meta?.lastUpdated ? new Date(current.meta.lastUpdated).getTime() : 0;
+      return currentTime > latestTime ? current : latest;
+    });
+    latestDocumentsByType[type] = latestDocument;
+  });
+
+  // Generate presigned URLs for latest documents (excluding school-work-note)
+  await Promise.all(
+    Object.entries(latestDocumentsByType).map(async ([type, resource]) => {
+      presignedUrlObj[type] = {
+        presignedUrl: await makePresignedURLFromDocumentReference(resource, oystehrToken),
+      };
+    })
+  );
+
+  // Handle school-work-note documents separately (keep existing logic)
   await Promise.all(
     documentReferenceResources.map(async (resource) => {
       const type = getDocumentType(resource);
-      if (!type) return null;
-      if (type !== 'school-work-note') {
-        presignedUrlObj[type] = { presignedUrl: await makePresignedURLFromDocumentReference(resource, oystehrToken) };
-        return null;
-      }
+      if (type !== 'school-work-note') return null;
+
       if (!isDocumentPublished(resource)) return undefined;
       const noteType = resource.meta?.tag?.find((tag) => tag.system === 'school-work-note/type')?.code;
       if (!noteType) return undefined;

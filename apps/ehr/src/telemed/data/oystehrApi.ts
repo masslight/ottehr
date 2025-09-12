@@ -41,6 +41,8 @@ import {
   SyncUserResponse,
   UnassignPractitionerZambdaInput,
   UnassignPractitionerZambdaOutput,
+  UnlockAppointmentZambdaInputValidated,
+  UnlockAppointmentZambdaOutput,
   UpdateLabOrderResourcesInput,
   UpdateMedicationOrderInput,
   UpdatePatientAccountInput,
@@ -60,6 +62,7 @@ enum ZambdaNames {
   'assign practitioner' = 'assign practitioner',
   'unassign practitioner' = 'unassign practitioner',
   'sign appointment' = 'sign appointment',
+  'unlock appointment' = 'unlock appointment',
   'sync user' = 'sync user',
   'get patient instructions' = 'get patient instructions',
   'save patient instruction' = 'save patient instruction',
@@ -88,6 +91,7 @@ const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
   'assign practitioner': false,
   'unassign practitioner': false,
   'sign appointment': false,
+  'unlock appointment': false,
   'sync user': false,
   'get patient instructions': false,
   'save patient instruction': false,
@@ -121,6 +125,7 @@ export const getOystehrTelemedAPI = (
   assignPractitioner: typeof assignPractitioner;
   unassignPractitioner: typeof unassignPractitioner;
   signAppointment: typeof signAppointment;
+  unlockAppointment: typeof unlockAppointment;
   syncUser: typeof syncUser;
   getPatientInstructions: typeof getPatientInstructions;
   savePatientInstruction: typeof savePatientInstruction;
@@ -149,6 +154,7 @@ export const getOystehrTelemedAPI = (
     assignPractitionerZambdaID,
     unassignPractitionerZambdaID,
     signAppointmentZambdaID,
+    unlockAppointmentZambdaID,
     syncUserZambdaID,
     getPatientInstructionsZambdaID,
     savePatientInstructionZambdaID,
@@ -177,6 +183,7 @@ export const getOystehrTelemedAPI = (
     'assign practitioner': assignPractitionerZambdaID,
     'unassign practitioner': unassignPractitionerZambdaID,
     'sign appointment': signAppointmentZambdaID,
+    'unlock appointment': unlockAppointmentZambdaID,
     'sync user': syncUserZambdaID,
     'get patient instructions': getPatientInstructionsZambdaID,
     'save patient instruction': savePatientInstructionZambdaID,
@@ -253,6 +260,12 @@ export const getOystehrTelemedAPI = (
     parameters: Omit<SignAppointmentInput, 'secrets'>
   ): Promise<SignAppointmentResponse> => {
     return await makeZapRequest('sign appointment', parameters);
+  };
+
+  const unlockAppointment = async (
+    parameters: Omit<UnlockAppointmentZambdaInputValidated, 'secrets' | 'userToken'>
+  ): Promise<UnlockAppointmentZambdaOutput> => {
+    return await makeZapRequest('unlock appointment', parameters);
   };
 
   const syncUser = async (): Promise<SyncUserResponse> => {
@@ -351,6 +364,7 @@ export const getOystehrTelemedAPI = (
     assignPractitioner,
     unassignPractitioner,
     signAppointment,
+    unlockAppointment,
     syncUser,
     getPatientInstructions,
     savePatientInstruction,

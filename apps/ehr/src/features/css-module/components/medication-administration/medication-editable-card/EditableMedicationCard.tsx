@@ -3,7 +3,7 @@ import React, { ReactElement, useCallback, useEffect, useMemo, useRef, useState 
 import { useNavigate, useParams } from 'react-router-dom';
 import { MedicationWithTypeDTO, useMedicationHistory } from 'src/features/css-module/hooks/useMedicationHistory';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { useAppointmentData } from 'src/telemed';
+import { useAppointmentData, useGetAppointmentAccessibility } from 'src/telemed';
 import { ERX, ERXStatus } from 'src/telemed/features/appointment/ERX';
 import {
   ExtendedMedicationDataForResponse,
@@ -93,6 +93,7 @@ export const EditableMedicationCard: React.FC<{
   const [missingFields, setMissingFields] = useState<string[]>([]);
   const [showErrors, setShowErrors] = useState(false);
   const isSavedRef = useRef(false);
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const handleStatusChange = async (newStatus: MedicationOrderStatusesType): Promise<void> => {
     isSavedRef.current = false;
@@ -279,7 +280,8 @@ export const EditableMedicationCard: React.FC<{
     hasNotEditableStatus ||
     isCreatingOrEditingOrderAndNothingToSave ||
     isErxLoading ||
-    hasInprogressOrUnresolvedInteractions;
+    hasInprogressOrUnresolvedInteractions ||
+    isReadOnly;
   const isModalSaveButtonDisabled =
     confirmedMedicationUpdateRequestRef.current.newStatus === 'administered' ? false : isReasonSelected;
 

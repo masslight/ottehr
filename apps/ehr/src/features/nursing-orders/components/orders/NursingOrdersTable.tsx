@@ -31,6 +31,7 @@ export const NursingOrdersTable = ({
   columns,
   searchBy,
   appointmentId,
+  allowDelete,
   onCreateOrder,
 }: NursingOrdersTableProps): ReactElement => {
   const navigateTo = useNavigate();
@@ -131,6 +132,7 @@ export const NursingOrdersTable = ({
                   onRowClick={() => onRowClick(order)}
                   columns={columns}
                   refetchOrders={refetch}
+                  allowDelete={allowDelete}
                 />
               ))}
             </TableBody>

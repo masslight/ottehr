@@ -6,6 +6,7 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import { CSSLoader } from 'src/features/css-module/components/CSSLoader';
 import { getImmunizationMARUrl, getImmunizationVaccineDetailsUrl } from 'src/features/css-module/routing/helpers';
 import { ROUTER_PATH } from 'src/features/css-module/routing/routesCSS';
+import { useGetAppointmentAccessibility } from 'src/telemed';
 import { PageTitle } from 'src/telemed/components/PageTitle';
 import { OrderHistoryTable } from '../components/OrderHistoryTable';
 import { VaccineDetailsCardList } from '../components/VaccineDetailsCardList';
@@ -35,6 +36,7 @@ export const Immunization: React.FC = () => {
   const tabsRef = useRef<HTMLDivElement>(null);
   const isTabTransitionRef = useRef(false);
   const [content, setContent] = useState<{ mar: React.ReactNode; details: React.ReactNode } | null>(null);
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const onNewOrderClick = (): void => {
     navigate(`/in-person/${appointmentId}/${ROUTER_PATH.IMMUNIZATION_ORDER_CREATE}`);
@@ -52,8 +54,8 @@ export const Immunization: React.FC = () => {
   }, [appointmentId, navigate, tabName]);
 
   useEffect(() => {
-    setContent({ mar: <OrderHistoryTable showActions={true} />, details: <VaccineDetailsCardList /> });
-  }, []);
+    setContent({ mar: <OrderHistoryTable showActions={!isReadOnly} />, details: <VaccineDetailsCardList /> });
+  }, [isReadOnly]);
 
   if (!content) {
     return <CSSLoader />;
@@ -63,9 +65,11 @@ export const Immunization: React.FC = () => {
     <Stack>
       <Stack direction="row" justifyContent="space-between" alignItems="center">
         <PageTitle label="Immunization" showIntakeNotesButton={false} />
-        <RoundedButton variant="contained" onClick={onNewOrderClick} startIcon={<AddIcon />}>
-          New Order
-        </RoundedButton>
+        {!isReadOnly && (
+          <RoundedButton variant="contained" onClick={onNewOrderClick} startIcon={<AddIcon />}>
+            New Order
+          </RoundedButton>
+        )}
       </Stack>
       <Box ref={tabContentRef}>
         <AppBar

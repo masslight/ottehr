@@ -39,6 +39,7 @@ import {
   addOperation,
   findExistingListByDocumentTypeCode,
   getPatchOperationsForNewMetaTags,
+  getPatchOperationToRemoveMetaTags,
   LAB_RESULT_DOC_REF_CODING_CODE,
   PatientMasterRecordResourceType,
   replaceOperation,
@@ -60,6 +61,8 @@ import {
 } from '../types';
 import {
   ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE,
+  APPOINTMENT_LOCKED_META_TAG,
+  APPOINTMENT_LOCKED_META_TAG_SYSTEM,
   COVERAGE_MEMBER_IDENTIFIER_BASE,
   FHIR_EXTENSION,
   FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
@@ -680,6 +683,27 @@ export const getLocationIdFromAppointment = (appointment: Appointment): string |
   return appointment.participant
     .find((appointment) => appointment.actor?.reference?.startsWith('Location/'))
     ?.actor?.reference?.replace('Location/', '');
+};
+
+// Helper functions for appointment locking meta tags
+export const isAppointmentLocked = (appointment: Appointment): boolean => {
+  return (
+    appointment.meta?.tag?.some(
+      (tag) => tag.system === APPOINTMENT_LOCKED_META_TAG_SYSTEM && tag.code === APPOINTMENT_LOCKED_META_TAG.code
+    ) ?? false
+  );
+};
+
+export const getAppointmentLockMetaTagOperations = (appointment: Appointment, isLocked: boolean): Operation[] => {
+  const lockedTag = APPOINTMENT_LOCKED_META_TAG;
+
+  if (isLocked) {
+    // Add the locked tag if it doesn't exist
+    return getPatchOperationsForNewMetaTags(appointment, [lockedTag]);
+  } else {
+    // Remove the locked tag if it exists
+    return [getPatchOperationToRemoveMetaTags(appointment, [lockedTag])];
+  }
 };
 
 export const getAbbreviationFromLocation = (location: Location): string | undefined => {

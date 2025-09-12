@@ -343,6 +343,7 @@ export const dataTestIds = {
   },
   progressNotePage: {
     reviewAndSignButton: 'review-and-sign-button',
+    unlockAppointmentButton: 'unlock-appointment-button',
     dischargeButton: 'discharge-button',
     sendFaxButton: 'send-fax-button',
     dischargeSummaryButton: 'discharge-summary-button',

@@ -1,6 +1,7 @@
 import { Box, FormControl, Grid, InputLabel, MenuItem, Select, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { ChangeEvent, JSX, useCallback, useState } from 'react';
+import { useGetAppointmentAccessibility } from 'src/telemed';
 import {
   toVitalOxygenSatObservationMethod,
   VitalFieldNames,
@@ -24,6 +25,7 @@ const VitalsOxygenSatCard: React.FC<VitalsOxygenSatCardProps> = ({
   historicalObs,
 }): JSX.Element => {
   const [oxySatValueText, setOxySatValueText] = useState('');
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   // the method how this Oxygen Saturation observation has been acquired
   const [observationQualifier, setObservationsQualifier] = useState<string>('');
@@ -113,6 +115,25 @@ const VitalsOxygenSatCard: React.FC<VitalsOxygenSatCardProps> = ({
     );
   };
 
+  const renderRightColumn = (): JSX.Element => {
+    return (
+      <VitalsHistoryContainer
+        currentEncounterObs={currentObs}
+        historicalObs={historicalObs}
+        isLoading={false}
+        historyElementCreator={(historyEntry) => {
+          const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
+          return (
+            <VitalHistoryElement
+              historyEntry={historyEntry}
+              onDelete={isCurrent && !isReadOnly ? handleDeleteVital : undefined}
+            />
+          );
+        }}
+      />
+    );
+  };
+
   return (
     <Box sx={{ mt: 3 }}>
       <AccordionCard
@@ -120,89 +141,78 @@ const VitalsOxygenSatCard: React.FC<VitalsOxygenSatCardProps> = ({
         collapsed={isCollapsed}
         onSwitch={handleSectionCollapse}
       >
-        <DoubleColumnContainer
-          divider
-          leftColumn={
-            <Grid
-              container
-              sx={{
-                height: 'auto',
-                width: 'auto',
-                backgroundColor: '#F7F8F9',
-                borderRadius: 2,
-                my: 2,
-                mx: 2,
-                py: 2,
-                px: 2,
-              }}
-            >
-              {/* Oxy sat Input Field column */}
-              <Grid item xs={12} sm={4} md={4} lg={4} order={{ xs: 1, sm: 1, md: 1 }}>
-                <VitalsTextInputFiled
-                  label="Sat (%)"
-                  value={oxySatValueText}
-                  disabled={isSaving}
-                  isInputError={isOxySatValidationError}
-                  onChange={handleTextInputChange}
-                />
-              </Grid>
-
-              {/* Qualifier/method dropdown column */}
+        {isReadOnly ? (
+          renderRightColumn()
+        ) : (
+          <DoubleColumnContainer
+            divider
+            leftColumn={
               <Grid
-                item
-                xs={12}
-                sm={4}
-                md={4}
-                lg={4}
-                order={{ xs: 2, sm: 2, md: 2, lg: 2 }}
-                sx={{ mt: isLargeScreen ? 0 : 0 }}
+                container
+                sx={{
+                  height: 'auto',
+                  width: 'auto',
+                  backgroundColor: '#F7F8F9',
+                  borderRadius: 2,
+                  my: 2,
+                  mx: 2,
+                  py: 2,
+                  px: 2,
+                }}
               >
-                <Box
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'row',
-                    ml: 1,
-                  }}
-                >
-                  {renderQualifierDropdown()}
-                </Box>
-              </Grid>
-
-              {/* Add Button column */}
-              <Grid item xs={12} sm={4} md={4} lg={4} order={{ xs: 3, sm: 3, md: 3, lg: 3 }} sx={{ mt: 0 }}>
-                <RoundedButton
-                  disabled={isDisabledAddButton}
-                  loading={isSaving}
-                  onClick={() => handleSaveOxySatObservation(oxySatValueText)}
-                  color="primary"
-                  sx={{
-                    height: '40px',
-                    px: 2,
-                    ml: 1,
-                  }}
-                >
-                  Add
-                </RoundedButton>
-              </Grid>
-            </Grid>
-          }
-          rightColumn={
-            <VitalsHistoryContainer
-              currentEncounterObs={currentObs}
-              historicalObs={historicalObs}
-              isLoading={false}
-              historyElementCreator={(historyEntry) => {
-                const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
-                return (
-                  <VitalHistoryElement
-                    historyEntry={historyEntry}
-                    onDelete={isCurrent ? handleDeleteVital : undefined}
+                {/* Oxy sat Input Field column */}
+                <Grid item xs={12} sm={4} md={4} lg={4} order={{ xs: 1, sm: 1, md: 1 }}>
+                  <VitalsTextInputFiled
+                    label="Sat (%)"
+                    value={oxySatValueText}
+                    disabled={isSaving}
+                    isInputError={isOxySatValidationError}
+                    onChange={handleTextInputChange}
                   />
-                );
-              }}
-            />
-          }
-        />
+                </Grid>
+
+                {/* Qualifier/method dropdown column */}
+                <Grid
+                  item
+                  xs={12}
+                  sm={4}
+                  md={4}
+                  lg={4}
+                  order={{ xs: 2, sm: 2, md: 2, lg: 2 }}
+                  sx={{ mt: isLargeScreen ? 0 : 0 }}
+                >
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexDirection: 'row',
+                      ml: 1,
+                    }}
+                  >
+                    {renderQualifierDropdown()}
+                  </Box>
+                </Grid>
+
+                {/* Add Button column */}
+                <Grid item xs={12} sm={4} md={4} lg={4} order={{ xs: 3, sm: 3, md: 3, lg: 3 }} sx={{ mt: 0 }}>
+                  <RoundedButton
+                    disabled={isDisabledAddButton}
+                    loading={isSaving}
+                    onClick={() => handleSaveOxySatObservation(oxySatValueText)}
+                    color="primary"
+                    sx={{
+                      height: '40px',
+                      px: 2,
+                      ml: 1,
+                    }}
+                  >
+                    Add
+                  </RoundedButton>
+                </Grid>
+              </Grid>
+            }
+            rightColumn={renderRightColumn()}
+          />
+        )}
       </AccordionCard>
     </Box>
   );

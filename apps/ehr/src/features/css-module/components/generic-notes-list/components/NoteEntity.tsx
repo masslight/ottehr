@@ -12,7 +12,8 @@ export const NoteEntity: React.FC<{
   onEdit: (entity: EditableNote, newText: string) => Promise<void>;
   onDelete: (entity: EditableNote) => Promise<void>;
   locales: NoteLocales;
-}> = ({ entity, onEdit, onDelete, locales }) => {
+  isReadOnly: boolean;
+}> = ({ entity, onEdit, onDelete, locales, isReadOnly }) => {
   const theme = useTheme();
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -38,19 +39,26 @@ export const NoteEntity: React.FC<{
             {entity.authorName || entity.authorId}
           </Typography>
         </Box>
-        <Box sx={{ minWidth: '72px', py: 1 }}>
-          <IconButton size="small" aria-label="edit" sx={{ color: theme.palette.primary.dark }} onClick={openEditModal}>
-            <EditIcon fontSize="small" />
-          </IconButton>
-          <IconButton
-            size="small"
-            aria-label="delete"
-            sx={{ color: theme.palette.warning.dark }}
-            onClick={handleDeleteClick}
-          >
-            <DeleteIcon fontSize="small" />
-          </IconButton>
-        </Box>
+        {!isReadOnly && (
+          <Box sx={{ minWidth: '72px', py: 1 }}>
+            <IconButton
+              size="small"
+              aria-label="edit"
+              sx={{ color: theme.palette.primary.dark }}
+              onClick={openEditModal}
+            >
+              <EditIcon fontSize="small" />
+            </IconButton>
+            <IconButton
+              size="small"
+              aria-label="delete"
+              sx={{ color: theme.palette.warning.dark }}
+              onClick={handleDeleteClick}
+            >
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Box>
+        )}
       </BoxStyled>
 
       <DeleteNoteModal
