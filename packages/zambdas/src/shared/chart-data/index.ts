@@ -1101,6 +1101,9 @@ const mapResourceToChartDataFields = (
     chartDataResourceHasMetaTagByCode(resource, 'chief-complaint') &&
     resourceReferencesEncounter(resource, encounterId)
   ) {
+    if (data.chiefComplaint) {
+      console.log('chart-data duplication warning: chief complaint already exists', data.chiefComplaint);
+    }
     data.chiefComplaint = makeFreeTextNoteDTO(resource);
     resourceMapped = true;
   } else if (
@@ -1108,6 +1111,9 @@ const mapResourceToChartDataFields = (
     chartDataResourceHasMetaTagByCode(resource, 'ros') &&
     resourceReferencesEncounter(resource, encounterId)
   ) {
+    if (data.ros) {
+      console.log('chart-data duplication warning: ros already exists', data.ros);
+    }
     data.ros = makeFreeTextNoteDTO(resource);
     resourceMapped = true;
   } else if (
@@ -1146,6 +1152,9 @@ const mapResourceToChartDataFields = (
     resource?.resourceType === 'Procedure' &&
     chartDataResourceHasMetaTagByCode(resource, 'surgical-history-note')
   ) {
+    if (data.surgicalHistoryNote) {
+      console.log('chart-data duplication warning: surgical history note already exists', data.surgicalHistoryNote);
+    }
     data.surgicalHistoryNote = makeFreeTextNoteDTO(resource);
     resourceMapped = true;
   } else if (
@@ -1189,12 +1198,20 @@ const mapResourceToChartDataFields = (
     resourceReferencesEncounter(resource, encounterId)
   ) {
     const cptDto = makeCPTCodeDTO(resource);
-    if (cptDto) data.emCode = cptDto;
+    if (cptDto) {
+      if (data.emCode) {
+        console.log('chart-data duplication warning: em code already exists', data.emCode);
+      }
+      data.emCode = cptDto;
+    }
     resourceMapped = true;
   } else if (
     resource?.resourceType === 'ClinicalImpression' &&
     chartDataResourceHasMetaTagByCode(resource, 'medical-decision')
   ) {
+    if (data.medicalDecision) {
+      console.log('chart-data duplication warning: medical decision already exists', data.medicalDecision);
+    }
     data.medicalDecision = makeClinicalImpressionDTO(resource);
     resourceMapped = true;
   } else if (
@@ -1224,6 +1241,9 @@ const mapResourceToChartDataFields = (
     resource.resourceType === 'QuestionnaireResponse' &&
     resource.questionnaire === '#aiInterviewQuestionnaire'
   ) {
+    if (data.aiChat) {
+      console.log('chart-data duplication warning: ai chat already exists');
+    }
     data.aiChat = resource;
     resourceMapped = true;
   }
