@@ -109,6 +109,27 @@ function formatGMTToLocalDate(gmtDateString: string): string {
   }
 }
 
+// Helper function to parse string as number, defaulting to 0
+function parseAsNumber(value: any): number {
+  if (value === null || value === undefined || value === '') {
+    return 0;
+  }
+
+  if (typeof value === 'number') {
+    return isNaN(value) ? 0 : value;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = parseFloat(value);
+    return isNaN(parsed) ? 0 : parsed;
+  }
+
+  // For any other type, try to convert to string first, then parse
+  const stringValue = String(value);
+  const parsed = parseFloat(stringValue);
+  return isNaN(parsed) ? 0 : parsed;
+}
+
 async function main(): Promise<void> {
   const env = process.argv[2];
   const targetDateString =
@@ -169,18 +190,7 @@ async function main(): Promise<void> {
   for (const paymentMethod of sortedMethods) {
     const methodPayments = paymentsByMethod.get(paymentMethod)!;
 
-    // Choose emoji based on payment method
-    let emoji = '💳'; // default
-    const methodLower = paymentMethod.toLowerCase();
-    if (methodLower === 'cash') {
-      emoji = '💵'; // dollar stack emoji
-    } else if (methodLower === 'card' || methodLower === 'credit-card' || methodLower === 'debit-card') {
-      emoji = '💳'; // card emoji
-    } else if (methodLower === 'check') {
-      emoji = '🏦'; // check emoji
-    }
-
-    console.log(`\n${emoji} ${paymentMethod.toUpperCase()}:`);
+    console.log(`\n💳 ${paymentMethod.toUpperCase()}:`);
     console.log('Date\t\tAmount\t\tPayment Method');
     console.log('--------------------------------------------');
 
@@ -192,9 +202,9 @@ async function main(): Promise<void> {
       const createdDate = formatGMTToLocalDate(payment.created || '');
 
       // Extract payment amount and format as currency with 2 decimal places
-      const amount = payment.amount?.value || 0;
+      const amount: number = parseAsNumber(payment.amount?.value);
       const currency = payment.amount?.currency || '';
-      const formattedAmount = typeof amount === 'number' ? amount.toFixed(2) : parseFloat(amount.toString()).toFixed(2);
+      const formattedAmount = amount.toFixed(2);
 
       // Right-align the amount with fixed width (7 characters for the number part)
       const paddedAmount = formattedAmount.padStart(7, ' ');
@@ -203,9 +213,8 @@ async function main(): Promise<void> {
       console.log(`${createdDate}\t${amountDisplay}\t${paymentMethod}`);
 
       // Add to totals
-      const numericAmount = typeof amount === 'number' ? amount : parseFloat(amount.toString()) || 0;
-      methodTotal += numericAmount;
-      grandTotal += numericAmount;
+      methodTotal += amount;
+      grandTotal += amount;
 
       if (currency) {
         methodCurrencies.add(currency);
