@@ -80,7 +80,6 @@ export const CSSLayout: React.FC = () => {
               </Paper>
             )}
           </Container>
-          {/* </Popover> */}
           <div
             style={{
               flex: 1,

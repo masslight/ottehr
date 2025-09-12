@@ -69,7 +69,6 @@ export function RecordAudioContainer(props: RecordAudioContainerProps): ReactEle
     });
 
     recordPlugin.on('record-end', async (blob: Blob) => {
-      // const url = URL.createObjectURL(blob);
       setRecordingStatus(RecordingStatus.NOT_STARTED);
       setLoading(true);
       if (!oystehr) {
@@ -107,6 +106,7 @@ export function RecordAudioContainer(props: RecordAudioContainerProps): ReactEle
     if (!plugin) return;
 
     if (recordingStatus === RecordingStatus.NOT_STARTED) {
+      // Start recording
       setRecordingStatus(RecordingStatus.RECORDING);
       const devices = await RecordPlugin.getAvailableAudioDevices();
       const deviceId = devices[0]?.deviceId;
@@ -117,7 +117,6 @@ export function RecordAudioContainer(props: RecordAudioContainerProps): ReactEle
     }
 
     setRecordingStatus(RecordingStatus.RECORDING);
-    // setAudioUrl(null);
   };
 
   const pauseRecording = (): void => {
@@ -203,7 +202,6 @@ export function RecordAudioContainer(props: RecordAudioContainerProps): ReactEle
               style={{ width: '100%', ...(recordingStatus === RecordingStatus.NOT_STARTED && { display: 'none' }) }}
             />
           </Grid>
-          {/* <Grid item xs={4}> */}
           <RoundedButton
             variant="contained"
             startIcon={recordingStatus === RecordingStatus.RECORDING ? <Pause /> : <PlayArrow />}
@@ -211,8 +209,6 @@ export function RecordAudioContainer(props: RecordAudioContainerProps): ReactEle
           >
             {getButtonLabel(recordingStatus)}
           </RoundedButton>
-          {/* </Grid> */}
-          {/* <Grid item xs={5}> */}
           {(recordingStatus === RecordingStatus.PAUSED || recordingStatus === RecordingStatus.RECORDING) && (
             <RoundedButton
               variant="contained"
@@ -224,17 +220,8 @@ export function RecordAudioContainer(props: RecordAudioContainerProps): ReactEle
               End
             </RoundedButton>
           )}
-          {/* </Grid> */}
         </>
       )}
-
-      {/* {audioUrl && (
-                <audio
-                    controls
-                    src={audioUrl}
-                    style={{ width: "100%", marginTop: 8 }}
-                />
-            )} */}
     </Grid>
   );
 }

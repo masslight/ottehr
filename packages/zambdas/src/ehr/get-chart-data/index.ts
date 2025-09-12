@@ -199,20 +199,6 @@ export async function getChartData(
 
   if (requestedFields == null) {
     // AI chat
-    // chartDataRequests.push(
-    //   createFindResourceRequest(
-    //     patient,
-    //     encounter,
-    //     'QuestionnaireResponse',
-    //     {
-    //       questionnaire: {
-    //         type: 'string',
-    //         value: '#aiInterviewQuestionnaire',
-    //       },
-    //     },
-    //     'encounter'
-    //   )
-    // );
     chartDataRequests.push(
       createFindResourceRequest(
         patient,
@@ -251,7 +237,6 @@ export async function getChartData(
   console.timeLog('check', 'before resources fetch');
   console.log('Starting a transaction to retrieve chart data...');
   let result: Bundle<FhirResource> | undefined;
-  console.log(chartDataRequests);
   try {
     result = await oystehr.fhir.batch<FhirResource>({
       requests: chartDataRequests,
@@ -264,7 +249,6 @@ export async function getChartData(
   // console.debug('result JSON\n\n==============\n\n', JSON.stringify(result));
 
   console.timeLog('check', 'after fetch, before converting chart data to response');
-
   const chartDataResult = await convertSearchResultsToResponse(
     result,
     m2mToken,

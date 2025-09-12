@@ -14,6 +14,10 @@ export function validateRequestParameters(input: ZambdaInput): CreateResourcesFr
     throw new Error('z3URL is required');
   }
 
+  if (!z3URL.startsWith('https://project-api.zapehr.com')) {
+    throw new Error('z3 url must start with https://project-api.zapehr.com');
+  }
+
   if (!visitID) {
     throw new Error('visitID is required');
   }
