@@ -6,6 +6,7 @@ import { FhirResource, Provenance } from 'fhir/r4b';
 import {
   extractExtensionValue,
   findExtensionIndex,
+  getAppointmentLockMetaTagOperations,
   getAppointmentMetaTagOpForStatusUpdate,
   getEncounterStatusHistoryUpdateOp,
   getPatchBinary,
@@ -193,6 +194,9 @@ const changeStatusToCompleted = async (
   const user = await oystehrCurrentUser.user.me();
 
   patchOps.push(...getAppointmentMetaTagOpForStatusUpdate(resourcesToUpdate.appointment, 'completed', { user }));
+
+  // Add locked meta tag when appointment is signed/completed
+  patchOps.push(...getAppointmentLockMetaTagOperations(resourcesToUpdate.appointment, true));
 
   const encounterPatchOps: Operation[] = [
     {
