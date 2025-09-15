@@ -212,7 +212,12 @@ export const TimerComponent: React.FC = () => {
         e.returnValue = '';
       }
     };
+
     const handlePageHide = (): void => {
+      const navEntries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
+      const navType = navEntries[0]?.type;
+
+      if (navType === 'reload') return;
       if (isRunning || time > 0) {
         updateTimerMutation.mutate({ updateType: 'discard' });
         localStorage.removeItem('timerState');
@@ -222,8 +227,10 @@ export const TimerComponent: React.FC = () => {
         setTime(0);
       }
     };
+
     window.addEventListener('beforeunload', handleBeforeUnload);
     window.addEventListener('pagehide', handlePageHide);
+
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('pagehide', handlePageHide);

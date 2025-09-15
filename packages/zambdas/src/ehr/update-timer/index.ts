@@ -23,15 +23,15 @@ export const index = wrapHandler('update-timer', async (input: ZambdaInput): Pro
     if (!patientId || !updateType) {
       throw new Error('Missing required parameters: deviceId, updateType');
     }
-    if (!serviceType) {
-      throw new Error('Missing required parameters: serviceType');
-    }
-    if (!interactiveCommunication) {
-      throw new Error('Missing required parameters: interactiveCommunication');
-    }
-    if (!notes) {
-      throw new Error('Missing required parameters: notes');
-    }
+    // if (!serviceType) {
+    //   throw new Error('Missing required parameters: serviceType');
+    // }
+    // if (interactiveCommunication === undefined || interactiveCommunication === null) {
+    //   throw new Error('Missing required parameters: interactiveCommunication');
+    // }
+    // if (!notes) {
+    //   throw new Error('Missing required parameters: notes');
+    // }
 
     const secrets = input.secrets;
     if (!oystehrToken) {
@@ -227,6 +227,8 @@ export const index = wrapHandler('update-timer', async (input: ZambdaInput): Pro
           value: notes,
         });
       }
+
+      console.log('Updated Identifiers:', JSON.stringify(updatedIdentifiers, null, 2));
 
       const updatedEncounterStop = {
         ...encounterResults[0],
