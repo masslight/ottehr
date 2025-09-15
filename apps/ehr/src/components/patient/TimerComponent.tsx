@@ -80,7 +80,6 @@ export const TimerComponent: React.FC = () => {
     () => (oystehrZambda ? getCreateTimer(payload, oystehrZambda) : null),
     {
       onSuccess: (response: any) => {
-        console.log('Timer data fetched:', response);
         if (response && response.encounterResults) {
           const encounter = Array.isArray(response.encounterResults)
             ? response.encounterResults[0]
@@ -237,7 +236,6 @@ export const TimerComponent: React.FC = () => {
   const handleLeaveClose = (): void => {
     const currentNextLocation = nextLocationRef.current;
     if (!currentNextLocation) return;
-    console.log('Leaving without timer active');
     setIsSubmitting(true);
     setIsRunning(false);
     setIsPaused(false);
@@ -271,7 +269,6 @@ export const TimerComponent: React.FC = () => {
   }): void => {
     const currentNextLocation = nextLocationRef.current;
     if (!currentNextLocation) return;
-    console.log('Leaving with timer active, shouldSave:', 'formData:', formData);
     setIsSubmitting(true);
     setIsRunning(false);
     setIsPaused(false);
@@ -309,7 +306,6 @@ export const TimerComponent: React.FC = () => {
   };
 
   const handleStart = async (): Promise<any> => {
-    console.log('Start clicked - current state:', { isRunning, isPaused, time });
     setIsRunning(true);
     setIsPaused(false);
     void refetch();
@@ -332,7 +328,6 @@ export const TimerComponent: React.FC = () => {
   };
 
   const confirmStop = (formData: { serviceType: string; interactiveCommunication: boolean; notes: string }): void => {
-    console.log('Stop clicked - current state:');
     setIsRunning(false);
     setIsPaused(false);
     setTime(0);

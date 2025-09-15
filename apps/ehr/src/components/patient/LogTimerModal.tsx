@@ -74,21 +74,16 @@ export const LogTimerModal: React.FC<LogTimerModalProps> = ({
   };
 
   const handleConfirm = (): void => {
-    console.log('handleConfirm called');
-    console.log('validateForm()', validateForm());
     if (validateForm()) {
-      console.log('Form is vaaalid, submitting with values:', { serviceType, interactiveCommunication, notes });
       onConfirm({
         serviceType,
         interactiveCommunication: interactiveCommunication ?? false,
         notes: notes.trim(),
       });
-      console.log('Submitted data:', { serviceType, interactiveCommunication, notes });
     }
   };
 
   const handleCancel = (): void => {
-    console.log('handleCancel called');
     onCancel();
   };
 
