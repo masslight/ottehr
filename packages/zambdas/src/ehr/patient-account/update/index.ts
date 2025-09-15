@@ -24,11 +24,16 @@ import { ValidationError } from 'yup';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
+  getStripeClient,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../../shared';
-import { updatePatientAccountFromQuestionnaire } from '../../shared/harvest';
+import {
+  getAccountAndCoverageResourcesForPatient,
+  updatePatientAccountFromQuestionnaire,
+  updateStripeCustomer,
+} from '../../shared/harvest';
 
 const ZAMBDA_NAME = 'update-patient-account';
 
@@ -72,6 +77,29 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
     console.error('error updating patient account from questionnaire', e);
     const ae = await writeAuditEvent(
       { resultBundle: null, providerProfileReference, questionnaireResponse, patientId },
+      oystehr
+    );
+    console.log('wrote audit event: ', `AuditEvent/${ae.id}`);
+    throw e;
+  }
+
+  try {
+    const { account, guarantorResource } = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
+    const stripeClient = getStripeClient(input.secrets);
+
+    if (!account || !guarantorResource) {
+      console.log('could not find account or guarantor, skipping stripe update');
+    } else {
+      await updateStripeCustomer({
+        account,
+        guarantorResource,
+        stripeClient,
+      });
+    }
+  } catch (e) {
+    console.error('error updating stripe details', e);
+    const ae = await writeAuditEvent(
+      { resultBundle, providerProfileReference, questionnaireResponse, patientId },
       oystehr
     );
     console.log('wrote audit event: ', `AuditEvent/${ae.id}`);
