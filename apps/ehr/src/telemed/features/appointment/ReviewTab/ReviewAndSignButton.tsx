@@ -187,7 +187,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
               <Stack spacing={2}>
                 <DialogContentText>
                   Are you sure you have reviewed the patient chart, performed the examination, defined the diagnoses,
-                  medical decision making and E&M code and are ready to sign this patient.
+                  made a medical decision and chosen an E&M code and are ready to sign this patient?
                   {!css && ' Once signed, notes will be locked and no changes can be made.'}
                 </DialogContentText>
 
