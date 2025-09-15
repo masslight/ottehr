@@ -233,6 +233,13 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
           items: itemItems,
           physician: accountInfo?.primaryCarePhysician,
         });
+      } else if (item.linkId === 'preferred-pharmacy-page') {
+        return itemItems.map((item) => {
+          const { linkId } = item;
+          return {
+            linkId,
+          };
+        });
       } else if (GUARANTOR_ITEMS.includes(item.linkId)) {
         return mapGuarantorToQuestionnaireResponseItems({
           items: itemItems,
