@@ -89,6 +89,26 @@ import { fillMeta } from '../helpers';
 import { isDocumentPublished, PdfDocumentReferencePublishedStatuses, PdfInfo } from '../pdf/pdf-utils';
 import { saveOrUpdateResourceRequest } from '../resources.helpers';
 
+const hasValue = (data: unknown): boolean => {
+  if (data == null) return false;
+
+  if (Array.isArray(data)) {
+    return data.length > 0;
+  }
+
+  if (typeof data === 'object') {
+    return Object.keys(data).length > 0;
+  }
+
+  return true;
+};
+
+const logDuplicationWarning = (data: unknown, message: string): void => {
+  if (hasValue(data)) {
+    console.log(message);
+  }
+};
+
 const getMetaWFieldName = (fieldName: ProviderChartDataFieldsNames): Meta => {
   return fillMeta(fieldName, fieldName);
 };
@@ -1113,9 +1133,7 @@ const mapResourceToChartDataFields = (
     chartDataResourceHasMetaTagByCode(resource, 'chief-complaint') &&
     resourceReferencesEncounter(resource, encounterId)
   ) {
-    if (data.chiefComplaint) {
-      console.log('chart-data duplication warning: chief complaint already exists', data.chiefComplaint);
-    }
+    logDuplicationWarning(data.chiefComplaint, 'chart-data duplication warning: "chiefComplaint" already exists');
     data.chiefComplaint = makeFreeTextNoteDTO(resource);
     resourceMapped = true;
   } else if (
@@ -1123,9 +1141,7 @@ const mapResourceToChartDataFields = (
     chartDataResourceHasMetaTagByCode(resource, 'ros') &&
     resourceReferencesEncounter(resource, encounterId)
   ) {
-    if (data.ros) {
-      console.log('chart-data duplication warning: ros already exists', data.ros);
-    }
+    logDuplicationWarning(data.ros, 'chart-data duplication warning: "ros" already exists');
     data.ros = makeFreeTextNoteDTO(resource);
     resourceMapped = true;
   } else if (
@@ -1164,9 +1180,10 @@ const mapResourceToChartDataFields = (
     resource?.resourceType === 'Procedure' &&
     chartDataResourceHasMetaTagByCode(resource, 'surgical-history-note')
   ) {
-    if (data.surgicalHistoryNote) {
-      console.log('chart-data duplication warning: surgical history note already exists', data.surgicalHistoryNote);
-    }
+    logDuplicationWarning(
+      data.surgicalHistoryNote,
+      'chart-data duplication warning: "surgicalHistoryNote" already exists'
+    );
     data.surgicalHistoryNote = makeFreeTextNoteDTO(resource);
     resourceMapped = true;
   } else if (
@@ -1211,9 +1228,7 @@ const mapResourceToChartDataFields = (
   ) {
     const cptDto = makeCPTCodeDTO(resource);
     if (cptDto) {
-      if (data.emCode) {
-        console.log('chart-data duplication warning: em code already exists', data.emCode);
-      }
+      logDuplicationWarning(data.emCode, 'chart-data duplication warning: "emCode" already exists');
       data.emCode = cptDto;
     }
     resourceMapped = true;
@@ -1221,9 +1236,7 @@ const mapResourceToChartDataFields = (
     resource?.resourceType === 'ClinicalImpression' &&
     chartDataResourceHasMetaTagByCode(resource, 'medical-decision')
   ) {
-    if (data.medicalDecision) {
-      console.log('chart-data duplication warning: medical decision already exists', data.medicalDecision);
-    }
+    logDuplicationWarning(data.medicalDecision, 'chart-data duplication warning: "medicalDecision" already exists');
     data.medicalDecision = makeClinicalImpressionDTO(resource);
     resourceMapped = true;
   } else if (
