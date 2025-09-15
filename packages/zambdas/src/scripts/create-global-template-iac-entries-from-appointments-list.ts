@@ -153,6 +153,7 @@ async function createGlobalTemplateFromAppointment(config: any, appointmentId: s
   // Remove all but the first entry resource with matching meta.tags on system + code
   const seenTags = new Set<string>();
   appointmentBundle.entry = appointmentBundle.entry.filter((entry) => {
+    if (entry.resource?.resourceType === 'Condition') return true; // We do want multiple ICD-10 codes though!
     const tags = entry.resource?.meta?.tag?.map((tag) => `${tag.system}|${tag.code}`);
     if (!tags) return true;
     const isDuplicate = tags.some((tag) => seenTags.has(tag!));
