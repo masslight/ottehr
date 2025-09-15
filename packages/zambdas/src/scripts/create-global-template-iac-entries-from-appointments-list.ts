@@ -1,5 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { BundleEntry, Encounter, List, Patient } from 'fhir/r4b';
+import * as fs from 'fs';
+import * as path from 'path';
 import { examConfig } from 'utils';
 import { v4 as uuidV4 } from 'uuid';
 import { getAuth0Token } from '../shared';
@@ -15,21 +17,83 @@ const getOystehr = async (config: any): Promise<Oystehr> => {
   });
 };
 
-const APPOINTMENT_ID = '466c3232-d06e-4d76-8d6a-a6eaa12057c9';
-const TITLE = '';
+// Function to convert title to key format
+function titleToKey(title: string): string {
+  return title
+    .replace(/[(),]/g, '') // Remove parentheses and commas
+    .replace(/"/g, '') // Remove quotes
+    .replace(/\s+/g, '_') // Replace spaces with underscores
+    .replace(/-/g, '_') // Replace hyphens with underscores
+    .replace(/[^A-Za-z0-9_]/g, '') // Remove any other special characters
+    .toUpperCase();
+}
 
-async function createGlobalTemplateFromAppointment(config: any): Promise<void> {
+// Function to parse CSV properly handling quoted fields
+function parseCSV(csvContent: string): any[] {
+  const lines = csvContent.split('\n');
+  if (lines.length === 0) return [];
+
+  const headers = parseCSVLine(lines[0]);
+  const result = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    if (lines[i].trim() === '') continue; // Skip empty lines
+
+    const values = parseCSVLine(lines[i]);
+    if (values.length === 0) continue;
+
+    const row: any = {};
+    for (let k = 0; k < headers.length; k++) {
+      row[headers[k]] = values[k] || '';
+    }
+    result.push(row);
+  }
+
+  return result;
+}
+
+// Function to parse a single CSV line handling quotes properly
+function parseCSVLine(line: string): string[] {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    if (char === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        // Handle escaped quotes
+        current += '"';
+        i++; // Skip the next quote
+      } else {
+        // Toggle quote state
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+
+  result.push(current.trim()); // Push the last value
+  return result;
+}
+
+async function createGlobalTemplateFromAppointment(config: any, appointmentId: string, title: string): Promise<List> {
   const oystehr = await getOystehr(config);
 
   // Get appointment bundle
   const appointmentBundle = await oystehr.fhir.search({
     resourceType: 'Appointment',
     params: [
-      { name: '_id', value: APPOINTMENT_ID },
+      { name: '_id', value: appointmentId },
       { name: '_revinclude', value: 'Encounter:appointment' },
-      // { name: '_revinclude:iterate', value: 'Observation:encounter' },
-      // { name: '_revinclude:iterate', value: 'ClinicalImpression:encounter' },
-      // { name: '_revinclude:iterate', value: 'Communication:encounter' },
+      { name: '_revinclude:iterate', value: 'Observation:encounter' },
+      { name: '_revinclude:iterate', value: 'ClinicalImpression:encounter' },
+      { name: '_revinclude:iterate', value: 'Communication:encounter' },
       { name: '_revinclude:iterate', value: 'Condition:encounter' },
     ],
   });
@@ -37,8 +101,7 @@ async function createGlobalTemplateFromAppointment(config: any): Promise<void> {
   // console.log(JSON.stringify(appointmentBundle));
 
   if (!appointmentBundle.entry) {
-    console.log('No entries found in appointment bundle, cannot make a template');
-    return;
+    throw new Error('No entries found in appointment bundle, cannot make a template');
   }
 
   // Build List Resource with contained resources
@@ -56,7 +119,7 @@ async function createGlobalTemplateFromAppointment(config: any): Promise<void> {
     },
     status: 'current',
     mode: 'working',
-    title: TITLE,
+    title: title,
     entry: [],
     contained: [],
   };
@@ -87,18 +150,16 @@ async function createGlobalTemplateFromAppointment(config: any): Promise<void> {
     if (!a.resource.meta?.lastUpdated || !b.resource.meta?.lastUpdated) return 0;
     return a.resource.meta.lastUpdated > b.resource.meta.lastUpdated ? 1 : -1;
   });
-  // Remove all but the first entry resource with matching meta.tags on system + code except for conditions
+  // Remove all but the first entry resource with matching meta.tags on system + code
   const seenTags = new Set<string>();
   appointmentBundle.entry = appointmentBundle.entry.filter((entry) => {
-    if (entry.resource?.resourceType === 'Condition') return true;
+    if (entry.resource?.resourceType === 'Condition') return true; // We do want multiple ICD-10 codes though!
     const tags = entry.resource?.meta?.tag?.map((tag) => `${tag.system}|${tag.code}`);
     if (!tags) return true;
     const isDuplicate = tags.some((tag) => seenTags.has(tag!));
     if (!isDuplicate) tags.forEach((tag) => seenTags.add(tag!));
     return !isDuplicate;
   });
-
-  console.log('count of resources', appointmentBundle.entry.length);
 
   // let counter = 0;
   // let observationCounter = 0;
@@ -110,7 +171,7 @@ async function createGlobalTemplateFromAppointment(config: any): Promise<void> {
     // Skip the Encounter that was just used to fetch through to the resources we want.
     if (entry.resource.resourceType === 'Encounter') continue;
     // if (entry.resource.resourceType === 'Observation' && observationCounter > 10) continue; // TODO temporary
-    const anonymizedResource: any = { ...entry.resource }; // We use any so we can scrub relevant fields from various types of resources.
+    const anonymizedResource: any = entry.resource; // We use any so we can scrub relevant fields from various types of resources.
     delete anonymizedResource.meta?.versionId;
     delete anonymizedResource.meta?.lastUpdated;
     delete anonymizedResource.encounter;
@@ -123,9 +184,6 @@ async function createGlobalTemplateFromAppointment(config: any): Promise<void> {
     const newId = uuidV4();
     oldIdToNewIdMap.set(entry.resource.id!, newId);
     anonymizedResource.id = newId;
-    // if (entry.resource.resourceType === 'Condition') {
-    //   console.log('new id and old id', newId, entry.resource.id);
-    // }
     // if (counter < 90) {
     listToCreate.contained!.push(anonymizedResource);
 
@@ -175,17 +233,42 @@ async function createGlobalTemplateFromAppointment(config: any): Promise<void> {
     },
   });
 
-  console.log(JSON.stringify(listToCreate, null, 2));
+  return listToCreate;
+}
 
-  // Create List -- TODO we could create the list and update the global templates list holder to have a reference?
-  // console.time('create list');
-  // const createdList = await oystehr.fhir.create(listToCreate);
-  // console.timeEnd('create list');
+async function processGlobalTemplatesFromCSV(config: any): Promise<void> {
+  // const csvPath = path.join(__dirname, 'data/templates/global-templates-source.csv');
+  const csvPath = path.join(__dirname, 'data/templates/adult-templates.csv');
+  const csvContent = fs.readFileSync(csvPath, 'utf-8');
+  const csvData = parseCSV(csvContent);
+
+  const results: { [key: string]: List } = {};
+
+  for (const row of csvData) {
+    const title = row.Title;
+    const appointmentId = row['appointment-id'];
+
+    if (!title || !appointmentId) {
+      console.log(`Skipping row due to missing title or appointment-id: ${JSON.stringify(row)}`);
+      continue;
+    }
+
+    try {
+      console.log(`Processing: ${title} (${appointmentId})`);
+      const list = await createGlobalTemplateFromAppointment(config, appointmentId, title);
+      const key = titleToKey(title);
+      results[key] = list;
+    } catch (error) {
+      console.log(`Error processing ${title}: ${error}`);
+    }
+  }
+
+  console.log(JSON.stringify(results, null, 2));
 }
 
 const main = async (): Promise<void> => {
   try {
-    await performEffectWithEnvFile(createGlobalTemplateFromAppointment);
+    await performEffectWithEnvFile(processGlobalTemplatesFromCSV);
   } catch (e) {
     console.log('Catch some error while running all effects: ', e);
     console.log('Stringifies: ', JSON.stringify(e));

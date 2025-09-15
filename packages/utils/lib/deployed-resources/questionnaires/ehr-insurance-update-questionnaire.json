@@ -3,7 +3,7 @@
   "resource": {
     "resourceType": "Questionnaire",
     "url": "https://ottehr.com/FHIR/Questionnaire/ehr-insurance-update-questionnaire",
-    "version": "1.0.1",
+    "version": "1.0.3",
     "name": "ehr-insurance-update-questionnaire",
     "title": "EHR Insurance Update Form",
     "status": "active",
@@ -593,7 +593,7 @@
             "linkId": "insurance-plan-type",
             "text": "Insurance type",
             "type": "string",
-            "required": true,
+            "required": false,
             "answerOption": [
               { "valueString": "09" },
               { "valueString": "11" },
@@ -962,7 +962,7 @@
             "linkId": "insurance-plan-type-2",
             "text": "Insurance type",
             "type": "string",
-            "required": true,
+            "required": false,
             "answerOption": [
               { "valueString": "09" },
               { "valueString": "11" },
