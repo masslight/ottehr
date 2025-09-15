@@ -17,6 +17,7 @@ import {
   getSelectors,
   getSlugAndStateFromLocation,
   PROJECT_NAME,
+  ServiceMode,
   UCGetPaperworkResponse,
   VisitType,
 } from 'utils';
@@ -249,6 +250,15 @@ const ThankYou = (): JSX.Element => {
             </Link>
           </Grid>
         )}
+        {paperworkCompleted &&
+          visitType === VisitType.PreBook &&
+          appointmentData.appointment?.serviceMode === ServiceMode.virtual && (
+            <Grid item>
+              <Link to={`/waiting-room?appointment_id=${appointmentID}`}>
+                <Button variant="contained">{t('thanks.goToWaitingRoom')}</Button>
+              </Link>
+            </Grid>
+          )}
       </Grid>
     );
   };
