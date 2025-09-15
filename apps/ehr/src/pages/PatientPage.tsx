@@ -42,8 +42,6 @@ export default function PatientPage(): JSX.Element {
 
   const latestAppointment = appointments?.[0];
 
-  console.log('selectedDevice', selectedDevice);
-
   useEffect(() => {
     const deviceId = searchParams.get('deviceId');
     if (deviceId) {

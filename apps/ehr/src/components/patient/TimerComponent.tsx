@@ -1,6 +1,6 @@
 import { Pause, PlayArrow, Stop } from '@mui/icons-material';
-import { Box, IconButton, Paper, Skeleton, Tooltip, Typography } from '@mui/material';
-import React, { ReactElement, useCallback, useEffect, useState } from 'react';
+import { Alert, AlertColor, Box, IconButton, Paper, Skeleton, Snackbar, Tooltip, Typography } from '@mui/material';
+import React, { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery } from 'react-query';
 import { useParams } from 'react-router-dom';
 import { getCreateTimer, updateTimer } from 'src/api/api';
@@ -13,9 +13,13 @@ export const TimerComponent: React.FC = () => {
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const { oystehrZambda } = useApiClients();
-  const [nextLocation, setNextLocation] = useState<any>(null);
+  const [toastOpen, setToastOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastSeverity, setToastSeverity] = useState<AlertColor>('error');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [_currentEncounter, setCurrentEncounter] = useState<any>(null);
   const [showConfirmModal, setShowConfirmModal] = useState<boolean>(false);
+  const nextLocationRef = useRef<any>(null);
   const [modalConfig, setModalConfig] = useState<{
     type: 'stop' | 'leave';
     message: ReactElement;
@@ -49,10 +53,10 @@ export const TimerComponent: React.FC = () => {
     },
     {
       onSuccess: (response) => {
-        console.log('Timer updated successfully:', response);
+        showToast(`${response.message}`, 'success');
       },
-      onError: (error) => {
-        console.error('Error updating timer:', error);
+      onError: (error: any) => {
+        showToast(`${error.message}`, 'error');
       },
     }
   );
@@ -96,7 +100,6 @@ export const TimerComponent: React.FC = () => {
               setIsPaused(false);
             }
 
-            // Clear localStorage when we have a valid encounter from API
             localStorage.removeItem('timerState');
           } else {
             setTime(0);
@@ -169,6 +172,16 @@ export const TimerComponent: React.FC = () => {
     }
   };
 
+  const handleCloseToast = useCallback(() => {
+    setToastOpen(false);
+  }, []);
+
+  const showToast = useCallback((message: string, severity: AlertColor = 'info') => {
+    setToastMessage(message);
+    setToastSeverity(severity);
+    setToastOpen(true);
+  }, []);
+
   useEffect((): void => {
     void refetch();
   }, [refetch]);
@@ -205,38 +218,6 @@ export const TimerComponent: React.FC = () => {
     };
   }, [isRunning, isPaused]);
 
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent): void => {
-      if (isRunning || time > 0) {
-        e.preventDefault();
-        e.returnValue = '';
-      }
-    };
-
-    const handlePageHide = (): void => {
-      const navEntries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
-      const navType = navEntries[0]?.type;
-
-      if (navType === 'reload') return;
-      if (isRunning || time > 0) {
-        updateTimerMutation.mutate({ updateType: 'discard' });
-        localStorage.removeItem('timerState');
-        setIsRunning(false);
-        setIsPaused(false);
-        setCurrentEncounter(null);
-        setTime(0);
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    window.addEventListener('pagehide', handlePageHide);
-
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      window.removeEventListener('pagehide', handlePageHide);
-    };
-  }, [isRunning, time, updateTimerMutation]);
-
   const formatTime = useCallback((totalSeconds: number): string => {
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -253,39 +234,68 @@ export const TimerComponent: React.FC = () => {
     }
   }, true);
 
-  const handleLeaveConfirmClose = (
-    shouldSave: boolean,
-    formData?: {
-      serviceType: string;
-      interactiveCommunication: boolean;
-      notes: string;
-    }
-  ): void => {
-    setShowConfirmModal(false);
-
-    if (nextLocation) {
-      if (shouldSave && formData) {
-        setIsRunning(false);
-        setIsPaused(false);
-        updateTimerMutation.mutate({
-          updateType: 'stop',
-          serviceType: formData.serviceType,
-          interactiveCommunication: formData.interactiveCommunication,
-          notes: formData.notes,
-        });
-        localStorage.removeItem('timerState');
-        setCurrentEncounter(null);
-        setTime(0);
-      } else {
-        setIsRunning(false);
-        setIsPaused(false);
-        updateTimerMutation.mutate({ updateType: 'discard' });
-        localStorage.removeItem('timerState');
-        setCurrentEncounter(null);
-        setTime(0);
+  const handleLeaveClose = (): void => {
+    const currentNextLocation = nextLocationRef.current;
+    if (!currentNextLocation) return;
+    console.log('Leaving without timer active');
+    setIsSubmitting(true);
+    setIsRunning(false);
+    setIsPaused(false);
+    localStorage.removeItem('timerState');
+    setCurrentEncounter(null);
+    setTime(0);
+    updateTimerMutation.mutate(
+      {
+        updateType: 'discard',
+        serviceType: '-',
+        interactiveCommunication: false,
+        notes: '-',
+      },
+      {
+        onSuccess: () => {
+          setIsSubmitting(false);
+          setShowConfirmModal(false);
+          currentNextLocation.retry();
+        },
+        onError: () => {
+          setIsSubmitting(false);
+        },
       }
-      nextLocation.retry();
-    }
+    );
+  };
+
+  const handleConfirmLeave = (formData?: {
+    serviceType: string;
+    interactiveCommunication: boolean;
+    notes: string;
+  }): void => {
+    const currentNextLocation = nextLocationRef.current;
+    if (!currentNextLocation) return;
+    console.log('Leaving with timer active, shouldSave:', 'formData:', formData);
+    setIsSubmitting(true);
+    setIsRunning(false);
+    setIsPaused(false);
+    localStorage.removeItem('timerState');
+    setCurrentEncounter(null);
+    setTime(0);
+    updateTimerMutation.mutate(
+      {
+        updateType: 'stop',
+        serviceType: formData?.serviceType,
+        interactiveCommunication: formData?.interactiveCommunication,
+        notes: formData?.notes,
+      },
+      {
+        onSuccess: () => {
+          setIsSubmitting(false);
+          setShowConfirmModal(false);
+          currentNextLocation.retry();
+        },
+        onError: () => {
+          setIsSubmitting(false);
+        },
+      }
+    );
   };
 
   const handlePauseResume = (): void => {
@@ -322,6 +332,7 @@ export const TimerComponent: React.FC = () => {
   };
 
   const confirmStop = (formData: { serviceType: string; interactiveCommunication: boolean; notes: string }): void => {
+    console.log('Stop clicked - current state:');
     setIsRunning(false);
     setIsPaused(false);
     setTime(0);
@@ -335,8 +346,9 @@ export const TimerComponent: React.FC = () => {
       notes: formData.notes,
     });
   };
+
   const showLeaveConfirmModal = (tx: any): void => {
-    setNextLocation(tx);
+    nextLocationRef.current = tx;
     setModalConfig({
       type: 'leave',
       message: (
@@ -344,8 +356,8 @@ export const TimerComponent: React.FC = () => {
           You have an active timer. Click <b>Yes</b> to save the time, or <b>No</b> to discard it.
         </>
       ),
-      onConfirm: (data) => handleLeaveConfirmClose(true, data),
-      onCancel: () => handleLeaveConfirmClose(false),
+      onConfirm: (data) => handleConfirmLeave(data),
+      onCancel: handleLeaveClose,
     });
     setShowConfirmModal(true);
   };
@@ -357,7 +369,12 @@ export const TimerComponent: React.FC = () => {
     setShowConfirmModal(false);
     localStorage.removeItem('timerState');
     setCurrentEncounter(null);
-    updateTimerMutation.mutate({ updateType: 'discard' });
+    updateTimerMutation.mutate({
+      updateType: 'discard',
+      serviceType: '-',
+      interactiveCommunication: false,
+      notes: '-',
+    });
   };
 
   if (isLoading) {
@@ -426,11 +443,23 @@ export const TimerComponent: React.FC = () => {
           onConfirm={modalConfig.onConfirm}
           onCancel={modalConfig.onCancel}
           message={modalConfig.message}
-          confirmText="Yes"
-          cancelText="No"
+          confirmText="Submit"
+          cancelText="Cancel"
           confirmColor={'primary'}
+          isSubmitting={isSubmitting}
         />
       )}
+      <Snackbar
+        open={toastOpen}
+        autoHideDuration={6000}
+        sx={{ mt: 5 }}
+        onClose={handleCloseToast}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert onClose={handleCloseToast} severity={toastSeverity} sx={{ width: '100%' }}>
+          {toastMessage}
+        </Alert>
+      </Snackbar>
     </Paper>
   );
 };

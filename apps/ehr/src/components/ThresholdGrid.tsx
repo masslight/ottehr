@@ -46,7 +46,7 @@ export function ThresholdsTable(): ReactElement {
   const { id: patientId } = useParams<{ id: string }>();
   const [toastOpen, setToastOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
-  const [toastSeverity, setToastSeverity] = useState<AlertColor>('info');
+  const [toastSeverity, setToastSeverity] = useState<AlertColor>('error');
   const [devicesForModal, setDevicesForModal] = useState<any[]>([]);
   const [_assignedDevices, setAssignedDevices] = useState<any[]>([]);
   const [modalOpen, setModalOpen] = useState(false);

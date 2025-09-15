@@ -32,7 +32,7 @@ export const DeviceVitalsModal: React.FC<DeviceVitalsModalProps> = ({
       fullWidth
       sx={{
         '& .MuiDialog-paper': {
-          borderRadius: 3,
+          borderRadius: 4,
           minHeight: '55vh',
           maxHeight: '70vh',
           boxShadow: '0px 6px 20px rgba(0,0,0,0.15)',
@@ -58,7 +58,7 @@ export const DeviceVitalsModal: React.FC<DeviceVitalsModalProps> = ({
         </IconButton>
       </Box>
 
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2 }}>
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mx: 3 }}>
         <Tabs
           value={selectedTab}
           onChange={handleTabChange}

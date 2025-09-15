@@ -1,7 +1,6 @@
 import { useContext, useEffect } from 'react';
 import { UNSAFE_NavigationContext } from 'react-router-dom';
 
-// Helper to normalize React Router's "To" into a string path
 const toPath = (to: any): string => {
   if (typeof to === 'string') return to;
   if (typeof to?.pathname === 'string') return to.pathname;
@@ -56,7 +55,6 @@ export function useBlocker(blocker: (tx: any) => void, when = true): void {
 
     const handleVisibilityChange = (): void => {
       if (document.visibilityState === 'hidden') {
-        // Tab switch
         blocker({
           retry: () => {
             // no-op, they just switched tabs

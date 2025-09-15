@@ -56,7 +56,7 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({
 }) => {
   console.log(deviceType);
   const [paginationModel, setPaginationModel] = useState({
-    pageSize: 5,
+    pageSize: 10,
     page: 0,
   });
   const { oystehrZambda } = useApiClients();
@@ -499,36 +499,38 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({
   return (
     <Paper sx={{ padding: 3 }} component={Stack} spacing={2}>
       {!isModal && (
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'start', gap: 5 }}>
-            <Typography variant="h4" color="primary.dark" sx={{ flexGrow: 1 }}>
-              Device Vitals
-            </Typography>
+        <>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'start', gap: 5 }}>
+              <Typography variant="h4" color="primary.dark" sx={{ flexGrow: 1 }}>
+                Device Vitals
+              </Typography>
+            </Box>
+            <Button variant="outlined" startIcon={<ArrowBackIcon />} onClick={onBack} sx={{ marginBottom: '10' }}>
+              Back
+            </Button>
           </Box>
-          <Button variant="outlined" startIcon={<ArrowBackIcon />} onClick={onBack} sx={{ marginBottom: '10' }}>
-            Back
-          </Button>
-        </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography
+              component="span"
+              sx={{ cursor: 'pointer', color: 'primary.dark', fontWeight: 600 }}
+              onClick={onBack}
+            >
+              Devices
+            </Typography>
+            <Typography component="span" color="text.secondary">
+              /
+            </Typography>
+            {isLoading ? (
+              <Skeleton width={150} />
+            ) : (
+              <Typography component="span" sx={{ fontWeight: 500 }}>
+                {name ?? '-'}
+              </Typography>
+            )}
+          </Box>
+        </>
       )}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Typography
-          component="span"
-          sx={{ cursor: 'pointer', color: 'primary.dark', fontWeight: 600 }}
-          onClick={onBack}
-        >
-          Devices
-        </Typography>
-        <Typography component="span" color="text.secondary">
-          /
-        </Typography>
-        {isLoading ? (
-          <Skeleton width={150} />
-        ) : (
-          <Typography component="span" sx={{ fontWeight: 500 }}>
-            {name ?? '-'}
-          </Typography>
-        )}
-      </Box>
 
       {rows.length > 0 && columns.length > 0 ? (
         <DataGridPro

@@ -23,15 +23,14 @@ export const index = wrapHandler('update-timer', async (input: ZambdaInput): Pro
     if (!patientId || !updateType) {
       throw new Error('Missing required parameters: deviceId, updateType');
     }
-    // if (!serviceType) {
-    //   throw new Error('Missing required parameters: serviceType');
-    // }
-    // if (interactiveCommunication === undefined || interactiveCommunication === null) {
-    //   throw new Error('Missing required parameters: interactiveCommunication');
-    // }
-    // if (!notes) {
-    //   throw new Error('Missing required parameters: notes');
-    // }
+
+    if (!serviceType) {
+      throw new Error('Missing required parameters: serviceType');
+    }
+
+    if (!notes) {
+      throw new Error('Missing required parameters: notes');
+    }
 
     const secrets = input.secrets;
     if (!oystehrToken) {
@@ -265,7 +264,7 @@ export const index = wrapHandler('update-timer', async (input: ZambdaInput): Pro
       console.log('Discarded encounter for:', JSON.stringify(encounterResults[0].id, null, 2));
       const encounter = await oystehr.fhir.delete<any>({ resourceType: 'Encounter', id: encounterResults[0].id || '' });
       return lambdaResponse(200, {
-        message: `Successfully discarded timer value for encounter ${encounterResults[0].id}`,
+        message: `Successfully discarded timer value`,
         id: encounterResults[0].id,
         encounterResults: encounter,
       });
