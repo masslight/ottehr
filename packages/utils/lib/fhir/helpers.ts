@@ -1471,8 +1471,11 @@ export const getAddressString = (addressResource: Address | undefined): string =
 };
 
 export const getAddressStringForScheduleResource = (
-  scheduleResource: ScheduleOwnerFhirResource
+  scheduleResource: ScheduleOwnerFhirResource | undefined
 ): string | undefined => {
+  if (!scheduleResource) {
+    return undefined;
+  }
   let address: string | undefined;
   if (scheduleResource.resourceType === 'Location') {
     address = getAddressString(scheduleResource.address);
