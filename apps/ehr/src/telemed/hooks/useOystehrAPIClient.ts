@@ -20,6 +20,7 @@ export const useOystehrAPIClient = (): ReturnType<typeof getOystehrTelemedAPI> |
           assignPractitionerZambdaID: 'assign-practitioner',
           unassignPractitionerZambdaID: 'unassign-practitioner',
           signAppointmentZambdaID: 'sign-appointment',
+          unlockAppointmentZambdaID: 'unlock-appointment',
           getPatientInstructionsZambdaID: 'get-patient-instructions',
           savePatientInstructionZambdaID: 'save-patient-instruction',
           deletePatientInstructionZambdaID: 'delete-patient-instruction',

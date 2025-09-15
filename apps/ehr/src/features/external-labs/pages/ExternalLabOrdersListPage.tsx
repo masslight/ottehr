@@ -2,6 +2,7 @@ import { Box, Paper, Stack } from '@mui/material';
 import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AiSuggestion from 'src/components/AiSuggestion';
+import { useGetAppointmentAccessibility } from 'src/telemed';
 import { AiObservationField, ObservationTextFieldDTO } from 'utils';
 import { PageTitle } from '../../../telemed/components/PageTitle';
 import { useAppointmentData, useChartData } from '../../../telemed/state/appointment/appointment.store';
@@ -23,6 +24,7 @@ export const ExternalLabOrdersListPage: React.FC = () => {
   const navigate = useNavigate();
   const { encounter } = useAppointmentData();
   const encounterId = encounter?.id;
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const { chartData } = useChartData();
 
   const handleCreateOrder = useCallback((): void => {
@@ -44,19 +46,21 @@ export const ExternalLabOrdersListPage: React.FC = () => {
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
           <PageTitle label="External Labs" showIntakeNotesButton={false} />
           <Stack direction="row" spacing={2} alignItems="center">
-            <ButtonRounded
-              variant="contained"
-              color="primary"
-              size={'medium'}
-              onClick={() => handleCreateOrder()}
-              sx={{
-                py: 1,
-                px: 5,
-                textWrap: 'nowrap',
-              }}
-            >
-              + External Lab
-            </ButtonRounded>
+            {!isReadOnly && (
+              <ButtonRounded
+                variant="contained"
+                color="primary"
+                size={'medium'}
+                onClick={() => handleCreateOrder()}
+                sx={{
+                  py: 1,
+                  px: 5,
+                  textWrap: 'nowrap',
+                }}
+              >
+                + External Lab
+              </ButtonRounded>
+            )}
           </Stack>
         </Box>
         {aiExternalLabs?.length > 0 && (
@@ -69,9 +73,9 @@ export const ExternalLabOrdersListPage: React.FC = () => {
           searchBy={{ searchBy: { field: 'encounterId', value: encounterId } }}
           columns={externalLabsColumns}
           showFilters={false}
-          allowDelete={true}
-          allowSubmit={true}
-          onCreateOrder={handleCreateOrder}
+          allowDelete={!isReadOnly}
+          allowSubmit={!isReadOnly}
+          onCreateOrder={!isReadOnly ? handleCreateOrder : undefined}
         />
       </Box>
     </ListViewContainer>

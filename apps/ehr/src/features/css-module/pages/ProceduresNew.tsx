@@ -133,10 +133,10 @@ export default function ProceduresNew(): ReactElement {
 
   const isReadOnly = useMemo(() => {
     if (css) {
-      return inPersonStatus === 'completed';
+      return inPersonStatus === 'completed' || appointmentAccessibility.isAppointmentReadOnly;
     }
     return appointmentAccessibility.status === TelemedAppointmentStatusEnum.complete;
-  }, [css, inPersonStatus, appointmentAccessibility.status]);
+  }, [css, appointmentAccessibility.status, appointmentAccessibility.isAppointmentReadOnly, inPersonStatus]);
 
   const chartCptCodes = chartData?.cptCodes || [];
   const chartDiagnoses = chartData?.diagnosis || [];

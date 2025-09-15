@@ -135,6 +135,7 @@ const GET_CREATE_IN_HOUSE_LAB_ORDER_RESOURCES = 'get-create-in-house-lab-order-r
 const COLLECT_IN_HOUSE_LAB_SPECIMEN = 'collect-in-house-lab-specimen';
 const HANDLE_IN_HOUSE_LAB_RESULTS = 'handle-in-house-lab-results';
 const DELETE_IN_HOUSE_LAB_ORDER = 'delete-in-house-lab-order';
+const UNLOCK_APPOINTMENT_ZAMBDA_ID = 'unlock-appointment';
 const GET_NURSING_ORDERS_ZAMBDA_ID = 'get-nursing-orders';
 const CREATE_NURSING_ORDER_ZAMBDA_ID = 'create-nursing-order';
 const UPDATE_NURSING_ORDER = 'update-nursing-order';
@@ -1100,6 +1101,25 @@ export const pendingSupervisorApproval = async (
   try {
     const response = await oystehr.zambda.execute({
       id: PENDING_SUPERVISOR_APPROVAL_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const unlockAppointment = async (
+  oystehr: Oystehr,
+  parameters: { appointmentId: string }
+): Promise<{ message: string }> => {
+  try {
+    if (UNLOCK_APPOINTMENT_ZAMBDA_ID == null) {
+      throw new Error('unlock appointment zambda environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: UNLOCK_APPOINTMENT_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);
