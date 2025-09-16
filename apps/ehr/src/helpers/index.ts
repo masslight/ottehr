@@ -1,15 +1,19 @@
 import Oystehr from '@oystehr/sdk';
 import { Message } from '@twilio/conversations';
 import { Operation } from 'fast-json-patch';
-import { Appointment, Encounter, Location, Resource } from 'fhir/r4b';
+import { Appointment, Encounter, Location, Practitioner, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ApptTab } from 'src/components/AppointmentTabs';
 import {
   getAppointmentMetaTagOpForStatusUpdate,
   getEncounterStatusHistoryUpdateOp,
   getPatchBinary,
+  getPractitionerNPIIdentifier,
+  getPractitionerQualificationByLocation,
   InPersonAppointmentInformation,
+  isPhysicianQualification,
   OrdersForTrackingBoardRow,
+  PractitionerQualificationCode,
   PROJECT_NAME,
 } from 'utils';
 import { EvolveUser } from '../hooks/useEvolveUser';
@@ -168,3 +172,18 @@ export const displayOrdersToolTip = (appointment: InPersonAppointmentInformation
 export const hasAtLeastOneOrder = (orders: OrdersForTrackingBoardRow): boolean => {
   return Object.values(orders).some((orderList) => Array.isArray(orderList) && orderList.length > 0);
 };
+
+export function canApprove(
+  practitioner: Practitioner,
+  location: Location,
+  attenderQualification?: PractitionerQualificationCode
+): boolean {
+  if (!practitioner || !location) return false;
+
+  const isAttenderPhysician = isPhysicianQualification(attenderQualification);
+  const qualification = getPractitionerQualificationByLocation(practitioner, location);
+  const isPractitionerPhysician = isPhysicianQualification(qualification);
+  const npiIdentifier = getPractitionerNPIIdentifier(practitioner);
+
+  return !isAttenderPhysician && isPractitionerPhysician && Boolean(npiIdentifier?.value);
+}

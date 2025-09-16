@@ -23,7 +23,7 @@ import {
   useTheme,
 } from '@mui/material';
 import { Operation } from 'fast-json-patch';
-import { Appointment, Location, Practitioner } from 'fhir/r4b';
+import { Appointment } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
@@ -35,14 +35,10 @@ import {
   formatMinutes,
   getDurationOfStatus,
   getPatchBinary,
-  getPractitionerNPIIdentifier,
-  getPractitionerQualificationByLocation,
   getVisitTotalTime,
   InPersonAppointmentInformation,
-  isPhysicianQualification,
   mdyStringFromISOString,
   OrdersForTrackingBoardRow,
-  PractitionerQualificationCode,
   PROJECT_NAME,
   ROOM_EXTENSION_URL,
   VisitStatusLabel,
@@ -50,7 +46,7 @@ import {
 import { LANGUAGES } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 import ChatModal from '../features/chat/ChatModal';
-import { checkInPatient, displayOrdersToolTip, hasAtLeastOneOrder } from '../helpers';
+import { canApprove, checkInPatient, displayOrdersToolTip, hasAtLeastOneOrder } from '../helpers';
 import { getTimezone } from '../helpers/formatDateTime';
 import { formatPatientName } from '../helpers/formatPatientName';
 import { getOfficePhoneNumber } from '../helpers/getOfficePhoneNumber';
@@ -239,21 +235,6 @@ const longWaitTimeFlag = (appointment: InPersonAppointmentInformation, statusTim
   }
   return false;
 };
-
-function canApprove(
-  practitioner: Practitioner,
-  location: Location,
-  attenderQualification?: PractitionerQualificationCode
-): boolean {
-  if (!practitioner) return false;
-
-  const isAttenderPhysician = isPhysicianQualification(attenderQualification);
-  const qualification = getPractitionerQualificationByLocation(practitioner, location);
-  const isPractitionerPhysician = isPhysicianQualification(qualification);
-  const npiIdentifier = getPractitionerNPIIdentifier(practitioner);
-
-  return !isAttenderPhysician && isPractitionerPhysician && Boolean(npiIdentifier?.value);
-}
 
 export default function AppointmentTableRow({
   appointment,

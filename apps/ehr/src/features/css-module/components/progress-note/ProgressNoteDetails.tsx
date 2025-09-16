@@ -5,6 +5,8 @@ import { DateTime } from 'luxon';
 import { FC } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
+import { canApprove } from 'src/helpers';
+import useEvolveUser from 'src/hooks/useEvolveUser';
 import { ImmunizationContainer } from 'src/telemed/features/appointment/ReviewTab/components/ImmunizationContainer';
 import { ProceduresContainer } from 'src/telemed/features/appointment/ReviewTab/components/ProceduresContainer';
 import { useOystehrAPIClient } from 'src/telemed/hooks/useOystehrAPIClient';
@@ -53,14 +55,19 @@ import { InHouseMedicationsContainer } from './InHouseMedicationsContainer';
 import { PatientVitalsContainer } from './PatientVitalsContainer';
 
 export const ProgressNoteDetails: FC = () => {
-  const { appointment, encounter, appointmentRefetch, appointmentSetState } = useAppointmentData();
+  const { appointment, encounter, appointmentRefetch, appointmentSetState, location } = useAppointmentData();
   const apiClient = useOystehrAPIClient();
   const { css } = useFeatureFlags();
   const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
   const { mutateAsync: changeTelemedAppointmentStatus, isPending: isChangeLoading } =
     useChangeTelemedAppointmentStatusMutation();
   const isLoading = isChangeLoading || isSignLoading;
+  const user = useEvolveUser();
+  if (!user) {
+    throw new Error('User is not defined');
+  }
 
+  const canUserBeSupervisor = canApprove(user.profileResource!, location!);
   const { chartData } = useChartData();
 
   const { setPartialChartData } = useChartData({
@@ -225,7 +232,7 @@ export const ProgressNoteDetails: FC = () => {
 
   return (
     <AccordionCard label="Visit Note" dataTestId={dataTestIds.progressNotePage.visitNoteCard}>
-      {FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED && isAwaitingSupervisorApproval && (
+      {FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED && isAwaitingSupervisorApproval && canUserBeSupervisor && (
         <>
           <Box
             sx={{
