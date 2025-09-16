@@ -5,18 +5,22 @@ import { ChargeItem, Encounter, Task } from 'fhir/r4b';
 import {
   ChangeTelemedAppointmentStatusInput,
   ChangeTelemedAppointmentStatusResponse,
+  getPatientContactEmail,
   getQuestionnaireResponseByLinkId,
   getSecret,
   mapStatusToTelemed,
   SecretsKeys,
   TelemedAppointmentStatusEnum,
+  TelemedCompletionTemplateData,
   telemedProgressNoteChartDataRequestedFields,
 } from 'utils';
+import { getPresignedURLs } from '../../patient/appointment/get-visit-details/helpers';
 import {
   CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
   checkOrCreateM2MClientToken,
   createEncounterFromAppointment,
   createOystehrClient,
+  getEmailClient,
   getMyPractitionerId,
   parseCreatedResourcesBundle,
   saveResourceRequest,
@@ -27,6 +31,7 @@ import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-detail
 import { makeVisitNotePdfDocumentReference } from '../../shared/pdf/visit-details-pdf/make-visit-note-pdf-document-reference';
 import { composeAndCreateVisitNotePdf } from '../../shared/pdf/visit-details-pdf/visit-note-pdf-creation';
 import { getChartData } from '../get-chart-data';
+import { getNameForOwner } from '../schedules/shared';
 import { getInsurancePlan } from './helpers/fhir-utils';
 import { changeStatusIfPossible, makeAppointmentChargeItem, makeReceiptPdfDocumentReference } from './helpers/helpers';
 import { composeAndCreateReceiptPdf, getPaymentDataRequest, postChargeIssueRequest } from './helpers/payments';
@@ -74,7 +79,11 @@ export const performEffect = async (
       throw new Error(`Visit resources are not properly defined for appointment ${appointmentId}`);
     }
   }
-  const { encounter, patient, account, chargeItem, questionnaireResponse, appointment, listResources } = visitResources;
+  const { encounter, patient, account, chargeItem, questionnaireResponse, appointment, location, listResources } =
+    visitResources;
+  if (!patient) {
+    throw new Error(`No patient has been found for appointment ${appointmentId}`);
+  }
   const insuranceCompanyID = getQuestionnaireResponseByLinkId('insurance-carrier', questionnaireResponse)?.answer?.[0]
     .valueString;
   if (insuranceCompanyID) {
@@ -243,6 +252,21 @@ export const performEffect = async (
           },
         });
       }
+    }
+    // todo: decouple email sending from this endpoint
+    const emailClient = getEmailClient(secrets);
+    const emailEnabled = emailClient.getFeatureFlag();
+    const patientEmail = getPatientContactEmail(patient);
+    if (emailEnabled && location && patientEmail) {
+      const locationName = getNameForOwner(location) ?? '';
+      const presignedUrls = await getPresignedURLs(oystehr, m2mToken, visitResources.encounter.id!);
+      const visitNoteUrl = presignedUrls['visit-note'].presignedUrl;
+
+      const templateData: TelemedCompletionTemplateData = {
+        location: locationName,
+        'visit-note-url': visitNoteUrl || '',
+      };
+      await emailClient.sendVirtualCompletionEmail(patientEmail, templateData);
     }
   }
   return {

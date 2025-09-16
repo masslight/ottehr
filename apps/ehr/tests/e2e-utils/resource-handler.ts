@@ -34,7 +34,7 @@ import {
   RelationshipOption,
   ServiceMode,
 } from 'utils';
-import inPersonIntakeQuestionnaire from '../../../../packages/utils/lib/deployed-resources/questionnaires/in-person-intake-questionnaire.json' assert { type: 'json' };
+import inPersonIntakeQuestionnaire from '../../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
 import { getAuth0Token } from './auth/getAuth0Token';
 import {
   inviteTestEmployeeUser,
@@ -83,6 +83,7 @@ export const PATIENT_STATE = 'NY';
 export const PATIENT_POSTAL_CODE = '06001';
 export const PATIENT_REASON_FOR_VISIT = 'Fever';
 
+export const PATIENT_INSURANCE_PLAN_TYPE = '09';
 export const PATIENT_INSURANCE_MEMBER_ID = '123123';
 export const PATIENT_INSURANCE_POLICY_HOLDER_FIRST_NAME = 'John';
 export const PATIENT_INSURANCE_POLICY_HOLDER_LAST_NAME = 'Doe';
@@ -97,6 +98,7 @@ export const PATIENT_INSURANCE_POLICY_HOLDER_STATE = 'CA';
 export const PATIENT_INSURANCE_POLICY_HOLDER_ZIP = '92000';
 export const PATIENT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED: RelationshipOption = 'Parent';
 
+export const PATIENT_INSURANCE_PLAN_TYPE_2 = '12';
 export const PATIENT_INSURANCE_MEMBER_ID_2 = '234234';
 export const PATIENT_INSURANCE_POLICY_HOLDER_2_FIRST_NAME = 'Jane';
 export const PATIENT_INSURANCE_POLICY_HOLDER_2_LAST_NAME = 'Doe';
@@ -272,7 +274,7 @@ export class ResourceHandler {
     seedDataString = seedDataString.replace(/\{\{scheduleId\}\}/g, schedule.id!);
     seedDataString = seedDataString.replace(
       /\{\{questionnaireUrl\}\}/g,
-      `${inPersonIntakeQuestionnaire.resource.url}|${inPersonIntakeQuestionnaire.resource.version}`
+      `${inPersonIntakeQuestionnaire.fhirResources['questionnaire-in-person-previsit'].url}|${inPersonIntakeQuestionnaire.fhirResources['questionnaire-in-person-previsit'].version}`
     );
     seedDataString = seedDataString.replace(/\{\{date\}\}/g, DateTime.now().toUTC().toFormat('yyyy-MM-dd'));
 

@@ -6,7 +6,7 @@ import { updateLabOrderResources } from 'src/api/api';
 import { LoadingScreen } from 'src/components/LoadingScreen';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { useGetUnsolicitedResultsResourcesForReview } from 'src/telemed';
+import { useGetUnsolicitedResultsDetail } from 'src/telemed';
 import { TaskReviewedParameters, UnsolicitedResultsRequestType } from 'utils';
 import { DetailsWithResults } from '../components/details/DetailsWithResults';
 
@@ -17,14 +17,13 @@ export const UnsolicitedResultsReview: React.FC = () => {
   const [markingAsReviewed, setMarkingAsReviewed] = useState<boolean>(false);
 
   const diagnosticReportId = urlParams.diagnosticReportId as string;
-  console.log('diagnosticReportId', diagnosticReportId);
 
   const {
     data,
     // error: resourceSearchError,
     isLoading: loadingResources,
-  } = useGetUnsolicitedResultsResourcesForReview({
-    requestType: UnsolicitedResultsRequestType.UNSOLICITED_RESULT_DETAIL,
+  } = useGetUnsolicitedResultsDetail({
+    requestType: UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_DETAIL,
     diagnosticReportId,
   });
 
@@ -39,7 +38,7 @@ export const UnsolicitedResultsReview: React.FC = () => {
           diagnosticReportId,
           event: 'reviewed',
         });
-        const patientId = data?.labOrder.patientId;
+        const patientId = data?.unsolicitedLabDTO.patientId;
         navigate(`/patient/${patientId}`); // todo somehow this needs to select the lab tab
       } catch (e) {
         console.log('error: ', e);
@@ -55,11 +54,11 @@ export const UnsolicitedResultsReview: React.FC = () => {
     return <LoadingScreen />;
   }
 
-  if (!data?.labOrder) return null;
+  if (!data?.unsolicitedLabDTO) return null;
 
   return (
     <>
-      {!data?.labOrder ? (
+      {!data?.unsolicitedLabDTO ? (
         <Typography color="error" variant="h6" align="center" mt="24px">
           There was loading this page. Please try again.
         </Typography>
@@ -67,7 +66,7 @@ export const UnsolicitedResultsReview: React.FC = () => {
         <DetailPageContainer>
           <Box sx={{ paddingTop: '24px' }}>
             <DetailsWithResults
-              labOrder={data.labOrder}
+              labOrder={data.unsolicitedLabDTO}
               markTaskAsReviewed={markAsReviewed}
               loading={loadingResources || markingAsReviewed}
             />

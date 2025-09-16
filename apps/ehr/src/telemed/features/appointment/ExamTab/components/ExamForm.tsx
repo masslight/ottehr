@@ -49,9 +49,7 @@ export const ExamForm: FC<ExamFormProps> = ({ form, abnormal = false }) => {
   const onAdd = (data: FormValues): void => {
     const { fieldNamesModified, notes } = fieldNames
       .filter(
-        (fieldName) =>
-          form.fields[fieldName].type !== 'text' &&
-          (!form.fields[fieldName].enabledWhen || isFieldEnabled(form.fields[fieldName].enabledWhen!, watch))
+        (fieldName) => !form.fields[fieldName].enabledWhen || isFieldEnabled(form.fields[fieldName].enabledWhen!, watch)
       )
       .reduce(
         (prev, curr) => {

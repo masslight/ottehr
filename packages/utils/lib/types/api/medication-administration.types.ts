@@ -250,25 +250,25 @@ export const medicationApplianceLocations: MedicationApplianceLocation[] = [
     display: 'Other (qualifier value)',
   },
   {
-    name: 'Volume divided, R and L vastus lateralis',
+    name: 'Volume divided - Left vastus lateralis',
     code: '1217007000',
     system: MEDICATION_APPLIANCE_LOCATION_SYSTEM,
     display: 'Structure of left vastus lateralis muscle (body structure)',
   },
   {
-    name: 'Volume divided, R and L vastus lateralis',
+    name: 'Volume divided - Right vastus lateralis',
     code: '1217006009',
     system: MEDICATION_APPLIANCE_LOCATION_SYSTEM,
     display: 'Structure of right vastus lateralis muscle (body structure)',
   },
   {
-    name: 'Volume divided, R and L deltoid',
+    name: 'Volume divided - Right deltoid',
     code: '16217661000119109',
     system: MEDICATION_APPLIANCE_LOCATION_SYSTEM,
     display: 'Structure of right deltoid muscle (body structure)',
   },
   {
-    name: 'Volume divided, R and L deltoid',
+    name: 'Volume divided - Left deltoid',
     code: '16217701000119102',
     system: MEDICATION_APPLIANCE_LOCATION_SYSTEM,
     display: 'Structure of left deltoid muscle (body structure)',
@@ -1155,6 +1155,11 @@ export interface EmergencyContactRelationship {
 }
 
 export const EMERGENCY_CONTACT_RELATIONSHIPS: EmergencyContactRelationship[] = [
+  {
+    code: 'parent',
+    system: VACCINE_ADMINISTRATION_EMERGENCY_CONTACT_RELATIONSHIP_CODE_SYSTEM,
+    display: 'Parent',
+  },
   {
     code: 'legal-guardian',
     system: VACCINE_ADMINISTRATION_EMERGENCY_CONTACT_RELATIONSHIP_CODE_SYSTEM,

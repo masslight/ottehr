@@ -42,9 +42,10 @@ import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { generatePaperworkPdf } from 'src/api/api';
-import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
+import { isPaperworkPdfOutdated, useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import {
   CONSENT_CODE,
+  FHIR_EXTENSION,
   FhirAppointmentType,
   flattenItems,
   formatPhoneNumber,
@@ -177,7 +178,7 @@ type AppointmentBundleTypes =
 export default function AppointmentPage(): ReactElement {
   // variables
   const { id: appointmentID } = useParams();
-  const { oystehr } = useApiClients();
+  const { oystehr, oystehrZambda } = useApiClients();
   const { getAccessTokenSilently } = useAuth0();
   const theme = useTheme();
 
@@ -1042,30 +1043,40 @@ export default function AppointmentPage(): ReactElement {
 
   const downloadPaperworkPdf = async (): Promise<void> => {
     setPaperworkPdfLoading(true);
-    const existingPaperworkPdf = documents?.find(
-      (doc) =>
-        doc.encounterId === encounter.id &&
-        doc.docName.toLowerCase().includes(PAPERWORK_PDF_ATTACHMENT_TITLE.toLowerCase())
-    );
-    if (existingPaperworkPdf) {
-      await downloadDocument(existingPaperworkPdf.id);
-      setPaperworkPdfLoading(false);
-      return;
+    const existingPaperworkPdfs = documents
+      ?.filter((doc) => doc.docName.toLowerCase().includes(PAPERWORK_PDF_ATTACHMENT_TITLE.toLowerCase()))
+      ?.sort((a, b) => {
+        const dateA = a.whenAddedDate ? new Date(a.whenAddedDate).getTime() : 0;
+        const dateB = b.whenAddedDate ? new Date(b.whenAddedDate).getTime() : 0;
+        return dateB - dateA;
+      });
+    const existingPaperworkPdf = existingPaperworkPdfs?.[0];
+    try {
+      if (existingPaperworkPdf && !isPaperworkPdfOutdated(existingPaperworkPdf, questionnaireResponse)) {
+        await downloadDocument(existingPaperworkPdf.id);
+        setPaperworkPdfLoading(false);
+        return;
+      }
+    } catch (error) {
+      console.warn('Paperwork PDF check failed, regenerating...', error);
     }
-    if (!oystehr || !questionnaireResponse.id) {
+
+    if (!oystehrZambda || !questionnaireResponse.id) {
       enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
       setPaperworkPdfLoading(false);
       return;
     }
-    const response = await generatePaperworkPdf(oystehr, {
-      questionnaireResponseId: questionnaireResponse.id,
-      documentReference: {
-        resourceType: 'DocumentReference',
-        status: 'current',
-      } as DocumentReference,
-    });
-    await downloadDocument(response.documentReference.split('/')[1]);
-    setPaperworkPdfLoading(false);
+    try {
+      const response = await generatePaperworkPdf(oystehrZambda, {
+        questionnaireResponseId: questionnaireResponse.id,
+      });
+      await downloadDocument(response.documentReference.split('/')[1]);
+    } catch (error) {
+      console.error(error);
+      enqueueSnackbar('Failed to generate PDF.', { variant: 'error' });
+    } finally {
+      setPaperworkPdfLoading(false);
+    }
   };
 
   return (
@@ -1093,7 +1104,7 @@ export default function AppointmentPage(): ReactElement {
                   ]}
                 />
               </Grid>
-              <Grid container xs={6} justifyContent="flex-end">
+              <Grid item container xs={6} justifyContent="flex-end">
                 <LoadingButton
                   variant="outlined"
                   sx={{
@@ -1404,6 +1415,9 @@ export default function AppointmentPage(): ReactElement {
                         }),
                     "Patient's sex": patient?.gender ? capitalize(patient?.gender) : '',
                     'Reason for visit': reasonForVisit,
+                    'Authorized non-legal guardian(s)': patient?.extension?.find(
+                      (e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url
+                    )?.valueString,
                   }}
                   icon={{
                     "Patient's date of birth (Unmatched)": <PriorityIconWithBorder fill={theme.palette.warning.main} />,
@@ -1499,6 +1513,7 @@ export default function AppointmentPage(): ReactElement {
                     ),
                     'Birth sex': getAnswerStringFor('responsible-party-birth-sex', flattenedItems),
                     Phone: formatPhoneNumber(getAnswerStringFor('responsible-party-number', flattenedItems) || ''),
+                    Email: getAnswerStringFor('responsible-party-email', flattenedItems) || '',
                   }}
                 />
 

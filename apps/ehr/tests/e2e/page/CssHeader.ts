@@ -26,15 +26,15 @@ export class CssHeader {
 
   async selectIntakePractitioner(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.cssHeader.intakePractitionerInput).click();
-    await this.#page.getByRole('option').first().waitFor();
-    await this.#page.getByRole('option').first().click();
+    await this.#page.getByRole('option').filter({ hasText: /\S/ }).first().waitFor();
+    await this.#page.getByRole('option').filter({ hasText: /\S/ }).first().click();
     await expect(this.#page.getByTestId(dataTestIds.cssHeader.intakePractitionerInput).locator('input')).toBeEnabled();
   }
 
   async selectProviderPractitioner(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.cssHeader.providerPractitionerInput).click();
-    await this.#page.getByRole('option').first().waitFor();
-    await this.#page.getByRole('option').first().click();
+    await this.#page.getByRole('option').filter({ hasText: /\S/ }).first().waitFor();
+    await this.#page.getByRole('option').filter({ hasText: /\S/ }).first().click();
     await expect(
       this.#page.getByTestId(dataTestIds.cssHeader.providerPractitionerInput).locator('input')
     ).toBeEnabled();

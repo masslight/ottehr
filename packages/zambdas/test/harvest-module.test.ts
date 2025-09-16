@@ -9,9 +9,9 @@ import {
   ORG_TYPE_CODE_SYSTEM,
   ORG_TYPE_PAYER_CODE,
 } from 'utils';
-import InPersonQuestionnaireFile from 'utils/lib/deployed-resources/questionnaires/in-person-intake-questionnaire.json';
 import { v4 as uuidV4 } from 'uuid';
 import { assert, describe, expect, it } from 'vitest';
+import InPersonQuestionnaireFile from '../../../config/oystehr/in-person-intake-questionnaire.json';
 import {
   createAccount,
   createContainedGuarantor,
@@ -32,7 +32,7 @@ import {
 } from './data/expected-coverage-resources-qr1';
 import { fillReferences } from './helpers/harvest-test-helpers';
 
-const InPersonQuestionnaire = InPersonQuestionnaireFile.resource;
+const InPersonQuestionnaire = InPersonQuestionnaireFile.fhirResources['questionnaire-in-person-previsit'];
 
 const expectedPrimaryPolicyHolderFromQR1 = fillReferences(rawPPHQR1, ['Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61']);
 const expectedSecondaryPolicyHolderFromQR1 = fillReferences(rawSPHQR1, [
@@ -242,8 +242,12 @@ describe('Harvest Module', () => {
         type: {
           coding: [
             {
-              code: 'HIP',
-              system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
+              code: '09',
+              system: 'https://fhir.ottehr.com/CodeSystem/candid-plan-type',
+            },
+            {
+              code: 'pay',
+              system: 'http://terminology.hl7.org/CodeSystem/coverage-selfpay',
             },
           ],
         },
@@ -298,7 +302,11 @@ describe('Harvest Module', () => {
         type: {
           coding: [
             {
-              code: 'HIP',
+              code: '12',
+              system: 'https://fhir.ottehr.com/CodeSystem/candid-plan-type',
+            },
+            {
+              code: 'PPO',
               system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
             },
           ],
@@ -483,8 +491,12 @@ describe('Harvest Module', () => {
       type: {
         coding: [
           {
-            code: 'HIP',
-            system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
+            code: '09',
+            system: 'https://fhir.ottehr.com/CodeSystem/candid-plan-type',
+          },
+          {
+            code: 'pay',
+            system: 'http://terminology.hl7.org/CodeSystem/coverage-selfpay',
           },
         ],
       },
@@ -573,7 +585,11 @@ describe('Harvest Module', () => {
       type: {
         coding: [
           {
-            code: 'HIP',
+            code: '12',
+            system: 'https://fhir.ottehr.com/CodeSystem/candid-plan-type',
+          },
+          {
+            code: 'PPO',
             system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
           },
         ],
@@ -2028,8 +2044,12 @@ describe('Harvest Module', () => {
         type: {
           coding: [
             {
-              code: 'HIP',
-              system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
+              code: '09',
+              system: 'https://fhir.ottehr.com/CodeSystem/candid-plan-type',
+            },
+            {
+              code: 'pay',
+              system: 'http://terminology.hl7.org/CodeSystem/coverage-selfpay',
             },
           ],
         },
@@ -2155,8 +2175,12 @@ describe('Harvest Module', () => {
         type: {
           coding: [
             {
-              code: 'HIP',
-              system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
+              code: '09',
+              system: 'https://fhir.ottehr.com/CodeSystem/candid-plan-type',
+            },
+            {
+              code: 'pay',
+              system: 'http://terminology.hl7.org/CodeSystem/coverage-selfpay',
             },
           ],
         },
@@ -2267,8 +2291,12 @@ describe('Harvest Module', () => {
         type: {
           coding: [
             {
-              code: 'HIP',
-              system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
+              code: '09',
+              system: 'https://fhir.ottehr.com/CodeSystem/candid-plan-type',
+            },
+            {
+              code: 'pay',
+              system: 'http://terminology.hl7.org/CodeSystem/coverage-selfpay',
             },
           ],
         },
@@ -2389,7 +2417,11 @@ describe('Harvest Module', () => {
       type: {
         coding: [
           {
-            code: 'HIP',
+            code: '12',
+            system: 'https://fhir.ottehr.com/CodeSystem/candid-plan-type',
+          },
+          {
+            code: 'PPO',
             system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
           },
         ],
@@ -2844,6 +2876,10 @@ const questionnaireResponse1: QuestionnaireResponse = {
           ],
         },
         {
+          linkId: 'insurance-plan-type',
+          answer: [{ valueString: '09' }],
+        },
+        {
           linkId: 'insurance-member-id',
           answer: [
             {
@@ -3007,6 +3043,10 @@ const questionnaireResponse1: QuestionnaireResponse = {
                   },
                 },
               ],
+            },
+            {
+              linkId: 'insurance-plan-type-2',
+              answer: [{ valueString: '12' }],
             },
             {
               linkId: 'insurance-member-id-2',
@@ -3625,9 +3665,12 @@ const bundle1Coverage: Coverage = {
   type: {
     coding: [
       {
-        system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
-        code: 'HIP',
-        display: 'health insurance plan policy',
+        code: '09',
+        system: 'https://fhir.ottehr.com/CodeSystem/candid-plan-type',
+      },
+      {
+        code: 'pay',
+        system: 'http://terminology.hl7.org/CodeSystem/coverage-selfpay',
       },
     ],
   },

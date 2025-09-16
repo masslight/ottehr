@@ -2,17 +2,23 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, HealthcareService, Location, Patient, Practitioner, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  DATETIME_FULL_NO_YEAR,
   getPatientContactEmail,
   getPatientFirstName,
   getSecret,
+  OTTEHR_MODULE,
   SecretsKeys,
   TaskStatus,
+  TelemedConfirmationTemplateData,
   VisitType,
 } from 'utils';
+import { getNameForOwner } from '../../../ehr/schedules/shared';
 import {
   createOystehrClient,
   getAuth0Token,
+  getEmailClient,
+  makeCancelVisitUrl,
+  makeJoinVisitUrl,
+  makePaperworkUrl,
   sendInPersonMessages,
   topLevelCatch,
   wrapHandler,
@@ -132,21 +138,42 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('sending confirmation messages for new appointment');
     const startTime = visitType === VisitType.WalkIn ? DateTime.now() : DateTime.fromISO(fhirAppointment.start ?? '');
 
-    if (fhirAppointment.id && startTime.isValid) {
+    sendMessages: if (fhirAppointment.id && startTime.isValid) {
+      const isTelemed = Boolean(fhirAppointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.TM));
+      const patientEmail = getPatientContactEmail(fhirPatient);
+      if (!patientEmail) {
+        // todo: slack notification or sentry error for this?
+        console.log('no patient email found, cannot send messages');
+        break sendMessages;
+      }
       try {
-        await sendInPersonMessages(
-          getPatientContactEmail(fhirPatient),
-          getPatientFirstName(fhirPatient),
-          `RelatedPerson/${fhirRelatedPerson?.id}`,
-          startTime.setZone(timezone).toFormat(DATETIME_FULL_NO_YEAR),
-          secrets,
-          fhirSchedule,
-          fhirAppointment.id,
-          visitType,
-          'en', // todo: pass this in from somewhere
-          oystehrToken
-        );
-        console.log('messages sent successfully');
+        if (isTelemed) {
+          const emailClient = getEmailClient(secrets);
+          const ownerName = getNameForOwner(fhirSchedule);
+          const templateData: TelemedConfirmationTemplateData = {
+            location: ownerName,
+            'cancel-visit-url': makeCancelVisitUrl(fhirAppointment.id, secrets),
+            'paperwork-url': makePaperworkUrl(fhirAppointment.id, secrets),
+            'join-visit-url': makeJoinVisitUrl(fhirAppointment.id, secrets),
+          };
+          await emailClient.sendVirtualConfirmationEmail(patientEmail, templateData);
+          console.log('telemed confirmation email sent');
+          taskStatusToUpdate = 'completed';
+          statusReasonToUpdate = 'telemed confirmation email sent';
+        } else {
+          await sendInPersonMessages({
+            email: patientEmail,
+            firstName: getPatientFirstName(fhirPatient),
+            messageRecipient: `RelatedPerson/${fhirRelatedPerson?.id}`,
+            startTime: startTime.setZone(timezone),
+            secrets,
+            scheduleResource: fhirSchedule,
+            appointmentID: fhirAppointment.id,
+            appointmentType: fhirAppointment.appointmentType?.text || '',
+            language: 'en', // todo: pass this in from somewhere
+            token: oystehrToken,
+          });
+        }
         taskStatusToUpdate = 'completed';
         statusReasonToUpdate = 'messages sent successfully';
       } catch (err) {

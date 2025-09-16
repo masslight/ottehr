@@ -3,44 +3,52 @@ import { Coding, DocumentReference, Extension, Practitioner, Questionnaire } fro
 import {
   CanonicalUrl,
   getCanonicalQuestionnaire,
-  getSecret,
   OtherParticipantsExtension,
   PatientAccountResponse,
   Secrets,
-  SecretsKeys,
   ServiceMode,
   TELEMED_VIDEO_ROOM_CODE,
 } from 'utils';
+import ehrInsuranceUpdateQuestionnaireJson from '../../../../../config/oystehr/ehr-insurance-update-questionnaire.json';
+import inPersonIntakeQuestionnaireJson from '../../../../../config/oystehr/in-person-intake-questionnaire.json';
+import virtualIntakeQuestionnaireJson from '../../../../../config/oystehr/virtual-intake-questionnaire.json';
 import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
-
 export const getCurrentQuestionnaireForServiceType = async (
   serviceMode: ServiceMode,
   secrets: Secrets | null,
   oystehrClient: Oystehr
 ): Promise<Questionnaire> => {
-  const canonical = getCanonicalUrlForPrevisitQuestionnaire(serviceMode, secrets);
+  const canonical = getCanonicalUrlForPrevisitQuestionnaire(serviceMode);
   return getCanonicalQuestionnaire(canonical, oystehrClient);
 };
 
-export const getCanonicalUrlForPrevisitQuestionnaire = (
-  serviceMode: ServiceMode,
-  secrets: Secrets | null
-): CanonicalUrl => {
-  let secretKey = '';
+export const getCanonicalUrlForPrevisitQuestionnaire = (serviceMode: ServiceMode): CanonicalUrl => {
+  let url = '';
+  let version = '';
   if (serviceMode === 'in-person') {
-    secretKey = SecretsKeys.IN_PERSON_PREVISIT_QUESTIONNAIRE;
+    url = inPersonIntakeQuestionnaireJson.fhirResources['questionnaire-in-person-previsit'].url;
+    version = inPersonIntakeQuestionnaireJson.fhirResources['questionnaire-in-person-previsit'].version;
   } else if (serviceMode === 'virtual') {
-    secretKey = SecretsKeys.VIRTUAL_PREVISIT_QUESTIONNAIRE;
+    url = virtualIntakeQuestionnaireJson.fhirResources['questionnaire-virtual-previsit'].url;
+    version = virtualIntakeQuestionnaireJson.fhirResources['questionnaire-virtual-previsit'].version;
   }
-  const questionnaireCanonURL = getSecret(secretKey, secrets);
-  // todo: move this into some kind of util function
-  const [questionnaireURL, questionnaireVersion] = questionnaireCanonURL.split('|');
-  if (!questionnaireURL || !questionnaireVersion) {
-    throw new Error('Questionnaire url secret missing or malformed');
+  if (!url || !version) {
+    throw new Error('Questionnaire url missing or malformed');
   }
   return {
-    url: questionnaireURL,
-    version: questionnaireVersion,
+    url,
+    version,
+  };
+};
+
+export const getCanonicalUrlForInsuranceUpdateQuestionnaire = (): CanonicalUrl => {
+  const { url, version } = ehrInsuranceUpdateQuestionnaireJson.fhirResources['questionnaire-ehr-insurance-update'];
+  if (!url || !version) {
+    throw new Error('Questionnaire url missing or malformed');
+  }
+  return {
+    url,
+    version,
   };
 };
 

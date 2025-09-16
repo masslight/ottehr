@@ -1,5 +1,5 @@
 import { Box, CircularProgress } from '@mui/material';
-import { FC, useCallback, useRef } from 'react';
+import { FC, useCallback } from 'react';
 import { useFeatureFlags } from 'src/features/css-module/context/featureFlags';
 import { telemedProgressNoteChartDataRequestedFields } from 'utils/lib/helpers/visit-note/progress-note-chart-data-requested-fields.helper';
 import { useAppointmentData, useChartData, useGetReviewAndSignData } from '../../../state';
@@ -11,7 +11,6 @@ import { VisitNoteCard } from './VisitNoteCard';
 
 export const ReviewTab: FC = () => {
   const { appointment, encounter, appointmentSetState } = useAppointmentData();
-  const isInitialLoad = useRef(true);
   const { css } = useFeatureFlags();
 
   const {
@@ -21,20 +20,15 @@ export const ReviewTab: FC = () => {
   } = useChartData({
     requestedFields: telemedProgressNoteChartDataRequestedFields,
     onSuccess: (data) => {
-      isInitialLoad.current = false;
       setPartialChartData({
         prescribedMedications: data?.prescribedMedications,
         disposition: data?.disposition,
         medicalDecision: data?.medicalDecision,
       });
     },
-    onError: () => {
-      isInitialLoad.current = false;
-    },
-    enabled: isInitialLoad.current,
   });
 
-  const { refetch: refetchReviewAndSingData } = useGetReviewAndSignData(
+  const { refetch: refetchReviewAndSignData } = useGetReviewAndSignData(
     {
       appointmentId: appointment?.id,
       runImmediately: false,
@@ -45,8 +39,8 @@ export const ReviewTab: FC = () => {
   );
 
   const onAppointmentSigned = useCallback(async (): Promise<void> => {
-    await refetchReviewAndSingData();
-  }, [refetchReviewAndSingData]);
+    await refetchReviewAndSignData();
+  }, [refetchReviewAndSignData]);
 
   if (isChartDataLoading || isFetching) {
     return (

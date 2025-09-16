@@ -398,7 +398,7 @@ export const InPersonExamConfig = {
           defaultValue: true,
           type: 'checkbox',
         },
-        'no-chest-wall-tenderness': { label: 'No chest wall tenderness', defaultValue: true, type: 'checkbox' },
+        'no-chest-wall-tenderness': { label: 'No chest wall tenderness', defaultValue: false, type: 'checkbox' },
       },
       abnormal: {
         wheezing: {

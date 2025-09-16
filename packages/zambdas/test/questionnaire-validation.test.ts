@@ -1,8 +1,7 @@
 import { getQuestionnaireItemsAndProgress, IntakeQuestionnaireItem, makeValidationSchema } from 'utils';
 import { vi } from 'vitest';
 import { AnyObjectSchema, AnySchema } from 'yup';
-import { getAuth0Token } from '../src/shared';
-import { createOystehrClient } from '../src/shared';
+import { createOystehrClient, getAuth0Token } from '../src/shared';
 import QRData from './data/questionnaire-responses.json';
 import { SECRETS as S } from './data/secrets';
 // import { QuestionnaireResponseItem, QuestionnaireResponseItemAnswer } from 'fhir/r4b';
@@ -203,15 +202,13 @@ describe.skip('qr page validation tests', () => {
 
   vi.setConfig({ testTimeout: 100_000 });
   beforeAll(async () => {
-    const { FHIR_API, AUTH0_ENDPOINT, AUTH0_AUDIENCE, AUTH0_CLIENT, AUTH0_SECRET, IN_PERSON_PREVISIT_QUESTIONNAIRE } =
-      S;
+    const { FHIR_API, AUTH0_ENDPOINT, AUTH0_AUDIENCE, AUTH0_CLIENT, AUTH0_SECRET } = S;
     const SECRETS = {
       FHIR_API: FHIR_API,
       AUTH0_ENDPOINT: AUTH0_ENDPOINT,
       AUTH0_AUDIENCE: AUTH0_AUDIENCE,
       AUTH0_CLIENT: AUTH0_CLIENT,
       AUTH0_SECRET: AUTH0_SECRET,
-      IN_PERSON_PREVISIT_QUESTIONNAIRE,
     };
 
     const token = await getAuth0Token(SECRETS);
@@ -315,15 +312,13 @@ describe.skip('full qr validation tests', () => {
   vi.setConfig({ testTimeout: 100_000 });
 
   beforeAll(async () => {
-    const { FHIR_API, AUTH0_ENDPOINT, AUTH0_AUDIENCE, AUTH0_CLIENT, AUTH0_SECRET, IN_PERSON_PREVISIT_QUESTIONNAIRE } =
-      S;
+    const { FHIR_API, AUTH0_ENDPOINT, AUTH0_AUDIENCE, AUTH0_CLIENT, AUTH0_SECRET } = S;
     const SECRETS = {
       FHIR_API: FHIR_API,
       AUTH0_ENDPOINT: AUTH0_ENDPOINT,
       AUTH0_AUDIENCE: AUTH0_AUDIENCE,
       AUTH0_CLIENT: AUTH0_CLIENT,
       AUTH0_SECRET: AUTH0_SECRET,
-      IN_PERSON_PREVISIT_QUESTIONNAIRE,
     };
 
     const token = await getAuth0Token(SECRETS);

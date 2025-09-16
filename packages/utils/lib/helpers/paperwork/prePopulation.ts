@@ -30,7 +30,7 @@ import {
   PatientAccountResponse,
   PRACTICE_NAME_URL,
 } from '../../types';
-import { formatPhoneNumberDisplay, getPayerId } from '../helpers';
+import { formatPhoneNumberDisplay, getCandidPlanTypeCodeFromCoverage, getPayerId } from '../helpers';
 
 // used when patient books an appointment and some of the inputs come from the create-appointment params
 interface PrePopulationInput {
@@ -648,6 +648,9 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
   let primaryMemberId = '';
   let secondaryMemberId = '';
 
+  let primaryPlanType: string | undefined;
+  let secondaryPlanType: string | undefined;
+
   if (primary) {
     const payerId = primary.class?.[0].value;
     const org = insuranceOrgs.find((tempOrg) => getPayerId(tempOrg) === payerId);
@@ -681,6 +684,13 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
       secondary.identifier?.find(
         (i) => i.type?.coding?.[0]?.code === 'MB' && i.assigner?.reference === secondary.payor[0]?.reference
       )?.value ?? '';
+  }
+
+  if (primary) {
+    primaryPlanType = getCandidPlanTypeCodeFromCoverage(primary);
+  }
+  if (secondary) {
+    secondaryPlanType = getCandidPlanTypeCodeFromCoverage(secondary);
   }
 
   const primarySubscriberDoB = primarySubscriber?.birthDate ?? '';
@@ -761,6 +771,12 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
       }
       if (linkId === 'insurance-carrier-2' && secondaryInsurancePlanReference) {
         answer = makeAnswer(secondaryInsurancePlanReference, 'Reference');
+      }
+      if (linkId === 'insurance-plan-type' && primaryPlanType) {
+        answer = makeAnswer(primaryPlanType);
+      }
+      if (linkId === 'insurance-plan-type-2' && secondaryPlanType) {
+        answer = makeAnswer(secondaryPlanType);
       }
       if (linkId === 'insurance-member-id' && primaryMemberId) {
         answer = makeAnswer(primaryMemberId);
