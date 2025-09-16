@@ -162,6 +162,10 @@ export interface ExternalLabResult {
   referenceRangeText?: string;
   resultNotes?: string[];
   attachmentText?: string;
+  performingLabName?: string;
+  performingLabAddress?: string;
+  performingLabPhone?: string;
+  performingLabDirectorFullName?: string;
 }
 
 export interface InHouseLabResult {
@@ -218,11 +222,6 @@ export interface ExternalLabResultsData extends LabResultsData {
   attachments: ExternalLabResultAttachments;
   externalLabResults: ExternalLabResult[];
   testItemCode: string;
-  performingLabName: string;
-  performingLabAddress?: string;
-  performingLabDirector?: string;
-  performingLabPhone?: string;
-  performingLabDirectorFullName?: string;
 }
 
 export type ReflexExternalLabResultsData = Omit<ExternalLabResultsData, 'orderSubmitDate' | 'collectionDate'>;
@@ -272,6 +271,7 @@ export interface VisitNoteData extends PdfExaminationBlockData {
   surgicalHistoryNotes?: string[];
   inHouseMedications?: string[];
   inHouseMedicationsNotes?: string[];
+  immunizationOrders?: string[];
   additionalQuestions: Record<AdditionalBooleanQuestionsFieldsNames, string>;
   screening?: {
     seenInLastThreeYears?: string;
@@ -346,6 +346,7 @@ export interface ReceiptData {
 export interface Medication {
   name: string;
   dose?: string;
+  route?: string;
   date?: string;
 }
 
@@ -402,21 +403,20 @@ export type DischargeSummaryData = {
     secondary: string[];
   };
   patientInstructions?: string[];
-  educationDocuments?: { title: string; fileName: string }[];
+  educationDocuments?: { title: string }[];
   disposition: {
     label: string;
     instruction: string;
+    reason?: string;
+    followUpIn?: string;
   };
   physician: {
     name: string;
   };
   dischargeDateTime?: string;
-  workSchoolExcuse?: {
-    note: string;
-    fileName: string;
-  }[];
+  workSchoolExcuse?: { note: string }[];
   documentsAttached?: boolean;
-  attachmentUrls?: string[];
+  attachmentDocRefs?: string[];
 };
 
 export interface GetPaymentDataResponse {

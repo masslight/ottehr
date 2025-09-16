@@ -1,5 +1,5 @@
 import { TabContext, TabPanel } from '@mui/lab';
-import { FC, useRef } from 'react';
+import { FC } from 'react';
 import { NavigationProvider } from 'src/features/css-module/context/NavigationContext';
 import { useChartData } from 'src/telemed';
 import { TelemedAppointmentVisitTabs } from 'utils';
@@ -14,22 +14,17 @@ import { ReviewTab } from './ReviewTab';
 import { VitalsTab } from './VitalsTab';
 
 export const AppointmentTabs: FC = () => {
-  const isInitialLoad = useRef(true);
   const currentTab = useAppTelemedLocalStore((state) => state.currentTab);
-  const { chartData, chartDataSetState } = useChartData();
   const { update } = useExamObservations();
 
-  useChartData({
+  const { chartData } = useChartData({
     onSuccess: (data) => {
       if (!data) return;
-      chartDataSetState((prev) => ({ chartData: { ...prev.chartData, ...data } }));
       update(data.examObservations, true);
-      isInitialLoad.current = false;
     },
     onError: (error) => {
       console.error(error);
     },
-    enabled: isInitialLoad.current,
   });
 
   return (

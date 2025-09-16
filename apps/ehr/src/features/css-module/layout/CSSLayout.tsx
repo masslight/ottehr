@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React from 'react';
 import { Outlet } from 'react-router-dom';
 import { useResetAppointmentStore } from 'src/telemed/hooks/useResetAppointmentStore';
 import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils';
@@ -32,23 +32,8 @@ const contentWrapperStyle: React.CSSProperties = {
 
 export const CSSLayout: React.FC = () => {
   const { encounter } = useAppointmentData();
-  const isInitialLoad = useRef(true);
   useResetAppointmentStore();
-  const { chartData, chartDataSetState } = useChartData();
-
-  useChartData({
-    onSuccess: (data) => {
-      if (!data) return;
-      chartDataSetState({ chartData: { ...chartData, ...data } });
-      isInitialLoad.current = false;
-    },
-    onError: (error) => {
-      console.error(error);
-    },
-    enabled: isInitialLoad.current,
-    shouldUpdateExams: true,
-  });
-
+  useChartData({ shouldUpdateExams: true });
   const assignedIntakePerformerId = getAdmitterPractitionerId(encounter);
   const assignedProviderId = getAttendingPractitionerId(encounter);
 

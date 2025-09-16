@@ -280,7 +280,7 @@ test.describe('Patient Record Page non-mutating tests', () => {
     await patientInformationPage.verifyPatientFirstName(PATIENT_FIRST_NAME);
   });
 
-  test('Click on [Cancel] button, user stays on Patient Information page', async ({ page }) => {
+  test('Click on [Cancel] button, user stays on Patient Profile page', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.enterPatientFirstName(NEW_PATIENT_FIRST_NAME);
     await patientInformationPage.clickCloseButton();
@@ -290,7 +290,7 @@ test.describe('Patient Record Page non-mutating tests', () => {
     await patientInformationPage.verifyPatientFirstName(NEW_PATIENT_FIRST_NAME);
   });
 
-  test('Click on [x] icon, user stays on Patient Information page', async ({ page }) => {
+  test('Click on [x] icon, user stays on Patient Profile page', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.enterPatientFirstName(NEW_PATIENT_FIRST_NAME);
     await patientInformationPage.clickCloseButton();
@@ -603,6 +603,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyMobileFromPcp(NEW_PHYSICIAN_MOBILE);
   });
 
+  const INSURANCE_PLAN_TYPE = '09 - Self Pay';
   const INSURANCE_MEMBER_ID = 'abc1234567';
   const INSURANCE_POLICY_HOLDER_ADDRESS = 'street 17';
   const INSURANCE_POLICY_HOLDER_ADDRESS_ADDITIONAL_LINE = 'additional';
@@ -618,6 +619,7 @@ test.describe('Patient Record Page mutating tests', () => {
   const INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO = 'testing';
   const INSURANCE_CARRIER = '6 Degrees Health Incorporated';
 
+  const INSURANCE_PLAN_TYPE_2 = '12 - PPO';
   const INSURANCE_MEMBER_ID_2 = '987548ert';
   const INSURANCE_POLICY_HOLDER_ADDRESS_2 = 'second street';
   const INSURANCE_POLICY_HOLDER_ADDRESS_ADDITIONAL_LINE_2 = 'additional2';
@@ -710,6 +712,7 @@ test.describe('Patient Record Page mutating tests', () => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     const addInsuranceDialog = await patientInformationPage.clickAddInsuranceButton();
     await addInsuranceDialog.selectInsuranceType('Primary');
+    await addInsuranceDialog.selectPlanType(INSURANCE_PLAN_TYPE);
     await addInsuranceDialog.enterMemberId(INSURANCE_MEMBER_ID);
     await addInsuranceDialog.enterPolicyHolderFirstName(INSURANCE_POLICY_HOLDER_FIRST_NAME);
     await addInsuranceDialog.enterPolicyHolderMiddleName(INSURANCE_POLICY_HOLDER_MIDDLE_NAME);
@@ -732,6 +735,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await primaryInsuranceCard.clickShowMoreButton();
     await primaryInsuranceCard.verifyInsuranceType('Primary');
     await primaryInsuranceCard.verifyInsuranceCarrier(INSURANCE_CARRIER);
+    await primaryInsuranceCard.verifyPlanType(INSURANCE_PLAN_TYPE);
     await primaryInsuranceCard.verifyMemberId(INSURANCE_MEMBER_ID);
     await primaryInsuranceCard.verifyPolicyHoldersFirstName(INSURANCE_POLICY_HOLDER_FIRST_NAME);
     await primaryInsuranceCard.verifyPolicyHoldersLastName(INSURANCE_POLICY_HOLDER_LAST_NAME);
@@ -748,6 +752,7 @@ test.describe('Patient Record Page mutating tests', () => {
 
     await patientInformationPage.clickAddInsuranceButton();
     await addInsuranceDialog.verifyTypeField('Secondary', false);
+    await addInsuranceDialog.selectPlanType(INSURANCE_PLAN_TYPE_2);
     await addInsuranceDialog.enterMemberId(INSURANCE_MEMBER_ID_2);
     await addInsuranceDialog.enterPolicyHolderFirstName(INSURANCE_POLICY_HOLDER_FIRST_NAME_2);
     await addInsuranceDialog.enterPolicyHolderMiddleName(INSURANCE_POLICY_HOLDER_MIDDLE_NAME_2);
@@ -770,6 +775,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await secondaryInsuranceCard.clickShowMoreButton();
     await secondaryInsuranceCard.verifyInsuranceType('Secondary');
     await secondaryInsuranceCard.verifyInsuranceCarrier(INSURANCE_CARRIER_2);
+    await secondaryInsuranceCard.verifyPlanType(INSURANCE_PLAN_TYPE_2);
     await secondaryInsuranceCard.verifyMemberId(INSURANCE_MEMBER_ID_2);
     await secondaryInsuranceCard.verifyPolicyHoldersFirstName(INSURANCE_POLICY_HOLDER_FIRST_NAME_2);
     await secondaryInsuranceCard.verifyPolicyHoldersLastName(INSURANCE_POLICY_HOLDER_LAST_NAME_2);

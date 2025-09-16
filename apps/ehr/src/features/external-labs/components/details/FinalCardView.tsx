@@ -71,7 +71,6 @@ export const FinalCardView: FC<FinalCardViewProps> = ({
             <Box
               sx={{
                 width: '100%',
-                height: '48px',
                 background: `${otherColors.infoBackground}`,
                 display: 'flex',
                 justifyContent: 'left',

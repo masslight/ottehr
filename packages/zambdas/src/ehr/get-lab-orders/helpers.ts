@@ -32,11 +32,12 @@ import {
   EMPTY_PAGINATION,
   externalLabOrderIsManual,
   ExternalLabsStatus,
-  getAccountNumberFromOrganization,
+  getAccountNumberFromLocationAndOrganization,
   getFullestAvailableName,
   getOrderNumber,
   getOrderNumberFromDr,
   isPositiveNumberOrZero,
+  LAB_DR_TYPE_TAG,
   LAB_ORDER_TASK,
   LabelPdf,
   LabOrderDetailedPageDTO,
@@ -146,14 +147,14 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
 };
 
 export const mapReflexResourcesToDrLabDTO = async (
-  resources: ResourcesByDr,
+  resourcesByDr: ResourcesByDr,
   token: string
 ): Promise<ReflexLabDTO[]> => {
   const DTOs: ReflexLabDTO[] = [];
-  const resourcesByDr = Object.values(resources);
-  for (const drResources of resourcesByDr) {
-    const diagnosticReportLabDetailDTO = await formatResourcesIntoDiagnosticReportLabDTO(drResources, token);
-    const orderNumber = getOrderNumberFromDr(drResources.diagnosticReport) || '';
+  const resourcesForDiagnosticReport = Object.values(resourcesByDr);
+  for (const resources of resourcesForDiagnosticReport) {
+    const diagnosticReportLabDetailDTO = await formatResourcesIntoDiagnosticReportLabDTO(resources, token);
+    const orderNumber = getOrderNumberFromDr(resources.diagnosticReport) || '';
     if (diagnosticReportLabDetailDTO) {
       const reflexLabDetailDTO: ReflexLabDTO = { ...diagnosticReportLabDetailDTO, isReflex: true, orderNumber };
       DTOs.push(reflexLabDetailDTO);
@@ -169,6 +170,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   results,
   appointments,
   encounters,
+  locations,
   practitioners,
   provenances,
   organizations,
@@ -243,7 +245,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
         specimens,
         cache
       ),
-      accountNumber: parseAccountNumber(serviceRequest, organizations),
+      accountNumber: parseAccountNumber(serviceRequest, organizations, locations),
       resultsDetails: parseLResultsDetails(
         serviceRequest,
         results,
@@ -560,7 +562,6 @@ export const getLabResources = async (
       ),
     ]);
 
-  console.log('reflexDRsAndRelatedResources', JSON.stringify(reflexDRsAndRelatedResources));
   const allPractitioners = [...practitioners, ...serviceRequestPractitioners];
 
   let resultPDFs: LabResultPDF[] = [];
@@ -903,6 +904,7 @@ export const checkForReflexDiagnosticReports = async (
             name: 'identifier',
             value: orderNumbersWithSystem.join(','),
           },
+          { name: '_tag', value: `${LAB_DR_TYPE_TAG.system}|${LAB_DR_TYPE_TAG.code.reflex}` }, // only grab those tagged with reflex
           { name: '_revinclude', value: 'Task:based-on' }, // review task
           { name: '_revinclude:iterate', value: 'DocumentReference:related' }, // result pdf
           { name: '_include', value: 'DiagnosticReport:performer' }, // lab org
@@ -1302,8 +1304,23 @@ export const parseLabOrderStatusWithSpecificTask = (
     task.code?.coding?.some((c) => c.code === LAB_ORDER_TASK.code.reviewCancelledResult)
   )
     return ExternalLabsStatus['cancelled by lab'];
-  if (result.status === 'final' && task.status === 'completed') return ExternalLabsStatus.reviewed;
-  if (result.status === 'final' && task.status === 'ready') return ExternalLabsStatus.received;
+
+  const taskIsMatchUnsolicitedResult = task.code?.coding?.some(
+    (c) => c.system === LAB_ORDER_TASK.system && c.code === LAB_ORDER_TASK.code.matchUnsolicitedResult
+  );
+
+  if (result.status === 'final') {
+    if (task.status === 'completed') {
+      if (taskIsMatchUnsolicitedResult) {
+        return ExternalLabsStatus.received;
+      } else {
+        return ExternalLabsStatus.reviewed;
+      }
+    } else if (task.status === 'ready') {
+      return ExternalLabsStatus.received;
+    }
+  }
+
   if (result.status === 'corrected' && task.status === 'ready') return ExternalLabsStatus.corrected;
   if ((result.status === 'final' || result.status == 'corrected') && task.status === 'completed')
     return ExternalLabsStatus.reviewed;
@@ -1677,26 +1694,56 @@ export const parseLabOrdersHistory = (
   return history.sort((a, b) => compareDates(b.date, a.date));
 };
 
-export const parseAccountNumber = (serviceRequest: ServiceRequest, organizations: Organization[]): string => {
+export const parseAccountNumber = (
+  serviceRequest: ServiceRequest,
+  organizations: Organization[],
+  locations: Location[]
+): string => {
   const NOT_FOUND = '';
 
   if (!serviceRequest.performer || !serviceRequest.performer.length) {
+    console.warn(`Could not determine account number because ServiceRequest/${serviceRequest.id} has no performer`);
     return NOT_FOUND;
   }
 
+  if (
+    !serviceRequest.locationReference ||
+    serviceRequest.locationReference.length !== 1 ||
+    !serviceRequest.locationReference[0].reference
+  ) {
+    console.warn(
+      `Could not determine account number because ServiceRequest/${serviceRequest.id} has no locationReference, or too many`
+    );
+    return NOT_FOUND;
+  }
+
+  let srPerformer: Organization | undefined;
   for (const performer of serviceRequest.performer) {
     if (performer.reference && performer.reference.includes('Organization/')) {
       const organizationId = performer.reference.split('Organization/')[1];
       const matchingOrg = organizations.find((org) => org.id === organizationId);
 
       if (matchingOrg) {
-        const accountNumber = getAccountNumberFromOrganization(matchingOrg);
-        return accountNumber || NOT_FOUND;
+        srPerformer = matchingOrg;
+        break;
       }
     }
   }
 
-  return NOT_FOUND;
+  if (!srPerformer) {
+    console.warn(`No macthing performer found for ServiceRequest/${serviceRequest.id}`);
+    return NOT_FOUND;
+  }
+
+  const srLocationRef = serviceRequest.locationReference![0].reference;
+  const orderingLocation = locations.find((location) => `Location/${location.id}` === srLocationRef);
+
+  if (!orderingLocation) {
+    console.warn(`No location found matching SR locationReference Location/${srLocationRef}`);
+    return NOT_FOUND;
+  }
+
+  return getAccountNumberFromLocationAndOrganization(orderingLocation, srPerformer) ?? NOT_FOUND;
 };
 
 export const parseProvenancesForHistory = (
