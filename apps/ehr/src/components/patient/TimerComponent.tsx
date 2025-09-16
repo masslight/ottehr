@@ -1,5 +1,6 @@
 import { Pause, PlayArrow, Stop } from '@mui/icons-material';
 import { Alert, AlertColor, Box, IconButton, Paper, Skeleton, Snackbar, Tooltip, Typography } from '@mui/material';
+import moment from 'moment';
 import React, { ReactElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery } from 'react-query';
 import { useParams } from 'react-router-dom';
@@ -38,6 +39,8 @@ export const TimerComponent: React.FC = () => {
       serviceType?: string;
       interactiveCommunication?: boolean;
       notes?: string;
+      currentTime?: string | null;
+      secondsElapsed?: string | null;
     }) => {
       if (!oystehrZambda) throw new Error('No zambda client');
       return updateTimer(
@@ -47,6 +50,8 @@ export const TimerComponent: React.FC = () => {
           serviceType: params.serviceType,
           interactiveCommunication: params.interactiveCommunication,
           notes: params.notes,
+          currentTime: params.currentTime,
+          secondsElapsed: time,
         },
         oystehrZambda
       );
@@ -248,12 +253,15 @@ export const TimerComponent: React.FC = () => {
         serviceType: '-',
         interactiveCommunication: false,
         notes: '-',
+        currentTime: moment().toISOString(),
       },
       {
         onSuccess: () => {
           setIsSubmitting(false);
           setShowConfirmModal(false);
-          currentNextLocation.retry();
+          setTimeout(() => {
+            currentNextLocation.retry();
+          }, 2000);
         },
         onError: () => {
           setIsSubmitting(false);
@@ -281,12 +289,15 @@ export const TimerComponent: React.FC = () => {
         serviceType: formData?.serviceType,
         interactiveCommunication: formData?.interactiveCommunication,
         notes: formData?.notes,
+        currentTime: moment().toISOString(),
       },
       {
         onSuccess: () => {
           setIsSubmitting(false);
           setShowConfirmModal(false);
-          currentNextLocation.retry();
+          setTimeout(() => {
+            currentNextLocation.retry();
+          }, 2000);
         },
         onError: () => {
           setIsSubmitting(false);
@@ -298,10 +309,22 @@ export const TimerComponent: React.FC = () => {
   const handlePauseResume = (): void => {
     if (isPaused) {
       setIsPaused(false);
-      updateTimerMutation.mutate({ updateType: 'resume' });
+      updateTimerMutation.mutate({
+        updateType: 'resume',
+        serviceType: '-',
+        interactiveCommunication: false,
+        notes: '-',
+        currentTime: moment().toISOString(),
+      });
     } else {
       setIsPaused(true);
-      updateTimerMutation.mutate({ updateType: 'pause' });
+      updateTimerMutation.mutate({
+        updateType: 'pause',
+        serviceType: '-',
+        interactiveCommunication: false,
+        notes: '-',
+        currentTime: moment().toISOString(),
+      });
     }
   };
 
@@ -339,6 +362,7 @@ export const TimerComponent: React.FC = () => {
       serviceType: formData.serviceType,
       interactiveCommunication: formData.interactiveCommunication,
       notes: formData.notes,
+      currentTime: moment().toISOString(),
     });
   };
 
@@ -369,6 +393,7 @@ export const TimerComponent: React.FC = () => {
       serviceType: '-',
       interactiveCommunication: false,
       notes: '-',
+      currentTime: moment().toISOString(),
     });
   };
 

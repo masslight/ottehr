@@ -16,7 +16,7 @@ export const index = wrapHandler('get-vitals', async (input: ZambdaInput): Promi
       throw new Error('Invalid request body format');
     }
 
-    const { deviceId, patientId, page = 1, pageSize = 5 } = requestBody;
+    const { deviceId, patientId, page = 1, pageSize = 5, isModal } = requestBody;
 
     if (!deviceId || !patientId) {
       throw new Error('Missing required parameters: deviceId, patientId');
@@ -41,7 +41,7 @@ export const index = wrapHandler('get-vitals', async (input: ZambdaInput): Promi
         { name: '_total', value: 'accurate' },
         { name: '_count', value: String(pageSize) },
         { name: '_offset', value: String(offset) },
-        { name: '_lastUpdated', value: `ge${thirtyDaysAgo}` },
+        ...(isModal ? [{ name: '_lastUpdated', value: `ge${thirtyDaysAgo}` }] : []),
       ],
     });
 

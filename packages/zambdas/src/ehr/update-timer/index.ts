@@ -18,7 +18,10 @@ export const index = wrapHandler('update-timer', async (input: ZambdaInput): Pro
       throw new Error('Invalid request body format');
     }
 
-    const { patientId, updateType, serviceType, interactiveCommunication, notes } = requestBody;
+    const { patientId, updateType, serviceType, interactiveCommunication, notes, currentTime, secondsElapsed } =
+      requestBody;
+
+    console.log('seconds elapsed:', secondsElapsed);
 
     if (!patientId || !updateType) {
       throw new Error('Missing required parameters: deviceId, updateType');
@@ -127,14 +130,8 @@ export const index = wrapHandler('update-timer', async (input: ZambdaInput): Pro
       const statusHistory = encounterResults[0]?.statusHistory || [];
 
       const finalStatusHistory = [...statusHistory];
-      if (finalStatusHistory.length % 2 !== 0) {
-        finalStatusHistory.push({
-          status: 'onleave',
-          period: {
-            start: new Date().toISOString(),
-          },
-        });
-      } else {
+
+      if (finalStatusHistory.length > 0 && finalStatusHistory[finalStatusHistory.length - 1].status === 'in-progress') {
         finalStatusHistory.push({
           status: 'onleave',
           period: {
@@ -144,24 +141,30 @@ export const index = wrapHandler('update-timer', async (input: ZambdaInput): Pro
       }
 
       let totalTimeMs = 0;
+      let currentStartTime: moment.Moment | null = null;
 
-      for (let i = 0; i < finalStatusHistory.length; i += 2) {
-        if (i + 1 < finalStatusHistory.length) {
-          const inProgressEntry = finalStatusHistory[i];
-          const onleaveEntry = finalStatusHistory[i + 1];
+      for (let i = 0; i < finalStatusHistory.length; i++) {
+        const entry = finalStatusHistory[i];
 
-          if (inProgressEntry.status === 'in-progress' && onleaveEntry.status === 'onleave') {
-            const startTime = moment(inProgressEntry.period.start);
-            const endTime = moment(onleaveEntry.period.start);
-
-            if (startTime.isValid() && endTime.isValid()) {
-              totalTimeMs += endTime.diff(startTime);
-            }
+        if (entry.status === 'in-progress') {
+          currentStartTime = moment(entry.period.start);
+        } else if (entry.status === 'onleave' && currentStartTime) {
+          const endTime = moment(entry.period.start);
+          if (currentStartTime.isValid() && endTime.isValid()) {
+            totalTimeMs += endTime.diff(currentStartTime);
           }
+          currentStartTime = null;
         }
       }
 
-      const totalTimeSeconds = Math.floor(totalTimeMs / 1000);
+      if (currentStartTime) {
+        const endTime = currentTime ? moment(currentTime) : moment();
+        if (currentStartTime.isValid() && endTime.isValid()) {
+          totalTimeMs += endTime.diff(currentStartTime);
+        }
+      }
+
+      const totalTimeSeconds = secondsElapsed;
 
       const userReference = user.profile;
       const updatedParticipants = (encounterResults[0]?.participant || []).map((participant: any) => {
@@ -226,9 +229,6 @@ export const index = wrapHandler('update-timer', async (input: ZambdaInput): Pro
           value: notes,
         });
       }
-
-      console.log('Updated Identifiers:', JSON.stringify(updatedIdentifiers, null, 2));
-
       const updatedEncounterStop = {
         ...encounterResults[0],
         status: 'finished',

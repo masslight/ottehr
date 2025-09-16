@@ -81,6 +81,7 @@ export const LogTimerModal: React.FC<LogTimerModalProps> = ({
         notes: notes.trim(),
       });
     }
+    resetForm();
   };
 
   const handleCancel = (): void => {
@@ -89,7 +90,7 @@ export const LogTimerModal: React.FC<LogTimerModalProps> = ({
 
   const resetForm = (): void => {
     setServiceType('');
-    setInteractiveCommunication(null);
+    setInteractiveCommunication(false);
     setNotes('');
     setErrors({});
   };

@@ -62,7 +62,7 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({
   const { oystehrZambda } = useApiClients();
 
   const { data: vitalsData, isLoading } = useQuery(
-    ['vitals', patientId, deviceId, paginationModel.page, paginationModel.pageSize],
+    ['vitals', patientId, deviceId, paginationModel.page, paginationModel.pageSize, isModal],
     () =>
       getVitals(
         {
@@ -70,6 +70,7 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({
           patientId: patientId!,
           page: paginationModel.page + 1,
           pageSize: paginationModel.pageSize,
+          ...(isModal ? { isModal: true } : {}),
         },
         oystehrZambda!
       ),
