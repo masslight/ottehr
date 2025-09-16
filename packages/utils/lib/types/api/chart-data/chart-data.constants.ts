@@ -143,6 +143,7 @@ export enum VitalTemperatureObservationMethod {
   Oral = 'Oral',
   Rectal = 'Rectal',
   Temporal = 'Temporal',
+  Ear = 'Ear',
 }
 
 export enum VitalHeartbeatObservationMethod {
