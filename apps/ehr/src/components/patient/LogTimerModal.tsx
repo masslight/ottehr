@@ -1,3 +1,4 @@
+import CloseIcon from '@mui/icons-material/Close'; // Add this import
 import {
   Backdrop,
   Box,
@@ -9,6 +10,7 @@ import {
   FormControlLabel,
   FormHelperText,
   FormLabel,
+  IconButton, // Add this import
   Radio,
   RadioGroup,
   TextareaAutosize,
@@ -25,8 +27,6 @@ interface LogTimerModalProps {
   title?: string;
   message: ReactElement;
   isSubmitting?: boolean;
-  confirmText?: string;
-  cancelText?: string;
   confirmColor?: 'primary' | 'secondary' | 'error' | 'success' | 'info' | 'warning';
 }
 
@@ -38,8 +38,6 @@ export const LogTimerModal: React.FC<LogTimerModalProps> = ({
   onConfirm,
   onCancel,
   isSubmitting,
-  confirmText = 'Submit',
-  cancelText = 'Cancel',
   confirmColor = 'primary',
 }) => {
   const [serviceType, setServiceType] = useState<ServiceType>('');
@@ -110,18 +108,33 @@ export const LogTimerModal: React.FC<LogTimerModalProps> = ({
       sx={{
         '& .MuiDialog-paper': {
           borderRadius: 4,
-          position: 'relative', // Needed for absolute positioning of loader
+          position: 'relative',
         },
       }}
       fullWidth
     >
-      {/* Loader Backdrop */}
+      {/* Close Icon Button */}
+      <IconButton
+        aria-label="close"
+        onClick={handleClose}
+        disabled={isSubmitting}
+        sx={{
+          position: 'absolute',
+          right: 8,
+          top: 8,
+          color: (theme) => theme.palette.grey[500],
+          zIndex: 1300, // Ensure it's above the backdrop
+        }}
+      >
+        <CloseIcon />
+      </IconButton>
+
       <Backdrop
         sx={{
           position: 'absolute',
           color: '#fff',
           zIndex: (theme) => theme.zIndex.drawer + 1,
-          backgroundColor: 'rgba(255, 255, 255, 0.7)', // Semi-transparent white
+          backgroundColor: 'rgba(255, 255, 255, 0.7)',
           borderRadius: 4,
         }}
         open={isSubmitting || false}
@@ -129,7 +142,6 @@ export const LogTimerModal: React.FC<LogTimerModalProps> = ({
         <CircularProgress color="primary" />
       </Backdrop>
 
-      {/* Content - Disabled when submitting */}
       <Box sx={{ opacity: isSubmitting ? 0.5 : 1, pointerEvents: isSubmitting ? 'none' : 'auto' }}>
         <DialogContent>
           <FormControl component="fieldset" error={!!errors.serviceType} sx={{ mb: 3, width: '100%' }}>
@@ -256,10 +268,10 @@ export const LogTimerModal: React.FC<LogTimerModalProps> = ({
             color={confirmColor}
             variant="contained"
           >
-            {isSubmitting ? 'Submitting...' : confirmText}
+            Submit
           </RoundedButton>
           <RoundedButton sx={{ minWidth: '115px' }} onClick={handleCancel} disabled={isSubmitting} variant="outlined">
-            {cancelText}
+            Discard
           </RoundedButton>
         </DialogActions>
       </Box>

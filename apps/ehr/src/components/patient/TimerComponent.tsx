@@ -463,8 +463,6 @@ export const TimerComponent: React.FC = () => {
           onConfirm={modalConfig.onConfirm}
           onCancel={modalConfig.onCancel}
           message={modalConfig.message}
-          confirmText="Submit"
-          cancelText="Cancel"
           confirmColor={'primary'}
           isSubmitting={isSubmitting}
         />
