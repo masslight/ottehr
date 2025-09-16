@@ -31,6 +31,7 @@ export const ProgressNote: React.FC<PatientInfoProps> = () => {
     resources: { appointment, patient },
     isAppointmentLoading,
     appointmentError,
+    refetch,
   } = useAppointmentData();
 
   const { isChartDataLoading, chartDataError } = useChartData();
@@ -79,7 +80,7 @@ export const ProgressNote: React.FC<PatientInfoProps> = () => {
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <DischargeButton />
-          <ReviewAndSignButton />
+          <ReviewAndSignButton onSigned={refetch} />
           <UnlockAppointmentButton />
         </Box>
       </Box>
