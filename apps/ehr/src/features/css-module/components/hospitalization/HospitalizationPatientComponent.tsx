@@ -11,9 +11,9 @@ export const HospitalizationPatientComponent: FC = () => {
   const { chartData } = useChartData();
   const hospitalizations = questionnaire.hospitalizations;
 
-  const aiHospitalization = chartData?.observations?.find(
+  const aiHospitalizations = chartData?.observations?.filter(
     (observation) => observation.field === AiObservationField.HospitalizationsHistory
-  ) as ObservationTextFieldDTO;
+  ) as ObservationTextFieldDTO[];
 
   return (
     <Box
@@ -35,12 +35,12 @@ export const HospitalizationPatientComponent: FC = () => {
       ) : (
         <Typography color={theme.palette.text.secondary}>Patient has no hospitalization</Typography>
       )}
-      {aiHospitalization ? (
+      {aiHospitalizations?.length > 0 && (
         <>
           <hr style={{ border: '0.5px solid #DFE5E9', margin: '0 -16px 0 -16px' }} />
-          <AiSuggestion title={'Hospitalization'} content={aiHospitalization.value} />
+          <AiSuggestion title={'Hospitalization'} chartData={chartData} content={aiHospitalizations} />
         </>
-      ) : undefined}
+      )}
     </Box>
   );
 };
