@@ -1286,7 +1286,12 @@ export function mapResourceToChartDataResponse(
   resourceMapped = updatedResponseData.resourceMapped;
 
   if (resource.resourceType === 'DocumentReference' && chartDataResourceHasMetaTagByCode(resource, SCHOOL_WORK_NOTE)) {
-    chartDataResponse.schoolWorkNotes?.push(makeSchoolWorkNoteDTO(resource));
+    const dto = makeSchoolWorkNoteDTO(resource);
+    const alreadyExists = chartDataResponse.schoolWorkNotes?.some((note) => note.id === dto.id);
+
+    if (!alreadyExists) {
+      chartDataResponse.schoolWorkNotes?.push(dto);
+    }
     resourceMapped = true;
   }
   return {
