@@ -118,8 +118,9 @@ import {
 import { createOrUpdateFlags } from '../../../patient/paperwork/sharedHelpers';
 import { createPdfBytes } from '../../../shared';
 
+export const PATIENT_CONTAINED_PHARMACY_ID = 'pharmacy';
+
 const IGNORE_CREATING_TASKS_FOR_REVIEW = true;
-const PATIENT_CONTAINED_PHARMACY_ID = 'pharmacy';
 const PATIENT_UPDATE_MAX_RETRIES = 3;
 
 interface ResponsiblePartyContact {

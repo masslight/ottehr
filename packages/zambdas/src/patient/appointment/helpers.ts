@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Coding, DocumentReference, Extension, Practitioner, Questionnaire } from 'fhir/r4b';
+import { Coding, DocumentReference, Extension, Organization, Practitioner, Questionnaire } from 'fhir/r4b';
 import {
   CanonicalUrl,
   getCanonicalQuestionnaire,
@@ -12,7 +12,7 @@ import {
 import ehrInsuranceUpdateQuestionnaireJson from 'utils/lib/deployed-resources/questionnaires/ehr-insurance-update-questionnaire.json';
 import inPersonIntakeQuestionnaireJson from 'utils/lib/deployed-resources/questionnaires/in-person-intake-questionnaire.json';
 import virtualIntakeQuestionnaireJson from 'utils/lib/deployed-resources/questionnaires/virtual-intake-questionnaire.json';
-import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
+import { getAccountAndCoverageResourcesForPatient, PATIENT_CONTAINED_PHARMACY_ID } from '../../ehr/shared/harvest';
 export const getCurrentQuestionnaireForServiceType = async (
   serviceMode: ServiceMode,
   secrets: Secrets | null,
@@ -153,12 +153,16 @@ export async function getRelatedResources(
     const primaryCarePhysician = insuranceResponse.patient?.contained?.find(
       (resource) => resource.resourceType === 'Practitioner' && resource.active === true
     ) as Practitioner;
+    const pharmacy = insuranceResponse.patient?.contained?.find(
+      (resource) => resource.resourceType === 'Organization' && resource.id === PATIENT_CONTAINED_PHARMACY_ID
+    ) as Organization;
 
     documents = docsResponse.unbundle();
     accountInfo = {
       ...insuranceResponse,
       primaryCarePhysician,
       coverageChecks: [], // these aren't needed here
+      pharmacy,
     };
   }
 
