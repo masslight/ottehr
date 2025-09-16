@@ -1,6 +1,5 @@
-import Oystehr, { BatchInputPostRequest, BatchInputRequest, Bundle } from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest, Bundle } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { randomUUID } from 'crypto';
 import { Operation } from 'fast-json-patch';
 import {
   Appointment,
@@ -10,29 +9,23 @@ import {
   List,
   Location,
   Observation,
-  Organization,
   Patient,
   QuestionnaireResponseItem,
 } from 'fhir/r4b';
 import {
   ADDITIONAL_QUESTIONS_META_SYSTEM,
   checkBundleOutcomeOk,
-  codeableConcept,
   FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG,
-  FHIR_EXTENSION,
   flattenIntakeQuestionnaireItems,
-  getExtension,
   getRelatedPersonForPatient,
   getSecret,
   IntakeQuestionnaireItem,
-  PREFERRED_PHARMACY_EXTENSION_URL,
   SecretsKeys,
 } from 'utils';
 import {
   createConsentResources,
   createDocumentResources,
   createErxContactOperation,
-  createMasterRecordPatchOperations,
   flagPaperworkEdit,
   getAccountAndCoverageResourcesForPatient,
   updatePatientAccountFromQuestionnaire,
@@ -140,26 +133,6 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   if (patientResource === undefined || patientResource.id === undefined) {
     throw new Error('Patient resource not found');
   }
-
-  console.log('creating patch operations');
-  const patientPatchOps = createMasterRecordPatchOperations(qr, patientResource);
-
-  console.log('All Patient patch operations being attempted: ', JSON.stringify(patientPatchOps, null, 2));
-
-  console.time('patching patient resource');
-  if (patientPatchOps.patient.patchOpsForDirectUpdate.length > 0) {
-    try {
-      await oystehr.fhir.patch({
-        resourceType: 'Patient',
-        id: patientResource.id!,
-        operations: patientPatchOps.patient.patchOpsForDirectUpdate,
-      });
-    } catch (error: unknown) {
-      tasksFailed.push('patch patient');
-      console.log(`Failed to update Patient: ${JSON.stringify(error)}`);
-    }
-  }
-  console.timeEnd('patching patient resource');
 
   // we hold onto this in order to use the updated resources to update the stripe customer name and email
   let accountBundle: Bundle<FhirResource> | undefined;
@@ -360,77 +333,3 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
 
   return response;
 };
-
-async function updatePreferredPharmacy(
-  patient: Patient,
-  flattenedPaperwork: QuestionnaireResponseItem[]
-): Promise<void> {
-  const preferredPharmacyOrganizationId = getExtension(
-    patient,
-    PREFERRED_PHARMACY_EXTENSION_URL
-  )?.valueReference?.reference?.split('/')[1];
-  const inputPharmacyName = getStringAnswer('preferred-pharmacy-name', flattenedPaperwork);
-  if (!inputPharmacyName) {
-    return;
-  }
-  if (inputPharmacyName) {
-    const inputPharmacy: Organization = {
-      resourceType: 'Organization',
-      name: inputPharmacyName,
-      type: [codeableConcept('pharmacy', FHIR_EXTENSION.Organization.organizationType.url)],
-      address: [
-        {
-          line: [getStringAnswer('preferred-pharmacy-address', flattenedPaperwork) ?? '-'],
-          city: getStringAnswer('preferred-pharmacy-city', flattenedPaperwork) ?? '-',
-          state: getStringAnswer('preferred-pharmacy-state', flattenedPaperwork) ?? '-',
-          postalCode: getStringAnswer('preferred-pharmacy-zip', flattenedPaperwork) ?? '-',
-        },
-      ],
-    };
-    if (preferredPharmacyOrganizationId) {
-      inputPreferredPharmacy.id = preferredPharmacyOrganizationId;
-      await oystehr.fhir.update(inputPreferredPharmacy);
-    } else {
-      const organizationFullUrl = `urn:uuid:${randomUUID()}`;
-      const transactionRequests: BatchInputRequest<FhirResource>[] = [
-        {
-          method: 'POST',
-          url: `/Organization`,
-          resource: inputPreferredPharmacy,
-          fullUrl: organizationFullUrl,
-        },
-        {
-          method: 'PATCH',
-          url: `/Patient/${patientResource.id}`,
-          resource: {
-            resourceType: 'Binary',
-            data: btoa(
-              unescape(
-                encodeURIComponent(
-                  JSON.stringify([
-                    {
-                      op: 'add',
-                      path: '/extension/-',
-                      value: {
-                        url: PREFERRED_PHARMACY_EXTENSION_URL,
-                        valueReference: organizationFullUrl,
-                      },
-                    },
-                  ])
-                )
-              )
-            ),
-            contentType: 'application/json-patch+json',
-          },
-        },
-      ];
-      await oystehr.fhir.transaction({
-        requests: transactionRequests,
-      });
-    }
-  }
-}
-
-function getStringAnswer(linkId: string, items: QuestionnaireResponseItem[]): string | undefined {
-  return items.find((data) => data.linkId === linkId)?.answer?.[0]?.valueString;
-}
