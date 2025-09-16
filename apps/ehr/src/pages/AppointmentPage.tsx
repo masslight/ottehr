@@ -45,6 +45,7 @@ import { generatePaperworkPdf } from 'src/api/api';
 import { isPaperworkPdfOutdated, useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import {
   CONSENT_CODE,
+  FHIR_EXTENSION,
   FhirAppointmentType,
   flattenItems,
   formatPhoneNumber,
@@ -1053,12 +1054,11 @@ export default function AppointmentPage(): ReactElement {
     try {
       if (existingPaperworkPdf && !isPaperworkPdfOutdated(existingPaperworkPdf, questionnaireResponse)) {
         await downloadDocument(existingPaperworkPdf.id);
+        setPaperworkPdfLoading(false);
         return;
       }
     } catch (error) {
       console.warn('Paperwork PDF check failed, regenerating...', error);
-    } finally {
-      setPaperworkPdfLoading(false);
     }
 
     if (!oystehrZambda || !questionnaireResponse.id) {
@@ -1415,6 +1415,9 @@ export default function AppointmentPage(): ReactElement {
                         }),
                     "Patient's sex": patient?.gender ? capitalize(patient?.gender) : '',
                     'Reason for visit': reasonForVisit,
+                    'Authorized non-legal guardian(s)': patient?.extension?.find(
+                      (e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url
+                    )?.valueString,
                   }}
                   icon={{
                     "Patient's date of birth (Unmatched)": <PriorityIconWithBorder fill={theme.palette.warning.main} />,

@@ -1,11 +1,10 @@
-import Oystehr, { BatchInputPostRequest, Bundle } from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import {
   Appointment,
   DocumentReference,
   Encounter,
-  FhirResource,
   List,
   Location,
   Observation,
@@ -14,7 +13,6 @@ import {
 } from 'fhir/r4b';
 import {
   ADDITIONAL_QUESTIONS_META_SYSTEM,
-  checkBundleOutcomeOk,
   FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG,
   flattenIntakeQuestionnaireItems,
   getRelatedPersonForPatient,
@@ -134,42 +132,35 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     throw new Error('Patient resource not found');
   }
 
-  // we hold onto this in order to use the updated resources to update the stripe customer name and email
-  let accountBundle: Bundle<FhirResource> | undefined;
-
   try {
-    accountBundle = (await updatePatientAccountFromQuestionnaire(
+    await updatePatientAccountFromQuestionnaire(
       { patientId: patientResource.id, questionnaireResponseItem: flattenedPaperwork },
       oystehr
-    )) as Bundle<FhirResource> | undefined;
+    );
   } catch (error: unknown) {
     tasksFailed.push(`Failed to update Account: ${JSON.stringify(error)}`);
     console.log(`Failed to update Account: ${JSON.stringify(error)}`);
   }
-  // if the account update was successful, fetch the latest account resources and update the stripe customer
-  if (accountBundle && checkBundleOutcomeOk(accountBundle)) {
-    try {
-      // refetch the patient account resources
-      const { account: updatedAccount, guarantorResource: updatedGuarantorResource } =
-        await getAccountAndCoverageResourcesForPatient(patientResource.id, oystehr);
-      if (updatedAccount && updatedGuarantorResource) {
-        console.time('updating stripe customer');
-        const stripeClient = getStripeClient(secrets);
-        await updateStripeCustomer({
-          account: updatedAccount,
-          guarantorResource: updatedGuarantorResource,
-          stripeClient,
-        });
-        console.timeEnd('updating stripe customer');
-      } else {
-        console.log('account or guarantor resource missing, skipping stripe customer update');
-      }
-    } catch (error: unknown) {
-      tasksFailed.push('update stripe customer');
-      console.log(`Failed to update stripe customer: ${JSON.stringify(error)}`);
+  // fetch the latest account resources and update the stripe customer
+  try {
+    // refetch the patient account resources
+    const { account: updatedAccount, guarantorResource: updatedGuarantorResource } =
+      await getAccountAndCoverageResourcesForPatient(patientResource.id, oystehr);
+    if (updatedAccount && updatedGuarantorResource) {
+      console.time('updating stripe customer');
+      const stripeClient = getStripeClient(secrets);
+      await updateStripeCustomer({
+        account: updatedAccount,
+        guarantorResource: updatedGuarantorResource,
+        stripeClient,
+      });
+      console.timeEnd('updating stripe customer');
+    } else {
+      console.log('Stripe customer id, account or guarantor resource missing, skipping stripe customer update');
     }
-  } else {
-    console.log('Account bundle is not ok, skipping update stripe customer');
+  } catch (error: unknown) {
+    tasksFailed.push('update stripe customer');
+    console.log(`Failed to update stripe customer: ${JSON.stringify(error)}`);
   }
 
   const hipaa = flattenedPaperwork.find((data) => data.linkId === 'hipaa-acknowledgement')?.answer?.[0]?.valueBoolean;

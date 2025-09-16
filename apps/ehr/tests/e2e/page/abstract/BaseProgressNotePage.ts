@@ -32,5 +32,18 @@ export abstract class BaseProgressNotePage {
     await this.#page.getByTestId(dataTestIds.dialog.proceedButton).click();
   }
 
+  async verifyProcedure(procedureType: string, procedureDetails: string[]): Promise<void> {
+    const matcher = expect(
+      this.#page.getByTestId(dataTestIds.progressNotePage.procedureItem).filter({ hasText: procedureType })
+    );
+    for (const procedureDetail of procedureDetails) {
+      await matcher.toContainText(procedureDetail);
+    }
+  }
+
+  async verifyInHouseLabs(sectionTitle: string, testName: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.progressNotePage.labsTitle(sectionTitle))).toBeVisible();
+    await expect(this.#page.getByTestId(dataTestIds.progressNotePage.labsTitle(sectionTitle))).toContainText(testName);
+  }
   abstract expectLoaded(): Promise<void>;
 }
