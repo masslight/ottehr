@@ -84,6 +84,7 @@ export const LogTimerModal: React.FC<LogTimerModalProps> = ({
 
   const handleCancel = (): void => {
     onCancel();
+    handleClose();
   };
 
   const resetForm = (): void => {

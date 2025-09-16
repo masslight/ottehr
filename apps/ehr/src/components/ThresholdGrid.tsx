@@ -178,7 +178,7 @@ export function ThresholdsTable(): ReactElement {
       setOriginalRows(rows);
     },
     onError: (error: any) => {
-      const message = error?.error || 'Failed to update thresholds';
+      const message = error?.output?.error || 'Failed to update thresholds';
       showToast(message, 'error');
       console.error('Failed to update thresholds:', error);
     },
