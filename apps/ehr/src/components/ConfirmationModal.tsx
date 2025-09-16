@@ -1,5 +1,6 @@
-import { Box, Button, Modal, Typography } from '@mui/material';
+import { Box, Modal, Typography } from '@mui/material';
 import { FC } from 'react';
+import { RoundedButton } from './RoundedButton';
 
 interface ConfirmationModalProps {
   open: boolean;
@@ -43,13 +44,13 @@ export const ConfirmationModal: FC<ConfirmationModalProps> = ({
         <Typography variant="body1" sx={{ mb: 3 }}>
           {message}
         </Typography>
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-          <Button onClick={onClose} disabled={loading}>
-            {cancelText}
-          </Button>
-          <Button onClick={onConfirm} variant="contained" color="primary" disabled={loading}>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+          <RoundedButton onClick={onConfirm} variant="contained" color="primary" disabled={loading}>
             {loading ? 'Loading...' : confirmText}
-          </Button>
+          </RoundedButton>
+          <RoundedButton variant="outlined" onClick={onClose} disabled={loading}>
+            {cancelText}
+          </RoundedButton>
         </Box>
       </Box>
     </Modal>

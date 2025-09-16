@@ -1,20 +1,11 @@
 import CloseIcon from '@mui/icons-material/Close';
-import {
-  Autocomplete,
-  Box,
-  Button,
-  Chip,
-  CircularProgress,
-  FormControl,
-  Modal,
-  TextField,
-  Typography,
-} from '@mui/material';
+import { Autocomplete, Box, Chip, CircularProgress, FormControl, Modal, TextField, Typography } from '@mui/material';
 import { FC, useEffect, useState } from 'react';
 import { useMutation, useQuery } from 'react-query';
 import { assignDevices, getDevices } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { Device, Output } from 'utils';
+import { RoundedButton } from './RoundedButton';
 
 const modalStyle = {
   position: 'absolute',
@@ -25,7 +16,7 @@ const modalStyle = {
   bgcolor: 'background.paper',
   boxShadow: 24,
   p: 4,
-  borderRadius: 2,
+  borderRadius: 4,
   display: 'flex',
   flexDirection: 'column',
 };
@@ -190,17 +181,21 @@ export const DeviceAssignmentModal: FC<DeviceAssignmentModalProps> = ({
           />
         </FormControl>
 
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-          <Button variant="outlined" onClick={onClose} disabled={isAssigning}>
-            Cancel
-          </Button>
-          <Button variant="contained" onClick={handleAssign} disabled={selectedDevices.length === 0 || isAssigning}>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+          <RoundedButton
+            variant="contained"
+            onClick={handleAssign}
+            disabled={selectedDevices.length === 0 || isAssigning}
+          >
             {isAssigning ? (
               <CircularProgress size={24} color="inherit" />
             ) : (
               `Assign Devices (${selectedDevices.length})`
             )}
-          </Button>
+          </RoundedButton>
+          <RoundedButton variant="outlined" onClick={onClose} disabled={isAssigning}>
+            Cancel
+          </RoundedButton>
         </Box>
       </Box>
     </Modal>

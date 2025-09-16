@@ -29,6 +29,8 @@ export const index = wrapHandler('get-vitals', async (input: ZambdaInput): Promi
     const oystehr = createOystehrClient(oystehrToken, secrets);
     const offset = (page - 1) * pageSize;
 
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
     const searchResult = await oystehr.fhir.search({
       resourceType: 'Observation',
       params: [
@@ -39,6 +41,7 @@ export const index = wrapHandler('get-vitals', async (input: ZambdaInput): Promi
         { name: '_total', value: 'accurate' },
         { name: '_count', value: String(pageSize) },
         { name: '_offset', value: String(offset) },
+        { name: '_lastUpdated', value: `ge${thirtyDaysAgo}` },
       ],
     });
 

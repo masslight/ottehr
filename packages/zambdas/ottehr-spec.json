@@ -360,6 +360,20 @@
       "src": "src/ehr/get-devices/index",
       "zip": ".dist/zips/get-devices.zip"
     },
+    "GET-CREATE-TIMER": {
+      "name": "GET-CREATE-TIMER",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/get-create-timer/index",
+      "zip": ".dist/zips/get-create-timer.zip"
+    },
+    "UPDATE-TIMER": {
+      "name": "UPDATE-TIMER",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/update-timer/index",
+      "zip": ".dist/zips/update-timer.zip"
+    },
     "ASSIGN-DEVICES": {
       "name": "ASSIGN-DEVICES",
       "type": "http_auth",

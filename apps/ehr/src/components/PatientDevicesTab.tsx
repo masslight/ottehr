@@ -166,7 +166,7 @@ export const PatientDevicesTab: FC<{
     {
       field: 'modelNumber',
       headerName: 'Model Number',
-      width: 250,
+      width: 200,
       sortable: false,
     },
     {
@@ -227,6 +227,8 @@ export const PatientDevicesTab: FC<{
     },
     [showToast]
   );
+
+  console.log('Hi im here rendered');
 
   return (
     <>

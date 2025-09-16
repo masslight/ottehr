@@ -3,7 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { DateTime } from 'luxon';
 import moment from 'moment';
 import { AppointmentProviderNotificationTypes, getSecret, PROVIDER_NOTIFICATION_TYPE_SYSTEM, SecretsKeys } from 'utils';
-import { createOystehrClient, getAuth0Token, lambdaResponse, sendEmail, wrapHandler, ZambdaInput } from '../../shared';
+import { createOystehrClient, getAuth0Token, lambdaResponse, wrapHandler, ZambdaInput } from '../../shared';
 
 // For local development it makes it easier to track performance
 if (process.env.IS_OFFLINE === 'true') {
@@ -240,18 +240,90 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
           if (isBG) topicText = `Glucose Baseline Alert for ${patientName}`;
           if (isBP) topicText = `Blood Pressure Baseline Alert for ${patientName}`;
 
-          for (const user of usersList) {
-            if (user.email) {
-              emailCalls.push(
-                sendEmail(
-                  user.email,
-                  PATIENT_VITAL_ERROR_TEMPLATE_EMAIL_TEMPLATE_ID,
-                  topicText,
-                  templateInformation,
-                  secrets
-                )
-              );
+          let thresholdData: any = {};
+
+          if (isWS) {
+            const weightThreshold = getCmpVal(payload, 'weight-threshold');
+            const weightVariance = getCmpVal(payload, 'weight-variance');
+            const weight = getCmpVal(payload, 'wt');
+            if (weightThreshold && weightVariance && weight) {
+              const range = getRange(weightThreshold, weightVariance);
+              thresholdData = {
+                deviceType: 'WS',
+                thresholds: {
+                  weight: {
+                    value: weight,
+                    threshold: weightThreshold,
+                    variance: weightVariance,
+                    range: range,
+                  },
+                },
+              };
             }
+          } else if (isBG) {
+            const glucoseThreshold = getCmpVal(payload, 'glucose-threshold');
+            const glucoseVariance = getCmpVal(payload, 'glucose-variance');
+            const glucose = getCmpVal(payload, 'data');
+            if (glucoseThreshold && glucoseVariance && glucose) {
+              const range = getRange(glucoseThreshold, glucoseVariance);
+              thresholdData = {
+                deviceType: 'BG',
+                thresholds: {
+                  glucose: {
+                    value: glucose,
+                    threshold: glucoseThreshold,
+                    variance: glucoseVariance,
+                    range: range,
+                  },
+                },
+              };
+            }
+          } else if (isBP) {
+            const systolicThreshold = getCmpVal(payload, 'systolic-threshold');
+            const systolicVariance = getCmpVal(payload, 'systolic-variance');
+            const systolic = getCmpVal(payload, 'sys');
+            const diastolicThreshold = getCmpVal(payload, 'diastolic-threshold');
+            const diastolicVariance = getCmpVal(payload, 'diastolic-variance');
+            const diastolic = getCmpVal(payload, 'dia');
+
+            thresholdData = {
+              deviceType: 'BP',
+              thresholds: {},
+            };
+
+            if (systolicThreshold && systolicVariance && systolic) {
+              const range = getRange(systolicThreshold, systolicVariance);
+              thresholdData.thresholds.systolic = {
+                value: systolic,
+                threshold: systolicThreshold,
+                variance: systolicVariance,
+                range: range,
+              };
+            }
+
+            if (diastolicThreshold && diastolicVariance && diastolic) {
+              const range = getRange(diastolicThreshold, diastolicVariance);
+              thresholdData.thresholds.diastolic = {
+                value: diastolic,
+                threshold: diastolicThreshold,
+                variance: diastolicVariance,
+                range: range,
+              };
+            }
+          }
+
+          for (const user of usersList) {
+            // if (user.email) {
+            //   emailCalls.push(
+            //     sendEmail(
+            //       user.email,
+            //       PATIENT_VITAL_ERROR_TEMPLATE_EMAIL_TEMPLATE_ID,
+            //       topicText,
+            //       templateInformation,
+            //       secrets
+            //     )
+            //   );
+            // }
             if (user.profile) {
               const payloadForCommunication = {
                 resourceType: 'Communication',
@@ -289,6 +361,19 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
                     ],
                   },
                 ],
+                reasonCode: [
+                  {
+                    text: `${templateInformation.imei}`,
+                    coding: [
+                      {
+                        system: 'threshold-data',
+                        code: JSON.stringify(thresholdData),
+                        display: 'Device Threshold Information',
+                        version: 'new latest',
+                      },
+                    ],
+                  },
+                ],
                 sent: DateTime.utc().toISO()!,
               };
               communicationAPICalls.push(oystehr.fhir.create<any>(payloadForCommunication));
@@ -303,7 +388,7 @@ export const index = wrapHandler('mio-vitals', async (input: ZambdaInput): Promi
         }
 
         return lambdaResponse(200, {
-          message: 'Ok',
+          message: 'ok',
         });
       } else {
         return lambdaResponse(400, {

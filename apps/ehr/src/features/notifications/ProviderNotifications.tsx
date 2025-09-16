@@ -22,6 +22,9 @@ type ProviderNotificationDisplay = {
   sent: string;
   type: 'appointment' | 'device-vital-alert';
   patientId?: string;
+  deviceId?: string;
+  thresholdData?: any;
+  deviceName?: string;
 };
 
 export const ProviderNotifications: FC = memo(() => {
@@ -54,11 +57,14 @@ export const ProviderNotifications: FC = memo(() => {
             )
         );
 
-        let patientId: string | undefined;
         let type: 'appointment' | 'device-vital-alert' = 'appointment';
         let link: string | undefined;
         let title: string;
         let message: string;
+        let patientId: string | undefined;
+        let deviceId: string | undefined;
+        let thresholdData: any = null;
+        let deviceName: string | undefined;
 
         if (deviceVitalAlertCategory) {
           const deviceVitalAlertCoding = deviceVitalAlertCategory.coding?.find(
@@ -67,8 +73,23 @@ export const ProviderNotifications: FC = memo(() => {
               coding.code === 'device-vital-alert'
           );
           patientId = deviceVitalAlertCoding?.version;
+          deviceId = notification.communication.sender?.reference?.replace('Device/', '');
+
+          const reasonCode = notification.communication.reasonCode?.[0];
+          if (reasonCode && reasonCode.coding) {
+            deviceName = reasonCode.text;
+            const thresholdCoding = reasonCode.coding.find((coding: any) => coding.system === 'threshold-data');
+            if (thresholdCoding && thresholdCoding.code) {
+              try {
+                thresholdData = JSON.parse(thresholdCoding.code);
+              } catch (error) {
+                console.error('Failed to parse threshold data:', error);
+              }
+            }
+          }
+
           type = 'device-vital-alert';
-          link = patientId ? `/patient/${patientId.replace('Patient/', '')}` : undefined;
+          link = patientId ? `/patient/${patientId.replace('Patient/', '')}?deviceId=${deviceId}` : undefined;
           title = notification.communication.topic?.text || 'Device Alert';
           message = notification.communication.payload?.[0]?.contentString || '';
         } else {
@@ -88,6 +109,9 @@ export const ProviderNotifications: FC = memo(() => {
           link,
           type,
           patientId,
+          deviceId,
+          thresholdData,
+          deviceName,
         };
       }) || []
     ).sort((a, b) => (a.sent && b.sent && DateTime.fromISO(a.sent) > DateTime.fromISO(b.sent) ? -1 : 0));
@@ -116,6 +140,25 @@ export const ProviderNotifications: FC = memo(() => {
       setNotificationsOpen(false);
       setNotificationsElement(undefined);
     }
+
+    if (notification.type === 'device-vital-alert' && notification.patientId && notification.deviceId) {
+      navigate(`/patient/${notification.patientId.replace('Patient/', '')}?deviceId=${notification.deviceId}`, {
+        state: {
+          defaultTab: 'devices',
+          openDeviceVitals: true,
+          selectedDevice: {
+            id: notification.deviceId,
+            deviceType: notification.thresholdData?.deviceType || '',
+            thresholds: notification.thresholdData?.thresholds || [],
+            name: notification.deviceName || '',
+          },
+        },
+      });
+    } else if (notification.link) {
+      navigate(notification.link);
+    }
+    setNotificationsOpen(false);
+    setNotificationsElement(undefined);
   };
 
   const IconButton = (

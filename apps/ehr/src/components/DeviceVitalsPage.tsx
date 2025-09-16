@@ -18,6 +18,7 @@ export const DeviceVitalsPage = ({
   thresholds,
   onBack,
 }: VitalsData): ReactElement => {
+  console.log('Device Id from DeviceVitalsPage:', deviceId);
   return (
     <div>
       <DeviceVitalsTable
@@ -28,6 +29,7 @@ export const DeviceVitalsPage = ({
         deviceType={deviceType}
         thresholds={thresholds}
         loading={!deviceId || !patientId}
+        isModal={false}
       />
     </div>
   );
