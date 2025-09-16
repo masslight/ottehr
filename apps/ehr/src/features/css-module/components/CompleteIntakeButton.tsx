@@ -1,31 +1,27 @@
 import { Button } from '@mui/material';
 import { Box } from '@mui/system';
-import { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { useAppointmentData } from 'src/telemed';
 import { GetVitalsResponseData, VisitStatusLabel, VitalsObservationDTO } from 'utils';
 import { GenericToolTip } from '../../../components/GenericToolTip';
 import { dataTestIds } from '../../../constants/data-test-ids';
+import { useReactNavigationBlocker } from '../hooks/useReactNavigationBlocker';
+import { AbnormalVitalsContent, hasAbnormalVitals } from './vitals/components/AbnormalVitalsContent';
 import { useGetVitals } from './vitals/hooks/useGetVitals';
 
 export function getAbnormalVitals(encounterVitals?: GetVitalsResponseData): GetVitalsResponseData {
   if (!encounterVitals) return {} as GetVitalsResponseData;
-
   const entries = Object.entries(encounterVitals)
-    .map(([key, values]) => {
-      if (Array.isArray(values)) {
-        const filtered = (values as VitalsObservationDTO[]).filter((v) => !!v.alertCriticality);
-        return [key, filtered];
-      }
-      return [key, []];
-    })
+    .map(([key, values]) =>
+      Array.isArray(values) ? [key, (values as VitalsObservationDTO[]).filter((v) => !!v.alertCriticality)] : [key, []]
+    )
     .filter(([, values]) => (values as VitalsObservationDTO[]).length > 0);
-
   return Object.fromEntries(entries) as GetVitalsResponseData;
 }
 
 export const CompleteIntakeButton: React.FC<{
   isDisabled: boolean;
-  handleCompleteIntake: () => void;
+  handleCompleteIntake: () => void | Promise<void>;
   status: VisitStatusLabel | undefined;
 }> = ({ isDisabled, handleCompleteIntake, status }) => {
   const {
@@ -34,39 +30,46 @@ export const CompleteIntakeButton: React.FC<{
 
   const { data: encounterVitals } = useGetVitals(encounter?.id);
 
-  const abnormalVitalsValues: GetVitalsResponseData = useMemo(
-    () => getAbnormalVitals(encounterVitals),
-    [encounterVitals]
+  const abnormalVitalsValues = useMemo(() => getAbnormalVitals(encounterVitals), [encounterVitals]);
+
+  const shouldBlock = useCallback(() => hasAbnormalVitals(abnormalVitalsValues), [abnormalVitalsValues]);
+
+  const { ConfirmationModal, requestConfirmation } = useReactNavigationBlocker(
+    shouldBlock,
+    'You have entered an abnormal value. Please verify:',
+    {
+      interceptNavigation: false,
+      confirmText: 'Back',
+      closeButtonText: 'Continue',
+      title: 'Abnormal Vital Value',
+    }
   );
 
-  console.log('abnormalVitalsValues', abnormalVitalsValues);
+  const onClick = useCallback(async () => {
+    if (isDisabled) return;
+    const canProceed = await requestConfirmation();
+    if (!canProceed) return; // user pressed Back
+    await handleCompleteIntake();
+  }, [isDisabled, requestConfirmation, handleCompleteIntake]);
+
   return (
     <GenericToolTip
       title={status !== 'intake' ? 'Only available in Intake status' : null}
-      sx={{
-        width: '120px',
-        textAlign: 'center',
-      }}
+      sx={{ width: '120px', textAlign: 'center' }}
       placement="top"
     >
-      <Box
-        sx={{
-          alignSelf: 'center',
-        }}
-      >
+      <Box sx={{ alignSelf: 'center' }}>
         <Button
           data-testid={dataTestIds.sideMenu.completeIntakeButton}
           variant="contained"
-          sx={{
-            alignSelf: 'center',
-            borderRadius: '20px',
-            textTransform: 'none',
-          }}
-          onClick={handleCompleteIntake}
+          sx={{ alignSelf: 'center', borderRadius: '20px', textTransform: 'none' }}
+          onClick={onClick}
           disabled={isDisabled}
         >
           Complete Intake
         </Button>
+
+        <ConfirmationModal ContentComponent={<AbnormalVitalsContent vals={abnormalVitalsValues} />} />
       </Box>
     </GenericToolTip>
   );
