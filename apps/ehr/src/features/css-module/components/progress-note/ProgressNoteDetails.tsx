@@ -212,7 +212,7 @@ export const ProgressNoteDetails: FC = () => {
       const tz = DateTime.now().zoneName;
       await signAppointment({
         apiClient,
-        appointmentId: appointment.id + 'a',
+        appointmentId: appointment.id,
         timezone: tz,
         supervisorApprovalEnabled: FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED,
       });
