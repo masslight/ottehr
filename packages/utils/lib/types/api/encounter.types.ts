@@ -10,6 +10,7 @@ export interface ProviderDetails {
   practitionerId: string;
   name: string;
 }
+
 export interface PatientFollowupDetails {
   encounterId?: string; // will only exist when updating
   patientId: string | null;
