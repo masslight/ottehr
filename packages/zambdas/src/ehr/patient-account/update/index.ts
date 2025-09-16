@@ -25,6 +25,7 @@ import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
   getStripeClient,
+  sendErrors,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
@@ -103,7 +104,7 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
       oystehr
     );
     console.log('wrote audit event: ', `AuditEvent/${ae.id}`);
-    throw e;
+    await sendErrors(e, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
   }
 
   console.log('resultBundle', JSON.stringify(resultBundle, null, 2));
