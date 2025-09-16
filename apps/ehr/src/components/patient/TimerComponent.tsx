@@ -61,7 +61,8 @@ export const TimerComponent: React.FC = () => {
         showToast(`${response.message}`, 'success');
       },
       onError: (error: any) => {
-        showToast(`${error.message}`, 'error');
+        const message = error?.output?.error || 'Failed to update timer';
+        showToast(message, 'error');
       },
     }
   );
@@ -97,11 +98,7 @@ export const TimerComponent: React.FC = () => {
 
             setTime(totalTime);
             if (encounter.status === 'in-progress') {
-              setIsRunning(true);
               setIsPaused(isPausedFromHistory);
-            } else {
-              setIsRunning(false);
-              setIsPaused(false);
             }
 
             localStorage.removeItem('timerState');
@@ -247,6 +244,7 @@ export const TimerComponent: React.FC = () => {
     localStorage.removeItem('timerState');
     setCurrentEncounter(null);
     setTime(0);
+    setShowConfirmModal(false);
     updateTimerMutation.mutate(
       {
         updateType: 'discard',
@@ -283,6 +281,7 @@ export const TimerComponent: React.FC = () => {
     localStorage.removeItem('timerState');
     setCurrentEncounter(null);
     setTime(0);
+    setShowConfirmModal(false);
     updateTimerMutation.mutate(
       {
         updateType: 'stop',
@@ -329,9 +328,11 @@ export const TimerComponent: React.FC = () => {
   };
 
   const handleStart = async (): Promise<any> => {
-    setIsRunning(true);
     setIsPaused(false);
-    void refetch();
+    setTime(0);
+    setCurrentEncounter(null);
+    await refetch();
+    setIsRunning(true);
   };
 
   const handleStop = (): void => {
