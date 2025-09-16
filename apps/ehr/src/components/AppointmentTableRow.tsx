@@ -246,7 +246,7 @@ export default function AppointmentTableRow({
   updateAppointments,
   setEditingComment,
   orders,
-}: AppointmentTableRowProps): ReactElement {
+}: AppointmentTableRowProps): ReactElement | null {
   const { oystehr, oystehrZambda } = useApiClients();
   const theme = useTheme();
   const navigate = useNavigate();
@@ -258,16 +258,6 @@ export default function AppointmentTableRow({
   const [chatModalOpen, setChatModalOpen] = useState<boolean>(false);
   const [hasUnread, setHasUnread] = useState<boolean>(appointment.smsModel?.hasUnreadMessages || false);
   const user = useEvolveUser();
-
-  if (!user) {
-    throw new Error('User is not defined');
-  }
-
-  if (!encounter || !encounter.id) {
-    throw new Error('Encounter is not defined');
-  }
-
-  const encounterId: string = encounter.id;
 
   const [startIntakeButtonLoading, setStartIntakeButtonLoading] = useState(false);
   const [progressNoteButtonLoading, setProgressNoteButtonLoading] = useState(false);
@@ -603,8 +593,18 @@ export default function AppointmentTableRow({
     );
   }
 
+  if (!encounter?.id) {
+    enqueueSnackbar('Encounter is missing.', { variant: 'error' });
+    return null;
+  }
+  const encounterId: string = encounter.id;
+
   const handleStartIntakeButton = async (): Promise<void> => {
     setStartIntakeButtonLoading(true);
+    if (!user) {
+      enqueueSnackbar('User is not available. Cannot start intake.', { variant: 'error' });
+      return;
+    }
     try {
       await handleChangeInPersonVisitStatus(
         {
@@ -674,6 +674,8 @@ export default function AppointmentTableRow({
   const renderSupervisorApproval = (): ReactElement | undefined => {
     if (
       appointment.status === 'awaiting supervisor approval' &&
+      user?.profileResource &&
+      location &&
       isEligibleSupervisor(user.profileResource!, location!, appointment.attenderQualification)
     ) {
       return (
@@ -706,6 +708,10 @@ export default function AppointmentTableRow({
 
   const handleDischargeButton = async (): Promise<void> => {
     setDischargeButtonLoading(true);
+    if (!user) {
+      enqueueSnackbar('User is not available. Cannot discharge patient.', { variant: 'error' });
+      return;
+    }
     try {
       await handleChangeInPersonVisitStatus(
         {

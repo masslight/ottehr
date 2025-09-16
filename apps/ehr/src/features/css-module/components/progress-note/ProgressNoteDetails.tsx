@@ -63,9 +63,6 @@ export const ProgressNoteDetails: FC = () => {
     useChangeTelemedAppointmentStatusMutation();
   const isLoading = isChangeLoading || isSignLoading;
   const user = useEvolveUser();
-  if (!user) {
-    throw new Error('User is not defined');
-  }
 
   const { chartData } = useChartData();
 
@@ -224,6 +221,7 @@ export const ProgressNoteDetails: FC = () => {
     <AccordionCard label="Visit Note" dataTestId={dataTestIds.progressNotePage.visitNoteCard}>
       {FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED &&
         isAwaitingSupervisorApproval &&
+        user &&
         isEligibleSupervisor(user.profileResource!, location!) && (
           <>
             <Box
