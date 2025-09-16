@@ -2,22 +2,12 @@ import { Button } from '@mui/material';
 import { Box } from '@mui/system';
 import React, { useCallback, useMemo } from 'react';
 import { useAppointmentData } from 'src/telemed';
-import { GetVitalsResponseData, VisitStatusLabel, VitalsObservationDTO } from 'utils';
+import { getAbnormalVitals, VisitStatusLabel } from 'utils';
 import { GenericToolTip } from '../../../components/GenericToolTip';
 import { dataTestIds } from '../../../constants/data-test-ids';
 import { useReactNavigationBlocker } from '../hooks/useReactNavigationBlocker';
 import { AbnormalVitalsContent, hasAbnormalVitals } from './vitals/components/AbnormalVitalsContent';
 import { useGetVitals } from './vitals/hooks/useGetVitals';
-
-export function getAbnormalVitals(encounterVitals?: GetVitalsResponseData): GetVitalsResponseData {
-  if (!encounterVitals) return {} as GetVitalsResponseData;
-  const entries = Object.entries(encounterVitals)
-    .map(([key, values]) =>
-      Array.isArray(values) ? [key, (values as VitalsObservationDTO[]).filter((v) => !!v.alertCriticality)] : [key, []]
-    )
-    .filter(([, values]) => (values as VitalsObservationDTO[]).length > 0);
-  return Object.fromEntries(entries) as GetVitalsResponseData;
-}
 
 export const CompleteIntakeButton: React.FC<{
   isDisabled: boolean;

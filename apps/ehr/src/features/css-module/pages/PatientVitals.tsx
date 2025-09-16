@@ -1,7 +1,7 @@
 import { Stack, Typography } from '@mui/material';
 import React, { useMemo } from 'react';
 import { useAppointmentData, useChartData } from 'src/telemed';
-import { VitalFieldNames, VitalsObservationDTO } from 'utils';
+import { getAbnormalVitals, VitalFieldNames, VitalsObservationDTO } from 'utils';
 import { PageTitle } from '../../../telemed/components/PageTitle';
 import { AbnormalVitalsModal } from '../components/AbnormalVitalsModal';
 import { CSSLoader } from '../components/CSSLoader';
@@ -34,13 +34,8 @@ export const PatientVitals: React.FC<PatientVitalsProps> = () => {
   const isLoading = isAppointmentLoading || isChartDataLoading;
   const error = chartDataError || appointmentError;
 
-  const saveVitals = useSaveVitals({
-    encounterId: encounter?.id ?? '',
-  });
-
-  const deleteVitals = useDeleteVitals({
-    encounterId: encounter?.id ?? '',
-  });
+  const saveVitals = useSaveVitals({ encounterId: encounter?.id ?? '' });
+  const deleteVitals = useDeleteVitals({ encounterId: encounter?.id ?? '' });
 
   const {
     data: encounterVitals,
@@ -50,26 +45,7 @@ export const PatientVitals: React.FC<PatientVitalsProps> = () => {
 
   const { data: historicalVitals } = useGetHistoricalVitals(encounter?.id);
 
-  const abnormalVitalsValues = useMemo(() => {
-    const alertingEntries = Object.entries(encounterVitals || {})
-      .map(([key, values]) => {
-        if (Array.isArray(values)) {
-          const newValues = (values as VitalsObservationDTO[]).filter((value) => {
-            if (value.alertCriticality) {
-              return true;
-            } else {
-              return false;
-            }
-          });
-          return [key, newValues];
-        } else {
-          return [key, []];
-        }
-      })
-      .filter(([_, values]) => values.length > 0);
-
-    return Object.fromEntries(alertingEntries);
-  }, [encounterVitals]);
+  const abnormalVitalsValues = useMemo(() => getAbnormalVitals(encounterVitals), [encounterVitals]);
 
   const { interactionMode } = useNavigationContext();
 
@@ -139,6 +115,7 @@ export const PatientVitals: React.FC<PatientVitalsProps> = () => {
         historicalObs={historicalVitals?.[VitalFieldNames.VitalVision] ?? []}
       />
       <VitalsNotesCard />
+
       <AbnormalVitalsModal abnormalVitalsValues={abnormalVitalsValues} />
     </Stack>
   );
