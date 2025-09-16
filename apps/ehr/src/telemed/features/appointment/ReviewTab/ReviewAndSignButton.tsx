@@ -69,10 +69,10 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
 
   const completed = useMemo(() => {
     if (css) {
-      return inPersonStatus === 'completed';
+      return appointmentAccessibility.isAppointmentLocked;
     }
     return appointmentAccessibility.status === TelemedAppointmentStatusEnum.complete;
-  }, [css, inPersonStatus, appointmentAccessibility.status]);
+  }, [css, appointmentAccessibility.status, appointmentAccessibility.isAppointmentLocked]);
 
   const errorMessage = useMemo(() => {
     const messages: string[] = [];
@@ -84,7 +84,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     if (css && inPersonStatus) {
       if (inPersonStatus === 'provider') {
         messages.push('You must discharge the patient before signing');
-      } else if (inPersonStatus !== 'discharged') {
+      } else if (inPersonStatus !== 'discharged' && inPersonStatus !== 'completed') {
         messages.push('The appointment must be in the status of discharged');
       }
     } else {
@@ -188,7 +188,8 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
               <Stack spacing={2}>
                 <DialogContentText>
                   Are you sure you have reviewed the patient chart, performed the examination, defined the diagnoses,
-                  medical decision making and E&M code and are ready to sign this patient.
+                  made a medical decision and chosen an E&M code and are ready to sign this patient?
+                  {!css && ' Once signed, notes will be locked and no changes can be made.'}
                 </DialogContentText>
 
                 {FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED && showSupervisorCheckbox && (

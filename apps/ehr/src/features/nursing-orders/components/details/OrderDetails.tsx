@@ -1,5 +1,6 @@
 import { Box, Divider, Paper, Typography } from '@mui/material';
 import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
+import { useGetAppointmentAccessibility } from 'src/telemed';
 import { NursingOrder, NursingOrdersStatus } from 'utils';
 import { NursingOrdersStatusChip } from '../NursingOrdersStatusChip';
 
@@ -9,6 +10,8 @@ interface CollectSampleViewProps {
 }
 
 export const OrderDetails: React.FC<CollectSampleViewProps> = ({ orderDetails, onSubmit }) => {
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+
   const handleMarkAsCollected = (): void => {
     onSubmit({
       status: NursingOrdersStatus.completed,
@@ -41,6 +44,7 @@ export const OrderDetails: React.FC<CollectSampleViewProps> = ({ orderDetails, o
                 color="primary"
                 onClick={handleMarkAsCollected}
                 sx={{ borderRadius: '50px', px: 4 }}
+                disabled={isReadOnly}
               >
                 Mark as Completed
               </ButtonRounded>

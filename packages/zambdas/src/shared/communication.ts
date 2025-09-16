@@ -74,6 +74,7 @@ export async function sendInPersonMessages({
   token,
 }: SendInPersonMessagesInput): Promise<void> {
   const start = DateTime.now();
+  const readableTime = startTime.toFormat(DATETIME_FULL_NO_YEAR);
   if (email) {
     const emailClient = getEmailClient(secrets);
     const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
@@ -81,8 +82,6 @@ export async function sendInPersonMessages({
     //   SecretsKeys.IN_PERSON_SENDGRID_SPANISH_CONFIRMATION_EMAIL_TEMPLATE_ID,
     //   secrets
     // );
-
-    const readableTime = startTime.toFormat(DATETIME_FULL_NO_YEAR);
 
     // todo handle these when scheduleResource is a healthcare service or a practitioner
     let address = getAddressStringForScheduleResource(scheduleResource);
@@ -119,7 +118,7 @@ export async function sendInPersonMessages({
   const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
   const messageAll = `Thanks for choosing ${PROJECT_NAME}! Your check-in time for ${firstName} at ${getNameForOwner(
     scheduleResource
-  )} is ${startTime}. Please save time at check-in by completing your pre-visit paperwork`;
+  )} is ${readableTime}. Please save time at check-in by completing your pre-visit paperwork`;
   const message =
     appointmentType === 'walkin' || appointmentType === 'posttelemed'
       ? `${messageAll}: ${WEBSITE_URL}/paperwork/${appointmentID}`

@@ -1,6 +1,8 @@
 import { useAuth0 } from '@auth0/auth0-react';
+import { decodeJwt, JWTPayload } from 'jose';
 import { useCallback, useMemo } from 'react';
 import { chooseJson } from 'utils';
+
 export interface ZambdaClient {
   execute: (id: string, body?: any) => Promise<any>;
   executePublic: (id: string, body?: any) => Promise<any>;
@@ -14,7 +16,7 @@ const baseHeaders = {
 };
 
 export function useUCZambdaClient({ tokenless }: { tokenless: boolean }): ZambdaClient | null {
-  const { isAuthenticated, getAccessTokenSilently } = useAuth0();
+  const { isAuthenticated, getAccessTokenSilently, logout } = useAuth0();
 
   const executePublic = useCallback(
     async (id: string, body?: any): Promise<any> => {
@@ -69,6 +71,14 @@ export function useUCZambdaClient({ tokenless }: { tokenless: boolean }): Zambda
       let token: string;
       if (isAuthenticated && getAccessTokenSilently) {
         token = await getAccessTokenSilently();
+        const isValid = checkTokenIsValid(token);
+        if (!isValid) {
+          console.error('Session is invalid or expired, logging user out.');
+          void logout({
+            logoutParams: { returnTo: import.meta.env.VITE_APP_OYSTEHR_APPLICATION_REDIRECT_URL, federated: true },
+          });
+          throw new Error('Session is invalid or expired');
+        }
       } else {
         throw new Error('User is not authenticated');
       }
@@ -100,7 +110,7 @@ export function useUCZambdaClient({ tokenless }: { tokenless: boolean }): Zambda
         throw chooseJson(e);
       }
     },
-    [getAccessTokenSilently, isAuthenticated]
+    [getAccessTokenSilently, isAuthenticated, logout]
   );
 
   const client = useMemo(() => {
@@ -121,3 +131,16 @@ export function useUCZambdaClient({ tokenless }: { tokenless: boolean }): Zambda
 
   return client;
 }
+
+const checkTokenIsValid = (token: string): boolean => {
+  let decoded: JWTPayload | undefined;
+  try {
+    decoded = decodeJwt(token);
+  } catch {
+    return false;
+  }
+  if (!decoded || !decoded.exp) return false;
+
+  const now = Math.floor(Date.now() / 1000);
+  return decoded.exp > now;
+};
