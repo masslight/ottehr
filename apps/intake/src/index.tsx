@@ -1,6 +1,7 @@
 import './index.css';
 import './lib/i18n';
 import { Auth0Provider } from '@auth0/auth0-react';
+import { loadStripe } from '@stripe/stripe-js';
 import hasOwn from 'object.hasown';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
@@ -13,7 +14,7 @@ window.global ||= window; // https://stackoverflow.com/questions/72795666/how-to
 if (!Object.hasOwn) {
   hasOwn.shim();
 }
-
+export const stripePromise = loadStripe(import.meta.env.VITE_APP_STRIPE_KEY);
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
 const { VITE_APP_AUTH0_AUDIENCE, VITE_APP_AUTH_URL, VITE_APP_CLIENT_ID } = import.meta.env;
 if (!VITE_APP_CLIENT_ID || !VITE_APP_AUTH0_AUDIENCE) {
