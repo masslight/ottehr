@@ -3,6 +3,7 @@ import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
 import { CircularProgress, Grid, useTheme } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { useState } from 'react';
+import { useGetAppointmentAccessibility } from 'src/telemed';
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { CSSLoader } from '../../CSSLoader';
 import { useNoteHandlers } from '../hooks/useNoteHandlers';
@@ -32,6 +33,7 @@ export const EditableNotesList: React.FC<EditableNotesListProps> = ({
   });
 
   const theme = useTheme();
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const [isSaving, setIsSaving] = useState(false);
   const [isMoreEntitiesShown, setIsMoreEntitiesShown] = useState(false);
   const [savingEntityText, setSavingEntityText] = useState('');
@@ -61,44 +63,46 @@ export const EditableNotesList: React.FC<EditableNotesListProps> = ({
 
   return (
     <PaperStyled>
-      <Grid container spacing={1} alignItems="center" sx={{ p: 3 }}>
-        <Grid item xs>
-          <TextFieldStyled
-            onKeyDown={(event: React.KeyboardEvent) => {
-              if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault();
-                if (!savingEntityText) return;
-                void handleSaveEntity(savingEntityText);
+      {!isReadOnly && (
+        <Grid container spacing={1} alignItems="center" sx={{ p: 3 }}>
+          <Grid item xs>
+            <TextFieldStyled
+              onKeyDown={(event: React.KeyboardEvent) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault();
+                  if (!savingEntityText) return;
+                  void handleSaveEntity(savingEntityText);
+                }
+              }}
+              onChange={(e) => setSavingEntityText(e.target.value)}
+              value={savingEntityText}
+              disabled={isSaving}
+              label={`Enter ${locales.entityLabel}...`}
+            />
+          </Grid>
+          <Grid item>
+            <RoundedButton
+              data-testid={addNoteButtonDataTestId}
+              disabled={!savingEntityText || isSaving}
+              onClick={() => handleSaveEntity(savingEntityText)}
+              variant="contained"
+              color="primary"
+              sx={{
+                height: '46px',
+                minWidth: '80px',
+                px: 2,
+              }}
+              startIcon={
+                isSaving ? (
+                  <CircularProgress data-testid={noteLoadingIndicatorDataTestId} size={20} color="inherit" />
+                ) : null
               }
-            }}
-            onChange={(e) => setSavingEntityText(e.target.value)}
-            value={savingEntityText}
-            disabled={isSaving}
-            label={`Enter ${locales.entityLabel}...`}
-          />
+            >
+              {locales.getAddButtonText(isSaving)}
+            </RoundedButton>
+          </Grid>
         </Grid>
-        <Grid item>
-          <RoundedButton
-            data-testid={addNoteButtonDataTestId}
-            disabled={!savingEntityText || isSaving}
-            onClick={() => handleSaveEntity(savingEntityText)}
-            variant="contained"
-            color="primary"
-            sx={{
-              height: '46px',
-              minWidth: '80px',
-              px: 2,
-            }}
-            startIcon={
-              isSaving ? (
-                <CircularProgress data-testid={noteLoadingIndicatorDataTestId} size={20} color="inherit" />
-              ) : null
-            }
-          >
-            {locales.getAddButtonText(isSaving)}
-          </RoundedButton>
-        </Grid>
-      </Grid>
+      )}
 
       {currentEncounterEntities.map((entity) => (
         <NoteEntity
@@ -107,6 +111,7 @@ export const EditableNotesList: React.FC<EditableNotesListProps> = ({
           onEdit={handleEdit}
           onDelete={handleDelete}
           locales={locales}
+          isReadOnly={isReadOnly}
         />
       ))}
 
@@ -127,6 +132,7 @@ export const EditableNotesList: React.FC<EditableNotesListProps> = ({
             onEdit={handleEdit}
             onDelete={handleDelete}
             locales={locales}
+            isReadOnly={isReadOnly}
           />
         ))}
     </PaperStyled>
