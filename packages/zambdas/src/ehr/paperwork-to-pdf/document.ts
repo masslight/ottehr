@@ -8,9 +8,10 @@ import {
   QuestionnaireResponse,
   QuestionnaireResponseItem,
   QuestionnaireResponseItemAnswer,
+  Schedule,
 } from 'fhir/r4b';
-import { formatDateToMDYWithTime, getAppointmentType, getCanonicalQuestionnaire, getTimezone, TIMEZONES } from 'utils';
-import { assertDefined } from '../../shared/helpers';
+import { formatDateToMDYWithTime, getAppointmentType, getCanonicalQuestionnaire } from 'utils';
+import { assertDefined, resolveTimezone } from '../../shared/helpers';
 
 export interface Document {
   patientInfo: PatientInfo;
@@ -57,6 +58,7 @@ export async function createDocument(
   questionnaireResponse: QuestionnaireResponse,
   appointment: Appointment,
   oystehr: Oystehr,
+  schedule?: Schedule,
   location?: Location
 ): Promise<Document> {
   const questionnaire = await fetchQuestionnaire(
@@ -73,7 +75,7 @@ export async function createDocument(
   });
 
   const { type } = getAppointmentType(appointment);
-  const timezone = location ? getTimezone(location) : TIMEZONES[0];
+  const timezone = resolveTimezone(schedule, location);
   const { date = '', time = '' } = formatDateToMDYWithTime(appointment?.start, timezone ?? 'America/New_York') ?? {};
   const locationName = location?.name ?? '';
 
