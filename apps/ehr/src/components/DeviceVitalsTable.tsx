@@ -56,7 +56,7 @@ export const DeviceVitalsTable: React.FC<DeviceVitalsProps> = ({
 }) => {
   console.log(deviceType);
   const [paginationModel, setPaginationModel] = useState({
-    pageSize: 10,
+    pageSize: isModal ? 5 : 10,
     page: 0,
   });
   const { oystehrZambda } = useApiClients();
