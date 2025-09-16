@@ -121,10 +121,9 @@ export default function PatientPage(): JSX.Element {
                   to={`/patient/${id}/info`}
                   data-testid={dataTestIds.patientRecordPage.seeAllPatientInfoButton}
                 >
-                  See All Patient Infso
+                  See All Patient Info
                 </RoundedButton>
                 <RoundedButton to={`/patient/${id}/docs`}>Review Docs</RoundedButton>
-                <RoundedButton to={`/patient/${id}/docs`}>Summary</RoundedButton>
                 {latestAppointment && (
                   <RoundedButton
                     target="_blank"
