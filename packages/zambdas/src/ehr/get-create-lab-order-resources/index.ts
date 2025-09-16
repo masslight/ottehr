@@ -242,14 +242,18 @@ const getCoverageNames = (accounts: Account[], coverages: Coverage[]): string[] 
   }
 
   if (coveragesSortedByPriority) {
-    const coverageNames = coveragesSortedByPriority.map((coverage) => {
+    const coverageNames = coveragesSortedByPriority.map((coverage, idx) => {
       const coverageName = coverage.class?.find(
         (c) => c.type.coding?.find((code) => code.system === CODE_SYSTEM_COVERAGE_CLASS)
       )?.name;
       if (!coverageName) {
         throw EXTERNAL_LAB_ERROR('Insurance appears to be malformed, cannot reconcile insurance class name');
       }
-      return coverageName;
+      if (idx === 0) {
+        return `${coverageName} (primary)`;
+      } else {
+        return coverageName;
+      }
     });
     return coverageNames;
   } else {

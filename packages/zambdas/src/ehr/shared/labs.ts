@@ -360,8 +360,8 @@ export const getPrimaryInsurance = (account: Account, coverages: Coverage[]): Co
   const sortedCoverages = sortCoveragesByPriority(account, coverages);
 
   if (sortedCoverages?.length) {
-    const highestPriorityCoverage = sortedCoverages[0];
-    return highestPriorityCoverage;
+    const primaryInsuranceCoverage = sortedCoverages[0];
+    return primaryInsuranceCoverage;
   } else {
     console.log('no coverages were included on account.coverage, grabbing primary ins from list of patient coverages');
     coverages.sort((a, b) => {
