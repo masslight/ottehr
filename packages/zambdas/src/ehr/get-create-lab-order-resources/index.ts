@@ -21,7 +21,7 @@ import {
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { ZambdaInput } from '../../shared/types';
-import { getPrimaryInsurance } from '../shared/labs';
+import { sortCoveragesByPriority } from '../shared/labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -46,9 +46,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       labOrgIdsString
     );
 
-    let coverageName: string | undefined;
+    let coverageNames: string[] | undefined;
     if (patientId) {
-      coverageName = getCoverageName(accounts, coverages);
+      coverageNames = getCoverageNames(accounts, coverages);
     }
 
     let labs: OrderableItemSearchResult[] = [];
@@ -57,7 +57,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
 
     const response: LabOrderResourcesRes = {
-      coverageName,
+      coverageNames,
       labs,
       ...orderingLocationDetails,
     };
@@ -220,7 +220,7 @@ const getLabs = async (
   return items;
 };
 
-const getCoverageName = (accounts: Account[], coverages: Coverage[]): string => {
+const getCoverageNames = (accounts: Account[], coverages: Coverage[]): string[] => {
   if (accounts.length !== 1)
     // there should only be one active account
     throw EXTERNAL_LAB_ERROR(
@@ -233,16 +233,26 @@ const getCoverageName = (accounts: Account[], coverages: Coverage[]): string => 
     );
   }
   const isSelfPay = !patientAccount.coverage?.length ? true : false;
-  const patientPrimaryInsurance = getPrimaryInsurance(patientAccount, coverages);
-  const primaryInsuranceName = patientPrimaryInsurance?.class?.find(
-    (c) => c.type.coding?.find((code) => code.system === CODE_SYSTEM_COVERAGE_CLASS)
-  )?.name;
-  if (!patientPrimaryInsurance && !isSelfPay)
+  const coveragesSortedByPriority = sortCoveragesByPriority(patientAccount, coverages);
+
+  if (!coveragesSortedByPriority && !isSelfPay) {
     throw EXTERNAL_LAB_ERROR(
       'Please update patient payment information - patient must have insurance or have designated self pay to external lab orders'
     );
-  if (patientPrimaryInsurance && !primaryInsuranceName)
-    throw EXTERNAL_LAB_ERROR('Insurance appears to be malformed, cannot reconcile insurance class name');
-  const coverageName = primaryInsuranceName ?? 'Self Pay';
-  return coverageName;
+  }
+
+  if (coveragesSortedByPriority) {
+    const coverageNames = coveragesSortedByPriority.map((coverage) => {
+      const coverageName = coverage.class?.find(
+        (c) => c.type.coding?.find((code) => code.system === CODE_SYSTEM_COVERAGE_CLASS)
+      )?.name;
+      if (!coverageName) {
+        throw EXTERNAL_LAB_ERROR('Insurance appears to be malformed, cannot reconcile insurance class name');
+      }
+      return coverageName;
+    });
+    return coverageNames;
+  } else {
+    return ['Self Pay'];
+  }
 };
