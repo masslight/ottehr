@@ -98,7 +98,11 @@ export const TimerComponent: React.FC = () => {
 
             setTime(totalTime);
             if (encounter.status === 'in-progress') {
+              setIsRunning(true);
               setIsPaused(isPausedFromHistory);
+            } else {
+              setIsRunning(false);
+              setIsPaused(false);
             }
 
             localStorage.removeItem('timerState');
