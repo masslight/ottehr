@@ -46,7 +46,7 @@ import {
 import { LANGUAGES } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 import ChatModal from '../features/chat/ChatModal';
-import { canApprove, checkInPatient, displayOrdersToolTip, hasAtLeastOneOrder } from '../helpers';
+import { checkInPatient, displayOrdersToolTip, hasAtLeastOneOrder, isEligibleSupervisor } from '../helpers';
 import { getTimezone } from '../helpers/formatDateTime';
 import { formatPatientName } from '../helpers/formatPatientName';
 import { getOfficePhoneNumber } from '../helpers/getOfficePhoneNumber';
@@ -674,7 +674,7 @@ export default function AppointmentTableRow({
   const renderSupervisorApproval = (): ReactElement | undefined => {
     if (
       appointment.status === 'awaiting supervisor approval' &&
-      canApprove(user.profileResource!, location!, appointment.attenderQualification)
+      isEligibleSupervisor(user.profileResource!, location!, appointment.attenderQualification)
     ) {
       return (
         <GoToButton

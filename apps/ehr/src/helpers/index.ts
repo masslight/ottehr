@@ -173,7 +173,7 @@ export const hasAtLeastOneOrder = (orders: OrdersForTrackingBoardRow): boolean =
   return Object.values(orders).some((orderList) => Array.isArray(orderList) && orderList.length > 0);
 };
 
-export function canApprove(
+export function isEligibleSupervisor(
   practitioner: Practitioner,
   location: Location,
   attenderQualification?: PractitionerQualificationCode

@@ -5,7 +5,7 @@ import { DateTime } from 'luxon';
 import { FC } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
-import { canApprove } from 'src/helpers';
+import { isEligibleSupervisor } from 'src/helpers';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { ImmunizationContainer } from 'src/telemed/features/appointment/ReviewTab/components/ImmunizationContainer';
 import { ProceduresContainer } from 'src/telemed/features/appointment/ReviewTab/components/ProceduresContainer';
@@ -67,7 +67,6 @@ export const ProgressNoteDetails: FC = () => {
     throw new Error('User is not defined');
   }
 
-  const canUserBeSupervisor = canApprove(user.profileResource!, location!);
   const { chartData } = useChartData();
 
   const { setPartialChartData } = useChartData({
@@ -232,62 +231,64 @@ export const ProgressNoteDetails: FC = () => {
 
   return (
     <AccordionCard label="Visit Note" dataTestId={dataTestIds.progressNotePage.visitNoteCard}>
-      {FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED && isAwaitingSupervisorApproval && canUserBeSupervisor && (
-        <>
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 1,
-              mt: 1.5,
-              mx: 2,
-              mb: 1,
-              p: 2,
-              border: 1,
-              borderColor: otherColors.warningBorder,
-              borderRadius: 2,
-            }}
-          >
+      {FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED &&
+        isAwaitingSupervisorApproval &&
+        isEligibleSupervisor(user.profileResource!, location!) && (
+          <>
             <Box
               sx={{
                 display: 'flex',
-                width: 'fit-content',
-                marginTop: 1,
-                px: 2,
-                py: 1,
-                borderRadius: 0.5,
-                gap: 1.5,
-                alignItems: 'center',
-                bgcolor: otherColors.lightErrorBg,
+                flexDirection: 'column',
+                gap: 1,
+                mt: 1.5,
+                mx: 2,
+                mb: 1,
+                p: 2,
+                border: 1,
+                borderColor: otherColors.warningBorder,
+                borderRadius: 2,
               }}
             >
-              <ErrorOutlineIcon sx={{ color: otherColors.warningIcon }} />
-              <Typography color={otherColors.warningText} fontWeight={600}>
-                Medical History should be confirmed by the provider
-              </Typography>
-              <ConfirmationDialog
-                title="Supervisor Approval"
-                description={'Are you sure you want to approve this visit? Claim will be sent to RCM.'}
-                response={handleApprove}
-                actionButtons={{
-                  back: { text: 'Cancel' },
-                  proceed: { text: 'Approve', loading: isLoading },
-                  reverse: true,
+              <Box
+                sx={{
+                  display: 'flex',
+                  width: 'fit-content',
+                  marginTop: 1,
+                  px: 2,
+                  py: 1,
+                  borderRadius: 0.5,
+                  gap: 1.5,
+                  alignItems: 'center',
+                  bgcolor: otherColors.lightErrorBg,
                 }}
               >
-                {(showDialog) => (
-                  <RoundedButton variant="contained" size="small" onClick={showDialog}>
-                    Confirm
-                  </RoundedButton>
-                )}
-              </ConfirmationDialog>
-            </Box>
+                <ErrorOutlineIcon sx={{ color: otherColors.warningIcon }} />
+                <Typography color={otherColors.warningText} fontWeight={600}>
+                  Medical History should be confirmed by the provider
+                </Typography>
+                <ConfirmationDialog
+                  title="Supervisor Approval"
+                  description={'Are you sure you want to approve this visit? Claim will be sent to RCM.'}
+                  response={handleApprove}
+                  actionButtons={{
+                    back: { text: 'Cancel' },
+                    proceed: { text: 'Approve', loading: isLoading },
+                    reverse: true,
+                  }}
+                >
+                  {(showDialog) => (
+                    <RoundedButton variant="contained" size="small" onClick={showDialog}>
+                      Confirm
+                    </RoundedButton>
+                  )}
+                </ConfirmationDialog>
+              </Box>
 
-            <SectionList sections={medicalHistorySections} />
-          </Box>
-          <Divider />
-        </>
-      )}
+              <SectionList sections={medicalHistorySections} />
+            </Box>
+            <Divider />
+          </>
+        )}
       <SectionList sections={sections} sx={{ p: 2 }} />
     </AccordionCard>
   );
