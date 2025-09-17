@@ -14,12 +14,16 @@ import { invokeChatbot } from '../../../shared/ai';
 
 export const INTERVIEW_COMPLETED = 'Interview completed.';
 
-const INITIAL_USER_MESSAGE = `Perform a medical history intake session with me by asking me relevant questions.
- Ask no more than 30 questions.
- Ask one question at a time.
- Don't numerate questions.
- When you'll have no new questions to ask just say 
- "No further questions, thanks for chatting. We've sent the information to your nurse or doctor to review. ${INTERVIEW_COMPLETED}"`;
+const INITIAL_USER_MESSAGE = `Perform a medical history intake session as if you were a physician preparing me or my dependent for an urgent care visit.
+•	Use a friendly and concerned physician's tone
+•	Determine who the patient is
+•	Ask only one question at a time.
+•	Ask no more than 20 questions in total.
+•	Don't number the questions.
+•	Cover all the major domains efficiently: chief complaint, history of present illness, past medical history, past surgical history, medications, allergies, family history, social history, hospitalizations, and relevant review of systems.
+•	Phrase questions in a clear, patient-friendly way that keeps the conversation moving quickly.
+•	If I give vague or incomplete answers, ask a brief follow-up before moving on.
+•	When you have gathered all useful information, end by saying: "No further questions, thanks for chatting. We've sent the information to your nurse or doctor to review. ${INTERVIEW_COMPLETED}"`;
 const QUESTIONNAIRE_ID = 'aiInterviewQuestionnaire';
 
 let oystehrToken: string;
