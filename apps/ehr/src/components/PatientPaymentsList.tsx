@@ -63,7 +63,6 @@ export default function PatientPaymentList({ loading, patient, encounterId }: Pa
 
   useEffect(() => {
     if (encounter && !isEncounterRefetching) {
-      console.log('Encounter changed: ', JSON.stringify(encounter));
       const variant = encounter && getPaymentVariantFromEncounter(encounter);
       if (variant) setPaymentVariant(variant);
     }
@@ -170,6 +169,7 @@ export default function PatientPaymentList({ loading, patient, encounterId }: Pa
             await refetchEncounter();
           }
         }}
+        sx={{ mt: 2 }}
       >
         <FormControlLabel
           disabled={updateEncounter.isPending || isEncounterRefetching}
@@ -184,7 +184,7 @@ export default function PatientPaymentList({ loading, patient, encounterId }: Pa
           label="Self-pay"
         />
       </RadioGroup>
-      <Typography variant="h4" color="primary.dark">
+      <Typography variant="h5" color="primary.dark" sx={{ mt: 2 }}>
         Patient Payments
       </Typography>
       <Table size="small" style={{ tableLayout: 'fixed' }}>

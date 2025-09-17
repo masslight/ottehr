@@ -159,7 +159,7 @@ const performEffect = async (input: SubmitPaperworkEffectInput, oystehr: Oystehr
         }
         return null;
       } catch (e) {
-        console.log('error updating appointment status', JSON.stringify(e, null, 2));
+        console.log('error updating encounter extension', JSON.stringify(e, null, 2));
         return null;
       }
     })();
