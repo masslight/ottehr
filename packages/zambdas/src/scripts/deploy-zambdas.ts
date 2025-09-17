@@ -283,6 +283,7 @@ async function updateProjectZambda(
       triggerMethod: zambda.type,
       schedule: zambda.schedule,
       name: zambdaName,
+      timeoutInSeconds: zambda.timeout ? parseInt(zambda.timeout) : undefined,
     }),
   });
   if (updateZambda.status !== 200) {
