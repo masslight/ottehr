@@ -1,5 +1,6 @@
 import { LoadingButton } from '@mui/lab';
 import {
+  Autocomplete,
   Box,
   Button,
   Dialog,
@@ -7,11 +8,7 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
-  FormControl,
-  InputLabel,
-  MenuItem,
-  Select,
-  SelectChangeEvent,
+  TextField,
   Typography,
   useTheme,
 } from '@mui/material';
@@ -22,10 +19,10 @@ import { ExamType } from 'utils';
 import { applyTemplate } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { CHART_DATA_QUERY_KEY_BASE, useAppointmentData } from '../..';
-import { useListTemplates } from '../../state/useListTemplates';
+import { TemplateOption, useListTemplates } from '../../state/useListTemplates';
 
 export const ApplyTemplate: React.FC = () => {
-  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateOption | null>(null);
   const [dialogOpen, setDialogOpen] = useState<boolean>(false);
   const [pendingTemplate, setPendingTemplate] = useState<string>('');
   const [isApplyingTemplate, setIsApplyingTemplate] = useState<boolean>(false);
@@ -51,13 +48,12 @@ export const ApplyTemplate: React.FC = () => {
     borderRadius: 6,
   };
 
-  const handleTemplateChange = (event: SelectChangeEvent<string>): void => {
-    const newValue = event.target.value;
+  const handleTemplateChange = (event: React.SyntheticEvent, newValue: TemplateOption | null): void => {
     if (newValue) {
-      setPendingTemplate(newValue);
+      setPendingTemplate(newValue.value);
       setDialogOpen(true);
     } else {
-      setSelectedTemplate('');
+      setSelectedTemplate(null);
       setPendingTemplate('');
     }
   };
@@ -88,7 +84,9 @@ export const ApplyTemplate: React.FC = () => {
         setIsApplyingTemplate(false);
       }
     }
-    setSelectedTemplate(pendingTemplate);
+    // Find the template option that matches the pendingTemplate value
+    const selectedTemplateOption = templates.find((template) => template.value === pendingTemplate) || null;
+    setSelectedTemplate(selectedTemplateOption);
     setDialogOpen(false);
     setPendingTemplate('');
   };
@@ -99,32 +97,36 @@ export const ApplyTemplate: React.FC = () => {
 
   return (
     <Box sx={{ p: 2 }}>
-      <FormControl variant="outlined" sx={{ width: '50%', minWidth: 200 }}>
-        <InputLabel id="template-select-label">Select Template</InputLabel>
-        <Select
-          labelId="template-select-label"
-          id="template-select"
-          value={selectedTemplate}
-          label="Select Template"
-          onChange={handleTemplateChange}
-          disabled={isLoadingTemplates}
-        >
-          {isLoadingTemplates ? (
-            <MenuItem disabled>Loading templates...</MenuItem>
-          ) : (
-            templates.map((option) => (
-              <MenuItem key={option.value} value={option.value}>
-                {option.label}
-              </MenuItem>
-            ))
-          )}
-        </Select>
-      </FormControl>
+      <Autocomplete
+        id="template-select"
+        sx={{ width: '50%', minWidth: 200 }}
+        value={selectedTemplate}
+        options={templates}
+        getOptionLabel={(option) => option.label}
+        isOptionEqualToValue={(option, value) => option.value === value.value}
+        onChange={handleTemplateChange}
+        disabled={isLoadingTemplates}
+        filterOptions={(options, { inputValue }) => {
+          // Implement fuzzy search - filter by both label and value
+          const query = inputValue.toLowerCase();
+          return options.filter(
+            (option) => option.label.toLowerCase().includes(query) || option.value.toLowerCase().includes(query)
+          );
+        }}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            label="Select Template"
+            placeholder={isLoadingTemplates ? 'Loading templates...' : 'Search templates...'}
+          />
+        )}
+        noOptionsText={isLoadingTemplates ? 'Loading templates...' : 'No templates found'}
+      />
 
       {selectedTemplate && (
         <Box sx={{ mt: 2 }}>
           <Typography variant="body2" color="text.secondary">
-            Applied template: {getTemplateName(selectedTemplate)}
+            Applied template: {selectedTemplate.label}
           </Typography>
         </Box>
       )}
