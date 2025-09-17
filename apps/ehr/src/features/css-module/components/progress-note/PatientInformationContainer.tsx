@@ -4,12 +4,13 @@ import { FC, useState } from 'react';
 import { calculatePatientAge, getPatientAddress, standardizePhoneNumber } from 'utils';
 import { EditPatientDialog } from '../../../../components/dialogs';
 import { formatDateUsingSlashes } from '../../../../helpers/formatDateTime';
-import { ActionsList, useAppointmentData } from '../../../../telemed';
+import { ActionsList, useAppointmentData, useGetAppointmentAccessibility } from '../../../../telemed';
 import { VisitNoteItem } from '../../../../telemed/features/appointment/ReviewTab';
 import { getPatientName } from '../../../../telemed/utils';
 
 export const PatientInformationContainer: FC = () => {
   const { patient } = useAppointmentData();
+  const { isAppointmentReadOnly } = useGetAppointmentAccessibility();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   const name = getPatientName(patient?.name).fullDisplayName;
@@ -27,9 +28,11 @@ export const PatientInformationContainer: FC = () => {
           Patient information
         </Typography>
 
-        <IconButton size="small" onClick={() => setIsEditDialogOpen(true)} sx={{ color: 'primary.main' }}>
-          <EditOutlinedIcon />
-        </IconButton>
+        {!isAppointmentReadOnly && (
+          <IconButton size="small" onClick={() => setIsEditDialogOpen(true)} sx={{ color: 'primary.main' }}>
+            <EditOutlinedIcon />
+          </IconButton>
+        )}
       </Stack>
 
       <ActionsList

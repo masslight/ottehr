@@ -15,7 +15,8 @@ const getOystehr = async (config: any): Promise<Oystehr> => {
   });
 };
 
-const APPOINTMENT_ID = '9eb49356-0f04-48e8-b070-d48f13ed7f9e';
+const APPOINTMENT_ID = '466c3232-d06e-4d76-8d6a-a6eaa12057c9';
+const TITLE = '';
 
 async function createGlobalTemplateFromAppointment(config: any): Promise<void> {
   const oystehr = await getOystehr(config);
@@ -26,9 +27,9 @@ async function createGlobalTemplateFromAppointment(config: any): Promise<void> {
     params: [
       { name: '_id', value: APPOINTMENT_ID },
       { name: '_revinclude', value: 'Encounter:appointment' },
-      { name: '_revinclude:iterate', value: 'Observation:encounter' },
-      { name: '_revinclude:iterate', value: 'ClinicalImpression:encounter' },
-      { name: '_revinclude:iterate', value: 'Communication:encounter' },
+      // { name: '_revinclude:iterate', value: 'Observation:encounter' },
+      // { name: '_revinclude:iterate', value: 'ClinicalImpression:encounter' },
+      // { name: '_revinclude:iterate', value: 'Communication:encounter' },
       { name: '_revinclude:iterate', value: 'Condition:encounter' },
     ],
   });
@@ -37,7 +38,6 @@ async function createGlobalTemplateFromAppointment(config: any): Promise<void> {
 
   if (!appointmentBundle.entry) {
     console.log('No entries found in appointment bundle, cannot make a template');
-    // TODO what else will we require in order to make a template? Some number of observation resources being present is a hint?
     return;
   }
 
@@ -56,7 +56,7 @@ async function createGlobalTemplateFromAppointment(config: any): Promise<void> {
     },
     status: 'current',
     mode: 'working',
-    title: 'Otitis Media Left and Conjunctivitis Left',
+    title: TITLE,
     entry: [],
     contained: [],
   };
@@ -87,15 +87,18 @@ async function createGlobalTemplateFromAppointment(config: any): Promise<void> {
     if (!a.resource.meta?.lastUpdated || !b.resource.meta?.lastUpdated) return 0;
     return a.resource.meta.lastUpdated > b.resource.meta.lastUpdated ? 1 : -1;
   });
-  // Remove all but the first entry resource with matching meta.tags on system + code
+  // Remove all but the first entry resource with matching meta.tags on system + code except for conditions
   const seenTags = new Set<string>();
   appointmentBundle.entry = appointmentBundle.entry.filter((entry) => {
+    if (entry.resource?.resourceType === 'Condition') return true;
     const tags = entry.resource?.meta?.tag?.map((tag) => `${tag.system}|${tag.code}`);
     if (!tags) return true;
     const isDuplicate = tags.some((tag) => seenTags.has(tag!));
     if (!isDuplicate) tags.forEach((tag) => seenTags.add(tag!));
     return !isDuplicate;
   });
+
+  console.log('count of resources', appointmentBundle.entry.length);
 
   // let counter = 0;
   // let observationCounter = 0;
@@ -107,7 +110,7 @@ async function createGlobalTemplateFromAppointment(config: any): Promise<void> {
     // Skip the Encounter that was just used to fetch through to the resources we want.
     if (entry.resource.resourceType === 'Encounter') continue;
     // if (entry.resource.resourceType === 'Observation' && observationCounter > 10) continue; // TODO temporary
-    const anonymizedResource: any = entry.resource; // We use any so we can scrub relevant fields from various types of resources.
+    const anonymizedResource: any = { ...entry.resource }; // We use any so we can scrub relevant fields from various types of resources.
     delete anonymizedResource.meta?.versionId;
     delete anonymizedResource.meta?.lastUpdated;
     delete anonymizedResource.encounter;
@@ -120,6 +123,9 @@ async function createGlobalTemplateFromAppointment(config: any): Promise<void> {
     const newId = uuidV4();
     oldIdToNewIdMap.set(entry.resource.id!, newId);
     anonymizedResource.id = newId;
+    // if (entry.resource.resourceType === 'Condition') {
+    //   console.log('new id and old id', newId, entry.resource.id);
+    // }
     // if (counter < 90) {
     listToCreate.contained!.push(anonymizedResource);
 

@@ -4,13 +4,19 @@ import { enqueueSnackbar } from 'notistack';
 import React, { useCallback, useEffect, useState } from 'react';
 import { getPatientName } from 'src/telemed/utils';
 import { dataTestIds } from '../../../../constants/data-test-ids';
-import { useAppointmentData, useChartData, useSaveChartData } from '../../../../telemed';
+import {
+  useAppointmentData,
+  useChartData,
+  useGetAppointmentAccessibility,
+  useSaveChartData,
+} from '../../../../telemed';
 import { ProfileAvatar } from '../ProfileAvatar';
 
 const GeneralInfoCard: React.FC = (): JSX.Element => {
   const theme = useTheme();
   const { visitState: telemedData, mappedData } = useAppointmentData();
   const { patient: patientData } = telemedData;
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const { chartData, isLoading: isLoadingChartData } = useChartData({
     requestedFields: { patientInfoConfirmed: {} },
@@ -26,7 +32,8 @@ const GeneralInfoCard: React.FC = (): JSX.Element => {
 
   const [isVerifiedNameAndDob, setVerifiedNameAndDob] = useState<boolean>(false);
   const { mutateAsync: updateVerificationStatusAsync, isPending: isUpdatingVerificationStatus } = useSaveChartData();
-  const isCheckboxDisabled = isLoadingChartData || chartData === undefined || isUpdatingVerificationStatus;
+  const isCheckboxDisabled =
+    isLoadingChartData || chartData === undefined || isUpdatingVerificationStatus || isReadOnly;
 
   const handlePatientInfoVerified = useCallback(
     async (isChecked: boolean): Promise<void> => {
@@ -54,7 +61,7 @@ const GeneralInfoCard: React.FC = (): JSX.Element => {
         <Grid item xs={6} container>
           <Box sx={{ display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ display: 'flex' }}>
-              <ProfileAvatar embracingSquareSize={100} hasEditableInfo />
+              <ProfileAvatar embracingSquareSize={100} hasEditableInfo={!isReadOnly} />
 
               <Box sx={{ display: 'flex', flexDirection: 'column', ml: 3 }}>
                 <Typography

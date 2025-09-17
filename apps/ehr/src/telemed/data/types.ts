@@ -10,6 +10,7 @@ export type GetOystehrTelemedAPIParams = {
   assignPractitionerZambdaID?: string;
   unassignPractitionerZambdaID?: string;
   signAppointmentZambdaID?: string;
+  unlockAppointmentZambdaID?: string;
   syncUserZambdaID?: string;
   getPatientInstructionsZambdaID?: string;
   savePatientInstructionZambdaID?: string;
