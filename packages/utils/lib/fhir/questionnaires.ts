@@ -1,6 +1,5 @@
 import Oystehr from '@oystehr/sdk';
 import { Questionnaire } from 'fhir/r4b';
-import inPersonIntakeQuestionnaire from '../../../../config/oystehr/in-person-intake-questionnaire.json' assert { type: 'json' };
 import { CanonicalUrl } from '../types';
 
 // throws an error if unable to find exactly 1 matching resource
@@ -9,13 +8,6 @@ export const getCanonicalQuestionnaire = async (
   oystehrClient: Oystehr
 ): Promise<Questionnaire> => {
   const { url, version } = canonical;
-  if (url === 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson') {
-    const questionnaire = inPersonIntakeQuestionnaire.fhirResources[
-      'questionnaire-in-person-previsit'
-    ] as Questionnaire;
-    questionnaire.id = '3833c319-8689-42a4-bf90-c5fc10ca5856';
-    return questionnaire;
-  }
   const questionnaireSearch = (
     await oystehrClient.fhir.search<Questionnaire>({
       resourceType: 'Questionnaire',

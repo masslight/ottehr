@@ -298,15 +298,6 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     console.log(`Failed to patch appointment resource tag: ${JSON.stringify(error)}`);
   }
 
-  try {
-    console.time('Update preferred pharmacy');
-
-    console.timeEnd('Update preferred pharmacy');
-  } catch (error: unknown) {
-    tasksFailed.push('patch appointment resource tag failed', JSON.stringify(error));
-    console.log(`Failed to patch appointment resource tag: ${JSON.stringify(error)}`);
-  }
-
   const response = tasksFailed.length
     ? `${tasksFailed.length} failed: ${tasksFailed}`
     : 'all tasks executed successfully';

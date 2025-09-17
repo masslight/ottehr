@@ -393,21 +393,14 @@ export const getQuestionnaireItemsAndProgress = async (
     return res.resourceType === 'QuestionnaireResponse';
   }) as QuestionnaireResponse | undefined;
 
-  /*const questionnaire: Questionnaire | undefined = results.find((res) => {
+  const questionnaire: Questionnaire | undefined = results.find((res) => {
     if (res.resourceType === 'Questionnaire') {
       // this in-memory filtering is a workaround for an Oystehr search bug: https://github.com/masslight/zapehr/issues/6051
       const q = res as Questionnaire;
       return `${q.url}|${q.version}` === qr?.questionnaire;
     }
     return false;
-  }) as Questionnaire | undefined;*/
-
-  const questionnaireUrl = qr?.questionnaire?.split('|')[0] ?? '';
-  const questionnaireVersion = qr?.questionnaire?.split('|')[1] ?? '';
-  const questionnaire = await getCanonicalQuestionnaire(
-    { version: questionnaireVersion, url: questionnaireUrl },
-    oystehr
-  );
+  }) as Questionnaire | undefined;
 
   if (!questionnaire || !qr) {
     return undefined;
