@@ -130,7 +130,7 @@ export async function getBundledOrderResources(
     aoeAnswerPromises.push(aoeAnswerPromise);
 
     const orderNumber = getOrderNumber(result.serviceRequest);
-    if (!orderNumber) throw Error(`ServiceRequest is missing an order number, ${result.serviceRequest}`);
+    if (!orderNumber) throw Error(`ServiceRequest is missing an requisition number, ${result.serviceRequest}`);
     if (bundledOrders[orderNumber]) {
       bundledOrders[orderNumber].push(serviceRequestID);
     } else {
