@@ -72,7 +72,7 @@ export async function invokeChatbot(input: BaseMessageLike[], secrets: Secrets |
   process.env.ANTHROPIC_API_KEY = getSecret(SecretsKeys.ANTHROPIC_API_KEY, secrets);
   if (chatbot == null) {
     chatbot = new ChatAnthropic({
-      model: 'claude-3-7-sonnet-20250219',
+      model: 'claude-sonnet-4-20250514',
       temperature: 0,
     });
   }
