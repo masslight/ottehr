@@ -14,7 +14,7 @@ import { invokeChatbot } from '../../../shared/ai';
 
 export const INTERVIEW_COMPLETED = 'Interview completed.';
 
-const INITIAL_USER_MESSAGE = `Perform a medical history intake session as if you were a physician preparing me or my dependent for an urgent care visit.
+const INITIAL_USER_MESSAGE = `Perform a medical history intake session in the manner of a physician  preparing me or my dependent for an urgent care visit, without using a fake name:
 •	Use a friendly and concerned physician's tone
 •	Determine who the patient is
 •	Ask only one question at a time.
