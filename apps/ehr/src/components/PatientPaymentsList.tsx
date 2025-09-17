@@ -17,7 +17,7 @@ import {
   useTheme,
 } from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
-import { Coverage, Encounter, Patient } from 'fhir/r4b';
+import { Encounter, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { Fragment, ReactElement, useEffect, useState } from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -40,7 +40,6 @@ export interface PaymentListProps {
   patient: Patient;
   encounterId: string;
   loading?: boolean;
-  coverages?: Coverage[];
 }
 
 const idForPaymentDTO = (payment: PatientPaymentDTO): string => {
@@ -51,12 +50,7 @@ const idForPaymentDTO = (payment: PatientPaymentDTO): string => {
   }
 };
 
-export default function PatientPaymentList({
-  loading,
-  patient,
-  encounterId,
-  coverages,
-}: PaymentListProps): ReactElement {
+export default function PatientPaymentList({ loading, patient, encounterId }: PaymentListProps): ReactElement {
   const { oystehr } = useApiClients();
   const theme = useTheme();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
@@ -65,17 +59,15 @@ export default function PatientPaymentList({
     refetch: refetchEncounter,
     isRefetching: isEncounterRefetching,
   } = useGetEncounter({ encounterId });
-  const [paymentVariant, setPaymentVariant] = useState<PaymentVariant>(
-    coverages && coverages?.length > 0 ? PaymentVariant.insurance : PaymentVariant.selfPay
-  );
+  const [paymentVariant, setPaymentVariant] = useState<PaymentVariant>(PaymentVariant.insurance);
 
   useEffect(() => {
-    if (encounter) {
+    if (encounter && !isEncounterRefetching) {
       console.log('Encounter changed: ', JSON.stringify(encounter));
       const variant = encounter && getPaymentVariantFromEncounter(encounter);
       if (variant) setPaymentVariant(variant);
     }
-  }, [encounter]);
+  }, [encounter, isEncounterRefetching]);
 
   const {
     data: paymentData,
@@ -168,35 +160,30 @@ export default function PatientPaymentList({
       <Typography variant="h4" color="primary.dark">
         How would patient like to pay for the visit?
       </Typography>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-        <Typography>Select option</Typography>
-        <RadioGroup
-          row
-          name="options"
-          value={paymentVariant}
-          onChange={async (e) => {
-            if (encounter) {
-              updateEncounter.mutate(
-                updateEncounterPaymentVariantExtension(encounter, e.target.value as PaymentVariant)
-              );
-              await refetchEncounter();
-            }
-          }}
-        >
-          <FormControlLabel
-            disabled={updateEncounter.isPending || isEncounterRefetching}
-            value={PaymentVariant.insurance}
-            control={<Radio />}
-            label="Insurance"
-          />
-          <FormControlLabel
-            disabled={updateEncounter.isPending || isEncounterRefetching}
-            value={PaymentVariant.selfPay}
-            control={<Radio />}
-            label="Self pay"
-          />
-        </RadioGroup>
-      </Box>
+      <RadioGroup
+        row
+        name="options"
+        value={paymentVariant}
+        onChange={async (e) => {
+          if (encounter) {
+            updateEncounter.mutate(updateEncounterPaymentVariantExtension(encounter, e.target.value as PaymentVariant));
+            await refetchEncounter();
+          }
+        }}
+      >
+        <FormControlLabel
+          disabled={updateEncounter.isPending || isEncounterRefetching}
+          value={PaymentVariant.insurance}
+          control={<Radio />}
+          label="Insurance"
+        />
+        <FormControlLabel
+          disabled={updateEncounter.isPending || isEncounterRefetching}
+          value={PaymentVariant.selfPay}
+          control={<Radio />}
+          label="Self-pay"
+        />
+      </RadioGroup>
       <Typography variant="h4" color="primary.dark">
         Patient Payments
       </Typography>
