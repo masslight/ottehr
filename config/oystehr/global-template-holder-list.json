@@ -154,11 +154,6 @@
         },
         {
           "item": {
-            "reference": "List/#{ref/fhirResources/ACUTE_OTITIS_MEDIA/id}"
-          }
-        },
-        {
-          "item": {
             "reference": "List/#{ref/fhirResources/OTALGIA_RIGHT/id}"
           }
         },
@@ -219,7 +214,7 @@
         },
         {
           "item": {
-            "reference": "List/#{ref/fhirResources/WRIST_SPAIN_L/id}"
+            "reference": "List/#{ref/fhirResources/WRIST_SPRAIN_L/id}"
           }
         },
         {
@@ -274,37 +269,12 @@
         },
         {
           "item": {
-            "reference": "List/#{ref/fhirResources/VIRAL_SYNDROME___CHILD/id}"
-          }
-        },
-        {
-          "item": {
-            "reference": "List/#{ref/fhirResources/VIRAL_SINUSITIS/id}"
-          }
-        },
-        {
-          "item": {
-            "reference": "List/#{ref/fhirResources/VIRAL_PHARYNGITIS/id}"
-          }
-        },
-        {
-          "item": {
             "reference": "List/#{ref/fhirResources/PHARYNGITIS/id}"
           }
         },
         {
           "item": {
-            "reference": "List/#{ref/fhirResources/OTITIS/id}"
-          }
-        },
-        {
-          "item": {
             "reference": "List/#{ref/fhirResources/HEADACHE/id}"
-          }
-        },
-        {
-          "item": {
-            "reference": "List/#{ref/fhirResources/CONJUNCTIVITIS/id}"
           }
         },
         {

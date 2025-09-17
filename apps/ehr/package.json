@@ -1,6 +1,6 @@
 {
   "name": "ehr-ui",
-  "version": "1.17.16",
+  "version": "1.17.17",
   "private": true,
   "type": "module",
   "engines": {
@@ -31,7 +31,7 @@
     "build:testing": "ENV=testing npm run build-skeleton",
     "build:staging": "ENV=staging npm run build-skeleton",
     "build:demo": "ENV=demo npm run build-skeleton",
-    "build-skeleton": "tsc && vite build --mode ${ENV}",
+    "build-skeleton": "tsc && VITE_APP_ENV=${ENV} VITE_APP_SHA=${GIT_HEAD:-$(git rev-parse --short HEAD)} VITE_APP_VERSION=$(node -pe 'require(\"./package.json\").version') vite build --mode ${ENV}",
     "unit-tests": "vitest --config ./vitest.config.ts",
     "component-tests": "vitest --config ./vitest.config.component-tests.ts",
     "test": "npm run unit-tests -- --watch=false && npm run component-tests -- --watch=false",
