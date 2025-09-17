@@ -240,7 +240,7 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
           const { linkId } = item;
           let answer: QuestionnaireResponseItemAnswer[] | undefined;
           if (linkId === 'pharmacy-name' && pharmacyName && pharmacyName != '-') {
-            answer = makeAnswer(patientEthnicity);
+            answer = makeAnswer(pharmacyName);
           }
           if (linkId === 'pharmacy-address' && pharmacyAddress) {
             answer = makeAnswer(pharmacyAddress);
