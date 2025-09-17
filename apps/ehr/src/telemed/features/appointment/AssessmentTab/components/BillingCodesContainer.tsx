@@ -123,53 +123,57 @@ export const BillingCodesContainer: FC = () => {
             <AssessmentTitle>Billing</AssessmentTitle>
           </TooltipWrapper>
         </Box>
-        <Autocomplete
-          options={emCodeOptions}
-          disabled={disabledEM}
-          isOptionEqualToValue={(option, value) => option.code === value.code}
-          value={emCode ? { display: emCode.display, code: emCode.code } : null}
-          getOptionLabel={(option) => option.display}
-          onChange={(_e, value) => onEMCodeChange(value)}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              size="small"
-              label="E&M code"
-              placeholder="Search E&M code"
-              data-testid={dataTestIds.assessmentCard.emCodeDropdown}
+        {!isReadOnly && (
+          <>
+            <Autocomplete
+              options={emCodeOptions}
+              disabled={disabledEM}
+              isOptionEqualToValue={(option, value) => option.code === value.code}
+              value={emCode ? { display: emCode.display, code: emCode.code } : null}
+              getOptionLabel={(option) => option.display}
+              onChange={(_e, value) => onEMCodeChange(value)}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  size="small"
+                  label="E&M code"
+                  placeholder="Search E&M code"
+                  data-testid={dataTestIds.assessmentCard.emCodeDropdown}
+                />
+              )}
             />
-          )}
-        />
-        <Autocomplete
-          fullWidth
-          blurOnSelect
-          disabled={disabledCPT}
-          options={cptSearchOptions}
-          noOptionsText={
-            debouncedSearchTerm && cptSearchOptions.length === 0
-              ? 'Nothing found for this search criteria'
-              : 'Start typing to load results'
-          }
-          autoComplete
-          includeInputInList
-          disableClearable
-          filterOptions={(x) => x}
-          value={null as unknown as undefined}
-          isOptionEqualToValue={(option, value) => value.code === option.code}
-          loading={isSearching}
-          onChange={onInternalChange}
-          getOptionLabel={(option) => (typeof option === 'string' ? option : `${option.code} ${option.display}`)}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              size="small"
-              label="Additional CPT codes"
-              placeholder="Search CPT code"
-              onChange={(e) => debouncedHandleInputChange(e.target.value)}
-              data-testid={dataTestIds.assessmentCard.cptCodeField}
+            <Autocomplete
+              fullWidth
+              blurOnSelect
+              disabled={disabledCPT}
+              options={cptSearchOptions}
+              noOptionsText={
+                debouncedSearchTerm && cptSearchOptions.length === 0
+                  ? 'Nothing found for this search criteria'
+                  : 'Start typing to load results'
+              }
+              autoComplete
+              includeInputInList
+              disableClearable
+              filterOptions={(x) => x}
+              value={null as unknown as undefined}
+              isOptionEqualToValue={(option, value) => value.code === option.code}
+              loading={isSearching}
+              onChange={onInternalChange}
+              getOptionLabel={(option) => (typeof option === 'string' ? option : `${option.code} ${option.display}`)}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  size="small"
+                  label="Additional CPT codes"
+                  placeholder="Search CPT code"
+                  onChange={(e) => debouncedHandleInputChange(e.target.value)}
+                  data-testid={dataTestIds.assessmentCard.cptCodeField}
+                />
+              )}
             />
-          )}
-        />
+          </>
+        )}
       </Box>
 
       {emCode && (
