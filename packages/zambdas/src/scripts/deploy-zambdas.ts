@@ -8,6 +8,7 @@ import { getAuth0Token } from '../shared';
 interface DeployZambda {
   type: 'http_open' | 'http_auth' | 'subscription' | 'cron';
   runtime: ZambdaCreateParams['runtime'];
+  timeout?: string;
   subscriptionDetails?: SubscriptionZambdaDetails[];
   schedule?: {
     start?: string;
@@ -28,6 +29,7 @@ Object.entries(ottehrSpec.zambdas).forEach(([_key, spec]) => {
   const zambdaDefinition: DeployZambda = {
     type: spec.type,
     runtime: spec.runtime as ZambdaCreateParams['runtime'],
+    timeout: (spec as any).timeout,
   };
 
   if (spec.type === 'subscription') {
@@ -164,6 +166,7 @@ const updateZambdas = async (config: any, selectedTriggerMethod: string | undefi
       currentDeployedZambda = await oystehr.zambda.create({
         name: zambdaName,
         runtime: currentZambda.runtime,
+        timeoutInSeconds: currentZambda.timeout ? parseInt(currentZambda.timeout) : undefined,
       });
       console.log(`Zambda ${zambda} with ID ${currentDeployedZambda.id}`);
     }
@@ -280,6 +283,7 @@ async function updateProjectZambda(
       triggerMethod: zambda.type,
       schedule: zambda.schedule,
       name: zambdaName,
+      timeoutInSeconds: zambda.timeout ? parseInt(zambda.timeout) : undefined,
     }),
   });
   if (updateZambda.status !== 200) {

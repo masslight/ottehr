@@ -967,6 +967,7 @@
       "name": "ai-interview-summary",
       "type": "subscription",
       "runtime": "nodejs20.x",
+      "timeout": "300",
       "src": "src/subscriptions/questionnaire-response/ai-interview-summary/index",
       "zip": ".dist/zips/ai-interview-summary.zip",
       "subscription": {
