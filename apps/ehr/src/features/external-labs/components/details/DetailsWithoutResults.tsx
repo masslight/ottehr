@@ -1,5 +1,6 @@
 import { Grid, Stack, Typography } from '@mui/material';
 import React from 'react';
+import { useGetAppointmentAccessibility } from 'src/telemed';
 import { LabOrderDetailedPageDTO, PSC_LOCALE } from 'utils';
 import { CSSPageTitle } from '../../../../telemed/components/PageTitle';
 import { LabsOrderStatusChip } from '../ExternalLabsStatusChip';
@@ -8,6 +9,8 @@ import { OrderCollection } from '../OrderCollection';
 export const DetailsWithoutResults: React.FC<{
   labOrder: LabOrderDetailedPageDTO;
 }> = ({ labOrder }) => {
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+
   return (
     <Stack spacing={2} sx={{ width: '100%' }}>
       <CSSPageTitle>{labOrder.testItem}</CSSPageTitle>
@@ -45,6 +48,7 @@ export const DetailsWithoutResults: React.FC<{
       <OrderCollection
         labOrder={labOrder}
         showOrderInfo={labOrder.orderStatus.includes('sent') || labOrder.orderStatus === 'ready'}
+        showActionButtons={!isReadOnly}
       />
     </Stack>
   );

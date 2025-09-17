@@ -190,7 +190,18 @@ async function main(): Promise<void> {
   for (const paymentMethod of sortedMethods) {
     const methodPayments = paymentsByMethod.get(paymentMethod)!;
 
-    console.log(`\n💳 ${paymentMethod.toUpperCase()}:`);
+    // Choose emoji based on payment method
+    let emoji = '💳'; // default card emoji
+    const methodLower = paymentMethod.toLowerCase();
+    if (methodLower === 'cash') {
+      emoji = '💵'; // dollar stack emoji for cash
+    } else if (methodLower === 'card' || methodLower === 'credit-card' || methodLower === 'debit-card') {
+      emoji = '💳'; // card emoji
+    } else if (methodLower === 'check') {
+      emoji = '🏦'; // check emoji
+    }
+
+    console.log(`\n${emoji} ${paymentMethod.toUpperCase()}:`);
     console.log('Date\t\tAmount\t\tPayment Method');
     console.log('--------------------------------------------');
 

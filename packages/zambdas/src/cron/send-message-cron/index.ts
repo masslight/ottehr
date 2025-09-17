@@ -1,6 +1,16 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Encounter, Location, Patient, QuestionnaireResponse, Schedule, Slot } from 'fhir/r4b';
+import {
+  Appointment,
+  Encounter,
+  FhirResource,
+  Location,
+  Patient,
+  Practitioner,
+  QuestionnaireResponse,
+  Schedule,
+  Slot,
+} from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   DATETIME_FULL_NO_YEAR,
@@ -103,19 +113,12 @@ export const index = wrapHandler('send-message-cron', async (input: ZambdaInput)
       const fhirAppointment = appointment as Appointment;
       const created = DateTime.fromISO(fhirAppointment.created || '');
 
+      const { schedule, scheduleOwner } = getScheduleForAppointment(fhirAppointment, allResources);
+      const startTimeFormatted = getPrettyStartTime(fhirAppointment, schedule);
+      const locationName = scheduleOwner ? getNameForOwner(scheduleOwner) : '';
       // only send reminders for appointments created more than 2 hours before start time
-      if (startTime.diff(created, 'minutes').minutes > 120) {
-        const locationID = fhirAppointment.participant
-          .find((participantTemp) => participantTemp.actor?.reference?.startsWith('Location/'))
-          ?.actor?.reference?.split('/')[1];
-        const fhirLocation = allResources.find((resourceTemp) => resourceTemp.id === locationID) as Location;
-        const timezone = fhirLocation.extension?.find(
-          (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
-        )?.valueString;
-        const startTimeFormatted = DateTime.fromISO(fhirAppointment.start || '')
-          ?.setZone(timezone)
-          .toFormat(DATETIME_FULL_NO_YEAR);
-        const message = `Your check-in time at ${fhirLocation.name} is ${startTimeFormatted}. See you soon!`;
+      if (startTime.diff(created, 'minutes').minutes > 120 && locationName && startTimeFormatted) {
+        const message = `Your check-in time at ${locationName} is ${startTimeFormatted}. See you soon!`;
         /*`${i18n.t('textComms.checkIn1')} ${fhirLocation.name} ${i18n.t(
           'textComms.checkIn2'
         )} ${startTimeFormatted}${i18n.t('textComms.checkIn3')}`;*/
@@ -133,6 +136,8 @@ export const index = wrapHandler('send-message-cron', async (input: ZambdaInput)
 
     const next90MinuteAppointmentPromises = next90MinuteAppointments.map(async (appointment) => {
       const fhirAppointment = appointment as Appointment;
+      const { schedule, scheduleOwner } = getScheduleForAppointment(fhirAppointment, allResources);
+
       const created = DateTime.fromISO(fhirAppointment.created || '');
       const encounter = encounterResources.find(
         (resource) => (resource as Encounter).appointment?.[0].reference === `Appointment/${fhirAppointment?.id}`
@@ -161,30 +166,18 @@ export const index = wrapHandler('send-message-cron', async (input: ZambdaInput)
         const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
         await sendAutomatedText(fhirAppointment, oystehr, ENVIRONMENT, message);
 
-        const location: Location | undefined = allResources.find((res) => res.resourceType === 'Location');
-        const schedule: Schedule | undefined = allResources.find((res) => res.resourceType === 'Schedule');
-
-        let address = '';
-        let locationName = '';
-        let prettyStartTime = '';
-
-        if (schedule && fhirAppointment.start) {
-          const tz = getTimezone(schedule);
-          prettyStartTime = DateTime.fromISO(fhirAppointment.start).setZone(tz).toFormat(DATETIME_FULL_NO_YEAR);
-        }
-
-        if (location) {
-          locationName = getNameForOwner(location);
-          address = getAddressStringForScheduleResource(location) || '';
-        }
-
+        const prettyStartTime = getPrettyStartTime(fhirAppointment, schedule);
+        const address = getAddressStringForScheduleResource(scheduleOwner) || '';
+        const locationName = scheduleOwner ? getNameForOwner(scheduleOwner) : '';
         const missingData: string[] = [];
         if (!patientEmail) missingData.push('patient email');
+        if (!schedule) missingData.push('schedule');
+        if (!scheduleOwner) missingData.push('schedule owner');
         if (!fhirAppointment.id) missingData.push('appointment ID');
         if (!locationName) missingData.push('location name');
         if (!address) missingData.push('address');
         if (!prettyStartTime) missingData.push('appointment time');
-        if (missingData.length === 0 && patientEmail && fhirAppointment.id) {
+        if (missingData.length === 0 && patientEmail && fhirAppointment.id && prettyStartTime) {
           const templateData: InPersonReminderTemplateData = {
             location: locationName,
             time: prettyStartTime,
@@ -246,3 +239,43 @@ async function sendAutomatedText(
     console.log('error trying to send message: ', e, JSON.stringify(e));
   }
 }
+
+const getScheduleForAppointment = (
+  appointment: Appointment,
+  resourceBundle: FhirResource[]
+): { schedule?: Schedule; scheduleOwner?: Location | Practitioner } => {
+  const appointmentSlotId = appointment.slot?.[0].reference?.split('/')[1];
+  if (appointmentSlotId) {
+    const slot = resourceBundle.find((res) => res.resourceType === 'Slot' && res.id === appointmentSlotId) as
+      | Slot
+      | undefined;
+    if (slot) {
+      const scheduleId = slot.schedule?.reference?.split('/')[1];
+      const schedule = resourceBundle.find((res) => res.resourceType === 'Schedule' && res.id === scheduleId) as
+        | Schedule
+        | undefined;
+      const scheduleOwnerRef = schedule?.actor?.[0]?.reference;
+      let scheduleOwner: Location | Practitioner | undefined;
+      if (scheduleOwnerRef) {
+        const scheduleOwnerType = scheduleOwnerRef.split('/')[0];
+        const scheduleOwnerId = scheduleOwnerRef.split('/')[1];
+        scheduleOwner = resourceBundle.find(
+          (res) =>
+            res.resourceType === scheduleOwnerType &&
+            res.id === scheduleOwnerId &&
+            (res.resourceType === 'Practitioner' || res.resourceType === 'Location')
+        ) as Location | Practitioner | undefined;
+      }
+      return { schedule, scheduleOwner };
+    }
+  }
+  return {};
+};
+
+const getPrettyStartTime = (fhirAppointment: Appointment, schedule: Schedule | undefined): string | undefined => {
+  if (schedule && fhirAppointment.start) {
+    const tz = getTimezone(schedule);
+    return DateTime.fromISO(fhirAppointment.start).setZone(tz).toFormat(DATETIME_FULL_NO_YEAR);
+  }
+  return undefined;
+};

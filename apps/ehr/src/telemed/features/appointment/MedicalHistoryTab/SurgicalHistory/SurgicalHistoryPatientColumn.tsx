@@ -14,9 +14,9 @@ export const SurgicalHistoryPatientColumn: FC = () => {
   const surgicalHistory = getQuestionnaireResponseByLinkId('surgical-history', questionnaireResponse)?.answer?.[0]
     ?.valueArray;
 
-  const aiPastSurgicalHistory = chartData?.observations?.find(
+  const aiPastSurgicalHistory = chartData?.observations?.filter(
     (observation) => observation.field === AiObservationField.PastSurgicalHistory
-  ) as ObservationTextFieldDTO;
+  ) as ObservationTextFieldDTO[];
 
   return (
     <Box
@@ -39,12 +39,12 @@ export const SurgicalHistoryPatientColumn: FC = () => {
       ) : (
         <Typography color={theme.palette.text.secondary}>Patient has no surgical history</Typography>
       )}
-      {aiPastSurgicalHistory ? (
+      {aiPastSurgicalHistory?.length > 0 && (
         <>
           <hr style={{ border: '0.5px solid #DFE5E9', margin: '0 -16px 0 -16px' }} />
-          <AiSuggestion title={'Past Surgical History (PSH)'} content={aiPastSurgicalHistory.value} />
+          <AiSuggestion title={'Past Surgical History (PSH)'} chartData={chartData} content={aiPastSurgicalHistory} />
         </>
-      ) : undefined}
+      )}
     </Box>
   );
 };

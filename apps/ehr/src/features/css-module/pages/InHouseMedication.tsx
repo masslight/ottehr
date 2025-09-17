@@ -1,6 +1,7 @@
 import { AppBar, Box, Tab, Tabs, useTheme } from '@mui/material';
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useGetAppointmentAccessibility } from 'src/telemed';
 import { dataTestIds } from '../../../constants/data-test-ids';
 import { PageTitle } from '../../../telemed/components/PageTitle';
 import { CSSLoader } from '../components/CSSLoader';
@@ -37,6 +38,7 @@ export const InHouseMedication: React.FC = () => {
   const theme = useTheme();
   const isTabTransitionRef = useRef(false);
   const [content, setContent] = useState<{ mar: React.ReactNode; details: React.ReactNode } | null>(null);
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   // handle tabs click navigation
   const handleChange = useCallback(() => {
@@ -82,7 +84,7 @@ export const InHouseMedication: React.FC = () => {
           label="Medications"
           showIntakeNotesButton={false}
         />
-        <OrderButton dataTestId={dataTestIds.inHouseMedicationsPage.orderButton} />
+        {!isReadOnly && <OrderButton dataTestId={dataTestIds.inHouseMedicationsPage.orderButton} />}
       </Box>
       <MedicationHistoryList />
 

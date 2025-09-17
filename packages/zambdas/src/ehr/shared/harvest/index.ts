@@ -1878,7 +1878,7 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
       type: 'Patient',
       reference: `Patient/${patientId}`,
     },
-    type: typeCode ? { coding: [{ system: CANDID_PLAN_TYPE_SYSTEM, code: typeCode }] } : undefined,
+    type: typeCode !== undefined ? { coding: [{ system: CANDID_PLAN_TYPE_SYSTEM, code: typeCode }] } : undefined,
     payor: [{ reference: `Organization/${org.id}` }],
     subscriberId: policyHolder.memberId,
     relationship: getPolicyHolderRelationshipCodeableConcept(policyHolder.relationship),
@@ -2674,6 +2674,12 @@ const patchOpsForCoverage = (input: GetCoveragePatchOpsInput): Operation[] => {
     const sourceValue = (source as any)[key];
     const targetValue = (target as any)[key];
     if (key === 'contained' && sourceValue === undefined && targetValue !== undefined) {
+      ops.push({
+        op: 'remove',
+        path: `/${key}`,
+      });
+    }
+    if (key === 'type' && sourceValue === undefined && targetValue !== undefined) {
       ops.push({
         op: 'remove',
         path: `/${key}`,
