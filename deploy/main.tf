@@ -78,8 +78,42 @@ module "oystehr" {
   patient_portal_domain       = var.aws_profile == null ? var.patient_portal_domain == null ? null : var.patient_portal_domain : module.aws_infra.patient_portal_domain
 }
 
-# TODO: replace content of app config files
-# TODO: compile apps
+module "ottehr_apps" {
+  source      = "./ottehr_apps"
+  environment = var.environment
+  ehr_vars = {
+    ENV                              = var.environment
+    PROJECT_ID                       = var.project_id
+    IS_LOCAL                         = var.environment == "local" ? "true" : "false"
+    OYSTEHR_APPLICATION_CLIENT_ID    = module.oystehr.app_ehr_client_id
+    OYSTEHR_APPLICATION_REDIRECT_URL = module.oystehr.app_ehr_redirect_url
+    OYSTEHR_CONNECTION_NAME          = module.oystehr.app_ehr_connection_name
+    MUI_X_LICENSE_KEY                = module.oystehr.mui_x_license_key
+    OYSTEHR_APPLICATION_ID           = module.oystehr.app_ehr_id
+    PROJECT_API_ZAMBDA_URL           = var.environment == "local" ? "http://localhost:3000/local" : "https://project-api.zapehr.com/v1"
+    PATIENT_APP_URL                  = "https://${var.patient_portal_domain == null ? one(module.aws_infra[*].patient_portal_domain) == null ? "" : module.aws_infra.patient_portal_domain : var.patient_portal_domain}"
+    STRIPE_PUBLIC_KEY                = module.oystehr.stripe_public_key
+    SENTRY_AUTH_TOKEN                = module.oystehr.sentry_auth_token
+    SENTRY_ORG                       = module.oystehr.sentry_org
+    SENTRY_PROJECT                   = module.oystehr.sentry_project
+    SENTRY_DSN                       = module.oystehr.sentry_dsn
+  }
+  patient_portal_vars = {
+    ENV                           = var.environment
+    PROJECT_ID                    = var.project_id
+    IS_LOCAL                      = var.environment == "local" ? "true" : "false"
+    OYSTEHR_APPLICATION_CLIENT_ID = module.oystehr.app_patient_portal_client_id
+    PROJECT_API_URL               = var.environment == "local" ? "http://localhost:3000/local" : "https://project-api.zapehr.com/v1"
+    DEFAULT_WALKIN_LOCATION_NAME  = module.oystehr.default_walkin_location_name
+    MIXPANEL_TOKEN                = module.oystehr.mixpanel_token
+    GTM_ID                        = module.oystehr.gtm_id
+    STRIPE_PUBLIC_KEY             = module.oystehr.stripe_public_key
+    SENTRY_AUTH_TOKEN             = module.oystehr.sentry_auth_token
+    SENTRY_ORG                    = module.oystehr.sentry_org
+    SENTRY_PROJECT                = module.oystehr.sentry_project
+    SENTRY_DSN                    = module.oystehr.sentry_dsn
+  }
+}
 
 module "aws_apps" {
   count  = var.aws_profile == null ? 0 : 1
@@ -87,8 +121,8 @@ module "aws_apps" {
   providers = {
     aws = aws
   }
-  ehr_bucket_id            = module.aws_infra.ehr_bucket_id
-  patient_portal_bucket_id = module.aws_infra.patient_portal_bucket_id
+  ehr_bucket_id            = one(module.aws_infra[*].ehr_bucket_id)
+  patient_portal_bucket_id = one(module.aws_infra[*].patient_portal_bucket_id)
 }
 
 module "gcp_apps" {
@@ -97,6 +131,6 @@ module "gcp_apps" {
   providers = {
     google = google
   }
-  ehr_bucket_id            = module.gcp_infra.ehr_bucket_id
-  patient_portal_bucket_id = module.gcp_infra.patient_portal_bucket_id
+  ehr_bucket_id            = one(module.gcp_infra[*].ehr_bucket_id)
+  patient_portal_bucket_id = one(module.gcp_infra[*].patient_portal_bucket_id)
 }

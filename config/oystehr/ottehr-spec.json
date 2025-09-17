@@ -180,6 +180,22 @@
     "ADVAPACS_VIEWER_USERNAME": {
       "name": "ADVAPACS_VIEWER_USERNAME",
       "value": "#{var/ADVAPACS_VIEWER_USERNAME}"
+    },
+    "MUI_X_LICENSE_KEY": {
+      "name": "MUI_X_LICENSE_KEY",
+      "value": "#{var/MUI_X_LICENSE_KEY}"
+    },
+    "GTM_ID": {
+      "name": "GTM_ID",
+      "value": "#{var/GTM_ID}"
+    },
+    "MIXPANEL_TOKEN": {
+      "name": "MIXPANEL_TOKEN",
+      "value": "#{var/MIXPANEL_TOKEN}"
+    },
+    "DEFAULT_WALKIN_LOCATION_NAME": {
+      "name": "DEFAULT_WALKIN_LOCATION_NAME",
+      "value": "#{var/DEFAULT_WALKIN_LOCATION_NAME}"
     }
   },
   "zambdas": {
