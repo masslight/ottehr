@@ -1,4 +1,4 @@
-import { Appointment, HealthcareService, List, Location, Patient, QuestionnaireResponse } from 'fhir/r4b';
+import { Appointment, HealthcareService, List, Location, Patient, QuestionnaireResponse, Schedule } from 'fhir/r4b';
 import { OptionConfig } from '../../helpers';
 import { Secrets } from '../../secrets';
 import { AvailableLocationInformation, FileURLs, FormItemType } from '../common';
@@ -125,5 +125,6 @@ export interface PaperworkPDFResourcePackage {
   questionnaireResponse?: QuestionnaireResponse;
   listResources?: List[];
   appointment: Appointment;
+  schedule?: Schedule;
   location?: Location;
 }
