@@ -4,7 +4,7 @@
     "questionnaire-virtual-previsit": {
       "resourceType": "Questionnaire",
       "url": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual",
-      "version": "1.0.8",
+      "version": "1.0.9",
       "name": "virtual_pre-visit_paperwork (please_do_not_delete)",
       "title": "virtual pre-visit paperwork",
       "status": "active",
@@ -3297,6 +3297,23 @@
                       "valueString": "64290-0"
                     }
                   ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "linkId": "card-payment-page",
+          "type": "group",
+          "text": "Credit card details",
+          "item": [
+            {
+              "linkId": "valid-card-on-file",
+              "type": "boolean",
+              "extension": [
+                {
+                  "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                  "valueString": "Payment Validation"
                 }
               ]
             }
