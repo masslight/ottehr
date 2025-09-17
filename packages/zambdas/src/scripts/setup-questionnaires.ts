@@ -21,7 +21,12 @@ const writeQuestionnaires = async (envConfig: any, env: string): Promise<void> =
           const questionnaireData = JSON.parse(
             fs.readFileSync(path.join(__dirname, '../../../../config/oystehr', file), 'utf8')
           );
-          const { resource: questionnaire } = questionnaireData;
+          const { fhirResources } = questionnaireData;
+
+          const questionnaire =
+            fhirResources['questionnaire-in-person-previsit'] ??
+            fhirResources['questionnaire-virtual-previsit'] ??
+            fhirResources['ehr-insurance-update-questionnaire'];
 
           const existingQuestionnaire = (
             await oystehrClient.fhir.search<Questionnaire>({
