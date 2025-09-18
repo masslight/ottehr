@@ -22,6 +22,7 @@ import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { useFeatureFlags } from '../../../../../features/css-module/context/featureFlags';
 import { DeleteIconButton } from '../../../../components';
 import { useGetAppointmentAccessibility } from '../../../../hooks';
+import { useChartDataArrayValue } from '../../../../hooks/useChartDataArrayValue';
 import {
   ChartDataState,
   ExtractObjectType,
@@ -230,8 +231,8 @@ const AllergyListItem: FC<{ value: AllergyDTO; index: number; length: number }> 
 };
 
 const AddAllergyField: FC = () => {
-  const { isChartDataLoading, chartDataSetState } = useChartData();
-  const { mutate: updateChartData, isPending: isUpdateLoading } = useSaveChartData();
+  const { isChartDataLoading } = useChartData();
+  const { onSubmit, isLoading } = useChartDataArrayValue('allergies');
 
   const methods = useForm<{ value: ExtractObjectType<ErxSearchAllergensResponse> | null; otherAllergyName: string }>({
     defaultValues: { value: null, otherAllergyName: '' },
@@ -270,73 +271,39 @@ const AddAllergyField: FC = () => {
     []
   );
 
-  const handleSelectOption = (
-    chartDataSetState: (
-      updater: Partial<ChartDataState> | ((state: ChartDataState) => Partial<ChartDataState>)
-    ) => void,
-    data: ExtractObjectType<ErxSearchAllergensResponse> | null
-  ): void => {
+  const handleSelectOption = async (data: ExtractObjectType<ErxSearchAllergensResponse> | null): Promise<void> => {
     if (data) {
       const newValue = {
         name: data.name,
         id: data.id?.toString(),
         current: true,
       };
-      chartDataSetState((prevState) => ({
-        chartData: {
-          ...prevState.chartData!,
-          allergies: [...(prevState.chartData?.allergies || []), newValue],
-        },
-      }));
-      reset({ value: null, otherAllergyName: '' });
-      setIsOtherOptionSelected(false);
 
-      updateChartData(
-        { allergies: [newValue] },
-        {
-          onSuccess: (data) => {
-            const updatedAllergy = data.chartData.allergies?.[0];
-            if (updatedAllergy) {
-              chartDataSetState((prevState) => ({
-                chartData: {
-                  ...prevState.chartData!,
-                  allergies: prevState.chartData?.allergies?.map((allergy) =>
-                    allergy.id === updatedAllergy.id && !allergy.resourceId ? updatedAllergy : allergy
-                  ),
-                },
-              }));
-            }
-          },
-          onError: () => {
-            chartDataSetState((prevState) => ({
-              chartData: {
-                ...prevState.chartData!,
-                allergies: prevState.chartData?.allergies?.filter((allergy) => allergy.resourceId),
-              },
-            }));
-            enqueueSnackbar('An error has occurred while adding allergy. Please try again.', {
-              variant: 'error',
-            });
-          },
-        }
-      );
+      try {
+        await onSubmit(newValue);
+        reset({ value: null, otherAllergyName: '' });
+        setIsOtherOptionSelected(false);
+      } catch {
+        // Error is already handled by useChartDataArrayValue
+      }
     }
   };
 
-  const onSubmit = (data: {
+  const onSubmitForm = async (data: {
     value: ExtractObjectType<ErxSearchAllergensResponse> | null;
     otherAllergyName: string;
-  }): void => {
+  }): Promise<void> => {
     if (data.value) {
-      handleSelectOption(chartDataSetState, {
+      const allergyData = {
         ...data.value,
         name: 'Other' + (data.otherAllergyName ? ` (${data.otherAllergyName})` : ''),
-      });
+      };
+      await handleSelectOption(allergyData);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)}>
+    <form onSubmit={handleSubmit(onSubmitForm)}>
       <Card
         elevation={0}
         sx={{
@@ -361,7 +328,7 @@ const AddAllergyField: FC = () => {
                   setIsOtherOptionSelected(true);
                 } else {
                   setIsOtherOptionSelected(false);
-                  handleSelectOption(chartDataSetState, data);
+                  void handleSelectOption(data);
                 }
               }}
               getOptionLabel={(option) => (typeof option === 'string' ? option : option.name || '')}
@@ -372,7 +339,7 @@ const AddAllergyField: FC = () => {
               isOptionEqualToValue={(option, value) => option.name === value.name}
               disablePortal
               blurOnSelect
-              disabled={isChartDataLoading || isUpdateLoading}
+              disabled={isChartDataLoading || isLoading}
               options={allergiesSearchOptions}
               noOptionsText={
                 debouncedSearchTerm && debouncedSearchTerm.length > 2 && allergiesSearchOptions.length === 0
@@ -413,7 +380,9 @@ const AddAllergyField: FC = () => {
                 />
               )}
             />
-            <RoundedButton type="submit">Add</RoundedButton>
+            <RoundedButton type="submit" disabled={isLoading}>
+              Add
+            </RoundedButton>
           </Stack>
         )}
       </Card>

@@ -131,7 +131,7 @@ const createExternalLabsLabelPdfBytes = async (data: ExternalLabsLabelConfig): P
   PID
   DOB (in one column)       Collection date (in the next column)
   Account number            
-  Order number
+  Requisition number (aka order number)
   */
   const {
     patientLastName,
@@ -160,7 +160,7 @@ const createExternalLabsLabelPdfBytes = async (data: ExternalLabsLabelConfig): P
   drawHeaderAndInlineText('Acct #', accountNumber);
   pdfClient.newLine(NEWLINE_Y_DROP);
 
-  drawHeaderAndInlineText('Order #', orderNumber);
+  drawHeaderAndInlineText('Req #', orderNumber);
   pdfClient.newLine(NEWLINE_Y_DROP);
 
   return await pdfClient.save();
