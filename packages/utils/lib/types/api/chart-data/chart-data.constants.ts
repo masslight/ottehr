@@ -143,6 +143,7 @@ export enum VitalTemperatureObservationMethod {
   Oral = 'Oral',
   Rectal = 'Rectal',
   Temporal = 'Temporal',
+  Ear = 'Ear',
 }
 
 export enum VitalHeartbeatObservationMethod {
@@ -171,4 +172,7 @@ export enum AiObservationField {
   FamilyHistory = 'ai-family-history',
   HospitalizationsHistory = 'ai-hospitalizations-history',
   Allergies = 'ai-allergies',
+  Labs = 'ai-labs',
+  eRX = 'ai-erx',
+  Procedures = 'ai-procedures',
 }

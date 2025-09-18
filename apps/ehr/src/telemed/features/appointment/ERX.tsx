@@ -235,10 +235,10 @@ export const ERX: FC<{
 
   // Handle ready state
   useEffect(() => {
-    if (isPractitionerConnected) {
+    if (isPractitionerConnected && isPatientSynced) {
       onStatusChanged(ERXStatus.READY);
     }
-  }, [onStatusChanged, isPractitionerConnected]);
+  }, [onStatusChanged, isPractitionerConnected, isPatientSynced]);
 
   useEffect(() => {
     if (isTimeout && !isPractitionerConnected) {

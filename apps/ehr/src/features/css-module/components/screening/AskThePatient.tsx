@@ -22,7 +22,13 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { useCallback, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { useAppointmentData, useChartData, useDebounce, useDeleteChartData } from 'src/telemed';
+import {
+  useAppointmentData,
+  useChartData,
+  useDebounce,
+  useDeleteChartData,
+  useGetAppointmentAccessibility,
+} from 'src/telemed';
 import { useOystehrAPIClient } from 'src/telemed/hooks/useOystehrAPIClient';
 import {
   ADDITIONAL_QUESTIONS_META_SYSTEM,
@@ -62,6 +68,7 @@ const AskThePatient = (): React.ReactElement => {
   const { encounter } = useAppointmentData();
   const { chartData, updateObservation, chartDataSetState } = useChartData();
   const [fieldLoadingState, setFieldLoadingState] = useState<Record<string, boolean>>({});
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const { isLoading: isChartDataLoading } = useChartData({
     requestedFields: {
@@ -327,7 +334,8 @@ const AskThePatient = (): React.ReactElement => {
     const isFieldDisabled =
       Boolean(fieldLoadingState[field.id]) ||
       (field?.noteField && Boolean(fieldLoadingState[field?.noteField?.id])) ||
-      isChartDataLoading;
+      isChartDataLoading ||
+      isReadOnly;
 
     switch (field.type) {
       case 'radio':
