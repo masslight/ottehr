@@ -59,6 +59,8 @@ const writeQuestionnaires = async (envConfig: any, env: string): Promise<void> =
             if (!existing) {
               throw new Error('Questionnaire missing unexpectedly');
             }
+            console.log('New questionnaire:');
+            console.log(JSON.stringify(questionnaire, null, 2));
             const updateRequest: BatchInputPutRequest<Questionnaire> = {
               method: 'PUT',
               url: `/Questionnaire/${existing.id}`,
