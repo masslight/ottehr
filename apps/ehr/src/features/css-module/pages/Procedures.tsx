@@ -7,9 +7,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 import AiSuggestion from 'src/components/AiSuggestion';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { AccordionCard, useAppointmentData, useChartData, useGetAppointmentAccessibility } from 'src/telemed';
+import { AccordionCard, useChartData, useGetAppointmentAccessibility } from 'src/telemed';
 import { PageTitle } from 'src/telemed/components/PageTitle';
-import { AiObservationField, getVisitStatus, ObservationTextFieldDTO, TelemedAppointmentStatusEnum } from 'utils';
+import { AiObservationField, ObservationTextFieldDTO, TelemedAppointmentStatusEnum } from 'utils';
 import { CSSLoader } from '../components/CSSLoader';
 import { useFeatureFlags } from '../context/featureFlags';
 import { ROUTER_PATH } from '../routing/routesCSS';
@@ -17,9 +17,7 @@ import { ROUTER_PATH } from '../routing/routesCSS';
 export default function Procedures(): ReactElement {
   const navigate = useNavigate();
   const { id: appointmentId } = useParams();
-  const { appointment, encounter } = useAppointmentData();
   const { isChartDataLoading, chartData } = useChartData();
-  const inPersonStatus = useMemo(() => appointment && getVisitStatus(appointment, encounter), [appointment, encounter]);
   const appointmentAccessibility = useGetAppointmentAccessibility();
   const { css } = useFeatureFlags();
   const aiProcedures = chartData?.observations?.filter(
@@ -28,10 +26,10 @@ export default function Procedures(): ReactElement {
 
   const isReadOnly = useMemo(() => {
     if (css) {
-      return inPersonStatus === 'completed' || appointmentAccessibility.isAppointmentReadOnly;
+      return appointmentAccessibility.isAppointmentReadOnly;
     }
     return appointmentAccessibility.status === TelemedAppointmentStatusEnum.complete;
-  }, [css, inPersonStatus, appointmentAccessibility.status, appointmentAccessibility.isAppointmentReadOnly]);
+  }, [css, appointmentAccessibility.status, appointmentAccessibility.isAppointmentReadOnly]);
 
   const onNewProcedureClick = (): void => {
     navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES_NEW}`);
