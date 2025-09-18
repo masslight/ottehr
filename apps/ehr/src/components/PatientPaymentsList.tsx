@@ -19,7 +19,7 @@ import {
 import { useMutation } from '@tanstack/react-query';
 import { Encounter, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { Fragment, ReactElement, useEffect, useState } from 'react';
+import { Fragment, ReactElement, useState } from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useGetEncounter } from 'src/hooks/useEncounter';
 import { useGetPatientPaymentsList } from 'src/hooks/useGetPatientPaymentsList';
@@ -59,14 +59,13 @@ export default function PatientPaymentList({ loading, patient, encounterId }: Pa
     refetch: refetchEncounter,
     isRefetching: isEncounterRefetching,
   } = useGetEncounter({ encounterId });
-  const [paymentVariant, setPaymentVariant] = useState<PaymentVariant>(PaymentVariant.insurance);
 
-  useEffect(() => {
-    if (encounter && !isEncounterRefetching) {
-      const variant = encounter && getPaymentVariantFromEncounter(encounter);
-      if (variant) setPaymentVariant(variant);
-    }
-  }, [encounter, isEncounterRefetching]);
+  // useEffect(() => {
+  //   if (encounter && !isEncounterRefetching) {
+  //     const variant = encounter && getPaymentVariantFromEncounter(encounter);
+  //     if (variant) setPaymentVariant(variant);
+  //   }
+  // }, [encounter, isEncounterRefetching]);
 
   const {
     data: paymentData,
@@ -162,7 +161,7 @@ export default function PatientPaymentList({ loading, patient, encounterId }: Pa
       <RadioGroup
         row
         name="options"
-        value={paymentVariant}
+        value={encounter && getPaymentVariantFromEncounter(encounter)}
         onChange={async (e) => {
           if (encounter) {
             updateEncounter.mutate(updateEncounterPaymentVariantExtension(encounter, e.target.value as PaymentVariant));

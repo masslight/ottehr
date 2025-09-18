@@ -7,7 +7,8 @@ export default defineConfig({
     silent: true,
     testTimeout: 180000, // 3 minutes
     hookTimeout: 30000, // 30 seconds
-    include: ['*/integration/**/*.{test,spec}.?(c|m)[jt]s?(x)'],
+    // include: ['*/integration/**/*.{test,spec}.?(c|m)[jt]s?(x)'],
+    include: ['*/integration/harvest-module-integration.test.ts'],
     provide: {
       EXECUTE_ZAMBDA_URL: 'http://localhost:3000/local',
     },

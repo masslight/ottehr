@@ -1,16 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Encounter, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
+import { Appointment, QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  FHIR_EXTENSION,
-  flattenItems,
-  getSecret,
-  OTTEHR_MODULE,
-  PaymentVariant,
-  SecretsKeys,
-  updateEncounterPaymentVariantExtension,
-} from 'utils';
+import { FHIR_EXTENSION, getSecret, OTTEHR_MODULE, SecretsKeys } from 'utils';
 import { createOystehrClient, getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 import { AuditableZambdaEndpoints, createAuditEvent } from '../../../shared/userAuditLog';
 import { SubmitPaperworkEffectInput, validateSubmitInputs } from '../validateRequestParameters';
@@ -54,9 +46,7 @@ const performEffect = async (input: SubmitPaperworkEffectInput, oystehr: Oystehr
     newStatus = 'amended';
   }
 
-  const updatePaperworkAppointmentAndEncounter = async (): Promise<
-    [QuestionnaireResponse, Appointment | null, Encounter | null]
-  > => {
+  const updatePaperworkAndAppointment = async (): Promise<[QuestionnaireResponse, Appointment | null]> => {
     const paperworkPromise = oystehr.fhir.patch<QuestionnaireResponse>({
       id: questionnaireResponseId,
       resourceType: 'QuestionnaireResponse',
@@ -120,54 +110,10 @@ const performEffect = async (input: SubmitPaperworkEffectInput, oystehr: Oystehr
       }
     })();
 
-    const encounterPromise = (async (): Promise<null | Encounter> => {
-      if (!appointmentId) return null;
-      try {
-        const encounter = (
-          await oystehr.fhir.search<Encounter>({
-            resourceType: 'Encounter',
-            params: [
-              {
-                name: 'appointment',
-                value: 'Appointment/' + appointmentId,
-              },
-            ],
-          })
-        ).unbundle()[0] as Encounter;
-
-        if (encounter.id) {
-          const flattenedItems = flattenItems(updatedAnswers);
-          const paymentOption = flattenedItems.find(
-            (response: QuestionnaireResponseItem) => response.linkId === 'payment-option'
-          )?.answer?.[0]?.valueString;
-          const patientSelectSelfPay = paymentOption === 'I will pay without insurance';
-          const updatedEncounter = updateEncounterPaymentVariantExtension(
-            encounter,
-            patientSelectSelfPay ? PaymentVariant.selfPay : PaymentVariant.insurance
-          );
-          return oystehr.fhir.patch<Encounter>({
-            id: encounter.id,
-            resourceType: 'Encounter',
-            operations: [
-              {
-                op: 'replace',
-                path: '/extension',
-                value: updatedEncounter.extension,
-              },
-            ],
-          });
-        }
-        return null;
-      } catch (e) {
-        console.log('error updating encounter extension', JSON.stringify(e, null, 2));
-        return null;
-      }
-    })();
-
-    return Promise.all([paperworkPromise, appointmentPromise, encounterPromise]);
+    return Promise.all([paperworkPromise, appointmentPromise]);
   };
 
-  const [patchedPaperwork] = await updatePaperworkAppointmentAndEncounter();
+  const [patchedPaperwork] = await updatePaperworkAndAppointment();
 
   const patientId = patchedPaperwork?.subject?.reference?.replace('Patient/', '') ?? '';
   try {
