@@ -15,8 +15,9 @@ import { RecordedAudio } from './RecordedAudio';
 
 interface RecordAudioContainerProps {
   visitID: string;
+  width?: string;
   aiChat: AIChatDetails | undefined;
-  setRecordingAnchorElement: (value: React.SetStateAction<HTMLButtonElement | null>) => void;
+  setRecordingAnchorElement: ((value: React.SetStateAction<HTMLButtonElement | null>) => void) | undefined;
 }
 
 enum RecordingStatus {
@@ -27,7 +28,7 @@ enum RecordingStatus {
 }
 
 export function RecordAudioContainer(props: RecordAudioContainerProps): ReactElement {
-  const { visitID, aiChat, setRecordingAnchorElement } = props;
+  const { visitID, width = '400px', aiChat, setRecordingAnchorElement } = props;
   const [recordingStatus, setRecordingStatus] = useState<RecordingStatus>(RecordingStatus.NOT_STARTED);
   const [loading, setLoading] = useState<boolean>(false);
   const [duration, setDuration] = useState<number>(0);
@@ -147,17 +148,19 @@ export function RecordAudioContainer(props: RecordAudioContainerProps): ReactEle
   // }
 
   return (
-    <Grid container style={{ padding: 25, width: '400px', alignItems: 'center' }}>
+    <Grid container style={{ padding: 25, width: width, alignItems: 'center' }}>
       <Grid item xs={8}>
         <Typography variant="h5" color="primary.dark">
           Ambient Scribe
         </Typography>
       </Grid>
-      <Grid item xs={4}>
-        <IconButton aria-label="Close" onClick={() => setRecordingAnchorElement(null)} sx={{ float: 'right' }}>
-          <Close />
-        </IconButton>
-      </Grid>
+      {setRecordingAnchorElement && (
+        <Grid item xs={4}>
+          <IconButton aria-label="Close" onClick={() => setRecordingAnchorElement(null)} sx={{ float: 'right' }}>
+            <Close />
+          </IconButton>
+        </Grid>
+      )}
       {recordingStatus === RecordingStatus.NOT_STARTED && (
         <>
           {aiChat?.documents
@@ -183,11 +186,13 @@ export function RecordAudioContainer(props: RecordAudioContainerProps): ReactEle
               source={getSourceFormat(providerName, DateTime.now())}
             />
           )}
-          <Grid item xs={12}>
-            <Typography variant="body1" sx={{ marginBottom: 2 }}>
-              The scribe records audio and summarizes the visit.
-            </Typography>
-          </Grid>
+          {setRecordingAnchorElement && (
+            <Grid item xs={12}>
+              <Typography variant="body1" sx={{ marginBottom: 2 }}>
+                The scribe records audio and summarizes the visit.
+              </Typography>
+            </Grid>
+          )}
         </>
       )}
 
