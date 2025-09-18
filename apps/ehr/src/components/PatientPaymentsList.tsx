@@ -19,7 +19,7 @@ import {
 import { useMutation } from '@tanstack/react-query';
 import { Encounter, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { Fragment, ReactElement, useState } from 'react';
+import { Fragment, ReactElement, useEffect, useMemo, useState } from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useGetEncounter } from 'src/hooks/useEncounter';
 import { useGetPatientPaymentsList } from 'src/hooks/useGetPatientPaymentsList';
@@ -40,6 +40,7 @@ export interface PaymentListProps {
   patient: Patient;
   encounterId: string;
   loading?: boolean;
+  patientSelectSelfPay?: boolean;
 }
 
 const idForPaymentDTO = (payment: PatientPaymentDTO): string => {
@@ -50,7 +51,12 @@ const idForPaymentDTO = (payment: PatientPaymentDTO): string => {
   }
 };
 
-export default function PatientPaymentList({ loading, patient, encounterId }: PaymentListProps): ReactElement {
+export default function PatientPaymentList({
+  loading,
+  patient,
+  encounterId,
+  patientSelectSelfPay,
+}: PaymentListProps): ReactElement {
   const { oystehr } = useApiClients();
   const theme = useTheme();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
@@ -59,13 +65,6 @@ export default function PatientPaymentList({ loading, patient, encounterId }: Pa
     refetch: refetchEncounter,
     isRefetching: isEncounterRefetching,
   } = useGetEncounter({ encounterId });
-
-  // useEffect(() => {
-  //   if (encounter && !isEncounterRefetching) {
-  //     const variant = encounter && getPaymentVariantFromEncounter(encounter);
-  //     if (variant) setPaymentVariant(variant);
-  //   }
-  // }, [encounter, isEncounterRefetching]);
 
   const {
     data: paymentData,
@@ -129,13 +128,47 @@ export default function PatientPaymentList({ loading, patient, encounterId }: Pa
   const updateEncounter = useMutation({
     mutationFn: async (input: Encounter) => {
       if (oystehr && input && input.id) {
-        return oystehr.fhir.update(input).then(async () => {
-          await refetchEncounter();
-        });
+        await oystehr.fhir
+          .patch<Encounter>({
+            id: input.id,
+            resourceType: 'Encounter',
+            operations: [
+              {
+                op: input.extension !== undefined ? 'replace' : 'add',
+                path: '/extension',
+                value: input.extension,
+              },
+            ],
+          })
+          .then(async () => {
+            await refetchEncounter();
+          });
       }
     },
     retry: 0,
   });
+
+  useEffect(() => {
+    // if encounter does not have payment variant extension, adding default value from patient selection
+    if (encounter && !isEncounterRefetching) {
+      const paymentVariant = getPaymentVariantFromEncounter(encounter);
+      if (paymentVariant === undefined) {
+        updateEncounter.mutate(
+          updateEncounterPaymentVariantExtension(
+            encounter,
+            patientSelectSelfPay ? PaymentVariant.selfPay : PaymentVariant.insurance
+          )
+        );
+      }
+    }
+  }, [encounter, isEncounterRefetching, patientSelectSelfPay, updateEncounter]);
+
+  const selfPayRadioButtonValue = useMemo(() => {
+    if (encounter && !isEncounterRefetching) {
+      return getPaymentVariantFromEncounter(encounter);
+    }
+    return '' as PaymentVariant;
+  }, [encounter, isEncounterRefetching]);
 
   const errorMessage = (() => {
     const networkError = createNewPayment.error;
@@ -161,7 +194,7 @@ export default function PatientPaymentList({ loading, patient, encounterId }: Pa
       <RadioGroup
         row
         name="options"
-        value={encounter && getPaymentVariantFromEncounter(encounter)}
+        value={selfPayRadioButtonValue}
         onChange={async (e) => {
           if (encounter) {
             updateEncounter.mutate(updateEncounterPaymentVariantExtension(encounter, e.target.value as PaymentVariant));
