@@ -28,6 +28,9 @@ const writeQuestionnaires = async (envConfig: any, env: string): Promise<void> =
             fhirResources['questionnaire-virtual-previsit'] ??
             fhirResources['ehr-insurance-update-questionnaire'];
 
+          console.log('New questionnaire: ' + file);
+          console.log(JSON.stringify(questionnaire, null, 2));
+
           const existingQuestionnaire = (
             await oystehrClient.fhir.search<Questionnaire>({
               resourceType: 'Questionnaire',
@@ -59,8 +62,6 @@ const writeQuestionnaires = async (envConfig: any, env: string): Promise<void> =
             if (!existing) {
               throw new Error('Questionnaire missing unexpectedly');
             }
-            console.log('New questionnaire:');
-            console.log(JSON.stringify(questionnaire, null, 2));
             const updateRequest: BatchInputPutRequest<Questionnaire> = {
               method: 'PUT',
               url: `/Questionnaire/${existing.id}`,
