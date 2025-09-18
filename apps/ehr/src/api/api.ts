@@ -134,6 +134,7 @@ const ASSIGN_DEVICES_ZAMBDA_ID = 'assign-devices';
 const UNASSIGN_DEVICES_ZAMBDA_ID = 'unassign-devices';
 const GET_VITALS_ZAMBDA_ID = 'get-vitals';
 const GET_PATIENT_BASELINES_ZAMBDA_ID = 'get-patient-baselines';
+const GET_SUMMARY = 'get-summary';
 const UPDATE_PATIENT_BASELINES_ZAMBDA_ID = 'update-patient-baselines';
 const GET_CREATE_TIMER_ZAMBDA_ID = 'get-create-timer';
 const UPDATE_TIMER_ZAMBDA_ID = 'update-timer';
@@ -1039,6 +1040,19 @@ export const getPatientBaselines = async (params: object, oystehr: Oystehr): Pro
     return chooseJson(response);
   } catch (error: unknown) {
     console.error('Error fetching baselines for device:', error);
+    throw error;
+  }
+};
+
+export const getSummary = async (params: object, oystehr: Oystehr): Promise<VitalsData> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: GET_SUMMARY,
+      ...params,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.error('Error fetching summary for device:', error);
     throw error;
   }
 };

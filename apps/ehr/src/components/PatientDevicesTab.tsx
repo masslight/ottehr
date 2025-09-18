@@ -228,8 +228,6 @@ export const PatientDevicesTab: FC<{
     [showToast]
   );
 
-  console.log('Hi im here rendered');
-
   return (
     <>
       <Paper sx={{ padding: 3 }} component={Stack} spacing={2}>
@@ -265,7 +263,7 @@ export const PatientDevicesTab: FC<{
           loading={loading || isFetching || isUnassigning}
           pagination
           disableColumnMenu
-          pageSizeOptions={[5]}
+          pageSizeOptions={[5, 10]}
           disableRowSelectionOnClick
           sx={{
             width: '100%',

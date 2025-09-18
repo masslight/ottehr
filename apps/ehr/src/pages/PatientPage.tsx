@@ -18,12 +18,14 @@ import { dataTestIds } from '../constants/data-test-ids';
 import { FEATURE_FLAGS } from '../constants/feature-flags';
 import { useGetPatient } from '../hooks/useGetPatient';
 import PageContainer from '../layout/PageContainer';
+import { PatientSummaryModal } from './PatientSummaryModal';
 
 export default function PatientPage(): JSX.Element {
   const { id } = useParams();
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const [tab, setTab] = useState(location.state?.defaultTab || 'encounters');
+  const [isSummaryModalOpen, setIsSummaryModalOpen] = useState<boolean>(false);
   const [selectedDevice, setSelectedDevice] = useState<{
     id: string;
     deviceType: string;
@@ -58,6 +60,14 @@ export default function PatientPage(): JSX.Element {
       }
     }
   }, [searchParams, location.state]);
+
+  const handleOpenSummaryModal = (): void => {
+    setIsSummaryModalOpen(true);
+  };
+
+  const handleCloseSummaryModal = (): void => {
+    setIsSummaryModalOpen(false);
+  };
 
   return (
     <>
@@ -124,6 +134,7 @@ export default function PatientPage(): JSX.Element {
                   See All Patient Info
                 </RoundedButton>
                 <RoundedButton to={`/patient/${id}/docs`}>Review Docs</RoundedButton>
+                <RoundedButton onClick={handleOpenSummaryModal}>Summary</RoundedButton>
                 {latestAppointment && (
                   <RoundedButton
                     target="_blank"
@@ -247,6 +258,12 @@ export default function PatientPage(): JSX.Element {
           </TabContext>
         </Stack>
       </PageContainer>
+      <PatientSummaryModal
+        open={isSummaryModalOpen}
+        onClose={handleCloseSummaryModal}
+        patientId={id}
+        loading={loading}
+      />
     </>
   );
 }
