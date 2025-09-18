@@ -6,8 +6,11 @@ import {
   DEFAULT_LABS_ITEMS_PER_PAGE,
   DeleteLabOrderZambdaInput,
   EMPTY_PAGINATION,
+  ExternalLabsStatus,
   GetLabOrdersParameters,
   LabOrderDTO,
+  LabOrderListPageDTO,
+  LabOrderListPageDTOGrouped,
   LabOrdersSearchBy,
   PaginatedResponse,
   PatientLabItem,
@@ -48,6 +51,7 @@ interface UsePatientLabOrdersResult<SearchBy extends LabOrdersSearchBy> {
   markTaskAsReviewed: (parameters: TaskReviewedParameters & { appointmentId?: string }) => Promise<void>;
   saveSpecimenDate: (parameters: SpecimenDateChangedParameters) => Promise<void>;
   patientLabItems: PatientLabItem[];
+  groupedLabOrdersForChartTable: LabOrderListPageDTOGrouped | undefined;
 }
 
 export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
@@ -56,6 +60,9 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
   const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
   const [labOrders, setLabOrders] = useState<LabOrderDTO<SearchBy>[]>([]);
+  const [groupedLabOrdersForChartTable, setGroupedLabOrdersForChartTable] = useState<
+    LabOrderListPageDTOGrouped | undefined
+  >(undefined);
   const [reflexResults, setReflexResults] = useState<ReflexLabDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -135,6 +142,10 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
           setLabOrders(response.data as LabOrderDTO<SearchBy>[]);
           setPatientLabItems(response.patientLabItems || []);
           setReflexResults(response.reflexResults as ReflexLabDTO[]);
+
+          if (searchParams.searchBy.field === 'encounterId') {
+            setGroupedLabOrdersForChartTable(groupLabOrderListPageDTOs(response.data));
+          }
 
           if (response.pagination) {
             setTotalPages(response.pagination.totalPages || 1);
@@ -298,5 +309,44 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
     markTaskAsReviewed,
     saveSpecimenDate,
     patientLabItems,
+    groupedLabOrdersForChartTable,
   };
+};
+
+// todo SARAH handle reflex results
+const groupLabOrderListPageDTOs = (labOrders: LabOrderListPageDTO[]): LabOrderListPageDTOGrouped | undefined => {
+  if (!labOrders.length) return;
+
+  const groupedOrders: LabOrderListPageDTOGrouped = { pendingActionOrResults: {}, hasResults: {} };
+  const resultsStatusOptions = [
+    ExternalLabsStatus.received,
+    ExternalLabsStatus.prelim,
+    ExternalLabsStatus.reviewed,
+    ExternalLabsStatus.corrected,
+  ];
+  labOrders.forEach((order) => {
+    const requisitionNumber = order.orderNumber;
+    if (requisitionNumber) {
+      const hasResults = resultsStatusOptions.includes(order.orderStatus);
+      if (hasResults) {
+        if (groupedOrders.hasResults[requisitionNumber]) {
+          groupedOrders.hasResults[requisitionNumber].orders.push(order);
+        } else {
+          const bundleName = `${order.fillerLab}${order.isPSC ? ' PSC' : ''}`;
+          groupedOrders.hasResults[requisitionNumber] = { bundleName, orders: [order] };
+        }
+      } else {
+        if (groupedOrders.pendingActionOrResults[requisitionNumber]) {
+          groupedOrders.pendingActionOrResults[requisitionNumber].orders.push(order);
+        } else {
+          const bundleName = `${order.fillerLab}${order.isPSC ? ' PSC' : ''}`;
+          groupedOrders.pendingActionOrResults[requisitionNumber] = { bundleName, orders: [order] };
+        }
+      }
+    } else {
+      console.log("something went awry and this order doesn't have a requisition number");
+    }
+  });
+
+  return groupedOrders;
 };

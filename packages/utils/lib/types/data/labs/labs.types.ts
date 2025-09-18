@@ -65,7 +65,7 @@ export enum ExternalLabsStatus {
   pending = 'pending',
   ready = 'ready',
   sent = 'sent',
-  prelim = 'prelim', // todo: this is not a status, need to refactor
+  prelim = 'prelim',
   received = 'received',
   reviewed = 'reviewed',
   cancelled = 'cancelled',
@@ -187,6 +187,11 @@ export type PaginatedResponse<RequestParameters extends GetLabOrdersParameters =
   pagination: Pagination;
   patientLabItems?: PatientLabItem[];
   reflexResults: ReflexLabDTO[];
+};
+
+export type LabOrderListPageDTOGrouped = {
+  pendingActionOrResults: Record<string, { bundleName: string; orders: LabOrderListPageDTO[] }>;
+  hasResults: Record<string, { bundleName: string; orders: LabOrderListPageDTO[] }>;
 };
 
 export type LabOrdersSearchBy = {
@@ -450,3 +455,17 @@ export type GetUnsolicitedResultsResourcesOutput =
   | GetUnsolicitedResultsRelatedRequestsOutput
   | GetUnsolicitedResultsDetailOutput
   | GetUnsolicitedResultsPatientListOutput;
+
+export type LabsTableColumn =
+  | 'testType'
+  | 'visit'
+  | 'orderAdded'
+  | 'ordered'
+  | 'provider'
+  | 'dx'
+  | 'resultsReceived'
+  | 'accessionNumber'
+  | 'requisitionNumber'
+  | 'status'
+  | 'detail'
+  | 'actions';

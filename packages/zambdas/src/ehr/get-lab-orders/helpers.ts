@@ -1731,7 +1731,7 @@ export const parseAccountNumber = (
   }
 
   if (!srPerformer) {
-    console.warn(`No macthing performer found for ServiceRequest/${serviceRequest.id}`);
+    console.warn(`No matching performer found for ServiceRequest/${serviceRequest.id}`);
     return NOT_FOUND;
   }
 
