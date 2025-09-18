@@ -15,11 +15,11 @@ export const ChiefComplaintProviderColumn: FC = () => {
   });
 
   useEffect(() => {
-    if (!methods.getValues('chiefComplaint') && chartData?.chiefComplaint?.text) {
+    if (chartData?.chiefComplaint?.text !== undefined) {
       methods.setValue('chiefComplaint', chartData.chiefComplaint.text);
     }
 
-    if (!methods.getValues('ros') && chartData?.ros?.text) {
+    if (chartData?.ros?.text !== undefined) {
       methods.setValue('ros', chartData.ros.text);
     }
   }, [chartData?.chiefComplaint?.text, chartData?.ros?.text, methods]);

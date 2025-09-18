@@ -263,7 +263,7 @@ export type ExternalLabOrderingLocations = {
 };
 
 export type LabOrderResourcesRes = {
-  coverageName?: string;
+  coverageNames?: string[];
   labs: OrderableItemSearchResult[];
 } & ExternalLabOrderingLocations;
 

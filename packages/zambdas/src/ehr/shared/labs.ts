@@ -325,25 +325,43 @@ export async function getExternalLabOrderResourcesViaServiceRequest(
   };
 }
 
-export const getPrimaryInsurance = (account: Account, coverages: Coverage[]): Coverage | undefined => {
+export const sortCoveragesByPriority = (account: Account, coverages: Coverage[]): Coverage[] | undefined => {
   if (coverages.length === 0) return;
   const coverageMap: { [key: string]: Coverage } = {};
   coverages.forEach((c) => (coverageMap[`Coverage/${c.id}`] = c));
 
-  const includedCoverages = account.coverage?.filter((c) => {
+  const accountCoverages = account.coverage?.filter((c) => {
     const coverageRef = c.coverage.reference;
-    if (coverageRef) return Object.keys(coverageMap).includes(coverageRef);
-    return;
+    return coverageRef && coverageMap[coverageRef];
   });
 
-  if (includedCoverages?.length) {
-    includedCoverages.sort((a, b) => {
+  if (accountCoverages?.length) {
+    accountCoverages.sort((a, b) => {
       const priorityA = a.priority ?? -Infinity;
       const priorityB = b.priority ?? -Infinity;
       return priorityA - priorityB;
     });
-    const highestPriorityCoverageRef = includedCoverages[0].coverage.reference;
-    if (highestPriorityCoverageRef) return coverageMap[highestPriorityCoverageRef];
+    const coveragesSortedByPriority: Coverage[] = [];
+    accountCoverages.forEach((accountCoverage) => {
+      const coverageRef = accountCoverage.coverage.reference;
+      if (coverageRef) {
+        const coverage = coverageMap[coverageRef];
+        if (coverage) coveragesSortedByPriority.push(coverage);
+      }
+    });
+    if (coveragesSortedByPriority.length) return coveragesSortedByPriority;
+  }
+  return;
+};
+
+export const getPrimaryInsurance = (account: Account, coverages: Coverage[]): Coverage | undefined => {
+  if (coverages.length === 0) return;
+
+  const sortedCoverages = sortCoveragesByPriority(account, coverages);
+
+  if (sortedCoverages?.length) {
+    const primaryInsuranceCoverage = sortedCoverages[0];
+    return primaryInsuranceCoverage;
   } else {
     console.log('no coverages were included on account.coverage, grabbing primary ins from list of patient coverages');
     coverages.sort((a, b) => {
@@ -353,7 +371,6 @@ export const getPrimaryInsurance = (account: Account, coverages: Coverage[]): Co
     });
     return coverages[0];
   }
-  return;
 };
 
 export const makeEncounterLabResults = async (
