@@ -17,7 +17,7 @@ const writeQuestionnaires = async (envConfig: any, env: string): Promise<void> =
     const requests = await Promise.all(
       folder
         .filter((file) => file.endsWith('questionnaire.json'))
-        .flatMap(async (file) => {
+        .map(async (file) => {
           const questionnaireData = JSON.parse(
             fs.readFileSync(path.join(__dirname, '../../../../config/oystehr', file), 'utf8')
           );
@@ -73,7 +73,11 @@ const writeQuestionnaires = async (envConfig: any, env: string): Promise<void> =
           }
         })
     );
-    await oystehrClient.fhir.transaction({ requests: requests.flatMap((r) => r) });
+
+    console.log(`Transaction requests:\n${JSON.stringify(requests, null, 2)}`);
+
+    const transactionResult = await oystehrClient.fhir.transaction({ requests });
+    console.log(`Transaction result:\n${JSON.stringify(transactionResult, null, 2)}`);
 
     const newSecrets: any = {};
     folder
