@@ -3,8 +3,8 @@ import { Appointment, Location, Patient, Schedule } from 'fhir/r4b';
 import {
   AppointmentInformationIntake,
   AppointmentStatus,
+  appointmentTypeMap,
   createOystehrClient,
-  getAppointmentType,
   getParticipantIdFromAppointment,
   GetPastVisitsResponse,
   getPatientsForUser,
@@ -95,7 +95,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         const stateId = encounter?.location?.[0]?.location?.reference?.split('/')?.[1];
         const stateCode = locations.find((location) => location.id === stateId)?.address?.state;
         const timezone = scheduleResource ? getTimezone(scheduleResource) : TIMEZONES[0];
-        const { type: appointmentType } = getAppointmentType(fhirAppointment);
+        const appointmentTypeTag = fhirAppointment.meta?.tag?.find((tag) => tag.code && tag.code in appointmentTypeMap);
+        const appointmentType = appointmentTypeTag?.code ? appointmentTypeMap[appointmentTypeTag.code] : 'Unknown';
 
         let status: AppointmentStatus | undefined;
         if (appointmentType === 'Telemedicine') {
