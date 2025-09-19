@@ -16,19 +16,22 @@ import {
   allLicensesForPractitioner,
   CANDID_PLAN_TYPE_SYSTEM,
   FHIR_IDENTIFIER_SYSTEM,
+  getFullName,
   INSURANCE_CANDID_PLAN_TYPE_CODES,
   OTTEHR_MODULE,
   PAYMENT_METHOD_EXTENSION_URL,
   SLUG_SYSTEM,
 } from '../fhir';
 import {
+  appointmentTypeLabels,
+  appointmentTypeMap,
   CashPaymentDTO,
+  FhirAppointmentType,
   PatchPaperworkParameters,
   PractitionerQualificationCode,
   ScheduleOwnerFhirResource,
 } from '../types';
 import { phoneRegex, zipRegex } from '../validation';
-import { AllStatesToNames } from './states';
 
 export function createOystehrClient(token: string, fhirAPI: string, projectAPI: string): Oystehr {
   const FHIR_API = fhirAPI.replace(/\/r4/g, '');
@@ -94,6 +97,15 @@ export function getParticipantIdFromAppointment(
   return appointment.participant
     .find((currentParticipant: any) => currentParticipant.actor?.reference?.startsWith(participant))
     ?.actor?.reference?.replace(`${participant}/`, '');
+}
+
+export function getFormatDuration(duration: number): string {
+  const seconds = duration / 1000;
+  return `${Math.floor(seconds / 60)
+    .toString()
+    .padStart(2, '0')}:${Math.floor(seconds % 60)
+    .toString()
+    .padStart(2, '0')}`;
 }
 
 /*
@@ -1230,14 +1242,25 @@ export const getPayerId = (org: Organization | undefined): string | undefined =>
   return payerId;
 };
 
+export const getNameFromScheduleResource = (scheduleResource: ScheduleOwnerFhirResource): string | undefined => {
+  let location: string | undefined;
+  if (scheduleResource.resourceType === 'Location') {
+    location = scheduleResource.name;
+  } else if (scheduleResource.resourceType === 'Practitioner') {
+    location = getFullName(scheduleResource);
+  } else {
+    location = scheduleResource.name;
+  }
+  return location;
+};
+
 export const getPractitionerQualificationByLocation = (
   practitioner: Practitioner,
   location: Location
 ): PractitionerQualificationCode | undefined => {
   const existedLicenses = allLicensesForPractitioner(practitioner);
-  const qualification = existedLicenses.find(
-    (license) => license.active && AllStatesToNames[license.state] === location.name
-  )?.code;
+  const qualification = existedLicenses.find((license) => license.active && license.state === location.address?.state)
+    ?.code;
 
   return qualification;
 };
@@ -1255,3 +1278,23 @@ export const getCandidPlanTypeCodeFromCoverage = (coverage: Coverage): NetworkTy
   }
   return coverageCandidTypeCode as NetworkType;
 };
+
+export function getAppointmentType(appointment: Appointment): { type: string } {
+  const appointmentTypeTags = appointment.meta?.tag?.filter((tag) => !!tag.code && tag.code in appointmentTypeMap);
+
+  if (appointmentTypeTags && appointmentTypeTags.length > 1) {
+    console.warn(
+      `[getAppointmentType] Multiple appointmentType tags found: ${appointmentTypeTags.map((t) => t.code).join(', ')}`
+    );
+  }
+
+  const appointmentTypeTag = appointmentTypeTags?.[0];
+  const baseType = appointmentTypeTag?.code ? appointmentTypeMap[appointmentTypeTag.code] : 'Unknown';
+
+  const subType =
+    appointment.appointmentType?.text && appointmentTypeLabels[appointment.appointmentType.text as FhirAppointmentType];
+
+  const type = subType ? `${baseType} ${subType}` : baseType;
+
+  return { type };
+}

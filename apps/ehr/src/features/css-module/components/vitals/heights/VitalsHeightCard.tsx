@@ -1,6 +1,7 @@
 import { Box, Grid, TextField, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { ChangeEvent, JSX, useCallback, useMemo, useState } from 'react';
+import { useGetAppointmentAccessibility } from 'src/telemed';
 import { cmToInches, VitalFieldNames, VitalsHeightObservationDTO } from 'utils';
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { AccordionCard, DoubleColumnContainer } from '../../../../../telemed/components';
@@ -19,6 +20,7 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({
   historicalObs,
 }): JSX.Element => {
   const [heightValueText, setHeightValueText] = useState('');
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const [isHeightValidationError, setHeightValidationError] = useState<boolean>(false);
   const { isLargeScreen } = useScreenDimensions();
@@ -70,6 +72,25 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({
     [setHeightValidationError, setHeightValueText]
   );
 
+  const renderRightColumn = (): JSX.Element => {
+    return (
+      <VitalsHistoryContainer
+        currentEncounterObs={currentObs}
+        historicalObs={historicalObs}
+        isLoading={false}
+        historyElementCreator={(historyEntry) => {
+          const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
+          return (
+            <VitalHistoryElement
+              historyEntry={historyEntry}
+              onDelete={isCurrent && !isReadOnly ? handleDeleteVital : undefined}
+            />
+          );
+        }}
+      />
+    );
+  };
+
   return (
     <Box sx={{ mt: 3 }}>
       <AccordionCard
@@ -77,99 +98,88 @@ const VitalsHeightCard: React.FC<VitalsHeightCardProps> = ({
         collapsed={isCollapsed}
         onSwitch={handleSectionCollapse}
       >
-        <DoubleColumnContainer
-          divider
-          leftColumn={
-            <Grid
-              container
-              sx={{
-                height: 'auto',
-                width: 'auto',
-                backgroundColor: '#F7F8F9',
-                borderRadius: 2,
-                my: 2,
-                mx: 2,
-                py: 2,
-                px: 2,
-              }}
-            >
-              {/* Height Input Field column */}
-              <Grid item xs={12} sm={6} md={6} lg={6} order={{ xs: 1, sm: 1, md: 1 }}>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'row',
-                  }}
-                >
-                  <VitalsTextInputFiled
-                    label="Height (cm)"
-                    value={heightValueText}
-                    disabled={isSaving}
-                    isInputError={isHeightValidationError}
-                    onChange={handleTextInputChange}
-                  />
-                  <Typography fontSize={25} sx={{ ml: 1 }}>
-                    /
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="Height (inch)"
-                    sx={{
-                      '& fieldset': { border: 'none' },
-                      maxWidth: '110px',
-                    }}
-                    disabled
-                    InputLabelProps={{ shrink: true }}
-                    value={enteredHeightInInch ?? ''}
-                  />
-                </Box>
-              </Grid>
-
-              {/* Add Button column */}
+        {isReadOnly ? (
+          renderRightColumn()
+        ) : (
+          <DoubleColumnContainer
+            divider
+            leftColumn={
               <Grid
-                item
-                xs={12}
-                sm={6}
-                md={6}
-                lg={6}
-                order={{ xs: 2, sm: 2, md: 2, lg: 2 }}
-                sx={{ mt: isLargeScreen ? 0 : 0 }}
+                container
+                sx={{
+                  height: 'auto',
+                  width: 'auto',
+                  backgroundColor: '#F7F8F9',
+                  borderRadius: 2,
+                  my: 2,
+                  mx: 2,
+                  py: 2,
+                  px: 2,
+                }}
               >
-                <RoundedButton
-                  size="small"
-                  disabled={isDisabledAddButton}
-                  onClick={() => handleSaveHeightObservation(heightValueText)}
-                  loading={isSaving}
-                  color="primary"
-                  sx={{
-                    height: '40px',
-                    px: 2,
-                    ml: 1,
-                  }}
+                {/* Height Input Field column */}
+                <Grid item xs={12} sm={6} md={6} lg={6} order={{ xs: 1, sm: 1, md: 1 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexDirection: 'row',
+                    }}
+                  >
+                    <VitalsTextInputFiled
+                      label="Height (cm)"
+                      value={heightValueText}
+                      disabled={isSaving}
+                      isInputError={isHeightValidationError}
+                      onChange={handleTextInputChange}
+                    />
+                    <Typography fontSize={25} sx={{ ml: 1 }}>
+                      =
+                    </Typography>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Height (inch)"
+                      sx={{
+                        '& fieldset': { border: 'none' },
+                        maxWidth: '110px',
+                      }}
+                      disabled
+                      InputLabelProps={{ shrink: true }}
+                      value={enteredHeightInInch ?? ''}
+                    />
+                  </Box>
+                </Grid>
+
+                {/* Add Button column */}
+                <Grid
+                  item
+                  xs={12}
+                  sm={6}
+                  md={6}
+                  lg={6}
+                  order={{ xs: 2, sm: 2, md: 2, lg: 2 }}
+                  sx={{ mt: isLargeScreen ? 0 : 0 }}
                 >
-                  Add
-                </RoundedButton>
+                  <RoundedButton
+                    size="small"
+                    disabled={isDisabledAddButton}
+                    onClick={() => handleSaveHeightObservation(heightValueText)}
+                    loading={isSaving}
+                    color="primary"
+                    sx={{
+                      height: '40px',
+                      px: 2,
+                      ml: 1,
+                    }}
+                  >
+                    Add
+                  </RoundedButton>
+                </Grid>
               </Grid>
-            </Grid>
-          }
-          rightColumn={
-            <VitalsHistoryContainer
-              currentEncounterObs={currentObs}
-              historicalObs={historicalObs}
-              isLoading={false}
-              historyElementCreator={(historyEntry) => {
-                const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
-                return (
-                  <VitalHistoryElement
-                    historyEntry={historyEntry}
-                    onDelete={isCurrent ? handleDeleteVital : undefined}
-                  />
-                );
-              }}
-            />
-          }
-        />
+            }
+            rightColumn={renderRightColumn()}
+          />
+        )}
       </AccordionCard>
     </Box>
   );

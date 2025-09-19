@@ -306,3 +306,26 @@ const getAppointmentGraphByTag = async (
   console.log(`Removed ${startLength - dedupedLength} duplicate resources`);
   return dedupedResources;
 };
+
+export const cleanupE2ELocations = async (oystehr: Oystehr, tag: string): Promise<void> => {
+  const locationsToDelete = (
+    await oystehr.fhir.search({
+      resourceType: 'Location',
+      params: [
+        {
+          name: '_tag',
+          value: tag,
+        },
+      ],
+    })
+  ).unbundle();
+
+  const batchDeleteRequests: BatchInputDeleteRequest[] = locationsToDelete.map((location) => ({
+    method: 'DELETE',
+    url: `Location/${location.id}`,
+  }));
+
+  await oystehr.fhir.batch({
+    requests: batchDeleteRequests,
+  });
+};

@@ -22,7 +22,13 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { useCallback, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { useAppointmentData, useChartData, useDebounce, useDeleteChartData } from 'src/telemed';
+import {
+  useAppointmentData,
+  useChartData,
+  useDebounce,
+  useDeleteChartData,
+  useGetAppointmentAccessibility,
+} from 'src/telemed';
 import { useOystehrAPIClient } from 'src/telemed/hooks/useOystehrAPIClient';
 import {
   ADDITIONAL_QUESTIONS_META_SYSTEM,
@@ -62,6 +68,7 @@ const AskThePatient = (): React.ReactElement => {
   const { encounter } = useAppointmentData();
   const { chartData, updateObservation, chartDataSetState } = useChartData();
   const [fieldLoadingState, setFieldLoadingState] = useState<Record<string, boolean>>({});
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const { isLoading: isChartDataLoading } = useChartData({
     requestedFields: {
@@ -327,7 +334,8 @@ const AskThePatient = (): React.ReactElement => {
     const isFieldDisabled =
       Boolean(fieldLoadingState[field.id]) ||
       (field?.noteField && Boolean(fieldLoadingState[field?.noteField?.id])) ||
-      isChartDataLoading;
+      isChartDataLoading ||
+      isReadOnly;
 
     switch (field.type) {
       case 'radio':
@@ -595,14 +603,31 @@ const AskThePatient = (): React.ReactElement => {
               >
                 {field.question}
               </Typography>
-
-              <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  gap: 2,
+                  alignItems: 'flex-start',
+                  '@media (max-width: 1650px)': {
+                    flexDirection: 'column',
+                    alignItems: 'stretch',
+                  },
+                }}
+              >
                 <Controller
                   name={field.id}
                   control={control}
                   defaultValue=""
                   render={({ field: formField }) => (
-                    <FormControl fullWidth sx={{ maxWidth: '450px' }}>
+                    <FormControl
+                      fullWidth
+                      sx={{
+                        maxWidth: '450px',
+                        '@media (max-width: 1650px)': {
+                          maxWidth: 'none',
+                        },
+                      }}
+                    >
                       <Select
                         {...formField}
                         displayEmpty
@@ -627,7 +652,6 @@ const AskThePatient = (): React.ReactElement => {
                     </FormControl>
                   )}
                 />
-
                 {field.noteField && getIsNoteFieldVisible(field) && (
                   <Controller
                     name={field.noteField.id}
@@ -639,7 +663,12 @@ const AskThePatient = (): React.ReactElement => {
                         label={field.noteField!.label}
                         placeholder={field.noteField!.placeholder}
                         variant="outlined"
-                        sx={{ maxWidth: '300px' }}
+                        sx={{
+                          maxWidth: '300px',
+                          '@media (max-width: 1650px)': {
+                            maxWidth: 'none',
+                          },
+                        }}
                         disabled={isFieldDisabled}
                         onChange={(e) => {
                           noteFormField.onChange(e);
