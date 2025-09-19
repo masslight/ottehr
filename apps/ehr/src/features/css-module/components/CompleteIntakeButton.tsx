@@ -1,28 +1,22 @@
+// src/features/css-module/intake/CompleteIntakeButton.tsx
 import { Button } from '@mui/material';
 import { Box } from '@mui/system';
-import React, { useCallback, useMemo } from 'react';
-import { useAppointmentData } from 'src/telemed';
-import { getAbnormalVitals, VisitStatusLabel } from 'utils';
+import React, { useCallback } from 'react';
+import { VisitStatusLabel } from 'utils';
 import { GenericToolTip } from '../../../components/GenericToolTip';
 import { dataTestIds } from '../../../constants/data-test-ids';
 import { useReactNavigationBlocker } from '../hooks/useReactNavigationBlocker';
-import { AbnormalVitalsContent, hasAbnormalVitals } from './vitals/components/AbnormalVitalsContent';
-import { useGetVitals } from './vitals/hooks/useGetVitals';
+import { AbnormalVitalsContent } from './vitals/components/AbnormalVitalsContent';
+import { useGetAbnormalVitals } from './vitals/hooks/useGetVitals';
 
 export const CompleteIntakeButton: React.FC<{
   isDisabled: boolean;
   handleCompleteIntake: () => void | Promise<void>;
   status: VisitStatusLabel | undefined;
 }> = ({ isDisabled, handleCompleteIntake, status }) => {
-  const {
-    resources: { encounter },
-  } = useAppointmentData();
+  const { hasAny } = useGetAbnormalVitals();
 
-  const { data: encounterVitals } = useGetVitals(encounter?.id);
-
-  const abnormalVitalsValues = useMemo(() => getAbnormalVitals(encounterVitals), [encounterVitals]);
-
-  const shouldBlock = useCallback(() => hasAbnormalVitals(abnormalVitalsValues), [abnormalVitalsValues]);
+  const shouldBlock = useCallback(() => hasAny, [hasAny]);
 
   const { ConfirmationModal, requestConfirmation } = useReactNavigationBlocker(
     shouldBlock,
@@ -59,7 +53,7 @@ export const CompleteIntakeButton: React.FC<{
           Complete Intake
         </Button>
 
-        <ConfirmationModal ContentComponent={<AbnormalVitalsContent vals={abnormalVitalsValues} />} />
+        <ConfirmationModal ContentComponent={<AbnormalVitalsContent />} />
       </Box>
     </GenericToolTip>
   );

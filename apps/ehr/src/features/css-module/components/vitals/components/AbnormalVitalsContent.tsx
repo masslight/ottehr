@@ -1,20 +1,20 @@
 import { Box, Stack, Typography } from '@mui/material';
 import React from 'react';
 import { AssessmentTitle } from 'src/telemed/features/appointment/AssessmentTab';
-import { GetVitalsResponseData, VitalFieldNames, VitalsObservationDTO } from 'utils';
+import { VitalFieldNames, VitalsObservationDTO } from 'utils';
+import { useGetAbnormalVitals } from '../hooks/useGetVitals';
 import VitalHistoryElement from './VitalsHistoryEntry';
 
-export const hasAbnormalVitals = (vals: GetVitalsResponseData | undefined): boolean =>
-  !!vals && Object.values(vals).some((list) => Array.isArray(list) && list.length > 0);
+export const AbnormalVitalsContent: React.FC = () => {
+  const { values } = useGetAbnormalVitals();
 
-export const AbnormalVitalsContent: React.FC<{ vals: GetVitalsResponseData }> = ({ vals }) => {
-  const temperature = vals[VitalFieldNames.VitalTemperature] ?? [];
-  const heartbeat = vals[VitalFieldNames.VitalHeartbeat] ?? [];
-  const respirationRate = vals[VitalFieldNames.VitalRespirationRate] ?? [];
-  const bloodPressure = vals[VitalFieldNames.VitalBloodPressure] ?? [];
-  const oxygenSaturation = vals[VitalFieldNames.VitalOxygenSaturation] ?? [];
-  const weight = vals[VitalFieldNames.VitalWeight] ?? [];
-  const height = vals[VitalFieldNames.VitalHeight] ?? [];
+  const temperature = values?.[VitalFieldNames.VitalTemperature] ?? [];
+  const heartbeat = values?.[VitalFieldNames.VitalHeartbeat] ?? [];
+  const respirationRate = values?.[VitalFieldNames.VitalRespirationRate] ?? [];
+  const bloodPressure = values?.[VitalFieldNames.VitalBloodPressure] ?? [];
+  const oxygenSaturation = values?.[VitalFieldNames.VitalOxygenSaturation] ?? [];
+  const weight = values?.[VitalFieldNames.VitalWeight] ?? [];
+  const height = values?.[VitalFieldNames.VitalHeight] ?? [];
 
   const any =
     temperature.length +
