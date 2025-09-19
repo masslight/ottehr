@@ -12,8 +12,8 @@ import {
   useTheme,
 } from '@mui/material';
 import { Elements } from '@stripe/react-stripe-js';
-import { loadStripe } from '@stripe/stripe-js';
 import { FC, useState } from 'react';
+import { stripePromise } from 'src';
 import { AddCreditCardForm } from 'ui-components';
 import { CreditCardInfo } from 'utils';
 import { BoldPurpleInputLabel } from '../../../components/form';
@@ -25,8 +25,6 @@ import {
   useSetupPaymentMethod,
 } from '../../../telemed/features/paperwork/paperwork.queries';
 import { usePaperworkContext } from '../context';
-
-const stripePromise = loadStripe(import.meta.env.VITE_APP_STRIPE_KEY);
 
 interface CreditCardVerificationProps {
   onChange: (event: { target: { value: boolean } }) => void;
