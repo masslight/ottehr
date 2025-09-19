@@ -1,6 +1,8 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { GetVitalsResponseData } from 'utils';
+import { useAppointmentData } from 'src/telemed';
+import { getAbnormalVitals, GetVitalsResponseData } from 'utils';
 
 export const useGetVitals = (encounterId: string | undefined): UseQueryResult<GetVitalsResponseData, Error> => {
   const { oystehrZambda } = useApiClients();
@@ -47,3 +49,26 @@ export const useGetHistoricalVitals = (
     enabled: Boolean(encounterId) && Boolean(oystehrZambda),
   });
 };
+
+export function useGetAbnormalVitals(): {
+  values: GetVitalsResponseData;
+  hasAny: boolean;
+} {
+  const {
+    resources: { encounter },
+  } = useAppointmentData();
+
+  const { data: encounterVitals } = useGetVitals(encounter?.id);
+
+  const values = useMemo(() => getAbnormalVitals(encounterVitals), [encounterVitals]);
+
+  const hasAny = useMemo(() => {
+    if (!values) return false;
+    return Object.values(values).some((list) => Array.isArray(list) && list.length > 0);
+  }, [values]);
+
+  return {
+    values: (values ?? {}) as GetVitalsResponseData,
+    hasAny,
+  };
+}

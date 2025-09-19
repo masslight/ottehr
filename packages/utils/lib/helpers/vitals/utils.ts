@@ -352,3 +352,15 @@ const getAlertLevel = (input: EvalRuleProps): FHIRObservationInterpretation => {
   }
   return FHIRObservationInterpretation.Normal;
 };
+
+export const getAbnormalVitals = (encounterVitals?: GetVitalsResponseData): GetVitalsResponseData => {
+  if (!encounterVitals) return {} as GetVitalsResponseData;
+
+  const entries = Object.entries(encounterVitals)
+    .map(([key, values]) =>
+      Array.isArray(values) ? [key, (values as VitalsObservationDTO[]).filter((v) => !!v.alertCriticality)] : [key, []]
+    )
+    .filter(([, values]) => (values as VitalsObservationDTO[]).length > 0);
+
+  return Object.fromEntries(entries) as GetVitalsResponseData;
+};
