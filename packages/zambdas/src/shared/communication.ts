@@ -391,12 +391,12 @@ export const makeCancelVisitUrl = (appointmentId: string, secrets: Secrets | nul
 
 export const makePaperworkUrl = (appointmentId: string, secrets: Secrets | null): string => {
   const baseUrl = getSecret(SecretsKeys.WEBSITE_URL, secrets);
-  return `${baseUrl}/visit/${appointmentId}/paperwork`;
+  return `${baseUrl}/paperwork/${appointmentId}`;
 };
 
 export const makeJoinVisitUrl = (appointmentId: string, secrets: Secrets | null): string => {
   const baseUrl = getSecret(SecretsKeys.WEBSITE_URL, secrets);
-  return `${baseUrl}/visit/${appointmentId}/join`;
+  return `${baseUrl}/waiting-room?appointment_id=${appointmentId}`;
 };
 
 export const makeBookAgainUrl = (appointmentId: string, secrets: Secrets | null): string => {
