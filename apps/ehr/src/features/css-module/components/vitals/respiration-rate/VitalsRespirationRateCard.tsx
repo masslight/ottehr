@@ -1,6 +1,7 @@
 import { Box, Grid } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { ChangeEvent, JSX, useCallback, useState } from 'react';
+import { useGetAppointmentAccessibility } from 'src/telemed';
 import { VitalFieldNames, VitalsRespirationRateObservationDTO } from 'utils';
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { AccordionCard, DoubleColumnContainer } from '../../../../../telemed/components';
@@ -18,6 +19,7 @@ const VitalsRespirationRateCard: React.FC<VitalsRespirationRateCardProps> = ({
   historicalObs,
 }): JSX.Element => {
   const [respirationRateValueText, setRespirationRateValueText] = useState('');
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const [isRespirationRateValidationError, setRespirationRateValidationError] = useState<boolean>(false);
 
@@ -65,6 +67,25 @@ const VitalsRespirationRateCard: React.FC<VitalsRespirationRateCardProps> = ({
     [setRespirationRateValidationError, setRespirationRateValueText]
   );
 
+  const renderRightColumn = (): JSX.Element => {
+    return (
+      <VitalsHistoryContainer
+        currentEncounterObs={currentObs}
+        historicalObs={historicalObs}
+        isLoading={false}
+        historyElementCreator={(historyEntry) => {
+          const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
+          return (
+            <VitalHistoryElement
+              historyEntry={historyEntry}
+              onDelete={isCurrent && !isReadOnly ? handleDeleteVital : undefined}
+            />
+          );
+        }}
+      />
+    );
+  };
+
   return (
     <Box sx={{ mt: 3 }}>
       <AccordionCard
@@ -72,69 +93,58 @@ const VitalsRespirationRateCard: React.FC<VitalsRespirationRateCardProps> = ({
         collapsed={isCollapsed}
         onSwitch={handleSectionCollapse}
       >
-        <DoubleColumnContainer
-          divider
-          leftColumn={
-            <Grid
-              container
-              sx={{
-                height: 'auto',
-                width: 'auto',
-                backgroundColor: '#F7F8F9',
-                borderRadius: 2,
-                my: 2,
-                mx: 2,
-                py: 2,
-                px: 2,
-              }}
-            >
-              {/* RespirationRate Input Field column */}
-              <Grid item xs={12} sm={6} md={6} lg={6} order={{ xs: 1, sm: 1, md: 1 }}>
-                <VitalsTextInputFiled
-                  label="RR (/min)"
-                  value={respirationRateValueText}
-                  disabled={isSaving}
-                  isInputError={isRespirationRateValidationError}
-                  onChange={handleTextInputChange}
-                />
-              </Grid>
-
-              {/* Add Button column */}
-              <Grid item xs={12} sm={6} md={6} lg={6} order={{ xs: 2, sm: 2, md: 2, lg: 2 }} sx={{ mt: 0 }}>
-                <RoundedButton
-                  size="small"
-                  disabled={isDisabledAddButton}
-                  loading={isSaving}
-                  onClick={() => handleSaveRespirationRateObservation(respirationRateValueText)}
-                  color="primary"
-                  sx={{
-                    height: '40px',
-                    px: 2,
-                    ml: 1,
-                  }}
-                >
-                  Add
-                </RoundedButton>
-              </Grid>
-            </Grid>
-          }
-          rightColumn={
-            <VitalsHistoryContainer
-              currentEncounterObs={currentObs}
-              historicalObs={historicalObs}
-              isLoading={false}
-              historyElementCreator={(historyEntry) => {
-                const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
-                return (
-                  <VitalHistoryElement
-                    historyEntry={historyEntry}
-                    onDelete={isCurrent ? handleDeleteVital : undefined}
+        {isReadOnly ? (
+          renderRightColumn()
+        ) : (
+          <DoubleColumnContainer
+            divider
+            leftColumn={
+              <Grid
+                container
+                sx={{
+                  height: 'auto',
+                  width: 'auto',
+                  backgroundColor: '#F7F8F9',
+                  borderRadius: 2,
+                  my: 2,
+                  mx: 2,
+                  py: 2,
+                  px: 2,
+                }}
+              >
+                {/* RespirationRate Input Field column */}
+                <Grid item xs={12} sm={6} md={6} lg={6} order={{ xs: 1, sm: 1, md: 1 }}>
+                  <VitalsTextInputFiled
+                    label="RR (/min)"
+                    value={respirationRateValueText}
+                    disabled={isSaving}
+                    isInputError={isRespirationRateValidationError}
+                    onChange={handleTextInputChange}
                   />
-                );
-              }}
-            />
-          }
-        />
+                </Grid>
+
+                {/* Add Button column */}
+                <Grid item xs={12} sm={6} md={6} lg={6} order={{ xs: 2, sm: 2, md: 2, lg: 2 }} sx={{ mt: 0 }}>
+                  <RoundedButton
+                    size="small"
+                    disabled={isDisabledAddButton}
+                    loading={isSaving}
+                    onClick={() => handleSaveRespirationRateObservation(respirationRateValueText)}
+                    color="primary"
+                    sx={{
+                      height: '40px',
+                      px: 2,
+                      ml: 1,
+                    }}
+                  >
+                    Add
+                  </RoundedButton>
+                </Grid>
+              </Grid>
+            }
+            rightColumn={renderRightColumn()}
+          />
+        )}
       </AccordionCard>
     </Box>
   );

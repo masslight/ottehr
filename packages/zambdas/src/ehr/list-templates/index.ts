@@ -88,6 +88,8 @@ const performEffect = async (
     })
     .filter((title): title is string => typeof title === 'string'); // Filter out undefined titles
 
+  templateTitles.sort((a, b) => a.localeCompare(b));
+
   console.log('Templates:', templateTitles);
 
   return { templates: templateTitles };

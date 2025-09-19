@@ -4,12 +4,17 @@ import { Link } from 'react-router-dom';
 
 export const RoundedButton = styled(
   (
-    props: ButtonProps & { to?: string; target?: '_self' | '_blank' | '_parent' | '_top' | string; loading?: boolean }
+    props: ButtonProps & {
+      to?: string;
+      target?: '_self' | '_blank' | '_parent' | '_top' | string;
+      loading?: boolean;
+      loadingPosition?: 'start' | 'end' | 'center';
+    }
   ) => (
     <LoadingButton
       variant="outlined"
       size="large"
-      loadingPosition="start"
+      loadingPosition={props.loadingPosition || 'center'}
       {...props}
       {...(props.to ? { component: Link, to: props.to, target: props.target } : {})}
     />
