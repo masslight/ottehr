@@ -229,7 +229,9 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     const practitionerIdToResourceMap: Record<string, Practitioner> = {};
     const healthcareServiceIdToResourceMap: Record<string, HealthcareService> = {};
 
-    const location = appointmentResources.find(({ resourceType }) => resourceType === 'Location') as Location;
+    const location = appointmentResources.find(({ resourceType }) => resourceType === 'Location') as
+      | Location
+      | undefined;
     appointmentResources.forEach((resource) => {
       if (resource.resourceType === 'Appointment') {
         allAppointments.push(resource as Appointment);
@@ -525,7 +527,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
 
 interface AppointmentInformationInputs {
   appointment: Appointment;
-  location: Location;
+  location?: Location;
   patientIdMap: Record<string, Patient>;
   apptRefToEncounterMap: Record<string, Encounter>;
   encounterRefToQRMap: Record<string, QuestionnaireResponse>;
