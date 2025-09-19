@@ -1483,7 +1483,12 @@ export default function AppointmentPage(): ReactElement {
               <Grid item xs={12} sm={6} paddingLeft={{ xs: 0, sm: 2 }}>
                 {/* credit cards and copay */}
                 {appointmentID && patient && (
-                  <PatientPaymentList patient={patient} loading={loading} encounterId={encounter.id ?? ''} />
+                  <PatientPaymentList
+                    patient={patient}
+                    loading={loading}
+                    encounterId={encounter.id ?? ''}
+                    patientSelectSelfPay={selfPay}
+                  />
                 )}
                 {/* Insurance information */}
                 {!selfPay && (

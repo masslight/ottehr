@@ -79,37 +79,36 @@ const performEffect = async (input: SubmitPaperworkEffectInput, oystehr: Oystehr
       ],
     });
 
-    const appointmentPromise = appointmentId
-      ? (async (): Promise<null | Appointment> => {
-          try {
-            const appointment = await oystehr.fhir.get<Appointment>({
-              resourceType: 'Appointment',
-              id: appointmentId,
-            });
+    const appointmentPromise = (async (): Promise<null | Appointment> => {
+      if (!appointmentId) return null;
+      try {
+        const appointment = await oystehr.fhir.get<Appointment>({
+          resourceType: 'Appointment',
+          id: appointmentId,
+        });
 
-            const appointmentStatus = appointment.status;
-            const isOttehrTm = appointment?.meta?.tag?.some((tag) => tag.code === OTTEHR_MODULE.TM);
+        const appointmentStatus = appointment.status;
+        const isOttehrTm = appointment?.meta?.tag?.some((tag) => tag.code === OTTEHR_MODULE.TM);
 
-            if (isOttehrTm && appointmentStatus === 'proposed') {
-              return oystehr.fhir.patch<Appointment>({
-                id: appointmentId,
-                resourceType: 'Appointment',
-                operations: [
-                  {
-                    op: 'replace',
-                    path: '/status',
-                    value: 'arrived',
-                  },
-                ],
-              });
-            }
-            return null;
-          } catch (e) {
-            console.log('error updating appointment status', JSON.stringify(e, null, 2));
-            return null;
-          }
-        })()
-      : Promise.resolve(null);
+        if (isOttehrTm && appointmentStatus === 'proposed') {
+          return oystehr.fhir.patch<Appointment>({
+            id: appointmentId,
+            resourceType: 'Appointment',
+            operations: [
+              {
+                op: 'replace',
+                path: '/status',
+                value: 'arrived',
+              },
+            ],
+          });
+        }
+        return null;
+      } catch (e) {
+        console.log('error updating appointment status', JSON.stringify(e, null, 2));
+        return null;
+      }
+    })();
 
     return Promise.all([paperworkPromise, appointmentPromise]);
   };

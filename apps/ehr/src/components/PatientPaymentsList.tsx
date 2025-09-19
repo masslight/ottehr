@@ -3,7 +3,10 @@ import {
   Box,
   Button,
   capitalize,
+  FormControlLabel,
   Paper,
+  Radio,
+  RadioGroup,
   Skeleton,
   Snackbar,
   Table,
@@ -14,12 +17,23 @@ import {
   useTheme,
 } from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
-import { Patient } from 'fhir/r4b';
+import { Encounter, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { Fragment, ReactElement, useState } from 'react';
+import { enqueueSnackbar } from 'notistack';
+import { Fragment, ReactElement, useEffect, useState } from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { useGetEncounter } from 'src/hooks/useEncounter';
 import { useGetPatientPaymentsList } from 'src/hooks/useGetPatientPaymentsList';
-import { APIError, CashOrCardPayment, isApiError, PatientPaymentDTO, PostPatientPaymentInput } from 'utils';
+import {
+  APIError,
+  CashOrCardPayment,
+  getPaymentVariantFromEncounter,
+  isApiError,
+  PatientPaymentDTO,
+  PaymentVariant,
+  PostPatientPaymentInput,
+  updateEncounterPaymentVariantExtension,
+} from 'utils';
 import PaymentDialog from './dialogs/PaymentDialog';
 import { RefreshableStatusChip } from './RefreshableStatusWidget';
 
@@ -27,6 +41,7 @@ export interface PaymentListProps {
   patient: Patient;
   encounterId: string;
   loading?: boolean;
+  patientSelectSelfPay?: boolean;
 }
 
 const idForPaymentDTO = (payment: PatientPaymentDTO): string => {
@@ -37,9 +52,23 @@ const idForPaymentDTO = (payment: PatientPaymentDTO): string => {
   }
 };
 
-export default function PatientPaymentList({ loading, patient, encounterId }: PaymentListProps): ReactElement {
+export default function PatientPaymentList({
+  loading,
+  patient,
+  encounterId,
+  patientSelectSelfPay,
+}: PaymentListProps): ReactElement {
+  const { oystehr } = useApiClients();
   const theme = useTheme();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [paymentVariant, setPaymentVariant] = useState(
+    patientSelectSelfPay ? PaymentVariant.selfPay : PaymentVariant.insurance
+  );
+  const {
+    data: encounter,
+    refetch: refetchEncounter,
+    isRefetching: isEncounterRefetching,
+  } = useGetEncounter({ encounterId });
 
   const {
     data: paymentData,
@@ -51,8 +80,6 @@ export default function PatientPaymentList({ loading, patient, encounterId }: Pa
     disabled: !encounterId || !patient.id,
   });
   const payments = paymentData?.payments ?? []; // Replace with actual payments when available
-
-  const { oystehrZambda: oystehr } = useApiClients();
 
   const getLabelForPayment = (payment: PatientPaymentDTO): string | ReactElement => {
     if (payment.paymentMethod === 'card') {
@@ -102,6 +129,53 @@ export default function PatientPaymentList({ loading, patient, encounterId }: Pa
     retry: 0,
   });
 
+  const updateEncounter = useMutation({
+    mutationFn: async (input: Encounter) => {
+      if (oystehr && encounter && input && input.id) {
+        await oystehr.fhir
+          .patch<Encounter>({
+            id: input.id,
+            resourceType: 'Encounter',
+            operations: [
+              {
+                op: encounter.extension !== undefined ? 'replace' : 'add',
+                path: '/extension',
+                value: input.extension,
+              },
+            ],
+          })
+          .then(async () => {
+            await refetchEncounter();
+          })
+          .catch(async () => {
+            enqueueSnackbar("Something went wrong! Visit payment option can't be changed.", { variant: 'error' });
+            await refetchEncounter();
+          });
+      }
+    },
+    onError: async (e) => {
+      console.log('error updating encounter', e);
+    },
+    retry: 0,
+  });
+
+  useEffect(() => {
+    if (encounter && !isEncounterRefetching) {
+      const variant = getPaymentVariantFromEncounter(encounter);
+      if (variant) setPaymentVariant(variant);
+      else if (variant === undefined) {
+        // encounter must have payment option ext from harvest module, but if it doesn't, set it to patient selected
+        console.log('updating encounter');
+        updateEncounter.mutate(
+          updateEncounterPaymentVariantExtension(
+            encounter,
+            patientSelectSelfPay ? PaymentVariant.selfPay : PaymentVariant.insurance
+          )
+        );
+      }
+    }
+  }, [encounter, isEncounterRefetching, patientSelectSelfPay, updateEncounter]);
+
   const errorMessage = (() => {
     const networkError = createNewPayment.error;
     if (networkError) {
@@ -121,6 +195,34 @@ export default function PatientPaymentList({ loading, patient, encounterId }: Pa
       }}
     >
       <Typography variant="h4" color="primary.dark">
+        How would patient like to pay for the visit?
+      </Typography>
+      <RadioGroup
+        row
+        name="options"
+        value={paymentVariant}
+        onChange={async (e) => {
+          if (encounter) {
+            setPaymentVariant(e.target.value as PaymentVariant);
+            updateEncounter.mutate(updateEncounterPaymentVariantExtension(encounter, e.target.value as PaymentVariant));
+          }
+        }}
+        sx={{ mt: 2 }}
+      >
+        <FormControlLabel
+          disabled={updateEncounter.isPending || isEncounterRefetching}
+          value={PaymentVariant.insurance}
+          control={<Radio />}
+          label="Insurance"
+        />
+        <FormControlLabel
+          disabled={updateEncounter.isPending || isEncounterRefetching}
+          value={PaymentVariant.selfPay}
+          control={<Radio />}
+          label="Self-pay"
+        />
+      </RadioGroup>
+      <Typography variant="h5" color="primary.dark" sx={{ mt: 2 }}>
         Patient Payments
       </Typography>
       <Table size="small" style={{ tableLayout: 'fixed' }}>

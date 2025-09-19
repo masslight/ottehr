@@ -1,5 +1,5 @@
 import { BatchInputPostRequest } from '@oystehr/sdk';
-import { Account, Coverage, Patient, QuestionnaireResponseItem, RelatedPerson } from 'fhir/r4b';
+import { Account, Coverage, Patient, QuestionnaireResponse, QuestionnaireResponseItem, RelatedPerson } from 'fhir/r4b';
 import { uuid } from 'short-uuid';
 import altGuarantor from '../data/alt-guarantor.json';
 
@@ -195,4 +195,77 @@ export const replaceSubscriberWithPatient = (
     }
     return i;
   });
+};
+
+export const selectSelfPayOption = (qr: QuestionnaireResponse): QuestionnaireResponse => {
+  const copy = { ...qr };
+  const paymentPageIndex = copy.item?.findIndex((item) => item.linkId === 'payment-option-page');
+  copy.item![paymentPageIndex!].item = [
+    {
+      linkId: 'payment-option',
+      answer: [
+        {
+          valueString: 'I will pay without insurance',
+        },
+      ],
+    },
+    {
+      linkId: 'insurance-carrier',
+    },
+    {
+      linkId: 'insurance-member-id',
+    },
+    {
+      linkId: 'policy-holder-first-name',
+    },
+    {
+      linkId: 'policy-holder-middle-name',
+    },
+    {
+      linkId: 'policy-holder-last-name',
+    },
+    {
+      linkId: 'policy-holder-date-of-birth',
+    },
+    {
+      linkId: 'policy-holder-birth-sex',
+    },
+    {
+      linkId: 'policy-holder-address-as-patient',
+    },
+    {
+      linkId: 'policy-holder-address',
+    },
+    {
+      linkId: 'policy-holder-address-additional-line',
+    },
+    {
+      linkId: 'policy-holder-city',
+    },
+    {
+      linkId: 'policy-holder-state',
+    },
+    {
+      linkId: 'policy-holder-zip',
+    },
+    {
+      linkId: 'patient-relationship-to-insured',
+    },
+    {
+      linkId: 'insurance-card-front',
+    },
+    {
+      linkId: 'insurance-card-back',
+    },
+    {
+      linkId: 'insurance-eligibility-verification-status',
+    },
+    {
+      linkId: 'display-secondary-insurance',
+    },
+    {
+      linkId: 'secondary-insurance',
+    },
+  ];
+  return copy;
 };
