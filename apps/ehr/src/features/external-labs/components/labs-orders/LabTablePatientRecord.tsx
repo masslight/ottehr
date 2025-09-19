@@ -137,8 +137,7 @@ export const LabsTablePatientRecord = ({
               ) : (
                 <LabsTableContainer
                   columns={columns}
-                  labOrders={labOrders}
-                  reflexResults={reflexResults}
+                  labOrders={[...labOrders, ...reflexResults]}
                   allowDelete={false}
                   showDeleteLabOrderDialog={showDeleteLabOrderDialog}
                 />

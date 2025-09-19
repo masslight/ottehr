@@ -1,7 +1,7 @@
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
 import { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getExternalLabOrderEditUrl } from 'src/features/css-module/routing/helpers';
+import { getExternalLabOrderEditUrl, getReflexExternalLabEditUrl } from 'src/features/css-module/routing/helpers';
 import {
   getColumnHeader,
   getColumnWidth,
@@ -16,9 +16,7 @@ import { LabsTableRow } from './LabsTableRow';
 
 interface LabsTableContainerProps {
   columns: LabsTableColumn[];
-  labOrders: LabOrderDTO<LabOrdersSearchBy>[];
-  reflexResults: ReflexLabDTO[];
-  allowDelete?: boolean;
+  labOrders: (LabOrderDTO<LabOrdersSearchBy> | ReflexLabDTO)[];
   showDeleteLabOrderDialog: ({
     serviceRequestId,
     testItemName,
@@ -26,13 +24,13 @@ interface LabsTableContainerProps {
     serviceRequestId: string;
     testItemName: string;
   }) => void;
+  allowDelete?: boolean;
   bundleRow?: ReactElement;
 }
 
 export const LabsTableContainer = ({
   columns,
   labOrders,
-  reflexResults,
   allowDelete,
   showDeleteLabOrderDialog,
   bundleRow,
@@ -43,12 +41,10 @@ export const LabsTableContainer = ({
     navigateTo(getExternalLabOrderEditUrl(labOrderData.appointmentId, labOrderData.serviceRequestId));
   };
 
-  // todo SARAH fix this
   const onRowClickForReflex = (result: ReflexLabDTO): void => {
     console.log('result', result);
-    // if (!appointmentId) return;
-    // // todo future resultsDetails maybe does not need to be an array anymore
-    // navigateTo(getReflexExternalLabEditUrl(appointmentId, result.resultsDetails?.[0].diagnosticReportId));
+    // todo future resultsDetails maybe does not need to be an array anymore
+    navigateTo(getReflexExternalLabEditUrl(result.appointmentId, result.resultsDetails?.[0].diagnosticReportId));
   };
 
   return (
@@ -73,31 +69,36 @@ export const LabsTableContainer = ({
           </TableRow>
         </TableHead>
         <TableBody>
-          {labOrders.map((order) => (
-            <LabsTableRow
-              key={order.serviceRequestId}
-              labOrderData={order}
-              onDeleteOrder={() =>
-                showDeleteLabOrderDialog({
-                  serviceRequestId: order.serviceRequestId,
-                  testItemName: order.testItem,
-                })
-              }
-              onRowClick={() => onRowClick(order)}
-              columns={columns}
-              allowDelete={allowDelete}
-            />
-          ))}
-          {reflexResults.map((result, idx) => (
-            <LabsTableRow
-              key={`${idx}-reflex-${result.resultsDetails?.[0].diagnosticReportId}`}
-              labOrderData={result}
-              onDeleteOrder={() => console.log('you cannot delete a reflex result')} // todo later, make this better
-              onRowClick={() => onRowClickForReflex(result)}
-              columns={columns}
-              allowDelete={allowDelete}
-            />
-          ))}
+          {labOrders.map((order, idx) => {
+            if ('isReflex' in order) {
+              return (
+                <LabsTableRow
+                  key={`${idx}-reflex-${order.resultsDetails?.[0].diagnosticReportId}`}
+                  labOrderData={order}
+                  onDeleteOrder={() => console.log('you cannot delete a reflex result')} // todo later, make this better
+                  onRowClick={() => onRowClickForReflex(order)}
+                  columns={columns}
+                  allowDelete={false}
+                />
+              );
+            } else {
+              return (
+                <LabsTableRow
+                  key={`${idx}-order-${order.serviceRequestId}`}
+                  labOrderData={order}
+                  onDeleteOrder={() =>
+                    showDeleteLabOrderDialog({
+                      serviceRequestId: order.serviceRequestId,
+                      testItemName: order.testItem,
+                    })
+                  }
+                  onRowClick={() => onRowClick(order)}
+                  columns={columns}
+                  allowDelete={allowDelete}
+                />
+              );
+            }
+          })}
         </TableBody>
       </Table>
     </TableContainer>

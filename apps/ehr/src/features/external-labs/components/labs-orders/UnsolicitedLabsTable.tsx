@@ -12,9 +12,8 @@ import {
 import { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGetUnsolicitedResultsForPatientList } from 'src/telemed';
-import { UnsolicitedLabListPageDTO, UnsolicitedResultsRequestType } from 'utils';
+import { LabsTableColumn, UnsolicitedLabListPageDTO, UnsolicitedResultsRequestType } from 'utils';
 import { LabOrderLoading } from './LabOrderLoading';
-import { LabsTableColumn } from './LabsTable';
 import { LabsTableRow } from './LabsTableRow';
 
 interface UnsolicitedLabsTableProps {

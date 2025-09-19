@@ -144,7 +144,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
           setReflexResults(response.reflexResults as ReflexLabDTO[]);
 
           if (searchParams.searchBy.field === 'encounterId') {
-            setGroupedLabOrdersForChartTable(groupLabOrderListPageDTOs(response.data));
+            setGroupedLabOrdersForChartTable(groupLabOrderListPageDTOs(response.data, response.reflexResults));
           }
 
           if (response.pagination) {
@@ -313,40 +313,41 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
   };
 };
 
-// todo SARAH handle reflex results
-const groupLabOrderListPageDTOs = (labOrders: LabOrderListPageDTO[]): LabOrderListPageDTOGrouped | undefined => {
+const groupLabOrderListPageDTOs = (
+  labOrders: LabOrderListPageDTO[],
+  reflexResults: ReflexLabDTO[]
+): LabOrderListPageDTOGrouped | undefined => {
   if (!labOrders.length) return;
 
   const groupedOrders: LabOrderListPageDTOGrouped = { pendingActionOrResults: {}, hasResults: {} };
-  const resultsStatusOptions = [
+  const resultsStatusOptions = new Set([
     ExternalLabsStatus.received,
     ExternalLabsStatus.prelim,
     ExternalLabsStatus.reviewed,
     ExternalLabsStatus.corrected,
-  ];
-  labOrders.forEach((order) => {
-    const requisitionNumber = order.orderNumber;
-    if (requisitionNumber) {
-      const hasResults = resultsStatusOptions.includes(order.orderStatus);
-      if (hasResults) {
-        if (groupedOrders.hasResults[requisitionNumber]) {
-          groupedOrders.hasResults[requisitionNumber].orders.push(order);
-        } else {
-          const bundleName = `${order.fillerLab}${order.isPSC ? ' PSC' : ''}`;
-          groupedOrders.hasResults[requisitionNumber] = { bundleName, orders: [order] };
-        }
-      } else {
-        if (groupedOrders.pendingActionOrResults[requisitionNumber]) {
-          groupedOrders.pendingActionOrResults[requisitionNumber].orders.push(order);
-        } else {
-          const bundleName = `${order.fillerLab}${order.isPSC ? ' PSC' : ''}`;
-          groupedOrders.pendingActionOrResults[requisitionNumber] = { bundleName, orders: [order] };
-        }
-      }
-    } else {
+  ]);
+
+  const addToGroup = (item: LabOrderListPageDTO | ReflexLabDTO, groupedOrders: LabOrderListPageDTOGrouped): void => {
+    const requisitionNumber = item.orderNumber;
+
+    if (!requisitionNumber) {
       console.log("something went awry and this order doesn't have a requisition number");
+      return;
     }
-  });
+
+    const hasResults = resultsStatusOptions.has(item.orderStatus);
+    const groupKey = hasResults ? 'hasResults' : 'pendingActionOrResults';
+    const subGroup = groupedOrders[groupKey];
+
+    if (subGroup[requisitionNumber]) {
+      subGroup[requisitionNumber].orders.push(item);
+    } else {
+      const bundleName = `${item.fillerLab}${item.isPSC ? ' PSC' : ''}`;
+      subGroup[requisitionNumber] = { bundleName, orders: [item] };
+    }
+  };
+
+  [...labOrders, ...reflexResults].forEach((item) => addToGroup(item, groupedOrders));
 
   return groupedOrders;
 };

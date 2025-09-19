@@ -155,8 +155,16 @@ export const mapReflexResourcesToDrLabDTO = async (
   for (const resources of resourcesForDiagnosticReport) {
     const diagnosticReportLabDetailDTO = await formatResourcesIntoDiagnosticReportLabDTO(resources, token);
     const orderNumber = getOrderNumberFromDr(resources.diagnosticReport) || '';
+    const encounterId = resources.diagnosticReport.encounter?.reference?.replace('Encounter/', '') || '';
+    const appointmentId = resources.encounter?.appointment?.[0].reference?.replace('Appointment/', '') || '';
     if (diagnosticReportLabDetailDTO) {
-      const reflexLabDetailDTO: ReflexLabDTO = { ...diagnosticReportLabDetailDTO, isReflex: true, orderNumber };
+      const reflexLabDetailDTO: ReflexLabDTO = {
+        ...diagnosticReportLabDetailDTO,
+        isReflex: true,
+        orderNumber,
+        encounterId,
+        appointmentId,
+      };
       DTOs.push(reflexLabDetailDTO);
     }
   }
@@ -908,6 +916,7 @@ export const checkForReflexDiagnosticReports = async (
           { name: '_revinclude', value: 'Task:based-on' }, // review task
           { name: '_revinclude:iterate', value: 'DocumentReference:related' }, // result pdf
           { name: '_include', value: 'DiagnosticReport:performer' }, // lab org
+          { name: '_include', value: 'DiagnosticReport:encounter' },
         ],
       })
     ).unbundle();

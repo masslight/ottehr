@@ -1,16 +1,22 @@
 import { LoadingButton } from '@mui/lab';
-import { Box, Button, TableCell, TableRow, Typography } from '@mui/material';
+import { Box, TableCell, TableRow, Typography } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import { JSXElementConstructor, ReactElement, useState } from 'react';
-import { useParams } from 'react-router-dom';
 import { submitLabOrder } from 'src/api/api';
 import { CustomDialog } from 'src/components/dialogs';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { GetLabOrdersParameters, LabOrderListPageDTO, LabOrdersSearchBy, LabsTableColumn, openPdf } from 'utils';
+import {
+  GetLabOrdersParameters,
+  LabOrderListPageDTO,
+  LabOrdersSearchBy,
+  LabsTableColumn,
+  openPdf,
+  ReflexLabDTO,
+} from 'utils';
 import { LabsTableContainer } from './LabsTableContainer';
 
 type LabsTableProps<SearchBy extends LabOrdersSearchBy> = {
-  labOrders: LabOrderListPageDTO[];
+  labOrders: (LabOrderListPageDTO | ReflexLabDTO)[];
   orderBundleName: string;
   searchBy: SearchBy;
   columns: LabsTableColumn[];
@@ -25,7 +31,6 @@ type LabsTableProps<SearchBy extends LabOrdersSearchBy> = {
     testItemName: string;
   }) => void;
   DeleteOrderDialog: ReactElement<any, string | JSXElementConstructor<any>> | null;
-  onCreateOrder?: () => void;
 };
 
 export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
@@ -38,10 +43,7 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
   fetchLabOrders,
   showDeleteLabOrderDialog,
   DeleteOrderDialog,
-  onCreateOrder,
 }: LabsTableProps<SearchBy>): ReactElement => {
-  const { id: appointmentId } = useParams();
-  console.log('appointmentId', appointmentId);
   const { oystehrZambda: oystehr } = useApiClients();
 
   const [submitLoading, setSubmitLoading] = useState<boolean>(false);
@@ -52,8 +54,10 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
 
   const { pendingLabs, readyLabs } = labOrders.reduce(
     (acc: { pendingLabs: LabOrderListPageDTO[]; readyLabs: LabOrderListPageDTO[] }, lab) => {
-      if (lab.orderStatus === 'pending') acc.pendingLabs.push(lab);
-      if (lab.orderStatus === 'ready') acc.readyLabs.push(lab);
+      if (isLabOrder(lab)) {
+        if (lab.orderStatus === 'pending') acc.pendingLabs.push(lab);
+        if (lab.orderStatus === 'ready') acc.readyLabs.push(lab);
+      }
       return acc;
     },
     { pendingLabs: [], readyLabs: [] }
@@ -100,9 +104,14 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
 
   const manualSubmit = async (): Promise<void> => {
     if (!failedOrderNumbers) return;
-    const labs = labOrders.filter((order) => order.orderNumber && failedOrderNumbers.includes(order.orderNumber));
+    const labs: LabOrderListPageDTO[] = labOrders
+      .filter(isLabOrder)
+      .filter((order) => order.orderNumber && failedOrderNumbers.includes(order.orderNumber));
     await submitOrders(true, labs);
   };
+  function isLabOrder(order: LabOrderListPageDTO | ReflexLabDTO): order is LabOrderListPageDTO {
+    return !('isReflex' in order);
+  }
 
   const manualSubmitDialogDescription = (
     <Box>
@@ -150,31 +159,15 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
     <Box sx={{ mb: 2 }}>
       <>
         <Box sx={{ width: '100%' }}>
-          {!Array.isArray(labOrders) || labOrders.length === 0 ? (
-            <Box sx={{ p: 3, textAlign: 'center' }}>
-              <Typography variant="body1" gutterBottom>
-                No External Lab Orders to display
-              </Typography>
-              {onCreateOrder && (
-                <Button variant="contained" onClick={() => onCreateOrder()} sx={{ mt: 2 }}>
-                  Add New External Lab
-                </Button>
-              )}
-            </Box>
-          ) : (
-            <>
-              <LabsTableContainer
-                columns={columns}
-                labOrders={labOrders}
-                bundleRow={bundleHeaderRow}
-                // todo SARAH
-                // reflexResults={reflexResults}
-                reflexResults={[]}
-                allowDelete={allowDelete}
-                showDeleteLabOrderDialog={showDeleteLabOrderDialog}
-              />
-            </>
-          )}
+          <>
+            <LabsTableContainer
+              columns={columns}
+              labOrders={labOrders}
+              bundleRow={bundleHeaderRow}
+              allowDelete={allowDelete}
+              showDeleteLabOrderDialog={showDeleteLabOrderDialog}
+            />
+          </>
         </Box>
         {DeleteOrderDialog}
       </>

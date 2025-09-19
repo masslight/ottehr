@@ -1,6 +1,5 @@
 import { Box, Button, Pagination, Typography } from '@mui/material';
 import { ReactElement } from 'react';
-import { useParams } from 'react-router-dom';
 import { LabOrdersSearchBy, LabsTableColumn } from 'utils';
 import { LabOrderLoading } from './LabOrderLoading';
 import { LabsTable } from './LabsTable';
@@ -21,12 +20,8 @@ export const LabsTablePatientChart = <SearchBy extends LabOrdersSearchBy>({
   allowSubmit,
   onCreateOrder,
 }: LabsTablePatientChartProps<SearchBy>): ReactElement => {
-  const { id: appointmentId } = useParams();
-  console.log('appointmentId', appointmentId);
-
   const {
-    groupedLabOrdersForChartTable,
-    // reflexResults,
+    groupedLabOrdersForChartTable, // includes reflex
     loading,
     totalPages,
     page,
@@ -42,16 +37,13 @@ export const LabsTablePatientChart = <SearchBy extends LabOrdersSearchBy>({
     return <LabOrderLoading />;
   }
 
-  console.log('groupedLabOrdersForChartTable', JSON.stringify(groupedLabOrdersForChartTable));
-
   const handlePageChange = (event: React.ChangeEvent<unknown>, value: number): void => {
     setSearchParams({ pageNumber: value });
   };
 
   const bundlesWithResults = groupedLabOrdersForChartTable
-    ? Object.values(groupedLabOrdersForChartTable.hasResults).flatMap((bundleOrder) => bundleOrder)
+    ? Object.values(groupedLabOrdersForChartTable.hasResults).flatMap((bundleOrder) => [...bundleOrder.orders])
     : [];
-  console.log('check bundlesWithResults ', bundlesWithResults);
 
   if (fetchError) {
     return (
@@ -98,9 +90,22 @@ export const LabsTablePatientChart = <SearchBy extends LabOrdersSearchBy>({
                 fetchLabOrders={fetchLabOrders}
                 showDeleteLabOrderDialog={showDeleteLabOrderDialog}
                 DeleteOrderDialog={DeleteOrderDialog}
-                onCreateOrder={onCreateOrder}
               />
             ))}
+            {bundlesWithResults.length > 0 && (
+              <LabsTable
+                key={`orders-with-results`}
+                labOrders={bundlesWithResults}
+                orderBundleName="Results"
+                searchBy={searchBy}
+                columns={columns}
+                allowDelete={false}
+                allowSubmit={false}
+                fetchLabOrders={fetchLabOrders}
+                showDeleteLabOrderDialog={showDeleteLabOrderDialog}
+                DeleteOrderDialog={DeleteOrderDialog}
+              />
+            )}
             {showPagination && totalPages > 1 && (
               <Box sx={{ display: 'flex', justifyContent: 'flex-start', mt: 2, width: '100%' }}>
                 <Pagination

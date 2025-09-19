@@ -169,6 +169,8 @@ export type DiagnosticReportLabDetailPageDTO = Omit<
 export type ReflexLabDTO = DiagnosticReportLabDetailPageDTO & {
   isReflex: true;
   orderNumber: string;
+  encounterId: string;
+  appointmentId: string;
 };
 
 export type UnsolicitedLabDTO = DiagnosticReportLabDetailPageDTO & {
@@ -190,8 +192,8 @@ export type PaginatedResponse<RequestParameters extends GetLabOrdersParameters =
 };
 
 export type LabOrderListPageDTOGrouped = {
-  pendingActionOrResults: Record<string, { bundleName: string; orders: LabOrderListPageDTO[] }>;
-  hasResults: Record<string, { bundleName: string; orders: LabOrderListPageDTO[] }>;
+  pendingActionOrResults: Record<string, { bundleName: string; orders: (LabOrderListPageDTO | ReflexLabDTO)[] }>;
+  hasResults: Record<string, { bundleName: string; orders: (LabOrderListPageDTO | ReflexLabDTO)[] }>;
 };
 
 export type LabOrdersSearchBy = {
