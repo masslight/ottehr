@@ -19,6 +19,7 @@ import {
 import { useMutation } from '@tanstack/react-query';
 import { Encounter, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { enqueueSnackbar } from 'notistack';
 import { Fragment, ReactElement, useEffect, useState } from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useGetEncounter } from 'src/hooks/useEncounter';
@@ -130,14 +131,14 @@ export default function PatientPaymentList({
 
   const updateEncounter = useMutation({
     mutationFn: async (input: Encounter) => {
-      if (oystehr && input && input.id) {
+      if (oystehr && encounter && input && input.id) {
         await oystehr.fhir
           .patch<Encounter>({
             id: input.id,
             resourceType: 'Encounter',
             operations: [
               {
-                op: input.extension !== undefined ? 'replace' : 'add',
+                op: encounter.extension !== undefined ? 'replace' : 'add',
                 path: '/extension',
                 value: input.extension,
               },
@@ -145,8 +146,15 @@ export default function PatientPaymentList({
           })
           .then(async () => {
             await refetchEncounter();
+          })
+          .catch(async () => {
+            enqueueSnackbar("Something went wrong! Visit payment option can't be changed.", { variant: 'error' });
+            await refetchEncounter();
           });
       }
+    },
+    onError: async (e) => {
+      console.log('error updating encounter', e);
     },
     retry: 0,
   });
@@ -157,6 +165,7 @@ export default function PatientPaymentList({
       if (variant) setPaymentVariant(variant);
       else if (variant === undefined) {
         // encounter must have payment option ext from harvest module, but if it doesn't, set it to patient selected
+        console.log('updating encounter');
         updateEncounter.mutate(
           updateEncounterPaymentVariantExtension(
             encounter,
