@@ -21,6 +21,7 @@ import {
   PATIENT_BILLING_ACCOUNT_TYPE,
   PaymentVariant,
   unbundleBatchPostOutput,
+  updateEncounterPaymentVariantExtension,
 } from 'utils';
 import { assert, describe, expect, it } from 'vitest';
 import { relatedPersonsAreSame } from '../../src/ehr/shared/harvest';
@@ -162,6 +163,13 @@ describe('Harvest Module Integration Tests', () => {
       },
       patientId
     );
+  };
+
+  const getEncounter = async (id: string): Promise<Encounter> => {
+    return await oystehrClient.fhir.get<Encounter>({
+      resourceType: 'Encounter',
+      id,
+    });
   };
 
   const cleanup = async (): Promise<{ error: Error | undefined }> => {
@@ -2906,23 +2914,72 @@ describe('Harvest Module Integration Tests', () => {
       expect(encounterRef).toBeDefined();
       const encounterIdFromQr = encounterRef?.replace('Encounter/', '');
 
-      let encounter = await oystehrClient.fhir.get<Encounter>({
-        resourceType: 'Encounter',
-        id: encounterIdFromQr,
-      });
+      // case 1: encounter has no extension
 
+      let encounter = await getEncounter(encounterIdFromQr);
       expect(encounter).toBeDefined();
+      expect(encounter.extension).toBe(undefined);
       expect(getPaymentVariantFromEncounter(encounter)).toBe(undefined);
 
       qr = selectSelfPayOption(qr);
-      const effect = await performEffect({ qr, secrets: envConfig }, oystehrClient);
+      let effect = await performEffect({ qr, secrets: envConfig }, oystehrClient);
       expect(['1 failed: update stripe customer', 'all tasks executed successfully']).toContain(effect);
 
-      encounter = await oystehrClient.fhir.get<Encounter>({
+      encounter = await getEncounter(encounterIdFromQr);
+      expect(getPaymentVariantFromEncounter(encounter)).toBe(PaymentVariant.selfPay);
+
+      // case 2: encounter has extension but without payment option selfPay extension
+
+      encounter = await oystehrClient.fhir.patch<Encounter>({
         resourceType: 'Encounter',
         id: encounterIdFromQr,
+        operations: [
+          {
+            op: 'add',
+            path: '/extension',
+            value: [
+              {
+                url: 'dummyurl',
+                valueString: 'string',
+              },
+            ],
+          },
+        ],
       });
 
+      expect(encounter.extension).not.toBe(undefined);
+      expect(getPaymentVariantFromEncounter(encounter)).toBe(undefined);
+
+      qr = selectSelfPayOption(qr);
+      effect = await performEffect({ qr, secrets: envConfig }, oystehrClient);
+      expect(['1 failed: update stripe customer', 'all tasks executed successfully']).toContain(effect);
+
+      encounter = await getEncounter(encounterIdFromQr);
+      expect(getPaymentVariantFromEncounter(encounter)).toBe(PaymentVariant.selfPay);
+
+      // case 3: encounter has extension with payment option but opposite one (insurance pay)
+
+      const insurancePayExt = updateEncounterPaymentVariantExtension(encounter, PaymentVariant.insurance).extension;
+      encounter = await oystehrClient.fhir.patch<Encounter>({
+        resourceType: 'Encounter',
+        id: encounterIdFromQr,
+        operations: [
+          {
+            op: 'replace',
+            path: '/extension',
+            value: insurancePayExt,
+          },
+        ],
+      });
+
+      expect(encounter.extension).not.toBe(undefined);
+      expect(getPaymentVariantFromEncounter(encounter)).toBe(PaymentVariant.insurance);
+
+      qr = selectSelfPayOption(qr);
+      effect = await performEffect({ qr, secrets: envConfig }, oystehrClient);
+      expect(['1 failed: update stripe customer', 'all tasks executed successfully']).toContain(effect);
+
+      encounter = await getEncounter(encounterIdFromQr);
       expect(getPaymentVariantFromEncounter(encounter)).toBe(PaymentVariant.selfPay);
     },
     DEFAULT_TIMEOUT
@@ -2937,22 +2994,69 @@ describe('Harvest Module Integration Tests', () => {
       expect(encounterRef).toBeDefined();
       const encounterIdFromQr = encounterRef?.replace('Encounter/', '');
 
-      let encounter = await oystehrClient.fhir.get<Encounter>({
-        resourceType: 'Encounter',
-        id: encounterIdFromQr,
-      });
+      // case 1: encounter has no extension
 
+      let encounter = await getEncounter(encounterIdFromQr);
       expect(encounter).toBeDefined();
+      expect(encounter.extension).toBe(undefined);
       expect(getPaymentVariantFromEncounter(encounter)).toBe(undefined);
 
-      const effect = await performEffect({ qr, secrets: envConfig }, oystehrClient);
+      let effect = await performEffect({ qr, secrets: envConfig }, oystehrClient);
       expect(['1 failed: update stripe customer', 'all tasks executed successfully']).toContain(effect);
 
-      encounter = await oystehrClient.fhir.get<Encounter>({
+      encounter = await getEncounter(encounterIdFromQr);
+      expect(getPaymentVariantFromEncounter(encounter)).toBe(PaymentVariant.insurance);
+
+      // case 2: encounter has extension but without payment option insurancePay extension
+
+      encounter = await oystehrClient.fhir.patch<Encounter>({
         resourceType: 'Encounter',
         id: encounterIdFromQr,
+        operations: [
+          {
+            op: 'add',
+            path: '/extension',
+            value: [
+              {
+                url: 'dummyurl',
+                valueString: 'string',
+              },
+            ],
+          },
+        ],
       });
 
+      expect(encounter.extension).toBeDefined();
+      expect(getPaymentVariantFromEncounter(encounter)).toBe(undefined);
+
+      effect = await performEffect({ qr, secrets: envConfig }, oystehrClient);
+      expect(['1 failed: update stripe customer', 'all tasks executed successfully']).toContain(effect);
+
+      encounter = await getEncounter(encounterIdFromQr);
+      expect(getPaymentVariantFromEncounter(encounter)).toBe(PaymentVariant.insurance);
+
+      // case 3: encounter has extension with payment option but opposite one (self pay)
+
+      const selfPayExt = updateEncounterPaymentVariantExtension(encounter, PaymentVariant.selfPay).extension;
+      encounter = await oystehrClient.fhir.patch<Encounter>({
+        resourceType: 'Encounter',
+        id: encounterIdFromQr,
+        operations: [
+          {
+            op: 'replace',
+            path: '/extension',
+            value: selfPayExt,
+          },
+        ],
+      });
+
+      expect(encounter.extension).not.toBe(undefined);
+      expect(getPaymentVariantFromEncounter(encounter)).toBe(PaymentVariant.selfPay);
+
+      effect = await performEffect({ qr, secrets: envConfig }, oystehrClient);
+      expect(['1 failed: update stripe customer', 'all tasks executed successfully']).toContain(effect);
+
+      encounter = await getEncounter(encounterIdFromQr);
       expect(getPaymentVariantFromEncounter(encounter)).toBe(PaymentVariant.insurance);
     },
     DEFAULT_TIMEOUT
