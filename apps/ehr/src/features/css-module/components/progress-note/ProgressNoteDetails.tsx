@@ -53,6 +53,7 @@ import { useMedicationAPI } from '../../hooks/useMedicationOperations';
 import { HospitalizationContainer } from './HospitalizationContainer';
 import { InHouseMedicationsContainer } from './InHouseMedicationsContainer';
 import { PatientVitalsContainer } from './PatientVitalsContainer';
+import { RadiologyContainer } from './RadiologyContainer';
 
 export const ProgressNoteDetails: FC = () => {
   const { appointment, encounter, appointmentRefetch, appointmentSetState, location } = useAppointmentData();
@@ -185,6 +186,7 @@ export const ProgressNoteDetails: FC = () => {
         resultsPending={externalLabResults.resultsPending}
       />
     ),
+    <RadiologyContainer />,
     showProceduresContainer && <ProceduresContainer />,
     showPrescribedMedications && <PrescribedMedicationsContainer />,
     showPatientInstructions && <PatientInstructionsContainer />,
