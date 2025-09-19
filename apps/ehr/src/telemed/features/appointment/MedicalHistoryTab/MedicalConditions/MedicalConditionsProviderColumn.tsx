@@ -7,6 +7,7 @@ import {
   debounce,
   Divider,
   FormControlLabel,
+  Skeleton,
   Switch,
   TextField,
   Typography,
@@ -268,7 +269,7 @@ const AddMedicalConditionField: FC = () => {
 
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
-  const { isFetching: isSearching, data } = useICD10SearchNew({ search: debouncedSearchTerm });
+  const { isFetching: isSearching, data, isLoading: isNlmLoading } = useICD10SearchNew({ search: debouncedSearchTerm });
   const icdSearchOptions = data?.codes || [];
 
   const debouncedHandleInputChange = useMemo(
@@ -300,6 +301,10 @@ const AddMedicalConditionField: FC = () => {
   const handleSetup = (): void => {
     window.open('https://docs.oystehr.com/ottehr/setup/terminology/', '_blank');
   };
+
+  if (isChartDataLoading || isNlmLoading) {
+    return <Skeleton variant="rectangular" width="100%" height={56} />;
+  }
 
   return (
     <Card
