@@ -60,6 +60,7 @@ module "gcp_infra" {
   ehr_domain            = var.ehr_domain
   patient_portal_domain = var.patient_portal_domain
 }
+
 module "sendgrid" {
   source = "./sendgrid"
   providers = {

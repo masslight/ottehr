@@ -26,9 +26,9 @@ resource "aws_s3_bucket_website_configuration" "ehr_website" {
 
 resource "aws_s3_bucket_public_access_block" "ehr_pab" {
   bucket                  = aws_s3_bucket.ehr_bucket.id
-  block_public_acls       = true
+  block_public_acls       = false
   block_public_policy     = false
-  ignore_public_acls      = true
+  ignore_public_acls      = false
   restrict_public_buckets = false
 }
 
@@ -64,6 +64,12 @@ resource "aws_cloudfront_distribution" "ehr_cf" {
     cached_methods         = ["GET", "HEAD"]
     target_origin_id       = "ottehr-ehr-${var.project_id}"
     viewer_protocol_policy = "allow-all"
+    forwarded_values {
+      query_string = false
+      cookies {
+        forward = "none"
+      }
+    }
   }
   restrictions {
     geo_restriction {
@@ -95,9 +101,9 @@ resource "aws_s3_bucket_website_configuration" "patient_portal_website" {
 
 resource "aws_s3_bucket_public_access_block" "patient_portal_pab" {
   bucket                  = aws_s3_bucket.patient_portal_bucket.id
-  block_public_acls       = true
+  block_public_acls       = false
   block_public_policy     = false
-  ignore_public_acls      = true
+  ignore_public_acls      = false
   restrict_public_buckets = false
 }
 
@@ -133,6 +139,12 @@ resource "aws_cloudfront_distribution" "patient_portal_cf" {
     cached_methods         = ["GET", "HEAD"]
     target_origin_id       = "ottehr-patient-portal-${var.project_id}"
     viewer_protocol_policy = "allow-all"
+    forwarded_values {
+      query_string = false
+      cookies {
+        forward = "none"
+      }
+    }
   }
   restrictions {
     geo_restriction {

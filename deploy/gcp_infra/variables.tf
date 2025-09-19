@@ -7,11 +7,11 @@ variable "project_id" {
 variable "ehr_domain" {
   description = "EHR domain"
   type        = string
-  nullable    = true
+  nullable    = false
 }
 
 variable "patient_portal_domain" {
   description = "Patient portal domain"
   type        = string
-  nullable    = true
+  nullable    = false
 }
