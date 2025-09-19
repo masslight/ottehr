@@ -53,7 +53,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     if (codingContainedInList(COMMUNICATION_ISSUE_REPORT_CODE, communicationCodes)) {
       console.log('alerting for issue report');
       const groupID = getSecret(SecretsKeys.INTAKE_ISSUE_REPORT_EMAIL_GROUP_ID, secrets);
-      const templateID = getSecret(SecretsKeys.IN_PERSON_SENDGRID_ISSUE_REPORT_EMAIL_TEMPLATE_ID, secrets);
+      const templateID = getSecret(SecretsKeys.SENDGRID_ERROR_EMAIL_TEMPLATE_ID, secrets);
 
       // Only alert where both variables exist and are non null value
       if (groupID && templateID) {
