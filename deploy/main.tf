@@ -75,8 +75,8 @@ module "oystehr" {
   }
   sendgrid_template_ids       = module.sendgrid.template_ids
   sendgrid_send_email_api_key = module.sendgrid.sendgrid_api_key
-  ehr_domain                  = var.aws_profile == null ? var.ehr_domain == null ? null : var.ehr_domain : module.aws_infra.ehr_domain
-  patient_portal_domain       = var.aws_profile == null ? var.patient_portal_domain == null ? null : var.patient_portal_domain : module.aws_infra.patient_portal_domain
+  ehr_domain                  = var.ehr_domain == null ? var.aws_profile == null ? null : module.aws_infra.ehr_domain : var.ehr_domain
+  patient_portal_domain       = var.patient_portal_domain == null ? var.aws_profile == null ? null : module.aws_infra.patient_portal_domain : var.patient_portal_domain
 }
 
 module "ottehr_apps" {
