@@ -53,10 +53,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     if (codingContainedInList(COMMUNICATION_ISSUE_REPORT_CODE, communicationCodes)) {
       console.log('alerting for issue report');
       const groupID = getSecret(SecretsKeys.INTAKE_ISSUE_REPORT_EMAIL_GROUP_ID, secrets);
-      const templateID = getSecret(SecretsKeys.SENDGRID_ERROR_EMAIL_TEMPLATE_ID, secrets);
 
-      // Only alert where both variables exist and are non null value
-      if (groupID && templateID) {
+      // Only alert if we have a group id
+      if (groupID) {
         const groupGetRequest: BatchInputGetRequest = {
           method: 'GET',
           url: `/Group?_id=${groupID}`,
@@ -165,7 +164,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         }
         const errorMessage = `Details: ${communication.payload?.[0].contentString} <br> Submitted By: ${submitterDetails} <br> Location: ${fhirLocation?.name} - ${fhirLocation?.address?.city}, ${fhirLocation?.address?.state} <br> Appointment Id: ${appointmentID} <br> Communication Fhir Resource: ${communication.id}`;
 
-        console.log(`Sending issue report email to ${toEmail} with template id ${templateID}`);
+        console.log(`Sending issue report email to ${toEmail}`);
         try {
           const emailClient = getEmailClient(secrets);
           await emailClient.sendErrorEmail(toEmail, {
