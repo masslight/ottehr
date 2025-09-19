@@ -334,7 +334,7 @@ export class Schema20250319 implements Schema<Spec20250319> {
   }
 
   getTerraformResourceOutputName(fullMatch: string, module?: string): string {
-    return `${module ? `module.${module}.` : ''}${fullMatch.replace(/\//g, '_').slice(2, -1)}`;
+    return `${module ? `module.${module}.` : ''}${fullMatch.replace(/\//g, '_').replace(/\./g, '_').slice(2, -1)}`;
   }
 
   isObject(spec: any): spec is { [key: string]: unknown } {

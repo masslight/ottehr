@@ -209,7 +209,7 @@
     },
     "DEFAULT_WALKIN_LOCATION_NAME": {
       "name": "DEFAULT_WALKIN_LOCATION_NAME",
-      "value": "#{var/DEFAULT_WALKIN_LOCATION_NAME}"
+      "value": "${replace(\"#{ref/fhirResources/LOCATION_PHYSICAL_NY/data.name}\", \" \", \"_\")}"
     }
   },
   "zambdas": {
