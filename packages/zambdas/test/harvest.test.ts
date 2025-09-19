@@ -112,7 +112,7 @@ describe('Patient Master Record Tests', () => {
       },
     ];
 
-    const result = createMasterRecordPatchOperations(QR1 as QuestionnaireResponse, patient1 as Patient);
+    const result = createMasterRecordPatchOperations((QR1 as QuestionnaireResponse).item ?? [], patient1 as Patient);
 
     expect(result).toEqual({
       coverage: {},
@@ -122,7 +122,7 @@ describe('Patient Master Record Tests', () => {
   });
 
   test('should not generate patch operations for a patient with already processed paperwork with the same answers', () => {
-    const result = createMasterRecordPatchOperations(QR1 as QuestionnaireResponse, patient2 as Patient);
+    const result = createMasterRecordPatchOperations((QR1 as QuestionnaireResponse).item ?? [], patient2 as Patient);
 
     expect(result).toEqual({
       coverage: {},
@@ -160,7 +160,7 @@ describe('Patient Master Record Tests', () => {
       },
     ];
 
-    const result = createMasterRecordPatchOperations(QR3 as QuestionnaireResponse, patient2 as Patient);
+    const result = createMasterRecordPatchOperations((QR3 as QuestionnaireResponse).item ?? [], patient2 as Patient);
 
     expect(result).toEqual({
       coverage: {},
@@ -169,7 +169,7 @@ describe('Patient Master Record Tests', () => {
     });
   });
   test('should generate correct JSON patch operation to remove patient birth sex value', () => {
-    const result = createMasterRecordPatchOperations(QR2 as QuestionnaireResponse, patient3 as Patient);
+    const result = createMasterRecordPatchOperations((QR2 as QuestionnaireResponse).item ?? [], patient3 as Patient);
 
     expect(result).toEqual({
       coverage: {},
@@ -195,7 +195,7 @@ describe('Patient Master Record Tests', () => {
       { op: 'remove', path: '/contained' },
     ];
 
-    const result = createMasterRecordPatchOperations(QR4 as QuestionnaireResponse, patient4 as Patient);
+    const result = createMasterRecordPatchOperations((QR4 as QuestionnaireResponse).item ?? [], patient4 as Patient);
 
     expect(result).toEqual({
       coverage: {},
@@ -224,7 +224,7 @@ describe('Patient Master Record Tests', () => {
       },
     ];
 
-    const result = createMasterRecordPatchOperations(QR5 as QuestionnaireResponse, patient4 as Patient);
+    const result = createMasterRecordPatchOperations((QR5 as QuestionnaireResponse).item ?? [], patient4 as Patient);
 
     expect(result).toEqual({
       coverage: {},
@@ -253,7 +253,7 @@ describe('Patient Master Record Tests', () => {
       },
     ];
 
-    const result = createMasterRecordPatchOperations(QR6 as QuestionnaireResponse, patient4 as Patient);
+    const result = createMasterRecordPatchOperations((QR6 as QuestionnaireResponse).item ?? [], patient4 as Patient);
 
     expect(result).toEqual({
       coverage: {},
@@ -262,7 +262,7 @@ describe('Patient Master Record Tests', () => {
     });
   });
   test('should not generate JSON patch operations in case with no PCP data but active flag set to true', () => {
-    const result = createMasterRecordPatchOperations(QR7 as QuestionnaireResponse, patient1 as Patient);
+    const result = createMasterRecordPatchOperations((QR7 as QuestionnaireResponse).item ?? [], patient1 as Patient);
 
     expect(result).toEqual({
       coverage: {},
@@ -282,7 +282,7 @@ describe('Patient Master Record Tests', () => {
       },
     ];
 
-    const result = createMasterRecordPatchOperations(QR8 as QuestionnaireResponse, patient4 as Patient);
+    const result = createMasterRecordPatchOperations((QR8 as QuestionnaireResponse).item ?? [], patient4 as Patient);
 
     expect(result).toEqual({
       coverage: {},

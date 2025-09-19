@@ -233,6 +233,23 @@ export const makePrepopulatedItemsForPatient = (input: PrePopulationInput): Ques
           items: itemItems,
           physician: accountInfo?.primaryCarePhysician,
         });
+      } else if (item.linkId === 'pharmacy-page') {
+        const pharmacyName = accountInfo?.pharmacy?.name;
+        const pharmacyAddress = accountInfo?.pharmacy?.address?.[0].text;
+        return itemItems.map((item) => {
+          const { linkId } = item;
+          let answer: QuestionnaireResponseItemAnswer[] | undefined;
+          if (linkId === 'pharmacy-name' && pharmacyName && pharmacyName != '-') {
+            answer = makeAnswer(pharmacyName);
+          }
+          if (linkId === 'pharmacy-address' && pharmacyAddress) {
+            answer = makeAnswer(pharmacyAddress);
+          }
+          return {
+            linkId,
+            answer,
+          };
+        });
       } else if (GUARANTOR_ITEMS.includes(item.linkId)) {
         return mapGuarantorToQuestionnaireResponseItems({
           items: itemItems,

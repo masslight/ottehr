@@ -24,7 +24,6 @@ import {
   createConsentResources,
   createDocumentResources,
   createErxContactOperation,
-  createMasterRecordPatchOperations,
   flagPaperworkEdit,
   getAccountAndCoverageResourcesForPatient,
   updatePatientAccountFromQuestionnaire,
@@ -132,26 +131,6 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   if (patientResource === undefined || patientResource.id === undefined) {
     throw new Error('Patient resource not found');
   }
-
-  console.log('creating patch operations');
-  const patientPatchOps = createMasterRecordPatchOperations(qr, patientResource);
-
-  console.log('All Patient patch operations being attempted: ', JSON.stringify(patientPatchOps, null, 2));
-
-  console.time('patching patient resource');
-  if (patientPatchOps.patient.patchOpsForDirectUpdate.length > 0) {
-    try {
-      await oystehr.fhir.patch({
-        resourceType: 'Patient',
-        id: patientResource.id!,
-        operations: patientPatchOps.patient.patchOpsForDirectUpdate,
-      });
-    } catch (error: unknown) {
-      tasksFailed.push('patch patient');
-      console.log(`Failed to update Patient: ${JSON.stringify(error)}`);
-    }
-  }
-  console.timeEnd('patching patient resource');
 
   try {
     await updatePatientAccountFromQuestionnaire(
