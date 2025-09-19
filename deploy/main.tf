@@ -75,8 +75,8 @@ module "oystehr" {
   }
   sendgrid_template_ids       = module.sendgrid.template_ids
   sendgrid_send_email_api_key = module.sendgrid.sendgrid_api_key
-  ehr_domain                  = var.ehr_domain == null ? var.aws_profile == null ? null : module.aws_infra.ehr_domain : var.ehr_domain
-  patient_portal_domain       = var.patient_portal_domain == null ? var.aws_profile == null ? null : module.aws_infra.patient_portal_domain : var.patient_portal_domain
+  ehr_domain                  = var.ehr_domain == null ? var.aws_profile == null ? null : one(module.aws_infra[*].ehr_domain) : var.ehr_domain
+  patient_portal_domain       = var.patient_portal_domain == null ? var.aws_profile == null ? null : one(module.aws_infra[*].patient_portal_domain) : var.patient_portal_domain
 }
 
 module "ottehr_apps" {
@@ -92,7 +92,7 @@ module "ottehr_apps" {
     MUI_X_LICENSE_KEY                = module.oystehr.mui_x_license_key
     OYSTEHR_APPLICATION_ID           = module.oystehr.app_ehr_id
     PROJECT_API_ZAMBDA_URL           = var.environment == "local" ? "http://localhost:3000/local" : "https://project-api.zapehr.com/v1"
-    PATIENT_APP_URL                  = "https://${var.patient_portal_domain == null ? one(module.aws_infra[*].patient_portal_domain) == null ? "" : module.aws_infra.patient_portal_domain : var.patient_portal_domain}"
+    PATIENT_APP_URL                  = "https://${var.patient_portal_domain == null ? one(module.aws_infra[*].patient_portal_domain) == null ? "" : one(module.aws_infra[*].patient_portal_domain) : var.patient_portal_domain}"
     STRIPE_PUBLIC_KEY                = module.oystehr.stripe_public_key
     SENTRY_AUTH_TOKEN                = module.oystehr.sentry_auth_token
     SENTRY_ORG                       = module.oystehr.sentry_org
