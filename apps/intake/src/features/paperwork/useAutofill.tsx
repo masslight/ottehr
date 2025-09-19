@@ -62,7 +62,7 @@ export const useAutoFillValues = (input: AutofillInputs): void => {
   const { questionnaireItems, fieldId, parentItem } = input;
   const { formValues, allFields } = useQRState();
   // console.log('all fields', allFields);
-  const [replacedValues, setReplacedValues] = useState<{ id: string; value: string }[]>([]);
+  const [replacedValues, setReplacedValues] = useState<string[]>([]);
 
   const itemsToFill = useMemo(() => {
     return questionnaireItems.filter((qi) => {
@@ -81,8 +81,8 @@ export const useAutoFillValues = (input: AutofillInputs): void => {
   return useEffect(() => {
     // console.log('autofill effect fired', itemsToFill, Object.entries(replacedValues.current));
     if (itemsToFill.length === 0) {
-      replacedValues.forEach((val) => {
-        const pathNodes = val.id.split('.');
+      replacedValues.forEach((key) => {
+        const pathNodes = key.split('.');
         const currentVal = pathNodes.reduce((accum, current) => {
           if (accum === undefined) {
             return undefined;
@@ -98,15 +98,16 @@ export const useAutoFillValues = (input: AutofillInputs): void => {
         // console.log('new val, current val', newVal, currentVal);
         if (currentVal?.answer !== undefined || currentVal?.item !== undefined) {
           // console.log('autofill unsetting a value', val || undefined);
-          setValue(val.id, val.value);
+          setValue(key, { linkId: key });
           setReplacedValues((rp) => {
-            return rp.filter((v) => v.id !== val.id);
+            return rp.filter((val) => val !== key);
           });
         }
       });
       return;
     }
     let shouldUpdateValue = false;
+    // for each item that needs to be auto filled, get the source value and set it into the form state
     itemsToFill.forEach((item) => {
       const autofillSource = item.autofillFromWhenDisabled; // the name of the field that's the source of the auto fill value
       if (!autofillSource) {
@@ -128,16 +129,12 @@ export const useAutoFillValues = (input: AutofillInputs): void => {
       // console.log('should update', shouldUpdateValue, item.linkId);
 
       if (shouldUpdateValue) {
-        setReplacedValues((rp) => {
-          return [
-            ...rp,
-            {
-              id,
-              value: currentValue,
-            },
-          ];
-        });
-        setValue(id, autoFilled, { shouldValidate: true });
+        if (autoFilled.answer && autoFilled.answer.length > 0) {
+          setReplacedValues((rp) => {
+            return [...rp, id];
+          });
+          setValue(id, autoFilled, { shouldValidate: true });
+        }
       }
     });
     // replace previously autoFilled values

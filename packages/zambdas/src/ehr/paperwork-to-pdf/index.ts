@@ -47,9 +47,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const paperworkResources = await getPaperworkResources(oystehr, questionnaireResponseId);
     if (!paperworkResources) throw new Error('Paperwork not submitted');
 
-    const { questionnaireResponse, listResources, appointment, location } = paperworkResources;
+    const { questionnaireResponse, listResources, appointment, schedule, location } = paperworkResources;
     if (!questionnaireResponse) throw new Error('QuestionnaireResponse not found');
-    const document = await createDocument(questionnaireResponse, appointment, oystehr, location);
+    const document = await createDocument(questionnaireResponse, appointment, oystehr, schedule, location);
     const pdfDocument = await generatePdf(document);
 
     const timestamp = DateTime.now().toUTC().toFormat('yyyy-MM-dd-x');

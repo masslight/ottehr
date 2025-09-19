@@ -3,6 +3,7 @@ import { Box, Paper, Tab } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { useMatch, useNavigate } from 'react-router-dom';
 import { VIRTUAL_LOCATIONS_URL } from 'src/App';
+import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
 import PageContainer from '../layout/PageContainer';
 import Insurances from '../telemed/features/telemed-admin/Insurance';
 import States from '../telemed/features/telemed-admin/VirtualLocationsPage';
@@ -31,21 +32,32 @@ export function TelemedAdminPage(): JSX.Element {
     <PageContainer>
       <Box sx={{ width: '100%', marginTop: 3 }}>
         <TabContext value={pageTab}>
-          <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-            <TabList onChange={handleTabChange} aria-label={`${page} page`}>
-              <Tab
-                label="Insurance"
-                value={PageTab.insurance}
-                sx={{ textTransform: 'none', fontWeight: 500 }}
-                onClick={() => navigate(`/telemed-admin/${PageTab.insurance}`)}
-              />
-              <Tab
-                label="Virtual Locations"
-                value={PageTab['virtual-locations']}
-                sx={{ textTransform: 'none', fontWeight: 500 }}
-                onClick={() => navigate(`/telemed-admin/${PageTab['virtual-locations']}`)}
-              />
-            </TabList>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
+            <Box sx={{ flex: 1, borderBottom: 1, borderColor: 'divider' }}>
+              <TabList onChange={handleTabChange} aria-label={`${page} page`}>
+                <Tab
+                  label="Insurance"
+                  value={PageTab.insurance}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/telemed-admin/${PageTab.insurance}`)}
+                />
+                <Tab
+                  label="Virtual Locations"
+                  value={PageTab['virtual-locations']}
+                  sx={{ textTransform: 'none', fontWeight: 500 }}
+                  onClick={() => navigate(`/telemed-admin/${PageTab['virtual-locations']}`)}
+                />
+              </TabList>
+            </Box>
+            <ButtonRounded
+              onClick={() => navigate(`/data`)}
+              variant="outlined"
+              sx={{
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Data Reports
+            </ButtonRounded>
           </Box>
           <Paper sx={{ marginTop: 5 }}>
             <TabPanel value={pageTab} sx={{ padding: 0 }}>

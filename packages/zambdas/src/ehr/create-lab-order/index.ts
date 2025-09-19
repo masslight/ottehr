@@ -14,6 +14,7 @@ import {
   Patient,
   Provenance,
   QuestionnaireResponse,
+  Reference,
   ServiceRequest,
   Specimen,
   SpecimenDefinition,
@@ -50,7 +51,7 @@ import {
 import { checkOrCreateM2MClientToken, getMyPractitionerId, topLevelCatch, wrapHandler } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { ZambdaInput } from '../../shared/types';
-import { getPrimaryInsurance } from '../shared/labs';
+import { sortCoveragesByPriority } from '../shared/labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -94,7 +95,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
     }
 
     console.log('encounter id', encounter.id);
-    const { labOrganization, coverage, patientId, existingOrderNumber, orderingLocation } =
+    const { labOrganization, coverages, patientId, existingOrderNumber, orderingLocation } =
       await getAdditionalResources(orderableItem, encounter, psc, oystehr, modifiedOrderingLocation);
 
     validateLabOrgAndOrderingLocationAndGetAccountNumber(labOrganization, orderingLocation);
@@ -187,12 +188,14 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
       },
     ];
 
-    if (coverage) {
-      serviceRequestConfig.insurance = [
-        {
+    if (coverages) {
+      const coverageRefs: Reference[] = coverages.map((coverage) => {
+        return {
           reference: `Coverage/${coverage.id}`,
-        },
-      ];
+        };
+      });
+
+      serviceRequestConfig.insurance = coverageRefs;
     }
     if (psc) {
       serviceRequestConfig.orderDetail = [
@@ -455,7 +458,7 @@ const getAdditionalResources = async (
 ): Promise<{
   labOrganization: Organization;
   patientId: string;
-  coverage?: Coverage;
+  coverages?: Coverage[];
   existingOrderNumber?: string;
   orderingLocation: Location;
 }> => {
@@ -515,7 +518,7 @@ const getAdditionalResources = async (
       const curSrIsPsc = isPSCOrder(resource);
       if (curSrIsPsc === psc) {
         // we bundled psc orders separately, so if the current test being submitted is psc
-        // it should only be bundled under the same order number if there are other psc orders for this lab
+        // it should only be bundled under the same requsition number if there are other psc orders for this lab
         serviceRequestsForBundle.push(resource);
       }
     }
@@ -529,7 +532,7 @@ const getAdditionalResources = async (
     );
 
   const patientAccount = accountSearchResults[0];
-  const patientPrimaryInsurance = getPrimaryInsurance(patientAccount, coverageSearchResults);
+  const coveragesSortedByPriority = sortCoveragesByPriority(patientAccount, coverageSearchResults);
 
   const missingRequiredResources: string[] = [];
   if (!patientId) missingRequiredResources.push('patient');
@@ -557,7 +560,7 @@ const getAdditionalResources = async (
   return {
     labOrganization,
     patientId,
-    coverage: patientPrimaryInsurance,
+    coverages: coveragesSortedByPriority,
     existingOrderNumber,
     orderingLocation,
   };
