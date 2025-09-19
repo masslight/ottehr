@@ -1,0 +1,44 @@
+{
+  "schema-version": "2025-03-19",
+  "fhirResources": {
+    "VACCINE_TDAP": {
+      "resourceType": "Medication",
+      "identifier": [
+        {
+          "system": "virtual-medication-type",
+          "value": "virtual-vaccine-inventory"
+        },
+        {
+          "system": "virtual-medication-identifier-name-system",
+          "value": "Tdap (Tetanus, Diphtheria, Pertussis)"
+        }
+      ]
+    },
+    "VACCINE_DTAP": {
+      "resourceType": "Medication",
+      "identifier": [
+        {
+          "system": "virtual-medication-type",
+          "value": "virtual-vaccine-inventory"
+        },
+        {
+          "system": "virtual-medication-identifier-name-system",
+          "value": "Dtap (Diptheria, Tetanus, Pertussis)"
+        }
+      ]
+    },
+    "VACCINE_TD": {
+      "resourceType": "Medication",
+      "identifier": [
+        {
+          "system": "virtual-medication-type",
+          "value": "virtual-vaccine-inventory"
+        },
+        {
+          "system": "virtual-medication-identifier-name-system",
+          "value": "Td (Tetanus, Diphtheria)"
+        }
+      ]
+    }
+  }
+}

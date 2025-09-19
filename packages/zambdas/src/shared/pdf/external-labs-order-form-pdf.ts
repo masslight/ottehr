@@ -148,13 +148,13 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabOrderFormDat
     yPosAtEndOfLocation = pdfClient.getY();
   }
 
-  // Order number, physician info (right column)
+  // Requisition number (aka order number), physician info (right column)
   // go back to where the location info started to start the right column of text
   pdfClient.setY(yPosAtStartOfLocation);
   console.log(
-    `Drawing order number, physician info right column. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. Current page index is ${pdfClient.getCurrentPageIndex()} out of ${pdfClient.getTotalPages()} pages.`
+    `Drawing requisition number, physician info right column. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. Current page index is ${pdfClient.getCurrentPageIndex()} out of ${pdfClient.getTotalPages()} pages.`
   );
-  let currXPos = pdfClient.drawStartXPosSpecifiedText('Order Number: ', textStyles.textBold, rightColumnXStart).endXPos;
+  let currXPos = pdfClient.drawStartXPosSpecifiedText('Req #: ', textStyles.textBold, rightColumnXStart).endXPos;
   // eslint-disable-next-line @typescript-eslint/no-unused-expressions
   pdfClient.drawStartXPosSpecifiedText(data.orderNumber, textStyles.text, currXPos).endXPos;
 

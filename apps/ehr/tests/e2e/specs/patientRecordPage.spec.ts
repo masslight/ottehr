@@ -280,7 +280,7 @@ test.describe('Patient Record Page non-mutating tests', () => {
     await patientInformationPage.verifyPatientFirstName(PATIENT_FIRST_NAME);
   });
 
-  test('Click on [Cancel] button, user stays on Patient Information page', async ({ page }) => {
+  test('Click on [Cancel] button, user stays on Patient Profile page', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.enterPatientFirstName(NEW_PATIENT_FIRST_NAME);
     await patientInformationPage.clickCloseButton();
@@ -290,7 +290,7 @@ test.describe('Patient Record Page non-mutating tests', () => {
     await patientInformationPage.verifyPatientFirstName(NEW_PATIENT_FIRST_NAME);
   });
 
-  test('Click on [x] icon, user stays on Patient Information page', async ({ page }) => {
+  test('Click on [x] icon, user stays on Patient Profile page', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.enterPatientFirstName(NEW_PATIENT_FIRST_NAME);
     await patientInformationPage.clickCloseButton();

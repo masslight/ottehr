@@ -53,6 +53,7 @@ export const DischargeSummaryButton: FC<DischargeSummaryButtonProps> = ({ appoin
   return (
     <RoundedButton
       loading={statusLoading}
+      loadingPosition="start"
       variant="outlined"
       onClick={handleCreateDischargeSummary}
       startIcon={<PrintOutlinedIcon color="inherit" />}

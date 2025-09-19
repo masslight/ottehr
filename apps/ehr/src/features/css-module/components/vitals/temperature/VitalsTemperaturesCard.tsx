@@ -1,6 +1,7 @@
 import { Box, FormControl, Grid, InputLabel, MenuItem, Select, TextField, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { ChangeEvent, JSX, useCallback, useMemo, useState } from 'react';
+import { useGetAppointmentAccessibility } from 'src/telemed';
 import {
   toVitalTemperatureObservationMethod,
   VitalFieldNames,
@@ -25,6 +26,7 @@ const VitalsTemperaturesCard: React.FC<VitalsTemperatureCardProps> = ({
   historyElementSkeletonText = HISTORY_ELEMENT_SKELETON_TEXT,
 }): JSX.Element => {
   const [temperatureValueText, setTemperatureValueText] = useState('');
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   // the method how this Temperature observation has been acquired
   const [observationQualifier, setObservationsQualifier] = useState<string>('');
@@ -51,7 +53,7 @@ const VitalsTemperaturesCard: React.FC<VitalsTemperatureCardProps> = ({
   }, [temperatureValueText]);
 
   const handleSaveTemperatureObservation = async (temperatureValueText: string): Promise<void> => {
-    console.log(`handleSaveTemperatureObservation() value=[${temperatureValueText}]`);
+    // console.log(`handleSaveTemperatureObservation() value=[${temperatureValueText}]`);
 
     const temperatureValueNumber = textToTemperatureNumber(temperatureValueText);
     if (!temperatureValueNumber) return;
@@ -119,6 +121,26 @@ const VitalsTemperaturesCard: React.FC<VitalsTemperatureCardProps> = ({
     );
   };
 
+  const renderRightColumn = (): JSX.Element => {
+    return (
+      <VitalsHistoryContainer
+        currentEncounterObs={currentObs}
+        historicalObs={historicalObs}
+        isLoading={false}
+        historyElementSkeletonText={historyElementSkeletonText}
+        historyElementCreator={(historyEntry) => {
+          const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
+          return (
+            <VitalHistoryElement
+              historyEntry={historyEntry}
+              onDelete={isCurrent && !isReadOnly ? handleDeleteVital : undefined}
+            />
+          );
+        }}
+      />
+    );
+  };
+
   return (
     <Box sx={{ mt: 3 }}>
       <AccordionCard
@@ -126,114 +148,102 @@ const VitalsTemperaturesCard: React.FC<VitalsTemperatureCardProps> = ({
         collapsed={isCollapsed}
         onSwitch={handleSectionCollapse}
       >
-        <DoubleColumnContainer
-          divider
-          leftColumn={
-            <Grid
-              container
-              sx={{
-                height: 'auto',
-                width: 'auto',
-                backgroundColor: '#F7F8F9',
-                borderRadius: 2,
-                my: 2,
-                mx: 2,
-                py: 2,
-                px: 2,
-              }}
-            >
-              {/* Temperature Input Field column */}
-              <Grid item xs={12} sm={6} md={6} lg={4} order={{ xs: 1, sm: 1, md: 1 }}>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'row',
-                  }}
-                >
-                  <VitalsTextInputFiled
-                    label="Temp (C)"
-                    value={temperatureValueText}
-                    disabled={isSaving}
-                    isInputError={isTemperatureValidationError}
-                    onChange={handleTextInputChange}
-                  />
-
-                  <Typography fontSize={25} sx={{ ml: 1 }}>
-                    /
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="Temp (F)"
+        {isReadOnly ? (
+          renderRightColumn()
+        ) : (
+          <DoubleColumnContainer
+            divider
+            leftColumn={
+              <Grid
+                container
+                sx={{
+                  height: 'auto',
+                  width: 'auto',
+                  backgroundColor: '#F7F8F9',
+                  borderRadius: 2,
+                  my: 2,
+                  mx: 2,
+                  py: 2,
+                  px: 2,
+                }}
+              >
+                {/* Temperature Input Field column */}
+                <Grid item xs={12} sm={6} md={6} lg={4} order={{ xs: 1, sm: 1, md: 1 }}>
+                  <Box
                     sx={{
-                      '& fieldset': { border: 'none' },
-                      maxWidth: '110px',
+                      display: 'flex',
+                      flexDirection: 'row',
                     }}
-                    disabled
-                    InputLabelProps={{ shrink: true }}
-                    value={enteredTemperatureInFahrenheit ?? ''}
-                  />
-                </Box>
-              </Grid>
+                  >
+                    <VitalsTextInputFiled
+                      label="Temp (C)"
+                      value={temperatureValueText}
+                      disabled={isSaving}
+                      isInputError={isTemperatureValidationError}
+                      onChange={handleTextInputChange}
+                    />
 
-              {/* Qualifier/method dropdown column */}
-              <Grid
-                item
-                xs={12}
-                sm={3}
-                md={3}
-                lg={4}
-                order={{ xs: 2, sm: 2, md: 2, lg: 2 }}
-                sx={{ mt: isLargeScreen ? 0 : 0 }}
-              >
-                {renderTempQualifierDropdown()}
-              </Grid>
+                    <Typography fontSize={25} sx={{ ml: 1 }}>
+                      =
+                    </Typography>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Temp (F)"
+                      sx={{
+                        '& fieldset': { border: 'none' },
+                        maxWidth: '110px',
+                      }}
+                      disabled
+                      InputLabelProps={{ shrink: true }}
+                      value={enteredTemperatureInFahrenheit ?? ''}
+                    />
+                  </Box>
+                </Grid>
 
-              {/* Add Button column */}
-              <Grid
-                item
-                xs={12}
-                sm={3}
-                md={3}
-                lg={4}
-                order={{ xs: 3, sm: 3, md: 3, lg: 3 }}
-                sx={{ mt: isLargeScreen ? 0 : 0 }}
-              >
-                <RoundedButton
-                  disabled={isDisabledAddButton}
-                  loading={isSaving}
-                  size="small"
-                  onClick={() => handleSaveTemperatureObservation(temperatureValueText)}
-                  color="primary"
-                  sx={{
-                    height: '40px',
-                    px: 2,
-                    ml: 1,
-                  }}
+                {/* Qualifier/method dropdown column */}
+                <Grid
+                  item
+                  xs={12}
+                  sm={3}
+                  md={3}
+                  lg={4}
+                  order={{ xs: 2, sm: 2, md: 2, lg: 2 }}
+                  sx={{ mt: isLargeScreen ? 0 : 0 }}
                 >
-                  Add
-                </RoundedButton>
+                  {renderTempQualifierDropdown()}
+                </Grid>
+
+                {/* Add Button column */}
+                <Grid
+                  item
+                  xs={12}
+                  sm={3}
+                  md={3}
+                  lg={4}
+                  order={{ xs: 3, sm: 3, md: 3, lg: 3 }}
+                  sx={{ mt: isLargeScreen ? 0 : 0 }}
+                >
+                  <RoundedButton
+                    disabled={isDisabledAddButton}
+                    loading={isSaving}
+                    size="small"
+                    onClick={() => handleSaveTemperatureObservation(temperatureValueText)}
+                    color="primary"
+                    sx={{
+                      height: '40px',
+                      px: 2,
+                      ml: 1,
+                    }}
+                  >
+                    Add
+                  </RoundedButton>
+                </Grid>
               </Grid>
-            </Grid>
-          }
-          rightColumn={
-            <VitalsHistoryContainer
-              currentEncounterObs={currentObs}
-              historicalObs={historicalObs}
-              isLoading={false}
-              historyElementSkeletonText={historyElementSkeletonText}
-              historyElementCreator={(historyEntry) => {
-                const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
-                return (
-                  <VitalHistoryElement
-                    historyEntry={historyEntry}
-                    onDelete={isCurrent ? handleDeleteVital : undefined}
-                  />
-                );
-              }}
-            />
-          }
-        />
+            }
+            rightColumn={renderRightColumn()}
+          />
+        )}
       </AccordionCard>
     </Box>
   );

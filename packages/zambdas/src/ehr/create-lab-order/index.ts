@@ -515,7 +515,7 @@ const getAdditionalResources = async (
       const curSrIsPsc = isPSCOrder(resource);
       if (curSrIsPsc === psc) {
         // we bundled psc orders separately, so if the current test being submitted is psc
-        // it should only be bundled under the same order number if there are other psc orders for this lab
+        // it should only be bundled under the same requsition number if there are other psc orders for this lab
         serviceRequestsForBundle.push(resource);
       }
     }
@@ -641,7 +641,7 @@ const getSpecimenAndSpecimenDefConfig = (
 
 function createOrderNumber(length: number): string {
   // https://sentry.io/answers/generate-random-string-characters-in-javascript/
-  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let result = '';
   const randomArray = new Uint8Array(length);
   getRandomValues(randomArray);

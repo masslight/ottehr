@@ -1,6 +1,9 @@
 import { z } from 'zod';
 import { CodeableConceptSchema } from '../../fhir';
 
+// Schema for an 8 character hexadecimal hash string
+const HexHashSchema = z.string().regex(/^[a-f0-9]{8}$/, 'Must be a valid 8-character hexadecimal hash string');
+
 // Schema for checkbox component
 const ExamCardCheckboxComponentSchema = z.object({
   label: z.string().min(1, 'Label is required'),
@@ -138,20 +141,18 @@ const ExamItemConfigSchema = z.record(z.string(), ExamCardSchema);
 
 export type ExamItemConfig = z.infer<typeof ExamItemConfigSchema>;
 
-// Schema for exam config type
+// Schema for exam type
+const ExamTypeInstanceSchema = z.record(
+  z.string(),
+  z.object({
+    version: HexHashSchema,
+    components: ExamItemConfigSchema,
+  })
+);
+
 const ExamConfigTypeSchema = z.object({
-  telemed: z.record(
-    z.string(),
-    z.object({
-      components: ExamItemConfigSchema,
-    })
-  ),
-  inPerson: z.record(
-    z.string(),
-    z.object({
-      components: ExamItemConfigSchema,
-    })
-  ),
+  telemed: ExamTypeInstanceSchema,
+  inPerson: ExamTypeInstanceSchema,
 });
 
 export type ExamSchema = z.infer<typeof ExamConfigTypeSchema>;

@@ -1,14 +1,9 @@
 import { Box, Stack, Typography } from '@mui/material';
 import React from 'react';
-import {
-  AccordionCard,
-  DoubleColumnContainer,
-  useAppointmentData,
-  useChartData,
-  useGetAppointmentAccessibility,
-} from '../../../telemed';
+import { FEATURE_FLAGS } from '../../../constants/feature-flags';
+import { AccordionCard, DoubleColumnContainer, useAppointmentData, useChartData } from '../../../telemed';
 import { PageTitle } from '../../../telemed/components/PageTitle';
-import { ChiefComplaintCard } from '../../../telemed/features/appointment';
+import { ApplyTemplate, ChiefComplaintCard } from '../../../telemed/features/appointment';
 import {
   AddendumCard,
   DischargeButton,
@@ -16,6 +11,7 @@ import {
   MissingCard,
   ReviewAndSignButton,
   SendFaxButton,
+  UnlockAppointmentButton,
 } from '../../../telemed/features/appointment/ReviewTab';
 import { CSSLoader } from '../components/CSSLoader';
 import { PatientInformationContainer } from '../components/progress-note/PatientInformationContainer';
@@ -35,12 +31,12 @@ export const ProgressNote: React.FC<PatientInfoProps> = () => {
     resources: { appointment, patient },
     isAppointmentLoading,
     appointmentError,
+    refetch,
   } = useAppointmentData();
 
   const { isChartDataLoading, chartDataError } = useChartData();
   const isLoading = isAppointmentLoading || isChartDataLoading;
   const error = chartDataError || appointmentError;
-  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const { css } = useFeatureFlags();
 
   if (isLoading || isChartDataLoading) return <CSSLoader />;
@@ -65,24 +61,29 @@ export const ProgressNote: React.FC<PatientInfoProps> = () => {
         <IntakeNotes />
       </AccordionCard>
 
+      {FEATURE_FLAGS.GLOBAL_TEMPLATES_ENABLED && (
+        <AccordionCard label="Apply Template">
+          <ApplyTemplate />
+        </AccordionCard>
+      )}
+
       <ChiefComplaintCard />
 
       <ProgressNoteDetails />
 
       <AddendumCard />
 
-      {!isReadOnly && (
-        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <SendFaxButton appointment={appointmentResource} encounter={encounter} css={css} />
-            <DischargeSummaryButton appointmentId={appointment?.id} patientId={patient?.id} />
-          </Box>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <DischargeButton />
-            <ReviewAndSignButton />
-          </Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <SendFaxButton appointment={appointmentResource} encounter={encounter} css={css} />
+          <DischargeSummaryButton appointmentId={appointment?.id} patientId={patient?.id} />
         </Box>
-      )}
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <DischargeButton />
+          <ReviewAndSignButton onSigned={refetch} />
+          <UnlockAppointmentButton />
+        </Box>
+      </Box>
     </Stack>
   );
 };

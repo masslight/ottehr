@@ -14,7 +14,7 @@ import { ButtonRounded } from 'src/features/css-module/components/RoundedButton'
 import { useAdministerImmunizationOrder, useGetVaccines } from 'src/features/css-module/hooks/useImmunization';
 import { cleanupProperties } from 'src/helpers/misc.helper';
 import { ROUTE_OPTIONS, UNIT_OPTIONS } from 'src/shared/utils';
-import { useAppointmentData } from 'src/telemed';
+import { useAppointmentData, useGetAppointmentAccessibility } from 'src/telemed';
 import { EMERGENCY_CONTACT_RELATIONSHIPS, ImmunizationOrder, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { ADMINISTERED, AdministrationType, NOT_ADMINISTERED, PARTLY_ADMINISTERED } from '../common';
 import { AdministrationConfirmationDialog } from './AdministrationConfirmationDialog';
@@ -50,6 +50,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
   const theme = useTheme();
   const [showAdministrationConfirmationDialog, setShowAdministrationConfirmationDialog] = useState<boolean>(false);
   const administrationTypeRef = useRef<AdministrationType>(ADMINISTERED);
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const { id: appointmentId } = useParams();
   const { mappedData } = useAppointmentData(appointmentId);
@@ -102,10 +103,14 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                 </Typography>
               </Grid>
               <Grid xs={3} item>
-                <TextInput name="administrationDetails.lot" label="LOT number" required />
+                <TextInput name="administrationDetails.lot" label="LOT number" validate={requiredForAdministration} />
               </Grid>
               <Grid xs={3} item>
-                <DateInput name="administrationDetails.expDate" label="Exp. Date" required />
+                <DateInput
+                  name="administrationDetails.expDate"
+                  label="Exp. Date"
+                  validate={requiredForAdministration}
+                />
               </Grid>
               <Grid xs={3} item>
                 <TextInput name="administrationDetails.mvx" label="MVX code" required />
@@ -198,6 +203,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                       color="primary"
                       size="large"
                       onClick={async () => onAdministrationActionClick(NOT_ADMINISTERED)}
+                      disabled={isReadOnly}
                     >
                       Not Administered
                     </ButtonRounded>
@@ -206,6 +212,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                       color="primary"
                       size="large"
                       onClick={async () => onAdministrationActionClick(PARTLY_ADMINISTERED)}
+                      disabled={isReadOnly}
                     >
                       Partly Administered
                     </ButtonRounded>
@@ -214,6 +221,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
                       color="primary"
                       size="large"
                       onClick={async () => onAdministrationActionClick(ADMINISTERED)}
+                      disabled={isReadOnly}
                     >
                       Administered
                     </ButtonRounded>

@@ -2,6 +2,7 @@ import Oystehr, { BatchInputPostRequest, FhirSearchParams, SearchParam } from '@
 import { Operation } from 'fast-json-patch';
 import {
   Account,
+  Address,
   Appointment,
   Bundle,
   CodeableConcept,
@@ -38,6 +39,7 @@ import {
   addOperation,
   findExistingListByDocumentTypeCode,
   getPatchOperationsForNewMetaTags,
+  getPatchOperationToRemoveMetaTags,
   LAB_RESULT_DOC_REF_CODING_CODE,
   PatientMasterRecordResourceType,
   replaceOperation,
@@ -53,11 +55,14 @@ import {
   PractitionerLicense,
   PractitionerQualificationCode,
   PROJECT_WEBSITE,
+  ScheduleOwnerFhirResource,
   ServiceMode,
   VisitType,
 } from '../types';
 import {
   ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE,
+  APPOINTMENT_LOCKED_META_TAG,
+  APPOINTMENT_LOCKED_META_TAG_SYSTEM,
   COVERAGE_MEMBER_IDENTIFIER_BASE,
   FHIR_EXTENSION,
   FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
@@ -678,6 +683,27 @@ export const getLocationIdFromAppointment = (appointment: Appointment): string |
   return appointment.participant
     .find((appointment) => appointment.actor?.reference?.startsWith('Location/'))
     ?.actor?.reference?.replace('Location/', '');
+};
+
+// Helper functions for appointment locking meta tags
+export const isAppointmentLocked = (appointment: Appointment): boolean => {
+  return (
+    appointment.meta?.tag?.some(
+      (tag) => tag.system === APPOINTMENT_LOCKED_META_TAG_SYSTEM && tag.code === APPOINTMENT_LOCKED_META_TAG.code
+    ) ?? false
+  );
+};
+
+export const getAppointmentLockMetaTagOperations = (appointment: Appointment, isLocked: boolean): Operation[] => {
+  const lockedTag = APPOINTMENT_LOCKED_META_TAG;
+
+  if (isLocked) {
+    // Add the locked tag if it doesn't exist
+    return getPatchOperationsForNewMetaTags(appointment, [lockedTag]);
+  } else {
+    // Remove the locked tag if it exists
+    return [getPatchOperationToRemoveMetaTags(appointment, [lockedTag])];
+  }
 };
 
 export const getAbbreviationFromLocation = (location: Location): string | undefined => {
@@ -1410,6 +1436,55 @@ export function getCoding(
   return undefined;
 }
 
+export const getAddressString = (addressResource: Address | undefined): string => {
+  if (!addressResource) {
+    return '';
+  }
+  const { line, city, state, postalCode } = addressResource;
+
+  let address = '';
+  if (line?.[0]) {
+    address += line?.[0];
+    if (line?.[1]) {
+      address += `, ${line?.[1]}`;
+    }
+  }
+  if (city) {
+    if (address.length > 0) {
+      address += ', ';
+    }
+    address += city;
+  }
+  if (state) {
+    if (address.length > 0) {
+      address += ', ';
+    }
+    address += state;
+  }
+  if (postalCode) {
+    if (address.length > 0) {
+      address += ' ';
+    }
+    address += postalCode;
+  }
+  return address;
+};
+
+export const getAddressStringForScheduleResource = (
+  scheduleResource: ScheduleOwnerFhirResource | undefined
+): string | undefined => {
+  if (!scheduleResource) {
+    return undefined;
+  }
+  let address: string | undefined;
+  if (scheduleResource.resourceType === 'Location') {
+    address = getAddressString(scheduleResource.address);
+  } else if (scheduleResource.resourceType === 'Practitioner') {
+    address = getAddressString(scheduleResource.address?.[0]);
+  }
+  console.log('getAddressStringForScheduleResource', scheduleResource.resourceType, address);
+  return address;
+};
 export function getExtension(resource: DomainResource, url: string): Extension | undefined {
   return resource.extension?.find((extension) => extension.url === url);
 }

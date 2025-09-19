@@ -2,8 +2,9 @@ import { sentryEsbuildPlugin } from '@sentry/esbuild-plugin';
 import archiver from 'archiver';
 import * as esbuild from 'esbuild';
 import { copy } from 'esbuild-plugin-copy';
+import { type Options } from 'execa';
 import fs from 'fs';
-import ottehrSpec from '../../config/ottehr-spec.json';
+import ottehrSpec from '../../config/oystehr/ottehr-spec.json';
 
 interface ZambdaSpec {
   name: string;
@@ -47,7 +48,15 @@ const build = async (
           authToken: process.env.SENTRY_AUTH_TOKEN,
           org: process.env.SENTRY_ORG,
           project: process.env.SENTRY_PROJECT,
-          // debug: true,
+          sourcemaps: {
+            // if enabled, creates unstable js builds, so we will add debug IDs using CLI
+            // see this issue for more information https://github.com/getsentry/sentry-javascript-bundler-plugins/issues/500
+            disable: true,
+          },
+          release: {
+            // if enabled, creates unstable js builds, so we will create releases using CLI
+            inject: false,
+          },
         }),
       ],
     })
@@ -55,6 +64,31 @@ const build = async (
       console.log(error);
       process.exit(1);
     });
+};
+
+const injectSourceMaps = async (): Promise<void> => {
+  if (!process.env.SENTRY_ORG || !process.env.SENTRY_PROJECT || !process.env.SENTRY_AUTH_TOKEN) {
+    console.warn('Sentry environment variables are not set');
+    return;
+  }
+  // dynamic import because this library is pure ESM
+  const { $ } = await import('execa');
+  const sentryEnv = {
+    SENTRY_ORG: process.env.SENTRY_ORG,
+    SENTRY_PROJECT: process.env.SENTRY_PROJECT,
+    SENTRY_AUTH_TOKEN: process.env.SENTRY_AUTH_TOKEN,
+  };
+  const shellConfig: Options = {
+    env: sentryEnv,
+    stdio: 'inherit',
+    preferLocal: true,
+  };
+  const revParse = await $`git rev-parse --verify HEAD`;
+  const releaseName = revParse.stdout;
+  await $(shellConfig)`sentry-cli releases new ${releaseName}`;
+  await $(shellConfig)`sentry-cli sourcemaps inject .dist --quiet --log-level error`;
+  await $(shellConfig)`sentry-cli sourcemaps upload --strict --release ${releaseName} .dist`;
+  await $(shellConfig)`sentry-cli releases finalize ${releaseName}`;
 };
 
 const zipZambda = async (
@@ -68,8 +102,8 @@ const zipZambda = async (
 
   return new Promise((resolve, reject) => {
     let result = archive;
-    result = result.file(sourceFilePath, { name: 'index.js' });
-    result = result.directory(assetsDir, assetsPath);
+    result = result.file(sourceFilePath, { name: 'index.js', date: new Date('2025-01-01') });
+    result = result.directory(assetsDir, assetsPath, { date: new Date('2025-01-01') });
     result.on('error', (err) => reject(err)).pipe(stream);
 
     stream.on('close', () => resolve());
@@ -93,9 +127,11 @@ const zip = async (zambdas: ZambdaSpec[], assetsDir: string, assetsPath: string)
 
 const main = async (): Promise<void> => {
   console.log('Starting to bundle and zip Zambdas...');
+  const { $ } = await import('execa');
+  await $({ stdio: 'inherit' })`rm -rf ./.dist`;
   const zambdas = zambdasList();
   console.log('Bundling...');
-
+  console.time('Bundle time');
   const icd10SearchZambda = zambdas.filter((zambda) => zambda.name === 'icd-10-search');
   const icd10AssetDir = '.dist/icd-10-cm-tabular';
   await build(icd10SearchZambda, ['icd-10-cm-tabular/*'], [icd10AssetDir], '.dist/ehr/icd-10-search');
@@ -103,6 +139,10 @@ const main = async (): Promise<void> => {
   const assetsDir = '.dist/assets';
   await build(mostZambdas, ['assets/*'], [assetsDir], '.dist');
   console.timeEnd('Bundle time');
+  console.log('Source maps...');
+  console.time('Source maps time');
+  await injectSourceMaps();
+  console.timeEnd('Source maps time');
   console.log('Zipping...');
   console.time('Zip time');
   await zip(icd10SearchZambda, icd10AssetDir, 'icd-10-cm-tabular');

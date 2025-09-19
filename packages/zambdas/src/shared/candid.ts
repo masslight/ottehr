@@ -317,9 +317,9 @@ async function candidCreateEncounterRequest(
     }
   }
 
+  // Note: dateOfService field must not be provided as service line date of service is already sent
   return {
     externalId: EncounterExternalId(assertDefined(encounter.id, 'Encounter.id')),
-    dateOfService: dateOfServiceString,
     billableStatus: BillableStatusType.Billable,
     responsibleParty: insuranceResources != null ? ResponsiblePartyType.InsurancePay : ResponsiblePartyType.SelfPay,
     benefitsAssignedToProvider: true,
@@ -383,10 +383,12 @@ async function candidCreateEncounterRequest(
           quantity: Decimal('1'),
           units: ServiceLineUnits.Un,
           diagnosisPointers: [primaryDiagnosisIndex],
-          dateOfService: assertDefined(
-            DateTime.fromISO(assertDefined(procedure.meta?.lastUpdated, 'Procedure date')).toISODate(),
-            'Service line date'
-          ),
+          dateOfService:
+            dateOfServiceString ||
+            assertDefined(
+              DateTime.fromISO(assertDefined(input.appointment.start, 'Appointment start')).toISODate(),
+              'Service line date'
+            ),
         },
       ];
     }),
@@ -1185,6 +1187,18 @@ async function candidCreateEncounterFromAppointmentRequest(
     throw new Error(`Candid appointment ID is not defined for appointment ${appointment.id}`);
   }
 
+  // Use appointment start time for date of service instead of signed date
+  const appointmentStart = appointment.start;
+  let dateOfServiceString: string | undefined;
+
+  if (appointmentStart) {
+    const dateOfService = DateTime.fromISO(appointmentStart);
+    if (dateOfService.isValid) {
+      dateOfServiceString = dateOfService.toISODate();
+    }
+  }
+
+  // Note: dateOfService field must not be provided as service line date of service is already sent
   return {
     externalId: EncounterExternalId(assertDefined(encounter.id, 'Encounter.id')),
     preEncounterPatientId: PreEncounterPatientId(candidPatient.id),
@@ -1238,10 +1252,12 @@ async function candidCreateEncounterFromAppointmentRequest(
           quantity: Decimal('1'),
           units: ServiceLineUnits.Un,
           diagnosisPointers: [primaryDiagnosisIndex],
-          dateOfService: assertDefined(
-            DateTime.fromISO(assertDefined(procedure.meta?.lastUpdated, 'Procedure date')).toISODate(),
-            'Service line date'
-          ),
+          dateOfService:
+            dateOfServiceString ||
+            assertDefined(
+              DateTime.fromISO(assertDefined(appointment.start, 'Appointment start')).toISODate(),
+              'Service line date'
+            ),
         },
       ];
     }),

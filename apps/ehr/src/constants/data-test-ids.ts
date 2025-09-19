@@ -343,6 +343,7 @@ export const dataTestIds = {
   },
   progressNotePage: {
     reviewAndSignButton: 'review-and-sign-button',
+    unlockAppointmentButton: 'unlock-appointment-button',
     dischargeButton: 'discharge-button',
     sendFaxButton: 'send-fax-button',
     dischargeSummaryButton: 'discharge-summary-button',
@@ -353,6 +354,7 @@ export const dataTestIds = {
     medicalDecisionLink: 'medical-decision-link',
     emCodeLink: 'em-code-link',
     visitNoteCard: 'visit-note-card',
+    labsTitle: (labType: string) => `title-${labType.toLowerCase().replace(/\s+/g, '-')}`,
   },
   assessmentCard: {
     emCodeDropdown: 'em-code-dropdown',
@@ -424,5 +426,42 @@ export const dataTestIds = {
     relationship: 'add-insurance-dialog-relationship',
     additionalInformation: 'add-insurance-dialog-additional-information',
     addInsuranceButton: 'add-insurance-dialog-add-insurance-button',
+  },
+  inHouseLabsPage: {
+    title: 'in-house-labs-title',
+    orderButton: 'order-button',
+    deleteButton: 'delete-button',
+  },
+  orderInHouseLabPage: {
+    title: 'order-in-house-labs-title',
+    orderInHouseLabButton: 'order-in-house-lab-button',
+    orderAndPrintLabelButton: 'order-and-print-label-button',
+    testTypeField: 'test-type',
+    CPTCodeField: 'cpt-code',
+    diagnosis: 'diagnosis',
+    additionalDx: 'additionalDx',
+    notes: 'in-house-labs-notes',
+  },
+  collectSamplePage: {
+    testName: 'test-name',
+    status: 'order-status',
+    source: 'source',
+    collectedBy: 'collected-by',
+    collectionDate: 'collection-date',
+    collectionTime: 'collection-time',
+    markCollectedButton: 'mark-collected-button',
+  },
+  performTestPage: {
+    title: 'page-title',
+    testName: 'test-name',
+    status: 'order-status',
+    testResult: (result: string) => `test-result-${result.toLowerCase().replace(/\s+/g, '-')}`,
+    submitButton: 'submit-button',
+  },
+  finalResultPage: {
+    testName: 'test-name',
+    dateAndStatus: 'order-date-status',
+    resultsPDF: 'results-pdf',
+    diagnose: 'diagnose',
   },
 };
