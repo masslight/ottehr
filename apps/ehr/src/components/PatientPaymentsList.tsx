@@ -19,7 +19,7 @@ import {
 import { useMutation } from '@tanstack/react-query';
 import { Encounter, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { Fragment, ReactElement, useEffect, useMemo, useState } from 'react';
+import { Fragment, ReactElement, useEffect, useState } from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useGetEncounter } from 'src/hooks/useEncounter';
 import { useGetPatientPaymentsList } from 'src/hooks/useGetPatientPaymentsList';
@@ -60,6 +60,9 @@ export default function PatientPaymentList({
   const { oystehr } = useApiClients();
   const theme = useTheme();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [paymentVariant, setPaymentVariant] = useState(
+    patientSelectSelfPay ? PaymentVariant.selfPay : PaymentVariant.insurance
+  );
   const {
     data: encounter,
     refetch: refetchEncounter,
@@ -149,10 +152,11 @@ export default function PatientPaymentList({
   });
 
   useEffect(() => {
-    // if encounter does not have payment variant extension, adding default value from patient selection
     if (encounter && !isEncounterRefetching) {
-      const paymentVariant = getPaymentVariantFromEncounter(encounter);
-      if (paymentVariant === undefined) {
+      const variant = getPaymentVariantFromEncounter(encounter);
+      if (variant) setPaymentVariant(variant);
+      else if (variant === undefined) {
+        // encounter must have payment option ext from harvest module, but if it doesn't, set it to patient selected
         updateEncounter.mutate(
           updateEncounterPaymentVariantExtension(
             encounter,
@@ -162,13 +166,6 @@ export default function PatientPaymentList({
       }
     }
   }, [encounter, isEncounterRefetching, patientSelectSelfPay, updateEncounter]);
-
-  const selfPayRadioButtonValue = useMemo(() => {
-    if (encounter && !isEncounterRefetching) {
-      return getPaymentVariantFromEncounter(encounter);
-    }
-    return '' as PaymentVariant;
-  }, [encounter, isEncounterRefetching]);
 
   const errorMessage = (() => {
     const networkError = createNewPayment.error;
@@ -194,11 +191,11 @@ export default function PatientPaymentList({
       <RadioGroup
         row
         name="options"
-        value={selfPayRadioButtonValue}
+        value={paymentVariant}
         onChange={async (e) => {
           if (encounter) {
+            setPaymentVariant(e.target.value as PaymentVariant);
             updateEncounter.mutate(updateEncounterPaymentVariantExtension(encounter, e.target.value as PaymentVariant));
-            await refetchEncounter();
           }
         }}
         sx={{ mt: 2 }}
