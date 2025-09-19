@@ -55,7 +55,7 @@ export const PatientSummaryTable = (): ReactElement => {
             const serviceType = summmary?.identifier?.find((i: any) => i.system === 'service-type')?.value || '-';
             const interactive =
               summmary?.identifier?.find((i: any) => i.system === 'interactive-communication')?.value || '-';
-            const name = summmary?.identifier?.find((i: any) => i.system === 'practitioner-name')?.value || '-';
+            const name = summmary?.practitionerName || '-';
 
             return {
               id: summmary.id,

@@ -1,6 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Encounter, Practitioner } from 'fhir/r4b';
-import { getFirstName, getLastName } from 'utils';
+import { Encounter } from 'fhir/r4b';
 import { createOystehrClient, getAuth0Token, getUser, lambdaResponse, wrapHandler, ZambdaInput } from '../../shared';
 
 let oystehrToken: string;
@@ -31,14 +30,6 @@ export const index = wrapHandler('get-create-timer', async (input: ZambdaInput):
     const oystehr = createOystehrClient(oystehrToken, secrets);
     const userToken = input.headers.Authorization?.replace('Bearer ', '');
     const user = userToken && (await getUser(userToken, input.secrets));
-
-    const practitioner = await oystehr.fhir.get<Practitioner>({
-      resourceType: 'Practitioner',
-      id: user.profile.replace('Practitioner/', ''),
-    });
-    const firstName = getFirstName(practitioner);
-    const lastName = getLastName(practitioner);
-    console.log('practitioner :', practitioner, firstName, lastName);
 
     const encounterResults = (
       await oystehr.fhir.search<Encounter>({
@@ -103,12 +94,6 @@ export const index = wrapHandler('get-create-timer', async (input: ZambdaInput):
         period: {
           start: new Date().toISOString(),
         },
-        identifier: [
-          {
-            system: 'practitioner-name',
-            value: `${lastName}, ${firstName}`,
-          },
-        ],
         statusHistory: [
           {
             status: 'in-progress',

@@ -1,4 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Practitioner } from 'fhir/r4b';
+import { getFirstName, getLastName } from 'utils';
 import { createOystehrClient, getAuth0Token, lambdaResponse, wrapHandler, ZambdaInput } from '../../shared';
 
 let oystehrToken: string;
@@ -16,7 +18,7 @@ export const index = wrapHandler('get-summary', async (input: ZambdaInput): Prom
       throw new Error('Invalid request body format');
     }
 
-    const { patientId, page = 1, pageSize = 5 } = requestBody;
+    const { patientId, count, offset } = requestBody;
 
     if (!patientId) {
       throw new Error('Missing required parameters: patientId');
@@ -27,7 +29,6 @@ export const index = wrapHandler('get-summary', async (input: ZambdaInput): Prom
       oystehrToken = await getAuth0Token(secrets);
     }
     const oystehr = createOystehrClient(oystehrToken, secrets);
-    const offset = (page - 1) * pageSize;
 
     const searchResult = await oystehr.fhir.search({
       resourceType: 'Encounter',
@@ -37,17 +38,38 @@ export const index = wrapHandler('get-summary', async (input: ZambdaInput): Prom
         { name: '_total', value: 'accurate' },
         { name: 'class', value: 'OBSENC' },
         { name: 'status', value: 'finished' },
-        { name: '_count', value: String(pageSize) },
+        { name: '_count', value: String(count) },
         { name: '_offset', value: String(offset) },
       ],
     });
 
-    const summaries = searchResult.unbundle() as any;
+    const tempArr: any[] = [];
+    const summaries = searchResult.unbundle() as any[];
     console.log('summaries :', JSON.stringify(summaries, null, 2));
+
+    for (const summary of summaries) {
+      const practitionerId = summary?.participant?.[0]?.individual?.reference?.replace('Practitioner/', '');
+
+      let fullName = '';
+      if (practitionerId) {
+        const practitioner = await oystehr.fhir.get<Practitioner>({
+          resourceType: 'Practitioner',
+          id: practitionerId,
+        });
+        const firstName = getFirstName(practitioner);
+        const lastName = getLastName(practitioner);
+        fullName = `${firstName}, ${lastName}`;
+      }
+
+      tempArr.push({
+        ...summary,
+        practitionerName: fullName,
+      });
+    }
 
     return lambdaResponse(200, {
       message: `Successfully retrieved summary`,
-      summaries: summaries,
+      summaries: tempArr,
       total: Number(searchResult.total),
     });
   } catch (error: any) {
