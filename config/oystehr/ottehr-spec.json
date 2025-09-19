@@ -165,6 +165,14 @@
       "name": "ANTHROPIC_API_KEY",
       "value": "#{var/ANTHROPIC_API_KEY}"
     },
+    "GOOGLE_CLOUD_PROJECT_ID": {
+      "name": "GOOGLE_CLOUD_PROJECT_ID",
+      "value": "#{var/GOOGLE_CLOUD_PROJECT_ID}"
+    },
+    "GOOGLE_CLOUD_API_KEY": {
+      "name": "GOOGLE_CLOUD_API_KEY",
+      "value": "#{var/GOOGLE_CLOUD_API_KEY}"
+    },
     "ADVAPACS_CLIENT_ID": {
       "name": "ADVAPACS_CLIENT_ID",
       "value": "#{var/ADVAPACS_CLIENT_ID}"
@@ -252,6 +260,13 @@
       "runtime": "nodejs20.x",
       "src": "src/ehr/sign-appointment/index",
       "zip": ".dist/zips/sign-appointment.zip"
+    },
+    "UNLOCK-APPOINTMENT": {
+      "name": "unlock-appointment",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/unlock-appointment/index",
+      "zip": ".dist/zips/unlock-appointment.zip"
     },
     "PENDING-SUPERVISOR-APPROVAL": {
       "name": "pending-supervisor-approval",
@@ -392,6 +407,20 @@
       "runtime": "nodejs20.x",
       "src": "src/ehr/get-medication-orders/index",
       "zip": ".dist/zips/get-medication-orders.zip"
+    },
+    "CREATE-UPLOAD-AUDIO-RECORDING-URL": {
+      "name": "upload-audio-recording",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/upload-audio-recording/index",
+      "zip": ".dist/zips/upload-audio-recording.zip"
+    },
+    "CREATE-RESOURCES-FROM-AUDIO-RECORDING": {
+      "name": "create-resources-from-audio-recording",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/create-resources-from-audio-recording/index",
+      "zip": ".dist/zips/create-resources-from-audio-recording.zip"
     },
     "CREATE-UPLOAD-DOCUMENT-URL": {
       "name": "create-upload-document-url",
@@ -942,6 +971,7 @@
       "name": "ai-interview-summary",
       "type": "subscription",
       "runtime": "nodejs20.x",
+      "timeout": "300",
       "src": "src/subscriptions/questionnaire-response/ai-interview-summary/index",
       "zip": ".dist/zips/ai-interview-summary.zip",
       "subscription": {

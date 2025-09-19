@@ -85,7 +85,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
           if (!res.ok) {
             const body = await res.json();
-            throw new Error(`Error submitting order number: ${orderNumber}. Error: ${body.message}`);
+            throw new Error(`Error submitting requisition number: ${orderNumber}. Error: ${body.message}`);
           }
 
           const result = await res.json();
