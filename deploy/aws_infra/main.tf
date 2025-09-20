@@ -52,11 +52,18 @@ resource "aws_s3_bucket_acl" "ehr_acl" {
 ##### EHR CloudFront Distribution #####
 
 resource "aws_cloudfront_distribution" "ehr_cf" {
-  enabled = true
-  comment = "ottehr-ehr-${var.project_id}"
+  enabled      = true
+  comment      = "ottehr-ehr-${var.project_id}"
+  http_version = "http2"
   origin {
-    domain_name = aws_s3_bucket.ehr_bucket.bucket_regional_domain_name
+    domain_name = aws_s3_bucket.ehr_bucket.website_endpoint
     origin_id   = "ottehr-ehr-${var.project_id}"
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "http-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
   }
   aliases = var.ehr_domain == null ? [] : [var.ehr_domain]
   default_cache_behavior {
@@ -130,8 +137,14 @@ resource "aws_cloudfront_distribution" "patient_portal_cf" {
   enabled = true
   comment = "ottehr-patient-portal-${var.project_id}"
   origin {
-    domain_name = aws_s3_bucket.patient_portal_bucket.bucket_regional_domain_name
+    domain_name = aws_s3_bucket.patient_portal_bucket.website_endpoint
     origin_id   = "ottehr-patient-portal-${var.project_id}"
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "http-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
   }
   aliases = var.patient_portal_domain == null ? [] : [var.patient_portal_domain]
   default_cache_behavior {
