@@ -109,7 +109,11 @@ export class Schema20250319 implements Schema<Spec20250319> {
         console.log('Warning: could not resolve reference', fullMatch);
       }
     }
-    await fs.writeFile(outputsOutFile, JSON.stringify(outputDirectives, null, 2));
+    if (Object.keys(outputDirectives.output).length) {
+      await fs.writeFile(outputsOutFile, JSON.stringify(outputDirectives, null, 2));
+    } else {
+      await fs.rm(outputsOutFile, { force: true });
+    }
 
     // Write out resources
     const projectOutFile = path.join(this.outputPath, 'project.tf.json');
@@ -125,7 +129,11 @@ export class Schema20250319 implements Schema<Spec20250319> {
         default_patient_role_id: this.getValue(projects[0][1].defaultPatientRoleId, resources),
       };
     }
-    await fs.writeFile(projectOutFile, JSON.stringify(projectResources, null, 2));
+    if (Object.keys(projectResources.resource.oystehr_project_configuration).length) {
+      await fs.writeFile(projectOutFile, JSON.stringify(projectResources, null, 2));
+    } else {
+      await fs.rm(projectOutFile, { force: true });
+    }
 
     const appOutFile = path.join(this.outputPath, 'apps.tf.json');
     const appResources: { resource: { oystehr_application: { [key: string]: any } } } = {
@@ -154,7 +162,11 @@ export class Schema20250319 implements Schema<Spec20250319> {
         appResources.resource.oystehr_application[appName].depends_on = [`oystehr_project_configuration.${projects[0][0]}`];
       }
     }
-    await fs.writeFile(appOutFile, JSON.stringify(appResources, null, 2));
+    if (Object.keys(appResources.resource.oystehr_application).length) {
+      await fs.writeFile(appOutFile, JSON.stringify(appResources, null, 2));
+    } else {
+      await fs.rm(appOutFile, { force: true });
+    }
 
     const bucketOutFile = path.join(this.outputPath, 'buckets.tf.json');
     const bucketResources: { resource: { oystehr_z3_bucket: { [key: string]: any } } } = {
@@ -165,7 +177,11 @@ export class Schema20250319 implements Schema<Spec20250319> {
         name: this.getValue(bucket.name, resources),
       };
     }
-    await fs.writeFile(bucketOutFile, JSON.stringify(bucketResources, null, 2));
+    if (Object.keys(bucketResources.resource.oystehr_z3_bucket).length) {
+      await fs.writeFile(bucketOutFile, JSON.stringify(bucketResources, null, 2));
+    } else {
+      await fs.rm(bucketOutFile, { force: true });
+    }
 
     const fhirOutFile = path.join(this.outputPath, 'fhir-resources.tf.json');
     const fhirResources: { resource: { oystehr_fhir_resource: { [key: string]: any } } } = {
@@ -181,7 +197,11 @@ export class Schema20250319 implements Schema<Spec20250319> {
         managed_fields: managedFields,
       };
     }
-    await fs.writeFile(fhirOutFile, JSON.stringify(fhirResources, null, 2));
+    if (Object.keys(fhirResources.resource.oystehr_fhir_resource).length) {
+      await fs.writeFile(fhirOutFile, JSON.stringify(fhirResources, null, 2));
+    } else {
+      await fs.rm(fhirOutFile, { force: true });
+    }
 
     const labRoutesOutFile = path.join(this.outputPath, 'lab-routes.tf.json');
     const labRoutesResources: { resource: { oystehr_lab_route: { [key: string]: any } } } = {
@@ -193,7 +213,11 @@ export class Schema20250319 implements Schema<Spec20250319> {
         lab_id: this.getValue(route.labId, resources),
       };
     }
-    await fs.writeFile(labRoutesOutFile, JSON.stringify(labRoutesResources, null, 2));
+    if (Object.keys(labRoutesResources.resource.oystehr_lab_route).length) {
+      await fs.writeFile(labRoutesOutFile, JSON.stringify(labRoutesResources, null, 2));
+    } else {
+      await fs.rm(labRoutesOutFile, { force: true });
+    }
 
     const m2msOutFile = path.join(this.outputPath, 'm2ms.tf.json');
     const m2mResources: { resource: { oystehr_m2m: { [key: string]: any } } } = {
@@ -210,7 +234,11 @@ export class Schema20250319 implements Schema<Spec20250319> {
         jwks_url: this.getValue(m2m.jwksUrl, resources),
       };
     }
-    await fs.writeFile(m2msOutFile, JSON.stringify(m2mResources, null, 2));
+    if (Object.keys(m2mResources.resource.oystehr_m2m).length) {
+      await fs.writeFile(m2msOutFile, JSON.stringify(m2mResources, null, 2));
+    } else {
+      await fs.rm(m2msOutFile, { force: true });
+    }
 
     const rolesOutFile = path.join(this.outputPath, 'roles.tf.json');
     const roleResources: { resource: { oystehr_role: { [key: string]: any } } } = {
@@ -225,7 +253,11 @@ export class Schema20250319 implements Schema<Spec20250319> {
         },
       };
     }
-    await fs.writeFile(rolesOutFile, JSON.stringify(roleResources, null, 2));
+    if (Object.keys(roleResources.resource.oystehr_role).length) {
+      await fs.writeFile(rolesOutFile, JSON.stringify(roleResources, null, 2));
+    } else {
+      await fs.rm(rolesOutFile, { force: true });
+    }
 
     const secretsOutFile = path.join(this.outputPath, 'secrets.tf.json');
     const secretResources: { resource: { oystehr_secret: { [key: string]: any } } } = {
@@ -237,7 +269,11 @@ export class Schema20250319 implements Schema<Spec20250319> {
         value: this.getValue(secret.value, resources),
       };
     }
-    await fs.writeFile(secretsOutFile, JSON.stringify(secretResources, null, 2));
+    if (Object.keys(secretResources.resource.oystehr_secret).length) {
+      await fs.writeFile(secretsOutFile, JSON.stringify(secretResources, null, 2));
+    } else {
+      await fs.rm(secretsOutFile, { force: true });
+    }
 
     const zambdasOutFile = path.join(this.outputPath, 'zambdas.tf.json');
     const zambdaResources: { resource: { oystehr_zambda: { [key: string]: any } } } = {
@@ -254,7 +290,11 @@ export class Schema20250319 implements Schema<Spec20250319> {
         source: path.join(this.zambdasDirPath, this.getValue(zambda.zip, resources)),
       };
     }
-    await fs.writeFile(zambdasOutFile, JSON.stringify(zambdaResources, null, 2));
+    if (Object.keys(zambdaResources.resource.oystehr_zambda).length) {
+      await fs.writeFile(zambdasOutFile, JSON.stringify(zambdaResources, null, 2));
+    } else {
+      await fs.rm(zambdasOutFile, { force: true });
+    }
   }
 
   getValue(value: any, spec: Spec20250319): any {
