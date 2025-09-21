@@ -39,8 +39,16 @@ provider "oystehr" {
   client_secret = var.client_secret
 }
 
+locals {
+  # switch these to test infra deploys in local
+  not_local_env_resource_count = var.environment == "local" ? 0 : 1
+  # not_local_env_resource_count = 1
+  aws_resource_count = var.aws_profile == null ? 0 : local.not_local_env_resource_count
+  gcp_resource_count = var.gcp_project == null ? 0 : local.not_local_env_resource_count
+}
+
 module "aws_infra" {
-  count  = var.aws_profile == null ? 0 : 1
+  count  = local.aws_resource_count
   source = "./aws_infra"
   providers = {
     aws = aws
@@ -51,7 +59,7 @@ module "aws_infra" {
 }
 
 module "gcp_infra" {
-  count  = var.gcp_project == null ? 0 : 1
+  count  = local.gcp_resource_count
   source = "./gcp_infra"
   providers = {
     google = google
@@ -120,7 +128,7 @@ module "ottehr_apps" {
 
 module "aws_apps" {
   depends_on = [module.ottehr_apps, module.aws_infra]
-  count      = var.aws_profile == null ? 0 : 1
+  count      = local.aws_resource_count
   source     = "./aws_apps"
   providers = {
     aws = aws
@@ -135,7 +143,7 @@ module "aws_apps" {
 
 module "gcp_apps" {
   depends_on = [module.ottehr_apps, module.gcp_infra]
-  count      = var.gcp_project == null ? 0 : 1
+  count      = local.gcp_resource_count
   source     = "./gcp_apps"
   providers = {
     google = google
