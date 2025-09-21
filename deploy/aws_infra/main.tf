@@ -26,9 +26,9 @@ resource "aws_s3_bucket_website_configuration" "ehr_website" {
 
 resource "aws_s3_bucket_public_access_block" "ehr_pab" {
   bucket                  = aws_s3_bucket.ehr_bucket.id
-  block_public_acls       = false
+  block_public_acls       = true
   block_public_policy     = false
-  ignore_public_acls      = false
+  ignore_public_acls      = true
   restrict_public_buckets = false
 }
 
@@ -36,27 +36,40 @@ resource "aws_s3_bucket_ownership_controls" "ehr_ownership" {
   bucket = aws_s3_bucket.ehr_bucket.id
 
   rule {
-    object_ownership = "BucketOwnerPreferred"
+    object_ownership = "BucketOwnerEnforced"
   }
 }
 
-resource "aws_s3_bucket_acl" "ehr_acl" {
-  bucket = aws_s3_bucket.ehr_bucket.id
-  depends_on = [
-    aws_s3_bucket_ownership_controls.ehr_ownership,
-    aws_s3_bucket_public_access_block.ehr_pab,
-  ]
-  acl = "public-read"
+data "aws_iam_policy_document" "ehr_policy" {
+  statement {
+    principals {
+      type        = "AWS"
+      identifiers = ["*"]
+    }
+    actions = [
+      "s3:GetObject",
+    ]
+    resources = [
+      "${aws_s3_bucket.ehr_bucket.arn}/*",
+    ]
+  }
+}
+
+resource "aws_s3_bucket_policy" "ehr_bucket_policy" {
+  depends_on = [aws_s3_bucket_public_access_block.ehr_pab]
+  bucket     = aws_s3_bucket.ehr_bucket.id
+  policy     = data.aws_iam_policy_document.ehr_policy.json
 }
 
 ##### EHR CloudFront Distribution #####
 
 resource "aws_cloudfront_distribution" "ehr_cf" {
+  depends_on   = [aws_s3_bucket.ehr_bucket]
   enabled      = true
   comment      = "ottehr-ehr-${var.project_id}"
   http_version = "http2"
   origin {
-    domain_name = aws_s3_bucket.ehr_bucket.website_endpoint
+    domain_name = aws_s3_bucket_website_configuration.ehr_website.website_endpoint
     origin_id   = "ottehr-ehr-${var.project_id}"
     custom_origin_config {
       http_port              = 80
@@ -108,9 +121,9 @@ resource "aws_s3_bucket_website_configuration" "patient_portal_website" {
 
 resource "aws_s3_bucket_public_access_block" "patient_portal_pab" {
   bucket                  = aws_s3_bucket.patient_portal_bucket.id
-  block_public_acls       = false
+  block_public_acls       = true
   block_public_policy     = false
-  ignore_public_acls      = false
+  ignore_public_acls      = true
   restrict_public_buckets = false
 }
 
@@ -122,13 +135,25 @@ resource "aws_s3_bucket_ownership_controls" "patient_portal_ownership" {
   }
 }
 
-resource "aws_s3_bucket_acl" "patient_portal_acl" {
-  bucket = aws_s3_bucket.patient_portal_bucket.id
-  depends_on = [
-    aws_s3_bucket_ownership_controls.patient_portal_ownership,
-    aws_s3_bucket_public_access_block.patient_portal_pab,
-  ]
-  acl = "public-read"
+data "aws_iam_policy_document" "patient_portal_policy" {
+  statement {
+    principals {
+      type        = "AWS"
+      identifiers = ["*"]
+    }
+    actions = [
+      "s3:GetObject",
+    ]
+    resources = [
+      "${aws_s3_bucket.patient_portal_bucket.arn}/*",
+    ]
+  }
+}
+
+resource "aws_s3_bucket_policy" "patient_portal_bucket_policy" {
+  depends_on = [aws_s3_bucket_public_access_block.patient_portal_pab]
+  bucket     = aws_s3_bucket.patient_portal_bucket.id
+  policy     = data.aws_iam_policy_document.patient_portal_policy.json
 }
 
 ##### Patient Portal CloudFront Distribution #####
@@ -137,7 +162,7 @@ resource "aws_cloudfront_distribution" "patient_portal_cf" {
   enabled = true
   comment = "ottehr-patient-portal-${var.project_id}"
   origin {
-    domain_name = aws_s3_bucket.patient_portal_bucket.website_endpoint
+    domain_name = aws_s3_bucket_website_configuration.patient_portal_website.website_endpoint
     origin_id   = "ottehr-patient-portal-${var.project_id}"
     custom_origin_config {
       http_port              = 80
