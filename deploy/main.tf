@@ -69,7 +69,8 @@ module "sendgrid" {
 }
 
 module "oystehr" {
-  source = "./oystehr"
+  depends_on = [module.aws_infra]
+  source     = "./oystehr"
   providers = {
     oystehr = oystehr
   }
@@ -80,6 +81,7 @@ module "oystehr" {
 }
 
 module "ottehr_apps" {
+  depends_on  = [module.oystehr, module.aws_infra]
   source      = "./ottehr_apps"
   environment = var.environment
   ehr_vars = {
@@ -117,8 +119,9 @@ module "ottehr_apps" {
 }
 
 module "aws_apps" {
-  count  = var.aws_profile == null ? 0 : 1
-  source = "./aws_apps"
+  depends_on = [module.ottehr_apps, module.aws_infra]
+  count      = var.aws_profile == null ? 0 : 1
+  source     = "./aws_apps"
   providers = {
     aws = aws
   }
@@ -131,8 +134,9 @@ module "aws_apps" {
 }
 
 module "gcp_apps" {
-  count  = var.gcp_project == null ? 0 : 1
-  source = "./gcp_apps"
+  depends_on = [module.ottehr_apps, module.gcp_infra]
+  count      = var.gcp_project == null ? 0 : 1
+  source     = "./gcp_apps"
   providers = {
     google = google
   }
