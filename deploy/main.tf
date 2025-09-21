@@ -122,8 +122,12 @@ module "aws_apps" {
   providers = {
     aws = aws
   }
-  ehr_bucket_id            = one(module.aws_infra[*].ehr_bucket_id)
-  patient_portal_bucket_id = one(module.aws_infra[*].patient_portal_bucket_id)
+  ehr_bucket_id                             = one(module.aws_infra[*].ehr_bucket_id)
+  ehr_cloudfront_distribution_id            = one(module.aws_infra[*].ehr_cloudfront_distribution_id)
+  patient_portal_bucket_id                  = one(module.aws_infra[*].patient_portal_bucket_id)
+  patient_portal_cloudfront_distribution_id = one(module.aws_infra[*].patient_portal_cloudfront_distribution_id)
+  # TODO: Remove when upgraded to TF 1.14
+  aws_profile = var.aws_profile
 }
 
 module "gcp_apps" {
