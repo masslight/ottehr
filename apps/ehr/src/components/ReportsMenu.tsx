@@ -26,11 +26,11 @@ export function ReportsMenu(): JSX.Element {
           value: 'finished',
         },
         {
-          name: 'date',
+          name: 'appointment.date',
           value: `le${yesterday.toISODate()}`,
         },
         {
-          name: 'date',
+          name: 'appointment.date',
           value: `ge${ninetyDaysAgo.toISODate()}`,
         },
       ],
