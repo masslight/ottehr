@@ -227,8 +227,8 @@ class EmailClient {
       supportPhoneNumber = locationSupportPhoneNumberMap[(templateData as any).location] || defaultSupportPhoneNumber;
     }
 
-    const fromEmail = ENVIRONMENT === 'production' ? sender : defaultLowersFromEmail;
-    const replyTo = ENVIRONMENT === 'production' ? configReplyTo : defaultLowersFromEmail;
+    const fromEmail = ENVIRONMENT !== 'local' ? sender : defaultLowersFromEmail;
+    const replyTo = ENVIRONMENT !== 'local' ? configReplyTo : defaultLowersFromEmail;
 
     const email = {
       ...emailRest,
