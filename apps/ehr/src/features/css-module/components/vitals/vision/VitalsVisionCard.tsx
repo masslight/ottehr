@@ -1,6 +1,7 @@
 import { Box, Checkbox, FormControlLabel, Grid, lighten, Typography, useTheme } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { JSX, useCallback, useState } from 'react';
+import { useGetAppointmentAccessibility } from 'src/telemed';
 import {
   getVisionExtraOptionsFormattedString,
   VitalFieldNames,
@@ -24,6 +25,7 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({
   historyElementSkeletonText,
 }): JSX.Element => {
   const theme = useTheme();
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const [leftEyeSelection, setLeftEyeSelection] = useState<string>('');
   const [rightEyeSelection, setRightEyeSelection] = useState<string>('');
@@ -137,6 +139,26 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({
     }
   }, []);
 
+  const renderRightColumn = (): JSX.Element => {
+    return (
+      <VitalsHistoryContainer
+        historicalObs={historicalObs}
+        currentEncounterObs={currentObs}
+        isLoading={false}
+        historyElementSkeletonText={historyElementSkeletonText}
+        historyElementCreator={(historyEntry) => {
+          const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
+          return (
+            <VitalHistoryElement
+              historyEntry={historyEntry}
+              onDelete={isCurrent && !isReadOnly ? handleDeleteVital : undefined}
+            />
+          );
+        }}
+      />
+    );
+  };
+
   return (
     <Box sx={{ mt: 3 }}>
       <AccordionCard
@@ -144,249 +166,237 @@ const VitalsVisionCard: React.FC<VitalsVisionCardProps> = ({
         collapsed={isCollapsed}
         onSwitch={handleSectionCollapse}
       >
-        <DoubleColumnContainer
-          divider
-          leftColumn={
-            <Grid
-              container
-              sx={{
-                height: 'auto',
-                width: 'auto',
-                backgroundColor: '#F7F8F9',
-                borderRadius: 2,
-                my: 2,
-                mx: 2,
-                py: 2,
-                px: 2,
-              }}
-            >
-              {/* Left eye vision selector */}
-              <Grid item xs={12} sm={3} md={3} lg={3} order={{ xs: 1, sm: 1, md: 1 }}>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'row',
-                    ml: 0,
-                  }}
-                >
-                  <VitalsTextFreeInputField
-                    label="Left eye"
-                    value={leftEyeSelection}
-                    disabled={isSaving}
-                    isInputError={false}
-                    onChange={handleLeftEyeSelectionChange}
-                  />
-                </Box>
-              </Grid>
-
-              {/* Right eye vision selector */}
-              <Grid item xs={12} sm={3} md={3} lg={3} order={{ xs: 2, sm: 2, md: 2, lg: 2 }}>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'row',
-                    ml: 1,
-                  }}
-                >
-                  <VitalsTextFreeInputField
-                    label="Right eye"
-                    value={rightEyeSelection}
-                    disabled={isSaving}
-                    isInputError={false}
-                    onChange={handleRightEyeSelectionChange}
-                  />
-                </Box>
-              </Grid>
-
-              {/* Both eye vision selector */}
+        {isReadOnly ? (
+          renderRightColumn()
+        ) : (
+          <DoubleColumnContainer
+            divider
+            leftColumn={
               <Grid
-                item
-                xs={12}
-                sm={3}
-                md={3}
-                lg={3}
-                order={{ xs: 3, sm: 3, md: 3, lg: 3 }}
-                sx={{ mt: isLargeScreen ? 0 : 0 }}
+                container
+                sx={{
+                  height: 'auto',
+                  width: 'auto',
+                  backgroundColor: '#F7F8F9',
+                  borderRadius: 2,
+                  my: 2,
+                  mx: 2,
+                  py: 2,
+                  px: 2,
+                }}
               >
-                <Box
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'row',
-                    ml: 1,
-                  }}
+                {/* Left eye vision selector */}
+                <Grid item xs={12} sm={3} md={3} lg={3} order={{ xs: 1, sm: 1, md: 1 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexDirection: 'row',
+                      ml: 0,
+                    }}
+                  >
+                    <VitalsTextFreeInputField
+                      label="Left eye"
+                      value={leftEyeSelection}
+                      disabled={isSaving}
+                      isInputError={false}
+                      onChange={handleLeftEyeSelectionChange}
+                    />
+                  </Box>
+                </Grid>
+
+                {/* Right eye vision selector */}
+                <Grid item xs={12} sm={3} md={3} lg={3} order={{ xs: 2, sm: 2, md: 2, lg: 2 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexDirection: 'row',
+                      ml: 1,
+                    }}
+                  >
+                    <VitalsTextFreeInputField
+                      label="Right eye"
+                      value={rightEyeSelection}
+                      disabled={isSaving}
+                      isInputError={false}
+                      onChange={handleRightEyeSelectionChange}
+                    />
+                  </Box>
+                </Grid>
+
+                {/* Both eye vision selector */}
+                <Grid
+                  item
+                  xs={12}
+                  sm={3}
+                  md={3}
+                  lg={3}
+                  order={{ xs: 3, sm: 3, md: 3, lg: 3 }}
+                  sx={{ mt: isLargeScreen ? 0 : 0 }}
                 >
-                  <VitalsTextFreeInputField
-                    label="Both eyes"
-                    value={bothEyesSelection}
-                    disabled={isSaving}
-                    isInputError={false}
-                    onChange={handleBothEyesSelectionChange}
-                  />
-                </Box>
-              </Grid>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexDirection: 'row',
+                      ml: 1,
+                    }}
+                  >
+                    <VitalsTextFreeInputField
+                      label="Both eyes"
+                      value={bothEyesSelection}
+                      disabled={isSaving}
+                      isInputError={false}
+                      onChange={handleBothEyesSelectionChange}
+                    />
+                  </Box>
+                </Grid>
 
-              {/* Add Button column */}
-              <Grid item xs={12} sm={3} md={3} lg={3} order={{ xs: 4, sm: 4, md: 4, lg: 4 }} sx={{ mt: 0 }}>
-                <RoundedButton
-                  disabled={isAddButtonDisabled}
-                  loading={isSaving}
-                  onClick={() => handleSaveVisionObservation(leftEyeSelection, rightEyeSelection)}
-                  color="primary"
-                  sx={{
-                    height: '40px',
-                    px: 2,
-                    ml: 1,
-                  }}
+                {/* Add Button column */}
+                <Grid item xs={12} sm={3} md={3} lg={3} order={{ xs: 4, sm: 4, md: 4, lg: 4 }} sx={{ mt: 0 }}>
+                  <RoundedButton
+                    disabled={isAddButtonDisabled}
+                    loading={isSaving}
+                    onClick={() => handleSaveVisionObservation(leftEyeSelection, rightEyeSelection)}
+                    color="primary"
+                    sx={{
+                      height: '40px',
+                      px: 2,
+                      ml: 1,
+                    }}
+                  >
+                    Add
+                  </RoundedButton>
+                </Grid>
+
+                <Grid
+                  item
+                  xs={12}
+                  sm={12}
+                  md={12}
+                  lg={12}
+                  order={{ xs: 5, sm: 5, md: 5, lg: 5 }}
+                  sx={{ mt: isLargeScreen ? 1 : 1, ml: 1 }}
                 >
-                  Add
-                </RoundedButton>
+                  <Box sx={{ display: 'flex', flexDirection: 'row' }}>
+                    {/* Child too young checkbox option */}
+                    <FormControlLabel
+                      sx={{
+                        backgroundColor: 'transparent',
+                        pr: 0,
+                      }}
+                      control={
+                        <Checkbox
+                          size="small"
+                          sx={{
+                            color: theme.palette.primary.main,
+                            '&.Mui-checked': {
+                              color: theme.palette.primary.main,
+                            },
+                            '&.Mui-disabled': {
+                              color: lighten(theme.palette.primary.main, 0.4),
+                            },
+                          }}
+                          disabled={isCheckboxesDisabled}
+                          checked={isChildTooYoungOptionSelected}
+                          onChange={(e) => handleVisionOptionChanged(e.target.checked, 'child_too_young')}
+                        />
+                      }
+                      label={
+                        <Typography
+                          sx={{
+                            fontSize: '16px',
+                            fontWeight: 500,
+                            color: isCheckboxesDisabled
+                              ? lighten(theme.palette.text.primary, 0.4)
+                              : theme.palette.text.primary,
+                          }}
+                        >
+                          Child too young
+                        </Typography>
+                      }
+                    />
+
+                    {/* With glasses checkbox option */}
+                    <FormControlLabel
+                      sx={{
+                        backgroundColor: 'transparent',
+                        pr: 0,
+                      }}
+                      control={
+                        <Checkbox
+                          size="small"
+                          sx={{
+                            color: theme.palette.primary.main,
+                            '&.Mui-checked': {
+                              color: theme.palette.primary.main,
+                            },
+                            '&.Mui-disabled': {
+                              color: lighten(theme.palette.primary.main, 0.4),
+                            },
+                          }}
+                          disabled={isCheckboxesDisabled}
+                          checked={isWithGlassesOptionSelected}
+                          onChange={(e) => handleVisionOptionChanged(e.target.checked, 'with_glasses')}
+                        />
+                      }
+                      label={
+                        <Typography
+                          sx={{
+                            fontSize: '16px',
+                            fontWeight: 500,
+                            color: isCheckboxesDisabled
+                              ? lighten(theme.palette.text.primary, 0.4)
+                              : theme.palette.text.primary,
+                          }}
+                        >
+                          With glasses
+                        </Typography>
+                      }
+                    />
+
+                    {/* Without glasses checkbox option */}
+                    <FormControlLabel
+                      sx={{
+                        backgroundColor: 'transparent',
+                        pr: 0,
+                      }}
+                      control={
+                        <Checkbox
+                          size="small"
+                          sx={{
+                            color: theme.palette.primary.main,
+                            '&.Mui-checked': {
+                              color: theme.palette.primary.main,
+                            },
+                            '&.Mui-disabled': {
+                              color: lighten(theme.palette.primary.main, 0.4),
+                            },
+                          }}
+                          disabled={isCheckboxesDisabled}
+                          checked={isWithoutGlassesOptionSelected}
+                          onChange={(e) => handleVisionOptionChanged(e.target.checked, 'without_glasses')}
+                        />
+                      }
+                      label={
+                        <Typography
+                          sx={{
+                            fontSize: '16px',
+                            fontWeight: 500,
+                            color: isCheckboxesDisabled
+                              ? lighten(theme.palette.text.primary, 0.4)
+                              : theme.palette.text.primary,
+                          }}
+                        >
+                          Without glasses
+                        </Typography>
+                      }
+                    />
+                  </Box>
+                </Grid>
               </Grid>
-
-              <Grid
-                item
-                xs={12}
-                sm={12}
-                md={12}
-                lg={12}
-                order={{ xs: 5, sm: 5, md: 5, lg: 5 }}
-                sx={{ mt: isLargeScreen ? 1 : 1, ml: 1 }}
-              >
-                <Box sx={{ display: 'flex', flexDirection: 'row' }}>
-                  {/* Child too young checkbox option */}
-                  <FormControlLabel
-                    sx={{
-                      backgroundColor: 'transparent',
-                      pr: 0,
-                    }}
-                    control={
-                      <Checkbox
-                        size="small"
-                        sx={{
-                          color: theme.palette.primary.main,
-                          '&.Mui-checked': {
-                            color: theme.palette.primary.main,
-                          },
-                          '&.Mui-disabled': {
-                            color: lighten(theme.palette.primary.main, 0.4),
-                          },
-                        }}
-                        disabled={isCheckboxesDisabled}
-                        checked={isChildTooYoungOptionSelected}
-                        onChange={(e) => handleVisionOptionChanged(e.target.checked, 'child_too_young')}
-                      />
-                    }
-                    label={
-                      <Typography
-                        sx={{
-                          fontSize: '16px',
-                          fontWeight: 500,
-                          color: isCheckboxesDisabled
-                            ? lighten(theme.palette.text.primary, 0.4)
-                            : theme.palette.text.primary,
-                        }}
-                      >
-                        Child too young
-                      </Typography>
-                    }
-                  />
-
-                  {/* With glasses checkbox option */}
-                  <FormControlLabel
-                    sx={{
-                      backgroundColor: 'transparent',
-                      pr: 0,
-                    }}
-                    control={
-                      <Checkbox
-                        size="small"
-                        sx={{
-                          color: theme.palette.primary.main,
-                          '&.Mui-checked': {
-                            color: theme.palette.primary.main,
-                          },
-                          '&.Mui-disabled': {
-                            color: lighten(theme.palette.primary.main, 0.4),
-                          },
-                        }}
-                        disabled={isCheckboxesDisabled}
-                        checked={isWithGlassesOptionSelected}
-                        onChange={(e) => handleVisionOptionChanged(e.target.checked, 'with_glasses')}
-                      />
-                    }
-                    label={
-                      <Typography
-                        sx={{
-                          fontSize: '16px',
-                          fontWeight: 500,
-                          color: isCheckboxesDisabled
-                            ? lighten(theme.palette.text.primary, 0.4)
-                            : theme.palette.text.primary,
-                        }}
-                      >
-                        With glasses
-                      </Typography>
-                    }
-                  />
-
-                  {/* Without glasses checkbox option */}
-                  <FormControlLabel
-                    sx={{
-                      backgroundColor: 'transparent',
-                      pr: 0,
-                    }}
-                    control={
-                      <Checkbox
-                        size="small"
-                        sx={{
-                          color: theme.palette.primary.main,
-                          '&.Mui-checked': {
-                            color: theme.palette.primary.main,
-                          },
-                          '&.Mui-disabled': {
-                            color: lighten(theme.palette.primary.main, 0.4),
-                          },
-                        }}
-                        disabled={isCheckboxesDisabled}
-                        checked={isWithoutGlassesOptionSelected}
-                        onChange={(e) => handleVisionOptionChanged(e.target.checked, 'without_glasses')}
-                      />
-                    }
-                    label={
-                      <Typography
-                        sx={{
-                          fontSize: '16px',
-                          fontWeight: 500,
-                          color: isCheckboxesDisabled
-                            ? lighten(theme.palette.text.primary, 0.4)
-                            : theme.palette.text.primary,
-                        }}
-                      >
-                        Without glasses
-                      </Typography>
-                    }
-                  />
-                </Box>
-              </Grid>
-            </Grid>
-          }
-          rightColumn={
-            <VitalsHistoryContainer
-              historicalObs={historicalObs}
-              currentEncounterObs={currentObs}
-              isLoading={false}
-              historyElementSkeletonText={historyElementSkeletonText}
-              historyElementCreator={(historyEntry) => {
-                const isCurrent = currentObs.some((obs) => obs.resourceId === historyEntry.resourceId);
-                return (
-                  <VitalHistoryElement
-                    historyEntry={historyEntry}
-                    onDelete={isCurrent ? handleDeleteVital : undefined}
-                  />
-                );
-              }}
-            />
-          }
-        />
+            }
+            rightColumn={renderRightColumn()}
+          />
+        )}
       </AccordionCard>
     </Box>
   );

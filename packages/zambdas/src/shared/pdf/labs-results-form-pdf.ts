@@ -275,7 +275,9 @@ const getResultDataConfig = (
       attachments,
     } = specificResources;
     const orderNumber = getOrderNumber(serviceRequest);
-    if (!orderNumber) throw Error(`order number could not be parsed from the service request ${serviceRequest.id}`);
+    if (!orderNumber) {
+      throw Error(`requisition number could not be parsed from the service request ${serviceRequest.id}`);
+    }
     const externalLabData: Omit<ExternalLabResultsData, keyof LabResultsData> = {
       orderNumber,
       accessionNumber: diagnosticReport.identifier?.find((item) => item.type?.coding?.[0].code === 'FILL')?.value || '',
@@ -860,7 +862,7 @@ async function createDiagnosticReportExternalLabsResultsFormPdfBytes(
     console.log(
       `Drawing order num. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
     );
-    pdfClient = drawFieldLine(pdfClient, textStyles, 'Order Number:', data.orderNumber);
+    pdfClient = drawFieldLine(pdfClient, textStyles, 'Req #:', data.orderNumber);
     pdfClient.newLine(STANDARD_NEW_LINE);
   }
 
@@ -977,7 +979,7 @@ async function createExternalLabsResultsFormPdfBytes(
   console.log(
     `Drawing order num. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
   );
-  pdfClient = drawFieldLine(pdfClient, textStyles, 'Order Number:', data.orderNumber);
+  pdfClient = drawFieldLine(pdfClient, textStyles, 'Req #:', data.orderNumber);
   pdfClient.newLine(STANDARD_NEW_LINE);
 
   console.log(

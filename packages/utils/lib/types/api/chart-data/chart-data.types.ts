@@ -10,7 +10,6 @@ import {
   Observation,
   Practitioner,
   Procedure,
-  QuestionnaireResponse,
   Reference,
   Resource,
   ServiceRequest,
@@ -29,6 +28,11 @@ import {
   VitalTemperatureObservationMethod,
 } from './chart-data.constants';
 import { GetChartDataResponse } from './get-chart-data.types';
+
+export interface AIChatDetails {
+  documents: DocumentReference[];
+  providers: Practitioner[];
+}
 
 export interface ChartDataFields {
   chiefComplaint?: FreeTextNoteDTO;
@@ -56,7 +60,7 @@ export interface ChartDataFields {
   notes?: NoteDTO[];
   vitalsObservations?: VitalsObservationDTO[];
   birthHistory?: BirthHistoryDTO[];
-  aiChat?: QuestionnaireResponse;
+  aiChat?: AIChatDetails;
   externalLabResults?: EncounterExternalLabResult;
   inHouseLabResults?: EncounterInHouseLabResult;
   procedures?: ProcedureDTO[];
@@ -83,6 +87,7 @@ export interface ChartDataWithResources {
 
 export interface SaveableDTO {
   resourceId?: string;
+  derivedFrom?: string;
 }
 
 export interface FreeTextNoteDTO extends SaveableDTO {

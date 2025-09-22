@@ -2,6 +2,8 @@ import Oystehr, { User } from '@oystehr/sdk';
 import { Schedule, Slot } from 'fhir/r4b';
 import {
   apiErrorToThrow,
+  ApplyTemplateZambdaInput,
+  ApplyTemplateZambdaOutput,
   AssignPractitionerInput,
   AssignPractitionerResponse,
   CancelAppointmentZambdaInput,
@@ -26,8 +28,12 @@ import {
   CreateNursingOrderInput,
   CreateRadiologyZambdaOrderInput,
   CreateRadiologyZambdaOrderOutput,
+  CreateResourcesFromAudioRecordingInput,
+  CreateResourcesFromAudioRecordingOutput,
   CreateScheduleParams,
   CreateSlotParams,
+  CreateUploadAudioRecordingInput,
+  CreateUploadAudioRecordingOutput,
   CreateUserOutput,
   CreateUserParams,
   DeleteInHouseLabOrderParameters,
@@ -64,6 +70,8 @@ import {
   LabelPdf,
   ListScheduleOwnersParams,
   ListScheduleOwnersResponse,
+  ListTemplatesZambdaInput,
+  ListTemplatesZambdaOutput,
   PaginatedResponse,
   PaperworkToPDFInput,
   PendingSupervisorApprovalInput,
@@ -127,10 +135,13 @@ const GET_CREATE_IN_HOUSE_LAB_ORDER_RESOURCES = 'get-create-in-house-lab-order-r
 const COLLECT_IN_HOUSE_LAB_SPECIMEN = 'collect-in-house-lab-specimen';
 const HANDLE_IN_HOUSE_LAB_RESULTS = 'handle-in-house-lab-results';
 const DELETE_IN_HOUSE_LAB_ORDER = 'delete-in-house-lab-order';
+const UNLOCK_APPOINTMENT_ZAMBDA_ID = 'unlock-appointment';
 const GET_NURSING_ORDERS_ZAMBDA_ID = 'get-nursing-orders';
 const CREATE_NURSING_ORDER_ZAMBDA_ID = 'create-nursing-order';
 const UPDATE_NURSING_ORDER = 'update-nursing-order';
 const GET_LABEL_PDF_ZAMBDA_ID = 'get-label-pdf';
+const UPLOAD_AUDIO_RECORDING_ZAMBDA_ID = 'upload-audio-recording';
+const CREATE_RESOURCES_FROM_AUDIO_RECORDING_ZAMBDA_ID = 'create-resources-from-audio-recording';
 const GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID = 'get-or-create-visit-label-pdf';
 const CREATE_DISCHARGE_SUMMARY = 'create-discharge-summary';
 const PAPERWORK_TO_PDF_ZAMBDA_ID = 'paperwork-to-pdf';
@@ -181,6 +192,46 @@ export const getLabelPdf = async (oystehr: Oystehr, parameters: GetLabelPdfParam
     return chooseJson(response);
   } catch (error: unknown) {
     console.error(error);
+    throw error;
+  }
+};
+
+export const uploadAudioRecording = async (
+  oystehr: Oystehr,
+  parameters: CreateUploadAudioRecordingInput
+): Promise<CreateUploadAudioRecordingOutput> => {
+  try {
+    if (UPLOAD_AUDIO_RECORDING_ZAMBDA_ID == null) {
+      throw new Error('upload audio recording zambda environment variable could not be loaded');
+    }
+
+    const response = await oystehr.zambda.execute({
+      id: UPLOAD_AUDIO_RECORDING_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const createResourcesFromAudioRecording = async (
+  oystehr: Oystehr,
+  parameters: CreateResourcesFromAudioRecordingInput
+): Promise<CreateResourcesFromAudioRecordingOutput> => {
+  try {
+    if (CREATE_RESOURCES_FROM_AUDIO_RECORDING_ZAMBDA_ID == null) {
+      throw new Error('create resources from audio recording zambda environment variable could not be loaded');
+    }
+
+    const response = await oystehr.zambda.execute({
+      id: CREATE_RESOURCES_FROM_AUDIO_RECORDING_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
     throw error;
   }
 };
@@ -1011,6 +1062,38 @@ export const icd10Search = async (
   }
 };
 
+export const listTemplates = async (
+  oystehr: Oystehr,
+  parameters: ListTemplatesZambdaInput
+): Promise<ListTemplatesZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'list-templates',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const applyTemplate = async (
+  oystehr: Oystehr,
+  parameters: ApplyTemplateZambdaInput
+): Promise<ApplyTemplateZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'apply-template',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
 export const pendingSupervisorApproval = async (
   oystehr: Oystehr,
   parameters: PendingSupervisorApprovalInput
@@ -1018,6 +1101,25 @@ export const pendingSupervisorApproval = async (
   try {
     const response = await oystehr.zambda.execute({
       id: PENDING_SUPERVISOR_APPROVAL_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const unlockAppointment = async (
+  oystehr: Oystehr,
+  parameters: { appointmentId: string }
+): Promise<{ message: string }> => {
+  try {
+    if (UNLOCK_APPOINTMENT_ZAMBDA_ID == null) {
+      throw new Error('unlock appointment zambda environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: UNLOCK_APPOINTMENT_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);

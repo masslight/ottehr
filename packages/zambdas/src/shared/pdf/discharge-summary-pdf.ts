@@ -16,16 +16,15 @@ import {
   Task,
 } from 'fhir/r4b';
 import {
-  appointmentTypeLabels,
-  appointmentTypeMap,
   BUCKET_NAMES,
   convertActivityDefinitionToTestItem,
   CPTCodeDTO,
-  FhirAppointmentType,
+  ExtendedMedicationDataForResponse,
   followUpInOptions,
   formatDateToMDYWithTime,
   formatDOB,
   genderMap,
+  getAppointmentType,
   GetChartDataResponse,
   getDefaultNote,
   GetRadiologyOrderListZambdaOutput,
@@ -93,6 +92,7 @@ type AllChartData = {
     currentPractitioner?: Practitioner;
     appointmentScheduleMap: Record<string, Schedule>;
   };
+  medicationOrders?: ExtendedMedicationDataForResponse[];
 };
 
 function mapResourceByNameField(data: { name?: string }[] | CPTCodeDTO[]): string[] {
@@ -134,7 +134,8 @@ function composeDataForDischargeSummaryPdf(
   allChartData: AllChartData,
   appointmentPackage: FullAppointmentResourcePackage
 ): DischargeSummaryData {
-  const { chartData, additionalChartData, radiologyData, externalLabsData, inHouseOrdersData } = allChartData;
+  const { chartData, additionalChartData, radiologyData, externalLabsData, inHouseOrdersData, medicationOrders } =
+    allChartData;
 
   const { patient, encounter, appointment, location, practitioners, timezone } = appointmentPackage;
   if (!patient) throw new Error('No patient found for this encounter');
@@ -151,12 +152,8 @@ function composeDataForDischargeSummaryPdf(
   );
 
   // --- Visit information ---
-  const appointmentTypeTag = appointment.meta?.tag?.find((tag) => tag.code && tag.code in appointmentTypeMap);
-  const subType =
-    appointment.appointmentType?.text && appointmentTypeLabels[appointment.appointmentType.text as FhirAppointmentType];
-  const baseType = appointmentTypeTag?.code ? appointmentTypeMap[appointmentTypeTag.code] : 'Unknown';
-  const type = subType ? `${baseType} ${subType}` : baseType;
-  const { date = '', time = '' } = formatDateToMDYWithTime(appointment?.start) ?? {};
+  const { type } = getAppointmentType(appointment);
+  const { date = '', time = '' } = formatDateToMDYWithTime(appointment?.start, timezone ?? 'America/New_York') ?? {};
   const locationName = location?.name ?? '';
   const reasonForVisit = appointment?.description ?? '';
 
@@ -202,9 +199,7 @@ function composeDataForDischargeSummaryPdf(
   }));
 
   // --- In-House Medications ---
-  const inhouseMedications = additionalChartData?.inhouseMedications
-    ? mapMedicationsToDisplay(additionalChartData.inhouseMedications, timezone)
-    : [];
+  const inhouseMedications = medicationOrders ? mapMedicationsToDisplay(medicationOrders, timezone) : [];
 
   // --- eRx ---
   const erxMedications = additionalChartData?.prescribedMedications
@@ -261,7 +256,8 @@ function composeDataForDischargeSummaryPdf(
   const { firstName: physicianFirstName, lastName: physicianLastName } = attenderPractitioner
     ? parseParticipantInfo(attenderPractitioner)
     : {};
-  const { date: dischargedDate, time: dischargeTime } = formatDateToMDYWithTime(attenderParticipant?.period?.end) ?? {};
+  const { date: dischargedDate, time: dischargeTime } =
+    formatDateToMDYWithTime(attenderParticipant?.period?.end, timezone ?? 'America/New_York') ?? {};
   const dischargeDateTime = dischargedDate && dischargeTime ? `${dischargedDate} at ${dischargeTime}` : undefined;
 
   return {
@@ -549,7 +545,12 @@ async function createDischargeSummaryPdfBytes(data: DischargeSummaryData): Promi
     pdfClient.drawText('In-house Medications', textStyles.subHeader);
 
     data.inhouseMedications?.forEach((medication) => {
-      pdfClient.drawText(`${medication.name} - ${medication.dose}`, textStyles.regular);
+      pdfClient.drawText(
+        `${medication.name}${medication.dose ? ' - ' + medication.dose : ''}${
+          medication.route ? ' / ' + medication.route : ''
+        }`,
+        textStyles.bold
+      );
       if (medication.date) pdfClient.drawText(medication.date, textStyles.regular);
     });
     pdfClient.drawSeparatedLine(separatedLineStyle);

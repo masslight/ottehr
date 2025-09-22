@@ -8,6 +8,7 @@ import {
   DocumentReference,
   Encounter,
   FhirResource,
+  Location,
   Observation,
   Organization,
   Patient,
@@ -64,6 +65,7 @@ export type LabOrderResources = {
   specimens: Specimen[]; // not always required (psc)
   questionnaireResponse?: QuestionnaireResponse; // not always required (psc)
   schedule?: Schedule;
+  location?: Location;
 };
 
 type DrLabResultResources = {
@@ -277,6 +279,36 @@ export async function getExternalLabOrderResourcesViaServiceRequest(
   const questionnaireResponse = questionnaireResponses?.[0];
   const schedule = schedules?.[0];
 
+  const getLocation = async (): Promise<Location | undefined> => {
+    if (serviceRequest.locationReference?.length !== 1) {
+      console.error(
+        `ServiceRequest/${serviceRequestID} must have a single ordering Location reference. Multiple found`
+      );
+      return;
+    }
+
+    // Note: we can't error here for backwards compatibility
+    const orderingLocationId = serviceRequest.locationReference[0].reference?.replace('Location/', '');
+    if (!orderingLocationId) {
+      console.error(`ServiceRequest/${serviceRequestID} must have an ordering locationReference. None found`);
+      return;
+    }
+
+    const orderingLocation = (
+      await oystehr.fhir.search<Location>({
+        resourceType: 'Location',
+        params: [{ name: '_id', value: orderingLocationId }],
+      })
+    ).unbundle();
+
+    if (orderingLocation.length !== 1) {
+      console.error(`Location/${orderingLocationId} for ServiceRequest/${serviceRequestID} not found`);
+      return;
+    }
+
+    return orderingLocation[0];
+  };
+
   return {
     serviceRequest,
     patient,
@@ -289,28 +321,47 @@ export async function getExternalLabOrderResourcesViaServiceRequest(
     specimens,
     questionnaireResponse,
     schedule,
+    location: await getLocation(),
   };
 }
 
-export const getPrimaryInsurance = (account: Account, coverages: Coverage[]): Coverage | undefined => {
+export const sortCoveragesByPriority = (account: Account, coverages: Coverage[]): Coverage[] | undefined => {
   if (coverages.length === 0) return;
   const coverageMap: { [key: string]: Coverage } = {};
   coverages.forEach((c) => (coverageMap[`Coverage/${c.id}`] = c));
 
-  const includedCoverages = account.coverage?.filter((c) => {
+  const accountCoverages = account.coverage?.filter((c) => {
     const coverageRef = c.coverage.reference;
-    if (coverageRef) return Object.keys(coverageMap).includes(coverageRef);
-    return;
+    return coverageRef && coverageMap[coverageRef];
   });
 
-  if (includedCoverages?.length) {
-    includedCoverages.sort((a, b) => {
+  if (accountCoverages?.length) {
+    accountCoverages.sort((a, b) => {
       const priorityA = a.priority ?? -Infinity;
       const priorityB = b.priority ?? -Infinity;
       return priorityA - priorityB;
     });
-    const highestPriorityCoverageRef = includedCoverages[0].coverage.reference;
-    if (highestPriorityCoverageRef) return coverageMap[highestPriorityCoverageRef];
+    const coveragesSortedByPriority: Coverage[] = [];
+    accountCoverages.forEach((accountCoverage) => {
+      const coverageRef = accountCoverage.coverage.reference;
+      if (coverageRef) {
+        const coverage = coverageMap[coverageRef];
+        if (coverage) coveragesSortedByPriority.push(coverage);
+      }
+    });
+    if (coveragesSortedByPriority.length) return coveragesSortedByPriority;
+  }
+  return;
+};
+
+export const getPrimaryInsurance = (account: Account, coverages: Coverage[]): Coverage | undefined => {
+  if (coverages.length === 0) return;
+
+  const sortedCoverages = sortCoveragesByPriority(account, coverages);
+
+  if (sortedCoverages?.length) {
+    const primaryInsuranceCoverage = sortedCoverages[0];
+    return primaryInsuranceCoverage;
   } else {
     console.log('no coverages were included on account.coverage, grabbing primary ins from list of patient coverages');
     coverages.sort((a, b) => {
@@ -320,7 +371,6 @@ export const getPrimaryInsurance = (account: Account, coverages: Coverage[]): Co
     });
     return coverages[0];
   }
-  return;
 };
 
 export const makeEncounterLabResults = async (

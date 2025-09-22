@@ -29,12 +29,12 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { CPT_TOOLTIP_PROPS, TooltipWrapper } from 'src/components/WithTooltip';
 import { QUERY_STALE_TIME } from 'src/constants';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
   AccordionCard,
   ActionsList,
   DeleteIconButton,
-  useAppointmentData,
   useChartData,
   useDebounce,
   useDeleteChartData,
@@ -50,7 +50,6 @@ import {
   COMPLICATIONS_VALUE_SET_URL,
   CPTCodeDTO,
   DiagnosisDTO,
-  getVisitStatus,
   IcdSearchResponse,
   MEDICATIONS_USED_VALUE_SET_URL,
   PATIENT_RESPONSES_VALUE_SET_URL,
@@ -125,18 +124,16 @@ export default function ProceduresNew(): ReactElement {
   const { id: appointmentId, procedureId } = useParams();
   const { oystehr } = useApiClients();
   const { data: selectOptions, isLoading: isSelectOptionsLoading } = useSelectOptions(oystehr);
-  const { appointment, encounter } = useAppointmentData();
   const { chartData, setPartialChartData } = useChartData();
-  const inPersonStatus = useMemo(() => appointment && getVisitStatus(appointment, encounter), [appointment, encounter]);
   const appointmentAccessibility = useGetAppointmentAccessibility();
   const { css } = useFeatureFlags();
 
   const isReadOnly = useMemo(() => {
     if (css) {
-      return inPersonStatus === 'completed';
+      return appointmentAccessibility.isAppointmentReadOnly;
     }
     return appointmentAccessibility.status === TelemedAppointmentStatusEnum.complete;
-  }, [css, inPersonStatus, appointmentAccessibility.status]);
+  }, [css, appointmentAccessibility.status, appointmentAccessibility.isAppointmentReadOnly]);
 
   const chartCptCodes = chartData?.cptCodes || [];
   const chartDiagnoses = chartData?.diagnosis || [];
@@ -333,6 +330,7 @@ export default function ProceduresNew(): ReactElement {
               label="CPT code"
               placeholder="Search CPT code"
               onChange={(e) => debouncedHandleInputChange(e.target.value)}
+              data-testid={dataTestIds.documentProcedurePage.cptCodeInput}
             />
           )}
           disabled={isReadOnly}
@@ -341,7 +339,7 @@ export default function ProceduresNew(): ReactElement {
           data={state.cptCodes ?? []}
           getKey={(value, index) => value.resourceId || index}
           renderItem={(value) => (
-            <Typography>
+            <Typography data-testid={dataTestIds.documentProcedurePage.cptCode}>
               {value.code} {value.display}
             </Typography>
           )}
@@ -381,7 +379,7 @@ export default function ProceduresNew(): ReactElement {
             data={state.diagnoses ?? []}
             getKey={(value, index) => value.resourceId || index}
             renderItem={(value) => (
-              <Typography>
+              <Typography data-testid={dataTestIds.documentProcedurePage.diagnosis}>
                 {value.display} {value.code}
               </Typography>
             )}
@@ -394,9 +392,11 @@ export default function ProceduresNew(): ReactElement {
                         (state.diagnoses = state.diagnoses?.filter((diagnosis) => diagnosis.code != value.code))
                     )
                   }
+                  dataTestId={dataTestIds.documentProcedurePage.diagnosisDeleteButton}
                 />
               ) : undefined
             }
+            itemDataTestId={dataTestIds.documentProcedurePage.diagnosisItem}
             divider
           />
         </Box>
@@ -408,7 +408,8 @@ export default function ProceduresNew(): ReactElement {
     label: string,
     options: string[] | undefined,
     value: string | undefined,
-    stateMutator: (value: string, state: PageState) => void
+    stateMutator: (value: string, state: PageState) => void,
+    dataTestId: string
   ): ReactElement => {
     return (
       <FormControl fullWidth sx={{ backgroundColor: 'white' }} size="small" disabled={isReadOnly}>
@@ -419,6 +420,7 @@ export default function ProceduresNew(): ReactElement {
           variant="outlined"
           value={value ?? ''}
           onChange={(e) => updateState((state) => stateMutator(e.target.value, state))}
+          data-testid={dataTestId}
         >
           {(options ?? []).map((option) => {
             return (
@@ -459,6 +461,7 @@ export default function ProceduresNew(): ReactElement {
     options: string[],
     value: string | undefined,
     stateMutator: (value: string, state: PageState) => void,
+    dataTestId: string,
     error = false
   ): ReactElement => {
     return (
@@ -471,7 +474,15 @@ export default function ProceduresNew(): ReactElement {
           value={value ?? ''}
         >
           {options.map((option) => {
-            return <FormControlLabel key={option} value={option} control={<Radio />} label={option} />;
+            return (
+              <FormControlLabel
+                key={option}
+                value={option}
+                control={<Radio />}
+                label={option}
+                data-testid={dataTestId}
+              />
+            );
           })}
         </RadioGroup>
         {error ? <FormHelperText>{REQUIRED_FIELD_ERROR_MESSAGE}</FormHelperText> : undefined}
@@ -482,7 +493,11 @@ export default function ProceduresNew(): ReactElement {
   return (
     <>
       <Stack spacing={1}>
-        <PageTitle label="Document Procedure" showIntakeNotesButton={false} />
+        <PageTitle
+          label="Document Procedure"
+          showIntakeNotesButton={false}
+          dataTestId={dataTestIds.documentProcedurePage.title}
+        />
         <AccordionCard>
           <Stack spacing={2} style={{ padding: '24px' }}>
             <Box style={{ display: 'flex', alignItems: 'center' }}>
@@ -490,6 +505,7 @@ export default function ProceduresNew(): ReactElement {
                 checked={state.consentObtained ?? false}
                 onChange={(_e: any, checked: boolean) => updateState((state) => (state.consentObtained = checked))}
                 disabled={isReadOnly}
+                data-testid={dataTestIds.documentProcedurePage.consentForProcedure}
               />
               <Typography>
                 I have obtained the{' '}
@@ -519,7 +535,8 @@ export default function ProceduresNew(): ReactElement {
                 } else {
                   state.cptCodes = [];
                 }
-              }
+              },
+              dataTestIds.documentProcedurePage.procedureType
             )}
             {cptWidget()}
             <Typography style={{ marginTop: '8px', color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
@@ -559,18 +576,31 @@ export default function ProceduresNew(): ReactElement {
                 />
               </LocalizationProvider>
             </Stack>
-            {radio('Performed by', PERFORMED_BY, state.performerType, (value, state) => (state.performerType = value))}
+            {radio(
+              'Performed by',
+              PERFORMED_BY,
+              state.performerType,
+              (value, state) => (state.performerType = value),
+              dataTestIds.documentProcedurePage.performedBy
+            )}
             <InfoAlert text="Please include body part including laterality, type and quantity anesthesia used, specific materials (type and quantity) used, technique, findings, complications, specimen sent, and after-procedure status." />
             {dropdown(
               'Anaesthesia / medication used',
               selectOptions?.medicationsUsed,
               state.medicationUsed,
-              (value, state) => (state.medicationUsed = value)
+              (value, state) => (state.medicationUsed = value),
+              dataTestIds.documentProcedurePage.anaesthesia
             )}
-            {dropdown('Site/location', selectOptions?.bodySites, state.bodySite, (value, state) => {
-              state.bodySite = value;
-              state.otherBodySite = undefined;
-            })}
+            {dropdown(
+              'Site/location',
+              selectOptions?.bodySites,
+              state.bodySite,
+              (value, state) => {
+                state.bodySite = value;
+                state.otherBodySite = undefined;
+              },
+              dataTestIds.documentProcedurePage.site
+            )}
             {otherTextInput(
               'Site/location',
               state.bodySite,
@@ -581,18 +611,26 @@ export default function ProceduresNew(): ReactElement {
               'Side of body',
               selectOptions?.bodySides,
               state.bodySide,
-              (value, state) => (state.bodySide = value)
+              (value, state) => (state.bodySide = value),
+              dataTestIds.documentProcedurePage.sideOfBody
             )}
             {dropdown(
               'Technique',
               selectOptions?.techniques,
               state.technique,
-              (value, state) => (state.technique = value)
+              (value, state) => (state.technique = value),
+              dataTestIds.documentProcedurePage.technique
             )}
-            {dropdown('Instruments / supplies used', selectOptions?.supplies, state.suppliesUsed, (value, state) => {
-              state.suppliesUsed = value;
-              state.otherSuppliesUsed = undefined;
-            })}
+            {dropdown(
+              'Instruments / supplies used',
+              selectOptions?.supplies,
+              state.suppliesUsed,
+              (value, state) => {
+                state.suppliesUsed = value;
+                state.otherSuppliesUsed = undefined;
+              },
+              dataTestIds.documentProcedurePage.instruments
+            )}
             {otherTextInput(
               'Instruments / supplies used',
               state.suppliesUsed,
@@ -606,17 +644,25 @@ export default function ProceduresNew(): ReactElement {
               value={state.procedureDetails ?? ''}
               onChange={(e: any) => updateState((state) => (state.procedureDetails = e.target.value))}
               disabled={isReadOnly}
+              data-testid={dataTestIds.documentProcedurePage.procedureDetails}
             />
             {radio(
               'Specimen sent',
               SPECIMEN_SENT,
               state.specimenSent != null ? (state.specimenSent ? 'Yes' : 'No') : undefined,
-              (value, state) => (state.specimenSent = value === 'Yes')
+              (value, state) => (state.specimenSent = value === 'Yes'),
+              dataTestIds.documentProcedurePage.specimenSent
             )}
-            {dropdown('Complications', selectOptions?.complications, state.complications, (value, state) => {
-              state.complications = value;
-              state.otherComplications = undefined;
-            })}
+            {dropdown(
+              'Complications',
+              selectOptions?.complications,
+              state.complications,
+              (value, state) => {
+                state.complications = value;
+                state.otherComplications = undefined;
+              },
+              dataTestIds.documentProcedurePage.complications
+            )}
             {otherTextInput(
               'Complications',
               state.complications,
@@ -627,7 +673,8 @@ export default function ProceduresNew(): ReactElement {
               'Patient response',
               selectOptions?.patientResponses,
               state.patientResponse,
-              (value, state) => (state.patientResponse = value)
+              (value, state) => (state.patientResponse = value),
+              dataTestIds.documentProcedurePage.patientResponse
             )}
             {dropdown(
               'Post-procedure Instructions',
@@ -636,7 +683,8 @@ export default function ProceduresNew(): ReactElement {
               (value, state) => {
                 state.postInstructions = value;
                 state.otherPostInstructions = undefined;
-              }
+              },
+              dataTestIds.documentProcedurePage.postProcedureInstructions
             )}
             {otherTextInput(
               'Post-procedure Instructions',
@@ -648,15 +696,28 @@ export default function ProceduresNew(): ReactElement {
               'Time spent',
               selectOptions?.timeSpent,
               state.timeSpent,
-              (value, state) => (state.timeSpent = value)
+              (value, state) => (state.timeSpent = value),
+              dataTestIds.documentProcedurePage.timeSpent
             )}
-            {radio('Documented by', DOCUMENTED_BY, state.documentedBy, (value, state) => (state.documentedBy = value))}
+            {radio(
+              'Documented by',
+              DOCUMENTED_BY,
+              state.documentedBy,
+              (value, state) => (state.documentedBy = value),
+              dataTestIds.documentProcedurePage.documentedBy
+            )}
             <Divider orientation="horizontal" />
             <Box style={{ display: 'flex', justifyContent: 'space-between' }}>
               <RoundedButton color="primary" onClick={onCancel}>
                 Cancel
               </RoundedButton>
-              <RoundedButton color="primary" variant="contained" disabled={isReadOnly} onClick={onSave}>
+              <RoundedButton
+                color="primary"
+                variant="contained"
+                disabled={isReadOnly}
+                onClick={onSave}
+                data-testid={dataTestIds.documentProcedurePage.saveButton}
+              >
                 Save
               </RoundedButton>
             </Box>

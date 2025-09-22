@@ -1,9 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import {
+  Appointment,
   DocumentReference,
+  Encounter,
   Extension,
   FhirResource,
   List,
+  Location,
   Patient,
   Questionnaire,
   QuestionnaireItem,
@@ -12,6 +15,7 @@ import {
   QuestionnaireResponseItem,
   QuestionnaireResponseItemAnswer,
   Resource,
+  Schedule,
   ValueSet,
 } from 'fhir/r4b';
 import _ from 'lodash';
@@ -666,8 +670,12 @@ export const getPaperworkResources = async (
   oystehr: Oystehr,
   QuestionnaireResponseId: string
 ): Promise<PaperworkPDFResourcePackage | undefined> => {
-  const items: Array<Patient | QuestionnaireResponse | DocumentReference | List> = (
-    await oystehr.fhir.search<Patient | QuestionnaireResponse | DocumentReference | List>({
+  const items: Array<
+    Patient | QuestionnaireResponse | DocumentReference | List | Encounter | Appointment | Schedule | Location
+  > = (
+    await oystehr.fhir.search<
+      Patient | QuestionnaireResponse | DocumentReference | List | Encounter | Appointment | Schedule | Location
+    >({
       resourceType: 'QuestionnaireResponse',
       params: [
         {
@@ -681,6 +689,22 @@ export const getPaperworkResources = async (
         {
           name: '_revinclude:iterate',
           value: 'List:patient',
+        },
+        {
+          name: '_include',
+          value: 'QuestionnaireResponse:encounter',
+        },
+        {
+          name: '_include:iterate',
+          value: 'Encounter:appointment',
+        },
+        {
+          name: '_include',
+          value: 'Appointment:location',
+        },
+        {
+          name: '_revinclude:iterate',
+          value: 'Schedule:actor:Location',
         },
       ],
     })
@@ -697,9 +721,17 @@ export const getPaperworkResources = async (
 
   const listResources = items.filter((item) => item.resourceType === 'List') as List[];
 
+  const appointment = items.find((item) => item.resourceType === 'Appointment');
+  if (!appointment) return undefined;
+  const schedule = items?.find((item) => item.resourceType === 'Schedule');
+  const location = items.find((item) => item.resourceType === 'Location');
+
   return {
     questionnaireResponse,
     patient,
     listResources,
+    appointment,
+    schedule,
+    location,
   };
 };

@@ -85,7 +85,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
           if (!res.ok) {
             const body = await res.json();
-            throw new Error(`Error submitting order number: ${orderNumber}. Error: ${body.message}`);
+            throw new Error(`Error submitting requisition number: ${orderNumber}. Error: ${body.message}`);
           }
 
           const result = await res.json();
@@ -108,7 +108,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             successfulBundledOrders[res.orderNumber] = { ...resources };
           }
         } else if (res.status === 'rejected') {
-          console.log('rejected result', res);
+          console.error('rejected result', res);
           const resources = bundledOrdersByOrderNumber[res.orderNumber];
           failedBundledOrders[res.orderNumber] = resources;
         }

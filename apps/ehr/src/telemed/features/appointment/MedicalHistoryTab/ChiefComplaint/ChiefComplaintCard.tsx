@@ -18,7 +18,7 @@ export const ChiefComplaintCard: FC = () => {
 
   return (
     <MedicalHistoryDoubleCard
-      label="Chief complaint & HPI"
+      label="Chief Complaint & HPI"
       collapsed={css ? undefined : isHPICollapsed}
       onSwitch={css ? undefined : () => setIsHPICollapsed((state) => !state)}
       patientSide={<ChiefComplaintPatientColumn />}

@@ -82,11 +82,32 @@ import {
   SchoolWorkNoteExcuseDocFileDTO,
   SchoolWorkNoteType,
   SNOMEDCodeConceptInterface,
+  VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE,
 } from 'utils';
 import { removePrefix } from '../appointment/helpers';
 import { fillMeta } from '../helpers';
 import { isDocumentPublished, PdfDocumentReferencePublishedStatuses, PdfInfo } from '../pdf/pdf-utils';
 import { saveOrUpdateResourceRequest } from '../resources.helpers';
+
+const hasValue = (data: unknown): boolean => {
+  if (data == null) return false;
+
+  if (Array.isArray(data)) {
+    return data.length > 0;
+  }
+
+  if (typeof data === 'object') {
+    return Object.keys(data).length > 0;
+  }
+
+  return true;
+};
+
+const logDuplicationWarning = (data: unknown, message: string): void => {
+  if (hasValue(data)) {
+    console.log(message);
+  }
+};
 
 const getMetaWFieldName = (fieldName: ProviderChartDataFieldsNames): Meta => {
   return fillMeta(fieldName, fieldName);
@@ -252,7 +273,7 @@ export function makeMedicationDTO(medication: MedicationStatement): MedicationDT
         ? 'as-needed'
         : 'scheduled',
     intakeInfo: {
-      dose: getMedicationDosage(medication),
+      dose: medication.dosage?.[0].text,
       date: medication.effectiveDateTime,
     },
     status: ['active', 'completed'].includes(medication.status)
@@ -310,6 +331,7 @@ export function makeObservationResource(
   encounterId: string,
   patientId: string,
   practitionerId: string,
+  documentReferenceCreateUrl: string | undefined,
   data: ObservationDTO,
   metaSystem: string,
   patientDOB?: string,
@@ -325,6 +347,15 @@ export function makeObservationResource(
     effectiveDateTime: DateTime.utc().toISO()!,
     status: 'final',
     code: { text: data.field || 'unknown' },
+    ...(documentReferenceCreateUrl
+      ? {
+          derivedFrom: [
+            {
+              reference: documentReferenceCreateUrl,
+            },
+          ],
+        }
+      : {}),
     meta: fillMeta(data.field, metaSystem),
   };
 
@@ -1049,6 +1080,7 @@ export function makeObservationDTO(observation: Observation): null | Observation
       field,
       value: observation.valueString,
       note: observation.note?.[0]?.text,
+      derivedFrom: observation.derivedFrom?.[0].reference,
     } as ObservationTextFieldDTO;
   } else if (observation.effectivePeriod?.start && observation.effectivePeriod?.end) {
     return {
@@ -1101,6 +1133,7 @@ const mapResourceToChartDataFields = (
     chartDataResourceHasMetaTagByCode(resource, 'chief-complaint') &&
     resourceReferencesEncounter(resource, encounterId)
   ) {
+    logDuplicationWarning(data.chiefComplaint, 'chart-data duplication warning: "chiefComplaint" already exists');
     data.chiefComplaint = makeFreeTextNoteDTO(resource);
     resourceMapped = true;
   } else if (
@@ -1108,6 +1141,7 @@ const mapResourceToChartDataFields = (
     chartDataResourceHasMetaTagByCode(resource, 'ros') &&
     resourceReferencesEncounter(resource, encounterId)
   ) {
+    logDuplicationWarning(data.ros, 'chart-data duplication warning: "ros" already exists');
     data.ros = makeFreeTextNoteDTO(resource);
     resourceMapped = true;
   } else if (
@@ -1146,6 +1180,10 @@ const mapResourceToChartDataFields = (
     resource?.resourceType === 'Procedure' &&
     chartDataResourceHasMetaTagByCode(resource, 'surgical-history-note')
   ) {
+    logDuplicationWarning(
+      data.surgicalHistoryNote,
+      'chart-data duplication warning: "surgicalHistoryNote" already exists'
+    );
     data.surgicalHistoryNote = makeFreeTextNoteDTO(resource);
     resourceMapped = true;
   } else if (
@@ -1189,12 +1227,16 @@ const mapResourceToChartDataFields = (
     resourceReferencesEncounter(resource, encounterId)
   ) {
     const cptDto = makeCPTCodeDTO(resource);
-    if (cptDto) data.emCode = cptDto;
+    if (cptDto) {
+      logDuplicationWarning(data.emCode, 'chart-data duplication warning: "emCode" already exists');
+      data.emCode = cptDto;
+    }
     resourceMapped = true;
   } else if (
     resource?.resourceType === 'ClinicalImpression' &&
     chartDataResourceHasMetaTagByCode(resource, 'medical-decision')
   ) {
+    logDuplicationWarning(data.medicalDecision, 'chart-data duplication warning: "medicalDecision" already exists');
     data.medicalDecision = makeClinicalImpressionDTO(resource);
     resourceMapped = true;
   } else if (
@@ -1221,10 +1263,10 @@ const mapResourceToChartDataFields = (
     if (resourceDto) data.observations?.push(resourceDto);
     resourceMapped = true;
   } else if (
-    resource.resourceType === 'QuestionnaireResponse' &&
-    resource.questionnaire === '#aiInterviewQuestionnaire'
+    resource.resourceType === 'DocumentReference' &&
+    resource.type?.coding?.[0].code === VISIT_CONSULT_NOTE_DOC_REF_CODING_CODE.code
   ) {
-    data.aiChat = resource;
+    data.aiChat?.documents.push(resource);
     resourceMapped = true;
   }
   return {
@@ -1244,7 +1286,12 @@ export function mapResourceToChartDataResponse(
   resourceMapped = updatedResponseData.resourceMapped;
 
   if (resource.resourceType === 'DocumentReference' && chartDataResourceHasMetaTagByCode(resource, SCHOOL_WORK_NOTE)) {
-    chartDataResponse.schoolWorkNotes?.push(makeSchoolWorkNoteDTO(resource));
+    const dto = makeSchoolWorkNoteDTO(resource);
+    const alreadyExists = chartDataResponse.schoolWorkNotes?.some((note) => note.id === dto.id);
+
+    if (!alreadyExists) {
+      chartDataResponse.schoolWorkNotes?.push(dto);
+    }
     resourceMapped = true;
   }
   return {
@@ -1626,12 +1673,4 @@ function getCode(codeableConcept: CodeableConcept | CodeableConcept[] | undefine
 
 function getExtension(resource: DomainResource, url: string): Extension | undefined {
   return resource.extension?.find((extension) => extension.url === url);
-}
-
-function getMedicationDosage(medication: MedicationStatement): string | undefined {
-  const doseQuantity = medication.dosage?.[0].doseAndRate?.[0].doseQuantity;
-  if (!doseQuantity?.value || !doseQuantity?.unit) {
-    return undefined;
-  }
-  return `${doseQuantity.value} ${doseQuantity.unit}`;
 }

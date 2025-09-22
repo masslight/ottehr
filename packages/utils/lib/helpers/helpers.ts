@@ -23,7 +23,10 @@ import {
   SLUG_SYSTEM,
 } from '../fhir';
 import {
+  appointmentTypeLabels,
+  appointmentTypeMap,
   CashPaymentDTO,
+  FhirAppointmentType,
   PatchPaperworkParameters,
   PractitionerQualificationCode,
   ScheduleOwnerFhirResource,
@@ -94,6 +97,15 @@ export function getParticipantIdFromAppointment(
   return appointment.participant
     .find((currentParticipant: any) => currentParticipant.actor?.reference?.startsWith(participant))
     ?.actor?.reference?.replace(`${participant}/`, '');
+}
+
+export function getFormatDuration(duration: number): string {
+  const seconds = duration / 1000;
+  return `${Math.floor(seconds / 60)
+    .toString()
+    .padStart(2, '0')}:${Math.floor(seconds % 60)
+    .toString()
+    .padStart(2, '0')}`;
 }
 
 /*
@@ -1266,3 +1278,23 @@ export const getCandidPlanTypeCodeFromCoverage = (coverage: Coverage): NetworkTy
   }
   return coverageCandidTypeCode as NetworkType;
 };
+
+export function getAppointmentType(appointment: Appointment): { type: string } {
+  const appointmentTypeTags = appointment.meta?.tag?.filter((tag) => !!tag.code && tag.code in appointmentTypeMap);
+
+  if (appointmentTypeTags && appointmentTypeTags.length > 1) {
+    console.warn(
+      `[getAppointmentType] Multiple appointmentType tags found: ${appointmentTypeTags.map((t) => t.code).join(', ')}`
+    );
+  }
+
+  const appointmentTypeTag = appointmentTypeTags?.[0];
+  const baseType = appointmentTypeTag?.code ? appointmentTypeMap[appointmentTypeTag.code] : 'Unknown';
+
+  const subType =
+    appointment.appointmentType?.text && appointmentTypeLabels[appointment.appointmentType.text as FhirAppointmentType];
+
+  const type = subType ? `${baseType} ${subType}` : baseType;
+
+  return { type };
+}

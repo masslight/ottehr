@@ -1,6 +1,6 @@
 {
   "name": "ehr-ui",
-  "version": "1.17.4",
+  "version": "1.18.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -31,7 +31,7 @@
     "build:testing": "ENV=testing npm run build-skeleton",
     "build:staging": "ENV=staging npm run build-skeleton",
     "build:demo": "ENV=demo npm run build-skeleton",
-    "build-skeleton": "tsc && vite build --mode ${ENV}",
+    "build-skeleton": "tsc && VITE_APP_ENV=${ENV} VITE_APP_SHA=${GIT_HEAD:-$(git rev-parse --short HEAD)} VITE_APP_VERSION=$(node -pe 'require(\"./package.json\").version') vite build --mode ${ENV}",
     "unit-tests": "vitest --config ./vitest.config.ts",
     "component-tests": "vitest --config ./vitest.config.component-tests.ts",
     "test": "npm run unit-tests -- --watch=false && npm run component-tests -- --watch=false",
@@ -59,6 +59,7 @@
     "@stripe/react-stripe-js": "^3.0.0",
     "@stripe/stripe-js": "^3.5.0",
     "@twilio/conversations": "^2.4.1",
+    "@types/wavesurfer.js": "^6.0.12",
     "amazon-chime-sdk-component-library-react": "^3.10.0",
     "amazon-chime-sdk-js": "^3.20.0",
     "chart.js": "^4.4.1",
@@ -81,7 +82,8 @@
     "tsconfig": "*",
     "ui-components": "*",
     "utils": "*",
-    "uuid": "^11.0.3"
+    "uuid": "^11.0.3",
+    "wavesurfer.js": "^7.10.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",

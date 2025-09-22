@@ -1,16 +1,21 @@
 import { Medication, PrescribedMedication } from '../../../../zambdas/src/shared/pdf/types';
-import { MedicationDTO, PrescribedMedicationDTO } from '../../types';
+import { searchRouteByCode } from '../../fhir';
+import { ExtendedMedicationDataForResponse, PrescribedMedicationDTO } from '../../types';
 import { formatDateTimeToZone } from '../../utils';
 
-export const mapMedicationsToDisplay = (medications: MedicationDTO[], timezone?: string): Medication[] => {
-  return medications.map((med) => {
-    const { name, intakeInfo } = med;
-    const date = formatDateTimeToZone(intakeInfo?.date, timezone ?? 'America/New_York');
-    const dose = intakeInfo?.dose;
+export const mapMedicationsToDisplay = (
+  medications: ExtendedMedicationDataForResponse[],
+  timezone?: string
+): Medication[] => {
+  return medications.map((med): Medication => {
+    const { medicationName: name, dose, units, route: routeCode, dateTimeCreated } = med;
+    const date = formatDateTimeToZone(dateTimeCreated, timezone ?? 'America/New_York');
+    const route = searchRouteByCode(routeCode)?.display;
 
     return {
       name,
-      dose,
+      dose: `${dose} ${units}`,
+      route,
       date,
     };
   });
