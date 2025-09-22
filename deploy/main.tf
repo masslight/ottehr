@@ -40,7 +40,10 @@ provider "oystehr" {
 }
 
 locals {
-  # switch these to test infra deploys in local
+  # DEBUG: set to `1` to run non-local modules
+  # `1` is the magic number to run a module that checks this local variable.
+  # switch which line is commented out to run non-local modules like aws_infra
+  # while still in the `local` environment
   not_local_env_resource_count = var.environment == "local" ? 0 : 1
   # not_local_env_resource_count = 1
   aws_resource_count = var.aws_profile == null ? 0 : local.not_local_env_resource_count
