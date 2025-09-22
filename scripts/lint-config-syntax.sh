@@ -25,7 +25,7 @@ while read -r line ; do
     echo ""
     exit 1
 done < <(grep -i \
-    -e "[^#][^}]var\/" \
+    -e "[^#][^{]var\/" \
     -e "#{var\/[^}]*\"" \
     -e "\${*var\/.*" \
     $1)
@@ -43,7 +43,7 @@ while read -r line ; do
     echo ""
     exit 1
 done < <(grep -i \
-    -e "[^#][^}]ref\/" \
+    -e "[^#][^{]ref\/" \
     -e "#{ref\/[^}]*\"" \
     -e "\${*ref\/.*" \
     -e "\#{ref\/[^}\/]*}" \
