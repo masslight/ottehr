@@ -16,6 +16,9 @@ const BRANDING_DEFAULTS: any = {
     },
     sender: 'ottehr-support@masslight.com',
   },
+  pdf: {
+    logoURL: '',
+  },
   /*
   palette: {
     // these are dummy values, but ottehr theme defaults should come from here eventually
@@ -43,6 +46,9 @@ const BrandingConfigSchema = z.object({
       footerText: z.string().min(1, { message: 'Footer text color cannot be empty' }),
       buttonColor: z.string().min(1, { message: 'Button color cannot be empty' }),
     }),
+  }),
+  pdf: z.object({
+    logoURL: z.string().optional(),
   }),
 });
 

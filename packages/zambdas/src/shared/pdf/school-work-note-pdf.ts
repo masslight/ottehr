@@ -5,7 +5,7 @@ import { Color, PageSizes, PDFDocument, PDFFont } from 'pdf-lib';
 import { PdfBulletPointItem, SCHOOL_WORK_NOTE, SchoolWorkNoteExcuseDocDTO, Secrets } from 'utils';
 import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
-import { handleBadSpaces, PdfInfo, rgbNormalized, splitLongStringToPageSize } from './pdf-utils';
+import { getPdfLogo, handleBadSpaces, PdfInfo, rgbNormalized, splitLongStringToPageSize } from './pdf-utils';
 
 async function createSchoolWorkNotePdfBytes(data: SchoolWorkNoteExcuseDocDTO): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
@@ -98,9 +98,8 @@ async function createSchoolWorkNotePdfBytes(data: SchoolWorkNoteExcuseDocDTO): P
   };
 
   // add Ottehr logo at the top of the PDF
-  const imgPath = './assets/ottehrLogo.png';
-  const imgBytes = fs.readFileSync(imgPath);
-  const img = await pdfDoc.embedPng(new Uint8Array(imgBytes));
+  const logoBuffer = await getPdfLogo();
+  const img = await pdfDoc.embedPng(new Uint8Array(logoBuffer));
   currYPos -= styles.margin.y;
   page.drawImage(img, {
     x: styles.margin.x,
