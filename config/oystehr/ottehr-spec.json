@@ -5794,6 +5794,16 @@
           "resource": ["Zambda:Function:*"],
           "action": ["Zambda:InvokeFunction"],
           "effect": "Allow"
+        },
+        {
+          "action": "eRx:SearchAllergen",
+          "resource": "eRx:Allergen",
+          "effect": "Allow"
+        },
+        {
+          "action": "eRx:SearchMedication",
+          "resource": "eRx:Medication",
+          "effect": "Allow"
         }
       ]
     },
