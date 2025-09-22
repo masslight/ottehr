@@ -354,15 +354,19 @@ export const cleanupIntegrationTestLocations = async (oystehr: Oystehr): Promise
           name: '_lastUpdated',
           value: `lt${oneHourAgo}`,
         },
+        {
+          name: '_revinclude',
+          value: 'Schedule:actor',
+        },
       ],
     })
   ).unbundle();
 
   console.log(`Found ${locationsToDelete.length} integration test locations to delete`);
 
-  const batchDeleteRequests: BatchInputDeleteRequest[] = locationsToDelete.map((location) => ({
+  const batchDeleteRequests: BatchInputDeleteRequest[] = locationsToDelete.map((res) => ({
     method: 'DELETE',
-    url: `Location/${location.id}`,
+    url: `${res.resourceType}/${res.id}`,
   }));
 
   await oystehr.fhir.batch({
