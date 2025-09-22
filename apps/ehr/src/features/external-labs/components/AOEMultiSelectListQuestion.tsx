@@ -33,13 +33,16 @@ export const AOEMultiSelectListQuestion: React.FC<MultiListQuestionProps> = (pro
         input={<OutlinedInput id="select-multiple-chip" label={questionText} />} // the label here has to match the label on the input and select otherwise the label won't size properly
         renderValue={(selected: any[]) => (
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-            {selected?.map((value: string, idx: number) => <Chip key={idx} label={value} />)}
+            {selected?.map((value: string, idx: number) => {
+              const selectedOption = answerOption.find((option) => option.id === value);
+              return selectedOption ? <Chip key={idx} label={selectedOption.valueString} /> : null;
+            })}
           </Box>
         )}
         readOnly={isReadOnly}
       >
         {answerOption.map((option, idx) => (
-          <MenuItem key={idx} value={option.valueString}>
+          <MenuItem key={idx} value={option.id}>
             {option.valueString}
           </MenuItem>
         ))}

@@ -77,6 +77,7 @@ export const ProgressNoteDetails: FC = () => {
         inHouseLabResults: data?.inHouseLabResults,
         disposition: data?.disposition,
         medicalDecision: data?.medicalDecision,
+        notes: data?.notes,
       });
     },
   });

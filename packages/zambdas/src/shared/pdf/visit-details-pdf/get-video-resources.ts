@@ -14,8 +14,8 @@ import {
   Resource,
   Schedule,
 } from 'fhir/r4b';
-import { getTimezone, isNonPaperworkQuestionnaireResponse, TIMEZONES } from 'utils';
-import { getVideoRoomResourceExtension } from '../../helpers';
+import { isNonPaperworkQuestionnaireResponse } from 'utils';
+import { getVideoRoomResourceExtension, resolveTimezone } from '../../helpers';
 import { FullAppointmentResourcePackage } from './types';
 
 export const getAppointmentAndRelatedResources = async (
@@ -170,14 +170,7 @@ export const getAppointmentAndRelatedResources = async (
 
   const listResources = items.filter((item) => item.resourceType === 'List') as List[];
 
-  let timezone: string;
-  if (schedule) {
-    timezone = getTimezone(schedule);
-  } else if (location) {
-    timezone = getTimezone(location);
-  } else {
-    timezone = TIMEZONES[0];
-  }
+  const timezone = resolveTimezone(schedule, location);
 
   return {
     appointment,
