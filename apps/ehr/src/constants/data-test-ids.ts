@@ -404,7 +404,6 @@ export const dataTestIds = {
   patientRecordPage: {
     seeAllPatientInfoButton: 'see-all-patient-info-button',
   },
-
   addInsuranceDialog: {
     id: 'add-insurance-dialog',
     type: 'add-insurance-dialog-type',
@@ -425,7 +424,6 @@ export const dataTestIds = {
     additionalInformation: 'add-insurance-dialog-additional-information',
     addInsuranceButton: 'add-insurance-dialog-add-insurance-button',
   },
-
   orderVaccinePage: {
     title: 'order-vaccine-title',
     vaccine: 'vaccine',
