@@ -274,6 +274,11 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                       value={selectedTest?.name || ''}
                       label="Test"
                       onChange={(e) => handleTestSelection(e.target.value)}
+                      MenuProps={{
+                        PaperProps: {
+                          'data-testid': dataTestIds.orderInHouseLabPage.testTypeList,
+                        },
+                      }}
                     >
                       {availableTests.map((test) => (
                         <MenuItem key={test.name} value={test.name}>

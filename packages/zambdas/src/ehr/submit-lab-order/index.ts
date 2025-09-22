@@ -67,8 +67,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       console.log('calling oystehr submit lab');
 
       const submitLabPromises = Object.entries(bundledOrdersByOrderNumber).map(async ([orderNumber, resources]) => {
-        if (resources.isPscOrder) return { status: 'fulfilled', orderNumber, isPsc: true };
         try {
+          console.log('resources.isPscOrder', resources.isPscOrder);
           const params = {
             serviceRequest: resources.testDetails.map((test) => `ServiceRequest/${test.serviceRequestID}`),
             accountNumber: resources.accountNumber,
@@ -90,7 +90,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
           const result = await res.json();
           const eReq: DocumentReference | undefined = result?.eRequisitionDocumentReference;
-          return { status: 'fulfilled', orderNumber, eReqDocumentReference: eReq };
+          return { status: 'fulfilled', orderNumber, eReqDocumentReference: eReq, isPsc: resources.isPscOrder };
         } catch (e) {
           return { status: 'rejected', orderNumber, reason: (e as Error).message };
         }

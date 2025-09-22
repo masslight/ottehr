@@ -32,7 +32,7 @@ export const AOEListQuestion: React.FC<ListQuestionProps> = (props) => {
         readOnly={isReadOnly}
       >
         {answerOption.map((option, idx) => (
-          <MenuItem key={idx} value={option.valueString}>
+          <MenuItem key={idx} value={option.id}>
             {option.valueString}
           </MenuItem>
         ))}
