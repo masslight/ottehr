@@ -5796,13 +5796,13 @@
           "effect": "Allow"
         },
         {
-          "action": "eRx:SearchAllergen",
-          "resource": "eRx:Allergen",
+          "action": ["eRx:SearchAllergen"],
+          "resource": ["eRx:Allergen"],
           "effect": "Allow"
         },
         {
-          "action": "eRx:SearchMedication",
-          "resource": "eRx:Medication",
+          "action": ["eRx:SearchMedication"],
+          "resource": ["eRx:Medication"],
           "effect": "Allow"
         }
       ]
