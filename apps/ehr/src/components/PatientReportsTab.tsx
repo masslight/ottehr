@@ -4,6 +4,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import { Box, IconButton, Paper, Stack, Typography } from '@mui/material';
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { FC, useState } from 'react';
+import { AutomateReportModal } from './AutomateReport';
 import { GenerateReportModal } from './GenerateReportModal';
 import { RoundedButton } from './RoundedButton';
 
@@ -16,6 +17,7 @@ interface Report {
 
 export const PatientReportsTab: FC = () => {
   const [openGenerateReport, setOpenGenerateReport] = useState(false);
+  const [openAutoamteReport, setOpenAutomateReport] = useState(false);
   const [reports] = useState<Report[]>([
     {
       id: '1',
@@ -82,7 +84,7 @@ export const PatientReportsTab: FC = () => {
         </RoundedButton>
 
         <RoundedButton
-          onClick={() => console.log('Open Settings')}
+          onClick={() => setOpenAutomateReport(true)}
           variant="contained"
           startIcon={<SettingsIcon fontSize="small" />}
         >
@@ -107,6 +109,7 @@ export const PatientReportsTab: FC = () => {
         }}
       />
       <GenerateReportModal open={openGenerateReport} onClose={() => setOpenGenerateReport(false)} />
+      <AutomateReportModal open={openAutoamteReport} onClose={() => setOpenAutomateReport(false)} />
     </Paper>
   );
 };

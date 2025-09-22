@@ -2,6 +2,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import {
   Box,
   Dialog,
+  DialogActions,
   DialogContent,
   DialogTitle,
   FormControlLabel,
@@ -16,6 +17,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DateRange } from '@mui/x-date-pickers-pro';
 import { DateRangePicker } from '@mui/x-date-pickers-pro/DateRangePicker';
 import { useState } from 'react';
+import { RoundedButton } from './RoundedButton';
 
 interface GenerateReportModalProps {
   open: boolean;
@@ -91,6 +93,22 @@ export const GenerateReportModal: React.FC<GenerateReportModalProps> = ({ open, 
           </LocalizationProvider>
         </Box>
       </DialogContent>
+      <DialogActions
+        sx={{
+          display: 'flex',
+          justifyContent: 'end',
+          m: 2,
+          my: 0,
+          pb: 2,
+        }}
+      >
+        <RoundedButton sx={{ minWidth: '115px' }} variant="contained">
+          Generate
+        </RoundedButton>
+        <RoundedButton sx={{ minWidth: '115px' }} onClick={onClose} variant="outlined">
+          Cancel
+        </RoundedButton>
+      </DialogActions>
     </Dialog>
   );
 };
