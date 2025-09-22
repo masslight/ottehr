@@ -1,4 +1,3 @@
-// src/features/css-module/hooks/useReactNavigationBlocker.ts
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { UNSAFE_NavigationContext, useLocation, useNavigate } from 'react-router-dom';
 import { CSSModal } from '../components/CSSModal';

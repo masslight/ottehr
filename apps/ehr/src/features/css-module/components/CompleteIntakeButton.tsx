@@ -1,4 +1,3 @@
-// src/features/css-module/intake/CompleteIntakeButton.tsx
 import { Button } from '@mui/material';
 import { Box } from '@mui/system';
 import React, { useCallback } from 'react';
