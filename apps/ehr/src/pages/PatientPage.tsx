@@ -6,7 +6,7 @@ import { DeviceVitalsPage } from 'src/components/DeviceVitalsPage';
 import { PatientDevicesTab } from 'src/components/PatientDevicesTab';
 import { PatientInHouseLabsTab } from 'src/components/PatientInHouseLabsTab';
 import { PatientRadiologyTab } from 'src/components/PatientRadiologyTab';
-import { PatientReportsTab } from 'src/components/PatientsReportTab';
+import { PatientReportsTab } from 'src/components/PatientReportsTab';
 import { ThresholdsTable } from 'src/components/ThresholdGrid';
 import { getFirstName, getLastName, ServiceMode } from 'utils';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
