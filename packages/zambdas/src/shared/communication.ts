@@ -14,6 +14,7 @@ import {
   InPersonCancelationTemplateData,
   InPersonCompletionTemplateData,
   InPersonConfirmationTemplateData,
+  InPersonReceiptTemplateData,
   InPersonReminderTemplateData,
   PROJECT_NAME,
   ScheduleOwnerFhirResource,
@@ -47,6 +48,14 @@ export async function getMessageRecipientForAppointment(
     console.log(`No RelatedPerson found for patient ${patientId} not sending text message`);
     return;
   }
+}
+
+interface EmailAttachment {
+  content: string; // Base64 encoded content
+  filename: string;
+  type: string; // MIME type
+  disposition?: 'attachment' | 'inline';
+  contentId?: string;
 }
 
 interface SendInPersonMessagesInput {
@@ -191,7 +200,8 @@ class EmailClient {
   private async sendEmail<T extends EmailTemplate>(
     to: string | string[],
     template: T,
-    templateData: DynamicTemplateDataRecord<T>
+    templateData: DynamicTemplateDataRecord<T>,
+    attachments?: EmailAttachment[]
   ): Promise<void> {
     const { templateIdSecretName } = template;
     let SENDGRID_EMAIL_BCC = [defaultBCCLowersEmail];
@@ -253,6 +263,16 @@ class EmailClient {
           projectDomain,
         },
       },
+      ...(attachments &&
+        attachments.length > 0 && {
+          attachments: attachments.map((attachment) => ({
+            content: attachment.content,
+            filename: attachment.filename,
+            type: attachment.type,
+            disposition: attachment.disposition || 'attachment',
+            ...(attachment.contentId && { content_id: attachment.contentId }),
+          })),
+        }),
     };
 
     const featureFlag = this.config.featureFlag;
@@ -340,6 +360,14 @@ class EmailClient {
 
   async sendInPersonReminderEmail(email: string | string[], templateData: InPersonReminderTemplateData): Promise<void> {
     await this.sendEmail(email, this.config.templates.inPersonReminder, templateData);
+  }
+
+  async sendInPersonReceiptEmail(
+    email: string | string[],
+    templateData: InPersonReceiptTemplateData,
+    attachments: EmailAttachment[]
+  ): Promise<void> {
+    await this.sendEmail(email, this.config.templates.inPersonReceipt, templateData, attachments);
   }
 }
 

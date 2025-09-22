@@ -21,6 +21,7 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import { useGetPatientPaymentsList } from 'src/hooks/useGetPatientPaymentsList';
 import { APIError, CashOrCardPayment, isApiError, PatientPaymentDTO, PostPatientPaymentInput } from 'utils';
 import PaymentDialog from './dialogs/PaymentDialog';
+import SendReceiptByEmailDialog from './dialogs/SendReceiptByEmailDialog';
 import { RefreshableStatusChip } from './RefreshableStatusWidget';
 
 export interface PaymentListProps {
@@ -40,6 +41,7 @@ const idForPaymentDTO = (payment: PatientPaymentDTO): string => {
 export default function PatientPaymentList({ loading, patient, encounterId }: PaymentListProps): ReactElement {
   const theme = useTheme();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [sendReceiptByEmailDialogOpen, setSendReceiptByEmailDialogOpen] = useState(false);
 
   const {
     data: paymentData,
@@ -181,6 +183,7 @@ export default function PatientPaymentList({ loading, patient, encounterId }: Pa
       <Button sx={{ marginTop: 2 }} onClick={() => setPaymentDialogOpen(true)} variant="contained" color="primary">
         $ Add Payment
       </Button>
+      <Button onClick={() => setSendReceiptByEmailDialogOpen(true)}>Send receipt</Button>
       <PaymentDialog
         open={paymentDialogOpen}
         patient={patient}
@@ -194,6 +197,13 @@ export default function PatientPaymentList({ loading, patient, encounterId }: Pa
           };
           createNewPayment.mutate(postInput);
         }}
+      />
+      <SendReceiptByEmailDialog
+        title="Send receipt"
+        modalOpen={sendReceiptByEmailDialogOpen}
+        onClose={() => setSendReceiptByEmailDialogOpen(false)}
+        onSubmit={async () => {}}
+        submitButtonName="Submit"
       />
       <Snackbar
         // anchorOrigin={{ vertical: snackbarOpen.vertical, horizontal: snackbarOpen.horizontal }}
