@@ -3,6 +3,7 @@ import { Menu, MenuItem } from '@mui/material';
 import { DateTime } from 'luxon';
 import React from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { FOLLOWUP_SYSTEMS } from 'utils';
 import { RoundedButton } from './RoundedButton';
 
 export function ReportsMenu(): JSX.Element {
@@ -22,8 +23,20 @@ export function ReportsMenu(): JSX.Element {
       resourceType: 'Encounter',
       params: [
         {
-          name: 'status:not',
-          value: 'finished',
+          name: 'status',
+          value: 'in-progress',
+        },
+        {
+          name: 'type:not',
+          value: `${FOLLOWUP_SYSTEMS.type.url}|${FOLLOWUP_SYSTEMS.type.code}`,
+        },
+        {
+          name: '_include',
+          value: 'Encounter:appointment',
+        },
+        {
+          name: '_include',
+          value: 'Encounter:participant',
         },
         {
           name: 'appointment.date',
