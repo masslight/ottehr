@@ -15,6 +15,7 @@ import {
   QuestionnaireResponseItem,
   QuestionnaireResponseItemAnswer,
   Resource,
+  Schedule,
   ValueSet,
 } from 'fhir/r4b';
 import _ from 'lodash';
@@ -669,40 +670,45 @@ export const getPaperworkResources = async (
   oystehr: Oystehr,
   QuestionnaireResponseId: string
 ): Promise<PaperworkPDFResourcePackage | undefined> => {
-  const items: Array<Patient | QuestionnaireResponse | DocumentReference | List | Encounter | Appointment | Location> =
-    (
-      await oystehr.fhir.search<
-        Patient | QuestionnaireResponse | DocumentReference | List | Encounter | Appointment | Location
-      >({
-        resourceType: 'QuestionnaireResponse',
-        params: [
-          {
-            name: '_id',
-            value: QuestionnaireResponseId,
-          },
-          {
-            name: '_include',
-            value: 'QuestionnaireResponse:subject',
-          },
-          {
-            name: '_revinclude:iterate',
-            value: 'List:patient',
-          },
-          {
-            name: '_include',
-            value: 'QuestionnaireResponse:encounter',
-          },
-          {
-            name: '_include:iterate',
-            value: 'Encounter:appointment',
-          },
-          {
-            name: '_include',
-            value: 'Appointment:location',
-          },
-        ],
-      })
-    ).unbundle();
+  const items: Array<
+    Patient | QuestionnaireResponse | DocumentReference | List | Encounter | Appointment | Schedule | Location
+  > = (
+    await oystehr.fhir.search<
+      Patient | QuestionnaireResponse | DocumentReference | List | Encounter | Appointment | Schedule | Location
+    >({
+      resourceType: 'QuestionnaireResponse',
+      params: [
+        {
+          name: '_id',
+          value: QuestionnaireResponseId,
+        },
+        {
+          name: '_include',
+          value: 'QuestionnaireResponse:subject',
+        },
+        {
+          name: '_revinclude:iterate',
+          value: 'List:patient',
+        },
+        {
+          name: '_include',
+          value: 'QuestionnaireResponse:encounter',
+        },
+        {
+          name: '_include:iterate',
+          value: 'Encounter:appointment',
+        },
+        {
+          name: '_include',
+          value: 'Appointment:location',
+        },
+        {
+          name: '_revinclude:iterate',
+          value: 'Schedule:actor:Location',
+        },
+      ],
+    })
+  ).unbundle();
 
   const questionnaireResponse: QuestionnaireResponse | undefined = items?.find(
     (item: Resource) => item.resourceType === 'QuestionnaireResponse'
@@ -717,6 +723,7 @@ export const getPaperworkResources = async (
 
   const appointment = items.find((item) => item.resourceType === 'Appointment');
   if (!appointment) return undefined;
+  const schedule = items?.find((item) => item.resourceType === 'Schedule');
   const location = items.find((item) => item.resourceType === 'Location');
 
   return {
@@ -724,6 +731,7 @@ export const getPaperworkResources = async (
     patient,
     listResources,
     appointment,
+    schedule,
     location,
   };
 };

@@ -328,7 +328,7 @@ export const Header = (): JSX.Element => {
                       <PatientMetadata>{language}</PatientMetadata> |<PatientMetadata>{reasonForVisit}</PatientMetadata>
                     </PatientInfoWrapper>
                   </Grid>
-                  <PatientMetadata sx={{ fontWeight: chartData?.allergies?.length ? 700 : 400, maxWidth: '250px' }}>
+                  <PatientMetadata sx={{ fontWeight: chartData?.allergies?.length ? 700 : 400, maxWidth: '60%' }}>
                     {allergies}
                   </PatientMetadata>
                 </PatientInfoWrapper>

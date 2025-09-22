@@ -62,7 +62,6 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
           sanitizedData[item] = false;
         }
       }
-      console.log(sanitizedData[item]);
       if (question && (question.type === 'integer' || question.type === 'decimal')) {
         sanitizedData[item] = Number(sanitizedData[item]);
       }
