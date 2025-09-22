@@ -199,5 +199,5 @@ export interface DocumentInfo {
   type: DocumentType;
   z3Url: string;
   presignedUrl: string | undefined;
-  code: string;
+  code?: string;
 }
