@@ -263,7 +263,7 @@ export const TimerComponent: React.FC = () => {
           setShowConfirmModal(false);
           setTimeout(() => {
             currentNextLocation.retry();
-          }, 2000);
+          }, 1000);
         },
         onError: () => {
           setIsSubmitting(false);
@@ -300,7 +300,7 @@ export const TimerComponent: React.FC = () => {
           setShowConfirmModal(false);
           setTimeout(() => {
             currentNextLocation.retry();
-          }, 2000);
+          }, 1000);
         },
         onError: () => {
           setIsSubmitting(false);
