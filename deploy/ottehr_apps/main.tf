@@ -19,7 +19,7 @@ resource "terraform_data" "build_ehr" {
     base64encode(join("", [for k, v in module.ehr_public_dir.files : v.digests.md5]))
   ]
   provisioner "local-exec" {
-    command     = "npm run build${var.environment == "local" ? "" : ":${var.environment}"}"
+    command     = "npm run build:${var.environment}"
     working_dir = "${path.module}/../../apps/ehr"
   }
 }
@@ -45,7 +45,7 @@ resource "terraform_data" "build_patient_portal" {
     base64encode(join("", [for k, v in module.patient_portal_public_dir.files : v.digests.md5]))
   ]
   provisioner "local-exec" {
-    command     = "npm run build${var.environment == "local" ? "" : ":${var.environment}"}"
+    command     = "npm run build:${var.environment}"
     working_dir = "${path.module}/../../apps/intake"
   }
 }
