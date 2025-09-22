@@ -155,12 +155,17 @@ const getAppointmentGraphByTag = async (
   includeObservations = false
 ): Promise<FhirResource[]> => {
   const { system, code } = tag;
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
   const appointmentSearchParams: FhirSearchParams<Appointment | Patient> = {
     resourceType: 'Appointment',
     params: [
       {
         name: '_tag',
         value: `${system}|${code}`,
+      },
+      {
+        name: '_lastUpdated',
+        value: `lt${oneHourAgo}`,
       },
       {
         name: '_sort',
@@ -308,6 +313,7 @@ const getAppointmentGraphByTag = async (
 };
 
 export const cleanupE2ELocations = async (oystehr: Oystehr, tag: string): Promise<void> => {
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
   const locationsToDelete = (
     await oystehr.fhir.search({
       resourceType: 'Location',
@@ -316,9 +322,43 @@ export const cleanupE2ELocations = async (oystehr: Oystehr, tag: string): Promis
           name: '_tag',
           value: tag,
         },
+        {
+          name: '_lastUpdated',
+          value: `lt${oneHourAgo}`,
+        },
       ],
     })
   ).unbundle();
+
+  const batchDeleteRequests: BatchInputDeleteRequest[] = locationsToDelete.map((location) => ({
+    method: 'DELETE',
+    url: `Location/${location.id}`,
+  }));
+
+  await oystehr.fhir.batch({
+    requests: batchDeleteRequests,
+  });
+};
+
+export const cleanupIntegrationTestLocations = async (oystehr: Oystehr): Promise<void> => {
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const locationsToDelete = (
+    await oystehr.fhir.search({
+      resourceType: 'Location',
+      params: [
+        {
+          name: 'name',
+          value: 'BusySlotsTestLocation',
+        },
+        {
+          name: '_lastUpdated',
+          value: `lt${oneHourAgo}`,
+        },
+      ],
+    })
+  ).unbundle();
+
+  console.log(`Found ${locationsToDelete.length} integration test locations to delete`);
 
   const batchDeleteRequests: BatchInputDeleteRequest[] = locationsToDelete.map((location) => ({
     method: 'DELETE',
