@@ -44,7 +44,6 @@ export class OrderInHouseLabPage {
   async selectTestType(): Promise<string> {
     await this.#page.getByTestId(dataTestIds.orderInHouseLabPage.testTypeField).click();
     await this.#page.getByTestId(dataTestIds.orderInHouseLabPage.testTypeList).waitFor({ state: 'visible' });
-    await this.#page.getByTestId(dataTestIds.orderInHouseLabPage.testTypeList).locator('li').first().click();
     const firstOption = this.#page.getByTestId(dataTestIds.orderInHouseLabPage.testTypeList).locator('li').first();
     const optionValue = await firstOption.innerText();
     await firstOption.click();
