@@ -1,11 +1,12 @@
+import CloseIcon from '@mui/icons-material/Close';
 import VisibilityIcon from '@mui/icons-material/Visibility';
-import { Paper, Stack } from '@mui/material';
+import { DialogTitle, Paper, Stack } from '@mui/material';
 import { Dialog, DialogContent, IconButton, Typography } from '@mui/material';
+import { Box } from '@mui/system';
 import { DataGridPro, GridColDef, GridPaginationModel } from '@mui/x-data-grid-pro';
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
 import { ReactElement, useCallback, useState } from 'react';
-import { useEffect } from 'react';
 import { useQuery } from 'react-query';
 import { useParams } from 'react-router-dom';
 import { getSummary } from 'src/api/api';
@@ -20,7 +21,6 @@ export const PatientSummaryTable = (): ReactElement => {
   const { id: patientId } = useParams<{ id: string }>();
   const [openNotes, setOpenNotes] = useState(false);
   const [noteText, setNoteText] = useState('');
-  const [displayedText, setDisplayedText] = useState('');
 
   dayjs.extend(duration);
 
@@ -53,9 +53,16 @@ export const PatientSummaryTable = (): ReactElement => {
 
             const notes = summmary?.identifier?.find((i: any) => i.system === 'notes')?.value || '-';
             const serviceType = summmary?.identifier?.find((i: any) => i.system === 'service-type')?.value || '-';
-            const interactive =
-              summmary?.identifier?.find((i: any) => i.system === 'interactive-communication')?.value || '-';
             const name = summmary?.practitionerName || '-';
+            const rawInteractive = summmary?.identifier?.find((i: any) => i.system === 'interactive-communication')
+              ?.value;
+
+            const interactive =
+              rawInteractive === 'true' || rawInteractive === true
+                ? 'Yes'
+                : rawInteractive === 'false' || rawInteractive === false
+                ? 'No'
+                : '-';
 
             return {
               id: summmary.id,
@@ -79,19 +86,6 @@ export const PatientSummaryTable = (): ReactElement => {
   const handlePaginationModelChange = useCallback((newPaginationModel: GridPaginationModel) => {
     setPaginationModel(newPaginationModel);
   }, []);
-
-  useEffect((): any => {
-    if (openNotes && noteText) {
-      let i = 0;
-      setDisplayedText('');
-      const interval = setInterval(() => {
-        setDisplayedText((prev) => prev + noteText[i]);
-        i++;
-        if (i >= noteText.length) clearInterval(interval);
-      }, 0);
-      return () => clearInterval(interval);
-    }
-  }, [openNotes, noteText]);
 
   const columns: GridColDef<SummaryColumns>[] = [
     {
@@ -142,7 +136,7 @@ export const PatientSummaryTable = (): ReactElement => {
             setOpenNotes(true);
           }}
         >
-          <VisibilityIcon />
+          <VisibilityIcon fontSize="small" sx={{ color: 'primary.main' }} />
         </IconButton>
       ),
     },
@@ -188,11 +182,29 @@ export const PatientSummaryTable = (): ReactElement => {
         />
       </Paper>
       <Dialog open={openNotes} onClose={() => setOpenNotes(false)} maxWidth="sm" fullWidth>
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            borderColor: 'divider',
+            pb: 2,
+            '& .MuiDialog-paper': {
+              borderRadius: 4,
+            },
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Typography variant="h4" color="primary.dark" sx={{ flexGrow: 1 }}>
+              Notes
+            </Typography>
+          </Box>
+          <IconButton onClick={() => setOpenNotes(false)} size="small">
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
         <DialogContent>
-          <Typography variant="h6" gutterBottom>
-            Notes
-          </Typography>
-          <Typography sx={{ whiteSpace: 'pre-wrap' }}>{displayedText || 'No notes available.'}</Typography>
+          <Typography sx={{ whiteSpace: 'pre-wrap' }}>{noteText || 'No notes available.'}</Typography>
         </DialogContent>
       </Dialog>
     </>

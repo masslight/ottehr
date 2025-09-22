@@ -43,29 +43,47 @@ export const index = wrapHandler('get-summary', async (input: ZambdaInput): Prom
       ],
     });
 
-    const tempArr: any[] = [];
     const summaries = searchResult.unbundle() as any[];
-    console.log('summaries :', JSON.stringify(summaries, null, 2));
+    console.log('summaries:', JSON.stringify(summaries, null, 2));
 
-    for (const summary of summaries) {
-      const practitionerId = summary?.participant?.[0]?.individual?.reference?.replace('Practitioner/', '');
+    const practitionerIds = Array.from(
+      new Set(
+        summaries.map((s) => s?.participant?.[0]?.individual?.reference?.replace('Practitioner/', '')).filter(Boolean)
+      )
+    );
 
-      let fullName = '';
-      if (practitionerId) {
-        const practitioner = await oystehr.fhir.get<Practitioner>({
-          resourceType: 'Practitioner',
-          id: practitionerId,
-        });
-        const firstName = getFirstName(practitioner);
-        const lastName = getLastName(practitioner);
-        fullName = `${firstName}, ${lastName}`;
-      }
+    let practitionersMap: Record<string, string> = {};
 
-      tempArr.push({
-        ...summary,
-        practitionerName: fullName,
+    if (practitionerIds.length > 0) {
+      const bundledResponse = await oystehr.fhir.search<Practitioner>({
+        resourceType: 'Practitioner',
+        params: [
+          { name: '_id', value: practitionerIds.join(',') },
+          { name: '_count', value: '1000' },
+        ],
       });
+
+      const practitioners = bundledResponse.unbundle() as Practitioner[];
+
+      practitionersMap = practitioners.reduce(
+        (acc, p) => {
+          const id = p.id!;
+          const firstName = getFirstName(p);
+          const lastName = getLastName(p);
+          acc[id] = `${firstName}, ${lastName}`;
+          return acc;
+        },
+        {} as Record<string, string>
+      );
     }
+
+    const tempArr = summaries.map((summary) => {
+      const practitionerId = summary?.participant?.[0]?.individual?.reference?.replace('Practitioner/', '');
+      return {
+        ...summary,
+        practitionerName: practitionerId ? practitionersMap[practitionerId] || '' : '',
+      };
+    });
 
     return lambdaResponse(200, {
       message: `Successfully retrieved summary`,
