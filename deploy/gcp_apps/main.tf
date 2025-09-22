@@ -11,7 +11,7 @@ terraform {
 
 module "ehr_directory" {
   source   = "hashicorp/dir/template"
-  base_dir = "../../apps/ehr/build"
+  base_dir = "${path.module}/../../apps/ehr/build"
 }
 
 resource "google_storage_bucket_object" "ehr_upload" {
@@ -19,7 +19,7 @@ resource "google_storage_bucket_object" "ehr_upload" {
   bucket         = var.ehr_bucket_id
   name           = each.key
   content_type   = each.value.content_type
-  source         = each.value.source
+  source         = each.value.source_path
   content        = each.value.content
   detect_md5hash = each.value.digests.md5
 }
@@ -28,7 +28,7 @@ resource "google_storage_bucket_object" "ehr_upload" {
 
 module "patient_portal_directory" {
   source   = "hashicorp/dir/template"
-  base_dir = "../../apps/patient_portal/build"
+  base_dir = "${path.module}/../../apps/patient_portal/build"
 }
 
 resource "google_storage_bucket_object" "patient_portal_upload" {
@@ -36,7 +36,7 @@ resource "google_storage_bucket_object" "patient_portal_upload" {
   bucket         = var.patient_portal_bucket_id
   name           = each.key
   content_type   = each.value.content_type
-  source         = each.value.source
+  source         = each.value.source_path
   content        = each.value.content
   detect_md5hash = each.value.digests.md5
 }
