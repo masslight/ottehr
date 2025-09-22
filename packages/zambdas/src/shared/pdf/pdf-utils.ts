@@ -815,20 +815,24 @@ export const drawFourColumnText = (
   return pdfClient;
 };
 
-export async function getPdfLogo(): Promise<Buffer> {
+export async function getPdfLogo(): Promise<Buffer | undefined> {
   const url = BRANDING_CONFIG.pdf.logoURL;
-
-  if (!url) {
-    return fs.readFileSync('./assets/logo.png');
-  }
-
-  if (url.startsWith('http')) {
-    const res = await fetch(url);
-    if (!res.ok) {
-      throw new Error(`Failed to fetch logo: ${res.status} ${res.statusText}`);
+  try {
+    if (!url) {
+      return fs.readFileSync('./assets/logo.png');
     }
-    return Buffer.from(await res.arrayBuffer());
-  }
 
-  return fs.readFileSync(url);
+    if (url.startsWith('http')) {
+      const res = await fetch(url);
+      if (!res.ok) {
+        throw new Error(`Failed to fetch logo: ${res.status} ${res.statusText}`);
+      }
+      return Buffer.from(await res.arrayBuffer());
+    }
+
+    return fs.readFileSync(url);
+  } catch (error) {
+    console.warn(`Could not load PDF logo from "${url || './assets/logo.png'}": ${(error as Error).message}`);
+    return undefined;
+  }
 }

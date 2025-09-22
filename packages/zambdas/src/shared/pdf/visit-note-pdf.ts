@@ -1,6 +1,6 @@
 import { Patient } from 'fhir/r4b';
 import fs from 'fs';
-import { PageSizes } from 'pdf-lib';
+import { PageSizes, PDFImage } from 'pdf-lib';
 import {
   AdditionalBooleanQuestionsFieldsNames,
   BUCKET_NAMES,
@@ -37,7 +37,8 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
   const RubikFont = await pdfClient.embedFont(fs.readFileSync('./assets/Rubik-Regular.otf'));
   const RubikFontBold = await pdfClient.embedFont(fs.readFileSync('./assets/Rubik-Bold.otf'));
   const logoBuffer = await getPdfLogo();
-  const logo = await pdfClient.embedImage(logoBuffer);
+  let logo: PDFImage | undefined;
+  if (logoBuffer) logo = await pdfClient.embedImage(logoBuffer);
   const redDot = await pdfClient.embedImage(fs.readFileSync('./assets/red-dot.png'));
   const greenDot = await pdfClient.embedImage(fs.readFileSync('./assets/green-dot.png'));
 
@@ -239,7 +240,7 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
       width: 110,
       height: 28,
     };
-    pdfClient.drawImage(logo, imgStyles);
+    if (logo) pdfClient.drawImage(logo, imgStyles);
     pdfClient.drawText('Visit Note', textStyles.header);
   };
   // We can't set this headline in initial styles, so we gonna draw it and add

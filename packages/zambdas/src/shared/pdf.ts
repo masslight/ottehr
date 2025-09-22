@@ -244,17 +244,20 @@ async function drawFirstPage({
 
   // add Ottehr logo at the top of the PDF
   const logoBuffer = await getPdfLogo();
-  const img = await pdfDoc.embedPng(new Uint8Array(logoBuffer));
-  const imgDimensions = img.scale(0.3);
-  currYPos -= imgDimensions.height / 2;
-  page.drawImage(img, {
-    x: (width - imgDimensions.width) / 2, // center image along x-axis
-    y: currYPos,
-    width: imgDimensions.width,
-    height: imgDimensions.height,
-  });
+  if (logoBuffer) {
+    const img = await pdfDoc.embedPng(new Uint8Array(logoBuffer));
+    const imgDimensions = img.scale(0.3);
+    currYPos -= imgDimensions.height / 2;
+    if (img)
+      page.drawImage(img, {
+        x: (width - imgDimensions.width) / 2, // center image along x-axis
+        y: currYPos,
+        width: imgDimensions.width,
+        height: imgDimensions.height,
+      });
 
-  currYPos -= imgDimensions.height / 2; // space after image
+    currYPos -= imgDimensions.height / 2; // space after image
+  }
 
   // add all sections to PDF
   let sIndex = 0;

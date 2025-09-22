@@ -14,7 +14,7 @@ import {
 import fs from 'fs';
 import { capitalize } from 'lodash';
 import { DateTime } from 'luxon';
-import { PageSizes } from 'pdf-lib';
+import { PageSizes, PDFImage } from 'pdf-lib';
 import Stripe from 'stripe';
 import {
   CashOrCardPayment,
@@ -292,8 +292,9 @@ async function createReceiptPdf(receiptData: PatientPaymentReceiptData): Promise
   const pdfClient = await createPdfClient(pdfClientStyles);
   const RubikFont = await pdfClient.embedFont(fs.readFileSync('./assets/Rubik-Regular.otf'));
   const RubikFontMedium = await pdfClient.embedFont(fs.readFileSync('./assets/Rubik-Medium.ttf'));
+  let logo: PDFImage | undefined;
   const logoBuffer = await getPdfLogo();
-  const logo = await pdfClient.embedImage(logoBuffer);
+  if (logoBuffer) logo = await pdfClient.embedImage(logoBuffer);
 
   const textStyles: Record<string, TextStyle> = {
     header: {
@@ -344,7 +345,7 @@ async function createReceiptPdf(receiptData: PatientPaymentReceiptData): Promise
       width: 120,
       height: 30,
     };
-    pdfClient.drawImage(logo, imgStyles);
+    if (logo) pdfClient.drawImage(logo, imgStyles);
     pdfClient.newLine(STANDARD_NEW_LINE);
     pdfClient.drawText('RECEIPT', textStyles.header);
     pdfClient.setY(pdfClient.getY() - imgStyles.height); // new line after image

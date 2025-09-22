@@ -99,15 +99,17 @@ async function createSchoolWorkNotePdfBytes(data: SchoolWorkNoteExcuseDocDTO): P
 
   // add Ottehr logo at the top of the PDF
   const logoBuffer = await getPdfLogo();
-  const img = await pdfDoc.embedPng(new Uint8Array(logoBuffer));
-  currYPos -= styles.margin.y;
-  page.drawImage(img, {
-    x: styles.margin.x,
-    y: currYPos,
-    width: styles.image.width,
-    height: styles.image.height,
-  });
-  currYPos -= styles.image.height + styles.spacing.image; // space after image
+  if (logoBuffer) {
+    const img = await pdfDoc.embedPng(new Uint8Array(logoBuffer));
+    currYPos -= styles.margin.y;
+    page.drawImage(img, {
+      x: styles.margin.x,
+      y: currYPos,
+      width: styles.image.width,
+      height: styles.image.height,
+    });
+    currYPos -= styles.image.height + styles.spacing.image; // space after image
+  }
 
   // add all sections to PDF
   if (data.documentHeader) drawHeader(data.documentHeader);
