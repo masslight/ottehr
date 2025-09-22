@@ -120,23 +120,35 @@ export default function PatientPage(): JSX.Element {
           >
             <PatientAvatar id={id} />
 
-            <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 1, maxWidth: '550px' }}>
               <IdentifiersRow id={id} />
               <FullNameDisplay patient={patient} loading={loading} />
               <Summary patient={patient} loading={loading} />
               <Contacts patient={patient} loading={loading} />
-
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: 1,
+                  width: '60%',
+                }}
+              >
                 <RoundedButton
+                  sx={{ flex: '1 1 calc(10% - 8px)' }}
                   to={`/patient/${id}/info`}
                   data-testid={dataTestIds.patientRecordPage.seeAllPatientInfoButton}
                 >
                   See All Patient Info
                 </RoundedButton>
-                <RoundedButton to={`/patient/${id}/docs`}>Review Docs</RoundedButton>
-                <RoundedButton onClick={handleOpenSummaryModal}>Summary</RoundedButton>
+                <RoundedButton sx={{ flex: '1 1 calc(10% - 8px)' }} to={`/patient/${id}/docs`}>
+                  Review Docs
+                </RoundedButton>
+                <RoundedButton sx={{ flex: '1 1 calc(10% - 8px)' }} onClick={handleOpenSummaryModal}>
+                  Summary
+                </RoundedButton>
                 {latestAppointment && (
                   <RoundedButton
+                    sx={{ flex: '1 1 calc(10% - 8px)' }}
                     target="_blank"
                     to={
                       latestAppointment.serviceMode === ServiceMode.virtual
