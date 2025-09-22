@@ -35,6 +35,7 @@ import {
   updateEncounterPaymentVariantExtension,
 } from 'utils';
 import PaymentDialog from './dialogs/PaymentDialog';
+import SendReceiptByEmailDialog from './dialogs/SendReceiptByEmailDialog';
 import { RefreshableStatusChip } from './RefreshableStatusWidget';
 
 export interface PaymentListProps {
@@ -61,6 +62,7 @@ export default function PatientPaymentList({
   const { oystehr } = useApiClients();
   const theme = useTheme();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [sendReceiptByEmailDialogOpen, setSendReceiptByEmailDialogOpen] = useState(false);
   const [paymentVariant, setPaymentVariant] = useState(
     patientSelectSelfPay ? PaymentVariant.selfPay : PaymentVariant.insurance
   );
@@ -283,6 +285,7 @@ export default function PatientPaymentList({
       <Button sx={{ marginTop: 2 }} onClick={() => setPaymentDialogOpen(true)} variant="contained" color="primary">
         $ Add Payment
       </Button>
+      <Button onClick={() => setSendReceiptByEmailDialogOpen(true)}>Send receipt</Button>
       <PaymentDialog
         open={paymentDialogOpen}
         patient={patient}
@@ -296,6 +299,13 @@ export default function PatientPaymentList({
           };
           createNewPayment.mutate(postInput);
         }}
+      />
+      <SendReceiptByEmailDialog
+        title="Send receipt"
+        modalOpen={sendReceiptByEmailDialogOpen}
+        onClose={() => setSendReceiptByEmailDialogOpen(false)}
+        onSubmit={async () => {}}
+        submitButtonName="Submit"
       />
       <Snackbar
         // anchorOrigin={{ vertical: snackbarOpen.vertical, horizontal: snackbarOpen.horizontal }}

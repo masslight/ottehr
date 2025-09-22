@@ -68,6 +68,16 @@ const SENDGRID_DEFAULTS = Object.freeze({
         'paperwork-url',
       ],
     },
+    inPersonReceipt: {
+      templateName: 'In-Person Receipt',
+      templateVersionName: '1.0.0',
+      active: true,
+      htmlFilePath: `${PATH_PREFIX}/configuration/sendgrid/template_html/in-person-receipt.html`,
+      subject: '{{env}}Your report is ready',
+      templateIdSecretName: 'SENDGRID_IN_PERSON_RECEIPT_TEMPLATE_ID',
+      dynamicTemplateData: ['recipient-name'],
+      supportsAttachments: true,
+    },
     telemedCancelation: {
       templateName: 'Telemed Cancelation',
       templateVersionName: '1.0.0',
@@ -132,6 +142,7 @@ const TemplateVersionSchema = z.object({
   ),
   subject: z.string().min(1, { message: 'Subject cannot be empty' }),
   dynamicTemplateData: z.array(z.string()).default([]).optional(),
+  supportsAttachments: z.boolean().default(false).optional(),
 });
 
 const ErrorReportSchema = TemplateVersionSchema.extend({
@@ -158,6 +169,11 @@ const InPersonReminderSchema = TemplateVersionSchema.extend({
   templateIdSecretName: z.literal('SENDGRID_IN_PERSON_REMINDER_TEMPLATE_ID'),
   disabled: z.boolean().default(false),
   dynamicTemplateData: z.array(z.enum(mergedSendgridConfig.templates.inPersonReminder.dynamicTemplateData)),
+});
+const InPersonReceiptSchema = TemplateVersionSchema.extend({
+  templateIdSecretName: z.literal('SENDGRID_IN_PERSON_RECEIPT_TEMPLATE_ID'),
+  disabled: z.boolean().default(false),
+  dynamicTemplateData: z.array(z.enum(mergedSendgridConfig.templates.inPersonReceipt.dynamicTemplateData)),
 });
 const TelemedCancelationSchema = TemplateVersionSchema.extend({
   templateIdSecretName: z.literal('SENDGRID_TELEMED_CANCELATION_TEMPLATE_ID'),
@@ -186,6 +202,7 @@ const DefaultTemplates = z.object({
   inPersonConfirmation: InPersonConfirmationSchema,
   inPersonCompletion: InPersonCompletionSchema,
   inPersonReminder: InPersonReminderSchema,
+  inPersonReceipt: InPersonReceiptSchema,
   telemedCancelation: TelemedCancelationSchema,
   telemedConfirmation: TelemedConfirmationSchema,
   telemedCompletion: TelemedCompletionSchema,
@@ -215,6 +232,7 @@ export type InPersonCompletionTemplateData = DynamicTemplateDataRecord<
   SendgridConfig['templates']['inPersonCompletion']
 >;
 export type InPersonReminderTemplateData = DynamicTemplateDataRecord<SendgridConfig['templates']['inPersonReminder']>;
+export type InPersonReceiptTemplateData = DynamicTemplateDataRecord<SendgridConfig['templates']['inPersonReceipt']>;
 export type TelemedCancelationTemplateData = DynamicTemplateDataRecord<
   SendgridConfig['templates']['telemedCancelation']
 >;
