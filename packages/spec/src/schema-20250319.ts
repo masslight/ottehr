@@ -159,7 +159,9 @@ export class Schema20250319 implements Schema<Spec20250319> {
       };
       // If there is project configuration, we need to wait on it being set up in case they are changing relevant values
       if (Object.keys(projects).length) {
-        appResources.resource.oystehr_application[appName].depends_on = [`oystehr_project_configuration.${projects[0][0]}`];
+        appResources.resource.oystehr_application[appName].depends_on = [
+          `oystehr_project_configuration.${projects[0][0]}`,
+        ];
       }
     }
     if (Object.keys(appResources.resource.oystehr_application).length) {
