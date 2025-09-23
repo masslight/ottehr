@@ -546,16 +546,21 @@ describe('busy slots tests', () => {
 
     expect(availableSlots).toBeDefined();
     const slotStartTimes = availableSlots.map((si) => si.slot.start);
-    expect(slotStartTimes.length).toEqual(10);
+    expect(slotStartTimes.length).toEqual(10 - bookedSlotTimes.length);
 
     let now = DateTime.fromISO(timeNow.toISO()!, { zone: timezone });
     const close = now.plus({ hours: 10 });
     const expectedList = [];
     while (now < close) {
-      expectedList.push(now.toISO());
+      const nowISO = now.toISO();
+      const isBusy = nowISO !== null ? bookedSlotTimes.includes(nowISO) : false;
+      // dont include busy slots in the expected list
+      if (!isBusy) {
+        expectedList.push(now.toISO());
+      }
       now = now.plus({ minutes: 60 });
     }
-    expect(expectedList.length).toEqual(10);
+    expect(expectedList.length).toEqual(10 - bookedSlotTimes.length);
     expect(slotStartTimes).toEqual(expectedList);
   });
 });
