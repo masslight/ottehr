@@ -716,7 +716,14 @@ export default function AppointmentPage(): ReactElement {
               const title = content.attachment.title;
               const z3Url = content.attachment.url;
 
-              if (z3Url && title && Object.values<string>(DocumentType).includes(title)) {
+              if (z3Url && title) {
+                if (
+                  [PHOTO_ID_CARD_CODE, INSURANCE_CARD_CODE].includes(docRefCode) &&
+                  (!title || !Object.values<string>(DocumentType).includes(title))
+                ) {
+                  continue;
+                }
+
                 const presignedUrl = await getPresignedURL(z3Url, authToken);
                 if (presignedUrl) {
                   allZ3Documents.push({
