@@ -66,7 +66,7 @@ import {
 } from 'utils';
 import { sendErrors } from '../../shared';
 import {
-  docRefIsAbn,
+  docRefIsAbnAndCurrent,
   formatResourcesIntoDiagnosticReportLabDTO,
   groupResourcesByDr,
   parseAccessionNumberFromDr,
@@ -602,7 +602,7 @@ export const getLabResources = async (
     }
   } else {
     const abnDocRefs = documentReferences.filter((docRef) => {
-      return docRefIsAbn(docRef);
+      return docRefIsAbnAndCurrent(docRef);
     });
     if (abnDocRefs) {
       const pdfs = await fetchLabOrderPDFsPresignedUrls(abnDocRefs, m2mToken);
