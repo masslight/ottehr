@@ -1155,6 +1155,17 @@
             ]
           },
           {
+            "linkId": "pharmacy-page",
+            "item": [
+              {
+                "linkId": "pharmacy-name"
+              },
+              {
+                "linkId": "pharmacy-address"
+              }
+            ]
+          },
+          {
             "linkId": "payment-option-page",
             "item": [
               {
