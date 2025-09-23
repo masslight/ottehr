@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { searchIcd10Codes } from '../src/ehr/icd-10-search/index';
+import { searchIcd10Codes } from '../src/shared/icd-10-search';
 
 describe('icd-10-search tests', () => {
   it('should find J06 codes correctly', async () => {
