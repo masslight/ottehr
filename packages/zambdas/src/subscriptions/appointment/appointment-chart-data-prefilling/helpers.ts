@@ -1,27 +1,65 @@
 import { CodeableConcept, QuestionnaireResponse } from 'fhir/r4b';
 import {
-  AdditionalBooleanQuestionsFieldsNames,
   convertToBoolean,
   ExamCardComponent,
   examConfig,
   ExamObservationDTO,
   getQuestionnaireResponseByLinkId,
   ObservationDTO,
+  patientScreeningQuestionsConfig,
 } from 'utils';
 
 export const createAdditionalQuestions = (questionnaireResponse: QuestionnaireResponse): ObservationDTO[] => {
-  return Object.values(AdditionalBooleanQuestionsFieldsNames)
+  const questionnaireFields = patientScreeningQuestionsConfig.fields.filter((field) => field.existsInQuestionnaire);
+
+  return questionnaireFields
     .filter((field) => {
-      const response = getQuestionnaireResponseByLinkId(field, questionnaireResponse);
+      const response = getQuestionnaireResponseByLinkId(field.fhirField, questionnaireResponse);
       const valueString = response?.answer?.[0]?.valueString;
       return valueString !== undefined;
     })
     .map((field) => {
-      const response = getQuestionnaireResponseByLinkId(field, questionnaireResponse);
+      const response = getQuestionnaireResponseByLinkId(field.fhirField, questionnaireResponse);
       const valueString = response?.answer?.[0]?.valueString;
+
+      // Convert value based on field type
+      let value: any;
+      switch (field.type) {
+        case 'radio':
+        case 'select': {
+          // For radio/select, convert to boolean ONLY if it has EXACTLY yes/no options (like COVID questions)
+          const hasOnlyYesNoOptions =
+            field.options &&
+            field.options.length === 2 &&
+            field.options.every((opt) => opt.fhirValue === 'yes' || opt.fhirValue === 'no');
+
+          if (hasOnlyYesNoOptions) {
+            value = convertToBoolean(valueString) || false;
+          } else {
+            value = valueString;
+          }
+          break;
+        }
+        case 'dateRange':
+          // For dateRange, expect comma-separated values or array
+          if (valueString?.includes(',')) {
+            value = valueString.split(',').map((s) => s.trim());
+          } else {
+            value = valueString;
+          }
+          break;
+        case 'text':
+        case 'textarea':
+          value = valueString;
+          break;
+        default:
+          // Fallback: try to convert to boolean for backwards compatibility
+          value = convertToBoolean(valueString) || false;
+      }
+
       return {
-        field,
-        value: convertToBoolean(valueString) || false,
+        field: field.fhirField,
+        value,
       };
     });
 };
