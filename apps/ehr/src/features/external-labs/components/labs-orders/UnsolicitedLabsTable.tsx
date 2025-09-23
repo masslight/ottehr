@@ -37,7 +37,7 @@ export const UnsolicitedLabsTable: FC<UnsolicitedLabsTableProps> = ({
   });
   const unsolicitedLabListDTOs = data?.unsolicitedLabListDTOs;
 
-  if (!unsolicitedLabListDTOs) return null;
+  if (!unsolicitedLabListDTOs || unsolicitedLabListDTOs.length === 0) return null;
 
   const onRowClick = (unsolicitedLab: UnsolicitedLabListPageDTO): void => {
     navigate(`/unsolicited-results/${unsolicitedLab.diagnosticReportId}/review`);
