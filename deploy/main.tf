@@ -5,6 +5,7 @@ terraform {
     profile = "YOUR_AWS_PROFILE_NAME"
     key     = "terraform.tfstate"
   }
+  required_version = "~> 1.12.0"
   required_providers {
     sendgrid = {
       source  = "arslanbekov/sendgrid"
