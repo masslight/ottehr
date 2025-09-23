@@ -127,6 +127,7 @@ export type LabOrderListPageDTO = {
   accessionNumbers: string[]; // DiagnosticReport.identifier (identifier assigned to a sample when it arrives at a laboratory)
   encounterTimezone: string | undefined; // used to format dates correctly on the front end
   orderNumber: string | undefined; // ServiceRequest.identifier.value (system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)
+  abnPdfUrl: string | undefined; // DocRef containing OYSTEHR_LAB_DOC_CATEGORY_CODING and related to SR (only for labCorp + quest)
 };
 
 export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {
@@ -164,6 +165,7 @@ export type DiagnosticReportLabDetailPageDTO = Omit<
   | 'accountNumber'
   | 'labelPdfUrl'
   | 'orderPdfUrl'
+  | 'abnPdfUrl'
 >;
 
 export type ReflexLabDTO = DiagnosticReportLabDetailPageDTO & {
@@ -191,9 +193,14 @@ export type PaginatedResponse<RequestParameters extends GetLabOrdersParameters =
   reflexResults: ReflexLabDTO[];
 };
 
+type orderBundleDTO = {
+  bundleName: string;
+  abnPdfUrl: string | undefined;
+  orders: (LabOrderListPageDTO | ReflexLabDTO)[];
+};
 export type LabOrderListPageDTOGrouped = {
-  pendingActionOrResults: Record<string, { bundleName: string; orders: (LabOrderListPageDTO | ReflexLabDTO)[] }>;
-  hasResults: Record<string, { bundleName: string; orders: (LabOrderListPageDTO | ReflexLabDTO)[] }>;
+  pendingActionOrResults: Record<string, orderBundleDTO>;
+  hasResults: Record<string, orderBundleDTO>;
 };
 
 export type LabOrdersSearchBy = {
@@ -234,7 +241,7 @@ export type SubmitLabOrderInput = {
 };
 
 export type SubmitLabOrderOutput = {
-  orderPdfUrls: string[];
+  orderPdfUrls: string[]; // if any abn was generated its presigned url will also be included
   failedOrdersByOrderNumber?: string[];
 };
 
@@ -350,6 +357,12 @@ export interface GetLabelPdfParameters {
   searchParams: { name: string; value: string }[];
 }
 
+// todo labs team absorb LabelPdf in LabPdf
+export interface LabPdf {
+  type: 'abn';
+  documentReference: DocumentReference;
+  presignedURL: string;
+}
 export interface LabelPdf {
   documentReference: DocumentReference;
   presignedURL: string;

@@ -39,6 +39,7 @@ export const index = wrapHandler('get-lab-orders', async (input: ZambdaInput): P
       resultPDFs,
       labelPDF,
       orderPDF,
+      abnPDFsByRequisitionNumber,
       specimens,
       patientLabItems,
       appointmentScheduleMap,
@@ -73,6 +74,7 @@ export const index = wrapHandler('get-lab-orders', async (input: ZambdaInput): P
       resultPDFs,
       labelPDF,
       orderPDF,
+      abnPDFsByRequisitionNumber,
       specimens,
       appointmentScheduleMap,
       ENVIRONMENT
@@ -80,11 +82,9 @@ export const index = wrapHandler('get-lab-orders', async (input: ZambdaInput): P
 
     // todo future can probably refactor to do less data massaging for when this is being called from the table view
     let reflexLabDTOs: ReflexLabDTO[] = [];
-    console.log('reflexDRsAndRelatedResources', JSON.stringify(reflexDRsAndRelatedResources));
     if (reflexDRsAndRelatedResources) {
       reflexLabDTOs = await mapReflexResourcesToDrLabDTO(reflexDRsAndRelatedResources, m2mToken);
     }
-    console.log('reflexLabDTOs', JSON.stringify(reflexLabDTOs));
 
     return {
       statusCode: 200,

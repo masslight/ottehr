@@ -343,7 +343,10 @@ const groupLabOrderListPageDTOs = (
       subGroup[requisitionNumber].orders.push(item);
     } else {
       const bundleName = `${item.fillerLab}${item.isPSC ? ' PSC' : ''}`;
-      subGroup[requisitionNumber] = { bundleName, orders: [item] };
+      subGroup[requisitionNumber] = { bundleName, abnPdfUrl: undefined, orders: [item] };
+      if ('abnPdfUrl' in item) {
+        subGroup[requisitionNumber].abnPdfUrl = item.abnPdfUrl;
+      }
     }
   };
 

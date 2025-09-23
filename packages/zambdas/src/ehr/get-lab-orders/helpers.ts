@@ -48,6 +48,7 @@ import {
   LabOrderResultDetails,
   LabOrdersSearchBy,
   LabOrderUnreceivedHistoryRow,
+  LabPdf,
   LabResultPDF,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
@@ -65,6 +66,7 @@ import {
 } from 'utils';
 import { sendErrors } from '../../shared';
 import {
+  docRefIsAbn,
   formatResourcesIntoDiagnosticReportLabDTO,
   groupResourcesByDr,
   parseAccessionNumberFromDr,
@@ -99,6 +101,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
   resultPDFs: LabResultPDF[],
   labelPDF: LabelPdf | undefined,
   orderPDF: LabOrderPDF | undefined,
+  abnPDFsByRequisitionNumber: { [requisitionNumber: string]: LabPdf } | undefined,
   specimens: Specimen[],
   appointmentScheduleMap: Record<string, Schedule>,
   ENVIRONMENT: string
@@ -133,6 +136,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
           resultPDFs,
           labelPDF,
           orderPDF,
+          abnPDFsByRequisitionNumber,
           specimens,
           appointmentScheduleMap,
           cache,
@@ -186,6 +190,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   resultPDFs,
   labelPDF,
   orderPDF,
+  abnPDFsByRequisitionNumber,
   specimens,
   appointmentScheduleMap,
   cache,
@@ -204,6 +209,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   resultPDFs: LabResultPDF[];
   labelPDF: LabelPdf | undefined;
   orderPDF: LabOrderPDF | undefined;
+  abnPDFsByRequisitionNumber: { [requisitionNumber: string]: LabPdf } | undefined;
   specimens: Specimen[];
   appointmentScheduleMap: Record<string, Schedule>;
   cache?: Cache;
@@ -212,6 +218,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   if (!serviceRequest.id) {
     throw new Error('ServiceRequest ID is required');
   }
+  console.log(serviceRequest.id);
 
   const appointmentId = parseAppointmentIdForServiceRequest(serviceRequest, encounters) || '';
   const appointment = appointments.find((a) => a.id === appointmentId);
@@ -220,6 +227,12 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   console.log('external lab orderStatus parsed', orderStatus);
 
   console.log('formatting external lab listPageDTO');
+  const requisitionNumber = getOrderNumber(serviceRequest);
+  const abnPdfUrl =
+    requisitionNumber && abnPDFsByRequisitionNumber
+      ? abnPDFsByRequisitionNumber[requisitionNumber]?.presignedURL
+      : undefined;
+
   const listPageDTO: LabOrderListPageDTO = {
     appointmentId,
     testItem,
@@ -236,7 +249,8 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
     orderingPhysician: parsePractitionerNameFromServiceRequest(serviceRequest, practitioners),
     diagnoses: parseDx(serviceRequest),
     encounterTimezone: parseTimezoneForAppointmentSchedule(appointment, appointmentScheduleMap),
-    orderNumber: getOrderNumber(serviceRequest),
+    orderNumber: requisitionNumber,
+    abnPdfUrl,
   };
 
   if (searchBy.searchBy.field === 'serviceRequestId') {
@@ -491,6 +505,7 @@ export const getLabResources = async (
   resultPDFs: LabResultPDF[];
   labelPDF: LabelPdf | undefined;
   orderPDF: LabOrderPDF | undefined;
+  abnPDFsByRequisitionNumber: { [requisitionNumber: string]: LabPdf } | undefined;
   specimens: Specimen[];
   patientLabItems: PatientLabItem[];
   appointmentScheduleMap: Record<string, Schedule>;
@@ -575,6 +590,9 @@ export const getLabResources = async (
   let resultPDFs: LabResultPDF[] = [];
   let labelPDF: LabelPdf | undefined;
   let orderPDF: LabOrderPDF | undefined;
+  let abnPDFs: LabPdf[] | undefined;
+
+  // todo labs team - future dev to make order pdfs available from the patient chart labs table
   if (isDetailPageRequest) {
     const pdfs = await fetchLabOrderPDFsPresignedUrls(documentReferences, m2mToken);
     if (pdfs) {
@@ -582,7 +600,19 @@ export const getLabResources = async (
       labelPDF = pdfs.labelPDF;
       orderPDF = pdfs.orderPDF;
     }
+  } else {
+    const abnDocRefs = documentReferences.filter((docRef) => {
+      return docRefIsAbn(docRef);
+    });
+    if (abnDocRefs) {
+      const pdfs = await fetchLabOrderPDFsPresignedUrls(abnDocRefs, m2mToken);
+      if (pdfs) {
+        abnPDFs = pdfs.abnPDFs;
+      }
+    }
   }
+
+  const abnPDFsByRequisitionNumber = groupAbnPDFsByRequisition(abnPDFs, serviceRequests);
 
   const pagination = parsePaginationFromResponse(labOrdersResponse);
 
@@ -602,6 +632,7 @@ export const getLabResources = async (
     resultPDFs,
     labelPDF,
     orderPDF,
+    abnPDFsByRequisitionNumber,
     specimens,
     pagination,
     patientLabItems,
@@ -692,6 +723,12 @@ export const createLabServiceRequestSearchParams = (params: GetZambdaLabOrdersPa
     searchParams.push({
       name: 'encounter',
       value: `Encounter/${searchBy.value}`,
+    });
+
+    // to get the abn
+    searchParams.push({
+      name: '_revinclude:iterate',
+      value: 'DocumentReference:related',
     });
   }
 
@@ -2422,4 +2459,27 @@ export const getAllServiceRequestsForPatient = async (
   const allServiceRequests = Array.from(serviceRequestsMap.values());
   console.log(`Found ${allServiceRequests.length} unique service requests for patient`);
   return allServiceRequests;
+};
+
+// todo labs team eventually we will record the requisition number on the abn doc ref and then we wont need to do this mapping
+const groupAbnPDFsByRequisition = (
+  abnPDFs: LabPdf[] | undefined,
+  serviceRequests: ServiceRequest[]
+): { [requisitionNumber: string]: LabPdf } | undefined => {
+  if (!abnPDFs) return;
+  const abnPDFsByRequisitionNumber: { [requisitionNumber: string]: LabPdf } = {};
+  abnPDFs.forEach((pdf) => {
+    const docRef = pdf.documentReference;
+    // abn doc refs will be linked to all the service requests within an order,
+    // they will all have the same requisition number so we can just grab the first one
+    const firstServiceRequestId = docRef.context?.related
+      ?.find((resource) => resource.reference?.startsWith('ServiceRequest/'))
+      ?.reference?.replace('ServiceRequest/', '');
+    const serviceRequest = serviceRequests.find((sr) => sr.id === firstServiceRequestId);
+    const requisitionNumber = serviceRequest ? getOrderNumber(serviceRequest) : undefined;
+    if (requisitionNumber) {
+      abnPDFsByRequisitionNumber[requisitionNumber] = pdf;
+    }
+  });
+  return abnPDFsByRequisitionNumber;
 };

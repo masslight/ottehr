@@ -1,5 +1,7 @@
+import { otherColors } from '@ehrTheme/colors';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { LoadingButton } from '@mui/lab';
-import { Box, TableCell, TableRow, Typography } from '@mui/material';
+import { Box, Button, TableCell, TableRow, Typography } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import { JSXElementConstructor, ReactElement, useState } from 'react';
 import { submitLabOrder } from 'src/api/api';
@@ -18,6 +20,7 @@ import { LabsTableContainer } from './LabsTableContainer';
 type LabsTableProps<SearchBy extends LabOrdersSearchBy> = {
   labOrders: (LabOrderListPageDTO | ReflexLabDTO)[];
   orderBundleName: string;
+  abnPdfUrl: string | undefined;
   searchBy: SearchBy;
   columns: LabsTableColumn[];
   allowDelete: boolean;
@@ -36,6 +39,7 @@ type LabsTableProps<SearchBy extends LabOrdersSearchBy> = {
 export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
   labOrders,
   orderBundleName,
+  abnPdfUrl,
   searchBy,
   columns,
   allowDelete,
@@ -79,8 +83,6 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
         serviceRequestIDs: labsToSubmit.map((order) => order.serviceRequestId),
         manualOrder,
       });
-      console.log('orderPdfUrls', orderPdfUrls);
-      console.log('failedOrdersByOrderNumber', failedOrdersByOrderNumber);
       await Promise.all(orderPdfUrls.map((pdfUrl) => openPdf(pdfUrl)));
 
       if (failedOrdersByOrderNumber) {
@@ -129,30 +131,58 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
   );
 
   const bundleHeaderRow = (
-    <TableRow>
-      <TableCell colSpan={columns.length} sx={{ p: '8px 18px', backgroundColor: '#2169F514' }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <Typography variant="body1" sx={{ fontWeight: '500', color: 'primary.dark' }}>
-              {orderBundleName}
-            </Typography>
+    <>
+      <TableRow>
+        <TableCell colSpan={columns.length} sx={{ p: '8px 18px', backgroundColor: '#2169F514' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Typography variant="body1" sx={{ fontWeight: '500', color: 'primary.dark' }}>
+                {orderBundleName}
+              </Typography>
+            </Box>
+            {showSubmitButton && (
+              <LoadingButton
+                loading={submitLoading}
+                variant="contained"
+                sx={{ borderRadius: '50px', textTransform: 'none', py: 1, px: 5, textWrap: 'nowrap' }}
+                color="primary"
+                size={'medium'}
+                onClick={() => submitOrders(false)}
+                disabled={pendingLabs.length > 0}
+              >
+                Submit & Print Order(s)
+              </LoadingButton>
+            )}
+            {abnPdfUrl && (
+              <Button
+                variant="outlined"
+                type="button"
+                sx={{ width: 170, borderRadius: '50px', textTransform: 'none' }}
+                onClick={() => openPdf(abnPdfUrl)}
+              >
+                Re-print ABN
+              </Button>
+            )}
           </Box>
-          {showSubmitButton && (
-            <LoadingButton
-              loading={submitLoading}
-              variant="contained"
-              sx={{ borderRadius: '50px', textTransform: 'none', py: 1, px: 5, textWrap: 'nowrap' }}
-              color="primary"
-              size={'medium'}
-              onClick={() => submitOrders(false)}
-              disabled={pendingLabs.length > 0}
-            >
-              Submit & Print Order(s)
-            </LoadingButton>
-          )}
-        </Box>
-      </TableCell>
-    </TableRow>
+        </TableCell>
+      </TableRow>
+      {abnPdfUrl && (
+        <TableRow sx={{ p: '6px 16px' }}>
+          <TableCell colSpan={columns.length} sx={{ p: '8px 18px', background: otherColors.warningBackground }}>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <WarningAmberIcon sx={{ fontWeight: '600', color: otherColors.warningIcon, paddingRight: '8px' }} />
+              <Typography variant="h5" color={otherColors.warningIcon}>
+                Advance Beneficiary Notice
+              </Typography>
+            </Box>
+            <Typography variant="body2">
+              Some tests may not be covered by patient’s insurance. Patient needs to review and sign ABN. If not signed,
+              please mark the test(s) as rejected on the printed order form.
+            </Typography>
+          </TableCell>
+        </TableRow>
+      )}
+    </>
   );
 
   return (

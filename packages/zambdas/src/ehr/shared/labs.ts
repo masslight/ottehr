@@ -44,10 +44,12 @@ import {
   LabelPdf,
   LabOrderPDF,
   LabOrderResultDetails,
+  LabPdf,
   LabResultPDF,
   LabType,
   nameLabTest,
   OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY,
+  OYSTEHR_LAB_DOC_CATEGORY_CODING,
   OYSTEHR_LAB_GUID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
 } from 'utils';
@@ -602,6 +604,7 @@ type FetchLabOrderPDFRes = {
   resultPDFs: LabResultPDF[];
   labelPDF: LabelPdf | undefined;
   orderPDF: LabOrderPDF | undefined;
+  abnPDFs: LabPdf[];
 };
 export const fetchLabOrderPDFsPresignedUrls = async (
   documentReferences: DocumentReference[],
@@ -623,6 +626,7 @@ export const fetchLabOrderPDFsPresignedUrls = async (
         code.system === EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE.system &&
         code.code === EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE.code
     );
+    const isAbnDoc = docRefIsAbn(docRef);
     const docRefId = docRef.id;
 
     for (const content of docRef.content) {
@@ -635,6 +639,8 @@ export const fetchLabOrderPDFsPresignedUrls = async (
                 return { presignedURL, diagnosticReportId } as LabResultPDF;
               } else if (serviceRequestId && isLabOrderDoc) {
                 return { presignedURL, serviceRequestId, docRefId } as LabOrderPDF;
+              } else if (serviceRequestId && isAbnDoc) {
+                return { presignedURL, documentReference: docRef, type: 'abn' } as LabPdf;
               } else if (serviceRequestId && isLabelDoc) {
                 return { presignedURL, documentReference: docRef } as LabelPdf;
               }
@@ -651,9 +657,9 @@ export const fetchLabOrderPDFsPresignedUrls = async (
 
   const pdfs = await Promise.allSettled(pdfPromises);
 
-  const { resultPDFs, labelPDF, orderPDF } = pdfs
+  const { resultPDFs, labelPDF, orderPDF, abnPDFs } = pdfs
     .filter(
-      (result): result is PromiseFulfilledResult<LabResultPDF | LabelPdf | LabOrderPDF> =>
+      (result): result is PromiseFulfilledResult<LabResultPDF | LabelPdf | LabOrderPDF | LabPdf> =>
         result.status === 'fulfilled' && result.value !== null
     )
     .reduce(
@@ -663,14 +669,18 @@ export const fetchLabOrderPDFsPresignedUrls = async (
         } else if ('serviceRequestId' in result.value) {
           acc.orderPDF = result.value;
         } else if ('documentReference' in result.value) {
-          acc.labelPDF = result.value;
+          if ('type' in result.value) {
+            acc.abnPDFs.push(result.value);
+          } else {
+            acc.labelPDF = result.value;
+          }
         }
         return acc;
       },
-      { resultPDFs: [], labelPDF: undefined, orderPDF: undefined }
+      { resultPDFs: [], labelPDF: undefined, orderPDF: undefined, abnPDFs: [] }
     );
 
-  return { resultPDFs, labelPDF, orderPDF };
+  return { resultPDFs, labelPDF, orderPDF, abnPDFs };
 };
 
 export const parseAppointmentIdForServiceRequest = (
@@ -722,6 +732,16 @@ export const diagnosticReportIsReflex = (dr: DiagnosticReport): boolean => {
 export const diagnosticReportIsUnsolicited = (dr: DiagnosticReport): boolean => {
   return !!dr?.meta?.tag?.find(
     (t) => t.system === LAB_DR_TYPE_TAG.system && t.display === LAB_DR_TYPE_TAG.display.unsolicited
+  );
+};
+
+export const docRefIsAbn = (docRef: DocumentReference): boolean => {
+  return !!docRef.category?.some(
+    (cat) =>
+      cat.coding?.some(
+        (code) =>
+          code.code === OYSTEHR_LAB_DOC_CATEGORY_CODING.code && code.system === OYSTEHR_LAB_DOC_CATEGORY_CODING.system
+      )
   );
 };
 
