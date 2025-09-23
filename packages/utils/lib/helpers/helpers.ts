@@ -12,6 +12,7 @@ import {
   Resource,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { patientScreeningQuestionsConfig } from '../configuration/questionnaire';
 import {
   allLicensesForPractitioner,
   CANDID_PLAN_TYPE_SYSTEM,
@@ -1033,6 +1034,87 @@ export function getAdditionalQuestionsAnswers(): PatchPaperworkParameters['answe
         ],
       },
     ],
+  };
+}
+
+export function getScreeningQuestionsAnswersFromConfig(): PatchPaperworkParameters['answers'] {
+  // Only generate answers for fields that exist in questionnaire
+  const questionnaireFields = patientScreeningQuestionsConfig.fields.filter((field) => field.existsInQuestionnaire);
+
+  return {
+    linkId: 'additional-page',
+    item: questionnaireFields.map((field) => {
+      switch (field.type) {
+        case 'radio':
+        case 'select': {
+          const firstOption = field.options?.[0];
+          return {
+            linkId: field.fhirField,
+            answer: [{ valueString: firstOption?.fhirValue || 'Test' }],
+          };
+        }
+        case 'dateRange':
+          return {
+            linkId: field.fhirField,
+            answer: [{ valueString: '2024-01-01 - 2024-01-07' }],
+          };
+        case 'text':
+        case 'textarea':
+          return {
+            linkId: field.fhirField,
+            answer: [{ valueString: 'Test value' }],
+          };
+        default:
+          return {
+            linkId: field.fhirField,
+            answer: [{ valueString: 'Test' }],
+          };
+      }
+    }),
+  };
+}
+
+export function getRandomScreeningQuestionsAnswers(): PatchPaperworkParameters['answers'] {
+  // Only generate answers for fields that exist in questionnaire
+  const questionnaireFields = patientScreeningQuestionsConfig.fields.filter((field) => field.existsInQuestionnaire);
+
+  return {
+    linkId: 'additional-page',
+    item: questionnaireFields.map((field) => {
+      switch (field.type) {
+        case 'radio':
+        case 'select': {
+          if (field.options && field.options.length > 0) {
+            const randomIndex = Math.floor(Math.random() * field.options.length);
+            const randomOption = field.options[randomIndex];
+            return {
+              linkId: field.fhirField,
+              answer: [{ valueString: randomOption.fhirValue }],
+            };
+          }
+          return {
+            linkId: field.fhirField,
+            answer: [{ valueString: 'Test' }],
+          };
+        }
+        case 'dateRange':
+          return {
+            linkId: field.fhirField,
+            answer: [{ valueString: '2024-01-01 - 2024-01-07' }],
+          };
+        case 'text':
+        case 'textarea':
+          return {
+            linkId: field.fhirField,
+            answer: [{ valueString: 'Test value' }],
+          };
+        default:
+          return {
+            linkId: field.fhirField,
+            answer: [{ valueString: 'Test' }],
+          };
+      }
+    }),
   };
 }
 

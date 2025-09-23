@@ -10,6 +10,7 @@ import {
   NoteField,
   ObservationDTO,
   patientScreeningQuestionsConfig,
+  shouldDisplayScreeningQuestion,
   shouldWaitForNote,
 } from 'utils';
 
@@ -80,10 +81,8 @@ export const useScreeningQuestionsHandler = (
         }
       }
 
-      if (observation.value === null) {
-        if (currentObs) {
-          await deleteObservation(currentObs, field.id);
-        }
+      if (!shouldDisplayScreeningQuestion(observation.value) && currentObs) {
+        await deleteObservation(currentObs, field.id);
       } else {
         const saveAction = (): Promise<void> => saveObservation(observation as ObservationDTO, field.id);
         await saveAction();
