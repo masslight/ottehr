@@ -1005,114 +1005,46 @@ export function getConsentStepAnswers({
   };
 }
 
-export function getAdditionalQuestionsAnswers(): PatchPaperworkParameters['answers'] {
-  return {
-    linkId: 'additional-page',
-    item: [
-      {
-        linkId: 'covid-symptoms',
-        answer: [
-          {
-            valueString: 'No',
-          },
-        ],
-      },
-      {
-        linkId: 'tested-positive-covid',
-        answer: [
-          {
-            valueString: 'Yes',
-          },
-        ],
-      },
-      {
-        linkId: 'travel-usa',
-        answer: [
-          {
-            valueString: 'No',
-          },
-        ],
-      },
-    ],
-  };
-}
-
-export function getScreeningQuestionsAnswersFromConfig(): PatchPaperworkParameters['answers'] {
+export function getAdditionalQuestionsAnswers({
+  useRandomAnswers = false,
+}: {
+  useRandomAnswers?: boolean;
+} = {}): PatchPaperworkParameters['answers'] {
   // Only generate answers for fields that exist in questionnaire
   const questionnaireFields = patientScreeningQuestionsConfig.fields.filter((field) => field.existsInQuestionnaire);
 
   return {
     linkId: 'additional-page',
-    item: questionnaireFields.map((field) => {
+    item: questionnaireFields.map((field, index) => {
       switch (field.type) {
-        case 'radio':
-        case 'select': {
-          const firstOption = field.options?.[0];
-          return {
-            linkId: field.fhirField,
-            answer: [{ valueString: firstOption?.fhirValue || 'Test' }],
-          };
-        }
-        case 'dateRange':
-          return {
-            linkId: field.fhirField,
-            answer: [{ valueString: '2024-01-01 - 2024-01-07' }],
-          };
-        case 'text':
-        case 'textarea':
-          return {
-            linkId: field.fhirField,
-            answer: [{ valueString: 'Test value' }],
-          };
-        default:
-          return {
-            linkId: field.fhirField,
-            answer: [{ valueString: 'Test' }],
-          };
-      }
-    }),
-  };
-}
-
-export function getRandomScreeningQuestionsAnswers(): PatchPaperworkParameters['answers'] {
-  // Only generate answers for fields that exist in questionnaire
-  const questionnaireFields = patientScreeningQuestionsConfig.fields.filter((field) => field.existsInQuestionnaire);
-
-  return {
-    linkId: 'additional-page',
-    item: questionnaireFields.map((field) => {
-      switch (field.type) {
-        case 'radio':
-        case 'select': {
-          if (field.options && field.options.length > 0) {
-            const randomIndex = Math.floor(Math.random() * field.options.length);
-            const randomOption = field.options[randomIndex];
-            return {
-              linkId: field.fhirField,
-              answer: [{ valueString: randomOption.fhirValue }],
-            };
+        case 'radio': {
+          if (field.options && field.options.length !== 2) {
+            throw new Error(
+              'Only radio fields with 2 options are supported. No options found for field: ' + field.fhirField
+            );
           }
+
+          const selectedOption = (() => {
+            if (useRandomAnswers) {
+              const randomIndex = Math.floor(Math.random() * field.options!.length);
+              return field.options?.[randomIndex];
+            }
+
+            const stableIndex = index % 2 === 1 ? 0 : 1;
+            return field.options?.[stableIndex];
+          })();
+
+          if (!selectedOption?.fhirValue) {
+            throw new Error('No options found for field: ' + field.fhirField);
+          }
+
           return {
             linkId: field.fhirField,
-            answer: [{ valueString: 'Test' }],
+            answer: [{ valueString: selectedOption.fhirValue }],
           };
         }
-        case 'dateRange':
-          return {
-            linkId: field.fhirField,
-            answer: [{ valueString: '2024-01-01 - 2024-01-07' }],
-          };
-        case 'text':
-        case 'textarea':
-          return {
-            linkId: field.fhirField,
-            answer: [{ valueString: 'Test value' }],
-          };
         default:
-          return {
-            linkId: field.fhirField,
-            answer: [{ valueString: 'Test' }],
-          };
+          throw Error('Only radio fields are supported. No options found for field: ' + field.fhirField);
       }
     }),
   };

@@ -3,6 +3,7 @@ import { DateTime } from 'luxon';
 import { waitForChartDataDeletion, waitForSaveChartDataResponse } from 'test-utils';
 import {
   formatScreeningQuestionValue,
+  getAdditionalQuestionsAnswers,
   getAllergiesStepAnswers,
   getConsentStepAnswers,
   getContactInformationAnswers,
@@ -13,7 +14,6 @@ import {
   getPaymentOptionSelfPayAnswers,
   getResponsiblePartyStepAnswers,
   getSchoolWorkNoteStepAnswers,
-  getScreeningQuestionsAnswersFromConfig,
   getSurgicalHistoryStepAnswers,
   isoToDateObject,
   TelemedAppointmentVisitTabs,
@@ -594,7 +594,7 @@ test.describe('Additional questions', () => {
       getAllergiesStepAnswers(),
       getMedicalConditionsStepAnswers(),
       getSurgicalHistoryStepAnswers(),
-      getScreeningQuestionsAnswersFromConfig(),
+      getAdditionalQuestionsAnswers(),
       getPaymentOptionSelfPayAnswers(),
       getResponsiblePartyStepAnswers({}),
       getSchoolWorkNoteStepAnswers(),
@@ -632,7 +632,7 @@ test.describe('Additional questions', () => {
   });
 
   test('Should check provider has the same answers as Patient provided. Patient answered', async () => {
-    const answers = getScreeningQuestionsAnswersFromConfig().item;
+    const answers = getAdditionalQuestionsAnswers().item;
     for (const question of ADDITIONAL_QUESTIONS) {
       const rawAnswer = answers?.find((item) => item.linkId === question.field)?.answer?.[0]?.valueString ?? '';
       const formattedAnswer = formatScreeningQuestionValue(question.field, rawAnswer);

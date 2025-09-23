@@ -14,6 +14,7 @@ import {
   SubmitPaperworkParameters,
 } from '../types';
 import {
+  getAdditionalQuestionsAnswers,
   getAllergiesStepAnswers,
   getConsentStepAnswers,
   getContactInformationAnswers,
@@ -23,7 +24,6 @@ import {
   getPatientDetailsStepAnswers,
   getPaymentOptionSelfPayAnswers,
   getPrimaryCarePhysicianStepAnswers,
-  getRandomScreeningQuestionsAnswers,
   getResponsiblePartyStepAnswers,
   getSchoolWorkNoteStepAnswers,
   getSurgicalHistoryStepAnswers,
@@ -305,7 +305,7 @@ const processPaperwork = async (
       getAllergiesStepAnswers(),
       getMedicalConditionsStepAnswers(),
       getSurgicalHistoryStepAnswers(),
-      getRandomScreeningQuestionsAnswers(),
+      getAdditionalQuestionsAnswers({ useRandomAnswers: true }),
       getPaymentOptionSelfPayAnswers(),
       getResponsiblePartyStepAnswers({}),
       getSchoolWorkNoteStepAnswers(),
