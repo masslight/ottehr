@@ -19,42 +19,31 @@ export const createAdditionalQuestions = (questionnaireResponse: QuestionnaireRe
       return valueString !== undefined;
     })
     .map((field) => {
+      if (field.type !== 'radio') {
+        throw Error('Only radio fields are supported. No options found for field: ' + field.fhirField);
+      }
+
       const response = getQuestionnaireResponseByLinkId(field.fhirField, questionnaireResponse);
       const valueString = response?.answer?.[0]?.valueString;
 
-      // Convert value based on field type
-      let value: any;
-      switch (field.type) {
-        case 'radio':
-        case 'select': {
-          // For radio/select, convert to boolean ONLY if it has EXACTLY yes/no options (like COVID questions)
-          const hasOnlyYesNoOptions =
-            field.options &&
-            field.options.length === 2 &&
-            field.options.every((opt) => opt.fhirValue === 'yes' || opt.fhirValue === 'no');
+      const hasOnlyYesNoOptions =
+        field.options &&
+        field.options.length === 2 &&
+        field.options.every((opt) => {
+          const lowerCaseValueString = opt.fhirValue.toLowerCase();
+          return lowerCaseValueString === 'yes' || lowerCaseValueString === 'no';
+        });
 
-          if (hasOnlyYesNoOptions) {
-            value = convertToBoolean(valueString) || false;
-          } else {
-            value = valueString;
-          }
-          break;
-        }
-        case 'dateRange':
-          // For dateRange, expect comma-separated values or array
-          if (valueString?.includes(',')) {
-            value = valueString.split(',').map((s) => s.trim());
-          } else {
-            value = valueString;
-          }
-          break;
-        case 'text':
-        case 'textarea':
-          value = valueString;
-          break;
-        default:
-          // Fallback: try to convert to boolean for backwards compatibility
-          value = convertToBoolean(valueString) || false;
+      if (!hasOnlyYesNoOptions) {
+        throw Error(
+          'Only radio fields with Yes/No options are supported. No options found for field: ' + field.fhirField
+        );
+      }
+
+      const value = convertToBoolean(valueString);
+
+      if (typeof value !== 'boolean') {
+        throw Error('Invalid value for field: ' + field.fhirField);
       }
 
       return {

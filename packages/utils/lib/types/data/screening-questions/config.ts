@@ -18,8 +18,8 @@ export const baseScreeningQuestionsConfig: ScreeningQuestionsConfig = {
       fhirField: 'covid-symptoms',
       existsInQuestionnaire: true,
       options: [
-        { value: 'yes', label: 'Yes', fhirValue: 'yes' },
-        { value: 'no', label: 'No', fhirValue: 'no' },
+        { value: 'yes', label: 'Yes', fhirValue: 'Yes' },
+        { value: 'no', label: 'No', fhirValue: 'No' },
       ],
     },
     {
@@ -29,8 +29,8 @@ export const baseScreeningQuestionsConfig: ScreeningQuestionsConfig = {
       fhirField: 'tested-positive-covid',
       existsInQuestionnaire: true,
       options: [
-        { value: 'yes', label: 'Yes', fhirValue: 'yes' },
-        { value: 'no', label: 'No', fhirValue: 'no' },
+        { value: 'yes', label: 'Yes', fhirValue: 'Yes' },
+        { value: 'no', label: 'No', fhirValue: 'No' },
       ],
     },
     {
@@ -40,8 +40,8 @@ export const baseScreeningQuestionsConfig: ScreeningQuestionsConfig = {
       fhirField: 'travel-usa',
       existsInQuestionnaire: true,
       options: [
-        { value: 'yes', label: 'Yes', fhirValue: 'yes' },
-        { value: 'no', label: 'No', fhirValue: 'no' },
+        { value: 'yes', label: 'Yes', fhirValue: 'Yes' },
+        { value: 'no', label: 'No', fhirValue: 'No' },
       ],
     },
     {
