@@ -319,7 +319,7 @@ const groupLabOrderListPageDTOs = (
 ): LabOrderListPageDTOGrouped | undefined => {
   if (!labOrders.length) return;
 
-  const groupedOrders: LabOrderListPageDTOGrouped = { pendingActionOrResults: {}, hasResults: {} };
+  const orders: LabOrderListPageDTOGrouped = { pendingActionOrResults: {}, hasResults: {} };
   const resultsStatusOptions = new Set([
     ExternalLabsStatus.received,
     ExternalLabsStatus.prelim,
@@ -327,7 +327,7 @@ const groupLabOrderListPageDTOs = (
     ExternalLabsStatus.corrected,
   ]);
 
-  const addToGroup = (item: LabOrderListPageDTO | ReflexLabDTO, groupedOrders: LabOrderListPageDTOGrouped): void => {
+  const addToGroup = (item: LabOrderListPageDTO | ReflexLabDTO, orders: LabOrderListPageDTOGrouped): void => {
     const requisitionNumber = item.orderNumber;
 
     if (!requisitionNumber) {
@@ -336,21 +336,21 @@ const groupLabOrderListPageDTOs = (
     }
 
     const hasResults = resultsStatusOptions.has(item.orderStatus);
-    const groupKey = hasResults ? 'hasResults' : 'pendingActionOrResults';
-    const subGroup = groupedOrders[groupKey];
+    const orderKey = hasResults ? 'hasResults' : 'pendingActionOrResults';
+    const orderBundles = orders[orderKey];
 
-    if (subGroup[requisitionNumber]) {
-      subGroup[requisitionNumber].orders.push(item);
+    if (orderBundles[requisitionNumber]) {
+      orderBundles[requisitionNumber].orders.push(item);
     } else {
       const bundleName = `${item.fillerLab}${item.isPSC ? ' PSC' : ''}`;
-      subGroup[requisitionNumber] = { bundleName, abnPdfUrl: undefined, orders: [item] };
+      orderBundles[requisitionNumber] = { bundleName, abnPdfUrl: undefined, orders: [item] };
       if ('abnPdfUrl' in item) {
-        subGroup[requisitionNumber].abnPdfUrl = item.abnPdfUrl;
+        orderBundles[requisitionNumber].abnPdfUrl = item.abnPdfUrl;
       }
     }
   };
 
-  [...labOrders, ...reflexResults].forEach((item) => addToGroup(item, groupedOrders));
+  [...labOrders, ...reflexResults].forEach((item) => addToGroup(item, orders));
 
-  return groupedOrders;
+  return orders;
 };

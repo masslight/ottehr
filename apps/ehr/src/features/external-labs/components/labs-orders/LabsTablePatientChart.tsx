@@ -2,7 +2,7 @@ import { Box, Button, Pagination, Typography } from '@mui/material';
 import { ReactElement } from 'react';
 import { LabOrdersSearchBy, LabsTableColumn } from 'utils';
 import { LabOrderLoading } from './LabOrderLoading';
-import { LabsTable } from './LabsTable';
+import { LabsTableContainer } from './LabsTableContainer';
 import { usePatientLabOrders } from './usePatientLabOrders';
 
 type LabsTablePatientChartProps<SearchBy extends LabOrdersSearchBy> = {
@@ -79,7 +79,7 @@ export const LabsTablePatientChart = <SearchBy extends LabOrdersSearchBy>({
         ) : (
           <>
             {Object.values(groupedLabOrdersForChartTable.pendingActionOrResults).map((orderBundle, idx) => (
-              <LabsTable
+              <LabsTableContainer
                 key={`order-bundle-${idx}`}
                 labOrders={orderBundle.orders}
                 orderBundleName={orderBundle.bundleName}
@@ -94,7 +94,7 @@ export const LabsTablePatientChart = <SearchBy extends LabOrdersSearchBy>({
               />
             ))}
             {bundlesWithResults.length > 0 && (
-              <LabsTable
+              <LabsTableContainer
                 key={`orders-with-results`}
                 labOrders={bundlesWithResults}
                 orderBundleName="Results"

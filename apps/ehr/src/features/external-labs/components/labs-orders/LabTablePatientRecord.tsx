@@ -8,7 +8,7 @@ import { ReactElement, useState } from 'react';
 import { getColumnHeader, getColumnWidth, LabOrdersSearchBy, LabsTableColumn, OrderableItemSearchResult } from 'utils';
 import { LabsAutocompleteForPatient } from '../LabsAutocompleteForPatient';
 import { LabOrderLoading } from './LabOrderLoading';
-import { LabsTableContainer } from './LabsTableContainer';
+import { LabsTable } from './LabsTable';
 import { UnsolicitedLabsTable } from './UnsolicitedLabsTable';
 import { usePatientLabOrders } from './usePatientLabOrders';
 
@@ -135,7 +135,7 @@ export const LabsTablePatientRecord = ({
                   </Typography>
                 </Box>
               ) : (
-                <LabsTableContainer
+                <LabsTable
                   columns={columns}
                   labOrders={[...labOrders, ...reflexResults]}
                   allowDelete={false}
@@ -164,7 +164,6 @@ export const LabsTablePatientRecord = ({
           )}
         </Box>
       </Paper>
-      {/* todo SARAH fix this is showing even when there are no unsolicited labs */}
       {patientId && !loading && (
         <UnsolicitedLabsTable
           patientId={patientId}

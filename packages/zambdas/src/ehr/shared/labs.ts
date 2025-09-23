@@ -626,7 +626,7 @@ export const fetchLabOrderPDFsPresignedUrls = async (
         code.system === EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE.system &&
         code.code === EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE.code
     );
-    const isAbnDoc = docRefIsAbn(docRef);
+    const isAbnDoc = docRefIsAbnAndCurrent(docRef);
     const docRefId = docRef.id;
 
     for (const content of docRef.content) {
@@ -735,14 +735,16 @@ export const diagnosticReportIsUnsolicited = (dr: DiagnosticReport): boolean => 
   );
 };
 
-export const docRefIsAbn = (docRef: DocumentReference): boolean => {
-  return !!docRef.category?.some(
+export const docRefIsAbnAndCurrent = (docRef: DocumentReference): boolean => {
+  const isCurrent = docRef.status === 'current';
+  const isAbn = !!docRef.category?.some(
     (cat) =>
       cat.coding?.some(
         (code) =>
           code.code === OYSTEHR_LAB_DOC_CATEGORY_CODING.code && code.system === OYSTEHR_LAB_DOC_CATEGORY_CODING.system
       )
   );
+  return isCurrent && isAbn;
 };
 
 export interface AOEDisplayForOrderForm {
