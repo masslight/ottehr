@@ -124,9 +124,9 @@ test.describe('Primary Care Physician - Check and fill all fields', () => {
       bookingData.patientBasicInfo.lastName
     );
   });
-  test('PPCP-2 Click on [Continue] with empty fields - Current medications opens', async () => {
+  test('PPCP-2 Click on [Continue] with empty fields - Preferred pharmacy opens', async () => {
     await locator.clickContinueButton();
-    await paperwork.checkCorrectPageOpens('Current medications');
+    await paperwork.checkCorrectPageOpens('Preferred pharmacy');
   });
   test('PPCP-3 Click on [Back] - Primary Care Physician opens', async () => {
     await locator.clickBackButton();
@@ -138,7 +138,7 @@ test.describe('Primary Care Physician - Check and fill all fields', () => {
   test('PPCP-5 Fill all fields and click [Continue]', async () => {
     pcpData = await paperwork.fillPrimaryCarePhysician();
     await locator.clickContinueButton();
-    await paperwork.checkCorrectPageOpens('Current medications');
+    await paperwork.checkCorrectPageOpens('Preferred pharmacy');
   });
   test('PPCP-6 Click on [Back] - fields have correct values', async () => {
     await locator.clickBackButton();
