@@ -1,0 +1,81 @@
+import { APIGatewayProxyResult } from 'aws-lambda';
+import { DocumentReference } from 'fhir/r4b';
+import { getPresignedURL, getSecret, InPersonReceiptTemplateData, SecretsKeys } from 'utils';
+import {
+  checkOrCreateM2MClientToken,
+  EmailAttachment,
+  getEmailClient,
+  topLevelCatch,
+  wrapHandler,
+  ZambdaInput,
+} from '../../shared';
+import { createOystehrClient } from '../../shared/helpers';
+import { validateRequestParameters } from './validateRequestParameters';
+
+const ZAMBDA_NAME = 'send-receipt-by-email';
+
+let m2mToken: string;
+
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  try {
+    console.log(`Input: ${JSON.stringify(input)}`);
+    console.group('validateRequestParameters');
+    const { recipientFullName, email, receiptDocRefId, secrets } = validateRequestParameters(input);
+    console.groupEnd();
+    console.debug('validateRequestParameters success');
+
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
+
+    console.log('fetching document reference');
+    const documentReference = await oystehr.fhir.get<DocumentReference>({
+      id: receiptDocRefId,
+      resourceType: 'DocumentReference',
+    });
+    console.log('fetched document reference id ', documentReference.id);
+
+    const content = documentReference.content[0];
+    // const title = content.attachment.title;
+    const z3Url = content.attachment.url;
+    console.log(`content: ${JSON.stringify(content)}, url: ${z3Url}`);
+
+    if (z3Url) {
+      const presignedUrl = await getPresignedURL(z3Url, m2mToken);
+      const file = await fetch(presignedUrl, {
+        method: 'GET',
+        headers: { 'Cache-Control': 'no-cache' },
+      });
+      // console.log('file', JSON.stringify(file), 'file s ', file);
+      if (file.status !== 200) throw new Error('Failed to fetch file, status: ' + file.status);
+      const arrayBuffer = await file.arrayBuffer();
+      const fileBuffer = Buffer.from(arrayBuffer);
+      // fs.writeFileSync('./file-my-test.pdf', fileBuffer);
+
+      // Get content type from response headers
+      const contentType = file.headers.get('content-type') || 'application/pdf';
+
+      // Create attachment
+      const attachment: EmailAttachment = {
+        content: fileBuffer.toString('base64'),
+        filename: 'receipt.pdf',
+        type: contentType,
+        disposition: 'attachment',
+      };
+
+      // Send email with attachment
+      const templateData: InPersonReceiptTemplateData = {
+        'recipient-name': recipientFullName,
+      };
+      const emailClient = getEmailClient(secrets);
+      await emailClient.sendInPersonReceiptEmail(email, templateData, [attachment]);
+    }
+
+    return {
+      body: JSON.stringify('Email sent'),
+      statusCode: 200,
+    };
+  } catch (error: any) {
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
+  }
+});

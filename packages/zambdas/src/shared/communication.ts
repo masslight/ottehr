@@ -50,7 +50,7 @@ export async function getMessageRecipientForAppointment(
   }
 }
 
-interface EmailAttachment {
+export interface EmailAttachment {
   content: string; // Base64 encoded content
   filename: string;
   type: string; // MIME type
@@ -365,7 +365,7 @@ class EmailClient {
   async sendInPersonReceiptEmail(
     email: string | string[],
     templateData: InPersonReceiptTemplateData,
-    attachments: EmailAttachment[]
+    attachments?: EmailAttachment[]
   ): Promise<void> {
     await this.sendEmail(email, this.config.templates.inPersonReceipt, templateData, attachments);
   }
