@@ -2,6 +2,7 @@ import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Coverage, CoverageEligibilityResponse, Practitioner } from 'fhir/r4b';
 import {
+  chunkThings,
   CoverageCheckWithDetails,
   getSecret,
   INVALID_RESOURCE_ID_ERROR,
@@ -12,6 +13,7 @@ import {
   pullCoverageIdentifyingDetails,
   Secrets,
   SecretsKeys,
+  sleep,
 } from 'utils';
 import { parseCoverageEligibilityResponse } from 'utils';
 import {
@@ -55,7 +57,10 @@ const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAcc
   const primaryCarePhysician = accountAndCoverages.patient?.contained?.find(
     (resource) => resource.resourceType === 'Practitioner' && resource.active === true
   ) as Practitioner;
-  const eligibilityCheckResults = (
+  // due to really huge CEResponses causing response-too-large errors, we need to chop our querying for the CEResponses into
+  // manageable chunks. We'll do this by first querying for just the IDs of the CEResponses, then querying for the full resources in parallel.
+  // Even two parallel queries can still result in response-too-large errors based on prod data we've encountered.
+  const eligibilityCheckIds = (
     await oystehr.fhir.search<CoverageEligibilityResponse>({
       resourceType: 'CoverageEligibilityResponse',
       params: [
@@ -67,9 +72,36 @@ const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAcc
           name: '_sort',
           value: '-created',
         },
+        {
+          name: '_elements',
+          value: 'id',
+        },
       ],
     })
-  ).unbundle();
+  )
+    .unbundle()
+    .map((cer) => cer.id)
+    .filter((id): id is string => !!id);
+  console.log('fetching the following CERs:', JSON.stringify(eligibilityCheckIds));
+
+  // parallelize fetching in chunks of 10 to avoid overwhelming the FHIR server
+  const chunks = chunkThings(eligibilityCheckIds, 10);
+  const eligibilityCheckResults: CoverageEligibilityResponse[] = [];
+  for (let i = 0; i < chunks.length; i++) {
+    if (i > 0) {
+      // is this needed??
+      await sleep(250);
+    }
+    console.log(`fetching chunk ${i + 1} of ${chunks.length}`);
+    const chunk = chunks[i];
+    const results = await Promise.all(
+      chunk.map((id) =>
+        oystehr.fhir.get<CoverageEligibilityResponse>({ resourceType: 'CoverageEligibilityResponse', id })
+      )
+    );
+    eligibilityCheckResults.push(...results);
+  }
+
   const coverageIdsToFetch = eligibilityCheckResults.flatMap((ecr) => {
     if (ecr.insurance?.[0]?.coverage?.reference) {
       const [resourceType, id] = ecr.insurance[0].coverage.reference.split('/');
