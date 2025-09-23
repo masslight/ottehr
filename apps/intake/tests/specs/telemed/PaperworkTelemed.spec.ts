@@ -368,7 +368,7 @@ test.describe('Payment option - Check Self pay and insurance options', () => {
   test('PPO-4 Payment option - Select self pay and click [Continue]', async () => {
     await paperwork.selectSelfPayPayment();
     await locator.clickContinueButton();
-    await paperwork.checkCorrectPageOpens('Responsible party information');
+    await paperwork.checkCorrectPageOpens('Credit card details');
   });
   test('PPO-5 Payment option - Go back from next page, payment option opens', async () => {
     await locator.clickBackButton();
@@ -379,7 +379,7 @@ test.describe('Payment option - Check Self pay and insurance options', () => {
     await locator.clickContinueButton();
     await paperwork.selectSelfPayPayment();
     await locator.clickContinueButton();
-    await paperwork.checkCorrectPageOpens('Responsible party information');
+    await paperwork.checkCorrectPageOpens('Credit card details');
   });
 });
 test.describe('Primary Insurance', () => {
@@ -413,7 +413,7 @@ test.describe('Primary Insurance', () => {
   test('Primary Insurance - Fill all fields without cards and click [Continue]', async () => {
     insuranceData = await paperwork.fillInsuranceAllFieldsWithoutCards();
     await locator.clickContinueButton();
-    await paperwork.checkCorrectPageOpens('Responsible party information');
+    await paperwork.checkCorrectPageOpens('Credit card details');
   });
   test('Primary Insurance - Go back and check that data is present]', async () => {
     await locator.clickBackButton();
@@ -453,7 +453,7 @@ test.describe('Primary Insurance', () => {
   });
   test('Primary Insurance - Open next page, click [Back] - check images are saved', async () => {
     await locator.clickContinueButton();
-    await paperwork.checkCorrectPageOpens('Responsible party information');
+    await paperwork.checkCorrectPageOpens('Credit card details');
     await locator.clickBackButton();
     await paperwork.checkImagesIsSaved(locator.insuranceFrontImage);
     await paperwork.checkImagesIsSaved(locator.insuranceBackImage);
@@ -465,7 +465,7 @@ test.describe('Primary Insurance', () => {
     await locator.removeSecondaryInsurance.click();
     await expect(locator.secondaryInsuranceHeading).not.toBeVisible();
     await locator.clickContinueButton();
-    await paperwork.checkCorrectPageOpens('Responsible party information');
+    await paperwork.checkCorrectPageOpens('Credit card details');
   });
   test('Primary Insurance - Policy holder address is the same checkbox', async () => {
     await locator.clickBackButton();
@@ -496,7 +496,7 @@ test.describe('Secondary Insurance', () => {
   test('Secondary Insurance - Fill all fields without cards and click [Continue]', async () => {
     secondaryInsuranceData = await paperwork.fillSecondaryInsuranceAllFieldsWithoutCards();
     await locator.clickContinueButton();
-    await paperwork.checkCorrectPageOpens('Responsible party information');
+    await paperwork.checkCorrectPageOpens('Credit card details');
   });
   test('Secondary Insurance - Go back and check that data is present]', async () => {
     await locator.clickBackButton();
@@ -558,7 +558,7 @@ test.describe('Secondary Insurance', () => {
   });
   test('Secondary Insurance - Open next page, click [Back] - check images are saved', async () => {
     await locator.clickContinueButton();
-    await paperwork.checkCorrectPageOpens('Responsible party information');
+    await paperwork.checkCorrectPageOpens('Credit card details');
     await locator.clickBackButton();
     await paperwork.checkImagesIsSaved(locator.secondaryInsuranceFrontImage);
     await paperwork.checkImagesIsSaved(locator.secondaryInsuranceBackImage);
