@@ -250,6 +250,9 @@ test.describe('Start virtual visit with required information only', async () => 
 
     await paperwork.fillAndCheckSelfPay();
   });
+  test('Should add credit card', async () => {
+    await paperwork.fillAndAddCreditCard();
+  });
   test('Should fill in responsible party as self', async () => {
     await paperwork.fillAndCheckResponsiblePartyInfoAsSelf({
       firstName: patientInfo?.firstName,
@@ -483,6 +486,11 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
 
     await paperwork.fillAndCheckSelfPay();
   });
+
+  test('Should add credit card', async () => {
+    await paperwork.fillAndAddCreditCard();
+  });
+
   test('Should fill in responsible party as self', async () => {
     await paperwork.fillAndCheckResponsiblePartyInfoAsSelf({
       firstName: patientInfo?.firstName,

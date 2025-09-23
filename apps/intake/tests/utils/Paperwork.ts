@@ -365,6 +365,8 @@ export class Paperwork {
     await this.locator.clickContinueButton();
     await this.selectSelfPayPayment();
     await this.locator.clickContinueButton();
+    await this.fillAndAddCreditCard();
+    await this.locator.clickContinueButton();
     await this.fillResponsiblePartyDataSelf();
     await this.locator.clickContinueButton();
     await this.skipPhotoID();
