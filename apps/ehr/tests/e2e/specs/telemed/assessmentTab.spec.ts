@@ -148,6 +148,11 @@ test('Change primary diagnosis', async () => {
   await test.step('Make secondary diagnosis primary', async () => {
     await page.getByTestId(dataTestIds.diagnosisContainer.makePrimaryButton).click();
     await waitForSaveChartDataResponse(page);
+    // reload the page to force playwright to refresh
+    await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.exam)).click();
+    await page
+      .getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.assessment))
+      .click();
 
     // After the primary diagnosis is updated, the secondary diagnosis should be updated, they should be swapped
     const newPrimaryDiagnosis = page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosis);
