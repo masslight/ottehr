@@ -3,6 +3,7 @@ import { AppBar, Box, Stack, Tab, Tabs, useTheme } from '@mui/material';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { CSSLoader } from 'src/features/css-module/components/CSSLoader';
 import { getImmunizationMARUrl, getImmunizationVaccineDetailsUrl } from 'src/features/css-module/routing/helpers';
 import { ROUTER_PATH } from 'src/features/css-module/routing/routesCSS';
@@ -64,7 +65,7 @@ export const Immunization: React.FC = () => {
   return (
     <Stack>
       <Stack direction="row" justifyContent="space-between" alignItems="center">
-        <PageTitle label="Immunization" showIntakeNotesButton={false} />
+        <PageTitle label="Immunization" showIntakeNotesButton={false} dataTestId={dataTestIds.immunizationPage.title} />
         {!isReadOnly && (
           <RoundedButton variant="contained" onClick={onNewOrderClick} startIcon={<AddIcon />}>
             New Order

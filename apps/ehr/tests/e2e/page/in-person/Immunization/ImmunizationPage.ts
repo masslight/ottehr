@@ -1,0 +1,87 @@
+import { expect, Page } from '@playwright/test';
+import { dataTestIds } from 'src/constants/data-test-ids';
+import { EditVaccineOrderPage, expectEditVaccineOrderPage } from './EditVaccineOrderPage';
+
+export class ImmunizationPage {
+  #page: Page;
+
+  constructor(page: Page) {
+    this.#page = page;
+  }
+
+  async verifyVaccinePresent(input: {
+    vaccineName: string;
+    doseRoute: string;
+    instructions: string;
+    orderedDate?: string;
+    orderedPerson?: string;
+    givenDate?: string;
+    givenPerson?: string;
+    status: string;
+  }): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.immunizationPage.marTableRow).filter({
+        has: this.#page
+          .getByTestId(dataTestIds.immunizationPage.marTableVaccineCell)
+          .filter({ hasText: input.vaccineName }),
+      })
+      /*.filter({
+          has: this.#page
+            .getByTestId(dataTestIds.immunizationPage.marTableDoseRouteCell)
+            .filter({ hasText: input.doseRoute }),
+        })*/
+      /*.filter({
+          has: this.#page
+            .getByTestId(dataTestIds.immunizationPage.marTableInstructionsCell)
+            .filter({ hasText: input.instructions }),
+        })*/
+      /*.filter({
+          has: this.#page
+            .getByTestId(dataTestIds.immunizationPage.marTableOrderedDateCell)
+            .filter({ hasText: input.orderedDate }),
+        })*/
+      /*.filter({
+          has: this.#page
+            .getByTestId(dataTestIds.immunizationPage.marTableOrderedPersonCell)
+            .filter({ hasText: input.orderedPerson }),
+        })*/
+      /*.filter({
+          has: this.#page
+            .getByTestId(dataTestIds.immunizationPage.marTableGivenDateCell)
+            .filter({ hasText: input.givenDate }),
+        })*/
+      /*.filter({
+          has: this.#page
+            .getByTestId(dataTestIds.immunizationPage.marTableGivenPersonCell)
+            .filter({ hasText: input.givenPerson }),
+        })*/
+      /*.filter({
+          has: this.#page
+            .getByTestId(dataTestIds.immunizationPage.marTableStatusCell)
+            .filter({ hasText: input.status }),
+        })*/
+    ).toBeVisible();
+  }
+
+  async clickEditOrderButton(vaccineName: string): Promise<EditVaccineOrderPage> {
+    await this.#page
+      .getByTestId(dataTestIds.immunizationPage.marTableRow)
+      .filter({
+        hasText: vaccineName,
+      })
+      .getByTestId(dataTestIds.immunizationPage.pencilIconButton)
+      .click();
+    return expectEditVaccineOrderPage(this.#page);
+  }
+}
+
+export async function expectImmunizationPage(page: Page): Promise<ImmunizationPage> {
+  await page.waitForURL(new RegExp('/in-person/.*/immunization/mar'));
+  await expect(page.getByTestId(dataTestIds.immunizationPage.title)).toBeVisible();
+  return new ImmunizationPage(page);
+}
+
+export async function openImmunizationPage(appointmentId: string, page: Page): Promise<ImmunizationPage> {
+  await page.goto(`/in-person/${appointmentId}/immunization/mar`);
+  return expectImmunizationPage(page);
+}

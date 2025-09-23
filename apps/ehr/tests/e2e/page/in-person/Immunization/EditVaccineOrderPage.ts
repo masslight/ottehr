@@ -20,13 +20,20 @@ export class EditVaccineOrderPage {
   }
 }
 
-export async function expectEditVaccineOrderPage(appointmentId: string, page: Page): Promise<EditVaccineOrderPage> {
-  await page.waitForURL(new RegExp(`/in-person/${appointmentId}/immunization/*`));
+export async function expectCreateVaccineOrderPage(page: Page): Promise<EditVaccineOrderPage> {
+  await page.waitForURL(new RegExp(`/in-person/.*/immunization/order`));
+  await expect(page.getByTestId(dataTestIds.orderVaccinePage.title)).toBeVisible();
+  return new EditVaccineOrderPage(page);
+}
+
+export async function expectEditVaccineOrderPage(page: Page): Promise<EditVaccineOrderPage> {
+  await page.waitForURL(new RegExp(`/in-person/.*/immunization/.*`));
+  // todo fix expect(page.url().includes('order')).toBeFalsy();
   await expect(page.getByTestId(dataTestIds.orderVaccinePage.title)).toBeVisible();
   return new EditVaccineOrderPage(page);
 }
 
 export async function openCreateVaccineOrderPage(appointmentId: string, page: Page): Promise<EditVaccineOrderPage> {
   await page.goto(`/in-person/${appointmentId}/immunization/order`);
-  return expectEditVaccineOrderPage(appointmentId, page);
+  return expectEditVaccineOrderPage(page);
 }

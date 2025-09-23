@@ -510,4 +510,20 @@ export const dataTestIds = {
     orderedBy: 'ordered-by',
     orderVaccineButton: 'order-vaccine-button',
   },
+
+  immunizationPage: {
+    title: 'immunization-title',
+    newOrderButton: 'new-order-button',
+    marTableRow: 'mar-table-row',
+    marTableVaccineCell: 'mar-table-vaccine-cell',
+    marTableStatusCell: 'mar-table-status-cell',
+    marTableDoseRouteCell: 'mar-table-dose-route-cell',
+    marTableInstructionsCell: 'mar-table-instructions-cell',
+    marTableOrderedDateCell: 'mar-table-ordered-date-cell',
+    marTableOrderedPersonCell: 'mar-table-ordered-person-cell',
+    marTableGivenDateCell: 'mar-table-given-date-cell',
+    marTableGivenPersonCell: 'mar-table-given-person-cell',
+    vaccineDetailsTab: 'vaccine-details-tab',
+    pencilIconButton: 'EditOutlinedIcon',
+  },
 };

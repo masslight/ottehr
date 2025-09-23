@@ -18,8 +18,7 @@ export class OrderDetailsSection {
   }
 
   async enterDose(dose: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.orderVaccinePage.dose).click();
-    await this.#page.getByText(dose, { exact: true }).click();
+    await this.#page.getByTestId(dataTestIds.orderVaccinePage.dose).locator('input').locator('visible=true').fill(dose);
   }
 
   async verifyDose(dose: string): Promise<void> {
@@ -54,13 +53,16 @@ export class OrderDetailsSection {
   }
 
   async enterInstructions(instructions: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.orderVaccinePage.instructions).click();
-    await this.#page.getByText(instructions, { exact: true }).click();
+    await this.#page
+      .getByTestId(dataTestIds.orderVaccinePage.instructions)
+      .locator('textarea')
+      .locator('visible=true')
+      .fill(instructions);
   }
 
   async verifyInstructions(instructions: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.orderVaccinePage.instructions).locator('input')).toHaveValue(
-      instructions
-    );
+    await expect(
+      this.#page.getByTestId(dataTestIds.orderVaccinePage.instructions).locator('textarea').locator('visible=true')
+    ).toHaveValue(instructions);
   }
 }
