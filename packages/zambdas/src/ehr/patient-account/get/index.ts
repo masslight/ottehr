@@ -75,7 +75,7 @@ const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAcc
           value: 'id',
         },
         {
-          name: '_count', // we shouldn't need more thant the most recent 10 eligibility checks
+          name: '_count', // we shouldn't need more than the most recent 10 eligibility checks
           value: '10',
         },
       ],
