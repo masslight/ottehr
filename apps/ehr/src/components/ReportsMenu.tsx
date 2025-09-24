@@ -78,7 +78,7 @@ export function ReportsMenu(): JSX.Element {
     }
     const now = DateTime.now();
     const yesterday = now.minus({ days: 1 }).endOf('day');
-    const ninetyDaysAgo = now.minus({ days: 90 }).startOf('day');
+    const ninetyDaysAgo = now.minus({ days: 2 }).startOf('day');
     const encounters = (await oystehr.fhir.search({
       resourceType: 'Appointment',
       params: [
@@ -113,6 +113,10 @@ export function ReportsMenu(): JSX.Element {
         },
         {
           name: '_revinclude:iterate',
+          value: 'Encounter:appointment',
+        },
+        {
+          name: '_include:iterate',
           value: 'Encounter:participant',
         },
         {
@@ -121,7 +125,6 @@ export function ReportsMenu(): JSX.Element {
         },
         { name: '_revinclude:iterate', value: 'DocumentReference:patient' },
         { name: '_revinclude:iterate', value: 'QuestionnaireResponse:encounter' },
-        // { name: '_include', value: 'Appointment:actor' },
       ],
     })) as Bundle<FhirResource>;
     await downloadReport(encounters, 'appointments');
