@@ -755,6 +755,7 @@
       "runtime": "nodejs20.x",
       "src": "src/cron/test-env-cleanup/index",
       "zip": ".dist/zips/test-env-cleanup.zip",
+      "timeout": "900",
       "schedule": {
         "expression": "cron(0 * * * ? *)"
       }
