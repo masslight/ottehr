@@ -43,6 +43,7 @@ export const DiagnosesContainer: FC = () => {
 
   const onAdd = (value: IcdSearchResponse['codes'][number]): void => {
     const preparedValue = { ...value, isPrimary: !primaryDiagnosis };
+    const newDiagnoses = [...diagnoses, preparedValue];
 
     saveChartData(
       {
@@ -50,9 +51,9 @@ export const DiagnosesContainer: FC = () => {
       },
       {
         onSuccess: (data) => {
-          const updatedDiagnoses = data.chartData.diagnosis;
+          const addedDiagnoses = data.chartData.diagnosis;
           setPartialChartData({
-            diagnosis: getUpdatedDiagnoses(diagnoses, updatedDiagnoses, 'code'),
+            diagnosis: getUpdatedDiagnoses(newDiagnoses, addedDiagnoses, 'code'),
           });
         },
         onError: () => {
@@ -63,7 +64,7 @@ export const DiagnosesContainer: FC = () => {
         },
       }
     );
-    setPartialChartData({ diagnosis: [...diagnoses, preparedValue] });
+    setPartialChartData({ diagnosis: newDiagnoses });
   };
 
   const onDelete = async (resourceId: string): Promise<void> => {
