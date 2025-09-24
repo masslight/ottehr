@@ -21,15 +21,18 @@
     },
     "AUTH0_CLIENT": {
       "name": "AUTH0_CLIENT",
-      "value": "#{var/AUTH0_CLIENT}"
+      "value": "#{ref/m2ms/ZAMBDAS_ADMIN/client_id}",
+      "legacyValue": "#{var/AUTH0_CLIENT}"
     },
     "AUTH0_SECRET": {
       "name": "AUTH0_SECRET",
-      "value": "#{var/AUTH0_SECRET}"
+      "value": "#{ref/m2ms/ZAMBDAS_ADMIN/client_secret}",
+      "legacyValue": "#{var/AUTH0_SECRET}"
     },
     "DEFAULT_BILLING_RESOURCE": {
       "name": "DEFAULT_BILLING_RESOURCE",
-      "value": "#{var/DEFAULT_BILLING_RESOURCE}"
+      "value": "#{ref/fhirResources/DEFAULT_BILLING_RESOURCE/type}/#{ref/fhirResources/DEFAULT_BILLING_RESOURCE/id}",
+      "legacyValue": "#{var/DEFAULT_BILLING_RESOURCE}"
     },
     "FHIR_API": {
       "name": "FHIR_API",
@@ -43,29 +46,10 @@
       "name": "ENVIRONMENT",
       "value": "#{var/ENVIRONMENT}"
     },
-    "SENDGRID_API_KEY": {
-      "name": "SENDGRID_API_KEY",
-      "value": "#{var/SENDGRID_API_KEY}"
-    },
-    "SENDGRID_ISSUE_REPORT_EMAIL_BCC": {
-      "name": "SENDGRID_ISSUE_REPORT_EMAIL_BCC",
-      "value": "#{var/SENDGRID_ISSUE_REPORT_EMAIL_BCC}"
-    },
-    "VIRTUAL_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID": {
-      "name": "VIRTUAL_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID",
-      "value": "#{var/VIRTUAL_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID}"
-    },
-    "VIRTUAL_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID": {
-      "name": "VIRTUAL_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID",
-      "value": "#{var/VIRTUAL_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID}"
-    },
-    "VIRTUAL_SENDGRID_VIDEO_CHAT_INVITATION_EMAIL_TEMPLATE_ID": {
-      "name": "VIRTUAL_SENDGRID_VIDEO_CHAT_INVITATION_EMAIL_TEMPLATE_ID",
-      "value": "#{var/VIRTUAL_SENDGRID_VIDEO_CHAT_INVITATION_EMAIL_TEMPLATE_ID}"
-    },
     "ORGANIZATION_ID": {
       "name": "ORGANIZATION_ID",
-      "value": "#{var/ORGANIZATION_ID}"
+      "value": "#{ref/fhirResources/OTTEHR_ORGANIZATION/id}",
+      "legacyValue": "#{var/ORGANIZATION_ID}"
     },
     "NLM_API_KEY": {
       "name": "NLM_API_KEY",
@@ -75,33 +59,9 @@
       "name": "SENDGRID_EMAIL_BCC",
       "value": "#{var/SENDGRID_EMAIL_BCC}"
     },
-    "IN_PERSON_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID": {
-      "name": "IN_PERSON_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID",
-      "value": "#{var/IN_PERSON_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID}"
-    },
-    "IN_PERSON_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID": {
-      "name": "IN_PERSON_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID",
-      "value": "#{var/IN_PERSON_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID}"
-    },
-    "IN_PERSON_SENDGRID_SPANISH_CONFIRMATION_EMAIL_TEMPLATE_ID": {
-      "name": "IN_PERSON_SENDGRID_SPANISH_CONFIRMATION_EMAIL_TEMPLATE_ID",
-      "value": "#{var/IN_PERSON_SENDGRID_SPANISH_CONFIRMATION_EMAIL_TEMPLATE_ID}"
-    },
-    "IN_PERSON_SENDGRID_SPANISH_CANCELLATION_EMAIL_TEMPLATE_ID": {
-      "name": "IN_PERSON_SENDGRID_SPANISH_CANCELLATION_EMAIL_TEMPLATE_ID",
-      "value": "#{var/IN_PERSON_SENDGRID_SPANISH_CANCELLATION_EMAIL_TEMPLATE_ID}"
-    },
-    "IN_PERSON_SENDGRID_ERROR_EMAIL_TEMPLATE_ID": {
-      "name": "IN_PERSON_SENDGRID_ERROR_EMAIL_TEMPLATE_ID",
-      "value": "#{var/IN_PERSON_SENDGRID_ERROR_EMAIL_TEMPLATE_ID}"
-    },
     "IN_PERSON_PREBOOK_DISPLAY_TOMORROW_SLOTS_AT_HOUR": {
       "name": "IN_PERSON_PREBOOK_DISPLAY_TOMORROW_SLOTS_AT_HOUR",
       "value": "#{var/IN_PERSON_PREBOOK_DISPLAY_TOMORROW_SLOTS_AT_HOUR}"
-    },
-    "UC_SENDGRID_ISSUE_REPORT_EMAIL_TEMPLATE_ID": {
-      "name": "UC_SENDGRID_ISSUE_REPORT_EMAIL_TEMPLATE_ID",
-      "value": "#{var/UC_SENDGRID_ISSUE_REPORT_EMAIL_TEMPLATE_ID}"
     },
     "INTAKE_ISSUE_REPORT_EMAIL_GROUP_ID": {
       "name": "INTAKE_ISSUE_REPORT_EMAIL_GROUP_ID",
@@ -113,7 +73,8 @@
     },
     "PROJECT_ID": {
       "name": "PROJECT_ID",
-      "value": "#{ref/project/PROJECT/id}"
+      "value": "#{ref/project/PROJECT/id}",
+      "legacyValue": "#{var/PROJECT_ID}"
     },
     "SENTRY_AUTH_TOKEN": {
       "name": "SENTRY_AUTH_TOKEN",
@@ -130,14 +91,6 @@
     "SENTRY_DSN": {
       "name": "SENTRY_DSN",
       "value": "#{var/SENTRY_DSN}"
-    },
-    "TELEMED_CLIENT_ID": {
-      "name": "TELEMED_CLIENT_ID",
-      "value": "#{var/TELEMED_CLIENT_ID}"
-    },
-    "TELEMED_CLIENT_SECRET": {
-      "name": "TELEMED_CLIENT_SECRET",
-      "value": "#{var/TELEMED_CLIENT_SECRET}"
     },
     "CANDID_CLIENT_ID": {
       "name": "CANDID_CLIENT_ID",
@@ -201,7 +154,8 @@
     },
     "DEFAULT_WALKIN_LOCATION_NAME": {
       "name": "DEFAULT_WALKIN_LOCATION_NAME",
-      "value": "${replace(\"#{ref/fhirResources/LOCATION_PHYSICAL_NY/data.name}\", \" \", \"_\")}"
+      "value": "${replace(\"#{ref/fhirResources/LOCATION_PHYSICAL_NY/data.name}\", \" \", \"_\")}",
+      "legacyValue": "ignore"
     }
   },
   "zambdas": {
@@ -1163,6 +1117,9 @@
       "zip": ".dist/zips/list-templates.zip"
     }
   },
+  "faxNumbers": {
+    "OTTEHR_FAX": {}
+  },
   "fhirResources": {
     "OTTEHR_ORGANIZATION": {
       "resourceType": "Organization",
@@ -1171,7 +1128,7 @@
       "telecom": [
         {
           "system": "fax",
-          "value": "#{var/fax-number}"
+          "value": "#{ref/faxNumbers/OTTEHR_FAX/number}"
         }
       ]
     },
@@ -1181,7 +1138,7 @@
       "identifier": [
         {
           "system": "https://identifiers.fhir.oystehr.com/lab-guid",
-          "value": "790b282d-77e9-4697-9f59-0cef8238033a"
+          "value": "#{var/lab-autolab-lab-id}"
         },
         {
           "system": "https://identifiers.fhir.oystehr.com/lab-account-number",

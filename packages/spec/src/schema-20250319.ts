@@ -9,6 +9,7 @@ export type Spec20250319 = {
   project: { [key: string]: any };
   apps: { [key: string]: any };
   buckets: { [key: string]: any };
+  faxNumbers: { [key: string]: any };
   fhirResources: { [key: string]: any };
   labRoutes: { [key: string]: any };
   m2ms: { [key: string]: any };
@@ -42,6 +43,7 @@ export class Schema20250319 implements Schema<Spec20250319> {
           'project',
           'apps',
           'buckets',
+          'faxNumbers',
           'fhirResources',
           'labRoutes',
           'm2ms',
@@ -54,12 +56,12 @@ export class Schema20250319 implements Schema<Spec20250319> {
       }
     }
     if (
-      !['project', 'apps', 'buckets', 'fhirResources', 'labRoutes', 'm2ms', 'roles', 'secrets', 'zambdas'].some((key) =>
+      !['project', 'apps', 'buckets', 'faxNumbers', 'fhirResources', 'labRoutes', 'm2ms', 'roles', 'secrets', 'zambdas'].some((key) =>
         Object.prototype.hasOwnProperty.call(spec, key)
       )
     ) {
       throw new Error(
-        `${specFile.path} must have at least one of the following top-level keys: project, apps, buckets, fhirResources, labRoutes, m2ms, roles, secrets, zambdas.`
+        `${specFile.path} must have at least one of the following top-level keys: project, apps, buckets, faxNumbers, fhirResources, labRoutes, m2ms, roles, secrets, zambdas.`
       );
     }
     return spec as Spec20250319;
@@ -70,6 +72,7 @@ export class Schema20250319 implements Schema<Spec20250319> {
       project: {},
       apps: {},
       buckets: {},
+      faxNumbers: {},
       fhirResources: {},
       labRoutes: {},
       m2ms: {},
@@ -82,6 +85,7 @@ export class Schema20250319 implements Schema<Spec20250319> {
       resources.project = { ...resources.project, ...(spec.project as object) };
       resources.apps = { ...resources.apps, ...(spec.apps as object) };
       resources.buckets = { ...resources.buckets, ...(spec.buckets as object) };
+      resources.faxNumbers = { ...resources.faxNumbers, ...(spec.faxNumbers as object) };
       resources.fhirResources = { ...resources.fhirResources, ...(spec.fhirResources as object) };
       resources.labRoutes = { ...resources.labRoutes, ...(spec.labRoutes as object) };
       resources.m2ms = { ...resources.m2ms, ...(spec.m2ms as object) };
@@ -183,6 +187,19 @@ export class Schema20250319 implements Schema<Spec20250319> {
       await fs.writeFile(bucketOutFile, JSON.stringify(bucketResources, null, 2));
     } else {
       await fs.rm(bucketOutFile, { force: true });
+    }
+
+    const faxOutFile = path.join(this.outputPath, 'fax.tf.json');
+    const faxResources: { resource: { oystehr_fax_number: { [key: string]: any } } } = {
+      resource: { oystehr_fax_number: {} },
+    };
+    for (const [faxName] of Object.entries(resources.faxNumbers)) {
+      faxResources.resource.oystehr_fax_number[faxName] = {};
+    }
+    if (Object.keys(faxResources.resource.oystehr_fax_number).length) {
+      await fs.writeFile(faxOutFile, JSON.stringify(faxResources, null, 2));
+    } else {
+      await fs.rm(faxOutFile, { force: true });
     }
 
     const fhirOutFile = path.join(this.outputPath, 'fhir-resources.tf.json');
@@ -350,6 +367,8 @@ export class Schema20250319 implements Schema<Spec20250319> {
         return 'oystehr_application';
       case 'buckets':
         return 'oystehr_z3_bucket';
+      case 'faxNumbers':
+        return 'oystehr_fax_number';
       case 'fhirResources':
         return 'oystehr_fhir_resource';
       case 'labRoutes':
@@ -370,7 +389,7 @@ export class Schema20250319 implements Schema<Spec20250319> {
   }
 
   isResourceType(resourceType: string): resourceType is keyof Spec20250319 {
-    return ['apps', 'buckets', 'fhirResources', 'labRoutes', 'm2ms', 'project', 'roles', 'secrets', 'zambdas'].includes(
+    return ['apps', 'buckets', 'faxNumbers', 'fhirResources', 'labRoutes', 'm2ms', 'project', 'roles', 'secrets', 'zambdas'].includes(
       resourceType
     );
   }
