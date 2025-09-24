@@ -47,13 +47,6 @@ export const DiagnosesContainer: FC = () => {
               return updatedDiagnosis || prevDiagnosis;
             }),
           });
-
-          const diagnosis = (data.chartData.diagnosis || [])[0];
-          if (diagnosis) {
-            setPartialChartData({
-              diagnosis: [...diagnoses, diagnosis],
-            });
-          }
         },
         onError: () => {
           enqueueSnackbar('An error has occurred while adding diagnosis. Please try again.', { variant: 'error' });
