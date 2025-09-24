@@ -56,9 +56,18 @@ export class Schema20250319 implements Schema<Spec20250319> {
       }
     }
     if (
-      !['project', 'apps', 'buckets', 'faxNumbers', 'fhirResources', 'labRoutes', 'm2ms', 'roles', 'secrets', 'zambdas'].some((key) =>
-        Object.prototype.hasOwnProperty.call(spec, key)
-      )
+      ![
+        'project',
+        'apps',
+        'buckets',
+        'faxNumbers',
+        'fhirResources',
+        'labRoutes',
+        'm2ms',
+        'roles',
+        'secrets',
+        'zambdas',
+      ].some((key) => Object.prototype.hasOwnProperty.call(spec, key))
     ) {
       throw new Error(
         `${specFile.path} must have at least one of the following top-level keys: project, apps, buckets, faxNumbers, fhirResources, labRoutes, m2ms, roles, secrets, zambdas.`
@@ -389,9 +398,18 @@ export class Schema20250319 implements Schema<Spec20250319> {
   }
 
   isResourceType(resourceType: string): resourceType is keyof Spec20250319 {
-    return ['apps', 'buckets', 'faxNumbers', 'fhirResources', 'labRoutes', 'm2ms', 'project', 'roles', 'secrets', 'zambdas'].includes(
-      resourceType
-    );
+    return [
+      'apps',
+      'buckets',
+      'faxNumbers',
+      'fhirResources',
+      'labRoutes',
+      'm2ms',
+      'project',
+      'roles',
+      'secrets',
+      'zambdas',
+    ].includes(resourceType);
   }
 
   getTerraformResourceOutputName(fullMatch: string, module?: string): string {
