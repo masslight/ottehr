@@ -538,7 +538,7 @@ describe('busy slots tests', () => {
           scheduleList: [{ schedule, owner }],
           now: timeNow,
           numDays: 1,
-          slotExpirationBiasInSeconds: -10 * 60 - 2,
+          slotExpirationBiasInSeconds: 10 * 60 + 2,
         },
         oystehr
       )
