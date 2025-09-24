@@ -55,7 +55,6 @@ export const DiagnosesContainer: FC = () => {
         },
       }
     );
-    setPartialChartData({ diagnosis: [...diagnoses, preparedValue] });
   };
 
   const onDelete = async (resourceId: string): Promise<void> => {
@@ -86,6 +85,11 @@ export const DiagnosesContainer: FC = () => {
             diagnosis: [otherDiagnosis],
           },
           {
+            onSuccess: (data) => {
+              setPartialChartData({
+                diagnosis: data.chartData.diagnosis || [],
+              });
+            },
             onError: () => {
               enqueueSnackbar(
                 'An error has occurred while setting primary diagnosis. Please try to set primary diagnosis manually.',
@@ -103,7 +107,6 @@ export const DiagnosesContainer: FC = () => {
         );
       }
     }
-    setPartialChartData({ diagnosis: localDiagnoses });
   };
 
   const onMakePrimary = (resourceId: string): void => {
@@ -117,6 +120,11 @@ export const DiagnosesContainer: FC = () => {
         diagnosis: previousAndNewValues,
       },
       {
+        onSuccess: (data) => {
+          setPartialChartData({
+            diagnosis: data.chartData.diagnosis || [],
+          });
+        },
         onError: () => {
           enqueueSnackbar('An error has occurred while changing primary diagnosis. Please try again.', {
             variant: 'error',
@@ -127,18 +135,6 @@ export const DiagnosesContainer: FC = () => {
         },
       }
     );
-
-    setPartialChartData({
-      diagnosis: diagnoses.map((item) => {
-        if (item.isPrimary) {
-          return { ...item, isPrimary: false };
-        }
-        if (item.resourceId === resourceId) {
-          return { ...item, isPrimary: true };
-        }
-        return item;
-      }),
-    });
   };
 
   const handleSetup = (): void => {
