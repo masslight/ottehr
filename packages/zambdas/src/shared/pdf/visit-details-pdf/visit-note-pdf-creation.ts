@@ -1,11 +1,9 @@
 import { Appointment, Encounter, Patient, QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  AdditionalBooleanQuestionsFieldsNames,
   ASQ_FIELD,
   ASQKeys,
   asqLabels,
-  convertBooleanToString,
   CPTCodeDTO,
   createMedicationString,
   CustomOptionObservationHistoryObtainedFromDTO,
@@ -33,10 +31,10 @@ import {
   mapVitalsToDisplay,
   NOTE_TYPE,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
-  ObservationBooleanFieldDTO,
   ObservationHistoryObtainedFromDTO,
   ObservationSeenInLastThreeYearsDTO,
   OTTEHR_MODULE,
+  patientScreeningQuestionsConfig,
   recentVisitLabels,
   searchMedicationLocation,
   searchRouteByCode,
@@ -168,16 +166,15 @@ function composeDataForPdf(
     .map(immunizationOrderToString);
 
   // --- Addition questions ---
-  const additionalQuestions = Object.values(AdditionalBooleanQuestionsFieldsNames).reduce(
-    (acc, field) => {
-      const observation = (
-        chartData.observations?.find((obs) => obs.field === field) as ObservationBooleanFieldDTO | undefined
-      )?.value;
-      acc[field] = convertBooleanToString(observation);
-      return acc;
-    },
-    {} as Record<AdditionalBooleanQuestionsFieldsNames, string>
-  );
+  const additionalQuestions: Record<string, any> = {};
+
+  // Add ALL fields from config (if they have values)
+  patientScreeningQuestionsConfig.fields.forEach((field) => {
+    const observation = chartData.observations?.find((obs) => obs.field === field.fhirField);
+    if (observation?.value !== undefined) {
+      additionalQuestions[field.fhirField] = observation.value;
+    }
+  });
 
   const seenInLastThreeYearsObs = chartData?.observations?.find(
     (obs) => obs.field === SEEN_IN_LAST_THREE_YEARS_FIELD

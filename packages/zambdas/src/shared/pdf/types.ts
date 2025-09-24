@@ -2,7 +2,6 @@ import { Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { Color, PDFFont, PDFImage, StandardFonts } from 'pdf-lib';
 import {
-  AdditionalBooleanQuestionsFieldsNames,
   ExternalLabOrderResult,
   Gender,
   InHouseLabResult as IInHouseLabResult,
@@ -272,7 +271,7 @@ export interface VisitNoteData extends PdfExaminationBlockData {
   inHouseMedications?: string[];
   inHouseMedicationsNotes?: string[];
   immunizationOrders?: string[];
-  additionalQuestions: Record<AdditionalBooleanQuestionsFieldsNames, string>;
+  additionalQuestions: Record<string, string>;
   screening?: {
     seenInLastThreeYears?: string;
     historyObtainedFrom?: string;
