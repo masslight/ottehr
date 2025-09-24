@@ -238,6 +238,7 @@ export const handleMatchUnsolicitedRequest = async ({
     method: 'PUT',
     url: `DiagnosticReport/${diagnosticReportResource.id}`,
     resource: updatedDiagnosticReport,
+    ifMatch: diagnosticReportResource.meta?.versionId ? `W/"${diagnosticReportResource.meta.versionId}"` : undefined,
   };
 
   const requests = [diagnosticReportPutRequest, markTaskAsCompleteRequest, ...serviceRequestPatch];

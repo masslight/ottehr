@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { searchIcd10Codes } from '../src/ehr/icd-10-search/index';
+import { searchIcd10Codes } from '../src/shared/icd-10-search';
 
 describe('icd-10-search tests', () => {
   it('should find J06 codes correctly', async () => {
@@ -77,6 +77,54 @@ describe('icd-10-search tests', () => {
     s82821Codes.forEach((code) => {
       expect(code.code.length).toBe(8); // S82.821 + one character = 8 total
       expect(code.code.charAt(7)).toMatch(/[A-Z]/); // Seventh character should be a letter
+    });
+  });
+
+  it('should handle W21.89 codes correctly with X padding', async () => {
+    // Test the bug: W21.89A should NOT be recognized (missing X padding)
+    const resultsInvalidCode = await searchIcd10Codes('W21.89A');
+    expect(resultsInvalidCode.length).toBe(0);
+
+    // Test the correct code: W21.89XA should be recognized (with X padding)
+    const resultsValidCode = await searchIcd10Codes('W21.89XA');
+    expect(resultsValidCode.length).toBe(1);
+    expect(resultsValidCode[0].code).toBe('W21.89XA');
+    expect(resultsValidCode[0].display).toContain('Striking against or struck by other sports equipment');
+
+    // Test that all W21.89 variants have proper X padding
+    const allW2189Results = await searchIcd10Codes('W21.89');
+    const w2189Codes = allW2189Results.filter((code) => code.code.startsWith('W21.89'));
+
+    // Should have multiple variants with different seventh characters (A, D, S)
+    expect(w2189Codes.length).toBeGreaterThan(1);
+
+    // All should have X in the seventh position and an eighth character
+    w2189Codes.forEach((code) => {
+      expect(code.code.length).toBe(8); // W21.89X + one character = 8 total
+      expect(code.code.charAt(6)).toBe('X'); // Seventh character should be X (padding)
+      expect(code.code.charAt(7)).toMatch(/[ADS]/); // Eighth character should be A, D, or S
+    });
+  });
+
+  it('should handle ICD-10 padding correctly for different code lengths', async () => {
+    // Test 5-character code (should get XX padding + 7th char = 8 chars total)
+    const w214Results = await searchIcd10Codes('W21.4');
+    const w214Codes = w214Results.filter((code) => code.code.startsWith('W21.4') && code.code.length > 5);
+    expect(w214Codes.length).toBeGreaterThan(0);
+    w214Codes.forEach((code) => {
+      expect(code.code.length).toBe(8); // W21.4XX + one character = 8 total
+      expect(code.code.substring(5, 7)).toBe('XX'); // Should have XX padding
+      expect(code.code.charAt(7)).toMatch(/[ADS]/); // Eighth character should be A, D, or S
+    });
+
+    // Test 6-character code (should get X padding + 7th char = 8 chars total)
+    const w2189Results = await searchIcd10Codes('W21.89');
+    const w2189Codes = w2189Results.filter((code) => code.code.startsWith('W21.89') && code.code.length > 6);
+    expect(w2189Codes.length).toBeGreaterThan(0);
+    w2189Codes.forEach((code) => {
+      expect(code.code.length).toBe(8); // W21.89X + one character = 8 total
+      expect(code.code.charAt(6)).toBe('X'); // Should have X padding
+      expect(code.code.charAt(7)).toMatch(/[ADS]/); // Eighth character should be A, D, or S
     });
   });
 });

@@ -150,6 +150,7 @@ export const performEffect = async (
   ]);
   const chartData = chartDataResult.response;
   const additionalChartData = additionalChartDataResult.response;
+  const medicationOrders = medicationOrdersData?.orders.filter((order) => order.status !== 'cancelled');
 
   console.log('Chart data received');
   const { pdfInfo, attached } = await composeAndCreateDischargeSummaryPdf(
@@ -159,7 +160,7 @@ export const performEffect = async (
       radiologyData,
       externalLabsData,
       inHouseOrdersData,
-      medicationOrders: medicationOrdersData?.orders,
+      medicationOrders,
     },
     visitResources,
     secrets,
