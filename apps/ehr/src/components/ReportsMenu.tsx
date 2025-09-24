@@ -1,5 +1,6 @@
 import { ArrowDropDown } from '@mui/icons-material';
 import { Menu, MenuItem } from '@mui/material';
+import { Bundle, FhirResource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import React from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -11,6 +12,17 @@ export function ReportsMenu(): JSX.Element {
   const [anchorElement, setAnchorElement] = React.useState<HTMLElement | null>(null);
   const open = Boolean(anchorElement);
 
+  async function downloadReport(
+    data: Bundle<FhirResource>,
+    fileName: 'unsigned-charts' | 'appointments'
+  ): Promise<void> {
+    const element = document.createElement('a');
+    setAnchorElement(null);
+    element.setAttribute('href', 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(data)));
+    element.setAttribute('download', `${fileName}.json`);
+    element.click();
+  }
+
   async function getUnsignedCharts(): Promise<void> {
     if (!oystehr) {
       console.log('oystehr client is undefined');
@@ -19,7 +31,7 @@ export function ReportsMenu(): JSX.Element {
     const now = DateTime.now();
     const yesterday = now.minus({ days: 1 }).endOf('day');
     const ninetyDaysAgo = now.minus({ days: 90 }).startOf('day');
-    const encounters = await oystehr.fhir.search({
+    const encounters = (await oystehr.fhir.search({
       resourceType: 'Encounter',
       params: [
         {
@@ -36,7 +48,15 @@ export function ReportsMenu(): JSX.Element {
         },
         {
           name: '_include',
+          value: 'Encounter:location',
+        },
+        {
+          name: '_include',
           value: 'Encounter:participant',
+        },
+        {
+          name: '_include:iterate',
+          value: 'Appointment:patient',
         },
         {
           name: 'appointment.date',
@@ -47,12 +67,68 @@ export function ReportsMenu(): JSX.Element {
           value: `ge${ninetyDaysAgo.toISODate()}`,
         },
       ],
-    });
-    const element = document.createElement('a');
-    setAnchorElement(null);
-    element.setAttribute('href', 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(encounters)));
-    element.setAttribute('download', 'unsigned-charts.json');
-    element.click();
+    })) as Bundle<FhirResource>;
+    await downloadReport(encounters, 'unsigned-charts');
+  }
+
+  async function getAppointments(): Promise<void> {
+    if (!oystehr) {
+      console.log('oystehr client is undefined');
+      return;
+    }
+    const now = DateTime.now();
+    const yesterday = now.minus({ days: 1 }).endOf('day');
+    const ninetyDaysAgo = now.minus({ days: 90 }).startOf('day');
+    const encounters = (await oystehr.fhir.search({
+      resourceType: 'Appointment',
+      params: [
+        {
+          name: 'date',
+          value: `le${yesterday}`,
+        },
+        {
+          name: 'date',
+          value: `ge${ninetyDaysAgo}`,
+        },
+        {
+          name: 'date:missing',
+          value: 'false',
+        },
+        {
+          name: '_sort',
+          value: 'date',
+        },
+        { name: '_count', value: '1000' },
+        {
+          name: '_include',
+          value: 'Appointment:patient',
+        },
+        {
+          name: '_revinclude:iterate',
+          value: 'RelatedPerson:patient',
+        },
+        {
+          name: '_revinclude:iterate',
+          value: 'Person:link',
+        },
+        {
+          name: '_revinclude:iterate',
+          value: 'Encounter:participant',
+        },
+        {
+          name: '_include',
+          value: 'Appointment:location',
+        },
+        { name: '_revinclude:iterate', value: 'DocumentReference:patient' },
+        { name: '_revinclude:iterate', value: 'QuestionnaireResponse:encounter' },
+        // { name: '_include', value: 'Appointment:actor' },
+      ],
+    })) as Bundle<FhirResource>;
+    await downloadReport(encounters, 'appointments');
+  }
+
+  async function getEncounters(): Promise<void> {
+    console.log('todo ');
   }
 
   return (
@@ -84,6 +160,8 @@ export function ReportsMenu(): JSX.Element {
         }}
       >
         <MenuItem onClick={getUnsignedCharts}>Unsigned charts</MenuItem>
+        <MenuItem onClick={getAppointments}>Appointments</MenuItem>
+        <MenuItem onClick={getEncounters}>Encounters</MenuItem>
       </Menu>
     </>
   );
