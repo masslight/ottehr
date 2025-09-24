@@ -208,6 +208,8 @@ const complexValidation = async (
     })
   ).unbundle();
 
+  console.log('FHIR Payment Notices found:', JSON.stringify(fhirPaymentNotices));
+
   return {
     patientId,
     encounterId,
