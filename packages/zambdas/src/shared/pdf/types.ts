@@ -212,7 +212,6 @@ export interface ExternalLabResultsData extends LabResultsData {
   accessionNumber: string;
   orderSubmitDate: string;
   collectionDate: string;
-  resultPhase: string;
   resultsReceivedDate: string;
   reviewed?: boolean; // todo why is this possibly undefined ??
   reviewingProvider: Practitioner | undefined;
