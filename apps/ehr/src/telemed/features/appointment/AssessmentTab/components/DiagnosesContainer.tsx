@@ -87,8 +87,12 @@ export const DiagnosesContainer: FC = () => {
           },
           {
             onSuccess: (data) => {
+              const updatedDiagnoses = data.chartData.diagnosis;
               setPartialChartData({
-                diagnosis: data.chartData.diagnosis || [],
+                diagnosis: localDiagnoses.map((prevDiagnosis) => {
+                  const updatedDiagnosis = updatedDiagnoses?.find((uD) => uD.resourceId === prevDiagnosis.resourceId);
+                  return updatedDiagnosis || prevDiagnosis;
+                }),
               });
             },
             onError: () => {
@@ -123,8 +127,12 @@ export const DiagnosesContainer: FC = () => {
       },
       {
         onSuccess: (data) => {
+          const updatedDiagnoses = data.chartData.diagnosis;
           setPartialChartData({
-            diagnosis: data.chartData.diagnosis || [],
+            diagnosis: diagnoses.map((prevDiagnosis) => {
+              const updatedDiagnosis = updatedDiagnoses?.find((uD) => uD.resourceId === prevDiagnosis.resourceId);
+              return updatedDiagnosis || prevDiagnosis;
+            }),
           });
         },
         onError: () => {
