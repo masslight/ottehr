@@ -60,7 +60,8 @@
     "test": "turbo test",
     "prepare": "husky",
     "spellcheck": "cspell .",
-    "merge-payer-addresses": "tsx scripts/merge-payer-addresses.ts config/payers.json scripts/data/payers-addresses.csv config/payers-with-addresses.json scripts/data/payers-addresses-unmatched.csv"
+    "merge-payer-addresses": "tsx scripts/merge-payer-addresses.ts config/payers.json scripts/data/payers-addresses.csv config/payers-with-addresses.json scripts/data/payers-addresses-unmatched.csv",
+    "nothing": "echo 'Nothing to do'"
   },
   "workspaces": [
     "packages/**/*",
