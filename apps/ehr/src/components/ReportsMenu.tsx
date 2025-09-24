@@ -78,7 +78,7 @@ export function ReportsMenu(): JSX.Element {
     }
     const now = DateTime.now();
     const yesterday = now.minus({ days: 1 }).endOf('day');
-    const ninetyDaysAgo = now.minus({ days: 2 }).startOf('day');
+    const ninetyDaysAgo = now.minus({ days: 90 }).startOf('day');
     const encounters = (await oystehr.fhir.search({
       resourceType: 'Appointment',
       params: [
