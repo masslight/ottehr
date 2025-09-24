@@ -1,27 +1,30 @@
+import LoadingButton from '@mui/lab/LoadingButton';
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Grid, TextField } from '@mui/material';
 import { ReactElement } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 
-interface SendReceiptByEmailDialogProps {
-  title: string;
-  modalOpen: boolean;
-  onClose: () => void;
-  onSubmit: () => Promise<void>;
-  submitButtonName: string;
-  // loading: boolean;
-}
-
-interface SendReceiptFormData {
+export interface SendReceiptFormData {
   recipientName: string;
   recipientEmail: string;
   subject: string;
 }
 
+interface SendReceiptByEmailDialogProps {
+  title: string;
+  modalOpen: boolean;
+  handleClose: () => void;
+  onSubmit: (sendReceiptFormData: SendReceiptFormData) => Promise<void>;
+  submitButtonName: string;
+  defaultValues?: Partial<SendReceiptFormData>;
+}
+
 export default function SendReceiptByEmailDialog({
   title,
   modalOpen,
-  onClose,
-  onSubmit: inputOnSubmit,
+  handleClose,
+  onSubmit,
+  defaultValues,
+  submitButtonName,
 }: SendReceiptByEmailDialogProps): ReactElement {
   const {
     control,
@@ -29,31 +32,22 @@ export default function SendReceiptByEmailDialog({
     formState: { errors, isSubmitting },
   } = useForm<SendReceiptFormData>({
     defaultValues: {
-      recipientName: '',
-      recipientEmail: '',
-      subject: '',
+      recipientName: defaultValues?.recipientName ?? '',
+      recipientEmail: defaultValues?.recipientEmail ?? '',
+      subject: defaultValues?.subject ?? '',
     },
     mode: 'onBlur',
   });
 
-  const onSubmit = async (data: SendReceiptFormData): Promise<void> => {
-    try {
-      console.log('Form data:', data);
-      await inputOnSubmit();
-    } catch (error) {
-      console.error('Error submitting form:', error);
-    }
-  };
-
   return (
-    <Dialog open={modalOpen} onClose={onClose}>
+    <Dialog open={modalOpen}>
       <Grid container direction="column" sx={{ marginBottom: 2 }} spacing={0.5}>
         <DialogTitle variant="h4" color="primary.dark">
-          ${title}
+          {title}
         </DialogTitle>
 
         <DialogContent sx={{ overflow: 'auto' }}>
-          <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ mt: 2 }}>
+          <Box component="form" id="send-receipt-form" onSubmit={handleSubmit(onSubmit)} sx={{ mt: 2 }}>
             <Controller
               name="recipientName"
               control={control}
@@ -64,7 +58,7 @@ export default function SendReceiptByEmailDialog({
                 <TextField
                   {...field}
                   fullWidth
-                  label="First Name"
+                  label="Recipient full name"
                   error={!!errors.recipientName}
                   helperText={errors.recipientName?.message}
                   required
@@ -83,7 +77,8 @@ export default function SendReceiptByEmailDialog({
                 <TextField
                   {...field}
                   fullWidth
-                  label="Last Name"
+                  label="Email address"
+                  type="email"
                   error={!!errors.recipientEmail}
                   helperText={errors.recipientEmail?.message}
                   required
@@ -102,8 +97,7 @@ export default function SendReceiptByEmailDialog({
                 <TextField
                   {...field}
                   fullWidth
-                  label="Email"
-                  type="email"
+                  label="Subject"
                   error={!!errors.subject}
                   helperText={errors.subject?.message}
                   required
@@ -115,9 +109,19 @@ export default function SendReceiptByEmailDialog({
         </DialogContent>
 
         <DialogActions>
-          <Button type="submit" variant="contained" fullWidth disabled={isSubmitting} sx={{ mt: 2 }}>
-            {isSubmitting ? 'Submitting...' : 'Submit'}
+          <Button variant="text" onClick={handleClose} size="medium">
+            Cancel
           </Button>
+          <LoadingButton
+            disabled={isSubmitting}
+            loading={isSubmitting}
+            form="send-receipt-form"
+            type="submit"
+            variant="contained"
+            color="primary"
+          >
+            {submitButtonName}
+          </LoadingButton>
         </DialogActions>
       </Grid>
     </Dialog>
