@@ -79,7 +79,7 @@ export const DiagnosesContainer: FC = () => {
 
       if (firstAppropriateDiagnosis) {
         const otherDiagnosis = { ...firstAppropriateDiagnosis, isPrimary: true };
-        const prevDiagnoses = localDiagnoses;
+        const prevDiagnoses = [...localDiagnoses];
 
         saveChartData(
           {
