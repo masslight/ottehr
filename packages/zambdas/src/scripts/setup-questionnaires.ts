@@ -17,7 +17,7 @@ const writeQuestionnaires = async (envConfig: any, env: string): Promise<void> =
     const requests = await Promise.all(
       folder
         .filter((file) => file.endsWith('questionnaire.json'))
-        .map(async (file) => {
+        .flatMap(async (file) => {
           const questionnaireData = JSON.parse(
             fs.readFileSync(path.join(__dirname, '../../../../config/oystehr', file), 'utf8')
           );
@@ -49,38 +49,36 @@ const writeQuestionnaires = async (envConfig: any, env: string): Promise<void> =
                 })
               ).unbundle();
 
-          if (!existingQuestionnaire.length) {
-            const createRequest: BatchInputPostRequest<Questionnaire> = {
-              method: 'POST',
-              url: '/Questionnaire',
-              resource: questionnaire,
-            };
-            return createRequest;
-          } else {
-            console.log('existing Questionnaire id: ', existingQuestionnaire[0].id);
-            const existing = existingQuestionnaire.find(
-              (eq: Questionnaire) => eq.url === questionnaire.url && eq.version === questionnaire.version
-            );
-            if (!existing) {
-              throw new Error('Questionnaire missing unexpectedly');
-            }
-            const updateRequest: BatchInputPutRequest<Questionnaire> = {
-              method: 'PUT',
-              url: `/Questionnaire/${existing.id}`,
-              resource: {
-                ...questionnaire,
-                id: existing.id,
-              },
-            };
-            return updateRequest;
-          }
+              if (!existingQuestionnaire.length) {
+                const createRequest: BatchInputPostRequest<Questionnaire> = {
+                  method: 'POST',
+                  url: '/Questionnaire',
+                  resource: questionnaire,
+                };
+                return createRequest;
+              } else {
+                console.log('existing Questionnaire id: ', existingQuestionnaire[0].id);
+                const existing = existingQuestionnaire.find(
+                  (eq: Questionnaire) => eq.url === questionnaire.url && eq.version === questionnaire.version
+                );
+                if (!existing) {
+                  throw new Error('Questionnaire missing unexpectedly');
+                }
+                const updateRequest: BatchInputPutRequest<Questionnaire> = {
+                  method: 'PUT',
+                  url: `/Questionnaire/${existing.id}`,
+                  resource: {
+                    ...questionnaire,
+                    id: existing.id,
+                  },
+                };
+                return updateRequest;
+              }
+            })
+          );
         })
     );
-
-    console.log(`Transaction requests:\n${JSON.stringify(requests, null, 2)}`);
-
-    const transactionResult = await oystehrClient.fhir.transaction({ requests });
-    console.log(`Transaction result:\n${JSON.stringify(transactionResult, null, 2)}`);
+    await oystehrClient.fhir.transaction({ requests: requests.flatMap((r) => r) });
 
     const newSecrets: any = {};
     folder
