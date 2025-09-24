@@ -747,6 +747,16 @@
         "expression": "cron(0,15,30,45 * * * ? *)"
       }
     },
+    "TEST-ENV-CLEANUP": {
+      "name": "test-env-cleanup",
+      "type": "cron",
+      "runtime": "nodejs20.x",
+      "src": "src/cron/test-env-cleanup/index",
+      "zip": ".dist/zips/test-env-cleanup.zip",
+      "schedule": {
+        "expression": "cron(0 * * * ? *)"
+      }
+    },
     "COMMUNICATION-SUBSCRIPTION": {
       "name": "communication-subscription",
       "type": "subscription",
@@ -5815,6 +5825,16 @@
         {
           "resource": ["Zambda:Function:*"],
           "action": ["Zambda:InvokeFunction"],
+          "effect": "Allow"
+        },
+        {
+          "action": ["eRx:SearchAllergen"],
+          "resource": ["eRx:Allergen"],
+          "effect": "Allow"
+        },
+        {
+          "action": ["eRx:SearchMedication"],
+          "resource": ["eRx:Medication"],
           "effect": "Allow"
         }
       ]
