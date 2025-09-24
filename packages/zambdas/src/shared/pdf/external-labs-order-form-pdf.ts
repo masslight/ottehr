@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Patient } from 'fhir/r4b';
+import { Address, Coverage, FhirResource, HumanName, Patient, RelatedPerson } from 'fhir/r4b';
 import { min } from 'lodash';
 import { DateTime } from 'luxon';
 import { BUCKET_NAMES, FHIR_IDENTIFIER_NPI, getFullestAvailableName, ORDER_ITEM_UNKNOWN, Secrets } from 'utils';
@@ -375,21 +375,47 @@ function getInsuranceDetails(
   const insuranceInfo: OrderFormInsuranceInfo[] = [];
   coveragesAndOrgs.forEach((covAndOrg) => {
     const { coverage, insuranceOrganization, coverageRank } = covAndOrg;
+    const { insuredName, insuredAddress } = getInsuredInfoFromCoverageSubscriber(coverage);
     insuranceInfo.push({
       insuranceName: insuranceOrganization?.name,
       insuranceAddress: insuranceOrganization?.address
         ? oystehr.fhir.formatAddress(insuranceOrganization.address?.[0])
         : undefined,
       insuranceSubNum: coverage?.subscriberId,
-      // ATHENA TODO: I think this is wrong. I think this is meant to be the subscriber not the patient
-      // that's what the labcorp eReqs do anyway
-      insuredName: patient?.name ? oystehr.fhir.formatHumanName(patient.name[0]) : undefined,
-      insuredAddress: patient?.address ? oystehr.fhir.formatAddress(patient.address?.[0]) : undefined,
+      insuredName: insuredName && insuredName.length ? oystehr.fhir.formatHumanName(insuredName[0]) : undefined,
+      insuredAddress:
+        insuredAddress && insuredAddress.length ? oystehr.fhir.formatAddress(insuredAddress[0]) : undefined,
       insuranceRank: coverageRank,
     });
   });
 
   return insuranceInfo;
+}
+
+function getInsuredInfoFromCoverageSubscriber(coverage: Coverage): {
+  insuredName: HumanName[] | undefined;
+  insuredAddress: Address[] | undefined;
+} {
+  const subscriberRef = coverage.subscriber?.reference;
+  console.log(`subscriberRef for Coverage/${coverage.id} is: ${subscriberRef}`);
+
+  const emptyResponse = { insuredName: undefined, insuredAddress: undefined };
+  // for the moment always assume we're going to get the subscriber as a contained resource
+  if (!subscriberRef || !subscriberRef.startsWith('#')) return emptyResponse;
+
+  // also going to assume the subscriber is only a RelatedPerson
+  const subscriber = (coverage.contained as FhirResource[]).find(
+    (cont: FhirResource): cont is RelatedPerson =>
+      cont.resourceType === 'RelatedPerson' && cont.id === subscriberRef.replace('#', '')
+  );
+
+  console.log(`subscriber resource for Coverage/${coverage.id} is: ${JSON.stringify(subscriber)}`);
+  if (!subscriber) return emptyResponse;
+
+  return {
+    insuredName: subscriber.name,
+    insuredAddress: subscriber.address,
+  };
 }
 
 function drawInsuranceDetail(
