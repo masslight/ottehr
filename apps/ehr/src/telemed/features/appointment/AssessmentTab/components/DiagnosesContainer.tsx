@@ -40,6 +40,14 @@ export const DiagnosesContainer: FC = () => {
       },
       {
         onSuccess: (data) => {
+          const updatedDiagnoses = data.chartData.diagnosis;
+          setPartialChartData({
+            diagnosis: diagnoses.map((prevDiagnosis) => {
+              const updatedDiagnosis = updatedDiagnoses?.find((uD) => uD.code === preparedValue.code);
+              return updatedDiagnosis || prevDiagnosis;
+            }),
+          });
+
           const diagnosis = (data.chartData.diagnosis || [])[0];
           if (diagnosis) {
             setPartialChartData({
