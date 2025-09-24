@@ -2,6 +2,7 @@ import { expect, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { waitForChartDataDeletion, waitForSaveChartDataResponse } from 'test-utils';
 import {
+  formatScreeningQuestionValue,
   getAdditionalQuestionsAnswers,
   getAllergiesStepAnswers,
   getConsentStepAnswers,
@@ -578,7 +579,29 @@ test.describe('Surgical history', () => {
 
 test.describe('Additional questions', () => {
   const PROCESS_ID = `hpiFields.spec.ts-additional-Qs-${DateTime.now().toMillis()}`;
-  const resourceHandler = new ResourceHandler(PROCESS_ID, 'telemed');
+  const resourceHandler = new ResourceHandler(PROCESS_ID, 'telemed', async ({ patientInfo }) => {
+    return [
+      getContactInformationAnswers({
+        firstName: patientInfo.firstName,
+        lastName: patientInfo.lastName,
+        birthDate: isoToDateObject(patientInfo.dateOfBirth || '') || undefined,
+        email: patientInfo.email,
+        phoneNumber: patientInfo.phoneNumber,
+        birthSex: patientInfo.sex,
+      }),
+      getPatientDetailsStepAnswers({}),
+      getMedicationsStepAnswers(),
+      getAllergiesStepAnswers(),
+      getMedicalConditionsStepAnswers(),
+      getSurgicalHistoryStepAnswers(),
+      getAdditionalQuestionsAnswers(),
+      getPaymentOptionSelfPayAnswers(),
+      getResponsiblePartyStepAnswers({}),
+      getSchoolWorkNoteStepAnswers(),
+      getConsentStepAnswers({}),
+      getInviteParticipantStepAnswers(),
+    ];
+  });
   let page: Page;
 
   test.beforeAll(async ({ browser }) => {
@@ -611,11 +634,12 @@ test.describe('Additional questions', () => {
   test('Should check provider has the same answers as Patient provided. Patient answered', async () => {
     const answers = getAdditionalQuestionsAnswers().item;
     for (const question of ADDITIONAL_QUESTIONS) {
-      const answer = answers?.find((item) => item.linkId === question.field)?.answer?.[0]?.valueString ?? '';
+      const rawAnswer = answers?.find((item) => item.linkId === question.field)?.answer?.[0]?.valueString ?? '';
+      const formattedAnswer = formatScreeningQuestionValue(question.field, rawAnswer);
       await expect(
         page
           .getByTestId(dataTestIds.telemedEhrFlow.hpiAdditionalQuestionsPatientProvided(question.field))
-          .getByText(answer)
+          .getByText(formattedAnswer)
       ).toBeVisible();
     }
   });
