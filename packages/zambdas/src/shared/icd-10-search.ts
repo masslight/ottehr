@@ -77,8 +77,14 @@ async function loadAndParseIcd10Data(): Promise<Icd10Code[]> {
         if (activeSevenChrDef) {
           // Generate billable codes with seventh characters
           activeSevenChrDef.forEach((extension) => {
+            const trimmedCode = code.trim();
+            let finalCode = trimmedCode;
+
+            // Pad with "X" so that "seventh" character is in the correct position
+            finalCode = trimmedCode.padEnd(7, 'X');
+
             codes.push({
-              code: `${code.trim()}${extension.char}`,
+              code: `${finalCode}${extension.char}`,
               display: `${desc.trim()}, ${extension.desc}`,
             });
           });
