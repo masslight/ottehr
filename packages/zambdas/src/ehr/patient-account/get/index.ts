@@ -57,7 +57,7 @@ const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAcc
   ) as Practitioner;
   // due to really huge CEResponses causing response-too-large errors, we need to chop our querying for the CEResponses into
   // manageable chunks. We'll do this by first querying for just the IDs of the CEResponses, then querying for the full resources in parallel.
-  // Even two parallel queries can still result in response-too-large errors based on prod data we've encountered.
+  // Even just two resources returned in a query can still result in response-too-large errors based on prod data we've encountered.
   const eligibilityCheckIds = (
     await oystehr.fhir.search<CoverageEligibilityResponse>({
       resourceType: 'CoverageEligibilityResponse',
@@ -75,7 +75,7 @@ const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAcc
           value: 'id',
         },
         {
-          name: '_count', // we shouldn't need more thant the most recent 10 eligibility checks
+          name: '_count', // we shouldn't need more than the most recent 10 eligibility checks
           value: '10',
         },
       ],
