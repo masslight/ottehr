@@ -113,7 +113,8 @@
     },
     "PROJECT_ID": {
       "name": "PROJECT_ID",
-      "value": "#{ref/project/PROJECT/id}"
+      "value": "#{ref/project/PROJECT/id}",
+      "legacyValue": "#{var/PROJECT_ID}"
     },
     "SENTRY_AUTH_TOKEN": {
       "name": "SENTRY_AUTH_TOKEN",
@@ -201,7 +202,8 @@
     },
     "DEFAULT_WALKIN_LOCATION_NAME": {
       "name": "DEFAULT_WALKIN_LOCATION_NAME",
-      "value": "${replace(\"#{ref/fhirResources/LOCATION_PHYSICAL_NY/data.name}\", \" \", \"_\")}"
+      "value": "${replace(\"#{ref/fhirResources/LOCATION_PHYSICAL_NY/data.name}\", \" \", \"_\")}",
+      "legacyValue": "ignore"
     }
   },
   "zambdas": {
