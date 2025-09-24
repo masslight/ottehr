@@ -867,6 +867,18 @@
         "event": "update"
       }
     },
+    "SUB-SEND-CLAIM": {
+      "name": "sub-send-claim",
+      "type": "subscription",
+      "runtime": "nodejs20.x",
+      "src": "src/subscriptions/task/sub-send-claim/index",
+      "zip": ".dist/zips/sub-send-claim.zip",
+      "subscription": {
+        "criteria": "Task?code=urgent-care-email|&status=requested",
+        "reason": "in person communication",
+        "event": "create"
+      }
+    },
     "AI-INTERVIEW-START": {
       "name": "ai-interview-start",
       "type": "http_auth",
