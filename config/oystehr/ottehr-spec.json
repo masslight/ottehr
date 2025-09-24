@@ -1,5 +1,11 @@
 {
   "schema-version": "2025-03-19",
+  "project": {
+    "PROJECT": {
+      "signupEnabled": true,
+      "defaultPatientRoleId": "#{ref/roles/PATIENT/id}"
+    }
+  },
   "secrets": {
     "WEBSITE_URL": {
       "name": "WEBSITE_URL",
@@ -107,7 +113,7 @@
     },
     "PROJECT_ID": {
       "name": "PROJECT_ID",
-      "value": "#{var/PROJECT_ID}"
+      "value": "#{ref/project/PROJECT/id}"
     },
     "SENTRY_AUTH_TOKEN": {
       "name": "SENTRY_AUTH_TOKEN",
@@ -180,6 +186,22 @@
     "ADVAPACS_VIEWER_USERNAME": {
       "name": "ADVAPACS_VIEWER_USERNAME",
       "value": "#{var/ADVAPACS_VIEWER_USERNAME}"
+    },
+    "MUI_X_LICENSE_KEY": {
+      "name": "MUI_X_LICENSE_KEY",
+      "value": "#{var/MUI_X_LICENSE_KEY}"
+    },
+    "GTM_ID": {
+      "name": "GTM_ID",
+      "value": "#{var/GTM_ID}"
+    },
+    "MIXPANEL_TOKEN": {
+      "name": "MIXPANEL_TOKEN",
+      "value": "#{var/MIXPANEL_TOKEN}"
+    },
+    "DEFAULT_WALKIN_LOCATION_NAME": {
+      "name": "DEFAULT_WALKIN_LOCATION_NAME",
+      "value": "${replace(\"#{ref/fhirResources/LOCATION_PHYSICAL_NY/data.name}\", \" \", \"_\")}"
     }
   },
   "zambdas": {
@@ -5494,17 +5516,17 @@
         },
         {
           "resource": [
-            "Z3:#{var/PROJECT_ID}-photo-id-cards/*",
-            "Z3:#{var/PROJECT_ID}-insurance-cards/*",
-            "Z3:#{var/PROJECT_ID}-school-work-note-templates/*",
-            "Z3:#{var/PROJECT_ID}-patient-photos/*",
-            "Z3:#{var/PROJECT_ID}-consent-forms/*",
-            "Z3:#{var/PROJECT_ID}-visit-notes/*",
-            "Z3:#{var/PROJECT_ID}-receipts/*",
-            "Z3:#{var/PROJECT_ID}-school-work-notes/*",
-            "Z3:#{var/PROJECT_ID}-privacy-policy/*",
-            "Z3:#{var/PROJECT_ID}-exported-questionnaires/*",
-            "Z3:#{var/PROJECT_ID}-discharge-summaries/*"
+            "Z3:#{ref/project/PROJECT/id}-photo-id-cards/*",
+            "Z3:#{ref/project/PROJECT/id}-insurance-cards/*",
+            "Z3:#{ref/project/PROJECT/id}-school-work-note-templates/*",
+            "Z3:#{ref/project/PROJECT/id}-patient-photos/*",
+            "Z3:#{ref/project/PROJECT/id}-consent-forms/*",
+            "Z3:#{ref/project/PROJECT/id}-visit-notes/*",
+            "Z3:#{ref/project/PROJECT/id}-receipts/*",
+            "Z3:#{ref/project/PROJECT/id}-school-work-notes/*",
+            "Z3:#{ref/project/PROJECT/id}-privacy-policy/*",
+            "Z3:#{ref/project/PROJECT/id}-exported-questionnaires/*",
+            "Z3:#{ref/project/PROJECT/id}-discharge-summaries/*"
           ],
           "action": ["Z3:PutObject", "Z3:GetObject"],
           "effect": "Allow"
@@ -6006,40 +6028,40 @@
   },
   "buckets": {
     "VISIT_NOTES": {
-      "name": "#{var/PROJECT_ID}-visit-notes"
+      "name": "#{ref/project/PROJECT/id}-visit-notes"
     },
     "CONSENT_FORMS": {
-      "name": "#{var/PROJECT_ID}-consent-forms"
+      "name": "#{ref/project/PROJECT/id}-consent-forms"
     },
     "PRIVACY_POLICY": {
-      "name": "#{var/PROJECT_ID}-privacy-policy"
+      "name": "#{ref/project/PROJECT/id}-privacy-policy"
     },
     "INSURANCE_CARDS": {
-      "name": "#{var/PROJECT_ID}-insurance-cards"
+      "name": "#{ref/project/PROJECT/id}-insurance-cards"
     },
     "PHOTO_ID_CARDS": {
-      "name": "#{var/PROJECT_ID}-photo-id-cards"
+      "name": "#{ref/project/PROJECT/id}-photo-id-cards"
     },
     "PATIENT_PHOTOS": {
-      "name": "#{var/PROJECT_ID}-patient-photos"
+      "name": "#{ref/project/PROJECT/id}-patient-photos"
     },
     "SCHOOL_WORK_NOTES": {
-      "name": "#{var/PROJECT_ID}-school-work-notes"
+      "name": "#{ref/project/PROJECT/id}-school-work-notes"
     },
     "SCHOOL_WORK_NOTE_TEMPLATES": {
-      "name": "#{var/PROJECT_ID}-school-work-note-templates"
+      "name": "#{ref/project/PROJECT/id}-school-work-note-templates"
     },
     "LABS": {
-      "name": "#{var/PROJECT_ID}-labs"
+      "name": "#{ref/project/PROJECT/id}-labs"
     },
     "RECEIPTS": {
-      "name": "#{var/PROJECT_ID}-receipts"
+      "name": "#{ref/project/PROJECT/id}-receipts"
     },
     "PAPERWORK": {
-      "name": "#{var/PROJECT_ID}-exported-questionnaires"
+      "name": "#{ref/project/PROJECT/id}-exported-questionnaires"
     },
     "DISCHARGE_SUMMARIES": {
-      "name": "#{var/PROJECT_ID}-discharge-summaries"
+      "name": "#{ref/project/PROJECT/id}-discharge-summaries"
     }
   },
   "labRoutes": {
