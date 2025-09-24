@@ -111,8 +111,8 @@ export const DiagnosesContainer: FC = () => {
           item.resourceId === otherDiagnosis.resourceId ? otherDiagnosis : item
         );
       }
-      setPartialChartData({ diagnosis: localDiagnoses });
     }
+    setPartialChartData({ diagnosis: localDiagnoses });
   };
 
   const onMakePrimary = (resourceId: string): void => {
@@ -145,6 +145,7 @@ export const DiagnosesContainer: FC = () => {
         },
       }
     );
+
     setPartialChartData({
       diagnosis: diagnoses.map((item) => {
         if (item.isPrimary) {
