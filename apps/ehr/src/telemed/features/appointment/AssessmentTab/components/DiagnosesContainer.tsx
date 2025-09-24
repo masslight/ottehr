@@ -116,6 +116,7 @@ export const DiagnosesContainer: FC = () => {
   };
 
   const onMakePrimary = (resourceId: string): void => {
+    const oldDiagnoses = [...diagnoses];
     const value = diagnoses.find((item) => item.resourceId === resourceId)!;
     const previousAndNewValues = [];
     previousAndNewValues.push({ ...value, isPrimary: true }); // prepared diagnosis
@@ -140,7 +141,7 @@ export const DiagnosesContainer: FC = () => {
             variant: 'error',
           });
           setPartialChartData({
-            diagnosis: diagnoses,
+            diagnosis: oldDiagnoses,
           });
         },
       }
