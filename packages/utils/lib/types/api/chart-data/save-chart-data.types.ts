@@ -29,14 +29,3 @@ export interface SNOMEDCodeConceptInterface {
   // SNOMED codes map: https://docs.google.com/spreadsheets/d/1Ggi4lYVoh-nT5XIKlWNJDUPipQ0OOgvSqoHHxziIgAE/edit#gid=0
   code: SNOMEDCodeInterface;
 }
-
-export enum AdditionalBooleanQuestionsFieldsNames {
-  TestedPositiveCovid = 'tested-positive-covid',
-  TravelUsa = 'travel-usa',
-  CovidSymptoms = 'covid-symptoms',
-}
-
-export interface AdditionalBooleanQuestion {
-  label: string;
-  field: AdditionalBooleanQuestionsFieldsNames;
-}

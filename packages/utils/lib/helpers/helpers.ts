@@ -12,6 +12,7 @@ import {
   Resource,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { patientScreeningQuestionsConfig } from '../configuration/questionnaire';
 import {
   allLicensesForPractitioner,
   CANDID_PLAN_TYPE_SYSTEM,
@@ -1004,35 +1005,48 @@ export function getConsentStepAnswers({
   };
 }
 
-export function getAdditionalQuestionsAnswers(): PatchPaperworkParameters['answers'] {
+export function getAdditionalQuestionsAnswers({
+  useRandomAnswers = false,
+}: {
+  useRandomAnswers?: boolean;
+} = {}): PatchPaperworkParameters['answers'] {
+  // Only generate answers for fields that exist in questionnaire
+  const questionnaireFields = patientScreeningQuestionsConfig.fields.filter((field) => field.existsInQuestionnaire);
+
   return {
     linkId: 'additional-page',
-    item: [
-      {
-        linkId: 'covid-symptoms',
-        answer: [
-          {
-            valueString: 'No',
-          },
-        ],
-      },
-      {
-        linkId: 'tested-positive-covid',
-        answer: [
-          {
-            valueString: 'Yes',
-          },
-        ],
-      },
-      {
-        linkId: 'travel-usa',
-        answer: [
-          {
-            valueString: 'No',
-          },
-        ],
-      },
-    ],
+    item: questionnaireFields.map((field, index) => {
+      switch (field.type) {
+        case 'radio': {
+          if (field.options && field.options.length !== 2) {
+            throw new Error(
+              'Only radio fields with 2 options are supported. No options found for field: ' + field.fhirField
+            );
+          }
+
+          const selectedOption = (() => {
+            if (useRandomAnswers) {
+              const randomIndex = Math.floor(Math.random() * field.options!.length);
+              return field.options?.[randomIndex];
+            }
+
+            const stableIndex = index % 2 === 1 ? 0 : 1;
+            return field.options?.[stableIndex];
+          })();
+
+          if (!selectedOption?.fhirValue) {
+            throw new Error('No options found for field: ' + field.fhirField);
+          }
+
+          return {
+            linkId: field.fhirField,
+            answer: [{ valueString: selectedOption.fhirValue }],
+          };
+        }
+        default:
+          throw Error('Only radio fields are supported. No options found for field: ' + field.fhirField);
+      }
+    }),
   };
 }
 
