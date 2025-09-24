@@ -3,7 +3,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { Box, Button, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC } from 'react';
-import { APIErrorCode, DIAGNOSIS_MAKE_PRIMARY_BUTTON, IcdSearchResponse } from 'utils';
+import { APIErrorCode, DIAGNOSIS_MAKE_PRIMARY_BUTTON, DiagnosisDTO, IcdSearchResponse } from 'utils';
 import { CompleteConfiguration } from '../../../../../components/CompleteConfiguration';
 import { GenericToolTip } from '../../../../../components/GenericToolTip';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
@@ -31,6 +31,16 @@ export const DiagnosesContainer: FC = () => {
 
   const { css } = useFeatureFlags();
 
+  const getUpdatedDiagnoses = (
+    oldDiagnoses: DiagnosisDTO[],
+    updatedDiagnoses: DiagnosisDTO[] | undefined,
+    filterOn: 'resourceId' | 'code' = 'resourceId'
+  ): DiagnosisDTO[] =>
+    oldDiagnoses.map((prevDiagnosis) => {
+      const updatedDiagnosis = updatedDiagnoses?.find((uD) => uD[filterOn] === prevDiagnosis[filterOn]);
+      return updatedDiagnosis || prevDiagnosis;
+    });
+
   const onAdd = (value: IcdSearchResponse['codes'][number]): void => {
     const preparedValue = { ...value, isPrimary: !primaryDiagnosis };
 
@@ -42,10 +52,7 @@ export const DiagnosesContainer: FC = () => {
         onSuccess: (data) => {
           const updatedDiagnoses = data.chartData.diagnosis;
           setPartialChartData({
-            diagnosis: diagnoses.map((prevDiagnosis) => {
-              const updatedDiagnosis = updatedDiagnoses?.find((uD) => uD.code === preparedValue.code);
-              return updatedDiagnosis || prevDiagnosis;
-            }),
+            diagnosis: getUpdatedDiagnoses(diagnoses, updatedDiagnoses, 'code'),
           });
         },
         onError: () => {
@@ -90,10 +97,7 @@ export const DiagnosesContainer: FC = () => {
             onSuccess: (data) => {
               const updatedDiagnoses = data.chartData.diagnosis;
               setPartialChartData({
-                diagnosis: localDiagnoses.map((prevDiagnosis) => {
-                  const updatedDiagnosis = updatedDiagnoses?.find((uD) => uD.resourceId === prevDiagnosis.resourceId);
-                  return updatedDiagnosis || prevDiagnosis;
-                }),
+                diagnosis: getUpdatedDiagnoses(prevDiagnoses, updatedDiagnoses),
               });
             },
             onError: () => {
@@ -131,10 +135,7 @@ export const DiagnosesContainer: FC = () => {
         onSuccess: (data) => {
           const updatedDiagnoses = data.chartData.diagnosis;
           setPartialChartData({
-            diagnosis: diagnoses.map((prevDiagnosis) => {
-              const updatedDiagnosis = updatedDiagnoses?.find((uD) => uD.resourceId === prevDiagnosis.resourceId);
-              return updatedDiagnosis || prevDiagnosis;
-            }),
+            diagnosis: getUpdatedDiagnoses(diagnoses, updatedDiagnoses),
           });
         },
         onError: () => {
