@@ -21,28 +21,33 @@ const writeQuestionnaires = async (envConfig: any, env: string): Promise<void> =
           const questionnaireData = JSON.parse(
             fs.readFileSync(path.join(__dirname, '../../../../config/oystehr', file), 'utf8')
           );
-          const { fhirResources } = questionnaireData;
+          // console.log('questionnaireData', JSON.stringify(questionnaireData, null, 2));
+          const { fhirResources: questionnaires } = questionnaireData;
 
-          const questionnaire =
-            fhirResources['questionnaire-in-person-previsit'] ??
-            fhirResources['questionnaire-virtual-previsit'] ??
-            fhirResources['questionnaire-ehr-insurance-update'];
+          if (!questionnaires) {
+            throw new Error(`Questionnaires missing in file ${file}`);
+          }
 
-          const existingQuestionnaire = (
-            await oystehrClient.fhir.search<Questionnaire>({
-              resourceType: 'Questionnaire',
-              params: [
-                {
-                  name: 'url',
-                  value: questionnaire.url,
-                },
-                {
-                  name: 'version',
-                  value: questionnaire.version,
-                },
-              ],
-            })
-          ).unbundle();
+          return await Promise.all(
+            (Object.values(questionnaires) as Questionnaire[]).map(async (questionnaire: Questionnaire) => {
+              if (!questionnaire.url || !questionnaire.version) {
+                throw new Error(`Questionnaire missing url or version in file ${file}`);
+              }
+              const existingQuestionnaire = (
+                await oystehrClient.fhir.search<Questionnaire>({
+                  resourceType: 'Questionnaire',
+                  params: [
+                    {
+                      name: 'url',
+                      value: questionnaire.url,
+                    },
+                    {
+                      name: 'version',
+                      value: questionnaire.version,
+                    },
+                  ],
+                })
+              ).unbundle();
 
           if (!existingQuestionnaire.length) {
             const createRequest: BatchInputPostRequest<Questionnaire> = {

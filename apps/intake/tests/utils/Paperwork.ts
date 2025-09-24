@@ -283,8 +283,7 @@ export class Paperwork {
     } else {
       await this.selectSelfPayPayment();
       await this.locator.clickContinueButton();
-      // Need to uncomment when https://github.com/masslight/ottehr/issues/2043 is fixed
-      //  await this.fillAndAddCreditCard();
+      await this.fillAndAddCreditCard();
     }
     await this.locator.clickContinueButton();
     let responsiblePartyData: ResponsibleParty | null = null;
@@ -368,6 +367,8 @@ export class Paperwork {
     await this.paperworkTelemed.fillAndCheckAdditionalQuestions();
     await this.locator.clickContinueButton();
     await this.selectSelfPayPayment();
+    await this.locator.clickContinueButton();
+    await this.fillAndAddCreditCard();
     await this.locator.clickContinueButton();
     await this.fillResponsiblePartyDataSelf();
     await this.locator.clickContinueButton();

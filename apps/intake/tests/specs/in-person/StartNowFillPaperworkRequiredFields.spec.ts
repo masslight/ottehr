@@ -15,6 +15,7 @@ let locator: Locators;
 let paperwork: Paperwork;
 let commonLocatorsHelper: CommonLocatorsHelper;
 const appointmentIds: string[] = [];
+const locationName = process.env.LOCATION;
 
 test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();
@@ -39,8 +40,7 @@ test.afterAll(async () => {
 
 test.describe.serial('Start now In person visit - Paperwork submission flow with only required fields', () => {
   test('SNPRF-1 Fill required contact information', async () => {
-    await page.goto('/home');
-    await locator.startInPersonVisitButton.click();
+    await page.goto(`/walkin/location/${locationName?.replaceAll(' ', '_')}`);
     await locator.clickContinueButton();
     await locator.selectDifferentFamilyMember();
     await locator.clickContinueButton();
