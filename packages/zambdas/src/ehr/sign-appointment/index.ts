@@ -3,22 +3,30 @@ import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { FhirResource, Provenance } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
+  DATETIME_FULL_NO_YEAR,
   extractExtensionValue,
   findExtensionIndex,
+  getAddressStringForScheduleResource,
+  getAppointmentLockMetaTagOperations,
   getAppointmentMetaTagOpForStatusUpdate,
   getEncounterStatusHistoryUpdateOp,
   getPatchBinary,
+  getPatientContactEmail,
   getProgressNoteChartDataRequestedFields,
   getVisitStatus,
+  InPersonCompletionTemplateData,
   OTTEHR_MODULE,
   SignAppointmentInput,
   SignAppointmentResponse,
+  TelemedCompletionTemplateData,
   telemedProgressNoteChartDataRequestedFields,
   visitStatusToFhirAppointmentStatusMap,
   visitStatusToFhirEncounterStatusMap,
 } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
+import { getPresignedURLs } from '../../patient/appointment/get-visit-details/helpers';
+import { checkOrCreateM2MClientToken, getEmailClient, makeAddressUrl, wrapHandler, ZambdaInput } from '../../shared';
 import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createEncounterFromAppointment } from '../../shared/candid';
 import { createProvenanceForEncounter } from '../../shared/createProvenanceForEncounter';
 import { createPublishExcuseNotesOps } from '../../shared/createPublishExcuseNotesOps';
@@ -30,6 +38,7 @@ import { composeAndCreateVisitNotePdf } from '../../shared/pdf/visit-details-pdf
 import { getChartData } from '../get-chart-data';
 import { getMedicationOrders } from '../get-medication-orders';
 import { getImmunizationOrders } from '../immunization/get-orders';
+import { getNameForOwner } from '../schedules/shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -79,26 +88,42 @@ export const performEffect = async (
     // this allows the provider to specify their working location in the case of virtual encounters
     visitResources.timezone = timezone;
   }
-  const { encounter, patient, appointment, listResources } = visitResources;
+  const { encounter, patient, appointment, location, listResources } = visitResources;
 
   if (encounter?.subject?.reference === undefined) {
     throw new Error(`No subject reference defined for encounter ${encounter?.id}`);
   }
+  if (!patient) {
+    throw new Error(`No patient found for encounter ${encounter.id}`);
+  }
 
   let candidEncounterId: string | undefined;
-  try {
-    console.log('[CLAIM SUBMISSION] Attempting to create encounter in candid...');
-    candidEncounterId = await createEncounterFromAppointment(visitResources, secrets, oystehr);
-  } catch (error) {
-    console.error(`Error creating Candid encounter: ${error}, stringified error: ${JSON.stringify(error)}`);
-    captureException(error, {
-      tags: {
-        appointmentId,
-        encounterId: encounter.id,
-      },
-    });
+
+  // Check if candid encounter ID already exists in encounter identifier
+  const existingCandidEncounterId = encounter.identifier?.find(
+    (identifier) => identifier.system === CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM
+  )?.value;
+
+  if (existingCandidEncounterId) {
+    console.log(
+      `[CLAIM SUBMISSION] Candid encounter already exists with ID ${existingCandidEncounterId}, skipping creation`
+    );
+    candidEncounterId = existingCandidEncounterId;
+  } else {
+    try {
+      console.log('[CLAIM SUBMISSION] Attempting to create encounter in candid...');
+      candidEncounterId = await createEncounterFromAppointment(visitResources, secrets, oystehr);
+    } catch (error) {
+      console.error(`Error creating Candid encounter: ${error}, stringified error: ${JSON.stringify(error)}`);
+      captureException(error, {
+        tags: {
+          appointmentId,
+          encounterId: encounter.id,
+        },
+      });
+    }
+    console.log(`[CLAIM SUBMISSION] Candid encounter created with ID ${candidEncounterId}`);
   }
-  console.log(`[CLAIM SUBMISSION] Candid encounter created with ID ${candidEncounterId}`);
 
   console.log(`appointment and encounter statuses: ${appointment.status}, ${encounter.status}`);
   const currentStatus = getVisitStatus(appointment, encounter);
@@ -160,6 +185,71 @@ export const performEffect = async (
     });
   }
 
+  try {
+    // todo: decouple email sending from this endpoint
+    const emailClient = getEmailClient(secrets);
+    const emailEnabled = emailClient.getFeatureFlag();
+    if (emailEnabled) {
+      const patientEmail = getPatientContactEmail(patient);
+      let prettyStartTime = '';
+      let locationName = '';
+      let address = '';
+      if (appointment.start && visitResources.timezone) {
+        prettyStartTime = DateTime.fromISO(appointment.start)
+          .setZone(visitResources.timezone)
+          .toFormat(DATETIME_FULL_NO_YEAR);
+      }
+      if (location) {
+        locationName = getNameForOwner(location);
+        address = getAddressStringForScheduleResource(location) ?? '';
+      }
+      const presignedUrls = await getPresignedURLs(oystehr, m2mToken, visitResources.encounter.id!);
+      const visitNoteUrl = presignedUrls['visit-note'].presignedUrl;
+
+      if (isInPersonAppointment) {
+        const missingData: string[] = [];
+        if (!patientEmail) missingData.push('patient email');
+        if (!appointment.id) missingData.push('appointment ID');
+        if (!locationName) missingData.push('location name');
+        if (!address) missingData.push('address');
+        if (!prettyStartTime) missingData.push('appointment time');
+        if (!visitNoteUrl) missingData.push('visit note URL');
+        if (missingData.length === 0 && location && visitNoteUrl && patientEmail) {
+          // note: it's assumed that location is the schedule owner here, which is incorrect for Provider schedules
+          const templateData: InPersonCompletionTemplateData = {
+            location: getNameForOwner(location),
+            time: prettyStartTime,
+            address,
+            'address-url': makeAddressUrl(address),
+            'visit-note-url': visitNoteUrl,
+          };
+          await emailClient.sendInPersonCompletionEmail(patientEmail, templateData);
+        } else {
+          console.error(
+            `Not sending in-person completion email, missing the following data: ${missingData.join(', ')}`
+          );
+        }
+      } else {
+        const missingData: string[] = [];
+        if (!patientEmail) missingData.push('patient email');
+        if (!appointment.id) missingData.push('appointment ID');
+        if (!locationName) missingData.push('location name');
+        if (!visitNoteUrl) missingData.push('visit note URL');
+        if (missingData.length === 0 && location && visitNoteUrl && patientEmail) {
+          const templateData: TelemedCompletionTemplateData = {
+            location: getNameForOwner(location),
+            'visit-note-url': visitNoteUrl,
+          };
+          await emailClient.sendVirtualCompletionEmail(patientEmail, templateData);
+        } else {
+          console.error(`Not sending virtual completion email, missing the following data: ${missingData.join(', ')}`);
+        }
+      }
+    }
+  } catch (error: any) {
+    console.error('Error sending completion email:', error);
+  }
+
   return {
     message: 'Appointment status successfully changed.',
   };
@@ -193,6 +283,9 @@ const changeStatusToCompleted = async (
   const user = await oystehrCurrentUser.user.me();
 
   patchOps.push(...getAppointmentMetaTagOpForStatusUpdate(resourcesToUpdate.appointment, 'completed', { user }));
+
+  // Add locked meta tag when appointment is signed/completed
+  patchOps.push(...getAppointmentLockMetaTagOperations(resourcesToUpdate.appointment, true));
 
   const encounterPatchOps: Operation[] = [
     {

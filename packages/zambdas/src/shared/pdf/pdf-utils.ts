@@ -192,6 +192,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     startingXPos: number,
     bounds?: { leftBound: number; rightBound: number }
   ): { endXPos: number; endYPos: number } => {
+    console.log('In drawStartXPosSpecifiedText');
     const { font, fontSize, spacing } = textStyle;
     const leftBound = bounds?.leftBound !== undefined ? bounds.leftBound : pageLeftBound;
     const rightBound = bounds?.rightBound !== undefined ? bounds.rightBound : pageRightBound;
@@ -203,7 +204,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       currXPos = leftBound;
     } else currXPos = startingXPos;
 
-    console.log(`Drawing at xPos: ${currXPos}`);
+    console.log(`Drawing at xPos: ${currXPos}. String to draw is ${text}`);
     drawTextSequential(text, textStyle, { leftBound: currXPos, rightBound: pageRightBound });
 
     if (textStyle.newLineAfter) {
@@ -212,6 +213,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       currXPos = leftBound;
     }
 
+    console.log('Done in drawStartXPosSpecifiedText');
     return { endXPos: currXPos, endYPos: currYPos };
   };
 
@@ -220,12 +222,19 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     textStyle: Exclude<TextStyle, 'side'>,
     bounds?: { leftBound: number; rightBound: number }
   ): void => {
+    console.log('\nin drawTextSequential');
     const { font, fontSize, color, spacing } = textStyle;
     const { width: lineWidth, height: lineHeight } = getTextDimensions(text, textStyle);
     const leftBound = bounds?.leftBound !== undefined ? bounds.leftBound : pageLeftBound;
     const rightBound = bounds?.rightBound !== undefined ? bounds.rightBound : pageRightBound;
 
     if (bounds?.leftBound !== undefined) currXPos = leftBound;
+    console.log(`Text is '${text}'\n
+      lineWidth is ${lineWidth}\n
+      lineHeight is ${lineHeight}\n
+      currXpos is ${currXPos}\n
+      leftBound is ${leftBound}\n
+      rightBound is ${rightBound}\n`);
 
     // Add a new page if there's no space on the current page
     if (currYPos - lineHeight < (pageStyles.pageMargins.bottom ?? 0)) {
@@ -235,10 +244,18 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
 
     // Calculate available space on the current line
     const availableWidth = rightBound - currXPos;
+    const totalWidth = rightBound - leftBound;
+    console.log(`AvailableWidth is ${availableWidth}. Total width is ${totalWidth}`);
 
     // If the text fits within the current line, draw it directly
-    if (lineWidth < rightBound - leftBound) {
-      if (lineWidth > availableWidth) newLine(lineHeight + spacing);
+    if (lineWidth < totalWidth) {
+      console.log('lineWdith of text fits between left and right bounds');
+      if (lineWidth > availableWidth) {
+        console.log(
+          `lineWidth ${lineWidth} is greater than available width ${availableWidth}. Adding newline and drawing.`
+        );
+        newLine(lineHeight + spacing);
+      }
       page.drawText(text, {
         font: font,
         size: fontSize,
@@ -254,23 +271,41 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
         currXPos = leftBound;
       }
     } else {
+      console.log('text will not fit between left and right bounds. Need to split text');
       // If the text is too wide, find the part that fits
       let fittingText = '';
       let remainingText = text;
       let currentWidth = 0;
 
-      // we need to determine what fits based on word breaks to avoid cutting words off with linebreaks
+      // APPROACH 1: Split on spaces
+      // determine what fits based on word breaks to avoid cutting words off with linebreaks
       const words = remainingText.split(' ');
-      const widthOfSpaceChar = getTextDimensions(' ', textStyle).width;
+      const { width: firstWordWidth } = getTextDimensions(words[0], textStyle);
+      let splitMethodIsWords = true;
 
-      for (let i = 0; i < words.length; i++) {
-        const { width: charWidth } = getTextDimensions(words[i], textStyle);
-        if (currentWidth + charWidth + widthOfSpaceChar > availableWidth) {
-          fittingText = words.slice(0, i).join(' ');
-          remainingText = words.slice(i, undefined).join(' ');
+      let elements = words;
+      let separator = ' ';
+      let widthOfSeparator = getTextDimensions(separator, textStyle).width;
+
+      // APPROACH 2: if the first word is itself bigger than the total width (rightBound - leftBound), then we need a different approach
+      // it's ok just to check the first word, because if subsequent words are too long, we recurse anyway
+      console.log(`words[0] is ${words[0]}. firstWordWidth is ${firstWordWidth}`);
+      if (firstWordWidth + widthOfSeparator > totalWidth) {
+        splitMethodIsWords = false;
+        elements = remainingText.split('');
+        separator = '';
+        widthOfSeparator = 0;
+      }
+
+      console.log(`Splitting method is ${splitMethodIsWords ? 'words' : 'characters'}`);
+      for (let i = 0; i < elements.length; i++) {
+        const { width: elementWidth } = getTextDimensions(elements[i], textStyle);
+        if (currentWidth + elementWidth + widthOfSeparator > availableWidth) {
+          fittingText = elements.slice(0, i).join(separator);
+          remainingText = elements.slice(i, undefined).join(separator);
           break;
         }
-        currentWidth += charWidth + widthOfSpaceChar;
+        currentWidth += elementWidth + widthOfSeparator;
       }
 
       // Draw the fitting part on the current line
@@ -286,6 +321,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       newLine(lineHeight);
 
       // Recursively call the function with the remaining text
+      console.log('recursively calling drawTextSequential');
       drawTextSequential(remainingText, textStyle, bounds);
     }
   };

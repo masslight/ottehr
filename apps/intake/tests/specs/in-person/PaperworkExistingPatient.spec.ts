@@ -41,6 +41,10 @@ test.afterAll(async () => {
 test.describe('Check paperwork is prefilled for existing patient. Payment - insurance, responsible party - not self', () => {
   test.describe.configure({ mode: 'serial' });
   test.beforeAll(async () => {
+    // These tests were flaky because they have no way to wait for harvest to complete.
+    // They start in on registering and doing paperwork again, sometimes before harvesting previous visit has completed.
+    // So we're gonna wait 5 seconds.
+    await page.waitForTimeout(5000);
     await page.goto(bookingData.bookingURL);
     await paperwork.clickProceedToPaperwork();
     filledPaperwork = await paperwork.fillPaperworkAllFieldsInPerson('insurance', 'not-self');
@@ -145,8 +149,7 @@ test.describe('Check paperwork is prefilled for existing patient. Payment - insu
       );
     });
   });
-  // TODO: Need to remove skip when https://github.com/masslight/ottehr/issues/1938 is fixed
-  test.skip('IPPP-6 Check Secondary insurance has prefilled values', async () => {
+  test('IPPP-6 Check Secondary insurance has prefilled values', async () => {
     await page.goto(`paperwork/${appointmentIds[1]}/payment-option`);
     await expect(locator.insuranceHeading).toBeVisible();
     await locator.addSecondaryInsurance.click();

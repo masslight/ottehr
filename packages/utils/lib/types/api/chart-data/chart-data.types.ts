@@ -10,7 +10,6 @@ import {
   Observation,
   Practitioner,
   Procedure,
-  QuestionnaireResponse,
   Reference,
   Resource,
   ServiceRequest,
@@ -29,6 +28,11 @@ import {
   VitalTemperatureObservationMethod,
 } from './chart-data.constants';
 import { GetChartDataResponse } from './get-chart-data.types';
+
+export interface AIChatDetails {
+  documents: DocumentReference[];
+  providers: Practitioner[];
+}
 
 // todo: need to refactor and simplify types; there are different sets of fields for useChartData and useChartFields, but this types contains all possible values and not very useful
 export interface AllChartValues {
@@ -57,7 +61,7 @@ export interface AllChartValues {
   notes?: NoteDTO[];
   vitalsObservations?: VitalsObservationDTO[];
   birthHistory?: BirthHistoryDTO[];
-  aiChat?: QuestionnaireResponse;
+  aiChat?: AIChatDetails;
   externalLabResults?: EncounterExternalLabResult;
   inHouseLabResults?: EncounterInHouseLabResult;
   procedures?: ProcedureDTO[];
@@ -67,8 +71,6 @@ export type RequestedFields =
   | 'surgicalHistoryNote'
   | 'chiefComplaint'
   | 'ros'
-  | 'cptCodes'
-  | 'emCode'
   | 'episodeOfCare'
   | 'prescribedMedications'
   | 'disposition'
@@ -78,7 +80,9 @@ export type RequestedFields =
   | 'inHouseLabResults'
   | 'practitioners'
   | 'medicalDecision'
-  | 'birthHistory';
+  | 'birthHistory'
+  | 'patientInfoConfirmed'
+  | 'addendumNote';
 
 export type AllChartValuesKeys = keyof AllChartValues;
 
@@ -101,6 +105,7 @@ export interface ChartDataWithResources {
 
 export interface SaveableDTO {
   resourceId?: string;
+  derivedFrom?: string;
 }
 
 export interface FreeTextNoteDTO extends SaveableDTO {

@@ -73,6 +73,9 @@ export const FHIR_EXTENSION = {
     weightLastUpdated: {
       url: `${PRIVATE_EXTENSION_BASE_URL}/weight-last-updated`,
     },
+    authorizedNonLegalGuardians: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/authorized-non-legal-guardians`,
+    },
   },
   Paperwork: {
     formListValues: {
@@ -241,6 +244,12 @@ export const FHIR_APPOINTMENT_PREPROCESSED_TAG = {
 export const FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG = {
   system: 'appointment-harvesting-module-status',
   code: 'SUB_INTAKE_HARVEST_TASK_COMPLETE',
+};
+
+export const APPOINTMENT_LOCKED_META_TAG_SYSTEM = 'appointment-locked-status';
+export const APPOINTMENT_LOCKED_META_TAG = {
+  system: APPOINTMENT_LOCKED_META_TAG_SYSTEM,
+  code: 'APPOINTMENT_LOCKED',
 };
 
 export const ERX_MEDICATION_META_TAG_CODE = 'erx-medication';

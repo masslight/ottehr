@@ -346,6 +346,7 @@ export interface ReceiptData {
 export interface Medication {
   name: string;
   dose?: string;
+  route?: string;
   date?: string;
 }
 
@@ -402,21 +403,20 @@ export type DischargeSummaryData = {
     secondary: string[];
   };
   patientInstructions?: string[];
-  educationDocuments?: { title: string; fileName: string }[];
+  educationDocuments?: { title: string }[];
   disposition: {
     label: string;
     instruction: string;
+    reason?: string;
+    followUpIn?: string;
   };
   physician: {
     name: string;
   };
   dischargeDateTime?: string;
-  workSchoolExcuse?: {
-    note: string;
-    fileName: string;
-  }[];
+  workSchoolExcuse?: { note: string }[];
   documentsAttached?: boolean;
-  attachmentUrls?: string[];
+  attachmentDocRefs?: string[];
 };
 
 export interface GetPaymentDataResponse {

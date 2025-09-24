@@ -5,7 +5,7 @@ import { TypographyOptions } from '@mui/material/styles/createTypography';
 import { styled } from '@mui/system';
 import { useQuery } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   getAdmitterPractitionerId,
@@ -84,6 +84,7 @@ export const Header = (): JSX.Element => {
   const gender = format(mappedData?.gender, 'Gender');
   const language = format(mappedData?.preferredLanguage, 'Lang');
   const dob = format(mappedData?.DOB, 'DOB', true);
+
   const allergies = format(
     chartData?.allergies
       ?.filter((allergy) => allergy.current === true)
@@ -93,6 +94,32 @@ export const Header = (): JSX.Element => {
     true,
     'none'
   );
+
+  const [shouldRefetchPractitioners, setShouldRefetchPractitioners] = useState(false);
+
+  const { setPartialChartData, refetch } = useChartData({
+    requestedFields: {
+      practitioners: {},
+    },
+    enabled: false,
+    onSuccess: (data) => {
+      if (!data) {
+        return;
+      }
+      setPartialChartData({
+        practitioners: data.practitioners,
+      });
+    },
+  });
+
+  useEffect(() => {
+    if (shouldRefetchPractitioners) {
+      console.log('refetching practitioners');
+      void refetch();
+      setShouldRefetchPractitioners(false);
+    }
+  }, [shouldRefetchPractitioners, refetch]);
+
   const reasonForVisit = format(appointment?.description, 'Reason for Visit');
   const userId = format(patient?.id);
   const [_status, setStatus] = useState<VisitStatusLabel | undefined>(undefined);
@@ -155,6 +182,7 @@ export const Header = (): JSX.Element => {
       if (!appointmentID) return;
       await handleUpdatePractitionerForIntake(practitionerId);
       await appointmentRefetch();
+      setShouldRefetchPractitioners(true);
     } catch (error: any) {
       console.log(error.message);
       enqueueSnackbar(`An error occurred trying to update the intake assignment. Please try again.`, {
@@ -168,6 +196,7 @@ export const Header = (): JSX.Element => {
       if (!appointmentID) return;
       await handleUpdatePractitionerForProvider(practitionerId);
       await appointmentRefetch();
+      setShouldRefetchPractitioners(true);
     } catch (error: any) {
       console.log(error.message);
       enqueueSnackbar(`An error occurred trying to update the provider assignment. Please try again.`, {
@@ -278,29 +307,30 @@ export const Header = (): JSX.Element => {
           </Grid>
           <Grid item xs={12} sx={{ mt: -2 }}>
             <Grid container alignItems="center" spacing={2}>
-              <Grid item>
+              <Grid item alignSelf={'flex-start'} sx={{ mt: 0.5 }}>
                 <ProfileAvatar appointmentID={appointmentID} />
               </Grid>
               <Grid item xs>
                 <PatientInfoWrapper>
-                  <PatientName
-                    data-testid={dataTestIds.cssHeader.patientName}
-                    onClick={() => navigate(`/patient/${userId}`)}
-                  >
-                    {patientName}
-                  </PatientName>
-                  <PrintVisitLabelButton encounterId={encounterId} />
-                  <PatientMetadata sx={{ fontWeight: 500 }}>{dob}</PatientMetadata> |
-                  <PatientMetadata
-                    noWrap
-                    sx={{ fontWeight: chartData?.allergies?.length ? 700 : 400, maxWidth: '250px' }}
-                  >
+                  <Grid>
+                    <PatientInfoWrapper>
+                      <PatientName
+                        data-testid={dataTestIds.cssHeader.patientName}
+                        onClick={() => navigate(`/patient/${userId}`)}
+                      >
+                        {patientName}
+                      </PatientName>
+                      <PrintVisitLabelButton encounterId={encounterId} />
+                      <PatientMetadata sx={{ fontWeight: 500 }}>{dob}</PatientMetadata> |
+                    </PatientInfoWrapper>
+                    <PatientInfoWrapper>
+                      <PatientMetadata>{pronouns}</PatientMetadata> | <PatientMetadata>{gender}</PatientMetadata> |
+                      <PatientMetadata>{language}</PatientMetadata> |<PatientMetadata>{reasonForVisit}</PatientMetadata>
+                    </PatientInfoWrapper>
+                  </Grid>
+                  <PatientMetadata sx={{ fontWeight: chartData?.allergies?.length ? 700 : 400, maxWidth: '60%' }}>
                     {allergies}
                   </PatientMetadata>
-                </PatientInfoWrapper>
-                <PatientInfoWrapper>
-                  <PatientMetadata>{pronouns}</PatientMetadata> | <PatientMetadata>{gender}</PatientMetadata> |
-                  <PatientMetadata>{language}</PatientMetadata> |<PatientMetadata>{reasonForVisit}</PatientMetadata>
                 </PatientInfoWrapper>
               </Grid>
               <Grid
@@ -311,6 +341,8 @@ export const Header = (): JSX.Element => {
                     flexDirection: 'column',
                     gap: 0.5,
                   },
+                  alignSelf: 'flex-start',
+                  mt: 0.5,
                 }}
               >
                 <SwitchIntakeModeButton

@@ -1,6 +1,7 @@
-import { DiagnosticReport, Organization, ServiceRequest } from 'fhir/r4b';
+import { DiagnosticReport, Location, Organization, ServiceRequest } from 'fhir/r4b';
 import {
   LAB_ACCOUNT_NUMBER_SYSTEM,
+  LabsTableColumn,
   MANUAL_EXTERNAL_LAB_ORDER_CATEGORY_CODING,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   PSC_HOLD_CONFIG,
@@ -50,10 +51,87 @@ export function getOrderNumberFromDr(dr: DiagnosticReport): string | undefined {
   return dr.identifier?.find((id) => id.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)?.value;
 }
 
-export function getAccountNumberFromOrganization(org: Organization): string | undefined {
-  return org.identifier?.find((identifier) => identifier.system === LAB_ACCOUNT_NUMBER_SYSTEM)?.value;
+export function getAccountNumberFromLocationAndOrganization(location: Location, org: Organization): string | undefined {
+  console.log(`Getting account number from location and org. Location/${location.id} and Organization/${org.id}`);
+  const accountNumberFromLocation = location.identifier?.find(
+    (id) => id.system === LAB_ACCOUNT_NUMBER_SYSTEM && id.assigner?.reference === `Organization/${org.id}` && id.value
+  )?.value;
+  if (accountNumberFromLocation) {
+    console.log(`Found account number from location. Account number is ${accountNumberFromLocation}`);
+    return accountNumberFromLocation;
+  }
+
+  console.warn(
+    `Could not find account number on Location/${location.id} matching assigner Organization/${org.id}. Trying to find acct number from org.`
+  );
+  // this is mostly for legacy orders before we switched to account numbers living on SR.location for multi-office ordering
+
+  const accountNumberFromOrg = org.identifier?.find((identifier) => identifier.system === LAB_ACCOUNT_NUMBER_SYSTEM)
+    ?.value;
+  console.log(`Account number from org is ${accountNumberFromOrg}`);
+  return accountNumberFromOrg;
 }
 
 export async function openPdf(url: string): Promise<void> {
   window.open(url, '_blank');
 }
+
+export const getColumnWidth = (column: LabsTableColumn): string => {
+  switch (column) {
+    case 'testType':
+      return '15%';
+    case 'visit':
+      return '10%';
+    case 'orderAdded':
+      return '10%';
+    case 'provider':
+      return '13%';
+    case 'ordered':
+      return '15%';
+    case 'dx':
+      return '13%';
+    case 'resultsReceived':
+      return '15%';
+    case 'accessionNumber':
+      return '10%';
+    case 'status':
+      return '5%';
+    case 'detail':
+      return '2%';
+    case 'actions':
+      return '1%';
+    default:
+      return '10%';
+  }
+};
+
+export const getColumnHeader = (column: LabsTableColumn): string => {
+  switch (column) {
+    case 'testType':
+      return 'Test type';
+    case 'visit':
+      return 'Visit';
+    case 'orderAdded':
+      return 'Order added';
+    case 'provider':
+      return 'Provider';
+    case 'ordered':
+      return 'Ordered';
+    case 'dx':
+      return 'Dx';
+    case 'resultsReceived':
+      return 'Results received';
+    case 'accessionNumber':
+      return 'Accession Number';
+    case 'requisitionNumber':
+      return 'Requisition Number';
+    case 'status':
+      return 'Status';
+    case 'detail':
+      return '';
+    case 'actions':
+      return '';
+    default:
+      return '';
+  }
+};

@@ -1,7 +1,7 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { SearchParam } from '@oystehr/sdk';
 import { useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
-import { DocumentReference, FhirResource, List, Reference } from 'fhir/r4b';
+import { DocumentReference, FhirResource, List, QuestionnaireResponse, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { useCallback, useState } from 'react';
 import { useSuccessQuery } from 'utils';
@@ -132,79 +132,105 @@ export const useGetPatientDocs = (patientId: string, filters?: PatientDocumentsF
   const downloadDocument = useCallback(
     async (documentId: string): Promise<void> => {
       const authToken = await getAccessTokenSilently();
+
       let patientDoc = getDocumentById(documentId);
+      let documentReferenceResource: DocumentReference | undefined;
 
       if (!patientDoc && oystehr) {
-        const docRef = (
+        documentReferenceResource = (
           await oystehr.fhir.search<DocumentReference>({
             resourceType: 'DocumentReference',
-            params: [
-              {
-                name: '_id',
-                value: documentId,
-              },
-            ],
+            params: [{ name: '_id', value: documentId }],
           })
         ).unbundle()[0];
-        if (docRef) {
-          patientDoc = createDocumentInfo(docRef);
+        if (documentReferenceResource) {
+          patientDoc = createDocumentInfo(documentReferenceResource);
           setDocuments([...(documents ?? []), patientDoc]);
         }
       }
 
-      const docAttachments = patientDoc?.attachments ?? [];
-      if (docAttachments.length === 0) {
-        console.error(`No attachments found for a docId=[${documentId}]`);
-        return;
+      if (!documentReferenceResource && oystehr) {
+        documentReferenceResource = (
+          await oystehr.fhir.search<DocumentReference>({
+            resourceType: 'DocumentReference',
+            params: [{ name: '_id', value: documentId }],
+          })
+        ).unbundle()[0];
       }
 
-      const urlSigningRequests = docAttachments.map(async (attachment) => {
-        const presignedUrl = await getPresignedURL(attachment.z3Url, authToken);
-        return {
-          attachment: attachment,
-          presignedUrl: presignedUrl,
-        };
-      });
-
-      const filesInfoToDownload = (await Promise.all(urlSigningRequests))
-        .filter((signedAttach) => !!signedAttach.presignedUrl)
-        .map((signedAttach) => {
-          const fileTitle = signedAttach.attachment.title;
-          const fileExt = parseFileExtension(signedAttach.attachment.fileNameFromUrl) ?? 'unknown';
-          const fullFileName = fileTitle.includes('.') ? fileTitle : `${fileTitle}.${fileExt}`;
-          return {
-            fileName: fullFileName,
-            urlToDownload: signedAttach.presignedUrl!,
-          };
+      const openAttachments = async (attachments: PatientDocumentAttachment[]): Promise<void> => {
+        const urlSigningRequests = attachments.map(async (attachment) => {
+          const presignedUrl = await getPresignedURL(attachment.z3Url, authToken);
+          return { attachment, presignedUrl };
         });
 
-      for (const fileToD of filesInfoToDownload) {
-        await fetch(new URL(fileToD.urlToDownload), {
-          method: 'GET',
-          headers: { 'Cache-Control': 'no-cache' },
-        })
-          .then((response) => {
-            if (!response.ok) {
-              throw new Error(`failed to download Document attachment [${fileToD.fileName}]`);
-            }
-            return response.blob();
-          })
-          .then((blob) => {
-            const fileBlob = window.URL.createObjectURL(new Blob([blob]));
-            const link = document.createElement('a');
-            link.href = fileBlob;
-            link.download = fileToD.fileName;
-            link.style.display = 'none';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-          })
-          .catch((error) => {
-            console.log(error);
+        const filesInfoToDownload = (await Promise.all(urlSigningRequests))
+          .filter((signedAttach) => !!signedAttach.presignedUrl)
+          .map((signedAttach) => {
+            const fileTitle = signedAttach.attachment.title;
+            const fileExt = parseFileExtension(signedAttach.attachment.fileNameFromUrl) ?? 'unknown';
+            const fullFileName = fileTitle.includes('.') ? fileTitle : `${fileTitle}.${fileExt}`;
+            return {
+              fileName: fullFileName,
+              urlToDownload: signedAttach.presignedUrl!,
+            };
           });
+
+        for (const fileInfo of filesInfoToDownload) {
+          await fetch(new URL(fileInfo.urlToDownload), {
+            method: 'GET',
+            headers: { 'Cache-Control': 'no-cache' },
+          })
+            .then((response) => {
+              if (!response.ok) {
+                throw new Error(`failed to download Document attachment [${fileInfo.fileName}]`);
+              }
+              return response.blob();
+            })
+            .then((blob) => {
+              const fileBlob = window.URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
+              window.open(fileBlob, '_blank');
+            })
+            .catch((error) => {
+              console.log(error);
+            });
+        }
+      };
+
+      const docAttachments = patientDoc?.attachments ?? [];
+      if (docAttachments.length > 0) {
+        await openAttachments(docAttachments);
+      } else {
+        console.error(`No attachments found for a docId=[${documentId}]`);
+      }
+
+      const attachedDocumentIds =
+        documentReferenceResource?.context?.related
+          ?.map((r) => r?.reference)
+          .filter((ref): ref is string => typeof ref === 'string')
+          .map((ref) => {
+            const [type, id] = ref.split('/');
+            return type === 'DocumentReference' ? id : undefined;
+          })
+          .filter((id): id is string => !!id && id !== documentId) ?? [];
+
+      for (const attachedDocumentId of attachedDocumentIds) {
+        const attachedDocumentReferenceResource = (
+          await oystehr!.fhir.search<DocumentReference>({
+            resourceType: 'DocumentReference',
+            params: [{ name: '_id', value: attachedDocumentId }],
+          })
+        ).unbundle()[0];
+
+        if (attachedDocumentReferenceResource) {
+          const attachedDocumentInfo = createDocumentInfo(attachedDocumentReferenceResource);
+          if (attachedDocumentInfo.attachments?.length) {
+            await openAttachments(attachedDocumentInfo.attachments);
+          }
+        }
       }
     },
-    [documents, getAccessTokenSilently, getDocumentById, oystehr]
+    [documents, getAccessTokenSilently, getDocumentById, oystehr, setDocuments]
   );
 
   return {
@@ -522,4 +548,14 @@ const createDocumentInfo = (documentReference: DocumentReference): PatientDocume
     attachments: extractDocumentAttachments(documentReference),
     encounterId: documentReference.context?.encounter?.[0]?.reference?.split('/')?.[1],
   };
+};
+
+export const isPaperworkPdfOutdated = (
+  pdf: PatientDocumentInfo,
+  questionnaireResponse: QuestionnaireResponse
+): boolean => {
+  if (!pdf?.whenAddedDate || !questionnaireResponse.meta?.lastUpdated) {
+    throw new Error('Invalid data: missing pdf.whenAddedDate or questionnaireResponse.meta.lastUpdated');
+  }
+  return new Date(pdf.whenAddedDate) < new Date(questionnaireResponse.meta.lastUpdated);
 };

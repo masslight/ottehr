@@ -8,6 +8,7 @@ import {
   DocumentReference,
   Encounter,
   FhirResource,
+  Location,
   Observation,
   Organization,
   Patient,
@@ -43,10 +44,12 @@ import {
   LabelPdf,
   LabOrderPDF,
   LabOrderResultDetails,
+  LabPdf,
   LabResultPDF,
   LabType,
   nameLabTest,
   OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY,
+  OYSTEHR_LAB_DOC_CATEGORY_CODING,
   OYSTEHR_LAB_GUID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
 } from 'utils';
@@ -64,6 +67,7 @@ export type LabOrderResources = {
   specimens: Specimen[]; // not always required (psc)
   questionnaireResponse?: QuestionnaireResponse; // not always required (psc)
   schedule?: Schedule;
+  location?: Location;
 };
 
 type DrLabResultResources = {
@@ -277,6 +281,36 @@ export async function getExternalLabOrderResourcesViaServiceRequest(
   const questionnaireResponse = questionnaireResponses?.[0];
   const schedule = schedules?.[0];
 
+  const getLocation = async (): Promise<Location | undefined> => {
+    if (serviceRequest.locationReference?.length !== 1) {
+      console.error(
+        `ServiceRequest/${serviceRequestID} must have a single ordering Location reference. Multiple found`
+      );
+      return;
+    }
+
+    // Note: we can't error here for backwards compatibility
+    const orderingLocationId = serviceRequest.locationReference[0].reference?.replace('Location/', '');
+    if (!orderingLocationId) {
+      console.error(`ServiceRequest/${serviceRequestID} must have an ordering locationReference. None found`);
+      return;
+    }
+
+    const orderingLocation = (
+      await oystehr.fhir.search<Location>({
+        resourceType: 'Location',
+        params: [{ name: '_id', value: orderingLocationId }],
+      })
+    ).unbundle();
+
+    if (orderingLocation.length !== 1) {
+      console.error(`Location/${orderingLocationId} for ServiceRequest/${serviceRequestID} not found`);
+      return;
+    }
+
+    return orderingLocation[0];
+  };
+
   return {
     serviceRequest,
     patient,
@@ -289,28 +323,47 @@ export async function getExternalLabOrderResourcesViaServiceRequest(
     specimens,
     questionnaireResponse,
     schedule,
+    location: await getLocation(),
   };
 }
 
-export const getPrimaryInsurance = (account: Account, coverages: Coverage[]): Coverage | undefined => {
+export const sortCoveragesByPriority = (account: Account, coverages: Coverage[]): Coverage[] | undefined => {
   if (coverages.length === 0) return;
   const coverageMap: { [key: string]: Coverage } = {};
   coverages.forEach((c) => (coverageMap[`Coverage/${c.id}`] = c));
 
-  const includedCoverages = account.coverage?.filter((c) => {
+  const accountCoverages = account.coverage?.filter((c) => {
     const coverageRef = c.coverage.reference;
-    if (coverageRef) return Object.keys(coverageMap).includes(coverageRef);
-    return;
+    return coverageRef && coverageMap[coverageRef];
   });
 
-  if (includedCoverages?.length) {
-    includedCoverages.sort((a, b) => {
+  if (accountCoverages?.length) {
+    accountCoverages.sort((a, b) => {
       const priorityA = a.priority ?? -Infinity;
       const priorityB = b.priority ?? -Infinity;
       return priorityA - priorityB;
     });
-    const highestPriorityCoverageRef = includedCoverages[0].coverage.reference;
-    if (highestPriorityCoverageRef) return coverageMap[highestPriorityCoverageRef];
+    const coveragesSortedByPriority: Coverage[] = [];
+    accountCoverages.forEach((accountCoverage) => {
+      const coverageRef = accountCoverage.coverage.reference;
+      if (coverageRef) {
+        const coverage = coverageMap[coverageRef];
+        if (coverage) coveragesSortedByPriority.push(coverage);
+      }
+    });
+    if (coveragesSortedByPriority.length) return coveragesSortedByPriority;
+  }
+  return;
+};
+
+export const getPrimaryInsurance = (account: Account, coverages: Coverage[]): Coverage | undefined => {
+  if (coverages.length === 0) return;
+
+  const sortedCoverages = sortCoveragesByPriority(account, coverages);
+
+  if (sortedCoverages?.length) {
+    const primaryInsuranceCoverage = sortedCoverages[0];
+    return primaryInsuranceCoverage;
   } else {
     console.log('no coverages were included on account.coverage, grabbing primary ins from list of patient coverages');
     coverages.sort((a, b) => {
@@ -320,7 +373,6 @@ export const getPrimaryInsurance = (account: Account, coverages: Coverage[]): Co
     });
     return coverages[0];
   }
-  return;
 };
 
 export const makeEncounterLabResults = async (
@@ -552,6 +604,7 @@ type FetchLabOrderPDFRes = {
   resultPDFs: LabResultPDF[];
   labelPDF: LabelPdf | undefined;
   orderPDF: LabOrderPDF | undefined;
+  abnPDFs: LabPdf[];
 };
 export const fetchLabOrderPDFsPresignedUrls = async (
   documentReferences: DocumentReference[],
@@ -573,6 +626,7 @@ export const fetchLabOrderPDFsPresignedUrls = async (
         code.system === EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE.system &&
         code.code === EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE.code
     );
+    const isAbnDoc = docRefIsAbnAndCurrent(docRef);
     const docRefId = docRef.id;
 
     for (const content of docRef.content) {
@@ -585,6 +639,8 @@ export const fetchLabOrderPDFsPresignedUrls = async (
                 return { presignedURL, diagnosticReportId } as LabResultPDF;
               } else if (serviceRequestId && isLabOrderDoc) {
                 return { presignedURL, serviceRequestId, docRefId } as LabOrderPDF;
+              } else if (serviceRequestId && isAbnDoc) {
+                return { presignedURL, documentReference: docRef, type: 'abn' } as LabPdf;
               } else if (serviceRequestId && isLabelDoc) {
                 return { presignedURL, documentReference: docRef } as LabelPdf;
               }
@@ -601,9 +657,9 @@ export const fetchLabOrderPDFsPresignedUrls = async (
 
   const pdfs = await Promise.allSettled(pdfPromises);
 
-  const { resultPDFs, labelPDF, orderPDF } = pdfs
+  const { resultPDFs, labelPDF, orderPDF, abnPDFs } = pdfs
     .filter(
-      (result): result is PromiseFulfilledResult<LabResultPDF | LabelPdf | LabOrderPDF> =>
+      (result): result is PromiseFulfilledResult<LabResultPDF | LabelPdf | LabOrderPDF | LabPdf> =>
         result.status === 'fulfilled' && result.value !== null
     )
     .reduce(
@@ -613,14 +669,18 @@ export const fetchLabOrderPDFsPresignedUrls = async (
         } else if ('serviceRequestId' in result.value) {
           acc.orderPDF = result.value;
         } else if ('documentReference' in result.value) {
-          acc.labelPDF = result.value;
+          if ('type' in result.value) {
+            acc.abnPDFs.push(result.value);
+          } else {
+            acc.labelPDF = result.value;
+          }
         }
         return acc;
       },
-      { resultPDFs: [], labelPDF: undefined, orderPDF: undefined }
+      { resultPDFs: [], labelPDF: undefined, orderPDF: undefined, abnPDFs: [] }
     );
 
-  return { resultPDFs, labelPDF, orderPDF };
+  return { resultPDFs, labelPDF, orderPDF, abnPDFs };
 };
 
 export const parseAppointmentIdForServiceRequest = (
@@ -673,6 +733,18 @@ export const diagnosticReportIsUnsolicited = (dr: DiagnosticReport): boolean => 
   return !!dr?.meta?.tag?.find(
     (t) => t.system === LAB_DR_TYPE_TAG.system && t.display === LAB_DR_TYPE_TAG.display.unsolicited
   );
+};
+
+export const docRefIsAbnAndCurrent = (docRef: DocumentReference): boolean => {
+  const isCurrent = docRef.status === 'current';
+  const isAbn = !!docRef.category?.some(
+    (cat) =>
+      cat.coding?.some(
+        (code) =>
+          code.code === OYSTEHR_LAB_DOC_CATEGORY_CODING.code && code.system === OYSTEHR_LAB_DOC_CATEGORY_CODING.system
+      )
+  );
+  return isCurrent && isAbn;
 };
 
 export interface AOEDisplayForOrderForm {
@@ -795,6 +867,7 @@ export type AllResources = {
   patient?: Patient;
   labOrg?: Organization;
   resultPdfDocumentReference?: DocumentReference;
+  encounter?: Encounter;
 };
 export type ResourcesByDr = {
   [diagnosticReportId: string]: AllResources;
@@ -802,47 +875,28 @@ export type ResourcesByDr = {
 
 export const groupResourcesByDr = (resources: FhirResource[]): ResourcesByDr => {
   const drMap: ResourcesByDr = {};
-  const readyTasks: Task[] = [];
-  const completedTasks: Task[] = [];
-  const patients: Patient[] = [];
-  const patientRefToRelatedDrMap: Record<string, string[]> = {};
-  const orgRefToRelatedDrMap: Record<string, string[]> = {};
-  const labOrganizations: Organization[] = [];
+  const readyTasksMap: Record<string, Task> = {};
+  const completedTasksMap: Record<string, Task> = {};
+  const patientsMap: Record<string, Patient> = {};
+  const labOrgMap: Record<string, Organization> = {};
+  const encountersMap: Record<string, Encounter> = {};
   const currentResultPDFDocRefs: DocumentReference[] = [];
+
   resources.forEach((resource) => {
-    if (resource.resourceType === 'DiagnosticReport') {
-      if (resource.id) {
-        drMap[resource.id] = { diagnosticReport: resource, readyTasks: [], completedTasks: [] };
-        const isPatientSubject = resource.subject?.reference?.startsWith('Patient/');
-        if (isPatientSubject) {
-          const patientRef = resource.subject?.reference;
-          if (patientRef) {
-            if (patientRefToRelatedDrMap[patientRef]) {
-              patientRefToRelatedDrMap[patientRef].push(resource.id);
-            } else {
-              patientRefToRelatedDrMap[patientRef] = [resource.id];
-            }
-          }
-        }
-        const orgPerformer = resource.performer?.find((p) => p.reference?.startsWith('Organization/'))?.reference;
-        if (orgPerformer) {
-          if (orgRefToRelatedDrMap[orgPerformer]) {
-            orgRefToRelatedDrMap[orgPerformer].push(resource.id);
-          } else {
-            orgRefToRelatedDrMap[orgPerformer] = [resource.id];
-          }
-        }
-      }
+    if (resource.resourceType === 'DiagnosticReport' && resource.id) {
+      drMap[resource.id] = { diagnosticReport: resource, readyTasks: [], completedTasks: [] };
     }
     if (resource.resourceType === 'Organization') {
       const isLabOrg = !!resource.identifier?.some((id) => id.system === OYSTEHR_LAB_GUID_SYSTEM);
-      if (isLabOrg) labOrganizations.push(resource);
+      if (isLabOrg && resource.id) labOrgMap[resource.id] = resource;
     }
     if (resource.resourceType === 'Task') {
-      if (resource.status === 'ready') {
-        readyTasks.push(resource);
-      } else if (resource.status === 'completed') {
-        completedTasks.push(resource);
+      if (resource.id) {
+        if (resource.status === 'ready') {
+          readyTasksMap[resource.id] = resource;
+        } else if (resource.status === 'completed') {
+          completedTasksMap[resource.id] = resource;
+        }
       }
     }
     if (resource.resourceType === 'DocumentReference' && resource.status === 'current') {
@@ -851,18 +905,45 @@ export const groupResourcesByDr = (resources: FhirResource[]): ResourcesByDr => 
         currentResultPDFDocRefs.push(resource);
       }
     }
-    if (resource.resourceType === 'Patient') patients.push(resource);
+    if (resource.resourceType === 'Patient' && resource.id) {
+      patientsMap[resource.id] = resource;
+    }
+    if (resource.resourceType === 'Encounter' && resource.id) {
+      encountersMap[resource.id] = resource;
+    }
   });
-  readyTasks.forEach((task) => {
+  Object.values(drMap).forEach((drResources) => {
+    const dr = drResources.diagnosticReport;
+    const isPatientSubject = dr.subject?.reference?.startsWith('Patient/');
+    if (isPatientSubject) {
+      const patientId = dr.subject?.reference?.replace('Patient/', '');
+      if (patientId) {
+        const patient = patientsMap[patientId];
+        drResources.patient = patient;
+      }
+    }
+    const orgPerformerId = dr.performer
+      ?.find((p) => p.reference?.startsWith('Organization/'))
+      ?.reference?.replace('Organization/', '');
+    if (orgPerformerId) {
+      const org = labOrgMap[orgPerformerId];
+      drResources.labOrg = org;
+    }
+    const encounterId = dr.encounter?.reference?.replace('Encounter/', '');
+    if (encounterId) {
+      const encounter = encountersMap[encounterId];
+      drResources.encounter = encounter;
+    }
+  });
+  Object.values(readyTasksMap).forEach((task) => {
     const relatedDrId = task.basedOn
       ?.find((ref) => ref.reference?.startsWith('DiagnosticReport'))
       ?.reference?.replace('DiagnosticReport/', '');
-
     if (relatedDrId) {
       drMap[relatedDrId].readyTasks.push(task);
     }
   });
-  completedTasks.forEach((task) => {
+  Object.values(completedTasksMap).forEach((task) => {
     const relatedDrId = task.basedOn
       ?.find((ref) => ref.reference?.startsWith('DiagnosticReport'))
       ?.reference?.replace('DiagnosticReport/', '');
@@ -870,20 +951,6 @@ export const groupResourcesByDr = (resources: FhirResource[]): ResourcesByDr => 
     if (relatedDrId) {
       drMap[relatedDrId].completedTasks.push(task);
     }
-  });
-  patients.forEach((patient) => {
-    const patientRef = `Patient/${patient.id}`;
-    const drIds = patientRefToRelatedDrMap[patientRef];
-    drIds.forEach((drId) => {
-      drMap[drId].patient = patient;
-    });
-  });
-  labOrganizations.forEach((labOrg) => {
-    const labOrgRef = `Organization/${labOrg.id}`;
-    const drIds = orgRefToRelatedDrMap[labOrgRef];
-    drIds.forEach((drId) => {
-      drMap[drId].labOrg = labOrg;
-    });
   });
   currentResultPDFDocRefs.forEach((docRef) => {
     const relatedDrId = docRef.context?.related
@@ -893,6 +960,7 @@ export const groupResourcesByDr = (resources: FhirResource[]): ResourcesByDr => 
       drMap[relatedDrId].resultPdfDocumentReference = docRef;
     }
   });
+
   return drMap;
 };
 

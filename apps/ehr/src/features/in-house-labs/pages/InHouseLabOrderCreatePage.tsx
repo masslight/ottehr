@@ -21,6 +21,7 @@ import Oystehr from '@oystehr/sdk';
 import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import { getAttendingPractitionerId, isApiError, TestItem } from 'utils';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data';
@@ -222,7 +223,12 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   return (
     <DetailPageContainer>
       <InHouseLabsBreadcrumbs pageName="Order In-House Lab">
-        <Typography variant="h4" color="primary.dark" sx={{ mb: 3 }}>
+        <Typography
+          data-testid={dataTestIds.orderInHouseLabPage.title}
+          variant="h4"
+          color="primary.dark"
+          sx={{ mb: 3 }}
+        >
           Order In-house Lab
         </Typography>
 
@@ -264,9 +270,15 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                     <Select
                       labelId="test-type-label"
                       id="test-type"
+                      data-testid={dataTestIds.orderInHouseLabPage.testTypeField}
                       value={selectedTest?.name || ''}
                       label="Test"
                       onChange={(e) => handleTestSelection(e.target.value)}
+                      MenuProps={{
+                        PaperProps: {
+                          'data-testid': dataTestIds.orderInHouseLabPage.testTypeList,
+                        },
+                      }}
                     >
                       {availableTests.map((test) => (
                         <MenuItem key={test.name} value={test.name}>
@@ -281,6 +293,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                   <>
                     <Grid item xs={selectedTest?.repeatable ? 8.5 : 12}>
                       <TextField
+                        data-testid={dataTestIds.orderInHouseLabPage.CPTCodeField}
                         InputProps={{
                           readOnly: true,
                           sx: {
@@ -380,6 +393,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                       Select Dx
                     </InputLabel>
                     <Select
+                      data-testid={dataTestIds.orderInHouseLabPage.diagnosis}
                       labelId="diagnosis-label"
                       id="diagnosis"
                       multiple
@@ -452,6 +466,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                     }
                     renderInput={(params) => (
                       <TextField
+                        data-testid={dataTestIds.orderInHouseLabPage.additionalDx}
                         {...params}
                         onChange={(e) => debouncedHandleInputChange(e.target.value)}
                         label="Additional Dx"
@@ -519,6 +534,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
 
                 <Grid item xs={12}>
                   <InHouseLabsNotesCard
+                    data-testid={dataTestIds.orderInHouseLabPage.notes}
                     notes={notes}
                     notesLabel={'Notes (optional)'}
                     readOnly={false}
@@ -551,6 +567,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                     </Button>
                     <Box>
                       <Button
+                        data-testid={dataTestIds.orderInHouseLabPage.orderAndPrintLabelButton}
                         variant="contained"
                         onClick={(e) => handleSubmit(e, true)}
                         disabled={!canBeSubmitted}
@@ -564,6 +581,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                         Order & Print Label
                       </Button>
                       <Button
+                        data-testid={dataTestIds.orderInHouseLabPage.orderInHouseLabButton}
                         variant="contained"
                         type="submit"
                         disabled={!canBeSubmitted}

@@ -32,7 +32,7 @@ import {
   EMPTY_PAGINATION,
   externalLabOrderIsManual,
   ExternalLabsStatus,
-  getAccountNumberFromOrganization,
+  getAccountNumberFromLocationAndOrganization,
   getFullestAvailableName,
   getOrderNumber,
   getOrderNumberFromDr,
@@ -48,6 +48,7 @@ import {
   LabOrderResultDetails,
   LabOrdersSearchBy,
   LabOrderUnreceivedHistoryRow,
+  LabPdf,
   LabResultPDF,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
@@ -65,6 +66,7 @@ import {
 } from 'utils';
 import { sendErrors } from '../../shared';
 import {
+  docRefIsAbnAndCurrent,
   formatResourcesIntoDiagnosticReportLabDTO,
   groupResourcesByDr,
   parseAccessionNumberFromDr,
@@ -99,6 +101,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
   resultPDFs: LabResultPDF[],
   labelPDF: LabelPdf | undefined,
   orderPDF: LabOrderPDF | undefined,
+  abnPDFsByRequisitionNumber: { [requisitionNumber: string]: LabPdf } | undefined,
   specimens: Specimen[],
   appointmentScheduleMap: Record<string, Schedule>,
   ENVIRONMENT: string
@@ -133,6 +136,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
           resultPDFs,
           labelPDF,
           orderPDF,
+          abnPDFsByRequisitionNumber,
           specimens,
           appointmentScheduleMap,
           cache,
@@ -155,8 +159,16 @@ export const mapReflexResourcesToDrLabDTO = async (
   for (const resources of resourcesForDiagnosticReport) {
     const diagnosticReportLabDetailDTO = await formatResourcesIntoDiagnosticReportLabDTO(resources, token);
     const orderNumber = getOrderNumberFromDr(resources.diagnosticReport) || '';
+    const encounterId = resources.diagnosticReport.encounter?.reference?.replace('Encounter/', '') || '';
+    const appointmentId = resources.encounter?.appointment?.[0].reference?.replace('Appointment/', '') || '';
     if (diagnosticReportLabDetailDTO) {
-      const reflexLabDetailDTO: ReflexLabDTO = { ...diagnosticReportLabDetailDTO, isReflex: true, orderNumber };
+      const reflexLabDetailDTO: ReflexLabDTO = {
+        ...diagnosticReportLabDetailDTO,
+        isReflex: true,
+        orderNumber,
+        encounterId,
+        appointmentId,
+      };
       DTOs.push(reflexLabDetailDTO);
     }
   }
@@ -170,6 +182,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   results,
   appointments,
   encounters,
+  locations,
   practitioners,
   provenances,
   organizations,
@@ -177,6 +190,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   resultPDFs,
   labelPDF,
   orderPDF,
+  abnPDFsByRequisitionNumber,
   specimens,
   appointmentScheduleMap,
   cache,
@@ -195,6 +209,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   resultPDFs: LabResultPDF[];
   labelPDF: LabelPdf | undefined;
   orderPDF: LabOrderPDF | undefined;
+  abnPDFsByRequisitionNumber: { [requisitionNumber: string]: LabPdf } | undefined;
   specimens: Specimen[];
   appointmentScheduleMap: Record<string, Schedule>;
   cache?: Cache;
@@ -203,6 +218,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   if (!serviceRequest.id) {
     throw new Error('ServiceRequest ID is required');
   }
+  console.log(serviceRequest.id);
 
   const appointmentId = parseAppointmentIdForServiceRequest(serviceRequest, encounters) || '';
   const appointment = appointments.find((a) => a.id === appointmentId);
@@ -211,6 +227,12 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   console.log('external lab orderStatus parsed', orderStatus);
 
   console.log('formatting external lab listPageDTO');
+  const requisitionNumber = getOrderNumber(serviceRequest);
+  const abnPdfUrl =
+    requisitionNumber && abnPDFsByRequisitionNumber
+      ? abnPDFsByRequisitionNumber[requisitionNumber]?.presignedURL
+      : undefined;
+
   const listPageDTO: LabOrderListPageDTO = {
     appointmentId,
     testItem,
@@ -227,7 +249,8 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
     orderingPhysician: parsePractitionerNameFromServiceRequest(serviceRequest, practitioners),
     diagnoses: parseDx(serviceRequest),
     encounterTimezone: parseTimezoneForAppointmentSchedule(appointment, appointmentScheduleMap),
-    orderNumber: getOrderNumber(serviceRequest),
+    orderNumber: requisitionNumber,
+    abnPdfUrl,
   };
 
   if (searchBy.searchBy.field === 'serviceRequestId') {
@@ -244,7 +267,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
         specimens,
         cache
       ),
-      accountNumber: parseAccountNumber(serviceRequest, organizations),
+      accountNumber: parseAccountNumber(serviceRequest, organizations, locations),
       resultsDetails: parseLResultsDetails(
         serviceRequest,
         results,
@@ -482,6 +505,7 @@ export const getLabResources = async (
   resultPDFs: LabResultPDF[];
   labelPDF: LabelPdf | undefined;
   orderPDF: LabOrderPDF | undefined;
+  abnPDFsByRequisitionNumber: { [requisitionNumber: string]: LabPdf } | undefined;
   specimens: Specimen[];
   patientLabItems: PatientLabItem[];
   appointmentScheduleMap: Record<string, Schedule>;
@@ -566,6 +590,9 @@ export const getLabResources = async (
   let resultPDFs: LabResultPDF[] = [];
   let labelPDF: LabelPdf | undefined;
   let orderPDF: LabOrderPDF | undefined;
+  let abnPDFs: LabPdf[] | undefined;
+
+  // todo labs team - future dev to make order pdfs available from the patient chart labs table
   if (isDetailPageRequest) {
     const pdfs = await fetchLabOrderPDFsPresignedUrls(documentReferences, m2mToken);
     if (pdfs) {
@@ -573,7 +600,19 @@ export const getLabResources = async (
       labelPDF = pdfs.labelPDF;
       orderPDF = pdfs.orderPDF;
     }
+  } else {
+    const abnDocRefs = documentReferences.filter((docRef) => {
+      return docRefIsAbnAndCurrent(docRef);
+    });
+    if (abnDocRefs) {
+      const pdfs = await fetchLabOrderPDFsPresignedUrls(abnDocRefs, m2mToken);
+      if (pdfs) {
+        abnPDFs = pdfs.abnPDFs;
+      }
+    }
   }
+
+  const abnPDFsByRequisitionNumber = groupAbnPDFsByRequisition(abnPDFs, serviceRequests);
 
   const pagination = parsePaginationFromResponse(labOrdersResponse);
 
@@ -593,6 +632,7 @@ export const getLabResources = async (
     resultPDFs,
     labelPDF,
     orderPDF,
+    abnPDFsByRequisitionNumber,
     specimens,
     pagination,
     patientLabItems,
@@ -683,6 +723,12 @@ export const createLabServiceRequestSearchParams = (params: GetZambdaLabOrdersPa
     searchParams.push({
       name: 'encounter',
       value: `Encounter/${searchBy.value}`,
+    });
+
+    // to get the abn
+    searchParams.push({
+      name: '_revinclude:iterate',
+      value: 'DocumentReference:related',
     });
   }
 
@@ -907,6 +953,7 @@ export const checkForReflexDiagnosticReports = async (
           { name: '_revinclude', value: 'Task:based-on' }, // review task
           { name: '_revinclude:iterate', value: 'DocumentReference:related' }, // result pdf
           { name: '_include', value: 'DiagnosticReport:performer' }, // lab org
+          { name: '_include', value: 'DiagnosticReport:encounter' },
         ],
       })
     ).unbundle();
@@ -1693,26 +1740,56 @@ export const parseLabOrdersHistory = (
   return history.sort((a, b) => compareDates(b.date, a.date));
 };
 
-export const parseAccountNumber = (serviceRequest: ServiceRequest, organizations: Organization[]): string => {
+export const parseAccountNumber = (
+  serviceRequest: ServiceRequest,
+  organizations: Organization[],
+  locations: Location[]
+): string => {
   const NOT_FOUND = '';
 
   if (!serviceRequest.performer || !serviceRequest.performer.length) {
+    console.warn(`Could not determine account number because ServiceRequest/${serviceRequest.id} has no performer`);
     return NOT_FOUND;
   }
 
+  if (
+    !serviceRequest.locationReference ||
+    serviceRequest.locationReference.length !== 1 ||
+    !serviceRequest.locationReference[0].reference
+  ) {
+    console.warn(
+      `Could not determine account number because ServiceRequest/${serviceRequest.id} has no locationReference, or too many`
+    );
+    return NOT_FOUND;
+  }
+
+  let srPerformer: Organization | undefined;
   for (const performer of serviceRequest.performer) {
     if (performer.reference && performer.reference.includes('Organization/')) {
       const organizationId = performer.reference.split('Organization/')[1];
       const matchingOrg = organizations.find((org) => org.id === organizationId);
 
       if (matchingOrg) {
-        const accountNumber = getAccountNumberFromOrganization(matchingOrg);
-        return accountNumber || NOT_FOUND;
+        srPerformer = matchingOrg;
+        break;
       }
     }
   }
 
-  return NOT_FOUND;
+  if (!srPerformer) {
+    console.warn(`No matching performer found for ServiceRequest/${serviceRequest.id}`);
+    return NOT_FOUND;
+  }
+
+  const srLocationRef = serviceRequest.locationReference![0].reference;
+  const orderingLocation = locations.find((location) => `Location/${location.id}` === srLocationRef);
+
+  if (!orderingLocation) {
+    console.warn(`No location found matching SR locationReference Location/${srLocationRef}`);
+    return NOT_FOUND;
+  }
+
+  return getAccountNumberFromLocationAndOrganization(orderingLocation, srPerformer) ?? NOT_FOUND;
 };
 
 export const parseProvenancesForHistory = (
@@ -2382,4 +2459,27 @@ export const getAllServiceRequestsForPatient = async (
   const allServiceRequests = Array.from(serviceRequestsMap.values());
   console.log(`Found ${allServiceRequests.length} unique service requests for patient`);
   return allServiceRequests;
+};
+
+// todo labs team eventually we will record the requisition number on the abn doc ref and then we wont need to do this mapping
+const groupAbnPDFsByRequisition = (
+  abnPDFs: LabPdf[] | undefined,
+  serviceRequests: ServiceRequest[]
+): { [requisitionNumber: string]: LabPdf } | undefined => {
+  if (!abnPDFs) return;
+  const abnPDFsByRequisitionNumber: { [requisitionNumber: string]: LabPdf } = {};
+  abnPDFs.forEach((pdf) => {
+    const docRef = pdf.documentReference;
+    // abn doc refs will be linked to all the service requests within an order,
+    // they will all have the same requisition number so we can just grab the first one
+    const firstServiceRequestId = docRef.context?.related
+      ?.find((resource) => resource.reference?.startsWith('ServiceRequest/'))
+      ?.reference?.replace('ServiceRequest/', '');
+    const serviceRequest = serviceRequests.find((sr) => sr.id === firstServiceRequestId);
+    const requisitionNumber = serviceRequest ? getOrderNumber(serviceRequest) : undefined;
+    if (requisitionNumber) {
+      abnPDFsByRequisitionNumber[requisitionNumber] = pdf;
+    }
+  });
+  return abnPDFsByRequisitionNumber;
 };

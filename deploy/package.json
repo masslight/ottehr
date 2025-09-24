@@ -1,12 +1,12 @@
 {
   "name": "deploy",
-  "version": "1.16.21",
+  "version": "1.18.1",
   "description": "Scripts for generating HCL and interacting with Terraform",
   "scripts": {
     "build": "tsc --noEmit",
     "lint-terraform": "terraform fmt",
     "lint": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts --report-unused-disable-directives --max-warnings 0 .",
-    "generate": "tsx generate-oystehr-resources.ts ../config ../packages/zambdas/.env/${ENV:-local}.json ./oystehr/",
+    "generate": "tsx generate-oystehr-resources.ts ../config ${ENV:-local} ./oystehr/",
     "apply-local": "ENV=local npm run generate && terraform workspace select local && terraform apply -parallelism=40 -var-file='local.tfvars'",
     "apply-staging": "ENV=staging npm run generate && terraform workspace select staging && terraform apply -parallelism=40 -var-file='staging.tfvars'",
     "apply-production": "ENV=production npm run generate && terraform workspace select production && terraform apply -parallelism=40 -var-file='production.tfvars'",
@@ -15,5 +15,8 @@
   },
   "devDependencies": {
     "@types/node": "^24.2.1"
+  },
+  "dependencies": {
+    "utils": "*"
   }
 }

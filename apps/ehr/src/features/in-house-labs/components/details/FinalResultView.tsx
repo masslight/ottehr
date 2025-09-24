@@ -2,6 +2,7 @@ import { BiotechOutlined } from '@mui/icons-material';
 import { Box, Button, Paper, Typography } from '@mui/material';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { DiagnosisDTO, getFormattedDiagnoses } from 'utils';
 import { InHouseOrderDetailPageItemDTO } from 'utils/lib/types/data/in-house/in-house.types';
 import { FinalResultCard } from './FinalResultCard';
@@ -56,22 +57,34 @@ export const FinalResultView: React.FC<FinalResultViewProps> = ({ testDetails, o
 
   return (
     <Box>
-      <Typography variant="body1" sx={{ mb: 2, fontWeight: 'medium' }}>
+      <Typography
+        data-testid={dataTestIds.finalResultPage.diagnose}
+        variant="body1"
+        sx={{ mb: 2, fontWeight: 'medium' }}
+      >
         {getFormattedDiagnoses(diagnoses || [])}
       </Typography>
 
-      {openPdf && (
-        <Button
-          variant="outlined"
-          color="primary"
-          sx={{ borderRadius: '50px', textTransform: 'none', mb: '12px' }}
-          onClick={() => openPdf()}
-          startIcon={<BiotechOutlined />}
-          disabled={!mostRecentTest?.resultsPDFUrl}
-        >
-          Results PDF
-        </Button>
-      )}
+      <Box display="flex" justifyContent="space-between" alignItems="center">
+        {openPdf && (
+          <Button
+            data-testid={dataTestIds.finalResultPage.resultsPDF}
+            variant="outlined"
+            color="primary"
+            sx={{ borderRadius: '50px', textTransform: 'none', mb: '12px' }}
+            onClick={() => openPdf()}
+            startIcon={<BiotechOutlined />}
+            disabled={!mostRecentTest?.resultsPDFUrl}
+          >
+            Results PDF
+          </Button>
+        )}
+        {isRepeatable && (
+          <Button variant="outlined" onClick={handleRepeatOnClick} sx={{ borderRadius: '50px', px: 4 }}>
+            Repeat
+          </Button>
+        )}
+      </Box>
 
       {testDetails.map((test, idx) => (
         <FinalResultCard key={`${idx}-${test.testItemName.split(' ').join('')}`} testDetails={test} />
@@ -81,11 +94,6 @@ export const FinalResultView: React.FC<FinalResultViewProps> = ({ testDetails, o
         <Button variant="outlined" onClick={onBack} sx={{ borderRadius: '50px', px: 4 }}>
           Back
         </Button>
-        {isRepeatable && (
-          <Button variant="outlined" onClick={handleRepeatOnClick} sx={{ borderRadius: '50px', px: 4 }}>
-            Repeat
-          </Button>
-        )}
       </Box>
     </Box>
   );

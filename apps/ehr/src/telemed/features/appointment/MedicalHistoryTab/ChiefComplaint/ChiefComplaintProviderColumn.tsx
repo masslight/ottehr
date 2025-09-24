@@ -23,11 +23,11 @@ export const ChiefComplaintProviderColumn: FC = () => {
   });
 
   useEffect(() => {
-    if (!methods.getValues('chiefComplaint') && chartDataFields?.chiefComplaint?.text) {
+    if (chartDataFields?.chiefComplaint?.text !== undefined) {
       methods.setValue('chiefComplaint', chartDataFields.chiefComplaint.text);
     }
 
-    if (!methods.getValues('ros') && chartDataFields?.ros?.text) {
+    if (chartDataFields?.ros?.text !== undefined) {
       methods.setValue('ros', chartDataFields.ros.text);
     }
   }, [chartDataFields?.chiefComplaint?.text, chartDataFields?.ros?.text, methods]);

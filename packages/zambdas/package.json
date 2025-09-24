@@ -1,16 +1,18 @@
 {
   "name": "zambdas",
-  "version": "1.16.7",
+  "version": "1.18.1",
   "private": true,
   "scripts": {
     "start": "ENV=${ENV:-local} npm run setup-deployed-resources ${ENV:-local} && tsx watch --include './src/**/*' src/local-server/index.ts -- env=.env/${ENV:-local}.json",
     "start:local": "ENV=local npm run start",
     "start:demo": "ENV=demo npm run start",
-    "start:iac": "tsx watch --include './src/**/*' src/local-server/index.ts -- env=.env/${ENV:-local}.json",
+    "start:iac": "tsx watch --include './src/**/*' src/local-server/index.ts -- env=.env/${ENV:-local}.json iac=true",
     "start:local:iac": "ENV=local npm run start:iac",
     "start:demo:iac": "ENV=demo npm run start:iac",
     "cancel-telemed-appointments": "tsx src/scripts/cancel-telemed-appointments.ts",
     "remove-insurances-and-payer-orgs": "tsx src/scripts/remove-insurances-and-payer-orgs.ts",
+    "report-daily-payments": "tsx src/scripts/report-daily-payments.ts",
+    "get-coverage-eligibility-responses": "tsx src/scripts/get-coverage-eligibility-responses.ts",
     "fix-duplicate-payers": "tsx src/scripts/fix-duplicate-payers.ts",
     "fix-payer-ids-in-orgs": "tsx src/scripts/fix-payer-ids-in-orgs.ts",
     "update-insurances-and-payer-orgs": "tsx src/scripts/update-insurances-and-payer-orgs.ts",
@@ -46,6 +48,7 @@
     "mock-reflex-test": "tsx src/scripts/reflex-test-helper.ts",
     "mock-unsolicited-result": "tsx src/scripts/unsolicited-result-helper.ts",
     "make-in-house-test-items": "tsx src/scripts/load-in-house-labs-tests.ts",
+    "test-emails": "tsx src/scripts/test-emails.ts",
     "remove-payor-orgs": "tsx src/scripts/remove-payor-orgs.ts",
     "update-locations-for-lab-accounts": "tsx src/scripts/update-locations-for-lab-accounts.ts"
   },

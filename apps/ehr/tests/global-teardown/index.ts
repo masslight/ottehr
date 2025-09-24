@@ -1,6 +1,7 @@
 import { getAuth0Token } from 'tests/e2e-utils/auth/getAuth0Token';
 import {
   cleanAppointmentGraph,
+  cleanupE2ELocations,
   createOystehrClient,
   E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
   getSecret,
@@ -20,5 +21,7 @@ const globalTeardown = async (): Promise<void> => {
     { system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM, code: `failsafe-${playwrightSuiteId}` },
     oystehr
   );
+  // delete locations that were created solely for testing
+  await cleanupE2ELocations(oystehr, `${E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM}|${playwrightSuiteId}`);
 };
 export default globalTeardown;

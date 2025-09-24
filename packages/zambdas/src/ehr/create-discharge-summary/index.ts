@@ -21,6 +21,7 @@ import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-detail
 import { getChartData } from '../get-chart-data';
 import { getInHouseResources } from '../get-in-house-orders/helpers';
 import { getLabResources } from '../get-lab-orders/helpers';
+import { getMedicationOrders } from '../get-medication-orders';
 import { getRadiologyOrders } from '../radiology/order-list';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -125,20 +126,42 @@ export const performEffect = async (
     m2mToken
   );
 
-  const [chartDataResult, additionalChartDataResult, radiologyData, externalLabsData, inHouseOrdersData] =
-    await Promise.all([
-      chartDataPromise,
-      additionalChartDataPromise,
-      radiologyOrdersPromise,
-      externalLabOrdersPromise,
-      inHouseOrdersPromise,
-    ]);
+  const medicationOrdersPromise = getMedicationOrders(oystehr, {
+    searchBy: {
+      field: 'encounterId',
+      value: encounter.id!,
+    },
+  });
+
+  const [
+    chartDataResult,
+    additionalChartDataResult,
+    radiologyData,
+    externalLabsData,
+    inHouseOrdersData,
+    medicationOrdersData,
+  ] = await Promise.all([
+    chartDataPromise,
+    additionalChartDataPromise,
+    radiologyOrdersPromise,
+    externalLabOrdersPromise,
+    inHouseOrdersPromise,
+    medicationOrdersPromise,
+  ]);
   const chartData = chartDataResult.response;
   const additionalChartData = additionalChartDataResult.response;
+  const medicationOrders = medicationOrdersData?.orders.filter((order) => order.status !== 'cancelled');
 
   console.log('Chart data received');
-  const pdfInfo = await composeAndCreateDischargeSummaryPdf(
-    { chartData, additionalChartData, radiologyData, externalLabsData, inHouseOrdersData },
+  const { pdfInfo, attached } = await composeAndCreateDischargeSummaryPdf(
+    {
+      chartData,
+      additionalChartData,
+      radiologyData,
+      externalLabsData,
+      inHouseOrdersData,
+      medicationOrders,
+    },
     visitResources,
     secrets,
     m2mToken
@@ -151,11 +174,13 @@ export const performEffect = async (
     patient.id,
     appointmentId,
     encounter.id!,
-    listResources
+    listResources,
+    attached
   );
+  const dischargeSummaryDocumentId = documentReference.id ?? '';
 
   return {
     message: 'Discharge Summary created.',
-    documentId: documentReference.id ?? '',
+    documentId: dischargeSummaryDocumentId,
   };
 };

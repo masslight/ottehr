@@ -72,7 +72,8 @@ export type resourcesForOrderForm = {
   location?: Location;
   insuranceOrganization?: Organization;
   coverage?: Coverage;
-  labGeneratedEReq?: DocumentReference; // will be assigned after submit to oystehr labs IF applicable (right now only for labcorp & quest)
+  labGeneratedEReq?: DocumentReference; // will be generated after submit to oystehr labs IF applicable (right now only for labcorp & quest)
+  abnDocRef?: DocumentReference; // will be generated after submit to oystehr labs IF applicable (right now only for labcorp & quest)
 };
 
 export type OrderResourcesByOrderNumber = {
@@ -130,7 +131,7 @@ export async function getBundledOrderResources(
     aoeAnswerPromises.push(aoeAnswerPromise);
 
     const orderNumber = getOrderNumber(result.serviceRequest);
-    if (!orderNumber) throw Error(`ServiceRequest is missing an order number, ${result.serviceRequest}`);
+    if (!orderNumber) throw Error(`ServiceRequest is missing a requisition number, ${result.serviceRequest}`);
     if (bundledOrders[orderNumber]) {
       bundledOrders[orderNumber].push(serviceRequestID);
     } else {
@@ -469,16 +470,21 @@ export async function makeOrderFormsAndDocRefs(
 
     let pdfInfo: PdfInfo | undefined;
     let labGeneratedEReqUrl: string | undefined;
+    let abnUrl: string | undefined;
     if (resources.labGeneratedEReq) {
       labGeneratedEReqUrl = resources.labGeneratedEReq.content[0].attachment.url || '';
     } else {
       const orderFormDataConfig = getOrderFormDataConfig(orderNumber, resources, now, oystehr);
       pdfInfo = await createExternalLabsOrderFormPDF(orderFormDataConfig, patientId, secrets, token);
     }
+    if (resources.abnDocRef) {
+      abnUrl = resources.abnDocRef.content[0].attachment.url || '';
+    }
 
     return {
       pdfInfo,
       labGeneratedEReqUrl,
+      abnUrl,
       patientId,
       encounterId,
       serviceRequestIds,
@@ -505,6 +511,9 @@ export async function makeOrderFormsAndDocRefs(
         acc.presignedOrderFormURLPromises.push(getPresignedURL(detail.pdfInfo.uploadURL, token));
       } else if (detail.labGeneratedEReqUrl) {
         acc.presignedOrderFormURLPromises.push(getPresignedURL(detail.labGeneratedEReqUrl, token));
+      }
+      if (detail.abnUrl) {
+        acc.presignedOrderFormURLPromises.push(getPresignedURL(detail.abnUrl, token));
       }
       return acc;
     },

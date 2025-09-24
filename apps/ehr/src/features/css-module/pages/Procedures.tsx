@@ -1,13 +1,15 @@
 import AddIcon from '@mui/icons-material/Add';
-import { Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
+import { Paper, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
 import { Box, Stack } from '@mui/system';
 import { DateTime } from 'luxon';
 import { ReactElement, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import AiSuggestion from 'src/components/AiSuggestion';
 import { RoundedButton } from 'src/components/RoundedButton';
-import { AccordionCard, useAppointmentData, useChartData, useGetAppointmentAccessibility } from 'src/telemed';
+import { dataTestIds } from 'src/constants/data-test-ids';
+import { AccordionCard, useChartData, useGetAppointmentAccessibility } from 'src/telemed';
 import { PageTitle } from 'src/telemed/components/PageTitle';
-import { getVisitStatus, TelemedAppointmentStatusEnum } from 'utils';
+import { AiObservationField, ObservationTextFieldDTO, TelemedAppointmentStatusEnum } from 'utils';
 import { CSSLoader } from '../components/CSSLoader';
 import { useFeatureFlags } from '../context/featureFlags';
 import { ROUTER_PATH } from '../routing/routesCSS';
@@ -15,18 +17,19 @@ import { ROUTER_PATH } from '../routing/routesCSS';
 export default function Procedures(): ReactElement {
   const navigate = useNavigate();
   const { id: appointmentId } = useParams();
-  const { appointment, encounter } = useAppointmentData();
   const { isChartDataLoading, chartData } = useChartData();
-  const inPersonStatus = useMemo(() => appointment && getVisitStatus(appointment, encounter), [appointment, encounter]);
   const appointmentAccessibility = useGetAppointmentAccessibility();
   const { css } = useFeatureFlags();
+  const aiProcedures = chartData?.observations?.filter(
+    (observation) => observation.field === AiObservationField.Procedures
+  ) as ObservationTextFieldDTO[];
 
   const isReadOnly = useMemo(() => {
     if (css) {
-      return inPersonStatus === 'completed';
+      return appointmentAccessibility.isAppointmentReadOnly;
     }
     return appointmentAccessibility.status === TelemedAppointmentStatusEnum.complete;
-  }, [css, inPersonStatus, appointmentAccessibility.status]);
+  }, [css, appointmentAccessibility.status, appointmentAccessibility.isAppointmentReadOnly]);
 
   const onNewProcedureClick = (): void => {
     navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES_NEW}`);
@@ -36,13 +39,18 @@ export default function Procedures(): ReactElement {
   };
   if (isChartDataLoading) return <CSSLoader />;
   return (
-    <>
+    <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <PageTitle label="Procedures" showIntakeNotesButton={false} />
+        <PageTitle label="Procedures" showIntakeNotesButton={false} dataTestId={dataTestIds.proceduresPage.title} />
         <RoundedButton variant="contained" onClick={onNewProcedureClick} startIcon={<AddIcon />} disabled={isReadOnly}>
           Procedure
         </RoundedButton>
       </Box>
+      {aiProcedures?.length > 0 && (
+        <Paper sx={{ padding: 2, marginBottom: 2 }}>
+          <AiSuggestion title={'Procedures'} chartData={chartData} content={aiProcedures} />
+        </Paper>
+      )}
       <AccordionCard>
         <Table sx={{ width: '100%' }}>
           <TableHead>
@@ -67,24 +75,38 @@ export default function Procedures(): ReactElement {
                   sx={{ '&:last-child td': { borderBottom: 0 }, cursor: 'pointer' }}
                   onClick={() => onProcedureClick(procedure.resourceId)}
                   key={procedure.resourceId}
+                  data-testid={dataTestIds.proceduresPage.procedureRow}
                 >
                   <TableCell>
                     <Stack>
                       {procedure.cptCodes?.map((cptCode) => {
                         return (
-                          <Typography sx={{ fontSize: '14px' }} key={cptCode.code}>
+                          <Typography
+                            sx={{ fontSize: '14px' }}
+                            key={cptCode.code}
+                            data-testid={dataTestIds.proceduresPage.cptCode}
+                          >
                             {cptCode.code}-{cptCode.display}
                           </Typography>
                         );
                       })}
-                      <Typography sx={{ fontSize: '14px', color: '#00000099' }}>{procedure.procedureType}</Typography>
+                      <Typography
+                        sx={{ fontSize: '14px', color: '#00000099' }}
+                        data-testid={dataTestIds.proceduresPage.procedureType}
+                      >
+                        {procedure.procedureType}
+                      </Typography>
                     </Stack>
                   </TableCell>
                   <TableCell>
                     <Stack>
                       {procedure.diagnoses?.map((diagnosis) => {
                         return (
-                          <Typography sx={{ fontSize: '14px' }} key={diagnosis.code}>
+                          <Typography
+                            sx={{ fontSize: '14px' }}
+                            key={diagnosis.code}
+                            data-testid={dataTestIds.proceduresPage.diagnosis}
+                          >
                             {diagnosis.code}-{diagnosis.display}
                           </Typography>
                         );
@@ -96,7 +118,12 @@ export default function Procedures(): ReactElement {
                       <Typography sx={{ fontSize: '14px' }}>
                         {documentedDateTime != null ? documentedDateTime.toFormat('MM/dd/yyyy HH:mm a') : undefined}
                       </Typography>
-                      <Typography sx={{ fontSize: '14px', color: '#00000099' }}>{procedure.documentedBy}</Typography>
+                      <Typography
+                        sx={{ fontSize: '14px', color: '#00000099' }}
+                        data-testid={dataTestIds.proceduresPage.documentedBy}
+                      >
+                        {procedure.documentedBy}
+                      </Typography>
                     </Stack>
                   </TableCell>
                 </TableRow>
@@ -112,6 +139,6 @@ export default function Procedures(): ReactElement {
           </TableBody>
         </Table>
       </AccordionCard>
-    </>
+    </Box>
   );
 }
