@@ -2,7 +2,6 @@ import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Coverage, CoverageEligibilityResponse, Practitioner } from 'fhir/r4b';
 import {
-  chunkThings,
   CoverageCheckWithDetails,
   getSecret,
   INVALID_RESOURCE_ID_ERROR,
@@ -13,7 +12,6 @@ import {
   pullCoverageIdentifyingDetails,
   Secrets,
   SecretsKeys,
-  sleep,
 } from 'utils';
 import { parseCoverageEligibilityResponse } from 'utils';
 import {
@@ -76,6 +74,10 @@ const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAcc
           name: '_elements',
           value: 'id',
         },
+        {
+          name: '_count', // we shouldn't need more thant the most recent 10 eligibility checks
+          value: '10',
+        },
       ],
     })
   )
@@ -84,23 +86,11 @@ const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAcc
     .filter((id): id is string => !!id);
   console.log('fetching the following CERs:', JSON.stringify(eligibilityCheckIds));
 
-  // parallelize fetching in chunks of 10 to avoid overwhelming the FHIR server
-  const chunks = chunkThings(eligibilityCheckIds, 10);
-  const eligibilityCheckResults: CoverageEligibilityResponse[] = [];
-  for (let i = 0; i < chunks.length; i++) {
-    if (i > 0) {
-      // is this needed??
-      await sleep(250);
-    }
-    console.log(`fetching chunk ${i + 1} of ${chunks.length}`);
-    const chunk = chunks[i];
-    const results = await Promise.all(
-      chunk.map((id) =>
-        oystehr.fhir.get<CoverageEligibilityResponse>({ resourceType: 'CoverageEligibilityResponse', id })
-      )
-    );
-    eligibilityCheckResults.push(...results);
-  }
+  const eligibilityCheckResults: CoverageEligibilityResponse[] = await Promise.all(
+    eligibilityCheckIds.map((id) =>
+      oystehr.fhir.get<CoverageEligibilityResponse>({ resourceType: 'CoverageEligibilityResponse', id })
+    )
+  );
 
   const coverageIdsToFetch = eligibilityCheckResults.flatMap((ecr) => {
     if (ecr.insurance?.[0]?.coverage?.reference) {
