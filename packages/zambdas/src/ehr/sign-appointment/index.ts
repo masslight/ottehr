@@ -15,11 +15,13 @@ import {
   getPatchBinary,
   getPatientContactEmail,
   getProgressNoteChartDataRequestedFields,
+  getTaskResource,
   getVisitStatus,
   InPersonCompletionTemplateData,
   OTTEHR_MODULE,
   SignAppointmentInput,
   SignAppointmentResponse,
+  TaskIndicator,
   TelemedCompletionTemplateData,
   telemedProgressNoteChartDataRequestedFields,
   visitStatusToFhirAppointmentStatusMap,
@@ -102,6 +104,16 @@ export const performEffect = async (
     await changeStatusToCompleted(oystehr, oystehrCurrentUser, visitResources, supervisorApprovalEnabled);
   }
   console.debug(`Status has been changed.`);
+
+  if (appointment.id === undefined) {
+    throw new Error('Appointment ID is not defined');
+  }
+
+  // Create Task that will kick off subscription to send the claim
+  console.time('create-send-claim-task');
+  const sendClaimTaskResource = getTaskResource(TaskIndicator.sendClaim, appointment.id);
+  await oystehr.fhir.create(sendClaimTaskResource);
+  console.timeEnd('create-send-claim-task');
 
   const isInPersonAppointment = !!visitResources.appointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.IP);
 

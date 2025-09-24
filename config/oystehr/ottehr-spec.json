@@ -874,7 +874,7 @@
       "src": "src/subscriptions/task/sub-send-claim/index",
       "zip": ".dist/zips/sub-send-claim.zip",
       "subscription": {
-        "criteria": "Task?code=urgent-care-email|&status=requested",
+        "criteria": "Task?code=send-claim|&status=requested",
         "reason": "in person communication",
         "event": "create"
       }
@@ -1313,6 +1313,22 @@
       "channel": {
         "type": "rest-hook",
         "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-CANCELLATION-EMAIL/id}"
+      },
+      "extension": [
+        {
+          "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+          "valueString": "create"
+        }
+      ]
+    },
+    "SUB_SEND_CLAIM_SUBSCRIPTION": {
+      "resourceType": "Subscription",
+      "status": "active",
+      "reason": "send claim to clearing house",
+      "criteria": "Task?code=send-claim|&status=requested",
+      "channel": {
+        "type": "rest-hook",
+        "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-SEND-CLAIM/id}"
       },
       "extension": [
         {
