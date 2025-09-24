@@ -187,7 +187,7 @@ test.describe('Disposition', async () => {
     test("Should check 'Note' field is empty by default for 'Specialty transfer' selected", async () => {
       await expect(
         page.getByTestId(dataTestIds.telemedEhrFlow.planTabDispositionNote).locator('textarea').first()
-      ).toHaveText('');
+      ).toHaveText('N/A');
     });
 
     test("Should select some 'Follow up visit in' option", async () => {

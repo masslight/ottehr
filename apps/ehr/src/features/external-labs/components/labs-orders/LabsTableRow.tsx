@@ -2,9 +2,15 @@ import { otherColors } from '@ehrTheme/colors';
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import { Box, Button, TableCell, TableRow, Tooltip, Typography, useTheme } from '@mui/material';
 import { ReactElement } from 'react';
-import { formatDateForLabs, LabOrderListPageDTO, PSC_LOCALE, ReflexLabDTO, UnsolicitedLabListPageDTO } from 'utils';
+import {
+  formatDateForLabs,
+  LabOrderListPageDTO,
+  LabsTableColumn,
+  PSC_LOCALE,
+  ReflexLabDTO,
+  UnsolicitedLabListPageDTO,
+} from 'utils';
 import { LabsOrderStatusChip } from '../ExternalLabsStatusChip';
-import { LabsTableColumn } from './LabsTable';
 
 interface LabsTableRowProps {
   columns: LabsTableColumn[];
