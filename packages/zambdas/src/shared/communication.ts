@@ -45,7 +45,7 @@ export async function getMessageRecipientForAppointment(
 export interface EmailAttachment {
   content: string; // Base64 encoded content
   filename: string;
-  type: string; // MIME type
+  type: string;
   disposition?: 'attachment' | 'inline';
   contentId?: string;
 }
