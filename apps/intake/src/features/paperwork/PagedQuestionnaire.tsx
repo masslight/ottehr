@@ -212,7 +212,10 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
     ) {
       setCache({ pageId, items, defaultValues });
       console.log('resetting form with default values');
-      reset(defaultValues ?? {}, { keepValues: true });
+      reset((formValues) => ({
+        ...formValues,
+        ...(defaultValues ?? {}),
+      }));
     }
   }, [cache, defaultValues, items, reset, pageId]);
   return (
