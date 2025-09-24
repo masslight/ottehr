@@ -355,6 +355,7 @@ export class Paperwork {
     await this.fillPatientDetailsTelemedAllFields();
     await this.locator.clickContinueButton();
     await this.skipPrimaryCarePhysician();
+    await this.skipPreferredPharmacy();
     await this.locator.clickContinueButton();
     await this.paperworkTelemed.fillAndCheckEmptyCurrentMedications();
     await this.locator.clickContinueButton();
@@ -386,6 +387,7 @@ export class Paperwork {
     await this.fillPatientDetailsRequiredFields();
     await this.locator.clickContinueButton();
     await this.skipPrimaryCarePhysician();
+    await this.skipPreferredPharmacy();
     await this.locator.clickContinueButton();
     await this.selectSelfPayPayment();
     await this.locator.clickContinueButton();
@@ -537,6 +539,9 @@ export class Paperwork {
     await this.locator.relayServiceNo.check();
   }
   async skipPrimaryCarePhysician(): Promise<void> {
+    await this.CommonLocatorsHelper.clickContinue();
+  }
+  async skipPreferredPharmacy(): Promise<void> {
     await this.CommonLocatorsHelper.clickContinue();
   }
   async fillPrimaryCarePhysician(): Promise<{
