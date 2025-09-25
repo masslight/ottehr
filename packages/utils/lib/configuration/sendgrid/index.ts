@@ -115,7 +115,7 @@ const SENDGRID_DEFAULTS = Object.freeze({
       dynamicTemplateData: ['patient-name', 'join-visit-url'],
     },
   },
-  featureFlag: true as boolean,
+  featureFlag: false as boolean,
 } as const);
 
 type SendgridDefaults = typeof SENDGRID_DEFAULTS;
