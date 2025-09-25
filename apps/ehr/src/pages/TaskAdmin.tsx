@@ -12,9 +12,22 @@ import { getAllFhirSearchPages, Task_Send_Messages_Url } from 'utils';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
 
-interface TaskCount {
+interface TaskCountByStatus {
   date: DateTime;
-  count: number;
+  statusCounts: {
+    requested: number;
+    received: number;
+    accepted: number;
+    rejected: number;
+    ready: number;
+    cancelled: number;
+    'in-progress': number;
+    'on-hold': number;
+    failed: number;
+    completed: number;
+    'entered-in-error': number;
+  };
+  total: number;
 }
 
 enum TimeRange {
@@ -30,7 +43,7 @@ enum TimeRange {
 }
 
 export default function TaskAdmin(): React.ReactElement {
-  const [taskCountByDate, setTaskCountByDate] = React.useState<TaskCount[] | undefined>(undefined);
+  const [taskCountByDate, setTaskCountByDate] = React.useState<TaskCountByStatus[] | undefined>(undefined);
   const [totalTasks, setTotalTasks] = React.useState<number | undefined>(undefined);
   const [timeRange, setTimeRange] = React.useState<TimeRange>(TimeRange.Today);
   const [filterStartDate, setStartFilterDate] = React.useState<DateTime | null>(DateTime.now());
@@ -53,12 +66,26 @@ export default function TaskAdmin(): React.ReactElement {
 
         try {
           let totalTasks = 0;
-          const taskCountByDay: Record<string, number> = {};
+          const taskCountByDay: Record<string, TaskCountByStatus['statusCounts']> = {};
           const daysDiff = Math.floor(filterEndDate.startOf('day').diff(filterStartDate.startOf('day')).as('days'));
           let temp = filterStartDate;
           for (let i = 0; i <= daysDiff; i++) {
             const formattedDay = temp.toFormat('y-MM-dd');
-            if (formattedDay) taskCountByDay[formattedDay] = 0;
+            if (formattedDay) {
+              taskCountByDay[formattedDay] = {
+                requested: 0,
+                received: 0,
+                accepted: 0,
+                rejected: 0,
+                ready: 0,
+                cancelled: 0,
+                'in-progress': 0,
+                'on-hold': 0,
+                failed: 0,
+                completed: 0,
+                'entered-in-error': 0,
+              };
+            }
             temp = temp.plus({ day: 1 });
           }
 
@@ -80,17 +107,26 @@ export default function TaskAdmin(): React.ReactElement {
           console.log(`Total tasks fetched: ${allTasks.length}`);
 
           allTasks.forEach((task) => {
-            if (task.meta?.lastUpdated) {
+            if (task.meta?.lastUpdated && task.status) {
               const taskDate = DateTime.fromISO(task.meta.lastUpdated).toFormat('y-MM-dd');
-              if (taskDate && taskCountByDay[taskDate] !== undefined) {
+              if (taskDate && taskCountByDay[taskDate]) {
                 totalTasks++;
-                taskCountByDay[taskDate]++;
+                const status = task.status as keyof TaskCountByStatus['statusCounts'];
+                if (taskCountByDay[taskDate][status] !== undefined) {
+                  taskCountByDay[taskDate][status]++;
+                }
               }
             }
           });
 
           const taskCountByDateTemp = Object.keys(taskCountByDay).map((day) => {
-            return { date: DateTime.fromISO(day), count: taskCountByDay[day] };
+            const statusCounts = taskCountByDay[day];
+            const total = Object.values(statusCounts).reduce((sum, count) => sum + count, 0);
+            return {
+              date: DateTime.fromISO(day),
+              statusCounts,
+              total,
+            };
           });
 
           setTotalTasks(totalTasks);
@@ -295,10 +331,45 @@ export default function TaskAdmin(): React.ReactElement {
                   labels: taskCountByDate.map((taskCount) => taskCount.date.toLocaleString(DateTime.DATE_SHORT)),
                   datasets: [
                     {
-                      label: 'Send-Messages Tasks',
-                      data: taskCountByDate.map((taskCount) => taskCount.count),
-                      backgroundColor: 'rgba(53, 162, 235, 0.5)',
-                      borderColor: 'rgba(53, 162, 235, 1)',
+                      label: 'Requested',
+                      data: taskCountByDate.map((taskCount) => taskCount.statusCounts.requested),
+                      backgroundColor: 'rgba(255, 206, 86, 0.8)',
+                      borderColor: 'rgba(255, 206, 86, 1)',
+                      borderWidth: 1,
+                    },
+                    {
+                      label: 'In Progress',
+                      data: taskCountByDate.map((taskCount) => taskCount.statusCounts['in-progress']),
+                      backgroundColor: 'rgba(54, 162, 235, 0.8)',
+                      borderColor: 'rgba(54, 162, 235, 1)',
+                      borderWidth: 1,
+                    },
+                    {
+                      label: 'Completed',
+                      data: taskCountByDate.map((taskCount) => taskCount.statusCounts.completed),
+                      backgroundColor: 'rgba(75, 192, 192, 0.8)',
+                      borderColor: 'rgba(75, 192, 192, 1)',
+                      borderWidth: 1,
+                    },
+                    {
+                      label: 'Failed',
+                      data: taskCountByDate.map((taskCount) => taskCount.statusCounts.failed),
+                      backgroundColor: 'rgba(255, 99, 132, 0.8)',
+                      borderColor: 'rgba(255, 99, 132, 1)',
+                      borderWidth: 1,
+                    },
+                    {
+                      label: 'Cancelled',
+                      data: taskCountByDate.map((taskCount) => taskCount.statusCounts.cancelled),
+                      backgroundColor: 'rgba(153, 102, 255, 0.8)',
+                      borderColor: 'rgba(153, 102, 255, 1)',
+                      borderWidth: 1,
+                    },
+                    {
+                      label: 'Ready',
+                      data: taskCountByDate.map((taskCount) => taskCount.statusCounts.ready),
+                      backgroundColor: 'rgba(255, 159, 64, 0.8)',
+                      borderColor: 'rgba(255, 159, 64, 1)',
                       borderWidth: 1,
                     },
                   ],
@@ -308,7 +379,7 @@ export default function TaskAdmin(): React.ReactElement {
                   plugins: {
                     title: {
                       display: true,
-                      text: `Send-Messages Tasks by Date (${filterStartDate?.toLocaleString(
+                      text: `Send-Messages Tasks by Status and Date (${filterStartDate?.toLocaleString(
                         DateTime.DATE_SHORT
                       )} - ${filterEndDate?.toLocaleString(DateTime.DATE_SHORT)})`,
                       font: {
@@ -316,11 +387,24 @@ export default function TaskAdmin(): React.ReactElement {
                       },
                     },
                     legend: {
-                      display: false,
+                      display: true,
+                      position: 'top' as const,
+                    },
+                    tooltip: {
+                      mode: 'index' as const,
+                      intersect: false,
                     },
                   },
                   scales: {
+                    x: {
+                      stacked: true,
+                      title: {
+                        display: true,
+                        text: 'Date',
+                      },
+                    },
                     y: {
+                      stacked: true,
                       beginAtZero: true,
                       ticks: {
                         stepSize: 1,
@@ -330,12 +414,10 @@ export default function TaskAdmin(): React.ReactElement {
                         text: 'Number of Tasks',
                       },
                     },
-                    x: {
-                      title: {
-                        display: true,
-                        text: 'Date',
-                      },
-                    },
+                  },
+                  interaction: {
+                    mode: 'index' as const,
+                    intersect: false,
                   },
                 }}
               />
