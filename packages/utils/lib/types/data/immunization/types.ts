@@ -11,7 +11,10 @@ export interface ImmunizationOrderDetails {
   };
   orderedDateTime: string;
   route?: string;
-  location?: string;
+  location?: {
+    name: string;
+    code: string;
+  };
   instructions?: string;
 }
 

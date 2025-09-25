@@ -55,7 +55,7 @@ export async function updateOrderDetails(
   }
 
   const routeCoding = route ? searchRouteByCode(route) : undefined;
-  const locationCoding = location ? searchMedicationLocation(location) : undefined;
+  const locationCoding = location ? searchMedicationLocation(location.code, location.name) : undefined;
   medicationAdministration.dosage = {
     dose: {
       unit: units,
@@ -79,7 +79,7 @@ export async function updateOrderDetails(
             {
               system: locationCoding.system,
               code: locationCoding.code,
-              display: locationCoding.display,
+              display: locationCoding.name,
             },
           ],
         }

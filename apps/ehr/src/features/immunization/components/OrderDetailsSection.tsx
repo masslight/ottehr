@@ -1,6 +1,7 @@
 import { Grid, Typography, useTheme } from '@mui/material';
 import React from 'react';
 import { AutocompleteInput } from 'src/components/input/AutocompleteInput';
+import { Option } from 'src/components/input/Option';
 import { ProviderSelectInput } from 'src/components/input/ProviderSelectInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
@@ -53,7 +54,23 @@ export const OrderDetailsSection: React.FC = () => {
         <AutocompleteInput name="details.route" label="Route" options={ROUTE_OPTIONS} />
       </Grid>
       <Grid xs={6} item>
-        <AutocompleteInput name="details.location" label="Location" options={LOCATION_OPTIONS} />
+        <AutocompleteInput
+          name="details.location"
+          label="Location"
+          options={LOCATION_OPTIONS}
+          valueToOption={(value: any) => {
+            return {
+              label: value.name,
+              value: value.code,
+            };
+          }}
+          optionToValue={(option: Option) => {
+            return {
+              name: option.label,
+              code: option.value,
+            };
+          }}
+        />
       </Grid>
       <Grid xs={12} item>
         <TextInput name="details.instructions" label="Instructions" multiline />
