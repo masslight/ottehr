@@ -649,7 +649,7 @@ export const useGetChartData = (
     },
 
     enabled: !!apiClient && !!encounterId && !!user && enabled,
-    staleTime: 0,
+    staleTime: 5_000,
     refetchInterval: refetchInterval || false,
   });
 

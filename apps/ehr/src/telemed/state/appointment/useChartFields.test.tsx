@@ -7,7 +7,7 @@ import { act, render, renderHook, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { VitalsObservationDTO } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useChartFields } from './useChartDataFields';
+import { useChartFields } from './useChartFields';
 
 vi.mock('react-router-dom', () => ({
   useParams: vi.fn().mockReturnValue({ id: 'appointment-123' }),
@@ -98,7 +98,7 @@ describe('useChartDataField', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    const { useOystehrAPIClient } = await import('../../../telemed/hooks/useOystehrAPIClient');
+    const { useOystehrAPIClient } = await import('../../hooks/useOystehrAPIClient');
     mockUseOystehrAPIClient = vi.mocked(useOystehrAPIClient);
     mockUseOystehrAPIClient.mockReturnValue(mockApiClient);
     mockApiClient.getChartData.mockResolvedValue(mockChartData);
@@ -634,7 +634,7 @@ describe('useChartDataField - Advanced Cache Management', () => {
   let wrapper: ({ children }: { children: ReactNode }) => JSX.Element;
 
   beforeEach(async () => {
-    const { useOystehrAPIClient } = await import('../../../telemed/hooks/useOystehrAPIClient');
+    const { useOystehrAPIClient } = await import('../../hooks/useOystehrAPIClient');
     const mockUseOystehrAPIClient = vi.mocked(useOystehrAPIClient);
     mockUseOystehrAPIClient.mockReturnValue(mockApiClient);
     mockApiClient.getChartData.mockResolvedValue(mockChartData);

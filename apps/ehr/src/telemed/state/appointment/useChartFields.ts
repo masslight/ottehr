@@ -11,8 +11,8 @@ import {
   useErrorQuery,
   useSuccessQuery,
 } from 'utils';
-import { useOystehrAPIClient } from '../../../telemed/hooks/useOystehrAPIClient';
 import { useGetAppointmentAccessibility } from '../../hooks';
+import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
 import { useAppointmentData } from './appointment.store';
 
 type ReactQueryState = {
