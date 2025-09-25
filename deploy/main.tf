@@ -105,7 +105,7 @@ module "ottehr_apps" {
     OYSTEHR_APPLICATION_CLIENT_ID    = module.oystehr.app_ehr_client_id
     OYSTEHR_APPLICATION_REDIRECT_URL = module.oystehr.app_ehr_redirect_url
     OYSTEHR_CONNECTION_NAME          = module.oystehr.app_ehr_connection_name
-    MUI_X_LICENSE_KEY                = module.oystehr.mui_x_license_key
+    MUI_X_LICENSE_KEY                = module.oystehr.MUI_X_LICENSE_KEY
     OYSTEHR_APPLICATION_ID           = module.oystehr.app_ehr_id
     PROJECT_API_ZAMBDA_URL           = var.environment == "local" ? "http://localhost:3000/local" : "https://project-api.zapehr.com/v1"
     PATIENT_APP_URL                  = "https://${var.patient_portal_domain == null ? one(module.aws_infra[*].patient_portal_domain) == null ? "" : one(module.aws_infra[*].patient_portal_domain) : var.patient_portal_domain}"
@@ -121,9 +121,9 @@ module "ottehr_apps" {
     IS_LOCAL                      = var.environment == "local" ? "true" : "false"
     OYSTEHR_APPLICATION_CLIENT_ID = module.oystehr.app_patient_portal_client_id
     PROJECT_API_URL               = var.environment == "local" ? "http://localhost:3000/local" : "https://project-api.zapehr.com/v1"
-    DEFAULT_WALKIN_LOCATION_NAME  = module.oystehr.default_walkin_location_name
-    MIXPANEL_TOKEN                = module.oystehr.mixpanel_token
-    GTM_ID                        = module.oystehr.gtm_id
+    DEFAULT_WALKIN_LOCATION_NAME  = module.oystehr.DEFAULT_WALKIN_LOCATION_NAME
+    MIXPANEL_TOKEN                = module.oystehr.MIXPANEL_TOKEN
+    GTM_ID                        = module.oystehr.GTM_ID
     STRIPE_PUBLIC_KEY             = module.oystehr.stripe_public_key
     SENTRY_AUTH_TOKEN             = module.oystehr.sentry_auth_token
     SENTRY_ORG                    = module.oystehr.sentry_org
