@@ -1,14 +1,18 @@
-import { Box, Divider, Skeleton, TextField } from '@mui/material';
-import React, { FC } from 'react';
-import { ObservationBooleanFieldDTO } from 'utils';
-import { ADDITIONAL_QUESTIONS } from '../../../../../constants';
-import { useGetAppointmentAccessibility } from '../../../../hooks';
-import { useChartData } from '../../../../state';
-import { AdditionalQuestionEdit, AdditionalQuestionView } from '../components';
+import { Box, Skeleton, TextField, Typography } from '@mui/material';
+import { FC } from 'react';
+import { patientScreeningQuestionsConfig } from 'utils';
+import { useChartData } from '../../../../../telemed/state';
+import { AdditionalQuestionEdit } from '../components/AdditionalQuestionRow';
 
+// todo: support only boolean values, update when new question types will be required
 export const AdditionalQuestionsProviderColumn: FC = () => {
   const { chartData, isChartDataLoading } = useChartData();
-  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const questionnaireFields = patientScreeningQuestionsConfig.fields.filter((field) => field.existsInQuestionnaire);
+
+  const getObservationValue = (fhirField: string): boolean | undefined => {
+    const observation = chartData?.observations?.find((obs) => obs.field === fhirField);
+    return typeof observation?.value === 'boolean' ? observation.value : undefined;
+  };
 
   return (
     <Box
@@ -18,33 +22,21 @@ export const AdditionalQuestionsProviderColumn: FC = () => {
         gap: 1,
       }}
     >
-      {ADDITIONAL_QUESTIONS.map((question, index) => {
-        const value = (
-          chartData?.observations?.find(
-            (observation) => observation.field === question.field
-          ) as ObservationBooleanFieldDTO
-        )?.value;
-        return (
-          <React.Fragment key={question.field}>
-            {isReadOnly ? (
-              <AdditionalQuestionView
-                label={question.label}
-                value={value}
-                isLoading={isChartDataLoading}
-                field={question.field}
-              />
-            ) : (
-              <AdditionalQuestionEdit
-                label={question.label}
-                field={question.field}
-                value={value}
-                isChartDataLoading={isChartDataLoading}
-              />
-            )}
-            {index < ADDITIONAL_QUESTIONS.length - 1 && <Divider />}
-          </React.Fragment>
-        );
-      })}
+      {questionnaireFields.length > 0 ? (
+        questionnaireFields.map((field) => (
+          <AdditionalQuestionEdit
+            key={field.id}
+            label={field.question}
+            field={field.fhirField}
+            value={getObservationValue(field.fhirField)}
+            isChartDataLoading={isChartDataLoading}
+          />
+        ))
+      ) : (
+        <Typography variant="body2" color="text.secondary">
+          No additional questions configured
+        </Typography>
+      )}
     </Box>
   );
 };

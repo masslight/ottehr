@@ -1,5 +1,11 @@
 {
   "schema-version": "2025-03-19",
+  "project": {
+    "PROJECT": {
+      "signupEnabled": true,
+      "defaultPatientRoleId": "#{ref/roles/PATIENT/id}"
+    }
+  },
   "secrets": {
     "WEBSITE_URL": {
       "name": "WEBSITE_URL",
@@ -15,15 +21,18 @@
     },
     "AUTH0_CLIENT": {
       "name": "AUTH0_CLIENT",
-      "value": "#{var/AUTH0_CLIENT}"
+      "value": "#{ref/m2ms/ZAMBDAS_ADMIN/client_id}",
+      "legacyValue": "#{var/AUTH0_CLIENT}"
     },
     "AUTH0_SECRET": {
       "name": "AUTH0_SECRET",
-      "value": "#{var/AUTH0_SECRET}"
+      "value": "#{ref/m2ms/ZAMBDAS_ADMIN/client_secret}",
+      "legacyValue": "#{var/AUTH0_SECRET}"
     },
     "DEFAULT_BILLING_RESOURCE": {
       "name": "DEFAULT_BILLING_RESOURCE",
-      "value": "#{var/DEFAULT_BILLING_RESOURCE}"
+      "value": "#{ref/fhirResources/DEFAULT_BILLING_RESOURCE/type}/#{ref/fhirResources/DEFAULT_BILLING_RESOURCE/id}",
+      "legacyValue": "#{var/DEFAULT_BILLING_RESOURCE}"
     },
     "FHIR_API": {
       "name": "FHIR_API",
@@ -37,33 +46,10 @@
       "name": "ENVIRONMENT",
       "value": "#{var/ENVIRONMENT}"
     },
-    "SENDGRID_API_KEY": {
-      "name": "SENDGRID_API_KEY",
-      "value": "#{var/SENDGRID_API_KEY}"
-    },
-    "SENDGRID_ISSUE_REPORT_EMAIL_BCC": {
-      "name": "SENDGRID_ISSUE_REPORT_EMAIL_BCC",
-      "value": "#{var/SENDGRID_ISSUE_REPORT_EMAIL_BCC}"
-    },
-    "VIRTUAL_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID": {
-      "name": "VIRTUAL_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID",
-      "value": "#{var/VIRTUAL_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID}"
-    },
-    "VIRTUAL_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID": {
-      "name": "VIRTUAL_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID",
-      "value": "#{var/VIRTUAL_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID}"
-    },
-    "VIRTUAL_SENDGRID_ERROR_EMAIL_TEMPLATE_ID": {
-      "name": "VIRTUAL_SENDGRID_ERROR_EMAIL_TEMPLATE_ID",
-      "value": "#{var/VIRTUAL_SENDGRID_ERROR_EMAIL_TEMPLATE_ID}"
-    },
-    "VIRTUAL_SENDGRID_VIDEO_CHAT_INVITATION_EMAIL_TEMPLATE_ID": {
-      "name": "VIRTUAL_SENDGRID_VIDEO_CHAT_INVITATION_EMAIL_TEMPLATE_ID",
-      "value": "#{var/VIRTUAL_SENDGRID_VIDEO_CHAT_INVITATION_EMAIL_TEMPLATE_ID}"
-    },
     "ORGANIZATION_ID": {
       "name": "ORGANIZATION_ID",
-      "value": "#{var/ORGANIZATION_ID}"
+      "value": "#{ref/fhirResources/OTTEHR_ORGANIZATION/id}",
+      "legacyValue": "#{var/ORGANIZATION_ID}"
     },
     "NLM_API_KEY": {
       "name": "NLM_API_KEY",
@@ -73,37 +59,9 @@
       "name": "SENDGRID_EMAIL_BCC",
       "value": "#{var/SENDGRID_EMAIL_BCC}"
     },
-    "IN_PERSON_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID": {
-      "name": "IN_PERSON_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID",
-      "value": "#{var/IN_PERSON_SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID}"
-    },
-    "IN_PERSON_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID": {
-      "name": "IN_PERSON_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID",
-      "value": "#{var/IN_PERSON_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID}"
-    },
-    "IN_PERSON_SENDGRID_SPANISH_CONFIRMATION_EMAIL_TEMPLATE_ID": {
-      "name": "IN_PERSON_SENDGRID_SPANISH_CONFIRMATION_EMAIL_TEMPLATE_ID",
-      "value": "#{var/IN_PERSON_SENDGRID_SPANISH_CONFIRMATION_EMAIL_TEMPLATE_ID}"
-    },
-    "IN_PERSON_SENDGRID_SPANISH_CANCELLATION_EMAIL_TEMPLATE_ID": {
-      "name": "IN_PERSON_SENDGRID_SPANISH_CANCELLATION_EMAIL_TEMPLATE_ID",
-      "value": "#{var/IN_PERSON_SENDGRID_SPANISH_CANCELLATION_EMAIL_TEMPLATE_ID}"
-    },
-    "IN_PERSON_SENDGRID_ERROR_EMAIL_TEMPLATE_ID": {
-      "name": "IN_PERSON_SENDGRID_ERROR_EMAIL_TEMPLATE_ID",
-      "value": "#{var/IN_PERSON_SENDGRID_ERROR_EMAIL_TEMPLATE_ID}"
-    },
-    "IN_PERSON_SENDGRID_ISSUE_REPORT_EMAIL_TEMPLATE_ID": {
-      "name": "IN_PERSON_SENDGRID_ISSUE_REPORT_EMAIL_TEMPLATE_ID",
-      "value": "#{var/IN_PERSON_SENDGRID_ISSUE_REPORT_EMAIL_TEMPLATE_ID}"
-    },
     "IN_PERSON_PREBOOK_DISPLAY_TOMORROW_SLOTS_AT_HOUR": {
       "name": "IN_PERSON_PREBOOK_DISPLAY_TOMORROW_SLOTS_AT_HOUR",
       "value": "#{var/IN_PERSON_PREBOOK_DISPLAY_TOMORROW_SLOTS_AT_HOUR}"
-    },
-    "UC_SENDGRID_ISSUE_REPORT_EMAIL_TEMPLATE_ID": {
-      "name": "UC_SENDGRID_ISSUE_REPORT_EMAIL_TEMPLATE_ID",
-      "value": "#{var/UC_SENDGRID_ISSUE_REPORT_EMAIL_TEMPLATE_ID}"
     },
     "INTAKE_ISSUE_REPORT_EMAIL_GROUP_ID": {
       "name": "INTAKE_ISSUE_REPORT_EMAIL_GROUP_ID",
@@ -115,7 +73,8 @@
     },
     "PROJECT_ID": {
       "name": "PROJECT_ID",
-      "value": "#{var/PROJECT_ID}"
+      "value": "#{ref/project/PROJECT/id}",
+      "legacyValue": "#{var/PROJECT_ID}"
     },
     "SENTRY_AUTH_TOKEN": {
       "name": "SENTRY_AUTH_TOKEN",
@@ -132,14 +91,6 @@
     "SENTRY_DSN": {
       "name": "SENTRY_DSN",
       "value": "#{var/SENTRY_DSN}"
-    },
-    "TELEMED_CLIENT_ID": {
-      "name": "TELEMED_CLIENT_ID",
-      "value": "#{var/TELEMED_CLIENT_ID}"
-    },
-    "TELEMED_CLIENT_SECRET": {
-      "name": "TELEMED_CLIENT_SECRET",
-      "value": "#{var/TELEMED_CLIENT_SECRET}"
     },
     "CANDID_CLIENT_ID": {
       "name": "CANDID_CLIENT_ID",
@@ -188,6 +139,23 @@
     "ADVAPACS_VIEWER_USERNAME": {
       "name": "ADVAPACS_VIEWER_USERNAME",
       "value": "#{var/ADVAPACS_VIEWER_USERNAME}"
+    },
+    "MUI_X_LICENSE_KEY": {
+      "name": "MUI_X_LICENSE_KEY",
+      "value": "#{var/MUI_X_LICENSE_KEY}"
+    },
+    "GTM_ID": {
+      "name": "GTM_ID",
+      "value": "#{var/GTM_ID}"
+    },
+    "MIXPANEL_TOKEN": {
+      "name": "MIXPANEL_TOKEN",
+      "value": "#{var/MIXPANEL_TOKEN}"
+    },
+    "DEFAULT_WALKIN_LOCATION_NAME": {
+      "name": "DEFAULT_WALKIN_LOCATION_NAME",
+      "value": "${replace(\"#{ref/fhirResources/LOCATION_PHYSICAL_NY/data.name}\", \" \", \"_\")}",
+      "legacyValue": "ignore"
     }
   },
   "zambdas": {
@@ -733,6 +701,17 @@
         "expression": "cron(0,15,30,45 * * * ? *)"
       }
     },
+    "TEST-ENV-CLEANUP": {
+      "name": "test-env-cleanup",
+      "type": "cron",
+      "runtime": "nodejs20.x",
+      "src": "src/cron/test-env-cleanup/index",
+      "zip": ".dist/zips/test-env-cleanup.zip",
+      "timeout": "900",
+      "schedule": {
+        "expression": "cron(0 * * * ? *)"
+      }
+    },
     "COMMUNICATION-SUBSCRIPTION": {
       "name": "communication-subscription",
       "type": "subscription",
@@ -1149,6 +1128,9 @@
       "zip": ".dist/zips/list-templates.zip"
     }
   },
+  "faxNumbers": {
+    "OTTEHR_FAX": {}
+  },
   "fhirResources": {
     "OTTEHR_ORGANIZATION": {
       "resourceType": "Organization",
@@ -1157,7 +1139,7 @@
       "telecom": [
         {
           "system": "fax",
-          "value": "#{var/fax-number}"
+          "value": "#{ref/faxNumbers/OTTEHR_FAX/number}"
         }
       ]
     },
@@ -1167,7 +1149,7 @@
       "identifier": [
         {
           "system": "https://identifiers.fhir.oystehr.com/lab-guid",
-          "value": "790b282d-77e9-4697-9f59-0cef8238033a"
+          "value": "#{var/lab-autolab-lab-id}"
         },
         {
           "system": "https://identifiers.fhir.oystehr.com/lab-account-number",
@@ -5502,17 +5484,17 @@
         },
         {
           "resource": [
-            "Z3:#{var/PROJECT_ID}-photo-id-cards/*",
-            "Z3:#{var/PROJECT_ID}-insurance-cards/*",
-            "Z3:#{var/PROJECT_ID}-school-work-note-templates/*",
-            "Z3:#{var/PROJECT_ID}-patient-photos/*",
-            "Z3:#{var/PROJECT_ID}-consent-forms/*",
-            "Z3:#{var/PROJECT_ID}-visit-notes/*",
-            "Z3:#{var/PROJECT_ID}-receipts/*",
-            "Z3:#{var/PROJECT_ID}-school-work-notes/*",
-            "Z3:#{var/PROJECT_ID}-privacy-policy/*",
-            "Z3:#{var/PROJECT_ID}-exported-questionnaires/*",
-            "Z3:#{var/PROJECT_ID}-discharge-summaries/*"
+            "Z3:#{ref/project/PROJECT/id}-photo-id-cards/*",
+            "Z3:#{ref/project/PROJECT/id}-insurance-cards/*",
+            "Z3:#{ref/project/PROJECT/id}-school-work-note-templates/*",
+            "Z3:#{ref/project/PROJECT/id}-patient-photos/*",
+            "Z3:#{ref/project/PROJECT/id}-consent-forms/*",
+            "Z3:#{ref/project/PROJECT/id}-visit-notes/*",
+            "Z3:#{ref/project/PROJECT/id}-receipts/*",
+            "Z3:#{ref/project/PROJECT/id}-school-work-notes/*",
+            "Z3:#{ref/project/PROJECT/id}-privacy-policy/*",
+            "Z3:#{ref/project/PROJECT/id}-exported-questionnaires/*",
+            "Z3:#{ref/project/PROJECT/id}-discharge-summaries/*"
           ],
           "action": ["Z3:PutObject", "Z3:GetObject"],
           "effect": "Allow"
@@ -5802,6 +5784,16 @@
           "resource": ["Zambda:Function:*"],
           "action": ["Zambda:InvokeFunction"],
           "effect": "Allow"
+        },
+        {
+          "action": ["eRx:SearchAllergen"],
+          "resource": ["eRx:Allergen"],
+          "effect": "Allow"
+        },
+        {
+          "action": ["eRx:SearchMedication"],
+          "resource": ["eRx:Medication"],
+          "effect": "Allow"
         }
       ]
     },
@@ -6014,40 +6006,40 @@
   },
   "buckets": {
     "VISIT_NOTES": {
-      "name": "#{var/PROJECT_ID}-visit-notes"
+      "name": "#{ref/project/PROJECT/id}-visit-notes"
     },
     "CONSENT_FORMS": {
-      "name": "#{var/PROJECT_ID}-consent-forms"
+      "name": "#{ref/project/PROJECT/id}-consent-forms"
     },
     "PRIVACY_POLICY": {
-      "name": "#{var/PROJECT_ID}-privacy-policy"
+      "name": "#{ref/project/PROJECT/id}-privacy-policy"
     },
     "INSURANCE_CARDS": {
-      "name": "#{var/PROJECT_ID}-insurance-cards"
+      "name": "#{ref/project/PROJECT/id}-insurance-cards"
     },
     "PHOTO_ID_CARDS": {
-      "name": "#{var/PROJECT_ID}-photo-id-cards"
+      "name": "#{ref/project/PROJECT/id}-photo-id-cards"
     },
     "PATIENT_PHOTOS": {
-      "name": "#{var/PROJECT_ID}-patient-photos"
+      "name": "#{ref/project/PROJECT/id}-patient-photos"
     },
     "SCHOOL_WORK_NOTES": {
-      "name": "#{var/PROJECT_ID}-school-work-notes"
+      "name": "#{ref/project/PROJECT/id}-school-work-notes"
     },
     "SCHOOL_WORK_NOTE_TEMPLATES": {
-      "name": "#{var/PROJECT_ID}-school-work-note-templates"
+      "name": "#{ref/project/PROJECT/id}-school-work-note-templates"
     },
     "LABS": {
-      "name": "#{var/PROJECT_ID}-labs"
+      "name": "#{ref/project/PROJECT/id}-labs"
     },
     "RECEIPTS": {
-      "name": "#{var/PROJECT_ID}-receipts"
+      "name": "#{ref/project/PROJECT/id}-receipts"
     },
     "PAPERWORK": {
-      "name": "#{var/PROJECT_ID}-exported-questionnaires"
+      "name": "#{ref/project/PROJECT/id}-exported-questionnaires"
     },
     "DISCHARGE_SUMMARIES": {
-      "name": "#{var/PROJECT_ID}-discharge-summaries"
+      "name": "#{ref/project/PROJECT/id}-discharge-summaries"
     }
   },
   "labRoutes": {

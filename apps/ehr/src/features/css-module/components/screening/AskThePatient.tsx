@@ -767,11 +767,13 @@ const AskThePatient = (): React.ReactElement => {
       <Grid container>
         <Grid item xs={12}>
           <Typography variant="subtitle2" sx={{ color: '#ea580c', mb: 2 }}>
-            {patientScreeningQuestionsConfig.title}
+            ASK THE PATIENT
           </Typography>
         </Grid>
 
-        {patientScreeningQuestionsConfig.fields.map((field) => renderField(field))}
+        {patientScreeningQuestionsConfig.fields
+          .filter((field) => !field.existsInQuestionnaire)
+          .map((field) => renderField(field))}
       </Grid>
     </Paper>
   );

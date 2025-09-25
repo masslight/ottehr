@@ -3,7 +3,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { Box, Button, CircularProgress, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC } from 'react';
-import { APIErrorCode, DIAGNOSIS_MAKE_PRIMARY_BUTTON, IcdSearchResponse } from 'utils';
+import { APIErrorCode, DIAGNOSIS_MAKE_PRIMARY_BUTTON, DiagnosisDTO, IcdSearchResponse } from 'utils';
 import { CompleteConfiguration } from '../../../../../components/CompleteConfiguration';
 import { GenericToolTip } from '../../../../../components/GenericToolTip';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
@@ -31,8 +31,19 @@ export const DiagnosesContainer: FC = () => {
 
   const { css } = useFeatureFlags();
 
+  const getUpdatedDiagnoses = (
+    oldDiagnoses: DiagnosisDTO[],
+    updatedDiagnoses: DiagnosisDTO[] | undefined,
+    filterOn: 'resourceId' | 'code' = 'resourceId'
+  ): DiagnosisDTO[] =>
+    oldDiagnoses.map((prevDiagnosis) => {
+      const updatedDiagnosis = updatedDiagnoses?.find((uD) => uD[filterOn] === prevDiagnosis[filterOn]);
+      return updatedDiagnosis || prevDiagnosis;
+    });
+
   const onAdd = (value: IcdSearchResponse['codes'][number]): void => {
     const preparedValue = { ...value, isPrimary: !primaryDiagnosis };
+    const newDiagnoses = [...diagnoses, preparedValue];
 
     saveChartData(
       {
@@ -40,12 +51,10 @@ export const DiagnosesContainer: FC = () => {
       },
       {
         onSuccess: (data) => {
-          const diagnosis = (data.chartData.diagnosis || [])[0];
-          if (diagnosis) {
-            setPartialChartData({
-              diagnosis: [...diagnoses, diagnosis],
-            });
-          }
+          const addedDiagnoses = data.chartData.diagnosis;
+          setPartialChartData({
+            diagnosis: getUpdatedDiagnoses(newDiagnoses, addedDiagnoses, 'code'),
+          });
         },
         onError: () => {
           enqueueSnackbar('An error has occurred while adding diagnosis. Please try again.', { variant: 'error' });
@@ -55,7 +64,7 @@ export const DiagnosesContainer: FC = () => {
         },
       }
     );
-    setPartialChartData({ diagnosis: [...diagnoses, preparedValue] });
+    setPartialChartData({ diagnosis: newDiagnoses });
   };
 
   const onDelete = async (resourceId: string): Promise<void> => {
@@ -79,13 +88,19 @@ export const DiagnosesContainer: FC = () => {
 
       if (firstAppropriateDiagnosis) {
         const otherDiagnosis = { ...firstAppropriateDiagnosis, isPrimary: true };
-        const prevDiagnoses = localDiagnoses;
+        const prevDiagnoses = [...localDiagnoses];
 
         saveChartData(
           {
             diagnosis: [otherDiagnosis],
           },
           {
+            onSuccess: (data) => {
+              const updatedDiagnoses = data.chartData.diagnosis;
+              setPartialChartData({
+                diagnosis: getUpdatedDiagnoses(prevDiagnoses, updatedDiagnoses),
+              });
+            },
             onError: () => {
               enqueueSnackbar(
                 'An error has occurred while setting primary diagnosis. Please try to set primary diagnosis manually.',
@@ -107,6 +122,7 @@ export const DiagnosesContainer: FC = () => {
   };
 
   const onMakePrimary = (resourceId: string): void => {
+    const oldDiagnoses = [...diagnoses];
     const value = diagnoses.find((item) => item.resourceId === resourceId)!;
     const previousAndNewValues = [];
     previousAndNewValues.push({ ...value, isPrimary: true }); // prepared diagnosis
@@ -117,12 +133,18 @@ export const DiagnosesContainer: FC = () => {
         diagnosis: previousAndNewValues,
       },
       {
+        onSuccess: (data) => {
+          const updatedDiagnoses = data.chartData.diagnosis;
+          setPartialChartData({
+            diagnosis: getUpdatedDiagnoses(diagnoses, updatedDiagnoses),
+          });
+        },
         onError: () => {
           enqueueSnackbar('An error has occurred while changing primary diagnosis. Please try again.', {
             variant: 'error',
           });
           setPartialChartData({
-            diagnosis: diagnoses,
+            diagnosis: oldDiagnoses,
           });
         },
       }

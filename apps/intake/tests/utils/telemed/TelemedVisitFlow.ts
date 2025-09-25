@@ -52,6 +52,8 @@ export class TelemedVisitFlow extends BaseTelemedFlow {
     // additional questions
     await this.continue();
     await this.paperwork.fillAndCheckSelfPay();
+    await this.paperwork.fillAndAddCreditCard();
+    await this.continue();
     await this.paperworkGeneral.fillResponsiblePartyDataSelf();
     await this.continue();
     await this.continue(); // skip optional photo ID

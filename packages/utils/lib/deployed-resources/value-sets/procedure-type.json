@@ -214,6 +214,11 @@
             }
           }
         ]
+      },
+      {
+        "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+        "code": "x-ray",
+        "display": "X-Ray"
       }
     ]
   }
