@@ -93,8 +93,8 @@ export const ERX: FC<{
       console.log(error);
       let errorMsg = 'Something went wrong while trying to sync patient to eRx';
 
-      if (error.status === 400) {
-        if (error.message?.includes('phone')) {
+      if (error.code === '4006') {
+        if (error.message?.toLowerCase()?.includes('phone')) {
           errorMsg = `Patient has specified some wrong phone number: ${phoneNumber}. Please provide a real patient's phone number`;
         } else if (error.message?.includes('eRx service is not configured')) {
           errorMsg = `eRx service is not configured. Please contact support.`;
