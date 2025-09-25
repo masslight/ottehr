@@ -776,7 +776,7 @@ export const getAvailableSlotsForSchedules = async (
         if (!lastUpdated.isValid) {
           return true;
         }
-        const minutesSinceLastUpdate = lastUpdated.diff(thisMoment, 'minutes').minutes;
+        const minutesSinceLastUpdate = thisMoment.diff(lastUpdated, 'minutes').minutes;
         return minutesSinceLastUpdate <= SLOT_BUSY_TENTATIVE_EXPIRATION_MINUTES;
       }
       return true;

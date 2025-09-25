@@ -1,4 +1,9 @@
-import Oystehr, { BatchInputDeleteRequest, BatchInputJSONPatchRequest, BatchInputPostRequest } from '@oystehr/sdk';
+import Oystehr, {
+  BatchInputDeleteRequest,
+  BatchInputJSONPatchRequest,
+  BatchInputPostRequest,
+  FhirResource,
+} from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ClinicalImpression, Communication, Condition, Encounter, List, Observation } from 'fhir/r4b';
 import { ApplyTemplateZambdaInput, chunkThings, getSecret, SecretsKeys } from 'utils';
@@ -87,15 +92,28 @@ const performEffect = async (
 ): Promise<void> => {
   const { encounterId } = validatedInput;
 
+  const encounterBundle = (
+    await oystehr.fhir.search({
+      resourceType: 'Encounter',
+      params: [
+        { name: '_id', value: encounterId },
+        { name: '_revinclude:iterate', value: 'Observation:encounter' },
+        { name: '_revinclude:iterate', value: 'ClinicalImpression:encounter' },
+        { name: '_revinclude:iterate', value: 'Communication:encounter' },
+        { name: '_revinclude:iterate', value: 'Condition:encounter' },
+      ],
+    })
+  ).unbundle();
+
   // Make 1 transaction to delete old resources exam resources that are being replaced and write the new ones
-  const deleteRequests = await makeDeleteRequests(oystehr, encounterId);
+  const deleteRequests = await makeDeleteRequests(encounterBundle);
   const deleteBatches = chunkThings(deleteRequests, 5).map((chunk) =>
     oystehr.fhir.batch({
       requests: chunk,
     })
   );
 
-  const createRequests = makeCreateRequests(encounter, templateList);
+  const createRequests = makeCreateRequests(encounter, templateList, encounterBundle);
 
   const miniTransactionRequests = createRequests.filter((request) => {
     if (request.method === 'POST') {
@@ -136,21 +154,8 @@ const performEffect = async (
   // console.log('Transaction Bundle:', transactionBundle);
 };
 
-const makeDeleteRequests = async (oystehr: Oystehr, encounterId: string): Promise<BatchInputDeleteRequest[]> => {
+const makeDeleteRequests = async (encounterBundle: FhirResource[]): Promise<BatchInputDeleteRequest[]> => {
   const deleteResourcesRequests: BatchInputDeleteRequest[] = [];
-
-  const encounterBundle = (
-    await oystehr.fhir.search({
-      resourceType: 'Encounter',
-      params: [
-        { name: '_id', value: encounterId },
-        { name: '_revinclude:iterate', value: 'Observation:encounter' },
-        { name: '_revinclude:iterate', value: 'ClinicalImpression:encounter' },
-        { name: '_revinclude:iterate', value: 'Communication:encounter' },
-        { name: '_revinclude:iterate', value: 'Condition:encounter' },
-      ],
-    })
-  ).unbundle();
 
   const resourcesToDelete = encounterBundle.filter(
     (resource) =>
@@ -158,10 +163,11 @@ const makeDeleteRequests = async (oystehr: Oystehr, encounterId: string): Promis
         (tag) =>
           tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/exam-observation-field' ||
           tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/medical-decision' ||
-          tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/patient-instruction' ||
-          tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/chief-complaint'
+          tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/patient-instruction'
+        // tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/chief-complaint'
       )
   );
+
   deleteResourcesRequests.push(
     ...resourcesToDelete.map((resource) => makeDeleteResourceRequest(resource.resourceType, resource.id!)) // we just fetched these so they definitely have id
   );
@@ -176,7 +182,8 @@ const makeDeleteResourceRequest = (resourceType: string, id: string): BatchInput
 
 const makeCreateRequests = (
   encounter: Encounter,
-  templateList: List
+  templateList: List,
+  encounterBundle: FhirResource[]
 ): Array<
   BatchInputPostRequest<Observation | ClinicalImpression | Condition | Communication> | BatchInputJSONPatchRequest
 > => {
@@ -197,13 +204,33 @@ const makeCreateRequests = (
     }
   });
 
+  // We will patch the HPI to append content if it already exists.
+  const existingHpiCondition = encounterBundle.find(
+    (resource) =>
+      resource.meta?.tag?.some(
+        (tag) => tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/chief-complaint'
+      )
+  );
+
   const templateEncounterDiagnoses = templateList.contained?.find((r) => r.resourceType === 'Encounter')?.diagnosis;
+  let templateHpiCondition: Condition | undefined;
 
   for (const resource of templateList.entry) {
     // grab contained resource from resource.id in entry
     const containedResource = templateList.contained?.find((r) => r.id === resource.item.reference?.replace('#', ''));
     if (!containedResource) {
       console.error('no contained resource found');
+      continue;
+    }
+
+    // For Chief Complaint, if there is an existing HPI Condition, instead of creating, we will patch so skip.
+    if (
+      containedResource.meta?.tag?.some(
+        (tag) => tag.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/chief-complaint'
+      ) &&
+      existingHpiCondition
+    ) {
+      templateHpiCondition = containedResource as Condition;
       continue;
     }
 
@@ -261,6 +288,23 @@ const makeCreateRequests = (
           op: encounter.diagnosis ? 'replace' : 'add',
           path: '/diagnosis',
           value: encounterDiagnoses,
+        },
+      ],
+    };
+    createResourcesRequests.push(encounterDiagnosisPatch);
+  }
+
+  // Patch HPI Condition note if it already exists
+  if (existingHpiCondition) {
+    const condition = existingHpiCondition as Condition;
+    const encounterDiagnosisPatch: BatchInputJSONPatchRequest = {
+      method: 'PATCH',
+      url: `Condition/${condition.id}`,
+      operations: [
+        {
+          op: 'replace',
+          path: '/note/0/text',
+          value: `${condition.note?.[0]?.text}\n\n${templateHpiCondition?.note?.[0]?.text}`,
         },
       ],
     };

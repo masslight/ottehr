@@ -1,6 +1,6 @@
 {
   "name": "ehr-ui",
-  "version": "1.18.0",
+  "version": "1.18.2",
   "private": true,
   "type": "module",
   "engines": {
@@ -27,6 +27,7 @@
     "lint:fix": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts,.tsx,.js,.jsx --report-unused-disable-directives --max-warnings 0 --fix .",
     "build": "tsc && vite build --mode default",
     "build:env": "ENV=$npm_config_env npm run build-skeleton",
+    "build:local": "npm run build",
     "build:development": "ENV=development npm run build-skeleton",
     "build:testing": "ENV=testing npm run build-skeleton",
     "build:staging": "ENV=staging npm run build-skeleton",

@@ -473,6 +473,7 @@ export const dataTestIds = {
     orderInHouseLabButton: 'order-in-house-lab-button',
     orderAndPrintLabelButton: 'order-and-print-label-button',
     testTypeField: 'test-type',
+    testTypeList: 'test-type-list',
     CPTCodeField: 'cpt-code',
     diagnosis: 'diagnosis',
     additionalDx: 'additionalDx',

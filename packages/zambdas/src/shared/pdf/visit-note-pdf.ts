@@ -2,11 +2,11 @@ import { Patient } from 'fhir/r4b';
 import fs from 'fs';
 import { PageSizes, PDFImage } from 'pdf-lib';
 import {
-  AdditionalBooleanQuestionsFieldsNames,
   BUCKET_NAMES,
   followUpInOptions,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   NOTHING_TO_EAT_OR_DRINK_LABEL,
+  renderScreeningQuestionsForPDF,
   Secrets,
   SEEN_IN_LAST_THREE_YEARS_LABEL,
   VitalFieldNames,
@@ -447,27 +447,10 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     (data.screening?.notes && data.screening.notes.length > 0)
   ) {
     drawBlockHeader('Additional questions');
-    if (data.additionalQuestions[AdditionalBooleanQuestionsFieldsNames.CovidSymptoms]) {
-      regularText(
-        `Do you have any COVID symptoms? - ${
-          data.additionalQuestions[AdditionalBooleanQuestionsFieldsNames.CovidSymptoms]
-        }`
-      );
-    }
-    if (data.additionalQuestions[AdditionalBooleanQuestionsFieldsNames.TestedPositiveCovid]) {
-      regularText(
-        `Have you tested positive for COVID? - ${
-          data.additionalQuestions[AdditionalBooleanQuestionsFieldsNames.TestedPositiveCovid]
-        }`
-      );
-    }
-    if (data.additionalQuestions[AdditionalBooleanQuestionsFieldsNames.TravelUsa]) {
-      regularText(
-        `Have you traveled out of the USA in the last 2 weeks? - ${
-          data.additionalQuestions[AdditionalBooleanQuestionsFieldsNames.TravelUsa]
-        }`
-      );
-    }
+
+    renderScreeningQuestionsForPDF(data.additionalQuestions, (question, formattedValue) => {
+      regularText(`${question} - ${formattedValue}`);
+    });
 
     if (data.screening?.seenInLastThreeYears) {
       regularText(`${SEEN_IN_LAST_THREE_YEARS_LABEL} - ${data.screening.seenInLastThreeYears}`);
