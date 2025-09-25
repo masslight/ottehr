@@ -17,19 +17,19 @@ function transformResource(resource: FhirResource): FhirResource {
   if (Object.keys(rest).length === 1 && rest.resource) {
     return {
       ...(managedFields ? { managedFields } : {}),
-      resource: rest.resource
+      resource: rest.resource,
     };
   }
   return {
     ...(managedFields ? { managedFields } : {}),
-    resource: { ...rest }
+    resource: { ...rest },
   };
 }
 
-async function main() {
+async function main(): Promise<void> {
   try {
     const filePath = process.argv[2];
-    
+
     if (!filePath) {
       console.error('Please provide a JSON file path');
       process.exit(1);
@@ -58,4 +58,4 @@ async function main() {
   }
 }
 
-main();
+void main();
