@@ -12,7 +12,6 @@ import {
   CircularProgress,
   FormControl,
   Grid,
-  Link as MUILink,
   Paper,
   Skeleton,
   TextField,
@@ -42,6 +41,7 @@ import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { generatePaperworkPdf } from 'src/api/api';
+import { RoundedButton } from 'src/components/RoundedButton';
 import { isPaperworkPdfOutdated, useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import {
   CONSENT_CODE,
@@ -108,9 +108,7 @@ interface Documents {
   insuranceCards: DocumentInfo[];
   insuranceCardsSecondary: DocumentInfo[];
   fullCardPdfs: DocumentInfo[];
-  consentPdfUrl: string | undefined;
-  consentPdfUrlOld: string | undefined;
-  hipaaPdfUrl: string | undefined;
+  consentPdfUrls: string[];
 }
 
 function getMinutesSinceLastActive(lastActive: string): number {
@@ -161,10 +159,7 @@ const getAnswerBooleanFor = (
 const LAST_ACTIVE_THRESHOLD = 2; // minutes
 
 const patientPronounsNotListedValues = ['My pronounces are not listed', 'My pronouns are not listed'];
-const hipaaPatientDetailsKey = 'I have reviewed and accept HIPAA Acknowledgement';
-const consentToTreatPatientDetailsKey =
-  'I have reviewed and accept Consent to Treat, Guarantee of Payment & Card on File Agreement';
-const consentToTreatPatientDetailsKeyOld = 'I have reviewed and accept Consent to Treat and Guarantee of Payment';
+const consentToTreatPatientDetailsKey = 'Consent Forms signed?';
 
 type AppointmentBundleTypes =
   | Appointment
@@ -721,13 +716,21 @@ export default function AppointmentPage(): ReactElement {
               const title = content.attachment.title;
               const z3Url = content.attachment.url;
 
-              if (z3Url && title && Object.values<string>(DocumentType).includes(title)) {
+              if (z3Url && title) {
+                if (
+                  [PHOTO_ID_CARD_CODE, INSURANCE_CARD_CODE].includes(docRefCode) &&
+                  (!title || !Object.values<string>(DocumentType).includes(title))
+                ) {
+                  continue;
+                }
+
                 const presignedUrl = await getPresignedURL(z3Url, authToken);
                 if (presignedUrl) {
                   allZ3Documents.push({
                     z3Url: z3Url,
                     presignedUrl: presignedUrl,
                     type: title as DocumentType,
+                    code: docRefCode,
                   });
                 }
               }
@@ -750,51 +753,42 @@ export default function AppointmentPage(): ReactElement {
     }
   }, [appointmentID, oystehr, getAccessTokenSilently, patient?.id, selfPay]);
 
-  const {
-    photoIdCards,
-    insuranceCards,
-    insuranceCardsSecondary,
-    fullCardPdfs,
-    consentPdfUrl,
-    consentPdfUrlOld,
-    hipaaPdfUrl,
-  } = useMemo((): Documents => {
-    const documents: Documents = {
-      photoIdCards: [],
-      insuranceCards: [],
-      insuranceCardsSecondary: [],
-      fullCardPdfs: [],
-      consentPdfUrl: undefined,
-      consentPdfUrlOld: undefined,
-      hipaaPdfUrl: undefined,
-    };
+  const { photoIdCards, insuranceCards, insuranceCardsSecondary, fullCardPdfs, consentPdfUrls } =
+    useMemo((): Documents => {
+      const documents: Documents = {
+        photoIdCards: [],
+        insuranceCards: [],
+        insuranceCardsSecondary: [],
+        fullCardPdfs: [],
+        consentPdfUrls: [],
+      };
 
-    if (!z3Documents) {
-      return documents;
-    }
-
-    if (z3Documents.length) {
-      documents.photoIdCards = z3Documents
-        .filter((doc) => [DocumentType.PhotoIdFront, DocumentType.PhotoIdBack].includes(doc.type))
-        .sort(compareCards(DocumentType.PhotoIdBack));
-      documents.insuranceCards = z3Documents
-        .filter((doc) => [DocumentType.InsuranceFront, DocumentType.InsuranceBack].includes(doc.type))
-        .sort(compareCards(DocumentType.InsuranceBack));
-      documents.insuranceCardsSecondary = z3Documents
-        .filter((doc) => [DocumentType.InsuranceFrontSecondary, DocumentType.InsuranceBackSecondary].includes(doc.type))
-        .sort(compareCards(DocumentType.InsuranceBackSecondary));
-      documents.fullCardPdfs = z3Documents.filter((doc) =>
-        [DocumentType.FullInsurance, DocumentType.FullInsuranceSecondary, DocumentType.FullPhotoId].includes(doc.type)
-      );
-      documents.consentPdfUrl = z3Documents.find((doc) => doc.type === DocumentType.CttConsent)?.presignedUrl;
-      if (!documents.consentPdfUrl) {
-        documents.consentPdfUrlOld = z3Documents.find((doc) => doc.type === DocumentType.CttConsentOld)?.presignedUrl;
+      if (!z3Documents) {
+        return documents;
       }
-      documents.hipaaPdfUrl = z3Documents.find((doc) => doc.type === DocumentType.HipaaConsent)?.presignedUrl;
-    }
 
-    return documents;
-  }, [z3Documents]);
+      if (z3Documents.length) {
+        documents.photoIdCards = z3Documents
+          .filter((doc) => [DocumentType.PhotoIdFront, DocumentType.PhotoIdBack].includes(doc.type))
+          .sort(compareCards(DocumentType.PhotoIdBack));
+        documents.insuranceCards = z3Documents
+          .filter((doc) => [DocumentType.InsuranceFront, DocumentType.InsuranceBack].includes(doc.type))
+          .sort(compareCards(DocumentType.InsuranceBack));
+        documents.insuranceCardsSecondary = z3Documents
+          .filter((doc) =>
+            [DocumentType.InsuranceFrontSecondary, DocumentType.InsuranceBackSecondary].includes(doc.type)
+          )
+          .sort(compareCards(DocumentType.InsuranceBackSecondary));
+        documents.fullCardPdfs = z3Documents.filter((doc) =>
+          [DocumentType.FullInsurance, DocumentType.FullInsuranceSecondary, DocumentType.FullPhotoId].includes(doc.type)
+        );
+        documents.consentPdfUrls = z3Documents
+          .filter((doc) => doc.code === CONSENT_CODE || doc.code === PRIVACY_POLICY_CODE)
+          .flatMap((doc) => (doc.presignedUrl ? [doc.presignedUrl] : []));
+      }
+
+      return documents;
+    }, [z3Documents]);
 
   // variables for displaying the page
   const appointmentType = (appointment?.appointmentType?.text as FhirAppointmentType) || '';
@@ -943,39 +937,35 @@ export default function AppointmentPage(): ReactElement {
     setCancelDialogOpen(false);
   };
 
-  function pdfButton(pdfUrl: string): ReactElement {
+  function pdfButton(pdfUrls: string[]): ReactElement {
+    const handleClick = (): void => {
+      pdfUrls.forEach((url) => {
+        window.open(url, '_blank');
+      });
+    };
     return (
-      <MUILink href={pdfUrl} target="_blank" style={{ marginRight: '10px' }}>
-        <Button
-          variant="outlined"
-          sx={{
-            borderColor: otherColors.consentBorder,
-            borderRadius: 100,
-            textTransform: 'none',
-            fontWeight: 500,
-            fontSize: 14,
-          }}
-        >
-          Get PDF
-        </Button>
-      </MUILink>
+      <RoundedButton
+        variant="outlined"
+        onClick={handleClick}
+        disabled={imagesLoading}
+        sx={{
+          borderColor: otherColors.consentBorder,
+          borderRadius: 100,
+          textTransform: 'none',
+          fontWeight: 500,
+          fontSize: 14,
+        }}
+      >
+        Get PDFs
+      </RoundedButton>
     );
   }
 
   const consentEditProp = (): IconProps => {
     const ret: IconProps = {};
 
-    if (getAnswerBooleanFor('hipaa-acknowledgement', flattenedItems) && hipaaPdfUrl) {
-      ret[hipaaPatientDetailsKey] = pdfButton(hipaaPdfUrl);
-    }
-
-    if (getAnswerBooleanFor('consent-to-treat', flattenedItems) && consentPdfUrl) {
-      ret[consentToTreatPatientDetailsKey] = pdfButton(consentPdfUrl);
-    }
-
-    // don't show the old consent pdf if the new one is present
-    if (getAnswerBooleanFor('consent-to-treat', flattenedItems) && !consentPdfUrl && consentPdfUrlOld) {
-      ret[consentToTreatPatientDetailsKeyOld] = pdfButton(consentPdfUrlOld);
+    if (getAnswerBooleanFor('consent-to-treat', flattenedItems) && consentPdfUrls) {
+      ret[consentToTreatPatientDetailsKey] = pdfButton(consentPdfUrls);
     }
 
     return ret;
@@ -983,13 +973,10 @@ export default function AppointmentPage(): ReactElement {
 
   const signedConsentForm: {
     [consentToTreatPatientDetailsKey]?: 'Signed' | 'Not signed' | 'Loading...';
-    [consentToTreatPatientDetailsKeyOld]?: 'Signed' | 'Not signed' | 'Loading...';
   } = {};
 
-  if (consentPdfUrl) {
+  if (consentPdfUrls.length > 0) {
     signedConsentForm[consentToTreatPatientDetailsKey] = imagesLoading ? 'Loading...' : 'Signed';
-  } else if (consentPdfUrlOld) {
-    signedConsentForm[consentToTreatPatientDetailsKeyOld] = imagesLoading ? 'Loading...' : 'Signed';
   } else {
     signedConsentForm[consentToTreatPatientDetailsKey] = imagesLoading ? 'Loading...' : 'Not signed';
   }
@@ -1531,11 +1518,6 @@ export default function AppointmentPage(): ReactElement {
                   loading={loading}
                   editValue={consentEditProp()}
                   patientDetails={{
-                    [hipaaPatientDetailsKey]: imagesLoading
-                      ? 'Loading...'
-                      : getAnswerBooleanFor('hipaa-acknowledgement', flattenedItems)
-                      ? 'Signed'
-                      : 'Not signed',
                     ...signedConsentForm,
                     Signature: getAnswerStringFor('signature', flattenedItems),
                     'Full name': getAnswerStringFor('full-name', flattenedItems),

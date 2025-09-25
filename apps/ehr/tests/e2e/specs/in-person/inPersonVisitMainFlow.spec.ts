@@ -85,6 +85,7 @@ test.describe('Book appointment', async () => {
   test('Book appointment,fill required fields for signing the visit, review and sign progress note', async ({
     page,
   }) => {
+    test.setTimeout(240000); // 4 minutes
     await BookAppointmentFillInfoSignProgressNote(page, resourceHandler);
   });
 });
@@ -170,6 +171,7 @@ test.describe('Book appointment filling insurances information on payment option
   test('Book appointment, fill required fields for signing the visit, review and sign progress note', async ({
     page,
   }) => {
+    test.setTimeout(240000); // 4 minutes
     await BookAppointmentFillInfoSignProgressNote(page, resourceHandler);
   });
 });

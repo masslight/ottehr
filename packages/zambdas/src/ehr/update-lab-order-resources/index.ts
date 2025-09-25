@@ -437,7 +437,7 @@ const handleSaveCollectionData = async (
 
   const orderNumber = getOrderNumber(serviceRequest);
   console.log('orderNumber', orderNumber);
-  if (!orderNumber) throw Error(`order number could not be parsed from the service request ${serviceRequest.id}`);
+  if (!orderNumber) throw Error(`requisition number could not be parsed from the service request ${serviceRequest.id}`);
 
   const requests: BatchInputRequest<Specimen | QuestionnaireResponse | Provenance | Task>[] = [];
 

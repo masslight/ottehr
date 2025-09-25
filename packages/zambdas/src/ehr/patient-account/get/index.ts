@@ -55,7 +55,10 @@ const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAcc
   const primaryCarePhysician = accountAndCoverages.patient?.contained?.find(
     (resource) => resource.resourceType === 'Practitioner' && resource.active === true
   ) as Practitioner;
-  const eligibilityCheckResults = (
+  // due to really huge CEResponses causing response-too-large errors, we need to chop our querying for the CEResponses into
+  // manageable chunks. We'll do this by first querying for just the IDs of the CEResponses, then querying for the full resources in parallel.
+  // Even just two resources returned in a query can still result in response-too-large errors based on prod data we've encountered.
+  const eligibilityCheckIds = (
     await oystehr.fhir.search<CoverageEligibilityResponse>({
       resourceType: 'CoverageEligibilityResponse',
       params: [
@@ -67,9 +70,28 @@ const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAcc
           name: '_sort',
           value: '-created',
         },
+        {
+          name: '_elements',
+          value: 'id',
+        },
+        {
+          name: '_count', // we shouldn't need more than the most recent 10 eligibility checks
+          value: '10',
+        },
       ],
     })
-  ).unbundle();
+  )
+    .unbundle()
+    .map((cer) => cer.id)
+    .filter((id): id is string => !!id);
+  console.log('fetching the following CERs:', JSON.stringify(eligibilityCheckIds));
+
+  const eligibilityCheckResults: CoverageEligibilityResponse[] = await Promise.all(
+    eligibilityCheckIds.map((id) =>
+      oystehr.fhir.get<CoverageEligibilityResponse>({ resourceType: 'CoverageEligibilityResponse', id })
+    )
+  );
+
   const coverageIdsToFetch = eligibilityCheckResults.flatMap((ecr) => {
     if (ecr.insurance?.[0]?.coverage?.reference) {
       const [resourceType, id] = ecr.insurance[0].coverage.reference.split('/');

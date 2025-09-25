@@ -49,10 +49,10 @@ export const parseEncounterParticipants = (
 
 export const parseAttenderQualification = (
   encounter: Encounter,
-  location: Location,
+  location: Location | undefined,
   participantIdToResourceMap: Record<string, Practitioner>
 ): PractitionerQualificationCode | undefined => {
-  if (!encounter.participant) return;
+  if (!encounter.participant || !location) return;
 
   for (const participant of encounter.participant) {
     if (!participant.individual?.reference || !participant.type?.[0]?.coding?.[0]?.code) {

@@ -27,6 +27,7 @@ export const VITAL_TEMPERATURE_OBS_METHOD_CODE_ORAL = '89003005';
 export const VITAL_TEMPERATURE_OBS_METHOD_CODE_RECTAL = '18649001';
 export const VITAL_TEMPERATURE_OBS_METHOD_LOINC_CODE_AXILLARY = '8328-7';
 export const VITAL_TEMPERATURE_OBS_METHOD_LOINC_CODE_TEMPORAL = '75539-7';
+export const VITAL_TEMPERATURE_OBS_METHOD_LOINC_CODE_EAR = '76011-6';
 
 export const VITAL_HEARTBEAT_OBS_METHOD_CODE_SITTING = '33586001';
 export const VITAL_HEARTBEAT_OBS_METHOD_CODE_STANDING = '10904000';
@@ -104,6 +105,18 @@ export const getTempObservationMethodCodable = (
     };
   }
 
+  if (obsMethod === VitalTemperatureObservationMethod.Ear) {
+    return {
+      coding: [
+        {
+          system: LOINC_SYSTEM,
+          code: VITAL_TEMPERATURE_OBS_METHOD_LOINC_CODE_EAR,
+          display: 'Ear temperature',
+        },
+      ],
+    };
+  }
+
   return undefined;
 };
 
@@ -127,6 +140,10 @@ export const extractTemperatureObservationMethod = (
 
   if (obsMethodCode === VITAL_TEMPERATURE_OBS_METHOD_LOINC_CODE_TEMPORAL) {
     return VitalTemperatureObservationMethod.Temporal;
+  }
+
+  if (obsMethodCode === VITAL_TEMPERATURE_OBS_METHOD_LOINC_CODE_EAR) {
+    return VitalTemperatureObservationMethod.Ear;
   }
 
   return undefined;

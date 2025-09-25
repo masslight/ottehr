@@ -12,8 +12,8 @@ export const PatientInformationContainer: FC = () => {
   const { patient } = useAppointmentData();
   const { isAppointmentReadOnly } = useGetAppointmentAccessibility();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const name = getPatientName(patient?.name).firstMiddleLastName;
 
+  const name = getPatientName(patient?.name).fullDisplayName;
   const dob =
     patient?.birthDate && `${formatDateUsingSlashes(patient.birthDate)} (${calculatePatientAge(patient.birthDate)})`;
 

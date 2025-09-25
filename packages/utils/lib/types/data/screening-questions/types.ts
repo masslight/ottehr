@@ -47,6 +47,7 @@ export interface Field {
     // Conditional save - don't save immediately if certain value is selected
     waitForNote: string; // Value that triggers waiting for note
   };
+  existsInQuestionnaire?: boolean; // Whether this field exists in the patient questionnaire; field may exist in telemed questionnaire only
 }
 
 export type ObservationDTO =

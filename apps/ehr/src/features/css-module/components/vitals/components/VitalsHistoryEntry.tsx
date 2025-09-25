@@ -127,7 +127,7 @@ const getObservationValueElements = (
     case 'vital-weight':
       return [`${historyEntry.value} kg`, ` = ${kgToLbs(historyEntry.value).toFixed(1)} lb`];
     case 'vital-height':
-      return [`${historyEntry.value} cm`, ` = ${cmToInches(historyEntry.value).toFixed(0)} in`];
+      return [`${historyEntry.value} cm`, ` = ${cmToInches(historyEntry.value).toFixed(1)} in`];
     case 'vital-vision':
       return [
         <>

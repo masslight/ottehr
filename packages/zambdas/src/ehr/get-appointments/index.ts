@@ -20,6 +20,7 @@ import {
   appointmentTypeForAppointment,
   flattenItems,
   GetAppointmentsZambdaInput,
+  getAttendingPractitionerId,
   getChatContainsUnreadMessages,
   getMiddleName,
   getPatientFirstName,
@@ -229,7 +230,9 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     const practitionerIdToResourceMap: Record<string, Practitioner> = {};
     const healthcareServiceIdToResourceMap: Record<string, HealthcareService> = {};
 
-    const location = appointmentResources.find(({ resourceType }) => resourceType === 'Location') as Location;
+    const location = appointmentResources.find(({ resourceType }) => resourceType === 'Location') as
+      | Location
+      | undefined;
     appointmentResources.forEach((resource) => {
       if (resource.resourceType === 'Appointment') {
         allAppointments.push(resource as Appointment);
@@ -525,7 +528,7 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
 
 interface AppointmentInformationInputs {
   appointment: Appointment;
-  location: Location;
+  location?: Location;
   patientIdMap: Record<string, Patient>;
   apptRefToEncounterMap: Record<string, Encounter>;
   encounterRefToQRMap: Record<string, QuestionnaireResponse>;
@@ -640,21 +643,12 @@ const makeAppointmentInformation = (
   const ovrpInterest = flattenedItems.find((response: QuestionnaireResponseItem) => response.linkId === 'ovrp-interest')
     ?.answer?.[0]?.valueString;
 
-  const provider = appointment.participant
-    .filter((participant) => participant.actor?.reference?.startsWith('Practitioner/'))
-    .map(function (practitionerTemp) {
-      if (!practitionerTemp.actor?.reference) {
-        return;
-      }
-      const practitioner = practitionerIdToResourceMap[practitionerTemp.actor.reference];
-      console.log(1, practitionerIdToResourceMap);
-
-      if (!practitioner.name) {
-        return;
-      }
-      return oystehr.fhir.formatHumanName(practitioner.name[0]);
-    })
-    .join(', ');
+  const practitionerId = getAttendingPractitionerId(encounter);
+  const practitioner = practitionerIdToResourceMap[`Practitioner/${practitionerId}`];
+  let provider = '';
+  if (practitioner && practitioner.name) {
+    provider = oystehr.fhir.formatHumanName(practitioner.name[0]);
+  }
 
   // if the QR has been updated at least once, this tag will not be present
   const paperworkHasBeenSubmitted = !!questionnaireResponse?.authored;

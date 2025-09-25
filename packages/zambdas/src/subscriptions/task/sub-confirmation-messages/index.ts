@@ -141,13 +141,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     sendMessages: if (fhirAppointment.id && startTime.isValid) {
       const isTelemed = Boolean(fhirAppointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.TM));
       const patientEmail = getPatientContactEmail(fhirPatient);
-      if (!patientEmail) {
-        // todo: slack notification or sentry error for this?
-        console.log('no patient email found, cannot send messages');
-        break sendMessages;
-      }
       try {
         if (isTelemed) {
+          if (!patientEmail) {
+            // todo: slack notification or sentry error for this?
+            console.log('no patient email found, cannot send messages');
+            break sendMessages;
+          }
           const emailClient = getEmailClient(secrets);
           const ownerName = getNameForOwner(fhirSchedule);
           const templateData: TelemedConfirmationTemplateData = {
