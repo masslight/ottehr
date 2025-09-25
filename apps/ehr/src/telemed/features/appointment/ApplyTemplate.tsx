@@ -18,7 +18,7 @@ import React, { useState } from 'react';
 import { ExamType } from 'utils';
 import { applyTemplate } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
-import { CHART_DATA_QUERY_KEY_BASE, useAppointmentData } from '../..';
+import { CHART_DATA_QUERY_KEY_BASE, useAppointmentData, useGetAppointmentAccessibility } from '../..';
 import { TemplateOption, useListTemplates } from '../../state/useListTemplates';
 
 export const ApplyTemplate: React.FC = () => {
@@ -30,6 +30,7 @@ export const ApplyTemplate: React.FC = () => {
   const { oystehrZambda } = useApiClients();
   const { encounter } = useAppointmentData();
   const queryClient = useQueryClient();
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   // Load templates using custom react-query hook
   const { templates, isLoading: isLoadingTemplates, error: templatesError } = useListTemplates(ExamType.IN_PERSON);
@@ -105,7 +106,7 @@ export const ApplyTemplate: React.FC = () => {
         getOptionLabel={(option) => option.label}
         isOptionEqualToValue={(option, value) => option.value === value.value}
         onChange={handleTemplateChange}
-        disabled={isLoadingTemplates}
+        disabled={isLoadingTemplates || isReadOnly}
         filterOptions={(options, { inputValue }) => {
           // Implement fuzzy search - filter by both label and value
           const query = inputValue.toLowerCase();
