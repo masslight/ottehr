@@ -12,6 +12,39 @@ export const baseScreeningQuestionsConfig: ScreeningQuestionsConfig = {
   title: 'ASK THE PATIENT',
   fields: [
     {
+      id: 'covid_symptoms',
+      type: 'radio',
+      question: 'Do you have any COVID symptoms?',
+      fhirField: 'covid-symptoms',
+      existsInQuestionnaire: true,
+      options: [
+        { value: 'yes', label: 'Yes', fhirValue: 'Yes' },
+        { value: 'no', label: 'No', fhirValue: 'No' },
+      ],
+    },
+    {
+      id: 'tested_positive_covid',
+      type: 'radio',
+      question: 'Have you tested positive for COVID?',
+      fhirField: 'tested-positive-covid',
+      existsInQuestionnaire: true,
+      options: [
+        { value: 'yes', label: 'Yes', fhirValue: 'Yes' },
+        { value: 'no', label: 'No', fhirValue: 'No' },
+      ],
+    },
+    {
+      id: 'travel_usa',
+      type: 'radio',
+      question: 'Have you traveled out of the USA in the last 2 weeks?',
+      fhirField: 'travel-usa',
+      existsInQuestionnaire: true,
+      options: [
+        { value: 'yes', label: 'Yes', fhirValue: 'Yes' },
+        { value: 'no', label: 'No', fhirValue: 'No' },
+      ],
+    },
+    {
       id: 'office_visit',
       type: 'radio',
       question: 'Has the patient been seen in one of our offices / telemed in last 3 years?',

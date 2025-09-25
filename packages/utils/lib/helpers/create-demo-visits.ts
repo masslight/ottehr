@@ -305,7 +305,7 @@ const processPaperwork = async (
       getAllergiesStepAnswers(),
       getMedicalConditionsStepAnswers(),
       getSurgicalHistoryStepAnswers(),
-      getAdditionalQuestionsAnswers(),
+      getAdditionalQuestionsAnswers({ useRandomAnswers: true }),
       getPaymentOptionSelfPayAnswers(),
       getResponsiblePartyStepAnswers({}),
       getSchoolWorkNoteStepAnswers(),
