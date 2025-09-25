@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import fs from 'fs';
 import ottehrSpec from '../../../../config/oystehr/ottehr-spec.json';
-import { Schema20250319 } from '../../../spec/src/schema-20250319';
+import { Schema20250925 } from '../../../spec/src/schema-20250925';
 import { replaceSecretValue } from '../local-server/utils';
 import { getAuth0Token } from '../shared/';
 import { projectApiUrlFromAuth0Audience } from './helpers';
@@ -38,7 +38,7 @@ const setupSecrets = async (config: any): Promise<void> => {
 const prepareSecretsFromSpecAndEnv = async (env: string): Promise<Record<string, string>> => {
   const envFile = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
 
-  const schema = new Schema20250319(
+  const schema = new Schema20250925(
     [{ path: '../../../../config/oystehr/ottehr-spec.json', spec: ottehrSpec }],
     envFile,
     '',
