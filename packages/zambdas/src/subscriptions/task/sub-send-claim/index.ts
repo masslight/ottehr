@@ -80,9 +80,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const { encounter } = visitResources;
 
-    // Push to candid
-    let candidEncounterId: string | undefined;
-
     // Check if candid encounter ID already exists in encounter identifier
     const existingCandidEncounterId = encounter.identifier?.find(
       (identifier) => identifier.system === CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM
@@ -92,10 +89,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       console.log(
         `[CLAIM SUBMISSION] Candid encounter already exists with ID ${existingCandidEncounterId}, skipping creation`
       );
-      candidEncounterId = existingCandidEncounterId;
     } else {
       console.log('[CLAIM SUBMISSION] Attempting to create encounter in candid...');
-      candidEncounterId = await createEncounterFromAppointment(visitResources, secrets, oystehr);
+      const candidEncounterId = await createEncounterFromAppointment(visitResources, secrets, oystehr);
       console.log(`[CLAIM SUBMISSION] Candid encounter created with ID ${candidEncounterId}`);
 
       // Put candid encounter id on the encounter
