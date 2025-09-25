@@ -26,7 +26,6 @@ import {
   getAllFhirSearchPages,
   Task_Email_Communication_Url,
   Task_Send_Messages_Url,
-  Task_Sync_DocumentRef_Url,
   Task_Text_Communication_Url,
   Task_Update_Appointment_Url,
   TaskIndicator,
@@ -87,7 +86,6 @@ const taskTypeOptions = [
   { value: 'email', label: 'Email Communications', system: Task_Email_Communication_Url, code: '' },
   { value: 'text', label: 'Text Communications', system: Task_Text_Communication_Url, code: '' },
   { value: 'appointment-updates', label: 'Appointment Updates', system: Task_Update_Appointment_Url, code: '' },
-  { value: 'document-sync', label: 'Document Sync', system: Task_Sync_DocumentRef_Url, code: '' },
   {
     value: 'cancel-email',
     label: 'Cancel Email',
@@ -551,7 +549,7 @@ export default function TaskAdmin(): React.ReactElement {
         {/* Chart */}
         {!loading && !error && taskCountByDate && viewType === ViewType.Chart && (
           <Grid item xs={12}>
-            <Paper sx={{ p: 3 }}>
+            <Paper sx={{ p: 3, maxHeight: 600 }}>
               <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
                 💡 Tip: Single-click legend items to toggle, double-click to show only that status
               </Typography>
