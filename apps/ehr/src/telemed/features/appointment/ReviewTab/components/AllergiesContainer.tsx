@@ -14,7 +14,7 @@ export const AllergiesContainer: FC<{ notes?: NoteDTO[] }> = ({ notes }) => {
   return (
     <Box
       sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}
-      data-testid={dataTestIds.telemedEhrFlow.reviewTabKnownAllergiesContainer}
+      data-testid={dataTestIds.progressNotePage.knownAllergiesContainer}
     >
       <Typography variant="h5" color="primary.dark">
         Allergies

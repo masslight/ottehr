@@ -45,5 +45,15 @@ export abstract class BaseProgressNotePage {
     await expect(this.#page.getByTestId(dataTestIds.progressNotePage.labsTitle(sectionTitle))).toBeVisible();
     await expect(this.#page.getByTestId(dataTestIds.progressNotePage.labsTitle(sectionTitle))).toContainText(testName);
   }
+  async verifyAddedAllergiesAreShown(allergy: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.progressNotePage.knownAllergiesContainer)).toBeVisible();
+    await expect(this.#page.getByTestId(dataTestIds.progressNotePage.knownAllergiesContainer)).toContainText(allergy);
+  }
+  async verifyRemovedAllergiesAreNotShown(allergy: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.progressNotePage.knownAllergiesContainer)).toBeVisible();
+    await expect(this.#page.getByTestId(dataTestIds.progressNotePage.knownAllergiesContainer)).not.toContainText(
+      allergy
+    );
+  }
   abstract expectLoaded(): Promise<void>;
 }
