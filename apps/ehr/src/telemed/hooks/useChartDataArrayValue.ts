@@ -44,7 +44,9 @@ export const useChartDataArrayValue = <
     enabled: !!customParams,
   });
 
-  const values = (customParams ? currentFieldData?.[name] || [] : chartData?.[name] || []) as K;
+  const values = (
+    customParams ? currentFieldData?.[name] || [] : (chartData as ChartDataArrayValueType)?.[name] || []
+  ) as K;
 
   const onSubmit = (data: ElementType<K>): Promise<boolean> => {
     return new Promise((resolve, reject) => {

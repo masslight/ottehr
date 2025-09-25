@@ -92,11 +92,11 @@ export const ProgressNoteDetails: FC = () => {
   const vitalsObservations = chartFields?.vitalsObservations;
   const externalLabResults = chartFields?.externalLabResults;
   const inHouseLabResults = chartFields?.inHouseLabResults;
-  const emCode = chartFields?.emCode;
-  const cptCodes = chartFields?.cptCodes;
   const chiefComplaint = chartFields?.chiefComplaint?.text;
   const ros = chartFields?.ros?.text;
 
+  const emCode = chartData?.emCode;
+  const cptCodes = chartData?.cptCodes;
   const diagnoses = chartData?.diagnosis;
   const observations = chartData?.observations;
 

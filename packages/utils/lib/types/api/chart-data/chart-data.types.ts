@@ -82,7 +82,10 @@ export type RequestedFields =
   | 'medicalDecision'
   | 'birthHistory'
   | 'patientInfoConfirmed'
-  | 'addendumNote';
+  | 'addendumNote'
+  | 'medications'
+  | 'inhouseMedications'
+  | 'observations';
 
 export type AllChartValuesKeys = keyof AllChartValues;
 

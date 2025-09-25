@@ -93,7 +93,10 @@ type ReactQueryState = {
   isPending: boolean;
 };
 
-type ChartDataResponse = Omit<GetChartDataResponse, RequestedFields>;
+type ChartDataResponse = Omit<
+  GetChartDataResponse,
+  Exclude<RequestedFields, 'medications' | 'inhouseMedications' | 'observations'>
+>;
 
 export type ChartDataState = {
   chartData: ChartDataResponse | undefined;
@@ -629,11 +632,9 @@ export const useGetChartData = (
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
   const user = useEvolveUser();
-  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  // const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
-  const key = useMemo(() => {
-    return [CHART_DATA_QUERY_KEY_BASE, encounterId, isReadOnly, requestedFields];
-  }, [encounterId, isReadOnly, requestedFields]);
+  const key = [CHART_DATA_QUERY_KEY_BASE, encounterId, requestedFields]; // check if isReadOnly is needed (it causes duplicate requests because it's unstable and has not isLoading state)
 
   const query = useQuery({
     queryKey: key,
@@ -649,7 +650,7 @@ export const useGetChartData = (
     },
 
     enabled: !!apiClient && !!encounterId && !!user && enabled,
-    staleTime: 5_000,
+    staleTime: 60_000,
     refetchInterval: refetchInterval || false,
   });
 

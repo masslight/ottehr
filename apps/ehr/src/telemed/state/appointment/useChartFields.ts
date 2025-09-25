@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { QueryObserverResult, RefetchOptions } from '@tanstack/react-query';
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import {
@@ -113,11 +113,7 @@ export function useChartFields<T extends ChartDataRequestedFields>({
   const queryClient = useQueryClient();
   const user = useEvolveUser();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-
-  const queryKey = useMemo(
-    () => [CHART_DATA_FIELDS_QUERY_KEY_BASE, encounterId, createSearchParamsKey(requestedFields), isReadOnly],
-    [encounterId, isReadOnly, requestedFields]
-  );
+  const queryKey = [CHART_DATA_FIELDS_QUERY_KEY_BASE, encounterId, createSearchParamsKey(requestedFields), isReadOnly];
 
   const { data, error, isLoading, isFetching, isFetched, refetch, isPending } = useQuery({
     queryKey,
