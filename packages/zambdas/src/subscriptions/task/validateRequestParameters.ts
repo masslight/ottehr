@@ -2,7 +2,7 @@ import { Task } from 'fhir/r4b';
 import { Secrets, TaskSubscriptionInput } from 'utils';
 import { ZambdaInput } from '../../shared';
 
-export function validateRequestParameters(input: ZambdaInput): TaskSubscriptionInput & { secrets: Secrets | null } {
+export function validateRequestParameters(input: ZambdaInput): TaskSubscriptionInput & { secrets: Secrets } {
   if (!input.body) {
     throw new Error('No request body provided');
   }
@@ -19,6 +19,10 @@ export function validateRequestParameters(input: ZambdaInput): TaskSubscriptionI
 
   if (task.status === 'failed') {
     throw new Error(`task has already failed`);
+  }
+
+  if (!input.secrets) {
+    throw new Error('Secrets not sent with input.');
   }
 
   return {

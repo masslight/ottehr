@@ -59,10 +59,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       console.log('already have token');
     }
 
-    if (!secrets) {
-      throw new Error('secrets not found');
-    }
-
     oystehr = createOystehrClient(oystehrToken, secrets);
 
     console.log('getting appointment Id from the task');
@@ -101,20 +97,30 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       console.log('[CLAIM SUBMISSION] Attempting to create encounter in candid...');
       candidEncounterId = await createEncounterFromAppointment(visitResources, secrets, oystehr);
       console.log(`[CLAIM SUBMISSION] Candid encounter created with ID ${candidEncounterId}`);
-    }
 
-    // Put candid encounter id on the encounter
-    const encounterPatchOps: Operation[] = [];
+      // Put candid encounter id on the encounter
+      const encounterPatchOps: Operation[] = [];
 
-    if (candidEncounterId != null) {
-      const identifier = {
-        system: CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
-        value: candidEncounterId,
-      };
-      encounterPatchOps.push({
-        op: 'add',
-        path: encounter.identifier != null ? '/identifier/-' : '/identifier',
-        value: encounter.identifier != null ? identifier : [identifier],
+      if (candidEncounterId != null) {
+        const identifier = {
+          system: CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM,
+          value: candidEncounterId,
+        };
+        encounterPatchOps.push({
+          op: 'add',
+          path: encounter.identifier != null ? '/identifier/-' : '/identifier',
+          value: encounter.identifier != null ? identifier : [identifier],
+        });
+      }
+
+      if (!encounter.id) {
+        throw new Error('Encounter unexpectedly had no id');
+      }
+
+      await oystehr.fhir.patch({
+        resourceType: 'Encounter',
+        id: encounter.id,
+        operations: encounterPatchOps,
       });
     }
 
@@ -133,7 +139,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     };
   } catch (error: unknown) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    if (oystehr && taskId) await patchTaskStatus(oystehr, taskId, 'failed', JSON.stringify(error));
+    try {
+      if (oystehr && taskId) await patchTaskStatus(oystehr, taskId, 'failed', JSON.stringify(error));
+    } catch (patchError) {
+      console.error('Error patching task status in top level catch:', patchError);
+    }
     return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
   }
 });

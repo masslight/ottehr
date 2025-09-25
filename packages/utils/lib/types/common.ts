@@ -515,7 +515,7 @@ export const Task_Text_Communication_Url = 'urgent-care-text';
 export const Task_Update_Appointment_Url = 'urgent-care-update-appointment';
 export const Task_Send_Messages_Url = 'urgent-care-send-messages';
 export const Task_Sync_DocumentRef_Url = 'urgent-care-sync-document-ref';
-export const Task_Send_Claim_Url = 'send-claim';
+export const Task_Claims_System_Url = 'https://fhir.ottehr.com/CodeSystem/claim-sync';
 
 type Task_System_Member =
   | typeof Task_Email_Communication_Url
@@ -523,7 +523,7 @@ type Task_System_Member =
   | typeof Task_Update_Appointment_Url
   | typeof Task_Send_Messages_Url
   | typeof Task_Sync_DocumentRef_Url
-  | typeof Task_Send_Claim_Url;
+  | typeof Task_Claims_System_Url;
 
 export type TaskCoding = {
   readonly system: Task_System_Member;
@@ -557,7 +557,7 @@ export const TaskIndicator: TaskIndicator = {
     code: 'create-appointment-confirmation-messages',
   },
   sendClaim: {
-    system: Task_Send_Claim_Url,
+    system: Task_Claims_System_Url,
     code: 'send-claim',
   },
 };
