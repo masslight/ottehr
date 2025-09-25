@@ -19,6 +19,7 @@ export * from './get-presigned-file-url';
 export * from './get-user.types';
 export * from './icd-10-search';
 export * from './icd-search';
+export * from './incomplete-encounters-report.types';
 export * from './init-telemed-session';
 export * from './insurances.constants';
 export * from './lab';
