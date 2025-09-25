@@ -1102,6 +1102,7 @@ export async function createEncounterFromAppointment(
   console.log('[CLAIM SUBMISSION] Starting encounter submission to candid');
   const candidClientId = getOptionalSecret(SecretsKeys.CANDID_CLIENT_ID, secrets);
   if (candidClientId == null || candidClientId.length === 0) {
+    console.log('CANDID_CLIENT_ID is not set, skipping encounter submission to candid');
     return undefined;
   }
   const apiClient = createCandidApiClient(secrets);
