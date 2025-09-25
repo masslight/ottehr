@@ -4,6 +4,7 @@ import { AutocompleteInput } from 'src/components/input/AutocompleteInput';
 import { ProviderSelectInput } from 'src/components/input/ProviderSelectInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { useGetVaccines } from 'src/features/css-module/hooks/useImmunization';
 import { LOCATION_OPTIONS, ROUTE_OPTIONS, UNIT_OPTIONS } from 'src/shared/utils';
 
@@ -35,6 +36,7 @@ export const OrderDetailsSection: React.FC = () => {
           options={vaccineOptions}
           loading={isLoading}
           required
+          dataTestId={dataTestIds.orderVaccinePage.vaccine}
         />
       </Grid>
       <Grid xs={3} item>
@@ -44,19 +46,41 @@ export const OrderDetailsSection: React.FC = () => {
           type="number"
           validate={(value: string) => (!(parseFloat(value) > 0) ? 'Dose must be positive' : true)}
           required
+          dataTestId={dataTestIds.orderVaccinePage.dose}
         />
       </Grid>
       <Grid xs={3} item>
-        <SelectInput name="details.units" label="Units" options={UNIT_OPTIONS} required />
+        <SelectInput
+          name="details.units"
+          label="Units"
+          options={UNIT_OPTIONS}
+          required
+          dataTestId={dataTestIds.orderVaccinePage.units}
+        />
       </Grid>
       <Grid xs={6} item>
-        <AutocompleteInput name="details.route" label="Route" options={ROUTE_OPTIONS} />
+        <AutocompleteInput
+          name="details.route"
+          label="Route"
+          options={ROUTE_OPTIONS}
+          dataTestId={dataTestIds.orderVaccinePage.route}
+        />
       </Grid>
       <Grid xs={6} item>
-        <AutocompleteInput name="details.location" label="Location" options={LOCATION_OPTIONS} />
+        <AutocompleteInput
+          name="details.location"
+          label="Location"
+          options={LOCATION_OPTIONS}
+          dataTestId={dataTestIds.orderVaccinePage.location}
+        />
       </Grid>
       <Grid xs={12} item>
-        <TextInput name="details.instructions" label="Instructions" multiline />
+        <TextInput
+          name="details.instructions"
+          label="Instructions"
+          multiline
+          dataTestId={dataTestIds.orderVaccinePage.instructions}
+        />
       </Grid>
       <Grid xs={6} item>
         <ProviderSelectInput name="details.orderedProviderId" label="Ordered by" required />

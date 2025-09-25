@@ -407,7 +407,6 @@ export const dataTestIds = {
   patientRecordPage: {
     seeAllPatientInfoButton: 'see-all-patient-info-button',
   },
-
   addInsuranceDialog: {
     id: 'add-insurance-dialog',
     type: 'add-insurance-dialog-type',
@@ -500,5 +499,32 @@ export const dataTestIds = {
     dateAndStatus: 'order-date-status',
     resultsPDF: 'results-pdf',
     diagnose: 'diagnose',
+  },
+  orderVaccinePage: {
+    title: 'order-vaccine-title',
+    vaccine: 'vaccine',
+    dose: 'dose',
+    units: 'units',
+    route: 'route',
+    location: 'location',
+    instructions: 'instructions',
+    orderedBy: 'ordered-by',
+    orderVaccineButton: 'order-vaccine-button',
+  },
+
+  immunizationPage: {
+    title: 'immunization-title',
+    newOrderButton: 'new-order-button',
+    marTableRow: 'mar-table-row',
+    marTableVaccineCell: 'mar-table-vaccine-cell',
+    marTableStatusCell: 'mar-table-status-cell',
+    marTableDoseRouteCell: 'mar-table-dose-route-cell',
+    marTableInstructionsCell: 'mar-table-instructions-cell',
+    marTableOrderedDateCell: 'mar-table-ordered-date-cell',
+    marTableOrderedPersonCell: 'mar-table-ordered-person-cell',
+    marTableGivenDateCell: 'mar-table-given-date-cell',
+    marTableGivenPersonCell: 'mar-table-given-person-cell',
+    vaccineDetailsTab: 'vaccine-details-tab',
+    pencilIconButton: 'EditOutlinedIcon',
   },
 };
