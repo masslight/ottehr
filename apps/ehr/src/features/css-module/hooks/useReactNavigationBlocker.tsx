@@ -8,9 +8,6 @@ type CSSModalProps =
 
 type Options = {
   interceptNavigation?: boolean;
-  confirmText?: string;
-  closeButtonText?: string;
-  title?: string;
 };
 
 export const useReactNavigationBlocker = (
@@ -21,12 +18,7 @@ export const useReactNavigationBlocker = (
   ConfirmationModal: React.FC<CSSModalProps>;
   requestConfirmation: () => Promise<boolean>;
 } => {
-  const {
-    interceptNavigation = true,
-    confirmText = 'Continue edit',
-    closeButtonText = 'Leave',
-    title = 'Confirmation Required',
-  } = options ?? {};
+  const { interceptNavigation = true } = options ?? {};
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const resolveRef = useRef<((value: boolean) => void) | null>(null);
@@ -96,19 +88,28 @@ export const useReactNavigationBlocker = (
     }
   }, [location, navigate, interceptNavigation, shouldBlock, requestConfirmation]);
 
-  const ConfirmationModal = (props?: CSSModalProps): React.ReactElement => (
-    <CSSModal
-      open={isModalOpen}
-      handleClose={handleClose}
-      title={title}
-      description={modalText}
-      handleConfirm={handleConfirm}
-      confirmText={confirmText}
-      closeButtonText={closeButtonText}
-      closeButton={false}
-      {...props}
-    />
-  );
+  const ConfirmationModal: React.FC<CSSModalProps> = (props) => {
+    const {
+      title = 'Confirmation Required',
+      confirmText = 'Continue edit',
+      closeButtonText = 'Leave',
+      ...rest
+    } = props ?? {};
+
+    return (
+      <CSSModal
+        open={isModalOpen}
+        handleClose={handleClose}
+        title={title}
+        description={modalText}
+        handleConfirm={handleConfirm}
+        confirmText={confirmText}
+        closeButtonText={closeButtonText}
+        closeButton={false}
+        {...rest}
+      />
+    );
+  };
 
   return { ConfirmationModal, requestConfirmation };
 };

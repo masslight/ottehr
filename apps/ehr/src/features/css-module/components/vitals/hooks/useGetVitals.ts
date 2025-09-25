@@ -50,25 +50,15 @@ export const useGetHistoricalVitals = (
   });
 };
 
-export function useGetAbnormalVitals(): {
-  values: GetVitalsResponseData;
-  hasAny: boolean;
-} {
+export function useGetAbnormalVitals(): GetVitalsResponseData | undefined {
   const {
     resources: { encounter },
   } = useAppointmentData();
 
   const { data: encounterVitals } = useGetVitals(encounter?.id);
 
-  const values = useMemo(() => getAbnormalVitals(encounterVitals), [encounterVitals]);
-
-  const hasAny = useMemo(() => {
-    if (!values) return false;
-    return Object.values(values).some((list) => Array.isArray(list) && list.length > 0);
-  }, [values]);
-
-  return {
-    values: (values ?? {}) as GetVitalsResponseData,
-    hasAny,
-  };
+  return useMemo(() => {
+    if (!encounterVitals) return undefined;
+    return getAbnormalVitals(encounterVitals);
+  }, [encounterVitals]);
 }

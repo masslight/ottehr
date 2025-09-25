@@ -1,6 +1,6 @@
 import { Button } from '@mui/material';
 import { Box } from '@mui/system';
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { VisitStatusLabel } from 'utils';
 import { GenericToolTip } from '../../../components/GenericToolTip';
 import { dataTestIds } from '../../../constants/data-test-ids';
@@ -13,19 +13,20 @@ export const CompleteIntakeButton: React.FC<{
   handleCompleteIntake: () => void | Promise<void>;
   status: VisitStatusLabel | undefined;
 }> = ({ isDisabled, handleCompleteIntake, status }) => {
-  const { hasAny } = useGetAbnormalVitals();
+  const abnormalVitals = useGetAbnormalVitals();
+
+  const hasAny = useMemo(
+    () =>
+      abnormalVitals ? Object.values(abnormalVitals).some((list) => Array.isArray(list) && list.length > 0) : false,
+    [abnormalVitals]
+  );
 
   const shouldBlock = useCallback(() => hasAny, [hasAny]);
 
   const { ConfirmationModal, requestConfirmation } = useReactNavigationBlocker(
     shouldBlock,
     'You have entered an abnormal value. Please verify:',
-    {
-      interceptNavigation: false,
-      confirmText: 'Back',
-      closeButtonText: 'Continue',
-      title: 'Abnormal Vital Value',
-    }
+    { interceptNavigation: false }
   );
 
   const onClick = useCallback(async () => {
@@ -52,7 +53,12 @@ export const CompleteIntakeButton: React.FC<{
           Complete Intake
         </Button>
 
-        <ConfirmationModal ContentComponent={<AbnormalVitalsContent />} />
+        <ConfirmationModal
+          title="Abnormal Vital Value"
+          confirmText="Back"
+          closeButtonText="Continue"
+          ContentComponent={<AbnormalVitalsContent />}
+        />
       </Box>
     </GenericToolTip>
   );
