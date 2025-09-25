@@ -24,8 +24,6 @@ import { useGetPatientPaymentsList } from 'src/hooks/useGetPatientPaymentsList';
 import {
   APIError,
   CashOrCardPayment,
-  getEmailForIndividual,
-  getFullName,
   isApiError,
   PatientPaymentDTO,
   PostPatientPaymentInput,
@@ -41,6 +39,10 @@ export interface PaymentListProps {
   patient: Patient;
   encounterId: string;
   loading?: boolean;
+  responsibleParty?: {
+    fullName?: string;
+    email?: string;
+  };
 }
 
 const idForPaymentDTO = (payment: PatientPaymentDTO): string => {
@@ -51,7 +53,12 @@ const idForPaymentDTO = (payment: PatientPaymentDTO): string => {
   }
 };
 
-export default function PatientPaymentList({ loading, patient, encounterId }: PaymentListProps): ReactElement {
+export default function PatientPaymentList({
+  loading,
+  patient,
+  encounterId,
+  responsibleParty,
+}: PaymentListProps): ReactElement {
   const theme = useTheme();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [sendReceiptByEmailDialogOpen, setSendReceiptByEmailDialogOpen] = useState(false);
@@ -277,8 +284,8 @@ export default function PatientPaymentList({ loading, patient, encounterId }: Pa
         onSubmit={sendReceipt}
         submitButtonName="Send Receipt"
         defaultValues={{
-          recipientName: getFullName(patient),
-          recipientEmail: getEmailForIndividual(patient),
+          recipientName: responsibleParty?.fullName,
+          recipientEmail: responsibleParty?.email,
           subject: `Receipt for Visit on ${DateTime.now().toFormat('MM/dd/yyyy')}`,
         }}
       />
