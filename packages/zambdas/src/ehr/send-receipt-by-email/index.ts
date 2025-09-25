@@ -48,20 +48,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       if (file.status !== 200) throw new Error('Failed to fetch file, status: ' + file.status);
       const arrayBuffer = await file.arrayBuffer();
       const fileBuffer = Buffer.from(arrayBuffer);
-      // fs.writeFileSync('./file-my-test.pdf', fileBuffer);
 
-      // Get content type from response headers
-      const contentType = file.headers.get('content-type') || 'application/pdf';
-
-      // Create attachment
       const attachment: EmailAttachment = {
         content: fileBuffer.toString('base64'),
         filename: 'receipt.pdf',
-        type: contentType,
+        type: file.headers.get('content-type') || 'application/pdf',
         disposition: 'attachment',
       };
 
-      // Send email with attachment
       const templateData: InPersonReceiptTemplateData = {
         'recipient-name': recipientFullName,
         date: DateTime.now().toFormat('MM/dd/yyyy'),
