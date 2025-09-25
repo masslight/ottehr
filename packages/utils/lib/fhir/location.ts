@@ -287,7 +287,7 @@ export const getHoursOfOperationForToday = (item: Schedule): ScheduleListItem['t
 };
 
 const DEPLOYED_LOCATIONS = Object.values(ottehrSpec.fhirResources)
-  .filter((res) => res.resource.resourceType === 'Location')
-  .map((res) => res.resource) as Location[];
+  .filter((res) => 'resource' in res && res.resource.resourceType === 'Location')
+  .map((res) => (res as { resource: Location }).resource);
 
 export const DEPLOYED_TELEMED_LOCATIONS = DEPLOYED_LOCATIONS.filter((location) => isLocationVirtual(location));
