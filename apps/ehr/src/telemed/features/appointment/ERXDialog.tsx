@@ -1,4 +1,6 @@
-import { Box } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
+import OpenInFullIcon from '@mui/icons-material/OpenInFull';
+import { Box, IconButton } from '@mui/material';
 import { ReactElement, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { FHIR_EXTENSION } from 'utils';
@@ -6,7 +8,7 @@ import { useAppointmentData } from '../../state';
 
 export const ERXDialog = ({ ssoLink }: { ssoLink: string }): ReactElement => {
   const { patient } = useAppointmentData();
-
+  const [isOverlayOpen, setIsOverlayOpen] = useState(false);
   let weight: number | undefined = Number.parseFloat(
     patient?.extension?.find((ext) => ext.url === FHIR_EXTENSION.Patient.weight.url)?.valueString ?? ''
   );
@@ -35,7 +37,32 @@ export const ERXDialog = ({ ssoLink }: { ssoLink: string }): ReactElement => {
     <>
       {erxPortalElement &&
         createPortal(
-          <Box sx={{ minHeight: '600px', flex: '1 0 auto' }}>
+          <Box
+            sx={
+              isOverlayOpen
+                ? {
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    width: '100vw',
+                    height: '100vh',
+                    zIndex: 1300,
+                    backgroundColor: 'white',
+                  }
+                : {
+                    minHeight: 600,
+                    flex: '1 0 auto',
+                  }
+            }
+          >
+            <IconButton
+              onClick={() => setIsOverlayOpen(!isOverlayOpen)}
+              title={isOverlayOpen ? 'Close full screen' : 'Open full screen'}
+              size="small"
+              sx={{ position: 'absolute', right: isOverlayOpen ? 16 : 38 }}
+            >
+              {isOverlayOpen ? <CloseIcon /> : <OpenInFullIcon />}
+            </IconButton>
             <iframe src={ssoLink} width="100%" height="100%" />
           </Box>,
           erxPortalElement
