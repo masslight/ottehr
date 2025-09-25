@@ -168,6 +168,7 @@ export type DiagnosticReportLabDetailPageDTO = Omit<
   | 'labelPdfUrl'
   | 'orderPdfUrl'
   | 'abnPdfUrl'
+  | 'location'
 >;
 
 export type ReflexLabDTO = DiagnosticReportLabDetailPageDTO & {
