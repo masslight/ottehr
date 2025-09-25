@@ -82,7 +82,7 @@ export const AppointmentTabsHeader: FC = () => {
           data-testid={dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)}
           value={TelemedAppointmentVisitTabs.sign}
         />
-        {chartData?.aiChat != null ? (
+        {chartData?.aiChat?.documents?.[0] ? (
           <Tab
             label={
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
