@@ -2,7 +2,7 @@ import { Autocomplete, TextField } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC } from 'react';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
-import { useChartFields, useDeleteChartData, useSaveChartData } from '../../../../state';
+import { useChartData, useDeleteChartData, useSaveChartData } from '../../../../state';
 
 export type CPTCodeOption = {
   code: string;
@@ -10,8 +10,8 @@ export type CPTCodeOption = {
 };
 
 export const EMCodeField: FC = () => {
-  const { data: chartFields, setQueryCache } = useChartFields({ requestedFields: { emCode: {}, cptCodes: {} } });
-  const emCode = chartFields?.emCode;
+  const { chartData, setPartialChartData } = useChartData();
+  const emCode = chartData?.emCode;
   const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
   const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
 
@@ -26,19 +26,19 @@ export const EMCodeField: FC = () => {
             const saved = data.chartData?.emCode;
 
             if (saved) {
-              setQueryCache({ emCode: saved });
+              setPartialChartData({ emCode: saved });
             }
           },
           onError: () => {
             enqueueSnackbar('An error has occurred while saving E&M code. Please try again.', { variant: 'error' });
-            setQueryCache({ emCode: prevValue });
+            setPartialChartData({ emCode: prevValue });
           },
         }
       );
-      setQueryCache({ emCode: value });
+      setPartialChartData({ emCode: value });
     } else {
       deleteChartData({ emCode });
-      setQueryCache({ emCode: undefined });
+      setPartialChartData({ emCode: undefined });
     }
   };
 

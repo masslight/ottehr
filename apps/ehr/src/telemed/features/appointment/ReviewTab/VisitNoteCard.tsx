@@ -36,7 +36,6 @@ export const VisitNoteCard: FC = () => {
       },
       chiefComplaint: { _tag: 'chief-complaint' },
       ros: { _tag: 'ros' },
-      cptCodes: {},
     },
   });
 
@@ -47,7 +46,7 @@ export const VisitNoteCard: FC = () => {
   const diagnoses = chartData?.diagnosis;
   const medicalDecision = chartFields?.medicalDecision?.text;
   const emCode = chartData?.emCode;
-  const cptCodes = chartFields?.cptCodes;
+  const cptCodes = chartData?.cptCodes;
   const prescriptions = chartFields?.prescribedMedications;
   const showChiefComplaint = !!((chiefComplaint && chiefComplaint.length > 0) || (spentTime && spentTime.length > 0));
   const showReviewOfSystems = !!(ros && ros.length > 0);

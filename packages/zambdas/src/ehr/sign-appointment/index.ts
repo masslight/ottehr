@@ -14,10 +14,10 @@ import {
   getEncounterStatusHistoryUpdateOp,
   getPatchBinary,
   getPatientContactEmail,
-  getProgressNoteChartDataRequestedFields,
   getVisitStatus,
   InPersonCompletionTemplateData,
   OTTEHR_MODULE,
+  progressNoteChartDataRequestedFields,
   SignAppointmentInput,
   SignAppointmentResponse,
   TelemedCompletionTemplateData,
@@ -145,7 +145,7 @@ export const performEffect = async (
     oystehr,
     m2mToken,
     visitResources.encounter.id!,
-    isInPersonAppointment ? getProgressNoteChartDataRequestedFields() : telemedProgressNoteChartDataRequestedFields
+    isInPersonAppointment ? progressNoteChartDataRequestedFields : telemedProgressNoteChartDataRequestedFields
   );
   const medicationOrdersPromise = getMedicationOrders(oystehr, {
     searchBy: {

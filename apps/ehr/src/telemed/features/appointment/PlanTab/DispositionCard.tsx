@@ -84,6 +84,7 @@ export const DispositionCard: FC = () => {
     methods,
     savedDisposition: chartFields?.disposition,
   });
+
   const labServiceValue = useWatch({ control: methods.control, name: 'labService' });
   const showVirusTest = labServiceValue?.includes?.(SEND_OUT_VIRUS_TEST_LABEL);
   const { debounce } = useDebounce(1500);

@@ -17,7 +17,6 @@ export const MissingCard: FC = () => {
       medicalDecision: {
         _tag: 'medical-decision',
       },
-      emCode: {},
     },
   });
 
@@ -25,7 +24,7 @@ export const MissingCard: FC = () => {
   const navigate = useNavigate();
   const primaryDiagnosis = (chartData?.diagnosis || []).find((item) => item.isPrimary);
   const medicalDecision = chartFields?.medicalDecision?.text;
-  const emCode = chartFields?.emCode;
+  const emCode = chartData?.emCode;
 
   if (primaryDiagnosis && medicalDecision && emCode) {
     return null;

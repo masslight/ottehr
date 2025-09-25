@@ -5,8 +5,6 @@ import { createVitalsSearchConfig } from './create-vitals-search-config.helper';
 export const progressNoteChartDataRequestedFields: ChartDataRequestedFields = {
   chiefComplaint: { _tag: 'chief-complaint' },
   ros: { _tag: 'ros' },
-  cptCodes: {},
-  emCode: {},
   episodeOfCare: {},
   prescribedMedications: {},
   disposition: {},
@@ -46,8 +44,6 @@ export const progressNoteChartDataRequestedFields: ChartDataRequestedFields = {
 export const telemedProgressNoteChartDataRequestedFields: ChartDataRequestedFields = {
   chiefComplaint: { _tag: 'chief-complaint' },
   ros: { _tag: 'ros' },
-  cptCodes: {},
-  emCode: {},
   prescribedMedications: {},
   disposition: {},
   medicalDecision: {

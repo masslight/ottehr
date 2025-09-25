@@ -41,8 +41,8 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
       medicalDecision: {
         _tag: 'medical-decision',
       },
-      emCode: {},
       inHouseLabResults: {},
+      patientInfoConfirmed: {},
     },
   });
 
@@ -67,8 +67,8 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
 
   const primaryDiagnosis = (chartData?.diagnosis || []).find((item) => item.isPrimary);
   const medicalDecision = chartFields?.medicalDecision?.text;
-  const emCode = chartFields?.emCode;
-  const patientInfoConfirmed = chartData?.patientInfoConfirmed?.value;
+  const emCode = chartData?.emCode;
+  const patientInfoConfirmed = chartFields?.patientInfoConfirmed?.value;
   const inHouseLabResultsPending = chartFields?.inHouseLabResults?.resultsPending;
 
   const patientName = getPatientName(patient?.name).firstLastName;
