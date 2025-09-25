@@ -41,6 +41,8 @@ export class TelemedVisitFlow extends BaseTelemedFlow {
     await this.continue();
     // Primary Care Physician screen here
     await this.continue();
+    // Preferred pharmacy screen here
+    await this.continue();
     await this.paperwork.fillAndCheckEmptyCurrentMedications();
     await this.continue();
     await this.paperwork.fillAndCheckEmptyCurrentAllergies();
