@@ -8,26 +8,17 @@ import {
   getQuestionnaireResponseByLinkId,
 } from 'utils';
 import { formatDateUsingSlashes } from '../../../../helpers/formatDateTime';
-import { ActionsList, useAppointmentData, useChartData } from '../../../../telemed';
+import { ActionsList, useAppointmentData, useChartFields } from '../../../../telemed';
 import { VisitNoteItem } from '../../../../telemed/features/appointment/ReviewTab';
 import { ButtonRounded } from '../RoundedButton';
 
 export const VisitDetailsContainer: FC = () => {
   const navigate = useNavigate();
   const { appointment, location, questionnaireResponse, encounter } = useAppointmentData();
-  const { chartData, setPartialChartData } = useChartData();
 
-  useChartData({
+  const { data: chartFields } = useChartFields({
     requestedFields: {
       practitioners: {},
-    },
-    onSuccess: (data) => {
-      if (!data) {
-        return;
-      }
-      setPartialChartData({
-        practitioners: data.practitioners,
-      });
     },
   });
 
@@ -39,11 +30,11 @@ export const VisitDetailsContainer: FC = () => {
 
   const facility = location?.name;
   const admitterId = getAdmitterPractitionerId(encounter);
-  const admitterPractitioner = chartData?.practitioners?.find((practitioner) => practitioner.id === admitterId);
+  const admitterPractitioner = chartFields?.practitioners?.find((practitioner) => practitioner.id === admitterId);
   const admitterPractitionerName = admitterPractitioner && getProviderNameWithProfession(admitterPractitioner);
 
   const attenderId = encounter ? getAttendingPractitionerId(encounter) : undefined;
-  const attenderPractitioner = chartData?.practitioners?.find((practitioner) => practitioner.id === attenderId);
+  const attenderPractitioner = chartFields?.practitioners?.find((practitioner) => practitioner.id === attenderId);
   const attenderPractitionerName = attenderPractitioner && getProviderNameWithProfession(attenderPractitioner);
 
   return (

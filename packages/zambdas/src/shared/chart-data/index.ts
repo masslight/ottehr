@@ -31,11 +31,11 @@ import {
   addOperation,
   addOrReplaceOperation,
   AI_OBSERVATION_META_SYSTEM,
+  AllChartValues,
   AllergyDTO,
   BirthHistoryDTO,
   BODY_SITE_SYSTEM,
   BooleanValueDTO,
-  ChartDataFields,
   ClinicalImpressionDTO,
   CommunicationDTO,
   CPTCodeDTO,
@@ -1120,10 +1120,10 @@ export const chartDataResourceHasMetaTagBySystem = (resource: Resource, metaTagS
   metaTagSystem ? Boolean(resource?.meta?.tag?.find((tag) => tag.system === metaTagSystem)) : true;
 
 const mapResourceToChartDataFields = (
-  data: ChartDataFields,
+  data: AllChartValues,
   resource: FhirResource,
   encounterId: string
-): { chartDataFields: ChartDataFields; resourceMapped: boolean } => {
+): { chartDataFields: AllChartValues; resourceMapped: boolean } => {
   let resourceMapped = false;
   if (resource?.resourceType === 'Condition' && chartDataResourceHasMetaTagByCode(resource, 'medical-condition')) {
     data.conditions?.push(makeConditionDTO(resource));
@@ -1300,7 +1300,7 @@ export function mapResourceToChartDataResponse(
   };
 }
 
-export function handleCustomDTOExtractions(data: ChartDataFields, resources: FhirResource[]): ChartDataFields {
+export function handleCustomDTOExtractions(data: AllChartValues, resources: FhirResource[]): AllChartValues {
   const encounterResource = resources.find((res) => res.resourceType === 'Encounter') as Encounter;
   if (!encounterResource) return data;
 

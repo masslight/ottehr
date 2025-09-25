@@ -1,19 +1,15 @@
-import { useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { GetChartDataResponse, NoteDTO } from 'utils';
 import useEvolveUser from '../../../../../hooks/useEvolveUser';
-import { useChartData } from '../../../../../telemed';
+import { useChartFields } from '../../../../../telemed';
 import { useOystehrAPIClient } from '../../../../../telemed/hooks/useOystehrAPIClient';
 import { UseSaveNote } from '../types';
-import { useChartDataCacheKey } from './useChartDataCacheKey';
 
 export const useSaveNote: UseSaveNote = ({ encounterId, appointmentId, patientId, apiConfig }) => {
   const apiClient = useOystehrAPIClient();
   const user = useEvolveUser();
-  const queryClient = useQueryClient();
-  const cacheKey = useChartDataCacheKey(apiConfig.fieldName, apiConfig.searchParams);
 
-  const { chartDataRefetch: refetch } = useChartData({
+  const { setQueryCache } = useChartFields({
     appointmentId,
     requestedFields: { [apiConfig.fieldName]: apiConfig.searchParams },
   });
@@ -39,7 +35,7 @@ export const useSaveNote: UseSaveNote = ({ encounterId, appointmentId, patientId
       const savedData = saveResult?.chartData?.[apiConfig.fieldName];
 
       if (savedData) {
-        const result = queryClient.setQueryData(cacheKey, (oldData: any) => {
+        setQueryCache((oldData: any) => {
           if (oldData?.[apiConfig.fieldName]) {
             return {
               ...oldData,
@@ -51,14 +47,9 @@ export const useSaveNote: UseSaveNote = ({ encounterId, appointmentId, patientId
           }
           return oldData;
         }) as GetChartDataResponse | undefined;
-
-        if (result?.[apiConfig.fieldName] === undefined) {
-          // refetch all if the cache didn't found
-          await refetch();
-        }
       }
     },
-    [user, apiConfig, patientId, encounterId, apiClient, queryClient, cacheKey, refetch]
+    [user, apiConfig, patientId, encounterId, apiClient, setQueryCache]
   );
 
   return handleSave;

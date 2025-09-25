@@ -3,7 +3,7 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { getPractitionerMissingFields } from 'src/shared/utils';
-import { useChartData } from 'src/telemed';
+import { useChartFields } from 'src/telemed';
 import { VitalFieldNames } from 'utils';
 import { createVitalsSearchConfig } from 'utils/lib/helpers/visit-note/create-vitals-search-config.helper';
 import {
@@ -46,19 +46,19 @@ export const ERX: FC<{
   const weightSearchConfig = createVitalsSearchConfig(VitalFieldNames.VitalWeight, 'patient', 1);
 
   const {
-    chartData: heightVitalObservationResponse,
+    data: heightVitalObservationResponse,
     isLoading: isHeightLoading,
     isFetched: isHeightFetched,
-  } = useChartData({
+  } = useChartFields({
     requestedFields: { [heightSearchConfig.fieldName]: heightSearchConfig.searchParams },
     enabled: Boolean(encounter?.id),
   });
 
   const {
-    chartData: weightVitalObservationResponse,
+    data: weightVitalObservationResponse,
     isLoading: isWeightLoading,
     isFetched: isWeightFetched,
-  } = useChartData({
+  } = useChartFields({
     requestedFields: { [weightSearchConfig.fieldName]: weightSearchConfig.searchParams },
     enabled: Boolean(encounter?.id),
   });
