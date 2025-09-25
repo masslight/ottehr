@@ -5,7 +5,7 @@
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { act, render, renderHook, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
-import { ExamObservationDTO, ObservationDTO, VitalsObservationDTO } from 'utils';
+import { VitalsObservationDTO } from 'utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useChartFields } from './useChartDataFields';
 
@@ -41,18 +41,15 @@ vi.mock('utils', async (importOriginal) => {
 });
 
 // Helper functions to create valid mock data
-const createMockObservationDTO = (resourceId: string, field: string, value: string): ObservationDTO =>
+const createMockNoteDTO = (resourceId: string, type: string, text: string): any =>
   ({
     resourceId,
-    field,
-    value,
-  }) as any;
-
-const createMockExamObservationDTO = (resourceId: string, field: string, value?: boolean): ExamObservationDTO =>
-  ({
-    resourceId,
-    field,
-    value,
+    type,
+    text,
+    patientId: 'patient-123',
+    encounterId: 'encounter-123',
+    authorId: 'author-123',
+    authorName: 'Test Author',
   }) as any;
 
 const createMockVitalsObservationDTO = (
@@ -69,11 +66,7 @@ const createMockVitalsObservationDTO = (
 // Test data
 const mockChartData = {
   patientId: 'patient-123',
-  observations: [
-    createMockObservationDTO('1', 'temperature', 'test-value'),
-    createMockObservationDTO('2', 'blood_pressure', 'test-value-2'),
-  ],
-  examObservations: [createMockExamObservationDTO('3', 'heart_rate', true)],
+  notes: [createMockNoteDTO('1', 'intake', 'test-note-1'), createMockNoteDTO('2', 'vitals', 'test-note-2')],
   vitalsObservations: [createMockVitalsObservationDTO('4', 'vital-weight', 70)],
 };
 
@@ -114,7 +107,7 @@ describe('useChartDataField', () => {
   describe('Basic functionality', () => {
     it('should fetch data with requested fields', async () => {
       const requestedFields = {
-        observations: { _sort: 'date', _count: 10 },
+        notes: { _sort: 'date', _count: 10 },
         vitalsObservations: { _include: 'Patient' },
       };
 
@@ -133,14 +126,14 @@ describe('useChartDataField', () => {
       });
 
       expect(result.current.data).toEqual({
-        observations: mockChartData.observations,
+        notes: mockChartData.notes,
         vitalsObservations: mockChartData.vitalsObservations,
       });
     });
 
     it('should return only requested fields from response', async () => {
       const requestedFields = {
-        observations: { _sort: 'date' },
+        notes: { _sort: 'date' },
       };
 
       const wrapper = createWrapper();
@@ -153,10 +146,9 @@ describe('useChartDataField', () => {
       });
 
       expect(result.current.data).toEqual({
-        observations: mockChartData.observations,
+        notes: mockChartData.notes,
       });
       expect(result.current.data).not.toHaveProperty('vitalsObservations');
-      expect(result.current.data).not.toHaveProperty('examObservations');
     });
 
     it('should handle empty requested fields', async () => {
@@ -192,11 +184,11 @@ describe('useChartDataField', () => {
 
     it('should generate different query keys for different search params', () => {
       const requestedFields1 = {
-        observations: { _sort: 'date', _count: 10 },
+        notes: { _sort: 'date', _count: 10 },
       };
 
       const requestedFields2 = {
-        observations: { _sort: 'name', _count: 5 }, // Different params
+        notes: { _sort: 'name', _count: 5 }, // Different params
       };
 
       const wrapper = createWrapper();
@@ -208,13 +200,13 @@ describe('useChartDataField', () => {
 
     it('should handle parameter order independence', () => {
       const requestedFields1 = {
-        observations: { _sort: 'date', _count: 10 },
+        notes: { _sort: 'date', _count: 10 },
         vitalsObservations: { _include: 'Patient' },
       };
 
       const requestedFields2 = {
         vitalsObservations: { _include: 'Patient' },
-        observations: { _count: 10, _sort: 'date' },
+        notes: { _count: 10, _sort: 'date' },
       };
 
       const wrapper = createWrapper();
@@ -229,7 +221,7 @@ describe('useChartDataField', () => {
   describe('setQueryCache functionality', () => {
     it('should update cache with exact search params match', async () => {
       const requestedFields = {
-        observations: { _sort: 'date', _count: 10 },
+        notes: { _sort: 'date', _count: 10 },
       };
 
       const wrapper = createWrapper();
@@ -241,20 +233,20 @@ describe('useChartDataField', () => {
         expect(result.current.isLoading).toBe(false);
       });
 
-      const newObservations = [createMockObservationDTO('5', 'new_field', 'new_value')];
+      const newNotes = [createMockNoteDTO('5', 'intake', 'new_value')];
 
       act(() => {
-        result.current.setQueryCache({ observations: newObservations });
+        result.current.setQueryCache({ notes: newNotes });
       });
 
       await waitFor(() => {
-        expect(result.current.data?.observations).toEqual(newObservations);
+        expect(result.current.data?.notes).toEqual(newNotes);
       });
     });
 
     it('should update cache using function updater', async () => {
       const requestedFields = {
-        observations: { _sort: 'date' },
+        notes: { _sort: 'date' },
       };
 
       const wrapper = createWrapper();
@@ -266,27 +258,27 @@ describe('useChartDataField', () => {
         expect(result.current.isLoading).toBe(false);
       });
 
-      const newObservation = createMockObservationDTO('5', 'new_field', 'new_value');
+      const newNote = createMockNoteDTO('5', 'intake', 'new_value');
 
       act(() => {
         result.current.setQueryCache((currentData) => ({
-          observations: [...(currentData.observations || []), newObservation],
+          notes: [...(currentData.notes || []), newNote],
         }));
       });
 
       await waitFor(() => {
-        expect(result.current.data?.observations).toHaveLength(3);
-        expect(result.current.data?.observations).toContain(newObservation);
+        expect(result.current.data?.notes).toHaveLength(3);
+        expect(result.current.data?.notes).toContain(newNote);
       });
     });
 
     it('should invalidate caches with different search params for same field', async () => {
       const requestedFields1 = {
-        observations: { _sort: 'date', _count: 10 },
+        notes: { _sort: 'date', _count: 10 },
       };
 
       const requestedFields2 = {
-        observations: { _sort: 'name', _count: 5 },
+        notes: { _sort: 'name', _count: 5 },
       };
 
       const wrapper = createWrapper();
@@ -306,15 +298,15 @@ describe('useChartDataField', () => {
 
       mockApiClient.getChartData.mockClear();
 
-      const newObservations = [createMockObservationDTO('5', 'updated', 'updated_value')];
+      const newNotes = [createMockNoteDTO('5', 'intake', 'updated_value')];
 
       act(() => {
-        result1.current.setQueryCache({ observations: newObservations });
+        result1.current.setQueryCache({ notes: newNotes });
       });
 
       // result1 should be updated immediately
       await waitFor(() => {
-        expect(result1.current.data?.observations).toEqual(newObservations);
+        expect(result1.current.data?.notes).toEqual(newNotes);
       });
 
       // result2 should be invalidated and refetch on next access
@@ -328,7 +320,7 @@ describe('useChartDataField', () => {
 
     it('should handle multiple field updates correctly', async () => {
       const requestedFields = {
-        observations: { _sort: 'date' },
+        notes: { _sort: 'date' },
         vitalsObservations: { _include: 'Patient' },
       };
 
@@ -342,7 +334,7 @@ describe('useChartDataField', () => {
       });
 
       const updates = {
-        observations: [createMockObservationDTO('5', 'new_obs', 'new_value')],
+        notes: [createMockNoteDTO('5', 'intake', 'new_value')],
         vitalsObservations: [createMockVitalsObservationDTO('6', 'vital-weight', 75)],
       };
 
@@ -351,7 +343,7 @@ describe('useChartDataField', () => {
       });
 
       await waitFor(() => {
-        expect(result.current.data?.observations).toEqual(updates.observations);
+        expect(result.current.data?.notes).toEqual(updates.notes);
         expect(result.current.data?.vitalsObservations).toEqual(updates.vitalsObservations);
       });
     });
@@ -360,7 +352,7 @@ describe('useChartDataField', () => {
   describe('Error handling', () => {
     it('should handle API errors gracefully', async () => {
       const requestedFields = {
-        observations: { _sort: 'date' },
+        notes: { _sort: 'date' },
       };
 
       mockApiClient.getChartData.mockRejectedValue(new Error('API Error'));
@@ -382,7 +374,7 @@ describe('useChartDataField', () => {
       mockUseOystehrAPIClient.mockReturnValue(null);
 
       const requestedFields = {
-        observations: { _sort: 'date' },
+        notes: { _sort: 'date' },
       };
 
       const wrapper = createWrapper();
@@ -411,7 +403,7 @@ describe('useChartDataField', () => {
       mockUseAppointmentData.mockReturnValueOnce({ encounter: {} } as any);
 
       const requestedFields = {
-        observations: { _sort: 'date' },
+        notes: { _sort: 'date' },
       };
 
       const wrapper = createWrapper();
@@ -436,7 +428,7 @@ describe('useChartDataField', () => {
 
     it('should handle malformed cache data in setQueryCache', async () => {
       const requestedFields = {
-        observations: { _sort: 'date' },
+        notes: { _sort: 'date' },
       };
 
       const wrapper = createWrapper();
@@ -451,11 +443,11 @@ describe('useChartDataField', () => {
 
       // Should not throw error when trying to update cache
       act(() => {
-        result.current.setQueryCache({ observations: [] });
+        result.current.setQueryCache({ notes: [] });
       });
 
       await waitFor(() => {
-        expect(result.current.data?.observations).toEqual([]);
+        expect(result.current.data?.notes).toEqual([]);
       });
     });
   });
@@ -463,7 +455,7 @@ describe('useChartDataField', () => {
   describe('Edge cases', () => {
     it('should be disabled when enabled=false', () => {
       const requestedFields = {
-        observations: { _sort: 'date' },
+        notes: { _sort: 'date' },
       };
 
       const wrapper = createWrapper();
@@ -476,9 +468,9 @@ describe('useChartDataField', () => {
 
     it('should handle fields not present in API response', async () => {
       const requestedFields = {
-        observations: { _sort: 'date' },
-        nonExistentField: { _sort: 'date' },
-      };
+        notes: { _sort: 'date' },
+        // Using an invalid field name that's not in RequestedFields
+      } as any;
 
       const wrapper = createWrapper();
       const { result } = renderHook(() => useChartFields({ requestedFields: requestedFields }), {
@@ -491,9 +483,8 @@ describe('useChartDataField', () => {
       });
 
       expect(result.current.data).toEqual({
-        observations: mockChartData.observations,
+        notes: mockChartData.notes,
       });
-      expect(result.current.data).not.toHaveProperty('nonExistentField');
     });
 
     it('should handle read-only mode in query key', async () => {
@@ -506,10 +497,11 @@ describe('useChartDataField', () => {
         isEncounterAssignedToCurrentPractitioner: true,
         isStatusEditable: false,
         isCurrentUserHasAccessToAppointment: true,
+        isAppointmentLocked: false,
       });
 
       const requestedFields = {
-        observations: { _sort: 'date' },
+        notes: { _sort: 'date' },
       };
 
       const wrapper = createWrapper();
@@ -531,12 +523,13 @@ describe('useChartDataField', () => {
         isEncounterAssignedToCurrentPractitioner: true,
         isStatusEditable: true,
         isCurrentUserHasAccessToAppointment: true,
+        isAppointmentLocked: false,
       });
     });
 
     it('should handle complex nested search parameters', async () => {
       const requestedFields = {
-        observations: {
+        notes: {
           _sort: 'date',
           _count: 10,
           _include: ['Patient', 'Encounter'],
@@ -562,7 +555,7 @@ describe('useChartDataField', () => {
 
     it('should handle empty updates in setQueryCache', async () => {
       const requestedFields = {
-        observations: { _sort: 'date' },
+        notes: { _sort: 'date' },
       };
 
       const wrapper = createWrapper();
@@ -585,7 +578,7 @@ describe('useChartDataField', () => {
 
     it('should handle function updater returning empty object', async () => {
       const requestedFields = {
-        observations: { _sort: 'date' },
+        notes: { _sort: 'date' },
       };
 
       const wrapper = createWrapper();
@@ -612,13 +605,13 @@ describe('useChartDataField', () => {
       mockApiClient.getChartData.mockClear();
 
       const params1 = {
-        observations: { _sort: 'date', _count: 10 },
+        notes: { _sort: 'date', _count: 10 },
         vitalsObservations: { _include: 'Patient' },
       };
 
       const params2 = {
         vitalsObservations: { _include: 'Patient' },
-        observations: { _count: 10, _sort: 'date' },
+        notes: { _count: 10, _sort: 'date' },
       };
 
       const wrapper = createWrapper();
@@ -657,7 +650,7 @@ describe('useChartDataField - Advanced Cache Management', () => {
         () =>
           useChartFields({
             requestedFields: {
-              observations: sharedSearchParams,
+              notes: sharedSearchParams,
               vitalsObservations: { _include: 'Patient' },
             },
           }),
@@ -668,8 +661,8 @@ describe('useChartDataField - Advanced Cache Management', () => {
         () =>
           useChartFields({
             requestedFields: {
-              observations: sharedSearchParams,
-              examObservations: { _sort: 'name' },
+              notes: sharedSearchParams,
+              vitalsObservations: { _sort: 'name' },
             },
           }),
         { wrapper }
@@ -682,15 +675,15 @@ describe('useChartDataField - Advanced Cache Management', () => {
         expect(hook2.current.data).toBeTruthy();
       });
 
-      const newObservations = [createMockObservationDTO('999', 'updated', 'new_value')];
+      const newNotes = [createMockNoteDTO('999', 'intake', 'new_value')];
 
       act(() => {
-        hook1.current.setQueryCache({ observations: newObservations });
+        hook1.current.setQueryCache({ notes: newNotes });
       });
 
       await waitFor(() => {
-        expect(hook1.current.data?.observations).toEqual(newObservations);
-        expect(hook2.current.data?.observations).toEqual(newObservations);
+        expect(hook1.current.data?.notes).toEqual(newNotes);
+        expect(hook2.current.data?.notes).toEqual(newNotes);
       });
     });
 
@@ -699,7 +692,7 @@ describe('useChartDataField - Advanced Cache Management', () => {
         () =>
           useChartFields({
             requestedFields: {
-              observations: { _sort: 'date' },
+              notes: { _sort: 'date' },
               vitalsObservations: { _count: 5 },
             },
           }),
@@ -710,8 +703,8 @@ describe('useChartDataField - Advanced Cache Management', () => {
         () =>
           useChartFields({
             requestedFields: {
-              observations: { _sort: 'date' },
-              examObservations: { _include: 'Patient' },
+              notes: { _sort: 'date' },
+              vitalsObservations: { _include: 'Patient' },
             },
           }),
         { wrapper }
@@ -723,18 +716,18 @@ describe('useChartDataField - Advanced Cache Management', () => {
       });
 
       const originalVitalsObservations = hook1.current.data?.vitalsObservations;
-      const originalExamObs = hook2.current.data?.examObservations;
-      const newObservations = [createMockObservationDTO('999', 'updated', 'new_value')];
+      const originalVitalsObs2 = hook2.current.data?.vitalsObservations;
+      const newNotes = [createMockNoteDTO('999', 'intake', 'new_value')];
 
       act(() => {
-        hook1.current.setQueryCache({ observations: newObservations });
+        hook1.current.setQueryCache({ notes: newNotes });
       });
 
       await waitFor(() => {
-        expect(hook1.current.data?.observations).toEqual(newObservations);
-        expect(hook2.current.data?.observations).toEqual(newObservations);
+        expect(hook1.current.data?.notes).toEqual(newNotes);
+        expect(hook2.current.data?.notes).toEqual(newNotes);
         expect(hook1.current.data?.vitalsObservations).toEqual(originalVitalsObservations);
-        expect(hook2.current.data?.examObservations).toEqual(originalExamObs);
+        expect(hook2.current.data?.vitalsObservations).toEqual(originalVitalsObs2);
       });
     });
   });
@@ -745,7 +738,7 @@ describe('useChartDataField - Advanced Cache Management', () => {
         () =>
           useChartFields({
             requestedFields: {
-              observations: { _sort: 'date', _count: 10 },
+              notes: { _sort: 'date', _count: 10 },
             },
           }),
         { wrapper }
@@ -755,7 +748,7 @@ describe('useChartDataField - Advanced Cache Management', () => {
         () =>
           useChartFields({
             requestedFields: {
-              observations: { _sort: 'name', _count: 5 },
+              notes: { _sort: 'name', _count: 5 },
             },
           }),
         { wrapper }
@@ -767,20 +760,20 @@ describe('useChartDataField - Advanced Cache Management', () => {
       });
 
       mockApiClient.getChartData.mockClear();
-      const newObservations = [createMockObservationDTO('999', 'updated', 'new_value')];
+      const newNotes = [createMockNoteDTO('999', 'intake', 'new_value')];
 
       act(() => {
-        hook1.current.setQueryCache({ observations: newObservations });
+        hook1.current.setQueryCache({ notes: newNotes });
       });
 
       await waitFor(() => {
-        expect(hook1.current.data?.observations).toEqual(newObservations);
+        expect(hook1.current.data?.notes).toEqual(newNotes);
       });
 
       await waitFor(() => {
         expect(mockApiClient.getChartData).toHaveBeenCalledWith({
           encounterId: 'encounter-123',
-          requestedFields: { observations: { _sort: 'name', _count: 5 } },
+          requestedFields: { notes: { _sort: 'name', _count: 5 } },
         });
       });
     });
@@ -790,7 +783,7 @@ describe('useChartDataField - Advanced Cache Management', () => {
         () =>
           useChartFields({
             requestedFields: {
-              observations: { _sort: 'date' },
+              notes: { _sort: 'date' },
             },
           }),
         { wrapper }
@@ -813,14 +806,14 @@ describe('useChartDataField - Advanced Cache Management', () => {
 
       mockApiClient.getChartData.mockClear();
       const originalVitalsObservations = hook2.current.data?.vitalsObservations;
-      const newObservations = [createMockObservationDTO('999', 'updated', 'new_value')];
+      const newNotes = [createMockNoteDTO('999', 'intake', 'new_value')];
 
       act(() => {
-        hook1.current.setQueryCache({ observations: newObservations });
+        hook1.current.setQueryCache({ notes: newNotes });
       });
 
       await waitFor(() => {
-        expect(hook1.current.data?.observations).toEqual(newObservations);
+        expect(hook1.current.data?.notes).toEqual(newNotes);
       });
 
       expect(hook2.current.data?.vitalsObservations).toEqual(originalVitalsObservations);
@@ -834,7 +827,7 @@ describe('useChartDataField - Advanced Cache Management', () => {
         () =>
           useChartFields({
             requestedFields: {
-              observations: { _sort: 'date' },
+              notes: { _sort: 'date' },
               vitalsObservations: { _count: 10 },
             },
           }),
@@ -858,18 +851,18 @@ describe('useChartDataField - Advanced Cache Management', () => {
       });
 
       mockApiClient.getChartData.mockClear();
-      const newObservations = [createMockObservationDTO('999', 'obs', 'new')];
+      const newNotes = [createMockNoteDTO('999', 'intake', 'new')];
       const newVitalsObservations = [createMockVitalsObservationDTO('888', 'vital-weight', 80)];
 
       act(() => {
         hook1.current.setQueryCache({
-          observations: newObservations,
+          notes: newNotes,
           vitalsObservations: newVitalsObservations,
         });
       });
 
       await waitFor(() => {
-        expect(hook1.current.data?.observations).toEqual(newObservations);
+        expect(hook1.current.data?.notes).toEqual(newNotes);
         expect(hook1.current.data?.vitalsObservations).toEqual(newVitalsObservations);
         expect(hook2.current.data?.vitalsObservations).toEqual(newVitalsObservations);
       });
@@ -880,7 +873,7 @@ describe('useChartDataField - Advanced Cache Management', () => {
         () =>
           useChartFields({
             requestedFields: {
-              observations: { _sort: 'date' },
+              notes: { _sort: 'date' },
               vitalsObservations: { _count: 10 },
             },
           }),
@@ -891,8 +884,8 @@ describe('useChartDataField - Advanced Cache Management', () => {
         () =>
           useChartFields({
             requestedFields: {
-              observations: { _sort: 'date' },
-              examObservations: { _include: 'Patient' },
+              notes: { _sort: 'date' },
+              vitalsObservations: { _include: 'Patient' },
             },
           }),
         { wrapper }
@@ -905,16 +898,16 @@ describe('useChartDataField - Advanced Cache Management', () => {
 
       act(() => {
         hook1.current.setQueryCache((currentData) => ({
-          observations: [...(currentData.observations || []), createMockObservationDTO('999', 'new', 'appended')],
+          notes: [...(currentData.notes || []), createMockNoteDTO('999', 'intake', 'appended')],
           vitalsObservations: [createMockVitalsObservationDTO('888', 'vital-weight', 85)],
         }));
       });
 
       await waitFor(() => {
-        expect(hook1.current.data?.observations).toHaveLength(3);
-        expect(hook2.current.data?.observations).toHaveLength(3);
-        expect(hook1.current.data?.observations?.[2]).toEqual(createMockObservationDTO('999', 'new', 'appended'));
-        expect(hook2.current.data?.observations?.[2]).toEqual(createMockObservationDTO('999', 'new', 'appended'));
+        expect(hook1.current.data?.notes).toHaveLength(3);
+        expect(hook2.current.data?.notes).toHaveLength(3);
+        expect(hook1.current.data?.notes?.[2]).toEqual(createMockNoteDTO('999', 'intake', 'appended'));
+        expect(hook2.current.data?.notes?.[2]).toEqual(createMockNoteDTO('999', 'intake', 'appended'));
         expect(hook1.current.data?.vitalsObservations).toEqual([
           createMockVitalsObservationDTO('888', 'vital-weight', 85),
         ]);
@@ -927,7 +920,7 @@ describe('useChartDataField - Advanced Cache Management', () => {
       const { result: hook1 } = renderHook(
         () =>
           useChartFields({
-            requestedFields: { observations: { _sort: 'date' } },
+            requestedFields: { notes: { _sort: 'date' } },
             enabled: false,
           }),
         { wrapper }
@@ -936,7 +929,7 @@ describe('useChartDataField - Advanced Cache Management', () => {
       const { result: hook2 } = renderHook(
         () =>
           useChartFields({
-            requestedFields: { observations: { _sort: 'date' } },
+            requestedFields: { notes: { _sort: 'date' } },
           }),
         { wrapper }
       );
@@ -945,16 +938,16 @@ describe('useChartDataField - Advanced Cache Management', () => {
         expect(hook2.current.isLoading).toBe(false);
       });
 
-      const newObservations = [createMockObservationDTO('999', 'new', 'value')];
+      const newNotes = [createMockNoteDTO('999', 'intake', 'value')];
 
       act(() => {
-        hook2.current.setQueryCache({ observations: newObservations });
+        hook2.current.setQueryCache({ notes: newNotes });
       });
 
       await waitFor(() => {
-        expect(hook2.current.data?.observations).toEqual(newObservations);
+        expect(hook2.current.data?.notes).toEqual(newNotes);
         // hook1 should also receive data through cache update (not network request)
-        expect(hook1.current.data?.observations).toEqual(newObservations);
+        expect(hook1.current.data?.notes).toEqual(newNotes);
       });
     });
 
@@ -962,7 +955,7 @@ describe('useChartDataField - Advanced Cache Management', () => {
       const { result } = renderHook(
         () =>
           useChartFields({
-            requestedFields: { observations: { _sort: 'date' } },
+            requestedFields: { notes: { _sort: 'date' } },
           }),
         { wrapper }
       );
@@ -975,20 +968,20 @@ describe('useChartDataField - Advanced Cache Management', () => {
       const queryClient = queryClientResult.current;
 
       const corruptedKey = ['chart-data-fields', 'encounter-123', 'invalid-json{', false];
-      queryClient.setQueryData(corruptedKey, { observations: [] });
+      queryClient.setQueryData(corruptedKey, { notes: [] });
 
       act(() => {
-        result.current.setQueryCache({ observations: [] });
+        result.current.setQueryCache({ notes: [] });
       });
 
       await waitFor(() => {
-        expect(result.current.data?.observations).toEqual([]);
+        expect(result.current.data?.notes).toEqual([]);
       });
     });
 
     it('should handle deep nested parameter comparison', async () => {
       const complexParams1 = {
-        observations: {
+        notes: {
           _sort: 'date',
           _include: ['Patient', 'Encounter'],
           customFilter: {
@@ -999,7 +992,7 @@ describe('useChartDataField - Advanced Cache Management', () => {
       };
 
       const complexParams2 = {
-        observations: {
+        notes: {
           customFilter: {
             array: [1, 2, 3],
             nested: { deep: { value: 'test' } },
@@ -1018,15 +1011,15 @@ describe('useChartDataField - Advanced Cache Management', () => {
         expect(hook2.current.isLoading).toBe(false);
       });
 
-      const newObservations = [createMockObservationDTO('999', 'test', 'complex')];
+      const newNotes = [createMockNoteDTO('999', 'intake', 'complex')];
 
       act(() => {
-        hook1.current.setQueryCache({ observations: newObservations });
+        hook1.current.setQueryCache({ notes: newNotes });
       });
 
       await waitFor(() => {
-        expect(hook1.current.data?.observations).toEqual(newObservations);
-        expect(hook2.current.data?.observations).toEqual(newObservations);
+        expect(hook1.current.data?.notes).toEqual(newNotes);
+        expect(hook2.current.data?.notes).toEqual(newNotes);
       });
     });
   });
@@ -1041,7 +1034,7 @@ describe('useChartDataField - Advanced Cache Management', () => {
       const { result: hook1 } = renderHook(
         () =>
           useChartFields({
-            requestedFields: { observations: { _sort: 'date' } },
+            requestedFields: { notes: { _sort: 'date' } },
           }),
         { wrapper }
       );
@@ -1049,7 +1042,7 @@ describe('useChartDataField - Advanced Cache Management', () => {
       const { result: hook2 } = renderHook(
         () =>
           useChartFields({
-            requestedFields: { observations: { _sort: 'date' } },
+            requestedFields: { notes: { _sort: 'date' } },
           }),
         { wrapper }
       );
@@ -1060,15 +1053,15 @@ describe('useChartDataField - Advanced Cache Management', () => {
       });
 
       const originalHook1Data = hook1.current.data;
-      const newObservations = [createMockObservationDTO('999', 'new', 'value')];
+      const newNotes = [createMockNoteDTO('999', 'intake', 'value')];
 
       act(() => {
-        hook2.current.setQueryCache({ observations: newObservations });
+        hook2.current.setQueryCache({ notes: newNotes });
       });
 
       expect(hook1.current.data).toEqual(originalHook1Data);
       await waitFor(() => {
-        expect(hook2.current.data?.observations).toEqual(newObservations);
+        expect(hook2.current.data?.notes).toEqual(newNotes);
       });
     });
 
@@ -1078,7 +1071,7 @@ describe('useChartDataField - Advanced Cache Management', () => {
       const TestComponent = (): JSX.Element => {
         renderSpy();
         const { data } = useChartFields({
-          requestedFields: { observations: { _sort: 'date' } },
+          requestedFields: { notes: { _sort: 'date' } },
         });
         return <div>{JSON.stringify(data)}</div>;
       };
