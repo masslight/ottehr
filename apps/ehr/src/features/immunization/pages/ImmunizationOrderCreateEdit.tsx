@@ -52,8 +52,6 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
   const currentUserHasProviderRole = currentUser?.hasRole?.([RoleType.Provider]);
   const defaultProviderId = currentUserHasProviderRole ? currentUserProviderId : undefined;
 
-  console.log(JSON.stringify(currentUser, null, 2));
-
   useEffect(() => {
     if (!orderId && defaultProviderId) {
       methods.reset({

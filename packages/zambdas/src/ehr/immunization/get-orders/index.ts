@@ -128,7 +128,7 @@ function mapMedicationAdministrationToImmunizationOrder(
   const emergencyContactReatedPerson = medicationAdministration.contained?.find(
     (resource) => resource.id === CONTAINED_EMERGENCY_CONTACT_ID
   ) as RelatedPerson;
-  const locatioCoding = getCoding(medicationAdministration.dosage?.site, MEDICATION_APPLIANCE_LOCATION_SYSTEM);
+  const locationCoding = getCoding(medicationAdministration.dosage?.site, MEDICATION_APPLIANCE_LOCATION_SYSTEM);
   return {
     id: medicationAdministration.id!,
     status: status,
@@ -147,10 +147,10 @@ function mapMedicationAdministrationToImmunizationOrder(
         medicationAdministration.extension?.find((e) => e.url === IMMUNIZATION_ORDER_CREATED_DATETIME_EXTENSION_URL)
           ?.valueDateTime ?? '',
       route: getCoding(medicationAdministration.dosage?.route, MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM)?.code,
-      location: locatioCoding
+      location: locationCoding
         ? {
-            name: locatioCoding.display ?? '',
-            code: locatioCoding.code ?? '',
+            name: locationCoding.display ?? '',
+            code: locationCoding.code ?? '',
           }
         : undefined,
       instructions: medicationAdministration.dosage?.text,
