@@ -874,7 +874,7 @@
       "src": "src/subscriptions/task/sub-send-claim/index",
       "zip": ".dist/zips/sub-send-claim.zip",
       "subscription": {
-        "criteria": "Task?code=send-claim|&status=requested",
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/claim-sync|send-claim&status=requested",
         "reason": "in person communication",
         "event": "create"
       }
