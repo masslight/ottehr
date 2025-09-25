@@ -557,17 +557,17 @@ test('discharged patients queue', () => {
   const { appointments, apptRefToEncounterMap } = getAppointmentsAndMap(visits);
 
   const expectedOrder: Appointment[] = [
-    preBooked17MinEarly.appointment,
-    prebooked15MinEarly.appointment,
-    prebooked15MinEarly2.appointment,
-    preBooked10MinEarly.appointment,
-    preBooked5MinEarly.appointment,
-    prebookedAlmostRightOnTime.appointment,
-    prebookedRightOnTime.appointment,
     walkin75MinsAgo.appointment,
     walkin74MinsAgo.appointment,
     walkin11MinsAgo.appointment,
     walkinJustNow.appointment,
+    prebookedAlmostRightOnTime.appointment,
+    prebookedRightOnTime.appointment,
+    preBooked5MinEarly.appointment,
+    preBooked10MinEarly.appointment,
+    prebooked15MinEarly.appointment,
+    prebooked15MinEarly2.appointment,
+    preBooked17MinEarly.appointment,
   ];
 
   const sorted = sortAppointments(appointments, apptRefToEncounterMap).checkedOut;

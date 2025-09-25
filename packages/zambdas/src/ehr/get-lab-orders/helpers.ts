@@ -251,6 +251,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
     encounterTimezone: parseTimezoneForAppointmentSchedule(appointment, appointmentScheduleMap),
     orderNumber: requisitionNumber,
     abnPdfUrl,
+    location: parseLocation(serviceRequest, locations),
   };
 
   if (searchBy.searchBy.field === 'serviceRequestId') {
@@ -510,6 +511,7 @@ export const getLabResources = async (
   patientLabItems: PatientLabItem[];
   appointmentScheduleMap: Record<string, Schedule>;
 }> => {
+  // does not include the location on the SR
   const labServiceRequestSearchParams = createLabServiceRequestSearchParams(params);
   console.log('labServiceRequestSearchParams', JSON.stringify(labServiceRequestSearchParams));
 
@@ -546,7 +548,6 @@ export const getLabResources = async (
           | DiagnosticReport
           | Provenance
           | Organization
-          | Location
           | QuestionnaireResponse
           | DocumentReference
           | Appointment
@@ -559,7 +560,6 @@ export const getLabResources = async (
     serviceRequests,
     tasks: preSubmissionTasks,
     encounters,
-    locations,
     diagnosticReports,
     observations,
     provenances,
@@ -572,18 +572,42 @@ export const getLabResources = async (
     appointmentScheduleMap,
   } = extractLabResources(labResources);
 
+  // Locations for ServiceRequest
+  const srLocationIds = serviceRequests.flatMap(
+    (sr) =>
+      sr.locationReference
+        ?.map((locRef) => locRef.reference?.replace('Location/', ''))
+        .filter((val) => val !== undefined) ?? []
+  );
+  console.log(`These are the serviceRequests location ids in getLabResources`, JSON.stringify(srLocationIds));
+
+  const srLocationsBundlePromise = srLocationIds.length
+    ? oystehr.fhir.search<Location>({
+        resourceType: 'Location',
+        params: [{ name: '_id', value: srLocationIds.join(',') }],
+      })
+    : Promise.resolve({
+        unbundle: () => [] as Location[],
+      });
+
   const isDetailPageRequest = searchBy.searchBy.field === 'serviceRequestId';
   console.log('isDetailPageRequest', isDetailPageRequest);
 
-  const [serviceRequestPractitioners, finalAndPrelimAndCorrectedTasks, reflexDRsAndRelatedResources, questionnaires] =
-    await Promise.all([
-      fetchPractitionersForServiceRequests(oystehr, serviceRequests),
-      fetchFinalAndPrelimAndCorrectedTasks(oystehr, diagnosticReports),
-      checkForReflexDiagnosticReports(oystehr, serviceRequests),
-      executeByCondition(isDetailPageRequest, () =>
-        fetchQuestionnaireForServiceRequests(m2mToken, serviceRequests, questionnaireResponses)
-      ),
-    ]);
+  const [
+    serviceRequestPractitioners,
+    finalAndPrelimAndCorrectedTasks,
+    reflexDRsAndRelatedResources,
+    questionnaires,
+    srLocationsBundle,
+  ] = await Promise.all([
+    fetchPractitionersForServiceRequests(oystehr, serviceRequests),
+    fetchFinalAndPrelimAndCorrectedTasks(oystehr, diagnosticReports),
+    checkForReflexDiagnosticReports(oystehr, serviceRequests),
+    executeByCondition(isDetailPageRequest, () =>
+      fetchQuestionnaireForServiceRequests(m2mToken, serviceRequests, questionnaireResponses)
+    ),
+    srLocationsBundlePromise,
+  ]);
 
   const allPractitioners = [...practitioners, ...serviceRequestPractitioners];
 
@@ -613,6 +637,9 @@ export const getLabResources = async (
   }
 
   const abnPDFsByRequisitionNumber = groupAbnPDFsByRequisition(abnPDFs, serviceRequests);
+
+  const locations = srLocationIds.length ? srLocationsBundle.unbundle() : [];
+  console.log('These are the returned locations', JSON.stringify(locations));
 
   const pagination = parsePaginationFromResponse(labOrdersResponse);
 
@@ -694,12 +721,6 @@ export const createLabServiceRequestSearchParams = (params: GetZambdaLabOrdersPa
     {
       name: '_revinclude',
       value: 'Provenance:target',
-    },
-
-    // include encounter location
-    {
-      name: '_include:iterate',
-      value: 'Encounter:location',
     },
 
     {
@@ -802,7 +823,6 @@ export const extractLabResources = (
     | Provenance
     | Organization
     | QuestionnaireResponse
-    | Location
     | Specimen
     | Practitioner
     | DocumentReference
@@ -815,7 +835,6 @@ export const extractLabResources = (
   tasks: Task[];
   diagnosticReports: DiagnosticReport[];
   encounters: Encounter[];
-  locations: Location[];
   observations: Observation[];
   provenances: Provenance[];
   organizations: Organization[];
@@ -833,7 +852,6 @@ export const extractLabResources = (
   const tasks: Task[] = [];
   const diagnosticReports: DiagnosticReport[] = [];
   const encounters: Encounter[] = [];
-  const locations: Location[] = [];
   const observations: Observation[] = [];
   const provenances: Provenance[] = [];
   const organizations: Organization[] = [];
@@ -869,8 +887,6 @@ export const extractLabResources = (
       organizations.push(resource);
     } else if (resource.resourceType === 'QuestionnaireResponse') {
       questionnaireResponses.push(resource as QuestionnaireResponse);
-    } else if (resource.resourceType === 'Location') {
-      locations.push(resource);
     } else if (resource.resourceType === 'Specimen') {
       specimens.push(resource);
     } else if (resource.resourceType === 'Practitioner') {
@@ -908,7 +924,6 @@ export const extractLabResources = (
     tasks,
     diagnosticReports,
     encounters,
-    locations,
     observations,
     provenances,
     organizations,
@@ -2482,4 +2497,22 @@ const groupAbnPDFsByRequisition = (
     }
   });
   return abnPDFsByRequisitionNumber;
+};
+
+const parseLocation = (serviceRequest: ServiceRequest, locations: Location[]): Location | undefined => {
+  console.log(`Parsing location for ServiceRequest/${serviceRequest.id}`);
+  console.log(`These are the possible Locations`, locations);
+  if (!serviceRequest.locationReference || !serviceRequest.locationReference.length || !locations.length)
+    return undefined;
+
+  // assuming it's the first location
+  const locationRef = serviceRequest.locationReference[0].reference;
+  if (!locationRef || !locationRef.startsWith('Location/')) {
+    console.log(`Missing or misconfigured Location ref from ServiceRequest/${serviceRequest.id}`);
+    return undefined;
+  }
+  const location = locations.find((loc) => `Location/${loc.id}` === locationRef);
+
+  console.log(`parsed location from ServiceRequest/${serviceRequest.id}: ${JSON.stringify(location)}`);
+  return location;
 };

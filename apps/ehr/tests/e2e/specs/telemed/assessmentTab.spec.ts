@@ -147,7 +147,8 @@ test('Change primary diagnosis', async () => {
   // Make secondary diagnosis primary
   await test.step('Make secondary diagnosis primary', async () => {
     await page.getByTestId(dataTestIds.diagnosisContainer.makePrimaryButton).click();
-    await waitForSaveChartDataResponse(page);
+    await expect(page.getByTestId(dataTestIds.diagnosisContainer.makePrimaryButton)).toBeDisabled();
+    await expect(page.getByTestId(dataTestIds.diagnosisContainer.makePrimaryButton)).toBeEnabled();
 
     // After the primary diagnosis is updated, the secondary diagnosis should be updated, they should be swapped
     const newPrimaryDiagnosis = page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosis);

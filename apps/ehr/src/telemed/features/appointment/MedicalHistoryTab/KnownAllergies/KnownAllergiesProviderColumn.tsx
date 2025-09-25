@@ -43,14 +43,14 @@ export const KnownAllergiesProviderColumn: FC = () => {
   return (
     <Box
       sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
-      data-testid={dataTestIds.telemedEhrFlow.hpiKnownAllergiesColumn}
+      data-testid={dataTestIds.allergies.knownAllergiesColumn}
     >
       {isChartDataLoading && <ProviderSideListSkeleton />}
 
       {length > 0 && !isChartDataLoading && (
         <Box
           sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
-          data-testid={dataTestIds.telemedEhrFlow.hpiKnownAllergiesList}
+          data-testid={dataTestIds.allergies.knownAllergiesList}
         >
           {allergies.map((value, index) => (
             <AllergyListItem key={value.resourceId || `new${index}`} value={value} index={index} length={length} />
@@ -168,7 +168,7 @@ const AllergyListItem: FC<{ value: AllergyDTO; index: number; length: number }> 
   return (
     <Box
       sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
-      data-testid={dataTestIds.telemedEhrFlow.hpiKnownAllergiesListItem}
+      data-testid={dataTestIds.allergies.knownAllergiesListItem}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Typography
@@ -350,7 +350,7 @@ const AddAllergyField: FC = () => {
                 <TextField
                   {...params}
                   onChange={(e) => debouncedHandleInputChange(e.target.value)}
-                  data-testid={dataTestIds.telemedEhrFlow.hpiKnownAllergiesInput}
+                  data-testid={dataTestIds.allergies.knownAllergiesInput}
                   label="Agent/Substance"
                   placeholder="Search"
                   InputLabelProps={{ shrink: true }}

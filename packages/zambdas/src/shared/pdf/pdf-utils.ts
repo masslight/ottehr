@@ -498,16 +498,20 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
   };
 
   const drawVariableWidthColumns = (columns: Column[], yPosStartOfColumn: number, startPageIndex: number): void => {
+    console.log('drawing variable width columns');
     if (!columns.length) return;
-    // if the widths of all of the columns exceed the page bounds, convert to equal width
-    const totalWidth = columns.reduce((acc: number, col: Column) => {
-      return acc + col.startXPos + col.width;
+
+    const maxEndXPos = columns.reduce((acc: number, col: Column) => {
+      console.log(`col.startXPos + col.width: ${col.startXPos} + ${col.width}`);
+      const colEndXPos = col.startXPos + col.width;
+      return colEndXPos > acc ? colEndXPos : acc;
     }, 0);
 
     const pageWidth = pageRightBound - pageLeftBound;
     const DEFAULT_COL_GAP = 15;
 
-    if (totalWidth > pageWidth) {
+    console.log(`maxEndXPos: ${maxEndXPos}. PageRightBound: ${pageRightBound}. PageWidth: ${pageWidth}`);
+    if (maxEndXPos > pageRightBound) {
       console.warn(
         `Columns and content exceed page width. Will attempt to split into even columns with a ${DEFAULT_COL_GAP}pt gap`
       );
@@ -525,12 +529,16 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       }
     }
 
-    // theres a bug here related to line break within earlier columns
-    columns.forEach((col) => {
-      console.log(`\n\n>>>Drawing column for ${JSON.stringify({ ...col, textStyle: undefined })}`);
+    let maxPageIndex = currentPageIndex;
+    let minYPos = currYPos;
+    console.log(`before columns. maxPageIndex: ${maxPageIndex}. minYPos: ${minYPos}`);
+
+    columns.forEach((col, idx) => {
+      console.log(`\n\n>>>Drawing column ${idx} for ${JSON.stringify({ ...col, textStyle: undefined })}`);
       // if a new page got added on a previous column, we need the next column to go back to the previous page
       // continue writing, and if that column needs to run onto a new page, it needs to run onto the pre-existing new page
       console.log(`Starting column on page index ${startPageIndex}`);
+      setPageByIndex(startPageIndex);
       currentPageIndex = startPageIndex;
 
       console.log(`yPosStartOfColumn is ${yPosStartOfColumn}. Current yPos is ${currYPos}`);
@@ -543,8 +551,27 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
         leftBound: startXPos,
         rightBound: startXPos + width,
       });
-      console.log(`This is getY at end of column ${currYPos} for col ${col.content}`);
+      console.log(
+        `This is getY at end of column ${currYPos} for col ${col.content}. currentPageIndex is ${currentPageIndex}`
+      );
+
+      // if a column took us to the top of the next page, we want to track that, because when we're done writing columns, page index and y need to go back there
+      if (maxPageIndex === undefined) {
+        // not sure when this would happen but ok
+        maxPageIndex = currentPageIndex;
+      } else if (currentPageIndex > maxPageIndex) {
+        maxPageIndex = currentPageIndex;
+        minYPos = currYPos;
+      } else if (maxPageIndex === currentPageIndex && currYPos < minYPos) {
+        minYPos = currYPos;
+      }
     });
+
+    // set the cursor back to the lowest point we got while drawing columns
+    console.log(`Done drawing columns. Setting current page index to ${maxPageIndex} and currYPos to ${minYPos}`);
+    setPageByIndex(maxPageIndex!);
+    currentPageIndex = maxPageIndex;
+    currYPos = minYPos;
   };
 
   const drawLink = (text: string, url: string, style: TextStyle): void => {

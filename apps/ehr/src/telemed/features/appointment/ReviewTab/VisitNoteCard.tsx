@@ -1,6 +1,5 @@
 import { FC } from 'react';
-import { examConfig, getSpentTime } from 'utils';
-import { ADDITIONAL_QUESTIONS } from '../../../../constants';
+import { examConfig, getSpentTime, patientScreeningQuestionsConfig } from 'utils';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { AccordionCard, SectionList } from '../../../components';
 import { usePatientInstructionsVisibility } from '../../../hooks';
@@ -51,9 +50,9 @@ export const VisitNoteCard: FC = () => {
   const showChiefComplaint = !!((chiefComplaint && chiefComplaint.length > 0) || (spentTime && spentTime.length > 0));
   const showReviewOfSystems = !!(ros && ros.length > 0);
 
-  const showAdditionalQuestions = ADDITIONAL_QUESTIONS.some((question) => {
-    const value = chartData?.observations?.find((observation) => observation.field === question.field)?.value;
-    return value === true || value === false;
+  const showAdditionalQuestions = patientScreeningQuestionsConfig.fields.some((field) => {
+    const observation = chartData?.observations?.find((obs) => obs.field === field.fhirField);
+    return observation?.value !== undefined && observation?.value !== null;
   });
 
   const showAssessment = !!(diagnoses && diagnoses.length > 0);

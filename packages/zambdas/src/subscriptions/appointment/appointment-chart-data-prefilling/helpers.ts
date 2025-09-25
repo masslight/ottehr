@@ -1,27 +1,54 @@
 import { CodeableConcept, QuestionnaireResponse } from 'fhir/r4b';
 import {
-  AdditionalBooleanQuestionsFieldsNames,
   convertToBoolean,
   ExamCardComponent,
   examConfig,
   ExamObservationDTO,
   getQuestionnaireResponseByLinkId,
   ObservationDTO,
+  patientScreeningQuestionsConfig,
 } from 'utils';
 
 export const createAdditionalQuestions = (questionnaireResponse: QuestionnaireResponse): ObservationDTO[] => {
-  return Object.values(AdditionalBooleanQuestionsFieldsNames)
+  const questionnaireFields = patientScreeningQuestionsConfig.fields.filter((field) => field.existsInQuestionnaire);
+
+  return questionnaireFields
     .filter((field) => {
-      const response = getQuestionnaireResponseByLinkId(field, questionnaireResponse);
+      const response = getQuestionnaireResponseByLinkId(field.fhirField, questionnaireResponse);
       const valueString = response?.answer?.[0]?.valueString;
       return valueString !== undefined;
     })
     .map((field) => {
-      const response = getQuestionnaireResponseByLinkId(field, questionnaireResponse);
+      if (field.type !== 'radio') {
+        throw Error('Only radio fields are supported. No options found for field: ' + field.fhirField);
+      }
+
+      const response = getQuestionnaireResponseByLinkId(field.fhirField, questionnaireResponse);
       const valueString = response?.answer?.[0]?.valueString;
+
+      const hasOnlyYesNoOptions =
+        field.options &&
+        field.options.length === 2 &&
+        field.options.every((opt) => {
+          const lowerCaseValueString = opt.fhirValue.toLowerCase();
+          return lowerCaseValueString === 'yes' || lowerCaseValueString === 'no';
+        });
+
+      if (!hasOnlyYesNoOptions) {
+        throw Error(
+          'Only radio fields with Yes/No options are supported. No options found for field: ' + field.fhirField
+        );
+      }
+
+      const value = convertToBoolean(valueString);
+
+      if (typeof value !== 'boolean') {
+        throw Error('Invalid value for field: ' + field.fhirField);
+      }
+
       return {
-        field,
-        value: convertToBoolean(valueString) || false,
+        field: field.fhirField,
+        value,
       };
     });
 };

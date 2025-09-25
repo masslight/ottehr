@@ -2,6 +2,7 @@ import { expect, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { waitForChartDataDeletion, waitForSaveChartDataResponse } from 'test-utils';
 import {
+  formatScreeningQuestionValue,
   getAdditionalQuestionsAnswers,
   getAllergiesStepAnswers,
   getConsentStepAnswers,
@@ -89,11 +90,11 @@ test.describe('Check all hpi fields common functionality, without changing data'
   });
 
   test('Known allergies. Should display message before typing in field', async ({ page }) => {
-    await checkDropdownNoOptions(page, dataTestIds.telemedEhrFlow.hpiKnownAllergiesInput, '', startTypingMessage);
+    await checkDropdownNoOptions(page, dataTestIds.allergies.knownAllergiesInput, '', startTypingMessage);
   });
 
   test('Known allergies. Should check not-in-list item search try', async ({ page }) => {
-    const input = page.getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesInput).locator('input');
+    const input = page.getByTestId(dataTestIds.allergies.knownAllergiesInput).locator('input');
     await input.click();
     await page.waitForTimeout(10000); // todo something async causes flakiness here
     await input.fill(noOptionsMessage);
@@ -390,19 +391,19 @@ test.describe.skip('Known allergies', () => {
   test.describe.configure({ mode: 'serial' });
 
   test('Should search known allergy, and select it', async () => {
-    await checkDropdownHasOptionAndSelectIt(page, dataTestIds.telemedEhrFlow.hpiKnownAllergiesInput, knownAllergyName);
+    await checkDropdownHasOptionAndSelectIt(page, dataTestIds.allergies.knownAllergiesInput, knownAllergyName);
   });
 
   test('Should check known allergies are saved in HPI tab', async () => {
     await test.step('reload and wait until data is loaded', async () => {
       await page.reload();
       await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
-      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesColumn)).toBeVisible();
-      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesList)).toBeVisible();
+      await expect(page.getByTestId(dataTestIds.allergies.knownAllergiesColumn)).toBeVisible();
+      await expect(page.getByTestId(dataTestIds.allergies.knownAllergiesList)).toBeVisible();
     });
 
     await test.step('check known allergy saved', async () => {
-      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesList)).toHaveText(
+      await expect(page.getByTestId(dataTestIds.allergies.knownAllergiesList)).toHaveText(
         RegExp(knownAllergyName, 'i')
       );
     });
@@ -410,17 +411,17 @@ test.describe.skip('Known allergies', () => {
 
   test('Should check known allergy appear in Review&Sign tab', async () => {
     await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabKnownAllergiesContainer)).toHaveText(
+    await expect(page.getByTestId(dataTestIds.progressNotePage.knownAllergiesContainer)).toHaveText(
       new RegExp(knownAllergyName, 'i')
     );
   });
 
   test('Should delete known allergy', async () => {
     await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesList)).toBeVisible();
+    await expect(page.getByTestId(dataTestIds.allergies.knownAllergiesList)).toBeVisible();
 
     const knownAllergyListItem = page
-      .getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesListItem)
+      .getByTestId(dataTestIds.allergies.knownAllergiesListItem)
       .filter({ hasText: new RegExp(knownAllergyName, 'i') })
       .first();
     await knownAllergyListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
@@ -432,7 +433,7 @@ test.describe.skip('Known allergies', () => {
     await test.step('Confirm deletion in hpi tab', async () => {
       await page.reload();
       await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
-      const column = page.getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesColumn);
+      const column = page.getByTestId(dataTestIds.allergies.knownAllergiesColumn);
       await expect(column).toBeVisible();
       await expect(column.getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton).first()).not.toBeVisible({
         timeout: 30000,
@@ -445,7 +446,7 @@ test.describe.skip('Known allergies', () => {
       await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
       await expect(page.getByTestId(dataTestIds.progressNotePage.visitNoteCard)).toBeVisible();
 
-      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabKnownAllergiesContainer)).toBeVisible({
+      await expect(page.getByTestId(dataTestIds.progressNotePage.knownAllergiesContainer)).toBeVisible({
         timeout: 30000,
       });
       await expect(page.getByText(new RegExp(knownAllergyName, 'i'))).not.toBeVisible();
@@ -578,7 +579,29 @@ test.describe('Surgical history', () => {
 
 test.describe('Additional questions', () => {
   const PROCESS_ID = `hpiFields.spec.ts-additional-Qs-${DateTime.now().toMillis()}`;
-  const resourceHandler = new ResourceHandler(PROCESS_ID, 'telemed');
+  const resourceHandler = new ResourceHandler(PROCESS_ID, 'telemed', async ({ patientInfo }) => {
+    return [
+      getContactInformationAnswers({
+        firstName: patientInfo.firstName,
+        lastName: patientInfo.lastName,
+        birthDate: isoToDateObject(patientInfo.dateOfBirth || '') || undefined,
+        email: patientInfo.email,
+        phoneNumber: patientInfo.phoneNumber,
+        birthSex: patientInfo.sex,
+      }),
+      getPatientDetailsStepAnswers({}),
+      getMedicationsStepAnswers(),
+      getAllergiesStepAnswers(),
+      getMedicalConditionsStepAnswers(),
+      getSurgicalHistoryStepAnswers(),
+      getAdditionalQuestionsAnswers(),
+      getPaymentOptionSelfPayAnswers(),
+      getResponsiblePartyStepAnswers({}),
+      getSchoolWorkNoteStepAnswers(),
+      getConsentStepAnswers({}),
+      getInviteParticipantStepAnswers(),
+    ];
+  });
   let page: Page;
 
   test.beforeAll(async ({ browser }) => {
@@ -611,11 +634,12 @@ test.describe('Additional questions', () => {
   test('Should check provider has the same answers as Patient provided. Patient answered', async () => {
     const answers = getAdditionalQuestionsAnswers().item;
     for (const question of ADDITIONAL_QUESTIONS) {
-      const answer = answers?.find((item) => item.linkId === question.field)?.answer?.[0]?.valueString ?? '';
+      const rawAnswer = answers?.find((item) => item.linkId === question.field)?.answer?.[0]?.valueString ?? '';
+      const formattedAnswer = formatScreeningQuestionValue(question.field, rawAnswer);
       await expect(
         page
           .getByTestId(dataTestIds.telemedEhrFlow.hpiAdditionalQuestionsPatientProvided(question.field))
-          .getByText(answer)
+          .getByText(formattedAnswer)
       ).toBeVisible();
     }
   });
@@ -689,7 +713,7 @@ test.describe("Additional questions. Check cases where patient didn't answered o
   });
 
   test('Updated answers appears correctly on Review&Sign tab', async () => {
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesColumn)).toBeVisible();
+    await expect(page.getByTestId(dataTestIds.allergies.knownAllergiesColumn)).toBeVisible();
     await page.reload();
     await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
     await expect(page.getByTestId(dataTestIds.progressNotePage.visitNoteCard)).toBeVisible();
