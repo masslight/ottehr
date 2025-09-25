@@ -353,8 +353,8 @@ const getAlertLevel = (input: EvalRuleProps): FHIRObservationInterpretation => {
   return FHIRObservationInterpretation.Normal;
 };
 
-export const getAbnormalVitals = (encounterVitals?: GetVitalsResponseData): GetVitalsResponseData => {
-  if (!encounterVitals) return {} as GetVitalsResponseData;
+export const getAbnormalVitals = (encounterVitals?: GetVitalsResponseData): GetVitalsResponseData | undefined => {
+  if (!encounterVitals) return undefined;
 
   const entries = Object.entries(encounterVitals)
     .map(([key, values]) =>
