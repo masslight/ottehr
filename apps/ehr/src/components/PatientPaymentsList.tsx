@@ -28,8 +28,6 @@ import { useGetPatientPaymentsList } from 'src/hooks/useGetPatientPaymentsList';
 import {
   APIError,
   CashOrCardPayment,
-  getEmailForIndividual,
-  getFullName,
   getPaymentVariantFromEncounter,
   isApiError,
   PatientPaymentDTO,
@@ -49,6 +47,10 @@ export interface PaymentListProps {
   encounterId: string;
   loading?: boolean;
   patientSelectSelfPay?: boolean;
+  responsibleParty?: {
+    fullName?: string;
+    email?: string;
+  };
 }
 
 const idForPaymentDTO = (payment: PatientPaymentDTO): string => {
@@ -64,6 +66,7 @@ export default function PatientPaymentList({
   patient,
   encounterId,
   patientSelectSelfPay,
+  responsibleParty,
 }: PaymentListProps): ReactElement {
   const { oystehr } = useApiClients();
   const theme = useTheme();
@@ -373,8 +376,8 @@ export default function PatientPaymentList({
         onSubmit={sendReceipt}
         submitButtonName="Send Receipt"
         defaultValues={{
-          recipientName: getFullName(patient),
-          recipientEmail: getEmailForIndividual(patient),
+          recipientName: responsibleParty?.fullName,
+          recipientEmail: responsibleParty?.email,
           subject: `Receipt for Visit on ${DateTime.now().toFormat('MM/dd/yyyy')}`,
         }}
       />
