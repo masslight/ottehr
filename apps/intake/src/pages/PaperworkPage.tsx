@@ -271,6 +271,10 @@ export const PaperworkHome: FC = () => {
   return <Outlet context={{ ...outletContext }} />;
 };
 
+function extractPageLinkIds(items: IntakeQuestionnaireItem[] = []): string[] {
+  return items.flatMap((item) => [item.linkId, ...(item.item ? extractPageLinkIds(item.item) : [])]);
+}
+
 export const PaperworkPage: FC = () => {
   const navigate = useNavigate();
   const { id: appointmentID, slug } = useParams();
@@ -375,9 +379,13 @@ export const PaperworkPage: FC = () => {
   const finishPaperworkPage = useCallback(
     async (data: QuestionnaireFormFields): Promise<void> => {
       if (data && appointmentID && zambdaClient && currentPage && questionnaireResponseId && paperworkPatient) {
+        const pageLinkIds = extractPageLinkIds(currentPage.item ?? []);
         const raw = (Object.values(data) ?? []) as QuestionnaireResponseItem[];
         const responseItems = raw
           .filter((item) => {
+            if (!pageLinkIds.includes(item.linkId)) {
+              return false;
+            }
             if (item.linkId === undefined || (item.answer === undefined && item.item === undefined)) {
               return false;
             }
