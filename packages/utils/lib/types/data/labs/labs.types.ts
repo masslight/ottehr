@@ -2,6 +2,7 @@
 import {
   DocumentReference,
   Encounter,
+  Location,
   Questionnaire,
   QuestionnaireResponse,
   QuestionnaireResponseItem,
@@ -128,6 +129,7 @@ export type LabOrderListPageDTO = {
   encounterTimezone: string | undefined; // used to format dates correctly on the front end
   orderNumber: string | undefined; // ServiceRequest.identifier.value (system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)
   abnPdfUrl: string | undefined; // DocRef containing OYSTEHR_LAB_DOC_CATEGORY_CODING and related to SR (only for labCorp + quest)
+  location: Location | undefined; // Location that ordered the test. Was previously not required for lab orders, so can be undefined
 };
 
 export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {
