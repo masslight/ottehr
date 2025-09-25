@@ -1,15 +1,16 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { getPresignedURL, getSecret, InPersonReceiptTemplateData, SecretsKeys } from 'utils';
 import {
   checkOrCreateM2MClientToken,
+  createOystehrClient,
   EmailAttachment,
   getEmailClient,
   topLevelCatch,
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
-import { createOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'send-receipt-by-email';
@@ -35,7 +36,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('fetched document reference id ', documentReference.id);
 
     const content = documentReference.content[0];
-    // const title = content.attachment.title;
     const z3Url = content.attachment.url;
     console.log(`content: ${JSON.stringify(content)}, url: ${z3Url}`);
 
@@ -45,7 +45,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         method: 'GET',
         headers: { 'Cache-Control': 'no-cache' },
       });
-      // console.log('file', JSON.stringify(file), 'file s ', file);
       if (file.status !== 200) throw new Error('Failed to fetch file, status: ' + file.status);
       const arrayBuffer = await file.arrayBuffer();
       const fileBuffer = Buffer.from(arrayBuffer);
@@ -65,6 +64,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       // Send email with attachment
       const templateData: InPersonReceiptTemplateData = {
         'recipient-name': recipientFullName,
+        date: DateTime.now().toFormat('MM/dd/yyyy'),
       };
       const emailClient = getEmailClient(secrets);
       await emailClient.sendInPersonReceiptEmail(email, templateData, [attachment]);

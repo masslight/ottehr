@@ -251,6 +251,7 @@ class EmailClient {
         email: fromEmail,
         name: projectName,
       },
+      // subject: template.subject,
       bcc: SENDGRID_EMAIL_BCC.filter((item): item is string => !to.includes(item)),
       replyTo,
       templateId,
