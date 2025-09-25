@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Address, Coverage, FhirResource, HumanName, Patient, RelatedPerson } from 'fhir/r4b';
+import { Address, Coverage, FhirResource, HumanName, RelatedPerson } from 'fhir/r4b';
 import { min } from 'lodash';
 import { DateTime } from 'luxon';
 import { BUCKET_NAMES, FHIR_IDENTIFIER_NPI, getFullestAvailableName, ORDER_ITEM_UNKNOWN, Secrets } from 'utils';
@@ -356,7 +356,7 @@ export function getOrderFormDataConfig(
     dateIncludedInFileName: testDetails[0].serviceRequestCreatedDate,
     orderPriority: testDetails[0].testPriority || ORDER_ITEM_UNKNOWN, // used for file name
     billClass,
-    insuranceDetails: getInsuranceDetails(coveragesAndOrgs, patient, oystehr),
+    insuranceDetails: getInsuranceDetails(coveragesAndOrgs, oystehr),
     testDetails,
     isManualOrder,
     isPscOrder,
@@ -367,7 +367,6 @@ export function getOrderFormDataConfig(
 
 function getInsuranceDetails(
   coveragesAndOrgs: CoverageAndOrgForOrderForm[] | undefined,
-  patient: Patient,
   oystehr: Oystehr
 ): OrderFormInsuranceInfo[] | undefined {
   if (!coveragesAndOrgs || !coveragesAndOrgs.length) return undefined;
