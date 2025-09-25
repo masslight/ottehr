@@ -1,7 +1,7 @@
 import { Box, FormControl, FormControlLabel, Radio, RadioGroup, Skeleton, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useEffect } from 'react';
-import { AdditionalBooleanQuestionsFieldsNames, convertToBoolean, ObservationBooleanFieldDTO } from 'utils';
+import { convertToBoolean, ObservationBooleanFieldDTO } from 'utils';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { setNavigationDisable } from '../../../../../features/css-module/context/NavigationContext';
 import { useChartData, useSaveChartData } from '../../../../state';
@@ -13,7 +13,7 @@ export const AdditionalQuestionEdit = ({
   isChartDataLoading,
 }: {
   label: string;
-  field: AdditionalBooleanQuestionsFieldsNames;
+  field: string;
   value?: boolean;
   isChartDataLoading?: boolean;
 }): JSX.Element => {
@@ -25,7 +25,7 @@ export const AdditionalQuestionEdit = ({
     setNavigationDisable({ [`additional-question-${label}`]: isLoading });
   }, [isLoading, label]);
 
-  const onChange = (value: string, field: AdditionalBooleanQuestionsFieldsNames): void => {
+  const onChange = (value: string, field: string): void => {
     const currentObservation = chartData?.observations?.find((observation) => observation.field === field);
 
     const newValue = convertToBoolean(value);
@@ -93,9 +93,9 @@ export const AdditionalQuestionEdit = ({
 
 export const AdditionalQuestionView: FC<{
   label: string;
-  value: boolean | undefined;
+  value: string | null;
   isLoading: boolean;
-  field: AdditionalBooleanQuestionsFieldsNames;
+  field: string;
 }> = ({ label, value, isLoading, field }) => (
   <Box
     sx={{
@@ -110,7 +110,7 @@ export const AdditionalQuestionView: FC<{
         <Typography>Yes</Typography>
       </Skeleton>
     ) : (
-      <Typography>{value === true ? 'Yes' : value === false ? 'No' : ''}</Typography>
+      <Typography>{value || ''}</Typography>
     )}
   </Box>
 );
