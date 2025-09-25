@@ -47,6 +47,7 @@ export const ERXDialog = ({ ssoLink }: { ssoLink: string }): ReactElement => {
                     width: '100vw',
                     height: '100vh',
                     zIndex: 1300,
+                    backgroundColor: 'white',
                   }
                 : {
                     minHeight: 600,
