@@ -8,7 +8,15 @@ import { Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import React from 'react';
 import { Bar } from 'react-chartjs-2';
-import { getAllFhirSearchPages, Task_Send_Messages_Url } from 'utils';
+import {
+  getAllFhirSearchPages,
+  Task_Email_Communication_Url,
+  Task_Send_Messages_Url,
+  Task_Sync_DocumentRef_Url,
+  Task_Text_Communication_Url,
+  Task_Update_Appointment_Url,
+  TaskIndicator,
+} from 'utils';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
 
@@ -42,9 +50,50 @@ enum TimeRange {
   Custom = 'Custom',
 }
 
+// Available task types for selection
+const taskTypeOptions = [
+  { value: 'all', label: 'All Task Types', system: '', code: '' },
+  { value: 'send-messages', label: 'Send Messages', system: Task_Send_Messages_Url, code: '' },
+  { value: 'email', label: 'Email Communications', system: Task_Email_Communication_Url, code: '' },
+  { value: 'text', label: 'Text Communications', system: Task_Text_Communication_Url, code: '' },
+  { value: 'appointment-updates', label: 'Appointment Updates', system: Task_Update_Appointment_Url, code: '' },
+  { value: 'document-sync', label: 'Document Sync', system: Task_Sync_DocumentRef_Url, code: '' },
+  {
+    value: 'cancel-email',
+    label: 'Cancel Email',
+    system: TaskIndicator.cancelEmail.system,
+    code: TaskIndicator.cancelEmail.code,
+  },
+  {
+    value: 'ready-text',
+    label: 'Ready Text',
+    system: TaskIndicator.readyText.system,
+    code: TaskIndicator.readyText.code,
+  },
+  {
+    value: 'checkin-text',
+    label: 'Check-in Text',
+    system: TaskIndicator.checkInText.system,
+    code: TaskIndicator.checkInText.code,
+  },
+  {
+    value: 'record-wait-time',
+    label: 'Record Wait Time',
+    system: TaskIndicator.recordWaitTime.system,
+    code: TaskIndicator.recordWaitTime.code,
+  },
+  {
+    value: 'confirmation-messages',
+    label: 'Confirmation Messages',
+    system: TaskIndicator.confirmationMessages.system,
+    code: TaskIndicator.confirmationMessages.code,
+  },
+];
+
 export default function TaskAdmin(): React.ReactElement {
   const [taskCountByDate, setTaskCountByDate] = React.useState<TaskCountByStatus[] | undefined>(undefined);
   const [totalTasks, setTotalTasks] = React.useState<number | undefined>(undefined);
+  const [selectedTaskType, setSelectedTaskType] = React.useState<string>('send-messages');
   const [timeRange, setTimeRange] = React.useState<TimeRange>(TimeRange.Today);
   const [filterStartDate, setStartFilterDate] = React.useState<DateTime | null>(DateTime.now());
   const [filterEndDate, setEndFilterDate] = React.useState<DateTime | null>(DateTime.now());
@@ -89,11 +138,25 @@ export default function TaskAdmin(): React.ReactElement {
             temp = temp.plus({ day: 1 });
           }
 
+          // Build search parameters based on selected task type
+          const selectedOption = taskTypeOptions.find((option) => option.value === selectedTaskType);
           const searchParams = [
-            { name: 'code', value: `${Task_Send_Messages_Url}|` },
             { name: '_lastUpdated', value: `ge${filterStartDate.startOf('day').toISO()}` },
             { name: '_lastUpdated', value: `le${filterEndDate.endOf('day').toISO()}` },
           ];
+
+          // Add code filter if not 'all'
+          if (selectedTaskType !== 'all' && selectedOption) {
+            if (selectedOption.system && selectedOption.code) {
+              // Specific task with both system and code
+              searchParams.push({ name: 'code', value: `${selectedOption.system}|${selectedOption.code}` });
+            } else if (selectedOption.system) {
+              // System-wide tasks (all tasks for a particular system)
+              searchParams.push({ name: 'code', value: `${selectedOption.system}|` });
+            } else {
+              console.log('Unexpectedly found no system or code on selected option');
+            }
+          }
 
           // Fetch all tasks with pagination using the utility function
           const allTasks = await getAllFhirSearchPages<Task>(
@@ -134,7 +197,8 @@ export default function TaskAdmin(): React.ReactElement {
           setLoading(false);
 
           if (allTasks.length === 0) {
-            setError('No send-messages tasks found for this time range');
+            const taskTypeLabel = taskTypeOptions.find((option) => option.value === selectedTaskType)?.label || 'tasks';
+            setError(`No ${taskTypeLabel.toLowerCase()} found for this time range`);
           }
         } catch (error) {
           console.error('Error fetching tasks:', error);
@@ -152,7 +216,7 @@ export default function TaskAdmin(): React.ReactElement {
     }
 
     updateTasks().catch((error) => console.log('error getting task update', error));
-  }, [oystehr, filterStartDate, filterEndDate]);
+  }, [oystehr, filterStartDate, filterEndDate, selectedTaskType]);
 
   const handleCustomTimeRange = (): void => {
     if (customFilterEndDate && customFilterStartDate) {
@@ -218,13 +282,29 @@ export default function TaskAdmin(): React.ReactElement {
             Task Observability Dashboard
           </Typography>
           <Typography variant="subtitle1" color="textSecondary" gutterBottom>
-            Monitor FHIR Task resources with code 'urgent-care-send-messages'
+            Monitor FHIR Task resources by type and status
           </Typography>
         </Grid>
 
-        {/* Time Range Controls */}
+        {/* Controls */}
         <Grid item xs={12}>
           <Grid container spacing={2} alignItems="center">
+            <Grid item md={3} xs={12}>
+              <FormControl fullWidth>
+                <InputLabel>Task Type</InputLabel>
+                <Select
+                  value={selectedTaskType}
+                  onChange={(event) => setSelectedTaskType(event.target.value as string)}
+                  label="Task Type"
+                >
+                  {taskTypeOptions.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
             <Grid item md={3} xs={12}>
               <FormControl fullWidth>
                 <InputLabel>Time Range</InputLabel>
@@ -292,7 +372,8 @@ export default function TaskAdmin(): React.ReactElement {
                 Summary
               </Typography>
               <Typography variant="body1">
-                Total Send-Messages Tasks: <strong>{totalTasks}</strong>
+                Total {taskTypeOptions.find((option) => option.value === selectedTaskType)?.label || 'Tasks'}:{' '}
+                <strong>{totalTasks}</strong>
               </Typography>
               <Typography variant="body2" color="textSecondary">
                 Time Range: {filterStartDate?.toLocaleString(DateTime.DATE_SHORT)} -{' '}
@@ -379,7 +460,9 @@ export default function TaskAdmin(): React.ReactElement {
                   plugins: {
                     title: {
                       display: true,
-                      text: `Send-Messages Tasks by Status and Date (${filterStartDate?.toLocaleString(
+                      text: `${
+                        taskTypeOptions.find((option) => option.value === selectedTaskType)?.label || 'Tasks'
+                      } by Status and Date (${filterStartDate?.toLocaleString(
                         DateTime.DATE_SHORT
                       )} - ${filterEndDate?.toLocaleString(DateTime.DATE_SHORT)})`,
                       font: {
