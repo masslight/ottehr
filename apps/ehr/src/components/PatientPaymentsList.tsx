@@ -335,7 +335,11 @@ export default function PatientPaymentList({
       <Button sx={{ marginTop: 2 }} onClick={() => setPaymentDialogOpen(true)} variant="contained" color="primary">
         $ Add Payment
       </Button>
-      <Tooltip placement="top" title="Patient don't have any receipt for this encounter">
+      <Tooltip
+        disableHoverListener={receiptDocRefId !== undefined}
+        placement="top"
+        title="Patient don't have any receipt for this encounter"
+      >
         <span>
           <Button
             sx={{ mt: 2, ml: 2 }}
@@ -371,7 +375,7 @@ export default function PatientPaymentList({
         defaultValues={{
           recipientName: getFullName(patient),
           recipientEmail: getEmailForIndividual(patient),
-          subject: 'Receipt for Visit on ',
+          subject: `Receipt for Visit on ${DateTime.now().toFormat('MM/dd/yyyy')}`,
         }}
       />
       <Snackbar
