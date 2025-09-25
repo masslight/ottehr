@@ -1,5 +1,19 @@
+import { BarChart as BarChartIcon, TableView as TableViewIcon } from '@mui/icons-material';
 import { LoadingButton } from '@mui/lab';
-import { CircularProgress, FormControl, Grid, InputLabel, MenuItem, Paper, Select, Typography } from '@mui/material';
+import {
+  Chip,
+  CircularProgress,
+  FormControl,
+  Grid,
+  InputLabel,
+  MenuItem,
+  Paper,
+  Select,
+  ToggleButton,
+  ToggleButtonGroup,
+  Typography,
+} from '@mui/material';
+import { DataGridPro, GridColDef, GridRenderCellParams } from '@mui/x-data-grid-pro';
 import { DatePicker } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { LocalizationProvider } from '@mui/x-date-pickers-pro';
@@ -36,6 +50,22 @@ interface TaskCountByStatus {
     'entered-in-error': number;
   };
   total: number;
+}
+
+interface TaskDetailRow {
+  id: string;
+  status: string;
+  code: string;
+  system: string;
+  lastUpdated: string;
+  authoredOn?: string;
+  statusReason?: string;
+  focus?: string;
+}
+
+enum ViewType {
+  Chart = 'chart',
+  Table = 'table',
 }
 
 enum TimeRange {
@@ -90,10 +120,89 @@ const taskTypeOptions = [
   },
 ];
 
+// DataGrid column definitions
+const columns: GridColDef[] = [
+  {
+    field: 'id',
+    headerName: 'ID',
+    width: 120,
+    sortable: true,
+  },
+  {
+    field: 'status',
+    headerName: 'Status',
+    width: 120,
+    sortable: true,
+    renderCell: (params: GridRenderCellParams) => (
+      <Chip
+        label={params.value}
+        color={
+          params.value === 'completed'
+            ? 'success'
+            : params.value === 'failed'
+            ? 'error'
+            : params.value === 'in-progress'
+            ? 'info'
+            : params.value === 'cancelled'
+            ? 'warning'
+            : 'default'
+        }
+        size="small"
+      />
+    ),
+  },
+  {
+    field: 'code',
+    headerName: 'Code',
+    width: 150,
+    sortable: true,
+  },
+  {
+    field: 'system',
+    headerName: 'System',
+    width: 200,
+    sortable: true,
+    renderCell: (params: GridRenderCellParams) => (
+      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{params.value}</div>
+    ),
+  },
+  {
+    field: 'lastUpdated',
+    headerName: 'Last Updated',
+    width: 160,
+    sortable: true,
+  },
+  {
+    field: 'authoredOn',
+    headerName: 'Authored On',
+    width: 160,
+    sortable: true,
+    renderCell: (params: GridRenderCellParams) => params.value || 'N/A',
+  },
+  {
+    field: 'statusReason',
+    headerName: 'Status Reason',
+    width: 150,
+    sortable: true,
+    renderCell: (params: GridRenderCellParams) => params.value || 'N/A',
+  },
+  {
+    field: 'focus',
+    headerName: 'Focus',
+    width: 200,
+    sortable: true,
+    renderCell: (params: GridRenderCellParams) => (
+      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{params.value || 'N/A'}</div>
+    ),
+  },
+];
+
 export default function TaskAdmin(): React.ReactElement {
   const [taskCountByDate, setTaskCountByDate] = React.useState<TaskCountByStatus[] | undefined>(undefined);
+  const [taskDetails, setTaskDetails] = React.useState<TaskDetailRow[]>([]);
   const [totalTasks, setTotalTasks] = React.useState<number | undefined>(undefined);
   const [selectedTaskType, setSelectedTaskType] = React.useState<string>('send-messages');
+  const [viewType, setViewType] = React.useState<ViewType>(ViewType.Chart);
   const [timeRange, setTimeRange] = React.useState<TimeRange>(TimeRange.Today);
   const [filterStartDate, setStartFilterDate] = React.useState<DateTime | null>(DateTime.now());
   const [filterEndDate, setEndFilterDate] = React.useState<DateTime | null>(DateTime.now());
@@ -169,6 +278,8 @@ export default function TaskAdmin(): React.ReactElement {
 
           console.log(`Total tasks fetched: ${allTasks.length}`);
 
+          const taskDetailsArray: TaskDetailRow[] = [];
+
           allTasks.forEach((task) => {
             if (task.meta?.lastUpdated && task.status) {
               const taskDate = DateTime.fromISO(task.meta.lastUpdated).toFormat('y-MM-dd');
@@ -179,8 +290,25 @@ export default function TaskAdmin(): React.ReactElement {
                   taskCountByDay[taskDate][status]++;
                 }
               }
+
+              // Create task detail row
+              const taskDetail: TaskDetailRow = {
+                id: task.id || 'Unknown',
+                status: task.status,
+                code: task.code?.coding?.[0]?.code || 'Unknown',
+                system: task.code?.coding?.[0]?.system || 'Unknown',
+                lastUpdated: DateTime.fromISO(task.meta.lastUpdated).toLocaleString(DateTime.DATETIME_SHORT),
+                authoredOn: task.authoredOn
+                  ? DateTime.fromISO(task.authoredOn).toLocaleString(DateTime.DATETIME_SHORT)
+                  : undefined,
+                statusReason: task.statusReason?.text || task.statusReason?.coding?.[0]?.display,
+                focus: task.focus?.reference,
+              };
+              taskDetailsArray.push(taskDetail);
             }
           });
+
+          setTaskDetails(taskDetailsArray);
 
           const taskCountByDateTemp = Object.keys(taskCountByDay).map((day) => {
             const statusCounts = taskCountByDay[day];
@@ -383,6 +511,27 @@ export default function TaskAdmin(): React.ReactElement {
           </Grid>
         )}
 
+        {/* View Toggle */}
+        {!loading && !error && (
+          <Grid item xs={12} sx={{ textAlign: 'center' }}>
+            <ToggleButtonGroup
+              value={viewType}
+              exclusive
+              onChange={(_, newView) => newView && setViewType(newView)}
+              aria-label="view type"
+            >
+              <ToggleButton value={ViewType.Chart} aria-label="chart view">
+                <BarChartIcon sx={{ mr: 1 }} />
+                Chart View
+              </ToggleButton>
+              <ToggleButton value={ViewType.Table} aria-label="table view">
+                <TableViewIcon sx={{ mr: 1 }} />
+                Table View
+              </ToggleButton>
+            </ToggleButtonGroup>
+          </Grid>
+        )}
+
         {/* Loading State */}
         {loading && (
           <Grid item xs={12} sx={{ textAlign: 'center' }}>
@@ -400,9 +549,12 @@ export default function TaskAdmin(): React.ReactElement {
         )}
 
         {/* Chart */}
-        {!loading && !error && taskCountByDate && (
+        {!loading && !error && taskCountByDate && viewType === ViewType.Chart && (
           <Grid item xs={12}>
             <Paper sx={{ p: 3 }}>
+              <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+                💡 Tip: Single-click legend items to toggle, double-click to show only that status
+              </Typography>
               <Bar
                 aria-label={`Send-Messages Tasks by Date ${filterStartDate?.toLocaleString(
                   DateTime.DATE_SHORT
@@ -472,6 +624,40 @@ export default function TaskAdmin(): React.ReactElement {
                     legend: {
                       display: true,
                       position: 'top' as const,
+                      onClick: (event, legendItem, legend) => {
+                        const chart = legend.chart;
+                        const datasetIndex = legendItem.datasetIndex!;
+                        const meta = chart.getDatasetMeta(datasetIndex);
+
+                        // Check if this is a double-click by tracking timing
+                        const now = Date.now();
+                        const lastClickTime = (chart as any).lastLegendClickTime || 0;
+                        const isDoubleClick = now - lastClickTime < 300;
+                        (chart as any).lastLegendClickTime = now;
+
+                        if (isDoubleClick) {
+                          // Double-click: Show only this dataset or show all if already isolated
+                          const allMeta = chart.data.datasets.map((_, i) => chart.getDatasetMeta(i));
+                          const visibleCount = allMeta.filter((m) => !m.hidden).length;
+
+                          if (visibleCount === 1 && !meta.hidden) {
+                            // Currently showing only this dataset, show all
+                            allMeta.forEach((m) => {
+                              m.hidden = false;
+                            });
+                          } else {
+                            // Hide all others, show only this one
+                            allMeta.forEach((m, i) => {
+                              m.hidden = i !== datasetIndex;
+                            });
+                          }
+                        } else {
+                          // Single-click: Toggle this dataset (default behavior)
+                          meta.hidden = meta.hidden ? false : !meta.hidden;
+                        }
+
+                        chart.update();
+                      },
                     },
                     tooltip: {
                       mode: 'index' as const,
@@ -501,6 +687,38 @@ export default function TaskAdmin(): React.ReactElement {
                   interaction: {
                     mode: 'index' as const,
                     intersect: false,
+                  },
+                }}
+              />
+            </Paper>
+          </Grid>
+        )}
+
+        {/* DataGrid Table */}
+        {!loading && !error && taskDetails.length > 0 && viewType === ViewType.Table && (
+          <Grid item xs={12}>
+            <Paper sx={{ p: 3, height: 600 }}>
+              <Typography variant="h6" gutterBottom>
+                Task Details
+              </Typography>
+              <DataGridPro
+                rows={taskDetails}
+                columns={columns}
+                getRowId={(row) => row.id}
+                initialState={{
+                  pagination: {
+                    paginationModel: { pageSize: 25 },
+                  },
+                  sorting: {
+                    sortModel: [{ field: 'lastUpdated', sort: 'desc' }],
+                  },
+                }}
+                pageSizeOptions={[10, 25, 50, 100]}
+                disableRowSelectionOnClick
+                sx={{
+                  '& .MuiDataGrid-cell': {
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
                   },
                 }}
               />
