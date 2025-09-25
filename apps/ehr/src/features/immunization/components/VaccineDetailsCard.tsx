@@ -34,11 +34,6 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order }) => {
   const methods = useForm({
     defaultValues: {
       ...order,
-      details: {
-        ...order.details,
-        medicationId: order?.details?.medication?.id,
-        orderedProviderId: order?.details?.orderedProvider?.id,
-      },
       administrationDetails: {
         ...order.administrationDetails,
         administeredDateTime: DateTime.now().toISO(),

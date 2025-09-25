@@ -48,11 +48,7 @@ export interface ImmunizationOrder {
   administrationDetails?: ImmunizationOrderAdministrationDetails;
 }
 
-export interface InputImmunizationOrderDetails
-  extends Omit<ImmunizationOrderDetails, 'orderedDateTime' | 'medication' | 'orderedProvider'> {
-  medicationId: string;
-  orderedProviderId: string;
-}
+export type InputImmunizationOrderDetails = Omit<ImmunizationOrderDetails, 'orderedDateTime'>;
 
 export interface CreateUpdateImmunizationOrderRequest {
   orderId?: string;

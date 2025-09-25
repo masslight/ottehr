@@ -31,10 +31,22 @@ export const OrderDetailsSection: React.FC = () => {
       </Grid>
       <Grid xs={6} item>
         <AutocompleteInput
-          name="details.medicationId"
+          name="details.medication"
           label="Vaccine"
           options={vaccineOptions}
           loading={isLoading}
+          valueToOption={(value: any) => {
+            return {
+              label: value.name,
+              value: value.id,
+            };
+          }}
+          optionToValue={(option: Option) => {
+            return {
+              name: option.label,
+              id: option.value,
+            };
+          }}
           required
         />
       </Grid>
@@ -76,7 +88,7 @@ export const OrderDetailsSection: React.FC = () => {
         <TextInput name="details.instructions" label="Instructions" multiline />
       </Grid>
       <Grid xs={6} item>
-        <ProviderSelectInput name="details.orderedProviderId" label="Ordered by" required />
+        <ProviderSelectInput name="details.orderedProvider" label="Ordered by" required />
       </Grid>
     </Grid>
   );
