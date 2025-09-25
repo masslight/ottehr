@@ -91,7 +91,7 @@ const paymentSchema = yup.object().shape({
     .positive('Amount must be greater than 0'),
   paymentMethod: yup
     .string()
-    .oneOf(['card', 'cash', 'check'], 'Invalid payment method')
+    .oneOf(['card', 'card-reader', 'cash', 'check'], 'Invalid payment method')
     .required('Payment method is required'),
   creditCard: yup.string().when('paymentMethod', {
     is: (val: string) => val === 'card',
@@ -198,7 +198,7 @@ export default function ({
               </FormControl>
             </Grid>
             <Grid item>
-              <FormControl variant="outlined" fullWidth required>
+              <FormControl variant="outlined" fullWidth required error={Boolean(formState.errors.paymentMethod)}>
                 <InputLabel shrink id="payment-method-radio-group">
                   Payment method
                 </InputLabel>
@@ -209,6 +209,7 @@ export default function ({
                   render={({ field }) => (
                     <RadioGroup row {...field}>
                       <FormControlLabel value="card" control={<Radio />} label="Card" />
+                      <FormControlLabel value="card-reader" control={<Radio />} label="Card Reader" />
                       <FormControlLabel value="cash" control={<Radio />} label="Cash" />
                       <FormControlLabel value="check" control={<Radio />} label="Check" />
                     </RadioGroup>

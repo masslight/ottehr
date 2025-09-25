@@ -3,6 +3,8 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { Box, Divider, Stack, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { FC } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ApptTab } from 'src/components/AppointmentTabs';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { isEligibleSupervisor } from 'src/helpers';
@@ -56,7 +58,7 @@ import { InHouseMedicationsContainer } from './InHouseMedicationsContainer';
 import { PatientVitalsContainer } from './PatientVitalsContainer';
 
 export const ProgressNoteDetails: FC = () => {
-  const { appointment, encounter, appointmentRefetch, appointmentSetState, location } = useAppointmentData();
+  const { appointment, encounter, appointmentSetState, location } = useAppointmentData();
   const apiClient = useOystehrAPIClient();
   const { css } = useFeatureFlags();
   const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
@@ -66,6 +68,8 @@ export const ProgressNoteDetails: FC = () => {
 
   const isLoading = isChangeLoading || isSignLoading;
   const user = useEvolveUser();
+  const navigate = useNavigate();
+
   const { data: chartFields } = useChartFields({ requestedFields: progressNoteChartDataRequestedFields });
   const { chartData } = useChartData();
   const { medications: inHouseMedicationsWithCanceled } = useMedicationAPI();
@@ -193,7 +197,7 @@ export const ProgressNoteDetails: FC = () => {
         timezone: tz,
         supervisorApprovalEnabled: FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED,
       });
-      await appointmentRefetch();
+      navigate('/visits', { state: { tab: ApptTab.completed } });
     } else {
       await changeTelemedAppointmentStatus({
         apiClient,
