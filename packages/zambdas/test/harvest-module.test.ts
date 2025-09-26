@@ -9,9 +9,9 @@ import {
   ORG_TYPE_CODE_SYSTEM,
   ORG_TYPE_PAYER_CODE,
 } from 'utils';
-import InPersonQuestionnaireFile from 'utils/lib/deployed-resources/questionnaires/in-person-intake-questionnaire.json';
 import { v4 as uuidV4 } from 'uuid';
 import { assert, describe, expect, it } from 'vitest';
+import InPersonQuestionnaireFile from '../../../config/oystehr/in-person-intake-questionnaire.json';
 import {
   createAccount,
   createContainedGuarantor,
@@ -32,7 +32,7 @@ import {
 } from './data/expected-coverage-resources-qr1';
 import { fillReferences } from './helpers/harvest-test-helpers';
 
-const InPersonQuestionnaire = InPersonQuestionnaireFile.resource;
+const InPersonQuestionnaire = InPersonQuestionnaireFile.fhirResources['questionnaire-in-person-previsit'].resource;
 
 const expectedPrimaryPolicyHolderFromQR1 = fillReferences(rawPPHQR1, ['Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61']);
 const expectedSecondaryPolicyHolderFromQR1 = fillReferences(rawSPHQR1, [

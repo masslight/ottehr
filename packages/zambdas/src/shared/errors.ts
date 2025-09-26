@@ -2,7 +2,7 @@ import { captureException } from '@sentry/aws-serverless';
 import { handleUnknownError } from 'utils';
 
 export const sendErrors = async (error: any, env: string): Promise<void> => {
-  if (['local'].includes(env)) {
+  if (process.env.PLAYWRIGHT_SUITE_ID != null || ['local'].includes(env)) {
     return;
   }
   console.log('sendErrors running');

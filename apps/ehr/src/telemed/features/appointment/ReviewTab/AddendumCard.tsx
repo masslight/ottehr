@@ -3,12 +3,16 @@ import { FC, useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { AccordionCard } from '../../../components';
 import { useDebounceNotesField, useGetAppointmentAccessibility } from '../../../hooks';
-import { useChartData } from '../../../state';
+import { useChartFields } from '../../../state';
 
 export const AddendumCard: FC = () => {
-  const { chartData } = useChartData();
+  const { data: chartFields } = useChartFields({
+    requestedFields: {
+      addendumNote: {},
+    },
+  });
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-  const addendumNote = chartData?.addendumNote?.text;
+  const addendumNote = chartFields?.addendumNote?.text;
 
   const theme = useTheme();
 

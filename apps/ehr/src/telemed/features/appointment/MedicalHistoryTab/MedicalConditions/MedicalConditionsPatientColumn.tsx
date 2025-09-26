@@ -25,7 +25,7 @@ export const MedicalConditionsPatientColumn: FC = () => {
         flexDirection: 'column',
         gap: 1,
       }}
-      data-testid={dataTestIds.telemedEhrFlow.hpiMedicalConditionPatientProvidedList}
+      data-testid={dataTestIds.medicalConditions.medicalConditionPatientProvidedList}
     >
       {isAppointmentLoading ? (
         <PatientSideListSkeleton />

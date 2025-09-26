@@ -11,13 +11,18 @@ import { followUpInOptions } from 'utils';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { SectionList } from '../../../../components';
 import { useExcusePresignedFiles, usePatientInstructionsVisibility } from '../../../../hooks';
-import { useChartData } from '../../../../state';
+import { useChartData, useChartFields } from '../../../../state';
 import { AssessmentTitle } from '../../AssessmentTab';
 
 export const PatientInstructionsContainer: FC = () => {
+  const { data: chartFields } = useChartFields({
+    requestedFields: { disposition: {} },
+  });
+
   const { chartData } = useChartData();
+
   const instructions = chartData?.instructions;
-  const disposition = chartData?.disposition;
+  const disposition = chartFields?.disposition;
   const schoolWorkExcuses = useExcusePresignedFiles(chartData?.schoolWorkNotes);
 
   const { showInstructions, showDischargeInstructions, showFollowUp, showSchoolWorkExcuse } =

@@ -1,10 +1,12 @@
 import { Page } from '@playwright/test';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { expectHospitalizationPage, HospitalizationPage } from './HospitalizationPage';
+import { AllergiesPage, expectAllergiesPage } from './in-person/AllergiesPage';
 import { expectInHouseLabsPage, InHouseLabsPage } from './in-person/InHouseLabsPage';
 import { expectInHouseMedicationsPage, InHouseMedicationsPage } from './in-person/InHouseMedicationsPage';
 import { expectAssessmentPage, InPersonAssessmentPage } from './in-person/InPersonAssessmentPage';
 import { expectInPersonProgressNotePage, InPersonProgressNotePage } from './in-person/InPersonProgressNotePage';
+import { expectMedicalConditionsPage, MedicalConditionsPage } from './MedicalConditionsPage';
 
 export class SideMenu {
   #page: Page;
@@ -21,7 +23,14 @@ export class SideMenu {
     await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('in-house-lab-orders')).click();
     return expectInHouseLabsPage(this.#page);
   }
-
+  async clickAllergies(): Promise<AllergiesPage> {
+    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('allergies')).click();
+    return expectAllergiesPage(this.#page);
+  }
+  async clickMedicalConditions(): Promise<MedicalConditionsPage> {
+    await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('medical-conditions')).click();
+    return expectMedicalConditionsPage(this.#page);
+  }
   async clickHospitalization(): Promise<HospitalizationPage> {
     await this.#page.getByTestId(dataTestIds.sideMenu.sideMenuItem('hospitalization')).click();
     return expectHospitalizationPage(this.#page);

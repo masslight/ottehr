@@ -3,8 +3,9 @@ import path from 'node:path';
 import { BRANDING_CONFIG, SENDGRID_CONFIG } from 'utils';
 import { SpecFile } from '../packages/spec/src/schema';
 import { Schema20250319 } from '../packages/spec/src/schema-20250319';
+import { Schema20250925 } from '../packages/spec/src/schema-20250925';
 
-const validSchemas = ['2025-03-19'];
+const validSchemas = ['2025-03-19', '2025-09-25'];
 
 const zambdasDirPath = path.resolve(__dirname, '../packages/zambdas');
 
@@ -105,6 +106,10 @@ async function generateOystehrResources(input: GenerateFhirResourcesArgs): Promi
   // Generate resources for specs
   if (schemaVersion === '2025-03-19') {
     const schema = new Schema20250319(specs, vars, outputPath, zambdasDirPath);
+    await schema.generate();
+  }
+  if (schemaVersion === '2025-09-25') {
+    const schema = new Schema20250925(specs, vars, outputPath, zambdasDirPath);
     await schema.generate();
   }
 }

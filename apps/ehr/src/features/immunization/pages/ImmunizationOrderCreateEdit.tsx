@@ -44,16 +44,7 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
 
   useEffect(() => {
     const order = ordersResponse?.orders?.find((order) => order.id === orderId);
-    if (order) {
-      methods.reset({
-        ...order,
-        details: {
-          ...order.details,
-          medicationId: order?.details?.medication?.id,
-          orderedProviderId: order?.details?.orderedProvider?.id,
-        },
-      });
-    }
+    methods.reset(order);
   }, [methods, ordersResponse, orderId]);
 
   const currentUser = useEvolveUser();
@@ -62,14 +53,17 @@ export const ImmunizationOrderCreateEdit: React.FC = () => {
   const defaultProviderId = currentUserHasProviderRole ? currentUserProviderId : undefined;
 
   useEffect(() => {
-    if (!orderId) {
+    if (!orderId && defaultProviderId) {
       methods.reset({
         details: {
-          orderedProviderId: defaultProviderId,
+          orderedProvider: {
+            id: defaultProviderId,
+            name: currentUser?.userName,
+          },
         },
       });
     }
-  }, [methods, defaultProviderId, orderId]);
+  }, [methods, defaultProviderId, orderId, currentUser]);
 
   return (
     <FormProvider {...methods}>

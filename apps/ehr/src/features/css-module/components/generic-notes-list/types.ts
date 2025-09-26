@@ -1,4 +1,4 @@
-import { ChartDataFields, NOTE_TYPE, NoteDTO, SearchParams } from 'utils';
+import { AllChartValues, NOTE_TYPE, NoteDTO, SearchParams } from 'utils';
 
 export interface CustomizableNotesConfig {
   separateEncounterNotes?: boolean; // notes from another encounters should be shown by "show more" button
@@ -10,7 +10,7 @@ export interface GenericNotesConfig extends CustomizableNotesConfig {
 }
 
 export interface NoteApiConfig {
-  fieldName: Extract<keyof ChartDataFields, 'notes'>;
+  fieldName: Extract<keyof AllChartValues, 'notes'>;
   type: NOTE_TYPE;
   searchParams: SearchParams;
 }

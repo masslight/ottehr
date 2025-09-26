@@ -52,18 +52,18 @@ export const ExamForm: FC<ExamFormProps> = ({ form, abnormal = false }) => {
         (fieldName) => !form.fields[fieldName].enabledWhen || isFieldEnabled(form.fields[fieldName].enabledWhen!, watch)
       )
       .reduce(
-        (prev, curr) => {
+        (acc, curr) => {
           const value = data[curr];
           if (!value) {
-            return prev;
+            return acc;
           }
 
           if (form.fields[curr].type === 'text') {
-            prev.notes.push(value);
+            acc.notes.push(value);
           } else {
-            prev.fieldNamesModified.push(value);
+            acc.fieldNamesModified.push(value);
           }
-          return prev;
+          return acc;
         },
         { fieldNamesModified: [], notes: [] } as { fieldNamesModified: string[]; notes: string[] }
       );

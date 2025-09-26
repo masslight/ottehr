@@ -1,12 +1,12 @@
 import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { Operation } from 'fast-json-patch';
 import { Patient } from 'fhir/r4b';
-import { useSuccessQuery } from 'utils';
 import {
   addOrReplaceOperation,
   ChangeTelemedAppointmentStatusInput,
   InitTelemedSessionRequestParams,
   SignAppointmentInput,
+  useSuccessQuery,
 } from 'utils';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { OystehrTelemedAPIClient, PromiseReturnType } from '../../data';
@@ -139,14 +139,14 @@ export const useEditPatientInformationMutation = () => {
     }: {
       originalPatientData: Patient;
       updatedPatientData: Patient;
-      fieldsToUpdate?: ('name' | 'birthDate' | 'gender' | 'address' | 'telecom')[];
+      fieldsToUpdate?: ('name' | 'birthDate' | 'gender' | 'address' | 'telecom' | 'contact')[];
     }) => {
       if (!oystehr) {
         throw new Error('Oystehr not found');
       }
 
       if (!fieldsToUpdate || fieldsToUpdate.length === 0) {
-        fieldsToUpdate = ['name', 'birthDate', 'address', 'telecom'];
+        fieldsToUpdate = ['name', 'birthDate', 'address', 'telecom', 'contact'];
       }
       const fieldsSet = [...new Set(fieldsToUpdate)];
 

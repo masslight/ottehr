@@ -260,32 +260,38 @@ export const medicationInteractionsFromErxResponse = (
   drugInteractions.forEach((drugInteraction) => {
     const drugIds = drugInteraction.drugs.map((drug) => drug.id);
     const sourceMedication = medicationHistory.find((medication) => medication.id && drugIds.includes(medication.id));
-    let display: string | undefined = undefined;
-    if (sourceMedication && sourceMedication.resourceId && sourceMedication?.chartDataField && sourceMedication?.type) {
-      display = sourceMedication.chartDataField === 'medications' ? 'Patient' : 'In-house';
-      display += sourceMedication.type == 'scheduled' ? ' - Scheduled' : ' - As needed';
-      if (sourceMedication?.intakeInfo?.date) {
-        display += '\nlast taken\n' + DateTime.fromISO(sourceMedication.intakeInfo.date).toFormat('MM/dd/yyyy');
-      }
-      drugInteraction.source = {
-        reference: 'Medication/' + sourceMedication.resourceId,
-        display: display,
-      };
-      return;
-    }
     const sourcePrescription = prescriptions.find((prescription) => {
       const code = prescription.medicationCodeableConcept?.coding?.find(
         (coding) => coding.system === MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM
       )?.code;
       return code && drugIds.includes(code);
     });
-    const dateString = sourcePrescription?.extension?.find(
-      (extension) => extension.url === 'http://api.zapehr.com/photon-event-time'
-    )?.valueDateTime;
-    if (sourcePrescription && sourcePrescription.id && dateString) {
+    if (sourcePrescription && sourcePrescription.id) {
       drugInteraction.source = {
         reference: 'MedicationRequest/' + sourcePrescription.id,
-        display: 'Prescription\norder added\n' + DateTime.fromISO(dateString).toFormat('MM/dd/yyyy'),
+        display: 'Prescription',
+      };
+    } else if (
+      sourceMedication &&
+      sourceMedication.resourceId &&
+      sourceMedication?.chartDataField &&
+      sourceMedication?.type
+    ) {
+      let display = sourceMedication.chartDataField === 'medications' ? 'Patient' : 'In-house';
+      display +=
+        sourceMedication.type === 'scheduled'
+          ? ' - Scheduled'
+          : sourceMedication.type === 'as-needed'
+          ? ' - As needed'
+          : sourceMedication.type === 'prescribed-medication'
+          ? ' - Prescribed'
+          : '';
+      if (sourceMedication?.intakeInfo?.date) {
+        display += '\nlast taken\n' + DateTime.fromISO(sourceMedication.intakeInfo.date).toFormat('MM/dd/yyyy');
+      }
+      drugInteraction.source = {
+        reference: 'Medication/' + sourceMedication.resourceId,
+        display: display,
       };
     }
   });
@@ -317,7 +323,7 @@ export const findPrescriptionsForInteractions = async (
       params: [
         {
           name: 'status',
-          value: 'active',
+          value: 'completed',
         },
         {
           name: 'subject',
