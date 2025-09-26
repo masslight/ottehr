@@ -169,7 +169,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const visitStatus = appointment ? getVisitStatus(appointment, encounter) : 'unknown';
 
       return {
-        encounterId: encounter.id || '',
         appointmentId: appointment?.id || '',
         patientId: patient?.id || '',
         patientName: patient ? `${getPatientFirstName(patient)} ${getPatientLastName(patient)}`.trim() : 'Unknown',

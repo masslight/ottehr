@@ -25,14 +25,12 @@ import PageContainer from '../../layout/PageContainer';
 
 interface IncompleteEncounterRow {
   id: string;
-  encounterId: string;
   appointmentId: string;
   patientId: string;
   patientName: string;
   dateOfBirth: string;
   visitStatus: VisitStatusLabel;
   appointmentTime: string;
-  duration: string;
   location?: string;
   reason?: string;
 }
@@ -126,23 +124,14 @@ const useIncompleteEncounters = (
           ? DateTime.fromISO(encounter.appointmentStart).toFormat('MM/dd/yyyy HH:mm a')
           : 'Unknown';
 
-        // Calculate duration since appointment started
-        const appointmentStart = encounter.appointmentStart
-          ? DateTime.fromISO(encounter.appointmentStart)
-          : DateTime.now();
-        const duration = DateTime.now().diff(appointmentStart, 'minutes').minutes;
-        const durationString = `${Math.floor(duration)} min`;
-
         return {
-          id: encounter.encounterId,
-          encounterId: encounter.encounterId,
+          id: encounter.appointmentId,
           appointmentId: encounter.appointmentId,
           patientId: encounter.patientId,
           patientName: encounter.patientName,
           dateOfBirth: encounter.dateOfBirth,
           visitStatus: encounter.visitStatus as VisitStatusLabel,
           appointmentTime,
-          duration: durationString,
           location: encounter.location,
           reason: encounter.reason,
         };
@@ -150,8 +139,8 @@ const useIncompleteEncounters = (
 
       return processedEncounters.sort((a, b) => {
         // Sort by appointment start time - we need to get the original ISO time from the API response
-        const aTime = response.encounters.find((e) => e.encounterId === a.encounterId)?.appointmentStart || '';
-        const bTime = response.encounters.find((e) => e.encounterId === b.encounterId)?.appointmentStart || '';
+        const aTime = response.encounters.find((e) => e.appointmentId === a.appointmentId)?.appointmentStart || '';
+        const bTime = response.encounters.find((e) => e.appointmentId === b.appointmentId)?.appointmentStart || '';
         return DateTime.fromISO(aTime).toMillis() - DateTime.fromISO(bTime).toMillis();
       });
     },
@@ -182,15 +171,9 @@ export default function IncompleteEncounters(): React.ReactElement {
   const columns: GridColDef[] = useMemo(
     () => [
       {
-        field: 'patientName',
-        headerName: 'Patient Name',
-        width: 200,
-        sortable: true,
-      },
-      {
-        field: 'appointmentTime',
-        headerName: 'Appointment Time',
-        width: 180,
+        field: 'appointmentId',
+        headerName: 'Appointment ID',
+        width: 320,
         sortable: true,
       },
       {
@@ -208,28 +191,21 @@ export default function IncompleteEncounters(): React.ReactElement {
         ),
       },
       {
-        field: 'duration',
-        headerName: 'Duration',
-        width: 120,
-        sortable: true,
-        description: 'Time since encounter started',
-      },
-      {
-        field: 'encounterId',
-        headerName: 'Encounter ID',
-        width: 150,
-        sortable: true,
-      },
-      {
-        field: 'appointmentId',
-        headerName: 'Appointment ID',
-        width: 150,
+        field: 'appointmentTime',
+        headerName: 'Appointment Time',
+        width: 180,
         sortable: true,
       },
       {
         field: 'location',
         headerName: 'Location',
         width: 150,
+        sortable: true,
+      },
+      {
+        field: 'patientName',
+        headerName: 'Patient Name',
+        width: 200,
         sortable: true,
       },
       {

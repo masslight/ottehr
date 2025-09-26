@@ -6,7 +6,6 @@ export interface IncompleteEncountersReportZambdaInput {
 }
 
 export interface IncompleteEncounterItem {
-  encounterId: string;
   appointmentId: string;
   patientId: string;
   patientName: string;
