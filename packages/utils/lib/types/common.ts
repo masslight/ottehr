@@ -498,7 +498,7 @@ export const InHouseMedications: InHouseMedicationInfo[] = [
   { name: 'Amoxicillin Clavulanate', NDC: '65862-535-75', erxData: { id: '22329' } },
 ];
 
-export type TaskStatus = 'completed' | 'failed' | 'rejected' | undefined;
+export type TaskStatus = Task['status'];
 
 export interface TaskSubscriptionInput {
   task: Task;

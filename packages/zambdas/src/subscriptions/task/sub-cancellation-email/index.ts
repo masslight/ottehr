@@ -136,6 +136,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         statusReasonToUpdate = 'email sent successfully';
         console.groupEnd();
       } catch (error: any) {
+        taskStatusToUpdate = 'failed';
+        statusReasonToUpdate = error.message ? `error received: ${error.message}` : 'unknown error';
         console.error('error sending email', error);
         console.groupEnd();
       }
