@@ -8,7 +8,6 @@ import {
   NOTHING_TO_EAT_OR_DRINK_LABEL,
   renderScreeningQuestionsForPDF,
   Secrets,
-  SEEN_IN_LAST_THREE_YEARS_LABEL,
   VitalFieldNames,
 } from 'utils';
 import { makeZ3Url } from '../presigned-file-urls';
@@ -440,28 +439,16 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
   }
 
   if (
-    Object.values(data.additionalQuestions).some((value) => value !== '') ||
-    data.screening?.seenInLastThreeYears ||
-    data.screening?.historyObtainedFrom ||
+    (data.screening?.additionalQuestions && Object.keys(data.screening.additionalQuestions).length > 0) ||
     data.screening?.currentASQ ||
     (data.screening?.notes && data.screening.notes.length > 0)
   ) {
     drawBlockHeader('Additional questions');
 
-    renderScreeningQuestionsForPDF(data.additionalQuestions, (question, formattedValue) => {
-      regularText(`${question} - ${formattedValue}`);
-    });
-
-    if (data.screening?.seenInLastThreeYears) {
-      regularText(`${SEEN_IN_LAST_THREE_YEARS_LABEL} - ${data.screening.seenInLastThreeYears}`);
-    }
-
-    if (data.screening?.historyObtainedFrom) {
-      regularText(
-        `History obtained from - ${data.screening.historyObtainedFrom}${
-          data.screening.historyObtainedFromOther ? `: ${data.screening.historyObtainedFromOther}` : ''
-        }`
-      );
+    if (data.screening?.additionalQuestions) {
+      renderScreeningQuestionsForPDF(data.screening.additionalQuestions, (question, formattedValue) => {
+        regularText(`${question} - ${formattedValue}`);
+      });
     }
 
     if (data.screening?.currentASQ) {

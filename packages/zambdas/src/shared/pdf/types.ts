@@ -7,6 +7,7 @@ import {
   InHouseLabResult as IInHouseLabResult,
   LabType,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
+  ObservationDTO,
   QuantityComponent,
   SupportedObsImgAttachmentTypes,
   VitalsVisitNoteData,
@@ -281,11 +282,8 @@ export interface VisitNoteData extends PdfExaminationBlockData {
   inHouseMedications?: string[];
   inHouseMedicationsNotes?: string[];
   immunizationOrders?: string[];
-  additionalQuestions: Record<string, string>;
   screening?: {
-    seenInLastThreeYears?: string;
-    historyObtainedFrom?: string;
-    historyObtainedFromOther?: string;
+    additionalQuestions: { [fieldFhirId: string]: ObservationDTO };
     currentASQ?: string;
     notes?: string[];
   };

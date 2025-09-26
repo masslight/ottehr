@@ -5,8 +5,7 @@ import {
   ASQKeys,
   asqLabels,
   Field,
-  formatScreeningQuestionNote,
-  formatScreeningQuestionValue,
+  formatScreeningQuestionWithNote,
   NoteDTO,
   patientScreeningQuestionsConfig,
   shouldDisplayScreeningQuestion,
@@ -30,14 +29,12 @@ export const AdditionalQuestionsContainer: FC<AdditionalQuestionsContainerProps>
     const observation = getObservationByField(field.fhirField);
     if (!shouldDisplayScreeningQuestion(observation?.value)) return null;
 
-    const valueLabel = formatScreeningQuestionValue(field.fhirField, observation.value);
-    if (!valueLabel) return null;
-
-    const noteText = formatScreeningQuestionNote(field, observation);
+    const formattedValue = formatScreeningQuestionWithNote(field.fhirField, observation);
+    if (!formattedValue) return null;
 
     return (
       <Box key={field.id} data-testid={dataTestIds.telemedEhrFlow.reviewTabAdditionalQuestion(field.fhirField)}>
-        <Typography>{`${field.question} - ${valueLabel}${noteText}`}</Typography>
+        <Typography>{`${field.question} - ${formattedValue}`}</Typography>
       </Box>
     );
   };
