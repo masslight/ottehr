@@ -249,14 +249,15 @@ const ChatModal = memo(
       }
     }, [MessageBodies.length]);
 
-    const { isLoading: isMessagingConfigLoading } = useGetMessagingConfigQuery((data) => {
-      if (!data) {
-        return;
-      }
-      if (!data.transactionalSMSConfig && !data.conversationConfig) {
-        setIsMessagingSetup(false);
-      }
-    });
+    const { isLoading: isMessagingConfigLoading } = useGetMessagingConfigQuery(
+      (data) => {
+        if (!data?.transactionalSMSConfig && !data?.conversationConfig) {
+          setIsMessagingSetup(false);
+        }
+      },
+      // todo: Need to change this when sdk is updated to return code in response instead of 404
+      () => setIsMessagingSetup(false)
+    );
 
     const handleSetup = (): void => {
       window.open('https://docs.oystehr.com/ottehr/setup/messaging/', '_blank');

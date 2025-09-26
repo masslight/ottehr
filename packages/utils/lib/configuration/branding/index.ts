@@ -16,6 +16,11 @@ const BRANDING_DEFAULTS: any = {
     },
     sender: 'ottehr-support@masslight.com',
   },
+  logo: {
+    default: '',
+    email: '',
+    pdf: '',
+  },
   /*
   palette: {
     // these are dummy values, but ottehr theme defaults should come from here eventually
@@ -44,6 +49,20 @@ const BrandingConfigSchema = z.object({
       buttonColor: z.string().min(1, { message: 'Button color cannot be empty' }),
     }),
   }),
+  logo: z.object({
+    default: z.string().optional(),
+    email: z.string().optional(),
+    pdf: z.string().optional(),
+  }),
 });
 
 export const BRANDING_CONFIG = Object.freeze(BrandingConfigSchema.parse(mergedBrandingConfig));
+
+type LogoConfig = z.infer<typeof BrandingConfigSchema>['logo'];
+type LogoTarget = Exclude<keyof LogoConfig, 'default'>;
+
+export function getLogoFor(target: Exclude<LogoTarget, 'default'>): string | undefined {
+  const { logo } = BRANDING_CONFIG;
+
+  return logo?.[target] || logo?.default;
+}
