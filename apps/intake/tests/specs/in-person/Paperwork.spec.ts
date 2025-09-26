@@ -103,7 +103,7 @@ test.describe('Primary Care Physician - Check and fill all fields', () => {
   test('PPCP-1 Primary Care Physician - Check patient name is displayed', async () => {
     await paperwork.checkPatientNameIsDisplayed(bookingData.firstName, bookingData.lastName);
   });
-  test('PPCP-2 Click on [Continue] with empty fields - Primary Care Physician opens', async () => {
+  test('PPCP-2 Click on [Continue] with empty fields - Preferred pharmacy opens', async () => {
     await locator.clickContinueButton();
     await paperwork.checkCorrectPageOpens('Preferred pharmacy');
   });
