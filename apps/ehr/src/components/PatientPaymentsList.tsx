@@ -125,7 +125,6 @@ export default function PatientPaymentList({
       const sendReceiptParams: SendReceiptByEmailZambdaInput = {
         recipientFullName: formData.recipientName,
         email: formData.recipientEmail,
-        subject: formData.subject,
         receiptDocRefId: receiptDocRefId,
       };
       await sendReceiptByEmail(oystehr, sendReceiptParams);
@@ -378,7 +377,6 @@ export default function PatientPaymentList({
         defaultValues={{
           recipientName: responsibleParty?.fullName,
           recipientEmail: responsibleParty?.email,
-          subject: `Receipt for Visit on ${DateTime.now().toFormat('MM/dd/yyyy')}`,
         }}
       />
       <Snackbar

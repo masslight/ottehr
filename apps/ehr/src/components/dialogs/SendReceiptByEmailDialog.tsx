@@ -6,7 +6,6 @@ import { Controller, useForm } from 'react-hook-form';
 export interface SendReceiptFormData {
   recipientName: string;
   recipientEmail: string;
-  subject: string;
 }
 
 interface SendReceiptByEmailDialogProps {
@@ -34,7 +33,6 @@ export default function SendReceiptByEmailDialog({
     defaultValues: {
       recipientName: defaultValues?.recipientName ?? '',
       recipientEmail: defaultValues?.recipientEmail ?? '',
-      subject: defaultValues?.subject ?? '',
     },
     mode: 'onBlur',
   });
@@ -83,25 +81,6 @@ export default function SendReceiptByEmailDialog({
                   helperText={errors.recipientEmail?.message}
                   required
                   sx={{ mb: 2 }}
-                />
-              )}
-            />
-
-            <Controller
-              name="subject"
-              control={control}
-              rules={{
-                required: 'Email is required',
-              }}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  fullWidth
-                  label="Subject"
-                  error={!!errors.subject}
-                  helperText={errors.subject?.message}
-                  required
-                  sx={{ mb: 3 }}
                 />
               )}
             />
