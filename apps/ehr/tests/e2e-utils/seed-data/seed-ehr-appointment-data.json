@@ -1158,10 +1158,20 @@
             "linkId": "pharmacy-page",
             "item": [
               {
-                "linkId": "pharmacy-name"
+                "linkId": "pharmacy-name",
+                "answer": [
+                  {
+                    "valueString": "Test pharmacy"
+                  }
+                ]
               },
               {
-                "linkId": "pharmacy-address"
+                "linkId": "pharmacy-address",
+                "answer": [
+                  {
+                    "valueString": "Test pharmacy address"
+                  }
+                ]
               }
             ]
           },

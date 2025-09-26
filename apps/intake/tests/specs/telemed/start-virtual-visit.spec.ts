@@ -454,6 +454,7 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
 
   test('Should fill in current medications', async () => {
     await clickContinueButton();
+    await clickContinueButton();
     await clickContinueButton(); // skip page with no required fields
     await paperwork.fillAndCheckFilledCurrentMedications();
   });
