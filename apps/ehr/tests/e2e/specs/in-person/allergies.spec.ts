@@ -25,7 +25,7 @@ test.afterAll(async () => {
 
 test('ALG-1 Allergies. Happy Path', async ({ page }) => {
   const allergyPage = await prepareAndOpenAllergies(page);
-  await test.step('ALG-1.1 Open Allergies page and Add allergy', async () => {
+  await test.step('ALG-1.1 Add allergy', async () => {
     await allergyPage.addAllergy(ALLERGY);
   });
   await test.step('ALG-1.2 Check added allergy is shown in CSS header', async () => {

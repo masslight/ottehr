@@ -25,7 +25,7 @@ test.afterAll(async () => {
 
 test('MC-1 Medical Conditions. Happy Path', async ({ page }) => {
   const medicalConditionsPage = await prepareAndOpenMedicalConditions(page);
-  await test.step('MC-1.1 Open Medical Conditions page and Add Medical Condition', async () => {
+  await test.step('MC-1.1 Add Medical Condition', async () => {
     await medicalConditionsPage.addAMedicalCondition(MEDICAL_CONDITION);
   });
   await test.step('MC-1.2 Verify Progress Note shows Medical Condition', async () => {
