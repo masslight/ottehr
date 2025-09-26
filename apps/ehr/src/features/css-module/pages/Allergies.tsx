@@ -1,6 +1,7 @@
 import { Stack, Typography } from '@mui/material';
 import React from 'react';
 import { useAppointmentData, useChartData } from 'src/telemed';
+import { dataTestIds } from '../../../constants/data-test-ids';
 import { PageTitle } from '../../../telemed/components/PageTitle';
 import {
   KnownAllergiesPatientColumn,
@@ -32,7 +33,11 @@ export const Allergies: React.FC<AllergiesProps> = () => {
 
   return (
     <Stack spacing={1}>
-      <PageTitle label="Allergies" showIntakeNotesButton={interactionMode === 'intake'} />
+      <PageTitle
+        dataTestId={dataTestIds.allergies.allergiesPageTitle}
+        label="Allergies"
+        showIntakeNotesButton={interactionMode === 'intake'}
+      />
       <InfoAlert text="Ask: Does the patient have any known allergies to medications, latex, or food?" />
       <MedicalHistoryDoubleCard
         patientSide={<KnownAllergiesPatientColumn />}

@@ -1,3 +1,4 @@
+import { captureException } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, HealthcareService, Location, Patient, Practitioner, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -8,11 +9,8 @@ import {
   CANT_UPDATE_CHECKED_IN_APT_ERROR,
   checkValidBookingTime,
   getAvailableSlotsForSchedules,
-  getPatientContactEmail,
-  getPatientFirstName,
-  getRelatedPersonForPatient,
   getSecret,
-  getSMSNumberForIndividual,
+  getTaskResource,
   isAppointmentVirtual,
   isPostTelemedAppointment,
   isValidUUID,
@@ -23,6 +21,7 @@ import {
   ScheduleType,
   Secrets,
   SecretsKeys,
+  TaskIndicator,
   UpdateAppointmentParameters,
 } from 'utils';
 import {
@@ -31,7 +30,6 @@ import {
   createOystehrClient,
   getAuth0Token,
   getParticipantFromAppointment,
-  sendInPersonMessages,
   topLevelCatch,
   updateAppointmentTime,
   wrapHandler,
@@ -50,7 +48,7 @@ export const index = wrapHandler('update-appointment', async (input: ZambdaInput
     console.group('validateRequestParameters');
     // Step 1: Validate input
     const validatedParameters = validateRequestParameters(input);
-    const { appointmentID, language, slot: inputSlot, secrets } = validatedParameters;
+    const { appointmentID, slot: inputSlot, secrets } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
@@ -197,33 +195,14 @@ export const index = wrapHandler('update-appointment', async (input: ZambdaInput
       id: getParticipantFromAppointment(updatedAppointment, 'Patient'),
     });
 
-    // const appClient = createAppClient(input.headers.Authorization.replace('Bearer ', ''), secrets);
-    // const user = await appClient.getMe();
-    const relatedPerson = await getRelatedPersonForPatient(fhirPatient.id || '', oystehr);
-    if (relatedPerson) {
-      console.log(`RelatedPerson found for patient: RP/${relatedPerson.id}`);
-      const timezone = scheduleOwner.extension?.find(
-        (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
-      )?.valueString;
-      const smsNumber = getSMSNumberForIndividual(relatedPerson);
-      if (smsNumber) {
-        await sendInPersonMessages({
-          email: getPatientContactEmail(fhirPatient), // todo use the right email
-          firstName: getPatientFirstName(fhirPatient),
-          messageRecipient: `RelatedPerson/${relatedPerson.id}`,
-          startTime: DateTime.fromISO(startTime).setZone(timezone),
-          secrets,
-          scheduleResource: scheduleOwner,
-          appointmentID,
-          appointmentType: fhirAppointment.appointmentType?.text || '',
-          language,
-          token: oystehrToken,
-        });
-      } else {
-        console.log(`missing sms number for related person with id ${relatedPerson.id}`);
+    if (fhirAppointment.id) {
+      const confirmationTextTask = getTaskResource(TaskIndicator.confirmationMessages, fhirAppointment.id!);
+      try {
+        await oystehr.fhir.create(confirmationTextTask);
+      } catch (error) {
+        console.error('Error creating confirmation text task:', error);
+        captureException(error);
       }
-    } else {
-      console.log(`No RelatedPerson found for patient ${fhirPatient.id} not sending text message`);
     }
 
     const response = {

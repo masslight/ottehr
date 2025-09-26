@@ -3,6 +3,8 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { Box, Divider, Stack, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { FC } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ApptTab } from 'src/components/AppointmentTabs';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { isEligibleSupervisor } from 'src/helpers';
@@ -12,10 +14,10 @@ import { ProceduresContainer } from 'src/telemed/features/appointment/ReviewTab/
 import { useOystehrAPIClient } from 'src/telemed/hooks/useOystehrAPIClient';
 import {
   examConfig,
-  getProgressNoteChartDataRequestedFields,
   getVisitStatus,
   LabType,
   NOTE_TYPE,
+  progressNoteChartDataRequestedFields,
   TelemedAppointmentStatusEnum,
 } from 'utils';
 import { dataTestIds } from '../../../../constants/data-test-ids';
@@ -25,10 +27,11 @@ import {
   SectionList,
   useAppointmentData,
   useChangeTelemedAppointmentStatusMutation,
+  useChartData,
+  useChartFields,
   usePatientInstructionsVisibility,
   useSignAppointmentMutation,
 } from '../../../../telemed';
-import { useChartData } from '../../../../telemed';
 import {
   AdditionalQuestionsContainer,
   AllergiesContainer,
@@ -55,61 +58,51 @@ import { InHouseMedicationsContainer } from './InHouseMedicationsContainer';
 import { PatientVitalsContainer } from './PatientVitalsContainer';
 
 export const ProgressNoteDetails: FC = () => {
-  const { appointment, encounter, appointmentRefetch, appointmentSetState, location } = useAppointmentData();
+  const { appointment, encounter, appointmentSetState, location } = useAppointmentData();
   const apiClient = useOystehrAPIClient();
   const { css } = useFeatureFlags();
   const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
+
   const { mutateAsync: changeTelemedAppointmentStatus, isPending: isChangeLoading } =
     useChangeTelemedAppointmentStatusMutation();
+
   const isLoading = isChangeLoading || isSignLoading;
   const user = useEvolveUser();
+  const navigate = useNavigate();
 
+  const { data: chartFields } = useChartFields({ requestedFields: progressNoteChartDataRequestedFields });
   const { chartData } = useChartData();
-
-  const { setPartialChartData } = useChartData({
-    requestedFields: getProgressNoteChartDataRequestedFields(),
-    onSuccess: (data) => {
-      setPartialChartData({
-        episodeOfCare: data?.episodeOfCare,
-        vitalsObservations: data?.vitalsObservations,
-        prescribedMedications: data?.prescribedMedications,
-        externalLabResults: data?.externalLabResults,
-        inHouseLabResults: data?.inHouseLabResults,
-        disposition: data?.disposition,
-        medicalDecision: data?.medicalDecision,
-        notes: data?.notes,
-      });
-    },
-  });
-
   const { medications: inHouseMedicationsWithCanceled } = useMedicationAPI();
   const inHouseMedications = inHouseMedicationsWithCanceled.filter((medication) => medication.status !== 'cancelled');
+
   const { data: immunizationOrdersResponse } = useGetImmunizationOrders({
     encounterId: encounter.id,
   });
+
   const immunizationOrders = (immunizationOrdersResponse?.orders ?? []).filter((order) =>
     ['administered', 'administered-partly'].includes(order.status)
   );
-  const screeningNotes = chartData?.notes?.filter((note) => note.type === NOTE_TYPE.SCREENING);
-  const vitalsNotes = chartData?.notes?.filter((note) => note.type === NOTE_TYPE.VITALS);
-  const allergyNotes = chartData?.notes?.filter((note) => note.type === NOTE_TYPE.ALLERGY);
-  const intakeMedicationNotes = chartData?.notes?.filter((note) => note.type === NOTE_TYPE.INTAKE_MEDICATION);
-  const hospitalizationNotes = chartData?.notes?.filter((note) => note.type === NOTE_TYPE.HOSPITALIZATION);
-  const medicalConditionNotes = chartData?.notes?.filter((note) => note.type === NOTE_TYPE.MEDICAL_CONDITION);
-  const surgicalHistoryNotes = chartData?.notes?.filter((note) => note.type === NOTE_TYPE.SURGICAL_HISTORY);
-  const inHouseMedicationNotes = chartData?.notes?.filter((note) => note.type === NOTE_TYPE.MEDICATION);
 
-  const chiefComplaint = chartData?.chiefComplaint?.text;
-  const ros = chartData?.ros?.text;
-  const diagnoses = chartData?.diagnosis;
-  const medicalDecision = chartData?.medicalDecision?.text;
+  const screeningNotes = chartFields?.notes?.filter((note) => note.type === NOTE_TYPE.SCREENING);
+  const vitalsNotes = chartFields?.notes?.filter((note) => note.type === NOTE_TYPE.VITALS);
+  const allergyNotes = chartFields?.notes?.filter((note) => note.type === NOTE_TYPE.ALLERGY);
+  const intakeMedicationNotes = chartFields?.notes?.filter((note) => note.type === NOTE_TYPE.INTAKE_MEDICATION);
+  const hospitalizationNotes = chartFields?.notes?.filter((note) => note.type === NOTE_TYPE.HOSPITALIZATION);
+  const medicalConditionNotes = chartFields?.notes?.filter((note) => note.type === NOTE_TYPE.MEDICAL_CONDITION);
+  const surgicalHistoryNotes = chartFields?.notes?.filter((note) => note.type === NOTE_TYPE.SURGICAL_HISTORY);
+  const inHouseMedicationNotes = chartFields?.notes?.filter((note) => note.type === NOTE_TYPE.MEDICATION);
+  const medicalDecision = chartFields?.medicalDecision?.text;
+  const prescriptions = chartFields?.prescribedMedications;
+  const vitalsObservations = chartFields?.vitalsObservations;
+  const externalLabResults = chartFields?.externalLabResults;
+  const inHouseLabResults = chartFields?.inHouseLabResults;
+  const chiefComplaint = chartFields?.chiefComplaint?.text;
+  const ros = chartFields?.ros?.text;
+
   const emCode = chartData?.emCode;
   const cptCodes = chartData?.cptCodes;
-  const prescriptions = chartData?.prescribedMedications;
+  const diagnoses = chartData?.diagnosis;
   const observations = chartData?.observations;
-  const vitalsObservations = chartData?.vitalsObservations;
-  const externalLabResults = chartData?.externalLabResults;
-  const inHouseLabResults = chartData?.inHouseLabResults;
 
   const showChiefComplaint = !!(chiefComplaint && chiefComplaint.length > 0);
   const showReviewOfSystems = !!(ros && ros.length > 0);
@@ -204,7 +197,7 @@ export const ProgressNoteDetails: FC = () => {
         timezone: tz,
         supervisorApprovalEnabled: FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED,
       });
-      await appointmentRefetch();
+      navigate('/visits', { state: { tab: ApptTab.completed } });
     } else {
       await changeTelemedAppointmentStatus({
         apiClient,

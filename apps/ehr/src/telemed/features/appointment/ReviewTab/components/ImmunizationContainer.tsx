@@ -1,7 +1,7 @@
 import { Box, Stack, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { FC } from 'react';
-import { ImmunizationOrder, searchMedicationLocation, searchRouteByCode } from 'utils';
+import { ImmunizationOrder, searchRouteByCode } from 'utils';
 
 export const ImmunizationContainer: FC<{
   orders: ImmunizationOrder[];
@@ -16,7 +16,7 @@ export const ImmunizationContainer: FC<{
           <Typography sx={{ fontWeight: '500' }}>{`${order.details.medication.name} - ${order.details.dose} ${
             order.details.units
           } / ${searchRouteByCode(order.details.route)?.display ?? ''} - ${
-            searchMedicationLocation(order.details.location)?.display ?? ''
+            order.details.location?.name ?? ''
           }`}</Typography>
           <Typography>{formatDateTime(order.administrationDetails?.administeredDateTime)}</Typography>
         </Stack>

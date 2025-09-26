@@ -182,8 +182,13 @@ export const searchRouteByCode = (
   return Object.values(medicationApplianceRoutes).find((route) => route.code === code);
 };
 
-export function searchMedicationLocation(code: string | undefined): MedicationApplianceLocation | undefined {
-  return medicationApplianceLocations.find((location) => location.code === code);
+export function searchMedicationLocation(
+  code: string | undefined,
+  name?: string | undefined
+): MedicationApplianceLocation | undefined {
+  return medicationApplianceLocations.find(
+    (location) => location.code === code && (name ? location.name === name : true)
+  );
 }
 
 export const medicationExtendedToMedicationData = (

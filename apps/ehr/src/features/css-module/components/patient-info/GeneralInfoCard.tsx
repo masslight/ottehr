@@ -6,7 +6,7 @@ import { getPatientName } from 'src/telemed/utils';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import {
   useAppointmentData,
-  useChartData,
+  useChartFields,
   useGetAppointmentAccessibility,
   useSaveChartData,
 } from '../../../../telemed';
@@ -18,7 +18,7 @@ const GeneralInfoCard: React.FC = (): JSX.Element => {
   const { patient: patientData } = telemedData;
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
-  const { chartData, isLoading: isLoadingChartData } = useChartData({
+  const { data: chartData, isLoading: isLoadingChartData } = useChartFields({
     requestedFields: { patientInfoConfirmed: {} },
   });
 

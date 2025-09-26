@@ -5,5 +5,5 @@ export function getContentOfDocumentReference(documentReference: DocumentReferen
   if (content == undefined) {
     return undefined;
   }
-  return atob(content);
+  return decodeURIComponent(escape(atob(content)));
 }

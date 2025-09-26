@@ -38,6 +38,7 @@ import PatientPage from './pages/PatientPage';
 import PatientsPage from './pages/Patients';
 import SchedulePage from './pages/SchedulePage';
 import SchedulesPage from './pages/Schedules';
+import TaskAdmin from './pages/TaskAdmin';
 import { TelemedAdminPage } from './pages/TelemedAdminPage';
 import { Claim, Claims } from './rcm';
 import { useNavStore } from './state/nav.store';
@@ -169,6 +170,7 @@ function App(): ReactElement {
               {currentUser?.hasRole([RoleType.Administrator]) && (
                 <>
                   <Route path="/data" element={<Data />} />
+                  <Route path="/tasks" element={<TaskAdmin />} />
                 </>
               )}
               {currentUser?.hasRole([RoleType.Administrator, RoleType.Manager]) && (

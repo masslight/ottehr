@@ -36,7 +36,6 @@ import {
   OTTEHR_MODULE,
   patientScreeningQuestionsConfig,
   recentVisitLabels,
-  searchMedicationLocation,
   searchRouteByCode,
   Secrets,
   SEEN_IN_LAST_THREE_YEARS_FIELD,
@@ -597,7 +596,7 @@ function parseExamFieldsFromExamObservations(
 
 function immunizationOrderToString(order: ImmunizationOrder): string {
   const route = searchRouteByCode(order.details.route)?.display ?? '';
-  const location = searchMedicationLocation(order.details.location)?.display ?? '';
+  const location = order.details.location?.name ?? '';
   const administratedDateTime = order.administrationDetails?.administeredDateTime
     ? DateTime.fromISO(order.administrationDetails?.administeredDateTime)?.toFormat('MM/dd/yyyy HH:mm a')
     : '';

@@ -52,6 +52,7 @@ import {
   OYSTEHR_LAB_DOC_CATEGORY_CODING,
   OYSTEHR_LAB_GUID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
+  PATIENT_BILLING_ACCOUNT_TYPE,
 } from 'utils';
 import { parseLabOrderStatusWithSpecificTask } from '../get-lab-orders/helpers';
 
@@ -68,6 +69,7 @@ export type LabOrderResources = {
   questionnaireResponse?: QuestionnaireResponse; // not always required (psc)
   schedule?: Schedule;
   location?: Location;
+  account: Account;
 };
 
 type DrLabResultResources = {
@@ -199,6 +201,10 @@ const makeSearchParamsBasedOnServiceRequest = (serviceRequestID: string): Search
       name: '_include',
       value: 'ServiceRequest:specimen',
     },
+    {
+      name: '_revinclude:iterate',
+      value: 'Account:patient',
+    },
   ];
 };
 
@@ -221,6 +227,7 @@ export async function getExternalLabOrderResourcesViaServiceRequest(
       | Encounter
       | Observation
       | Specimen
+      | Account
     >({
       resourceType: 'ServiceRequest',
       params: searchParams,
@@ -238,6 +245,7 @@ export async function getExternalLabOrderResourcesViaServiceRequest(
   const specimens: Specimen[] = [];
   const questionnaireResponses: QuestionnaireResponse[] = [];
   const schedules: Schedule[] = [];
+  const accounts: Account[] = [];
 
   resourceSearch.forEach((resource) => {
     if (resource.resourceType === 'ServiceRequest') serviceRequests.push(resource);
@@ -263,6 +271,19 @@ export async function getExternalLabOrderResourcesViaServiceRequest(
       );
       if (isCorrectCategory) diagnosticReports.push(resource);
     }
+    if (resource.resourceType === 'Account') {
+      // check active accounts
+      if (
+        resource.status === 'active' &&
+        resource.type?.coding?.some(
+          (coding) =>
+            coding.code === PATIENT_BILLING_ACCOUNT_TYPE?.coding?.[0].code &&
+            coding.system === PATIENT_BILLING_ACCOUNT_TYPE?.coding?.[0].system
+        )
+      ) {
+        accounts.push(resource);
+      }
+    }
   });
 
   if (serviceRequests?.length !== 1) throw new Error('service request is not found');
@@ -271,6 +292,7 @@ export async function getExternalLabOrderResourcesViaServiceRequest(
   if (tasks?.length !== 1) throw new Error('task is not found');
   if (organizations?.length !== 1) throw new Error('performing lab Org not found');
   if (encounters?.length !== 1) throw new Error('encounter is not found');
+  if (accounts.length !== 1) throw new Error(`found ${accounts.length} active accounts. Expected 1.`);
 
   const serviceRequest = serviceRequests[0];
   const patient = patients[0];
@@ -280,6 +302,7 @@ export async function getExternalLabOrderResourcesViaServiceRequest(
   const encounter = encounters[0];
   const questionnaireResponse = questionnaireResponses?.[0];
   const schedule = schedules?.[0];
+  const account = accounts[0];
 
   const getLocation = async (): Promise<Location | undefined> => {
     if (serviceRequest.locationReference?.length !== 1) {
@@ -324,6 +347,7 @@ export async function getExternalLabOrderResourcesViaServiceRequest(
     questionnaireResponse,
     schedule,
     location: await getLocation(),
+    account,
   };
 }
 

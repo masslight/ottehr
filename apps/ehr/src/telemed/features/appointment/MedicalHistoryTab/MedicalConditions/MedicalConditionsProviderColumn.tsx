@@ -31,26 +31,9 @@ import {
 import { ProviderSideListSkeleton } from '../ProviderSideListSkeleton';
 
 export const MedicalConditionsProviderColumn: FC = () => {
-  const { chartData, chartDataSetState } = useChartData();
+  const { chartData, isLoading: isChartDataLoading } = useChartData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const featureFlags = useFeatureFlags();
-
-  const { isLoading: isChartDataLoading } = useChartData({
-    requestedFields: {
-      conditions: {},
-    },
-    onSuccess: (data) => {
-      chartDataSetState((prevState) => ({
-        ...prevState,
-        chartData: {
-          ...prevState?.chartData,
-          patientId: prevState?.chartData?.patientId || '',
-          conditions: data?.conditions,
-        },
-      }));
-    },
-  });
-
   const conditions = chartData?.conditions || [];
   const length = conditions.length;
 
