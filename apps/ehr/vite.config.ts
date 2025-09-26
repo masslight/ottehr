@@ -8,13 +8,7 @@ import svgr from 'vite-plugin-svgr';
 import viteTsconfigPaths from 'vite-tsconfig-paths';
 
 export default ({ mode }: { mode: string }): UserConfig => {
-  console.log(`Passed mode is: ${mode}`);
-
-  // to make e2e tests happy, we need mode = default when ENV === local
-  if (mode === 'local') {
-    console.log('Updating mode to default');
-    mode = 'default';
-  }
+  console.log(`Mode is: ${mode}`);
 
   const envDir = './env';
   const env = loadEnv(mode, path.join(process.cwd(), envDir), '');
