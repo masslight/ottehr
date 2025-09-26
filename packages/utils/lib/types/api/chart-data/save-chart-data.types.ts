@@ -1,13 +1,13 @@
 // cSpell:ignore abletobearweight, decreasedrom, lowerleg, upperarm
 import { CodeableConcept } from 'fhir/r4b';
 import {
-  ChartDataFields,
+  AllChartValues,
   ChartDataWithResources,
   SchoolWorkNoteExcuseDocDTO,
   SchoolWorkNoteExcuseDocFileDTO,
 } from './chart-data.types';
 
-export interface SaveChartDataRequest extends ChartDataFields {
+export interface SaveChartDataRequest extends AllChartValues {
   encounterId: string;
   /**
    * for the examObservations property

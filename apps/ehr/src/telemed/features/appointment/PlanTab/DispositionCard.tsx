@@ -28,7 +28,7 @@ import { RoundedButton } from '../../../../components/RoundedButton';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { AccordionCard, ContainedPrimaryToggleButton, UppercaseCaptionTypography } from '../../../components';
 import { useDebounce, useGetAppointmentAccessibility } from '../../../hooks';
-import { useChartData, useSaveChartData } from '../../../state';
+import { useChartFields, useSaveChartData } from '../../../state';
 import {
   DEFAULT_DISPOSITION_VALUES,
   dispositionFieldsPerType,
@@ -63,12 +63,13 @@ export const DispositionCard: FC = () => {
     formState: { isDirty },
   } = methods;
 
-  const { setPartialChartData, chartData } = useChartData();
-
-  const { isFetching: isChartDataLoading } = useChartData({
+  const {
+    data: chartFields,
+    setQueryCache,
+    isLoading: isChartFieldsLoading,
+  } = useChartFields({
     requestedFields: { disposition: {} },
     onSuccess: (data) => {
-      setPartialChartData({ disposition: data?.disposition });
       isResetting.current = true;
       reset(data?.disposition ? mapDispositionToForm(data.disposition) : DEFAULT_DISPOSITION_VALUES);
       setCurrentType(data?.disposition?.type || DEFAULT_DISPOSITION_VALUES.type);
@@ -79,7 +80,11 @@ export const DispositionCard: FC = () => {
     },
   });
 
-  const { setNoteCache, withNote } = useDispositionMultipleNotes({ methods, savedDisposition: chartData?.disposition });
+  const { setNoteCache, withNote } = useDispositionMultipleNotes({
+    methods,
+    savedDisposition: chartFields?.disposition,
+  });
+
   const labServiceValue = useWatch({ control: methods.control, name: 'labService' });
   const showVirusTest = labServiceValue?.includes?.(SEND_OUT_VIRUS_TEST_LABEL);
   const { debounce } = useDebounce(1500);
@@ -99,7 +104,7 @@ export const DispositionCard: FC = () => {
               if (requestId === latestRequestId.current) {
                 const disposition = data.chartData?.disposition;
                 if (disposition) {
-                  setPartialChartData({ disposition });
+                  setQueryCache({ disposition });
                   isResetting.current = true;
                   reset(mapDispositionToForm(disposition));
                   isResetting.current = false;
@@ -118,7 +123,7 @@ export const DispositionCard: FC = () => {
         );
       });
     },
-    [debounce, mutate, setPartialChartData, withNote, reset]
+    [debounce, mutate, withNote, setQueryCache, reset]
   );
 
   useEffect(() => {
@@ -133,7 +138,7 @@ export const DispositionCard: FC = () => {
   const fields = dispositionFieldsPerType[currentType];
   const tabs: DispositionType[] = ['pcp-no-type', 'another', 'ed', 'specialty'];
 
-  if (isChartDataLoading || !chartData?.disposition) {
+  if (isChartFieldsLoading || !chartFields?.disposition) {
     return (
       <AccordionCard label="Disposition">
         <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>

@@ -3,31 +3,33 @@ import { enqueueSnackbar } from 'notistack';
 import { FC } from 'react';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { useGetAppointmentAccessibility } from '../../../../hooks';
-import { useChartData, useSaveChartData } from '../../../../state';
+import { useChartFields, useSaveChartData } from '../../../../state';
 
 export const PatientInfoConfirmedCheckbox: FC = () => {
-  const { chartData, setPartialChartData } = useChartData();
+  const { data: chartData, setQueryCache } = useChartFields({
+    requestedFields: { patientInfoConfirmed: {} },
+  });
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const { mutate, isPending: isLoading } = useSaveChartData();
 
   const patientInfoConfirmed = chartData?.patientInfoConfirmed?.value || false;
 
   const onChange = (value: boolean): void => {
-    setPartialChartData({ patientInfoConfirmed: { value } });
+    setQueryCache({ patientInfoConfirmed: { value } });
     mutate(
       { patientInfoConfirmed: { value } },
       {
         onSuccess: (data) => {
           const patientInfoConfirmedUpdated = data.chartData.patientInfoConfirmed;
           if (patientInfoConfirmedUpdated) {
-            setPartialChartData({ patientInfoConfirmed: patientInfoConfirmedUpdated });
+            setQueryCache({ patientInfoConfirmed: patientInfoConfirmedUpdated });
           }
         },
         onError: () => {
           enqueueSnackbar('An error has occurred while confirming patient information. Please try again.', {
             variant: 'error',
           });
-          setPartialChartData({ patientInfoConfirmed: chartData?.patientInfoConfirmed });
+          setQueryCache({ patientInfoConfirmed: chartData?.patientInfoConfirmed });
         },
       }
     );

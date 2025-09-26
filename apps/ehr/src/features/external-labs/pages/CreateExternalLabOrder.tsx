@@ -92,7 +92,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
     patientId,
   });
 
-  const coverageName = createExternalLabResources?.coverageName;
+  const coverageNames = createExternalLabResources?.coverageNames;
 
   const orderingLocations = createExternalLabResources?.orderingLocations ?? [];
   const orderingLocationIdsStable = (createExternalLabResources?.orderingLocationIds ?? []).join(',');
@@ -418,9 +418,17 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                   <Typography variant="h6" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
                     Patient insurance
                   </Typography>
-                  <Typography variant="body2" sx={{ paddingTop: '8px' }}>
-                    {coverageName || 'unknown'}
-                  </Typography>
+                  {coverageNames ? (
+                    coverageNames.map((coverageName, idx) => (
+                      <Typography key={`coverage-name-${idx}`} variant="body2" sx={{ paddingTop: '8px' }}>
+                        {coverageName}
+                      </Typography>
+                    ))
+                  ) : (
+                    <Typography variant="body2" sx={{ paddingTop: '8px' }}>
+                      unknown
+                    </Typography>
+                  )}
                 </Grid>
                 <Grid item xs={12}>
                   <Typography

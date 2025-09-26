@@ -4,12 +4,27 @@ This directory contains Terraform configuration for deploying Ottehr.
 
 ## Requirements
 
+### Terraform
+
+This project currently requires the 1.12 version of Terraform. You can download this directly from HashiCorp's releases page and install it into your path. For example to install on an ARM Mac:
+
+```bash
+wget https://releases.hashicorp.com/terraform/1.12.2/terraform_1.12.2_darwin_arm64.zip
+unzip unzip terraform_1.12.2_darwin_arm64.zip -d /tmp
+sudo cp /tmp/terraform /usr/local/bin/terraform
+```
+
+You can open the [1.12 releases page](https://releases.hashicorp.com/terraform/1.12.2/) if you aren't sure which version to install.
+
 - Terraform installed following [the instructions on HashiCorp's website](https://developer.hashicorp.com/terraform/install).
+
+### Config Files
+
+The following config files must be in place before running Terraform:
+
 - `deploy/backend.config` with the S3 backend configuration values for your project
 - `deploy/${env}.tfvars` for the environment you wish to deploy to
 - `packages/zambda/.env/${env}.json` for the environment you wish to deploy to
-- `apps/ehr/env/.env.${env}` for the environment you wish to deploy to
-- `apps/intake/env/.env.${env}` for the environment you wish to deploy to
 
 ## Scripts
 
@@ -47,12 +62,27 @@ Configure your Terraform backend in `deploy/backend.config` using [partial confi
 
 ### Oystehr
 
-The Oystehr module creates resources in Oystehr. It's contents are generated from the `ottehr-spec.json` files. Only Oystehr resources should be defined here.
+The Oystehr module creates resources in Oystehr. It's contents are generated from the `config/oystehr/*.json` configuration files. Only Oystehr resources should be defined here.
 
 ### AWS
 
-TODO
+Enable AWS as a deployment target by including an `aws_profile` value in `deploy/${env}.tfvars`. You must have a valid key pair and region configured in your local AWS config.
+
+The `aws_infra` module will create the following resources:
+
+- An S3 bucket for the EHR and Patient Portal apps, configured as a website for static hosting
+- A CloudFront distribution for each app using its bucket as an origin
+
+The `aws_apps` module will upload the contents of each app's `build` directory and create a new invalidation for the CloudFront distribution.
+
+You may optionally provide `ehr_domain` and `patient_portal_domain` values to configure those as aliases on their respective CloudFront distributions.
 
 ### GCP
 
-TODO
+Enable GCP as a deployment target by including a `gcp_project` value in `deploy/${env}.tfvars`. You must have previously authenticated with Google Cloud Platform using their command-line utility.
+
+The `ehr_domain` and `patient_portal_domain` values are required for GCP deploys. You will need to manually confirm these as owned domains or subdomains in Google's Search configuration.
+
+The `gcp_infra` module will create a Google Cloud Storage bucket for the EHR and Patient Portal apps, configured as a website for static hosting.
+
+The `gcp_apps` module will upload the contents of each app's `build` directory.

@@ -300,7 +300,7 @@ test.describe('Tests interacting with appointment state', () => {
     });
 
     await test.step('Known allergies provided by patient', async () => {
-      const list = page.getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesPatientProvidedList);
+      const list = page.getByTestId(dataTestIds.allergies.knownAllergiesPatientProvidedList);
       // cSpell:disable-next Azithromycin
       await expect(list.getByText('Azithromycin (medication)')).toBeVisible();
       await expect(list.getByText('Fish/ Fish Oil (other)')).toBeVisible();

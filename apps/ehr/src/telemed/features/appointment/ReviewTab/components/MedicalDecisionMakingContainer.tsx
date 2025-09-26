@@ -1,10 +1,16 @@
 import { Box, Typography } from '@mui/material';
 import { FC } from 'react';
-import { useChartData } from '../../../../state';
+import { useChartFields } from '../../../../state';
 
 export const MedicalDecisionMakingContainer: FC = () => {
-  const { chartData } = useChartData();
-  const medicalDecision = chartData?.medicalDecision?.text;
+  const { data: chartFields } = useChartFields({
+    requestedFields: {
+      medicalDecision: {
+        _tag: 'medical-decision',
+      },
+    },
+  });
+  const medicalDecision = chartFields?.medicalDecision?.text;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}>

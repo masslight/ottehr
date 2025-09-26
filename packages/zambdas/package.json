@@ -1,6 +1,6 @@
 {
   "name": "zambdas",
-  "version": "1.17.27",
+  "version": "1.18.6",
   "private": true,
   "scripts": {
     "start": "ENV=${ENV:-local} npm run setup-deployed-resources ${ENV:-local} && tsx watch --include './src/**/*' src/local-server/index.ts -- env=.env/${ENV:-local}.json",
@@ -11,6 +11,8 @@
     "start:demo:iac": "ENV=demo npm run start:iac",
     "cancel-telemed-appointments": "tsx src/scripts/cancel-telemed-appointments.ts",
     "remove-insurances-and-payer-orgs": "tsx src/scripts/remove-insurances-and-payer-orgs.ts",
+    "report-daily-payments": "tsx src/scripts/report-daily-payments.ts",
+    "get-coverage-eligibility-responses": "tsx src/scripts/get-coverage-eligibility-responses.ts",
     "fix-duplicate-payers": "tsx src/scripts/fix-duplicate-payers.ts",
     "fix-payer-ids-in-orgs": "tsx src/scripts/fix-payer-ids-in-orgs.ts",
     "update-insurances-and-payer-orgs": "tsx src/scripts/update-insurances-and-payer-orgs.ts",
@@ -18,6 +20,7 @@
     "recreate-in-house-medications-list": "tsx src/scripts/recreate-in-house-medications-list.ts $npm_config_env",
     "delete-in-house-medications-list": "tsx src/scripts/delete-in-house-medications-list.ts $npm_config_env",
     "recreate-vaccines-list": "tsx src/scripts/recreate-vaccines-list.ts $npm_config_env",
+    "recreate-global-templates": "tsx src/scripts/recreate-global-templates.ts $npm_config_env",
     "log-in-house-medications-list": "tsx src/scripts/log-in-house-medications-list.ts $npm_config_env",
     "setup-document-explorer": "tsx src/scripts/setup-document-explorer.ts $npm_config_env",
     "remove-test-patient-data": "tsx src/scripts/remove-test-patient-data.ts local",
