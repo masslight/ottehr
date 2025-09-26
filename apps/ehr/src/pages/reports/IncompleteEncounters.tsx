@@ -17,7 +17,7 @@ import { DataGridPro, GridColDef, GridRenderCellParams } from '@mui/x-data-grid-
 import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
 import React, { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { VisitStatusLabel } from 'utils';
 import { getIncompleteEncountersReport } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
@@ -32,6 +32,7 @@ interface IncompleteEncounterRow {
   visitStatus: VisitStatusLabel;
   appointmentTime: string;
   location?: string;
+  attendingProvider?: string;
   reason?: string;
 }
 
@@ -133,6 +134,7 @@ const useIncompleteEncounters = (
           visitStatus: encounter.visitStatus as VisitStatusLabel,
           appointmentTime,
           location: encounter.location,
+          attendingProvider: encounter.attendingProvider,
           reason: encounter.reason,
         };
       });
@@ -175,6 +177,18 @@ export default function IncompleteEncounters(): React.ReactElement {
         headerName: 'Appointment ID',
         width: 320,
         sortable: true,
+        renderCell: (params: GridRenderCellParams) => (
+          <Link
+            to={`/in-person/${params.value}/progress-note`}
+            style={{
+              color: '#1976d2',
+              textDecoration: 'underline',
+              fontFamily: 'monospace',
+            }}
+          >
+            {params.value}
+          </Link>
+        ),
       },
       {
         field: 'visitStatus',
@@ -200,6 +214,12 @@ export default function IncompleteEncounters(): React.ReactElement {
         field: 'location',
         headerName: 'Location',
         width: 150,
+        sortable: true,
+      },
+      {
+        field: 'attendingProvider',
+        headerName: 'Attending Provider',
+        width: 200,
         sortable: true,
       },
       {

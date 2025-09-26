@@ -1,6 +1,12 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Encounter, Location, Patient } from 'fhir/r4b';
-import { getPatientFirstName, getPatientLastName, getVisitStatus, IncompleteEncountersReportZambdaOutput } from 'utils';
+import { Appointment, Encounter, Location, Patient, Practitioner } from 'fhir/r4b';
+import {
+  getAttendingPractitionerId,
+  getPatientFirstName,
+  getPatientLastName,
+  getVisitStatus,
+  IncompleteEncountersReportZambdaOutput,
+} from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -29,8 +35,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     console.log('Searching for appointments in date range:', dateRange);
 
-    // Search for appointments within the date range and include related encounters, patients, and locations
-    const appointmentSearchResult = await oystehr.fhir.search<Appointment | Encounter | Patient | Location>({
+    // Search for appointments within the date range and include related encounters, patients, locations, and practitioners
+    const appointmentSearchResult = await oystehr.fhir.search<
+      Appointment | Encounter | Patient | Location | Practitioner
+    >({
       resourceType: 'Appointment',
       params: [
         {
@@ -46,16 +54,20 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           value: 'proposed,pending,booked,arrived,fulfilled,checked-in,waitlist',
         },
         {
-          name: '_revinclude',
-          value: 'Encounter:appointment',
-        },
-        {
           name: '_include',
           value: 'Appointment:patient',
         },
         {
           name: '_include',
           value: 'Appointment:location',
+        },
+        {
+          name: '_revinclude',
+          value: 'Encounter:appointment',
+        },
+        {
+          name: '_include:iterate',
+          value: 'Encounter:participant:Practitioner',
         },
         {
           name: '_sort',
@@ -79,9 +91,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     );
     const patients = allResources.filter((resource): resource is Patient => resource.resourceType === 'Patient');
     const locations = allResources.filter((resource): resource is Location => resource.resourceType === 'Location');
+    const practitioners = allResources.filter(
+      (resource): resource is Practitioner => resource.resourceType === 'Practitioner'
+    );
 
     console.log(
-      `Encounters: ${encounters.length}, Appointments: ${appointments.length}, Patients: ${patients.length}, Locations: ${locations.length}`
+      `Encounters: ${encounters.length}, Appointments: ${appointments.length}, Patients: ${patients.length}, Locations: ${locations.length}, Practitioners: ${practitioners.length}`
     );
 
     // Debug: Log location information
@@ -128,6 +143,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       }
     });
 
+    const practitionerMap = new Map<string, Practitioner>();
+    practitioners.forEach((practitioner) => {
+      if (practitioner.id) {
+        practitionerMap.set(practitioner.id, practitioner);
+      }
+    });
+
     // Filter encounters to only include those that are not in terminal states
     // Only encounters that have appointments within our date range will be included
     const incompleteEncounters = encounters.filter((encounter) => {
@@ -164,7 +186,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const location = locationRef ? locationMap.get(locationRef) : undefined;
       const locationName = location?.name || 'Unknown';
 
-      console.log(`Appointment ${appointment?.id}: locationRef=${locationRef}, locationName=${locationName}`);
+      // Get attending practitioner name
+      const attendingPractitionerId = getAttendingPractitionerId(encounter);
+      const attendingPractitioner = attendingPractitionerId ? practitionerMap.get(attendingPractitionerId) : undefined;
+      const attendingProviderName = attendingPractitioner
+        ? `${attendingPractitioner.name?.[0]?.given?.[0] || ''} ${attendingPractitioner.name?.[0]?.family || ''}`.trim()
+        : 'Unknown';
+
+      console.log(
+        `Appointment ${appointment?.id}, Encounter ${encounter.id}, locationRef=${locationRef}, locationName=${locationName}, attendingProvider=${attendingProviderName}`
+      );
 
       const visitStatus = appointment ? getVisitStatus(appointment, encounter) : 'unknown';
 
@@ -177,6 +208,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         appointmentStart: appointment?.start || '',
         appointmentEnd: appointment?.end || '',
         location: locationName || 'Unknown',
+        attendingProvider: attendingProviderName,
         reason: encounter.reasonCode?.[0]?.text || appointment?.appointmentType?.text || '',
       };
     });
