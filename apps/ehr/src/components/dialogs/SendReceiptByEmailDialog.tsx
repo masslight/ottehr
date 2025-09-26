@@ -70,6 +70,10 @@ export default function SendReceiptByEmailDialog({
               control={control}
               rules={{
                 required: 'Email is required',
+                pattern: {
+                  value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                  message: 'Invalid email address',
+                },
               }}
               render={({ field }) => (
                 <TextField
