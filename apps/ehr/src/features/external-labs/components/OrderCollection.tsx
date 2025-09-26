@@ -137,6 +137,14 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
           </Typography>
         </Box>
 
+        {labOrder.location?.name && (
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="body1">
+              <span style={{ fontWeight: 500 }}>Ordering Office: </span> {labOrder.location.name}
+            </Typography>
+          </Box>
+        )}
+
         <Box sx={{ mt: 2 }}>
           <OrderHistoryCard
             isPSCPerformed={labOrder.isPSC}

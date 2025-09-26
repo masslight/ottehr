@@ -182,7 +182,7 @@ function createDocumentReference(
         attachment: {
           contentType: 'text/plain',
           title: 'Transcript',
-          data: btoa(transcript),
+          data: btoa(unescape(encodeURIComponent(transcript))),
         },
       },
     ],

@@ -26,11 +26,11 @@ export const getCanonicalUrlForPrevisitQuestionnaire = (serviceMode: ServiceMode
   let url = '';
   let version = '';
   if (serviceMode === 'in-person') {
-    url = inPersonIntakeQuestionnaireJson.fhirResources['questionnaire-in-person-previsit'].url;
-    version = inPersonIntakeQuestionnaireJson.fhirResources['questionnaire-in-person-previsit'].version;
+    url = inPersonIntakeQuestionnaireJson.fhirResources['questionnaire-in-person-previsit'].resource.url;
+    version = inPersonIntakeQuestionnaireJson.fhirResources['questionnaire-in-person-previsit'].resource.version;
   } else if (serviceMode === 'virtual') {
-    url = virtualIntakeQuestionnaireJson.fhirResources['questionnaire-virtual-previsit'].url;
-    version = virtualIntakeQuestionnaireJson.fhirResources['questionnaire-virtual-previsit'].version;
+    url = virtualIntakeQuestionnaireJson.fhirResources['questionnaire-virtual-previsit'].resource.url;
+    version = virtualIntakeQuestionnaireJson.fhirResources['questionnaire-virtual-previsit'].resource.version;
   }
   if (!url || !version) {
     throw new Error('Questionnaire url missing or malformed');
@@ -42,7 +42,8 @@ export const getCanonicalUrlForPrevisitQuestionnaire = (serviceMode: ServiceMode
 };
 
 export const getCanonicalUrlForInsuranceUpdateQuestionnaire = (): CanonicalUrl => {
-  const { url, version } = ehrInsuranceUpdateQuestionnaireJson.fhirResources['questionnaire-ehr-insurance-update'];
+  const { url, version } =
+    ehrInsuranceUpdateQuestionnaireJson.fhirResources['questionnaire-ehr-insurance-update'].resource;
   if (!url || !version) {
     throw new Error('Questionnaire url missing or malformed');
   }

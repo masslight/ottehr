@@ -30,20 +30,25 @@ export async function updateOrderDetails(
   orderDetails: InputImmunizationOrderDetails,
   oystehr: Oystehr
 ): Promise<void> {
-  const { medicationId, dose, units, orderedProviderId, route, location, instructions } = orderDetails;
+  const { medication, dose, units, orderedProvider, route, location, instructions } = orderDetails;
 
-  if (medicationId !== CONTAINED_MEDICATION_ID) {
-    const medication = await oystehr.fhir.get<Medication>({
+  const containedMedication = getContainedMedication(medicationAdministration);
+  const currentMedicationId = containedMedication?.extension?.find(
+    (e) => e.url === IMMUNIZATION_ORDER_MEDICATION_ID_EXTENSION_URL
+  )?.valueString;
+
+  if (medication.id !== currentMedicationId) {
+    const medicationResource = await oystehr.fhir.get<Medication>({
       resourceType: 'Medication',
-      id: medicationId,
+      id: medication.id,
     });
-    const medicationLocalCopy = createMedicationCopy(medication, {});
+    const medicationLocalCopy = createMedicationCopy(medicationResource, {});
     if (medicationLocalCopy.extension == null) {
       medicationLocalCopy.extension = [];
     }
     medicationLocalCopy.extension.push({
       url: IMMUNIZATION_ORDER_MEDICATION_ID_EXTENSION_URL,
-      valueString: medicationId,
+      valueString: medication.id,
     });
     medicationAdministration.medicationReference = { reference: '#' + CONTAINED_MEDICATION_ID };
     medicationAdministration.contained = [
@@ -55,7 +60,7 @@ export async function updateOrderDetails(
   }
 
   const routeCoding = route ? searchRouteByCode(route) : undefined;
-  const locationCoding = location ? searchMedicationLocation(location) : undefined;
+  const locationCoding = location ? searchMedicationLocation(location.code, location.name) : undefined;
   medicationAdministration.dosage = {
     dose: {
       unit: units,
@@ -79,7 +84,7 @@ export async function updateOrderDetails(
             {
               system: locationCoding.system,
               code: locationCoding.code,
-              display: locationCoding.display,
+              display: locationCoding.name,
             },
           ],
         }
@@ -87,9 +92,9 @@ export async function updateOrderDetails(
     text: instructions,
   };
 
-  const orderedProvider = await oystehr.fhir.get<Practitioner>({
+  const orderedProviderResource = await oystehr.fhir.get<Practitioner>({
     resourceType: 'Practitioner',
-    id: orderedProviderId,
+    id: orderedProvider.id,
   });
 
   medicationAdministration.performer = [
@@ -100,8 +105,8 @@ export async function updateOrderDetails(
     ),
     {
       actor: {
-        reference: `Practitioner/${orderedProviderId}`,
-        display: getFullName(orderedProvider),
+        reference: `Practitioner/${orderedProvider.id}`,
+        display: getFullName(orderedProviderResource),
       },
       function: {
         coding: [
@@ -116,12 +121,12 @@ export async function updateOrderDetails(
 }
 
 export function validateOrderDetails(orderDetails: any): string[] {
-  const { medicationId, dose, units, orderedProviderId } = orderDetails;
+  const { medication, dose, units, orderedProvider } = orderDetails;
   const missingFields: string[] = [];
-  if (!medicationId) missingFields.push('orderDetails.medicationId');
+  if (!medication?.id) missingFields.push('orderDetails.medication.id');
   if (!dose) missingFields.push('orderDetails.dose');
   if (!units) missingFields.push('orderDetails.units');
-  if (!orderedProviderId) missingFields.push('orderDetails.orderedProviderId');
+  if (!orderedProvider?.id) missingFields.push('orderDetails.orderedProvider.id');
   return missingFields;
 }
 

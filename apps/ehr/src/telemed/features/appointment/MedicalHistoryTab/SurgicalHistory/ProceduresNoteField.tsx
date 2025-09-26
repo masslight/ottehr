@@ -3,31 +3,38 @@ import { FC, useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { useDebounceNotesField, useGetAppointmentAccessibility } from '../../../../hooks';
-import { useChartData } from '../../../../state';
+import { useChartFields } from '../../../../state';
 
 export const ProceduresNoteField: FC = () => {
-  const { chartData } = useChartData();
+  const { data: chartFields } = useChartFields({
+    requestedFields: {
+      surgicalHistoryNote: {
+        _tag: 'surgical-history-note',
+      },
+    },
+  });
+
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const methods = useForm({
     defaultValues: {
-      text: chartData?.surgicalHistoryNote?.text || '',
+      text: chartFields?.surgicalHistoryNote?.text || '',
     },
   });
 
   useEffect(() => {
     const currentValue = methods.getValues('text');
-    const newValue = chartData?.surgicalHistoryNote?.text;
+    const newValue = chartFields?.surgicalHistoryNote?.text;
 
     if (!currentValue && newValue) {
       methods.setValue('text', newValue);
     }
-  }, [chartData?.surgicalHistoryNote?.text, methods]);
+  }, [chartFields?.surgicalHistoryNote?.text, methods]);
 
   const { control } = methods;
   const { onValueChange, isChartDataLoading, isLoading } = useDebounceNotesField('surgicalHistoryNote');
 
-  if (isReadOnly && !chartData?.surgicalHistoryNote?.text) {
+  if (isReadOnly && !chartFields?.surgicalHistoryNote?.text) {
     return null;
   }
 
@@ -59,7 +66,7 @@ export const ProceduresNoteField: FC = () => {
       )}
     />
   ) : (
-    <Typography>{chartData?.surgicalHistoryNote?.text}</Typography>
+    <Typography>{chartFields?.surgicalHistoryNote?.text}</Typography>
   );
 };
 

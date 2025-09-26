@@ -2,7 +2,6 @@ import { INVALID_INPUT_ERROR, isISODateTime, MISSING_REQUEST_BODY, MISSING_REQUI
 import { ZambdaInput } from '../../../shared';
 import { UpdateAppointmentInput } from '.';
 
-// Note that this file is copied from BH and needs significant changes
 export function validateRequestParameters(input: ZambdaInput): UpdateAppointmentInput {
   if (!input.body) {
     throw MISSING_REQUEST_BODY;

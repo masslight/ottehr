@@ -1,8 +1,8 @@
 import { QueryObserverResult } from '@tanstack/react-query';
-import { ChartDataFieldsKeys, GetChartDataResponse, MedicationDTO, removePrefix, SearchParams } from 'utils';
-import { useChartData } from '../../../telemed';
+import { AllChartValuesKeys, MedicationDTO, removePrefix, SearchParams } from 'utils';
+import { useChartFields } from '../../../telemed';
 
-export type MedicationHistoryField = Extract<ChartDataFieldsKeys, 'medications' | 'inhouseMedications'>;
+export type MedicationHistoryField = Extract<AllChartValuesKeys, 'medications' | 'inhouseMedications'>;
 
 export const MEDICATION_HISTORY_FIELDS: MedicationHistoryField[] = ['medications', 'inhouseMedications'];
 export const PATIENT_MEDS_COUNT_TO_LOAD = 100;
@@ -36,7 +36,7 @@ export const useMedicationHistory = ({
 } = {}): {
   isLoading: boolean;
   medicationHistory: MedicationWithTypeDTO[];
-  refetchHistory: () => Promise<QueryObserverResult<GetChartDataResponse, unknown>>;
+  refetchHistory: () => Promise<QueryObserverResult<unknown, unknown>>;
 } => {
   const requestedFields = chartDataFields.reduce(
     (acc, field) => {
@@ -52,10 +52,10 @@ export const useMedicationHistory = ({
 
   const {
     isLoading,
-    chartData: historyData,
-    chartDataRefetch: refetchHistory,
-  } = useChartData({
-    requestedFields,
+    data: historyData,
+    refetch: refetchHistory,
+  } = useChartFields({
+    requestedFields: { ...requestedFields, practitioners: {} },
   });
 
   /**

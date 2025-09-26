@@ -622,10 +622,11 @@ async function createDischargeSummaryPdfBytes(data: DischargeSummaryData): Promi
   };
 
   const drawPhysicianInfo = (): void => {
-    pdfClient.drawTextSequential('Treating physician:', textStyles.bold);
+    pdfClient.drawTextSequential('Treating provider:', textStyles.subHeader);
     pdfClient.drawText(data.physician.name, textStyles.regular);
     if (data.dischargeDateTime) {
-      pdfClient.drawText('Discharged:', textStyles.bold);
+      pdfClient.drawSeparatedLine(separatedLineStyle);
+      pdfClient.drawText('Discharged:', textStyles.subHeader);
       pdfClient.drawText(data.dischargeDateTime, textStyles.regular);
     }
   };

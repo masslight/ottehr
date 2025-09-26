@@ -3,8 +3,8 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   CreateDischargeSummaryInputValidated,
   CreateDischargeSummaryResponse,
-  getProgressNoteChartDataRequestedFields,
   getSecret,
+  progressNoteChartDataRequestedFields,
   Secrets,
   SecretsKeys,
 } from 'utils';
@@ -94,7 +94,7 @@ export const performEffect = async (
     oystehr,
     m2mToken,
     encounter.id!,
-    getProgressNoteChartDataRequestedFields()
+    progressNoteChartDataRequestedFields
   );
 
   const radiologyOrdersPromise = getRadiologyOrders(oystehr, {
