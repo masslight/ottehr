@@ -44,18 +44,19 @@ const recreateGlobalTemplates = async (config: any): Promise<void> => {
 
   const newTemplateIds = [];
   for (const templateJSON of Object.values(globalTemplatesAny.fhirResources)) {
-    if ((templateJSON as any).title === undefined) {
+    const resource = (templateJSON as any).resource as List;
+    if (resource.title === undefined) {
       console.log('Skipping template with undefined title: ', JSON.stringify(templateJSON, null, 2));
       continue;
     }
-    const newTemplate = await oystehr.fhir.create(templateJSON as List);
+    const newTemplate = await oystehr.fhir.create(resource);
     console.log(`Created FHIR Template: ${newTemplate.title}, with id: ${newTemplate.id}`);
     newTemplateIds.push(newTemplate.id!);
   }
 
   console.log('\n--------- Creating new global template holder ---------\n');
 
-  const newGlobalTemplateResource = globalTemplateHolderJSON.fhirResources.GlobalTemplatesHolderList;
+  const newGlobalTemplateResource = globalTemplateHolderJSON.fhirResources.GlobalTemplatesHolderList.resource;
   newGlobalTemplateResource.entry = newTemplateIds.map((id: string) => ({ item: { reference: `List/${id}` } }));
   const globalTemplateHolder = await oystehr.fhir.create(newGlobalTemplateResource as List);
   console.log('All done! global template holder for validation, ', JSON.stringify(globalTemplateHolder, null, 2));
@@ -66,7 +67,7 @@ const getTemplates = async (oystehr: Oystehr): Promise<List[]> => {
   const titles = Object.values(globalTemplatesAny.fhirResources)
     .map((listResource: any) => {
       // We know they are List resources
-      return listResource.title;
+      return listResource.resource.title;
     })
     .filter((title) => {
       return title !== undefined;
@@ -81,7 +82,7 @@ const getTemplates = async (oystehr: Oystehr): Promise<List[]> => {
     const results = (
       await oystehr.fhir.search<List>({
         resourceType: 'List',
-        params: [{ name: 'title', value: titleEncoded }],
+        params: [{ name: 'title:exact', value: titleEncoded }],
       })
     ).unbundle();
     if (results.length > 0) {
