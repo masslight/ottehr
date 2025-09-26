@@ -6,7 +6,7 @@ import { useGetAbnormalVitals } from '../hooks/useGetVitals';
 import VitalHistoryElement from './VitalsHistoryEntry';
 
 export const AbnormalVitalsContent: React.FC = () => {
-  const { values } = useGetAbnormalVitals();
+  const values = useGetAbnormalVitals();
 
   const temperature = values?.[VitalFieldNames.VitalTemperature] ?? [];
   const heartbeat = values?.[VitalFieldNames.VitalHeartbeat] ?? [];
