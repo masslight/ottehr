@@ -96,6 +96,8 @@ import {
   UploadPatientProfilePhotoInput,
   UserActivationZambdaInput,
   UserActivationZambdaOutput,
+  VisitsOverviewReportZambdaInput,
+  VisitsOverviewReportZambdaOutput,
 } from 'utils';
 
 export interface PatchOperation {
@@ -110,6 +112,7 @@ const SUBMIT_LAB_ORDER_ZAMBDA_ID = 'submit-lab-order';
 const GET_APPOINTMENTS_ZAMBDA_ID = 'get-appointments';
 const INCOMPLETE_ENCOUNTERS_REPORT_ZAMBDA_ID = 'incomplete-encounters-report';
 const DAILY_PAYMENTS_REPORT_ZAMBDA_ID = 'daily-payments-report';
+const VISITS_OVERVIEW_REPORT_ZAMBDA_ID = 'visits-overview-report';
 const CREATE_APPOINTMENT_ZAMBDA_ID = 'create-appointment';
 const CANCEL_TELEMED_APPOINTMENT_ZAMBDA_ID = 'telemed-cancel-appointment';
 const INVITE_PARTICIPANT_ZAMBDA_ID = 'video-chat-invites-create';
@@ -310,6 +313,26 @@ export const getDailyPaymentsReport = async (
 
     const response = await oystehr.zambda.execute({
       id: DAILY_PAYMENTS_REPORT_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getVisitsOverviewReport = async (
+  oystehr: Oystehr,
+  parameters: VisitsOverviewReportZambdaInput
+): Promise<VisitsOverviewReportZambdaOutput> => {
+  try {
+    if (VISITS_OVERVIEW_REPORT_ZAMBDA_ID == null) {
+      throw new Error('visits overview report environment variable could not be loaded');
+    }
+
+    const response = await oystehr.zambda.execute({
+      id: VISITS_OVERVIEW_REPORT_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);

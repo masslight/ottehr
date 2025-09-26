@@ -37,7 +37,7 @@ import PatientInformationPage from './pages/PatientInformationPage';
 import PatientPage from './pages/PatientPage';
 import PatientsPage from './pages/Patients';
 import Reports from './pages/Reports';
-import { DailyPayments, IncompleteEncounters } from './pages/reports/index';
+import { DailyPayments, IncompleteEncounters, VisitsOverview } from './pages/reports/index';
 import SchedulePage from './pages/SchedulePage';
 import SchedulesPage from './pages/Schedules';
 import TaskAdmin from './pages/TaskAdmin';
@@ -176,6 +176,7 @@ function App(): ReactElement {
                   <Route path="/reports" element={<Reports />} />
                   <Route path="/reports/incomplete-encounters" element={<IncompleteEncounters />} />
                   <Route path="/reports/daily-payments" element={<DailyPayments />} />
+                  <Route path="/reports/visits-overview" element={<VisitsOverview />} />
                 </>
               )}
               {currentUser?.hasRole([RoleType.Administrator, RoleType.Manager]) && (

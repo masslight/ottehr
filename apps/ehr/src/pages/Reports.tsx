@@ -1,3 +1,4 @@
+import AssessmentIcon from '@mui/icons-material/Assessment';
 import AssignmentLateIcon from '@mui/icons-material/AssignmentLate';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import { Box, Card, CardActionArea, CardContent, Grid, Typography, useTheme } from '@mui/material';
@@ -93,6 +94,12 @@ export default function Reports(): React.ReactElement {
       description: 'Review daily payment reports and transaction summaries',
       icon: <AttachMoneyIcon />,
       path: '/reports/daily-payments',
+    },
+    {
+      title: 'Visits Overview',
+      description: 'View appointment statistics and charts showing visit types (in-person vs telemed)',
+      icon: <AssessmentIcon />,
+      path: '/reports/visits-overview',
     },
   ];
 

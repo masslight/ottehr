@@ -198,6 +198,13 @@
       "src": "src/ehr/daily-payments-report/index",
       "zip": ".dist/zips/daily-payments-report.zip"
     },
+    "VISITS-OVERVIEW-REPORT": {
+      "name": "visits-overview-report",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/visits-overview-report/index",
+      "zip": ".dist/zips/visits-overview-report.zip"
+    },
     "GET-TELEMED-APPOINTMENTS": {
       "name": "get-telemed-appointments",
       "type": "http_auth",
