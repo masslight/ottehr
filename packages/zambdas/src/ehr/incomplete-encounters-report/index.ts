@@ -6,6 +6,7 @@ import {
   getPatientLastName,
   getVisitStatus,
   IncompleteEncountersReportZambdaOutput,
+  OTTEHR_MODULE,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -52,6 +53,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         {
           name: 'status',
           value: 'proposed,pending,booked,arrived,fulfilled,checked-in,waitlist',
+        },
+        {
+          name: '_tag',
+          value: `${OTTEHR_MODULE.TM},${OTTEHR_MODULE.IP}`,
         },
         {
           name: '_include',
@@ -185,6 +190,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         ?.reference;
       const location = locationRef ? locationMap.get(locationRef) : undefined;
       const locationName = location?.name || 'Unknown';
+      const locationId = locationRef ? locationRef.replace('Location/', '') : undefined;
 
       // Get attending practitioner name
       const attendingPractitionerId = getAttendingPractitionerId(encounter);
@@ -193,9 +199,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         ? `${attendingPractitioner.name?.[0]?.given?.[0] || ''} ${attendingPractitioner.name?.[0]?.family || ''}`.trim()
         : 'Unknown';
 
-      console.log(
-        `Appointment ${appointment?.id}, Encounter ${encounter.id}, locationRef=${locationRef}, locationName=${locationName}, attendingProvider=${attendingProviderName}`
-      );
+      // Determine visit type based on appointment meta tags
+      const visitType = appointment?.meta?.tag?.some((tag) => tag.code === OTTEHR_MODULE.TM)
+        ? 'Telemed'
+        : appointment?.meta?.tag?.some((tag) => tag.code === OTTEHR_MODULE.IP)
+        ? 'In-Person'
+        : 'Unknown';
+
+      // console.log(
+      //   `Appointment ${appointment?.id}, Encounter ${encounter.id}, locationRef=${locationRef}, locationName=${locationName}, attendingProvider=${attendingProviderName}, visitType=${visitType}`
+      // );
 
       const visitStatus = appointment ? getVisitStatus(appointment, encounter) : 'unknown';
 
@@ -208,7 +221,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         appointmentStart: appointment?.start || '',
         appointmentEnd: appointment?.end || '',
         location: locationName || 'Unknown',
+        locationId,
         attendingProvider: attendingProviderName,
+        visitType,
         reason: encounter.reasonCode?.[0]?.text || appointment?.appointmentType?.text || '',
       };
     });
@@ -218,7 +233,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       encounters: encounterItems,
     };
 
-    console.log('Response:', response);
+    // console.log('Response:', response);
 
     return {
       statusCode: 200,

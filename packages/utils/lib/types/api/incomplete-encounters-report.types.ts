@@ -14,7 +14,9 @@ export interface IncompleteEncounterItem {
   appointmentStart: string;
   appointmentEnd: string;
   location?: string;
+  locationId?: string;
   attendingProvider?: string;
+  visitType?: string;
   reason?: string;
 }
 

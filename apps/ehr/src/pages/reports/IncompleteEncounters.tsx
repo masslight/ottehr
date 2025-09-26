@@ -31,8 +31,11 @@ interface IncompleteEncounterRow {
   dateOfBirth: string;
   visitStatus: VisitStatusLabel;
   appointmentTime: string;
+  appointmentStart: string;
   location?: string;
+  locationId?: string;
   attendingProvider?: string;
+  visitType?: string;
   reason?: string;
 }
 
@@ -133,8 +136,11 @@ const useIncompleteEncounters = (
           dateOfBirth: encounter.dateOfBirth,
           visitStatus: encounter.visitStatus as VisitStatusLabel,
           appointmentTime,
+          appointmentStart: encounter.appointmentStart,
           location: encounter.location,
+          locationId: encounter.locationId,
           attendingProvider: encounter.attendingProvider,
+          visitType: encounter.visitType,
           reason: encounter.reason,
         };
       });
@@ -177,18 +183,30 @@ export default function IncompleteEncounters(): React.ReactElement {
         headerName: 'Appointment ID',
         width: 320,
         sortable: true,
-        renderCell: (params: GridRenderCellParams) => (
-          <Link
-            to={`/in-person/${params.value}/progress-note`}
-            style={{
-              color: '#1976d2',
-              textDecoration: 'underline',
-              fontFamily: 'monospace',
-            }}
-          >
-            {params.value}
-          </Link>
-        ),
+        renderCell: (params: GridRenderCellParams) => {
+          const visitType = params.row.visitType;
+          const appointmentId = params.value;
+
+          const linkPath =
+            visitType === 'Telemed'
+              ? `/telemed/appointments/${appointmentId}`
+              : `/in-person/${appointmentId}/progress-note`;
+
+          return (
+            <Link
+              to={linkPath}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                color: '#1976d2',
+                textDecoration: 'underline',
+                fontFamily: 'monospace',
+              }}
+            >
+              {appointmentId}
+            </Link>
+          );
+        },
       },
       {
         field: 'visitStatus',
@@ -209,6 +227,39 @@ export default function IncompleteEncounters(): React.ReactElement {
         headerName: 'Appointment Time',
         width: 180,
         sortable: true,
+        renderCell: (params: GridRenderCellParams) => {
+          const visitType = params.row.visitType;
+          const locationId = params.row.locationId;
+          const appointmentTime = params.value;
+
+          // Extract date from appointment start for the search date parameter
+          const appointmentStart = params.row.appointmentStart;
+          const searchDate = appointmentStart
+            ? DateTime.fromISO(appointmentStart).toFormat('yyyy-MM-dd')
+            : DateTime.now().toFormat('yyyy-MM-dd');
+
+          // For now, only handle in-person visits
+          if (visitType === 'In-Person' && locationId) {
+            const trackingBoardPath = `/visits?locationID=${locationId}&visitType=walk-in%2Cpre-booked%2Cpost-telemed&groups=&searchDate=${searchDate}`;
+
+            return (
+              <Link
+                to={trackingBoardPath}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: '#1976d2',
+                  textDecoration: 'underline',
+                }}
+              >
+                {appointmentTime}
+              </Link>
+            );
+          }
+
+          // For telemed or visits without location, just show the time without link
+          return <span>{appointmentTime}</span>;
+        },
       },
       {
         field: 'location',
@@ -220,6 +271,12 @@ export default function IncompleteEncounters(): React.ReactElement {
         field: 'attendingProvider',
         headerName: 'Attending Provider',
         width: 200,
+        sortable: true,
+      },
+      {
+        field: 'visitType',
+        headerName: 'Visit Type',
+        width: 120,
         sortable: true,
       },
       {
