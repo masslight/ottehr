@@ -168,7 +168,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       }
 
       // Get visit status
-      const visitStatus = getVisitStatus(appointment, encounter);
+      const visitStatus = getVisitStatus(appointment, encounter, true);
 
       // Terminal states that should be excluded from the report
       const terminalStates = ['completed', 'cancelled', 'no-show'];
@@ -206,11 +206,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         ? 'In-Person'
         : 'Unknown';
 
-      // console.log(
-      //   `Appointment ${appointment?.id}, Encounter ${encounter.id}, locationRef=${locationRef}, locationName=${locationName}, attendingProvider=${attendingProviderName}, visitType=${visitType}`
-      // );
-
-      const visitStatus = appointment ? getVisitStatus(appointment, encounter) : 'unknown';
+      const visitStatus = appointment ? getVisitStatus(appointment, encounter, true) : 'unknown';
 
       return {
         appointmentId: appointment?.id || '',
