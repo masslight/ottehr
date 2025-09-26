@@ -11,6 +11,8 @@ import {
   ValueSet,
 } from 'fhir/r4b';
 import fs from 'fs';
+import path from 'path';
+import { pathToFileURL } from 'url';
 import {
   IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
   IN_HOUSE_PARTICIPANT_ROLE_SYSTEM,
@@ -24,7 +26,6 @@ import {
 } from 'utils';
 import { createOystehrClient, getAuth0Token } from '../shared';
 import { testItems as baseTestItems } from './data/base-in-house-lab-seed-data';
-import { testItems as nwTestItems } from './data/nightwatch-in-house-lab-seed-data';
 
 const AD_CANONICAL_URL_BASE = 'https://ottehr.com/FHIR/InHouseLab/ActivityDefinition';
 
@@ -266,49 +267,64 @@ const getUrlAndVersion = (
   return { url, version: updatedVersion.toString() };
 };
 
-const DATA_KEYS = ['base', 'nightwatch'] as const;
+async function loadData(filePath: string): Promise<TestItem[]> {
+  if (filePath === 'default') {
+    return baseTestItems;
+  }
 
-type DataKey = (typeof DATA_KEYS)[number];
+  const absPath = path.resolve(process.cwd(), filePath);
+  const moduleUrl = pathToFileURL(absPath).href;
 
-const SEED_DATA_MAP: Record<DataKey, TestItem[]> = {
-  base: baseTestItems,
-  nightwatch: nwTestItems,
-};
+  const importedModule = await import(moduleUrl);
+
+  // Named export
+  if ('testItems' in importedModule) {
+    return importedModule.testItems;
+  }
+
+  // Default export (if file did `export default testItems` or `export default { testItems }`)
+  if (importedModule.default) {
+    if ('testItems' in importedModule.default) {
+      return importedModule.default.testItems;
+    }
+    // fallback if default is the array itself
+    return importedModule.default;
+  }
+
+  throw new Error(`Could not find 'testItems' export in module: ${filePath}`);
+}
 
 const WRITE_MODES = ['api', 'json'] as const;
 type WriteMode = (typeof WRITE_MODES)[number];
+
+interface CLIOptions {
+  data: string; // path to data file
+  env: string;
+  mode: WriteMode;
+}
 
 async function main(): Promise<void> {
   const program = new Command();
 
   program
-    .requiredOption('-k, --key <key>', 'Which data set to use', (val) => {
-      if (!(DATA_KEYS as readonly string[]).includes(val)) {
-        throw new Error(`Key must be one of: ${DATA_KEYS.join('|')}`);
-      }
-      return val as DataKey;
-    })
+    .requiredOption('-d, --data <path>', 'Path to data file')
     .requiredOption('-e, --env <env>', 'Environment name')
-    .requiredOption('-m, --mode <mode>', 'Write mode', (val) => {
+    .requiredOption('-m, --mode <mode>', 'Write mode', (val): WriteMode => {
       if (!(WRITE_MODES as readonly string[]).includes(val)) {
-        throw new Error(`Write mode must be one of: ${DATA_KEYS.join('|')}`);
+        throw new Error(`Write mode must be one of: ${WRITE_MODES.join('|')}`);
       }
       return val as WriteMode;
     });
 
   program.parse(process.argv);
 
-  const options = program.opts<{
-    key: DataKey;
-    env: string;
-    mode: WriteMode;
-  }>();
+  // couldn't pass the type as a generic
+  const options = program.opts() as CLIOptions;
 
   let ENV = options.env.toLowerCase();
   ENV = ENV === 'dev' ? 'development' : ENV;
 
-  let envConfig: any | undefined = undefined;
-
+  let envConfig: any;
   try {
     envConfig = JSON.parse(fs.readFileSync(`.env/${ENV}.json`, 'utf8'));
   } catch (e) {
@@ -316,9 +332,10 @@ async function main(): Promise<void> {
     process.exit(3);
   }
 
-  console.log(`this is options.key ${options.key}`);
-  const testItems = SEED_DATA_MAP[options.key as DataKey];
-  console.log(`This is testItems`, JSON.stringify(testItems));
+  // --- Dynamic import of data file from provided path ---
+  const testItems: TestItem[] = await loadData(options.data);
+
+  console.log(`Loaded ${testItems.length} items from "${options.data}"`);
 
   const writeMode = options.mode as WriteMode;
 
@@ -335,35 +352,6 @@ async function main(): Promise<void> {
 
   const requests: BatchInputRequest<ActivityDefinition>[] = [];
   const adUrlVersionMap: { [url: string]: string } = {};
-
-  // make the requests to retire the pre-existing ActivityDefinitions
-  (
-    await oystehrClient.fhir.search<ActivityDefinition>({
-      resourceType: 'ActivityDefinition',
-      params: [
-        { name: '_tag', value: IN_HOUSE_TAG_DEFINITION.code },
-        { name: 'status', value: 'active' },
-      ],
-    })
-  )
-    .unbundle()
-    .forEach((activityDef) => {
-      if (activityDef.id)
-        requests.push({
-          url: `/ActivityDefinition/${activityDef.id}`,
-          method: 'PATCH',
-          operations: [
-            {
-              op: 'replace',
-              path: '/status',
-              value: 'retired',
-            },
-          ],
-        });
-      if (activityDef.url && activityDef.version) {
-        adUrlVersionMap[activityDef.url] = activityDef.version;
-      }
-    });
 
   const activityDefinitions: ActivityDefinition[] = [];
 
@@ -431,6 +419,36 @@ async function main(): Promise<void> {
 
   if (writeMode === 'api') {
     console.log('write mode is api, preparing fhir requests');
+
+    // make the requests to retire the pre-existing ActivityDefinitions
+    (
+      await oystehrClient.fhir.search<ActivityDefinition>({
+        resourceType: 'ActivityDefinition',
+        params: [
+          { name: '_tag', value: IN_HOUSE_TAG_DEFINITION.code },
+          { name: 'status', value: 'active' },
+        ],
+      })
+    )
+      .unbundle()
+      .forEach((activityDef) => {
+        if (activityDef.id)
+          requests.push({
+            url: `/ActivityDefinition/${activityDef.id}`,
+            method: 'PATCH',
+            operations: [
+              {
+                op: 'replace',
+                path: '/status',
+                value: 'retired',
+              },
+            ],
+          });
+        if (activityDef.url && activityDef.version) {
+          adUrlVersionMap[activityDef.url] = activityDef.version;
+        }
+      });
+
     activityDefinitions.map((activityDefinition) => {
       requests.push({
         method: 'POST',
@@ -454,7 +472,8 @@ async function main(): Promise<void> {
       JSON.stringify(activityDefinitions, undefined, 2),
       'utf8'
     );
-    process.exit(1);
+    console.log('Successfully wrote json file. Exiting');
+    process.exit(0);
   }
   console.error(`write mode not recognized: ${writeMode}`);
 }
