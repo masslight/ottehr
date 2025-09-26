@@ -34,7 +34,7 @@ import {
   useSuccessQuery,
 } from 'utils';
 import { create } from 'zustand';
-import { APPOINTMENT_REFRESH_INTERVAL } from '../../../constants';
+import { APPOINTMENT_REFRESH_INTERVAL, QUERY_STALE_TIME } from '../../../constants';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { useExamObservations } from '../../../telemed/hooks/useExamObservations';
 import { useOystehrAPIClient } from '../../../telemed/hooks/useOystehrAPIClient';
@@ -650,7 +650,7 @@ export const useGetChartData = (
     },
 
     enabled: !!apiClient && !!encounterId && !!user && enabled,
-    staleTime: 60_000,
+    staleTime: QUERY_STALE_TIME,
     refetchInterval: refetchInterval || false,
   });
 

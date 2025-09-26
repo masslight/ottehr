@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { QueryObserverResult, RefetchOptions } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { useParams } from 'react-router-dom';
+import { QUERY_STALE_TIME } from 'src/constants';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import {
   ChartDataRequestedFields,
@@ -138,7 +139,7 @@ export function useChartFields<T extends ChartDataRequestedFields>({
       return result as Pick<GetChartDataResponse, keyof ChartDataRequestedFields>;
     },
     enabled: !!apiClient && !!encounterId && !!user && enabled,
-    staleTime: 5_000,
+    staleTime: QUERY_STALE_TIME,
     refetchInterval: refetchInterval || false,
   });
 
