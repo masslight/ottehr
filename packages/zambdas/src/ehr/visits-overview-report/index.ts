@@ -27,31 +27,68 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('Searching for appointments in date range:', dateRange);
 
     // Search for appointments within the date range
-    const appointmentSearchResult = await oystehr.fhir.search<Appointment>({
+    // Fetch all appointments with proper FHIR pagination
+    let allAppointments: Appointment[] = [];
+    let offset = 0;
+    const pageSize = 1000;
+
+    const baseSearchParams = [
+      {
+        name: 'date',
+        value: `ge${dateRange.start}`,
+      },
+      {
+        name: 'date',
+        value: `le${dateRange.end}`,
+      },
+      {
+        name: '_tag',
+        value: `${OTTEHR_MODULE.TM},${OTTEHR_MODULE.IP}`,
+      },
+      {
+        name: '_count',
+        value: pageSize.toString(),
+      },
+    ];
+
+    let searchBundle = await oystehr.fhir.search<Appointment>({
       resourceType: 'Appointment',
-      params: [
-        {
-          name: 'date',
-          value: `ge${dateRange.start}`,
-        },
-        {
-          name: 'date',
-          value: `le${dateRange.end}`,
-        },
-        {
-          name: '_tag',
-          value: `${OTTEHR_MODULE.TM},${OTTEHR_MODULE.IP}`,
-        },
-        {
-          name: '_count',
-          value: '1000',
-        },
-      ],
+      params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
     });
 
-    // Get all appointments
-    const appointments = appointmentSearchResult.unbundle();
-    console.log(`Found ${appointments.length} appointments`);
+    let pageCount = 1;
+    console.log(`Fetching page ${pageCount} of appointments...`);
+
+    // Get appointments from first page
+    let pageAppointments = searchBundle.unbundle();
+    allAppointments = allAppointments.concat(pageAppointments);
+    console.log(`Page ${pageCount}: Found ${pageAppointments.length} appointments`);
+
+    // Follow pagination links to get all pages
+    while (searchBundle.link?.find((link) => link.relation === 'next')) {
+      offset += pageSize;
+      pageCount++;
+      console.log(`Fetching page ${pageCount} of appointments...`);
+
+      searchBundle = await oystehr.fhir.search<Appointment>({
+        resourceType: 'Appointment',
+        params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
+      });
+
+      pageAppointments = searchBundle.unbundle();
+      allAppointments = allAppointments.concat(pageAppointments);
+
+      console.log(`Page ${pageCount}: Found ${pageAppointments.length} appointments`);
+
+      // Safety check to prevent infinite loops
+      if (pageCount > 100) {
+        console.warn('Reached maximum pagination limit (100 pages). Stopping search.');
+        break;
+      }
+    }
+
+    const appointments = allAppointments;
+    console.log(`Total appointments found across ${pageCount} pages: ${appointments.length}`);
 
     if (appointments.length === 0) {
       const response: VisitsOverviewReportZambdaOutput = {
