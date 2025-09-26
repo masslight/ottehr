@@ -266,11 +266,6 @@ export const dataTestIds = {
     footerButtonUnassign: 'telemed-appointment-footer-button-unassign',
     appointmentChartFooter: 'telemed-chart-appointment-footer',
     hpiFieldListLoadingSkeleton: 'telemed-hpi-field-list-loading-skeleton',
-    hpiMedicalConditionColumn: 'telemed-hpi-medical-condition-column',
-    hpiMedicalConditionsList: 'telemed-hpi-medical-condition-list',
-    hpiMedicalConditionPatientProvidedList: 'telemed-hpi-medical-condition-patient-provided-list',
-    hpiMedicalConditionsInput: 'telemed-hpi-medical-condition-input',
-    hpiMedicalConditionListItem: 'telemed-hpi-medical-condition-list-item',
     hpiCurrentMedicationsPatientProvidedList: 'telemed-hpi-current-medications-patient-provided-list',
     hpiCurrentMedicationsInput: 'telemed-hpi-current-medications-input',
     hpiCurrentMedicationsDoseInput: 'telemed-hpi-current-medications-dose-input',
@@ -308,7 +303,6 @@ export const dataTestIds = {
     planTabDispositionFollowUpDropdown: 'telemed-plan-tab-disposition-follow-up-dropdown',
     planTabDispositionNote: 'telemed-plan-tab-disposition-note',
     planTabDispositionReasonForTransferDropdown: 'telemed-plan-tab-disposition-reason-for-transfer-dropdown',
-    reviewTabMedicalConditionsContainer: 'telemed-review-tab-medical-conditions-container',
     reviewTabMedicationsContainer: 'telemed-review-tab-medications-container',
     reviewTabSurgicalHistoryContainer: 'telemed-review-tab-surgical-history-container',
     reviewTabAdditionalQuestion: (questionSymptom: string) =>
@@ -352,6 +346,7 @@ export const dataTestIds = {
     procedureItem: 'procedure-item',
     labsTitle: (labType: string) => `title-${labType.toLowerCase().replace(/\s+/g, '-')}`,
     knownAllergiesContainer: 'known-allergies-container',
+    medicalConditionsContainer: 'medical-conditions-container',
   },
   assessmentCard: {
     emCodeDropdown: 'em-code-dropdown',
@@ -504,5 +499,13 @@ export const dataTestIds = {
     knownAllergiesPatientProvidedList: 'known-allergies-patient-provided-list',
     knownAllergiesInput: 'known-allergies-input',
     knownAllergiesListItem: 'known-allergies-list-item',
+  },
+  medicalConditions: {
+    medicalConditionsPageTitle: 'medical-conditions-title',
+    medicalConditionColumn: 'medical-condition-column',
+    medicalConditionsList: 'medical-condition-list',
+    medicalConditionPatientProvidedList: 'medical-condition-patient-provided-list',
+    medicalConditionsInput: 'medical-condition-input',
+    medicalConditionListItem: 'medical-condition-list-item',
   },
 };

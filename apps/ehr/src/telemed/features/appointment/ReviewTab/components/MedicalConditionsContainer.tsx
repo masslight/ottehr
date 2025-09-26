@@ -13,7 +13,7 @@ export const MedicalConditionsContainer: FC<{ notes?: NoteDTO[] }> = ({ notes })
   return (
     <Box
       sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}
-      data-testid={dataTestIds.telemedEhrFlow.reviewTabMedicalConditionsContainer}
+      data-testid={dataTestIds.progressNotePage.medicalConditionsContainer}
     >
       <Typography variant="h5" color="primary.dark">
         Medical conditions
