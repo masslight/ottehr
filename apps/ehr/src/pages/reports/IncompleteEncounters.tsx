@@ -39,7 +39,7 @@ interface IncompleteEncounterRow {
   reason?: string;
 }
 
-type DateRangeFilter = 'today' | 'yesterday' | 'last-7-days' | 'last-30-days';
+type DateRangeFilter = 'today' | 'yesterday' | 'last-7-days' | 'last-7-days-excluding-today' | 'last-30-days';
 
 const getStatusColor = (
   status: VisitStatusLabel
@@ -87,6 +87,12 @@ const getDateRange = (filter: DateRangeFilter): { start: string; end: string } =
       return {
         start: today.minus({ days: 7 }).toISO(),
         end: now.toISO(),
+      };
+    }
+    case 'last-7-days-excluding-today': {
+      return {
+        start: today.minus({ days: 7 }).toISO(),
+        end: today.minus({ days: 1 }).endOf('day').toISO(),
       };
     }
     case 'last-30-days': {
@@ -238,7 +244,7 @@ export default function IncompleteEncounters(): React.ReactElement {
             ? DateTime.fromISO(appointmentStart).toFormat('yyyy-MM-dd')
             : DateTime.now().toFormat('yyyy-MM-dd');
 
-          // For now, only handle in-person visits
+          // Handle different visit types
           if (visitType === 'In-Person' && locationId) {
             const trackingBoardPath = `/visits?locationID=${locationId}&visitType=walk-in%2Cpre-booked%2Cpost-telemed&groups=&searchDate=${searchDate}`;
 
@@ -257,7 +263,23 @@ export default function IncompleteEncounters(): React.ReactElement {
             );
           }
 
-          // For telemed or visits without location, just show the time without link
+          if (visitType === 'Telemed') {
+            return (
+              <Link
+                to="/telemed/appointments"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: '#1976d2',
+                  textDecoration: 'underline',
+                }}
+              >
+                {appointmentTime}
+              </Link>
+            );
+          }
+
+          // For visits without location or unknown type, just show the time without link
           return <span>{appointmentTime}</span>;
         },
       },
@@ -315,6 +337,7 @@ export default function IncompleteEncounters(): React.ReactElement {
                 <MenuItem value="today">Today</MenuItem>
                 <MenuItem value="yesterday">Yesterday</MenuItem>
                 <MenuItem value="last-7-days">Last 7 Days</MenuItem>
+                <MenuItem value="last-7-days-excluding-today">Last 7 Days (Excluding Today)</MenuItem>
                 <MenuItem value="last-30-days">Last 30 Days</MenuItem>
               </Select>
             </FormControl>
@@ -325,8 +348,9 @@ export default function IncompleteEncounters(): React.ReactElement {
         </Box>
 
         <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-          This report shows encounters that are not in a terminal state (completed, cancelled, or no show). These
-          encounters may need attention or follow-up.
+          This report shows encounters that are not in a terminal state (completed, cancelled, or no show). Click an
+          appointment ID to navigate to the specific appointment chart. Click an appointment time to navigate to the
+          appropriate tracking board.
         </Typography>
 
         <Paper sx={{ height: 600, width: '100%' }}>
