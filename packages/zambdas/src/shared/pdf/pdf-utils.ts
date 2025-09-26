@@ -13,7 +13,7 @@ import {
   rgb,
   StandardFonts,
 } from 'pdf-lib';
-import { BRANDING_CONFIG, SupportedObsImgAttachmentTypes } from 'utils';
+import { getLogoFor, SupportedObsImgAttachmentTypes } from 'utils';
 import { PDF_CLIENT_STYLES, STANDARD_FONT_SIZE, STANDARD_FONT_SPACING, Y_POS_GAP } from './pdf-consts';
 import { ImageStyle, LineStyle, PageStyles, PdfClient, PdfClientStyles, TextStyle } from './types';
 
@@ -816,7 +816,7 @@ export const drawFourColumnText = (
 };
 
 export async function getPdfLogo(): Promise<Buffer | undefined> {
-  const url = BRANDING_CONFIG.pdf.logoURL;
+  const url = getLogoFor('pdf');
   try {
     if (!url) {
       return fs.readFileSync('./assets/logo.png');
