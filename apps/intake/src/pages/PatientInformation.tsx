@@ -208,7 +208,7 @@ const PatientInformation = (): JSX.Element => {
         {
           type: 'Text',
           name: 'authorizedNonLegalGuardians',
-          label: 'Full name(s) of authorized non-legal guardian(s)',
+          label: 'Who, besides the parent or legal guardian, is allowed to bring in the patient?',
           defaultValue: patientInfo?.authorizedNonLegalGuardians,
           multiline: true,
           maxRows: 2,
@@ -325,7 +325,7 @@ const PatientInformation = (): JSX.Element => {
         {
           type: 'Text',
           name: 'authorizedNonLegalGuardians',
-          label: 'Full name(s) of authorized non-legal guardian(s)',
+          label: 'Who, besides the parent or legal guardian, is allowed to bring in the patient?',
           defaultValue: patientInfo?.authorizedNonLegalGuardians,
           multiline: true,
           maxRows: 2,
