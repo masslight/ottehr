@@ -394,7 +394,7 @@ export const useGetPatientDetailsUpdateForm = (
 ): UseQueryResult<Questionnaire, Error> => {
   const { oystehr } = useApiClients();
 
-  const { url, version } = ehrInsuranceUpdateFormJson.fhirResources['questionnaire-ehr-insurance-update'];
+  const { url, version } = ehrInsuranceUpdateFormJson.fhirResources['questionnaire-ehr-insurance-update'].resource;
 
   const queryResult = useQuery({
     queryKey: ['patient-update-form'],

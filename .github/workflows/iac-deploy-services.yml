@@ -134,6 +134,12 @@ jobs:
           cp secrets/terraform/${{ env.ENVIRONMENT }}.tfvars deploy
           cp secrets/terraform/backend.config deploy
 
+      - name: Maybe copy import file into aws_infra module
+        id: copy-import-file
+        continue-on-error: true
+        run: |
+          cp secrets/terraform/${{ env.ENVIRONMENT }}_import.tf deploy/aws_infra
+
       - name: Configure AWS Credentials
         id: configure-aws-credentials
         uses: aws-actions/configure-aws-credentials@50ac8dd1e1b10d09dac7b8727528b91bed831ac0 # v3 (v3.0.2)
@@ -154,14 +160,17 @@ jobs:
 
       # Build once first because CDK checks for everything before deciding which stacks to deploy
       - name: Build Intake
+        if: ${{ steps.copy-import-file.outcome != 'success' }}
         working-directory: apps/intake
         run: npm run build:env --env=${{ env.ENVIRONMENT }}
 
       - name: Build EHR
+        if: ${{ steps.copy-import-file.outcome != 'success' }}
         working-directory: apps/ehr
         run: npm run build:env --env=${{ env.ENVIRONMENT }}
 
       - name: Deploy Cloud Infrastructure Using Legacy Scripted Deploy
+        if: ${{ steps.copy-import-file.outcome != 'success' }}
         working-directory: scripts/deploy/aws
         run: |
           aws_profile=$(grep '"aws_profile"' "../deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
@@ -175,14 +184,17 @@ jobs:
           npx ts-node ./bin/update-config.ts --no-update-apps
 
       - name: Build Intake
+        if: ${{ steps.copy-import-file.outcome != 'success' }}
         working-directory: apps/intake
         run: npm run build:env --env=${{ env.ENVIRONMENT}}
 
       - name: Build EHR
+        if: ${{ steps.copy-import-file.outcome != 'success' }}
         working-directory: apps/ehr
         run: npm run build:env --env=${{ env.ENVIRONMENT }}
 
       - name: Deploy Websites Using Legacy Scripted Deploy
+        if: ${{ steps.copy-import-file.outcome != 'success' }}
         working-directory: scripts/deploy/aws
         run: |
           aws_profile=$(grep '"aws_profile"' "../deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
@@ -193,14 +205,10 @@ jobs:
           echo "Using stack prefix: ${prefix}"
           npx cdk deploy --require-approval=never --profile "${profile}" "${prefix}-data-stack-${{ env.ENVIRONMENT }}"
 
-      - name: Bundle Zambdas
-        working-directory: packages/zambdas
-        run: npm run bundle
-
       - name: Deploy Ottehr Resources Using Terraform
         working-directory: deploy
         run: |
-          terraform init --backend-config=./backend.config -input=false
+          npm run terraform-init -- -input=false
           npm run apply-${{ env.ENVIRONMENT}} -- --auto-approve
 
       - name: Notify Slack

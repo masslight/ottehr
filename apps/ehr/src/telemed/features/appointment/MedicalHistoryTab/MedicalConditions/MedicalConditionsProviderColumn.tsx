@@ -20,6 +20,7 @@ import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { useFeatureFlags } from '../../../../../features/css-module/context/featureFlags';
 import { DeleteIconButton } from '../../../../components';
 import { useGetAppointmentAccessibility } from '../../../../hooks';
+import { useChartDataArrayValue } from '../../../../hooks/useChartDataArrayValue';
 import {
   ChartDataState,
   useChartData,
@@ -30,26 +31,9 @@ import {
 import { ProviderSideListSkeleton } from '../ProviderSideListSkeleton';
 
 export const MedicalConditionsProviderColumn: FC = () => {
-  const { chartData, chartDataSetState } = useChartData();
+  const { chartData, isLoading: isChartDataLoading } = useChartData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const featureFlags = useFeatureFlags();
-
-  const { isLoading: isChartDataLoading } = useChartData({
-    requestedFields: {
-      conditions: {},
-    },
-    onSuccess: (data) => {
-      chartDataSetState((prevState) => ({
-        ...prevState,
-        chartData: {
-          ...prevState?.chartData,
-          patientId: prevState?.chartData?.patientId || '',
-          conditions: data?.conditions,
-        },
-      }));
-    },
-  });
-
   const conditions = chartData?.conditions || [];
   const length = conditions.length;
 
@@ -254,8 +238,8 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
 };
 
 const AddMedicalConditionField: FC = () => {
-  const { isChartDataLoading, chartDataSetState } = useChartData();
-  const { mutate: updateChartData, isPending: isUpdateLoading } = useSaveChartData();
+  const { isChartDataLoading } = useChartData();
+  const { onSubmit, isLoading } = useChartDataArrayValue('conditions');
   const { error: icdSearchError } = useICD10SearchNew({ search: 'E11' });
 
   const nlmApiKeyMissing = (icdSearchError as any)?.code === APIErrorCode.MISSING_NLM_API_KEY_ERROR;
@@ -279,50 +263,20 @@ const AddMedicalConditionField: FC = () => {
     []
   );
 
-  const handleSelectOption = (data: IcdSearchResponse['codes'][number] | null): void => {
+  const handleSelectOption = async (data: IcdSearchResponse['codes'][number] | null): Promise<void> => {
     if (data) {
       const newValue = {
         code: data.code,
         display: data.display,
         current: true,
       };
-      chartDataSetState((prevState) => ({
-        chartData: {
-          ...prevState.chartData!,
-          conditions: [...(prevState.chartData?.conditions || []), newValue],
-        },
-      }));
-      reset({ value: null });
 
-      updateChartData(
-        { conditions: [newValue] },
-        {
-          onSuccess: (data) => {
-            const updatedCondition = data.chartData.conditions?.[0];
-            if (updatedCondition) {
-              chartDataSetState((prevState) => ({
-                chartData: {
-                  ...prevState.chartData!,
-                  conditions: prevState.chartData?.conditions?.map((conditions) =>
-                    conditions.code === updatedCondition.code && !conditions.resourceId ? updatedCondition : conditions
-                  ),
-                },
-              }));
-            }
-          },
-          onError: () => {
-            chartDataSetState((prevState) => ({
-              chartData: {
-                ...prevState.chartData!,
-                conditions: prevState.chartData?.conditions?.filter((condition) => condition.resourceId),
-              },
-            }));
-            enqueueSnackbar('An error has occurred while adding medical condition. Please try again.', {
-              variant: 'error',
-            });
-          },
-        }
-      );
+      try {
+        await onSubmit(newValue);
+        reset({ value: null });
+      } catch {
+        // Error is already handled by useChartDataArrayValue
+      }
     }
   };
 
@@ -351,7 +305,7 @@ const AddMedicalConditionField: FC = () => {
             value={value || null}
             onChange={(_e, data) => {
               onChange((data || '') as any);
-              handleSelectOption(data);
+              void handleSelectOption(data);
             }}
             getOptionLabel={(option) => (typeof option === 'string' ? option : `${option.code} ${option.display}`)}
             isOptionEqualToValue={(option, value) => value.code === option.code}
@@ -359,7 +313,7 @@ const AddMedicalConditionField: FC = () => {
             size="small"
             loading={isSearching}
             blurOnSelect
-            disabled={isChartDataLoading || isUpdateLoading}
+            disabled={isChartDataLoading || isLoading}
             options={icdSearchOptions}
             noOptionsText={
               debouncedSearchTerm && icdSearchOptions.length === 0

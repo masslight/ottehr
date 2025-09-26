@@ -1,11 +1,11 @@
 import { Box, Typography } from '@mui/material';
 import { FC } from 'react';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
-import { useChartData } from '../../../../state';
+import { useChartFields } from '../../../../state';
 
 export const ReviewOfSystemsContainer: FC = () => {
-  const { chartData } = useChartData();
-  const ros = chartData?.ros?.text;
+  const { data: chartFields } = useChartFields({ requestedFields: { ros: { _tag: 'ros' } } });
+  const ros = chartFields?.ros?.text;
 
   return (
     <Box

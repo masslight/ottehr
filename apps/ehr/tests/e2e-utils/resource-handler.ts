@@ -274,7 +274,7 @@ export class ResourceHandler {
     seedDataString = seedDataString.replace(/\{\{scheduleId\}\}/g, schedule.id!);
     seedDataString = seedDataString.replace(
       /\{\{questionnaireUrl\}\}/g,
-      `${inPersonIntakeQuestionnaire.fhirResources['questionnaire-in-person-previsit'].url}|${inPersonIntakeQuestionnaire.fhirResources['questionnaire-in-person-previsit'].version}`
+      `${inPersonIntakeQuestionnaire.fhirResources['questionnaire-in-person-previsit'].resource.url}|${inPersonIntakeQuestionnaire.fhirResources['questionnaire-in-person-previsit'].resource.version}`
     );
     seedDataString = seedDataString.replace(/\{\{date\}\}/g, DateTime.now().toUTC().toFormat('yyyy-MM-dd'));
 

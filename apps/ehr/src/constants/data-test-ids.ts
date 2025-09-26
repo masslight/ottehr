@@ -21,6 +21,7 @@ export const dataTestIds = {
     intakePractitionerInput: 'intake-practitioner-input',
     providerPractitionerInput: 'provider-practitioner-input',
     changeStatusDropdown: 'change-status-dropdown-in-header',
+    allergies: 'header-allergies',
   },
   dashboard: {
     appointmentsTable: (tab: 'prebooked' | 'in-office' | 'completed' | 'cancelled') => `appointments-table-${tab}`,
@@ -283,11 +284,6 @@ export const dataTestIds = {
       `telemed-hpi-current-medications-list-${listType}`,
     hpiCurrentMedicationsListItem: (listDataTestId: string) => `${listDataTestId}-item`,
     hpiCurrentMedicationsColumn: 'telemed-hpi-current-medications-column',
-    hpiKnownAllergiesColumn: 'telemed-hpi-known-allergies-column',
-    hpiKnownAllergiesList: 'telemed-hpi-known-allergies-list',
-    hpiKnownAllergiesPatientProvidedList: 'telemed-hpi-known-allergies-patient-provided-list',
-    hpiKnownAllergiesInput: 'telemed-hpi-known-allergies-input',
-    hpiKnownAllergiesListItem: 'telemed-hpi-known-allergies-list-item',
     hpiSurgicalHistoryColumn: 'telemed-hpi-surgical-history-column',
     hpiSurgicalHistoryList: 'telemed-hpi-surgical-history-list',
     hpiSurgicalHistoryPatientProvidedList: 'telemed-hpi-surgical-history-patient-provided-list',
@@ -313,7 +309,6 @@ export const dataTestIds = {
     planTabDispositionNote: 'telemed-plan-tab-disposition-note',
     planTabDispositionReasonForTransferDropdown: 'telemed-plan-tab-disposition-reason-for-transfer-dropdown',
     reviewTabMedicalConditionsContainer: 'telemed-review-tab-medical-conditions-container',
-    reviewTabKnownAllergiesContainer: 'telemed-review-tab-known-allergies-container',
     reviewTabMedicationsContainer: 'telemed-review-tab-medications-container',
     reviewTabSurgicalHistoryContainer: 'telemed-review-tab-surgical-history-container',
     reviewTabAdditionalQuestion: (questionSymptom: string) =>
@@ -356,6 +351,7 @@ export const dataTestIds = {
     visitNoteCard: 'visit-note-card',
     procedureItem: 'procedure-item',
     labsTitle: (labType: string) => `title-${labType.toLowerCase().replace(/\s+/g, '-')}`,
+    knownAllergiesContainer: 'known-allergies-container',
   },
   assessmentCard: {
     emCodeDropdown: 'em-code-dropdown',
@@ -473,6 +469,7 @@ export const dataTestIds = {
     orderInHouseLabButton: 'order-in-house-lab-button',
     orderAndPrintLabelButton: 'order-and-print-label-button',
     testTypeField: 'test-type',
+    testTypeList: 'test-type-list',
     CPTCodeField: 'cpt-code',
     diagnosis: 'diagnosis',
     additionalDx: 'additionalDx',
@@ -499,5 +496,13 @@ export const dataTestIds = {
     dateAndStatus: 'order-date-status',
     resultsPDF: 'results-pdf',
     diagnose: 'diagnose',
+  },
+  allergies: {
+    allergiesPageTitle: 'allergies-title',
+    knownAllergiesColumn: 'known-allergies-column',
+    knownAllergiesList: 'known-allergies-list',
+    knownAllergiesPatientProvidedList: 'known-allergies-patient-provided-list',
+    knownAllergiesInput: 'known-allergies-input',
+    knownAllergiesListItem: 'known-allergies-list-item',
   },
 };

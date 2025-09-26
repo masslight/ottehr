@@ -1,8 +1,12 @@
 import { PRIVATE_EXTENSION_BASE_URL } from '../../fhir';
-import { ChartDataRequestedFields, CSS_NOTE_ID, NOTE_TYPE, VitalFieldNames } from '../../types';
+import { ChartDataRequestedFields, CSS_NOTE_ID } from '../../types';
+import { VitalFieldNames } from '../../types/api/chart-data/chart-data.constants';
+import { NOTE_TYPE } from '../../types/api/chart-data/chart-data.types';
 import { createVitalsSearchConfig } from './create-vitals-search-config.helper';
 
-export const getProgressNoteChartDataRequestedFields = (): ChartDataRequestedFields => ({
+export const progressNoteChartDataRequestedFields: ChartDataRequestedFields = {
+  chiefComplaint: { _tag: 'chief-complaint' },
+  ros: { _tag: 'ros' },
   episodeOfCare: {},
   prescribedMedications: {},
   disposition: {},
@@ -37,9 +41,11 @@ export const getProgressNoteChartDataRequestedFields = (): ChartDataRequestedFie
   medicalDecision: {
     _tag: 'medical-decision',
   },
-});
+};
 
 export const telemedProgressNoteChartDataRequestedFields: ChartDataRequestedFields = {
+  chiefComplaint: { _tag: 'chief-complaint' },
+  ros: { _tag: 'ros' },
   prescribedMedications: {},
   disposition: {},
   medicalDecision: {

@@ -1,37 +1,16 @@
 import { alpha, Box, Checkbox, FormControlLabel, Grid, lighten, Paper, Typography, useTheme } from '@mui/material';
-import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { useCallback, useEffect, useState } from 'react';
+import { getPatientName } from 'src/telemed/utils';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import {
   useAppointmentData,
-  useChartData,
+  useChartFields,
   useGetAppointmentAccessibility,
   useSaveChartData,
 } from '../../../../telemed';
 import { ProfileAvatar } from '../ProfileAvatar';
-
-const getPatientDisplayedName = (patient: Patient | undefined): string => {
-  if (!patient) {
-    return '';
-  }
-  const emptyIfUndefined = (value: string | undefined): string => value ?? '';
-
-  const nameEntryOfficial = patient?.name?.find((nameEntry) => nameEntry.use === 'official');
-  const nameEntryNickname = patient?.name?.find((nameEntry) => nameEntry.use === 'nickname');
-
-  const firstName = nameEntryOfficial?.given?.[0];
-  const middleName = nameEntryOfficial?.given?.[1];
-  const lastName = nameEntryOfficial?.family;
-  const preferredName = nameEntryNickname?.given?.[0];
-
-  const startingPart = lastName ? `${lastName},` : '';
-  const middlePart = `${emptyIfUndefined(firstName)} ${emptyIfUndefined(middleName)}`.trim();
-  const endingPart = preferredName ? `(${preferredName})` : '';
-
-  return `${startingPart} ${middlePart} ${endingPart}`;
-};
 
 const GeneralInfoCard: React.FC = (): JSX.Element => {
   const theme = useTheme();
@@ -39,7 +18,7 @@ const GeneralInfoCard: React.FC = (): JSX.Element => {
   const { patient: patientData } = telemedData;
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
-  const { chartData, isLoading: isLoadingChartData } = useChartData({
+  const { data: chartData, isLoading: isLoadingChartData } = useChartFields({
     requestedFields: { patientInfoConfirmed: {} },
   });
 
@@ -93,7 +72,7 @@ const GeneralInfoCard: React.FC = (): JSX.Element => {
                     fontWeight: 500,
                   }}
                 >
-                  {getPatientDisplayedName(patientData)}
+                  {getPatientName(patientData?.name).fullDisplayName}
                 </Typography>
                 <Typography variant="body1" color={theme.palette.primary.dark} sx={{ mt: 1 }}>
                   {mappedData.pronouns ?? ''}

@@ -1155,6 +1155,27 @@
             ]
           },
           {
+            "linkId": "pharmacy-page",
+            "item": [
+              {
+                "linkId": "pharmacy-name",
+                "answer": [
+                  {
+                    "valueString": "Test pharmacy"
+                  }
+                ]
+              },
+              {
+                "linkId": "pharmacy-address",
+                "answer": [
+                  {
+                    "valueString": "Test pharmacy address"
+                  }
+                ]
+              }
+            ]
+          },
+          {
             "linkId": "payment-option-page",
             "item": [
               {

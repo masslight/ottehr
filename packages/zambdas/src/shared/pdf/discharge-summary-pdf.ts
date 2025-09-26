@@ -16,17 +16,15 @@ import {
   Task,
 } from 'fhir/r4b';
 import {
-  appointmentTypeLabels,
-  appointmentTypeMap,
   BUCKET_NAMES,
   convertActivityDefinitionToTestItem,
   CPTCodeDTO,
   ExtendedMedicationDataForResponse,
-  FhirAppointmentType,
   followUpInOptions,
   formatDateToMDYWithTime,
   formatDOB,
   genderMap,
+  getAppointmentType,
   GetChartDataResponse,
   getDefaultNote,
   GetRadiologyOrderListZambdaOutput,
@@ -154,12 +152,8 @@ function composeDataForDischargeSummaryPdf(
   );
 
   // --- Visit information ---
-  const appointmentTypeTag = appointment.meta?.tag?.find((tag) => tag.code && tag.code in appointmentTypeMap);
-  const subType =
-    appointment.appointmentType?.text && appointmentTypeLabels[appointment.appointmentType.text as FhirAppointmentType];
-  const baseType = appointmentTypeTag?.code ? appointmentTypeMap[appointmentTypeTag.code] : 'Unknown';
-  const type = subType ? `${baseType} ${subType}` : baseType;
-  const { date = '', time = '' } = formatDateToMDYWithTime(appointment?.start) ?? {};
+  const { type } = getAppointmentType(appointment);
+  const { date = '', time = '' } = formatDateToMDYWithTime(appointment?.start, timezone ?? 'America/New_York') ?? {};
   const locationName = location?.name ?? '';
   const reasonForVisit = appointment?.description ?? '';
 
@@ -262,7 +256,8 @@ function composeDataForDischargeSummaryPdf(
   const { firstName: physicianFirstName, lastName: physicianLastName } = attenderPractitioner
     ? parseParticipantInfo(attenderPractitioner)
     : {};
-  const { date: dischargedDate, time: dischargeTime } = formatDateToMDYWithTime(attenderParticipant?.period?.end) ?? {};
+  const { date: dischargedDate, time: dischargeTime } =
+    formatDateToMDYWithTime(attenderParticipant?.period?.end, timezone ?? 'America/New_York') ?? {};
   const dischargeDateTime = dischargedDate && dischargeTime ? `${dischargedDate} at ${dischargeTime}` : undefined;
 
   return {
@@ -627,10 +622,11 @@ async function createDischargeSummaryPdfBytes(data: DischargeSummaryData): Promi
   };
 
   const drawPhysicianInfo = (): void => {
-    pdfClient.drawTextSequential('Treating physician:', textStyles.bold);
+    pdfClient.drawTextSequential('Treating provider:', textStyles.subHeader);
     pdfClient.drawText(data.physician.name, textStyles.regular);
     if (data.dischargeDateTime) {
-      pdfClient.drawText('Discharged:', textStyles.bold);
+      pdfClient.drawSeparatedLine(separatedLineStyle);
+      pdfClient.drawText('Discharged:', textStyles.subHeader);
       pdfClient.drawText(data.dischargeDateTime, textStyles.regular);
     }
   };

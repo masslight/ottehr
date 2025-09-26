@@ -10,18 +10,21 @@ import {
   QuestionnaireResponse,
   RelatedPerson,
   Resource,
+  Schedule,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   EncounterVirtualServiceExtension,
   findQuestionnaireResponseItemLinkId,
   getSecret,
+  getTimezone,
   pickFirstValueFromAnswerItem,
   PRIVATE_EXTENSION_BASE_URL,
   PUBLIC_EXTENSION_BASE_URL,
   Secrets,
   SecretsKeys,
   TELEMED_VIDEO_ROOM_CODE,
+  TIMEZONES,
 } from 'utils';
 import { ZambdaInput } from './types';
 
@@ -228,4 +231,14 @@ export function checkPaperworkComplete(questionnaireResponse: QuestionnaireRespo
     }
   }
   return false;
+}
+
+export function resolveTimezone(schedule?: Schedule, location?: Location, fallback: string = TIMEZONES[0]): string {
+  if (schedule) {
+    return getTimezone(schedule);
+  }
+  if (location) {
+    return getTimezone(location);
+  }
+  return fallback;
 }

@@ -62,7 +62,6 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
           sanitizedData[item] = false;
         }
       }
-      console.log(sanitizedData[item]);
       if (question && (question.type === 'integer' || question.type === 'decimal')) {
         sanitizedData[item] = Number(sanitizedData[item]);
       }
@@ -137,6 +136,14 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
             <span style={{ fontWeight: 500 }}>Requisition Number: </span> {labOrder.orderNumber}
           </Typography>
         </Box>
+
+        {labOrder.location?.name && (
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="body1">
+              <span style={{ fontWeight: 500 }}>Ordering Office: </span> {labOrder.location.name}
+            </Typography>
+          </Box>
+        )}
 
         <Box sx={{ mt: 2 }}>
           <OrderHistoryCard

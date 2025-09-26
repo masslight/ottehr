@@ -31,8 +31,7 @@ import {
 } from 'src/telemed';
 import { useOystehrAPIClient } from 'src/telemed/hooks/useOystehrAPIClient';
 import {
-  ADDITIONAL_QUESTIONS_META_SYSTEM,
-  ChartDataFields,
+  AllChartValues,
   Field,
   getFhirValueOrFallback,
   getFieldById,
@@ -66,20 +65,9 @@ const AskThePatient = (): React.ReactElement => {
   const theme = useTheme();
   const apiClient = useOystehrAPIClient();
   const { encounter } = useAppointmentData();
-  const { chartData, updateObservation, chartDataSetState } = useChartData();
+  const { chartData, updateObservation, chartDataSetState, isChartDataLoading } = useChartData();
   const [fieldLoadingState, setFieldLoadingState] = useState<Record<string, boolean>>({});
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-
-  const { isLoading: isChartDataLoading } = useChartData({
-    requestedFields: {
-      observations: {
-        _tag: ADDITIONAL_QUESTIONS_META_SYSTEM,
-        _search_by: 'encounter',
-      },
-    },
-    enabled: false,
-  });
-
   const { mutateAsync: _deleteChartData } = useDeleteChartData();
   const { debounce } = useDebounce(1000);
   const [tempDateRanges, setTempDateRanges] = useState<Record<string, [DateTime | null, DateTime | null]>>({});
@@ -185,7 +173,7 @@ const AskThePatient = (): React.ReactElement => {
 
   const deleteChartData = useCallback(
     async (
-      chartDataFields: ChartDataFields,
+      chartDataFields: AllChartValues,
       options?: {
         onSuccess?: () => void | Promise<void>;
         onError?: (error: any) => void;
@@ -767,11 +755,13 @@ const AskThePatient = (): React.ReactElement => {
       <Grid container>
         <Grid item xs={12}>
           <Typography variant="subtitle2" sx={{ color: '#ea580c', mb: 2 }}>
-            {patientScreeningQuestionsConfig.title}
+            ASK THE PATIENT
           </Typography>
         </Grid>
 
-        {patientScreeningQuestionsConfig.fields.map((field) => renderField(field))}
+        {patientScreeningQuestionsConfig.fields
+          .filter((field) => !field.existsInQuestionnaire)
+          .map((field) => renderField(field))}
       </Grid>
     </Paper>
   );

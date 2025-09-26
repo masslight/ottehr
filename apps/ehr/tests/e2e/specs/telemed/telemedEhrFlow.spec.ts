@@ -8,7 +8,6 @@ import {
   waitForSaveChartDataResponse,
 } from 'test-utils';
 import {
-  AdditionalBooleanQuestionsFieldsNames,
   allLicensesForPractitioner,
   ApptTelemedTab,
   getAdditionalQuestionsAnswers,
@@ -301,7 +300,7 @@ test.describe('Tests interacting with appointment state', () => {
     });
 
     await test.step('Known allergies provided by patient', async () => {
-      const list = page.getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesPatientProvidedList);
+      const list = page.getByTestId(dataTestIds.allergies.knownAllergiesPatientProvidedList);
       // cSpell:disable-next Azithromycin
       await expect(list.getByText('Azithromycin (medication)')).toBeVisible();
       await expect(list.getByText('Fish/ Fish Oil (other)')).toBeVisible();
@@ -315,33 +314,11 @@ test.describe('Tests interacting with appointment state', () => {
     });
 
     await test.step('Additional questions provided by patient', async () => {
-      await expect(
-        page
-          .getByTestId(
-            dataTestIds.telemedEhrFlow.hpiAdditionalQuestionsPatientProvided(
-              AdditionalBooleanQuestionsFieldsNames.CovidSymptoms
-            )
-          )
-          .getByText('No')
-      ).toBeVisible();
-      await expect(
-        page
-          .getByTestId(
-            dataTestIds.telemedEhrFlow.hpiAdditionalQuestionsPatientProvided(
-              AdditionalBooleanQuestionsFieldsNames.TestedPositiveCovid
-            )
-          )
-          .getByText('Yes')
-      ).toBeVisible();
-      await expect(
-        page
-          .getByTestId(
-            dataTestIds.telemedEhrFlow.hpiAdditionalQuestionsPatientProvided(
-              AdditionalBooleanQuestionsFieldsNames.TravelUsa
-            )
-          )
-          .getByText('No')
-      ).toBeVisible();
+      for (const question of ADDITIONAL_QUESTIONS) {
+        await expect(
+          page.getByTestId(dataTestIds.telemedEhrFlow.hpiAdditionalQuestionsPatientProvided(question.field))
+        ).toBeVisible();
+      }
     });
 
     await test.step('Reason for visit provided by patient', async () => {

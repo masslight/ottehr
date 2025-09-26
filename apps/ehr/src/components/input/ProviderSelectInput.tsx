@@ -43,5 +43,25 @@ export const ProviderSelectInput: React.FC<Props> = ({ name, label, required }) 
     }
     void loadProvidersOptions();
   }, [oystehrZambda]);
-  return <AutocompleteInput name={name} label={label} options={options} loading={isLoading} required={required} />;
+  return (
+    <AutocompleteInput
+      name={name}
+      label={label}
+      options={options}
+      loading={isLoading}
+      required={required}
+      valueToOption={(value: any) => {
+        return {
+          label: value.name,
+          value: value.id,
+        };
+      }}
+      optionToValue={(option: Option) => {
+        return {
+          name: option.label,
+          id: option.value,
+        };
+      }}
+    />
+  );
 };

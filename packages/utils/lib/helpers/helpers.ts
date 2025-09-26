@@ -12,6 +12,7 @@ import {
   Resource,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { patientScreeningQuestionsConfig } from '../configuration/questionnaire';
 import {
   allLicensesForPractitioner,
   CANDID_PLAN_TYPE_SYSTEM,
@@ -23,7 +24,10 @@ import {
   SLUG_SYSTEM,
 } from '../fhir';
 import {
+  appointmentTypeLabels,
+  appointmentTypeMap,
   CashPaymentDTO,
+  FhirAppointmentType,
   PatchPaperworkParameters,
   PractitionerQualificationCode,
   ScheduleOwnerFhirResource,
@@ -1001,35 +1005,48 @@ export function getConsentStepAnswers({
   };
 }
 
-export function getAdditionalQuestionsAnswers(): PatchPaperworkParameters['answers'] {
+export function getAdditionalQuestionsAnswers({
+  useRandomAnswers = false,
+}: {
+  useRandomAnswers?: boolean;
+} = {}): PatchPaperworkParameters['answers'] {
+  // Only generate answers for fields that exist in questionnaire
+  const questionnaireFields = patientScreeningQuestionsConfig.fields.filter((field) => field.existsInQuestionnaire);
+
   return {
     linkId: 'additional-page',
-    item: [
-      {
-        linkId: 'covid-symptoms',
-        answer: [
-          {
-            valueString: 'No',
-          },
-        ],
-      },
-      {
-        linkId: 'tested-positive-covid',
-        answer: [
-          {
-            valueString: 'Yes',
-          },
-        ],
-      },
-      {
-        linkId: 'travel-usa',
-        answer: [
-          {
-            valueString: 'No',
-          },
-        ],
-      },
-    ],
+    item: questionnaireFields.map((field, index) => {
+      switch (field.type) {
+        case 'radio': {
+          if (field.options && field.options.length !== 2) {
+            throw new Error(
+              'Only radio fields with 2 options are supported. No options found for field: ' + field.fhirField
+            );
+          }
+
+          const selectedOption = (() => {
+            if (useRandomAnswers) {
+              const randomIndex = Math.floor(Math.random() * field.options!.length);
+              return field.options?.[randomIndex];
+            }
+
+            const stableIndex = index % 2 === 1 ? 0 : 1;
+            return field.options?.[stableIndex];
+          })();
+
+          if (!selectedOption?.fhirValue) {
+            throw new Error('No options found for field: ' + field.fhirField);
+          }
+
+          return {
+            linkId: field.fhirField,
+            answer: [{ valueString: selectedOption.fhirValue }],
+          };
+        }
+        default:
+          throw Error('Only radio fields are supported. No options found for field: ' + field.fhirField);
+      }
+    }),
   };
 }
 
@@ -1177,6 +1194,30 @@ export function getPrimaryCarePhysicianStepAnswers({
   };
 }
 
+export function getPreferredPharmacyStepAnswers(): PatchPaperworkParameters['answers'] {
+  return {
+    linkId: 'pharmacy-page',
+    item: [
+      {
+        linkId: 'pharmacy-name',
+        answer: [
+          {
+            valueString: 'Test pharmacy',
+          },
+        ],
+      },
+      {
+        linkId: 'pharmacy-address',
+        answer: [
+          {
+            valueString: 'Test pharmacy address',
+          },
+        ],
+      },
+    ],
+  };
+}
+
 const cashPaymentDTOFromFhirPaymentNotice = (paymentNotice: PaymentNotice): CashPaymentDTO | undefined => {
   const { extension, amount, created, id } = paymentNotice;
 
@@ -1186,12 +1227,12 @@ const cashPaymentDTOFromFhirPaymentNotice = (paymentNotice: PaymentNotice): Cash
 
   const paymentMethod = extension.find((ext) => ext.url === PAYMENT_METHOD_EXTENSION_URL)?.valueString;
 
-  if (!paymentMethod || (paymentMethod !== 'cash' && paymentMethod !== 'check')) {
+  if (!paymentMethod || (paymentMethod !== 'cash' && paymentMethod !== 'check' && paymentMethod !== 'card-reader')) {
     return undefined;
   }
 
   return {
-    paymentMethod: paymentMethod as 'cash' | 'check',
+    paymentMethod: paymentMethod as 'cash' | 'check' | 'card-reader',
     amountInCents: Math.round(amount.value * 100),
     dateISO: created,
     fhirPaymentNotificationId: id,
@@ -1275,3 +1316,23 @@ export const getCandidPlanTypeCodeFromCoverage = (coverage: Coverage): NetworkTy
   }
   return coverageCandidTypeCode as NetworkType;
 };
+
+export function getAppointmentType(appointment: Appointment): { type: string } {
+  const appointmentTypeTags = appointment.meta?.tag?.filter((tag) => !!tag.code && tag.code in appointmentTypeMap);
+
+  if (appointmentTypeTags && appointmentTypeTags.length > 1) {
+    console.warn(
+      `[getAppointmentType] Multiple appointmentType tags found: ${appointmentTypeTags.map((t) => t.code).join(', ')}`
+    );
+  }
+
+  const appointmentTypeTag = appointmentTypeTags?.[0];
+  const baseType = appointmentTypeTag?.code ? appointmentTypeMap[appointmentTypeTag.code] : 'Unknown';
+
+  const subType =
+    appointment.appointmentType?.text && appointmentTypeLabels[appointment.appointmentType.text as FhirAppointmentType];
+
+  const type = subType ? `${baseType} ${subType}` : baseType;
+
+  return { type };
+}

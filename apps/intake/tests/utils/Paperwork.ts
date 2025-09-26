@@ -163,6 +163,7 @@ export class Paperwork {
     await this.locator.clickContinueButton();
     const pcpData = await this.fillPrimaryCarePhysician();
     await this.locator.clickContinueButton();
+    await this.locator.clickContinueButton(); // skip Preferred pharmacy page
     let insuranceData: {
       insuranceRequiredData: InsuranceRequiredData;
       insuranceOptionalData: InsuranceOptionalData;
@@ -250,6 +251,7 @@ export class Paperwork {
     await this.locator.clickContinueButton();
     const pcpData = await this.fillPrimaryCarePhysician();
     await this.locator.clickContinueButton();
+    await this.locator.clickContinueButton(); // skip Preferred pharmacy page
     const medicationData = await this.paperworkTelemed.fillAndCheckFilledCurrentMedications();
     await this.locator.clickContinueButton();
     const allergiesData = await this.paperworkTelemed.fillAndCheckFilledCurrentAllergies();
@@ -281,8 +283,7 @@ export class Paperwork {
     } else {
       await this.selectSelfPayPayment();
       await this.locator.clickContinueButton();
-      // Need to uncomment when https://github.com/masslight/ottehr/issues/2043 is fixed
-      //  await this.fillAndAddCreditCard();
+      await this.fillAndAddCreditCard();
     }
     await this.locator.clickContinueButton();
     let responsiblePartyData: ResponsibleParty | null = null;
@@ -353,6 +354,7 @@ export class Paperwork {
     await this.fillPatientDetailsTelemedAllFields();
     await this.locator.clickContinueButton();
     await this.skipPrimaryCarePhysician();
+    await this.skipPreferredPharmacy();
     await this.locator.clickContinueButton();
     await this.paperworkTelemed.fillAndCheckEmptyCurrentMedications();
     await this.locator.clickContinueButton();
@@ -365,6 +367,8 @@ export class Paperwork {
     await this.paperworkTelemed.fillAndCheckAdditionalQuestions();
     await this.locator.clickContinueButton();
     await this.selectSelfPayPayment();
+    await this.locator.clickContinueButton();
+    await this.fillAndAddCreditCard();
     await this.locator.clickContinueButton();
     await this.fillResponsiblePartyDataSelf();
     await this.locator.clickContinueButton();
@@ -384,6 +388,7 @@ export class Paperwork {
     await this.fillPatientDetailsRequiredFields();
     await this.locator.clickContinueButton();
     await this.skipPrimaryCarePhysician();
+    await this.skipPreferredPharmacy();
     await this.locator.clickContinueButton();
     await this.selectSelfPayPayment();
     await this.locator.clickContinueButton();
@@ -535,6 +540,9 @@ export class Paperwork {
     await this.locator.relayServiceNo.check();
   }
   async skipPrimaryCarePhysician(): Promise<void> {
+    await this.CommonLocatorsHelper.clickContinue();
+  }
+  async skipPreferredPharmacy(): Promise<void> {
     await this.CommonLocatorsHelper.clickContinue();
   }
   async fillPrimaryCarePhysician(): Promise<{

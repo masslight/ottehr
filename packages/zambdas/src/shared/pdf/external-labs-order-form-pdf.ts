@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { Address, Coverage, FhirResource, HumanName, RelatedPerson } from 'fhir/r4b';
 import { min } from 'lodash';
 import { DateTime } from 'luxon';
 import { BUCKET_NAMES, FHIR_IDENTIFIER_NPI, getFullestAvailableName, ORDER_ITEM_UNKNOWN, Secrets } from 'utils';
@@ -10,11 +11,12 @@ import { ICON_STYLE, STANDARD_NEW_LINE, SUB_HEADER_FONT_SIZE } from './pdf-const
 import {
   drawFieldLineBoldHeader,
   getPdfClientForLabsPDFs,
+  LabsPDFTextStyleConfig,
   PdfInfo,
   rgbNormalized,
   SEPARATED_LINE_STYLE as GREY_LINE_STYLE,
 } from './pdf-utils';
-import { ExternalLabOrderFormData, PdfClient } from './types';
+import { CoverageAndOrgForOrderForm, ExternalLabOrderFormData, OrderFormInsuranceInfo, PdfClient } from './types';
 
 async function uploadPDF(pdfBytes: Uint8Array, token: string, baseFileUrl: string): Promise<void> {
   const presignedUrl = await createPresignedUrl(token, baseFileUrl, 'upload');
@@ -148,13 +150,13 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabOrderFormDat
     yPosAtEndOfLocation = pdfClient.getY();
   }
 
-  // Order number, physician info (right column)
+  // Requisition number (aka order number), physician info (right column)
   // go back to where the location info started to start the right column of text
   pdfClient.setY(yPosAtStartOfLocation);
   console.log(
-    `Drawing order number, physician info right column. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. Current page index is ${pdfClient.getCurrentPageIndex()} out of ${pdfClient.getTotalPages()} pages.`
+    `Drawing requisition number, physician info right column. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. Current page index is ${pdfClient.getCurrentPageIndex()} out of ${pdfClient.getTotalPages()} pages.`
   );
-  let currXPos = pdfClient.drawStartXPosSpecifiedText('Order Number: ', textStyles.textBold, rightColumnXStart).endXPos;
+  let currXPos = pdfClient.drawStartXPosSpecifiedText('Req #: ', textStyles.textBold, rightColumnXStart).endXPos;
   // eslint-disable-next-line @typescript-eslint/no-unused-expressions
   pdfClient.drawStartXPosSpecifiedText(data.orderNumber, textStyles.text, currXPos).endXPos;
 
@@ -221,31 +223,17 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabOrderFormDat
   pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, 'Bill Class:', data.billClass);
   pdfClient.newLine(STANDARD_NEW_LINE);
 
-  if (data.primaryInsuranceName) {
-    pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, 'Primary Insurance Name:', data.primaryInsuranceName);
-    pdfClient.newLine(STANDARD_NEW_LINE);
+  if (data.insuranceDetails) {
+    // sort these by rank asc just to be sure
+    const sortedDetails = data.insuranceDetails.sort((a, b) => a.insuranceRank - b.insuranceRank);
+
+    for (const insuranceDetail of sortedDetails) {
+      pdfClient = drawInsuranceDetail(pdfClient, textStyles, insuranceDetail);
+    }
   }
-  if (data.primaryInsuranceAddress) {
-    pdfClient = drawFieldLineBoldHeader(
-      pdfClient,
-      textStyles,
-      'Insurance Address:',
-      data.primaryInsuranceAddress.toUpperCase()
-    );
-    pdfClient.newLine(STANDARD_NEW_LINE);
-  }
-  if (data.primaryInsuranceSubNum) {
-    pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, 'Subscriber Number:', data.primaryInsuranceSubNum);
-    pdfClient.newLine(STANDARD_NEW_LINE);
-  }
-  if (data.insuredName) {
-    pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, 'Insured Name:', data.insuredName);
-    pdfClient.newLine(STANDARD_NEW_LINE);
-  }
-  if (data.insuredAddress) {
-    pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, 'Address:', data.insuredAddress);
-    pdfClient.newLine(STANDARD_NEW_LINE);
-  }
+
+  // Test Details
+  console.log('Drawing test deails section');
   pdfClient.drawSeparatedLine(BLACK_LINE_STYLE);
   pdfClient.drawTextSequential('Labs', textStyles.header);
 
@@ -330,12 +318,12 @@ export function getOrderFormDataConfig(
     patient,
     timezone,
     location,
-    insuranceOrganization,
-    coverage,
     isManualOrder,
     isPscOrder,
+    coveragesAndOrgs,
   } = resources;
 
+  const coverage = coveragesAndOrgs?.length ? coveragesAndOrgs?.[0].coverage : undefined;
   // this is the same logic we use in oystehr to determine PV1-20
   const coverageType = coverage?.type?.coding?.[0]?.code; // assumption: we'll use the first code in the list
   const billClass = !coverage || coverageType === 'pay' ? 'Patient Bill (P)' : 'Third-Party Bill (T)';
@@ -368,17 +356,117 @@ export function getOrderFormDataConfig(
     dateIncludedInFileName: testDetails[0].serviceRequestCreatedDate,
     orderPriority: testDetails[0].testPriority || ORDER_ITEM_UNKNOWN, // used for file name
     billClass,
-    primaryInsuranceName: insuranceOrganization?.name,
-    primaryInsuranceAddress: insuranceOrganization?.address
-      ? oystehr.fhir.formatAddress(insuranceOrganization.address?.[0])
-      : undefined,
-    primaryInsuranceSubNum: coverage?.subscriberId,
-    insuredName: patient?.name ? oystehr.fhir.formatHumanName(patient.name[0]) : undefined,
-    insuredAddress: patient?.address ? oystehr.fhir.formatAddress(patient.address?.[0]) : undefined,
+    insuranceDetails: getInsuranceDetails(coveragesAndOrgs, oystehr),
     testDetails,
     isManualOrder,
     isPscOrder,
   };
 
   return dataConfig;
+}
+
+function getInsuranceDetails(
+  coveragesAndOrgs: CoverageAndOrgForOrderForm[] | undefined,
+  oystehr: Oystehr
+): OrderFormInsuranceInfo[] | undefined {
+  if (!coveragesAndOrgs || !coveragesAndOrgs.length) return undefined;
+
+  const insuranceInfo: OrderFormInsuranceInfo[] = [];
+  coveragesAndOrgs.forEach((covAndOrg) => {
+    const { coverage, insuranceOrganization, coverageRank } = covAndOrg;
+    const { insuredName, insuredAddress } = getInsuredInfoFromCoverageSubscriber(coverage);
+    insuranceInfo.push({
+      insuranceName: insuranceOrganization?.name,
+      insuranceAddress: insuranceOrganization?.address
+        ? oystehr.fhir.formatAddress(insuranceOrganization.address?.[0])
+        : undefined,
+      insuranceSubNum: coverage?.subscriberId,
+      insuredName: insuredName && insuredName.length ? oystehr.fhir.formatHumanName(insuredName[0]) : undefined,
+      insuredAddress:
+        insuredAddress && insuredAddress.length ? oystehr.fhir.formatAddress(insuredAddress[0]) : undefined,
+      insuranceRank: coverageRank,
+    });
+  });
+
+  return insuranceInfo;
+}
+
+function getInsuredInfoFromCoverageSubscriber(coverage: Coverage): {
+  insuredName: HumanName[] | undefined;
+  insuredAddress: Address[] | undefined;
+} {
+  const subscriberRef = coverage.subscriber?.reference;
+  console.log(`subscriberRef for Coverage/${coverage.id} is: ${subscriberRef}`);
+
+  const emptyResponse = { insuredName: undefined, insuredAddress: undefined };
+  // for the moment always assume we're going to get the subscriber as a contained resource
+  if (!subscriberRef || !subscriberRef.startsWith('#')) return emptyResponse;
+
+  // also going to assume the subscriber is only a RelatedPerson
+  const subscriber = (coverage.contained as FhirResource[]).find(
+    (cont: FhirResource): cont is RelatedPerson =>
+      cont.resourceType === 'RelatedPerson' && cont.id === subscriberRef.replace('#', '')
+  );
+
+  console.log(`subscriber resource for Coverage/${coverage.id} is: ${JSON.stringify(subscriber)}`);
+  if (!subscriber) return emptyResponse;
+
+  return {
+    insuredName: subscriber.name,
+    insuredAddress: subscriber.address,
+  };
+}
+
+function drawInsuranceDetail(
+  pdfClient: PdfClient,
+  textStyles: LabsPDFTextStyleConfig,
+  insuranceDetail: OrderFormInsuranceInfo
+): PdfClient {
+  const { insuranceRank, insuredName, insuredAddress, insuranceName, insuranceAddress, insuranceSubNum } =
+    insuranceDetail;
+
+  const rankToLabel = (rank: number | undefined): string => {
+    switch (rank) {
+      case 1:
+        return 'Primary';
+      case 2:
+        return 'Secondary';
+      case 3:
+        return 'Terciary';
+      default:
+        return 'Additional';
+    }
+  };
+
+  if (insuranceName) {
+    pdfClient = drawFieldLineBoldHeader(
+      pdfClient,
+      textStyles,
+      `${rankToLabel(insuranceRank)} Insurance Name:`,
+      insuranceName
+    );
+    pdfClient.newLine(STANDARD_NEW_LINE);
+  }
+  if (insuranceAddress) {
+    pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, 'Insurance Address:', insuranceAddress.toUpperCase());
+    pdfClient.newLine(STANDARD_NEW_LINE);
+  }
+  if (insuranceSubNum) {
+    pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, 'Subscriber Number:', insuranceSubNum);
+    pdfClient.newLine(STANDARD_NEW_LINE);
+  }
+  if (insuredName) {
+    pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, 'Insured Name:', insuredName);
+    pdfClient.newLine(STANDARD_NEW_LINE);
+  }
+  if (insuredAddress) {
+    pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, 'Address:', insuredAddress);
+    pdfClient.newLine(STANDARD_NEW_LINE);
+  }
+
+  if (insuredName || insuredAddress || insuranceName || insuranceAddress || insuranceSubNum) {
+    pdfClient.newLine(STANDARD_NEW_LINE);
+  }
+
+  return pdfClient;
 }

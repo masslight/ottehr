@@ -138,6 +138,13 @@ export const OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY = {
 };
 export const OYSTEHR_OBR_NOTE_CODING_SYSTEM = 'https://identifiers.fhir.oystehr.com/obr-note';
 
+export const OYSTEHR_LAB_DOC_CATEGORY_SYSTEM = 'https://terminology.fhir.oystehr.com/CodeSystem/lab-documents';
+export const OYSTEHR_LAB_DOC_CATEGORY_CODING = {
+  system: OYSTEHR_LAB_DOC_CATEGORY_SYSTEM,
+  code: 'abn-document',
+  display: 'Lab ABN Document',
+};
+
 // Oystehr Labs APIs
 export const OYSTEHR_LAB_API_BASE = 'https://labs-api.zapehr.com/v1';
 
