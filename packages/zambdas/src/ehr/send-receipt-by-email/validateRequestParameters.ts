@@ -11,7 +11,7 @@ export function validateRequestParameters(
   if (!input.body) throw MISSING_REQUEST_BODY;
 
   const data = JSON.parse(input.body);
-  const { recipientFullName, email, subject, receiptDocRefId } = SendReceiptByEmailZambdaInputSchema.parse(data);
+  const { recipientFullName, email, receiptDocRefId } = SendReceiptByEmailZambdaInputSchema.parse(data);
 
-  return { recipientFullName, email, subject, receiptDocRefId, secrets: input.secrets };
+  return { recipientFullName, email, receiptDocRefId, secrets: input.secrets };
 }
