@@ -330,6 +330,7 @@ const processPaperwork = async (
           }),
           getPatientDetailsStepAnswers({}),
           getPrimaryCarePhysicianStepAnswers({}),
+          getPreferredPharmacyStepAnswers(),
           getPaymentOptionSelfPayAnswers(),
           getResponsiblePartyStepAnswers({}),
           getConsentStepAnswers({}),
