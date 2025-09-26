@@ -2,13 +2,13 @@ import { Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { CssHeader } from 'tests/e2e/page/CssHeader';
 import { openInPersonProgressNotePage } from 'tests/e2e/page/in-person/InPersonProgressNotePage';
+import { MedicalConditionsPage } from 'tests/e2e/page/MedicalConditionsPage';
 import { SideMenu } from 'tests/e2e/page/SideMenu';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
-import { AllergiesPage } from '../../page/in-person/AllergiesPage';
 
-const PROCESS_ID = `allergies.spec.ts-${DateTime.now().toMillis()}`;
+const PROCESS_ID = `medicalConditions.spec.ts-${DateTime.now().toMillis()}`;
 const resourceHandler = new ResourceHandler(PROCESS_ID, 'in-person');
-const ALLERGY = 'Aspirin';
+const MEDICAL_CONDITION = 'Paratyphoid fever A';
 
 test.beforeAll(async () => {
   if (process.env.INTEGRATION_TEST === 'true') {
@@ -23,39 +23,33 @@ test.afterAll(async () => {
   await resourceHandler.cleanupResources();
 });
 
-test('ALG-1 Allergies. Happy Path', async ({ page }) => {
-  const allergyPage = await prepareAndOpenAllergies(page);
-  await test.step('ALG-1.1 Open Allergies page and Add allergy', async () => {
-    await allergyPage.addAllergy(ALLERGY);
+test('MC-1 Medical Conditions. Happy Path', async ({ page }) => {
+  const medicalConditionsPage = await prepareAndOpenMedicalConditions(page);
+  await test.step('MC-1.1 Open Medical Conditions page and Add Medical Condition', async () => {
+    await medicalConditionsPage.addAMedicalCondition(MEDICAL_CONDITION);
   });
-  await test.step('ALG-1.2 Check added allergy is shown in CSS header', async () => {
-    await allergyPage.checkAddedAllergyIsShownInHeader(ALLERGY);
-  });
-  await test.step('ALG-1.3 Verify Progress Note shows Allergy', async () => {
+  await test.step('MC-1.2 Verify Progress Note shows Medical Condition', async () => {
     const progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
-    await progressNotePage.verifyAddedAllergyIsShown(ALLERGY);
+    await progressNotePage.verifyAddedMedicalConditionIsShown(MEDICAL_CONDITION);
   });
-  await test.step('ALG-1.4 Open Allergies page and Remove allergy', async () => {
+  await test.step('MC-1.3 Open Medical Conditions page and Remove Medical Condition', async () => {
     const sideMenu = new SideMenu(page);
-    await sideMenu.clickAllergies();
-    await allergyPage.removeAllergy();
+    await sideMenu.clickMedicalConditions();
+    await medicalConditionsPage.removeMedicalCondition();
   });
-  await test.step('ALG-1.5 Check removed allergy is not shown in CSS header', async () => {
-    await allergyPage.checkRemovedAllergyIsNotShownInHeader(ALLERGY);
-  });
-  await test.step('ALG-1.6 Verify Progress Note does not show removed Allergy', async () => {
+  await test.step('MC-1.4 Verify Progress Note does not show removed Medical Condition', async () => {
     const progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
-    await progressNotePage.verifyRemovedAllergyIsNotShown(ALLERGY);
+    await progressNotePage.verifyRemovedMedicalConditionIsNotShown(MEDICAL_CONDITION);
   });
 });
 
-async function prepareAndOpenAllergies(page: Page): Promise<AllergiesPage> {
+async function prepareAndOpenMedicalConditions(page: Page): Promise<MedicalConditionsPage> {
   await page.goto(`in-person/${resourceHandler.appointment.id}`);
   const cssHeader = new CssHeader(page);
   await cssHeader.selectIntakePractitioner();
   await cssHeader.selectProviderPractitioner();
   await cssHeader.clickSwitchModeButton('provider');
   const sideMenu = new SideMenu(page);
-  const allergiesPage = await sideMenu.clickAllergies();
-  return allergiesPage;
+  const medicalConditionsPage = await sideMenu.clickMedicalConditions();
+  return medicalConditionsPage;
 }
