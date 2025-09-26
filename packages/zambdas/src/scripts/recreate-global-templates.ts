@@ -55,7 +55,7 @@ const recreateGlobalTemplates = async (config: any): Promise<void> => {
 
   console.log('\n--------- Creating new global template holder ---------\n');
 
-  const newGlobalTemplateResource = globalTemplateHolderJSON.fhirResources.GlobalTemplatesHolderList;
+  const newGlobalTemplateResource = globalTemplateHolderJSON.fhirResources.GlobalTemplatesHolderList.resource;
   newGlobalTemplateResource.entry = newTemplateIds.map((id: string) => ({ item: { reference: `List/${id}` } }));
   const globalTemplateHolder = await oystehr.fhir.create(newGlobalTemplateResource as List);
   console.log('All done! global template holder for validation, ', JSON.stringify(globalTemplateHolder, null, 2));
