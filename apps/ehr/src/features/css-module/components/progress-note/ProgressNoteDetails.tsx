@@ -23,7 +23,6 @@ import {
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import {
   AccordionCard,
-  ConfirmationDialog,
   SectionList,
   useAppointmentData,
   useChangeTelemedAppointmentStatusMutation,
@@ -249,22 +248,9 @@ export const ProgressNoteDetails: FC = () => {
                 <Typography color={otherColors.warningText} fontWeight={600}>
                   Medical History should be confirmed by the provider
                 </Typography>
-                <ConfirmationDialog
-                  title="Supervisor Approval"
-                  description={'Are you sure you want to approve this visit? Claim will be sent to RCM.'}
-                  response={handleApprove}
-                  actionButtons={{
-                    back: { text: 'Cancel' },
-                    proceed: { text: 'Approve', loading: isLoading },
-                    reverse: true,
-                  }}
-                >
-                  {(showDialog) => (
-                    <RoundedButton variant="contained" size="small" onClick={showDialog}>
-                      Confirm
-                    </RoundedButton>
-                  )}
-                </ConfirmationDialog>
+                <RoundedButton variant="contained" size="small" onClick={handleApprove} loading={isLoading}>
+                  Approve
+                </RoundedButton>
               </Box>
 
               <SectionList sections={medicalHistorySections} />
