@@ -7,6 +7,7 @@
     "start": "vite --mode ${ENV:-default}",
     "start:local": "ENV=default npm run start",
     "start:demo": "ENV=demo npm run start",
+    "start:labcorp": "ENV=labcorp-local npm run start",
     "start:iac": "vite --mode ${ENV:-default}",
     "start:local:iac": "ENV=default npm run start:iac",
     "start:demo:iac": "ENV=demo npm run start:iac",
