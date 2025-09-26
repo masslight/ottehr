@@ -252,7 +252,7 @@ const AddMedicalConditionField: FC = () => {
 
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
-  const { isFetching: isSearching, data, isLoading: isNlmLoading } = useICD10SearchNew({ search: debouncedSearchTerm });
+  const { isFetching: isSearching, data } = useICD10SearchNew({ search: debouncedSearchTerm });
   const icdSearchOptions = data?.codes || [];
 
   const debouncedHandleInputChange = useMemo(
@@ -285,7 +285,7 @@ const AddMedicalConditionField: FC = () => {
     window.open('https://docs.oystehr.com/ottehr/setup/terminology/', '_blank');
   };
 
-  if (isChartDataLoading || isNlmLoading) {
+  if (isChartDataLoading) {
     return <Skeleton variant="rectangular" width="100%" height={56} />;
   }
 
@@ -317,6 +317,7 @@ const AddMedicalConditionField: FC = () => {
             fullWidth
             size="small"
             loading={isSearching}
+            loadingText={'Loading...'}
             blurOnSelect
             disabled={isChartDataLoading || isLoading}
             options={icdSearchOptions}
