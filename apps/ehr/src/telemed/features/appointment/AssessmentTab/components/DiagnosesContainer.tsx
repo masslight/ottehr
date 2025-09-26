@@ -1,6 +1,6 @@
 import { otherColors } from '@ehrTheme/colors';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import { Box, Button, Typography } from '@mui/material';
+import { Box, Button, CircularProgress, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC } from 'react';
 import { APIErrorCode, DIAGNOSIS_MAKE_PRIMARY_BUTTON, DiagnosisDTO, IcdSearchResponse } from 'utils';
@@ -19,7 +19,7 @@ export const DiagnosesContainer: FC = () => {
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
   const { mutateAsync: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
-  const { error: icdSearchError } = useICD10SearchNew({ search: 'E11' });
+  const { error: icdSearchError, isLoading: isNlmLoading } = useICD10SearchNew({ search: 'E11' });
 
   const nlmApiKeyMissing = (icdSearchError as any)?.code === APIErrorCode.MISSING_NLM_API_KEY_ERROR;
 
@@ -183,8 +183,7 @@ export const DiagnosesContainer: FC = () => {
       </Box>
 
       {isReadOnly && diagnoses.length === 0 && <Typography color="secondary.light">Not provided</Typography>}
-
-      {nlmApiKeyMissing && <CompleteConfiguration handleSetup={handleSetup} />}
+      {isNlmLoading ? <CircularProgress /> : nlmApiKeyMissing && <CompleteConfiguration handleSetup={handleSetup} />}
 
       {primaryDiagnosis && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
