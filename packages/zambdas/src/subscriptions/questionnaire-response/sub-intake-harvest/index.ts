@@ -18,7 +18,9 @@ import {
   getRelatedPersonForPatient,
   getSecret,
   IntakeQuestionnaireItem,
+  PaymentVariant,
   SecretsKeys,
+  updateEncounterPaymentVariantExtension,
 } from 'utils';
 import {
   createConsentResources,
@@ -220,6 +222,35 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     } catch (error: unknown) {
       tasksFailed.push('flag paperwork edit');
       console.log(`Failed to update flag paperwork edit: ${error}`);
+    }
+  }
+
+  if (qr.status === 'completed') {
+    try {
+      console.log('adding payment variant extension to encounter');
+      const paymentOption = flattenedPaperwork.find(
+        (response: QuestionnaireResponseItem) => response.linkId === 'payment-option'
+      )?.answer?.[0]?.valueString;
+      const patientSelectSelfPay = paymentOption === 'I will pay without insurance';
+      const updatedEncounter = updateEncounterPaymentVariantExtension(
+        encounterResource,
+        patientSelectSelfPay ? PaymentVariant.selfPay : PaymentVariant.insurance
+      );
+      await oystehr.fhir.patch<Encounter>({
+        id: encounterResource.id,
+        resourceType: 'Encounter',
+        operations: [
+          {
+            op: encounterResource.extension !== undefined ? 'replace' : 'add',
+            path: '/extension',
+            value: updatedEncounter.extension,
+          },
+        ],
+      });
+      console.log('payment variant extension added to encounter');
+    } catch (error: unknown) {
+      tasksFailed.push('add payment variant extension to encounter');
+      console.log(`Failed to add payment variant extension to encounter: ${error}`);
     }
   }
 
