@@ -29,7 +29,8 @@ const writeQuestionnaires = async (envConfig: any, env: string): Promise<void> =
           }
 
           return await Promise.all(
-            (Object.values(questionnaires) as Questionnaire[]).map(async (questionnaire: Questionnaire) => {
+            (Object.values(questionnaires) as Questionnaire[]).map(async (resourceHolder: any) => {
+              const questionnaire: Questionnaire = resourceHolder.resource;
               if (!questionnaire.url || !questionnaire.version) {
                 throw new Error(`Questionnaire missing url or version in file ${file}`);
               }
