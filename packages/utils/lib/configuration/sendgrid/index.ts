@@ -73,7 +73,7 @@ const SENDGRID_DEFAULTS = Object.freeze({
       templateVersionName: '1.0.0',
       active: true,
       htmlFilePath: `${PATH_PREFIX}/configuration/sendgrid/template_html/in-person-receipt.html`,
-      subject: 'Receipt for Visit on {{date}}',
+      subject: 'Receipt for {{branding.projectName}} Visit on {{date}}',
       templateIdSecretName: 'SENDGRID_IN_PERSON_RECEIPT_TEMPLATE_ID',
       dynamicTemplateData: ['recipient-name', 'date'],
       supportsAttachments: true,

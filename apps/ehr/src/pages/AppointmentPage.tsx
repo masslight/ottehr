@@ -1475,7 +1475,7 @@ export default function AppointmentPage(): ReactElement {
                     loading={loading}
                     encounterId={encounter.id ?? ''}
                     responsibleParty={{
-                      fullName: getAnswerStringFor('responsible-party-number', flattenedItems),
+                      fullName: fullNameResponsiblePartyString,
                       email: getAnswerStringFor('responsible-party-email', flattenedItems),
                     }}
                   />
