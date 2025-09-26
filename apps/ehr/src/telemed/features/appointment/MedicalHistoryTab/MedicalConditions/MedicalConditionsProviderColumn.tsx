@@ -7,6 +7,7 @@ import {
   debounce,
   Divider,
   FormControlLabel,
+  Skeleton,
   Switch,
   TextField,
   Typography,
@@ -284,6 +285,10 @@ const AddMedicalConditionField: FC = () => {
     window.open('https://docs.oystehr.com/ottehr/setup/terminology/', '_blank');
   };
 
+  if (isChartDataLoading) {
+    return <Skeleton variant="rectangular" width="100%" height={56} />;
+  }
+
   return (
     <Card
       elevation={0}
@@ -312,6 +317,7 @@ const AddMedicalConditionField: FC = () => {
             fullWidth
             size="small"
             loading={isSearching}
+            loadingText={'Loading...'}
             blurOnSelect
             disabled={isChartDataLoading || isLoading}
             options={icdSearchOptions}

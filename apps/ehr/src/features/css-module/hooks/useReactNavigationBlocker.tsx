@@ -6,23 +6,31 @@ type CSSModalProps =
   | Partial<Omit<React.ComponentProps<typeof CSSModal>, 'handleConfirm' | 'open' | 'handleClose'>>
   | undefined;
 
+type Options = {
+  interceptNavigation?: boolean;
+};
+
 export const useReactNavigationBlocker = (
   shouldBlock: () => boolean,
-  modalText = 'You have unsaved changes that will be lost if you leave this page.'
-): { ConfirmationModal: React.FC<CSSModalProps> } => {
+  modalText = 'You have unsaved changes that will be lost if you leave this page.',
+  options?: Options
+): {
+  ConfirmationModal: React.FC<CSSModalProps>;
+  requestConfirmation: () => Promise<boolean>;
+} => {
+  const { interceptNavigation = true } = options ?? {};
+
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const resolveRef = useRef<((value: unknown) => void) | null>(null);
+  const resolveRef = useRef<((value: boolean) => void) | null>(null);
 
   const navigate = useNavigate();
   const location = useLocation();
   const navigationContext = React.useContext(UNSAFE_NavigationContext);
   const lastLocationRef = useRef(location);
 
-  const showConfirmDialog = useCallback(() => {
-    if (!shouldBlock()) {
-      return Promise.resolve(true);
-    }
-    return new Promise((resolve) => {
+  const requestConfirmation = useCallback((): Promise<boolean> => {
+    if (!shouldBlock()) return Promise.resolve(true);
+    return new Promise<boolean>((resolve) => {
       setIsModalOpen(true);
       resolveRef.current = resolve;
     });
@@ -31,43 +39,43 @@ export const useReactNavigationBlocker = (
   const handleConfirm = useCallback(() => {
     setIsModalOpen(false);
     resolveRef.current?.(false);
+    resolveRef.current = null;
   }, []);
 
   const handleClose = useCallback(() => {
     setIsModalOpen(false);
     resolveRef.current?.(true);
+    resolveRef.current = null;
   }, []);
 
   useEffect(() => {
-    if (!shouldBlock()) return;
+    if (!interceptNavigation || !shouldBlock()) return;
 
     const originalPush = navigationContext.navigator.push;
     const originalReplace = navigationContext.navigator.replace;
 
     navigationContext.navigator.push = async (to, state) => {
-      const canProceed = await showConfirmDialog();
-      if (canProceed) {
-        originalPush(to, state);
-      }
+      const canProceed = await requestConfirmation();
+      if (canProceed) originalPush(to, state);
     };
 
     navigationContext.navigator.replace = async (to, state) => {
-      const canProceed = await showConfirmDialog();
-      if (canProceed) {
-        originalReplace(to, state);
-      }
+      const canProceed = await requestConfirmation();
+      if (canProceed) originalReplace(to, state);
     };
 
     return () => {
       navigationContext.navigator.push = originalPush;
       navigationContext.navigator.replace = originalReplace;
     };
-  }, [navigationContext, shouldBlock, showConfirmDialog]);
+  }, [navigationContext, interceptNavigation, shouldBlock, requestConfirmation]);
 
   useEffect(() => {
+    if (!interceptNavigation) return;
+
     if (location !== lastLocationRef.current && shouldBlock()) {
       const checkNavigation = async (): Promise<void> => {
-        const canProceed = await showConfirmDialog();
+        const canProceed = await requestConfirmation();
         if (!canProceed) {
           navigate(lastLocationRef.current, { replace: true });
         } else {
@@ -78,21 +86,30 @@ export const useReactNavigationBlocker = (
     } else {
       lastLocationRef.current = location;
     }
-  }, [location, navigate, shouldBlock, showConfirmDialog]);
+  }, [location, navigate, interceptNavigation, shouldBlock, requestConfirmation]);
 
-  const ConfirmationModal = (props?: CSSModalProps): React.ReactElement => (
-    <CSSModal
-      open={isModalOpen}
-      handleClose={handleClose}
-      title="Confirmation Required"
-      description={modalText}
-      handleConfirm={handleConfirm}
-      confirmText="Continue edit"
-      closeButtonText="Leave"
-      closeButton={false}
-      {...props}
-    />
-  );
+  const ConfirmationModal: React.FC<CSSModalProps> = (props) => {
+    const {
+      title = 'Confirmation Required',
+      confirmText = 'Continue edit',
+      closeButtonText = 'Leave',
+      ...rest
+    } = props ?? {};
 
-  return { ConfirmationModal };
+    return (
+      <CSSModal
+        open={isModalOpen}
+        handleClose={handleClose}
+        title={title}
+        description={modalText}
+        handleConfirm={handleConfirm}
+        confirmText={confirmText}
+        closeButtonText={closeButtonText}
+        closeButton={false}
+        {...rest}
+      />
+    );
+  };
+
+  return { ConfirmationModal, requestConfirmation };
 };

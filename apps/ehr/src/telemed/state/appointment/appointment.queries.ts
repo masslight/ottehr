@@ -21,6 +21,7 @@ import { enqueueSnackbar } from 'notistack';
 import { useEffect } from 'react';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import {
+  APIError,
   CancelMatchUnsolicitedResultTask,
   createSmsModel,
   filterResources,
@@ -508,7 +509,7 @@ export const useGetIcd10Search = ({
   search,
   sabs,
   radiologyOnly,
-}: IcdSearchRequestParams): UseQueryResult<IcdSearchResponse | undefined, Error> => {
+}: IcdSearchRequestParams): UseQueryResult<IcdSearchResponse | undefined, APIError> => {
   const apiClient = useOystehrAPIClient();
 
   const queryResult = useQuery({
