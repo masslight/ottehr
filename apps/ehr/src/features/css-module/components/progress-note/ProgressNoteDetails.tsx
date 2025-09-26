@@ -3,6 +3,8 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { Box, Divider, Stack, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { FC } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ApptTab } from 'src/components/AppointmentTabs';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { isEligibleSupervisor } from 'src/helpers';
@@ -21,14 +23,13 @@ import {
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import {
   AccordionCard,
-  ConfirmationDialog,
   SectionList,
   useAppointmentData,
   useChangeTelemedAppointmentStatusMutation,
+  useChartData,
   usePatientInstructionsVisibility,
   useSignAppointmentMutation,
 } from '../../../../telemed';
-import { useChartData } from '../../../../telemed';
 import {
   AdditionalQuestionsContainer,
   AllergiesContainer,
@@ -55,7 +56,7 @@ import { InHouseMedicationsContainer } from './InHouseMedicationsContainer';
 import { PatientVitalsContainer } from './PatientVitalsContainer';
 
 export const ProgressNoteDetails: FC = () => {
-  const { appointment, encounter, appointmentRefetch, appointmentSetState, location } = useAppointmentData();
+  const { appointment, encounter, appointmentSetState, location } = useAppointmentData();
   const apiClient = useOystehrAPIClient();
   const { css } = useFeatureFlags();
   const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
@@ -63,6 +64,7 @@ export const ProgressNoteDetails: FC = () => {
     useChangeTelemedAppointmentStatusMutation();
   const isLoading = isChangeLoading || isSignLoading;
   const user = useEvolveUser();
+  const navigate = useNavigate();
 
   const { chartData } = useChartData();
 
@@ -204,7 +206,7 @@ export const ProgressNoteDetails: FC = () => {
         timezone: tz,
         supervisorApprovalEnabled: FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED,
       });
-      await appointmentRefetch();
+      navigate('/visits', { state: { tab: ApptTab.completed } });
     } else {
       await changeTelemedAppointmentStatus({
         apiClient,
@@ -256,22 +258,9 @@ export const ProgressNoteDetails: FC = () => {
                 <Typography color={otherColors.warningText} fontWeight={600}>
                   Medical History should be confirmed by the provider
                 </Typography>
-                <ConfirmationDialog
-                  title="Supervisor Approval"
-                  description={'Are you sure you want to approve this visit? Claim will be sent to RCM.'}
-                  response={handleApprove}
-                  actionButtons={{
-                    back: { text: 'Cancel' },
-                    proceed: { text: 'Approve', loading: isLoading },
-                    reverse: true,
-                  }}
-                >
-                  {(showDialog) => (
-                    <RoundedButton variant="contained" size="small" onClick={showDialog}>
-                      Confirm
-                    </RoundedButton>
-                  )}
-                </ConfirmationDialog>
+                <RoundedButton variant="contained" size="small" onClick={handleApprove} loading={isLoading}>
+                  Approve
+                </RoundedButton>
               </Box>
 
               <SectionList sections={medicalHistorySections} />

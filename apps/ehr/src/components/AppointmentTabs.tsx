@@ -4,6 +4,7 @@ import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Grid, Tab, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import React, { ReactElement, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 import { InPersonAppointmentInformation, OrdersForTrackingBoardTable } from 'utils';
 import { dataTestIds } from '../constants/data-test-ids';
@@ -44,7 +45,10 @@ export default function AppointmentTabs({
   setEditingComment,
   orders,
 }: AppointmentsTabProps): ReactElement {
-  const [value, setValue] = useState<ApptTab>(ApptTab['in-office']);
+  const routeLocation = useLocation();
+  const initialTab = (routeLocation.state?.tab as ApptTab) || ApptTab['in-office'];
+
+  const [value, setValue] = useState<ApptTab>(initialTab);
   const [now, setNow] = useState<DateTime>(DateTime.now());
 
   const handleChange = (event: any, newValue: ApptTab): any => {
