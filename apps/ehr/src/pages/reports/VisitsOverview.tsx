@@ -15,10 +15,24 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import {
+  CategoryScale,
+  Chart as ChartJS,
+  Legend,
+  LinearScale,
+  LineElement,
+  PointElement,
+  Title,
+  Tooltip,
+} from 'chart.js';
 import { DateTime } from 'luxon';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Line } from 'react-chartjs-2';
 import { useNavigate } from 'react-router-dom';
 import type { VisitsOverviewReportZambdaOutput } from 'utils';
+
+// Register ChartJS components
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 import { getVisitsOverviewReport } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';
@@ -31,52 +45,65 @@ export default function VisitsOverview(): React.ReactElement {
   const [reportData, setReportData] = useState<VisitsOverviewReportZambdaOutput | null>(null);
   const [dateFilter, setDateFilter] = useState<string>('today');
   const [customDate, setCustomDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
+  const [customStartDate, setCustomStartDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
+  const [customEndDate, setCustomEndDate] = useState<string>(DateTime.now().toFormat('yyyy-MM-dd'));
 
   const handleBack = (): void => {
     navigate('/reports');
   };
 
-  const getDateRange = useCallback((filter: string, selectedDate?: string): { start: string; end: string } => {
-    const now = DateTime.now().setZone('America/New_York');
+  const getDateRange = useCallback(
+    (filter: string, selectedDate?: string): { start: string; end: string } => {
+      const now = DateTime.now().setZone('America/New_York');
 
-    switch (filter) {
-      case 'today':
-        return {
-          start: now.startOf('day').toISO() ?? '',
-          end: now.endOf('day').toISO() ?? '',
-        };
-      case 'yesterday': {
-        const yesterday = now.minus({ days: 1 });
-        return {
-          start: yesterday.startOf('day').toISO() ?? '',
-          end: yesterday.endOf('day').toISO() ?? '',
-        };
+      switch (filter) {
+        case 'today':
+          return {
+            start: now.startOf('day').toISO() ?? '',
+            end: now.endOf('day').toISO() ?? '',
+          };
+        case 'yesterday': {
+          const yesterday = now.minus({ days: 1 });
+          return {
+            start: yesterday.startOf('day').toISO() ?? '',
+            end: yesterday.endOf('day').toISO() ?? '',
+          };
+        }
+        case 'last7days':
+          return {
+            start: now.minus({ days: 6 }).startOf('day').toISO() ?? '',
+            end: now.endOf('day').toISO() ?? '',
+          };
+        case 'last30days':
+          return {
+            start: now.minus({ days: 29 }).startOf('day').toISO() ?? '',
+            end: now.endOf('day').toISO() ?? '',
+          };
+        case 'custom': {
+          if (!selectedDate) return { start: '', end: '' };
+          const customDateTime = DateTime.fromISO(selectedDate).setZone('America/New_York');
+          return {
+            start: customDateTime.startOf('day').toISO() ?? '',
+            end: customDateTime.endOf('day').toISO() ?? '',
+          };
+        }
+        case 'customRange': {
+          const startDateTime = DateTime.fromISO(customStartDate).setZone('America/New_York');
+          const endDateTime = DateTime.fromISO(customEndDate).setZone('America/New_York');
+          return {
+            start: startDateTime.startOf('day').toISO() ?? '',
+            end: endDateTime.endOf('day').toISO() ?? '',
+          };
+        }
+        default:
+          return {
+            start: now.startOf('day').toISO() ?? '',
+            end: now.endOf('day').toISO() ?? '',
+          };
       }
-      case 'last7days':
-        return {
-          start: now.minus({ days: 6 }).startOf('day').toISO() ?? '',
-          end: now.endOf('day').toISO() ?? '',
-        };
-      case 'last30days':
-        return {
-          start: now.minus({ days: 29 }).startOf('day').toISO() ?? '',
-          end: now.endOf('day').toISO() ?? '',
-        };
-      case 'custom': {
-        if (!selectedDate) return { start: '', end: '' };
-        const customDateTime = DateTime.fromISO(selectedDate).setZone('America/New_York');
-        return {
-          start: customDateTime.startOf('day').toISO() ?? '',
-          end: customDateTime.endOf('day').toISO() ?? '',
-        };
-      }
-      default:
-        return {
-          start: now.startOf('day').toISO() ?? '',
-          end: now.endOf('day').toISO() ?? '',
-        };
-    }
-  }, []);
+    },
+    [customStartDate, customEndDate]
+  );
 
   const fetchReport = useCallback(
     async (filter: string): Promise<void> => {
@@ -106,7 +133,7 @@ export default function VisitsOverview(): React.ReactElement {
 
   useEffect(() => {
     void fetchReport(dateFilter);
-  }, [dateFilter, fetchReport, customDate]);
+  }, [dateFilter, fetchReport, customDate, customStartDate, customEndDate]);
 
   const handleDateFilterChange = (event: any): void => {
     const newFilter = event.target.value;
@@ -122,22 +149,45 @@ export default function VisitsOverview(): React.ReactElement {
     }
   };
 
-  const getDateRangeLabel = (filter: string): string => {
-    switch (filter) {
-      case 'today':
-        return 'Today';
-      case 'yesterday':
-        return 'Yesterday';
-      case 'last7days':
-        return 'Last 7 days';
-      case 'last30days':
-        return 'Last 30 days';
-      case 'custom':
-        return `Custom date (${DateTime.fromISO(customDate).toFormat('MMM dd, yyyy')})`;
-      default:
-        return 'Today';
+  const handleCustomStartDateChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
+    const newDate = event.target.value;
+    setCustomStartDate(newDate);
+    if (dateFilter === 'customRange') {
+      void fetchReport('customRange');
     }
   };
+
+  const handleCustomEndDateChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
+    const newDate = event.target.value;
+    setCustomEndDate(newDate);
+    if (dateFilter === 'customRange') {
+      void fetchReport('customRange');
+    }
+  };
+
+  const getDateRangeLabel = useCallback(
+    (filter: string): string => {
+      switch (filter) {
+        case 'today':
+          return 'Today';
+        case 'yesterday':
+          return 'Yesterday';
+        case 'last7days':
+          return 'Last 7 days';
+        case 'last30days':
+          return 'Last 30 days';
+        case 'custom':
+          return `Custom date (${DateTime.fromISO(customDate).toFormat('MMM dd, yyyy')})`;
+        case 'customRange':
+          return `Custom range (${DateTime.fromISO(customStartDate).toFormat('MMM dd')} - ${DateTime.fromISO(
+            customEndDate
+          ).toFormat('MMM dd, yyyy')})`;
+        default:
+          return 'Today';
+      }
+    },
+    [customDate, customStartDate, customEndDate]
+  );
 
   // Prepare statistics data
   const statisticsData = useMemo(() => {
@@ -147,6 +197,73 @@ export default function VisitsOverview(): React.ReactElement {
       .filter((type) => type.count > 0) // Only show types that have appointments
       .sort((a, b) => b.count - a.count); // Sort by count descending
   }, [reportData]);
+
+  // Prepare chart data
+  const chartData = useMemo(() => {
+    if (!reportData || !reportData.dailyVisits.length) {
+      return {
+        labels: [],
+        datasets: [],
+      };
+    }
+
+    const labels = reportData.dailyVisits.map((day) => DateTime.fromISO(day.date).toFormat('MMM dd'));
+
+    return {
+      labels,
+      datasets: [
+        {
+          label: 'In-Person',
+          data: reportData.dailyVisits.map((day) => day.inPerson),
+          borderColor: 'rgb(53, 162, 235)',
+          backgroundColor: 'rgba(53, 162, 235, 0.2)',
+          borderWidth: 2,
+          fill: false,
+        },
+        {
+          label: 'Telemed',
+          data: reportData.dailyVisits.map((day) => day.telemed),
+          borderColor: 'rgb(255, 99, 132)',
+          backgroundColor: 'rgba(255, 99, 132, 0.2)',
+          borderWidth: 2,
+          fill: false,
+        },
+        {
+          label: 'Unknown',
+          data: reportData.dailyVisits.map((day) => day.unknown),
+          borderColor: 'rgb(255, 205, 86)',
+          backgroundColor: 'rgba(255, 205, 86, 0.2)',
+          borderWidth: 2,
+          fill: false,
+        },
+      ],
+    };
+  }, [reportData]);
+
+  const chartOptions = useMemo(
+    () => ({
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'top' as const,
+        },
+        title: {
+          display: true,
+          text: `Daily Visits by Type - ${getDateRangeLabel(dateFilter)}`,
+        },
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            stepSize: 1,
+          },
+        },
+      },
+    }),
+    [dateFilter, getDateRangeLabel]
+  );
 
   return (
     <PageContainer>
@@ -177,6 +294,7 @@ export default function VisitsOverview(): React.ReactElement {
               <MenuItem value="last7days">Last 7 days</MenuItem>
               <MenuItem value="last30days">Last 30 days</MenuItem>
               <MenuItem value="custom">Custom Date</MenuItem>
+              <MenuItem value="customRange">Custom Date Range</MenuItem>
             </Select>
           </FormControl>
 
@@ -191,6 +309,33 @@ export default function VisitsOverview(): React.ReactElement {
                 shrink: true,
               }}
             />
+          )}
+
+          {dateFilter === 'customRange' && (
+            <>
+              <TextField
+                type="date"
+                size="small"
+                label="Start Date"
+                value={customStartDate}
+                onChange={handleCustomStartDateChange}
+                sx={{ minWidth: 160 }}
+                InputLabelProps={{
+                  shrink: true,
+                }}
+              />
+              <TextField
+                type="date"
+                size="small"
+                label="End Date"
+                value={customEndDate}
+                onChange={handleCustomEndDateChange}
+                sx={{ minWidth: 160 }}
+                InputLabelProps={{
+                  shrink: true,
+                }}
+              />
+            </>
           )}
 
           <Button variant="outlined" onClick={() => void fetchReport(dateFilter)} disabled={loading}>
@@ -226,6 +371,20 @@ export default function VisitsOverview(): React.ReactElement {
                 </Typography>
               </CardContent>
             </Card>
+
+            {/* Chart Section */}
+            {reportData.dailyVisits.length > 0 && (
+              <Card sx={{ mb: 4 }}>
+                <CardContent>
+                  <Typography variant="h6" sx={{ mb: 3 }}>
+                    Daily Visits by Type
+                  </Typography>
+                  <Box sx={{ height: 400 }}>
+                    <Line data={chartData} options={chartOptions} />
+                  </Box>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Statistics Section */}
             {statisticsData.length > 0 ? (

@@ -11,10 +11,19 @@ export interface AppointmentTypeCount {
   percentage: number;
 }
 
+export interface DailyVisitCount {
+  date: string; // YYYY-MM-DD format
+  inPerson: number;
+  telemed: number;
+  unknown: number;
+  total: number;
+}
+
 export interface VisitsOverviewReportZambdaOutput {
   message: string;
   totalAppointments: number;
   appointmentTypes: AppointmentTypeCount[];
+  dailyVisits: DailyVisitCount[];
   dateRange: {
     start: string;
     end: string;

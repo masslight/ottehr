@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment } from 'fhir/r4b';
-import { AppointmentTypeCount, OTTEHR_MODULE, VisitsOverviewReportZambdaOutput } from 'utils';
+import { AppointmentTypeCount, DailyVisitCount, OTTEHR_MODULE, VisitsOverviewReportZambdaOutput } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -99,6 +99,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           { type: 'Telemed', count: 0, percentage: 0 },
           { type: 'Unknown', count: 0, percentage: 0 },
         ],
+        dailyVisits: [],
         dateRange,
       };
 
@@ -108,28 +109,56 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       };
     }
 
-    // Count appointments by type
+    // Count appointments by type and by date
     const typeCounts = {
       'In-Person': 0,
       Telemed: 0,
       Unknown: 0,
     };
 
+    // Group appointments by date and type for chart data
+    const dailyVisitsMap = new Map<string, { inPerson: number; telemed: number; unknown: number }>();
+
     appointments.forEach((appointment) => {
       // Determine appointment type based on meta tags
       const isTelemedicine = appointment?.meta?.tag?.some((tag) => tag.code === OTTEHR_MODULE.TM);
       const isInPerson = appointment?.meta?.tag?.some((tag) => tag.code === OTTEHR_MODULE.IP);
 
+      // Extract date from appointment start time (YYYY-MM-DD format)
+      const appointmentDate = appointment.start?.split('T')[0] || 'unknown';
+
+      // Initialize date entry if it doesn't exist
+      if (!dailyVisitsMap.has(appointmentDate)) {
+        dailyVisitsMap.set(appointmentDate, { inPerson: 0, telemed: 0, unknown: 0 });
+      }
+
+      const dayData = dailyVisitsMap.get(appointmentDate)!;
+
       if (isTelemedicine) {
         typeCounts.Telemed++;
+        dayData.telemed++;
       } else if (isInPerson) {
         typeCounts['In-Person']++;
+        dayData.inPerson++;
       } else {
         typeCounts.Unknown++;
+        dayData.unknown++;
       }
     });
 
     const totalAppointments = appointments.length;
+
+    // Convert daily visits map to sorted array
+    const dailyVisits: DailyVisitCount[] = Array.from(dailyVisitsMap.entries())
+      .filter(([date]) => date !== 'unknown') // Filter out appointments without valid dates
+      .sort(([dateA], [dateB]) => dateA.localeCompare(dateB)) // Sort by date
+      .map(([date, counts]) => ({
+        date,
+        inPerson: counts.inPerson,
+        telemed: counts.telemed,
+        unknown: counts.unknown,
+        total: counts.inPerson + counts.telemed + counts.unknown,
+      }));
 
     // Calculate percentages and create response
     const appointmentTypes: AppointmentTypeCount[] = Object.entries(typeCounts).map(([type, count]) => ({
@@ -142,6 +171,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       message: `Found ${totalAppointments} appointments: ${typeCounts['In-Person']} in-person, ${typeCounts.Telemed} telemed, ${typeCounts.Unknown} unknown`,
       totalAppointments,
       appointmentTypes,
+      dailyVisits,
       dateRange,
     };
 
