@@ -55,6 +55,7 @@ test.describe('Prebook In person visit - Paperwork submission flow with only req
 
   test('PRF-3 Skip PCP and Select Self-Pay Payment Option', async () => {
     await paperwork.skipPrimaryCarePhysician();
+    await paperwork.skipPreferredPharmacy();
     await paperwork.selectSelfPayPayment();
     await commonLocatorsHelper.clickContinue();
     await expect(locator.flowHeading).toBeVisible();

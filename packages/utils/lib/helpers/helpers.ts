@@ -1194,6 +1194,30 @@ export function getPrimaryCarePhysicianStepAnswers({
   };
 }
 
+export function getPreferredPharmacyStepAnswers(): PatchPaperworkParameters['answers'] {
+  return {
+    linkId: 'pharmacy-page',
+    item: [
+      {
+        linkId: 'pharmacy-name',
+        answer: [
+          {
+            valueString: 'Test pharmacy',
+          },
+        ],
+      },
+      {
+        linkId: 'pharmacy-address',
+        answer: [
+          {
+            valueString: 'Test pharmacy address',
+          },
+        ],
+      },
+    ],
+  };
+}
+
 const cashPaymentDTOFromFhirPaymentNotice = (paymentNotice: PaymentNotice): CashPaymentDTO | undefined => {
   const { extension, amount, created, id } = paymentNotice;
 
