@@ -1,5 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Encounter, Patient } from 'fhir/r4b';
+import { Appointment, Encounter, Location, Patient } from 'fhir/r4b';
 import { getPatientFirstName, getPatientLastName, getVisitStatus, IncompleteEncountersReportZambdaOutput } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -27,31 +27,39 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
 
-    console.log('Searching for encounters in date range:', dateRange);
+    console.log('Searching for appointments in date range:', dateRange);
 
-    // Search for encounters created within the date range and include appointments
-    const encounterSearchResult = await oystehr.fhir.search<Encounter | Appointment | Patient>({
-      resourceType: 'Encounter',
+    // Search for appointments within the date range and include related encounters, patients, and locations
+    const appointmentSearchResult = await oystehr.fhir.search<Appointment | Encounter | Patient | Location>({
+      resourceType: 'Appointment',
       params: [
         {
-          name: '_lastUpdated',
+          name: 'date',
           value: `ge${dateRange.start}`,
         },
         {
-          name: '_lastUpdated',
+          name: 'date',
           value: `le${dateRange.end}`,
         },
         {
-          name: '_include',
+          name: 'status',
+          value: 'proposed,pending,booked,arrived,fulfilled,checked-in,waitlist',
+        },
+        {
+          name: '_revinclude',
           value: 'Encounter:appointment',
         },
         {
           name: '_include',
-          value: 'Encounter:patient',
+          value: 'Appointment:patient',
+        },
+        {
+          name: '_include',
+          value: 'Appointment:location',
         },
         {
           name: '_sort',
-          value: '-_lastUpdated',
+          value: 'date',
         },
         {
           name: '_count',
@@ -61,7 +69,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     });
 
     // Unbundle the FHIR search results to get array of resources
-    const allResources = encounterSearchResult.unbundle();
+    const allResources = appointmentSearchResult.unbundle();
     console.log(`Found ${allResources.length} total resources`);
 
     // Separate resources by type
@@ -70,8 +78,33 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       (resource): resource is Appointment => resource.resourceType === 'Appointment'
     );
     const patients = allResources.filter((resource): resource is Patient => resource.resourceType === 'Patient');
+    const locations = allResources.filter((resource): resource is Location => resource.resourceType === 'Location');
 
-    console.log(`Encounters: ${encounters.length}, Appointments: ${appointments.length}, Patients: ${patients.length}`);
+    console.log(
+      `Encounters: ${encounters.length}, Appointments: ${appointments.length}, Patients: ${patients.length}, Locations: ${locations.length}`
+    );
+
+    // Debug: Log location information
+    // console.log(`Total locations found: ${locations.length}`);
+    // locations.forEach((loc) => {
+    //   console.log(`Location found: ${loc.id} - ${loc.name}`);
+    // });
+
+    // Debug: Check if any appointment has location participants
+    // const appointmentsWithLocations = appointments.filter(
+    //   (apt) => apt.participant?.some((p) => p.actor?.reference?.startsWith('Location/'))
+    // );
+    // console.log(`Appointments with location participants: ${appointmentsWithLocations.length}`);
+
+    // Debug: Log appointment structure for first few appointments
+    // appointments.slice(0, 2).forEach((apt) => {
+    //   console.log(`Appointment ${apt.id}:`, {
+    //     participants: apt.participant?.map((p) => ({ type: p.type, actor: p.actor?.reference })),
+    //     serviceCategory: apt.serviceCategory?.[0]?.text,
+    //     serviceType: apt.serviceType?.[0]?.text,
+    //     location: apt.participant?.find((p) => p.actor?.reference?.startsWith('Location/'))?.actor?.reference,
+    //   });
+    // });
 
     // Create lookup maps
     const appointmentMap = new Map<string, Appointment>();
@@ -88,7 +121,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       }
     });
 
+    const locationMap = new Map<string, Location>();
+    locations.forEach((location) => {
+      if (location.id) {
+        locationMap.set(`Location/${location.id}`, location);
+      }
+    });
+
     // Filter encounters to only include those that are not in terminal states
+    // Only encounters that have appointments within our date range will be included
     const incompleteEncounters = encounters.filter((encounter) => {
       // Find the corresponding appointment
       const appointmentRef = encounter.appointment?.[0]?.reference;
@@ -117,6 +158,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       const patientRef = encounter.subject?.reference;
       const patient = patientRef ? patientMap.get(patientRef) : undefined;
 
+      // Get location name from Location resource
+      const locationRef = appointment?.participant?.find((p) => p.actor?.reference?.startsWith('Location/'))?.actor
+        ?.reference;
+      const location = locationRef ? locationMap.get(locationRef) : undefined;
+      const locationName = location?.name || 'Unknown';
+
+      console.log(`Appointment ${appointment?.id}: locationRef=${locationRef}, locationName=${locationName}`);
+
       const visitStatus = appointment ? getVisitStatus(appointment, encounter) : 'unknown';
 
       return {
@@ -128,7 +177,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         visitStatus,
         appointmentStart: appointment?.start || '',
         appointmentEnd: appointment?.end || '',
-        location: appointment?.serviceCategory?.[0]?.text || '',
+        location: locationName || 'Unknown',
         reason: encounter.reasonCode?.[0]?.text || appointment?.appointmentType?.text || '',
       };
     });
