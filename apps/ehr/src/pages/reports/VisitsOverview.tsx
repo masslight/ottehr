@@ -232,6 +232,40 @@ export default function VisitsOverview(): React.ReactElement {
     };
   }, [reportData]);
 
+  // Prepare location chart data
+  const locationChartData = useMemo(() => {
+    if (!reportData || !reportData.locationVisits.length) {
+      return {
+        labels: [],
+        datasets: [],
+      };
+    }
+
+    const labels = reportData.locationVisits.map((location) => location.locationName);
+
+    return {
+      labels,
+      datasets: [
+        {
+          label: 'In-Person',
+          data: reportData.locationVisits.map((location) => location.inPerson),
+          borderColor: 'rgb(53, 162, 235)',
+          backgroundColor: 'rgba(53, 162, 235, 0.2)',
+          borderWidth: 2,
+          fill: false,
+        },
+        {
+          label: 'Telemed',
+          data: reportData.locationVisits.map((location) => location.telemed),
+          borderColor: 'rgb(255, 99, 132)',
+          backgroundColor: 'rgba(255, 99, 132, 0.2)',
+          borderWidth: 2,
+          fill: false,
+        },
+      ],
+    };
+  }, [reportData]);
+
   const chartOptions = useMemo(
     () => ({
       responsive: true,
@@ -243,6 +277,31 @@ export default function VisitsOverview(): React.ReactElement {
         title: {
           display: true,
           text: `Daily Visits by Type - ${getDateRangeLabel(dateFilter)}`,
+        },
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            stepSize: 1,
+          },
+        },
+      },
+    }),
+    [dateFilter, getDateRangeLabel]
+  );
+
+  const locationChartOptions = useMemo(
+    () => ({
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'top' as const,
+        },
+        title: {
+          display: true,
+          text: `Visits by Location - ${getDateRangeLabel(dateFilter)}`,
         },
       },
       scales: {
@@ -397,6 +456,20 @@ export default function VisitsOverview(): React.ReactElement {
                   </Typography>
                   <Box sx={{ height: 400 }}>
                     <Line data={chartData} options={chartOptions} />
+                  </Box>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Location Chart Section */}
+            {reportData.locationVisits.length > 0 && (
+              <Card sx={{ mb: 4 }}>
+                <CardContent>
+                  <Typography variant="h6" sx={{ mb: 3 }}>
+                    Visits by Location
+                  </Typography>
+                  <Box sx={{ height: 400 }}>
+                    <Line data={locationChartData} options={locationChartOptions} />
                   </Box>
                 </CardContent>
               </Card>

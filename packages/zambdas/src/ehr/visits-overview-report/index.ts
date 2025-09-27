@@ -1,6 +1,12 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment } from 'fhir/r4b';
-import { AppointmentTypeCount, DailyVisitCount, OTTEHR_MODULE, VisitsOverviewReportZambdaOutput } from 'utils';
+import { Appointment, Location } from 'fhir/r4b';
+import {
+  AppointmentTypeCount,
+  DailyVisitCount,
+  LocationVisitCount,
+  OTTEHR_MODULE,
+  VisitsOverviewReportZambdaOutput,
+} from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -27,8 +33,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('Searching for appointments in date range:', dateRange);
 
     // Search for appointments within the date range
-    // Fetch all appointments with proper FHIR pagination
-    let allAppointments: Appointment[] = [];
+    // Fetch all appointments and locations with proper FHIR pagination
+    let allResources: (Appointment | Location)[] = [];
     let offset = 0;
     const pageSize = 1000;
 
@@ -46,49 +52,77 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         value: `${OTTEHR_MODULE.TM},${OTTEHR_MODULE.IP}`,
       },
       {
+        name: '_include',
+        value: 'Appointment:location',
+      },
+      {
         name: '_count',
         value: pageSize.toString(),
       },
     ];
 
-    let searchBundle = await oystehr.fhir.search<Appointment>({
+    let searchBundle = await oystehr.fhir.search<Appointment | Location>({
       resourceType: 'Appointment',
       params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
     });
 
     let pageCount = 1;
-    console.log(`Fetching page ${pageCount} of appointments...`);
+    console.log(`Fetching page ${pageCount} of appointments and locations...`);
 
-    // Get appointments from first page
-    let pageAppointments = searchBundle.unbundle();
-    allAppointments = allAppointments.concat(pageAppointments);
-    console.log(`Page ${pageCount}: Found ${pageAppointments.length} appointments`);
+    // Get resources from first page
+    let pageResources = searchBundle.unbundle();
+    allResources = allResources.concat(pageResources);
+    const pageAppointments = pageResources.filter(
+      (resource): resource is Appointment => resource.resourceType === 'Appointment'
+    );
+    console.log(
+      `Page ${pageCount}: Found ${pageResources.length} total resources (${pageAppointments.length} appointments)`
+    );
 
     // Follow pagination links to get all pages
     while (searchBundle.link?.find((link) => link.relation === 'next')) {
       offset += pageSize;
       pageCount++;
-      console.log(`Fetching page ${pageCount} of appointments...`);
+      console.log(`Fetching page ${pageCount} of appointments and locations...`);
 
-      searchBundle = await oystehr.fhir.search<Appointment>({
+      searchBundle = await oystehr.fhir.search<Appointment | Location>({
         resourceType: 'Appointment',
         params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
       });
 
-      pageAppointments = searchBundle.unbundle();
-      allAppointments = allAppointments.concat(pageAppointments);
+      pageResources = searchBundle.unbundle();
+      allResources = allResources.concat(pageResources);
+      const pageAppointmentsCount = pageResources.filter(
+        (resource): resource is Appointment => resource.resourceType === 'Appointment'
+      ).length;
 
-      console.log(`Page ${pageCount}: Found ${pageAppointments.length} appointments`);
+      console.log(
+        `Page ${pageCount}: Found ${pageResources.length} total resources (${pageAppointmentsCount} appointments)`
+      );
+
+      // Check if we got fewer appointments than requested, indicating last page
+      const hasMoreResults = pageAppointmentsCount === pageSize;
 
       // Safety check to prevent infinite loops
       if (pageCount > 100) {
         console.warn('Reached maximum pagination limit (100 pages). Stopping search.');
         break;
       }
+
+      if (!hasMoreResults) {
+        break;
+      }
     }
 
-    const appointments = allAppointments;
-    console.log(`Total appointments found across ${pageCount} pages: ${appointments.length}`);
+    // Separate resources by type
+    const appointments = allResources.filter(
+      (resource): resource is Appointment => resource.resourceType === 'Appointment'
+    );
+    const locations = allResources.filter((resource): resource is Location => resource.resourceType === 'Location');
+
+    console.log(
+      `Total resources found across ${pageCount} pages: ${allResources.length} (${appointments.length} appointments, ${locations.length} locations)`
+    );
 
     if (appointments.length === 0) {
       const response: VisitsOverviewReportZambdaOutput = {
@@ -99,6 +133,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           { type: 'Telemed', count: 0, percentage: 0 },
         ],
         dailyVisits: [],
+        locationVisits: [],
         dateRange,
       };
 
@@ -157,6 +192,58 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const totalAppointments = appointments.length;
 
+    // Process location-based visit counts
+    const locationVisitsMap = new Map<string, { locationId: string; inPerson: number; telemed: number }>();
+
+    appointments.forEach((appointment) => {
+      // Get location reference from appointment
+      const participantWithLocation = appointment.participant?.find((p) => p.actor?.reference?.startsWith('Location/'));
+
+      // Check if appointment is telemedicine or in-person (using same logic as daily visits)
+      const isTelemedicine = appointment?.meta?.tag?.some((tag) => tag.code === OTTEHR_MODULE.TM);
+      const isInPerson = appointment?.meta?.tag?.some((tag) => tag.code === OTTEHR_MODULE.IP);
+
+      let locationKey = 'Unknown Location';
+      let locationId = 'unknown';
+
+      if (participantWithLocation?.actor?.reference) {
+        locationId = participantWithLocation.actor.reference.replace('Location/', '');
+        // Find the location resource by ID
+        const location = locations.find((loc) => loc.id === locationId);
+        locationKey = location?.name || 'Unknown Location';
+      }
+
+      const currentData = locationVisitsMap.get(locationKey) || { locationId, inPerson: 0, telemed: 0 };
+
+      if (isTelemedicine) {
+        currentData.telemed++;
+      } else if (isInPerson) {
+        currentData.inPerson++;
+      }
+      // Note: Skip appointments that don't have a clear type - they won't be counted
+
+      locationVisitsMap.set(locationKey, currentData);
+    });
+
+    console.log(
+      'Location visits summary:',
+      Array.from(locationVisitsMap.entries()).map(
+        ([location, data]) =>
+          `${location}: ${data.inPerson} in-person, ${data.telemed} telemed, total: ${data.inPerson + data.telemed}`
+      )
+    );
+
+    // Convert location visits map to sorted array
+    const locationVisits: LocationVisitCount[] = Array.from(locationVisitsMap.entries())
+      .sort(([nameA], [nameB]) => nameA.localeCompare(nameB))
+      .map(([locationName, data]) => ({
+        locationName,
+        locationId: data.locationId,
+        inPerson: data.inPerson,
+        telemed: data.telemed,
+        total: data.inPerson + data.telemed,
+      }));
+
     // Convert daily visits map to sorted array
     const dailyVisits: DailyVisitCount[] = Array.from(dailyVisitsMap.entries())
       .filter(([date]) => date !== 'unknown') // Filter out appointments without valid dates
@@ -181,6 +268,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       totalAppointments,
       appointmentTypes,
       dailyVisits,
+      locationVisits,
       dateRange,
     };
 

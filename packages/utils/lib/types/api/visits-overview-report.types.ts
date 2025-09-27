@@ -19,11 +19,20 @@ export interface DailyVisitCount {
   total: number;
 }
 
+export interface LocationVisitCount {
+  locationName: string;
+  locationId: string;
+  inPerson: number;
+  telemed: number;
+  total: number;
+}
+
 export interface VisitsOverviewReportZambdaOutput {
   message: string;
   totalAppointments: number;
   appointmentTypes: AppointmentTypeCount[];
   dailyVisits: DailyVisitCount[];
+  locationVisits: LocationVisitCount[];
   dateRange: {
     start: string;
     end: string;
