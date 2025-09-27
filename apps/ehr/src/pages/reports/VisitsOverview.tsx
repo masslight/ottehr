@@ -15,6 +15,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { DataGrid, GridColDef } from '@mui/x-data-grid';
 import {
   BarElement,
   CategoryScale,
@@ -319,6 +320,58 @@ export default function VisitsOverview(): React.ReactElement {
     [dateFilter, getDateRangeLabel]
   );
 
+  const practitionerColumns: GridColDef[] = useMemo(
+    () => [
+      {
+        field: 'practitionerName',
+        headerName: 'Provider Name',
+        width: 200,
+        sortable: true,
+      },
+      {
+        field: 'role',
+        headerName: 'Role',
+        width: 150,
+        sortable: true,
+      },
+      {
+        field: 'inPerson',
+        headerName: 'In-Person',
+        width: 120,
+        sortable: true,
+        type: 'number',
+      },
+      {
+        field: 'telemed',
+        headerName: 'Telemed',
+        width: 120,
+        sortable: true,
+        type: 'number',
+      },
+      {
+        field: 'total',
+        headerName: 'Total',
+        width: 100,
+        sortable: true,
+        type: 'number',
+      },
+    ],
+    []
+  );
+
+  const practitionerRows = useMemo(() => {
+    if (!reportData?.practitionerVisits) return [];
+
+    return reportData.practitionerVisits.map((practitioner) => ({
+      id: `${practitioner.practitionerId}-${practitioner.role}`,
+      practitionerName: practitioner.practitionerName,
+      role: practitioner.role,
+      inPerson: practitioner.inPerson,
+      telemed: practitioner.telemed,
+      total: practitioner.total,
+    }));
+  }, [reportData]);
+
   return (
     <PageContainer>
       <Box>
@@ -473,6 +526,42 @@ export default function VisitsOverview(): React.ReactElement {
                   </Typography>
                   <Box sx={{ height: 400 }}>
                     <Bar data={locationChartData} options={locationChartOptions} />
+                  </Box>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Practitioner Table Section */}
+            {reportData && practitionerRows.length > 0 && (
+              <Card sx={{ mb: 4 }}>
+                <CardContent>
+                  <Typography variant="h6" sx={{ mb: 3 }}>
+                    Visits by Provider
+                  </Typography>
+                  <Box sx={{ height: 400, width: '100%' }}>
+                    <DataGrid
+                      rows={practitionerRows}
+                      columns={practitionerColumns}
+                      initialState={{
+                        pagination: {
+                          paginationModel: { pageSize: 10 },
+                        },
+                        sorting: {
+                          sortModel: [{ field: 'total', sort: 'desc' }],
+                        },
+                      }}
+                      pageSizeOptions={[5, 10, 25]}
+                      disableRowSelectionOnClick
+                      sx={{
+                        '& .MuiDataGrid-cell': {
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        },
+                        '& .MuiDataGrid-columnHeaderTitle': {
+                          fontWeight: 600,
+                        },
+                      }}
+                    />
                   </Box>
                 </CardContent>
               </Card>

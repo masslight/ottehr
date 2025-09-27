@@ -1,10 +1,13 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Location } from 'fhir/r4b';
+import { Appointment, Encounter, Location, Practitioner } from 'fhir/r4b';
 import {
   AppointmentTypeCount,
   DailyVisitCount,
+  getAdmitterPractitionerId,
+  getAttendingPractitionerId,
   LocationVisitCount,
   OTTEHR_MODULE,
+  PractitionerVisitCount,
   VisitsOverviewReportZambdaOutput,
 } from 'utils';
 import {
@@ -33,8 +36,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('Searching for appointments in date range:', dateRange);
 
     // Search for appointments within the date range
-    // Fetch all appointments and locations with proper FHIR pagination
-    let allResources: (Appointment | Location)[] = [];
+    // Fetch all appointments, locations, encounters, and practitioners with proper FHIR pagination
+    let allResources: (Appointment | Location | Encounter | Practitioner)[] = [];
     let offset = 0;
     const pageSize = 1000;
 
@@ -56,12 +59,20 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         value: 'Appointment:location',
       },
       {
+        name: '_revinclude',
+        value: 'Encounter:appointment',
+      },
+      {
+        name: '_include:iterate',
+        value: 'Encounter:participant:Practitioner',
+      },
+      {
         name: '_count',
         value: pageSize.toString(),
       },
     ];
 
-    let searchBundle = await oystehr.fhir.search<Appointment | Location>({
+    let searchBundle = await oystehr.fhir.search<Appointment | Location | Encounter | Practitioner>({
       resourceType: 'Appointment',
       params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
     });
@@ -85,7 +96,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       pageCount++;
       console.log(`Fetching page ${pageCount} of appointments and locations...`);
 
-      searchBundle = await oystehr.fhir.search<Appointment | Location>({
+      searchBundle = await oystehr.fhir.search<Appointment | Location | Encounter | Practitioner>({
         resourceType: 'Appointment',
         params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
       });
@@ -119,9 +130,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       (resource): resource is Appointment => resource.resourceType === 'Appointment'
     );
     const locations = allResources.filter((resource): resource is Location => resource.resourceType === 'Location');
+    const encounters = allResources.filter((resource): resource is Encounter => resource.resourceType === 'Encounter');
+    const practitioners = allResources.filter(
+      (resource): resource is Practitioner => resource.resourceType === 'Practitioner'
+    );
 
     console.log(
-      `Total resources found across ${pageCount} pages: ${allResources.length} (${appointments.length} appointments, ${locations.length} locations)`
+      `Total resources found across ${pageCount} pages: ${allResources.length} (${appointments.length} appointments, ${locations.length} locations, ${encounters.length} encounters, ${practitioners.length} practitioners)`
     );
 
     if (appointments.length === 0) {
@@ -134,6 +149,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         ],
         dailyVisits: [],
         locationVisits: [],
+        practitionerVisits: [],
         dateRange,
       };
 
@@ -244,6 +260,104 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         total: data.inPerson + data.telemed,
       }));
 
+    // Process practitioner-based visit counts
+    const practitionerVisitsMap = new Map<
+      string,
+      { practitionerId: string; role: 'Attending Provider' | 'Intake Performer'; inPerson: number; telemed: number }
+    >();
+
+    // Create maps for quick lookups
+    const encounterMap = new Map<string, Encounter>();
+    encounters.forEach((encounter) => {
+      const appointmentRef = encounter.appointment?.[0]?.reference;
+      if (appointmentRef && encounter.id) {
+        encounterMap.set(appointmentRef, encounter);
+      }
+    });
+
+    const practitionerMap = new Map<string, Practitioner>();
+    practitioners.forEach((practitioner) => {
+      if (practitioner.id) {
+        practitionerMap.set(practitioner.id, practitioner);
+      }
+    });
+
+    appointments.forEach((appointment) => {
+      if (!appointment.id) return;
+
+      // Check if appointment is telemedicine or in-person (using same logic as daily visits)
+      const isTelemedicine = appointment?.meta?.tag?.some((tag) => tag.code === OTTEHR_MODULE.TM);
+      const isInPerson = appointment?.meta?.tag?.some((tag) => tag.code === OTTEHR_MODULE.IP);
+
+      // Skip appointments without clear type
+      if (!isTelemedicine && !isInPerson) return;
+
+      // Find the encounter for this appointment
+      const encounter = encounterMap.get(`Appointment/${appointment.id}`);
+      if (!encounter) return;
+
+      // Get attending provider and intake performer
+      const attendingProviderId = getAttendingPractitionerId(encounter);
+      const admitterProviderId = getAdmitterPractitionerId(encounter);
+
+      // Process attending provider
+      if (attendingProviderId) {
+        const key = `${attendingProviderId}-Attending Provider`;
+        const currentData = practitionerVisitsMap.get(key) || {
+          practitionerId: attendingProviderId,
+          role: 'Attending Provider' as const,
+          inPerson: 0,
+          telemed: 0,
+        };
+
+        if (isTelemedicine) {
+          currentData.telemed++;
+        } else if (isInPerson) {
+          currentData.inPerson++;
+        }
+
+        practitionerVisitsMap.set(key, currentData);
+      }
+
+      // Process intake performer
+      if (admitterProviderId && admitterProviderId !== attendingProviderId) {
+        const key = `${admitterProviderId}-Intake Performer`;
+        const currentData = practitionerVisitsMap.get(key) || {
+          practitionerId: admitterProviderId,
+          role: 'Intake Performer' as const,
+          inPerson: 0,
+          telemed: 0,
+        };
+
+        if (isTelemedicine) {
+          currentData.telemed++;
+        } else if (isInPerson) {
+          currentData.inPerson++;
+        }
+
+        practitionerVisitsMap.set(key, currentData);
+      }
+    });
+
+    // Convert practitioner visits map to sorted array
+    const practitionerVisits: PractitionerVisitCount[] = Array.from(practitionerVisitsMap.entries())
+      .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+      .map(([_key, data]) => {
+        const practitioner = practitionerMap.get(data.practitionerId);
+        const practitionerName = practitioner?.name?.[0]
+          ? `${practitioner.name[0].given?.join(' ') || ''} ${practitioner.name[0].family || ''}`.trim()
+          : 'Unknown Provider';
+
+        return {
+          practitionerId: data.practitionerId,
+          practitionerName,
+          role: data.role,
+          inPerson: data.inPerson,
+          telemed: data.telemed,
+          total: data.inPerson + data.telemed,
+        };
+      });
+
     // Convert daily visits map to sorted array
     const dailyVisits: DailyVisitCount[] = Array.from(dailyVisitsMap.entries())
       .filter(([date]) => date !== 'unknown') // Filter out appointments without valid dates
@@ -269,6 +383,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       appointmentTypes,
       dailyVisits,
       locationVisits,
+      practitionerVisits,
       dateRange,
     };
 

@@ -27,12 +27,22 @@ export interface LocationVisitCount {
   total: number;
 }
 
+export interface PractitionerVisitCount {
+  practitionerId: string;
+  practitionerName: string;
+  role: 'Attending Provider' | 'Intake Performer';
+  inPerson: number;
+  telemed: number;
+  total: number;
+}
+
 export interface VisitsOverviewReportZambdaOutput {
   message: string;
   totalAppointments: number;
   appointmentTypes: AppointmentTypeCount[];
   dailyVisits: DailyVisitCount[];
   locationVisits: LocationVisitCount[];
+  practitionerVisits: PractitionerVisitCount[];
   dateRange: {
     start: string;
     end: string;
