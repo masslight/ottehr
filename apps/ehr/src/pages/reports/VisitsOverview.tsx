@@ -30,12 +30,12 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Line } from 'react-chartjs-2';
 import { useNavigate } from 'react-router-dom';
 import type { VisitsOverviewReportZambdaOutput } from 'utils';
-
-// Register ChartJS components
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 import { getVisitsOverviewReport } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';
+
+// Register ChartJS components
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
 export default function VisitsOverview(): React.ReactElement {
   const navigate = useNavigate();
@@ -228,14 +228,6 @@ export default function VisitsOverview(): React.ReactElement {
           borderWidth: 2,
           fill: false,
         },
-        {
-          label: 'Unknown',
-          data: reportData.dailyVisits.map((day) => day.unknown),
-          borderColor: 'rgb(255, 205, 86)',
-          backgroundColor: 'rgba(255, 205, 86, 0.2)',
-          borderWidth: 2,
-          fill: false,
-        },
       ],
     };
   }, [reportData]);
@@ -288,7 +280,7 @@ export default function VisitsOverview(): React.ReactElement {
         <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
           <FormControl size="small" sx={{ minWidth: 200 }}>
             <InputLabel>Date Range</InputLabel>
-            <Select value={dateFilter} label="Date Range" onChange={handleDateFilterChange}>
+            <Select value={dateFilter} label="Date Range" onChange={handleDateFilterChange} disabled={loading}>
               <MenuItem value="today">Today</MenuItem>
               <MenuItem value="yesterday">Yesterday</MenuItem>
               <MenuItem value="last7days">Last 7 days</MenuItem>
@@ -304,6 +296,7 @@ export default function VisitsOverview(): React.ReactElement {
               size="small"
               value={customDate}
               onChange={handleCustomDateChange}
+              disabled={loading}
               sx={{ minWidth: 160 }}
               InputLabelProps={{
                 shrink: true,
@@ -319,6 +312,7 @@ export default function VisitsOverview(): React.ReactElement {
                 label="Start Date"
                 value={customStartDate}
                 onChange={handleCustomStartDateChange}
+                disabled={loading}
                 sx={{ minWidth: 160 }}
                 InputLabelProps={{
                   shrink: true,
@@ -330,6 +324,7 @@ export default function VisitsOverview(): React.ReactElement {
                 label="End Date"
                 value={customEndDate}
                 onChange={handleCustomEndDateChange}
+                disabled={loading}
                 sx={{ minWidth: 160 }}
                 InputLabelProps={{
                   shrink: true,
@@ -357,20 +352,41 @@ export default function VisitsOverview(): React.ReactElement {
 
         {!loading && reportData && (
           <Box>
-            {/* Summary Card */}
-            <Card sx={{ mb: 4 }}>
-              <CardContent>
-                <Typography variant="h6" color="primary.main" gutterBottom>
-                  Total Appointments
-                </Typography>
-                <Typography variant="h3" fontWeight="bold" sx={{ mb: 2 }}>
-                  {reportData.totalAppointments}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {reportData.message}
-                </Typography>
-              </CardContent>
-            </Card>
+            {/* Summary and Statistics Cards Row */}
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 2, mb: 4 }}>
+              {/* Total Appointments Card */}
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" color="primary.main" gutterBottom>
+                    Total Appointments
+                  </Typography>
+                  <Typography variant="h3" fontWeight="bold" sx={{ mb: 1 }}>
+                    {reportData.totalAppointments}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {getDateRangeLabel(dateFilter)}
+                  </Typography>
+                </CardContent>
+              </Card>
+
+              {/* Appointments by Type Cards */}
+              {statisticsData.length > 0 &&
+                statisticsData.map((typeData, index) => (
+                  <Card key={index}>
+                    <CardContent>
+                      <Typography variant="h6" color="primary.main" gutterBottom>
+                        {typeData.type}
+                      </Typography>
+                      <Typography variant="h3" fontWeight="bold" sx={{ mb: 1 }}>
+                        {typeData.count}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {typeData.percentage}% of total appointments
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                ))}
+            </Box>
 
             {/* Chart Section */}
             {reportData.dailyVisits.length > 0 && (
@@ -386,33 +402,8 @@ export default function VisitsOverview(): React.ReactElement {
               </Card>
             )}
 
-            {/* Statistics Section */}
-            {statisticsData.length > 0 ? (
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" sx={{ mb: 3 }}>
-                    Appointments by Type
-                  </Typography>
-                  <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 2 }}>
-                    {statisticsData.map((typeData, index) => (
-                      <Card key={index} variant="outlined">
-                        <CardContent>
-                          <Typography variant="h6" color="primary.main" gutterBottom>
-                            {typeData.type}
-                          </Typography>
-                          <Typography variant="h3" fontWeight="bold" sx={{ mb: 1 }}>
-                            {typeData.count}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {typeData.percentage}% of total appointments
-                          </Typography>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </Box>
-                </CardContent>
-              </Card>
-            ) : (
+            {/* No Data Message */}
+            {statisticsData.length === 0 && (
               <Box sx={{ textAlign: 'center', py: 8 }}>
                 <Typography variant="h6" color="text.secondary">
                   No appointments found for the selected period

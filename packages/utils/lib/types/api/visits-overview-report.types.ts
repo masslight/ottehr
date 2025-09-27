@@ -6,7 +6,7 @@ export interface VisitsOverviewReportZambdaInput {
 }
 
 export interface AppointmentTypeCount {
-  type: 'In-Person' | 'Telemed' | 'Unknown';
+  type: 'In-Person' | 'Telemed';
   count: number;
   percentage: number;
 }

@@ -97,7 +97,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         appointmentTypes: [
           { type: 'In-Person', count: 0, percentage: 0 },
           { type: 'Telemed', count: 0, percentage: 0 },
-          { type: 'Unknown', count: 0, percentage: 0 },
         ],
         dailyVisits: [],
         dateRange,
@@ -113,23 +112,35 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const typeCounts = {
       'In-Person': 0,
       Telemed: 0,
-      Unknown: 0,
     };
 
     // Group appointments by date and type for chart data
-    const dailyVisitsMap = new Map<string, { inPerson: number; telemed: number; unknown: number }>();
+    const dailyVisitsMap = new Map<string, { inPerson: number; telemed: number }>();
 
     appointments.forEach((appointment) => {
       // Determine appointment type based on meta tags
       const isTelemedicine = appointment?.meta?.tag?.some((tag) => tag.code === OTTEHR_MODULE.TM);
       const isInPerson = appointment?.meta?.tag?.some((tag) => tag.code === OTTEHR_MODULE.IP);
 
-      // Extract date from appointment start time (YYYY-MM-DD format)
-      const appointmentDate = appointment.start?.split('T')[0] || 'unknown';
+      // Extract date from appointment start time in local timezone (America/New_York)
+      let appointmentDate = 'unknown';
+      if (appointment.start) {
+        try {
+          // Convert UTC appointment time to America/New_York timezone and extract date
+          const appointmentDateTime = new Date(appointment.start);
+          const localDate = appointmentDateTime.toLocaleDateString('en-CA', {
+            timeZone: 'America/New_York',
+          }); // en-CA gives YYYY-MM-DD format
+          appointmentDate = localDate;
+        } catch (error) {
+          console.warn('Failed to parse appointment date:', appointment.start, error);
+          appointmentDate = 'unknown';
+        }
+      }
 
       // Initialize date entry if it doesn't exist
       if (!dailyVisitsMap.has(appointmentDate)) {
-        dailyVisitsMap.set(appointmentDate, { inPerson: 0, telemed: 0, unknown: 0 });
+        dailyVisitsMap.set(appointmentDate, { inPerson: 0, telemed: 0 });
       }
 
       const dayData = dailyVisitsMap.get(appointmentDate)!;
@@ -140,10 +151,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       } else if (isInPerson) {
         typeCounts['In-Person']++;
         dayData.inPerson++;
-      } else {
-        typeCounts.Unknown++;
-        dayData.unknown++;
       }
+      // Note: Skip appointments that don't have a clear type - they won't be counted
     });
 
     const totalAppointments = appointments.length;
@@ -156,19 +165,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         date,
         inPerson: counts.inPerson,
         telemed: counts.telemed,
-        unknown: counts.unknown,
-        total: counts.inPerson + counts.telemed + counts.unknown,
+        unknown: 0, // Always 0 since we're not tracking unknown appointments
+        total: counts.inPerson + counts.telemed,
       }));
 
     // Calculate percentages and create response
     const appointmentTypes: AppointmentTypeCount[] = Object.entries(typeCounts).map(([type, count]) => ({
-      type: type as 'In-Person' | 'Telemed' | 'Unknown',
+      type: type as 'In-Person' | 'Telemed',
       count,
       percentage: totalAppointments > 0 ? Math.round((count / totalAppointments) * 100) : 0,
     }));
 
     const response: VisitsOverviewReportZambdaOutput = {
-      message: `Found ${totalAppointments} appointments: ${typeCounts['In-Person']} in-person, ${typeCounts.Telemed} telemed, ${typeCounts.Unknown} unknown`,
+      message: `Found ${totalAppointments} appointments: ${typeCounts['In-Person']} in-person, ${typeCounts.Telemed} telemed`,
       totalAppointments,
       appointmentTypes,
       dailyVisits,
