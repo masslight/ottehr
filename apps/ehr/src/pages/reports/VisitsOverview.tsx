@@ -16,6 +16,7 @@ import {
   Typography,
 } from '@mui/material';
 import {
+  BarElement,
   CategoryScale,
   Chart as ChartJS,
   Legend,
@@ -27,7 +28,7 @@ import {
 } from 'chart.js';
 import { DateTime } from 'luxon';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Line } from 'react-chartjs-2';
+import { Bar, Line } from 'react-chartjs-2';
 import { useNavigate } from 'react-router-dom';
 import type { VisitsOverviewReportZambdaOutput } from 'utils';
 import { getVisitsOverviewReport } from '../../api/api';
@@ -35,7 +36,7 @@ import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';
 
 // Register ChartJS components
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend);
 
 export default function VisitsOverview(): React.ReactElement {
   const navigate = useNavigate();
@@ -249,18 +250,16 @@ export default function VisitsOverview(): React.ReactElement {
         {
           label: 'In-Person',
           data: reportData.locationVisits.map((location) => location.inPerson),
+          backgroundColor: 'rgba(53, 162, 235, 0.8)',
           borderColor: 'rgb(53, 162, 235)',
-          backgroundColor: 'rgba(53, 162, 235, 0.2)',
-          borderWidth: 2,
-          fill: false,
+          borderWidth: 1,
         },
         {
           label: 'Telemed',
           data: reportData.locationVisits.map((location) => location.telemed),
+          backgroundColor: 'rgba(255, 99, 132, 0.8)',
           borderColor: 'rgb(255, 99, 132)',
-          backgroundColor: 'rgba(255, 99, 132, 0.2)',
-          borderWidth: 2,
-          fill: false,
+          borderWidth: 1,
         },
       ],
     };
@@ -305,7 +304,11 @@ export default function VisitsOverview(): React.ReactElement {
         },
       },
       scales: {
+        x: {
+          stacked: true,
+        },
         y: {
+          stacked: true,
           beginAtZero: true,
           ticks: {
             stepSize: 1,
@@ -469,7 +472,7 @@ export default function VisitsOverview(): React.ReactElement {
                     Visits by Location
                   </Typography>
                   <Box sx={{ height: 400 }}>
-                    <Line data={locationChartData} options={locationChartOptions} />
+                    <Bar data={locationChartData} options={locationChartOptions} />
                   </Box>
                 </CardContent>
               </Card>
