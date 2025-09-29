@@ -25,6 +25,9 @@ export const getCanonicalQuestionnaire = async (
   )
     .unbundle()
     .filter((q) => {
+      if (!language) {
+        return q.language === undefined || q.language === 'en'; // default to English if no language specified
+      }
       if (language && q.language && q.language !== language) {
         return false;
       }
