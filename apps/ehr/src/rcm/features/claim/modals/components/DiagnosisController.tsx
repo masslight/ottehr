@@ -1,6 +1,6 @@
 import { FC } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { DiagnosesField } from '../../../../../telemed/features/appointment/AssessmentTab';
+import { DiagnosesField } from 'src/components/AssessmentTab';
 
 type DiagnosisControllerProps = {
   name: string;

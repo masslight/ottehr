@@ -4,9 +4,9 @@ import { waitForChartDataDeletion, waitForSaveChartDataResponse } from 'test-uti
 import { MDM_FIELD_DEFAULT_TEXT } from 'utils';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
-import { CssHeader } from '../../page/CssHeader';
 import { InPersonAssessmentPage } from '../../page/in-person/InPersonAssessmentPage';
 import { InPersonProgressNotePage } from '../../page/in-person/InPersonProgressNotePage';
+import { InPersonHeader } from '../../page/InPersonHeader';
 import { SideMenu } from '../../page/SideMenu';
 
 const PROCESS_ID = `assessmentTab.spec.ts-${DateTime.now().toMillis()}`;
@@ -14,7 +14,7 @@ const resourceHandler = new ResourceHandler(PROCESS_ID, 'in-person');
 let assessmentPage: InPersonAssessmentPage;
 let progressNotePage: InPersonProgressNotePage;
 let sideMenu: SideMenu;
-let cssHeader: CssHeader;
+let inPersonHeader: InPersonHeader;
 let context: BrowserContext;
 let page: Page;
 
@@ -41,12 +41,12 @@ test.beforeAll(async ({ browser }) => {
   assessmentPage = new InPersonAssessmentPage(page);
   progressNotePage = new InPersonProgressNotePage(page);
   sideMenu = new SideMenu(page);
-  cssHeader = new CssHeader(page);
+  inPersonHeader = new InPersonHeader(page);
   await page.goto(`in-person/${resourceHandler.appointment.id}/progress-note`);
-  await cssHeader.verifyStatus('pending');
-  await cssHeader.selectIntakePractitioner();
-  await cssHeader.selectProviderPractitioner();
-  await cssHeader.clickSwitchModeButton('provider');
+  await inPersonHeader.verifyStatus('pending');
+  await inPersonHeader.selectIntakePractitioner();
+  await inPersonHeader.selectProviderPractitioner();
+  await inPersonHeader.clickSwitchModeButton('provider');
   await progressNotePage.expectLoaded();
 });
 
