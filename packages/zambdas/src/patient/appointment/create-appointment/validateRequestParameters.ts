@@ -4,7 +4,7 @@ import { DateTime } from 'luxon';
 import {
   AllStates,
   APPOINTMENT_ALREADY_EXISTS_ERROR,
-  CanonicalUrl,
+  CanonicalUrlSearchInput,
   CHARACTER_LIMIT_EXCEEDED_ERROR,
   CreateAppointmentInputParams,
   FHIR_RESOURCE_NOT_FOUND,
@@ -150,7 +150,7 @@ export interface CreateAppointmentEffectInput {
   serviceMode: ServiceMode;
   patient: PatientInfo;
   user: User;
-  questionnaireCanonical: CanonicalUrl;
+  questionnaireCanonical: CanonicalUrlSearchInput;
   visitType: VisitType;
   locationState?: string;
   appointmentMetadata?: Appointment['meta'];

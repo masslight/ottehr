@@ -1,11 +1,9 @@
 import Oystehr from '@oystehr/sdk';
-import { Coding, DocumentReference, Extension, Organization, Practitioner, Questionnaire } from 'fhir/r4b';
+import { Coding, DocumentReference, Extension, Organization, Practitioner } from 'fhir/r4b';
 import {
-  CanonicalUrl,
-  getCanonicalQuestionnaire,
+  CanonicalUrlSearchInput,
   OtherParticipantsExtension,
   PatientAccountResponse,
-  Secrets,
   ServiceMode,
   TELEMED_VIDEO_ROOM_CODE,
 } from 'utils';
@@ -13,16 +11,11 @@ import ehrInsuranceUpdateQuestionnaireJson from '../../../../../config/oystehr/e
 import inPersonIntakeQuestionnaireJson from '../../../../../config/oystehr/in-person-intake-questionnaire.json';
 import virtualIntakeQuestionnaireJson from '../../../../../config/oystehr/virtual-intake-questionnaire.json';
 import { getAccountAndCoverageResourcesForPatient, PATIENT_CONTAINED_PHARMACY_ID } from '../../ehr/shared/harvest';
-export const getCurrentQuestionnaireForServiceType = async (
-  serviceMode: ServiceMode,
-  secrets: Secrets | null,
-  oystehrClient: Oystehr
-): Promise<Questionnaire> => {
-  const canonical = getCanonicalUrlForPrevisitQuestionnaire(serviceMode);
-  return getCanonicalQuestionnaire(canonical, oystehrClient);
-};
 
-export const getCanonicalUrlForPrevisitQuestionnaire = (serviceMode: ServiceMode): CanonicalUrl => {
+export const getCanonicalUrlForPrevisitQuestionnaire = (
+  serviceMode: ServiceMode,
+  language?: 'en' | 'es'
+): CanonicalUrlSearchInput => {
   let url = '';
   let version = '';
   if (serviceMode === 'in-person') {
@@ -38,10 +31,11 @@ export const getCanonicalUrlForPrevisitQuestionnaire = (serviceMode: ServiceMode
   return {
     url,
     version,
+    language: language === 'en' ? 'en' : 'es', // dodo: reverse default to 'en'
   };
 };
 
-export const getCanonicalUrlForInsuranceUpdateQuestionnaire = (): CanonicalUrl => {
+export const getCanonicalUrlForInsuranceUpdateQuestionnaire = (language?: 'en' | 'es'): CanonicalUrlSearchInput => {
   const { url, version } =
     ehrInsuranceUpdateQuestionnaireJson.fhirResources['questionnaire-ehr-insurance-update'].resource;
   if (!url || !version) {
@@ -50,6 +44,7 @@ export const getCanonicalUrlForInsuranceUpdateQuestionnaire = (): CanonicalUrl =
   return {
     url,
     version,
+    language: language === 'es' ? 'es' : 'en',
   };
 };
 

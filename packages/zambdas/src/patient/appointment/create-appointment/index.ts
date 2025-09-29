@@ -20,7 +20,7 @@ import {
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import {
-  CanonicalUrl,
+  CanonicalUrlSearchInput,
   CreateAppointmentResponse,
   CREATED_BY_SYSTEM,
   createUserResourcesForPatient,
@@ -69,7 +69,7 @@ interface CreateAppointmentInput {
   serviceMode: ServiceMode;
   patient: PatientInfo;
   user: User;
-  questionnaireCanonical: CanonicalUrl;
+  questionnaireCanonical: CanonicalUrlSearchInput;
   secrets: Secrets | null;
   visitType: VisitType;
   language?: string;
