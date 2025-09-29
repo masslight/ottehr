@@ -1,7 +1,8 @@
 import LoadingButton from '@mui/lab/LoadingButton';
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Grid, TextField } from '@mui/material';
-import { ReactElement } from 'react';
+import { ReactElement, useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
+import { z } from 'zod';
 
 export interface SendReceiptFormData {
   recipientName: string;
@@ -25,10 +26,12 @@ export default function SendReceiptByEmailDialog({
   defaultValues,
   submitButtonName,
 }: SendReceiptByEmailDialogProps): ReactElement {
+  const emailValidator = z.string().email();
   const {
     control,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    setValue,
+    formState: { errors, isSubmitting, isDirty },
   } = useForm<SendReceiptFormData>({
     defaultValues: {
       recipientName: defaultValues?.recipientName ?? '',
@@ -36,6 +39,16 @@ export default function SendReceiptByEmailDialog({
     },
     mode: 'onBlur',
   });
+  useEffect(() => {
+    if (!isDirty) {
+      if (defaultValues?.recipientName) {
+        setValue('recipientName', defaultValues.recipientName);
+      }
+      if (defaultValues?.recipientEmail) {
+        setValue('recipientEmail', defaultValues.recipientEmail);
+      }
+    }
+  }, [defaultValues, setValue, isDirty]);
 
   return (
     <Dialog open={modalOpen}>
@@ -70,9 +83,9 @@ export default function SendReceiptByEmailDialog({
               control={control}
               rules={{
                 required: 'Email is required',
-                pattern: {
-                  value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-                  message: 'Invalid email address',
+                validate: (value) => {
+                  const result = emailValidator.safeParse(value);
+                  return result.success || 'Invalid email format';
                 },
               }}
               render={({ field }) => (
