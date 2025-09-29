@@ -1,7 +1,7 @@
 import { Stack, Typography } from '@mui/material';
 import React from 'react';
 import { ADDITIONAL_QUESTIONS_META_SYSTEM } from 'utils';
-import { useAppointmentData, useChartData } from '../../../telemed';
+import { useAppointmentData, useChartFields } from '../../../telemed';
 import { PageTitle } from '../../../telemed/components/PageTitle';
 import { CSSLoader } from '../components/CSSLoader';
 import AskThePatient from '../components/screening/AskThePatient';
@@ -17,7 +17,7 @@ interface ScreeningProps {
 export const Screening: React.FC<ScreeningProps> = () => {
   const { appointment, isAppointmentLoading } = useAppointmentData();
 
-  const { isLoading: isChartDataLoading } = useChartData({
+  const { isLoading: isChartDataLoading } = useChartFields({
     requestedFields: {
       observations: {
         _tag: ADDITIONAL_QUESTIONS_META_SYSTEM,

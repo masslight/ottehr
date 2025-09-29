@@ -1,4 +1,4 @@
-import { Practitioner, QuestionnaireResponse } from 'fhir/r4b';
+import { Organization, Practitioner, QuestionnaireResponse } from 'fhir/r4b';
 import { InsuranceCheckStatusWithDate, PatientAccountAndCoverageResources } from '../../data';
 
 export interface GetPatientAccountZambdaInput {
@@ -25,6 +25,7 @@ export type CoverageCheckWithDetails = InsuranceCheckStatusWithDate & CoverageCh
 export interface PatientAccountResponse extends PatientAccountAndCoverageResources {
   primaryCarePhysician?: Practitioner;
   coverageChecks: CoverageCheckWithDetails[];
+  pharmacy?: Organization;
 }
 
 export interface UpdatePatientAccountInput {

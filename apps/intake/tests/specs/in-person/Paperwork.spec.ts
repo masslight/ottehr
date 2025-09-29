@@ -103,9 +103,9 @@ test.describe('Primary Care Physician - Check and fill all fields', () => {
   test('PPCP-1 Primary Care Physician - Check patient name is displayed', async () => {
     await paperwork.checkPatientNameIsDisplayed(bookingData.firstName, bookingData.lastName);
   });
-  test('PPCP-2 Click on [Continue] with empty fields - Primary Care Physician opens', async () => {
+  test('PPCP-2 Click on [Continue] with empty fields - Preferred pharmacy opens', async () => {
     await locator.clickContinueButton();
-    await paperwork.checkCorrectPageOpens('How would you like to pay for your visit?');
+    await paperwork.checkCorrectPageOpens('Preferred pharmacy');
   });
   test('PPCP-3 Click on [Back] - Primary Care Physician opens', async () => {
     await locator.clickBackButton();
@@ -117,7 +117,7 @@ test.describe('Primary Care Physician - Check and fill all fields', () => {
   test('PPCP-5 Fill all fields and click [Continue]', async () => {
     pcpData = await paperwork.fillPrimaryCarePhysician();
     await locator.clickContinueButton();
-    await paperwork.checkCorrectPageOpens('How would you like to pay for your visit?');
+    await paperwork.checkCorrectPageOpens('Preferred pharmacy');
   });
   test('PPCP-6 Click on [Back] - fields have correct values', async () => {
     await locator.clickBackButton();

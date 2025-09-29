@@ -1,10 +1,10 @@
 import { enqueueSnackbar } from 'notistack';
 import { useRef } from 'react';
-import { ChartDataFields, GetChartDataResponse } from 'utils';
-import { useChartData, useDeleteChartData, useSaveChartData } from '../state';
+import { AllChartValues, GetChartDataResponse } from 'utils';
+import { useChartFields, useDeleteChartData, useSaveChartData } from '../state';
 
 type ChartDataTextValueType = Pick<
-  ChartDataFields,
+  AllChartValues,
   'chiefComplaint' | 'ros' | 'surgicalHistoryNote' | 'medicalDecision' | 'addendumNote'
 >;
 
@@ -40,19 +40,18 @@ export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
   isChartDataLoading: boolean;
   hasPendingApiRequests: boolean; // we can use it later to prevent navigation if there are pending api requests
 } => {
-  const { chartData, setPartialChartData } = useChartData();
-  const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
-  const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
-
-  const { isLoading: isChartDataLoading } = useChartData({
+  const {
+    isLoading: isChartDataLoading,
+    data: chartFields,
+    setQueryCache,
+  } = useChartFields({
     requestedFields: {
-      [name]: requestedFieldsOptions[name],
-    },
-    onSuccess: (data) => {
-      if (!data) return;
-      setPartialChartData({ [name]: data[name] });
+      [name]: requestedFieldsOptions[name as keyof ChartDataTextValueType],
     },
   });
+
+  const { mutate: saveChartData, isPending: isSaveLoading } = useSaveChartData();
+  const { mutate: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
 
   const isLoading = isSaveLoading || isDeleteLoading;
 
@@ -94,7 +93,9 @@ export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
 
       const variables = {
         [name]: {
-          resourceId: chartData?.[name]?.resourceId || latestValueFromServerRef.current?.resourceId,
+          resourceId:
+            (chartFields?.[name] as GetChartDataResponse[T])?.resourceId ||
+            latestValueFromServerRef.current?.resourceId,
           [nameToTypeEnum[name]]: latestValueFromUserRef.current,
         },
       };
@@ -106,7 +107,7 @@ export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
 
             // skip ui update if value was changed, we need to set only actual value
             if (latestValueFromUserRef.current === valueToSave?.[nameToTypeEnum[name]]) {
-              setPartialChartData({ [name]: valueToSave });
+              setQueryCache({ [name]: valueToSave });
             }
 
             hasPendingApiRequestsRef.current = false;
@@ -124,7 +125,7 @@ export const useDebounceNotesField = <T extends keyof ChartDataTextValueType>(
           onSuccess: () => {
             // skip ui update if value was changed, we need to set only actual value
             if (latestValueFromUserRef.current === '') {
-              setPartialChartData({ [name]: undefined });
+              setQueryCache({ [name]: undefined });
             }
 
             hasPendingApiRequestsRef.current = false;

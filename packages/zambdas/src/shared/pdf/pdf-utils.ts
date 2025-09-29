@@ -13,7 +13,7 @@ import {
   rgb,
   StandardFonts,
 } from 'pdf-lib';
-import { SupportedObsImgAttachmentTypes } from 'utils';
+import { getLogoFor, SupportedObsImgAttachmentTypes } from 'utils';
 import { PDF_CLIENT_STYLES, STANDARD_FONT_SIZE, STANDARD_FONT_SPACING, Y_POS_GAP } from './pdf-consts';
 import { ImageStyle, LineStyle, PageStyles, PdfClient, PdfClientStyles, TextStyle } from './types';
 
@@ -841,3 +841,25 @@ export const drawFourColumnText = (
   );
   return pdfClient;
 };
+
+export async function getPdfLogo(): Promise<Buffer | undefined> {
+  const url = getLogoFor('pdf');
+  try {
+    if (!url) {
+      return fs.readFileSync('./assets/logo.png');
+    }
+
+    if (url.startsWith('http')) {
+      const res = await fetch(url);
+      if (!res.ok) {
+        throw new Error(`Failed to fetch logo: ${res.status} ${res.statusText}`);
+      }
+      return Buffer.from(await res.arrayBuffer());
+    }
+
+    return fs.readFileSync(url);
+  } catch (error) {
+    console.warn(`Could not load PDF logo from "${url || './assets/logo.png'}": ${(error as Error).message}`);
+    return undefined;
+  }
+}

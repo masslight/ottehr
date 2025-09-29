@@ -3,15 +3,22 @@ import { FC } from 'react';
 import { getSpentTime } from 'utils';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { useFeatureFlags } from '../../../../../features/css-module/context/featureFlags';
-import { useAppointmentData, useChartData } from '../../../../state';
+import { useAppointmentData, useChartData, useChartFields } from '../../../../state';
 
 export const ChiefComplaintContainer: FC = () => {
   const { encounter } = useAppointmentData();
   const { chartData } = useChartData();
+
+  const { data: chartFields } = useChartFields({
+    requestedFields: {
+      chiefComplaint: {
+        _tag: 'chief-complaint',
+      },
+    },
+  });
+
   const { css } = useFeatureFlags();
-
-  const chiefComplaint = chartData?.chiefComplaint?.text;
-
+  const chiefComplaint = chartFields?.chiefComplaint?.text;
   const addToVisitNote = chartData?.addToVisitNote?.value;
   const spentTime = getSpentTime(encounter.statusHistory);
 

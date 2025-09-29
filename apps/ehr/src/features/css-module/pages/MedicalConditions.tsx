@@ -1,6 +1,7 @@
 import { Stack, Typography } from '@mui/material';
 import { FC } from 'react';
 import { useAppointmentData, useChartData } from 'src/telemed';
+import { dataTestIds } from '../../../constants/data-test-ids';
 import { PageTitle } from '../../../telemed/components/PageTitle';
 import {
   MedicalConditionsPatientColumn,
@@ -33,7 +34,11 @@ export const MedicalConditions: FC<MedicalConditionsProps> = () => {
 
   return (
     <Stack spacing={1}>
-      <PageTitle label="Medical Conditions" showIntakeNotesButton={interactionMode === 'intake'} />
+      <PageTitle
+        dataTestId={dataTestIds.medicalConditions.medicalConditionsPageTitle}
+        label="Medical Conditions"
+        showIntakeNotesButton={interactionMode === 'intake'}
+      />
       <InfoAlert text="Ask: Does the patient have any significant past or ongoing medical issues?" />
       <MedicalHistoryDoubleCard
         label="Medical conditions"

@@ -1,5 +1,5 @@
 import {
-  ChartDataFields,
+  AllChartValues,
   PATIENT_VITALS_META_SYSTEM,
   PRIVATE_EXTENSION_BASE_URL,
   SearchParams,
@@ -7,7 +7,7 @@ import {
 } from 'utils';
 
 export interface VitalsSearchConfig {
-  fieldName: Extract<keyof ChartDataFields, 'vitalsObservations'>;
+  fieldName: Extract<keyof AllChartValues, 'vitalsObservations'>;
   searchParams: SearchParams;
 }
 

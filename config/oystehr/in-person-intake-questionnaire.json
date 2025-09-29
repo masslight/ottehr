@@ -658,6 +658,25 @@
             ]
           },
           {
+            "linkId": "pharmacy-page",
+            "text": "Preferred pharmacy",
+            "type": "group",
+            "item": [
+              {
+                "linkId": "pharmacy-name",
+                "text": "Pharmacy name",
+                "type": "string",
+                "required": false
+              },
+              {
+                "linkId": "pharmacy-address",
+                "text": "Pharmacy address",
+                "type": "string",
+                "required": false
+              }
+            ]
+          },
+          {
             "linkId": "payment-option-page",
             "text": "How would you like to pay for your visit?",
             "extension": [

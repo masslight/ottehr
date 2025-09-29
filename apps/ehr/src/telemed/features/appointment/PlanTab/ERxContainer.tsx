@@ -17,7 +17,6 @@ import { Practitioner } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useMemo, useState } from 'react';
 import { CompleteConfiguration } from 'src/components/CompleteConfiguration';
-import { useChartData } from 'src/telemed';
 import { useGetErxConfigQuery } from 'src/telemed/hooks/useGetErxConfig';
 import { ERX_MEDICATION_META_TAG_CODE, formatDateToMDYWithTime, RoleType } from 'utils';
 import { RoundedButton } from '../../../../components/RoundedButton';
@@ -25,7 +24,7 @@ import { useApiClients } from '../../../../hooks/useAppClients';
 import useEvolveUser from '../../../../hooks/useEvolveUser';
 import { PageTitle } from '../../../components/PageTitle';
 import { useGetAppointmentAccessibility } from '../../../hooks';
-import { useAppointmentData } from '../../../state';
+import { useAppointmentData, useChartFields } from '../../../state';
 import { getAppointmentStatusChip } from '../../../utils';
 import { ERX, ERXStatus } from '../ERX';
 
@@ -121,36 +120,21 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
   const { appointment, patient } = useAppointmentData();
   const appointmentStart = useMemo(() => formatDateToMDYWithTime(appointment?.start), [appointment?.start]);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-  const { chartData } = useChartData();
 
-  const { isLoading, isFetching, refetch, setPartialChartData } = useChartData({
+  const {
+    isLoading,
+    isFetching,
+    refetch,
+    data: chartFields,
+  } = useChartFields({
     requestedFields: {
+      practitioners: {},
       prescribedMedications: {
         _include: 'MedicationRequest:requester',
         _tag: ERX_MEDICATION_META_TAG_CODE,
       },
     },
     refetchInterval: 10000,
-    onSuccess: (data) => {
-      console.log('data', data);
-      const prescribedMedications = data?.prescribedMedications;
-
-      setPartialChartData({
-        prescribedMedications,
-        practitioners: (data?.practitioners || []).reduce(
-          (prev, curr) => {
-            const index = prev.findIndex((practitioner) => practitioner.id === curr.id);
-            if (index === -1) {
-              prev.push(curr);
-            } else {
-              prev[index] = curr;
-            }
-            return prev;
-          },
-          chartData?.practitioners || []
-        ),
-      });
-    },
   });
 
   const [isERXOpen, setIsERXOpen] = useState(false);
@@ -253,7 +237,7 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
         )}
         <div id="prescribe-dialog" style={{ flex: '1 0 auto', display: 'flex' }} />
 
-        {chartData?.prescribedMedications && chartData.prescribedMedications.length > 0 && (
+        {chartFields?.prescribedMedications && chartFields.prescribedMedications.length > 0 && (
           <TableContainer component={Paper}>
             <Table>
               <TableHead
@@ -276,7 +260,7 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {chartData.prescribedMedications.map((row) => {
+                {chartFields.prescribedMedications.map((row) => {
                   const rowAdded = formatDateToMDYWithTime(row?.added);
                   return (
                     <TableRow key={row.resourceId}>
@@ -293,7 +277,7 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
                       </TableCell>
                       <TableCell>
                         {getPractitionerName(
-                          chartData.practitioners?.find((practitioner) => practitioner.id === row.provider)
+                          chartFields.practitioners?.find((practitioner) => practitioner.id === row.provider)
                         )}
                       </TableCell>
                       <TableCell>

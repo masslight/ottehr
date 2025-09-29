@@ -7,6 +7,7 @@ import {
   debounce,
   Divider,
   FormControlLabel,
+  Skeleton,
   Switch,
   TextField,
   Typography,
@@ -31,40 +32,23 @@ import {
 import { ProviderSideListSkeleton } from '../ProviderSideListSkeleton';
 
 export const MedicalConditionsProviderColumn: FC = () => {
-  const { chartData, chartDataSetState } = useChartData();
+  const { chartData, isLoading: isChartDataLoading } = useChartData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const featureFlags = useFeatureFlags();
-
-  const { isLoading: isChartDataLoading } = useChartData({
-    requestedFields: {
-      conditions: {},
-    },
-    onSuccess: (data) => {
-      chartDataSetState((prevState) => ({
-        ...prevState,
-        chartData: {
-          ...prevState?.chartData,
-          patientId: prevState?.chartData?.patientId || '',
-          conditions: data?.conditions,
-        },
-      }));
-    },
-  });
-
   const conditions = chartData?.conditions || [];
   const length = conditions.length;
 
   return (
     <Box
       sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
-      data-testid={dataTestIds.telemedEhrFlow.hpiMedicalConditionColumn}
+      data-testid={dataTestIds.medicalConditions.medicalConditionColumn}
     >
       {isChartDataLoading && <ProviderSideListSkeleton />}
 
       {length > 0 && !isChartDataLoading && (
         <Box
           sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
-          data-testid={dataTestIds.telemedEhrFlow.hpiMedicalConditionsList}
+          data-testid={dataTestIds.medicalConditions.medicalConditionsList}
         >
           {conditions.map((value, index) => (
             <MedicalConditionListItem
@@ -192,7 +176,7 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
   return (
     <Box
       sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
-      data-testid={dataTestIds.telemedEhrFlow.hpiMedicalConditionListItem}
+      data-testid={dataTestIds.medicalConditions.medicalConditionListItem}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Typography
@@ -301,6 +285,10 @@ const AddMedicalConditionField: FC = () => {
     window.open('https://docs.oystehr.com/ottehr/setup/terminology/', '_blank');
   };
 
+  if (isChartDataLoading) {
+    return <Skeleton variant="rectangular" width="100%" height={56} />;
+  }
+
   return (
     <Card
       elevation={0}
@@ -329,6 +317,7 @@ const AddMedicalConditionField: FC = () => {
             fullWidth
             size="small"
             loading={isSearching}
+            loadingText={'Loading...'}
             blurOnSelect
             disabled={isChartDataLoading || isLoading}
             options={icdSearchOptions}
@@ -343,7 +332,7 @@ const AddMedicalConditionField: FC = () => {
                 <TextField
                   {...params}
                   onChange={(e) => debouncedHandleInputChange(e.target.value)}
-                  data-testid={dataTestIds.telemedEhrFlow.hpiMedicalConditionsInput}
+                  data-testid={dataTestIds.medicalConditions.medicalConditionsInput}
                   label="Medical condition"
                   placeholder="Search"
                   InputLabelProps={{ shrink: true }}

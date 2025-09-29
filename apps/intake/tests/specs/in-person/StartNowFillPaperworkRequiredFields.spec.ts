@@ -63,6 +63,7 @@ test.describe.serial('Start now In person visit - Paperwork submission flow with
 
   test('SNPRF-3 Skip PCP and Select Self-Pay Payment Option', async () => {
     await paperwork.skipPrimaryCarePhysician();
+    await paperwork.skipPreferredPharmacy();
     await paperwork.selectSelfPayPayment();
     await commonLocatorsHelper.clickContinue();
     await expect(locator.flowHeading).toHaveText('Credit card details');

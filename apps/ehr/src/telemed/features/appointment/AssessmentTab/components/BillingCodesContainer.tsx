@@ -14,7 +14,7 @@ export const BillingCodesContainer: FC = () => {
   const { chartData, setPartialChartData } = useChartData();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const cptCodes = chartData?.cptCodes || [];
-  const emCode = chartData?.emCode;
+  const emCode = Array.isArray(chartData?.emCode) ? null : chartData?.emCode;
 
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const { isFetching: isSearching, data } = useGetIcd10Search({ search: debouncedSearchTerm, sabs: 'CPT' });
@@ -25,8 +25,8 @@ export const BillingCodesContainer: FC = () => {
   const { mutate: deleteEMChartData, isPending: isDeleteEMLoading } = useDeleteChartData();
   const { mutate: deleteCPTChartData, isPending: isDeleteCPTLoading } = useDeleteChartData();
 
-  const disabledEM = isSaveEMLoading || isDeleteEMLoading || (emCode && !emCode.resourceId);
-  const disabledCPT = isSaveCPTLoading || isDeleteCPTLoading;
+  const disabledEM = Boolean(isSaveEMLoading || isDeleteEMLoading || (emCode && !emCode.resourceId));
+  const disabledCPT = Boolean(isSaveCPTLoading || isDeleteCPTLoading);
 
   const { debounce } = useDebounce(800);
 
@@ -89,7 +89,7 @@ export const BillingCodesContainer: FC = () => {
 
   const onEMCodeChange = (value: CPTCodeOption | null): void => {
     if (value) {
-      const prevValue = emCode;
+      const prevValue = emCode ? { ...emCode } : undefined;
 
       saveEMChartData(
         { emCode: { ...emCode, ...value } },
@@ -104,12 +104,12 @@ export const BillingCodesContainer: FC = () => {
           },
           onError: () => {
             enqueueSnackbar('An error has occurred while saving E&M code. Please try again.', { variant: 'error' });
-            setPartialChartData({ emCode: prevValue });
+            setPartialChartData({ emCode: prevValue || undefined });
           },
         }
       );
       setPartialChartData({ emCode: value });
-    } else {
+    } else if (emCode) {
       deleteEMChartData({ emCode });
       setPartialChartData({ emCode: undefined });
     }
