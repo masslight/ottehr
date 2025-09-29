@@ -31,9 +31,8 @@ export const getCanonicalQuestionnaire = async (
         console.log('no language specified');
         return q.language === undefined || q.language === 'en'; // default to English if no language specified
       }
-      if (language && q.language && q.language !== language) {
-        console.log('language specified:', language, q.language);
-        return false;
+      if (language && language !== 'en') {
+        return language === q.language;
       }
       console.log('including questionnaire:', q.language);
       return true;
