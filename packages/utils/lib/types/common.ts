@@ -701,9 +701,10 @@ export interface DocumentReferenceParams {
   };
 }
 
-export interface CanonicalUrl {
+export interface CanonicalUrlSearchInput {
   url: string;
   version: string;
+  language?: string;
 }
 
 export type Timezone = (typeof TIMEZONES)[number];

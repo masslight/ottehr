@@ -74,15 +74,21 @@ export function getCorrectInputOption(itemId: string, currentValue: string): str
   return itemOptionMapping && itemOptionMapping[currentValue] ? itemOptionMapping[currentValue] : currentValue;
 }
 
+interface GetQuestionnaireParams {
+  questionnaireUrl: string;
+  questionnaireVersion: string;
+  valueSetRef: string;
+  language?: string;
+}
+
 export async function getQuestionnaireAndValueSets(
-  questionnaireUrl: string,
-  questionnaireVersion: string,
-  valueSetRef: string,
+  input: GetQuestionnaireParams,
   oystehr: Oystehr
 ): Promise<{ questionnaire: Questionnaire; valueSets: ValueSet[] }> {
-  console.log(`searching for a questionnaire with canonical ${questionnaireUrl}`);
+  console.log(`searching for a questionnaire with canonical ${input.questionnaireUrl}`);
+  const { questionnaireUrl, questionnaireVersion, valueSetRef, language } = input;
   const questionnaire = await getCanonicalQuestionnaire(
-    { version: questionnaireVersion, url: questionnaireUrl },
+    { version: questionnaireVersion, url: questionnaireUrl, language },
     oystehr
   );
 

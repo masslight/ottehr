@@ -7,7 +7,7 @@ export function validateRequestParameters(input: ZambdaInput): GetPaperworkInput
     throw new Error('No request body provided');
   }
 
-  const { appointmentID, dateOfBirth } = JSON.parse(input.body);
+  const { appointmentID, dateOfBirth, language } = JSON.parse(input.body);
 
   if (!appointmentID) {
     throw new Error('appointmentID is not defined');
@@ -20,5 +20,6 @@ export function validateRequestParameters(input: ZambdaInput): GetPaperworkInput
     dateOfBirth,
     secrets: input.secrets,
     authorization,
+    language: language === 'en' ? 'en' : 'es', // todo: reverse default to 'en'
   };
 }

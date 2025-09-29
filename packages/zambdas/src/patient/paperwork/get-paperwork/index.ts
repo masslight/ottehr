@@ -50,9 +50,10 @@ import { validateRequestParameters } from './validateRequestParameters';
 
 export interface GetPaperworkInput {
   appointmentID: string;
-  dateOfBirth?: string;
   secrets: Secrets | null;
   authorization: string | undefined;
+  dateOfBirth?: string;
+  language?: 'es' | 'en';
 }
 
 export type FullAccessPaperworkSupportingInfo = Omit<PaperworkSupportingInfo, 'patient'> & {
@@ -214,9 +215,12 @@ export const index = wrapHandler('get-paperwork', async (input: ZambdaInput): Pr
     // this is not currently possible due to an Oystehr bug
     // value sets probably still need to be fetched up separately
     const { questionnaire, valueSets } = await getQuestionnaireAndValueSets(
-      urlForQFetch,
-      versionForQFetch,
-      'ip-questionnaire-item-value-set',
+      {
+        questionnaireVersion: versionForQFetch,
+        questionnaireUrl: urlForQFetch,
+        language: 'en',
+        valueSetRef: 'ip-questionnaire-item-value-set',
+      },
       oystehr
     );
     console.timeEnd('get-questionnaire');

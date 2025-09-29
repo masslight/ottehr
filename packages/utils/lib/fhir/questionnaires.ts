@@ -1,13 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { Questionnaire } from 'fhir/r4b';
-import { CanonicalUrl } from '../types';
+import { CanonicalUrlSearchInput } from '../types';
 
 // throws an error if unable to find exactly 1 matching resource
 export const getCanonicalQuestionnaire = async (
-  canonical: CanonicalUrl,
+  canonical: CanonicalUrlSearchInput,
   oystehrClient: Oystehr
 ): Promise<Questionnaire> => {
-  const { url, version } = canonical;
+  const { url, version, language } = canonical;
   const questionnaireSearch = (
     await oystehrClient.fhir.search<Questionnaire>({
       resourceType: 'Questionnaire',
@@ -22,7 +22,14 @@ export const getCanonicalQuestionnaire = async (
         },
       ],
     })
-  ).unbundle();
+  )
+    .unbundle()
+    .filter((q) => {
+      if (language && q.language && q.language !== language) {
+        return false;
+      }
+      return true;
+    });
   // if we do not get exactly one result, throw an error
   if (questionnaireSearch.length < 1) {
     throw new Error(`Could not find questionnaire with canonical url ${url}|${version}`);
