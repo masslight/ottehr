@@ -1,9 +1,9 @@
-import { VisitsOverviewReportZambdaInput } from 'utils';
+import { VisitsOverviewReportZambdaInput, Secrets } from 'utils';
 import { ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): {
   dateRange: { start: string; end: string };
-  secrets: any;
+  secrets: Secrets;
 } {
   console.log('validating request parameters');
   if (!input.body) {
