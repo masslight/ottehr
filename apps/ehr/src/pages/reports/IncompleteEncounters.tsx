@@ -3,6 +3,7 @@ import AssignmentLateIcon from '@mui/icons-material/AssignmentLate';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import {
   Box,
+  Button,
   Chip,
   FormControl,
   IconButton,
@@ -332,21 +333,6 @@ export default function IncompleteEncounters(): React.ReactElement {
               Incomplete Encounters
             </Typography>
           </Box>
-          <Box sx={{ ml: 'auto', display: 'flex', gap: 2, alignItems: 'center' }}>
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel>Date Range</InputLabel>
-              <Select value={dateRange} label="Date Range" onChange={handleDateRangeChange}>
-                <MenuItem value="today">Today</MenuItem>
-                <MenuItem value="yesterday">Yesterday</MenuItem>
-                <MenuItem value="last-7-days">Last 7 Days</MenuItem>
-                <MenuItem value="last-7-days-excluding-today">Last 7 Days (Excluding Today)</MenuItem>
-                <MenuItem value="last-30-days">Last 30 Days</MenuItem>
-              </Select>
-            </FormControl>
-            <IconButton onClick={handleRefresh} disabled={isLoading}>
-              <RefreshIcon />
-            </IconButton>
-          </Box>
         </Box>
 
         <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
@@ -354,6 +340,24 @@ export default function IncompleteEncounters(): React.ReactElement {
           appointment ID to navigate to the specific appointment chart. Click an appointment time to navigate to the
           appropriate tracking board.
         </Typography>
+
+        {/* Date Filter */}
+        <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+          <FormControl size="small" sx={{ minWidth: 200 }}>
+            <InputLabel>Date Range</InputLabel>
+            <Select value={dateRange} label="Date Range" onChange={handleDateRangeChange}>
+              <MenuItem value="today">Today</MenuItem>
+              <MenuItem value="yesterday">Yesterday</MenuItem>
+              <MenuItem value="last-7-days">Last 7 Days</MenuItem>
+              <MenuItem value="last-7-days-excluding-today">Last 7 Days (Excluding Today)</MenuItem>
+              <MenuItem value="last-30-days">Last 30 Days</MenuItem>
+            </Select>
+          </FormControl>
+
+          <Button variant="outlined" onClick={handleRefresh} disabled={isLoading} startIcon={<RefreshIcon />}>
+            Refresh
+          </Button>
+        </Box>
 
         <Paper sx={{ height: 600, width: '100%' }}>
           <DataGridPro
