@@ -340,7 +340,7 @@ export default function PatientPaymentList({
       <Tooltip
         disableHoverListener={receiptDocRefId !== undefined}
         placement="top"
-        title="Patient don't have any receipt for this encounter"
+        title="Patient doesn't have any receipt for this encounter"
       >
         <span>
           <Button
