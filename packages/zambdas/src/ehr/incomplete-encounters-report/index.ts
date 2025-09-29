@@ -4,9 +4,13 @@ import {
   getAttendingPractitionerId,
   getPatientFirstName,
   getPatientLastName,
+  getSecret,
   getVisitStatus,
+  IncompleteEncountersReportZambdaInput,
   IncompleteEncountersReportZambdaOutput,
   OTTEHR_MODULE,
+  Secrets,
+  SecretsKeys,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -22,7 +26,7 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'incomplete-encounters-report';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  let validatedParameters: any;
+  let validatedParameters: IncompleteEncountersReportZambdaInput & { secrets: Secrets };
   try {
     console.group('validateRequestParameters');
     validatedParameters = validateRequestParameters(input);
@@ -280,7 +284,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       body: JSON.stringify(response),
     };
   } catch (error: unknown) {
-    await topLevelCatch(ZAMBDA_NAME, error, validatedParameters?.secrets || input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
     console.log('Error occurred:', error);
     return {
       statusCode: 500,

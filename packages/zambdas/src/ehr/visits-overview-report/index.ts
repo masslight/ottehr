@@ -5,9 +5,11 @@ import {
   DailyVisitCount,
   getAdmitterPractitionerId,
   getAttendingPractitionerId,
+  getSecret,
   LocationVisitCount,
   OTTEHR_MODULE,
   PractitionerVisitCount,
+  SecretsKeys,
   VisitsOverviewReportZambdaOutput,
 } from 'utils';
 import {
@@ -387,7 +389,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       body: JSON.stringify(response),
     };
   } catch (error: unknown) {
-    await topLevelCatch(ZAMBDA_NAME, error, validatedParameters?.secrets || input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
     console.log('Error occurred:', error);
     return {
       statusCode: 500,
