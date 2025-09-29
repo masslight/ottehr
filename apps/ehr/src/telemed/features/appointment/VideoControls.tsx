@@ -4,26 +4,16 @@ import MicOffIcon from '@mui/icons-material/MicOff';
 import SettingsIcon from '@mui/icons-material/Settings';
 import VideocamIcon from '@mui/icons-material/Videocam';
 import VideocamOffIcon from '@mui/icons-material/VideocamOff';
-import { Box, CircularProgress, useTheme } from '@mui/material';
+import { Box, useTheme } from '@mui/material';
 import { useLocalVideo, useMeetingManager, useToggleLocalMute } from 'amazon-chime-sdk-component-library-react';
 import { FC, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { TelemedAppointmentStatusEnum } from 'utils';
 import { dataTestIds } from '../../../constants/data-test-ids';
 import { ConfirmationDialog, IconButtonContained } from '../../components';
-import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
-import { useAppointmentData, useChangeTelemedAppointmentStatusMutation, useVideoCallStore } from '../../state';
-import { updateEncounterStatusHistory } from '../../utils';
+import { useVideoCallStore } from '../../state';
 import { CallSettings } from './CallSettings';
 
 export const VideoControls: FC = () => {
   const theme = useTheme();
-
-  const apiClient = useOystehrAPIClient();
-  const { mutateAsync, isPending: isLoading } = useChangeTelemedAppointmentStatusMutation();
-  const { encounter, appointmentSetState } = useAppointmentData();
-
-  const { id: appointmentId } = useParams();
 
   const { toggleVideo, isVideoEnabled } = useLocalVideo();
   const { muted, toggleMute } = useToggleLocalMute();
@@ -48,20 +38,6 @@ export const VideoControls: FC = () => {
   };
 
   const disconnect = async (): Promise<void> => {
-    if (apiClient && appointmentId) {
-      await mutateAsync({ apiClient, appointmentId, newStatus: TelemedAppointmentStatusEnum.unsigned }, {}).catch(
-        (error) => {
-          console.error(error);
-        }
-      );
-      appointmentSetState({
-        encounter: {
-          ...encounter,
-          status: 'finished',
-          statusHistory: updateEncounterStatusHistory('finished', encounter.statusHistory),
-        },
-      });
-    }
     await cleanup();
   };
 
@@ -103,15 +79,11 @@ export const VideoControls: FC = () => {
           }}
         >
           {(showDialog) => (
-            <IconButtonContained onClick={showDialog} disabled={isLoading} variant="error">
-              {isLoading ? (
-                <CircularProgress size={24} sx={{ color: theme.palette.primary.contrastText }} />
-              ) : (
-                <CallEndIcon
-                  sx={{ color: theme.palette.primary.contrastText }}
-                  data-testid={dataTestIds.telemedEhrFlow.endVideoCallButton}
-                />
-              )}
+            <IconButtonContained onClick={showDialog} variant="error">
+              <CallEndIcon
+                sx={{ color: theme.palette.primary.contrastText }}
+                data-testid={dataTestIds.telemedEhrFlow.endVideoCallButton}
+              />
             </IconButtonContained>
           )}
         </ConfirmationDialog>
