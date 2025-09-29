@@ -16,7 +16,7 @@ import {
 import { DataGridPro, GridColDef, GridRenderCellParams } from '@mui/x-data-grid-pro';
 import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { VisitStatusLabel } from 'utils';
 import { getIncompleteEncountersReport } from '../../api/api';
@@ -65,56 +65,12 @@ const getStatusColor = (
   }
 };
 
-const getDateRange = (filter: DateRangeFilter): { start: string; end: string } => {
-  const now = DateTime.now();
-  const today = now.startOf('day');
-
-  switch (filter) {
-    case 'today': {
-      return {
-        start: today.toISO(),
-        end: today.endOf('day').toISO(),
-      };
-    }
-    case 'yesterday': {
-      const yesterday = today.minus({ days: 1 });
-      return {
-        start: yesterday.toISO(),
-        end: yesterday.endOf('day').toISO(),
-      };
-    }
-    case 'last-7-days': {
-      return {
-        start: today.minus({ days: 7 }).toISO(),
-        end: now.toISO(),
-      };
-    }
-    case 'last-7-days-excluding-today': {
-      return {
-        start: today.minus({ days: 7 }).toISO(),
-        end: today.minus({ days: 1 }).endOf('day').toISO(),
-      };
-    }
-    case 'last-30-days': {
-      return {
-        start: today.minus({ days: 30 }).toISO(),
-        end: now.toISO(),
-      };
-    }
-    default: {
-      return {
-        start: today.toISO(),
-        end: today.endOf('day').toISO(),
-      };
-    }
-  }
-};
-
 const useIncompleteEncounters = (
-  dateRange: DateRangeFilter
+  dateRange: DateRangeFilter,
+  start: string,
+  end: string
 ): ReturnType<typeof useQuery<IncompleteEncounterRow[], Error>> => {
   const { oystehrZambda } = useApiClients();
-  const { start, end } = getDateRange(dateRange);
 
   return useQuery({
     queryKey: ['incomplete-encounters', dateRange, start, end],
@@ -168,7 +124,53 @@ export default function IncompleteEncounters(): React.ReactElement {
   const navigate = useNavigate();
   const [dateRange, setDateRange] = useState<DateRangeFilter>('today');
 
-  const { data: encounters = [], isLoading, error, refetch } = useIncompleteEncounters(dateRange);
+  const getDateRange = useCallback((filter: DateRangeFilter): { start: string; end: string } => {
+    const now = DateTime.now().setZone('America/New_York');
+    const today = now.startOf('day');
+
+    switch (filter) {
+      case 'today': {
+        return {
+          start: today.toISO() ?? '',
+          end: today.endOf('day').toISO() ?? '',
+        };
+      }
+      case 'yesterday': {
+        const yesterday = today.minus({ days: 1 });
+        return {
+          start: yesterday.toISO() ?? '',
+          end: yesterday.endOf('day').toISO() ?? '',
+        };
+      }
+      case 'last-7-days': {
+        return {
+          start: today.minus({ days: 6 }).toISO() ?? '',
+          end: today.endOf('day').toISO() ?? '',
+        };
+      }
+      case 'last-7-days-excluding-today': {
+        return {
+          start: today.minus({ days: 6 }).toISO() ?? '',
+          end: today.minus({ days: 1 }).endOf('day').toISO() ?? '',
+        };
+      }
+      case 'last-30-days': {
+        return {
+          start: today.minus({ days: 29 }).toISO() ?? '',
+          end: today.endOf('day').toISO() ?? '',
+        };
+      }
+      default: {
+        return {
+          start: today.toISO() ?? '',
+          end: today.endOf('day').toISO() ?? '',
+        };
+      }
+    }
+  }, []);
+
+  const { start, end } = getDateRange(dateRange);
+  const { data: encounters = [], isLoading, error, refetch } = useIncompleteEncounters(dateRange, start, end);
 
   const handleBack = (): void => {
     navigate('/reports');
