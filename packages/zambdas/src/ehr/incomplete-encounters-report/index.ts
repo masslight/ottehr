@@ -124,16 +124,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         `Page ${pageCount}: Found ${pageResources.length} total resources (${pageAppointmentsCount} appointments)`
       );
 
-      // Check if we got fewer appointments than requested, indicating last page
-      const hasMoreResults = pageAppointmentsCount === pageSize;
-
       // Safety check to prevent infinite loops
       if (pageCount > 100) {
         console.warn('Reached maximum pagination limit (100 pages). Stopping search.');
-        break;
-      }
-
-      if (!hasMoreResults) {
         break;
       }
     }
