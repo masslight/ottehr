@@ -27,6 +27,10 @@ export function validateRequestParameters(
     throw new Error('dateRange.end must be a valid ISO date string');
   }
 
+  if (!input.secrets) {
+    throw new Error('Input did not have any secrets');
+  }
+
   return {
     dateRange,
     secrets: input.secrets,

@@ -1,4 +1,4 @@
-import { VisitsOverviewReportZambdaInput, Secrets } from 'utils';
+import { Secrets, VisitsOverviewReportZambdaInput } from 'utils';
 import { ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): {
@@ -30,6 +30,10 @@ export function validateRequestParameters(input: ZambdaInput): {
 
   if (startDate > endDate) {
     throw new Error('Start date must be before or equal to end date');
+  }
+
+  if (!input.secrets) {
+    throw new Error('Input did not have any secrets');
   }
 
   return {
