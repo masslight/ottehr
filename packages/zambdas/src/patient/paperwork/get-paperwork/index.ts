@@ -218,7 +218,7 @@ export const index = wrapHandler('get-paperwork', async (input: ZambdaInput): Pr
       {
         questionnaireVersion: versionForQFetch,
         questionnaireUrl: urlForQFetch,
-        language: 'en',
+        language: 'es',
         valueSetRef: 'ip-questionnaire-item-value-set',
       },
       oystehr

@@ -7,7 +7,8 @@ export const getCanonicalQuestionnaire = async (
   canonical: CanonicalUrlSearchInput,
   oystehrClient: Oystehr
 ): Promise<Questionnaire> => {
-  const { url, version, language } = canonical;
+  const { url, version, language: maybeLanguage } = canonical;
+  const language = maybeLanguage ?? 'en';
   console.log('Searching for questionnaire with canonical url:', url, ' version:', version, ' language:', language);
   const questionnaireSearch = (
     await oystehrClient.fhir.search<Questionnaire>({
@@ -27,15 +28,8 @@ export const getCanonicalQuestionnaire = async (
     .unbundle()
     .filter((q) => {
       console.log('questionnaire language:', q.language);
-      if (!language) {
-        console.log('no language specified');
-        return q.language === undefined || q.language === 'en'; // default to English if no language specified
-      }
-      if (language && language !== 'en') {
-        return language === q.language;
-      }
-      console.log('including questionnaire:', q.language);
-      return true;
+      const qLanguage = q.language ?? 'en';
+      return qLanguage === language;
     });
   // if we do not get exactly one result, throw an error
   if (questionnaireSearch.length < 1) {
