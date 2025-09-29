@@ -25,7 +25,7 @@ test.afterAll(async () => {
 
 test('ALG-1 Allergies. Happy Path', async ({ page }) => {
   const allergyPage = await prepareAndOpenAllergies(page);
-  await test.step('ALG-1.1 Open Allergies page and Add allergy', async () => {
+  await test.step('ALG-1.1 Add allergy', async () => {
     await allergyPage.addAllergy(ALLERGY);
   });
   await test.step('ALG-1.2 Check added allergy is shown in CSS header', async () => {
@@ -33,7 +33,7 @@ test('ALG-1 Allergies. Happy Path', async ({ page }) => {
   });
   await test.step('ALG-1.3 Verify Progress Note shows Allergy', async () => {
     const progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
-    await progressNotePage.verifyAddedAllergiesAreShown(ALLERGY);
+    await progressNotePage.verifyAddedAllergyIsShown(ALLERGY);
   });
   await test.step('ALG-1.4 Open Allergies page and Remove allergy', async () => {
     const sideMenu = new SideMenu(page);
@@ -45,7 +45,7 @@ test('ALG-1 Allergies. Happy Path', async ({ page }) => {
   });
   await test.step('ALG-1.6 Verify Progress Note does not show removed Allergy', async () => {
     const progressNotePage = await openInPersonProgressNotePage(resourceHandler.appointment.id!, page);
-    await progressNotePage.verifyRemovedAllergiesAreNotShown(ALLERGY);
+    await progressNotePage.verifyRemovedAllergyIsNotShown(ALLERGY);
   });
 });
 

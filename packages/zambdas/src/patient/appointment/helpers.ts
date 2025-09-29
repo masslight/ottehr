@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Coding, DocumentReference, Extension, Practitioner, Questionnaire } from 'fhir/r4b';
+import { Coding, DocumentReference, Extension, Organization, Practitioner, Questionnaire } from 'fhir/r4b';
 import {
   CanonicalUrl,
   getCanonicalQuestionnaire,
@@ -12,7 +12,7 @@ import {
 import ehrInsuranceUpdateQuestionnaireJson from '../../../../../config/oystehr/ehr-insurance-update-questionnaire.json';
 import inPersonIntakeQuestionnaireJson from '../../../../../config/oystehr/in-person-intake-questionnaire.json';
 import virtualIntakeQuestionnaireJson from '../../../../../config/oystehr/virtual-intake-questionnaire.json';
-import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
+import { getAccountAndCoverageResourcesForPatient, PATIENT_CONTAINED_PHARMACY_ID } from '../../ehr/shared/harvest';
 export const getCurrentQuestionnaireForServiceType = async (
   serviceMode: ServiceMode,
   secrets: Secrets | null,
@@ -26,11 +26,11 @@ export const getCanonicalUrlForPrevisitQuestionnaire = (serviceMode: ServiceMode
   let url = '';
   let version = '';
   if (serviceMode === 'in-person') {
-    url = inPersonIntakeQuestionnaireJson.fhirResources['questionnaire-in-person-previsit'].url;
-    version = inPersonIntakeQuestionnaireJson.fhirResources['questionnaire-in-person-previsit'].version;
+    url = inPersonIntakeQuestionnaireJson.fhirResources['questionnaire-in-person-previsit'].resource.url;
+    version = inPersonIntakeQuestionnaireJson.fhirResources['questionnaire-in-person-previsit'].resource.version;
   } else if (serviceMode === 'virtual') {
-    url = virtualIntakeQuestionnaireJson.fhirResources['questionnaire-virtual-previsit'].url;
-    version = virtualIntakeQuestionnaireJson.fhirResources['questionnaire-virtual-previsit'].version;
+    url = virtualIntakeQuestionnaireJson.fhirResources['questionnaire-virtual-previsit'].resource.url;
+    version = virtualIntakeQuestionnaireJson.fhirResources['questionnaire-virtual-previsit'].resource.version;
   }
   if (!url || !version) {
     throw new Error('Questionnaire url missing or malformed');
@@ -42,7 +42,8 @@ export const getCanonicalUrlForPrevisitQuestionnaire = (serviceMode: ServiceMode
 };
 
 export const getCanonicalUrlForInsuranceUpdateQuestionnaire = (): CanonicalUrl => {
-  const { url, version } = ehrInsuranceUpdateQuestionnaireJson.fhirResources['questionnaire-ehr-insurance-update'];
+  const { url, version } =
+    ehrInsuranceUpdateQuestionnaireJson.fhirResources['questionnaire-ehr-insurance-update'].resource;
   if (!url || !version) {
     throw new Error('Questionnaire url missing or malformed');
   }
@@ -153,12 +154,16 @@ export async function getRelatedResources(
     const primaryCarePhysician = insuranceResponse.patient?.contained?.find(
       (resource) => resource.resourceType === 'Practitioner' && resource.active === true
     ) as Practitioner;
+    const pharmacy = insuranceResponse.patient?.contained?.find(
+      (resource) => resource.resourceType === 'Organization' && resource.id === PATIENT_CONTAINED_PHARMACY_ID
+    ) as Organization;
 
     documents = docsResponse.unbundle();
     accountInfo = {
       ...insuranceResponse,
       primaryCarePhysician,
       coverageChecks: [], // these aren't needed here
+      pharmacy,
     };
   }
 

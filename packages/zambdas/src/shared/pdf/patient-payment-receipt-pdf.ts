@@ -14,7 +14,7 @@ import {
 import fs from 'fs';
 import { capitalize } from 'lodash';
 import { DateTime } from 'luxon';
-import { PageSizes } from 'pdf-lib';
+import { PageSizes, PDFImage } from 'pdf-lib';
 import Stripe from 'stripe';
 import {
   CashOrCardPayment,
@@ -35,7 +35,7 @@ import { createOystehrClient } from '../helpers';
 import { getStripeClient, STRIPE_PAYMENT_ID_SYSTEM } from '../stripeIntegration';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { STANDARD_NEW_LINE } from './pdf-consts';
-import { createPdfClient, PdfInfo, SEPARATED_LINE_STYLE as GREY_LINE_STYLE } from './pdf-utils';
+import { createPdfClient, getPdfLogo, PdfInfo, SEPARATED_LINE_STYLE as GREY_LINE_STYLE } from './pdf-utils';
 import { ImageStyle, PdfClientStyles, TextStyle } from './types';
 
 interface PaymentData {
@@ -292,7 +292,9 @@ async function createReceiptPdf(receiptData: PatientPaymentReceiptData): Promise
   const pdfClient = await createPdfClient(pdfClientStyles);
   const RubikFont = await pdfClient.embedFont(fs.readFileSync('./assets/Rubik-Regular.otf'));
   const RubikFontMedium = await pdfClient.embedFont(fs.readFileSync('./assets/Rubik-Medium.ttf'));
-  const ottehrLogo = await pdfClient.embedImage(fs.readFileSync('./assets/ottehrLogo.png'));
+  let logo: PDFImage | undefined;
+  const logoBuffer = await getPdfLogo();
+  if (logoBuffer) logo = await pdfClient.embedImage(logoBuffer);
 
   const textStyles: Record<string, TextStyle> = {
     header: {
@@ -343,7 +345,7 @@ async function createReceiptPdf(receiptData: PatientPaymentReceiptData): Promise
       width: 120,
       height: 30,
     };
-    pdfClient.drawImage(ottehrLogo, imgStyles);
+    if (logo) pdfClient.drawImage(logo, imgStyles);
     pdfClient.newLine(STANDARD_NEW_LINE);
     pdfClient.drawText('RECEIPT', textStyles.header);
     pdfClient.setY(pdfClient.getY() - imgStyles.height); // new line after image

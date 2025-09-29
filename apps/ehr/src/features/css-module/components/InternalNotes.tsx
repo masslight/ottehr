@@ -1,6 +1,6 @@
 import React from 'react';
 import { CSS_NOTE_ID, NOTE_TYPE, PRIVATE_EXTENSION_BASE_URL } from 'utils';
-import { useChartData } from '../../../telemed';
+import { useChartFields } from '../../../telemed';
 import { useInternalNotesModal } from '../hooks/useInternalNotes';
 import { ButtonRounded } from './RoundedButton';
 
@@ -16,7 +16,7 @@ const icon = (
 export const InternalNotes = (): React.ReactElement => {
   const { isOpen, openModal, InternalNotesModal, closeModal } = useInternalNotesModal();
 
-  const { chartData } = useChartData({
+  const { data: chartFields } = useChartFields({
     requestedFields: {
       notes: {
         _search_by: 'encounter',
@@ -27,7 +27,7 @@ export const InternalNotes = (): React.ReactElement => {
     },
   });
 
-  const notesCount = chartData?.notes?.length ?? 0;
+  const notesCount = chartFields?.notes?.length ?? 0;
 
   return (
     <>

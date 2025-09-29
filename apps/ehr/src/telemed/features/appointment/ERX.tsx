@@ -3,7 +3,7 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { getPractitionerMissingFields } from 'src/shared/utils';
-import { useChartData } from 'src/telemed';
+import { useChartFields } from 'src/telemed';
 import { VitalFieldNames } from 'utils';
 import { createVitalsSearchConfig } from 'utils/lib/helpers/visit-note/create-vitals-search-config.helper';
 import {
@@ -46,19 +46,19 @@ export const ERX: FC<{
   const weightSearchConfig = createVitalsSearchConfig(VitalFieldNames.VitalWeight, 'patient', 1);
 
   const {
-    chartData: heightVitalObservationResponse,
+    data: heightVitalObservationResponse,
     isLoading: isHeightLoading,
     isFetched: isHeightFetched,
-  } = useChartData({
+  } = useChartFields({
     requestedFields: { [heightSearchConfig.fieldName]: heightSearchConfig.searchParams },
     enabled: Boolean(encounter?.id),
   });
 
   const {
-    chartData: weightVitalObservationResponse,
+    data: weightVitalObservationResponse,
     isLoading: isWeightLoading,
     isFetched: isWeightFetched,
-  } = useChartData({
+  } = useChartFields({
     requestedFields: { [weightSearchConfig.fieldName]: weightSearchConfig.searchParams },
     enabled: Boolean(encounter?.id),
   });
@@ -93,8 +93,8 @@ export const ERX: FC<{
       console.log(error);
       let errorMsg = 'Something went wrong while trying to sync patient to eRx';
 
-      if (error.status === 400) {
-        if (error.message?.includes('phone')) {
+      if (error.code === '4006') {
+        if (error.message?.toLowerCase()?.includes('phone')) {
           errorMsg = `Patient has specified some wrong phone number: ${phoneNumber}. Please provide a real patient's phone number`;
         } else if (error.message?.includes('eRx service is not configured')) {
           errorMsg = `eRx service is not configured. Please contact support.`;

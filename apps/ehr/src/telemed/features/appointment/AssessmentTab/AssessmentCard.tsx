@@ -15,10 +15,7 @@ import {
 } from './components';
 
 export const AssessmentCard: FC = () => {
-  const { chartData } = useChartData({
-    requestedFields: { cptCodes: {} },
-    replaceStoreValues: true,
-  });
+  const { chartData } = useChartData();
 
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const emCode = chartData?.emCode;

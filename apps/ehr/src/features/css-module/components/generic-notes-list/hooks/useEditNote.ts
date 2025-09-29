@@ -1,19 +1,15 @@
-import { useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { GetChartDataResponse, NoteDTO } from 'utils';
 import useEvolveUser from '../../../../../hooks/useEvolveUser';
-import { useChartData } from '../../../../../telemed';
+import { useChartFields } from '../../../../../telemed';
 import { useOystehrAPIClient } from '../../../../../telemed/hooks/useOystehrAPIClient';
 import { EditableNote, UseEditNote } from '../types';
-import { useChartDataCacheKey } from './useChartDataCacheKey';
 
 export const useEditNote: UseEditNote = ({ appointmentId, apiConfig }) => {
   const apiClient = useOystehrAPIClient();
-  const queryClient = useQueryClient();
   const user = useEvolveUser();
-  const cacheKey = useChartDataCacheKey(apiConfig.fieldName, apiConfig.searchParams);
 
-  const { chartDataRefetch: refetch } = useChartData({
+  const { setQueryCache } = useChartFields({
     appointmentId,
     requestedFields: { [apiConfig.fieldName]: apiConfig.searchParams },
   });
@@ -35,7 +31,7 @@ export const useEditNote: UseEditNote = ({ appointmentId, apiConfig }) => {
         [apiConfig.fieldName]: [updatedNote],
       });
 
-      const result = queryClient.setQueryData(cacheKey, (oldData: any) => {
+      setQueryCache((oldData: any) => {
         if (oldData?.[apiConfig.fieldName]) {
           return {
             ...oldData,
@@ -51,13 +47,8 @@ export const useEditNote: UseEditNote = ({ appointmentId, apiConfig }) => {
         }
         return oldData;
       }) as GetChartDataResponse | undefined;
-
-      if (result?.[apiConfig.fieldName] === undefined) {
-        // refetch all if the cache didn't found
-        await refetch();
-      }
     },
-    [user?.profile, user?.userName, apiClient, apiConfig, queryClient, cacheKey, refetch]
+    [user?.profile, user?.userName, apiClient, apiConfig, setQueryCache]
   );
 
   return handleEdit;

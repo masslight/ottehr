@@ -1,12 +1,14 @@
 import { Box, Typography } from '@mui/material';
 import { FC } from 'react';
-import { useChartData } from '../../../../state';
+import { useChartFields } from '../../../../state';
 import { PrescribedMedicationReviewItem } from './PrescribedMedicationReviewItem';
 
 export const PrescribedMedicationsContainer: FC = () => {
-  const { chartData } = useChartData();
+  const { data: chartFields } = useChartFields({
+    requestedFields: { prescribedMedications: {} },
+  });
 
-  const prescriptions = chartData?.prescribedMedications;
+  const prescriptions = chartFields?.prescribedMedications;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, width: '100%' }}>

@@ -1,5 +1,5 @@
 import { NOTHING_TO_EAT_OR_DRINK_FIELD } from 'utils';
-import { useChartData } from '../state';
+import { useChartData, useChartFields } from '../state';
 import { useExcusePresignedFiles } from '.';
 
 export const usePatientInstructionsVisibility = (): {
@@ -10,8 +10,11 @@ export const usePatientInstructionsVisibility = (): {
   showPatientInstructions: boolean;
 } => {
   const { chartData } = useChartData();
+  const { data: chartFields } = useChartFields({
+    requestedFields: { disposition: {} },
+  });
   const instructions = chartData?.instructions;
-  const disposition = chartData?.disposition;
+  const disposition = chartFields?.disposition;
   const schoolWorkExcuses = useExcusePresignedFiles(chartData?.schoolWorkNotes);
   const showInstructions = !!(instructions && instructions.length > 0);
 
