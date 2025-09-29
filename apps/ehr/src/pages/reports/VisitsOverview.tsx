@@ -12,6 +12,7 @@ import {
   InputLabel,
   MenuItem,
   Select,
+  SelectChangeEvent,
   TextField,
   Typography,
 } from '@mui/material';
@@ -137,7 +138,7 @@ export default function VisitsOverview(): React.ReactElement {
     void fetchReport(dateFilter);
   }, [dateFilter, fetchReport, customDate, customStartDate, customEndDate]);
 
-  const handleDateFilterChange = (event: any): void => {
+  const handleDateFilterChange = (event: SelectChangeEvent<string>): void => {
     const newFilter = event.target.value;
     setDateFilter(newFilter);
     void fetchReport(newFilter);
