@@ -167,6 +167,7 @@ const updateZambdas = async (config: any, selectedTriggerMethod: string | undefi
         name: zambdaName,
         runtime: currentZambda.runtime,
         triggerMethod: currentZambda.type,
+        schedule: currentZambda.schedule,
         timeoutInSeconds: currentZambda.timeout ? parseInt(currentZambda.timeout) : undefined,
       });
       console.log(`Zambda ${zambda} with ID ${currentDeployedZambda.id}`);
