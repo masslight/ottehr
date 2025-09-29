@@ -1,9 +1,9 @@
-import { IncompleteEncountersReportZambdaInput } from 'utils';
+import { IncompleteEncountersReportZambdaInput, Secrets } from 'utils';
 import { ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(
   input: ZambdaInput
-): IncompleteEncountersReportZambdaInput & { secrets: any } {
+): IncompleteEncountersReportZambdaInput & { secrets: Secrets } {
   if (!input.body) {
     throw new Error('Missing request body');
   }
