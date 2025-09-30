@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
+import { CHART_DATA_QUERY_KEY_BASE } from 'src/constants';
 import { AllChartValuesKeys, SearchParams } from 'utils';
-import { CHART_DATA_QUERY_KEY_BASE, ChartDataCacheKey, useAppointmentData } from '../../../../../telemed';
+import { ChartDataCacheKey, useAppointmentData } from '../../../../../telemed';
 
 export const useChartDataCacheKey = (fieldName: AllChartValuesKeys, searchParams: SearchParams): ChartDataCacheKey => {
   const { encounter } = useAppointmentData();
