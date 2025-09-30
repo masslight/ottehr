@@ -41,7 +41,6 @@ export async function getMessageRecipientForAppointment(
   }
 }
 
-const defaultBCCLowersEmail = 'support@ottehr.com';
 const defaultLowersFromEmail = 'ottehr-support@masslight.com'; // todo: change to support@ottehr.com when doing so does not land things in spam folder
 class EmailClient {
   private config: SendgridConfig;
@@ -162,8 +161,9 @@ class EmailClient {
   async sendErrorEmail(to: string | string[], templateData: ErrorReportTemplateData): Promise<void> {
     const recipients = typeof to === 'string' ? [to] : [...to];
 
-    if (!recipients.includes(defaultBCCLowersEmail)) {
-      recipients.push(defaultBCCLowersEmail);
+    const ottehrSupportEmail = 'support@ottehr.com';
+    if (!recipients.includes(ottehrSupportEmail)) {
+      recipients.push(ottehrSupportEmail);
     }
 
     await this.sendEmail(recipients, this.config.templates.errorReport, templateData);
