@@ -124,7 +124,7 @@ const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAcc
         return null;
       }
       return {
-        ...parseCoverageEligibilityResponse(result, true),
+        ...parseCoverageEligibilityResponse(result),
         ...coverageDetails,
       } as CoverageCheckWithDetails;
     })
