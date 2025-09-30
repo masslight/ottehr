@@ -1,4 +1,5 @@
 export * from './accessPolicies';
+export * from './ai';
 export * from './appointment';
 export * from './auth';
 export * from './candid';

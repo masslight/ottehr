@@ -251,3 +251,54 @@ function createDiagnosis(aiResponse: any, encounterId: string, patientId: string
     );
   });
 }
+
+function getIcdPrompt(hpiText?: string, mdmText?: string): string {
+  const content = [];
+  if (hpiText) {
+    content.push(`History of Present Illness: ${hpiText}`);
+  }
+  if (mdmText) {
+    content.push(`Medical Decision Making: ${mdmText}`);
+  }
+  
+  return `Based on the following clinical notes, please suggest potential ICD-10 diagnoses for the patient.
+
+${content.join('\n\n')}
+
+Please provide a JSON response with the following format. Do not include markdown formatting:
+{
+  "potentialDiagnoses": [
+    {
+      "diagnosis": "Human readable diagnosis description",
+      "icd10": "ICD-10 code"
+    }
+  ]
+}
+
+Only suggest diagnoses that are clearly supported by the clinical information provided. Limit suggestions to the most relevant 3-5 diagnoses.`;
+}
+
+export async function generateIcdCodesFromClinicalNotes(
+  hpiText?: string,
+  mdmText?: string,
+  secrets?: Secrets | null
+): Promise<{ diagnosis: string; icd10: string }[]> {
+  if (!hpiText && !mdmText) {
+    return [];
+  }
+
+  try {
+    const prompt = getIcdPrompt(hpiText, mdmText);
+    const aiResponseString = (
+      await invokeChatbot([{ role: 'user', content: prompt }], secrets)
+    ).content.toString();
+    
+    console.log(`AI ICD response: "${aiResponseString}"`);
+    const aiResponse = JSON.parse(aiResponseString);
+    
+    return aiResponse.potentialDiagnoses || [];
+  } catch (error) {
+    console.error('Error generating ICD codes:', error);
+    return [];
+  }
+}

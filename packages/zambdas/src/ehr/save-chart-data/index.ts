@@ -22,6 +22,7 @@ import {
   createOystehrClient,
   createProcedureServiceRequest,
   followUpToPerformerMap,
+  generateIcdCodesFromClinicalNotes,
   makeAllergyResource,
   makeBirthHistoryObservationResource,
   makeClinicalImpressionResource,
@@ -266,6 +267,57 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           makeClinicalImpressionResource(encounterId, patient.id, medicalDecision, 'medical-decision')
         )
       );
+    }
+
+    // 9.1 Generate AI ICD codes when HPI or MDM is updated
+    if (chiefComplaint?.text || medicalDecision?.text) {
+      try {
+        console.log('Generating AI ICD codes from clinical notes...');
+        const potentialDiagnoses = await generateIcdCodesFromClinicalNotes(
+          chiefComplaint?.text,
+          medicalDecision?.text,
+          secrets
+        );
+
+        if (potentialDiagnoses.length > 0) {
+          console.log(`Generated ${potentialDiagnoses.length} potential AI diagnoses`);
+          
+          // First, remove existing AI potential diagnoses to avoid duplicates
+          const existingAiDiagnoses = allResources.filter(
+            (resource) => 
+              resource.resourceType === 'Condition' && 
+              resource.meta?.tag?.[0]?.code === 'ai-potential-diagnosis'
+          );
+
+          // Delete existing AI diagnoses
+          existingAiDiagnoses.forEach((diagnosis) => {
+            if (diagnosis.id) {
+              saveOrUpdateRequests.push(deleteResourceRequest('Condition', diagnosis.id));
+            }
+          });
+
+          // Add new AI potential diagnoses
+          potentialDiagnoses.forEach((diagnosis) => {
+            saveOrUpdateRequests.push(
+              saveOrUpdateResourceRequest(
+                makeDiagnosisConditionResource(
+                  encounterId,
+                  patient.id,
+                  {
+                    code: diagnosis.icd10,
+                    display: diagnosis.diagnosis,
+                    isPrimary: false,
+                  },
+                  'ai-potential-diagnosis'
+                )
+              )
+            );
+          });
+        }
+      } catch (error) {
+        console.error('Error generating AI ICD codes:', error);
+        // Continue processing even if AI generation fails
+      }
     }
 
     // 10 convert CPT code to Procedure (FHIR) and preserve FHIR resource IDs
