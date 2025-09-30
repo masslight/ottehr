@@ -5664,6 +5664,7 @@
             "Z3:#{ref/project/PROJECT/id}-receipts/*",
             "Z3:#{ref/project/PROJECT/id}-school-work-notes/*",
             "Z3:#{ref/project/PROJECT/id}-privacy-policy/*",
+            "Z3:#{ref/project/PROJECT/id}-audio-recordings/*",
             "Z3:#{ref/project/PROJECT/id}-exported-questionnaires/*",
             "Z3:#{ref/project/PROJECT/id}-discharge-summaries/*"
           ],
@@ -6513,6 +6514,9 @@
     },
     "SCHOOL_WORK_NOTE_TEMPLATES": {
       "name": "#{ref/project/PROJECT/id}-school-work-note-templates"
+    },
+    "AUDIO-RECORDINGS": {
+      "name": "#{ref/project/PROJECT/id}-audio-recordings"
     },
     "LABS": {
       "name": "#{ref/project/PROJECT/id}-labs"
