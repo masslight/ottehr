@@ -1,6 +1,6 @@
 import {
   Address,
-  CoverageEligibilityResponse,
+  CodeableConcept,
   Location,
   Organization,
   Practitioner,
@@ -199,7 +199,7 @@ export interface InsuranceCheckStatusWithDate {
   status: InsuranceEligibilityCheckStatus;
   dateISO: string;
   copay?: PatientPaymentBenefit[];
-  coverageEligibilityResponse?: CoverageEligibilityResponse;
+  errors?: { code: CodeableConcept }[];
 }
 
 export type GetEligibilityResponse = {
