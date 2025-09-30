@@ -165,11 +165,28 @@ const getUpdateInPersonEncounterStatusOperation = async (
 
   // if the status is change to provider, we need to set the period start for the attender participant
   if (updatedStatus === 'provider') {
+    const now = new Date().toISOString();
+    
+    // End the admitter participant period to stop the intake timer
+    const admitterIndex = encounter.participant?.findIndex(
+      (p) => p?.type?.some((t) => t?.coding?.some((coding) => coding.code === PRACTITIONER_CODINGS.Admitter[0].code))
+    );
+    if (admitterIndex !== undefined && admitterIndex >= 0) {
+      const admitterPeriod = encounter.participant?.[admitterIndex]?.period;
+      if (admitterPeriod?.start && !admitterPeriod?.end) {
+        encounterPatchOps.push({
+          op: 'add',
+          path: `/participant/${admitterIndex}/period`,
+          value: { start: admitterPeriod.start, end: now },
+        });
+      }
+    }
+    
+    // Start the attender participant period
     const attenderIndex = encounter.participant?.findIndex(
       (p) => p?.type?.some((t) => t?.coding?.some((coding) => coding.code === PRACTITIONER_CODINGS.Attender[0].code))
     );
     if (attenderIndex !== undefined && attenderIndex >= 0) {
-      const now = new Date().toISOString();
       const attenderPeriod = encounter.participant?.[attenderIndex]?.period;
 
       encounterPatchOps.push({
@@ -177,6 +194,26 @@ const getUpdateInPersonEncounterStatusOperation = async (
         path: `/participant/${attenderIndex}/period`,
         value: attenderPeriod?.start ? attenderPeriod : { start: now },
       });
+    }
+  }
+
+  // if the status is changed to 'ready for provider', we also need to end the intake timer
+  if (updatedStatus === 'ready for provider') {
+    const now = new Date().toISOString();
+    
+    // End the admitter participant period to stop the intake timer
+    const admitterIndex = encounter.participant?.findIndex(
+      (p) => p?.type?.some((t) => t?.coding?.some((coding) => coding.code === PRACTITIONER_CODINGS.Admitter[0].code))
+    );
+    if (admitterIndex !== undefined && admitterIndex >= 0) {
+      const admitterPeriod = encounter.participant?.[admitterIndex]?.period;
+      if (admitterPeriod?.start && !admitterPeriod?.end) {
+        encounterPatchOps.push({
+          op: 'add',
+          path: `/participant/${admitterIndex}/period`,
+          value: { start: admitterPeriod.start, end: now },
+        });
+      }
     }
   }
 
