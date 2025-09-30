@@ -1,4 +1,4 @@
-import { Box, Typography, useTheme } from '@mui/material';
+import { Box, SxProps, Typography, useTheme } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
 import { BundleEntry, Organization, Patient, Questionnaire, QuestionnaireResponseItem } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
@@ -278,9 +278,21 @@ const useMutations = (): {
   return { submitQR, removeCoverage, queryClient };
 };
 
-const PatientInformationPage: FC = () => {
-  const theme = useTheme();
-  const { id } = useParams();
+interface PatientAccountComponentProps {
+  id: string | undefined;
+  title?: string;
+  renderBreadCrumbs?: boolean;
+  renderHeader?: boolean;
+  containerSX?: SxProps;
+}
+
+export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
+  id,
+  title,
+  renderBreadCrumbs = false,
+  renderHeader = false,
+  containerSX = {},
+}) => {
   const navigate = useNavigate();
   const { setInsurancePlans } = usePatientStore();
 
@@ -405,13 +417,15 @@ const PatientInformationPage: FC = () => {
       {isFetching && <LoadingScreen />}
       <FormProvider {...methods}>
         <Box>
-          <Header handleDiscard={handleBackClickWithConfirmation} id={id} />
-          <Box sx={{ display: 'flex', flexDirection: 'column', padding: theme.spacing(3) }}>
+          {renderHeader && <Header handleDiscard={handleBackClickWithConfirmation} id={id} />}
+          <Box sx={{ display: 'flex', flexDirection: 'column', ...containerSX }}>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <BreadCrumbs patient={patient} />
-              <Typography variant="h3" color="primary.main">
-                Patient Profile
-              </Typography>
+              {renderBreadCrumbs && <BreadCrumbs patient={patient} />}
+              {title && (
+                <Typography variant="h3" color="primary.main">
+                  {title}
+                </Typography>
+              )}
               <WarningBanner
                 otherPatientsWithSameName={otherPatientsWithSameName}
                 onClose={() => setOtherPatientsWithSameName(false)}
@@ -467,6 +481,20 @@ const PatientInformationPage: FC = () => {
         )}
       />
     </div>
+  );
+};
+
+const PatientInformationPage: FC = () => {
+  const { id } = useParams();
+  const theme = useTheme();
+  return (
+    <PatientAccountComponent
+      id={id}
+      title="Patient Profile"
+      renderBreadCrumbs
+      renderHeader
+      containerSX={{ padding: theme.spacing(3) }}
+    />
   );
 };
 

@@ -8,7 +8,6 @@ import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Button,
-  capitalize,
   CircularProgress,
   FormControl,
   Grid,
@@ -20,7 +19,6 @@ import {
 } from '@mui/material';
 import Alert, { AlertColor } from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
-import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import {
   Appointment,
@@ -47,8 +45,6 @@ import {
   CONSENT_CODE,
   FHIR_EXTENSION,
   FhirAppointmentType,
-  flattenItems,
-  formatPhoneNumber,
   getFullName,
   getPatchOperationForNewMetaTag,
   getPresignedURL,
@@ -102,6 +98,7 @@ import useEvolveUser from '../hooks/useEvolveUser';
 import PageContainer from '../layout/PageContainer';
 import { PencilIconButton } from '../telemed';
 import { appointmentTypeLabels, DocumentInfo, DocumentType } from '../types/types';
+import { PatientAccountComponent } from './PatientInformationPage';
 
 interface Documents {
   photoIdCards: DocumentInfo[];
@@ -136,29 +133,8 @@ const getAnswerStringFor = (
   return answer;
 };
 
-const getValueReferenceDisplay = (
-  linkId: string,
-  flattenedItems: QuestionnaireResponseItem[] | undefined
-): string | undefined => {
-  const answer = flattenedItems?.find((response: QuestionnaireResponseItem) => response.linkId === linkId)?.answer?.[0]
-    ?.valueReference?.display;
-
-  return answer;
-};
-
-const getAnswerBooleanFor = (
-  linkId: string,
-  flattenedItems: QuestionnaireResponseItem[] | undefined
-): boolean | undefined => {
-  const answer = flattenedItems?.find((response: QuestionnaireResponseItem) => response.linkId === linkId)?.answer?.[0]
-    ?.valueBoolean;
-
-  return answer;
-};
-
 const LAST_ACTIVE_THRESHOLD = 2; // minutes
 
-const patientPronounsNotListedValues = ['My pronounces are not listed', 'My pronouns are not listed'];
 const consentToTreatPatientDetailsKey = 'Consent Forms signed?';
 
 type AppointmentBundleTypes =
@@ -227,7 +203,7 @@ export default function AppointmentPage(): ReactElement {
 
   const { documents, isLoadingDocuments, downloadDocument } = useGetPatientDocs(patient?.id ?? '');
 
-  const { location, encounter, questionnaireResponse, relatedPerson } = useMemo(() => {
+  const { location, encounter, questionnaireResponse } = useMemo(() => {
     const location = resourceBundle?.find(
       (resource: FhirResource) => resource.resourceType === 'Location'
     ) as unknown as Location;
@@ -240,32 +216,8 @@ export default function AppointmentPage(): ReactElement {
       (resource: FhirResource) => resource.resourceType === 'QuestionnaireResponse'
     ) as unknown as QuestionnaireResponse;
 
-    let relatedPerson: RelatedPerson | undefined;
-    const fhirRelatedPerson = resourceBundle?.find(
-      (resource: FhirResource) => resource.resourceType === 'RelatedPerson'
-    ) as unknown as RelatedPerson;
-    if (fhirRelatedPerson) {
-      const isUserRelatedPerson = fhirRelatedPerson.relationship?.find(
-        (relationship) => relationship.coding?.find((code) => code.code === 'user-relatedperson')
-      );
-      if (isUserRelatedPerson) {
-        relatedPerson = fhirRelatedPerson;
-      }
-    }
-
-    return { location, encounter, questionnaireResponse, relatedPerson };
+    return { location, encounter, questionnaireResponse };
   }, [resourceBundle]);
-
-  const appointmentMadeBy = useMemo(() => {
-    if (!relatedPerson) return;
-    const { telecom } = relatedPerson;
-    return (telecom ?? [])
-      .find((cp) => {
-        // format starts with +1; this is some lazy but probably good enough validation
-        return cp.system === 'sms' && cp.value?.startsWith('+');
-      })
-      ?.value?.replace('+1', '');
-  }, [relatedPerson]);
 
   const fullName = useMemo(() => {
     if (patient) {
@@ -274,21 +226,7 @@ export default function AppointmentPage(): ReactElement {
     return '';
   }, [patient]);
 
-  const { flattenedItems, selfPay, secondaryInsurance } = useMemo(() => {
-    const items = questionnaireResponse?.item ?? [];
-    const flattenedItems: QuestionnaireResponseItem[] = flattenItems(items);
-
-    const paymentOption = flattenedItems.find(
-      (response: QuestionnaireResponseItem) => response.linkId === 'payment-option'
-    )?.answer?.[0]?.valueString;
-    const selfPay = paymentOption === 'I will pay without insurance';
-
-    const secondaryInsurance = !!flattenedItems.find(
-      (response: QuestionnaireResponseItem) => response.linkId === 'insurance-carrier-2'
-    );
-
-    return { flattenedItems, selfPay, secondaryInsurance };
-  }, [questionnaireResponse?.item]);
+  const selfPay = false; // todo: pull from encounter resource
 
   const getResourceBundle = useCallback(async () => {
     if (!appointmentID || !oystehr) {
@@ -312,15 +250,7 @@ export default function AppointmentPage(): ReactElement {
             name: '_revinclude:iterate',
             value: 'Encounter:appointment',
           },
-          {
-            name: '_revinclude:iterate',
-            value: 'QuestionnaireResponse:encounter',
-          },
           { name: '_revinclude:iterate', value: 'Flag:encounter' },
-          {
-            name: '_revinclude:iterate',
-            value: 'RelatedPerson:patient',
-          },
         ],
       })
     )
@@ -617,52 +547,7 @@ export default function AppointmentPage(): ReactElement {
     }
   }, [appointmentID, oystehr, getResourceBundle, resourceBundle]);
 
-  useEffect(() => {
-    async function checkInProgressFlag(
-      encounterID: string,
-      oystehr: Oystehr
-    ): Promise<{ inProgressFlag: Flag | undefined; startedFlag: Flag | undefined }> {
-      const flags = (
-        await oystehr.fhir.search<Flag>({
-          resourceType: 'Flag',
-          params: [
-            {
-              name: 'encounter',
-              value: `Encounter/${encounterID}`,
-            },
-            {
-              name: '_tag',
-              value: 'paperwork-in-progress',
-            },
-            {
-              name: '_sort',
-              value: '-date',
-            },
-          ],
-        })
-      ).unbundle();
-      const inProgressFlag = flags?.find(
-        (flag) => flag.period?.start && getMinutesSinceLastActive(flag.period.start) <= LAST_ACTIVE_THRESHOLD
-      );
-      const startedFlag = flags[0];
-      return { startedFlag, inProgressFlag };
-    }
-
-    let interval: NodeJS.Timeout;
-    try {
-      interval = setInterval(async () => {
-        if (encounter?.id && oystehr) {
-          const { startedFlag, inProgressFlag } = await checkInProgressFlag(encounter?.id, oystehr);
-          setPaperworkInProgressFlag(inProgressFlag);
-          if (!paperworkStartedFlag) setPaperworkStartedFlag(startedFlag);
-        }
-      }, 120000);
-    } catch (err) {
-      console.error(err);
-    }
-
-    return () => clearInterval(interval);
-  }, [encounter?.id, oystehr, paperworkStartedFlag]);
+  console.log('imagesLoading', imagesLoading);
 
   useEffect(() => {
     async function getFileResources(patientID: string, appointmentID: string): Promise<void> {
@@ -748,10 +633,10 @@ export default function AppointmentPage(): ReactElement {
       }
     }
 
-    if (patient?.id && appointmentID && oystehr) {
+    if (patient?.id && appointmentID && oystehr && !imagesLoading) {
       getFileResources(patient.id, appointmentID).catch((error) => console.log(error));
     }
-  }, [appointmentID, oystehr, getAccessTokenSilently, patient?.id, selfPay]);
+  }, [appointmentID, oystehr, getAccessTokenSilently, patient?.id, selfPay, imagesLoading]);
 
   const { photoIdCards, insuranceCards, insuranceCardsSecondary, fullCardPdfs, consentPdfUrls } =
     useMemo((): Documents => {
@@ -796,61 +681,9 @@ export default function AppointmentPage(): ReactElement {
   const appointmentStartTime = DateTime.fromISO(appointment?.start ?? '').setZone(locationTimeZone);
   const appointmentTime = appointmentStartTime.toLocaleString(DateTime.TIME_SIMPLE);
   const appointmentDate = formatDateUsingSlashes(appointmentStartTime.toISO() || '', locationTimeZone);
-  const cityStateZipString = getAnswerStringFor('patient-city', flattenedItems)
-    ? `${getAnswerStringFor('patient-city', flattenedItems) || ''}, ${
-        getAnswerStringFor('patient-state', flattenedItems) || ''
-      }, ${getAnswerStringFor('patient-zip', flattenedItems) || ''}`
-    : '';
-  const policyHolderCityStateZipString = getAnswerStringFor('patient-city', flattenedItems)
-    ? `${getAnswerStringFor('policy-holder-city', flattenedItems) || ''}, ${
-        getAnswerStringFor('policy-holder-state', flattenedItems) || ''
-      }, ${getAnswerStringFor('policy-holder-zip', flattenedItems) || ''}`
-    : '';
-  const secondaryPolicyHolderCityStateZipString = getAnswerStringFor('patient-city', flattenedItems)
-    ? `${getAnswerStringFor('policy-holder-city-2', flattenedItems) || ''}, ${
-        getAnswerStringFor('policy-holder-state-2', flattenedItems) || ''
-      }, ${getAnswerStringFor('policy-holder-zip-2', flattenedItems) || ''}`
-    : '';
   const nameLastModifiedOld = formatLastModifiedTag('name', patient, location);
   const dobLastModifiedOld = formatLastModifiedTag('dob', patient, location);
 
-  const getFullNameString = (
-    firstNameFieldName: string,
-    lastNameFieldName: string,
-    middleNameFieldName?: string
-    // suffixFieldName?: string
-  ): string | undefined => {
-    const firstName = getAnswerStringFor(firstNameFieldName, flattenedItems);
-    const lastName = getAnswerStringFor(lastNameFieldName, flattenedItems);
-    const middleName = middleNameFieldName ? getAnswerStringFor(middleNameFieldName, flattenedItems) : undefined;
-    // const suffix = suffixFieldName ? getAnswerStringFor(suffixFieldName, flattenedItems) : undefined;
-
-    if (firstName && lastName) {
-      return `${lastName}, ${firstName}${middleName ? `, ${middleName}` : ''}`;
-      // return `${lastName}${suffix ? `, ${suffix}` : ''}, ${firstName}${middleName ? `, ${middleName}` : ''}`;
-    } else {
-      return undefined;
-    }
-  };
-  const fullNameResponsiblePartyString = getFullNameString(
-    'responsible-party-first-name',
-    'responsible-party-last-name'
-  );
-
-  const policyHolderFullName = getFullNameString(
-    'policy-holder-first-name',
-    'policy-holder-last-name',
-    'policy-holder-middle-name'
-  );
-  const secondaryPolicyHolderFullName = getFullNameString(
-    'policy-holder-first-name-2',
-    'policy-holder-last-name-2',
-    'policy-holder-middle-name-2'
-  );
-  const pcpNameString =
-    getAnswerStringFor('pcp-first', flattenedItems) && getAnswerStringFor('pcp-last', flattenedItems)
-      ? `${getAnswerStringFor('pcp-first', flattenedItems)} ${getAnswerStringFor('pcp-last', flattenedItems)}`
-      : undefined;
   const unconfirmedDOB = appointment && getUnconfirmedDOBForAppointment(appointment);
   const getAppointmentType = (appointmentType: FhirAppointmentType | undefined): string => {
     return (appointmentType && appointmentTypeLabels[appointmentType]) || '';
@@ -964,7 +797,7 @@ export default function AppointmentPage(): ReactElement {
   const consentEditProp = (): IconProps => {
     const ret: IconProps = {};
 
-    if (getAnswerBooleanFor('consent-to-treat', flattenedItems) && consentPdfUrls) {
+    if (consentPdfUrls) {
       ret[consentToTreatPatientDetailsKey] = pdfButton(consentPdfUrls);
     }
 
@@ -992,37 +825,6 @@ export default function AppointmentPage(): ReactElement {
     [insuranceCards, insuranceCardsSecondary, photoIdCards]
   );
 
-  const policyHolderDetails = useMemo(() => {
-    return {
-      'Insurance Carrier': getValueReferenceDisplay('insurance-carrier', flattenedItems),
-      'Member ID': getAnswerStringFor('insurance-member-id', flattenedItems),
-      "Policy holder's name": policyHolderFullName,
-      "Policy holder's date of birth": formatDateUsingSlashes(
-        getAnswerStringFor('policy-holder-date-of-birth', flattenedItems)
-      ),
-      "Policy holder's sex": getAnswerStringFor('policy-holder-birth-sex', flattenedItems),
-      'Street address': getAnswerStringFor('policy-holder-address', flattenedItems),
-      'Address line 2': getAnswerStringFor('policy-holder-address-additional-line', flattenedItems),
-      'City, State, ZIP': policyHolderCityStateZipString,
-      "Patient's relationship to the insured": getAnswerStringFor('patient-relationship-to-insured', flattenedItems),
-    };
-  }, [policyHolderFullName, flattenedItems, policyHolderCityStateZipString]);
-
-  const secondaryPolicyHolderDetails = useMemo(() => {
-    return {
-      'Insurance Carrier': getValueReferenceDisplay('insurance-carrier-2', flattenedItems),
-      'Member ID': getAnswerStringFor('insurance-member-id-2', flattenedItems),
-      "Policy holder's name": secondaryPolicyHolderFullName,
-      "Policy holder's date of birth": formatDateUsingSlashes(
-        getAnswerStringFor('policy-holder-date-of-birth-2', flattenedItems)
-      ),
-      "Policy holder's sex": getAnswerStringFor('policy-holder-birth-sex-2', flattenedItems),
-      'Street address': getAnswerStringFor('policy-holder-address-2', flattenedItems),
-      'Address line 2': getAnswerStringFor('policy-holder-address-additional-line-2', flattenedItems),
-      'City, State, ZIP': secondaryPolicyHolderCityStateZipString,
-      "Patient's relationship to the insured": getAnswerStringFor('patient-relationship-to-insured-2', flattenedItems),
-    };
-  }, [flattenedItems, secondaryPolicyHolderFullName, secondaryPolicyHolderCityStateZipString]);
   const reasonForVisit = useMemo(() => {
     const complaints = (appointment?.description ?? '').split(',');
     return complaints.map((complaint) => complaint.trim()).join(', ');
@@ -1306,7 +1108,7 @@ export default function AppointmentPage(): ReactElement {
                             </Grid>
                           </Grid>
                         )}
-                        {!selfPay && secondaryInsurance && insuranceCardsSecondary.length > 0 && (
+                        {!selfPay && insuranceCardsSecondary.length > 0 && (
                           <Grid item xs={12} sm={6}>
                             <Grid item>
                               <Typography color="primary.dark" variant="body2">
@@ -1384,153 +1186,93 @@ export default function AppointmentPage(): ReactElement {
               </Paper>
             </Grid>
 
-            {/* information sections */}
-            <Grid container direction="row">
-              <Grid item xs={12} sm={6} paddingRight={{ xs: 0, sm: 2 }}>
-                {/* About the patient */}
-                <PatientInformation
-                  title="About the patient"
-                  loading={loading}
-                  patientDetails={{
-                    ...(unconfirmedDOB
-                      ? {
-                          "Patient's date of birth (Original)": formatDateUsingSlashes(patient?.birthDate),
-                          "Patient's date of birth (Unmatched)": formatDateUsingSlashes(unconfirmedDOB),
-                        }
-                      : {
-                          "Patient's date of birth": formatDateUsingSlashes(patient?.birthDate),
-                        }),
-                    "Patient's sex": patient?.gender ? capitalize(patient?.gender) : '',
-                    'Reason for visit': reasonForVisit,
-                    'Authorized non-legal guardian(s)': patient?.extension?.find(
-                      (e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url
-                    )?.valueString,
-                  }}
-                  icon={{
-                    "Patient's date of birth (Unmatched)": <PriorityIconWithBorder fill={theme.palette.warning.main} />,
-                  }}
-                  editValue={{
-                    "Patient's date of birth (Original)": (
-                      <PencilIconButton
-                        onClick={() => setConfirmDOBModalOpen(true)}
-                        size="16px"
-                        sx={{ mr: '5px', padding: '10px' }}
-                      />
-                    ),
-                    "Patient's date of birth": (
-                      <PencilIconButton
-                        onClick={() => setConfirmDOBModalOpen(true)}
-                        size="16px"
-                        sx={{ mr: '5px', padding: '10px' }}
-                      />
-                    ),
-                  }}
-                  lastModifiedBy={{ "Patient's date of birth": dobLastModifiedOld || dobLastModified }}
-                />
-                {/* Contact information */}
-                <PatientInformation
-                  title="Contact information"
-                  loading={loading}
-                  patientDetails={{
-                    'Street address': getAnswerStringFor('patient-street-address', flattenedItems),
-                    'Address line 2': getAnswerStringFor('patient-street-address-2', flattenedItems),
-                    'City, State, ZIP': cityStateZipString,
-                    'Patient email': getAnswerStringFor('patient-email', flattenedItems),
-                    'Patient mobile': formatPhoneNumber(getAnswerStringFor('patient-number', flattenedItems) || ''),
-                    'Visit created with phone number': formatPhoneNumber(appointmentMadeBy || ''),
-                  }}
-                />
-                {/* Patient details */}
-                <PatientInformation
-                  title="Patient details"
-                  loading={loading}
-                  patientDetails={{
-                    "Patient's ethnicity": getAnswerStringFor('patient-ethnicity', flattenedItems),
-                    "Patient's race": getAnswerStringFor('patient-race', flattenedItems),
-                    "Patient's pronouns": patientPronounsNotListedValues.includes(
-                      getAnswerStringFor('patient-pronouns', flattenedItems) || ''
-                    )
-                      ? getAnswerStringFor('patient-pronouns-custom', flattenedItems)
-                      : getAnswerStringFor('patient-pronouns', flattenedItems),
-                    'PCP name': pcpNameString,
-                    'PCP phone number': formatPhoneNumber(getAnswerStringFor('pcp-number', flattenedItems) || ''),
-                    'PCP practice name': getAnswerStringFor('pcp-practice', flattenedItems),
-                    'PCP practice address': getAnswerStringFor('pcp-address', flattenedItems),
-                    'Pharmacy name': getAnswerStringFor('pharmacy-name', flattenedItems),
-                    'Pharmacy address': getAnswerStringFor('pharmacy-address', flattenedItems),
-                    'Pharmacy phone number': formatPhoneNumber(
-                      getAnswerStringFor('pharmacy-phone', flattenedItems) || ''
-                    ),
-                    'How did you hear about us?': patient?.extension?.find(
-                      (e) => e.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/point-of-discovery'
-                    )?.valueString,
-                  }}
-                />
+            <Grid container item direction="column">
+              <Grid item container sx={{ backgroundColor: 'lightgray', padding: '10px' }} marginBottom={2}>
+                <Typography variant="h3" color="primary.dark">
+                  About this visit
+                </Typography>
+                <Grid container item direction="row">
+                  <Grid item xs={12} sm={6} paddingRight={{ xs: 0, sm: 2 }}>
+                    <PatientInformation
+                      title="Booking details"
+                      loading={loading}
+                      patientDetails={{
+                        ...(unconfirmedDOB
+                          ? {
+                              "Patient's date of birth (Unmatched)": formatDateUsingSlashes(unconfirmedDOB),
+                            }
+                          : {}),
+                        'Reason for visit': reasonForVisit,
+                        'Authorized non-legal guardian(s)': patient?.extension?.find(
+                          (e) => e.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url
+                        )?.valueString,
+                      }}
+                      icon={{
+                        "Patient's date of birth (Unmatched)": (
+                          <PriorityIconWithBorder fill={theme.palette.warning.main} />
+                        ),
+                      }}
+                      editValue={{
+                        "Patient's date of birth (Original)": (
+                          <PencilIconButton
+                            onClick={() => setConfirmDOBModalOpen(true)}
+                            size="16px"
+                            sx={{ mr: '5px', padding: '10px' }}
+                          />
+                        ),
+                        "Patient's date of birth": (
+                          <PencilIconButton
+                            onClick={() => setConfirmDOBModalOpen(true)}
+                            size="16px"
+                            sx={{ mr: '5px', padding: '10px' }}
+                          />
+                        ),
+                      }}
+                      lastModifiedBy={{ "Patient's date of birth": dobLastModifiedOld || dobLastModified }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6} paddingLeft={{ xs: 0, sm: 2 }}>
+                    <PatientPaymentList patient={patient} loading={loading} encounterId={encounter?.id ?? ''} />
+                  </Grid>
+                </Grid>
+                <Grid container item direction="row">
+                  <Grid item xs={12} sm={6} paddingRight={{ xs: 0, sm: 2 }}>
+                    {/* Completed pre-visit forms */}
+                    {/* todo: grab these things from the Consent resources themselves */}
+                    <PatientInformation
+                      title="Completed consent forms"
+                      loading={loading}
+                      editValue={consentEditProp()}
+                      patientDetails={{
+                        ...signedConsentForm,
+                        Signature: getAnswerStringFor('signature', []),
+                        'Full name': getAnswerStringFor('full-name', []),
+                        'Relationship to patient': getAnswerStringFor('consent-form-signer-relationship', []),
+                        Date: formatDateUsingSlashes(questionnaireResponse?.authored),
+                        IP: questionnaireResponse?.extension?.find(
+                          (e) => e.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/ip-address'
+                        )?.valueString,
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6} paddingLeft={{ xs: 0, sm: 2 }}>
+                    <AppointmentNotesHistory
+                      appointment={appointment}
+                      location={location}
+                      curNoteAndHistory={notesHistory}
+                      user={user}
+                      oystehr={oystehr}
+                      setAppointment={setAppointment}
+                      getAndSetHistoricResources={getAndSetHistoricResources}
+                    ></AppointmentNotesHistory>
+                  </Grid>
+                </Grid>
               </Grid>
-              <Grid item xs={12} sm={6} paddingLeft={{ xs: 0, sm: 2 }}>
-                {/* credit cards and copay */}
-                {appointmentID && patient && (
-                  <PatientPaymentList patient={patient} loading={loading} encounterId={encounter.id ?? ''} />
-                )}
-                {/* Insurance information */}
-                {!selfPay && (
-                  <PatientInformation
-                    title="Insurance information"
-                    loading={loading}
-                    patientDetails={policyHolderDetails}
-                  />
-                )}
-                {/* Secondary Insurance information */}
-                {secondaryInsurance && (
-                  <PatientInformation
-                    title="Secondary Insurance information"
-                    loading={loading}
-                    patientDetails={secondaryPolicyHolderDetails}
-                  />
-                )}
-                {/* Responsible party information */}
-                <PatientInformation
-                  title="Responsible party information"
-                  loading={loading}
-                  patientDetails={{
-                    Relationship: getAnswerStringFor('responsible-party-relationship', flattenedItems),
-                    'Full name': fullNameResponsiblePartyString,
-                    'Date of birth': formatDateUsingSlashes(
-                      getAnswerStringFor('responsible-party-date-of-birth', flattenedItems)
-                    ),
-                    'Birth sex': getAnswerStringFor('responsible-party-birth-sex', flattenedItems),
-                    Phone: formatPhoneNumber(getAnswerStringFor('responsible-party-number', flattenedItems) || ''),
-                    Email: getAnswerStringFor('responsible-party-email', flattenedItems) || '',
-                  }}
-                />
-
-                {/* Completed pre-visit forms */}
-                <PatientInformation
-                  title="Completed consent forms"
-                  loading={loading}
-                  editValue={consentEditProp()}
-                  patientDetails={{
-                    ...signedConsentForm,
-                    Signature: getAnswerStringFor('signature', flattenedItems),
-                    'Full name': getAnswerStringFor('full-name', flattenedItems),
-                    'Relationship to patient': getAnswerStringFor('consent-form-signer-relationship', flattenedItems),
-                    Date: formatDateUsingSlashes(questionnaireResponse?.authored),
-                    IP: questionnaireResponse?.extension?.find(
-                      (e) => e.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/ip-address'
-                    )?.valueString,
-                  }}
-                />
-                {(appointment?.comment || (notesHistory && notesHistory.length > 0)) && (
-                  <AppointmentNotesHistory
-                    appointment={appointment}
-                    location={location}
-                    curNoteAndHistory={notesHistory}
-                    user={user}
-                    oystehr={oystehr}
-                    setAppointment={setAppointment}
-                    getAndSetHistoricResources={getAndSetHistoricResources}
-                  ></AppointmentNotesHistory>
-                )}
+              <Grid item paddingY="10px" sx={{ backgroundColor: 'lightgray', padding: '10px' }} marginBottom={2}>
+                <Typography variant="h3" color="primary.dark">
+                  About this patient
+                </Typography>
+                <PatientAccountComponent id={patient?.id} />
               </Grid>
             </Grid>
           </Grid>
@@ -1647,23 +1389,6 @@ export default function AppointmentPage(): ReactElement {
                 onChange={(e) => setPatientMiddleName(e.target.value.trimStart())}
                 sx={{ mt: 2 }}
               />
-              {/* <Select
-                label="Suffix"
-                fullWidth
-                value={patientSuffix}
-                onChange={(e) => setPatientSuffix(e.target.value)}
-                sx={{ mt: 2 }}
-                defaultValue="Suffix"
-              >
-                <MenuItem value="">
-                  <em>None</em>
-                </MenuItem>
-                {suffixOptions.map((suffix, index) => (
-                  <MenuItem key={index} value={suffix}>
-                    {suffix}
-                  </MenuItem>
-                ))}
-              </Select> */}
             </>
           }
           onSubmit={handleUpdatePatientName}

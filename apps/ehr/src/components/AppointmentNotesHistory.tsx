@@ -218,7 +218,7 @@ export default function AppointmentNotesHistory({
               multiline
               label="Note"
               required
-              sx={{ width: '500px' }}
+              // sx={{ width: '500px' }}
               value={noteEdit}
               onChange={(e) => setNoteEdit(e.target.value.trimStart())}
               inputProps={{ maxLength: 160 }}

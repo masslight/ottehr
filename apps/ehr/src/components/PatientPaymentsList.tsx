@@ -24,7 +24,7 @@ import PaymentDialog from './dialogs/PaymentDialog';
 import { RefreshableStatusChip } from './RefreshableStatusWidget';
 
 export interface PaymentListProps {
-  patient: Patient;
+  patient: Patient | undefined;
   encounterId: string;
   loading?: boolean;
 }
@@ -46,9 +46,9 @@ export default function PatientPaymentList({ loading, patient, encounterId }: Pa
     refetch: refetchPaymentList,
     isRefetching,
   } = useGetPatientPaymentsList({
-    patientId: patient.id ?? '',
+    patientId: patient?.id ?? '',
     encounterId,
-    disabled: !encounterId || !patient.id,
+    disabled: !encounterId || !patient?.id,
   });
   const payments = paymentData?.payments ?? []; // Replace with actual payments when available
 
@@ -121,10 +121,19 @@ export default function PatientPaymentList({ loading, patient, encounterId }: Pa
       }}
     >
       <Typography variant="h4" color="primary.dark">
-        Patient Payments
+        Patient payments
       </Typography>
       <Table size="small" style={{ tableLayout: 'fixed' }}>
         <TableBody>
+          {payments.length === 0 && !loading && (
+            <TableRow>
+              <TableCell sx={{ paddingTop: 1, paddingBottom: 1 }}>
+                <Typography variant="body1" color="textSecondary">
+                  No payments recorded.
+                </Typography>
+              </TableCell>
+            </TableRow>
+          )}
           {payments.map((payment) => {
             const paymentDateString = DateTime.fromISO(payment.dateISO).toLocaleString(DateTime.DATE_SHORT);
             return (
@@ -181,20 +190,22 @@ export default function PatientPaymentList({ loading, patient, encounterId }: Pa
       <Button sx={{ marginTop: 2 }} onClick={() => setPaymentDialogOpen(true)} variant="contained" color="primary">
         $ Add Payment
       </Button>
-      <PaymentDialog
-        open={paymentDialogOpen}
-        patient={patient}
-        handleClose={() => setPaymentDialogOpen(false)}
-        isSubmitting={createNewPayment.isPending}
-        submitPayment={async (data: CashOrCardPayment) => {
-          const postInput: PostPatientPaymentInput = {
-            patientId: patient.id ?? '',
-            encounterId,
-            paymentDetails: data,
-          };
-          createNewPayment.mutate(postInput);
-        }}
-      />
+      {patient && (
+        <PaymentDialog
+          open={paymentDialogOpen}
+          patient={patient}
+          handleClose={() => setPaymentDialogOpen(false)}
+          isSubmitting={createNewPayment.isPending}
+          submitPayment={async (data: CashOrCardPayment) => {
+            const postInput: PostPatientPaymentInput = {
+              patientId: patient.id ?? '',
+              encounterId,
+              paymentDetails: data,
+            };
+            createNewPayment.mutate(postInput);
+          }}
+        />
+      )}
       <Snackbar
         // anchorOrigin={{ vertical: snackbarOpen.vertical, horizontal: snackbarOpen.horizontal }}
         open={errorMessage !== null}
