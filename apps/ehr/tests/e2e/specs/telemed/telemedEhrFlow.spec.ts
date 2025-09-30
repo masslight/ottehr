@@ -262,13 +262,15 @@ test.describe('Tests interacting with appointment state', () => {
     ).toBeVisible();
   });
 
-  test.skip('Check message for patient', { tag: '@flaky' }, async () => {
+  test.skip('Check message for patient - REMOVED: No longer sends auto-SMS on unassign', { tag: '@removed' }, async () => {
+    // This test was previously checking for automatic SMS messages sent when provider unassigns
+    // The functionality has been removed as per requirements - no auto-text on assign/unassign
     await page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardChatButton(resourceHandler.appointment.id!)).click();
     await expect(page.getByTestId(dataTestIds.telemedEhrFlow.chatModalDescription)).toBeVisible();
 
-    const expectedSms =
-      'Thank you for your patience. We apologize, but the provider is unexpectedly no longer available. You will receive an update when another provider is available';
-    await expect(page.getByText(expectedSms).first()).toBeVisible({ timeout: 25000 });
+    // Previous expected SMS message was removed:
+    // 'Thank you for your patience. We apologize, but the provider is unexpectedly no longer available. You will receive an update when another provider is available';
+    // Now we should expect NO automatic SMS message on unassign
   });
 
   test('Buttons on visit page should not appear', async () => {

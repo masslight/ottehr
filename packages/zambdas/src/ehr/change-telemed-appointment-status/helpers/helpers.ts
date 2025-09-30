@@ -38,7 +38,7 @@ export const changeStatusIfPossible = async (
     if (addPractitionerOp) {
       encounterPatchOp.push(addPractitionerOp);
     }
-    smsToSend = 'Thank you for waiting. The clinician will see you within around 5 minutes.';
+    // SMS removed: auto-text when provider clicks 'Assign Me' has been removed
   } else if (currentStatus === 'pre-video' && newStatus === 'ready') {
     encounterPatchOp = defaultEncounterOperations(newStatus, resourcesToUpdate);
     const removePractitionerOr = getRemovePractitionerFromEncounterOperation(
@@ -48,8 +48,7 @@ export const changeStatusIfPossible = async (
     if (removePractitionerOr) {
       encounterPatchOp.push(removePractitionerOr);
     }
-    smsToSend =
-      'Thank you for your patience. We apologize, but the provider is unexpectedly no longer available. You will receive an update when another provider is available';
+    // SMS removed: auto-text when provider clicks 'Unassign Me' has been removed
   } else if (currentStatus === 'on-video' && newStatus === 'unsigned') {
     encounterPatchOp = defaultEncounterOperations(newStatus, resourcesToUpdate);
     encounterPatchOp.push(addPeriodEndOp(now()));
