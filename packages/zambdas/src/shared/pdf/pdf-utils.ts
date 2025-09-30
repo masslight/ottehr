@@ -681,80 +681,90 @@ export async function getPdfClientForLabsPDFs(): Promise<{
 }
 
 export async function getTextStylesForLabsPDF(pdfClient: PdfClient): Promise<LabsPDFTextStyleConfig> {
-  const RubikFont = await pdfClient.embedFont(fs.readFileSync('./assets/Rubik-Regular.otf'));
-  const RubikFontBold = await pdfClient.embedFont(fs.readFileSync('./assets/Rubik-Bold.otf'));
+  let fontRegular: PDFFont;
+  let fontBold: PDFFont;
+
+  try {
+    fontRegular = await pdfClient.embedFont(fs.readFileSync('./assets/AtkinsonHyperlegibleMono-Regular.ttf'));
+    fontBold = await pdfClient.embedFont(fs.readFileSync('./assets/AtkinsonHyperlegibleMono-Bold.ttf'));
+    console.log('Using AtkinsonHyperlegibleMono font');
+  } catch (e) {
+    console.warn('Font not available. Defaulting to Courier', e);
+    fontRegular = await pdfClient.embedStandardFont(StandardFonts.Courier);
+    fontBold = await pdfClient.embedStandardFont(StandardFonts.CourierBold);
+  }
 
   const textStyles: Record<string, TextStyle> = {
     blockHeader: {
       fontSize: STANDARD_FONT_SIZE,
       spacing: STANDARD_FONT_SPACING,
-      font: RubikFontBold,
+      font: fontBold,
       newLineAfter: true,
     },
     header: {
       fontSize: 17,
       spacing: STANDARD_FONT_SPACING,
-      font: RubikFontBold,
+      font: fontBold,
       color: LAB_PDF_STYLES.color.purple,
       newLineAfter: true,
     },
     headerRight: {
       fontSize: 17,
       spacing: STANDARD_FONT_SPACING,
-      font: RubikFontBold,
+      font: fontBold,
       side: 'right',
       color: LAB_PDF_STYLES.color.purple,
     },
     fieldHeader: {
       fontSize: STANDARD_FONT_SIZE,
-      font: RubikFont,
+      font: fontRegular,
       spacing: 1,
     },
     fieldHeaderRight: {
       fontSize: STANDARD_FONT_SIZE,
-      font: RubikFont,
+      font: fontRegular,
       spacing: 1,
       side: 'right',
     },
     text: {
       fontSize: STANDARD_FONT_SIZE,
       spacing: 6,
-      font: RubikFont,
+      font: fontRegular,
     },
     textBold: {
       fontSize: STANDARD_FONT_SIZE,
       spacing: 6,
-      font: RubikFontBold,
+      font: fontBold,
     },
     textBoldRight: {
       fontSize: STANDARD_FONT_SIZE,
       spacing: 6,
-      font: RubikFontBold,
+      font: fontBold,
       side: 'right',
     },
     textRight: {
       fontSize: STANDARD_FONT_SIZE,
       spacing: 6,
-      font: RubikFont,
+      font: fontRegular,
       side: 'right',
     },
     fieldText: {
       fontSize: STANDARD_FONT_SIZE,
       spacing: 6,
-      font: RubikFont,
+      font: fontRegular,
       side: 'right',
       newLineAfter: true,
     },
     textGrey: {
       fontSize: STANDARD_FONT_SIZE,
       spacing: 6,
-      font: RubikFont,
+      font: fontRegular,
       color: LAB_PDF_STYLES.color.grey,
     },
     textGreyBold: {
       fontSize: STANDARD_FONT_SIZE,
       spacing: 6,
-      font: RubikFontBold,
+      font: fontBold,
       color: LAB_PDF_STYLES.color.grey,
     },
   };
