@@ -3,6 +3,8 @@ import { enqueueSnackbar } from 'notistack';
 import React, { ChangeEvent, JSX, useCallback, useState } from 'react';
 import { useGetAppointmentAccessibility } from 'src/telemed';
 import {
+  celsiusToFahrenheit,
+  fahrenheitToCelsius,
   toVitalTemperatureObservationMethod,
   VitalFieldNames,
   VitalsTemperatureObservationDTO,
@@ -14,7 +16,7 @@ import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
 import VitalHistoryElement from '../components/VitalsHistoryEntry';
 import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
 import { HISTORY_ELEMENT_SKELETON_TEXT, VitalsCardProps } from '../types';
-import { celsiusToFahrenheit, fahrenheitToCelsius, textToTemperatureNumber } from './helpers';
+import { textToTemperatureNumber } from './helpers';
 
 type VitalsTemperatureCardProps = VitalsCardProps<VitalsTemperatureObservationDTO>;
 const VitalsTemperaturesCard: React.FC<VitalsTemperatureCardProps> = ({
