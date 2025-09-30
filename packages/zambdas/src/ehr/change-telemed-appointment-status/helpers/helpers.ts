@@ -4,8 +4,7 @@ import { Operation } from 'fast-json-patch';
 import { Account, Appointment, ChargeItem, DocumentReference, Encounter, EncounterStatusHistory, List } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { createFilesDocumentReferences, getPatchBinary, OTTEHR_MODULE, RECEIPT_CODE, TelemedCallStatuses } from 'utils';
-import { telemedStatusToEncounter } from '../../../shared/appointment/helpers';
-import { sendSmsForPatient } from '../../../shared/communication';
+import { sendSmsForPatient, telemedStatusToEncounter } from '../../../shared';
 import { createPublishExcuseNotesOps } from '../../../shared/createPublishExcuseNotesOps';
 import { PdfInfo } from '../../../shared/pdf/pdf-utils';
 import { FullAppointmentResourcePackage } from '../../../shared/pdf/visit-details-pdf/types';
@@ -324,5 +323,19 @@ export async function makeReceiptPdfDocumentReference(
     ],
     listResources,
   });
+  const documentReference = docRefs[0];
+  if (documentReference.id) {
+    await oystehr.fhir.patch({
+      resourceType: 'DocumentReference',
+      id: documentReference.id,
+      operations: [
+        {
+          op: 'replace',
+          path: '/date',
+          value: DateTime.now().setZone('UTC').toISO() ?? '',
+        },
+      ],
+    });
+  }
   return docRefs[0];
 }
