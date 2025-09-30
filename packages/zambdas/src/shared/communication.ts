@@ -69,7 +69,7 @@ class EmailClient {
     templateData: DynamicTemplateDataRecord<T>
   ): Promise<void> {
     const { templateIdSecretName } = template;
-    let SENDGRID_EMAIL_BCC = [defaultBCCLowersEmail];
+    let SENDGRID_EMAIL_BCC: string[] = [];
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, this.secrets);
     const environmentSubjectPrepend = ENVIRONMENT === 'production' ? '' : `[${ENVIRONMENT}] `;
     let templateId = '';
