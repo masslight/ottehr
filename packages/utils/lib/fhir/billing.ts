@@ -82,7 +82,8 @@ const getBillingProviderDataFromResource = (
 };
 
 export const parseCoverageEligibilityResponse = (
-  coverageResponse: CoverageEligibilityResponse
+  coverageResponse: CoverageEligibilityResponse,
+  includeCoverageEligibilityResponseInResult?: boolean
 ): InsuranceCheckStatusWithDate => {
   const dateISO = coverageResponse.created;
   try {
@@ -122,9 +123,18 @@ export const parseCoverageEligibilityResponse = (
           console.error('Error parsing fullBenefitJSON', error);
         }
       }
-      return { status: InsuranceEligibilityCheckStatus.eligibilityConfirmed, dateISO, copay };
+      return {
+        status: InsuranceEligibilityCheckStatus.eligibilityConfirmed,
+        dateISO,
+        copay,
+        coverageEligibilityResponse: includeCoverageEligibilityResponseInResult ? coverageResponse : undefined,
+      };
     } else {
-      return { status: InsuranceEligibilityCheckStatus.eligibilityNotConfirmed, dateISO };
+      return {
+        status: InsuranceEligibilityCheckStatus.eligibilityNotConfirmed,
+        dateISO,
+        coverageEligibilityResponse: includeCoverageEligibilityResponseInResult ? coverageResponse : undefined,
+      };
     }
   } catch (error: any) {
     console.error('Error parsing eligibility check response', error);
