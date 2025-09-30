@@ -821,6 +821,9 @@ export function createMasterRecordPatchOperations(
   const pcpItems: QuestionnaireResponseItem[] = [];
   let isUseMissedInPatientName = false;
 
+  console.log('flattenedPaperwork:');
+  console.log(JSON.stringify(flattenedPaperwork, null, 2));
+
   flattenedPaperwork.forEach((item) => {
     const value = extractValueFromItem(item);
 
