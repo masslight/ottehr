@@ -360,6 +360,8 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
 
   // Get the most current eligibility data, combining initial data with any updates
   const getCurrentEligibilityData = (): CoverageCheckWithDetails | undefined => {
+    console.log('getCurrentEligibilityData - eligibilityStatus:', eligibilityStatus);
+    console.log('getCurrentEligibilityData - initialEligibilityCheck:', initialEligibilityCheck);
     if (!initialEligibilityCheck && !eligibilityStatus) {
       return undefined;
     }
@@ -370,7 +372,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
         ...initialEligibilityCheck,
         status: mapSimpleStatusToDetailedStatus(eligibilityStatus.status),
         dateISO: eligibilityStatus.dateISO,
-        copay: eligibilityStatus.copay,
+        copay: eligibilityStatus.copay || initialEligibilityCheck.copay,
         errors: eligibilityStatus.errors || initialEligibilityCheck.errors,
       };
     }

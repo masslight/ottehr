@@ -46,15 +46,29 @@ const formatDate = (dateISO: string): string => {
 };
 
 const formatBenefitAmount = (benefit: PatientPaymentBenefit): string => {
-  // Check if amountInUSD exists and is a valid number
-  if (benefit.amountInUSD && typeof benefit.amountInUSD === 'number' && benefit.amountInUSD > 0) {
-    return `$${benefit.amountInUSD.toFixed(2)}`;
+  const amountInUSD = benefit.amountInUSD;
+  const percentage = benefit.percentage;
+
+  // Match CopayWidget logic
+  if (benefit.coverageCode === 'A') {
+    // Coinsurance - prefer percentage
+    if (typeof percentage === 'number' && percentage > 0) {
+      return `${percentage}%`;
+    } else if (typeof amountInUSD === 'number' && amountInUSD > 0) {
+      return `$${amountInUSD.toFixed(2)}`;
+    } else {
+      return '0%';
+    }
+  } else {
+    // Copay - prefer dollar amount
+    if (typeof amountInUSD === 'number' && amountInUSD > 0) {
+      return `$${amountInUSD.toFixed(2)}`;
+    } else if (typeof percentage === 'number' && percentage > 0) {
+      return `${percentage}%`;
+    } else {
+      return '$0';
+    }
   }
-  // Check if percentage exists and is a valid number
-  if (benefit.percentage && typeof benefit.percentage === 'number' && benefit.percentage > 0) {
-    return `${benefit.percentage}%`;
-  }
-  return 'N/A';
 };
 
 export const EligibilityDetailsDialog: FC<EligibilityDetailsDialogProps> = ({
@@ -71,19 +85,20 @@ export const EligibilityDetailsDialog: FC<EligibilityDetailsDialogProps> = ({
 
   const statusDisplay = getStatusDisplay(eligibilityCheck.status);
   const copayBenefits = eligibilityCheck.copay || [];
+
   const hasErrors = errorDetails && errorDetails.length > 0;
   const hasFailedStatus =
     eligibilityCheck.status === InsuranceEligibilityCheckStatus.eligibilityNotChecked ||
     eligibilityCheck.status === InsuranceEligibilityCheckStatus.eligibilityNotConfirmed;
 
-  // Only show benefits if we have valid benefits and the eligibility check was successful
+  // Show benefits if we have valid benefits, regardless of eligibility status (to match CopayWidget behavior)
   const hasValidBenefits =
     copayBenefits.length > 0 &&
-    eligibilityCheck.status === InsuranceEligibilityCheckStatus.eligibilityConfirmed &&
     copayBenefits.some(
       (benefit) =>
-        (benefit.amountInUSD && typeof benefit.amountInUSD === 'number') ||
-        (benefit.percentage && typeof benefit.percentage === 'number')
+        benefit &&
+        ((benefit.amountInUSD && typeof benefit.amountInUSD === 'number') ||
+          (benefit.percentage && typeof benefit.percentage === 'number'))
     );
 
   return (
@@ -214,12 +229,14 @@ export const EligibilityDetailsDialog: FC<EligibilityDetailsDialogProps> = ({
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 {copayBenefits
-                  .filter(
-                    (benefit) =>
-                      benefit &&
-                      ((benefit.amountInUSD && typeof benefit.amountInUSD === 'number') ||
-                        (benefit.percentage && typeof benefit.percentage === 'number'))
-                  )
+                  .filter((benefit) => {
+                    const isValid =
+                      benefit && (typeof benefit.amountInUSD === 'number' || typeof benefit.percentage === 'number');
+                    if (!isValid) {
+                      console.log('Filtered out benefit:', benefit);
+                    }
+                    return isValid;
+                  })
                   .map((benefit, index) => (
                     <Box key={index} sx={{ borderLeft: 3, borderColor: 'primary.main', pl: 2 }}>
                       <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 2, mb: 1 }}>
