@@ -6,7 +6,7 @@ output "ehr_domain" {
   value = var.ehr_domain == null ? aws_cloudfront_distribution.ehr_cf.domain_name : var.ehr_domain
 }
 
-output "ehr_cloudfront_distribution_id" {
+output "ehr_cdn_distribution_id" {
   value = aws_cloudfront_distribution.ehr_cf.id
 }
 
@@ -18,6 +18,6 @@ output "patient_portal_domain" {
   value = var.patient_portal_domain == null ? aws_cloudfront_distribution.patient_portal_cf.domain_name : var.patient_portal_domain
 }
 
-output "patient_portal_cloudfront_distribution_id" {
+output "patient_portal_cdn_distribution_id" {
   value = aws_cloudfront_distribution.patient_portal_cf.id
 }
