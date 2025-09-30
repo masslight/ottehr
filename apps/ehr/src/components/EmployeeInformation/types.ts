@@ -24,7 +24,9 @@ export interface EmployeeForm {
   firstName: string;
   middleName: string;
   lastName: string;
-  nameSuffix: string;
+  // nameSuffix: string;
+  providerType?: 'MD' | 'DO' | 'PA' | 'NP' | 'other';
+  providerTypeText?: string;
   roles: RoleType[];
   phoneNumber: string;
   birthDate: DateTime;
@@ -43,6 +45,7 @@ export interface EmployeeForm {
 
 export interface ProviderDetailsProps {
   control: Control<any>;
+  setValue: UseFormSetValue<any>;
   photoSrc: string;
   roles: string[];
 }
