@@ -102,6 +102,13 @@ export function createExamObservations(isInPersonAppointment?: boolean): (ExamOb
           });
         });
       } else if (component.type === 'multi-select') {
+        observations.push({
+          field: fieldName,
+          value: component.defaultValue || false,
+          label: component.label,
+          code: component.code,
+          bodySite: component.bodySite,
+        });
         Object.entries(component.options).forEach(([optionName, option]: [string, any]) => {
           observations.push({
             field: optionName,
