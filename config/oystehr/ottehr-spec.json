@@ -5513,6 +5513,7 @@
             "Z3:#{var/PROJECT_ID}-receipts/*",
             "Z3:#{var/PROJECT_ID}-school-work-notes/*",
             "Z3:#{var/PROJECT_ID}-privacy-policy/*",
+            "Z3:#{var/PROJECT_ID}-audio-recordings/*",
             "Z3:#{var/PROJECT_ID}-exported-questionnaires/*",
             "Z3:#{var/PROJECT_ID}-discharge-summaries/*"
           ],
