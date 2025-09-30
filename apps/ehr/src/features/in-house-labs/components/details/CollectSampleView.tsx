@@ -21,7 +21,8 @@ import { useEffect, useState } from 'react';
 import { getOrCreateVisitLabel } from 'src/api/api';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { useGetAppointmentAccessibility } from 'src/telemed';
+import { useAppointmentData } from 'src/shared/hooks/appointment/appointment.store';
+import { useGetAppointmentAccessibility } from 'src/shared/hooks/appointment/useGetAppointmentAccessibility';
 import {
   getFormattedDiagnoses,
   InHouseOrderDetailPageItemDTO,
@@ -30,7 +31,6 @@ import {
   PageName,
 } from 'utils';
 import { useApiClients } from '../../../../hooks/useAppClients';
-import { useAppointmentData } from '../../../../telemed/state/appointment/appointment.store';
 import { InHouseLabsDetailsCard } from './InHouseLabsDetailsCard';
 
 interface CollectSampleViewProps {

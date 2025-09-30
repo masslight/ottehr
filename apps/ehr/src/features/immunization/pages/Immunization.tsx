@@ -3,11 +3,11 @@ import { AppBar, Box, Stack, Tab, Tabs, useTheme } from '@mui/material';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { RoundedButton } from 'src/components/RoundedButton';
-import { CSSLoader } from 'src/features/css-module/components/CSSLoader';
-import { getImmunizationMARUrl, getImmunizationVaccineDetailsUrl } from 'src/features/css-module/routing/helpers';
-import { ROUTER_PATH } from 'src/features/css-module/routing/routesCSS';
-import { useGetAppointmentAccessibility } from 'src/telemed';
-import { PageTitle } from 'src/telemed/components/PageTitle';
+import { InPersonLoader } from 'src/features/in-person/components/InPersonLoader';
+import { getImmunizationMARUrl, getImmunizationVaccineDetailsUrl } from 'src/features/in-person/routing/helpers';
+import { ROUTER_PATH } from 'src/features/in-person/routing/routesInPerson';
+import { useGetAppointmentAccessibility } from 'src/shared/hooks/appointment/useGetAppointmentAccessibility';
+import { PageTitle } from '../../../components/PageTitle';
 import { OrderHistoryTable } from '../components/OrderHistoryTable';
 import { VaccineDetailsCardList } from '../components/VaccineDetailsCardList';
 
@@ -58,7 +58,7 @@ export const Immunization: React.FC = () => {
   }, [isReadOnly]);
 
   if (!content) {
-    return <CSSLoader />;
+    return <InPersonLoader />;
   }
 
   return (

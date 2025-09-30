@@ -5,6 +5,7 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, useEffect, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useOystehrAPIClient } from 'src/shared/hooks/useOystehrAPIClient';
 import {
   CoverageWithPriority,
   extractFirstValueFromAnswer,
@@ -42,7 +43,6 @@ import {
   useUpdatePatientAccount,
 } from '../hooks/useGetPatient';
 import { createInsurancePlanDto, usePatientStore } from '../state/patient.store';
-import { useOystehrAPIClient } from '../telemed/hooks/useOystehrAPIClient';
 
 const COVERAGE_ITEMS = ['insurance-section', 'insurance-section-2'];
 const ANSWER_TYPES: ('String' | 'Boolean' | 'Reference' | 'Attachment')[] = [

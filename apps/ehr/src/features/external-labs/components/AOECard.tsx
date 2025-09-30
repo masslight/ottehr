@@ -2,7 +2,7 @@ import { CircularProgress, Grid, Paper, Typography } from '@mui/material';
 import { QuestionnaireItem } from 'fhir/r4b';
 import React, { useState } from 'react';
 import { LabQuestionnaireResponse } from 'utils';
-import { AccordionCard } from '../../../telemed/components/AccordionCard';
+import { AccordionCard } from '../../../components/AccordionCard';
 import { AOEQuestion } from './AOEQuestion';
 
 interface AOEProps {

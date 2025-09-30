@@ -3,7 +3,7 @@ import { InfoOutlined } from '@mui/icons-material';
 import { Box, Container, IconButton, Tooltip, Typography, useTheme } from '@mui/material';
 import { DocumentReference } from 'fhir/r4b';
 import React from 'react';
-import { getSource } from 'src/features/css-module/pages/OttehrAi';
+import { getSource } from 'src/features/in-person/components/OttehrAi';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { GetChartDataResponse, ObservationTextFieldDTO } from 'utils';
 

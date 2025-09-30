@@ -5,7 +5,7 @@ import { Option } from 'src/components/input/Option';
 import { ProviderSelectInput } from 'src/components/input/ProviderSelectInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
-import { useGetVaccines } from 'src/features/css-module/hooks/useImmunization';
+import { useGetVaccines } from 'src/features/in-person/hooks/useImmunization';
 import { LOCATION_OPTIONS, ROUTE_OPTIONS, UNIT_OPTIONS } from 'src/shared/utils';
 
 export const OrderDetailsSection: React.FC = () => {

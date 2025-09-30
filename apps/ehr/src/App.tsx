@@ -6,6 +6,9 @@ import { SnackbarProvider } from 'notistack';
 import { lazy, ReactElement, Suspense, useState } from 'react';
 import { useIdleTimer } from 'react-idle-timer';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
+import EditInsurance from 'src/features/telemed/features/telemed-admin/EditInsurance';
+import EditVirtualLocationPage from 'src/features/telemed/features/telemed-admin/EditVirtualLocationPage';
+import { PatientVisitDetails } from 'src/features/telemed/pages/PatientVisitDetailsPage';
 import { RoleType, setupSentry } from 'utils';
 import Banner from './components/Banner';
 import LogoutWarning from './components/dialogs/LogoutWarning';
@@ -16,7 +19,6 @@ import PatientFollowup from './components/patient/PatientFollowup';
 import { ProtectedRoute } from './components/routing/ProtectedRoute';
 import { TestErrorPage } from './components/TestErrorPage';
 import { CustomThemeProvider } from './CustomThemeProvider';
-import { FeatureFlagsProvider } from './features/css-module/context/featureFlags';
 import { UnsolicitedResultsInbox } from './features/external-labs/pages/UnsolicitedResultsInbox';
 import { UnsolicitedResultsMatch } from './features/external-labs/pages/UnsolicitedResultsMatch';
 import { UnsolicitedResultsReview } from './features/external-labs/pages/UnsolicitedResultsReview';
@@ -41,10 +43,8 @@ import SchedulesPage from './pages/Schedules';
 import TaskAdmin from './pages/TaskAdmin';
 import { TelemedAdminPage } from './pages/TelemedAdminPage';
 import { Claim, Claims } from './rcm';
+import { AppTypeProvider } from './shared/contexts/useAppFlags';
 import { useNavStore } from './state/nav.store';
-import EditInsurance from './telemed/features/telemed-admin/EditInsurance';
-import EditVirtualLocationPage from './telemed/features/telemed-admin/EditVirtualLocationPage';
-import { PatientVisitDetails } from './telemed/pages/PatientVisitDetailsPage';
 
 const { VITE_APP_SENTRY_DSN, VITE_APP_SENTRY_ENV } = import.meta.env;
 
@@ -53,15 +53,15 @@ setupSentry({
   environment: VITE_APP_SENTRY_ENV,
 });
 
-const CSSRoutingLazy = lazy(() => import('./features/css-module/routing/CSSRouting'));
+const InPersonRoutingLazy = lazy(() => import('./features/in-person/routing/InPersonRouting'));
 
 const TelemedTrackingBoardPageLazy = lazy(async () => {
-  const TrackingBoardPage = await import('./telemed/pages/TrackingBoardPage');
+  const TrackingBoardPage = await import('./features/telemed/pages/TrackingBoardPage');
   return { default: TrackingBoardPage.TrackingBoardPage };
 });
 
 const TelemedAppointmentPageLazy = lazy(async () => {
-  const TelemedAppointmentPage = await import('./telemed/pages/AppointmentPage');
+  const TelemedAppointmentPage = await import('./features/telemed/pages/AppointmentPage');
   return { default: TelemedAppointmentPage.AppointmentPage };
 });
 
@@ -114,7 +114,7 @@ function App(): ReactElement {
 
   return (
     <CustomThemeProvider>
-      <FeatureFlagsProvider>
+      <AppTypeProvider flagsToSet={{ isInPerson: false }}>
         <CssBaseline />
         <LogoutWarning
           modalOpen={isModalOpen}
@@ -138,13 +138,15 @@ function App(): ReactElement {
             <Route
               path="/in-person/:id/*"
               element={
-                <ProtectedRoute
-                  showWhenAuthenticated={
-                    <Suspense fallback={<LoadingScreen />}>
-                      <CSSRoutingLazy />
-                    </Suspense>
-                  }
-                />
+                <AppTypeProvider flagsToSet={{ isInPerson: true }}>
+                  <ProtectedRoute
+                    showWhenAuthenticated={
+                      <Suspense fallback={<LoadingScreen />}>
+                        <InPersonRoutingLazy />
+                      </Suspense>
+                    }
+                  />
+                </AppTypeProvider>
               }
             />
             <Route
@@ -270,7 +272,7 @@ function App(): ReactElement {
           </Routes>
           <SnackbarProvider maxSnack={5} autoHideDuration={6000} />
         </BrowserRouter>
-      </FeatureFlagsProvider>
+      </AppTypeProvider>
     </CustomThemeProvider>
   );
 }
