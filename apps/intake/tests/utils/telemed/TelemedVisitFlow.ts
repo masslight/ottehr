@@ -41,6 +41,8 @@ export class TelemedVisitFlow extends BaseTelemedFlow {
     await this.continue();
     // Primary Care Physician screen here
     await this.continue();
+    // Preferred pharmacy screen here
+    await this.continue();
     await this.paperwork.fillAndCheckEmptyCurrentMedications();
     await this.continue();
     await this.paperwork.fillAndCheckEmptyCurrentAllergies();
@@ -52,6 +54,8 @@ export class TelemedVisitFlow extends BaseTelemedFlow {
     // additional questions
     await this.continue();
     await this.paperwork.fillAndCheckSelfPay();
+    await this.paperwork.fillAndAddCreditCard();
+    await this.continue();
     await this.paperworkGeneral.fillResponsiblePartyDataSelf();
     await this.continue();
     await this.continue(); // skip optional photo ID

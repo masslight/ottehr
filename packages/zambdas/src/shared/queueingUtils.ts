@@ -258,37 +258,19 @@ const getArrivalTime = (encounter: Encounter): number => {
 };
 
 function checkedOutSorter(visit1: VisitDetails, visit2: VisitDetails): number {
-  const app1 = visit1.appointment;
-  const app2 = visit2.appointment;
-  const app1Type = appointmentTypeForAppointment(app1);
-  const app2Type = appointmentTypeForAppointment(app2);
-
-  const visit1IsPre = app1Type === 'pre-booked' ? 0 : 1;
-  const visit2IsPre = app2Type === 'pre-booked' ? 0 : 1;
-
-  if (visit1IsPre !== visit2IsPre) {
-    return visit1IsPre - visit2IsPre;
-  }
-
-  const getStatusPriority = (visit: VisitDetails): number => {
-    const { appointment, encounter } = visit;
-    const status = getVisitStatus(appointment, encounter);
-    if (status === 'discharged') return 0;
-    if (status === 'completed') return 1;
-    return 2;
+  const getAppointmentTime = (visit: VisitDetails): number => {
+    const type = appointmentTypeForAppointment(visit.appointment);
+    if (type === 'walk-in') {
+      return getArrivalTime(visit.encounter);
+    }
+    return Date.parse(visit.appointment.start ?? '');
   };
 
-  const visit1StatusPriority = getStatusPriority(visit1);
-  const visit2StatusPriority = getStatusPriority(visit2);
+  const time1 = getAppointmentTime(visit1);
+  const time2 = getAppointmentTime(visit2);
 
-  if (visit1StatusPriority !== visit2StatusPriority) {
-    return visit1StatusPriority - visit2StatusPriority;
-  }
-
-  if (visit1IsPre === 0) {
-    const app1Start = Date.parse(app1.start ?? '');
-    const app2Start = Date.parse(app2.start ?? '');
-    return app2Start - app1Start;
+  if (time1 !== time2) {
+    return time1 - time2;
   }
 
   const app1Arrived = getArrivalTime(visit1.encounter);

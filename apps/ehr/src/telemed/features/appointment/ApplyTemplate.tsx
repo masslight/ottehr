@@ -17,8 +17,9 @@ import { enqueueSnackbar } from 'notistack';
 import React, { useState } from 'react';
 import { ExamType } from 'utils';
 import { applyTemplate } from '../../../api/api';
+import { CHART_DATA_QUERY_KEY_BASE } from '../../../constants';
 import { useApiClients } from '../../../hooks/useAppClients';
-import { CHART_DATA_QUERY_KEY_BASE, useAppointmentData } from '../..';
+import { useAppointmentData, useGetAppointmentAccessibility } from '../..';
 import { TemplateOption, useListTemplates } from '../../state/useListTemplates';
 
 export const ApplyTemplate: React.FC = () => {
@@ -30,6 +31,7 @@ export const ApplyTemplate: React.FC = () => {
   const { oystehrZambda } = useApiClients();
   const { encounter } = useAppointmentData();
   const queryClient = useQueryClient();
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   // Load templates using custom react-query hook
   const { templates, isLoading: isLoadingTemplates, error: templatesError } = useListTemplates(ExamType.IN_PERSON);
@@ -105,7 +107,7 @@ export const ApplyTemplate: React.FC = () => {
         getOptionLabel={(option) => option.label}
         isOptionEqualToValue={(option, value) => option.value === value.value}
         onChange={handleTemplateChange}
-        disabled={isLoadingTemplates}
+        disabled={isLoadingTemplates || isReadOnly}
         filterOptions={(options, { inputValue }) => {
           // Implement fuzzy search - filter by both label and value
           const query = inputValue.toLowerCase();
@@ -151,7 +153,7 @@ export const ApplyTemplate: React.FC = () => {
             }}
           >
             Are you sure you want to apply the <strong>{getTemplateName(pendingTemplate)}</strong> template? Applying
-            the template will override the content in the following sections: HPI, Exam, MDM, Dx, Patient Instructions,
+            the template will override the content in the following sections: Exam, MDM, Dx, Patient Instructions,
             Disposition.
           </DialogContentText>
         </DialogContent>

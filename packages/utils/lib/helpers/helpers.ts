@@ -1194,6 +1194,30 @@ export function getPrimaryCarePhysicianStepAnswers({
   };
 }
 
+export function getPreferredPharmacyStepAnswers(): PatchPaperworkParameters['answers'] {
+  return {
+    linkId: 'pharmacy-page',
+    item: [
+      {
+        linkId: 'pharmacy-name',
+        answer: [
+          {
+            valueString: 'Test pharmacy',
+          },
+        ],
+      },
+      {
+        linkId: 'pharmacy-address',
+        answer: [
+          {
+            valueString: 'Test pharmacy address',
+          },
+        ],
+      },
+    ],
+  };
+}
+
 const cashPaymentDTOFromFhirPaymentNotice = (paymentNotice: PaymentNotice): CashPaymentDTO | undefined => {
   const { extension, amount, created, id } = paymentNotice;
 
@@ -1203,12 +1227,12 @@ const cashPaymentDTOFromFhirPaymentNotice = (paymentNotice: PaymentNotice): Cash
 
   const paymentMethod = extension.find((ext) => ext.url === PAYMENT_METHOD_EXTENSION_URL)?.valueString;
 
-  if (!paymentMethod || (paymentMethod !== 'cash' && paymentMethod !== 'check')) {
+  if (!paymentMethod || (paymentMethod !== 'cash' && paymentMethod !== 'check' && paymentMethod !== 'card-reader')) {
     return undefined;
   }
 
   return {
-    paymentMethod: paymentMethod as 'cash' | 'check',
+    paymentMethod: paymentMethod as 'cash' | 'check' | 'card-reader',
     amountInCents: Math.round(amount.value * 100),
     dateISO: created,
     fhirPaymentNotificationId: id,

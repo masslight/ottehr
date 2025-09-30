@@ -2,10 +2,10 @@ import { Box, Typography, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { AssessmentTitle } from 'src/telemed/features/appointment/AssessmentTab/components/AssessmentTitle';
 import { NoteDTO } from 'utils';
-import { useChartData } from '../../../../telemed';
+import { useChartFields } from '../../../../telemed';
 
 export const HospitalizationContainer: FC<{ notes?: NoteDTO[] }> = ({ notes }) => {
-  const { chartData } = useChartData();
+  const { data: chartData } = useChartFields({ requestedFields: { episodeOfCare: {} } });
   const theme = useTheme();
 
   const episodeOfCare = chartData?.episodeOfCare;

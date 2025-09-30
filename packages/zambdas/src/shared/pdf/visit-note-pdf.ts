@@ -1,6 +1,6 @@
 import { Patient } from 'fhir/r4b';
 import fs from 'fs';
-import { PageSizes } from 'pdf-lib';
+import { PageSizes, PDFImage } from 'pdf-lib';
 import {
   BUCKET_NAMES,
   followUpInOptions,
@@ -8,12 +8,11 @@ import {
   NOTHING_TO_EAT_OR_DRINK_LABEL,
   renderScreeningQuestionsForPDF,
   Secrets,
-  SEEN_IN_LAST_THREE_YEARS_LABEL,
   VitalFieldNames,
 } from 'utils';
 import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
-import { createPdfClient, PdfInfo, rgbNormalized } from './pdf-utils';
+import { createPdfClient, getPdfLogo, PdfInfo, rgbNormalized } from './pdf-utils';
 import { ImageStyle, LineStyle, PageStyles, PdfClientStyles, TextStyle, VisitNoteData } from './types';
 
 async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointment: boolean): Promise<Uint8Array> {
@@ -36,7 +35,9 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
 
   const RubikFont = await pdfClient.embedFont(fs.readFileSync('./assets/Rubik-Regular.otf'));
   const RubikFontBold = await pdfClient.embedFont(fs.readFileSync('./assets/Rubik-Bold.otf'));
-  const ottehrLogo = await pdfClient.embedImage(fs.readFileSync('./assets/ottehrLogo.png'));
+  const logoBuffer = await getPdfLogo();
+  let logo: PDFImage | undefined;
+  if (logoBuffer) logo = await pdfClient.embedImage(logoBuffer);
   const redDot = await pdfClient.embedImage(fs.readFileSync('./assets/red-dot.png'));
   const greenDot = await pdfClient.embedImage(fs.readFileSync('./assets/green-dot.png'));
 
@@ -238,7 +239,7 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
       width: 110,
       height: 28,
     };
-    pdfClient.drawImage(ottehrLogo, imgStyles);
+    if (logo) pdfClient.drawImage(logo, imgStyles);
     pdfClient.drawText('Visit Note', textStyles.header);
   };
   // We can't set this headline in initial styles, so we gonna draw it and add
@@ -438,28 +439,16 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
   }
 
   if (
-    Object.values(data.additionalQuestions).some((value) => value !== '') ||
-    data.screening?.seenInLastThreeYears ||
-    data.screening?.historyObtainedFrom ||
+    (data.screening?.additionalQuestions && Object.keys(data.screening.additionalQuestions).length > 0) ||
     data.screening?.currentASQ ||
     (data.screening?.notes && data.screening.notes.length > 0)
   ) {
     drawBlockHeader('Additional questions');
 
-    renderScreeningQuestionsForPDF(data.additionalQuestions, (question, formattedValue) => {
-      regularText(`${question} - ${formattedValue}`);
-    });
-
-    if (data.screening?.seenInLastThreeYears) {
-      regularText(`${SEEN_IN_LAST_THREE_YEARS_LABEL} - ${data.screening.seenInLastThreeYears}`);
-    }
-
-    if (data.screening?.historyObtainedFrom) {
-      regularText(
-        `History obtained from - ${data.screening.historyObtainedFrom}${
-          data.screening.historyObtainedFromOther ? `: ${data.screening.historyObtainedFromOther}` : ''
-        }`
-      );
+    if (data.screening?.additionalQuestions) {
+      renderScreeningQuestionsForPDF(data.screening.additionalQuestions, (question, formattedValue) => {
+        regularText(`${question} - ${formattedValue}`);
+      });
     }
 
     if (data.screening?.currentASQ) {

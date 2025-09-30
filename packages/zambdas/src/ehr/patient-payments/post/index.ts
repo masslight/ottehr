@@ -59,7 +59,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       throw NOT_AUTHORIZED;
     }
 
-    console.group('validateRequestParameters');
+    console.group('patient-payment-post validateRequestParameters');
     let validatedParameters: ReturnType<typeof validateRequestParameters>;
     try {
       validatedParameters = validateRequestParameters(input);
@@ -96,6 +96,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     );
 
     const { notice, paymentIntent } = await performEffect(effectInput, oystehrClient, requiredSecrets);
+    console.time('receipt pdf creation');
     const receiptPdfInfo = await createPatientPaymentReceiptPdf(
       encounterId,
       patientId,
@@ -103,6 +104,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       oystehrM2MClientToken,
       paymentIntent
     );
+    console.timeEnd('receipt pdf creation');
 
     return lambdaResponse(200, { notice, patientId, encounterId, receiptInfo: receiptPdfInfo });
   } catch (error: any) {
@@ -166,6 +168,7 @@ const performEffect = async (
   }
 
   try {
+    console.time('Candid pre-encounter sync');
     await performCandidPreEncounterSync({
       encounterId,
       oystehr: oystehrClient,
@@ -176,6 +179,8 @@ const performEffect = async (
     console.error(`Error during Candid pre-encounter sync: ${error}`);
     captureException(error);
     // We are eating this error to allow the payment to still be recorded even though the Candid sync failed.
+  } finally {
+    console.timeEnd('Candid pre-encounter sync');
   }
 
   const noticeToWrite = makePaymentNotice(paymentNoticeInput);
@@ -225,8 +230,13 @@ const validateRequestParameters = (input: ZambdaInput): PostPatientPaymentInput 
   }
 
   const { paymentMethod, amountInCents, paymentMethodId, description } = paymentDetails;
-  if (paymentMethod !== 'card' && paymentMethod !== 'cash' && paymentMethod !== 'check') {
-    throw INVALID_INPUT_ERROR('"paymentDetails.paymentMethod" must be "card", "cash", or "check".');
+  if (
+    paymentMethod !== 'card' &&
+    paymentMethod !== 'card-reader' &&
+    paymentMethod !== 'cash' &&
+    paymentMethod !== 'check'
+  ) {
+    throw INVALID_INPUT_ERROR('"paymentDetails.paymentMethod" must be "card", "card-reader", "cash", or "check".');
   }
   if (paymentMethod === 'card' && !paymentMethodId) {
     throw INVALID_INPUT_ERROR('"paymentDetails.paymentMethodId" is required for card payments.');

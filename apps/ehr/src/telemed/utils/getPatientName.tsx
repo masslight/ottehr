@@ -6,41 +6,38 @@ export const getPatientName = (
   firstName: string | undefined;
   lastName: string | undefined;
   middleName: string | undefined;
-  // suffix: string | undefined;
+  preferredName: string | undefined;
   isFullName: boolean;
   firstLastName: string | undefined;
   lastFirstName: string | undefined;
-  firstMiddleLastName: string | undefined;
-  lastFirstMiddleName: string | undefined;
+  fullDisplayName: string | undefined;
 } => {
   const firstName = name?.[0]?.given?.[0];
   const lastName = name?.[0]?.family;
   const middleName = name?.[0]?.given?.[1];
-  // const suffix = name?.[0]?.suffix?.[0];
+  const preferredName = name?.[1]?.given?.[0];
 
-  // const isFullName = !!firstName && !!lastName && !!suffix;
-
-  const isFullName = !!firstName && !!lastName;
+  const isFullName = Boolean(firstName && lastName);
 
   const firstLastName = isFullName ? `${firstName} ${lastName}` : undefined;
   const lastFirstName = isFullName ? `${lastName}, ${firstName}` : undefined;
 
-  // const firstLastName = isFullName ? `${firstName} ${lastName}${suffix ? ` ${suffix}` : ''}` : undefined;
-  // const lastFirstName = isFullName ? `${lastName}${suffix ? ` ${suffix}` : ''}, ${firstName}` : undefined;
+  const lastFirstMiddle = [lastName, firstName, middleName].filter(Boolean).join(', ') || undefined;
+  const legalBase = lastFirstMiddle ?? lastFirstName ?? lastName ?? firstName;
 
-  const firstMiddleLastName = [firstName, middleName, lastName].filter((x) => !!x).join(' ') || undefined;
-
-  const lastFirstMiddleName = [lastName, firstName, middleName].filter((x) => !!x).join(', ') || undefined;
+  const fullDisplayName =
+    preferredName && legalBase && preferredName !== firstName
+      ? `${legalBase} (${preferredName})`
+      : legalBase ?? preferredName ?? undefined;
 
   return {
     firstName,
     lastName,
     middleName,
+    preferredName,
     isFullName,
     firstLastName,
     lastFirstName,
-    // suffix,
-    firstMiddleLastName,
-    lastFirstMiddleName,
+    fullDisplayName,
   };
 };

@@ -40,7 +40,9 @@ export enum LANGUAGES {
   english = 'english',
 }
 
-export const QUERY_STALE_TIME = 1000 * 60;
+export const QUERY_STALE_TIME = 5 * 60 * 1000;
+
+export const CHART_DATA_QUERY_KEY_BASE = 'get-chart-data';
 
 export const FLAGGED_REASONS_FOR_VISIT: string[] = [
   'Breathing problem',

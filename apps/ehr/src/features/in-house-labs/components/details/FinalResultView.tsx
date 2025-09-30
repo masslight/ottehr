@@ -65,19 +65,26 @@ export const FinalResultView: React.FC<FinalResultViewProps> = ({ testDetails, o
         {getFormattedDiagnoses(diagnoses || [])}
       </Typography>
 
-      {openPdf && (
-        <Button
-          data-testid={dataTestIds.finalResultPage.resultsPDF}
-          variant="outlined"
-          color="primary"
-          sx={{ borderRadius: '50px', textTransform: 'none', mb: '12px' }}
-          onClick={() => openPdf()}
-          startIcon={<BiotechOutlined />}
-          disabled={!mostRecentTest?.resultsPDFUrl}
-        >
-          Results PDF
-        </Button>
-      )}
+      <Box display="flex" justifyContent="space-between" alignItems="center">
+        {openPdf && (
+          <Button
+            data-testid={dataTestIds.finalResultPage.resultsPDF}
+            variant="outlined"
+            color="primary"
+            sx={{ borderRadius: '50px', textTransform: 'none', mb: '12px' }}
+            onClick={() => openPdf()}
+            startIcon={<BiotechOutlined />}
+            disabled={!mostRecentTest?.resultsPDFUrl}
+          >
+            Results PDF
+          </Button>
+        )}
+        {isRepeatable && (
+          <Button variant="outlined" onClick={handleRepeatOnClick} sx={{ borderRadius: '50px', px: 4 }}>
+            Repeat
+          </Button>
+        )}
+      </Box>
 
       {testDetails.map((test, idx) => (
         <FinalResultCard key={`${idx}-${test.testItemName.split(' ').join('')}`} testDetails={test} />
@@ -87,11 +94,6 @@ export const FinalResultView: React.FC<FinalResultViewProps> = ({ testDetails, o
         <Button variant="outlined" onClick={onBack} sx={{ borderRadius: '50px', px: 4 }}>
           Back
         </Button>
-        {isRepeatable && (
-          <Button variant="outlined" onClick={handleRepeatOnClick} sx={{ borderRadius: '50px', px: 4 }}>
-            Repeat
-          </Button>
-        )}
       </Box>
     </Box>
   );

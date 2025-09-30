@@ -81,19 +81,21 @@ export function getScreeningQuestionField(fieldId: string): Field | undefined {
 }
 
 /**
- * Format note field for display based on field configuration and observation
- * Returns formatted note text with conditional logic
+ * Format screening question value with note for display
  */
-export function formatScreeningQuestionNote(field: Field, observation: any): string {
-  if (!field.noteField || !observation) return '';
+export function formatScreeningQuestionWithNote(fieldId: string, observation: any): string {
+  let formattedValue = formatScreeningQuestionValue(fieldId, observation.value);
 
-  // Check if note should be shown based on conditional value
-  if (field.noteField.conditionalValue && observation.value !== field.noteField.conditionalValue) {
-    return '';
+  if (observation.note) {
+    const field = patientScreeningQuestionsConfig.fields.find((f) => f.fhirField === fieldId);
+    if (field?.noteField) {
+      if (!field.noteField.conditionalValue || observation.value === field.noteField.conditionalValue) {
+        formattedValue = `${formattedValue}: ${observation.note}`;
+      }
+    }
   }
 
-  const note = 'note' in observation ? observation.note : '';
-  return note ? `: ${note}` : '';
+  return formattedValue;
 }
 
 /**
@@ -111,17 +113,14 @@ export function renderScreeningQuestionsForPDF(
   additionalQuestions: Record<string, any>,
   renderFn: (question: string, formattedValue: string) => void
 ): void {
-  Object.entries(additionalQuestions).forEach(([fieldId, rawValue]) => {
-    // Skip if no valid value (null or undefined only)
-    if (!shouldDisplayScreeningQuestion(rawValue)) return;
+  Object.entries(additionalQuestions).forEach(([fieldId, observation]) => {
+    if (!shouldDisplayScreeningQuestion(observation.value)) {
+      return;
+    }
 
-    // Get question from configuration
     const question = getScreeningQuestionText(fieldId) || fieldId; // fallback to field ID
+    const formattedValue = formatScreeningQuestionWithNote(fieldId, observation);
 
-    // Format value based on field type
-    const formattedValue = formatScreeningQuestionValue(fieldId, rawValue);
-
-    // Render if we have a formatted value
     if (formattedValue) {
       renderFn(question, formattedValue);
     }

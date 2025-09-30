@@ -9,7 +9,14 @@ import {
   SecretsKeys,
   StartInterviewInput,
 } from 'utils';
-import { getAuth0Token, validateJsonBody, validateString, wrapHandler, ZambdaInput } from '../../../shared';
+import {
+  getAuth0Token,
+  topLevelCatch,
+  validateJsonBody,
+  validateString,
+  wrapHandler,
+  ZambdaInput,
+} from '../../../shared';
 import { invokeChatbot } from '../../../shared/ai';
 
 export const INTERVIEW_COMPLETED = 'Interview completed.';
@@ -57,7 +64,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       body: JSON.stringify(questionnaireResponse),
     };
   } catch (error: any) {
-    console.log('error', error, error.issue);
+    await topLevelCatch(ZAMBDA_NAME, error, getSecret(SecretsKeys.ENVIRONMENT, input.secrets));
     return {
       statusCode: 500,
       body: JSON.stringify({ error: 'Internal error' }),
