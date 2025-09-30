@@ -1028,6 +1028,19 @@ export function createMasterRecordPatchOperations(
   result.patient.patchOpsForDirectUpdate = consolidateOperations(result.patient.patchOpsForDirectUpdate, patient);
   // this needs to go here for now because consolidateOperations breaks it
   result.patient.patchOpsForDirectUpdate.push(...getPCPPatchOps(pcpItems, patient));
+
+  // todo find out why there are duplicates
+  const patientPatchOpsWitoutDuplicates = [];
+  const seenPatchOps = new Set();
+  for (const operation of result.patient.patchOpsForDirectUpdate) {
+    const operationJson = JSON.stringify(operation);
+    if (!seenPatchOps.has(operationJson)) {
+      seenPatchOps.add(operationJson);
+      patientPatchOpsWitoutDuplicates.push(operation);
+    }
+  }
+  result.patient.patchOpsForDirectUpdate = patientPatchOpsWitoutDuplicates;
+
   console.log('result.patient.patchOps', JSON.stringify(result.patient.patchOpsForDirectUpdate, null, 2));
   return result;
 }
