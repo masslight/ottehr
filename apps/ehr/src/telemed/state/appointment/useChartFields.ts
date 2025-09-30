@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { QueryObserverResult, RefetchOptions } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { QUERY_STALE_TIME } from 'src/constants';
+import { CHART_DATA_QUERY_KEY_BASE, QUERY_STALE_TIME } from 'src/constants';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import {
   ChartDataRequestedFields,
@@ -30,8 +30,6 @@ type ChartFieldsResponse = Pick<GetChartDataResponse, RequestedFields>;
 interface ChartDataFieldStateUpdater<T extends Partial<ChartFieldsResponse>> {
   setQueryCache: (updater: Partial<T> | ((state: T) => Partial<T>)) => void;
 }
-
-const CHART_DATA_FIELDS_QUERY_KEY_BASE = 'chart-data-fields';
 
 // returns stringified and sorted representation fro the requested fields
 const createSearchParamsKey = (searchParams: ChartDataRequestedFields): string => {
@@ -114,7 +112,7 @@ export function useChartFields<T extends ChartDataRequestedFields>({
   const queryClient = useQueryClient();
   const user = useEvolveUser();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-  const queryKey = [CHART_DATA_FIELDS_QUERY_KEY_BASE, encounterId, createSearchParamsKey(requestedFields), isReadOnly];
+  const queryKey = [CHART_DATA_QUERY_KEY_BASE, encounterId, createSearchParamsKey(requestedFields), isReadOnly];
 
   const { data, error, isLoading, isFetching, isFetched, refetch, isPending } = useQuery({
     queryKey,
@@ -159,7 +157,7 @@ export function useChartFields<T extends ChartDataRequestedFields>({
 
       const relevantQueries = allQueries.filter((query) => {
         const [base, encId] = query.queryKey;
-        return base === CHART_DATA_FIELDS_QUERY_KEY_BASE && encId === encounterId;
+        return base === CHART_DATA_QUERY_KEY_BASE && encId === encounterId;
       });
 
       relevantQueries.forEach((query) => {

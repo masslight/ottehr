@@ -34,7 +34,7 @@ import {
   useSuccessQuery,
 } from 'utils';
 import { create } from 'zustand';
-import { APPOINTMENT_REFRESH_INTERVAL } from '../../../constants';
+import { APPOINTMENT_REFRESH_INTERVAL, CHART_DATA_QUERY_KEY_BASE } from '../../../constants';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { useExamObservations } from '../../../telemed/hooks/useExamObservations';
 import { useOystehrAPIClient } from '../../../telemed/hooks/useOystehrAPIClient';
@@ -417,8 +417,6 @@ export type ChartDataCacheKey = [
   // boolean,
   { [key: string]: any } | undefined,
 ];
-
-export const CHART_DATA_QUERY_KEY_BASE = 'telemed-get-chart-data';
 
 export const useSaveChartData = (): UseMutationResult<
   PromiseReturnType<ReturnType<OystehrTelemedAPIClient['saveChartData']>>,
