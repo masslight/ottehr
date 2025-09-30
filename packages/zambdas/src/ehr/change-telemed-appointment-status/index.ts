@@ -105,7 +105,7 @@ export const performEffect = async (
   if (currentStatus) {
     const myPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
-    await changeStatusIfPossible(oystehr, visitResources, currentStatus, newStatus, myPractitionerId, ENVIRONMENT);
+    await changeStatusIfPossible(oystehr, visitResources, currentStatus, newStatus, myPractitionerId, ENVIRONMENT, secrets);
   }
 
   console.debug(`Status has been changed.`);

@@ -3,9 +3,9 @@ import { randomUUID } from 'crypto';
 import { Operation } from 'fast-json-patch';
 import { Account, Appointment, ChargeItem, DocumentReference, Encounter, EncounterStatusHistory, List } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { createFilesDocumentReferences, getPatchBinary, OTTEHR_MODULE, RECEIPT_CODE, TelemedCallStatuses } from 'utils';
+import { createFilesDocumentReferences, getPatchBinary, OTTEHR_MODULE, RECEIPT_CODE, TelemedCallStatuses, getPatientFirstName, getNameFromScheduleResource, BRANDING_CONFIG, Secrets } from 'utils';
 import { telemedStatusToEncounter } from '../../../shared/appointment/helpers';
-import { sendSmsForPatient } from '../../../shared/communication';
+import { sendSmsForPatient, makeVisitLandingUrl } from '../../../shared/communication';
 import { createPublishExcuseNotesOps } from '../../../shared/createPublishExcuseNotesOps';
 import { PdfInfo } from '../../../shared/pdf/pdf-utils';
 import { FullAppointmentResourcePackage } from '../../../shared/pdf/visit-details-pdf/types';
@@ -24,7 +24,8 @@ export const changeStatusIfPossible = async (
   currentStatus: TelemedCallStatuses,
   newStatus: TelemedCallStatuses,
   practitionerId: string,
-  ENVIRONMENT: string
+  ENVIRONMENT: string,
+  secrets: Secrets | null
 ): Promise<void> => {
   const { patient, appointment } = resourcesToUpdate;
   let appointmentPatchOp: Operation[] = [];
@@ -38,7 +39,18 @@ export const changeStatusIfPossible = async (
     if (addPractitionerOp) {
       encounterPatchOp.push(addPractitionerOp);
     }
-    // SMS removed: auto-text when provider clicks 'Assign Me' has been removed
+    
+    // For ad-hoc appointments, send confirmation text instead of the removed auto-text
+    const isAdHocAppointment = appointment.appointmentType?.text === 'walkin';
+    if (isAdHocAppointment && patient && appointment.id) {
+      const firstName = getPatientFirstName(patient);
+      const locationName = resourcesToUpdate.location ? getNameFromScheduleResource(resourcesToUpdate.location) : 'your appointment location';
+      const startTime = appointment.start ? DateTime.fromISO(appointment.start).setZone(resourcesToUpdate.timezone).toFormat('MMMM dd, yyyy \'at\' h:mm a') : 'your scheduled time';
+      const url = makeVisitLandingUrl(appointment.id, secrets);
+      
+      smsToSend = `You're confirmed! Thanks for choosing ${BRANDING_CONFIG.projectName}! Your check-in time for ${firstName} at ${locationName} is ${startTime}. To start your visit or modify/cancel, please click here: ${url}`;
+    }
+    // For pre-booked appointments: SMS removed - auto-text when provider clicks 'Assign Me' has been removed
   } else if (currentStatus === 'pre-video' && newStatus === 'ready') {
     encounterPatchOp = defaultEncounterOperations(newStatus, resourcesToUpdate);
     const removePractitionerOr = getRemovePractitionerFromEncounterOperation(
