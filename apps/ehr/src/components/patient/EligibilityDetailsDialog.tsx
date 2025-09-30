@@ -1,5 +1,5 @@
 import { Close } from '@mui/icons-material';
-import { Box, Dialog, DialogContent, DialogTitle, Divider, IconButton, Paper, Typography } from '@mui/material';
+import { Box, Chip, Dialog, DialogContent, DialogTitle, Divider, IconButton, Paper, Typography } from '@mui/material';
 import { FC } from 'react';
 import {
   CoverageCheckWithDetails,
@@ -7,6 +7,21 @@ import {
   InsuranceEligibilityCheckStatus,
   PatientPaymentBenefit,
 } from 'utils';
+
+const STATUS_TO_STYLE_MAP: Record<EligibilityCheckSimpleStatus, { bgColor: string; textColor: string }> = {
+  ELIGIBLE: {
+    bgColor: '#C8E6C9',
+    textColor: '#1B5E20',
+  },
+  'NOT ELIGIBLE': {
+    bgColor: '#FECDD2',
+    textColor: '#B71C1C',
+  },
+  UNKNOWN: {
+    bgColor: '#FECDD2',
+    textColor: '#B71C1C',
+  },
+};
 
 interface EligibilityError {
   code?: string;
@@ -46,24 +61,25 @@ const formatDate = (dateISO: string): string => {
 };
 
 const formatBenefitAmount = (benefit: PatientPaymentBenefit): string => {
-  const amountInUSD = benefit.amountInUSD;
-  const percentage = benefit.percentage;
+  // Handle both string and number types for amountInUSD and percentage
+  const amountInUSD = typeof benefit.amountInUSD === 'string' ? parseFloat(benefit.amountInUSD) : benefit.amountInUSD;
+  const percentage = typeof benefit.percentage === 'string' ? parseFloat(benefit.percentage) : benefit.percentage;
 
   // Match CopayWidget logic
   if (benefit.coverageCode === 'A') {
     // Coinsurance - prefer percentage
-    if (typeof percentage === 'number' && percentage > 0) {
+    if (typeof percentage === 'number' && !isNaN(percentage) && percentage > 0) {
       return `${percentage}%`;
-    } else if (typeof amountInUSD === 'number' && amountInUSD > 0) {
+    } else if (typeof amountInUSD === 'number' && !isNaN(amountInUSD) && amountInUSD > 0) {
       return `$${amountInUSD.toFixed(2)}`;
     } else {
       return '0%';
     }
   } else {
     // Copay - prefer dollar amount
-    if (typeof amountInUSD === 'number' && amountInUSD > 0) {
+    if (typeof amountInUSD === 'number' && !isNaN(amountInUSD) && amountInUSD > 0) {
       return `$${amountInUSD.toFixed(2)}`;
-    } else if (typeof percentage === 'number' && percentage > 0) {
+    } else if (typeof percentage === 'number' && !isNaN(percentage) && percentage > 0) {
       return `${percentage}%`;
     } else {
       return '$0';
@@ -97,8 +113,9 @@ export const EligibilityDetailsDialog: FC<EligibilityDetailsDialogProps> = ({
     copayBenefits.some(
       (benefit) =>
         benefit &&
-        ((benefit.amountInUSD && typeof benefit.amountInUSD === 'number') ||
-          (benefit.percentage && typeof benefit.percentage === 'number'))
+        ((benefit.amountInUSD &&
+          (typeof benefit.amountInUSD === 'number' || typeof benefit.amountInUSD === 'string')) ||
+          (benefit.percentage && (typeof benefit.percentage === 'number' || typeof benefit.percentage === 'string')))
     );
 
   return (
@@ -141,9 +158,21 @@ export const EligibilityDetailsDialog: FC<EligibilityDetailsDialogProps> = ({
                 <Typography variant="body2" color="textSecondary" sx={{ mb: 0.5 }}>
                   Current Status
                 </Typography>
-                <Typography variant="body1" sx={{ fontWeight: 500, color: statusDisplay.color }}>
-                  {simpleStatus || statusDisplay.text}
-                </Typography>
+                <Chip
+                  label={simpleStatus || statusDisplay.text}
+                  sx={{
+                    backgroundColor: STATUS_TO_STYLE_MAP[simpleStatus || 'UNKNOWN'].bgColor,
+                    color: STATUS_TO_STYLE_MAP[simpleStatus || 'UNKNOWN'].textColor,
+                    borderRadius: '8px',
+                    padding: '0 9px',
+                    height: '24px',
+                    '& .MuiChip-label': {
+                      padding: 0,
+                      fontWeight: 'bold',
+                      fontSize: '0.7rem',
+                    },
+                  }}
+                />
               </Box>
               <Box>
                 <Typography variant="body2" color="textSecondary" sx={{ mb: 0.5 }}>
@@ -159,25 +188,18 @@ export const EligibilityDetailsDialog: FC<EligibilityDetailsDialogProps> = ({
           {/* Error Details Section */}
           {(hasErrors || hasFailedStatus) && (
             <Paper sx={{ p: 3, backgroundColor: '#fef2f2', border: '1px solid #fecaca' }}>
-              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: '#dc2626' }}>
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
                 Error Details
               </Typography>
 
               {hasErrors && errorDetails && (
                 <Box sx={{ mb: 2 }}>
-                  <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
-                    Eligibility Check Errors:
-                  </Typography>
                   {errorDetails.map((error, index) => (
-                    <Box key={index} sx={{ mb: 1, p: 2, backgroundColor: '#fff5f5', borderRadius: 1 }}>
-                      {error.code && (
-                        <Typography variant="body2" sx={{ fontWeight: 600, color: '#dc2626' }}>
-                          Error Code: {error.code}
-                        </Typography>
-                      )}
+                    <Box key={index} sx={{ mb: 1, borderRadius: 1 }}>
+                      {error.code && <Typography variant="body2">Error Code: {error.code}</Typography>}
                       {error.text && (
-                        <Typography variant="body2" sx={{ mt: 0.5, color: '#7f1d1d' }}>
-                          {error.text}
+                        <Typography variant="body2" sx={{ mt: 0.5 }}>
+                          Error Message: {error.text}
                         </Typography>
                       )}
                     </Box>
@@ -230,8 +252,14 @@ export const EligibilityDetailsDialog: FC<EligibilityDetailsDialogProps> = ({
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 {copayBenefits
                   .filter((benefit) => {
-                    const isValid =
-                      benefit && (typeof benefit.amountInUSD === 'number' || typeof benefit.percentage === 'number');
+                    // Accept both string and number types for amountInUSD and percentage
+                    const hasAmount =
+                      typeof benefit.amountInUSD === 'number' ||
+                      (typeof benefit.amountInUSD === 'string' && benefit.amountInUSD !== '');
+                    const hasPercentage =
+                      typeof benefit.percentage === 'number' ||
+                      (typeof benefit.percentage === 'string' && benefit.percentage !== '');
+                    const isValid = benefit && (hasAmount || hasPercentage);
                     if (!isValid) {
                       console.log('Filtered out benefit:', benefit);
                     }

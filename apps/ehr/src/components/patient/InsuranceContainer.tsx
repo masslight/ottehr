@@ -357,6 +357,8 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   };
 
   const copayBenefits = eligibilityStatus?.copay ?? [];
+  console.log('InsuranceContainer - copayBenefits (used by CopayWidget):', copayBenefits);
+  console.log('InsuranceContainer - copayBenefits count:', copayBenefits.length);
 
   // Get the most current eligibility data, combining initial data with any updates
   const getCurrentEligibilityData = (): CoverageCheckWithDetails | undefined => {
@@ -368,13 +370,20 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
 
     // If we have updated eligibility status from a recheck, merge it with initial data
     if (eligibilityStatus && initialEligibilityCheck) {
-      return {
+      const mergedData = {
         ...initialEligibilityCheck,
         status: mapSimpleStatusToDetailedStatus(eligibilityStatus.status),
         dateISO: eligibilityStatus.dateISO,
-        copay: eligibilityStatus.copay || initialEligibilityCheck.copay,
+        // Prefer eligibilityStatus.copay if it has items, otherwise use initialEligibilityCheck.copay
+        copay:
+          eligibilityStatus.copay && eligibilityStatus.copay.length > 0
+            ? eligibilityStatus.copay
+            : initialEligibilityCheck.copay,
         errors: eligibilityStatus.errors || initialEligibilityCheck.errors,
       };
+      console.log('getCurrentEligibilityData - merged copay:', mergedData.copay);
+      console.log('getCurrentEligibilityData - merged copay count:', mergedData.copay?.length);
+      return mergedData;
     }
 
     // If we only have initial data, use that
