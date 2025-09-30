@@ -112,37 +112,10 @@ function getErrorDetailsFromCoverageResponse(
     return eligibilityCheck.errors.map((error) => {
       // Extract code and text from FHIR CodeableConcept
       const code = error.code?.coding?.[0]?.code || error.code?.text || 'UNKNOWN';
-      const text = error.code?.text || error.code?.coding?.[0]?.display || 'No error details available';
+      const text = error.code?.text || 'No error details available';
       console.log('Extracted error:', { code, text });
       return { code, text };
     });
-  }
-
-  // Fallback to generating error details based on the status only if no FHIR errors exist
-  switch (eligibilityCheck.status) {
-    case InsuranceEligibilityCheckStatus.eligibilityCheckNotSupported:
-      return [
-        {
-          code: '410',
-          text: `This insurance provider does not support real-time eligibility verification. Manual verification may be required.`,
-        },
-      ];
-    case InsuranceEligibilityCheckStatus.eligibilityNotChecked:
-      return [
-        {
-          code: 'API_ERROR',
-          text: 'The eligibility check service is currently unavailable or returned an error. This could be due to network issues, service maintenance, or temporary system problems.',
-        },
-      ];
-    case InsuranceEligibilityCheckStatus.eligibilityNotConfirmed:
-      return [
-        {
-          code: 'ELIGIBILITY_DENIED',
-          text: "The eligibility check was completed but the patient's coverage could not be confirmed. This may indicate the patient is not covered under this plan, or there may be issues with the provided insurance information.",
-        },
-      ];
-    default:
-      return undefined;
   }
 }
 
