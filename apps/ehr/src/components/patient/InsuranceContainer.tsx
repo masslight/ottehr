@@ -117,6 +117,8 @@ function getErrorDetailsFromCoverageResponse(
       return { code, text };
     });
   }
+
+  return undefined;
 }
 
 interface SimpleStatusCheckWithDate {
