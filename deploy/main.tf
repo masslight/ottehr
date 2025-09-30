@@ -93,9 +93,9 @@ module "oystehr" {
 }
 
 module "ottehr_apps" {
-  depends_on  = [module.oystehr, module.aws_infra]
+  depends_on = [module.oystehr, module.aws_infra]
   # Temporarily disable managing app config files for local env
-  count = local.not_local_env_resource_count 
+  count       = local.not_local_env_resource_count
   source      = "./ottehr_apps"
   environment = var.environment
   ehr_vars = {
