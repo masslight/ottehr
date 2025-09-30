@@ -273,86 +273,40 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const hpiText = chiefComplaint?.text?.trim();
     const mdmText = medicalDecision?.text?.trim();
     
-    // If either HPI or MDM is being updated (even if cleared), manage AI diagnoses
-    if (chiefComplaint || medicalDecision) {
+    // If either HPI or MDM is being updated and has meaningful content, generate AI suggestions
+    if ((chiefComplaint || medicalDecision) && ((hpiText && hpiText.length > 0) || (mdmText && mdmText.length > 0))) {
       try {
-        // Check if we have meaningful clinical text to generate AI suggestions from
-        const hasContent = (hpiText && hpiText.length > 0) || (mdmText && mdmText.length > 0);
-        
-        if (hasContent) {
-          console.log('Generating AI ICD codes from clinical notes...');
-          const potentialDiagnoses = await generateIcdCodesFromClinicalNotes(
-            hpiText,
-            mdmText,
-            secrets
-          );
+        console.log('Generating AI ICD codes from clinical notes...');
+        const potentialDiagnoses = await generateIcdCodesFromClinicalNotes(
+          hpiText,
+          mdmText,
+          secrets
+        );
 
-          if (potentialDiagnoses.length > 0) {
-            console.log(`Generated ${potentialDiagnoses.length} potential AI diagnoses`);
-            
-            // First, remove existing AI potential diagnoses to avoid duplicates
-            const existingAiDiagnoses = allResources.filter(
-              (resource) => 
-                resource.resourceType === 'Condition' && 
-                resource.meta?.tag?.[0]?.code === 'ai-potential-diagnosis'
-            );
-
-            // Delete existing AI diagnoses
-            existingAiDiagnoses.forEach((diagnosis) => {
-              if (diagnosis.id) {
-                saveOrUpdateRequests.push(deleteResourceRequest('Condition', diagnosis.id));
-              }
-            });
-
-            // Add new AI potential diagnoses
-            potentialDiagnoses.forEach((diagnosis) => {
-              saveOrUpdateRequests.push(
-                saveOrUpdateResourceRequest(
-                  makeDiagnosisConditionResource(
-                    encounterId,
-                    patient.id,
-                    {
-                      code: diagnosis.icd10,
-                      display: diagnosis.diagnosis,
-                      isPrimary: false,
-                    },
-                    'ai-potential-diagnosis'
-                  )
+        if (potentialDiagnoses.length > 0) {
+          console.log(`Generated ${potentialDiagnoses.length} potential AI diagnoses`);
+          
+          // Add new AI potential diagnoses
+          potentialDiagnoses.forEach((diagnosis) => {
+            saveOrUpdateRequests.push(
+              saveOrUpdateResourceRequest(
+                makeDiagnosisConditionResource(
+                  encounterId,
+                  patient.id,
+                  {
+                    code: diagnosis.icd10,
+                    display: diagnosis.diagnosis,
+                    isPrimary: false,
+                  },
+                  'ai-potential-diagnosis'
                 )
-              );
-            });
-          } else {
-            // AI generated no suggestions, clear existing ones
-            console.log('AI generated no suggestions, clearing existing AI diagnoses');
-            const existingAiDiagnoses = allResources.filter(
-              (resource) => 
-                resource.resourceType === 'Condition' && 
-                resource.meta?.tag?.[0]?.code === 'ai-potential-diagnosis'
+              )
             );
-
-            existingAiDiagnoses.forEach((diagnosis) => {
-              if (diagnosis.id) {
-                saveOrUpdateRequests.push(deleteResourceRequest('Condition', diagnosis.id));
-              }
-            });
-          }
-        } else {
-          // No meaningful content, clear existing AI diagnoses
-          console.log('No meaningful clinical text found, clearing existing AI diagnoses');
-          const existingAiDiagnoses = allResources.filter(
-            (resource) => 
-              resource.resourceType === 'Condition' && 
-              resource.meta?.tag?.[0]?.code === 'ai-potential-diagnosis'
-          );
-
-          existingAiDiagnoses.forEach((diagnosis) => {
-            if (diagnosis.id) {
-              saveOrUpdateRequests.push(deleteResourceRequest('Condition', diagnosis.id));
-            }
           });
         }
+        // Note: If AI generates no suggestions, we don't clear existing ones
       } catch (error) {
-        console.error('Error managing AI ICD codes:', error);
+        console.error('Error generating AI ICD codes:', error);
         // Continue processing even if AI generation fails
       }
     }
