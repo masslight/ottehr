@@ -11,7 +11,7 @@ export const AddendumCard: FC = () => {
       addendumNote: {},
     },
   });
-  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const appointmentAccessibility = useGetAppointmentAccessibility();
   const addendumNote = chartFields?.addendumNote?.text;
 
   const theme = useTheme();
@@ -51,7 +51,7 @@ export const AddendumCard: FC = () => {
               }}
               size="small"
               label="Notes"
-              disabled={isReadOnly}
+              disabled={appointmentAccessibility.isAppointmentReadOnly && !appointmentAccessibility.isAppointmentLocked}
               fullWidth
               multiline
               InputProps={{
