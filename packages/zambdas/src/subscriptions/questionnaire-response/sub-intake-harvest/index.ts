@@ -225,7 +225,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     }
   }
 
-  if (qr.status === 'completed') {
+  if (qr.status === 'completed' || qr.status === 'amended') {
     try {
       console.log('adding payment variant extension to encounter');
       const paymentOption = flattenedPaperwork.find(
