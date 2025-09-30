@@ -2,10 +2,10 @@ import { Box, CircularProgress, Divider, Paper, Stack, TextField, Typography } f
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createNursingOrder } from 'src/api/api';
-import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
+import { ButtonRounded } from 'src/features/in-person/components/RoundedButton';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { useAppointmentData } from 'src/shared/hooks/appointment/appointment.store';
 import { CreateNursingOrderInput } from 'utils';
-import { useAppointmentData } from '../../../telemed/state/appointment/appointment.store';
 import { BreadCrumbs } from '../components/BreadCrumbs';
 
 export const NursingOrderCreatePage: React.FC = () => {

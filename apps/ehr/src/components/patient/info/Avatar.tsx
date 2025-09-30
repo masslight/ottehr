@@ -1,6 +1,6 @@
 import { Avatar, SxProps, Theme } from '@mui/material';
 import { FC, useMemo, useState } from 'react';
-import { useGetSignedPatientProfilePhotoUrlQuery } from '../../../features/css-module/queries/css.queries';
+import { useGetSignedPatientProfilePhotoUrlQuery } from '../../../features/in-person/queries/in-person.queries';
 import { useGetPatient } from '../../../hooks/useGetPatient';
 import ProfilePhotoImagePicker from '../../ProfilePhotoImagePicker';
 

@@ -41,7 +41,6 @@ import {
   CPTCodeDTO,
   createCodeableConcept,
   createFilesDocumentReferences,
-  CSS_NOTE_ID,
   DiagnosisDTO,
   DispositionDTO,
   DispositionFollowUpType,
@@ -56,6 +55,7 @@ import {
   GetChartDataResponse,
   getVitalObservationFhirInterpretations,
   HospitalizationDTO,
+  IN_PERSON_NOTE_ID,
   isVitalObservation,
   makeVitalsObservationDTO,
   MedicalConditionDTO,
@@ -578,7 +578,7 @@ export function makeNoteResource(encounterId: string, patientId: string | undefi
     resourceType: 'Communication',
     encounter: { reference: `Encounter/${encounterId}` },
     status: 'completed',
-    meta: fillMeta(CSS_NOTE_ID, data.type),
+    meta: fillMeta(IN_PERSON_NOTE_ID, data.type),
     subject: { reference: `Patient/${patientId}` },
     sender: {
       reference: `Practitioner/${data.authorId}`,
@@ -1245,7 +1245,10 @@ const mapResourceToChartDataFields = (
   ) {
     data.instructions?.push(makeCommunicationDTO(resource));
     resourceMapped = true;
-  } else if (resource.resourceType === 'Communication' && chartDataResourceHasMetaTagByCode(resource, CSS_NOTE_ID)) {
+  } else if (
+    resource.resourceType === 'Communication' &&
+    chartDataResourceHasMetaTagByCode(resource, IN_PERSON_NOTE_ID)
+  ) {
     data.notes?.push(makeNoteDTO(resource));
     resourceMapped = true;
   } else if (

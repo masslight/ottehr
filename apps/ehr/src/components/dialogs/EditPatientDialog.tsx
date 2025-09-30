@@ -19,9 +19,10 @@ import { DateTime } from 'luxon';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { PatternFormat } from 'react-number-format';
+import { useAppointmentData } from 'src/shared/hooks/appointment/appointment.store';
+import { useEditPatientInformationMutation } from 'src/shared/hooks/tracking-board/tracking-board.queries';
 import { AllStatesToVirtualLocationLabels, FHIR_EXTENSION, standardizePhoneNumber } from 'utils';
 import { EMAIL_REGEX, ZIP_REGEX } from '../../constants';
-import { useAppointmentData, useEditPatientInformationMutation } from '../../telemed/state';
 import DateSearch from '../DateSearch';
 import { RoundedButton } from '../RoundedButton';
 
