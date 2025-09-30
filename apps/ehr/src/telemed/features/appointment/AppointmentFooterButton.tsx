@@ -49,9 +49,7 @@ export const AppointmentFooterButton: FC = () => {
   const initTelemedSession = useInitTelemedSessionMutation();
   const getMeetingData = useGetMeetingData(
     getAccessTokenSilently,
-    (data) => {
-      useVideoCallStore.setState({ meetingData: data });
-    },
+    () => {},
     () => {
       enqueueSnackbar('Error trying to connect to a patient.', {
         variant: 'error',
@@ -99,9 +97,12 @@ export const AppointmentFooterButton: FC = () => {
     await queryClient.invalidateQueries({ queryKey: [TELEMED_APPOINTMENT_QUERY_KEY] });
   };
 
-  const onConnect = useCallback((): void => {
+  const onConnect = useCallback(async (): Promise<void> => {
     if (mapStatusToTelemed(encounter.status, appointment?.status) === TelemedAppointmentStatusEnum['on-video']) {
-      void getMeetingData.refetch({ throwOnError: true });
+      const meetingDataResponse = await getMeetingData.refetch({ throwOnError: true });
+      useVideoCallStore.setState({
+        meetingData: meetingDataResponse.data,
+      });
     } else {
       if (!apiClient || !user || !appointment?.id) {
         throw new Error('api client not defined or userId not provided');
@@ -147,7 +148,7 @@ export const AppointmentFooterButton: FC = () => {
     ) {
       if (location.state?.reconnect) {
         navigate(location.pathname, {});
-        onConnect();
+        void onConnect();
       }
     }
   }, [
