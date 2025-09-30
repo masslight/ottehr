@@ -20,6 +20,7 @@ import { FeatureFlagsProvider } from './features/css-module/context/featureFlags
 import { UnsolicitedResultsInbox } from './features/external-labs/pages/UnsolicitedResultsInbox';
 import { UnsolicitedResultsMatch } from './features/external-labs/pages/UnsolicitedResultsMatch';
 import { UnsolicitedResultsReview } from './features/external-labs/pages/UnsolicitedResultsReview';
+import { Tasks } from './features/tasks/pages/Tasks';
 import { useApiClients } from './hooks/useAppClients';
 import useEvolveUser from './hooks/useEvolveUser';
 import AddEmployeePage from './pages/AddEmployeePage';
@@ -217,6 +218,7 @@ function App(): ReactElement {
                       </Suspense>
                     }
                   />
+                  <Route path="/tasks-list" element={<Tasks />} />
                   <Route path="*" element={<Navigate to={'/'} />} />
                 </>
               )}
@@ -262,6 +264,7 @@ function App(): ReactElement {
                       </Suspense>
                     }
                   />
+                  <Route path="/tasks-list" element={<Tasks />} />
                   <Route path="*" element={<Navigate to={'/'} />} />
                 </>
               )}
