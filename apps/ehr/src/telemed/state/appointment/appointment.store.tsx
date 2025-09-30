@@ -34,7 +34,7 @@ import {
   useSuccessQuery,
 } from 'utils';
 import { create } from 'zustand';
-import { APPOINTMENT_REFRESH_INTERVAL, CHART_DATA_QUERY_KEY_BASE, QUERY_STALE_TIME } from '../../../constants';
+import { APPOINTMENT_REFRESH_INTERVAL, CHART_DATA_QUERY_KEY_BASE } from '../../../constants';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { useExamObservations } from '../../../telemed/hooks/useExamObservations';
 import { useOystehrAPIClient } from '../../../telemed/hooks/useOystehrAPIClient';
@@ -630,9 +630,8 @@ export const useGetChartData = (
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
   const user = useEvolveUser();
-  // const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-
-  const key = [CHART_DATA_QUERY_KEY_BASE, encounterId, requestedFields]; // check if isReadOnly is needed (it causes duplicate requests because it's unstable and has not isLoading state)
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const key = [CHART_DATA_QUERY_KEY_BASE, encounterId, requestedFields, isReadOnly]; // TODO: check if isReadOnly is needed (it causes duplicate requests because it's unstable and has not isLoading state)
 
   const query = useQuery({
     queryKey: key,
@@ -648,7 +647,7 @@ export const useGetChartData = (
     },
 
     enabled: !!apiClient && !!encounterId && !!user && enabled,
-    staleTime: QUERY_STALE_TIME,
+    staleTime: 0, // TODO: screening note is not refreshed after saving on the progress note screen, fix this and similar cases and add staleTime with default QUERY_STALE_TIME
     refetchInterval: refetchInterval || false,
   });
 
