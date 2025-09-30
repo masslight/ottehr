@@ -283,12 +283,15 @@ export async function generateIcdCodesFromClinicalNotes(
   mdmText?: string,
   secrets?: Secrets | null
 ): Promise<{ diagnosis: string; icd10: string }[]> {
-  if (!hpiText && !mdmText) {
+  const trimmedHpi = hpiText?.trim();
+  const trimmedMdm = mdmText?.trim();
+  
+  if (!trimmedHpi && !trimmedMdm) {
     return [];
   }
 
   try {
-    const prompt = getIcdPrompt(hpiText, mdmText);
+    const prompt = getIcdPrompt(trimmedHpi, trimmedMdm);
     const aiResponseString = (
       await invokeChatbot([{ role: 'user', content: prompt }], secrets)
     ).content.toString();
