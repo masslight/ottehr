@@ -123,7 +123,7 @@ const makeObsDefExtension = (item: TestItemComponent): Extension[] => {
   return extension;
 };
 
-const makeActivityDefinitionRepeatableExtension = (item: TestItem): Extension[] => {
+const makeActivityDefinitionRepeatableExtension = (item: TestItem): Extension[] | undefined => {
   const extension: Extension[] = [];
   if (item.repeatTest) {
     extension.push({
@@ -132,7 +132,7 @@ const makeActivityDefinitionRepeatableExtension = (item: TestItem): Extension[] 
     });
   }
 
-  return extension;
+  return extension.length ? extension : undefined;
 };
 
 const getUnitForCodeableConceptType = (item: CodeableConceptComponent): CodeableConcept | undefined => {
