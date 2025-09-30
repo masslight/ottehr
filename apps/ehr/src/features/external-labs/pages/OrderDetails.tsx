@@ -15,6 +15,9 @@ export const OrderDetailsPage: React.FC = () => {
   const serviceRequestId = urlParams.serviceRequestID as string;
   const diagnosticReportId = urlParams.diagnosticReportId as string;
 
+  // SR driven labs aka solicited labs will not have the url param diagnosticReportId
+  // they could have an associated diagnostic report but it won't be passed in the url
+  // a "dr centric" lab would be a pdf attachment result or a reflex result
   const isDrCentricLab = !!diagnosticReportId;
 
   const searchBy: LabOrdersSearchBy['searchBy'] = isDrCentricLab
