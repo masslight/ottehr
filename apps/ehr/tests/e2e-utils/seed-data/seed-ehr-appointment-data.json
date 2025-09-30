@@ -148,6 +148,12 @@
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/point-of-discovery",
             "valueString": "Friend/Family"
+          },
+          {
+            "url": "https://fhir.ottehr.com/Extension/preferred-pharmacy",
+            "valueReference": {
+              "reference": "#pharmacy"
+            }
           }
         ],
         "resourceType": "Patient",
