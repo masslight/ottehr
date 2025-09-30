@@ -1,7 +1,7 @@
 import { CircularProgress, FormControl, FormControlLabel, Radio, RadioGroup } from '@mui/material';
 import { DateTime } from 'luxon';
 import { FC } from 'react';
-import { useGetUnsolicitedResultsRelatedRequests } from 'src/telemed';
+import { useGetUnsolicitedResultsRelatedRequests } from 'src/shared/hooks/appointment/appointment.queries';
 import { UnsolicitedResultsRequestType } from 'utils';
 
 interface UnsolicitedVisitMatchCardProps {

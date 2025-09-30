@@ -27,7 +27,7 @@ import {
   useCancelMatchUnsolicitedResultTask,
   useFinalizeUnsolicitedResultMatch,
   useGetUnsolicitedResultsMatchData,
-} from 'src/telemed';
+} from 'src/shared/hooks/appointment/appointment.queries';
 import { formatDateForLabs, LAB_ORDER_UPDATE_RESOURCES_EVENTS, UnsolicitedResultsRequestType } from 'utils';
 import { UnsolicitedPatientMatchSearchCard } from '../components/unsolicited-results/UnsolicitedPatientMatchSearchCard';
 import { UnsolicitedVisitMatchCard } from '../components/unsolicited-results/UnsolicitedVisitMatchCard';

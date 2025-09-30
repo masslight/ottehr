@@ -15,6 +15,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { FC, useMemo, useState } from 'react';
+import { getAppointmentStatusChip as getTelemedAppointmentStatusChip } from 'src/features/telemed/utils';
 import { VisitTypeToLabel, VisitTypeToLabelTelemed } from 'src/types/types';
 import {
   EmployeeDetails,
@@ -32,7 +33,6 @@ import { getEmployees } from '../api/api';
 import { formatISOStringToDateAndTime } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
 import { AppointmentHistoryRow } from '../hooks/useGetPatient';
-import { getAppointmentStatusChip as getTelemedAppointmentStatusChip } from '../telemed/utils';
 import { RoundedButton } from './RoundedButton';
 
 type PatientEncountersGridProps = {

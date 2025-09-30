@@ -4,7 +4,7 @@ import React, { useCallback, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { radiologyLaunchViewer } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { CSSPageTitle } from '../../../telemed/components/PageTitle';
+import { PageTitleStyled } from '../../../components/PageTitle';
 import radiologyIcon from '../../../themes/ottehr/icons/mui-radiology.svg';
 import { WithRadiologyBreadcrumbs } from '../components/RadiologyBreadcrumbs';
 import { RadiologyOrderHistoryCard } from '../components/RadiologyOrderHistoryCard';
@@ -86,7 +86,7 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
               variant="outlined"
             />
           ) : null}
-          <CSSPageTitle>{`Radiology: ${order.studyType}`}</CSSPageTitle>
+          <PageTitleStyled>{`Radiology: ${order.studyType}`}</PageTitleStyled>
 
           <Box
             sx={{
