@@ -17,11 +17,11 @@ vi.mock('src/hooks/useEvolveUser', () => ({
   default: vi.fn().mockReturnValue({ id: 'user-123' }),
 }));
 
-vi.mock('../../../telemed/hooks/useOystehrAPIClient', () => ({
+vi.mock('../useOystehrAPIClient', () => ({
   useOystehrAPIClient: vi.fn(),
 }));
 
-vi.mock('../../hooks', () => ({
+vi.mock('./useGetAppointmentAccessibility', () => ({
   useGetAppointmentAccessibility: vi.fn().mockReturnValue({ isAppointmentReadOnly: false }),
 }));
 
