@@ -271,7 +271,9 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
                 isOptionEqualToValue={(option, value) => {
                   return option?.id === value?.id;
                 }}
-                getOptionLabel={(option) => option.name || ''}
+                getOptionLabel={(option) =>
+                  option.payerId || option.name ? `${option?.payerId || 'N/A'} - ${option?.name || 'N/A'}` : ''
+                }
                 onChange={(_, newValue) => {
                   if (newValue) {
                     setValue(
