@@ -2022,13 +2022,15 @@ export interface GetAccountOperationsInput {
   existingGuarantorResource?: RelatedPerson | Patient;
   existingAccount?: Account;
   preserveOmittedCoverages?: boolean;
+  existingEmergencyContact?: RelatedPerson;
 }
 
 export interface GetAccountOperationsOutput {
   coveragePosts: BatchInputPostRequest<Coverage>[];
   patch: BatchInputPatchRequest<Coverage | RelatedPerson>[];
-  put: BatchInputPutRequest<Account>[];
+  put: BatchInputPutRequest<Account | RelatedPerson>[];
   accountPost?: Account;
+  emergencyContactPost?: BatchInputPostRequest<RelatedPerson>;
 }
 
 // this function is exported for testing purposes
@@ -2041,6 +2043,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
     organizationResources,
     existingAccount,
     preserveOmittedCoverages,
+    existingEmergencyContact,
   } = input;
 
   if (!patient.id) {
@@ -2071,8 +2074,9 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
 
   const patch: BatchInputPatchRequest<Coverage | RelatedPerson | Account>[] = [];
   const coveragePosts: BatchInputPostRequest<Coverage>[] = [];
-  const put: BatchInputPutRequest<Account>[] = [];
+  const puts: BatchInputPutRequest<Account | RelatedPerson>[] = [];
   let accountPost: Account | undefined;
+  let emergencyContactPost: BatchInputPostRequest<RelatedPerson> | undefined;
 
   console.log(
     'getting account operations for patient, guarantorData, emergencyContactData, coverages, account',
@@ -2168,18 +2172,81 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
       coverage: suggestedNewCoverageObject,
     };
 
-    put.push({
+    puts.push({
       method: 'PUT',
       url: `Account/${existingAccount.id}`,
       resource: updatedAccount,
     });
   }
 
+  // Emergency Contact
+  if (existingEmergencyContact && emergencyContactData) {
+    const emergencyContactResourceToPut: RelatedPerson = {
+      ...existingEmergencyContact,
+    };
+    const givenNames = [emergencyContactData?.firstName];
+    if (emergencyContactData?.middleName) {
+      givenNames.push(emergencyContactData.middleName);
+    }
+    emergencyContactResourceToPut.name = [
+      {
+        given: givenNames,
+        family: emergencyContactData?.lastName,
+      },
+    ];
+    emergencyContactResourceToPut.telecom?.push({
+      value: formatPhoneNumber(emergencyContactData?.number),
+      system: 'phone',
+    });
+    puts.push({
+      method: 'PUT',
+      url: `RelatedPerson/${existingEmergencyContact.id}`,
+      resource: emergencyContactResourceToPut,
+    });
+  } else if (emergencyContactData) {
+    const emergencyContactResourceToCreate: RelatedPerson = {
+      resourceType: 'RelatedPerson',
+      patient: {
+        reference: `Patient/${patient.id}`,
+      },
+      relationship: [
+        {
+          coding: [
+            {
+              system: 'http://terminology.hl7.org/CodeSystem/v2-0131	',
+              code: 'EP',
+            },
+          ],
+        },
+      ],
+    };
+    const givenNames = [emergencyContactData?.firstName];
+    if (emergencyContactData?.middleName) {
+      givenNames.push(emergencyContactData.middleName);
+    }
+    emergencyContactResourceToCreate.name = [
+      {
+        given: givenNames,
+        family: emergencyContactData?.lastName,
+      },
+    ];
+    emergencyContactResourceToCreate.telecom?.push({
+      value: formatPhoneNumber(emergencyContactData?.number),
+      system: 'phone',
+    });
+    emergencyContactPost = {
+      method: 'POST',
+      url: 'RelatedPerson',
+      resource: emergencyContactResourceToCreate,
+    };
+  }
+
   return {
     coveragePosts,
     accountPost,
     patch,
-    put,
+    put: puts,
+    emergencyContactPost,
   };
 };
 
@@ -3078,6 +3145,7 @@ export const updatePatientAccountFromQuestionnaire = async (
     coverages: existingCoverages,
     account: existingAccount,
     guarantorResource: existingGuarantorResource,
+    emergencyContactResource: existingEmergencyContact,
   } = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
 
   console.time('updating patient resource');
@@ -3123,11 +3191,12 @@ export const updatePatientAccountFromQuestionnaire = async (
     existingAccount,
     existingGuarantorResource,
     preserveOmittedCoverages,
+    existingEmergencyContact,
   });
 
   console.log('account and coverage operations created', JSON.stringify(accountOperations, null, 2));
 
-  const { patch, accountPost, put, coveragePosts } = accountOperations;
+  const { patch, accountPost, put, coveragePosts, emergencyContactPost } = accountOperations;
 
   const transactionRequests: BatchInputRequest<Account | RelatedPerson | Coverage | Patient>[] = [
     ...coveragePosts,
@@ -3140,6 +3209,9 @@ export const updatePatientAccountFromQuestionnaire = async (
       method: 'POST',
       resource: accountPost,
     });
+  }
+  if (emergencyContactPost) {
+    transactionRequests.push(emergencyContactPost);
   }
 
   try {
