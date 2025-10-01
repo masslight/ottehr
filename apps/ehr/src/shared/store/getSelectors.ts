@@ -1,5 +1,6 @@
 import { StoreApi, UseBoundStore } from 'zustand';
 
+// todo: remove, it's duplicated in utils
 export const getSelectors = <
   S extends UseBoundStore<StoreApi<object>>,
   T extends S extends { getState: () => infer R } ? R : never,

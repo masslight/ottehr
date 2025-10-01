@@ -18,9 +18,10 @@ import {
 import { Patient } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useMemo, useState } from 'react';
+import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
+import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { getFullName, standardizePhoneNumber } from 'utils';
 import { formatDateUsingSlashes } from '../../helpers/formatDateTime';
-import { ConfirmationDialog, DeleteIconButton } from '../../telemed';
 import { RoundedButton } from '../RoundedButton';
 import { useGetPatientById, useGetPatientsForMerge } from './queries';
 

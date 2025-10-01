@@ -1,8 +1,10 @@
 import { Box } from '@mui/material';
 import { Link } from 'react-router-dom';
+import { sidebarMenuIcons } from 'src/components/Sidebar';
 import { OrdersToolTip } from 'src/features/common/OrdersToolTip';
-import { MedicationStatusChip } from 'src/features/css-module/components/medication-administration/statuses/MedicationStatusChip';
-import { sidebarMenuIcons } from 'src/features/css-module/components/Sidebar';
+import { LabsOrderStatusChip } from 'src/features/external-labs/components/ExternalLabsStatusChip';
+import { InHouseLabsStatusChip } from 'src/features/in-house-labs/components/InHouseLabsStatusChip';
+import { MedicationStatusChip } from 'src/features/in-person/components/medication-administration/statuses/MedicationStatusChip';
 import {
   getExternalLabOrderEditUrl,
   getExternalLabOrdersUrl,
@@ -14,9 +16,7 @@ import {
   getNursingOrdersUrl,
   getRadiologyOrderEditUrl,
   getRadiologyUrl,
-} from 'src/features/css-module/routing/helpers';
-import { LabsOrderStatusChip } from 'src/features/external-labs/components/ExternalLabsStatusChip';
-import { InHouseLabsStatusChip } from 'src/features/in-house-labs/components/InHouseLabsStatusChip';
+} from 'src/features/in-person/routing/helpers';
 import { NursingOrdersStatusChip } from 'src/features/nursing-orders/components/NursingOrdersStatusChip';
 import { RadiologyTableStatusChip } from 'src/features/radiology/components/RadiologyTableStatusChip';
 import { hasAtLeastOneOrder } from 'src/helpers';
