@@ -82,6 +82,26 @@
               }
             ],
             "resourceType": "Practitioner"
+          },
+          {
+            "address": [
+              {
+                "text": "Test pharmacy address"
+              }
+            ],
+            "id": "pharmacy",
+            "name": "Test pharmacy",
+            "resourceType": "Organization",
+            "type": [
+              {
+                "coding": [
+                  {
+                    "code": "pharmacy",
+                    "system": "http://terminology.hl7.org/CodeSystem/organization-type"
+                  }
+                ]
+              }
+            ]
           }
         ],
         "extension": [
@@ -128,6 +148,12 @@
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/point-of-discovery",
             "valueString": "Friend/Family"
+          },
+          {
+            "url": "https://fhir.ottehr.com/Extension/preferred-pharmacy",
+            "valueReference": {
+              "reference": "#pharmacy"
+            }
           }
         ],
         "resourceType": "Patient",
