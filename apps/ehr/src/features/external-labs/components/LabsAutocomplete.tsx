@@ -1,7 +1,7 @@
 import { Autocomplete, TextField } from '@mui/material';
 import { FC, useState } from 'react';
-import { useGetCreateExternalLabResources } from 'src/telemed';
-import { useDebounce } from 'src/telemed';
+import { useGetCreateExternalLabResources } from 'src/shared/hooks/appointment/appointment.queries';
+import { useDebounce } from 'src/shared/hooks/useDebounce';
 import { nameLabTest, OrderableItemSearchResult } from 'utils';
 
 type LabsAutocompleteProps = {

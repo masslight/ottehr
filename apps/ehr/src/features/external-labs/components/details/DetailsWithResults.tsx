@@ -1,8 +1,8 @@
 import { Button, Typography } from '@mui/material';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { PageTitleStyled } from 'src/components/PageTitle';
 import { LabOrderDetailedPageDTO, ReflexLabDTO, TaskReviewedParameters, UnsolicitedLabDTO } from 'utils';
-import { CSSPageTitle } from '../../../../telemed/components/PageTitle';
 import { OrderCollection } from '../OrderCollection';
 import { ResultItem } from './ResultItem';
 
@@ -28,7 +28,7 @@ export const DetailsWithResults: React.FC<{
 
   return (
     <>
-      <CSSPageTitle>{labOrder.testItem}</CSSPageTitle>
+      <PageTitleStyled>{labOrder.testItem}</PageTitleStyled>
 
       {!isUnsolicitedPage && !isReflexPage && (
         <Typography variant="body1" sx={{ fontWeight: 'medium' }}>

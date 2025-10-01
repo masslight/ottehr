@@ -13,8 +13,8 @@ export const dataTestIds = {
   header: {
     userName: 'header-user-name',
   },
-  cssHeader: {
-    container: 'css-header-container',
+  inPersonHeader: {
+    container: 'in-person-header-container',
     patientName: 'patient-name',
     appointmentStatus: 'appointment-status',
     switchModeButton: (status: string) => `switch-status-to-${status}`,
@@ -325,7 +325,7 @@ export const dataTestIds = {
     completeIntakeButton: 'complete-intake-button',
     sideMenuItem: (item: string): string => `menu-item-${item}`,
   },
-  cssModal: {
+  inPersonModal: {
     confirmationDialogue: 'confirmation-dialogue',
   },
   hospitalizationPage: {
