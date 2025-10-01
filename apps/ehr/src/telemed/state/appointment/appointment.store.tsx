@@ -1,5 +1,5 @@
 import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
-import { QueryKey, QueryObserverResult, RefetchOptions } from '@tanstack/react-query';
+import { QueryKey, RefetchOptions } from '@tanstack/react-query';
 import {
   Appointment,
   DocumentReference,
@@ -34,7 +34,7 @@ import {
   useSuccessQuery,
 } from 'utils';
 import { create } from 'zustand';
-import { APPOINTMENT_REFRESH_INTERVAL, CHART_DATA_QUERY_KEY_BASE } from '../../../constants';
+import { APPOINTMENT_REFRESH_INTERVAL, CHART_DATA_QUERY_KEY, CHART_FIELDS_QUERY_KEY } from '../../../constants';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { useExamObservations } from '../../../telemed/hooks/useExamObservations';
 import { useOystehrAPIClient } from '../../../telemed/hooks/useOystehrAPIClient';
@@ -88,7 +88,7 @@ type InPersonAppointmentState = {
 type ReactQueryState = {
   error: any;
   isLoading: boolean;
-  refetch: (options?: RefetchOptions | undefined) => Promise<QueryObserverResult<unknown, unknown>>;
+  refetch: (options?: RefetchOptions | undefined) => Promise<unknown>;
   isFetching: boolean;
   isPending: boolean;
 };
@@ -407,17 +407,6 @@ export const useGetTelemedAppointmentPeriodicRefresh = (
   return queryResult;
 };
 
-// todo: check changes
-export type ChartDataCacheKey = [
-  typeof CHART_DATA_QUERY_KEY_BASE,
-  // OystehrTelemedAPIClient | undefined | null,
-  string | undefined,
-  // EvolveUser | undefined,
-  // boolean,
-  // boolean,
-  { [key: string]: any } | undefined,
-];
-
 export const useSaveChartData = (): UseMutationResult<
   PromiseReturnType<ReturnType<OystehrTelemedAPIClient['saveChartData']>>,
   Error,
@@ -483,7 +472,7 @@ export const useChartData = ({
   shouldUpdateExams?: boolean; // todo: migrate this to the separate hook
   refetchInterval?: number;
 } = {}): {
-  refetch: () => Promise<QueryObserverResult<ChartDataResponse, unknown>>;
+  refetch: () => Promise<void>;
   isLoading: boolean;
   isFetching: boolean;
   error: any;
@@ -503,13 +492,12 @@ export const useChartData = ({
     error: chartDataError,
     isLoading,
     isFetching,
-    refetch,
     data: chartDataResponse,
     queryKey,
     isFetched,
     isPending,
   } = useGetChartData(
-    { apiClient, encounterId, enabled, refetchInterval },
+    { apiClient, encounterId, enabled, refetchInterval, requestKey: CHART_DATA_QUERY_KEY },
     (data) => {
       if (!data) {
         return;
@@ -539,7 +527,7 @@ export const useChartData = ({
 
       // Force invalidate all related queries to update the UI
       void queryClient.invalidateQueries({
-        queryKey: [CHART_DATA_QUERY_KEY_BASE, encounterId],
+        queryKey: [CHART_DATA_QUERY_KEY, encounterId],
         exact: false,
         refetchType: 'active',
       });
@@ -593,9 +581,16 @@ export const useChartData = ({
     [setQueryCache]
   );
 
+  const chartDataRefetch = async (): Promise<void> => {
+    await queryClient.invalidateQueries({
+      queryKey: [CHART_DATA_QUERY_KEY, encounter.id],
+      exact: false,
+    });
+  };
+
   return {
-    refetch,
-    chartDataRefetch: refetch,
+    refetch: chartDataRefetch,
+    chartDataRefetch: chartDataRefetch,
     chartData: chartDataResponse || undefined,
     isLoading,
     isChartDataLoading: isLoading,
@@ -618,12 +613,14 @@ export const useGetChartData = (
     requestedFields,
     enabled,
     refetchInterval,
+    requestKey,
   }: {
     apiClient: OystehrTelemedAPIClient | null;
     encounterId?: string;
     requestedFields?: ChartDataRequestedFields;
     enabled?: boolean;
     refetchInterval?: number;
+    requestKey: typeof CHART_DATA_QUERY_KEY | typeof CHART_FIELDS_QUERY_KEY;
   },
   onSuccess?: (data: PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getChartData']>> | null) => void,
   onError?: (error: any) => void
@@ -631,7 +628,7 @@ export const useGetChartData = (
 ) => {
   const user = useEvolveUser();
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-  const key = [CHART_DATA_QUERY_KEY_BASE, encounterId, requestedFields, isReadOnly]; // TODO: check if isReadOnly is needed (it causes duplicate requests because it's unstable and has not isLoading state)
+  const key = [requestKey, encounterId, requestedFields, isReadOnly]; // TODO: check if isReadOnly is needed (it causes duplicate requests because it's unstable and has not isLoading state)
 
   const query = useQuery({
     queryKey: key,
