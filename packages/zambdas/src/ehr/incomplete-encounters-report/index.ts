@@ -152,28 +152,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       `Encounters: ${encounters.length}, Appointments: ${appointments.length}, Patients: ${patients.length}, Locations: ${locations.length}, Practitioners: ${practitioners.length}`
     );
 
-    // Debug: Log location information
-    // console.log(`Total locations found: ${locations.length}`);
-    // locations.forEach((loc) => {
-    //   console.log(`Location found: ${loc.id} - ${loc.name}`);
-    // });
-
-    // Debug: Check if any appointment has location participants
-    // const appointmentsWithLocations = appointments.filter(
-    //   (apt) => apt.participant?.some((p) => p.actor?.reference?.startsWith('Location/'))
-    // );
-    // console.log(`Appointments with location participants: ${appointmentsWithLocations.length}`);
-
-    // Debug: Log appointment structure for first few appointments
-    // appointments.slice(0, 2).forEach((apt) => {
-    //   console.log(`Appointment ${apt.id}:`, {
-    //     participants: apt.participant?.map((p) => ({ type: p.type, actor: p.actor?.reference })),
-    //     serviceCategory: apt.serviceCategory?.[0]?.text,
-    //     serviceType: apt.serviceType?.[0]?.text,
-    //     location: apt.participant?.find((p) => p.actor?.reference?.startsWith('Location/'))?.actor?.reference,
-    //   });
-    // });
-
     // Create lookup maps
     const appointmentMap = new Map<string, Appointment>();
     appointments.forEach((apt) => {

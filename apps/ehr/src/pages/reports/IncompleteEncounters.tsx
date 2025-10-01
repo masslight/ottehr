@@ -109,9 +109,8 @@ const useIncompleteEncounters = (
       });
 
       return processedEncounters.sort((a, b) => {
-        // Sort by appointment start time - we need to get the original ISO time from the API response
-        const aTime = response.encounters.find((e) => e.appointmentId === a.appointmentId)?.appointmentStart || '';
-        const bTime = response.encounters.find((e) => e.appointmentId === b.appointmentId)?.appointmentStart || '';
+        const aTime = a.appointmentStart;
+        const bTime = b.appointmentStart;
         return DateTime.fromISO(aTime).toMillis() - DateTime.fromISO(bTime).toMillis();
       });
     },
