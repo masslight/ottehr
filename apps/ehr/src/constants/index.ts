@@ -372,6 +372,25 @@ export const RELATIONSHIP_OPTIONS = [
   },
 ];
 
+export const EMERGENCY_CONTACT_RELATIONSHIP_OPTIONS = [
+  {
+    label: 'Spouse',
+    value: 'Spouse',
+  },
+  {
+    label: 'Parent',
+    value: 'Parent',
+  },
+  {
+    label: 'Legal Guardian',
+    value: 'Legal Guardian',
+  },
+  {
+    label: 'Other',
+    value: 'Other',
+  },
+];
+
 export const ETHNICITY_OPTIONS = [
   {
     label: 'Hispanic or Latino',

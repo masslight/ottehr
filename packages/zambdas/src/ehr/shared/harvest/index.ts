@@ -2194,10 +2194,12 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
         family: emergencyContactData?.lastName,
       },
     ];
-    emergencyContactResourceToPut.telecom?.push({
-      value: formatPhoneNumber(emergencyContactData?.number),
-      system: 'phone',
-    });
+    emergencyContactResourceToPut.telecom = [
+      {
+        value: formatPhoneNumber(emergencyContactData?.number),
+        system: 'phone',
+      },
+    ];
     puts.push({
       method: 'PUT',
       url: `RelatedPerson/${existingEmergencyContact.id}`,
@@ -2213,8 +2215,9 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
         {
           coding: [
             {
-              system: 'http://terminology.hl7.org/CodeSystem/v2-0131	',
+              system: 'http://terminology.hl7.org/CodeSystem/v2-0131',
               code: 'EP',
+              display: emergencyContactData.relationship,
             },
           ],
         },
@@ -2230,10 +2233,12 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
         family: emergencyContactData?.lastName,
       },
     ];
-    emergencyContactResourceToCreate.telecom?.push({
-      value: formatPhoneNumber(emergencyContactData?.number),
-      system: 'phone',
-    });
+    emergencyContactResourceToCreate.telecom = [
+      {
+        value: formatPhoneNumber(emergencyContactData?.number),
+        system: 'phone',
+      },
+    ];
     emergencyContactPost = {
       method: 'POST',
       url: 'RelatedPerson',

@@ -1,7 +1,7 @@
 import { FC } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { isPhoneNumberValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
-import { FormFields as AllFormFields, RELATIONSHIP_OPTIONS } from '../../constants';
+import { EMERGENCY_CONTACT_RELATIONSHIP_OPTIONS, FormFields as AllFormFields } from '../../constants';
 import { FormSelect, FormTextField } from '../form';
 import InputMask from '../InputMask';
 import { Row, Section } from '../layout';
@@ -17,11 +17,13 @@ export const EmergencyContactContainer: FC = () => {
         <FormSelect
           name={FormFields.relationship.key}
           control={control}
-          options={RELATIONSHIP_OPTIONS}
+          options={EMERGENCY_CONTACT_RELATIONSHIP_OPTIONS}
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
-            validate: (value: string) => RELATIONSHIP_OPTIONS.some((option) => option.value === value),
+            validate: (value: string) =>
+              EMERGENCY_CONTACT_RELATIONSHIP_OPTIONS.some((option) => option.value === value),
           }}
+          id={FormFields.relationship.key}
         />
       </Row>
       <Row label={FormFields.firstName.label} required inputId={FormFields.firstName.key}>
@@ -33,12 +35,7 @@ export const EmergencyContactContainer: FC = () => {
         />
       </Row>
       <Row label={FormFields.middleName.label} inputId={FormFields.middleName.key}>
-        <FormTextField
-          name={FormFields.middleName.key}
-          control={control}
-          rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-          id={FormFields.middleName.key}
-        />
+        <FormTextField name={FormFields.middleName.key} control={control} id={FormFields.middleName.key} />
       </Row>
       <Row label={FormFields.lastName.label} required inputId={FormFields.lastName.key}>
         <FormTextField
@@ -65,6 +62,7 @@ export const EmergencyContactContainer: FC = () => {
                 'Phone number must be 10 digits in the format (xxx) xxx-xxxx and a valid number'
               );
             },
+            required: REQUIRED_FIELD_ERROR_MESSAGE,
           }}
         />
       </Row>
