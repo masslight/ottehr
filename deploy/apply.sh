@@ -15,4 +15,4 @@ if grep "^gcp_project" ${ENV}.tfvars; then
   cp gcp.tf.override gcp_override.tf
 fi
 npm run terraform-init
-terraform apply -parallelism=40 -var-file="${ENV}.tfvars"
+terraform apply -parallelism=40 -var-file="${ENV}.tfvars" --auto-approve
