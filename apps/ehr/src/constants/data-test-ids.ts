@@ -232,7 +232,7 @@ export const dataTestIds = {
     rolesSection: 'employee-roles-section',
     roleRow: (employeeRole: RoleType): string => `employee-${employeeRole}-role`,
     providerDetailsProviderTypeDropdown: 'employees-provider-details-provider-type-dropdown',
-    providerDetailsProviderTypeText: 'employees-provider-details-provider-type',
+    providerDetailsProviderTypeOtherText: 'employees-provider-details-provider-type',
     providerDetailsNPI: 'employees-provider-details-npi',
     submitButton: 'employees-form-submit-button',
     qualificationsTable: 'employee-qualifications-table',

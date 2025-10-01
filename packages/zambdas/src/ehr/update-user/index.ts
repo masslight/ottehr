@@ -3,6 +3,8 @@ import { HumanName, Practitioner } from 'fhir/r4b';
 import {
   FHIR_IDENTIFIER_NPI,
   getSecret,
+  getSuffixFromProviderTypeExtension,
+  makeProviderTypeExtension,
   makeQualificationForPractitioner,
   SecretsKeys,
   UpdateUserZambdaOutput,
@@ -10,7 +12,6 @@ import {
 import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { getRoleId } from '../../shared/rolesUtils';
-import { getSuffixFromProviderTypeExtension, makeProviderTypeExtension } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'update-user';

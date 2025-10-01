@@ -79,7 +79,7 @@ export function ProviderTypeField({
               required
               error={error?.message !== undefined}
               helperText={error?.message ?? ''}
-              data-testid={dataTestIds.employeesPage.providerDetailsProviderTypeText}
+              data-testid={dataTestIds.employeesPage.providerDetailsProviderTypeOtherText}
             />
           )}
         />
