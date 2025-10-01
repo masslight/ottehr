@@ -481,6 +481,7 @@ export const OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS = {
   preferredElement: `${PRIVATE_EXTENSION_BASE_URL}/preferred-element`,
   secondaryInfoText: `${PRIVATE_EXTENSION_BASE_URL}/information-text-secondary`,
   validateAgeOver: `${PRIVATE_EXTENSION_BASE_URL}/validate-age-over`,
+  requiredBooleanValue: `${PRIVATE_EXTENSION_BASE_URL}/permissible-value`,
   // complex extensions
   answerLoadingOptions: {
     extension: `${PRIVATE_EXTENSION_BASE_URL}/answer-loading-options`,

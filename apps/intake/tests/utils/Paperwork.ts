@@ -73,6 +73,7 @@ export const RELATIONSHIP_RESPONSIBLE_PARTY_SELF = 'Self';
 export const PHONE_NUMBER = '1234567890';
 export const EMAIL = 'ibenham+knownothing@masslight.com';
 export const CARD_NUMBER = '4242424242424242';
+export const CARD_NUMBER_OBSCURED = 'XXXX - XXXX - XXXX - 4242';
 export const CARD_CVV = '123';
 export const CARD_EXP_DATE = '11/30';
 
@@ -283,8 +284,8 @@ export class Paperwork {
     } else {
       await this.selectSelfPayPayment();
       await this.locator.clickContinueButton();
-      await this.fillAndAddCreditCard();
     }
+    await this.fillAndAddCreditCard();
     await this.locator.clickContinueButton();
     let responsiblePartyData: ResponsibleParty | null = null;
     if (responsibleParty === 'self') {
@@ -604,6 +605,7 @@ export class Paperwork {
     await this.locator.creditCardCVC.fill(CARD_CVV);
     await this.locator.creditCardExpiry.fill(CARD_EXP_DATE);
     await this.locator.addCardButton.click();
+    await expect(this.page.getByText(CARD_NUMBER_OBSCURED)).toBeVisible();
   }
   async selectInsurancePayment(): Promise<void> {
     await this.locator.insuranceOption.check();
