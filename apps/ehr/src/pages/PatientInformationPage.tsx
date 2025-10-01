@@ -31,6 +31,7 @@ import {
   WarningBanner,
 } from '../components/patient';
 import { AddInsuranceModal } from '../components/patient/AddInsuranceModal';
+import { EmergencyContactContainer } from '../components/patient/EmergencyContactContainer';
 import { INSURANCE_COVERAGE_OPTIONS, InsurancePriorityOptions } from '../constants';
 import { structureQuestionnaireResponse } from '../helpers/qr-structure';
 import {
@@ -433,6 +434,7 @@ const PatientInformationPage: FC = () => {
                     onAddInsurance={() => setOpenAddInsuranceModal(true)}
                   />
                   <ResponsibleInformationContainer />
+                  <EmergencyContactContainer />
                 </Box>
               </Box>
             </Box>

@@ -639,6 +639,13 @@ export const FormFields = {
     state: { key: 'responsible-party-state', type: 'String', label: 'State' },
     zip: { key: 'responsible-party-zip', type: 'String', label: 'Zip' },
   },
+  emergencyContact: {
+    relationship: { key: 'emergency-contact-relationship', type: 'String', label: 'Relationship to the patient' },
+    firstName: { key: 'emergency-contact-first-name', type: 'String', label: 'First name' },
+    middleName: { key: 'emergency-contact-middle-name', type: 'String', label: 'Middle name' },
+    lastName: { key: 'emergency-contact-last-name', type: 'String', label: 'Last name' },
+    phone: { key: 'emergency-contact-number', type: 'String', label: 'Phone' },
+  },
 };
 
 export const PatientIdentifyingFields = [
