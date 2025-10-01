@@ -202,7 +202,7 @@ jobs:
         working-directory: deploy
         run: |
           npm run terraform-init -- -input=false
-          npm run apply-${{ env.ENVIRONMENT}} -- --auto-approve
+          npm run apply-${{ env.ENVIRONMENT }}
 
       - name: Notify Slack
         if: always()

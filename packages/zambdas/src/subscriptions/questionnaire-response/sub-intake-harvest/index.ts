@@ -125,18 +125,13 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   const locationResource = resources.find((res) => res.resourceType === 'Location') as Location | undefined;
   const appointmentResource = resources.find((res) => res.resourceType === 'Appointment') as Appointment | undefined;
 
-  const paperwork = qr.item ?? [];
-  const flattenedPaperwork = flattenIntakeQuestionnaireItems(
-    paperwork as IntakeQuestionnaireItem[]
-  ) as QuestionnaireResponseItem[];
-
   if (patientResource === undefined || patientResource.id === undefined) {
     throw new Error('Patient resource not found');
   }
 
   try {
     await updatePatientAccountFromQuestionnaire(
-      { patientId: patientResource.id, questionnaireResponseItem: flattenedPaperwork },
+      { patientId: patientResource.id, questionnaireResponseItem: qr.item ?? [] },
       oystehr
     );
   } catch (error: unknown) {
@@ -164,6 +159,11 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     tasksFailed.push('update stripe customer');
     console.log(`Failed to update stripe customer: ${JSON.stringify(error)}`);
   }
+
+  const paperwork = qr.item ?? [];
+  const flattenedPaperwork = flattenIntakeQuestionnaireItems(
+    paperwork as IntakeQuestionnaireItem[]
+  ) as QuestionnaireResponseItem[];
 
   const hipaa = flattenedPaperwork.find((data) => data.linkId === 'hipaa-acknowledgement')?.answer?.[0]?.valueBoolean;
   const consentToTreat = flattenedPaperwork.find((data) => data.linkId === 'consent-to-treat')?.answer?.[0]
@@ -225,7 +225,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
     }
   }
 
-  if (qr.status === 'completed') {
+  if (qr.status === 'completed' || qr.status === 'amended') {
     try {
       console.log('adding payment variant extension to encounter');
       const paymentOption = flattenedPaperwork.find(

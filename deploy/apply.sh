@@ -4,7 +4,7 @@ set -xeuo pipefail
 
 ENV=${1:-local}
 npm run bundle-zambdas
-npm run generate
+ENV=${ENV} npm run generate
 rm -f aws_override.tf
 rm -f gcp_override.tf
 terraform workspace select ${ENV}
@@ -15,4 +15,4 @@ if grep "^gcp_project" ${ENV}.tfvars; then
   cp gcp.tf.override gcp_override.tf
 fi
 npm run terraform-init
-terraform apply -parallelism=40 -var-file="${ENV}.tfvars"
+terraform apply -parallelism=40 -var-file="${ENV}.tfvars" --auto-approve
