@@ -325,17 +325,23 @@ export async function makeReceiptPdfDocumentReference(
   });
   const documentReference = docRefs[0];
   if (documentReference.id) {
-    await oystehr.fhir.patch({
-      resourceType: 'DocumentReference',
-      id: documentReference.id,
-      operations: [
-        {
-          op: 'replace',
-          path: '/date',
-          value: DateTime.now().setZone('UTC').toISO() ?? '',
-        },
-      ],
-    });
+    try {
+      await oystehr.fhir.patch({
+        resourceType: 'DocumentReference',
+        id: documentReference.id,
+        operations: [
+          {
+            op: 'replace',
+            path: '/date',
+            value: DateTime.now().setZone('UTC').toISO() ?? '',
+          },
+        ],
+      });
+    } catch (error) {
+      const errorMsg = `Failed to update DocumentReference date for id ${documentReference.id}: ${error}`;
+      console.error(errorMsg);
+      throw new Error(errorMsg);
+    }
   }
   return docRefs[0];
 }
