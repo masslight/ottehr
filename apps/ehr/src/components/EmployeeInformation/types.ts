@@ -24,7 +24,6 @@ export interface EmployeeForm {
   firstName: string;
   middleName: string;
   lastName: string;
-  // nameSuffix: string;
   providerType?: 'MD' | 'DO' | 'PA' | 'NP' | 'other';
   providerTypeText?: string;
   roles: RoleType[];

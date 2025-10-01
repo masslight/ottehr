@@ -4,6 +4,7 @@ import {
   PRACTITIONER_QUALIFICATION_CODE_SYSTEM,
   PRACTITIONER_QUALIFICATION_EXTENSION_URL,
   PRACTITIONER_QUALIFICATION_STATE_SYSTEM,
+  PROVIDER_TYPE_EXTENSION_URL,
 } from './constants';
 
 export function makeQualificationForPractitioner(license: PractitionerLicense): PractitionerQualification {
@@ -97,7 +98,7 @@ export function makeProviderTypeExtension(providerType?: string, providerTypeTex
 
   return [
     {
-      url: 'https://fhir.zapehr.com/r4/StructureDefinitions/provider-type',
+      url: PROVIDER_TYPE_EXTENSION_URL,
       valueCodeableConcept: {
         coding: [
           {
@@ -115,9 +116,7 @@ export function makeProviderTypeExtension(providerType?: string, providerTypeTex
 export function getSuffixFromProviderTypeExtension(providerTypeExtension?: Extension[]): string[] | undefined {
   if (!providerTypeExtension || providerTypeExtension.length === 0) return undefined;
 
-  const ext = providerTypeExtension.find(
-    (e) => e.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/provider-type'
-  );
+  const ext = providerTypeExtension.find((e) => e.url === PROVIDER_TYPE_EXTENSION_URL);
   if (!ext?.valueCodeableConcept) return undefined;
 
   const cc = ext.valueCodeableConcept;
