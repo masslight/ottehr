@@ -4,7 +4,7 @@ set -xeuo pipefail
 
 ENV=${1:-local}
 npm run bundle-zambdas
-npm run generate
+ENV=${ENV} npm run generate
 rm -f aws_override.tf
 rm -f gcp_override.tf
 terraform workspace select ${ENV}
