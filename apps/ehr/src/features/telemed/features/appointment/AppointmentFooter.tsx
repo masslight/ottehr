@@ -8,6 +8,7 @@ import { getSelectors, mapEncounterStatusHistory, TelemedAppointmentStatusEnum }
 import { useVideoCallStore } from '../../state';
 import { getAppointmentWaitingTime } from '../../utils';
 import { AppointmentFooterButton } from './AppointmentFooterButton';
+import { AppointmentFooterEndVisitButton } from './AppointmentFooterEndVisitButton';
 
 export const AppointmentFooter: FC = () => {
   const theme = useTheme();
@@ -36,32 +37,55 @@ export const AppointmentFooter: FC = () => {
       {isInviteParticipantOpen && (
         <InviteParticipant modalOpen={isInviteParticipantOpen} onClose={() => setIsInviteParticipantOpen(false)} />
       )}
-      {((appointmentAccessibility.status &&
-        [TelemedAppointmentStatusEnum.ready, TelemedAppointmentStatusEnum['pre-video']].includes(
-          appointmentAccessibility.status
-        )) ||
-        (appointmentAccessibility.isEncounterAssignedToCurrentPractitioner &&
-          appointmentAccessibility.status &&
-          appointmentAccessibility.status === TelemedAppointmentStatusEnum['on-video'] &&
-          !meetingData)) && (
-        <Box
-          sx={{
-            px: 3,
-            py: 1,
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            color: 'white',
-            backgroundColor: theme.palette.primary.dark,
-          }}
-        >
-          <Box>
-            <Typography variant="h4">Patient waiting</Typography>
-            <Typography variant="body2">{waitingTime} mins</Typography>
+      {appointmentAccessibility.status &&
+        [
+          TelemedAppointmentStatusEnum.ready,
+          TelemedAppointmentStatusEnum['pre-video'],
+          TelemedAppointmentStatusEnum['on-video'],
+        ].includes(appointmentAccessibility.status) && (
+          <Box
+            sx={{
+              px: 3,
+              py: 1,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              color: 'white',
+              backgroundColor: theme.palette.primary.dark,
+            }}
+          >
+            <Box>
+              {(appointmentAccessibility.status === TelemedAppointmentStatusEnum['ready'] ||
+                appointmentAccessibility.status === TelemedAppointmentStatusEnum['on-video'] ||
+                appointmentAccessibility.status === TelemedAppointmentStatusEnum['pre-video']) &&
+                !meetingData && (
+                  <>
+                    <Typography variant="h4">Patient waiting</Typography>
+                    <Typography variant="body2">{waitingTime} mins</Typography>
+                  </>
+                )}
+            </Box>
+
+            <Box sx={{ display: 'flex', justifyContent: 'end', alignItems: 'center', gap: 2 }}>
+              {(appointmentAccessibility.status === TelemedAppointmentStatusEnum['ready'] ||
+                appointmentAccessibility.status === TelemedAppointmentStatusEnum['on-video'] ||
+                appointmentAccessibility.status === TelemedAppointmentStatusEnum['pre-video']) &&
+                !meetingData && (
+                  <>
+                    <Box></Box>
+                    <AppointmentFooterButton />
+                  </>
+                )}
+
+              {appointmentAccessibility.isEncounterAssignedToCurrentPractitioner &&
+                appointmentAccessibility.status === TelemedAppointmentStatusEnum['on-video'] && (
+                  <>
+                    <AppointmentFooterEndVisitButton />
+                  </>
+                )}
+            </Box>
           </Box>
-          <AppointmentFooterButton />
-        </Box>
-      )}
+        )}
     </AppBar>
   );
 };
