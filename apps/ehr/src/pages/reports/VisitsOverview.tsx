@@ -136,7 +136,7 @@ export default function VisitsOverview(): React.ReactElement {
 
   useEffect(() => {
     void fetchReport(dateFilter);
-  }, [dateFilter, fetchReport, customDate, customStartDate, customEndDate]);
+  }, [dateFilter, fetchReport]);
 
   const handleDateFilterChange = (event: SelectChangeEvent<string>): void => {
     const newFilter = event.target.value;

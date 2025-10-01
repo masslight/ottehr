@@ -277,8 +277,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       encounters: encounterItems,
     };
 
-    // console.log('Response:', response);
-
     return {
       statusCode: 200,
       body: JSON.stringify(response),
