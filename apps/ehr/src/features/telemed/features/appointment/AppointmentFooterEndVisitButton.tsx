@@ -92,7 +92,7 @@ export const AppointmentFooterEndVisitButton: FC = () => {
           loading={changeTelemedAppointmentStatusMutation.isPending || isAppointmentLoading}
           onClick={showDialog}
           variant="contained"
-          data-testid={dataTestIds.telemedEhrFlow.footerButtonAssignMe}
+          data-testid={dataTestIds.telemedEhrFlow.finishVisitButton}
         >
           Finish visit
         </FooterButton>

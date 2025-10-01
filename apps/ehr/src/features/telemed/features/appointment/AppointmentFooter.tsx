@@ -55,10 +55,9 @@ export const AppointmentFooter: FC = () => {
             }}
           >
             <Box>
-              {appointmentAccessibility.isEncounterAssignedToCurrentPractitioner &&
-                (appointmentAccessibility.status === TelemedAppointmentStatusEnum['ready'] ||
-                  appointmentAccessibility.status === TelemedAppointmentStatusEnum['on-video'] ||
-                  appointmentAccessibility.status === TelemedAppointmentStatusEnum['pre-video']) &&
+              {(appointmentAccessibility.status === TelemedAppointmentStatusEnum['ready'] ||
+                appointmentAccessibility.status === TelemedAppointmentStatusEnum['on-video'] ||
+                appointmentAccessibility.status === TelemedAppointmentStatusEnum['pre-video']) &&
                 !meetingData && (
                   <>
                     <Typography variant="h4">Patient waiting</Typography>
@@ -68,10 +67,9 @@ export const AppointmentFooter: FC = () => {
             </Box>
 
             <Box sx={{ display: 'flex', justifyContent: 'end', alignItems: 'center', gap: 2 }}>
-              {appointmentAccessibility.isEncounterAssignedToCurrentPractitioner &&
-                (appointmentAccessibility.status === TelemedAppointmentStatusEnum['ready'] ||
-                  appointmentAccessibility.status === TelemedAppointmentStatusEnum['on-video'] ||
-                  appointmentAccessibility.status === TelemedAppointmentStatusEnum['pre-video']) &&
+              {(appointmentAccessibility.status === TelemedAppointmentStatusEnum['ready'] ||
+                appointmentAccessibility.status === TelemedAppointmentStatusEnum['on-video'] ||
+                appointmentAccessibility.status === TelemedAppointmentStatusEnum['pre-video']) &&
                 !meetingData && (
                   <>
                     <Box></Box>
