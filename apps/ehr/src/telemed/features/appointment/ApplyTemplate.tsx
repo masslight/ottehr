@@ -153,8 +153,7 @@ export const ApplyTemplate: React.FC = () => {
             }}
           >
             Are you sure you want to apply the <strong>{getTemplateName(pendingTemplate)}</strong> template? Applying
-            the template will override the content in the following sections: Exam, MDM, Dx, Patient Instructions,
-            Disposition.
+            the template will override the content in the following sections: Exam, MDM, Dx, Patient Instructions.
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'space-between', px: 3 }}>
