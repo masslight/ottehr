@@ -49,6 +49,15 @@ const providerNavbarItems: NavbarItems = {
   Telemedicine: { urls: ['/telemed/appointments', '/telemed', '/video-call'] },
 };
 
+const customerSupportNavbarItems: NavbarItems = {
+  'In Person': { urls: ['/visits', '/visit'] },
+  Schedules: { urls: ['/schedules', '/schedule'] },
+  Patients: { urls: ['/patients', '/patient'] },
+  Employees: { urls: ['/employees', '/employee'] },
+  'Telemedicine:Admin': { urls: ['/telemed-admin'] },
+  Telemedicine: { urls: ['/telemed/appointments', '/telemed', '/video-call'] },
+};
+
 const hideNavbarPathPatterns = [/^\/telemed\/appointments\//, /^\/patient\/[^/]+\/info$/];
 
 export default function Navbar(): ReactElement | null {
@@ -72,6 +81,9 @@ export default function Navbar(): ReactElement | null {
       }
       if (user.hasRole([RoleType.Provider])) {
         navItems = { ...navItems, ...providerNavbarItems };
+      }
+      if (user.hasRole([RoleType.CustomerSupport])) {
+        navItems = { ...navItems, ...customerSupportNavbarItems };
       }
     }
     return navItems;
