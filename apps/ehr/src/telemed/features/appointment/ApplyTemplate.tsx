@@ -17,8 +17,9 @@ import { enqueueSnackbar } from 'notistack';
 import React, { useState } from 'react';
 import { ExamType } from 'utils';
 import { applyTemplate } from '../../../api/api';
+import { CHART_DATA_QUERY_KEY_BASE } from '../../../constants';
 import { useApiClients } from '../../../hooks/useAppClients';
-import { CHART_DATA_QUERY_KEY_BASE, useAppointmentData, useGetAppointmentAccessibility } from '../..';
+import { useAppointmentData, useGetAppointmentAccessibility } from '../..';
 import { TemplateOption, useListTemplates } from '../../state/useListTemplates';
 
 export const ApplyTemplate: React.FC = () => {
