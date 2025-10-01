@@ -192,7 +192,9 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
                         isOptionEqualToValue={(option, value) => {
                           return option?.id === value?.id;
                         }}
-                        getOptionLabel={(option) => option.name || ''}
+                        getOptionLabel={(option) =>
+                          option.payerId && option.name ? `${option?.payerId} - ${option?.name}` : ''
+                        }
                         onChange={(_, newValue) => {
                           if (newValue) {
                             setValue(
