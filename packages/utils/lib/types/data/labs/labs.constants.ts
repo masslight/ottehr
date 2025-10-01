@@ -145,6 +145,12 @@ export const OYSTEHR_LAB_DOC_CATEGORY_CODING = {
   display: 'Lab ABN Document',
 };
 
+export const OYSTEHR_ABN_DOC_REF_CODING_CODE = {
+  system: 'http://loinc.org',
+  code: '59284-0',
+  display: 'Consent Document',
+};
+
 // Oystehr Labs APIs
 export const OYSTEHR_LAB_API_BASE = 'https://labs-api.zapehr.com/v1';
 
