@@ -1,7 +1,7 @@
 import { Box, Grid, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { ChangeEvent, JSX, useCallback, useState } from 'react';
-import { kgToLbs, lbsToKg, textToWeightNumber, VitalFieldNames, VitalsWeightObservationDTO } from 'utils';
+import { kgToLbs, textToWeightNumber, VitalFieldNames, VitalsWeightObservationDTO } from 'utils';
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { AccordionCard, DoubleColumnContainer, useGetAppointmentAccessibility } from '../../../../../telemed';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
@@ -53,13 +53,6 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
     setWeightValueText(weightAsText);
     const weightAsNumber = textToWeightNumber(weightAsText);
     setWeightValueTextLbs(weightAsNumber ? kgToLbs(weightAsNumber).toString() : '');
-  }, []);
-
-  const handleTextInputChangeLbs = useCallback((e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
-    const weightAsText = e.target.value;
-    setWeightValueTextLbs(weightAsText);
-    const weightAsNumber = textToWeightNumber(weightAsText);
-    setWeightValueText(weightAsNumber ? lbsToKg(weightAsNumber).toString() : '');
   }, []);
 
   const renderRightColumn = (): JSX.Element => {
@@ -127,9 +120,9 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({
                     <VitalsTextInputFiled
                       label="Weight (lbs)"
                       value={weightValueTextLbs}
-                      disabled={isSaving}
+                      disabled={true}
                       isInputError={false}
-                      onChange={handleTextInputChangeLbs}
+                      onChange={() => {}}
                     />
                   </Box>
                 </Grid>
