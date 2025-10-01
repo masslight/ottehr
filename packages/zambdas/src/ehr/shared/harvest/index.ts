@@ -1026,18 +1026,6 @@ export function createMasterRecordPatchOperations(
   // this needs to go here for now because consolidateOperations breaks it
   result.patient.patchOpsForDirectUpdate.push(...getPCPPatchOps(pcpItems, patient));
 
-  // todo find out why there are duplicates
-  const patientPatchOpsWitoutDuplicates = [];
-  const seenPatchOps = new Set();
-  for (const operation of result.patient.patchOpsForDirectUpdate) {
-    const operationJson = JSON.stringify(operation);
-    if (!seenPatchOps.has(operationJson)) {
-      seenPatchOps.add(operationJson);
-      patientPatchOpsWitoutDuplicates.push(operation);
-    }
-  }
-  result.patient.patchOpsForDirectUpdate = patientPatchOpsWitoutDuplicates;
-
   console.log('result.patient.patchOps', JSON.stringify(result.patient.patchOpsForDirectUpdate, null, 2));
   return result;
 }
@@ -3055,7 +3043,7 @@ export const updatePatientAccountFromQuestionnaire = async (
   let retryCount = 0;
   while (retryCount < PATIENT_UPDATE_MAX_RETRIES) {
     try {
-      updatePatientData(patientToUpdate, flattenedPaperwork);
+      updatePatientData(patientToUpdate, questionnaireResponseItem ?? []);
       await oystehr.fhir.update(patientToUpdate, {
         optimisticLockingVersionId: patientToUpdate.meta?.versionId,
       });
