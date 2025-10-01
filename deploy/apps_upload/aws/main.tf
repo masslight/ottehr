@@ -9,11 +9,6 @@ terraform {
 
 ##### EHR #####
 
-module "ehr_directory" {
-  source   = "hashicorp/dir/template"
-  base_dir = "${path.module}/../../apps/ehr/build"
-}
-
 # TODO: Uncomment when upgraded to TF 1.14
 # action "aws_cloudfront_create_invalidation" "ehr_post_upload" {
 #   config {
@@ -22,13 +17,13 @@ module "ehr_directory" {
 #   }
 # }
 
-resource "aws_s3_object" "ehr_upload" {
-  for_each     = module.ehr_directory.files
-  bucket       = var.ehr_bucket_id
-  key          = each.key
-  content_type = each.value.content_type
-  content      = each.value.content
-  source       = each.value.source_path
+resource "terraform_data" "ehr_upload" {
+  triggers_replace = [
+    var.ehr_hash,
+  ]
+  provisioner "local-exec" {
+    command = "aws s3 sync ${path.module}/../../../apps/ehr/build s3://${var.ehr_bucket_id} --profile ${var.aws_profile} --delete --exact-timestamps"
+  }
 
   # TODO: Uncomment when upgraded to TF 1.14
   # lifecycle {
@@ -42,7 +37,7 @@ resource "aws_s3_object" "ehr_upload" {
 # TODO: Remove when upgraded to TF 1.14
 resource "terraform_data" "ehr_invalidation" {
   triggers_replace = [
-    base64encode(join("", [for k, v in module.ehr_directory.files : v.digests.md5])),
+    terraform_data.ehr_upload.id,
   ]
   provisioner "local-exec" {
     command = "aws cloudfront create-invalidation --profile ${var.aws_profile} --distribution-id ${var.ehr_cdn_distribution_id} --paths '/*'"
@@ -50,11 +45,6 @@ resource "terraform_data" "ehr_invalidation" {
 }
 
 ##### Patient Portal #####
-
-module "patient_portal_directory" {
-  source   = "hashicorp/dir/template"
-  base_dir = "${path.module}/../../apps/intake/build"
-}
 
 # TODO: Uncomment when upgraded to TF 1.14
 # action "aws_cloudfront_create_invalidation" "patient_portal_post_upload" {
@@ -64,13 +54,13 @@ module "patient_portal_directory" {
 #   }
 # }
 
-resource "aws_s3_object" "patient_portal_upload" {
-  for_each     = module.patient_portal_directory.files
-  bucket       = var.patient_portal_bucket_id
-  key          = each.key
-  content_type = each.value.content_type
-  content      = each.value.content
-  source       = each.value.source_path
+resource "terraform_data" "patient_portal_upload" {
+  triggers_replace = [
+    var.patient_portal_hash,
+  ]
+  provisioner "local-exec" {
+    command = "aws s3 sync ${path.module}/../../../apps/intake/build s3://${var.patient_portal_bucket_id} --profile ${var.aws_profile} --delete --exact-timestamps"
+  }
 
   # TODO: Uncomment when upgraded to TF 1.14
   # lifecycle {
@@ -84,7 +74,7 @@ resource "aws_s3_object" "patient_portal_upload" {
 # TODO: Remove when upgraded to TF 1.14
 resource "terraform_data" "patient_portal_invalidation" {
   triggers_replace = [
-    base64encode(join("", [for k, v in module.patient_portal_directory.files : v.digests.md5])),
+    terraform_data.patient_portal_upload.id,
   ]
   provisioner "local-exec" {
     command = "aws cloudfront create-invalidation --profile ${var.aws_profile} --distribution-id ${var.patient_portal_cdn_distribution_id} --paths '/*'"

@@ -10,6 +10,12 @@ variable "ehr_cdn_distribution_id" {
   nullable    = true
 }
 
+variable "ehr_hash" {
+  description = "EHR source hash to force re-upload"
+  type        = string
+  nullable    = true
+}
+
 variable "patient_portal_bucket_id" {
   description = "Patient portal bucket ID"
   type        = string
@@ -24,6 +30,12 @@ variable "patient_portal_cdn_distribution_id" {
 
 variable "aws_profile" {
   description = "unused"
+  type        = string
+  nullable    = true
+}
+
+variable "patient_portal_hash" {
+  description = "Patient portal source hash to force re-upload"
   type        = string
   nullable    = true
 }

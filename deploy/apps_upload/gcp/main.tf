@@ -10,8 +10,9 @@ terraform {
 ##### EHR #####
 
 module "ehr_directory" {
-  source   = "hashicorp/dir/template"
-  base_dir = "${path.module}/../../apps/ehr/build"
+  depends_on = [var.ehr_hash]
+  source     = "hashicorp/dir/template"
+  base_dir   = "${path.module}/../../../apps/ehr/build"
 }
 
 resource "google_storage_bucket_object" "ehr_upload" {
@@ -27,8 +28,9 @@ resource "google_storage_bucket_object" "ehr_upload" {
 ##### Patient Portal #####
 
 module "patient_portal_directory" {
-  source   = "hashicorp/dir/template"
-  base_dir = "${path.module}/../../apps/patient_portal/build"
+  depends_on = [var.patient_portal_hash]
+  source     = "hashicorp/dir/template"
+  base_dir   = "${path.module}/../../../apps/intake/build"
 }
 
 resource "google_storage_bucket_object" "patient_portal_upload" {
