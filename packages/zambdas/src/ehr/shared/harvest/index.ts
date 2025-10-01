@@ -134,6 +134,14 @@ interface ResponsiblePartyContact {
   number?: string;
 }
 
+interface EmergencyContact {
+  firstName: string;
+  middleName?: string;
+  lastName: string;
+  relationship: 'Spouse' | 'Parent' | 'Legal Guardian' | 'Other';
+  number: string;
+}
+
 interface PolicyHolder {
   address: Address;
   birthSex: 'Male' | 'Female' | 'Intersex';
@@ -816,6 +824,7 @@ export function createMasterRecordPatchOperations(
     'responsible-party-number': { system: 'phone', use: 'mobile' },
     'responsible-party-email': { system: 'email' },
     'pcp-number': { system: 'phone' },
+    'emergency-contact-number': { system: 'phone' },
   };
 
   const pcpItems: QuestionnaireResponseItem[] = [];
@@ -1781,6 +1790,24 @@ export function extractAccountGuarantor(items: QuestionnaireResponseItem[]): Res
   return undefined;
 }
 
+export function extractEmergencyContact(items: QuestionnaireResponseItem[]): EmergencyContact | undefined {
+  const findAnswer = (linkId: string): string | undefined =>
+    items.find((item) => item.linkId === linkId)?.answer?.[0]?.valueString;
+
+  const contact: EmergencyContact = {
+    middleName: findAnswer('emergency-contact-middle-name') ?? '',
+    firstName: findAnswer('emergency-contact-first-name') ?? '',
+    lastName: findAnswer('emergency-contact-last-name') ?? '',
+    relationship: findAnswer('emergency-contact-relationship') as 'Spouse' | 'Parent' | 'Legal Guardian' | 'Other',
+    number: findAnswer('emergency-contact-number') ?? '',
+  };
+
+  if (contact.firstName && contact.lastName && contact.number && contact.relationship) {
+    return contact;
+  }
+  return undefined;
+}
+
 // note: this function assumes items have been flattened before being passed in
 interface InsuranceDetails {
   org: Organization;
@@ -2023,6 +2050,8 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
   const flattenedItems = flattenItems(questionnaireResponseItem ?? []);
 
   const guarantorData = extractAccountGuarantor(flattenedItems);
+
+  const emergencyContactData = extractEmergencyContact(flattenedItems);
   /*console.log(
     'insurance plan resources',
     JSON.stringify(insurancePlanResources, null, 2),
@@ -2046,9 +2075,10 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
   let accountPost: Account | undefined;
 
   console.log(
-    'getting account operations for patient, guarantorData, coverages, account',
+    'getting account operations for patient, guarantorData, emergencyContactData, coverages, account',
     JSON.stringify(patient, null, 2),
     JSON.stringify(guarantorData, null, 2),
+    JSON.stringify(emergencyContactData, null, 2),
     JSON.stringify(existingCoverages, null, 2),
     JSON.stringify(existingAccount, null, 2)
   );
@@ -2928,12 +2958,25 @@ export const getCoverageUpdateResourcesFromUnbundled = (
     (res): res is Organization => res.resourceType === 'Organization'
   );
 
+  const emergencyContactResource = resources.find(
+    (res): res is RelatedPerson =>
+      (res.resourceType === 'RelatedPerson' &&
+        res.relationship?.some(
+          (rel) =>
+            rel.coding?.some(
+              (coding) => coding.code === 'EP' && coding.system === 'http://terminology.hl7.org/CodeSystem/v2-0131'
+            )
+        )) ||
+      false
+  );
+
   return {
     patient,
     account: existingAccount,
     coverages: existingCoverages,
     insuranceOrgs,
     guarantorResource: existingGuarantorResource,
+    emergencyContactResource,
   };
 };
 
