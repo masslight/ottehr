@@ -601,7 +601,13 @@ const FormInputField: FC<GetFormInputFieldProps> = ({ itemProps, renderProps, fi
           <Button
             variant="outlined"
             type="button"
-            onClick={smartOnChange}
+            onClick={
+              item.type !== 'boolean'
+                ? smartOnChange
+                : () => {
+                    smartOnChange(!unwrappedValue);
+                  }
+            }
             sx={{
               color: colorForButton,
               borderColor: colorForButton,
