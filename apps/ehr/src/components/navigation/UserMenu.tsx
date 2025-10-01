@@ -15,8 +15,12 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, MouseEvent, useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { UnsolicitedResultsIcon } from 'src/features/external-labs/components/unsolicited-results/UnsolicitedResultsIcon';
+import {
+  useCheckPractitionerEnrollment,
+  useConnectPractitionerToERX,
+  useEnrollPractitionerToERX,
+} from 'src/shared/hooks/appointment/appointment.queries';
 import { getPractitionerMissingFields } from 'src/shared/utils';
-import { useCheckPractitionerEnrollment, useConnectPractitionerToERX, useEnrollPractitionerToERX } from 'src/telemed';
 import { getFullestAvailableName, PROJECT_NAME, RoleType } from 'utils';
 import { dataTestIds } from '../../constants/data-test-ids';
 import { ProviderNotifications } from '../../features';

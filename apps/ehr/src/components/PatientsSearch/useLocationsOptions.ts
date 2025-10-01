@@ -3,7 +3,7 @@ import { Location } from 'fhir/r4b';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { isLocationVirtual } from 'utils';
-import { Option } from '../../features/css-module/components/medication-administration/medicationTypes';
+import { Option } from '../../features/in-person/components/medication-administration/medicationTypes';
 import { useApiClients } from '../../hooks/useAppClients';
 
 export const useLocationsOptions = (): {

@@ -2,7 +2,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import { Box, IconButton, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { PrintVisitLabelButton } from 'src/features/css-module/components/PrintVisitLabelButton';
+import { PrintVisitLabelButton } from 'src/features/in-person/components/PrintVisitLabelButton';
 import { showEnvironmentBanner } from '../../App';
 import { BANNER_HEIGHT } from '../../helpers/misc.helper';
 import { useGetPatient } from '../../hooks/useGetPatient';

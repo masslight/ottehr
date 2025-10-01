@@ -2,10 +2,10 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { Grid, MenuItem } from '@mui/material';
 import { FC } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
+import { useEditPatientInformationMutation } from 'src/shared/hooks/tracking-board/tracking-board.queries';
 import { AllStates } from 'utils';
 import { RoundedButton } from '../../../../components/RoundedButton';
 import { getSelectors } from '../../../../shared/store/getSelectors';
-import { useEditPatientInformationMutation } from '../../../../telemed';
 import { ClaimState, useClaimStore, useEditCoverageInformationMutation } from '../../../state';
 import {
   genderOptions,

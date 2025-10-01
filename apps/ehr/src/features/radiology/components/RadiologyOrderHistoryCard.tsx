@@ -2,7 +2,7 @@ import { Table, TableCell, TableRow } from '@mui/material';
 import { DateTime } from 'luxon';
 import React, { useState } from 'react';
 import { RadiologyOrderHistoryRow } from 'utils';
-import { AccordionCard } from '../../../telemed/components/AccordionCard';
+import { AccordionCard } from '../../../components/AccordionCard';
 
 interface RadiologyOrderHistoryProps {
   isLoading?: boolean;
