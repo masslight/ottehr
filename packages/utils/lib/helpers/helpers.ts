@@ -29,7 +29,9 @@ import {
   CashPaymentDTO,
   FhirAppointmentType,
   PatchPaperworkParameters,
+  PHYSICIAN_TYPES,
   PractitionerQualificationCode,
+  ProviderTypeCode,
   ScheduleOwnerFhirResource,
 } from '../types';
 import { phoneRegex, zipRegex } from '../validation';
@@ -1303,8 +1305,24 @@ export const getPractitionerQualificationByLocation = (
   return qualification;
 };
 
-export function isPhysicianQualification(qualification?: PractitionerQualificationCode): boolean {
-  return qualification != null && ['MD', 'DO'].includes(qualification);
+function getProviderTypeExtension(practitionerResource?: Practitioner): Extension | undefined {
+  return practitionerResource?.extension?.find(
+    (e) => e.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/provider-type'
+  );
+}
+
+export function getProviderType(practitionerResource?: Practitioner): ProviderTypeCode | undefined {
+  return getProviderTypeExtension(practitionerResource)?.valueCodeableConcept?.coding?.[0]?.code as
+    | ProviderTypeCode
+    | undefined;
+}
+
+export function isPhysicianProviderType(providerType?: ProviderTypeCode): boolean {
+  return providerType != null && PHYSICIAN_TYPES.includes(providerType);
+}
+
+export function isPhysician(practitionerResource?: Practitioner): boolean {
+  return isPhysicianProviderType(getProviderType(practitionerResource));
 }
 
 export const getCandidPlanTypeCodeFromCoverage = (coverage: Coverage): NetworkType | undefined => {

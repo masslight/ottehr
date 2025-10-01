@@ -56,7 +56,7 @@ import { InHouseMedicationsContainer } from './InHouseMedicationsContainer';
 import { PatientVitalsContainer } from './PatientVitalsContainer';
 
 export const ProgressNoteDetails: FC = () => {
-  const { appointment, encounter, appointmentSetState, location } = useAppointmentData();
+  const { appointment, encounter, appointmentSetState } = useAppointmentData();
   const apiClient = useOystehrAPIClient();
   const { isInPerson } = useAppFlags();
   const { mutateAsync: signAppointment, isPending: isSignLoading } = useSignAppointmentMutation();
@@ -214,7 +214,7 @@ export const ProgressNoteDetails: FC = () => {
       {FEATURE_FLAGS.SUPERVISOR_APPROVAL_ENABLED &&
         isAwaitingSupervisorApproval &&
         user &&
-        isEligibleSupervisor(user.profileResource!, location!) && (
+        isEligibleSupervisor(user.profileResource!) && (
           <>
             <Box
               sx={{

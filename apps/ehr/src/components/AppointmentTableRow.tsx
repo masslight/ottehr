@@ -676,7 +676,7 @@ export default function AppointmentTableRow({
       appointment.status === 'awaiting supervisor approval' &&
       user?.profileResource &&
       location &&
-      isEligibleSupervisor(user.profileResource!, location!, appointment.attenderQualification)
+      isEligibleSupervisor(user.profileResource!, appointment.attenderProviderType)
     ) {
       return (
         <GoToButton

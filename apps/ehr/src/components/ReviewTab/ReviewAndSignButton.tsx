@@ -17,9 +17,9 @@ import {
 import { usePractitionerActions } from 'src/shared/hooks/usePractitioner';
 import { getPatientName } from 'src/shared/utils';
 import {
-  getPractitionerQualificationByLocation,
+  getProviderType,
   getVisitStatus,
-  isPhysicianQualification,
+  isPhysicianProviderType,
   PRACTITIONER_CODINGS,
   TelemedAppointmentStatusEnum,
 } from 'utils';
@@ -33,7 +33,7 @@ type ReviewAndSignButtonProps = {
 };
 
 export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) => {
-  const { patient, appointment, encounter, appointmentRefetch, appointmentSetState, location } = useAppointmentData();
+  const { patient, appointment, encounter, appointmentRefetch, appointmentSetState } = useAppointmentData();
   const { chartData } = useChartData();
 
   const { data: chartFields } = useChartFields({
@@ -173,13 +173,13 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   };
 
   const showSupervisorCheckbox = useMemo(() => {
-    if (!location || !practitioner) return false;
+    if (!practitioner) return false;
 
-    const qualification = getPractitionerQualificationByLocation(practitioner, location);
-    const isPhysician = isPhysicianQualification(qualification);
+    const providerType = getProviderType(practitioner);
+    const isPhysician = isPhysicianProviderType(providerType);
 
     return !isPhysician;
-  }, [practitioner, location]);
+  }, [practitioner]);
 
   return (
     <Box sx={{ display: 'flex', justifyContent: 'end' }}>
