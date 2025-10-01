@@ -21,6 +21,7 @@ import {
   INSURANCE_CANDID_PLAN_TYPE_CODES,
   OTTEHR_MODULE,
   PAYMENT_METHOD_EXTENSION_URL,
+  PROVIDER_TYPE_EXTENSION_URL,
   SLUG_SYSTEM,
 } from '../fhir';
 import {
@@ -31,6 +32,7 @@ import {
   PatchPaperworkParameters,
   PHYSICIAN_TYPES,
   PractitionerQualificationCode,
+  PROVIDER_TYPE_VALUES,
   ProviderTypeCode,
   ScheduleOwnerFhirResource,
 } from '../types';
@@ -1306,9 +1308,11 @@ export const getPractitionerQualificationByLocation = (
 };
 
 function getProviderTypeExtension(practitionerResource?: Practitioner): Extension | undefined {
-  return practitionerResource?.extension?.find(
-    (e) => e.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/provider-type'
-  );
+  return practitionerResource?.extension?.find((e) => e.url === PROVIDER_TYPE_EXTENSION_URL);
+}
+
+export function isProviderTypeCode(value: string): value is ProviderTypeCode {
+  return (PROVIDER_TYPE_VALUES as readonly string[]).includes(value);
 }
 
 export function getProviderType(practitionerResource?: Practitioner): ProviderTypeCode | undefined {

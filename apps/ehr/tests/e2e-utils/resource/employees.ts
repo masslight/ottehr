@@ -13,6 +13,7 @@ import {
   makeProviderTypeExtension,
   makeQualificationForPractitioner,
   PractitionerLicense,
+  PROVIDER_TYPE_EXTENSION_URL,
   RoleType,
 } from 'utils';
 
@@ -230,9 +231,7 @@ async function parseTestUser(user: UserResponse, oystehr: Oystehr): Promise<Test
   const npi = getPractitionerNPIIdentifier(practitioner)?.value;
   const qualification = allLicensesForPractitioner(practitioner);
 
-  const providerTypeExtension = practitioner.extension?.find(
-    (e) => e.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/provider-type'
-  );
+  const providerTypeExtension = practitioner.extension?.find((e) => e.url === PROVIDER_TYPE_EXTENSION_URL);
 
   const providerType = providerTypeExtension?.valueCodeableConcept?.coding?.[0]?.code;
   const providerTypeText = providerTypeExtension?.valueCodeableConcept?.text;
