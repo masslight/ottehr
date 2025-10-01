@@ -238,7 +238,6 @@ test.describe('Primary Insurance', () => {
     await locator.clickContinueButton();
     await paperwork.checkCorrectPageOpens('How would you like to pay for your visit?');
     await locator.removeSecondaryInsurance.click();
-    expect(1 + 1).toBe(2);
     await expect(locator.secondaryInsuranceHeading).not.toBeVisible();
     await locator.clickContinueButton();
     await paperwork.checkCorrectPageOpens(PAGE_TITLE_AFTER_PAYMENT_OPTION);
