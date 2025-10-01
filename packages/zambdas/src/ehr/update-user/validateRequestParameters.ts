@@ -51,13 +51,26 @@ export function validateRequestParameters(input: ZambdaInput): UpdateUserParams 
     }
   }
 
+  if (providerType) {
+    const allowedProviderTypes = ['MD', 'DO', 'PA', 'NP', 'other'];
+    if (!allowedProviderTypes.includes(providerType)) {
+      throw new Error(
+        `Invalid providerType. Must be one of "${allowedProviderTypes.join('", "')}". Received "${providerType}"`
+      );
+    }
+
+    if (providerType === 'other' && (!providerTypeText || !providerTypeText.trim())) {
+      throw new Error('providerTypeText is required when providerType is "other"');
+    }
+  }
+
   return {
     userId,
     firstName: firstName ? firstName.trim() : firstName,
     middleName: middleName ? middleName.trim() : middleName,
     lastName: lastName ? lastName.trim() : lastName,
-    providerType: providerType ? providerType.trim() : providerType,
-    providerTypeText,
+    providerType,
+    providerTypeText: providerTypeText ? providerTypeText.trim() : providerTypeText,
     selectedRoles,
     licenses,
     // locations,
