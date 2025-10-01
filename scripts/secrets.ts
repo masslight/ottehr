@@ -6,12 +6,32 @@ import * as path from 'path';
 function checkDirectory(dirPath: string): boolean {
   try {
     return fs.existsSync(dirPath) && fs.statSync(dirPath).isDirectory();
-  } catch (error) {
+  } catch {
     return false;
   }
 }
 
-function getFilePaths(environment: string) {
+interface PathConfig {
+  source: string;
+  target: string;
+}
+
+interface ZambdasConfig extends PathConfig {
+  sentry: PathConfig;
+}
+
+interface TerraformConfig extends PathConfig {
+  backend: PathConfig;
+}
+
+interface GetFilePathConfig {
+  zambdas: ZambdasConfig;
+  ehr: PathConfig;
+  patientPortal: PathConfig;
+  terraform: TerraformConfig;
+}
+
+function getFilePaths(environment: string): GetFilePathConfig {
   const repoRoot = process.cwd();
   const secretsPath = path.join(repoRoot, 'secrets');
   return {
@@ -19,30 +39,30 @@ function getFilePaths(environment: string) {
       source: path.join(secretsPath, 'zambdas', `${environment}.json`),
       target: path.join(repoRoot, 'packages', 'zambdas', '.env', `${environment}.json`),
       sentry: {
-        source : path.join(secretsPath, 'zambdas', '.env.sentry-build-plugin'),
-        target: path.join(repoRoot, 'packages', 'zambdas', '.env.sentry-build-plugin')
-      }
+        source: path.join(secretsPath, 'zambdas', '.env.sentry-build-plugin'),
+        target: path.join(repoRoot, 'packages', 'zambdas', '.env.sentry-build-plugin'),
+      },
     },
     ehr: {
       source: path.join(secretsPath, 'ehr', 'app', `.env.${environment}`),
-      target: path.join(repoRoot, 'apps', 'ehr', 'env', `.env.${environment}`)
+      target: path.join(repoRoot, 'apps', 'ehr', 'env', `.env.${environment}`),
     },
     patientPortal: {
       source: path.join(secretsPath, 'intake', 'app', `.env.${environment}`),
-      target: path.join(repoRoot, 'apps', 'intake', 'env', `.env.${environment}`)
+      target: path.join(repoRoot, 'apps', 'intake', 'env', `.env.${environment}`),
     },
     terraform: {
       source: path.join(secretsPath, 'terraform', `${environment}.tfvars`),
       target: path.join(repoRoot, 'deploy', `${environment}.tfvars`),
       backend: {
         source: path.join(secretsPath, 'terraform', 'backend.config'),
-        target: path.join(repoRoot, 'deploy', 'backend.config')
-      }
-    }
+        target: path.join(repoRoot, 'deploy', 'backend.config'),
+      },
+    },
   };
 }
 
-function populate(environment: string) {
+function populate(environment: string): void {
   const repoRoot = process.cwd();
   const secretsPath = path.join(repoRoot, 'secrets');
   const paths = getFilePaths(environment);
@@ -90,7 +110,7 @@ function populate(environment: string) {
   }
 }
 
-function validate(environment: string) {
+function validate(environment: string): void {
   const paths = getFilePaths(environment);
   const missingFiles: string[] = [];
 
@@ -100,7 +120,7 @@ function validate(environment: string) {
     { path: paths.ehr.target, name: 'EHR env' },
     { path: paths.patientPortal.target, name: 'Patient Portal env' },
     { path: paths.terraform.target, name: 'Terraform vars' },
-    { path: paths.terraform.backend.target, name: 'Terraform backend config' }
+    { path: paths.terraform.backend.target, name: 'Terraform backend config' },
   ].forEach(({ path: filePath, name }) => {
     if (!fs.existsSync(filePath)) {
       missingFiles.push(`${name} at ${filePath}`);
@@ -109,12 +129,12 @@ function validate(environment: string) {
 
   if (missingFiles.length > 0) {
     console.error('Error: The following configuration files are missing:');
-    missingFiles.forEach(file => console.error(`- ${file}`));
+    missingFiles.forEach((file) => console.error(`- ${file}`));
     process.exit(1);
   }
 }
 
-function main() {
+function main(): void {
   const command = process.argv[2];
   const environment = process.argv[3];
   if (!environment) {
