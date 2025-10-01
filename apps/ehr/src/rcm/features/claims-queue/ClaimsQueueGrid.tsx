@@ -2,7 +2,7 @@ import { DataGridPro } from '@mui/x-data-grid-pro';
 import { FC } from 'react';
 import { ClaimsQueueType } from 'utils';
 import { getSelectors } from '../../../shared/store/getSelectors';
-import { useOystehrAPIClient } from '../../hooks';
+import { useOystehrRcmApiClient } from '../../hooks';
 import { useClaimsQueueStore, useGetClaims } from '../../state';
 import { ClaimsQueueColumns, mapClaimTypeToColumnNames } from '../../utils';
 
@@ -13,7 +13,7 @@ type ClaimsQueueGridProps = {
 export const ClaimsQueueGrid: FC<ClaimsQueueGridProps> = (props) => {
   const { type } = props;
 
-  const apiClient = useOystehrAPIClient();
+  const apiClient = useOystehrRcmApiClient();
   const { pageSize, selectedRows } = getSelectors(useClaimsQueueStore, ['pageSize', 'selectedRows']);
   const { data, isFetching } = useGetClaims({
     apiClient,
