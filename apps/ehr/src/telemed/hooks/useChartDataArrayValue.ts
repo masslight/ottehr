@@ -60,10 +60,9 @@ export const useChartDataArrayValue = <
               setQueryCache({
                 [name]: [...(currentFieldData?.[name] || []), ...(data.chartData[name] as K)],
               });
-            } else {
-              await refetch();
             }
 
+            await refetch();
             resolve(true);
           },
           onError: (error) => {
@@ -94,9 +93,9 @@ export const useChartDataArrayValue = <
                 (value) => value.resourceId !== resourceId
               ),
             });
-          } else {
-            await refetch();
           }
+
+          await refetch();
           onRemoveCallback?.();
         },
         onError: () => {

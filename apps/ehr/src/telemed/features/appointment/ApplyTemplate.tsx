@@ -17,7 +17,7 @@ import { enqueueSnackbar } from 'notistack';
 import React, { useState } from 'react';
 import { ExamType } from 'utils';
 import { applyTemplate } from '../../../api/api';
-import { CHART_DATA_QUERY_KEY_BASE } from '../../../constants';
+import { CHART_DATA_QUERY_KEY, CHART_FIELDS_QUERY_KEY } from '../../../constants';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { useAppointmentData, useGetAppointmentAccessibility } from '../..';
 import { TemplateOption, useListTemplates } from '../../state/useListTemplates';
@@ -76,7 +76,11 @@ export const ApplyTemplate: React.FC = () => {
         });
 
         // TODO: use window.location.reload() if there are issues with queryClient.invalidateQueries
-        await queryClient.invalidateQueries({ queryKey: [CHART_DATA_QUERY_KEY_BASE, encounter.id] });
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: [CHART_DATA_QUERY_KEY, encounter.id] }),
+          queryClient.invalidateQueries({ queryKey: [CHART_FIELDS_QUERY_KEY, encounter.id] }),
+        ]);
+
         enqueueSnackbar('Template applied successfully!', { variant: 'success' });
       } catch (error) {
         console.log('error', JSON.stringify(error));

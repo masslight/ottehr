@@ -64,8 +64,7 @@ export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children
   const [_disabledNavigationState, _setDisabledNavigationState] = useState<Record<string, boolean>>({});
   const { isAppointmentLoading, visitState } = useAppointmentData();
   const { encounter } = visitState;
-
-  const { chartData, isLoading } = useChartData({});
+  const { chartData, isLoading } = useChartData();
 
   const { data: chartFields, isLoading: isFieldsLoading } = useChartFields({
     requestedFields: { episodeOfCare: {} },
