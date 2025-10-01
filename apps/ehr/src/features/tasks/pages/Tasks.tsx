@@ -26,7 +26,22 @@ export const Tasks: React.FC = () => {
           />
         </Grid>
         <Grid item xs={12}>
-          <TaskRow />
+          <TaskRow
+            title="[Task name] for [Patient Name]"
+            subtitle="Ordered by [Provider Name] on [Order date and time]"
+            category="Category"
+            createdDate="Today, 12:30 PM"
+            actionButton={{
+              text: 'Go to Lab Test',
+              onClick: () => {
+                console.log('Go to Lab Test clicked');
+              },
+            }}
+            onAssignMeClick={() => console.log('onAssignMeClick')}
+            onUnassignMeClick={() => console.log('onUnassignMeClick')}
+            onAssignSomeoneElseClick={() => console.log('onAssignSomeoneElseClick')}
+            alertText="Abnormal results"
+          />
         </Grid>
       </Grid>
     </PageContainer>
