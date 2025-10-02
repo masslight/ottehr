@@ -42,6 +42,7 @@ import {
   ObsContentType,
   OYSTEHR_EXTERNAL_LABS_ATTACHMENT_EXT_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
+  OYSTEHR_LABS_TRANSMISSION_ACCOUNT_NUMBER_IDENTIFIER_SYSTEM,
   OYSTEHR_OBR_NOTE_CODING_SYSTEM,
   OYSTEHR_OBS_CONTENT_TYPES,
   PERFORMING_PHYSICIAN_EXTENSION_URLS,
@@ -175,6 +176,7 @@ const getResultDataConfigForDrResources = (
     orderAssessments: [],
     resultStatus: diagnosticReport.status.toUpperCase(),
     isPscOrder: false,
+    accountNumber: getAccountNumberFromDr(diagnosticReport) || '',
   };
 
   const unsolicitedResultData: Omit<UnsolicitedExternalLabResultsData, keyof LabResultsData> = {
@@ -252,6 +254,7 @@ const getResultDataConfig = (
       })) || [],
     resultStatus: diagnosticReport.status.toUpperCase(),
     isPscOrder: isPSCOrder(serviceRequest),
+    accountNumber: getAccountNumberFromDr(diagnosticReport) || '',
   };
 
   if (type === LabType.inHouse) {
@@ -849,10 +852,24 @@ async function createDiagnosticReportExternalLabsResultsFormPdfBytes(
 ): Promise<Uint8Array> {
   // Order details
   console.log(
-    `Drawing accession. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+    `Drawing account number & accession. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
   );
+  if (data.accountNumber) {
+    console.log('Writing valid account number as client id');
+    pdfClient = drawFieldLine(pdfClient, textStyles, 'Client ID:', data.accountNumber);
+    pdfClient.newLine(STANDARD_NEW_LINE);
+  }
   pdfClient = drawFieldLine(pdfClient, textStyles, 'Accession ID:', data.accessionNumber);
   pdfClient.newLine(STANDARD_NEW_LINE);
+
+  // will only have for reflex
+  if ('orderNumber' in data) {
+    console.log(
+      `Drawing order num. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+    );
+    pdfClient = drawFieldLine(pdfClient, textStyles, 'Req #:', data.orderNumber);
+    pdfClient.newLine(STANDARD_NEW_LINE);
+  }
 
   // we may map physician info in the future
   // console.log(
@@ -863,15 +880,6 @@ async function createDiagnosticReportExternalLabsResultsFormPdfBytes(
 
   // TODO LABS: we should consider putting provider name and npi info on reflex and unsolicited results because labcorp will surely want to see it
   // related to OYST-2804
-
-  // will only have for reflex
-  if ('orderNumber' in data) {
-    console.log(
-      `Drawing order num. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
-    );
-    pdfClient = drawFieldLine(pdfClient, textStyles, 'Req #:', data.orderNumber);
-    pdfClient.newLine(STANDARD_NEW_LINE);
-  }
 
   console.log(
     `Drawing results date. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
@@ -940,9 +948,20 @@ async function createExternalLabsResultsFormPdfBytes(
 ): Promise<Uint8Array> {
   // Order details
   console.log(
-    `Drawing accession. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+    `Drawing account number & accession. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
   );
+  if (data.accountNumber) {
+    console.log('Writing valid account number as client id');
+    pdfClient = drawFieldLine(pdfClient, textStyles, 'Client ID:', data.accountNumber);
+    pdfClient.newLine(STANDARD_NEW_LINE);
+  }
   pdfClient = drawFieldLine(pdfClient, textStyles, 'Accession ID:', data.accessionNumber);
+  pdfClient.newLine(STANDARD_NEW_LINE);
+
+  console.log(
+    `Drawing order num. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
+  );
+  pdfClient = drawFieldLine(pdfClient, textStyles, 'Req #:', data.orderNumber);
   pdfClient.newLine(STANDARD_NEW_LINE);
 
   console.log(
@@ -951,12 +970,6 @@ async function createExternalLabsResultsFormPdfBytes(
   pdfClient = drawFieldLine(pdfClient, textStyles, 'Requesting Physician:', data.providerName);
   pdfClient.newLine(STANDARD_NEW_LINE);
   pdfClient = drawFieldLine(pdfClient, textStyles, 'NPI:', data.providerNPI ?? '');
-  pdfClient.newLine(STANDARD_NEW_LINE);
-
-  console.log(
-    `Drawing order num. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
-  );
-  pdfClient = drawFieldLine(pdfClient, textStyles, 'Req #:', data.orderNumber);
   pdfClient.newLine(STANDARD_NEW_LINE);
 
   console.log(
@@ -1736,4 +1749,12 @@ const writeExternalLabResultColumns = (
   pdfClient.newLine(STANDARD_NEW_LINE);
 
   return pdfClient;
+};
+
+const getAccountNumberFromDr = (diagnosticReport: DiagnosticReport): string | undefined => {
+  const accountNumber = diagnosticReport.identifier?.find(
+    (id) => id.system === OYSTEHR_LABS_TRANSMISSION_ACCOUNT_NUMBER_IDENTIFIER_SYSTEM
+  )?.value;
+  console.log(`Account number from DiagnosticReport/${diagnosticReport.id} is '${accountNumber}'`);
+  return accountNumber;
 };

@@ -205,7 +205,6 @@ export interface LabResultsData
     | 'patientAddress'
     | 'sampleCollectionDate'
     | 'billClass'
-    | 'accountNumber'
     | 'isManualOrder'
   > {
   testName: string;
@@ -240,7 +239,7 @@ export type UnsolicitedExternalLabResultsData = Omit<
   ExternalLabResultsData,
   'orderNumber' | 'orderSubmitDate' | 'collectionDate'
 >;
-export interface InHouseLabResultsData extends LabResultsData {
+export interface InHouseLabResultsData extends Omit<LabResultsData, 'accountNumber'> {
   inHouseLabResults: InHouseLabResultConfig[];
   timezone: string | undefined;
   serviceRequestID: string;

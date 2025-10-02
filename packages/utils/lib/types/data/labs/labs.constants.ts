@@ -232,3 +232,6 @@ export const PERFORMING_PHYSICIAN_EXTENSION_URLS = {
   parentExtUrl: 'https://extensions.fhir.oystehr.com/obx-performing-physician-info',
   name: 'name',
 };
+
+export const OYSTEHR_LABS_TRANSMISSION_ACCOUNT_NUMBER_IDENTIFIER_SYSTEM =
+  'https://identifiers.fhir.oystehr.com/lab-transmission-account-number';
