@@ -3042,7 +3042,7 @@ export const updatePatientAccountFromQuestionnaire = async (
   let retryCount = 0;
   while (retryCount < PATIENT_UPDATE_MAX_RETRIES) {
     try {
-      updatePatientData(patientToUpdate, flattenedPaperwork);
+      updatePatientData(patientToUpdate, questionnaireResponseItem ?? []);
       await oystehr.fhir.update(patientToUpdate, {
         optimisticLockingVersionId: patientToUpdate.meta?.versionId,
       });
