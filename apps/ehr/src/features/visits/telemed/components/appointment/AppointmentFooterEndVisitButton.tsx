@@ -6,13 +6,16 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback } from 'react';
 import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { useGetMeetingData } from 'src/shared/hooks/appointment/appointment.queries';
-import { TELEMED_APPOINTMENT_QUERY_KEY, useAppointmentData } from 'src/shared/hooks/appointment/appointment.store';
-import { useChangeTelemedAppointmentStatusMutation } from 'src/shared/hooks/tracking-board/tracking-board.queries';
-import { useOystehrAPIClient } from 'src/shared/hooks/useOystehrAPIClient';
+import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
+import { useGetMeetingData } from 'src/features/visits/shared/stores/appointment/appointment.queries';
+import {
+  TELEMED_APPOINTMENT_QUERY_KEY,
+  useAppointmentData,
+} from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { useChangeTelemedAppointmentStatusMutation } from 'src/features/visits/shared/stores/tracking-board/tracking-board.queries';
 import { TelemedAppointmentStatusEnum } from 'utils';
-import { useVideoCallStore } from '../../state';
-import { updateEncounterStatusHistory } from '../../utils';
+import { useVideoCallStore } from '../../state/video-call/video-call.store';
+import { updateEncounterStatusHistory } from '../../utils/appointments';
 
 const FooterButton = styled(LoadingButton)(({ theme }) => ({
   textTransform: 'none',
