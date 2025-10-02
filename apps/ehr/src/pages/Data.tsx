@@ -37,6 +37,7 @@ import { Appointment, Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import React from 'react';
 import { Bar, Line } from 'react-chartjs-2';
+import { ReportsMenu } from 'src/components/ReportsMenu';
 import {
   FhirAppointmentType,
   getVisitStatus,
@@ -482,6 +483,9 @@ export default function Data(): React.ReactElement {
                 <ToggleButton value="chart">chart</ToggleButton>
                 <ToggleButton value="table">table</ToggleButton>
               </ToggleButtonGroup>
+            </Grid>
+            <Grid item md={2} xs={8} sx={{ position: 'absolute', right: '30px' }}>
+              <ReportsMenu />
             </Grid>
           </Grid>
         </Grid>
