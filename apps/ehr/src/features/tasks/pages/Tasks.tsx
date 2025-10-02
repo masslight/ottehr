@@ -41,6 +41,10 @@ export const Tasks: React.FC = () => {
             onUnassignMeClick={() => console.log('onUnassignMeClick')}
             onAssignSomeoneElseClick={() => console.log('onAssignSomeoneElseClick')}
             alertText="Abnormal results"
+            statusSection={{
+              status: 'completed',
+              details: 'Brooks, Samanta at 12:45 PM',
+            }}
           />
         </Grid>
       </Grid>

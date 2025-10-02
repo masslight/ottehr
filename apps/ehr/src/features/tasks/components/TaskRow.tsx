@@ -19,6 +19,7 @@ import {
 import React from 'react';
 import { GenericToolTip } from 'src/components/GenericToolTip';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { StatusChip } from 'src/components/StatusChip';
 
 interface Props {
   category: string;
@@ -30,8 +31,8 @@ interface Props {
     onClick: () => void;
   };
   statusSection?: {
-    status: 'completed' | 'in-progress';
-    statusDetails: string;
+    status: 'completed' | 'in progress';
+    details: string;
   };
   onAssignMeClick?: () => void;
   onUnassignMeClick?: () => void;
@@ -100,6 +101,15 @@ export const TaskRow: React.FC<Props> = (props) => {
           <RoundedButton variant="outlined" onClick={props.onAssignMeClick}>
             Assign Me
           </RoundedButton>
+        ) : null}
+        {props.statusSection ? (
+          <Stack alignItems="flex-end">
+            <StatusChip
+              status={props.statusSection.status}
+              style={props.statusSection.status === 'completed' ? 'green' : 'orange'}
+            />
+            <Typography variant="body2">{props.statusSection.details}</Typography>
+          </Stack>
         ) : null}
         {props.onUnassignMeClick || props.onAssignSomeoneElseClick ? (
           <IconButton color="primary" onClick={(e) => setMoreActionsPopoverAnchor(e.currentTarget)}>
