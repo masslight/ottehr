@@ -14,7 +14,14 @@ import {
   StandardFonts,
 } from 'pdf-lib';
 import { getLogoFor, SupportedObsImgAttachmentTypes } from 'utils';
-import { PDF_CLIENT_STYLES, STANDARD_FONT_SIZE, STANDARD_FONT_SPACING, Y_POS_GAP } from './pdf-consts';
+import {
+  HEADER_FONT_SIZE,
+  PDF_CLIENT_STYLES,
+  STANDARD_FONT_SIZE,
+  STANDARD_FONT_SPACING,
+  SUB_HEADER_FONT_SIZE,
+  Y_POS_GAP,
+} from './pdf-consts';
 import { ImageStyle, LineStyle, PageStyles, PdfClient, PdfClientStyles, TextStyle } from './types';
 
 export type PdfInfo = { uploadURL: string; title: string };
@@ -702,18 +709,25 @@ export async function getTextStylesForLabsPDF(pdfClient: PdfClient): Promise<Lab
       newLineAfter: true,
     },
     header: {
-      fontSize: 17,
+      fontSize: HEADER_FONT_SIZE,
       spacing: STANDARD_FONT_SPACING,
       font: fontBold,
       color: LAB_PDF_STYLES.color.purple,
       newLineAfter: true,
     },
     headerRight: {
-      fontSize: 17,
+      fontSize: HEADER_FONT_SIZE,
       spacing: STANDARD_FONT_SPACING,
       font: fontBold,
       side: 'right',
       color: LAB_PDF_STYLES.color.purple,
+    },
+    subHeaderRight: {
+      fontSize: SUB_HEADER_FONT_SIZE,
+      spacing: STANDARD_FONT_SPACING,
+      font: fontBold,
+      side: 'right',
+      color: LAB_PDF_STYLES.color.grey,
     },
     fieldHeader: {
       fontSize: STANDARD_FONT_SIZE,

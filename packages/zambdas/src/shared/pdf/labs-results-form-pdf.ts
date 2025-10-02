@@ -813,6 +813,8 @@ async function createLabsResultsFormPdfBytes(dataConfig: ResultDataConfig): Prom
   console.log(
     `Drawing result header. xPos is ${pdfClient.getX()}. yPos is ${pdfClient.getY()}. current page idx is ${pdfClient.getCurrentPageIndex()} of ${pdfClient.getTotalPages()}`
   );
+  pdfClient.drawText('RESULT STATUS:', textStyles.subHeaderRight);
+  pdfClient.newLine(STANDARD_NEW_LINE);
   pdfClient.drawText(`${data.resultStatus} RESULT`, textStyles.headerRight);
   pdfClient.newLine(STANDARD_NEW_LINE);
   pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
